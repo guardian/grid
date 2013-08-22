@@ -1,0 +1,4 @@
+#!/bin/bash
+
+java -XX:+CMSClassUnloadingEnabled -Xmx2g -XX:MaxPermSize=350m -XX:+UseCompressedOops -Dsbt.log.noformat=true -jar sbt-launch.jar "$@" < /dev/null
+
