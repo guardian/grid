@@ -4,8 +4,15 @@ import play.Project._
 
 object Build extends Build {
 
+  val playVersion = "2.1.3" // also exists in plugins.sbt, TODO deduplicate this
+
   val commonSettings = Seq(
-    scalaVersion := "2.10.2"
+    scalaVersion := "2.10.2",
+    organization := "com.gu"
+  )
+
+  val playDeps = Seq(
+    "play" %% "play" % playVersion
   )
 
   lazy val root = sbt.Project("root", file("."))
@@ -17,6 +24,7 @@ object Build extends Build {
 
   val devImageLoader = sbt.Project("dev-image-loader", file("dev-image-loader"))
     .settings(commonSettings: _*)
+    .settings(libraryDependencies ++= playDeps)
 
 
 }
