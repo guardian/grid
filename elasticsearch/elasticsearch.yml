@@ -1,0 +1,8 @@
+cluster.name: media-service
+
+index.number_of_replicas: 2
+
+# plugin.mandatory: cloud-aws
+
+action.auto_create_index: false
+action.disable_delete_all_indices: true
