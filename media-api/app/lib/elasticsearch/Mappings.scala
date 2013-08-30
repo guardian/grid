@@ -10,11 +10,30 @@ object Mappings {
 
   val dateFormat = Json.obj("type" -> "date")
 
+  val metadataMapping = Json.obj(
+    "properties" -> Json.obj(
+      "description" -> stemmedString,
+      "byline" -> nonAnalyzedString,
+      "title" -> stemmedString,
+      "credit" -> nonAnalyzedString,
+      "copyrightNotice" -> nonAnalyzedString,
+      "source" -> nonAnalyzedString,
+      "specialInstructions" -> nonAnalyzedString,
+      "keywords" -> Json.obj("type" -> "string", "index" -> "not_analyzed", "index_name" -> "keyword"),
+      "city" -> nonAnalyzedString,
+      "country" -> nonAnalyzedString
+    )
+  )
+
   val imageMapping: String =
     Json.stringify(Json.obj(
       "image" -> Json.obj(
         "properties" -> Json.obj(
-          "imagePath" -> nonAnalyzedString
+          "imagePath" -> nonAnalyzedString,
+          "thumbPath" -> nonAnalyzedString,
+          "metadata" -> metadataMapping,
+          "uploadTime" -> dateFormat,
+          "buckets" -> Json.obj("type" -> "string", "index" -> "not_analyzed", "index_name" -> "bucket")
         )
       )
     ))

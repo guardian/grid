@@ -5,6 +5,7 @@
 # Home page
 GET     /                           controllers.Application.index
 GET     /poke                       controllers.Application.pokeElasticsearch
+POST    /delete-index               controllers.Application.deleteIndex
 
 # Map static resources from the /public folder to the /assets URL path
 GET     /assets/*file               controllers.Assets.at(path="/public", file)
