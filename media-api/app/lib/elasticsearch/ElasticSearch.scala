@@ -10,6 +10,7 @@ import org.elasticsearch.client.transport.TransportClient
 
 import lib.conversions._
 import lib.Config
+import org.elasticsearch.action.admin.indices.delete.DeleteIndexRequest
 
 
 object ElasticSearch {
@@ -27,6 +28,7 @@ object ElasticSearch {
       .addTransportAddress(new InetSocketTransportAddress(Config("es.host"), Config.int("es.port")))
 
   def ensureIndexExists() {
+    Logger.info("Checking index exists...")
     val indexExists = client.admin.indices.prepareExists(imagesIndex).execute.actionGet.isExists
     if (! indexExists) createIndex()
   }
@@ -37,6 +39,11 @@ object ElasticSearch {
       .prepareCreate(imagesIndex)
       .addMapping("image", Mappings.imageMapping)
       .execute.actionGet
+  }
+
+  def deleteIndex() {
+    Logger.info(s"Deleting index $imagesIndex")
+    client.admin.indices.delete(new DeleteIndexRequest("images")).actionGet
   }
 
   def prepareImagesSearch: SearchRequestBuilder = client.prepareSearch(imagesIndex)
