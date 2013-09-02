@@ -46,20 +46,23 @@ object DirectoryWatcher {
   implicit val ctx: ExecutionContext = ExecutionContext.fromExecutorService(threadPool)
 
   def watch(path: String): FStream[List[WatchEvent[Path]]] = {
+
     val watcher = FileSystems.getDefault.newWatchService
     val watchedDir = Paths.get(path)
     watchedDir.register(watcher, ENTRY_CREATE, ENTRY_DELETE, ENTRY_MODIFY)
     var key: WatchKey = null
-    FStream {
+
+    def f(): FStream[List[WatchEvent[Path]]] = FStream {
       for {
         head <- Future {
           key = watcher.take()
           key.pollEvents().asScala.toList map (_.asInstanceOf[WatchEvent[Path]])
         }
         _ = key.reset()
-        tail = watch(path)
+        tail = f
       } yield (head, tail)
     }
+    f()
   }
 
   def shutdown() {
