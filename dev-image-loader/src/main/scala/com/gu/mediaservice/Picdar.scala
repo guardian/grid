@@ -7,11 +7,13 @@ import org.joda.time.DateTime
 import play.api.libs.ws.WS
 
 
+case class PicdarImage(mmref: Picdar.MMRef, url: URL)
+
 class Picdar(implicit ex: ExecutionContext) {
 
   import Picdar._
 
-  def latestResults(n: Int = 10): Future[List[URL]] = {
+  def latestResults(n: Int = 10): Future[List[PicdarImage]] = {
     val start = DateTime.now
     val end = start.minusHours(6)
     for {
@@ -19,8 +21,8 @@ class Picdar(implicit ex: ExecutionContext) {
       urls <- runSearch(mak, start, end) { id =>
         for {
           refs <- assetSearch(mak, id, 1, n + 1)
-          urls <- Future.traverse(refs)(assetDetails(mak, _))
-        } yield urls
+          imgs <- Future.traverse(refs)(assetDetails(mak, _))
+        } yield imgs
       }
     } yield urls
   }
@@ -59,7 +61,7 @@ class Picdar(implicit ex: ExecutionContext) {
     } yield matches map (_ \ "MMRef" text)
   }
 
-  def assetDetails(mak: MAK, mmref: MMRef): Future[URL] = {
+  def assetDetails(mak: MAK, mmref: MMRef): Future[PicdarImage] = {
     val request = <MogulAction>
       <MAK>{mak}</MAK>
       <ActionType>RetrieveAssetData</ActionType>
@@ -72,7 +74,7 @@ class Picdar(implicit ex: ExecutionContext) {
       response <- postXML(request)
       item      = response \ "ResponseData" \ "Record"
       url       = (item \ "VURL").filter(u => (u \ "@type" text) == "original").text
-    } yield new URL(url)
+    } yield PicdarImage(mmref, new URL(url))
   }
 
   def runSearch[A](mak: MAK, startDate: DateTime, endDate: DateTime)(f: SearchId => Future[A]): Future[A] = {
