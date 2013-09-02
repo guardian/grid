@@ -23,12 +23,11 @@ object Build extends Build {
   val mediaApi = play.Project("media-api", path = file("media-api"))
     .settings(commonSettings: _*)
     .settings(libraryDependencies ++= elasticsearchDeps)
-    .settings(libraryDependencies ++= Seq(
-      "org.typelevel" %% "scalaz-contrib-210" % "0.1.5"
-    ))
 
   val devImageLoader = sbt.Project("dev-image-loader", file("dev-image-loader"))
     .settings(commonSettings: _*)
     .settings(libraryDependencies ++= playDeps)
-
+    .settings(
+      libraryDependencies += "commons-io" % "commons-io" % "2.4"
+    )
 }
