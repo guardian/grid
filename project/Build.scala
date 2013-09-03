@@ -27,7 +27,5 @@ object Build extends Build {
   val devImageLoader = sbt.Project("dev-image-loader", file("dev-image-loader"))
     .settings(commonSettings: _*)
     .settings(libraryDependencies ++= playDeps)
-    .settings(
-      libraryDependencies += "commons-io" % "commons-io" % "2.4"
-    )
+
 }

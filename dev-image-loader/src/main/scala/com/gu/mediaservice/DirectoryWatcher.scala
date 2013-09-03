@@ -14,11 +14,10 @@ object DirectoryWatcher {
 
   implicit val ctx: ExecutionContext = ExecutionContext.fromExecutorService(threadPool)
 
-  def watch(path: String, kinds: WatchEvent.Kind[Path]*): FStream[List[WatchEvent[Path]]] = {
+  def watch(path: Path, kinds: WatchEvent.Kind[Path]*): FStream[List[WatchEvent[Path]]] = {
 
     val watcher = FileSystems.getDefault.newWatchService
-    val watchedDir = Paths.get(path)
-    watchedDir.register(watcher, kinds: _*)
+    path.register(watcher, kinds: _*)
     var key: WatchKey = null
 
     def f(): FStream[List[WatchEvent[Path]]] = FStream {
