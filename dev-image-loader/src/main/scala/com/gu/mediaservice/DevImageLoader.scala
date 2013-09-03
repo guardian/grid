@@ -21,8 +21,8 @@ object DevImageLoader extends App {
 
   system.scheduler.schedule(0 seconds, 1 minute)(downloadSomeImages())
 
-  for (events <- DirectoryWatcher.watch(imageDir, ENTRY_CREATE)) {
-    events foreach (e => println(s"File created: ${e.context}"))
+  for (event <- DirectoryWatcher.watch(imageDir, ENTRY_CREATE).deChunk) {
+    println(s"File created: ${event.context}")
   }
 
   def downloadSomeImages() {
