@@ -18,19 +18,13 @@ object DirectoryWatcher {
 
     val watcher = FileSystems.getDefault.newWatchService
     path.register(watcher, kinds: _*)
-    var key: WatchKey = null
 
-    def f(): FStream[List[WatchEvent[Path]]] = FStream {
-      for {
-        head <- Future {
-          key = watcher.take()
-          key.pollEvents.asScala.toList map (_.asInstanceOf[WatchEvent[Path]])
-        }
-        _ = key.reset()
-        tail = f()
-      } yield (head, tail)
-    }
-    f()
+    FStream.continually(Future {
+      val key = watcher.take()
+      val events = key.pollEvents.asScala.toList map (_.asInstanceOf[WatchEvent[Path]])
+      key.reset()
+      events
+    })
   }
 
 }
