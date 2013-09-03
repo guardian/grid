@@ -3,15 +3,14 @@ package lib.elasticsearch
 import play.api.Logger
 
 import org.elasticsearch.action.search.SearchRequestBuilder
+import org.elasticsearch.action.admin.indices.delete.DeleteIndexRequest
 import org.elasticsearch.common.settings.{ImmutableSettings, Settings}
 import org.elasticsearch.common.transport.InetSocketTransportAddress
 import org.elasticsearch.client.Client
 import org.elasticsearch.client.transport.TransportClient
 
-import lib.conversions._
 import lib.Config
-import org.elasticsearch.action.admin.indices.delete.DeleteIndexRequest
-
+import lib.conversions._
 
 object ElasticSearch {
 
