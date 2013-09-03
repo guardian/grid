@@ -1,23 +1,21 @@
 package lib
 
-import play.api.{Logger, Configuration, Play}
+import play.api.Play
 
 
 object Config {
 
-  import play.api.Play.current
-
-  val stage: String = Option(System.getenv("STAGE")) getOrElse "DEV"
-
-  Logger.info(s"Stage: $stage")
-
-  val stageConfig: Configuration =
-    Play.configuration.getConfig(stage) getOrElse sys.error(s"No configuration found for stage: $stage")
+  val appConfig = Play.current.configuration
 
   def apply(key: String): String =
-    stageConfig.getString(key) getOrElse sys.error(s"Required configuration property missing: $key")
+    string(key)
+
+  def string(key: String): String =
+    appConfig.getString(key) getOrElse missing(key, "string")
 
   def int(key: String): Int =
-    stageConfig.getInt(key) getOrElse sys.error(s"Required configuration property missing: $key")
+    appConfig.getInt(key) getOrElse missing(key, "integer")
 
+  private def missing(key: String, type_ : String): Nothing =
+    sys.error(s"Required $type_ configuration property missing: $key")
 }
