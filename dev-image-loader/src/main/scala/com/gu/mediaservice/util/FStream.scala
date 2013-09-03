@@ -53,6 +53,12 @@ case class FStream[A](run: Future[(A, FStream[A])])(implicit ex: ExecutionContex
 
 object FStream {
 
+  def iterate[A](start: Future[A])(f: A => Future[A])(implicit ex: ExecutionContext): FStream[A] =
+    FStream(start map (a => (a, iterate(f(a))(f))))
+
+  def continually[A](fa: => Future[A])(implicit ex: ExecutionContext): FStream[A] =
+    iterate(fa)(_ => fa)
+
   implicit class ChunkedFStreamSyntax[A](self: FStream[List[A]])(implicit ex: ExecutionContext) {
     def deChunk: FStream[A] =
       FStream {
