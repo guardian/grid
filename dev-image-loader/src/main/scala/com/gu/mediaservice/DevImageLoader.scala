@@ -1,18 +1,17 @@
 package com.gu.mediaservice
 
-import java.io.{FileOutputStream, File}
 import java.nio.file.StandardWatchEventKinds._
 
 import scala.concurrent.ExecutionContext
 import scala.concurrent.duration._
 
 import akka.actor.ActorSystem
-import org.apache.commons.io.IOUtils
+import java.nio.file.{Paths, Files, Path}
 
 
 object DevImageLoader extends App {
 
-  val imageDir = "/tmp/picdar"
+  val imageDir = Paths.get("/tmp/picdar")
 
   val system = ActorSystem("DevImageLoader")
 
@@ -27,14 +26,25 @@ object DevImageLoader extends App {
   }
 
   def downloadSomeImages() {
-    for (images <- picdar.latestResults()) {
-      for (PicdarImage(mmref, url) <- images) {
-        println(s"Downloading image: $url")
-        val outputFile = new File(imageDir, s"$mmref.jpg")
-        IOUtils.copy(url.openStream, new FileOutputStream(outputFile))
-        println(s"Finished downloading $url")
+    withTempDir("dev-image-loader") { tempDir =>
+      for (images <- picdar.latestResults()) {
+        for (PicdarImage(mmref, url) <- images) {
+          val downloadPath = tempDir.resolve(s"$mmref.jpg")
+          println(s"Downloading image from $url to $downloadPath")
+          Files.copy(url.openStream, downloadPath)
+          println(s"Finished downloading $url")
+          val finalPath = imageDir.resolve(s"$mmref.jpg")
+          Files.move(downloadPath, finalPath)
+          println(s"Moved $downloadPath to $finalPath")
+        }
       }
     }
+  }
+
+  def withTempDir[A](parent: String)(f: Path => A): A = {
+    val tempDir = Files.createTempDirectory(parent)
+    println(s"Created temporary dir $tempDir")
+    f(tempDir)
   }
 
 }
