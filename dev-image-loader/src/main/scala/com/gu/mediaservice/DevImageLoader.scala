@@ -1,12 +1,12 @@
 package com.gu.mediaservice
 
 import java.nio.file.StandardWatchEventKinds._
+import java.nio.file.{Paths, Files, Path}
 
-import scala.concurrent.ExecutionContext
+import scala.concurrent.{Future, ExecutionContext}
 import scala.concurrent.duration._
 
 import akka.actor.ActorSystem
-import java.nio.file.{Paths, Files, Path}
 
 
 object DevImageLoader extends App {
@@ -27,7 +27,7 @@ object DevImageLoader extends App {
 
   def downloadSomeImages() {
     withTempDir("dev-image-loader") { tempDir =>
-      for (images <- picdar.latestResults()) {
+      for (images <- picdar.latestResults()) yield {
         for (PicdarImage(mmref, url) <- images) {
           val downloadPath = tempDir.resolve(s"$mmref.jpg")
           println(s"Downloading image from $url to $downloadPath")
@@ -41,10 +41,15 @@ object DevImageLoader extends App {
     }
   }
 
-  def withTempDir[A](parent: String)(f: Path => A): A = {
+  def withTempDir[A](parent: String)(f: Path => Future[A]): Future[A] = {
     val tempDir = Files.createTempDirectory(parent)
     println(s"Created temporary dir $tempDir")
-    f(tempDir)
+    val future = f(tempDir)
+    future.onComplete { _ =>
+      Files.delete(tempDir)
+      println(s"Deleted temporary dir $tempDir")
+    }
+    future
   }
 
 }
