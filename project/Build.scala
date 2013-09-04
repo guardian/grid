@@ -18,7 +18,7 @@ object Build extends Build {
 
   lazy val root = sbt.Project("root", file("."))
     .settings(commonSettings: _*)
-    .aggregate(mediaApi)
+    .aggregate(mediaApi, devImageLoader)
 
   val mediaApi = play.Project("media-api", path = file("media-api"))
     .settings(commonSettings: _*)
