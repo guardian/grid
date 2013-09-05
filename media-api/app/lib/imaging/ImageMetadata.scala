@@ -1,4 +1,4 @@
-package com.gu.mediaservice
+package lib.imaging
 
 import java.io.File
 

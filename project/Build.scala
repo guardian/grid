@@ -23,12 +23,12 @@ object Build extends Build {
   val mediaApi = play.Project("media-api", path = file("media-api"))
     .settings(commonSettings: _*)
     .settings(libraryDependencies ++= elasticsearchDeps)
+    .settings(libraryDependencies ++= Seq(
+      "com.drewnoakes" % "metadata-extractor" % "2.6.2"
+    ))
 
   val devImageLoader = sbt.Project("dev-image-loader", file("dev-image-loader"))
     .settings(commonSettings: _*)
     .settings(libraryDependencies ++= playDeps)
-    .settings(libraryDependencies ++= Seq(
-      "com.drewnoakes" % "metadata-extractor" % "2.6.2"
-    ))
 
 }
