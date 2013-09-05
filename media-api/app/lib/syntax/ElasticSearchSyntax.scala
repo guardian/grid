@@ -13,7 +13,7 @@ trait ElasticSearchSyntax {
     def asScala: Future[A] = FutureConversions(self)
   }
 
-  implicit class GetResponseSyntax(self: GetResponse) {
+  final implicit class GetResponseSyntax(self: GetResponse) {
     def sourceAsJson: JsValue = Json.parse(self.getSourceAsBytes)
   }
 

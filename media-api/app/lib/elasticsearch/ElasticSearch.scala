@@ -5,7 +5,6 @@ import scala.concurrent.{ExecutionContext, Future}
 import play.api.Logger
 import play.api.libs.json.JsValue
 
-
 import org.elasticsearch.action.search.SearchRequestBuilder
 import org.elasticsearch.action.admin.indices.delete.DeleteIndexRequest
 import org.elasticsearch.common.settings.{ImmutableSettings, Settings}
@@ -15,6 +14,8 @@ import org.elasticsearch.client.transport.TransportClient
 
 import lib.Config
 import lib.syntax._
+import model.Image
+import org.elasticsearch.action.index.IndexResponse
 
 
 object ElasticSearch {
@@ -57,4 +58,10 @@ object ElasticSearch {
     }
 
   def prepareImagesSearch: SearchRequestBuilder = client.prepareSearch(imagesIndex)
+
+  def indexImage(image: Image): Future[IndexResponse] =
+    client.prepareIndex(imagesIndex, imageType, image.id)
+      .setSource(image.asJson)
+      .execute.asScala
+
 }

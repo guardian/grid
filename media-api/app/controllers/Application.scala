@@ -4,11 +4,20 @@ import play.api.mvc._
 import play.api.libs.concurrent.Execution.Implicits._
 import play.api.Logger
 
-import lib.syntax._
+import lib.imaging.ImageMetadata
 import lib.elasticsearch.ElasticSearch
+import lib.storage.StorageBackend
+import lib.syntax._
+import scala.concurrent.Future
 
 
-object Application extends Controller {
+object Application extends MediaApiController {
+  val storage = NullStorage
+}
+
+abstract class MediaApiController extends Controller {
+
+  def storage: StorageBackend
 
   ElasticSearch.ensureIndexExists()
 
@@ -30,7 +39,7 @@ object Application extends Controller {
     Ok("Deleted and recreated index.\r\n")
   }
 
-  def getImageById(id: String) = Action {
+  def getImage(id: String) = Action {
     Async {
       ElasticSearch.getImageById(id) map {
         case Some(source) => Ok(source)
@@ -39,4 +48,26 @@ object Application extends Controller {
     }
   }
 
+  def putImage(id: String) = Action(parse.temporaryFile) { request =>
+    val tempFile = request.body
+
+    val response = for {
+      meta <- Future { ImageMetadata.iptc(tempFile.file) }
+      uri  <- storage.store(tempFile.file)
+      image = model.Image(id, uri, meta)
+      _    <- ElasticSearch.indexImage(image)
+    } yield NoContent
+
+    response.onComplete(_ => tempFile.clean())
+    Async(response)
+  }
+
+}
+
+
+import java.io.File
+import scala.concurrent.Future
+
+object NullStorage extends StorageBackend {
+  def store(file: File) = Future.successful(new File("/dev/null").toURI)
 }
