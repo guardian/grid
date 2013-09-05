@@ -1,6 +1,10 @@
 package lib.elasticsearch
 
+import scala.concurrent.{ExecutionContext, Future}
+
 import play.api.Logger
+import play.api.libs.json.JsValue
+
 
 import org.elasticsearch.action.search.SearchRequestBuilder
 import org.elasticsearch.action.admin.indices.delete.DeleteIndexRequest
@@ -10,11 +14,13 @@ import org.elasticsearch.client.Client
 import org.elasticsearch.client.transport.TransportClient
 
 import lib.Config
-import lib.conversions._
+import lib.syntax._
+
 
 object ElasticSearch {
 
   private val imagesIndex = "images"
+  private val imageType = "image"
 
   val settings: Settings =
     ImmutableSettings.settingsBuilder
@@ -36,7 +42,7 @@ object ElasticSearch {
     Logger.info(s"Creating index on $imagesIndex")
     client.admin.indices
       .prepareCreate(imagesIndex)
-      .addMapping("image", Mappings.imageMapping)
+      .addMapping(imageType, Mappings.imageMapping)
       .execute.actionGet
   }
 
@@ -44,6 +50,11 @@ object ElasticSearch {
     Logger.info(s"Deleting index $imagesIndex")
     client.admin.indices.delete(new DeleteIndexRequest("images")).actionGet
   }
+
+  def getImageById(id: String)(implicit ex: ExecutionContext): Future[Option[JsValue]] =
+    client.prepareGet(imagesIndex, imageType, id).execute.asScala map { result =>
+      if (result.isExists) Some(result.sourceAsJson) else None
+    }
 
   def prepareImagesSearch: SearchRequestBuilder = client.prepareSearch(imagesIndex)
 }
