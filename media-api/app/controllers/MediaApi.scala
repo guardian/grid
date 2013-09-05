@@ -11,7 +11,7 @@ import lib.elasticsearch.ElasticSearch
 import lib.storage.{NullStorage, StorageBackend}
 
 
-object Application extends MediaApiController {
+object MediaApi extends MediaApiController {
   val storage = NullStorage
 }
 
@@ -19,16 +19,8 @@ abstract class MediaApiController extends Controller {
 
   def storage: StorageBackend
 
-  ElasticSearch.ensureIndexExists()
-
   def index = Action {
     Ok("This is the Media API.\r\n")
-  }
-
-  def deleteIndex = Action {
-    ElasticSearch.deleteIndex()
-    ElasticSearch.ensureIndexExists()
-    Ok("Deleted and recreated index.\r\n")
   }
 
   def getImage(id: String) = Action {

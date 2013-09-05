@@ -3,14 +3,14 @@
 # ~~~~
 
 # Home page
-GET     /                           controllers.Application.index
+GET     /                           controllers.MediaApi.index
 
 # Images
-GET     /image/:id                  controllers.Application.getImage(id: String)
-PUT     /image/:id                  controllers.Application.putImage(id: String)
+GET     /image/:id                  controllers.MediaApi.getImage(id: String)
+PUT     /image/:id                  controllers.MediaApi.putImage(id: String)
 
 # Index management
-POST    /delete-index               controllers.Application.deleteIndex
+POST    /delete-index               controllers.IndexManagement.deleteIndex
 
 # Map static resources from the /public folder to the /assets URL path
 GET     /assets/*file               controllers.Assets.at(path="/public", file)
