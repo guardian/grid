@@ -4,12 +4,12 @@
 
 # Home page
 GET     /                           controllers.Application.index
-GET     /poke                       controllers.Application.pokeElasticsearch
 
 # Images
 GET     /image/:id                  controllers.Application.getImage(id: String)
 PUT     /image/:id                  controllers.Application.putImage(id: String)
 
+# Index management
 POST    /delete-index               controllers.Application.deleteIndex
 
 # Map static resources from the /public folder to the /assets URL path

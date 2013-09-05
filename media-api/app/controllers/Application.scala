@@ -1,14 +1,14 @@
 package controllers
 
+import scala.concurrent.Future
+
 import play.api.mvc._
 import play.api.libs.concurrent.Execution.Implicits._
 import play.api.Logger
 
 import lib.imaging.ImageMetadata
 import lib.elasticsearch.ElasticSearch
-import lib.storage.StorageBackend
-import lib.syntax._
-import scala.concurrent.Future
+import lib.storage.{NullStorage, StorageBackend}
 
 
 object Application extends MediaApiController {
@@ -23,14 +23,6 @@ abstract class MediaApiController extends Controller {
 
   def index = Action {
     Ok("This is the Media API.\r\n")
-  }
-
-  def pokeElasticsearch = Action {
-    Async {
-      for {
-        searchResult <- ElasticSearch.prepareImagesSearch.execute.asScala
-      } yield Ok(searchResult.getHits.getTotalHits.toString)
-    }
   }
 
   def deleteIndex = Action {
@@ -62,12 +54,4 @@ abstract class MediaApiController extends Controller {
     Async(response)
   }
 
-}
-
-
-import java.io.File
-import scala.concurrent.Future
-
-object NullStorage extends StorageBackend {
-  def store(file: File) = Future.successful(new File("/dev/null").toURI)
 }
