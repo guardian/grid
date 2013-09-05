@@ -7,6 +7,10 @@ import scala.concurrent.{ExecutionContext, Future}
   */
 case class FStream[A](run: Future[(A, FStream[A])])(implicit ex: ExecutionContext) {
 
+  def head: Future[A] = run map (_._1)
+
+  def tail: FStream[A] = FStream(run flatMap (_._2.run))
+
   def map[B](f: A => B): FStream[B] =
     FStream(for ((a, as) <- run) yield (f(a), as.map(f)))
 
