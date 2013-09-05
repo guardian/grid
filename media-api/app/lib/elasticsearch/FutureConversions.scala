@@ -1,4 +1,4 @@
-package lib.conversions
+package lib.elasticsearch
 
 import scala.concurrent.{Future, Promise}
 import org.elasticsearch.action.{ActionListener, ListenableActionFuture}
@@ -13,14 +13,6 @@ object FutureConversions {
       def onResponse(response: A) { promise.success(response) }
     })
     promise.future
-  }
-
-}
-
-trait FutureConversions {
-
-  final implicit class ListenableActionFutureSyntax[A](self: ListenableActionFuture[A]) {
-    def asScala: Future[A] = FutureConversions(self)
   }
 
 }
