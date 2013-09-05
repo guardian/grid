@@ -27,5 +27,8 @@ object Build extends Build {
   val devImageLoader = sbt.Project("dev-image-loader", file("dev-image-loader"))
     .settings(commonSettings: _*)
     .settings(libraryDependencies ++= playDeps)
+    .settings(libraryDependencies ++= Seq(
+      "com.drewnoakes" % "metadata-extractor" % "2.6.2"
+    ))
 
 }
