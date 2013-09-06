@@ -14,17 +14,28 @@ object DirectoryWatcher {
 
   implicit val ctx: ExecutionContext = ExecutionContext.fromExecutorService(threadPool)
 
-  def watch(path: Path, kinds: WatchEvent.Kind[Path]*): FStream[List[WatchEvent[Path]]] = {
+  def watchF(path: Path, kinds: WatchEvent.Kind[Path]*): FStream[List[WatchEvent[Path]]] = {
 
     val watcher = FileSystems.getDefault.newWatchService
-    path.register(watcher, kinds: _*)
+    val key = path.register(watcher, kinds: _*)
 
     FStream.continually(Future {
-      val key = watcher.take()
+      assert(key.isValid)
+      watcher.take()
       val events = key.pollEvents.asScala.toList map (_.asInstanceOf[WatchEvent[Path]])
       key.reset()
       events
     })
+  }
+
+  def watch(path: Path, kinds: WatchEvent.Kind[Path]*)(f: WatchEvent[Path] => Unit) {
+    val watcher = FileSystems.getDefault.newWatchService
+    val key = path.register(watcher, kinds: _*)
+    while (key.isValid) {
+      val events = key.pollEvents.asScala.toList map (_.asInstanceOf[WatchEvent[Path]])
+      for (event <- events) f(event)
+      key.reset()
+    }
   }
 
 }
