@@ -1,0 +1,21 @@
+{
+  "packages": {
+    "media-service-elasticsearch": {
+      "type": "elasticsearch",
+      "data": {
+        "bucket": "content-platform-dist"
+      }
+    }
+  },
+  "recipes": {
+    "default": {
+      "depends": ["artifactUploadOnly", "deployOnly"]
+    },
+    "deployOnly": {
+      "actionsBeforeApp": ["media-service-elasticsearch.deploy"]
+    },
+    "artifactUploadOnly": {
+      "actionsBeforeApp": ["media-service-elasticsearch.uploadArtifacts"]
+    }
+  }
+}
