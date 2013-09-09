@@ -3,7 +3,7 @@
     "media-service-elasticsearch": {
       "type": "elasticsearch",
       "data": {
-        "bucket": "content-platform-dist"
+        "bucket": "media-service-dist"
       }
     }
   },
