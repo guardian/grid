@@ -9,7 +9,7 @@ mkdir $TARGET
 cd $TARGET
 
 mkdir downloads
-mkdir -p packages/media-api-elasticsearch
+mkdir -p packages/media-service-elasticsearch
 
 if wget -nv -O downloads/elasticsearch.tar.gz https://download.elasticsearch.org/elasticsearch/elasticsearch/elasticsearch-$ELASTICSEARCH_VERSION.tar.gz
 then
