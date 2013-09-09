@@ -11,7 +11,7 @@ cd $TARGET
 mkdir downloads
 mkdir -p packages/media-api-elasticsearch
 
-if wget -O downloads/elasticsearch.tar.gz https://download.elasticsearch.org/elasticsearch/elasticsearch/elasticsearch-$ELASTICSEARCH_VERSION.tar.gz
+if wget -nv -O downloads/elasticsearch.tar.gz https://download.elasticsearch.org/elasticsearch/elasticsearch/elasticsearch-$ELASTICSEARCH_VERSION.tar.gz
 then
     tar xfv downloads/elasticsearch.tar.gz -C downloads
     mv downloads/elasticsearch-* downloads/elasticsearch
