@@ -1,0 +1,132 @@
+{
+    "AWSTemplateFormatVersion": "2010-09-09",
+    "Description": "Media Service Elasticsearch",
+    "Parameters": {
+        "KeyName": {
+            "Description": "The EC2 Key Pair to allow SSH access to the instance",
+            "Type": "String",
+            "Default": "digital-cms-team"
+        },
+        "Stage": {
+            "Description": "Environment name",
+            "Type": "String",
+            "AllowedValues": ["PROD"],
+            "Default": "PROD"
+        }
+    },
+    "Resources": {
+        "User": {
+            "Type": "AWS::IAM::User",
+            "Properties": {
+                "Path": "/"
+            }
+        },
+        "HostKeys": {
+            "Type": "AWS::IAM::AccessKey",
+            "Properties": {
+                "UserName": { "Ref": "User" }
+            }
+        },
+        "AutoscalingGroup": {
+            "Type": "AWS::AutoScaling::AutoScalingGroup",
+            "Properties": {
+                "AvailabilityZones": ["eu-west-1a"],
+                "LaunchConfigurationName": { "Ref": "LaunchConfig" },
+                "MinSize": "1",
+                "MaxSize": "2",
+                "DesiredCapacity": "1",
+                "HealthCheckType": "EC2",
+                "HealthCheckGracePeriod": 180,
+                "LoadBalancerNames": [ ],
+                "Tags": [
+                    {
+                        "Key": "Stage",
+                        "Value": { "Ref": "Stage" },
+                        "PropagateAtLaunch": "true"
+                    },
+                    {
+                        "Key": "Role",
+                        "Value": "media-service-elasticsearch",
+                        "PropagateAtLaunch": "true"
+                    }
+                ]
+            }
+        },
+        "LaunchConfig": {
+            "Type": "AWS::AutoScaling::LaunchConfiguration",
+            "Properties": {
+                "KeyName": { "Ref": "KeyName" },
+                "ImageId": "ami-1e34016a",
+                "SecurityGroups": [ { "Ref": "SecurityGroup" } ],
+                "InstanceType": "m1.large",
+                "UserData":{
+                    "Fn::Base64":{
+                        "Fn::Join":["", [
+                            "#!/bin/bash -ev\n",
+                            "apt-get -y update\n",
+                            "apt-get -y install language-pack-en openjdk-7-jre-headless\n",
+
+                            "mkdir -p /mnt/media-service/logs\n",
+                            "ln -s /mnt/media-service /media-service\n",
+
+                            "adduser --system --home /media-service --disabled-password media-service\n",
+
+                            "cat > /etc/stage <<EOF\n",
+                            { "Ref":"Stage" }, "\n",
+                            "EOF\n",
+
+                            "wget https://s3-eu-west-1.amazonaws.com/media-service-dist/", { "Ref" : "Stage" },
+                            "/media-service-elasticsearch/elasticsearch-upstart.conf",
+                            " --directory-prefix=/etc/init\n",
+
+                            "wget https://s3-eu-west-1.amazonaws.com/media-service-dist/", { "Ref" : "Stage" },
+                            "/media-service-elasticsearch/elasticsearch.tar.gz",
+                            " --directory-prefix=/media-service\n",
+
+                            "cd /media-service; tar xfv elasticsearch.tar.gz\n",
+
+                            "sed -i \\\n",
+                            "    -e 's,@@REGION,", { "Ref": "AWS::Region" }, ",g' \\\n",
+                            "    -e 's,@@STAGE,", { "Ref": "Stage" }, ",g' \\\n",
+                            "    -e 's,@@ROLE,media-service-elasticsearch,g' \\\n",
+                            "    -e 's,@@ACCESS_KEY,", { "Ref": "HostKeys" }, ",g' \\\n",
+                            "    -e 's,@@SECRET_KEY,", { "Fn::GetAtt": [ "HostKeys", "SecretAccessKey" ] }, ",g' \\\n",
+                            "    elasticsearch/config/elasticsearch.yml\n",
+
+                            "chown -R media-service /media-service/*\n",
+                            "chown media-service /media-service\n",
+
+                            "start media-service-elasticsearch\n"
+                        ]]
+                    }
+                }
+            }
+        },
+        "SecurityGroup": {
+            "Type": "AWS::EC2::SecurityGroup",
+            "Properties": {
+                "GroupDescription": "SSH and Elasticsearch",
+                "SecurityGroupIngress": [
+                    {
+                        "IpProtocol": "tcp",
+                        "FromPort": "9200",
+                        "ToPort": "9200",
+                        "CidrIp": "77.91.248.0/21"
+                    },
+                    {
+                        "IpProtocol": "tcp",
+                        "FromPort": "9300",
+                        "ToPort": "9300",
+                        "CidrIp": "77.91.248.0/21"
+                    },
+                    {
+                        "IpProtocol": "tcp",
+                        "FromPort": "22",
+                        "ToPort": "22",
+                        "CidrIp": "0.0.0.0/0"
+                    }
+                ]
+            }
+        }
+    }
+}
