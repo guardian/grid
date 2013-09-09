@@ -5,7 +5,7 @@ ELASTICSEARCH_DIR=$(dirname $0)
 
 if [ -d "$ELASTICSEARCH_DIR/elasticsearch" ]; then
   echo "It looks like you've already downloaded and installed elastic search"
-  echo "Start it with $ELASTICSEARCH_DIR/start_elasticsearch.sh"
+  echo "Start it with $ELASTICSEARCH_DIR/dev-start.sh"
   exit 0
 fi
 
@@ -24,7 +24,7 @@ then
     ./elasticsearch/bin/plugin -install lukas-vlcek/bigdesk
     ./elasticsearch/bin/plugin -install karmi/elasticsearch-paramedic
     echo "Done"
-    echo "Start it with $ELASTICSEARCH_DIR/start_elasticsearch.sh"
+    echo "Start it with $ELASTICSEARCH_DIR/dev-start.sh"
 else
     "Failed to download Elastic Search"
     exit 1
