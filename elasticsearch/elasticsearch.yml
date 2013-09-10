@@ -76,11 +76,11 @@ cluster.name: media-service
 
 # Set the number of shards (splits) of an index (5 by default):
 #
-# index.number_of_shards: 5
+index.number_of_shards: 5
 
 # Set the number of replicas (additional copies) of an index (1 by default):
 #
-# index.number_of_replicas: 1
+index.number_of_replicas: 2
 
 # Note, that for development on a local machine, with small indices, it usually
 # makes sense to "disable" the distributed features:
@@ -210,15 +210,11 @@ cloud.aws.region: "@@REGION"
 cloud.aws.access_key: "@@ACCESS_KEY"
 cloud.aws.secret_key: "@@SECRET_KEY"
 
-gateway.recover_after_nodes: 2
-gateway.recover_after_time: 2m
-gateway.expected_nodes: 3
-
 discovery.zen.ping.multicast.enabled: false
-
 discovery.zen.minimum_master_nodes: 2
 
 discovery.type: ec2
+
 discovery.ec2.tag.Role: "@@ROLE"
 discovery.ec2.tag.Stage: "@@STAGE"
 
