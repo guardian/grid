@@ -15,10 +15,27 @@
         }
     },
     "Resources": {
+        "Group": {
+            "Type": "AWS::IAM::Group",
+            "Properties": {
+                "Policies": [{
+                    "PolicyName": "elasticsearch-group-policy",
+                    "PolicyDocument": {
+                        "Version": "2012-10-17",
+                        "Statement": [{
+                            "Effect": "Allow",
+                            "Action": "ec2:DescribeInstances",
+                            "Resource": "*"
+                        }]
+                    }
+                }]
+            }
+        },
         "User": {
             "Type": "AWS::IAM::User",
             "Properties": {
-                "Path": "/"
+                "Path": "/",
+                "Groups": [ { "Ref": "Group" } ]
             }
         },
         "HostKeys": {
