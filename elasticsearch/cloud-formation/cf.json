@@ -56,7 +56,7 @@
             "Type": "AWS::AutoScaling::LaunchConfiguration",
             "Properties": {
                 "KeyName": { "Ref": "KeyName" },
-                "ImageId": "ami-1e34016a",
+                "ImageId": "ami-eecd2899",
                 "SecurityGroups": [ { "Ref": "SecurityGroup" } ],
                 "InstanceType": "m1.large",
                 "UserData":{
@@ -64,14 +64,15 @@
                         "Fn::Join":["", [
                             "#!/bin/bash -ev\n",
 
+                            "adduser --disabled-password --system --group media-service\n",
+                            "cp -r ~/.ssh /home/media-service/\n",
+
                             "mkdir /data\n",
                             "mount /dev/xvdb /data\n",
 
                             "apt-get -y update\n",
                             "apt-get -y install language-pack-en openjdk-7-jre-headless\n",
 
-                            "adduser --disabled-password media-service\n",
-                            "cp -r ~/.ssh /home/media-service/\n",
                             "cd /home/media-service\n",
 
                             "wget https://s3-eu-west-1.amazonaws.com/media-service-dist/", { "Ref" : "Stage" },
