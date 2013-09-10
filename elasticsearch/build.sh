@@ -27,7 +27,7 @@ else
     exit 1
 fi
 
-tar czfv packages/media-service-elasticsearch/elasticsearch.tar.gz -C downloads elasticsearch elasticsearch.conf logstash.jar logstash-shipper.conf logstash.conf
+tar czfv packages/media-service-elasticsearch/elasticsearch.tar.gz -C downloads elasticsearch elasticsearch.conf
 cp ../deploy.json .
 zip -rv artifacts.zip packages/ deploy.json
 
