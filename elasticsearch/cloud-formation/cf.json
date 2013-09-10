@@ -32,9 +32,9 @@
             "Properties": {
                 "AvailabilityZones": ["eu-west-1a"],
                 "LaunchConfigurationName": { "Ref": "LaunchConfig" },
-                "MinSize": "1",
-                "MaxSize": "2",
-                "DesiredCapacity": "1",
+                "MinSize": "2",
+                "MaxSize": "4",
+                "DesiredCapacity": "2",
                 "HealthCheckType": "EC2",
                 "HealthCheckGracePeriod": 180,
                 "LoadBalancerNames": [ ],
