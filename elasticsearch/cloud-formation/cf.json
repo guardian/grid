@@ -91,9 +91,9 @@
                             "chown -R media-service /home/media-service /data\n",
                             "chgrp -R media-service /home/media-service /data\n",
 
-                            "mv elasticsearch.conf /etc/init\n",
+                            "mv elasticsearch/elasticsearch.conf /etc/init/\n",
 
-                            "start media-service\n"
+                            "start elasticsearch\n"
                         ]]
                     }
                 }
