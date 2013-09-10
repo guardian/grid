@@ -63,27 +63,21 @@
                     "Fn::Base64":{
                         "Fn::Join":["", [
                             "#!/bin/bash -ev\n",
+
+                            "mkdir /data\n",
+                            "mount /dev/xvdb /data\n",
+
                             "apt-get -y update\n",
                             "apt-get -y install language-pack-en openjdk-7-jre-headless\n",
 
-                            "mkdir -p /mnt/media-service/logs\n",
-                            "ln -s /mnt/media-service /media-service\n",
-
-                            "adduser --system --home /media-service --disabled-password media-service\n",
-
-                            "cat > /etc/stage <<EOF\n",
-                            { "Ref":"Stage" }, "\n",
-                            "EOF\n",
+                            "adduser --disabled-password media-service\n",
+                            "cp -r ~/.ssh /home/media-service/\n",
+                            "cd /home/media-service\n",
 
                             "wget https://s3-eu-west-1.amazonaws.com/media-service-dist/", { "Ref" : "Stage" },
-                            "/media-service-elasticsearch/elasticsearch-upstart.conf",
-                            " --directory-prefix=/etc/init\n",
+                            "/media-service-elasticsearch/elasticsearch.tar.gz\n",
 
-                            "wget https://s3-eu-west-1.amazonaws.com/media-service-dist/", { "Ref" : "Stage" },
-                            "/media-service-elasticsearch/elasticsearch.tar.gz",
-                            " --directory-prefix=/media-service\n",
-
-                            "cd /media-service; tar xfv elasticsearch.tar.gz\n",
+                            "tar xf elasticsearch.tar.gz\n",
 
                             "sed -i \\\n",
                             "    -e 's,@@REGION,", { "Ref": "AWS::Region" }, ",g' \\\n",
@@ -93,10 +87,12 @@
                             "    -e 's,@@SECRET_KEY,", { "Fn::GetAtt": [ "HostKeys", "SecretAccessKey" ] }, ",g' \\\n",
                             "    elasticsearch/config/elasticsearch.yml\n",
 
-                            "chown -R media-service /media-service/*\n",
-                            "chown media-service /media-service\n",
+                            "chown -R media-service /home/media-service /data\n",
+                            "chgrp -R media-service /home/media-service /data\n",
 
-                            "start media-service-elasticsearch\n"
+                            "mv elasticsearch.conf /etc/init\n"
+
+                            "start media-service\n"
                         ]]
                     }
                 }
