@@ -49,9 +49,9 @@
             "Properties": {
                 "AvailabilityZones": { "Fn::GetAZs": "" },
                 "LaunchConfigurationName": { "Ref": "LaunchConfig" },
-                "MinSize": "2",
-                "MaxSize": "4",
-                "DesiredCapacity": "2",
+                "MinSize": "1",
+                "MaxSize": "1",
+                "DesiredCapacity": "1",
                 "HealthCheckType": "EC2",
                 "HealthCheckGracePeriod": 180,
                 "LoadBalancerNames": [ ],
