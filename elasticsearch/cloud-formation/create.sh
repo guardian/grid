@@ -11,5 +11,5 @@ cfn-create-stack media-service-elasticsearch-$STAGE \
     --capabilities CAPABILITY_IAM \
     --template-file $TEMPLATE \
     --region eu-west-1 \
-    --parameters "Stage=$1" \
+    --parameters "Stage=$STAGE" \
     --disable-rollback
