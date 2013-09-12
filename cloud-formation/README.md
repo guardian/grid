@@ -9,11 +9,11 @@ security groups, etc.
 
 First, create the base stack, which includes the security groups for each sub-stack:
 
-    $ ./cloud-formation/create.sh PROD
+    $ ./create-base.sh PROD
 
 Then, retrieve the name of the security group for a particular sub-stack, and use that to form the other parts of the
 infrastructure:
 
-    $ ./cloud-formation/find-security-group.sh elasticsearch PROD | xargs ./elasticsearch/cloud-formation/create.sh PROD
+    $ ./find-security-group.sh elasticsearch PROD | xargs ./create-elasticsearch.sh PROD
 
 [1]: http://aws.amazon.com/developertools/2555753788650372
