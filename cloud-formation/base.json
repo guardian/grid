@@ -41,7 +41,7 @@
                 ]
             }
         },
-        "SecurityGroupIngress": {
+        "ElasticSearchIngress": {
             "Type": "AWS::EC2::SecurityGroupIngress",
             "Properties": {
                 "GroupName": { "Ref": "ElasticSearchSG" },
@@ -49,6 +49,26 @@
                 "FromPort": 0,
                 "ToPort": 65535,
                 "SourceSecurityGroupName": { "Ref": "ElasticSearchSG" }
+            }
+        },
+        "MediaApiSG": {
+            "Type": "AWS::EC2::SecurityGroup",
+            "Properties": {
+                "GroupDescription": "SSH and HTTP",
+                "SecurityGroupIngress": [
+                    {
+                        "IpProtocol": "tcp",
+                        "FromPort": "80",
+                        "ToPort": "80",
+                        "CidrIp": "***REMOVED***"
+                    },
+                    {
+                        "IpProtocol": "tcp",
+                        "FromPort": "22",
+                        "ToPort": "22",
+                        "CidrIp": "0.0.0.0/0"
+                    }
+                ]
             }
         }
     }
