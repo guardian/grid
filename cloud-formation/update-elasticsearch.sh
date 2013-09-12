@@ -12,4 +12,4 @@ cfn-update-stack media-service-elasticsearch-$STAGE \
     --capabilities CAPABILITY_IAM \
     --template-file $TEMPLATE \
     --region eu-west-1 \
-    --parameters "Stage=$STAGE;SecurityGroup=$SECURITY_GROUP" \
+    --parameters "Stage=$STAGE;SecurityGroup=$SECURITY_GROUP"
