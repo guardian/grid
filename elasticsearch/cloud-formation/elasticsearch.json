@@ -12,6 +12,10 @@
             "Type": "String",
             "AllowedValues": ["PROD"],
             "Default": "PROD"
+        },
+        "SecurityGroup": {
+            "Description": "Security Group name",
+            "Type": "String"
         }
     },
     "Resources": {
@@ -114,42 +118,6 @@
                         ]]
                     }
                 }
-            }
-        },
-        "SecurityGroup": {
-            "Type": "AWS::EC2::SecurityGroup",
-            "Properties": {
-                "GroupDescription": "SSH and Elasticsearch",
-                "SecurityGroupIngress": [
-                    {
-                        "IpProtocol": "tcp",
-                        "FromPort": "9200",
-                        "ToPort": "9200",
-                        "CidrIp": "77.91.248.0/21"
-                    },
-                    {
-                        "IpProtocol": "tcp",
-                        "FromPort": "9300",
-                        "ToPort": "9300",
-                        "CidrIp": "77.91.248.0/21"
-                    },
-                    {
-                        "IpProtocol": "tcp",
-                        "FromPort": "22",
-                        "ToPort": "22",
-                        "CidrIp": "0.0.0.0/0"
-                    }
-                ]
-            }
-        },
-        "SecurityGroupIngress": {
-            "Type": "AWS::EC2::SecurityGroupIngress",
-            "Properties": {
-                "GroupName": { "Ref": "SecurityGroup" },
-                "IpProtocol": "tcp",
-                "FromPort": 0,
-                "ToPort": 65535,
-                "SourceSecurityGroupName": { "Ref": "SecurityGroup" }
             }
         }
     }
