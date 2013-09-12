@@ -141,6 +141,16 @@
                     }
                 ]
             }
+        },
+        "SecurityGroupIngress": {
+            "Type": "AWS::EC2::SecurityGroupIngress",
+            "Properties": {
+                "GroupName": { "Ref": "SecurityGroup" },
+                "IpProtocol": "tcp",
+                "FromPort": 0,
+                "ToPort": 65535,
+                "SourceSecurityGroupName": { "Ref": "SecurityGroup" }
+            }
         }
     }
 }
