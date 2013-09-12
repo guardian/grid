@@ -5,9 +5,11 @@ if ([ -z $STAGE ]); then
   exit 1
 fi
 
+TEMPLATE="$(dirname $0)/cf.json"
+
 cfn-create-stack media-service-elasticsearch-$STAGE \
     --capabilities CAPABILITY_IAM \
-    --template-file cf.json \
+    --template-file $TEMPLATE \
     --region eu-west-1 \
     --parameters "Stage=$1" \
     --disable-rollback
