@@ -14,6 +14,6 @@ First, create the base stack, which includes the security groups for each sub-st
 Then, retrieve the name of the security group for a particular sub-stack, and use that to form the other parts of the
 infrastructure:
 
-    $ ./find-security-group.sh elasticsearch PROD | xargs ./create-elasticsearch.sh PROD
+    $ ./find-security-group.sh Elasticsearch PROD | xargs ./create-elasticsearch.sh PROD
 
 [1]: http://aws.amazon.com/developertools/2555753788650372

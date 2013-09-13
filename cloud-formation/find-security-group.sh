@@ -6,7 +6,10 @@ if ([ -z $STAGE ] || [ -z $STACK ]); then
   exit 1
 fi
 
-cfn-list-stack-resources \
+cfn-describe-stacks \
     --region eu-west-1 \
     --stack-name media-service-base-$STAGE \
-    | awk "tolower(\$2) ~ \"$STACK\" { print \$3  }"
+    --delimiter $ \
+    | awk -F$ "{ print \$5  }" \
+    | awk -v k=${STACK}SecurityGroup -F\; \
+      "{ for (i=1;i<=NF;i++) { split(\$i, field, \"=\"); if (tolower(field[1]) == tolower(k)) print field[2]; } }"
