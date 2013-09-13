@@ -34,6 +34,12 @@
                     },
                     {
                         "IpProtocol": "tcp",
+                        "FromPort": "9300",
+                        "ToPort": "9300",
+                        "SourceSecurityGroupName": { "Ref": "MediaApiSG" }
+                    },
+                    {
+                        "IpProtocol": "tcp",
                         "FromPort": "22",
                         "ToPort": "22",
                         "CidrIp": "0.0.0.0/0"
