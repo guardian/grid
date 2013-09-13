@@ -15,7 +15,7 @@
         }
     },
     "Resources": {
-        "ElasticSearchSG": {
+        "ElasticsearchSG": {
             "Type": "AWS::EC2::SecurityGroup",
             "Properties": {
                 "GroupDescription": "SSH and Elasticsearch",
@@ -47,14 +47,14 @@
                 ]
             }
         },
-        "ElasticSearchIngress": {
+        "ElasticsearchIngress": {
             "Type": "AWS::EC2::SecurityGroupIngress",
             "Properties": {
-                "GroupName": { "Ref": "ElasticSearchSG" },
+                "GroupName": { "Ref": "ElasticsearchSG" },
                 "IpProtocol": "tcp",
                 "FromPort": 0,
                 "ToPort": 65535,
-                "SourceSecurityGroupName": { "Ref": "ElasticSearchSG" }
+                "SourceSecurityGroupName": { "Ref": "ElasticsearchSG" }
             }
         },
         "MediaApiSG": {
