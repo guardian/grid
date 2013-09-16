@@ -98,8 +98,8 @@
                         "/media-api/app.jar",
                         " --directory-prefix=/home/media-service\n",
 
-                        "chown -R media-service /home/media-service",
-                        "chgrp -R media-service /home/media-service",
+                        "chown -R media-service /home/media-service\n",
+                        "chgrp -R media-service /home/media-service\n",
 
                         "start media-api\n"
                     ]]
