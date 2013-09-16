@@ -82,9 +82,6 @@ object PlayArtifact extends Plugin {
       }
       IO.zip(resources, distFile)
 
-      // Tells TeamCity to publish the artifact => leave this println in here
-      println("##teamcity[publishArtifacts '%s => %s']".format(distFile, magentaPackageName))
-
       s.log.info("Done disting.")
       distFile
   }
