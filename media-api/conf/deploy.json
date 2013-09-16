@@ -1,0 +1,22 @@
+{
+    "packages": {
+        "media-api": {
+            "type": "asg-elb",
+            "data": {
+                "port": 9000,
+                "bucket": "media-service-dist"
+            }
+        }
+    },
+    "recipes": {
+        "default": {
+            "depends": ["artifactUploadOnly", "deployOnly"]
+        },
+        "deployOnly": {
+            "actionsBeforeApp": ["media-api.deploy"]
+        },
+        "artifactUploadOnly": {
+            "actionsBeforeApp": ["media-api.uploadArtifacts"]
+        }
+    }
+}

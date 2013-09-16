@@ -1,0 +1,112 @@
+{
+    "AWSTemplateFormatVersion": "2010-09-09",
+    "Description": "Media Service Media API",
+    "KeyName": {
+        "Description": "The EC2 Key Pair to allow SSH access to the instance",
+        "Type": "String",
+        "Default": "digital-cms-team"
+    },
+    "Stage": {
+        "Description": "Environment name",
+        "Type": "String",
+        "AllowedValues": ["PROD"],
+        "Default": "PROD"
+    },
+    "SecurityGroup": {
+        "Description": "Security Group name",
+        "Type": "String"
+    },
+    "Resources": {
+        "LoadBalancer": {
+            "Type": "AWS::ElasticLoadBalancing::LoadBalancer",
+            "Properties": {
+                "AvailabilityZones": {
+                    "Fn::GetAZs": ""
+                },
+                "Listeners": [
+                    {
+                        "LoadBalancerPort": "80",
+                        "InstancePort": "9000",
+                        "Protocol": "HTTP"
+                    }
+                ],
+                "HealthCheck": {
+                    "Target": "HTTP:9000/health-check",
+                    "HealthyThreshold": "2",
+                    "UnhealthyThreshold": "2",
+                    "Interval": "10",
+                    "Timeout": "5"
+                }
+            }
+        },
+
+        "AutoscalingGroup": {
+            "Type": "AWS::AutoScaling::AutoScalingGroup",
+            "Properties": {
+                "AvailabilityZones": {
+                    "Fn::GetAZs": ""
+                },
+                "LaunchConfigurationName": { "Ref": "LaunchConfig" },
+                "MinSize": "3",
+                "MaxSize": "6",
+                "DesiredCapacity": "3",
+                "HealthCheckType": "ELB",
+                "HealthCheckGracePeriod": 300,
+                "LoadBalancerNames": [
+                    { "Ref": "LoadBalancer" }
+                ],
+                "Tags": [
+                    {
+                        "Key": "Stage",
+                        "Value": { "Ref": "Stage" },
+                        "PropagateAtLaunch": "true"
+                    },
+                    {
+                        "Key": "Role",
+                        "Value": "media-service-media-api",
+                        "PropagateAtLaunch": "true"
+                    }
+                ]
+            }
+        },
+
+        "LaunchConfig" : {
+            "Type" : "AWS::AutoScaling::LaunchConfiguration",
+            "DependsOn" : "HostKeys",
+            "Properties" : {
+                "KeyName" : { "Ref" : "KeyName" },
+                "ImageId":"ami-eecd2899",
+                "SecurityGroups": [
+                    { "Ref" : "SecurityGroup" }
+                ],
+                "InstanceType" : "m1.small",
+                "UserData" : { "Fn::Base64": {
+                    "Fn::Join":["", [
+                        "#!/bin/bash -ev\n",
+
+                        "adduser --disabled-password --system --group media-service\n",
+                        "cp -r ~/.ssh /home/media-service/\n",
+
+                        "apt-get -y update\n",
+                        "apt-get -y install language-pack-en openjdk-7-jre-headless\n",
+
+                        "wget https://s3-eu-west-1.amazonaws.com/media-service-dist/", { "Ref" : "Stage" },
+                        "/media-api/media-api.conf",
+                        " --directory-prefix=/etc/init\n",
+
+                        "wget https://s3-eu-west-1.amazonaws.com/media-service-dist/", { "Ref" : "Stage" },
+                        "/media-api/app.jar",
+                        " --directory-prefix=/home/media-service\n",
+
+                        "chown -R media-service /home/media-service",
+                        "chgrp -R media-service /home/media-service",
+
+                        "start media-api\n"
+                    ]]
+
+                }}
+
+            }
+        }
+    }
+}
