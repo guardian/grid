@@ -276,11 +276,9 @@
 
     },
     "Outputs": {
-        "ElasticsearchSecurityGroup": {
-            "Value": { "Ref": "ElasticsearchSecurityGroup" }
-        },
-        "MediaApiSecurityGroup": {
-            "Value": { "Ref": "MediaApiSecurityGroup" }
+        "MediaApiLoadBalancer": {
+          "Description": "Media API load balancer DNS",
+          "Value": { "Fn::GetAtt": ["MediaApiLoadBalancer", "DNSName"] }
         }
     }
 }
