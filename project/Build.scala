@@ -12,7 +12,8 @@ object Build extends Build {
 
   val commonSettings = Seq(
     scalaVersion := "2.10.2",
-    organization := "com.gu"
+    organization := "com.gu",
+    version      := "0.1"
   )
 
   val playDeps = Seq("play" %% "play" % playVersion)
