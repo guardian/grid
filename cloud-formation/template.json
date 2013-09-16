@@ -213,7 +213,7 @@
                 },
                 "LaunchConfigurationName": { "Ref": "MediaApiLaunchConfig" },
                 "MinSize": "2",
-                "MaxSize": "2",
+                "MaxSize": "4",
                 "DesiredCapacity": "2",
                 "HealthCheckType": "ELB",
                 "HealthCheckGracePeriod": 300,
