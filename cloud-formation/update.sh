@@ -5,9 +5,9 @@ if ([ -z $STAGE ]); then
   exit 1
 fi
 
-TEMPLATE="$(dirname $0)/base.json"
+TEMPLATE="$(dirname $0)/template.json"
 
-cfn-update-stack media-service-base-$STAGE \
+cfn-update-stack media-service-$STAGE \
     --capabilities CAPABILITY_IAM \
     --template-file $TEMPLATE \
     --region eu-west-1 \
