@@ -28,7 +28,7 @@ object Build extends Build {
     .settings(commonSettings: _*)
     .settings(playArtifactDistSettings: _*)
     .settings(
-      magentaPackageName := "media-api",
+      magentaPackageName := "media-service-media-api",
       ivyXML :=
         <dependencies>
           <exclude org="commons-logging"/>
