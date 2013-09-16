@@ -1,21 +1,21 @@
 {
-  "packages": {
-    "media-service-elasticsearch": {
-      "type": "elasticsearch",
-      "data": {
-        "bucket": "media-service-dist"
-      }
-    }
-  },
-  "recipes": {
-    "default": {
-      "depends": ["artifactUploadOnly", "deployOnly"]
+    "packages": {
+        "media-service-elasticsearch": {
+            "type": "elasticsearch",
+            "data": {
+                "bucket": "media-service-dist"
+            }
+        }
     },
-    "deployOnly": {
-      "actionsBeforeApp": ["media-service-elasticsearch.deploy"]
-    },
-    "artifactUploadOnly": {
-      "actionsBeforeApp": ["media-service-elasticsearch.uploadArtifacts"]
+    "recipes": {
+        "default": {
+            "depends": ["artifactUploadOnly", "deployOnly"]
+        },
+        "deployOnly": {
+            "actionsBeforeApp": ["media-service-elasticsearch.deploy"]
+        },
+        "artifactUploadOnly": {
+            "actionsBeforeApp": ["media-service-elasticsearch.uploadArtifacts"]
+        }
     }
-  }
 }
