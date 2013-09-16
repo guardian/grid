@@ -47,9 +47,9 @@
                     "Fn::GetAZs": ""
                 },
                 "LaunchConfigurationName": { "Ref": "LaunchConfig" },
-                "MinSize": "3",
-                "MaxSize": "6",
-                "DesiredCapacity": "3",
+                "MinSize": "2",
+                "MaxSize": "2",
+                "DesiredCapacity": "2",
                 "HealthCheckType": "ELB",
                 "HealthCheckGracePeriod": 300,
                 "LoadBalancerNames": [
