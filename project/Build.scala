@@ -1,6 +1,9 @@
 import sbt._
 import sbt.Keys._
-import play.Project._
+import plugins.PlayArtifact._
+import sbtassembly.Plugin.AssemblyKeys._
+import sbtassembly.Plugin.MergeStrategy
+
 
 object Build extends Build {
 
@@ -22,6 +25,23 @@ object Build extends Build {
 
   val mediaApi = play.Project("media-api", path = file("media-api"))
     .settings(commonSettings: _*)
+    .settings(playArtifactDistSettings: _*)
+    .settings(
+      magentaPackageName := "media-api",
+      ivyXML :=
+        <dependencies>
+          <exclude org="commons-logging"/>
+          <exclude org="org.springframework"/>
+          <exclude org="org.scala-tools.sbt"/>
+          <exclude name="scala-stm_2.10.0"/>
+        </dependencies>,
+      mergeStrategy in assembly <<= (mergeStrategy in assembly) { (old) => {
+        case f if f.startsWith("org/apache/lucene/index/") => MergeStrategy.first
+        case "play/core/server/ServerWithStop.class" => MergeStrategy.first
+        case "ehcache.xml" => MergeStrategy.first
+        case x => old(x)
+      }}
+    )
     .settings(libraryDependencies ++= elasticsearchDeps)
     .settings(libraryDependencies ++= Seq(
       "com.drewnoakes" % "metadata-extractor" % "2.6.2"
