@@ -50,11 +50,11 @@ object Config {
 
   @annotation.tailrec
   private def ec2ElasticsearchHost: String = {
-    val role = "media-service-media-api"
+    val elasticsearchRole = "media-service-elasticsearch"
     val instances = ec2Client.describeInstances(new DescribeInstancesRequest().withFilters(
       new Filter("instance-state-name", List(InstanceStateName.Running.toString).asJava),
       new Filter("tag:Stage", List(stage).asJava),
-      new Filter("tag:Role", List(role).asJava)
+      new Filter("tag:Role", List(elasticsearchRole).asJava)
     ))
 
     val hosts = instances.getReservations.asScala
