@@ -5,8 +5,9 @@ import scala.concurrent.{ExecutionContext, Future}
 import play.api.Logger
 import play.api.libs.json.JsValue
 
-import org.elasticsearch.action.search.SearchRequestBuilder
 import org.elasticsearch.action.admin.indices.delete.DeleteIndexRequest
+import org.elasticsearch.action.index.IndexResponse
+import org.elasticsearch.action.search.SearchRequestBuilder
 import org.elasticsearch.common.settings.{ImmutableSettings, Settings}
 import org.elasticsearch.common.transport.InetSocketTransportAddress
 import org.elasticsearch.client.Client
@@ -15,7 +16,6 @@ import org.elasticsearch.client.transport.TransportClient
 import lib.Config
 import lib.syntax._
 import model.Image
-import org.elasticsearch.action.index.IndexResponse
 
 
 object ElasticSearch {
