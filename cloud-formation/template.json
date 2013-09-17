@@ -73,27 +73,13 @@
                         "IpProtocol": "tcp",
                         "FromPort": 9000,
                         "ToPort": 9000,
-                        "SourceSecurityGroupName": { "Ref": "ELBSecurityGroup" }
+                        "SourceSecurityGroupName": { "Fn::GetAtt": ["MediaApiLoadBalancer", "SourceSecurityGroup.GroupName"]}
                     },
                     {
                         "IpProtocol": "tcp",
                         "FromPort": "22",
                         "ToPort": "22",
                         "CidrIp": "0.0.0.0/0"
-                    }
-                ]
-            }
-        },
-        "ELBSecurityGroup": {
-            "Type": "AWS::EC2::SecurityGroup",
-            "Properties": {
-                "GroupDescription": "Elastic Load Balancer",
-                "SecurityGroupIngress": [
-                    {
-                        "IpProtocol": "tcp",
-                        "FromPort": "80",
-                        "ToPort": "80",
-                        "CidrIp": "***REMOVED***"
                     }
                 ]
             }
@@ -223,8 +209,7 @@
                     "UnhealthyThreshold": "2",
                     "Interval": "10",
                     "Timeout": "5"
-                },
-                "SecurityGroups": [{ "Ref": "ELBSecurityGroup" }]
+                }
             }
         },
 
