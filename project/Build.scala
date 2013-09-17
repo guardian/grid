@@ -11,7 +11,7 @@ object Build extends Build {
   val elasticsearchVersion = "0.90.3"
 
   val commonSettings = Seq(
-    scalaVersion := "2.10.2",
+    scalaVersion in ThisBuild := "2.10.2",
     organization := "com.gu",
     version      := "0.1"
   )
@@ -56,6 +56,7 @@ object Build extends Build {
       "com.drewnoakes" % "metadata-extractor" % "2.6.2",
       "com.amazonaws" % "aws-java-sdk" % "1.5.7"
     ))
+    .settings(net.virtualvoid.sbt.graph.Plugin.graphSettings: _*)
 
   val devImageLoader = sbt.Project("dev-image-loader", file("dev-image-loader"))
     .settings(commonSettings: _*)
