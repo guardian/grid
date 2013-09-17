@@ -23,16 +23,7 @@ object PlayArtifact extends Plugin {
 
     playArtifactResources <<= (assembly, magentaPackageName, baseDirectory) map {
       (assembly, packageName, baseDirectory) =>
-        Seq(
-          // upstart config file
-          baseDirectory / (packageName + ".conf") -> ("packages/" + packageName + "/" + packageName + ".conf"),
-
-          // the uberjar
-          assembly -> "packages/%s/%s".format(packageName, assembly.getName),
-
-          // and the riff raff deploy instructions
-          baseDirectory / "conf" / "deploy.json" -> "deploy.json"
-        )
+        Seq(assembly -> "packages/%s/%s".format(packageName, assembly.getName))
     },
 
     playArtifactFile := "artifacts.zip",
