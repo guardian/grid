@@ -190,6 +190,8 @@
                             "    -e 's,@@SECRET_KEY,", { "Fn::GetAtt": [ "HostKeys", "SecretAccessKey" ] }, ",g' \\\n",
                             "    elasticsearch/config/elasticsearch.yml\n",
 
+                            "mkdir -p /home/media-service/logs\n",
+
                             "chown -R media-service /home/media-service /data\n",
                             "chgrp -R media-service /home/media-service /data\n",
 
@@ -282,6 +284,8 @@
                         "wget https://s3-eu-west-1.amazonaws.com/media-service-dist/", { "Ref" : "Stage" },
                         "/media-service-media-api/app.jar",
                         " --directory-prefix=/home/media-service\n",
+
+                        "mkdir -p /home/media-service/logs\n",
 
                         "chown -R media-service /home/media-service\n",
                         "chgrp -R media-service /home/media-service\n",
