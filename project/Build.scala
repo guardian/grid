@@ -42,7 +42,6 @@ object Build extends Build {
           <exclude org="commons-logging"/>
           <exclude org="org.springframework"/>
           <exclude org="org.scala-tools.sbt"/>
-          <exclude name="scala-stm_2.10.0"/>
         </dependencies>,
       mergeStrategy in assembly <<= (mergeStrategy in assembly) { (old) => {
         case f if f.startsWith("org/apache/lucene/index/") => MergeStrategy.first
