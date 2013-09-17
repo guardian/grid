@@ -29,6 +29,14 @@ object Build extends Build {
     .settings(playArtifactDistSettings: _*)
     .settings(
       magentaPackageName := "media-service-media-api",
+
+      // package config for Magenta and Upstart
+      playArtifactResources <<= (baseDirectory, target, name, playArtifactResources) map {
+        (base, _, name, defaults) => defaults ++ Seq(
+          base / "conf" / "deploy.json" -> "deploy.json",
+          base / "conf" / (name + ".conf") -> ("packages/" + name + "/" + name + ".conf")
+        )
+      },
       ivyXML :=
         <dependencies>
           <exclude org="commons-logging"/>
