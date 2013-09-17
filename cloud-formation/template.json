@@ -223,7 +223,8 @@
                     "UnhealthyThreshold": "2",
                     "Interval": "10",
                     "Timeout": "5"
-                }
+                },
+                "SecurityGroups": [{ "Ref": "ELBSecurityGroup" }]
             }
         },
 
