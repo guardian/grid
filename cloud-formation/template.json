@@ -19,7 +19,7 @@
         "ElasticsearchSecurityGroup": {
             "Type": "AWS::EC2::SecurityGroup",
             "Properties": {
-                "GroupDescription": "SSH and Elasticsearch",
+                "GroupDescription": "Elasticsearch",
                 "SecurityGroupIngress": [
                     {
                         "IpProtocol": "tcp",
@@ -61,7 +61,7 @@
         "MediaApiSecurityGroup": {
             "Type": "AWS::EC2::SecurityGroup",
             "Properties": {
-                "GroupDescription": "SSH and HTTP",
+                "GroupDescription": "Application servers",
                 "SecurityGroupIngress": [
                     {
                         "IpProtocol": "tcp",
@@ -71,9 +71,29 @@
                     },
                     {
                         "IpProtocol": "tcp",
+                        "FromPort": 9000,
+                        "ToPort": 9000,
+                        "SourceSecurityGroupName": { "Ref": "ELBSecurityGroup" }
+                    },
+                    {
+                        "IpProtocol": "tcp",
                         "FromPort": "22",
                         "ToPort": "22",
                         "CidrIp": "0.0.0.0/0"
+                    }
+                ]
+            }
+        },
+        "ELBSecurityGroup": {
+            "Type": "AWS::EC2::SecurityGroup",
+            "Properties": {
+                "GroupDescription": "Elastic Load Balancer",
+                "SecurityGroupIngress": [
+                    {
+                        "IpProtocol": "tcp",
+                        "FromPort": "80",
+                        "ToPort": "80",
+                        "CidrIp": "77.91.248.0/21"
                     }
                 ]
             }
