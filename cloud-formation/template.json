@@ -285,7 +285,8 @@
                         "/media-service-media-api/app.jar",
                         " --directory-prefix=/home/media-service\n",
 
-                        "mkdir -p /home/media-service/logs\n",
+                        "mkdir /home/media-service/logs\n",
+                        "mkdir /etc/gu\n",
 
                         "chown -R media-service /home/media-service\n",
                         "chgrp -R media-service /home/media-service\n",
