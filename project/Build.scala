@@ -1,8 +1,8 @@
 import sbt._
 import sbt.Keys._
 import plugins.PlayArtifact._
-import sbtassembly.Plugin.AssemblyKeys._
-import sbtassembly.Plugin.MergeStrategy
+import sbtassembly.Plugin.{AssemblyKeys, MergeStrategy}
+import AssemblyKeys._
 
 
 object Build extends Build {
@@ -31,10 +31,10 @@ object Build extends Build {
       magentaPackageName := "media-service-media-api",
 
       // package config for Magenta and Upstart
-      playArtifactResources <<= (baseDirectory, target, name, playArtifactResources) map {
-        (base, _, name, defaults) => defaults ++ Seq(
+      playArtifactResources <<= (baseDirectory, playArtifactResources) map {
+        (base, defaults) => defaults ++ Seq(
           base / "conf" / "deploy.json" -> "deploy.json",
-          base / "conf" / (name + ".conf") -> ("packages/" + name + "/" + name + ".conf")
+          base / "conf" / "media-api.conf" -> "packages/media-service-media-api/media-api.conf"
         )
       },
       ivyXML :=
