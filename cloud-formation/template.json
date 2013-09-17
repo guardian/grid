@@ -256,11 +256,11 @@
                         "apt-get -y install language-pack-en openjdk-7-jre-headless\n",
 
                         "wget https://s3-eu-west-1.amazonaws.com/media-service-dist/", { "Ref" : "Stage" },
-                        "/media-api/media-api.conf",
+                        "/media-service-media-api/media-api.conf",
                         " --directory-prefix=/etc/init\n",
 
                         "wget https://s3-eu-west-1.amazonaws.com/media-service-dist/", { "Ref" : "Stage" },
-                        "/media-api/app.jar",
+                        "/media-service-media-api/app.jar",
                         " --directory-prefix=/home/media-service\n",
 
                         "chown -R media-service /home/media-service\n",
