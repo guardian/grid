@@ -1,15 +1,15 @@
 package lib
 
 import java.io.{FileInputStream, File}
-import scala.io.Source.fromFile
 import scala.collection.JavaConverters._
+import scala.io.Source.fromFile
+import scala.util.Random
 
 import play.api.{Logger, Play}
 
 import com.amazonaws.services.ec2.AmazonEC2Client
 import com.amazonaws.auth.{BasicAWSCredentials, AWSCredentials}
 import com.amazonaws.services.ec2.model.{InstanceStateName, Filter, DescribeInstancesRequest}
-import scala.util.Random
 
 
 object Config {
@@ -29,6 +29,24 @@ object Config {
 
   val elasticsearchHost: String =
     if (stage == "DEV") string("es.host") else ec2ElasticsearchHost
+
+  // Temporary replacement for Guardian Configuration library
+  private lazy val properties: Map[String, String] = {
+    val props = new java.util.Properties
+    val is = new FileInputStream("/etc/gu/media-api.properties")
+    props.load(is)
+    is.close()
+    props.asScala.toMap
+  }
+
+  private lazy val awsCredentials: AWSCredentials =
+    new BasicAWSCredentials(properties("aws.id"), properties("aws.secret"))
+
+  private lazy val ec2Client: AmazonEC2Client = {
+    val client = new AmazonEC2Client(awsCredentials)
+    client.setEndpoint("ec2.eu-west-1.amazonaws.com")
+    client
+  }
 
   @annotation.tailrec
   private def ec2ElasticsearchHost: String = {
@@ -62,23 +80,5 @@ object Config {
 
   private def missing(key: String, type_ : String): Nothing =
     sys.error(s"Required $type_ configuration property missing: $key")
-
-  // Temporary replacement for Guardian Configuration library
-  private val properties: Map[String, String] = {
-    val props = new java.util.Properties
-    val is = new FileInputStream("/etc/gu/media-api.properties")
-    props.load(is)
-    is.close()
-    props.asScala.toMap
-  }
-
-  private val awsCredentials: AWSCredentials =
-    new BasicAWSCredentials(properties("aws.id"), properties("aws.secret"))
-
-  private val ec2Client: AmazonEC2Client = {
-    val client = new AmazonEC2Client(awsCredentials)
-    client.setEndpoint("ec2.eu-west-1.amazonaws.com")
-    client
-  }
 
 }
