@@ -290,6 +290,10 @@
                         "chown -R media-service /home/media-service\n",
                         "chgrp -R media-service /home/media-service\n",
 
+                        "cat > /etc/stage <<EOF\n",
+                        { "Ref": "Stage" }, "\n",
+                        "EOF\n",
+
                         "start media-api\n"
                     ]]
 
