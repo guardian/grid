@@ -31,7 +31,7 @@ object ElasticSearch {
 
   val client: Client =
     new TransportClient(settings)
-      .addTransportAddress(new InetSocketTransportAddress(Config("es.host"), Config.int("es.port")))
+      .addTransportAddress(new InetSocketTransportAddress(Config.elasticsearchHost, Config.int("es.port")))
 
   def ensureIndexExists() {
     Logger.info("Checking index exists...")
