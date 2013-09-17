@@ -290,8 +290,13 @@
                         "chown -R media-service /home/media-service\n",
                         "chgrp -R media-service /home/media-service\n",
 
-                        "cat > /etc/stage <<EOF\n",
+                        "cat > /etc/gu/stage <<EOF\n",
                         { "Ref": "Stage" }, "\n",
+                        "EOF\n",
+
+                        "cat > /etc/gu/media-api.properties<<EOF\n",
+                        "aws.id=", { "Ref": "HostKeys" }, "\n",
+                        "aws.secret=", { "Fn::GetAtt": [ "HostKeys", "SecretAccessKey" ] }, "\n",
                         "EOF\n",
 
                         "start media-api\n"

@@ -53,7 +53,8 @@ object Build extends Build {
     )
     .settings(libraryDependencies ++= elasticsearchDeps)
     .settings(libraryDependencies ++= Seq(
-      "com.drewnoakes" % "metadata-extractor" % "2.6.2"
+      "com.drewnoakes" % "metadata-extractor" % "2.6.2",
+      "com.amazonaws" % "aws-java-sdk" % "1.5.7"
     ))
 
   val devImageLoader = sbt.Project("dev-image-loader", file("dev-image-loader"))
