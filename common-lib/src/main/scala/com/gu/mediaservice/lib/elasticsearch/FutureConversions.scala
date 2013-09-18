@@ -1,4 +1,4 @@
-package lib.elasticsearch
+package com.gu.mediaservice.lib.elasticsearch
 
 import scala.concurrent.{Future, Promise}
 import org.elasticsearch.action.{ActionListener, ListenableActionFuture}

@@ -46,15 +46,21 @@ object Build extends Build {
 
   lazy val root = sbt.Project("root", file("."))
     .settings(commonSettings: _*)
-    .aggregate(mediaApi, devImageLoader, thrall)
+    .aggregate(mediaApi, devImageLoader, thrall, lib)
+
+  val lib = sbt.Project("common-lib", file("common-lib"))
+    .settings(commonSettings: _*)
+    .settings(libraryDependencies ++= elasticsearchDeps ++ playDeps)
 
   val thrall = play.Project("thrall", path = file("thrall"))
+    .dependsOn(lib)
     .settings(commonSettings: _*)
     .settings(playArtifactDistSettings ++ playArtifactSettings: _*)
     .settings(magentaPackageName := "media-service-thrall")
     .settings(libraryDependencies ++= elasticsearchDeps ++ awsDeps)
 
   val mediaApi = play.Project("media-api", path = file("media-api"))
+    .dependsOn(lib)
     .settings(commonSettings: _*)
     .settings(playArtifactDistSettings ++ playArtifactSettings: _*)
     .settings(magentaPackageName := "media-service-media-api")
