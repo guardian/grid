@@ -16,6 +16,21 @@
     },
     "Resources": {
 
+        "SSHSecurityGroup": {
+            "Type": "AWS::EC2::SecurityGroup",
+            "Properties": {
+                "GroupDescription": "Allow SSH access",
+                "SecurityGroupIngress": [
+                    {
+                        "IpProtocol": "tcp",
+                        "FromPort": "22",
+                        "ToPort": "22",
+                        "CidrIp": "***REMOVED***"
+                    }
+                ]
+            }
+        },
+
         "ElasticsearchSecurityGroup": {
             "Type": "AWS::EC2::SecurityGroup",
             "Properties": {
@@ -38,12 +53,6 @@
                         "FromPort": "9300",
                         "ToPort": "9300",
                         "SourceSecurityGroupName": { "Ref": "MediaApiSecurityGroup" }
-                    },
-                    {
-                        "IpProtocol": "tcp",
-                        "FromPort": "22",
-                        "ToPort": "22",
-                        "CidrIp": "0.0.0.0/0"
                     }
                 ]
             }
@@ -74,12 +83,6 @@
                         "FromPort": 9000,
                         "ToPort": 9000,
                         "SourceSecurityGroupName": { "Fn::GetAtt": ["MediaApiLoadBalancer", "SourceSecurityGroup.GroupName"]}
-                    },
-                    {
-                        "IpProtocol": "tcp",
-                        "FromPort": "22",
-                        "ToPort": "22",
-                        "CidrIp": "0.0.0.0/0"
                     }
                 ]
             }
@@ -157,7 +160,10 @@
             "Properties": {
                 "KeyName": { "Ref": "KeyName" },
                 "ImageId": "ami-eecd2899",
-                "SecurityGroups": [ { "Ref": "ElasticsearchSecurityGroup" } ],
+                "SecurityGroups": [
+                    { "Ref": "ElasticsearchSecurityGroup" },
+                    { "Ref": "SSHSecurityGroup" }
+                ],
                 "InstanceType": "m1.medium",
                 "UserData":{
                     "Fn::Base64":{
@@ -262,7 +268,8 @@
                 "KeyName" : { "Ref" : "KeyName" },
                 "ImageId":"ami-eecd2899",
                 "SecurityGroups": [
-                    { "Ref" : "MediaApiSecurityGroup" }
+                    { "Ref" : "MediaApiSecurityGroup" },
+                    { "Ref" : "SSHSecurityGroup" }
                 ],
                 "InstanceType" : "m1.small",
                 "UserData" : { "Fn::Base64": {
