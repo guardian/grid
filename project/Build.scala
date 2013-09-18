@@ -22,64 +22,42 @@ object Build extends Build {
 
   val awsDeps = Seq("com.amazonaws" % "aws-java-sdk" % "1.5.7")
 
+  val playArtifactSettings = Seq(
+    // package config for Magenta and Upstart
+    playArtifactResources <<= (baseDirectory, name, playArtifactResources) map {
+      (base, name, defaults) => defaults ++ Seq(
+        base / "conf" / "deploy.json" -> "deploy.json",
+        base / "conf" / (name + ".conf") -> ("packages/media-service-" + name + "/" + name + ".conf")
+      )
+    },
+    ivyXML :=
+      <dependencies>
+        <exclude org="commons-logging"/>
+        <exclude org="org.springframework"/>
+        <exclude org="org.scala-tools.sbt"/>
+      </dependencies>,
+    mergeStrategy in assembly <<= (mergeStrategy in assembly) { (old) => {
+      case f if f.startsWith("org/apache/lucene/index/") => MergeStrategy.first
+      case "play/core/server/ServerWithStop.class" => MergeStrategy.first
+      case "ehcache.xml" => MergeStrategy.first
+      case x => old(x)
+    }}
+  )
+
   lazy val root = sbt.Project("root", file("."))
     .settings(commonSettings: _*)
     .aggregate(mediaApi, devImageLoader, thrall)
 
   val thrall = play.Project("thrall", path = file("thrall"))
     .settings(commonSettings: _*)
-    .settings(playArtifactDistSettings: _*)
-    .settings(
-      magentaPackageName := "media-service-thrall",
-
-      // package config for Magenta and Upstart
-      playArtifactResources <<= (baseDirectory, playArtifactResources) map {
-        (base, defaults) => defaults ++ Seq(
-          base / "conf" / "deploy.json" -> "deploy.json",
-          base / "conf" / "media-api.conf" -> "packages/media-service-thrall/thrall.conf"
-        )
-      },
-      ivyXML :=
-        <dependencies>
-          <exclude org="commons-logging"/>
-          <exclude org="org.springframework"/>
-          <exclude org="org.scala-tools.sbt"/>
-        </dependencies>,
-      mergeStrategy in assembly <<= (mergeStrategy in assembly) { (old) => {
-        case f if f.startsWith("org/apache/lucene/index/") => MergeStrategy.first
-        case "play/core/server/ServerWithStop.class" => MergeStrategy.first
-        case "ehcache.xml" => MergeStrategy.first
-        case x => old(x)
-      }}
-    )
+    .settings(playArtifactDistSettings ++ playArtifactSettings: _*)
+    .settings(magentaPackageName := "media-service-thrall")
     .settings(libraryDependencies ++= elasticsearchDeps ++ awsDeps)
 
   val mediaApi = play.Project("media-api", path = file("media-api"))
     .settings(commonSettings: _*)
-    .settings(playArtifactDistSettings: _*)
-    .settings(
-      magentaPackageName := "media-service-media-api",
-
-      // package config for Magenta and Upstart
-      playArtifactResources <<= (baseDirectory, playArtifactResources) map {
-        (base, defaults) => defaults ++ Seq(
-          base / "conf" / "deploy.json" -> "deploy.json",
-          base / "conf" / "media-api.conf" -> "packages/media-service-media-api/media-api.conf"
-        )
-      },
-      ivyXML :=
-        <dependencies>
-          <exclude org="commons-logging"/>
-          <exclude org="org.springframework"/>
-          <exclude org="org.scala-tools.sbt"/>
-        </dependencies>,
-      mergeStrategy in assembly <<= (mergeStrategy in assembly) { (old) => {
-        case f if f.startsWith("org/apache/lucene/index/") => MergeStrategy.first
-        case "play/core/server/ServerWithStop.class" => MergeStrategy.first
-        case "ehcache.xml" => MergeStrategy.first
-        case x => old(x)
-      }}
-    )
+    .settings(playArtifactDistSettings ++ playArtifactSettings: _*)
+    .settings(magentaPackageName := "media-service-media-api")
     .settings(libraryDependencies ++=
       elasticsearchDeps ++
       awsDeps ++
