@@ -1,0 +1,22 @@
+{
+    "packages": {
+        "media-service-thrall": {
+            "type": "asg-elb",
+            "data": {
+                "port": 9000,
+                "bucket": "media-service-dist"
+            }
+        }
+    },
+    "recipes": {
+        "default": {
+            "depends": ["artifactUploadOnly", "deployOnly"]
+        },
+        "deployOnly": {
+            "actionsBeforeApp": ["media-service-thrall.deploy"]
+        },
+        "artifactUploadOnly": {
+            "actionsBeforeApp": ["media-service-thrall.uploadArtifacts"]
+        }
+    }
+}
