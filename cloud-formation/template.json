@@ -52,7 +52,7 @@
                         "IpProtocol": "tcp",
                         "FromPort": "9300",
                         "ToPort": "9300",
-                        "SourceSecurityGroupName": { "Ref": "MediaApiSecurityGroup" }
+                        "SourceSecurityGroupName": { "Ref": "AppServerSecurityGroup" }
                     }
                 ]
             }
@@ -67,7 +67,7 @@
                 "SourceSecurityGroupName": { "Ref": "ElasticsearchSecurityGroup" }
             }
         },
-        "MediaApiSecurityGroup": {
+        "AppServerSecurityGroup": {
             "Type": "AWS::EC2::SecurityGroup",
             "Properties": {
                 "GroupDescription": "Application servers",
@@ -230,7 +230,6 @@
                 }
             }
         },
-
         "MediaApiAutoscalingGroup": {
             "Type": "AWS::AutoScaling::AutoScalingGroup",
             "Properties": {
@@ -260,7 +259,6 @@
                 ]
             }
         },
-
         "MediaApiLaunchConfig" : {
             "Type" : "AWS::AutoScaling::LaunchConfiguration",
             "DependsOn" : "HostKeys",
@@ -268,7 +266,7 @@
                 "KeyName" : { "Ref" : "KeyName" },
                 "ImageId":"ami-eecd2899",
                 "SecurityGroups": [
-                    { "Ref" : "MediaApiSecurityGroup" },
+                    { "Ref" : "AppServerSecurityGroup" },
                     { "Ref" : "SSHSecurityGroup" }
                 ],
                 "InstanceType" : "m1.small",
@@ -306,6 +304,83 @@
                         "EOF\n",
 
                         "start media-api\n"
+                    ]]
+
+                }}
+
+            }
+        },
+
+        "ThrallAutoscalingGroup": {
+            "Type": "AWS::AutoScaling::AutoScalingGroup",
+            "Properties": {
+                "AvailabilityZones": { "Fn::GetAZs": "" },
+                "LaunchConfigurationName": { "Ref": "ThrallLaunchConfig" },
+                "MinSize": "2",
+                "MaxSize": "4",
+                "DesiredCapacity": "2",
+                "HealthCheckType": "EC2",
+                "HealthCheckGracePeriod": 180,
+                "LoadBalancerNames": [ ],
+                "Tags": [
+                    {
+                        "Key": "Stage",
+                        "Value": { "Ref": "Stage" },
+                        "PropagateAtLaunch": "true"
+                    },
+                    {
+                        "Key": "Role",
+                        "Value": "media-service-thrall",
+                        "PropagateAtLaunch": "true"
+                    }
+                ]
+            }
+        },
+        "ThrallLaunchConfig" : {
+            "Type" : "AWS::AutoScaling::LaunchConfiguration",
+            "DependsOn" : "HostKeys",
+            "Properties" : {
+                "KeyName" : { "Ref" : "KeyName" },
+                "ImageId":"ami-eecd2899",
+                "SecurityGroups": [
+                    { "Ref" : "AppServerSecurityGroup" },
+                    { "Ref" : "SSHSecurityGroup" }
+                ],
+                "InstanceType" : "m1.small",
+                "UserData" : { "Fn::Base64": {
+                    "Fn::Join":["", [
+                        "#!/bin/bash -ev\n",
+
+                        "adduser --disabled-password --system --group media-service\n",
+                        "cp -r ~/.ssh /home/media-service/\n",
+
+                        "apt-get -y update\n",
+                        "apt-get -y install language-pack-en openjdk-7-jre-headless\n",
+
+                        "wget https://s3-eu-west-1.amazonaws.com/media-service-dist/", { "Ref" : "Stage" },
+                        "/media-service-thrall/thrall.conf",
+                        " --directory-prefix=/etc/init\n",
+
+                        "wget https://s3-eu-west-1.amazonaws.com/media-service-dist/", { "Ref" : "Stage" },
+                        "/media-service-thrall/app.jar",
+                        " --directory-prefix=/home/media-service\n",
+
+                        "mkdir /home/media-service/logs\n",
+                        "mkdir /etc/gu\n",
+
+                        "chown -R media-service /home/media-service\n",
+                        "chgrp -R media-service /home/media-service\n",
+
+                        "cat > /etc/gu/stage <<EOF\n",
+                        { "Ref": "Stage" }, "\n",
+                        "EOF\n",
+
+                        "cat > /etc/gu/thrall.properties<<EOF\n",
+                        "aws.id=", { "Ref": "HostKeys" }, "\n",
+                        "aws.secret=", { "Fn::GetAtt": [ "HostKeys", "SecretAccessKey" ] }, "\n",
+                        "EOF\n",
+
+                        "start thrall\n"
                     ]]
 
                 }}
