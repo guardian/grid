@@ -65,8 +65,8 @@
                 "SecurityGroupIngress": [
                     {
                         "IpProtocol": "tcp",
-                        "FromPort": "80",
-                        "ToPort": "80",
+                        "FromPort": "9000",
+                        "ToPort": "9000",
                         "CidrIp": "77.91.248.0/21"
                     },
                     {
