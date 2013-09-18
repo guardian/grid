@@ -1,8 +1,9 @@
 import sbt._
 import sbt.Keys._
 import plugins.PlayArtifact._
-import sbtassembly.Plugin.{AssemblyKeys, MergeStrategy}
+import sbtassembly.Plugin._
 import AssemblyKeys._
+import com.gu.SbtDistPlugin._
 
 
 object Build extends Build {
@@ -20,9 +21,21 @@ object Build extends Build {
 
   val elasticsearchDeps = Seq("org.elasticsearch" % "elasticsearch" % elasticsearchVersion)
 
+  val awsDeps = Seq("com.amazonaws" % "aws-java-sdk" % "1.5.7")
+
   lazy val root = sbt.Project("root", file("."))
     .settings(commonSettings: _*)
-    .aggregate(mediaApi, devImageLoader)
+    .aggregate(mediaApi, devImageLoader, thrall)
+
+  val thrall = sbt.Project("thrall", file("thrall"))
+    .settings(commonSettings ++ distSettings ++ assemblySettings: _*)
+    .settings(
+      mainClass in assembly := Some("com.gu.mediaservice.thrall.Main"),
+      jarName in assembly   := "app.jar",
+      distFiles <++= (sourceDirectory in Compile) map { src => (src / "deploy" ***) x flat },
+      distFiles <+= (assembly in Compile) map { _ -> "packages/media-service-thrall/app.jar" }
+    )
+    .settings(libraryDependencies ++= awsDeps)
 
   val mediaApi = play.Project("media-api", path = file("media-api"))
     .settings(commonSettings: _*)
@@ -50,11 +63,11 @@ object Build extends Build {
         case x => old(x)
       }}
     )
-    .settings(libraryDependencies ++= elasticsearchDeps)
-    .settings(libraryDependencies ++= Seq(
-      "com.drewnoakes" % "metadata-extractor" % "2.6.2",
-      "com.amazonaws" % "aws-java-sdk" % "1.5.7"
-    ))
+    .settings(libraryDependencies ++=
+      elasticsearchDeps ++
+      awsDeps ++
+      Seq("com.drewnoakes" % "metadata-extractor" % "2.6.2")
+    )
     .settings(net.virtualvoid.sbt.graph.Plugin.graphSettings: _*)
 
   val devImageLoader = sbt.Project("dev-image-loader", file("dev-image-loader"))
