@@ -89,14 +89,26 @@
             "Type": "AWS::IAM::Group",
             "Properties": {
                 "Policies": [{
-                    "PolicyName": "elasticsearch-group-policy",
+                    "PolicyName": "Group-Policy",
                     "PolicyDocument": {
                         "Version": "2012-10-17",
-                        "Statement": [{
-                            "Effect": "Allow",
-                            "Action": "ec2:DescribeInstances",
-                            "Resource": "*"
-                        }]
+                        "Statement": [
+                            {
+                                "Effect": "Allow",
+                                "Action": "ec2:DescribeInstances",
+                                "Resource": "*"
+                            },
+                            {
+                                "Effect": "Allow",
+                                "Action": ["sqs:DeleteMessage", "sqs:ReceiveMessage"],
+                                "Resource": [ { "Fn::GetAtt": ["Queue", "Arn"] } ]
+                            },
+                            {
+                                "Effect": "Allow",
+                                "Action": ["sns:Publish"],
+                                "Resource": { "Ref": "Topic" }
+                            }
+                        ]
                     }
                 }]
             }
@@ -291,6 +303,44 @@
 
                 }}
 
+            }
+        },
+
+        "Topic": {
+            "Type": "AWS::SNS::Topic",
+            "Properties": {
+                "Subscription": [
+                    {
+                        "Endpoint": { "Fn::GetAtt": [ "Queue", "Arn" ] },
+                        "Protocol": "sqs"
+                    }
+                ]
+            }
+        },
+        "Queue": {
+            "Type": "AWS::SQS::Queue",
+            "Properties": {
+            }
+        },
+        "QueuePolicy": {
+            "Type": "AWS::SQS::QueuePolicy",
+            "Properties": {
+                "PolicyDocument": {
+                    "Id": "MyQueuePolicy",
+                    "Statement": [
+                        {
+                            "Sid": "Allow-SendMessage-To-Queue-From-Topic",
+                            "Effect": "Allow",
+                            "Principal": { "AWS": "*" },
+                            "Action": ["sqs:SendMessage"],
+                            "Resource": "*",
+                            "Condition": {
+                                "ArnEquals": { "aws:SourceArn": { "Ref": "Topic" } }
+                            }
+                        }
+                    ]
+                },
+                "Queues": [ { "Ref": "Queue" } ]
             }
         }
 
