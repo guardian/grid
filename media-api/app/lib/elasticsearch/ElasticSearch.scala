@@ -13,8 +13,8 @@ import org.elasticsearch.common.transport.InetSocketTransportAddress
 import org.elasticsearch.client.Client
 import org.elasticsearch.client.transport.TransportClient
 
+import com.gu.mediaservice.syntax._
 import lib.Config
-import lib.syntax._
 import model.Image
 
 

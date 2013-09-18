@@ -1,9 +1,12 @@
-package lib.syntax
+package com.gu.mediaservice
+package syntax
 
 import scala.concurrent.Future
+
 import org.elasticsearch.action.ListenableActionFuture
 import org.elasticsearch.action.get.GetResponse
-import play.api.libs.json.{Json, JsValue}
+
+import play.api.libs.json.{JsValue, Json}
 import lib.elasticsearch.FutureConversions
 
 
