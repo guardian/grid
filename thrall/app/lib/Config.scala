@@ -1,15 +1,18 @@
 package lib
 
-
-import com.amazonaws.services.ec2.AmazonEC2Client
 import com.amazonaws.auth.{BasicAWSCredentials, AWSCredentials}
 import com.gu.mediaservice.lib.config.{Config, PropertiesConfig}
 import com.gu.mediaservice.lib.elasticsearch.EC2._
-
+import com.amazonaws.services.ec2.AmazonEC2Client
 
 object Config extends Config {
 
-  val role = "media-service-elasticsearch"
+  val role: String = "media-service-thrall"
+
+  private lazy val properties: Map[String, String] =
+    PropertiesConfig.fromFile("/etc/gu/thrall.properties")
+
+  def queueUrl: String = properties("sqs.queue.url")
 
   val elasticsearchHost: String =
     if (stage == "DEV")
@@ -17,10 +20,7 @@ object Config extends Config {
     else
       findElasticsearchHost(ec2Client, Map("Stage" -> Seq(stage), "Role" -> Seq(role)))
 
-  private lazy val properties: Map[String, String] =
-    PropertiesConfig.fromFile("/etc/gu/media-api.conf")
-
-  private lazy val awsCredentials: AWSCredentials =
+  lazy val awsCredentials: AWSCredentials =
     new BasicAWSCredentials(properties("aws.id"), properties("aws.secret"))
 
   private lazy val ec2Client: AmazonEC2Client = {

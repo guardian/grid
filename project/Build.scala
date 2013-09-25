@@ -50,7 +50,7 @@ object Build extends Build {
 
   val lib = sbt.Project("common-lib", file("common-lib"))
     .settings(commonSettings: _*)
-    .settings(libraryDependencies ++= elasticsearchDeps ++ playDeps)
+    .settings(libraryDependencies ++= awsDeps ++ elasticsearchDeps ++ playDeps)
 
   val thrall = play.Project("thrall", path = file("thrall"))
     .dependsOn(lib)

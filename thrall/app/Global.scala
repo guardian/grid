@@ -1,5 +1,6 @@
 
 import akka.actor.ActorSystem
+import lib.Config
 import scala.collection.JavaConverters._
 import scala.concurrent.{ExecutionContext, Future}
 import scala.concurrent.duration._
@@ -45,7 +46,7 @@ object MessageConsumer {
       received <- pollFuture(4)
       messages = received flatMap extractSNSMessage
     } {
-      for (msg <- messages) Logger.info(msg.body)
+      for (msg <- messages) Logger.info(msg.body.toString)
     }
 
   def poll(max: Int): Seq[Message] =
@@ -65,7 +66,7 @@ case class SNSMessage(
   messageId: String,
   topicArn: String,
   subject: Option[String],
-  body: String
+  body: JsValue
 )
 
 object SNSMessage {
@@ -75,6 +76,6 @@ object SNSMessage {
       (__ \ "MessageId").read[String] ~
       (__ \ "TopicArn").read[String] ~
       (__ \ "Subject").readNullable[String] ~
-      (__ \ "Message").read[String]
+      (__ \ "Message").read[JsValue]
     )(SNSMessage(_, _, _, _, _))
 }
