@@ -74,7 +74,7 @@ object SNSMessage {
       (__ \ "Type").read[String] ~
       (__ \ "MessageId").read[String] ~
       (__ \ "TopicArn").read[String] ~
-      (__ \ "Subject").read[Option[String]] ~
+      (__ \ "Subject").readNullable[String] ~
       (__ \ "Message").read[String]
     )(SNSMessage(_, _, _, _, _))
 }
