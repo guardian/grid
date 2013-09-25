@@ -1,6 +1,6 @@
-package lib.elasticsearch
+package com.gu.mediaservice.lib.elasticsearch
 
-import play.api.libs.json.{JsValue, Json}
+import play.api.libs.json.Json
 
 object Mappings {
 
