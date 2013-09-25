@@ -23,12 +23,10 @@ abstract class MediaApiController extends Controller {
     Ok("This is the Media API.\r\n")
   }
 
-  def getImage(id: String) = Action {
-    Async {
-      ElasticSearch.getImageById(id) map {
-        case Some(source) => Ok(source)
-        case None         => NotFound
-      }
+  def getImage(id: String) = Action.async {
+    ElasticSearch.getImageById(id) map {
+      case Some(source) => Ok(source)
+      case None         => NotFound
     }
   }
 
