@@ -10,6 +10,7 @@ import play.api.{Logger, Play}
 import com.amazonaws.services.ec2.AmazonEC2Client
 import com.amazonaws.auth.{BasicAWSCredentials, AWSCredentials}
 import com.amazonaws.services.ec2.model.{InstanceStateName, Filter, DescribeInstancesRequest}
+import com.gu.mediaservice.lib.config.PropertiesConfig
 
 
 object Config {
@@ -30,14 +31,8 @@ object Config {
   val elasticsearchHost: String =
     if (stage == "DEV") string("es.host") else ec2ElasticsearchHost
 
-  // Temporary replacement for Guardian Configuration library
-  private lazy val properties: Map[String, String] = {
-    val props = new java.util.Properties
-    val is = new FileInputStream("/etc/gu/media-api.properties")
-    props.load(is)
-    is.close()
-    props.asScala.toMap
-  }
+  private lazy val properties: Map[String, String] =
+    PropertiesConfig.fromFile("/etc/gu/media-api.conf")
 
   private lazy val awsCredentials: AWSCredentials =
     new BasicAWSCredentials(properties("aws.id"), properties("aws.secret"))
