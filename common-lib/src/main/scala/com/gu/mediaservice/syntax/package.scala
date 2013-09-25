@@ -1,3 +1,5 @@
 package com.gu.mediaservice
 
-package object syntax extends ElasticSearchSyntax
+package object syntax
+  extends ElasticSearchSyntax
+  with PlayJsonSyntax
