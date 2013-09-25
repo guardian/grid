@@ -378,6 +378,7 @@
                         "cat > /etc/gu/thrall.properties<<EOF\n",
                         "aws.id=", { "Ref": "HostKeys" }, "\n",
                         "aws.secret=", { "Fn::GetAtt": [ "HostKeys", "SecretAccessKey" ] }, "\n",
+                        "sqs.queue.arn=", { "Fn::GetAtt": ["Queue", "Arn"] }, "\n",
                         "EOF\n",
 
                         "start thrall\n"
