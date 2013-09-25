@@ -58,6 +58,7 @@ object Build extends Build {
     .settings(playArtifactDistSettings ++ playArtifactSettings: _*)
     .settings(magentaPackageName := "media-service-thrall")
     .settings(libraryDependencies ++= elasticsearchDeps ++ awsDeps)
+    .settings(libraryDependencies += "org.scalaz" %% "scalaz-core" % "7.1.0-M3")
 
   val mediaApi = play.Project("media-api", path = file("media-api"))
     .dependsOn(lib)
