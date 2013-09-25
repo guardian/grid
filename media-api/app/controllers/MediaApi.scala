@@ -30,7 +30,7 @@ abstract class MediaApiController extends Controller {
     }
   }
 
-  def putImage(id: String) = Action(parse.temporaryFile) { request =>
+  def putImage(id: String) = Action.async(parse.temporaryFile) { request =>
     val tempFile = request.body
 
     val response = for {
@@ -41,7 +41,7 @@ abstract class MediaApiController extends Controller {
     } yield NoContent
 
     response.onComplete(_ => tempFile.clean())
-    Async(response)
+    response
   }
 
 }
