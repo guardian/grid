@@ -5,9 +5,9 @@ resolvers ++= Seq(
     Resolver.url("sbt-plugin-releases",url("http://scalasbt.artifactoryonline.com/scalasbt/sbt-plugin-releases/"))(Resolver.ivyStylePatterns)
 )
 
-addSbtPlugin("play" % "sbt-plugin" % "2.1.3")
+addSbtPlugin("com.typesafe.play" % "sbt-plugin" % "2.2.0")
 
-addSbtPlugin("com.gu" % "sbt-teamcity-test-reporting-plugin" % "1.3")
+addSbtPlugin("com.typesafe.sbt" % "sbt-native-packager" % "0.6.2")
 
 addSbtPlugin("com.eed3si9n" % "sbt-assembly" % "0.9.2")
 

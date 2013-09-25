@@ -7,7 +7,7 @@ import AssemblyKeys._
 
 object Build extends Build {
 
-  val playVersion = "2.1.3" // also exists in plugins.sbt, TODO deduplicate this
+  val playVersion = "2.2.0" // also exists in plugins.sbt, TODO deduplicate this
   val elasticsearchVersion = "0.90.3"
 
   val commonSettings = Seq(
@@ -16,7 +16,7 @@ object Build extends Build {
     version      := "0.1"
   )
 
-  val playDeps = Seq("play" %% "play" % playVersion)
+  val playDeps = Seq("com.typesafe.play" %% "play" % playVersion)
 
   val elasticsearchDeps = Seq("org.elasticsearch" % "elasticsearch" % elasticsearchVersion)
 

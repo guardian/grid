@@ -5,7 +5,7 @@ import sbt.Keys._
 import play.Project._
 import sbtassembly.Plugin._
 import sbtassembly.Plugin.AssemblyKeys._
-
+import com.typesafe.sbt.packager
 
 object PlayArtifact extends Plugin {
 
@@ -28,7 +28,7 @@ object PlayArtifact extends Plugin {
 
     playArtifactFile := "artifacts.zip",
     playArtifact <<= buildDeployArtifact,
-    dist <<= buildDeployArtifact tag Tags.Disk,
+    packager.Keys.dist <<= buildDeployArtifact tag Tags.Disk,
     assembly <<= assembly.tag(Tags.Disk),
 
     mergeStrategy in assembly <<= (mergeStrategy in assembly) { current =>
