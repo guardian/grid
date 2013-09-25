@@ -1,3 +1,4 @@
+import com.gu.mediaservice.lib.elasticsearch.ElasticSearch
 import lib.elasticsearch.ElasticSearch
 import play.api.{Application, GlobalSettings}
 
