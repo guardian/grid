@@ -10,20 +10,20 @@ import play.api.Logger
 
 trait ElasticSearch {
 
-  val host: String
-  val port: Int
-  val cluster: String
+  def host: String
+  def port: Int
+  def cluster: String
 
   protected val imagesIndex = "images"
   protected val imageType = "image"
 
-  private val settings: Settings =
+  private lazy val settings: Settings =
     ImmutableSettings.settingsBuilder
       .put("cluster.name", cluster)
       .put("client.transport.sniff", true)
       .build
 
-  val client: Client =
+  lazy val client: Client =
     new TransportClient(settings)
       .addTransportAddress(new InetSocketTransportAddress(host, port))
 
