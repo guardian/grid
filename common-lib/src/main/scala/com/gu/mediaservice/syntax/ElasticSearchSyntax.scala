@@ -18,7 +18,7 @@ trait ElasticSearchSyntax {
   }
 
   final implicit class GetResponseSyntax(self: GetResponse) {
-    def sourceAsJson: JsValue = Json.parse(self.getSourceAsBytes)
+    def sourceOpt: Option[JsValue] = Option(self.getSourceAsBytes) map Json.parse
   }
 
   implicit class ActionRequestBuilderSyntax[A <: ActionResponse]

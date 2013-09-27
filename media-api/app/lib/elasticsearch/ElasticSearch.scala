@@ -22,9 +22,7 @@ object ElasticSearch extends ElasticSearchClient {
       .execute.asScala
 
   def getImageById(id: String)(implicit ex: ExecutionContext): Future[Option[JsValue]] =
-    client.prepareGet(imagesIndex, imageType, id).execute.asScala map { result =>
-      if (result.isExists) Some(result.sourceAsJson) else None
-    }
+    client.prepareGet(imagesIndex, imageType, id).execute.asScala map (_.sourceOpt)
 
   def prepareImagesSearch: SearchRequestBuilder = client.prepareSearch(imagesIndex)
 
