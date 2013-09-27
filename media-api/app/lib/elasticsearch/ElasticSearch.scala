@@ -6,11 +6,11 @@ import org.elasticsearch.action.index.IndexResponse
 import org.elasticsearch.action.search.SearchRequestBuilder
 
 import com.gu.mediaservice.syntax._
-import com.gu.mediaservice.lib.elasticsearch.ElasticSearch
+import com.gu.mediaservice.lib.elasticsearch.ElasticSearchClient
 import lib.Config
 import model.Image
 
-object ElasticSearch extends ElasticSearch {
+object ElasticSearch extends ElasticSearchClient {
 
   val host = Config.elasticsearchHost
   val port = Config.int("es.port")

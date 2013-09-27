@@ -22,6 +22,8 @@ object Build extends Build {
 
   val awsDeps = Seq("com.amazonaws" % "aws-java-sdk" % "1.5.7")
 
+  val scalazDeps = Seq("org.scalaz" %% "scalaz-core" % "7.1.0-M3")
+
   val playArtifactSettings = Seq(
     // package config for Magenta and Upstart
     playArtifactResources <<= (baseDirectory, name, playArtifactResources) map {
@@ -50,7 +52,7 @@ object Build extends Build {
 
   val lib = sbt.Project("common-lib", file("common-lib"))
     .settings(commonSettings: _*)
-    .settings(libraryDependencies ++= awsDeps ++ elasticsearchDeps ++ playDeps)
+    .settings(libraryDependencies ++= awsDeps ++ elasticsearchDeps ++ playDeps ++ scalazDeps)
 
   val thrall = play.Project("thrall", path = file("thrall"))
     .dependsOn(lib)
@@ -58,7 +60,7 @@ object Build extends Build {
     .settings(playArtifactDistSettings ++ playArtifactSettings: _*)
     .settings(magentaPackageName := "media-service-thrall")
     .settings(libraryDependencies ++= elasticsearchDeps ++ awsDeps)
-    .settings(libraryDependencies += "org.scalaz" %% "scalaz-core" % "7.1.0-M3")
+    .settings(libraryDependencies ++= scalazDeps)
 
   val mediaApi = play.Project("media-api", path = file("media-api"))
     .dependsOn(lib)

@@ -5,10 +5,11 @@ import org.elasticsearch.client.Client
 import org.elasticsearch.client.transport.TransportClient
 import org.elasticsearch.common.settings.{ImmutableSettings, Settings}
 import org.elasticsearch.common.transport.InetSocketTransportAddress
+
 import play.api.Logger
 
 
-trait ElasticSearch {
+trait ElasticSearchClient {
 
   def host: String
   def port: Int
