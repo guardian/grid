@@ -8,7 +8,7 @@ import play.api.Logger
 
 import lib.imaging.ImageMetadata
 import lib.storage.{NullStorage, StorageBackend}
-import com.gu.mediaservice.lib.elasticsearch.ElasticSearch
+import com.gu.mediaservice.lib.elasticsearch.ElasticSearchClient
 import lib.elasticsearch.ElasticSearch
 
 

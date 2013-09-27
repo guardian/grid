@@ -1,7 +1,7 @@
 package controllers
 
 import play.api.mvc.{Action, Controller}
-import com.gu.mediaservice.lib.elasticsearch.ElasticSearch
+import com.gu.mediaservice.lib.elasticsearch.ElasticSearchClient
 import lib.elasticsearch.ElasticSearch
 
 
