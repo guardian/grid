@@ -17,6 +17,7 @@ object ElasticSearch extends ElasticSearchClient {
   def indexImage(id: String, image: JsValue)(implicit ex: ExecutionContext): Future[IndexResponse] =
     client.prepareIndex(imagesIndex, imageType, id)
       .setSource(Json.stringify(image))
+      .setType(imageType)
       .executeAndLog(s"Indexing image $id")
 
 }
