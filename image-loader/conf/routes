@@ -1,0 +1,3 @@
+GET     /                           controllers.Application.index
+PUT     /image/:id                  controllers.Application.putImage(id: String)
+GET     /health-check               controllers.HealthCheck.healthCheck

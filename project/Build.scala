@@ -24,6 +24,8 @@ object Build extends Build {
 
   val scalazDeps = Seq("org.scalaz" %% "scalaz-core" % "7.1.0-M3")
 
+  val imagingDeps = Seq("com.drewnoakes" % "metadata-extractor" % "2.6.2")
+
   val playArtifactSettings = Seq(
     // package config for Magenta and Upstart
     playArtifactResources <<= (baseDirectory, name, playArtifactResources) map {
@@ -48,7 +50,7 @@ object Build extends Build {
 
   lazy val root = sbt.Project("root", file("."))
     .settings(commonSettings: _*)
-    .aggregate(mediaApi, devImageLoader, thrall, lib)
+    .aggregate(mediaApi, imageLoader, devImageLoader, thrall, lib)
 
   val lib = sbt.Project("common-lib", file("common-lib"))
     .settings(commonSettings: _*)
@@ -71,10 +73,18 @@ object Build extends Build {
       elasticsearchDeps ++
       awsDeps ++
       scalazDeps ++
-      Seq("com.drewnoakes" % "metadata-extractor" % "2.6.2")
+      imagingDeps
     )
     .settings(net.virtualvoid.sbt.graph.Plugin.graphSettings: _*)
 
+  val imageLoader = play.Project("image-loader", path = file("image-loader"))
+    .dependsOn(lib)
+    .settings(commonSettings: _*)
+    .settings(playArtifactDistSettings ++ playArtifactSettings: _*)
+    .settings(magentaPackageName := "media-service-image-loader")
+    .settings(libraryDependencies ++= awsDeps ++ imagingDeps)
+
+  @deprecated
   val devImageLoader = sbt.Project("dev-image-loader", file("dev-image-loader"))
     .settings(commonSettings: _*)
     .settings(libraryDependencies ++= playDeps)
