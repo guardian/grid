@@ -7,6 +7,8 @@ import play.api.Play
 
 trait Config {
 
+  val elasticsearchRole = "media-service-elasticsearch"
+
   val appConfig = Play.current.configuration
 
   def apply(key: String): String =

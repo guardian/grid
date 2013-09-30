@@ -9,13 +9,11 @@ import com.gu.mediaservice.lib.elasticsearch.EC2._
 
 object Config extends Config {
 
-  val role = "media-service-elasticsearch"
-
-  val elasticsearchHost: String =
+ val elasticsearchHost: String =
     if (stage == "DEV")
       string("es.host")
     else
-      findElasticsearchHost(ec2Client, Map("Stage" -> Seq(stage), "Role" -> Seq(role)))
+      findElasticsearchHost(ec2Client, Map("Stage" -> Seq(stage), "Role" -> Seq(elasticsearchRole)))
 
   private lazy val properties: Map[String, String] =
     PropertiesConfig.fromFile("/etc/gu/media-api.conf")

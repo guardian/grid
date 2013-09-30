@@ -7,8 +7,6 @@ import com.amazonaws.services.ec2.AmazonEC2Client
 
 object Config extends Config {
 
-  val role: String = "media-service-thrall"
-
   private lazy val properties: Map[String, String] =
     PropertiesConfig.fromFile("/etc/gu/thrall.properties")
 
@@ -18,7 +16,7 @@ object Config extends Config {
     if (stage == "DEV")
       string("es.host")
     else
-      findElasticsearchHost(ec2Client, Map("Stage" -> Seq(stage), "Role" -> Seq(role)))
+      findElasticsearchHost(ec2Client, Map("Stage" -> Seq(stage), "Role" -> Seq(elasticsearchRole)))
 
   lazy val awsCredentials: AWSCredentials =
     new BasicAWSCredentials(properties("aws.id"), properties("aws.secret"))
