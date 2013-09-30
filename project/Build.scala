@@ -70,6 +70,7 @@ object Build extends Build {
     .settings(libraryDependencies ++=
       elasticsearchDeps ++
       awsDeps ++
+      scalazDeps ++
       Seq("com.drewnoakes" % "metadata-extractor" % "2.6.2")
     )
     .settings(net.virtualvoid.sbt.graph.Plugin.graphSettings: _*)

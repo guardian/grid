@@ -9,6 +9,8 @@ GET     /                           controllers.MediaApi.index
 GET     /image/:id                  controllers.MediaApi.getImage(id: String)
 PUT     /image/:id                  controllers.MediaApi.putImage(id: String)
 
+GET     /images                     controllers.MediaApi.imageSearch
+
 # Index management
 POST    /delete-index               controllers.IndexManagement.deleteIndex
 

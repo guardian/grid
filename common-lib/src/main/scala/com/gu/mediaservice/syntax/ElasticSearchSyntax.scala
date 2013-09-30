@@ -9,6 +9,7 @@ import org.elasticsearch.action.get.GetResponse
 import play.api.libs.json.{JsValue, Json}
 import com.gu.mediaservice.lib.elasticsearch.FutureConversions
 import play.api.Logger
+import org.elasticsearch.search.SearchHit
 
 
 trait ElasticSearchSyntax {
@@ -18,10 +19,10 @@ trait ElasticSearchSyntax {
   }
 
   final implicit class GetResponseSyntax(self: GetResponse) {
-    def sourceOpt: Option[JsValue] = Option(self.getSourceAsBytes) map Json.parse
+    def sourceOpt: Option[JsValue] = Option(self.getSourceAsString) map Json.parse
   }
 
-  implicit class ActionRequestBuilderSyntax[A <: ActionResponse]
+  final implicit class ActionRequestBuilderSyntax[A <: ActionResponse]
       (self: ActionRequestBuilder[_ <: ActionRequest[_ <: AnyRef], A, _]) {
 
     def executeAndLog(message: => String)(implicit ex: ExecutionContext): Future[A] = {
@@ -34,6 +35,10 @@ trait ElasticSearchSyntax {
       future.onFailure { case e => Logger.error(s"$message - query failed after ${elapsed()} ms: ${e.getMessage}") }
       future
     }
+  }
+
+  final implicit class SearchHitSyntax(self: SearchHit) {
+    def sourceOpt: Option[JsValue] = Option(self.getSourceAsString) map Json.parse
   }
 
 }
