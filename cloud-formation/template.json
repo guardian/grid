@@ -130,6 +130,10 @@
             }
         },
 
+        "ImageBucket": {
+            "Type": "AWS::S3::Bucket"
+        },
+
         "ElasticsearchAutoscalingGroup": {
             "Type": "AWS::AutoScaling::AutoScalingGroup",
             "Properties": {
