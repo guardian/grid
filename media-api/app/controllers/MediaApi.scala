@@ -8,8 +8,8 @@ import play.api.Logger
 
 import lib.imaging.ImageMetadata
 import lib.storage.{NullStorage, StorageBackend}
-import com.gu.mediaservice.lib.elasticsearch.ElasticSearchClient
 import lib.elasticsearch.ElasticSearch
+import play.api.libs.json.{JsArray, JsObject}
 
 
 object MediaApi extends MediaApiController {
@@ -28,6 +28,13 @@ abstract class MediaApiController extends Controller {
     ElasticSearch.getImageById(id) map {
       case Some(source) => Ok(source)
       case None         => NotFound
+    }
+  }
+
+  def imageSearch = Action.async { request =>
+    val term = request.getQueryString("q")
+    ElasticSearch.search(term) map { hits =>
+      Ok(JsObject(Seq("hits" -> JsArray(hits))))
     }
   }
 
