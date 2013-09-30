@@ -30,8 +30,8 @@ trait ElasticSearchSyntax {
         () => System.currentTimeMillis - start
       }
       val future = self.execute.asScala
-      future.onSuccess { case _ => Logger.info(s"$message - query returned successfully in $elapsed ms") }
-      future.onFailure { case e => Logger.error(s"$message - query failed after $elapsed ms: ${e.getMessage}") }
+      future.onSuccess { case _ => Logger.info(s"$message - query returned successfully in ${elapsed()} ms") }
+      future.onFailure { case e => Logger.error(s"$message - query failed after ${elapsed()} ms: ${e.getMessage}") }
       future
     }
   }
