@@ -16,7 +16,7 @@ object Config extends Config {
       findElasticsearchHost(ec2Client, Map("Stage" -> Seq(stage), "Role" -> Seq(elasticsearchRole)))
 
   private lazy val properties: Map[String, String] =
-    PropertiesConfig.fromFile("/etc/gu/media-api.conf")
+    PropertiesConfig.fromFile("/etc/gu/media-api.properties")
 
   private lazy val awsCredentials: AWSCredentials =
     new BasicAWSCredentials(properties("aws.id"), properties("aws.secret"))
