@@ -24,7 +24,7 @@ trait Config {
     sys.error(s"Required $type_ configuration property missing: $key")
 
   protected def stageFromFile: Option[String] = {
-    val file = new File("/etc/gu/STAGE")
+    val file = new File("/etc/gu/stage")
     if (file.exists) Some(fromFile(file).mkString.trim) else None
   }
 
