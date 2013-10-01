@@ -13,7 +13,8 @@ object Build extends Build {
       scalaVersion in ThisBuild := "2.10.2",
       organization := "com.gu",
       version      := "0.1",
-      resolvers += "Typesafe Repository" at "http://repo.typesafe.com/typesafe/releases/"
+      resolvers += "Typesafe Repository" at "http://repo.typesafe.com/typesafe/releases/",
+      scalacOptions ++= Seq("-feature", "-deprecation")
     ) ++
     net.virtualvoid.sbt.graph.Plugin.graphSettings
 

@@ -4,7 +4,7 @@ import java.io.FileInputStream
 import scala.collection.JavaConverters._
 
 
-object PropertiesConfig {
+object Properties {
 
   def fromFile(file: String): Map[String, String] = {
     val props = new java.util.Properties

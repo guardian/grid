@@ -4,11 +4,11 @@ import com.amazonaws.services.ec2.AmazonEC2Client
 import com.amazonaws.auth.{BasicAWSCredentials, AWSCredentials}
 import scalaz.syntax.id._
 
-import com.gu.mediaservice.lib.config.{Config, PropertiesConfig}
+import com.gu.mediaservice.lib.config
 import com.gu.mediaservice.lib.elasticsearch.EC2._
 
 
-object Config extends Config {
+object Config extends config.Config {
 
  val elasticsearchHost: String =
     if (stage == "DEV")
@@ -17,7 +17,7 @@ object Config extends Config {
       findElasticsearchHost(ec2Client, Map("Stage" -> Seq(stage), "Role" -> Seq(elasticsearchRole)))
 
  private lazy val properties: Map[String, String] =
-   PropertiesConfig.fromFile("/etc/gu/media-api.properties")
+   config.Properties.fromFile("/etc/gu/media-api.properties")
 
  private lazy val awsCredentials: AWSCredentials =
    new BasicAWSCredentials(properties("aws.id"), properties("aws.secret"))
