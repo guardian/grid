@@ -14,7 +14,6 @@ object SNS {
     new AmazonSNSClient(Config.awsCredentials) <| (_ setEndpoint snsEndpoint)
 
   def publish(message: String, subject: Option[String]) {
-    Logger.info("Publishing message...")
     val result = client.publish(new PublishRequest(Config.topicArn, message, subject.orNull))
     Logger.info(s"Published message: $result")
   }
