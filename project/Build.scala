@@ -12,7 +12,8 @@ object Build extends Build {
     Seq(
       scalaVersion in ThisBuild := "2.10.2",
       organization := "com.gu",
-      version      := "0.1"
+      version      := "0.1",
+      resolvers += "Typesafe Repository" at "http://repo.typesafe.com/typesafe/releases/"
     ) ++
     net.virtualvoid.sbt.graph.Plugin.graphSettings
 
@@ -40,7 +41,7 @@ object Build extends Build {
     play.Project(path, path = file(path))
       .dependsOn(lib)
       .settings(commonSettings ++ playArtifactDistSettings ++ playArtifactSettings: _*)
-      .settings(magentaPackageName := "media-service-" + name, resolvers += playReleases)
+      .settings(magentaPackageName := "media-service-" + name)
 
   def playArtifactSettings = Seq(
     // package config for Magenta and Upstart
