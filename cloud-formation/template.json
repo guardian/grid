@@ -374,7 +374,6 @@
 
                         "chown -R media-service /home/media-service\n",
                         "chgrp -R media-service /home/media-service\n",
-                        "chgrp -R media-service /data\n",
 
                         "cat > /etc/gu/stage <<EOF\n",
                         { "Ref": "Stage" }, "\n",
