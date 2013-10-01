@@ -36,10 +36,6 @@ object Build extends Build {
     }}
   )
 
-  lazy val root = sbt.Project("root", file("."))
-    .settings(commonSettings: _*)
-    .aggregate(mediaApi, imageLoader, devImageLoader, thrall, lib)
-
   val lib = sbt.Project("common-lib", file("common-lib"))
     .settings(commonSettings: _*)
     .settings(libraryDependencies ++= awsDeps ++ elasticsearchDeps ++ playDeps ++ scalazDeps)
