@@ -23,7 +23,7 @@ object DevImageLoader {
   val picdar = new Picdar()
 
   def main(args: Array[String]) {
-    system.scheduler.schedule(0 seconds, 1 minute)(downloadSomeImages())
+    system.scheduler.schedule(0.seconds, 1.minute)(downloadSomeImages())
     indexDownloadedImages()
   }
 

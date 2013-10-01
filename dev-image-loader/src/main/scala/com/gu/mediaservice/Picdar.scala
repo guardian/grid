@@ -58,7 +58,7 @@ class Picdar(implicit ex: ExecutionContext) {
     for {
       response <- postXML(request)
       matches   = (response \ "ResponseData" \ "Match").toList
-    } yield matches map (_ \ "MMRef" text)
+    } yield matches map (m => (m \ "MMRef").text)
   }
 
   def assetDetails(mak: MAK, mmref: MMRef): Future[PicdarImage] = {
@@ -73,7 +73,7 @@ class Picdar(implicit ex: ExecutionContext) {
     for {
       response <- postXML(request)
       item      = response \ "ResponseData" \ "Record"
-      url       = (item \ "VURL").filter(u => (u \ "@type" text) == "original").text
+      url       = (item \ "VURL").filter(u => (u \ "@type").text == "original").text
     } yield PicdarImage(mmref, new URL(url))
   }
 

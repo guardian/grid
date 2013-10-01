@@ -4,14 +4,14 @@ import com.amazonaws.auth.{BasicAWSCredentials, AWSCredentials}
 import com.amazonaws.services.ec2.AmazonEC2Client
 import scalaz.syntax.id._
 
-import com.gu.mediaservice.lib.config.{Config, PropertiesConfig}
+import com.gu.mediaservice.lib.config
 import com.gu.mediaservice.lib.elasticsearch.EC2._
 
 
-object Config extends Config {
+object Config extends config.Config {
 
   private lazy val properties: Map[String, String] =
-    PropertiesConfig.fromFile("/etc/gu/thrall.properties")
+    config.Properties.fromFile("/etc/gu/thrall.properties")
 
   def queueUrl: String = properties("sqs.queue.url")
 

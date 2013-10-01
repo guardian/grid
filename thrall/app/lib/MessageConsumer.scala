@@ -24,7 +24,7 @@ object MessageConsumer {
   implicit val ctx: ExecutionContext = actorSystem.dispatcher
 
   def startSchedule(): Unit =
-    actorSystem.scheduler.schedule(0 seconds, 5 seconds)(processMessages())
+    actorSystem.scheduler.schedule(0.seconds, 5.seconds)(processMessages())
 
   lazy val client =
     new AmazonSQSClient(Config.awsCredentials) <| (_ setEndpoint Config.awsEndpoint)
