@@ -14,7 +14,41 @@ object Build extends Build {
     version      := "0.1"
   )
 
-  val playArtifactSettings = Seq(
+  val lib = Project("common-lib", file("common-lib"))
+    .settings(commonSettings: _*)
+    .settings(libraryDependencies ++= awsDeps ++ elasticsearchDeps ++ playDeps ++ scalazDeps)
+
+  val thrall = playProject("thrall")
+    .settings(magentaPackageName := "media-service-thrall")
+    .settings(libraryDependencies ++= elasticsearchDeps ++ awsDeps ++ scalazDeps)
+
+  val mediaApi = playProject("media-api")
+    .settings(magentaPackageName := "media-service-media-api")
+    .settings(libraryDependencies ++=
+      elasticsearchDeps ++
+      awsDeps ++
+      scalazDeps ++
+      imagingDeps
+    )
+    .settings(net.virtualvoid.sbt.graph.Plugin.graphSettings: _*)
+
+  val imageLoader = playProject("image-loader")
+    .settings(magentaPackageName := "media-service-image-loader")
+    .settings(libraryDependencies ++= awsDeps ++ imagingDeps)
+
+  @deprecated
+  val devImageLoader = Project("dev-image-loader", file("dev-image-loader"))
+    .settings(commonSettings: _*)
+    .settings(libraryDependencies ++= playDeps)
+
+
+  def playProject(path: String): Project =
+    play.Project(path, path = file(path))
+      .dependsOn(lib)
+      .settings(commonSettings: _*)
+      .settings(playArtifactDistSettings ++ playArtifactSettings: _*)
+
+  def playArtifactSettings = Seq(
     // package config for Magenta and Upstart
     playArtifactResources <<= (baseDirectory, name, playArtifactResources) map {
       (base, name, defaults) => defaults ++ Seq(
@@ -35,42 +69,5 @@ object Build extends Build {
       case x => old(x)
     }}
   )
-
-  val lib = sbt.Project("common-lib", file("common-lib"))
-    .settings(commonSettings: _*)
-    .settings(libraryDependencies ++= awsDeps ++ elasticsearchDeps ++ playDeps ++ scalazDeps)
-
-  val thrall = play.Project("thrall", path = file("thrall"))
-    .dependsOn(lib)
-    .settings(commonSettings: _*)
-    .settings(playArtifactDistSettings ++ playArtifactSettings: _*)
-    .settings(magentaPackageName := "media-service-thrall")
-    .settings(libraryDependencies ++= elasticsearchDeps ++ awsDeps)
-    .settings(libraryDependencies ++= scalazDeps)
-
-  val mediaApi = play.Project("media-api", path = file("media-api"))
-    .dependsOn(lib)
-    .settings(commonSettings: _*)
-    .settings(playArtifactDistSettings ++ playArtifactSettings: _*)
-    .settings(magentaPackageName := "media-service-media-api")
-    .settings(libraryDependencies ++=
-      elasticsearchDeps ++
-      awsDeps ++
-      scalazDeps ++
-      imagingDeps
-    )
-    .settings(net.virtualvoid.sbt.graph.Plugin.graphSettings: _*)
-
-  val imageLoader = play.Project("image-loader", path = file("image-loader"))
-    .dependsOn(lib)
-    .settings(commonSettings: _*)
-    .settings(playArtifactDistSettings ++ playArtifactSettings: _*)
-    .settings(magentaPackageName := "media-service-image-loader")
-    .settings(libraryDependencies ++= awsDeps ++ imagingDeps)
-
-  @deprecated
-  val devImageLoader = sbt.Project("dev-image-loader", file("dev-image-loader"))
-    .settings(commonSettings: _*)
-    .settings(libraryDependencies ++= playDeps)
 
 }
