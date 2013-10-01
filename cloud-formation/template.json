@@ -484,7 +484,7 @@
                         "cat > /etc/gu/image-loader.properties<<EOF\n",
                         "aws.id=", { "Ref": "HostKeys" }, "\n",
                         "aws.secret=", { "Fn::GetAtt": [ "HostKeys", "SecretAccessKey" ] }, "\n",
-                        "sns.topic.arn=", { "Fn:GetAtt": [ "Topic", "Arn" ] }, "\n",
+                        "sns.topic.arn=", { "Ref": "Topic" }, "\n",
                         "EOF\n",
 
                         "start image-loader\n"
