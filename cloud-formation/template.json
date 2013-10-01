@@ -374,6 +374,7 @@
 
                         "chown -R media-service /home/media-service\n",
                         "chgrp -R media-service /home/media-service\n",
+                        "chgrp -R media-service /data\n",
 
                         "cat > /etc/gu/stage <<EOF\n",
                         { "Ref": "Stage" }, "\n",
@@ -463,6 +464,9 @@
                         "apt-get -y update\n",
                         "apt-get -y install language-pack-en openjdk-7-jre-headless\n",
 
+                        "mkdir /data\n",
+                        "mount /dev/xvdb /data\n",
+
                         "wget https://s3-eu-west-1.amazonaws.com/media-service-dist/", { "Ref" : "Stage" },
                         "/media-service-image-loader/image-loader.conf",
                         " --directory-prefix=/etc/init\n",
@@ -476,6 +480,8 @@
 
                         "chown -R media-service /home/media-service\n",
                         "chgrp -R media-service /home/media-service\n",
+                        "chown -R media-service /data\n",
+                        "chgrp -R media-service /data\n",
 
                         "cat > /etc/gu/stage <<EOF\n",
                         { "Ref": "Stage" }, "\n",
@@ -485,6 +491,7 @@
                         "aws.id=", { "Ref": "HostKeys" }, "\n",
                         "aws.secret=", { "Fn::GetAtt": [ "HostKeys", "SecretAccessKey" ] }, "\n",
                         "sns.topic.arn=", { "Ref": "Topic" }, "\n",
+                        "upload.tmp.dir=/data\n",
                         "EOF\n",
 
                         "start image-loader\n"
