@@ -8,45 +8,39 @@ import Dependencies._
 
 object Build extends Build {
 
-  val commonSettings = Seq(
-    scalaVersion in ThisBuild := "2.10.2",
-    organization := "com.gu",
-    version      := "0.1"
-  )
+  val commonSettings =
+    Seq(
+      scalaVersion in ThisBuild := "2.10.2",
+      organization := "com.gu",
+      version      := "0.1"
+    ) ++
+    net.virtualvoid.sbt.graph.Plugin.graphSettings
 
-  val lib = Project("common-lib", file("common-lib"))
-    .settings(commonSettings: _*)
-    .settings(libraryDependencies ++= awsDeps ++ elasticsearchDeps ++ playDeps ++ scalazDeps)
+  val lib = project("common-lib")
+    .libraryDependencies(awsDeps ++ elasticsearchDeps ++ playDeps ++ scalazDeps)
 
   val thrall = playProject("thrall")
-    .settings(magentaPackageName := "media-service-thrall")
-    .settings(libraryDependencies ++= elasticsearchDeps ++ awsDeps ++ scalazDeps)
+    .libraryDependencies(elasticsearchDeps ++ awsDeps ++ scalazDeps)
 
   val mediaApi = playProject("media-api")
-    .settings(magentaPackageName := "media-service-media-api")
-    .settings(libraryDependencies ++=
-      elasticsearchDeps ++
-      awsDeps ++
-      scalazDeps ++
-      imagingDeps
-    )
-    .settings(net.virtualvoid.sbt.graph.Plugin.graphSettings: _*)
+    .libraryDependencies(elasticsearchDeps ++ awsDeps ++ scalazDeps ++ imagingDeps)
 
   val imageLoader = playProject("image-loader")
-    .settings(magentaPackageName := "media-service-image-loader")
-    .settings(libraryDependencies ++= awsDeps ++ imagingDeps)
+    .libraryDependencies(awsDeps ++ imagingDeps)
 
   @deprecated
-  val devImageLoader = Project("dev-image-loader", file("dev-image-loader"))
-    .settings(commonSettings: _*)
-    .settings(libraryDependencies ++= playDeps)
+  val devImageLoader = project("dev-image-loader")
+    .libraryDependencies(playDeps)
 
+
+  def project(path: String): Project =
+    Project(path, file(path)).settings(commonSettings: _*)
 
   def playProject(path: String): Project =
     play.Project(path, path = file(path))
       .dependsOn(lib)
-      .settings(commonSettings: _*)
-      .settings(playArtifactDistSettings ++ playArtifactSettings: _*)
+      .settings(commonSettings ++ playArtifactDistSettings ++ playArtifactSettings: _*)
+      .settings(magentaPackageName := "media-service-" + name)
 
   def playArtifactSettings = Seq(
     // package config for Magenta and Upstart

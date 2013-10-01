@@ -1,4 +1,5 @@
 import sbt._
+import sbt.Keys
 
 object Dependencies {
 
@@ -15,5 +16,10 @@ object Dependencies {
   val scalazDeps = Seq("org.scalaz" %% "scalaz-core" % "7.1.0-M3")
 
   val imagingDeps = Seq("com.drewnoakes" % "metadata-extractor" % "2.6.2")
+
+  implicit class DependencySyntax(self: Project) {
+    def libraryDependencies(dependencies: Seq[ModuleID]): Project =
+      self.settings(Keys.libraryDependencies ++= dependencies)
+  }
 
 }
