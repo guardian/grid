@@ -3,28 +3,16 @@ import sbt.Keys._
 import plugins.PlayArtifact._
 import sbtassembly.Plugin.{AssemblyKeys, MergeStrategy}
 import AssemblyKeys._
+import Dependencies._
 
 
 object Build extends Build {
-
-  val playVersion = "2.2.0" // also exists in plugins.sbt, TODO deduplicate this
-  val elasticsearchVersion = "0.90.3"
 
   val commonSettings = Seq(
     scalaVersion in ThisBuild := "2.10.2",
     organization := "com.gu",
     version      := "0.1"
   )
-
-  val playDeps = Seq("com.typesafe.play" %% "play" % playVersion)
-
-  val elasticsearchDeps = Seq("org.elasticsearch" % "elasticsearch" % elasticsearchVersion)
-
-  val awsDeps = Seq("com.amazonaws" % "aws-java-sdk" % "1.5.7")
-
-  val scalazDeps = Seq("org.scalaz" %% "scalaz-core" % "7.1.0-M3")
-
-  val imagingDeps = Seq("com.drewnoakes" % "metadata-extractor" % "2.6.2")
 
   val playArtifactSettings = Seq(
     // package config for Magenta and Upstart
