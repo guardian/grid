@@ -3,11 +3,11 @@ import sbt.Keys
 
 object Dependencies {
 
+  val playReleases = Resolver.url("Play", url("http://download.playframework.org/ivy-releases/"))(Resolver.ivyStylePatterns)
   val playVersion = "2.2.0" // also exists in plugins.sbt, TODO deduplicate this
+  val playDeps = Seq("com.typesafe.play" %% "play" % playVersion)
 
   val elasticsearchVersion = "0.90.3"
-
-  val playDeps = Seq("com.typesafe.play" %% "play" % playVersion)
 
   val elasticsearchDeps = Seq("org.elasticsearch" % "elasticsearch" % elasticsearchVersion)
 
