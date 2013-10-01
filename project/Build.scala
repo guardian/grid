@@ -41,7 +41,7 @@ object Build extends Build {
     play.Project(path, path = file(path))
       .dependsOn(lib)
       .settings(commonSettings ++ playArtifactDistSettings ++ playArtifactSettings: _*)
-      .settings(magentaPackageName := "media-service-" + name)
+      .settings(magentaPackageName := "media-service-" + path)
 
   def playArtifactSettings = Seq(
     // package config for Magenta and Upstart
