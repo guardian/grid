@@ -1,8 +1,9 @@
 package lib
 
-
 import com.amazonaws.services.ec2.AmazonEC2Client
 import com.amazonaws.auth.{BasicAWSCredentials, AWSCredentials}
+import scalaz.syntax.id._
+
 import com.gu.mediaservice.lib.config.{Config, PropertiesConfig}
 import com.gu.mediaservice.lib.elasticsearch.EC2._
 
@@ -15,16 +16,13 @@ object Config extends Config {
     else
       findElasticsearchHost(ec2Client, Map("Stage" -> Seq(stage), "Role" -> Seq(elasticsearchRole)))
 
-  private lazy val properties: Map[String, String] =
-    PropertiesConfig.fromFile("/etc/gu/media-api.properties")
+ private lazy val properties: Map[String, String] =
+   PropertiesConfig.fromFile("/etc/gu/media-api.properties")
 
-  private lazy val awsCredentials: AWSCredentials =
-    new BasicAWSCredentials(properties("aws.id"), properties("aws.secret"))
+ private lazy val awsCredentials: AWSCredentials =
+   new BasicAWSCredentials(properties("aws.id"), properties("aws.secret"))
 
-  private lazy val ec2Client: AmazonEC2Client = {
-    val client = new AmazonEC2Client(awsCredentials)
-    client.setEndpoint("ec2.eu-west-1.amazonaws.com")
-    client
-  }
+ private lazy val ec2Client: AmazonEC2Client =
+   new AmazonEC2Client(awsCredentials) <| (_ setEndpoint awsEndpoint)
 
 }

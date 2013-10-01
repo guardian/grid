@@ -16,6 +16,7 @@ import scalaz.syntax.id._
 import com.gu.mediaservice.lib.json.PlayJsonHelpers._
 import org.elasticsearch.action.index.IndexResponse
 
+
 object MessageConsumer {
 
   val actorSystem = ActorSystem("MessageConsumer")
@@ -25,11 +26,8 @@ object MessageConsumer {
   def startSchedule(): Unit =
     actorSystem.scheduler.schedule(0 seconds, 5 seconds)(processMessages())
 
-  lazy val client = {
-    val client = new AmazonSQSClient(Config.awsCredentials)
-    client.setEndpoint("ec2.eu-west-1.amazonaws.com")
-    client
-  }
+  lazy val client =
+    new AmazonSQSClient(Config.awsCredentials) <| (_ setEndpoint Config.awsEndpoint)
 
   def processMessages(): Unit =
     for (msg <- poll(1)) {

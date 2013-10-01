@@ -1,11 +1,12 @@
 package controllers
 
-
 import play.api.mvc._
 import play.api.Logger
 
 import lib.imaging.ImageMetadata
 import lib.storage.DevNullStorage
+import lib.SNS
+import play.api.libs.json.Json
 
 
 object Application extends Controller {
@@ -23,7 +24,7 @@ object Application extends Controller {
     val uri = storage.store(tempFile.file)
     val image = model.Image(id, uri, meta)
 
-    // TODO send notification
+    SNS.publish(Json.stringify(Json.toJson(image)), Some("image"))
 
     tempFile.clean()
     NoContent
