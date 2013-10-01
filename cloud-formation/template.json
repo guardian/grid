@@ -542,6 +542,10 @@
         "ImageLoaderLoadBalancer": {
             "Description": "Image Loader API load balancer DNS",
             "Value": { "Fn::GetAtt": ["ImageLoaderLoadBalancer", "DNSName"] }
+        },
+        "ImageTopicArn": {
+            "Description": "ARN of the image topic",
+            "Value": { "Ref": "Topic" }
         }
     }
 }
