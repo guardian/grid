@@ -7,6 +7,8 @@ import play.api.Play
 
 trait Config {
 
+  val awsEndpoint = "ec2.eu-west-1.amazonaws.com"
+
   val elasticsearchRole = "media-service-elasticsearch"
 
   val appConfig = Play.current.configuration
