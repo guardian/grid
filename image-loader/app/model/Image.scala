@@ -20,16 +20,16 @@ object Image {
   }
 
   implicit val IptcMetadataWrites: Writes[IptcMetadata] = (
-    (__ \ "description").write[Option[String]] ~
-      (__ \ "byline").write[Option[String]] ~
-      (__ \ "title").write[Option[String]] ~
-      (__ \ "credit").write[Option[String]] ~
-      (__ \ "copyright-notice").write[Option[String]] ~
-      (__ \ "source").write[Option[String]] ~
-      (__ \ "special-instructions").write[Option[String]] ~
+    (__ \ "description").writeNullable[String] ~
+      (__ \ "byline").writeNullable[String] ~
+      (__ \ "title").writeNullable[String] ~
+      (__ \ "credit").writeNullable[String] ~
+      (__ \ "copyright-notice").writeNullable[String] ~
+      (__ \ "source").writeNullable[String] ~
+      (__ \ "special-instructions").writeNullable[String] ~
       (__ \ "keywords").write[List[String]] ~
-      (__ \ "city").write[Option[String]] ~
-      (__ \ "country").write[Option[String]]
+      (__ \ "city").writeNullable[String] ~
+      (__ \ "country").writeNullable[String]
     )(unlift(IptcMetadata.unapply))
 
   implicit val ImageWrites: Writes[Image] = (
