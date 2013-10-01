@@ -7,8 +7,6 @@ GET     /                           controllers.MediaApi.index
 
 # Images
 GET     /image/:id                  controllers.MediaApi.getImage(id: String)
-PUT     /image/:id                  controllers.MediaApi.putImage(id: String)
-
 GET     /images                     controllers.MediaApi.imageSearch
 
 # Index management
