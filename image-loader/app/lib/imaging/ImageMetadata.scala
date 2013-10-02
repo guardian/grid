@@ -13,18 +13,20 @@ object ImageMetadata {
       iptcDir <- Option(readMetadata(image).getDirectory(classOf[IptcDirectory]))
       descriptor = new IptcDescriptor(iptcDir)
     } yield IptcMetadata(
-      Option(descriptor.getCaptionDescription),
-      Option(descriptor.getByLineDescription),
-      Option(descriptor.getHeadlineDescription),
-      Option(descriptor.getCreditDescription),
-      Option(descriptor.getCopyrightNoticeDescription),
-      Option(descriptor.getSourceDescription),
-      Option(descriptor.getSpecialInstructionsDescription),
-      Option(descriptor.getKeywordsDescription) map (_.split(Array(';', ',')).toList) getOrElse Nil,
-      Option(descriptor.getCityDescription),
-      Option(descriptor.getCountryOrPrimaryLocationDescription)
+      nonEmptyTrimmed(descriptor.getCaptionDescription),
+      nonEmptyTrimmed(descriptor.getByLineDescription),
+      nonEmptyTrimmed(descriptor.getHeadlineDescription),
+      nonEmptyTrimmed(descriptor.getCreditDescription),
+      nonEmptyTrimmed(descriptor.getCopyrightNoticeDescription),
+      nonEmptyTrimmed(descriptor.getSourceDescription),
+      nonEmptyTrimmed(descriptor.getSpecialInstructionsDescription),
+      nonEmptyTrimmed(descriptor.getKeywordsDescription) map (_.split(Array(';', ',')).toList) getOrElse Nil,
+      nonEmptyTrimmed(descriptor.getCityDescription),
+      nonEmptyTrimmed(descriptor.getCountryOrPrimaryLocationDescription)
     )
 
+  private def nonEmptyTrimmed(nullableStr: String): Option[String] =
+    Option(nullableStr) map (_.trim) filter (_.nonEmpty)
 }
 
 case class IptcMetadata(
