@@ -25,7 +25,7 @@ object Build extends Build {
     .libraryDependencies(elasticsearchDeps ++ awsDeps ++ scalazDeps)
 
   val mediaApi = playProject("media-api")
-    .libraryDependencies(elasticsearchDeps ++ awsDeps ++ scalazDeps ++ imagingDeps)
+    .libraryDependencies(elasticsearchDeps ++ awsDeps ++ scalazDeps)
 
   val imageLoader = playProject("image-loader")
     .libraryDependencies(awsDeps ++ imagingDeps)
