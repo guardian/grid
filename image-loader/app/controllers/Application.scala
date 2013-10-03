@@ -2,12 +2,14 @@ package controllers
 
 import java.io.File
 import play.api.mvc._
+import play.api.libs.concurrent.Execution.Implicits._
+import play.api.libs.json.Json
+import play.api.Logger
 
 import lib.imaging.ImageMetadata
+import lib.play.BodyParsers.digestedFile
 import lib.storage.DevNullStorage
 import lib.{Config, SNS}
-
-import play.api.libs.json.Json
 
 
 object Application extends Controller {
@@ -18,8 +20,9 @@ object Application extends Controller {
     Ok("This is the Image Loader API.\r\n")
   }
 
-  def putImage(id: String) = Action(parse.file(createTempFile)) { request =>
-    val tempFile = request.body
+  def putImage(id: String) = Action(digestedFile(createTempFile)) { request =>
+    val tempFile = request.body.file
+    Logger.info(s"Received file, md5: ${request.body.digestAsBase32}")
 
     val meta = ImageMetadata.iptc(tempFile)
     val uri = storage.store(tempFile)
