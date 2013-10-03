@@ -5,8 +5,7 @@ import java.io.{IOException, InputStream}
 import org.apache.commons.net.ftp.{FTP, FTPClient}
 import java.security.{DigestInputStream, MessageDigest}
 import org.slf4j.LoggerFactory
-import org.apache.commons.net.util.Base64
-import org.apache.commons.codec.binary.{Hex, Base32}
+import org.apache.commons.codec.binary.Base32
 
 
 class FTPWatcher(path: String, batchSize: Int, emptyWait: Int = 1000) {
