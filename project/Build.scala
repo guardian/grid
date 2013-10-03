@@ -30,6 +30,9 @@ object Build extends Build {
   val imageLoader = playProject("image-loader")
     .libraryDependencies(awsDeps ++ imagingDeps)
 
+  val ftpWatcher = playProject("ftp-watcher")
+    .libraryDependencies(commonsNetDeps)
+
   @deprecated
   val devImageLoader = project("dev-image-loader")
     .libraryDependencies(playDeps)
