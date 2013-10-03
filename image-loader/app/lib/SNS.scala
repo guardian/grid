@@ -1,9 +1,10 @@
 package lib
 
+import _root_.play.api.Logger
 import com.amazonaws.services.sns.{AmazonSNS, AmazonSNSClient}
 import com.amazonaws.services.sns.model.PublishRequest
 import scalaz.syntax.id._
-import play.api.Logger
+
 
 
 object SNS {
