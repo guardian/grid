@@ -17,6 +17,8 @@ object Dependencies {
 
   val imagingDeps = Seq("com.drewnoakes" % "metadata-extractor" % "2.6.2")
 
+  val commonsNetDeps = Seq("commons-net" % "commons-net" % "3.3")
+
   implicit class DependencySyntax(self: Project) {
     def libraryDependencies(dependencies: Seq[ModuleID]): Project =
       self.settings(Keys.libraryDependencies ++= dependencies)
