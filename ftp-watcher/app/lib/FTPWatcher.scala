@@ -89,6 +89,6 @@ object FTPWatcher {
   }
 
   def base32(bytes: Array[Byte]): String =
-    (new Base32).encodeAsString(bytes).toLowerCase.reverse.dropWhile(_ == '=').reverse.mkString
+    (new Base32).encodeAsString(bytes).toLowerCase.reverse.dropWhile(_ == '=').reverse
 
 }
