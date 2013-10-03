@@ -6,7 +6,6 @@ import com.amazonaws.services.sns.model.PublishRequest
 import scalaz.syntax.id._
 
 
-
 object SNS {
 
   val snsEndpoint = "sns.eu-west-1.amazonaws.com"
