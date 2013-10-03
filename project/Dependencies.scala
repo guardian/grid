@@ -20,8 +20,12 @@ object Dependencies {
   val commonsNetDeps = Seq("commons-net" % "commons-net" % "3.3")
 
   implicit class DependencySyntax(self: Project) {
+
     def libraryDependencies(dependencies: Seq[ModuleID]): Project =
       self.settings(Keys.libraryDependencies ++= dependencies)
+
+    def testDependencies(dependencies: Seq[ModuleID]): Project =
+      self.settings(Keys.libraryDependencies ++= dependencies map (_.copy(configurations = Some("test"))))
   }
 
 }
