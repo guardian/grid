@@ -5,6 +5,8 @@ import java.io.{IOException, InputStream}
 import org.apache.commons.net.ftp.{FTP, FTPClient}
 import java.security.{DigestInputStream, MessageDigest}
 import org.slf4j.LoggerFactory
+import org.apache.commons.net.util.Base64
+import org.apache.commons.codec.binary.{Hex, Base32}
 
 
 class FTPWatcher(path: String, batchSize: Int, emptyWait: Int = 1000) {
@@ -44,8 +46,6 @@ class FTPWatcher(path: String, batchSize: Int, emptyWait: Int = 1000) {
           val filename = file.getName
           log.info(s"Retrieving file: $filename")
           val stream = client.retrieveFileStream(filename)
-          //val digest = md5(stream, callback(filename))
-          //log.info(s"Read file: $digest")
           callback(filename)(stream)
           stream.close()
           log.info(s"Deleting file: $filename")
@@ -60,6 +60,28 @@ class FTPWatcher(path: String, batchSize: Int, emptyWait: Int = 1000) {
     }
   }
 
+}
+
+object FTPWatcher {
+
+  import java.nio.file.Files
+
+  def main(args: Array[String]) {
+    def path = args.headOption.getOrElse(sys.error("Path not supplied"))
+    val watcher = new FTPWatcher(path, 8)
+    val destinationDir = Files.createTempDirectory("ftp-downloads")
+
+    def saveFile(filename: String)(is: java.io.InputStream) {
+      val tempFile = destinationDir.resolve(filename)
+      val digest = base32(md5(is, Files.copy(_, tempFile)))
+      println(s"Saved file to $tempFile")
+      val finalDest = destinationDir.resolve(digest)
+      Files.move(tempFile, finalDest)
+      println(s"Moved $tempFile to $finalDest")
+    }
+    watcher.run(saveFile)
+  }
+
   def md5(stream: InputStream, callback: InputStream => Unit): Array[Byte] = {
     val md = MessageDigest.getInstance("MD5")
     val input = new DigestInputStream(stream, md)
@@ -67,18 +89,7 @@ class FTPWatcher(path: String, batchSize: Int, emptyWait: Int = 1000) {
     md.digest
   }
 
-}
+  def base32(bytes: Array[Byte]): String =
+    (new Base32).encodeAsString(bytes).toLowerCase.reverse.dropWhile(_ == '=').reverse.mkString
 
-object FTPWatcher {
-  def main(args: Array[String]) {
-    def path = args.headOption.getOrElse(sys.error("Path not supplied"))
-    val watcher = new FTPWatcher(path, 8)
-    val destinationDir = java.nio.file.Files.createTempDirectory("ftp-downloads")
-    def saveFile(filename: String)(is: java.io.InputStream) {
-      val destinationFile = destinationDir.resolve(filename)
-      java.nio.file.Files.copy(is, destinationFile)
-      println(s"Saved file to $destinationFile")
-    }
-    watcher.run(saveFile)
-  }
 }
