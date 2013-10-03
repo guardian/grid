@@ -19,6 +19,8 @@ object Dependencies {
 
   val commonsNetDeps = Seq("commons-net" % "commons-net" % "3.3")
 
+  val scalaTestDeps = Seq("org.scalatest" %% "scalatest" % "2.0.RC1")
+
   implicit class DependencySyntax(self: Project) {
 
     def libraryDependencies(dependencies: Seq[ModuleID]): Project =
