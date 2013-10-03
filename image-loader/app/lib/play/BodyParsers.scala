@@ -20,7 +20,7 @@ object BodyParsers {
     BodyParser("digested file, to=" + to) { request =>
       Iteratee.fold[Array[Byte], (MessageDigest, FileOutputStream)]((MessageDigest.getInstance("MD5"), new FileOutputStream(to))) {
         case ((md, os), data) =>
-          md.digest(data)
+          md.update(data)
           os.write(data)
           (md, os)
       }.map { case (md, os) =>
