@@ -1,4 +1,6 @@
 #!/bin/bash
 
-java -XX:+CMSClassUnloadingEnabled -Xmx2g -XX:MaxPermSize=350m -XX:+UseCompressedOops -Dsbt.log.noformat=true -jar sbt-launch.jar "$@" < /dev/null
+export JDK_HOME=/usr/lib/jvm/java-1.7.0
+
+/usr/lib/jvm/java-1.7.0/bin/java -XX:+CMSClassUnloadingEnabled -Xmx2g -XX:MaxPermSize=350m -XX:+UseCompressedOops -Dsbt.log.noformat=true -jar sbt-launch.jar "$@" < /dev/null
 
