@@ -34,6 +34,7 @@ object Build extends Build {
     .libraryDependencies(commonsNetDeps)
 
   val integration = project("integration")
+    .dependsOn(lib)
     .testDependencies(scalaTestDeps ++ playDeps)
 
   @deprecated
