@@ -10,7 +10,7 @@
         "Stage": {
             "Description": "Environment name",
             "Type": "String",
-            "AllowedValues": ["CODE", "PROD"],
+            "AllowedValues": ["CODE", "TEST", "PROD"],
             "Default": "PROD"
         }
     },
