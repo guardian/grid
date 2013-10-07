@@ -5,4 +5,3 @@ assumes a CloudFormation stack exists with the name "media-service-TEST", and th
 
  * "MediaApiLoadBalancer": Media API load balancer DNS
  * "ImageLoaderLoadBalancer": Image Loader API load balancer DNS
- 
