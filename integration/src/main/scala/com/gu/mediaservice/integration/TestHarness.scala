@@ -2,9 +2,10 @@ package com.gu.mediaservice.integration
 
 import java.io.File
 import java.util.concurrent.Executors
-import scala.concurrent.duration.Duration
+import scala.concurrent.duration._
 import scala.concurrent._
 import scala.util.Success
+import scala.language.higherKinds
 
 import org.slf4j.LoggerFactory
 import play.api.libs.ws.{WS, Response}
@@ -14,9 +15,9 @@ import scalaz.syntax.bind._
 
 trait TestHarness {
 
-  def config: Config
-
   lazy val log = LoggerFactory.getLogger("IntegrationTest")
+
+  lazy val config = Discovery.discoverConfig("media-service-TEST") getOrElse sys.error("Could not find stack")
 
   implicit val ctx: ExecutionContext =
     ExecutionContext.fromExecutor(Executors.newSingleThreadExecutor)
@@ -38,7 +39,7 @@ trait TestHarness {
     WS.url(config.deleteIndexEndpoint.toExternalForm).post()
   }
 
-  def retrying[A](desc: String, attempts: Int = 10, sleep: Duration)(future: => Future[A]): Future[A] = {
+  def retrying[A](desc: String, attempts: Int = 10, sleep: Duration = 3.seconds)(future: => Future[A]): Future[A] = {
     def iter(n: Int, f: => Future[A]): Future[A] =
       if (n <= 0) Future.failed(new RuntimeException(s"Failed after $attempts attempts"))
       else f.orElse {

@@ -10,13 +10,11 @@ import play.api.libs.json.JsString
 
 class IntegrationTest extends FlatSpec with TestHarness {
 
-  lazy val config = Discovery.discoverConfig("media-service-TEST") getOrElse sys.error("Could not find stack")
-
   "An image posted to the loader" should "become visible in the Media API" in {
     await(15.seconds) {
 
       loadImage("honeybee", resourceAsFile("/images/honeybee.jpg")) >>
-      retrying("get image", 5, 3.seconds)(getImage("honeybee")) >>
+      retrying("get image")(getImage("honeybee")) >>
       deleteIndex
 
     }
@@ -26,7 +24,7 @@ class IntegrationTest extends FlatSpec with TestHarness {
 
     val response = await(15.seconds) {
       loadImage("gallery", resourceAsFile("/images/gallery.jpg")) >>
-      retrying("get image", 5, 3.seconds)(getImage("gallery")) <<
+      retrying("get image")(getImage("gallery")) <<
       deleteIndex
     }
     val metadata = response.json \ "metadata"
