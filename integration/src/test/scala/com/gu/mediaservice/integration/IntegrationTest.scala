@@ -2,12 +2,16 @@ package com.gu.mediaservice
 package integration
 
 import java.io.File
-import scala.concurrent.{ExecutionContext, Promise, Future, Await}
+import java.util.concurrent.Executors
+import scala.concurrent._
 import scala.concurrent.duration._
+import scala.util.Success
+
 import org.scalatest.FlatSpec
 import play.api.libs.ws.{Response, WS}
-import scala.util.Success
-import java.util.concurrent.Executors
+import scalaz.syntax.bind._
+import scalaz.Monad
+import play.api.http.{ContentTypeOf, Writeable}
 
 
 class IntegrationTest extends FlatSpec {
@@ -17,14 +21,13 @@ class IntegrationTest extends FlatSpec {
 
   "An image posted to the loader" should "become visible in the Media API" in {
 
-    Await.result(
+    await(30.seconds) {
 
-      loadImage("honeybee", resourceAsFile("/images/honeybee.jpg")).flatMap(_ =>
-        retrying(5, 2000)(getImage("honeybee"))
-      ),
+      loadImage("honeybee", resourceAsFile("/images/honeybee.jpg")) >>
+      retrying("get image", 5, 3.seconds)(getImage("honeybee")) >>
+      deleteIndex
 
-      10.seconds
-    )
+    }
 
   }
 
@@ -40,17 +43,17 @@ class IntegrationTest extends FlatSpec {
   def resourceAsFile(path: String): File =
     new File(getClass.getResource(path).toURI)
 
+  def deleteIndex: Future[Response] =
+    WS.url(Config.deleteIndexEndpoint.toExternalForm).post()
 
-  def retrying[A](attempts: Int, sleep: Int)(future: => Future[A]): Future[A] = {
+  def retrying[A](desc: String, attempts: Int = 10, sleep: Duration)(future: => Future[A]): Future[A] = {
     def iter(n: Int, f: => Future[A]): Future[A] =
-      f.orElse {
-        if (n <= 0) Future.failed(new RuntimeException(s"Failed after $attempts attempts"))
-        else iter(n-1, {
-          println(s"Retrying in $sleep ms...")
-          Thread.sleep(sleep)
-          f
-        })
-      }
+      if (n <= 0) Future.failed(new RuntimeException(s"Failed after $attempts attempts"))
+      else f.orElse {
+          println(s"""Retrying "$desc" in $sleep""")
+          Thread.sleep(sleep.toMillis)
+          iter(n-1, f)
+        }
     iter(attempts, future)
   }
 
@@ -65,5 +68,16 @@ class IntegrationTest extends FlatSpec {
       p.future
     }
   }
+
+  def await[A](timeout: Duration)(a: Awaitable[A]): A =
+    Await.result(a, timeout)
+
+  implicit val futureInstance: Monad[Future] = new Monad[Future] {
+    def point[A](a: => A) = Future.successful(a)
+    def bind[A, B](fa: Future[A])(f: (A) => Future[B]) = fa flatMap f
+  }
+
+  implicit val unitWriteable: Writeable[Unit] = Writeable(_ => Array(), None)
+  implicit val unitContentType: ContentTypeOf[Unit] = ContentTypeOf(None)
 
 }

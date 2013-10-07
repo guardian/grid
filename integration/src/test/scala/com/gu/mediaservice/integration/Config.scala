@@ -16,4 +16,6 @@ object Config {
 
   def imageEndpoint(id: String): URL = new URL(mediaApi, "image/" + encode(id, "UTF-8"))
 
+  val deleteIndexEndpoint: URL = new URL(mediaApi, "delete-index")
+
 }
