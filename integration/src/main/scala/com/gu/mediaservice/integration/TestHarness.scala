@@ -7,10 +7,10 @@ import scala.concurrent._
 import scala.util.Success
 
 import org.slf4j.LoggerFactory
-import play.api.libs.ws.WS
+import play.api.libs.ws.{WS, Response}
 import play.api.http.{ContentTypeOf, Writeable}
-import scalaz.Monad
-import play.api.libs.ws.Response
+import scalaz.{Bind, Monad}
+import scalaz.syntax.bind._
 
 trait TestHarness {
 
@@ -59,6 +59,10 @@ trait TestHarness {
       }
       p.future
     }
+  }
+
+  implicit class BindSyntax[F[_]: Bind, A](self: F[A]) {
+    def << [B](fb: => F[B]): F[A] = self >>= (a => fb >| a)
   }
 
   def await[A](timeout: Duration)(a: Awaitable[A]): A =

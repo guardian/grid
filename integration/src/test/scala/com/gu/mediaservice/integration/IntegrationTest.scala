@@ -26,7 +26,7 @@ class IntegrationTest extends FlatSpec with TestHarness {
 
     val response = await(15.seconds) {
       loadImage("gallery", resourceAsFile("/images/gallery.jpg")) >>
-      retrying("get image", 5, 3.seconds)(getImage("gallery")) <*
+      retrying("get image", 5, 3.seconds)(getImage("gallery")) <<
       deleteIndex
     }
     val metadata = response.json \ "metadata"
