@@ -35,7 +35,8 @@ object Build extends Build {
 
   val integration = project("integration")
     .dependsOn(lib)
-    .testDependencies(scalaTestDeps ++ playDeps ++ scalazDeps)
+    .libraryDependencies(awsDeps ++ scalazDeps)
+    .testDependencies(scalaTestDeps ++ playDeps)
 
   @deprecated
   val devImageLoader = project("dev-image-loader")

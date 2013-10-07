@@ -16,6 +16,8 @@ import play.api.http.{ContentTypeOf, Writeable}
 
 class IntegrationTest extends FlatSpec {
 
+  lazy val config = Discovery.discoverConfig("media-service-TEST") getOrElse sys.error("Could not find stack")
+
   implicit val ctx: ExecutionContext =
     ExecutionContext.fromExecutor(Executors.newSingleThreadExecutor)
 
@@ -32,19 +34,19 @@ class IntegrationTest extends FlatSpec {
   }
 
   def loadImage(id: String, file: File): Future[Response] =
-    WS.url(Config.imageLoadEndpoint(id).toExternalForm)
+    WS.url(config.imageLoadEndpoint(id).toExternalForm)
       .withHeaders("Content-Type" -> "image/jpeg")
       .put(file)
       .filter(_.status == 204)
 
   def getImage(id: String): Future[Response] =
-    WS.url(Config.imageEndpoint(id).toExternalForm).get.filter(_.status == 200)
+    WS.url(config.imageEndpoint(id).toExternalForm).get.filter(_.status == 200)
 
   def resourceAsFile(path: String): File =
     new File(getClass.getResource(path).toURI)
 
   def deleteIndex: Future[Response] =
-    WS.url(Config.deleteIndexEndpoint.toExternalForm).post()
+    WS.url(config.deleteIndexEndpoint.toExternalForm).post()
 
   def retrying[A](desc: String, attempts: Int = 10, sleep: Duration)(future: => Future[A]): Future[A] = {
     def iter(n: Int, f: => Future[A]): Future[A] =
