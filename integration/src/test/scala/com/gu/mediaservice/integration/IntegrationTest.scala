@@ -12,9 +12,12 @@ import play.api.libs.ws.{Response, WS}
 import scalaz.syntax.bind._
 import scalaz.Monad
 import play.api.http.{ContentTypeOf, Writeable}
+import org.slf4j.LoggerFactory
 
 
 class IntegrationTest extends FlatSpec {
+
+  private val log = LoggerFactory.getLogger("IntegrationTest")
 
   lazy val config = Discovery.discoverConfig("media-service-TEST") getOrElse sys.error("Could not find stack")
 
@@ -45,14 +48,16 @@ class IntegrationTest extends FlatSpec {
   def resourceAsFile(path: String): File =
     new File(getClass.getResource(path).toURI)
 
-  def deleteIndex: Future[Response] =
+  def deleteIndex: Future[Response] = {
+    log.info("Deleting index to clean up")
     WS.url(config.deleteIndexEndpoint.toExternalForm).post()
+  }
 
   def retrying[A](desc: String, attempts: Int = 10, sleep: Duration)(future: => Future[A]): Future[A] = {
     def iter(n: Int, f: => Future[A]): Future[A] =
       if (n <= 0) Future.failed(new RuntimeException(s"Failed after $attempts attempts"))
       else f.orElse {
-          println(s"""Retrying "$desc" in $sleep""")
+          log.warn(s"""Retrying "$desc" in $sleep""")
           Thread.sleep(sleep.toMillis)
           iter(n-1, f)
         }
