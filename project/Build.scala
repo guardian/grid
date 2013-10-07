@@ -14,7 +14,7 @@ object Build extends Build {
       organization := "com.gu",
       version      := "0.1",
       resolvers += "Typesafe Repository" at "http://repo.typesafe.com/typesafe/releases/",
-      scalacOptions ++= Seq("-feature", "-deprecation")
+      scalacOptions ++= Seq("-feature", "-deprecation", "-language:higherKinds", "-Xfatal-warnings")
     ) ++
     net.virtualvoid.sbt.graph.Plugin.graphSettings
 

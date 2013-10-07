@@ -5,7 +5,6 @@ import java.util.concurrent.Executors
 import scala.concurrent.duration._
 import scala.concurrent._
 import scala.util.Success
-import scala.language.higherKinds
 
 import org.slf4j.LoggerFactory
 import play.api.libs.ws.{WS, Response}
