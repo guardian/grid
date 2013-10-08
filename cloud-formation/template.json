@@ -490,6 +490,7 @@
                         "aws.id=", { "Ref": "HostKeys" }, "\n",
                         "aws.secret=", { "Fn::GetAtt": [ "HostKeys", "SecretAccessKey" ] }, "\n",
                         "sns.topic.arn=", { "Ref": "Topic" }, "\n",
+                        "s3.bucket=", { "Ref": "Bucket" }, "\n",
                         "upload.tmp.dir=/data\n",
                         "EOF\n",
 
@@ -536,6 +537,12 @@
                     ]
                 },
                 "Queues": [ { "Ref": "Queue" } ]
+            }
+        },
+
+        "Bucket": {
+            "Type": "AWS::S3::Bucket",
+            "Properties": {
             }
         }
 

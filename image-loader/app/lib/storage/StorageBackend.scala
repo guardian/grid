@@ -10,6 +10,6 @@ trait StorageBackend {
   /** Store a copy of the given file and return the URI of that copy.
     * The file can safely be deleted afterwards.
     */
-  def store(file: File): URI
+  def store(id: String, file: File): URI
 
 }

@@ -14,6 +14,8 @@ object Config extends config.Config {
 
   lazy val topicArn: String = properties("sns.topic.arn")
 
+  lazy val s3Bucket: String = properties("s3.bucket")
+
   lazy val tempUploadDir = properties.getOrElse("upload.tmp.dir", "/tmp")
 
 }
