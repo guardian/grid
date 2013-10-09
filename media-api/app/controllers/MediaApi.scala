@@ -2,10 +2,11 @@ package controllers
 
 import play.api.mvc._
 import play.api.libs.concurrent.Execution.Implicits._
+import play.api.libs.json._
 
 import lib.elasticsearch.ElasticSearch
-import play.api.libs.json.{JsArray, JsObject}
-
+import lib.{Config, S3}
+import org.joda.time.DateTime
 
 object MediaApi extends Controller {
 
@@ -15,7 +16,7 @@ object MediaApi extends Controller {
 
   def getImage(id: String) = Action.async {
     ElasticSearch.getImageById(id) map {
-      case Some(source) => Ok(source)
+      case Some(source) => Ok(imageResponse(id, source))
       case None         => NotFound
     }
   }
@@ -26,5 +27,14 @@ object MediaApi extends Controller {
       Ok(JsObject(Seq("hits" -> JsArray(hits))))
     }
   }
+
+  def imageResponse(id: String, source: JsValue): JsValue = {
+    val expiration = DateTime.now.plusMinutes(15)
+    val secureUrl = S3.signUrl(Config.s3Bucket, id, expiration)
+    source.transform(addSecureUrl(secureUrl)).get
+  }
+
+  def addSecureUrl(url: String): Reads[JsObject] =
+    (__ \ "secureUrl").json.put(JsString(url))
 
 }
