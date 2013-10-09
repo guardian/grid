@@ -10,7 +10,8 @@ import org.slf4j.LoggerFactory
 import play.api.libs.ws.{WS, Response}
 import play.api.http.{ContentTypeOf, Writeable}
 import scalaz.{Bind, Monad}
-import scalaz.syntax.bind._
+import scalaz.syntax.bind._, scalaz.syntax.id._
+
 
 trait TestHarness {
 
@@ -24,14 +25,16 @@ trait TestHarness {
   def loadImage(id: String, file: File): Future[Response] =
     WS.url(config.imageLoadEndpoint(id).toExternalForm)
       .withHeaders("Content-Type" -> "image/jpeg")
-      .put(file)
-      .flatMap { response =>
-        if (response.status != 204) Future.failed(new RuntimeException(response.statusText))
-        else Future.successful(response)
-      }
+      .put(file) |> expectStatus(204)
 
   def getImage(id: String): Future[Response] =
-    WS.url(config.imageEndpoint(id).toExternalForm).get
+    WS.url(config.imageEndpoint(id).toExternalForm).get |> expectStatus(200)
+
+  def expectStatus(status: Int)(f: Future[Response]): Future[Response] =
+    f.flatMap { response =>
+      if (response.status != status) Future.failed(new RuntimeException(response.statusText))
+      else Future.successful(response)
+    }
 
   def resourceAsFile(path: String): File =
     new File(getClass.getResource(path).toURI)
