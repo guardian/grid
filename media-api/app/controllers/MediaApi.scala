@@ -35,6 +35,6 @@ object MediaApi extends Controller {
   }
 
   def addSecureUrl(url: String): Reads[JsObject] =
-    (__ \ "secureUrl").json.put(JsString(url))
+    __.json.update(__.read[JsObject].map(_ ++ Json.obj("secureUrl" -> url)))
 
 }
