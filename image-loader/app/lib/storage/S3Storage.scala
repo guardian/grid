@@ -9,7 +9,7 @@ import lib.Config
 
 object S3Storage extends StorageBackend {
 
-  val s3Endpoint = "s3.eu-west-1.amazonaws.com"
+  val s3Endpoint = "s3.amazonaws.com"
 
   lazy val client: AmazonS3 =
     new AmazonS3Client(Config.awsCredentials) <| (_ setEndpoint s3Endpoint)
