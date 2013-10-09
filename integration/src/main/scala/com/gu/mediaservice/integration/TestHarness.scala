@@ -25,10 +25,13 @@ trait TestHarness {
     WS.url(config.imageLoadEndpoint(id).toExternalForm)
       .withHeaders("Content-Type" -> "image/jpeg")
       .put(file)
-      .filter(_.status == 204)
+      .flatMap { response =>
+        if (response.status != 204) Future.failed(new RuntimeException(response.statusText))
+        else Future.successful(response)
+      }
 
   def getImage(id: String): Future[Response] =
-    WS.url(config.imageEndpoint(id).toExternalForm).get.filter(_.status == 200)
+    WS.url(config.imageEndpoint(id).toExternalForm).get
 
   def resourceAsFile(path: String): File =
     new File(getClass.getResource(path).toURI)
@@ -38,7 +41,7 @@ trait TestHarness {
     WS.url(config.deleteIndexEndpoint.toExternalForm).post()
   }
 
-  def retrying[A](desc: String, attempts: Int = 10, sleep: Duration = 3.seconds)(future: => Future[A]): Future[A] = {
+  def retrying[A](desc: String, attempts: Int = 5, sleep: Duration = 3.seconds)(future: => Future[A]): Future[A] = {
     def iter(n: Int, f: => Future[A]): Future[A] =
       if (n <= 0) Future.failed(new RuntimeException(s"Failed after $attempts attempts"))
       else f.orElse {
