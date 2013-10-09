@@ -10,12 +10,13 @@ import lib.Config
 object S3Storage extends StorageBackend {
 
   val s3Endpoint = "s3.amazonaws.com"
+  val bucketUrl = s"${Config.s3Bucket}.$s3Endpoint"
 
   lazy val client: AmazonS3 =
     new AmazonS3Client(Config.awsCredentials) <| (_ setEndpoint s3Endpoint)
 
   def store(id: String, file: File): URI = {
     client.putObject(Config.s3Bucket, id, file)
-    new URL("http", Config.s3Bucket + ".s3.amazonaws.com", id).toURI
+    new URL("http", bucketUrl, s"/$id").toURI
   }
 }
