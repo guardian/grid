@@ -1,15 +1,30 @@
 package com.gu.mediaservice
 package integration
 
-import org.scalatest.FunSpec
+import org.scalatest.{BeforeAndAfterAll, FunSpec}
 import play.api.libs.json.JsString
 
+import ImageFixture._
 
-class IntegrationTest extends FunSpec with TestHarness {
+class ImageLoaderSpec extends FunSpec with TestHarness with BeforeAndAfterAll {
 
-  val imageId = "honeybee.jpg"
+  override def afterAll() {
+    deleteIndex
+  }
 
-  describe("An image posted to the loader") {
+  val images = Seq(
+    fixture("honeybee.jpg", "credit" -> "AFP/Getty Images", "byline" -> "THOMAS KIENZLE"),
+    fixture("gallery.jpg", "credit" -> "AFP/Getty Images", "byline" -> "GERARD JULIEN")
+  )
+
+  for (image <- images) {
+    describe (s"An image submitted to the loader (${image.id})") {
+      it should behave like imageLoaderBehaviour(image)
+    }
+  }
+
+  def imageLoaderBehaviour(image: ImageFixture) {
+    val ImageFixture(imageId, metadata) = image
 
     val loaderResponse = loadImage(imageId, resourceAsFile(s"/images/$imageId"))
     assert(loaderResponse.status == 204)
@@ -25,15 +40,18 @@ class IntegrationTest extends FunSpec with TestHarness {
 
     it ("should contain IPTC metadata") {
 
-      val metadata = getImage(imageId).json \ "metadata"
+      val responseMeta = getImage(imageId).json \ "metadata"
 
-      assert(metadata \ "credit" == JsString("AFP/Getty Images"))
-      assert(metadata \ "byline" == JsString("THOMAS KIENZLE"))
+      for ((key, value) <- metadata)
+        assert(responseMeta \ key == JsString(value))
 
     }
-
-    deleteIndex
-
   }
+}
 
+
+case class ImageFixture(id: String, metadata: Seq[(String, String)])
+
+object ImageFixture {
+  def fixture(id: String, metadata: (String, String)*) = ImageFixture(id, metadata)
 }

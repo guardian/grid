@@ -13,7 +13,7 @@ import play.api.http.{ContentTypeOf, Writeable}
 
 trait TestHarness {
 
-  lazy val log = LoggerFactory.getLogger("IntegrationTest")
+  lazy val log = LoggerFactory.getLogger(getClass)
 
   lazy val config = Discovery.discoverConfig("media-service-TEST") getOrElse sys.error("Could not find stack")
 
@@ -40,7 +40,7 @@ trait TestHarness {
 
   def retrying[A](desc: String, attempts: Int = 5, sleep: Duration = 3.seconds)(f: => A): A = {
     def iter(n: Int, f: => Try[A]): Try[A] =
-      if (n <= 0) Failure(sys.error("$desc failed after $attempts attempts"))
+      if (n <= 0) Failure(sys.error(s"$desc failed after $attempts attempts"))
       else f.orElse {
         log.warn(s"""Retrying "$desc" in $sleep""")
         Thread.sleep(sleep.toMillis)
