@@ -133,6 +133,24 @@
         "ImageBucket": {
             "Type": "AWS::S3::Bucket"
         },
+        "BucketPolicy": {
+            "Type": "AWS::S3::BucketPolicy",
+            "Properties": {
+                "PolicyDocument": {
+                    "Id": "MyPolicy",
+                    "Statement": [ {
+                        "Sid": "ImageBucketWriteAccess",
+                        "Action": [ "s3:PutObject" ],
+                        "Effect": "Allow",
+                        "Resource": { "Fn::Join": [ "",
+                            [ "arn:aws:s3:::", { "Ref": "ImageBucket" } , "/*" ] ]
+                        },
+                        "Principal": { "AWS": { "Fn::GetAtt": [ "User", "Arn" ] } }
+                    } ]
+                },
+                "Bucket": { "Ref": "ImageBucket" }
+            }
+        },
 
         "ElasticsearchAutoscalingGroup": {
             "Type": "AWS::AutoScaling::AutoScalingGroup",
@@ -490,7 +508,7 @@
                         "aws.id=", { "Ref": "HostKeys" }, "\n",
                         "aws.secret=", { "Fn::GetAtt": [ "HostKeys", "SecretAccessKey" ] }, "\n",
                         "sns.topic.arn=", { "Ref": "Topic" }, "\n",
-                        "s3.bucket=", { "Ref": "Bucket" }, "\n",
+                        "s3.bucket=", { "Ref": "ImageBucket" }, "\n",
                         "upload.tmp.dir=/data\n",
                         "EOF\n",
 
@@ -537,12 +555,6 @@
                     ]
                 },
                 "Queues": [ { "Ref": "Queue" } ]
-            }
-        },
-
-        "Bucket": {
-            "Type": "AWS::S3::Bucket",
-            "Properties": {
             }
         }
 
