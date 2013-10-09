@@ -3,18 +3,11 @@ package controllers
 import play.api.mvc._
 import play.api.libs.concurrent.Execution.Implicits._
 
-import lib.storage.{NullStorage, StorageBackend}
 import lib.elasticsearch.ElasticSearch
 import play.api.libs.json.{JsArray, JsObject}
 
 
-object MediaApi extends MediaApiController {
-  val storage = NullStorage
-}
-
-abstract class MediaApiController extends Controller {
-
-  def storage: StorageBackend
+object MediaApi extends Controller {
 
   def index = Action {
     Ok("This is the Media API.\r\n")
