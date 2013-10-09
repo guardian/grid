@@ -4,13 +4,11 @@ import java.io.File
 import java.util.concurrent.Executors
 import scala.concurrent.duration._
 import scala.concurrent._
-import scala.util.Success
+import scala.util.{Failure, Try}
 
 import org.slf4j.LoggerFactory
 import play.api.libs.ws.{WS, Response}
 import play.api.http.{ContentTypeOf, Writeable}
-import scalaz.{Bind, Monad}
-import scalaz.syntax.bind._, scalaz.syntax.id._
 
 
 trait TestHarness {
@@ -22,19 +20,15 @@ trait TestHarness {
   implicit val ctx: ExecutionContext =
     ExecutionContext.fromExecutor(Executors.newSingleThreadExecutor)
 
-  def loadImage(id: String, file: File): Future[Response] =
+  def loadImage(id: String, file: File): Response = await() {
     WS.url(config.imageLoadEndpoint(id).toExternalForm)
       .withHeaders("Content-Type" -> "image/jpeg")
-      .put(file) |> expectStatus(204)
+      .put(file)
+  }
 
-  def getImage(id: String): Future[Response] =
-    WS.url(config.imageEndpoint(id).toExternalForm).get |> expectStatus(200)
-
-  def expectStatus(status: Int)(f: Future[Response]): Future[Response] =
-    f.flatMap { response =>
-      if (response.status != status) Future.failed(new RuntimeException(response.statusText))
-      else Future.successful(response)
-    }
+  def getImage(id: String): Response = await() {
+    WS.url(config.imageEndpoint(id).toExternalForm).get
+  }
 
   def resourceAsFile(path: String): File =
     new File(getClass.getResource(path).toURI)
@@ -44,40 +38,19 @@ trait TestHarness {
     WS.url(config.deleteIndexEndpoint.toExternalForm).post()
   }
 
-  def retrying[A](desc: String, attempts: Int = 5, sleep: Duration = 3.seconds)(future: => Future[A]): Future[A] = {
-    def iter(n: Int, f: => Future[A]): Future[A] =
-      if (n <= 0) Future.failed(new RuntimeException(s"Failed after $attempts attempts"))
+  def retrying[A](desc: String, attempts: Int = 5, sleep: Duration = 3.seconds)(f: => A): A = {
+    def iter(n: Int, f: => Try[A]): Try[A] =
+      if (n <= 0) Failure(sys.error("$desc failed after $attempts attempts"))
       else f.orElse {
         log.warn(s"""Retrying "$desc" in $sleep""")
         Thread.sleep(sleep.toMillis)
         iter(n-1, f)
       }
-    iter(attempts, future)
+    iter(attempts, Try(f)).get
   }
 
-  implicit class FutureSyntax[A](self: Future[A]) {
-    /** Non-strict version of Future#fallbackTo */
-    def orElse(that: => Future[A]): Future[A] = {
-      val p = Promise[A]()
-      self.onComplete {
-        case s @ Success(_) => p complete s
-        case _ => p completeWith that
-      }
-      p.future
-    }
-  }
-
-  implicit class BindSyntax[F[_]: Bind, A](self: F[A]) {
-    def << [B](fb: => F[B]): F[A] = self >>= (a => fb >| a)
-  }
-
-  def await[A](timeout: Duration)(a: Awaitable[A]): A =
+  def await[A](timeout: Duration = 15.seconds)(a: Awaitable[A]): A =
     Await.result(a, timeout)
-
-  implicit val futureInstance: Monad[Future] = new Monad[Future] {
-    def point[A](a: => A) = Future.successful(a)
-    def bind[A, B](fa: Future[A])(f: (A) => Future[B]) = fa flatMap f
-  }
 
   implicit val unitWriteable: Writeable[Unit] = Writeable(_ => Array(), None)
   implicit val unitContentType: ContentTypeOf[Unit] = ContentTypeOf(None)

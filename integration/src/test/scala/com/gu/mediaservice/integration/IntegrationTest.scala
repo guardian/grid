@@ -1,36 +1,38 @@
 package com.gu.mediaservice
 package integration
 
-import scala.concurrent.duration._
-
-import org.scalatest.FlatSpec
-import scalaz.syntax.bind._
+import org.scalatest.FunSpec
 import play.api.libs.json.JsString
 
 
-class IntegrationTest extends FlatSpec with TestHarness {
+class IntegrationTest extends FunSpec with TestHarness {
 
-  "An image posted to the loader" should "become visible in the Media API" in {
-    await(15.seconds) {
+  val imageId = "honeybee.jpg"
 
-      loadImage("honeybee", resourceAsFile("/images/honeybee.jpg")) >>
-      retrying("get image")(getImage("honeybee")) >>
-      deleteIndex
+  describe("An image posted to the loader") {
+
+    val loaderResponse = loadImage(imageId, resourceAsFile(s"/images/$imageId"))
+    assert(loaderResponse.status == 204)
+
+    it ("should become visible in the Media API") {
+
+      retrying("get image") {
+        val mediaApiResponse = getImage(imageId)
+        assert(mediaApiResponse.status == 200)
+      }
 
     }
-  }
 
-  it should "retain IPTC metadata when retrieved from the Media API" in {
+    it ("should contain IPTC metadata") {
 
-    val response = await(15.seconds) {
-      loadImage("gallery", resourceAsFile("/images/gallery.jpg")) >>
-      retrying("get image")(getImage("gallery")) <<
-      deleteIndex
+      val metadata = getImage(imageId).json \ "metadata"
+
+      assert(metadata \ "credit" == JsString("AFP/Getty Images"))
+      assert(metadata \ "byline" == JsString("THOMAS KIENZLE"))
+
     }
-    val metadata = response.json \ "metadata"
 
-    assert(metadata \ "credit" == JsString("AFP/Getty Images"))
-    assert(metadata \ "byline" == JsString("GERARD JULIEN"))
+    deleteIndex
 
   }
 
