@@ -13,7 +13,7 @@ case class MD5DigestedFile(file: File, digestBase32: String)
 
 object MD5DigestedFile {
   def apply(file: File, digest: Array[Byte]): MD5DigestedFile =
-    MD5DigestedFile(file, (new Base32).encodeAsString(digest.toArray))
+    MD5DigestedFile(file, (new Base32).encodeAsString(digest.toArray).stripSuffix("=" * 6).toLowerCase)
 }
 
 object BodyParsers {
