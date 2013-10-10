@@ -8,7 +8,8 @@ import play.api.Logger
 
 import lib.imaging.ImageMetadata
 import lib.play.BodyParsers.digestedFile
-import lib.storage.{S3Storage, DevNullStorage}
+import lib.play.MD5DigestedFile
+import lib.storage.S3Storage
 import lib.{Config, SNS}
 
 
@@ -17,12 +18,12 @@ object Application extends Controller {
   val storage = S3Storage
 
   def index = Action {
-    Ok("This is the Image Loader API.\r\n")
+    Ok("This is the Image Loader API.\n")
   }
 
-  def putImage(id: String) = Action(digestedFile(createTempFile)) { request =>
-    val tempFile = request.body.file
-    Logger.info(s"Received file, md5: ${request.body.digestAsBase32}")
+  def loadImage = Action(digestedFile(createTempFile)) { request =>
+    val MD5DigestedFile(tempFile, id) = request.body
+    Logger.info(s"Received file, id: $id")
 
     val meta = ImageMetadata.iptc(tempFile)
     val uri = storage.store(id, tempFile)
@@ -31,7 +32,8 @@ object Application extends Controller {
     SNS.publish(Json.stringify(Json.toJson(image)), Some("image"))
 
     tempFile.delete()
-    NoContent
+
+    Accepted(Json.obj("id" -> id))
   }
 
   def createTempFile = File.createTempFile("requestBody", "", new File(Config.tempUploadDir))

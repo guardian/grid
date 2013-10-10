@@ -25,10 +25,18 @@ class ImageLoaderSpec extends FunSpec with TestHarness with BeforeAndAfterAll {
   }
 
   def imageLoaderBehaviour(image: ImageFixture) {
-    val ImageFixture(imageId, metadata) = image
 
-    val loaderResponse = loadImage(imageId, resourceAsFile(s"/images/$imageId"))
-    assert(loaderResponse.status == 204)
+    val ImageFixture(filename, metadata) = image
+
+    lazy val loaderResponse = loadImage(resourceAsFile(s"/images/$filename"))
+    lazy val imageId = (loaderResponse.json \ "id").as[String]
+
+    it ("should be assigned an identifier") {
+
+      assert(loaderResponse.status == 202)
+      imageId
+
+    }
 
     it ("should become visible in the Media API") {
 

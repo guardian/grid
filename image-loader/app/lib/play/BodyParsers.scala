@@ -9,9 +9,11 @@ import play.api.libs.iteratee.Iteratee
 import play.api.mvc.BodyParser
 
 
-case class MD5DigestedFile(file: File, digest: Vector[Byte]) {
-  def digestAsHex: String = new String((new Hex).encode(digest.toArray))
-  def digestAsBase32: String = (new Base32).encodeAsString(digest.toArray)
+case class MD5DigestedFile(file: File, digestBase32: String)
+
+object MD5DigestedFile {
+  def apply(file: File, digest: Array[Byte]): MD5DigestedFile =
+    MD5DigestedFile(file, (new Base32).encodeAsString(digest.toArray))
 }
 
 object BodyParsers {
@@ -25,7 +27,7 @@ object BodyParsers {
           (md, os)
       }.map { case (md, os) =>
         os.close()
-        Right(MD5DigestedFile(to, md.digest.toVector))
+        Right(MD5DigestedFile(to, md.digest))
       }
     }
 
