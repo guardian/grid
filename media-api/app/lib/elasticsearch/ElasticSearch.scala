@@ -18,13 +18,15 @@ object ElasticSearch extends ElasticSearchClient {
   val port = Config.int("es.port")
   val cluster = Config("es.cluster")
 
-  def getImageById(id: String)(implicit ex: ExecutionContext): Future[Option[JsValue]] =
+  type Id = String
+
+  def getImageById(id: Id)(implicit ex: ExecutionContext): Future[Option[JsValue]] =
     client.prepareGet(imagesIndex, imageType, id).execute.asScala map (_.sourceOpt)
 
-  def search(q: Option[String])(implicit ex: ExecutionContext): Future[Seq[JsValue]] = {
+  def search(q: Option[Id])(implicit ex: ExecutionContext): Future[Seq[(Id, JsValue)]] = {
     val query = q filter (_.nonEmpty) map (matchQuery("metadata.description", _)) getOrElse matchAllQuery
     for (res <- prepareImagesSearch.unsafeTap(_ setQuery query).executeAndLog("Image search query"))
-    yield res.getHits.hits.toList flatMap (_.sourceOpt)
+    yield res.getHits.hits.toList flatMap (h => h.sourceOpt map (h.id -> _))
   }
 
   private def prepareImagesSearch: SearchRequestBuilder =

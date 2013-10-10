@@ -4,9 +4,10 @@ import play.api.mvc._
 import play.api.libs.concurrent.Execution.Implicits._
 import play.api.libs.json._
 
+import org.joda.time.DateTime
+import scalaz.syntax.std.function2._
 import lib.elasticsearch.ElasticSearch
 import lib.{Config, S3}
-import org.joda.time.DateTime
 
 object MediaApi extends Controller {
 
@@ -24,7 +25,8 @@ object MediaApi extends Controller {
   def imageSearch = Action.async { request =>
     val term = request.getQueryString("q")
     ElasticSearch.search(term) map { hits =>
-      Ok(JsObject(Seq("hits" -> JsArray(hits))))
+      val images = hits map (imageResponse _).tupled
+      Ok(JsObject(Seq("hits" -> JsArray(images))))
     }
   }
 
