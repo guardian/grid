@@ -20,22 +20,22 @@ trait TestHarness {
   implicit val ctx: ExecutionContext =
     ExecutionContext.fromExecutor(Executors.newSingleThreadExecutor)
 
-  def loadImage(id: String, file: File): Response = await() {
-    WS.url(config.imageLoadEndpoint(id).toExternalForm)
+  def loadImage(file: File): Response = await() {
+    WS.url(config.imageLoadEndpoint)
       .withHeaders("Content-Type" -> "image/jpeg")
-      .put(file)
+      .post(file)
   }
 
   def getImage(id: String): Response = await() {
-    WS.url(config.imageEndpoint(id).toExternalForm).get
+    WS.url(config.imageEndpoint(id)).get
   }
 
   def resourceAsFile(path: String): File =
     new File(getClass.getResource(path).toURI)
 
-  def deleteIndex: Future[Response] = {
+  def deleteIndex: Response = await() {
     log.info("Deleting index to clean up")
-    WS.url(config.deleteIndexEndpoint.toExternalForm).post()
+    WS.url(config.deleteIndexEndpoint).post()
   }
 
   def retrying[A](desc: String, attempts: Int = 5, sleep: Duration = 3.seconds)(f: => A): A = {
