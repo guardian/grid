@@ -11,6 +11,7 @@ import lib.play.BodyParsers.digestedFile
 import lib.play.MD5DigestedFile
 import lib.storage.S3Storage
 import lib.{Config, SNS}
+import model.Image
 
 
 object Application extends Controller {
@@ -27,7 +28,7 @@ object Application extends Controller {
 
     val meta = ImageMetadata.iptc(tempFile)
     val uri = storage.store(id, tempFile)
-    val image = model.Image(id, uri, meta)
+    val image = Image.uploadedNow(id, uri, meta)
 
     SNS.publish(Json.stringify(Json.toJson(image)), Some("image"))
 

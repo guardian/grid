@@ -3,10 +3,13 @@ package model
 import java.net.URI
 import play.api.libs.json._
 import play.api.libs.functional.syntax._
+import org.joda.time.DateTime
+
+import com.gu.mediaservice.lib.formatting._
 import lib.imaging.IptcMetadata
 
 
-case class Image(id: String, file: URI, metadata: Option[IptcMetadata]) {
+case class Image(id: String, file: URI, uploadTime: DateTime, metadata: Option[IptcMetadata]) {
 
   def asJsValue: JsValue = Json.toJson(this)
 
@@ -14,6 +17,9 @@ case class Image(id: String, file: URI, metadata: Option[IptcMetadata]) {
 }
 
 object Image {
+
+  def uploadedNow(id: String, file: URI, metadata: Option[IptcMetadata]): Image =
+    Image(id, file, DateTime.now, metadata)
 
   private implicit val URIWrites: Writes[URI] = new Writes[URI] {
     def writes(o: URI) = JsString(o.toString)
@@ -35,6 +41,7 @@ object Image {
   implicit val ImageWrites: Writes[Image] = (
     (__ \ "id").write[String] ~
       (__ \ "file").write[URI] ~
+      (__ \ "upload-time").write[String].contramap(printDateTime) ~
       (__ \ "metadata").write[Option[IptcMetadata]]
     )(unlift(Image.unapply))
 
