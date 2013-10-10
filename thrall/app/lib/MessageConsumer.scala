@@ -30,7 +30,7 @@ object MessageConsumer {
     new AmazonSQSClient(Config.awsCredentials) <| (_ setEndpoint Config.awsEndpoint)
 
   def processMessages(): Unit =
-    for (msg <- poll(1)) {
+    for (msg <- poll(10)) {
       Logger.info("Processing message...")
       indexImage(msg) |> deleteOnSuccess(msg)
     }
@@ -39,7 +39,8 @@ object MessageConsumer {
     f.onSuccess { case _ => deleteMessage(msg) }
 
   def poll(max: Int): Seq[SQSMessage] =
-    client.receiveMessage(new ReceiveMessageRequest(Config.queueUrl)).getMessages.asScala.toList
+    client.receiveMessage(new ReceiveMessageRequest(Config.queueUrl).withMaxNumberOfMessages(max))
+      .getMessages.asScala.toList
 
   /* The java Future used by the Async SQS client is useless,
      so we just hide the synchronous call in a scala Future. */
