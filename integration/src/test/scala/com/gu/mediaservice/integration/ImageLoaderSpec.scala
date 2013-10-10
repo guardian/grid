@@ -3,6 +3,7 @@ package integration
 
 import org.scalatest.{BeforeAndAfterAll, FunSpec}
 import play.api.libs.json.JsString
+import play.api.libs.ws.WS
 
 import ImageFixture._
 
@@ -44,6 +45,16 @@ class ImageLoaderSpec extends FunSpec with TestHarness with BeforeAndAfterAll {
 
       for ((key, value) <- metadata)
         assert(responseMeta \ key == JsString(value))
+
+    }
+
+    it ("should have a usable URL for the image") {
+
+      val url = (getImage(imageId).json \ "secureUrl").as[String]
+
+      val imageResponse = await()(WS.url(url).get)
+
+      assert(imageResponse.status == 200)
 
     }
   }
