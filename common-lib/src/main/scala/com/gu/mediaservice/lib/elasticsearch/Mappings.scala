@@ -8,7 +8,7 @@ object Mappings {
 
   val stemmedString = Json.obj("type" -> "string", "analyzer" -> "snowball")
 
-  val dateFormat = Json.obj("type" -> "basic_date_time_no_millis")
+  val dateFormat = Json.obj("type" -> "date")
 
   val metadataMapping = Json.obj(
     "properties" -> Json.obj(
@@ -29,8 +29,6 @@ object Mappings {
     Json.stringify(Json.obj(
       "image" -> Json.obj(
         "properties" -> Json.obj(
-          "imagePath" -> nonAnalyzedString,
-          "thumbPath" -> nonAnalyzedString,
           "metadata" -> metadataMapping,
           "upload-time" -> dateFormat,
           "buckets" -> Json.obj("type" -> "string", "index" -> "not_analyzed", "index_name" -> "bucket")
