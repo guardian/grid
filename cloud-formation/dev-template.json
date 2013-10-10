@@ -1,0 +1,122 @@
+{
+    "AWSTemplateFormatVersion": "2010-09-09",
+    "Description": "Media Service Dev",
+    "Resources": {
+        "Group": {
+            "Type": "AWS::IAM::Group",
+            "Properties": {
+                "Policies": [{
+                    "PolicyName": "Group-Policy",
+                    "PolicyDocument": {
+                        "Version": "2012-10-17",
+                        "Statement": [
+                            {
+                                "Effect": "Allow",
+                                "Action": "ec2:DescribeInstances",
+                                "Resource": "*"
+                            },
+                            {
+                                "Effect": "Allow",
+                                "Action": ["sqs:DeleteMessage", "sqs:ReceiveMessage"],
+                                "Resource": [ { "Fn::GetAtt": ["Queue", "Arn"] } ]
+                            },
+                            {
+                                "Effect": "Allow",
+                                "Action": ["sns:Publish"],
+                                "Resource": { "Ref": "Topic" }
+                            }
+                        ]
+                    }
+                }]
+            }
+        },
+        "User": {
+            "Type": "AWS::IAM::User",
+            "Properties": {
+                "Path": "/",
+                "Groups": [ { "Ref": "Group" } ]
+            }
+        },
+        "HostKeys": {
+            "Type": "AWS::IAM::AccessKey",
+            "Properties": {
+                "UserName": { "Ref": "User" }
+            }
+        },
+        "ImageBucket": {
+            "Type": "AWS::S3::Bucket"
+        },
+        "BucketPolicy": {
+            "Type": "AWS::S3::BucketPolicy",
+            "Properties": {
+                "PolicyDocument": {
+                    "Id": "MyPolicy",
+                    "Statement": [ {
+                        "Sid": "ImageBucketWriteAccess",
+                        "Action": [ "s3:PutObject", "s3:GetObject" ],
+                        "Effect": "Allow",
+                        "Resource": { "Fn::Join": [ "",
+                            [ "arn:aws:s3:::", { "Ref": "ImageBucket" } , "/*" ] ]
+                        },
+                        "Principal": { "AWS": { "Fn::GetAtt": [ "User", "Arn" ] } }
+                    } ]
+                },
+                "Bucket": { "Ref": "ImageBucket" }
+            }
+        },
+        "Topic": {
+            "Type": "AWS::SNS::Topic",
+            "Properties": {
+                "Subscription": [
+                    {
+                        "Endpoint": { "Fn::GetAtt": [ "Queue", "Arn" ] },
+                        "Protocol": "sqs"
+                    }
+                ]
+            }
+        },
+        "Queue": {
+            "Type": "AWS::SQS::Queue",
+            "Properties": {
+            }
+        },
+        "QueuePolicy": {
+            "Type": "AWS::SQS::QueuePolicy",
+            "Properties": {
+                "PolicyDocument": {
+                    "Id": "MyQueuePolicy",
+                    "Statement": [
+                        {
+                            "Sid": "Allow-SendMessage-To-Queue-From-Topic",
+                            "Effect": "Allow",
+                            "Principal": { "AWS": "*" },
+                            "Action": ["sqs:SendMessage"],
+                            "Resource": "*",
+                            "Condition": {
+                                "ArnEquals": { "aws:SourceArn": { "Ref": "Topic" } }
+                            }
+                        }
+                    ]
+                },
+                "Queues": [ { "Ref": "Queue" } ]
+            }
+        }
+    },
+    "Outputs": {
+        "AwsId": {
+            "Value": { "Ref": "HostKeys" }
+        },
+        "AwsSecret": {
+            "Value": { "Fn::GetAtt": [ "HostKeys", "SecretAccessKey" ] }
+        },
+        "ImageBucket": {
+            "Value": { "Ref": "ImageBucket" }
+        },
+        "SnsTopicArn": {
+            "Value": { "Ref": "Topic" }
+        },
+        "SqsQueueUrl": {
+            "Value": { "Ref" : "Queue" }
+        }
+    }
+}
