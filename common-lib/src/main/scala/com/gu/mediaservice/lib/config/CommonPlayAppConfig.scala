@@ -5,7 +5,7 @@ import scala.io.Source._
 import play.api.Play
 
 
-trait Config {
+trait CommonPlayAppConfig {
 
   val awsEndpoint = "ec2.eu-west-1.amazonaws.com"
 
