@@ -14,9 +14,9 @@ import org.elasticsearch.search.sort.SortOrder
 
 object ElasticSearch extends ElasticSearchClient {
 
-  val host = Config.elasticsearchHost
-  val port = Config.int("es.port")
-  val cluster = Config("es.cluster")
+  lazy val host = Config.elasticsearchHost
+  lazy val port = Config.int("es.port")
+  lazy val cluster = Config("es.cluster")
 
   type Id = String
 
