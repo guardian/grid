@@ -1,6 +1,7 @@
 package controllers
 
 import play.api.mvc.{Action, Controller}
+import lib.FTPWatcher
 
 
 object Application extends Controller {
@@ -10,7 +11,8 @@ object Application extends Controller {
   }
 
   def healthCheck = Action {
-    Ok("OK")
+    if (FTPWatcher.watcher.isCompleted) ServiceUnavailable
+    else Ok("OK")
   }
 
 }
