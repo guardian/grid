@@ -6,7 +6,7 @@ import org.joda.time.format.ISODateTimeFormat
 
 package object formatting {
 
-  private val dateTimeFormat = ISODateTimeFormat.dateTimeNoMillis
+  private val dateTimeFormat = ISODateTimeFormat.dateTimeNoMillis.withZoneUTC
 
   def printDateTime(date: DateTime): String = dateTimeFormat.print(date)
 
