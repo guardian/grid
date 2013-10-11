@@ -9,14 +9,14 @@ import play.api.Logger
 import lib.imaging.ImageMetadata
 import lib.play.BodyParsers.digestedFile
 import lib.play.MD5DigestedFile
-import lib.storage.S3Storage
+import lib.storage.{StorageBackend, S3Storage}
 import lib.{Config, SNS}
 import model.Image
 
 
-object Application extends Controller {
+object Application extends ImageLoader(S3Storage)
 
-  val storage = S3Storage
+class ImageLoader(storage: StorageBackend) extends Controller {
 
   def index = Action {
     Ok("This is the Image Loader API.\n")
