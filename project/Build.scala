@@ -32,7 +32,7 @@ object Build extends Build {
     .libraryDependencies(awsDeps ++ imagingDeps)
 
   val ftpWatcher = playProject("ftp-watcher")
-    .libraryDependencies(playDeps ++ commonsNetDeps)
+    .libraryDependencies(commonsNetDeps)
 
   val integration = project("integration")
     .dependsOn(lib)

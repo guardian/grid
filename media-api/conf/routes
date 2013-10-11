@@ -7,6 +7,8 @@ GET     /                           controllers.MediaApi.index
 
 # Images
 GET     /image/:id                  controllers.MediaApi.getImage(id: String)
+DELETE  /image/:id                  controllers.MediaApi.deleteImage(id: String)
+
 GET     /images                     controllers.MediaApi.imageSearch
 
 # Index management

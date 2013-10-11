@@ -323,6 +323,7 @@
                         "cat > /etc/gu/media-api.properties<<EOF\n",
                         "aws.id=", { "Ref": "HostKeys" }, "\n",
                         "aws.secret=", { "Fn::GetAtt": [ "HostKeys", "SecretAccessKey" ] }, "\n",
+                        "sns.topic.arn=", { "Ref": "Topic" }, "\n",
                         "s3.bucket=", { "Ref": "ImageBucket" }, "\n",
                         "EOF\n",
 

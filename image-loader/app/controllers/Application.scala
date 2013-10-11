@@ -10,7 +10,7 @@ import lib.imaging.ImageMetadata
 import lib.play.BodyParsers.digestedFile
 import lib.play.MD5DigestedFile
 import lib.storage.{StorageBackend, S3Storage}
-import lib.{Config, SNS}
+import lib.{Config, Notifications}
 import model.Image
 
 
@@ -30,7 +30,7 @@ class ImageLoader(storage: StorageBackend) extends Controller {
     val uri = storage.store(id, tempFile)
     val image = Image.uploadedNow(id, uri, meta)
 
-    SNS.publish(Json.stringify(Json.toJson(image)), Some("image"))
+    Notifications.publish(Json.toJson(image), "image")
 
     tempFile.delete()
 
