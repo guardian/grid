@@ -1,30 +1,33 @@
 package lib
 
 import scala.annotation.tailrec
+import scala.concurrent.Future
 import java.io.{IOException, InputStream}
-import org.apache.commons.net.ftp.{FTP, FTPClient}
+import java.nio.file.{Files, Path}
 import java.security.{DigestInputStream, MessageDigest}
+
+import org.apache.commons.net.ftp.{FTP, FTPClient}
 import org.slf4j.LoggerFactory
 import org.apache.commons.codec.binary.Base32
+import play.api.libs.ws.WS
+import play.api.libs.concurrent.Execution.Implicits._
 
 
-class FTPWatcher(path: String, batchSize: Int, emptyWait: Int = 1000) {
+class FTPWatcher(path: String, batchSize: Int, withFile: (String, InputStream) => Unit, emptyWait: Int = 1000) {
 
-  private val log = LoggerFactory.getLogger("FTPWatcher")
+  import FTPWatcher.log
 
   @tailrec
-  final def run(callback: String => InputStream => Unit) {
-    try {
-      run_(callback)
-    }
+  final def run() {
+    try run_(withFile)
     catch {
       case e: IOException => log.error("FTP client caused IOException", e)
     }
     log.info("Restarting in 3s...")
-    run(callback)
+    run()
   }
 
-  private def run_(callback: String => InputStream => Unit) {
+  private def run_(withFile: (String, InputStream) => Unit) {
     val client = new FTPClient
 
     try {
@@ -45,7 +48,7 @@ class FTPWatcher(path: String, batchSize: Int, emptyWait: Int = 1000) {
           val filename = file.getName
           log.info(s"Retrieving file: $filename")
           val stream = client.retrieveFileStream(filename)
-          callback(filename)(stream)
+          withFile(filename, stream)
           stream.close()
           log.info(s"Deleting file: $filename")
           client.deleteFile(filename)
@@ -63,22 +66,22 @@ class FTPWatcher(path: String, batchSize: Int, emptyWait: Int = 1000) {
 
 object FTPWatcher {
 
-  import java.nio.file.Files
+  lazy val watcher: Future[Unit] = Future { main(Array("getty")) }
+
+  protected val log = LoggerFactory.getLogger("FTPWatcher")
 
   def main(args: Array[String]) {
     def path = args.headOption.getOrElse(sys.error("Path not supplied"))
-    val watcher = new FTPWatcher(path, 8)
-    val destinationDir = Files.createTempDirectory("ftp-downloads")
+    val destination = Files.createTempDirectory("ftp-downloads")
+    val watcher = new FTPWatcher(path, 8, loadFile(destination))
+    watcher.run()
+  }
 
-    def saveFile(filename: String)(is: java.io.InputStream) {
-      val tempFile = destinationDir.resolve(filename)
-      val digest = base32(md5(is, Files.copy(_, tempFile)))
-      println(s"Saved file to $tempFile")
-      val finalDest = destinationDir.resolve(digest)
-      Files.move(tempFile, finalDest)
-      println(s"Moved $tempFile to $finalDest")
-    }
-    watcher.run(saveFile)
+  def loadFile(destination: Path)(filename: String, is: InputStream) {
+    val tempFile = destination.resolve(filename)
+    val digest = base32(md5(is, Files.copy(_, tempFile)))
+    log.info(s"Saved file to $tempFile, md5: $digest")
+    WS.url(Config.imageLoaderUri).post(tempFile.toFile)
   }
 
   def md5(stream: InputStream, callback: InputStream => Unit): Array[Byte] = {

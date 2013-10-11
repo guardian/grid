@@ -1,5 +1,6 @@
 target
 logs
 dist
+data
 .idea*
 .history
