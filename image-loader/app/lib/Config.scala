@@ -1,13 +1,10 @@
 package lib
 
 import com.amazonaws.auth.{BasicAWSCredentials, AWSCredentials}
-import com.gu.mediaservice.lib.config
+import com.gu.mediaservice.lib.config.PropertiesConfig
 
 
-object Config extends config.Config {
-
-  private lazy val properties: Map[String, String] =
-    config.Properties.fromFile("/etc/gu/image-loader.properties")
+object Config extends PropertiesConfig("image-loader") {
 
   lazy val awsCredentials: AWSCredentials =
     new BasicAWSCredentials(properties("aws.id"), properties("aws.secret"))

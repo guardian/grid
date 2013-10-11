@@ -4,14 +4,11 @@ import com.amazonaws.auth.{BasicAWSCredentials, AWSCredentials}
 import com.amazonaws.services.ec2.AmazonEC2Client
 import scalaz.syntax.id._
 
-import com.gu.mediaservice.lib.config
 import com.gu.mediaservice.lib.elasticsearch.EC2._
+import com.gu.mediaservice.lib.config.{CommonPlayAppConfig, PropertiesConfig}
 
 
-object Config extends config.Config {
-
-  private lazy val properties: Map[String, String] =
-    config.Properties.fromFile("/etc/gu/thrall.properties")
+object Config extends PropertiesConfig("thrall") with CommonPlayAppConfig {
 
   def queueUrl: String = properties("sqs.queue.url")
 
@@ -26,6 +23,5 @@ object Config extends config.Config {
 
   private lazy val ec2Client: AmazonEC2Client =
     new AmazonEC2Client(awsCredentials) <| (_ setEndpoint awsEndpoint)
-
 
 }
