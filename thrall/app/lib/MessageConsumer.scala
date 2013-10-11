@@ -15,6 +15,7 @@ import scalaz.syntax.id._
 
 import com.gu.mediaservice.lib.json.PlayJsonHelpers._
 import org.elasticsearch.action.index.IndexResponse
+import org.elasticsearch.action.delete.DeleteResponse
 
 
 object MessageConsumer {
@@ -32,36 +33,40 @@ object MessageConsumer {
   def processMessages(): Unit =
     for (msg <- poll(10)) {
       Logger.info("Processing message...")
-      indexImage(msg) |> deleteOnSuccess(msg)
+      val message = extractSNSMessage(msg) getOrElse sys.error("Invalid message structure (not via SNS?)")
+      val future = message.subject match {
+        case Some("image")        => indexImage(message.body)
+        case Some("delete-image") => deleteImage(message.body)
+        case s                    => sys.error(s"Unrecognised message subject $s")
+      }
+      future |> deleteOnSuccess(msg)
     }
 
-  def deleteOnSuccess(msg: SQSMessage)(f: Future[IndexResponse]): Unit =
+  def deleteOnSuccess(msg: SQSMessage)(f: Future[Any]): Unit =
     f.onSuccess { case _ => deleteMessage(msg) }
 
   def poll(max: Int): Seq[SQSMessage] =
     client.receiveMessage(new ReceiveMessageRequest(Config.queueUrl).withMaxNumberOfMessages(max))
       .getMessages.asScala.toList
 
-  /* The java Future used by the Async SQS client is useless,
-     so we just hide the synchronous call in a scala Future. */
-  def pollFuture(max: Int): Future[Seq[SQSMessage]] =
-    Future(poll(max))
-
   def extractSNSMessage(sqsMessage: SQSMessage): Option[SNSMessage] =
     Json.fromJson[SNSMessage](Json.parse(sqsMessage.getBody)) <| logParseErrors |> (_.asOpt)
 
-  private def indexImage(sqsMessage: SQSMessage): Future[IndexResponse] = {
-    val message = extractSNSMessage(sqsMessage) getOrElse sys.error("Invalid message structure (not via SNS?)")
-    if (message.subject != Some("image"))
-      sys.error(s"Unrecognised message subject: ${message.subject}")
-    val image = message.body
+  def indexImage(image: JsValue): Future[IndexResponse] = {
     image \ "id" match {
       case JsString(id) => ElasticSearch.indexImage(id, image)
       case _            => sys.error(s"No id field present in message body: $image")
     }
   }
 
-  private def deleteMessage(message: SQSMessage): Unit =
+  def deleteImage(image: JsValue): Future[DeleteResponse] = {
+    image \ "id" match {
+      case JsString(id) => ElasticSearch.deleteImage(id)
+      case _            => sys.error(s"No id field present in message body: $image")
+    }
+  }
+
+  def deleteMessage(message: SQSMessage): Unit =
     client.deleteMessage(new DeleteMessageRequest(Config.queueUrl, message.getReceiptHandle))
 
 }
