@@ -7,7 +7,7 @@ import play.api.libs.ws.WS
 
 import ImageFixture._
 
-class ImageLoaderSpec extends FunSpec with TestHarness with BeforeAndAfterAll {
+class IntegrationTest extends FunSpec with TestHarness with BeforeAndAfterAll {
 
   override def afterAll() {
     deleteIndex
@@ -63,6 +63,18 @@ class ImageLoaderSpec extends FunSpec with TestHarness with BeforeAndAfterAll {
       val imageResponse = await()(WS.url(url).get)
 
       assert(imageResponse.status == 200)
+
+    }
+
+    it ("can be deleted") {
+
+      val deleteResponse = deleteImage(imageId)
+      assert(deleteResponse.status == 202)
+
+      retrying("delete image") {
+        val mediaApiResponse = getImage(imageId)
+        assert(mediaApiResponse.status == 404)
+      }
 
     }
   }

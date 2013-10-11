@@ -16,6 +16,7 @@ trait TestHarness {
   lazy val log = LoggerFactory.getLogger(getClass)
 
   lazy val config = Discovery.discoverConfig("media-service-TEST") getOrElse sys.error("Could not find stack")
+  //val config = Config(new java.net.URL("http://localhost:9000/"), new java.net.URL("http://localhost:9002/"))
 
   implicit val ctx: ExecutionContext =
     ExecutionContext.fromExecutor(Executors.newSingleThreadExecutor)
@@ -28,6 +29,10 @@ trait TestHarness {
 
   def getImage(id: String): Response = await() {
     WS.url(config.imageEndpoint(id)).get
+  }
+
+  def deleteImage(id: String): Response = await() {
+    WS.url(config.imageEndpoint(id)).delete()
   }
 
   def resourceAsFile(path: String): File =
