@@ -7,7 +7,7 @@ import play.api.libs.json._
 import org.joda.time.DateTime
 import scalaz.syntax.std.function2._
 import lib.elasticsearch.ElasticSearch
-import lib.{Config, S3}
+import lib.{Notifications, Config, S3}
 
 object MediaApi extends Controller {
 
@@ -20,6 +20,11 @@ object MediaApi extends Controller {
       case Some(source) => Ok(imageResponse(id, source))
       case None         => NotFound
     }
+  }
+
+  def deleteImage(id: String) = Action {
+    Notifications.publish(Json.obj("id" -> id), "delete-image")
+    Accepted
   }
 
   def imageSearch = Action.async { request =>

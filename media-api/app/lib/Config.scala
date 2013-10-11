@@ -16,10 +16,12 @@ object Config extends PropertiesConfig("media-api") with CommonPlayAppConfig {
     else
       findElasticsearchHost(ec2Client, Map("Stage" -> Seq(stage), "Role" -> Seq(elasticsearchRole)))
 
-  lazy val awsCredentials: AWSCredentials =
+  val awsCredentials: AWSCredentials =
     new BasicAWSCredentials(properties("aws.id"), properties("aws.secret"))
 
-  lazy val s3Bucket: String = properties("s3.bucket")
+  val s3Bucket: String = properties("s3.bucket")
+
+  val topicArn: String = properties("sns.topic.arn")
 
   private lazy val ec2Client: AmazonEC2Client =
     new AmazonEC2Client(awsCredentials) <| (_ setEndpoint awsEndpoint)
