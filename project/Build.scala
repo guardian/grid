@@ -37,6 +37,7 @@ object Build extends Build {
     .dependsOn(lib)
     .libraryDependencies(awsDeps ++ scalazDeps)
     .testDependencies(scalaTestDeps ++ playDeps)
+    .settings(parallelExecution in Test := false)
 
   @deprecated
   val devImageLoader = project("dev-image-loader")
