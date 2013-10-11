@@ -6,6 +6,7 @@ import play.api.libs.json.{Json, JsValue}
 
 import com.gu.mediaservice.lib.elasticsearch.ElasticSearchClient
 import com.gu.mediaservice.syntax._
+import org.elasticsearch.action.delete.DeleteResponse
 
 
 object ElasticSearch extends ElasticSearchClient {
@@ -20,4 +21,6 @@ object ElasticSearch extends ElasticSearchClient {
       .setType(imageType)
       .executeAndLog(s"Indexing image $id")
 
+  def deleteImage(id: String)(implicit ex: ExecutionContext): Future[DeleteResponse] =
+    client.prepareDelete(imagesIndex, imageType, id).executeAndLog(s"Deleting image $id")
 }
