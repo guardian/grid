@@ -10,7 +10,8 @@ object Build extends Build {
 
   val commonSettings =
     Seq(
-      scalaVersion in ThisBuild := "2.10.2",
+      scalaVersion := "2.10.3",
+      scalaVersion in ThisBuild := "2.10.3",
       organization := "com.gu",
       version      := "0.1",
       resolvers += "Typesafe Repository" at "http://repo.typesafe.com/typesafe/releases/",
