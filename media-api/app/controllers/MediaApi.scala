@@ -9,11 +9,12 @@ import scalaz.syntax.std.function2._
 import com.gu.mediaservice.lib.formatting.parseDateTime
 import lib.elasticsearch.ElasticSearch
 import lib.{Notifications, Config, S3}
+import scala.util.Try
 
 object MediaApi extends Controller {
 
   def index = Action {
-    Ok("This is the Media API.\r\n")
+    Ok("This is the Media API.\n")
   }
 
   def getImage(id: String) = Action.async {
@@ -49,6 +50,7 @@ object MediaApi extends Controller {
 
 case class SearchParams(
   query: Option[String],
+  size: Option[Int],
   orderBy: Option[String],
   fromDate: Option[DateTime],
   toDate: Option[DateTime]
@@ -59,6 +61,7 @@ object SearchParams {
   def apply(request: Request[Any]): SearchParams =
     SearchParams(
       request.getQueryString("q"),
+      request.getQueryString("size") flatMap (s => Try(s.toInt).toOption),
       request.getQueryString("order-by") orElse request.getQueryString("sort-by"),
       request.getQueryString("from-date") flatMap parseDateTime,
       request.getQueryString("to-date") flatMap parseDateTime
