@@ -3,9 +3,10 @@ package controllers
 import play.api.mvc._
 import play.api.libs.concurrent.Execution.Implicits._
 import play.api.libs.json._
-
 import org.joda.time.DateTime
 import scalaz.syntax.std.function2._
+
+import com.gu.mediaservice.lib.formatting.parseDateTime
 import lib.elasticsearch.ElasticSearch
 import lib.{Notifications, Config, S3}
 
@@ -28,9 +29,8 @@ object MediaApi extends Controller {
   }
 
   def imageSearch = Action.async { request =>
-    val term = request.getQueryString("q")
-    val orderBy = request.getQueryString("order-by") orElse request.getQueryString("sort-by")
-    ElasticSearch.search(term, orderBy) map { hits =>
+    val params = SearchParams(request)
+    ElasticSearch.search(params) map { hits =>
       val images = hits map (imageResponse _).tupled
       Ok(JsObject(Seq("hits" -> JsArray(images))))
     }
@@ -44,5 +44,24 @@ object MediaApi extends Controller {
 
   def addSecureUrl(url: String): Reads[JsObject] =
     __.json.update(__.read[JsObject].map(_ ++ Json.obj("secure-url" -> url)))
+
+}
+
+case class SearchParams(
+  query: Option[String],
+  orderBy: Option[String],
+  fromDate: Option[DateTime],
+  toDate: Option[DateTime]
+)
+
+object SearchParams {
+
+  def apply(request: Request[Any]): SearchParams =
+    SearchParams(
+      request.getQueryString("q"),
+      request.getQueryString("order-by") orElse request.getQueryString("sort-by"),
+      request.getQueryString("from-date") flatMap parseDateTime,
+      request.getQueryString("to-date") flatMap parseDateTime
+    )
 
 }
