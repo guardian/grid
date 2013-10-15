@@ -21,6 +21,8 @@ object Config extends PropertiesConfig("thrall") with CommonPlayAppConfig {
   lazy val awsCredentials: AWSCredentials =
     new BasicAWSCredentials(properties("aws.id"), properties("aws.secret"))
 
+  lazy val s3Bucket: String = properties("s3.bucket")
+
   private lazy val ec2Client: AmazonEC2Client =
     new AmazonEC2Client(awsCredentials) <| (_ setEndpoint awsEndpoint)
 
