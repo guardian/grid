@@ -52,19 +52,17 @@ object MessageConsumer {
   def extractSNSMessage(sqsMessage: SQSMessage): Option[SNSMessage] =
     Json.fromJson[SNSMessage](Json.parse(sqsMessage.getBody)) <| logParseErrors |> (_.asOpt)
 
-  def indexImage(image: JsValue): Future[IndexResponse] = {
-    image \ "id" match {
-      case JsString(id) => ElasticSearch.indexImage(id, image)
-      case _            => sys.error(s"No id field present in message body: $image")
-    }
-  }
+  def indexImage(image: JsValue): Future[IndexResponse] =
+    withImageId(image)(id => ElasticSearch.indexImage(id, image))
 
-  def deleteImage(image: JsValue): Future[DeleteResponse] = {
+  def deleteImage(image: JsValue): Future[DeleteResponse] =
+    withImageId(image)(ElasticSearch.deleteImage)
+
+  def withImageId[A](image: JsValue)(f: String => A): A =
     image \ "id" match {
-      case JsString(id) => ElasticSearch.deleteImage(id)
+      case JsString(id) => f(id)
       case _            => sys.error(s"No id field present in message body: $image")
     }
-  }
 
   def deleteMessage(message: SQSMessage): Unit =
     client.deleteMessage(new DeleteMessageRequest(Config.queueUrl, message.getReceiptHandle))
