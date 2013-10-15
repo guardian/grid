@@ -4,12 +4,16 @@ import scala.concurrent.{ExecutionContext, Future}
 
 import play.api.libs.json.JsValue
 import org.elasticsearch.action.search.SearchRequestBuilder
+import org.elasticsearch.index.query.{FilterBuilders, FilterBuilder}
 import org.elasticsearch.index.query.QueryBuilders._
 import org.elasticsearch.search.sort.SortOrder
+import org.joda.time.DateTime
 import scalaz.syntax.std.function1._, scalaz.syntax.id._
 
 import com.gu.mediaservice.syntax._
 import com.gu.mediaservice.lib.elasticsearch.ElasticSearchClient
+import com.gu.mediaservice.lib.formatting.printDateTime
+import controllers.SearchParams
 import lib.Config
 
 
@@ -24,9 +28,10 @@ object ElasticSearch extends ElasticSearchClient {
   def getImageById(id: Id)(implicit ex: ExecutionContext): Future[Option[JsValue]] =
     client.prepareGet(imagesIndex, imageType, id).execute.asScala map (_.sourceOpt)
 
-  def search(q: Option[Id], orderBy: Option[String])(implicit ex: ExecutionContext): Future[Seq[(Id, JsValue)]] = {
-    val query = q filter (_.nonEmpty) map (matchQuery("metadata.description", _)) getOrElse matchAllQuery
-    val search = prepareImagesSearch.setQuery(query) |> sorts.addFromRequest(orderBy)
+  def search(params: SearchParams)(implicit ex: ExecutionContext): Future[Seq[(Id, JsValue)]] = {
+    val query = params.query filter (_.nonEmpty) map (matchQuery("metadata.description", _)) getOrElse matchAllQuery
+    val search = prepareImagesSearch.setQuery(query)
+      .setFilter(filters.date(params.fromDate, params.toDate)) |> sorts.parseFromRequest(params.orderBy)
     for (res <- search.executeAndLog("Image search query"))
     yield res.getHits.hits.toList flatMap (h => h.sourceOpt map (h.id -> _))
   }
@@ -34,9 +39,20 @@ object ElasticSearch extends ElasticSearchClient {
   def prepareImagesSearch: SearchRequestBuilder =
     client.prepareSearch(imagesIndex).setTypes(imageType)
 
+  object filters {
+
+    def date(from: Option[DateTime], to: Option[DateTime]): FilterBuilder = {
+      val builder = FilterBuilders.rangeFilter("upload-time")
+      for (f <- from) builder.from(printDateTime(f))
+      for (t <- to) builder.to(printDateTime(t))
+      builder
+    }
+
+  }
+
   object sorts {
 
-    def addFromRequest(sortBy: Option[String])(builder: SearchRequestBuilder): SearchRequestBuilder = {
+    def parseFromRequest(sortBy: Option[String])(builder: SearchRequestBuilder): SearchRequestBuilder = {
       val sorts = sortBy.fold(Seq("upload-time" -> SortOrder.DESC))(parseSorts)
       for ((field, order) <- sorts) builder.addSort(field, order)
       builder
