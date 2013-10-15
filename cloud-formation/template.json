@@ -140,7 +140,7 @@
                     "Id": "MyPolicy",
                     "Statement": [ {
                         "Sid": "ImageBucketWriteAccess",
-                        "Action": [ "s3:PutObject", "s3:GetObject" ],
+                        "Action": [ "s3:PutObject", "s3:GetObject", "s3:DeleteObject" ],
                         "Effect": "Allow",
                         "Resource": { "Fn::Join": [ "",
                             [ "arn:aws:s3:::", { "Ref": "ImageBucket" } , "/*" ] ]
@@ -403,6 +403,7 @@
                         "aws.id=", { "Ref": "HostKeys" }, "\n",
                         "aws.secret=", { "Fn::GetAtt": [ "HostKeys", "SecretAccessKey" ] }, "\n",
                         "sqs.queue.url=", { "Ref" : "Queue" }, "\n",
+                        "s3.bucket=", { "Ref": "ImageBucket" }, "\n",
                         "EOF\n",
 
                         "start thrall\n"

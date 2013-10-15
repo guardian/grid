@@ -53,7 +53,7 @@
                     "Id": "MyPolicy",
                     "Statement": [ {
                         "Sid": "ImageBucketWriteAccess",
-                        "Action": [ "s3:PutObject", "s3:GetObject" ],
+                        "Action": [ "s3:PutObject", "s3:GetObject", "s3:DeleteObject" ],
                         "Effect": "Allow",
                         "Resource": { "Fn::Join": [ "",
                             [ "arn:aws:s3:::", { "Ref": "ImageBucket" } , "/*" ] ]
