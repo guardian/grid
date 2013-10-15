@@ -8,7 +8,7 @@ import scalaz.syntax.std.function2._
 
 import com.gu.mediaservice.lib.formatting.parseDateTime
 import lib.elasticsearch.ElasticSearch
-import lib.{Notifications, Config, S3}
+import lib.{Notifications, Config, S3Client}
 import scala.util.Try
 
 object MediaApi extends Controller {
@@ -39,7 +39,7 @@ object MediaApi extends Controller {
 
   def imageResponse(id: String, source: JsValue): JsValue = {
     val expiration = DateTime.now.plusMinutes(15)
-    val secureUrl = S3.signUrl(Config.s3Bucket, id, expiration)
+    val secureUrl = S3Client.signUrl(Config.s3Bucket, id, expiration)
     source.transform(addSecureUrl(secureUrl)).get
   }
 
