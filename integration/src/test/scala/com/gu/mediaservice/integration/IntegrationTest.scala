@@ -9,10 +9,6 @@ import ImageFixture._
 
 class IntegrationTest extends FunSpec with TestHarness with BeforeAndAfterAll {
 
-  override def afterAll() {
-    deleteIndex
-  }
-
   val images = Seq(
     fixture("honeybee.jpg", "credit" -> "AFP/Getty Images", "byline" -> "THOMAS KIENZLE"),
     fixture("gallery.jpg", "credit" -> "AFP/Getty Images", "byline" -> "GERARD JULIEN")
