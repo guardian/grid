@@ -58,7 +58,7 @@ class IntegrationTest extends FunSpec with TestHarness with BeforeAndAfterAll {
 
     it ("should have a usable URL for the image") {
 
-      val url = (getImage(imageId).json \ "secureUrl").as[String]
+      val url = (getImage(imageId).json \ "secure-url").as[String]
 
       val imageResponse = await()(WS.url(url).get)
 
