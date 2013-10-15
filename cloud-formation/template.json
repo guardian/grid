@@ -87,6 +87,13 @@
                 ]
             }
         },
+        "AppClientSecurityGroup": {
+            "Type": "AWS::EC2::SecurityGroup",
+            "Properties": {
+                "GroupDescription": "Application clients",
+                "SecurityGroupIngress": []
+            }
+        },
 
         "Group": {
             "Type": "AWS::IAM::Group",
@@ -162,7 +169,6 @@
                 "DesiredCapacity": "2",
                 "HealthCheckType": "EC2",
                 "HealthCheckGracePeriod": 180,
-                "LoadBalancerNames": [ ],
                 "Tags": [
                     {
                         "Key": "Stage",
@@ -203,7 +209,7 @@
 
                             "cd /home/media-service\n",
 
-                            "wget https://s3-eu-west-1.amazonaws.com/media-service-dist/", { "Ref" : "Stage" },
+                            "wget https://s3-eu-west-1.amazonaws.com/media-service-dist/", { "Ref": "Stage" },
                             "/media-service-elasticsearch/elasticsearch.tar.gz\n",
 
                             "tar xf elasticsearch.tar.gz\n",
@@ -233,9 +239,7 @@
         "MediaApiLoadBalancer": {
             "Type": "AWS::ElasticLoadBalancing::LoadBalancer",
             "Properties": {
-                "AvailabilityZones": {
-                    "Fn::GetAZs": ""
-                },
+                "AvailabilityZones": { "Fn::GetAZs": "" },
                 "Listeners": [
                     {
                         "LoadBalancerPort": "80",
@@ -281,18 +285,18 @@
                 ]
             }
         },
-        "MediaApiLaunchConfig" : {
-            "Type" : "AWS::AutoScaling::LaunchConfiguration",
-            "DependsOn" : "HostKeys",
-            "Properties" : {
-                "KeyName" : { "Ref" : "KeyName" },
-                "ImageId":"ami-eecd2899",
+        "MediaApiLaunchConfig": {
+            "Type": "AWS::AutoScaling::LaunchConfiguration",
+            "DependsOn": "HostKeys",
+            "Properties": {
+                "KeyName": { "Ref": "KeyName" },
+                "ImageId": "ami-eecd2899",
                 "SecurityGroups": [
-                    { "Ref" : "AppServerSecurityGroup" },
-                    { "Ref" : "SSHSecurityGroup" }
+                    { "Ref": "AppServerSecurityGroup" },
+                    { "Ref": "SSHSecurityGroup" }
                 ],
-                "InstanceType" : "m1.small",
-                "UserData" : { "Fn::Base64": {
+                "InstanceType": "m1.small",
+                "UserData": { "Fn::Base64": {
                     "Fn::Join":["", [
                         "#!/bin/bash -ev\n",
 
@@ -302,11 +306,11 @@
                         "apt-get -y update\n",
                         "apt-get -y install language-pack-en openjdk-7-jre-headless\n",
 
-                        "wget https://s3-eu-west-1.amazonaws.com/media-service-dist/", { "Ref" : "Stage" },
+                        "wget https://s3-eu-west-1.amazonaws.com/media-service-dist/", { "Ref": "Stage" },
                         "/media-service-media-api/media-api.conf",
                         " --directory-prefix=/etc/init\n",
 
-                        "wget https://s3-eu-west-1.amazonaws.com/media-service-dist/", { "Ref" : "Stage" },
+                        "wget https://s3-eu-west-1.amazonaws.com/media-service-dist/", { "Ref": "Stage" },
                         "/media-service-media-api/app.jar",
                         " --directory-prefix=/home/media-service\n",
 
@@ -360,18 +364,18 @@
                 ]
             }
         },
-        "ThrallLaunchConfig" : {
-            "Type" : "AWS::AutoScaling::LaunchConfiguration",
-            "DependsOn" : "HostKeys",
-            "Properties" : {
-                "KeyName" : { "Ref" : "KeyName" },
-                "ImageId":"ami-eecd2899",
+        "ThrallLaunchConfig": {
+            "Type": "AWS::AutoScaling::LaunchConfiguration",
+            "DependsOn": "HostKeys",
+            "Properties": {
+                "KeyName": { "Ref": "KeyName" },
+                "ImageId": "ami-eecd2899",
                 "SecurityGroups": [
-                    { "Ref" : "AppServerSecurityGroup" },
-                    { "Ref" : "SSHSecurityGroup" }
+                    { "Ref": "AppServerSecurityGroup" },
+                    { "Ref": "SSHSecurityGroup" }
                 ],
-                "InstanceType" : "m1.small",
-                "UserData" : { "Fn::Base64": {
+                "InstanceType": "m1.small",
+                "UserData": { "Fn::Base64": {
                     "Fn::Join":["", [
                         "#!/bin/bash -ev\n",
 
@@ -381,11 +385,11 @@
                         "apt-get -y update\n",
                         "apt-get -y install language-pack-en openjdk-7-jre-headless\n",
 
-                        "wget https://s3-eu-west-1.amazonaws.com/media-service-dist/", { "Ref" : "Stage" },
+                        "wget https://s3-eu-west-1.amazonaws.com/media-service-dist/", { "Ref": "Stage" },
                         "/media-service-thrall/thrall.conf",
                         " --directory-prefix=/etc/init\n",
 
-                        "wget https://s3-eu-west-1.amazonaws.com/media-service-dist/", { "Ref" : "Stage" },
+                        "wget https://s3-eu-west-1.amazonaws.com/media-service-dist/", { "Ref": "Stage" },
                         "/media-service-thrall/app.jar",
                         " --directory-prefix=/home/media-service\n",
 
@@ -402,7 +406,7 @@
                         "cat > /etc/gu/thrall.properties<<EOF\n",
                         "aws.id=", { "Ref": "HostKeys" }, "\n",
                         "aws.secret=", { "Fn::GetAtt": [ "HostKeys", "SecretAccessKey" ] }, "\n",
-                        "sqs.queue.url=", { "Ref" : "Queue" }, "\n",
+                        "sqs.queue.url=", { "Ref": "Queue" }, "\n",
                         "s3.bucket=", { "Ref": "ImageBucket" }, "\n",
                         "EOF\n",
 
@@ -463,18 +467,18 @@
                 ]
             }
         },
-        "ImageLoaderLaunchConfig" : {
-            "Type" : "AWS::AutoScaling::LaunchConfiguration",
-            "DependsOn" : "HostKeys",
-            "Properties" : {
-                "KeyName" : { "Ref" : "KeyName" },
-                "ImageId":"ami-eecd2899",
+        "ImageLoaderLaunchConfig": {
+            "Type": "AWS::AutoScaling::LaunchConfiguration",
+            "DependsOn": "HostKeys",
+            "Properties": {
+                "KeyName": { "Ref": "KeyName" },
+                "ImageId": "ami-eecd2899",
                 "SecurityGroups": [
-                    { "Ref" : "AppServerSecurityGroup" },
-                    { "Ref" : "SSHSecurityGroup" }
+                    { "Ref": "AppServerSecurityGroup" },
+                    { "Ref": "SSHSecurityGroup" }
                 ],
-                "InstanceType" : "m1.small",
-                "UserData" : { "Fn::Base64": {
+                "InstanceType": "m1.small",
+                "UserData": { "Fn::Base64": {
                     "Fn::Join":["", [
                         "#!/bin/bash -ev\n",
 
@@ -487,11 +491,11 @@
                         "mkdir /data\n",
                         "mount /dev/xvdb /data\n",
 
-                        "wget https://s3-eu-west-1.amazonaws.com/media-service-dist/", { "Ref" : "Stage" },
+                        "wget https://s3-eu-west-1.amazonaws.com/media-service-dist/", { "Ref": "Stage" },
                         "/media-service-image-loader/image-loader.conf",
                         " --directory-prefix=/etc/init\n",
 
-                        "wget https://s3-eu-west-1.amazonaws.com/media-service-dist/", { "Ref" : "Stage" },
+                        "wget https://s3-eu-west-1.amazonaws.com/media-service-dist/", { "Ref": "Stage" },
                         "/media-service-image-loader/app.jar",
                         " --directory-prefix=/home/media-service\n",
 
@@ -523,6 +527,84 @@
             }
         },
 
+        "ReaperAutoscalingGroup": {
+            "Type": "AWS::AutoScaling::AutoScalingGroup",
+            "Properties": {
+                "AvailabilityZones": { "Fn::GetAZs": "" },
+                "LaunchConfigurationName": { "Ref": "ReaperLaunchConfig" },
+                "MinSize": "1",
+                "MaxSize": "2",
+                "DesiredCapacity": "1",
+                "HealthCheckType": "EC2",
+                "HealthCheckGracePeriod": 180,
+                "Tags": [
+                    {
+                        "Key": "Stage",
+                        "Value": { "Ref": "Stage" },
+                        "PropagateAtLaunch": "true"
+                    },
+                    {
+                        "Key": "Role",
+                        "Value": "media-service-reaper",
+                        "PropagateAtLaunch": "true"
+                    }
+                ]
+            }
+        },
+        "ReaperLaunchConfig": {
+            "Type": "AWS::AutoScaling::LaunchConfiguration",
+            "DependsOn": "HostKeys",
+            "Properties": {
+                "KeyName": { "Ref": "KeyName" },
+                "ImageId": "ami-eecd2899",
+                "SecurityGroups": [
+                    { "Ref": "AppClientSecurityGroup" },
+                    { "Ref": "SSHSecurityGroup" }
+                ],
+                "InstanceType": "m1.small",
+                "UserData": { "Fn::Base64": {
+                    "Fn::Join": ["", [
+                        "#!/bin/bash -ev\n",
+
+                        "adduser --disabled-password --system --group media-service\n",
+                        "cp -r ~/.ssh /home/media-service/\n",
+
+                        "apt-get -y update\n",
+
+                        "cat > /home/media-service/extract_ids.py <<EOF\n",
+                        "import json\n",
+                        "import sys\n",
+                        "for hit in json.load(sys.stdin)['hits']: print hit['id']\n",
+                        "EOF\n",
+
+                        "MEDIA_API=http://", { "Fn::GetAtt": ["MediaApiLoadBalancer", "DNSName"] } ,"\n",
+
+                        "cat > /home/media-service/reaper.sh <<EOF\n",
+                        "#!/usr/bin/env sh\n",
+                        "curl --silent \"$MEDIA_API/images?until=30.days&size=100&show-secure-url=false\" | \\ \n",
+                        "python /home/media-service/extract_ids.py \\ \n",
+                        "xargs -I {} curl --silent -X DELETE \"$MEDIA_API/image/{}\"\n",
+                        "EOF\n",
+
+                        "chmod +x /home/media-service/reaper.sh\n",
+
+                        "cat > /etc/cron.d/reaper <<EOF\n",
+                        "# Delete images older than 30 days \n",
+                        "* * * * * media-service /home/media-service/reaper.sh\n",
+                        "EOF\n",
+
+                        "cat > /etc/gu/stage <<EOF\n",
+                        { "Ref": "Stage" }, "\n",
+                        "EOF\n",
+
+                        "chown -R media-service /home/media-service\n",
+                        "chgrp -R media-service /home/media-service\n"
+
+                    ]]
+                }}
+            }
+        },
+        
         "Topic": {
             "Type": "AWS::SNS::Topic",
             "Properties": {
