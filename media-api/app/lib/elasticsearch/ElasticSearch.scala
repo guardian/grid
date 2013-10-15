@@ -32,6 +32,7 @@ object ElasticSearch extends ElasticSearchClient {
     val query = params.query filter (_.nonEmpty) map (matchQuery("metadata.description", _)) getOrElse matchAllQuery
     val search = prepareImagesSearch.setQuery(query)
       .setFilter(filters.date(params.fromDate, params.toDate)) |> sorts.parseFromRequest(params.orderBy)
+    for (s <- params.size) search.setSize(s)
     for (res <- search.executeAndLog("Image search query"))
     yield res.getHits.hits.toList flatMap (h => h.sourceOpt map (h.id -> _))
   }
