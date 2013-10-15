@@ -29,7 +29,8 @@ object MediaApi extends Controller {
 
   def imageSearch = Action.async { request =>
     val term = request.getQueryString("q")
-    ElasticSearch.search(term) map { hits =>
+    val orderBy = request.getQueryString("order-by") orElse request.getQueryString("sort-by")
+    ElasticSearch.search(term, orderBy) map { hits =>
       val images = hits map (imageResponse _).tupled
       Ok(JsObject(Seq("hits" -> JsArray(images))))
     }
