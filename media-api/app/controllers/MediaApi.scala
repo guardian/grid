@@ -10,6 +10,7 @@ import com.gu.mediaservice.lib.formatting.parseDateTime
 import lib.elasticsearch.ElasticSearch
 import lib.{Notifications, Config, S3Client}
 import scala.util.Try
+import scala.concurrent.duration.Duration
 
 object MediaApi extends Controller {
 
@@ -63,8 +64,14 @@ object SearchParams {
       request.getQueryString("q"),
       request.getQueryString("size") flatMap (s => Try(s.toInt).toOption),
       request.getQueryString("order-by") orElse request.getQueryString("sort-by"),
-      request.getQueryString("from-date") flatMap parseDateTime,
-      request.getQueryString("to-date") flatMap parseDateTime
+      request.getQueryString("from-date") orElse request.getQueryString("since") flatMap parseDate,
+      request.getQueryString("to-date") orElse request.getQueryString("until") flatMap parseDate
     )
+
+  def parseDate(string: String): Option[DateTime] =
+    parseDateTime(string) orElse (parseDuration(string) map (DateTime.now minus _.toMillis))
+
+  def parseDuration(string: String): Option[Duration] =
+    Try(Duration(string)).toOption
 
 }
