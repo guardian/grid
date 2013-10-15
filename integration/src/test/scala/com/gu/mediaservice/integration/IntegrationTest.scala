@@ -29,7 +29,7 @@ class IntegrationTest extends FunSpec with TestHarness with BeforeAndAfterAll {
 
     it ("should be assigned an identifier") {
 
-      assert(loaderResponse.status == 202)
+      assert(loaderResponse.status == Accepted)
       imageId
 
     }
@@ -38,7 +38,7 @@ class IntegrationTest extends FunSpec with TestHarness with BeforeAndAfterAll {
 
       retrying("get image") {
         val mediaApiResponse = getImage(imageId)
-        assert(mediaApiResponse.status == 200)
+        assert(mediaApiResponse.status == OK)
       }
 
     }
@@ -52,24 +52,28 @@ class IntegrationTest extends FunSpec with TestHarness with BeforeAndAfterAll {
 
     }
 
+    lazy val imageUrl = (getImage(imageId).json \ "secure-url").as[String]
+
     it ("should have a usable URL for the image") {
 
-      val url = (getImage(imageId).json \ "secure-url").as[String]
+      val imageResponse = await()(WS.url(imageUrl).get)
 
-      val imageResponse = await()(WS.url(url).get)
-
-      assert(imageResponse.status == 200)
+      assert(imageResponse.status == OK)
 
     }
 
     it ("can be deleted") {
 
       val deleteResponse = deleteImage(imageId)
-      assert(deleteResponse.status == 202)
+      assert(deleteResponse.status == Accepted)
 
       retrying("delete image") {
         val mediaApiResponse = getImage(imageId)
-        assert(mediaApiResponse.status == 404)
+        assert(mediaApiResponse.status == NotFound)
+
+        val imageResponse = await()(WS.url(imageUrl).get)
+        // S3 doesn't seem to give a 404 on a signed URL
+        assert(imageResponse.status == Forbidden)
       }
 
     }

@@ -13,6 +13,11 @@ import play.api.http.{ContentTypeOf, Writeable}
 
 trait TestHarness {
 
+  final val NotFound = 404
+  final val Forbidden = 403
+  final val OK = 200
+  final val Accepted = 202
+
   lazy val log = LoggerFactory.getLogger(getClass)
 
   lazy val config = Discovery.discoverConfig("media-service-TEST") getOrElse sys.error("Could not find stack")
