@@ -56,7 +56,11 @@ object MessageConsumer {
     withImageId(image)(id => ElasticSearch.indexImage(id, image))
 
   def deleteImage(image: JsValue): Future[DeleteResponse] =
-    withImageId(image)(ElasticSearch.deleteImage)
+    withImageId(image) { id =>
+      val future = ElasticSearch.deleteImage(id)
+      // TODO delete from S3
+      future
+    }
 
   def withImageId[A](image: JsValue)(f: String => A): A =
     image \ "id" match {
