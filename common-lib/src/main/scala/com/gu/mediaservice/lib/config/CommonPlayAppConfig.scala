@@ -7,27 +7,27 @@ import play.api.Play
 
 trait CommonPlayAppConfig {
 
-  val awsEndpoint = "ec2.eu-west-1.amazonaws.com"
+  final val awsEndpoint = "ec2.eu-west-1.amazonaws.com"
 
-  val elasticsearchRole = "media-service-elasticsearch"
+  final val elasticsearchRole = "media-service-elasticsearch"
 
-  val appConfig = Play.current.configuration
+  final val appConfig = Play.current.configuration
 
-  def apply(key: String): String =
+  final def apply(key: String): String =
     string(key)
 
-  def string(key: String): String =
+  final def string(key: String): String =
     appConfig.getString(key) getOrElse missing(key, "string")
 
-  def int(key: String): Int =
+  final def int(key: String): Int =
     appConfig.getInt(key) getOrElse missing(key, "integer")
 
-  val stage: String = stageFromFile getOrElse "DEV"
+  final val stage: String = stageFromFile getOrElse "DEV"
 
   private def missing(key: String, type_ : String): Nothing =
     sys.error(s"Required $type_ configuration property missing: $key")
 
-  protected def stageFromFile: Option[String] = {
+  private def stageFromFile: Option[String] = {
     val file = new File("/etc/gu/stage")
     if (file.exists) Some(fromFile(file).mkString.trim) else None
   }
