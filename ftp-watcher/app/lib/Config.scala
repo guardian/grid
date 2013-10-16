@@ -1,9 +1,11 @@
 package lib
 
-import com.gu.mediaservice.lib.config.PropertiesConfig
+import com.gu.mediaservice.lib.config.Properties
 
 
-object Config extends PropertiesConfig("ftp-watcher") {
+object Config {
+
+  val properties = Properties.fromFile("/etc/gu/ftp-watcher.properties")
 
   val ftpHost: String = properties("ftp.host")
   val ftpPort: Int = properties.get("ftp.port").fold(21)(_.toInt)

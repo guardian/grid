@@ -1,18 +1,20 @@
 package lib
 
 import com.amazonaws.auth.{BasicAWSCredentials, AWSCredentials}
-import com.gu.mediaservice.lib.config.PropertiesConfig
+import com.gu.mediaservice.lib.config.Properties
 
 
-object Config extends PropertiesConfig("image-loader") {
+object Config {
 
-  lazy val awsCredentials: AWSCredentials =
+  val properties = Properties.fromFile("/etc/gu/image-loader.properties")
+
+  val awsCredentials: AWSCredentials =
     new BasicAWSCredentials(properties("aws.id"), properties("aws.secret"))
 
-  lazy val topicArn: String = properties("sns.topic.arn")
+  val topicArn: String = properties("sns.topic.arn")
 
-  lazy val s3Bucket: String = properties("s3.bucket")
+  val s3Bucket: String = properties("s3.bucket")
 
-  lazy val tempUploadDir = properties.getOrElse("upload.tmp.dir", "/tmp")
+  val tempUploadDir = properties.getOrElse("upload.tmp.dir", "/tmp")
 
 }
