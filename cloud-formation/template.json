@@ -192,7 +192,7 @@
                     { "Ref": "ElasticsearchSecurityGroup" },
                     { "Ref": "SSHSecurityGroup" }
                 ],
-                "InstanceType": "m1.small",
+                "InstanceType": "m1.medium",
                 "UserData":{
                     "Fn::Base64":{
                         "Fn::Join":["", [
@@ -477,7 +477,7 @@
                     { "Ref": "AppServerSecurityGroup" },
                     { "Ref": "SSHSecurityGroup" }
                 ],
-                "InstanceType": "m1.small",
+                "InstanceType": "m1.medium",
                 "UserData": { "Fn::Base64": {
                     "Fn::Join":["", [
                         "#!/bin/bash -ev\n",
