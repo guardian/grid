@@ -7,23 +7,21 @@ import java.nio.file.{Files, Path}
 import java.security.{DigestInputStream, MessageDigest}
 
 import org.apache.commons.net.ftp.{FTP, FTPClient}
-import org.slf4j.LoggerFactory
 import org.apache.commons.codec.binary.Base32
+import play.api.Logger
 import play.api.libs.ws.WS
 import play.api.libs.concurrent.Execution.Implicits._
 
 
 class FTPWatcher(path: String, batchSize: Int, withFile: (String, InputStream) => Unit, emptyWait: Int = 1000) {
 
-  import FTPWatcher.log
-
   @tailrec
   final def run() {
     try run_(withFile)
     catch {
-      case e: IOException => log.error("FTP client caused IOException", e)
+      case e: IOException => Logger.error("FTP client caused IOException", e)
     }
-    log.info("Restarting in 3s...")
+    Logger.info("Restarting in 3s...")
     run()
   }
 
@@ -46,11 +44,11 @@ class FTPWatcher(path: String, batchSize: Int, withFile: (String, InputStream) =
         val files = client.listFiles.toList.take(batchSize)
         for (file <- files) {
           val filename = file.getName
-          log.info(s"Retrieving file: $filename")
+          Logger.info(s"Retrieving file: $filename")
           val stream = client.retrieveFileStream(filename)
           withFile(filename, stream)
           stream.close()
-          log.info(s"Deleting file: $filename")
+          Logger.info(s"Deleting file: $filename")
           client.deleteFile(filename)
           client.completePendingCommand()
         }
@@ -68,8 +66,6 @@ object FTPWatcher {
 
   lazy val watcher: Future[Unit] = Future { main(Array("getty")) }
 
-  protected val log = LoggerFactory.getLogger("FTPWatcher")
-
   def main(args: Array[String]) {
     def path = args.headOption.getOrElse(sys.error("Path not supplied"))
     val destination = Files.createTempDirectory("ftp-downloads")
@@ -80,7 +76,7 @@ object FTPWatcher {
   def loadFile(destination: Path)(filename: String, is: InputStream) {
     val tempFile = destination.resolve(filename)
     val digest = base32(md5(is, Files.copy(_, tempFile)))
-    log.info(s"Saved file to $tempFile, md5: $digest")
+    Logger.info(s"Saved file to $tempFile, md5: $digest")
     WS.url(Config.imageLoaderUri).post(tempFile.toFile)
   }
 
