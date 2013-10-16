@@ -9,7 +9,10 @@ import com.gu.mediaservice.lib.formatting._
 import lib.imaging.IptcMetadata
 
 
-case class Image(id: String, file: URI, uploadTime: DateTime, metadata: Option[IptcMetadata]) {
+case class Image(id: String, file: URI,
+                 uploadTime: DateTime,
+                 thumbnail: Option[Thumbnail],
+                 metadata: Option[IptcMetadata]) {
 
   def asJsValue: JsValue = Json.toJson(this)
 
@@ -19,14 +22,10 @@ case class Image(id: String, file: URI, uploadTime: DateTime, metadata: Option[I
 object Image {
 
   def uploadedNow(id: String, file: URI, metadata: Option[IptcMetadata]): Image =
-    Image(id, file, DateTime.now, metadata)
+    Image(id, file, DateTime.now, None, metadata)
 
-  private implicit val URIWrites: Writes[URI] = new Writes[URI] {
-    def writes(o: URI) = JsString(o.toString)
-  }
-
-  implicit val IptcMetadataWrites: Writes[IptcMetadata] = (
-    (__ \ "description").writeNullable[String] ~
+  implicit val IptcMetadataWrites: Writes[IptcMetadata] =
+    ((__ \ "description").writeNullable[String] ~
       (__ \ "byline").writeNullable[String] ~
       (__ \ "title").writeNullable[String] ~
       (__ \ "credit").writeNullable[String] ~
@@ -42,7 +41,20 @@ object Image {
     (__ \ "id").write[String] ~
       (__ \ "file").write[URI] ~
       (__ \ "upload-time").write[String].contramap(printDateTime) ~
-      (__ \ "metadata").write[Option[IptcMetadata]]
+      (__ \ "thumbnail").writeNullable[Thumbnail] ~
+      (__ \ "metadata").writeNullable[IptcMetadata]
     )(unlift(Image.unapply))
+
+}
+
+case class Thumbnail(file: URI, width: Int, height: Int)
+
+object Thumbnail {
+
+  implicit val ThumbnailWrites: Writes[Thumbnail] =
+    ((__ \ "file").write[URI] ~
+      (__ \ "width").write[Int] ~
+      (__ \ "height").write[Int]
+    )(unlift(Thumbnail.unapply))
 
 }
