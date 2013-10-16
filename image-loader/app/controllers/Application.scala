@@ -22,19 +22,21 @@ class ImageLoader(storage: StorageBackend) extends Controller {
     Ok("This is the Image Loader API.\n")
   }
 
-  def loadImage = Action(digestedFile(createTempFile)) { request =>
+  def loadImage = Action.async(digestedFile(createTempFile)) { request =>
     val MD5DigestedFile(tempFile, id) = request.body
     Logger.info(s"Received file, id: $id")
 
     val meta = ImageMetadata.iptc(tempFile)
-    val uri = storage.store(id, tempFile)
-    val image = Image.uploadedNow(id, uri, meta)
 
-    Notifications.publish(Json.toJson(image), "image")
-
-    tempFile.delete()
-
-    Accepted(Json.obj("id" -> id))
+    for {
+      uri <- storage.store(id, tempFile)
+      image = Image.uploadedNow(id, uri, meta)
+    } yield {
+      // TODO notifications and file deletion should probably be done asynchronously too
+      Notifications.publish(Json.toJson(image), "image")
+      tempFile.delete()
+      Accepted(Json.obj("id" -> id))
+    }
   }
 
   def createTempFile = File.createTempFile("requestBody", "", new File(Config.tempUploadDir))
