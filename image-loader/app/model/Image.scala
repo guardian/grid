@@ -9,7 +9,8 @@ import com.gu.mediaservice.lib.formatting._
 import lib.imaging.IptcMetadata
 
 
-case class Image(id: String, file: URI,
+case class Image(id: String,
+                 file: URI,
                  uploadTime: DateTime,
                  thumbnail: Option[Thumbnail],
                  metadata: Option[IptcMetadata]) {
@@ -21,8 +22,8 @@ case class Image(id: String, file: URI,
 
 object Image {
 
-  def uploadedNow(id: String, file: URI, metadata: Option[IptcMetadata]): Image =
-    Image(id, file, DateTime.now, None, metadata)
+  def uploadedNow(id: String, file: URI, thumbnail: Thumbnail, metadata: Option[IptcMetadata]): Image =
+    Image(id, file, DateTime.now, Some(thumbnail), metadata)
 
   implicit val IptcMetadataWrites: Writes[IptcMetadata] =
     ((__ \ "description").writeNullable[String] ~

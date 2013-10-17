@@ -6,12 +6,12 @@ import play.api.libs.concurrent.Execution.Implicits._
 import play.api.libs.json.Json
 import play.api.Logger
 
-import lib.imaging.ImageMetadata
+import lib.imaging.{Thumbnailer, ImageMetadata}
 import lib.play.BodyParsers.digestedFile
 import lib.play.MD5DigestedFile
 import lib.storage.{StorageBackend, S3Storage}
 import lib.{Config, Notifications}
-import model.Image
+import model.{Thumbnail, Image}
 
 
 object Application extends ImageLoader(S3Storage)
@@ -22,6 +22,8 @@ class ImageLoader(storage: StorageBackend) extends Controller {
     Ok("This is the Image Loader API.\n")
   }
 
+  val thumbWidth = 256
+
   def loadImage = Action.async(digestedFile(createTempFile)) { request =>
     val MD5DigestedFile(tempFile, id) = request.body
     Logger.info(s"Received file, id: $id")
@@ -29,15 +31,20 @@ class ImageLoader(storage: StorageBackend) extends Controller {
     val meta = ImageMetadata.iptc(tempFile)
 
     for {
-      uri <- storage.store(id, tempFile)
-      image = Image.uploadedNow(id, uri, meta)
+      uri      <- storage.storeImage(id, tempFile)
+      thumb    <- Thumbnailer.createThumbnail(thumbWidth, tempFile.toString)
+      thumbUri <- storage.storeThumbnail(id, thumb)
     } yield {
+      // TODO correct image dimensions
+      val image = Image.uploadedNow(id, uri, Thumbnail(thumbUri, thumbWidth, 0), meta)
       // TODO notifications and file deletion should probably be done asynchronously too
       Notifications.publish(Json.toJson(image), "image")
       tempFile.delete()
       Accepted(Json.obj("id" -> id))
     }
   }
+
+  def thumbId(id: String): String = s"$id-thumb"
 
   def createTempFile = File.createTempFile("requestBody", "", new File(Config.tempDir))
 

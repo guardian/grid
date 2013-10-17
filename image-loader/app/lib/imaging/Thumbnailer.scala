@@ -13,17 +13,15 @@ object Thumbnailer {
   private implicit val ctx: ExecutionContext =
     ExecutionContext.fromExecutor(Executors.newFixedThreadPool(4))
 
-  val maxWidth = 256
-
-  def createThumbnail(filename: String): Future[File] = Future {
+  def createThumbnail(width: Int, filename: String): Future[File] = Future {
     val tempFile = createTempFile
 
-    val cmd = new ConvertCmd
-    val op = new IMOperation
-    op.addImage(filename)
-    op.adaptiveResize(maxWidth)
-    op.addImage(tempFile.toString)
-    cmd.run(op)
+    val convertCmd = new ConvertCmd
+    val imOp = new IMOperation
+    imOp.addImage(filename)
+    imOp.adaptiveResize(width)
+    imOp.addImage(tempFile.toString)
+    convertCmd.run(imOp)
 
     tempFile
   }

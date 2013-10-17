@@ -17,6 +17,8 @@ trait StorageBackend {
   /** Store a copy of the given file and return the URI of that copy.
     * The file can safely be deleted afterwards.
     */
-  def store(id: String, file: File): Future[URI]
+  def storeImage(id: String, file: File): Future[URI]
+
+  def storeThumbnail(id: String, file: File): Future[URI]
 
 }
