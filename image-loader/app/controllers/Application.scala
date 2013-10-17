@@ -30,9 +30,14 @@ class ImageLoader(storage: StorageBackend) extends Controller {
 
     val meta = ImageMetadata.iptc(tempFile)
 
+    // These futures are started outside the for-comprehension, otherwise they will not run in parallel
+    // (the consequence of using a monad when an applicative will do)
+    val storedImage = storage.storeImage(id, tempFile)
+    val thumbFile = Thumbnailer.createThumbnail(thumbWidth, tempFile.toString)
+
     for {
-      uri      <- storage.storeImage(id, tempFile)
-      thumb    <- Thumbnailer.createThumbnail(thumbWidth, tempFile.toString)
+      uri      <- storedImage
+      thumb    <- thumbFile
       thumbUri <- storage.storeThumbnail(id, thumb)
     } yield {
       val image = Image.uploadedNow(id, uri, Thumbnail(thumbUri), meta)
