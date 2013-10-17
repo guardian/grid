@@ -48,14 +48,12 @@ object Image {
 
 }
 
-case class Thumbnail(file: URI, width: Int, height: Int)
+case class Thumbnail(file: URI)
 
 object Thumbnail {
 
-  implicit val ThumbnailWrites: Writes[Thumbnail] =
-    ((__ \ "file").write[URI] ~
-      (__ \ "width").write[Int] ~
-      (__ \ "height").write[Int]
-    )(unlift(Thumbnail.unapply))
+  implicit val ThumbnailWrites: Writes[Thumbnail] = new Writes[Thumbnail] {
+    def writes(o: Thumbnail): JsValue = Json.obj("file" -> JsString(o.file.toString))
+  }
 
 }
