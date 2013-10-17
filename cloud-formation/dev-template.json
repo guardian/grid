@@ -46,7 +46,7 @@
         "ImageBucket": {
             "Type": "AWS::S3::Bucket"
         },
-        "BucketPolicy": {
+        "ImageBucketPolicy": {
             "Type": "AWS::S3::BucketPolicy",
             "Properties": {
                 "PolicyDocument": {
@@ -64,6 +64,28 @@
                 "Bucket": { "Ref": "ImageBucket" }
             }
         },
+        "ThumbBucket": {
+            "Type": "AWS::S3::Bucket"
+        },
+        "ThumbBucketPolicy": {
+            "Type": "AWS::S3::BucketPolicy",
+            "Properties": {
+                "PolicyDocument": {
+                    "Id": "MyPolicy",
+                    "Statement": [ {
+                        "Sid": "ThumbBucketWriteAccess",
+                        "Action": [ "s3:PutObject", "s3:GetObject", "s3:DeleteObject" ],
+                        "Effect": "Allow",
+                        "Resource": { "Fn::Join": [ "",
+                            [ "arn:aws:s3:::", { "Ref": "ThumbBucket" } , "/*" ] ]
+                        },
+                        "Principal": { "AWS": { "Fn::GetAtt": [ "User", "Arn" ] } }
+                    } ]
+                },
+                "Bucket": { "Ref": "ThumbBucket" }
+            }
+        },
+        
         "Topic": {
             "Type": "AWS::SNS::Topic",
             "Properties": {
@@ -111,6 +133,9 @@
         },
         "ImageBucket": {
             "Value": { "Ref": "ImageBucket" }
+        },
+        "ThumbBucket": {
+            "Value": { "Ref": "ThumbBucket" }
         },
         "SnsTopicArn": {
             "Value": { "Ref": "Topic" }
