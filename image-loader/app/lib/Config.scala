@@ -13,8 +13,10 @@ object Config {
 
   val topicArn: String = properties("sns.topic.arn")
 
-  val s3Bucket: String = properties("s3.bucket")
+  val imageBucket: String = properties("s3.image.bucket")
 
-  val tempUploadDir = properties.getOrElse("upload.tmp.dir", "/tmp")
+  val thumbnailBucket: String = properties("s3.thumb.bucket")
+
+  val tempDir = properties.getOrElse("upload.tmp.dir", "/tmp")
 
 }
