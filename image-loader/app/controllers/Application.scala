@@ -39,6 +39,6 @@ class ImageLoader(storage: StorageBackend) extends Controller {
     }
   }
 
-  def createTempFile = File.createTempFile("requestBody", "", new File(Config.tempUploadDir))
+  def createTempFile = File.createTempFile("requestBody", "", new File(Config.tempDir))
 
 }

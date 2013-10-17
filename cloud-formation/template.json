@@ -487,6 +487,7 @@
 
                         "apt-get -y update\n",
                         "apt-get -y install language-pack-en openjdk-7-jre-headless\n",
+                        "apt-get -y install imagemagick\n",
 
                         "mkdir /data\n",
                         "mount /dev/xvdb /data\n",

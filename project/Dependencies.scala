@@ -15,7 +15,10 @@ object Dependencies {
 
   val scalazDeps = Seq("org.scalaz" %% "scalaz-core" % "7.1.0-M3")
 
-  val imagingDeps = Seq("com.drewnoakes" % "metadata-extractor" % "2.6.2")
+  val imagingDeps = Seq(
+    "com.drewnoakes" % "metadata-extractor" % "2.6.2",
+    "org.im4java" % "im4java" % "1.4.0"
+  )
 
   val commonsNetDeps = Seq("commons-net" % "commons-net" % "3.3")
 
