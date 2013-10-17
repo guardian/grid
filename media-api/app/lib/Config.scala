@@ -24,7 +24,7 @@ object Config extends CommonPlayAppConfig {
     else
       findElasticsearchHost(ec2Client, Map("Stage" -> Seq(stage), "Role" -> Seq(elasticsearchRole)))
 
-  val s3Bucket: String = properties("s3.bucket")
+  val s3Bucket: String = properties("s3.image.bucket")
 
   val topicArn: String = properties("sns.topic.arn")
 
