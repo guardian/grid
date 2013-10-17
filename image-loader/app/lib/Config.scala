@@ -15,6 +15,6 @@ object Config {
 
   val s3Bucket: String = properties("s3.bucket")
 
-  val tempUploadDir = properties.getOrElse("upload.tmp.dir", "/tmp")
+  val tempDir = properties.getOrElse("upload.tmp.dir", "/tmp")
 
 }
