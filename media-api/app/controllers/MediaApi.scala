@@ -55,10 +55,10 @@ object MediaApi extends Controller {
     def addSecureImageUrl(url: String): Reads[JsObject] =
       __.json.update(__.read[JsObject].map(_ ++ Json.obj("secure-url" -> url)))
 
-    def addSecureThumbUrl(url: String) =
+    def addSecureThumbUrl(url: String): Reads[JsObject] =
       (__ \ "thumbnail").json.update(__.read[JsObject].map (_ ++ Json.obj("secure-url" -> url)))
   }
-  
+
 }
 
 case class GeneralParams(showSecureUrl: Boolean)
