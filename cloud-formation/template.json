@@ -539,6 +539,7 @@
                         "aws.secret=", { "Fn::GetAtt": [ "HostKeys", "SecretAccessKey" ] }, "\n",
                         "sns.topic.arn=", { "Ref": "Topic" }, "\n",
                         "s3.image.bucket=", { "Ref": "ImageBucket" }, "\n",
+                        "s3.thumb.bucket=", { "Ref": "ThumbBucket" }, "\n",
                         "upload.tmp.dir=/data\n",
                         "EOF\n",
 
