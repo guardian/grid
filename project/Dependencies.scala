@@ -22,7 +22,10 @@ object Dependencies {
     "org.im4java" % "im4java" % "1.4.0"
   )
 
-  val commonsNetDeps = Seq("commons-net" % "commons-net" % "3.3")
+  val commonsNetDeps = Seq(
+    "commons-net" % "commons-net" % "3.3",
+    "org.apache.httpcomponents" % "httpclient" % "4.3.1"
+  )
 
   val scalaTestDeps = Seq("org.scalatest" %% "scalatest" % "2.0.RC1")
 
