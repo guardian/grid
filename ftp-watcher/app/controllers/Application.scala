@@ -11,8 +11,9 @@ object Application extends Controller {
   }
 
   def healthCheck = Action {
-    if (FTPWatcher.watcher.isCompleted) ServiceUnavailable
-    else Ok("OK")
+    //if (FTPWatcher.watcher.isCompleted) ServiceUnavailable
+    //else Ok("OK")
+    Ok("OK")
   }
 
 }
