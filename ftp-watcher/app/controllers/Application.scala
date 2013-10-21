@@ -26,7 +26,7 @@ object FTPWatchers {
   import scalaz.concurrent.Task
 
   private implicit val ctx: ExecutionContext =
-    ExecutionContext.fromExecutor(Executors.newSingleThreadExecutor)
+    ExecutionContext.fromExecutor(Executors.newFixedThreadPool(Config.ftpPaths.size))
 
   lazy val watchers =
     for (path <- Config.ftpPaths)
