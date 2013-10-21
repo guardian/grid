@@ -1,93 +1,61 @@
 package lib
 
-import scala.annotation.tailrec
-import scala.concurrent.Future
-import java.io.{IOException, InputStream}
-import java.nio.file.{Files, Path}
-import java.security.{DigestInputStream, MessageDigest}
+import java.nio.file.{Path, Files}
+import java.io.InputStream
 
-import org.apache.commons.net.ftp.{FTP, FTPClient}
-import org.apache.commons.codec.binary.Base32
-import play.api.Logger
-import play.api.libs.ws.WS
-import play.api.libs.concurrent.Execution.Implicits._
+import scalaz.syntax.bind._
+import scalaz.concurrent.Task
+import scalaz.stream.Process
+import scalaz.stream.Process._
+import scalaz.stream.processes.resource
 
-
-class FTPWatcher(path: String, batchSize: Int, withFile: (String, InputStream) => Unit, emptyWait: Int = 1000) {
-
-  @tailrec
-  final def run() {
-    try run_(withFile)
-    catch {
-      case e: IOException => Logger.error("FTP client caused IOException", e)
-    }
-    Logger.info("Restarting in 3s...")
-    run()
-  }
-
-  private def run_(withFile: (String, InputStream) => Unit) {
-    val client = new FTPClient
-
-    try {
-      client.connect(Config.ftpHost, Config.ftpPort)
-
-      val loggedIn = client.login(Config.ftpUser, Config.ftpPassword)
-      if (!loggedIn) sys.error("Not logged in")
-
-      val changedDir = client.changeWorkingDirectory(path)
-      if (!changedDir) sys.error(s"Invalid path $path")
-
-      client.enterLocalPassiveMode()
-      client.setFileType(FTP.BINARY_FILE_TYPE)
-
-      while (true) {
-        val files = client.listFiles.toList.take(batchSize)
-        for (file <- files) {
-          val filename = file.getName
-          Logger.info(s"Retrieving file: $filename")
-          val stream = client.retrieveFileStream(filename)
-          withFile(filename, stream)
-          stream.close()
-          Logger.info(s"Deleting file: $filename")
-          client.deleteFile(filename)
-          client.completePendingCommand()
-        }
-        if (files.isEmpty) Thread.sleep(emptyWait)
-      }
-    }
-    finally {
-      client.disconnect()
-    }
-  }
-
-}
 
 object FTPWatcher {
 
-  lazy val watcher: Future[Unit] = Future { main(Array("getty")) }
+  def watchDir(host: String, user: String, password: String, dir: FilePath, emptySleep: Long): Process[Task, File] =
+    resource(initClient(host, user, password, dir))(_.quit)(client =>
+      listNextFile(client, emptySleep) map (client -> _))
+      .flatMap { case (client, path) => retrieveFile(client, path).map(File(path, _)) }
 
-  def main(args: Array[String]) {
-    def path = args.headOption.getOrElse(sys.error("Path not supplied"))
-    val destination = Files.createTempDirectory("ftp-downloads")
-    val watcher = new FTPWatcher(path, 8, loadFile(destination))
-    watcher.run()
+  private def initClient(host: String, user: String, password: String, dir: FilePath): Task[Client] = {
+    val client = new Client
+    client.connect(host, 21) >>
+      client.login(user, password) >>
+      client.cwd(dir) >>
+      client.setBinaryFileType >|
+      client
   }
 
-  def loadFile(destination: Path)(filename: String, is: InputStream) {
-    val tempFile = destination.resolve(filename)
-    val digest = base32(md5(is, Files.copy(_, tempFile)))
-    Logger.info(s"Saved file to $tempFile, md5: $digest")
-    WS.url(Config.imageLoaderUri).post(tempFile.toFile)
-  }
+  private def listNextFile(client: Client, emptySleep: Long): Task[FilePath] =
+    client.listFiles.flatMap(_.headOption.map(file => Task.now(file.getName))
+      .getOrElse(sleep(emptySleep) >> listNextFile(client, emptySleep)))
 
-  def md5(stream: InputStream, callback: InputStream => Unit): Array[Byte] = {
-    val md = MessageDigest.getInstance("MD5")
-    val input = new DigestInputStream(stream, md)
-    callback(input)
-    md.digest
-  }
+  private def retrieveFile(client: Client, file: FilePath): Process[Task, InputStream] =
+    Processes.resource1(client.retrieveFile(file))(
+      stream => Task.delay(stream.close()) >> client.completePendingCommand >> client.delete(file))
 
-  def base32(bytes: Array[Byte]): String =
-    (new Base32).encodeAsString(bytes).toLowerCase.reverse.dropWhile(_ == '=').reverse
+  private def sleep(millis: Long): Task[Unit] = Task(Thread.sleep(millis))
+
+}
+
+case class File(name: FilePath, stream: InputStream)
+
+object Processes {
+
+  def resource1[O](acquire: Task[O])(release: O => Task[Unit]): Process[Task, O] =
+    await(acquire)(o => emit(o) ++ suspend(eval(release(o))).drain)
+
+}
+
+object Sinks {
+
+  def saveToFile(parent: Path): Sink[Task, File] =
+    Process.constant { case File(name, stream) =>
+      Task {
+        val path = parent.resolve(name)
+        println(s"Saving $name to $path...")
+        Files.copy(stream, path)
+      }
+    }
 
 }
