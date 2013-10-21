@@ -1,11 +1,11 @@
-import lib.FTPWatcher
+import controllers.FTPWatchers
 import play.api.{Application, GlobalSettings}
 
 
 object Global extends GlobalSettings {
 
-  override def beforeStart(app: Application) {
-    //FTPWatcher.watcher
+  override def onStart(app: Application) {
+    FTPWatchers.future
   }
 
 }

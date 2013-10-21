@@ -71,7 +71,7 @@ object Sinks {
   import org.apache.http.entity.InputStreamEntity
   import org.apache.http.impl.client.HttpClients
 
-  def httpPost(uri: URI): Sink[Task, File] =
+  def httpPost(uri: String): Sink[Task, File] =
     Process.constant { case File(_, in) =>
       Task {
         val client = HttpClients.createDefault
