@@ -8,6 +8,9 @@ import scalaz.concurrent.Task
 import scalaz.stream.Process
 import scalaz.stream.Process._
 import scalaz.stream.processes.resource
+import org.apache.http.client.methods.HttpPost
+import org.apache.http.entity.InputStreamEntity
+import org.apache.http.impl.client.HttpClients
 
 
 object FTPWatcher {
@@ -22,6 +25,7 @@ object FTPWatcher {
     client.connect(host, 21) >>
       client.login(user, password) >>
       client.cwd(dir) >>
+      client.enterLocalPassiveMode >>
       client.setBinaryFileType >|
       client
   }
@@ -48,6 +52,23 @@ object Processes {
 }
 
 object Sinks {
+
+  import java.net.URI
+  
+
+  def httpPost(uri: URI): Sink[Task, File] =
+    Process.constant { case File(_, in) =>
+      Task {
+        val client = HttpClients.createDefault
+        val postReq = new HttpPost(uri)
+        val entity = new InputStreamEntity(in)
+        entity.setContentType("binary/octet-stream")
+        entity.setChunked(true)
+        postReq.setEntity(entity)
+        client.execute(postReq).close()
+        client.close()
+      }
+    }
 
   def saveToFile(parent: Path): Sink[Task, File] =
     Process.constant { case File(name, stream) =>
