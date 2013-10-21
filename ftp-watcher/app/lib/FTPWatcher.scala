@@ -8,9 +8,6 @@ import scalaz.concurrent.Task
 import scalaz.stream.Process
 import scalaz.stream.Process._
 import scalaz.stream.processes.resource
-import org.apache.http.client.methods.HttpPost
-import org.apache.http.entity.InputStreamEntity
-import org.apache.http.impl.client.HttpClients
 
 
 object FTPWatcher {
@@ -54,7 +51,9 @@ object Processes {
 object Sinks {
 
   import java.net.URI
-  
+  import org.apache.http.client.methods.HttpPost
+  import org.apache.http.entity.InputStreamEntity
+  import org.apache.http.impl.client.HttpClients
 
   def httpPost(uri: URI): Sink[Task, File] =
     Process.constant { case File(_, in) =>
