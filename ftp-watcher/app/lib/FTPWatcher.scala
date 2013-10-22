@@ -4,7 +4,6 @@ import java.nio.file.{Path, Files}
 import java.io.InputStream
 
 import org.apache.commons.net.ftp.FTPFile
-import org.apache.http.entity.ContentType
 
 import scalaz.syntax.bind._
 import scalaz.concurrent.Task
@@ -81,7 +80,7 @@ object Processes {
 object Sinks {
 
   import org.apache.http.client.methods.HttpPost
-  import org.apache.http.entity.InputStreamEntity
+  import org.apache.http.entity.{ContentType, InputStreamEntity}
   import org.apache.http.impl.client.HttpClients
 
   def httpPost(uri: String): Sink[Task, File] =
