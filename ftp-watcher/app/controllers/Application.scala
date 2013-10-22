@@ -4,7 +4,6 @@ import java.util.concurrent.Executors
 import scala.concurrent.{ExecutionContext, Future}
 import play.api.mvc.{Action, Controller}
 import lib.{Sinks, File, Config, FTPWatcher}
-import FTPWatcher._
 
 
 object Application extends Controller {
@@ -28,14 +27,16 @@ object FTPWatchers {
   private implicit val ctx: ExecutionContext =
     ExecutionContext.fromExecutor(Executors.newFixedThreadPool(Config.ftpPaths.size))
 
-  lazy val watchers =
+  val watchers =
     for (path <- Config.ftpPaths)
-    yield watchDir(Config.ftpHost, Config.ftpUser, Config.ftpPassword, path)
+    yield FTPWatcher(Config.ftpHost, Config.ftpUser, Config.ftpPassword, path)
 
-  lazy val mergedWatcher =
-    watchers.foldLeft[Process[Task, File]](Process.halt)((p1, p2) => p1.wye(p2)(wye.merge))
+  val stream = watchers.map(_.watchDir)
+      .foldLeft[Process[Task, File]](Process.halt)((p1, p2) => p1.wye(p2)(wye.merge))
 
-  lazy val future: Future[Unit] =
-    Future { mergedWatcher.to(Sinks.httpPost(Config.imageLoaderUri)).run.run }
+  lazy val future: Future[Unit] = {
+    val sink = Sinks.httpPost(Config.imageLoaderUri)
+    Future { (stream to sink).run.run }
+  }
 
 }

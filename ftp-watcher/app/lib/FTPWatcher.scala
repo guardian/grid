@@ -6,35 +6,37 @@ import java.io.InputStream
 import scalaz.syntax.bind._
 import scalaz.concurrent.Task
 import scalaz.stream.{process1, Process}
-import scalaz.stream.Process._
+import scalaz.stream.Process.{Process1, Sink, await, emit, suspend, eval, emitAll}
 import scalaz.stream.processes.resource
 
+import FTPWatcher._
 
-object FTPWatcher {
+class FTPWatcher(config: Config) {
 
   import Processes._
 
   /** Produces a stream of `File`s, each exposing an `InputStream`.
     *
-    * This stream is safe to use within the context of safe stream combinators, e.g. by sending it
-    * to a `Sink`.
+    * This is unsafe to consume chunked, because the underlying client is not thread-safe.
     *
     * The stream will be closed, and the file deleted from the server, once the `File` element
     * has been consumed.
     */
-  def watchDir(host: String, user: String, password: String, dir: FilePath): Process[Task, File] = {
+  def watchDir: Process[Task, File] = {
     val client = new Client
     val filePaths = resource(
-      acquire = initClient(client, host, user, password, dir))(
+      acquire = initClient(client))(
       release = _ => client.quit)(
       step = _ => listFiles(client, emptySleep = 1000))
-    filePaths |> unChunk >>= (path => retrieveFile(client, path).map(File(path, _)))
+    filePaths
+      .pipe(unChunk)
+      .flatMap(path => retrieveFile(client, path).map(File(path, _)))
   }
 
-  private def initClient(client: Client, host: String, user: String, password: String, dir: FilePath): Task[Unit] =
-    client.connect(host, 21) >>
-      client.login(user, password) >>
-      client.cwd(dir) >>
+  private def initClient(client: Client): Task[Unit] =
+    client.connect(config.host, 21) >>
+      client.login(config.user, config.password) >>
+      client.cwd(config.dir) >>
       client.enterLocalPassiveMode >>
       client.setBinaryFileType
 
@@ -48,8 +50,16 @@ object FTPWatcher {
     resource1(client.retrieveFile(file))(stream =>
       Task.delay(stream.close()) >> client.completePendingCommand >> client.delete(file))
 
-  private def sleep(millis: Long): Task[Unit] = Task(Thread.sleep(millis))
+}
 
+object FTPWatcher {
+
+  def apply(host: String, user: String, password: String, dir: FilePath): FTPWatcher =
+    new FTPWatcher(Config(host, user, password, dir))
+
+  case class Config(host: String, user: String, password: String, dir: FilePath)
+
+  protected def sleep(millis: Long): Task[Unit] = Task(Thread.sleep(millis))
 }
 
 case class File(name: FilePath, stream: InputStream)
@@ -66,7 +76,6 @@ object Processes {
 
 object Sinks {
 
-  import java.net.URI
   import org.apache.http.client.methods.HttpPost
   import org.apache.http.entity.InputStreamEntity
   import org.apache.http.impl.client.HttpClients
