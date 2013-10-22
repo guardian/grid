@@ -8,4 +8,8 @@ object Global extends GlobalSettings {
     FTPWatchers.future
   }
 
+  override def onStop(app: Application) {
+    FTPWatchers.shutdown()
+  }
+
 }
