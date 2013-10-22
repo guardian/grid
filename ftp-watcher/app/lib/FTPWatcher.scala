@@ -1,93 +1,107 @@
 package lib
 
-import scala.annotation.tailrec
-import scala.concurrent.Future
-import java.io.{IOException, InputStream}
-import java.nio.file.{Files, Path}
-import java.security.{DigestInputStream, MessageDigest}
+import java.nio.file.{Path, Files}
+import java.io.InputStream
 
-import org.apache.commons.net.ftp.{FTP, FTPClient}
-import org.apache.commons.codec.binary.Base32
-import play.api.Logger
-import play.api.libs.ws.WS
-import play.api.libs.concurrent.Execution.Implicits._
+import org.apache.commons.net.ftp.FTPFile
+
+import scalaz.syntax.bind._
+import scalaz.concurrent.Task
+import scalaz.stream.{process1, Process}
+import scalaz.stream.Process.{Process1, Sink, await, emit, suspend, eval, emitAll}
+import scalaz.stream.processes.resource
+
+import FTPWatcher._
 
 
-class FTPWatcher(path: String, batchSize: Int, withFile: (String, InputStream) => Unit, emptyWait: Int = 1000) {
+class FTPWatcher(config: Config) {
 
-  @tailrec
-  final def run() {
-    try run_(withFile)
-    catch {
-      case e: IOException => Logger.error("FTP client caused IOException", e)
-    }
-    Logger.info("Restarting in 3s...")
-    run()
+  import Processes._
+
+  /** Produces a stream of `File`s, each exposing an `InputStream`.
+    *
+    * This is unsafe to consume chunked, because the underlying client is not thread-safe.
+    *
+    * The stream will be closed, and the file deleted from the server, once the `File` element
+    * has been consumed.
+    */
+  def watchDir: Process[Task, File] = {
+    val client = new Client
+    val filePaths = resource(
+      acquire = initClient(client))(
+      release = _ => client.quit)(
+      step = _ => listFiles(client, emptySleep = 1000))
+    filePaths
+      .pipe(unChunk)
+      .flatMap(file => retrieveFile(client, file.getName).map(stream => File(file.getName, file.getSize, stream)))
   }
 
-  private def run_(withFile: (String, InputStream) => Unit) {
-    val client = new FTPClient
+  private def initClient(client: Client): Task[Unit] =
+    client.connect(config.host, 21) >>
+      client.login(config.user, config.password) >>
+      client.cwd(config.dir) >>
+      client.enterLocalPassiveMode >>
+      client.setBinaryFileType
 
-    try {
-      client.connect(Config.ftpHost, Config.ftpPort)
-
-      val loggedIn = client.login(Config.ftpUser, Config.ftpPassword)
-      if (!loggedIn) sys.error("Not logged in")
-
-      val changedDir = client.changeWorkingDirectory(path)
-      if (!changedDir) sys.error(s"Invalid path $path")
-
-      client.enterLocalPassiveMode()
-      client.setFileType(FTP.BINARY_FILE_TYPE)
-
-      while (true) {
-        val files = client.listFiles.toList.take(batchSize)
-        for (file <- files) {
-          val filename = file.getName
-          Logger.info(s"Retrieving file: $filename")
-          val stream = client.retrieveFileStream(filename)
-          withFile(filename, stream)
-          stream.close()
-          Logger.info(s"Deleting file: $filename")
-          client.deleteFile(filename)
-          client.completePendingCommand()
-        }
-        if (files.isEmpty) Thread.sleep(emptyWait)
-      }
+  private def listFiles(client: Client, emptySleep: Long, batchSize: Int = 10): Task[Seq[FTPFile]] =
+    client.listFiles.flatMap {
+      case Nil   => sleep(emptySleep) >> listFiles(client, emptySleep)
+      case files => Task.now(files.take(batchSize))
     }
-    finally {
-      client.disconnect()
-    }
-  }
+
+  private def retrieveFile(client: Client, file: FilePath): Process[Task, InputStream] =
+    resource1(client.retrieveFile(file))(stream =>
+      Task.delay(stream.close()) >> client.completePendingCommand >> client.delete(file))
 
 }
 
 object FTPWatcher {
 
-  lazy val watcher: Future[Unit] = Future { main(Array("getty")) }
+  def apply(host: String, user: String, password: String, dir: FilePath): FTPWatcher =
+    new FTPWatcher(Config(host, user, password, dir))
 
-  def main(args: Array[String]) {
-    def path = args.headOption.getOrElse(sys.error("Path not supplied"))
-    val destination = Files.createTempDirectory("ftp-downloads")
-    val watcher = new FTPWatcher(path, 8, loadFile(destination))
-    watcher.run()
-  }
+  case class Config(host: String, user: String, password: String, dir: FilePath)
 
-  def loadFile(destination: Path)(filename: String, is: InputStream) {
-    val tempFile = destination.resolve(filename)
-    val digest = base32(md5(is, Files.copy(_, tempFile)))
-    Logger.info(s"Saved file to $tempFile, md5: $digest")
-    WS.url(Config.imageLoaderUri).post(tempFile.toFile)
-  }
+  protected def sleep(millis: Long): Task[Unit] = Task(Thread.sleep(millis))
+}
 
-  def md5(stream: InputStream, callback: InputStream => Unit): Array[Byte] = {
-    val md = MessageDigest.getInstance("MD5")
-    val input = new DigestInputStream(stream, md)
-    callback(input)
-    md.digest
-  }
+case class File(name: FilePath, size: Long, stream: InputStream)
 
-  def base32(bytes: Array[Byte]): String =
-    (new Base32).encodeAsString(bytes).toLowerCase.reverse.dropWhile(_ == '=').reverse
+object Processes {
+
+  def resource1[O](acquire: Task[O])(release: O => Task[Unit]): Process[Task, O] =
+    await(acquire)(o => emit(o) ++ suspend(eval(release(o))).drain)
+
+  def unChunk[O]: Process1[Seq[O], O] =
+    process1.id[Seq[O]].flatMap(emitAll)
+
+}
+
+object Sinks {
+
+  import org.apache.http.client.methods.HttpPost
+  import org.apache.http.entity.{ContentType, InputStreamEntity}
+  import org.apache.http.impl.client.HttpClients
+
+  def httpPost(uri: String): Sink[Task, File] =
+    Process.constant { case File(_, length, in) =>
+      Task {
+        val client = HttpClients.createDefault
+        val postReq = new HttpPost(uri)
+        val entity = new InputStreamEntity(in, length, ContentType.DEFAULT_BINARY)
+        postReq.setEntity(entity)
+        client.execute(postReq).close()
+        client.close()
+      }
+    }
+
+  def saveToFile(parent: Path): Sink[Task, File] =
+    Process.constant { case File(name, _, stream) =>
+      Task {
+        val path = parent.resolve(name)
+        println(s"Saving $name to $path...")
+        Files.copy(stream, path)
+      }
+    }
 
 }
