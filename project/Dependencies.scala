@@ -13,14 +13,19 @@ object Dependencies {
 
   val awsDeps = Seq("com.amazonaws" % "aws-java-sdk" % "1.5.7")
 
-  val scalazDeps = Seq("org.scalaz" %% "scalaz-core" % "7.1.0-M3")
+  val scalazDeps = Seq(
+    "org.scalaz.stream" %% "scalaz-stream" % "0.1"
+  )
 
   val imagingDeps = Seq(
     "com.drewnoakes" % "metadata-extractor" % "2.6.2",
     "org.im4java" % "im4java" % "1.4.0"
   )
 
-  val commonsNetDeps = Seq("commons-net" % "commons-net" % "3.3")
+  val commonsNetDeps = Seq(
+    "commons-net" % "commons-net" % "3.3",
+    "org.apache.httpcomponents" % "httpclient" % "4.3.1"
+  )
 
   val scalaTestDeps = Seq("org.scalatest" %% "scalatest" % "2.0.RC1")
 
