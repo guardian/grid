@@ -3,6 +3,9 @@ package lib
 import java.nio.file.{Path, Files}
 import java.io.InputStream
 
+import org.apache.commons.net.ftp.FTPFile
+import org.apache.http.entity.ContentType
+
 import scalaz.syntax.bind._
 import scalaz.concurrent.Task
 import scalaz.stream.{process1, Process}
@@ -10,6 +13,7 @@ import scalaz.stream.Process.{Process1, Sink, await, emit, suspend, eval, emitAl
 import scalaz.stream.processes.resource
 
 import FTPWatcher._
+
 
 class FTPWatcher(config: Config) {
 
@@ -30,7 +34,7 @@ class FTPWatcher(config: Config) {
       step = _ => listFiles(client, emptySleep = 1000))
     filePaths
       .pipe(unChunk)
-      .flatMap(path => retrieveFile(client, path).map(File(path, _)))
+      .flatMap(file => retrieveFile(client, file.getName).map(stream => File(file.getName, file.getSize, stream)))
   }
 
   private def initClient(client: Client): Task[Unit] =
@@ -40,10 +44,10 @@ class FTPWatcher(config: Config) {
       client.enterLocalPassiveMode >>
       client.setBinaryFileType
 
-  private def listFiles(client: Client, emptySleep: Long, batchSize: Int = 10): Task[Seq[FilePath]] =
+  private def listFiles(client: Client, emptySleep: Long, batchSize: Int = 10): Task[Seq[FTPFile]] =
     client.listFiles.flatMap {
       case Nil   => sleep(emptySleep) >> listFiles(client, emptySleep)
-      case files => Task.now(files.take(batchSize).map(_.getName))
+      case files => Task.now(files.take(batchSize))
     }
 
   private def retrieveFile(client: Client, file: FilePath): Process[Task, InputStream] =
@@ -62,7 +66,7 @@ object FTPWatcher {
   protected def sleep(millis: Long): Task[Unit] = Task(Thread.sleep(millis))
 }
 
-case class File(name: FilePath, stream: InputStream)
+case class File(name: FilePath, size: Long, stream: InputStream)
 
 object Processes {
 
@@ -81,13 +85,11 @@ object Sinks {
   import org.apache.http.impl.client.HttpClients
 
   def httpPost(uri: String): Sink[Task, File] =
-    Process.constant { case File(_, in) =>
+    Process.constant { case File(_, length, in) =>
       Task {
         val client = HttpClients.createDefault
         val postReq = new HttpPost(uri)
-        val entity = new InputStreamEntity(in)
-        entity.setContentType("binary/octet-stream")
-        entity.setChunked(true)
+        val entity = new InputStreamEntity(in, length, ContentType.DEFAULT_BINARY)
         postReq.setEntity(entity)
         client.execute(postReq).close()
         client.close()
@@ -95,7 +97,7 @@ object Sinks {
     }
 
   def saveToFile(parent: Path): Sink[Task, File] =
-    Process.constant { case File(name, stream) =>
+    Process.constant { case File(name, _, stream) =>
       Task {
         val path = parent.resolve(name)
         println(s"Saving $name to $path...")
