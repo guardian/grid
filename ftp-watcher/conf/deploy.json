@@ -2,6 +2,7 @@
     "packages": {
         "media-service-ftp-watcher": {
             "type": "executable-jar-webapp",
+            "apps": [ "mediaservice::ftpwatcher" ],
             "data": {
                 "port": 9000,
                 "healthcheck_paths": [ "/health-check" ]
