@@ -1,6 +1,6 @@
 #!/bin/sh
 
-ELASTICSEARCH_VERSION=0.90.3
+ELASTICSEARCH_VERSION=0.90.5
 ELASTICSEARCH_DIR=$(dirname $0)
 
 if [ -d "$ELASTICSEARCH_DIR/elasticsearch" ]; then
