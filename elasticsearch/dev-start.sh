@@ -10,7 +10,8 @@ ES_OPTIONS="-Des.discovery.type=zen
             -Des.discovery.zen.minimum_master_nodes=1
             -Des.path.data=data
             -Des.path.logs=logs
-            -Des.path.conf=config"
+            -Des.path.conf=config
+            -Des.client.transport.sniff=false"
 
 $ELASTICSEARCH_DIR/elasticsearch/bin/elasticsearch $ES_OPTIONS $*
 

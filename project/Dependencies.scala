@@ -7,7 +7,7 @@ object Dependencies {
 
   val playDeps = Seq("com.typesafe.play" %% "play" % playVersion)
 
-  val elasticsearchVersion = "0.90.3"
+  val elasticsearchVersion = "0.90.5"
 
   val elasticsearchDeps = Seq("org.elasticsearch" % "elasticsearch" % elasticsearchVersion)
 
