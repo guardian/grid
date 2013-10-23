@@ -50,7 +50,10 @@ trait TestHarness {
 
   def retrying[A](desc: String, attempts: Int = 5, sleep: Duration = 3.seconds)(f: => A): A = {
     def iter(n: Int, f: => Try[A]): Try[A] =
-      if (n <= 0) Failure(sys.error(s"$desc failed after $attempts attempts"))
+      if (n <= 0) {
+        log.error(s"\"$desc\" failed after $attempts attempts")
+        f
+      }
       else f.orElse {
         log.warn(s"""Retrying "$desc" in $sleep""")
         Thread.sleep(sleep.toMillis)
