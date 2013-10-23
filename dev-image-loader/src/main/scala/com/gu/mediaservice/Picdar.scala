@@ -7,7 +7,7 @@ import org.joda.time.DateTime
 import play.api.libs.ws.WS
 
 
-case class PicdarImage(mmref: Picdar.MMRef, url: URL)
+case class PicdarImage(mmref: Picdar.MMRef, url: URL, xml: Node)
 
 class Picdar(implicit ex: ExecutionContext) {
 
@@ -74,7 +74,7 @@ class Picdar(implicit ex: ExecutionContext) {
       response <- postXML(request)
       item      = response \ "ResponseData" \ "Record"
       url       = (item \ "VURL").filter(u => (u \ "@type").text == "original").text
-    } yield PicdarImage(mmref, new URL(url))
+    } yield PicdarImage(mmref, new URL(url), response)
   }
 
   def runSearch[A](mak: MAK, startDate: DateTime, endDate: DateTime)(f: SearchId => Future[A]): Future[A] = {

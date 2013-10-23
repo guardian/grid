@@ -38,7 +38,7 @@ object DevImageLoader {
   def downloadSomeImages() {
     withTempDir("dev-image-loader") { tempDir =>
       for (images <- picdar.latestResults(10)) yield {
-        for (PicdarImage(mmref, url) <- images) {
+        for (PicdarImage(mmref, url, _) <- images) {
           val downloadPath = tempDir.resolve(s"$mmref")
           println(s"Downloading image from $url to $downloadPath")
           Files.copy(url.openStream, downloadPath)
