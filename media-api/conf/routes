@@ -7,6 +7,7 @@ GET     /                           controllers.MediaApi.index
 
 # Images
 GET     /image/:id                  controllers.MediaApi.getImage(id: String)
+POST    /image/:id/buckets          controllers.MediaApi.addImageToBucket(id: String)
 DELETE  /image/:id                  controllers.MediaApi.deleteImage(id: String)
 
 GET     /images                     controllers.MediaApi.imageSearch
