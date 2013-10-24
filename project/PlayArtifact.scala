@@ -21,17 +21,13 @@ object PlayArtifact extends Plugin {
     mainClass in assembly := Some("play.core.server.NettyServer"),
     jarName in assembly := "app.jar",
 
-    playArtifactResources <<= (assembly, magentaPackageName, baseDirectory) map {
-      (assembly, packageName, baseDirectory) =>
-        Seq(assembly -> "packages/%s/%s".format(packageName, assembly.getName))
-    },
-
     // package config for Magenta and Upstart
-    playArtifactResources <<= (baseDirectory, name, magentaPackageName, playArtifactResources) map {
-      (base, name, packageName, defaults) =>
-        defaults ++ Seq(
+    playArtifactResources <<= (assembly, baseDirectory, name, magentaPackageName) map {
+      (assembly, base, name, packageName) =>
+        Seq(
           base / "conf" / "deploy.json" -> "deploy.json",
-          base / "conf" / (name + ".conf") -> s"packages/$packageName/$name.conf"
+          base / "conf" / (name + ".conf") -> s"packages/$packageName/$name.conf",
+          assembly -> s"packages/$packageName/${assembly.getName}"
         )
     },
 
