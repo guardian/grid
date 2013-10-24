@@ -6,16 +6,16 @@ import scala.concurrent.duration._
 
 import com.amazonaws.services.sqs.AmazonSQSClient
 import com.amazonaws.services.sqs.model.{Message => SQSMessage, DeleteMessageRequest, ReceiveMessageRequest}
-
-import play.api.Logger
-import play.api.libs.json._
-import play.api.libs.functional.syntax._
+import org.elasticsearch.action.index.IndexResponse
+import org.elasticsearch.action.delete.DeleteResponse
+import _root_.play.api.Logger
+import _root_.play.api.libs.json._
+import _root_.play.api.libs.functional.syntax._
 import akka.actor.ActorSystem
 import scalaz.syntax.id._
 
 import com.gu.mediaservice.lib.json.PlayJsonHelpers._
-import org.elasticsearch.action.index.IndexResponse
-import org.elasticsearch.action.delete.DeleteResponse
+import org.elasticsearch.action.update.UpdateResponse
 
 
 object MessageConsumer {
@@ -30,17 +30,20 @@ object MessageConsumer {
   lazy val client =
     new AmazonSQSClient(Config.awsCredentials) <| (_ setEndpoint Config.awsEndpoint)
 
-  def processMessages(): Unit =
+  def processMessages() {
     for (msg <- poll(10)) {
-      Logger.info("Processing message...")
-      val message = extractSNSMessage(msg) getOrElse sys.error("Invalid message structure (not via SNS?)")
-      val future = message.subject match {
-        case Some("image")        => indexImage(message.body)
-        case Some("delete-image") => deleteImage(message.body)
-        case s                    => sys.error(s"Unrecognised message subject $s")
-      }
+      val future = for {
+        message <- Future(extractSNSMessage(msg) getOrElse sys.error("Invalid message structure (not via SNS?)"))
+        _ <- message.subject match {
+          case Some("image")               => indexImage(message.body)
+          case Some("delete-image")        => deleteImage(message.body)
+          case Some("add-image-to-bucket") => addImageToBucket(message.body)
+          case s                           => sys.error(s"Unrecognised message subject $s")
+        }
+      } yield ()
       future |> deleteOnSuccess(msg)
     }
+  }
 
   def deleteOnSuccess(msg: SQSMessage)(f: Future[Any]): Unit =
     f.onSuccess { case _ => deleteMessage(msg) }
@@ -60,6 +63,13 @@ object MessageConsumer {
       val future = ElasticSearch.deleteImage(id)
       future.onSuccess { case _ => S3Client.delete(id) }
       future
+    }
+
+  def addImageToBucket(image: JsValue): Future[UpdateResponse] =
+    withImageId(image) { id =>
+      string(image \ "bucket").fold(
+        sys.error("No bucket found in request"))(
+        ElasticSearch.addImageToBucket(id, _))
     }
 
   def withImageId[A](image: JsValue)(f: String => A): A =
