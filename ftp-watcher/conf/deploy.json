@@ -1,6 +1,6 @@
 {
     "packages": {
-        "ftp-watcher": {
+        "media-service-ftp-watcher": {
             "type": "executable-jar-webapp",
             "apps": [ "mediaservice::ftpwatcher" ],
             "data": {

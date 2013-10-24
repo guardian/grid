@@ -59,7 +59,7 @@ object Build extends Build {
     playArtifactResources <<= (baseDirectory, name, playArtifactResources) map {
       (base, name, defaults) => defaults ++ Seq(
         base / "conf" / "deploy.json" -> "deploy.json",
-        base / "conf" / (name + ".conf") -> ("packages/" + name + "/" + name + ".conf")
+        base / "conf" / (name + ".conf") -> ("packages/media-service-" + name + "/" + name + ".conf")
       )
     },
     ivyXML :=
