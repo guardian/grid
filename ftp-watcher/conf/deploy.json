@@ -4,7 +4,7 @@
             "type": "executable-jar-webapp",
             "apps": [ "mediaservice::ftpwatcher" ],
             "data": {
-                "port": "9000",
+                "port": "8080",
                 "healthcheck_paths": [ "/health-check" ]
             }
         }
