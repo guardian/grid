@@ -7,16 +7,17 @@ import play.api.libs.json.JsValue
 import org.elasticsearch.action.search.SearchRequestBuilder
 import org.elasticsearch.index.query.{FilterBuilders, FilterBuilder}
 import org.elasticsearch.index.query.QueryBuilders._
+import org.elasticsearch.search.facet.terms.{TermsFacet, TermsFacetBuilder}
 import org.elasticsearch.search.sort.SortOrder
 import org.joda.time.DateTime
-import scalaz.syntax.std.function1._, scalaz.syntax.id._
+import scalaz.syntax.id._
+import scalaz.NonEmptyList
 
 import com.gu.mediaservice.syntax._
 import com.gu.mediaservice.lib.elasticsearch.ElasticSearchClient
 import com.gu.mediaservice.lib.formatting.printDateTime
 import controllers.SearchParams
 import lib.Config
-import org.elasticsearch.search.facet.terms.{TermsFacet, TermsFacetBuilder}
 
 
 object ElasticSearch extends ElasticSearchClient {
@@ -32,9 +33,15 @@ object ElasticSearch extends ElasticSearchClient {
 
   def search(params: SearchParams)(implicit ex: ExecutionContext): Future[Seq[(Id, JsValue)]] = {
     val query = params.query filter (_.nonEmpty) map (matchQuery("metadata.description", _)) getOrElse matchAllQuery
-    val search = prepareImagesSearch.setQuery(query)
-      .setFilter(filters.date(params.fromDate, params.toDate)) |> sorts.parseFromRequest(params.orderBy)
+
+    val dateFilter = filters.date(params.fromDate, params.toDate)
+    val bucketFilter = params.buckets.map(filters.terms("buckets", _))
+
+    val filter = bucketFilter.foldLeft(dateFilter)(filters.and)
+
+    val search = prepareImagesSearch.setQuery(query).setFilter(filter) |> sorts.parseFromRequest(params.orderBy)
     for (s <- params.size) search.setSize(s)
+
     for (res <- search.executeAndLog("image search"))
     yield res.getHits.hits.toList flatMap (h => h.sourceOpt map (h.id -> _))
   }
@@ -58,6 +65,12 @@ object ElasticSearch extends ElasticSearchClient {
       for (t <- to) builder.to(printDateTime(t))
       builder
     }
+
+    def terms(field: String, terms: NonEmptyList[String]): FilterBuilder =
+      FilterBuilders.termsFilter(field, terms.list: _*)
+
+    def and(filter1: FilterBuilder, filter2: FilterBuilder): FilterBuilder =
+      FilterBuilders.andFilter(filter1, filter2)
 
   }
 
