@@ -1,6 +1,6 @@
 {
     "packages": {
-        "elasticsearch": {
+        "media-service-elasticsearch": {
             "type": "elasticsearch",
             "data": {
                 "bucket": "media-service-dist"
@@ -12,10 +12,10 @@
             "depends": ["artifactUploadOnly", "deployOnly"]
         },
         "deployOnly": {
-            "actionsBeforeApp": ["elasticsearch.deploy"]
+            "actionsBeforeApp": ["media-service-elasticsearch.deploy"]
         },
         "artifactUploadOnly": {
-            "actionsBeforeApp": ["elasticsearch.uploadArtifacts"]
+            "actionsBeforeApp": ["media-service-elasticsearch.uploadArtifacts"]
         }
     }
 }
