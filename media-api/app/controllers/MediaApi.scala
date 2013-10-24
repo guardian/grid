@@ -1,6 +1,5 @@
 package controllers
 
-import scala.concurrent.Future
 import scala.util.Try
 
 import play.api.mvc._
@@ -62,6 +61,11 @@ object MediaApi extends Controller {
         .flatMap(_.transform(transformers.addSecureThumbUrl(secureThumbUrl))).get
     }
     else source
+
+  def getAllBuckets = Action.async {
+    for (buckets <- ElasticSearch.getAllBuckets)
+    yield Ok(Json.obj("buckets" -> buckets))
+  }
 
   object transformers {
 

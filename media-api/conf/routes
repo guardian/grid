@@ -11,6 +11,7 @@ POST    /image/:id/buckets          controllers.MediaApi.addImageToBucket(id: St
 DELETE  /image/:id                  controllers.MediaApi.deleteImage(id: String)
 
 GET     /images                     controllers.MediaApi.imageSearch
+GET     /buckets                    controllers.MediaApi.getAllBuckets
 
 # Index management
 POST    /delete-index               controllers.IndexManagement.deleteIndex

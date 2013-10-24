@@ -1,5 +1,6 @@
 package lib.elasticsearch
 
+import scala.collection.JavaConverters._
 import scala.concurrent.{ExecutionContext, Future}
 
 import play.api.libs.json.JsValue
@@ -15,6 +16,7 @@ import com.gu.mediaservice.lib.elasticsearch.ElasticSearchClient
 import com.gu.mediaservice.lib.formatting.printDateTime
 import controllers.SearchParams
 import lib.Config
+import org.elasticsearch.search.facet.terms.{TermsFacet, TermsFacetBuilder}
 
 
 object ElasticSearch extends ElasticSearchClient {
@@ -36,6 +38,14 @@ object ElasticSearch extends ElasticSearchClient {
     for (res <- search.executeAndLog("image search"))
     yield res.getHits.hits.toList flatMap (h => h.sourceOpt map (h.id -> _))
   }
+
+  def getAllBuckets(implicit ex: ExecutionContext): Future[List[String]] =
+    prepareImagesSearch
+      .addFacet(new TermsFacetBuilder("buckets").field("buckets").allTerms(true))
+      .executeAndLog("all buckets terms facet")
+      .map(_.getFacets.facets.asScala.toList.flatMap {
+        case f: TermsFacet => f.getEntries.asScala.map(_.getTerm.string)
+      })
 
   def prepareImagesSearch: SearchRequestBuilder =
     client.prepareSearch(imagesIndex).setTypes(imageType)
