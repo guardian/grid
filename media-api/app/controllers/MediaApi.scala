@@ -1,5 +1,8 @@
 package controllers
 
+import scala.concurrent.Future
+import scala.util.Try
+
 import play.api.mvc._
 import play.api.libs.concurrent.Execution.Implicits._
 import play.api.libs.json._
@@ -9,7 +12,6 @@ import scalaz.syntax.std.function2._
 import com.gu.mediaservice.lib.formatting.parseDateFromQuery
 import lib.elasticsearch.ElasticSearch
 import lib.{Notifications, Config, S3Client}
-import scala.util.Try
 
 
 object MediaApi extends Controller {
@@ -29,6 +31,16 @@ object MediaApi extends Controller {
   def deleteImage(id: String) = Action {
     Notifications.publish(Json.obj("id" -> id), "delete-image")
     Accepted
+  }
+
+  def addImageToBucket(id: String) = Action { request =>
+    val bucket = request.body.asText
+    bucket match {
+      case Some(b) =>
+        Notifications.publish(Json.obj("id" -> id, "bucket" -> bucket), "add-image-to-bucket")
+        Accepted
+      case None => BadRequest
+    }
   }
 
   def imageSearch = Action.async { request =>

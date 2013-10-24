@@ -1,11 +1,13 @@
 package com.gu.mediaservice.lib.json
 
-import play.api.libs.json.{JsResult, JsPath}
-import play.api.data.validation.ValidationError
+import scala.PartialFunction.condOpt
+
+import play.api.libs.json._
 import play.api.Logger
+import play.api.libs.json.JsString
 
 
-object PlayJsonHelpers {
+trait PlayJsonHelpers {
 
   def logParseErrors(parseResult: JsResult[_]): Unit =
     parseResult.fold(
@@ -14,4 +16,12 @@ object PlayJsonHelpers {
       },
       _ => ())
 
+  def string(v: JsValue): Option[String] =
+    condOpt(v) { case JsString(s) => s }
+
+  def array(v: JsValue): Option[List[JsValue]] =
+    condOpt(v) { case JsArray(vs) => vs.toList }
+
 }
+
+object PlayJsonHelpers extends PlayJsonHelpers
