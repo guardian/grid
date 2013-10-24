@@ -12,6 +12,7 @@ import scalaz.syntax.std.function2._
 import com.gu.mediaservice.lib.formatting.parseDateFromQuery
 import lib.elasticsearch.ElasticSearch
 import lib.{Notifications, Config, S3Client}
+import lib.Buckets._
 
 
 object MediaApi extends Controller {
@@ -36,10 +37,10 @@ object MediaApi extends Controller {
   def addImageToBucket(id: String) = Action { request =>
     val bucket = request.body.asText
     bucket match {
-      case Some(b) =>
+      case Some(b) if validBucket(b) =>
         Notifications.publish(Json.obj("id" -> id, "bucket" -> bucket), "add-image-to-bucket")
         Accepted
-      case None => BadRequest
+      case None => BadRequest("Invalid bucket name")
     }
   }
 
