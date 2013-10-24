@@ -33,6 +33,7 @@ object Build extends Build {
 
   val ftpWatcher = playProject("ftp-watcher")
     .libraryDependencies(commonsNetDeps ++ scalazDeps)
+    .settings(magentaPackageName := "ftp-watcher")
 
   val integration = project("integration")
     .dependsOn(lib)
@@ -55,13 +56,6 @@ object Build extends Build {
       .settings(magentaPackageName := "media-service-" + path)
 
   def playArtifactSettings = Seq(
-    // package config for Magenta and Upstart
-    playArtifactResources <<= (baseDirectory, name, playArtifactResources) map {
-      (base, name, defaults) => defaults ++ Seq(
-        base / "conf" / "deploy.json" -> "deploy.json",
-        base / "conf" / (name + ".conf") -> ("packages/media-service-" + name + "/" + name + ".conf")
-      )
-    },
     ivyXML :=
       <dependencies>
         <exclude org="commons-logging"/>
