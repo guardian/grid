@@ -6,7 +6,7 @@ import play.api.mvc._
 import play.api.libs.concurrent.Execution.Implicits._
 import play.api.libs.json._
 import org.joda.time.DateTime
-import scalaz.syntax.std.function2._
+import scalaz.NonEmptyList
 
 import com.gu.mediaservice.lib.formatting.parseDateFromQuery
 import lib.elasticsearch.ElasticSearch
@@ -92,10 +92,13 @@ case class SearchParams(
   size: Option[Int],
   orderBy: Option[String],
   fromDate: Option[DateTime],
-  toDate: Option[DateTime]
+  toDate: Option[DateTime],
+  buckets: Option[NonEmptyList[String]]
 )
 
 object SearchParams {
+
+  import scalaz.syntax.std.list._
 
   def apply(request: Request[Any]): SearchParams =
     SearchParams(
@@ -103,7 +106,8 @@ object SearchParams {
       request.getQueryString("size") flatMap (s => Try(s.toInt).toOption),
       request.getQueryString("order-by") orElse request.getQueryString("sort-by"),
       request.getQueryString("from-date") orElse request.getQueryString("since") flatMap parseDateFromQuery,
-      request.getQueryString("to-date") orElse request.getQueryString("until") flatMap parseDateFromQuery
+      request.getQueryString("to-date") orElse request.getQueryString("until") flatMap parseDateFromQuery,
+      request.getQueryString("bucket") flatMap (s => s.trim.split(',').toList.toNel)
     )
 
 }
