@@ -26,6 +26,15 @@ object PlayArtifact extends Plugin {
         Seq(assembly -> "packages/%s/%s".format(packageName, assembly.getName))
     },
 
+    // package config for Magenta and Upstart
+    playArtifactResources <<= (baseDirectory, name, magentaPackageName, playArtifactResources) map {
+      (base, name, packageName, defaults) =>
+        defaults ++ Seq(
+          base / "conf" / "deploy.json" -> "deploy.json",
+          base / "conf" / (name + ".conf") -> s"packages/$packageName/$name.conf"
+        )
+    },
+
     playArtifactFile := "artifacts.zip",
     playArtifact <<= buildDeployArtifact,
     packager.Keys.dist <<= buildDeployArtifact tag Tags.Disk,
