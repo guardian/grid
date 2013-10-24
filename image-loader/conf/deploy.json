@@ -1,6 +1,6 @@
 {
     "packages": {
-        "image-loader": {
+        "media-service-image-loader": {
             "type": "asg-elb",
             "data": {
                 "port": 9000,
@@ -13,10 +13,10 @@
             "depends": ["artifactUploadOnly", "deployOnly"]
         },
         "deployOnly": {
-            "actionsBeforeApp": ["image-loader.deploy"]
+            "actionsBeforeApp": ["media-service-image-loader.deploy"]
         },
         "artifactUploadOnly": {
-            "actionsBeforeApp": ["image-loader.uploadArtifacts"]
+            "actionsBeforeApp": ["media-service-image-loader.uploadArtifacts"]
         }
     }
 }
