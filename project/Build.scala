@@ -33,7 +33,7 @@ object Build extends Build {
 
   val ftpWatcher = playProject("ftp-watcher")
     .libraryDependencies(commonsNetDeps ++ scalazDeps)
-    .settings(magentaPackageName := "ftp-watcher")
+    .settings(magentaPackageName := "ftp-watcher", jarName in assembly := "ftp-watcher.jar")
 
   val integration = project("integration")
     .dependsOn(lib)
