@@ -11,9 +11,12 @@ import scalaz.syntax.traverse._
 import com.gu.mediaservice.lib.json._
 
 import ImageFixture._
-import scala.concurrent.Future
+
 
 class IntegrationTest extends FunSpec with TestHarness with Matchers with BeforeAndAfterAll {
+
+  lazy val config = Discovery.discoverConfig("media-service-TEST") getOrElse sys.error("Could not find stack")
+  //val config = Config(new java.net.URL("http://localhost:9000/"), new java.net.URL("http://localhost:9002/"))
 
   val images = Seq(
     fixture("honeybee.jpg", "credit" -> "AFP/Getty Images", "byline" -> "THOMAS KIENZLE"),
