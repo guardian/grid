@@ -1,13 +1,19 @@
 package com.gu.mediaservice
 package integration
 
-import org.scalatest.{BeforeAndAfterAll, FunSpec}
+import org.scalatest.{Matchers, BeforeAndAfterAll, FunSpec}
 import play.api.libs.json.JsString
 import play.api.libs.ws.WS
 
-import ImageFixture._
+import scalaz.std.AllInstances._
+import scalaz.syntax.traverse._
 
-class IntegrationTest extends FunSpec with TestHarness with BeforeAndAfterAll {
+import com.gu.mediaservice.lib.json._
+
+import ImageFixture._
+import scala.concurrent.Future
+
+class IntegrationTest extends FunSpec with TestHarness with Matchers with BeforeAndAfterAll {
 
   val images = Seq(
     fixture("honeybee.jpg", "credit" -> "AFP/Getty Images", "byline" -> "THOMAS KIENZLE"),
@@ -52,14 +58,30 @@ class IntegrationTest extends FunSpec with TestHarness with BeforeAndAfterAll {
 
     }
 
-    lazy val imageUrl = (getImage(imageId).json \ "secure-url").as[String]
+    lazy val fileUrl = (getImage(imageId).json \ "secure-url").as[String]
 
     it ("should have a usable URL for the image") {
 
-      val imageResponse = await()(WS.url(imageUrl).get)
+      val imageResponse = await()(WS.url(fileUrl).get)
 
       assert(imageResponse.status == OK)
 
+    }
+    
+    it ("can be added to buckets") {
+      
+      val bucketsUrl = config.imageEndpoint(imageId) + "/buckets"
+      
+      val buckets = Seq("my-bucket", "another-bucket")
+      
+      for (bucket <- buckets)
+        await()(WS.url(bucketsUrl).post(bucket))
+
+      retrying("get bucket") {
+        val bucketsFromResponse = array(getImage(imageId).json \ "buckets") flatMap (_ traverse string) getOrElse Nil
+        buckets.foreach(bucket => bucketsFromResponse should contain (bucket))
+      }
+      
     }
 
     it ("can be deleted") {
@@ -71,7 +93,7 @@ class IntegrationTest extends FunSpec with TestHarness with BeforeAndAfterAll {
         val mediaApiResponse = getImage(imageId)
         assert(mediaApiResponse.status == NotFound)
 
-        val imageResponse = await()(WS.url(imageUrl).get)
+        val imageResponse = await()(WS.url(fileUrl).get)
         // S3 doesn't seem to give a 404 on a signed URL
         assert(imageResponse.status == Forbidden)
       }

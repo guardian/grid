@@ -33,7 +33,7 @@ object ElasticSearch extends ElasticSearchClient {
     val search = prepareImagesSearch.setQuery(query)
       .setFilter(filters.date(params.fromDate, params.toDate)) |> sorts.parseFromRequest(params.orderBy)
     for (s <- params.size) search.setSize(s)
-    for (res <- search.executeAndLog("Image search query"))
+    for (res <- search.executeAndLog("image search"))
     yield res.getHits.hits.toList flatMap (h => h.sourceOpt map (h.id -> _))
   }
 
