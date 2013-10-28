@@ -1,7 +1,7 @@
 {
     "packages": {
         "media-service-image-loader": {
-            "type": "asg-elb",
+            "type": "autoscaling",
             "data": {
                 "port": 9000,
                 "bucket": "media-service-dist"
