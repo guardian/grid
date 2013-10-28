@@ -34,16 +34,22 @@ object MessageConsumer {
     for (msg <- poll(10)) {
       val future = for {
         message <- Future(extractSNSMessage(msg) getOrElse sys.error("Invalid message structure (not via SNS?)"))
-        _ <- message.subject match {
-          case Some("image")               => indexImage(message.body)
-          case Some("delete-image")        => deleteImage(message.body)
-          case Some("add-image-to-bucket") => addImageToBucket(message.body)
-          case s                           => sys.error(s"Unrecognised message subject $s")
-        }
+        processor = message.subject.flatMap(chooseProcessor)
+        _ <- processor.fold(
+          sys.error(s"Unrecognised message subject ${message.subject}"))(
+          _.apply(message.body))
       } yield ()
       future |> deleteOnSuccess(msg)
     }
   }
+
+  def chooseProcessor(subject: String): Option[JsValue => Future[Any]] =
+    PartialFunction.condOpt(subject) {
+      case "image"               => indexImage
+      case "delete-image"        => deleteImage
+      case "add-image-to-bucket" => addImageToBucket
+      case "remove-image-from-bucket" => removeImageFromBucket
+    }
 
   def deleteOnSuccess(msg: SQSMessage)(f: Future[Any]): Unit =
     f.onSuccess { case _ => deleteMessage(msg) }
@@ -70,6 +76,13 @@ object MessageConsumer {
       string(image \ "bucket").fold(
         sys.error("No bucket found in request"))(
         ElasticSearch.addImageToBucket(id, _))
+    }
+
+  def removeImageFromBucket(image: JsValue): Future[UpdateResponse] =
+    withImageId(image) { id =>
+      string(image \ "bucket").fold(
+        sys.error("No bucket found in request"))(
+        ElasticSearch.removeImageFromBucket(id, _))
     }
 
   def withImageId[A](image: JsValue)(f: String => A): A =
