@@ -15,4 +15,6 @@ object Config {
 
   val imageLoaderUri: String = properties("loader.uri")
 
+  val active: Boolean = sys.props.get("active").exists(_.toBoolean)
+
 }

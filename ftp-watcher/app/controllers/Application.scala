@@ -20,10 +20,14 @@ object Application extends Controller {
 
   def healthCheck = Action.async {
     if (future.isCompleted)
-      future
-        .map(_ => ServiceUnavailable("Watcher terminated unexpectedly"))
-        .recover { case e => ServiceUnavailable }
+      future.map(_ => Ok("Ok"))
+            .recover { case e => ServiceUnavailable }
     else Future.successful(Ok("OK"))
+  }
+
+  def status = Action {
+    val statusText = if (Config.active) "Active" else "Passive"
+    Ok(statusText)
   }
 
 }
@@ -54,10 +58,12 @@ object FTPWatchers {
     cancel.set(true)
   }
 
-  lazy val future: Future[Unit] = {
-    val promise = Promise[Unit]()
-    task.runAsyncInterruptibly(_.fold(promise.failure, promise.success), cancel)
-    promise.future
-  }
+  lazy val future: Future[Unit] =
+    if (Config.active) {
+      val promise = Promise[Unit]()
+      task.runAsyncInterruptibly(_.fold(promise.failure, promise.success), cancel)
+      promise.future
+    }
+    else Future.successful(())
 
 }
