@@ -70,21 +70,33 @@ class IntegrationTest extends FunSpec with TestHarness with Matchers with Before
       assert(imageResponse.status == OK)
 
     }
-    
-    it ("can be added to buckets") {
-      
-      val bucketsUrl = config.imageEndpoint(imageId) + "/buckets"
-      
-      val buckets = Seq("my-bucket", "another-bucket")
-      
-      for (bucket <- buckets)
-        await()(WS.url(bucketsUrl).post(bucket))
 
-      retrying("get bucket") {
-        val bucketsFromResponse = array(getImage(imageId).json \ "buckets") flatMap (_ traverse string) getOrElse Nil
-        buckets.foreach(bucket => bucketsFromResponse should contain (bucket))
+    lazy val addToBucketUrl = config.imageEndpoint(imageId) + "/add-to-bucket"
+    lazy val removeFromBucketUrl = config.imageEndpoint(imageId) + "/remove-from-bucket"
+
+    def getBuckets = array(getImage(imageId).json \ "buckets") flatMap (_ traverse string) getOrElse Nil
+
+    it ("can be added to buckets") {
+
+      val buckets = Seq("my-bucket", "another-bucket")
+
+      for (bucket <- buckets)
+        await()(WS.url(addToBucketUrl).post(bucket))
+
+      retrying("add to bucket") {
+        val updatedBuckets = getBuckets
+        buckets.foreach(bucket => updatedBuckets should contain (bucket))
       }
-      
+
+    }
+
+    it ("can be removed from a bucket") {
+
+      await()(WS.url(removeFromBucketUrl).post("my-bucket"))
+
+      retrying("remove from bucket") {
+        getBuckets should not contain "my-bucket"
+      }
     }
 
     it ("can be deleted") {
