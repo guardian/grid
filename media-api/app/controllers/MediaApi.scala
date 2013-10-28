@@ -1,5 +1,6 @@
 package controllers
 
+import scala.concurrent.Future
 import scala.util.Try
 
 import play.api.mvc._
@@ -33,13 +34,17 @@ object MediaApi extends Controller {
     Accepted
   }
 
-  def addImageToBucket(id: String) = Action { request =>
-    val bucket = request.body.asText
-    bucket match {
-      case Some(b) if validBucket(b) =>
-        Notifications.publish(Json.obj("id" -> id, "bucket" -> bucket), "add-image-to-bucket")
-        Accepted
-      case None => BadRequest("Invalid bucket name")
+  def addImageToBucket(id: String) = Action.async { request =>
+    request.body.asText.filter(validBucket) match {
+      case Some(bucket) =>
+        for (exists <- ElasticSearch.imageExists(id)) yield
+          if (exists) {
+            Notifications.publish(Json.obj("id" -> id, "bucket" -> bucket), "add-image-to-bucket")
+            Accepted
+          }
+          else NotFound
+
+      case None => Future.successful(BadRequest("Invalid bucket name"))
     }
   }
 
