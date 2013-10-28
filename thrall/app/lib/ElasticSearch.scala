@@ -34,4 +34,9 @@ object ElasticSearch extends ElasticSearchClient {
       .setScript("if (ctx._source.containsKey(\"buckets\") && ! ctx._source.buckets.contains( bucket ) ) { ctx._source.buckets += bucket } else { ctx._source.buckets = { bucket } }")
       .executeAndLog(s"add image $id to bucket $bucket")
 
+  def removeImageFromBucket(id: String, bucket: String)(implicit ex: ExecutionContext): Future[UpdateResponse] =
+    prepareImageUpdate(id)
+      .addScriptParam("bucket", bucket)
+      .setScript("if (ctx._source.containsKey(\"buckets\")) { ctx._source.buckets.remove( bucket ) }")
+      .executeAndLog(s"remove image $id from bucket $bucket")
 }

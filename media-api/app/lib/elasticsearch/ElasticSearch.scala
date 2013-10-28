@@ -18,6 +18,7 @@ import com.gu.mediaservice.lib.elasticsearch.ElasticSearchClient
 import com.gu.mediaservice.lib.formatting.printDateTime
 import controllers.SearchParams
 import lib.Config
+import org.elasticsearch.action.get.GetRequestBuilder
 
 
 object ElasticSearch extends ElasticSearchClient {
@@ -29,7 +30,7 @@ object ElasticSearch extends ElasticSearchClient {
   type Id = String
 
   def getImageById(id: Id)(implicit ex: ExecutionContext): Future[Option[JsValue]] =
-    client.prepareGet(imagesIndex, imageType, id).execute.asScala map (_.sourceOpt)
+    prepareGet(id).executeAndLog(s"get image by id $id") map (_.sourceOpt)
 
   def search(params: SearchParams)(implicit ex: ExecutionContext): Future[Seq[(Id, JsValue)]] = {
     val query = params.query filter (_.nonEmpty) map (matchQuery("metadata.description", _)) getOrElse matchAllQuery
@@ -53,6 +54,12 @@ object ElasticSearch extends ElasticSearchClient {
       .map(_.getFacets.facets.asScala.toList.flatMap {
         case f: TermsFacet => f.getEntries.asScala.map(_.getTerm.string)
       })
+
+  def imageExists(id: String)(implicit ex: ExecutionContext): Future[Boolean] =
+    prepareGet(id).setFields().executeAndLog(s"check if image $id exists") map (_.isExists)
+
+  def prepareGet(id: String): GetRequestBuilder =
+    client.prepareGet(imagesIndex, imageType, id)
 
   def prepareImagesSearch: SearchRequestBuilder =
     client.prepareSearch(imagesIndex).setTypes(imageType)
