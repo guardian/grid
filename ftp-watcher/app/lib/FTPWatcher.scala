@@ -20,38 +20,38 @@ class FTPWatcher(config: Config) {
 
   /** Produces a stream of `File`s, each exposing an `InputStream`.
     *
-    * This is unsafe to consume chunked, because the underlying client is not thread-safe.
-    *
     * The stream will be closed, and the file deleted from the server, once the `File` element
     * has been consumed.
     */
   def watchDir: Process[Task, File] = {
-    val client = new Client
-    val filePaths = resource(
-      acquire = initClient(client))(
-      release = _ => client.quit)(
-      step = _ => listFiles(client, emptySleep = 1000))
+    val filePaths = resource(initClient)(_.quit)(client => listFiles(client, emptySleep = 1000))
     filePaths
       .pipe(unChunk)
-      .flatMap(file => retrieveFile(client, file.getName).map(stream => File(file.getName, file.getSize, stream)))
+      .flatMap(file => retrieveFile(file.getName).map(stream => File(file.getName, file.getSize, stream)))
   }
 
-  private def initClient(client: Client): Task[Unit] =
-    client.connect(config.host, 21) >>
+  def initClient: Task[Client] = {
+    Client.init >>= (client =>
+      client.connect(config.host, 21) >>
       client.login(config.user, config.password) >>
       client.cwd(config.dir) >>
       client.enterLocalPassiveMode >>
-      client.setBinaryFileType
+      client.setBinaryFileType >|
+      client)
+  }
 
-  private def listFiles(client: Client, emptySleep: Long, batchSize: Int = 10): Task[Seq[FTPFile]] =
+  def listFiles(client: Client, emptySleep: Long, batchSize: Int = 10): Task[Seq[FTPFile]] =
     client.listFiles.flatMap {
       case Nil   => sleep(emptySleep) >> listFiles(client, emptySleep)
       case files => Task.now(files.take(batchSize))
     }
 
-  private def retrieveFile(client: Client, file: FilePath): Process[Task, InputStream] =
-    resource1(client.retrieveFile(file))(stream =>
-      Task.delay(stream.close()) >> client.completePendingCommand >> client.delete(file))
+  def retrieveFile(file: FilePath): Process[Task, InputStream] =
+    resource1(initClient)(_.quit) >>= (client =>
+      resource1(client.retrieveFile(file))(stream =>
+        Task.delay(stream.close()) >>
+          client.completePendingCommand >>
+          client.delete(file)))
 
 }
 

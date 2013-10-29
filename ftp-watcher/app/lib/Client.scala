@@ -5,9 +5,7 @@ import org.apache.commons.net.ftp.{FTP, FTPFile, FTPClient}
 import scalaz.concurrent.Task
 
 
-final class Client {
-
-  private val client: FTPClient = new FTPClient
+final class Client protected(client: FTPClient) {
 
   def connect(host: String, port: Int): Task[Unit] =
     Task { client.connect(host, port) }
@@ -41,4 +39,11 @@ final class Client {
 
   def quit: Task[Unit] =
     Task { client.quit() }
+}
+
+object Client {
+
+  def init: Task[Client] =
+    Task { new Client(new FTPClient) }
+
 }
