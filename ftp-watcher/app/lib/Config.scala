@@ -1,5 +1,6 @@
 package lib
 
+import java.util.concurrent.atomic.AtomicBoolean
 import com.gu.mediaservice.lib.config.Properties
 
 
@@ -15,6 +16,11 @@ object Config {
 
   val imageLoaderUri: String = properties("loader.uri")
 
-  val active: Boolean = sys.props.get("active").exists(_.toBoolean)
+  val passive: AtomicBoolean =
+    new AtomicBoolean(sys.props.get("active").forall(! _.toBoolean))
+
+  def status: String = if (isActive) "active" else "passive"
+
+  def isActive: Boolean = ! passive.get
 
 }

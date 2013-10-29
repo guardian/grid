@@ -7,7 +7,7 @@ object Global extends GlobalSettings {
 
   override def onStart(app: Application) {
     Logger.info {
-      if (Config.active) "Starting in ACTIVE mode."
+      if (Config.isActive) "Starting in ACTIVE mode."
       else "Starting in passive mode."
     }
 
@@ -16,7 +16,8 @@ object Global extends GlobalSettings {
   }
 
   override def onStop(app: Application) {
-    FTPWatchers.shutdown()
+    // if a watcher process is running, entering passive mode will stop it
+    Config.passive.set(true)
   }
 
 }
