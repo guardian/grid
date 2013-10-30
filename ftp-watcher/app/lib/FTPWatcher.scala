@@ -23,35 +23,34 @@ class FTPWatcher(config: Config) {
     * The stream will be closed, and the file deleted from the server, once the `File` element
     * has been consumed.
     */
-  def watchDir: Process[Task, File] = {
-    val filePaths = resource(initClient)(_.quit)(client => listFiles(client, emptySleep = 1000))
-    filePaths
-      .pipe(unChunk)
-      .flatMap(file => retrieveFile(file.getName).map(stream => File(file.getName, file.getSize, stream)))
+  def watchDir(batchSize: Int): Process[Task, File] = {
+    val client = new Client
+    resource(initClient(client))(_ => client.disconnect)(
+      _ => listFiles(client, emptySleep = 1000, batchSize = batchSize))
+      .pipe(unchunk)
+      .take(batchSize)
+      .flatMap(file => retrieveFile(client, file.getName).map(stream => File(file.getName, file.getSize, stream)))
+      .onComplete(eval(Task.delay(client.disconnect)).drain)
   }
 
-  def initClient: Task[Client] = {
-    Client.init >>= (client =>
+  def initClient(client: Client): Task[Unit] =
       client.connect(config.host, 21) >>
       client.login(config.user, config.password) >>
       client.cwd(config.dir) >>
       client.enterLocalPassiveMode >>
-      client.setBinaryFileType >|
-      client)
-  }
+      client.setBinaryFileType
 
-  def listFiles(client: Client, emptySleep: Long, batchSize: Int = 10): Task[Seq[FTPFile]] =
+  def listFiles(client: Client, emptySleep: Long, batchSize: Int): Task[Seq[FTPFile]] =
     client.listFiles.flatMap {
-      case Nil   => sleep(emptySleep) >> listFiles(client, emptySleep)
+      case Nil   => sleep(emptySleep) >> listFiles(client, emptySleep, batchSize)
       case files => Task.now(files.take(batchSize))
     }
 
-  def retrieveFile(file: FilePath): Process[Task, InputStream] =
-    resource1(initClient)(_.quit) >>= (client =>
+  def retrieveFile(client: Client, file: FilePath): Process[Task, InputStream] =
       resource1(client.retrieveFile(file))(stream =>
         Task.delay(stream.close()) >>
           client.completePendingCommand >>
-          client.delete(file)))
+          client.delete(file))
 
 }
 
@@ -69,10 +68,10 @@ case class File(name: FilePath, size: Long, stream: InputStream)
 
 object Processes {
 
-  def resource1[O](acquire: Task[O])(release: O => Task[Unit]): Process[Task, O] =
-    await(acquire)(o => emit(o) ++ suspend(eval(release(o))).drain)
+  def resource1[R](acquire: Task[R])(release: R => Task[Unit]): Process[Task, R] =
+    resource(acquire)(release)(Task.now).take(1)
 
-  def unChunk[O]: Process1[Seq[O], O] =
+  def unchunk[O]: Process1[Seq[O], O] =
     process1.id[Seq[O]].flatMap(emitAll)
 
 }

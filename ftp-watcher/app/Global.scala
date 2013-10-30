@@ -16,8 +16,7 @@ object Global extends GlobalSettings {
   }
 
   override def onStop(app: Application) {
-    // if a watcher process is running, entering passive mode will stop it
-    Config.passive.set(true)
+    FTPWatchers.shutdown()
   }
 
 }
