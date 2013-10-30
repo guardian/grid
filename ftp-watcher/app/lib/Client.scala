@@ -3,9 +3,14 @@ package lib
 import java.io.InputStream
 import org.apache.commons.net.ftp.{FTP, FTPFile, FTPClient}
 import scalaz.concurrent.Task
+import scalaz.syntax.bind._
 
 
-final class Client protected(client: FTPClient) {
+final class Client {
+
+  println("Constructing Client")
+
+  private val client = new FTPClient
 
   def connect(host: String, port: Int): Task[Unit] =
     Task { client.connect(host, port) }
@@ -37,13 +42,10 @@ final class Client protected(client: FTPClient) {
   def completePendingCommand: Task[Unit] =
     Task { client.completePendingCommand() }
 
-  def quit: Task[Unit] =
-    Task { client.quit() }
-}
+  private def quit: Task[Unit] =
+    Task.delay { client.quit() }
 
-object Client {
-
-  def init: Task[Client] =
-    Task { new Client(new FTPClient) }
+  def disconnect: Task[Unit] =
+    quit >> Task.delay { client.disconnect() }
 
 }

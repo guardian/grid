@@ -16,11 +16,11 @@ object Config {
 
   val imageLoaderUri: String = properties("loader.uri")
 
-  val passive: AtomicBoolean =
+  val active: AtomicBoolean =
     new AtomicBoolean(sys.props.get("active").forall(! _.toBoolean))
 
   def status: String = if (isActive) "active" else "passive"
 
-  def isActive: Boolean = ! passive.get
+  def isActive: Boolean = active.get
 
 }
