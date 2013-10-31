@@ -10,16 +10,16 @@ final class Client {
   private val client = new FTPClient
 
   def connect(host: String, port: Int): Task[Unit] =
-    Task.delay(client.connect(host, port))
+    Task { client.connect(host, port) }
 
   def login(user: String, password: String): Task[Boolean] =
-    Task.delay(client.login(user, password))
+    Task { client.login(user, password) }
 
   def pwd: Task[String] =
-    Task.delay(client.printWorkingDirectory)
+    Task { client.printWorkingDirectory }
 
   def cwd(path: String): Task[Boolean] =
-    Task.delay(client.changeWorkingDirectory(path))
+    Task { client.changeWorkingDirectory(path) }
 
   def enterLocalPassiveMode: Task[Unit] =
     Task.delay(client.enterLocalPassiveMode())
@@ -28,21 +28,21 @@ final class Client {
     Task.delay(client.setFileType(FTP.BINARY_FILE_TYPE))
 
   def listFiles: Task[List[FTPFile]] =
-    Task.delay(client.listFiles.toList)
+    Task { client.listFiles.toList }
 
   def retrieveFile(path: String): Task[InputStream] =
-    Task.delay(client.retrieveFileStream(path))
+    Task { client.retrieveFileStream(path) }
 
   def delete(path: String): Task[Unit] =
-    Task.delay(client.deleteFile(path))
+    Task { client.deleteFile(path) }
 
   def completePendingCommand: Task[Unit] =
-    Task.delay(client.completePendingCommand())
+    Task { client.completePendingCommand() }
 
   def quit: Task[Unit] =
-    Task.delay(client.quit())
+    Task { client.quit() }
 
   def disconnect: Task[Unit] =
-    Task.delay(client.disconnect())
+    Task { client.disconnect() }
 
 }
