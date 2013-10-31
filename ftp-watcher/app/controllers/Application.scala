@@ -58,8 +58,8 @@ object FTPWatchers {
     for (path <- Config.ftpPaths)
     yield FTPWatcher(Config.ftpHost, Config.ftpUser, Config.ftpPassword, path)
 
-  def watcherTask(batchSize: Int = 10): Task[Unit] = {
-    val stream = watchers.map(_.watchDir(batchSize)).reduceLeft((p1, p2) => p1.wye(p2)(wye.merge))
+  def watcherTask: Task[Unit] = {
+    val stream = watchers.map(_.watchDir(10, 10)).reduceLeft((p1, p2) => p1.wye(p2)(wye.merge))
     val sink = Sinks.httpPost(Config.imageLoaderUri)
     stream.to(sink).run
   }
@@ -86,7 +86,7 @@ object FTPWatchers {
 
   private def _future: Future[Unit] =
     retryFuture("FTP watcher", 10000) {
-      val task = waitForActive(sleep = 250) >> watcherTask()
+      val task = waitForActive(sleep = 250) >> watcherTask
       val promise = Promise[Unit]()
       task.runAsyncInterruptibly(_.fold(promise.failure, promise.success), cancel)
       promise.future.flatMap(_ => _future) // promise.future >> _future
