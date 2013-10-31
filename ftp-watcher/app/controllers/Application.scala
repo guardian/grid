@@ -22,8 +22,8 @@ object Application extends Controller {
 
   def healthCheck = Action.async {
     if (future.isCompleted)
-      future.map(_ => Ok("Ok"))
-            .recover { case e => ServiceUnavailable }
+      future.map(_ => ServiceUnavailable("Watcher terminated unexpectedly"))
+            .recover { case e => ServiceUnavailable("Watcher terminated with error") }
     else Future.successful(Ok("OK"))
   }
 
