@@ -33,11 +33,11 @@ class FTPWatcher(config: Config) {
   }
 
   def initClient(client: Client): Task[Unit] =
-      client.connect(config.host, 21) >>
-      client.login(config.user, config.password) >>
-      client.cwd(config.dir) >>
-      client.enterLocalPassiveMode >>
-      client.setBinaryFileType
+    client.connect(config.host, 21) >>
+    client.login(config.user, config.password) >>
+    client.cwd(config.dir) >>
+    client.enterLocalPassiveMode >>
+    client.setBinaryFileType
 
   def listFiles(client: Client, batchSize: Int): Process[Task, Seq[FTPFile]] =
     Process.repeatEval(client.listFiles map (_.take(batchSize))).flatMap(sleepIfEmpty(1000))
