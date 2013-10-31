@@ -23,12 +23,12 @@ class FTPWatcher(config: Config) {
     * The stream will be closed, and the file deleted from the server, once the `File` element
     * has been consumed.
     */
-  def watchDir(batchSize: Int, emptyRetries: Int): Process[Task, File] = {
+  def watchDir(batchSize: Int): Process[Task, File] = {
     val client = new Client
-    resource1(initClient(client))(_ => client.quit >> client.disconnect)
-      .flatMap(_ => listFiles(client, batchSize))
-      .take(emptyRetries)            // allow at most `emptyRetries` empty dir listings before reconnecting
-      .pipe(unchunk).take(batchSize) // take at most `batchSize` from the flattened directory listings
+    resource1(initClient(client))(_ => client.quit >> client.disconnect)(_ => listFiles(client, batchSize))
+      .flatMap(sleepIfEmpty(1000))
+      .pipe(unchunk)
+      .take(batchSize + 1) // FIXME it seems we *must* exhaust the stream, otherwise resources are not released
       .flatMap(retrieveFile(client, _))
   }
 
@@ -39,13 +39,13 @@ class FTPWatcher(config: Config) {
     client.enterLocalPassiveMode >>
     client.setBinaryFileType
 
-  def listFiles(client: Client, batchSize: Int): Process[Task, Seq[FTPFile]] =
-    Process.repeatEval(client.listFiles map (_.take(batchSize))).flatMap(sleepIfEmpty(1000))
+  def listFiles(client: Client, batchSize: Int): Task[Seq[FTPFile]] =
+    client.listFiles map (_.take(batchSize))
 
   def retrieveFile(client: Client, file: FTPFile): Process[Task, File] =
     resource1(client.retrieveFile(file.getName))(
-      stream => Task.delay(stream.close()) >> client.completePendingCommand >> client.delete(file.getName))
-      .map(stream => File(file.getName, file.getSize, stream))
+      stream => Task.delay(stream.close()) >> client.completePendingCommand >> client.delete(file.getName))(
+      stream => Task.now(File(file.getName, file.getSize, stream)))
 
 }
 
@@ -62,8 +62,8 @@ case class File(name: FilePath, size: Long, stream: InputStream)
 
 object Processes {
 
-  def resource1[R](acquire: Task[R])(release: R => Task[Unit]): Process[Task, R] =
-    resource(acquire)(release)(Task.now).take(1)
+  def resource1[R, O](acquire: Task[R])(release: R => Task[Unit])(step: R => Task[O]): Process[Task, O] =
+    resource(acquire)(release)(step).take(1)
 
   def unchunk[O]: Process1[Seq[O], O] =
     process1.id[Seq[O]].flatMap(emitAll)
