@@ -4,3 +4,4 @@ dist
 data
 .idea*
 .history
+.ensime*

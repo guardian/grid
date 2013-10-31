@@ -32,6 +32,7 @@ object Build extends Build {
     .libraryDependencies(awsDeps ++ imagingDeps)
 
   val ftpWatcher = playProject("ftp-watcher")
+    .settings(resolvers += "snapshots" at "http://oss.sonatype.org/content/repositories/snapshots")
     .libraryDependencies(commonsNetDeps ++ scalazDeps)
     .settings(magentaPackageName := "ftp-watcher", jarName in assembly := "ftp-watcher.jar")
 
