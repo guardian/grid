@@ -8,7 +8,7 @@ import org.apache.commons.net.ftp.FTPFile
 import scalaz.syntax.bind._
 import scalaz.concurrent.Task
 import scalaz.stream.{process1, Process}
-import scalaz.stream.Process.{Process1, Sink, await, emit, suspend, eval, emitAll}
+import scalaz.stream.Process.{Process1, Sink, emitAll, emit, eval}
 import scalaz.stream.processes.resource
 
 import FTPWatcher._
@@ -20,38 +20,32 @@ class FTPWatcher(config: Config) {
 
   /** Produces a stream of `File`s, each exposing an `InputStream`.
     *
-    * This is unsafe to consume chunked, because the underlying client is not thread-safe.
-    *
     * The stream will be closed, and the file deleted from the server, once the `File` element
     * has been consumed.
     */
-  def watchDir: Process[Task, File] = {
+  def watchDir(batchSize: Int, emptyRetries: Int): Process[Task, File] = {
     val client = new Client
-    val filePaths = resource(
-      acquire = initClient(client))(
-      release = _ => client.quit)(
-      step = _ => listFiles(client, emptySleep = 1000))
-    filePaths
-      .pipe(unChunk)
-      .flatMap(file => retrieveFile(client, file.getName).map(stream => File(file.getName, file.getSize, stream)))
+    resource1(initClient(client))(_ => client.quit >> client.disconnect)
+      .flatMap(_ => listFiles(client, batchSize))
+      .take(emptyRetries)            // allow at most `emptyRetries` empty dir listings before reconnecting
+      .pipe(unchunk).take(batchSize) // take at most `batchSize` from the flattened directory listings
+      .flatMap(retrieveFile(client, _))
   }
 
-  private def initClient(client: Client): Task[Unit] =
+  def initClient(client: Client): Task[Unit] =
     client.connect(config.host, 21) >>
-      client.login(config.user, config.password) >>
-      client.cwd(config.dir) >>
-      client.enterLocalPassiveMode >>
-      client.setBinaryFileType
+    client.login(config.user, config.password) >>
+    client.cwd(config.dir) >>
+    client.enterLocalPassiveMode >>
+    client.setBinaryFileType
 
-  private def listFiles(client: Client, emptySleep: Long, batchSize: Int = 10): Task[Seq[FTPFile]] =
-    client.listFiles.flatMap {
-      case Nil   => sleep(emptySleep) >> listFiles(client, emptySleep)
-      case files => Task.now(files.take(batchSize))
-    }
+  def listFiles(client: Client, batchSize: Int): Process[Task, Seq[FTPFile]] =
+    Process.repeatEval(client.listFiles map (_.take(batchSize))).flatMap(sleepIfEmpty(1000))
 
-  private def retrieveFile(client: Client, file: FilePath): Process[Task, InputStream] =
-    resource1(client.retrieveFile(file))(stream =>
-      Task.delay(stream.close()) >> client.completePendingCommand >> client.delete(file))
+  def retrieveFile(client: Client, file: FTPFile): Process[Task, File] =
+    resource1(client.retrieveFile(file.getName))(
+      stream => Task.delay(stream.close()) >> client.completePendingCommand >> client.delete(file.getName))
+      .map(stream => File(file.getName, file.getSize, stream))
 
 }
 
@@ -62,18 +56,23 @@ object FTPWatcher {
 
   case class Config(host: String, user: String, password: String, dir: FilePath)
 
-  protected def sleep(millis: Long): Task[Unit] = Task(Thread.sleep(millis))
 }
 
 case class File(name: FilePath, size: Long, stream: InputStream)
 
 object Processes {
 
-  def resource1[O](acquire: Task[O])(release: O => Task[Unit]): Process[Task, O] =
-    await(acquire)(o => emit(o) ++ suspend(eval(release(o))).drain)
+  def resource1[R](acquire: Task[R])(release: R => Task[Unit]): Process[Task, R] =
+    resource(acquire)(release)(Task.now).take(1)
 
-  def unChunk[O]: Process1[Seq[O], O] =
+  def unchunk[O]: Process1[Seq[O], O] =
     process1.id[Seq[O]].flatMap(emitAll)
+
+  def sleepIfEmpty[A](millis: Int)(input: Seq[A]): Process[Task, Seq[A]] =
+    emit(input) ++ (if (input.isEmpty) sleep(millis) else Process())
+
+  def sleep(millis: Long): Process[Task, Nothing] =
+    eval(Task.delay(Thread.sleep(millis))).drain
 
 }
 
