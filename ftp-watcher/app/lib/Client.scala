@@ -3,49 +3,46 @@ package lib
 import java.io.InputStream
 import org.apache.commons.net.ftp.{FTP, FTPFile, FTPClient}
 import scalaz.concurrent.Task
-import scalaz.syntax.bind._
 
 
 final class Client {
 
-  println("Constructing Client")
-
   private val client = new FTPClient
 
   def connect(host: String, port: Int): Task[Unit] =
-    Task { client.connect(host, port) }
+    Task.delay(client.connect(host, port))
 
   def login(user: String, password: String): Task[Boolean] =
-    Task { client.login(user, password) }
+    Task.delay(client.login(user, password))
 
   def pwd: Task[String] =
-    Task { client.printWorkingDirectory }
+    Task.delay(client.printWorkingDirectory)
 
   def cwd(path: String): Task[Boolean] =
-    Task { client.changeWorkingDirectory(path) }
+    Task.delay(client.changeWorkingDirectory(path))
 
   def enterLocalPassiveMode: Task[Unit] =
-    Task { client.enterLocalPassiveMode() }
+    Task.delay(client.enterLocalPassiveMode())
 
   def setBinaryFileType: Task[Unit] =
-    Task { client.setFileType(FTP.BINARY_FILE_TYPE) }
+    Task.delay(client.setFileType(FTP.BINARY_FILE_TYPE))
 
   def listFiles: Task[List[FTPFile]] =
-    Task { client.listFiles.toList }
+    Task.delay(client.listFiles.toList)
 
   def retrieveFile(path: String): Task[InputStream] =
-    Task { client.retrieveFileStream(path) }
+    Task.delay(client.retrieveFileStream(path))
 
   def delete(path: String): Task[Unit] =
-    Task { client.deleteFile(path) }
+    Task.delay(client.deleteFile(path))
 
   def completePendingCommand: Task[Unit] =
-    Task { client.completePendingCommand() }
+    Task.delay(client.completePendingCommand())
 
-  private def quit: Task[Unit] =
-    Task.delay { client.quit() }
+  def quit: Task[Unit] =
+    Task.delay(client.quit())
 
   def disconnect: Task[Unit] =
-    quit >> Task.delay { client.disconnect() }
+    Task.delay(client.disconnect())
 
 }
