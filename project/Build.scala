@@ -14,7 +14,9 @@ object Build extends Build {
       scalaVersion in ThisBuild := "2.10.3",
       organization := "com.gu",
       version      := "0.1",
-      resolvers += "Typesafe Repository" at "http://repo.typesafe.com/typesafe/releases/",
+      resolvers ++= Seq(
+        "Typesafe Repository" at "http://repo.typesafe.com/typesafe/releases/",
+        "scalaz-stream" at "http://dl.bintray.com/pchiusano/maven"),
       scalacOptions ++= Seq("-feature", "-deprecation", "-language:higherKinds", "-Xfatal-warnings")
     ) ++
     net.virtualvoid.sbt.graph.Plugin.graphSettings
@@ -32,7 +34,6 @@ object Build extends Build {
     .libraryDependencies(awsDeps ++ imagingDeps)
 
   val ftpWatcher = playProject("ftp-watcher")
-    .settings(resolvers += "scalaz-stream" at "http://dl.bintray.com/pchiusano/maven")
     .libraryDependencies(commonsNetDeps ++ scalazDeps)
     .settings(magentaPackageName := "ftp-watcher", jarName in assembly := "ftp-watcher.jar")
 
