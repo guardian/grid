@@ -96,7 +96,8 @@ object GeneralParams {
 
 case class SearchParams(
   query: Option[String],
-  size: Option[Int],
+  page: Int,
+  size: Int,
   orderBy: Option[String],
   fromDate: Option[DateTime],
   toDate: Option[DateTime],
@@ -110,7 +111,8 @@ object SearchParams {
   def apply(request: Request[Any]): SearchParams =
     SearchParams(
       request.getQueryString("q"),
-      request.getQueryString("size") flatMap (s => Try(s.toInt).toOption),
+      request.getQueryString("page") flatMap (s => Try(s.toInt).toOption) getOrElse 1,
+      request.getQueryString("size") flatMap (s => Try(s.toInt).toOption) getOrElse 10,
       request.getQueryString("order-by") orElse request.getQueryString("sort-by"),
       request.getQueryString("from-date") orElse request.getQueryString("since") flatMap parseDateFromQuery,
       request.getQueryString("to-date") orElse request.getQueryString("until") flatMap parseDateFromQuery,
