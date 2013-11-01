@@ -9,7 +9,8 @@
 | Key        | Description                                    | Default         |
 |------------|------------------------------------------------|-----------------|
 | q          | Text search query                              | [empty]
-| size       | Results page size                              | 10
+| page       | Page in results (1-based)                      | 1
+| size       | Results per page                               | 10
 | order-by   | Field used for ordering (prepend '-' for DESC) | -uploaded-time
 | from-date  | Search only images uploaded since this time    | [no lower bound]
 | to-date    | Search only images uploaded before this time   | [no upper bound]

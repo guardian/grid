@@ -41,7 +41,8 @@ object ElasticSearch extends ElasticSearchClient {
     val filter = bucketFilter.foldLeft(dateFilter)(filters.and)
 
     val search = prepareImagesSearch.setQuery(query).setFilter(filter) |> sorts.parseFromRequest(params.orderBy)
-    for (s <- params.size) search.setSize(s)
+
+    search.setFrom((params.page - 1) * params.size).setSize(params.size)
 
     for (res <- search.executeAndLog("image search"))
     yield res.getHits.hits.toList flatMap (h => h.sourceOpt map (h.id -> _))
