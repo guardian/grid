@@ -1,3 +1,3 @@
 # media-api
 
-media-api is the read side of an Elasticsearch index.
+See the [routes file](https://github.com/guardian/media-service/blob/master/media-api/conf/routes) for API "documentation".
