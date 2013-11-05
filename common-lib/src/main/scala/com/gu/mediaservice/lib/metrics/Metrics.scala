@@ -5,7 +5,7 @@ import org.slf4j.LoggerFactory
 
 import com.amazonaws.auth.AWSCredentials
 import com.amazonaws.services.cloudwatch.{AmazonCloudWatch, AmazonCloudWatchClient}
-import com.amazonaws.services.cloudwatch.model.{MetricDatum, PutMetricDataRequest}
+import com.amazonaws.services.cloudwatch.model.{StandardUnit, MetricDatum, PutMetricDataRequest}
 
 import scalaz.concurrent.Task
 import scalaz.stream.async, async.mutable.Topic
@@ -23,7 +23,7 @@ trait Metrics {
   class CountMetric(name: String) extends Metric[Long](name) {
 
     protected def toDatum(a: Long) =
-      new MetricDatum().withMetricName(name).withValue(a.toDouble)
+      new MetricDatum().withMetricName(name).withUnit(StandardUnit.Count).withValue(a.toDouble)
 
     def increment(): Unit = recordOne(1)
   }
