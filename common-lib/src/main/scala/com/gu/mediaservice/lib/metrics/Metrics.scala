@@ -18,7 +18,18 @@ trait Metrics {
   def namespace: String
   def credentials: AWSCredentials
 
-  def chunkSize: Int = 10
+  val chunkSize: Int = 10
+
+  final val topic: Topic[MetricDatum] = async.topic[MetricDatum]
+
+  final val client: AmazonCloudWatch =
+    new AmazonCloudWatchClient(credentials) <| (_ setEndpoint "monitoring.eu-west-1.amazonaws.com")
+
+  final val sink: Sink[Task, Seq[MetricDatum]] = constant { data => Task {
+    client.putMetricData(new PutMetricDataRequest()
+      .withNamespace(namespace)
+      .withMetricData(data.asJavaCollection))
+  }}
 
   class CountMetric(name: String) extends Metric[Long](name) {
 
@@ -30,8 +41,6 @@ trait Metrics {
 
   abstract class Metric[A](val name: String) {
 
-    private final val topic: Topic[MetricDatum] = async.topic[MetricDatum]
-
     final def recordOne(a: A): Unit =
       topic.publishOne(toDatum(a).withTimestamp(new java.util.Date)).runAsync(loggingErrors)
 
@@ -42,26 +51,17 @@ trait Metrics {
     /** Must be implemented to provide a way to turn an `A` into a `MetricDatum` */
     protected def toDatum(a: A): MetricDatum
 
-    private val sink: Sink[Task, Seq[MetricDatum]] = constant { data => Task {
-      client.putMetricData(new PutMetricDataRequest()
-        .withNamespace(namespace)
-        .withMetricData(data.asJavaCollection))
-    }}
-
-    protected final lazy val logger = LoggerFactory.getLogger(getClass)
-
-    import scalaz.{\/-, -\/, \/}
-    private final val loggingErrors: Throwable \/ Unit => Unit = {
-      case -\/(error) => logger.error(s"Metric $name encountered error while publishing", error)
-      case \/-(_) =>
-    }
-
-    /** Subscribe the metric publishing sink to the topic */
-    topic.subscribe.chunk(chunkSize).to(sink).run.runAsync(loggingErrors)
-
   }
 
-  private final val client: AmazonCloudWatch =
-    new AmazonCloudWatchClient(credentials) <| (_ setEndpoint "monitoring.eu-west-1.amazonaws.com")
+  private val logger = LoggerFactory.getLogger(getClass)
+
+  import scalaz.{\/-, -\/, \/}
+  private val loggingErrors: Throwable \/ Unit => Unit = {
+    case -\/(error) => logger.error(s"Encountered error while publishing metrics", error)
+    case \/-(_) =>
+  }
+
+  /** Subscribe the metric publishing sink to the topic */
+  topic.subscribe.chunk(chunkSize).to(sink).run.runAsync(loggingErrors)
 
 }
