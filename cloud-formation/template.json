@@ -105,7 +105,7 @@
                         "Statement": [
                             {
                                 "Effect": "Allow",
-                                "Action": "ec2:DescribeInstances",
+                                "Action": ["ec2:DescribeInstances", "cloudwatch:PutMetricData"],
                                 "Resource": "*"
                             },
                             {
