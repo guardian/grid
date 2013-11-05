@@ -5,9 +5,12 @@ import org.elasticsearch.action.index.IndexResponse
 import org.elasticsearch.action.update.{UpdateResponse, UpdateRequestBuilder}
 import org.elasticsearch.action.delete.DeleteResponse
 import _root_.play.api.libs.json.{Json, JsValue}
+import scalaz.syntax.id._
 
 import com.gu.mediaservice.lib.elasticsearch.ElasticSearchClient
 import com.gu.mediaservice.syntax._
+
+import ThrallMetrics._
 
 
 object ElasticSearch extends ElasticSearchClient {
@@ -20,10 +23,13 @@ object ElasticSearch extends ElasticSearchClient {
     client.prepareIndex(imagesIndex, imageType, id)
       .setSource(Json.stringify(image))
       .setType(imageType)
-      .executeAndLog(s"Indexing image $id")
+      .executeAndLog(s"Indexing image $id") <|
+      (_ onSuccess { case _ => indexedImages.increment() })
 
   def deleteImage(id: String)(implicit ex: ExecutionContext): Future[DeleteResponse] =
-    client.prepareDelete(imagesIndex, imageType, id).executeAndLog(s"Deleting image $id")
+    client.prepareDelete(imagesIndex, imageType, id)
+      .executeAndLog(s"Deleting image $id")  <|
+      (_ onSuccess { case _ => deletedImages.increment() })
 
   def prepareImageUpdate(id: String): UpdateRequestBuilder =
     client.prepareUpdate(imagesIndex, imageType, id)

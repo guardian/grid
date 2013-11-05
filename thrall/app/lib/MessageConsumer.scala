@@ -8,14 +8,13 @@ import com.amazonaws.services.sqs.AmazonSQSClient
 import com.amazonaws.services.sqs.model.{Message => SQSMessage, DeleteMessageRequest, ReceiveMessageRequest}
 import org.elasticsearch.action.index.IndexResponse
 import org.elasticsearch.action.delete.DeleteResponse
-import _root_.play.api.Logger
+import org.elasticsearch.action.update.UpdateResponse
 import _root_.play.api.libs.json._
 import _root_.play.api.libs.functional.syntax._
 import akka.actor.ActorSystem
 import scalaz.syntax.id._
 
 import com.gu.mediaservice.lib.json.PlayJsonHelpers._
-import org.elasticsearch.action.update.UpdateResponse
 
 
 object MessageConsumer {
