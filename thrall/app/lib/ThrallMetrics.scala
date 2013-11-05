@@ -1,7 +1,6 @@
 package lib
 
 import com.gu.mediaservice.lib.metrics.Metrics
-import com.amazonaws.auth.AWSCredentials
 
 
 object ThrallMetrics extends Metrics {

@@ -25,11 +25,17 @@ trait Metrics {
   final val client: AmazonCloudWatch =
     new AmazonCloudWatchClient(credentials) <| (_ setEndpoint "monitoring.eu-west-1.amazonaws.com")
 
-  final val sink: Sink[Task, Seq[MetricDatum]] = constant { data => Task {
+  private val logger = LoggerFactory.getLogger(getClass)
+
+  final val sink: Sink[Task, Seq[MetricDatum]] = constant { data =>
+    putData(data).handle { case e: RuntimeException => logger.error(s"Error while publishing metrics", e) }
+  }
+
+  private def putData(data: Seq[MetricDatum]): Task[Unit] = Task {
     client.putMetricData(new PutMetricDataRequest()
       .withNamespace(namespace)
       .withMetricData(data.asJavaCollection))
-  }}
+  }
 
   class CountMetric(name: String) extends Metric[Long](name) {
 
@@ -37,6 +43,12 @@ trait Metrics {
       new MetricDatum().withMetricName(name).withUnit(StandardUnit.Count).withValue(a.toDouble)
 
     def increment(): Unit = recordOne(1)
+  }
+
+  import scalaz.{\/, -\/, \/-}
+  private val loggingErrors: Throwable \/ Unit => Unit = {
+    case -\/(e) => logger.error(s"Error while publishing metrics", e)
+    case \/-(_) =>
   }
 
   abstract class Metric[A](val name: String) {
@@ -51,14 +63,6 @@ trait Metrics {
     /** Must be implemented to provide a way to turn an `A` into a `MetricDatum` */
     protected def toDatum(a: A): MetricDatum
 
-  }
-
-  private val logger = LoggerFactory.getLogger(getClass)
-
-  import scalaz.{\/-, -\/, \/}
-  private val loggingErrors: Throwable \/ Unit => Unit = {
-    case -\/(error) => logger.error(s"Encountered error while publishing metrics", error)
-    case \/-(_) =>
   }
 
   /** Subscribe the metric publishing sink to the topic */
