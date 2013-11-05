@@ -22,34 +22,30 @@ trait Metrics {
 
   class CountMetric(name: String) extends Metric[Long](name) {
 
-    protected def toDatum(a: Long) = new MetricDatum().withMetricName(name).withValue(a.toDouble)
-
-    override val mergeData = Some((_: Seq[Long]).sum)
+    protected def toDatum(a: Long) =
+      new MetricDatum().withMetricName(name).withValue(a.toDouble)
 
     def increment(): Unit = recordOne(1)
   }
 
   abstract class Metric[A](val name: String) {
 
-    private final val topic: Topic[A] = async.topic[A]
+    private final val topic: Topic[MetricDatum] = async.topic[MetricDatum]
 
     final def recordOne(a: A): Unit =
-      topic.publishOne(a).runAsync(loggingErrors)
+      topic.publishOne(toDatum(a).withTimestamp(new java.util.Date)).runAsync(loggingErrors)
 
     final def recordMany(as: Seq[A]): Unit =
-      emitAll(as).toSource.to(topic.publish).run.runAsync(loggingErrors)
+      emitAll(as map (a => toDatum(a).withTimestamp(new java.util.Date)))
+        .toSource.to(topic.publish).run.runAsync(loggingErrors)
 
     /** Must be implemented to provide a way to turn an `A` into a `MetricDatum` */
     protected def toDatum(a: A): MetricDatum
 
-    /** Can be overridden to provide a way of merging multiple values into one */
-    protected val mergeData: Option[Seq[A] => A] = None
-
-    private val sink: Sink[Task, Seq[A]] = constant { data => Task {
-      val metricData = mergeData.foldLeft(data)((ds, op) => Seq(op(ds))).map(toDatum)
+    private val sink: Sink[Task, Seq[MetricDatum]] = constant { data => Task {
       client.putMetricData(new PutMetricDataRequest()
         .withNamespace(namespace)
-        .withMetricData(metricData.asJavaCollection))
+        .withMetricData(data.asJavaCollection))
     }}
 
     protected final lazy val logger = LoggerFactory.getLogger(getClass)
