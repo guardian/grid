@@ -4,6 +4,7 @@ import scala.collection.JavaConverters._
 import scala.concurrent.{ExecutionContext, Future}
 
 import play.api.libs.json.JsValue
+import org.elasticsearch.action.get.GetRequestBuilder
 import org.elasticsearch.action.search.SearchRequestBuilder
 import org.elasticsearch.index.query.{FilterBuilders, FilterBuilder}
 import org.elasticsearch.index.query.QueryBuilders._
@@ -17,11 +18,12 @@ import com.gu.mediaservice.syntax._
 import com.gu.mediaservice.lib.elasticsearch.ElasticSearchClient
 import com.gu.mediaservice.lib.formatting.printDateTime
 import controllers.SearchParams
-import lib.Config
-import org.elasticsearch.action.get.GetRequestBuilder
+import lib.{MediaApiMetrics, Config}
 
 
 object ElasticSearch extends ElasticSearchClient {
+
+  import MediaApiMetrics._
 
   lazy val host = Config.elasticsearchHost
   lazy val port = Config.int("es.port")
@@ -45,7 +47,10 @@ object ElasticSearch extends ElasticSearchClient {
     search.setFrom((params.page - 1) * params.size).setSize(params.size)
 
     for (res <- search.executeAndLog("image search"))
-    yield res.getHits.hits.toList flatMap (h => h.sourceOpt map (h.id -> _))
+    yield {
+      searchQueries.recordOne(res.getTookInMillis)
+      res.getHits.hits.toList flatMap (h => h.sourceOpt map (h.id -> _))
+    }
   }
 
   def getAllBuckets(implicit ex: ExecutionContext): Future[List[String]] =
