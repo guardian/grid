@@ -46,11 +46,9 @@ object ElasticSearch extends ElasticSearchClient {
 
     search.setFrom((params.page - 1) * params.size).setSize(params.size)
 
-    for (res <- search.executeAndLog("image search"))
-    yield {
-      searchQueries.recordOne(res.getTookInMillis)
-      res.getHits.hits.toList flatMap (h => h.sourceOpt map (h.id -> _))
-    }
+    search.executeAndLog("image search")
+      .toMetric(searchQueries)(_.getTookInMillis)
+      .map(_.getHits.hits.toList flatMap (h => h.sourceOpt map (h.id -> _)))
   }
 
   def getAllBuckets(implicit ex: ExecutionContext): Future[List[String]] =
