@@ -32,8 +32,6 @@ abstract class CloudWatchMetrics(namespace: String, credentials: AWSCredentials)
     extends CloudWatchMetric[Long](name, dimensions) {
 
     protected def toDatum(a: Long) = datum(StandardUnit.Count, a)
-
-    def increment(): Unit = recordOne(1)
   }
 
   class TimeMetric(name: String, dimensions: Seq[(String, String)] = Nil)
