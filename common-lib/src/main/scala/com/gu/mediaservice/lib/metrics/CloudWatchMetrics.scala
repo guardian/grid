@@ -28,23 +28,6 @@ abstract class CloudWatchMetrics(namespace: String, credentials: AWSCredentials)
     */
   val chunkSize: Int = 10
 
-  final val topic: Topic[MetricDatum] = async.topic[MetricDatum]
-
-  final val client: AmazonCloudWatch =
-    new AmazonCloudWatchClient(credentials) <| (_ setEndpoint "monitoring.eu-west-1.amazonaws.com")
-
-  private val logger = LoggerFactory.getLogger(getClass)
-
-  final val sink: Sink[Task, Seq[MetricDatum]] = constant { data =>
-    putData(data).handle { case e: RuntimeException => logger.error(s"Error while publishing metrics", e) }
-  }
-
-  private def putData(data: Seq[MetricDatum]): Task[Unit] = Task {
-    client.putMetricData(new PutMetricDataRequest()
-      .withNamespace(namespace)
-      .withMetricData(data.asJava))
-  }
-
   class CountMetric(name: String, dimensions: Seq[(String, String)] = Nil)
     extends CloudWatchMetric[Long](name, dimensions) {
 
@@ -57,6 +40,23 @@ abstract class CloudWatchMetrics(namespace: String, credentials: AWSCredentials)
     extends CloudWatchMetric[Long](name, dimensions) {
 
     protected def toDatum(a: Long) = datum(StandardUnit.Milliseconds, a)
+  }
+
+  private lazy val logger = LoggerFactory.getLogger(getClass)
+
+  private val topic: Topic[MetricDatum] = async.topic[MetricDatum]
+
+  private val sink: Sink[Task, Seq[MetricDatum]] = constant { data =>
+    putData(data).handle { case e: RuntimeException => logger.error(s"Error while publishing metrics", e) }
+  }
+
+  private val client: AmazonCloudWatch =
+    new AmazonCloudWatchClient(credentials) <| (_ setEndpoint "monitoring.eu-west-1.amazonaws.com")
+
+  private def putData(data: Seq[MetricDatum]): Task[Unit] = Task {
+    client.putMetricData(new PutMetricDataRequest()
+      .withNamespace(namespace)
+      .withMetricData(data.asJava))
   }
 
   import scalaz.{\/, -\/, \/-}
