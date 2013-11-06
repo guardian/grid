@@ -5,7 +5,6 @@ import org.elasticsearch.action.index.IndexResponse
 import org.elasticsearch.action.update.{UpdateResponse, UpdateRequestBuilder}
 import org.elasticsearch.action.delete.DeleteResponse
 import _root_.play.api.libs.json.{Json, JsValue}
-import scalaz.syntax.id._
 
 import com.gu.mediaservice.lib.elasticsearch.ElasticSearchClient
 import com.gu.mediaservice.syntax._
@@ -23,13 +22,13 @@ object ElasticSearch extends ElasticSearchClient {
     client.prepareIndex(imagesIndex, imageType, id)
       .setSource(Json.stringify(image))
       .setType(imageType)
-      .executeAndLog(s"Indexing image $id") <|
-      (_ onSuccess { case _ => indexedImages.increment() })
+      .executeAndLog(s"Indexing image $id")
+      .incrementOnSuccess(indexedImages)
 
   def deleteImage(id: String)(implicit ex: ExecutionContext): Future[DeleteResponse] =
     client.prepareDelete(imagesIndex, imageType, id)
-      .executeAndLog(s"Deleting image $id")  <|
-      (_ onSuccess { case _ => deletedImages.increment() })
+      .executeAndLog(s"Deleting image $id")
+      .incrementOnSuccess(deletedImages)
 
   def prepareImageUpdate(id: String): UpdateRequestBuilder =
     client.prepareUpdate(imagesIndex, imageType, id)
