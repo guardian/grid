@@ -9,4 +9,6 @@ object ThrallMetrics extends CloudWatchMetrics(s"MediaService/$stage/Thrall", aw
 
   val deletedImages = new CountMetric("DeletedImages")
 
+  val conflicts = new CountMetric("Elasticsearch/Conflicts")
+
 }
