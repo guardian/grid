@@ -4,6 +4,7 @@ import scala.concurrent.{ExecutionContext, Future}
 import org.elasticsearch.action.index.IndexResponse
 import org.elasticsearch.action.update.{UpdateResponse, UpdateRequestBuilder}
 import org.elasticsearch.action.delete.DeleteResponse
+import org.elasticsearch.index.engine.VersionConflictEngineException
 import _root_.play.api.libs.json.{Json, JsValue}
 
 import com.gu.mediaservice.lib.elasticsearch.ElasticSearchClient
@@ -38,10 +39,12 @@ object ElasticSearch extends ElasticSearchClient {
       .addScriptParam("bucket", bucket)
       .setScript("if (ctx._source.containsKey(\"buckets\") && ! ctx._source.buckets.contains( bucket ) ) { ctx._source.buckets += bucket } else { ctx._source.buckets = { bucket } }")
       .executeAndLog(s"add image $id to bucket $bucket")
+      .incrementOnFailure(conflicts) { case e: VersionConflictEngineException => true }
 
   def removeImageFromBucket(id: String, bucket: String)(implicit ex: ExecutionContext): Future[UpdateResponse] =
     prepareImageUpdate(id)
       .addScriptParam("bucket", bucket)
       .setScript("if (ctx._source.containsKey(\"buckets\")) { ctx._source.buckets.remove( bucket ) }")
       .executeAndLog(s"remove image $id from bucket $bucket")
+      .incrementOnFailure(conflicts) { case e: VersionConflictEngineException => true }
 }
