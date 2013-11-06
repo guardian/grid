@@ -1,13 +1,9 @@
 package lib
 
-import com.gu.mediaservice.lib.metrics.Metrics
+import com.gu.mediaservice.lib.metrics.CloudWatchMetrics
 
 
-object ThrallMetrics extends Metrics {
-
-  val namespace: String = "MediaService.Thrall"
-
-  lazy val credentials = Config.awsCredentials
+object ThrallMetrics extends CloudWatchMetrics("MediaService/Thrall", Config.awsCredentials) {
 
   val indexedImages = new CountMetric("IndexedImages")
 
