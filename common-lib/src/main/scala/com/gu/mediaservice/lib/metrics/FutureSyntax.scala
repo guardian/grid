@@ -11,16 +11,17 @@ trait FutureSyntax {
     def thenIncrement[M, N](onSuccess: Metric[M], onFailure: Metric[N])
                            (implicit M: Numeric[M], N: Numeric[N]): Future[A] = {
       incrementOnSuccess(onSuccess)
-      incrementOnFailure(onFailure)
+      incrementOnFailure(onFailure) { case _ => true }
     }
 
-    def incrementOnSuccess[N](metric: Metric[N])(implicit N: Numeric[N]): Future[A] = {
-      self.onSuccess { case _ => metric.recordOne(N.fromInt(1)) }
-      self
-    }
+    def incrementOnSuccess[N](metric: Metric[N])(implicit N: Numeric[N]): Future[A] =
+      toMetric(metric)(_ => N.fromInt(1))
 
-    def incrementOnFailure[N](metric: Metric[N])(implicit N: Numeric[N]): Future[A] = {
-      self.onFailure { case _ => metric.recordOne(N.fromInt(1)) }
+    def incrementOnFailure[B](metric: Metric[B])(pfn: PartialFunction[Throwable, Boolean])
+                             (implicit B: Numeric[B]): Future[A] = {
+      self.onFailure(pfn.andThen { b =>
+        if (b) metric.recordOne(B.fromInt(1))
+      })
       self
     }
 
