@@ -1,6 +1,7 @@
 package com.gu.mediaservice.lib.metrics
 
 import scala.collection.JavaConverters._
+import scala.concurrent.duration._
 import org.slf4j.LoggerFactory
 
 import com.amazonaws.auth.AWSCredentials
@@ -23,10 +24,17 @@ trait Metric[A] {
 
 abstract class CloudWatchMetrics(namespace: String, credentials: AWSCredentials) {
 
-  /** The number of data points to report in one batch
+  /** The maximum number of data points to report in one batch.
     * (Each batch costs 1 HTTP request to CloudWatch)
     */
-  val chunkSize: Int = 10
+  val maxChunkSize: Int = 20
+
+  /** The maximum time to wait between reports, when there is data enqueued.
+    *
+    * Will report more often than this, if the number of enqueued data points
+    * exceeds `maxChunkSize`.
+    */
+  val maxAge: Duration = 1.minute
 
   class CountMetric(name: String, dimensions: Seq[(String, String)] = Nil)
     extends CloudWatchMetric[Long](name, dimensions) {
@@ -89,7 +97,9 @@ abstract class CloudWatchMetrics(namespace: String, credentials: AWSCredentials)
 
   }
 
+  import com.gu.mediaservice.lib.Processes._
+
   /** Subscribe the metric publishing sink to the topic */
-  topic.subscribe.chunk(chunkSize).to(sink).run.runAsync(loggingErrors)
+  topic.subscribe.chunkTimed(maxAge, maxChunkSize)(sink).run.runAsync(loggingErrors)
 
 }
