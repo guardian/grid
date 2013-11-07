@@ -7,16 +7,15 @@ import org.apache.commons.net.ftp.FTPFile
 
 import scalaz.syntax.bind._
 import scalaz.concurrent.Task
-import scalaz.stream.{process1, Process}
-import scalaz.stream.Process.{Process1, Sink, emitAll, emit, eval}
-import scalaz.stream.processes.resource
+import scalaz.stream.Process
+import scalaz.stream.Process.Sink
 
+import com.gu.mediaservice.lib.Processes
 import FTPWatcher._
+import Processes._
 
 
 class FTPWatcher(config: Config) {
-
-  import Processes._
 
   /** Produces a stream of `File`s, each exposing an `InputStream`.
     *
@@ -59,22 +58,6 @@ object FTPWatcher {
 }
 
 case class File(name: FilePath, size: Long, stream: InputStream)
-
-object Processes {
-
-  def resource1[R, O](acquire: Task[R])(release: R => Task[Unit])(step: R => Task[O]): Process[Task, O] =
-    resource(acquire)(release)(step).take(1)
-
-  def unchunk[O]: Process1[Seq[O], O] =
-    process1.id[Seq[O]].flatMap(emitAll)
-
-  def sleepIfEmpty[A](millis: Int)(input: Seq[A]): Process[Task, Seq[A]] =
-    emit(input) ++ (if (input.isEmpty) sleep(millis) else Process())
-
-  def sleep(millis: Long): Process[Task, Nothing] =
-    eval(Task.delay(Thread.sleep(millis))).drain
-
-}
 
 object Sinks {
 
