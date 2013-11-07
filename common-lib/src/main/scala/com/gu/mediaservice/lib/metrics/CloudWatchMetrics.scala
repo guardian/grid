@@ -100,6 +100,6 @@ abstract class CloudWatchMetrics(namespace: String, credentials: AWSCredentials)
   import com.gu.mediaservice.lib.Processes._
 
   /** Subscribe the metric publishing sink to the topic */
-  topic.subscribe.chunkTimed(maxAge, maxChunkSize)(sink).run.runAsync(loggingErrors)
+  topic.subscribe.chunkTimed(maxAge, maxChunkSize).to(sink).run.runAsync(loggingErrors)
 
 }
