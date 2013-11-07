@@ -39,7 +39,7 @@ object Processes {
             if (buf.nonEmpty) emit(buf) fby go(Vector(), t)
             else go(buf, lastEmit)
           case That(o) =>
-            if (buf.size >= (maxSize - 1)) emit(buf)
+            if (buf.size >= (maxSize - 1)) emit(buf :+ o)
             else go(buf :+ o, lastEmit)
         }
       awakeEvery(maxAge).wye(self)(go(Vector(), 0.millis)).repeat.through(chan)
