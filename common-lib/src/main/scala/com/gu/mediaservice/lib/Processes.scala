@@ -27,9 +27,8 @@ object Processes {
   implicit class SourceSyntax[O](self: Process[Task, O]) {
 
     /**
-     * Emits a chunk whenever `maxSize` elements have accumulated, or as
-     * soon as elements are available if `maxAge` time has passed since
-     * the last emission.
+     * Emits a chunk whenever `maxSize` elements have accumulated, or at every
+     * `maxAge` time when elements are buffered, whichever is sooner.
      */
     def chunkTimed[O2](maxAge: Duration, maxSize: Int)(chan: Channel[Task, Seq[O], O2]): Process[Task, O2] = {
       def go(buf: Vector[O], lastEmit: Duration): Wye[Duration, O, Vector[O]] =
