@@ -3,7 +3,7 @@ package com.gu.mediaservice.lib
 import scalaz.concurrent.Task
 import scalaz.stream.{process1, These, Process}
 import scalaz.stream.These.{That, This}
-import scalaz.stream.{Channel, Process1, Wye}
+import scalaz.stream.{Process1, Wye}
 import scalaz.stream.Process.{emit, emitAll, eval, awaitBoth, awakeEvery}
 import scalaz.stream.io.resource
 
@@ -30,7 +30,7 @@ object Processes {
      * Emits a chunk whenever `maxSize` elements have accumulated, or at every
      * `maxAge` time when elements are buffered, whichever is sooner.
      */
-    def chunkTimed[O2](maxAge: Duration, maxSize: Int)(chan: Channel[Task, Seq[O], O2]): Process[Task, O2] = {
+    def chunkTimed(maxAge: Duration, maxSize: Int): Process[Task, Vector[O]] = {
       def go(buf: Vector[O], lastEmit: Duration): Wye[Duration, O, Vector[O]] =
         awaitBoth[Duration, O].flatMap {
           case These(t, o) =>
@@ -42,7 +42,7 @@ object Processes {
             if (buf.size >= (maxSize - 1)) emit(buf :+ o)
             else go(buf :+ o, lastEmit)
         }
-      awakeEvery(maxAge).wye(self)(go(Vector(), 0.millis)).repeat.through(chan)
+      awakeEvery(maxAge).wye(self)(go(Vector(), 0.millis)).repeat
     }
   }
 
