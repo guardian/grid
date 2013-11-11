@@ -1,10 +1,12 @@
 package com.gu.mediaservice.lib
 
+import scala.concurrent.duration._
+
 import scalaz.concurrent.Task
 import scalaz.stream.{process1, These, Process}
 import scalaz.stream.These.{That, This}
 import scalaz.stream.{Process1, Wye}
-import scalaz.stream.Process.{emit, emitAll, eval, awaitBoth, awakeEvery}
+import scalaz.stream.Process.{emit, emitAll, awaitBoth, awakeEvery, sleep}
 import scalaz.stream.io.resource
 
 
@@ -16,13 +18,8 @@ object Processes {
   def unchunk[O]: Process1[Seq[O], O] =
     process1.id[Seq[O]].flatMap(emitAll)
 
-  def sleepIfEmpty[A](millis: Int)(input: Seq[A]): Process[Task, Seq[A]] =
-    emit(input) ++ (if (input.isEmpty) sleep(millis) else Process())
-
-  def sleep(millis: Long): Process[Task, Nothing] =
-    eval(Task.delay(Thread.sleep(millis))).drain
-
-  import scala.concurrent.duration._
+  def sleepIfEmpty[A](duration: Duration)(input: Seq[A]): Process[Task, Seq[A]] =
+    emit(input) ++ (if (input.isEmpty) sleep(duration) else Process())
 
   implicit class SourceSyntax[O](self: Process[Task, O]) {
 
