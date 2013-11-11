@@ -2,6 +2,7 @@ package lib
 
 import java.nio.file.{Path, Files}
 import java.io.InputStream
+import scala.concurrent.duration._
 
 import org.apache.commons.net.ftp.FTPFile
 
@@ -25,7 +26,7 @@ class FTPWatcher(config: Config) {
   def watchDir(batchSize: Int): Process[Task, File] = {
     val client = new Client
     resource1(initClient(client))(_ => client.quit >> client.disconnect)(_ => listFiles(client, batchSize))
-      .flatMap(sleepIfEmpty(1000))
+      .flatMap(sleepIfEmpty(1.second))
       .pipe(unchunk)
       .take(batchSize + 1) // FIXME it seems we *must* exhaust the stream, otherwise resources are not released
       .flatMap(retrieveFile(client, _))
