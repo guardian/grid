@@ -31,9 +31,9 @@ object Processes {
       def go(buf: Vector[O], lastEmit: Duration): Wye[Duration, O, Vector[O]] =
         awaitBoth[Duration, O].flatMap {
           case These(t, o) =>
-            emit(buf :+ o) fby go(Vector(), t)
+            emit(buf :+ o)
           case This(t) =>
-            if (buf.nonEmpty) emit(buf) fby go(Vector(), t)
+            if (buf.nonEmpty) emit(buf)
             else go(buf, lastEmit)
           case That(o) =>
             if (buf.size >= (maxSize - 1)) emit(buf :+ o)
