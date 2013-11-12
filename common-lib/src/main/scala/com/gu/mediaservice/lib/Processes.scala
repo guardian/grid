@@ -19,7 +19,7 @@ object Processes {
     process1.id[Seq[O]].flatMap(emitAll)
 
   def sleepIfEmpty[A](duration: Duration)(input: Seq[A]): Process[Task, Seq[A]] =
-    emit(input) ++ (if (input.isEmpty) sleep(duration) else Process())
+    if (input.nonEmpty) emit(input) else sleep(duration)
 
   implicit class SourceSyntax[O](self: Process[Task, O]) {
 
