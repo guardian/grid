@@ -1,0 +1,22 @@
+{
+    "packages": {
+        "media-service-kahuna": {
+            "type": "autoscaling",
+            "data": {
+                "port": 9000,
+                "bucket": "media-service-dist"
+            }
+        }
+    },
+    "recipes": {
+        "default": {
+            "depends": ["artifactUploadOnly", "deployOnly"]
+        },
+        "deployOnly": {
+            "actionsBeforeApp": ["media-service-kahuna.deploy"]
+        },
+        "artifactUploadOnly": {
+            "actionsBeforeApp": ["media-service-kahuna.uploadArtifacts"]
+        }
+    }
+}
