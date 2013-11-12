@@ -6,7 +6,7 @@ import play.api.mvc.{Controller, Action}
 object Application extends Controller {
 
   def index = Action {
-    Ok("This is Kahuna.\n")
+    Ok(views.html.main())
   }
 
   def healthCheck = Action {
