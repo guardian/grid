@@ -27,6 +27,8 @@ object Build extends Build {
   val thrall = playProject("thrall")
     .libraryDependencies(elasticsearchDeps ++ awsDeps ++ scalazDeps)
 
+  val kahuna = playProject("kahuna")
+
   val mediaApi = playProject("media-api")
     .libraryDependencies(elasticsearchDeps ++ awsDeps ++ scalazDeps)
 
