@@ -83,6 +83,12 @@
                         "FromPort": 9000,
                         "ToPort": 9000,
                         "SourceSecurityGroupName": { "Fn::GetAtt": ["MediaApiLoadBalancer", "SourceSecurityGroup.GroupName"]}
+                    },
+                    {
+                        "IpProtocol": "tcp",
+                        "FromPort": 9000,
+                        "ToPort": 9000,
+                        "SourceSecurityGroupName": { "Fn::GetAtt": ["KahunaLoadBalancer", "SourceSecurityGroup.GroupName"]}
                     }
                 ]
             }
@@ -354,6 +360,106 @@
                         "EOF\n",
 
                         "start media-api\n"
+                    ]]
+
+                }}
+
+            }
+        },
+
+        "KahunaLoadBalancer": {
+            "Type": "AWS::ElasticLoadBalancing::LoadBalancer",
+            "Properties": {
+                "AvailabilityZones": { "Fn::GetAZs": "" },
+                "Listeners": [
+                    {
+                        "LoadBalancerPort": "80",
+                        "InstancePort": "9000",
+                        "Protocol": "HTTP"
+                    }
+                ],
+                "HealthCheck": {
+                    "Target": "HTTP:9000/health-check",
+                    "HealthyThreshold": "2",
+                    "UnhealthyThreshold": "2",
+                    "Interval": "10",
+                    "Timeout": "5"
+                }
+            }
+        },
+        "KahunaAutoscalingGroup": {
+            "Type": "AWS::AutoScaling::AutoScalingGroup",
+            "Properties": {
+                "AvailabilityZones": {
+                    "Fn::GetAZs": ""
+                },
+                "LaunchConfigurationName": { "Ref": "KahunaLaunchConfig" },
+                "MinSize": "1",
+                "MaxSize": "2",
+                "DesiredCapacity": "1",
+                "HealthCheckType": "ELB",
+                "HealthCheckGracePeriod": 300,
+                "LoadBalancerNames": [
+                    { "Ref": "KahunaLoadBalancer" }
+                ],
+                "Tags": [
+                    {
+                        "Key": "Stage",
+                        "Value": { "Ref": "Stage" },
+                        "PropagateAtLaunch": "true"
+                    },
+                    {
+                        "Key": "Role",
+                        "Value": "media-service-kahuna",
+                        "PropagateAtLaunch": "true"
+                    }
+                ]
+            }
+        },
+        "KahunaLaunchConfig": {
+            "Type": "AWS::AutoScaling::LaunchConfiguration",
+            "DependsOn": "HostKeys",
+            "Properties": {
+                "KeyName": { "Ref": "KeyName" },
+                "ImageId": "ami-7ccf2a0b",
+                "SecurityGroups": [
+                    { "Ref": "AppServerSecurityGroup" },
+                    { "Ref": "SSHSecurityGroup" }
+                ],
+                "InstanceType": "t1.micro",
+                "UserData": { "Fn::Base64": {
+                    "Fn::Join":["", [
+                        "#!/bin/bash -ev\n",
+
+                        "adduser --disabled-password --system --group media-service\n",
+                        "cp -r ~/.ssh /home/media-service/\n",
+
+                        "apt-get -y update\n",
+                        "apt-get -y install language-pack-en openjdk-7-jre-headless\n",
+
+                        "wget https://s3-eu-west-1.amazonaws.com/media-service-dist/", { "Ref": "Stage" },
+                        "/media-service-kahuna/kahuna.conf",
+                        " --directory-prefix=/etc/init\n",
+
+                        "wget https://s3-eu-west-1.amazonaws.com/media-service-dist/", { "Ref": "Stage" },
+                        "/media-service-kahuna/app.jar",
+                        " --directory-prefix=/home/media-service\n",
+
+                        "mkdir /home/media-service/logs\n",
+                        "mkdir /etc/gu\n",
+
+                        "chown -R media-service /home/media-service\n",
+                        "chgrp -R media-service /home/media-service\n",
+
+                        "cat > /etc/gu/stage <<EOF\n",
+                        { "Ref": "Stage" }, "\n",
+                        "EOF\n",
+
+                        "cat > /etc/gu/kahuna.properties<<EOF\n",
+                        "mediaapi.url=http://", { "Fn::GetAtt": ["MediaApiLoadBalancer", "DNSName"] } ,"\n",
+                        "EOF\n",
+
+                        "start kahuna\n"
                     ]]
 
                 }}
@@ -675,6 +781,10 @@
         "ImageLoaderLoadBalancer": {
             "Description": "Image Loader API load balancer DNS",
             "Value": { "Fn::GetAtt": ["ImageLoaderLoadBalancer", "DNSName"] }
+        },
+        "KahunaLoadBalancer": {
+            "Description": "Image Loader API load balancer DNS",
+            "Value": { "Fn::GetAtt": ["KahunaLoadBalancer", "DNSName"] }
         },
         "ImageTopicArn": {
             "Description": "ARN of the image topic",
