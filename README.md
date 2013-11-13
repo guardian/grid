@@ -4,7 +4,7 @@ Media Service
 The new Guardian service to manage media (currently: images).
 
 
-# Install Elasticsearch
+## Install Elasticsearch
 
 Run the Elasticsearch installer from the `elasticsearch` directory:
 
@@ -12,7 +12,7 @@ Run the Elasticsearch installer from the `elasticsearch` directory:
         $ ./dev-install.sh
 
 
-# Run Elasticsearch
+## Run Elasticsearch
 
 Start Elasticsearch from the `elasticsearch` directory:
 
@@ -20,7 +20,7 @@ Start Elasticsearch from the `elasticsearch` directory:
         $ ./dev-start.sh
 
 
-# Run Media API
+## Run Media API
 
 First you need to create some dev credentials and resources in AWS.
 
@@ -57,7 +57,7 @@ The media api should be up at
 [http://localhost:9001/](http://localhost:9001/).
 
 
-# Run Thrall
+## Run Thrall
 
 Setup your local configuration in `/etc/gu/thrall.properties` using
 outputs from the dev stack above:
@@ -79,7 +79,7 @@ The thrall should be up at
 [http://localhost:9002/](http://localhost:9002/).
 
 
-# Run the Image Loader
+## Run the Image Loader
 
 Setup your local configuration in `/etc/gu/image-loader.properties` using
 outputs from the dev stack above:
