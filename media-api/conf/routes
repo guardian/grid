@@ -21,3 +21,6 @@ POST    /delete-index               controllers.IndexManagement.deleteIndex
 
 # Management
 GET     /health-check               controllers.HealthCheck.healthCheck
+
+# Enable CORS
+OPTIONS /*url                       controllers.CorsPreflight.options(url: String)
