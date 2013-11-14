@@ -1,6 +1,50 @@
+@(mediaApiUri: String)
 <!DOCTYPE html>
 <html>
+  <head>
+    <meta charset="utf-8"/>
+    <title>Kahuna</title>
+    <!-- TODO: load compiled app -->
+    <script data-media-api-uri="@mediaApiUri"
+            data-main="/assets/js/app.js"
+            src="/assets/bower_components/requirejs/require.js"
+            id="main-script"
+            async
+    ></script>
+    <style>
+        .ng-cloak { display: none }
+    </style>
+    <!-- TODO: CSS! -->
+  </head>
   <body>
-    <p>This is Kahuna.</p>
+    <p ng:hide="true">Loading Kahuna...</p>
+
+    <div class="ng-cloak" ng:controller="TestCtrl">
+        <input type="text"
+               placeholder="Search for images..."
+               ng:model="query"
+        />
+        <label>
+            <input type="radio" ng:model="since" value="" />
+            Anytime
+        </label>
+        <label>
+            <input type="radio" ng:model="since" value="24.hour" />
+            Last 24 hours
+        </label>
+        <label>
+            <input type="radio" ng:model="since" value="1.week"  />
+            Last week
+        </label>
+
+        <ul>
+            <li ng:repeat="image in images">
+                <figure>
+                    <img ng:src="{{image.thumbnail['secure-url']}}"/>
+                    <figcaption>{{image.metadata.description}}</figcaption>
+                </figure>
+            </li>
+        </ul>
+    </div>
   </body>
 </html>
