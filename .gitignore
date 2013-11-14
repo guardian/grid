@@ -5,3 +5,4 @@ data
 .idea*
 .history
 .ensime*
+bower_components
