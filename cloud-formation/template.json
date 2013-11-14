@@ -457,7 +457,7 @@
                         "EOF\n",
 
                         "cat > /etc/gu/kahuna.properties<<EOF\n",
-                        "mediaapi.url=http://", { "Fn::GetAtt": ["MediaApiLoadBalancer", "DNSName"] } ,"\n",
+                        "mediaapi.uri=http://", { "Fn::GetAtt": ["MediaApiLoadBalancer", "DNSName"] } ,"\n",
                         "EOF\n",
 
                         "start kahuna\n"
