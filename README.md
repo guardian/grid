@@ -3,6 +3,13 @@ Media Service
 
 The new Guardian service to manage media (currently: images).
 
+## Requirements
+
+You will need to install:
+
+* sbt
+* Java 7
+
 
 ## Install Elasticsearch
 
@@ -108,3 +115,46 @@ curl -X POST --data-binary @integration/src/test/resources/images/honeybee.jpg h
 ```
 
 It should then appear in the Media API at [http://localhost:9001/images](http://localhost:9001/images).
+
+
+## Run the FTP Watcher
+
+Setup your local configuration in `/etc/gu/ftp-watcher.properties` to
+point to the FTP server and your loader server:
+
+```
+ftp.host=...
+ftp.user=...
+ftp.password=...
+loader.uri=http://localhost:9003/images
+```
+
+From the project root, run via sbt:
+
+        $ sbt -Dftp.active=true
+        > project ftp-watcher
+        > run 9004
+
+The FTP watcher should be up at
+[http://localhost:9004/](http://localhost:9004/).
+
+Images should appear in the Media API at [http://localhost:9001/images](http://localhost:9001/images).
+
+
+## Run Kahuna
+
+Setup your local configuration in `/etc/gu/kahuna.properties` to point
+to the Media API:
+
+```
+mediaapi.uri=http://localhost:9001
+```
+
+From the project root, run via sbt:
+
+        $ sbt
+        > project kahuna
+        > run 9005
+
+The user interface should be up at
+[http://localhost:9005/](http://localhost:9005/).
