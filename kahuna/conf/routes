@@ -5,3 +5,5 @@
 GET     /                           controllers.Application.index
 
 GET     /health-check               controllers.Application.healthCheck
+
+GET     /assets/*file               controllers.Assets.at(path="/public", file)
