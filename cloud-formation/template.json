@@ -290,9 +290,9 @@
                     "Fn::GetAZs": ""
                 },
                 "LaunchConfigurationName": { "Ref": "MediaApiLaunchConfig" },
-                "MinSize": "2",
-                "MaxSize": "4",
-                "DesiredCapacity": "2",
+                "MinSize": "1",
+                "MaxSize": "2",
+                "DesiredCapacity": "1",
                 "HealthCheckType": "ELB",
                 "HealthCheckGracePeriod": 300,
                 "LoadBalancerNames": [
@@ -574,9 +574,9 @@
                     "Fn::GetAZs": ""
                 },
                 "LaunchConfigurationName": { "Ref": "ImageLoaderLaunchConfig" },
-                "MinSize": "2",
-                "MaxSize": "4",
-                "DesiredCapacity": "2",
+                "MinSize": "1",
+                "MaxSize": "2",
+                "DesiredCapacity": "1",
                 "HealthCheckType": "ELB",
                 "HealthCheckGracePeriod": 300,
                 "LoadBalancerNames": [
