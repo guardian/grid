@@ -6,7 +6,8 @@ import com.gu.mediaservice.lib.config.Properties
 
 object Config {
 
-  val properties = Properties.fromFile("/etc/gu/ftp-watcher.properties")
+  val properties: Map[String, String] =
+    Properties.fromFile("/etc/gu/ftp-watcher.properties") ++ sys.props
 
   val ftpHost: String = properties("ftp.host")
   val ftpPort: Int = properties.get("ftp.port").fold(21)(_.toInt)
@@ -17,7 +18,7 @@ object Config {
   val imageLoaderUri: String = properties("loader.uri")
 
   val active: AtomicBoolean =
-    new AtomicBoolean(sys.props.get("active").exists(_.toBoolean))
+    new AtomicBoolean(properties.get("active").exists(_.toBoolean)) // TODO this will change to ftp.active
 
   def status: String = if (isActive) "active" else "passive"
 
