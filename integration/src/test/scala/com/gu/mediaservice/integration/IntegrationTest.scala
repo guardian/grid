@@ -15,8 +15,10 @@ import ImageFixture._
 
 class IntegrationTest extends FunSpec with TestHarness with Matchers with BeforeAndAfterAll {
 
-  lazy val config = Discovery.discoverConfig("media-service-TEST") getOrElse sys.error("Could not find stack")
-  //val config = Config(loaderApi = new java.net.URL("http://localhost:9000/"), mediaApi = new java.net.URL("http://localhost:9002/"))
+  lazy val config =
+    devConfig orElse
+    Discovery.discoverConfig("media-service-TEST") getOrElse
+    sys.error("Could not find stack")
 
   val images = Seq(
     fixture("honeybee.jpg", "credit" -> "AFP/Getty Images", "byline" -> "THOMAS KIENZLE"),
