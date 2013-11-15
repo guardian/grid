@@ -50,6 +50,11 @@ a {
 }
 
 
+.full-image__image {
+    max-width: 100%;
+}
+
+
 .buckets {
     position: fixed;
     top: 40px;
