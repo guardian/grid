@@ -29,6 +29,6 @@ object Config extends CommonPlayAppConfig {
 
   val topicArn: String = properties("sns.topic.arn")
 
-  val corsAllowedDomain: String = properties("cors.allowed.domain")
+  val corsAllowedDomain: String = properties("cors.allowed.domain").toLowerCase
 
 }
