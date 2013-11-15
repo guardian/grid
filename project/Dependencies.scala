@@ -3,7 +3,7 @@ import sbt.Keys
 
 object Dependencies {
 
-  val playVersion = "2.2.0" // also exists in plugins.sbt, TODO deduplicate this
+  val playVersion = "2.2.1" // also exists in plugins.sbt, TODO deduplicate this
 
   val playDeps = Seq("com.typesafe.play" %% "play" % playVersion)
 
