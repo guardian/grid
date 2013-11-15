@@ -713,7 +713,7 @@
                         "cat > /home/media-service/reaper.sh <<EOF\n",
                         "curl --silent \"$MEDIA_API/images?until=30.days&size=100&show-secure-url=false\" ",
                         " | python /home/media-service/extract_ids.py ",
-                        " | xargs -I {} curl --silent -X DELETE \"$MEDIA_API/image/{}\"\n",
+                        " | xargs -I {} curl --silent -X DELETE \"$MEDIA_API/images/{}\"\n",
                         "EOF\n",
 
                         "chmod +x /home/media-service/reaper.sh\n",
