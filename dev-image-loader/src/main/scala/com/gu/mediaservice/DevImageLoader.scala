@@ -62,7 +62,7 @@ object DevImageLoader {
     future
   }
 
-  val apiImageUriBase = "http://localhost:9000/image/"
+  val apiImageUriBase = "http://localhost:9000/images/"
 
   def putImage(id: String, file: File): Future[Response] = {
     val url = apiImageUriBase + URLEncoder.encode(id, "utf8")
