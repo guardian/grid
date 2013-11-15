@@ -9,6 +9,7 @@ You will need to install:
 
 * sbt
 * Java 7
+* [bower](http://bower.io/)
 
 
 ## Install Elasticsearch
@@ -151,7 +152,12 @@ to the Media API:
 mediaapi.uri=http://localhost:9001
 ```
 
-From the project root, run via sbt:
+Run the `setup.sh` script from the kahuna directory to get started:
+
+        $ cd kahuna
+        $ ./setup.sh
+
+Then, from the project root, run via sbt:
 
         $ sbt
         > project kahuna
