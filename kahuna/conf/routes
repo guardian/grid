@@ -2,7 +2,8 @@
 # This file defines all application routes (Higher priority routes first)
 # ~~~~
 
-GET     /                           controllers.Application.index
+GET     /                           controllers.Application.index(ignored="")
+GET     /images/$id<[0-9a-z]+>      controllers.Application.index(id)
 
 GET     /health-check               controllers.Application.healthCheck
 

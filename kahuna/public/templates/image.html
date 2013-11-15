@@ -1,0 +1,7 @@
+<div ng:controller="ImageCtrl">
+    <figure class="full-image">
+        <img class="full-image__image"
+             ng:src="{{image['secure-url']}}"/>
+        <figcaption>{{image.metadata.description}}</figcaption>
+    </figure>
+</div>
