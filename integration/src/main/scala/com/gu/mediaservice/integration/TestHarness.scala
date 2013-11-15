@@ -1,15 +1,17 @@
 package com.gu.mediaservice.integration
 
+import java.net.URL
 import java.io.File
 import java.util.concurrent.Executors
+import scala.sys.props
 import scala.concurrent.duration._
 import scala.concurrent._
-import scala.util.{Failure, Try}
+import scala.util.Try
 
 import org.slf4j.LoggerFactory
-import play.api.libs.ws.{WS, Response}
+import play.api.libs.ws.WS
 import play.api.http.{ContentTypeOf, Writeable}
-
+import play.api.libs.ws.Response
 
 trait TestHarness {
 
@@ -21,6 +23,10 @@ trait TestHarness {
   lazy val log = LoggerFactory.getLogger(getClass)
 
   def config: Config
+
+  import scalaz.std.option._, scalaz.syntax.std.function2._, scalaz.syntax.apply._
+  def devConfig: Option[Config] =
+    (props.get("loader.uri") |@| props.get("mediaapi.uri"))((Config.apply _).contramap(new URL(_)))
 
   implicit val ctx: ExecutionContext =
     ExecutionContext.fromExecutor(Executors.newSingleThreadExecutor)
