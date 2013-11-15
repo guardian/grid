@@ -1,0 +1,63 @@
+/* reset */
+figure, ul, li {
+    margin: 0;
+    padding: 0;
+}
+
+ul {
+    list-style-type: none;
+}
+
+a {
+    color: inherit;
+    text-decoration: none;
+}
+
+
+.search {
+    position: fixed;
+    background-color: #ccc;
+    top: 0;
+    left: 0;
+    right: 0;
+}
+
+
+.results {
+    margin-top: 40px;
+    margin-right: 70px;
+}
+
+.image-result {
+    float: left;
+    margin-left: 20px;
+    height: 200px;
+    width: 200px;
+    text-align: center;
+}
+
+.image-result__image {
+    max-width: 200px;
+    max-height: 160px;
+}
+
+.image-result__caption {
+    text-overflow: ellipsis;
+    overflow: hidden;
+    white-space: nowrap;
+    max-width: 200px;
+    text-align: left;
+}
+
+
+.buckets {
+    position: fixed;
+    top: 40px;
+    right: 0;
+    width: 50px;
+}
+
+.bucket--new {
+    margin-top: 0.5em;
+    font-style: italic;
+}

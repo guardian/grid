@@ -36,15 +36,23 @@ require(['angular'], function(angular) {
             return $http.get(mediaApiUri + '/images', {
                 params: {
                     q:     query || '',
-                    since: options.since
+                    since: options.since,
+                    size:  20
                 }
             }).then(function(response) {
                 return response.data.hits;
             });
         }
 
+        function listBuckets() {
+            return $http.get(mediaApiUri + '/buckets').then(function(response) {
+                return response.data.buckets;
+            });
+        }
+
         return {
-            search: search
+            search: search,
+            listBuckets: listBuckets
         };
     }]);
 
@@ -64,7 +72,16 @@ require(['angular'], function(angular) {
 
         $scope.since = ''; // default to anytime
         $scope.images = [];
+
+
+        mediaApi.listBuckets().then(function(buckets) {
+            $scope.buckets = buckets;
+        });
+
     }]);
+
+// TODO: router to catch navigation to image
+// TODO: show full image + metadata
 
     angular.bootstrap(document, ['kahuna']);
 });
