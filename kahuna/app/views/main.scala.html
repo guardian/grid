@@ -6,43 +6,64 @@
     <title>Kahuna</title>
     <!-- TODO: load compiled app -->
     <script data-media-api-uri="@mediaApiUri"
-            data-main="/assets/js/app.js"
-            src="/assets/bower_components/requirejs/require.js"
+            data-main="@routes.Assets.at("js/app.js")"
+            src="@routes.Assets.at("bower_components/requirejs/require.js")"
             id="main-script"
             async
     ></script>
     <style>
         .ng-cloak { display: none }
     </style>
-    <!-- TODO: CSS! -->
+    <link rel="stylesheet" href="@routes.Assets.at("stylesheets/main.css")"/>
   </head>
   <body>
     <p ng:hide="true">Loading Kahuna...</p>
 
     <div class="ng-cloak" ng:controller="TestCtrl">
-        <input type="text"
-               placeholder="Search for images..."
-               ng:model="query"
-        />
-        <label>
-            <input type="radio" ng:model="since" value="" />
-            Anytime
-        </label>
-        <label>
-            <input type="radio" ng:model="since" value="24.hour" />
-            Last 24 hours
-        </label>
-        <label>
-            <input type="radio" ng:model="since" value="1.week"  />
-            Last week
-        </label>
+        <form class="search">
+            <input type="text"
+                   placeholder="Search for images..."
+                   ng:model="query"
+            />
+            <label>
+                <input type="radio" ng:model="since" value="" />
+                Anytime
+            </label>
+            <label>
+                <input type="radio" ng:model="since" value="24.hour" />
+                Last 24 hours
+            </label>
+            <label>
+                <input type="radio" ng:model="since" value="1.week"  />
+                Last week
+            </label>
+            <!--
+                Anytime
+                Today (since midnight vs last 24 hours?)
+                Yesterday
 
-        <ul>
-            <li ng:repeat="image in images">
+                Other: [since, to]
+            -->
+        </form>
+
+        <ul class="results">
+            <li class="image-result" ng:repeat="image in images">
+                <a ng:href="/image/{{image.id}}">
                 <figure>
-                    <img ng:src="{{image.thumbnail['secure-url']}}"/>
-                    <figcaption>{{image.metadata.description}}</figcaption>
+                    <img class="image-result__image"
+                         ng:src="{{image.thumbnail['secure-url']}}"/>
+                    <figcaption class="image-result__caption">{{image.metadata.title}}</figcaption>
                 </figure>
+                </a>
+            </li>
+        </ul>
+
+        <ul class="buckets">
+            <li class="bucket" ng:repeat="bucket in buckets">
+                {{bucket}}
+            </li>
+            <li class="bucket bucket--new" ng:repeat="bucket in buckets">
+                New...
             </li>
         </ul>
     </div>
