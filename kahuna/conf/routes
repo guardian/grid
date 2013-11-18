@@ -5,6 +5,8 @@
 GET     /                           controllers.Application.index(ignored="")
 GET     /images/$id<[0-9a-z]+>      controllers.Application.index(id)
 
-GET     /health-check               controllers.Application.healthCheck
-
 GET     /assets/*file               controllers.Assets.at(path="/public", file)
+
+# Management
+GET     /management/healthcheck     com.gu.mediaservice.lib.management.Management.healthCheck
+GET     /management/manifest        com.gu.mediaservice.lib.management.Management.manifest
