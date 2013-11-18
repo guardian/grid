@@ -20,7 +20,8 @@ GET     /buckets                    controllers.MediaApi.getAllBuckets
 POST    /delete-index               controllers.IndexManagement.deleteIndex
 
 # Management
-GET     /health-check               controllers.HealthCheck.healthCheck
+GET     /management/healthcheck     controllers.Management.healthCheck
+GET     /management/manifest        controllers.Management.manifest
 
 # Enable CORS
 OPTIONS /*url                       controllers.CorsPreflight.options(url: String)
