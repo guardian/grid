@@ -275,7 +275,7 @@
                     }
                 ],
                 "HealthCheck": {
-                    "Target": "HTTP:9000/health-check",
+                    "Target": "HTTP:9000/management/healthcheck",
                     "HealthyThreshold": "2",
                     "UnhealthyThreshold": "2",
                     "Interval": "10",
