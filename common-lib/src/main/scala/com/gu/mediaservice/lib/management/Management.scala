@@ -1,4 +1,4 @@
-package controllers
+package com.gu.mediaservice.lib.management
 
 import java.io.{FileNotFoundException, File}
 import scala.io.Source
