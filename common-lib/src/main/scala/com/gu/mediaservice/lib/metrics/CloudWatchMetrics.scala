@@ -63,6 +63,7 @@ abstract class CloudWatchMetrics(namespace: String, credentials: AWSCredentials)
     client.putMetricData(new PutMetricDataRequest()
       .withNamespace(namespace)
       .withMetricData(data.asJava))
+    logger.info(s"Put ${data.size} metric data points to namespace $namespace")
   }
 
   import scalaz.{\/, -\/, \/-}
