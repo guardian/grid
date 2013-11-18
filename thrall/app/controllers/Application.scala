@@ -9,8 +9,4 @@ object Application extends Controller {
     Ok("This is a thrall.")
   }
 
-  def healthCheck = Action {
-    Ok("OK")
-  }
-
 }

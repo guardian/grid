@@ -4,4 +4,6 @@
 
 GET     /                           controllers.Application.index
 
-GET     /health-check               controllers.Application.healthCheck
+# Management
+GET     /management/healthcheck     com.gu.mediaservice.lib.management.Management.healthCheck
+GET     /management/manifest        com.gu.mediaservice.lib.management.Management.manifest

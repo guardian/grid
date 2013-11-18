@@ -9,8 +9,4 @@ object Application extends Controller {
     Ok(views.html.main(mediaApiUri=Config.mediaApiUri))
   }
 
-  def healthCheck = Action {
-    Ok("OK")
-  }
-
 }
