@@ -19,6 +19,7 @@ import com.gu.mediaservice.lib.elasticsearch.ElasticSearchClient
 import com.gu.mediaservice.lib.formatting.printDateTime
 import controllers.SearchParams
 import lib.{MediaApiMetrics, Config}
+import org.elasticsearch.index.query.MatchQueryBuilder.Operator
 
 
 object ElasticSearch extends ElasticSearchClient {
@@ -35,7 +36,11 @@ object ElasticSearch extends ElasticSearchClient {
     prepareGet(id).executeAndLog(s"get image by id $id") map (_.sourceOpt)
 
   def search(params: SearchParams)(implicit ex: ExecutionContext): Future[Seq[(Id, JsValue)]] = {
-    val query = params.query filter (_.nonEmpty) map (matchQuery("metadata.description", _)) getOrElse matchAllQuery
+
+    val query = params.query
+      .filter(_.nonEmpty)
+      .map(matchQuery("metadata.description", _).operator(Operator.AND))
+      .getOrElse(matchAllQuery)
 
     val dateFilter = filters.date(params.fromDate, params.toDate)
     val bucketFilter = params.buckets.map(filters.terms("buckets", _))
