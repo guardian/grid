@@ -7,7 +7,7 @@ import com.gu.mediaservice.lib.config.Properties
 object Config {
 
   val properties: Map[String, String] =
-    Properties.fromFile("/etc/gu/ftp-watcher.properties") ++ sys.props
+    Properties.fromPath("/etc/gu/ftp-watcher.properties") ++ sys.props
 
   val ftpHost: String = properties("ftp.host")
   val ftpPort: Int = properties.get("ftp.port").fold(21)(_.toInt)

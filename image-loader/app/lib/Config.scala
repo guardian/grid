@@ -6,7 +6,7 @@ import com.gu.mediaservice.lib.config.Properties
 
 object Config {
 
-  val properties = Properties.fromFile("/etc/gu/image-loader.properties")
+  val properties = Properties.fromPath("/etc/gu/image-loader.properties")
 
   val awsCredentials: AWSCredentials =
     new BasicAWSCredentials(properties("aws.id"), properties("aws.secret"))
