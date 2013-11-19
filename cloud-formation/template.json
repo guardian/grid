@@ -12,6 +12,10 @@
             "Type": "String",
             "AllowedValues": ["CODE", "TEST", "PROD"],
             "Default": "PROD"
+        },
+        "MediaApiSSLCertificateId": {
+            "Description": "ARN of the SSL certificate to be used for the Media API load balancer",
+            "Type": "String"
         }
     },
     "Resources": {
@@ -57,6 +61,29 @@
                 ]
             }
         },
+
+        "MediaApiLoadBalancerSecurityGroup": {
+            "Type": "AWS::EC2::SecurityGroup",
+            "Properties": {
+                "GroupDescription": "Media API load balancer",
+                "SecurityGroupIngress": [
+                    {
+                        "IpProtocol": "tcp",
+                        "FromPort": "80",
+                        "ToPort": "80",
+                        "CidrIp": "0.0.0.0/0"
+                    },
+                    {
+                        "IpProtocol": "tcp",
+                        "FromPort": "443",
+                        "ToPort": "443",
+                        "CidrIp": "0.0.0.0/0"
+
+                    }
+                ]
+            }
+        },
+
         "ElasticsearchIngress": {
             "Type": "AWS::EC2::SecurityGroupIngress",
             "Properties": {
@@ -267,7 +294,14 @@
             "Type": "AWS::ElasticLoadBalancing::LoadBalancer",
             "Properties": {
                 "AvailabilityZones": { "Fn::GetAZs": "" },
+                "SecurityGroups": [{ "Fn::GetAtt": ["MediaApiLoadBalancerSecurityGroup", "GroupId"] }],
                 "Listeners": [
+                    {
+                        "LoadBalancerPort": "443",
+                        "InstancePort": "9000",
+                        "Protocol": "HTTPS",
+                        "SSLCertificateId": { "Ref": "MediaApiSSLCertificateId" }
+                    },
                     {
                         "LoadBalancerPort": "80",
                         "InstancePort": "9000",
