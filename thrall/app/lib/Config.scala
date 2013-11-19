@@ -10,7 +10,7 @@ import com.gu.mediaservice.lib.config.{Properties, CommonPlayAppConfig}
 
 object Config extends CommonPlayAppConfig {
 
-  val properties = Properties.fromFile("/etc/gu/thrall.properties")
+  val properties = Properties.fromPath("/etc/gu/thrall.properties")
 
   def queueUrl: String = properties("sqs.queue.url")
 
