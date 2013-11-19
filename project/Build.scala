@@ -45,6 +45,10 @@ object Build extends Build {
     .testDependencies(scalaTestDeps ++ playDeps)
     .settings(parallelExecution in Test := false)
 
+  val scripts = project("scripts")
+    .dependsOn(lib)
+    .libraryDependencies(awsDeps ++ commonsNetDeps)
+
   @deprecated
   val devImageLoader = project("dev-image-loader")
     .libraryDependencies(playDeps)

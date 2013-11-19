@@ -1,13 +1,16 @@
 package com.gu.mediaservice.lib.config
 
-import java.io.{InputStream, FileInputStream}
+import java.io.{File, InputStream, FileInputStream}
 import java.net.URL
 import scala.collection.JavaConverters._
 
 
 object Properties {
 
-  def fromFile(file: String): Map[String, String] =
+  def fromFile(file: File): Map[String, String] =
+    fromStream(new FileInputStream(file))
+  
+  def fromPath(file: String): Map[String, String] =
     fromStream(new FileInputStream(file))
 
   def fromURL(url: URL): Map[String, String] =
