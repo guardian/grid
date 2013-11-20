@@ -30,9 +30,9 @@ object Image {
       (__ \ "byline").writeNullable[String] ~
       (__ \ "title").writeNullable[String] ~
       (__ \ "credit").writeNullable[String] ~
-      (__ \ "copyright-notice").writeNullable[String] ~
+      (__ \ "copyrightNotice").writeNullable[String] ~
       (__ \ "source").writeNullable[String] ~
-      (__ \ "special-instructions").writeNullable[String] ~
+      (__ \ "specialInstructions").writeNullable[String] ~
       (__ \ "keywords").write[List[String]] ~
       (__ \ "city").writeNullable[String] ~
       (__ \ "country").writeNullable[String]
@@ -41,7 +41,7 @@ object Image {
   implicit val ImageWrites: Writes[Image] = (
     (__ \ "id").write[String] ~
       (__ \ "file").write[URI] ~
-      (__ \ "upload-time").write[String].contramap(printDateTime) ~
+      (__ \ "uploadTime").write[String].contramap(printDateTime) ~
       (__ \ "thumbnail").writeNullable[Thumbnail] ~
       (__ \ "metadata").writeNullable[IptcMetadata]
     )(unlift(Image.unapply))
