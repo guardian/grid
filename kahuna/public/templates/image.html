@@ -1,7 +1,23 @@
-<div ng:controller="ImageCtrl">
-    <figure class="full-image">
-        <img class="full-image__image"
-             ng:src="{{image['secure-url']}}"/>
-        <figcaption>{{image.metadata.description}}</figcaption>
-    </figure>
+<div class="full-image" ng:controller="ImageCtrl">
+    <img class="full-image__image"
+         ng:src="{{image['secure-url']}}"/>
+    <dl>
+        <dt class="data-header">Description</dt>
+        <dd>{{image.metadata.description}}</dd>
+
+        <dt class="data-header">Uploaded</dt>
+        <dd>{{image['upload-time'] | date:'d MMM yyyy, HH:mm'}}</dd>
+
+        <dt class="data-header">Metadata</dt>
+        <dd>
+            <table>
+                <tbody>
+                    <tr ng:repeat="(key, value) in image.metadata">
+                        <td class="metadata-key">{{key}}</td>
+                        <td>{{value}}</td>
+                    </tr>
+                </tbody>
+            </table>
+        </dd>
+    </dl>
 </div>
