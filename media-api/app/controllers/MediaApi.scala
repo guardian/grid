@@ -77,10 +77,10 @@ object MediaApi extends Controller {
   object transformers {
 
     def addSecureImageUrl(url: String): Reads[JsObject] =
-      __.json.update(__.read[JsObject].map(_ ++ Json.obj("secure-url" -> url)))
+      __.json.update(__.read[JsObject].map(_ ++ Json.obj("secureUrl" -> url)))
 
     def addSecureThumbUrl(url: String): Reads[JsObject] =
-      (__ \ "thumbnail").json.update(__.read[JsObject].map (_ ++ Json.obj("secure-url" -> url)))
+      (__ \ "thumbnail").json.update(__.read[JsObject].map (_ ++ Json.obj("secureUrl" -> url)))
   }
 
 }
