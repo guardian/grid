@@ -24,6 +24,11 @@ trait CommonPlayAppConfig {
 
   final val stage: String = stageFromFile getOrElse "DEV"
 
+  final def isProd: Boolean = stage == "PROD"
+
+  final val domainRoot: String =
+    if (isProd) "media.gutools.co.uk" else s"media.${stage.toLowerCase}.dev-gutools.co.uk"
+
   private def missing(key: String, type_ : String): Nothing =
     sys.error(s"Required $type_ configuration property missing: $key")
 

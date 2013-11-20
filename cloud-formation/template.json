@@ -521,10 +521,6 @@
                         { "Ref": "Stage" }, "\n",
                         "EOF\n",
 
-                        "cat > /etc/gu/kahuna.properties<<EOF\n",
-                        "mediaapi.uri=http://", { "Fn::GetAtt": ["MediaApiLoadBalancer", "DNSName"] } ,"\n",
-                        "EOF\n",
-
                         "start kahuna\n"
                     ]]
 

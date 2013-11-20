@@ -30,7 +30,6 @@ object Config extends CommonPlayAppConfig {
   val topicArn: String = properties("sns.topic.arn")
 
   val corsAllowedDomain: String =
-    properties.get("cors.allowed.domain")
-      .getOrElse(if (stage == "PROD") "media.gutools.co.uk" else "media.test.dev-gutools.co.uk")
+    properties.getOrElse("cors.allowed.domain", domainRoot)
 
 }
