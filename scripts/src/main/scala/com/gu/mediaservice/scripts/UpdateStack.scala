@@ -37,6 +37,7 @@ object UpdateStack {
 
     val kahunaCertArn = getCertArn(domainRoot)
     val mediaApiCertArn = getCertArn(s"api.$domainRoot")
+    val loaderCertArn = getCertArn(s"loader.$domainRoot")
 
     cfnClient.updateStack(
       new UpdateStackRequest()
@@ -46,7 +47,8 @@ object UpdateStack {
         .withParameters(
           new Parameter().withParameterKey("Stage").withParameterValue(stage),
           new Parameter().withParameterKey("MediaApiSSLCertificateId").withParameterValue(mediaApiCertArn),
-          new Parameter().withParameterKey("KahunaSSLCertificateId").withParameterValue(kahunaCertArn)
+          new Parameter().withParameterKey("KahunaSSLCertificateId").withParameterValue(kahunaCertArn),
+          new Parameter().withParameterKey("ImageLoaderSSLCertificateId").withParameterValue(loaderCertArn)
         )
     )
 

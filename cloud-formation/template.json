@@ -20,6 +20,10 @@
         "KahunaSSLCertificateId": {
             "Description": "ARN of the SSL certificate to be used for the Kahuna load balancer",
             "Type": "String"
+        },
+        "ImageLoaderSSLCertificateId": {
+            "Description": "ARN of the SSL certificate to be used for the Image Loader load balancer",
+            "Type": "String"
         }
     },
     "Resources": {
@@ -141,6 +145,12 @@
                         "FromPort": 9000,
                         "ToPort": 9000,
                         "SourceSecurityGroupName": { "Fn::GetAtt": ["KahunaLoadBalancer", "SourceSecurityGroup.GroupName"]}
+                    },
+                    {
+                        "IpProtocol": "tcp",
+                        "FromPort": 9000,
+                        "ToPort": 9000,
+                        "SourceSecurityGroupName": { "Fn::GetAtt": ["ImageLoaderLoadBalancer", "SourceSecurityGroup.GroupName"]}
                     }
                 ]
             }
@@ -610,11 +620,38 @@
             }
         },
 
+        "ImageLoaderLoadBalancerSecurityGroup": {
+            "Type": "AWS::EC2::SecurityGroup",
+            "Properties": {
+                "GroupDescription": "Image Loader load balancer",
+                "SecurityGroupIngress": [
+                    {
+                        "IpProtocol": "tcp",
+                        "FromPort": "80",
+                        "ToPort": "80",
+                        "CidrIp": "0.0.0.0/0"
+                    },
+                    {
+                        "IpProtocol": "tcp",
+                        "FromPort": "443",
+                        "ToPort": "443",
+                        "CidrIp": "0.0.0.0/0"
+                    }
+                ]
+            }
+        },
         "ImageLoaderLoadBalancer": {
             "Type": "AWS::ElasticLoadBalancing::LoadBalancer",
             "Properties": {
                 "AvailabilityZones": { "Fn::GetAZs": "" },
+                "SecurityGroups": [{ "Fn::GetAtt": ["ImageLoaderLoadBalancerSecurityGroup", "GroupId"] }],
                 "Listeners": [
+                    {
+                        "LoadBalancerPort": "443",
+                        "InstancePort": "9000",
+                        "Protocol": "HTTPS",
+                        "SSLCertificateId": { "Ref": "ImageLoaderSSLCertificateId" }
+                    },
                     {
                         "LoadBalancerPort": "80",
                         "InstancePort": "9000",
