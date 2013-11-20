@@ -521,6 +521,8 @@
                         { "Ref": "Stage" }, "\n",
                         "EOF\n",
 
+                        "touch /etc/gu/kahuna.properties\n",
+
                         "start kahuna\n"
                     ]]
 
