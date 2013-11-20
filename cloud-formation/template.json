@@ -16,6 +16,10 @@
         "MediaApiSSLCertificateId": {
             "Description": "ARN of the SSL certificate to be used for the Media API load balancer",
             "Type": "String"
+        },
+        "KahunaSSLCertificateId": {
+            "Description": "ARN of the SSL certificate to be used for the Kahuna load balancer",
+            "Type": "String"
         }
     },
     "Resources": {
@@ -79,6 +83,27 @@
                         "ToPort": "443",
                         "CidrIp": "0.0.0.0/0"
 
+                    }
+                ]
+            }
+        },
+
+        "KahunaLoadBalancerSecurityGroup": {
+            "Type": "AWS::EC2::SecurityGroup",
+            "Properties": {
+                "GroupDescription": "Kahuna load balancer",
+                "SecurityGroupIngress": [
+                    {
+                        "IpProtocol": "tcp",
+                        "FromPort": "80",
+                        "ToPort": "80",
+                        "CidrIp": "0.0.0.0/0"
+                    },
+                    {
+                        "IpProtocol": "tcp",
+                        "FromPort": "443",
+                        "ToPort": "443",
+                        "CidrIp": "0.0.0.0/0"
                     }
                 ]
             }
@@ -406,7 +431,14 @@
             "Type": "AWS::ElasticLoadBalancing::LoadBalancer",
             "Properties": {
                 "AvailabilityZones": { "Fn::GetAZs": "" },
+                "SecurityGroups": [{ "Fn::GetAtt": ["KahunaLoadBalancerSecurityGroup", "GroupId"] }],
                 "Listeners": [
+                    {
+                        "LoadBalancerPort": "443",
+                        "InstancePort": "9000",
+                        "Protocol": "HTTPS",
+                        "SSLCertificateId": { "Ref": "KahunaSSLCertificateId" }
+                    },
                     {
                         "LoadBalancerPort": "80",
                         "InstancePort": "9000",
