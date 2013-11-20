@@ -76,7 +76,7 @@ object ElasticSearch extends ElasticSearchClient {
   object filters {
 
     def date(from: Option[DateTime], to: Option[DateTime]): FilterBuilder = {
-      val builder = FilterBuilders.rangeFilter("upload-time")
+      val builder = FilterBuilders.rangeFilter("uploadTime")
       for (f <- from) builder.from(printDateTime(f))
       for (t <- to) builder.to(printDateTime(t))
       builder
@@ -93,7 +93,7 @@ object ElasticSearch extends ElasticSearchClient {
   object sorts {
 
     def parseFromRequest(sortBy: Option[String])(builder: SearchRequestBuilder): SearchRequestBuilder = {
-      val sorts = sortBy.fold(Seq("upload-time" -> SortOrder.DESC))(parseSorts)
+      val sorts = sortBy.fold(Seq("uploadTime" -> SortOrder.DESC))(parseSorts)
       for ((field, order) <- sorts) builder.addSort(field, order)
       builder
     }
