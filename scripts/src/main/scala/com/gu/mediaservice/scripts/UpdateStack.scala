@@ -35,6 +35,7 @@ object UpdateStack {
       if (stage == "PROD") "media.***REMOVED***"
       else s"media.${stage.toLowerCase}.dev-***REMOVED***"
 
+    val kahunaCertArn = getCertArn(domainRoot)
     val mediaApiCertArn = getCertArn(s"api.$domainRoot")
 
     cfnClient.updateStack(
@@ -44,7 +45,8 @@ object UpdateStack {
         .withTemplateBody(template)
         .withParameters(
           new Parameter().withParameterKey("Stage").withParameterValue(stage),
-          new Parameter().withParameterKey("MediaApiSSLCertificateId").withParameterValue(mediaApiCertArn)
+          new Parameter().withParameterKey("MediaApiSSLCertificateId").withParameterValue(mediaApiCertArn),
+          new Parameter().withParameterKey("KahunaSSLCertificateId").withParameterValue(kahunaCertArn)
         )
     )
 
