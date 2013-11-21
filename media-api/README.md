@@ -11,7 +11,7 @@
 | q          | Text search query                         | [empty]
 | page       | Page in results (1-based)                 | 1
 | size       | Results per page                          | 10
-| order-by   | Field for ordering (prepend '-' for DESC) | -upload-time
+| order-by   | Field for ordering (prepend '-' for DESC) | -uploadTime
 | from-date  | Search images uploaded since this time    | [no lower bound]
 | to-date    | Search images uploaded before this time   | [no upper bound]
 | bucket     | Search in these buckets (comma-separated) | [all buckets]
