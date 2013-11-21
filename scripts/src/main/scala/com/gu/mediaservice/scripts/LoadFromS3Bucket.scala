@@ -7,6 +7,7 @@ import org.apache.http.client.methods.HttpPost
 import org.apache.http.entity.{ContentType, InputStreamEntity}
 
 import com.gu.mediaservice.lib.aws.S3
+import com.gu.mediaservice.lib.UserCredentials
 
 object LoadFromS3Bucket {
 

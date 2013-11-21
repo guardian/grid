@@ -1,4 +1,4 @@
-package com.gu.mediaservice.scripts
+package com.gu.mediaservice.lib
 
 import com.amazonaws.auth.{BasicAWSCredentials, AWSCredentials}
 import java.nio.file.Paths
