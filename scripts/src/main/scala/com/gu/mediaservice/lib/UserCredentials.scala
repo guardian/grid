@@ -1,9 +1,10 @@
 package com.gu.mediaservice.lib
 
-import com.amazonaws.auth.{BasicAWSCredentials, AWSCredentials}
 import java.nio.file.Paths
-import com.gu.mediaservice.lib.config.Properties
-
+import java.util.Properties
+import java.io.{File, FileInputStream}
+import scala.collection.JavaConverters._
+import com.amazonaws.auth.{BasicAWSCredentials, AWSCredentials}
 
 object UserCredentials {
 
@@ -12,8 +13,14 @@ object UserCredentials {
       .getOrElse(sys.error("Required environment variable AWS_CREDENTIAL_FILE is missing"))
     val file = Paths.get(path).toFile
     println(s"Reading AWS credentials from $path")
-    val props = Properties.fromFile(file)
+    val props = properties(file)
     new BasicAWSCredentials(props("AWSAccessKeyId"), props("AWSSecretKey"))
+  }
+
+  def properties(file: File): Map[String, String] = {
+    val props = new Properties()
+    props.load(new FileInputStream(file))
+    props.asScala.toMap
   }
 
 }

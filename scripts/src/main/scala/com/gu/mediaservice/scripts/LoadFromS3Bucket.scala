@@ -6,8 +6,8 @@ import org.apache.http.impl.client.HttpClients
 import org.apache.http.client.methods.HttpPost
 import org.apache.http.entity.{ContentType, InputStreamEntity}
 
-import com.gu.mediaservice.lib.aws.S3
 import com.gu.mediaservice.lib.UserCredentials
+import com.amazonaws.services.s3.AmazonS3Client
 
 object LoadFromS3Bucket {
 
@@ -20,14 +20,14 @@ object LoadFromS3Bucket {
 
     val credentials = UserCredentials.awsCredentials
 
-    val s3 = new S3(credentials)
+    val client = new AmazonS3Client(credentials)
 
-    val keys = s3.client.listObjects(bucket).getObjectSummaries.asScala.map(_.getKey)
+    val keys = client.listObjects(bucket).getObjectSummaries.asScala.map(_.getKey)
 
     val httpClient = HttpClients.createDefault
 
     for (key <- keys) {
-      val obj = s3.client.getObject(bucket, key)
+      val obj = client.getObject(bucket, key)
       val postReq = new HttpPost(loaderEndpoint)
       val length = obj.getObjectMetadata.getContentLength
       val entity = new InputStreamEntity(obj.getObjectContent, length, ContentType.DEFAULT_BINARY)
