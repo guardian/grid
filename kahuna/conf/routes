@@ -7,6 +7,13 @@ GET     /images/$id<[0-9a-z]+>      controllers.Application.index(id)
 
 GET     /assets/*file               controllers.Assets.at(path="/public", file)
 
+# Login
+
+GET     /login                      controllers.Login.login
+GET     /loginAction                controllers.Login.loginAction
+GET     /openIDCallback             controllers.Login.openIDCallback
+GET     /logout                     controllers.Login.logout
+
 # Management
 GET     /management/healthcheck     com.gu.mediaservice.lib.management.Management.healthCheck
 GET     /management/manifest        com.gu.mediaservice.lib.management.Management.manifest
