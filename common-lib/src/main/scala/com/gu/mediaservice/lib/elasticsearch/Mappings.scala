@@ -30,7 +30,7 @@ object Mappings {
       "image" -> Json.obj(
         "properties" -> Json.obj(
           "metadata" -> metadataMapping,
-          "upload-time" -> dateFormat,
+          "uploadTime" -> dateFormat,
           "buckets" -> Json.obj("type" -> "string", "index" -> "not_analyzed", "index_name" -> "bucket")
         )
       )

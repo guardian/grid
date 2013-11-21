@@ -1,12 +1,12 @@
 <div class="full-image" ng:controller="ImageCtrl">
     <img class="full-image__image"
-         ng:src="{{image['secure-url']}}"/>
+         ng:src="{{image['secureUrl']}}"/>
     <dl>
         <dt class="data-header">Description</dt>
         <dd>{{image.metadata.description}}</dd>
 
         <dt class="data-header">Uploaded</dt>
-        <dd>{{image['upload-time'] | date:'d MMM yyyy, HH:mm'}}</dd>
+        <dd>{{image['uploadTime'] | date:'d MMM yyyy, HH:mm'}}</dd>
 
         <dt class="data-header">Metadata</dt>
         <dd>

@@ -63,7 +63,7 @@ class IntegrationTest extends FunSpec with TestHarness with Matchers with Before
 
     }
 
-    lazy val fileUrl = (getImage(imageId).json \ "secure-url").as[String]
+    lazy val fileUrl = (getImage(imageId).json \ "secureUrl").as[String]
 
     it ("should have a usable URL for the image") {
 
