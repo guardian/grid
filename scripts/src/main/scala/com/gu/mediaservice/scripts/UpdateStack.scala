@@ -5,6 +5,7 @@ import com.amazonaws.services.cloudformation.AmazonCloudFormationClient
 import com.amazonaws.services.cloudformation.model.{Parameter, UpdateStackRequest}
 import com.amazonaws.services.identitymanagement.AmazonIdentityManagementClient
 import com.amazonaws.services.identitymanagement.model.GetServerCertificateRequest
+import com.gu.mediaservice.lib.UserCredentials
 
 object UpdateStack {
 
