@@ -1,4 +1,4 @@
-@(mediaApiUri: String)
+@(mediaApiUri: String, user: User)
 <!DOCTYPE html>
 <html>
   <head>
@@ -17,7 +17,7 @@
     <link rel="stylesheet" href="@routes.Assets.at("stylesheets/main.css")"/>
   </head>
   <body>
-    <p ng:hide="true">Loading Kahuna...</p>
+    <p ng:hide="true">Authenticated as @{user.email}. Loading Kahuna...</p>
 
     <div ng-view></div>
 
