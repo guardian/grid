@@ -3,13 +3,24 @@ package controllers
 import play.api.mvc.{Action, Controller}
 import play.api.libs.openid.{OpenIDError, OpenID}
 import play.api.libs.concurrent.Execution.Implicits._
-import com.gu.mediaservice.lib.auth.{AuthorisationValidator, User}
+import com.gu.mediaservice.lib.auth.User
 
 
 object Login extends Controller {
 
-  val validator = new AuthorisationValidator {
-    def emailDomainWhitelist = Seq("theguardian.com", "guardian.co.uk")
+  object validator {
+
+    type AuthorisationError = String
+    val emailDomainWhitelist = Seq("theguardian.com", "guardian.co.uk")
+
+    def isAuthorised(id: User): Boolean = authorisationError(id).isEmpty
+
+    def authorisationError(id: User): Option[AuthorisationError] =
+      if (emailDomainWhitelist.contains(id.emailDomain))
+        None
+      else
+        Some(s"The e-mail address domain you used to login (${id.email}) is not in the configured whitelist." +
+          s"Please try again with another account or contact the administrator.")
   }
 
   val openIdAttributes = Seq(

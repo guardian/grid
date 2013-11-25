@@ -11,16 +11,6 @@ object Authenticated {
     AuthenticatedBuilder(req => User.fromRequest(req), onUnauthorized)
 }
 
-trait AuthorisationValidator {
-  def emailDomainWhitelist: Seq[String]
-  def isAuthorised(id: User) = authorisationError(id).isEmpty
-  def authorisationError(id: User): Option[String] =
-    if (!emailDomainWhitelist.isEmpty && !emailDomainWhitelist.contains(id.emailDomain))
-      Some(s"The e-mail address domain you used to login (${id.email}) is not in the configured whitelist.  Please try again with another account or contact the administrator.")
-    else
-      None
-}
-
 case class User(openid: String, email: String, firstName: String, lastName: String) {
   def fullName = firstName + " " + lastName
   def emailDomain = email.split("@").last
