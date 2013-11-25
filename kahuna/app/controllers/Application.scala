@@ -5,8 +5,8 @@ import lib.Config
 
 object Application extends Controller {
 
-  def index(ignored: String) = Action {
-    Ok(views.html.main(mediaApiUri=Config.mediaApiUri))
+  def index(ignored: String) = Authenticated { req =>
+    Ok(views.html.main(mediaApiUri = Config.mediaApiUri, user = req.user))
   }
 
 }
