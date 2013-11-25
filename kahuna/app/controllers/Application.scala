@@ -8,7 +8,7 @@ import com.gu.mediaservice.lib.auth._
 object Application extends Controller {
 
   def index(ignored: String) = Authenticated(redirectToLogin) { req =>
-    Ok(views.html.main(mediaApiUri = Config.mediaApiUri, user = req.user))
+    Ok(views.html.main(mediaApiUri = Config.mediaApiUri, principal = req.user))
   }
 
   def redirectToLogin(request: RequestHeader): SimpleResult =
