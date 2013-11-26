@@ -38,10 +38,11 @@ object Login extends Controller {
     val secureConnection = request.headers.get("X-Forwarded-Proto").exists(_ == "https")
     OpenID.redirectURL("https://www.google.com/accounts/o8/id",
       routes.Login.openIDCallback.absoluteURL(secureConnection), openIdAttributes)
-      .map(Redirect(_))
-      .recover { case t =>
-      Redirect(routes.Login.loginForm).flashing("error" -> s"Unknown error: ${t.getMessage}:${t.getCause}")
-    }
+        .map(Redirect(_))
+        .recover { case t =>
+          Redirect(routes.Login.loginForm)
+            .flashing("error" -> s"Unknown error: ${t.getMessage}:${t.getCause}")
+        }
   }
 
   def openIDCallback = Action.async { implicit request =>
