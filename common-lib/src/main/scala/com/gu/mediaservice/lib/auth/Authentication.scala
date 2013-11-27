@@ -14,7 +14,7 @@ sealed trait Principal {
 }
 
 case class User(openid: String, email: String, firstName: String, lastName: String) extends Principal {
-  def name = s"$firstName $lastName"
+  def name: String = s"$firstName $lastName"
   def emailDomain = email.split("@").last
 }
 
@@ -23,10 +23,10 @@ case class ServicePeer(name: String) extends Principal
 object User {
   val KEY = "identity"
   implicit val formats = Json.format[User]
-  def readJson(json: String) = Json.fromJson[User](Json.parse(json)).get
+  def readJson(json: String): Option[User] = Json.fromJson[User](Json.parse(json)).asOpt
   def writeJson(id: User) = Json.stringify(Json.toJson(id))
   def fromRequest(request: RequestHeader): Option[User] =
-    request.session.get(KEY).map(User.readJson)
+    request.session.get(KEY).flatMap(User.readJson)
 }
 
 object Principal {
