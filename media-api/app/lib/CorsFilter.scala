@@ -13,6 +13,7 @@ object CorsFilter extends Filter {
     val corsAllowOrigin = s"$requestProtocol://${Config.corsAllowedDomain}"
 
     f(request).map { _.withHeaders(
+      "Access-Control-Allow-Credentials" -> "true",
       "Access-Control-Allow-Origin" -> corsAllowOrigin
     ) }
   }
