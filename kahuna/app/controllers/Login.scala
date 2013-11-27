@@ -9,18 +9,9 @@ import com.gu.mediaservice.lib.auth.User
 object Login extends Controller {
 
   object validator {
-
     type AuthorisationError = String
     val emailDomainWhitelist = Seq("theguardian.com", "***REMOVED***")
-
-    def isAuthorised(id: User): Boolean = authorisationError(id).isEmpty
-
-    def authorisationError(id: User): Option[AuthorisationError] =
-      if (emailDomainWhitelist.contains(id.emailDomain))
-        None
-      else
-        Some(s"The e-mail address domain you used to login (${id.email}) is not in the configured whitelist." +
-          s"Please try again with another account or contact the administrator.")
+    def isAuthorised(id: User): Boolean = emailDomainWhitelist.contains(id.emailDomain)
   }
 
   val openIdAttributes = Seq(
@@ -47,29 +38,26 @@ object Login extends Controller {
 
   def openIDCallback = Action.async { implicit request =>
     OpenID.verifiedId map { info =>
-      val credentials = User(
-        info.id,
-        info.attributes.get("email").get,
-        info.attributes.get("firstname").get,
-        info.attributes.get("lastname").get
-      )
-      if (validator.isAuthorised(credentials)) {
-        Redirect(session.get("loginFromUrl").getOrElse("/"))
-          .withSession (session + (User.KEY -> User.writeJson(credentials)) - "loginFromUrl")
-      } else {
-        Redirect(routes.Login.loginForm)
-          .flashing("error" -> validator.authorisationError(credentials).get)
-          .withSession(session - User.KEY)
+      val attr = info.attributes.get _
+      val credentials =
+        for (email <- attr("email"); firstName <- attr("firstname"); lastName <- attr("lastname"))
+        yield User(info.id, email, firstName, lastName)
+      credentials match {
+        case Some(user) if validator.isAuthorised(user) =>
+          Redirect(session.get("loginFromUrl").getOrElse("/"))
+            .withSession (session + (User.KEY -> User.writeJson(user)) - "loginFromUrl")
+        case _ =>
+          Redirect(routes.Login.loginForm)
+            .flashing("error" -> "Authorisation failed.")
+            .withSession(session - User.KEY)
       }
     } recover {
-      case t => {
-        // Here you should look at the error, and give feedback to the user
+      case t =>
         val message = t match {
-          case e:OpenIDError => "Failed to login (%s): %s" format (e.id, e.message)
+          case e: OpenIDError => "Failed to login (%s): %s" format (e.id, e.message)
           case other => "Unknown login failure: %s" format t.toString
         }
         Redirect(routes.Login.loginForm).flashing("error" -> message)
-      }
     }
   }
 
