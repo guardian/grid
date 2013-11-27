@@ -13,6 +13,7 @@ import com.gu.mediaservice.lib.formatting.parseDateFromQuery
 import lib.elasticsearch.ElasticSearch
 import lib.{Notifications, Config, S3Client}
 import lib.Buckets._
+import com.gu.mediaservice.lib.auth
 
 
 object MediaApi extends Controller {
@@ -21,7 +22,9 @@ object MediaApi extends Controller {
     Ok("This is the Media API.\n")
   }
 
-  def getImage(id: String) = Action.async { request =>
+  val Authenticated = auth.Authenticated(_ => Unauthorized)
+
+  def getImage(id: String) = Authenticated.async { request =>
     val params = GeneralParams(request)
     ElasticSearch.getImageById(id) map {
       case Some(source) => Ok(imageResponse(params)(id, source))
@@ -29,14 +32,14 @@ object MediaApi extends Controller {
     }
   }
 
-  def deleteImage(id: String) = Action {
+  def deleteImage(id: String) = Authenticated {
     Notifications.publish(Json.obj("id" -> id), "delete-image")
     Accepted
   }
 
-  def addImageToBucket(id: String) = Action.async { bucketNotification(id, "add-image-to-bucket") }
+  def addImageToBucket(id: String) = Authenticated.async { bucketNotification(id, "add-image-to-bucket") }
 
-  def removeImageFromBucket(id: String) = Action.async { bucketNotification(id, "remove-image-from-bucket") }
+  def removeImageFromBucket(id: String) = Authenticated.async { bucketNotification(id, "remove-image-from-bucket") }
 
   private def bucketNotification(imageId: String, subject: String): Request[AnyContent] => Future[SimpleResult] =
     request => request.body.asText.filter(validBucket) match {
@@ -50,7 +53,7 @@ object MediaApi extends Controller {
       case None => Future.successful(BadRequest("Invalid bucket name"))
     }
 
-  def imageSearch = Action.async { request =>
+  def imageSearch = Authenticated.async { request =>
     val params = GeneralParams(request)
     val searchParams = SearchParams(request)
     ElasticSearch.search(searchParams) map { hits =>
@@ -69,7 +72,7 @@ object MediaApi extends Controller {
     }
     else source
 
-  def getAllBuckets = Action.async {
+  def getAllBuckets = Authenticated.async {
     for (buckets <- ElasticSearch.getAllBuckets)
     yield Ok(Json.obj("buckets" -> buckets))
   }

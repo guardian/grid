@@ -68,20 +68,21 @@ require([
                     q:     query || '',
                     since: options.since,
                     size:  20
-                }
+                },
+                withCredentials: true
             }).then(function(response) {
                 return response.data.hits;
             });
         }
 
         function find(id) {
-            return $http.get(mediaApiUri + '/images/' + id).then(function(response) {
+            return $http.get(mediaApiUri + '/images/' + id, { withCredentials: true }).then(function(response) {
                 return response.data;
             });
         }
 
         function listBuckets() {
-            return $http.get(mediaApiUri + '/buckets').then(function(response) {
+            return $http.get(mediaApiUri + '/buckets', { withCredentials: true }).then(function(response) {
                 return response.data.buckets;
             });
         }
