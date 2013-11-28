@@ -555,6 +555,8 @@
                         "EOF\n",
 
                         "cat > /etc/gu/kahuna.properties<<EOF\n",
+                        "aws.id=", { "Ref": "HostKeys" }, "\n",
+                        "aws.secret=", { "Fn::GetAtt": [ "HostKeys", "SecretAccessKey" ] }, "\n",
                         "auth.keystore.bucket=", { "Ref": "KeyBucket" }, "\n",
                         "EOF\n",
 
