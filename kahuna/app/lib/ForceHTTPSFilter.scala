@@ -1,8 +1,9 @@
 package lib
 
+import java.net.URI
 import scala.concurrent.Future
 import _root_.play.api.mvc.{Results, SimpleResult, RequestHeader, Filter}
-import java.net.URI
+import com.gu.mediaservice.syntax._
 
 object ForceHTTPSFilter extends Filter {
 
@@ -12,7 +13,7 @@ object ForceHTTPSFilter extends Filter {
     * Assumes untrusted clients can only connect via the ELB!
     */
   def apply(f: (RequestHeader) => Future[SimpleResult])(request: RequestHeader): Future[SimpleResult] = {
-    if (request.headers.get("X-Forwarded-Proto").map(_.toUpperCase).exists(_ != "HTTPS")) {
+    if (request.forwardedProtocol.exists(_ == "https")) {
       val queryString = Some(request.rawQueryString).filter(_.nonEmpty)
       val uri = new URI("https", request.host, request.path, queryString.orNull, null)
       Future.successful(Results.MovedPermanently(uri.toString))

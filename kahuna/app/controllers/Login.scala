@@ -4,7 +4,7 @@ import play.api.mvc.{Action, Controller}
 import play.api.libs.openid.{OpenIDError, OpenID}
 import play.api.libs.concurrent.Execution.Implicits._
 import com.gu.mediaservice.lib.auth.User
-
+import com.gu.mediaservice.syntax._
 
 object Login extends Controller {
 
@@ -26,7 +26,7 @@ object Login extends Controller {
   }
 
   def doLogin = Action.async { implicit request =>
-    val secureConnection = request.headers.get("X-Forwarded-Proto").exists(_ == "https")
+    val secureConnection = request.forwardedProtocol.exists(_ == "https")
     OpenID.redirectURL("https://www.google.com/accounts/o8/id",
       routes.Login.openIDCallback.absoluteURL(secureConnection), openIdAttributes)
         .map(Redirect(_))
