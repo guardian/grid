@@ -14,15 +14,18 @@ import lib.elasticsearch.ElasticSearch
 import lib.{Notifications, Config, S3Client}
 import lib.Buckets._
 import com.gu.mediaservice.lib.auth
+import com.gu.mediaservice.lib.auth.KeyStore
 
 
 object MediaApi extends Controller {
+
+  val keyStore = new KeyStore(Config.keyStoreBucket, Config.awsCredentials)
 
   def index = Action {
     Ok("This is the Media API.\n")
   }
 
-  val Authenticated = auth.Authenticated(_ => Unauthorized)
+  val Authenticated = auth.Authenticated(keyStore)(_ => Unauthorized)
 
   def getImage(id: String) = Authenticated.async { request =>
     val params = GeneralParams(request)
