@@ -212,7 +212,7 @@
             "Type": "AWS::S3::BucketPolicy",
             "Properties": {
                 "PolicyDocument": {
-                    "Id": "MyPolicy",
+                    "Id": "ImageBucketPolicy",
                     "Statement": [ {
                         "Sid": "ImageBucketWriteAccess",
                         "Action": [ "s3:PutObject", "s3:GetObject", "s3:DeleteObject" ],
@@ -233,7 +233,7 @@
             "Type": "AWS::S3::BucketPolicy",
             "Properties": {
                 "PolicyDocument": {
-                    "Id": "MyPolicy",
+                    "Id": "ThumbBucketPolicy",
                     "Statement": [ {
                         "Sid": "ThumbBucketWriteAccess",
                         "Action": [ "s3:PutObject", "s3:GetObject", "s3:DeleteObject" ],
@@ -255,7 +255,7 @@
             "Type": "AWS::S3::BucketPolicy",
             "Properties": {
                 "PolicyDocument": {
-                    "Id": "MyPolicy",
+                    "Id": "KeyBucketPolicy",
                     "Statement": [ {
                         "Sid": "KeyBucketReadAccess",
                         "Action": [ "s3:GetObject" ],
