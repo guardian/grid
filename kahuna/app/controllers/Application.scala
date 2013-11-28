@@ -7,7 +7,9 @@ import com.gu.mediaservice.lib.auth._
 
 object Application extends Controller {
 
-  def index(ignored: String) = Authenticated(redirectToLogin) { req =>
+  val keyStore = new KeyStore(Config.keyStoreBucket, Config.awsCredentials)
+
+  def index(ignored: String) = Authenticated(keyStore)(redirectToLogin) { req =>
     Ok(views.html.main(mediaApiUri = Config.mediaApiUri, principal = req.user))
   }
 
