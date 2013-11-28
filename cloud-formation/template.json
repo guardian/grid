@@ -554,7 +554,7 @@
                         { "Ref": "Stage" }, "\n",
                         "EOF\n",
 
-                        "cat > /etc/gu/media-api.properties<<EOF\n",
+                        "cat > /etc/gu/kahuna.properties<<EOF\n",
                         "auth.keystore.bucket=", { "Ref": "KeyBucket" }, "\n",
                         "EOF\n",
 
