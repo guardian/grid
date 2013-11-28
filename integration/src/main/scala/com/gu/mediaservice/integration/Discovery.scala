@@ -22,8 +22,8 @@ object Discovery {
         stack     <- result.getStacks.asScala.headOption
         apiDns    <- findOutput("MediaApiLoadBalancer", stack)
         loaderDns <- findOutput("ImageLoaderLoadBalancer", stack)
-        apiUrl    = new URL("http", apiDns, "/")
-        loaderUrl = new URL("http", loaderDns, "/")
+        apiUrl    = new URL("https", apiDns, "/")
+        loaderUrl = new URL("https", loaderDns, "/")
       } yield Config(loaderUrl, apiUrl)
   }
 
