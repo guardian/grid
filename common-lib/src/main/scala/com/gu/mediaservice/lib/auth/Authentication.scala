@@ -3,6 +3,7 @@ package com.gu.mediaservice.lib.auth
 import play.api.mvc.Security.AuthenticatedBuilder
 import play.api.mvc._
 import play.api.libs.json.Json
+import com.gu.mediaservice.syntax._
 
 object Authenticated {
   def apply(onUnauthorized: RequestHeader => SimpleResult): AuthenticatedBuilder[Principal] =
@@ -35,7 +36,7 @@ object Principal {
     * non-HTTPS or non-load-balanced traffic is from internal trusted clients.
     */
   def fromRequest(request: RequestHeader): Option[Principal] =
-    request.headers.get("X-Forwarded-Proto") match {
+    request.forwardedProtocol match {
       case Some("https") | None => User.fromRequest(request)
       case Some("http")         => Some(ServicePeer("Trusted internal service"))
       case Some(_)              => None
