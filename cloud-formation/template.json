@@ -258,7 +258,7 @@
                     "Id": "MyPolicy",
                     "Statement": [ {
                         "Sid": "KeyBucketReadAccess",
-                        "Action": [ "s3:GetObject", "s3:ListObjects" ],
+                        "Action": [ "s3:GetObject" ],
                         "Effect": "Allow",
                         "Resource": { "Fn::Join": [ "",
                             [ "arn:aws:s3:::", { "Ref": "KeyBucket" } , "/*" ] ]
