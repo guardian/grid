@@ -256,15 +256,22 @@
             "Properties": {
                 "PolicyDocument": {
                     "Id": "KeyBucketPolicy",
-                    "Statement": [ {
-                        "Sid": "KeyBucketReadAccess",
-                        "Action": [ "s3:GetObject" ],
-                        "Effect": "Allow",
-                        "Resource": { "Fn::Join": [ "",
-                            [ "arn:aws:s3:::", { "Ref": "KeyBucket" } , "/*" ] ]
+                    "Statement": [
+                        {
+                            "Action": [ "s3:GetObject" ],
+                            "Effect": "Allow",
+                            "Resource": { "Fn::Join": [ "",
+                                [ "arn:aws:s3:::", { "Ref": "KeyBucket" } , "/*" ] ]
+                            },
+                            "Principal": { "AWS": { "Fn::GetAtt": [ "User", "Arn" ] } }
                         },
-                        "Principal": { "AWS": { "Fn::GetAtt": [ "User", "Arn" ] } }
-                    } ]
+                        {
+                            "Action": [ "s3:ListBucket" ],
+                            "Effect": "Allow",
+                            "Resource": { "Fn::Join": [ "", [ "arn:aws:s3:::", { "Ref": "KeyBucket" } ] ] },
+                            "Principal": { "AWS": { "Fn::GetAtt": [ "User", "Arn" ] } }
+                        }
+                    ]
                 },
                 "Bucket": { "Ref": "KeyBucket" }
             }
