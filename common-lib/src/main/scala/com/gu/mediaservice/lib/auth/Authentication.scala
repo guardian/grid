@@ -8,11 +8,11 @@ import play.api.libs.concurrent.Execution.Implicits._
 import play.api.mvc.SimpleResult
 import play.api.mvc.Security.AuthenticatedRequest
 
-import com.gu.mediaservice.syntax._
 import com.amazonaws.auth.AWSCredentials
 import com.gu.mediaservice.lib.aws.S3
 import org.apache.commons.io.IOUtils
 import com.amazonaws.AmazonServiceException
+import com.gu.mediaservice.syntax._
 
 object Authenticated {
   def apply(keyStore: KeyStore)(onUnauthorized: RequestHeader => SimpleResult): AuthenticatedBuilder[Principal] =
