@@ -13,7 +13,7 @@ object Config {
   val ftpPort: Int = properties.get("ftp.port").fold(21)(_.toInt)
   val ftpUser: String = properties("ftp.user")
   val ftpPassword: String = properties("ftp.password")
-  val ftpPaths: List[String] = List("getty", "reuters")
+  val ftpPaths: List[String] = List("getty", "reuters", "ap")
 
   val imageLoaderUri: String = properties("loader.uri")
 
