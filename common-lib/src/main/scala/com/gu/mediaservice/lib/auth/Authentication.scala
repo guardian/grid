@@ -12,6 +12,7 @@ import com.gu.mediaservice.syntax._
 import com.amazonaws.auth.AWSCredentials
 import com.gu.mediaservice.lib.aws.S3
 import org.apache.commons.io.IOUtils
+import com.amazonaws.AmazonServiceException
 
 object Authenticated {
   def apply(keyStore: KeyStore)(onUnauthorized: RequestHeader => SimpleResult): AuthenticatedBuilder[Principal] =
@@ -76,6 +77,8 @@ class KeyStore(bucket: String, credentials: AWSCredentials) {
         try IOUtils.toString(stream, "utf-8")
         finally stream.close()
       }
+    }.recover {
+      case e: AmazonServiceException if e.getErrorCode == "NoSuchKey" => None
     }
 }
 
