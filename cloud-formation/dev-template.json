@@ -85,7 +85,36 @@
                 "Bucket": { "Ref": "ThumbBucket" }
             }
         },
-        
+
+        "KeyBucket": {
+            "Type": "AWS::S3::Bucket"
+        },
+        "KeyBucketPolicy": {
+            "Type": "AWS::S3::BucketPolicy",
+            "Properties": {
+                "PolicyDocument": {
+                    "Id": "KeyBucketPolicy",
+                    "Statement": [
+                        {
+                            "Action": [ "s3:GetObject" ],
+                            "Effect": "Allow",
+                            "Resource": { "Fn::Join": [ "",
+                                [ "arn:aws:s3:::", { "Ref": "KeyBucket" } , "/*" ] ]
+                            },
+                            "Principal": { "AWS": { "Fn::GetAtt": [ "User", "Arn" ] } }
+                        },
+                        {
+                            "Action": [ "s3:ListBucket" ],
+                            "Effect": "Allow",
+                            "Resource": { "Fn::Join": [ "", [ "arn:aws:s3:::", { "Ref": "KeyBucket" } ] ] },
+                            "Principal": { "AWS": { "Fn::GetAtt": [ "User", "Arn" ] } }
+                        }
+                    ]
+                },
+                "Bucket": { "Ref": "KeyBucket" }
+            }
+        },
+
         "Topic": {
             "Type": "AWS::SNS::Topic",
             "Properties": {
@@ -136,6 +165,9 @@
         },
         "ThumbBucket": {
             "Value": { "Ref": "ThumbBucket" }
+        },
+        "KeyBucket": {
+            "Value": { "Ref": "KeyBucket" }
         },
         "SnsTopicArn": {
             "Value": { "Ref": "Topic" }
