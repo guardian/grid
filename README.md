@@ -150,6 +150,9 @@ Setup your local configuration in `/etc/gu/kahuna.properties` to point
 to the Media API:
 
 ```
+aws.id=...
+aws.secret=...
+auth.keystore.bucket=...
 mediaapi.uri=http://localhost:9001
 ```
 
