@@ -2,12 +2,13 @@ package com.gu.mediaservice.lib.auth
 
 import scala.collection.JavaConverters._
 import scala.concurrent.Future
+import scala.concurrent.duration._
 
+import akka.actor.Scheduler
 import akka.agent.Agent
 import play.api.mvc._
 import play.api.libs.json.Json
 import play.api.libs.concurrent.Execution.Implicits._
-import play.api.mvc.SimpleResult
 import play.api.mvc.Security.AuthenticatedRequest
 
 import com.amazonaws.auth.AWSCredentials
@@ -76,6 +77,10 @@ class KeyStore(bucket: String, credentials: AWSCredentials) {
     store.future.map(_.get(key))
 
   private val store: Agent[Map[String, String]] = Agent(Map.empty)
+
+  def scheduleUpdates(scheduler: Scheduler) {
+    scheduler.schedule(0.seconds, 10.minutes)(update())
+  }
 
   def update() {
     store.sendOff(_ => fetchAll)
