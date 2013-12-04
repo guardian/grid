@@ -212,7 +212,7 @@
             "Type": "AWS::S3::BucketPolicy",
             "Properties": {
                 "PolicyDocument": {
-                    "Id": "MyPolicy",
+                    "Id": "ImageBucketPolicy",
                     "Statement": [ {
                         "Sid": "ImageBucketWriteAccess",
                         "Action": [ "s3:PutObject", "s3:GetObject", "s3:DeleteObject" ],
@@ -233,7 +233,7 @@
             "Type": "AWS::S3::BucketPolicy",
             "Properties": {
                 "PolicyDocument": {
-                    "Id": "MyPolicy",
+                    "Id": "ThumbBucketPolicy",
                     "Statement": [ {
                         "Sid": "ThumbBucketWriteAccess",
                         "Action": [ "s3:PutObject", "s3:GetObject", "s3:DeleteObject" ],
@@ -245,6 +245,35 @@
                     } ]
                 },
                 "Bucket": { "Ref": "ThumbBucket" }
+            }
+        },
+
+        "KeyBucket": {
+            "Type": "AWS::S3::Bucket"
+        },
+        "KeyBucketPolicy": {
+            "Type": "AWS::S3::BucketPolicy",
+            "Properties": {
+                "PolicyDocument": {
+                    "Id": "KeyBucketPolicy",
+                    "Statement": [
+                        {
+                            "Action": [ "s3:GetObject" ],
+                            "Effect": "Allow",
+                            "Resource": { "Fn::Join": [ "",
+                                [ "arn:aws:s3:::", { "Ref": "KeyBucket" } , "/*" ] ]
+                            },
+                            "Principal": { "AWS": { "Fn::GetAtt": [ "User", "Arn" ] } }
+                        },
+                        {
+                            "Action": [ "s3:ListBucket" ],
+                            "Effect": "Allow",
+                            "Resource": { "Fn::Join": [ "", [ "arn:aws:s3:::", { "Ref": "KeyBucket" } ] ] },
+                            "Principal": { "AWS": { "Fn::GetAtt": [ "User", "Arn" ] } }
+                        }
+                    ]
+                },
+                "Bucket": { "Ref": "KeyBucket" }
             }
         },
 
@@ -426,6 +455,7 @@
                         "sns.topic.arn=", { "Ref": "Topic" }, "\n",
                         "s3.image.bucket=", { "Ref": "ImageBucket" }, "\n",
                         "s3.thumb.bucket=", { "Ref": "ThumbBucket" }, "\n",
+                        "auth.keystore.bucket=", { "Ref": "KeyBucket" }, "\n",
                         "EOF\n",
 
                         "start media-api\n"
@@ -531,7 +561,11 @@
                         { "Ref": "Stage" }, "\n",
                         "EOF\n",
 
-                        "touch /etc/gu/kahuna.properties\n",
+                        "cat > /etc/gu/kahuna.properties<<EOF\n",
+                        "aws.id=", { "Ref": "HostKeys" }, "\n",
+                        "aws.secret=", { "Fn::GetAtt": [ "HostKeys", "SecretAccessKey" ] }, "\n",
+                        "auth.keystore.bucket=", { "Ref": "KeyBucket" }, "\n",
+                        "EOF\n",
 
                         "start kahuna\n"
                     ]]
@@ -627,15 +661,9 @@
                 "SecurityGroupIngress": [
                     {
                         "IpProtocol": "tcp",
-                        "FromPort": "80",
-                        "ToPort": "80",
-                        "CidrIp": "0.0.0.0/0"
-                    },
-                    {
-                        "IpProtocol": "tcp",
                         "FromPort": "443",
                         "ToPort": "443",
-                        "CidrIp": "0.0.0.0/0"
+                        "CidrIp": "***REMOVED***"
                     }
                 ]
             }

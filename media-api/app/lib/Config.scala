@@ -15,6 +15,8 @@ object Config extends CommonPlayAppConfig {
   val awsCredentials: AWSCredentials =
     new BasicAWSCredentials(properties("aws.id"), properties("aws.secret"))
 
+  val keyStoreBucket: String = properties("auth.keystore.bucket")
+
   val ec2Client: AmazonEC2Client =
     new AmazonEC2Client(awsCredentials) <| (_ setEndpoint awsEndpoint)
 

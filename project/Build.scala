@@ -22,7 +22,7 @@ object Build extends Build {
     net.virtualvoid.sbt.graph.Plugin.graphSettings
 
   val lib = project("common-lib")
-    .libraryDependencies(awsDeps ++ elasticsearchDeps ++ playDeps ++ scalazDeps)
+    .libraryDependencies(awsDeps ++ elasticsearchDeps ++ playDeps ++ scalazDeps ++ commonsIODeps ++ akkaAgentDeps)
 
   val thrall = playProject("thrall")
     .libraryDependencies(elasticsearchDeps ++ awsDeps ++ scalazDeps)
