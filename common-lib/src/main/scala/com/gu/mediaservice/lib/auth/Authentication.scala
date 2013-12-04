@@ -1,7 +1,9 @@
 package com.gu.mediaservice.lib.auth
 
+import scala.collection.JavaConverters._
 import scala.concurrent.Future
 
+import akka.agent.Agent
 import play.api.mvc._
 import play.api.libs.json.Json
 import play.api.libs.concurrent.Execution.Implicits._
@@ -51,7 +53,7 @@ object ServicePeer {
 
   def fromRequest(keyStore: KeyStore, request: RequestHeader): Future[Option[ServicePeer]] =
     request.headers.get(headerKey) match {
-      case Some(key) => keyStore.getIdentity(key).map(_.map(ServicePeer(_)))
+      case Some(key) => keyStore.lookupIdentity(key).map(_.map(ServicePeer(_)))
       case None => Future.successful(None)
     }
 
@@ -70,16 +72,31 @@ class KeyStore(bucket: String, credentials: AWSCredentials) {
 
   val s3 = new S3(credentials)
 
-  def getIdentity(key: String): Future[Option[String]] =
-    Future {
-      for (content <- Option(s3.client.getObject(bucket, key))) yield {
-        val stream = content.getObjectContent
-        try IOUtils.toString(stream, "utf-8")
-        finally stream.close()
-      }
-    }.recover {
+  def lookupIdentity(key: String): Future[Option[String]] =
+    store.future.map(_.get(key))
+
+  private val store: Agent[Map[String, String]] = Agent(Map.empty)
+
+  def update() {
+    store.sendOff(_ => fetchAll)
+  }
+
+  private def fetchAll: Map[String, String] = {
+    val keys = s3.client.listObjects(bucket).getObjectSummaries.asScala.map(_.getKey)
+    keys.flatMap(k => getIdentity(k).map(k -> _)).toMap
+  }
+
+  private def getIdentity(key: String): Option[String] = {
+    val content = s3.client.getObject(bucket, key)
+    val stream = content.getObjectContent
+    try
+      Some(IOUtils.toString(stream, "utf-8"))
+    catch {
       case e: AmazonServiceException if e.getErrorCode == "NoSuchKey" => None
     }
+    finally
+      stream.close()
+  }
 }
 
 /** A variant of Play's AuthenticatedBuilder which permits the user info to be retrieved in a Future,

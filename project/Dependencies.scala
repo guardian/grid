@@ -29,6 +29,8 @@ object Dependencies {
 
   val commonsIODeps = Seq("commons-io" % "commons-io" % "2.4")
 
+  val akkaAgentDeps = Seq("com.typesafe.akka" %% "akka-agent" % "2.2.0")
+
   val scalaTestDeps = Seq("org.scalatest" %% "scalatest" % "2.0.RC1")
 
   implicit class DependencySyntax(self: Project) {
