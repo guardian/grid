@@ -1,11 +1,12 @@
-import com.typesafe.config.ConfigValue
-import controllers.Application
-import play.api.Application
 import scala.collection.JavaConverters._
+import com.typesafe.config.ConfigValue
 
-import lib.{Config, ForceHTTPSFilter}
 import play.api.{Logger, Application, GlobalSettings}
 import play.api.mvc.WithFilters
+import play.api.libs.concurrent.Akka
+
+import controllers.Application
+import lib.{Config, ForceHTTPSFilter}
 
 object Global extends WithFilters(ForceHTTPSFilter) with GlobalSettings {
 
@@ -15,8 +16,10 @@ object Global extends WithFilters(ForceHTTPSFilter) with GlobalSettings {
       Config.appConfig.underlying.entrySet.asScala.toSeq.map(entry => (entry.getKey, entry.getValue))
 
     Logger.info("Play app config: \n" + allAppConfig.mkString("\n"))
+  }
 
-    Application.keyStore.update()
+  override def onStart(app: Application) {
+    Application.keyStore.scheduleUpdates(Akka.system(app).scheduler)
   }
 
 }
