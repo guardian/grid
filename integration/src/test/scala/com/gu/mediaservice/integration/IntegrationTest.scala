@@ -15,10 +15,7 @@ import ImageFixture._
 
 class IntegrationTest extends FunSpec with TestHarness with Matchers with BeforeAndAfterAll {
 
-  lazy val config =
-    devConfig orElse
-    Discovery.discoverConfig("media-service-TEST") getOrElse
-    sys.error("Could not find stack")
+  val config = devConfig getOrElse testStackConfig
 
   val images = Seq(
     fixture("honeybee.jpg", "credit" -> "AFP/Getty Images", "byline" -> "THOMAS KIENZLE"),
@@ -83,7 +80,7 @@ class IntegrationTest extends FunSpec with TestHarness with Matchers with Before
       val buckets = Seq("my-bucket", "another-bucket")
 
       for (bucket <- buckets)
-        await()(WS.url(addToBucketUrl).post(bucket))
+        await()(WS.url(addToBucketUrl).withHeaders(apiKeyHeader).post(bucket))
 
       retrying("add to bucket") {
         val updatedBuckets = getBuckets
@@ -94,7 +91,7 @@ class IntegrationTest extends FunSpec with TestHarness with Matchers with Before
 
     it ("can be removed from a bucket") {
 
-      await()(WS.url(removeFromBucketUrl).post("my-bucket"))
+      await()(WS.url(removeFromBucketUrl).withHeaders(apiKeyHeader).post("my-bucket"))
 
       retrying("remove from bucket") {
         getBuckets should not contain "my-bucket"
