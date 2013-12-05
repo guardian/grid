@@ -24,9 +24,14 @@ trait TestHarness {
 
   def config: Config
 
-  import scalaz.std.option._, scalaz.syntax.std.function2._, scalaz.syntax.apply._
-  def devConfig: Option[Config] =
-    (props.get("loader.uri") |@| props.get("mediaapi.uri"))((Config.apply _).contramap(new URL(_)))
+  def devConfig : Option[Config] =
+    for (l <- props.get("loader.uri"); m <- props.get("mediaapi.uri"))
+    yield Config(new URL(l), new URL(m))
+
+  val testStackConfig = Config(new URL("https://loader.media.test.dev-***REMOVED***"),
+                               new URL("https://api.media.test.dev-***REMOVED***"))
+
+  val apiKeyHeader = ("X-Gu-Media-Key", props("integration.api.key"))
 
   implicit val ctx: ExecutionContext =
     ExecutionContext.fromExecutor(Executors.newSingleThreadExecutor)
@@ -38,11 +43,11 @@ trait TestHarness {
   }
 
   def getImage(id: String): Response = await() {
-    WS.url(config.imageEndpoint(id)).get
+    WS.url(config.imageEndpoint(id)).withHeaders(apiKeyHeader).get
   }
 
   def deleteImage(id: String): Response = await() {
-    WS.url(config.imageEndpoint(id)).delete()
+    WS.url(config.imageEndpoint(id)).withHeaders(apiKeyHeader).delete()
   }
 
   def resourceAsFile(path: String): File =
@@ -50,7 +55,7 @@ trait TestHarness {
 
   def deleteIndex: Response = await() {
     log.info("Deleting index to clean up")
-    WS.url(config.deleteIndexEndpoint).post()
+    WS.url(config.deleteIndexEndpoint).withHeaders(apiKeyHeader).post()
   }
 
   def retrying[A](desc: String, attempts: Int = 10, sleep: Duration = 3.seconds)(f: => A): A = {
