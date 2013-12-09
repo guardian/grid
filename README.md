@@ -11,6 +11,11 @@ You will need to install:
 * Java 7
 * [bower](http://bower.io/)
 
+Then run `setup.sh` to install and start Elasticsearch.  You can use
+the script to start up Elasticsearch even if it's already installed.
+
+Alternatively, you can do these steps manually:
+
 
 ## Install Elasticsearch
 
