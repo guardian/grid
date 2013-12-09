@@ -15,3 +15,5 @@ then
     ./dev-start.sh
 fi
 popd
+
+echo Setup complete, you may want to use run.sh to start all the services
