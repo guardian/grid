@@ -22,8 +22,6 @@ class ImageLoader(storage: StorageBackend) extends Controller {
     Ok("This is the Image Loader API.\n")
   }
 
-  val thumbWidth = 256
-
   def loadImage = Action.async(digestedFile(createTempFile)) { request =>
     val MD5DigestedFile(tempFile, id) = request.body
     Logger.info(s"Received file, id: $id")
@@ -33,7 +31,7 @@ class ImageLoader(storage: StorageBackend) extends Controller {
     // These futures are started outside the for-comprehension, otherwise they will not run in parallel
     // (the consequence of using a monad when an applicative will do)
     val storedImage = storage.storeImage(id, tempFile)
-    val thumbFile = Thumbnailer.createThumbnail(thumbWidth, tempFile.toString)
+    val thumbFile = Thumbnailer.createThumbnail(Config.thumbWidth, tempFile.toString)
 
     for {
       uri      <- storedImage
