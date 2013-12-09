@@ -41,9 +41,7 @@ object Build extends Build {
     .libraryDependencies(commonsNetDeps ++ scalazDeps)
     .settings(
       magentaPackageName := "ftp-watcher",
-      jarName in assembly := "ftp-watcher.jar",
-      playArtifactResources <<= (baseDirectory, playArtifactResources)
-        .map((base, resources) => (base / "truststore.ts" -> "packages/ftp-watcher/truststore.ts") +: resources)
+      jarName in assembly := "ftp-watcher.jar"
     )
 
   val integration = project("integration")

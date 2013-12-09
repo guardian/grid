@@ -139,7 +139,7 @@ loader.uri=http://localhost:9003/images
 
 From the project root, run via sbt:
 
-        $ sbt -Dftp.active=true -Djavax.net.ssl.trustStore=./ftp-watcher/truststore.ts
+        $ sbt -Dftp.active=true
         > project ftp-watcher
         > run 9004
 
