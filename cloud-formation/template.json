@@ -786,6 +786,138 @@
             }
         },
 
+        "CropperLoadBalancerSecurityGroup": {
+            "Type": "AWS::EC2::SecurityGroup",
+            "Properties": {
+                "GroupDescription": "Cropper load balancer",
+                "SecurityGroupIngress": [
+                    {
+                        "IpProtocol": "tcp",
+                        "FromPort": "443",
+                        "ToPort": "443",
+                        "CidrIp": "77.91.248.0/21"
+                    }
+                ]
+            }
+        },
+        "CropperLoadBalancer": {
+            "Type": "AWS::ElasticLoadBalancing::LoadBalancer",
+            "Properties": {
+                "AvailabilityZones": { "Fn::GetAZs": "" },
+                "SecurityGroups": [{ "Fn::GetAtt": ["CropperLoadBalancerSecurityGroup", "GroupId"] }],
+                "Listeners": [
+                    {
+                        "LoadBalancerPort": "443",
+                        "InstancePort": "9000",
+                        "Protocol": "HTTPS",
+                        "SSLCertificateId": { "Ref": "CropperSSLCertificateId" }
+                    },
+                    {
+                        "LoadBalancerPort": "80",
+                        "InstancePort": "9000",
+                        "Protocol": "HTTP"
+                    }
+                ],
+                "HealthCheck": {
+                    "Target": "HTTP:9000/management/healthcheck",
+                    "HealthyThreshold": "2",
+                    "UnhealthyThreshold": "2",
+                    "Interval": "10",
+                    "Timeout": "5"
+                }
+            }
+        },
+        "CropperAutoscalingGroup": {
+            "Type": "AWS::AutoScaling::AutoScalingGroup",
+            "Properties": {
+                "AvailabilityZones": {
+                    "Fn::GetAZs": ""
+                },
+                "LaunchConfigurationName": { "Ref": "CropperLaunchConfig" },
+                "MinSize": "1",
+                "MaxSize": "2",
+                "DesiredCapacity": "1",
+                "HealthCheckType": "ELB",
+                "HealthCheckGracePeriod": 300,
+                "LoadBalancerNames": [
+                    { "Ref": "CropperLoadBalancer" }
+                ],
+                "Tags": [
+                    {
+                        "Key": "Stage",
+                        "Value": { "Ref": "Stage" },
+                        "PropagateAtLaunch": "true"
+                    },
+                    {
+                        "Key": "Role",
+                        "Value": "media-service-cropper",
+                        "PropagateAtLaunch": "true"
+                    }
+                ]
+            }
+        },
+        "CropperLaunchConfig": {
+            "Type": "AWS::AutoScaling::LaunchConfiguration",
+            "DependsOn": "HostKeys",
+            "Properties": {
+                "KeyName": { "Ref": "KeyName" },
+                "ImageId": "ami-eecd2899",
+                "SecurityGroups": [
+                    { "Ref": "AppServerSecurityGroup" },
+                    { "Ref": "SSHSecurityGroup" }
+                ],
+                "InstanceType": "m1.medium",
+                "UserData": { "Fn::Base64": {
+                    "Fn::Join":["", [
+                        "#!/bin/bash -ev\n",
+
+                        "adduser --disabled-password --system --group media-service\n",
+                        "cp -r ~/.ssh /home/media-service/\n",
+
+                        "apt-get -y update\n",
+                        "apt-get -y install language-pack-en openjdk-7-jre-headless\n",
+                        "apt-get -y install imagemagick\n",
+
+                        "mkdir /data\n",
+                        "mount /dev/xvdb /data\n",
+
+                        "wget https://s3-eu-west-1.amazonaws.com/media-service-dist/", { "Ref": "Stage" },
+                        "/media-service-cropper/cropper.conf",
+                        " --directory-prefix=/etc/init\n",
+
+                        "wget https://s3-eu-west-1.amazonaws.com/media-service-dist/", { "Ref": "Stage" },
+                        "/media-service-cropper/app.jar",
+                        " --directory-prefix=/home/media-service\n",
+
+                        "mkdir /home/media-service/logs\n",
+                        "mkdir /etc/gu\n",
+
+                        "chown -R media-service /home/media-service\n",
+                        "chgrp -R media-service /home/media-service\n",
+                        "chown -R media-service /data\n",
+                        "chgrp -R media-service /data\n",
+
+                        "cat > /etc/gu/stage <<EOF\n",
+                        { "Ref": "Stage" }, "\n",
+                        "EOF\n",
+
+                        "cat > /etc/gu/cropper.properties<<EOF\n",
+                        "aws.id=", { "Ref": "HostKeys" }, "\n",
+                        "aws.secret=", { "Fn::GetAtt": [ "HostKeys", "SecretAccessKey" ] }, "\n",
+                        "sns.topic.arn=", { "Ref": "Topic" }, "\n",
+                        "s3.image.bucket=", { "Ref": "ImageBucket" }, "\n",
+                        "s3.thumb.bucket=", { "Ref": "ThumbBucket" }, "\n",
+                        "upload.tmp.dir=/data\n",
+                        "EOF\n",
+
+                        "start cropper\n"
+                    ]]
+
+                }}
+
+            }
+        },
+
         "ReaperAutoscalingGroup": {
             "Type": "AWS::AutoScaling::AutoScalingGroup",
             "Properties": {
