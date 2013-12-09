@@ -32,7 +32,7 @@ object Build extends Build {
   val mediaApi = playProject("media-api")
     .libraryDependencies(elasticsearchDeps ++ awsDeps ++ scalazDeps)
 
-  val cropService = playProject("crop-service")
+  val cropService = playProject("cropper")
 
   val imageLoader = playProject("image-loader")
     .libraryDependencies(awsDeps ++ imagingDeps)
