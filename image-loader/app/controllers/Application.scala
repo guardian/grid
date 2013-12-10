@@ -42,6 +42,7 @@ class ImageLoader(storage: StorageBackend) extends Controller {
       // TODO notifications and file deletion should probably be done asynchronously too
       Notifications.publish(Json.toJson(image), "image")
       tempFile.delete()
+      thumb.delete()
       Accepted(Json.obj("id" -> id))
     }
   }
