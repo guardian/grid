@@ -70,6 +70,16 @@ class IntegrationTest extends FunSpec with TestHarness with Matchers with Before
 
     }
 
+    lazy val thumbUrl = (getImage(imageId).json \ "thumbnail" \ "secureUrl").as[String]
+
+    it ("should have a usable URL for the thumbnail") {
+
+      val imageResponse = await()(WS.url(thumbUrl).get)
+
+      assert(imageResponse.status == OK)
+
+    }
+
     lazy val addToBucketUrl = config.imageEndpoint(imageId) + "/add-to-bucket"
     lazy val removeFromBucketUrl = config.imageEndpoint(imageId) + "/remove-from-bucket"
 
