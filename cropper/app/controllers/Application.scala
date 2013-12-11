@@ -18,17 +18,16 @@ object Application extends Controller {
   }
 
   def crop = Action.async { req =>
+    
+    def param[A : ParamReads](k: String) = req.queryParam[A](k)
 
     val cropFile =
-      ( req.queryParam[URI]("source")
-    |@| req.queryParam[Int]("x")
-    |@| req.queryParam[Int]("y")
-    |@| req.queryParam[Int]("w")
-    |@| req.queryParam[Int]("h")
-      ) {
+      (param[URI]("source") |@| param[Int]("x") |@| param[Int]("y") |@| param[Int]("w") |@| param[Int]("h")) {
         (source, x, y, width, height) =>
-          Crops.crop(source, Bounds(x, y, width, height))
-            .flatMap(file => Storage.store("foo", file) <| (_.onComplete { case _ => file.delete() }))
+          for {
+            file <- Crops.crop(source, Bounds(x, y, width, height))
+            uri  <- Storage.store("foo", file) <| (_.onComplete { case _ => file.delete })
+          } yield uri
       }
 
     cropFile match {
