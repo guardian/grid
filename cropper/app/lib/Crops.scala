@@ -1,7 +1,7 @@
 package lib
 
 import java.io._
-import java.net.URL
+import java.net.URI
 import java.util.concurrent.Executors
 import scala.concurrent.{ExecutionContext, Future}
 import org.im4java.core.{ConvertCmd, IMOperation}
@@ -17,13 +17,13 @@ object Crops {
     *
     * It is the responsibility of the caller to clean up the file when it is no longer needed.
     */
-  def crop(source: URL, bounds: Bounds): Future[File] = Future {
+  def crop(source: URI, bounds: Bounds): Future[File] = Future {
     val Bounds(x, y, w, h) = bounds
 
     val sourceFile = createTempFile("cropSource", "")
     val outputFile = createTempFile("cropOutput", "")
 
-    val channel = Channels.newChannel(source.openStream)
+    val channel = Channels.newChannel(source.toURL.openStream)
     val output = new FileOutputStream(sourceFile)
     output.getChannel.transferFrom(channel, 0, java.lang.Long.MAX_VALUE)
 
