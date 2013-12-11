@@ -834,6 +834,12 @@
                 "SecurityGroups": [{ "Fn::GetAtt": ["CropperLoadBalancerSecurityGroup", "GroupId"] }],
                 "Listeners": [
                     {
+                        "LoadBalancerPort": "443",
+                        "InstancePort": "9000",
+                        "Protocol": "HTTPS",
+                        "SSLCertificateId": { "Ref": "CropperSSLCertificateId" }
+                    },
+                    {
                         "LoadBalancerPort": "80",
                         "InstancePort": "9000",
                         "Protocol": "HTTP"
