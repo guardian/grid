@@ -3,12 +3,12 @@ package controllers
 import java.net.URI
 import scala.concurrent.Future
 
+import play.api.data._, Forms._
 import play.api.mvc.{Action, Controller}
+import play.api.libs.json.{Json, JsValue}
 import play.api.libs.concurrent.Execution.Implicits._
-import scalaz.syntax.all._
-import scalaz.std.list._
-import scalaz.{Failure, Success}
-import com.gu.mediaservice.syntax._
+import scalaz.syntax.id._
+
 import lib.{Storage, Bounds, Crops}
 
 object Application extends Controller {
@@ -17,26 +17,25 @@ object Application extends Controller {
     Ok("This is the Crop Service.\n")
   }
 
+  val boundsForm =
+    Form(tuple("source" -> nonEmptyText, "x" -> number, "y" -> number, "w" -> number, "h" -> number))
+
   def crop = Action.async { req =>
-    
-    def param[A : ParamReads](k: String) = req.queryParam[A](k)
 
-    val cropFile =
-      (param[URI]("source") |@| param[Int]("x") |@| param[Int]("y") |@| param[Int]("w") |@| param[Int]("h")) {
-        (source, x, y, width, height) =>
-          for {
-            file <- Crops.crop(source, Bounds(x, y, width, height))
-            uri  <- Storage.store("foo", file) <| (_.onComplete { case _ => file.delete })
-          } yield uri
+    boundsForm.bindFromRequest()(req).fold(
+      errors => Future.successful(BadRequest(errors.errorsAsJson)),
+      { case (source, x, y, width, height) =>
+        for {
+          file <- Crops.crop(new URI(source), Bounds(x, y, width, height))
+          uri  <- Storage.store("foo", file) <| (_.onComplete { case _ => file.delete })
+        } yield Ok(cropUriResponse(uri))
       }
-
-    cropFile match {
-      case Success(cropUri) =>
-        cropUri map (f => Ok(s"Saved crop to file: $f"))
-      case Failure(errors) =>
-        Future.successful(BadRequest("Bad request: " + errors.toList.mkString(", ")))
-    }
+    )
 
   }
+
+
+  def cropUriResponse(uri: URI): JsValue =
+    Json.obj("uri" -> uri.toString)
 
 }
