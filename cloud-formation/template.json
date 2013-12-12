@@ -24,6 +24,10 @@
         "ImageLoaderSSLCertificateId": {
             "Description": "ARN of the SSL certificate to be used for the Image Loader load balancer",
             "Type": "String"
+        },
+        "CropperSSLCertificateId": {
+            "Description": "ARN of the SSL certificate to be used for the Cropper load balancer",
+            "Type": "String"
         }
     },
     "Resources": {
@@ -77,16 +81,16 @@
                 "SecurityGroupIngress": [
                     {
                         "IpProtocol": "tcp",
-                        "FromPort": "80",
-                        "ToPort": "80",
-                        "SourceSecurityGroupName": { "Ref": "AppServerSecurityGroup" }
-                    },
-                    {
-                        "IpProtocol": "tcp",
                         "FromPort": "443",
                         "ToPort": "443",
                         "CidrIp": "0.0.0.0/0"
 
+                    },
+                    {
+                        "IpProtocol": "tcp",
+                        "FromPort": "80",
+                        "ToPort": "80",
+                        "SourceSecurityGroupName": { "Ref": "AppClientSecurityGroup" }
                     }
                 ]
             }
@@ -820,6 +824,12 @@
                 "SecurityGroupIngress": [
                     {
                         "IpProtocol": "tcp",
+                        "FromPort": "80",
+                        "ToPort": "80",
+                        "SourceSecurityGroupName": { "Ref": "AppClientSecurityGroup" }
+                    },
+                    {
+                        "IpProtocol": "tcp",
                         "FromPort": "443",
                         "ToPort": "443",
                         "CidrIp": "***REMOVED***"
@@ -831,7 +841,9 @@
             "Type": "AWS::ElasticLoadBalancing::LoadBalancer",
             "Properties": {
                 "AvailabilityZones": { "Fn::GetAZs": "" },
-                "SecurityGroups": [{ "Fn::GetAtt": ["CropperLoadBalancerSecurityGroup", "GroupId"] }],
+                "SecurityGroups": [
+                    { "Fn::GetAtt": ["CropperLoadBalancerSecurityGroup", "GroupId"] }
+                ],
                 "Listeners": [
                     {
                         "LoadBalancerPort": "443",
@@ -891,6 +903,7 @@
                 "ImageId": "ami-eecd2899",
                 "SecurityGroups": [
                     { "Ref": "AppServerSecurityGroup" },
+                    { "Ref": "AppClientSecurityGroup" },
                     { "Ref": "SSHSecurityGroup" }
                 ],
                 "InstanceType": "m1.medium",
