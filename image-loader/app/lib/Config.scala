@@ -17,6 +17,8 @@ object Config {
 
   val thumbnailBucket: String = properties("s3.thumb.bucket")
 
-  val tempDir = properties.getOrElse("upload.tmp.dir", "/tmp")
+  val tempDir: String = properties.getOrElse("upload.tmp.dir", "/tmp")
+
+  val thumbWidth: Int = 256
 
 }
