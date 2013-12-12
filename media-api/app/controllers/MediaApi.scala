@@ -27,7 +27,7 @@ object MediaApi extends Controller {
     val response = Json.obj(
       "data"  -> Json.obj("description" -> "This is the Media API"),
       "links" -> Json.arr(
-        Json.obj("rel" -> "search", "href" -> s"$rootUri/images{?q,from-date,to-date}"),
+        Json.obj("rel" -> "search", "href" -> s"$rootUri/images{?q,offset,length,from-date,to-date}"),
         Json.obj("rel" -> "image",  "href" -> s"$rootUri/images/{id}")
       )
     )
@@ -70,7 +70,11 @@ object MediaApi extends Controller {
     val searchParams = SearchParams(request)
     ElasticSearch.search(searchParams) map { hits =>
       val images = hits map (imageResponse(params) _).tupled
-      Ok(JsObject(Seq("data" -> JsArray(images))))
+      Ok(Json.obj(
+        "offset" -> searchParams.offset,
+        "length" -> searchParams.length,
+        "data"   -> images
+      ))
     }
   }
 
@@ -112,8 +116,8 @@ object GeneralParams {
 
 case class SearchParams(
   query: Option[String],
-  page: Int,
-  size: Int,
+  offset: Int,
+  length: Int,
   orderBy: Option[String],
   fromDate: Option[DateTime],
   toDate: Option[DateTime],
@@ -127,8 +131,8 @@ object SearchParams {
   def apply(request: Request[Any]): SearchParams =
     SearchParams(
       request.getQueryString("q"),
-      request.getQueryString("page") flatMap (s => Try(s.toInt).toOption) getOrElse 1,
-      request.getQueryString("size") flatMap (s => Try(s.toInt).toOption) getOrElse 10,
+      request.getQueryString("offset") flatMap (s => Try(s.toInt).toOption) getOrElse 0,
+      request.getQueryString("length") flatMap (s => Try(s.toInt).toOption) getOrElse 10,
       request.getQueryString("order-by") orElse request.getQueryString("sort-by"),
       request.getQueryString("from-date") orElse request.getQueryString("since") flatMap parseDateFromQuery,
       request.getQueryString("to-date") orElse request.getQueryString("until") flatMap parseDateFromQuery,
