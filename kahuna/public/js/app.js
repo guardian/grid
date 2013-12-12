@@ -65,9 +65,9 @@ require([
 
             return $http.get(mediaApiUri + '/images', {
                 params: {
-                    q:     query || '',
-                    since: options.since,
-                    size:  20
+                    q:      query || '',
+                    since:  options.since,
+                    length: 20
                 },
                 withCredentials: true
             }).then(function(response) {

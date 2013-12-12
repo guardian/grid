@@ -9,8 +9,8 @@
 | Key        | Description                               | Default          |
 |------------|-------------------------------------------|------------------|
 | q          | Text search query                         | [empty]
-| page       | Page in results (1-based)                 | 1
-| size       | Results per page                          | 10
+| offset     | Start offset for results                  | 0
+| length     | Maximum number of results                 | 10
 | order-by   | Field for ordering (prepend '-' for DESC) | -uploadTime
 | from-date  | Search images uploaded since this time    | [no lower bound]
 | to-date    | Search images uploaded before this time   | [no upper bound]
