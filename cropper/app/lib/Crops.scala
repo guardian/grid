@@ -13,7 +13,7 @@ object Crops {
   private implicit val ctx: ExecutionContext =
     ExecutionContext.fromExecutor(Executors.newFixedThreadPool(Config.imagickThreadPoolSize))
 
-  /** Crops the source image and saves the output to a file on disk.
+  /** Crops the source image and saves the output to a JPEG file on disk.
     *
     * It is the responsibility of the caller to clean up the file when it is no longer needed.
     */
@@ -21,7 +21,7 @@ object Crops {
     val Bounds(x, y, w, h) = bounds
 
     val sourceFile = createTempFile("cropSource", "")
-    val outputFile = createTempFile("cropOutput", "")
+    val outputFile = createTempFile("cropOutput", ".jpg")
 
     val channel = Channels.newChannel(source.toURL.openStream)
     val output = new FileOutputStream(sourceFile)
