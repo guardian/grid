@@ -1,6 +1,6 @@
 package controllers
 
-import java.net.{URL, URI}
+import java.net.URI
 import scala.concurrent.Future
 
 import play.api.data._, Forms._
