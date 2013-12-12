@@ -51,8 +51,8 @@ object ElasticSearch extends ElasticSearchClient {
                  sorts.parseFromRequest(params.orderBy)
 
     search
-      .setFrom((params.page - 1) * params.size)
-      .setSize(params.size)
+      .setFrom(params.offset)
+      .setSize(params.length)
       .executeAndLog("image search")
       .toMetric(searchQueries)(_.getTookInMillis)
       .map(_.getHits.hits.toList flatMap (h => h.sourceOpt map (h.id -> _)))
