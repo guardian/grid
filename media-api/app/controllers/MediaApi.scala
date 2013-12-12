@@ -25,7 +25,7 @@ object MediaApi extends Controller {
     Ok("This is the Media API.\n")
   }
 
-  val Authenticated = auth.Authenticated(keyStore)(_ => Unauthorized)
+  val Authenticated = auth.Authenticated(keyStore)(_ => Unauthorized(Json.obj("errorKey" -> "unauthorized")))
 
   def getImage(id: String) = Authenticated.async { request =>
     val params = GeneralParams(request)
