@@ -21,8 +21,17 @@ object MediaApi extends Controller {
 
   val keyStore = new KeyStore(Config.keyStoreBucket, Config.awsCredentials)
 
+  val rootUri = Config.rootUri
+
   def index = Action {
-    Ok("This is the Media API.\n")
+    val response = Json.obj(
+      "data"  -> Json.obj("description" -> "This is the Media API"),
+      "links" -> Json.arr(
+        Json.obj("rel" -> "search", "href" -> s"$rootUri/images{?q,from-date,to-date}"),
+        Json.obj("rel" -> "image",  "href" -> s"$rootUri/images/{id}")
+      )
+    )
+    Ok(response)
   }
 
   val Authenticated = auth.Authenticated(keyStore)(_ => Unauthorized(Json.obj("errorKey" -> "unauthorized")))
@@ -61,7 +70,7 @@ object MediaApi extends Controller {
     val searchParams = SearchParams(request)
     ElasticSearch.search(searchParams) map { hits =>
       val images = hits map (imageResponse(params) _).tupled
-      Ok(JsObject(Seq("hits" -> JsArray(images))))
+      Ok(JsObject(Seq("data" -> JsArray(images))))
     }
   }
 
@@ -70,14 +79,15 @@ object MediaApi extends Controller {
       val expiration = DateTime.now.plusMinutes(15)
       val secureUrl = S3Client.signUrl(Config.imageBucket, id, expiration)
       val secureThumbUrl = S3Client.signUrl(Config.thumbBucket, id, expiration)
-      source.transform(transformers.addSecureImageUrl(secureUrl))
+      val image = source.transform(transformers.addSecureImageUrl(secureUrl))
         .flatMap(_.transform(transformers.addSecureThumbUrl(secureThumbUrl))).get
+      Json.obj("uri" -> s"$rootUri/images/$id", "data" -> image)
     }
     else source
 
   def getAllBuckets = Authenticated.async {
     for (buckets <- ElasticSearch.getAllBuckets)
-    yield Ok(Json.obj("buckets" -> buckets))
+    yield Ok(Json.obj("data" -> buckets))
   }
 
   object transformers {
