@@ -1,5 +1,11 @@
 #!/bin/bash
 
+test $(which convert)
+if [ $? != "0" ]; then
+    echo Please install ImageMagick to get the convert program
+    echo e.g. apt-get install imagemagick, or using brew, etc.
+fi
+
 pushd elasticsearch
 if [ ! -d elasticsearch ]
 then
