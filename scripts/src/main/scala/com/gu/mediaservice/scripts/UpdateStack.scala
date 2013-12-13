@@ -21,7 +21,8 @@ object UpdateStack {
           new Parameter().withParameterKey("Stage").withParameterValue(stage),
           new Parameter().withParameterKey("MediaApiSSLCertificateId").withParameterValue(mediaApiCertArn),
           new Parameter().withParameterKey("KahunaSSLCertificateId").withParameterValue(kahunaCertArn),
-          new Parameter().withParameterKey("ImageLoaderSSLCertificateId").withParameterValue(loaderCertArn)
+          new Parameter().withParameterKey("ImageLoaderSSLCertificateId").withParameterValue(loaderCertArn),
+          new Parameter().withParameterKey("CropperSSLCertificateId").withParameterValue(cropperCertArn)
         )
       )
 
@@ -45,7 +46,8 @@ object CreateStack {
           new Parameter().withParameterKey("Stage").withParameterValue(stage),
           new Parameter().withParameterKey("MediaApiSSLCertificateId").withParameterValue(mediaApiCertArn),
           new Parameter().withParameterKey("KahunaSSLCertificateId").withParameterValue(kahunaCertArn),
-          new Parameter().withParameterKey("ImageLoaderSSLCertificateId").withParameterValue(loaderCertArn)
+          new Parameter().withParameterKey("ImageLoaderSSLCertificateId").withParameterValue(loaderCertArn),
+          new Parameter().withParameterKey("CropperSSLCertificateId").withParameterValue(cropperCertArn)
         )
       )
 
@@ -85,5 +87,6 @@ class StackScript(args: List[String]) {
   val kahunaCertArn = getCertArn(domainRoot)
   val mediaApiCertArn = getCertArn(s"api.$domainRoot")
   val loaderCertArn = getCertArn(s"loader.$domainRoot")
+  val cropperCertArn = getCertArn(s"cropper.$domainRoot")
 
 }

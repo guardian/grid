@@ -21,4 +21,6 @@ object Config {
 
   val thumbWidth: Int = 256
 
+  val imagickThreadPoolSize = 4
+
 }

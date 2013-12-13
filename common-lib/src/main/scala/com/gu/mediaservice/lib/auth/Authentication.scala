@@ -37,24 +37,29 @@ object User {
   def readJson(json: String): Option[User] = Json.fromJson[User](Json.parse(json)).asOpt
   def writeJson(id: User) = Json.stringify(Json.toJson(id))
 
-  import scalaz.syntax.std.boolean._
-
-  /** Assumes that all traffic not from the ELB (i.e. without the X-Forwarded-Proto header) is trusted */
-  def fromRequest(request: RequestHeader): Option[User] =
-    request.forwardedProtocol.forall(_ == "https")
-      .option(request.session.get(KEY).flatMap(User.readJson))
-      .flatten
+  def fromRequest(request: RequestHeader): Option[Principal] =
+    request.session.get(KEY).flatMap(User.readJson)
 }
 
-case class ServicePeer(name: String) extends Principal
+case class AuthenticatedService(name: String) extends Principal
 
-object ServicePeer {
+case object AnonymousService extends Principal {
+  val name = "Anonymous Service"
+
+  import scalaz.syntax.std.boolean._
+
+  /** Assumes all non-HTTPS traffic is from trusted services */
+  def fromRequest(request: RequestHeader): Option[Principal] =
+    request.forwardedProtocol.forall(_ == "http").option(AnonymousService)
+}
+
+object AuthenticatedService {
 
   val headerKey = "X-Gu-Media-Key"
 
-  def fromRequest(keyStore: KeyStore, request: RequestHeader): Future[Option[ServicePeer]] =
+  def fromRequest(keyStore: KeyStore, request: RequestHeader): Future[Option[AuthenticatedService]] =
     request.headers.get(headerKey) match {
-      case Some(key) => keyStore.lookupIdentity(key).map(_.map(ServicePeer(_)))
+      case Some(key) => keyStore.lookupIdentity(key).map(_.map(AuthenticatedService(_)))
       case None => Future.successful(None)
     }
 
@@ -63,9 +68,9 @@ object ServicePeer {
 object Principal {
 
   def fromRequest(keyStore: KeyStore)(request: RequestHeader): Future[Option[Principal]] =
-    User.fromRequest(request) match {
-      case u @ Some(_) => Future.successful(u)
-      case None        => ServicePeer.fromRequest(keyStore, request)
+    AnonymousService.fromRequest(request) orElse User.fromRequest(request) match {
+      case x @ Some(_) => Future.successful(x)
+      case None        => AuthenticatedService.fromRequest(keyStore, request)
     }
 }
 
