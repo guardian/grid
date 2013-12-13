@@ -27,7 +27,7 @@ object MediaApi extends Controller {
     val response = Json.obj(
       "data"  -> Json.obj("description" -> "This is the Media API"),
       "links" -> Json.arr(
-        Json.obj("rel" -> "search", "href" -> s"$rootUri/images{?q,offset,length,from-date,to-date}"),
+        Json.obj("rel" -> "search", "href" -> s"$rootUri/images{?q,offset,length,fromDate,toDate,orderBy}"),
         Json.obj("rel" -> "image",  "href" -> s"$rootUri/images/{id}")
       )
     )
@@ -133,9 +133,9 @@ object SearchParams {
       request.getQueryString("q"),
       request.getQueryString("offset") flatMap (s => Try(s.toInt).toOption) getOrElse 0,
       request.getQueryString("length") flatMap (s => Try(s.toInt).toOption) getOrElse 10,
-      request.getQueryString("order-by") orElse request.getQueryString("sort-by"),
-      request.getQueryString("from-date") orElse request.getQueryString("since") flatMap parseDateFromQuery,
-      request.getQueryString("to-date") orElse request.getQueryString("until") flatMap parseDateFromQuery,
+      request.getQueryString("orderBy") orElse request.getQueryString("sortBy"),
+      request.getQueryString("fromDate") orElse request.getQueryString("since") flatMap parseDateFromQuery,
+      request.getQueryString("toDate") orElse request.getQueryString("until") flatMap parseDateFromQuery,
       request.getQueryString("bucket") flatMap (s => s.trim.split(',').toList.toNel)
     )
 
