@@ -115,6 +115,28 @@
             }
         },
 
+        "CropBucket": {
+            "Type": "AWS::S3::Bucket"
+        },
+        "CropBucketPolicy": {
+            "Type": "AWS::S3::BucketPolicy",
+            "Properties": {
+                "PolicyDocument": {
+                    "Id": "CropBucketPolicy",
+                    "Statement": [ {
+                        "Sid": "CropBucketWriteAccess",
+                        "Action": [ "s3:PutObject", "s3:GetObject", "s3:DeleteObject" ],
+                        "Effect": "Allow",
+                        "Resource": { "Fn::Join": [ "",
+                            [ "arn:aws:s3:::", { "Ref": "CropBucket" } , "/*" ] ]
+                        },
+                        "Principal": { "AWS": { "Fn::GetAtt": [ "User", "Arn" ] } }
+                    } ]
+                },
+                "Bucket": { "Ref": "CropBucket" }
+            }
+        },
+
         "Topic": {
             "Type": "AWS::SNS::Topic",
             "Properties": {
@@ -168,6 +190,9 @@
         },
         "KeyBucket": {
             "Value": { "Ref": "KeyBucket" }
+        },
+        "CropBucket": {
+            "Value": { "Ref": "CropBucket" }
         },
         "SnsTopicArn": {
             "Value": { "Ref": "Topic" }
