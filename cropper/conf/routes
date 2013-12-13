@@ -1,6 +1,6 @@
 GET     /                           controllers.Application.index
 
-GET     /crop                       controllers.Application.crop
+POST    /crop                       controllers.Application.crop
 
 # Management
 GET     /management/healthcheck     com.gu.mediaservice.lib.management.Management.healthCheck
