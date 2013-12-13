@@ -11,7 +11,7 @@ import org.im4java.core.{IMOperation, ConvertCmd}
 object Thumbnailer {
 
   private implicit val ctx: ExecutionContext =
-    ExecutionContext.fromExecutor(Executors.newFixedThreadPool(4))
+    ExecutionContext.fromExecutor(Executors.newFixedThreadPool(Config.imagickThreadPoolSize))
 
   def createThumbnail(width: Int, filename: String): Future[File] = Future {
     val tempFile = createTempFile
