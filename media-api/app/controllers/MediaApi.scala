@@ -72,7 +72,7 @@ object MediaApi extends Controller {
       val images = hits map (imageResponse(params) _).tupled
       Ok(Json.obj(
         "offset" -> searchParams.offset,
-        "length" -> searchParams.length,
+        "length" -> images.size,
         "data"   -> images
       ))
     }
