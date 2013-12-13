@@ -13,6 +13,12 @@ import play.api.libs.ws.WS
 import play.api.http.{ContentTypeOf, Writeable}
 import play.api.libs.ws.Response
 
+import uritemplate._
+import Syntax._
+
+import com.gu.mediaservice.lib.json._
+
+
 trait TestHarness {
 
   final val NotFound = 404
@@ -42,8 +48,16 @@ trait TestHarness {
       .post(file)
   }
 
+  def getRoot: Response = await() {
+    WS.url(config.mediaApiEndpoint).withHeaders(apiKeyHeader).get
+  }
+
+  def searchImages(query: String): Response = await() {
+    WS.url(searchUri(query)).withHeaders(apiKeyHeader).get
+  }
+
   def getImage(id: String): Response = await() {
-    WS.url(config.imageEndpoint(id)).withHeaders(apiKeyHeader).get
+    WS.url(imageUri(id)).withHeaders(apiKeyHeader).get
   }
 
   def deleteImage(id: String): Response = await() {
@@ -56,6 +70,24 @@ trait TestHarness {
   def deleteIndex: Response = await() {
     log.info("Deleting index to clean up")
     WS.url(config.deleteIndexEndpoint).withHeaders(apiKeyHeader).post()
+  }
+
+  def linkTemplate(rel: String): Option[URITemplate] = {
+    for {
+      mediaApiLinks <- array(getRoot.json \ "links")
+      imageLink     <- mediaApiLinks.find(l => string(l \ "rel") == Some(rel))
+      imageEndpoint <- string(imageLink \ "href")
+    } yield URITemplate(imageEndpoint)
+  }
+
+  def imageUri(id: String): String = {
+    val imageTemplate = linkTemplate("image") getOrElse sys.error("No link found for image")
+    imageTemplate expand ("id" := id)
+  }
+
+  def searchUri(query: String): String = {
+    val searchTemplate = linkTemplate("search") getOrElse sys.error("No link found for search")
+    searchTemplate expand ("q" := query)
   }
 
   def retrying[A](desc: String, attempts: Int = 10, sleep: Duration = 3.seconds)(f: => A): A = {
