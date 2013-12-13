@@ -10,4 +10,4 @@ assumes a CloudFormation stack exists with the name "media-service-TEST", and th
 
 ## Running on a development machine
 
-    $ sbt -Dloader.uri=http://localhost:9000 -Dmediaapi.uri=http://localhost:9002 "project integration" test
+    $ sbt -Dloader.uri=http://localhost:9003 -Dmediaapi.uri=http://localhost:9001 "project integration" test
