@@ -24,6 +24,10 @@
         "ImageLoaderSSLCertificateId": {
             "Description": "ARN of the SSL certificate to be used for the Image Loader load balancer",
             "Type": "String"
+        },
+        "CropperSSLCertificateId": {
+            "Description": "ARN of the SSL certificate to be used for the Cropper load balancer",
+            "Type": "String"
         }
     },
     "Resources": {
@@ -75,12 +79,6 @@
             "Properties": {
                 "GroupDescription": "Media API load balancer",
                 "SecurityGroupIngress": [
-                    {
-                        "IpProtocol": "tcp",
-                        "FromPort": "80",
-                        "ToPort": "80",
-                        "CidrIp": "0.0.0.0/0"
-                    },
                     {
                         "IpProtocol": "tcp",
                         "FromPort": "443",
@@ -151,6 +149,12 @@
                         "FromPort": 9000,
                         "ToPort": 9000,
                         "SourceSecurityGroupName": { "Fn::GetAtt": ["ImageLoaderLoadBalancer", "SourceSecurityGroup.GroupName"]}
+                    },
+                    {
+                        "IpProtocol": "tcp",
+                        "FromPort": 9000,
+                        "ToPort": 9000,
+                        "SourceSecurityGroupName": { "Fn::GetAtt": ["CropperLoadBalancer", "SourceSecurityGroup.GroupName"]}
                     }
                 ]
             }
@@ -814,6 +818,12 @@
                 "SecurityGroupIngress": [
                     {
                         "IpProtocol": "tcp",
+                        "FromPort": "80",
+                        "ToPort": "80",
+                        "SourceSecurityGroupName": { "Ref": "AppClientSecurityGroup" }
+                    },
+                    {
+                        "IpProtocol": "tcp",
                         "FromPort": "443",
                         "ToPort": "443",
                         "CidrIp": "***REMOVED***"
@@ -825,7 +835,9 @@
             "Type": "AWS::ElasticLoadBalancing::LoadBalancer",
             "Properties": {
                 "AvailabilityZones": { "Fn::GetAZs": "" },
-                "SecurityGroups": [{ "Fn::GetAtt": ["CropperLoadBalancerSecurityGroup", "GroupId"] }],
+                "SecurityGroups": [
+                    { "Fn::GetAtt": ["CropperLoadBalancerSecurityGroup", "GroupId"] }
+                ],
                 "Listeners": [
                     {
                         "LoadBalancerPort": "443",
@@ -885,6 +897,7 @@
                 "ImageId": "ami-eecd2899",
                 "SecurityGroups": [
                     { "Ref": "AppServerSecurityGroup" },
+                    { "Ref": "AppClientSecurityGroup" },
                     { "Ref": "SSHSecurityGroup" }
                 ],
                 "InstanceType": "m1.medium",
@@ -926,9 +939,8 @@
                         "aws.id=", { "Ref": "HostKeys" }, "\n",
                         "aws.secret=", { "Fn::GetAtt": [ "HostKeys", "SecretAccessKey" ] }, "\n",
                         "sns.topic.arn=", { "Ref": "Topic" }, "\n",
-                        "s3.image.bucket=", { "Ref": "ImageBucket" }, "\n",
-                        "s3.thumb.bucket=", { "Ref": "ThumbBucket" }, "\n",
-                        "upload.tmp.dir=/data\n",
+                        "crop.output.tmp.dir=/data\n",
+                        "s3.crop.bucket=", { "Ref": "CropBucket" }, "\n",
                         "EOF\n",
 
                         "start cropper\n"
