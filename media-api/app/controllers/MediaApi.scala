@@ -21,11 +21,20 @@ object MediaApi extends Controller {
 
   val keyStore = new KeyStore(Config.keyStoreBucket, Config.awsCredentials)
 
+  val rootUri = Config.rootUri
+
   def index = Action {
-    Ok("This is the Media API.\n")
+    val response = Json.obj(
+      "data"  -> Json.obj("description" -> "This is the Media API"),
+      "links" -> Json.arr(
+        Json.obj("rel" -> "search", "href" -> s"$rootUri/images{?q,offset,length,fromDate,toDate,orderBy}"),
+        Json.obj("rel" -> "image",  "href" -> s"$rootUri/images/{id}")
+      )
+    )
+    Ok(response)
   }
 
-  val Authenticated = auth.Authenticated(keyStore)(_ => Unauthorized)
+  val Authenticated = auth.Authenticated(keyStore)(_ => Unauthorized(Json.obj("errorKey" -> "unauthorized")))
 
   def getImage(id: String) = Authenticated.async { request =>
     val params = GeneralParams(request)
@@ -61,7 +70,11 @@ object MediaApi extends Controller {
     val searchParams = SearchParams(request)
     ElasticSearch.search(searchParams) map { hits =>
       val images = hits map (imageResponse(params) _).tupled
-      Ok(JsObject(Seq("hits" -> JsArray(images))))
+      Ok(Json.obj(
+        "offset" -> searchParams.offset,
+        "length" -> images.size,
+        "data"   -> images
+      ))
     }
   }
 
@@ -70,14 +83,15 @@ object MediaApi extends Controller {
       val expiration = DateTime.now.plusMinutes(15)
       val secureUrl = S3Client.signUrl(Config.imageBucket, id, expiration)
       val secureThumbUrl = S3Client.signUrl(Config.thumbBucket, id, expiration)
-      source.transform(transformers.addSecureImageUrl(secureUrl))
+      val image = source.transform(transformers.addSecureImageUrl(secureUrl))
         .flatMap(_.transform(transformers.addSecureThumbUrl(secureThumbUrl))).get
+      Json.obj("uri" -> s"$rootUri/images/$id", "data" -> image)
     }
     else source
 
   def getAllBuckets = Authenticated.async {
     for (buckets <- ElasticSearch.getAllBuckets)
-    yield Ok(Json.obj("buckets" -> buckets))
+    yield Ok(Json.obj("data" -> buckets))
   }
 
   object transformers {
@@ -102,8 +116,8 @@ object GeneralParams {
 
 case class SearchParams(
   query: Option[String],
-  page: Int,
-  size: Int,
+  offset: Int,
+  length: Int,
   orderBy: Option[String],
   fromDate: Option[DateTime],
   toDate: Option[DateTime],
@@ -117,11 +131,11 @@ object SearchParams {
   def apply(request: Request[Any]): SearchParams =
     SearchParams(
       request.getQueryString("q"),
-      request.getQueryString("page") flatMap (s => Try(s.toInt).toOption) getOrElse 1,
-      request.getQueryString("size") flatMap (s => Try(s.toInt).toOption) getOrElse 10,
-      request.getQueryString("order-by") orElse request.getQueryString("sort-by"),
-      request.getQueryString("from-date") orElse request.getQueryString("since") flatMap parseDateFromQuery,
-      request.getQueryString("to-date") orElse request.getQueryString("until") flatMap parseDateFromQuery,
+      request.getQueryString("offset") flatMap (s => Try(s.toInt).toOption) getOrElse 0,
+      request.getQueryString("length") flatMap (s => Try(s.toInt).toOption) getOrElse 10,
+      request.getQueryString("orderBy") orElse request.getQueryString("sortBy"),
+      request.getQueryString("fromDate") orElse request.getQueryString("since") flatMap parseDateFromQuery,
+      request.getQueryString("toDate") orElse request.getQueryString("until") flatMap parseDateFromQuery,
       request.getQueryString("bucket") flatMap (s => s.trim.split(',').toList.toNel)
     )
 
