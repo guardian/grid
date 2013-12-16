@@ -10,7 +10,8 @@ import play.api.libs.concurrent.Execution.Implicits._
 import play.api.libs.ws.WS
 import scalaz.syntax.id._
 
-import lib.{Config, Storage, Bounds, Crops}
+import lib.{Config, S3Storage, Bounds, Crops}
+import org.joda.time.DateTime
 
 object Application extends Controller {
 
@@ -32,8 +33,12 @@ object Application extends Controller {
             SourceImage(id, file) = apiResp.json.as[SourceImage]
             cropFilename = s"$id/${x}_${y}_${w}_$h.jpg"
             file <- Crops.crop(new URI(file), Bounds(x, y, w, h))
-            uri  <- Storage.store(cropFilename, file) <| (_.onComplete { case _ => file.delete })
-          } yield Ok(cropUriResponse(uri))
+            _  <- S3Storage.store(Config.cropBucket, cropFilename, file) <| (_.onComplete { case _ => file.delete })
+          } yield {
+            val expiration = DateTime.now.plusMinutes(15)
+            val secureUri = S3Storage.signUrl(Config.cropBucket, cropFilename, expiration)
+            Ok(cropUriResponse(secureUri))
+          }
       }
     )
 
@@ -42,8 +47,8 @@ object Application extends Controller {
   def nonHttpsUri(uri: URI): URI =
     new URI("http", uri.getUserInfo, uri.getHost, uri.getPort, uri.getPath, uri.getQuery, uri.getFragment)
 
-  def cropUriResponse(uri: URI): JsValue =
-    Json.obj("uri" -> uri.toString)
+  def cropUriResponse(uri: String): JsValue =
+    Json.obj("uri" -> uri)
 
 }
 
