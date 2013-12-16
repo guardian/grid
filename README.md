@@ -174,3 +174,23 @@ Then, from the project root, run via sbt:
 
 The user interface should be up at
 [http://localhost:9005/](http://localhost:9005/).
+
+
+## Run Cropper
+
+Setup your local configuration in `/etc/gu/cropper.properties`:
+
+```
+aws.id=...
+aws.secret=...
+s3.crop.bucket=...
+```
+
+From the project root, run via sbt:
+
+        $ sbt
+        > project cropper
+        > run 9006
+
+The user interface should be up at
+[http://localhost:9006/](http://localhost:9006/).
