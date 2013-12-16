@@ -7,10 +7,10 @@ import play.api.data._, Forms._
 import play.api.mvc.{Action, Controller}
 import play.api.libs.json._
 import play.api.libs.concurrent.Execution.Implicits._
+import play.api.libs.ws.WS
 import scalaz.syntax.id._
 
-import lib.{Storage, Bounds, Crops}
-import play.api.libs.ws.WS
+import lib.{Config, Storage, Bounds, Crops}
 
 object Application extends Controller {
 
@@ -27,9 +27,8 @@ object Application extends Controller {
       errors => Future.successful(BadRequest(errors.errorsAsJson)),
       {
         case (source, x, y, w, h) =>
-          val actualSource = nonHttpsUri(new URI(source)).toURL.toExternalForm
           for {
-            apiResp <- WS.url(actualSource).get
+            apiResp <- WS.url(source).withHeaders("X-Gu-Media-Key" -> Config.mediaApiKey).get
             SourceImage(id, file) = apiResp.json.as[SourceImage]
             cropFilename = s"$id/${x}_${y}_${w}_$h.jpg"
             file <- Crops.crop(new URI(file), Bounds(x, y, w, h))

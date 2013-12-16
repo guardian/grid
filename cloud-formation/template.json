@@ -941,6 +941,7 @@
                         "sns.topic.arn=", { "Ref": "Topic" }, "\n",
                         "crop.output.tmp.dir=/data\n",
                         "s3.crop.bucket=", { "Ref": "CropBucket" }, "\n",
+                        "media.api.key=f6ee41f2fdab968f066636acdd8f8562\n",
                         "EOF\n",
 
                         "start cropper\n"
