@@ -310,6 +310,7 @@
                 "MinSize": "2",
                 "MaxSize": "4",
                 "DesiredCapacity": "2",
+                "Cooldown": "180",
                 "HealthCheckType": "EC2",
                 "HealthCheckGracePeriod": 180,
                 "Tags": [
@@ -416,6 +417,7 @@
                 "MinSize": "1",
                 "MaxSize": "2",
                 "DesiredCapacity": "1",
+                "Cooldown": "180",
                 "HealthCheckType": "ELB",
                 "HealthCheckGracePeriod": 300,
                 "LoadBalancerNames": [
@@ -528,6 +530,7 @@
                 "MinSize": "1",
                 "MaxSize": "2",
                 "DesiredCapacity": "1",
+                "Cooldown": "180",
                 "HealthCheckType": "ELB",
                 "HealthCheckGracePeriod": 300,
                 "LoadBalancerNames": [
@@ -608,6 +611,7 @@
                 "MinSize": "2",
                 "MaxSize": "4",
                 "DesiredCapacity": "2",
+                "Cooldown": "180",
                 "HealthCheckType": "EC2",
                 "HealthCheckGracePeriod": 180,
                 "LoadBalancerNames": [ ],
@@ -730,6 +734,7 @@
                 "MinSize": "1",
                 "MaxSize": "2",
                 "DesiredCapacity": "1",
+                "Cooldown": "180",
                 "HealthCheckType": "ELB",
                 "HealthCheckGracePeriod": 300,
                 "LoadBalancerNames": [
@@ -870,6 +875,7 @@
                 "MinSize": "1",
                 "MaxSize": "2",
                 "DesiredCapacity": "1",
+                "Cooldown": "180",
                 "HealthCheckType": "ELB",
                 "HealthCheckGracePeriod": 300,
                 "LoadBalancerNames": [
@@ -960,6 +966,7 @@
                 "MinSize": "1",
                 "MaxSize": "2",
                 "DesiredCapacity": "1",
+                "Cooldown": "180",
                 "HealthCheckType": "EC2",
                 "HealthCheckGracePeriod": 180,
                 "Tags": [
