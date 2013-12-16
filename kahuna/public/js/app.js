@@ -71,19 +71,21 @@ require([
                 },
                 withCredentials: true
             }).then(function(response) {
-                return response.data.hits;
+                return response.data.data.map(function(e) {
+                    return e.data;
+                });
             });
         }
 
         function find(id) {
             return $http.get(mediaApiUri + '/images/' + id, { withCredentials: true }).then(function(response) {
-                return response.data;
+                return response.data.data;
             });
         }
 
         function listBuckets() {
             return $http.get(mediaApiUri + '/buckets', { withCredentials: true }).then(function(response) {
-                return response.data.buckets;
+                return response.data.data;
             });
         }
 
