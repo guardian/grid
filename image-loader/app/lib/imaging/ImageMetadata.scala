@@ -4,6 +4,7 @@ import java.io.File
 
 import com.drew.imaging.ImageMetadataReader._
 import com.drew.metadata.iptc.{IptcDescriptor, IptcDirectory}
+import com.drew.metadata.jpeg.JpegDirectory
 
 
 object ImageMetadata {
@@ -25,6 +26,11 @@ object ImageMetadata {
       nonEmptyTrimmed(descriptor.getCountryOrPrimaryLocationDescription)
     )
 
+  def dimensions(image: File): Option[Dimensions] =
+    for {
+      jpegDir <- Option(readMetadata(image).getDirectory(classOf[JpegDirectory]))
+    } yield Dimensions(jpegDir.getImageWidth, jpegDir.getImageHeight)
+
   private def nonEmptyTrimmed(nullableStr: String): Option[String] =
     Option(nullableStr) map (_.trim) filter (_.nonEmpty)
 }
@@ -40,4 +46,9 @@ case class IptcMetadata(
   keywords: List[String],
   city: Option[String],
   country: Option[String]
+)
+
+case class Dimensions(
+  width: Int,
+  height: Int
 )

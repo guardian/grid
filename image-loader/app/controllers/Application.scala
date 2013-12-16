@@ -27,6 +27,7 @@ class ImageLoader(storage: StorageBackend) extends Controller {
     Logger.info(s"Received file, id: $id")
 
     val meta = ImageMetadata.iptc(tempFile)
+    val dimensions = ImageMetadata.dimensions(tempFile)
 
     // These futures are started outside the for-comprehension, otherwise they will not run in parallel
     // (the consequence of using a monad when an applicative will do)
@@ -38,7 +39,7 @@ class ImageLoader(storage: StorageBackend) extends Controller {
       thumb    <- thumbFile
       thumbUri <- storage.storeThumbnail(id, thumb)
     } yield {
-      val image = Image.uploadedNow(id, uri, Thumbnail(thumbUri), meta)
+      val image = Image.uploadedNow(id, uri, Thumbnail(thumbUri), meta, dimensions)
       // TODO notifications and file deletion should probably be done asynchronously too
       Notifications.publish(Json.toJson(image), "image")
       tempFile.delete()
