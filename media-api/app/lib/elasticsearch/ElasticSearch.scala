@@ -35,11 +35,14 @@ object ElasticSearch extends ElasticSearchClient {
   def getImageById(id: Id)(implicit ex: ExecutionContext): Future[Option[JsValue]] =
     prepareGet(id).executeAndLog(s"get image by id $id") map (_.sourceOpt)
 
+  val matchFields: Seq[String] =
+    Seq("description", "title", "byline", "source", "credit", "keywords", "city", "country").map("metadata." + _)
+
   def search(params: SearchParams)(implicit ex: ExecutionContext): Future[Seq[(Id, JsValue)]] = {
 
     val query = params.query
       .filter(_.nonEmpty)
-      .map(matchQuery("metadata.description", _).operator(Operator.AND))
+      .map(q => multiMatchQuery(q, matchFields: _*).operator(Operator.AND))
       .getOrElse(matchAllQuery)
 
     val dateFilter = filters.date(params.fromDate, params.toDate)
