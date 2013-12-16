@@ -37,7 +37,7 @@ object Application extends Controller {
           } yield {
             val expiration = DateTime.now.plusMinutes(15)
             val secureUri = S3Storage.signUrl(Config.cropBucket, cropFilename, expiration)
-            Ok(cropUriResponse(secureUri))
+            Ok(cropUriResponse(secureUri, w, h))
           }
       }
     )
@@ -47,8 +47,8 @@ object Application extends Controller {
   def nonHttpsUri(uri: URI): URI =
     new URI("http", uri.getUserInfo, uri.getHost, uri.getPort, uri.getPath, uri.getQuery, uri.getFragment)
 
-  def cropUriResponse(uri: String): JsValue =
-    Json.obj("uri" -> uri)
+  def cropUriResponse(uri: String, width: Int, height: Int): JsValue =
+    Json.obj("uri" -> uri, "width" -> width, "height" -> height)
 
 }
 
