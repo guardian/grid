@@ -6,22 +6,23 @@ object Mappings {
 
   val nonAnalyzedString = Json.obj("type" -> "string", "index" -> "not_analyzed")
 
-  val stemmedString = Json.obj("type" -> "string", "analyzer" -> "snowball")
+  val snowballAnalysedString = Json.obj("type" -> "string", "analyzer" -> "snowball")
+  val standardAnalysedString = Json.obj("type" -> "string", "analyzer" -> "standard")
 
   val dateFormat = Json.obj("type" -> "date")
 
   val metadataMapping = Json.obj(
     "properties" -> Json.obj(
-      "description" -> stemmedString,
-      "byline" -> nonAnalyzedString,
-      "title" -> stemmedString,
-      "credit" -> nonAnalyzedString,
-      "copyrightNotice" -> nonAnalyzedString,
-      "source" -> nonAnalyzedString,
+      "description" -> snowballAnalysedString,
+      "byline" -> standardAnalysedString,
+      "title" -> snowballAnalysedString,
+      "credit" -> standardAnalysedString,
+      "copyrightNotice" -> standardAnalysedString,
+      "source" -> standardAnalysedString,
       "specialInstructions" -> nonAnalyzedString,
       "keywords" -> Json.obj("type" -> "string", "index" -> "not_analyzed", "index_name" -> "keyword"),
-      "city" -> nonAnalyzedString,
-      "country" -> nonAnalyzedString
+      "city" -> standardAnalysedString,
+      "country" -> standardAnalysedString
     )
   )
 
