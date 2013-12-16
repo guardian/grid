@@ -47,7 +47,7 @@ object Build extends Build {
 
   val integration = project("integration")
     .dependsOn(lib)
-    .libraryDependencies(awsDeps ++ scalazDeps)
+    .libraryDependencies(awsDeps ++ scalazDeps ++ uriTemplateDeps)
     .testDependencies(scalaTestDeps ++ playDeps)
     .settings(parallelExecution in Test := false)
 

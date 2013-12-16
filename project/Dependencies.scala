@@ -33,6 +33,9 @@ object Dependencies {
 
   val scalaTestDeps = Seq("org.scalatest" %% "scalatest" % "2.0.RC1")
 
+  val uriTemplateDeps = Seq("no.arktekk" %% "uri-template" % "1.0.1")
+
+
   implicit class DependencySyntax(self: Project) {
 
     def libraryDependencies(dependencies: Seq[ModuleID]): Project =
