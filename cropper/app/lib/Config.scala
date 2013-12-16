@@ -14,6 +14,8 @@ object Config {
 
   val cropBucket = properties("s3.crop.bucket")
 
+  val mediaApiKey = properties("media.api.key")
+
   val tempDir: File = new File(properties.getOrElse("crop.output.tmp.dir", "/tmp"))
 
   val imagickThreadPoolSize = 4
