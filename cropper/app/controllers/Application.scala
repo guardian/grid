@@ -54,5 +54,5 @@ object SourceImage {
   import play.api.libs.functional.syntax._
 
   implicit val readsSourceImage: Reads[SourceImage] =
-    ((__ \ "id").read[String] ~ (__ \ "secureUrl").read[String])(SourceImage.apply _)
+    ((__ \ "data" \ "id").read[String] ~ (__ \ "data" \ "secureUrl").read[String])(SourceImage.apply _)
 }
