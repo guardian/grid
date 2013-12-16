@@ -2,7 +2,7 @@ package com.gu.mediaservice
 package integration
 
 import org.scalatest.{Matchers, BeforeAndAfterAll, FunSpec}
-import play.api.libs.json.JsString
+import play.api.libs.json.{JsValue, JsString}
 import play.api.libs.ws.WS
 
 import scalaz.std.AllInstances._
@@ -10,16 +10,14 @@ import scalaz.syntax.traverse._
 
 import com.gu.mediaservice.lib.json._
 
-import ImageFixture._
-
 
 class IntegrationTest extends FunSpec with TestHarness with Matchers with BeforeAndAfterAll {
 
   val config = devConfig getOrElse testStackConfig
 
   val images = Seq(
-    fixture("honeybee.jpg", "credit" -> "AFP/Getty Images", "byline" -> "THOMAS KIENZLE"),
-    fixture("gallery.jpg", "credit" -> "AFP/Getty Images", "byline" -> "GERARD JULIEN")
+    ImageFixture("honeybee.jpg", Map("credit" -> "AFP/Getty Images", "byline" -> "THOMAS KIENZLE")),
+    ImageFixture("gallery.jpg", Map("credit" -> "AFP/Getty Images", "byline" -> "GERARD JULIEN"))
   )
 
   for (image <- images) {
@@ -28,9 +26,12 @@ class IntegrationTest extends FunSpec with TestHarness with Matchers with Before
     }
   }
 
+  def getImageData(imageId: String): JsValue = getImage(imageId).json \ "data"
+
   def imageLoaderBehaviour(image: ImageFixture) {
 
     val ImageFixture(filename, metadata) = image
+    val byline = metadata("byline")
 
     lazy val loaderResponse = loadImage(resourceAsFile(s"/images/$filename"))
     lazy val imageId = (loaderResponse.json \ "id").as[String]
@@ -42,7 +43,21 @@ class IntegrationTest extends FunSpec with TestHarness with Matchers with Before
 
     }
 
-    it ("should become visible in the Media API") {
+
+    it ("should become searchable in the Media API") {
+
+      retrying("search image") {
+        val searchResponse = searchImages(byline)
+        assert {
+          array(searchResponse.json \ "data").get.exists { item =>
+            string(item \ "data" \ "id") == Some(imageId)
+          }
+        }
+      }
+
+    }
+
+    it ("should become retrievable in the Media API") {
 
       retrying("get image") {
         val mediaApiResponse = getImage(imageId)
@@ -53,14 +68,14 @@ class IntegrationTest extends FunSpec with TestHarness with Matchers with Before
 
     it ("should contain IPTC metadata") {
 
-      val responseMeta = getImage(imageId).json \ "metadata"
+      val responseMeta = getImageData(imageId) \ "metadata"
 
       for ((key, value) <- metadata)
         assert(responseMeta \ key == JsString(value))
 
     }
 
-    lazy val fileUrl = (getImage(imageId).json \ "secureUrl").as[String]
+    lazy val fileUrl = (getImageData(imageId) \ "secureUrl").as[String]
 
     it ("should have a usable URL for the image") {
 
@@ -70,7 +85,7 @@ class IntegrationTest extends FunSpec with TestHarness with Matchers with Before
 
     }
 
-    lazy val thumbUrl = (getImage(imageId).json \ "thumbnail" \ "secureUrl").as[String]
+    lazy val thumbUrl = (getImageData(imageId) \ "thumbnail" \ "secureUrl").as[String]
 
     it ("should have a usable URL for the thumbnail") {
 
@@ -83,7 +98,7 @@ class IntegrationTest extends FunSpec with TestHarness with Matchers with Before
     lazy val addToBucketUrl = config.imageEndpoint(imageId) + "/add-to-bucket"
     lazy val removeFromBucketUrl = config.imageEndpoint(imageId) + "/remove-from-bucket"
 
-    def getBuckets = array(getImage(imageId).json \ "buckets") flatMap (_ traverse string) getOrElse Nil
+    def getBuckets = array(getImageData(imageId) \ "buckets") flatMap (_ traverse string) getOrElse Nil
 
     it ("can be added to buckets") {
 
@@ -127,8 +142,4 @@ class IntegrationTest extends FunSpec with TestHarness with Matchers with Before
 }
 
 
-case class ImageFixture(id: String, metadata: Seq[(String, String)])
-
-object ImageFixture {
-  def fixture(id: String, metadata: (String, String)*) = ImageFixture(id, metadata)
-}
+case class ImageFixture(id: String, metadata: Map[String, String])
