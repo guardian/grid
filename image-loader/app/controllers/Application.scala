@@ -39,7 +39,8 @@ class ImageLoader(storage: StorageBackend) extends Controller {
       thumb    <- thumbFile
       thumbUri <- storage.storeThumbnail(id, thumb)
     } yield {
-      val image = Image.uploadedNow(id, uri, Thumbnail(thumbUri), meta, dimensions)
+      val thumbDimensions = ImageMetadata.dimensions(thumb)
+      val image = Image.uploadedNow(id, uri, Thumbnail(thumbUri, thumbDimensions), meta, dimensions)
       // TODO notifications and file deletion should probably be done asynchronously too
       Notifications.publish(Json.toJson(image), "image")
       tempFile.delete()
