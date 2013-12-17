@@ -5,6 +5,7 @@ import java.io.File
 import com.drew.imaging.ImageMetadataReader._
 import com.drew.metadata.iptc.{IptcDescriptor, IptcDirectory}
 import com.drew.metadata.jpeg.JpegDirectory
+import model.Dimensions
 
 
 object ImageMetadata {
@@ -33,6 +34,7 @@ object ImageMetadata {
 
   private def nonEmptyTrimmed(nullableStr: String): Option[String] =
     Option(nullableStr) map (_.trim) filter (_.nonEmpty)
+
 }
 
 case class IptcMetadata(
@@ -46,9 +48,4 @@ case class IptcMetadata(
   keywords: List[String],
   city: Option[String],
   country: Option[String]
-)
-
-case class Dimensions(
-  width: Int,
-  height: Int
 )

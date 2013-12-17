@@ -6,7 +6,7 @@ import play.api.libs.functional.syntax._
 import org.joda.time.DateTime
 
 import com.gu.mediaservice.lib.formatting._
-import lib.imaging.{Dimensions, IptcMetadata}
+import lib.imaging.IptcMetadata
 
 
 case class Image(id: String,
@@ -37,12 +37,7 @@ object Image {
       (__ \ "keywords").write[List[String]] ~
       (__ \ "city").writeNullable[String] ~
       (__ \ "country").writeNullable[String]
-    )(unlift(IptcMetadata.unapply))
-
-  implicit val DimensionsWrites: Writes[Dimensions] =
-    ((__ \ "width").write[Int] ~
-      (__ \ "height").write[Int]
-    )(unlift(Dimensions.unapply))
+      )(unlift(IptcMetadata.unapply))
 
   implicit val ImageWrites: Writes[Image] = (
     (__ \ "id").write[String] ~
@@ -55,12 +50,23 @@ object Image {
 
 }
 
-case class Thumbnail(file: URI)
+case class Dimensions(
+  width: Int,
+  height: Int
+)
+
+object Dimensions {
+  implicit val DimensionsWrites: Writes[Dimensions] =
+    ((__ \ "width").write[Int] ~ (__ \ "height").write[Int])(unlift(Dimensions.unapply))
+}
+
+case class Thumbnail(file: URI, dimensions: Option[Dimensions])
 
 object Thumbnail {
 
-  implicit val ThumbnailWrites: Writes[Thumbnail] = new Writes[Thumbnail] {
-    def writes(o: Thumbnail): JsValue = Json.obj("file" -> JsString(o.file.toString))
-  }
+  implicit val ThumbnailWrites: Writes[Thumbnail] =
+    ((__ \ "file").write[String].contramap((_: URI).toString) ~
+     (__ \ "dimensions").writeNullable[Dimensions]
+    )(unlift(Thumbnail.unapply))
 
 }
