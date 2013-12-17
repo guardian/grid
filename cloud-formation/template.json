@@ -320,6 +320,16 @@
                         "PropagateAtLaunch": "true"
                     },
                     {
+                        "Key": "Stack",
+                        "Value": "mediaservice",
+                        "PropagateAtLaunch": "true"
+                    },
+                    {
+                        "Key": "App",
+                        "Value": "elasticsearch",
+                        "PropagateAtLaunch": "true"
+                    },
+                    {
                         "Key": "Role",
                         "Value": "media-service-elasticsearch",
                         "PropagateAtLaunch": "true"
@@ -427,6 +437,16 @@
                     {
                         "Key": "Stage",
                         "Value": { "Ref": "Stage" },
+                        "PropagateAtLaunch": "true"
+                    },
+                    {
+                        "Key": "Stack",
+                        "Value": "mediaservice",
+                        "PropagateAtLaunch": "true"
+                    },
+                    {
+                        "Key": "App",
+                        "Value": "mediaapi",
                         "PropagateAtLaunch": "true"
                     },
                     {
@@ -543,6 +563,16 @@
                         "PropagateAtLaunch": "true"
                     },
                     {
+                        "Key": "Stack",
+                        "Value": "mediaservice",
+                        "PropagateAtLaunch": "true"
+                    },
+                    {
+                        "Key": "App",
+                        "Value": "kahuna",
+                        "PropagateAtLaunch": "true"
+                    },
+                    {
                         "Key": "Role",
                         "Value": "media-service-kahuna",
                         "PropagateAtLaunch": "true"
@@ -619,6 +649,16 @@
                     {
                         "Key": "Stage",
                         "Value": { "Ref": "Stage" },
+                        "PropagateAtLaunch": "true"
+                    },
+                    {
+                        "Key": "Stack",
+                        "Value": "mediaservice",
+                        "PropagateAtLaunch": "true"
+                    },
+                    {
+                        "Key": "App",
+                        "Value": "thrall",
                         "PropagateAtLaunch": "true"
                     },
                     {
@@ -744,6 +784,16 @@
                     {
                         "Key": "Stage",
                         "Value": { "Ref": "Stage" },
+                        "PropagateAtLaunch": "true"
+                    },
+                    {
+                        "Key": "Stack",
+                        "Value": "mediaservice",
+                        "PropagateAtLaunch": "true"
+                    },
+                    {
+                        "Key": "App",
+                        "Value": "imageloader",
                         "PropagateAtLaunch": "true"
                     },
                     {
@@ -888,6 +938,16 @@
                         "PropagateAtLaunch": "true"
                     },
                     {
+                        "Key": "Stack",
+                        "Value": "mediaservice",
+                        "PropagateAtLaunch": "true"
+                    },
+                    {
+                        "Key": "App",
+                        "Value": "cropper",
+                        "PropagateAtLaunch": "true"
+                    },
+                    {
                         "Key": "Role",
                         "Value": "media-service-cropper",
                         "PropagateAtLaunch": "true"
@@ -973,6 +1033,16 @@
                     {
                         "Key": "Stage",
                         "Value": { "Ref": "Stage" },
+                        "PropagateAtLaunch": "true"
+                    },
+                    {
+                        "Key": "Stack",
+                        "Value": "mediaservice",
+                        "PropagateAtLaunch": "true"
+                    },
+                    {
+                        "Key": "App",
+                        "Value": "reaper",
                         "PropagateAtLaunch": "true"
                     },
                     {
