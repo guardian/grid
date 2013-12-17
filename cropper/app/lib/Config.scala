@@ -13,6 +13,7 @@ object Config {
     new BasicAWSCredentials(properties("aws.id"), properties("aws.secret"))
 
   val cropBucket = properties("s3.crop.bucket")
+  val keyStoreBucket = properties("auth.keystore.bucket")
 
   val mediaApiKey = properties("media.api.key")
 

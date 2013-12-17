@@ -12,8 +12,13 @@ import scalaz.syntax.id._
 
 import lib.{Config, S3Storage, Bounds, Crops}
 import org.joda.time.DateTime
+import com.gu.mediaservice.lib.auth
+import com.gu.mediaservice.lib.auth.KeyStore
 
 object Application extends Controller {
+
+  val keyStore = new KeyStore(Config.keyStoreBucket, Config.awsCredentials)
+  val Authenticated = auth.Authenticated(keyStore)(_ => Unauthorized(Json.obj("errorKey" -> "unauthorized")))
 
   def index = Action {
     Ok("This is the Crop Service.\n")
@@ -22,7 +27,7 @@ object Application extends Controller {
   val boundsForm =
     Form(tuple("source" -> nonEmptyText, "x" -> number, "y" -> number, "w" -> number, "h" -> number))
 
-  def crop = Action.async { req =>
+  def crop = Authenticated.async { req =>
 
     boundsForm.bindFromRequest()(req).fold(
       errors => Future.successful(BadRequest(errors.errorsAsJson)),
