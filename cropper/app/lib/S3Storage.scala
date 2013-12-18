@@ -11,11 +11,11 @@ object S3Storage extends S3(Config.awsCredentials) {
   protected final implicit val ctx: ExecutionContext =
     ExecutionContext.fromExecutor(Executors.newFixedThreadPool(8))
 
-  def store(bucket: String, id: String, file: File): Future[URI] =
+  def store(bucket: String, id: String, file: File): Future[URL] =
     Future {
       client.putObject(bucket, id, file)
       val bucketUrl = s"$bucket.$s3Endpoint"
-      new URL("http", bucketUrl, s"/$id").toURI
+      new URL("http", bucketUrl, s"/$id")
     }
 
 }

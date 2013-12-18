@@ -15,6 +15,8 @@ object Config {
   val cropBucket = properties("s3.crop.bucket")
   val keyStoreBucket = properties("auth.keystore.bucket")
 
+  val topicArn = properties("sns.topic.arn")
+
   val mediaApiKey = properties("media.api.key")
 
   val tempDir: File = new File(properties.getOrElse("crop.output.tmp.dir", "/tmp"))
