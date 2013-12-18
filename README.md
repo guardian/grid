@@ -8,7 +8,7 @@ The new Guardian service to manage media (currently: images).
 You will need to install:
 
 * sbt
-* Java 7
+* JDK 7
 * [bower](http://bower.io/)
 
 Then run `setup.sh` to install and start Elasticsearch.  You can use
@@ -185,6 +185,7 @@ aws.id=...
 aws.secret=...
 s3.crop.bucket=...
 media.api.key=...
+auth.keystore.bucket=...
 ```
 
 From the project root, run via sbt:
