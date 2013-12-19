@@ -54,9 +54,6 @@ object Application extends Controller {
 
   }
 
-  def nonHttpsUri(uri: URI): URI =
-    new URI("http", uri.getUserInfo, uri.getHost, uri.getPort, uri.getPath, uri.getQuery, uri.getFragment)
-
 }
 
 case class SourceImage(id: String, file: String)
