@@ -1,11 +1,15 @@
 package com.gu.mediaservice.lib.aws
 
+import java.io.{FileInputStream, File}
+import java.net.URL
+import scala.concurrent.{ExecutionContext, Future}
+import scala.collection.JavaConverters._
+
+import com.amazonaws.auth.AWSCredentials
 import com.amazonaws.services.s3.{AmazonS3Client, AmazonS3}
-import com.amazonaws.services.s3.model.GeneratePresignedUrlRequest
+import com.amazonaws.services.s3.model.{ObjectMetadata, PutObjectRequest, GeneratePresignedUrlRequest}
 import org.joda.time.DateTime
 import scalaz.syntax.id._
-import com.amazonaws.auth.AWSCredentials
-
 
 class S3(credentials: AWSCredentials) {
 
@@ -18,5 +22,15 @@ class S3(credentials: AWSCredentials) {
     val request = new GeneratePresignedUrlRequest(bucket, key).withExpiration(expiration.toDate)
     client.generatePresignedUrl(request).toExternalForm
   }
+
+  def store(bucket: String, id: String, file: File, meta: Map[String, String] = Map.empty)
+           (implicit ex: ExecutionContext): Future[URL] =
+    Future {
+      val metadata = new ObjectMetadata <| (_.setUserMetadata(meta.asJava))
+      val req = new PutObjectRequest(bucket, id, new FileInputStream(file), metadata)
+      client.putObject(req)
+      val bucketUrl = s"$bucket.$s3Endpoint"
+      new URL("http", bucketUrl, s"/$id")
+    }
 
 }
