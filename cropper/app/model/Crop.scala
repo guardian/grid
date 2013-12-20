@@ -4,13 +4,16 @@ import play.api.libs.json._
 import play.api.libs.functional.syntax._
 
 case class Crop(
-  source: String,
-  x: Int,
-  y: Int,
-  dimensions: Dimensions,
   file: String,
+  meta: CropMetadata,
   secureUrl: String
 )
+
+case class CropMetadata(source: String, x: Int, y: Int, dimensions: Dimensions)
+
+object CropMetadata {
+  implicit val cropMetadataWrites: Writes[CropMetadata] = Json.writes[CropMetadata]
+}
 
 case class Dimensions(width: Int, height: Int)
 
@@ -22,14 +25,5 @@ object Dimensions {
 }
 
 object Crop {
-
-  implicit val cropWrites: Writes[Crop] =
-    ((__ \ "source").write[String] ~
-     (__ \ "x").write[Int] ~
-     (__ \ "y").write[Int] ~
-     (__ \ "dimensions").write[Dimensions] ~
-     (__ \ "file").write[String] ~
-     (__ \ "secureUrl").write[String]
-    )(unlift(Crop.unapply))
-
+  implicit val cropWrites: Writes[Crop] = Json.writes[Crop]
 }
