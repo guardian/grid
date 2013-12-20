@@ -1,6 +1,6 @@
 package controllers
 
-import java.net.URI
+import java.net.{URL, URI}
 import scala.concurrent.Future
 
 import _root_.play.api.data._, Forms._
@@ -14,7 +14,7 @@ import org.joda.time.DateTime
 import com.gu.mediaservice.lib.auth
 import com.gu.mediaservice.lib.auth.KeyStore
 import lib._
-import model.{Dimensions, Crop}
+import model.{CropMetadata, Dimensions, Crop}
 import lib.Bounds
 
 object Application extends Controller {
@@ -38,14 +38,15 @@ object Application extends Controller {
           for {
             apiResp <- WS.url(source).withHeaders("X-Gu-Media-Key" -> Config.mediaApiKey).get
             SourceImage(id, file) = apiResp.json.as[SourceImage]
-            cropFilename = s"$id/${x}_${y}_${w}_$h.jpg"
+            filename = s"$id/${x}_${y}_${w}_$h.jpg"
             tempFile <- Crops.crop(new URI(file), Bounds(x, y, w, h))
-            file <- S3Storage.store(Config.cropBucket, cropFilename, tempFile) <|
-                  (_.onComplete { case _ => tempFile.delete })
+            meta = CropMetadata(source, x, y, Dimensions(w, h))
+            file <- CropStorage.storeCrop(tempFile, filename, meta) <| (_.onComplete { case _ => tempFile.delete })
           } yield {
             val expiration = DateTime.now.plusMinutes(15)
-            val secureUrl = S3Storage.signUrl(Config.cropBucket, cropFilename, expiration)
-            val response = Json.toJson(Crop(source, x, y, Dimensions(w, h), file.toExternalForm, secureUrl))
+            val secureUrl = CropStorage.signUrl(Config.cropBucket, filename, expiration)
+            val crop = Crop(file.toExternalForm, meta, secureUrl)
+            val response = Json.toJson(crop)
             // Notifications.publish(response, "crop")
             Ok(Json.toJson(response))
           }
