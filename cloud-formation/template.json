@@ -1160,6 +1160,10 @@
             "Description": "Image Loader API load balancer DNS",
             "Value": { "Fn::GetAtt": ["KahunaLoadBalancer", "DNSName"] }
         },
+        "CropperLoadBalancer": {
+            "Description": "Cropper load balancer DNS",
+            "Value": { "Fn::GetAtt": ["CropperLoadBalancer", "DNSName"] }
+        },
         "ImageTopicArn": {
             "Description": "ARN of the image topic",
             "Value": { "Ref": "Topic" }
