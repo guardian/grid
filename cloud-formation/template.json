@@ -606,6 +606,10 @@
                         " --directory-prefix=/etc/init\n",
 
                         "wget https://s3-eu-west-1.amazonaws.com/media-service-dist/", { "Ref": "Stage" },
+                        "/media-service-kahuna/start.sh",
+                        " --directory-prefix=/home/media-service\n",
+
+                        "wget https://s3-eu-west-1.amazonaws.com/media-service-dist/", { "Ref": "Stage" },
                         "/media-service-kahuna/app.jar",
                         " --directory-prefix=/home/media-service\n",
 
