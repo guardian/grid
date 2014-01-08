@@ -26,7 +26,7 @@ object PlayArtifact extends Plugin {
       (assembly, base, name, packageName) =>
         Seq(
           base / "conf" / "deploy.json" -> "deploy.json",
-          base / "conf" / "start.sh" -> "start.sh",
+          base / "conf" / "start.sh" -> s"packages/$packageName/start.sh",
           base / "conf" / (name + ".conf") -> s"packages/$packageName/$name.conf",
           assembly -> s"packages/$packageName/${assembly.getName}"
         )
