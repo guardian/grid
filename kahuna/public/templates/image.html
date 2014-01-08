@@ -1,6 +1,8 @@
 <div class="full-image" ng:controller="ImageCtrl">
-    <img class="full-image__image"
-         ng:src="{{image['secureUrl']}}"/>
+    <a ng:href="/images/{{image.id}}">
+        <img class="full-image__image"
+             ng:src="{{image['secureUrl']}}"/>
+    </a>
     <dl>
         <dt class="data-header">Description</dt>
         <dd>{{image.metadata.description}}</dd>
