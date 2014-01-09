@@ -19,7 +19,7 @@ object Thumbnailer {
     val convertCmd = new ConvertCmd
     val imOp = new IMOperation
     imOp.addImage(filename)
-    imOp.adaptiveResize(width)
+    imOp.thumbnail(width)
     imOp.addImage(tempFile.toString)
     convertCmd.run(imOp)
 
