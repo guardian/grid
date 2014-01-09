@@ -19,6 +19,11 @@
   <body>
     <p ng:hide="true">Authenticated as @{principal.name}. Loading Kahuna...</p>
 
+    <div class="user-menu">
+      <!-- target prevents AngularJS from handling the navigation -->
+      <a href="/logout" target="_self">Logout</a>
+    </div>
+
     <div ng-view></div>
 
   </body>
