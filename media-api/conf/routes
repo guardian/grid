@@ -20,7 +20,7 @@ GET     /buckets                    controllers.MediaApi.getAllBuckets
 POST    /delete-index               controllers.IndexManagement.deleteIndex
 
 # Management
-GET     /management/healthcheck     com.gu.mediaservice.lib.management.Management.healthCheck
+GET     /management/healthcheck     controllers.HealthCheck.healthCheck
 GET     /management/manifest        com.gu.mediaservice.lib.management.Management.manifest
 
 # Enable CORS
