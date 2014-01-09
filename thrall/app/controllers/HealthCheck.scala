@@ -2,7 +2,7 @@ package controllers
 
 import play.api.mvc.{Action, Controller}
 import play.api.libs.concurrent.Execution.Implicits._
-import lib.elasticsearch.ElasticSearch
+import lib.ElasticSearch
 import com.gu.mediaservice.syntax._
 
 object HealthCheck extends Controller {
