@@ -2,7 +2,7 @@ package com.gu.mediaservice
 package integration
 
 import org.scalatest.{Matchers, BeforeAndAfterAll, FunSpec}
-import play.api.libs.json.{JsValue, JsString}
+import play.api.libs.json.{JsValue, JsString, JsNumber}
 import play.api.libs.ws.WS
 
 import scalaz.std.AllInstances._
@@ -16,8 +16,12 @@ class IntegrationTest extends FunSpec with TestHarness with Matchers with Before
   val config = devConfig getOrElse testStackConfig
 
   val images = Seq(
-    ImageFixture("honeybee.jpg", Map("credit" -> "AFP/Getty Images", "byline" -> "THOMAS KIENZLE")),
-    ImageFixture("gallery.jpg", Map("credit" -> "AFP/Getty Images", "byline" -> "GERARD JULIEN"))
+    ImageFixture("honeybee.jpg",
+      Map("credit" -> "AFP/Getty Images", "byline" -> "THOMAS KIENZLE"),
+      Dimensions(545, 411)),
+    ImageFixture("gallery.jpg",
+      Map("credit" -> "AFP/Getty Images", "byline" -> "GERARD JULIEN"),
+      Dimensions(735, 484))
   )
 
   for (image <- images) {
@@ -30,7 +34,7 @@ class IntegrationTest extends FunSpec with TestHarness with Matchers with Before
 
   def imageLoaderBehaviour(image: ImageFixture) {
 
-    val ImageFixture(filename, metadata) = image
+    val ImageFixture(filename, metadata, dimensions) = image
     val byline = metadata("byline")
 
     lazy val loaderResponse = loadImage(resourceAsFile(s"/images/$filename"))
@@ -72,6 +76,15 @@ class IntegrationTest extends FunSpec with TestHarness with Matchers with Before
 
       for ((key, value) <- metadata)
         assert(responseMeta \ key == JsString(value))
+
+    }
+
+    it ("should contain dimensions") {
+
+      val responseDimensions = getImageData(imageId) \ "dimensions"
+
+      assert(responseDimensions \ "width"  == JsNumber(dimensions.width))
+      assert(responseDimensions \ "height" == JsNumber(dimensions.height))
 
     }
 
@@ -142,4 +155,5 @@ class IntegrationTest extends FunSpec with TestHarness with Matchers with Before
 }
 
 
-case class ImageFixture(id: String, metadata: Map[String, String])
+case class Dimensions(width: Int, height: Int)
+case class ImageFixture(id: String, metadata: Map[String, String], dimensions: Dimensions)
