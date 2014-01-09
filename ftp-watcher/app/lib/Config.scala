@@ -18,7 +18,7 @@ object Config {
   val imageLoaderUri: String = properties("loader.uri")
 
   val active: AtomicBoolean =
-    new AtomicBoolean(properties.get("active").exists(_.toBoolean)) // TODO this will change to ftp.active
+    new AtomicBoolean(properties.get("ftp.active").exists(_.toBoolean))
 
   def status: String = if (isActive) "active" else "passive"
 
