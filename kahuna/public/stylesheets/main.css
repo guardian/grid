@@ -13,6 +13,13 @@ a {
     text-decoration: none;
 }
 
+.user-menu {
+    position: absolute;
+    top: 0;
+    right: 0;
+    z-index: 1; /* above search bar */
+    margin: 4px 8px;
+}
 
 .search {
     position: fixed;
