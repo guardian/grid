@@ -211,7 +211,7 @@ cloud.aws.access_key: "@@ACCESS_KEY"
 cloud.aws.secret_key: "@@SECRET_KEY"
 
 discovery.zen.ping.multicast.enabled: false
-discovery.zen.minimum_master_nodes: 2
+discovery.zen.minimum_master_nodes: 3
 
 discovery.type: ec2
 
