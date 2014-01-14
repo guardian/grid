@@ -32,6 +32,42 @@
     },
     "Resources": {
 
+        "DistributionInstanceProfile": {
+            "Type": "AWS::IAM::InstanceProfile",
+            "Properties": {
+                "Path": "/",
+                "Roles": [ {"Ref": "DistributionRole"} ]
+            }
+        },
+
+        "DistributionRole": {
+            "Type": "AWS::IAM::Role",
+            "Properties": {
+                "AssumeRolePolicyDocument": {
+                    "Statement": [ {
+                        "Effect": "Allow",
+                        "Principal": {
+                            "Service": [ "ec2.amazonaws.com" ]
+                        },
+                        "Action": [ "sts:AssumeRole" ]
+                    } ]
+                },
+                "Path": "/",
+                "Policies": [ {
+                    "PolicyName": "root",
+                    "PolicyDocument": {
+                        "Statement": [
+                            {
+                                "Effect": "Allow",
+                                "Action": [ "s3:GetObject" ],
+                                "Resource": [ "arn:aws:s3:::media-service-dist/*" ]
+                            }
+                        ]
+                    }
+                } ]
+            }
+        },
+
         "SSHSecurityGroup": {
             "Type": "AWS::EC2::SecurityGroup",
             "Properties": {
@@ -339,6 +375,34 @@
         },
         "ElasticsearchLaunchConfig": {
             "Type": "AWS::AutoScaling::LaunchConfiguration",
+            "Metadata": {
+              "AWS::CloudFormation::Authentication": {
+                "distributionAuthentication": {
+                  "type": "S3",
+                  "roleName": { "Ref": "DistributionRole" },
+                  "buckets": [ "media-service-dist" ]
+                }
+              },
+              "AWS::CloudFormation::Init": {
+                "config": {
+                  "users": {
+                    "media-service": {
+                      "homeDir": "/home/media-service"
+                    }
+                  },
+                  "files": {
+                    "/home/media-service/elasticsearch.tar.gz": {
+                      "source": { "Fn::Join" : ["", [
+                        "https://s3-eu-west-1.amazonaws.com/media-service-dist/",
+                        { "Ref": "Stage" },
+                        "/media-service-elasticsearch/elasticsearch.tar.gz"
+                      ]]},
+                      "authentication": "distributionAuthentication"
+                    }
+                  }
+                }
+              }
+            },
             "Properties": {
                 "KeyName": { "Ref": "KeyName" },
                 "ImageId": "ami-eecd2899",
@@ -347,13 +411,20 @@
                     { "Ref": "SSHSecurityGroup" }
                 ],
                 "InstanceType": "m1.medium",
+                "IamInstanceProfile": {"Ref": "DistributionInstanceProfile"},
                 "UserData":{
                     "Fn::Base64":{
                         "Fn::Join":["", [
                             "#!/bin/bash -ev\n",
 
-                            "adduser --disabled-password --system --group media-service\n",
-                            "cp -r ~/.ssh /home/media-service/\n",
+                            "apt-get -y install python-setuptools\n",
+                            "wget -P /root https://s3.amazonaws.com/cloudformation-examples/aws-cfn-bootstrap-latest.tar.gz","\n",
+                            "mkdir -p /root/aws-cfn-bootstrap-latest","\n",
+                            "tar xvfz /root/aws-cfn-bootstrap-latest.tar.gz --strip-components=1 -C /root/aws-cfn-bootstrap-latest","\n",
+                            "easy_install /root/aws-cfn-bootstrap-latest/","\n",
+
+                            "cfn-init -s ", { "Ref" : "AWS::StackId" }, " -r ElasticsearchLaunchConfig ",
+                            "  --region ", { "Ref" : "AWS::Region" }, " || error_exit 'Failed to run cfn-init'\n",
 
                             "mkdir /data\n",
                             "mount /dev/xvdb /data\n",
@@ -362,10 +433,6 @@
                             "apt-get -y install language-pack-en openjdk-7-jre-headless\n",
 
                             "cd /home/media-service\n",
-
-                            "wget https://s3-eu-west-1.amazonaws.com/media-service-dist/", { "Ref": "Stage" },
-                            "/media-service-elasticsearch/elasticsearch.tar.gz\n",
-
                             "tar xf elasticsearch.tar.gz\n",
 
                             "sed -i \\\n",
