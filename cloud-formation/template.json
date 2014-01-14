@@ -307,9 +307,9 @@
             "Properties": {
                 "AvailabilityZones": { "Fn::GetAZs": "" },
                 "LaunchConfigurationName": { "Ref": "ElasticsearchLaunchConfig" },
-                "MinSize": "2",
-                "MaxSize": "8",
-                "DesiredCapacity": "4",
+                "MinSize": "3",
+                "MaxSize": "6",
+                "DesiredCapacity": "3",
                 "Cooldown": "180",
                 "HealthCheckType": "EC2",
                 "HealthCheckGracePeriod": 180,
