@@ -11,7 +11,7 @@ object Dependencies {
 
   val elasticsearchDeps = Seq("org.elasticsearch" % "elasticsearch" % elasticsearchVersion)
 
-  val awsDeps = Seq("com.amazonaws" % "aws-java-sdk" % "1.5.7")
+  val awsDeps = Seq("com.amazonaws" % "aws-java-sdk" % "1.6.12")
 
   val scalazDeps = Seq(
     "org.scalaz.stream" %% "scalaz-stream" % "0.2a"
