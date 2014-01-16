@@ -692,6 +692,50 @@
         "KahunaLaunchConfig": {
             "Type": "AWS::AutoScaling::LaunchConfiguration",
             "DependsOn": "HostKeys",
+            "Metadata": {
+              "AWS::CloudFormation::Authentication": {
+                "distributionAuthentication": {
+                  "type": "S3",
+                  "roleName": { "Ref": "DistributionRole" },
+                  "buckets": [ "media-service-dist" ]
+                }
+              },
+              "AWS::CloudFormation::Init": {
+                "config": {
+                  "users": {
+                    "media-service": {
+                      "homeDir": "/home/media-service"
+                    }
+                  },
+                  "files": {
+                    "/etc/init/kahuna.conf": {
+                      "source": { "Fn::Join" : ["", [
+                        "https://s3-eu-west-1.amazonaws.com/media-service-dist/",
+                        { "Ref": "Stage" },
+                        "/media-service-kahuna/kahuna.conf"
+                      ]]},
+                      "authentication": "distributionAuthentication"
+                    },
+                    "/home/media-service/start.sh": {
+                      "source": { "Fn::Join" : ["", [
+                        "https://s3-eu-west-1.amazonaws.com/media-service-dist/",
+                        { "Ref": "Stage" },
+                        "/media-service-kahuna/start.sh"
+                      ]]},
+                      "authentication": "distributionAuthentication"
+                    },
+                    "/home/media-service/app.jar": {
+                      "source": { "Fn::Join" : ["", [
+                        "https://s3-eu-west-1.amazonaws.com/media-service-dist/",
+                        { "Ref": "Stage" },
+                        "/media-service-kahuna/app.jar"
+                      ]]},
+                      "authentication": "distributionAuthentication"
+                    }
+                  }
+                }
+              }
+            },
             "Properties": {
                 "KeyName": { "Ref": "KeyName" },
                 "ImageId": "ami-7ccf2a0b",
@@ -700,26 +744,24 @@
                     { "Ref": "SSHSecurityGroup" }
                 ],
                 "InstanceType": "t1.micro",
+                "IamInstanceProfile": {"Ref": "DistributionInstanceProfile"},
                 "UserData": { "Fn::Base64": {
                     "Fn::Join":["", [
                         "#!/bin/bash -ev\n",
 
-                        "adduser --disabled-password --system --group media-service\n",
-                        "cp -r ~/.ssh /home/media-service/\n",
-
                         "apt-get -y update\n",
                         "apt-get -y install language-pack-en openjdk-7-jre-headless\n",
+                        "apt-get -y install python-setuptools\n",
+                        "wget -P /root https://s3.amazonaws.com/cloudformation-examples/aws-cfn-bootstrap-latest.tar.gz","\n",
+                        "mkdir -p /root/aws-cfn-bootstrap-latest","\n",
+                        "tar xvfz /root/aws-cfn-bootstrap-latest.tar.gz --strip-components=1 -C /root/aws-cfn-bootstrap-latest","\n",
+                        "easy_install /root/aws-cfn-bootstrap-latest/","\n",
 
-                        "wget https://s3-eu-west-1.amazonaws.com/media-service-dist/", { "Ref": "Stage" },
-                        "/media-service-kahuna/kahuna.conf",
-                        " --directory-prefix=/etc/init\n",
+                        "cfn-init -s ", { "Ref" : "AWS::StackId" }, " -r KahunaLaunchConfig ",
+                        "  --region ", { "Ref" : "AWS::Region" }, " || error_exit 'Failed to run cfn-init'\n",
 
                         "wget https://s3-eu-west-1.amazonaws.com/media-service-dist/", { "Ref": "Stage" },
                         "/media-service-kahuna/start.sh",
-                        " --directory-prefix=/home/media-service\n",
-
-                        "wget https://s3-eu-west-1.amazonaws.com/media-service-dist/", { "Ref": "Stage" },
-                        "/media-service-kahuna/app.jar",
                         " --directory-prefix=/home/media-service\n",
 
                         "mkdir /home/media-service/logs\n",
