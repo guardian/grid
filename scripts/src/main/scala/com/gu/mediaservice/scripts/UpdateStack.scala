@@ -1,10 +1,13 @@
 package com.gu.mediaservice.scripts
 
+import java.io.InputStream
 import scala.io.Source
 import com.amazonaws.services.cloudformation.AmazonCloudFormationClient
 import com.amazonaws.services.cloudformation.model.{CreateStackRequest, Parameter, UpdateStackRequest}
 import com.amazonaws.services.identitymanagement.AmazonIdentityManagementClient
 import com.amazonaws.services.identitymanagement.model.GetServerCertificateRequest
+import com.amazonaws.services.s3.AmazonS3Client
+import com.amazonaws.services.s3.model.ObjectMetadata
 import com.gu.mediaservice.lib.UserCredentials
 
 object UpdateStack {
@@ -16,7 +19,7 @@ object UpdateStack {
         new UpdateStackRequest()
           .withCapabilities("CAPABILITY_IAM")
           .withStackName(stackName)
-          .withTemplateBody(template)
+          .withTemplateURL(templateUrl)
           .withParameters(
           new Parameter().withParameterKey("Stage").withParameterValue(stage),
           new Parameter().withParameterKey("MediaApiSSLCertificateId").withParameterValue(mediaApiCertArn),
@@ -41,7 +44,7 @@ object CreateStack {
         new CreateStackRequest()
           .withCapabilities("CAPABILITY_IAM")
           .withStackName(stackName)
-          .withTemplateBody(template)
+          .withTemplateURL(templateUrl)
           .withParameters(
           new Parameter().withParameterKey("Stage").withParameterValue(stage),
           new Parameter().withParameterKey("MediaApiSSLCertificateId").withParameterValue(mediaApiCertArn),
@@ -73,8 +76,7 @@ class StackScript(args: List[String]) {
   val cfnClient = new AmazonCloudFormationClient(credentials)
   cfnClient.setEndpoint("cloudformation.eu-west-1.amazonaws.com")
 
-  val template =
-    Source.fromInputStream(getClass.getResourceAsStream("/template.json"), "UTF-8").getLines.mkString("\n")
+  val templateUrl = uploadTemplate(stackName, getClass.getResourceAsStream("/template.json"))
 
   def getCertArn(certName: String): String =
     iamClient.getServerCertificate(new GetServerCertificateRequest(certName))
@@ -88,5 +90,18 @@ class StackScript(args: List[String]) {
   val mediaApiCertArn = getCertArn(s"api.$domainRoot")
   val loaderCertArn = getCertArn(s"loader.$domainRoot")
   val cropperCertArn = getCertArn(s"cropper.$domainRoot")
+
+  def uploadTemplate(stackName: String, template: InputStream): String = {
+    val s3Client = new AmazonS3Client(credentials)
+    val templateBucket = "media-service-cfn"
+    val templateFilename = s"$stackName.json"
+    s3Client.putObject(templateBucket, templateFilename, template, new ObjectMetadata)
+    val url = mkS3Url(templateBucket, templateFilename, "eu-west-1")
+    println(s"Uploaded CloudFormation template to $url")
+    url
+  }
+
+  def mkS3Url(bucket: String, filename: String, region: String): String =
+    s"https://s3-$region.amazonaws.com/$bucket/$filename"
 
 }
