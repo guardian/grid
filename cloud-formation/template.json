@@ -28,6 +28,15 @@
         "CropperSSLCertificateId": {
             "Description": "ARN of the SSL certificate to be used for the Cropper load balancer",
             "Type": "String"
+        },
+        "ElasticsearchAutoscalingMinSize": {
+            "Type": "Number"
+        },
+        "ElasticsearchAutoscalingMaxSize": {
+            "Type": "Number"
+        },
+        "ElasticsearchAutoscalingDesiredCapacity": {
+            "Type": "Number"
         }
     },
     "Resources": {
@@ -343,9 +352,9 @@
             "Properties": {
                 "AvailabilityZones": { "Fn::GetAZs": "" },
                 "LaunchConfigurationName": { "Ref": "ElasticsearchLaunchConfig" },
-                "MinSize": "3",
-                "MaxSize": "8",
-                "DesiredCapacity": "4",
+                "MinSize": {"Ref": "ElasticsearchAutoscalingMinSize"},
+                "MaxSize": {"Ref": "ElasticsearchAutoscalingMaxSize"},
+                "DesiredCapacity": {"Ref": "ElasticsearchAutoscalingDesiredCapacity"},
                 "Cooldown": "180",
                 "HealthCheckType": "EC2",
                 "HealthCheckGracePeriod": 180,
