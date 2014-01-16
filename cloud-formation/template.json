@@ -343,7 +343,7 @@
             "Properties": {
                 "AvailabilityZones": { "Fn::GetAZs": "" },
                 "LaunchConfigurationName": { "Ref": "ElasticsearchLaunchConfig" },
-                "MinSize": "2",
+                "MinSize": "3",
                 "MaxSize": "8",
                 "DesiredCapacity": "4",
                 "Cooldown": "180",
