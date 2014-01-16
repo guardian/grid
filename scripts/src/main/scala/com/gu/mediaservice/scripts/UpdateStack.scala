@@ -14,21 +14,13 @@ object UpdateStack {
 
   def apply(args: List[String]) {
     new StackScript(args) {
-
       cfnClient.updateStack(
         new UpdateStackRequest()
           .withCapabilities("CAPABILITY_IAM")
           .withStackName(stackName)
           .withTemplateURL(templateUrl)
-          .withParameters(
-          new Parameter().withParameterKey("Stage").withParameterValue(stage),
-          new Parameter().withParameterKey("MediaApiSSLCertificateId").withParameterValue(mediaApiCertArn),
-          new Parameter().withParameterKey("KahunaSSLCertificateId").withParameterValue(kahunaCertArn),
-          new Parameter().withParameterKey("ImageLoaderSSLCertificateId").withParameterValue(loaderCertArn),
-          new Parameter().withParameterKey("CropperSSLCertificateId").withParameterValue(cropperCertArn)
-        )
+          .withParameters(templateParameters: _*)
       )
-
       println(s"Updated stack $stackName.")
     }
   }
@@ -39,21 +31,13 @@ object CreateStack {
 
   def apply(args: List[String]) {
     new StackScript(args) {
-
       cfnClient.createStack(
         new CreateStackRequest()
           .withCapabilities("CAPABILITY_IAM")
           .withStackName(stackName)
           .withTemplateURL(templateUrl)
-          .withParameters(
-          new Parameter().withParameterKey("Stage").withParameterValue(stage),
-          new Parameter().withParameterKey("MediaApiSSLCertificateId").withParameterValue(mediaApiCertArn),
-          new Parameter().withParameterKey("KahunaSSLCertificateId").withParameterValue(kahunaCertArn),
-          new Parameter().withParameterKey("ImageLoaderSSLCertificateId").withParameterValue(loaderCertArn),
-          new Parameter().withParameterKey("CropperSSLCertificateId").withParameterValue(cropperCertArn)
-        )
+          .withParameters(templateParameters: _*)
       )
-
       println(s"Updated stack $stackName.")
     }
   }
@@ -86,10 +70,30 @@ class StackScript(args: List[String]) {
     if (stage == "PROD") "media.***REMOVED***"
     else s"media.${stage.toLowerCase}.dev-***REMOVED***"
 
+  val (esMinSize, esDesired) =
+    if (stage == "PROD") (3,4)
+    else (2, 2)
+
+  val esMaxSize = esDesired * 2 // allows for autoscaling deploys
+
   val kahunaCertArn = getCertArn(domainRoot)
   val mediaApiCertArn = getCertArn(s"api.$domainRoot")
   val loaderCertArn = getCertArn(s"loader.$domainRoot")
   val cropperCertArn = getCertArn(s"cropper.$domainRoot")
+
+  val templateParameters = List(
+    parameter("Stage", stage),
+    parameter("MediaApiSSLCertificateId", mediaApiCertArn),
+    parameter("KahunaSSLCertificateId", kahunaCertArn),
+    parameter("ImageLoaderSSLCertificateId", loaderCertArn),
+    parameter("CropperSSLCertificateId", cropperCertArn),
+    parameter("ElasticsearchAutoscalingMinSize", esMinSize.toString),
+    parameter("ElasticsearchAutoscalingMaxSize", esMaxSize.toString),
+    parameter("ElasticsearchAutoscalingDesiredCapacity", esDesired.toString)
+  )
+
+  def parameter(key: String, value: String): Parameter =
+    new Parameter().withParameterKey(key).withParameterValue(value)
 
   def uploadTemplate(stackName: String, template: InputStream): String = {
     val s3Client = new AmazonS3Client(credentials)
