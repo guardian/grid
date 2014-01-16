@@ -1,7 +1,6 @@
 package com.gu.mediaservice.scripts
 
 import java.io.InputStream
-import scala.io.Source
 import com.amazonaws.services.cloudformation.AmazonCloudFormationClient
 import com.amazonaws.services.cloudformation.model.{CreateStackRequest, Parameter, UpdateStackRequest}
 import com.amazonaws.services.identitymanagement.AmazonIdentityManagementClient
@@ -9,93 +8,100 @@ import com.amazonaws.services.identitymanagement.model.GetServerCertificateReque
 import com.amazonaws.services.s3.AmazonS3Client
 import com.amazonaws.services.s3.model.ObjectMetadata
 import com.gu.mediaservice.lib.UserCredentials
+import com.amazonaws.auth.AWSCredentials
 
-object UpdateStack {
+object UpdateStack extends StackScript {
 
-  def apply(args: List[String]) {
-    new StackScript(args) {
-      cfnClient.updateStack(
-        new UpdateStackRequest()
-          .withCapabilities("CAPABILITY_IAM")
-          .withStackName(stackName)
-          .withTemplateURL(templateUrl)
-          .withParameters(templateParameters: _*)
-      )
-      println(s"Updated stack $stackName.")
-    }
+  def run(cfnClient: AmazonCloudFormationClient, stackName: String, templateUrl: String, params: List[Parameter]) {
+    cfnClient.updateStack(
+      new UpdateStackRequest()
+        .withCapabilities("CAPABILITY_IAM")
+        .withStackName(stackName)
+        .withTemplateURL(templateUrl)
+        .withParameters(params: _*)
+    )
+    println(s"Updated stack $stackName.")
   }
 
 }
 
-object CreateStack {
+object CreateStack extends StackScript {
 
-  def apply(args: List[String]) {
-    new StackScript(args) {
-      cfnClient.createStack(
-        new CreateStackRequest()
-          .withCapabilities("CAPABILITY_IAM")
-          .withStackName(stackName)
-          .withTemplateURL(templateUrl)
-          .withParameters(templateParameters: _*)
-      )
-      println(s"Updated stack $stackName.")
-    }
+  def run(cfnClient: AmazonCloudFormationClient, stackName: String, templateUrl: String, params: List[Parameter]) {
+    cfnClient.createStack(
+      new CreateStackRequest()
+        .withCapabilities("CAPABILITY_IAM")
+        .withStackName(stackName)
+        .withTemplateURL(templateUrl)
+        .withParameters(params: _*)
+    )
+    println(s"Created stack $stackName.")
   }
 
 }
 
-class StackScript(args: List[String]) {
+abstract class StackScript {
 
-  val stage = args match {
-    case List(s) => s
-    case _ => sys.error("Usage: UpdateStack <STAGE>")
+  def run(cfnClient: AmazonCloudFormationClient, stackName: String, templateUrl: String, params: List[Parameter])
+
+  def apply(args: List[String]) {
+
+    val stage = args match {
+      case List(s) => s
+      case _ => sys.error("Usage: UpdateStack <STAGE>")
+    }
+
+    val stackName = s"media-service-$stage"
+
+    val credentials = UserCredentials.awsCredentials
+
+    val cfnClient = {
+      val client = new AmazonCloudFormationClient(credentials)
+      client.setEndpoint("cloudformation.eu-west-1.amazonaws.com")
+      client
+    }
+
+    val iamClient = new AmazonIdentityManagementClient(credentials)
+
+    val templateUrl = uploadTemplate(credentials, stackName, getClass.getResourceAsStream("/template.json"))
+
+    def getCertArn(certName: String): String =
+      iamClient.getServerCertificate(new GetServerCertificateRequest(certName))
+        .getServerCertificate.getServerCertificateMetadata.getArn
+
+    val domainRoot =
+      if (stage == "PROD") "media.gutools.co.uk"
+      else s"media.${stage.toLowerCase}.dev-gutools.co.uk"
+
+    val (esMinSize, esDesired) =
+      if (stage == "PROD") (3,4)
+      else (2, 2)
+
+    val esMaxSize = esDesired * 2 // allows for autoscaling deploys
+
+    val kahunaCertArn = getCertArn(domainRoot)
+    val mediaApiCertArn = getCertArn(s"api.$domainRoot")
+    val loaderCertArn = getCertArn(s"loader.$domainRoot")
+    val cropperCertArn = getCertArn(s"cropper.$domainRoot")
+
+    val templateParams = List(
+      parameter("Stage", stage),
+      parameter("MediaApiSSLCertificateId", mediaApiCertArn),
+      parameter("KahunaSSLCertificateId", kahunaCertArn),
+      parameter("ImageLoaderSSLCertificateId", loaderCertArn),
+      parameter("CropperSSLCertificateId", cropperCertArn),
+      parameter("ElasticsearchAutoscalingMinSize", esMinSize.toString),
+      parameter("ElasticsearchAutoscalingMaxSize", esMaxSize.toString),
+      parameter("ElasticsearchAutoscalingDesiredCapacity", esDesired.toString)
+    )
+
+    run(cfnClient, stackName, templateUrl, templateParams)
   }
-
-  val stackName = s"media-service-$stage"
-
-  val credentials = UserCredentials.awsCredentials
-
-  val iamClient = new AmazonIdentityManagementClient(credentials)
-
-  val cfnClient = new AmazonCloudFormationClient(credentials)
-  cfnClient.setEndpoint("cloudformation.eu-west-1.amazonaws.com")
-
-  val templateUrl = uploadTemplate(stackName, getClass.getResourceAsStream("/template.json"))
-
-  def getCertArn(certName: String): String =
-    iamClient.getServerCertificate(new GetServerCertificateRequest(certName))
-      .getServerCertificate.getServerCertificateMetadata.getArn
-
-  val domainRoot =
-    if (stage == "PROD") "media.gutools.co.uk"
-    else s"media.${stage.toLowerCase}.dev-gutools.co.uk"
-
-  val (esMinSize, esDesired) =
-    if (stage == "PROD") (3,4)
-    else (2, 2)
-
-  val esMaxSize = esDesired * 2 // allows for autoscaling deploys
-
-  val kahunaCertArn = getCertArn(domainRoot)
-  val mediaApiCertArn = getCertArn(s"api.$domainRoot")
-  val loaderCertArn = getCertArn(s"loader.$domainRoot")
-  val cropperCertArn = getCertArn(s"cropper.$domainRoot")
-
-  val templateParameters = List(
-    parameter("Stage", stage),
-    parameter("MediaApiSSLCertificateId", mediaApiCertArn),
-    parameter("KahunaSSLCertificateId", kahunaCertArn),
-    parameter("ImageLoaderSSLCertificateId", loaderCertArn),
-    parameter("CropperSSLCertificateId", cropperCertArn),
-    parameter("ElasticsearchAutoscalingMinSize", esMinSize.toString),
-    parameter("ElasticsearchAutoscalingMaxSize", esMaxSize.toString),
-    parameter("ElasticsearchAutoscalingDesiredCapacity", esDesired.toString)
-  )
 
   def parameter(key: String, value: String): Parameter =
     new Parameter().withParameterKey(key).withParameterValue(value)
 
-  def uploadTemplate(stackName: String, template: InputStream): String = {
+  def uploadTemplate(credentials: AWSCredentials, stackName: String, template: InputStream): String = {
     val s3Client = new AmazonS3Client(credentials)
     val templateBucket = "media-service-cfn"
     val templateFilename = s"$stackName.json"
