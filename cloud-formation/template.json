@@ -29,6 +29,16 @@
             "Description": "ARN of the SSL certificate to be used for the Cropper load balancer",
             "Type": "String"
         },
+        "ImageId64": {
+            "Description": "AMI id for 64-bit instances",
+            "Type": "String",
+            "Default": "ami-eecd2899"
+        },
+        "ImageId32": {
+            "Description": "AMI id for 32-bit images (e.g. micro)",
+            "Type": "String",
+            "Default": "ami-7ccf2a0b"
+        },
         "ElasticsearchAutoscalingMinSize": {
             "Type": "Number"
         },
@@ -414,7 +424,7 @@
             },
             "Properties": {
                 "KeyName": { "Ref": "KeyName" },
-                "ImageId": "ami-eecd2899",
+                "ImageId": {"Ref": "ImageId64"},
                 "SecurityGroups": [
                     { "Ref": "ElasticsearchSecurityGroup" },
                     { "Ref": "SSHSecurityGroup" }
@@ -426,6 +436,8 @@
                         "Fn::Join":["", [
                             "#!/bin/bash -ev\n",
 
+                            "apt-get -y update\n",
+                            "apt-get -y install language-pack-en openjdk-7-jre-headless\n",
                             "apt-get -y install python-setuptools\n",
                             "wget -P /root https://s3.amazonaws.com/cloudformation-examples/aws-cfn-bootstrap-latest.tar.gz","\n",
                             "mkdir -p /root/aws-cfn-bootstrap-latest","\n",
@@ -437,9 +449,6 @@
 
                             "mkdir /data\n",
                             "mount /dev/xvdb /data\n",
-
-                            "apt-get -y update\n",
-                            "apt-get -y install language-pack-en openjdk-7-jre-headless\n",
 
                             "cd /home/media-service\n",
                             "tar xf elasticsearch.tar.gz\n",
@@ -582,7 +591,7 @@
             },
             "Properties": {
                 "KeyName": { "Ref": "KeyName" },
-                "ImageId": "ami-eecd2899",
+                "ImageId": {"Ref": "ImageId64"},
                 "SecurityGroups": [
                     { "Ref": "AppServerSecurityGroup" },
                     { "Ref": "SSHSecurityGroup" }
@@ -747,7 +756,7 @@
             },
             "Properties": {
                 "KeyName": { "Ref": "KeyName" },
-                "ImageId": "ami-7ccf2a0b",
+                "ImageId": {"Ref": "ImageId32"},
                 "SecurityGroups": [
                     { "Ref": "AppServerSecurityGroup" },
                     { "Ref": "SSHSecurityGroup" }
@@ -874,7 +883,7 @@
             },
             "Properties": {
                 "KeyName": { "Ref": "KeyName" },
-                "ImageId": "ami-7ccf2a0b",
+                "ImageId": {"Ref": "ImageId32"},
                 "SecurityGroups": [
                     { "Ref": "AppServerSecurityGroup" },
                     { "Ref": "SSHSecurityGroup" }
@@ -1043,7 +1052,7 @@
             },
             "Properties": {
                 "KeyName": { "Ref": "KeyName" },
-                "ImageId": "ami-eecd2899",
+                "ImageId": {"Ref": "ImageId64"},
                 "SecurityGroups": [
                     { "Ref": "AppServerSecurityGroup" },
                     { "Ref": "SSHSecurityGroup" }
@@ -1228,7 +1237,7 @@
             },
             "Properties": {
                 "KeyName": { "Ref": "KeyName" },
-                "ImageId": "ami-eecd2899",
+                "ImageId": {"Ref": "ImageId64"},
                 "SecurityGroups": [
                     { "Ref": "AppServerSecurityGroup" },
                     { "Ref": "AppClientSecurityGroup" },
@@ -1325,7 +1334,7 @@
             "DependsOn": "HostKeys",
             "Properties": {
                 "KeyName": { "Ref": "KeyName" },
-                "ImageId": "ami-7ccf2a0b",
+                "ImageId": {"Ref": "ImageId32"},
                 "SecurityGroups": [
                     { "Ref": "AppClientSecurityGroup" },
                     { "Ref": "SSHSecurityGroup" }
