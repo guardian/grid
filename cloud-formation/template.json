@@ -29,15 +29,15 @@
             "Description": "ARN of the SSL certificate to be used for the Cropper load balancer",
             "Type": "String"
         },
-        "ImageId64": {
-            "Description": "AMI id for 64-bit instances",
+        "ImageIdInstanceStorage": {
+            "Description": "AMI id for instances with instance storage.",
             "Type": "String",
-            "Default": "ami-eecd2899"
+            "Default": "ami-14907e63"
         },
-        "ImageId32": {
-            "Description": "AMI id for 32-bit images (e.g. micro)",
+        "ImageIdEBSStorage": {
+            "Description": "AMI id for instances with EBS storage",
             "Type": "String",
-            "Default": "ami-7ccf2a0b"
+            "Default": "ami-66ef0111"
         },
         "ElasticsearchAutoscalingMinSize": {
             "Type": "Number"
@@ -424,7 +424,7 @@
             },
             "Properties": {
                 "KeyName": { "Ref": "KeyName" },
-                "ImageId": {"Ref": "ImageId64"},
+                "ImageId": {"Ref": "ImageIdInstanceStorage"},
                 "SecurityGroups": [
                     { "Ref": "ElasticsearchSecurityGroup" },
                     { "Ref": "SSHSecurityGroup" }
@@ -591,7 +591,7 @@
             },
             "Properties": {
                 "KeyName": { "Ref": "KeyName" },
-                "ImageId": {"Ref": "ImageId64"},
+                "ImageId": {"Ref": "ImageIdInstanceStorage"},
                 "SecurityGroups": [
                     { "Ref": "AppServerSecurityGroup" },
                     { "Ref": "SSHSecurityGroup" }
@@ -756,7 +756,7 @@
             },
             "Properties": {
                 "KeyName": { "Ref": "KeyName" },
-                "ImageId": {"Ref": "ImageId32"},
+                "ImageId": {"Ref": "ImageIdEBSStorage"},
                 "SecurityGroups": [
                     { "Ref": "AppServerSecurityGroup" },
                     { "Ref": "SSHSecurityGroup" }
@@ -883,7 +883,7 @@
             },
             "Properties": {
                 "KeyName": { "Ref": "KeyName" },
-                "ImageId": {"Ref": "ImageId32"},
+                "ImageId": {"Ref": "ImageIdEBSStorage"},
                 "SecurityGroups": [
                     { "Ref": "AppServerSecurityGroup" },
                     { "Ref": "SSHSecurityGroup" }
@@ -1052,7 +1052,7 @@
             },
             "Properties": {
                 "KeyName": { "Ref": "KeyName" },
-                "ImageId": {"Ref": "ImageId64"},
+                "ImageId": {"Ref": "ImageIdInstanceStorage"},
                 "SecurityGroups": [
                     { "Ref": "AppServerSecurityGroup" },
                     { "Ref": "SSHSecurityGroup" }
@@ -1237,7 +1237,7 @@
             },
             "Properties": {
                 "KeyName": { "Ref": "KeyName" },
-                "ImageId": {"Ref": "ImageId64"},
+                "ImageId": {"Ref": "ImageIdInstanceStorage"},
                 "SecurityGroups": [
                     { "Ref": "AppServerSecurityGroup" },
                     { "Ref": "AppClientSecurityGroup" },
@@ -1334,7 +1334,7 @@
             "DependsOn": "HostKeys",
             "Properties": {
                 "KeyName": { "Ref": "KeyName" },
-                "ImageId": {"Ref": "ImageId32"},
+                "ImageId": {"Ref": "ImageIdEBSStorage"},
                 "SecurityGroups": [
                     { "Ref": "AppClientSecurityGroup" },
                     { "Ref": "SSHSecurityGroup" }
