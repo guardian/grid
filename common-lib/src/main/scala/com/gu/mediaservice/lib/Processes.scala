@@ -3,11 +3,10 @@ package com.gu.mediaservice.lib
 import scala.concurrent.duration._
 
 import scalaz.concurrent.Task
-import scalaz.stream.{process1, These, Process}
-import scalaz.stream.These.{That, This}
-import scalaz.stream.{Process1, Wye}
-import scalaz.stream.Process.{emit, emitAll, awaitBoth, awakeEvery, sleep}
+import scalaz.stream.{Process, process1, Process1, Wye}
+import scalaz.stream.Process._
 import scalaz.stream.io.resource
+import scalaz.stream.ReceiveY.{ReceiveL, ReceiveR, HaltL, HaltR}
 
 
 object Processes {
@@ -30,17 +29,18 @@ object Processes {
     def chunkTimed(maxAge: Duration, maxSize: Int): Process[Task, Vector[O]] = {
       def go(buf: Vector[O], lastEmit: Duration): Wye[Duration, O, Vector[O]] =
         awaitBoth[Duration, O].flatMap {
-          case These(t, o) =>
-            emit(buf :+ o)
-          case This(t) =>
-            if (buf.nonEmpty) emit(buf)
+          case ReceiveL(t) =>
+            if (buf.nonEmpty) emit(buf) fby go(Vector(), t)
             else go(buf, lastEmit)
-          case That(o) =>
-            if (buf.size >= (maxSize - 1)) emit(buf :+ o)
+          case ReceiveR(o) =>
+            if (buf.size >= (maxSize - 1)) emit(buf :+ o) fby go(Vector(), lastEmit)
             else go(buf :+ o, lastEmit)
+          case HaltL(e) => Halt(e)
+          case HaltR(e) => Halt(e)
         }
-      awakeEvery(maxAge).wye(self)(go(Vector(), 0.millis)).repeat
+      awakeEvery(maxAge).wye(self)(go(Vector(), 0.millis))
     }
   }
 
 }
+
