@@ -4,7 +4,8 @@
             "type": "autoscaling",
             "data": {
                 "port": 9000,
-                "bucket": "media-service-dist"
+                "bucket": "media-service-dist",
+                "publicAcl": false
             }
         }
     },
