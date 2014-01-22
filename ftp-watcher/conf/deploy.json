@@ -5,7 +5,8 @@
             "apps": [ "mediaservice::ftpwatcher" ],
             "data": {
                 "port": "8080",
-                "healthcheck_paths": [ "/health-check" ]
+                "healthcheck_paths": [ "/health-check" ],
+                "publicReadAcl": false
             }
         }
     }
