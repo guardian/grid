@@ -3,7 +3,8 @@
         "media-service-elasticsearch": {
             "type": "elasticsearch",
             "data": {
-                "bucket": "media-service-dist"
+                "bucket": "media-service-dist",
+                "publicReadAcl": false
             }
         }
     },
