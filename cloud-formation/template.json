@@ -778,10 +778,6 @@
                         "cfn-init -s ", { "Ref" : "AWS::StackId" }, " -r KahunaLaunchConfig ",
                         "  --region ", { "Ref" : "AWS::Region" }, " || error_exit 'Failed to run cfn-init'\n",
 
-                        "wget https://s3-eu-west-1.amazonaws.com/media-service-dist/", { "Ref": "Stage" },
-                        "/media-service-kahuna/start.sh",
-                        " --directory-prefix=/home/media-service\n",
-
                         "mkdir /home/media-service/logs\n",
                         "mkdir /etc/gu\n",
 
