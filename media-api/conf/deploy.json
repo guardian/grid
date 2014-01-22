@@ -5,7 +5,7 @@
             "data": {
                 "port": 9000,
                 "bucket": "media-service-dist",
-                "publicAcl": false
+                "publicReadAcl": false
             }
         }
     },
