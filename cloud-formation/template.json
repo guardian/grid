@@ -1351,10 +1351,10 @@
                         "for hit in json.load(sys.stdin)['hits']: print hit['id']\n",
                         "EOF\n",
 
-                        "MEDIA_API=http://", { "Fn::GetAtt": ["MediaApiLoadBalancer", "DNSName"] } ,"\n",
+                        "MEDIA_API=https://", { "Fn::GetAtt": ["MediaApiLoadBalancer", "DNSName"] } ,"\n",
 
                         "cat > /home/media-service/reaper.sh <<EOF\n",
-                        "curl --silent \"$MEDIA_API/images?until=20.days&length=100&show-secure-url=false\" ",
+                        "curl -k --silent \"$MEDIA_API/images?until=20.days&length=100&show-secure-url=false\" ",
                         " -H 'X-Gu-Media-Key: 9046967b939c2c1d2456c50a9b8fc190' ",
                         " | python /home/media-service/extract_ids.py ",
                         " | xargs -I {} curl --silent -X DELETE \"$MEDIA_API/images/{}\"\n",
