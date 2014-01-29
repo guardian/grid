@@ -14,7 +14,7 @@ object Dependencies {
   val awsDeps = Seq("com.amazonaws" % "aws-java-sdk" % "1.6.12")
 
   val scalazDeps = Seq(
-    "org.scalaz.stream" %% "scalaz-stream" % "0.3"
+    "org.scalaz.stream" %% "scalaz-stream" % "0.3.1"
   )
 
   val imagingDeps = Seq(
