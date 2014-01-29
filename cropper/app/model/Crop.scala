@@ -3,27 +3,32 @@ package model
 import play.api.libs.json._
 import play.api.libs.functional.syntax._
 
-case class Crop(
+case class CropSizing(
   file: String,
-  meta: CropMetadata,
-  secureUrl: String
+  source: Crop,
+  dimensions: Dimensions,
+  secureUrl: Option[String]
 )
 
-case class CropMetadata(source: String, x: Int, y: Int, dimensions: Dimensions)
+object CropSizing {
+  implicit val cropSizingWrites: Writes[CropSizing] = Json.writes[CropSizing]
+}
 
-object CropMetadata {
-  implicit val cropMetadataWrites: Writes[CropMetadata] = Json.writes[CropMetadata]
+case class Crop(source: String, bounds: Bounds)
+
+object Crop {
+  implicit val cropWrites: Writes[Crop] = Json.writes[Crop]
 }
 
 case class Dimensions(width: Int, height: Int)
 
 object Dimensions {
-
   implicit val DimensionsWrites: Writes[Dimensions] =
     ((__ \ "width").write[Int] ~ (__ \ "height").write[Int])(unlift(Dimensions.unapply))
-
 }
 
-object Crop {
-  implicit val cropWrites: Writes[Crop] = Json.writes[Crop]
+case class Bounds(x: Int, y: Int, width: Int, height: Int)
+
+object Bounds {
+  implicit val boundsWrites: Writes[Bounds] = Json.writes[Bounds]
 }
