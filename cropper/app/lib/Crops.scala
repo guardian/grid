@@ -3,9 +3,10 @@ package lib
 import java.io._
 import java.net.URI
 import java.util.concurrent.Executors
+import java.nio.channels.Channels
 import scala.concurrent.{ExecutionContext, Future}
 import org.im4java.core.{ConvertCmd, IMOperation}
-import java.nio.channels.Channels
+import model.Bounds
 
 
 object Crops {
@@ -43,4 +44,3 @@ object Crops {
 
 }
 
-case class Bounds(x: Int, y: Int, width: Int, height: Int)

@@ -14,8 +14,8 @@ import org.joda.time.DateTime
 import com.gu.mediaservice.lib.auth
 import com.gu.mediaservice.lib.auth.KeyStore
 import lib._
-import model.{CropMetadata, Dimensions, Crop}
-import lib.Bounds
+import model._
+
 
 object Application extends Controller {
 
@@ -40,13 +40,15 @@ object Application extends Controller {
             SourceImage(id, file) = apiResp.json.as[SourceImage]
             filename = s"$id/${x}_${y}_${w}_$h.jpg"
             tempFile <- Crops.crop(new URI(file), Bounds(x, y, w, h))
-            meta = CropMetadata(source, x, y, Dimensions(w, h))
-            file <- CropStorage.storeCrop(tempFile, filename, meta) <| (_.onComplete { case _ => tempFile.delete })
+            crop = Crop(source, Bounds(x, y, w, h))
+            file <- CropStorage.storeCropSizing(tempFile, filename, crop) <| (_.onComplete { case _ => tempFile.delete })
           } yield {
             val expiration = DateTime.now.plusMinutes(15)
             val secureUrl = CropStorage.signUrl(Config.cropBucket, filename, expiration)
-            val crop = Crop(file.toExternalForm, meta, secureUrl)
-            val response = Json.toJson(crop)
+
+            val masterSizing = CropSizing(file.toExternalForm, crop, Dimensions(w, h), Some(secureUrl))
+
+            val response = Json.toJson(masterSizing)
             // Notifications.publish(response, "crop")
             Ok(Json.toJson(response))
           }
