@@ -1061,7 +1061,7 @@
 
                         "apt-get -y update\n",
                         "apt-get -y install language-pack-en openjdk-7-jre-headless\n",
-                        "apt-get -y install imagemagick\n",
+                        "apt-get -y install graphicsmagick graphicsmagick-imagemagick-compat\n",
                         "apt-get -y install python-setuptools\n",
                         "wget -P /root https://s3.amazonaws.com/cloudformation-examples/aws-cfn-bootstrap-latest.tar.gz","\n",
                         "mkdir -p /root/aws-cfn-bootstrap-latest","\n",
@@ -1247,7 +1247,7 @@
 
                         "apt-get -y update\n",
                         "apt-get -y install language-pack-en openjdk-7-jre-headless\n",
-                        "apt-get -y install imagemagick\n",
+                        "apt-get -y install graphicsmagick graphicsmagick-imagemagick-compat\n",
                         "apt-get -y install python-setuptools\n",
                         "wget -P /root https://s3.amazonaws.com/cloudformation-examples/aws-cfn-bootstrap-latest.tar.gz","\n",
                         "mkdir -p /root/aws-cfn-bootstrap-latest","\n",
