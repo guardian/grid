@@ -8,9 +8,9 @@
     "bower_components"
   ],
   "dependencies": {
-    "angular": "1.2.0",
-    "requirejs": "2.1.9",
-    "requirejs-text": "2.0.10",
-    "angular-route": "1.2.0"
+    "angular": "1.2.10",
+    "angular-route": "1.2.10",
+    "requirejs": "2.1.10",
+    "requirejs-text": "2.0.10"
   }
 }
