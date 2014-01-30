@@ -6,3 +6,4 @@ data
 .history
 .ensime*
 bower_components
+.tern-port
