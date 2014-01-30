@@ -8,12 +8,12 @@ import _root_.play.api.mvc.{Action, Controller}
 import _root_.play.api.libs.json._
 import _root_.play.api.libs.concurrent.Execution.Implicits._
 import _root_.play.api.libs.ws.WS
+import org.joda.time.DateTime
 import scalaz.syntax.id._
 
-import org.joda.time.DateTime
 import com.gu.mediaservice.lib.auth
 import com.gu.mediaservice.lib.auth.KeyStore
-import lib._
+import lib._, Files._
 import model._
 
 
@@ -39,17 +39,22 @@ object Application extends Controller {
       { case crop @ Crop(source, bounds @ Bounds(x, y, w, h)) =>
         for {
           apiResp <- WS.url(source).withHeaders("X-Gu-Media-Key" -> Config.mediaApiKey).get
-          sourceFile = apiResp.json.as[SourceImage]
+          sourceImg = apiResp.json.as[SourceImage]
+
+          sourceFile = createTempFile("cropSource", "")
+          _ = transferFromURL(new URL(sourceImg.file), sourceFile)
 
           outputWidths = w :: Config.standardImageWidths
+          masterDimensions = Dimensions(w, h)
+          filename = outputFilename(sourceImg, bounds, w)
+          masterFile <- Crops.create(sourceFile, crop, masterDimensions, filename)
+          _ = sourceFile.delete()
 
-          tempFile <- Crops.create(new URI(sourceFile.file), bounds, w)
-          filename = outputFilename(sourceFile, bounds, w)
-          masterUrl <- CropStorage.storeCropSizing(tempFile, filename, crop) <| (_.onComplete { case _ => tempFile.delete })
+          masterUrl <- CropStorage.storeCropSizing(masterFile, filename, crop, masterDimensions)
         } yield {
           val expiration = DateTime.now.plusMinutes(15)
           val secureUrl = CropStorage.signUrl(Config.cropBucket, filename, expiration)
-          val masterSizing = CropSizing(masterUrl.toExternalForm, crop, Dimensions(w, h), Some(secureUrl))
+          val masterSizing = CropSizing(masterUrl.toExternalForm, crop, masterDimensions, Some(secureUrl))
           val response = Json.toJson(masterSizing)
           // Notifications.publish(response, "crop")
           Ok(Json.toJson(response))

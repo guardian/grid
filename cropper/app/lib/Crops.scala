@@ -1,12 +1,12 @@
 package lib
 
 import java.io._
-import java.net.URI
 import java.util.concurrent.Executors
-import java.nio.channels.Channels
 import scala.concurrent.{ExecutionContext, Future}
 import org.im4java.core.{ConvertCmd, IMOperation}
-import model.Bounds
+
+import lib.Files._
+import model.{Dimensions, Crop, Bounds}
 
 
 object Crops {
@@ -18,30 +18,23 @@ object Crops {
     *
     * It is the responsibility of the caller to clean up the file when it is no longer needed.
     */
-  def create(source: URI, bounds: Bounds, outputWidth: Int): Future[File] = Future {
-    val Bounds(x, y, w, h) = bounds
+  def create(sourceFile: File, crop: Crop, dimensions: Dimensions, outputFilename: String): Future[File] = Future {
+    val Bounds(x, y, w, h) = crop.bounds
 
-    val sourceFile = createTempFile("cropSource", "")
     val outputFile = createTempFile("cropOutput", ".jpg")
-
-    val channel = Channels.newChannel(source.toURL.openStream)
-    val output = new FileOutputStream(sourceFile)
-    output.getChannel.transferFrom(channel, 0, java.lang.Long.MAX_VALUE)
 
     val cmd = new ConvertCmd
     val op = new IMOperation
     op.addImage(sourceFile.getAbsolutePath)
     op.crop(w, h, x, y)
     op.addImage(outputFile.getAbsolutePath)
-    if (outputWidth != w) op.resize(outputWidth)
-    cmd.run(op)
-    sourceFile.delete()
-    outputFile
 
+    if (w != dimensions.width || h != dimensions.height) {
+      op.resize(dimensions.width, dimensions.height)
+    }
+
+    cmd.run(op)
+    outputFile
   }
 
-  def createTempFile(prefix: String, suffix: String): File =
-    File.createTempFile(prefix, suffix, Config.tempDir)
-
 }
-
