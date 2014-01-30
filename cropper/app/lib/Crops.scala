@@ -18,7 +18,7 @@ object Crops {
     *
     * It is the responsibility of the caller to clean up the file when it is no longer needed.
     */
-  def crop(source: URI, bounds: Bounds): Future[File] = Future {
+  def create(source: URI, bounds: Bounds): Future[File] = Future {
     val Bounds(x, y, w, h) = bounds
 
     val sourceFile = createTempFile("cropSource", "")

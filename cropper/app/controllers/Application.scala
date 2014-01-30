@@ -26,32 +26,31 @@ object Application extends Controller {
     Ok("This is the Crop Service.\n")
   }
 
-  val boundsForm =
-    Form(tuple("source" -> nonEmptyText, "x" -> number, "y" -> number, "w" -> number, "h" -> number))
+  val cropSourceForm: Form[Crop] = Form(
+    tuple("source" -> nonEmptyText, "x" -> number, "y" -> number, "w" -> number, "h" -> number)
+      .transform[Crop]({ case (source, x, y, w, h) => Crop(source, Bounds(x, y, w, h)) },
+                       { case Crop(source, Bounds(x, y, w, h)) => (source, x, y, w, h) })
+  )
 
   def crop = Authenticated.async { req =>
 
-    boundsForm.bindFromRequest()(req).fold(
+    cropSourceForm.bindFromRequest()(req).fold(
       errors => Future.successful(BadRequest(errors.errorsAsJson)),
-      {
-        case (source, x, y, w, h) =>
-          for {
-            apiResp <- WS.url(source).withHeaders("X-Gu-Media-Key" -> Config.mediaApiKey).get
-            SourceImage(id, file) = apiResp.json.as[SourceImage]
-            filename = s"$id/${x}_${y}_${w}_$h.jpg"
-            tempFile <- Crops.crop(new URI(file), Bounds(x, y, w, h))
-            crop = Crop(source, Bounds(x, y, w, h))
-            file <- CropStorage.storeCropSizing(tempFile, filename, crop) <| (_.onComplete { case _ => tempFile.delete })
-          } yield {
-            val expiration = DateTime.now.plusMinutes(15)
-            val secureUrl = CropStorage.signUrl(Config.cropBucket, filename, expiration)
-
-            val masterSizing = CropSizing(file.toExternalForm, crop, Dimensions(w, h), Some(secureUrl))
-
-            val response = Json.toJson(masterSizing)
-            // Notifications.publish(response, "crop")
-            Ok(Json.toJson(response))
-          }
+      { case crop @ Crop(source, bounds @ Bounds(x, y, w, h)) =>
+        for {
+          apiResp <- WS.url(source).withHeaders("X-Gu-Media-Key" -> Config.mediaApiKey).get
+          SourceImage(id, file) = apiResp.json.as[SourceImage]
+          tempFile <- Crops.create(new URI(file), bounds)
+          filename = s"$id/${x}_${y}_${w}_$h.jpg"
+          masterFile <- CropStorage.storeCropSizing(tempFile, filename, crop) <| (_.onComplete { case _ => tempFile.delete })
+        } yield {
+          val expiration = DateTime.now.plusMinutes(15)
+          val secureUrl = CropStorage.signUrl(Config.cropBucket, filename, expiration)
+          val masterSizing = CropSizing(masterFile.toExternalForm, crop, Dimensions(w, h), Some(secureUrl))
+          val response = Json.toJson(masterSizing)
+          // Notifications.publish(response, "crop")
+          Ok(Json.toJson(response))
+        }
       }
     )
 
