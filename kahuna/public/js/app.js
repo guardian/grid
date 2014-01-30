@@ -71,15 +71,13 @@ require([
                 },
                 withCredentials: true
             }).then(function(response) {
-                return response.data.data.map(function(e) {
-                    return e.data;
-                });
+                return response.data.data;
             });
         }
 
         function find(id) {
             return $http.get(mediaApiUri + '/images/' + id, { withCredentials: true }).then(function(response) {
-                return response.data.data;
+                return response.data;
             });
         }
 
@@ -131,6 +129,34 @@ require([
         });
 
     }]);
+
+    // Take an image and return a drag data map of mime-type -> value
+    kahuna.filter('asDragData', function() {
+        return function(image) {
+            var url = image.uri;
+            return {
+                'text/plain':    url,
+                'text/uri-list': url
+            };
+        };
+    });
+
+    kahuna.directive('uiDragData', function() {
+        return {
+            restrict: 'A',
+            link: function(scope, element, attrs) {
+                element.bind('dragstart', function(e) {
+                    // No obvious way to receive an object through an
+                    // attribute without making this directive an
+                    // isolate scope...
+                    var dataMap = JSON.parse(attrs.uiDragData);
+                    Object.keys(dataMap).forEach(function(mimeType) {
+                        e.dataTransfer.setData(mimeType, dataMap[mimeType]);
+                    });
+                });
+            }
+        };
+    });
 
     angular.bootstrap(document, ['kahuna']);
 });
