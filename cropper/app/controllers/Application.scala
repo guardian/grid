@@ -39,14 +39,17 @@ object Application extends Controller {
       { case crop @ Crop(source, bounds @ Bounds(x, y, w, h)) =>
         for {
           apiResp <- WS.url(source).withHeaders("X-Gu-Media-Key" -> Config.mediaApiKey).get
-          SourceImage(id, file) = apiResp.json.as[SourceImage]
-          tempFile <- Crops.create(new URI(file), bounds)
-          filename = s"$id/${x}_${y}_${w}_$h.jpg"
-          masterFile <- CropStorage.storeCropSizing(tempFile, filename, crop) <| (_.onComplete { case _ => tempFile.delete })
+          sourceFile = apiResp.json.as[SourceImage]
+
+          outputWidths = w :: Config.standardImageWidths
+
+          tempFile <- Crops.create(new URI(sourceFile.file), bounds, w)
+          filename = outputFilename(sourceFile, bounds, w)
+          masterUrl <- CropStorage.storeCropSizing(tempFile, filename, crop) <| (_.onComplete { case _ => tempFile.delete })
         } yield {
           val expiration = DateTime.now.plusMinutes(15)
           val secureUrl = CropStorage.signUrl(Config.cropBucket, filename, expiration)
-          val masterSizing = CropSizing(masterFile.toExternalForm, crop, Dimensions(w, h), Some(secureUrl))
+          val masterSizing = CropSizing(masterUrl.toExternalForm, crop, Dimensions(w, h), Some(secureUrl))
           val response = Json.toJson(masterSizing)
           // Notifications.publish(response, "crop")
           Ok(Json.toJson(response))
@@ -55,6 +58,9 @@ object Application extends Controller {
     )
 
   }
+
+  def outputFilename(source: SourceImage, bounds: Bounds, outputWidth: Int): String =
+    s"${source.id}/${bounds.x}_${bounds.y}_${bounds.width}_${bounds.height}/$outputWidth.jpg"
 
 }
 
