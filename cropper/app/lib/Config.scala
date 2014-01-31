@@ -21,5 +21,7 @@ object Config {
 
   val tempDir: File = new File(properties.getOrElse("crop.output.tmp.dir", "/tmp"))
 
-  val imagickThreadPoolSize = 4
+  val imagingThreadPoolSize = 4
+
+  val standardImageWidths = List(2000, 1000, 500)
 }

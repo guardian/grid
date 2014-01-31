@@ -8,9 +8,9 @@ import com.drew.metadata.jpeg.JpegDirectory
 import model.Dimensions
 
 
-object ImageMetadata {
+object IptcMetadata {
 
-  def iptc(image: File): Option[IptcMetadata] =
+  def fromFile(image: File): Option[IptcMetadata] =
     for {
       iptcDir <- Option(readMetadata(image).getDirectory(classOf[IptcDirectory]))
       descriptor = new IptcDescriptor(iptcDir)
