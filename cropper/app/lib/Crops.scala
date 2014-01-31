@@ -1,46 +1,25 @@
 package lib
 
 import java.io._
-import java.net.URI
-import java.util.concurrent.Executors
-import scala.concurrent.{ExecutionContext, Future}
-import org.im4java.core.{ConvertCmd, IMOperation}
-import java.nio.channels.Channels
+import scala.concurrent.Future
+
+import _root_.play.api.libs.concurrent.Execution.Implicits._
+import lib.Files._
+import model.{Dimensions, CropSource}
+import lib.imaging.Conversion
 
 
 object Crops {
-
-  private implicit val ctx: ExecutionContext =
-    ExecutionContext.fromExecutor(Executors.newFixedThreadPool(Config.imagickThreadPoolSize))
 
   /** Crops the source image and saves the output to a JPEG file on disk.
     *
     * It is the responsibility of the caller to clean up the file when it is no longer needed.
     */
-  def crop(source: URI, bounds: Bounds): Future[File] = Future {
-    val Bounds(x, y, w, h) = bounds
-
-    val sourceFile = createTempFile("cropSource", "")
-    val outputFile = createTempFile("cropOutput", ".jpg")
-
-    val channel = Channels.newChannel(source.toURL.openStream)
-    val output = new FileOutputStream(sourceFile)
-    output.getChannel.transferFrom(channel, 0, java.lang.Long.MAX_VALUE)
-
-    val cmd = new ConvertCmd
-    val op = new IMOperation
-    op.addImage(sourceFile.getAbsolutePath)
-    op.crop(w, h, x, y)
-    op.addImage(outputFile.getAbsolutePath)
-    cmd.run(op)
-    sourceFile.delete()
-    outputFile
-
-  }
-
-  def createTempFile(prefix: String, suffix: String): File =
-    File.createTempFile(prefix, suffix, Config.tempDir)
+  def create(sourceFile: File, source: CropSource, dimensions: Dimensions): Future[File] =
+    for {
+      outputFile <- createTempFile("cropOutput", ".jpg")
+      _ <- Conversion.cropResize(sourceFile, outputFile, source.bounds, dimensions)
+    }
+    yield outputFile
 
 }
-
-case class Bounds(x: Int, y: Int, width: Int, height: Int)
