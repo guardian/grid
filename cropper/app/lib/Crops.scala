@@ -15,11 +15,13 @@ object Crops {
     *
     * It is the responsibility of the caller to clean up the file when it is no longer needed.
     */
-  def create(sourceFile: File, crop: Crop, dimensions: Dimensions, outputFilename: String): Future[File] =
+  def create(sourceFile: File, crop: Crop, dimensions: Dimensions, outputFilename: String): Future[CropOutput] =
     for {
       outputFile <- createTempFile("cropOutput", ".jpg")
       _ <- Conversion.resize(sourceFile, outputFile, crop.bounds, dimensions)
     }
-    yield outputFile
+    yield CropOutput(outputFile, outputFilename, dimensions)
 
 }
+
+case class CropOutput(file: File, filename: String, dimensions: Dimensions)
