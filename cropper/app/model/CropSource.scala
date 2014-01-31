@@ -5,7 +5,6 @@ import play.api.libs.functional.syntax._
 
 case class CropSizing(
   file: String,
-  source: Crop,
   dimensions: Dimensions,
   secureUrl: Option[String]
 )
@@ -14,10 +13,10 @@ object CropSizing {
   implicit val cropSizingWrites: Writes[CropSizing] = Json.writes[CropSizing]
 }
 
-case class Crop(source: String, bounds: Bounds)
+case class CropSource(uri: String, bounds: Bounds)
 
-object Crop {
-  implicit val cropWrites: Writes[Crop] = Json.writes[Crop]
+object CropSource {
+  implicit val cropWrites: Writes[CropSource] = Json.writes[CropSource]
 }
 
 case class Dimensions(width: Int, height: Int)
