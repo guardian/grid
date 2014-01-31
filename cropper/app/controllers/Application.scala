@@ -25,46 +25,46 @@ object Application extends Controller {
     Ok("This is the Crop Service.\n")
   }
 
-  val cropSourceForm: Form[Crop] = Form(
+  val cropSourceForm: Form[CropSource] = Form(
     tuple("source" -> nonEmptyText, "x" -> number, "y" -> number, "w" -> number, "h" -> number)
-      .transform[Crop]({ case (source, x, y, w, h) => Crop(source, Bounds(x, y, w, h)) },
-                       { case Crop(source, Bounds(x, y, w, h)) => (source, x, y, w, h) })
+      .transform[CropSource]({ case (source, x, y, w, h) => CropSource(source, Bounds(x, y, w, h)) },
+                       { case CropSource(source, Bounds(x, y, w, h)) => (source, x, y, w, h) })
   )
 
   def crop = Authenticated.async { req =>
     cropSourceForm.bindFromRequest()(req).fold(
       errors => Future.successful(BadRequest(errors.errorsAsJson)),
-      crop   => createSizings(crop).map(sizings => Ok(cropResponse(sizings)))
+      crop   => createSizings(crop).map(sizings => Ok(cropResponse(crop, sizings)))
     )
   }
 
-  def createSizings(crop: Crop): Future[List[CropSizing]] =
+  def createSizings(source: CropSource): Future[List[CropSizing]] =
     for {
-      apiResp    <- WS.url(crop.source).withHeaders("X-Gu-Media-Key" -> Config.mediaApiKey).get
+      apiResp    <- WS.url(source.uri).withHeaders("X-Gu-Media-Key" -> Config.mediaApiKey).get
       sourceImg   = apiResp.json.as[SourceImage]
       sourceFile <- tempFileFromURL(new URL(sourceImg.file), "cropSource", "")
-      Bounds(_, _, masterW, masterH) = crop.bounds
+      Bounds(_, _, masterW, masterH) = source.bounds
       aspect     = masterW / masterH
       expiration = DateTime.now.plusMinutes(15)
       outputDims = Dimensions(masterW, masterH) :: Config.standardImageWidths.map(w => Dimensions(w, aspect * w))
       sizings   <- Future.traverse(outputDims) { dim =>
-        val filename = outputFilename(sourceImg, crop.bounds, dim.width)
+        val filename = outputFilename(sourceImg, source.bounds, dim.width)
         for {
-          file <- Crops.create(sourceFile, crop, dim)
-          url  <- CropStorage.storeCropSizing(file, filename, crop, dim)
+          file <- Crops.create(sourceFile, source, dim)
+          url  <- CropStorage.storeCropSizing(file, filename, source, dim)
           _    <- delete(file)
         }
         yield {
           val secureUrl = CropStorage.signUrl(Config.cropBucket, filename, expiration)
-          CropSizing(url.toExternalForm, crop, dim, Some(secureUrl))
+          CropSizing(url.toExternalForm, dim, Some(secureUrl))
         }
       }
       _ <- delete(sourceFile)
     }
     yield sizings
 
-  def cropResponse(sizings: List[CropSizing]): JsValue =
-    Json.obj("sizings" -> sizings)
+  def cropResponse(source: CropSource, sizings: List[CropSizing]): JsValue =
+    Json.obj("source" -> source, "sizings" -> sizings)
 
   def outputFilename(source: SourceImage, bounds: Bounds, outputWidth: Int): String =
     s"${source.id}/${bounds.x}_${bounds.y}_${bounds.width}_${bounds.height}/$outputWidth.jpg"
