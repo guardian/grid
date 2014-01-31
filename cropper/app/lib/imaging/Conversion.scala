@@ -18,8 +18,8 @@ object Conversion {
     val op = new IMOperation
     op.addImage(source.getAbsolutePath)
       op.crop(w, h, x, y)
-      op.addImage(dest.getAbsolutePath)
       op.resize(dimensions.width, dimensions.height)
+      op.addImage(dest.getAbsolutePath)
     for {
       _ <- runOp(cmd, op)
     }
