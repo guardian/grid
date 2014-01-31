@@ -6,7 +6,7 @@ import play.api.libs.concurrent.Execution.Implicits._
 import play.api.libs.json.Json
 import play.api.Logger
 
-import lib.imaging.{Thumbnailer, ImageMetadata}
+import lib.imaging.{Thumbnailer, IptcMetadata}
 import lib.play.BodyParsers.digestedFile
 import lib.play.MD5DigestedFile
 import lib.storage.{StorageBackend, S3Storage}
@@ -26,8 +26,8 @@ class ImageLoader(storage: StorageBackend) extends Controller {
     val MD5DigestedFile(tempFile, id) = request.body
     Logger.info(s"Received file, id: $id")
 
-    val meta = ImageMetadata.iptc(tempFile)
-    val dimensions = ImageMetadata.dimensions(tempFile)
+    val meta = IptcMetadata.fromFile(tempFile)
+    val dimensions = IptcMetadata.dimensions(tempFile)
 
     // These futures are started outside the for-comprehension, otherwise they will not run in parallel
     // (the consequence of using a monad when an applicative will do)
@@ -39,7 +39,7 @@ class ImageLoader(storage: StorageBackend) extends Controller {
       thumb    <- thumbFile
       thumbUri <- storage.storeThumbnail(id, thumb)
     } yield {
-      val thumbDimensions = ImageMetadata.dimensions(thumb)
+      val thumbDimensions = IptcMetadata.dimensions(thumb)
       val image = Image.uploadedNow(id, uri, Thumbnail(thumbUri, thumbDimensions), meta, dimensions)
       // TODO notifications and file deletion should probably be done asynchronously too
       Notifications.publish(Json.toJson(image), "image")
