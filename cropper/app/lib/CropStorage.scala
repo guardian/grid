@@ -10,7 +10,7 @@ import model.{Dimensions, Bounds, CropSource}
 object CropStorage extends S3(Config.awsCredentials) {
 
   private implicit val ctx: ExecutionContext =
-    ExecutionContext.fromExecutor(Executors.newFixedThreadPool(8))
+    ExecutionContext.fromExecutor(Executors.newCachedThreadPool)
 
   def storeCropSizing(file: File, filename: String, source: CropSource, dimensions: Dimensions): Future[URL] = {
     val CropSource(sourceUri, Bounds(x, y, w, h)) = source
