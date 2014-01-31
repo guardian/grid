@@ -1,6 +1,6 @@
 package controllers
 
-import java.net.{URL, URI}
+import java.net.URL
 import scala.concurrent.Future
 
 import _root_.play.api.data._, Forms._
@@ -9,7 +9,6 @@ import _root_.play.api.libs.json._
 import _root_.play.api.libs.concurrent.Execution.Implicits._
 import _root_.play.api.libs.ws.WS
 import org.joda.time.DateTime
-import scalaz.syntax.id._
 
 import com.gu.mediaservice.lib.auth
 import com.gu.mediaservice.lib.auth.KeyStore
@@ -33,42 +32,36 @@ object Application extends Controller {
   )
 
   def crop = Authenticated.async { req =>
-
     cropSourceForm.bindFromRequest()(req).fold(
       errors => Future.successful(BadRequest(errors.errorsAsJson)),
-      { case crop @ Crop(source, bounds @ Bounds(x, y, w, h)) =>
+      crop   => createSizings(crop).map(sizings => Ok(cropResponse(sizings)))
+    )
+  }
+
+  def createSizings(crop: Crop): Future[List[CropSizing]] =
+    for {
+      apiResp    <- WS.url(crop.source).withHeaders("X-Gu-Media-Key" -> Config.mediaApiKey).get
+      sourceImg   = apiResp.json.as[SourceImage]
+      sourceFile <- tempFileFromURL(new URL(sourceImg.file), "cropSource", "")
+      Bounds(_, _, masterW, masterH) = crop.bounds
+      aspect     = masterW / masterH
+      expiration = DateTime.now.plusMinutes(15)
+      outputDims = Dimensions(masterW, masterH) :: Config.standardImageWidths.map(w => Dimensions(w, aspect * w))
+      sizings   <- Future.traverse(outputDims) { dim =>
+        val filename = outputFilename(sourceImg, crop.bounds, dim.width)
         for {
-          apiResp <- WS.url(source).withHeaders("X-Gu-Media-Key" -> Config.mediaApiKey).get
-          sourceImg = apiResp.json.as[SourceImage]
-          sourceFile <- tempFileFromURL(new URL(sourceImg.file), "cropSource", "")
-
-          aspect = w / h
-          outputDimensions = Dimensions(w, h) :: Config.standardImageWidths.map(w => Dimensions(w, aspect * w))
-          outputFiles <- Future.traverse(outputDimensions) { dim =>
-                           val filename = outputFilename(sourceImg, bounds, dim.width)
-                           Crops.create(sourceFile, crop, dim, filename)
-                         }
-
-          _ <- delete(sourceFile)
-
-          outputUrls <- Future.traverse(outputFiles) { case CropOutput(file, filename, dim) =>
-            CropStorage.storeCropSizing(file, filename, crop, dim)
-          }
-
-          _ <- Future.traverse(outputFiles)(o => delete(o.file))
-        } yield {
-          val expiration = DateTime.now.plusMinutes(15)
-
-          val sizings = outputFiles.zip(outputUrls) map { case (CropOutput(file, filename, dim), url) =>
-            val secureUrl = CropStorage.signUrl(Config.cropBucket, filename, expiration)
-            CropSizing(url.toExternalForm, crop, dim, Some(secureUrl))
-          }
-          Ok(cropResponse(sizings))
+          file <- Crops.create(sourceFile, crop, dim)
+          url  <- CropStorage.storeCropSizing(file, filename, crop, dim)
+          _    <- delete(file)
+        }
+        yield {
+          val secureUrl = CropStorage.signUrl(Config.cropBucket, filename, expiration)
+          CropSizing(url.toExternalForm, crop, dim, Some(secureUrl))
         }
       }
-    )
-
-  }
+      _ <- delete(sourceFile)
+    }
+    yield sizings
 
   def cropResponse(sizings: List[CropSizing]): JsValue =
     Json.obj("sizings" -> sizings)
