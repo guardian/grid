@@ -9,7 +9,7 @@ import model.{Dimensions, Bounds, Crop}
 
 object CropStorage extends S3(Config.awsCredentials) {
 
-  protected final implicit val ctx: ExecutionContext =
+  private implicit val ctx: ExecutionContext =
     ExecutionContext.fromExecutor(Executors.newFixedThreadPool(8))
 
   def storeCropSizing(file: File, filename: String, crop: Crop, dimensions: Dimensions): Future[URL] = {

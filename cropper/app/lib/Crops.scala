@@ -1,40 +1,25 @@
 package lib
 
 import java.io._
-import java.util.concurrent.Executors
-import scala.concurrent.{ExecutionContext, Future}
-import org.im4java.core.{ConvertCmd, IMOperation}
+import scala.concurrent.Future
 
+import _root_.play.api.libs.concurrent.Execution.Implicits._
 import lib.Files._
-import model.{Dimensions, Crop, Bounds}
+import model.{Dimensions, Crop}
+import lib.imaging.Conversion
 
 
 object Crops {
-
-  private implicit val ctx: ExecutionContext =
-    ExecutionContext.fromExecutor(Executors.newFixedThreadPool(Config.imagickThreadPoolSize))
 
   /** Crops the source image and saves the output to a JPEG file on disk.
     *
     * It is the responsibility of the caller to clean up the file when it is no longer needed.
     */
-  def create(sourceFile: File, crop: Crop, dimensions: Dimensions, outputFilename: String): Future[File] = Future {
-    val Bounds(x, y, w, h) = crop.bounds
-
-    val outputFile = createTempFile("cropOutput", ".jpg")
-
-    val cmd = new ConvertCmd
-    val op = new IMOperation
-    op.addImage(sourceFile.getAbsolutePath)
-    op.crop(w, h, x, y)
-    op.addImage(outputFile.getAbsolutePath)
-
-    if (w != dimensions.width || h != dimensions.height) {
-      op.resize(dimensions.width, dimensions.height)
+  def create(sourceFile: File, crop: Crop, dimensions: Dimensions, outputFilename: String): Future[File] =
+    for {
+      outputFile <- createTempFile("cropOutput", ".jpg")
+      _ <- Conversion.resize(sourceFile, outputFile, crop.bounds, dimensions)
     }
-
-    cmd.run(op)
-    outputFile
-  }
+    yield outputFile
 
 }
