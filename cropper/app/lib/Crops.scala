@@ -18,7 +18,7 @@ object Crops {
   def create(sourceFile: File, source: CropSource, dimensions: Dimensions): Future[File] =
     for {
       outputFile <- createTempFile("cropOutput", ".jpg")
-      _ <- Conversion.resize(sourceFile, outputFile, source.bounds, dimensions)
+      _ <- Conversion.cropResize(sourceFile, outputFile, source.bounds, dimensions)
     }
     yield outputFile
 

@@ -12,7 +12,7 @@ object Conversion {
   private implicit val ctx: ExecutionContext =
     ExecutionContext.fromExecutor(Executors.newFixedThreadPool(Config.imagingThreadPoolSize))
   
-  def resize(source: File, dest: File, bounds: Bounds, dimensions: Dimensions): Future[Unit] = {
+  def cropResize(source: File, dest: File, bounds: Bounds, dimensions: Dimensions): Future[Unit] = {
     val Bounds(x, y, w, h) = bounds
     val cmd = new ConvertCmd
     val op = new IMOperation
