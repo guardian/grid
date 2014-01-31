@@ -40,16 +40,14 @@ object Application extends Controller {
         for {
           apiResp <- WS.url(source).withHeaders("X-Gu-Media-Key" -> Config.mediaApiKey).get
           sourceImg = apiResp.json.as[SourceImage]
-
-          sourceFile = createTempFile("cropSource", "")
-          _ = transferFromURL(new URL(sourceImg.file), sourceFile)
+          sourceFile <- tempFileFromURL(new URL(sourceImg.file), "cropSource", "")
 
           outputWidths = w :: Config.standardImageWidths
           masterDimensions = Dimensions(w, h)
           filename = outputFilename(sourceImg, bounds, w)
-          masterFile <- Crops.create(sourceFile, crop, masterDimensions, filename)
-          _ = sourceFile.delete()
 
+          masterFile <- Crops.create(sourceFile, crop, masterDimensions, filename)
+          _ <- delete(sourceFile)
           masterUrl <- CropStorage.storeCropSizing(masterFile, filename, crop, masterDimensions)
         } yield {
           val expiration = DateTime.now.plusMinutes(15)
