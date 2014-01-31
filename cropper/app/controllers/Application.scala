@@ -42,25 +42,36 @@ object Application extends Controller {
           sourceImg = apiResp.json.as[SourceImage]
           sourceFile <- tempFileFromURL(new URL(sourceImg.file), "cropSource", "")
 
-          outputWidths = w :: Config.standardImageWidths
-          masterDimensions = Dimensions(w, h)
-          filename = outputFilename(sourceImg, bounds, w)
+          aspect = w / h
+          outputDimensions = Dimensions(w, h) :: Config.standardImageWidths.map(w => Dimensions(w, aspect * w))
+          outputFiles <- Future.traverse(outputDimensions) { dim =>
+                           val filename = outputFilename(sourceImg, bounds, dim.width)
+                           Crops.create(sourceFile, crop, dim, filename)
+                         }
 
-          masterFile <- Crops.create(sourceFile, crop, masterDimensions, filename)
           _ <- delete(sourceFile)
-          masterUrl <- CropStorage.storeCropSizing(masterFile, filename, crop, masterDimensions)
+
+          outputUrls <- Future.traverse(outputFiles) { case CropOutput(file, filename, dim) =>
+            CropStorage.storeCropSizing(file, filename, crop, dim)
+          }
+
+          _ <- Future.traverse(outputFiles)(o => delete(o.file))
         } yield {
           val expiration = DateTime.now.plusMinutes(15)
-          val secureUrl = CropStorage.signUrl(Config.cropBucket, filename, expiration)
-          val masterSizing = CropSizing(masterUrl.toExternalForm, crop, masterDimensions, Some(secureUrl))
-          val response = Json.toJson(masterSizing)
-          // Notifications.publish(response, "crop")
-          Ok(Json.toJson(response))
+
+          val sizings = outputFiles.zip(outputUrls) map { case (CropOutput(file, filename, dim), url) =>
+            val secureUrl = CropStorage.signUrl(Config.cropBucket, filename, expiration)
+            CropSizing(url.toExternalForm, crop, dim, Some(secureUrl))
+          }
+          Ok(cropResponse(sizings))
         }
       }
     )
 
   }
+
+  def cropResponse(sizings: List[CropSizing]): JsValue =
+    Json.obj("sizings" -> sizings)
 
   def outputFilename(source: SourceImage, bounds: Bounds, outputWidth: Int): String =
     s"${source.id}/${bounds.x}_${bounds.y}_${bounds.width}_${bounds.height}/$outputWidth.jpg"
