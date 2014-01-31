@@ -44,10 +44,10 @@ object Application extends Controller {
       sourceImg   = apiResp.json.as[SourceImage]
       sourceFile <- tempFileFromURL(new URL(sourceImg.file), "cropSource", "")
       Bounds(_, _, masterW, masterH) = source.bounds
-      aspect     = masterW / masterH
+      aspect     = masterW.toFloat / masterH
       expiration = DateTime.now.plusMinutes(15)
       outputDims = Dimensions(masterW, masterH) ::
-                     Config.standardImageWidths.filter(_ < masterW).map(w => Dimensions(w, aspect * w))
+                     Config.standardImageWidths.filter(_ < masterW).map(w => Dimensions(w, math.round(aspect * w)))
       sizings   <- Future.traverse(outputDims) { dim =>
         val filename = outputFilename(sourceImg, source.bounds, dim.width)
         for {

@@ -23,5 +23,5 @@ object Config {
 
   val imagingThreadPoolSize = 4
 
-  val standardImageWidths = List(460)
+  val standardImageWidths = List(2000, 1000, 500)
 }
