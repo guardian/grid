@@ -29,6 +29,7 @@ class FTPWatcher(config: Config) {
       .flatMap(sleepIfEmpty(1.second))
       .pipe(unchunk)
       .flatMap(retrieveFile(client, _))
+      .repeat
   }
 
   def initClient(client: Client): Task[Unit] =
