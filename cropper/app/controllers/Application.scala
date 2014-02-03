@@ -26,7 +26,7 @@ object Application extends Controller {
   }
 
   val cropSourceForm: Form[CropSource] = Form(
-    tuple("source" -> nonEmptyText, "x" -> number, "y" -> number, "w" -> number, "h" -> number)
+    tuple("source" -> nonEmptyText, "x" -> number, "y" -> number, "width" -> number, "height" -> number)
       .transform[CropSource]({ case (source, x, y, w, h) => CropSource(source, Bounds(x, y, w, h)) },
                        { case CropSource(source, Bounds(x, y, w, h)) => (source, x, y, w, h) })
   )
