@@ -1,7 +1,7 @@
 package lib.storage
 
 import java.io.File
-import java.net.URI
+import java.net.URL
 import scala.concurrent.{ExecutionContext, Future}
 import java.util.concurrent.Executors
 
@@ -17,8 +17,8 @@ trait StorageBackend {
   /** Store a copy of the given file and return the URI of that copy.
     * The file can safely be deleted afterwards.
     */
-  def storeImage(id: String, file: File): Future[URI]
+  def storeImage(id: String, file: File, meta: Map[String, String] = Map.empty): Future[URL]
 
-  def storeThumbnail(id: String, file: File): Future[URI]
+  def storeThumbnail(id: String, file: File): Future[URL]
 
 }
