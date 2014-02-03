@@ -53,15 +53,12 @@ object FTPWatchers {
   private implicit val ctx: ExecutionContext =
     ExecutionContext.fromExecutor(Executors.newSingleThreadExecutor)
 
-  val watchers =
-    for (path <- Config.ftpPaths)
-    yield FTPWatcher(Config.ftpHost, Config.ftpUser, Config.ftpPassword, path)
-
-  def watcherTask(batchSize: Int): Task[Unit] = {
-    val stream = watchers.map(_.watchDir(batchSize)).reduceLeft(_ merge _)
-    val sink = Sinks.httpPost(Config.imageLoaderUri)
-    stream.to(sink).run
-  }
+  def watcherTask(batchSize: Int): Task[Unit] =
+    Config.ftpPaths.map { path =>
+      val process = FTPWatcher(Config.ftpHost, Config.ftpUser, Config.ftpPassword, path).watchDir(batchSize)
+      val sink = Sinks.httpPost(Config.imageLoaderUri + "?uploadedBy=" + path)
+      process.to(sink)
+    }.reduceLeft(_ merge _).run
 
   def waitForActive(sleep: Long): Task[Unit] =
     Task(Config.isActive).ifM(Task.now(()), Task(Thread.sleep(sleep)) >> waitForActive(sleep))
@@ -85,7 +82,7 @@ object FTPWatchers {
 
   private def _future: Future[Unit] =
     retryFuture("FTP watcher", 10000) {
-      val task = waitForActive(sleep = 250) >> watcherTask(batchSize = 3)
+      val task = waitForActive(sleep = 250) >> watcherTask(batchSize = 10)
       val promise = Promise[Unit]()
       task.runAsyncInterruptibly(_.fold(promise.failure, promise.success), cancel)
       promise.future.flatMap(_ => _future) // promise.future >> _future

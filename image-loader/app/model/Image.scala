@@ -1,6 +1,6 @@
 package model
 
-import java.net.URI
+import java.net.{URL, URI}
 import play.api.libs.json._
 import play.api.libs.functional.syntax._
 import org.joda.time.DateTime
@@ -12,6 +12,7 @@ import lib.imaging.IptcMetadata
 case class Image(id: String,
                  file: URI,
                  uploadTime: DateTime,
+                 uploadedBy: Option[String],
                  thumbnail: Option[Thumbnail],
                  metadata: Option[IptcMetadata],
                  dimensions: Option[Dimensions]) {
@@ -23,8 +24,9 @@ case class Image(id: String,
 
 object Image {
 
-  def uploadedNow(id: String, file: URI, thumbnail: Thumbnail, metadata: Option[IptcMetadata], dimensions: Option[Dimensions]): Image =
-    Image(id, file, DateTime.now, Some(thumbnail), metadata, dimensions)
+  def uploadedNow(id: String, file: URI, uploadedBy: Option[String], thumbnail: Thumbnail,
+                  metadata: Option[IptcMetadata], dimensions: Option[Dimensions]): Image =
+    Image(id, file, DateTime.now, uploadedBy, Some(thumbnail), metadata, dimensions)
 
   implicit val IptcMetadataWrites: Writes[IptcMetadata] =
     ((__ \ "description").writeNullable[String] ~
@@ -43,6 +45,7 @@ object Image {
     (__ \ "id").write[String] ~
       (__ \ "file").write[URI] ~
       (__ \ "uploadTime").write[String].contramap(printDateTime) ~
+      (__ \ "uploadedBy").writeNullable[String] ~
       (__ \ "thumbnail").writeNullable[Thumbnail] ~
       (__ \ "metadata").writeNullable[IptcMetadata] ~
       (__ \ "dimensions").writeNullable[Dimensions]
