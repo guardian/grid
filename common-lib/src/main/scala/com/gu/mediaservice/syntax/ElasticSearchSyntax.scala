@@ -23,7 +23,7 @@ trait ElasticSearchSyntax {
   }
 
   final implicit class ActionRequestBuilderSyntax[A <: ActionResponse]
-      (self: ActionRequestBuilder[_ <: ActionRequest[_ <: AnyRef], A, _]) {
+      (self: ActionRequestBuilder[_ <: ActionRequest[_], A, _]) {
 
     def executeAndLog(message: => String)(implicit ex: ExecutionContext): Future[A] = {
       val elapsed = {
