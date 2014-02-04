@@ -26,21 +26,22 @@ class ImageLoader(storage: StorageBackend) extends Controller {
     val MD5DigestedFile(tempFile, id) = request.body
     Logger.info(s"Received file, id: $id")
 
+    val uploadedBy = request.getQueryString("uploadedBy")
     val meta = IptcMetadata.fromFile(tempFile)
     val dimensions = IptcMetadata.dimensions(tempFile)
 
     // These futures are started outside the for-comprehension, otherwise they will not run in parallel
-    // (the consequence of using a monad when an applicative will do)
-    val storedImage = storage.storeImage(id, tempFile)
+    val storedImage = storage.storeImage(id, tempFile, uploadedBy.map(s => ("uploaded_by", s)).toMap)
     val thumbFile = Thumbnailer.createThumbnail(Config.thumbWidth, tempFile.toString)
 
     for {
-      uri      <- storedImage
+      url      <- storedImage
       thumb    <- thumbFile
-      thumbUri <- storage.storeThumbnail(id, thumb)
+      thumbUrl <- storage.storeThumbnail(id, thumb)
     } yield {
       val thumbDimensions = IptcMetadata.dimensions(thumb)
-      val image = Image.uploadedNow(id, uri, Thumbnail(thumbUri, thumbDimensions), meta, dimensions)
+      val image = Image.uploadedNow(id, url.toURI, uploadedBy, Thumbnail(thumbUrl.toURI, thumbDimensions), meta,
+                                    dimensions)
       // TODO notifications and file deletion should probably be done asynchronously too
       Notifications.publish(Json.toJson(image), "image")
       tempFile.delete()
