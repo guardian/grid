@@ -4,6 +4,7 @@ import java.nio.file.{Path, Files}
 import java.io.InputStream
 import scala.concurrent.duration._
 
+import _root_.play.api.libs.json.Json
 import org.apache.commons.net.ftp.FTPFile
 
 import scalaz.syntax.bind._
@@ -15,6 +16,7 @@ import com.gu.mediaservice.lib.Processes
 import FTPWatcher._
 import Processes._
 import org.slf4j.LoggerFactory
+import org.apache.commons.io.IOUtils
 
 
 class FTPWatcher(config: Config) {
@@ -76,9 +78,12 @@ object Sinks {
         val postReq = new HttpPost(uri)
         val entity = new InputStreamEntity(in, length, ContentType.DEFAULT_BINARY)
         postReq.setEntity(entity)
-        client.execute(postReq).close()
+        val response = client.execute(postReq)
+        val json = Json.parse(IOUtils.toByteArray(response.getEntity.getContent))
+        response.close()
         client.close()
-        logger.info(s"Uploaded $name to $uri")
+        val id = (json \ "id").as[String]
+        logger.info(s"Uploaded $name to $uri id=$id")
       }
     }
 
