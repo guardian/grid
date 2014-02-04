@@ -14,6 +14,7 @@ import scalaz.stream.Process.Sink
 import com.gu.mediaservice.lib.Processes
 import FTPWatcher._
 import Processes._
+import org.slf4j.LoggerFactory
 
 
 class FTPWatcher(config: Config) {
@@ -62,12 +63,14 @@ case class File(name: FilePath, size: Long, stream: InputStream)
 
 object Sinks {
 
+  private val logger = LoggerFactory.getLogger(getClass)
+
   import org.apache.http.client.methods.HttpPost
   import org.apache.http.entity.{ContentType, InputStreamEntity}
   import org.apache.http.impl.client.HttpClients
 
   def httpPost(uri: String): Sink[Task, File] =
-    Process.constant { case File(_, length, in) =>
+    Process.constant { case File(name, length, in) =>
       Task {
         val client = HttpClients.createDefault
         val postReq = new HttpPost(uri)
@@ -75,6 +78,7 @@ object Sinks {
         postReq.setEntity(entity)
         client.execute(postReq).close()
         client.close()
+        logger.info(s"Uploaded $name to $uri")
       }
     }
 
