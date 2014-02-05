@@ -2,13 +2,16 @@ package controllers
 
 import play.api.mvc.{Action, Controller}
 import play.api.libs.concurrent.Execution.Implicits._
-import lib.ElasticSearch
+import lib.{MessageConsumer, ElasticSearch}
 import com.gu.mediaservice.syntax._
 
 object HealthCheck extends Controller {
 
   def healthCheck = Action.async {
-    ElasticSearch.client.prepareSearch().setSize(0).executeAndLog("Health check") map (_ => Ok("OK"))
+    ElasticSearch.client.prepareSearch().setSize(0)
+      .executeAndLog("Health check")
+      .filter(_ => ! MessageConsumer.actorSystem.isTerminated)
+      .map(_ => Ok("OK"))
   }
 
 }
