@@ -46,8 +46,7 @@ object Application extends Controller {
       Bounds(_, _, masterW, masterH) = source.bounds
       aspect     = masterW.toFloat / masterH
       expiration = DateTime.now.plusMinutes(15)
-      outputDims = Dimensions(masterW, masterH) ::
-                     Config.cropSizingWidths.filter(_ < masterW).map(w => Dimensions(w, math.round(aspect * w)))
+      outputDims = Config.cropSizingWidths.filter(_ <= masterW).map(w => Dimensions(w, math.round(aspect * w)))
       sizings   <- Future.traverse(outputDims) { dim =>
         val filename = outputFilename(sourceImg, source.bounds, dim.width)
         for {
@@ -67,7 +66,7 @@ object Application extends Controller {
   def cropResponse(source: CropSource, sizings: List[CropSizing]): JsValue =
     Json.obj(
       "source" -> source,
-      "sizings" -> sizings.filter(s => Config.cropSizingWidths.contains(s.dimensions.width))
+      "sizings" -> sizings
     )
 
   def outputFilename(source: SourceImage, bounds: Bounds, outputWidth: Int): String =
