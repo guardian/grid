@@ -19,7 +19,9 @@ object Config extends CommonPlayAppConfig {
   val ec2Client: AmazonEC2Client =
     new AmazonEC2Client(awsCredentials) <| (_ setEndpoint awsEndpoint)
 
-  val s3Bucket: String = properties("s3.image.bucket")
+  val imageBucket: String = properties("s3.image.bucket")
+
+  val thumbnailBucket: String = properties("s3.thumb.bucket")
 
   val elasticsearchHost: String =
     if (stage == "DEV")
