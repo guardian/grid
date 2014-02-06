@@ -66,7 +66,10 @@ object MessageConsumer {
   def deleteImage(image: JsValue): Future[DeleteResponse] =
     withImageId(image) { id =>
       val future = ElasticSearch.deleteImage(id)
-      future.onSuccess { case _ => S3Client.delete(id) }
+      future.onSuccess { case _ =>
+        S3ImageStorage.deleteImage(id)
+        S3ImageStorage.deleteThumbnail(id)
+      }
       future
     }
 
