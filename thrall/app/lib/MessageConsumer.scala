@@ -15,13 +15,15 @@ import akka.actor.ActorSystem
 import scalaz.syntax.id._
 
 import com.gu.mediaservice.lib.json.PlayJsonHelpers._
+import java.util.concurrent.Executors
 
 
 object MessageConsumer {
 
   val actorSystem = ActorSystem("MessageConsumer")
 
-  implicit val ctx: ExecutionContext = actorSystem.dispatcher
+  private implicit val ctx: ExecutionContext =
+    ExecutionContext.fromExecutor(Executors.newCachedThreadPool)
 
   def startSchedule(): Unit =
     actorSystem.scheduler.schedule(0.seconds, 1.seconds)(processMessages())
