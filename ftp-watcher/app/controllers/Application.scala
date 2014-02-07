@@ -51,7 +51,7 @@ object FTPWatchers {
   import scalaz.concurrent.Task
 
   private implicit val ctx: ExecutionContext =
-    ExecutionContext.fromExecutor(Executors.newSingleThreadExecutor)
+    ExecutionContext.fromExecutor(Executors.newCachedThreadPool)
 
   def watcherTask(batchSize: Int): Task[Unit] =
     Config.ftpPaths.map { path =>
