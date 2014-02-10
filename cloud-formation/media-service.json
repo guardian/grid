@@ -1470,6 +1470,23 @@
                     }
                 ]
             }
+        },
+        "ImagePublishingBucketPolicy": {
+            "Type": "AWS::S3::BucketPolicy",
+            "Properties": {
+                "PolicyDocument": {
+                    "Id": "PublicImageRead",
+                    "Statement": [ {
+                        "Action": [ "s3:GetObject" ],
+                        "Effect": "Allow",
+                        "Resource": { "Fn::Join": [ "",
+                            [ "arn:aws:s3:::", { "Ref": "ImagePublishingBucket" } , "/*" ] ]
+                        },
+                        "Principal": { "AWS": "*" }
+                    } ]
+                },
+                "Bucket": { "Ref": "ImagePublishingBucket" }
+            }
         }
 
     },
