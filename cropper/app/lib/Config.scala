@@ -12,7 +12,10 @@ object Config {
   val awsCredentials: AWSCredentials =
     new BasicAWSCredentials(properties("aws.id"), properties("aws.secret"))
 
-  val cropBucket = properties("s3.crop.bucket")
+  val imgPublishingBucket = properties("publishing.image.bucket")
+  val imgPublishingCredentials: AWSCredentials =
+    new BasicAWSCredentials(properties("publishing.aws.id"), properties("publishing.aws.secret"))
+
   val keyStoreBucket = properties("auth.keystore.bucket")
 
   val topicArn = properties("sns.topic.arn")
