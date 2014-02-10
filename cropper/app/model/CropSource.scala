@@ -3,11 +3,7 @@ package model
 import play.api.libs.json._
 import play.api.libs.functional.syntax._
 
-case class CropSizing(
-  file: String,
-  dimensions: Dimensions,
-  secureUrl: Option[String]
-)
+case class CropSizing(file: String, dimensions: Dimensions)
 
 object CropSizing {
   implicit val cropSizingWrites: Writes[CropSizing] = Json.writes[CropSizing]
