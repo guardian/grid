@@ -55,8 +55,7 @@ object Application extends Controller {
           _    <- delete(file)
         }
         yield {
-          val secureUrl = CropStorage.signUrl(Config.imgPublishingBucket, filename, expiration)
-          CropSizing(url.toExternalForm, dim, Some(secureUrl))
+          CropSizing(url.toExternalForm, dim)
         }
       }
       _ <- delete(sourceFile)
