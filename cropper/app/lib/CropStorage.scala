@@ -7,7 +7,7 @@ import scala.concurrent.{ExecutionContext, Future}
 import com.gu.mediaservice.lib.aws.S3
 import model.{Dimensions, Bounds, CropSource}
 
-object CropStorage extends S3(Config.awsCredentials) {
+object CropStorage extends S3(Config.imgPublishingCredentials) {
 
   private implicit val ctx: ExecutionContext =
     ExecutionContext.fromExecutor(Executors.newCachedThreadPool)
@@ -21,7 +21,7 @@ object CropStorage extends S3(Config.awsCredentials) {
                        "bounds_h" -> h,
                        "width" -> dimensions.width,
                        "height" -> dimensions.height)
-    store(Config.cropBucket, filename, file, metadata.mapValues(_.toString))
+    store(Config.imgPublishingBucket, filename, file, metadata.mapValues(_.toString))
   }
 
 }

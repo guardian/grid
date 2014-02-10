@@ -47,6 +47,10 @@
         },
         "ElasticsearchAutoscalingDesiredCapacity": {
             "Type": "Number"
+        },
+        "ImagePublishingHostname": {
+            "Description": "Host name (& bucket name) for the public image bucket",
+            "Type": "String"
         }
     },
     "Resources": {
@@ -1278,9 +1282,11 @@
                         "aws.secret=", { "Fn::GetAtt": [ "HostKeys", "SecretAccessKey" ] }, "\n",
                         "sns.topic.arn=", { "Ref": "Topic" }, "\n",
                         "crop.output.tmp.dir=/data\n",
-                        "s3.crop.bucket=", { "Ref": "CropBucket" }, "\n",
                         "auth.keystore.bucket=", { "Ref": "KeyBucket" }, "\n",
                         "media.api.key=f6ee41f2fdab968f066636acdd8f8562\n",
+                        "publishing.image.bucket=", { "Ref": "ImagePublishingBucket" }, "\n",
+                        "publishing.aws.id=", { "Ref": "ImagePublishingCredentials" }, "\n",
+                        "publishing.aws.secret=", { "Fn::GetAtt": [ "ImagePublishingCredentials", "SecretAccessKey" ] }, "\n",
                         "EOF\n",
 
                         "start cropper\n"
@@ -1412,6 +1418,57 @@
                     ]
                 },
                 "Queues": [ { "Ref": "Queue" } ]
+            }
+        },
+
+        "ImagePublishingGroup": {
+            "Type": "AWS::IAM::Group",
+            "Properties": {
+                "Policies": [{
+                    "PolicyName": "Group-Policy",
+                    "PolicyDocument": {
+                        "Version": "2012-10-17",
+                        "Statement": [
+                            {
+                                "Effect": "Allow",
+                                "Action": [ "s3:PutObject", "s3:GetObject", "s3:DeleteObject" ],
+                                "Resource": { "Fn::Join": [ "",
+                                    [ "arn:aws:s3:::", { "Ref": "ImagePublishingBucket" } , "/*" ] ]
+                                }
+                            }
+                        ]
+                    }
+                }]
+            }
+        },
+        "ImagePublishingUser": {
+            "Type": "AWS::IAM::User",
+            "Properties": {
+                "Path": "/",
+                "Groups": [ { "Ref": "ImagePublishingGroup" } ]
+            }
+        },
+        "ImagePublishingCredentials": {
+            "Type": "AWS::IAM::AccessKey",
+            "Properties": {
+                "UserName": { "Ref": "ImagePublishingUser" }
+            }
+        },
+        "ImagePublishingBucket": {
+            "Type": "AWS::S3::Bucket",
+            "Properties": {
+                "BucketName": { "Ref": "ImagePublishingHostname" },
+                "AccessControl": "PublicRead",
+                "Tags": [
+                    {
+                        "Key": "Stage",
+                        "Value": { "Ref": "Stage" }
+                    },
+                    {
+                        "Key": "Stack",
+                        "Value": "mediaservice"
+                    }
+                ]
             }
         }
 
