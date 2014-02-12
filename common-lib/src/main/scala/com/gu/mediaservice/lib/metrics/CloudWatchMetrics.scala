@@ -42,7 +42,7 @@ abstract class CloudWatchMetrics(namespace: String, credentials: AWSCredentials)
 
     protected def toDatum(a: Long, dimensions: List[Dimension]) = datum(StandardUnit.Count, a, dimensions)
 
-    def increment(n: Long = 1, dimensions: List[Dimension] = Nil): Task[Unit] = recordOne(n, dimensions)
+    def increment(dimensions: List[Dimension] = Nil, n: Long = 1): Task[Unit] = recordOne(n, dimensions)
 
   }
 
