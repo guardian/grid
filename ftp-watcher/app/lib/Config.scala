@@ -1,10 +1,11 @@
 package lib
 
 import java.util.concurrent.atomic.AtomicBoolean
-import com.gu.mediaservice.lib.config.Properties
+import com.gu.mediaservice.lib.config.{CommonPlayAppConfig, Properties}
+import com.amazonaws.auth.{BasicAWSCredentials, AWSCredentials}
 
 
-object Config {
+object Config extends CommonPlayAppConfig {
 
   val properties: Map[String, String] =
     Properties.fromPath("/etc/gu/ftp-watcher.properties") ++ sys.props
@@ -23,5 +24,8 @@ object Config {
   def status: String = if (isActive) "active" else "passive"
 
   def isActive: Boolean = active.get
+
+  val metricsAwsCredentials: AWSCredentials =
+    new BasicAWSCredentials(properties("metrics.aws.id"), properties("metrics.aws.secret"))
 
 }
