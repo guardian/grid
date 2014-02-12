@@ -48,7 +48,7 @@
         "ElasticsearchAutoscalingDesiredCapacity": {
             "Type": "Number"
         },
-        "ImagePublishingHostname": {
+        "ImageOriginHostname": {
             "Description": "Host name (& bucket name) for the public image bucket",
             "Type": "String"
         }
@@ -1284,9 +1284,10 @@
                         "crop.output.tmp.dir=/data\n",
                         "auth.keystore.bucket=", { "Ref": "KeyBucket" }, "\n",
                         "media.api.key=f6ee41f2fdab968f066636acdd8f8562\n",
-                        "publishing.image.bucket=", { "Ref": "ImagePublishingBucket" }, "\n",
+                        "publishing.image.bucket=", { "Ref": "ImageOriginBucket" }, "\n",
                         "publishing.aws.id=", { "Ref": "ImagePublishingCredentials" }, "\n",
                         "publishing.aws.secret=", { "Fn::GetAtt": [ "ImagePublishingCredentials", "SecretAccessKey" ] }, "\n",
+                        "publishing.image.host=", { "Ref": "ImageOriginBucket" }, "\n",
                         "EOF\n",
 
                         "start cropper\n"
@@ -1433,7 +1434,7 @@
                                 "Effect": "Allow",
                                 "Action": [ "s3:PutObject", "s3:GetObject", "s3:DeleteObject" ],
                                 "Resource": { "Fn::Join": [ "",
-                                    [ "arn:aws:s3:::", { "Ref": "ImagePublishingBucket" } , "/*" ] ]
+                                    [ "arn:aws:s3:::", { "Ref": "ImageOriginBucket" } , "/*" ] ]
                                 }
                             }
                         ]
@@ -1454,10 +1455,10 @@
                 "UserName": { "Ref": "ImagePublishingUser" }
             }
         },
-        "ImagePublishingBucket": {
+        "ImageOriginBucket": {
             "Type": "AWS::S3::Bucket",
             "Properties": {
-                "BucketName": { "Ref": "ImagePublishingHostname" },
+                "BucketName": { "Ref": "ImageOriginHostname" },
                 "AccessControl": "PublicRead",
                 "Tags": [
                     {
@@ -1471,7 +1472,7 @@
                 ]
             }
         },
-        "ImagePublishingBucketPolicy": {
+        "ImageOriginBucketPolicy": {
             "Type": "AWS::S3::BucketPolicy",
             "Properties": {
                 "PolicyDocument": {
@@ -1480,12 +1481,12 @@
                         "Action": [ "s3:GetObject" ],
                         "Effect": "Allow",
                         "Resource": { "Fn::Join": [ "",
-                            [ "arn:aws:s3:::", { "Ref": "ImagePublishingBucket" } , "/*" ] ]
+                            [ "arn:aws:s3:::", { "Ref": "ImageOriginBucket" } , "/*" ] ]
                         },
                         "Principal": { "AWS": "*" }
                     } ]
                 },
-                "Bucket": { "Ref": "ImagePublishingBucket" }
+                "Bucket": { "Ref": "ImageOriginBucket" }
             }
         }
 
