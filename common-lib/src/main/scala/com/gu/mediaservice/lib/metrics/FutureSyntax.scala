@@ -20,13 +20,13 @@ trait FutureSyntax {
     def incrementOnFailure[B](metric: Metric[B])(pfn: PartialFunction[Throwable, Boolean])
                              (implicit B: Numeric[B]): Future[A] = {
       self.onFailure(pfn.andThen { b =>
-        if (b) metric.recordOne(B.fromInt(1))
+        if (b) metric.runRecordOne(B.fromInt(1))
       })
       self
     }
 
     def toMetric[B](metric: Metric[B])(f: A => B): Future[A] = {
-      self.onSuccess { case a => metric.recordOne(f(a)) }
+      self.onSuccess { case a => metric.runRecordOne(f(a)) }
       self
     }
 

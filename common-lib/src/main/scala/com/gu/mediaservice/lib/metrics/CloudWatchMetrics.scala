@@ -13,13 +13,15 @@ import scalaz.stream.async, async.mutable.Topic
 import scalaz.stream.Process.{Sink, constant, emitAll}
 import scalaz.syntax.id._
 
-
 trait Metric[A] {
 
-  def recordOne(a: A): Unit
+  def recordOne(a: A, dimensions: List[Dimension] = Nil): Task[Unit]
 
-  def recordMany(as: Seq[A]): Unit
+  def recordMany(as: Seq[A], dimensions: List[Dimension] = Nil): Task[Unit]
 
+  def runRecordOne(a: A, dimensions: List[Dimension] = Nil): Unit
+
+  def runRecordMany(as: Seq[A], dimensions: List[Dimension] = Nil): Unit
 }
 
 abstract class CloudWatchMetrics(namespace: String, credentials: AWSCredentials) {
@@ -36,16 +38,16 @@ abstract class CloudWatchMetrics(namespace: String, credentials: AWSCredentials)
     */
   val maxAge: Duration = 1.minute
 
-  class CountMetric(name: String, dimensions: Seq[(String, String)] = Nil)
-    extends CloudWatchMetric[Long](name, dimensions) {
+  class CountMetric(name: String) extends CloudWatchMetric[Long](name) {
 
-    protected def toDatum(a: Long) = datum(StandardUnit.Count, a)
+    protected def toDatum(a: Long, dimensions: List[Dimension]) = datum(StandardUnit.Count, a, dimensions)
+
+    def increment(dimensions: List[Dimension] = Nil, n: Long = 1): Task[Unit] = recordOne(n, dimensions)
+
   }
 
-  class TimeMetric(name: String, dimensions: Seq[(String, String)] = Nil)
-    extends CloudWatchMetric[Long](name, dimensions) {
-
-    protected def toDatum(a: Long) = datum(StandardUnit.Milliseconds, a)
+  class TimeMetric(name: String) extends CloudWatchMetric[Long](name) {
+    protected def toDatum(a: Long, dimensions: List[Dimension]) = datum(StandardUnit.Milliseconds, a, dimensions)
   }
 
   private lazy val logger = LoggerFactory.getLogger(getClass)
@@ -66,35 +68,31 @@ abstract class CloudWatchMetrics(namespace: String, credentials: AWSCredentials)
     logger.info(s"Put ${data.size} metric data points to namespace $namespace")
   }
 
-  import scalaz.{\/, -\/, \/-}
-  private val loggingErrors: Throwable \/ Unit => Unit = {
-    case -\/(e) => logger.error(s"Error while publishing metrics", e)
-    case \/-(_) =>
-  }
+  abstract class CloudWatchMetric[A](val name: String) extends Metric[A] {
 
-  abstract class CloudWatchMetric[A](val name: String, val dimensions: Seq[(String, String)] = Nil)
-    extends Metric[A] {
+    final def recordOne(a: A, dimensions: List[Dimension] = Nil): Task[Unit] =
+      topic.publishOne(toDatum(a, dimensions).withTimestamp(new java.util.Date))
 
-    final def recordOne(a: A): Unit =
-      topic.publishOne(toDatum(a).withTimestamp(new java.util.Date)).runAsync(loggingErrors)
+    final def recordMany(as: Seq[A], dimensions: List[Dimension] = Nil): Task[Unit] =
+      emitAll(as map (a => toDatum(a, dimensions).withTimestamp(new java.util.Date)))
+        .toSource.to(topic.publish).run
 
-    final def recordMany(as: Seq[A]): Unit =
-      emitAll(as map (a => toDatum(a).withTimestamp(new java.util.Date)))
-        .toSource.to(topic.publish).run.runAsync(loggingErrors)
+    final def runRecordOne(a: A, dimensions: List[Dimension] = Nil): Unit =
+      recordOne(a, dimensions).runAsync(loggingErrors)
+
+    final def runRecordMany(as: Seq[A], dimensions: List[Dimension] = Nil): Unit =
+      recordMany(as, dimensions).runAsync(loggingErrors)
 
     /** Must be implemented to provide a way to turn an `A` into a `MetricDatum` */
-    protected def toDatum(a: A): MetricDatum
-
-    protected val _dimensions: java.util.Collection[Dimension] =
-      dimensions.map { case (k, v) => new Dimension().withName(k).withValue(v) }.asJava
+    protected def toDatum(a: A, dimensions: List[Dimension]): MetricDatum
 
     /** Convenience method for instantiating a `MetricDatum` with this metric's `name` and `dimension` */
-    protected def datum(unit: StandardUnit, value: Double): MetricDatum =
+    protected def datum(unit: StandardUnit, value: Double, dimensions: List[Dimension]): MetricDatum =
       new MetricDatum()
         .withMetricName(name)
         .withUnit(unit)
         .withValue(value)
-        .withDimensions(_dimensions)
+        .withDimensions(dimensions.asJava)
 
   }
 
@@ -102,5 +100,12 @@ abstract class CloudWatchMetrics(namespace: String, credentials: AWSCredentials)
 
   /** Subscribe the metric publishing sink to the topic */
   topic.subscribe.chunkTimed(maxAge, maxChunkSize).to(sink).run.runAsync(loggingErrors)
+
+  import scalaz.{\/, -\/, \/-}
+
+  private[metrics] val loggingErrors: Throwable \/ Unit => Unit = {
+    case -\/(e) => logger.error(s"Error while publishing metrics", e)
+    case \/-(_) =>
+  }
 
 }

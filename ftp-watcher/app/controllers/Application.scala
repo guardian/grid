@@ -56,7 +56,7 @@ object FTPWatchers {
   def watcherTask(batchSize: Int): Task[Unit] =
     Config.ftpPaths.map { path =>
       val process = FTPWatcher(Config.ftpHost, Config.ftpUser, Config.ftpPassword, path).watchDir(batchSize)
-      val sink = Sinks.httpPost(Config.imageLoaderUri + "?uploadedBy=" + path)
+      val sink = Sinks.uploadImage(uploadedBy = path)
       process.to(sink)
     }.reduceLeft(_ merge _).run
 
