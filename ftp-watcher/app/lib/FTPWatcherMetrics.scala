@@ -10,6 +10,10 @@ object FTPWatcherMetrics extends CloudWatchMetrics(s"$stage/FTPWatcher", metrics
 
   val failedUploads = new CountMetric("FailedUploads")
 
-  def uploadedBy(value: String): Dimension = new Dimension().withName("UploadedBy").withValue(value)
+  def uploadedByDimension(value: String): Dimension =
+    new Dimension().withName("UploadedBy").withValue(value)
+
+  def causedByDimension(thrown: Throwable): Dimension =
+    new Dimension().withName("UploadedBy").withValue(thrown.getClass.getSimpleName)
 
 }
