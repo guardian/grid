@@ -1488,6 +1488,38 @@
                 },
                 "Bucket": { "Ref": "ImageOriginBucket" }
             }
+        },
+
+        "MetricsPublishingGroup": {
+            "Type": "AWS::IAM::Group",
+            "Properties": {
+                "Policies": [{
+                    "PolicyName": "MetricsPublishingGroup-Policy",
+                    "PolicyDocument": {
+                        "Version": "2012-10-17",
+                        "Statement": [
+                            {
+                                "Effect": "Allow",
+                                "Action": [ "cloudwatch:PutMetricData" ],
+                                "Resource": "*"
+                            }
+                        ]
+                    }
+                }]
+            }
+        },
+        "MetricsPublishingUser": {
+            "Type": "AWS::IAM::User",
+            "Properties": {
+                "Path": "/",
+                "Groups": [ { "Ref": "MetricsPublishingGroup" } ]
+            }
+        },
+        "MetricsPublishingCredentials": {
+            "Type": "AWS::IAM::AccessKey",
+            "Properties": {
+                "UserName": { "Ref": "MetricsPublishingUser" }
+            }
         }
 
     },
@@ -1511,6 +1543,12 @@
         "ImageTopicArn": {
             "Description": "ARN of the image topic",
             "Value": { "Ref": "Topic" }
+        },
+        "MetricsPublishingId": {
+            "Value": { "Ref": "MetricsPublishingCredentials" }
+        },
+        "MetricsPublishingSecret": {
+            "Value": { "Fn::GetAtt": [ "MetricsPublishingCredentials", "SecretAccessKey" ] }
         }
     }
 }
