@@ -106,8 +106,8 @@ abstract class StackScript {
       val esMaxSize = esDesired * 2 // allows for autoscaling deploys
 
       val imgHostname = stage match {
-        case Prod => "media.guim.co.uk"
-        case _    => s"media.$stage.dev-guim.co.uk".toLowerCase
+        case Prod => "media-origin.guim.co.uk"
+        case _    => s"media-origin.$stage.dev-guim.co.uk".toLowerCase
       }
 
       lib.Stack(
@@ -123,7 +123,7 @@ abstract class StackScript {
           param("ElasticsearchAutoscalingMinSize", esMinSize.toString),
           param("ElasticsearchAutoscalingMaxSize", esMaxSize.toString),
           param("ElasticsearchAutoscalingDesiredCapacity", esDesired.toString),
-          param("ImagePublishingHostname", imgHostname)
+          param("ImageOriginHostname", imgHostname)
         )
       )
     }
