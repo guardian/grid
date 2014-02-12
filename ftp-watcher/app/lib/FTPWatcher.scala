@@ -73,8 +73,9 @@ object Sinks {
   import org.apache.http.impl.client.HttpClients
   import FTPWatcherMetrics._
 
-  def uploadImage(uri: String): Sink[Task, File] =
+  def uploadImage(uploadedBy: String): Sink[Task, File] =
     Process.constant { case File(name, length, in) =>
+      val uri = Config.imageLoaderUri + "?uploadedBy=" + uploadedBy
       val upload = Task {
         val client = HttpClients.createDefault
         val postReq = new HttpPost(uri)
@@ -88,9 +89,8 @@ object Sinks {
         logger.info(s"Uploaded $name to $uri id=$id")
       }
       upload.onFinish {
-        case None      => uploadedImages.increment()
-        case Some(err) =>
-          failedUploads.increment(1, List(new Dimension().withName("CausedBy").withValue(err.getClass.getSimpleName)))
+        case None      => uploadedImages.increment(List(uploadedByDimension(uploadedBy)))
+        case Some(err) => failedUploads.increment(List(causedByDimension(err)))
       }
     }
 
