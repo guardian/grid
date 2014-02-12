@@ -46,7 +46,7 @@ object Application extends Controller {
       Bounds(_, _, masterW, masterH) = source.bounds
       aspect     = masterW.toFloat / masterH
       expiration = DateTime.now.plusMinutes(15)
-      outputDims = Config.cropSizingWidths.filter(_ <= masterW).map(w => Dimensions(w, math.round(aspect * w)))
+      outputDims = Config.cropSizingWidths.filter(_ <= masterW).map(w => Dimensions(w, math.round(w / aspect)))
       sizings   <- Future.traverse(outputDims) { dim =>
         val filename = outputFilename(sourceImg, source.bounds, dim.width)
         for {
