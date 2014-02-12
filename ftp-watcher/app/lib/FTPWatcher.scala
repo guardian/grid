@@ -17,6 +17,7 @@ import FTPWatcher._
 import Processes._
 import org.slf4j.LoggerFactory
 import org.apache.commons.io.IOUtils
+import com.amazonaws.services.cloudwatch.model.Dimension
 
 
 class FTPWatcher(config: Config) {
@@ -70,10 +71,12 @@ object Sinks {
   import org.apache.http.client.methods.HttpPost
   import org.apache.http.entity.{ContentType, InputStreamEntity}
   import org.apache.http.impl.client.HttpClients
+  import FTPWatcherMetrics._
 
-  def httpPost(uri: String): Sink[Task, File] =
+  def uploadImage(uploadedBy: String): Sink[Task, File] =
     Process.constant { case File(name, length, in) =>
-      Task {
+      val uri = Config.imageLoaderUri + "?uploadedBy=" + uploadedBy
+      val upload = Task {
         val client = HttpClients.createDefault
         val postReq = new HttpPost(uri)
         val entity = new InputStreamEntity(in, length, ContentType.DEFAULT_BINARY)
@@ -84,6 +87,10 @@ object Sinks {
         client.close()
         val id = (json \ "id").as[String]
         logger.info(s"Uploaded $name to $uri id=$id")
+      }
+      upload.onFinish {
+        case None      => uploadedImages.increment(List(uploadedByDimension(uploadedBy)))
+        case Some(err) => failedUploads.increment(List(causedByDimension(err)))
       }
     }
 
