@@ -45,7 +45,6 @@ object Application extends Controller {
       sourceFile <- tempFileFromURL(new URL(sourceImg.file), "cropSource", "")
       Bounds(_, _, masterW, masterH) = source.bounds
       aspect     = masterW.toFloat / masterH
-      expiration = DateTime.now.plusMinutes(15)
       portrait   = masterW < masterH
       outputDims = if (portrait)
         Config.portraitCropSizingHeights.filter(_ <= masterH).map(h => Dimensions(h, math.round(h * aspect)))
