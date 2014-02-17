@@ -17,7 +17,6 @@ import FTPWatcher._
 import Processes._
 import org.slf4j.LoggerFactory
 import org.apache.commons.io.IOUtils
-import com.amazonaws.services.cloudwatch.model.Dimension
 
 
 class FTPWatcher(config: Config) {
@@ -36,17 +35,17 @@ class FTPWatcher(config: Config) {
       .repeat
   }
 
-  def initClient(client: Client): Task[Unit] =
+  private def initClient(client: Client): Task[Unit] =
     client.connect(config.host, 21) >>
     client.login(config.user, config.password) >>
     client.cwd(config.dir) >>
     client.enterLocalPassiveMode >>
     client.setBinaryFileType
 
-  def listFiles(client: Client, batchSize: Int): Task[Seq[FTPFile]] =
+  private def listFiles(client: Client, batchSize: Int): Task[Seq[FTPFile]] =
     client.listFiles map (_.take(batchSize))
 
-  def retrieveFile(client: Client, file: FTPFile): Process[Task, File] =
+  private def retrieveFile(client: Client, file: FTPFile): Process[Task, File] =
     resource1(client.retrieveFile(file.getName))(
       stream => Task.delay(stream.close()) >> client.completePendingCommand >> client.delete(file.getName))(
       stream => Task.now(File(file.getName, file.getSize, stream)))
