@@ -1,7 +1,7 @@
 package com.gu.mediaservice.lib.aws
 
 import java.io.{FileInputStream, File}
-import java.net.URL
+import java.net.URI
 import scala.concurrent.{ExecutionContext, Future}
 import scala.collection.JavaConverters._
 
@@ -24,13 +24,13 @@ class S3(credentials: AWSCredentials) {
   }
 
   def store(bucket: String, id: String, file: File, meta: Map[String, String] = Map.empty)
-           (implicit ex: ExecutionContext): Future[URL] =
+           (implicit ex: ExecutionContext): Future[URI] =
     Future {
       val metadata = new ObjectMetadata <| (_.setUserMetadata(meta.asJava))
       val req = new PutObjectRequest(bucket, id, new FileInputStream(file), metadata)
       client.putObject(req)
       val bucketUrl = s"$bucket.$s3Endpoint"
-      new URL("http", bucketUrl, s"/$id")
+      new URI("http", bucketUrl, s"/$id", null)
     }
 
 }
