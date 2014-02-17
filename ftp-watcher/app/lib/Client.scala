@@ -4,13 +4,14 @@ import java.io.InputStream
 import org.apache.commons.net.ftp.{FTP, FTPFile, FTPClient}
 import scalaz.concurrent.Task
 import java.util.concurrent.{Executors, ExecutorService}
-
+import scala.concurrent.duration._
 
 final class Client {
 
   private implicit val executor: ExecutorService = Executors.newCachedThreadPool
 
   private val client = new FTPClient
+  client.setConnectTimeout(30.seconds.toMillis.toInt)
 
   def connect(host: String, port: Int): Task[Unit] =
     Task { client.connect(host, port) }
