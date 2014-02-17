@@ -28,5 +28,6 @@ object Config {
 
   val imagingThreadPoolSize = 4
 
-  val cropSizingWidths = List(2000, 1000, 500)
+  val landscapeCropSizingWidths = List(2000, 1000, 500, 140)
+  val portraitCropSizingHeights = List(2000, 1000, 500)
 }
