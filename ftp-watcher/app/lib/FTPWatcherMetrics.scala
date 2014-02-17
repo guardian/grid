@@ -14,6 +14,6 @@ object FTPWatcherMetrics extends CloudWatchMetrics(s"$stage/FTPWatcher", metrics
     new Dimension().withName("UploadedBy").withValue(value)
 
   def causedByDimension(thrown: Throwable): Dimension =
-    new Dimension().withName("UploadedBy").withValue(thrown.getClass.getSimpleName)
+    new Dimension().withName("CausedBy").withValue(thrown.getClass.getSimpleName)
 
 }
