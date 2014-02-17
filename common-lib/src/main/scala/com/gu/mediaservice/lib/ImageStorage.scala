@@ -3,7 +3,7 @@ package com.gu.mediaservice.lib
 import scala.concurrent.{Future, ExecutionContext}
 import java.util.concurrent.Executors
 import java.io.File
-import java.net.URL
+import java.net.URI
 
 trait ImageStorage {
 
@@ -16,9 +16,9 @@ trait ImageStorage {
   /** Store a copy of the given file and return the URI of that copy.
     * The file can safely be deleted afterwards.
     */
-  def storeImage(id: String, file: File, meta: Map[String, String] = Map.empty): Future[URL]
+  def storeImage(id: String, file: File, meta: Map[String, String] = Map.empty): Future[URI]
 
-  def storeThumbnail(id: String, file: File): Future[URL]
+  def storeThumbnail(id: String, file: File): Future[URI]
 
   def deleteImage(id: String): Future[Unit]
 

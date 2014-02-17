@@ -1,6 +1,6 @@
 package controllers
 
-import java.net.URL
+import java.net.{URI, URL}
 import scala.concurrent.Future
 
 import _root_.play.api.data._, Forms._
@@ -51,12 +51,10 @@ object Application extends Controller {
         val filename = outputFilename(sourceImg, source.bounds, dim.width)
         for {
           file <- Crops.create(sourceFile, source, dim)
-          url  <- CropStorage.storeCropSizing(file, filename, source, dim)
+          uri  <- CropStorage.storeCropSizing(file, filename, source, dim)
           _    <- delete(file)
         }
-        yield {
-          CropSizing(url.toExternalForm, dim)
-        }
+        yield CropSizing(uri.toString, dim)
       }
       _ <- delete(sourceFile)
     }

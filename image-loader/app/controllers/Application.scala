@@ -36,12 +36,12 @@ class ImageLoader(storage: ImageStorage) extends Controller {
     val thumbFile = Thumbnailer.createThumbnail(Config.thumbWidth, tempFile.toString)
 
     for {
-      url      <- storedImage
+      uri      <- storedImage
       thumb    <- thumbFile
-      thumbUrl <- storage.storeThumbnail(id, thumb)
+      thumbUri <- storage.storeThumbnail(id, thumb)
     } yield {
       val thumbDimensions = IptcMetadata.dimensions(thumb)
-      val image = Image.uploadedNow(id, url.toURI, uploadedBy, Thumbnail(thumbUrl.toURI, thumbDimensions), meta,
+      val image = Image.uploadedNow(id, uri, uploadedBy, Thumbnail(thumbUri, thumbDimensions), meta,
                                     dimensions)
       // TODO notifications and file deletion should probably be done asynchronously too
       Notifications.publish(Json.toJson(image), "image")
