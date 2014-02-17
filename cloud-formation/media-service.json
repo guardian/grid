@@ -51,6 +51,10 @@
         "ImageOriginHostname": {
             "Description": "Host name (& bucket name) for the public image bucket",
             "Type": "String"
+        },
+        "ImageEdgeHostname": {
+            "Description": "Host name for image CDN edge",
+            "Type": "String"
         }
     },
     "Resources": {
@@ -1287,7 +1291,7 @@
                         "publishing.image.bucket=", { "Ref": "ImageOriginBucket" }, "\n",
                         "publishing.aws.id=", { "Ref": "ImagePublishingCredentials" }, "\n",
                         "publishing.aws.secret=", { "Fn::GetAtt": [ "ImagePublishingCredentials", "SecretAccessKey" ] }, "\n",
-                        "publishing.image.host=", { "Ref": "ImageOriginBucket" }, "\n",
+                        "publishing.image.host=", { "Ref": "ImageEdgeHostname" }, "\n",
                         "EOF\n",
 
                         "start cropper\n"
