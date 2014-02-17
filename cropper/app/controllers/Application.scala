@@ -57,7 +57,7 @@ object Application extends Controller {
           uri  <- CropStorage.storeCropSizing(file, filename, source, dim)
           _    <- delete(file)
         }
-        yield CropSizing(uri.toString, dim)
+        yield CropSizing(cdnTranslate(uri).toString, dim)
       }
       _ <- delete(sourceFile)
     }
@@ -72,6 +72,8 @@ object Application extends Controller {
   def outputFilename(source: SourceImage, bounds: Bounds, outputWidth: Int): String =
     s"${source.id}/${bounds.x}_${bounds.y}_${bounds.width}_${bounds.height}/$outputWidth.jpg"
 
+  def cdnTranslate(uri: URI): URI =
+    new URI(uri.getScheme, Config.imgPublishingHost, uri.getPath, uri.getFragment)
 }
 
 case class SourceImage(id: String, file: String)
