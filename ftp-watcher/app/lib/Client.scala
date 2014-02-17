@@ -3,9 +3,12 @@ package lib
 import java.io.InputStream
 import org.apache.commons.net.ftp.{FTP, FTPFile, FTPClient}
 import scalaz.concurrent.Task
+import java.util.concurrent.{Executors, ExecutorService}
 
 
 final class Client {
+
+  private implicit val executor: ExecutorService = Executors.newCachedThreadPool
 
   private val client = new FTPClient
 
