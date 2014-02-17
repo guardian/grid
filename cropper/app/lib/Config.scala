@@ -16,7 +16,7 @@ object Config {
   val imgPublishingCredentials: AWSCredentials =
     new BasicAWSCredentials(properties("publishing.aws.id"), properties("publishing.aws.secret"))
 
-  val imgPublishingHost = imgPublishingBucket
+  val imgPublishingHost = properties("publishing.image.host")
 
   val keyStoreBucket = properties("auth.keystore.bucket")
 
