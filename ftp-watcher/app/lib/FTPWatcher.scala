@@ -31,6 +31,7 @@ class FTPWatcher(config: Config) {
     resource1(initClient(client))(_ => client.quit >> client.disconnect)(_ => listFiles(client, batchSize))
       .flatMap(sleepIfEmpty(1.second))
       .pipe(unchunk)
+      .take(batchSize + 1) // FIXME it seems we *must* exhaust the stream, otherwise resources are not released
       .flatMap(retrieveFile(client, _))
       .repeat
   }
