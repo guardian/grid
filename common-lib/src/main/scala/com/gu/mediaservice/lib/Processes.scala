@@ -20,6 +20,7 @@ object Processes {
   def sleepIfEmpty[A](duration: Duration)(input: Seq[A]): Process[Task, Seq[A]] =
     if (input.nonEmpty) emit(input) else sleep(duration)
 
+  /* Repeat the process continually, even if it terminates with an error. */
   def retryContinually[A](duration: Duration)(process: => Process[Task, A]): Process[Task, A] =
     process.orElse(sleep(duration) fby process)
 
