@@ -16,6 +16,7 @@ import com.gu.mediaservice.lib.Processes
 import Processes._
 import org.slf4j.LoggerFactory
 import org.apache.commons.io.IOUtils
+import scala.util.Random
 
 
 class FTPWatcher(host: String, user: String, password: String, paths: List[FilePath]) {
@@ -41,9 +42,7 @@ class FTPWatcher(host: String, user: String, password: String, paths: List[FileP
   private def watchDir(path: FilePath, batchSize: Int): Process[Task, File] = {
     val client = new Client
     resource1(initClient(client, path))(_ => client.quit >> client.disconnect)(_ => listFiles(client, batchSize))
-      .flatMap(sleepIfEmpty(1.second))
       .pipe(unchunk)
-      .take(batchSize + 1) // FIXME it seems we *must* exhaust the stream, otherwise resources are not released
       .flatMap(retrieveFile(client, _))
   }
 
@@ -55,7 +54,7 @@ class FTPWatcher(host: String, user: String, password: String, paths: List[FileP
     client.setBinaryFileType
 
   private def listFiles(client: Client, batchSize: Int): Task[Seq[FTPFile]] =
-    client.listFiles map (_.take(batchSize))
+    client.listFiles map (files => Random.shuffle(files.take(batchSize)))
 
   private def retrieveFile(client: Client, file: FTPFile): Process[Task, File] =
     resource1(client.retrieveFile(file.getName))(
