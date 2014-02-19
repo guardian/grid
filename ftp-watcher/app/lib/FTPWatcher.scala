@@ -13,33 +13,44 @@ import scalaz.stream.Process
 import scalaz.stream.Process.Sink
 
 import com.gu.mediaservice.lib.Processes
-import FTPWatcher._
 import Processes._
 import org.slf4j.LoggerFactory
 import org.apache.commons.io.IOUtils
 
 
-class FTPWatcher(config: Config) {
+class FTPWatcher(host: String, user: String, password: String, paths: List[FilePath]) {
+
+  import FTPWatcher._
+
+  def run: Task[Unit] = {
+    val processes = paths.map { path =>
+      retryContinually(10.seconds) {
+        waitForActive(250.millis) {
+          watchDir(path, batchSize = 10).to(Sinks.uploadImage(uploadedBy = path))
+        }
+      }
+    }
+    processes.reduceLeft(_ merge _).run
+  }
 
   /** Produces a stream of `File`s, each exposing an `InputStream`.
     *
     * The stream will be closed, and the file deleted from the server, once the `File` element
     * has been consumed.
     */
-  def watchDir(batchSize: Int): Process[Task, File] = {
+  private def watchDir(path: FilePath, batchSize: Int): Process[Task, File] = {
     val client = new Client
-    resource1(initClient(client))(_ => client.quit >> client.disconnect)(_ => listFiles(client, batchSize))
+    resource1(initClient(client, path))(_ => client.quit >> client.disconnect)(_ => listFiles(client, batchSize))
       .flatMap(sleepIfEmpty(1.second))
       .pipe(unchunk)
       .take(batchSize + 1) // FIXME it seems we *must* exhaust the stream, otherwise resources are not released
       .flatMap(retrieveFile(client, _))
-      .repeat
   }
 
-  private def initClient(client: Client): Task[Unit] =
-    client.connect(config.host, 21) >>
-    client.login(config.user, config.password) >>
-    client.cwd(config.dir) >>
+  private def initClient(client: Client, path: FilePath): Task[Unit] =
+    client.connect(host, 21) >>
+    client.login(user, password) >>
+    client.cwd(path) >>
     client.enterLocalPassiveMode >>
     client.setBinaryFileType
 
@@ -54,11 +65,10 @@ class FTPWatcher(config: Config) {
 }
 
 object FTPWatcher {
+  import Process._
 
-  def apply(host: String, user: String, password: String, dir: FilePath): FTPWatcher =
-    new FTPWatcher(Config(host, user, password, dir))
-
-  case class Config(host: String, user: String, password: String, dir: FilePath)
+  def waitForActive[A](sleepDuration: Duration)(p: Process[Task, A]): Process[Task, A] =
+    sleepUntil(repeat(sleep(sleepDuration) fby Process.eval(Task.delay(Config.isActive))))(p)
 
 }
 
