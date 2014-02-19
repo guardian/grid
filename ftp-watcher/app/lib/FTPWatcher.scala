@@ -24,7 +24,7 @@ class FTPWatcher(host: String, user: String, password: String, paths: List[FileP
 
   def run: Task[Unit] = {
     val processes = paths.map { path =>
-      retryContinually(10.seconds) {
+      retryContinually(1.second) {
         waitForActive(250.millis) {
           watchDir(path, batchSize = 10).to(Sinks.uploadImage(uploadedBy = path))
         }
