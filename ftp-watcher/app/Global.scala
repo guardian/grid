@@ -1,5 +1,5 @@
 import play.api.{Logger, Application, GlobalSettings}
-import controllers.FTPWatchers
+import controllers.FTPWatcherTask
 import lib.Config
 
 
@@ -12,11 +12,11 @@ object Global extends GlobalSettings {
     }
 
     // force evaluation to start the process
-    FTPWatchers.future
+    FTPWatcherTask.future
   }
 
   override def onStop(app: Application) {
-    FTPWatchers.shutdown()
+    FTPWatcherTask.shutdown()
   }
 
 }

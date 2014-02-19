@@ -3,11 +3,10 @@ package controllers
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.Executors
 import scala.concurrent.{Promise, ExecutionContext, Future}
-import scalaz.syntax.bind._
 
 import play.api.Logger
 import play.api.mvc.{Action, Controller}
-import lib.{Sinks, Config, FTPWatcher}
+import lib.{Config, FTPWatcher}
 
 
 object Application extends Controller {
@@ -18,7 +17,7 @@ object Application extends Controller {
     Ok("This is an FTP Watcher.\n")
   }
 
-  import FTPWatchers.future
+  import FTPWatcherTask.future
 
   def healthCheck = Action.async {
     if (future.isCompleted)
@@ -46,22 +45,10 @@ object Application extends Controller {
 
 }
 
-object FTPWatchers {
-
-  import scalaz.concurrent.Task
+object FTPWatcherTask {
 
   private implicit val ctx: ExecutionContext =
     ExecutionContext.fromExecutor(Executors.newCachedThreadPool)
-
-  def watcherTask(batchSize: Int): Task[Unit] =
-    Config.ftpPaths.map { path =>
-      val process = FTPWatcher(Config.ftpHost, Config.ftpUser, Config.ftpPassword, path).watchDir(batchSize)
-      val sink = Sinks.uploadImage(uploadedBy = path)
-      process.to(sink)
-    }.reduceLeft(_ merge _).run
-
-  def waitForActive(sleep: Long): Task[Unit] =
-    Task(Config.isActive).ifM(Task.now(()), Task(Thread.sleep(sleep)) >> waitForActive(sleep))
 
   /** When running, this starts the watcher process immediately if the
     * `active` atomic variable is set to `true`.
@@ -82,7 +69,7 @@ object FTPWatchers {
 
   private def _future: Future[Unit] =
     retryFuture("FTP watcher", 10000) {
-      val task = waitForActive(sleep = 250) >> watcherTask(batchSize = 10)
+      val task = new FTPWatcher(Config.ftpHost, Config.ftpUser, Config.ftpPassword, Config.ftpPaths).run
       val promise = Promise[Unit]()
       task.runAsyncInterruptibly(_.fold(promise.failure, promise.success), cancel)
       promise.future.flatMap(_ => _future) // promise.future >> _future
