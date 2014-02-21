@@ -54,7 +54,7 @@ object Application extends Controller {
         val filename = outputFilename(sourceImg, source.bounds, dim.width)
         for {
           file <- Crops.create(sourceFile, source, dim)
-          uri  <- CropStorage.storeCropSizing(file, filename, source, dim)
+          uri  <- CropStorage.storeCropSizing(file, filename, "image/jpeg", source, dim)
           _    <- delete(file)
         }
         yield CropSizing(translateImgHost(uri).toString, dim)
