@@ -13,7 +13,7 @@ class S3ImageStorage(imageBucket: String, thumbnailBucket: String, credentials: 
   private val log = LoggerFactory.getLogger(getClass)
 
   def storeImage(id: String, file: File, meta: Map[String, String] = Map.empty) =
-    store(imageBucket, id, file, meta)
+    store(imageBucket, id, file, None, meta)
 
   def storeThumbnail(id: String, file: File) = store(thumbnailBucket, id, file)
 
