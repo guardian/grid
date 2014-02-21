@@ -21,7 +21,7 @@ object CropStorage extends S3(Config.imgPublishingCredentials) {
                        "bounds_h" -> h,
                        "width" -> dimensions.width,
                        "height" -> dimensions.height)
-    store(Config.imgPublishingBucket, filename, file, mimeType, metadata.mapValues(_.toString))
+    store(Config.imgPublishingBucket, filename, file, Some(mimeType), metadata.mapValues(_.toString))
   }
 
 }
