@@ -6,7 +6,7 @@ import play.api.libs.functional.syntax._
 import org.joda.time.DateTime
 
 import com.gu.mediaservice.lib.formatting._
-import lib.imaging.IptcMetadata
+import lib.imaging.ImageMetadata
 
 
 case class Image(id: String,
@@ -14,7 +14,7 @@ case class Image(id: String,
                  uploadTime: DateTime,
                  uploadedBy: Option[String],
                  thumbnail: Option[Thumbnail],
-                 metadata: Option[IptcMetadata],
+                 metadata: Option[ImageMetadata],
                  dimensions: Option[Dimensions]) {
 
   def asJsValue: JsValue = Json.toJson(this)
@@ -25,10 +25,10 @@ case class Image(id: String,
 object Image {
 
   def uploadedNow(id: String, file: URI, uploadedBy: Option[String], thumbnail: Thumbnail,
-                  metadata: Option[IptcMetadata], dimensions: Option[Dimensions]): Image =
+                  metadata: Option[ImageMetadata], dimensions: Option[Dimensions]): Image =
     Image(id, file, DateTime.now, uploadedBy, Some(thumbnail), metadata, dimensions)
 
-  implicit val IptcMetadataWrites: Writes[IptcMetadata] =
+  implicit val IptcMetadataWrites: Writes[ImageMetadata] =
     ((__ \ "description").writeNullable[String] ~
       (__ \ "byline").writeNullable[String] ~
       (__ \ "title").writeNullable[String] ~
@@ -39,7 +39,7 @@ object Image {
       (__ \ "keywords").write[List[String]] ~
       (__ \ "city").writeNullable[String] ~
       (__ \ "country").writeNullable[String]
-      )(unlift(IptcMetadata.unapply))
+      )(unlift(ImageMetadata.unapply))
 
   implicit val ImageWrites: Writes[Image] = (
     (__ \ "id").write[String] ~
@@ -47,7 +47,7 @@ object Image {
       (__ \ "uploadTime").write[String].contramap(printDateTime) ~
       (__ \ "uploadedBy").writeNullable[String] ~
       (__ \ "thumbnail").writeNullable[Thumbnail] ~
-      (__ \ "metadata").writeNullable[IptcMetadata] ~
+      (__ \ "metadata").writeNullable[ImageMetadata] ~
       (__ \ "dimensions").writeNullable[Dimensions]
     )(unlift(Image.unapply))
 
