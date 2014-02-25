@@ -5,69 +5,56 @@ import java.io.InputStream
 import scala.concurrent.duration._
 
 import _root_.play.api.libs.json.Json
+import org.apache.commons.io.IOUtils
 import org.apache.commons.net.ftp.FTPFile
+import org.slf4j.LoggerFactory
 
 import scalaz.syntax.bind._
 import scalaz.concurrent.Task
-import scalaz.stream.Process
-import scalaz.stream.Process.Sink
+import scalaz.stream.{Process, io}
+import Process._
+import io.resource
 
-import com.gu.mediaservice.lib.Processes
-import Processes._
-import org.slf4j.LoggerFactory
-import org.apache.commons.io.IOUtils
-import scala.util.Random
+import com.gu.mediaservice.lib.Processes._
 
+class FTPWatcher(host: String, user: String, password: String) {
 
-class FTPWatcher(host: String, user: String, password: String, paths: List[FilePath]) {
+  def run: Task[Unit] = ??? // listFiles.through(retrieveFile) ...
 
-  import FTPWatcher._
-
-  def run: Task[Unit] = {
-    val processes = paths.map { path =>
-      retryContinually(1.second) {
-        waitForActive(250.millis) {
-          watchDir(path, batchSize = 10).to(Sinks.uploadImage(uploadedBy = path))
-        }
-      }
+  def listFiles: Process[Task, FilePath] =
+    resourceP(initClient)(releaseClient) { client =>
+      repeatEval(client.listDirectories("."))
+        .pipe(unchunk)
+        .flatMap(dir => eval(client.listFiles(dir)))
+        .pipe(unchunk)
     }
-    processes.reduceLeft(_ merge _).run
-  }
 
-  /** Produces a stream of `File`s, each exposing an `InputStream`.
-    *
-    * The stream will be closed, and the file deleted from the server, once the `File` element
-    * has been consumed.
-    */
-  private def watchDir(path: FilePath, batchSize: Int): Process[Task, File] = {
-    val client = new Client
-    resource1(initClient(client, path))(_ => client.quit >> client.disconnect)(_ => listFiles(client, batchSize))
-      .pipe(unchunk)
-      .flatMap(retrieveFile(client, _))
-  }
+  def retrieveFile: Channel[Task, FilePath, Array[Byte]] =
+    resource(initClient)(releaseClient) { client =>
+      Task.now { path: FilePath => client.retrieveFile(path) }
+    }
 
-  private def initClient(client: Client, path: FilePath): Task[Unit] =
-    client.connect(host, 21) >>
-    client.login(user, password) >>
-    client.cwd(path) >>
-    client.enterLocalPassiveMode >>
-    client.setBinaryFileType
+  def deleteFile: Sink[Task, FilePath] =
+    resource(initClient)(releaseClient)(client => Task.now { path: FilePath => client.delete(path) })
 
-  private def listFiles(client: Client, batchSize: Int): Task[Seq[FTPFile]] =
-    client.listFiles map (files => Random.shuffle(files.take(batchSize)))
+  private def initClient: Task[Client] =
+    Task.delay(new Client).flatMap { client =>
+      client.connect(host, 21) >>
+        client.login(user, password) >>
+        client.enterLocalPassiveMode >>
+        client.setBinaryFileType >|
+        client
+    }
 
-  private def retrieveFile(client: Client, file: FTPFile): Process[Task, File] =
-    resource1(client.retrieveFile(file.getName))(
-      stream => Task.delay(stream.close()) >> client.completePendingCommand >> client.delete(file.getName))(
-      stream => Task.now(File(file.getName, file.getSize, stream)))
+  private def releaseClient(client: Client): Task[Unit] =
+    client.quit >> client.disconnect
 
 }
 
 object FTPWatcher {
-  import Process._
 
   def waitForActive[A](sleepDuration: Duration)(p: Process[Task, A]): Process[Task, A] =
-    sleepUntil(repeat(sleep(sleepDuration) fby Process.eval(Task.delay(Config.isActive))))(p)
+    sleepUntil(repeat(sleep(sleepDuration) fby eval(Task.delay(Config.isActive))))(p)
 
 }
 

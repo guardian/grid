@@ -1,7 +1,7 @@
 package lib
 
-import java.io.InputStream
-import org.apache.commons.net.ftp.{FTP, FTPFile, FTPClient}
+import java.io.{ByteArrayOutputStream, InputStream}
+import org.apache.commons.net.ftp._
 import scalaz.concurrent.Task
 import java.util.concurrent.{Executors, ExecutorService}
 import scala.concurrent.duration._
@@ -19,25 +19,33 @@ final class Client {
   def login(user: String, password: String): Task[Boolean] =
     Task { client.login(user, password) }
 
-  def pwd: Task[String] =
+  def pwd: Task[FilePath] =
     Task { client.printWorkingDirectory }
 
-  def cwd(path: String): Task[Boolean] =
+  def cwd(path: FilePath): Task[Boolean] =
     Task { client.changeWorkingDirectory(path) }
 
   def enterLocalPassiveMode: Task[Unit] =
-    Task.delay(client.enterLocalPassiveMode())
+    Task(client.enterLocalPassiveMode())
 
   def setBinaryFileType: Task[Unit] =
-    Task.delay(client.setFileType(FTP.BINARY_FILE_TYPE))
+    Task(client.setFileType(FTP.BINARY_FILE_TYPE))
 
-  def listFiles: Task[List[FTPFile]] =
-    Task { client.listFiles.toList }
+  def listFiles(path: FilePath): Task[List[FilePath]] =
+    Task { client.listFiles(path, FileFilter).toList.map(_.getName) }
 
-  def retrieveFile(path: String): Task[InputStream] =
-    Task { client.retrieveFileStream(path) }
+  def listDirectories(path: FilePath): Task[List[FilePath]] =
+    Task { client.listFiles(path, FTPFileFilters.DIRECTORIES).toList.map(_.getName) }
 
-  def delete(path: String): Task[Unit] =
+  def retrieveFile(path: FilePath): Task[Array[Byte]] =
+    Task {
+      val out = new ByteArrayOutputStream
+      client.retrieveFile(path, out)
+      out.close()
+      out.toByteArray
+    }
+
+  def delete(path: FilePath): Task[Unit] =
     Task { client.deleteFile(path) }
 
   def completePendingCommand: Task[Unit] =
@@ -49,4 +57,8 @@ final class Client {
   def disconnect: Task[Unit] =
     Task { client.disconnect() }
 
+}
+
+private[lib] object FileFilter extends FTPFileFilter {
+  def accept(file: FTPFile) = file.isFile
 }
