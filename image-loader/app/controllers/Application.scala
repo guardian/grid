@@ -36,20 +36,25 @@ class ImageLoader(storage: ImageStorage) extends Controller {
     val metadataFuture = ImageMetadata.fromIPTCHeaders(tempFile)
 
     val future = for {
-      uri        <- uriFuture
       thumb      <- thumbFuture
-      dimensions <- dimensionsFuture
-      metadata   <- metadataFuture
-      thumbUri   <- storage.storeThumbnail(id, thumb)
-      thumbDimensions <- ImageMetadata.dimensions(thumb)
-      image = Image.uploadedNow(id, uri, uploadedBy, Thumbnail(thumbUri, thumbDimensions), metadata, dimensions)
     } yield {
-      Notifications.publish(Json.toJson(image), "image")
-      thumb.delete()
-      Accepted(Json.obj("id" -> id))
+      val future = for {
+        uri        <- uriFuture
+        dimensions <- dimensionsFuture
+        metadata   <- metadataFuture
+        thumbUri   <- storage.storeThumbnail(id, thumb)
+        thumbDimensions <- ImageMetadata.dimensions(thumb)
+        image = Image.uploadedNow(id, uri, uploadedBy, Thumbnail(thumbUri, thumbDimensions), metadata, dimensions)
+      } yield {
+        Notifications.publish(Json.toJson(image), "image")
+        thumb.delete()
+        Accepted(Json.obj("id" -> id))
+      }
+      future.onComplete(_ => thumb.delete())
+      future
     }
     future.onComplete(_ => tempFile.delete())
-    future
+    future.flatMap(identity)
   }
 
   def thumbId(id: String): String = s"$id-thumb"
