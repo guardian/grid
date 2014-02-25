@@ -5,14 +5,14 @@ import scala.concurrent.duration._
 import scalaz.concurrent.Task
 import scalaz.stream.{Process, process1, Process1, Wye}
 import scalaz.stream.Process._
-import scalaz.stream.io.resource
+import scalaz.stream.io
 import scalaz.stream.ReceiveY.{ReceiveL, ReceiveR, HaltL, HaltR}
 
 
 object Processes {
 
   def resource1[R, O](acquire: Task[R])(release: R => Task[Unit])(step: R => Task[O]): Process[Task, O] =
-    resource(acquire)(release)(step).take(1)
+    io.resource(acquire)(release)(step).take(1)
 
   def unchunk[O]: Process1[Seq[O], O] =
     process1.id[Seq[O]].flatMap(emitAll)
