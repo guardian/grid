@@ -14,6 +14,7 @@ import lib.{Config, Notifications}
 import model.{Thumbnail, Image}
 import lib.storage.S3ImageStorage
 import com.gu.mediaservice.lib.ImageStorage
+import com.gu.mediaservice.lib.resource.FutureResources._
 
 object Application extends ImageLoader(S3ImageStorage)
 
@@ -35,10 +36,8 @@ class ImageLoader(storage: ImageStorage) extends Controller {
     val dimensionsFuture = ImageMetadata.dimensions(tempFile)
     val metadataFuture = ImageMetadata.fromIPTCHeaders(tempFile)
 
-    val future = for {
-      thumb      <- thumbFuture
-    } yield {
-      val future = for {
+    val future = bracket(thumbFuture)(_.delete) { thumb =>
+      for {
         uri        <- uriFuture
         dimensions <- dimensionsFuture
         metadata   <- metadataFuture
@@ -47,14 +46,11 @@ class ImageLoader(storage: ImageStorage) extends Controller {
         image = Image.uploadedNow(id, uri, uploadedBy, Thumbnail(thumbUri, thumbDimensions), metadata, dimensions)
       } yield {
         Notifications.publish(Json.toJson(image), "image")
-        thumb.delete()
         Accepted(Json.obj("id" -> id))
       }
-      future.onComplete(_ => thumb.delete())
-      future
     }
     future.onComplete(_ => tempFile.delete())
-    future.flatMap(identity)
+    future
   }
 
   def thumbId(id: String): String = s"$id-thumb"
