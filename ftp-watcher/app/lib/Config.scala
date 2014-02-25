@@ -14,7 +14,6 @@ object Config extends CommonPlayAppConfig {
   val ftpPort: Int = properties.get("ftp.port").fold(21)(_.toInt)
   val ftpUser: String = properties("ftp.user")
   val ftpPassword: String = properties("ftp.password")
-  val ftpPaths: List[String] = List("getty", "reuters", "ap", "pa", "aapimages")
 
   val imageLoaderUri: String = properties("loader.uri")
 
