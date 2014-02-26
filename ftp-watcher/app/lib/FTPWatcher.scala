@@ -19,16 +19,20 @@ import org.apache.commons.io.FilenameUtils
 class FTPWatcher(host: String, user: String, password: String) {
 
   def run: Task[Unit] =
-    listFiles(10)
-      .flatMap(f => waitForActive(500.millis)(emit(f)))
-      .through(retrieveFile)
-      .through(uploadImage)
-      .map(_.toDisjunction)
+    uploads
       .pipeW(triggerFailedUploadThreshold(3))
       .observeW(moveFailedUploads)
       .stripW
       .to(deleteFile)
       .run
+
+  /** A process which logs failed uploads on the left hand side, and successful ones on the right */
+  def uploads: Writer[Task, FilePath, FilePath] =
+    listFiles(10)
+      .flatMap(f => waitForActive(500.millis)(emit(f)))
+      .through(retrieveFile)
+      .through(uploadImage)
+      .map(_.toDisjunction)
 
   def listFiles(maxPerDir: Int): Process[Task, FilePath] =
     resourceP(initClient)(releaseClient) { client =>
@@ -126,11 +130,11 @@ class FTPWatcher(host: String, user: String, password: String) {
 }
 
 sealed trait UploadResult {
-  import scalaz.{\/, \/-, -\/}
+  import scalaz.\/
 
   final def toDisjunction: FilePath \/ FilePath = this match {
-    case Uploaded(p) => \/-(p)
-    case Failed(p)   => -\/(p)
+    case Uploaded(p) => \/.right(p)
+    case Failed(p)   => \/.left(p)
   }
 }
 case class Uploaded(path: FilePath) extends UploadResult
