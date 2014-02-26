@@ -112,13 +112,13 @@ class FTPWatcher(host: String, user: String, password: String) {
         client.close()
         val id = (json \ "id").as[String]
         logger.info(s"Uploaded $path to $uri id=$id")
-        uploadedImages.increment(List(uploadedByDimension(uploadedBy)))
         Uploaded(path)
       }
-      upload.handle {
-        case NonFatal(err) =>
-          failedUploads.increment(List(causedByDimension(err)))
-          Failed(path)
+      upload.onFinish {
+        case None      => uploadedImages.increment(List(uploadedByDimension(uploadedBy)))
+        case Some(err) => failedUploads.increment(List(causedByDimension(err)))
+      }.handle {
+        case NonFatal(err) => Failed(path)
       }
     }
 
