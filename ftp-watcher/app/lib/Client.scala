@@ -48,8 +48,11 @@ final class Client {
   def delete(path: FilePath): Task[Unit] =
     Task { client.deleteFile(path) }
 
-  def completePendingCommand: Task[Unit] =
-    Task { client.completePendingCommand() }
+  def rename(from: FilePath, to: FilePath): Task[Unit] =
+    Task { client.rename(from, to) }
+
+  def mkDir(path: FilePath): Task[Unit] =
+    Task { client.makeDirectory(path) }
 
   def quit: Task[Unit] =
     Task { client.quit() }
