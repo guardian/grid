@@ -1,18 +1,19 @@
 package lib
 
 import scala.concurrent.duration._
+import scala.util.control.NonFatal
 
 import _root_.play.api.libs.json.Json
 import org.slf4j.LoggerFactory
 
+import scalaz.{\/, \/-, -\/}
 import scalaz.syntax.bind._
 import scalaz.concurrent.Task
-import scalaz.stream.{Process, io}
+import scalaz.stream.{process1, Process, io}
 import Process._
 import io.resource
 
 import com.gu.mediaservice.lib.Processes._
-import scala.util.control.NonFatal
 
 class FTPWatcher(host: String, user: String, password: String) {
 
@@ -20,6 +21,11 @@ class FTPWatcher(host: String, user: String, password: String) {
     listFiles
       .through(retrieveFile)
       .through(uploadImage)
+      .map(_.toDisjunction)
+      .pipe(process1.liftL(triggerFailedUploadThreshold(3)))
+      .observeW(logFailedUploads)
+      .stripW
+      .to(deleteFile)
       .run
 
   def listFiles: Process[Task, FilePath] =
@@ -41,6 +47,26 @@ class FTPWatcher(host: String, user: String, password: String) {
 
   def deleteFile: Sink[Task, FilePath] =
     resource(initClient)(releaseClient)(client => Task.now { path: FilePath => client.delete(path) })
+
+  import scalaz.syntax.semigroup._
+  import scalaz.std.AllInstances._
+
+  def logFailedUploads: Sink[Task, FilePath] =
+    Process.constant { path: FilePath =>
+      Task.delay(logger.warn(s"$path failed to upload"))
+    }
+
+  def triggerFailedUploadThreshold(threshold: Int): Process1[FilePath, FilePath] = {
+    def go(acc: Map[FilePath, Int]): Process1[FilePath, FilePath] =
+      await1[FilePath].flatMap { path =>
+        val newAcc = acc |+| Map(path -> 1)
+        if (newAcc(path) >= threshold)
+          emit(path) fby go(acc - path)
+        else
+          go(newAcc)
+      }
+    go(Map.empty)
+  }
 
   private def initClient: Task[Client] =
     Task.delay(new Client).flatMap { client =>
@@ -85,14 +111,19 @@ class FTPWatcher(host: String, user: String, password: String) {
       upload.handle {
         case NonFatal(err) =>
           failedUploads.increment(List(causedByDimension(err)))
-          Failed(path, err)
+          Failed(path)
       }
     }
 
 }
 
-sealed trait UploadResult
+sealed trait UploadResult {
+  final def toDisjunction: FilePath \/ FilePath = this match {
+    case Uploaded(p) => \/-(p)
+    case Failed(p)   => -\/(p)
+  }
+}
 case class Uploaded(path: FilePath) extends UploadResult
-case class Failed(path: FilePath, error: Throwable) extends UploadResult
+case class Failed(path: FilePath) extends UploadResult
 
 case class File(path: FilePath, bytes: Array[Byte], uploadedBy: String)
