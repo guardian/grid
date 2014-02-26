@@ -34,6 +34,7 @@ class FTPWatcher(host: String, user: String, password: String) {
     resourceP(initClient)(releaseClient) { client =>
       repeatEval(client.listDirectories("."))
         .unchunk
+        .filter(Config.ftpPaths.contains)
         .flatMap { dir =>
           eval(client.listFiles(dir)).unchunk.take(maxPerDir).map(dir + "/" + _)
         }
