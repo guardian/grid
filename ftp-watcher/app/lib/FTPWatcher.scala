@@ -19,8 +19,8 @@ import org.apache.commons.io.FilenameUtils
 class FTPWatcher(host: String, user: String, password: String) {
 
   def run: Task[Unit] =
-    listFiles
-      .filter(_.containsSlice("aapimages"))
+    listFiles(10)
+      .flatMap(f => waitForActive(500.millis)(emit(f)))
       .through(retrieveFile)
       .through(uploadImage)
       .map(_.toDisjunction)
@@ -30,12 +30,12 @@ class FTPWatcher(host: String, user: String, password: String) {
       .to(deleteFile)
       .run
 
-  def listFiles: Process[Task, FilePath] =
+  def listFiles(maxPerDir: Int): Process[Task, FilePath] =
     resourceP(initClient)(releaseClient) { client =>
       repeatEval(client.listDirectories("."))
         .pipe(unchunk)
         .flatMap { dir =>
-          eval(client.listFiles(dir)).pipe(unchunk).take(10).map(dir + "/" + _)
+          eval(client.listFiles(dir)).pipe(unchunk).take(maxPerDir).map(dir + "/" + _)
         }
     }
 
