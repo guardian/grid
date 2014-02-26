@@ -14,16 +14,18 @@ import Process._
 import io.resource
 
 import com.gu.mediaservice.lib.Processes._
+import org.apache.commons.io.FilenameUtils
 
 class FTPWatcher(host: String, user: String, password: String) {
 
   def run: Task[Unit] =
     listFiles
+      .filter(_.containsSlice("aapimages"))
       .through(retrieveFile)
       .through(uploadImage)
       .map(_.toDisjunction)
-      .pipe(process1.liftL(triggerFailedUploadThreshold(3)))
-      .observeW(logFailedUploads)
+      .pipe(process1.liftL(triggerFailedUploadThreshold(2)))
+      .observeW(moveFailedUploads)
       .stripW
       .to(deleteFile)
       .run
@@ -33,7 +35,7 @@ class FTPWatcher(host: String, user: String, password: String) {
       repeatEval(client.listDirectories("."))
         .pipe(unchunk)
         .flatMap { dir =>
-          eval(client.listFiles(dir)).pipe(unchunk).map(dir + "/" + _)
+          eval(client.listFiles(dir)).pipe(unchunk).take(10).map(dir + "/" + _)
         }
     }
 
@@ -51,9 +53,14 @@ class FTPWatcher(host: String, user: String, password: String) {
   import scalaz.syntax.semigroup._
   import scalaz.std.AllInstances._
 
-  def logFailedUploads: Sink[Task, FilePath] =
-    Process.constant { path: FilePath =>
-      Task.delay(logger.warn(s"$path failed to upload"))
+  def moveFailedUploads: Sink[Task, FilePath] =
+    resource(initClient)(releaseClient) { client =>
+      Task.now { path: FilePath =>
+        val destDir = FilenameUtils.getPath(path) + "failed"
+        val destPath = destDir + "/" + FilenameUtils.getName(path)
+        logger.warn(s"$path breached the failure threshold, moving to $destPath")
+        client.mkDir(destDir) >> client.rename(path, destPath)
+      }
     }
 
   def triggerFailedUploadThreshold(threshold: Int): Process1[FilePath, FilePath] = {
