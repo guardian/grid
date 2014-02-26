@@ -6,14 +6,14 @@ import scala.util.control.NonFatal
 import _root_.play.api.libs.json.Json
 import org.slf4j.LoggerFactory
 
-import scalaz.{\/, \/-, -\/}
 import scalaz.syntax.bind._
 import scalaz.concurrent.Task
-import scalaz.stream.{process1, Process, io}
+import scalaz.stream.{Process, io}
 import Process._
 import io.resource
 
 import com.gu.mediaservice.lib.Processes._
+import com.gu.mediaservice.syntax.ProcessSyntax._
 import org.apache.commons.io.FilenameUtils
 
 class FTPWatcher(host: String, user: String, password: String) {
@@ -24,7 +24,7 @@ class FTPWatcher(host: String, user: String, password: String) {
       .through(retrieveFile)
       .through(uploadImage)
       .map(_.toDisjunction)
-      .pipe(process1.liftL(triggerFailedUploadThreshold(3)))
+      .pipeW(triggerFailedUploadThreshold(3))
       .observeW(moveFailedUploads)
       .stripW
       .to(deleteFile)
@@ -33,9 +33,9 @@ class FTPWatcher(host: String, user: String, password: String) {
   def listFiles(maxPerDir: Int): Process[Task, FilePath] =
     resourceP(initClient)(releaseClient) { client =>
       repeatEval(client.listDirectories("."))
-        .pipe(unchunk)
+        .unchunk
         .flatMap { dir =>
-          eval(client.listFiles(dir)).pipe(unchunk).take(maxPerDir).map(dir + "/" + _)
+          eval(client.listFiles(dir)).unchunk.take(maxPerDir).map(dir + "/" + _)
         }
     }
 
@@ -125,6 +125,8 @@ class FTPWatcher(host: String, user: String, password: String) {
 }
 
 sealed trait UploadResult {
+  import scalaz.{\/, \/-, -\/}
+
   final def toDisjunction: FilePath \/ FilePath = this match {
     case Uploaded(p) => \/-(p)
     case Failed(p)   => -\/(p)
