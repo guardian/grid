@@ -24,7 +24,7 @@ class FTPWatcher(host: String, user: String, password: String) {
       .through(retrieveFile)
       .through(uploadImage)
       .map(_.toDisjunction)
-      .pipe(process1.liftL(triggerFailedUploadThreshold(2)))
+      .pipe(process1.liftL(triggerFailedUploadThreshold(3)))
       .observeW(moveFailedUploads)
       .stripW
       .to(deleteFile)
