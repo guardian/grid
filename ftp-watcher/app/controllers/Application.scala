@@ -69,7 +69,7 @@ object FTPWatcherTask {
 
   private def _future: Future[Unit] =
     retryFuture("FTP watcher", 10000) {
-      val task = new FTPWatcher(Config.ftpHost, Config.ftpUser, Config.ftpPassword, Config.ftpPaths).run
+      val task = new FTPWatcher(Config.ftpHost, Config.ftpUser, Config.ftpPassword).run
       val promise = Promise[Unit]()
       task.runAsyncInterruptibly(_.fold(promise.failure, promise.success), cancel)
       promise.future.flatMap(_ => _future) // promise.future >> _future
