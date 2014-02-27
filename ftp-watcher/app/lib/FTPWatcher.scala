@@ -1,115 +1,134 @@
 package lib
 
-import java.nio.file.{Path, Files}
-import java.io.InputStream
 import scala.concurrent.duration._
+import scala.util.control.NonFatal
 
 import _root_.play.api.libs.json.Json
-import org.apache.commons.net.ftp.FTPFile
+import org.slf4j.LoggerFactory
 
 import scalaz.syntax.bind._
 import scalaz.concurrent.Task
-import scalaz.stream.Process
-import scalaz.stream.Process.Sink
+import scalaz.stream.{Process, io}
+import scalaz.\/
+import Process._
+import io.resource
 
-import com.gu.mediaservice.lib.Processes
-import Processes._
-import org.slf4j.LoggerFactory
-import org.apache.commons.io.IOUtils
-import scala.util.Random
+import com.gu.mediaservice.lib.Processes._
+import com.gu.mediaservice.syntax.ProcessSyntax._
+import org.apache.commons.io.FilenameUtils
 
+class FTPWatcher(host: String, user: String, password: String) {
 
-class FTPWatcher(host: String, user: String, password: String, paths: List[FilePath]) {
+  def run: Task[Unit] =
+    uploads
+      .pipeW(triggerFailedUploadThreshold(3))
+      .observeW(moveFailedUploads)
+      .stripW
+      .to(deleteFile)
+      .run
 
-  import FTPWatcher._
+  /** A process which logs failed uploads on the left hand side, and successful ones on the right */
+  def uploads: Writer[Task, FailedUpload, FilePath] =
+    listFiles(10)
+      .flatMap(f => waitForActive(500.millis)(emit(f)))
+      .through(retrieveFile)
+      .through(uploadImage)
 
-  def run: Task[Unit] = {
-    val processes = paths.map { path =>
-      retryContinually(1.second) {
-        waitForActive(250.millis) {
-          watchDir(path, batchSize = 10).to(Sinks.uploadImage(uploadedBy = path))
+  def listFiles(maxPerDir: Int): Process[Task, FilePath] =
+    resourceP(initClient)(releaseClient) { client =>
+      repeatEval(client.listDirectories("."))
+        .unchunk
+        .filter(Config.ftpPaths.contains)
+        .flatMap { dir =>
+          eval(client.listFiles(dir)).unchunk.take(maxPerDir).map(dir + "/" + _)
         }
+    }
+
+  def retrieveFile: Channel[Task, FilePath, File] =
+    resource(initClient)(releaseClient) { client =>
+      Task.now { path: FilePath =>
+        val uploadedBy = path.takeWhile(_ != '/')
+        client.retrieveFile(path).map(bytes => File(path, bytes, uploadedBy))
       }
     }
-    processes.reduceLeft(_ merge _).run
+
+  def deleteFile: Sink[Task, FilePath] =
+    resource(initClient)(releaseClient)(client => Task.now { path: FilePath => client.delete(path) })
+
+  import scalaz.syntax.semigroup._
+  import scalaz.std.AllInstances._
+
+  def moveFailedUploads: Sink[Task, FailedUpload] =
+    resource(initClient)(releaseClient) { client =>
+      Task.now { case FailedUpload(path) =>
+        val destDir = FilenameUtils.getPath(path) + "failed"
+        val destPath = destDir + "/" + FilenameUtils.getName(path)
+        logger.warn(s"$path breached the failure threshold, moving to $destPath")
+        client.mkDir(destDir) >> client.rename(path, destPath)
+      }
+    }
+
+  def triggerFailedUploadThreshold(threshold: Int): Process1[FailedUpload, FailedUpload] = {
+    def go(acc: Map[FailedUpload, Int]): Process1[FailedUpload, FailedUpload] =
+      await1[FailedUpload].flatMap { case path =>
+        val newAcc = acc |+| Map(path -> 1)
+        if (newAcc(path) >= threshold)
+          emit(path) fby go(acc - path)
+        else
+          go(newAcc)
+      }
+    go(Map.empty)
   }
 
-  /** Produces a stream of `File`s, each exposing an `InputStream`.
-    *
-    * The stream will be closed, and the file deleted from the server, once the `File` element
-    * has been consumed.
-    */
-  private def watchDir(path: FilePath, batchSize: Int): Process[Task, File] = {
-    val client = new Client
-    resource1(initClient(client, path))(_ => client.quit >> client.disconnect)(_ => listFiles(client, batchSize))
-      .pipe(unchunk)
-      .flatMap(retrieveFile(client, _))
-  }
+  private def initClient: Task[Client] =
+    Task.delay(new Client).flatMap { client =>
+      client.connect(host, 21) >>
+        client.login(user, password) >>
+        client.enterLocalPassiveMode >>
+        client.setBinaryFileType >|
+        client
+    }
 
-  private def initClient(client: Client, path: FilePath): Task[Unit] =
-    client.connect(host, 21) >>
-    client.login(user, password) >>
-    client.cwd(path) >>
-    client.enterLocalPassiveMode >>
-    client.setBinaryFileType
+  private def releaseClient(client: Client): Task[Unit] =
+    client.quit >> client.disconnect
 
-  private def listFiles(client: Client, batchSize: Int): Task[Seq[FTPFile]] =
-    client.listFiles map (files => Random.shuffle(files.take(batchSize)))
-
-  private def retrieveFile(client: Client, file: FTPFile): Process[Task, File] =
-    resource1(client.retrieveFile(file.getName))(
-      stream => Task.delay(stream.close()) >> client.completePendingCommand >> client.delete(file.getName))(
-      stream => Task.now(File(file.getName, file.getSize, stream)))
-
-}
-
-object FTPWatcher {
-  import Process._
-
-  def waitForActive[A](sleepDuration: Duration)(p: Process[Task, A]): Process[Task, A] =
-    sleepUntil(repeat(sleep(sleepDuration) fby Process.eval(Task.delay(Config.isActive))))(p)
-
-}
-
-case class File(name: FilePath, size: Long, stream: InputStream)
-
-object Sinks {
+  import org.apache.http.client.methods.HttpPost
+  import org.apache.http.impl.client.HttpClients
+  import org.apache.commons.io.IOUtils
+  import org.apache.http.entity.ByteArrayEntity
+  import FTPWatcherMetrics._
 
   private val logger = LoggerFactory.getLogger(getClass)
 
-  import org.apache.http.client.methods.HttpPost
-  import org.apache.http.entity.{ContentType, InputStreamEntity}
-  import org.apache.http.impl.client.HttpClients
-  import FTPWatcherMetrics._
+  def waitForActive[A](sleepDuration: Duration)(p: Process[Task, A]): Process[Task, A] =
+    sleepUntil(repeat(sleep(sleepDuration) fby eval(Task.delay(Config.isActive))))(p)
 
-  def uploadImage(uploadedBy: String): Sink[Task, File] =
-    Process.constant { case File(name, length, in) =>
+  def uploadImage: Channel[Task, File, FailedUpload \/ FilePath] =
+    Process.constant { case File(path, bytes, uploadedBy) =>
       val uri = Config.imageLoaderUri + "?uploadedBy=" + uploadedBy
       val upload = Task {
         val client = HttpClients.createDefault
         val postReq = new HttpPost(uri)
-        val entity = new InputStreamEntity(in, length, ContentType.DEFAULT_BINARY)
+        val entity = new ByteArrayEntity(bytes)
         postReq.setEntity(entity)
         val response = client.execute(postReq)
         val json = Json.parse(IOUtils.toByteArray(response.getEntity.getContent))
         response.close()
         client.close()
         val id = (json \ "id").as[String]
-        logger.info(s"Uploaded $name to $uri id=$id")
+        logger.info(s"Uploaded $path to $uri id=$id")
+        \/.right(path)
       }
       upload.onFinish {
         case None      => uploadedImages.increment(List(uploadedByDimension(uploadedBy)))
         case Some(err) => failedUploads.increment(List(causedByDimension(err)))
-      }
-    }
-
-  def saveToFile(parent: Path): Sink[Task, File] =
-    Process.constant { case File(name, _, stream) =>
-      Task {
-        val path = parent.resolve(name)
-        println(s"Saving $name to $path...")
-        Files.copy(stream, path)
+      }.handle {
+        case NonFatal(err) => \/.left(FailedUpload(path))
       }
     }
 
 }
+
+case class FailedUpload(path: FilePath) extends AnyVal
+
+case class File(path: FilePath, bytes: Array[Byte], uploadedBy: String)
