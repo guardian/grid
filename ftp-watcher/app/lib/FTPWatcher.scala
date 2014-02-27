@@ -9,6 +9,7 @@ import org.slf4j.LoggerFactory
 import scalaz.syntax.bind._
 import scalaz.concurrent.Task
 import scalaz.stream.{Process, io}
+import scalaz.\/
 import Process._
 import io.resource
 
@@ -27,12 +28,11 @@ class FTPWatcher(host: String, user: String, password: String) {
       .run
 
   /** A process which logs failed uploads on the left hand side, and successful ones on the right */
-  def uploads: Writer[Task, FilePath, FilePath] =
+  def uploads: Writer[Task, FailedUpload, FilePath] =
     listFiles(10)
       .flatMap(f => waitForActive(500.millis)(emit(f)))
       .through(retrieveFile)
       .through(uploadImage)
-      .map(_.toDisjunction)
 
   def listFiles(maxPerDir: Int): Process[Task, FilePath] =
     resourceP(initClient)(releaseClient) { client =>
@@ -58,9 +58,9 @@ class FTPWatcher(host: String, user: String, password: String) {
   import scalaz.syntax.semigroup._
   import scalaz.std.AllInstances._
 
-  def moveFailedUploads: Sink[Task, FilePath] =
+  def moveFailedUploads: Sink[Task, FailedUpload] =
     resource(initClient)(releaseClient) { client =>
-      Task.now { path: FilePath =>
+      Task.now { case FailedUpload(path) =>
         val destDir = FilenameUtils.getPath(path) + "failed"
         val destPath = destDir + "/" + FilenameUtils.getName(path)
         logger.warn(s"$path breached the failure threshold, moving to $destPath")
@@ -68,9 +68,9 @@ class FTPWatcher(host: String, user: String, password: String) {
       }
     }
 
-  def triggerFailedUploadThreshold(threshold: Int): Process1[FilePath, FilePath] = {
-    def go(acc: Map[FilePath, Int]): Process1[FilePath, FilePath] =
-      await1[FilePath].flatMap { path =>
+  def triggerFailedUploadThreshold(threshold: Int): Process1[FailedUpload, FailedUpload] = {
+    def go(acc: Map[FailedUpload, Int]): Process1[FailedUpload, FailedUpload] =
+      await1[FailedUpload].flatMap { case path =>
         val newAcc = acc |+| Map(path -> 1)
         if (newAcc(path) >= threshold)
           emit(path) fby go(acc - path)
@@ -103,7 +103,7 @@ class FTPWatcher(host: String, user: String, password: String) {
   def waitForActive[A](sleepDuration: Duration)(p: Process[Task, A]): Process[Task, A] =
     sleepUntil(repeat(sleep(sleepDuration) fby eval(Task.delay(Config.isActive))))(p)
 
-  def uploadImage: Channel[Task, File, UploadResult] =
+  def uploadImage: Channel[Task, File, FailedUpload \/ FilePath] =
     Process.constant { case File(path, bytes, uploadedBy) =>
       val uri = Config.imageLoaderUri + "?uploadedBy=" + uploadedBy
       val upload = Task {
@@ -117,27 +117,18 @@ class FTPWatcher(host: String, user: String, password: String) {
         client.close()
         val id = (json \ "id").as[String]
         logger.info(s"Uploaded $path to $uri id=$id")
-        Uploaded(path)
+        \/.right(path)
       }
       upload.onFinish {
         case None      => uploadedImages.increment(List(uploadedByDimension(uploadedBy)))
         case Some(err) => failedUploads.increment(List(causedByDimension(err)))
       }.handle {
-        case NonFatal(err) => Failed(path)
+        case NonFatal(err) => \/.left(FailedUpload(path))
       }
     }
 
 }
 
-sealed trait UploadResult {
-  import scalaz.\/
-
-  final def toDisjunction: FilePath \/ FilePath = this match {
-    case Uploaded(p) => \/.right(p)
-    case Failed(p)   => \/.left(p)
-  }
-}
-case class Uploaded(path: FilePath) extends UploadResult
-case class Failed(path: FilePath) extends UploadResult
+case class FailedUpload(path: FilePath) extends AnyVal
 
 case class File(path: FilePath, bytes: Array[Byte], uploadedBy: String)
