@@ -46,16 +46,15 @@ object Processes {
     }
   }
 
-  import scalaz.syntax.semigroup._
-  import scalaz.std.AllInstances._
+  import scalaz.syntax.std.map._
 
   /** Only emits an element once it has been seen `threshold` times. */
   def seenThreshold[A](threshold: Int): Process1[A, A] = {
     def go(acc: Map[A, Int]): Process1[A, A] =
-      await1[A].flatMap { case path =>
-        val newAcc = acc |+| Map(path -> 1)
-        if (newAcc(path) >= threshold)
-          emit(path) fby go(acc - path)
+      await1[A].flatMap { case a =>
+        val newAcc = acc.insertWith(a, 1)(_ + _)
+        if (newAcc(a) >= threshold)
+          emit(a) fby go(acc - a)
         else
           go(newAcc)
       }
