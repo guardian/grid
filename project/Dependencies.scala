@@ -33,6 +33,8 @@ object Dependencies {
 
   val scalaTestDeps = Seq("org.scalatest" %% "scalatest" % "2.0.RC1")
 
+  val scalaCheckDeps = Seq("org.scalacheck" %% "scalacheck" % "1.11.3")
+
   val uriTemplateDeps = Seq("no.arktekk" %% "uri-template" % "1.0.1")
 
 
