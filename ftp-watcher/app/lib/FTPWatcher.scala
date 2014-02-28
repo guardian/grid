@@ -21,7 +21,7 @@ class FTPWatcher(host: String, user: String, password: String) {
 
   def run: Task[Unit] =
     uploads
-      .pipeW(triggerFailedUploadThreshold(3))
+      .pipeW(repeatedFailureThreshold(3))
       .observeW(moveFailedUploads)
       .stripW
       .to(deleteFile)
@@ -55,9 +55,6 @@ class FTPWatcher(host: String, user: String, password: String) {
   def deleteFile: Sink[Task, FilePath] =
     resource(initClient)(releaseClient)(client => Task.now { path: FilePath => client.delete(path) })
 
-  import scalaz.syntax.semigroup._
-  import scalaz.std.AllInstances._
-
   def moveFailedUploads: Sink[Task, FailedUpload] =
     resource(initClient)(releaseClient) { client =>
       Task.now { case FailedUpload(path) =>
@@ -68,17 +65,8 @@ class FTPWatcher(host: String, user: String, password: String) {
       }
     }
 
-  def triggerFailedUploadThreshold(threshold: Int): Process1[FailedUpload, FailedUpload] = {
-    def go(acc: Map[FailedUpload, Int]): Process1[FailedUpload, FailedUpload] =
-      await1[FailedUpload].flatMap { case path =>
-        val newAcc = acc |+| Map(path -> 1)
-        if (newAcc(path) >= threshold)
-          emit(path) fby go(acc - path)
-        else
-          go(newAcc)
-      }
-    go(Map.empty)
-  }
+  def repeatedFailureThreshold(threshold: Int): Process1[FailedUpload, FailedUpload] =
+    seenThreshold(threshold)
 
   private def initClient: Task[Client] =
     Task.delay(new Client).flatMap { client =>
