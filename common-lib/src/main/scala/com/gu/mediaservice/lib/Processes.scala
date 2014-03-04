@@ -14,6 +14,9 @@ object Processes {
   def unchunk[O]: Process1[Seq[O], O] =
     process1.id[Seq[O]].flatMap(emitAll)
 
+  def sleepIfEmpty[A](duration: Duration)(p: Process[Task, Seq[A]]): Process[Task, Seq[A]] =
+    p.flatMap(xs => if (xs.isEmpty) sleep(duration) else emit(xs))
+
   implicit class SourceSyntax[O](self: Process[Task, O]) {
 
     /**

@@ -37,7 +37,7 @@ class FTPWatcher(host: String, user: String, password: String) {
   import scalaz.ListT
 
   def watchFiles(maxPerDir: Int): Process[Task, FilePath] =
-    resource(initClient)(releaseClient)(listFiles(maxPerDir)).unchunk
+    sleepIfEmpty(100.millis)(resource(initClient)(releaseClient)(listFiles(maxPerDir))).unchunk
 
   def listFiles(maxPerDir: Int)(client: Client): Task[List[FilePath]] =
     (for {
