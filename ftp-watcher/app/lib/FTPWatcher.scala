@@ -66,7 +66,7 @@ class FTPWatcher(host: String, user: String, password: String) {
     }
 
   def repeatedFailureThreshold(threshold: Int): Process1[FailedUpload, FailedUpload] =
-    seenThreshold(threshold)
+    emitEveryNth(threshold)
 
   private def initClient: Task[Client] =
     Task.delay(new Client).flatMap { client =>
