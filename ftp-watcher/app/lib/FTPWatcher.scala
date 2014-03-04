@@ -29,20 +29,21 @@ class FTPWatcher(host: String, user: String, password: String) {
 
   /** A process which logs failed uploads on the left hand side, and successful ones on the right */
   def uploads: Writer[Task, FailedUpload, FilePath] =
-    listFiles(10)
+    watchFiles(10)
       .flatMap(f => waitForActive(500.millis)(emit(f)))
       .through(retrieveFile)
       .through(uploadImage)
 
   import scalaz.ListT
 
-  def listFiles(maxPerDir: Int): Process[Task, FilePath] =
-    resource(initClient)(releaseClient) { client =>
-      (for {
-        dir  <- ListT(client.listDirectories(".")).filter(Config.ftpPaths.contains)
-        file <- ListT(client.listFiles(dir)).take(maxPerDir)
-      } yield FilenameUtils.concat(dir, file)).toList
-    }.unchunk
+  def watchFiles(maxPerDir: Int): Process[Task, FilePath] =
+    resource(initClient)(releaseClient)(listFiles(maxPerDir)).unchunk
+
+  def listFiles(maxPerDir: Int)(client: Client): Task[List[FilePath]] =
+    (for {
+      dir  <- ListT(client.listDirectories(".")).filter(Config.ftpPaths.contains)
+      file <- ListT(client.listFiles(dir)).take(maxPerDir)
+    } yield FilenameUtils.concat(dir, file)).toList
 
   def retrieveFile: Channel[Task, FilePath, File] =
     resource(initClient)(releaseClient) { client =>
