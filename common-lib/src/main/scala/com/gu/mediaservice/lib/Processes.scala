@@ -38,12 +38,12 @@ object Processes {
 
   import scalaz.syntax.std.map._
 
-  /** Only emits an element once it has been seen `threshold` times. */
-  def seenThreshold[A](threshold: Int): Process1[A, A] = {
+  /** Only emits an element once it has been seen `n` times. */
+  def emitEveryNth[A](n: Int): Process1[A, A] = {
     def go(acc: Map[A, Int]): Process1[A, A] =
       await1[A].flatMap { case a =>
         val newAcc = acc.insertWith(a, 1)(_ + _)
-        if (newAcc(a) >= threshold)
+        if (newAcc(a) >= n)
           emit(a) fby go(acc - a)
         else
           go(newAcc)
