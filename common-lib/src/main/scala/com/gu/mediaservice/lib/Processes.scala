@@ -14,15 +14,8 @@ object Processes {
   def resource1[R, O](acquire: Task[R])(release: R => Task[Unit])(step: R => Task[O]): Process[Task, O] =
     io.resource(acquire)(release)(step).take(1)
 
-  def resourceP[R, O](acquire: Task[R])(release: R => Task[Unit])(step: R => Process[Task, O]): Process[Task, O] =
-    io.resource(acquire)(release)(r => Task.now(step(r))).flatMap(identity)
-
   def unchunk[O]: Process1[Seq[O], O] =
     process1.id[Seq[O]].flatMap(emitAll)
-
-  /* Repeat the process continually, even if it terminates with an error. */
-  def retryContinually[A](duration: Duration)(process: => Process[Task, A]): Process[Task, A] =
-    process.orElse(sleep(duration) fby process)
 
   implicit class SourceSyntax[O](self: Process[Task, O]) {
 

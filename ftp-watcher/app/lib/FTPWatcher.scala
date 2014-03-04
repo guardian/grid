@@ -34,15 +34,15 @@ class FTPWatcher(host: String, user: String, password: String) {
       .through(retrieveFile)
       .through(uploadImage)
 
+  import scalaz.ListT
+
   def listFiles(maxPerDir: Int): Process[Task, FilePath] =
-    resourceP(initClient)(releaseClient) { client =>
-      repeatEval(client.listDirectories("."))
-        .unchunk
-        .filter(Config.ftpPaths.contains)
-        .flatMap { dir =>
-          eval(client.listFiles(dir)).unchunk.take(maxPerDir).map(dir + "/" + _)
-        }
-    }
+    resource(initClient)(releaseClient) { client =>
+      (for {
+        dir  <- ListT(client.listDirectories("."))
+        file <- ListT(client.listFiles(dir)).take(maxPerDir)
+      } yield FilenameUtils.concat(dir, file)).toList
+    }.unchunk
 
   def retrieveFile: Channel[Task, FilePath, File] =
     resource(initClient)(releaseClient) { client =>
