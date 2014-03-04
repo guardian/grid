@@ -39,7 +39,7 @@ class FTPWatcher(host: String, user: String, password: String) {
   def listFiles(maxPerDir: Int): Process[Task, FilePath] =
     resource(initClient)(releaseClient) { client =>
       (for {
-        dir  <- ListT(client.listDirectories("."))
+        dir  <- ListT(client.listDirectories(".")).filter(Config.ftpPaths.contains)
         file <- ListT(client.listFiles(dir)).take(maxPerDir)
       } yield FilenameUtils.concat(dir, file)).toList
     }.unchunk
