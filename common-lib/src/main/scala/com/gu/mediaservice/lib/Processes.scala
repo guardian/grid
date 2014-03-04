@@ -11,9 +11,6 @@ import scalaz.stream.ReceiveY.{ReceiveL, ReceiveR, HaltL, HaltR}
 
 object Processes {
 
-  def resource1[R, O](acquire: Task[R])(release: R => Task[Unit])(step: R => Task[O]): Process[Task, O] =
-    io.resource(acquire)(release)(step).take(1)
-
   def unchunk[O]: Process1[Seq[O], O] =
     process1.id[Seq[O]].flatMap(emitAll)
 
