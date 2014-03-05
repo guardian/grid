@@ -5,6 +5,7 @@ import scala.util.control.NonFatal
 
 import _root_.play.api.libs.json.Json
 import org.slf4j.LoggerFactory
+import org.apache.commons.io.FilenameUtils._
 
 import scalaz.syntax.bind._
 import scalaz.concurrent.Task
@@ -15,7 +16,6 @@ import io.resource
 
 import com.gu.mediaservice.lib.Processes._
 import com.gu.mediaservice.syntax.ProcessSyntax._
-import org.apache.commons.io.FilenameUtils
 
 class FTPWatcher(host: String, user: String, password: String) {
 
@@ -29,24 +29,23 @@ class FTPWatcher(host: String, user: String, password: String) {
 
   /** A process which logs failed uploads on the left hand side, and successful ones on the right */
   def uploads: Writer[Task, FailedUpload, FilePath] =
-    watchFiles(10)
-      .flatMap(f => waitForActive(500.millis)(emit(f)))
+    whileActive(100.millis)(watchFiles(10))
       .through(retrieveFile)
       .through(uploadImage)
 
-  import scalaz.ListT
-
   def watchFiles(maxPerDir: Int): Process[Task, FilePath] =
-    sleepIfEmpty(100.millis)(resource(initClient)(releaseClient)(listFiles(maxPerDir))).unchunk
+    sleepIfEmpty(100.millis)(withClient(listFiles(maxPerDir))).unchunk
+
+  import scalaz.ListT
 
   def listFiles(maxPerDir: Int)(client: Client): Task[List[FilePath]] =
     (for {
       dir  <- ListT(client.listDirectories(".")).filter(Config.ftpPaths.contains)
       file <- ListT(client.listFiles(dir)).take(maxPerDir)
-    } yield FilenameUtils.concat(dir, file)).toList
+    } yield concat(dir, file)).toList
 
   def retrieveFile: Channel[Task, FilePath, File] =
-    resource(initClient)(releaseClient) { client =>
+    withClient { client =>
       Task.now { path: FilePath =>
         val uploadedBy = path.takeWhile(_ != '/')
         client.retrieveFile(path).map(bytes => File(path, bytes, uploadedBy))
@@ -54,13 +53,13 @@ class FTPWatcher(host: String, user: String, password: String) {
     }
 
   def deleteFile: Sink[Task, FilePath] =
-    resource(initClient)(releaseClient)(client => Task.now { path: FilePath => client.delete(path) })
+    withClient(client => Task.now { path: FilePath => client.delete(path) })
 
   def moveFailedUploads: Sink[Task, FailedUpload] =
-    resource(initClient)(releaseClient) { client =>
+    withClient { client =>
       Task.now { case FailedUpload(path) =>
-        val destDir = FilenameUtils.getPath(path) + "failed"
-        val destPath = destDir + "/" + FilenameUtils.getName(path)
+        val destDir = getPath(path) + "failed"
+        val destPath = destDir + "/" + getName(path)
         logger.warn(s"$path breached the failure threshold, moving to $destPath")
         client.mkDir(destDir) >> client.rename(path, destPath)
       }
@@ -68,6 +67,9 @@ class FTPWatcher(host: String, user: String, password: String) {
 
   def repeatedFailureThreshold(threshold: Int): Process1[FailedUpload, FailedUpload] =
     emitEveryNth(threshold)
+
+  def withClient[A](f: Client => Task[A]): Process[Task, A] =
+    resource(initClient)(releaseClient)(f)
 
   private def initClient: Task[Client] =
     Task.delay(new Client).flatMap { client =>
@@ -89,8 +91,10 @@ class FTPWatcher(host: String, user: String, password: String) {
 
   private val logger = LoggerFactory.getLogger(getClass)
 
-  def waitForActive[A](sleepDuration: Duration)(p: Process[Task, A]): Process[Task, A] =
-    sleepUntil(repeat(sleep(sleepDuration) fby eval(Task.delay(Config.isActive))))(p)
+  def whileActive[A](checkInterval: Duration)(p: Process[Task, A]): Process[Task, A] = {
+    val isActive = awakeEvery(checkInterval).as(Task.delay(Config.isActive)).eval
+    p.flatMap(a => sleepUntil(isActive)(emit(a)))
+  }
 
   def uploadImage: Channel[Task, File, FailedUpload \/ FilePath] =
     Process.constant { case File(path, bytes, uploadedBy) =>
