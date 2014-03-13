@@ -8,10 +8,14 @@ import org.elasticsearch.action.get.GetRequestBuilder
 import org.elasticsearch.action.search.SearchRequestBuilder
 import org.elasticsearch.index.query.{FilterBuilders, FilterBuilder}
 import org.elasticsearch.index.query.QueryBuilders._
+import org.elasticsearch.index.query.MatchQueryBuilder.Operator
 import org.elasticsearch.search.facet.terms.{TermsFacet, TermsFacetBuilder}
 import org.elasticsearch.search.sort.SortOrder
 import org.joda.time.DateTime
+
 import scalaz.syntax.id._
+import scalaz.syntax.foldable1._
+import scalaz.syntax.std.list._
 import scalaz.NonEmptyList
 
 import com.gu.mediaservice.syntax._
@@ -19,7 +23,6 @@ import com.gu.mediaservice.lib.elasticsearch.ElasticSearchClient
 import com.gu.mediaservice.lib.formatting.printDateTime
 import controllers.SearchParams
 import lib.{MediaApiMetrics, Config}
-import org.elasticsearch.index.query.MatchQueryBuilder.Operator
 
 
 object ElasticSearch extends ElasticSearchClient {
@@ -46,9 +49,10 @@ object ElasticSearch extends ElasticSearchClient {
       .getOrElse(matchAllQuery)
 
     val dateFilter = filters.date(params.fromDate, params.toDate)
-    val bucketFilter = params.buckets.map(filters.terms("buckets", _))
+    val bucketFilter = params.buckets.toNel.map(filters.terms("buckets", _))
+    val metadataFilter = params.hasMetadata.map("metadata." + _).toNel.map(filters.exists)
 
-    val filter = bucketFilter.foldLeft(dateFilter)(filters.and)
+    val filter = (bucketFilter.toList ++ metadataFilter.toList).foldLeft(dateFilter)(filters.and)
 
     val search = prepareImagesSearch.setQuery(query).setFilter(filter) |>
                  sorts.parseFromRequest(params.orderBy)
@@ -80,19 +84,23 @@ object ElasticSearch extends ElasticSearchClient {
 
   object filters {
 
+    import FilterBuilders.{rangeFilter, termsFilter, andFilter, existsFilter}
+
     def date(from: Option[DateTime], to: Option[DateTime]): FilterBuilder = {
-      val builder = FilterBuilders.rangeFilter("uploadTime")
+      val builder = rangeFilter("uploadTime")
       for (f <- from) builder.from(printDateTime(f))
       for (t <- to) builder.to(printDateTime(t))
       builder
     }
 
     def terms(field: String, terms: NonEmptyList[String]): FilterBuilder =
-      FilterBuilders.termsFilter(field, terms.list: _*)
+      termsFilter(field, terms.list: _*)
 
     def and(filter1: FilterBuilder, filter2: FilterBuilder): FilterBuilder =
-      FilterBuilders.andFilter(filter1, filter2)
+      andFilter(filter1, filter2)
 
+    def exists(fields: NonEmptyList[String]): FilterBuilder =
+      fields.map(f => existsFilter(f): FilterBuilder).foldRight1(andFilter(_, _))
   }
 
   object sorts {
