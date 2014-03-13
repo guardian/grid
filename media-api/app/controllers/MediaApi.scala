@@ -121,14 +121,16 @@ case class SearchParams(
   orderBy: Option[String],
   fromDate: Option[DateTime],
   toDate: Option[DateTime],
-  buckets: Option[NonEmptyList[String]]
+  buckets: List[String],
+  hasMetadata: List[String]
 )
 
 object SearchParams {
 
-  import scalaz.syntax.std.list._
+  def apply(request: Request[Any]): SearchParams = {
 
-  def apply(request: Request[Any]): SearchParams =
+    def commaSep(key: String): List[String] = request.getQueryString(key).toList.flatMap(_.trim.split(','))
+
     SearchParams(
       request.getQueryString("q"),
       request.getQueryString("offset") flatMap (s => Try(s.toInt).toOption) getOrElse 0,
@@ -136,7 +138,9 @@ object SearchParams {
       request.getQueryString("orderBy") orElse request.getQueryString("sortBy"),
       request.getQueryString("fromDate") orElse request.getQueryString("since") flatMap parseDateFromQuery,
       request.getQueryString("toDate") orElse request.getQueryString("until") flatMap parseDateFromQuery,
-      request.getQueryString("bucket") flatMap (s => s.trim.split(',').toList.toNel)
+      commaSep("bucket"),
+      commaSep("hasMetadata")
     )
+  }
 
 }
