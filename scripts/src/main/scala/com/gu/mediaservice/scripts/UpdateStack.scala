@@ -100,7 +100,7 @@ abstract class StackScript {
       val cropperCertArn = getCertArn(s"cropper.$domainRoot")
 
       val (esMinSize, esDesired) = stage match {
-        case Prod => (3, 4)
+        case Prod => (3, 3)
         case _    => (2, 2)
       }
       val esMaxSize = esDesired * 2 // allows for autoscaling deploys
