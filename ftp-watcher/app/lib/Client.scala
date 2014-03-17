@@ -12,6 +12,7 @@ final class Client {
 
   private val client = new FTPClient
   client.setConnectTimeout(30.seconds.toMillis.toInt)
+  client.setDefaultTimeout(30.seconds.toMillis.toInt)
 
   def connect(host: String, port: Int): Task[Unit] =
     Task { client.connect(host, port) }
