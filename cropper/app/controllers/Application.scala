@@ -8,7 +8,7 @@ import _root_.play.api.mvc.{Action, Controller}
 import _root_.play.api.libs.json._
 import _root_.play.api.libs.concurrent.Execution.Implicits._
 import _root_.play.api.libs.ws.WS
-import org.joda.time.DateTime
+import _root_.play.api.Logger
 
 import com.gu.mediaservice.lib.auth
 import com.gu.mediaservice.lib.auth.KeyStore
@@ -40,9 +40,9 @@ object Application extends Controller {
 
   def createSizings(source: CropSource): Future[List[CropSizing]] =
     for {
-      apiResp    <- WS.url(source.uri).withHeaders("X-Gu-Media-Key" -> Config.mediaApiKey).get
-      sourceImg   = apiResp.json.as[SourceImage]
-      sourceFile <- tempFileFromURL(new URL(sourceImg.file), "cropSource", "")
+      apiSource  <- fetchSourceFromApi(source.uri)
+      sourceFile <- tempFileFromURL(new URL(apiSource.file), "cropSource", "")
+
       Bounds(_, _, masterW, masterH) = source.bounds
       aspect     = masterW.toFloat / masterH
       portrait   = masterW < masterH
@@ -50,8 +50,9 @@ object Application extends Controller {
         Config.portraitCropSizingHeights.filter(_ <= masterH).map(h => Dimensions(h, math.round(h * aspect)))
       else
         Config.landscapeCropSizingWidths.filter(_ <= masterW).map(w => Dimensions(w, math.round(w / aspect)))
+
       sizings   <- Future.traverse(outputDims) { dim =>
-        val filename = outputFilename(sourceImg, source.bounds, dim.width)
+        val filename = outputFilename(apiSource, source.bounds, dim.width)
         for {
           file <- Crops.create(sourceFile, source, dim)
           uri  <- CropStorage.storeCropSizing(file, filename, "image/jpeg", source, dim)
@@ -62,6 +63,13 @@ object Application extends Controller {
       _ <- delete(sourceFile)
     }
     yield sizings
+
+  def fetchSourceFromApi(uri: String): Future[SourceImage] =
+    for (resp <- WS.url(uri).withHeaders("X-Gu-Media-Key" -> Config.mediaApiKey).get)
+    yield {
+      if (resp.status != 200) Logger.warn(s"HTTP status ${resp.status} ${resp.statusText} from $uri")
+      resp.json.as[SourceImage]
+    }
 
   def cropResponse(source: CropSource, sizings: List[CropSizing]): JsValue =
     Json.obj(
