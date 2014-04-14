@@ -1287,7 +1287,7 @@
                         "sns.topic.arn=", { "Ref": "Topic" }, "\n",
                         "crop.output.tmp.dir=/data\n",
                         "auth.keystore.bucket=", { "Ref": "KeyBucket" }, "\n",
-                        "media.api.key=f6ee41f2fdab968f066636acdd8f8562\n",
+                        "media.api.key=cropper-1b573f2dd45e49fc277667cf38124d1c\n",
                         "publishing.image.bucket=", { "Ref": "ImageOriginBucket" }, "\n",
                         "publishing.aws.id=", { "Ref": "ImagePublishingCredentials" }, "\n",
                         "publishing.aws.secret=", { "Fn::GetAtt": [ "ImagePublishingCredentials", "SecretAccessKey" ] }, "\n",
