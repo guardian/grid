@@ -94,10 +94,10 @@ abstract class StackScript {
         case _    => s"media.$stage.dev-***REMOVED***".toLowerCase
       }
 
-      val kahunaCertArn = getCertArn(domainRoot)
-      val mediaApiCertArn = getCertArn(s"api.$domainRoot")
-      val loaderCertArn = getCertArn(s"loader.$domainRoot")
-      val cropperCertArn = getCertArn(s"cropper.$domainRoot")
+      val kahunaCertArn = getCertArn(s"$domainRoot-rotated")
+      val mediaApiCertArn = getCertArn(s"api.$domainRoot-rotated")
+      val loaderCertArn = getCertArn(s"loader.$domainRoot-rotated")
+      val cropperCertArn = getCertArn(s"cropper.$domainRoot-rotated")
 
       val (esMinSize, esDesired) = stage match {
         case Prod => (3, 3)
