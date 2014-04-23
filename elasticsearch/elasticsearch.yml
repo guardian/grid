@@ -212,6 +212,7 @@ cloud.aws.secret_key: "@@SECRET_KEY"
 
 # Prefer to keep replicas in different availability zones
 cloud.node.auto_attributes: true
+cluster.routing.allocation.awareness.attributes: aws_availability_zone
 
 discovery.zen.ping.multicast.enabled: false
 discovery.zen.minimum_master_nodes: 3
