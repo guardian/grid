@@ -20,7 +20,7 @@ then
     rm elasticsearch/config/elasticsearch.yml
     ln -s $(pwd)/elasticsearch.yml elasticsearch/config/
     ./elasticsearch/bin/plugin install mobz/elasticsearch-head
-    ./elasticsearch/bin/plugin install elasticsearch/elasticsearch-cloud-aws/1.11.0
+    ./elasticsearch/bin/plugin install elasticsearch/elasticsearch-cloud-aws/1.14.0
     ./elasticsearch/bin/plugin -install lukas-vlcek/bigdesk
     ./elasticsearch/bin/plugin -install karmi/elasticsearch-paramedic
     echo "Done"
