@@ -21,7 +21,7 @@ object UpdateStack extends StackScript {
         .withTemplateURL(template)
         .withParameters(stack.parameters: _*)
     )
-    println(s"Updated stack ${stack.name}.")
+    println(s"Updating stack ${stack.name}.")
   }
 
 }
@@ -37,7 +37,7 @@ object CreateStack extends StackScript {
         .withTemplateURL(template)
         .withParameters(stack.parameters: _*)
     )
-    println(s"Created stack ${stack.name}")
+    println(s"Creating stack ${stack.name}")
   }
 
 }
