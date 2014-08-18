@@ -10,7 +10,7 @@
         "Stage": {
             "Description": "Environment name",
             "Type": "String",
-            "AllowedValues": ["CODE", "TEST", "PROD"],
+            "AllowedValues": ["TEST", "PROD"],
             "Default": "PROD"
         },
         "MediaApiSSLCertificateId": {
