@@ -11,7 +11,8 @@ import scala.util.Try
 import org.slf4j.LoggerFactory
 import play.api.libs.ws.WS
 import play.api.http.{ContentTypeOf, Writeable}
-import play.api.libs.ws.Response
+import play.api.libs.ws.WSResponse
+import play.api.Play.current
 
 import uritemplate._
 import Syntax._
@@ -42,32 +43,32 @@ trait TestHarness {
   implicit val ctx: ExecutionContext =
     ExecutionContext.fromExecutor(Executors.newSingleThreadExecutor)
 
-  def loadImage(file: File): Response = await() {
+  def loadImage(file: File): WSResponse = await() {
     WS.url(config.imageLoadEndpoint)
       .withHeaders("Content-Type" -> "image/jpeg")
       .post(file)
   }
 
-  def getRoot: Response = await() {
+  def getRoot: WSResponse = await() {
     WS.url(config.mediaApiEndpoint).withHeaders(apiKeyHeader).get
   }
 
-  def searchImages(query: String): Response = await() {
+  def searchImages(query: String): WSResponse = await() {
     WS.url(searchUri(query)).withHeaders(apiKeyHeader).get
   }
 
-  def getImage(id: String): Response = await() {
+  def getImage(id: String): WSResponse = await() {
     WS.url(imageUri(id)).withHeaders(apiKeyHeader).get
   }
 
-  def deleteImage(id: String): Response = await() {
+  def deleteImage(id: String): WSResponse = await() {
     WS.url(config.imageEndpoint(id)).withHeaders(apiKeyHeader).delete()
   }
 
   def resourceAsFile(path: String): File =
     new File(getClass.getResource(path).toURI)
 
-  def deleteIndex: Response = await() {
+  def deleteIndex: WSResponse = await() {
     log.info("Deleting index to clean up")
     WS.url(config.deleteIndexEndpoint).withHeaders(apiKeyHeader).post()
   }

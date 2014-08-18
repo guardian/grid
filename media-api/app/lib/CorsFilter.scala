@@ -6,7 +6,7 @@ object CorsFilter extends Filter {
   import scala.concurrent._
   import ExecutionContext.Implicits.global
 
-  def apply(f: (RequestHeader) => Future[SimpleResult])(request: RequestHeader): Future[SimpleResult] = {
+  def apply(f: (RequestHeader) => Future[Result])(request: RequestHeader): Future[Result] = {
 
     val requestProtocol = request.forwardedProtocol.getOrElse("http")
 

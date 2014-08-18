@@ -18,7 +18,7 @@ import com.amazonaws.AmazonServiceException
 import com.gu.mediaservice.syntax._
 
 object Authenticated {
-  def apply(keyStore: KeyStore)(onUnauthorized: RequestHeader => SimpleResult): AuthenticatedBuilder[Principal] =
+  def apply(keyStore: KeyStore)(onUnauthorized: RequestHeader => Result): AuthenticatedBuilder[Principal] =
     new AuthenticatedBuilder(Principal.fromRequest(keyStore), onUnauthorized)
 }
 
@@ -113,13 +113,13 @@ class KeyStore(bucket: String, credentials: AWSCredentials) {
   * rather than immediately (/blocking)
   */
 class AuthenticatedBuilder[U](userinfo: RequestHeader => Future[Option[U]],
-                              onUnauthorized: RequestHeader => SimpleResult)
+                              onUnauthorized: RequestHeader => Result)
   extends ActionBuilder[({ type R[A] = AuthenticatedRequest[A, U] })#R] {
 
-  def invokeBlock[A](request: Request[A], block: AuthenticatedRequest[A, U] => Future[SimpleResult]) =
+  def invokeBlock[A](request: Request[A], block: AuthenticatedRequest[A, U] => Future[Result]) =
     authenticate(request, block)
 
-  def authenticate[A](request: Request[A], block: AuthenticatedRequest[A, U] => Future[SimpleResult]) =
+  def authenticate[A](request: Request[A], block: AuthenticatedRequest[A, U] => Future[Result]) =
     userinfo(request).flatMap { maybeUser =>
       maybeUser
         .map(user => block(new AuthenticatedRequest(user, request)))

@@ -44,12 +44,12 @@ object Login extends Controller {
         yield User(info.id, email, firstName, lastName)
       credentials match {
         case Some(user) if validator.isAuthorised(user) =>
-          Redirect(session.get("loginFromUrl").getOrElse("/"))
-            .withSession (session + (User.KEY -> User.writeJson(user)) - "loginFromUrl")
+          Redirect(request2session.get("loginFromUrl").getOrElse("/"))
+            .withSession (request2session + (User.KEY -> User.writeJson(user)) - "loginFromUrl")
         case _ =>
           Redirect(routes.Login.loginForm)
             .flashing("error" -> "Authorisation failed.")
-            .withSession(session - User.KEY)
+            .withSession(request2session - User.KEY)
       }
     } recover {
       case t =>

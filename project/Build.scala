@@ -10,8 +10,8 @@ object Build extends Build {
 
   val commonSettings =
     Seq(
-      scalaVersion := "2.10.3",
-      scalaVersion in ThisBuild := "2.10.3",
+      scalaVersion := "2.10.4",
+      scalaVersion in ThisBuild := "2.10.4",
       organization := "com.gu",
       version      := "0.1",
       resolvers ++= Seq(
@@ -29,12 +29,13 @@ object Build extends Build {
     .libraryDependencies(elasticsearchDeps ++ awsDeps ++ scalazDeps)
 
   val kahuna = playProject("kahuna")
+    .libraryDependencies(playWsDeps)
 
   val mediaApi = playProject("media-api")
     .libraryDependencies(elasticsearchDeps ++ awsDeps ++ scalazDeps)
 
   val cropService = playProject("cropper")
-    .libraryDependencies(awsDeps ++ imagingDeps)
+    .libraryDependencies(awsDeps ++ imagingDeps ++ playWsDeps)
 
   val imageLoader = playProject("image-loader")
     .libraryDependencies(awsDeps ++ imagingDeps)
@@ -48,7 +49,7 @@ object Build extends Build {
 
   val integration = project("integration")
     .dependsOn(lib)
-    .libraryDependencies(awsDeps ++ scalazDeps ++ uriTemplateDeps)
+    .libraryDependencies(awsDeps ++ scalazDeps ++ uriTemplateDeps ++ playWsDeps)
     .testDependencies(scalaTestDeps ++ playDeps)
     .settings(parallelExecution in Test := false)
 
@@ -58,14 +59,15 @@ object Build extends Build {
 
   @deprecated
   val devImageLoader = project("dev-image-loader")
-    .libraryDependencies(playDeps)
+    .libraryDependencies(playDeps ++ playWsDeps)
 
 
   def project(path: String): Project =
     Project(path, file(path)).settings(commonSettings: _*)
 
   def playProject(path: String): Project =
-    play.Project(path, path = file(path))
+    Project(path, file(path))
+      .enablePlugins(play.PlayScala)
       .dependsOn(lib)
       .settings(commonSettings ++ playArtifactDistSettings ++ playArtifactSettings: _*)
       .settings(magentaPackageName := "media-service-" + path)
