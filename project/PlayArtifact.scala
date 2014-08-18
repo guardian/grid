@@ -1,8 +1,7 @@
-package plugins
+package sbt.plugins
 
 import sbt._
 import sbt.Keys._
-import play.Project._
 import sbtassembly.Plugin._
 import sbtassembly.Plugin.AssemblyKeys._
 import com.typesafe.sbt.packager

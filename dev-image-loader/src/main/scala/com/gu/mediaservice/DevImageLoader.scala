@@ -9,7 +9,8 @@ import scala.concurrent.{Await, Future, ExecutionContext}
 import scala.concurrent.duration._
 
 import akka.actor.ActorSystem
-import play.api.libs.ws.{WS, Response}
+import play.api.libs.ws.{WS, WSResponse}
+import play.api.Play.current
 
 
 object DevImageLoader {
@@ -64,7 +65,7 @@ object DevImageLoader {
 
   val apiImageUriBase = "http://localhost:9000/images/"
 
-  def putImage(id: String, file: File): Future[Response] = {
+  def putImage(id: String, file: File): Future[WSResponse] = {
     val url = apiImageUriBase + URLEncoder.encode(id, "utf8")
     println(s"PUT ${file.getAbsolutePath} to $url")
     WS.url(url).withHeaders("Content-Type" -> "image/jpeg").put(file)

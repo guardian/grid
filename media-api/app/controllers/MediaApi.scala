@@ -53,7 +53,7 @@ object MediaApi extends Controller {
 
   def removeImageFromBucket(id: String) = Authenticated.async { bucketNotification(id, "remove-image-from-bucket") }
 
-  private def bucketNotification(imageId: String, subject: String): Request[AnyContent] => Future[SimpleResult] =
+  private def bucketNotification(imageId: String, subject: String): Request[AnyContent] => Future[Result] =
     request => request.body.asText.filter(validBucket) match {
       case Some(bucket) =>
         for (exists <- ElasticSearch.imageExists(imageId)) yield

@@ -9,6 +9,7 @@ import _root_.play.api.libs.json._
 import _root_.play.api.libs.concurrent.Execution.Implicits._
 import _root_.play.api.libs.ws.WS
 import _root_.play.api.Logger
+import _root_.play.api.Play.current
 
 import com.gu.mediaservice.lib.auth
 import com.gu.mediaservice.lib.auth.KeyStore
