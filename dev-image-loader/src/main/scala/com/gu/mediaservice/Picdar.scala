@@ -5,6 +5,7 @@ import scala.concurrent.{ExecutionContext, Future}
 import scala.xml.Node
 import org.joda.time.DateTime
 import play.api.libs.ws.WS
+import play.api.Play.current
 
 
 case class PicdarImage(mmref: Picdar.MMRef, url: URL, xml: Node)

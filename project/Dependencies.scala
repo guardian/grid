@@ -3,15 +3,17 @@ import sbt.Keys
 
 object Dependencies {
 
-  val playVersion = "2.2.1" // also exists in plugins.sbt, TODO deduplicate this
+  val playVersion = "2.3.3" // also exists in plugins.sbt, TODO deduplicate this
 
   val playDeps = Seq("com.typesafe.play" %% "play" % playVersion)
+
+  val playWsDeps = Seq("com.typesafe.play" %% "play-ws" % playVersion)
 
   val elasticsearchVersion = "0.90.5"
 
   val elasticsearchDeps = Seq("org.elasticsearch" % "elasticsearch" % elasticsearchVersion)
 
-  val awsDeps = Seq("com.amazonaws" % "aws-java-sdk" % "1.6.12")
+  val awsDeps = Seq("com.amazonaws" % "aws-java-sdk" % "1.7.5")
 
   val scalazDeps = Seq(
     "org.scalaz.stream" %% "scalaz-stream" % "0.3.1"
@@ -29,7 +31,7 @@ object Dependencies {
 
   val commonsIODeps = Seq("commons-io" % "commons-io" % "2.4")
 
-  val akkaAgentDeps = Seq("com.typesafe.akka" %% "akka-agent" % "2.2.0")
+  val akkaAgentDeps = Seq("com.typesafe.akka" %% "akka-agent" % "2.3.4")
 
   val scalaTestDeps = Seq("org.scalatest" %% "scalatest" % "2.0.RC1")
 
