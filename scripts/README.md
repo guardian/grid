@@ -2,5 +2,5 @@
 
 ## Updating a CloudFormation stack
 
-    $ sbt
+    $ AWS_CREDENTIAL_FILE=~/.aws-credentials sbt
     > scripts/run UpdateStack <STAGE>
