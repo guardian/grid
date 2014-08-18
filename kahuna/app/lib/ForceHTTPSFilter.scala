@@ -14,7 +14,7 @@ object ForceHTTPSFilter extends Filter {
     */
   def apply(f: (RequestHeader) => Future[SimpleResult])(request: RequestHeader): Future[SimpleResult] =
     if (request.forwardedProtocol.exists(_ != "https")) {
-      val queryString = Some(URLDecoder.decode(rawQueryString, "UTF-8")).filter(_.nonEmpty)
+      val queryString = Some(URLDecoder.decode(request.rawQueryString, "UTF-8")).filter(_.nonEmpty)
       val uri = new URI("https", request.host, request.path, queryString.orNull, null)
       Future.successful(Results.MovedPermanently(uri.toString))
     }
