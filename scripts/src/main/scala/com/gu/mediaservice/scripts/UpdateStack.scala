@@ -1,7 +1,7 @@
 package com.gu.mediaservice.scripts
 
 import com.amazonaws.services.cloudformation.AmazonCloudFormationClient
-import com.amazonaws.services.cloudformation.model.{CreateStackRequest, Parameter, UpdateStackRequest}
+import com.amazonaws.services.cloudformation.model.{DeleteStackRequest, CreateStackRequest, Parameter, UpdateStackRequest}
 import com.amazonaws.services.identitymanagement.AmazonIdentityManagementClient
 import com.amazonaws.services.identitymanagement.model.GetServerCertificateRequest
 import com.amazonaws.services.s3.AmazonS3Client
@@ -38,6 +38,19 @@ object CreateStack extends StackScript {
         .withParameters(stack.parameters: _*)
     )
     println(s"Creating stack ${stack.name}")
+  }
+
+}
+
+object DeleteStack extends StackScript {
+
+  def run(cfnClient: AmazonCloudFormationClient, stack: Stack) {
+    val template = uploadTemplate(stack)
+    cfnClient.deleteStack(
+      new DeleteStackRequest()
+        .withStackName(stack.name)
+    )
+    println(s"Deleting stack ${stack.name}")
   }
 
 }
