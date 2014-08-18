@@ -80,7 +80,7 @@ abstract class StackScript {
 
   def usageError(msg: String): Nothing = {
     System.err.println(msg)
-    System.err.println("Usage: UpdateStack <STACK> <STAGE>")
+    System.err.println("Usage: <CreateStack|UpdateStack> <STAGE>")
     sys.exit(1)
   }
 
