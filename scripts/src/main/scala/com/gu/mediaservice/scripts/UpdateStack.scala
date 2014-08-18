@@ -117,6 +117,7 @@ abstract class StackScript {
         case _    => (2, 2)
       }
       val esMaxSize = esDesired * 2 // allows for autoscaling deploys
+      val minMasterNodes = (esMinSize / 2) + 1 // int math ftw
 
       val imgOriginHostname = stage match {
         case Prod => "media-origin.guim.co.uk"
@@ -141,6 +142,7 @@ abstract class StackScript {
           param("ElasticsearchAutoscalingMinSize", esMinSize.toString),
           param("ElasticsearchAutoscalingMaxSize", esMaxSize.toString),
           param("ElasticsearchAutoscalingDesiredCapacity", esDesired.toString),
+          param("ElasticsearchMinMasterNodes", minMasterNodes.toString),
           param("ImageOriginHostname", imgOriginHostname),
           param("ImageEdgeHostname", imgEdgeHostname)
         )

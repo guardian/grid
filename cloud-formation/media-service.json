@@ -48,6 +48,9 @@
         "ElasticsearchAutoscalingDesiredCapacity": {
             "Type": "Number"
         },
+        "ElasticsearchMinMasterNodes": {
+            "Type": "Number"
+        },
         "ImageOriginHostname": {
             "Description": "Host name (& bucket name) for the public image bucket",
             "Type": "String"
@@ -446,6 +449,7 @@
                             "    -e 's,@@ROLE,media-service-elasticsearch,g' \\\n",
                             "    -e 's,@@ACCESS_KEY,", { "Ref": "HostKeys" }, ",g' \\\n",
                             "    -e 's,@@SECRET_KEY,", { "Fn::GetAtt": [ "HostKeys", "SecretAccessKey" ] }, ",g' \\\n",
+                            "    -e 's,@@MIN_MASTER_NODES,", { "Ref": "ElasticsearchMinMasterNodes" }, ",g' \\\n",
                             "    elasticsearch/config/elasticsearch.yml\n",
 
                             "mkdir -p /home/media-service/logs\n",
