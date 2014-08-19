@@ -65,14 +65,6 @@ object ElasticSearch extends ElasticSearchClient {
       .map(_.getHits.hits.toList flatMap (h => h.sourceOpt map (h.id -> _)))
   }
 
-  def getAllBuckets(implicit ex: ExecutionContext): Future[List[String]] =
-    prepareImagesSearch
-      .addFacet(new TermsFacetBuilder("buckets").field("buckets").allTerms(true))
-      .executeAndLog("all buckets terms facet")
-      .map(_.getFacets.facets.asScala.toList.flatMap {
-        case f: TermsFacet => f.getEntries.asScala.map(_.getTerm.string)
-      })
-
   def imageExists(id: String)(implicit ex: ExecutionContext): Future[Boolean] =
     prepareGet(id).setFields().executeAndLog(s"check if image $id exists") map (_.isExists)
 
