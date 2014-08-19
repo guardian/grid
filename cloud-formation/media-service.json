@@ -457,7 +457,7 @@
                             "chown -R media-service /home/media-service /data\n",
                             "chgrp -R media-service /home/media-service /data\n",
 
-                            "mv elasticsearch/elasticsearch.conf /etc/init/\n",
+                            "mv elasticsearch.conf /etc/init/\n",
 
                             "start elasticsearch\n"
                         ]]
