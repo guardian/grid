@@ -89,11 +89,6 @@ object MediaApi extends Controller {
     }
     else source
 
-  def getAllBuckets = Authenticated.async {
-    for (buckets <- ElasticSearch.getAllBuckets)
-    yield Ok(Json.obj("data" -> buckets))
-  }
-
   object transformers {
 
     def addSecureImageUrl(url: String): Reads[JsObject] =
