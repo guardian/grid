@@ -1,0 +1,4 @@
+We add this extra static/ directory so it can be added to the unmanagedResourceDirectories for sbt,
+without losing the public/ directory within it.
+
+This is basically a hack for sbt/Play's eternal and irritating inflexibility.
