@@ -32,12 +32,12 @@
         "ImageIdInstanceStorage": {
             "Description": "AMI id for instances with instance storage.",
             "Type": "String",
-            "Default": "ami-14907e63"
+            "Default": "ami-3eba6549"
         },
         "ImageIdEBSStorage": {
             "Description": "AMI id for instances with EBS storage",
             "Type": "String",
-            "Default": "ami-66ef0111"
+            "Default": "ami-30b46b47"
         },
         "ElasticsearchAutoscalingMinSize": {
             "Type": "Number"
@@ -419,7 +419,7 @@
                     { "Ref": "ElasticsearchSecurityGroup" },
                     { "Ref": "SSHSecurityGroup" }
                 ],
-                "InstanceType": "m1.medium",
+                "InstanceType": "m3.medium",
                 "IamInstanceProfile": {"Ref": "DistributionInstanceProfile"},
                 "UserData":{
                     "Fn::Base64":{
@@ -587,7 +587,7 @@
                     { "Ref": "AppServerSecurityGroup" },
                     { "Ref": "SSHSecurityGroup" }
                 ],
-                "InstanceType": "m1.small",
+                "InstanceType": "t2.small",
                 "IamInstanceProfile": {"Ref": "DistributionInstanceProfile"},
                 "UserData": { "Fn::Base64": {
                     "Fn::Join":["", [
@@ -752,7 +752,7 @@
                     { "Ref": "AppServerSecurityGroup" },
                     { "Ref": "SSHSecurityGroup" }
                 ],
-                "InstanceType": "t1.micro",
+                "InstanceType": "t2.micro",
                 "IamInstanceProfile": {"Ref": "DistributionInstanceProfile"},
                 "UserData": { "Fn::Base64": {
                     "Fn::Join":["", [
@@ -875,7 +875,7 @@
                     { "Ref": "AppServerSecurityGroup" },
                     { "Ref": "SSHSecurityGroup" }
                 ],
-                "InstanceType": "t1.micro",
+                "InstanceType": "t2.micro",
                 "IamInstanceProfile": {"Ref": "DistributionInstanceProfile"},
                 "UserData": { "Fn::Base64": {
                     "Fn::Join":["", [
@@ -1045,7 +1045,7 @@
                     { "Ref": "AppServerSecurityGroup" },
                     { "Ref": "SSHSecurityGroup" }
                 ],
-                "InstanceType": "m1.medium",
+                "InstanceType": "m3.medium",
                 "IamInstanceProfile": {"Ref": "DistributionInstanceProfile"},
                 "UserData": { "Fn::Base64": {
                     "Fn::Join":["", [
@@ -1231,7 +1231,7 @@
                     { "Ref": "AppClientSecurityGroup" },
                     { "Ref": "SSHSecurityGroup" }
                 ],
-                "InstanceType": "m1.medium",
+                "InstanceType": "m3.medium",
                 "IamInstanceProfile": {"Ref": "DistributionInstanceProfile"},
                 "UserData": { "Fn::Base64": {
                     "Fn::Join":["", [
@@ -1330,7 +1330,7 @@
                     { "Ref": "AppClientSecurityGroup" },
                     { "Ref": "SSHSecurityGroup" }
                 ],
-                "InstanceType": "t1.micro",
+                "InstanceType": "t2.micro",
                 "UserData": { "Fn::Base64": {
                     "Fn::Join": ["", [
                         "#!/bin/bash -ev\n",
