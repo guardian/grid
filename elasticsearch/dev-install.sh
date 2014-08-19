@@ -1,6 +1,6 @@
 #!/bin/sh
 
-ELASTICSEARCH_VERSION=0.90.5
+ELASTICSEARCH_VERSION=1.3.2
 ELASTICSEARCH_DIR=$(dirname $0)
 
 if [ -d "$ELASTICSEARCH_DIR/elasticsearch" ]; then
@@ -24,7 +24,7 @@ then
     sed -i -e 's,@@MIN_MASTER_NODES,1,g' elasticsearch/config/elasticsearch.yml
     cd elasticsearch
     ./bin/plugin install mobz/elasticsearch-head
-    ./bin/plugin install elasticsearch/elasticsearch-cloud-aws/1.14.0
+    ./bin/plugin install elasticsearch/elasticsearch-cloud-aws/2.3.0
     ./bin/plugin -install lukas-vlcek/bigdesk
     ./bin/plugin -install karmi/elasticsearch-paramedic
     echo "Done"
