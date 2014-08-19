@@ -21,7 +21,7 @@ then
     ./downloads/elasticsearch/bin/plugin -install karmi/elasticsearch-paramedic
     cp ../elasticsearch.yml downloads/elasticsearch/config
     cp ../logging.yml downloads/elasticsearch/config
-    cp ../elasticsearch.conf downloads/elasticsearch
+    cp ../elasticsearch.conf downloads
 else
     echo 'Failed to download Elasticsearch'
     exit 1
