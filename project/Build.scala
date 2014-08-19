@@ -30,6 +30,9 @@ object Build extends Build {
 
   val kahuna = playProject("kahuna")
     .libraryDependencies(playWsDeps)
+    .settings(
+      unmanagedResourceDirectories in Compile += { baseDirectory.value / "static" }
+    )
 
   val mediaApi = playProject("media-api")
     .libraryDependencies(elasticsearchDeps ++ awsDeps ++ scalazDeps)
