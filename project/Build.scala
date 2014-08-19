@@ -31,6 +31,10 @@ object Build extends Build {
   val kahuna = playProject("kahuna")
     .libraryDependencies(playWsDeps)
     .settings(
+      // Package the _contents_ of the static/ folder (i.e. public/)
+      // as part of the static assets. This is a workaround for the
+      // fact Play 2.3+Assembly doesn't otherwise package public/ in
+      // the app JAR correctly anymore. *sigh*
       unmanagedResourceDirectories in Compile += { baseDirectory.value / "static" }
     )
 
