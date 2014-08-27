@@ -1,5 +1,6 @@
 import sbt._
 import sbt.Keys._
+import play.Play.autoImport._
 import plugins.PlayArtifact._
 import sbtassembly.Plugin.{AssemblyKeys, MergeStrategy}
 import AssemblyKeys._
@@ -30,13 +31,6 @@ object Build extends Build {
 
   val kahuna = playProject("kahuna")
     .libraryDependencies(playWsDeps)
-    .settings(
-      // Package the _contents_ of the static/ folder (i.e. public/)
-      // as part of the static assets. This is a workaround for the
-      // fact Play 2.3+Assembly doesn't otherwise package public/ in
-      // the app JAR correctly anymore. *sigh*
-      unmanagedResourceDirectories in Compile += { baseDirectory.value / "static" }
-    )
 
   val mediaApi = playProject("media-api")
     .libraryDependencies(elasticsearchDeps ++ awsDeps ++ scalazDeps)
@@ -86,6 +80,10 @@ object Build extends Build {
         <exclude org="org.springframework"/>
         <exclude org="org.scala-tools.sbt"/>
       </dependencies>,
+
+    // Ensure the static assets Play packages separately are included in the Assembly JAR
+    fullClasspath in assembly += Attributed.blank(PlayKeys.playPackageAssets.value),
+
     mergeStrategy in assembly <<= (mergeStrategy in assembly) { (old) => {
       case f if f.startsWith("org/apache/lucene/index/") => MergeStrategy.first
       case "play/core/server/ServerWithStop.class" => MergeStrategy.first
