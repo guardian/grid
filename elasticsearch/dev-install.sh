@@ -18,11 +18,15 @@ then
     tar -zxf elasticsearch.tar.gz
     mv elasticsearch-$ELASTICSEARCH_VERSION elasticsearch
     rm elasticsearch/config/elasticsearch.yml
-    ln -s $(pwd)/elasticsearch.yml elasticsearch/config/
-    ./elasticsearch/bin/plugin install mobz/elasticsearch-head
-    ./elasticsearch/bin/plugin install elasticsearch/elasticsearch-cloud-aws/1.14.0
-    ./elasticsearch/bin/plugin -install lukas-vlcek/bigdesk
-    ./elasticsearch/bin/plugin -install karmi/elasticsearch-paramedic
+    cp elasticsearch.yml elasticsearch/config/
+    # replace this one variable which isn't stringified and therefore
+    # breaks the config syntax otherwise
+    sed -i -e 's,@@MIN_MASTER_NODES,1,g' elasticsearch/config/elasticsearch.yml
+    cd elasticsearch
+    ./bin/plugin install mobz/elasticsearch-head
+    ./bin/plugin install elasticsearch/elasticsearch-cloud-aws/1.14.0
+    ./bin/plugin -install lukas-vlcek/bigdesk
+    ./bin/plugin -install karmi/elasticsearch-paramedic
     echo "Done"
     echo "Start it with $ELASTICSEARCH_DIR/dev-start.sh"
 else

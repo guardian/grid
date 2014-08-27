@@ -13,6 +13,7 @@ ES_OPTIONS="-Des.discovery.type=zen
             -Des.path.conf=config
             -Des.client.transport.sniff=false"
 
-$ELASTICSEARCH_DIR/elasticsearch/bin/elasticsearch $ES_OPTIONS $*
+cd $ELASTICSEARCH_DIR/elasticsearch
+bin/elasticsearch $ES_OPTIONS $*
 
 echo "Started. Try: http://localhost:9200/_plugin/head/ (may take a few seconds to become available)"
