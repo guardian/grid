@@ -6,8 +6,8 @@
     "configFile": "public/config.js",
     "registry": "jspm",
     "dependencies": {
-      "angular": "^1.2.23",
-      "github:angular/bower-angular-route": "^1.2.23"
+      "github:angular/bower-angular-route": "1.2.23",
+      "angular": "1.2.23"
     }
   },
   "devDependencies": {
