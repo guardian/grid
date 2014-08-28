@@ -1,29 +1,14 @@
-// TODO: Grunt: compile almond + app
 // TODO: Grunt: hash dependencies? or ETag?
 // TODO: Load templates using AMD so they can be compiled in
 
-require.config({
-    baseUrl: '/assets',
-    paths: {
-        'angular':       'bower_components/angular/angular.min',
-        'angular-route': 'bower_components/angular-route/angular-route.min'
-    },
-    shim: {
-        'angular': {exports: 'angular'},
-        'angular-route': ['angular']
-    }
-});
+import angular from 'angular';
+import 'github:angular/bower-angular-route@1.2.23/angular-route';
+// TODO: should be able to define the main and just have:
+// import angularRoute from 'github:angular/bower-angular-route';
 
-require([
-    'angular',
-    'angular-route'
-], function(
-    angular,
-    angularRoute
-) {
-    var mainScript = document.getElementById('main-script');
+    var apiLink = document.querySelector('link[rel="media-api-uri"]');
     var config = {
-        mediaApiUri: mainScript.getAttribute('data-media-api-uri')
+        mediaApiUri: apiLink.getAttribute('href')
     };
 
     var kahuna = angular.module('kahuna', [
@@ -159,4 +144,3 @@ require([
     });
 
     angular.bootstrap(document, ['kahuna']);
-});

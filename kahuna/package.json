@@ -1,0 +1,16 @@
+{
+  "jspm": {
+    "directories": {
+      "jspmPackages": "public/jspm_packages"
+    },
+    "configFile": "public/config.js",
+    "registry": "jspm",
+    "dependencies": {
+      "angular": "^1.2.23",
+      "github:angular/bower-angular-route": "^1.2.23"
+    }
+  },
+  "devDependencies": {
+    "jspm": "0.6.13"
+  }
+}
