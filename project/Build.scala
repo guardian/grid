@@ -31,6 +31,7 @@ object Build extends Build {
 
   val kahuna = playProject("kahuna")
     .libraryDependencies(playWsDeps)
+    .settings(includeAssetsSettings: _*)
 
   val mediaApi = playProject("media-api")
     .libraryDependencies(elasticsearchDeps ++ awsDeps ++ scalazDeps)
@@ -81,9 +82,6 @@ object Build extends Build {
         <exclude org="org.scala-tools.sbt"/>
       </dependencies>,
 
-    // Ensure the static assets Play packages separately are included in the Assembly JAR
-    fullClasspath in assembly += Attributed.blank(PlayKeys.playPackageAssets.value),
-
     mergeStrategy in assembly <<= (mergeStrategy in assembly) { (old) => {
       case f if f.startsWith("org/apache/lucene/index/") => MergeStrategy.first
       case "play/core/server/ServerWithStop.class" => MergeStrategy.first
@@ -92,4 +90,8 @@ object Build extends Build {
     }}
   )
 
+  // Ensure the static assets Play packages separately are included in the Assembly JAR
+  def includeAssetsSettings = Seq(
+    fullClasspath in assembly += Attributed.blank(PlayKeys.playPackageAssets.value)
+  )
 }
