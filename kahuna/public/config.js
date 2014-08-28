@@ -14,8 +14,8 @@ System.meta["github:angular/bower-angular-route@1.2.23/angular-route"] = {
 
 System.config({
   "map": {
-    "angular": "github:angular/bower-angular@^1.2.23",
-    "github:angular/bower-angular-route": "github:angular/bower-angular-route@^1.2.23"
+    "angular": "github:angular/bower-angular@1.2.23",
+    "github:angular/bower-angular-route": "github:angular/bower-angular-route@1.2.23"
   }
 });
 
