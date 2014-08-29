@@ -97,11 +97,6 @@ kahuna.controller('SearchCtrl',
     $scope.since = ''; // default to anytime
     $scope.images = [];
 
-
-    mediaApi.listBuckets().then(function(buckets) {
-        $scope.buckets = buckets;
-    });
-
 }]);
 
 kahuna.controller('ImageCtrl',
