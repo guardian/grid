@@ -582,7 +582,7 @@
             },
             "Properties": {
                 "KeyName": { "Ref": "KeyName" },
-                "ImageId": {"Ref": "ImageIdInstanceStorage"},
+                "ImageId": {"Ref": "ImageIdEBSStorage"},
                 "SecurityGroups": [
                     { "Ref": "AppServerSecurityGroup" },
                     { "Ref": "SSHSecurityGroup" }
