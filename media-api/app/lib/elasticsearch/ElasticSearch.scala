@@ -54,7 +54,7 @@ object ElasticSearch extends ElasticSearchClient {
 
     val filter = (bucketFilter.toList ++ metadataFilter.toList).foldLeft(dateFilter)(filters.and)
 
-    val search = prepareImagesSearch.setQuery(query).setFilter(filter) |>
+    val search = prepareImagesSearch.setQuery(query).setPostFilter(filter) |>
                  sorts.parseFromRequest(params.orderBy)
 
     search
