@@ -67,16 +67,9 @@ kahuna.factory('mediaApi',
         });
     }
 
-    function listBuckets() {
-        return $http.get(mediaApiUri + '/buckets', { withCredentials: true }).then(function(response) {
-            return response.data.data;
-        });
-    }
-
     return {
         search: search,
-        find: find,
-        listBuckets: listBuckets
+        find: find
     };
 }]);
 
