@@ -5,6 +5,7 @@ import org.elasticsearch.action.index.IndexResponse
 import org.elasticsearch.action.update.{UpdateResponse, UpdateRequestBuilder}
 import org.elasticsearch.action.delete.DeleteResponse
 import org.elasticsearch.index.engine.VersionConflictEngineException
+import org.elasticsearch.script.ScriptService
 import _root_.play.api.libs.json.{Json, JsValue}
 
 import com.gu.mediaservice.lib.elasticsearch.ElasticSearchClient
@@ -18,6 +19,8 @@ object ElasticSearch extends ElasticSearchClient {
   val host = Config.elasticsearchHost
   val port = Config.int("es.port")
   val cluster = Config("es.cluster")
+
+  val scriptType = ScriptService.ScriptType.valueOf("INLINE")
 
   def indexImage(id: String, image: JsValue)(implicit ex: ExecutionContext): Future[IndexResponse] =
     client.prepareIndex(imagesIndex, imageType, id)
@@ -37,14 +40,14 @@ object ElasticSearch extends ElasticSearchClient {
   def addImageToBucket(id: String, bucket: String)(implicit ex: ExecutionContext): Future[UpdateResponse] =
     prepareImageUpdate(id)
       .addScriptParam("bucket", bucket)
-      .setScript("if (ctx._source.containsKey(\"buckets\") && ! ctx._source.buckets.contains( bucket ) ) { ctx._source.buckets += bucket } else { ctx._source.buckets = { bucket } }")
+      .setScript("if (ctx._source.containsKey(\"buckets\") && ! ctx._source.buckets.contains( bucket ) ) { ctx._source.buckets += bucket } else { ctx._source.buckets = { bucket } }", scriptType)
       .executeAndLog(s"add image $id to bucket $bucket")
       .incrementOnFailure(conflicts) { case e: VersionConflictEngineException => true }
 
   def removeImageFromBucket(id: String, bucket: String)(implicit ex: ExecutionContext): Future[UpdateResponse] =
     prepareImageUpdate(id)
       .addScriptParam("bucket", bucket)
-      .setScript("if (ctx._source.containsKey(\"buckets\")) { ctx._source.buckets.remove( bucket ) }")
+      .setScript("if (ctx._source.containsKey(\"buckets\")) { ctx._source.buckets.remove( bucket ) }", scriptType)
       .executeAndLog(s"remove image $id from bucket $bucket")
       .incrementOnFailure(conflicts) { case e: VersionConflictEngineException => true }
 }
