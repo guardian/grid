@@ -2,10 +2,7 @@
 // TODO: Load templates using AMD so they can be compiled in
 
 import angular from 'angular';
-import 'github:angular/bower-angular-route@1.2.23/angular-route';
-// TODO: should be able to define the main and just have:
-// import angularRoute from 'github:angular/bower-angular-route';
-
+import 'npm:angular-ui-router';
 
 var apiLink = document.querySelector('link[rel="media-api-uri"]');
 var config = {
@@ -13,7 +10,7 @@ var config = {
 };
 
 var kahuna = angular.module('kahuna', [
-    'ngRoute'
+    'ui.router'
 ]);
 
 
@@ -22,23 +19,37 @@ angular.forEach(config, function(value, key) {
     kahuna.constant(key, value);
 });
 
-kahuna.config(['$locationProvider', '$routeProvider',
-               function($locationProvider, $routeProvider) {
+kahuna.config(['$locationProvider',
+               function($locationProvider) {
 
     // Use real URLs (with History API) instead of hashbangs
     $locationProvider.html5Mode(true).hashPrefix('!');
+}]);
 
+kahuna.config(['$stateProvider', '$urlRouterProvider',
+               function($stateProvider, $urlRouterProvider) {
 
     var templatesDirectory = '/assets/templates';
-    $routeProvider.when('/', {
-        templateUrl: templatesDirectory + '/search.html',
-        controller: 'SearchCtrl'
+    $stateProvider.state('search', {
+        // Virtual state, we always want to be in a child state of this
+        abstract: true,
+
+        url: '/',
+        templateUrl: templatesDirectory + '/search.html'
+    });
+    $stateProvider.state('search.results', {
+        url: 'search?query&since',
+        templateUrl: templatesDirectory + '/search/results.html',
+        controller: 'SearchResultsCtrl'
     });
 
-    $routeProvider.when('/images/:imageId', {
+    $stateProvider.state('image', {
+        url: '/images/:imageId',
         templateUrl: templatesDirectory + '/image.html',
         controller: 'ImageCtrl'
     });
+
+    $urlRouterProvider.otherwise("/search");
 }]);
 
 
@@ -74,12 +85,36 @@ kahuna.factory('mediaApi',
     };
 }]);
 
-kahuna.controller('SearchCtrl',
-                  ['$scope', 'mediaApi',
-                   function($scope, mediaApi) {
+kahuna.controller('SearchQueryCtrl',
+                  ['$scope', '$state', '$stateParams',
+                   function($scope, $state, $stateParams) {
+
+    $scope.query = $stateParams.query || '';
+    $scope.since = $stateParams.since || '';
+
+    // Update state from search filters (skip initialisation step)
+    $scope.$watch('query', function(query, oldQuery) {
+        if (query !== oldQuery) {
+            $state.go('search.results', {query: query});
+        }
+    });
+    $scope.$watch('since', function(since, oldSince) {
+        if (since !== oldSince) {
+            $state.go('search.results', {since: since});
+        }
+    });
+
+}]);
+
+
+kahuna.controller('SearchResultsCtrl',
+                  ['$scope', '$state', '$stateParams', 'mediaApi',
+                   function($scope, $state, $stateParams, mediaApi) {
+
+    $scope.images = [];
 
     $scope.$watchCollection(function() {
-        return {query: $scope.query, since: $scope.since};
+        return {query: $stateParams.query, since: $stateParams.since};
     }, function(params) {
         mediaApi.search(params.query, {
             since: params.since
@@ -88,18 +123,15 @@ kahuna.controller('SearchCtrl',
         });
     });
 
-    $scope.since = ''; // default to anytime
-    $scope.images = [];
-
     $scope.$watch('hitBottom', function(hitBottom) {
         if (hitBottom) {
             var lastImage = $scope.images.slice(-1)[0];
             if (lastImage) {
                 // TODO: stop once reached the end
                 var until = lastImage.data.uploadTime;
-                mediaApi.search($scope.query, {
+                mediaApi.search($stateParams.query, {
                     until: until,
-                    since: $scope.since
+                    since: $stateParams.since
                 }).then(function(moreImages) {
                     // Filter out duplicates (esp. on exact same 'until' date)
                     var newImages = moreImages.filter(function(im) {
@@ -115,10 +147,10 @@ kahuna.controller('SearchCtrl',
 }]);
 
 kahuna.controller('ImageCtrl',
-                  ['$scope', '$routeParams', 'mediaApi',
-                   function($scope, $routeParams, mediaApi) {
+                  ['$scope', '$stateParams', 'mediaApi',
+                   function($scope, $stateParams, mediaApi) {
 
-    var imageId = $routeParams.imageId;
+    var imageId = $stateParams.imageId;
 
     mediaApi.find(imageId).then(function(image) {
         $scope.image = image;
