@@ -34,7 +34,10 @@ a {
     position: fixed;
     top: 40px;
     bottom: 0;
-    overflow: scroll;
+    left: 0;
+    right: 0;
+    /* Vertically scrollable */
+    overflow-y: scroll;
 }
 
 .image-result {
