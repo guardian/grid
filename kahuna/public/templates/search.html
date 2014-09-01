@@ -25,7 +25,8 @@
           -->
     </form>
 
-    <ul class="results">
+    <ul class="results"
+        ui:hit-bottom="hitBottom">
         <li class="image-result" ng:repeat="image in images">
             <a ng:href="/images/{{image.data.id}}"
                ui:drag-data="{{image | asDragData}}">
@@ -35,15 +36,6 @@
                     <figcaption class="image-result__caption">{{image.data.metadata.title}}</figcaption>
                 </figure>
             </a>
-        </li>
-    </ul>
-
-    <ul class="buckets">
-        <li class="bucket" ng:repeat="bucket in buckets">
-            {{bucket}}
-        </li>
-        <li class="bucket bucket--new">
-            New...
         </li>
     </ul>
 </div>
