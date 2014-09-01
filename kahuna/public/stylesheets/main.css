@@ -31,8 +31,10 @@ a {
 
 
 .results {
-    margin-top: 40px;
-    margin-right: 70px;
+    position: fixed;
+    top: 40px;
+    bottom: 0;
+    overflow: scroll;
 }
 
 .image-result {
