@@ -31,9 +31,16 @@ kahuna.config(['$stateProvider', '$urlRouterProvider',
 
     var templatesDirectory = '/assets/templates';
     $stateProvider.state('search', {
+        // Virtual state, we always want to be in a child state of this
+        abstract: true,
+
         url: '/',
-        templateUrl: templatesDirectory + '/search.html',
-        controller: 'SearchCtrl'
+        templateUrl: templatesDirectory + '/search.html'
+    });
+    $stateProvider.state('search.results', {
+        url: 'search?query&since',
+        templateUrl: templatesDirectory + '/search/results.html',
+        controller: 'SearchResultsCtrl'
     });
 
     $stateProvider.state('image', {
@@ -42,7 +49,7 @@ kahuna.config(['$stateProvider', '$urlRouterProvider',
         controller: 'ImageCtrl'
     });
 
-    $urlRouterProvider.otherwise("/");
+    $urlRouterProvider.otherwise("/search");
 }]);
 
 
@@ -78,12 +85,36 @@ kahuna.factory('mediaApi',
     };
 }]);
 
-kahuna.controller('SearchCtrl',
-                  ['$scope', 'mediaApi',
-                   function($scope, mediaApi) {
+kahuna.controller('SearchQueryCtrl',
+                  ['$scope', '$state', '$stateParams',
+                   function($scope, $state, $stateParams) {
+
+    $scope.query = $stateParams.query || '';
+    $scope.since = $stateParams.since || '';
+
+    // Update state from search filters (skip initialisation step)
+    $scope.$watch('query', function(query, oldQuery) {
+        if (query !== oldQuery) {
+            $state.go('search.results', {query: query});
+        }
+    });
+    $scope.$watch('since', function(since, oldSince) {
+        if (since !== oldSince) {
+            $state.go('search.results', {since: since});
+        }
+    });
+
+}]);
+
+
+kahuna.controller('SearchResultsCtrl',
+                  ['$scope', '$state', '$stateParams', 'mediaApi',
+                   function($scope, $state, $stateParams, mediaApi) {
+
+    $scope.images = [];
 
     $scope.$watchCollection(function() {
-        return {query: $scope.query, since: $scope.since};
+        return {query: $stateParams.query, since: $stateParams.since};
     }, function(params) {
         mediaApi.search(params.query, {
             since: params.since
@@ -92,18 +123,15 @@ kahuna.controller('SearchCtrl',
         });
     });
 
-    $scope.since = ''; // default to anytime
-    $scope.images = [];
-
     $scope.$watch('hitBottom', function(hitBottom) {
         if (hitBottom) {
             var lastImage = $scope.images.slice(-1)[0];
             if (lastImage) {
                 // TODO: stop once reached the end
                 var until = lastImage.data.uploadTime;
-                mediaApi.search($scope.query, {
+                mediaApi.search($stateParams.query, {
                     until: until,
-                    since: $scope.since
+                    since: $stateParams.since
                 }).then(function(moreImages) {
                     // Filter out duplicates (esp. on exact same 'until' date)
                     var newImages = moreImages.filter(function(im) {

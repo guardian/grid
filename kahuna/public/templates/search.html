@@ -1,5 +1,6 @@
-<div ng:controller="SearchCtrl">
-    <form class="search">
+<div>
+    <form ng:controller="SearchQueryCtrl"
+          class="search">
         <input type="text"
                placeholder="Search for images..."
                ng:model="query"
@@ -25,17 +26,5 @@
           -->
     </form>
 
-    <ul class="results"
-        ui:hit-bottom="hitBottom">
-        <li class="image-result" ng:repeat="image in images">
-            <a ng:href="/images/{{image.data.id}}"
-               ui:drag-data="{{image | asDragData}}">
-                <figure>
-                    <img class="image-result__image"
-                         ng:src="{{image.data.thumbnail.secureUrl}}"/>
-                    <figcaption class="image-result__caption">{{image.data.metadata.title}}</figcaption>
-                </figure>
-            </a>
-        </li>
-    </ul>
+    <div ui:view></div>
 </div>
