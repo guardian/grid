@@ -2,10 +2,7 @@
 // TODO: Load templates using AMD so they can be compiled in
 
 import angular from 'angular';
-import 'github:angular/bower-angular-route@1.2.23/angular-route';
-// TODO: should be able to define the main and just have:
-// import angularRoute from 'github:angular/bower-angular-route';
-
+import 'npm:angular-ui-router';
 
 var apiLink = document.querySelector('link[rel="media-api-uri"]');
 var config = {
@@ -13,7 +10,7 @@ var config = {
 };
 
 var kahuna = angular.module('kahuna', [
-    'ngRoute'
+    'ui.router'
 ]);
 
 
@@ -22,23 +19,30 @@ angular.forEach(config, function(value, key) {
     kahuna.constant(key, value);
 });
 
-kahuna.config(['$locationProvider', '$routeProvider',
-               function($locationProvider, $routeProvider) {
+kahuna.config(['$locationProvider',
+               function($locationProvider) {
 
     // Use real URLs (with History API) instead of hashbangs
     $locationProvider.html5Mode(true).hashPrefix('!');
+}]);
 
+kahuna.config(['$stateProvider', '$urlRouterProvider',
+               function($stateProvider, $urlRouterProvider) {
 
     var templatesDirectory = '/assets/templates';
-    $routeProvider.when('/', {
+    $stateProvider.state('search', {
+        url: '/',
         templateUrl: templatesDirectory + '/search.html',
         controller: 'SearchCtrl'
     });
 
-    $routeProvider.when('/images/:imageId', {
+    $stateProvider.state('image', {
+        url: '/images/:imageId',
         templateUrl: templatesDirectory + '/image.html',
         controller: 'ImageCtrl'
     });
+
+    $urlRouterProvider.otherwise("/");
 }]);
 
 
@@ -115,10 +119,10 @@ kahuna.controller('SearchCtrl',
 }]);
 
 kahuna.controller('ImageCtrl',
-                  ['$scope', '$routeParams', 'mediaApi',
-                   function($scope, $routeParams, mediaApi) {
+                  ['$scope', '$stateParams', 'mediaApi',
+                   function($scope, $stateParams, mediaApi) {
 
-    var imageId = $routeParams.imageId;
+    var imageId = $stateParams.imageId;
 
     mediaApi.find(imageId).then(function(image) {
         $scope.image = image;
