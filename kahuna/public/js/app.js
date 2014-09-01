@@ -129,11 +129,13 @@ kahuna.controller('ImageCtrl',
 // Take an image and return a drag data map of mime-type -> value
 kahuna.filter('asDragData', function() {
     return function(image) {
-        var url = image.uri;
-        return {
-            'text/plain':    url,
-            'text/uri-list': url
-        };
+        var url = image && image.uri;
+        if (url) {
+            return {
+                'text/plain':    url,
+                'text/uri-list': url
+            };
+        }
     };
 });
 
