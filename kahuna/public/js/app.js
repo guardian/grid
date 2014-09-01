@@ -53,6 +53,7 @@ kahuna.factory('mediaApi',
             params: {
                 q:      query || '',
                 since:  options.since,
+                until:  options.until,
                 length: 20
             },
             withCredentials: true
@@ -90,6 +91,27 @@ kahuna.controller('SearchCtrl',
     $scope.since = ''; // default to anytime
     $scope.images = [];
 
+    $scope.$watch('hitBottom', function(hitBottom) {
+        if (hitBottom) {
+            var lastImage = $scope.images.slice(-1)[0];
+            if (lastImage) {
+                // TODO: stop once reached the end
+                var until = lastImage.data.uploadTime;
+                mediaApi.search($scope.query, {
+                    until: until,
+                    since: $scope.since
+                }).then(function(moreImages) {
+                    // Filter out duplicates (esp. on exact same 'until' date)
+                    var newImages = moreImages.filter(function(im) {
+                        return $scope.images.filter(function(existing) {
+                            return existing.uri === im.uri;
+                        }).length === 0;
+                    });
+                    $scope.images = $scope.images.concat(newImages);
+                });
+            }
+        }
+    });
 }]);
 
 kahuna.controller('ImageCtrl',
@@ -112,6 +134,22 @@ kahuna.filter('asDragData', function() {
             'text/plain':    url,
             'text/uri-list': url
         };
+    };
+});
+
+kahuna.directive('uiHitBottom', function() {
+    return {
+        restrict: 'A',
+        link: function(scope, element, attrs) {
+            element.bind('scroll', function(e) {
+                // TODO: debounce + defer
+                var bottomPos = element[0].scrollTop + element[0].clientHeight;
+                var viewHeight = element[0].scrollHeight;
+                scope.$apply(function() {
+                    scope[attrs.uiHitBottom] = bottomPos === viewHeight;
+                });
+            });
+        }
     };
 });
 
