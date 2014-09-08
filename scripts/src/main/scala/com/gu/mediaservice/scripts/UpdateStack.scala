@@ -144,7 +144,8 @@ abstract class StackScript {
           param("ElasticsearchAutoscalingDesiredCapacity", esDesired.toString),
           param("ElasticsearchMinMasterNodes", minMasterNodes.toString),
           param("ImageOriginHostname", imgOriginHostname),
-          param("ImageEdgeHostname", imgEdgeHostname)
+          param("ImageEdgeHostname", imgEdgeHostname),
+          param("DomainRoot", domainRoot)
         )
       )
     }
