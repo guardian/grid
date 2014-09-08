@@ -7,7 +7,7 @@ class Services(domainRoot: String, ssl: Boolean) {
   val loaderHost: String   = s"loader.$domainRoot"
   val cropperHost: String  = s"cropper.$domainRoot"
 
-  val kahunaUri       = baseUri(kahunaHost)
+  val kahunaBaseUri   = baseUri(kahunaHost)
   val apiBaseUri      = baseUri(apiHost)
   val loaderBaseUri   = baseUri(loaderHost)
   val cropperBaseUri  = baseUri(cropperHost)
