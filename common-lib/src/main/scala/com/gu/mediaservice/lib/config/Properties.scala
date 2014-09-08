@@ -9,7 +9,7 @@ object Properties {
 
   def fromFile(file: File): Map[String, String] =
     fromStream(new FileInputStream(file))
-  
+
   def fromPath(file: String): Map[String, String] =
     fromStream(new FileInputStream(file))
 
