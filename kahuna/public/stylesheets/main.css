@@ -27,17 +27,23 @@ a {
     top: 0;
     left: 0;
     right: 0;
+    padding: 10px;
 }
-
+.search__control {
+    margin-right: 10px;
+}
+.search__query {
+    padding: 5px 10px;
+    width: 20%;
+}
 
 .results {
     position: fixed;
-    top: 40px;
+    top: 50px;
     bottom: 0;
     left: 0;
     right: 0;
-    /* Vertically scrollable */
-    overflow-y: scroll;
+    overflow-y: auto; /* Vertically scrollable */
 }
 
 .image-result {
