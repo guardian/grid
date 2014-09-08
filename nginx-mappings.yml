@@ -1,0 +1,13 @@
+name: media-service
+ssl: false
+mappings:
+  - prefix: api.media
+    port: 9001
+  - prefix: thrall.media
+    port: 9002
+  - prefix: loader.media
+    port: 9003
+  - prefix: media
+    port: 9005
+  - prefix: cropper.media
+    port: 9006
