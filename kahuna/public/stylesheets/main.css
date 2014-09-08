@@ -22,10 +22,9 @@ body {
 
 .user-menu {
     position: absolute;
-    top: 0;
-    right: 0;
+    top: 10px;
+    right: 10px;
     z-index: 1; /* above search bar */
-    margin: 4px 8px;
 }
 
 .search {
