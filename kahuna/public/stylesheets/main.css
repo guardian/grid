@@ -13,6 +13,13 @@ a {
     text-decoration: none;
 }
 
+/* type */
+body {
+    color: #333;
+    font: 100%/1.4 Georgia;
+    background-color: #f4f4f4;
+}
+
 .user-menu {
     position: absolute;
     top: 0;
@@ -29,15 +36,19 @@ a {
     right: 0;
     padding: 10px;
 }
+
 .search__control {
     margin-right: 10px;
 }
+
 .search__query {
     padding: 5px 10px;
     width: 20%;
 }
 
 .results {
+    display: flex;
+    flex-wrap: wrap;
     position: fixed;
     top: 50px;
     bottom: 0;
@@ -47,26 +58,36 @@ a {
 }
 
 .image-result {
-    float: left;
-    margin-left: 20px;
-    height: 200px;
-    width: 200px;
-    text-align: center;
+    width: 20%;
+    min-width: 200px;
+    flex: 1;
+    background: #fff;
+    margin: 10px 5px;
+    position: relative;
+    padding-bottom: 45px;
+}
+
+.image-result__link {
+    display: block;
 }
 
 .image-result__image {
-    max-width: 200px;
-    max-height: 160px;
+    max-height: 200px;
+    max-width: 100%;
+    display: inline-block;
+    margin: 0 auto;
 }
 
 .image-result__caption {
-    text-overflow: ellipsis;
     overflow: hidden;
     white-space: nowrap;
-    max-width: 200px;
-    text-align: left;
+    text-overflow: ellipsis;
+    padding: 10px;
+    position: absolute;
+    bottom: 0;
+    width: 100%;
+    box-sizing: border-box;
 }
-
 
 .full-image__image {
     max-width: 100%;
@@ -83,10 +104,10 @@ a {
     margin-top: 1em;
     font-weight: bold;
 }
+
 .data-header:first-child {
     margin-top: 0;
 }
-
 
 .buckets {
     position: fixed;
