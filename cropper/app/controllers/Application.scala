@@ -22,8 +22,16 @@ object Application extends Controller {
   val keyStore = new KeyStore(Config.keyStoreBucket, Config.awsCredentials)
   val Authenticated = auth.Authenticated(keyStore)(_ => Unauthorized(Json.obj("errorKey" -> "unauthorized")))
 
+  val rootUri = Config.rootUri
+
   def index = Action {
-    Ok("This is the Crop Service.\n")
+    val response = Json.obj(
+      "data"  -> Json.obj("description" -> "This is the Cropper Service"),
+      "links" -> Json.arr(
+        Json.obj("rel" -> "crop", "href" -> s"$rootUri/crop")
+      )
+    )
+    Ok(response)
   }
 
   val cropSourceForm: Form[CropSource] = Form(
