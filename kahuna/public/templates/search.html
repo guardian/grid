@@ -3,17 +3,18 @@
           class="search">
         <input type="text"
                placeholder="Search for images..."
+               class="search__query"
                ng:model="query"
         />
-        <label>
+        <label class="search__control">
             <input type="radio" ng:model="since" value="" />
             Anytime
         </label>
-        <label>
+        <label class="search__control">
             <input type="radio" ng:model="since" value="24.hour" />
             Last 24 hours
         </label>
-        <label>
+        <label class="search__control">
             <input type="radio" ng:model="since" value="1.week"  />
             Last week
         </label>
