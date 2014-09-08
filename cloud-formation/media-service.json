@@ -58,6 +58,10 @@
         "ImageEdgeHostname": {
             "Description": "Host name for image CDN edge",
             "Type": "String"
+        },
+        "DomainRoot": {
+            "Description": "Root domain (suffix) for all deployed services",
+            "Type": "String"
         }
     },
     "Resources": {
@@ -615,6 +619,7 @@
                         "EOF\n",
 
                         "cat > /etc/gu/media-api.properties<<EOF\n",
+                        "domain.root=", { "Ref": "DomainRoot" }, "\n",
                         "aws.id=", { "Ref": "HostKeys" }, "\n",
                         "aws.secret=", { "Fn::GetAtt": [ "HostKeys", "SecretAccessKey" ] }, "\n",
                         "sns.topic.arn=", { "Ref": "Topic" }, "\n",
@@ -780,6 +785,7 @@
                         "EOF\n",
 
                         "cat > /etc/gu/kahuna.properties<<EOF\n",
+                        "domain.root=", { "Ref": "DomainRoot" }, "\n",
                         "aws.id=", { "Ref": "HostKeys" }, "\n",
                         "aws.secret=", { "Fn::GetAtt": [ "HostKeys", "SecretAccessKey" ] }, "\n",
                         "auth.keystore.bucket=", { "Ref": "KeyBucket" }, "\n",
@@ -1265,6 +1271,7 @@
                         "EOF\n",
 
                         "cat > /etc/gu/cropper.properties<<EOF\n",
+                        "domain.root=", { "Ref": "DomainRoot" }, "\n",
                         "aws.id=", { "Ref": "HostKeys" }, "\n",
                         "aws.secret=", { "Fn::GetAtt": [ "HostKeys", "SecretAccessKey" ] }, "\n",
                         "sns.topic.arn=", { "Ref": "Topic" }, "\n",
