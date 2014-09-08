@@ -1,11 +1,11 @@
 package lib
 
-import com.gu.mediaservice.lib.config.Properties
+import com.gu.mediaservice.lib.config.{Properties, CommonPlayAppProperties}
 import java.io.File
 import com.amazonaws.auth.{BasicAWSCredentials, AWSCredentials}
 
 
-object Config {
+object Config extends CommonPlayAppProperties {
 
   val properties = Properties.fromPath("/etc/gu/cropper.properties")
 
@@ -23,6 +23,8 @@ object Config {
   val topicArn = properties("sns.topic.arn")
 
   val mediaApiKey = properties("media.api.key")
+
+  val rootUri = services.cropperBaseUri
 
   val tempDir: File = new File(properties.getOrElse("crop.output.tmp.dir", "/tmp"))
 

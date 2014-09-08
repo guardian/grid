@@ -28,7 +28,8 @@ object MediaApi extends Controller {
       "data"  -> Json.obj("description" -> "This is the Media API"),
       "links" -> Json.arr(
         Json.obj("rel" -> "search", "href" -> s"$rootUri/images{?q,offset,length,fromDate,toDate,orderBy}"),
-        Json.obj("rel" -> "image",  "href" -> s"$rootUri/images/{id}")
+        Json.obj("rel" -> "image",  "href" -> s"$rootUri/images/{id}"),
+        Json.obj("rel" -> "cropper", "href" -> Config.cropperUri)
       )
     )
     Ok(response)
