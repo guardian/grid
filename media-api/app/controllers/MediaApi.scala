@@ -104,10 +104,10 @@ object MediaApi extends Controller {
 case class GeneralParams(showSecureUrl: Boolean)
 
 object GeneralParams {
-  
+
   def apply(request: Request[Any]): GeneralParams =
     GeneralParams(request.getQueryString("show-secure-url") forall (_.toBoolean))
-  
+
 }
 
 case class SearchParams(
