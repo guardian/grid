@@ -1377,7 +1377,7 @@
                 }}
             }
         },
-        
+
         "Topic": {
             "Type": "AWS::SNS::Topic",
             "Properties": {
