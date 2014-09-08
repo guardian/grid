@@ -5,10 +5,10 @@ import com.amazonaws.auth.{BasicAWSCredentials, AWSCredentials}
 import scalaz.syntax.id._
 
 import com.gu.mediaservice.lib.elasticsearch.EC2._
-import com.gu.mediaservice.lib.config.{Properties, CommonPlayAppConfig}
+import com.gu.mediaservice.lib.config.{Properties, CommonPlayAppConfig, CommonPlayAppProperties}
 
 
-object Config extends CommonPlayAppConfig {
+object Config extends CommonPlayAppConfig with CommonPlayAppProperties {
 
   val properties = Properties.fromPath("/etc/gu/media-api.properties")
 
@@ -31,8 +31,10 @@ object Config extends CommonPlayAppConfig {
 
   val topicArn: String = properties("sns.topic.arn")
 
-  val rootUri: String = string("root.uri")
-  val domainRoot: String = string("domain.root")
+  // Note: had to make these lazy to avoid init order problems ;_;
+
+  lazy val rootUri: String = services.apiBaseUri
+  lazy val cropperUri: String = services.cropperBaseUri
 
   val corsAllowedDomain: String =
     properties.getOrElse("cors.allowed.domain", domainRoot)
