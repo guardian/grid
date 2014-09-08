@@ -108,8 +108,8 @@ kahuna.controller('SearchQueryCtrl',
 
 
 kahuna.controller('SearchResultsCtrl',
-                  ['$scope', '$state', '$stateParams', 'mediaApi',
-                   function($scope, $state, $stateParams, mediaApi) {
+                  ['$scope', '$state', '$stateParams', '$timeout', 'mediaApi',
+                   function($scope, $state, $stateParams, $timeout, mediaApi) {
 
     $scope.images = [];
 
@@ -120,28 +120,37 @@ kahuna.controller('SearchResultsCtrl',
             since: params.since
         }).then(function(images) {
             $scope.images = images;
+            $timeout(function() {
+                if ($scope.hasSpace) {
+                    addImages();
+                }
+            });
         });
     });
 
+    function addImages() {
+        // TODO: stop once reached the end
+        var lastImage = $scope.images.slice(-1)[0];
+        if (lastImage) {
+            var until = lastImage.data.uploadTime;
+            mediaApi.search($stateParams.query, {
+                until: until,
+                since: $stateParams.since
+            }).then(function(moreImages) {
+                // Filter out duplicates (esp. on exact same 'until' date)
+                var newImages = moreImages.filter(function(im) {
+                    return $scope.images.filter(function(existing) {
+                        return existing.uri === im.uri;
+                    }).length === 0;
+                });
+                $scope.images = $scope.images.concat(newImages);
+            });
+        }
+    }
+
     $scope.$watch('hitBottom', function(hitBottom) {
         if (hitBottom) {
-            var lastImage = $scope.images.slice(-1)[0];
-            if (lastImage) {
-                // TODO: stop once reached the end
-                var until = lastImage.data.uploadTime;
-                mediaApi.search($stateParams.query, {
-                    until: until,
-                    since: $stateParams.since
-                }).then(function(moreImages) {
-                    // Filter out duplicates (esp. on exact same 'until' date)
-                    var newImages = moreImages.filter(function(im) {
-                        return $scope.images.filter(function(existing) {
-                            return existing.uri === im.uri;
-                        }).length === 0;
-                    });
-                    $scope.images = $scope.images.concat(newImages);
-                });
-            }
+            addImages();
         }
     });
 }]);
@@ -169,6 +178,17 @@ kahuna.filter('asDragData', function() {
             };
         }
     };
+});
+
+kahuna.directive('uiHasSpace', function() {
+    return {
+        restrict: 'A',
+        link: function(scope, element, attrs) {
+            scope.$watch(function() {
+                scope[attrs.uiHasSpace] = element[0].scrollHeight <= element[0].clientHeight;
+            });
+        }
+    }
 });
 
 kahuna.directive('uiHitBottom', function() {
