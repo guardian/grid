@@ -370,17 +370,12 @@
                     },
                     {
                         "Key": "Stack",
-                        "Value": "mediaservice",
+                        "Value": "media-service",
                         "PropagateAtLaunch": "true"
                     },
                     {
                         "Key": "App",
                         "Value": "elasticsearch",
-                        "PropagateAtLaunch": "true"
-                    },
-                    {
-                        "Key": "Role",
-                        "Value": "media-service-elasticsearch",
                         "PropagateAtLaunch": "true"
                     }
                 ]
@@ -406,9 +401,9 @@
                   "files": {
                     "/home/media-service/elasticsearch.tar.gz": {
                       "source": { "Fn::Join" : ["", [
-                        "https://s3-eu-west-1.amazonaws.com/media-service-dist/",
+                        "https://s3-eu-west-1.amazonaws.com/media-service-dist/media-service/",
                         { "Ref": "Stage" },
-                        "/media-service-elasticsearch/elasticsearch.tar.gz"
+                        "/elasticsearch/elasticsearch.tar.gz"
                       ]]},
                       "authentication": "distributionAuthentication"
                     }
@@ -682,17 +677,12 @@
                     },
                     {
                         "Key": "Stack",
-                        "Value": "mediaservice",
+                        "Value": "media-service",
                         "PropagateAtLaunch": "true"
                     },
                     {
                         "Key": "App",
                         "Value": "kahuna",
-                        "PropagateAtLaunch": "true"
-                    },
-                    {
-                        "Key": "Role",
-                        "Value": "media-service-kahuna",
                         "PropagateAtLaunch": "true"
                     }
                 ]
@@ -719,25 +709,25 @@
                   "files": {
                     "/etc/init/kahuna.conf": {
                       "source": { "Fn::Join" : ["", [
-                        "https://s3-eu-west-1.amazonaws.com/media-service-dist/",
+                        "https://s3-eu-west-1.amazonaws.com/media-service-dist/media-service/",
                         { "Ref": "Stage" },
-                        "/media-service-kahuna/kahuna.conf"
+                        "/kahuna/kahuna.conf"
                       ]]},
                       "authentication": "distributionAuthentication"
                     },
                     "/home/media-service/start.sh": {
                       "source": { "Fn::Join" : ["", [
-                        "https://s3-eu-west-1.amazonaws.com/media-service-dist/",
+                        "https://s3-eu-west-1.amazonaws.com/media-service-dist/media-service/",
                         { "Ref": "Stage" },
-                        "/media-service-kahuna/start.sh"
+                        "/kahuna/start.sh"
                       ]]},
                       "authentication": "distributionAuthentication"
                     },
                     "/home/media-service/app.jar": {
                       "source": { "Fn::Join" : ["", [
-                        "https://s3-eu-west-1.amazonaws.com/media-service-dist/",
+                        "https://s3-eu-west-1.amazonaws.com/media-service-dist/media-service/",
                         { "Ref": "Stage" },
-                        "/media-service-kahuna/app.jar"
+                        "/kahuna/app.jar"
                       ]]},
                       "authentication": "distributionAuthentication"
                     }
@@ -814,17 +804,12 @@
                     },
                     {
                         "Key": "Stack",
-                        "Value": "mediaservice",
+                        "Value": "media-service",
                         "PropagateAtLaunch": "true"
                     },
                     {
                         "Key": "App",
                         "Value": "thrall",
-                        "PropagateAtLaunch": "true"
-                    },
-                    {
-                        "Key": "Role",
-                        "Value": "media-service-thrall",
                         "PropagateAtLaunch": "true"
                     }
                 ]
@@ -851,17 +836,17 @@
                   "files": {
                     "/etc/init/thrall.conf": {
                       "source": { "Fn::Join" : ["", [
-                        "https://s3-eu-west-1.amazonaws.com/media-service-dist/",
+                        "https://s3-eu-west-1.amazonaws.com/media-service-dist/media-service/",
                         { "Ref": "Stage" },
-                        "/media-service-thrall/thrall.conf"
+                        "/thrall/thrall.conf"
                       ]]},
                       "authentication": "distributionAuthentication"
                     },
                     "/home/media-service/app.jar": {
                       "source": { "Fn::Join" : ["", [
-                        "https://s3-eu-west-1.amazonaws.com/media-service-dist/",
+                        "https://s3-eu-west-1.amazonaws.com/media-service-dist/media-service/",
                         { "Ref": "Stage" },
-                        "/media-service-thrall/app.jar"
+                        "/thrall/app.jar"
                       ]]},
                       "authentication": "distributionAuthentication"
                     }
@@ -984,17 +969,12 @@
                     },
                     {
                         "Key": "Stack",
-                        "Value": "mediaservice",
+                        "Value": "media-service",
                         "PropagateAtLaunch": "true"
                     },
                     {
                         "Key": "App",
-                        "Value": "imageloader",
-                        "PropagateAtLaunch": "true"
-                    },
-                    {
-                        "Key": "Role",
-                        "Value": "media-service-image-loader",
+                        "Value": "image-loader",
                         "PropagateAtLaunch": "true"
                     }
                 ]
@@ -1021,17 +1001,17 @@
                   "files": {
                     "/etc/init/image-loader.conf": {
                       "source": { "Fn::Join" : ["", [
-                        "https://s3-eu-west-1.amazonaws.com/media-service-dist/",
+                        "https://s3-eu-west-1.amazonaws.com/media-service-dist/media-service/",
                         { "Ref": "Stage" },
-                        "/media-service-image-loader/image-loader.conf"
+                        "/image-loader/image-loader.conf"
                       ]]},
                       "authentication": "distributionAuthentication"
                     },
                     "/home/media-service/app.jar": {
                       "source": { "Fn::Join" : ["", [
-                        "https://s3-eu-west-1.amazonaws.com/media-service-dist/",
+                        "https://s3-eu-west-1.amazonaws.com/media-service-dist/media-service/",
                         { "Ref": "Stage" },
-                        "/media-service-image-loader/app.jar"
+                        "/image-loader/app.jar"
                       ]]},
                       "authentication": "distributionAuthentication"
                     }
@@ -1169,17 +1149,12 @@
                     },
                     {
                         "Key": "Stack",
-                        "Value": "mediaservice",
+                        "Value": "media-service",
                         "PropagateAtLaunch": "true"
                     },
                     {
                         "Key": "App",
                         "Value": "cropper",
-                        "PropagateAtLaunch": "true"
-                    },
-                    {
-                        "Key": "Role",
-                        "Value": "media-service-cropper",
                         "PropagateAtLaunch": "true"
                     }
                 ]
@@ -1206,17 +1181,17 @@
                   "files": {
                     "/etc/init/cropper.conf": {
                       "source": { "Fn::Join" : ["", [
-                        "https://s3-eu-west-1.amazonaws.com/media-service-dist/",
+                        "https://s3-eu-west-1.amazonaws.com/media-service-dist/media-service/",
                         { "Ref": "Stage" },
-                        "/media-service-cropper/cropper.conf"
+                        "/cropper/cropper.conf"
                       ]]},
                       "authentication": "distributionAuthentication"
                     },
                     "/home/media-service/app.jar": {
                       "source": { "Fn::Join" : ["", [
-                        "https://s3-eu-west-1.amazonaws.com/media-service-dist/",
+                        "https://s3-eu-west-1.amazonaws.com/media-service-dist/media-service/",
                         { "Ref": "Stage" },
-                        "/media-service-cropper/app.jar"
+                        "/cropper/app.jar"
                       ]]},
                       "authentication": "distributionAuthentication"
                     }
@@ -1306,17 +1281,12 @@
                     },
                     {
                         "Key": "Stack",
-                        "Value": "mediaservice",
+                        "Value": "media-service",
                         "PropagateAtLaunch": "true"
                     },
                     {
                         "Key": "App",
                         "Value": "reaper",
-                        "PropagateAtLaunch": "true"
-                    },
-                    {
-                        "Key": "Role",
-                        "Value": "media-service-reaper",
                         "PropagateAtLaunch": "true"
                     }
                 ]
@@ -1456,7 +1426,7 @@
                     },
                     {
                         "Key": "Stack",
-                        "Value": "mediaservice"
+                        "Value": "media-service"
                     }
                 ]
             }
