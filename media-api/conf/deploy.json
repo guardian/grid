@@ -1,7 +1,7 @@
 {
-    "defaultStacks": ["mediaservice"],
+    "defaultStacks": ["media-service"],
     "packages": {
-        "mediaapi": {
+        "media-api": {
             "type": "autoscaling",
             "data": {
                 "port": 9000,
@@ -15,10 +15,10 @@
             "depends": ["artifactUploadOnly", "deployOnly"]
         },
         "deployOnly": {
-            "actionsBeforeApp": ["mediaapi.deploy"]
+            "actionsBeforeApp": ["media-api.deploy"]
         },
         "artifactUploadOnly": {
-            "actionsBeforeApp": ["mediaapi.uploadArtifacts"]
+            "actionsBeforeApp": ["media-api.uploadArtifacts"]
         }
     }
 }

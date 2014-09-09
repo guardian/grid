@@ -521,12 +521,12 @@
                     },
                     {
                         "Key": "Stack",
-                        "Value": "mediaservice",
+                        "Value": "media-service",
                         "PropagateAtLaunch": "true"
                     },
                     {
                         "Key": "App",
-                        "Value": "mediaapi",
+                        "Value": "media-api",
                         "PropagateAtLaunch": "true"
                     }
                 ]
@@ -553,25 +553,25 @@
                   "files": {
                     "/etc/init/media-api.conf": {
                       "source": { "Fn::Join" : ["", [
-                        "https://s3-eu-west-1.amazonaws.com/media-service-dist/mediaservice/",
+                        "https://s3-eu-west-1.amazonaws.com/media-service-dist/media-service/",
                         { "Ref": "Stage" },
-                        "/mediaapi/media-api.conf"
+                        "/media-api/media-api.conf"
                       ]]},
                       "authentication": "distributionAuthentication"
                     },
                     "/home/media-service/start.sh": {
                       "source": { "Fn::Join" : ["", [
-                        "https://s3-eu-west-1.amazonaws.com/media-service-dist/mediaservice/",
+                        "https://s3-eu-west-1.amazonaws.com/media-service-dist/media-service/",
                         { "Ref": "Stage" },
-                        "/mediaapi/start.sh"
+                        "/media-api/start.sh"
                       ]]},
                       "authentication": "distributionAuthentication"
                     },
                     "/home/media-service/app.jar": {
                       "source": { "Fn::Join" : ["", [
-                        "https://s3-eu-west-1.amazonaws.com/media-service-dist/mediaservice/",
+                        "https://s3-eu-west-1.amazonaws.com/media-service-dist/media-service/",
                         { "Ref": "Stage" },
-                        "/mediaapi/app.jar"
+                        "/media-api/app.jar"
                       ]]},
                       "authentication": "distributionAuthentication"
                     }
