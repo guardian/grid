@@ -24,7 +24,11 @@ object Config extends CommonPlayAppConfig with CommonPlayAppProperties {
     if (stage == "DEV")
       string("es.host")
     else
-      findElasticsearchHost(ec2Client, Map("Stage" -> Seq(stage), "Role" -> Seq(elasticsearchRole)))
+      findElasticsearchHost(ec2Client, Map(
+        "Stage" -> Seq(stage),
+        "Stack" -> Seq(elasticsearchStack),
+        "App"   -> Seq(elasticsearchApp)
+      ))
 
   val imageBucket: String = properties("s3.image.bucket")
   val thumbBucket: String = properties("s3.thumb.bucket")
