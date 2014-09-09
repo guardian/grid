@@ -377,6 +377,11 @@
                         "Key": "App",
                         "Value": "elasticsearch",
                         "PropagateAtLaunch": "true"
+                    },
+                    {
+                        "Key": "Role",
+                        "Value": "media-service-elasticsearch",
+                        "PropagateAtLaunch": "true"
                     }
                 ]
             }
@@ -447,6 +452,7 @@
                             "    -e 's,@@STAGE,", { "Ref": "Stage" }, ",g' \\\n",
                             "    -e 's,@@STACK,media-service,g' \\\n",
                             "    -e 's,@@APP,elasticsearch,g' \\\n",
+                            "    -e 's,@@ROLE,media-service-elasticsearch,g' \\\n",
                             "    -e 's,@@ACCESS_KEY,", { "Ref": "HostKeys" }, ",g' \\\n",
                             "    -e 's,@@SECRET_KEY,", { "Fn::GetAtt": [ "HostKeys", "SecretAccessKey" ] }, ",g' \\\n",
                             "    -e 's,@@MIN_MASTER_NODES,", { "Ref": "ElasticsearchMinMasterNodes" }, ",g' \\\n",
