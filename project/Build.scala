@@ -72,7 +72,7 @@ object Build extends Build {
       .enablePlugins(play.PlayScala)
       .dependsOn(lib)
       .settings(commonSettings ++ playArtifactDistSettings ++ playArtifactSettings: _*)
-      .settings(magentaPackageName := "media-service-" + path)
+      .settings(magentaPackageName := path)
 
   def playArtifactSettings = Seq(
     ivyXML :=
