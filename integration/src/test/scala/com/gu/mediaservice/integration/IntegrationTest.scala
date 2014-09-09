@@ -4,6 +4,7 @@ package integration
 import org.scalatest.{Matchers, BeforeAndAfterAll, FunSpec}
 import play.api.libs.json.{JsValue, JsString, JsNumber}
 import play.api.libs.ws.WS
+import play.api.Play.current
 
 import scalaz.std.AllInstances._
 import scalaz.syntax.traverse._
