@@ -528,11 +528,6 @@
                         "Key": "App",
                         "Value": "mediaapi",
                         "PropagateAtLaunch": "true"
-                    },
-                    {
-                        "Key": "Role",
-                        "Value": "media-service-media-api",
-                        "PropagateAtLaunch": "true"
                     }
                 ]
             }
@@ -558,25 +553,25 @@
                   "files": {
                     "/etc/init/media-api.conf": {
                       "source": { "Fn::Join" : ["", [
-                        "https://s3-eu-west-1.amazonaws.com/media-service-dist/",
+                        "https://s3-eu-west-1.amazonaws.com/media-service-dist/mediaservice/",
                         { "Ref": "Stage" },
-                        "/media-service-media-api/media-api.conf"
+                        "/mediaapi/media-api.conf"
                       ]]},
                       "authentication": "distributionAuthentication"
                     },
                     "/home/media-service/start.sh": {
                       "source": { "Fn::Join" : ["", [
-                        "https://s3-eu-west-1.amazonaws.com/media-service-dist/",
+                        "https://s3-eu-west-1.amazonaws.com/media-service-dist/mediaservice/",
                         { "Ref": "Stage" },
-                        "/media-service-media-api/start.sh"
+                        "/mediaapi/start.sh"
                       ]]},
                       "authentication": "distributionAuthentication"
                     },
                     "/home/media-service/app.jar": {
                       "source": { "Fn::Join" : ["", [
-                        "https://s3-eu-west-1.amazonaws.com/media-service-dist/",
+                        "https://s3-eu-west-1.amazonaws.com/media-service-dist/mediaservice/",
                         { "Ref": "Stage" },
-                        "/media-service-media-api/app.jar"
+                        "/mediaapi/app.jar"
                       ]]},
                       "authentication": "distributionAuthentication"
                     }
