@@ -1,6 +1,7 @@
 {
+    "defaultStacks": ["media-service"],
     "packages": {
-        "media-service-image-loader": {
+        "image-loader": {
             "type": "autoscaling",
             "data": {
                 "port": 9000,
@@ -14,10 +15,10 @@
             "depends": ["artifactUploadOnly", "deployOnly"]
         },
         "deployOnly": {
-            "actionsBeforeApp": ["media-service-image-loader.deploy"]
+            "actionsBeforeApp": ["image-loader.deploy"]
         },
         "artifactUploadOnly": {
-            "actionsBeforeApp": ["media-service-image-loader.uploadArtifacts"]
+            "actionsBeforeApp": ["image-loader.uploadArtifacts"]
         }
     }
 }
