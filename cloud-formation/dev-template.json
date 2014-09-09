@@ -115,25 +115,40 @@
             }
         },
 
-        "CropBucket": {
-            "Type": "AWS::S3::Bucket"
+        "ImageOriginBucket": {
+            "Type": "AWS::S3::Bucket",
+            "Properties": {
+                "AccessControl": "PublicRead",
+                "WebsiteConfiguration": {
+                    "IndexDocument": "index.html",
+                    "ErrorDocument": "error.html"
+                 }
+             }
         },
-        "CropBucketPolicy": {
+        "ImageOriginBucketPolicy": {
             "Type": "AWS::S3::BucketPolicy",
             "Properties": {
                 "PolicyDocument": {
-                    "Id": "CropBucketPolicy",
+                    "Id": "ImageOriginBucketPolicy",
                     "Statement": [ {
-                        "Sid": "CropBucketWriteAccess",
+                        "Sid": "ImageOriginBucketWriteAccess",
                         "Action": [ "s3:PutObject", "s3:GetObject", "s3:DeleteObject" ],
                         "Effect": "Allow",
                         "Resource": { "Fn::Join": [ "",
-                            [ "arn:aws:s3:::", { "Ref": "CropBucket" } , "/*" ] ]
+                            [ "arn:aws:s3:::", { "Ref": "ImageOriginBucket" } , "/*" ] ]
                         },
                         "Principal": { "AWS": { "Fn::GetAtt": [ "User", "Arn" ] } }
+                    }, {
+                        "Sid": "ImageOriginBucketPublicReadAccess",
+                        "Action": [ "s3:GetObject" ],
+                        "Effect": "Allow",
+                        "Resource": { "Fn::Join": [ "",
+                            [ "arn:aws:s3:::", { "Ref": "ImageOriginBucket" } , "/*" ] ]
+                        },
+                        "Principal": "*"
                     } ]
                 },
-                "Bucket": { "Ref": "CropBucket" }
+                "Bucket": { "Ref": "ImageOriginBucket" }
             }
         },
 
@@ -191,8 +206,11 @@
         "KeyBucket": {
             "Value": { "Ref": "KeyBucket" }
         },
-        "CropBucket": {
-            "Value": { "Ref": "CropBucket" }
+        "ImageOriginBucket": {
+            "Value": { "Ref": "ImageOriginBucket" }
+        },
+        "ImageOriginWebsite": {
+            "Value": { "Fn::GetAtt": [ "ImageOriginBucket", "WebsiteURL" ] }
         },
         "SnsTopicArn": {
             "Value": { "Ref": "Topic" }
