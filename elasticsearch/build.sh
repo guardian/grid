@@ -9,7 +9,7 @@ mkdir $TARGET
 cd $TARGET
 
 mkdir downloads
-mkdir -p packages/media-service-elasticsearch
+mkdir -p packages/elasticsearch
 
 if wget -nv -O downloads/elasticsearch.tar.gz https://download.elasticsearch.org/elasticsearch/elasticsearch/elasticsearch-$ELASTICSEARCH_VERSION.tar.gz
 then
@@ -27,7 +27,7 @@ else
     exit 1
 fi
 
-tar czfv packages/media-service-elasticsearch/elasticsearch.tar.gz -C downloads elasticsearch elasticsearch.conf
+tar czfv packages/elasticsearch/elasticsearch.tar.gz -C downloads elasticsearch elasticsearch.conf
 cp ../deploy.json .
 zip -rv artifacts.zip packages/ deploy.json
 
