@@ -66,6 +66,26 @@ body {
     padding-bottom: 45px;
 }
 
+.image-result__cost {
+    background-color: darkgrey;
+    border: 2px solid white;
+    border-right: 0;
+    bottom: 36px;
+    color: white;
+    font-size: 0.75rem;
+    padding: 1px 10px;
+    position: absolute;
+    right: 0;
+    text-align: center;
+    vertical-align: middle;
+}
+.image-result__cost--free {
+    background-color: green;
+}
+.image-result__cost--pay {
+    background-color: red;
+}
+
 .image-result__link {
     display: block;
 }
