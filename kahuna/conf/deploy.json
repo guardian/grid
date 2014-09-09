@@ -1,6 +1,7 @@
 {
+    "defaultStacks": ["media-service"],
     "packages": {
-        "media-service-kahuna": {
+        "kahuna": {
             "type": "autoscaling",
             "data": {
                 "port": 9000,
@@ -14,10 +15,10 @@
             "depends": ["artifactUploadOnly", "deployOnly"]
         },
         "deployOnly": {
-            "actionsBeforeApp": ["media-service-kahuna.deploy"]
+            "actionsBeforeApp": ["kahuna.deploy"]
         },
         "artifactUploadOnly": {
-            "actionsBeforeApp": ["media-service-kahuna.uploadArtifacts"]
+            "actionsBeforeApp": ["kahuna.uploadArtifacts"]
         }
     }
 }

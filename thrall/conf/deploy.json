@@ -1,6 +1,7 @@
 {
+    "defaultStacks": ["media-service"],
     "packages": {
-        "media-service-thrall": {
+        "thrall": {
             "type": "autoscaling",
             "data": {
                 "port": 9000,
@@ -14,10 +15,10 @@
             "depends": ["artifactUploadOnly", "deployOnly"]
         },
         "deployOnly": {
-            "actionsBeforeApp": ["media-service-thrall.deploy"]
+            "actionsBeforeApp": ["thrall.deploy"]
         },
         "artifactUploadOnly": {
-            "actionsBeforeApp": ["media-service-thrall.uploadArtifacts"]
+            "actionsBeforeApp": ["thrall.uploadArtifacts"]
         }
     }
 }
