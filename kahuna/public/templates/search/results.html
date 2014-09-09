@@ -10,6 +10,7 @@
                      ng:src="{{image.data.thumbnail.secureUrl}}"/>
                 <figcaption class="image-result__caption">{{image.data.metadata.title}}</figcaption>
             </figure>
+            <div class="image-result__cost image-result__cost--{{image.data.cost}}" title="{{image.data.cost}} to use">{{image.data.cost}}</div>
         </a>
     </li>
 </ul>

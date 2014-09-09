@@ -1,5 +1,6 @@
 package controllers
 
+
 import scala.concurrent.Future
 import scala.util.Try
 
@@ -7,7 +8,6 @@ import play.api.mvc._
 import play.api.libs.concurrent.Execution.Implicits._
 import play.api.libs.json._
 import org.joda.time.DateTime
-import scalaz.NonEmptyList
 
 import com.gu.mediaservice.lib.formatting.parseDateFromQuery
 import lib.elasticsearch.ElasticSearch
@@ -84,13 +84,19 @@ object MediaApi extends Controller {
       val expiration = DateTime.now.plusMinutes(15)
       val secureUrl = S3Client.signUrl(Config.imageBucket, id, expiration)
       val secureThumbUrl = S3Client.signUrl(Config.thumbBucket, id, expiration)
+      val credit = (source \ "metadata" \ "credit").as[String]
       val image = source.transform(transformers.addSecureImageUrl(secureUrl))
-        .flatMap(_.transform(transformers.addSecureThumbUrl(secureThumbUrl))).get
+        .flatMap(_.transform(transformers.addSecureThumbUrl(secureThumbUrl)))
+        .flatMap(_.transform(transformers.addUsageCost(credit))).get
+
       Json.obj("uri" -> s"$rootUri/images/$id", "data" -> image)
     }
     else source
 
   object transformers {
+
+    def addUsageCost(copyright: String): Reads[JsObject] =
+      __.json.update(__.read[JsObject].map(_ ++ Json.obj("cost" -> ImageUse.getCost(copyright))))
 
     def addSecureImageUrl(url: String): Reads[JsObject] =
       __.json.update(__.read[JsObject].map(_ ++ Json.obj("secureUrl" -> url)))
@@ -139,4 +145,12 @@ object SearchParams {
     )
   }
 
+}
+
+// Default to pay for now
+object ImageUse {
+  val freeForUseFrom: Seq[String] = Seq("EPA", "REUTERS", "PA", "AP", "Associated Press", "RONALD GRANT", "Press Association Images", "Action Images", "Keystone", "AFP", "Getty Images", "Alamy", "FilmMagic", "WireImage", "Pool", "Rex Features", "Allsport", "BFI", "ANSA", "The Art Archive", "Hulton Archive", "Hulton Getty", "RTRPIX", "Community Newswire", "THE RONALD GRANT ARCHIVE", "NPA ROTA", "Ronald Grant Archive", "PA WIRE", "AP POOL", "REUTER", "dpa", "BBC", "Allstar Picture Library")
+  def getCost(credit: String) = {
+    if (freeForUseFrom.exists(f => f.toLowerCase == credit.toLowerCase)) "free" else "pay"
+  }
 }
