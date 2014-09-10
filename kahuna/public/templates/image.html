@@ -4,6 +4,7 @@
         <img class="full-image__image"
              ng:src="{{image.data.secureUrl}}"/>
     </a>
+    <a ui:sref="crop({imageId: image.data.id})">Create new crop</a>
     <dl>
         <dt class="data-header">Description</dt>
         <dd>{{image.data.metadata.description}}</dd>
