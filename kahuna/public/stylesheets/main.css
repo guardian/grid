@@ -141,3 +141,23 @@ body {
     margin-top: 0.5em;
     font-style: italic;
 }
+
+
+.image-crop__image-container {
+    position: absolute;
+    top: 20px;
+    right: 0;
+    left: 0;
+    bottom: 20px;
+    padding: 10px;
+    text-align: center;
+}
+
+.image-crop__controls {
+    position: absolute;
+    height: 20px;
+    right: 0;
+    left: 0;
+    bottom: 0;
+    text-align: center;
+}

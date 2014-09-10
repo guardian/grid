@@ -21,7 +21,10 @@ System.config({
     "npm:inherits@2.0.1": {},
     "npm:base64-js@0.0.4": {},
     "npm:Base64@0.2.1": {},
-    "npm:ieee754@1.1.3": {}
+    "npm:ieee754@1.1.3": {},
+    "jquery": "github:components/jquery@2.1.1",
+    "github:tapmodo/Jcrop": "github:tapmodo/Jcrop@0.9.12",
+    "css": "github:systemjs/plugin-css@^0.1.0"
   }
 });
 
@@ -34,6 +37,10 @@ System.config({
     "npm:base64-js": "0.0.4",
     "npm:Base64": "0.2.1",
     "github:systemjs/plugin-json": "master",
-    "npm:ieee754": "1.1.3"
+    "npm:ieee754": "1.1.3",
+    "github:components/jquery": "2.1.1",
+    "github:tapmodo/Jcrop": "0.9.12",
+    "github:systemjs/plugin-css": "0.1.0"
   }
 });
+
