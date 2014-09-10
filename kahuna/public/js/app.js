@@ -33,16 +33,14 @@ kahuna.config(['$stateProvider', '$urlRouterProvider',
     $stateProvider.state('search', {
         // Virtual state, we always want to be in a child state of this
         abstract: true,
-
         url: '/',
         templateUrl: templatesDirectory + '/search.html'
     });
     $stateProvider.state('search.results', {
-        url: 'search?query&since',
+        url: 'search?query&since&free',
         templateUrl: templatesDirectory + '/search/results.html',
         controller: 'SearchResultsCtrl'
     });
-
     $stateProvider.state('image', {
         url: '/images/:imageId',
         templateUrl: templatesDirectory + '/image.html',
@@ -89,6 +87,8 @@ kahuna.controller('SearchQueryCtrl',
                   ['$scope', '$state', '$stateParams',
                    function($scope, $state, $stateParams) {
 
+    // a little annoying as the params are returned as strings
+    $scope.free = $stateParams.free !== 'false';
     $scope.query = $stateParams.query || '';
     $scope.since = $stateParams.since || '';
 
@@ -103,6 +103,11 @@ kahuna.controller('SearchQueryCtrl',
             $state.go('search.results', {since: since});
         }
     });
+    $scope.$watch('free', function(free, oldFree) {
+        if (free !== oldFree) {
+            $state.go('search.results', {free: free});
+        }
+    });
 
 }]);
 
@@ -113,20 +118,23 @@ kahuna.controller('SearchResultsCtrl',
 
     $scope.images = [];
 
-    $scope.$watchCollection(function() {
-        return {query: $stateParams.query, since: $stateParams.since};
-    }, function(params) {
-        mediaApi.search(params.query, {
-            since: params.since
-        }).then(function(images) {
-            $scope.images = images;
-            $timeout(function() {
-                if ($scope.hasSpace) {
-                    addImages();
-                }
-            });
+
+    // FIXME: This is being refreshed by the router. Make it watch a $stateParams collection instead
+    // See:   https://github.com/guardian/media-service/pull/64#discussion-diff-17351746L116
+    mediaApi.search($stateParams.query, {
+        since: $stateParams.since
+    }).then(function(images) {
+        $scope.images = images.filter(freeImageFilter);
+        $timeout(function() {
+            if ($scope.hasSpace) {
+                addImages();
+            }
         });
     });
+
+    function freeImageFilter(image) {
+       return $stateParams.free === 'false' || image.data.cost === 'free';
+    }
 
     function addImages() {
         // TODO: stop once reached the end
@@ -143,7 +151,7 @@ kahuna.controller('SearchResultsCtrl',
                         return existing.uri === im.uri;
                     }).length === 0;
                 });
-                $scope.images = $scope.images.concat(newImages);
+                $scope.images = $scope.images.concat(newImages).filter(freeImageFilter);
             });
         }
     }
