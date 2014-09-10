@@ -1,7 +1,7 @@
 <ul class="results"
     ui:hit-bottom="hitBottom"
     ui:has-space="hasSpace">
-    <li class="image-result" ng:repeat="image in images">
+    <li class="image-result" ng:repeat="image in images" ng:hide="{{image.hide}}">
         <a class="image-result__link"
            ng:href="/images/{{image.data.id}}"
            ui:drag-data="{{image | asDragData}}">
