@@ -39,7 +39,9 @@ body {
 .search__control {
     margin-right: 10px;
 }
-
+.search__control--free {
+    font-size: 0.75rem;
+}
 .search__query {
     padding: 5px 10px;
     width: 20%;
