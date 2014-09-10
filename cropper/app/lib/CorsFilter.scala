@@ -2,7 +2,7 @@ import play.api.mvc._
 import com.gu.mediaservice.syntax._
 import lib.Config
 
-// TODO: share with the copy in cropper...
+// TODO: share with the copy in media-api...
 
 object CorsFilter extends Filter {
   import scala.concurrent._

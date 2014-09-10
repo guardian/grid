@@ -3,6 +3,9 @@
 
 import angular from 'angular';
 import 'npm:angular-ui-router';
+import 'services/api/media-api';
+import 'services/api/media-cropper';
+import 'directives/ui-crop-box';
 
 var apiLink = document.querySelector('link[rel="media-api-uri"]');
 var config = {
@@ -10,7 +13,9 @@ var config = {
 };
 
 var kahuna = angular.module('kahuna', [
-    'ui.router'
+    'ui.router',
+    'kahuna.services.api',
+    'kahuna.directives'
 ]);
 
 
@@ -47,41 +52,15 @@ kahuna.config(['$stateProvider', '$urlRouterProvider',
         controller: 'ImageCtrl'
     });
 
+    $stateProvider.state('crop', {
+        url: '/images/:imageId/crop',
+        templateUrl: templatesDirectory + '/crop.html',
+        controller: 'ImageCropCtrl'
+    });
+
     $urlRouterProvider.otherwise("/search");
 }]);
 
-
-kahuna.factory('mediaApi',
-               ['$http', 'mediaApiUri',
-                function($http, mediaApiUri) {
-
-    function search(query, options) {
-        options = options || {};
-
-        return $http.get(mediaApiUri + '/images', {
-            params: {
-                q:      query || '',
-                since:  options.since,
-                until:  options.until,
-                length: 20
-            },
-            withCredentials: true
-        }).then(function(response) {
-            return response.data.data;
-        });
-    }
-
-    function find(id) {
-        return $http.get(mediaApiUri + '/images/' + id, { withCredentials: true }).then(function(response) {
-            return response.data;
-        });
-    }
-
-    return {
-        search: search,
-        find: find
-    };
-}]);
 
 kahuna.controller('SearchQueryCtrl',
                   ['$scope', '$state', '$stateParams',
@@ -175,6 +154,45 @@ kahuna.controller('ImageCtrl',
 
 }]);
 
+kahuna.controller('ImageCropCtrl',
+                  ['$scope', '$stateParams', 'mediaApi', 'mediaCropper',
+                   function($scope, $stateParams, mediaApi, mediaCropper) {
+
+    var imageId = $stateParams.imageId;
+
+    mediaApi.find(imageId).then(function(image) {
+        $scope.image = image;
+    });
+
+    // Standard ratios
+    $scope.landscapeRatio = 5 / 3;
+    $scope.portraitRatio = 2 / 3;
+    $scope.freeRatio = null;
+
+    $scope.aspect = $scope.landscapeRatio;
+    $scope.coords = {
+        x1: 0,
+        y1: 0,
+        // max out to fill the image with the selection
+        x2: 10000,
+        y2: 10000
+    };
+
+    $scope.crop = function() {
+        // TODO: show crop
+        var coords = {
+            x: $scope.coords.x1,
+            y: $scope.coords.y1,
+            width:  $scope.coords.x2 - $scope.coords.x1,
+            height: $scope.coords.y2 - $scope.coords.y1
+        };
+        mediaCropper.createCrop($scope.image, coords).then(function(resp) {
+            console.log("crop", resp)
+        });
+    };
+
+}]);
+
 // Take an image and return a drag data map of mime-type -> value
 kahuna.filter('asDragData', function() {
     return function(image) {
@@ -214,6 +232,48 @@ kahuna.directive('uiHitBottom', function() {
         }
     };
 });
+
+kahuna.directive('uiFitParent', ['$window', function($window) {
+    return {
+        restrict: 'A',
+        link: function(scope, element, attrs) {
+            // TODO: currently only respects contain, also allow fill?
+            // var mode = attrs.uiFitParent;
+
+            var parent = element.parent();
+
+            // TODO: throttle
+            angular.element($window).bind('resize', update);
+            // Image may or may not be loaded yet
+            element.bind('load', update);
+            update();
+
+            element.css('max-width', '100%');
+            element.css('max-height', '100%');
+
+            function update() {
+                var parentWidth = parent[0].offsetWidth;
+                var parentHeight = parent[0].offsetHeight;
+                var parentRatio = parentWidth / parentHeight;
+
+                var [width, height] = [element[0].width, element[0].height];
+                if (width !== 0 && height !== 0) {
+                    // Reset w/h constraints
+                    element.css('width', 'auto');
+                    element.css('height', 'auto');
+
+                    // Constrain smallest dimension
+                    var ratio = width / height;
+                    if (parentRatio < ratio) {
+                        element.css('width', '100%');
+                    } else {
+                        element.css('height', '100%');
+                    }
+                }
+            }
+        }
+    };
+}]);
 
 kahuna.directive('uiDragData', function() {
     return {

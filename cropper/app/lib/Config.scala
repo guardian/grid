@@ -26,6 +26,8 @@ object Config extends CommonPlayAppProperties {
 
   val rootUri = services.cropperBaseUri
 
+  val corsAllowedOrigin = services.kahunaBaseUri
+
   val tempDir: File = new File(properties.getOrElse("crop.output.tmp.dir", "/tmp"))
 
   val imagingThreadPoolSize = 4
