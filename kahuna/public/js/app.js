@@ -3,6 +3,7 @@
 
 import angular from 'angular';
 import 'npm:angular-ui-router';
+import 'services/api/media-api';
 
 var apiLink = document.querySelector('link[rel="media-api-uri"]');
 var config = {
@@ -10,7 +11,8 @@ var config = {
 };
 
 var kahuna = angular.module('kahuna', [
-    'ui.router'
+    'ui.router',
+    'kahuna.services.api'
 ]);
 
 
@@ -50,38 +52,6 @@ kahuna.config(['$stateProvider', '$urlRouterProvider',
     $urlRouterProvider.otherwise("/search");
 }]);
 
-
-kahuna.factory('mediaApi',
-               ['$http', 'mediaApiUri',
-                function($http, mediaApiUri) {
-
-    function search(query, options) {
-        options = options || {};
-
-        return $http.get(mediaApiUri + '/images', {
-            params: {
-                q:      query || '',
-                since:  options.since,
-                until:  options.until,
-                length: 20
-            },
-            withCredentials: true
-        }).then(function(response) {
-            return response.data.data;
-        });
-    }
-
-    function find(id) {
-        return $http.get(mediaApiUri + '/images/' + id, { withCredentials: true }).then(function(response) {
-            return response.data;
-        });
-    }
-
-    return {
-        search: search,
-        find: find
-    };
-}]);
 
 kahuna.controller('SearchQueryCtrl',
                   ['$scope', '$state', '$stateParams',
