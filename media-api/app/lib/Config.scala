@@ -40,7 +40,5 @@ object Config extends CommonPlayAppConfig with CommonPlayAppProperties {
   lazy val rootUri: String = services.apiBaseUri
   lazy val cropperUri: String = services.cropperBaseUri
 
-  val corsAllowedDomain: String =
-    properties.getOrElse("cors.allowed.domain", domainRoot)
-
+  lazy val corsAllowedOrigin: String = services.kahunaBaseUri
 }
