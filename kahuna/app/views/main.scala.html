@@ -35,15 +35,14 @@
     <link rel="stylesheet" href="@routes.Assets.at("stylesheets/main.css")"/>
   </head>
   <body>
-    <div class="container">
-        <p ng:hide="true">Authenticated as @{principal.name}. Loading Kahuna...</p>
+    <p ng:hide="true">Authenticated as @{principal.name}. Loading Kahuna...</p>
 
-        <div class="user-menu">
-          <!-- target prevents AngularJS from handling the navigation -->
-          <a href="/logout" target="_self">Logout</a>
-        </div>
-
-        <div ui:view></div>
+    <div class="user-menu">
+      <!-- target prevents AngularJS from handling the navigation -->
+      <a href="/logout" target="_self">Logout</a>
     </div>
+
+    <div ui:view></div>
+
   </body>
 </html>

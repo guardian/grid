@@ -1,5 +1,4 @@
-#!/bin/sh
-if [ $# < 1 ]
+if [ $# != 1 ]
 then
     echo "usage: dev-ingest.sh <PROD_API_KEY>"
     echo
@@ -11,9 +10,8 @@ then
 fi
 
 DEV_INGEST_KEY=$1
-LENGTH=$2||40
 
-curl -H "X-Gu-Media-Key: $DEV_INGEST_KEY" https://api.media.***REMOVED***/images?length=$LENGTH \
+curl -H "X-Gu-Media-Key: $DEV_INGEST_KEY" https://api.media.***REMOVED***/images?length=40 \
     | jq '.data[].data.secureUrl' \
     | cut -d '"' -f2 \
     | while read url
