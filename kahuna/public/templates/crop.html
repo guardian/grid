@@ -1,33 +1,28 @@
-<div class="crop-image">
-    <div class="easel">
-        <div class="easel__canvas">
-            <img class="easel__image"
-                 ng:src="{{image.data.secureUrl}}"
-                 ui:crop-box="coords"
-                 ui:crop-box-original-width="image.data.dimensions.width"
-                 ui:crop-box-original-height="image.data.dimensions.height"
-                 ui:crop-box-aspect="aspect"
-                 ui:crop-box-background-opacity="0.3"
-                 ui:fit-parent="contain"
-            />
-        </div>
-
-        <div class="palette">
-            <label class="palette__button">
-                <input type="radio" ng:model="aspect" value="{{landscapeRatio}}" />
-                Landscape
-            </label>
-            <label class="palette__button">
-                <input type="radio" ng:model="aspect" value="{{portraitRatio}}" />
-                Portrait
-            </label>
-            <label class="palette__button">
-                <input type="radio" ng:model="aspect" value="{{freeRatio}}" />
-                Free-form
-            </label>
-            <button class="button palette__button" type="button" ng:click="crop()">crop</button>
-
-            <a class="palette__button palette__button--sly" ui:sref="image({ imageId: image.data.id })">cancel</a>
-        </div>
+<div class="image-crop">
+    <div class="image-crop__image-container">
+        <img class="image-crop__image"
+             ng:src="{{image.data.secureUrl}}"
+             ui:crop-box="coords"
+             ui:crop-box-original-width="image.data.dimensions.width"
+             ui:crop-box-original-height="image.data.dimensions.height"
+             ui:crop-box-aspect="aspect"
+             ui:crop-box-background-opacity="0.3"
+             ui:fit-parent="contain"
+        />
+    </div>
+    <div class="image-crop__controls">
+        <label>
+            <input type="radio" ng:model="aspect" value="{{landscapeRatio}}" />
+            Landscape
+        </label>
+        <label>
+            <input type="radio" ng:model="aspect" value="{{portraitRatio}}" />
+            Portrait
+        </label>
+        <label>
+            <input type="radio" ng:model="aspect" value="{{freeRatio}}" />
+            Free-form
+        </label>
+        <input type="button" value="Crop" ng:click="crop()" />
     </div>
 </div>

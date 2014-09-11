@@ -1,49 +1,5 @@
-/* ==========================================================================
-   Common
-   ========================================================================== */
-
-@font-face {
-    font-family: "Guardian Text Egyptian Web";
-    src: url("fonts/GuardianEgyptianWeb-Regular.woff2") format("woff2");
-    font-weight: normal;
-    font-style: normal;
-    font-stretch: normal;
-}
-@font-face {
-    font-family: "Guardian Text Egyptian Web";
-    src: url("fonts/GuardianEgyptianWeb-Bold.woff2.woff2") format("woff2");
-    font-weight: bold;
-    font-style: normal;
-    font-stretch: normal;
-}
-@font-face {
-    font-family: "Guardian Agate Sans 1 Web";
-    src: url("fonts/GuardianAgateSans1Web-Regular.woff2") format("woff2");
-    font-weight: normal;
-    font-style: normal;
-    font-stretch: normal;
-}
-@font-face {
-    font-family: "Guardian Agate Sans 1 Web";
-    src: url("fonts/GuardianAgateSans1Web-Bold.woff2") format("woff2");
-    font-weight: bold;
-    font-style: normal;
-    font-stretch: normal;
-}
-
-html {
-    font: 62.5%/1.5 "Guardian Text Egyptian Web";
-}
-
-body {
-    background-color: #f4f4f4;
-    color: #333;
-    font-size: 1.6rem;
-    margin: 0;
-    padding: 0;
-}
-
-figure, ul, li, dl, dd {
+/* reset */
+figure, ul, li {
     margin: 0;
     padding: 0;
 }
@@ -57,29 +13,11 @@ a {
     text-decoration: none;
 }
 
-.button {
-    border: 0;
-    background: #00adee;
-    border-radius: 2px;
-    box-shadow: 0 2px #00729c;
-    color: white;
-    display: block;
-    padding: 5px 20px !important;
-    font-family: "Guardian Egyptian Text";
-    font-size: 1.6rem;
-}
-.button:hover {
-    background: #008fc5;
-}
-.button:active {
-    box-shadow: none;
-    background: #1a7d91; /* 25% darken */
-}
-.button:focus,
-a:focus {
-    box-shadow: none;
-    outline: 2px solid rgba(255, 255, 255, 0.5);
-    outline-offset: 1px;
+/* type */
+body {
+    color: #333;
+    font: 100%/1.4 Georgia;
+    background-color: #f4f4f4;
 }
 
 .user-menu {
@@ -89,10 +27,6 @@ a:focus {
     z-index: 1; /* above search bar */
 }
 
-
-/* ==========================================================================
-   Search
-   ========================================================================== */
 .search {
     position: fixed;
     background-color: #ccc;
@@ -100,25 +34,19 @@ a:focus {
     left: 0;
     right: 0;
     padding: 10px;
-    font-family: "Guardian Agate Sans 1 Web";
 }
 
 .search__control {
     margin-right: 10px;
 }
 .search__control--free {
-    font-size: 1.4rem;
+    font-size: 0.75rem;
 }
-
 .search__query {
     padding: 5px 10px;
     width: 20%;
 }
 
-
-/* ==========================================================================
-   Results
-   ========================================================================== */
 .results {
     display: flex;
     flex-wrap: wrap;
@@ -146,7 +74,7 @@ a:focus {
     border-right: 0;
     bottom: 36px;
     color: white;
-    font-size: 1.4rem;
+    font-size: 0.75rem;
     padding: 1px 10px;
     position: absolute;
     right: 0;
@@ -182,78 +110,24 @@ a:focus {
     box-sizing: border-box;
 }
 
-
-/* ==========================================================================
-   Full Image / crop
-   ========================================================================== */
-.easel {
-    background: #333;
-    display: block;
-    text-align: center;
-}
-
-.easel__canvas {
-    display: inline-block;
-    vertical-align: bottom;
-}
-
-.easel__image {
-    display: block;
-    max-height: calc(100vh - 44px); /* viewport - actionbar */
+.full-image__image {
     max-width: 100%;
-    vertical-align: bottom;
+    max-height: 100%;
 }
 
-.palette {
-    background: #555;
-    bottom: 0;
-    color: white;
-    display: block;
-    font-family: "Guardian Agate Sans 1 Web";
-}
-
-.palette__button {
-    display: inline-block;
-    margin: 5px;
-    padding: 5px 10px;
-}
-.palette__button--sly {
-    font-size: 1.2rem;
-    color: #efefef;
-}
-
-.image-info,
-.metadata {
-    box-sizing: border-box;
-    float: left;
-    padding: 10px;
-    width: 50%;
-}
-
-.image-info__heading {
+.metadata-key {
     font-weight: bold;
-    margin: 15px 0 5px;
+    white-space: nowrap;
+    vertical-align: top;
 }
-.image-info__heading:first-child {
+
+.data-header {
+    margin-top: 1em;
+    font-weight: bold;
+}
+
+.data-header:first-child {
     margin-top: 0;
-}
-
-.metadata {
-    font-family: "Guardian Agate Sans 1 Web";
-    font-size: 1.4rem;
-    width: 50%;
-}
-
-.metadata__heading {
-    display: block;
-    font-weight: bold;
-    margin-bottom: 5px;
-    text-align: left;
-}
-
-.metadata__key {
-    padding-right: 20px;
-    text-align: left;
 }
 
 .buckets {
@@ -266,4 +140,24 @@ a:focus {
 .bucket--new {
     margin-top: 0.5em;
     font-style: italic;
+}
+
+
+.image-crop__image-container {
+    position: absolute;
+    top: 20px;
+    right: 0;
+    left: 0;
+    bottom: 20px;
+    padding: 10px;
+    text-align: center;
+}
+
+.image-crop__controls {
+    position: absolute;
+    height: 20px;
+    right: 0;
+    left: 0;
+    bottom: 0;
+    text-align: center;
 }
