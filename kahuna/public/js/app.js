@@ -233,48 +233,6 @@ kahuna.directive('uiHitBottom', function() {
     };
 });
 
-kahuna.directive('uiFitParent', ['$window', function($window) {
-    return {
-        restrict: 'A',
-        link: function(scope, element, attrs) {
-            // TODO: currently only respects contain, also allow fill?
-            // var mode = attrs.uiFitParent;
-
-            var parent = element.parent();
-
-            // TODO: throttle
-            angular.element($window).bind('resize', update);
-            // Image may or may not be loaded yet
-            element.bind('load', update);
-            update();
-
-            element.css('max-width', '100%');
-            element.css('max-height', '100%');
-
-            function update() {
-                var parentWidth = parent[0].offsetWidth;
-                var parentHeight = parent[0].offsetHeight;
-                var parentRatio = parentWidth / parentHeight;
-
-                var [width, height] = [element[0].width, element[0].height];
-                if (width !== 0 && height !== 0) {
-                    // Reset w/h constraints
-                    element.css('width', 'auto');
-                    element.css('height', 'auto');
-
-                    // Constrain smallest dimension
-                    var ratio = width / height;
-                    if (parentRatio < ratio) {
-                        element.css('width', '100%');
-                    } else {
-                        element.css('height', '100%');
-                    }
-                }
-            }
-        }
-    };
-}]);
-
 kahuna.directive('uiDragData', function() {
     return {
         restrict: 'A',
