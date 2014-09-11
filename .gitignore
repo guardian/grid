@@ -6,3 +6,4 @@ data
 .history
 .ensime*
 .tern-port
+.DS_Store
