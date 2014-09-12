@@ -14,17 +14,20 @@
         <div class="palette">
             <label class="palette__button">
                 <input type="radio" ng:model="aspect" value="{{landscapeRatio}}" />
-                Landscape
+                landscape
             </label>
             <label class="palette__button">
                 <input type="radio" ng:model="aspect" value="{{portraitRatio}}" />
-                Portrait
+                portrait
             </label>
             <label class="palette__button">
                 <input type="radio" ng:model="aspect" value="{{freeRatio}}" />
-                Free-form
+                free-form
             </label>
-            <button class="button palette__button" type="button" ng:click="crop()">crop</button>
+            <button class="button palette__button"
+                    type="button"
+                    ng:click="crop()"
+                    ng:disabled="cropping">crop<span ng:show="cropping">ping…</span></button>
 
             <a class="palette__button palette__button--sly" ui:sref="image({ imageId: image.data.id })">cancel</a>
         </div>
