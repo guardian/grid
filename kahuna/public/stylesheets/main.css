@@ -81,6 +81,12 @@ a:focus {
     outline: 2px solid rgba(255, 255, 255, 0.5);
     outline-offset: 1px;
 }
+.button[disabled] {
+    background-color: #999;
+    box-shadow: 0 2px #666;
+    color: #ccc;
+}
+
 
 .user-menu {
     position: absolute;
