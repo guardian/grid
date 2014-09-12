@@ -164,6 +164,8 @@ kahuna.controller('ImageCropCtrl',
         $scope.image = image;
     });
 
+    $scope.cropping = false;
+
     // Standard ratios
     $scope.landscapeRatio = 5 / 3;
     $scope.portraitRatio = 2 / 3;
@@ -186,8 +188,12 @@ kahuna.controller('ImageCropCtrl',
             width:  $scope.coords.x2 - $scope.coords.x1,
             height: $scope.coords.y2 - $scope.coords.y1
         };
+
+        $scope.cropping = true;
         mediaCropper.createCrop($scope.image, coords).then(function(resp) {
-            console.log("crop", resp)
+            console.log("crop", resp);
+        }).finally(function() {
+            $scope.cropping = false;
         });
     };
 
