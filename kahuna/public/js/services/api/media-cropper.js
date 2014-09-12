@@ -28,7 +28,7 @@ apiServices.factory('mediaCropper',
                 y: coords.y,
                 width: coords.width,
                 height: coords.height
-            });
+            }, { withCredentials: true });
         });
     }
 
