@@ -377,11 +377,6 @@
                         "Key": "App",
                         "Value": "elasticsearch",
                         "PropagateAtLaunch": "true"
-                    },
-                    {
-                        "Key": "Role",
-                        "Value": "media-service-elasticsearch",
-                        "PropagateAtLaunch": "true"
                     }
                 ]
             }
