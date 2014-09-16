@@ -56,11 +56,11 @@ object Application extends Controller {
       aspect     = masterW.toFloat / masterH
       portrait   = masterW < masterH
       outputDims = if (portrait)
-        Config.portraitCropSizingHeights.filter(_ <= masterH).map(h => Dimensions(h, math.round(h * aspect)))
+        Config.portraitCropSizingHeights.filter(_ <= masterH).map(h => Dimensions(math.round(h * aspect), h))
       else
         Config.landscapeCropSizingWidths.filter(_ <= masterW).map(w => Dimensions(w, math.round(w / aspect)))
 
-      sizings   <- Future.traverse(outputDims) { dim =>
+      sizings <- Future.traverse(outputDims) { dim =>
         val filename = outputFilename(apiSource, source.bounds, dim.width)
         for {
           file <- Crops.create(sourceFile, source, dim)
