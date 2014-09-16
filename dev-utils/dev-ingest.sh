@@ -1,7 +1,7 @@
 #!/bin/sh
-if [ $# < 1 ]
+if [ $# -lt 1 ]
 then
-    echo "usage: dev-ingest.sh <PROD_API_KEY>"
+    echo "usage: dev-ingest.sh <PROD_API_KEY> [local|test] [MAX_IMAGES]"
     echo
     echo "Pro tip: you can get an ingestion API key by running"
     echo
@@ -11,7 +11,25 @@ then
 fi
 
 DEV_INGEST_KEY=$1
-LENGTH=$2||40
+TARGET_ENV=$2
+LENGTH=$3
+
+# defaults
+if [ -z "$TARGET_ENV" ]; then
+    TARGET_ENV="local"
+fi
+if [ -z "$LENGTH" ]; then
+    LENGTH=40
+fi
+
+if [ $TARGET_ENV = "local" ]
+then
+    TARGET_PROTOCOL="http"
+else
+    TARGET_PROTOCOL="https"
+fi
+
+TARGET_BASE_URL="$TARGET_PROTOCOL://loader.media.$TARGET_ENV.dev-***REMOVED***"
 
 curl -H "X-Gu-Media-Key: $DEV_INGEST_KEY" https://api.media.***REMOVED***/images?length=$LENGTH \
     | jq '.data[].data.secureUrl' \
@@ -20,5 +38,5 @@ curl -H "X-Gu-Media-Key: $DEV_INGEST_KEY" https://api.media.***REMOVED***/images
 do
     echo Ingest...
     curl -s -o /tmp/img.jpg "$url"
-    curl --data-binary @/tmp/img.jpg http://localhost:9003/images
+    curl --data-binary @/tmp/img.jpg $TARGET_BASE_URL/images
 done
