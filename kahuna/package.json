@@ -19,5 +19,6 @@
   "repository": {
     "type": "git",
     "url": "git@github.com:guardian/media-service.git"
-  }
+  },
+  "private": true
 }
