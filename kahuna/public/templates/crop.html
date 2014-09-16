@@ -1,4 +1,12 @@
-<div class="crop-image">
+<!-- TODO: should really be a separate URL -->
+<div ng:if="crops"
+     ui:drag-data="{{crops | asCropDragData}}">
+    <!-- Add both image and crop drag data (using nesting) -->
+    <!-- FIXME: pick most appropriate image, style page, drag help message, back link, etc -->
+    <img ng:src="{{crops.sizings[0].file}}"
+         ui:drag-data="{{image | asImageDragData}}" />
+</div>
+<div class="crop-image" ng:if="! crops">
     <div class="easel">
         <div class="easel__canvas">
             <img class="easel__image"
