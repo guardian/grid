@@ -243,7 +243,10 @@ kahuna.directive('uiDragData', function() {
     return {
         restrict: 'A',
         link: function(scope, element, attrs) {
-            element.bind('dragstart', function(e) {
+            element.bind('dragstart', function(jqueryEvent) {
+                // Unwrap jQuery event wrapper to access dataTransfer
+                var e = jqueryEvent.originalEvent;
+
                 // No obvious way to receive an object through an
                 // attribute without making this directive an
                 // isolate scope...
