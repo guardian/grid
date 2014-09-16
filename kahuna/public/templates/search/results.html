@@ -4,7 +4,7 @@
     <li class="image-result" ng:repeat="image in images" ng:hide="{{image.hide}}">
         <a class="image-result__link"
            ng:href="/images/{{image.data.id}}"
-           ui:drag-data="{{image | asDragData}}">
+           ui:drag-data="{{image | asImageDragData}}">
             <figure>
                 <img class="image-result__image"
                      ng:src="{{image.data.thumbnail.secureUrl}}"/>
