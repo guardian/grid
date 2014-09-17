@@ -34,6 +34,8 @@ object Image {
       (__ \ "title").writeNullable[String] ~
       (__ \ "credit").writeNullable[String] ~
       (__ \ "copyrightNotice").writeNullable[String] ~
+      (__ \ "copyright").writeNullable[String] ~
+      (__ \ "suppliersReference").writeNullable[String] ~
       (__ \ "source").writeNullable[String] ~
       (__ \ "specialInstructions").writeNullable[String] ~
       (__ \ "keywords").write[List[String]] ~
