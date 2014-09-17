@@ -1090,15 +1090,9 @@
                 "SecurityGroupIngress": [
                     {
                         "IpProtocol": "tcp",
-                        "FromPort": "80",
-                        "ToPort": "80",
-                        "SourceSecurityGroupName": { "Ref": "AppClientSecurityGroup" }
-                    },
-                    {
-                        "IpProtocol": "tcp",
                         "FromPort": "443",
                         "ToPort": "443",
-                        "CidrIp": "***REMOVED***"
+                        "CidrIp": "0.0.0.0/0"
                     }
                 ]
             }
