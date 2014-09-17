@@ -2,7 +2,7 @@
     <div class="easel">
         <div class="easel__canvas">
             <a ng:href="/images/{{image.data.id}}"
-               ui:drag-data="{{image | asDragData}}">
+               ui:drag-data="{{image | asImageDragData}}">
                 <img class="easel__image"
                      ng:src="{{image.data.secureUrl}}"/>
             </a>
