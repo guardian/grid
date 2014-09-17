@@ -219,10 +219,8 @@ discovery.zen.minimum_master_nodes: @@MIN_MASTER_NODES
 
 discovery.type: ec2
 
-# FIXME: temporarly use Role for migration purposes
-# discovery.ec2.tag.Stack: "@@STACK"
-# discovery.ec2.tag.App: "@@APP"
-discovery.ec2.tag.Role: "@@ROLE"
+discovery.ec2.tag.Stack: "@@STACK"
+discovery.ec2.tag.App: "@@APP"
 discovery.ec2.tag.Stage: "@@STAGE"
 
 # The gateway allows for persisting the cluster state between full cluster
