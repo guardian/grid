@@ -84,7 +84,7 @@ object MediaApi extends Controller {
       val expiration = DateTime.now.plusMinutes(15)
       val secureUrl = S3Client.signUrl(Config.imageBucket, id, expiration)
       val secureThumbUrl = S3Client.signUrl(Config.thumbBucket, id, expiration)
-      val credit = (source \ "metadata" \ "credit").as[String]
+      val credit = (source \ "metadata" \ "credit").as[Option[String]]
       val image = source.transform(transformers.addSecureImageUrl(secureUrl))
         .flatMap(_.transform(transformers.addSecureThumbUrl(secureThumbUrl)))
         .flatMap(_.transform(transformers.addUsageCost(credit))).get
@@ -95,7 +95,7 @@ object MediaApi extends Controller {
 
   object transformers {
 
-    def addUsageCost(copyright: String): Reads[JsObject] =
+    def addUsageCost(copyright: Option[String]): Reads[JsObject] =
       __.json.update(__.read[JsObject].map(_ ++ Json.obj("cost" -> ImageUse.getCost(copyright))))
 
     def addSecureImageUrl(url: String): Reads[JsObject] =
@@ -150,7 +150,10 @@ object SearchParams {
 // Default to pay for now
 object ImageUse {
   val freeForUseFrom: Seq[String] = Seq("EPA", "REUTERS", "PA", "AP", "Associated Press", "RONALD GRANT", "Press Association Images", "Action Images", "Keystone", "AFP", "Getty Images", "Alamy", "FilmMagic", "WireImage", "Pool", "Rex Features", "Allsport", "BFI", "ANSA", "The Art Archive", "Hulton Archive", "Hulton Getty", "RTRPIX", "Community Newswire", "THE RONALD GRANT ARCHIVE", "NPA ROTA", "Ronald Grant Archive", "PA WIRE", "AP POOL", "REUTER", "dpa", "BBC", "Allstar Picture Library")
-  def getCost(credit: String) = {
-    if (freeForUseFrom.exists(f => f.toLowerCase == credit.toLowerCase)) "free" else "pay"
+  def getCost(credit: Option[String]) = {
+    credit match {
+      case Some(c) if freeForUseFrom.exists(f => f.toLowerCase == c.toLowerCase) => "free"
+      case _ => "pay"
+    }
   }
 }
