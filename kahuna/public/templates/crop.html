@@ -1,6 +1,6 @@
 <!-- TODO: should really be a separate URL -->
 <div ng:if="crops"
-     ui:drag-data="{{crops | asCropDragData}}">
+     ui:drag-data="{{crops | asCropsDragData}}">
     <!-- Add both image and crop drag data (using nesting) -->
     <!-- FIXME: pick most appropriate image, style page, drag help message, back link, etc -->
     <img ng:src="{{crops.sizings[0].file}}"
