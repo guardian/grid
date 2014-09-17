@@ -1089,15 +1089,9 @@
                 "SecurityGroupIngress": [
                     {
                         "IpProtocol": "tcp",
-                        "FromPort": "80",
-                        "ToPort": "80",
-                        "SourceSecurityGroupName": { "Ref": "AppClientSecurityGroup" }
-                    },
-                    {
-                        "IpProtocol": "tcp",
                         "FromPort": "443",
                         "ToPort": "443",
-                        "CidrIp": "77.91.248.0/21"
+                        "CidrIp": "0.0.0.0/0"
                     }
                 ]
             }
@@ -1253,7 +1247,6 @@
                         "sns.topic.arn=", { "Ref": "Topic" }, "\n",
                         "crop.output.tmp.dir=/data\n",
                         "auth.keystore.bucket=", { "Ref": "KeyBucket" }, "\n",
-                        "media.api.key=cropper-1b573f2dd45e49fc277667cf38124d1c\n",
                         "publishing.image.bucket=", { "Ref": "ImageOriginBucket" }, "\n",
                         "publishing.aws.id=", { "Ref": "ImagePublishingCredentials" }, "\n",
                         "publishing.aws.secret=", { "Fn::GetAtt": [ "ImagePublishingCredentials", "SecretAccessKey" ] }, "\n",

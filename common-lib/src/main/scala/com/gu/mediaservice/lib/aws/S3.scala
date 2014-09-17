@@ -7,7 +7,7 @@ import scala.collection.JavaConverters._
 
 import com.amazonaws.auth.AWSCredentials
 import com.amazonaws.services.s3.{AmazonS3Client, AmazonS3}
-import com.amazonaws.services.s3.model.{ObjectMetadata, PutObjectRequest, GeneratePresignedUrlRequest}
+import com.amazonaws.services.s3.model.{ObjectMetadata, PutObjectRequest, GeneratePresignedUrlRequest, ListObjectsRequest}
 import org.joda.time.DateTime
 import scalaz.syntax.id._
 
@@ -34,5 +34,12 @@ class S3(credentials: AWSCredentials) {
       val bucketUrl = s"$bucket.$s3Endpoint"
       new URI("http", bucketUrl, s"/$id", null)
     }
+
+  def syncFindKey(bucket: String, prefixName: String): Option[String] = {
+    val req = new ListObjectsRequest().withBucketName(bucket).withPrefix(s"$prefixName-")
+    val listing = client.listObjects(req)
+    val summaries = listing.getObjectSummaries.asScala
+    summaries.headOption.map(_.getKey)
+  }
 
 }
