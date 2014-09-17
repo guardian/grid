@@ -22,8 +22,6 @@ object Config extends CommonPlayAppProperties {
 
   val topicArn = properties("sns.topic.arn")
 
-  val mediaApiKey = properties("media.api.key")
-
   val rootUri = services.cropperBaseUri
 
   val corsAllowedOrigin = services.kahunaBaseUri
