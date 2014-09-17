@@ -192,6 +192,9 @@ kahuna.controller('ImageCropCtrl',
         $scope.cropping = true;
         mediaCropper.createCrop($scope.image, coords).then(function(resp) {
             console.log("crop", resp);
+            // TODO: navigate to new state, if the data can be passed along
+            $scope.crops = resp.data;
+
         }).finally(function() {
             $scope.cropping = false;
         });
@@ -200,15 +203,25 @@ kahuna.controller('ImageCropCtrl',
 }]);
 
 // Take an image and return a drag data map of mime-type -> value
-kahuna.filter('asDragData', function() {
+kahuna.filter('asImageDragData', function() {
     return function(image) {
         var url = image && image.uri;
         if (url) {
             return {
+                'application/vnd.mediaservice.image+json': JSON.stringify(image),
                 'text/plain':    url,
                 'text/uri-list': url
             };
         }
+    };
+});
+
+// Take an image and return a drag data map of mime-type -> value
+kahuna.filter('asCropsDragData', function() {
+    return function(crops) {
+        return {
+            'application/vnd.mediaservice.crops+json': JSON.stringify(crops)
+        };
     };
 });
 
@@ -243,7 +256,10 @@ kahuna.directive('uiDragData', function() {
     return {
         restrict: 'A',
         link: function(scope, element, attrs) {
-            element.bind('dragstart', function(e) {
+            element.bind('dragstart', function(jqueryEvent) {
+                // Unwrap jQuery event wrapper to access dataTransfer
+                var e = jqueryEvent.originalEvent;
+
                 // No obvious way to receive an object through an
                 // attribute without making this directive an
                 // isolate scope...
