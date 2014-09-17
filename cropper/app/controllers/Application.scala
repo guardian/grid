@@ -22,6 +22,8 @@ object Application extends Controller {
   val keyStore = new KeyStore(Config.keyStoreBucket, Config.awsCredentials)
   val Authenticated = auth.Authenticated(keyStore)(_ => Unauthorized(Json.obj("errorKey" -> "unauthorized")))
 
+  val mediaApiKey = keyStore.findKey("cropper").getOrElse(throw new Error("Missing cropper API key in key bucket"))
+
   val rootUri = Config.rootUri
 
   def index = Action {
@@ -74,7 +76,7 @@ object Application extends Controller {
     yield sizings
 
   def fetchSourceFromApi(uri: String): Future[SourceImage] =
-    for (resp <- WS.url(uri).withHeaders("X-Gu-Media-Key" -> Config.mediaApiKey).get)
+    for (resp <- WS.url(uri).withHeaders("X-Gu-Media-Key" -> mediaApiKey).get)
     yield {
       if (resp.status != 200) Logger.warn(s"HTTP status ${resp.status} ${resp.statusText} from $uri")
       resp.json.as[SourceImage]

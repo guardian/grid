@@ -81,6 +81,8 @@ class KeyStore(bucket: String, credentials: AWSCredentials) {
   def lookupIdentity(key: String): Future[Option[String]] =
     store.future.map(_.get(key))
 
+  def findKey(prefix: String): Option[String] = s3.syncFindKey(bucket, prefix)
+
   private val store: Agent[Map[String, String]] = Agent(Map.empty)
 
   def scheduleUpdates(scheduler: Scheduler) {
