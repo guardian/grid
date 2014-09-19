@@ -195,6 +195,14 @@ kahuna.controller('ImageCropCtrl',
             // TODO: navigate to new state, if the data can be passed along
             $scope.crops = resp.data;
 
+            var orderedCrops = $scope.crops.sizings.sort((a, b) => {
+                return a.dimensions.width - b.dimensions.width;
+            });
+
+            $scope.smallestSizingFile = orderedCrops[0].file;
+            // TODO: ideally find best fit based on window size
+            $scope.largestSizingFile = orderedCrops.slice(-1)[0].file;
+
         }).finally(function() {
             $scope.cropping = false;
         });
@@ -267,6 +275,21 @@ kahuna.directive('uiDragData', function() {
                 Object.keys(dataMap).forEach(function(mimeType) {
                     e.dataTransfer.setData(mimeType, dataMap[mimeType]);
                 });
+            });
+        }
+    };
+});
+
+kahuna.directive('uiDragImage', function() {
+    return {
+        restrict: 'A',
+        link: function(scope, element, attrs) {
+            element.bind('dragstart', function(jqueryEvent) {
+                // Unwrap jQuery event wrapper to access dataTransfer
+                var e = jqueryEvent.originalEvent;
+                var img = document.createElement('img');
+                img.src = attrs.uiDragImage;
+                e.dataTransfer.setDragImage(img, -10, -10);
             });
         }
     };
