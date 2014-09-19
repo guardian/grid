@@ -216,3 +216,14 @@ From the project root, run via sbt:
 
 The user interface should be up at
 [http://localhost:9006/](http://localhost:9006/).
+
+
+## Troubleshooting
+
+### Nginx returns "413 Request Entity Too Large"
+
+Make sure you bump the maximum allowed body size in your nginx config (defaults to 1MB):
+
+```
+client_max_body_size 20m;
+```
