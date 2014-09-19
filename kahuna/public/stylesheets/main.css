@@ -40,7 +40,7 @@ body {
     color: #333;
     font-size: 1.6rem;
     margin: 0;
-    padding: 0 0 50px 0;
+    padding: 0 0 0 0;
 }
 
 figure, ul, li, dl, dd {
@@ -264,7 +264,7 @@ a:focus {
 
 .easel__image {
     display: block;
-    max-height: calc(100vh - 44px); /* viewport - actionbar */
+    max-height: calc(100vh - 44px); /* viewport - palette */
     max-width: 100%;
     vertical-align: bottom;
 }
@@ -291,6 +291,10 @@ a:focus {
     clear: both;
     content:  " ";
     display:  table;
+}
+
+.full-image .easel__image {
+    max-height: calc(75vh - 44px); /* 60 - palette */
 }
 
 .image-info,
