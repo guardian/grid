@@ -15,15 +15,19 @@ class S3(credentials: AWSCredentials) {
 
   val s3Endpoint = "s3.amazonaws.com"
 
+  type Bucket = String
+  type Key = String
+  type Metadata = Map[String, String]
+
   lazy val client: AmazonS3 =
     new AmazonS3Client(credentials) <| (_ setEndpoint s3Endpoint)
 
-  def signUrl(bucket: String, key: String, expiration: DateTime): String = {
+  def signUrl(bucket: Bucket, key: Key, expiration: DateTime): String = {
     val request = new GeneratePresignedUrlRequest(bucket, key).withExpiration(expiration.toDate)
     client.generatePresignedUrl(request).toExternalForm
   }
 
-  def store(bucket: String, id: String, file: File, mimeType: Option[String] = None, meta: Map[String, String] = Map.empty)
+  def store(bucket: Bucket, id: Key, file: File, mimeType: Option[String] = None, meta: Metadata = Map.empty)
            (implicit ex: ExecutionContext): Future[URI] =
     Future {
       val metadata = new ObjectMetadata
@@ -35,7 +39,7 @@ class S3(credentials: AWSCredentials) {
       new URI("http", bucketUrl, s"/$id", null)
     }
 
-  def syncFindKey(bucket: String, prefixName: String): Option[String] = {
+  def syncFindKey(bucket: Bucket, prefixName: String): Option[Key] = {
     val req = new ListObjectsRequest().withBucketName(bucket).withPrefix(s"$prefixName-")
     val listing = client.listObjects(req)
     val summaries = listing.getObjectSummaries.asScala
