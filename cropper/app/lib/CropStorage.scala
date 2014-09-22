@@ -5,7 +5,7 @@ import java.net.URI
 import java.util.concurrent.Executors
 import scala.concurrent.{ExecutionContext, Future}
 import com.gu.mediaservice.lib.aws.S3
-import model.{Dimensions, Bounds, CropSource}
+import model.{Dimensions, Bounds, CropSource, CropSizing}
 
 object CropStorage extends S3(Config.imgPublishingCredentials) {
 
@@ -13,14 +13,15 @@ object CropStorage extends S3(Config.imgPublishingCredentials) {
     ExecutionContext.fromExecutor(Executors.newCachedThreadPool)
 
   def storeCropSizing(file: File, filename: String, mimeType: String, source: CropSource, dimensions: Dimensions): Future[URI] = {
-    val CropSource(sourceUri, Bounds(x, y, w, h)) = source
+    val CropSource(sourceUri, Bounds(x, y, w, h), r) = source
     val metadata = Map("source" -> sourceUri,
                        "bounds_x" -> x,
                        "bounds_y" -> y,
                        "bounds_w" -> w,
                        "bounds_h" -> h,
                        "width" -> dimensions.width,
-                       "height" -> dimensions.height)
+                       "height" -> dimensions.height
+                   ) ++ r.map( ("aspect_ratio" -> _) )
     store(Config.imgPublishingBucket, filename, file, Some(mimeType), metadata.mapValues(_.toString))
   }
 
