@@ -35,8 +35,7 @@ class S3(credentials: AWSCredentials) {
       metadata.setUserMetadata(meta.asJava)
       val req = new PutObjectRequest(bucket, id, new FileInputStream(file), metadata)
       client.putObject(req)
-      val bucketUrl = s"$bucket.$s3Endpoint"
-      new URI("http", bucketUrl, s"/$id", null)
+      objectUrl(bucket, id)
     }
 
   def syncFindKey(bucket: Bucket, prefixName: String): Option[Key] = {
@@ -44,6 +43,11 @@ class S3(credentials: AWSCredentials) {
     val listing = client.listObjects(req)
     val summaries = listing.getObjectSummaries.asScala
     summaries.headOption.map(_.getKey)
+  }
+
+  private def objectUrl(bucket: Bucket, key: Key): URI = {
+    val bucketUrl = s"$bucket.$s3Endpoint"
+    new URI("http", bucketUrl, s"/$key", null)
   }
 
 }
