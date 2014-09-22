@@ -189,8 +189,16 @@ kahuna.controller('ImageCropCtrl',
             height: $scope.coords.y2 - $scope.coords.y1
         };
 
+        var ratio;
+        if ($scope.aspect === $scope.landscapeRatio) {
+            ratio = '5:3';
+        } else if ($scope.aspect === $scope.portraitRatio) {
+            ratio = '3:2';
+        }
+        // FIXME: $scope.aspect not correctly updated??
+
         $scope.cropping = true;
-        mediaCropper.createCrop($scope.image, coords).then(function(resp) {
+        mediaCropper.createCrop($scope.image, coords, ratio).then(function(resp) {
             console.log("crop", resp);
             // TODO: navigate to new state, if the data can be passed along
             $scope.crops = resp.data;

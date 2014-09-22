@@ -37,9 +37,9 @@ object Application extends Controller {
   }
 
   val cropSourceForm: Form[CropSource] = Form(
-    tuple("source" -> nonEmptyText, "x" -> number, "y" -> number, "width" -> number, "height" -> number)
-      .transform[CropSource]({ case (source, x, y, w, h) => CropSource(source, Bounds(x, y, w, h)) },
-                       { case CropSource(source, Bounds(x, y, w, h)) => (source, x, y, w, h) })
+    tuple("source" -> nonEmptyText, "x" -> number, "y" -> number, "width" -> number, "height" -> number, "aspectRatio" -> optional(nonEmptyText))
+      .transform[CropSource]({ case (source, x, y, w, h, r) => CropSource(source, Bounds(x, y, w, h), r) },
+                       { case CropSource(source, Bounds(x, y, w, h), r) => (source, x, y, w, h, r) })
   )
 
   def crop = Authenticated.async { req =>
