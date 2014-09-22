@@ -12,7 +12,7 @@ object CropStorage extends S3(Config.imgPublishingCredentials) {
   private implicit val ctx: ExecutionContext =
     ExecutionContext.fromExecutor(Executors.newCachedThreadPool)
 
-  def storeCropSizing(file: File, filename: String, mimeType: String, source: CropSource, dimensions: Dimensions): Future[URI] = {
+  def storeCropSizing(file: File, filename: String, mimeType: String, source: CropSource, dimensions: Dimensions): Future[CropSizing] = {
     val CropSource(sourceUri, Bounds(x, y, w, h), r) = source
     val metadata = Map("source" -> sourceUri,
                        "bounds_x" -> x,
@@ -22,7 +22,9 @@ object CropStorage extends S3(Config.imgPublishingCredentials) {
                        "width" -> dimensions.width,
                        "height" -> dimensions.height
                    ) ++ r.map( ("aspect_ratio" -> _) )
-    store(Config.imgPublishingBucket, filename, file, Some(mimeType), metadata.mapValues(_.toString))
+    store(Config.imgPublishingBucket, filename, file, Some(mimeType), metadata.mapValues(_.toString)) map { uri =>
+      CropSizing(translateImgHost(uri).toString, dimensions)
+    }
   }
 
 }
