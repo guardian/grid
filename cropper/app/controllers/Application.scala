@@ -65,11 +65,11 @@ object Application extends Controller {
       sizings <- Future.traverse(outputDims) { dim =>
         val filename = outputFilename(apiSource, source.bounds, dim.width)
         for {
-          file <- Crops.create(sourceFile, source, dim)
-          uri  <- CropStorage.storeCropSizing(file, filename, "image/jpeg", source, dim)
-          _    <- delete(file)
+          file    <- Crops.create(sourceFile, source, dim)
+          sizing  <- CropStorage.storeCropSizing(file, filename, "image/jpeg", source, dim)
+          _       <- delete(file)
         }
-        yield CropSizing(translateImgHost(uri).toString, dim)
+        yield sizing
       }
       _ <- delete(sourceFile)
     }
@@ -90,9 +90,6 @@ object Application extends Controller {
 
   def outputFilename(source: SourceImage, bounds: Bounds, outputWidth: Int): String =
     s"${source.id}/${bounds.x}_${bounds.y}_${bounds.width}_${bounds.height}/$outputWidth.jpg"
-
-  def translateImgHost(uri: URI): URI =
-    new URI(uri.getScheme, Config.imgPublishingHost, uri.getPath, uri.getFragment)
 }
 
 case class SourceImage(id: String, file: String)
