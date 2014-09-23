@@ -18,7 +18,7 @@ apiServices.factory('mediaCropper',
         return cropperRoot;
     }
 
-    function createCrop(image, coords) {
+    function createCrop(image, coords, ratio) {
         return getCropperRoot().then(function(response) {
             var cropperResource = response.data;
             var cropLink = cropperResource.links.filter(l => l.rel === 'crop')[0];
@@ -27,7 +27,8 @@ apiServices.factory('mediaCropper',
                 x: coords.x,
                 y: coords.y,
                 width: coords.width,
-                height: coords.height
+                height: coords.height,
+                aspectRatio: ratio
             }, { withCredentials: true });
         });
     }
