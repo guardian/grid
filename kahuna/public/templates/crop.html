@@ -21,22 +21,22 @@
                  ui:crop-box="coords"
                  ui:crop-box-original-width="image.data.dimensions.width"
                  ui:crop-box-original-height="image.data.dimensions.height"
-                 ui:crop-box-aspect="aspect"
+                 ui:crop-box-aspect="imageCropCtrl.aspect"
                  ui:crop-box-background-opacity="0.3"
             />
         </div>
 
         <div class="palette">
             <label class="palette__button">
-                <input type="radio" ng:model="aspect" value="{{landscapeRatio}}" />
+                <input type="radio" ng:model="imageCropCtrl.aspect" value="{{landscapeRatio}}" />
                 landscape
             </label>
             <label class="palette__button">
-                <input type="radio" ng:model="aspect" value="{{portraitRatio}}" />
+                <input type="radio" ng:model="imageCropCtrl.aspect" value="{{portraitRatio}}" />
                 portrait
             </label>
             <label class="palette__button">
-                <input type="radio" ng:model="aspect" value="{{freeRatio}}" />
+                <input type="radio" ng:model="imageCropCtrl.aspect" value="{{freeRatio}}" />
                 free-form
             </label>
             <button class="button palette__button"
