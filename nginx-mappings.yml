@@ -1,13 +1,15 @@
 name: media-service
-ssl: false
+domain-root: media.local.dev-***REMOVED***
 mappings:
-  - prefix: api.media
+  - prefix: api
     port: 9001
-  - prefix: thrall.media
+  - prefix: thrall
     port: 9002
-  - prefix: loader.media
+  - prefix: loader
     port: 9003
   - prefix: media
     port: 9005
-  - prefix: cropper.media
+    # use parent domain to use matching SSL cert
+    domain-root: local.dev-***REMOVED***
+  - prefix: cropper
     port: 9006
