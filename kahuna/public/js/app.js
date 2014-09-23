@@ -171,6 +171,7 @@ kahuna.controller('ImageCropCtrl',
     $scope.portraitRatio = 2 / 3;
     $scope.freeRatio = null;
 
+    // TODO: migrate the other properties to be on the ctrl (this) instead of $scope
     this.aspect = $scope.landscapeRatio;
     $scope.coords = {
         x1: 0,
