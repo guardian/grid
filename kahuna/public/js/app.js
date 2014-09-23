@@ -103,7 +103,7 @@ kahuna.controller('SearchResultsCtrl',
     mediaApi.search($stateParams.query, {
         since: $stateParams.since
     }).then(function(images) {
-        $scope.images = images.filter(freeImageFilter);
+        $scope.images = images;
         // yield so images render before we check if there's more space
         $timeout(function() {
             if ($scope.hasSpace) {
@@ -112,9 +112,9 @@ kahuna.controller('SearchResultsCtrl',
         });
     });
 
-    function freeImageFilter(image) {
+    $scope.freeImageFilter = function(image) {
        return $stateParams.free === 'false' || image.data.cost === 'free';
-    }
+    };
 
     function addImages() {
         // TODO: stop once reached the end
@@ -131,7 +131,17 @@ kahuna.controller('SearchResultsCtrl',
                         return existing.uri === im.uri;
                     }).length === 0;
                 });
-                $scope.images = $scope.images.concat(newImages).filter(freeImageFilter);
+                $scope.images = $scope.images.concat(newImages);
+
+                // FIXME: this is increasingly hacky logic to ensure
+                // we bring in more images that satisfy the cost
+                // filter
+
+                // If there are more images, just not any matching our cost filter, get moar!
+                var filteredImages = newImages.filter($scope.freeImageFilter);
+                if (filteredImages.length === 0 && newImages.length > 0) {
+                    addImages();
+                }
             });
         }
     }
