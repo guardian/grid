@@ -104,6 +104,7 @@ kahuna.controller('SearchResultsCtrl',
         since: $stateParams.since
     }).then(function(images) {
         $scope.images = images.filter(freeImageFilter);
+        // yield so images render before we check if there's more space
         $timeout(function() {
             if ($scope.hasSpace) {
                 addImages();
