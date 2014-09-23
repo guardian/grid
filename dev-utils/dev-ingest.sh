@@ -22,14 +22,7 @@ if [ -z "$LENGTH" ]; then
     LENGTH=40
 fi
 
-if [ $TARGET_ENV = "local" ]
-then
-    TARGET_PROTOCOL="http"
-else
-    TARGET_PROTOCOL="https"
-fi
-
-TARGET_BASE_URL="$TARGET_PROTOCOL://loader.media.$TARGET_ENV.dev-gutools.co.uk"
+TARGET_BASE_URL="https://loader.media.$TARGET_ENV.dev-gutools.co.uk"
 
 curl -H "X-Gu-Media-Key: $DEV_INGEST_KEY" https://api.media.gutools.co.uk/images?length=$LENGTH \
     | jq '.data[].data.secureUrl' \
