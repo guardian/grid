@@ -104,6 +104,7 @@ kahuna.controller('SearchResultsCtrl',
         since: $stateParams.since
     }).then(function(images) {
         $scope.images = images.filter(freeImageFilter);
+        // yield so images render before we check if there's more space
         $timeout(function() {
             if ($scope.hasSpace) {
                 addImages();
@@ -261,7 +262,7 @@ kahuna.directive('uiHitBottom', function() {
                 var bottomPos = element[0].scrollTop + element[0].clientHeight;
                 var viewHeight = element[0].scrollHeight;
                 scope.$apply(function() {
-                    scope[attrs.uiHitBottom] = bottomPos === viewHeight;
+                    scope[attrs.uiHitBottom] = bottomPos >= viewHeight;
                 });
             });
         }
