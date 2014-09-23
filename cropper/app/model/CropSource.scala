@@ -9,7 +9,7 @@ object CropSizing {
   implicit val cropSizingWrites: Writes[CropSizing] = Json.writes[CropSizing]
 }
 
-case class CropSource(uri: String, bounds: Bounds)
+case class CropSource(uri: String, bounds: Bounds, aspectRatio: Option[String])
 
 object CropSource {
   implicit val cropWrites: Writes[CropSource] = Json.writes[CropSource]

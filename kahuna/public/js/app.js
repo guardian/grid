@@ -55,7 +55,7 @@ kahuna.config(['$stateProvider', '$urlRouterProvider',
     $stateProvider.state('crop', {
         url: '/images/:imageId/crop',
         templateUrl: templatesDirectory + '/crop.html',
-        controller: 'ImageCropCtrl'
+        controller: 'ImageCropCtrl as imageCropCtrl'
     });
 
     $urlRouterProvider.otherwise("/search");
@@ -171,7 +171,8 @@ kahuna.controller('ImageCropCtrl',
     $scope.portraitRatio = 2 / 3;
     $scope.freeRatio = null;
 
-    $scope.aspect = $scope.landscapeRatio;
+    // TODO: migrate the other properties to be on the ctrl (this) instead of $scope
+    this.aspect = $scope.landscapeRatio;
     $scope.coords = {
         x1: 0,
         y1: 0,
@@ -189,8 +190,15 @@ kahuna.controller('ImageCropCtrl',
             height: $scope.coords.y2 - $scope.coords.y1
         };
 
+        var ratio;
+        if (Number(this.aspect) === $scope.landscapeRatio) {
+            ratio = '5:3';
+        } else if (Number(this.aspect) === $scope.portraitRatio) {
+            ratio = '3:2';
+        }
+
         $scope.cropping = true;
-        mediaCropper.createCrop($scope.image, coords).then(function(resp) {
+        mediaCropper.createCrop($scope.image, coords, ratio).then(function(resp) {
             console.log("crop", resp);
             // TODO: navigate to new state, if the data can be passed along
             $scope.crops = resp.data;
@@ -206,7 +214,7 @@ kahuna.controller('ImageCropCtrl',
         }).finally(function() {
             $scope.cropping = false;
         });
-    };
+    }.bind(this);
 
 }]);
 
