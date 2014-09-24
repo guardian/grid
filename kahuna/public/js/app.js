@@ -256,6 +256,17 @@ kahuna.filter('asCropsDragData', function() {
     };
 });
 
+// Take an image and return a drag data map of mime-type -> value
+kahuna.filter('asImageAndCropsDragData', ['$filter',
+                                          function($filter) {
+    var extend = angular.extend;
+    return function(image, crops) {
+        return extend(
+            $filter('asImageDragData')(image),
+            $filter('asCropsDragData')(crops));
+    };
+}]);
+
 kahuna.directive('uiHasSpace', function() {
     return {
         restrict: 'A',
