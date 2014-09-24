@@ -146,8 +146,8 @@ kahuna.controller('SearchResultsCtrl',
         }
     }
 
-    $scope.$watch('hitBottom', function(hitBottom) {
-        if (hitBottom) {
+    $scope.$watch('nearBottom', function(nearBottom) {
+        if (nearBottom) {
             addImages();
         }
     });
@@ -263,7 +263,7 @@ kahuna.directive('uiHasSpace', function() {
     }
 });
 
-kahuna.directive('uiHitBottom', function() {
+kahuna.directive('uiNearBottom', function() {
     return {
         restrict: 'A',
         link: function(scope, element, attrs) {
@@ -271,8 +271,9 @@ kahuna.directive('uiHitBottom', function() {
                 // TODO: debounce + defer
                 var bottomPos = element[0].scrollTop + element[0].clientHeight;
                 var viewHeight = element[0].scrollHeight;
+                var offset = 200;
                 scope.$apply(function() {
-                    scope[attrs.uiHitBottom] = bottomPos >= viewHeight;
+                    scope[attrs.uiNearBottom] = bottomPos + offset >= viewHeight;
                 });
             });
         }
