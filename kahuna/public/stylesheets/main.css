@@ -314,7 +314,7 @@ a:focus {
 
 .metadata {
     font-family: "Guardian Agate Sans 1 Web";
-    font-size: 1.3rem;
+    margin-top: 15px;
 }
 
 .metadata__heading {
@@ -322,6 +322,10 @@ a:focus {
     font-weight: bold;
     margin-bottom: 5px;
     text-align: left;
+}
+
+.metadata__body {
+    font-size: 1.3rem;
 }
 
 .metadata__key {
