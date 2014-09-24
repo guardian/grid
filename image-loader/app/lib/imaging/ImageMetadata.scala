@@ -1,7 +1,7 @@
 package lib.imaging
 
 import java.io.File
-import com.drew.metadata.icc.{IccDescriptor, IccDirectory}
+import com.drew.metadata.exif.{ExifIFD0Descriptor, ExifIFD0Directory}
 import scala.concurrent.{ExecutionContext, Future}
 import com.drew.imaging.ImageMetadataReader
 import com.drew.metadata.iptc.{IptcDescriptor, IptcDirectory}
@@ -32,7 +32,7 @@ object ImageMetadata {
           nonEmptyTrimmed(iptcDescriptor.getHeadlineDescription),
           nonEmptyTrimmed(iptcDescriptor.getCreditDescription),
           nonEmptyTrimmed(iptcDescriptor.getCopyrightNoticeDescription),
-          nonEmptyTrimmed(getIccAlternatve(metadata, IccDirectory.TAG_ICC_TAG_cprt, iptcDescriptor.getCopyrightNoticeDescription)),
+          nonEmptyTrimmed(getExifAlternative(metadata, ExifIFD0Directory.TAG_COPYRIGHT, iptcDescriptor.getCopyrightNoticeDescription)),
           nonEmptyTrimmed(Option(iptcDescriptor.getOriginalTransmissionReferenceDescription)
             .getOrElse(iptcDescriptor.getObjectNameDescription)),
           nonEmptyTrimmed(iptcDescriptor.getSourceDescription),
@@ -61,11 +61,10 @@ object ImageMetadata {
   private def readMetadata(file: File): Future[Metadata] =
     Future(ImageMetadataReader.readMetadata(file))
 
-  private def getIccAlternatve(metadata: Metadata, iccTag: Int, alternative: String) =
-    Option(metadata.getDirectory(classOf[IccDirectory])).map { iccDirectory =>
-      new IccDescriptor(iccDirectory).getDescription(iccTag)
+  private def getExifAlternative(metadata: Metadata, exifTag: Int, alternative: String) =
+    Option(metadata.getDirectory(classOf[ExifIFD0Directory])).map { exifDirectory =>
+      new ExifIFD0Descriptor(exifDirectory).getDescription(exifTag)
     }.getOrElse(alternative)
-
 }
 
 case class ImageMetadata(
