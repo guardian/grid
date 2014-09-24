@@ -256,10 +256,14 @@ a:focus {
     display: block;
     text-align: center;
 }
+.easel--with-meta {
+    margin-right: 410px;
+}
 
 .easel__canvas {
     display: inline-block;
     vertical-align: bottom;
+    height: calc(100vh - 44px); /* viewport - palette */
 }
 
 .easel__image {
@@ -287,22 +291,21 @@ a:focus {
     color: #efefef;
 }
 
+.image-details {
+    box-sizing:  border-box;
+    float: right;
+    font-family: "Guardian Agate Sans 1 Web";
+    font-size: 1.4rem;
+    max-height: 100vh;
+    padding: 10px 10px;
+    overflow: auto;
+    width: 400px;
+}
+
 .image-details:after {
     clear: both;
     content:  " ";
     display:  table;
-}
-
-.full-image .easel__image {
-    max-height: calc(75vh - 44px); /* 60 - palette */
-}
-
-.image-info,
-.metadata {
-    box-sizing: border-box;
-    float: left;
-    padding: 10px;
-    width: 50%;
 }
 
 .image-info__heading {
@@ -315,8 +318,7 @@ a:focus {
 
 .metadata {
     font-family: "Guardian Agate Sans 1 Web";
-    font-size: 1.4rem;
-    width: 50%;
+    font-size: 1.3rem;
 }
 
 .metadata__heading {
