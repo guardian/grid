@@ -16,7 +16,7 @@ apiServices.factory('mediaApi',
                 q:      query || '',
                 since:  options.since,
                 until:  options.until,
-                length: 20
+                length: 50
             },
             withCredentials: true
         }).then(function(response) {
