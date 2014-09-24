@@ -1,19 +1,4 @@
 <div class="full-image" ng:controller="ImageCtrl">
-    <div class="easel">
-        <div class="easel__canvas">
-            <a ng:href="/images/{{image.data.id}}"
-               ui:drag-data="{{image | asImageDragData}}">
-                <img class="easel__image"
-                     ng:src="{{image.data.secureUrl}}"/>
-            </a>
-        </div>
-
-        <div class="palette">
-            <a class="palette__button" ui:sref="crop({imageId: image.data.id})">create crop ✄</a>
-            <a class="palette__button palette__button--sly" ui:sref="search.results()">back</a>
-        </div>
-    </div>
-
     <div class="image-details" id="image-info">
         <dl class="image-info">
             <dt class="image-info__heading">Description</dt>
@@ -26,11 +11,26 @@
         <table class="metadata">
             <caption class="metadata__heading">Metadata</caption>
             <tbody>
-                <tr ng:repeat="(key, value) in image.data.metadata">
-                    <th class="metadata__key">{{key}}</td>
-                    <td>{{value}}</td>
-                </tr>
+            <tr ng:repeat="(key, value) in image.data.metadata">
+                <th class="metadata__key">{{key}}</td>
+                <td>{{value}}</td>
+            </tr>
             </tbody>
         </table>
+    </div>
+
+    <div class="easel easel--with-meta">
+        <div class="easel__canvas">
+            <a ng:href="/images/{{image.data.id}}"
+               ui:drag-data="{{image | asImageDragData}}">
+                <img class="easel__image"
+                     ng:src="{{image.data.secureUrl}}"/>
+            </a>
+        </div>
+
+        <div class="palette">
+            <a class="palette__button" ui:sref="crop({imageId: image.data.id})">create crop ✄</a>
+            <a class="palette__button palette__button--sly" ui:sref="search.results()">back</a>
+        </div>
     </div>
 </div>
