@@ -10,8 +10,8 @@
 
         <table class="metadata">
             <caption class="metadata__heading">Metadata</caption>
-            <tbody>
-            <tr ng:repeat="(key, value) in image.data.metadata">
+            <tbody class="metadata__body">
+            <tr ng:repeat="(key, value) in image.data.metadata" ng:if="isUsefulMetadata(key)">
                 <th class="metadata__key">{{key}}</td>
                 <td>{{value}}</td>
             </tr>
