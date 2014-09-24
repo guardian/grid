@@ -286,13 +286,9 @@ a:focus {
     margin: 5px;
     padding: 5px 10px;
 }
-.palette__button--sly {
-    font-size: 1.2rem;
-    color: #efefef;
-}
 
 .image-details {
-    box-sizing:  border-box;
+    box-sizing: border-box;
     float: right;
     font-family: "Guardian Agate Sans 1 Web";
     font-size: 1.4rem;
