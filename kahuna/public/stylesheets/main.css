@@ -384,3 +384,9 @@ a:focus {
     top: 0;
     width: 100vw;
 }
+
+.drag-drop__drag-image {
+    position: absolute;
+    top: 50px;
+    z-index: -1;
+}

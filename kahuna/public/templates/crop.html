@@ -10,7 +10,12 @@
     <div class="drag-drop__data"
          draggable="true"
          ui:drag-data="{{image | asImageAndCropsDragData:crops}}"
-         ui:drag-image="{{smallestSizingFile}}"></div>
+         ui:drag-image="{{smallestSizingFile}}">
+        <!-- FIXME: this is a terrible hack as chrome triggers dragend if
+        haven't loaded the drag image in setDragImage yet.
+        -->
+        <img ng:src="{{smallestSizingFile}}" class="drag-drop__drag-image" />
+     </div>
 </div>
 <div class="crop-image" ng:if="! crops">
     <div class="easel">
