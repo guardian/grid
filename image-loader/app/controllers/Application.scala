@@ -8,7 +8,7 @@ import play.api.Logger
 
 import lib.imaging.{Thumbnailer, ImageMetadata}
 import lib.play.BodyParsers.digestedFile
-import lib.play.MD5DigestedFile
+import lib.play.DigestedFile
 
 import lib.{Config, Notifications}
 import model.{Thumbnail, Image}
@@ -25,7 +25,7 @@ class ImageLoader(storage: ImageStorage) extends Controller {
   }
 
   def loadImage = Action.async(digestedFile(createTempFile)) { request =>
-    val MD5DigestedFile(tempFile, id) = request.body
+    val DigestedFile(tempFile, id) = request.body
     Logger.info(s"Received file, id: $id")
 
     val uploadedBy = request.getQueryString("uploadedBy")
