@@ -4,30 +4,29 @@ import java.io.{FileOutputStream, File}
 import java.security.MessageDigest
 import scala.concurrent.ExecutionContext
 
-import org.apache.commons.codec.binary.{Base32, Hex}
 import play.api.libs.iteratee.Iteratee
 import play.api.mvc.BodyParser
 
 
-case class MD5DigestedFile(file: File, digestBase32: String)
+case class DigestedFile(file: File, digest: String)
 
-object MD5DigestedFile {
-  def apply(file: File, digest: Array[Byte]): MD5DigestedFile =
-    MD5DigestedFile(file, (new Base32).encodeAsString(digest.toArray).stripSuffix("=" * 6).toLowerCase)
+object DigestedFile {
+  def apply(file: File, digest: Array[Byte]): DigestedFile =
+    DigestedFile(file, digest.map("%02x".format(_)).mkString)
 }
 
 object BodyParsers {
 
-  def digestedFile(to: File)(implicit ex: ExecutionContext): BodyParser[MD5DigestedFile] =
+  def digestedFile(to: File)(implicit ex: ExecutionContext): BodyParser[DigestedFile] =
     BodyParser("digested file, to=" + to) { request =>
-      Iteratee.fold[Array[Byte], (MessageDigest, FileOutputStream)]((MessageDigest.getInstance("MD5"), new FileOutputStream(to))) {
+      Iteratee.fold[Array[Byte], (MessageDigest, FileOutputStream)]((MessageDigest.getInstance("SHA-1"), new FileOutputStream(to))) {
         case ((md, os), data) =>
           md.update(data)
           os.write(data)
           (md, os)
       }.map { case (md, os) =>
         os.close()
-        Right(MD5DigestedFile(to, md.digest))
+        Right(DigestedFile(to, md.digest))
       }
     }
 
