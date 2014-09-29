@@ -27,4 +27,29 @@ object CropStorage extends S3(Config.imgPublishingCredentials) {
     }
   }
 
+
+  def listCrops(id: String): Future[Map[CropSource, List[CropSizing]]] = {
+    list(Config.imgPublishingBucket, id) map { crops =>
+      crops.foldLeft(Map[CropSource, List[CropSizing]]()) { case (map, (uri, metadata)) =>
+        val cropSource = CropSource(
+          metadata("source"),
+          Bounds(
+            metadata("bounds_x").toInt,
+            metadata("bounds_y").toInt,
+            metadata("bounds_w").toInt,
+            metadata("bounds_h").toInt
+          ),
+          metadata.get("aspect_ratio")
+        )
+        val dimensions = Dimensions(metadata("width").toInt, metadata("height").toInt)
+        val cropSizing = CropSizing(translateImgHost(uri).toString, dimensions)
+        val currentSizings = map.getOrElse(cropSource, Nil)
+        map + (cropSource -> (currentSizings :+ cropSizing))
+      }
+    }
+  }
+
+  // FIXME: this doesn't really belong here
+  def translateImgHost(uri: URI): URI =
+    new URI(uri.getScheme, Config.imgPublishingHost, uri.getPath, uri.getFragment)
 }
