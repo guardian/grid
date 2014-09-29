@@ -22,6 +22,7 @@ object MediaApi extends Controller {
   val keyStore = new KeyStore(Config.keyStoreBucket, Config.awsCredentials)
 
   val rootUri = Config.rootUri
+  val cropperUri = Config.cropperUri
 
   def index = Action {
     val response = Json.obj(
@@ -29,7 +30,7 @@ object MediaApi extends Controller {
       "links" -> Json.arr(
         Json.obj("rel" -> "search", "href" -> s"$rootUri/images{?q,offset,length,fromDate,toDate,orderBy}"),
         Json.obj("rel" -> "image",  "href" -> s"$rootUri/images/{id}"),
-        Json.obj("rel" -> "cropper", "href" -> Config.cropperUri)
+        Json.obj("rel" -> "cropper", "href" -> cropperUri)
       )
     )
     Ok(response)
@@ -90,7 +91,11 @@ object MediaApi extends Controller {
         .flatMap(_.transform(transformers.addSecureThumbUrl(secureThumbUrl)))
         .flatMap(_.transform(transformers.addUsageCost(credit))).get
 
-      Json.obj("uri" -> s"$rootUri/images/$id", "data" -> image)
+      // FIXME: don't hardcode paths from other APIs - once we're
+      // storing a copy of the data in the DB, we can use it to point
+      // to the right place
+      val links = List(Json.obj("rel" -> "crops", "href" -> s"$cropperUri/crops/$id"))
+      Json.obj("uri" -> s"$rootUri/images/$id", "data" -> image, "links" -> links)
     }
     else source
 
