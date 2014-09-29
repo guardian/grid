@@ -2,7 +2,7 @@
 // TODO: Load templates using AMD so they can be compiled in
 
 import angular from 'angular';
-import 'npm:angular-ui-router';
+import 'angular-ui-router';
 import 'services/api/media-api';
 import 'services/api/media-cropper';
 import 'directives/ui-crop-box';
