@@ -49,6 +49,25 @@ object Application extends Controller {
     )
   }
 
+  def getCrops(id: String) = Authenticated.async { req =>
+    CropStorage.listCrops(id) map (_.toList) map { crops =>
+      val all = crops.map { case (cropSource, cropSizings) =>
+        Json.obj(
+          "source"  -> cropSource,
+          "sizings" -> cropSizings
+        )
+      }
+      val imageUri = crops.headOption.map {case (cropSource, _) => cropSource.uri}
+      val entity = Json.obj(
+        "data" -> all,
+        "links" -> Json.arr(
+          Json.obj("rel" -> "image", "href" -> imageUri)
+        )
+      )
+      Ok(entity)
+    }
+  }
+
   def createSizings(source: CropSource): Future[List[CropSizing]] =
     for {
       apiSource  <- fetchSourceFromApi(source.uri)

@@ -38,6 +38,20 @@ class S3(credentials: AWSCredentials) {
       objectUrl(bucket, id)
     }
 
+  def list(bucket: Bucket, prefix: String)
+          (implicit ex: ExecutionContext): Future[Map[URI, Metadata]] =
+    Future {
+      val req = new ListObjectsRequest().withBucketName(bucket).withPrefix(prefix)
+      val listing = client.listObjects(req)
+      val summaries = listing.getObjectSummaries.asScala
+      summaries.map(_.getKey).foldLeft(Map[URI, Metadata]()) { (metadata, key) =>
+        metadata + (objectUrl(bucket, key) -> getUserMetadata(bucket, key))
+      }
+    }
+
+  def getUserMetadata(bucket: Bucket, key: Key) =
+    client.getObjectMetadata(bucket, key).getUserMetadata.asScala.toMap
+
   def syncFindKey(bucket: Bucket, prefixName: String): Option[Key] = {
     val req = new ListObjectsRequest().withBucketName(bucket).withPrefix(s"$prefixName-")
     val listing = client.listObjects(req)
