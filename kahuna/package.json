@@ -4,17 +4,18 @@
       "jspmPackages": "public/jspm_packages"
     },
     "configFile": "public/config.js",
-    "registry": "jspm",
     "dependencies": {
       "angular": "1.2.23",
       "npm:angular-ui-router": "0.2.10",
       "github:tapmodo/Jcrop": "0.9.12",
       "jquery": "2.1.1",
-      "css": "^0.1.0"
+      "css": "^0.1.0",
+      "jcrop": "0.9.12",
+      "angular-ui-router": "0.2.11"
     }
   },
   "devDependencies": {
-    "jspm": "0.6.13"
+    "jspm": "0.7.1"
   },
   "repository": {
     "type": "git",
