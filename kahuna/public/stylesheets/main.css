@@ -308,8 +308,18 @@ a:focus {
     font-weight: bold;
     margin: 15px 0 5px;
 }
-.image-info__heading:first-child {
+.image-info__heading--first {
     margin-top: 0;
+}
+
+.image-info__keyword {
+    display: inline-block;
+    background-color: #ccc;
+    border-radius: 8px;
+    padding: 0 8px;
+    margin-right: 5px;
+    margin-bottom: 5px;
+    font-size: 1.3rem;
 }
 
 .metadata {

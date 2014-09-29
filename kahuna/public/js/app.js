@@ -163,7 +163,7 @@ kahuna.controller('ImageCtrl',
         $scope.image = image;
     });
 
-    var ignoredMetadata = ['description', 'source', 'copyright'];
+    var ignoredMetadata = ['description', 'source', 'copyright', 'keywords'];
     $scope.isUsefulMetadata = function(metadataKey) {
         return ignoredMetadata.indexOf(metadataKey) === -1;
     };
