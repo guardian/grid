@@ -10,7 +10,7 @@ import play.api.libs.json._
 import org.joda.time.DateTime
 
 import com.gu.mediaservice.lib.formatting.parseDateFromQuery
-import lib.elasticsearch.ElasticSearch
+import lib.elasticsearch.{ElasticSearch, SearchResults}
 import lib.{Notifications, Config, S3Client}
 import lib.Buckets._
 import com.gu.mediaservice.lib.auth
@@ -69,11 +69,12 @@ object MediaApi extends Controller {
   def imageSearch = Authenticated.async { request =>
     val params = GeneralParams(request)
     val searchParams = SearchParams(request)
-    ElasticSearch.search(searchParams) map { hits =>
+    ElasticSearch.search(searchParams) map { case SearchResults(hits, totalCount) =>
       val images = hits map (imageResponse(params) _).tupled
       Ok(Json.obj(
         "offset" -> searchParams.offset,
         "length" -> images.size,
+        "total"  -> totalCount,
         "data"   -> images
       ))
     }

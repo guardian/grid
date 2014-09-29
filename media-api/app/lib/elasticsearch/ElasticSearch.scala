@@ -25,6 +25,9 @@ import controllers.SearchParams
 import lib.{MediaApiMetrics, Config}
 
 
+case class SearchResults(hits: Seq[(ElasticSearch.Id, JsValue)], total: Long)
+
+
 object ElasticSearch extends ElasticSearchClient {
 
   import MediaApiMetrics._
@@ -41,7 +44,7 @@ object ElasticSearch extends ElasticSearchClient {
   val matchFields: Seq[String] =
     Seq("description", "title", "byline", "source", "credit", "keywords", "city", "country").map("metadata." + _)
 
-  def search(params: SearchParams)(implicit ex: ExecutionContext): Future[Seq[(Id, JsValue)]] = {
+  def search(params: SearchParams)(implicit ex: ExecutionContext): Future[SearchResults] = {
 
     val query = params.query
       .filter(_.nonEmpty)
@@ -62,7 +65,11 @@ object ElasticSearch extends ElasticSearchClient {
       .setSize(params.length)
       .executeAndLog("image search")
       .toMetric(searchQueries)(_.getTookInMillis)
-      .map(_.getHits.hits.toList flatMap (h => h.sourceOpt map (h.id -> _)))
+      .map(_.getHits)
+      .map { resultsHits =>
+        val hitsTuples = resultsHits.hits.toList flatMap (h => h.sourceOpt map (h.id -> _))
+        SearchResults(hitsTuples, resultsHits.getTotalHits)
+      }
   }
 
   def imageExists(id: String)(implicit ex: ExecutionContext): Future[Boolean] =
