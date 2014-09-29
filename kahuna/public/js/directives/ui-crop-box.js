@@ -1,10 +1,7 @@
 import angular from 'angular';
 import controlsDirectives from 'directives';
 import jQuery from 'jquery';
-// import jcrop from 'github:tapmodo/Jcrop';
-// import jcrop from 'jcrop';
-import 'github:tapmodo/Jcrop@0.9.12/js/jquery.Jcrop';
-import 'github:tapmodo/Jcrop@0.9.12/css/jquery.Jcrop.css!';
+import 'jcrop';
 
 // TODO: move this to a shared place!
 // Helper to $apply the fn on the scope iff we're not
