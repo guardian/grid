@@ -30,7 +30,7 @@ object Application extends Controller {
     val response = Json.obj(
       "data"  -> Json.obj("description" -> "This is the Cropper Service"),
       "links" -> Json.arr(
-        Json.obj("rel" -> "crop", "href" -> s"$rootUri/crop")
+        Json.obj("rel" -> "crop", "href" -> s"$rootUri/crops")
       )
     )
     Ok(response)
