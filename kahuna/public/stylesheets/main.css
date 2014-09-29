@@ -390,3 +390,25 @@ a:focus {
     top: 50px;
     z-index: -1;
 }
+
+@media screen and (orientation:portrait) {
+    .full-image {
+        display: flex;
+        flex-wrap: wrap;
+    }
+    .easel--with-meta {
+        margin-right: 0;
+        order: 1;
+        width: 100%;
+    }
+    .easel--with-meta .easel__canvas {
+        height: calc(75vh - 44px); /* viewport - palette */
+    }
+    .easel--with-meta .easel__image {
+        max-height: calc(75vh - 44px); /* viewport - palette */
+    }
+    .image-details {
+        order: 2;
+        width: 100%;
+    }
+}
