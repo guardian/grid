@@ -8,12 +8,6 @@
     <script src="@routes.Assets.at("jspm_packages/system@0.6.js")"></script>
     <script src="@routes.Assets.at("config.js")"></script>
     <script>
-      // TODO: submit jcrop mapping/config to jspm registry
-      // TODO: configure this in jspm overrides instead
-      System.meta["jcrop/js/jquery.Jcrop"] = {
-        "deps": ["jquery"]
-      };
-
       // FIXME: could this be written to config.js instead? annoying to have to override
       System.config({
         baseURL: "/assets",
