@@ -1,7 +1,7 @@
 <div class="full-image" ng:controller="ImageCtrl">
     <div class="image-details" id="image-info">
         <dl class="image-info">
-            <dt class="image-info__heading">Description</dt>
+            <dt class="image-info__heading image-info__heading--first">Description</dt>
             <dd>{{image.data.metadata.description}}</dd>
 
             <dt class="image-info__heading">Uploaded</dt>
@@ -17,6 +17,18 @@
             </tr>
             </tbody>
         </table>
+
+        <dl class="image-info" ng:if="image.data.metadata.keywords.length > 0">
+            <dt class="image-info__heading">Keywords</dt>
+            <dd>
+              <ul>
+                <li ng:repeat="keyword in image.data.metadata.keywords"
+                    class="image-info__keyword">
+                  {{keyword}}
+                </li>
+              </ul>
+            </dd>
+        </dl>
     </div>
 
     <div class="easel easel--with-meta">
