@@ -2,6 +2,8 @@ GET     /                           controllers.Application.index
 
 POST    /crops                      controllers.Application.crop
 
+GET     /crops/:id                  controllers.Application.getCrops(id: String)
+
 # Management
 GET     /management/healthcheck     com.gu.mediaservice.lib.management.Management.healthCheck
 GET     /management/manifest        com.gu.mediaservice.lib.management.Management.manifest
