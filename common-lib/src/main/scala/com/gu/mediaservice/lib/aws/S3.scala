@@ -15,15 +15,19 @@ class S3(credentials: AWSCredentials) {
 
   val s3Endpoint = "s3.amazonaws.com"
 
+  type Bucket = String
+  type Key = String
+  type Metadata = Map[String, String]
+
   lazy val client: AmazonS3 =
     new AmazonS3Client(credentials) <| (_ setEndpoint s3Endpoint)
 
-  def signUrl(bucket: String, key: String, expiration: DateTime): String = {
+  def signUrl(bucket: Bucket, key: Key, expiration: DateTime): String = {
     val request = new GeneratePresignedUrlRequest(bucket, key).withExpiration(expiration.toDate)
     client.generatePresignedUrl(request).toExternalForm
   }
 
-  def store(bucket: String, id: String, file: File, mimeType: Option[String] = None, meta: Map[String, String] = Map.empty)
+  def store(bucket: Bucket, id: Key, file: File, mimeType: Option[String] = None, meta: Metadata = Map.empty)
            (implicit ex: ExecutionContext): Future[URI] =
     Future {
       val metadata = new ObjectMetadata
@@ -31,15 +35,33 @@ class S3(credentials: AWSCredentials) {
       metadata.setUserMetadata(meta.asJava)
       val req = new PutObjectRequest(bucket, id, new FileInputStream(file), metadata)
       client.putObject(req)
-      val bucketUrl = s"$bucket.$s3Endpoint"
-      new URI("http", bucketUrl, s"/$id", null)
+      objectUrl(bucket, id)
     }
 
-  def syncFindKey(bucket: String, prefixName: String): Option[String] = {
+  def list(bucket: Bucket, prefixDir: String)
+          (implicit ex: ExecutionContext): Future[Map[URI, Metadata]] =
+    Future {
+      val req = new ListObjectsRequest().withBucketName(bucket).withPrefix(s"$prefixDir/")
+      val listing = client.listObjects(req)
+      val summaries = listing.getObjectSummaries.asScala
+      summaries.map(_.getKey).foldLeft(Map[URI, Metadata]()) { (metadata, key) =>
+        metadata + (objectUrl(bucket, key) -> getUserMetadata(bucket, key))
+      }
+    }
+
+  def getUserMetadata(bucket: Bucket, key: Key) =
+    client.getObjectMetadata(bucket, key).getUserMetadata.asScala.toMap
+
+  def syncFindKey(bucket: Bucket, prefixName: String): Option[Key] = {
     val req = new ListObjectsRequest().withBucketName(bucket).withPrefix(s"$prefixName-")
     val listing = client.listObjects(req)
     val summaries = listing.getObjectSummaries.asScala
     summaries.headOption.map(_.getKey)
+  }
+
+  private def objectUrl(bucket: Bucket, key: Key): URI = {
+    val bucketUrl = s"$bucket.$s3Endpoint"
+    new URI("http", bucketUrl, s"/$key", null)
   }
 
 }
