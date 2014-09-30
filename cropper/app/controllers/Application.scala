@@ -51,12 +51,7 @@ object Application extends Controller {
 
   def getCrops(id: String) = Authenticated.async { req =>
     CropStorage.listCrops(id) map (_.toList) map { crops =>
-      val all = crops.map { case (cropSource, cropSizings) =>
-        Json.obj(
-          "source"  -> cropSource,
-          "sizings" -> cropSizings
-        )
-      }
+      val all = crops.map { case (source, sizings) => cropResponse(source, sizings) }
 
       val links = for {
         (firstCropSource, _) <- crops.headOption
@@ -103,10 +98,10 @@ object Application extends Controller {
       resp.json.as[SourceImage]
     }
 
-  def cropResponse(source: CropSource, sizings: List[CropSizing]): JsValue =
+  def cropResponse(specification: CropSource, assets: List[CropSizing]): JsValue =
     Json.obj(
-      "source" -> source,
-      "sizings" -> sizings
+      "specification" -> specification,
+      "assets" -> assets
     )
 
   def outputFilename(source: SourceImage, bounds: Bounds, outputWidth: Int): String =
