@@ -3,8 +3,6 @@ domain-root: media.local.dev-gutools.co.uk
 mappings:
   - prefix: api
     port: 9001
-  - prefix: thrall
-    port: 9002
   - prefix: loader
     port: 9003
   - prefix: media
