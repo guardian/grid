@@ -20,7 +20,7 @@ apiServices.factory('mediaApi',
             },
             withCredentials: true
         }).then(function(response) {
-            return response.data.data;
+            return response.data;
         });
     }
 

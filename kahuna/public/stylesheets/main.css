@@ -140,7 +140,6 @@ a:focus {
    Search
    ========================================================================== */
 .search {
-    position: fixed;
     background-color: #ccc;
     top: 0;
     left: 0;
@@ -165,11 +164,22 @@ a:focus {
 /* ==========================================================================
    Results
    ========================================================================== */
-.results {
+.results__total-count {
+    display: none; /* TODO: Once we use the API to search for free images, we'll show this */
+    background: white;
+    box-shadow: 0px 1px 5px #999;
+    font-family: "Guardian Agate Sans 1 Web";
+    font-size: 1.4rem;
+    padding: 10px;
+    position: relative;
+    z-index: 1;
+}
+
+.results__data {
     display: flex;
     flex-wrap: wrap;
     position: fixed;
-    top: 50px;
+    top: 47px; /* .search */
     bottom: 0;
     left: 0;
     right: 0;

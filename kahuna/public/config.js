@@ -53,4 +53,3 @@ System.config({
     "github:angular-ui/ui-router": "0.2.11"
   }
 });
-
