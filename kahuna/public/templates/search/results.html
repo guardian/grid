@@ -1,22 +1,25 @@
-<ul class="results"
-    ui:near-bottom="nearBottom"
-    ui:has-space="hasSpace">
-    <li class="image-result" ng:repeat="image in images | filter:freeImageFilter" ng:hide="{{image.hide}}">
-        <a class="image-result__link"
-           ng:href="/images/{{image.data.id}}"
-           ui:drag-data="{{image | asImageDragData}}">
-            <figure>
-                <img class="image-result__image"
-                     ng:src="{{image.data.thumbnail.secureUrl}}"/>
-                <figcaption class="image-result__caption" title="{{image.data.metadata.title}}">{{image.data.metadata.title}}</figcaption>
-            </figure>
-            <div class="image-result__meta">
-                <div class="image-result__cost image-result__cost--{{image.data.cost}}" title="{{image.data.cost}} to use">{{image.data.cost}}</div>
-                <div class="image-result__uploaded uploaded">
-                    <span class="uploaded__time">{{image.data.uploadTime | date:'HH:mm'}}</span>
-                    <span class="uploaded__date">{{image.data.uploadTime | date:'d/M/yy'}}</span>
+<div class="results">
+    <div class="results__total-count">Showing {{(images.data | filter:freeImageFilter).length}} of {{images.total}} results</div>
+    <ul class="results__data"
+        ui:near-bottom="nearBottom"
+        ui:has-space="hasSpace">
+        <li class="image-result" ng:repeat="image in images.data | filter:freeImageFilter" ng:hide="{{image.hide}}">
+            <a class="image-result__link"
+               ng:href="/images/{{image.data.id}}"
+               ui:drag-data="{{image | asImageDragData}}">
+                <figure>
+                    <img class="image-result__image"
+                         ng:src="{{image.data.thumbnail.secureUrl}}"/>
+                    <figcaption class="image-result__caption" title="{{image.data.metadata.title}}">{{image.data.metadata.title}}</figcaption>
+                </figure>
+                <div class="image-result__meta">
+                    <div class="image-result__cost image-result__cost--{{image.data.cost}}" title="{{image.data.cost}} to use">{{image.data.cost}}</div>
+                    <div class="image-result__uploaded uploaded">
+                        <span class="uploaded__time">{{image.data.uploadTime | date:'HH:mm'}}</span>
+                        <span class="uploaded__date">{{image.data.uploadTime | date:'d/M/yy'}}</span>
+                    </div>
                 </div>
-            </div>
-        </a>
-    </li>
-</ul>
+            </a>
+        </li>
+    </ul>
+</div>

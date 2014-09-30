@@ -18,6 +18,7 @@ var kahuna = angular.module('kahuna', [
     'kahuna.directives'
 ]);
 
+var extend = angular.extend;
 
 // Inject configuration values into the app
 angular.forEach(config, function(value, key) {
@@ -97,7 +98,6 @@ kahuna.controller('SearchResultsCtrl',
 
     $scope.images = [];
 
-
     // FIXME: This is being refreshed by the router. Make it watch a $stateParams collection instead
     // See:   https://github.com/guardian/media-service/pull/64#discussion-diff-17351746L116
     mediaApi.search($stateParams.query, {
@@ -118,20 +118,21 @@ kahuna.controller('SearchResultsCtrl',
 
     function addImages() {
         // TODO: stop once reached the end
-        var lastImage = $scope.images.slice(-1)[0];
+        var lastImage = $scope.images.data.slice(-1)[0];
         if (lastImage) {
             var until = lastImage.data.uploadTime;
             mediaApi.search($stateParams.query, {
                 until: until,
                 since: $stateParams.since
-            }).then(function(moreImages) {
+            }).then(function(images) {
                 // Filter out duplicates (esp. on exact same 'until' date)
-                var newImages = moreImages.filter(function(im) {
-                    return $scope.images.filter(function(existing) {
+                var newImages = images.data.filter(function(im) {
+                    return $scope.images.data.filter(function(existing) {
                         return existing.uri === im.uri;
                     }).length === 0;
                 });
-                $scope.images = $scope.images.concat(newImages);
+
+                $scope.images.data = $scope.images.data.concat(newImages);
 
                 // FIXME: this is increasingly hacky logic to ensure
                 // we bring in more images that satisfy the cost
@@ -259,7 +260,6 @@ kahuna.filter('asCropsDragData', function() {
 // Take an image and return a drag data map of mime-type -> value
 kahuna.filter('asImageAndCropsDragData', ['$filter',
                                           function($filter) {
-    var extend = angular.extend;
     return function(image, crops) {
         return extend(
             $filter('asImageDragData')(image),
