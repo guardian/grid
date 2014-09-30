@@ -218,7 +218,7 @@ kahuna.controller('ImageCropCtrl',
             // TODO: navigate to new state, if the data can be passed along
             $scope.crops = resp.data;
 
-            var orderedCrops = $scope.crops.sizings.sort((a, b) => {
+            var orderedCrops = $scope.crops.assets.sort((a, b) => {
                 return a.dimensions.width - b.dimensions.width;
             });
 
