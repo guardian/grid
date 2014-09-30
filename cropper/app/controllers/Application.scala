@@ -57,13 +57,15 @@ object Application extends Controller {
           "sizings" -> cropSizings
         )
       }
-      val imageUri = crops.headOption.map {case (cropSource, _) => cropSource.uri}
+
+      val links = for {
+        (firstCropSource, _) <- crops.headOption
+        link = Json.obj("rel" -> "image", "href" -> firstCropSource.uri)
+      } yield Json.obj("links" -> Json.arr(link))
+
       val entity = Json.obj(
-        "data" -> all,
-        "links" -> Json.arr(
-          Json.obj("rel" -> "image", "href" -> imageUri)
-        )
-      )
+        "data" -> all
+      ) ++ (links getOrElse Json.obj())
       Ok(entity)
     }
   }
