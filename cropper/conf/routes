@@ -1,6 +1,8 @@
 GET     /                           controllers.Application.index
 
-POST    /crop                       controllers.Application.crop
+POST    /crops                      controllers.Application.crop
+
+GET     /crops/:id                  controllers.Application.getCrops(id: String)
 
 # Management
 GET     /management/healthcheck     com.gu.mediaservice.lib.management.Management.healthCheck

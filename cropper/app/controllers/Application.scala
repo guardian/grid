@@ -30,7 +30,7 @@ object Application extends Controller {
     val response = Json.obj(
       "data"  -> Json.obj("description" -> "This is the Cropper Service"),
       "links" -> Json.arr(
-        Json.obj("rel" -> "crop", "href" -> s"$rootUri/crop")
+        Json.obj("rel" -> "crop", "href" -> s"$rootUri/crops")
       )
     )
     Ok(response)
@@ -49,6 +49,22 @@ object Application extends Controller {
     )
   }
 
+  def getCrops(id: String) = Authenticated.async { req =>
+    CropStorage.listCrops(id) map (_.toList) map { crops =>
+      val all = crops.map { case (source, sizings) => cropResponse(source, sizings) }
+
+      val links = for {
+        (firstCropSource, _) <- crops.headOption
+        link = Json.obj("rel" -> "image", "href" -> firstCropSource.uri)
+      } yield Json.obj("links" -> Json.arr(link))
+
+      val entity = Json.obj(
+        "data" -> all
+      ) ++ (links getOrElse Json.obj())
+      Ok(entity)
+    }
+  }
+
   def createSizings(source: CropSource): Future[List[CropSizing]] =
     for {
       apiSource  <- fetchSourceFromApi(source.uri)
@@ -65,11 +81,11 @@ object Application extends Controller {
       sizings <- Future.traverse(outputDims) { dim =>
         val filename = outputFilename(apiSource, source.bounds, dim.width)
         for {
-          file <- Crops.create(sourceFile, source, dim)
-          uri  <- CropStorage.storeCropSizing(file, filename, "image/jpeg", source, dim)
-          _    <- delete(file)
+          file    <- Crops.create(sourceFile, source, dim)
+          sizing  <- CropStorage.storeCropSizing(file, filename, "image/jpeg", source, dim)
+          _       <- delete(file)
         }
-        yield CropSizing(translateImgHost(uri).toString, dim)
+        yield sizing
       }
       _ <- delete(sourceFile)
     }
@@ -82,17 +98,14 @@ object Application extends Controller {
       resp.json.as[SourceImage]
     }
 
-  def cropResponse(source: CropSource, sizings: List[CropSizing]): JsValue =
+  def cropResponse(specification: CropSource, assets: List[CropSizing]): JsValue =
     Json.obj(
-      "source" -> source,
-      "sizings" -> sizings
+      "specification" -> specification,
+      "assets" -> assets
     )
 
   def outputFilename(source: SourceImage, bounds: Bounds, outputWidth: Int): String =
     s"${source.id}/${bounds.x}_${bounds.y}_${bounds.width}_${bounds.height}/$outputWidth.jpg"
-
-  def translateImgHost(uri: URI): URI =
-    new URI(uri.getScheme, Config.imgPublishingHost, uri.getPath, uri.getFragment)
 }
 
 case class SourceImage(id: String, file: String)
