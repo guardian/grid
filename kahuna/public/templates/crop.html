@@ -12,6 +12,7 @@
         </div>
 
         <div class="palette">
+            <a class="palette__button" ui:sref="image({ imageId: image.data.id })">back to original</a>
             <label class="palette__button">
                 <input type="radio" ng:model="imageCropCtrl.aspect" value="{{landscapeRatio}}" />
                 landscape
@@ -28,8 +29,6 @@
                     type="button"
                     ng:click="crop()"
                     ng:disabled="cropping">crop<span ng:show="cropping">ping…</span></button>
-
-            <a class="palette__button" ui:sref="image({ imageId: image.data.id })">back</a>
         </div>
     </div>
 </div>

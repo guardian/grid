@@ -53,7 +53,7 @@ ul {
 }
 
 a {
-    color: inherit;
+    color: #005689;
     text-decoration: none;
 }
 
@@ -188,6 +188,7 @@ a:focus {
 
 .image-result__link {
     background: #ddd;
+    color: inherit;
     display: block;
     text-align: center;
 }
@@ -282,6 +283,7 @@ a:focus {
 }
 
 .palette__button {
+    color: inherit;
     display: inline-block;
     margin: 5px;
     padding: 5px 10px;
@@ -351,9 +353,13 @@ a:focus {
 .image-crops__crop {
     margin-right: 10px;
     max-width: 140px;
+    box-sizing: border-box;
 }
-
+.image-crops__crop--selected {
+    border: solid 5px #00adee;
+}
 .image-crops__crop-image {
+    display: block;
     width: 100%;
 }
 
