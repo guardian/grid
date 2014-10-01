@@ -225,7 +225,7 @@ kahuna.controller('ImageCropCtrl',
         mediaCropper.createCrop($scope.image, coords, ratio).then(function(crop) {
             $state.go('image', {
                 imageId: imageId,
-                crop: $filter('getCropKey')(crop)
+                crop: $filter('getCropKey')(crop.data)
             });
         }).finally(function() {
             $scope.cropping = false;
