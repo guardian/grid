@@ -31,10 +31,11 @@
         </dl>
 
         <dl class="image-info" ng:if="crops.length > 0">
-            <dt class="image-info__heading">Crops</dt>
+            <dt class="image-info__heading">Crops <span ng:if="cropKey">(<a ui:sref="{ crop: null }">original</a>)</span></dt>
             <dd>
                 <ul class="image-crops">
                     <li class="image-crops__crop"
+                        ng:class="{'image-crops__crop--selected': (crop|getCropKey) == cropKey}"
                         ng:repeat="crop in crops"
                         ng:init="extremeAssets = (crop | getExtremeAssets)">
                         <a ui:sref="{crop: (crop | getCropKey)}">
@@ -59,8 +60,8 @@
         </div>
 
         <div class="palette">
+            <a class="palette__button" ui:sref="search.results">back to search</a>
             <a class="palette__button" ui:sref="crop({imageId: image.data.id})">create crop ✄</a>
-            <a class="palette__button" ui:sref="search.results()">back</a>
         </div>
     </div>
 
@@ -80,7 +81,8 @@
         </div>
 
         <div class="palette">
-            <a class="palette__button" ui:sref="{crop: null}">back</a>
+            <a class="palette__button" ui:sref="search.results">back to search</a>
+            <a class="palette__button" ui:sref="{crop: null}">back to original</a>
         </div>
     </div>
 </div>
