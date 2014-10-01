@@ -237,8 +237,7 @@ kahuna.controller('ImageCropCtrl',
 kahuna.filter('getCropKey', function() {
     return function(crop) {
         var bounds = crop.specification.bounds;
-        return ['x', 'y', 'width', 'height']
-            .reduce((a, b, i) => (i == 1 ? bounds[a] : a) +'_'+ bounds[b]);
+        return ['x', 'y', 'width', 'height'].map(k => bounds[k]).join('_');
     };
 });
 
