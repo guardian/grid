@@ -47,7 +47,7 @@ kahuna.config(['$stateProvider', '$urlRouterProvider',
         controller: 'SearchResultsCtrl'
     });
     $stateProvider.state('image', {
-        url: '/images/:imageId',
+        url: '/images/:imageId?crop',
         templateUrl: templatesDirectory + '/image.html',
         controller: 'ImageCtrl'
     });
@@ -154,13 +154,20 @@ kahuna.controller('SearchResultsCtrl',
 }]);
 
 kahuna.controller('ImageCtrl',
-                  ['$scope', '$stateParams', 'mediaApi',
-                   function($scope, $stateParams, mediaApi) {
+                  ['$scope', '$stateParams', '$filter', 'mediaApi', 'mediaCropper',
+                   function($scope, $stateParams, $filter, mediaApi, mediaCropper) {
 
     var imageId = $stateParams.imageId;
+    $scope.cropKey = $stateParams.crop;
 
     mediaApi.find(imageId).then(function(image) {
         $scope.image = image;
+    });
+
+    var getCropKey = $filter('getCropKey');
+    mediaCropper.getCropsFor(imageId).then(function(crops) {
+       $scope.crops = crops;
+       $scope.crop = crops.find(crop => getCropKey(crop) === $scope.cropKey);
     });
 
     var ignoredMetadata = ['description', 'source', 'copyright', 'keywords'];
@@ -170,8 +177,8 @@ kahuna.controller('ImageCtrl',
 }]);
 
 kahuna.controller('ImageCropCtrl',
-                  ['$scope', '$stateParams', 'mediaApi', 'mediaCropper',
-                   function($scope, $stateParams, mediaApi, mediaCropper) {
+                  ['$scope', '$stateParams', '$state', '$filter', 'mediaApi', 'mediaCropper',
+                   function($scope, $stateParams, $state, $filter, mediaApi, mediaCropper) {
 
     var imageId = $stateParams.imageId;
 
@@ -213,25 +220,41 @@ kahuna.controller('ImageCropCtrl',
         }
 
         $scope.cropping = true;
-        mediaCropper.createCrop($scope.image, coords, ratio).then(function(resp) {
-            console.log("crop", resp);
-            // TODO: navigate to new state, if the data can be passed along
-            $scope.crops = resp.data;
 
-            var orderedCrops = $scope.crops.assets.sort((a, b) => {
-                return a.dimensions.width - b.dimensions.width;
+        mediaCropper.createCrop($scope.image, coords, ratio).then(function(crop) {
+            $state.go('image', {
+                imageId: imageId,
+                crop: $filter('getCropKey')(crop)
             });
-
-            $scope.smallestSizingFile = orderedCrops[0].file;
-            // TODO: ideally find best fit based on window size
-            $scope.largestSizingFile = orderedCrops.slice(-1)[0].file;
-
         }).finally(function() {
             $scope.cropping = false;
         });
     }.bind(this);
 
 }]);
+
+// Create the key form the bounds as that's what we have in S3
+kahuna.filter('getCropKey', function() {
+    return function(crop) {
+        var bounds = crop.specification.bounds;
+        return ['x', 'y', 'width', 'height']
+            .reduce((a, b, i) => (i == 1 ? bounds[a] : a) +'_'+ bounds[b]);
+    };
+});
+
+
+kahuna.filter('getExtremeAssets', function() {
+    return function(image) {
+        var orderedAssets = image.assets.sort((a, b) => {
+            return (a.dimensions.width * a.dimensions.height) - (b.dimensions.width * b.dimensions.height);
+        });
+
+        return {
+            smallest: orderedAssets[0],
+            largest: orderedAssets.slice(-1)[0]
+        };
+    };
+});
 
 // Take an image and return a drag data map of mime-type -> value
 kahuna.filter('asImageDragData', function() {
