@@ -161,13 +161,14 @@ kahuna.controller('ImageCtrl',
     $scope.cropKey = $stateParams.crop;
 
     mediaApi.find(imageId).then(function(image) {
-        $scope.image = image;
-    });
+        var getCropKey = $filter('getCropKey');
 
-    var getCropKey = $filter('getCropKey');
-    mediaCropper.getCropsFor(imageId).then(function(crops) {
-       $scope.crops = crops;
-       $scope.crop = crops.find(crop => getCropKey(crop) === $scope.cropKey);
+        $scope.image = image;
+
+        mediaCropper.getCropsFor(image).then(function(crops) {
+           $scope.crops = crops;
+           $scope.crop = crops.find(crop => getCropKey(crop) === $scope.cropKey);
+        });
     });
 
     var ignoredMetadata = ['description', 'source', 'copyright', 'keywords'];
