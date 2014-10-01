@@ -18,14 +18,18 @@ apiServices.factory('mediaCropper',
         return cropperRoot;
     }
 
-    function getLink(link) {
+    function getLinkRoot(link) {
         return getCropperRoot().then(function(response) {
             return response.data.links.filter(l => l.rel === link)[0];
         });
     }
 
+    function getLinkHref(links, rel) {
+        return links.find(link => link.rel === rel).href;
+    }
+
     function createCrop(image, coords, ratio) {
-        return getLink('crop').then(function(cropsLink) {
+        return getLinkRoot('crop').then(function(cropsLink) {
             return $http.post(cropsLink.href, {
                 source: image.uri,
                 x: coords.x,
@@ -33,17 +37,13 @@ apiServices.factory('mediaCropper',
                 width: coords.width,
                 height: coords.height,
                 aspectRatio: ratio
-            }, { withCredentials: true }).then(function(response) {
-                return response.data;
-            });
+            }, { withCredentials: true });
         });
     }
 
-    function getCropsFor(imageKey) {
-        return getLink('crop').then(function(cropsLink) {
-            return $http.get(cropsLink.href + '/' + imageKey, { withCredentials: true }).then(function(response) {
-                return response.data.data;
-            });
+    function getCropsFor(image) {
+        return $http.get(getLinkHref(image.links, 'crops'), { withCredentials: true }).then(function(response) {
+            return response.data.data;
         });
     }
 
