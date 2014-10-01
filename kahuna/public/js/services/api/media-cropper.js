@@ -18,11 +18,19 @@ apiServices.factory('mediaCropper',
         return cropperRoot;
     }
 
-    function createCrop(image, coords, ratio) {
+    function getLinkRoot(link) {
         return getCropperRoot().then(function(response) {
-            var cropperResource = response.data;
-            var cropLink = cropperResource.links.filter(l => l.rel === 'crop')[0];
-            return $http.post(cropLink.href, {
+            return response.data.links.filter(l => l.rel === link)[0];
+        });
+    }
+
+    function getLinkHref(links, rel) {
+        return links.find(link => link.rel === rel).href;
+    }
+
+    function createCrop(image, coords, ratio) {
+        return getLinkRoot('crop').then(function(cropsLink) {
+            return $http.post(cropsLink.href, {
                 source: image.uri,
                 x: coords.x,
                 y: coords.y,
@@ -33,7 +41,14 @@ apiServices.factory('mediaCropper',
         });
     }
 
+    function getCropsFor(image) {
+        return $http.get(getLinkHref(image.links, 'crops'), { withCredentials: true }).then(function(response) {
+            return response.data.data;
+        });
+    }
+
     return {
-        createCrop: createCrop
+        createCrop: createCrop,
+        getCropsFor: getCropsFor
     };
 }]);

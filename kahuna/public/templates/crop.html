@@ -1,23 +1,4 @@
-<!-- TODO: should really be a separate URL -->
-<div class="drag-drop" ng:if="crops">
-    <!-- FIXME: back link, etc -->
-
-    <img class="drag-drop__image" ng:src="{{largestSizingFile}}" />
-    <div class="drag-drop__handle">Drag me</div>
-
-    <!-- This is used as an image has it's own drag behaviour
-    (using itself as the drag image) in some browsers -->
-    <div class="drag-drop__data"
-         draggable="true"
-         ui:drag-data="{{image | asImageAndCropsDragData:crops}}"
-         ui:drag-image="{{smallestSizingFile}}">
-        <!-- FIXME: this is a terrible hack as chrome triggers dragend if
-        haven't loaded the drag image in setDragImage yet.
-        -->
-        <img ng:src="{{smallestSizingFile}}" class="drag-drop__drag-image" />
-     </div>
-</div>
-<div class="crop-image" ng:if="! crops">
+<div class="crop-image">
     <div class="easel">
         <div class="easel__canvas">
             <img class="easel__image"
@@ -31,6 +12,7 @@
         </div>
 
         <div class="palette">
+            <a class="palette__button" ui:sref="image({ imageId: image.data.id })">back to original</a>
             <label class="palette__button">
                 <input type="radio" ng:model="imageCropCtrl.aspect" value="{{landscapeRatio}}" />
                 landscape
@@ -47,8 +29,6 @@
                     type="button"
                     ng:click="crop()"
                     ng:disabled="cropping">crop<span ng:show="cropping">ping…</span></button>
-
-            <a class="palette__button" ui:sref="image({ imageId: image.data.id })">back</a>
         </div>
     </div>
 </div>
