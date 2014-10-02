@@ -221,14 +221,17 @@ a:focus {
 }
 
 .image-result__uploaded {
-    font-size: 1.2rem;
+    font-size: 1.4rem;
+    font-weight: bold;
     padding-left: 10px;
     text-align: left;
 }
 
 .uploaded__date {
     color: #999;
-    padding-left: 5px;
+    padding-left: 15px;
+    font-weight: normal;
+    font-size: 1.2rem;
 }
 
 .image-result__cost {
@@ -237,7 +240,7 @@ a:focus {
     color: white;
     float: right;
     font-size: 1.4rem;
-    padding: 1px 10px;
+    padding: 2px 10px 0;
     text-align: center;
     vertical-align: middle;
 }
