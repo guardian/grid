@@ -262,7 +262,6 @@ a:focus {
 }
 
 .easel__canvas {
-    display: inline-block;
     vertical-align: bottom;
     height: calc(100vh - 44px); /* viewport - palette */
 }
@@ -272,6 +271,7 @@ a:focus {
     max-height: calc(100vh - 44px); /* viewport - palette */
     max-width: 100%;
     vertical-align: bottom;
+    margin: 0 auto;
 }
 
 .palette {
@@ -377,6 +377,20 @@ a:focus {
     margin-top: 0.5em;
     font-style: italic;
 }
+
+
+/* ==========================================================================
+   jCrop
+   ========================================================================== */
+
+.jcrop-holder {
+    margin: 0 auto;
+}
+
+
+/* ==========================================================================
+   Portrait
+   ========================================================================== */
 
 @media screen and (orientation:portrait) {
     .full-image {
