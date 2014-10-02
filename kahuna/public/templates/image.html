@@ -36,14 +36,13 @@
                 <ul class="image-crops">
                     <li class="image-crops__crop"
                         ng:class="{'image-crops__crop--selected': (crop|getCropKey) == cropKey}"
-                        ng:repeat="crop in crops"
-                        ng:init="extremeAssets = (crop | getExtremeAssets)">
-                        <a ui:sref="{crop: (crop | getCropKey)}">
-                            <img class="image-crops__crop-image"
-                                 draggable="true"
-                                 ng:src="{{extremeAssets.smallest.file}}"
-                                 ui:drag-data="{{image | asImageAndCropsDragData:crop}}"
-                                 ui:drag-image="{{extremeAssets.smallest.file}}" />
+                        ng:repeat="crop in crops">
+                        <a draggable="true"
+                           ng:init="extremeAssets = (crop | getExtremeAssets)"
+                           ui:sref="{crop: (crop | getCropKey)}"
+                           ui:drag-data="{{image | asImageAndCropsDragData:crop}}"
+                           ui:drag-image="{{extremeAssets.smallest.file}}">
+                            <img class="image-crops__crop-image" ng:src="{{extremeAssets.smallest.file}}" />
                         </a>
                     </li>
                 </ul>
@@ -68,14 +67,13 @@
     <div class="easel easel--with-meta" ng:if="cropKey">
         <!-- TODO: As this loads async, add a loader -->
         <div class="easel__canvas">
-            <a ui:sref="{crop: cropKey}"
+            <a draggable="true"
                ng:if="crop"
-               ng:init="extremeAssets = (crop | getExtremeAssets)">
-                <img class="easel__image"
-                     draggable="true"
-                     ng:src="{{extremeAssets.largest.file}}"
-                     ui:drag-data="{{image | asImageAndCropsDragData:crop}}"
-                     ui:drag-image="{{extremeAssets.smallest.file}}" />
+               ng:init="extremeAssets = (crop | getExtremeAssets)"
+               ui:sref="{crop: cropKey}"
+               ui:drag-data="{{image | asImageAndCropsDragData:crop}}"
+               ui:drag-image="{{extremeAssets.smallest.file}}">
+                <img class="easel__image" ng:src="{{extremeAssets.largest.file}}" />
             </a>
         </div>
 
