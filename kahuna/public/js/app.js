@@ -175,6 +175,8 @@ kahuna.controller('ImageCtrl',
     $scope.isUsefulMetadata = function(metadataKey) {
         return ignoredMetadata.indexOf(metadataKey) === -1;
     };
+
+    $scope.priorityMetadata = ['byline', 'credit'];
 }]);
 
 kahuna.controller('ImageCropCtrl',
