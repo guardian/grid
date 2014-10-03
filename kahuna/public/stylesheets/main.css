@@ -307,7 +307,6 @@ a:focus {
     overflow: auto;
     width: 400px;
 }
-
 .image-details:after {
     clear: both;
     content:  " ";
@@ -432,14 +431,14 @@ a:focus {
         max-height: none;
     }
 
-    .metadata,
-    .image-info--crops {
-        box-sizing: border-box;
-        width: 50%;
-        float: left;
+    .image-info--sub {
+        display: flex;
+        flex-wrap: wrap;
+
     }
 
-    .image-info--crops {
-        padding-left: 10px;
+    .image-info__group {
+        flex-grow: 1;
+        width: 50%;
     }
 }
