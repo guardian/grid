@@ -359,12 +359,13 @@ a:focus {
 }
 
 .image-crop {
-    margin-right: 10px;
+    border: solid 5px transparent;
     max-width: 140px;
+    margin-right: 5px;
     box-sizing: border-box;
 }
 .image-crop--selected {
-    border: solid 5px #00adee;
+    border-color: #00adee;
 }
 
 .image-crop__image {
