@@ -358,17 +358,24 @@ a:focus {
     flex-wrap: wrap;
 }
 
-.image-crops__crop {
+.image-crop {
     margin-right: 10px;
     max-width: 140px;
     box-sizing: border-box;
 }
-.image-crops__crop--selected {
+.image-crop--selected {
     border: solid 5px #00adee;
 }
-.image-crops__crop-image {
+
+.image-crop__image {
     display: block;
     width: 100%;
+}
+
+.image-crop__aspect-ratio {
+    background: white;
+    padding: 2px;
+    font-size: 1.2rem;
 }
 
 /* ==========================================================================
@@ -394,7 +401,6 @@ a:focus {
 .jcrop-holder {
     margin: 0 auto;
     max-width: 100%;
-    overflow: hidden;
     top: 20px;
 }
 
@@ -423,5 +429,16 @@ a:focus {
         order: 2;
         width: 100%;
         max-height: none;
+    }
+
+    .metadata,
+    .image-info--crops {
+        box-sizing: border-box;
+        width: 50%;
+        float: left;
+    }
+
+    .image-info--crops {
+        padding-left: 10px;
     }
 }
