@@ -291,6 +291,22 @@ kahuna.filter('asImageAndCropsDragData', ['$filter',
     };
 }]);
 
+kahuna.filter('asAspectRatioWord', function() {
+    // FIXME: Try to find one place to store these words to ratios
+    return function(aspectRatio) {
+        switch(aspectRatio) {
+            case '5:3':
+                return 'landscape';
+
+            case '3:2':
+                return 'portrait';
+
+            default:
+                return 'freeform';
+        }
+    }
+});
+
 kahuna.directive('uiHasSpace', function() {
     return {
         restrict: 'A',
