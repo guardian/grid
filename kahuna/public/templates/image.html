@@ -30,20 +30,21 @@
             </dd>
         </dl>
 
-        <dl class="image-info" ng:if="crops.length > 0">
+        <dl class="image-info image-info--crops" ng:if="crops.length > 0">
             <dt class="image-info__heading">Crops <span ng:if="cropKey">(<a ui:sref="{ crop: null }">original</a>)</span></dt>
             <dd>
                 <ul class="image-crops">
-                    <li class="image-crops__crop"
-                        ng:class="{'image-crops__crop--selected': (crop|getCropKey) == cropKey}"
+                    <li class="image-crop"
+                        ng:class="{'image-crop--selected': (crop|getCropKey) == cropKey}"
                         ng:repeat="crop in crops">
                         <a draggable="true"
                            ng:init="extremeAssets = (crop | getExtremeAssets)"
                            ui:sref="{crop: (crop | getCropKey)}"
                            ui:drag-data="{{image | asImageAndCropsDragData:crop}}"
                            ui:drag-image="{{extremeAssets.smallest.file}}">
-                            <img class="image-crops__crop-image" ng:src="{{extremeAssets.smallest.file}}" />
+                            <img class="image-crop__image" ng:src="{{extremeAssets.smallest.file}}" />
                         </a>
+                        <div class="image-crop__aspect-ratio">{{crop.specification.aspectRatio | asAspectRatioWord}}</div>
                     </li>
                 </ul>
             </dd>
