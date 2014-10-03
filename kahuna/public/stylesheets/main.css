@@ -276,6 +276,11 @@ a:focus {
     vertical-align: bottom;
     margin: 0 auto;
 }
+.easel__image--with-space {
+    max-width: calc(100% - 40px);
+    max-height: calc(100vh - 84px);
+    padding: 20px;
+}
 
 .palette {
     background: #555;
@@ -388,6 +393,9 @@ a:focus {
 
 .jcrop-holder {
     margin: 0 auto;
+    max-width: 100%;
+    overflow: hidden;
+    top: 20px;
 }
 
 
