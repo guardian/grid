@@ -366,7 +366,7 @@ kahuna.directive('uiTitle', function($rootScope) {
             $rootScope.$on('$stateChangeStart',
               function(event, toState, toParams, fromState, fromParams) {
                   var title = (toState.data && toState.data.title ? toState.data.title(toParams) : toState.name)
-                       + ' | the grid';
+                       + ' | ' + attrs.uiTitleSuffix;
 
                   element.text(title);
             });
