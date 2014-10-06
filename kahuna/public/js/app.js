@@ -44,7 +44,12 @@ kahuna.config(['$stateProvider', '$urlRouterProvider',
     $stateProvider.state('search.results', {
         url: 'search?query&since&free',
         templateUrl: templatesDirectory + '/search/results.html',
-        controller: 'SearchResultsCtrl'
+        controller: 'SearchResultsCtrl',
+        data: {
+            title: function(params) {
+                return params.query ? params.query : 'search';
+            }
+        }
     });
     $stateProvider.state('image', {
         url: '/images/:imageId?crop',
@@ -367,6 +372,21 @@ kahuna.directive('uiDragImage', function() {
                 var img = document.createElement('img');
                 img.src = attrs.uiDragImage;
                 e.dataTransfer.setDragImage(img, -10, -10);
+            });
+        }
+    };
+});
+
+kahuna.directive('uiTitle', function($rootScope) {
+    return {
+        restrict: 'A',
+        link: function(scope, element, attrs) {
+            $rootScope.$on('$stateChangeStart',
+              function(event, toState, toParams, fromState, fromParams) {
+                  var title = (toState.data && toState.data.title ? toState.data.title(toParams) : toState.name)
+                       + ' | ' + attrs.uiTitleSuffix;
+
+                  element.text(title);
             });
         }
     };
