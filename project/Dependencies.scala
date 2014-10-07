@@ -15,6 +15,11 @@ object Dependencies {
 
   val awsDeps = Seq("com.amazonaws" % "aws-java-sdk" % "1.7.5")
 
+  val pandaDeps = Seq(
+    "com.gu" %% "pan-domain-auth-core" % "0.1.8",
+    "com.gu" %% "pan-domain-auth-play" % "0.1.8"
+  )
+
   val scalazDeps = Seq(
     "org.scalaz.stream" %% "scalaz-stream" % "0.3.1"
   )
