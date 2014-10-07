@@ -16,9 +16,14 @@ import com.gu.mediaservice.lib.aws.S3
 import org.apache.commons.io.IOUtils
 import com.amazonaws.AmazonServiceException
 import com.gu.mediaservice.syntax._
+import com.gu.pandomainauth.model.{AuthenticatedUser, User}
+
 
 object Authenticated {
   def apply(keyStore: KeyStore)(onUnauthorized: RequestHeader => Result): AuthenticatedBuilder[Principal] =
+    new AuthenticatedBuilder(Principal.fromRequest(keyStore), (req) => Future.successful(onUnauthorized(req)))
+
+  def async(keyStore: KeyStore)(onUnauthorized: RequestHeader => Future[Result]): AuthenticatedBuilder[Principal] =
     new AuthenticatedBuilder(Principal.fromRequest(keyStore), onUnauthorized)
 }
 
@@ -26,19 +31,22 @@ sealed trait Principal {
   def name: String
 }
 
-case class User(openid: String, email: String, firstName: String, lastName: String) extends Principal {
+case class PandaUser(email: String, firstName: String, lastName: String, avatarUrl: Option[String]) extends Principal {
   def name: String = s"$firstName $lastName"
   def emailDomain = email.split("@").last
 }
 
-object User {
-  val KEY = "identity"
-  implicit val formats = Json.format[User]
-  def readJson(json: String): Option[User] = Json.fromJson[User](Json.parse(json)).asOpt
-  def writeJson(id: User) = Json.stringify(Json.toJson(id))
 
-  def fromRequest(request: RequestHeader): Option[Principal] =
-    request.session.get(KEY).flatMap(User.readJson)
+object PandaUser {
+  val KEY = "identity"
+  implicit val formats = Json.format[PandaUser]
+  def readJson(json: String): Option[PandaUser] = Json.fromJson[PandaUser](Json.parse(json)).asOpt
+  def writeJson(id: PandaUser) = Json.stringify(Json.toJson(id))
+
+  def fromRequest(request: RequestHeader): Option[Principal] = PandaAuth.get(request) map {
+    case AuthenticatedUser(User(firstName, lastName, email, avatarUrl), _, _, _, _) =>
+      PandaUser(email, firstName, lastName, avatarUrl)
+  }
 }
 
 case class AuthenticatedService(name: String) extends Principal
@@ -68,7 +76,7 @@ object AuthenticatedService {
 object Principal {
 
   def fromRequest(keyStore: KeyStore)(request: RequestHeader): Future[Option[Principal]] =
-    AnonymousService.fromRequest(request) orElse User.fromRequest(request) match {
+    AnonymousService.fromRequest(request) orElse PandaUser.fromRequest(request) match {
       case x @ Some(_) => Future.successful(x)
       case None        => AuthenticatedService.fromRequest(keyStore, request)
     }
@@ -115,7 +123,7 @@ class KeyStore(bucket: String, credentials: AWSCredentials) {
   * rather than immediately (/blocking)
   */
 class AuthenticatedBuilder[U](userinfo: RequestHeader => Future[Option[U]],
-                              onUnauthorized: RequestHeader => Result)
+                              onUnauthorized: RequestHeader => Future[Result])
   extends ActionBuilder[({ type R[A] = AuthenticatedRequest[A, U] })#R] {
 
   def invokeBlock[A](request: Request[A], block: AuthenticatedRequest[A, U] => Future[Result]) =
@@ -125,7 +133,7 @@ class AuthenticatedBuilder[U](userinfo: RequestHeader => Future[Option[U]],
     userinfo(request).flatMap { maybeUser =>
       maybeUser
         .map(user => block(new AuthenticatedRequest(user, request)))
-        .getOrElse(Future.successful(onUnauthorized(request)))
-  }
+        .getOrElse(onUnauthorized(request))
+    }
 
 }

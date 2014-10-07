@@ -9,12 +9,10 @@ GET     /search                     controllers.Application.index(ignored="")
 
 GET     /assets/*file               controllers.Assets.at(path="/public", file)
 
-# Login
+# Panda Login
 
-GET     /login                      controllers.Login.loginForm
-GET     /loginAction                controllers.Login.doLogin
-GET     /openIDCallback             controllers.Login.openIDCallback
-GET     /logout                     controllers.Login.logout
+GET     /oauthCallback        controllers.Panda.oauthCallback
+GET     /logout               controllers.Panda.logout
 
 # Management
 GET     /management/healthcheck     com.gu.mediaservice.lib.management.Management.healthCheck
