@@ -18,8 +18,4 @@ object Global extends WithFilters(ForceHTTPSFilter) with GlobalSettings {
     Logger.info("Play app config: \n" + allAppConfig.mkString("\n"))
   }
 
-  override def onStart(app: Application) {
-    Application.keyStore.scheduleUpdates(Akka.system(app).scheduler)
-  }
-
 }
