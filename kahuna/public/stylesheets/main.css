@@ -62,29 +62,42 @@ a {
     background: #00adee;
     border-radius: 2px;
     box-shadow: 0 2px #00729c;
+    box-sizing: border-box;
     color: white;
     display: block;
     padding: 5px 20px !important;
     font-family: "Guardian Egyptian Text";
     font-size: 1.6rem;
+    position: relative;
 }
 .button:hover {
     background: #008fc5;
 }
 .button:active {
     box-shadow: none;
-    background: #1a7d91; /* 25% darken */
+    top: 2px;
 }
 .button:focus,
 a:focus {
-    box-shadow: none;
     outline: 2px solid rgba(255, 255, 255, 0.5);
-    outline-offset: 1px;
+    outline-offset: -3px;
 }
 .button[disabled] {
     background-color: #999;
     box-shadow: 0 2px #666;
     color: #ccc;
+}
+
+.button--shy {
+    padding: 2px 5px;
+    color: #333;
+    background: transparent;
+    box-shadow: 0 2px #efefef;
+    border: 1px solid #efefef;
+    border-bottom: 0;
+}
+.button--shy:hover {
+    background: #efefef;
 }
 
 
@@ -140,11 +153,7 @@ a:focus {
    Search
    ========================================================================== */
 .search {
-    position: fixed;
     background-color: #ccc;
-    top: 0;
-    left: 0;
-    right: 0;
     padding: 10px;
     font-family: "Guardian Agate Sans 1 Web";
 }
@@ -169,11 +178,22 @@ a:focus {
     display: flex;
     flex-wrap: wrap;
     position: fixed;
-    top: 50px;
+    top: 100px;
     bottom: 0;
     left: 0;
     right: 0;
     overflow-y: auto; /* Vertically scrollable */
+}
+
+.results-controls {
+    background: white;
+    padding: 10px;
+    box-shadow: 0px 1px 5px #999;
+}
+
+.results__control {
+    display: inline;
+    margin-right: 5px;
 }
 
 .image-result {
@@ -184,6 +204,9 @@ a:focus {
     margin: 10px 5px;
     position: relative;
     padding-bottom: 65px;
+}
+.image-result--seen {
+    opacity: .5;
 }
 
 .image-result__link {
