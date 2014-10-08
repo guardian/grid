@@ -51,6 +51,7 @@ kahuna.config(['$stateProvider', '$urlRouterProvider',
             }
         }
     });
+
     $stateProvider.state('image', {
         url: '/images/:imageId?crop',
         templateUrl: templatesDirectory + '/image.html',
@@ -73,8 +74,8 @@ kahuna.controller('SearchQueryCtrl',
 
     // a little annoying as the params are returned as strings
     $scope.free = $stateParams.free !== 'false';
-    $scope.query = $stateParams.query || '';
-    $scope.since = $stateParams.since || '';
+    $scope.query = $stateParams.query;
+    $scope.since = $stateParams.since;
 
     // Update state from search filters (skip initialisation step)
     $scope.$watch('query', function(query, oldQuery) {
@@ -120,6 +121,19 @@ kahuna.controller('SearchResultsCtrl',
     $scope.freeImageFilter = function(image) {
        return $stateParams.free === 'false' || image.data.cost === 'free';
     };
+
+    $scope.getLastImageUploadTime = function() {
+        return $scope.images[0].data.uploadTime;
+    };
+
+    var seenSince = localStorage.getItem('search.seenSince');
+    $scope.imageHasBeenSeen = function(image) {
+        return image.data.uploadTime <= seenSince;
+    };
+
+    $scope.$watch(() => localStorage.getItem('search.seenSince'), function() {
+        seenSince = localStorage.getItem('search.seenSince');
+    });
 
     function addImages() {
         // TODO: stop once reached the end
@@ -387,6 +401,29 @@ kahuna.directive('uiTitle', function($rootScope) {
                        + ' | ' + attrs.uiTitleSuffix;
 
                   element.text(title);
+            });
+        }
+    };
+});
+
+/**
+ * omitting uiLocalStoreVal will remove the item from localStorage
+ */
+kahuna.directive('uiLocalstore', function() {
+    return {
+        restrict: 'A',
+        scope: {
+            value: '&uiLocalstoreVal'
+        },
+        link: function(scope, element, attrs) {
+            element.bind('click', function() {
+                var val = scope.value();
+                if (val) {
+                    localStorage.setItem(attrs.uiLocalstore, scope.value());
+                } else {
+                    localStorage.removeItem(attrs.uiLocalstore);
+                }
+                scope.$apply();
             });
         }
     };
