@@ -9,15 +9,8 @@ import play.api.mvc.Security.AuthenticatedRequest
 
 import com.gu.mediaservice.syntax._
 import com.gu.pandomainauth.model.{AuthenticatedUser, User}
+import com.gu.pandomainauth.action.UserRequest
 
-
-object Authenticated {
-  def apply(keyStore: KeyStore)(onUnauthorized: RequestHeader => Result): AuthenticatedBuilder[Principal] =
-    new AuthenticatedBuilder(Principal.fromRequest(keyStore), (req) => Future.successful(onUnauthorized(req)))
-
-  def async(keyStore: KeyStore)(onUnauthorized: RequestHeader => Future[Result]): AuthenticatedBuilder[Principal] =
-    new AuthenticatedBuilder(Principal.fromRequest(keyStore), onUnauthorized)
-}
 
 sealed trait Principal {
   def name: String
@@ -25,71 +18,65 @@ sealed trait Principal {
 
 case class PandaUser(email: String, firstName: String, lastName: String, avatarUrl: Option[String]) extends Principal {
   def name: String = s"$firstName $lastName"
-  def emailDomain = email.split("@").last
-}
-
-
-object PandaUser {
-  val KEY = "identity"
-  implicit val formats = Json.format[PandaUser]
-  def readJson(json: String): Option[PandaUser] = Json.fromJson[PandaUser](Json.parse(json)).asOpt
-  def writeJson(id: PandaUser) = Json.stringify(Json.toJson(id))
-
-  def fromRequest(request: RequestHeader): Option[Principal] = PandaAuth.get(request) map {
-    case AuthenticatedUser(User(firstName, lastName, email, avatarUrl), _, _, _, _) =>
-      PandaUser(email, firstName, lastName, avatarUrl)
-  }
 }
 
 case class AuthenticatedService(name: String) extends Principal
 
-case object AnonymousService extends Principal {
-  val name = "Anonymous Service"
 
-  import scalaz.syntax.std.boolean._
 
-  /** Assumes all non-HTTPS traffic is from trusted services */
-  def fromRequest(request: RequestHeader): Option[Principal] =
-    request.forwardedProtocol.forall(_ == "http").option(AnonymousService)
+class PandaAuthenticated
+    extends ActionBuilder[({ type R[A] = AuthenticatedRequest[A, Principal] })#R]
+    with PanDomainAuthActions {
+
+  override def invokeBlock[A](request: Request[A], block: AuthenticatedRequest[A, Principal] => Future[Result]): Future[Result] =
+    APIAuthAction.invokeBlock(request, (request: UserRequest[A]) => {
+      block(new AuthenticatedRequest(pandaFromUser(request.user), request))
+    })
+
+  def pandaFromUser(user: User) = {
+    val User(firstName, lastName, email, avatarUrl) = user
+    PandaUser(email, firstName, lastName, avatarUrl)
+  }
 }
 
-object AuthenticatedService {
+
+
+case class Authenticated(keyStore: KeyStore)
+  extends ActionBuilder[({ type R[A] = AuthenticatedRequest[A, Principal] })#R] {
+
+  type RequestHandler[A] = AuthenticatedRequest[A, Principal] => Future[Result]
+
+  case object NotAuthenticated extends Exception
+
+
+  // Try to auth by API key, and failing that, with Panda
+  override def invokeBlock[A](request: Request[A], block: RequestHandler[A]): Future[Result] =
+    authByKey(request, block) recoverWith { case _ => authByPanda(request, block) }
+
+
+  // API Key authentication
+
+  // Note: this had to be mixed into here, sadly, because of mild type-hell
+  // when trying to make it its own ActionBuilder. Play ActionBuilders don't
+  // compose very nicely, alas.
 
   val headerKey = "X-Gu-Media-Key"
 
-  def fromRequest(keyStore: KeyStore, request: RequestHeader): Future[Option[AuthenticatedService]] =
+  def authByKey[A](request: Request[A], block: RequestHandler[A]): Future[Result] =
     request.headers.get(headerKey) match {
-      case Some(key) => keyStore.lookupIdentity(key).map(_.map(AuthenticatedService(_)))
-      case None => Future.successful(None)
+      case Some(key) =>
+        keyStore.lookupIdentity(key).flatMap {
+          case Some(name) => block(new AuthenticatedRequest(AuthenticatedService(name), request))
+          case None => Future.failed(NotAuthenticated)
+        }
+      case None => Future.failed(NotAuthenticated)
     }
 
-}
 
-object Principal {
+  // Panda authentication
 
-  def fromRequest(keyStore: KeyStore)(request: RequestHeader): Future[Option[Principal]] =
-    AnonymousService.fromRequest(request) orElse PandaUser.fromRequest(request) match {
-      case x @ Some(_) => Future.successful(x)
-      case None        => AuthenticatedService.fromRequest(keyStore, request)
-    }
-}
+  val pandaAuth = new PandaAuthenticated
 
-
-/** A variant of Play's AuthenticatedBuilder which permits the user info to be retrieved in a Future,
-  * rather than immediately (/blocking)
-  */
-class AuthenticatedBuilder[U](userinfo: RequestHeader => Future[Option[U]],
-                              onUnauthorized: RequestHeader => Future[Result])
-  extends ActionBuilder[({ type R[A] = AuthenticatedRequest[A, U] })#R] {
-
-  def invokeBlock[A](request: Request[A], block: AuthenticatedRequest[A, U] => Future[Result]) =
-    authenticate(request, block)
-
-  def authenticate[A](request: Request[A], block: AuthenticatedRequest[A, U] => Future[Result]) =
-    userinfo(request).flatMap { maybeUser =>
-      maybeUser
-        .map(user => block(new AuthenticatedRequest(user, request)))
-        .getOrElse(onUnauthorized(request))
-    }
-
+  def authByPanda[A](request: Request[A], block: RequestHandler[A]): Future[Result] =
+    pandaAuth.invokeBlock(request, block)
 }
