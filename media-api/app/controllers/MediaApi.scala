@@ -36,7 +36,7 @@ object MediaApi extends Controller {
     Ok(response)
   }
 
-  val Authenticated = auth.Authenticated(keyStore)
+  val Authenticated = auth.Authenticated(keyStore, Config.kahunaUri)
 
   def getImage(id: String) = Authenticated.async { request =>
     val params = GeneralParams(request)

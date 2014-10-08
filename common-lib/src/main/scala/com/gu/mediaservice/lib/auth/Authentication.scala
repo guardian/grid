@@ -24,9 +24,11 @@ case class AuthenticatedService(name: String) extends Principal
 
 
 
-class PandaAuthenticated
+class PandaAuthenticated(authCallbackBaseUri_ : String)
     extends ActionBuilder[({ type R[A] = AuthenticatedRequest[A, Principal] })#R]
     with PanDomainAuthActions {
+
+  val authCallbackBaseUri = authCallbackBaseUri_
 
   override def invokeBlock[A](request: Request[A], block: AuthenticatedRequest[A, Principal] => Future[Result]): Future[Result] =
     APIAuthAction.invokeBlock(request, (request: UserRequest[A]) => {
@@ -41,7 +43,7 @@ class PandaAuthenticated
 
 
 
-case class Authenticated(keyStore: KeyStore)
+case class Authenticated(keyStore: KeyStore, authCallbackBaseUri: String)
   extends ActionBuilder[({ type R[A] = AuthenticatedRequest[A, Principal] })#R] {
 
   type RequestHandler[A] = AuthenticatedRequest[A, Principal] => Future[Result]
@@ -75,7 +77,7 @@ case class Authenticated(keyStore: KeyStore)
 
   // Panda authentication
 
-  val pandaAuth = new PandaAuthenticated
+  val pandaAuth = new PandaAuthenticated(authCallbackBaseUri)
 
   def authByPanda[A](request: Request[A], block: RequestHandler[A]): Future[Result] =
     pandaAuth.invokeBlock(request, block)
