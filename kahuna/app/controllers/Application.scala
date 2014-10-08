@@ -8,6 +8,8 @@ import com.gu.mediaservice.lib.auth.PanDomainAuthActions
 
 object Application extends Controller with PanDomainAuthActions {
 
+  override lazy val authCallbackBaseUri = Config.rootUri
+
   def index(ignored: String) = AuthAction { req =>
     Ok(views.html.main(mediaApiUri = Config.mediaApiUri))
   }
