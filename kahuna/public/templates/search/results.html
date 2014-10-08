@@ -1,13 +1,3 @@
-<div class="results-controls">
-    <button type="button"
-        class="button results__control"
-        ui:localstore="search.seenSince"
-        ui:localstore-val="getLastImageUploadTime()">I've seen these</button>
-
-    <button type="button"
-        class="button button--shy results__control"
-        ui:localstore="search.seenSince">Clear</button>
-</div>
 <ul class="results"
     ui:near-bottom="nearBottom"
     ui:has-space="hasSpace">
@@ -23,13 +13,16 @@
                      ng:src="{{image.data.thumbnail.secureUrl}}"/>
                 <figcaption class="image-result__caption">{{image.data.metadata.title}}</figcaption>
             </figure>
-            <div class="image-result__meta">
-                <div class="image-result__cost image-result__cost--{{image.data.cost}}">{{image.data.cost}}</div>
-                <div class="image-result__uploaded uploaded">
-                    <span class="uploaded__time">{{image.data.uploadTime | date:'HH:mm'}}</span>
-                    <span class="uploaded__date">{{image.data.uploadTime | date:'d/M/yy'}}</span>
-                </div>
-            </div>
         </a>
+        <div class="image-result__meta">
+            <div class="image-result__cost image-result__cost--{{image.data.cost}}">{{image.data.cost}}</div>
+            <button class="image-meta image-result__mark-as-seen"
+                    ui:localstore="search.seenSince"
+                    ui:localstore-val="image.data.uploadTime">♻</button>
+            <div class="image-meta image-result__uploaded uploaded">
+                <span class="uploaded__time">{{image.data.uploadTime | date:'HH:mm'}}</span>
+                <span class="uploaded__date">{{image.data.uploadTime | date:'d/M/yy'}}</span>
+            </div>
+        </div>
     </li>
 </ul>
