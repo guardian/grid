@@ -122,10 +122,6 @@ kahuna.controller('SearchResultsCtrl',
        return $stateParams.free === 'false' || image.data.cost === 'free';
     };
 
-    $scope.getLastImageUploadTime = function() {
-        return $scope.images[0].data.uploadTime;
-    };
-
     var seenSince = localStorage.getItem('search.seenSince');
     $scope.imageHasBeenSeen = function(image) {
         return image.data.uploadTime <= seenSince;
