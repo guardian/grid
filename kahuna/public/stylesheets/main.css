@@ -304,8 +304,9 @@ a:focus {
 }
 
 .easel__canvas {
-    vertical-align: bottom;
     height: calc(100vh - 44px); /* viewport - palette */
+    display: table-cell;
+    vertical-align: middle;
 }
 
 .easel__image {
