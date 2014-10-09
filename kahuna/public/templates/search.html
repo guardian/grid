@@ -1,10 +1,10 @@
-<div>
+<div class="search-container">
     <form ng:controller="SearchQueryCtrl"
           class="search">
         <input type="text"
                placeholder="Search for images..."
-               autofocus="autofocus"
                class="search__query"
+               autofocus="autofocus"
                ng:model="query"
         />
 
@@ -32,6 +32,5 @@
             Other: [since, to]
           -->
     </form>
-
-    <div ui:view></div>
 </div>
+<div ui:view></div>
