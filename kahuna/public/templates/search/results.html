@@ -1,6 +1,6 @@
 <ul class="results"
-    ui:near-bottom="nearBottom"
-    ui:has-space="hasSpace">
+    ui:near-bottom="nearBottom()"
+    ui:forget-window-scroll="searched">
     <li class="image-result"
         ng:repeat="image in images | filter:freeImageFilter"
         ng:class="{ 'image-result--seen': imageHasBeenSeen(image) }">
