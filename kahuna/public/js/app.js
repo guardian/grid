@@ -103,7 +103,6 @@ kahuna.controller('SearchResultsCtrl',
 
     $scope.images = [];
 
-
     // FIXME: This is being refreshed by the router. Make it watch a $stateParams collection instead
     // See:   https://github.com/guardian/media-service/pull/64#discussion-diff-17351746L116
     mediaApi.search($stateParams.query, {
@@ -122,14 +121,38 @@ kahuna.controller('SearchResultsCtrl',
        return $stateParams.free === 'false' || image.data.cost === 'free';
     };
 
-    var seenSince = localStorage.getItem('search.seenSince');
+    var seenSince;
+    var lastSeenKey = 'search.seenFrom';
+    $scope.getLastSeenVal = function(image) {
+        var key = getQueryKey();
+        var val = {};
+        val[key] = image.data.uploadTime;
+
+        return val;
+    };
+
     $scope.imageHasBeenSeen = function(image) {
         return image.data.uploadTime <= seenSince;
     };
 
-    $scope.$watch(() => localStorage.getItem('search.seenSince'), function() {
-        seenSince = localStorage.getItem('search.seenSince');
+    $scope.$watch(() => localStorage.getItem(lastSeenKey), function() {
+        seenSince = getSeenSince();
     });
+
+    // TODO: Move this into localstore service
+    function getSeenSince() {
+       return JSON.parse(localStorage.getItem(lastSeenKey) || '{}')[getQueryKey()];
+    }
+
+    $scope.$watch('nearBottom', function(nearBottom) {
+        if (nearBottom) {
+            addImages();
+        }
+    });
+
+    function getQueryKey() {
+        return $stateParams.query || '*';
+    }
 
     function addImages() {
         // TODO: stop once reached the end
@@ -160,12 +183,6 @@ kahuna.controller('SearchResultsCtrl',
             });
         }
     }
-
-    $scope.$watch('nearBottom', function(nearBottom) {
-        if (nearBottom) {
-            addImages();
-        }
-    });
 }]);
 
 kahuna.controller('ImageCtrl',
@@ -404,20 +421,36 @@ kahuna.directive('uiTitle', function($rootScope) {
 
 /**
  * omitting uiLocalStoreVal will remove the item from localStorage
+ * we force localstore attr to be and object
+ * TODO: Support deep objects i.e
+ * { "search":
+ *   { "lastSeen":
+ *     { "dogs": "1849-09-26T00:00:00Z" }}}`
+ *
+ * TODO: Think about what to do if a value
+ *       exists for a key that isn't JSON
+ *
+ * TODO: Make a service for data retrieval?
  */
 kahuna.directive('uiLocalstore', function() {
     return {
         restrict: 'A',
         scope: {
+            key: '@uiLocalstore',
             value: '&uiLocalstoreVal'
         },
         link: function(scope, element, attrs) {
             element.bind('click', function() {
-                var val = scope.value();
-                if (val) {
-                    localStorage.setItem(attrs.uiLocalstore, scope.value());
+                var k = scope.key;
+                var v = angular.extend({},
+                    JSON.parse(localStorage.getItem(k) || '{}'),
+                    scope.value()
+                );
+
+                if (v) {
+                    localStorage.setItem(k, JSON.stringify(v));
                 } else {
-                    localStorage.removeItem(attrs.uiLocalstore);
+                    localStorage.removeItem(k);
                 }
                 scope.$apply();
             });

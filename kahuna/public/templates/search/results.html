@@ -17,8 +17,8 @@
         <div class="image-result__meta">
             <div class="image-result__cost image-result__cost--{{image.data.cost}}">{{image.data.cost}}</div>
             <button class="image-meta image-result__mark-as-seen"
-                    ui:localstore="search.seenSince"
-                    ui:localstore-val="image.data.uploadTime">♻</button>
+                    ui:localstore="search.seenFrom"
+                    ui:localstore-val="getLastSeenVal(image)">♻</button>
             <div class="image-meta image-result__uploaded uploaded">
                 <span class="uploaded__time">{{image.data.uploadTime | date:'HH:mm'}}</span>
                 <span class="uploaded__date">{{image.data.uploadTime | date:'d/M/yy'}}</span>
