@@ -106,7 +106,7 @@ kahuna.controller('SearchResultsCtrl',
 
     // FIXME: This is being refreshed by the router. Make it watch a $stateParams collection instead
     // See:   https://github.com/guardian/media-service/pull/64#discussion-diff-17351746L116
-    mediaApi.search($stateParams.query, {
+    $scope.searched = mediaApi.search($stateParams.query, {
         since: $stateParams.since
     }).then(function(images) {
         $scope.images = images;
@@ -136,7 +136,7 @@ kahuna.controller('SearchResultsCtrl',
         var lastImage = $scope.images.slice(-1)[0];
         if (lastImage) {
             var until = lastImage.data.uploadTime;
-            mediaApi.search($stateParams.query, {
+            return mediaApi.search($stateParams.query, {
                 until: until,
                 since: $stateParams.since
             }).then(function(moreImages) {
@@ -161,11 +161,7 @@ kahuna.controller('SearchResultsCtrl',
         }
     }
 
-    $scope.$watch('nearBottom', function(nearBottom) {
-        if (nearBottom) {
-            addImages();
-        }
-    });
+    $scope.nearBottom = addImages;
 }]);
 
 kahuna.controller('ImageCtrl',
@@ -324,33 +320,45 @@ kahuna.filter('asAspectRatioWord', function() {
     }
 });
 
-kahuna.directive('uiHasSpace', function() {
+kahuna.directive('uiHasSpace', ['$window', function($window) {
     return {
         restrict: 'A',
         link: function(scope, element, attrs) {
+            var el = element[0];
             scope.$watch(function() {
-                scope[attrs.uiHasSpace] = element[0].scrollHeight <= element[0].clientHeight;
+                scope[attrs.uiHasSpace] = el.clientHeight + el.offsetTop <= $window.innerHeight;
             });
         }
     }
-});
+}]);
 
-kahuna.directive('uiNearBottom', function() {
+kahuna.directive('uiNearBottom', ['$window', function($window) {
     return {
         restrict: 'A',
+        scope: {
+            nearBottom: '&uiNearBottom'
+        },
         link: function(scope, element, attrs) {
-            element.bind('scroll', function(e) {
-                // TODO: debounce + defer
-                var bottomPos = element[0].scrollTop + element[0].clientHeight;
-                var viewHeight = element[0].scrollHeight;
+            var scrolling = false;
+
+            angular.element($window).bind('scroll', function(e) {
+                // TODO: debounce
+                var el = element[0];
+
                 var offset = 200;
-                scope.$apply(function() {
-                    scope[attrs.uiNearBottom] = bottomPos + offset >= viewHeight;
-                });
+                var nowAt = this.innerHeight + this.scrollY;
+                var end = el.scrollHeight + el.offsetTop - offset;
+
+                if (!scrolling && nowAt >= end) {
+                    scrolling = true;
+                    scope.nearBottom().finally(function() {
+                        scrolling = false;
+                    });
+                }
             });
         }
     };
-});
+}]);
 
 kahuna.directive('uiDragData', function() {
     return {
@@ -424,5 +432,31 @@ kahuna.directive('uiLocalstore', function() {
         }
     };
 });
+
+/**
+ * this is for when you have dynamic content that makes the window scroll
+ * Chrome remembers your last scroll location, so when scrolling starts
+ * you get a massive jump on first scroll, good for static content,
+ * not for dynamic. This is a craphack.
+ *
+ * http://stackoverflow.com/questions/18617367/disable-browers-auto-scroll-after-a-page-refresh
+ */
+kahuna.directive('uiForgetWindowScroll',
+                 ['$window', '$timeout',
+                  function($window, $timeout) {
+    return {
+        restric: 'A',
+        link: function(scope, element, attrs) {
+            scope[attrs.uiForgetWindowScroll].finally(function() {
+                // FIXME: even if this is a hack, using timeout as the DOM
+                // hasn't loaded is balony.
+                $timeout(function() {
+                    $window.scrollTo(0, 1);
+                    $window.scrollTo(0, 0);
+                }, 200);
+            });
+        }
+    };
+}]);
 
 angular.bootstrap(document, ['kahuna']);

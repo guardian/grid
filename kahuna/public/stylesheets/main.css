@@ -108,12 +108,6 @@ a:focus {
     background: #efefef;
 }
 
-.user-menu {
-    position: absolute;
-    top: 10px;
-    right: 10px;
-    z-index: 1; /* above search bar */
-}
 
 .loader {
     text-align: center;
@@ -151,6 +145,7 @@ a:focus {
     padding: 5px 10px;
     position: absolute;
     right: 0;
+    z-index: 10;
 }
 .logout:hover {
     opacity: 1;
@@ -159,10 +154,19 @@ a:focus {
 /* ==========================================================================
    Search
    ========================================================================== */
+.search-container {
+    height: 47px; /* faking we're in the flow */
+}
+
 .search {
     background-color: #ccc;
+    box-sizing: border-box;
     padding: 10px;
     font-family: "Guardian Agate Sans 1 Web";
+    position: fixed;
+    width: 100%;
+    z-index: 1;
+    box-shadow: 0px 1px 5px #999;
 }
 
 .search__control {
@@ -184,12 +188,6 @@ a:focus {
 .results {
     display: flex;
     flex-wrap: wrap;
-    position: fixed;
-    top: 50px;
-    bottom: 0;
-    left: 0;
-    right: 0;
-    overflow-y: auto; /* Vertically scrollable */
 }
 
 .results-controls {
