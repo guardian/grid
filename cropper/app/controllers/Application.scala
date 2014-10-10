@@ -44,14 +44,22 @@ object Application extends Controller {
 
   def crop = Authenticated.async { req =>
     cropSourceForm.bindFromRequest()(req).fold(
-      errors => Future.successful(BadRequest(errors.errorsAsJson)),
-      crop   => createSizings(crop).map(sizings => Ok(cropResponse(crop, sizings)))
+      errors   => Future.successful(BadRequest(errors.errorsAsJson)),
+      cropReq => {
+        createSizings(cropReq).map { case (id, sizings) =>
+          val json = cropResponse(Crop(cropReq, sizings))
+          // TODO: make this a reusable case class / model
+          val message = Json.obj("id" -> id, "exports" -> Json.arr(Json.obj("type" -> "crop") ++ json))
+          Notifications.publish(message, "add-exports-to-image")
+          Ok(json)
+        }
+      }
     )
   }
 
   def getCrops(id: String) = Authenticated.async { req =>
     CropStorage.listCrops(id) map (_.toList) map { crops =>
-      val all = crops.map { case (source, sizings) => cropResponse(source, sizings) }
+      val all = crops.map { case (source, sizings) => cropResponse(Crop(source, sizings)) }
 
       val links = for {
         (firstCropSource, _) <- crops.headOption
@@ -65,7 +73,7 @@ object Application extends Controller {
     }
   }
 
-  def createSizings(source: CropSource): Future[List[CropSizing]] =
+  def createSizings(source: CropSource): Future[(String, List[CropSizing])] =
     for {
       apiSource  <- fetchSourceFromApi(source.uri)
       sourceFile <- tempFileFromURL(new URL(apiSource.file), "cropSource", "")
@@ -89,7 +97,7 @@ object Application extends Controller {
       }
       _ <- delete(sourceFile)
     }
-    yield sizings
+    yield (apiSource.id, sizings)
 
   def fetchSourceFromApi(uri: String): Future[SourceImage] =
     for (resp <- WS.url(uri).withHeaders("X-Gu-Media-Key" -> mediaApiKey).get)
@@ -98,14 +106,12 @@ object Application extends Controller {
       resp.json.as[SourceImage]
     }
 
-  def cropResponse(specification: CropSource, assets: List[CropSizing]): JsValue =
-    Json.obj(
-      "specification" -> specification,
-      "assets" -> assets
-    )
+  def cropResponse(crop: Crop): JsObject = Json.toJson(crop).as[JsObject]
 
   def outputFilename(source: SourceImage, bounds: Bounds, outputWidth: Int): String =
     s"${source.id}/${bounds.x}_${bounds.y}_${bounds.width}_${bounds.height}/$outputWidth.jpg"
+
+//  def snsMessage(imageId: String, crop: Crop)
 }
 
 case class SourceImage(id: String, file: String)
