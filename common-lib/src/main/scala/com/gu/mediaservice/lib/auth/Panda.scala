@@ -18,7 +18,7 @@ trait PanDomainAuthActions extends AuthActions {
   override def authCallbackUrl: String = s"$authCallbackBaseUri/oauthCallback"
 
   override lazy val domain: String             = properties("panda.domain")
-  override lazy val awsKeyId: String           = properties("panda.aws.keyId")
+  override lazy val awsKeyId: String           = properties("panda.aws.key")
   override lazy val awsSecretAccessKey: String = properties("panda.aws.secret")
 
   override val system: String = "media-service"
