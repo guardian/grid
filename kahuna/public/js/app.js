@@ -161,7 +161,7 @@ kahuna.controller('SearchResultsCtrl',
         }
     }
 
-    $scope.nearBottom = addImages;
+    $scope.whenNearBottom = addImages;
 }]);
 
 kahuna.controller('ImageCtrl',
