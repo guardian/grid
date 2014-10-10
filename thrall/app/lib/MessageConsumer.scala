@@ -46,9 +46,11 @@ object MessageConsumer {
 
   def chooseProcessor(subject: String): Option[JsValue => Future[Any]] =
     PartialFunction.condOpt(subject) {
-      case "image"               => indexImage
-      case "delete-image"        => deleteImage
-      case "add-image-to-bucket" => addImageToBucket
+      case "image"                    => indexImage
+      case "update-image"             => updateImage
+      case "delete-image"             => deleteImage
+      case "update-image-collection"  => updateImageCollection
+      case "add-image-to-bucket"      => addImageToBucket
       case "remove-image-from-bucket" => removeImageFromBucket
     }
 
@@ -64,6 +66,16 @@ object MessageConsumer {
 
   def indexImage(image: JsValue): Future[IndexResponse] =
     withImageId(image)(id => ElasticSearch.indexImage(id, image))
+
+  def updateImage(image: JsValue): Future[UpdateResponse] =
+    withImageId(image)(id => ElasticSearch.updateImage(id, image))
+
+  def updateImageCollection(update: JsValue): Future[UpdateResponse] =
+    withImageId(update)(id => ElasticSearch.updateImageCollection(
+      id,
+      (update \ "collectionName").as[String],
+      (update \ "collection")
+    ))
 
   def deleteImage(image: JsValue): Future[DeleteResponse] =
     withImageId(image) { id =>

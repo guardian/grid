@@ -54,6 +54,7 @@ object Dependencies {
 
   val uriTemplateDeps = Seq("no.arktekk" %% "uri-template" % "1.0.1")
 
+  val groovyDeps = Seq("org.codehaus.groovy" % "groovy-json" % "2.3.7")
 
   implicit class DependencySyntax(self: Project) {
 
