@@ -56,7 +56,7 @@
     <div class="easel easel--with-meta" ng:if="! cropKey">
         <div class="easel__canvas">
             <img class="easel__image"
-                 ng:src="{{image.data.secureUrl}}"
+                 ng:src="{{image.data.source.secureUrl}}"
                  ui:drag-data="{{image | asImageDragData}}" />
         </div>
 
