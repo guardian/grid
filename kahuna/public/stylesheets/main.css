@@ -57,29 +57,38 @@ a {
     text-decoration: none;
 }
 
+button {
+    border: 0;
+    background: transparent;
+    padding: 0;
+    margin: 0;
+    cursor: pointer;
+}
+
 .button {
     border: 0;
     background: #00adee;
     border-radius: 2px;
     box-shadow: 0 2px #00729c;
+    box-sizing: border-box;
     color: white;
     display: block;
     padding: 5px 20px !important;
     font-family: "Guardian Egyptian Text";
     font-size: 1.6rem;
+    position: relative;
 }
 .button:hover {
     background: #008fc5;
 }
 .button:active {
     box-shadow: none;
-    background: #1a7d91; /* 25% darken */
+    top: 2px;
 }
 .button:focus,
 a:focus {
-    box-shadow: none;
     outline: 2px solid rgba(255, 255, 255, 0.5);
-    outline-offset: 1px;
+    outline-offset: -3px;
 }
 .button[disabled] {
     background-color: #999;
@@ -87,13 +96,18 @@ a:focus {
     color: #ccc;
 }
 
-
-.user-menu {
-    position: absolute;
-    top: 10px;
-    right: 10px;
-    z-index: 1; /* above search bar */
+.button--shy {
+    padding: 2px 5px;
+    color: #333;
+    background: transparent;
+    box-shadow: 0 2px #efefef;
+    border: 1px solid #efefef;
+    border-bottom: 0;
 }
+.button--shy:hover {
+    background: #efefef;
+}
+
 
 .loader {
     text-align: center;
@@ -131,6 +145,7 @@ a:focus {
     padding: 5px 10px;
     position: absolute;
     right: 0;
+    z-index: 10;
 }
 .logout:hover {
     opacity: 1;
@@ -139,14 +154,19 @@ a:focus {
 /* ==========================================================================
    Search
    ========================================================================== */
+.search-container {
+    height: 47px; /* faking we're in the flow */
+}
+
 .search {
-    position: fixed;
     background-color: #ccc;
-    top: 0;
-    left: 0;
-    right: 0;
+    box-sizing: border-box;
     padding: 10px;
     font-family: "Guardian Agate Sans 1 Web";
+    position: fixed;
+    width: 100%;
+    z-index: 1;
+    box-shadow: 0px 1px 5px #999;
 }
 
 .search__control {
@@ -168,12 +188,17 @@ a:focus {
 .results {
     display: flex;
     flex-wrap: wrap;
-    position: fixed;
-    top: 50px;
-    bottom: 0;
-    left: 0;
-    right: 0;
-    overflow-y: auto; /* Vertically scrollable */
+}
+
+.results-controls {
+    background: white;
+    padding: 10px;
+    box-shadow: 0px 1px 5px #999;
+}
+
+.results__control {
+    display: inline;
+    margin-right: 5px;
 }
 
 .image-result {
@@ -184,6 +209,9 @@ a:focus {
     margin: 10px 5px;
     position: relative;
     padding-bottom: 65px;
+}
+.image-result--seen {
+    opacity: .5;
 }
 
 .image-result__link {
@@ -225,6 +253,7 @@ a:focus {
     font-weight: bold;
     padding-left: 10px;
     text-align: left;
+    float: left;
 }
 
 .uploaded__date {
@@ -232,6 +261,14 @@ a:focus {
     padding-left: 15px;
     font-weight: normal;
     font-size: 1.2rem;
+}
+
+.image-result__mark-as-seen {
+    vertical-align: middle;
+    font-size: 1.4rem;
+    float: right;
+    margin-right: 10px;
+    color: #666;
 }
 
 .image-result__cost {
@@ -265,8 +302,9 @@ a:focus {
 }
 
 .easel__canvas {
-    vertical-align: bottom;
     height: calc(100vh - 44px); /* viewport - palette */
+    display: table-cell;
+    vertical-align: middle;
 }
 
 .easel__image {
