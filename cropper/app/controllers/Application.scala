@@ -20,7 +20,7 @@ import model._
 object Application extends Controller {
 
   val keyStore = new KeyStore(Config.keyStoreBucket, Config.awsCredentials)
-  val Authenticated = auth.Authenticated(keyStore)(_ => Unauthorized(Json.obj("errorKey" -> "unauthorized")))
+  val Authenticated = auth.Authenticated(keyStore, Config.kahunaUri)
 
   val mediaApiKey = keyStore.findKey("cropper").getOrElse(throw new Error("Missing cropper API key in key bucket"))
 
