@@ -1,7 +1,9 @@
 <ul class="results"
-    ui:near-bottom="nearBottom"
-    ui:has-space="hasSpace">
-    <li class="image-result" ng:repeat="image in images | filter:freeImageFilter" ng:hide="{{image.hide}}">
+    ui:near-bottom="whenNearBottom()"
+    ui:forget-window-scroll="searched">
+    <li class="image-result"
+        ng:repeat="image in images | filter:freeImageFilter"
+        ng:class="{ 'image-result--seen': imageHasBeenSeen(image) }">
         <a class="image-result__link"
            title="{{image.data.metadata.title}}"
            ng:href="/images/{{image.data.id}}"
@@ -11,13 +13,16 @@
                      ng:src="{{image.data.thumbnail.secureUrl}}"/>
                 <figcaption class="image-result__caption">{{image.data.metadata.title}}</figcaption>
             </figure>
-            <div class="image-result__meta">
-                <div class="image-result__cost image-result__cost--{{image.data.cost}}">{{image.data.cost}}</div>
-                <div class="image-result__uploaded uploaded">
-                    <span class="uploaded__time">{{image.data.uploadTime | date:'HH:mm'}}</span>
-                    <span class="uploaded__date">{{image.data.uploadTime | date:'d/M/yy'}}</span>
-                </div>
-            </div>
         </a>
+        <div class="image-result__meta">
+            <div class="image-result__cost image-result__cost--{{image.data.cost}}">{{image.data.cost}}</div>
+            <button class="image-meta image-result__mark-as-seen"
+                    ui:localstore="search.seenFrom"
+                    ui:localstore-val="getLastSeenVal(image)">♻</button>
+            <div class="image-meta image-result__uploaded uploaded">
+                <span class="uploaded__time">{{image.data.uploadTime | date:'HH:mm'}}</span>
+                <span class="uploaded__date">{{image.data.uploadTime | date:'d/M/yy'}}</span>
+            </div>
+        </div>
     </li>
 </ul>

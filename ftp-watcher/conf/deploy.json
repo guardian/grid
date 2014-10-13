@@ -1,8 +1,8 @@
 {
+    "defaultStacks": ["media-service"],
     "packages": {
-        "ftp-watcher": {
+        "ftpwatcher": {
             "type": "executable-jar-webapp",
-            "apps": [ "mediaservice::ftpwatcher" ],
             "data": {
                 "port": "8080",
                 "healthcheck_paths": [ "/health-check" ],

@@ -51,6 +51,7 @@ kahuna.config(['$stateProvider', '$urlRouterProvider',
             }
         }
     });
+
     $stateProvider.state('image', {
         url: '/images/:imageId?crop',
         templateUrl: templatesDirectory + '/image.html',
@@ -73,8 +74,8 @@ kahuna.controller('SearchQueryCtrl',
 
     // a little annoying as the params are returned as strings
     $scope.free = $stateParams.free !== 'false';
-    $scope.query = $stateParams.query || '';
-    $scope.since = $stateParams.since || '';
+    $scope.query = $stateParams.query;
+    $scope.since = $stateParams.since;
 
     // Update state from search filters (skip initialisation step)
     $scope.$watch('query', function(query, oldQuery) {
@@ -102,10 +103,9 @@ kahuna.controller('SearchResultsCtrl',
 
     $scope.images = [];
 
-
     // FIXME: This is being refreshed by the router. Make it watch a $stateParams collection instead
     // See:   https://github.com/guardian/media-service/pull/64#discussion-diff-17351746L116
-    mediaApi.search($stateParams.query, {
+    $scope.searched = mediaApi.search($stateParams.query, {
         since: $stateParams.since
     }).then(function(images) {
         $scope.images = images;
@@ -121,12 +121,45 @@ kahuna.controller('SearchResultsCtrl',
        return $stateParams.free === 'false' || image.data.cost === 'free';
     };
 
+    var seenSince;
+    var lastSeenKey = 'search.seenFrom';
+    $scope.getLastSeenVal = function(image) {
+        var key = getQueryKey();
+        var val = {};
+        val[key] = image.data.uploadTime;
+
+        return val;
+    };
+
+    $scope.imageHasBeenSeen = function(image) {
+        return image.data.uploadTime <= seenSince;
+    };
+
+    $scope.$watch(() => localStorage.getItem(lastSeenKey), function() {
+        seenSince = getSeenSince();
+    });
+
+    // TODO: Move this into localstore service
+    function getSeenSince() {
+       return JSON.parse(localStorage.getItem(lastSeenKey) || '{}')[getQueryKey()];
+    }
+
+    $scope.$watch('nearBottom', function(nearBottom) {
+        if (nearBottom) {
+            addImages();
+        }
+    });
+
+    function getQueryKey() {
+        return $stateParams.query || '*';
+    }
+
     function addImages() {
         // TODO: stop once reached the end
         var lastImage = $scope.images.slice(-1)[0];
         if (lastImage) {
             var until = lastImage.data.uploadTime;
-            mediaApi.search($stateParams.query, {
+            return mediaApi.search($stateParams.query, {
                 until: until,
                 since: $stateParams.since
             }).then(function(moreImages) {
@@ -151,11 +184,7 @@ kahuna.controller('SearchResultsCtrl',
         }
     }
 
-    $scope.$watch('nearBottom', function(nearBottom) {
-        if (nearBottom) {
-            addImages();
-        }
-    });
+    $scope.whenNearBottom = addImages;
 }]);
 
 kahuna.controller('ImageCtrl',
@@ -314,33 +343,45 @@ kahuna.filter('asAspectRatioWord', function() {
     }
 });
 
-kahuna.directive('uiHasSpace', function() {
+kahuna.directive('uiHasSpace', ['$window', function($window) {
     return {
         restrict: 'A',
         link: function(scope, element, attrs) {
+            var el = element[0];
             scope.$watch(function() {
-                scope[attrs.uiHasSpace] = element[0].scrollHeight <= element[0].clientHeight;
+                scope[attrs.uiHasSpace] = el.clientHeight + el.offsetTop <= $window.innerHeight;
             });
         }
     }
-});
+}]);
 
-kahuna.directive('uiNearBottom', function() {
+kahuna.directive('uiNearBottom', ['$window', function($window) {
     return {
         restrict: 'A',
+        scope: {
+            nearBottom: '&uiNearBottom'
+        },
         link: function(scope, element, attrs) {
-            element.bind('scroll', function(e) {
-                // TODO: debounce + defer
-                var bottomPos = element[0].scrollTop + element[0].clientHeight;
-                var viewHeight = element[0].scrollHeight;
+            var scrolling = false;
+
+            angular.element($window).bind('scroll', function(e) {
+                // TODO: debounce
+                var el = element[0];
+
                 var offset = 200;
-                scope.$apply(function() {
-                    scope[attrs.uiNearBottom] = bottomPos + offset >= viewHeight;
-                });
+                var nowAt = this.innerHeight + this.scrollY;
+                var end = el.scrollHeight + el.offsetTop - offset;
+
+                if (!scrolling && nowAt >= end) {
+                    scrolling = true;
+                    scope.nearBottom().finally(function() {
+                        scrolling = false;
+                    });
+                }
             });
         }
     };
-});
+}]);
 
 kahuna.directive('uiDragData', function() {
     return {
@@ -391,5 +432,70 @@ kahuna.directive('uiTitle', function($rootScope) {
         }
     };
 });
+
+/**
+ * omitting uiLocalStoreVal will remove the item from localStorage
+ * we force localstore attr to be and object
+ * TODO: Support deep objects i.e
+ * { "search":
+ *   { "lastSeen":
+ *     { "dogs": "1849-09-26T00:00:00Z" }}}`
+ *
+ * TODO: Think about what to do if a value
+ *       exists for a key that isn't JSON
+ *
+ * TODO: Make a service for data retrieval?
+ */
+kahuna.directive('uiLocalstore', function() {
+    return {
+        restrict: 'A',
+        scope: {
+            key: '@uiLocalstore',
+            value: '&uiLocalstoreVal'
+        },
+        link: function(scope, element, attrs) {
+            element.bind('click', function() {
+                var k = scope.key;
+                var v = angular.extend({},
+                    JSON.parse(localStorage.getItem(k) || '{}'),
+                    scope.value()
+                );
+
+                if (v) {
+                    localStorage.setItem(k, JSON.stringify(v));
+                } else {
+                    localStorage.removeItem(k);
+                }
+                scope.$apply();
+            });
+        }
+    };
+});
+
+/**
+ * this is for when you have dynamic content that makes the window scroll
+ * Chrome remembers your last scroll location, so when scrolling starts
+ * you get a massive jump on first scroll, good for static content,
+ * not for dynamic. This is a craphack.
+ *
+ * http://stackoverflow.com/questions/18617367/disable-browers-auto-scroll-after-a-page-refresh
+ */
+kahuna.directive('uiForgetWindowScroll',
+                 ['$window', '$timeout',
+                  function($window, $timeout) {
+    return {
+        restric: 'A',
+        link: function(scope, element, attrs) {
+            scope[attrs.uiForgetWindowScroll].finally(function() {
+                // FIXME: even if this is a hack, using timeout as the DOM
+                // hasn't loaded is balony.
+                $timeout(function() {
+                    $window.scrollTo(0, 1);
+                    $window.scrollTo(0, 0);
+                }, 200);
+            });
+        }
+    };
+}]);
 
 angular.bootstrap(document, ['kahuna']);
