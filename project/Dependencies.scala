@@ -5,9 +5,19 @@ object Dependencies {
 
   val playVersion = "2.3.3" // also exists in plugins.sbt, TODO deduplicate this
 
-  val playDeps = Seq("com.typesafe.play" %% "play" % playVersion)
+  val playDeps = Seq(
+    ("com.typesafe.play" %% "play" % playVersion)
+      // Avoid assembly conflicts with com.google.gdata:core required by panda
+      exclude ("oauth.signpost", "signpost-core")
+      exclude ("oauth.signpost", "signpost-commonshttp4")
+  )
 
-  val playWsDeps = Seq("com.typesafe.play" %% "play-ws" % playVersion)
+  val playWsDeps = Seq(
+    ("com.typesafe.play" %% "play-ws" % playVersion)
+      // Avoid assembly conflicts with com.google.gdata:core required by panda
+      exclude ("oauth.signpost", "signpost-core")
+      exclude ("oauth.signpost", "signpost-commonshttp4")
+  )
 
   val elasticsearchVersion = "1.3.2"
 
