@@ -7,6 +7,7 @@ object Config extends CommonPlayAppConfig with CommonPlayAppProperties {
 
   val properties = Properties.fromPath("/etc/gu/kahuna.properties")
 
+  val rootUri: String = services.kahunaBaseUri
   val mediaApiUri: String = services.apiBaseUri
 
   val keyStoreBucket: String = properties("auth.keystore.bucket")

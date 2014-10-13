@@ -33,6 +33,21 @@ Start Elasticsearch from the `elasticsearch` directory:
         $ ./dev-start.sh
 
 
+## Pan-domain authentication config
+
+First you need to setup some properties to configure the
+[pan-domain authentication](https://github.com/guardian/pan-domain-authentication)
+in `/etc/gu/panda.properties`:
+
+```
+panda.domain=...
+panda.aws.key=...
+panda.aws.secret=...
+```
+
+This file will be used by the different applications to share auth
+config, so that CORS is enabled across APIs.
+
 ## Run Media API
 
 First you need to create some dev credentials and resources in AWS.

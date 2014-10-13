@@ -5,15 +5,30 @@ object Dependencies {
 
   val playVersion = "2.3.3" // also exists in plugins.sbt, TODO deduplicate this
 
-  val playDeps = Seq("com.typesafe.play" %% "play" % playVersion)
+  val playDeps = Seq(
+    ("com.typesafe.play" %% "play" % playVersion)
+      // Avoid assembly conflicts with com.google.gdata:core required by panda
+      exclude ("oauth.signpost", "signpost-core")
+      exclude ("oauth.signpost", "signpost-commonshttp4")
+  )
 
-  val playWsDeps = Seq("com.typesafe.play" %% "play-ws" % playVersion)
+  val playWsDeps = Seq(
+    ("com.typesafe.play" %% "play-ws" % playVersion)
+      // Avoid assembly conflicts with com.google.gdata:core required by panda
+      exclude ("oauth.signpost", "signpost-core")
+      exclude ("oauth.signpost", "signpost-commonshttp4")
+  )
 
   val elasticsearchVersion = "1.3.2"
 
   val elasticsearchDeps = Seq("org.elasticsearch" % "elasticsearch" % elasticsearchVersion)
 
-  val awsDeps = Seq("com.amazonaws" % "aws-java-sdk" % "1.7.5")
+  val awsDeps = Seq("com.amazonaws" % "aws-java-sdk" % "1.9.0")
+
+  val pandaDeps = Seq(
+    ("com.gu" %% "pan-domain-auth-core" % "0.1.9") exclude ("xpp3", "xpp3"),
+    ("com.gu" %% "pan-domain-auth-play" % "0.1.9")
+  )
 
   val scalazDeps = Seq(
     "org.scalaz.stream" %% "scalaz-stream" % "0.3.1"

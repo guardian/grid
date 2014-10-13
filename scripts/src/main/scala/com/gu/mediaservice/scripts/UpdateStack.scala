@@ -62,12 +62,16 @@ abstract class StackScript {
   lazy val iamClient = new AmazonIdentityManagementClient(credentials)
 
   def apply(args: List[String]) {
-    val stage: Stage = args match {
-      case "PROD" :: _ => Prod
-      case "TEST" :: _ => Test
+    val (stage: Stage, remainingArgs: List[String]) = args match {
+      case "PROD" :: xs => (Prod, xs)
+      case "TEST" :: xs => (Test, xs)
       case _ => usageError("Unrecognized or missing stage (should be one of TEST or PROD)")
     }
-    val stack = Stacks.mediaService(stage)
+    val (pandaKey, pandaSecret) = remainingArgs match {
+      case key :: secret :: _ => (Some(key), Some(secret))
+      case _ => (None, None)
+    }
+    val stack = Stacks.mediaService(stage, pandaKey, pandaSecret)
     val cfnClient = {
       val client = new AmazonCloudFormationClient(credentials)
       client.setEndpoint("cloudformation.eu-west-1.amazonaws.com")
@@ -80,7 +84,7 @@ abstract class StackScript {
 
   def usageError(msg: String): Nothing = {
     System.err.println(msg)
-    System.err.println("Usage: <CreateStack|UpdateStack> <STAGE>")
+    System.err.println("Usage: <CreateStack|UpdateStack> <STAGE> [PANDA_ACCESS_KEY PANDA_ACCESS_SECRET]")
     sys.exit(1)
   }
 
@@ -100,11 +104,16 @@ abstract class StackScript {
   object Stacks {
 
     /** Defines the Media Service stack for the specified stage */
-    def mediaService(stage: Stage): Stack = {
+    def mediaService(stage: Stage, pandaAwsKey: Option[String], pandaAwsSecret: Option[String]): Stack = {
 
       val domainRoot = stage match {
         case Prod => "media.***REMOVED***"
         case _    => s"media.$stage.dev-***REMOVED***".toLowerCase
+      }
+
+      val pandaDomain = stage match {
+        case Prod => "***REMOVED***"
+        case _    => s"$stage.dev-***REMOVED***".toLowerCase
       }
 
       val kahunaCertArn = getCertArn(s"$domainRoot-rotated")
@@ -145,13 +154,24 @@ abstract class StackScript {
           param("ElasticsearchMinMasterNodes", minMasterNodes.toString),
           param("ImageOriginHostname", imgOriginHostname),
           param("ImageEdgeHostname", imgEdgeHostname),
-          param("DomainRoot", domainRoot)
+          param("DomainRoot", domainRoot),
+          param("PandaDomain", pandaDomain),
+          param("PandaAwsKey",  pandaAwsKey),
+          param("PandaAwsSecret", pandaAwsSecret)
         )
       )
     }
 
     private def param(key: String, value: String): Parameter =
       new Parameter().withParameterKey(key).withParameterValue(value)
+
+    private def paramUsePreviousValue(key: String): Parameter =
+      new Parameter().withUsePreviousValue(true)
+
+    private def param(key: String, value: Option[String]): Parameter = value match {
+      case Some(value) => param(key, value)
+      case None        => paramUsePreviousValue(key)
+    }
 
     private def getCertArn(certName: String): String =
       iamClient.getServerCertificate(new GetServerCertificateRequest(certName))

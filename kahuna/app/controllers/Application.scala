@@ -1,21 +1,17 @@
 package controllers
 
-import play.api.mvc.{Result, RequestHeader, Controller}
+import play.api.mvc.Controller
 import lib.Config
-import com.gu.mediaservice.lib.auth._
+import com.gu.mediaservice.lib.auth.PanDomainAuthActions
 
+// TODO: retire Panda entirely from kahuna, let the JS app and the APIs manage auth
 
-object Application extends Controller {
+object Application extends Controller with PanDomainAuthActions {
 
-  val keyStore = new KeyStore(Config.keyStoreBucket, Config.awsCredentials)
+  override lazy val authCallbackBaseUri = Config.rootUri
 
-  def index(ignored: String) = Authenticated(keyStore)(redirectToLogin) { req =>
-    Ok(views.html.main(mediaApiUri = Config.mediaApiUri, principal = req.user))
+  def index(ignored: String) = AuthAction { req =>
+    Ok(views.html.main(mediaApiUri = Config.mediaApiUri))
   }
-
-  def redirectToLogin(request: RequestHeader): Result =
-    Redirect(routes.Login.loginForm).withSession {
-      request.session + ("loginFromUrl", request.uri)
-    }
 
 }
