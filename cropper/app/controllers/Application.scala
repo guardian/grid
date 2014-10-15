@@ -67,8 +67,8 @@ object Application extends Controller {
 
   def createSizings(source: CropSource): Future[List[CropSizing]] =
     for {
-      apiSource  <- fetchSourceFromApi(source.uri)
-      sourceFile <- tempFileFromURL(new URL(apiSource.file), "cropSource", "")
+      apiImage   <- fetchSourceFromApi(source.uri)
+      sourceFile <- tempFileFromURL(new URL(apiImage.source.secureUrl), "cropSource", "")
 
       Bounds(_, _, masterW, masterH) = source.bounds
       aspect     = masterW.toFloat / masterH
@@ -79,7 +79,7 @@ object Application extends Controller {
         Config.landscapeCropSizingWidths.filter(_ <= masterW).map(w => Dimensions(w, math.round(w / aspect)))
 
       sizings <- Future.traverse(outputDims) { dim =>
-        val filename = outputFilename(apiSource, source.bounds, dim.width)
+        val filename = outputFilename(apiImage, source.bounds, dim.width)
         for {
           file    <- Crops.create(sourceFile, source, dim)
           sizing  <- CropStorage.storeCropSizing(file, filename, "image/jpeg", source, dim)
@@ -106,13 +106,4 @@ object Application extends Controller {
 
   def outputFilename(source: SourceImage, bounds: Bounds, outputWidth: Int): String =
     s"${source.id}/${bounds.x}_${bounds.y}_${bounds.width}_${bounds.height}/$outputWidth.jpg"
-}
-
-case class SourceImage(id: String, file: String)
-
-object SourceImage {
-  import _root_.play.api.libs.functional.syntax._
-
-  implicit val readsSourceImage: Reads[SourceImage] =
-    ((__ \ "data" \ "id").read[String] ~ (__ \ "data" \ "secureUrl").read[String])(SourceImage.apply _)
 }
