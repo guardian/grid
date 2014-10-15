@@ -18,7 +18,9 @@ object CropSource {
 case class Dimensions(width: Int, height: Int)
 
 object Dimensions {
-  implicit val DimensionsWrites: Writes[Dimensions] =
+  implicit val dimensionsReads: Reads[Dimensions] = Json.reads[Dimensions]
+
+  implicit val dimensionsWrites: Writes[Dimensions] =
     ((__ \ "width").write[Int] ~ (__ \ "height").write[Int])(unlift(Dimensions.unapply))
 }
 
@@ -26,4 +28,20 @@ case class Bounds(x: Int, y: Int, width: Int, height: Int)
 
 object Bounds {
   implicit val boundsWrites: Writes[Bounds] = Json.writes[Bounds]
+}
+
+
+// TODO: share in common lib
+case class SourceImage(id: String, source: Asset)
+
+object SourceImage {
+  implicit val sourceImageReads: Reads[SourceImage] =
+    ((__ \ "data" \ "id").read[String] ~ (__ \ "data" \ "source").read[Asset])(SourceImage.apply _)
+}
+
+case class Asset(file: String, dimensions: Dimensions, secureUrl: String)
+
+object Asset {
+  implicit val assetReads: Reads[Asset] =
+    ((__ \ "file").read[String] ~ (__ \ "dimensions").read[Dimensions] ~ (__ \ "secureUrl").read[String])(Asset.apply _)
 }
