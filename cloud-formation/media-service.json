@@ -63,6 +63,14 @@
             "Description": "Root domain (suffix) for all deployed services",
             "Type": "String"
         },
+        "AlertEmail": {
+            "Description": "Email to send CloudWatch alerts to",
+            "Type": "String"
+        },
+        "AlertActive": {
+            "Description": "Whether to send CloudWatch alerts to the AlertEmail",
+            "Type": "String"
+        },
         "PandaDomain": {
             "Description": "Master domain the app cookie is set and shared on",
             "Type": "String"
@@ -1503,6 +1511,50 @@
             "Type": "AWS::IAM::AccessKey",
             "Properties": {
                 "UserName": { "Ref": "MetricsPublishingUser" }
+            }
+        },
+
+        "AlertingTopic": {
+            "Type": "AWS::SNS::Topic",
+            "Properties": {
+                "DisplayName": { "Fn::Join" : [ "-", [ { "Ref": "Stage" },"Alerts"]] },
+                "Subscription": [{
+                    "Endpoint": { "Ref": "AlertEmail" },
+                    "Protocol": "email"
+                }]
+            }
+        },
+
+        "IngestedImagesAlarm": {
+            "Type": "AWS::CloudWatch::Alarm",
+            "Properties": {
+                "ActionsEnabled": { "Ref": "AlertActive" },
+                "AlarmDescription": "Not seen any image ingested by thrall for more than a threshold",
+                "ComparisonOperator": "LessThanThreshold",
+                "Threshold": "1",
+                "Namespace": "PROD/Thrall",
+                "MetricName": "IndexedImages",
+                "Period": "60",
+                "EvaluationPeriods": "3",
+                "Statistic": "Sum",
+                "AlarmActions": [ { "Ref": "AlertingTopic" } ]
+            }
+        },
+
+        "ThrallQueueSizeAlarm": {
+            "Type": "AWS::CloudWatch::Alarm",
+            "Properties": {
+                "ActionsEnabled": { "Ref": "AlertActive" },
+                "AlarmDescription": "Thrall queue size excedes threshold",
+                "ComparisonOperator": "GreaterThanOrEqualToThreshold",
+                "Threshold": "10",
+                "Namespace": "AWS/SQS",
+                "MetricName": "ApproximateNumberOfMessagesVisible",
+                "Dimensions": [ { "Name": "QueueName", "Value": "media-service-PROD-Queue-NZYK6W7GPNXZ" } ],
+                "Period": "60",
+                "EvaluationPeriods": "1",
+                "Statistic": "Average",
+                "AlarmActions": [ { "Ref": "AlertingTopic" } ]
             }
         }
 
