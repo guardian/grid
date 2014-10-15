@@ -116,6 +116,9 @@ abstract class StackScript {
         case _    => s"$stage.dev-gutools.co.uk".toLowerCase
       }
 
+      val alertEmail = "media-service-$stage@gupage.pagerduty.com".toLowerCase
+      val alertActive = stage == Prod
+
       val kahunaCertArn = getCertArn(s"$domainRoot-rotated")
       val mediaApiCertArn = getCertArn(s"api.$domainRoot-rotated")
       val loaderCertArn = getCertArn(s"loader.$domainRoot-rotated")
@@ -155,6 +158,8 @@ abstract class StackScript {
           param("ImageOriginHostname", imgOriginHostname),
           param("ImageEdgeHostname", imgEdgeHostname),
           param("DomainRoot", domainRoot),
+          param("AlertEmail", alertEmail),
+          param("AlertActive", alertActive.toString),
           param("PandaDomain", pandaDomain),
           param("PandaAwsKey",  pandaAwsKey),
           param("PandaAwsSecret", pandaAwsSecret)
