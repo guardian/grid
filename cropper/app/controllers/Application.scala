@@ -48,15 +48,12 @@ object Application extends Controller {
       cropReq => {
         createSizings(cropReq).map { case (id, sizings) =>
           val crops = cropResponse(Crop(cropReq, sizings))
-          val image = Json.obj("id" -> id, "archive" -> true)
           val exports = Json.obj(
             "id" -> id,
-            "collectionName" -> "exports",
-            "collection" -> Json.arr(Json.obj("type" -> "crop") ++ crops)
+            "data" -> Json.arr(Json.obj("type" -> "crop") ++ crops)
           )
 
-          Notifications.publish(image, "update-image")
-          Notifications.publish(exports, "update-image-collection")
+          Notifications.publish(exports, "update-image-exports")
 
           Ok(crops)
         }
