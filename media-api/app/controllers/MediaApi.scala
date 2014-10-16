@@ -89,8 +89,6 @@ object MediaApi extends Controller {
       val credit = (source \ "metadata" \ "credit").as[Option[String]]
       val image = source.transform(transformers.addSecureImageUrl(secureUrl))
         .flatMap(_.transform(transformers.addSecureThumbUrl(secureThumbUrl)))
-        .flatMap(_.transform(transformers.addSource))
-        .flatMap(_.transform(transformers.removeSourceFromRoot))
         .flatMap(_.transform(transformers.addUsageCost(credit))).get
 
       // FIXME: don't hardcode paths from other APIs - once we're
@@ -103,19 +101,6 @@ object MediaApi extends Controller {
   // TODO: always add most transformers even if no showSecureUrl
 
   object transformers {
-
-    // TODO: once the client has been migrated, remove the fields from the root object
-    def addSource: Reads[JsObject] =
-      __.json.update(__.read[JsObject].map(obj => obj ++
-        Json.obj("source" -> Json.obj(
-          "file"       -> (obj \ "file"),
-          "dimensions" -> (obj \ "dimensions"),
-          "secureUrl"  -> (obj \ "secureUrl")
-        ))
-      ))
-
-    def removeSourceFromRoot: Reads[JsObject] =
-      ((__ \ "file")).json.prune andThen (__ \ "dimensions").json.prune andThen (__ \ "secureUrl").json.prune
 
     def addUsageCost(copyright: Option[String]): Reads[JsObject] =
       __.json.update(__.read[JsObject].map(_ ++ Json.obj("cost" -> ImageUse.getCost(copyright))))
