@@ -46,7 +46,7 @@ object ElasticSearch extends ElasticSearchClient {
     prepareImageUpdate(id)
       .setScriptParams(Map(
         "collectionName" -> collectionName,
-        "collection" -> new JsonSlurper().parseText(collection.toString)
+        "collection" -> asGroovy(collection)
       ).asJava)
       .setScript(s"""if (ctx._source[collectionName] == null) { ctx._source[collectionName] = collection } else { ctx._source[collectionName] += collection }""", scriptType)
       .executeAndLog(s"updating collection on image $id")
@@ -69,4 +69,6 @@ object ElasticSearch extends ElasticSearchClient {
       .setScript("if (ctx._source.containsKey(\"buckets\")) { ctx._source.buckets.remove( bucket ) }", scriptType)
       .executeAndLog(s"remove image $id from bucket $bucket")
       .incrementOnFailure(conflicts) { case e: VersionConflictEngineException => true }
+
+  def asGroovy(collection: JsValue) = new JsonSlurper().parseText(collection.toString)
 }
