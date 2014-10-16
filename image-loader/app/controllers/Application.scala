@@ -6,12 +6,12 @@ import play.api.libs.concurrent.Execution.Implicits._
 import play.api.libs.json.Json
 import play.api.Logger
 
-import lib.imaging.{Thumbnailer, ImageMetadata}
+import lib.imaging.{MimeTypeDetection, Thumbnailer, ImageMetadata}
 import lib.play.BodyParsers.digestedFile
 import lib.play.DigestedFile
 
 import lib.{Config, Notifications}
-import model.{Thumbnail, Image}
+import model.{Asset, Image}
 import lib.storage.S3ImageStorage
 import com.gu.mediaservice.lib.ImageStorage
 import com.gu.mediaservice.lib.resource.FutureResources._
@@ -41,9 +41,13 @@ class ImageLoader(storage: ImageStorage) extends Controller {
         uri        <- uriFuture
         dimensions <- dimensionsFuture
         metadata   <- metadataFuture
+        mimeType    = MimeTypeDetection.guessMimeType(tempFile)
+        sourceAsset = Asset(uri, tempFile.length, mimeType, dimensions)
         thumbUri   <- storage.storeThumbnail(id, thumb)
+        thumbSize   = thumb.length
         thumbDimensions <- ImageMetadata.dimensions(thumb)
-        image = Image.uploadedNow(id, uri, uploadedBy, Thumbnail(thumbUri, thumbDimensions), metadata, dimensions)
+        thumbAsset  = Asset(thumbUri, thumbSize, mimeType, thumbDimensions)
+        image       = Image.uploadedNow(id, uri, uploadedBy, sourceAsset, thumbAsset, metadata, dimensions)
       } yield {
         Notifications.publish(Json.toJson(image), "image")
         Accepted(Json.obj("id" -> id))
@@ -52,8 +56,6 @@ class ImageLoader(storage: ImageStorage) extends Controller {
     future.onComplete(_ => tempFile.delete())
     future
   }
-
-  def thumbId(id: String): String = s"$id-thumb"
 
   def createTempFile = File.createTempFile("requestBody", "", new File(Config.tempDir))
 
