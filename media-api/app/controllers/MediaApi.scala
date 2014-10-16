@@ -35,7 +35,7 @@ object MediaApi extends Controller {
         Json.obj("rel" -> "loader", "href" -> loaderUri)
       )
     )
-    Ok(response)
+    Ok(response).as("application/vnd.argo+json")
   }
 
   val Authenticated = auth.Authenticated(keyStore, Config.kahunaUri)
@@ -43,7 +43,7 @@ object MediaApi extends Controller {
   def getImage(id: String) = Authenticated.async { request =>
     val params = GeneralParams(request)
     ElasticSearch.getImageById(id) map {
-      case Some(source) => Ok(imageResponse(params)(id, source))
+      case Some(source) => Ok(imageResponse(params)(id, source)).as("application/vnd.argo+json")
       case None         => NotFound
     }
   }
@@ -79,7 +79,7 @@ object MediaApi extends Controller {
         "length" -> images.size,
         "total"  -> totalCount,
         "data"   -> images
-      ))
+      )).as("application/vnd.argo+json")
     }
   }
 
