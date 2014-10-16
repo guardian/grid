@@ -17,7 +17,12 @@ import lib._, Files._
 import model._
 
 
-object Application extends Controller {
+trait ArgoHelpers {
+  // TODO: expose a helper wrapper for all API endpoints?
+  val ArgoMediaType = "application/vnd.argo+json"
+}
+
+object Application extends Controller with ArgoHelpers {
 
   val keyStore = new KeyStore(Config.keyStoreBucket, Config.awsCredentials)
   val Authenticated = auth.Authenticated(keyStore, Config.kahunaUri)
@@ -33,7 +38,7 @@ object Application extends Controller {
         Json.obj("rel" -> "crop", "href" -> s"$rootUri/crops")
       )
     )
-    Ok(response)
+    Ok(response).as(ArgoMediaType)
   }
 
   val cropSourceForm: Form[CropSource] = Form(
@@ -55,7 +60,7 @@ object Application extends Controller {
 
           Notifications.publish(exports, "update-image-exports")
 
-          Ok(crops)
+          Ok(crops).as(ArgoMediaType)
         }
       }
     )
@@ -73,7 +78,7 @@ object Application extends Controller {
       val entity = Json.obj(
         "data" -> all
       ) ++ (links getOrElse Json.obj())
-      Ok(entity)
+      Ok(entity).as(ArgoMediaType)
     }
   }
 

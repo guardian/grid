@@ -33,6 +33,15 @@ System.config({
       "base64-js": "npm:base64-js@0.0",
       "inherits": "npm:inherits@^2.0.1",
       "json": "github:systemjs/plugin-json@master"
+    },
+    "npm:uri-templates@0.1.5": {
+      "json": "github:systemjs/plugin-json@master"
+    },
+    "theseus": "github:argo-rest/theseus@master",
+    "github:argo-rest/theseus@master": {
+      "reqwest": "github:ded/reqwest@^1.1.2",
+      "npm:uri-templates": "npm:uri-templates@^0.1.5",
+      "jquery": "github:components/jquery@^2.1.1"
     }
   }
 });
@@ -50,7 +59,10 @@ System.config({
     "github:components/jquery": "2.1.1",
     "github:tapmodo/Jcrop": "0.9.12",
     "github:systemjs/plugin-css": "0.1.0",
-    "github:angular-ui/ui-router": "0.2.11"
+    "github:angular-ui/ui-router": "0.2.11",
+    "npm:uri-templates": "0.1.5",
+    "github:ded/reqwest": "1.1.2",
+    "github:argo-rest/theseus": "master"
   }
 });
 
