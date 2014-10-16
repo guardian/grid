@@ -11,7 +11,7 @@ import lib.play.BodyParsers.digestedFile
 import lib.play.DigestedFile
 
 import lib.{Config, Notifications}
-import model.{Thumbnail, Image}
+import model.{Asset, Image}
 import lib.storage.S3ImageStorage
 import com.gu.mediaservice.lib.ImageStorage
 import com.gu.mediaservice.lib.resource.FutureResources._
@@ -41,9 +41,12 @@ class ImageLoader(storage: ImageStorage) extends Controller {
         uri        <- uriFuture
         dimensions <- dimensionsFuture
         metadata   <- metadataFuture
+        sourceAsset = Asset(uri, tempFile.length, dimensions)
         thumbUri   <- storage.storeThumbnail(id, thumb)
+        thumbSize   = thumb.length
         thumbDimensions <- ImageMetadata.dimensions(thumb)
-        image = Image.uploadedNow(id, uri, uploadedBy, Thumbnail(thumbUri, thumbDimensions), metadata, dimensions)
+        thumbAsset  = Asset(thumbUri, thumbSize, thumbDimensions)
+        image       = Image.uploadedNow(id, uri, uploadedBy, sourceAsset, thumbAsset, metadata, dimensions)
       } yield {
         Notifications.publish(Json.toJson(image), "image")
         Accepted(Json.obj("id" -> id))

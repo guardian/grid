@@ -9,11 +9,13 @@ import com.gu.mediaservice.lib.formatting._
 import lib.imaging.ImageMetadata
 
 
+// TODO: retire file and dimensions at the root
 case class Image(id: String,
                  file: URI,
                  uploadTime: DateTime,
                  uploadedBy: Option[String],
-                 thumbnail: Option[Thumbnail],
+                 source: Asset,
+                 thumbnail: Option[Asset],
                  metadata: Option[ImageMetadata],
                  dimensions: Option[Dimensions]) {
 
@@ -24,9 +26,10 @@ case class Image(id: String,
 
 object Image {
 
-  def uploadedNow(id: String, file: URI, uploadedBy: Option[String], thumbnail: Thumbnail,
+  def uploadedNow(id: String, file: URI, uploadedBy: Option[String],
+                  source: Asset, thumbnail: Asset,
                   metadata: Option[ImageMetadata], dimensions: Option[Dimensions]): Image =
-    Image(id, file, DateTime.now, uploadedBy, Some(thumbnail), metadata, dimensions)
+    Image(id, file, DateTime.now, uploadedBy, source, Some(thumbnail), metadata, dimensions)
 
   implicit val IptcMetadataWrites: Writes[ImageMetadata] =
     ((__ \ "description").writeNullable[String] ~
@@ -48,7 +51,8 @@ object Image {
       (__ \ "file").write[URI] ~
       (__ \ "uploadTime").write[String].contramap(printDateTime) ~
       (__ \ "uploadedBy").writeNullable[String] ~
-      (__ \ "thumbnail").writeNullable[Thumbnail] ~
+      (__ \ "source").write[Asset] ~
+      (__ \ "thumbnail").writeNullable[Asset] ~
       (__ \ "metadata").writeNullable[ImageMetadata] ~
       (__ \ "dimensions").writeNullable[Dimensions]
     )(unlift(Image.unapply))
@@ -65,13 +69,17 @@ object Dimensions {
     ((__ \ "width").write[Int] ~ (__ \ "height").write[Int])(unlift(Dimensions.unapply))
 }
 
-case class Thumbnail(file: URI, dimensions: Option[Dimensions])
+case class Asset(file: URI,
+                 size: Long,
+                 dimensions: Option[Dimensions]
+)
 
-object Thumbnail {
+object Asset {
 
-  implicit val ThumbnailWrites: Writes[Thumbnail] =
+  implicit val AssetWrites: Writes[Asset] =
     ((__ \ "file").write[String].contramap((_: URI).toString) ~
-     (__ \ "dimensions").writeNullable[Dimensions]
-    )(unlift(Thumbnail.unapply))
+      (__ \ "size").write[Long] ~
+      (__ \ "dimensions").writeNullable[Dimensions]
+      )(unlift(Asset.unapply))
 
 }
