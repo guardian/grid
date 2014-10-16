@@ -11,7 +11,7 @@ object Conversion {
 
   private implicit val ctx: ExecutionContext =
     ExecutionContext.fromExecutor(Executors.newFixedThreadPool(Config.imagingThreadPoolSize))
-  
+
   def cropResize(source: File, dest: File, bounds: Bounds, dimensions: Dimensions): Future[Unit] = {
     val Bounds(x, y, w, h) = bounds
     val cmd = new ConvertCmd
@@ -19,6 +19,7 @@ object Conversion {
     op.addImage(source.getAbsolutePath)
       op.crop(w, h, x, y)
       op.resize(dimensions.width, dimensions.height)
+      op.colorspace("RGB")
       op.addImage(dest.getAbsolutePath)
     for {
       _ <- runOp(cmd, op)
@@ -28,5 +29,5 @@ object Conversion {
 
   private def runOp(cmd: ConvertCmd, op: IMOperation): Future[Unit] =
     Future(cmd.run(op))
-  
+
 }
