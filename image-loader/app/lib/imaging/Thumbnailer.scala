@@ -20,6 +20,7 @@ object Thumbnailer {
     val imOp = new IMOperation
     imOp.addImage(filename)
     imOp.thumbnail(width)
+    imOp.colorspace("RGB")
     imOp.addImage(tempFile.toString)
     convertCmd.run(imOp)
 
