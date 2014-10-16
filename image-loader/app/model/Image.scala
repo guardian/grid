@@ -1,6 +1,6 @@
 package model
 
-import java.net.{URL, URI}
+import java.net.URI
 import play.api.libs.json._
 import play.api.libs.functional.syntax._
 import org.joda.time.DateTime

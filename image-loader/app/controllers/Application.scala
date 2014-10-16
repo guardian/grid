@@ -56,8 +56,6 @@ class ImageLoader(storage: ImageStorage) extends Controller {
     future
   }
 
-  def thumbId(id: String): String = s"$id-thumb"
-
   def createTempFile = File.createTempFile("requestBody", "", new File(Config.tempDir))
 
 }
