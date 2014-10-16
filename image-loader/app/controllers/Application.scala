@@ -6,7 +6,7 @@ import play.api.libs.concurrent.Execution.Implicits._
 import play.api.libs.json.Json
 import play.api.Logger
 
-import lib.imaging.{Thumbnailer, ImageMetadata}
+import lib.imaging.{MimeTypeDetection, Thumbnailer, ImageMetadata}
 import lib.play.BodyParsers.digestedFile
 import lib.play.DigestedFile
 
@@ -41,11 +41,12 @@ class ImageLoader(storage: ImageStorage) extends Controller {
         uri        <- uriFuture
         dimensions <- dimensionsFuture
         metadata   <- metadataFuture
-        sourceAsset = Asset(uri, tempFile.length, dimensions)
+        mimeType    = MimeTypeDetection.guessMimeType(tempFile)
+        sourceAsset = Asset(uri, tempFile.length, mimeType, dimensions)
         thumbUri   <- storage.storeThumbnail(id, thumb)
         thumbSize   = thumb.length
         thumbDimensions <- ImageMetadata.dimensions(thumb)
-        thumbAsset  = Asset(thumbUri, thumbSize, thumbDimensions)
+        thumbAsset  = Asset(thumbUri, thumbSize, mimeType, thumbDimensions)
         image       = Image.uploadedNow(id, uri, uploadedBy, sourceAsset, thumbAsset, metadata, dimensions)
       } yield {
         Notifications.publish(Json.toJson(image), "image")
