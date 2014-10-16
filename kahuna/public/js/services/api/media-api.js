@@ -1,38 +1,31 @@
 import apiServices from 'services/api';
 
 apiServices.factory('mediaApi',
-                    ['$http', 'mediaApiUri',
-                     function($http, mediaApiUri) {
+                    ['mediaApiUri', 'theseus.Client',
+                     function(mediaApiUri, client) {
 
-    function getRoot() {
-        return $http.get(mediaApiUri);
-    }
+    var root = client.resource(mediaApiUri);
 
-    function search(query, options) {
-        options = options || {};
+    // FIXME: oops, need $q promises all the way in theseus
 
-        return $http.get(mediaApiUri + '/images', {
-            params: {
-                q:      query || '',
-                since:  options.since,
-                until:  options.until,
-                length: 50,
-                archived: options.archived
-            },
-            withCredentials: true
-        }).then(function(response) {
-            return response.data.data;
-        });
+    function search(query = '', {since, until, archived}) {
+        return root.follow('search', {
+          q:        query,
+          since:    since,
+          until:    until,
+          archived: archived,
+          length:   50
+        }).getData();
     }
 
     function find(id) {
-        return $http.get(mediaApiUri + '/images/' + id, { withCredentials: true }).then(function(response) {
-            return response.data;
-        });
+        // FIXME: expose a public method to get the response? or use lazy resource?
+        return root.follow('image', {id: id}).getResponse();
+        // return root.follow('image', {id: id});
     }
 
     return {
-        getRoot: getRoot,
+        root: root,
         search: search,
         find: find
     };
