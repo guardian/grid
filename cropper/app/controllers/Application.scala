@@ -1,6 +1,6 @@
 package controllers
 
-import java.net.{URI, URL}
+import java.net.URL
 import scala.concurrent.Future
 
 import _root_.play.api.data._, Forms._
@@ -48,7 +48,7 @@ object Application extends Controller {
       cropReq => {
         createSizings(cropReq).map { case (id, sizings) =>
           val crops = cropResponse(Crop(cropReq, sizings))
-          val image = Json.obj("id" -> id, "persist" -> true)
+          val image = Json.obj("id" -> id, "archive" -> true)
           val exports = Json.obj(
             "id" -> id,
             "collectionName" -> "exports",
@@ -118,7 +118,6 @@ object Application extends Controller {
   def outputFilename(source: SourceImage, bounds: Bounds, outputWidth: Int): String =
     s"${source.id}/${bounds.x}_${bounds.y}_${bounds.width}_${bounds.height}/$outputWidth.jpg"
 
-//  def snsMessage(imageId: String, crop: Crop)
 }
 
 case class SourceImage(id: String, file: String)

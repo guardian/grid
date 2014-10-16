@@ -7,7 +7,7 @@ import org.elasticsearch.action.update.{UpdateResponse, UpdateRequestBuilder}
 import org.elasticsearch.action.delete.DeleteResponse
 import org.elasticsearch.index.engine.VersionConflictEngineException
 import org.elasticsearch.script.ScriptService
-import groovy.json.{JsonSlurper, JsonBuilder}
+import groovy.json.JsonSlurper
 import _root_.play.api.libs.json.{Json, JsValue}
 
 import com.gu.mediaservice.lib.elasticsearch.ElasticSearchClient
