@@ -9,15 +9,13 @@ import com.gu.mediaservice.lib.formatting._
 import lib.imaging.ImageMetadata
 
 
-// TODO: retire file and dimensions at the root
 case class Image(id: String,
-                 file: URI,
                  uploadTime: DateTime,
                  uploadedBy: Option[String],
                  source: Asset,
                  thumbnail: Option[Asset],
-                 metadata: Option[ImageMetadata],
-                 dimensions: Option[Dimensions]) {
+                 metadata: Option[ImageMetadata]
+) {
 
   def asJsValue: JsValue = Json.toJson(this)
 
@@ -26,10 +24,9 @@ case class Image(id: String,
 
 object Image {
 
-  def uploadedNow(id: String, file: URI, uploadedBy: Option[String],
-                  source: Asset, thumbnail: Asset,
-                  metadata: Option[ImageMetadata], dimensions: Option[Dimensions]): Image =
-    Image(id, file, DateTime.now, uploadedBy, source, Some(thumbnail), metadata, dimensions)
+  def uploadedNow(id: String, uploadedBy: Option[String],
+                  source: Asset, thumbnail: Asset, metadata: Option[ImageMetadata]): Image =
+    Image(id, DateTime.now, uploadedBy, source, Some(thumbnail), metadata)
 
   implicit val IptcMetadataWrites: Writes[ImageMetadata] =
     ((__ \ "description").writeNullable[String] ~
@@ -48,13 +45,11 @@ object Image {
 
   implicit val ImageWrites: Writes[Image] = (
     (__ \ "id").write[String] ~
-      (__ \ "file").write[URI] ~
       (__ \ "uploadTime").write[String].contramap(printDateTime) ~
       (__ \ "uploadedBy").writeNullable[String] ~
       (__ \ "source").write[Asset] ~
       (__ \ "thumbnail").writeNullable[Asset] ~
-      (__ \ "metadata").writeNullable[ImageMetadata] ~
-      (__ \ "dimensions").writeNullable[Dimensions]
+      (__ \ "metadata").writeNullable[ImageMetadata]
     )(unlift(Image.unapply))
 
 }
