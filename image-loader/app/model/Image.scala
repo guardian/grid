@@ -71,6 +71,7 @@ object Dimensions {
 
 case class Asset(file: URI,
                  size: Long,
+                 mimeType: Option[String],
                  dimensions: Option[Dimensions]
 )
 
@@ -79,6 +80,7 @@ object Asset {
   implicit val AssetWrites: Writes[Asset] =
     ((__ \ "file").write[String].contramap((_: URI).toString) ~
       (__ \ "size").write[Long] ~
+      (__ \ "mimeType").writeNullable[String] ~
       (__ \ "dimensions").writeNullable[Dimensions]
       )(unlift(Asset.unapply))
 
