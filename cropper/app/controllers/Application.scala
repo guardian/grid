@@ -1,6 +1,6 @@
 package controllers
 
-import java.net.{URI, URL}
+import java.net.URL
 import scala.concurrent.Future
 
 import _root_.play.api.data._, Forms._
@@ -44,14 +44,26 @@ object Application extends Controller {
 
   def crop = Authenticated.async { req =>
     cropSourceForm.bindFromRequest()(req).fold(
-      errors => Future.successful(BadRequest(errors.errorsAsJson)),
-      crop   => createSizings(crop).map(sizings => Ok(cropResponse(crop, sizings)))
+      errors   => Future.successful(BadRequest(errors.errorsAsJson)),
+      cropReq => {
+        createSizings(cropReq).map { case (id, sizings) =>
+          val crops = cropResponse(Crop(cropReq, sizings))
+          val exports = Json.obj(
+            "id" -> id,
+            "data" -> Json.arr(Json.obj("type" -> "crop") ++ crops)
+          )
+
+          Notifications.publish(exports, "update-image-exports")
+
+          Ok(crops)
+        }
+      }
     )
   }
 
   def getCrops(id: String) = Authenticated.async { req =>
     CropStorage.listCrops(id) map (_.toList) map { crops =>
-      val all = crops.map { case (source, sizings) => cropResponse(source, sizings) }
+      val all = crops.map { case (source, sizings) => cropResponse(Crop(source, sizings)) }
 
       val links = for {
         (firstCropSource, _) <- crops.headOption
@@ -65,7 +77,7 @@ object Application extends Controller {
     }
   }
 
-  def createSizings(source: CropSource): Future[List[CropSizing]] =
+  def createSizings(source: CropSource): Future[(String, List[CropSizing])] =
     for {
       apiImage   <- fetchSourceFromApi(source.uri)
       sourceFile <- tempFileFromURL(new URL(apiImage.source.secureUrl), "cropSource", "")
@@ -89,7 +101,7 @@ object Application extends Controller {
       }
       _ <- delete(sourceFile)
     }
-    yield sizings
+    yield (apiSource.id, sizings)
 
   def fetchSourceFromApi(uri: String): Future[SourceImage] =
     for (resp <- WS.url(uri).withHeaders("X-Gu-Media-Key" -> mediaApiKey).get)
@@ -98,12 +110,9 @@ object Application extends Controller {
       resp.json.as[SourceImage]
     }
 
-  def cropResponse(specification: CropSource, assets: List[CropSizing]): JsValue =
-    Json.obj(
-      "specification" -> specification,
-      "assets" -> assets
-    )
+  def cropResponse(crop: Crop): JsObject = Json.toJson(crop).as[JsObject]
 
   def outputFilename(source: SourceImage, bounds: Bounds, outputWidth: Int): String =
     s"${source.id}/${bounds.x}_${bounds.y}_${bounds.width}_${bounds.height}/$outputWidth.jpg"
+
 }
