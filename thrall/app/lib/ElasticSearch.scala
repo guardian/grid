@@ -36,11 +36,11 @@ object ElasticSearch extends ElasticSearchClient {
       .executeAndLog(s"Deleting image $id")
       .incrementOnSuccess(deletedImages)
 
-  def updateImage(id: String, image: JsValue)(implicit ex: ExecutionContext): Future[UpdateResponse] = {
+  def updateImage(id: String, image: JsValue)(implicit ex: ExecutionContext): Future[UpdateResponse] =
     prepareImageUpdate(id)
       .setDoc(image.toString)
       .executeAndLog(s"updating image $id")
-      .incrementOnFailure(conflicts) { case e: VersionConflictEngineException => true }}
+      .incrementOnFailure(conflicts) { case e: VersionConflictEngineException => true }
 
   def updateImageCollection(id: String, collectionName: String, collection: JsValue)(implicit ex: ExecutionContext): Future[UpdateResponse] =
     prepareImageUpdate(id)
@@ -48,7 +48,7 @@ object ElasticSearch extends ElasticSearchClient {
         "collectionName" -> collectionName,
         "collection" -> asGroovy(collection)
       ).asJava)
-      .setScript(s"""if (ctx._source[collectionName] == null) { ctx._source[collectionName] = collection } else { ctx._source[collectionName] += collection }""", scriptType)
+      .setScript(s"if (ctx._source[collectionName] == null) { ctx._source[collectionName] = collection } else { ctx._source[collectionName] += collection }", scriptType)
       .executeAndLog(s"updating collection on image $id")
       .incrementOnFailure(conflicts) { case e: VersionConflictEngineException => true }
 
