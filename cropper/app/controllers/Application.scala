@@ -101,7 +101,7 @@ object Application extends Controller {
       }
       _ <- delete(sourceFile)
     }
-    yield (apiSource.id, sizings)
+    yield (apiImage.id, sizings)
 
   def fetchSourceFromApi(uri: String): Future[SourceImage] =
     for (resp <- WS.url(uri).withHeaders("X-Gu-Media-Key" -> mediaApiKey).get)
