@@ -32,7 +32,8 @@ object Mappings {
         "properties" -> Json.obj(
           "metadata" -> metadataMapping,
           "uploadTime" -> dateFormat,
-          "buckets" -> Json.obj("type" -> "string", "index" -> "not_analyzed", "index_name" -> "bucket")
+          "buckets" -> Json.obj("type" -> "string", "index" -> "not_analyzed", "index_name" -> "bucket"),
+          "archive" -> false
         )
       )
     ))
