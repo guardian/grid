@@ -145,7 +145,7 @@ case class SearchParams(
   orderBy: Option[String],
   fromDate: Option[DateTime],
   toDate: Option[DateTime],
-  archive: Option[Boolean],
+  archived: Option[Boolean],
   buckets: List[String],
   hasMetadata: List[String]
 )
@@ -163,7 +163,7 @@ object SearchParams {
       request.getQueryString("orderBy") orElse request.getQueryString("sortBy"),
       request.getQueryString("fromDate") orElse request.getQueryString("since") flatMap parseDateFromQuery,
       request.getQueryString("toDate") orElse request.getQueryString("until") flatMap parseDateFromQuery,
-      request.getQueryString("archive").map(_ == "true"),
+      request.getQueryString("archived").map(_.toBoolean),
       commaSep("bucket"),
       commaSep("hasMetadata")
     )
