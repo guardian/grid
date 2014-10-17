@@ -1,3 +1,4 @@
+// TODO: Throw errors on invalid query parameters
 package com.gu.mediaservice.lib.elasticsearch
 
 import play.api.libs.json.Json
@@ -33,7 +34,7 @@ object Mappings {
           "metadata" -> metadataMapping,
           "uploadTime" -> dateFormat,
           "buckets" -> Json.obj("type" -> "string", "index" -> "not_analyzed", "index_name" -> "bucket"),
-          "archive" -> false
+          "archived" -> false
         )
       )
     ))
