@@ -47,7 +47,7 @@ class ImageLoader(storage: ImageStorage) extends Controller {
         thumbSize   = thumb.length
         thumbDimensions <- ImageMetadata.dimensions(thumb)
         thumbAsset  = Asset(thumbUri, thumbSize, mimeType, thumbDimensions)
-        image       = Image.uploadedNow(id, uri, uploadedBy, sourceAsset, thumbAsset, metadata, dimensions)
+        image       = Image.uploadedNow(id, uri, uploadedBy, sourceAsset, thumbAsset, metadata, dimensions, false)
       } yield {
         Notifications.publish(Json.toJson(image), "image")
         Accepted(Json.obj("id" -> id))
