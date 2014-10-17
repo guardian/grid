@@ -17,7 +17,7 @@ apiServices.factory('mediaApi',
                 since:  options.since,
                 until:  options.until,
                 length: 50,
-                archive: options.archive
+                archived: options.archived
             },
             withCredentials: true
         }).then(function(response) {
