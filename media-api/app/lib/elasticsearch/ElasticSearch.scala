@@ -54,8 +54,9 @@ object ElasticSearch extends ElasticSearchClient {
     val dateFilter = filters.date(params.fromDate, params.toDate)
     val bucketFilter = params.buckets.toNel.map(filters.terms("buckets", _))
     val metadataFilter = params.hasMetadata.map("metadata." + _).toNel.map(filters.exists)
+    val archiveFilter = params.archive.map(filters.bool("archive", _))
 
-    val filter = (bucketFilter.toList ++ metadataFilter.toList).foldLeft(dateFilter)(filters.and)
+    val filter = (bucketFilter.toList ++ metadataFilter.toList ++ archiveFilter).foldLeft(dateFilter)(filters.and)
 
     val search = prepareImagesSearch.setQuery(query).setPostFilter(filter) |>
                  sorts.parseFromRequest(params.orderBy)
@@ -83,7 +84,7 @@ object ElasticSearch extends ElasticSearchClient {
 
   object filters {
 
-    import FilterBuilders.{rangeFilter, termsFilter, andFilter, existsFilter}
+    import FilterBuilders.{rangeFilter, termsFilter, andFilter, existsFilter, termFilter}
 
     def date(from: Option[DateTime], to: Option[DateTime]): FilterBuilder = {
       val builder = rangeFilter("uploadTime")
@@ -100,6 +101,9 @@ object ElasticSearch extends ElasticSearchClient {
 
     def exists(fields: NonEmptyList[String]): FilterBuilder =
       fields.map(f => existsFilter(f): FilterBuilder).foldRight1(andFilter(_, _))
+
+    def bool(field: String, bool: Boolean): FilterBuilder =
+      termFilter(field, bool)
   }
 
   object sorts {
