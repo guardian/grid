@@ -42,7 +42,7 @@ kahuna.config(['$stateProvider', '$urlRouterProvider',
         templateUrl: templatesDirectory + '/search.html'
     });
     $stateProvider.state('search.results', {
-        url: 'search?query&since&free',
+        url: 'search?query&since&free&archive',
         templateUrl: templatesDirectory + '/search/results.html',
         controller: 'SearchResultsCtrl',
         data: {
@@ -76,6 +76,7 @@ kahuna.controller('SearchQueryCtrl',
     $scope.free = $stateParams.free !== 'false';
     $scope.query = $stateParams.query;
     $scope.since = $stateParams.since;
+    $scope.archive = $stateParams.archive;
 
     // Update state from search filters (skip initialisation step)
     $scope.$watch('query', function(query, oldQuery) {
@@ -93,6 +94,12 @@ kahuna.controller('SearchQueryCtrl',
             $state.go('search.results', {free: free});
         }
     });
+    $scope.$watch('archive', function(archive, oldArchive) {
+        if (archive !== oldArchive) {
+            $state.go('search.results', {archive: archive});
+        }
+    });
+
 
 }]);
 
@@ -105,8 +112,10 @@ kahuna.controller('SearchResultsCtrl',
 
     // FIXME: This is being refreshed by the router. Make it watch a $stateParams collection instead
     // See:   https://github.com/guardian/media-service/pull/64#discussion-diff-17351746L116
+    // FIXME: make addImages generic enough to run on first load so as not to duplicate here
     $scope.searched = mediaApi.search($stateParams.query, {
-        since: $stateParams.since
+        since: $stateParams.since,
+        archive: $stateParams.archive
     }).then(function(images) {
         $scope.images = images;
         // yield so images render before we check if there's more space
@@ -161,7 +170,7 @@ kahuna.controller('SearchResultsCtrl',
             var until = lastImage.data.uploadTime;
             return mediaApi.search($stateParams.query, {
                 until: until,
-                since: $stateParams.since
+                archive: $stateParams.archive
             }).then(function(moreImages) {
                 // Filter out duplicates (esp. on exact same 'until' date)
                 var newImages = moreImages.filter(function(im) {
