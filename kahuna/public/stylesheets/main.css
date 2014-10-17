@@ -303,7 +303,6 @@ a:focus {
 
 .easel__canvas {
     height: calc(100vh - 44px); /* viewport - palette */
-    display: table-cell;
     vertical-align: middle;
 }
 
@@ -311,8 +310,10 @@ a:focus {
     display: block;
     max-height: calc(100vh - 44px); /* viewport - palette */
     max-width: 100%;
-    vertical-align: bottom;
     margin: 0 auto;
+    position: relative;
+    top: 50%;
+    transform: translateY(-50%);
 }
 .easel__image--with-space {
     max-width: calc(100% - 40px);
@@ -440,6 +441,17 @@ a:focus {
     margin: 0 auto;
     max-width: 100%;
     top: 20px;
+    position: relative;
+    top: 50%;
+    transform: translateY(-50%);
+}
+
+.jcrop-holder .easel__image {
+    top: 50% !important;
+}
+
+.jcrop-keymgr {
+    opacity: 0;
 }
 
 
