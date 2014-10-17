@@ -3,6 +3,12 @@ package model
 import play.api.libs.json._
 import play.api.libs.functional.syntax._
 
+case class Crop(specification: CropSource, assets: List[CropSizing])
+
+object Crop {
+  implicit val cropWrites: Writes[Crop] = Json.writes[Crop]
+}
+
 case class CropSizing(file: String, dimensions: Dimensions)
 
 object CropSizing {
@@ -12,7 +18,7 @@ object CropSizing {
 case class CropSource(uri: String, bounds: Bounds, aspectRatio: Option[String])
 
 object CropSource {
-  implicit val cropWrites: Writes[CropSource] = Json.writes[CropSource]
+  implicit val cropSourceWrites: Writes[CropSource] = Json.writes[CropSource]
 }
 
 case class Dimensions(width: Int, height: Int)
