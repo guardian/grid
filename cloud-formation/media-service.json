@@ -1349,8 +1349,7 @@
                         "import json\n",
                         "import sys\n",
                         "resp = json.load(sys.stdin)\n",
-                        "for img in resp['data']:\n",
-                        "  if img.get('archived') != True: print img['uri']\n",
+                        "for img in resp['data']: print img['uri']\n",
                         "EOF\n",
 
                         "MEDIA_API=https://", { "Fn::GetAtt": ["MediaApiLoadBalancer", "DNSName"] } ,"\n",
