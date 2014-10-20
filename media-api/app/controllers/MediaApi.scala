@@ -105,8 +105,8 @@ object MediaApi extends Controller {
     def addUsageCost(copyright: Option[String]): Reads[JsObject] =
       __.json.update(__.read[JsObject].map(_ ++ Json.obj("cost" -> ImageUse.getCost(copyright))))
 
-    def addSecureImageUrl(url: String): Reads[JsObject] =
-      __.json.update(__.read[JsObject].map(_ ++ Json.obj("secureUrl" -> url)))
+    def addSecureSourceUrl(url: String): Reads[JsObject] =
+      (__ \ "source").json.update(__.read[JsObject].map(_ ++ Json.obj("secureUrl" -> url)))
 
     def addSecureThumbUrl(url: String): Reads[JsObject] =
       (__ \ "thumbnail").json.update(__.read[JsObject].map (_ ++ Json.obj("secureUrl" -> url)))
