@@ -36,20 +36,19 @@ object ElasticSearch extends ElasticSearchClient {
       .executeAndLog(s"Deleting image $id")
       .incrementOnSuccess(deletedImages)
 
-  def updateImage(id: String, image: JsValue)(implicit ex: ExecutionContext): Future[UpdateResponse] = {
-    prepareImageUpdate(id)
-      .setDoc(image.toString)
-      .executeAndLog(s"updating image $id")
-      .incrementOnFailure(conflicts) { case e: VersionConflictEngineException => true }}
-
-  def updateImageCollection(id: String, collectionName: String, collection: JsValue)(implicit ex: ExecutionContext): Future[UpdateResponse] =
+  def updateImageExports(id: String, exports: JsValue)(implicit ex: ExecutionContext): Future[UpdateResponse] =
     prepareImageUpdate(id)
       .setScriptParams(Map(
-        "collectionName" -> collectionName,
-        "collection" -> asGroovy(collection)
+        "exports" -> asGroovy(exports)
       ).asJava)
-      .setScript(s"""if (ctx._source[collectionName] == null) { ctx._source[collectionName] = collection } else { ctx._source[collectionName] += collection }""", scriptType)
-      .executeAndLog(s"updating collection on image $id")
+      .setScript(
+        s"""ctx._source.archived = true;
+           |if (ctx._source.exports == null) {
+           |  ctx._source.exports = exports;
+           |} else {
+           |  ctx._source.exports += exports;
+           |}""".stripMargin, scriptType)
+      .executeAndLog(s"updating exports on image $id")
       .incrementOnFailure(conflicts) { case e: VersionConflictEngineException => true }
 
   def prepareImageUpdate(id: String): UpdateRequestBuilder =
