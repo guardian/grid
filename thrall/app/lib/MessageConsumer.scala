@@ -1,5 +1,7 @@
 package lib
 
+import org.elasticsearch.action.deletebyquery.DeleteByQueryResponse
+
 import scala.collection.JavaConverters._
 import scala.concurrent.{Future, ExecutionContext}
 import scala.concurrent.duration._
@@ -79,7 +81,7 @@ object MessageConsumer {
       }
     }
 
-  def deleteImage(image: JsValue): Future[DeleteResponse] =
+  def deleteImage(image: JsValue): Future[DeleteByQueryResponse] =
     withImageId(image) { id =>
       val future = ElasticSearch.deleteImage(id)
       future.onSuccess { case _ =>
