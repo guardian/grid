@@ -25,7 +25,7 @@ fi
 TARGET_BASE_URL="https://loader.media.$TARGET_ENV.dev-***REMOVED***"
 
 curl -H "X-Gu-Media-Key: $DEV_INGEST_KEY" https://api.media.***REMOVED***/images?length=$LENGTH \
-    | jq '.data[].data.secureUrl' \
+    | jq '.data[].data.source.secureUrl' \
     | cut -d '"' -f2 \
     | while read url
 do
