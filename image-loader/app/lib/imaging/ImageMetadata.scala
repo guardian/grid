@@ -44,17 +44,6 @@ object ImageMetadata {
       }
     }
 
-  def dimensions(image: File): Future[Option[Dimensions]] =
-    for {
-      metadata <- readMetadata(image)
-    }
-    yield {
-      for {
-        jpegDir <- Option(metadata.getDirectory(classOf[JpegDirectory]))
-      }
-      yield Dimensions(jpegDir.getImageWidth, jpegDir.getImageHeight)
-    }
-
   private def nonEmptyTrimmed(nullableStr: String): Option[String] =
     Option(nullableStr) map (_.trim) filter (_.nonEmpty)
 

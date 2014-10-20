@@ -87,7 +87,7 @@ object MediaApi extends Controller {
       val secureUrl = S3Client.signUrl(Config.imageBucket, id, expiration)
       val secureThumbUrl = S3Client.signUrl(Config.thumbBucket, id, expiration)
       val credit = (source \ "metadata" \ "credit").as[Option[String]]
-      val image = source.transform(transformers.addSecureImageUrl(secureUrl))
+      val image = source.transform(transformers.addSecureSourceUrl(secureUrl))
         .flatMap(_.transform(transformers.addSecureThumbUrl(secureThumbUrl)))
         .flatMap(_.transform(transformers.addUsageCost(credit))).get
 
