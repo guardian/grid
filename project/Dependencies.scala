@@ -54,7 +54,12 @@ object Dependencies {
 
   val uriTemplateDeps = Seq("no.arktekk" %% "uri-template" % "1.0.1")
 
-  val groovyDeps = Seq("org.codehaus.groovy" % "groovy-json" % "2.3.7")
+  // The `updatebyquery` plugin is potentially a polyfill as it looks like there is the intention of adding this
+  // See: https://github.com/yakaz/elasticsearch-action-updatebyquery
+  val elasticSearchClientDeps = Seq(
+    "org.codehaus.groovy" % "groovy-json" % "2.3.7",
+    "com.yakaz.elasticsearch.plugins" % "elasticsearch-action-updatebyquery" % "2.2.0"
+  )
 
   implicit class DependencySyntax(self: Project) {
 

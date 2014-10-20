@@ -29,6 +29,7 @@ then
     ./bin/plugin -install elasticsearch/elasticsearch-cloud-aws/2.3.0
     ./bin/plugin -install lukas-vlcek/bigdesk
     ./bin/plugin -install karmi/elasticsearch-paramedic
+    ./bin/plugin -install com.yakaz.elasticsearch.plugins/elasticsearch-action-updatebyquery/2.2.0
     echo "Done"
     echo "Start it with $ELASTICSEARCH_DIR/dev-start.sh"
 else
