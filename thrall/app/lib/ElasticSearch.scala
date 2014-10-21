@@ -5,11 +5,13 @@ import scala.collection.convert.decorateAll._
 import org.elasticsearch.client.UpdateByQueryClientWrapper
 import org.elasticsearch.action.index.IndexResponse
 import org.elasticsearch.action.update.{UpdateResponse, UpdateRequestBuilder}
-import org.elasticsearch.action.delete.DeleteResponse
+import org.elasticsearch.action.deletebyquery.DeleteByQueryResponse
 import org.elasticsearch.action.updatebyquery.UpdateByQueryResponse
 import org.elasticsearch.index.query.QueryBuilders.matchAllQuery
 import org.elasticsearch.index.engine.VersionConflictEngineException
 import org.elasticsearch.script.ScriptService
+import org.elasticsearch.index.query.QueryBuilders.{filteredQuery, matchQuery}
+import org.elasticsearch.index.query.FilterBuilders.queryFilter
 import groovy.json.JsonSlurper
 import _root_.play.api.libs.json.{Json, JsValue}
 
@@ -36,8 +38,10 @@ object ElasticSearch extends ElasticSearchClient {
       .executeAndLog(s"Indexing image $id")
       .incrementOnSuccess(indexedImages)
 
-  def deleteImage(id: String)(implicit ex: ExecutionContext): Future[DeleteResponse] =
-    client.prepareDelete(imagesIndex, imageType, id)
+  def deleteImage(id: String)(implicit ex: ExecutionContext): Future[DeleteByQueryResponse] =
+    client.prepareDeleteByQuery(imagesIndex)
+      .setTypes(imageType)
+      .setQuery(filteredQuery(matchQuery("_id", id), queryFilter(matchQuery("archived", false))))
       .executeAndLog(s"Deleting image $id")
       .incrementOnSuccess(deletedImages)
 
