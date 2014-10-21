@@ -27,7 +27,7 @@ object Build extends Build {
     .testDependencies(scalaCheckDeps)
 
   val thrall = playProject("thrall")
-    .libraryDependencies(elasticsearchDeps ++ awsDeps ++ scalazDeps ++ groovyDeps)
+    .libraryDependencies(elasticsearchDeps ++ awsDeps ++ scalazDeps ++ elasticSearchClientDeps)
 
   val kahuna = playProject("kahuna")
     .libraryDependencies(playWsDeps)
