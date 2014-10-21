@@ -7,6 +7,7 @@ import org.elasticsearch.action.index.IndexResponse
 import org.elasticsearch.action.update.{UpdateResponse, UpdateRequestBuilder}
 import org.elasticsearch.action.deletebyquery.DeleteByQueryResponse
 import org.elasticsearch.action.updatebyquery.UpdateByQueryResponse
+import org.elasticsearch.index.query.QueryBuilders.matchAllQuery
 import org.elasticsearch.index.engine.VersionConflictEngineException
 import org.elasticsearch.script.ScriptService
 import org.elasticsearch.index.query.QueryBuilders.{filteredQuery, matchQuery}
@@ -66,7 +67,10 @@ object ElasticSearch extends ElasticSearchClient {
   def updateByQuery(script: String)(implicit ex: ExecutionContext): Future[UpdateByQueryResponse] =
     updateByQueryClient
       .prepareUpdateByQuery()
-      .setQuery(matchQuery("_type", imageType))
+      .setScriptLang("groovy")
+      .setIndices(imagesIndex)
+      .setTypes(imageType)
+      .setQuery(matchAllQuery)
       .setScript(script)
       .executeAndLog("Running update by query script")
       .incrementOnFailure(conflicts) { case e: VersionConflictEngineException => true }
