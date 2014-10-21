@@ -2,9 +2,12 @@ package lib
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.collection.convert.decorateAll._
+import org.elasticsearch.client.UpdateByQueryClientWrapper
 import org.elasticsearch.action.index.IndexResponse
 import org.elasticsearch.action.update.{UpdateResponse, UpdateRequestBuilder}
 import org.elasticsearch.action.delete.DeleteResponse
+import org.elasticsearch.action.updatebyquery.UpdateByQueryResponse
+import org.elasticsearch.index.query.QueryBuilders.matchQuery
 import org.elasticsearch.index.engine.VersionConflictEngineException
 import org.elasticsearch.script.ScriptService
 import groovy.json.JsonSlurper
@@ -23,6 +26,8 @@ object ElasticSearch extends ElasticSearchClient {
   val cluster = Config("es.cluster")
 
   val scriptType = ScriptService.ScriptType.valueOf("INLINE")
+
+  lazy val updateByQueryClient = new UpdateByQueryClientWrapper(client)
 
   def indexImage(id: String, image: JsValue)(implicit ex: ExecutionContext): Future[IndexResponse] =
     client.prepareIndex(imagesIndex, imageType, id)
@@ -55,6 +60,14 @@ object ElasticSearch extends ElasticSearchClient {
     client.prepareUpdate(imagesIndex, imageType, id)
       .setScriptLang("groovy")
 
+  def updateByQuery(script: String)(implicit ex: ExecutionContext): Future[UpdateByQueryResponse] =
+    updateByQueryClient
+      .prepareUpdateByQuery()
+      .setQuery(matchQuery("_type", imageType))
+      .setScript(script)
+      .executeAndLog("Running update by query script")
+      .incrementOnFailure(conflicts) { case e: VersionConflictEngineException => true }
+
   def addImageToBucket(id: String, bucket: String)(implicit ex: ExecutionContext): Future[UpdateResponse] =
     prepareImageUpdate(id)
       .addScriptParam("bucket", bucket)
@@ -70,4 +83,5 @@ object ElasticSearch extends ElasticSearchClient {
       .incrementOnFailure(conflicts) { case e: VersionConflictEngineException => true }
 
   def asGroovy(collection: JsValue) = new JsonSlurper().parseText(collection.toString)
+
 }
