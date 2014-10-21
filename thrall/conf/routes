@@ -10,4 +10,6 @@ GET     /management/healthcheck     controllers.HealthCheck.healthCheck
 GET     /management/manifest        com.gu.mediaservice.lib.management.Management.manifest
 
 # Scripts that should be retired once they've served their purpose
-GET     /script/add-archive-property    controllers.Application.addArchivePropertyScript
+GET     /script/add-archive-property        controllers.Application.addArchivePropertyScript
+GET     /script/copy-to-source-property     controllers.Application.copyToSourcePropertyScript
+GET     /script/remove-file-dims-properties controllers.Application.removeFileDimensionsPropertiesScript
