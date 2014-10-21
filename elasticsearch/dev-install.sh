@@ -1,6 +1,6 @@
 #!/bin/sh
 
-ELASTICSEARCH_VERSION=1.3.2
+ELASTICSEARCH_VERSION=1.3.4
 ELASTICSEARCH_DIR=$(dirname $0)
 
 if [ -d "$ELASTICSEARCH_DIR/elasticsearch" ]; then
@@ -29,6 +29,7 @@ then
     ./bin/plugin -install elasticsearch/elasticsearch-cloud-aws/2.3.0
     ./bin/plugin -install lukas-vlcek/bigdesk
     ./bin/plugin -install karmi/elasticsearch-paramedic
+    ./bin/plugin -install com.yakaz.elasticsearch.plugins/elasticsearch-action-updatebyquery/2.2.0
     echo "Done"
     echo "Start it with $ELASTICSEARCH_DIR/dev-start.sh"
 else

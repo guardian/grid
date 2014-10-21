@@ -68,18 +68,8 @@ object MessageConsumer {
   def indexImage(image: JsValue): Future[IndexResponse] =
     withImageId(image)(id => ElasticSearch.indexImage(id, image))
 
-  def updateImage(image: JsValue): Future[UpdateResponse] =
-    withImageId(image)(id => ElasticSearch.updateImage(id, image))
-
   def updateImageExports(exports: JsValue): Future[UpdateResponse] =
-    withImageId(exports) { id =>
-      for {
-        exportsAdded <- ElasticSearch.updateImageCollection(id, "exports", exports \ "data")
-        archived <- ElasticSearch.updateImage(id, Json.obj("archived" -> true))
-      } yield {
-        archived
-      }
-    }
+    withImageId(exports)(id => ElasticSearch.updateImageExports(id, exports \ "data"))
 
   def deleteImage(image: JsValue): Future[DeleteByQueryResponse] =
     withImageId(image) { id =>
