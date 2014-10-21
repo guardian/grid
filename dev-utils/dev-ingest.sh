@@ -25,7 +25,7 @@ fi
 TARGET_BASE_URL="https://loader.media.$TARGET_ENV.dev-gutools.co.uk"
 
 curl -H "X-Gu-Media-Key: $DEV_INGEST_KEY" https://api.media.gutools.co.uk/images?length=$LENGTH \
-    | jq '.data[].data.secureUrl' \
+    | jq '.data[].data.source.secureUrl' \
     | cut -d '"' -f2 \
     | while read url
 do
