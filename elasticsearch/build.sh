@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-ELASTICSEARCH_VERSION=1.3.2
+ELASTICSEARCH_VERSION=1.3.4
 ELASTICSEARCH_DIR=$(dirname $0)
 TARGET=$ELASTICSEARCH_DIR/target
 
@@ -19,6 +19,7 @@ then
     ./downloads/elasticsearch/bin/plugin -install mobz/elasticsearch-head
     ./downloads/elasticsearch/bin/plugin -install lukas-vlcek/bigdesk
     ./downloads/elasticsearch/bin/plugin -install karmi/elasticsearch-paramedic
+    ./downloads/elasticsearch/bin/plugin -install com.yakaz.elasticsearch.plugins/elasticsearch-action-updatebyquery/2.2.0
     cp ../elasticsearch.yml downloads/elasticsearch/config
     cp ../logging.yml downloads/elasticsearch/config
     cp ../elasticsearch.conf downloads
