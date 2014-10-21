@@ -87,10 +87,8 @@ object MediaApi extends Controller {
       val secureUrl = S3Client.signUrl(Config.imageBucket, id, expiration)
       val secureThumbUrl = S3Client.signUrl(Config.thumbBucket, id, expiration)
       val credit = (source \ "metadata" \ "credit").as[Option[String]]
-      val image = source.transform(transformers.addSecureImageUrl(secureUrl))
+      val image = source.transform(transformers.addSecureSourceUrl(secureUrl))
         .flatMap(_.transform(transformers.addSecureThumbUrl(secureThumbUrl)))
-        .flatMap(_.transform(transformers.addSource))
-        .flatMap(_.transform(transformers.removeSourceFromRoot))
         .flatMap(_.transform(transformers.addUsageCost(credit))).get
 
       // FIXME: don't hardcode paths from other APIs - once we're
@@ -104,24 +102,11 @@ object MediaApi extends Controller {
 
   object transformers {
 
-    // TODO: once the client has been migrated, remove the fields from the root object
-    def addSource: Reads[JsObject] =
-      __.json.update(__.read[JsObject].map(obj => obj ++
-        Json.obj("source" -> Json.obj(
-          "file"       -> (obj \ "file"),
-          "dimensions" -> (obj \ "dimensions"),
-          "secureUrl"  -> (obj \ "secureUrl")
-        ))
-      ))
-
-    def removeSourceFromRoot: Reads[JsObject] =
-      ((__ \ "file")).json.prune andThen (__ \ "dimensions").json.prune andThen (__ \ "secureUrl").json.prune
-
     def addUsageCost(copyright: Option[String]): Reads[JsObject] =
       __.json.update(__.read[JsObject].map(_ ++ Json.obj("cost" -> ImageUse.getCost(copyright))))
 
-    def addSecureImageUrl(url: String): Reads[JsObject] =
-      __.json.update(__.read[JsObject].map(_ ++ Json.obj("secureUrl" -> url)))
+    def addSecureSourceUrl(url: String): Reads[JsObject] =
+      (__ \ "source").json.update(__.read[JsObject].map(_ ++ Json.obj("secureUrl" -> url)))
 
     def addSecureThumbUrl(url: String): Reads[JsObject] =
       (__ \ "thumbnail").json.update(__.read[JsObject].map (_ ++ Json.obj("secureUrl" -> url)))
