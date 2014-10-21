@@ -84,7 +84,8 @@ object MessageConsumer {
   def deleteImage(image: JsValue): Future[DeleteByQueryResponse] =
     withImageId(image) { id =>
       val future = ElasticSearch.deleteImage(id)
-      future.onSuccess { case _ =>
+      future.onSuccess { case t =>
+        // TODO: Catch if there were no hits in the query and give feedback
         S3ImageStorage.deleteImage(id)
         S3ImageStorage.deleteThumbnail(id)
       }

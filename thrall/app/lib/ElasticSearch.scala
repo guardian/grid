@@ -33,12 +33,12 @@ object ElasticSearch extends ElasticSearchClient {
       .executeAndLog(s"Indexing image $id")
       .incrementOnSuccess(indexedImages)
 
-  def deleteImage(id: String)(implicit ex: ExecutionContext): Future[DeleteByQueryResponse] = {
+  def deleteImage(id: String)(implicit ex: ExecutionContext): Future[DeleteByQueryResponse] =
     client.prepareDeleteByQuery(imagesIndex)
       .setTypes(imageType)
       .setQuery(filteredQuery(matchQuery("_id", id), queryFilter(matchQuery("archived", false))))
       .executeAndLog(s"Deleting image $id")
-      .incrementOnSuccess(deletedImages)}
+      .incrementOnSuccess(deletedImages)
 
   def updateImage(id: String, image: JsValue)(implicit ex: ExecutionContext): Future[UpdateResponse] =
     prepareImageUpdate(id)
