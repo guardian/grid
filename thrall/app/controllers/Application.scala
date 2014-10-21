@@ -29,6 +29,13 @@ object Application extends Controller {
     runScript("if (!ctx._source.archived) { ctx._source.archived = false }")
   }
 
+  def copyAndRemoveArchiveToArchived = Action.async {
+    runScript("""if (ctx._source.archive != null) {
+                     ctx._source.archived = ctx._source.archive;
+                     ctx._source.remove("archive");
+              }""")
+  }
+
   def copyToSourcePropertyScript = Action.async {
     runScript(s"""if (ctx._source.source == null) {
                       ctx._source.source = [:];
