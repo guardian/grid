@@ -30,7 +30,6 @@ object Image {
                   source: Asset,
                   thumbnail: Asset,
                   metadata: Option[ImageMetadata],
-                  dimensions: Option[Dimensions],
                   archived: Boolean): Image =
     Image(id, DateTime.now, uploadedBy, source, Some(thumbnail), metadata, archived)
 
