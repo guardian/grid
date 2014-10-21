@@ -46,8 +46,8 @@ object Application extends Controller {
   }
 
   def removeFileDimensionsPropertiesScript = Action.async {
-    runScript(s"""if (!ctx._source.file)       { ctx._source.remove('file'); }
-                  if (!ctx._source.dimensions) { ctx._source.remove('dimensions'); }""")
+    runScript(s"""if (ctx._source.file)       { ctx._source.remove('file'); }
+                  if (ctx._source.dimensions) { ctx._source.remove('dimensions'); }""")
   }
 
 }
