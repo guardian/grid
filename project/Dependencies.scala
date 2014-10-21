@@ -19,7 +19,7 @@ object Dependencies {
       exclude ("oauth.signpost", "signpost-commonshttp4")
   )
 
-  val elasticsearchVersion = "1.3.2"
+  val elasticsearchVersion = "1.3.4"
 
   val elasticsearchDeps = Seq("org.elasticsearch" % "elasticsearch" % elasticsearchVersion)
 
