@@ -71,6 +71,7 @@
         <!-- TODO: As this loads async, add a loader -->
         <div class="easel__canvas">
             <a draggable="true"
+               class="easel__image-container"
                ng:if="crop"
                ng:init="extremeAssets = (crop | getExtremeAssets)"
                ui:sref="{crop: cropKey}"

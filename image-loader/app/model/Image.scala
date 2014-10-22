@@ -27,14 +27,13 @@ case class Image(id: String,
 object Image {
 
   def uploadedNow(id: String,
-                  file: URI,
                   uploadedBy: Option[String],
                   source: Asset,
                   thumbnail: Asset,
                   fileMetadata: FileMetadata,
                   metadata: Option[ImageMetadata],
                   archived: Boolean): Image =
-    Image(id, file, DateTime.now, uploadedBy, source, Some(thumbnail), fileMetadata, metadata, archived)
+    Image(id, DateTime.now, uploadedBy, source, Some(thumbnail), fileMetadata, metadata, archived)
 
   implicit val IptcMetadataWrites: Writes[ImageMetadata] =
     ((__ \ "description").writeNullable[String] ~
