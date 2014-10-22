@@ -11,3 +11,5 @@ mappings:
     domain-root: local.dev-***REMOVED***
   - prefix: cropper
     port: 9006
+  - prefix: editor
+    port: 9007
