@@ -1,5 +1,7 @@
 package lib
 
+import org.elasticsearch.action.deletebyquery.DeleteByQueryResponse
+
 import scala.collection.JavaConverters._
 import scala.concurrent.{Future, ExecutionContext}
 import scala.concurrent.duration._
@@ -69,10 +71,11 @@ object MessageConsumer {
   def updateImageExports(exports: JsValue): Future[UpdateResponse] =
     withImageId(exports)(id => ElasticSearch.updateImageExports(id, exports \ "data"))
 
-  def deleteImage(image: JsValue): Future[DeleteResponse] =
+  def deleteImage(image: JsValue): Future[DeleteByQueryResponse] =
     withImageId(image) { id =>
       val future = ElasticSearch.deleteImage(id)
-      future.onSuccess { case _ =>
+      future.onSuccess { case t =>
+        // TODO: Catch if there were no hits in the query and give feedback
         S3ImageStorage.deleteImage(id)
         S3ImageStorage.deleteThumbnail(id)
       }
