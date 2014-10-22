@@ -306,6 +306,11 @@ a:focus {
     vertical-align: middle;
 }
 
+.easel__image-container {
+    display: block;
+    height: 100%;
+}
+
 .easel__image {
     display: block;
     max-height: calc(100vh - 44px); /* viewport - palette */
