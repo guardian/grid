@@ -41,8 +41,8 @@ object ElasticSearch extends ElasticSearchClient {
   def getImageById(id: Id)(implicit ex: ExecutionContext): Future[Option[JsValue]] =
     prepareGet(id).executeAndLog(s"get image by id $id") map (_.sourceOpt)
 
-  val matchFields: Seq[String] =
-    Seq("description", "title", "byline", "source", "credit", "keywords", "city", "country").map("metadata." + _)
+  val matchFields: Seq[String] = Seq("id") ++
+    Seq("description", "title", "byline", "source", "credit", "keywords", "city", "country", "suppliersReference").map("metadata." + _)
 
   def search(params: SearchParams)(implicit ex: ExecutionContext): Future[SearchResults] = {
 
