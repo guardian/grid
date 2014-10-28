@@ -135,30 +135,17 @@ a:focus {
     95% {}
     100% { transform: rotateY(360deg); }
 }
-.logout {
-    background: #999;
-    top: 0;
-    color: white;
-    font-family: "Guardian Agate Sans 1 Web";
-    font-size: 1.2rem;
-    opacity: .5;
-    padding: 5px 10px;
-    position: absolute;
-    right: 0;
-    z-index: 10;
-}
-.logout:hover {
-    opacity: 1;
-}
+
 
 /* ==========================================================================
-   Search
+   Top bar
    ========================================================================== */
-.search-container {
+
+.top-bar {
     height: 47px; /* faking we're in the flow */
 }
 
-.search {
+.top-bar__container {
     background-color: #ccc;
     box-sizing: border-box;
     padding: 10px;
@@ -168,6 +155,33 @@ a:focus {
     z-index: 1;
     box-shadow: 0px 1px 5px #999;
 }
+
+.top-bar__search {
+    float: left;
+}
+
+.top-bar__controls {
+    float: right;
+}
+
+.top-bar__control {
+    margin-left: 10px;
+    display: inline-block;
+    vertical-align: middle;
+}
+
+.logout {
+    font-family: "Guardian Agate Sans 1 Web";
+    font-size: 1.2rem;
+    padding: 5px 10px;
+}
+
+
+/* ==========================================================================
+   Search
+   ========================================================================== */
+
+.search {}
 
 .search__control {
     margin-right: 10px;
@@ -183,8 +197,20 @@ a:focus {
 
 
 /* ==========================================================================
+   File uploader
+   ========================================================================== */
+
+.file-uploader {}
+
+.file-uploader__file {
+    display: none;
+}
+
+
+/* ==========================================================================
    Results
    ========================================================================== */
+
 .results {
     display: flex;
     flex-wrap: wrap;
@@ -292,6 +318,7 @@ a:focus {
 /* ==========================================================================
    Full Image / crop
    ========================================================================== */
+
 .easel {
     background: #333;
     display: block;
@@ -425,6 +452,7 @@ a:focus {
 /* ==========================================================================
    Drag 'n Drop
    ========================================================================== */
+
 .buckets {
     position: fixed;
     top: 40px;
@@ -441,6 +469,7 @@ a:focus {
 /* ==========================================================================
    jCrop
    ========================================================================== */
+
 
 .jcrop-holder {
     margin: 0 auto;
