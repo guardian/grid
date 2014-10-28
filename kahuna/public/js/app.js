@@ -279,18 +279,48 @@ kahuna.controller('ImageCropCtrl',
 
 }]);
 
-kahuna.controller('UploadCtrl', ['$http', 'loaderApi', function($http, loaderApi) {
+kahuna.controller('UploadCtrl', ['$http', '$q', '$window', 'loaderApi', function($http, $q, $window, loaderApi) {
+    var uploader = this; // TODO: No!
+
     this.files = [];
-    this.uploadFiles = function(files) {
-        files.forEach((file) => {
+    this.loading = false;
+    this.uploadFiles = uploadFiles;
+
+    // TODO: User feedback should say what has failed and what has not (Generators?)
+    function uploadFiles(files) {
+        uploader.loading = true;
+        var uploads = files.map(function(file) {
             var reader = new FileReader();
-            reader.addEventListener('load', (event) => uploadFile(event.target.result));
+            var def = $q.defer();
+
+            reader.addEventListener('load', function(event) {
+                uploadFile(event.target.result).then(
+                    (r) => def.resolve(r),
+                    (r) => def.reject(r)
+                );
+            });
             reader.readAsArrayBuffer(file);
+
+            return def.promise;
         });
+
+        $q.all(uploads).then(uploadSuccess, uploadFailure)
+            .finally(() => uploader.loading = false);
     };
 
     function uploadFile(file) {
-        loaderApi.load(new Uint8Array(file));
+        return loaderApi.load(new Uint8Array(file));
+    }
+
+    // TODO: Poll to see when images are available and add them
+    // (could be introduced if we add a "10 new images added" twitter style update)
+    function uploadSuccess() {
+        $window.alert('Files uploaded. Please refresh to see them');
+    }
+
+    // TODO: Universal messaging system?
+    function uploadFailure() {
+        $window.alert('There were errors uploading some / all of your files');
     }
 }]);
 

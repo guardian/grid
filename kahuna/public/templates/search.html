@@ -1,3 +1,4 @@
+<!-- TODO: rename this file and split it into it's components -->
 <div class="top-bar">
     <div class="top-bar__container">
         <form ng:controller="SearchQueryCtrl"
@@ -49,7 +50,8 @@
                        ui:file ui:file-change="uploader.uploadFiles" />
 
                 <button class="button file-uploader__select-files"
-                        name="button" type="button">upload</button>
+                        name="button" type="button"
+                        ng:disabled="uploader.loading">upload<span ng:show="uploader.loading">ing…</span></button>
             </form>
 
             <a class="logout top-bar__control" href="/logout" target="_self">Logout</a>
