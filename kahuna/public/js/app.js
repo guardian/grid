@@ -5,6 +5,7 @@ import angular from 'angular';
 import 'angular-ui-router';
 import 'services/api/media-api';
 import 'services/api/media-cropper';
+import 'services/api/loader';
 import 'directives/ui-crop-box';
 
 var apiLink = document.querySelector('link[rel="media-api-uri"]');
@@ -278,6 +279,21 @@ kahuna.controller('ImageCropCtrl',
 
 }]);
 
+kahuna.controller('UploadCtrl', ['$http', 'loaderApi', function($http, loaderApi) {
+    this.files = [];
+    this.uploadFiles = function(files) {
+        files.forEach((file) => {
+            var reader = new FileReader();
+            reader.addEventListener('load', (event) => uploadFile(event.target.result));
+            reader.readAsArrayBuffer(file);
+        });
+    };
+
+    function uploadFile(file) {
+        loaderApi.load(new Uint8Array(file));
+    }
+}]);
+
 // Create the key form the bounds as that's what we have in S3
 kahuna.filter('getCropKey', function() {
     return function(crop) {
@@ -492,7 +508,7 @@ kahuna.directive('uiForgetWindowScroll',
                  ['$window', '$timeout',
                   function($window, $timeout) {
     return {
-        restric: 'A',
+        restrict: 'A',
         link: function(scope, element, attrs) {
             scope[attrs.uiForgetWindowScroll].finally(function() {
                 // FIXME: even if this is a hack, using timeout as the DOM
@@ -505,5 +521,33 @@ kahuna.directive('uiForgetWindowScroll',
         }
     };
 }]);
+
+kahuna.directive('uiFileSelector', function() {
+    return {
+        restrict: 'A',
+        link: function(scope, element, attrs) {
+            var el = element[0];
+            el.elements[attrs.uiFileSelectorButton]
+                .addEventListener('click', function(event) {
+                    event.preventDefault();
+                    el.elements[attrs.uiFileSelectorFile].click();
+                });
+        }
+    };
+});
+
+kahuna.directive('uiFile', function() {
+    return {
+        restrict: 'A',
+        scope: {
+            onchange: '&uiFileChange'
+        },
+        link: function(scope, element, attrs) {
+            element.on('change', function() {
+                scope.onchange()(Array.from(element[0].files));
+            });
+        }
+    };
+});
 
 angular.bootstrap(document, ['kahuna']);
