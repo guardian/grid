@@ -20,8 +20,16 @@ object Application extends ImageLoader(S3ImageStorage)
 
 class ImageLoader(storage: ImageStorage) extends Controller {
 
+  val rootUri = Config.rootUri
+
   def index = Action {
-    Ok("This is the Image Loader API.\n")
+    val response = Json.obj(
+      "data"  -> Json.obj("description" -> "This is the Loader Service"),
+      "links" -> Json.arr(
+        Json.obj("rel" -> "load", "href" -> s"$rootUri/images")
+      )
+    )
+    Ok(response)
   }
 
   def loadImage = Action.async(digestedFile(createTempFile)) { request =>
