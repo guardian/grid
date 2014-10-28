@@ -89,6 +89,7 @@ object MediaApi extends Controller {
       val credit = (source \ "metadata" \ "credit").as[Option[String]]
       val image = source.transform(transformers.addSecureSourceUrl(secureUrl))
         .flatMap(_.transform(transformers.addSecureThumbUrl(secureThumbUrl)))
+        .flatMap(_.transform(transformers.removeFileData))
         .flatMap(_.transform(transformers.addUsageCost(credit))).get
 
       // FIXME: don't hardcode paths from other APIs - once we're
@@ -104,6 +105,9 @@ object MediaApi extends Controller {
 
     def addUsageCost(copyright: Option[String]): Reads[JsObject] =
       __.json.update(__.read[JsObject].map(_ ++ Json.obj("cost" -> ImageUse.getCost(copyright))))
+
+    def removeFileData: Reads[JsObject] =
+      (__ \ "fileMetadata").json.prune
 
     def addSecureSourceUrl(url: String): Reads[JsObject] =
       (__ \ "source").json.update(__.read[JsObject].map(_ ++ Json.obj("secureUrl" -> url)))
