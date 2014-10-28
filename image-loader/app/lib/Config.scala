@@ -1,10 +1,10 @@
 package lib
 
 import com.amazonaws.auth.{BasicAWSCredentials, AWSCredentials}
-import com.gu.mediaservice.lib.config.Properties
+import com.gu.mediaservice.lib.config.{CommonPlayAppProperties, Properties}
 
 
-object Config {
+object Config extends CommonPlayAppProperties {
 
   val properties = Properties.fromPath("/etc/gu/image-loader.properties")
 
@@ -22,5 +22,7 @@ object Config {
   val thumbWidth: Int = 256
 
   val imagickThreadPoolSize = 4
+
+  lazy val corsAllowedOrigin: String = services.kahunaBaseUri
 
 }
