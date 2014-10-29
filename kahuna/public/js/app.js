@@ -306,7 +306,7 @@ kahuna.controller('UploadCtrl', ['$http', '$q', '$window', 'loaderApi', function
 
         $q.all(uploads).then(uploadSuccess, uploadFailure)
             .finally(() => uploader.loading = false);
-    };
+    }
 
     function uploadFile(file) {
         return loaderApi.load(new Uint8Array(file));
