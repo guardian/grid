@@ -50,6 +50,7 @@ object MessageConsumer {
       case "image"                    => indexImage
       case "delete-image"             => deleteImage
       case "update-image-exports"     => updateImageExports
+      case "update-image-user-metadata" => updateImageUserMetadata
     }
 
   def deleteOnSuccess(msg: SQSMessage)(f: Future[Any]): Unit =
@@ -67,6 +68,11 @@ object MessageConsumer {
 
   def updateImageExports(exports: JsValue): Future[UpdateResponse] =
     withImageId(exports)(id => ElasticSearch.updateImageExports(id, exports \ "data"))
+
+  def updateImageUserMetadata(metadata: JsValue): Future[UpdateResponse] = {
+    println("metadata", metadata)
+    withImageId(metadata)(id => ElasticSearch.updateImageUserMetadata(id, metadata \ "data"))
+  }
 
   def deleteImage(image: JsValue): Future[DeleteByQueryResponse] =
     withImageId(image) { id =>
