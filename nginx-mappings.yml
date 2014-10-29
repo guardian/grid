@@ -1,15 +1,12 @@
 name: media-service
-domain-root: media.local.dev-***REMOVED***
 mappings:
-  - prefix: api
+  - prefix: api.media
     port: 9001
-  - prefix: loader
+  - prefix: loader.media
     port: 9003
   - prefix: media
     port: 9005
-    # use parent domain to use matching SSL cert
-    domain-root: local.dev-***REMOVED***
-  - prefix: cropper
+  - prefix: cropper.media
     port: 9006
-  - prefix: editor
+  - prefix: media-metadata
     port: 9007
