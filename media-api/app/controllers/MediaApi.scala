@@ -1,7 +1,5 @@
 package controllers
 
-
-import scala.concurrent.Future
 import scala.util.Try
 
 import play.api.mvc._
@@ -12,7 +10,6 @@ import org.joda.time.DateTime
 import com.gu.mediaservice.lib.formatting.parseDateFromQuery
 import lib.elasticsearch.{ElasticSearch, SearchResults}
 import lib.{Notifications, Config, S3Client}
-import lib.Buckets._
 import com.gu.mediaservice.lib.auth
 import com.gu.mediaservice.lib.auth.KeyStore
 import com.gu.mediaservice.lib.argo.ArgoHelpers
@@ -54,21 +51,6 @@ object MediaApi extends Controller with ArgoHelpers {
     Accepted.as(ArgoMediaType)
   }
 
-  def addImageToBucket(id: String) = Authenticated.async { bucketNotification(id, "add-image-to-bucket") }
-
-  def removeImageFromBucket(id: String) = Authenticated.async { bucketNotification(id, "remove-image-from-bucket") }
-
-  private def bucketNotification(imageId: String, subject: String): Request[AnyContent] => Future[Result] =
-    request => request.body.asText.filter(validBucket) match {
-      case Some(bucket) =>
-        for (exists <- ElasticSearch.imageExists(imageId)) yield
-          if (exists) {
-            Notifications.publish(Json.obj("id" -> imageId, "bucket" -> bucket), subject)
-            Accepted
-          }
-          else NotFound
-      case None => Future.successful(BadRequest("Invalid bucket name"))
-    }
 
   def imageSearch = Authenticated.async { request =>
     val params = GeneralParams(request)
@@ -138,7 +120,6 @@ case class SearchParams(
   fromDate: Option[DateTime],
   toDate: Option[DateTime],
   archived: Option[Boolean],
-  buckets: List[String],
   hasMetadata: List[String]
 )
 
@@ -156,7 +137,6 @@ object SearchParams {
       request.getQueryString("fromDate") orElse request.getQueryString("since") flatMap parseDateFromQuery,
       request.getQueryString("toDate") orElse request.getQueryString("until") flatMap parseDateFromQuery,
       request.getQueryString("archived").map(_.toBoolean),
-      commaSep("bucket"),
       commaSep("hasMetadata")
     )
   }
