@@ -29,6 +29,10 @@
             "Description": "ARN of the SSL certificate to be used for the Cropper load balancer",
             "Type": "String"
         },
+        "MetadataSSLCertificateId": {
+            "Description": "ARN of the SSL certificate to be used for the Metadata editor load balancer",
+            "Type": "String"
+        },
         "ImageIdInstanceStorage": {
             "Description": "AMI id for instances with instance storage.",
             "Type": "String",
@@ -91,7 +95,10 @@
             "Type": "AWS::IAM::InstanceProfile",
             "Properties": {
                 "Path": "/",
-                "Roles": [ {"Ref": "DistributionRole"} ]
+                "Roles": [
+                    {"Ref": "DistributionRole"},
+                    {"Ref": "EditsDynamoAccessRole"}
+                ]
             }
         },
 
@@ -1384,6 +1391,71 @@
             }
         },
 
+
+        "EditsDynamoTable": {
+            "Type": "AWS::DynamoDB::Table",
+            "Properties": {
+                "AttributeDefinitions": [
+                    {
+                        "AttributeName": "id",
+                        "AttributeType": "S"
+                    }
+                ],
+                "KeySchema": [
+                    {
+                        "AttributeName": "id",
+                        "KeyType": "HASH"
+                    }
+                ],
+                "ProvisionedThroughput": {
+                    "ReadCapacityUnits" : "10",
+                    "WriteCapacityUnits" : "5"
+                }
+            }
+        },
+
+        "EditsDynamoAccessRole": {
+            "Type": "AWS::IAM::Role",
+            "Properties": {
+                "AssumeRolePolicyDocument": {
+                    "Statement": [
+                        {
+                            "Effect": "Allow",
+                            "Principal": {
+                                "Service": [ "ec2.amazonaws.com" ]
+                            },
+                            "Action": [ "sts:AssumeRole" ]
+                        }
+                    ]
+                },
+                "Path": "/",
+                "Policies": [
+                    {
+                        "PolicyName": "root",
+                        "PolicyDocument": {
+                            "Statement": [
+                                {
+                                    "Effect": "Allow",
+                                    "Action": [ "dynamodb:*" ],
+                                    "Resource": [
+                                        { "Fn::Join" : [ "", [
+                                            "arn:aws:dynamodb:",
+                                            { "Ref" : "AWS::Region" },
+                                            ":",
+                                            { "Ref" : "AWS::AccountId" },
+                                            ":table/",
+                                            { "Ref" : "EditsDynamoTable" }
+                                        ] ] }
+                                    ]
+                                }
+                            ]
+                        }
+                    }
+                ]
+            }
+        },
+
+
         "Topic": {
             "Type": "AWS::SNS::Topic",
             "Properties": {
@@ -1583,6 +1655,10 @@
         "CropperLoadBalancer": {
             "Description": "Cropper load balancer DNS",
             "Value": { "Fn::GetAtt": ["CropperLoadBalancer", "DNSName"] }
+        },
+        "EditsDynamoTable": {
+            "Description": "ARN of the DynamoDB table storing metadata edits",
+            "Value": { "Ref": "EditsDynamoTable" }
         },
         "ImageTopicArn": {
             "Description": "ARN of the image topic",
