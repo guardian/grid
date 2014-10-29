@@ -47,7 +47,6 @@ object Mappings {
           "metadata" -> metadataMapping,
           "fileMetadata" -> fileMetadataMapping,
           "uploadTime" -> dateFormat,
-          "buckets" -> Json.obj("type" -> "string", "index" -> "not_analyzed", "index_name" -> "bucket"),
           "archived" -> Json.obj("type" -> "boolean", "analyzer" -> "standard")
         )
       )

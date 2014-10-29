@@ -75,20 +75,6 @@ object ElasticSearch extends ElasticSearchClient {
       .executeAndLog("Running update by query script")
       .incrementOnFailure(conflicts) { case e: VersionConflictEngineException => true }
 
-  def addImageToBucket(id: String, bucket: String)(implicit ex: ExecutionContext): Future[UpdateResponse] =
-    prepareImageUpdate(id)
-      .addScriptParam("bucket", bucket)
-      .setScript("if (ctx._source.containsKey(\"buckets\") && ! ctx._source.buckets.contains( bucket ) ) { ctx._source.buckets += bucket } else { ctx._source.buckets = { bucket } }", scriptType)
-      .executeAndLog(s"add image $id to bucket $bucket")
-      .incrementOnFailure(conflicts) { case e: VersionConflictEngineException => true }
-
-  def removeImageFromBucket(id: String, bucket: String)(implicit ex: ExecutionContext): Future[UpdateResponse] =
-    prepareImageUpdate(id)
-      .addScriptParam("bucket", bucket)
-      .setScript("if (ctx._source.containsKey(\"buckets\")) { ctx._source.buckets.remove( bucket ) }", scriptType)
-      .executeAndLog(s"remove image $id from bucket $bucket")
-      .incrementOnFailure(conflicts) { case e: VersionConflictEngineException => true }
-
   def asGroovy(collection: JsValue) = new JsonSlurper().parseText(collection.toString)
 
 }
