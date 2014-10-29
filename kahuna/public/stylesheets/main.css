@@ -200,7 +200,7 @@ a:focus {
    File uploader
    ========================================================================== */
 
-.file-uploader {}
+.file-uploader { display: none; }
 
 .file-uploader__file {
     display: none;
