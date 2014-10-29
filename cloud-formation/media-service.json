@@ -1645,11 +1645,11 @@
           "Value": { "Fn::GetAtt": ["MediaApiLoadBalancer", "DNSName"] }
         },
         "ImageLoaderLoadBalancer": {
-            "Description": "Image Loader API load balancer DNS",
+            "Description": "Image Loader load balancer DNS",
             "Value": { "Fn::GetAtt": ["ImageLoaderLoadBalancer", "DNSName"] }
         },
         "KahunaLoadBalancer": {
-            "Description": "Image Loader API load balancer DNS",
+            "Description": "Kahuna load balancer DNS",
             "Value": { "Fn::GetAtt": ["KahunaLoadBalancer", "DNSName"] }
         },
         "CropperLoadBalancer": {
