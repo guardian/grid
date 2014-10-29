@@ -28,14 +28,7 @@ apiServices.factory('mediaCropper',
     }
 
     function getCropsFor(image) {
-        // FIXME: need to avoid getReponse so we get a hyper resource
-        return image.follow('crops').getData().then(function(x) {
-            console.log(x)
-            return x
-        });
-        // return $http.get(getLinkHref(image.links, 'crops'), { withCredentials: true }).then(function(response) {
-        //     return response.data.data;
-        // });
+        return image.follow('crops').getData();
     }
 
     return {
