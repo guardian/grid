@@ -23,6 +23,7 @@ object MediaApi extends Controller {
 
   val rootUri = Config.rootUri
   val cropperUri = Config.cropperUri
+  val loaderUri = Config.loaderUri
 
   def index = Action {
     val response = Json.obj(
@@ -30,7 +31,8 @@ object MediaApi extends Controller {
       "links" -> Json.arr(
         Json.obj("rel" -> "search", "href" -> s"$rootUri/images{?q,offset,length,fromDate,toDate,orderBy}"),
         Json.obj("rel" -> "image",  "href" -> s"$rootUri/images/{id}"),
-        Json.obj("rel" -> "cropper", "href" -> cropperUri)
+        Json.obj("rel" -> "cropper", "href" -> cropperUri),
+        Json.obj("rel" -> "loader", "href" -> loaderUri)
       )
     )
     Ok(response)

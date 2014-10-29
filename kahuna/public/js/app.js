@@ -5,6 +5,7 @@ import angular from 'angular';
 import 'angular-ui-router';
 import 'services/api/media-api';
 import 'services/api/media-cropper';
+import 'services/api/loader';
 import 'directives/ui-crop-box';
 
 var apiLink = document.querySelector('link[rel="media-api-uri"]');
@@ -278,6 +279,55 @@ kahuna.controller('ImageCropCtrl',
 
 }]);
 
+kahuna.controller('UploadCtrl',
+                  ['$q', '$window', 'loaderApi',
+                   function($q, $window, loaderApi) {
+
+    var ctrl = this; // TODO: No!
+
+    ctrl.files = [];
+    ctrl.loading = false;
+    ctrl.uploadFiles = uploadFiles;
+
+    // TODO: User feedback should say what has failed and what has not (Generators?)
+    function uploadFiles(files) {
+        ctrl.loading = true;
+
+        var uploads = files.map(function(file) {
+            return readFile(file).then(uploadFile);
+        });
+
+        $q.all(uploads).then(uploadSuccess, uploadFailure)
+            .finally(() => ctrl.loading = false);
+    }
+
+    function readFile(file) {
+        var reader = new FileReader();
+        var def = $q.defer();
+
+        reader.addEventListener('load',  (event) => def.resolve(event.target.result));
+        reader.addEventListener('error', (event) => def.reject(event));
+        reader.readAsArrayBuffer(file);
+
+        return def.promise;
+    }
+
+    function uploadFile(file) {
+        return loaderApi.load(new Uint8Array(file));
+    }
+
+    // TODO: Poll to see when images are available and add them
+    // (could be introduced if we add a "10 new images added" twitter style update)
+    function uploadSuccess() {
+        $window.alert('Files uploaded. Please refresh to see them');
+    }
+
+    // TODO: Universal messaging system?
+    function uploadFailure() {
+        $window.alert('There were errors uploading some / all of your files');
+    }
+}]);
+
 // Create the key form the bounds as that's what we have in S3
 kahuna.filter('getCropKey', function() {
     return function(crop) {
@@ -492,7 +542,7 @@ kahuna.directive('uiForgetWindowScroll',
                  ['$window', '$timeout',
                   function($window, $timeout) {
     return {
-        restric: 'A',
+        restrict: 'A',
         link: function(scope, element, attrs) {
             scope[attrs.uiForgetWindowScroll].finally(function() {
                 // FIXME: even if this is a hack, using timeout as the DOM
@@ -505,5 +555,35 @@ kahuna.directive('uiForgetWindowScroll',
         }
     };
 }]);
+
+kahuna.directive('uiEventShare', function() {
+    return {
+        restrict: 'A',
+        link: function(scope, element, attrs) {
+            // TODO: remove selectors as a means here
+            var thief = element.find(attrs.uiEventShareThief)[0];
+            var victim = element.find(attrs.uiEventShareVictim)[0];
+            
+            thief.addEventListener(attrs.uiEventShare, function(event) {
+                event.preventDefault();
+                victim[attrs.uiEventShare]();
+            });
+        }
+    };
+});
+
+kahuna.directive('uiFile', function() {
+    return {
+        restrict: 'A',
+        scope: {
+            onchange: '&uiFileChange'
+        },
+        link: function(scope, element, attrs) {
+            element.on('change', function() {
+                scope.onchange()(Array.from(element[0].files));
+            });
+        }
+    };
+});
 
 angular.bootstrap(document, ['kahuna']);
