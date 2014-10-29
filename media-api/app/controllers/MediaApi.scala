@@ -22,6 +22,7 @@ object MediaApi extends Controller with ArgoHelpers {
   val rootUri = Config.rootUri
   val cropperUri = Config.cropperUri
   val loaderUri = Config.loaderUri
+  val metadataUri = Config.metadataUri
 
   def index = Action {
     val response = Json.obj(
@@ -30,7 +31,8 @@ object MediaApi extends Controller with ArgoHelpers {
         Json.obj("rel" -> "search", "href" -> s"$rootUri/images{?q,offset,length,fromDate,toDate,orderBy}"),
         Json.obj("rel" -> "image",  "href" -> s"$rootUri/images/{id}"),
         Json.obj("rel" -> "cropper", "href" -> cropperUri),
-        Json.obj("rel" -> "loader", "href" -> loaderUri)
+        Json.obj("rel" -> "loader", "href" -> loaderUri),
+        Json.obj("rel" -> "metadata", "href" -> metadataUri)
       )
     )
     Ok(response).as(ArgoMediaType)
@@ -80,7 +82,10 @@ object MediaApi extends Controller with ArgoHelpers {
       // FIXME: don't hardcode paths from other APIs - once we're
       // storing a copy of the data in the DB, we can use it to point
       // to the right place
-      val links = List(Json.obj("rel" -> "crops", "href" -> s"$cropperUri/crops/$id"))
+      val links = List(
+        Json.obj("rel" -> "crops",    "href" -> s"$cropperUri/crops/$id"),
+        Json.obj("rel" -> "metadata", "href" -> s"$metadataUri/metadata/$id")
+      )
       Json.obj("uri" -> s"$rootUri/images/$id", "data" -> image, "links" -> links)
     }
     else source
