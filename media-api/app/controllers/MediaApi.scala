@@ -15,9 +15,10 @@ import lib.{Notifications, Config, S3Client}
 import lib.Buckets._
 import com.gu.mediaservice.lib.auth
 import com.gu.mediaservice.lib.auth.KeyStore
+import com.gu.mediaservice.lib.argo.ArgoHelpers
 
 
-object MediaApi extends Controller {
+object MediaApi extends Controller with ArgoHelpers {
 
   val keyStore = new KeyStore(Config.keyStoreBucket, Config.awsCredentials)
 
@@ -35,7 +36,7 @@ object MediaApi extends Controller {
         Json.obj("rel" -> "loader", "href" -> loaderUri)
       )
     )
-    Ok(response).as("application/vnd.argo+json")
+    Ok(response).as(ArgoMediaType)
   }
 
   val Authenticated = auth.Authenticated(keyStore, Config.kahunaUri)
@@ -43,14 +44,14 @@ object MediaApi extends Controller {
   def getImage(id: String) = Authenticated.async { request =>
     val params = GeneralParams(request)
     ElasticSearch.getImageById(id) map {
-      case Some(source) => Ok(imageResponse(params)(id, source)).as("application/vnd.argo+json")
-      case None         => NotFound
+      case Some(source) => Ok(imageResponse(params)(id, source)).as(ArgoMediaType)
+      case None         => NotFound.as(ArgoMediaType)
     }
   }
 
   def deleteImage(id: String) = Authenticated {
     Notifications.publish(Json.obj("id" -> id), "delete-image")
-    Accepted
+    Accepted.as(ArgoMediaType)
   }
 
   def addImageToBucket(id: String) = Authenticated.async { bucketNotification(id, "add-image-to-bucket") }
@@ -79,7 +80,7 @@ object MediaApi extends Controller {
         "length" -> images.size,
         "total"  -> totalCount,
         "data"   -> images
-      )).as("application/vnd.argo+json")
+      )).as(ArgoMediaType)
     }
   }
 

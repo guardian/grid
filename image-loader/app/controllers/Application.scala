@@ -15,10 +15,11 @@ import model.{Asset, Image}
 import lib.storage.S3ImageStorage
 import com.gu.mediaservice.lib.ImageStorage
 import com.gu.mediaservice.lib.resource.FutureResources._
+import com.gu.mediaservice.lib.argo.ArgoHelpers
 
 object Application extends ImageLoader(S3ImageStorage)
 
-class ImageLoader(storage: ImageStorage) extends Controller {
+class ImageLoader(storage: ImageStorage) extends Controller with ArgoHelpers {
 
   val rootUri = Config.rootUri
 
@@ -29,7 +30,7 @@ class ImageLoader(storage: ImageStorage) extends Controller {
         Json.obj("rel" -> "load", "href" -> s"$rootUri/images")
       )
     )
-    Ok(response)
+    Ok(response).as(ArgoMediaType)
   }
 
   def loadImage = Action.async(digestedFile(createTempFile)) { request =>
@@ -63,7 +64,8 @@ class ImageLoader(storage: ImageStorage) extends Controller {
         image       = Image.uploadedNow(id, uploadedBy, sourceAsset, thumbAsset, fileMetadata, metadata, false)
       } yield {
         Notifications.publish(Json.toJson(image), "image")
-        Accepted(Json.obj("id" -> id))
+        // TODO: return an entity pointing to the Media API uri for the image
+        Accepted(Json.obj("id" -> id)).as(ArgoMediaType)
       }
     }
     future.onComplete(_ => tempFile.delete())
