@@ -20,7 +20,7 @@ object Config extends CommonPlayAppProperties {
 
   val topicArn = properties("sns.topic.arn")
 
-  val rootUri = services.cropperBaseUri
+  val rootUri = services.metadataBaseUri
   val kahunaUri = services.kahunaBaseUri
 
   val corsAllowedOrigin = services.kahunaBaseUri
