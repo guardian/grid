@@ -13,14 +13,10 @@ import _root_.play.api.Play.current
 
 import com.gu.mediaservice.lib.auth
 import com.gu.mediaservice.lib.auth.KeyStore
+import com.gu.mediaservice.lib.argo.ArgoHelpers
 import lib._, Files._
 import model._
 
-
-trait ArgoHelpers {
-  // TODO: expose a helper wrapper for all API endpoints?
-  val ArgoMediaType = "application/vnd.argo+json"
-}
 
 object Application extends Controller with ArgoHelpers {
 
