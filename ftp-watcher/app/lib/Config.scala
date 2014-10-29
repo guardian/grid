@@ -27,4 +27,6 @@ object Config extends CommonPlayAppConfig {
   val metricsAwsCredentials: AWSCredentials =
     new BasicAWSCredentials(properties("metrics.aws.id"), properties("metrics.aws.secret"))
 
+  val mediaApiKey = properties("auth.key.ftpwatcher")
+
 }
