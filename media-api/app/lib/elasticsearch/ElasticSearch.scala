@@ -52,11 +52,12 @@ object ElasticSearch extends ElasticSearchClient {
       .getOrElse(matchAllQuery)
 
     val dateFilter = filters.date(params.fromDate, params.toDate)
-    val bucketFilter = params.buckets.toNel.map(filters.terms("buckets", _))
+    // TODO recycle for labels search
+//    val bucketFilter = params.buckets.toNel.map(filters.terms("buckets", _))
     val metadataFilter = params.hasMetadata.map("metadata." + _).toNel.map(filters.exists)
     val archivedFilter = params.archived.map(filters.bool("archived", _))
 
-    val filter = (bucketFilter.toList ++ metadataFilter.toList ++ archivedFilter).foldLeft(dateFilter)(filters.and)
+    val filter = (metadataFilter.toList ++ archivedFilter).foldLeft(dateFilter)(filters.and)
 
     val search = prepareImagesSearch.setQuery(query).setPostFilter(filter) |>
                  sorts.parseFromRequest(params.orderBy)
