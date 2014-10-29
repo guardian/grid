@@ -27,7 +27,7 @@ apiServices.factory('loaderApi',
     function load(data) {
         return getLinkRoot("load").then(function(loadLink) {
             return $http({
-                url: loadLink.href + 'uploadedBy=thegrid',
+                url: loadLink.href + 'uploadedBy=kahuna',
                 method: 'POST',
                 headers: { 'Content-Type': 'image/jpeg' },
                 transformRequest: [],
