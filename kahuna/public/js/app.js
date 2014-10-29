@@ -552,16 +552,17 @@ kahuna.directive('uiForgetWindowScroll',
     };
 }]);
 
-kahuna.directive('uiFileSelector', function() {
+kahuna.directive('uiEventShare', function() {
     return {
         restrict: 'A',
         link: function(scope, element, attrs) {
-            var el = element[0];
-            el.elements[attrs.uiFileSelectorButton]
-                .addEventListener('click', function(event) {
-                    event.preventDefault();
-                    el.elements[attrs.uiFileSelectorFile].click();
-                });
+            var thief = element.find(attrs.uiEventShareThief)[0];
+            var victim = element.find(attrs.uiEventShareVictim)[0];
+            
+            thief.addEventListener(attrs.uiEventShare, function(event) {
+                event.preventDefault();
+                victim[attrs.uiEventShare]();
+            });
         }
     };
 });
