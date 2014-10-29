@@ -43,18 +43,24 @@
                   ui:file-selector-file="files"
                   ui:file-selector-button="button">
 
-                <!-- you cannot bind ng:model="files"
-                     nor use ng:change: https://github.com/angular/angular.js/issues/1375 -->
+                <!-- you cannot bind ng:model="files" nor use ng:change:
+                https://github.com/angular/angular.js/issues/1375 -->
                 <input class="file-uploader__file"
-                       name="files" type="file" accept="image/jpg,image/jpeg" multiple
+                       name="files" type="file"
+                       accept="image/jpg,image/jpeg" multiple
                        ui:file ui:file-change="uploader.uploadFiles" />
 
                 <button class="button file-uploader__select-files"
                         name="button" type="button"
-                        ng:disabled="uploader.loading">upload<span ng:show="uploader.loading">ing…</span></button>
+                        ng:disabled="uploader.loading">
+                    upload
+                    <span ng:show="uploader.loading">ing…</span>
+                </button>
             </form>
 
-            <a class="logout top-bar__control" href="/logout" target="_self">Logout</a>
+            <a class="logout top-bar__control" href="/logout" target="_self">
+                Logout
+            </a>
         </div>
     </div>
 </div>

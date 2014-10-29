@@ -279,25 +279,25 @@ kahuna.controller('ImageCropCtrl',
 
 }]);
 
-kahuna.controller('UploadCtrl', ['$http', '$q', '$window', 'loaderApi', function($http, $q, $window, loaderApi) {
-    var uploader = this; // TODO: No!
+kahuna.controller('UploadCtrl',
+                  ['$http', '$q', '$window', 'loaderApi',
+                   function($http, $q, $window, loaderApi) {
 
-    this.files = [];
-    this.loading = false;
-    this.uploadFiles = uploadFiles;
+    var ctrl = this; // TODO: No!
+
+    ctrl.files = [];
+    ctrl.loading = false;
+    ctrl.uploadFiles = uploadFiles;
 
     // TODO: User feedback should say what has failed and what has not (Generators?)
     function uploadFiles(files) {
-        uploader.loading = true;
+        ctrl.loading = true;
         var uploads = files.map(function(file) {
             var reader = new FileReader();
             var def = $q.defer();
 
             reader.addEventListener('load', function(event) {
-                uploadFile(event.target.result).then(
-                    (r) => def.resolve(r),
-                    (r) => def.reject(r)
-                );
+                uploadFile(event.target.result).then(def.resolve, def.reject(r));
             });
             reader.readAsArrayBuffer(file);
 
@@ -305,7 +305,7 @@ kahuna.controller('UploadCtrl', ['$http', '$q', '$window', 'loaderApi', function
         });
 
         $q.all(uploads).then(uploadSuccess, uploadFailure)
-            .finally(() => uploader.loading = false);
+            .finally(() => ctrl.loading = false);
     }
 
     function uploadFile(file) {
