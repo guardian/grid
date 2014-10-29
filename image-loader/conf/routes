@@ -4,3 +4,6 @@ POST    /images                     controllers.Application.loadImage
 # Management
 GET     /management/healthcheck     com.gu.mediaservice.lib.management.Management.healthCheck
 GET     /management/manifest        com.gu.mediaservice.lib.management.Management.manifest
+
+# Enable CORS
+OPTIONS /*url                       controllers.CorsPreflight.options(url: String)
