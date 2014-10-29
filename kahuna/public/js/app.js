@@ -280,8 +280,8 @@ kahuna.controller('ImageCropCtrl',
 }]);
 
 kahuna.controller('UploadCtrl',
-                  ['$http', '$q', '$window', 'loaderApi',
-                   function($http, $q, $window, loaderApi) {
+                  ['$q', '$window', 'loaderApi',
+                   function($q, $window, loaderApi) {
 
     var ctrl = this; // TODO: No!
 
@@ -292,20 +292,24 @@ kahuna.controller('UploadCtrl',
     // TODO: User feedback should say what has failed and what has not (Generators?)
     function uploadFiles(files) {
         ctrl.loading = true;
+
         var uploads = files.map(function(file) {
-            var reader = new FileReader();
-            var def = $q.defer();
-
-            reader.addEventListener('load', function(event) {
-                uploadFile(event.target.result).then(def.resolve, def.reject(r));
-            });
-            reader.readAsArrayBuffer(file);
-
-            return def.promise;
+            return readFile(file).then(uploadFile);
         });
 
         $q.all(uploads).then(uploadSuccess, uploadFailure)
             .finally(() => ctrl.loading = false);
+    }
+
+    function readFile(file) {
+        var reader = new FileReader();
+        var def = $q.defer();
+
+        reader.addEventListener('load',  (event) => def.resolve(event.target.result));
+        reader.addEventListener('error', (event) => def.reject(event));
+        reader.readAsArrayBuffer(file);
+
+        return def.promise;
     }
 
     function uploadFile(file) {
@@ -556,6 +560,7 @@ kahuna.directive('uiEventShare', function() {
     return {
         restrict: 'A',
         link: function(scope, element, attrs) {
+            // TODO: remove selectors as a means here
             var thief = element.find(attrs.uiEventShareThief)[0];
             var victim = element.find(attrs.uiEventShareVictim)[0];
             
