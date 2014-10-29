@@ -103,9 +103,10 @@ class FTPWatcher(host: String, user: String, password: String) {
       val uri = Config.imageLoaderUri + "?uploadedBy=" + uploadedBy
       val upload = Task {
         val client = HttpClients.createDefault
-        val postReq = new HttpPost(uri).setHeader(guMediaApiHeader, mediaApiKey)
+        val postReq = new HttpPost(uri)
         val entity = new ByteArrayEntity(bytes)
         postReq.setEntity(entity)
+        postReq.setHeader(guMediaApiHeader, mediaApiKey)
         val response = client.execute(postReq)
         val json = Json.parse(IOUtils.toByteArray(response.getEntity.getContent))
         response.close()
