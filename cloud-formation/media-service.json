@@ -1455,6 +1455,181 @@
             }
         },
 
+        "MetadataEditorLoadBalancerSecurityGroup": {
+            "Type": "AWS::EC2::SecurityGroup",
+            "Properties": {
+                "GroupDescription": "Metadata Editor load balancer",
+                "SecurityGroupIngress": [
+                    {
+                        "IpProtocol": "tcp",
+                        "FromPort": "443",
+                        "ToPort": "443",
+                        "CidrIp": "0.0.0.0/0"
+                    }
+                ]
+            }
+        },
+        "MetadataEditorLoadBalancer": {
+            "Type": "AWS::ElasticLoadBalancing::LoadBalancer",
+            "Properties": {
+                "AvailabilityZones": { "Fn::GetAZs": "" },
+                "SecurityGroups": [
+                    { "Fn::GetAtt": ["MetadataEditorLoadBalancerSecurityGroup", "GroupId"] }
+                ],
+                "Listeners": [
+                    {
+                        "LoadBalancerPort": "443",
+                        "InstancePort": "9000",
+                        "Protocol": "HTTPS",
+                        "SSLCertificateId": { "Ref": "MetadataSSLCertificateId" }
+                    },
+                    {
+                        "LoadBalancerPort": "80",
+                        "InstancePort": "9000",
+                        "Protocol": "HTTP"
+                    }
+                ],
+                "HealthCheck": {
+                    "Target": "HTTP:9000/management/healthcheck",
+                    "HealthyThreshold": "2",
+                    "UnhealthyThreshold": "2",
+                    "Interval": "10",
+                    "Timeout": "5"
+                }
+            }
+        },
+        "MetadataEditorAutoscalingGroup": {
+            "Type": "AWS::AutoScaling::AutoScalingGroup",
+            "Properties": {
+                "AvailabilityZones": {
+                    "Fn::GetAZs": ""
+                },
+                "LaunchConfigurationName": { "Ref": "MetadataEditorLaunchConfig" },
+                "MinSize": "1",
+                "MaxSize": "2",
+                "DesiredCapacity": "1",
+                "Cooldown": "180",
+                "HealthCheckType": "ELB",
+                "HealthCheckGracePeriod": 300,
+                "LoadBalancerNames": [
+                    { "Ref": "MetadataEditorLoadBalancer" }
+                ],
+                "Tags": [
+                    {
+                        "Key": "Stage",
+                        "Value": { "Ref": "Stage" },
+                        "PropagateAtLaunch": "true"
+                    },
+                    {
+                        "Key": "Stack",
+                        "Value": "media-service",
+                        "PropagateAtLaunch": "true"
+                    },
+                    {
+                        "Key": "App",
+                        "Value": "metadata-editor",
+                        "PropagateAtLaunch": "true"
+                    }
+                ]
+            }
+        },
+        "MetadataEditorLaunchConfig": {
+            "Type": "AWS::AutoScaling::LaunchConfiguration",
+            "DependsOn": "HostKeys",
+            "Metadata": {
+              "AWS::CloudFormation::Authentication": {
+                "distributionAuthentication": {
+                  "type": "S3",
+                  "roleName": { "Ref": "DistributionRole" },
+                  "buckets": [ "media-service-dist" ]
+                }
+              },
+              "AWS::CloudFormation::Init": {
+                "config": {
+                  "users": {
+                    "media-service": {
+                      "homeDir": "/home/media-service"
+                    }
+                  },
+                  "files": {
+                    "/etc/init/metadata-editor.conf": {
+                      "source": { "Fn::Join" : ["", [
+                        "https://s3-eu-west-1.amazonaws.com/media-service-dist/media-service/",
+                        { "Ref": "Stage" },
+                        "/metadata-editor/metadata-editor.conf"
+                      ]]},
+                      "authentication": "distributionAuthentication"
+                    },
+                    "/home/media-service/app.jar": {
+                      "source": { "Fn::Join" : ["", [
+                        "https://s3-eu-west-1.amazonaws.com/media-service-dist/media-service/",
+                        { "Ref": "Stage" },
+                        "/metadata-editor/app.jar"
+                      ]]},
+                      "authentication": "distributionAuthentication"
+                    }
+                  }
+                }
+              }
+            },
+            "Properties": {
+                "KeyName": { "Ref": "KeyName" },
+                "ImageId": {"Ref": "ImageIdEBSStorage"},
+                "SecurityGroups": [
+                    { "Ref": "AppServerSecurityGroup" },
+                    { "Ref": "AppClientSecurityGroup" },
+                    { "Ref": "SSHSecurityGroup" }
+                ],
+                "InstanceType": "t2.small",
+                "IamInstanceProfile": {"Ref": "DistributionInstanceProfile"},
+                "UserData": { "Fn::Base64": {
+                    "Fn::Join":["", [
+                        "#!/bin/bash -ev\n",
+
+                        "apt-get -y update\n",
+                        "apt-get -y install language-pack-en openjdk-7-jre-headless\n",
+                        "apt-get -y install python-setuptools\n",
+                        "wget -P /root https://s3.amazonaws.com/cloudformation-examples/aws-cfn-bootstrap-latest.tar.gz","\n",
+                        "mkdir -p /root/aws-cfn-bootstrap-latest","\n",
+                        "tar xvfz /root/aws-cfn-bootstrap-latest.tar.gz --strip-components=1 -C /root/aws-cfn-bootstrap-latest","\n",
+                        "easy_install /root/aws-cfn-bootstrap-latest/","\n",
+
+                        "cfn-init -s ", { "Ref" : "AWS::StackId" }, " -r MetadataEditorLaunchConfig ",
+                        "  --region ", { "Ref" : "AWS::Region" }, " || error_exit 'Failed to run cfn-init'\n",
+
+                        "mkdir /home/media-service/logs\n",
+                        "mkdir /etc/gu\n",
+
+                        "chown -R media-service /home/media-service\n",
+                        "chgrp -R media-service /home/media-service\n",
+
+                        "cat > /etc/gu/stage <<EOF\n",
+                        { "Ref": "Stage" }, "\n",
+                        "EOF\n",
+
+                        "cat > /etc/gu/panda.properties <<EOF\n",
+                        "panda.domain=",     { "Ref": "PandaDomain" },    "\n",
+                        "panda.aws.key=",    { "Ref": "PandaAwsKey" },    "\n",
+                        "panda.aws.secret=", { "Ref": "PandaAwsSecret" }, "\n",
+                        "EOF\n",
+
+                        "cat > /etc/gu/metadata-editor.properties<<EOF\n",
+                        "domain.root=", { "Ref": "DomainRoot" }, "\n",
+                        "aws.id=", { "Ref": "HostKeys" }, "\n",
+                        "aws.secret=", { "Fn::GetAtt": [ "HostKeys", "SecretAccessKey" ] }, "\n",
+                        "sns.topic.arn=", { "Ref": "Topic" }, "\n",
+                        "auth.keystore.bucket=", { "Ref": "KeyBucket" }, "\n",
+                        "dynamo.table.edits=", { "Ref": "EditsDynamoTable" }, "\n",
+                        "EOF\n",
+
+                        "start metadata-editor\n"
+                    ]]
+
+                }}
+
+            }
+        },
+
 
         "Topic": {
             "Type": "AWS::SNS::Topic",
@@ -1655,6 +1830,10 @@
         "CropperLoadBalancer": {
             "Description": "Cropper load balancer DNS",
             "Value": { "Fn::GetAtt": ["CropperLoadBalancer", "DNSName"] }
+        },
+        "MetadataEditorLoadBalancer": {
+            "Description": "Metadata Editor load balancer DNS",
+            "Value": { "Fn::GetAtt": ["MetadataEditorLoadBalancer", "DNSName"] }
         },
         "EditsDynamoTable": {
             "Description": "ARN of the DynamoDB table storing metadata edits",
