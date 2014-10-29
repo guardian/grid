@@ -15,13 +15,15 @@ apiServices.factory('mediaCropper',
     }
 
     function createCrop(image, coords, ratio) {
-        return getCropperRoot().follow('crop').post({
-            source: image.uri, // FIXME: <- promise...
-            x: coords.x,
-            y: coords.y,
-            width: coords.width,
-            height: coords.height,
-            aspectRatio: ratio
+        return image.uri.then(uri => {
+            return getCropperRoot().follow('crop').post({
+                source: uri,
+                x: coords.x,
+                y: coords.y,
+                width: coords.width,
+                height: coords.height,
+                aspectRatio: ratio
+            });
         });
     }
 
