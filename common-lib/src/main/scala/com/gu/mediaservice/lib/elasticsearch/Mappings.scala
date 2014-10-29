@@ -46,6 +46,7 @@ object Mappings {
           // TODO: add source and thumbnail?
           "metadata" -> metadataMapping,
           "fileMetadata" -> fileMetadataMapping,
+          "userMetadata" -> nonIndexedString,
           "uploadTime" -> dateFormat,
           "archived" -> Json.obj("type" -> "boolean", "analyzer" -> "standard")
         )
