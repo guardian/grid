@@ -1,7 +1,5 @@
 package lib
 
-import com.gu.mediaservice.lib.auth.KeyStore
-
 import scala.concurrent.duration._
 import scala.util.control.NonFatal
 

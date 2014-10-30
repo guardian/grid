@@ -1,21 +1,23 @@
 package controllers
 
 import java.io.File
-import com.gu.mediaservice.lib.auth.KeyStore
 import play.api.mvc._
 import play.api.libs.concurrent.Execution.Implicits._
 import play.api.libs.json.Json
 import play.api.Logger
 
-import lib.imaging.{FileMetadata, MimeTypeDetection, Thumbnailer, ImageMetadata}
 import lib.play.BodyParsers.digestedFile
 import lib.play.DigestedFile
 
 import lib.{Config, Notifications}
-import model.{Asset, Image}
 import lib.storage.S3ImageStorage
+import lib.imaging.{FileMetadata, MimeTypeDetection, Thumbnailer, ImageMetadata}
+
+import model.{Asset, Image}
+
 import com.gu.mediaservice.lib.{auth, ImageStorage}
 import com.gu.mediaservice.lib.resource.FutureResources._
+import com.gu.mediaservice.lib.auth.KeyStore
 
 object Application extends ImageLoader(S3ImageStorage)
 
