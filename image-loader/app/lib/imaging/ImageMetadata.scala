@@ -18,7 +18,7 @@ object ImageMetadata {
   private implicit val ctx: ExecutionContext =
     ExecutionContext.fromExecutor(Executors.newCachedThreadPool)
 
-  def fromIPTCHeaders(image: File, validate: Boolean = false): Future[Option[ImageMetadata]] =
+  def fromIPTCHeaders(image: File): Future[Option[ImageMetadata]] =
     for {
       metadata <- readMetadata(image)
     }
