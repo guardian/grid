@@ -17,6 +17,8 @@ object Config extends CommonPlayAppProperties {
 
   val thumbnailBucket: String = properties("s3.thumb.bucket")
 
+  val keyStoreBucket: String = properties("auth.keystore.bucket")
+
   val tempDir: String = properties.getOrElse("upload.tmp.dir", "/tmp")
 
   val thumbWidth: Int = 256
