@@ -1,6 +1,7 @@
 package controllers
 
 import java.io.File
+import com.gu.mediaservice.lib.auth.KeyStore
 import play.api.mvc._
 import play.api.libs.concurrent.Execution.Implicits._
 import play.api.libs.json.Json
@@ -13,7 +14,7 @@ import lib.play.DigestedFile
 import lib.{Config, Notifications}
 import model.{Asset, Image}
 import lib.storage.S3ImageStorage
-import com.gu.mediaservice.lib.ImageStorage
+import com.gu.mediaservice.lib.{auth, ImageStorage}
 import com.gu.mediaservice.lib.resource.FutureResources._
 
 object Application extends ImageLoader(S3ImageStorage)
@@ -21,6 +22,9 @@ object Application extends ImageLoader(S3ImageStorage)
 class ImageLoader(storage: ImageStorage) extends Controller {
 
   val rootUri = Config.rootUri
+
+  val keyStore = new KeyStore(Config.keyStoreBucket, Config.awsCredentials)
+  val Authenticated = auth.Authenticated(keyStore, rootUri)
 
   def index = Action {
     val response = Json.obj(
@@ -32,7 +36,7 @@ class ImageLoader(storage: ImageStorage) extends Controller {
     Ok(response)
   }
 
-  def loadImage = Action.async(digestedFile(createTempFile)) { request =>
+  def loadImage = Authenticated.async(digestedFile(createTempFile)) { request =>
     val DigestedFile(tempFile, id) = request.body
     Logger.info(s"Received file, id: $id")
 
