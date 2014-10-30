@@ -56,7 +56,7 @@ object ImageMetadata {
       }
     }
 
-  private def requiredString(nullableStr: String) = Try(nullableStr.toString)
+  private def requiredString(nullableStr: String) = Try(nullableStr.toString.trim)
 
   private def nonEmptyTrimmed(nullableStr: String): Option[String] =
     Option(nullableStr) map (_.trim) filter (_.nonEmpty)
