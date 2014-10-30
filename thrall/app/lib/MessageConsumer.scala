@@ -69,10 +69,8 @@ object MessageConsumer {
   def updateImageExports(exports: JsValue): Future[UpdateResponse] =
     withImageId(exports)(id => ElasticSearch.updateImageExports(id, exports \ "data"))
 
-  def updateImageUserMetadata(metadata: JsValue): Future[UpdateResponse] = {
-    println("metadata", metadata)
+  def updateImageUserMetadata(metadata: JsValue): Future[UpdateResponse] =
     withImageId(metadata)(id => ElasticSearch.updateImageUserMetadata(id, metadata \ "data"))
-  }
 
   def deleteImage(image: JsValue): Future[DeleteByQueryResponse] =
     withImageId(image) { id =>
