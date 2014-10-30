@@ -13,6 +13,8 @@ import scala.concurrent.{ExecutionContext, Future}
 import scalaz.syntax.id._
 import scala.collection.JavaConverters._
 
+object NoItemFound extends Throwable("item not found")
+
 class DynamoDB(credentials: AWSCredentials, region: Region, tableName: String) {
 
   lazy val client: AmazonDynamoDBClient =
@@ -30,7 +32,13 @@ class DynamoDB(credentials: AWSCredentials, region: Region, tableName: String) {
       new GetItemSpec().
         withPrimaryKey(IdKey, id)
     )
-  } map asJsObject
+  } flatMap { itemOrNull =>
+    // TODO: port this logic to update and other places where item may be null?
+    Option(itemOrNull) match {
+      case Some(item) => Future.successful(asJsObject(item))
+      case None       => Future.failed(NoItemFound)
+    }
+  }
 
   def removeKey(id: String, key: String)
                (implicit ex: ExecutionContext): Future[JsObject] =
