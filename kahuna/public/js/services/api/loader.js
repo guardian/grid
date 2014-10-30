@@ -2,38 +2,29 @@ import angular from 'angular';
 import apiServices from 'services/api';
 
 apiServices.factory('loaderApi',
-                    ['$http', 'mediaApi',
-                     function($http, mediaApi) {
+                    ['mediaApi',
+                     function(mediaApi) {
 
     var loaderRoot;
 
     function getLoaderRoot() {
         if (! loaderRoot) {
-            loaderRoot = mediaApi.getRoot().then(function(response) {
-                var resource = response.data;
-                var loaderLink = resource.links.filter(l => l.rel === 'loader')[0];
-                return $http.get(loaderLink.href);
-            });
+            loaderRoot = mediaApi.root.follow('loader');
         }
         return loaderRoot;
     }
 
-    function getLinkRoot(link) {
-        return getLoaderRoot().then(function(response) {
-            return response.data.links.filter(l => l.rel === link)[0];
-        });
-    }
-
-    function load(data) {
-        return getLinkRoot("load").then(function(loadLink) {
-            return $http({
-                url: loadLink.href + '?uploadedBy=kahuna',
-                method: 'POST',
-                headers: { 'Content-Type': 'image/jpeg' },
-                transformRequest: [],
-                data: data
-            }, { withCredentials: true });
-        });
+    function load(imageData) {
+        var options = {
+            // We could get the guessed mime-type from the File, but
+            // it could be wrong, so might as well just send as data
+            headers: {'Content-Type': 'application/octet-stream'},
+            // Skip angular's default JSON-converting transform
+            transformRequest: []
+        };
+        return getLoaderRoot().
+            follow('load', {uploadedBy: 'kahuna'}).
+            post(imageData, options);
     }
 
     return {
