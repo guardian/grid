@@ -13,11 +13,12 @@ import _root_.play.api.Play.current
 
 import com.gu.mediaservice.lib.auth
 import com.gu.mediaservice.lib.auth.KeyStore
+import com.gu.mediaservice.lib.argo.ArgoHelpers
 import lib._, Files._
 import model._
 
 
-object Application extends Controller {
+object Application extends Controller with ArgoHelpers {
 
   val keyStore = new KeyStore(Config.keyStoreBucket, Config.awsCredentials)
   val Authenticated = auth.Authenticated(keyStore, Config.kahunaUri)
@@ -33,7 +34,7 @@ object Application extends Controller {
         Json.obj("rel" -> "crop", "href" -> s"$rootUri/crops")
       )
     )
-    Ok(response)
+    Ok(response).as(ArgoMediaType)
   }
 
   val cropSourceForm: Form[CropSource] = Form(
@@ -55,7 +56,7 @@ object Application extends Controller {
 
           Notifications.publish(exports, "update-image-exports")
 
-          Ok(crops)
+          Ok(crops).as(ArgoMediaType)
         }
       }
     )
@@ -73,7 +74,7 @@ object Application extends Controller {
       val entity = Json.obj(
         "data" -> all
       ) ++ (links getOrElse Json.obj())
-      Ok(entity)
+      Ok(entity).as(ArgoMediaType)
     }
   }
 

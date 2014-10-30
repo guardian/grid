@@ -1,5 +1,7 @@
 import angular from 'angular';
 
-var apiServices = angular.module('kahuna.services.api', []);
+import './theseus';
+
+var apiServices = angular.module('kahuna.services.api', ['theseus']);
 
 export default apiServices;
