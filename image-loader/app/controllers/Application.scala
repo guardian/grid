@@ -76,7 +76,7 @@ class ImageLoader(storage: ImageStorage) extends Controller with ArgoHelpers {
 
       // TODO: perhaps look at creating a structure for errors for theseus
       result recover {
-        case e => BadRequest(Json.obj("message" -> e.getMessage))
+        case e => BadRequest(Json.obj("errorMessage" -> e.getMessage))
       }
     }
 

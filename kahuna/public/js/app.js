@@ -327,7 +327,7 @@ kahuna.controller('UploadCtrl',
 
     // TODO: Universal messaging system?
     function uploadFailure(resp) {
-        var error = resp.body && resp.body.message;
+        var error = resp.body && resp.body.errorMessage;
         $window.alert(error || 'There were errors uploading some / all of your files');
     }
 }]);
