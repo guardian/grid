@@ -9,7 +9,7 @@ object CorsPreflight extends Controller {
   val maxAge = 1.day.toSeconds.toString
 
   // Handle CORS preflight request
-  def options(url: String) = Action {
+  def options(ignoredUrl: String) = Action {
     Ok("").withHeaders(
       "Access-Control-Allow-Methods" -> "GET, POST, PUT, DELETE, OPTIONS",
       "Access-Control-Allow-Headers" -> "Content-Type, X-Requested-With, Accept",

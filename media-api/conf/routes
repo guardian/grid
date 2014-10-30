@@ -23,5 +23,5 @@ GET     /management/healthcheck     controllers.HealthCheck.healthCheck
 GET     /management/manifest        com.gu.mediaservice.lib.management.Management.manifest
 
 # Enable CORS
-OPTIONS /                           controllers.CorsPreflight.options(url = "")
-OPTIONS /*url                       controllers.CorsPreflight.options(url)
+OPTIONS /                           controllers.CorsPreflight.options(ignoredUrl = "")
+OPTIONS /*ignoredUrl                controllers.CorsPreflight.options(ignoredUrl)
