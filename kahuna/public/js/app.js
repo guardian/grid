@@ -321,13 +321,14 @@ kahuna.controller('UploadCtrl',
 
     // TODO: Poll to see when images are available and add them
     // (could be introduced if we add a "10 new images added" twitter style update)
-    function uploadSuccess() {
+    function uploadSuccess(resp) {
         $window.alert('Files uploaded. Please refresh to see them');
     }
 
     // TODO: Universal messaging system?
-    function uploadFailure() {
-        $window.alert('There were errors uploading some / all of your files');
+    function uploadFailure(resp) {
+        var error = resp.body && resp.body.message;
+        $window.alert(error || 'There were errors uploading some / all of your files');
     }
 }]);
 
