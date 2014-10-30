@@ -60,8 +60,7 @@ object ElasticSearch extends ElasticSearchClient {
       .executeAndLog(s"updating exports on image $id")
       .incrementOnFailure(conflicts) { case e: VersionConflictEngineException => true }
 
-  def updateImageUserMetadata(id: String, metadata: JsValue)(implicit ex: ExecutionContext): Future[UpdateResponse] = {
-    println(id, metadata)
+  def updateImageUserMetadata(id: String, metadata: JsValue)(implicit ex: ExecutionContext): Future[UpdateResponse] =
     prepareImageUpdate(id)
       .setScriptParams(Map(
         "metadata" -> asGroovy(metadata)
@@ -70,7 +69,6 @@ object ElasticSearch extends ElasticSearchClient {
       .setScript("ctx._source.userMetadata = metadata;", scriptType)
       .executeAndLog(s"updating user metadata on image $id")
       .incrementOnFailure(conflicts) { case e: VersionConflictEngineException => true }
-  }
 
   def prepareImageUpdate(id: String): UpdateRequestBuilder =
     client.prepareUpdate(imagesIndex, imageType, id)
