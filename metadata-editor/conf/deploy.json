@@ -15,10 +15,10 @@
             "depends": ["artifactUploadOnly", "deployOnly"]
         },
         "deployOnly": {
-            "actionsBeforeApp": ["editor.deploy"]
+            "actionsBeforeApp": ["metadata-editor.deploy"]
         },
         "artifactUploadOnly": {
-            "actionsBeforeApp": ["editor.uploadArtifacts"]
+            "actionsBeforeApp": ["metadata-editor.uploadArtifacts"]
         }
     }
 }
