@@ -1093,6 +1093,12 @@
                         { "Ref": "Stage" }, "\n",
                         "EOF\n",
 
+                        "cat > /etc/gu/panda.properties <<EOF\n",
+                        "panda.domain=",     { "Ref": "PandaDomain" },    "\n",
+                        "panda.aws.key=",    { "Ref": "PandaAwsKey" },    "\n",
+                        "panda.aws.secret=", { "Ref": "PandaAwsSecret" }, "\n",
+                        "EOF\n",
+
                         "cat > /etc/gu/image-loader.properties<<EOF\n",
                         "aws.id=", { "Ref": "HostKeys" }, "\n",
                         "aws.secret=", { "Fn::GetAtt": [ "HostKeys", "SecretAccessKey" ] }, "\n",
