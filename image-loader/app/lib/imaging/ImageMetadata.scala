@@ -1,22 +1,24 @@
 package lib.imaging
 
 import java.io.File
-import com.drew.metadata.exif.{ExifIFD0Descriptor, ExifIFD0Directory}
+import scala.util.{Success, Failure, Try}
 import scala.concurrent.{ExecutionContext, Future}
+import com.drew.metadata.exif.{ExifIFD0Descriptor, ExifIFD0Directory}
 import com.drew.imaging.ImageMetadataReader
 import com.drew.metadata.iptc.{IptcDescriptor, IptcDirectory}
-import com.drew.metadata.jpeg.JpegDirectory
-import model.Dimensions
 import com.drew.metadata.Metadata
 import java.util.concurrent.Executors
 
+
+// TODO: figure out a better validation strategy i.e.
+// we don't just through the image away (perhaps keep it in a "deal-with bucket"),
 
 object ImageMetadata {
 
   private implicit val ctx: ExecutionContext =
     ExecutionContext.fromExecutor(Executors.newCachedThreadPool)
 
-  def fromIPTCHeaders(image: File): Future[Option[ImageMetadata]] =
+  def fromIPTCHeaders(image: File, validate: Boolean = false): Future[Option[ImageMetadata]] =
     for {
       metadata <- readMetadata(image)
     }
@@ -26,23 +28,35 @@ object ImageMetadata {
         iptcDescriptor = new IptcDescriptor(iptcDir)
       }
       yield {
-        ImageMetadata(
-          nonEmptyTrimmed(iptcDescriptor.getCaptionDescription),
-          nonEmptyTrimmed(iptcDescriptor.getByLineDescription),
-          nonEmptyTrimmed(iptcDescriptor.getHeadlineDescription),
-          nonEmptyTrimmed(iptcDescriptor.getCreditDescription),
-          nonEmptyTrimmed(iptcDescriptor.getCopyrightNoticeDescription),
-          nonEmptyTrimmed(getExifAlternative(metadata, ExifIFD0Directory.TAG_COPYRIGHT, iptcDescriptor.getCopyrightNoticeDescription)),
-          nonEmptyTrimmed(Option(iptcDescriptor.getOriginalTransmissionReferenceDescription)
-            .getOrElse(iptcDescriptor.getObjectNameDescription)),
-          nonEmptyTrimmed(iptcDescriptor.getSourceDescription),
-          nonEmptyTrimmed(iptcDescriptor.getSpecialInstructionsDescription),
-          nonEmptyTrimmed(iptcDescriptor.getKeywordsDescription) map (_.split(Array(';', ',')).toList) getOrElse Nil,
-          nonEmptyTrimmed(iptcDescriptor.getCityDescription),
-          nonEmptyTrimmed(iptcDescriptor.getCountryOrPrimaryLocationDescription)
-        )
+        val imageMetadata = for {
+          description <- requiredString(iptcDescriptor.getCaptionDescription)
+          credit <- requiredString(iptcDescriptor.getCreditDescription)
+        } yield {
+          ImageMetadata(
+            description,
+            credit,
+            nonEmptyTrimmed(iptcDescriptor.getByLineDescription),
+            nonEmptyTrimmed(iptcDescriptor.getHeadlineDescription),
+            nonEmptyTrimmed(iptcDescriptor.getCopyrightNoticeDescription),
+            nonEmptyTrimmed(getExifAlternative(metadata, ExifIFD0Directory.TAG_COPYRIGHT, iptcDescriptor.getCopyrightNoticeDescription)),
+            nonEmptyTrimmed(Option(iptcDescriptor.getOriginalTransmissionReferenceDescription)
+              .getOrElse(iptcDescriptor.getObjectNameDescription)),
+            nonEmptyTrimmed(iptcDescriptor.getSourceDescription),
+            nonEmptyTrimmed(iptcDescriptor.getSpecialInstructionsDescription),
+            nonEmptyTrimmed(iptcDescriptor.getKeywordsDescription) map (_.split(Array(';', ',')).toList) getOrElse Nil,
+            nonEmptyTrimmed(iptcDescriptor.getCityDescription),
+            nonEmptyTrimmed(iptcDescriptor.getCountryOrPrimaryLocationDescription)
+          )
+        }
+
+        imageMetadata match {
+          case Success(i) => i
+          case Failure(e) => throw new RuntimeException("Image description or credit missing")
+        }
       }
     }
+
+  private def requiredString(nullableStr: String) = Try(nullableStr.toString)
 
   private def nonEmptyTrimmed(nullableStr: String): Option[String] =
     Option(nullableStr) map (_.trim) filter (_.nonEmpty)
@@ -57,10 +71,10 @@ object ImageMetadata {
 }
 
 case class ImageMetadata(
-  description: Option[String],
+  description: String,
+  credit: String,
   byline: Option[String],
   title: Option[String],
-  credit: Option[String],
   copyrightNotice: Option[String],
   copyright: Option[String],
   suppliersReference: Option[String],
