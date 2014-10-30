@@ -96,8 +96,7 @@
             "Properties": {
                 "Path": "/",
                 "Roles": [
-                    {"Ref": "DistributionRole"},
-                    {"Ref": "EditsDynamoAccessRole"}
+                    {"Ref": "DistributionRole"}
                 ]
             }
         },
@@ -1413,45 +1412,28 @@
                 }
             }
         },
-
-        "EditsDynamoAccessRole": {
-            "Type": "AWS::IAM::Role",
+        "EditsDynamoTablePolicy": {
+            "Type": "AWS::IAM::Policy",
             "Properties": {
-                "AssumeRolePolicyDocument": {
-                    "Statement": [
-                        {
-                            "Effect": "Allow",
-                            "Principal": {
-                                "Service": [ "ec2.amazonaws.com" ]
-                            },
-                            "Action": [ "sts:AssumeRole" ]
-                        }
-                    ]
+                "PolicyName": "EditsDynamoTablePolicy",
+                "PolicyDocument": {
+                    "Id": "EditsDynamoTablePolicy",
+                    "Statement": [ {
+                        "Effect": "Allow",
+                        "Action": [ "dynamodb:*" ],
+                        "Resource": [
+                            { "Fn::Join" : [ "", [
+                                "arn:aws:dynamodb:",
+                                { "Ref" : "AWS::Region" },
+                                ":",
+                                { "Ref" : "AWS::AccountId" },
+                                ":table/",
+                                { "Ref" : "EditsDynamoTable" }
+                            ] ] }
+                        ]
+                    } ]
                 },
-                "Path": "/",
-                "Policies": [
-                    {
-                        "PolicyName": "root",
-                        "PolicyDocument": {
-                            "Statement": [
-                                {
-                                    "Effect": "Allow",
-                                    "Action": [ "dynamodb:*" ],
-                                    "Resource": [
-                                        { "Fn::Join" : [ "", [
-                                            "arn:aws:dynamodb:",
-                                            { "Ref" : "AWS::Region" },
-                                            ":",
-                                            { "Ref" : "AWS::AccountId" },
-                                            ":table/",
-                                            { "Ref" : "EditsDynamoTable" }
-                                        ] ] }
-                                    ]
-                                }
-                            ]
-                        }
-                    }
-                ]
+                "Users": [ { "Ref": "User" } ]
             }
         },
 
