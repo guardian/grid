@@ -3,6 +3,7 @@
 
 import angular from 'angular';
 import 'angular-ui-router';
+import 'services/theseus';
 import 'services/api/media-api';
 import 'services/api/media-cropper';
 import 'services/api/loader';
@@ -15,6 +16,7 @@ var config = {
 
 var kahuna = angular.module('kahuna', [
     'ui.router',
+    'theseus',
     'kahuna.services.api',
     'kahuna.directives'
 ]);
@@ -272,6 +274,7 @@ kahuna.controller('ImageCropCtrl',
                 imageId: imageId,
                 crop: $filter('getCropKey')(crop.data)
             });
+        // FIXME: traceur promises don't have finally?
         }).finally(function() {
             $scope.cropping = false;
         });
