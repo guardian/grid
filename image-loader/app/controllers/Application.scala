@@ -21,8 +21,6 @@ import com.gu.mediaservice.lib.auth.KeyStore
 import com.gu.mediaservice.lib.argo.ArgoHelpers
 
 
-import scala.util.Try
-
 object Application extends ImageLoader(S3ImageStorage)
 
 class ImageLoader(storage: ImageStorage) extends Controller with ArgoHelpers {
