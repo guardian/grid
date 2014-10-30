@@ -21,6 +21,8 @@ import com.gu.mediaservice.lib.auth.KeyStore
 import com.gu.mediaservice.lib.argo.ArgoHelpers
 
 
+import scala.util.Try
+
 object Application extends ImageLoader(S3ImageStorage)
 
 class ImageLoader(storage: ImageStorage) extends Controller with ArgoHelpers {
@@ -55,7 +57,7 @@ class ImageLoader(storage: ImageStorage) extends Controller with ArgoHelpers {
     // TODO: derive ImageMetadata from FileMetadata
 
     val future = bracket(thumbFuture)(_.delete) { thumb =>
-      for {
+      val result = for {
         uri        <- uriFuture
         dimensions <- dimensionsFuture
         // TODO: fail with error if missing metadata
@@ -71,14 +73,17 @@ class ImageLoader(storage: ImageStorage) extends Controller with ArgoHelpers {
         image       = Image.uploadedNow(id, uploadedBy, sourceAsset, thumbAsset, fileMetadata, metadata, false)
       } yield {
         Notifications.publish(Json.toJson(image), "image")
-        // TODO: return an entity pointing to the Media API uri for the image
         Accepted(Json.obj("id" -> id)).as(ArgoMediaType)
       }
+      
+      result recover {
+        case e => BadRequest(Json.obj("message" -> e.getMessage))
+      }
     }
+
     future.onComplete(_ => tempFile.delete())
     future
   }
 
   def createTempFile = File.createTempFile("requestBody", "", new File(Config.tempDir))
-
 }
