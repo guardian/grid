@@ -34,10 +34,10 @@ object Application extends Controller {
 
   def getMetadata(id: String) = Authenticated.async {
     dynamo.get(id) map {
-      metadata => Ok(Json.obj("data" -> metadata))
+      metadata => Ok(metadataResponse(metadata))
     } recover {
-      // TODO: or empty entity - we may still want to expose links to add metadata then?
-      case NoItemFound => NotFound
+      // Empty object as no metadata edits recorded
+      case NoItemFound => Ok(metadataResponse(Json.obj()))
     }
   }
 
@@ -76,6 +76,14 @@ object Application extends Controller {
     dynamo.setDelete(id, "labels", label) map publishAndRespond(id)
   }
 
+  def metadataResponse(metadata: JsValue): JsValue =
+    Json.obj(
+      "data" -> metadata,
+      "links" -> Json.arr(
+        Json.obj("rel" -> "archived", "href" -> s"$rootUri/metadata/{id}/archived"),
+        Json.obj("rel" -> "labels",   "href" -> s"$rootUri/metadata/{id}/labels")
+      )
+    )
 
   // Publish changes to SNS and return an empty Result
   def publishAndRespond(id: String)(metadata: JsObject): Result = {
