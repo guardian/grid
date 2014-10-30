@@ -9,7 +9,7 @@ import _root_.play.api.libs.concurrent.Execution.Implicits._
 
 import com.gu.mediaservice.lib.auth
 import com.gu.mediaservice.lib.auth.KeyStore
-import com.gu.mediaservice.lib.aws.DynamoDB
+import com.gu.mediaservice.lib.aws.{NoItemFound, DynamoDB}
 import lib._
 
 
@@ -33,7 +33,12 @@ object Application extends Controller {
   }
 
   def getMetadata(id: String) = Authenticated.async {
-    dynamo.get(id) map { metadata => Ok(Json.obj("data" -> metadata)) }
+    dynamo.get(id) map {
+      metadata => Ok(Json.obj("data" -> metadata))
+    } recover {
+      // TODO: or empty entity - we may still want to expose links to add metadata then?
+      case NoItemFound => NotFound
+    }
   }
 
   def getArchived(id: String) = Authenticated.async {
