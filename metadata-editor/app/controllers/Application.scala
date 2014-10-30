@@ -92,7 +92,6 @@ object Application extends Controller {
       "id" -> id,
       "data" -> metadata
     )
-    println("publish", message)
     Notifications.publish(message, "update-image-user-metadata")
 
     NoContent
