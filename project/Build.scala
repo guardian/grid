@@ -39,6 +39,9 @@ object Build extends Build {
   val cropService = playProject("cropper")
     .libraryDependencies(awsDeps ++ imagingDeps ++ playWsDeps)
 
+  val editorService = playProject("metadata-editor")
+    .libraryDependencies(awsDeps ++ playWsDeps)
+
   val imageLoader = playProject("image-loader")
     .libraryDependencies(awsDeps ++ imagingDeps)
 
