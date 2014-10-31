@@ -1,7 +1,5 @@
 package controllers
 
-
-import scala.concurrent.Future
 import scala.util.Try
 
 import play.api.mvc._
@@ -12,7 +10,6 @@ import org.joda.time.DateTime
 import com.gu.mediaservice.lib.formatting.parseDateFromQuery
 import lib.elasticsearch.{ElasticSearch, SearchResults}
 import lib.{Notifications, Config, S3Client}
-import lib.Buckets._
 import com.gu.mediaservice.lib.auth
 import com.gu.mediaservice.lib.auth.KeyStore
 import com.gu.mediaservice.lib.argo.ArgoHelpers
@@ -25,6 +22,7 @@ object MediaApi extends Controller with ArgoHelpers {
   val rootUri = Config.rootUri
   val cropperUri = Config.cropperUri
   val loaderUri = Config.loaderUri
+  val metadataUri = Config.metadataUri
 
   def index = Action {
     val response = Json.obj(
@@ -33,7 +31,8 @@ object MediaApi extends Controller with ArgoHelpers {
         Json.obj("rel" -> "search", "href" -> s"$rootUri/images{?q,offset,length,fromDate,toDate,orderBy}"),
         Json.obj("rel" -> "image",  "href" -> s"$rootUri/images/{id}"),
         Json.obj("rel" -> "cropper", "href" -> cropperUri),
-        Json.obj("rel" -> "loader", "href" -> loaderUri)
+        Json.obj("rel" -> "loader", "href" -> loaderUri),
+        Json.obj("rel" -> "metadata", "href" -> metadataUri)
       )
     )
     Ok(response).as(ArgoMediaType)
@@ -54,21 +53,6 @@ object MediaApi extends Controller with ArgoHelpers {
     Accepted.as(ArgoMediaType)
   }
 
-  def addImageToBucket(id: String) = Authenticated.async { bucketNotification(id, "add-image-to-bucket") }
-
-  def removeImageFromBucket(id: String) = Authenticated.async { bucketNotification(id, "remove-image-from-bucket") }
-
-  private def bucketNotification(imageId: String, subject: String): Request[AnyContent] => Future[Result] =
-    request => request.body.asText.filter(validBucket) match {
-      case Some(bucket) =>
-        for (exists <- ElasticSearch.imageExists(imageId)) yield
-          if (exists) {
-            Notifications.publish(Json.obj("id" -> imageId, "bucket" -> bucket), subject)
-            Accepted
-          }
-          else NotFound
-      case None => Future.successful(BadRequest("Invalid bucket name"))
-    }
 
   def imageSearch = Authenticated.async { request =>
     val params = GeneralParams(request)
@@ -98,7 +82,10 @@ object MediaApi extends Controller with ArgoHelpers {
       // FIXME: don't hardcode paths from other APIs - once we're
       // storing a copy of the data in the DB, we can use it to point
       // to the right place
-      val links = List(Json.obj("rel" -> "crops", "href" -> s"$cropperUri/crops/$id"))
+      val links = List(
+        Json.obj("rel" -> "crops",    "href" -> s"$cropperUri/crops/$id"),
+        Json.obj("rel" -> "metadata", "href" -> s"$metadataUri/metadata/$id")
+      )
       Json.obj("uri" -> s"$rootUri/images/$id", "data" -> image, "links" -> links)
     }
     else source
@@ -138,7 +125,6 @@ case class SearchParams(
   fromDate: Option[DateTime],
   toDate: Option[DateTime],
   archived: Option[Boolean],
-  buckets: List[String],
   hasMetadata: List[String]
 )
 
@@ -156,7 +142,6 @@ object SearchParams {
       request.getQueryString("fromDate") orElse request.getQueryString("since") flatMap parseDateFromQuery,
       request.getQueryString("toDate") orElse request.getQueryString("until") flatMap parseDateFromQuery,
       request.getQueryString("archived").map(_.toBoolean),
-      commaSep("bucket"),
       commaSep("hasMetadata")
     )
   }

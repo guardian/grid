@@ -24,6 +24,20 @@
                                 "Effect": "Allow",
                                 "Action": ["sns:Publish"],
                                 "Resource": { "Ref": "Topic" }
+                            },
+                            {
+                                "Effect": "Allow",
+                                "Action": [ "dynamodb:*" ],
+                                "Resource": [
+                                    { "Fn::Join" : [ "", [
+                                        "arn:aws:dynamodb:",
+                                        { "Ref" : "AWS::Region" },
+                                        ":",
+                                        { "Ref" : "AWS::AccountId" },
+                                        ":table/",
+                                        { "Ref" : "EditsDynamoTable" }
+                                    ] ] }
+                                ]
                             }
                         ]
                     }
@@ -152,6 +166,30 @@
             }
         },
 
+
+        "EditsDynamoTable": {
+            "Type": "AWS::DynamoDB::Table",
+            "Properties": {
+                "AttributeDefinitions": [
+                    {
+                        "AttributeName": "id",
+                        "AttributeType": "S"
+                    }
+                ],
+                "KeySchema": [
+                    {
+                        "AttributeName": "id",
+                        "KeyType": "HASH"
+                    }
+                ],
+                "ProvisionedThroughput": {
+                    "ReadCapacityUnits" : "10",
+                    "WriteCapacityUnits" : "5"
+                }
+            }
+        },
+
+
         "Topic": {
             "Type": "AWS::SNS::Topic",
             "Properties": {
@@ -211,6 +249,9 @@
         },
         "ImageOriginWebsite": {
             "Value": { "Fn::GetAtt": [ "ImageOriginBucket", "WebsiteURL" ] }
+        },
+        "EditsDynamoTable": {
+            "Value": { "Ref": "EditsDynamoTable" }
         },
         "SnsTopicArn": {
             "Value": { "Ref": "Topic" }
