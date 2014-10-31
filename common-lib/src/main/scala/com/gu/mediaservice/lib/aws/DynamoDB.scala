@@ -91,15 +91,21 @@ class DynamoDB(credentials: AWSCredentials, region: Region, tableName: String) {
       new ValueMap().withStringSet(":value", value)
     )
 
-  def update(id: String, expression: String, valueMap: ValueMap = new ValueMap())
+
+  def update(id: String, expression: String, valueMap: ValueMap)
+            (implicit ex: ExecutionContext): Future[JsObject] =
+    update(id, expression, Some(valueMap))
+
+  def update(id: String, expression: String, valueMap: Option[ValueMap] = None)
             (implicit ex: ExecutionContext): Future[JsObject] = Future {
-    table.updateItem(
-      new UpdateItemSpec().
-        withPrimaryKey(IdKey, id).
-        withUpdateExpression(expression).
-        withValueMap(valueMap).
-        withReturnValues(ReturnValue.ALL_NEW)
-    )
+    val baseUpdateSpec = new UpdateItemSpec().
+      withPrimaryKey(IdKey, id).
+      withUpdateExpression(expression).
+      withReturnValues(ReturnValue.ALL_NEW)
+
+    val updateSpec = valueMap.map(baseUpdateSpec.withValueMap(_)) getOrElse baseUpdateSpec
+
+    table.updateItem(updateSpec)
   } map asJsObject
 
 
