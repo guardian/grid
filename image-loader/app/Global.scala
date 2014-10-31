@@ -1,11 +1,13 @@
-import java.nio.charset.Charset.defaultCharset
+import play.api.libs.concurrent.Akka
 import play.api.mvc.WithFilters
-import play.api.{Logger, Application, GlobalSettings}
+import play.api.{Application, GlobalSettings}
+
+import controllers.{Application => App}
 
 object Global extends WithFilters(CorsFilter) with GlobalSettings {
 
-  override def beforeStart(app: Application) {
-    Logger.info(s"Default charset is $defaultCharset")
+  override def onStart(app: Application) {
+    App.keyStore.scheduleUpdates(Akka.system(app).scheduler)
   }
 
 }
