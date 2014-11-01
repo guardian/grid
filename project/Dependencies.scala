@@ -3,7 +3,7 @@ import sbt.Keys
 
 object Dependencies {
 
-  val playVersion = "2.3.5" // also exists in plugins.sbt, TODO deduplicate this
+  val playVersion = "2.3.6" // also exists in plugins.sbt, TODO deduplicate this
 
   val playDeps = Seq(
     ("com.typesafe.play" %% "play" % playVersion)
@@ -23,7 +23,7 @@ object Dependencies {
 
   val elasticsearchDeps = Seq("org.elasticsearch" % "elasticsearch" % elasticsearchVersion)
 
-  val awsDeps = Seq("com.amazonaws" % "aws-java-sdk" % "1.9.0")
+  val awsDeps = Seq("com.amazonaws" % "aws-java-sdk" % "1.9.3")
 
   val pandaDeps = Seq(
     ("com.gu" %% "pan-domain-auth-core" % "0.2.4") exclude ("xpp3", "xpp3") exclude("com.google.guava", "guava-jdk5"),
@@ -46,18 +46,18 @@ object Dependencies {
 
   val commonsNetDeps = Seq(
     "commons-net" % "commons-net" % "3.3",
-    "org.apache.httpcomponents" % "httpclient" % "4.3.1"
+    "org.apache.httpcomponents" % "httpclient" % "4.3.5"
   )
 
   val commonsIODeps = Seq("commons-io" % "commons-io" % "2.4")
 
   val akkaAgentDeps = Seq("com.typesafe.akka" %% "akka-agent" % "2.3.4")
 
-  val scalaTestDeps = Seq("org.scalatest" %% "scalatest" % "2.0.RC1")
+  val scalaTestDeps = Seq("org.scalatest" %% "scalatest" % "2.2.1")
 
-  val scalaCheckDeps = Seq("org.scalacheck" %% "scalacheck" % "1.11.3")
+  val scalaCheckDeps = Seq("org.scalacheck" %% "scalacheck" % "1.11.6")
 
-  val uriTemplateDeps = Seq("no.arktekk" %% "uri-template" % "1.0.1")
+  val uriTemplateDeps = Seq("no.arktekk" %% "uri-template" % "1.0.2")
 
   // The `updatebyquery` plugin is potentially a polyfill as it looks like there is the intention of adding this
   // See: https://github.com/yakaz/elasticsearch-action-updatebyquery
