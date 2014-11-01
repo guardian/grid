@@ -31,7 +31,7 @@ object Dependencies {
   )
 
   val scalazDeps = Seq(
-    "org.scalaz.stream" %% "scalaz-stream" % "0.3.1"
+    "org.scalaz.stream" %% "scalaz-stream" % "0.5"
   )
 
   val imagingDeps = Seq(
