@@ -5,16 +5,18 @@ import scala.concurrent.duration._
 import scalaz.concurrent.Task
 import scalaz.stream.{Process, process1, Process1, Wye}
 import scalaz.stream.Process._
-import scalaz.stream.io
+//import scalaz.stream.io
 import scalaz.stream.ReceiveY.{ReceiveL, ReceiveR, HaltL, HaltR}
-
+import scalaz.stream.DefaultScheduler
 
 object Processes {
+
+  implicit val scheduler = DefaultScheduler
 
   def unchunk[O]: Process1[Seq[O], O] =
     process1.id[Seq[O]].flatMap(emitAll)
 
-  def sleepIfEmpty[A](duration: Duration)(p: Process[Task, Seq[A]]): Process[Task, Seq[A]] =
+  def sleepIfEmpty[A](duration: FiniteDuration)(p: Process[Task, Seq[A]]): Process[Task, Seq[A]] =
     p.flatMap(xs => if (xs.isEmpty) sleep(duration) else emit(xs))
 
   implicit class SourceSyntax[O](self: Process[Task, O]) {

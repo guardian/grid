@@ -31,6 +31,7 @@ object Dependencies {
   )
 
   val scalazDeps = Seq(
+    // FIXME: breaks build
     "org.scalaz.stream" %% "scalaz-stream" % "0.5"
   )
 
