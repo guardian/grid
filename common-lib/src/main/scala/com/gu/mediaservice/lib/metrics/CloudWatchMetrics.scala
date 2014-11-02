@@ -10,7 +10,8 @@ import com.amazonaws.services.cloudwatch.model.{Dimension, StandardUnit, MetricD
 
 import scalaz.concurrent.Task
 import scalaz.stream.async, async.mutable.Topic
-import scalaz.stream.Process.{Sink, constant, emitAll}
+import scalaz.stream.Sink
+import scalaz.stream.Process.{constant, emitAll}
 import scalaz.syntax.id._
 
 trait Metric[A] {
@@ -38,6 +39,13 @@ abstract class CloudWatchMetrics(namespace: String, credentials: AWSCredentials)
     */
   val maxAge: Duration = 1.minute
 
+  import scalaz.{\/, -\/, \/-}
+
+  private[metrics] val loggingErrors: Throwable \/ Unit => Unit = {
+    case -\/(e) => logger.error(s"Error while publishing metrics", e)
+    case \/-(_) =>
+  }
+
   class CountMetric(name: String) extends CloudWatchMetric[Long](name) {
 
     protected def toDatum(a: Long, dimensions: List[Dimension]) = datum(StandardUnit.Count, a, dimensions)
@@ -52,7 +60,7 @@ abstract class CloudWatchMetrics(namespace: String, credentials: AWSCredentials)
 
   private lazy val logger = LoggerFactory.getLogger(getClass)
 
-  private val topic: Topic[MetricDatum] = async.topic[MetricDatum]
+  private val topic: Topic[MetricDatum] = async.topic[MetricDatum]()
 
   private val sink: Sink[Task, Seq[MetricDatum]] = constant { data =>
     putData(data).handle { case e: RuntimeException => logger.error(s"Error while publishing metrics", e) }
@@ -100,12 +108,5 @@ abstract class CloudWatchMetrics(namespace: String, credentials: AWSCredentials)
 
   /** Subscribe the metric publishing sink to the topic */
   topic.subscribe.chunkTimed(maxAge, maxChunkSize).to(sink).run.runAsync(loggingErrors)
-
-  import scalaz.{\/, -\/, \/-}
-
-  private[metrics] val loggingErrors: Throwable \/ Unit => Unit = {
-    case -\/(e) => logger.error(s"Error while publishing metrics", e)
-    case \/-(_) =>
-  }
 
 }

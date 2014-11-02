@@ -9,7 +9,7 @@ import org.apache.commons.io.FilenameUtils._
 
 import scalaz.syntax.bind._
 import scalaz.concurrent.Task
-import scalaz.stream.{Process, io}
+import scalaz.stream.{Process, io, Writer, Channel, Sink, Process1, process1}
 import scalaz.\/
 import Process._
 import io.resource
