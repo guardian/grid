@@ -1,0 +1,19 @@
+GET     /                                 controllers.Application.index
+
+GET     /metadata/:id                     controllers.Application.getMetadata(id: String)
+
+GET     /metadata/:id/archived            controllers.Application.getArchived(id: String)
+PUT     /metadata/:id/archived            controllers.Application.setArchived(id: String)
+DELETE  /metadata/:id/archived            controllers.Application.unsetArchived(id: String)
+
+GET     /metadata/:id/labels              controllers.Application.getLabels(id: String)
+POST    /metadata/:id/labels              controllers.Application.addLabel(id: String)
+DELETE  /metadata/:id/labels/:label       controllers.Application.removeLabel(id: String, label: String)
+
+
+# Management
+GET     /management/healthcheck           com.gu.mediaservice.lib.management.Management.healthCheck
+GET     /management/manifest              com.gu.mediaservice.lib.management.Management.manifest
+
+# Enable CORS
+OPTIONS /*url                             controllers.CorsPreflight.options(url: String)
