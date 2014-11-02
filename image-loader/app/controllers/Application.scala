@@ -47,6 +47,7 @@ class ImageLoader(storage: ImageStorage) extends Controller with ArgoHelpers {
     val uploadedBy = request.getQueryString("uploadedBy")
 
     // These futures are started outside the for-comprehension, otherwise they will not run in parallel
+    // TODO: delete stored image if it is not valid
     val uriFuture = storage.storeImage(id, tempFile, uploadedBy.map(s => ("uploaded_by", s)).toMap)
     val thumbFuture = Thumbnailer.createThumbnail(Config.thumbWidth, tempFile.toString)
     val dimensionsFuture = FileMetadata.dimensions(tempFile)
@@ -74,9 +75,13 @@ class ImageLoader(storage: ImageStorage) extends Controller with ArgoHelpers {
         Accepted(Json.obj("id" -> id)).as(ArgoMediaType)
       }
 
-      // TODO: perhaps look at creating a structure for errors for theseus
       result recover {
-        case e => BadRequest(Json.obj("errorMessage" -> e.getMessage))
+        case e => {
+          // TODO: Log when an image isn't deleted
+          storage.deleteImage(id)
+          // TODO: add errorCode
+          BadRequest(Json.obj("errorMessage" -> e.getMessage))
+        }
       }
     }
 
