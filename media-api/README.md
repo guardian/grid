@@ -14,7 +14,6 @@
 | orderBy    | Field for ordering (prepend '-' for DESC) | -uploadTime
 | fromDate   | Search images uploaded since this time    | [no lower bound]
 | toDate     | Search images uploaded before this time   | [no upper bound]
-| bucket     | Search in these buckets (comma-separated) | [all buckets]
 
 Date-time values (e.g. fromDate) can be provided in ISO format (no milliseconds), e.g. `2013-10-24T11:09:38Z` (i.e.
 the same format as date-times in the documents). They can also be provided as relative durations, e.g. `7.days`.

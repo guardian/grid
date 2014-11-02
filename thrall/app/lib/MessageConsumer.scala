@@ -9,7 +9,6 @@ import scala.concurrent.duration._
 import com.amazonaws.services.sqs.AmazonSQSClient
 import com.amazonaws.services.sqs.model.{Message => SQSMessage, DeleteMessageRequest, ReceiveMessageRequest}
 import org.elasticsearch.action.index.IndexResponse
-import org.elasticsearch.action.delete.DeleteResponse
 import org.elasticsearch.action.update.UpdateResponse
 import _root_.play.api.libs.json._
 import _root_.play.api.libs.functional.syntax._
@@ -51,8 +50,7 @@ object MessageConsumer {
       case "image"                    => indexImage
       case "delete-image"             => deleteImage
       case "update-image-exports"     => updateImageExports
-      case "add-image-to-bucket"      => addImageToBucket
-      case "remove-image-from-bucket" => removeImageFromBucket
+      case "update-image-user-metadata" => updateImageUserMetadata
     }
 
   def deleteOnSuccess(msg: SQSMessage)(f: Future[Any]): Unit =
@@ -71,6 +69,9 @@ object MessageConsumer {
   def updateImageExports(exports: JsValue): Future[UpdateResponse] =
     withImageId(exports)(id => ElasticSearch.updateImageExports(id, exports \ "data"))
 
+  def updateImageUserMetadata(metadata: JsValue): Future[UpdateResponse] =
+    withImageId(metadata)(id => ElasticSearch.updateImageUserMetadata(id, metadata \ "data"))
+
   def deleteImage(image: JsValue): Future[DeleteByQueryResponse] =
     withImageId(image) { id =>
       val future = ElasticSearch.deleteImage(id)
@@ -80,20 +81,6 @@ object MessageConsumer {
         S3ImageStorage.deleteThumbnail(id)
       }
       future
-    }
-
-  def addImageToBucket(image: JsValue): Future[UpdateResponse] =
-    withImageId(image) { id =>
-      string(image \ "bucket").fold(
-        sys.error("No bucket found in request"))(
-        ElasticSearch.addImageToBucket(id, _))
-    }
-
-  def removeImageFromBucket(image: JsValue): Future[UpdateResponse] =
-    withImageId(image) { id =>
-      string(image \ "bucket").fold(
-        sys.error("No bucket found in request"))(
-        ElasticSearch.removeImageFromBucket(id, _))
     }
 
   def withImageId[A](image: JsValue)(f: String => A): A =

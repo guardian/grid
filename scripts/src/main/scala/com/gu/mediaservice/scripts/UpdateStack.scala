@@ -123,6 +123,7 @@ abstract class StackScript {
       val mediaApiCertArn = getCertArn(s"api.$domainRoot-rotated")
       val loaderCertArn = getCertArn(s"loader.$domainRoot-rotated")
       val cropperCertArn = getCertArn(s"cropper.$domainRoot-rotated")
+      val metadataCertArn = getCertArn(s"$domainRoot-rotated")
 
       val (esMinSize, esDesired) = stage match {
         case Prod => (3, 3)
@@ -151,6 +152,7 @@ abstract class StackScript {
           param("KahunaSSLCertificateId", kahunaCertArn),
           param("ImageLoaderSSLCertificateId", loaderCertArn),
           param("CropperSSLCertificateId", cropperCertArn),
+          param("MetadataSSLCertificateId", metadataCertArn),
           param("ElasticsearchAutoscalingMinSize", esMinSize.toString),
           param("ElasticsearchAutoscalingMaxSize", esMaxSize.toString),
           param("ElasticsearchAutoscalingDesiredCapacity", esDesired.toString),
