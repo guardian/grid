@@ -233,6 +233,29 @@ The user interface should be up at
 [http://localhost:9006/](http://localhost:9006/).
 
 
+## Run Metadata Editor
+
+Setup your local configuration in `/etc/gu/metadata-editor.properties`:
+
+```
+domain.root=...
+aws.id=...
+aws.secret=...
+auth.keystore.bucket=...
+sns.topic.arn=...
+dynamo.table.edits=...
+```
+
+From the project root, run via sbt:
+
+        $ sbt
+        > project metadata-editor
+        > run 9007
+
+The user interface should be up at
+[http://localhost:9007/](http://localhost:9007/).
+
+
 ## Troubleshooting
 
 ### Nginx returns "413 Request Entity Too Large"

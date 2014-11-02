@@ -1,0 +1,24 @@
+{
+    "defaultStacks": ["media-service"],
+    "packages": {
+        "metadata-editor": {
+            "type": "autoscaling",
+            "data": {
+                "port": 9000,
+                "bucket": "media-service-dist",
+                "publicReadAcl": false
+            }
+        }
+    },
+    "recipes": {
+        "default": {
+            "depends": ["artifactUploadOnly", "deployOnly"]
+        },
+        "deployOnly": {
+            "actionsBeforeApp": ["metadata-editor.deploy"]
+        },
+        "artifactUploadOnly": {
+            "actionsBeforeApp": ["metadata-editor.uploadArtifacts"]
+        }
+    }
+}
