@@ -1,7 +1,7 @@
 {
   "jspm": {
     "directories": {
-      "jspmPackages": "public/jspm_packages"
+      "packages": "public/jspm_packages"
     },
     "configFile": "public/config.js",
     "dependencies": {
@@ -15,7 +15,7 @@
     }
   },
   "devDependencies": {
-    "jspm": "0.7.1"
+    "jspm": "^0.8.4"
   },
   "repository": {
     "type": "git",
