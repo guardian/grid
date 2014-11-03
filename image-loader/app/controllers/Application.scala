@@ -54,11 +54,11 @@ class ImageLoader(storage: ImageStorage) extends Controller with ArgoHelpers {
     val fileMetadataFuture = FileMetadata.fromIPTCHeaders(tempFile)
     // TODO: derive ImageMetadata from FileMetadata
 
+    // TODO: better error handling on all futures. Similar to metadata
     val future = bracket(thumbFuture)(_.delete) { thumb =>
-      for {
+      val result = for {
         uri        <- uriFuture
         dimensions <- dimensionsFuture
-        // TODO: fail with error if missing metadata
         metadata   <- metadataFuture
         fileMetadata <- fileMetadataFuture
         // TODO: validate mime-type against white-list
@@ -74,11 +74,20 @@ class ImageLoader(storage: ImageStorage) extends Controller with ArgoHelpers {
         // TODO: return an entity pointing to the Media API uri for the image
         Accepted(Json.obj("id" -> id)).as(ArgoMediaType)
       }
+
+      result recover {
+        case e => {
+          // TODO: Log when an image isn't deleted
+          storage.deleteImage(id)
+          // TODO: add errorCode
+          BadRequest(Json.obj("errorMessage" -> e.getMessage))
+        }
+      }
     }
+
     future.onComplete(_ => tempFile.delete())
     future
   }
 
   def createTempFile = File.createTempFile("requestBody", "", new File(Config.tempDir))
-
 }
