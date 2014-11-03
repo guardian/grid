@@ -106,15 +106,11 @@ abstract class StackScript {
     /** Defines the Media Service stack for the specified stage */
     def mediaService(stage: Stage, pandaAwsKey: Option[String], pandaAwsSecret: Option[String]): Stack = {
 
-      val domainRoot = stage match {
-        case Prod => "media.***REMOVED***"
-        case _    => s"media.$stage.dev-***REMOVED***".toLowerCase
-      }
-
-      val pandaDomain = stage match {
+      val parentDomain = stage match {
         case Prod => "***REMOVED***"
         case _    => s"$stage.dev-***REMOVED***".toLowerCase
       }
+      val domainRoot = s"media.$parentDomain"
 
       val alertEmail = s"***REMOVED***".toLowerCase
       val alertActive = stage == Prod
@@ -123,7 +119,7 @@ abstract class StackScript {
       val mediaApiCertArn = getCertArn(s"api.$domainRoot-rotated")
       val loaderCertArn = getCertArn(s"loader.$domainRoot-rotated")
       val cropperCertArn = getCertArn(s"cropper.$domainRoot-rotated")
-      val metadataCertArn = getCertArn(s"$domainRoot-rotated")
+      val metadataCertArn = getCertArn(s"$parentDomain-rotated")
 
       val (esMinSize, esDesired) = stage match {
         case Prod => (3, 3)
@@ -162,7 +158,7 @@ abstract class StackScript {
           param("DomainRoot", domainRoot),
           param("AlertEmail", alertEmail),
           param("AlertActive", alertActive.toString),
-          param("PandaDomain", pandaDomain),
+          param("PandaDomain", parentDomain),
           param("PandaAwsKey",  pandaAwsKey),
           param("PandaAwsSecret", pandaAwsSecret)
         )
