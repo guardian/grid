@@ -71,6 +71,7 @@ class ImageLoader(storage: ImageStorage) extends Controller with ArgoHelpers {
         image       = Image.uploadedNow(id, uploadedBy, sourceAsset, thumbAsset, fileMetadata, metadata, false)
       } yield {
         Notifications.publish(Json.toJson(image), "image")
+        // TODO: return an entity pointing to the Media API uri for the image
         Accepted(Json.obj("id" -> id)).as(ArgoMediaType)
       }
 
