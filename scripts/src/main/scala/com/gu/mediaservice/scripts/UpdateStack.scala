@@ -115,7 +115,7 @@ abstract class StackScript {
       val alertEmail = s"***REMOVED***".toLowerCase
       val alertActive = stage == Prod
 
-      val kahunaCertArn = getCertArn(s"$domainRoot-rotated")
+      val kahunaCertArn = getCertArn(s"$parentDomain-rotated")
       val mediaApiCertArn = getCertArn(s"api.$domainRoot-rotated")
       val loaderCertArn = getCertArn(s"loader.$domainRoot-rotated")
       val cropperCertArn = getCertArn(s"cropper.$domainRoot-rotated")
