@@ -199,7 +199,8 @@ a:focus {
 /* ==========================================================================
    File uploader
    ========================================================================== */
-
+/* TODO: Remove once uploadedBy is done */
+.file-uploader { display:none; }
 .file-uploader__file {
     display: none;
 }
