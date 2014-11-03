@@ -252,6 +252,12 @@
                         "FromPort": 9000,
                         "ToPort": 9000,
                         "SourceSecurityGroupName": { "Fn::GetAtt": ["CropperLoadBalancer", "SourceSecurityGroup.GroupName"]}
+                    },
+                    {
+                        "IpProtocol": "tcp",
+                        "FromPort": 9000,
+                        "ToPort": 9000,
+                        "SourceSecurityGroupName": { "Fn::GetAtt": ["MetadataEditorLoadBalancer", "SourceSecurityGroup.GroupName"]}
                     }
                 ]
             }
@@ -1751,7 +1757,7 @@
             }
         },
 
-        "AlertingTopic": {
+        "AlertTopic": {
             "Type": "AWS::SNS::Topic",
             "Properties": {
                 "DisplayName": { "Fn::Join" : [ "-", [ { "Ref": "Stage" },"Alerts"]] },
@@ -1774,7 +1780,7 @@
                 "Period": "60",
                 "EvaluationPeriods": "3",
                 "Statistic": "Sum",
-                "AlarmActions": [ { "Ref": "AlertingTopic" } ]
+                "AlarmActions": [ { "Ref": "AlertTopic" } ]
             }
         },
 
@@ -1791,7 +1797,7 @@
                 "Period": "60",
                 "EvaluationPeriods": "1",
                 "Statistic": "Average",
-                "AlarmActions": [ { "Ref": "AlertingTopic" } ]
+                "AlarmActions": [ { "Ref": "AlertTopic" } ]
             }
         }
 
