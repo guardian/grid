@@ -75,34 +75,16 @@ kahuna.controller('SearchQueryCtrl',
                   ['$scope', '$state', '$stateParams',
                    function($scope, $state, $stateParams) {
 
-    // a little annoying as the params are returned as strings
-    $scope.free = $stateParams.free !== 'false';
-    $scope.query = $stateParams.query;
-    $scope.since = $stateParams.since;
-    $scope.archived = $stateParams.archived;
+    Object.keys($stateParams).forEach(setAndWatchParam);
 
-    // Update state from search filters (skip initialisation step)
-    $scope.$watch('query', function(query, oldQuery) {
-        if (query !== oldQuery) {
-            $state.go('search.results', {query: query});
-        }
-    });
-    $scope.$watch('since', function(since, oldSince) {
-        if (since !== oldSince) {
-            $state.go('search.results', {since: since});
-        }
-    });
-    $scope.$watch('free', function(free, oldFree) {
-        if (free !== oldFree) {
-            $state.go('search.results', {free: free});
-        }
-    });
-    $scope.$watch('archived', function(archived, oldArchived) {
-        if (archived !== oldArchived) {
-            $state.go('search.results', {archived: archived});
-        }
-    });
-
+    function setAndWatchParam(key) {
+        $scope[key] = $stateParams[key];
+        $scope.$watch(key, (n, o) => {
+            if (n !== o) {
+                $state.go('search.results', { [key]: n });
+            }
+        });
+    }
 }]);
 
 
