@@ -17,7 +17,7 @@ import model.{Asset, Image}
 
 import com.gu.mediaservice.lib.{auth, ImageStorage}
 import com.gu.mediaservice.lib.resource.FutureResources._
-import com.gu.mediaservice.lib.auth.KeyStore
+import com.gu.mediaservice.lib.auth.{AuthenticatedService, PandaUser, KeyStore}
 import com.gu.mediaservice.lib.argo.ArgoHelpers
 
 
@@ -44,10 +44,15 @@ class ImageLoader(storage: ImageStorage) extends Controller with ArgoHelpers {
     val DigestedFile(tempFile, id) = request.body
     Logger.info(s"Received file, id: $id")
 
-    val uploadedBy = request.getQueryString("uploadedBy")
+    // only allow AuthenticatedService to set with query string
+    val uploadedBy = (request.user, request.getQueryString("uploadedBy")) match {
+      case (user: AuthenticatedService, Some(qs)) => qs
+      case (user: PandaUser, qs) => user.email
+      case (user, qs) => user.name
+    }
 
     // These futures are started outside the for-comprehension, otherwise they will not run in parallel
-    val uriFuture = storage.storeImage(id, tempFile, uploadedBy.map(s => ("uploaded_by", s)).toMap)
+    val uriFuture = storage.storeImage(id, tempFile, Map("uploaded_by" -> uploadedBy))
     val thumbFuture = Thumbnailer.createThumbnail(Config.thumbWidth, tempFile.toString)
     val dimensionsFuture = FileMetadata.dimensions(tempFile)
     val metadataFuture = ImageMetadata.fromIPTCHeaders(tempFile)
