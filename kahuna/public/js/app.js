@@ -177,7 +177,8 @@ kahuna.controller('SearchResultsCtrl',
                 // Filter out duplicates (esp. on exact same 'until' date)
                 var newImages = moreImages.filter(function(im) {
                     return $scope.images.filter(function(existing) {
-                        return existing.uri === im.uri;
+                        // TODO: revert back to using uri
+                        return existing.data.id === im.data.id;
                     }).length === 0;
                 });
                 $scope.images = $scope.images.concat(newImages);
@@ -209,6 +210,7 @@ kahuna.controller('ImageCtrl',
         var getCropKey = $filter('getCropKey');
 
         $scope.image = image;
+        image.uri.then(uri => $scope.imageSync = {uri: uri, data: image.data});
 
         mediaCropper.getCropsFor(image).then(function(crops) {
            $scope.crops = crops;
