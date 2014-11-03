@@ -28,7 +28,7 @@ object MediaApi extends Controller with ArgoHelpers {
     val response = Json.obj(
       "data"  -> Json.obj("description" -> "This is the Media API"),
       "links" -> Json.arr(
-        Json.obj("rel" -> "search", "href" -> s"$rootUri/images{?q,offset,length,fromDate,toDate,orderBy}"),
+        Json.obj("rel" -> "search", "href" -> s"$rootUri/images{?q,offset,length,fromDate,toDate,orderBy,since,until}"),
         Json.obj("rel" -> "image",  "href" -> s"$rootUri/images/{id}"),
         Json.obj("rel" -> "cropper", "href" -> cropperUri),
         Json.obj("rel" -> "loader", "href" -> loaderUri),
