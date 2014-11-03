@@ -47,7 +47,6 @@ class ImageLoader(storage: ImageStorage) extends Controller with ArgoHelpers {
     val uploadedBy = request.getQueryString("uploadedBy")
 
     // These futures are started outside the for-comprehension, otherwise they will not run in parallel
-    // TODO: delete stored image if it is not valid
     val uriFuture = storage.storeImage(id, tempFile, uploadedBy.map(s => ("uploaded_by", s)).toMap)
     val thumbFuture = Thumbnailer.createThumbnail(Config.thumbWidth, tempFile.toString)
     val dimensionsFuture = FileMetadata.dimensions(tempFile)
