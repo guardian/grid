@@ -1757,7 +1757,7 @@
             }
         },
 
-        "AlertingTopic": {
+        "AlertTopic": {
             "Type": "AWS::SNS::Topic",
             "Properties": {
                 "DisplayName": { "Fn::Join" : [ "-", [ { "Ref": "Stage" },"Alerts"]] },
@@ -1780,7 +1780,7 @@
                 "Period": "60",
                 "EvaluationPeriods": "3",
                 "Statistic": "Sum",
-                "AlarmActions": [ { "Ref": "AlertingTopic" } ]
+                "AlarmActions": [ { "Ref": "AlertTopic" } ]
             }
         },
 
@@ -1797,7 +1797,7 @@
                 "Period": "60",
                 "EvaluationPeriods": "1",
                 "Statistic": "Average",
-                "AlarmActions": [ { "Ref": "AlertingTopic" } ]
+                "AlarmActions": [ { "Ref": "AlertTopic" } ]
             }
         }
 
