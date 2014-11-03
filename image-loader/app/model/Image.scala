@@ -36,10 +36,10 @@ object Image {
     Image(id, DateTime.now, uploadedBy, source, Some(thumbnail), fileMetadata, metadata, archived)
 
   implicit val IptcMetadataWrites: Writes[ImageMetadata] =
-    ((__ \ "description").writeNullable[String] ~
+    ((__ \ "description").write[String] ~
+      (__ \ "credit").write[String] ~
       (__ \ "byline").writeNullable[String] ~
       (__ \ "title").writeNullable[String] ~
-      (__ \ "credit").writeNullable[String] ~
       (__ \ "copyrightNotice").writeNullable[String] ~
       (__ \ "copyright").writeNullable[String] ~
       (__ \ "suppliersReference").writeNullable[String] ~
