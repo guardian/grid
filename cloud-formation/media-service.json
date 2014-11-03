@@ -252,6 +252,12 @@
                         "FromPort": 9000,
                         "ToPort": 9000,
                         "SourceSecurityGroupName": { "Fn::GetAtt": ["CropperLoadBalancer", "SourceSecurityGroup.GroupName"]}
+                    },
+                    {
+                        "IpProtocol": "tcp",
+                        "FromPort": 9000,
+                        "ToPort": 9000,
+                        "SourceSecurityGroupName": { "Fn::GetAtt": ["MetadataEditorLoadBalancer", "SourceSecurityGroup.GroupName"]}
                     }
                 ]
             }
