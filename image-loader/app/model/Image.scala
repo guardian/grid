@@ -11,7 +11,7 @@ import lib.imaging.{FileMetadata, ImageMetadata}
 
 case class Image(id: String,
                  uploadTime: DateTime,
-                 uploadedBy: Option[String],
+                 uploadedBy: String,
                  source: Asset,
                  thumbnail: Option[Asset],
                  fileMetadata: FileMetadata,
@@ -27,7 +27,7 @@ case class Image(id: String,
 object Image {
 
   def uploadedNow(id: String,
-                  uploadedBy: Option[String],
+                  uploadedBy: String,
                   source: Asset,
                   thumbnail: Asset,
                   fileMetadata: FileMetadata,
@@ -55,7 +55,7 @@ object Image {
   implicit val ImageWrites: Writes[Image] = (
     (__ \ "id").write[String] ~
       (__ \ "uploadTime").write[String].contramap(printDateTime) ~
-      (__ \ "uploadedBy").writeNullable[String] ~
+      (__ \ "uploadedBy").write[String] ~
       (__ \ "source").write[Asset] ~
       (__ \ "thumbnail").writeNullable[Asset] ~
       (__ \ "fileMetadata").write[FileMetadata] ~
