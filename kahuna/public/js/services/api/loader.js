@@ -14,7 +14,7 @@ apiServices.factory('loaderApi',
         return loaderRoot;
     }
 
-    function load(imageData) {
+    function load(imageData, uploadedBy) {
         var options = {
             // We could get the guessed mime-type from the File, but
             // it could be wrong, so might as well just send as data
@@ -23,7 +23,7 @@ apiServices.factory('loaderApi',
             transformRequest: []
         };
         return getLoaderRoot().
-            follow('load', {uploadedBy: 'kahuna'}).
+            follow('load', {uploadedBy: uploadedBy}).
             post(imageData, options);
     }
 

@@ -11,8 +11,9 @@ GET     /assets/*file               controllers.Assets.at(path="/public", file)
 
 # Panda Login
 
-GET     /oauthCallback        controllers.Panda.oauthCallback
-GET     /logout               controllers.Panda.logout
+GET     /oauthCallback              controllers.Panda.oauthCallback
+GET     /logout                     controllers.Panda.logout
+GET     /panda                      controllers.Panda.index
 
 # Management
 GET     /management/healthcheck     com.gu.mediaservice.lib.management.Management.healthCheck

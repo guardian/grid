@@ -7,11 +7,13 @@ import 'services/theseus';
 import 'services/api/media-api';
 import 'services/api/media-cropper';
 import 'services/api/loader';
+import 'services/api/panda';
 import 'directives/ui-crop-box';
 
 var apiLink = document.querySelector('link[rel="media-api-uri"]');
 var config = {
-    mediaApiUri: apiLink.getAttribute('href')
+    mediaApiUri: apiLink.getAttribute('href'),
+    pandaUri: '/panda' // TODO: If this looks like a good plan, move to seperate service
 };
 
 var kahuna = angular.module('kahuna', [
@@ -283,8 +285,8 @@ kahuna.controller('ImageCropCtrl',
 }]);
 
 kahuna.controller('UploadCtrl',
-                  ['$q', '$window', 'loaderApi',
-                   function($q, $window, loaderApi) {
+                  ['$q', '$window', 'loaderApi', 'pandaApi',
+                   function($q, $window, loaderApi, pandaApi) {
 
     var ctrl = this; // TODO: No!
 
@@ -316,7 +318,8 @@ kahuna.controller('UploadCtrl',
     }
 
     function uploadFile(file) {
-        return loaderApi.load(new Uint8Array(file));
+        return pandaApi.me()
+            .then(me => loaderApi.load(new Uint8Array(file), me.fullName));
     }
 
     // TODO: Poll to see when images are available and add them
