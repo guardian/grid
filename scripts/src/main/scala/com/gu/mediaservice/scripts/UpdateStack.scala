@@ -116,7 +116,7 @@ abstract class StackScript {
         case _    => s"$stage.dev-***REMOVED***".toLowerCase
       }
 
-      val alertEmail = s"media-service-$stage@gupage.pagerduty.com".toLowerCase
+      val alertEmail = s"***REMOVED***".toLowerCase
       val alertActive = stage == Prod
 
       val kahunaCertArn = getCertArn(s"$domainRoot-rotated")
