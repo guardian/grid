@@ -45,7 +45,7 @@ kahuna.config(['$stateProvider', '$urlRouterProvider',
         templateUrl: templatesDirectory + '/search.html'
     });
     $stateProvider.state('search.results', {
-        url: 'search?query&since&free&archived',
+        url: 'search?query&since&free&archived&uploadedBy',
         templateUrl: templatesDirectory + '/search/results.html',
         controller: 'SearchResultsCtrl',
         data: {
@@ -79,9 +79,10 @@ kahuna.controller('SearchQueryCtrl',
 
     function setAndWatchParam(key) {
         $scope[key] = $stateParams[key];
-        $scope.$watch(key, (n, o) => {
-            if (n !== o) {
-                $state.go('search.results', { [key]: n });
+        $scope.$watch(key, (newVal, oldVal) => {
+            if (newVal !== oldVal) {
+                // we replace empty strings with undefined to clear the querystring
+                $state.go('search.results', { [key]: newVal || undefined });
             }
         });
     }
