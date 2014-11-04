@@ -23,6 +23,7 @@ object MediaApi extends Controller with ArgoHelpers {
   val cropperUri = Config.cropperUri
   val loaderUri = Config.loaderUri
   val metadataUri = Config.metadataUri
+  val kahunaUri = Config.kahunaUri
 
   def index = Action {
     val response = Json.obj(
@@ -32,7 +33,8 @@ object MediaApi extends Controller with ArgoHelpers {
         Json.obj("rel" -> "image",  "href" -> s"$rootUri/images/{id}"),
         Json.obj("rel" -> "cropper", "href" -> cropperUri),
         Json.obj("rel" -> "loader", "href" -> loaderUri),
-        Json.obj("rel" -> "metadata", "href" -> metadataUri)
+        Json.obj("rel" -> "metadata", "href" -> metadataUri),
+        Json.obj("rel" -> "session", "href" -> s"$kahunaUri/session")
       )
     )
     Ok(response).as(ArgoMediaType)
