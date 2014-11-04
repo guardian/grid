@@ -23,8 +23,7 @@ apiServices.factory('loaderApi',
             transformRequest: []
         };
         return getLoaderRoot().
-            follow('load', {uploadedBy: 'kahuna'}).
-            post(imageData, options);
+            follow('load').post(imageData, options);
     }
 
     return {
