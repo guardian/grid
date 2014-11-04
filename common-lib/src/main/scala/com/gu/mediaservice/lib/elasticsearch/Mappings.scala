@@ -48,7 +48,7 @@ object Mappings {
           "fileMetadata" -> fileMetadataMapping,
           "userMetadata" -> nonIndexedString,
           "uploadTime" -> dateFormat,
-          "uploadedBy" -> standardAnalysedString,
+          "uploadedBy" -> nonAnalyzedString,
           "archived" -> Json.obj("type" -> "boolean", "analyzer" -> "standard")
         )
       )

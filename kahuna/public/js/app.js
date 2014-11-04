@@ -72,20 +72,44 @@ kahuna.config(['$stateProvider', '$urlRouterProvider',
 
 
 kahuna.controller('SearchQueryCtrl',
-                  ['$scope', '$state', '$stateParams',
-                   function($scope, $state, $stateParams) {
+                  ['$scope', '$state', '$stateParams', 'mediaApi',
+                   function($scope, $state, $stateParams, mediaApi) {
 
-    Object.keys($stateParams).forEach(setAndWatchParam);
+    $scope.uploadedByMe = false;
+    Object.keys($stateParams)
+        .forEach(setAndWatchParam);
 
     function setAndWatchParam(key) {
         $scope[key] = $stateParams[key];
         $scope.$watch(key, (newVal, oldVal) => {
             if (newVal !== oldVal) {
-                // we replace empty strings with undefined to clear the querystring
+                // we replace empty strings etc with undefined to clear the querystring
                 $state.go('search.results', { [key]: newVal || undefined });
             }
         });
     }
+
+    // FIXME [1]: At the moment the `uploadedBy` field is analyzed. Because of this
+    // email addresses are tokenized. We need to rerun the mappings (potential reindexing)
+    // for the new analisis to take place.
+    // See the correct but unapplied mappings here:
+    // https://github.com/guardian/media-service/blob/master/common-lib/src/main/scala/com/gu/mediaservice/lib/elasticsearch/Mappings.scala
+
+    // FIXME: There are two other bugs here once that is done:
+    // * ui-router seems to decode `%40` -> `@` in the querystring
+    // * this in turn makes system JS to go wobbly
+
+    // we can't user dynamic values in the ng:true-value see:
+    // https://docs.angularjs.org/error/ngModel/constexpr
+    // perhaps this functionality will change if we move to gmail type search e.g.
+    // "uploadedBy:anthony.trollope@guardian.co.uk"
+    mediaApi.session().then(session => $scope.user = session.user);
+    $scope.uploadedByMe = !!$stateParams.uploadedBy;
+    $scope.$watch('uploadedByMe', (newVal, oldVal) => {
+        if (newVal !== oldVal) {
+            $scope.uploadedBy = newVal && $scope.user.email.replace('@guardian.co.uk', ''); // FIXME [1]
+        }
+    });
 }]);
 
 
@@ -100,7 +124,8 @@ kahuna.controller('SearchResultsCtrl',
     // FIXME: make addImages generic enough to run on first load so as not to duplicate here
     $scope.searched = mediaApi.search($stateParams.query, {
         since: $stateParams.since,
-        archived: $stateParams.archived
+        archived: $stateParams.archived,
+        uploadedBy: $stateParams.uploadedBy
     }).then(function(images) {
         $scope.images = images;
         // yield so images render before we check if there's more space
@@ -155,7 +180,8 @@ kahuna.controller('SearchResultsCtrl',
             var until = lastImage.data.uploadTime;
             return mediaApi.search($stateParams.query, {
                 until: until,
-                archived: $stateParams.archived
+                archived: $stateParams.archived,
+                uploadedBy: $stateParams.uploadedBy
             }).then(function(moreImages) {
                 // Filter out duplicates (esp. on exact same 'until' date)
                 var newImages = moreImages.filter(function(im) {
