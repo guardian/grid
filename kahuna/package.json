@@ -1,21 +1,21 @@
 {
   "jspm": {
     "directories": {
-      "jspmPackages": "public/jspm_packages"
+      "packages": "public/jspm_packages"
     },
     "configFile": "public/config.js",
     "dependencies": {
       "angular": "1.2.23",
-      "github:tapmodo/Jcrop": "0.9.12",
-      "jquery": "2.1.1",
-      "css": "^0.1.0",
-      "jcrop": "0.9.12",
       "angular-ui-router": "0.2.11",
+      "css": "^0.1.0",
+      "github:tapmodo/Jcrop": "0.9.12",
+      "jcrop": "0.9.12",
+      "jquery": "2.1.1",
       "theseus": "github:argo-rest/theseus@master"
     }
   },
   "devDependencies": {
-    "jspm": "0.7.1"
+    "jspm": "^0.8.4"
   },
   "repository": {
     "type": "git",
