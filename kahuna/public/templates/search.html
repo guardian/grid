@@ -4,27 +4,35 @@
         <form ng:controller="SearchQueryCtrl"
               class="top-bar__search search">
             <input type="text"
-                   placeholder="Search for images..."
+                   placeholder="search for images..."
                    class="search__query"
                    autofocus="autofocus"
                    ng:model="query"
             />
 
-            <label class="search__control search__control--free">
-                <input type="checkbox" ng:model="free" />
-                Free to use
+            <label class="search__control">
+                <input type="checkbox" ng:model="free"
+                       ng:false-value />
+                free to use
+            </label>
+            <label class="search__control">
+                <input type="checkbox"
+                       ng:model="uploadedBy"
+                       ng:true-value="me"
+                       ng:false-value />
+                my uploads
             </label>
             <label class="search__control">
                 <input type="radio" ng:model="since" />
-                Anytime
+                anytime
             </label>
             <label class="search__control">
                 <input type="radio" ng:model="since" value="24.hour" />
-                Last 24 hours
+                last 24 hours
             </label>
             <label class="search__control">
                 <input type="radio" ng:model="since" value="1.week"  />
-                Last week
+                last week
             </label>
             <!--
                 Anytime
