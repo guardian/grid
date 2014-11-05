@@ -82,6 +82,7 @@ class ImageLoader(storage: ImageStorage) extends Controller with ArgoHelpers {
 
       result recover {
         case e => {
+          Logger.info(s"Rejected file, id: $id, because: ${e.getMessage}. return 400")
           // TODO: Log when an image isn't deleted
           storage.deleteImage(id)
           // TODO: add errorCode
