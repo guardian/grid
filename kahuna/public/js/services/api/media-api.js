@@ -5,6 +5,7 @@ apiServices.factory('mediaApi',
                      function(mediaApiUri, client) {
 
     var root = client.resource(mediaApiUri);
+    var u; // user shorthand so as not to conflict with method
 
     function search(query = '', {ids, since, until, archived, uploadedBy}) {
         return root.follow('search', {
@@ -27,10 +28,15 @@ apiServices.factory('mediaApi',
         return root.follow('session').getData();
     }
 
+    function user() {
+        return !u ? session().then(resp => u = resp.user) : Promise.resolve(u);
+    }
+
     return {
         root: root,
         search: search,
         find: find,
-        session: session
+        session: session,
+        user: user
     };
 }]);
