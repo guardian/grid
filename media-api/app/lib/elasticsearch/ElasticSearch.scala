@@ -56,8 +56,10 @@ object ElasticSearch extends ElasticSearchClient {
 //    val bucketFilter = params.buckets.toNel.map(filters.terms("buckets", _))
     val metadataFilter = params.hasMetadata.map("metadata." + _).toNel.map(filters.exists)
     val archivedFilter = params.archived.map(filters.bool("archived", _))
+    val uploadedByFilter = params.uploadedBy.map(uploadedBy => filters.terms("uploadedBy", NonEmptyList(uploadedBy)))
 
-    val filter = (metadataFilter.toList ++ archivedFilter).foldLeft(dateFilter)(filters.and)
+    val filter = (metadataFilter.toList ++ archivedFilter ++ uploadedByFilter)
+                   .foldLeft(dateFilter)(filters.and)
 
     val search = prepareImagesSearch.setQuery(query).setPostFilter(filter) |>
                  sorts.parseFromRequest(params.orderBy)
