@@ -10,9 +10,11 @@ GET     /search                     controllers.Application.index(ignored="")
 GET     /assets/*file               controllers.Assets.at(path="/public", file)
 
 # Panda Login
+# TODO: Think about moving this to a separate service
 
-GET     /oauthCallback        controllers.Panda.oauthCallback
-GET     /logout               controllers.Panda.logout
+GET     /oauthCallback              controllers.Panda.oauthCallback
+GET     /logout                     controllers.Panda.logout
+GET     /session                    controllers.Panda.session
 
 # Management
 GET     /management/healthcheck     com.gu.mediaservice.lib.management.Management.healthCheck
