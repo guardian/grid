@@ -34,10 +34,11 @@ kahuna.config(['$locationProvider',
     $locationProvider.html5Mode(true).hashPrefix('!');
 }]);
 
-kahuna.config(['$stateProvider', '$urlRouterProvider',
-               function($stateProvider, $urlRouterProvider) {
+kahuna.constant('templatesDirectory', '/assets/templates');
 
-    var templatesDirectory = '/assets/templates';
+kahuna.config(['$stateProvider', '$urlRouterProvider', 'templatesDirectory',
+               function($stateProvider, $urlRouterProvider, templatesDirectory) {
+
     $stateProvider.state('search', {
         // Virtual state, we always want to be in a child state of this
         abstract: true,
