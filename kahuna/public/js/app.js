@@ -11,7 +11,8 @@ import 'directives/ui-crop-box';
 
 var apiLink = document.querySelector('link[rel="media-api-uri"]');
 var config = {
-    mediaApiUri: apiLink.getAttribute('href')
+    mediaApiUri: apiLink.getAttribute('href'),
+    templatesDirectory: '/assets/templates'
 };
 
 var kahuna = angular.module('kahuna', [
@@ -34,10 +35,9 @@ kahuna.config(['$locationProvider',
     $locationProvider.html5Mode(true).hashPrefix('!');
 }]);
 
-kahuna.config(['$stateProvider', '$urlRouterProvider',
-               function($stateProvider, $urlRouterProvider) {
+kahuna.config(['$stateProvider', '$urlRouterProvider', 'templatesDirectory',
+               function($stateProvider, $urlRouterProvider, templatesDirectory) {
 
-    var templatesDirectory = '/assets/templates';
     $stateProvider.state('search', {
         // Virtual state, we always want to be in a child state of this
         abstract: true,
@@ -297,56 +297,6 @@ kahuna.controller('ImageCropCtrl',
 
 }]);
 
-kahuna.controller('UploadCtrl',
-                  ['$q', '$window', 'loaderApi',
-                   function($q, $window, loaderApi) {
-
-    var ctrl = this; // TODO: No!
-
-    ctrl.files = [];
-    ctrl.loading = false;
-    ctrl.uploadFiles = uploadFiles;
-
-    // TODO: User feedback should say what has failed and what has not (Generators?)
-    function uploadFiles(files) {
-        ctrl.loading = true;
-
-        var uploads = files.map(function(file) {
-            return readFile(file).then(uploadFile);
-        });
-
-        $q.all(uploads).then(uploadSuccess, uploadFailure)
-            .finally(() => ctrl.loading = false);
-    }
-
-    function readFile(file) {
-        var reader = new FileReader();
-        var def = $q.defer();
-
-        reader.addEventListener('load',  (event) => def.resolve(event.target.result));
-        reader.addEventListener('error', (event) => def.reject(event));
-        reader.readAsArrayBuffer(file);
-
-        return def.promise;
-    }
-
-    function uploadFile(file) {
-        return loaderApi.load(new Uint8Array(file));
-    }
-
-    // TODO: Poll to see when images are available and add them
-    // (could be introduced if we add a "10 new images added" twitter style update)
-    function uploadSuccess(resp) {
-        $window.alert('Files uploaded. Go to "your uploads" to see them.');
-    }
-
-    // TODO: Universal messaging system?
-    function uploadFailure(resp) {
-        var error = resp.body && resp.body.errorMessage;
-        $window.alert(error || 'There were errors uploading some / all of your files');
-    }
-}]);
-
 // Create the key form the bounds as that's what we have in S3
 kahuna.filter('getCropKey', function() {
     return function(crop) {
@@ -604,5 +554,66 @@ kahuna.directive('uiFile', function() {
         }
     };
 });
+
+/**
+ * File uploader
+ */
+kahuna.controller('FileUploaderCtrl',
+                  ['$q', '$window', 'loaderApi',
+                   function($q, $window, loaderApi) {
+
+    var ctrl = this; // TODO: No!
+
+    ctrl.files = [];
+    ctrl.loading = false;
+    ctrl.uploadFiles = uploadFiles;
+
+    // TODO: User feedback should say what has failed and what has not (Generators?)
+    function uploadFiles(files) {
+        ctrl.loading = true;
+
+        var uploads = files.map(function(file) {
+            return readFile(file).then(uploadFile);
+        });
+
+        $q.all(uploads).then(uploadSuccess, uploadFailure)
+            .finally(() => ctrl.loading = false);
+    }
+
+    function readFile(file) {
+        var reader = new FileReader();
+        var def = $q.defer();
+
+        reader.addEventListener('load',  event => def.resolve(event.target.result));
+        reader.addEventListener('error', def.reject);
+        reader.readAsArrayBuffer(file);
+
+        return def.promise;
+    }
+
+    function uploadFile(file) {
+        return loaderApi.load(new Uint8Array(file));
+    }
+
+    // TODO: Poll to see when images are available and add them
+    // (could be introduced if we add a "10 new images added" twitter style update)
+    function uploadSuccess(resp) {
+        $window.alert('Files uploaded. Go to "your uploads" to see them.');
+    }
+
+    // TODO: Universal messaging system?
+    function uploadFailure(resp) {
+        var error = resp.body && resp.body.errorMessage;
+        $window.alert(error || 'There were errors uploading some / all of your files');
+    }
+}]);
+
+kahuna.directive('fileUploader', ['templatesDirectory', function(templatesDirectory) {
+    return {
+        restrict: 'E',
+        controller: 'FileUploaderCtrl as fileUploader',
+        templateUrl: templatesDirectory + '/directives/file-uploader.html'
+    }
+}]);
 
 angular.bootstrap(document, ['kahuna']);
