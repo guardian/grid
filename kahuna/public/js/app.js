@@ -240,6 +240,47 @@ kahuna.controller('ImageCtrl',
     $scope.priorityMetadata = ['byline', 'credit'];
 }]);
 
+
+kahuna.directive('uiImageLabels',
+                 ['$window', 'templatesDirectory',
+                  function($window, templatesDirectory) {
+
+    function saveFailed() {
+        $window.alert('Something went wrong when saving, please try again!');
+    }
+
+    return {
+        restrict: 'E',
+        scope: {
+            // Annoying that we can't make a uni-directional binding
+            // as we don't really want to modify the original
+            labels: '='
+        },
+        templateUrl: templatesDirectory + '/image/labels.html',
+        link: function(scope, element, attrs) {
+            // TODO: pending spinner
+            scope.addLabel = function() {
+                // Prompt for a label and add if not empty
+                var label = ($window.prompt("Enter a label:") || '').trim();
+                if (label) {
+                    scope.labels.post({data: label}).then(newLabel => {
+                        // FIXME: don't mutate original, replace the whole resource with the new state
+                        scope.labels.data.push(newLabel);
+                    }).catch(saveFailed);
+                }
+            };
+
+            scope.removeLabel = function(label) {
+                label.delete().then(() => {
+                    // FIXME: don't mutate original, replace the whole resource with the new state
+                    scope.labels.data.splice(scope.labels.data.findIndex(l => l.data === label), 1);
+                }).catch(saveFailed);
+            };
+        }
+    };
+}]);
+
+
 kahuna.controller('ImageCropCtrl',
                   ['$scope', '$stateParams', '$state', '$filter', 'mediaApi', 'mediaCropper',
                    function($scope, $stateParams, $state, $filter, mediaApi, mediaCropper) {
