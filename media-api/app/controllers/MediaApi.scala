@@ -1,5 +1,7 @@
 package controllers
 
+import com.gu.mediaservice.api.Transformers
+
 import scala.util.Try
 
 import play.api.mvc._
@@ -18,6 +20,8 @@ import com.gu.mediaservice.lib.formatting.parseDateFromQuery
 object MediaApi extends Controller with ArgoHelpers {
 
   val keyStore = new KeyStore(Config.keyStoreBucket, Config.awsCredentials)
+
+  val commonTransformers = new Transformers(Config.services)
 
   val rootUri = Config.rootUri
   val cropperUri = Config.cropperUri
@@ -81,6 +85,7 @@ object MediaApi extends Controller with ArgoHelpers {
       val image = source.transform(transformers.addSecureSourceUrl(secureUrl))
         .flatMap(_.transform(transformers.addSecureThumbUrl(secureThumbUrl)))
         .flatMap(_.transform(transformers.removeFileData))
+        .flatMap(_.transform(transformers.wrapUserMetadata(id)))
         .flatMap(_.transform(transformers.addUsageCost(credit))).get
 
       // FIXME: don't hardcode paths from other APIs - once we're
@@ -102,6 +107,14 @@ object MediaApi extends Controller with ArgoHelpers {
 
     def removeFileData: Reads[JsObject] =
       (__ \ "fileMetadata").json.prune
+
+    // FIXME: tidier way to replace a key in a JsObject?
+    def wrapUserMetadata(id: String): Reads[JsObject] =
+      __.read[JsObject].map { root =>
+        val userMetadata = commonTransformers.objectOrEmpty(root \ "userMetadata")
+        val wrappedUserMetadata = userMetadata.transform(commonTransformers.wrapMetadata(id)).get
+        root ++ Json.obj("userMetadata" -> wrappedUserMetadata)
+      }
 
     def addSecureSourceUrl(url: String): Reads[JsObject] =
       (__ \ "source").json.update(__.read[JsObject].map(_ ++ Json.obj("secureUrl" -> url)))
