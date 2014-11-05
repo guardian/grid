@@ -13,6 +13,9 @@ object Panda extends Controller with PanDomainAuthActions {
     readAuthenticatedUser(request).map { authedUser =>
       Ok(Json.obj("data" -> Json.obj("user" ->
         Json.obj(
+          "name" -> s"${authedUser.user.firstName} ${authedUser.user.lastName}",
+          "firstName" -> s"${authedUser.user.firstName}",
+          "lastName" -> s"${authedUser.user.lastName}",
           "email" -> authedUser.user.email
         ))))
     }.getOrElse(Unauthorized)
