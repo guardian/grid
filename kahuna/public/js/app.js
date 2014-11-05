@@ -45,7 +45,7 @@ kahuna.config(['$stateProvider', '$urlRouterProvider',
         templateUrl: templatesDirectory + '/search.html'
     });
     $stateProvider.state('search.results', {
-        url: 'search?query&since&free&archived',
+        url: 'search?query&since&free&archived&uploadedBy',
         templateUrl: templatesDirectory + '/search/results.html',
         controller: 'SearchResultsCtrl',
         data: {
@@ -72,37 +72,44 @@ kahuna.config(['$stateProvider', '$urlRouterProvider',
 
 
 kahuna.controller('SearchQueryCtrl',
-                  ['$scope', '$state', '$stateParams',
-                   function($scope, $state, $stateParams) {
+                  ['$scope', '$state', '$stateParams', 'mediaApi',
+                   function($scope, $state, $stateParams, mediaApi) {
 
-    // a little annoying as the params are returned as strings
-    $scope.free = $stateParams.free !== 'false';
-    $scope.query = $stateParams.query;
-    $scope.since = $stateParams.since;
-    $scope.archived = $stateParams.archived;
+    $scope.uploadedByMe = false;
+    Object.keys($stateParams)
+        .forEach(setAndWatchParam);
 
-    // Update state from search filters (skip initialisation step)
-    $scope.$watch('query', function(query, oldQuery) {
-        if (query !== oldQuery) {
-            $state.go('search.results', {query: query});
-        }
-    });
-    $scope.$watch('since', function(since, oldSince) {
-        if (since !== oldSince) {
-            $state.go('search.results', {since: since});
-        }
-    });
-    $scope.$watch('free', function(free, oldFree) {
-        if (free !== oldFree) {
-            $state.go('search.results', {free: free});
-        }
-    });
-    $scope.$watch('archived', function(archived, oldArchived) {
-        if (archived !== oldArchived) {
-            $state.go('search.results', {archived: archived});
-        }
-    });
+    function setAndWatchParam(key) {
+        $scope[key] = $stateParams[key];
+        $scope.$watch(key, (newVal, oldVal) => {
+            if (newVal !== oldVal) {
+                // we replace empty strings etc with undefined to clear the querystring
+                $state.go('search.results', { [key]: newVal || undefined });
+            }
+        });
+    }
 
+    // FIXME [1]: At the moment the `uploadedBy` field is analyzed. Because of this
+    // email addresses are tokenized. We need to rerun the mappings (potential reindexing)
+    // for the new analisis to take place.
+    // See the correct but unapplied mappings here:
+    // https://github.com/guardian/media-service/blob/master/common-lib/src/main/scala/com/gu/mediaservice/lib/elasticsearch/Mappings.scala
+
+    // FIXME: There are two other bugs here once that is done:
+    // * ui-router seems to decode `%40` -> `@` in the querystring
+    // * this in turn makes system JS to go wobbly
+
+    // we can't user dynamic values in the ng:true-value see:
+    // https://docs.angularjs.org/error/ngModel/constexpr
+    // perhaps this functionality will change if we move to gmail type search e.g.
+    // "uploadedBy:anthony.trollope@***REMOVED***"
+    mediaApi.session().then(session => $scope.user = session.user);
+    $scope.uploadedByMe = !!$stateParams.uploadedBy;
+    $scope.$watch('uploadedByMe', (newVal, oldVal) => {
+        if (newVal !== oldVal) {
+            $scope.uploadedBy = newVal && $scope.user.email.replace('@***REMOVED***', ''); // FIXME [1]
+        }
+    });
 }]);
 
 
@@ -117,7 +124,8 @@ kahuna.controller('SearchResultsCtrl',
     // FIXME: make addImages generic enough to run on first load so as not to duplicate here
     $scope.searched = mediaApi.search($stateParams.query, {
         since: $stateParams.since,
-        archived: $stateParams.archived
+        archived: $stateParams.archived,
+        uploadedBy: $stateParams.uploadedBy
     }).then(function(images) {
         $scope.images = images;
         // yield so images render before we check if there's more space
@@ -172,7 +180,8 @@ kahuna.controller('SearchResultsCtrl',
             var until = lastImage.data.uploadTime;
             return mediaApi.search($stateParams.query, {
                 until: until,
-                archived: $stateParams.archived
+                archived: $stateParams.archived,
+                uploadedBy: $stateParams.uploadedBy
             }).then(function(moreImages) {
                 // Filter out duplicates (esp. on exact same 'until' date)
                 var newImages = moreImages.filter(function(im) {
@@ -326,7 +335,7 @@ kahuna.controller('UploadCtrl',
     // TODO: Poll to see when images are available and add them
     // (could be introduced if we add a "10 new images added" twitter style update)
     function uploadSuccess(resp) {
-        $window.alert('Files uploaded. Please refresh to see them');
+        $window.alert('Files uploaded. Go to "your uploads" to see them.');
     }
 
     // TODO: Universal messaging system?

@@ -7,12 +7,12 @@ import play.api.libs.concurrent.Execution.Implicits._
 import play.api.libs.json._
 import org.joda.time.DateTime
 
-import com.gu.mediaservice.lib.formatting.parseDateFromQuery
 import lib.elasticsearch.{ElasticSearch, SearchResults}
 import lib.{Notifications, Config, S3Client}
 import com.gu.mediaservice.lib.auth
 import com.gu.mediaservice.lib.auth.KeyStore
 import com.gu.mediaservice.lib.argo.ArgoHelpers
+import com.gu.mediaservice.lib.formatting.parseDateFromQuery
 
 
 object MediaApi extends Controller with ArgoHelpers {
@@ -23,16 +23,20 @@ object MediaApi extends Controller with ArgoHelpers {
   val cropperUri = Config.cropperUri
   val loaderUri = Config.loaderUri
   val metadataUri = Config.metadataUri
+  val kahunaUri = Config.kahunaUri
 
   def index = Action {
+    val searchParams = List("q", "offset", "length", "fromDate", "toDate",
+                            "orderBy", "since", "until", "uploadedBy").mkString(",")
     val response = Json.obj(
       "data"  -> Json.obj("description" -> "This is the Media API"),
       "links" -> Json.arr(
-        Json.obj("rel" -> "search", "href" -> s"$rootUri/images{?q,offset,length,fromDate,toDate,orderBy,since,until}"),
+        Json.obj("rel" -> "search", "href" -> s"$rootUri/images{?$searchParams}"),
         Json.obj("rel" -> "image",  "href" -> s"$rootUri/images/{id}"),
         Json.obj("rel" -> "cropper", "href" -> cropperUri),
         Json.obj("rel" -> "loader", "href" -> loaderUri),
-        Json.obj("rel" -> "metadata", "href" -> metadataUri)
+        Json.obj("rel" -> "metadata", "href" -> metadataUri),
+        Json.obj("rel" -> "session", "href" -> s"$kahunaUri/session")
       )
     )
     Ok(response).as(ArgoMediaType)
@@ -125,6 +129,7 @@ case class SearchParams(
   fromDate: Option[DateTime],
   toDate: Option[DateTime],
   archived: Option[Boolean],
+  uploadedBy: Option[String],
   hasMetadata: List[String]
 )
 
@@ -142,6 +147,7 @@ object SearchParams {
       request.getQueryString("fromDate") orElse request.getQueryString("since") flatMap parseDateFromQuery,
       request.getQueryString("toDate") orElse request.getQueryString("until") flatMap parseDateFromQuery,
       request.getQueryString("archived").map(_.toBoolean),
+      request.getQueryString("uploadedBy"),
       commaSep("hasMetadata")
     )
   }
