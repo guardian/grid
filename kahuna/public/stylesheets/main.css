@@ -270,6 +270,11 @@ a:focus {
     width: 100%;
 }
 
+.image-result__labels {
+    padding-left: 10px;
+    font-size: 1.2rem;
+}
+
 .image-result__uploaded {
     font-size: 1.4rem;
     font-weight: bold;
@@ -454,7 +459,11 @@ a:focus {
     border-radius: 2px;
     margin-right: 5px;
 }
+.image-label--removing {
+    background-color: #99ddff;
+}
 
+.image-label__link,
 .image-label__remove {
     color: white;
 }
