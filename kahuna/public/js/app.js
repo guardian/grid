@@ -273,7 +273,8 @@ kahuna.directive('uiImageLabels',
             scope.removeLabel = function(label) {
                 label.delete().then(() => {
                     // FIXME: don't mutate original, replace the whole resource with the new state
-                    scope.labels.data.splice(scope.labels.data.findIndex(l => l.data === label), 1);
+                    var labelIndex = scope.labels.data.findIndex(l => l.data === label.data);
+                    scope.labels.data.splice(labelIndex, 1);
                 }).catch(saveFailed);
             };
         }
