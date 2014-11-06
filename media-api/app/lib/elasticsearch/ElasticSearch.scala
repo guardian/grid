@@ -1,6 +1,5 @@
 package lib.elasticsearch
 
-import scala.collection.JavaConverters._
 import scala.concurrent.{ExecutionContext, Future}
 
 import play.api.libs.json.JsValue
@@ -9,7 +8,6 @@ import org.elasticsearch.action.search.SearchRequestBuilder
 import org.elasticsearch.index.query.{FilterBuilders, FilterBuilder}
 import org.elasticsearch.index.query.QueryBuilders._
 import org.elasticsearch.index.query.MatchQueryBuilder.Operator
-import org.elasticsearch.search.facet.terms.{TermsFacet, TermsFacetBuilder}
 import org.elasticsearch.search.sort.SortOrder
 import org.joda.time.DateTime
 
@@ -54,11 +52,12 @@ object ElasticSearch extends ElasticSearchClient {
     val dateFilter = filters.date(params.fromDate, params.toDate)
     // TODO recycle for labels search
 //    val bucketFilter = params.buckets.toNel.map(filters.terms("buckets", _))
+    val idsFilter = params.ids.map(filters.ids(_))
     val metadataFilter = params.hasMetadata.map("metadata." + _).toNel.map(filters.exists)
     val archivedFilter = params.archived.map(filters.bool("archived", _))
     val uploadedByFilter = params.uploadedBy.map(uploadedBy => filters.terms("uploadedBy", NonEmptyList(uploadedBy)))
 
-    val filter = (metadataFilter.toList ++ archivedFilter ++ uploadedByFilter)
+    val filter = (metadataFilter.toList ++ archivedFilter ++ uploadedByFilter ++ idsFilter)
                    .foldLeft(dateFilter)(filters.and)
 
     val search = prepareImagesSearch.setQuery(query).setPostFilter(filter) |>
@@ -107,6 +106,9 @@ object ElasticSearch extends ElasticSearchClient {
 
     def bool(field: String, bool: Boolean): FilterBuilder =
       termFilter(field, bool)
+
+    def ids(idList: List[String]): FilterBuilder =
+      FilterBuilders.idsFilter().addIds(idList:_*)
   }
 
   object sorts {
