@@ -123,6 +123,7 @@ object GeneralParams {
 
 case class SearchParams(
   query: Option[String],
+  ids: Option[List[String]],
   offset: Int,
   length: Int,
   orderBy: Option[String],
@@ -141,6 +142,7 @@ object SearchParams {
 
     SearchParams(
       request.getQueryString("q"),
+      request.getQueryString("ids").map(_.split(",").toList),
       request.getQueryString("offset") flatMap (s => Try(s.toInt).toOption) getOrElse 0,
       request.getQueryString("length") flatMap (s => Try(s.toInt).toOption) getOrElse 10,
       request.getQueryString("orderBy") orElse request.getQueryString("sortBy"),
