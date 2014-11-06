@@ -12,6 +12,8 @@ import 'directives/ui-crop-box';
 var apiLink = document.querySelector('link[rel="media-api-uri"]');
 var config = {
     mediaApiUri: apiLink.getAttribute('href'),
+    
+    // Static config
     templatesDirectory: '/assets/templates'
 };
 
@@ -238,6 +240,54 @@ kahuna.controller('ImageCtrl',
 
     $scope.priorityMetadata = ['byline', 'credit'];
 }]);
+
+
+kahuna.controller('ImageLabelsCtrl',
+                  ['$scope', '$window',
+                   function($scope, $window) {
+
+    function saveFailed() {
+        $window.alert('Something went wrong when saving, please try again!');
+    }
+
+    // TODO: pending spinner
+    this.addLabel = function() {
+        // Prompt for a label and add if not empty
+        var label = ($window.prompt("Enter a label:") || '').trim();
+        if (label) {
+            $scope.labels.post({data: label}).then(newLabel => {
+                // FIXME: don't mutate original, replace the whole resource with the new state
+                $scope.labels.data.push(newLabel);
+            }).catch(saveFailed);
+        }
+    };
+
+    this.removeLabel = function(label) {
+        label.delete().then(() => {
+            // FIXME: don't mutate original, replace the whole resource with the new state
+            var labelIndex = $scope.labels.data.findIndex(l => l.data === label.data);
+            $scope.labels.data.splice(labelIndex, 1);
+        }).catch(saveFailed);
+    };
+
+}]);
+
+kahuna.directive('uiImageLabels',
+                 ['templatesDirectory',
+                  function(templatesDirectory) {
+
+    return {
+        restrict: 'E',
+        scope: {
+            // Annoying that we can't make a uni-directional binding
+            // as we don't really want to modify the original
+            labels: '='
+        },
+        controller: 'ImageLabelsCtrl as labelsCtrl',
+        templateUrl: templatesDirectory + '/image/labels.html'
+    };
+}]);
+
 
 kahuna.controller('ImageCropCtrl',
                   ['$scope', '$stateParams', '$state', '$filter', 'mediaApi', 'mediaCropper',
