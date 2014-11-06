@@ -1,6 +1,7 @@
 <ul ng:if="labels.data.length > 0">
     <li ng:repeat="label in labels.data"
-        class="image-label">
+        class="image-label"
+        ng:class="{'image-label--removing': labelsCtrl.labelsBeingRemoved.has(label)}">
         <a ui:sref="search.results({query: label.data})"
            class="image-label__link">{{label.data}}</a>
         <button ng:click="labelsCtrl.removeLabel(label)"

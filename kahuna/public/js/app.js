@@ -267,12 +267,20 @@ kahuna.controller('ImageLabelsCtrl',
         }
     };
 
-    this.removeLabel = function(label) {
-        label.delete().then(() => {
-            // FIXME: don't mutate original, replace the whole resource with the new state
-            var labelIndex = $scope.labels.data.findIndex(l => l.data === label.data);
-            $scope.labels.data.splice(labelIndex, 1);
-        }).catch(saveFailed);
+    this.labelsBeingRemoved = new Set;
+    this.removeLabel = (label) => {
+        this.labelsBeingRemoved.add(label);
+
+        label.delete().
+            then(() => {
+                // FIXME: don't mutate original, replace the whole resource with the new state
+                var labelIndex = $scope.labels.data.findIndex(l => l.data === label.data);
+                $scope.labels.data.splice(labelIndex, 1);
+            }).
+            catch(saveFailed).
+            finally(() => {
+                this.labelsBeingRemoved.remove(label);
+            });
     };
 
 }]);
