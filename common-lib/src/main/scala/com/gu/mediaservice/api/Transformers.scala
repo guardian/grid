@@ -15,7 +15,6 @@ class Transformers(services: Services) {
 
   def wrapMetadata(id: String): Reads[JsObject] =
     __.read[JsObject].map { data =>
-      println(data \ "labels")
       Json.obj(
         "uri" -> s"$metadataBaseUri/metadata/$id",
         "data" -> (data ++ Json.obj("labels" -> arrayOrEmpty(data \ "labels").transform(wrapLabels(id)).get))
