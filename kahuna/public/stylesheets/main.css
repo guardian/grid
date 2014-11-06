@@ -270,6 +270,11 @@ a:focus {
     width: 100%;
 }
 
+.image-result__labels {
+    padding-left: 10px;
+    font-size: 1.2rem;
+}
+
 .image-result__uploaded {
     font-size: 1.4rem;
     font-weight: bold;
