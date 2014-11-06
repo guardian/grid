@@ -604,8 +604,9 @@ kahuna.controller('FileUploaderCtrl',
     }
 
     function uploadsIndexed(ids) {
-        var def = $q.defer(),
-            timeout;
+        var def = $q.defer();
+        var searchEveryPeriod = 500;
+        var timeout;
 
         (function searchForUploads() {
             $timeout.cancel(timeout);
@@ -613,7 +614,7 @@ kahuna.controller('FileUploaderCtrl',
                 if(images.length === ids.split(",").length) {
                     def.resolve();
                 } else {
-                    $timeout(searchForUploads, 1000);
+                    $timeout(searchForUploads, searchEveryPeriod);
                 }
             }, def.reject);
         })();
