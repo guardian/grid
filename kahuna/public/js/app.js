@@ -595,7 +595,7 @@ kahuna.controller('FileUploaderCtrl',
     }
 
     function uploadSuccess(resps) {
-        var ids = resps.map(resp => resp.data.id).join(",");
+        var ids = resps.map(resp => resp.data.id);
 
         $q.all([uploadsIndexed(ids), mediaApi.getSession()]).then(([upload, session]) => {
             ctrl.loading = false;
@@ -611,7 +611,7 @@ kahuna.controller('FileUploaderCtrl',
         (function searchForUploads() {
             $timeout.cancel(timeout);
             mediaApi.search('', { ids: ids }).then(images => {
-                if(images.length === ids.split(",").length) {
+                if(images.length === ids.length) {
                     def.resolve();
                 } else {
                     $timeout(searchForUploads, searchEveryPeriod);
