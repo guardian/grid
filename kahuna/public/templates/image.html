@@ -6,6 +6,12 @@
 
             <dt class="image-info__heading">Uploaded</dt>
             <dd>{{image.data.uploadTime | date:'d MMM yyyy, HH:mm'}}</dd>
+
+            <dt class="image-info__heading">Labels</dt>
+            <dd>
+                <ui-image-labels labels="image.data.userMetadata.data.labels">
+                </ui-image-labels>
+            </dd>
         </dl>
 
         <div class="image-info image-info--sub">
