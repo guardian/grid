@@ -13,4 +13,6 @@
      class="image-no-labels"
 >No labels</div>
 
-<button ng:click="labelsCtrl.addLabel()">Add</button>
+<button ng:click="labelsCtrl.addLabel()" ng:disabled="labelsCtrl.adding">
+    Add<span ng:show="labelsCtrl.adding">ing...</span>
+</button>
