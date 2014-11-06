@@ -242,13 +242,39 @@ kahuna.controller('ImageCtrl',
 }]);
 
 
-kahuna.directive('uiImageLabels',
-                 ['$window', 'templatesDirectory',
-                  function($window, templatesDirectory) {
+kahuna.controller('ImageLabelsCtrl',
+                  ['$scope', '$window',
+                   function($scope, $window) {
 
     function saveFailed() {
         $window.alert('Something went wrong when saving, please try again!');
     }
+
+    // TODO: pending spinner
+    this.addLabel = function() {
+        // Prompt for a label and add if not empty
+        var label = ($window.prompt("Enter a label:") || '').trim();
+        if (label) {
+            $scope.labels.post({data: label}).then(newLabel => {
+                // FIXME: don't mutate original, replace the whole resource with the new state
+                $scope.labels.data.push(newLabel);
+            }).catch(saveFailed);
+        }
+    };
+
+    this.removeLabel = function(label) {
+        label.delete().then(() => {
+            // FIXME: don't mutate original, replace the whole resource with the new state
+            var labelIndex = $scope.labels.data.findIndex(l => l.data === label.data);
+            $scope.labels.data.splice(labelIndex, 1);
+        }).catch(saveFailed);
+    };
+
+}]);
+
+kahuna.directive('uiImageLabels',
+                 ['templatesDirectory',
+                  function(templatesDirectory) {
 
     return {
         restrict: 'E',
@@ -257,28 +283,8 @@ kahuna.directive('uiImageLabels',
             // as we don't really want to modify the original
             labels: '='
         },
-        templateUrl: templatesDirectory + '/image/labels.html',
-        link: function(scope, element, attrs) {
-            // TODO: pending spinner
-            scope.addLabel = function() {
-                // Prompt for a label and add if not empty
-                var label = ($window.prompt("Enter a label:") || '').trim();
-                if (label) {
-                    scope.labels.post({data: label}).then(newLabel => {
-                        // FIXME: don't mutate original, replace the whole resource with the new state
-                        scope.labels.data.push(newLabel);
-                    }).catch(saveFailed);
-                }
-            };
-
-            scope.removeLabel = function(label) {
-                label.delete().then(() => {
-                    // FIXME: don't mutate original, replace the whole resource with the new state
-                    var labelIndex = scope.labels.data.findIndex(l => l.data === label.data);
-                    scope.labels.data.splice(labelIndex, 1);
-                }).catch(saveFailed);
-            };
-        }
+        controller: 'ImageLabelsCtrl as labelsCtrl',
+        templateUrl: templatesDirectory + '/image/labels.html'
     };
 }]);
 
