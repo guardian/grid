@@ -45,7 +45,7 @@ kahuna.config(['$stateProvider', '$urlRouterProvider',
         templateUrl: templatesDirectory + '/search.html'
     });
     $stateProvider.state('search.results', {
-        url: 'search?query&since&free&archived&uploadedBy',
+        url: 'search?query&ids&since&free&archived&uploadedBy',
         templateUrl: templatesDirectory + '/search/results.html',
         controller: 'SearchResultsCtrl',
         data: {
@@ -123,8 +123,9 @@ kahuna.controller('SearchResultsCtrl',
     // See:   https://github.com/guardian/media-service/pull/64#discussion-diff-17351746L116
     // FIXME: make addImages generic enough to run on first load so as not to duplicate here
     $scope.searched = mediaApi.search($stateParams.query, {
-        since: $stateParams.since,
-        archived: $stateParams.archived,
+        ids:        $stateParams.ids,
+        since:      $stateParams.since,
+        archived:   $stateParams.archived,
         uploadedBy: $stateParams.uploadedBy
     }).then(function(images) {
         $scope.images = images;
@@ -179,8 +180,9 @@ kahuna.controller('SearchResultsCtrl',
         if (lastImage) {
             var until = lastImage.data.uploadTime;
             return mediaApi.search($stateParams.query, {
-                until: until,
-                archived: $stateParams.archived,
+                until:      until,
+                ids:        $stateParams.ids,
+                archived:   $stateParams.archived,
                 uploadedBy: $stateParams.uploadedBy
             }).then(function(moreImages) {
                 // Filter out duplicates (esp. on exact same 'until' date)
