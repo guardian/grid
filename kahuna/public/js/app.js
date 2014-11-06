@@ -103,7 +103,7 @@ kahuna.controller('SearchQueryCtrl',
     // https://docs.angularjs.org/error/ngModel/constexpr
     // perhaps this functionality will change if we move to gmail type search e.g.
     // "uploadedBy:anthony.trollope@guardian.co.uk"
-    mediaApi.session().then(session => $scope.user = session.user);
+    mediaApi.user().then(user => $scope.user = user);
     $scope.uploadedByMe = !!$stateParams.uploadedBy;
     $scope.$watch('uploadedByMe', (newVal, oldVal) => {
         if (newVal !== oldVal) {
@@ -559,8 +559,8 @@ kahuna.directive('uiFile', function() {
  * File uploader
  */
 kahuna.controller('FileUploaderCtrl',
-                  ['$q', '$window', 'loaderApi',
-                   function($q, $window, loaderApi) {
+                  ['$q', '$window', '$state', '$timeout', 'loaderApi', 'mediaApi',
+                   function($q, $window, $state, $timeout, loaderApi, mediaApi) {
 
     var ctrl = this; // TODO: No!
 
@@ -576,8 +576,7 @@ kahuna.controller('FileUploaderCtrl',
             return readFile(file).then(uploadFile);
         });
 
-        $q.all(uploads).then(uploadSuccess, uploadFailure)
-            .finally(() => ctrl.loading = false);
+        $q.all(uploads).then(uploadSuccess, uploadFailure);
     }
 
     function readFile(file) {
@@ -595,16 +594,38 @@ kahuna.controller('FileUploaderCtrl',
         return loaderApi.load(new Uint8Array(file));
     }
 
-    // TODO: Poll to see when images are available and add them
-    // (could be introduced if we add a "10 new images added" twitter style update)
-    function uploadSuccess(resp) {
-        $window.alert('Files uploaded. Go to "your uploads" to see them.');
+    function uploadSuccess(resps) {
+        var ids = resps.map(resp => resp.data.id).join(",");
+
+        $q.all([uploadsIndexed(ids), mediaApi.user()]).then(([upload, user]) => {
+            ctrl.loading = false;
+            $state.go('search.results', {uploadedBy: user.email.replace('@guardian.co.uk', '')});
+        });
+    }
+
+    function uploadsIndexed(ids) {
+        var def = $q.defer(),
+            timeout;
+
+        (function searchForUploads() {
+            $timeout.cancel(timeout);
+            mediaApi.search('', { ids: ids }).then(images => {
+                if(images.length === ids.split(",").length) {
+                    def.resolve();
+                } else {
+                    $timeout(searchForUploads, 1000);
+                }
+            }, def.reject);
+        })();
+
+        return def.promise;
     }
 
     // TODO: Universal messaging system?
     function uploadFailure(resp) {
         var error = resp.body && resp.body.errorMessage;
         $window.alert(error || 'There were errors uploading some / all of your files');
+        ctrl.loading = false;
     }
 }]);
 
