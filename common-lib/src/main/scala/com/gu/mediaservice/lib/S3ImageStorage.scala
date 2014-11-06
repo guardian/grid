@@ -12,10 +12,11 @@ class S3ImageStorage(imageBucket: String, thumbnailBucket: String, credentials: 
 
   private val log = LoggerFactory.getLogger(getClass)
 
-  def storeImage(id: String, file: File, meta: Map[String, String] = Map.empty) =
-    store(imageBucket, id, file, None, meta)
+  def storeImage(id: String, file: File, mimeType: Option[String], meta: Map[String, String] = Map.empty) =
+    store(imageBucket, id, file, mimeType, meta)
 
-  def storeThumbnail(id: String, file: File) = store(thumbnailBucket, id, file)
+  def storeThumbnail(id: String, file: File, mimeType: Option[String]) =
+    store(thumbnailBucket, id, file, mimeType)
 
   def deleteImage(id: String) = Future {
     client.deleteObject(imageBucket, id)
