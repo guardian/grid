@@ -26,7 +26,7 @@ object MediaApi extends Controller with ArgoHelpers {
   val kahunaUri = Config.kahunaUri
 
   def index = Action {
-    val searchParams = List("q", "offset", "length", "fromDate", "toDate",
+    val searchParams = List("q", "ids", "offset", "length", "fromDate", "toDate",
                             "orderBy", "since", "until", "uploadedBy").mkString(",")
     val response = Json.obj(
       "data"  -> Json.obj("description" -> "This is the Media API"),
