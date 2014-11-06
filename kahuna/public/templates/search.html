@@ -18,7 +18,8 @@
                 free to use
             </label>
             <label class="search__control">
-                <input type="checkbox" ng:model="uploadedByMe" />
+                <input type="checkbox"
+                       ng:model="uploadedByMe" />
                 your uploads
             </label>
             <label class="search__control">
@@ -44,26 +45,7 @@
 
 
         <div class="top-bar__controls">
-            <form class="file-uploader top-bar__control"
-                  ng:controller="UploadCtrl as uploader">
-
-                <div ui:event-share="click"
-                     ui:event-share-thief=".file-uploader__select-files"
-                     ui:event-share-victim=".file-uploader__file">
-                    <!-- you cannot bind ng:model="files" nor use ng:change:
-                    https://github.com/angular/angular.js/issues/1375 -->
-                    <input class="file-uploader__file"
-                           name="files" type="file"
-                           accept="image/jpg,image/jpeg" multiple
-                           ui:file ui:file-change="uploader.uploadFiles" />
-
-                    <button class="button file-uploader__select-files"
-                            name="button" type="button"
-                            ng:disabled="uploader.loading">
-                        upload<span ng:show="uploader.loading">ing…</span>
-                    </button>
-                </div>
-            </form>
+            <file-uploader></file-uploader>
 
             <a class="logout top-bar__control" href="/logout" target="_self">
                 Logout
