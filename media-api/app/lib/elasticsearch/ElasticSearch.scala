@@ -40,7 +40,8 @@ object ElasticSearch extends ElasticSearchClient {
     prepareGet(id).executeAndLog(s"get image by id $id") map (_.sourceOpt)
 
   val matchFields: Seq[String] = Seq("id") ++
-    Seq("description", "title", "byline", "source", "credit", "keywords", "city", "country", "suppliersReference").map("metadata." + _)
+    Seq("description", "title", "byline", "source", "credit", "keywords", "city", "country", "suppliersReference").map("metadata." + _) ++
+    Seq("labels").map("userMetadata." + _)
 
   def search(params: SearchParams)(implicit ex: ExecutionContext): Future[SearchResults] = {
 
@@ -50,14 +51,13 @@ object ElasticSearch extends ElasticSearchClient {
       .getOrElse(matchAllQuery)
 
     val dateFilter = filters.date(params.fromDate, params.toDate)
-    // TODO recycle for labels search
-//    val bucketFilter = params.buckets.toNel.map(filters.terms("buckets", _))
     val idsFilter = params.ids.map(filters.ids(_))
+    val labelFilter    = params.labels.toNel.map(filters.terms("labels", _))
     val metadataFilter = params.hasMetadata.map("metadata." + _).toNel.map(filters.exists)
     val archivedFilter = params.archived.map(filters.bool("archived", _))
     val uploadedByFilter = params.uploadedBy.map(uploadedBy => filters.terms("uploadedBy", NonEmptyList(uploadedBy)))
 
-    val filter = (metadataFilter.toList ++ archivedFilter ++ uploadedByFilter ++ idsFilter)
+    val filter = (metadataFilter.toList ++ labelFilter ++ archivedFilter ++ uploadedByFilter ++ idsFilter)
                    .foldLeft(dateFilter)(filters.and)
 
     val search = prepareImagesSearch.setQuery(query).setPostFilter(filter) |>

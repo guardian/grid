@@ -39,6 +39,13 @@ object Mappings {
     )
   )
 
+  val userMetadataMapping = Json.obj(
+    "properties" -> Json.obj(
+      "labels"   -> Json.obj("type" -> "string", "index" -> "not_analyzed", "index_name" -> "label"),
+      "archived" -> nonIndexedString
+    )
+  )
+
   val imageMapping: String =
     Json.stringify(Json.obj(
       "image" -> Json.obj(
@@ -46,7 +53,7 @@ object Mappings {
           // TODO: add source and thumbnail?
           "metadata" -> metadataMapping,
           "fileMetadata" -> fileMetadataMapping,
-          "userMetadata" -> nonIndexedString,
+          "userMetadata" -> userMetadataMapping,
           "uploadTime" -> dateFormat,
           "uploadedBy" -> nonAnalyzedString,
           "archived" -> Json.obj("type" -> "boolean", "analyzer" -> "standard")
