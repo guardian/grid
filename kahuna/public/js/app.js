@@ -11,7 +11,10 @@ import 'directives/ui-crop-box';
 
 var apiLink = document.querySelector('link[rel="media-api-uri"]');
 var config = {
-    mediaApiUri: apiLink.getAttribute('href')
+    mediaApiUri: apiLink.getAttribute('href'),
+
+    // Static config
+    templatesDirectory: '/assets/templates'
 };
 
 var kahuna = angular.module('kahuna', [
@@ -33,8 +36,6 @@ kahuna.config(['$locationProvider',
     // Use real URLs (with History API) instead of hashbangs
     $locationProvider.html5Mode(true).hashPrefix('!');
 }]);
-
-kahuna.constant('templatesDirectory', '/assets/templates');
 
 kahuna.config(['$stateProvider', '$urlRouterProvider', 'templatesDirectory',
                function($stateProvider, $urlRouterProvider, templatesDirectory) {
