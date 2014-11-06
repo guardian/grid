@@ -455,6 +455,7 @@ a:focus {
     margin-right: 5px;
 }
 
+.image-label__link,
 .image-label__remove {
     color: white;
 }
