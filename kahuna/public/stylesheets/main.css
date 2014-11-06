@@ -446,6 +446,24 @@ a:focus {
 }
 
 
+.image-label {
+    background-color: #00adee;
+    color: white;
+    display: inline-block;
+    padding: 0 4px;
+    border-radius: 2px;
+    margin-right: 5px;
+}
+
+.image-label__remove {
+    color: white;
+}
+
+.image-no-labels {
+    font-style: italic;
+}
+
+
 /* ==========================================================================
    jCrop
    ========================================================================== */
