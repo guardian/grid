@@ -11,7 +11,7 @@
             <figure>
                 <img class="image-result__image"
                      ng:src="{{image.data.thumbnail.secureUrl}}"/>
-                <figcaption class="image-result__caption">{{image.data.metadata.title}}</figcaption>
+                <figcaption class="image-result__caption">{{image.data.metadata.title || image.data.metadata.description}}</figcaption>
             </figure>
         </a>
         <div class="image-result__meta">
