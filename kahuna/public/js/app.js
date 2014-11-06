@@ -105,7 +105,7 @@ kahuna.controller('SearchQueryCtrl',
     // https://docs.angularjs.org/error/ngModel/constexpr
     // perhaps this functionality will change if we move to gmail type search e.g.
     // "uploadedBy:anthony.trollope@***REMOVED***"
-    mediaApi.session().then(session => $scope.user = session.user);
+    mediaApi.getSession().then(session => $scope.user = session.user);
     $scope.uploadedByMe = !!$stateParams.uploadedBy;
     $scope.$watch('uploadedByMe', (newVal, oldVal) => {
         if (newVal !== oldVal) {
@@ -345,56 +345,6 @@ kahuna.controller('ImageCropCtrl',
         });
     }.bind(this);
 
-}]);
-
-kahuna.controller('UploadCtrl',
-                  ['$q', '$window', 'loaderApi',
-                   function($q, $window, loaderApi) {
-
-    var ctrl = this; // TODO: No!
-
-    ctrl.files = [];
-    ctrl.loading = false;
-    ctrl.uploadFiles = uploadFiles;
-
-    // TODO: User feedback should say what has failed and what has not (Generators?)
-    function uploadFiles(files) {
-        ctrl.loading = true;
-
-        var uploads = files.map(function(file) {
-            return readFile(file).then(uploadFile);
-        });
-
-        $q.all(uploads).then(uploadSuccess, uploadFailure)
-            .finally(() => ctrl.loading = false);
-    }
-
-    function readFile(file) {
-        var reader = new FileReader();
-        var def = $q.defer();
-
-        reader.addEventListener('load',  (event) => def.resolve(event.target.result));
-        reader.addEventListener('error', (event) => def.reject(event));
-        reader.readAsArrayBuffer(file);
-
-        return def.promise;
-    }
-
-    function uploadFile(file) {
-        return loaderApi.load(new Uint8Array(file));
-    }
-
-    // TODO: Poll to see when images are available and add them
-    // (could be introduced if we add a "10 new images added" twitter style update)
-    function uploadSuccess(resp) {
-        $window.alert('Files uploaded. Go to "your uploads" to see them.');
-    }
-
-    // TODO: Universal messaging system?
-    function uploadFailure(resp) {
-        var error = resp.body && resp.body.errorMessage;
-        $window.alert(error || 'There were errors uploading some / all of your files');
-    }
 }]);
 
 // Create the key form the bounds as that's what we have in S3
@@ -654,5 +604,87 @@ kahuna.directive('uiFile', function() {
         }
     };
 });
+
+/**
+ * File uploader
+ */
+kahuna.controller('FileUploaderCtrl',
+                  ['$q', '$window', '$state', '$timeout', 'loaderApi', 'mediaApi',
+                   function($q, $window, $state, $timeout, loaderApi, mediaApi) {
+
+    var ctrl = this; // TODO: No!
+
+    ctrl.files = [];
+    ctrl.loading = false;
+    ctrl.uploadFiles = uploadFiles;
+
+    // TODO: User feedback should say what has failed and what has not (Generators?)
+    function uploadFiles(files) {
+        ctrl.loading = true;
+
+        var uploads = files.map(function(file) {
+            return readFile(file).then(uploadFile);
+        });
+
+        $q.all(uploads).then(uploadSuccess, uploadFailure)
+            .finally(() => ctrl.loading = false);
+    }
+
+    function readFile(file) {
+        var reader = new FileReader();
+        var def = $q.defer();
+
+        reader.addEventListener('load',  event => def.resolve(event.target.result));
+        reader.addEventListener('error', def.reject);
+        reader.readAsArrayBuffer(file);
+
+        return def.promise;
+    }
+
+    function uploadFile(file) {
+        return loaderApi.load(new Uint8Array(file));
+    }
+
+    function uploadSuccess(resps) {
+        var ids = resps.map(resp => resp.data.id);
+
+        return $q.all([uploadsIndexed(ids), mediaApi.getSession()]).then(([upload, session]) => {
+            $state.go('search.results', {uploadedBy: session.user.email.replace('@***REMOVED***', '')});
+        });
+    }
+
+    function uploadsIndexed(ids) {
+        var def = $q.defer();
+        var searchEveryPeriod = 500;
+        var timeout;
+
+        (function searchForUploads() {
+            $timeout.cancel(timeout);
+            mediaApi.search('', { ids: ids }).then(images => {
+                if(images.length === ids.length) {
+                    def.resolve();
+                } else {
+                    $timeout(searchForUploads, searchEveryPeriod);
+                }
+            }, def.reject);
+        })();
+
+        return def.promise;
+    }
+
+    // TODO: Universal messaging system?
+    function uploadFailure(resp) {
+        var error = resp.body && resp.body.errorMessage;
+        $window.alert(error || 'There were errors uploading some / all of your files');
+    }
+}]);
+
+kahuna.directive('fileUploader', ['templatesDirectory', function(templatesDirectory) {
+    return {
+        restrict: 'E',
+        controller: 'FileUploaderCtrl as fileUploader',
+        templateUrl: templatesDirectory + '/directives/file-uploader.html'
+    }
+}]);
 
 angular.bootstrap(document, ['kahuna']);
