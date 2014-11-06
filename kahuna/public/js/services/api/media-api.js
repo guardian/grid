@@ -5,6 +5,7 @@ apiServices.factory('mediaApi',
                      function(mediaApiUri, client) {
 
     var root = client.resource(mediaApiUri);
+    var session;
 
     function search(query = '', {ids, since, until, archived, uploadedBy}) {
         return root.follow('search', {
@@ -23,14 +24,14 @@ apiServices.factory('mediaApi',
         return root.follow('image', {id: id}).getResponse();
     }
 
-    function session() {
-        return root.follow('session').getData();
+    function getSession() {
+        return session || (session = root.follow('session').getData());
     }
 
     return {
-        root: root,
-        search: search,
-        find: find,
-        session: session
+        root,
+        search,
+        find,
+        getSession
     };
 }]);
