@@ -12,7 +12,7 @@ import 'directives/ui-crop-box';
 var apiLink = document.querySelector('link[rel="media-api-uri"]');
 var config = {
     mediaApiUri: apiLink.getAttribute('href'),
-    
+
     // Static config
     templatesDirectory: '/assets/templates'
 };
