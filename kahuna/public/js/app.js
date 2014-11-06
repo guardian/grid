@@ -576,7 +576,8 @@ kahuna.controller('FileUploaderCtrl',
             return readFile(file).then(uploadFile);
         });
 
-        $q.all(uploads).then(uploadSuccess, uploadFailure);
+        $q.all(uploads).then(uploadSuccess, uploadFailure)
+            .finally(() => ctrl.loading = false);
     }
 
     function readFile(file) {
@@ -597,8 +598,7 @@ kahuna.controller('FileUploaderCtrl',
     function uploadSuccess(resps) {
         var ids = resps.map(resp => resp.data.id);
 
-        $q.all([uploadsIndexed(ids), mediaApi.getSession()]).then(([upload, session]) => {
-            ctrl.loading = false;
+        return $q.all([uploadsIndexed(ids), mediaApi.getSession()]).then(([upload, session]) => {
             $state.go('search.results', {uploadedBy: session.user.email.replace('@guardian.co.uk', '')});
         });
     }
@@ -626,7 +626,6 @@ kahuna.controller('FileUploaderCtrl',
     function uploadFailure(resp) {
         var error = resp.body && resp.body.errorMessage;
         $window.alert(error || 'There were errors uploading some / all of your files');
-        ctrl.loading = false;
     }
 }]);
 
