@@ -2,7 +2,7 @@
     <li ng:repeat="label in labels.data"
         class="image-label">
         {{label.data}}
-        <button ng:click="removeLabel(label)"
+        <button ng:click="labelsCtrl.removeLabel(label)"
                 class="image-label__remove"
                 title="Remove label">x</button>
     </li>
@@ -12,4 +12,4 @@
      class="image-no-labels"
 >No labels</div>
 
-<button ng:click="addLabel()">Add</button>
+<button ng:click="labelsCtrl.addLabel()">Add</button>
