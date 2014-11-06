@@ -15,6 +15,13 @@
             </figure>
         </a>
         <div class="image-result__meta">
+            <ul class="image-result__labels">
+                <li ng:repeat="label in image.data.userMetadata.data.labels.data"
+                    class="image-label">
+                    <a ui:sref="search.results({query: label.data})"
+                       class="image-label__link">{{label.data}}</a>
+                </li>
+            </ul>
             <div class="image-result__cost image-result__cost--{{image.data.cost}}">{{image.data.cost}}</div>
             <button class="image-meta image-result__mark-as-seen"
                     ui:localstore="search.seenFrom"
