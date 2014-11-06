@@ -250,15 +250,20 @@ kahuna.controller('ImageLabelsCtrl',
         $window.alert('Something went wrong when saving, please try again!');
     }
 
-    // TODO: pending spinner
-    this.addLabel = function() {
+    this.addLabel = () => {
         // Prompt for a label and add if not empty
         var label = ($window.prompt("Enter a label:") || '').trim();
         if (label) {
-            $scope.labels.post({data: label}).then(newLabel => {
-                // FIXME: don't mutate original, replace the whole resource with the new state
-                $scope.labels.data.push(newLabel);
-            }).catch(saveFailed);
+            this.adding = true;
+            $scope.labels.post({data: label}).
+                then(newLabel => {
+                    // FIXME: don't mutate original, replace the whole resource with the new state
+                    $scope.labels.data.push(newLabel);
+                }).
+                catch(saveFailed).
+                finally(() => {
+                    this.adding = false;
+                });
         }
     };
 
