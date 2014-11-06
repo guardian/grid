@@ -103,7 +103,7 @@ kahuna.controller('SearchQueryCtrl',
     // https://docs.angularjs.org/error/ngModel/constexpr
     // perhaps this functionality will change if we move to gmail type search e.g.
     // "uploadedBy:anthony.trollope@guardian.co.uk"
-    mediaApi.user().then(user => $scope.user = user);
+    mediaApi.getSession().then(session => $scope.user = session.user);
     $scope.uploadedByMe = !!$stateParams.uploadedBy;
     $scope.$watch('uploadedByMe', (newVal, oldVal) => {
         if (newVal !== oldVal) {
@@ -597,9 +597,9 @@ kahuna.controller('FileUploaderCtrl',
     function uploadSuccess(resps) {
         var ids = resps.map(resp => resp.data.id).join(",");
 
-        $q.all([uploadsIndexed(ids), mediaApi.user()]).then(([upload, user]) => {
+        $q.all([uploadsIndexed(ids), mediaApi.getSession()]).then(([upload, session]) => {
             ctrl.loading = false;
-            $state.go('search.results', {uploadedBy: user.email.replace('@guardian.co.uk', '')});
+            $state.go('search.results', {uploadedBy: session.user.email.replace('@guardian.co.uk', '')});
         });
     }
 
