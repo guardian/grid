@@ -454,6 +454,9 @@ a:focus {
     border-radius: 2px;
     margin-right: 5px;
 }
+.image-label--removing {
+    background-color: #99ddff;
+}
 
 .image-label__link,
 .image-label__remove {
