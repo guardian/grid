@@ -138,6 +138,12 @@ abstract class StackScript {
         case _    => s"media-origin.$stage.dev-guim.co.uk".toLowerCase
       }
 
+      // Only SSL in PROD (via Fastly) ;_;
+      val imgEdgeSecureHostname = stage match {
+        case Prod => Some("media.guim.co.uk")
+        case _    => None
+      }
+
       lib.Stack(
         stage,
         s"media-service-$stage",
@@ -155,6 +161,8 @@ abstract class StackScript {
           param("ElasticsearchMinMasterNodes", minMasterNodes.toString),
           param("ImageOriginHostname", imgOriginHostname),
           param("ImageEdgeHostname", imgEdgeHostname),
+          // Annoyingly, CloudFormation doesn't support optional parameters
+          param("ImageEdgeSecureHostname", imgEdgeSecureHostname.getOrElse("")),
           param("DomainRoot", domainRoot),
           param("AlertEmail", alertEmail),
           param("AlertActive", alertActive.toString),

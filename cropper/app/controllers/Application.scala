@@ -1,6 +1,7 @@
 package controllers
 
-import java.net.URL
+import java.net.{URI, URL}
+
 import scala.concurrent.Future
 
 import _root_.play.api.data._, Forms._
@@ -111,7 +112,38 @@ object Application extends Controller with ArgoHelpers {
       resp.json.as[SourceImage]
     }
 
-  def cropResponse(crop: Crop): JsObject = Json.toJson(crop).as[JsObject]
+  def cropResponse(crop: Crop): JsObject = {
+    val cropObj = Json.toJson(crop).as[JsObject]
+    cropObj.transform(transformers.addSecureUrlToAssets).get
+  }
+
+
+  object transformers {
+
+    // Slightly tedious transform to add secureUrl to each asset
+    def addSecureUrlToAssets: Reads[JsObject] =
+      (__ \ "assets").json.update(__.read[JsArray].map { array =>
+        JsArray(array.value.map(_.transform(addSecureUrl).get))
+      })
+
+    def addSecureUrl: Reads[JsObject] =
+      __.json.update(__.read[JsObject].map { asset =>
+        val url = (asset \ "file").as[String]
+        getSecureCropUri(url) match {
+          case Some(secureUrl) => asset ++ Json.obj("secureUrl" -> secureUrl)
+          case None            => asset
+        }
+      })
+  }
+
+
+  def getSecureCropUri(uri: String): Option[String] =
+    for {
+      secureHost <- Config.imgPublishingSecureHost
+      cropUri     = URI.create(uri)
+      secureUri   = new URI("https", secureHost, cropUri.getPath, cropUri.getFragment)
+    } yield secureUri.toString
+
 
   def outputFilename(source: SourceImage, bounds: Bounds, outputWidth: Int): String =
     s"${source.id}/${bounds.x}_${bounds.y}_${bounds.width}_${bounds.height}/$outputWidth.jpg"

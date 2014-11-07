@@ -63,6 +63,10 @@
             "Description": "Host name for image CDN edge",
             "Type": "String"
         },
+        "ImageEdgeSecureHostname": {
+            "Description": "Host name for image CDN edge over SSL",
+            "Type": "String"
+        },
         "DomainRoot": {
             "Description": "Root domain (suffix) for all deployed services",
             "Type": "String"
@@ -1305,6 +1309,7 @@
                         "publishing.aws.id=", { "Ref": "ImagePublishingCredentials" }, "\n",
                         "publishing.aws.secret=", { "Fn::GetAtt": [ "ImagePublishingCredentials", "SecretAccessKey" ] }, "\n",
                         "publishing.image.host=", { "Ref": "ImageEdgeHostname" }, "\n",
+                        "publishing.image.secure.host=", { "Ref": "ImageEdgeSecureHostname" }, "\n",
                         "EOF\n",
 
                         "start cropper\n"
