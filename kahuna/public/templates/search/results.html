@@ -10,7 +10,7 @@
            ui:drag-data="{{image | asImageDragData}}">
             <figure>
                 <img class="image-result__image"
-                     ng:src="{{image.data.thumbnail.secureUrl}}"/>
+                     ng:src="{{image.data.thumbnail | assetFile}}"/>
                 <figcaption class="image-result__caption">{{image.data.metadata.title || image.data.metadata.description}}</figcaption>
             </figure>
         </a>
