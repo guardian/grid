@@ -15,8 +15,8 @@ trait ElasticSearchClient {
   def port: Int
   def cluster: String
 
+  private val imagesIndex = "images"
   protected val imagesAlias = "imagesAlias"
-  protected val imagesIndex = "images"
   protected val imageType = "image"
 
   private lazy val settings: Settings =
