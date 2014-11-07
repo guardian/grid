@@ -9,7 +9,7 @@ import play.api.mvc.WithFilters
 object Global extends WithFilters(CorsFilter) with GlobalSettings {
 
   override def beforeStart(app: Application) {
-    ElasticSearch.ensureIndexExists()
+    ElasticSearch.ensureIndexAndAliasExists()
   }
 
   override def onStart(app: Application) {
