@@ -6,7 +6,7 @@ import lib.{ElasticSearch, MessageConsumer}
 object Global extends GlobalSettings {
 
   override def beforeStart(app: Application) {
-    ElasticSearch.ensureIndexExists()
+    ElasticSearch.ensureIndexAndAliasExists()
     MessageConsumer.startSchedule()
   }
 
