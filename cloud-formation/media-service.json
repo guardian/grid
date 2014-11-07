@@ -1795,7 +1795,7 @@
                 "ActionsEnabled": { "Ref": "AlertActive" },
                 "AlarmDescription": "Thrall queue size excedes threshold",
                 "ComparisonOperator": "GreaterThanOrEqualToThreshold",
-                "Threshold": "10",
+                "Threshold": "60",
                 "Namespace": "AWS/SQS",
                 "MetricName": "ApproximateNumberOfMessagesVisible",
                 "Dimensions": [ { "Name": "QueueName", "Value": "media-service-PROD-Queue-NZYK6W7GPNXZ" } ],
