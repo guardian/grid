@@ -16,9 +16,9 @@ trait ImageStorage {
   /** Store a copy of the given file and return the URI of that copy.
     * The file can safely be deleted afterwards.
     */
-  def storeImage(id: String, file: File, meta: Map[String, String] = Map.empty): Future[URI]
+  def storeImage(id: String, file: File, mimeType: Option[String], meta: Map[String, String] = Map.empty): Future[URI]
 
-  def storeThumbnail(id: String, file: File): Future[URI]
+  def storeThumbnail(id: String, file: File, mimeType: Option[String]): Future[URI]
 
   def deleteImage(id: String): Future[Unit]
 

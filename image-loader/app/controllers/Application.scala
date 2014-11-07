@@ -52,7 +52,9 @@ class ImageLoader(storage: ImageStorage) extends Controller with ArgoHelpers {
     }
 
     // These futures are started outside the for-comprehension, otherwise they will not run in parallel
-    val uriFuture = storage.storeImage(id, tempFile, Map("uploaded_by" -> uploadedBy))
+    val mimeType = MimeTypeDetection.guessMimeType(tempFile)
+    // TODO: validate mime-type against white-list
+    val uriFuture = storage.storeImage(id, tempFile, mimeType, Map("uploaded_by" -> uploadedBy))
     val thumbFuture = Thumbnailer.createThumbnail(Config.thumbWidth, tempFile.toString)
     val dimensionsFuture = FileMetadata.dimensions(tempFile)
     val metadataFuture = ImageMetadata.fromIPTCHeaders(tempFile)
@@ -66,10 +68,8 @@ class ImageLoader(storage: ImageStorage) extends Controller with ArgoHelpers {
         dimensions <- dimensionsFuture
         metadata   <- metadataFuture
         fileMetadata <- fileMetadataFuture
-        // TODO: validate mime-type against white-list
-        mimeType    = MimeTypeDetection.guessMimeType(tempFile)
         sourceAsset = Asset(uri, tempFile.length, mimeType, dimensions)
-        thumbUri   <- storage.storeThumbnail(id, thumb)
+        thumbUri   <- storage.storeThumbnail(id, thumb, mimeType)
         thumbSize   = thumb.length
         thumbDimensions <- FileMetadata.dimensions(thumb)
         thumbAsset  = Asset(thumbUri, thumbSize, mimeType, thumbDimensions)
