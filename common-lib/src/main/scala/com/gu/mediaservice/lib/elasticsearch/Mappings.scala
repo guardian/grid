@@ -1,7 +1,7 @@
 // TODO: Throw errors on invalid query parameters
 package com.gu.mediaservice.lib.elasticsearch
 
-import play.api.libs.json.Json
+import play.api.libs.json.{JsObject, Json}
 
 object Mappings {
 
@@ -11,7 +11,14 @@ object Mappings {
   val snowballAnalysedString = Json.obj("type" -> "string", "analyzer" -> "snowball")
   val standardAnalysedString = Json.obj("type" -> "string", "analyzer" -> "standard")
 
+  val integer = Json.obj("type" -> "integer")
+  val boolean = Json.obj("type" -> "boolean")
   val dateFormat = Json.obj("type" -> "date")
+
+  val dynamicObj = Json.obj("type" -> "object", "dynamic" -> true)
+  def nonDynamicObj(obj: JsObject) = Json.obj("type" -> "object", "dynamic" -> false, "properties" -> obj)
+
+  def nonAnalysedList(indexName: String) = Json.obj("type" -> "string", "index" -> "not_analyzed", "index_name" -> indexName)
 
   val metadataMapping = Json.obj(
     "properties" -> Json.obj(
@@ -24,41 +31,58 @@ object Mappings {
       "suppliersReference" -> standardAnalysedString,
       "source" -> standardAnalysedString,
       "specialInstructions" -> nonAnalyzedString,
-      "keywords" -> Json.obj("type" -> "string", "index" -> "not_analyzed", "index_name" -> "keyword"),
+      "keywords" -> nonAnalysedList("keyword"),
       "city" -> standardAnalysedString,
       "country" -> standardAnalysedString
     )
   )
 
-  val fileMetadataMapping = Json.obj(
-    "properties" -> Json.obj(
-      "iptc"    -> nonIndexedString,
-      "exif"    -> nonIndexedString,
-      "exifSub" -> nonIndexedString,
-      "xmp"     -> nonIndexedString
-    )
-  )
+  val dimensionsMapping =
+    nonDynamicObj(Json.obj(
+      "width" -> integer,
+      "height" -> integer
+    ))
 
-  val userMetadataMapping = Json.obj(
-    "properties" -> Json.obj(
-      "labels"   -> Json.obj("type" -> "string", "index" -> "not_analyzed", "index_name" -> "label"),
-      "archived" -> nonIndexedString
-    )
-  )
+  val assetMapping =
+    Json.obj("properties" -> Json.obj(
+      "file" -> nonIndexedString,
+      "size" -> integer,
+      "mimeType" -> nonAnalyzedString,
+      "dimensions" -> dimensionsMapping
+    ))
+
+  val userMetadataMapping =
+    nonDynamicObj(Json.obj(
+      "labels"   -> nonAnalysedList("label"),
+      "archived" -> boolean
+    ))
 
   val imageMapping: String =
     Json.stringify(Json.obj(
       "image" -> Json.obj(
+        "dynamic" -> "strict",
         "properties" -> Json.obj(
-          // TODO: add source and thumbnail?
+          "id" -> nonAnalyzedString,
           "metadata" -> metadataMapping,
-          "fileMetadata" -> fileMetadataMapping,
+          "source" -> assetMapping,
+          "thumbnail" -> assetMapping,
           "userMetadata" -> userMetadataMapping,
+          "fileMetadata" -> dynamicObj,
           "uploadTime" -> dateFormat,
           "uploadedBy" -> nonAnalyzedString,
-          "archived" -> Json.obj("type" -> "boolean", "analyzer" -> "standard")
-        )
-      )
-    ))
+          "archived" -> boolean
+        ),
+        "dynamic_templates" -> Json.arr(Json.obj(
+          "stored_json_object_template" -> Json.obj(
+            "path_match" -> "fileMetadata.*",
+            "mapping" -> Json.obj(
+              // annoyingly we need this here too
+              "dynamic" -> true,
+              "store" -> "yes",
+              "index" -> "no"
+            )
+          )
+        ))
+    )))
 
 }
