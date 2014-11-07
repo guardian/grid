@@ -79,10 +79,10 @@ object ElasticSearch extends ElasticSearchClient {
     prepareGet(id).setFields().executeAndLog(s"check if image $id exists") map (_.isExists)
 
   def prepareGet(id: String): GetRequestBuilder =
-    client.prepareGet(imagesIndex, imageType, id)
+    client.prepareGet(imagesAlias, imageType, id)
 
   def prepareImagesSearch: SearchRequestBuilder =
-    client.prepareSearch(imagesIndex).setTypes(imageType)
+    client.prepareSearch(imagesAlias).setTypes(imageType)
 
   object filters {
 
