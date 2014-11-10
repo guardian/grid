@@ -14,6 +14,8 @@ object Reindex {
   final val esPort = 9300
   final val esCluster = "media-api"
 
+  def log(msg: String) = System.out.println(s"[Reindexer]: $msg")
+
   def apply(args: List[String]) {
     // TODO: Use Stage to get host (for some reason this isn't working)
     // TODO: Automatically get and create indices
@@ -51,9 +53,15 @@ object Reindex {
         // 4. remove alias from old index
         createIndex(newIndex)
 
-        def reindexScroll(scroll: SearchResponse) {
+        def reindexScroll(scroll: SearchResponse, done: Long = 0) {
+          val total = scroll.getHits.totalHits
+          val doing = done + scrollSize
           val hits = scroll.getHits.hits
+
           if (hits.length > 0) {
+            // TODO: Abstract out logging
+            System.out.println(s"Reindexing $doing / $total")
+
             val bulk = client.prepareBulk
 
             hits.foreach { hit =>
@@ -63,7 +71,7 @@ object Reindex {
 
             bulk.execute.actionGet
             reindexScroll(client.prepareSearchScroll(scroll.getScrollId)
-              .setScroll(scrollTime).execute.actionGet)
+              .setScroll(scrollTime).execute.actionGet, doing)
           }
         }
         reindexScroll(query.execute.actionGet)
