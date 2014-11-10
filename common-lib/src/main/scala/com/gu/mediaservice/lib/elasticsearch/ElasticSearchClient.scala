@@ -15,7 +15,8 @@ trait ElasticSearchClient {
   def port: Int
   def cluster: String
 
-  protected val imagesIndex = "images"
+  private val imagesIndex = "images"
+  protected val imagesAlias = "imagesAlias"
   protected val imageType = "image"
 
   private lazy val settings: Settings =
@@ -28,10 +29,29 @@ trait ElasticSearchClient {
     new TransportClient(settings)
       .addTransportAddress(new InetSocketTransportAddress(host, port))
 
+  def ensureIndexAndAliasExists() {
+    ensureIndexExists()
+    ensureAliasExists()
+  }
+
   def ensureIndexExists() {
     Logger.info("Checking index exists...")
     val indexExists = client.admin.indices.prepareExists(imagesIndex).execute.actionGet.isExists
     if (! indexExists) createIndex()
+  }
+
+  def ensureAliasExists() {
+    Logger.info("Checking alias exists...")
+    val aliasExists = client.admin.indices.prepareAliasesExist(imagesAlias).execute.actionGet.isExists
+    if (! aliasExists) createAlias()
+  }
+
+  def createAlias() = {
+    Logger.info(s"Creating alias $imagesAlias on $imagesIndex")
+    client.admin.indices
+      .prepareAliases
+      .addAlias(imagesIndex, imagesAlias)
+      .execute.actionGet
   }
 
   def createIndex() {
@@ -44,7 +64,7 @@ trait ElasticSearchClient {
 
   def deleteIndex() {
     Logger.info(s"Deleting index $imagesIndex")
-    client.admin.indices.delete(new DeleteIndexRequest("images")).actionGet
+    client.admin.indices.delete(new DeleteIndexRequest(imagesIndex)).actionGet
   }
 
 }
