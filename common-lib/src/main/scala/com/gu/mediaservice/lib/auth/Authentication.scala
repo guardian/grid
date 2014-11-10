@@ -48,12 +48,13 @@ case class Authenticated(keyStore: KeyStore, authCallbackBaseUri: String)
 
   type RequestHandler[A] = AuthenticatedRequest[A, Principal] => Future[Result]
 
-  case object NotAuthenticated extends Exception
+  class AuthException extends Exception
+  case object NotAuthenticated extends AuthException
 
 
   // Try to auth by API key, and failing that, with Panda
   override def invokeBlock[A](request: Request[A], block: RequestHandler[A]): Future[Result] =
-    authByKey(request, block) recoverWith { case _ => authByPanda(request, block) }
+    authByKey(request, block) recoverWith { case _: AuthException => authByPanda(request, block) }
 
 
   // API Key authentication
