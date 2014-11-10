@@ -79,7 +79,7 @@ object Reindex {
   }
 
   def usageError: Nothing = {
-    System.err.println("Usage: Reindex <ES_HOST SRC_INDEX NEW_INDEX>")
+    System.err.println("Usage: Reindex <ES_HOST> <SRC_INDEX> <NEW_INDEX>")
     sys.exit(1)
   }
 
