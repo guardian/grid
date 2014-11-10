@@ -1,7 +1,8 @@
 // TODO: Throw errors on invalid query parameters
 package com.gu.mediaservice.lib.elasticsearch
 
-import play.api.libs.json.{JsObject, Json}
+import play.api.libs.json.Json.JsValueWrapper
+import play.api.libs.json.{JsValue, JsObject, Json}
 
 object Mappings {
 
@@ -16,7 +17,7 @@ object Mappings {
   val dateFormat = Json.obj("type" -> "date")
 
   val dynamicObj = Json.obj("type" -> "object", "dynamic" -> true)
-  def nonDynamicObj(obj: JsObject) = Json.obj("type" -> "object", "dynamic" -> false, "properties" -> obj)
+  def nonDynamicObj(obj: (String, JsValueWrapper)*) = Json.obj("type" -> "object", "dynamic" -> false, "properties" -> Json.obj(obj:_*))
 
   def nonAnalysedList(indexName: String) = Json.obj("type" -> "string", "index" -> "not_analyzed", "index_name" -> indexName)
 
@@ -38,10 +39,10 @@ object Mappings {
   )
 
   val dimensionsMapping =
-    nonDynamicObj(Json.obj(
+    nonDynamicObj(
       "width" -> integer,
       "height" -> integer
-    ))
+    )
 
   val assetMapping =
     Json.obj("properties" -> Json.obj(
@@ -52,10 +53,10 @@ object Mappings {
     ))
 
   val userMetadataMapping =
-    nonDynamicObj(Json.obj(
+    nonDynamicObj(
       "labels"   -> nonAnalysedList("label"),
       "archived" -> boolean
-    ))
+    )
 
   val imageMapping: String =
     Json.stringify(Json.obj(
