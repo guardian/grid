@@ -59,6 +59,7 @@ object Build extends Build {
     .settings(parallelExecution in Test := false)
 
   val scripts = project("scripts")
+    .dependsOn(lib)
     .settings(sbtassembly.Plugin.assemblySettings: _*)
     .libraryDependencies(awsDeps ++ commonsNetDeps)
 
