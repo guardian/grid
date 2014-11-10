@@ -8,6 +8,7 @@ object Main extends App {
     case "CreateStack" :: as      => CreateStack(as)
     case "DeleteStack" :: as      => DeleteStack(as)
     case "LoadFromS3Bucket" :: as => LoadFromS3Bucket(as)
+    case "Reindex" :: as          => Reindex(as)
     case a :: _ => sys.error(s"Unrecognised command: $a")
     case Nil    => sys.error("Usage: <Command> <args ...>")
   }
