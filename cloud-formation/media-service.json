@@ -1785,7 +1785,8 @@
                 "Period": "60",
                 "EvaluationPeriods": "3",
                 "Statistic": "Sum",
-                "AlarmActions": [ { "Ref": "AlertTopic" } ]
+                "AlarmActions": [ { "Ref": "AlertTopic" } ],
+                "InsufficientDataActions": [ { "Ref": "AlertTopic" } ]
             }
         },
 
