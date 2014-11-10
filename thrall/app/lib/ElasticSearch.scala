@@ -32,14 +32,14 @@ object ElasticSearch extends ElasticSearchClient {
   lazy val updateByQueryClient = new UpdateByQueryClientWrapper(client)
 
   def indexImage(id: String, image: JsValue)(implicit ex: ExecutionContext): Future[IndexResponse] =
-    client.prepareIndex(imagesIndex, imageType, id)
+    client.prepareIndex(imagesAlias, imageType, id)
       .setSource(Json.stringify(image))
       .setType(imageType)
       .executeAndLog(s"Indexing image $id")
       .incrementOnSuccess(indexedImages)
 
   def deleteImage(id: String)(implicit ex: ExecutionContext): Future[DeleteByQueryResponse] =
-    client.prepareDeleteByQuery(imagesIndex)
+    client.prepareDeleteByQuery(imagesAlias)
       .setTypes(imageType)
       .setQuery(filteredQuery(matchQuery("_id", id), queryFilter(matchQuery("archived", false))))
       .executeAndLog(s"Deleting image $id")
@@ -71,14 +71,14 @@ object ElasticSearch extends ElasticSearchClient {
       .incrementOnFailure(conflicts) { case e: VersionConflictEngineException => true }
 
   def prepareImageUpdate(id: String): UpdateRequestBuilder =
-    client.prepareUpdate(imagesIndex, imageType, id)
+    client.prepareUpdate(imagesAlias, imageType, id)
       .setScriptLang("groovy")
 
   def updateByQuery(script: String)(implicit ex: ExecutionContext): Future[UpdateByQueryResponse] =
     updateByQueryClient
       .prepareUpdateByQuery()
       .setScriptLang("groovy")
-      .setIndices(imagesIndex)
+      .setIndices(imagesAlias)
       .setTypes(imageType)
       .setQuery(matchAllQuery)
       .setScript(script)
