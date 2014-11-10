@@ -2,13 +2,10 @@ package com.gu.mediaservice.scripts
 
 import org.elasticsearch.action.search.SearchResponse
 import org.elasticsearch.search.sort.SortOrder
-
 import org.elasticsearch.index.query.QueryBuilders.matchAllQuery
 import org.elasticsearch.common.unit.TimeValue
 
-import com.gu.mediaservice.lib._
-import com.gu.mediaservice.lib.elasticsearch.{ElasticSearchClient}
-
+import com.gu.mediaservice.lib.elasticsearch.ElasticSearchClient
 
 
 object Reindex {
