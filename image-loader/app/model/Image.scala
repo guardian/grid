@@ -15,7 +15,7 @@ case class Image(id: String,
                  source: Asset,
                  thumbnail: Option[Asset],
                  fileMetadata: FileMetadata,
-                 metadata: Option[ImageMetadata],
+                 metadata: ImageMetadata,
                  archived: Boolean
 ) {
 
@@ -31,13 +31,13 @@ object Image {
                   source: Asset,
                   thumbnail: Asset,
                   fileMetadata: FileMetadata,
-                  metadata: Option[ImageMetadata],
+                  metadata: ImageMetadata,
                   archived: Boolean): Image =
     Image(id, DateTime.now, uploadedBy, source, Some(thumbnail), fileMetadata, metadata, archived)
 
   implicit val IptcMetadataWrites: Writes[ImageMetadata] =
-    ((__ \ "description").write[String] ~
-      (__ \ "credit").write[String] ~
+    ((__ \ "description").writeNullable[String] ~
+      (__ \ "credit").writeNullable[String] ~
       (__ \ "byline").writeNullable[String] ~
       (__ \ "title").writeNullable[String] ~
       (__ \ "copyrightNotice").writeNullable[String] ~
@@ -59,7 +59,7 @@ object Image {
       (__ \ "source").write[Asset] ~
       (__ \ "thumbnail").writeNullable[Asset] ~
       (__ \ "fileMetadata").write[FileMetadata] ~
-      (__ \ "metadata").writeNullable[ImageMetadata] ~
+      (__ \ "metadata").write[ImageMetadata] ~
       (__ \ "archived").write[Boolean]
     )(unlift(Image.unapply))
 
