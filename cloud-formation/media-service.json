@@ -1799,7 +1799,9 @@
                 "Threshold": "60",
                 "Namespace": "AWS/SQS",
                 "MetricName": "ApproximateNumberOfMessagesVisible",
-                "Dimensions": [ { "Name": "QueueName", "Value": { "Ref": "Queue" } } ],
+                "Dimensions": [
+                    { "Name": "QueueName", "Value": { "Fn::GetAtt": ["Queue", "QueueName"] } }
+                ],
                 "Period": "60",
                 "EvaluationPeriods": "1",
                 "Statistic": "Average",
