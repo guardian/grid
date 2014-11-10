@@ -433,6 +433,14 @@ kahuna.filter('asAspectRatioWord', function() {
     }
 });
 
+kahuna.filter('assetFile', function() {
+    return function(asset) {
+        // Prefer SSL asset, but default to HTTP URI if missing
+        // (e.g. non-PROD env)
+        return asset.secureUrl || asset.file;
+    };
+});
+
 kahuna.directive('uiHasSpace', ['$window', function($window) {
     return {
         restrict: 'A',

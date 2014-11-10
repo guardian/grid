@@ -7,7 +7,7 @@ import scala.util.Try
 import play.api.mvc._
 import play.api.libs.concurrent.Execution.Implicits._
 import play.api.libs.json._
-import org.joda.time.DateTime
+import org.joda.time.{DateTime, Duration}
 
 import lib.elasticsearch.{ElasticSearch, SearchResults}
 import lib.{Notifications, Config, S3Client}
@@ -78,7 +78,9 @@ object MediaApi extends Controller with ArgoHelpers {
 
   def imageResponse(params: GeneralParams)(id: String, source: JsValue): JsValue =
     if (params.showSecureUrl) {
-      val expiration = DateTime.now.plusMinutes(15)
+      // Round expiration time to try and hit the cache as much as possible
+      // TODO: do we really need these expiration tokens? they kill our ability to cache...
+      val expiration = roundDateTime(DateTime.now, Duration.standardMinutes(10)).plusMinutes(20)
       val secureUrl = S3Client.signUrl(Config.imageBucket, id, expiration)
       val secureThumbUrl = S3Client.signUrl(Config.thumbBucket, id, expiration)
       val credit = (source \ "metadata" \ "credit").as[Option[String]]
@@ -123,6 +125,10 @@ object MediaApi extends Controller with ArgoHelpers {
       (__ \ "thumbnail").json.update(__.read[JsObject].map (_ ++ Json.obj("secureUrl" -> url)))
   }
 
+
+  def roundDateTime(t: DateTime, d: Duration) = {
+    t minus (t.getMillis - (t.getMillis.toDouble / d.getMillis).round * d.getMillis)
+  }
 }
 
 case class GeneralParams(showSecureUrl: Boolean)
