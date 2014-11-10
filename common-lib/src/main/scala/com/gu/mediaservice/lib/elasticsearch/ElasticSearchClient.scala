@@ -15,9 +15,11 @@ trait ElasticSearchClient {
   def port: Int
   def cluster: String
 
-  private val imagesIndex = "images"
+  protected val imagesIndexSuffix = "images"
   protected val imagesAlias = "imagesAlias"
   protected val imageType = "image"
+
+  val initialImagesIndex = "images"
 
   private lazy val settings: Settings =
     ImmutableSettings.settingsBuilder
@@ -35,36 +37,48 @@ trait ElasticSearchClient {
   }
 
   def ensureIndexExists() {
-    Logger.info("Checking index exists...")
-    val indexExists = client.admin.indices.prepareExists(imagesIndex).execute.actionGet.isExists
+    Logger.info("Checking index exists…")
+    val indexExists = client.admin.cluster
+      .prepareState.execute
+      .actionGet.getState
+      .getMetaData.getAliases.containsKey(imagesAlias)
+
     if (! indexExists) createIndex()
   }
 
   def ensureAliasExists() {
-    Logger.info("Checking alias exists...")
+    Logger.info("Checking alias exists…")
     val aliasExists = client.admin.indices.prepareAliasesExist(imagesAlias).execute.actionGet.isExists
     if (! aliasExists) createAlias()
   }
 
-  def createAlias() = {
-    Logger.info(s"Creating alias $imagesAlias on $imagesIndex")
+  def createAlias(index: String = initialImagesIndex) = {
+    Logger.info(s"Creating alias $imagesAlias on $index")
     client.admin.indices
       .prepareAliases
-      .addAlias(imagesIndex, imagesAlias)
+      .addAlias(index, imagesAlias)
       .execute.actionGet
   }
 
-  def createIndex() {
-    Logger.info(s"Creating index on $imagesIndex")
+  def deleteAlias(index: String) = {
+    Logger.info(s"Deleting alias $imagesAlias on $index")
     client.admin.indices
-      .prepareCreate(imagesIndex)
+      .prepareAliases
+      .removeAlias(index, imagesAlias)
+      .execute.actionGet
+  }
+
+  def createIndex(index: String = initialImagesIndex) {
+    Logger.info(s"Creating index on $index")
+    client.admin.indices
+      .prepareCreate(index)
       .addMapping(imageType, Mappings.imageMapping)
       .execute.actionGet
   }
 
   def deleteIndex() {
-    Logger.info(s"Deleting index $imagesIndex")
-    client.admin.indices.delete(new DeleteIndexRequest(imagesIndex)).actionGet
+    Logger.info(s"Deleting index $initialImagesIndex")
+    client.admin.indices.delete(new DeleteIndexRequest(initialImagesIndex)).actionGet
   }
 
 }
