@@ -1780,12 +1780,13 @@
                 "AlarmDescription": "Not seen any image ingested by thrall for more than a threshold",
                 "ComparisonOperator": "LessThanThreshold",
                 "Threshold": "1",
-                "Namespace": "PROD/Thrall",
+                "Namespace": { "Fn::Join" : ["/", [{ "Ref": "Stage" }, "Thrall"]] },
                 "MetricName": "IndexedImages",
                 "Period": "60",
                 "EvaluationPeriods": "3",
                 "Statistic": "Sum",
-                "AlarmActions": [ { "Ref": "AlertTopic" } ]
+                "AlarmActions": [ { "Ref": "AlertTopic" } ],
+                "InsufficientDataActions": [ { "Ref": "AlertTopic" } ]
             }
         },
 
@@ -1798,7 +1799,9 @@
                 "Threshold": "60",
                 "Namespace": "AWS/SQS",
                 "MetricName": "ApproximateNumberOfMessagesVisible",
-                "Dimensions": [ { "Name": "QueueName", "Value": "media-service-PROD-Queue-NZYK6W7GPNXZ" } ],
+                "Dimensions": [
+                    { "Name": "QueueName", "Value": { "Fn::GetAtt": ["Queue", "QueueName"] } }
+                ],
                 "Period": "60",
                 "EvaluationPeriods": "1",
                 "Statistic": "Average",
