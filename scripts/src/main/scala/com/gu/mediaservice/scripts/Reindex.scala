@@ -1,5 +1,6 @@
 package com.gu.mediaservice.scripts
 
+import org.elasticsearch.action.search.SearchResponse
 import org.elasticsearch.search.sort.SortOrder
 
 import org.elasticsearch.index.query.QueryBuilders.matchAllQuery
@@ -11,21 +12,17 @@ import com.gu.mediaservice.lib.elasticsearch.{ElasticSearchClient}
 
 
 object Reindex {
-  // FIXME: Get from generic config (no can do as Config is coupled to Play)
-  // TODO: make generic error handling etc that we share with StackScript
-
+  // FIXME: Get from config (no can do as Config is coupled to Play)
   final val esApp   = "elasticsearch"
   final val esPort = 9300
   final val esCluster = "media-api"
-  final val version = "2"
-  lazy val credentials = UserCredentials.awsCredentials
 
   def apply(args: List[String]) {
     // TODO: Use Stage to get host (for some reason this isn't working)
     // TODO: Automatically get and create indices
-    val (esHost, srcIndex: String, newIndex: String) = args match {
-      case host :: sIndex :: nIndex :: _ => (host, sIndex, nIndex)
-      case _ => sys.exit(1) // FIXME: Error handling
+    val (esHost, from: String, to: String) = args match {
+      case h :: f :: t :: _ => (h, f, t)
+      case _ => usageError
     }
 
     object EsClient extends ElasticSearchClient {
@@ -33,7 +30,7 @@ object Reindex {
       val host = esHost
       val cluster = esCluster
 
-      // Taken from (could do with a little more FP especially around [1]):
+      // Taken from:
       // * http://blog.iterable.com/how-we-sped-up-elasticsearch-queries-by-100x-part-1-reindexing/
       // * https://github.com/guardian/elasticsearch-remap-tool/blob/master/src/main/scala/ElasticSearch.scala
       def reindex(srcIndexPrefix: String, newIndexPrefix: String) = {
@@ -51,36 +48,42 @@ object Reindex {
           .setSize(scrollSize)
           .addSort("uploadedBy", SortOrder.ASC)
 
-        var scroll = query.execute.actionGet // Fixme [1]
-
         // 1. create new index
         // 2. fill new index
         // 3. point alias to new index
         // 4. remove alias from old index
         createIndex(newIndex)
 
-        while(scroll.getHits.hits.length > 0) {
-          // Prepare a bulk reindex request
-          val bulk = client.prepareBulk
-          scroll.getHits.hits.foreach { hit =>
-            bulk.add(
-              client
-                .prepareIndex(newIndex, imageType, hit.id)
+        def reindexScroll(scroll: SearchResponse) {
+          println(scroll.getHits.hits.length)
+          if (scroll.getHits.hits.length > 0) {
+            val bulk = client.prepareBulk
+
+            scroll.getHits.hits.foreach { hit =>
+              bulk.add(client.prepareIndex(newIndex, imageType, hit.id)
                 .setSource(hit.source))
+            }
+
+            bulk.execute.actionGet
+            reindexScroll(client.prepareSearchScroll(scroll.getScrollId)
+              .setScroll(scrollTime).execute.actionGet)
           }
-
-          bulk.execute.actionGet
-
-          scroll = client.prepareSearchScroll(scroll.getScrollId)
-            .setScroll(scrollTime).execute.actionGet
         }
+        reindexScroll(query.execute.actionGet)
 
         createAlias(newIndex)
         deleteAlias(srcIndex)
+
+        // TODO: Add a delete index when we are confident
       }
     }
 
-    EsClient.reindex(srcIndex, newIndex)
+    EsClient.reindex(from, to)
+  }
+
+  def usageError: Nothing = {
+    System.err.println("Usage: Reindex <ES_HOST SRC_INDEX NEW_INDEX>")
+    sys.exit(1)
   }
 
 }
