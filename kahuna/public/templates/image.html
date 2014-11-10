@@ -36,8 +36,8 @@
                                ng:init="extremeAssets = (crop | getExtremeAssets)"
                                ui:sref="{crop: (crop | getCropKey)}"
                                ui:drag-data="{{imageSync | asImageAndCropsDragData:crop}}"
-                               ui:drag-image="{{extremeAssets.smallest.file}}">
-                                <img class="image-crop__image" ng:src="{{extremeAssets.smallest.file}}" />
+                               ui:drag-image="{{extremeAssets.smallest | assetFile}}">
+                                <img class="image-crop__image" ng:src="{{extremeAssets.smallest | assetFile}}" />
                             </a>
                             <div class="image-crop__aspect-ratio">{{crop.specification.aspectRatio | asAspectRatioWord}}</div>
                         </li>
@@ -62,7 +62,7 @@
     <div class="easel easel--with-meta" ng:if="! cropKey">
         <div class="easel__canvas">
             <img class="easel__image"
-                 ng:src="{{image.data.source.secureUrl}}"
+                 ng:src="{{image.data.source | assetFile}}"
                  ui:drag-data="{{imageSync | asImageDragData}}" />
         </div>
 
@@ -82,8 +82,8 @@
                ng:init="extremeAssets = (crop | getExtremeAssets)"
                ui:sref="{crop: cropKey}"
                ui:drag-data="{{imageSync | asImageAndCropsDragData:crop}}"
-               ui:drag-image="{{extremeAssets.smallest.file}}">
-                <img class="easel__image" ng:src="{{extremeAssets.largest.file}}" />
+               ui:drag-image="{{extremeAssets.smallest | assetFile}}">
+                <img class="easel__image" ng:src="{{extremeAssets.largest | assetFile}}" />
             </a>
         </div>
 

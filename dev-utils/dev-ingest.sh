@@ -1,7 +1,7 @@
 #!/bin/sh
 if [ $# -lt 1 ]
 then
-    echo "usage: dev-ingest.sh <PROD_API_KEY> [local|test] [MAX_IMAGES]"
+    echo "usage: dev-ingest.sh <PROD_API_KEY> <TARGET_API_KEY> [local|test] [MAX_IMAGES]"
     echo
     echo "Pro tip: you can get an ingestion API key by running"
     echo
@@ -11,8 +11,9 @@ then
 fi
 
 DEV_INGEST_KEY=$1
-TARGET_ENV=$2
-LENGTH=$3
+TARGET_KEY=$2
+TARGET_ENV=$3
+LENGTH=$4
 
 # defaults
 if [ -z "$TARGET_ENV" ]; then
@@ -31,5 +32,7 @@ curl -H "X-Gu-Media-Key: $DEV_INGEST_KEY" https://api.media.***REMOVED***/images
 do
     echo Ingest...
     curl -s -o /tmp/img.jpg "$url"
-    curl --data-binary @/tmp/img.jpg $TARGET_BASE_URL/images
+    curl --data-binary @/tmp/img.jpg \
+         -H "X-Gu-Media-Key: $TARGET_KEY" \
+         $TARGET_BASE_URL/images
 done
