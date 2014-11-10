@@ -17,6 +17,8 @@ object Config extends CommonPlayAppProperties {
     new BasicAWSCredentials(properties("publishing.aws.id"), properties("publishing.aws.secret"))
 
   val imgPublishingHost = properties("publishing.image.host")
+  // Note: work around CloudFormation not allowing optional parameters
+  val imgPublishingSecureHost = properties.get("publishing.image.secure.host").filterNot(_.isEmpty)
 
   val keyStoreBucket = properties("auth.keystore.bucket")
 

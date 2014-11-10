@@ -27,11 +27,12 @@ class S3(credentials: AWSCredentials) {
     client.generatePresignedUrl(request).toExternalForm
   }
 
-  def store(bucket: Bucket, id: Key, file: File, mimeType: Option[String] = None, meta: Metadata = Map.empty)
+  def store(bucket: Bucket, id: Key, file: File, mimeType: Option[String] = None, meta: Metadata = Map.empty, cacheControl: Option[String] = None)
            (implicit ex: ExecutionContext): Future[URI] =
     Future {
       val metadata = new ObjectMetadata
       mimeType.foreach(metadata.setContentType)
+      cacheControl.foreach(metadata.setCacheControl)
       metadata.setUserMetadata(meta.asJava)
       val req = new PutObjectRequest(bucket, id, new FileInputStream(file), metadata)
       client.putObject(req)
