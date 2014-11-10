@@ -57,7 +57,6 @@ class ImageLoader(storage: ImageStorage) extends Controller with ArgoHelpers {
     val uriFuture = storage.storeImage(id, tempFile, mimeType, Map("uploaded_by" -> uploadedBy))
     val thumbFuture = Thumbnailer.createThumbnail(Config.thumbWidth, tempFile.toString)
     val dimensionsFuture = FileMetadata.dimensions(tempFile)
-    val metadataFuture = ImageMetadata.fromIPTCHeaders(tempFile)
     val fileMetadataFuture = FileMetadata.fromIPTCHeaders(tempFile)
     // TODO: derive ImageMetadata from FileMetadata
 
@@ -66,8 +65,8 @@ class ImageLoader(storage: ImageStorage) extends Controller with ArgoHelpers {
       val result = for {
         uri        <- uriFuture
         dimensions <- dimensionsFuture
-        metadata   <- metadataFuture
         fileMetadata <- fileMetadataFuture
+        metadata    = ImageMetadata.fromFileMetadata(fileMetadata)
         sourceAsset = Asset(uri, tempFile.length, mimeType, dimensions)
         thumbUri   <- storage.storeThumbnail(id, thumb, mimeType)
         thumbSize   = thumb.length
