@@ -2,7 +2,8 @@
 package com.gu.mediaservice.lib.elasticsearch
 
 import play.api.libs.json.Json.JsValueWrapper
-import play.api.libs.json.{JsValue, JsObject, Json}
+import play.api.libs.json.{Json}
+
 
 object Mappings {
 
@@ -17,6 +18,7 @@ object Mappings {
   val dateFormat = Json.obj("type" -> "date")
 
   val dynamicObj = Json.obj("type" -> "object", "dynamic" -> true)
+
   def nonDynamicObj(obj: (String, JsValueWrapper)*) = Json.obj("type" -> "object", "dynamic" -> false, "properties" -> Json.obj(obj:_*))
 
   def nonAnalysedList(indexName: String) = Json.obj("type" -> "string", "index" -> "not_analyzed", "index_name" -> indexName)
