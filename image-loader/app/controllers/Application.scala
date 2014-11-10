@@ -5,6 +5,7 @@ import play.api.mvc._
 import play.api.libs.concurrent.Execution.Implicits._
 import play.api.libs.json.Json
 import play.api.Logger
+import scala.concurrent.Future
 
 import lib.play.BodyParsers.digestedFile
 import lib.play.DigestedFile
@@ -12,6 +13,7 @@ import lib.play.DigestedFile
 import lib.{Config, Notifications}
 import lib.storage.S3ImageStorage
 import lib.imaging.{FileMetadata, MimeTypeDetection, Thumbnailer, ImageMetadata}
+import lib.validation.MetadataValidator
 
 import model.{Asset, Image}
 
@@ -51,22 +53,37 @@ class ImageLoader(storage: ImageStorage) extends Controller with ArgoHelpers {
       case (user, qs) => user.name
     }
 
-    // These futures are started outside the for-comprehension, otherwise they will not run in parallel
+    // Abort early if unsupported mime-type
     val mimeType = MimeTypeDetection.guessMimeType(tempFile)
-    // TODO: validate mime-type against white-list
+    val future = if (Config.supportedMimeTypes.exists(Some(_) == mimeType)) {
+      storeFile(id, tempFile, mimeType, uploadedBy)
+    } else {
+      val mimeTypeName = mimeType getOrElse "none detected"
+      Logger.info(s"Rejected file, id: $id, because the mime-type is not supported ($mimeTypeName). return 415")
+      Future(UnsupportedMediaType(Json.obj("errorMessage" -> s"Unsupported mime-type: $mimeTypeName")))
+    }
+
+    future.onComplete(_ => tempFile.delete())
+    future
+  }
+
+  def storeFile(id: String, tempFile: File, mimeType: Option[String], uploadedBy: String): Future[Result] = {
+    // These futures are started outside the for-comprehension, otherwise they will not run in parallel
     val uriFuture = storage.storeImage(id, tempFile, mimeType, Map("uploaded_by" -> uploadedBy))
     val thumbFuture = Thumbnailer.createThumbnail(Config.thumbWidth, tempFile.toString)
     val dimensionsFuture = FileMetadata.dimensions(tempFile)
     val fileMetadataFuture = FileMetadata.fromIPTCHeaders(tempFile)
-    // TODO: derive ImageMetadata from FileMetadata
 
     // TODO: better error handling on all futures. Similar to metadata
-    val future = bracket(thumbFuture)(_.delete) { thumb =>
+    bracket(thumbFuture)(_.delete) { thumb =>
       val result = for {
         uri        <- uriFuture
         dimensions <- dimensionsFuture
         fileMetadata <- fileMetadataFuture
         metadata    = ImageMetadata.fromFileMetadata(fileMetadata)
+        // TODO: figure out a better validation strategy i.e.
+        // we don't just through the image away (perhaps keep it in a "deal-with bucket"),
+        _           = MetadataValidator.validate(metadata)
         sourceAsset = Asset(uri, tempFile.length, mimeType, dimensions)
         thumbUri   <- storage.storeThumbnail(id, thumb, mimeType)
         thumbSize   = thumb.length
@@ -89,9 +106,6 @@ class ImageLoader(storage: ImageStorage) extends Controller with ArgoHelpers {
         }
       }
     }
-
-    future.onComplete(_ => tempFile.delete())
-    future
   }
 
   def createTempFile = File.createTempFile("requestBody", "", new File(Config.tempDir))
