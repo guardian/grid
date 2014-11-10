@@ -31,8 +31,8 @@ object Reindex {
       // * http://blog.iterable.com/how-we-sped-up-elasticsearch-queries-by-100x-part-1-reindexing/
       // * https://github.com/guardian/elasticsearch-remap-tool/blob/master/src/main/scala/ElasticSearch.scala
       def reindex(srcIndexPrefix: String, newIndexPrefix: String) = {
-        val scrollTime = new TimeValue(600000)
-        val scrollSize = 10
+        val scrollTime = new TimeValue(10 * 60 * 1000) // 10 minutes in milliseconds
+        val scrollSize = 500
         val srcIndex = s"$imagesIndexSuffix$srcIndexPrefix"
         val newIndex = s"$imagesIndexSuffix$newIndexPrefix"
 
@@ -52,11 +52,11 @@ object Reindex {
         createIndex(newIndex)
 
         def reindexScroll(scroll: SearchResponse) {
-          println(scroll.getHits.hits.length)
-          if (scroll.getHits.hits.length > 0) {
+          val hits = scroll.getHits.hits
+          if (hits.length > 0) {
             val bulk = client.prepareBulk
 
-            scroll.getHits.hits.foreach { hit =>
+            hits.foreach { hit =>
               bulk.add(client.prepareIndex(newIndex, imageType, hit.id)
                 .setSource(hit.source))
             }
