@@ -30,12 +30,13 @@ object Mappings {
     )
 
   val assetMapping =
-    Json.obj("properties" -> Json.obj(
+    nonDynamicObj(
       "file" -> nonIndexedString,
+      "secureUrl" -> nonIndexedString,
       "size" -> integer,
       "mimeType" -> nonAnalyzedString,
       "dimensions" -> dimensionsMapping
-    ))
+    )
 
   val metadataMapping = Json.obj(
     "properties" -> Json.obj(
@@ -54,15 +55,12 @@ object Mappings {
     )
   )
 
-  val exportsMapping = nonDynamicObj(
-    "type" -> nonAnalyzedString,
-    "specification" -> dynamicObj,
-    "assets" -> nonDynamicObj(
-      "file" -> nonIndexedString,
-      "secureUrl" -> nonIndexedString,
-      "dimensions" -> dimensionsMapping
+  val exportsMapping =
+    nonDynamicObj(
+      "type" -> nonAnalyzedString,
+      "specification" -> dynamicObj,
+      "assets" -> assetMapping
     )
-  )
 
   val userMetadataMapping =
     nonDynamicObj(
