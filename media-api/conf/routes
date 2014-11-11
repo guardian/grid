@@ -11,9 +11,6 @@ DELETE  /images/:id                 controllers.MediaApi.deleteImage(id: String)
 
 GET     /images                     controllers.MediaApi.imageSearch
 
-# Index management
-POST    /delete-index               controllers.IndexManagement.deleteIndex
-
 # Management
 GET     /management/healthcheck     controllers.HealthCheck.healthCheck
 GET     /management/manifest        com.gu.mediaservice.lib.management.Management.manifest
