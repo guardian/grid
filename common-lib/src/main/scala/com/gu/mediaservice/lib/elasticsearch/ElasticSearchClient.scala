@@ -32,6 +32,7 @@ trait ElasticSearchClient {
       .addTransportAddress(new InetSocketTransportAddress(host, port))
 
   def ensureAliasAssigned() {
+    Logger.info(s"Checking alias $imagesAlias is assigned to index…")
     val aliasAssigned = client.admin.cluster
       .prepareState.execute
       .actionGet.getState
@@ -52,7 +53,7 @@ trait ElasticSearchClient {
   }
 
   def createIndex(index: String) {
-    Logger.info(s"Creating index on $index")
+    Logger.info(s"Creating index $index")
     client.admin.indices
       .prepareCreate(index)
       .addMapping(imageType, Mappings.imageMapping)
@@ -65,7 +66,7 @@ trait ElasticSearchClient {
   }
 
   def assignAliasTo(index: String) = {
-    Logger.info(s"Creating alias $imagesAlias on $index")
+    Logger.info(s"Assigning alias $imagesAlias to $index")
     client.admin.indices
       .prepareAliases
       .addAlias(index, imagesAlias)
@@ -73,7 +74,7 @@ trait ElasticSearchClient {
   }
 
   def removeAlias(index: String) = {
-    Logger.info(s"Deleting alias $imagesAlias on $index")
+    Logger.info(s"Removing alias $imagesAlias from $index")
     client.admin.indices
       .prepareAliases
       .removeAlias(index, imagesAlias)
