@@ -76,13 +76,12 @@ object Reindex {
         }
         reindexScroll(query.execute.actionGet)
 
-        createAlias(newIndex)
-        deleteAlias(srcIndex)
+        assignAliasTo(newIndex)
+        removeAlias(srcIndex)
 
         // TODO: Add a delete index when we are confident
       }
     }
-
     EsClient.reindex(from, to)
   }
 
