@@ -1,5 +1,5 @@
 <div class="crop-image">
-    <div class="easel">
+    <div class="easel" ng:if="image.data">
         <div class="easel__canvas">
             <img class="easel__image easel__image--with-space"
                  ng:src="{{image.data.source | assetFile}}"
