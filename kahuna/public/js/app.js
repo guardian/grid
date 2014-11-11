@@ -91,12 +91,6 @@ kahuna.controller('SearchQueryCtrl',
         });
     }
 
-    // FIXME [1]: At the moment the `uploadedBy` field is analyzed. Because of this
-    // email addresses are tokenized. We need to rerun the mappings (potential reindexing)
-    // for the new analisis to take place.
-    // See the correct but unapplied mappings here:
-    // https://github.com/guardian/media-service/blob/master/common-lib/src/main/scala/com/gu/mediaservice/lib/elasticsearch/Mappings.scala
-
     // FIXME: There are two other bugs here once that is done:
     // * ui-router seems to decode `%40` -> `@` in the querystring
     // * this in turn makes system JS to go wobbly
@@ -109,7 +103,7 @@ kahuna.controller('SearchQueryCtrl',
     $scope.uploadedByMe = !!$stateParams.uploadedBy;
     $scope.$watch('uploadedByMe', (newVal, oldVal) => {
         if (newVal !== oldVal) {
-            $scope.uploadedBy = newVal && $scope.user.email.replace('@guardian.co.uk', ''); // FIXME [1]
+            $scope.uploadedBy = newVal && $scope.user.email;
         }
     });
 }]);
@@ -670,7 +664,7 @@ kahuna.controller('FileUploaderCtrl',
         var ids = resps.map(resp => resp.data.id);
 
         return $q.all([uploadsIndexed(ids), mediaApi.getSession()]).then(([upload, session]) => {
-            $state.go('search.results', {uploadedBy: session.user.email.replace('@guardian.co.uk', '')});
+            $state.go('search.results', {uploadedBy: session.user.email});
         });
     }
 
