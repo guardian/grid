@@ -7,6 +7,11 @@ object CapitaliseByline extends MetadataCleaner with CapitalisationFixer {
     metadata.copy(byline = metadata.byline.map(fixCapitalisation))
 }
 
+object CapitaliseCity extends MetadataCleaner with CapitalisationFixer {
+  def clean(metadata: ImageMetadata) =
+    metadata.copy(city = metadata.city.map(fixCapitalisation))
+}
+
 
 
 trait CapitalisationFixer {
