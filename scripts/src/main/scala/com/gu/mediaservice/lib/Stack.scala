@@ -8,3 +8,4 @@ case class Stack(stage: Stage, name: String, template: InputStream, parameters: 
 sealed trait Stage
 case object Prod extends Stage { override def toString = "PROD" }
 case object Test extends Stage { override def toString = "TEST" }
+case object Dev extends Stage { override def toString = "DEV" }
