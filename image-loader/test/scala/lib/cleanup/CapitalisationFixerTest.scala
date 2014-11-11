@@ -1,13 +1,10 @@
 package scala.lib.cleanup
 
-import lib.cleanup.CapitaliseProperty
-import lib.imaging.ImageMetadata
-//import org.scalatest.FunSpec
+import lib.cleanup.CapitalisationFixer
 import org.scalatest.{FunSpec, Matchers}
 
-// class IntegrationTest extends FunSpec with TestHarness with Matchers with BeforeAndAfterAll {
 
-class CapitalisePropertyTest extends FunSpec with Matchers with MetadataHelper {
+class CapitalisationFixerTest extends FunSpec with Matchers with CapitalisationFixer with MetadataHelper {
 
   it("should not change a correctly capitalised name") {
     expectUnchanged("James Gorrie")
@@ -64,31 +61,11 @@ class CapitalisePropertyTest extends FunSpec with Matchers with MetadataHelper {
   }
 
   def expectCleaned(in: String, out: String): Unit = {
-    val metadata = createImageMetadata("byline" -> in)
-    val cleaned = CapitaliseProperty.clean(metadata)
+    val cleaned = fixCapitalisation(in)
 
-    cleaned.byline should be (Some(out))
+    cleaned should be (out)
   }
 
 }
 
-trait MetadataHelper {
-  def createImageMetadata(metadata: (String, String)*): ImageMetadata =
-    createImageMetadata(metadata.toMap)
 
-  def createImageMetadata(metadata: Map[String, String]): ImageMetadata =
-    ImageMetadata(
-      description         = metadata.get("description"),
-      credit              = metadata.get("credit"),
-      byline              = metadata.get("byline"),
-      title               = metadata.get("title"),
-      copyrightNotice     = metadata.get("copyrightNotice"),
-      copyright           = metadata.get("copyright"),
-      suppliersReference  = metadata.get("suppliersReference"),
-      source              = metadata.get("source"),
-      specialInstructions = metadata.get("specialInstructions"),
-      keywords            = List(),
-      city                = metadata.get("city"),
-      country             = metadata.get("country")
-    )
-}
