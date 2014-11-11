@@ -77,7 +77,7 @@ object Reindex {
         reindexScroll(query.execute.actionGet)
 
         assignAliasTo(newIndex)
-        removeAlias(srcIndex)
+        removeAliasFrom(srcIndex)
 
         // TODO: Add a delete index when we are confident
       }
