@@ -73,7 +73,7 @@ trait ElasticSearchClient {
       .execute.actionGet
   }
 
-  def removeAlias(index: String) = {
+  def removeAliasFrom(index: String) = {
     Logger.info(s"Removing alias $imagesAlias from $index")
     client.admin.indices
       .prepareAliases
