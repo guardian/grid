@@ -59,7 +59,7 @@
         </div>
     </div>
 
-    <div class="easel easel--with-meta" ng:if="! cropKey">
+    <div class="easel easel--with-meta" ng:if="! cropKey && image.data">
         <div class="easel__canvas">
             <img class="easel__image"
                  ng:src="{{image.data.source | assetFile}}"
