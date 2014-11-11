@@ -44,6 +44,7 @@ object Build extends Build {
 
   val imageLoader = playProject("image-loader")
     .libraryDependencies(awsDeps ++ imagingDeps)
+    .testDependencies(scalaTestDeps)
 
   val ftpWatcher = playProject("ftp-watcher")
     .libraryDependencies(commonsNetDeps ++ scalazDeps)
