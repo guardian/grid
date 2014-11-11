@@ -59,6 +59,7 @@ object Mappings {
     "specification" -> dynamicObj,
     "assets" -> nonDynamicObj(
       "file" -> nonIndexedString,
+      "secureUrl" -> nonIndexedString,
       "dimensions" -> dimensionsMapping
     )
   )
