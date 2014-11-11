@@ -14,6 +14,7 @@ import lib.{Config, Notifications}
 import lib.storage.S3ImageStorage
 import lib.imaging.{FileMetadata, MimeTypeDetection, Thumbnailer, ImageMetadata}
 import lib.validation.MetadataValidator
+import lib.cleanup.MetadataCleaner
 
 import model.{Asset, Image}
 
@@ -84,12 +85,13 @@ class ImageLoader(storage: ImageStorage) extends Controller with ArgoHelpers {
         // TODO: figure out a better validation strategy i.e.
         // we don't just through the image away (perhaps keep it in a "deal-with bucket"),
         _           = MetadataValidator.validate(metadata)
+        cleanMetadata = MetadataCleaner.clean(metadata)
         sourceAsset = Asset(uri, tempFile.length, mimeType, dimensions)
         thumbUri   <- storage.storeThumbnail(id, thumb, mimeType)
         thumbSize   = thumb.length
         thumbDimensions <- FileMetadata.dimensions(thumb)
         thumbAsset  = Asset(thumbUri, thumbSize, mimeType, thumbDimensions)
-        image       = Image.uploadedNow(id, uploadedBy, sourceAsset, thumbAsset, fileMetadata, metadata, false)
+        image       = Image.uploadedNow(id, uploadedBy, sourceAsset, thumbAsset, fileMetadata, cleanMetadata, false)
       } yield {
         Notifications.publish(Json.toJson(image), "image")
         // TODO: return an entity pointing to the Media API uri for the image

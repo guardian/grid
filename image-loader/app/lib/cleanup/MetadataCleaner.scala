@@ -1,0 +1,34 @@
+package lib.cleanup
+
+import lib.imaging.ImageMetadata
+
+trait MetadataCleaner {
+  def clean(metadata: ImageMetadata): ImageMetadata
+}
+
+object MetadataCleaner {
+
+  val allCleaners = List(CapitaliseByline)
+
+  def clean(inputMetadata: ImageMetadata): ImageMetadata =
+    allCleaners.foldLeft(inputMetadata) {
+      case (metadata, cleaner) => cleaner.clean(metadata)
+    }
+}
+
+// TODO: strip (?) numbers or crappy acronyms as byline
+// TODO: capitalise city
+// TODO: capitalise country (watching out for USA, etc)
+// TODO: country code to country name
+// TODO: multiple country names (SWITZERLAND SCHWEIZ SUISSE, HKG, CHN) to clean name
+// TODO: strip location+date prefix from description
+// TODO: strip credit suffix from description
+// TODO: strip (extract?) country + tags suffix from description
+
+// TODO: record Date Created or Date/Time Original
+// TODO: ignore Unknown tags from fileMetadata
+// TODO: ignore crappy "keywords" (:rel:d:bm:LM1EAAO112401)
+
+// TODO: artist (vs byline)?
+
+// TODO: add more location metadata (Province/State, Sub-location, etc.)
