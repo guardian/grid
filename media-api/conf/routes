@@ -11,11 +11,6 @@ DELETE  /images/:id                 controllers.MediaApi.deleteImage(id: String)
 
 GET     /images                     controllers.MediaApi.imageSearch
 
-# Index management
-# Disabling it for now as it's not even authed and would pretty much trigger the apocalypse.
-# Might only be useful in DEV
-# POST    /delete-index               controllers.IndexManagement.deleteIndex
-
 # Management
 GET     /management/healthcheck     controllers.HealthCheck.healthCheck
 GET     /management/manifest        com.gu.mediaservice.lib.management.Management.manifest
