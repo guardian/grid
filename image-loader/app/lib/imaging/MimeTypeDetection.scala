@@ -1,7 +1,6 @@
 package lib.imaging
 
 import java.io.File
-import play.api.libs.iteratee.{Iteratee, Enumeratee, Enumerator, Traversable}
 
 object MimeTypeDetection {
 
