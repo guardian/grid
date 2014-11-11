@@ -19,8 +19,8 @@ object Reindex {
   def apply(args: List[String]) {
     // TODO: Use Stage to get host (for some reason this isn't working)
     // TODO: Automatically get and create indices
-    val (esHost, from: String, to: String) = args match {
-      case h :: f :: t :: _ => (h, f, t)
+    val (esHost) = args match {
+      case h :: _ => (h)
       case _ => usageError
     }
 
@@ -32,13 +32,16 @@ object Reindex {
       // Taken from:
       // * http://blog.iterable.com/how-we-sped-up-elasticsearch-queries-by-100x-part-1-reindexing/
       // * https://github.com/guardian/elasticsearch-remap-tool/blob/master/src/main/scala/ElasticSearch.scala
-      def reindex(srcIndexName: String, newIndexName: String) = {
+      def reindex {
         val scrollTime = new TimeValue(10 * 60 * 1000) // 10 minutes in milliseconds
         val scrollSize = 500
-        val srcIndex = s"$imagesIndexPrefix$srcIndexName"
-        val newIndex = s"$imagesIndexPrefix$newIndexName"
-
-        getCurrentAlias()
+        val srcIndex = getCurrentAlias.get // TODO: error handling if alias isn't attached
+        val srcIndexVersionCheck = """images_(\d+)""".r // FIXME: Find a way to add variables to regex
+        val srcIndexVersion = srcIndex match {
+          case srcIndexVersionCheck(version) => version.toInt
+          case _ => 1
+        }
+        val newIndex = s"${imagesIndexPrefix}_${srcIndexVersion+1}"
 
         // We sort the query by old -> new so that we won't loose any records
         // If one is added it would be at the end of the while loop we're running
@@ -53,7 +56,7 @@ object Reindex {
         // 2. fill new index
         // 3. point alias to new index
         // 4. remove alias from old index
-//        createIndex(newIndex)
+        createIndex(newIndex)
 
         def reindexScroll(scroll: SearchResponse, done: Long = 0) {
           val total = scroll.getHits.totalHits
@@ -62,7 +65,7 @@ object Reindex {
 
           if (hits.length > 0) {
             // TODO: Abstract out logging
-            System.out.println(s"Reindexing $doing / $total")
+            System.out.println(s"Reindexing $doing of $total")
 
             val bulk = client.prepareBulk
 
@@ -76,19 +79,19 @@ object Reindex {
               .setScroll(scrollTime).execute.actionGet, doing)
           }
         }
-//        reindexScroll(query.execute.actionGet)
-//
-//        assignAliasTo(newIndex)
-//        removeAliasFrom(srcIndex)
+        reindexScroll(query.execute.actionGet)
+
+        assignAliasTo(newIndex)
+        removeAliasFrom(srcIndex)
 
         // TODO: Add a delete index when we are confident
       }
     }
-    EsClient.reindex(from, to)
+    EsClient.reindex
   }
 
   def usageError: Nothing = {
-    System.err.println("Usage: Reindex <ES_HOST> <SRC_INDEX> <NEW_INDEX>")
+    System.err.println("Usage: Reindex <ES_HOST>")
     sys.exit(1)
   }
 

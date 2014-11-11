@@ -34,10 +34,9 @@ trait ElasticSearchClient {
   def ensureAliasAssigned() {
     Logger.info(s"Checking alias $imagesAlias is assigned to index…")
 
-    getCurrentAlias match {
-      case None =>
-        ensureIndexExists(initialImagesIndex)
-        assignAliasTo(initialImagesIndex)
+    if (getCurrentAlias.isEmpty) {
+      ensureIndexExists(initialImagesIndex)
+      assignAliasTo(initialImagesIndex)
     }
   }
 
