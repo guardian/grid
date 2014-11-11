@@ -8,7 +8,7 @@ object IndexManagement extends Controller {
 
   def deleteIndex = Action {
     ElasticSearch.deleteIndex()
-    ElasticSearch.ensureIndexAndAliasExists()
+    ElasticSearch.ensureAliasAssigned()
     Ok("Deleted and recreated index.\n")
   }
 
