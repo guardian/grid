@@ -29,4 +29,7 @@ object Config extends CommonPlayAppProperties {
 
   lazy val corsAllowedOrigin: String = services.kahunaBaseUri
 
+
+  val supportedMimeTypes = List("image/jpeg")
+
 }
