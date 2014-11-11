@@ -35,6 +35,7 @@ object Reindex {
         val scrollTime = new TimeValue(10 * 60 * 1000) // 10 minutes in milliseconds
         val scrollSize = 500
         val srcIndex = getCurrentAlias.get // TODO: error handling if alias isn't attached
+
         val srcIndexVersionCheck = """images_(\d+)""".r // FIXME: Find a way to add variables to regex
         val srcIndexVersion = srcIndex match {
           case srcIndexVersionCheck(version) => version.toInt
@@ -42,20 +43,23 @@ object Reindex {
         }
         val newIndex = s"${imagesIndexPrefix}_${srcIndexVersion+1}"
 
-        // We sort the query by old -> new so that we won't loose any records
-        // If one is added it would be at the end of the while loop we're running
+        // 1. create new index
+        // 2. point alias to new index
+        // 3. remove alias from old index
+        // 4. fill new index
+        createIndex(newIndex)
+        assignAliasTo(newIndex)
+        removeAliasFrom(srcIndex)
+
+        // We only run the query once we've swapped the indices so as not to lose
+        // any data that is being added. We will have a few seconds of the index filling up
+        // TODO: Solve edgecase: Someone is editing a file that is not re-indexed yet
         val query = client.prepareSearch(srcIndex)
           .setTypes(imageType)
           .setScroll(scrollTime)
           .setQuery(matchAllQuery)
           .setSize(scrollSize)
           .addSort("uploadedBy", SortOrder.ASC)
-
-        // 1. create new index
-        // 2. fill new index
-        // 3. point alias to new index
-        // 4. remove alias from old index
-        createIndex(newIndex)
 
         def reindexScroll(scroll: SearchResponse, done: Long = 0) {
           val total = scroll.getHits.totalHits
@@ -78,12 +82,11 @@ object Reindex {
               .setScroll(scrollTime).execute.actionGet, doing)
           }
         }
+
         reindexScroll(query.execute.actionGet)
 
-        assignAliasTo(newIndex)
-        removeAliasFrom(srcIndex)
-
-        // TODO: Add a delete index when we are confident
+        // TODO: deleteIndex when we are confident
+        client.close()
       }
     }
     EsClient.reindex
