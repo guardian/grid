@@ -18,7 +18,6 @@ object Reindex {
 
   def apply(args: List[String]) {
     // TODO: Use Stage to get host (for some reason this isn't working)
-    // TODO: Automatically get and create indices
     val (esHost) = args match {
       case h :: _ => (h)
       case _ => usageError
