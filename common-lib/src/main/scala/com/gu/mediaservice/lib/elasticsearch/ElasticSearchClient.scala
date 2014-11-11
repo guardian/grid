@@ -56,9 +56,9 @@ trait ElasticSearchClient {
       .execute.actionGet
   }
 
-  def deleteIndex() {
-    Logger.info(s"Deleting index $initialImagesIndex")
-    client.admin.indices.delete(new DeleteIndexRequest(initialImagesIndex)).actionGet
+  def deleteIndex(index: String) {
+    Logger.info(s"Deleting index $index")
+    client.admin.indices.delete(new DeleteIndexRequest(index)).actionGet
   }
 
   def getCurrentAlias: Option[String] = {
