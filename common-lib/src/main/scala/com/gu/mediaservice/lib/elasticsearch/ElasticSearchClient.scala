@@ -31,44 +31,27 @@ trait ElasticSearchClient {
     new TransportClient(settings)
       .addTransportAddress(new InetSocketTransportAddress(host, port))
 
-  def ensureIndexAndAliasExists() {
-    ensureIndexExists()
-    ensureAliasExists()
-  }
-
-  def ensureIndexExists() {
-    Logger.info("Checking index exists…")
-    val indexExists = client.admin.cluster
+  def ensureAliasAssigned() {
+    val aliasAssigned = client.admin.cluster
       .prepareState.execute
       .actionGet.getState
       .getMetaData.getAliases.containsKey(imagesAlias)
 
-    if (! indexExists) createIndex()
+    if (! aliasAssigned) {
+      ensureIndexExists(initialImagesIndex)
+      assignAliasTo(initialImagesIndex)
+    }
   }
 
-  def ensureAliasExists() {
-    Logger.info("Checking alias exists…")
-    val aliasExists = client.admin.indices.prepareAliasesExist(imagesAlias).execute.actionGet.isExists
-    if (! aliasExists) createAlias()
+  def ensureIndexExists(index: String) {
+    Logger.info("Checking index exists…")
+    val indexExists = client.admin.indices.prepareExists(index)
+                        .execute.actionGet.isExists
+
+    if (! indexExists) createIndex(index)
   }
 
-  def createAlias(index: String = initialImagesIndex) = {
-    Logger.info(s"Creating alias $imagesAlias on $index")
-    client.admin.indices
-      .prepareAliases
-      .addAlias(index, imagesAlias)
-      .execute.actionGet
-  }
-
-  def deleteAlias(index: String) = {
-    Logger.info(s"Deleting alias $imagesAlias on $index")
-    client.admin.indices
-      .prepareAliases
-      .removeAlias(index, imagesAlias)
-      .execute.actionGet
-  }
-
-  def createIndex(index: String = initialImagesIndex) {
+  def createIndex(index: String) {
     Logger.info(s"Creating index on $index")
     client.admin.indices
       .prepareCreate(index)
@@ -79,6 +62,22 @@ trait ElasticSearchClient {
   def deleteIndex() {
     Logger.info(s"Deleting index $initialImagesIndex")
     client.admin.indices.delete(new DeleteIndexRequest(initialImagesIndex)).actionGet
+  }
+
+  def assignAliasTo(index: String) = {
+    Logger.info(s"Creating alias $imagesAlias on $index")
+    client.admin.indices
+      .prepareAliases
+      .addAlias(index, imagesAlias)
+      .execute.actionGet
+  }
+
+  def removeAlias(index: String) = {
+    Logger.info(s"Deleting alias $imagesAlias on $index")
+    client.admin.indices
+      .prepareAliases
+      .removeAlias(index, imagesAlias)
+      .execute.actionGet
   }
 
 }
