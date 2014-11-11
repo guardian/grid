@@ -33,14 +33,11 @@ trait ElasticSearchClient {
 
   def ensureAliasAssigned() {
     Logger.info(s"Checking alias $imagesAlias is assigned to index…")
-    val aliasAssigned = client.admin.cluster
-      .prepareState.execute
-      .actionGet.getState
-      .getMetaData.getAliases.containsKey(imagesAlias)
 
-    if (! aliasAssigned) {
-      ensureIndexExists(initialImagesIndex)
-      assignAliasTo(initialImagesIndex)
+    getCurrentAlias match {
+      case None =>
+        ensureIndexExists(initialImagesIndex)
+        assignAliasTo(initialImagesIndex)
     }
   }
 
@@ -63,6 +60,15 @@ trait ElasticSearchClient {
   def deleteIndex() {
     Logger.info(s"Deleting index $initialImagesIndex")
     client.admin.indices.delete(new DeleteIndexRequest(initialImagesIndex)).actionGet
+  }
+
+  def getCurrentAlias: Option[String] = {
+    // getAliases returns null, so wrap it in an Option
+    Option(client.admin.cluster
+      .prepareState.execute
+      .actionGet.getState
+      .getMetaData.getAliases.get(imagesAlias))
+      .map(_.keys.toArray.head.toString)
   }
 
   def assignAliasTo(index: String) = {

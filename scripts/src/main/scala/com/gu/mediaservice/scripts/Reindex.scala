@@ -38,6 +38,8 @@ object Reindex {
         val srcIndex = s"$imagesIndexPrefix$srcIndexName"
         val newIndex = s"$imagesIndexPrefix$newIndexName"
 
+        getCurrentAlias()
+
         // We sort the query by old -> new so that we won't loose any records
         // If one is added it would be at the end of the while loop we're running
         val query = client.prepareSearch(srcIndex)
@@ -51,7 +53,7 @@ object Reindex {
         // 2. fill new index
         // 3. point alias to new index
         // 4. remove alias from old index
-        createIndex(newIndex)
+//        createIndex(newIndex)
 
         def reindexScroll(scroll: SearchResponse, done: Long = 0) {
           val total = scroll.getHits.totalHits
@@ -74,10 +76,10 @@ object Reindex {
               .setScroll(scrollTime).execute.actionGet, doing)
           }
         }
-        reindexScroll(query.execute.actionGet)
-
-        assignAliasTo(newIndex)
-        removeAliasFrom(srcIndex)
+//        reindexScroll(query.execute.actionGet)
+//
+//        assignAliasTo(newIndex)
+//        removeAliasFrom(srcIndex)
 
         // TODO: Add a delete index when we are confident
       }
