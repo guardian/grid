@@ -23,6 +23,20 @@ object Mappings {
 
   def nonAnalysedList(indexName: String) = Json.obj("type" -> "string", "index" -> "not_analyzed", "index_name" -> indexName)
 
+  val dimensionsMapping =
+    nonDynamicObj(
+      "width" -> integer,
+      "height" -> integer
+    )
+
+  val assetMapping =
+    Json.obj("properties" -> Json.obj(
+      "file" -> nonIndexedString,
+      "size" -> integer,
+      "mimeType" -> nonAnalyzedString,
+      "dimensions" -> dimensionsMapping
+    ))
+
   val metadataMapping = Json.obj(
     "properties" -> Json.obj(
       "description" -> snowballAnalysedString,
@@ -40,19 +54,14 @@ object Mappings {
     )
   )
 
-  val dimensionsMapping =
-    nonDynamicObj(
-      "width" -> integer,
-      "height" -> integer
-    )
-
-  val assetMapping =
-    Json.obj("properties" -> Json.obj(
+  val exportsMapping = nonDynamicObj(
+    "type" -> nonAnalyzedString,
+    "specification" -> dynamicObj,
+    "assets" -> nonDynamicObj(
       "file" -> nonIndexedString,
-      "size" -> integer,
-      "mimeType" -> nonAnalyzedString,
       "dimensions" -> dimensionsMapping
-    ))
+    )
+  )
 
   val userMetadataMapping =
     nonDynamicObj(
@@ -71,6 +80,7 @@ object Mappings {
           "thumbnail" -> assetMapping,
           "userMetadata" -> userMetadataMapping,
           "fileMetadata" -> dynamicObj,
+          "exports" -> exportsMapping,
           "uploadTime" -> dateFormat,
           "uploadedBy" -> nonAnalyzedString,
           "archived" -> boolean
