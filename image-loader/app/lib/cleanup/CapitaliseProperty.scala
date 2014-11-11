@@ -46,9 +46,8 @@ trait CapitalisationFixer {
 
 
   // FIXME: is there no more efficient way of partial matching a regexp on a string?
-  val numbers = """.*[0-9].*"""
-  def looksLikeAName(s: String): Boolean =
-    ! (s.contains("/") || s.contains("/") || s.matches(numbers))
+  val notNumbersOrSlash = """[^/0-9]+"""
+  def looksLikeAName(s: String): Boolean = s.matches(notNumbersOrSlash)
 
   def isAllUpperCase(s: String): Boolean = s == s.toUpperCase
 }
