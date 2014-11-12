@@ -149,6 +149,7 @@ case class SearchParams(
   fromDate: Option[DateTime],
   toDate: Option[DateTime],
   archived: Option[Boolean],
+  invalid: Option[Boolean],
   uploadedBy: Option[String],
   labels: List[String],
   hasMetadata: List[String]
@@ -169,6 +170,7 @@ object SearchParams {
       request.getQueryString("fromDate") orElse request.getQueryString("since") flatMap parseDateFromQuery,
       request.getQueryString("toDate") orElse request.getQueryString("until") flatMap parseDateFromQuery,
       request.getQueryString("archived").map(_.toBoolean),
+      request.getQueryString("invalid").map(_.toBoolean),
       request.getQueryString("uploadedBy"),
       request.getQueryString("labels").map(_.toString.split(",").toList) getOrElse List(),
       commaSep("hasMetadata")
