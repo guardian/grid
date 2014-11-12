@@ -47,7 +47,7 @@ kahuna.config(['$stateProvider', '$urlRouterProvider', 'templatesDirectory',
         templateUrl: templatesDirectory + '/search.html'
     });
     $stateProvider.state('search.results', {
-        url: 'search?query&ids&since&free&archived&uploadedBy',
+        url: 'search?query&ids&since&free&archived&invalid&uploadedBy',
         templateUrl: templatesDirectory + '/search/results.html',
         controller: 'SearchResultsCtrl',
         data: {
@@ -118,10 +118,12 @@ kahuna.controller('SearchResultsCtrl',
     // FIXME: This is being refreshed by the router. Make it watch a $stateParams collection instead
     // See:   https://github.com/guardian/media-service/pull/64#discussion-diff-17351746L116
     // FIXME: make addImages generic enough to run on first load so as not to duplicate here
+    // FIXME: Think of a way to not have to add a param in a millio places to add it
     $scope.searched = mediaApi.search($stateParams.query, {
         ids:        $stateParams.ids,
         since:      $stateParams.since,
         archived:   $stateParams.archived,
+        invalid:    $stateParams.invalid,
         uploadedBy: $stateParams.uploadedBy
     }).then(function(images) {
         $scope.images = images;
@@ -179,6 +181,7 @@ kahuna.controller('SearchResultsCtrl',
                 until:      until,
                 ids:        $stateParams.ids,
                 archived:   $stateParams.archived,
+                invalid:   $stateParams.invalid,
                 uploadedBy: $stateParams.uploadedBy
             }).then(function(moreImages) {
                 // Filter out duplicates (esp. on exact same 'until' date)
