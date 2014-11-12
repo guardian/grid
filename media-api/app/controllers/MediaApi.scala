@@ -31,7 +31,8 @@ object MediaApi extends Controller with ArgoHelpers {
 
   def index = Action {
     val searchParams = List("q", "ids", "offset", "length", "fromDate", "toDate",
-                            "orderBy", "since", "until", "uploadedBy").mkString(",")
+                            "orderBy", "since", "until", "uploadedBy", "archived",
+                            "valid").mkString(",")
     val response = Json.obj(
       "data"  -> Json.obj("description" -> "This is the Media API"),
       "links" -> Json.arr(
@@ -84,10 +85,17 @@ object MediaApi extends Controller with ArgoHelpers {
       val secureUrl = S3Client.signUrl(Config.imageBucket, id, expiration)
       val secureThumbUrl = S3Client.signUrl(Config.thumbBucket, id, expiration)
       val credit = (source \ "metadata" \ "credit").as[Option[String]]
+      // TODO: This might be easier to get from the `SearchParams`
+      // downfall: it might give the wrong value if a bug is introduced
+      val valid = ImageExtras.requiredMetadata.forall { field =>
+        (source \ "metadata" \ field).asOpt[String].isDefined
+      }
+
       val image = source.transform(transformers.addSecureSourceUrl(secureUrl))
         .flatMap(_.transform(transformers.addSecureThumbUrl(secureThumbUrl)))
         .flatMap(_.transform(transformers.removeFileData))
         .flatMap(_.transform(transformers.wrapUserMetadata(id)))
+        .flatMap(_.transform(transformers.addValidity(valid)))
         .flatMap(_.transform(transformers.addUsageCost(credit))).get
 
       // FIXME: don't hardcode paths from other APIs - once we're
@@ -105,7 +113,7 @@ object MediaApi extends Controller with ArgoHelpers {
   object transformers {
 
     def addUsageCost(copyright: Option[String]): Reads[JsObject] =
-      __.json.update(__.read[JsObject].map(_ ++ Json.obj("cost" -> ImageUse.getCost(copyright))))
+      __.json.update(__.read[JsObject].map(_ ++ Json.obj("cost" -> ImageExtras.getCost(copyright))))
 
     def removeFileData: Reads[JsObject] =
       (__ \ "fileMetadata").json.prune
@@ -123,6 +131,9 @@ object MediaApi extends Controller with ArgoHelpers {
 
     def addSecureThumbUrl(url: String): Reads[JsObject] =
       (__ \ "thumbnail").json.update(__.read[JsObject].map (_ ++ Json.obj("secureUrl" -> url)))
+
+    def addValidity(valid: Boolean): Reads[JsObject] =
+      __.json.update(__.read[JsObject]).map(_ ++ Json.obj("valid" -> valid))
   }
 
 
@@ -149,6 +160,7 @@ case class SearchParams(
   fromDate: Option[DateTime],
   toDate: Option[DateTime],
   archived: Option[Boolean],
+  valid: Option[Boolean],
   uploadedBy: Option[String],
   labels: List[String],
   hasMetadata: List[String]
@@ -169,6 +181,7 @@ object SearchParams {
       request.getQueryString("fromDate") orElse request.getQueryString("since") flatMap parseDateFromQuery,
       request.getQueryString("toDate") orElse request.getQueryString("until") flatMap parseDateFromQuery,
       request.getQueryString("archived").map(_.toBoolean),
+      request.getQueryString("valid").map(_.toBoolean),
       request.getQueryString("uploadedBy"),
       request.getQueryString("labels").map(_.toString.split(",").toList) getOrElse List(),
       commaSep("hasMetadata")
@@ -178,7 +191,9 @@ object SearchParams {
 }
 
 // Default to pay for now
-object ImageUse {
+object ImageExtras {
+  val requiredMetadata = List("credit", "description")
+
   val freeForUseFrom: Seq[String] = Seq("EPA", "REUTERS", "PA", "AP", "Associated Press", "RONALD GRANT",
     "Press Association Images", "Action Images", "Keystone", "AFP", "Getty Images", "Alamy", "FilmMagic", "WireImage",
     "Pool", "Rex Features", "Allsport", "BFI", "ANSA", "The Art Archive", "Hulton Archive", "Hulton Getty", "RTRPIX",

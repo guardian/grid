@@ -47,7 +47,7 @@ kahuna.config(['$stateProvider', '$urlRouterProvider', 'templatesDirectory',
         templateUrl: templatesDirectory + '/search.html'
     });
     $stateProvider.state('search.results', {
-        url: 'search?query&ids&since&free&archived&uploadedBy',
+        url: 'search?query&ids&since&free&archived&valid&uploadedBy',
         templateUrl: templatesDirectory + '/search/results.html',
         controller: 'SearchResultsCtrl',
         data: {
@@ -113,15 +113,18 @@ kahuna.controller('SearchResultsCtrl',
                   ['$scope', '$state', '$stateParams', '$timeout', 'mediaApi',
                    function($scope, $state, $stateParams, $timeout, mediaApi) {
 
+    var valid = $stateParams.valid === undefined ? true : $stateParams.valid;
     $scope.images = [];
 
     // FIXME: This is being refreshed by the router. Make it watch a $stateParams collection instead
     // See:   https://github.com/guardian/media-service/pull/64#discussion-diff-17351746L116
     // FIXME: make addImages generic enough to run on first load so as not to duplicate here
+    // FIXME: Think of a way to not have to add a param in a millio places to add it
     $scope.searched = mediaApi.search($stateParams.query, {
         ids:        $stateParams.ids,
         since:      $stateParams.since,
         archived:   $stateParams.archived,
+        valid:      valid,
         uploadedBy: $stateParams.uploadedBy
     }).then(function(images) {
         $scope.images = images;
@@ -179,6 +182,7 @@ kahuna.controller('SearchResultsCtrl',
                 until:      until,
                 ids:        $stateParams.ids,
                 archived:   $stateParams.archived,
+                valid:      valid,
                 uploadedBy: $stateParams.uploadedBy
             }).then(function(moreImages) {
                 // Filter out duplicates (esp. on exact same 'until' date)
@@ -664,14 +668,6 @@ kahuna.controller('FileUploaderCtrl',
         return loaderApi.load(new Uint8Array(file));
     }
 
-    function uploadSuccess(resps) {
-        var ids = resps.map(resp => resp.data.id);
-
-        return $q.all([uploadsIndexed(ids), mediaApi.getSession()]).then(([upload, session]) => {
-            $state.go('search.results', {uploadedBy: session.user.email});
-        });
-    }
-
     function uploadsIndexed(ids) {
         var def = $q.defer();
         var searchEveryPeriod = 500;
@@ -681,7 +677,7 @@ kahuna.controller('FileUploaderCtrl',
             $timeout.cancel(timeout);
             mediaApi.search('', { ids: ids }).then(images => {
                 if(images.length === ids.length) {
-                    def.resolve();
+                    def.resolve(images);
                 } else {
                     $timeout(searchForUploads, searchEveryPeriod);
                 }
@@ -689,6 +685,23 @@ kahuna.controller('FileUploaderCtrl',
         })();
 
         return def.promise;
+    }
+
+    function uploadSuccess(resps) {
+        var ids = resps.map(resp => resp.data.id);
+
+        return $q.all([uploadsIndexed(ids), mediaApi.getSession()]).then(([uploads, session]) => {
+            // FIXME: This is just while we're allowing images through without metadata
+            // We'll fix this once we add the interface to add metadata
+            var invalid = uploads.map(upload => !upload.data.valid).length > 0;
+            if (invalid) {
+                uploadFailure({body: {
+                    errorMessage: "Upload failed: credit or description was missing"
+                }});
+            } else {
+                $state.go('search.results', {uploadedBy: session.user.email});
+            }
+        });
     }
 
     // TODO: Universal messaging system?
