@@ -7,7 +7,7 @@ import com.amazonaws.services.dynamodbv2.document.{DynamoDB => AwsDynamoDB, Upda
 import com.amazonaws.services.dynamodbv2.document.spec.{GetItemSpec, UpdateItemSpec}
 import com.amazonaws.services.dynamodbv2.document.utils.ValueMap
 import com.amazonaws.services.dynamodbv2.model.ReturnValue
-import play.api.libs.json.{JsObject, Json}
+import play.api.libs.json.{JsValue, JsObject, Json}
 
 import scala.concurrent.{ExecutionContext, Future}
 import scalaz.syntax.id._
@@ -49,13 +49,8 @@ class DynamoDB(credentials: AWSCredentials, region: Region, tableName: String) {
 
 
   def booleanGet(id: String, key: String)
-                (implicit ex: ExecutionContext): Future[Boolean] = Future {
-    table.getItem(
-      new GetItemSpec().
-        withPrimaryKey(IdKey, id).
-        withAttributesToGet(key)
-    )
-  } map { _.getBoolean(key) }
+                (implicit ex: ExecutionContext): Future[Boolean] =
+    get(id, key).map(_.getBoolean(key))
 
   def booleanSet(id: String, key: String, value: Boolean)
                 (implicit ex: ExecutionContext): Future[JsObject] =
@@ -67,13 +62,8 @@ class DynamoDB(credentials: AWSCredentials, region: Region, tableName: String) {
 
 
   def setGet(id: String, key: String)
-            (implicit ex: ExecutionContext): Future[Set[String]] = Future {
-    table.getItem(
-      new GetItemSpec().
-        withPrimaryKey(IdKey, id).
-        withAttributesToGet(key)
-    )
-  } map { _.getStringSet(key).asScala.toSet }
+            (implicit ex: ExecutionContext): Future[Set[String]] =
+    get(id, key).map(_.getStringSet(key).asScala.toSet)
 
   def setAdd(id: String, key: String, value: String)
             (implicit ex: ExecutionContext): Future[JsObject] =
@@ -83,6 +73,29 @@ class DynamoDB(credentials: AWSCredentials, region: Region, tableName: String) {
       new ValueMap().withStringSet(":value", value)
     )
 
+
+  def jsonGet(id: String, key: String)
+             (implicit ex: ExecutionContext): Future[JsObject] = {
+      get(id, key).map{item => Json.parse(item.getJSON(key)).as[JsObject]}
+    }
+
+
+
+  // We cannot update, so make sure you send over the WHOLE document
+  def jsonAdd(id: String, key: String, value: Map[String, String])
+             (implicit ex: ExecutionContext): Future[JsObject] = {
+
+    // FIXME: Is there a more functional way to do this? Seems a little mutable.
+    val valueMap = new ValueMap()
+    value.foreach{ case (key, value) => println(value); valueMap.withString(key, value) }
+
+    update(
+      id,
+      s"SET $key = :value",
+        new ValueMap().withMap(":value", valueMap)
+    )
+  }
+
   def setDelete(id: String, key: String, value: String)
                (implicit ex: ExecutionContext): Future[JsObject] =
     update(
@@ -91,6 +104,15 @@ class DynamoDB(credentials: AWSCredentials, region: Region, tableName: String) {
       new ValueMap().withStringSet(":value", value)
     )
 
+
+  def get(id: String, key: String)
+         (implicit ex: ExecutionContext): Future[Item] = Future {
+    table.getItem(
+      new GetItemSpec()
+        .withPrimaryKey(IdKey, id)
+        .withAttributesToGet(key)
+    )
+  }
 
   def update(id: String, expression: String, valueMap: ValueMap)
             (implicit ex: ExecutionContext): Future[JsObject] =
