@@ -19,7 +19,7 @@ import scalaz.NonEmptyList
 import com.gu.mediaservice.syntax._
 import com.gu.mediaservice.lib.elasticsearch.ElasticSearchClient
 import com.gu.mediaservice.lib.formatting.printDateTime
-import controllers.SearchParams
+import controllers.{ImageExtras, SearchParams}
 import lib.{MediaApiMetrics, Config}
 
 
@@ -50,14 +50,19 @@ object ElasticSearch extends ElasticSearchClient {
       .map(q => multiMatchQuery(q, matchFields: _*).operator(Operator.AND))
       .getOrElse(matchAllQuery)
 
-    val dateFilter = filters.date(params.fromDate, params.toDate)
-    val idsFilter = params.ids.map(filters.ids(_))
-    val labelFilter    = params.labels.toNel.map(filters.terms("labels", _))
-    val metadataFilter = params.hasMetadata.map("metadata." + _).toNel.map(filters.exists)
-    val archivedFilter = params.archived.map(filters.bool("archived", _))
+    val dateFilter       = filters.date(params.fromDate, params.toDate)
+    val idsFilter        = params.ids.map(filters.ids)
+    val labelFilter      = params.labels.toNel.map(filters.terms("labels", _))
+    val metadataFilter   = params.hasMetadata.map(metadataField).toNel.map(filters.exists)
+    val archivedFilter   = params.archived.map(filters.bool("archived", _))
     val uploadedByFilter = params.uploadedBy.map(uploadedBy => filters.terms("uploadedBy", NonEmptyList(uploadedBy)))
 
-    val filter = (metadataFilter.toList ++ labelFilter ++ archivedFilter ++ uploadedByFilter ++ idsFilter)
+    val validFilter      = ImageExtras.requiredMetadata.map(metadataField).toNel.map(filters.exists)
+    val invalidFilter    = ImageExtras.requiredMetadata.map(metadataField).toNel.map(filters.missing)
+    val validityFilter   = params.valid.flatMap{ valid => if(valid) validFilter else invalidFilter }
+
+    val filter = (metadataFilter.toList ++ labelFilter ++ archivedFilter ++
+                  uploadedByFilter ++ idsFilter ++ validityFilter)
                    .foldLeft(dateFilter)(filters.and)
 
     val search = prepareImagesSearch.setQuery(query).setPostFilter(filter) |>
@@ -75,6 +80,8 @@ object ElasticSearch extends ElasticSearchClient {
       }
   }
 
+  def metadataField(field: String) = s"metadata.$field"
+
   def imageExists(id: String)(implicit ex: ExecutionContext): Future[Boolean] =
     prepareGet(id).setFields().executeAndLog(s"check if image $id exists") map (_.isExists)
 
@@ -86,7 +93,13 @@ object ElasticSearch extends ElasticSearchClient {
 
   object filters {
 
-    import FilterBuilders.{rangeFilter, termsFilter, andFilter, existsFilter, termFilter}
+    import FilterBuilders.{
+            rangeFilter,
+            termsFilter,
+            andFilter,
+            existsFilter,
+            missingFilter,
+            termFilter}
 
     def date(from: Option[DateTime], to: Option[DateTime]): FilterBuilder = {
       val builder = rangeFilter("uploadTime")
@@ -104,11 +117,15 @@ object ElasticSearch extends ElasticSearchClient {
     def exists(fields: NonEmptyList[String]): FilterBuilder =
       fields.map(f => existsFilter(f): FilterBuilder).foldRight1(andFilter(_, _))
 
+    def missing(fields: NonEmptyList[String]): FilterBuilder =
+      fields.map(f => missingFilter(f): FilterBuilder).foldRight1(andFilter(_, _))
+
     def bool(field: String, bool: Boolean): FilterBuilder =
       termFilter(field, bool)
 
     def ids(idList: List[String]): FilterBuilder =
       FilterBuilders.idsFilter().addIds(idList:_*)
+
   }
 
   object sorts {
