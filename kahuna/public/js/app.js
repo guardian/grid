@@ -47,7 +47,7 @@ kahuna.config(['$stateProvider', '$urlRouterProvider', 'templatesDirectory',
         templateUrl: templatesDirectory + '/search.html'
     });
     $stateProvider.state('search.results', {
-        url: 'search?query&ids&since&free&archived&invalid&uploadedBy',
+        url: 'search?query&ids&since&free&archived&valid&uploadedBy',
         templateUrl: templatesDirectory + '/search/results.html',
         controller: 'SearchResultsCtrl',
         data: {
@@ -113,6 +113,7 @@ kahuna.controller('SearchResultsCtrl',
                   ['$scope', '$state', '$stateParams', '$timeout', 'mediaApi',
                    function($scope, $state, $stateParams, $timeout, mediaApi) {
 
+    var valid = $stateParams.valid === undefined ? true : $stateParams.valid;
     $scope.images = [];
 
     // FIXME: This is being refreshed by the router. Make it watch a $stateParams collection instead
@@ -123,7 +124,7 @@ kahuna.controller('SearchResultsCtrl',
         ids:        $stateParams.ids,
         since:      $stateParams.since,
         archived:   $stateParams.archived,
-        invalid:    $stateParams.invalid,
+        valid:      valid,
         uploadedBy: $stateParams.uploadedBy
     }).then(function(images) {
         $scope.images = images;
@@ -181,7 +182,7 @@ kahuna.controller('SearchResultsCtrl',
                 until:      until,
                 ids:        $stateParams.ids,
                 archived:   $stateParams.archived,
-                invalid:    $stateParams.invalid,
+                valid:      valid,
                 uploadedBy: $stateParams.uploadedBy
             }).then(function(moreImages) {
                 // Filter out duplicates (esp. on exact same 'until' date)
@@ -670,7 +671,7 @@ kahuna.controller('FileUploaderCtrl',
 
         (function searchForUploads() {
             $timeout.cancel(timeout);
-            mediaApi.search('', { ids: ids, invalid: true }).then(images => {
+            mediaApi.search('', { ids: ids }).then(images => {
                 if(images.length === ids.length) {
                     def.resolve(images);
                 } else {
@@ -688,7 +689,7 @@ kahuna.controller('FileUploaderCtrl',
         return $q.all([uploadsIndexed(ids), mediaApi.getSession()]).then(([uploads, session]) => {
             // FIXME: This is just while we're allowing images through without metadata
             // We'll fix this once we add the interface to add metadata
-            var invalid = uploads.map(upload => upload.data.invalid).length > 0;
+            var invalid = uploads.map(upload => !upload.data.valid).length > 0;
             if (invalid) {
                 uploadFailure({body: {
                     errorMessage: "Upload failed: credit or description was missing"
