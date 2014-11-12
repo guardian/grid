@@ -85,10 +85,15 @@ object MediaApi extends Controller with ArgoHelpers {
       val secureUrl = S3Client.signUrl(Config.imageBucket, id, expiration)
       val secureThumbUrl = S3Client.signUrl(Config.thumbBucket, id, expiration)
       val credit = (source \ "metadata" \ "credit").as[Option[String]]
+      // TODO: This might be easier to get from the `SearchParams`
+      // downfall: it might give the wrong value if a bug is introduced
+      val invalid = ImageExtras.requiredMetadata.exists(field => (source \ "metadata" \ field).asOpt[String].isEmpty)
+
       val image = source.transform(transformers.addSecureSourceUrl(secureUrl))
         .flatMap(_.transform(transformers.addSecureThumbUrl(secureThumbUrl)))
         .flatMap(_.transform(transformers.removeFileData))
         .flatMap(_.transform(transformers.wrapUserMetadata(id)))
+        .flatMap(_.transform(transformers.addValidity(invalid)))
         .flatMap(_.transform(transformers.addUsageCost(credit))).get
 
       // FIXME: don't hardcode paths from other APIs - once we're
@@ -106,7 +111,7 @@ object MediaApi extends Controller with ArgoHelpers {
   object transformers {
 
     def addUsageCost(copyright: Option[String]): Reads[JsObject] =
-      __.json.update(__.read[JsObject].map(_ ++ Json.obj("cost" -> ImageUse.getCost(copyright))))
+      __.json.update(__.read[JsObject].map(_ ++ Json.obj("cost" -> ImageExtras.getCost(copyright))))
 
     def removeFileData: Reads[JsObject] =
       (__ \ "fileMetadata").json.prune
@@ -124,6 +129,9 @@ object MediaApi extends Controller with ArgoHelpers {
 
     def addSecureThumbUrl(url: String): Reads[JsObject] =
       (__ \ "thumbnail").json.update(__.read[JsObject].map (_ ++ Json.obj("secureUrl" -> url)))
+
+    def addValidity(invalid: Boolean): Reads[JsObject] =
+      __.json.update(__.read[JsObject]).map(_ ++ Json.obj("invalid" -> invalid))
   }
 
 
@@ -181,7 +189,9 @@ object SearchParams {
 }
 
 // Default to pay for now
-object ImageUse {
+object ImageExtras {
+  val requiredMetadata = List("credit", "description")
+
   val freeForUseFrom: Seq[String] = Seq("EPA", "REUTERS", "PA", "AP", "Associated Press", "RONALD GRANT",
     "Press Association Images", "Action Images", "Keystone", "AFP", "Getty Images", "Alamy", "FilmMagic", "WireImage",
     "Pool", "Rex Features", "Allsport", "BFI", "ANSA", "The Art Archive", "Hulton Archive", "Hulton Getty", "RTRPIX",
