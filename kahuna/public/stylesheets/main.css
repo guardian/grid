@@ -100,12 +100,12 @@ a:focus {
     padding: 2px 5px;
     color: #333;
     background: transparent;
-    box-shadow: 0 2px #efefef;
-    border: 1px solid #efefef;
+    box-shadow: 0 2px #ddd;
+    border: 1px solid #ddd;
     border-bottom: 0;
 }
-.button--shy:hover {
-    background: #efefef;
+.button--shy:not([disabled]):hover {
+    background: #ddd;
 }
 
 
@@ -466,6 +466,11 @@ a:focus {
 .image-label__link,
 .image-label__remove {
     color: white;
+}
+
+.image-labels,
+.image-no-labels {
+    margin-bottom: 5px
 }
 
 .image-no-labels {
