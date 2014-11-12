@@ -526,7 +526,8 @@ kahuna.directive('uiTitle', function($rootScope) {
 });
 
 /**
- * omitting uiLocalStoreVal will remove the item from localStorage
+ * using uiLocalStoreVal to set a key to the same value will remove that key from localStorage
+ * this allows toggling values on/off
  * we force localstore attr to be and object
  * TODO: Support deep objects i.e
  * { "search":
@@ -548,16 +549,19 @@ kahuna.directive('uiLocalstore', function() {
         link: function(scope, element, attrs) {
             element.bind('click', function() {
                 var k = scope.key;
-                var v = angular.extend({},
-                    JSON.parse(localStorage.getItem(k) || '{}'),
-                    scope.value()
-                );
+                var currentMap = JSON.parse(localStorage.getItem(k) || '{}');
+                var mapUpdate = scope.value();
 
-                if (v) {
-                    localStorage.setItem(k, JSON.stringify(v));
-                } else {
-                    localStorage.removeItem(k);
-                }
+                // Update map by removing keys set to the same value, or merging if not
+                Object.keys(mapUpdate).forEach(key => {
+                    if (currentMap[key] === mapUpdate[key]) {
+                        delete currentMap[key];
+                    } else {
+                        currentMap[key] = mapUpdate[key];
+                    }
+                });
+
+                localStorage.setItem(k, JSON.stringify(currentMap));
                 scope.$apply();
             });
         }
