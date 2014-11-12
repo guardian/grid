@@ -32,7 +32,7 @@ object MediaApi extends Controller with ArgoHelpers {
   def index = Action {
     val searchParams = List("q", "ids", "offset", "length", "fromDate", "toDate",
                             "orderBy", "since", "until", "uploadedBy", "archived",
-                            "invalid").mkString(",")
+                            "valid").mkString(",")
     val response = Json.obj(
       "data"  -> Json.obj("description" -> "This is the Media API"),
       "links" -> Json.arr(
@@ -87,13 +87,13 @@ object MediaApi extends Controller with ArgoHelpers {
       val credit = (source \ "metadata" \ "credit").as[Option[String]]
       // TODO: This might be easier to get from the `SearchParams`
       // downfall: it might give the wrong value if a bug is introduced
-      val invalid = ImageExtras.requiredMetadata.exists(field => (source \ "metadata" \ field).asOpt[String].isEmpty)
+      val valid = ImageExtras.requiredMetadata.exists(field => !(source \ "metadata" \ field).asOpt[String].isEmpty)
 
       val image = source.transform(transformers.addSecureSourceUrl(secureUrl))
         .flatMap(_.transform(transformers.addSecureThumbUrl(secureThumbUrl)))
         .flatMap(_.transform(transformers.removeFileData))
         .flatMap(_.transform(transformers.wrapUserMetadata(id)))
-        .flatMap(_.transform(transformers.addValidity(invalid)))
+        .flatMap(_.transform(transformers.addValidity(valid)))
         .flatMap(_.transform(transformers.addUsageCost(credit))).get
 
       // FIXME: don't hardcode paths from other APIs - once we're
@@ -130,8 +130,8 @@ object MediaApi extends Controller with ArgoHelpers {
     def addSecureThumbUrl(url: String): Reads[JsObject] =
       (__ \ "thumbnail").json.update(__.read[JsObject].map (_ ++ Json.obj("secureUrl" -> url)))
 
-    def addValidity(invalid: Boolean): Reads[JsObject] =
-      __.json.update(__.read[JsObject]).map(_ ++ Json.obj("invalid" -> invalid))
+    def addValidity(valid: Boolean): Reads[JsObject] =
+      __.json.update(__.read[JsObject]).map(_ ++ Json.obj("valid" -> valid))
   }
 
 
@@ -158,7 +158,7 @@ case class SearchParams(
   fromDate: Option[DateTime],
   toDate: Option[DateTime],
   archived: Option[Boolean],
-  invalid: Option[Boolean],
+  valid: Option[Boolean],
   uploadedBy: Option[String],
   labels: List[String],
   hasMetadata: List[String]
@@ -179,7 +179,7 @@ object SearchParams {
       request.getQueryString("fromDate") orElse request.getQueryString("since") flatMap parseDateFromQuery,
       request.getQueryString("toDate") orElse request.getQueryString("until") flatMap parseDateFromQuery,
       request.getQueryString("archived").map(_.toBoolean),
-      request.getQueryString("invalid").map(_.toBoolean),
+      request.getQueryString("valid").map(_.toBoolean),
       request.getQueryString("uploadedBy"),
       request.getQueryString("labels").map(_.toString.split(",").toList) getOrElse List(),
       commaSep("hasMetadata")
