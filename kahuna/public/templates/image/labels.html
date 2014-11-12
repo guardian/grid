@@ -1,4 +1,5 @@
-<ul ng:if="labels.data.length > 0">
+<ul ng:if="labels.data.length > 0"
+    class="image-labels">
     <li ng:repeat="label in labels.data"
         class="image-label"
         ng:class="{'image-label--removing': labelsCtrl.labelsBeingRemoved.has(label)}">
@@ -14,6 +15,8 @@
      class="image-no-labels"
 >No labels</div>
 
-<button ng:click="labelsCtrl.addLabel()" ng:disabled="labelsCtrl.adding">
+<button ng:click="labelsCtrl.addLabel()"
+        ng:disabled="labelsCtrl.adding"
+        class="button--shy">
     Add<span ng:show="labelsCtrl.adding">ing…</span>
 </button>
