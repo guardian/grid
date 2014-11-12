@@ -663,14 +663,6 @@ kahuna.controller('FileUploaderCtrl',
         return loaderApi.load(new Uint8Array(file));
     }
 
-    function uploadSuccess(resps) {
-        var ids = resps.map(resp => resp.data.id);
-
-        return $q.all([uploadsIndexed(ids), mediaApi.getSession()]).then(([upload, session]) => {
-            $state.go('search.results', {uploadedBy: session.user.email});
-        });
-    }
-
     function uploadsIndexed(ids) {
         var def = $q.defer();
         var searchEveryPeriod = 500;
@@ -678,9 +670,9 @@ kahuna.controller('FileUploaderCtrl',
 
         (function searchForUploads() {
             $timeout.cancel(timeout);
-            mediaApi.search('', { ids: ids }).then(images => {
+            mediaApi.search('', { ids: ids, invalid: true }).then(images => {
                 if(images.length === ids.length) {
-                    def.resolve();
+                    def.resolve(images);
                 } else {
                     $timeout(searchForUploads, searchEveryPeriod);
                 }
@@ -688,6 +680,14 @@ kahuna.controller('FileUploaderCtrl',
         })();
 
         return def.promise;
+    }
+
+    function uploadSuccess(resps) {
+        var ids = resps.map(resp => resp.data.id);
+
+        return $q.all([uploadsIndexed(ids), mediaApi.getSession()]).then(([upload, session]) => {
+            $state.go('search.results', {uploadedBy: session.user.email});
+        });
     }
 
     // TODO: Universal messaging system?
