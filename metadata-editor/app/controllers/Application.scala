@@ -38,7 +38,7 @@ object Application extends Controller with ArgoHelpers {
     Ok(response).as(ArgoMediaType)
   }
 
-  def getMetadata(id: String) = Authenticated.async {
+  def getAllMetadata(id: String) = Authenticated.async {
     dynamo.get(id) map {
       metadata => Ok(metadataResponse(metadata, id)).as(ArgoMediaType)
     } recover {
@@ -87,6 +87,26 @@ object Application extends Controller with ArgoHelpers {
     dynamo.setDelete(id, "labels", label) map publishAndRespond(id)
   }
 
+
+  def getMetadata(id: String) = Authenticated.async {
+    dynamo.jsonGet(id, "metadata").map(Ok(_))
+  }
+
+  // ALWAYS send over the whole document or you'll lose your data
+  def setMetadata(id: String) = Authenticated.async { req =>
+    stringForm.bindFromRequest()(req).fold(
+      errors => Future.successful(BadRequest(errors.errorsAsJson)),
+      metadata => {
+        val entityResult = Accepted(metadataResponse(metadata, id)).as(ArgoMediaType)
+        val metadataMap = Json.parse(metadata).as[Map[String, String]]
+        dynamo.jsonAdd(id, "metadata", metadataMap) map publishAndRespond(id, entityResult)
+      }
+    )
+  }
+
+
+  def metadataResponse(description: String, id: String) =
+    JsString(description).transform(transformers.wrapLabel(id)).get
 
   def labelResponse(label: String, id: String): JsValue =
     JsString(label).transform(transformers.wrapLabel(id)).get
