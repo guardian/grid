@@ -19,7 +19,7 @@ import scalaz.NonEmptyList
 import com.gu.mediaservice.syntax._
 import com.gu.mediaservice.lib.elasticsearch.ElasticSearchClient
 import com.gu.mediaservice.lib.formatting.printDateTime
-import controllers.SearchParams
+import controllers.{ImageExtras, SearchParams}
 import lib.{MediaApiMetrics, Config}
 
 
@@ -43,8 +43,6 @@ object ElasticSearch extends ElasticSearchClient {
     Seq("description", "title", "byline", "source", "credit", "keywords", "city", "country", "suppliersReference").map("metadata." + _) ++
     Seq("labels").map("userMetadata." + _)
 
-  val validityRequiredFields = List("credit", "description")
-
   def search(params: SearchParams)(implicit ex: ExecutionContext): Future[SearchResults] = {
 
     val query = params.query
@@ -59,8 +57,8 @@ object ElasticSearch extends ElasticSearchClient {
     val archivedFilter   = params.archived.map(filters.bool("archived", _))
     val uploadedByFilter = params.uploadedBy.map(uploadedBy => filters.terms("uploadedBy", NonEmptyList(uploadedBy)))
 
-    val validFilter      = validityRequiredFields.map(metadataField).toNel.map(filters.exists)
-    val invalidFilter    = validityRequiredFields.map(metadataField).toNel.map(filters.missing)
+    val validFilter      = ImageExtras.requiredMetadata.map(metadataField).toNel.map(filters.exists)
+    val invalidFilter    = ImageExtras.requiredMetadata.map(metadataField).toNel.map(filters.missing)
     val validityFilter   = params.invalid match {
                              case Some(true) => invalidFilter
                              case _           => validFilter
