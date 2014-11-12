@@ -87,9 +87,9 @@ object MediaApi extends Controller with ArgoHelpers {
       val credit = (source \ "metadata" \ "credit").as[Option[String]]
       // TODO: This might be easier to get from the `SearchParams`
       // downfall: it might give the wrong value if a bug is introduced
-      val valid = ImageExtras.requiredMetadata.count(
-        field => (source \ "metadata" \ field).asOpt[String].isEmpty
-      ) == 0
+      val valid = ImageExtras.requiredMetadata.forall { field =>
+        (source \ "metadata" \ field).asOpt[String].isDefined
+      }
 
       val image = source.transform(transformers.addSecureSourceUrl(secureUrl))
         .flatMap(_.transform(transformers.addSecureThumbUrl(secureThumbUrl)))
