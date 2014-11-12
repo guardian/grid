@@ -61,7 +61,7 @@ object ElasticSearch extends ElasticSearchClient {
     val invalidFilter    = ImageExtras.requiredMetadata.map(metadataField).toNel.map(filters.missing)
     val validityFilter   = params.invalid match {
                              case Some(true) => invalidFilter
-                             case _           => validFilter
+                             case _          => validFilter
                            }
 
     val filter = (metadataFilter.toList ++ labelFilter ++ archivedFilter ++
