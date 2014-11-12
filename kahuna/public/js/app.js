@@ -181,7 +181,7 @@ kahuna.controller('SearchResultsCtrl',
                 until:      until,
                 ids:        $stateParams.ids,
                 archived:   $stateParams.archived,
-                invalid:   $stateParams.invalid,
+                invalid:    $stateParams.invalid,
                 uploadedBy: $stateParams.uploadedBy
             }).then(function(moreImages) {
                 // Filter out duplicates (esp. on exact same 'until' date)
