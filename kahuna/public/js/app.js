@@ -685,8 +685,17 @@ kahuna.controller('FileUploaderCtrl',
     function uploadSuccess(resps) {
         var ids = resps.map(resp => resp.data.id);
 
-        return $q.all([uploadsIndexed(ids), mediaApi.getSession()]).then(([upload, session]) => {
-            $state.go('search.results', {uploadedBy: session.user.email});
+        return $q.all([uploadsIndexed(ids), mediaApi.getSession()]).then(([uploads, session]) => {
+            // FIXME: This is just while we're allowing images through without metadata
+            // We'll fix this once we add the interface to add metadata
+            var invalid = uploads.map(upload => upload.data.invalid).length > 0;
+            if (invalid) {
+                uploadFailure({body: {
+                    errorMessage: "Upload failed: credit or description was missing"
+                }});
+            } else {
+                $state.go('search.results', {uploadedBy: session.user.email});
+            }
         });
     }
 
