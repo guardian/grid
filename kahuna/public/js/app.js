@@ -117,6 +117,7 @@ kahuna.controller('SearchResultsCtrl',
 
     // FIXME: This is being refreshed by the router. Make it watch a $stateParams collection instead
     // See:   https://github.com/guardian/media-service/pull/64#discussion-diff-17351746L116
+    $scope.loading = true;
     $scope.searched = search().then(function(images) {
         $scope.images = images;
         // yield so images render before we check if there's more space
@@ -125,6 +126,8 @@ kahuna.controller('SearchResultsCtrl',
                 addImages();
             }
         });
+    }).finally(() => {
+        $scope.loading = false;
     });
 
     var seenSince;
