@@ -64,6 +64,7 @@ object Mappings {
 
   val userMetadataMapping =
     nonDynamicObj(
+      "metadata" -> metadataMapping,
       "labels"   -> nonAnalysedList("label"),
       "archived" -> boolean
     )
