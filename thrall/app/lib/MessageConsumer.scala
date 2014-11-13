@@ -47,9 +47,9 @@ object MessageConsumer {
 
   def chooseProcessor(subject: String): Option[JsValue => Future[Any]] =
     PartialFunction.condOpt(subject) {
-      case "image"                    => indexImage
-      case "delete-image"             => deleteImage
-      case "update-image-exports"     => updateImageExports
+      case "image"                      => indexImage
+      case "delete-image"               => deleteImage
+      case "update-image-exports"       => updateImageExports
       case "update-image-user-metadata" => updateImageUserMetadata
     }
 
