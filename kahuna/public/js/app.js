@@ -459,13 +459,21 @@ kahuna.directive('uiNearBottom', ['$window', function($window) {
         },
         link: function(scope, element, attrs) {
             var scrolling = false;
+            var $$window = angular.element($window);
 
-            angular.element($window).bind('scroll', function(e) {
-                // TODO: debounce
+            // Observe scroll on window, remove listener when directive dies
+            // TODO: debounce
+            $$window.bind('scroll', checkScrollNearBottom);
+            scope.$on('$destroy', function() {
+                $$window.unbind('scroll', checkScrollNearBottom);
+            });
+
+            // Pixel distance from bottom at which we are 'near' it
+            var offset = 200;
+            function checkScrollNearBottom(e) {
                 var el = element[0];
 
-                var offset = 200;
-                var nowAt = this.innerHeight + this.scrollY;
+                var nowAt = $window.innerHeight + $window.scrollY;
                 var end = el.scrollHeight + el.offsetTop - offset;
 
                 if (!scrolling && nowAt >= end) {
@@ -474,7 +482,7 @@ kahuna.directive('uiNearBottom', ['$window', function($window) {
                         scrolling = false;
                     });
                 }
-            });
+            }
         }
     };
 }]);
