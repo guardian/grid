@@ -11,7 +11,7 @@ POST    /metadata/:id/labels              controllers.Application.addLabel(id: S
 DELETE  /metadata/:id/labels/:label       controllers.Application.removeLabel(id: String, label: String)
 
 GET     /metadata/:id/metadata            controllers.Application.getMetadata(id: String)
-POST    /metadata/:id/metadata            controllers.Application.setMetadata(id: String)
+PUT     /metadata/:id/metadata            controllers.Application.setMetadata(id: String)
 
 # Management
 GET     /management/healthcheck           com.gu.mediaservice.lib.management.Management.healthCheck
