@@ -113,21 +113,11 @@ kahuna.controller('SearchResultsCtrl',
                   ['$scope', '$state', '$stateParams', '$timeout', 'mediaApi',
                    function($scope, $state, $stateParams, $timeout, mediaApi) {
 
-    var valid = $stateParams.valid === undefined ? true : $stateParams.valid;
     $scope.images = [];
 
     // FIXME: This is being refreshed by the router. Make it watch a $stateParams collection instead
     // See:   https://github.com/guardian/media-service/pull/64#discussion-diff-17351746L116
-    // FIXME: make addImages generic enough to run on first load so as not to duplicate here
-    // FIXME: Think of a way to not have to add a param in a millio places to add it
-    $scope.searched = mediaApi.search($stateParams.query, {
-        ids:        $stateParams.ids,
-        since:      $stateParams.since,
-        archived:   $stateParams.archived,
-        free:       $stateParams.nonFree === 'true' ? undefined: true,
-        valid:      valid,
-        uploadedBy: $stateParams.uploadedBy
-    }).then(function(images) {
+    $scope.searched = search().then(function(images) {
         $scope.images = images;
         // yield so images render before we check if there's more space
         $timeout(function() {
@@ -175,15 +165,7 @@ kahuna.controller('SearchResultsCtrl',
         var lastImage = $scope.images.slice(-1)[0];
         if (lastImage) {
             var until = lastImage.data.uploadTime;
-            return mediaApi.search($stateParams.query, {
-                until:      until,
-                ids:        $stateParams.ids,
-                since:      $stateParams.since,
-                archived:   $stateParams.archived,
-                free:       $stateParams.nonFree === 'true' ? undefined: true,
-                valid:      valid,
-                uploadedBy: $stateParams.uploadedBy
-            }).then(function(moreImages) {
+            return search(until).then(function(moreImages) {
                 // Filter out duplicates (esp. on exact same 'until' date)
                 var newImages = moreImages.filter(function(im) {
                     return $scope.images.filter(function(existing) {
@@ -194,6 +176,21 @@ kahuna.controller('SearchResultsCtrl',
                 $scope.images = $scope.images.concat(newImages);
             });
         }
+    }
+
+    function search(until) {
+        // FIXME: Think of a way to not have to add a param in a millio places to add it
+        return mediaApi.search($stateParams.query, {
+            until:      until,
+            ids:        $stateParams.ids,
+            since:      $stateParams.since,
+            archived:   $stateParams.archived,
+            // The nonFree state param is the inverse of the free API param
+            free:       $stateParams.nonFree === 'true' ? undefined: true,
+            // Search for valid only by default
+            valid:      $stateParams.valid === undefined ? true : $stateParams.valid,
+            uploadedBy: $stateParams.uploadedBy
+        });
     }
 
     $scope.whenNearBottom = addImages;
