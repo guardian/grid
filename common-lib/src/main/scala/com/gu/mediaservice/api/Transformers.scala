@@ -13,11 +13,24 @@ class Transformers(services: Services) {
   def objectOrEmpty(arr: JsValue): JsObject =
     arr.asOpt[JsObject].getOrElse(Json.obj())
 
-  def wrapMetadata(id: String): Reads[JsObject] =
+  def wrapAllMetadata(id: String): Reads[JsObject] =
     __.read[JsObject].map { data =>
       Json.obj(
         "uri" -> s"$metadataBaseUri/metadata/$id",
-        "data" -> (data ++ Json.obj("labels" -> arrayOrEmpty(data \ "labels").transform(wrapLabels(id)).get))
+        "data" -> (
+          data ++ Json.obj(
+            "labels" -> arrayOrEmpty(data \ "labels").transform(wrapLabels(id)).get,
+            "metadata" -> objectOrEmpty(data \ "metadata").transform(wrapMetadata(id)).get
+          )
+        )
+      )
+    }
+
+  def wrapMetadata(id: String): Reads[JsObject] =
+    __.read[JsValue].map { metadata =>
+      Json.obj(
+        "uri" -> s"$metadataBaseUri/metadata/$id/metadata",
+        "data" -> metadata
       )
     }
 

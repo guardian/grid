@@ -122,7 +122,7 @@ object MediaApi extends Controller with ArgoHelpers {
     def wrapUserMetadata(id: String): Reads[JsObject] =
       __.read[JsObject].map { root =>
         val userMetadata = commonTransformers.objectOrEmpty(root \ "userMetadata")
-        val wrappedUserMetadata = userMetadata.transform(commonTransformers.wrapMetadata(id)).get
+        val wrappedUserMetadata = userMetadata.transform(commonTransformers.wrapAllMetadata(id)).get
         root ++ Json.obj("userMetadata" -> wrappedUserMetadata)
       }
 
