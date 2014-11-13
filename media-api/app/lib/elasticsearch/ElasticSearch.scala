@@ -61,8 +61,14 @@ object ElasticSearch extends ElasticSearchClient {
     val invalidFilter    = Config.requiredMetadata.map(metadataField).toNel.map(filters.missing)
     val validityFilter   = params.valid.flatMap{ valid => if(valid) validFilter else invalidFilter }
 
+    // Warning: this requires the capitalisation to be exact; we may want to sanitise the credits
+    // to a canonical representation in the future
+    val freeFilter    = Config.freeForUseFrom.toNel.map(cs => filters.terms("metadata.credit", cs))
+    val nonFreeFilter = Config.freeForUseFrom.toNel.map(cs => filters.not(filters.terms("metadata.credit", cs)))
+    val costFilter    = params.free.flatMap(free => if (free) freeFilter else nonFreeFilter)
+
     val filter = (metadataFilter.toList ++ labelFilter ++ archivedFilter ++
-                  uploadedByFilter ++ idsFilter ++ validityFilter)
+                  uploadedByFilter ++ idsFilter ++ validityFilter ++ costFilter)
                    .foldLeft(dateFilter)(filters.and)
 
     val search = prepareImagesSearch.setQuery(query).setPostFilter(filter) |>
@@ -97,6 +103,7 @@ object ElasticSearch extends ElasticSearchClient {
             rangeFilter,
             termsFilter,
             andFilter,
+            notFilter,
             existsFilter,
             missingFilter,
             termFilter}
@@ -113,6 +120,9 @@ object ElasticSearch extends ElasticSearchClient {
 
     def and(filter1: FilterBuilder, filter2: FilterBuilder): FilterBuilder =
       andFilter(filter1, filter2)
+
+    def not(filter: FilterBuilder): FilterBuilder =
+      notFilter(filter)
 
     def exists(fields: NonEmptyList[String]): FilterBuilder =
       fields.map(f => existsFilter(f): FilterBuilder).foldRight1(andFilter(_, _))
