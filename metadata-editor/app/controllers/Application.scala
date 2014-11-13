@@ -1,5 +1,6 @@
 package controllers
 
+
 import com.gu.mediaservice.api.Transformers
 import com.gu.mediaservice.lib.argo.ArgoHelpers
 
@@ -38,12 +39,13 @@ object Application extends Controller with ArgoHelpers {
     Ok(response).as(ArgoMediaType)
   }
 
+  // TODO: Think about calling this `overrides` or something that isn't metadata
   def getAllMetadata(id: String) = Authenticated.async {
     dynamo.get(id) map {
-      metadata => Ok(metadataResponse(metadata, id)).as(ArgoMediaType)
+      metadata => Ok(allMetadataResponse(metadata, id)).as(ArgoMediaType)
     } recover {
       // Empty object as no metadata edits recorded
-      case NoItemFound => Ok(metadataResponse(Json.obj(), id)).as(ArgoMediaType)
+      case NoItemFound => Ok(allMetadataResponse(Json.obj(), id)).as(ArgoMediaType)
     }
   }
 
@@ -89,24 +91,25 @@ object Application extends Controller with ArgoHelpers {
 
 
   def getMetadata(id: String) = Authenticated.async {
-    dynamo.jsonGet(id, "metadata").map(Ok(_))
+    dynamo.jsonGet(id, "metadata").map{ metadata => Ok(metadataResponse(metadata, id))}
   }
 
+  // TODO: Make a metadataForm that restricts description / credit
   // ALWAYS send over the whole document or you'll lose your data
   def setMetadata(id: String) = Authenticated.async { req =>
-    stringForm.bindFromRequest()(req).fold(
+    jsonForm.bindFromRequest()(req).fold(
       errors => Future.successful(BadRequest(errors.errorsAsJson)),
       metadata => {
         val entityResult = Accepted(metadataResponse(metadata, id)).as(ArgoMediaType)
-        val metadataMap = Json.parse(metadata).as[Map[String, String]]
+        val metadataMap = metadata.as[Map[String, String]]
         dynamo.jsonAdd(id, "metadata", metadataMap) map publishAndRespond(id, entityResult)
       }
     )
   }
 
 
-  def metadataResponse(description: String, id: String) =
-    JsString(description).transform(transformers.wrapLabel(id)).get
+  def metadataResponse(metadata: JsValue, id: String) =
+    metadata.transform(transformers.wrapMetadata(id)).get
 
   def labelResponse(label: String, id: String): JsValue =
     JsString(label).transform(transformers.wrapLabel(id)).get
@@ -117,8 +120,8 @@ object Application extends Controller with ArgoHelpers {
   def labelsResponse(labels: JsArray, id: String): JsValue =
     labels.transform(transformers.wrapLabels(id)).get
 
-  def metadataResponse(metadata: JsObject, id: String): JsValue =
-    metadata.transform(transformers.wrapMetadata(id)).get
+  def allMetadataResponse(metadata: JsObject, id: String): JsValue =
+    metadata.transform(transformers.wrapAllMetadata(id)).get
 
 
   // Publish changes to SNS and return an empty Result
@@ -144,6 +147,13 @@ object Application extends Controller with ArgoHelpers {
      single("data" -> text)
        .transform[String]({ case (value)       => value },
                           { case value: String => value })
+  )
+
+  val jsonForm: Form[JsValue] = Form(
+    // Play forms don't really work with JSON so we have to do JSON -> String conversion
+    single("data" -> text)
+      .transform[JsValue]({ case json: String => Json.parse(json) },
+                          { case json: JsValue => json.as[String] })
   )
 
 }
