@@ -5,23 +5,12 @@ import org.elasticsearch.search.sort.SortOrder
 import org.elasticsearch.index.query.QueryBuilders.matchAllQuery
 import org.elasticsearch.common.unit.TimeValue
 
-import com.gu.mediaservice.lib.elasticsearch.ElasticSearchClient
+import com.gu.mediaservice.lib.elasticsearch.{Mappings, ElasticSearchClient}
 
 
-object Reindex {
-  // FIXME: Get from config (no can do as Config is coupled to Play)
-  final val esApp   = "elasticsearch"
-  final val esPort = 9300
-  final val esCluster = "media-api"
+object Reindex extends EsScript {
 
-  def log(msg: String) = System.out.println(s"[Reindexer]: $msg")
-
-  def apply(args: List[String]) {
-    // TODO: Use Stage to get host (for some reason this isn't working)
-    val (esHost) = args match {
-      case h :: _ => (h)
-      case _ => usageError
-    }
+  def run(esHost: String, extraArgs: List[String]) {
 
     object EsClient extends ElasticSearchClient {
       val port = esPort
@@ -97,4 +86,54 @@ object Reindex {
     sys.exit(1)
   }
 
+}
+
+object UpdateMapping extends EsScript {
+
+  def run(esHost: String, extraArgs: List[String]) {
+    // TODO: add the ability to update a section of the mapping
+    object EsClient extends ElasticSearchClient {
+      val port = esPort
+      val host = esHost
+      val cluster = esCluster
+
+      def updateMappings {
+        client.admin.indices
+          .preparePutMapping(imagesAlias)
+          .setType(imageType)
+          .setSource(Mappings.imageMapping)
+          .execute.actionGet
+      }
+    }
+
+    EsClient.updateMappings
+  }
+
+  def usageError: Nothing = {
+    System.err.println("Usage: UpdateMapping <ES_HOST>")
+    sys.exit(1)
+  }
+}
+
+
+abstract class EsScript {
+  // FIXME: Get from config (no can do as Config is coupled to Play)
+  final val esApp   = "elasticsearch"
+  final val esPort = 9300
+  final val esCluster = "media-api"
+
+  def log(msg: String) = System.out.println(s"[Reindexer]: $msg")
+
+  def apply(args: List[String]) {
+    // FIXME: Use Stage to get host (for some reason this isn't working)
+    val (esHost, extraArgs) = args match {
+      case h :: t => (h, t)
+      case _ => usageError
+    }
+
+    run(esHost, extraArgs)
+  }
+
+  def run(esHost: String, args: List[String])
+  def usageError: Nothing
 }
