@@ -178,6 +178,7 @@ kahuna.controller('SearchResultsCtrl',
             return mediaApi.search($stateParams.query, {
                 until:      until,
                 ids:        $stateParams.ids,
+                since:      $stateParams.since,
                 archived:   $stateParams.archived,
                 free:       $stateParams.nonFree === 'true' ? undefined: true,
                 valid:      valid,
