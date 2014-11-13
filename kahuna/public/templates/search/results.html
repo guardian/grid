@@ -2,7 +2,7 @@
     ui:near-bottom="whenNearBottom()"
     ui:forget-window-scroll="searched">
     <li class="image-result"
-        ng:repeat="image in images | filter:freeImageFilter"
+        ng:repeat="image in images"
         ng:class="{ 'image-result--seen': imageHasBeenSeen(image) }">
         <a class="image-result__link"
            title="{{image.data.metadata.title}}"

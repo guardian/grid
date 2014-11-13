@@ -47,7 +47,7 @@ kahuna.config(['$stateProvider', '$urlRouterProvider', 'templatesDirectory',
         templateUrl: templatesDirectory + '/search.html'
     });
     $stateProvider.state('search.results', {
-        url: 'search?query&ids&since&free&archived&valid&uploadedBy',
+        url: 'search?query&ids&since&nonFree&archived&valid&uploadedBy',
         templateUrl: templatesDirectory + '/search/results.html',
         controller: 'SearchResultsCtrl',
         data: {
@@ -124,6 +124,7 @@ kahuna.controller('SearchResultsCtrl',
         ids:        $stateParams.ids,
         since:      $stateParams.since,
         archived:   $stateParams.archived,
+        free:       $stateParams.nonFree === 'true' ? undefined: true,
         valid:      valid,
         uploadedBy: $stateParams.uploadedBy
     }).then(function(images) {
@@ -135,10 +136,6 @@ kahuna.controller('SearchResultsCtrl',
             }
         });
     });
-
-    $scope.freeImageFilter = function(image) {
-       return $stateParams.free === 'false' || image.data.cost === 'free';
-    };
 
     var seenSince;
     var lastSeenKey = 'search.seenFrom';
@@ -182,6 +179,7 @@ kahuna.controller('SearchResultsCtrl',
                 until:      until,
                 ids:        $stateParams.ids,
                 archived:   $stateParams.archived,
+                free:       $stateParams.nonFree === 'true' ? undefined: true,
                 valid:      valid,
                 uploadedBy: $stateParams.uploadedBy
             }).then(function(moreImages) {
@@ -193,16 +191,6 @@ kahuna.controller('SearchResultsCtrl',
                     }).length === 0;
                 });
                 $scope.images = $scope.images.concat(newImages);
-
-                // FIXME: this is increasingly hacky logic to ensure
-                // we bring in more images that satisfy the cost
-                // filter
-
-                // If there are more images, just not any matching our cost filter, get moar!
-                var filteredImages = newImages.filter($scope.freeImageFilter);
-                if (filteredImages.length === 0 && newImages.length > 0) {
-                    addImages();
-                }
             });
         }
     }
