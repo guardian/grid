@@ -57,8 +57,8 @@ object ElasticSearch extends ElasticSearchClient {
     val archivedFilter   = params.archived.map(filters.bool("archived", _))
     val uploadedByFilter = params.uploadedBy.map(uploadedBy => filters.terms("uploadedBy", NonEmptyList(uploadedBy)))
 
-    val validFilter      = ImageExtras.requiredMetadata.map(metadataField).toNel.map(filters.exists)
-    val invalidFilter    = ImageExtras.requiredMetadata.map(metadataField).toNel.map(filters.missing)
+    val validFilter      = Config.requiredMetadata.map(metadataField).toNel.map(filters.exists)
+    val invalidFilter    = Config.requiredMetadata.map(metadataField).toNel.map(filters.missing)
     val validityFilter   = params.valid.flatMap{ valid => if(valid) validFilter else invalidFilter }
 
     val filter = (metadataFilter.toList ++ labelFilter ++ archivedFilter ++
