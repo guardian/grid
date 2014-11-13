@@ -80,6 +80,7 @@ object Mappings {
           "thumbnail" -> assetMapping,
           "userMetadata" -> userMetadataMapping,
           "fileMetadata" -> dynamicObj,
+          "originalMetadata" -> metadataMapping,
           "exports" -> exportsMapping,
           "uploadTime" -> dateFormat,
           "uploadedBy" -> nonAnalyzedString,
@@ -89,8 +90,7 @@ object Mappings {
           "stored_json_object_template" -> Json.obj(
             "path_match" -> "fileMetadata.*",
             "mapping" -> Json.obj(
-              // annoyingly we need this here too
-              "dynamic" -> true,
+              "dynamic" -> true, // annoyingly we need this here too
               "store" -> "yes",
               "index" -> "no"
             )
