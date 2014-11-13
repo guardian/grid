@@ -91,7 +91,7 @@ object Application extends Controller with ArgoHelpers {
 
 
   def getMetadata(id: String) = Authenticated.async {
-    dynamo.jsonGet(id, "metadata").map{ metadata => Ok(metadataResponse(metadata, id))}
+    dynamo.jsonGet(id, "metadata").map(metadata => Ok(metadataResponse(metadata, id)))
   }
 
   // TODO: Make a metadataForm that restricts description / credit
