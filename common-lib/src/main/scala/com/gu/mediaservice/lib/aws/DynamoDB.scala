@@ -76,7 +76,7 @@ class DynamoDB(credentials: AWSCredentials, region: Region, tableName: String) {
 
   def jsonGet(id: String, key: String)
              (implicit ex: ExecutionContext): Future[JsValue] =
-      get(id, key).map{item => Json.parse(item.getJSON(key)).as[JsObject]}
+      get(id, key).map(item => Json.parse(item.getJSON(key)).as[JsObject])
 
   // We cannot update, so make sure you send over the WHOLE document
   def jsonAdd(id: String, key: String, value: Map[String, String])
