@@ -478,9 +478,19 @@ kahuna.directive('uiNearBottom', ['$window', function($window) {
 
                 if (!scrolling && nowAt >= end) {
                     scrolling = true;
-                    scope.nearBottom().finally(function() {
+                    var afterNearBottom = scope.nearBottom();
+                    // FIXME: This hack seems to be needed because the
+                    // directive gets destroyed (and this handler
+                    // unregistered) too late.  We should be able to
+                    // remove this once we throttle and delay the
+                    // scroll handler a little?
+                    if (afterNearBottom) {
+                        afterNearBottom.finally(function() {
+                            scrolling = false;
+                        });
+                    } else {
                         scrolling = false;
-                    });
+                    }
                 }
             }
         }
