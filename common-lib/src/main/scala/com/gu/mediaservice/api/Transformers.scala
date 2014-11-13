@@ -17,7 +17,12 @@ class Transformers(services: Services) {
     __.read[JsObject].map { data =>
       Json.obj(
         "uri" -> s"$metadataBaseUri/metadata/$id",
-        "data" -> (data ++ Json.obj("labels" -> arrayOrEmpty(data \ "labels").transform(wrapLabels(id)).get))
+        "data" -> (
+          data ++ Json.obj(
+            "labels" -> arrayOrEmpty(data \ "labels").transform(wrapLabels(id)).get,
+            "metadata" -> objectOrEmpty(data \ "metadata").transform(wrapMetadata(id)).get
+          )
+        )
       )
     }
 
