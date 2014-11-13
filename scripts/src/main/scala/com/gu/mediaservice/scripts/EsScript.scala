@@ -81,6 +81,11 @@ object Reindex extends EsScript {
     EsClient.reindex
   }
 
+  def usageError: Nothing = {
+    System.err.println("Usage: Reindex <ES_HOST>")
+    sys.exit(1)
+  }
+
 }
 
 object UpdateMapping extends EsScript {
@@ -103,6 +108,11 @@ object UpdateMapping extends EsScript {
 
     EsClient.updateMappings
   }
+
+  def usageError: Nothing = {
+    System.err.println("Usage: UpdateMapping <ES_HOST>")
+    sys.exit(1)
+  }
 }
 
 
@@ -115,7 +125,7 @@ abstract class EsScript {
   def log(msg: String) = System.out.println(s"[Reindexer]: $msg")
 
   def apply(args: List[String]) {
-    // TODO: Use Stage to get host (for some reason this isn't working)
+    // FIXME: Use Stage to get host (for some reason this isn't working)
     val (esHost, extraArgs) = args match {
       case h :: t => (h, t)
       case _ => usageError
@@ -125,9 +135,5 @@ abstract class EsScript {
   }
 
   def run(esHost: String, args: List[String])
-
-  def usageError: Nothing = {
-    System.err.println("Usage: Reindex <ES_HOST>")
-    sys.exit(1)
-  }
+  def usageError: Nothing
 }
