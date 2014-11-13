@@ -18,7 +18,7 @@ apiServices.factory('mediaApi',
           archived:   archived,
           free:       free,
           length:     50
-        }).getData();
+        }).getResponse();
     }
 
     function find(id) {

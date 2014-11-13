@@ -11,6 +11,8 @@
 
 <div ng:show="!loading && images.length > 0">
 
+    <div class="image-results-count">{{totalResults}} matches</div>
+
     <ul class="results"
         ui:near-bottom="whenNearBottom()"
         ui:forget-window-scroll="searched">
