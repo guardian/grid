@@ -179,7 +179,7 @@ kahuna.controller('SearchResultsCtrl',
     }
 
     function search(until) {
-        // FIXME: Think of a way to not have to add a param in a millio places to add it
+        // FIXME: Think of a way to not have to add a param in a million places to add it
         return mediaApi.search($stateParams.query, {
             until:      until,
             ids:        $stateParams.ids,
