@@ -468,11 +468,12 @@ kahuna.directive('uiNearBottom', ['$window', function($window) {
                 $$window.unbind('scroll', checkScrollNearBottom);
             });
 
+            // Pixel distance from bottom at which we are 'near' it
+            var offset = 200;
             function checkScrollNearBottom(e) {
                 var el = element[0];
 
-                var offset = 200;
-                var nowAt = this.innerHeight + this.scrollY;
+                var nowAt = $window.innerHeight + $window.scrollY;
                 var end = el.scrollHeight + el.offsetTop - offset;
 
                 if (!scrolling && nowAt >= end) {
