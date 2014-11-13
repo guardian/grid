@@ -11,10 +11,12 @@
             />
 
             <label class="search__control">
-                <input type="checkbox" ng:model="free"
+                <!-- minor mindfuck logic as we want an optional flag
+                     when the option is off -->
+                <input type="checkbox" ng:model="nonFree"
                        ng:true-value
-                       ng:false-value="false"
-                       ng:checked="{{!free}}" />
+                       ng:false-value="true"
+                       ng:checked="{{!nonFree}}" />
                 free to use
             </label>
             <label class="search__control">

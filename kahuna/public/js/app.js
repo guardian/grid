@@ -47,7 +47,7 @@ kahuna.config(['$stateProvider', '$urlRouterProvider', 'templatesDirectory',
         templateUrl: templatesDirectory + '/search.html'
     });
     $stateProvider.state('search.results', {
-        url: 'search?query&ids&since&free&archived&valid&uploadedBy',
+        url: 'search?query&ids&since&nonFree&archived&valid&uploadedBy',
         templateUrl: templatesDirectory + '/search/results.html',
         controller: 'SearchResultsCtrl',
         data: {
@@ -113,20 +113,11 @@ kahuna.controller('SearchResultsCtrl',
                   ['$scope', '$state', '$stateParams', '$timeout', 'mediaApi',
                    function($scope, $state, $stateParams, $timeout, mediaApi) {
 
-    var valid = $stateParams.valid === undefined ? true : $stateParams.valid;
     $scope.images = [];
 
     // FIXME: This is being refreshed by the router. Make it watch a $stateParams collection instead
     // See:   https://github.com/guardian/media-service/pull/64#discussion-diff-17351746L116
-    // FIXME: make addImages generic enough to run on first load so as not to duplicate here
-    // FIXME: Think of a way to not have to add a param in a millio places to add it
-    $scope.searched = mediaApi.search($stateParams.query, {
-        ids:        $stateParams.ids,
-        since:      $stateParams.since,
-        archived:   $stateParams.archived,
-        valid:      valid,
-        uploadedBy: $stateParams.uploadedBy
-    }).then(function(images) {
+    $scope.searched = search().then(function(images) {
         $scope.images = images;
         // yield so images render before we check if there's more space
         $timeout(function() {
@@ -135,10 +126,6 @@ kahuna.controller('SearchResultsCtrl',
             }
         });
     });
-
-    $scope.freeImageFilter = function(image) {
-       return $stateParams.free === 'false' || image.data.cost === 'free';
-    };
 
     var seenSince;
     var lastSeenKey = 'search.seenFrom';
@@ -178,13 +165,7 @@ kahuna.controller('SearchResultsCtrl',
         var lastImage = $scope.images.slice(-1)[0];
         if (lastImage) {
             var until = lastImage.data.uploadTime;
-            return mediaApi.search($stateParams.query, {
-                until:      until,
-                ids:        $stateParams.ids,
-                archived:   $stateParams.archived,
-                valid:      valid,
-                uploadedBy: $stateParams.uploadedBy
-            }).then(function(moreImages) {
+            return search(until).then(function(moreImages) {
                 // Filter out duplicates (esp. on exact same 'until' date)
                 var newImages = moreImages.filter(function(im) {
                     return $scope.images.filter(function(existing) {
@@ -193,18 +174,23 @@ kahuna.controller('SearchResultsCtrl',
                     }).length === 0;
                 });
                 $scope.images = $scope.images.concat(newImages);
-
-                // FIXME: this is increasingly hacky logic to ensure
-                // we bring in more images that satisfy the cost
-                // filter
-
-                // If there are more images, just not any matching our cost filter, get moar!
-                var filteredImages = newImages.filter($scope.freeImageFilter);
-                if (filteredImages.length === 0 && newImages.length > 0) {
-                    addImages();
-                }
             });
         }
+    }
+
+    function search(until) {
+        // FIXME: Think of a way to not have to add a param in a million places to add it
+        return mediaApi.search($stateParams.query, {
+            until:      until,
+            ids:        $stateParams.ids,
+            since:      $stateParams.since,
+            archived:   $stateParams.archived,
+            // The nonFree state param is the inverse of the free API param
+            free:       $stateParams.nonFree === 'true' ? undefined: true,
+            // Search for valid only by default
+            valid:      $stateParams.valid === undefined ? true : $stateParams.valid,
+            uploadedBy: $stateParams.uploadedBy
+        });
     }
 
     $scope.whenNearBottom = addImages;
