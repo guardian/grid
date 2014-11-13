@@ -44,4 +44,14 @@ object Config extends CommonPlayAppConfig with CommonPlayAppProperties {
   lazy val metadataUri: String = services.metadataBaseUri
 
   lazy val corsAllowedOrigin: String = services.kahunaBaseUri
+
+
+  val requiredMetadata = List("credit", "description")
+
+  val freeForUseFrom = List("EPA", "REUTERS", "PA", "AP", "Associated Press", "RONALD GRANT",
+    "Press Association Images", "Action Images", "Keystone", "AFP", "Getty Images", "Alamy", "FilmMagic", "WireImage",
+    "Pool", "Rex Features", "Allsport", "BFI", "ANSA", "The Art Archive", "Hulton Archive", "Hulton Getty", "RTRPIX",
+    "Community Newswire", "THE RONALD GRANT ARCHIVE", "NPA ROTA", "Ronald Grant Archive", "PA WIRE", "AP POOL",
+    "REUTER", "dpa", "BBC", "Allstar Picture Library", "AFP/Getty Images")
+
 }

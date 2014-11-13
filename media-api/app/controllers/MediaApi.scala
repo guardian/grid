@@ -32,7 +32,7 @@ object MediaApi extends Controller with ArgoHelpers {
   def index = Action {
     val searchParams = List("q", "ids", "offset", "length", "fromDate", "toDate",
                             "orderBy", "since", "until", "uploadedBy", "archived",
-                            "valid").mkString(",")
+                            "valid", "free").mkString(",")
     val response = Json.obj(
       "data"  -> Json.obj("description" -> "This is the Media API"),
       "links" -> Json.arr(
@@ -87,7 +87,7 @@ object MediaApi extends Controller with ArgoHelpers {
       val credit = (source \ "metadata" \ "credit").as[Option[String]]
       // TODO: This might be easier to get from the `SearchParams`
       // downfall: it might give the wrong value if a bug is introduced
-      val valid = ImageExtras.requiredMetadata.forall { field =>
+      val valid = Config.requiredMetadata.forall { field =>
         (source \ "metadata" \ field).asOpt[String].isDefined
       }
 
@@ -161,6 +161,7 @@ case class SearchParams(
   toDate: Option[DateTime],
   archived: Option[Boolean],
   valid: Option[Boolean],
+  free: Option[Boolean],
   uploadedBy: Option[String],
   labels: List[String],
   hasMetadata: List[String]
@@ -182,6 +183,7 @@ object SearchParams {
       request.getQueryString("toDate") orElse request.getQueryString("until") flatMap parseDateFromQuery,
       request.getQueryString("archived").map(_.toBoolean),
       request.getQueryString("valid").map(_.toBoolean),
+      request.getQueryString("free").map(_.toBoolean),
       request.getQueryString("uploadedBy"),
       request.getQueryString("labels").map(_.toString.split(",").toList) getOrElse List(),
       commaSep("hasMetadata")
@@ -192,17 +194,9 @@ object SearchParams {
 
 // Default to pay for now
 object ImageExtras {
-  val requiredMetadata = List("credit", "description")
-
-  val freeForUseFrom: Seq[String] = Seq("EPA", "REUTERS", "PA", "AP", "Associated Press", "RONALD GRANT",
-    "Press Association Images", "Action Images", "Keystone", "AFP", "Getty Images", "Alamy", "FilmMagic", "WireImage",
-    "Pool", "Rex Features", "Allsport", "BFI", "ANSA", "The Art Archive", "Hulton Archive", "Hulton Getty", "RTRPIX",
-    "Community Newswire", "THE RONALD GRANT ARCHIVE", "NPA ROTA", "Ronald Grant Archive", "PA WIRE", "AP POOL",
-    "REUTER", "dpa", "BBC", "Allstar Picture Library", "AFP/Getty Images")
-
   def getCost(credit: Option[String]) = {
     credit match {
-      case Some(c) if freeForUseFrom.exists(f => f.toLowerCase == c.toLowerCase) => "free"
+      case Some(c) if Config.freeForUseFrom.exists(f => f.toLowerCase == c.toLowerCase) => "free"
       case _ => "pay"
     }
   }
