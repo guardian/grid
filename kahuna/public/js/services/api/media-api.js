@@ -7,7 +7,7 @@ apiServices.factory('mediaApi',
     var root = client.resource(mediaApiUri);
     var session;
 
-    function search(query = '', {ids, since, until, archived, valid, uploadedBy}) {
+    function search(query = '', {ids, since, until, archived, valid, free, uploadedBy}) {
         return root.follow('search', {
           q:          query,
           ids:        ids,
@@ -16,6 +16,7 @@ apiServices.factory('mediaApi',
           uploadedBy: uploadedBy,
           valid:      valid,
           archived:   archived,
+          free:       free,
           length:     50
         }).getData();
     }
