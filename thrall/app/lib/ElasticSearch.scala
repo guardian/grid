@@ -50,25 +50,32 @@ object ElasticSearch extends ElasticSearchClient {
       .setScriptParams(Map(
         "exports" -> asGroovy(exports)
       ).asJava)
-      .setScript(
-        s"""ctx._source.archived = true;
-           |if (ctx._source.exports == null) {
-           |  ctx._source.exports = exports;
-           |} else {
-           |  ctx._source.exports += exports;
-           |}""".stripMargin, scriptType)
+      .setScript("""
+                    ctx._source.archived = true;
+                    if (ctx._source.exports == null) {
+                      ctx._source.exports = exports;
+                    } else {
+                      ctx._source.exports += exports;
+                    }
+                 """, scriptType)
       .executeAndLog(s"updating exports on image $id")
       .incrementOnFailure(conflicts) { case e: VersionConflictEngineException => true }
 
-  def updateImageUserMetadata(id: String, metadata: JsValue)(implicit ex: ExecutionContext): Future[UpdateResponse] =
+  def applyImageMetadataOverride(id: String, metadata: JsValue)(implicit ex: ExecutionContext): Future[UpdateResponse] ={
     prepareImageUpdate(id)
       .setScriptParams(Map(
-        "metadata" -> asGroovy(metadata)
+        "userMetadata" -> asGroovy(metadata),
+        "metadata" -> asGroovy(metadata \ "metadata")
       ).asJava)
-      // Use script as partial doc updates merge instead of fully replacing
-      .setScript("ctx._source.userMetadata = metadata;", scriptType)
+      .setScript("""
+                    if (!ctx._source.originalMetadata) {
+                      ctx._source.originalMetadata = ctx._source.metadata;
+                    }
+                    ctx._source.metadata += metadata;
+                    ctx._source.userMetadata = userMetadata;
+                 """, scriptType)
       .executeAndLog(s"updating user metadata on image $id")
-      .incrementOnFailure(conflicts) { case e: VersionConflictEngineException => true }
+      .incrementOnFailure(conflicts) { case e: VersionConflictEngineException => true }}
 
   def prepareImageUpdate(id: String): UpdateRequestBuilder =
     client.prepareUpdate(imagesAlias, imageType, id)
