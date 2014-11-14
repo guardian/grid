@@ -117,14 +117,18 @@ kahuna.controller('SearchResultsCtrl',
 
     // FIXME: This is being refreshed by the router. Make it watch a $stateParams collection instead
     // See:   https://github.com/guardian/media-service/pull/64#discussion-diff-17351746L116
+    $scope.loading = true;
     $scope.searched = search().then(function(images) {
-        $scope.images = images;
+        $scope.totalResults = images.total;
+        $scope.images = images.data;
         // yield so images render before we check if there's more space
         $timeout(function() {
             if ($scope.hasSpace) {
                 addImages();
             }
         });
+    }).finally(() => {
+        $scope.loading = false;
     });
 
     var seenSince;
@@ -167,7 +171,7 @@ kahuna.controller('SearchResultsCtrl',
             var until = lastImage.data.uploadTime;
             return search(until).then(function(moreImages) {
                 // Filter out duplicates (esp. on exact same 'until' date)
-                var newImages = moreImages.filter(function(im) {
+                var newImages = moreImages.data.filter(function(im) {
                     return $scope.images.filter(function(existing) {
                         // TODO: revert back to using uri
                         return existing.data.id === im.data.id;
@@ -679,7 +683,7 @@ kahuna.controller('FileUploaderCtrl',
 
         (function searchForUploads() {
             $timeout.cancel(timeout);
-            mediaApi.search('', { ids: ids }).then(images => {
+            mediaApi.search('', { ids: ids }).then(resp => resp.data).then(images => {
                 if(images.length === ids.length) {
                     def.resolve(images);
                 } else {
