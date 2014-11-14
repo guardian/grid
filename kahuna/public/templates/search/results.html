@@ -14,10 +14,11 @@
 
         <div class="image-results-count">
             {{totalResults}} matches
-            <button ng:show="newImages.length > 0"
+            <button ng:show="newImagesCount > 0"
                     ng:click="revealNewImages()"
-                    class="image-results-count__new"
-            >{{newImages.length}} new</button>
+                    class="image-results-count__new">
+                {{newImagesCount}} new
+            </button>
         </div>
 
         <ul class="results"
