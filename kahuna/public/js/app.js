@@ -143,11 +143,15 @@ kahuna.controller('SearchResultsCtrl',
 
     $scope.newImages = [];
 
+    var newTotalResults;
+
     function checkForNewImages() {
         $timeout(() => {
             var latestTime = $scope.images[0] && $scope.images[0].data.uploadTime;
             search({since: latestTime}).then(resp => {
                 $scope.newImages = excludingCurrentImages(resp.data);
+                newTotalResults = resp.total;
+
                 if (! scopeGone) {
                     checkForNewImages();
                 }
@@ -159,6 +163,7 @@ kahuna.controller('SearchResultsCtrl',
         // prepend new images
         $scope.images = $scope.newImages.concat($scope.images);
         $scope.newImages = [];
+        $scope.totalResults = newTotalResults;
     };
 
 
