@@ -19,7 +19,7 @@ System.config({
     "github:argo-rest/theseus@master": {
       "reqwest": "github:ded/reqwest@^1.1.2",
       "npm:uri-templates": "npm:uri-templates@^0.1.5",
-      "jquery": "github:components/jquery@^2.1.1",
+      "jquery": "github:components/jquery@2.1.1",
       "uri-templates": "npm:uri-templates@^0.1.5"
     },
     "github:jspm/nodelibs@0.0.2": {
