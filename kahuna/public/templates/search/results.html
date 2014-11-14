@@ -4,48 +4,50 @@
     Loading
 </div>
 
-<div ng:show="!loading && images.length == 0"
-     class="image-no-results">
-    No matches, sorry!
-</div>
+<div ng:hide="loading">
+    <div ng:show="images.length == 0"
+         class="image-no-results">
+        No matches, sorry!
+    </div>
 
-<div ng:show="!loading && images.length > 0">
+    <div ng:show="images.length > 0">
 
-    <div class="image-results-count">{{totalResults}} matches</div>
+        <div class="image-results-count">{{totalResults}} matches</div>
 
-    <ul class="results"
-        ui:near-bottom="whenNearBottom()"
-        ui:forget-window-scroll="searched">
-        <li class="image-result"
-            ng:repeat="image in images"
-            ng:class="{ 'image-result--seen': imageHasBeenSeen(image) }">
-            <a class="image-result__link"
-               title="{{image.data.metadata.title}}"
-               ng:href="/images/{{image.data.id}}"
-               ui:drag-data="{{image | asImageDragData}}">
-                <figure>
-                    <img class="image-result__image"
-                         ng:src="{{image.data.thumbnail | assetFile}}"/>
-                    <figcaption class="image-result__caption">{{image.data.metadata.title || image.data.metadata.description}}</figcaption>
-                </figure>
-            </a>
-            <div class="image-result__meta">
-                <ul class="image-result__labels">
-                    <li ng:repeat="label in image.data.userMetadata.data.labels.data"
-                        class="image-label">
-                        <a ui:sref="search.results({query: label.data})"
-                           class="image-label__link">{{label.data}}</a>
-                    </li>
-                </ul>
-                <div class="image-result__cost image-result__cost--{{image.data.cost}}">{{image.data.cost}}</div>
-                <button class="image-meta image-result__mark-as-seen"
-                        ui:localstore="search.seenFrom"
-                        ui:localstore-val="getLastSeenVal(image)">♻</button>
-                <div class="image-meta image-result__uploaded uploaded">
-                    <span class="uploaded__time">{{image.data.uploadTime | date:'HH:mm'}}</span>
-                    <span class="uploaded__date">{{image.data.uploadTime | date:'d/M/yy'}}</span>
+        <ul class="results"
+            ui:near-bottom="whenNearBottom()"
+            ui:forget-window-scroll="searched">
+            <li class="image-result"
+                ng:repeat="image in images"
+                ng:class="{ 'image-result--seen': imageHasBeenSeen(image) }">
+                <a class="image-result__link"
+                   title="{{image.data.metadata.title}}"
+                   ng:href="/images/{{image.data.id}}"
+                   ui:drag-data="{{image | asImageDragData}}">
+                    <figure>
+                        <img class="image-result__image"
+                             ng:src="{{image.data.thumbnail | assetFile}}"/>
+                        <figcaption class="image-result__caption">{{image.data.metadata.title || image.data.metadata.description}}</figcaption>
+                    </figure>
+                </a>
+                <div class="image-result__meta">
+                    <ul class="image-result__labels">
+                        <li ng:repeat="label in image.data.userMetadata.data.labels.data"
+                            class="image-label">
+                            <a ui:sref="search.results({query: label.data})"
+                               class="image-label__link">{{label.data}}</a>
+                        </li>
+                    </ul>
+                    <div class="image-result__cost image-result__cost--{{image.data.cost}}">{{image.data.cost}}</div>
+                    <button class="image-meta image-result__mark-as-seen"
+                            ui:localstore="search.seenFrom"
+                            ui:localstore-val="getLastSeenVal(image)">♻</button>
+                    <div class="image-meta image-result__uploaded uploaded">
+                        <span class="uploaded__time">{{image.data.uploadTime | date:'HH:mm'}}</span>
+                        <span class="uploaded__date">{{image.data.uploadTime | date:'d/M/yy'}}</span>
+                    </div>
                 </div>
-            </div>
-        </li>
-    </ul>
+            </li>
+        </ul>
+    </div>
 </div>
