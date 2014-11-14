@@ -40,6 +40,7 @@
                     </ul>
                     <div class="image-result__cost image-result__cost--{{image.data.cost}}">{{image.data.cost}}</div>
                     <button class="image-meta image-result__mark-as-seen"
+                            title="Mark as seen all images until this point"
                             ui:localstore="search.seenFrom"
                             ui:localstore-val="getLastSeenVal(image)">♻</button>
                     <div class="image-meta image-result__uploaded uploaded">
