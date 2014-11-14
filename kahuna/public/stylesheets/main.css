@@ -316,6 +316,23 @@ a:focus {
 }
 
 
+.image-results-count {
+    font-size: 1.4rem;
+    margin: 10px;
+    margin-bottom: 0;
+}
+
+.image-loading-results,
+.image-no-results {
+    font-size: 3rem;
+    text-align: center;
+    margin-top: 4rem;
+}
+
+.image-loading-results {
+    color: #666;
+}
+
 /* ==========================================================================
    Full Image / crop
    ========================================================================== */
