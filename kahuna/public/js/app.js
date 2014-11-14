@@ -141,29 +141,32 @@ kahuna.controller('SearchResultsCtrl',
     });
 
 
-    $scope.newImages = [];
+    var pollingPeriod = 5 * 1000; // ms
+    $scope.newImagesCount = 0;
 
-    var newTotalResults;
-
+    // FIXME: this will only add up to 50 images (search capped)
     function checkForNewImages() {
         $timeout(() => {
             var latestTime = $scope.images[0] && $scope.images[0].data.uploadTime;
             search({since: latestTime}).then(resp => {
-                $scope.newImages = excludingCurrentImages(resp.data);
-                newTotalResults = resp.total;
+                // FIXME: minor assumption that only the latest
+                // displayed image is matching the uploadTime
+                $scope.newImagesCount = resp.total - 1;
 
                 if (! scopeGone) {
                     checkForNewImages();
                 }
             });
-        }, 5 * 1000);
+        }, pollingPeriod);
     }
 
     $scope.revealNewImages = function() {
-        // prepend new images
-        $scope.images = $scope.newImages.concat($scope.images);
-        $scope.newImages = [];
-        $scope.totalResults = newTotalResults;
+        // FIXME: should ideally be able to just call $state.reload(),
+        // but there seems to be a bug (alluded to in the docs) when
+        // notify is false, so forcing to true explicitly instead:
+        $state.transitionTo($state.current, $stateParams, {
+            reload: true, inherit: false, notify: true
+        });
     };
 
 
