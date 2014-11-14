@@ -127,9 +127,45 @@ kahuna.controller('SearchResultsCtrl',
                 addImages();
             }
         });
+
+        checkForNewImages();
     }).finally(() => {
         $scope.loading = false;
     });
+
+    // Safer than clearing the timeout in case of race conditions
+    // FIXME: nicer (reactive?) way to do this?
+    var scopeGone = false;
+    $scope.$on('$destroy', () => {
+        scopeGone = true;
+    });
+
+
+    $scope.newImages = [];
+
+    var newTotalResults;
+
+    function checkForNewImages() {
+        $timeout(() => {
+            var latestTime = $scope.images[0] && $scope.images[0].data.uploadTime;
+            search({since: latestTime}).then(resp => {
+                $scope.newImages = excludingCurrentImages(resp.data);
+                newTotalResults = resp.total;
+
+                if (! scopeGone) {
+                    checkForNewImages();
+                }
+            });
+        }, 5 * 1000);
+    }
+
+    $scope.revealNewImages = function() {
+        // prepend new images
+        $scope.images = $scope.newImages.concat($scope.images);
+        $scope.newImages = [];
+        $scope.totalResults = newTotalResults;
+    };
+
 
     var seenSince;
     var lastSeenKey = 'search.seenFrom';
@@ -169,23 +205,17 @@ kahuna.controller('SearchResultsCtrl',
         var lastImage = $scope.images.slice(-1)[0];
         if (lastImage) {
             var until = lastImage.data.uploadTime;
-            return search(until).then(function(moreImages) {
+            return search({until: until}).then(function(moreImages) {
                 // Filter out duplicates (esp. on exact same 'until' date)
-                var newImages = moreImages.data.filter(function(im) {
-                    return $scope.images.filter(function(existing) {
-                        // TODO: revert back to using uri
-                        return existing.data.id === im.data.id;
-                    }).length === 0;
-                });
+                var newImages = excludingCurrentImages(moreImages.data);
                 $scope.images = $scope.images.concat(newImages);
             });
         }
     }
 
-    function search(until) {
+    function search({until, since} = {}) {
         // FIXME: Think of a way to not have to add a param in a million places to add it
-        return mediaApi.search($stateParams.query, {
-            until:      until,
+        return mediaApi.search($stateParams.query, angular.extend({
             ids:        $stateParams.ids,
             since:      $stateParams.since,
             archived:   $stateParams.archived,
@@ -194,6 +224,18 @@ kahuna.controller('SearchResultsCtrl',
             // Search for valid only by default
             valid:      $stateParams.valid === undefined ? true : $stateParams.valid,
             uploadedBy: $stateParams.uploadedBy
+        }, {
+            until: until,
+            since: since
+        }));
+    }
+
+    function excludingCurrentImages(otherImages) {
+        return otherImages.filter(function(image) {
+            return $scope.images.filter(function(existing) {
+                // TODO: revert back to using uri
+                return existing.data.id === image.data.id;
+            }).length === 0;
         });
     }
 
