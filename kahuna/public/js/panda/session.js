@@ -21,7 +21,7 @@ export function reEstablishSession(loginUrl, maxWait) {
 function waitForIframe(iframe, timeout) {
     return new Promise((resolve, _) => {
         iframe.addEventListener('load', resolve);
-    }).then((event) => {
+    }).then(event => {
         return waitForLocation(iframe, timeout);
     });
 }
