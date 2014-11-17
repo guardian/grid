@@ -21,8 +21,10 @@ object Panda extends Controller with PanDomainAuthActions {
     }.getOrElse(Unauthorized)
   }
 
-  def doLogin = Action.async { implicit request =>
-    sendForAuth
+  // Trigger the auth cycle and return an empty page
+  // Typically used for automatically re-auth'ing in the background
+  def doLogin = AuthAction { req =>
+    NoContent
   }
 
   def oauthCallback = Action.async { implicit request =>
