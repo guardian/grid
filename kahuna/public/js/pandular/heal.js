@@ -38,7 +38,7 @@ heal.config(['$provide', function ($provide) {
         }
 
         function httpWithRetry(func) {
-          return httpPromise.wrap(withRetry(func));
+            return httpPromise.wrap(withRetry(func));
         }
 
 
