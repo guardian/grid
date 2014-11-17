@@ -10,8 +10,8 @@ export function reEstablishSession(loginUrl, maxWait) {
 
     loadIframe(iframe);
     return Promise.race([reEstablished, timeout]).then(
-        () => { unloadIframe(iframe); },
-        () => { unloadIframe(iframe); }
+        _ => { unloadIframe(iframe); },
+        e => { unloadIframe(iframe); throw e; }
     );
 }
 
