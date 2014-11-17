@@ -8,18 +8,21 @@ import 'services/api/media-api';
 import 'services/api/media-cropper';
 import 'services/api/loader';
 import 'directives/ui-crop-box';
+import 'pandular/heal';
 
 var apiLink = document.querySelector('link[rel="media-api-uri"]');
 var config = {
     mediaApiUri: apiLink.getAttribute('href'),
 
     // Static config
-    templatesDirectory: '/assets/templates'
+    templatesDirectory: '/assets/templates',
+    'pandular.reAuthUri': '/login'
 };
 
 var kahuna = angular.module('kahuna', [
     'ui.router',
     'theseus',
+    'pandular.heal',
     'kahuna.services.api',
     'kahuna.directives'
 ]);

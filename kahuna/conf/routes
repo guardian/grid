@@ -12,6 +12,7 @@ GET     /assets/*file               controllers.Assets.at(path="/public", file)
 # Panda Login
 # TODO: Think about moving this to a separate service
 
+GET     /login                      controllers.Panda.doLogin
 GET     /oauthCallback              controllers.Panda.oauthCallback
 GET     /logout                     controllers.Panda.logout
 GET     /session                    controllers.Panda.session
