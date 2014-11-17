@@ -21,10 +21,11 @@ object Panda extends Controller with PanDomainAuthActions {
     }.getOrElse(Unauthorized)
   }
 
-  // Trigger the auth cycle and return an empty page
+  // Trigger the auth cycle and return a dummy page
   // Typically used for automatically re-auth'ing in the background
   def doLogin = AuthAction { req =>
-    NoContent
+    // Note: returning NoContent as iframe content seems to make browsers unhappy
+    Ok("logged in")
   }
 
   def oauthCallback = Action.async { implicit request =>
