@@ -661,7 +661,7 @@ kahuna.directive('uiEventShare', function() {
             // TODO: remove selectors as a means here
             var thief = element.find(attrs.uiEventShareThief)[0];
             var victim = element.find(attrs.uiEventShareVictim)[0];
-            
+
             thief.addEventListener(attrs.uiEventShare, function(event) {
                 event.preventDefault();
                 victim[attrs.uiEventShare]();
@@ -749,7 +749,7 @@ kahuna.controller('FileUploaderCtrl',
         return $q.all([uploadsIndexed(ids), mediaApi.getSession()]).then(([uploads, session]) => {
             // FIXME: This is just while we're allowing images through without metadata
             // We'll fix this once we add the interface to add metadata
-            var invalid = uploads.map(upload => !upload.data.valid).length > 0;
+            var invalid = uploads.filter(upload => !upload.data.valid).length > 0;
             if (invalid) {
                 uploadFailure({body: {
                     errorMessage: "Upload failed: credit or description was missing"
