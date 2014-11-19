@@ -17,8 +17,8 @@ controlsDirectives.value('safeApply', function (scope, fn) {
     }
 });
 
-controlsDirectives.directive('uiCropBox', ['$timeout', '$parse', 'safeApply',
-                                           function($timeout, $parse, safeApply) {
+controlsDirectives.directive('uiCropBox', ['$timeout', '$parse', 'safeApply', 'nextTick',
+                                           function($timeout, $parse, safeApply, nextTick) {
 
     // Annoyingly, AngularJS passes us values as strings,
     // so we need to convert them, which can potentially
@@ -64,8 +64,12 @@ controlsDirectives.directive('uiCropBox', ['$timeout', '$parse', 'safeApply',
                 throw new Error('The uiCropBox directive requires an object as parameter');
             }
 
+            // Note: in Chrome there's a bug whereby the image
+            // dimensions aren't properly set when install() is called
+            // immediately, apparently if the image is already in the
+            // browser cache (?).
             // TODO: check if already loaded, in which case call install immediately
-            element.on('load', install);
+            element.on('load', nextTick(install));
 
             function install() {
                 var initialCoords = [
