@@ -8,6 +8,7 @@ import 'services/api/media-api';
 import 'services/api/media-cropper';
 import 'services/api/loader';
 import 'directives/ui-crop-box';
+import 'util/async';
 import 'pandular/heal';
 
 var apiLink = document.querySelector('link[rel="media-api-uri"]');
@@ -23,6 +24,7 @@ var kahuna = angular.module('kahuna', [
     'ui.router',
     'theseus',
     'pandular.heal',
+    'util.async',
     'kahuna.services.api',
     'kahuna.directives'
 ]);
