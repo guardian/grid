@@ -66,6 +66,8 @@ object ElasticSearch extends ElasticSearchClient {
       .setScriptParams(Map(
         "userMetadata" -> asGroovy(metadata)
       ).asJava)
+      // TODO: if metadata not set, should undo overrides?
+      // TODO: apply overrides from the original metadata each time?
       .setScript("""
                     if (userMetadata.metadata) {
                       if (!ctx._source.originalMetadata) {
