@@ -64,14 +64,17 @@ object ElasticSearch extends ElasticSearchClient {
   def applyImageMetadataOverride(id: String, metadata: JsValue)(implicit ex: ExecutionContext): Future[UpdateResponse] =
     prepareImageUpdate(id)
       .setScriptParams(Map(
-        "userMetadata" -> asGroovy(metadata),
-        "metadata" -> asGroovy(metadata \ "metadata")
+        "userMetadata" -> asGroovy(metadata)
       ).asJava)
+      // TODO: if metadata not set, should undo overrides?
+      // TODO: apply overrides from the original metadata each time?
       .setScript("""
-                    if (!ctx._source.originalMetadata) {
-                      ctx._source.originalMetadata = ctx._source.metadata;
+                    if (userMetadata.metadata) {
+                      if (!ctx._source.originalMetadata) {
+                        ctx._source.originalMetadata = ctx._source.metadata;
+                      }
+                      ctx._source.metadata += userMetadata.metadata;
                     }
-                    ctx._source.metadata += metadata;
                     ctx._source.userMetadata = userMetadata;
                  """, scriptType)
       .executeAndLog(s"updating user metadata on image $id")
