@@ -768,82 +768,19 @@ kahuna.directive('uiFile', function() {
  * File uploader
  */
 kahuna.controller('FileUploaderCtrl',
-                  ['$q', '$window', '$state', '$timeout', 'loaderApi', 'mediaApi',
-                   function($q, $window, $state, $timeout, loaderApi, mediaApi) {
+                  ['$state', 'uploadManager',
+                   function($state, uploadManager) {
 
-    var ctrl = this; // TODO: No!
+    var ctrl = this;
 
-    ctrl.files = [];
-    ctrl.loading = false;
     ctrl.uploadFiles = uploadFiles;
 
-    // TODO: User feedback should say what has failed and what has not (Generators?)
+
     function uploadFiles(files) {
-        ctrl.loading = true;
-
-        var uploads = files.map(function(file) {
-            return readFile(file).then(uploadFile);
-        });
-
-        $q.all(uploads).then(uploadSuccess, uploadFailure)
-            .finally(() => ctrl.loading = false);
-    }
-
-    function readFile(file) {
-        var reader = new FileReader();
-        var def = $q.defer();
-
-        reader.addEventListener('load',  event => def.resolve(event.target.result));
-        reader.addEventListener('error', def.reject);
-        reader.readAsArrayBuffer(file);
-
-        return def.promise;
-    }
-
-    function uploadFile(file) {
-        return loaderApi.load(new Uint8Array(file));
-    }
-
-    function uploadsIndexed(ids) {
-        var def = $q.defer();
-        var searchEveryPeriod = 500;
-        var timeout;
-
-        (function searchForUploads() {
-            $timeout.cancel(timeout);
-            mediaApi.search('', { ids: ids }).then(resp => resp.data).then(images => {
-                if(images.length === ids.length) {
-                    def.resolve(images);
-                } else {
-                    $timeout(searchForUploads, searchEveryPeriod);
-                }
-            }, def.reject);
-        })();
-
-        return def.promise;
-    }
-
-    function uploadSuccess(resps) {
-        var ids = resps.map(resp => resp.data.id);
-
-        return $q.all([uploadsIndexed(ids), mediaApi.getSession()]).then(([uploads, session]) => {
-            // FIXME: This is just while we're allowing images through without metadata
-            // We'll fix this once we add the interface to add metadata
-            var invalid = uploads.filter(upload => !upload.data.valid).length > 0;
-            if (invalid) {
-                uploadFailure({body: {
-                    errorMessage: "Upload failed: credit or description was missing"
-                }});
-            } else {
-                $state.go('search.results', {uploadedBy: session.user.email});
-            }
-        });
-    }
-
-    // TODO: Universal messaging system?
-    function uploadFailure(resp) {
-        var error = resp.body && resp.body.errorMessage;
-        $window.alert(error || 'There were errors uploading some / all of your files');
+        // Queue up files for upload and go to the upload state to
+        // show progress
+        uploadManager.upload(files);
+        $state.go('upload');
     }
 }]);
 
