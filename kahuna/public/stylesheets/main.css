@@ -509,6 +509,11 @@ a:focus {
    Uploads
    ========================================================================== */
 
+.upload-latest,
+.upload-yours {
+    margin: 20px;
+}
+
 .job-status {
     padding: 5px 10px;
     border-radius: 5px;
