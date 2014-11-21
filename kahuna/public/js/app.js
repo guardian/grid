@@ -8,6 +8,7 @@ import 'services/api/media-api';
 import 'services/api/media-cropper';
 import 'services/api/loader';
 import 'directives/ui-crop-box';
+import 'upload/index';
 import 'util/async';
 import 'pandular/heal';
 
@@ -17,6 +18,7 @@ var config = {
 
     // Static config
     templatesDirectory: '/assets/templates',
+    jsDirectory:        '/assets/js',
     'pandular.reAuthUri': '/login'
 };
 
@@ -25,6 +27,7 @@ var kahuna = angular.module('kahuna', [
     'theseus',
     'pandular.heal',
     'util.async',
+    'kahuna.upload',
     'kahuna.services.api',
     'kahuna.directives'
 ]);
@@ -42,8 +45,8 @@ kahuna.config(['$locationProvider',
     $locationProvider.html5Mode(true).hashPrefix('!');
 }]);
 
-kahuna.config(['$stateProvider', '$urlRouterProvider', 'templatesDirectory',
-               function($stateProvider, $urlRouterProvider, templatesDirectory) {
+kahuna.config(['$stateProvider', '$urlRouterProvider', 'templatesDirectory', 'jsDirectory',
+               function($stateProvider, $urlRouterProvider, templatesDirectory, jsDirectory) {
 
     $stateProvider.state('search', {
         // Virtual state, we always want to be in a child state of this
@@ -72,6 +75,13 @@ kahuna.config(['$stateProvider', '$urlRouterProvider', 'templatesDirectory',
         url: '/images/:imageId/crop',
         templateUrl: templatesDirectory + '/crop.html',
         controller: 'ImageCropCtrl as imageCropCtrl'
+    });
+
+    // TODO: move to upload module config
+    $stateProvider.state('upload', {
+        url: '/upload',
+        templateUrl: jsDirectory + '/upload/view.html',
+        controller: 'UploadCtrl as uploadCtrl'
     });
 
     $urlRouterProvider.otherwise("/search");
@@ -117,6 +127,15 @@ kahuna.run(['$rootScope', '$window', '$q', 'getEntity',
     });
 }]);
 
+
+kahuna.controller('SessionCtrl',
+                  ['$scope', '$state', '$stateParams', 'mediaApi',
+                   function($scope, $state, $stateParams, mediaApi) {
+
+    mediaApi.getSession().then(session => {
+        $scope.user = session.user;
+    });
+}]);
 
 kahuna.controller('SearchQueryCtrl',
                   ['$scope', '$state', '$stateParams', 'mediaApi',
@@ -514,7 +533,20 @@ kahuna.filter('asAspectRatioWord', function() {
             default:
                 return 'freeform';
         }
-    }
+    };
+});
+
+kahuna.filter('asFileSize', function() {
+    return function(byteSize) {
+        // TODO: round to precision(1)
+        if (byteSize > 1000 * 1000) {
+            return Math.round(byteSize / (1000 * 1000)) + 'MB';
+        } else if (byteSize > 1000) {
+            return Math.round(byteSize / 1000) + 'KB';
+        } else {
+            return byteSize + 'B';
+        }
+    };
 });
 
 kahuna.filter('assetFile', function() {
@@ -726,101 +758,43 @@ kahuna.directive('uiFile', function() {
         },
         link: function(scope, element, attrs) {
             element.on('change', function() {
+                // TODO: no function reference
                 scope.onchange()(Array.from(element[0].files));
             });
         }
     };
 });
 
+
 /**
- * File uploader
+ * Catches files dropped
  */
-kahuna.controller('FileUploaderCtrl',
-                  ['$q', '$window', '$state', '$timeout', 'loaderApi', 'mediaApi',
-                   function($q, $window, $state, $timeout, loaderApi, mediaApi) {
-
-    var ctrl = this; // TODO: No!
-
-    ctrl.files = [];
-    ctrl.loading = false;
-    ctrl.uploadFiles = uploadFiles;
-
-    // TODO: User feedback should say what has failed and what has not (Generators?)
-    function uploadFiles(files) {
-        ctrl.loading = true;
-
-        var uploads = files.map(function(file) {
-            return readFile(file).then(uploadFile);
-        });
-
-        $q.all(uploads).then(uploadSuccess, uploadFailure)
-            .finally(() => ctrl.loading = false);
-    }
-
-    function readFile(file) {
-        var reader = new FileReader();
-        var def = $q.defer();
-
-        reader.addEventListener('load',  event => def.resolve(event.target.result));
-        reader.addEventListener('error', def.reject);
-        reader.readAsArrayBuffer(file);
-
-        return def.promise;
-    }
-
-    function uploadFile(file) {
-        return loaderApi.load(new Uint8Array(file));
-    }
-
-    function uploadsIndexed(ids) {
-        var def = $q.defer();
-        var searchEveryPeriod = 500;
-        var timeout;
-
-        (function searchForUploads() {
-            $timeout.cancel(timeout);
-            mediaApi.search('', { ids: ids }).then(resp => resp.data).then(images => {
-                if(images.length === ids.length) {
-                    def.resolve(images);
-                } else {
-                    $timeout(searchForUploads, searchEveryPeriod);
-                }
-            }, def.reject);
-        })();
-
-        return def.promise;
-    }
-
-    function uploadSuccess(resps) {
-        var ids = resps.map(resp => resp.data.id);
-
-        return $q.all([uploadsIndexed(ids), mediaApi.getSession()]).then(([uploads, session]) => {
-            // FIXME: This is just while we're allowing images through without metadata
-            // We'll fix this once we add the interface to add metadata
-            var invalid = uploads.filter(upload => !upload.data.valid).length > 0;
-            if (invalid) {
-                uploadFailure({body: {
-                    errorMessage: "Upload failed: credit or description was missing"
-                }});
-            } else {
-                $state.go('search.results', {uploadedBy: session.user.email});
-            }
-        });
-    }
-
-    // TODO: Universal messaging system?
-    function uploadFailure(resp) {
-        var error = resp.body && resp.body.errorMessage;
-        $window.alert(error || 'There were errors uploading some / all of your files');
-    }
-}]);
-
-kahuna.directive('fileUploader', ['templatesDirectory', function(templatesDirectory) {
+kahuna.directive('uiDropFiles',
+                 ['uploadManager', '$state',
+                  function(uploadManager, $state) {
     return {
-        restrict: 'E',
-        controller: 'FileUploaderCtrl as fileUploader',
-        templateUrl: templatesDirectory + '/directives/file-uploader.html'
-    }
+        restrict: 'A',
+        scope: {
+            dropHandler: '&uiDropFiles'
+        },
+        link: function(scope, element, attrs, ctrl) {
+            element.on('dragover', event => {
+                event.preventDefault();
+                element.addClass('dnd--over');
+            });
+
+            element.on('dragleave', () => element.removeClass('dnd--over'));
+
+            element.on('drop', event => {
+                event.preventDefault();
+                element.removeClass('dnd--over');
+
+                var files = Array.from(event.originalEvent.dataTransfer.files);
+                scope.dropHandler({files: files});
+            });
+        }
+    };
 }]);
+
 
 angular.bootstrap(document, ['kahuna']);

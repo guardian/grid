@@ -506,6 +506,89 @@ a:focus {
 
 
 /* ==========================================================================
+   Uploads
+   ========================================================================== */
+
+.upload-latest,
+.upload-yours {
+    margin: 20px;
+}
+
+.job-status {
+    padding: 5px 10px;
+    border-radius: 5px;
+}
+.job-status--uploading,
+.job-status--indexing,
+.job-status--re-indexing {
+    color: white;
+    background-color: orange;
+}
+.job-status--ready {
+    color: white;
+    background-color: green;
+}
+.job-status--upload-error,
+.job-status--invalid {
+    color: white;
+    background-color: red;
+}
+
+.job-info {
+    vertical-align: top;
+    padding-bottom: 5px;
+    padding-right: 30px;
+}
+
+.job-info--thumbnail {
+    /* reserve space */
+    width: 150px;
+    max-height: 150px;
+}
+.job-info--thumbnail__image {
+    max-width: 100%;
+    max-height: 100%;
+}
+
+.job-file {
+    color: #999;
+    font-size: 1.2rem;
+    margin-top: 10px;
+}
+
+.job-info--editor__field {
+    display: block;
+}
+.job-info--editor__label {
+    width: 100px;
+    display: inline-block;
+    vertical-align: top;
+}
+.job-info--editor__input {
+    width: 300px;
+    border: 1px solid #dcdcdc;
+    padding: 5px;
+}
+.job-info--editor__input.ng-invalid {
+    border-color: #ed5935;
+}
+.job-info--editor__input--description {
+    height: 4em;
+}
+
+.job-editor__inputs,
+.job-editor__buttons {
+    float: left;
+    margin-right: 20px;
+}
+
+.job-editor__button {
+    display: block;
+    margin-bottom: 5px;
+}
+
+
+/* ==========================================================================
    jCrop
    ========================================================================== */
 
