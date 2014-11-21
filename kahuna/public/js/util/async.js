@@ -34,13 +34,29 @@ async.factory('delay',
 }]);
 
 
+async.factory('race',
+              ['$q',
+               function($q) {
+
+    function race(promises) {
+        var first = $q.defer();
+        promises.forEach(promise => {
+            promise.then(first.resolve, first.reject);
+        });
+        return first.promise;
+    }
+
+    return race;
+}]);
+
+
 async.factory('poll',
-               ['delay',
-                function(delay) {
+              ['delay', 'race',
+               function(delay, race) {
 
     function poll(func, pollEvery, maxWait) {
-        // FIXME: error?
-        var timeout = delay(maxWait).then(() => { throw new Error('timeout!'); });
+        // FIXME: how to avoid the error bubbling up if race won by the pollRecursive?
+        var timeout = delay(maxWait).then(() => { throw new Error('timeout'); });
 
         function pollRecursive() {
             return func().catch(error => {
@@ -48,7 +64,7 @@ async.factory('poll',
             });
         }
 
-        return pollRecursive();
+        return race([pollRecursive(), timeout]);
     }
 
     return poll;
