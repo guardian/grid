@@ -52,7 +52,8 @@ kahuna.config(['$stateProvider', '$urlRouterProvider', 'templatesDirectory', 'js
         // Virtual state, we always want to be in a child state of this
         abstract: true,
         url: '/',
-        templateUrl: templatesDirectory + '/search.html'
+        templateUrl: templatesDirectory + '/search.html',
+        controller: 'SearchCtrl'
     });
     $stateProvider.state('search.results', {
         url: 'search?query&ids&since&nonFree&archived&valid&uploadedBy',
@@ -170,6 +171,19 @@ kahuna.controller('SearchQueryCtrl',
             $scope.uploadedBy = newVal && $scope.user.email;
         }
     });
+}]);
+
+
+kahuna.controller('SearchCtrl',
+                  ['$scope', '$state', 'uploadManager',
+                   function($scope, $state, uploadManager) {
+
+    $scope.uploadFiles = uploadFiles;
+
+    function uploadFiles(files) {
+        uploadManager.upload(files);
+        $state.go('upload');
+    }
 }]);
 
 
