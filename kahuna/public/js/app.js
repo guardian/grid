@@ -78,6 +78,46 @@ kahuna.config(['$stateProvider', '$urlRouterProvider', 'templatesDirectory',
 }]);
 
 
+/**
+ * Takes a resources and returns a promise of the entity data (uri,
+ * data) as a plain JavaScript object.
+ */
+kahuna.factory('getEntity', ['$q', function($q) {
+    function getEntity(resource) {
+        return $q.all([resource.uri, resource.getData()]).then(([uri, data]) => {
+            return {uri, data};
+        });
+    }
+
+    return getEntity;
+}]);
+
+
+/**
+ * Intercept global events and broadcast them on the parent window.
+ * Used by the parent page when the app is embedded as an iframe.
+ */
+kahuna.run(['$rootScope', '$window', '$q', 'getEntity',
+            function($rootScope, $window, $q, getEntity) {
+
+    $rootScope.$on('events:crop-created', (_, params) => {
+        var syncImage = getEntity(params.image);
+        var syncCrop  = getEntity(params.crop);
+        $q.all([syncImage, syncCrop]).then(([imageEntity, cropEntity]) => {
+            // This interface is used when the app is embedded as an iframe
+            var message = {
+                image: imageEntity,
+                crop:  cropEntity
+            };
+
+            // Note: we target all domains because we don't know who
+            // may be embedding us.
+            $window.parent.postMessage(message, '*');
+        });
+    });
+}]);
+
+
 kahuna.controller('SearchQueryCtrl',
                   ['$scope', '$state', '$stateParams', 'mediaApi',
                    function($scope, $state, $stateParams, mediaApi) {
@@ -386,6 +426,12 @@ kahuna.controller('ImageCropCtrl',
         $scope.cropping = true;
 
         mediaCropper.createCrop($scope.image, coords, ratio).then(function(crop) {
+            // Global notification of action
+            $scope.$emit('events:crop-created', {
+                image: $scope.image,
+                crop: crop
+            });
+
             $state.go('image', {
                 imageId: imageId,
                 crop: $filter('getCropKey')(crop.data)
