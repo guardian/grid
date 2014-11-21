@@ -96,19 +96,25 @@ object Application extends Controller with ArgoHelpers {
 
   // TODO: Make a metadataForm that restricts description / credit
   // ALWAYS send over the whole document or you'll lose your data
-  def setMetadata(id: String) = Authenticated.async { req =>
-    jsonForm.bindFromRequest()(req).fold(
-      errors => Future.successful(BadRequest(errors.errorsAsJson)),
-      metadata => {
+  case class MapEntity(data: Map[String, String])
+
+  implicit val mapEntityReads: Reads[MapEntity] = Json.reads[MapEntity]
+
+  def setMetadata(id: String) = Authenticated.async(parse.json) { req =>
+    req.body.validate[MapEntity].map {
+      case MapEntity(metadata) =>
         val entityResult = Accepted(metadataResponse(metadata, id)).as(ArgoMediaType)
-        val metadataMap = metadata.as[Map[String, String]]
-        dynamo.jsonAdd(id, "metadata", metadataMap) map publishAndRespond(id, entityResult)
-      }
-    )
+        dynamo.jsonAdd(id, "metadata", metadata) map publishAndRespond(id, entityResult)
+    } recoverTotal {
+      case e => Future.successful(BadRequest("Invalid metadata sent: " + JsError.toFlatJson(e)))
+    }
   }
 
 
-  def metadataResponse(metadata: JsValue, id: String) =
+  def metadataResponse(metadata: Map[String, String], id: String): JsValue =
+    metadataResponse(Json.toJson(metadata), id)
+
+  def metadataResponse(metadata: JsValue, id: String): JsValue =
     metadata.transform(transformers.wrapMetadata(id)).get
 
   def labelResponse(label: String, id: String): JsValue =
@@ -147,13 +153,6 @@ object Application extends Controller with ArgoHelpers {
      single("data" -> text)
        .transform[String]({ case (value)       => value },
                           { case value: String => value })
-  )
-
-  val jsonForm: Form[JsValue] = Form(
-    // Play forms don't really work with JSON so we have to do JSON -> String conversion
-    single("data" -> text)
-      .transform[JsValue]({ case json: String => Json.parse(json) },
-                          { case json: JsValue => json.as[String] })
   )
 
 }
