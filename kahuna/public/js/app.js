@@ -758,38 +758,43 @@ kahuna.directive('uiFile', function() {
         },
         link: function(scope, element, attrs) {
             element.on('change', function() {
+                // TODO: no function reference
                 scope.onchange()(Array.from(element[0].files));
             });
         }
     };
 });
 
+
 /**
- * File uploader
+ * Catches files dropped
  */
-kahuna.controller('FileUploaderCtrl',
-                  ['$state', 'uploadManager',
-                   function($state, uploadManager) {
-
-    var ctrl = this;
-
-    ctrl.uploadFiles = uploadFiles;
-
-
-    function uploadFiles(files) {
-        // Queue up files for upload and go to the upload state to
-        // show progress
-        uploadManager.upload(files);
-        $state.go('upload');
-    }
-}]);
-
-kahuna.directive('fileUploader', ['templatesDirectory', function(templatesDirectory) {
+kahuna.directive('uiDropFiles',
+                 ['uploadManager', '$state',
+                  function(uploadManager, $state) {
     return {
-        restrict: 'E',
-        controller: 'FileUploaderCtrl as fileUploader',
-        templateUrl: templatesDirectory + '/directives/file-uploader.html'
-    }
+        restrict: 'A',
+        scope: {
+            dropHandler: '&uiDropFiles'
+        },
+        link: function(scope, element, attrs, ctrl) {
+            element.on('dragover', event => {
+                event.preventDefault();
+                element.addClass('dnd--over');
+            });
+
+            element.on('dragleave', () => element.removeClass('dnd--over'));
+
+            element.on('drop', event => {
+                event.preventDefault();
+                element.removeClass('dnd--over');
+
+                var files = Array.from(event.originalEvent.dataTransfer.files);
+                scope.dropHandler({files: files});
+            });
+        }
+    };
 }]);
+
 
 angular.bootstrap(document, ['kahuna']);
