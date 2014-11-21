@@ -1,0 +1,19 @@
+<div class="top-bar">
+    <div class="top-bar__container">
+        <a ui:sref="search.results">← back to search</a>
+    </div>
+</div>
+
+<!-- TODO: upload button and drop area again? -->
+
+<section ng:if="latestJob"
+         class="upload-latest">
+    <h2>Uploading</h2>
+
+    <ui-upload-jobs jobs="latestJob"></ui-upload-jobs>
+</section>
+
+
+<p ng:controller="SessionCtrl">
+    Or see <a ui:sref="search.results({uploadedBy: user.email})">all your uploads</a>.
+</p>

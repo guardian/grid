@@ -8,6 +8,7 @@ import 'services/api/media-api';
 import 'services/api/media-cropper';
 import 'services/api/loader';
 import 'directives/ui-crop-box';
+import 'upload/index';
 import 'util/async';
 import 'pandular/heal';
 
@@ -17,6 +18,7 @@ var config = {
 
     // Static config
     templatesDirectory: '/assets/templates',
+    jsDirectory:        '/assets/js',
     'pandular.reAuthUri': '/login'
 };
 
@@ -25,6 +27,7 @@ var kahuna = angular.module('kahuna', [
     'theseus',
     'pandular.heal',
     'util.async',
+    'kahuna.upload',
     'kahuna.services.api',
     'kahuna.directives'
 ]);
@@ -42,8 +45,8 @@ kahuna.config(['$locationProvider',
     $locationProvider.html5Mode(true).hashPrefix('!');
 }]);
 
-kahuna.config(['$stateProvider', '$urlRouterProvider', 'templatesDirectory',
-               function($stateProvider, $urlRouterProvider, templatesDirectory) {
+kahuna.config(['$stateProvider', '$urlRouterProvider', 'templatesDirectory', 'jsDirectory',
+               function($stateProvider, $urlRouterProvider, templatesDirectory, jsDirectory) {
 
     $stateProvider.state('search', {
         // Virtual state, we always want to be in a child state of this
@@ -72,6 +75,13 @@ kahuna.config(['$stateProvider', '$urlRouterProvider', 'templatesDirectory',
         url: '/images/:imageId/crop',
         templateUrl: templatesDirectory + '/crop.html',
         controller: 'ImageCropCtrl as imageCropCtrl'
+    });
+
+    // TODO: move to upload module config
+    $stateProvider.state('upload', {
+        url: '/upload',
+        templateUrl: jsDirectory + '/upload/view.html',
+        controller: 'UploadCtrl as uploadCtrl'
     });
 
     $urlRouterProvider.otherwise("/search");
@@ -117,6 +127,15 @@ kahuna.run(['$rootScope', '$window', '$q', 'getEntity',
     });
 }]);
 
+
+kahuna.controller('SessionCtrl',
+                  ['$scope', '$state', '$stateParams', 'mediaApi',
+                   function($scope, $state, $stateParams, mediaApi) {
+
+    mediaApi.getSession().then(session => {
+        $scope.user = session.user;
+    });
+}]);
 
 kahuna.controller('SearchQueryCtrl',
                   ['$scope', '$state', '$stateParams', 'mediaApi',
@@ -514,7 +533,20 @@ kahuna.filter('asAspectRatioWord', function() {
             default:
                 return 'freeform';
         }
-    }
+    };
+});
+
+kahuna.filter('asFileSize', function() {
+    return function(byteSize) {
+        // TODO: round to precision(1)
+        if (byteSize > 1000 * 1000) {
+            return Math.round(byteSize / (1000 * 1000)) + 'MB';
+        } else if (byteSize > 1000) {
+            return Math.round(byteSize / 1000) + 'KB';
+        } else {
+            return byteSize + 'B';
+        }
+    };
 });
 
 kahuna.filter('assetFile', function() {

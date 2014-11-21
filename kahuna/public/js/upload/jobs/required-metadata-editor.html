@@ -1,0 +1,31 @@
+<form class="job-editor" name="jobEditor">
+    <div class="job-editor__inputs">
+        <label class="job-info--editor__field">
+            <div class="job-info--editor__label">Description</div>
+            <textarea name="description"
+                      placeholder="Enter a description…"
+                      required
+                      class="job-info--editor__input job-info--editor__input--description"
+                      ng:model="editorCtrl.description"
+            ></textarea>
+        </label>
+        <label class="job-info--editor__field">
+            <div class="job-info--editor__label">Credit</div>
+            <input type="text"
+                   name="credit"
+                   placeholder="Enter the credit…"
+                   required
+                   class="job-info--editor__input job-info--editor__input--credit"
+                   ng:model="editorCtrl.credit"
+            />
+        </label>
+    </div>
+    <div class="job-editor__buttons">
+        <input type="submit"
+               class="button job-editor__button"
+               value="{{ {true: 'Saving…', false: 'Save'}[editorCtrl.saving] }}"
+               ng:click="editorCtrl.save()"
+               ng:disabled="jobEditor.$invalid || jobEditor.$pristine || editorCtrl.saving"
+        />
+    </div>
+</form>

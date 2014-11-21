@@ -1,0 +1,34 @@
+<table>
+    <tbody>
+        <tr ng:repeat="job in jobs">
+            <td class="job-info job-info--thumbnail">
+                <a ui:sref="image({imageId: job.id})"
+                   ng:if="job.thumbnail">
+                    <img ng:src="{{job.thumbnail | assetFile}}"
+                         class="job-info--thumbnail__image" />
+                </a>
+            </td>
+            <td class="job-info job-info--file">
+                <div>
+                    <span class="job-status {{'job-status--' + job.status}}">
+                        {{job.status}}
+                    </span>
+                </div>
+                <div ng:if="job.status == 'upload-error'">
+                    {{job.error}}
+                </div>
+                <div class="job-file">
+                    <div class="job-file__name">{{job.name}}</div>
+                    <div class="job-file__size">{{job.size | asFileSize}}</div>
+                </div>
+            </td>
+            <td class="job-info job-info--editor">
+                <ui-required-metadata-editor ng:if="job.image"
+                                             initial="job.image.data.metadata"
+                                             override-resource="job.image.data.userMetadata.data.metadata"
+                                             on-update="overrideMetadata(job, metadata)"
+                ></ui-required-metadata-editor>
+            </td>
+        </tr>
+    </tbody>
+</table>
