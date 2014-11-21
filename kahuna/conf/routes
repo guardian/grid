@@ -6,6 +6,7 @@ GET     /                           controllers.Application.index(ignored="")
 GET     /images/$id<[0-9a-z]+>      controllers.Application.index(id)
 GET     /images/$id<[0-9a-z]+>/crop controllers.Application.index(id)
 GET     /search                     controllers.Application.index(ignored="")
+GET     /upload                     controllers.Application.index(ignored="")
 
 GET     /assets/*file               controllers.Assets.at(path="/public", file)
 
