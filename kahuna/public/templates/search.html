@@ -1,57 +1,7 @@
 <!-- TODO: rename this file and split it into it's components -->
 <div class="top-bar">
     <div class="top-bar__container">
-        <form ng:controller="SearchQueryCtrl"
-              class="top-bar__search search">
-            <input type="text"
-                   placeholder="search for images..."
-                   class="search__query"
-                   autofocus="autofocus"
-                   ng:model="query"
-            />
-
-            <label class="search__control">
-                <!-- minor mindfuck logic as we want an optional flag
-                     when the option is off -->
-                <input type="checkbox" ng:model="nonFree"
-                       ng:true-value
-                       ng:false-value="true"
-                       ng:checked="{{!nonFree}}" />
-                free to use
-            </label>
-
-            <label class="search__control">
-                <input type="checkbox"
-                       ng:model="uploadedByMe" />
-                your uploads
-            </label>
-
-            <!--
-            Anytime
-            Today (since midnight vs last 24 hours?)
-            Yesterday
-
-            Other: [since, to]
-            -->
-            <div class="search__since-radios">
-                <label class="search__control"
-                       ng:repeat="sinceSearch in sinceSearches">
-
-                    <input type="radio"
-                           ng:model="since"
-                           value="{{sinceSearch.value}}" />
-                    {{sinceSearch.name}}
-                </label>
-            </div>
-
-            <select class="search__since-select">
-                <option ng:repeat="sinceSearch in sinceSearches"
-                        value="{{sinceSearch.value}}">
-                    {{sinceSearch.name}}
-                </option>
-            </select>
-        </form>
-
+        <search-query></search-query>
 
         <div class="top-bar__controls">
             <file-uploader></file-uploader>

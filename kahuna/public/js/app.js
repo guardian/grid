@@ -9,6 +9,7 @@ import 'services/api/media-cropper';
 import 'services/api/loader';
 import 'directives/ui-crop-box';
 import 'upload/index';
+import 'search/index';
 import 'util/async';
 import 'pandular/heal';
 
@@ -28,6 +29,7 @@ var kahuna = angular.module('kahuna', [
     'pandular.heal',
     'util.async',
     'kahuna.upload',
+    'kahuna.search',
     'kahuna.services.api',
     'kahuna.directives'
 ]);
@@ -135,56 +137,6 @@ kahuna.controller('SessionCtrl',
 
     mediaApi.getSession().then(session => {
         $scope.user = session.user;
-    });
-}]);
-
-kahuna.controller('SearchQueryCtrl',
-                  ['$scope', '$state', '$stateParams', 'mediaApi',
-                   function($scope, $state, $stateParams, mediaApi) {
-
-    $scope.uploadedByMe = false;
-    Object.keys($stateParams)
-        .forEach(setAndWatchParam);
-
-    function setAndWatchParam(key) {
-        $scope[key] = $stateParams[key];
-        $scope.$watch(key, (newVal, oldVal) => {
-            if (newVal !== oldVal) {
-                // we replace empty strings etc with undefined to clear the querystring
-                $state.go('search.results', { [key]: newVal || undefined });
-            }
-        });
-    }
-
-    $scope.sinceSearches = [
-        {
-            name: 'anytime',
-            value: ''
-        },
-        {
-            name: 'last 24 hours',
-            value: '24.hour'
-        },
-        {
-            name: 'last week',
-            value: '1.week'
-        }
-    ];
-
-    // FIXME: There are two other bugs here once that is done:
-    // * ui-router seems to decode `%40` -> `@` in the querystring
-    // * this in turn makes system JS to go wobbly
-
-    // we can't user dynamic values in the ng:true-value see:
-    // https://docs.angularjs.org/error/ngModel/constexpr
-    // perhaps this functionality will change if we move to gmail type search e.g.
-    // "uploadedBy:anthony.trollope@***REMOVED***"
-    mediaApi.getSession().then(session => $scope.user = session.user);
-    $scope.uploadedByMe = !!$stateParams.uploadedBy;
-    $scope.$watch('uploadedByMe', (newVal, oldVal) => {
-        if (newVal !== oldVal) {
-            $scope.uploadedBy = newVal && $scope.user.email;
-        }
     });
 }]);
 
