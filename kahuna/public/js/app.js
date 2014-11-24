@@ -156,6 +156,21 @@ kahuna.controller('SearchQueryCtrl',
         });
     }
 
+    $scope.sinceSearches = [
+        {
+            name: 'anytime',
+            value: ''
+        },
+        {
+            name: 'last 24 hours',
+            value: '24.hour'
+        },
+        {
+            name: 'last week',
+            value: '1.week'
+        }
+    ];
+
     // FIXME: There are two other bugs here once that is done:
     // * ui-router seems to decode `%40` -> `@` in the querystring
     // * this in turn makes system JS to go wobbly
