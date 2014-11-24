@@ -156,10 +156,6 @@ a:focus {
     box-shadow: 0px 1px 5px #999;
 }
 
-.top-bar__search {
-    float: left;
-}
-
 .top-bar__controls {
     float: right;
 }
@@ -181,7 +177,9 @@ a:focus {
    Search
    ========================================================================== */
 
-.search {}
+.search {
+    float: left;
+}
 
 .search__control {
     margin-right: 10px;
