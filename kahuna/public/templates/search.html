@@ -19,30 +19,37 @@
                        ng:checked="{{!nonFree}}" />
                 free to use
             </label>
+
             <label class="search__control">
                 <input type="checkbox"
                        ng:model="uploadedByMe" />
                 your uploads
             </label>
-            <label class="search__control">
-                <input type="radio" ng:model="since" />
-                anytime
-            </label>
-            <label class="search__control">
-                <input type="radio" ng:model="since" value="24.hour" />
-                last 24 hours
-            </label>
-            <label class="search__control">
-                <input type="radio" ng:model="since" value="1.week"  />
-                last week
-            </label>
-            <!--
-                Anytime
-                Today (since midnight vs last 24 hours?)
-                Yesterday
 
-                Other: [since, to]
-              -->
+            <!--
+            Anytime
+            Today (since midnight vs last 24 hours?)
+            Yesterday
+
+            Other: [since, to]
+            -->
+            <div class="search__since-radios">
+                <label class="search__control"
+                       ng:repeat="sinceSearch in sinceSearches">
+
+                    <input type="radio"
+                           ng:model="since"
+                           value="{{sinceSearch.value}}" />
+                    {{sinceSearch.name}}
+                </label>
+            </div>
+
+            <select class="search__since-select">
+                <option ng:repeat="sinceSearch in sinceSearches"
+                        value="{{sinceSearch.value}}">
+                    {{sinceSearch.name}}
+                </option>
+            </select>
         </form>
 
 
