@@ -13,6 +13,8 @@ query.controller('SearchQueryCtrl', ['$scope', '$state', '$stateParams', 'mediaA
 
     function setAndWatchParam(key) {
         ctrl[key] = $stateParams[key];
+
+        // TODO: make helper for onchange vs onupdate
         $scope.$watch(() => ctrl[key], (newVal, oldVal) => {
             if (newVal !== oldVal) {
                 // we replace empty strings etc with undefined to clear the querystring
