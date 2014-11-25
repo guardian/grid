@@ -37,10 +37,6 @@ query.controller('SearchQueryCtrl', ['$scope', '$state', '$stateParams', 'mediaA
         }
     ];
 
-    // FIXME: There are two other bugs here once that is done:
-    // * ui-router seems to decode `%40` -> `@` in the querystring
-    // * this in turn makes system JS to go wobbly
-
     // we can't user dynamic values in the ng:true-value see:
     // https://docs.angularjs.org/error/ngModel/constexpr
     // perhaps this functionality will change if we move to gmail type search e.g.
