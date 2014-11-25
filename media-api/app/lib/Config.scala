@@ -52,6 +52,6 @@ object Config extends CommonPlayAppConfig with CommonPlayAppProperties {
     "Press Association Images", "Action Images", "Keystone", "AFP", "Getty Images", "Alamy", "FilmMagic", "WireImage",
     "Pool", "Rex Features", "Allsport", "BFI", "ANSA", "The Art Archive", "Hulton Archive", "Hulton Getty", "RTRPIX",
     "Community Newswire", "THE RONALD GRANT ARCHIVE", "NPA ROTA", "Ronald Grant Archive", "PA WIRE", "AP POOL",
-    "REUTER", "dpa", "BBC", "Allstar Picture Library", "AFP/Getty Images")
+    "REUTER", "dpa", "BBC", "Allstar Picture Library", "AFP/Getty Images", "AAPIMAGE")
 
 }
