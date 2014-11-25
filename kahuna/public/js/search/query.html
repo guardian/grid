@@ -1,0 +1,55 @@
+<form class="search">
+    <input type="text"
+           placeholder="search for images…"
+           class="search__query"
+           autofocus="autofocus"
+           ng:model="query"
+    />
+
+    <label class="search__control">
+        <!-- minor mindfuck logic as we want an optional flag
+             when the option is off -->
+        <input type="checkbox"
+               ng:model="searchQuery.nonFree"
+               ng:true-value
+               ng:false-value="true"
+               ng:checked="{{!nonFree}}" />
+        free to use
+    </label>
+
+    <label class="search__control">
+        <input type="checkbox"
+               ng:model="searchQuery.uploadedByMe" />
+        your uploads
+    </label>
+
+    <!--
+    Anytime
+    Today (since midnight vs last 24 hours?)
+    Yesterday
+
+    Other: [since, to]
+    -->
+    <div class="search__since-radios">
+        <label class="search__control"
+               ng:repeat="sinceSearch in searchQuery.sinceSearches">
+
+            <input type="radio"
+                   value="{{sinceSearch.value}}"
+                   ng:model="searchQuery.since" />
+
+            {{sinceSearch.name}}
+        </label>
+    </div>
+
+    <select class="search__since-select"
+            ng:model="searchQuery.since">
+
+        <option value="{{sinceSearch.value}}"
+                ng:repeat="sinceSearch in searchQuery.sinceSearches"
+                ng:selected="searchQuery.since === sinceSearch.value">
+            {{sinceSearch.name}}
+        </option>
+
+    </select>
+</form>

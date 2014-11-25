@@ -11,5 +11,5 @@ export var upload = angular.module('kahuna.upload', [
     'kahuna.upload.fileUploader',
     'kahuna.upload.manager',
     'kahuna.upload.jobs',
-    'kahuna.upload.jobs.requiredMetadataEditor',
+    'kahuna.upload.jobs.requiredMetadataEditor'
 ]);
