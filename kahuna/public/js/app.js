@@ -143,8 +143,8 @@ kahuna.controller('SessionCtrl',
 
 
 kahuna.controller('ImageCtrl',
-                  ['$scope', '$stateParams', '$filter', 'mediaApi', 'mediaCropper',
-                   function($scope, $stateParams, $filter, mediaApi, mediaCropper) {
+                  ['$scope', '$stateParams', '$filter', 'mediaApi',
+                   function($scope, $stateParams, $filter, mediaApi) {
 
     var imageId = $stateParams.imageId;
     $scope.cropKey = $stateParams.crop;
