@@ -170,7 +170,8 @@ kahuna.controller('ImageCtrl',
     $scope.priorityMetadata = ['byline', 'credit'];
 
     function getCropsFor(image) {
-       return image.data.exports.filter(ex => ex.type === 'crop');
+       return (image.data.exports &&
+              image.data.exports.filter(ex => ex.type === 'crop')) || [];
     }
 }]);
 
@@ -357,6 +358,13 @@ kahuna.filter('asImageAndCropsDragData', ['$filter',
             $filter('asCropsDragData')(crops));
     };
 }]);
+
+kahuna.filter('getFirstCrop', function() {
+    return function(image) {
+        return image.data.exports &&
+               image.data.exports.filter(ex => ex.type === 'crop')[0];
+    }
+});
 
 kahuna.filter('asAspectRatioWord', function() {
     // FIXME: Try to find one place to store these words to ratios

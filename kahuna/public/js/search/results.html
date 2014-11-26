@@ -30,7 +30,7 @@
                 <a class="image-result__link"
                    title="{{image.data.metadata.title}}"
                    ng:href="/images/{{image.data.id}}"
-                   ui:drag-data="{{image | asImageDragData}}">
+                   ui:drag-data="{{image | asImageAndCropsDragData:(image | getFirstCrop)}}">
                     <figure>
                         <img class="image-result__image"
                              ng:src="{{image.data.thumbnail | assetFile}}"/>
