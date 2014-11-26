@@ -33,6 +33,7 @@
                         <li class="image-crop"
                             ng:class="{'image-crop--selected': (crop|getCropKey) == cropKey}"
                             ng:repeat="crop in crops">
+                            <!-- TODO: standardise drag objects -->
                             <a draggable="true"
                                ng:init="extremeAssets = (crop | getExtremeAssets)"
                                ui:sref="{crop: (crop | getCropKey)}"
