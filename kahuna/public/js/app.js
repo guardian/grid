@@ -316,8 +316,6 @@ kahuna.filter('getExtremeAssets', function() {
                    (b.dimensions.width * b.dimensions.height);
         });
 
-        console.log(orderedAssets[0], orderedAssets.slice(-1)[0])
-
         return {
             smallest: orderedAssets[0],
             largest: orderedAssets.slice(-1)[0]
