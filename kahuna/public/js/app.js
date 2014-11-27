@@ -143,24 +143,23 @@ kahuna.controller('SessionCtrl',
 
 
 kahuna.controller('ImageCtrl',
-                  ['$scope', '$stateParams', '$filter', 'mediaApi', 'mediaCropper',
-                   function($scope, $stateParams, $filter, mediaApi, mediaCropper) {
+                  ['$scope', '$stateParams', '$filter', 'mediaApi',
+                   function($scope, $stateParams, $filter, mediaApi) {
 
     var imageId = $stateParams.imageId;
     $scope.cropKey = $stateParams.crop;
 
     mediaApi.find(imageId).then(function(image) {
         var getCropKey = $filter('getCropKey');
+        var crops = getCropsFor(image);
 
         $scope.image = image;
 
         // FIXME: we need not to use imageSync but find a way to use the promised URI
         image.uri.then(uri => $scope.imageSync = {uri: uri, data: image.data});
 
-        mediaCropper.getCropsFor(image).then(function(crops) {
-           $scope.crops = crops;
-           $scope.crop = crops.find(crop => getCropKey(crop) === $scope.cropKey);
-        });
+        $scope.crops = crops;
+        $scope.crop = crops.find(crop => getCropKey(crop) === $scope.cropKey);
     });
 
     var ignoredMetadata = ['description', 'source', 'copyright', 'keywords'];
@@ -169,6 +168,11 @@ kahuna.controller('ImageCtrl',
     };
 
     $scope.priorityMetadata = ['byline', 'credit'];
+
+    function getCropsFor(image) {
+       return (image.data.exports &&
+              image.data.exports.filter(ex => ex.type === 'crop')) || [];
+    }
 }]);
 
 
@@ -352,6 +356,13 @@ kahuna.filter('asImageAndCropsDragData', ['$filter',
             $filter('asCropsDragData')(crops));
     };
 }]);
+
+kahuna.filter('getFirstCrop', function() {
+    return function(image) {
+        return image.data.exports &&
+               image.data.exports.filter(ex => ex.type === 'crop')[0];
+    }
+});
 
 kahuna.filter('asAspectRatioWord', function() {
     // FIXME: Try to find one place to store these words to ratios
