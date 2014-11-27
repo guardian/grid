@@ -10,6 +10,7 @@ jobs.controller('RequiredMetadataEditorCtrl',
     var ctrl = this;
 
     ctrl.description = $scope.initial.description;
+    ctrl.byline      = $scope.initial.byline;
     ctrl.credit      = $scope.initial.credit;
 
     ctrl.saving = false;
@@ -18,6 +19,7 @@ jobs.controller('RequiredMetadataEditorCtrl',
         ctrl.saving = true;
         var metadata = {
             description: ctrl.description,
+            byline:      ctrl.byline,
             credit:      ctrl.credit
         };
         var updatedResource = $scope.overrideResource.put({

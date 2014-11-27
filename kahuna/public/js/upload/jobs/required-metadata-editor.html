@@ -10,6 +10,16 @@
             ></textarea>
         </label>
         <label class="job-info--editor__field">
+            <div class="job-info--editor__label">Byline</div>
+            <input type="text"
+                   name="byline"
+                   placeholder="Enter the byline…"
+                   required
+                   class="job-info--editor__input job-info--editor__input--byline"
+                   ng:model="editorCtrl.byline"
+            />
+        </label>
+        <label class="job-info--editor__field">
             <div class="job-info--editor__label">Credit</div>
             <input type="text"
                    name="credit"
