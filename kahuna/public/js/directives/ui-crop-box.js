@@ -17,8 +17,8 @@ controlsDirectives.value('safeApply', function (scope, fn) {
     }
 });
 
-controlsDirectives.directive('uiCropBox', ['$timeout', '$parse', 'safeApply', 'nextTick',
-                                           function($timeout, $parse, safeApply, nextTick) {
+controlsDirectives.directive('uiCropBox', ['$timeout', '$parse', 'safeApply', 'nextTick', 'delay',
+                                           function($timeout, $parse, safeApply, nextTick, delay) {
 
     // Annoyingly, AngularJS passes us values as strings,
     // so we need to convert them, which can potentially
@@ -47,14 +47,14 @@ controlsDirectives.directive('uiCropBox', ['$timeout', '$parse', 'safeApply', 'n
     return {
         restrict: 'A',
         scope: {
-            coords:      '=uiCropBox',
-            aspectRatio: '=uiCropBoxAspect',
+            coords:         '=uiCropBox',
+            aspectRatio:    '=uiCropBoxAspect',
             originalWidth:  '=uiCropBoxOriginalWidth',
             originalHeight: '=uiCropBoxOriginalHeight',
-            minSize:     '=uiCropBoxMinSize',
-            maxSize:     '=uiCropBoxMaxSize',
-            bgColor:     '=uiCropBoxBackgroundColor',
-            bgOpacity:   '=uiCropBoxBackgroundOpacity'
+            minSize:        '=uiCropBoxMinSize',
+            maxSize:        '=uiCropBoxMaxSize',
+            bgColor:        '=uiCropBoxBackgroundColor',
+            bgOpacity:      '=uiCropBoxBackgroundOpacity'
         },
         link: function (scope, element, attrs, ctrl) {
             var jcropInstance;
@@ -69,7 +69,10 @@ controlsDirectives.directive('uiCropBox', ['$timeout', '$parse', 'safeApply', 'n
             // immediately, apparently if the image is already in the
             // browser cache (?).
             // TODO: check if already loaded, in which case call install immediately
-            element.on('load', nextTick(install));
+            // FIXME: the delay here is because the image is first draw with it's full width
+            // and then redrawn to 100%. On occasion this redraw doesn't happen beofre we install
+            // thus stretching the image.
+            element.on('load', delay(100).then(install));
 
             function install() {
                 var initialCoords = [
