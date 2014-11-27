@@ -573,6 +573,7 @@ a:focus {
 
 .job-info--editor__field {
     display: block;
+    margin-bottom: 5px;
 }
 .job-info--editor__label {
     width: 100px;
@@ -589,6 +590,10 @@ a:focus {
 }
 .job-info--editor__input--description {
     height: 4em;
+
+    /* FIXME: Horrible hack to reclaim vertical space caused by the
+       element not being display:block.  CSS *sigh*. */
+    margin-bottom: -7px;
 }
 
 .job-editor__inputs,
