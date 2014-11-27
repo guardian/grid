@@ -4,7 +4,7 @@ import jQuery from 'jquery';
 import 'jcrop';
 
 // TODO: move this to a shared place!
-// Helper to $apply the fn on the scope if we're not
+// Helper to $apply the fn on the scope iff we're not
 // already in a $digest cycle.  Necessary because of
 // the different contexts we can be called from.
 controlsDirectives.value('safeApply', function (scope, fn) {
