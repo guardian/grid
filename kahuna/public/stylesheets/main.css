@@ -126,6 +126,9 @@ a:focus {
     font-size: 2.6rem;
     margin-top: 10px;
 
+    animation-duration: 1500ms;
+    animation-name: flipper;
+    animation-iteration-count: infinite;
     -webkit-animation-duration: 1500ms;
     -webkit-animation-name: flipper;
     -webkit-animation-iteration-count: infinite;
@@ -616,7 +619,6 @@ a:focus {
 .jcrop-holder {
     margin: 0 auto;
     max-width: 100%;
-    top: 20px;
     position: relative;
     top: 50%;
     transform: translateY(-50%);
@@ -628,6 +630,55 @@ a:focus {
 
 .jcrop-keymgr {
     opacity: 0;
+}
+
+/* ==========================================================================
+   Drag and drop
+   ========================================================================== */
+.dnd-uploader {
+    border: 5px dashed #00adee;
+    background: white;
+    width: calc(100vw - 10px);
+    height: calc(100vh - 10px); /* border-box doesn't work with v units */
+    opacity: .75;
+    position: fixed;
+    top: 0;
+    left: 0;
+    z-index: 1;
+    text-align: center;
+}
+
+.dnd-uploader__info {
+    border: 0px solid #00adee;
+    color: white;
+    background: #00adee;
+    max-width: 500px;
+    border-radius: 2px;
+    text-align: center;
+    padding: 10px;
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    left: 0;
+    right: 0;
+    margin: 0 auto;
+    animation-duration: 2000ms;
+    animation-name: heartbeat;
+    animation-iteration-count: infinite;
+    -webkit-animation-duration: 2000ms;
+    -webkit-animation-name: heartbeat;
+    -webkit-animation-iteration-count: infinite;
+}
+
+.dnd-uploader__heading {
+    font-size: 2.6rem;
+}
+
+@-webkit-keyframes heartbeat {
+    0% { border-width: 0; }
+    10% { border-width: 10px; }
+    90% { border-width: 10px; }
+    100% { border-width: 0; }
 }
 
 
