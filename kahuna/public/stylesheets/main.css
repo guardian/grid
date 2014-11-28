@@ -637,10 +637,9 @@ a:focus {
    ========================================================================== */
 .dnd-uploader {
     border: 5px dashed #00adee;
-    background: white;
+    background: rgba(255, 255, 255, .75);
     width: calc(100vw - 10px);
     height: calc(100vh - 10px); /* border-box doesn't work with v units */
-    opacity: .75;
     position: fixed;
     top: 0;
     left: 0;
