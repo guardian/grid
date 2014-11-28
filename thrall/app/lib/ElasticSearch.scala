@@ -58,7 +58,6 @@ object ElasticSearch extends ElasticSearchClient {
         "exports" -> asGroovy(exports)
       ).asJava)
       .setScript("""
-                    ctx._source.archived = true;
                     if (ctx._source.exports == null) {
                       ctx._source.exports = exports;
                     } else {
