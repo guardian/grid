@@ -126,6 +126,9 @@ a:focus {
     font-size: 2.6rem;
     margin-top: 10px;
 
+    animation-duration: 1500ms;
+    animation-name: flipper;
+    animation-iteration-count: infinite;
     -webkit-animation-duration: 1500ms;
     -webkit-animation-name: flipper;
     -webkit-animation-iteration-count: infinite;
@@ -654,6 +657,9 @@ a:focus {
     left: 0;
     right: 0;
     margin: 0 auto;
+    animation-duration: 2000ms;
+    animation-name: heartbeat;
+    animation-iteration-count: infinite;
     -webkit-animation-duration: 2000ms;
     -webkit-animation-name: heartbeat;
     -webkit-animation-iteration-count: infinite;
