@@ -39,6 +39,7 @@ object ElasticSearch extends ElasticSearchClient {
       .incrementOnSuccess(indexedImages)
 
   def deleteImage(id: String)(implicit ex: ExecutionContext): Future[DeleteByQueryResponse] =
+    // TODO: this query succeeds even if it doesn't find anything, this shouldn't be the case
     client.prepareDeleteByQuery(imagesAlias)
       .setTypes(imageType)
       .setQuery(filteredQuery(
