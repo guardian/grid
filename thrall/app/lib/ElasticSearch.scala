@@ -11,7 +11,7 @@ import org.elasticsearch.index.query.QueryBuilders.matchAllQuery
 import org.elasticsearch.index.engine.VersionConflictEngineException
 import org.elasticsearch.script.ScriptService
 import org.elasticsearch.index.query.QueryBuilders.{filteredQuery, boolQuery, matchQuery}
-import org.elasticsearch.index.query.FilterBuilders.{queryFilter, missingFilter}
+import org.elasticsearch.index.query.FilterBuilders.missingFilter
 import groovy.json.JsonSlurper
 import _root_.play.api.libs.json.{Json, JsValue}
 
