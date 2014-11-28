@@ -11,6 +11,7 @@ import 'directives/ui-crop-box';
 import 'upload/index';
 import 'search/index';
 import 'util/async';
+import 'util/digest';
 import 'pandular/heal';
 
 var apiLink = document.querySelector('link[rel="media-api-uri"]');
@@ -28,6 +29,7 @@ var kahuna = angular.module('kahuna', [
     'theseus',
     'pandular.heal',
     'util.async',
+    'util.digest',
     'kahuna.upload',
     'kahuna.search',
     'kahuna.services.api',
@@ -55,8 +57,7 @@ kahuna.config(['$stateProvider', '$urlRouterProvider', 'templatesDirectory', 'js
         // Virtual state, we always want to be in a child state of this
         abstract: true,
         url: '/',
-        templateUrl: jsDirectory + '/search/view.html',
-        controller: 'SearchCtrl as searchCtrl'
+        templateUrl: jsDirectory + '/search/view.html'
     });
     $stateProvider.state('search.results', {
         url: 'search?query&ids&since&nonFree&archived&valid&uploadedBy',
@@ -597,37 +598,5 @@ kahuna.directive('uiFile', function() {
         }
     };
 });
-
-
-/**
- * Catches files dropped
- */
-kahuna.directive('uiDropFiles',
-                 ['uploadManager', '$state',
-                  function(uploadManager, $state) {
-    return {
-        restrict: 'A',
-        scope: {
-            dropHandler: '&uiDropFiles'
-        },
-        link: function(scope, element, attrs, ctrl) {
-            element.on('dragover', event => {
-                event.preventDefault();
-                element.addClass('dnd--over');
-            });
-
-            element.on('dragleave', () => element.removeClass('dnd--over'));
-
-            element.on('drop', event => {
-                event.preventDefault();
-                element.removeClass('dnd--over');
-
-                var files = Array.from(event.originalEvent.dataTransfer.files);
-                scope.dropHandler({files: files});
-            });
-        }
-    };
-}]);
-
 
 angular.bootstrap(document, ['kahuna']);
