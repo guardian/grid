@@ -4,8 +4,6 @@
     </div>
 </div>
 
-<!-- TODO: upload button and drop area again? -->
-
 <section ng:if="latestJob"
          class="upload-latest">
     <h2>Uploading</h2>
@@ -17,3 +15,5 @@
 <p ng:controller="SessionCtrl" class="upload-yours">
     Or see <a ui:sref="search.results({uploadedBy: user.email})">all your uploads</a>.
 </p>
+
+<dnd-uploader></dnd-uploader>
