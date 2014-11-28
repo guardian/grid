@@ -19,7 +19,7 @@ import scalaz.NonEmptyList
 import com.gu.mediaservice.syntax._
 import com.gu.mediaservice.lib.elasticsearch.ElasticSearchClient
 import com.gu.mediaservice.lib.formatting.printDateTime
-import controllers.{ImageExtras, SearchParams}
+import controllers.SearchParams
 import lib.{MediaApiMetrics, Config}
 
 
@@ -55,10 +55,9 @@ object ElasticSearch extends ElasticSearchClient {
     val labelFilter      = params.labels.toNel.map(filters.terms("labels", _))
     val metadataFilter   = params.hasMetadata.map(metadataField).toNel.map(filters.exists)
     val archivedFilter   = params.archived.map(filters.bool("archived", _))
-    val hasExports       = params.hasExports match {
-      case Some(true)  => Some(filters.exists(NonEmptyList("exports")))
-      case Some(false) => Some(filters.missing(NonEmptyList("exports")))
-      case _           => None
+    val hasExports       = params.hasExports.map {
+      case true  => filters.exists(NonEmptyList("exports"))
+      case false => filters.missing(NonEmptyList("exports"))
     }
     val uploadedByFilter = params.uploadedBy.map(uploadedBy => filters.terms("uploadedBy", NonEmptyList(uploadedBy)))
 
