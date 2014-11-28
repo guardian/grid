@@ -611,7 +611,6 @@ a:focus {
 .jcrop-holder {
     margin: 0 auto;
     max-width: 100%;
-    top: 20px;
     position: relative;
     top: 50%;
     transform: translateY(-50%);
