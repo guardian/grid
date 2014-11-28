@@ -32,7 +32,7 @@ object MediaApi extends Controller with ArgoHelpers {
   def index = Action {
     val searchParams = List("q", "ids", "offset", "length", "fromDate", "toDate",
                             "orderBy", "since", "until", "uploadedBy", "archived",
-                            "valid", "free").mkString(",")
+                            "valid", "free", "hasExports").mkString(",")
     val response = Json.obj(
       "data"  -> Json.obj("description" -> "This is the Media API"),
       "links" -> Json.arr(
