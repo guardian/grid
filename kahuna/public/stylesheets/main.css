@@ -638,6 +638,37 @@ a:focus {
     top: 0;
     left: 0;
     z-index: 1;
+    text-align: center;
+}
+
+.dnd-uploader__info {
+    border: 0px solid #00adee;
+    color: white;
+    background: #00adee;
+    max-width: 500px;
+    border-radius: 2px;
+    text-align: center;
+    padding: 10px;
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    left: 0;
+    right: 0;
+    margin: 0 auto;
+    -webkit-animation-duration: 2000ms;
+    -webkit-animation-name: heartbeat;
+    -webkit-animation-iteration-count: infinite;
+}
+
+.dnd-uploader__heading {
+    font-size: 2.6rem;
+}
+
+@-webkit-keyframes heartbeat {
+    0% { border-width: 0; }
+    10% { border-width: 10px; }
+    90% { border-width: 10px; }
+    100% { border-width: 0; }
 }
 
 
