@@ -625,6 +625,21 @@ a:focus {
     opacity: 0;
 }
 
+/* ==========================================================================
+   Drag and drop
+   ========================================================================== */
+.dnd-uploader {
+    border: 5px dashed #00adee;
+    background: white;
+    width: calc(100vw - 10px);
+    height: calc(100vh - 10px); /* border-box doesn't work with v units */
+    opacity: .75;
+    position: fixed;
+    top: 0;
+    left: 0;
+    z-index: 1;
+}
+
 
 /* ==========================================================================
    Portrait
