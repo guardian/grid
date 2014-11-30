@@ -491,7 +491,7 @@ kahuna.directive('uiDragImage', function() {
     };
 });
 
-kahuna.directive('uiTitle', function($rootScope) {
+kahuna.directive('uiTitle', ['$rootScope', function($rootScope) {
     return {
         restrict: 'A',
         link: function(scope, element, attrs) {
@@ -504,7 +504,7 @@ kahuna.directive('uiTitle', function($rootScope) {
             });
         }
     };
-});
+}]);
 
 /**
  * using uiLocalStoreVal to set a key to the same value will remove that key from localStorage
