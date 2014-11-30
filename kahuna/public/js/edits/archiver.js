@@ -1,4 +1,6 @@
 import angular from 'angular';
+import template from './archiver.html!text';
+
 
 export var archiver = angular.module('kahuna.edits.archiver', []);
 
@@ -26,13 +28,13 @@ archiver.controller('ArchiverCtrl', ['$scope', '$window',
     }
 }]);
 
-archiver.directive('uiArchiver', ['jsDirectory', function(jsDirectory) {
+archiver.directive('uiArchiver', [function() {
     return {
         restrict: 'E',
         controller: 'ArchiverCtrl as archiver',
         scope: {
             archived: '='
         },
-        templateUrl: jsDirectory + '/edits/archiver.html'
+        template: template
     };
 }]);
