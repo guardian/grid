@@ -1,6 +1,7 @@
 {
   "jspm": {
     "directories": {
+      "baseURL": "public/js",
       "packages": "public/jspm_packages"
     },
     "configFile": "public/config.js",
