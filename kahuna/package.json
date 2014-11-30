@@ -11,6 +11,7 @@
       "github:tapmodo/Jcrop": "0.9.12",
       "jcrop": "0.9.12",
       "jquery": "2.1.1",
+      "text": "^0.0.2",
       "theseus": "github:argo-rest/theseus@master"
     }
   },

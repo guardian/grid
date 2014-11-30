@@ -1,4 +1,6 @@
 import angular from 'angular';
+import template from './query.html!text';
+
 
 export var query = angular.module('kahuna.search.query', []);
 
@@ -50,10 +52,10 @@ query.controller('SearchQueryCtrl', ['$scope', '$state', '$stateParams', 'mediaA
     });
 }]);
 
-query.directive('searchQuery', ['jsDirectory', function(jsDirectory) {
+query.directive('searchQuery', [function() {
     return {
         restrict: 'E',
         controller: 'SearchQueryCtrl as searchQuery',
-        templateUrl: jsDirectory + '/search/query.html'
+        template: template
     };
 }]);

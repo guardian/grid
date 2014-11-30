@@ -1,4 +1,5 @@
 import angular from 'angular';
+import template from './upload-jobs.html!text';
 
 export var jobs = angular.module('kahuna.upload.jobs', []);
 
@@ -69,7 +70,7 @@ jobs.controller('UploadJobsCtrl',
 }]);
 
 
-jobs.directive('uiUploadJobs', ['jsDirectory', function(jsDirectory) {
+jobs.directive('uiUploadJobs', [function() {
     return {
         restrict: 'E',
         scope: {
@@ -78,6 +79,6 @@ jobs.directive('uiUploadJobs', ['jsDirectory', function(jsDirectory) {
             jobs: '='
         },
         controller: 'UploadJobsCtrl as uploadJobsCtrl',
-        templateUrl: jsDirectory + '/upload/jobs/upload-jobs.html'
+        template: template
     };
 }]);
