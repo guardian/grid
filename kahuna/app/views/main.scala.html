@@ -18,7 +18,9 @@
         }
       });
 
-      System.import("app").catch(console.error.bind(console));
+      System.import("app").catch(function(error) {
+          setTimeout(function(){ throw error; });
+      });
     </script>
     <style>
         .ng-cloak { display: none }
