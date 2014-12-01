@@ -67,12 +67,15 @@
         </div>
 
         <div class="palette">
-            <a class="palette__button" ui:sref="search.results">back to search</a>
+            <a class="palette__button" ui:sref="search.results">← search</a>
             <!-- Only allow cropping of valid images -->
             <a ng:if="image.data.valid"
                class="palette__button"
                ui:sref="crop({imageId: image.data.id})"
-            >create crop ✄</a>
+            >✄ crop</a>
+
+            <archiver class="palette__button" archived="image.data.userMetadata.data.archived"></archiver>
+
             <span ng:if="! image.data.valid">cannot crop invalid image (missing metadata)</a>
         </div>
     </div>
