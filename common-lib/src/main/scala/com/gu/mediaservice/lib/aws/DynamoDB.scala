@@ -50,7 +50,10 @@ class DynamoDB(credentials: AWSCredentials, region: Region, tableName: String) {
 
   def booleanGet(id: String, key: String)
                 (implicit ex: ExecutionContext): Future[Boolean] =
-    get(id, key).map(_.getBoolean(key))
+    get(id, key).map{t => println(id); println(t); t.getBoolean(key)}
+
+  def booleanGet(id: String, key: String, default: Boolean)
+                (implicit ex: ExecutionContext): Future[Boolean] =
 
   def booleanSet(id: String, key: String, value: Boolean)
                 (implicit ex: ExecutionContext): Future[JsObject] =
