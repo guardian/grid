@@ -43,9 +43,7 @@ object ElasticSearch extends ElasticSearchClient {
     client.prepareDeleteByQuery(imagesAlias)
       .setTypes(imageType)
       .setQuery(filteredQuery(
-        boolQuery
-          .must(matchQuery("_id", id))
-          .must(matchQuery("archived", false)),
+        boolQuery.must(matchQuery("_id", id)),
         missingFilter("exports")
           .existence(true)
           .nullValue(true)
