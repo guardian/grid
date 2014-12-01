@@ -10,8 +10,8 @@ import org.elasticsearch.action.updatebyquery.UpdateByQueryResponse
 import org.elasticsearch.index.query.QueryBuilders.matchAllQuery
 import org.elasticsearch.index.engine.VersionConflictEngineException
 import org.elasticsearch.script.ScriptService
-import org.elasticsearch.index.query.QueryBuilders.{filteredQuery, matchQuery}
-import org.elasticsearch.index.query.FilterBuilders.queryFilter
+import org.elasticsearch.index.query.QueryBuilders.{filteredQuery, boolQuery, matchQuery}
+import org.elasticsearch.index.query.FilterBuilders.missingFilter
 import groovy.json.JsonSlurper
 import _root_.play.api.libs.json.{Json, JsValue}
 
@@ -39,9 +39,17 @@ object ElasticSearch extends ElasticSearchClient {
       .incrementOnSuccess(indexedImages)
 
   def deleteImage(id: String)(implicit ex: ExecutionContext): Future[DeleteByQueryResponse] =
+    // TODO: this query succeeds even if it doesn't find anything, this shouldn't be the case
     client.prepareDeleteByQuery(imagesAlias)
       .setTypes(imageType)
-      .setQuery(filteredQuery(matchQuery("_id", id), queryFilter(matchQuery("archived", false))))
+      .setQuery(filteredQuery(
+        boolQuery
+          .must(matchQuery("_id", id))
+          .must(matchQuery("archived", false)),
+        missingFilter("exports")
+          .existence(true)
+          .nullValue(true)
+      ))
       .executeAndLog(s"Deleting image $id")
       .incrementOnSuccess(deletedImages)
 
@@ -51,7 +59,6 @@ object ElasticSearch extends ElasticSearchClient {
         "exports" -> asGroovy(exports)
       ).asJava)
       .setScript("""
-                    ctx._source.archived = true;
                     if (ctx._source.exports == null) {
                       ctx._source.exports = exports;
                     } else {
