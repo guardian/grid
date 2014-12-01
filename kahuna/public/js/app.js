@@ -10,6 +10,7 @@ import 'services/api/loader';
 import 'directives/ui-crop-box';
 import 'upload/index';
 import 'search/index';
+import 'edits/index';
 import 'util/async';
 import 'util/digest';
 import 'pandular/heal';
@@ -32,6 +33,7 @@ var kahuna = angular.module('kahuna', [
     'util.digest',
     'kahuna.upload',
     'kahuna.search',
+    'kahuna.edits',
     'kahuna.services.api',
     'kahuna.directives'
 ]);
