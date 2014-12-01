@@ -23,6 +23,6 @@ object Config extends CommonPlayAppProperties {
   val rootUri = services.metadataBaseUri
   val kahunaUri = services.kahunaBaseUri
 
-  val corsAllowedOrigin = services.kahunaBaseUri
+  val corsAllAllowedOrigin = List(services.kahunaBaseUri)
 
 }
