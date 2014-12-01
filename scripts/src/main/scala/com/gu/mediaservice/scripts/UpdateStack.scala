@@ -148,8 +148,7 @@ abstract class StackScript {
         case Prod => List("https://composer.***REMOVED***")
         case _    =>
           List("local", "code", "qa", "release").
-            map(env => s"https://composer.$env.dev-***REMOVED***").
-            mkString(",")
+            map(env => s"https://composer.$env.dev-***REMOVED***")
       }
 
       lib.Stack(
@@ -172,7 +171,7 @@ abstract class StackScript {
           // Annoyingly, CloudFormation doesn't support optional parameters
           param("ImageEdgeSecureHostname", imgEdgeSecureHostname.getOrElse("")),
           param("DomainRoot", domainRoot),
-          param("CorsAllowedOrigins", corsAllowedOrigins),
+          param("CorsAllowedOrigins", corsAllowedOrigins.mkString(",")),
           param("AlertEmail", alertEmail),
           param("AlertActive", alertActive.toString),
           param("PandaDomain", parentDomain),
