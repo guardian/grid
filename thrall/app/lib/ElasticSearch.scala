@@ -40,6 +40,7 @@ object ElasticSearch extends ElasticSearchClient {
 
   def deleteImage(id: String)(implicit ex: ExecutionContext): Future[DeleteByQueryResponse] =
     // TODO: this query succeeds even if it doesn't find anything, this shouldn't be the case
+    // TODO: Add check to user metadata archived.
     client.prepareDeleteByQuery(imagesAlias)
       .setTypes(imageType)
       .setQuery(filteredQuery(
