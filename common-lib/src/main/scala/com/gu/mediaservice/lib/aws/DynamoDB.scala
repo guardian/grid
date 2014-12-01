@@ -60,6 +60,13 @@ class DynamoDB(credentials: AWSCredentials, region: Region, tableName: String) {
       new ValueMap().withBoolean(":value", value)
     )
 
+  def booleanSetOrRemove(id: String, key: String, value: Boolean)
+                        (implicit ex: ExecutionContext): Future[JsObject] =
+    value match {
+      case true  => booleanSet(id, key, value)
+      case false => removeKey(id, key)
+    }
+
 
   def setGet(id: String, key: String)
             (implicit ex: ExecutionContext): Future[Set[String]] =
