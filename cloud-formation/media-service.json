@@ -71,6 +71,10 @@
             "Description": "Root domain (suffix) for all deployed services",
             "Type": "String"
         },
+        "CorsAllowedOrigins": {
+            "Description": "Comma-separated list of CORS-allowed origins",
+            "Type": "String"
+        },
         "AlertEmail": {
             "Description": "Email to send CloudWatch alerts to",
             "Type": "String"
@@ -660,6 +664,7 @@
                         "s3.image.bucket=", { "Ref": "ImageBucket" }, "\n",
                         "s3.thumb.bucket=", { "Ref": "ThumbBucket" }, "\n",
                         "auth.keystore.bucket=", { "Ref": "KeyBucket" }, "\n",
+                        "cors.allowed.origins=", { "Ref": "CorsAllowedOrigins" }, "\n",
                         "EOF\n",
 
                         "start media-api\n"

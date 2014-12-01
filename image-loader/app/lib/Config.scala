@@ -27,7 +27,7 @@ object Config extends CommonPlayAppProperties {
 
   val rootUri = services.loaderBaseUri
 
-  lazy val corsAllowedOrigin: String = services.kahunaBaseUri
+  lazy val corsAllAllowedOrigins: List[String] = List(services.kahunaBaseUri)
 
 
   val supportedMimeTypes = List("image/jpeg")

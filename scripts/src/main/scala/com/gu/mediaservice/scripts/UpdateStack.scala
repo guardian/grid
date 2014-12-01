@@ -144,6 +144,13 @@ abstract class StackScript {
         case _    => None
       }
 
+      val corsAllowedOrigins = stage match {
+        case Prod => List("https://composer.gutools.co.uk")
+        case _    =>
+          List("local", "code", "qa", "release").
+            map(env => s"https://composer.$env.dev-gutools.co.uk")
+      }
+
       lib.Stack(
         stage,
         s"media-service-$stage",
@@ -164,6 +171,7 @@ abstract class StackScript {
           // Annoyingly, CloudFormation doesn't support optional parameters
           param("ImageEdgeSecureHostname", imgEdgeSecureHostname.getOrElse("")),
           param("DomainRoot", domainRoot),
+          param("CorsAllowedOrigins", corsAllowedOrigins.mkString(",")),
           param("AlertEmail", alertEmail),
           param("AlertActive", alertActive.toString),
           param("PandaDomain", parentDomain),
