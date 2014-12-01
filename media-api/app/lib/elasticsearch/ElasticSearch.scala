@@ -19,7 +19,7 @@ import scalaz.NonEmptyList
 import com.gu.mediaservice.syntax._
 import com.gu.mediaservice.lib.elasticsearch.ElasticSearchClient
 import com.gu.mediaservice.lib.formatting.printDateTime
-import controllers.{ImageExtras, SearchParams}
+import controllers.SearchParams
 import lib.{MediaApiMetrics, Config}
 
 
@@ -54,7 +54,12 @@ object ElasticSearch extends ElasticSearchClient {
     val idsFilter        = params.ids.map(filters.ids)
     val labelFilter      = params.labels.toNel.map(filters.terms("labels", _))
     val metadataFilter   = params.hasMetadata.map(metadataField).toNel.map(filters.exists)
-    val archivedFilter   = params.archived.map(filters.bool("archived", _))
+    // TODO: recycle to userMetadata.archived
+    // val archivedFilter   = params.archived.map(filters.bool("archived", _))
+    val hasExports       = params.hasExports.map {
+      case true  => filters.exists(NonEmptyList("exports"))
+      case false => filters.missing(NonEmptyList("exports"))
+    }
     val uploadedByFilter = params.uploadedBy.map(uploadedBy => filters.terms("uploadedBy", NonEmptyList(uploadedBy)))
 
     val validFilter      = Config.requiredMetadata.map(metadataField).toNel.map(filters.exists)
@@ -67,8 +72,9 @@ object ElasticSearch extends ElasticSearchClient {
     val nonFreeFilter    = Config.freeForUseFrom.toNel.map(cs => filters.not(filters.terms("metadata.credit", cs)))
     val costFilter       = params.free.flatMap(free => if (free) freeFilter else nonFreeFilter)
 
-    val filter = (metadataFilter.toList ++ labelFilter ++ archivedFilter ++
-                  uploadedByFilter ++ idsFilter ++ validityFilter ++ costFilter)
+    val filter = (metadataFilter.toList ++ labelFilter ++
+                  uploadedByFilter ++ idsFilter ++ validityFilter ++ costFilter ++
+                  hasExports)
                    .foldLeft(dateFilter)(filters.and)
 
     val search = prepareImagesSearch.setQuery(query).setPostFilter(filter) |>
