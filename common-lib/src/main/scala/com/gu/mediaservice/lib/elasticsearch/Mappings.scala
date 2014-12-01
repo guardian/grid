@@ -83,8 +83,7 @@ object Mappings {
           "originalMetadata" -> metadataMapping,
           "exports" -> exportsMapping,
           "uploadTime" -> dateFormat,
-          "uploadedBy" -> nonAnalyzedString,
-          "archived" -> boolean
+          "uploadedBy" -> nonAnalyzedString
         ),
         "dynamic_templates" -> Json.arr(Json.obj(
           "stored_json_object_template" -> Json.obj(
