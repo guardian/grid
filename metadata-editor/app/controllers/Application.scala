@@ -59,7 +59,7 @@ object Application extends Controller with ArgoHelpers {
     booleanForm.bindFromRequest()(req).fold(
       errors => Future.successful(BadRequest(errors.errorsAsJson)),
       archived => {
-        dynamo.booleanSet(id, "archived", archived) map publishAndRespond(id)
+        dynamo.booleanSetOrRemove(id, "archived", archived) map publishAndRespond(id)
       }
     )
   }
