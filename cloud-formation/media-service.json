@@ -1380,7 +1380,7 @@
                         "MEDIA_API=https://", { "Fn::GetAtt": ["MediaApiLoadBalancer", "DNSName"] } ,"\n",
 
                         "cat > /home/media-service/reaper.sh <<EOF\n",
-                        "curl -k --silent \"$MEDIA_API/images?until=20.days&length=100&hasExports=false&archived=false\" ",
+                        "curl -k --silent \"$MEDIA_API/images?until=20.days&length=100&hasExports=false\" ",
                         " -H 'X-Gu-Media-Key: reaper-5c928132116656580ede0417e7cc1c5b' ",
                         " | python /home/media-service/extract_uris.py ",
                         " | xargs curl -k --silent -X DELETE -H 'X-Gu-Media-Key: reaper-5c928132116656580ede0417e7cc1c5b' \n",

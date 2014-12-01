@@ -54,7 +54,8 @@ object ElasticSearch extends ElasticSearchClient {
     val idsFilter        = params.ids.map(filters.ids)
     val labelFilter      = params.labels.toNel.map(filters.terms("labels", _))
     val metadataFilter   = params.hasMetadata.map(metadataField).toNel.map(filters.exists)
-    val archivedFilter   = params.archived.map(filters.bool("archived", _))
+    // TODO: recycle to userMetadata.archived
+    // val archivedFilter   = params.archived.map(filters.bool("archived", _))
     val hasExports       = params.hasExports.map {
       case true  => filters.exists(NonEmptyList("exports"))
       case false => filters.missing(NonEmptyList("exports"))
@@ -71,7 +72,7 @@ object ElasticSearch extends ElasticSearchClient {
     val nonFreeFilter    = Config.freeForUseFrom.toNel.map(cs => filters.not(filters.terms("metadata.credit", cs)))
     val costFilter       = params.free.flatMap(free => if (free) freeFilter else nonFreeFilter)
 
-    val filter = (metadataFilter.toList ++ labelFilter ++ archivedFilter ++
+    val filter = (metadataFilter.toList ++ labelFilter ++
                   uploadedByFilter ++ idsFilter ++ validityFilter ++ costFilter ++
                   hasExports)
                    .foldLeft(dateFilter)(filters.and)
