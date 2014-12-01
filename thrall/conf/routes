@@ -14,3 +14,4 @@ GET     /script/add-archive-property                       controllers.Applicati
 GET     /script/copy-and-remove-archive-to-archived        controllers.Application.copyAndRemoveArchiveToArchived
 GET     /script/copy-to-source-property                    controllers.Application.copyToSourcePropertyScript
 GET     /script/remove-file-dims-properties                controllers.Application.removeFileDimensionsPropertiesScript
+GET     /script/remove-archived-field                      controllers.Application.removeArchivedField

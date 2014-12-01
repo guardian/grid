@@ -50,4 +50,8 @@ object Application extends Controller {
                   if (ctx._source.dimensions) { ctx._source.remove('dimensions'); }""")
   }
 
+  def removeArchivedField = Action.async {
+    runScript("""ctx._source.remove('archived')""")
+  }
+
 }

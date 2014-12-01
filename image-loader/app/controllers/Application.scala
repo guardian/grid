@@ -88,7 +88,7 @@ class ImageLoader(storage: ImageStorage) extends Controller with ArgoHelpers {
         thumbSize   = thumb.length
         thumbDimensions <- FileMetadata.dimensions(thumb)
         thumbAsset  = Asset(thumbUri, thumbSize, mimeType, thumbDimensions)
-        image       = Image.uploadedNow(id, uploadedBy, sourceAsset, thumbAsset, fileMetadata, cleanMetadata, false)
+        image       = Image.uploadedNow(id, uploadedBy, sourceAsset, thumbAsset, fileMetadata, cleanMetadata)
       } yield {
         Notifications.publish(Json.toJson(image), "image")
         // TODO: return an entity pointing to the Media API uri for the image
