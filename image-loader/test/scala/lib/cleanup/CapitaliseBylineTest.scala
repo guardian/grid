@@ -1,10 +1,10 @@
 package scala.lib.cleanup
 
-import lib.cleanup.CapitalisationFixer
+import lib.cleanup.CapitaliseByline
 import org.scalatest.{FunSpec, Matchers}
 
 
-class CapitalisationFixerTest extends FunSpec with Matchers with CapitalisationFixer with MetadataHelper {
+class CapitaliseBylineTest extends FunSpec with Matchers with MetadataHelper {
 
   it("should not change a correctly capitalised name") {
     expectUnchanged("James Gorrie")
@@ -61,9 +61,9 @@ class CapitalisationFixerTest extends FunSpec with Matchers with CapitalisationF
   }
 
   def expectCleaned(in: String, out: String): Unit = {
-    val cleaned = fixCapitalisation(in)
+    val cleaned = CapitaliseByline.clean(createImageMetadata("byline" -> in)).byline
 
-    cleaned should be (out)
+    cleaned should be (Some(out))
   }
 
 }
