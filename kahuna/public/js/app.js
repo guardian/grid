@@ -15,13 +15,20 @@ import 'util/async';
 import 'util/digest';
 import 'pandular/heal';
 
+// TODO: refactor all into their respective directories
+import searchTemplate        from './search/view.html!text';
+import searchResultsTemplate from './search/results.html!text';
+import imageTemplate         from './image/view.html!text';
+import cropTemplate          from './crop/view.html!text';
+import uploadTemplate        from './upload/view.html!text';
+import imageLabelsTemplate   from './image/labels.html!text';
+
+
 var apiLink = document.querySelector('link[rel="media-api-uri"]');
 var config = {
     mediaApiUri: apiLink.getAttribute('href'),
 
     // Static config
-    templatesDirectory: '/assets/templates',
-    jsDirectory:        '/assets/js',
     'pandular.reAuthUri': '/login'
 };
 
@@ -51,19 +58,20 @@ kahuna.config(['$locationProvider',
     $locationProvider.html5Mode(true).hashPrefix('!');
 }]);
 
-kahuna.config(['$stateProvider', '$urlRouterProvider', 'templatesDirectory', 'jsDirectory',
-               function($stateProvider, $urlRouterProvider, templatesDirectory, jsDirectory) {
+
+kahuna.config(['$stateProvider', '$urlRouterProvider',
+               function($stateProvider, $urlRouterProvider) {
 
     // TODO: move to search module config
     $stateProvider.state('search', {
         // Virtual state, we always want to be in a child state of this
         abstract: true,
         url: '/',
-        templateUrl: jsDirectory + '/search/view.html'
+        template: searchTemplate
     });
     $stateProvider.state('search.results', {
         url: 'search?query&ids&since&nonFree&archived&valid&uploadedBy',
-        templateUrl: jsDirectory + '/search/results.html',
+        template: searchResultsTemplate,
         controller: 'SearchResultsCtrl',
         data: {
             title: function(params) {
@@ -74,20 +82,20 @@ kahuna.config(['$stateProvider', '$urlRouterProvider', 'templatesDirectory', 'js
 
     $stateProvider.state('image', {
         url: '/images/:imageId?crop',
-        templateUrl: templatesDirectory + '/image.html',
+        template: imageTemplate,
         controller: 'ImageCtrl'
     });
 
     $stateProvider.state('crop', {
         url: '/images/:imageId/crop',
-        templateUrl: templatesDirectory + '/crop.html',
+        template: cropTemplate,
         controller: 'ImageCropCtrl as imageCropCtrl'
     });
 
     // TODO: move to upload module config
     $stateProvider.state('upload', {
         url: '/upload',
-        templateUrl: jsDirectory + '/upload/view.html',
+        template: uploadTemplate,
         controller: 'UploadCtrl as uploadCtrl'
     });
 
@@ -218,10 +226,7 @@ kahuna.controller('ImageLabelsCtrl',
 
 }]);
 
-kahuna.directive('uiImageLabels',
-                 ['templatesDirectory',
-                  function(templatesDirectory) {
-
+kahuna.directive('uiImageLabels', [function() {
     return {
         restrict: 'E',
         scope: {
@@ -230,7 +235,7 @@ kahuna.directive('uiImageLabels',
             labels: '='
         },
         controller: 'ImageLabelsCtrl as labelsCtrl',
-        templateUrl: templatesDirectory + '/image/labels.html'
+        template: imageLabelsTemplate
     };
 }]);
 
@@ -486,7 +491,7 @@ kahuna.directive('uiDragImage', function() {
     };
 });
 
-kahuna.directive('uiTitle', function($rootScope) {
+kahuna.directive('uiTitle', ['$rootScope', function($rootScope) {
     return {
         restrict: 'A',
         link: function(scope, element, attrs) {
@@ -499,7 +504,7 @@ kahuna.directive('uiTitle', function($rootScope) {
             });
         }
     };
-});
+}]);
 
 /**
  * using uiLocalStoreVal to set a key to the same value will remove that key from localStorage
