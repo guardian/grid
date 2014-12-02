@@ -43,31 +43,48 @@ dndUploader.directive('dndUploader', ['$window', 'delay', 'safeApply',
             var activate   = () => safeApply(scope, () => scope.activated = true);
             var deactivate = () => safeApply(scope, () => scope.activated = false);
 
-            // The dragover `preventDefault` is to allow for dropping
-            $$window.on('dragover', event => {
+            $$window.on('dragover', over);
+            $$window.on('dragenter', enter);
+            $$window.on('dragleave', leave);
+            $$window.on('drop', drop);
+
+            scope.$on('$destroy', clean);
+
+            function over(event) {
                 dragging = true;
-                event.preventDefault()
-            });
-            $$window.on('dragenter', event => {
+                // The dragover `preventDefault` is to allow for dropping
+                event.preventDefault();
+            }
+
+            function enter(event) {
                 dragging = true;
                 activate();
-            });
-            $$window.on('dragleave', event => {
+            }
+
+            function leave(event) {
                 dragging = false;
                 delay(50).then(() => {
                     if (!dragging) {
                         deactivate();
                     }
                 }); // [2]
-            });
-            $$window.on('drop', event => {
+            }
+
+            function drop(event) {
                 var files = Array.from(event.originalEvent.dataTransfer.files);
 
                 event.preventDefault();
 
                 scope.dndUploader.uploadFiles(files);
                 scope.$apply(deactivate);
-            });
+            }
+
+            function clean() {
+                $$window.off('dragover', over)
+                $$window.off('dragenter', enter)
+                $$window.off('dragleave', leave)
+                $$window.off('drop', drop)
+            }
         }
     }
 }]);
