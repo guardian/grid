@@ -11,7 +11,7 @@ import org.elasticsearch.index.query.QueryBuilders.matchAllQuery
 import org.elasticsearch.index.engine.VersionConflictEngineException
 import org.elasticsearch.script.ScriptService
 import org.elasticsearch.index.query.QueryBuilders.{filteredQuery, boolQuery, matchQuery}
-import org.elasticsearch.index.query.FilterBuilders.missingFilter
+import org.elasticsearch.index.query.FilterBuilders.{missingFilter, andFilter}
 import groovy.json.JsonSlurper
 import _root_.play.api.libs.json.{Json, JsValue}
 
@@ -45,9 +45,9 @@ object ElasticSearch extends ElasticSearchClient {
       .setTypes(imageType)
       .setQuery(filteredQuery(
         boolQuery.must(matchQuery("_id", id)),
-        missingFilter("exports")
-          .existence(true)
-          .nullValue(true)
+        andFilter(
+          missingOrEmptyFilter("exports"),
+          missingOrEmptyFilter("userMetadata.archived"))
       ))
       .executeAndLog(s"Deleting image $id")
       .incrementOnSuccess(deletedImages)
@@ -102,5 +102,8 @@ object ElasticSearch extends ElasticSearchClient {
       .incrementOnFailure(conflicts) { case e: VersionConflictEngineException => true }
 
   def asGroovy(collection: JsValue) = new JsonSlurper().parseText(collection.toString)
+
+  def missingOrEmptyFilter(field: String) =
+    missingFilter(field).existence(true).nullValue(true)
 
 }
