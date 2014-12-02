@@ -1,5 +1,5 @@
 <button class="archiver"
-        ng:class="{'archiver--archived': archived.data}"
+        ng:class="{'archiver--archived': archiver.isArchived}"
         ng:click="archiver.toggleArchived(archived)"
         ng:disabled="archiver.archiving">
     ✪ archive

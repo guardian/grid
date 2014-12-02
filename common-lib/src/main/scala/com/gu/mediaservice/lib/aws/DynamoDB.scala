@@ -49,11 +49,12 @@ class DynamoDB(credentials: AWSCredentials, region: Region, tableName: String) {
 
 
   def booleanGet(id: String, key: String)
-                (implicit ex: ExecutionContext): Future[Boolean] =
-    get(id, key).map{t => println(id); println(t); t.getBoolean(key)}
-
-  def booleanGet(id: String, key: String, default: Boolean)
-                (implicit ex: ExecutionContext): Future[Boolean] =
+                (implicit ex: ExecutionContext): Future[Option[Boolean]] =
+    // TODO: add Option to item as it can be null
+    get(id, key).map{ item => item.get(key) match {
+      case b: java.lang.Boolean => Some(b.booleanValue)
+      case _ => None
+    }}
 
   def booleanSet(id: String, key: String, value: Boolean)
                 (implicit ex: ExecutionContext): Future[JsObject] =

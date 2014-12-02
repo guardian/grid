@@ -51,7 +51,8 @@ object Application extends Controller with ArgoHelpers {
 
   def getArchived(id: String) = Authenticated.async {
     dynamo.booleanGet(id, "archived") map { archived =>
-      Ok(Json.obj("data" -> archived)).as(ArgoMediaType)
+      val a = archived.getOrElse(false)
+      Ok(Json.obj("data" -> a)).as(ArgoMediaType)
     }
   }
 

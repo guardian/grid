@@ -3,19 +3,21 @@ import angular from 'angular';
 export var archiver = angular.module('kahuna.edits.archiver', []);
 
 archiver.controller('ArchiverCtrl', ['$scope', '$state', '$stateParams', 'mediaApi',
-                 function($scope, $state, $stateParams, mediaApi) {
+                    function($scope, $state, $stateParams, mediaApi) {
 
     var ctrl = this;
 
     ctrl.toggleArchived = toggleArchived;
+    ctrl.isArchived = $scope.archived.data;
 
-    function toggleArchived(archived) {
-        var setVal = !archived.data;
-        console.log(archived
-            .put({ data: setVal }).get())
-
-
-
+    function toggleArchived() {
+        var setVal = !ctrl.isArchived;
+        // FIXME:
+        $scope.archived
+            .put({ data: setVal })
+            .response.then(resp => {
+                ctrl.isArchived = resp.body.data;
+            });
     }
 }]);
 
