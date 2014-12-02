@@ -26,7 +26,7 @@ archiver.controller('ArchiverCtrl', ['$scope', '$window',
     }
 }]);
 
-archiver.directive('archiver', ['jsDirectory', function(jsDirectory) {
+archiver.directive('uiArchiver', ['jsDirectory', function(jsDirectory) {
     return {
         restrict: 'E',
         controller: 'ArchiverCtrl as archiver',
