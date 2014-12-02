@@ -46,12 +46,8 @@ object ElasticSearch extends ElasticSearchClient {
       .setQuery(filteredQuery(
         boolQuery.must(matchQuery("_id", id)),
         andFilter(
-          missingFilter("exports")
-            .existence(true)
-            .nullValue(true),
-          missingFilter("userMetadata.archived")
-            .existence(true)
-            .nullValue(true))
+          missingOrEmptyFilter("exports"),
+          missingOrEmptyFilter("userMetadata.archived"))
       ))
       .executeAndLog(s"Deleting image $id")
       .incrementOnSuccess(deletedImages)
@@ -106,5 +102,8 @@ object ElasticSearch extends ElasticSearchClient {
       .incrementOnFailure(conflicts) { case e: VersionConflictEngineException => true }
 
   def asGroovy(collection: JsValue) = new JsonSlurper().parseText(collection.toString)
+
+  def missingOrEmptyFilter(field: String) =
+    missingFilter(field).existence(true).nullValue(true)
 
 }
