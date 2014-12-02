@@ -11,7 +11,7 @@ import org.elasticsearch.index.query.QueryBuilders.matchAllQuery
 import org.elasticsearch.index.engine.VersionConflictEngineException
 import org.elasticsearch.script.ScriptService
 import org.elasticsearch.index.query.QueryBuilders.{filteredQuery, boolQuery, matchQuery}
-import org.elasticsearch.index.query.FilterBuilders.missingFilter
+import org.elasticsearch.index.query.FilterBuilders.{missingFilter, andFilter}
 import groovy.json.JsonSlurper
 import _root_.play.api.libs.json.{Json, JsValue}
 
@@ -46,9 +46,13 @@ object ElasticSearch extends ElasticSearchClient {
         boolQuery
           .must(matchQuery("_id", id))
           .must(matchQuery("archived", false)),
-        missingFilter("exports")
-          .existence(true)
-          .nullValue(true)
+        andFilter(
+          missingFilter("exports")
+            .existence(true)
+            .nullValue(true),
+          missingFilter("userMetadata.archived")
+            .existence(true)
+            .nullValue(true))
       ))
       .executeAndLog(s"Deleting image $id")
       .incrementOnSuccess(deletedImages)
