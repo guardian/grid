@@ -77,6 +77,7 @@ object Build extends Build {
       .enablePlugins(play.PlayScala)
       .dependsOn(lib)
       .settings(commonSettings ++ playArtifactDistSettings ++ playArtifactSettings: _*)
+      .settings(libraryDependencies += filters)
       .settings(magentaPackageName := path)
 
   def playArtifactSettings = Seq(
