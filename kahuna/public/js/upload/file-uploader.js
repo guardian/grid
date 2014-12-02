@@ -1,4 +1,5 @@
 import angular from 'angular';
+import template from './file-uploader.html!text';
 
 export var fileUploader = angular.module('kahuna.upload.fileUploader', []);
 
@@ -21,10 +22,10 @@ fileUploader.controller('FileUploaderCtrl',
 }]);
 
 
-fileUploader.directive('fileUploader', ['jsDirectory', function(jsDirectory) {
+fileUploader.directive('fileUploader', [function() {
     return {
         restrict: 'E',
         controller: 'FileUploaderCtrl as fileUploader',
-        templateUrl: jsDirectory + '/upload/file-uploader.html'
+        template: template
     };
 }]);
