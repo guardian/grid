@@ -103,7 +103,7 @@ results.controller('SearchResultsCtrl',
         var lastImage = $scope.images.slice(-1)[0];
         if (lastImage) {
             var until = lastImage.data.uploadTime;
-            return search({until: until}).then(function(moreImages) {
+            return search({until: until, since: $stateParams.since}).then(function(moreImages) {
                 // Filter out duplicates (esp. on exact same 'until' date)
                 var newImages = excludingCurrentImages(moreImages.data);
                 $scope.images = $scope.images.concat(newImages);
