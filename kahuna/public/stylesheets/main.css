@@ -490,7 +490,19 @@ a:focus {
 }
 
 
-.image-label {
+/* ==========================================================================
+   Labeler
+   ========================================================================== */
+.labeler {
+    font-size: 1.4rem;
+    font-family: "Guardian Agate Sans 1 Web";
+}
+
+.labels {
+    display: inline-block;
+}
+
+.label {
     background-color: #00adee;
     color: white;
     display: inline-block;
@@ -498,21 +510,21 @@ a:focus {
     border-radius: 2px;
     margin-right: 5px;
 }
-.image-label--removing {
+.label--removing {
     background-color: #99ddff;
 }
 
-.image-label__link,
-.image-label__remove {
+.label__link,
+.label__remove {
     color: white;
 }
 
-.image-labels,
-.image-no-labels {
+.labels,
+.no-labels {
     margin-bottom: 5px
 }
 
-.image-no-labels {
+.no-labels {
     font-style: italic;
 }
 
@@ -524,6 +536,10 @@ a:focus {
 .upload-latest,
 .upload-yours {
     margin: 20px;
+}
+
+.jobs {
+    border-collapse: collapse;
 }
 
 .job-status {
@@ -548,8 +564,8 @@ a:focus {
 
 .job-info {
     vertical-align: top;
-    padding-bottom: 5px;
-    padding-right: 30px;
+    padding: 20px 30px 20px;
+    border-bottom: 1px dashed #ccc;
 }
 
 .job-info--thumbnail {
@@ -593,6 +609,12 @@ a:focus {
     margin-bottom: -7px;
 }
 
+.job-editor:after {
+    clear: both;
+    content: " ";
+    display: table;
+}
+
 .job-editor__inputs,
 .job-editor__buttons {
     float: left;
@@ -602,6 +624,10 @@ a:focus {
 .job-editor__button {
     display: block;
     margin-bottom: 5px;
+}
+
+.jobs-labeler {
+    clear: both;
 }
 
 
