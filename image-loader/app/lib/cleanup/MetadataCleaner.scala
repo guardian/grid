@@ -8,7 +8,13 @@ trait MetadataCleaner {
 
 object MetadataCleaner {
 
-  val allCleaners = List(CapitaliseByline, CapitaliseCity)
+  val allCleaners = List(
+    CleanRubbishCountry,
+    CountryCode,
+    CapitaliseByline,
+    CapitaliseCountry,
+    CapitaliseCity
+  )
 
   def clean(inputMetadata: ImageMetadata): ImageMetadata =
     allCleaners.foldLeft(inputMetadata) {
@@ -17,9 +23,6 @@ object MetadataCleaner {
 }
 
 // By vague order of importance:
-
-// TODO: country code to country name
-// TODO: capitalise country (watching out for USA, etc)
 
 // TODO: strip location+date prefix from description
 // TODO: strip credit suffix from description
