@@ -12,7 +12,9 @@ object CountryCode extends MetadataCleaner {
 
   val allLocales = Locale.getISOCountries.map(new Locale("", _))
 
-  def mapTwoLetterCode(code: String): String = new Locale("", code).getDisplayName
+  def mapTwoLetterCode(code: String): String = {
+    new Locale("", canonicalTwoLetterCode(code)).getDisplayName
+  }
 
   def mapThreeLetterCode(code: String): String = {
     // Rather inefficient O(n) lookup, seemingly no built-in lookup for ISO3 codes
@@ -21,6 +23,12 @@ object CountryCode extends MetadataCleaner {
       Logger.warn(s"Failed to map three-letter code to country name: $code")
       code
     }
+  }
+
+  def canonicalTwoLetterCode(code: String): String = code match {
+    // Map erroneous "UK" code to its correct equivalent
+    case "UK" => "GB"
+    case c    => c
   }
 
   override def clean(metadata: ImageMetadata): ImageMetadata = metadata.country match {
