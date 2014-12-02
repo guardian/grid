@@ -2,22 +2,27 @@ import angular from 'angular';
 
 export var archiver = angular.module('kahuna.edits.archiver', []);
 
-archiver.controller('ArchiverCtrl', ['$scope', '$state', '$stateParams', 'mediaApi',
-                    function($scope, $state, $stateParams, mediaApi) {
+archiver.controller('ArchiverCtrl', ['$scope', '$window',
+                    function($scope, $window) {
 
     var ctrl = this;
 
     ctrl.toggleArchived = toggleArchived;
     ctrl.isArchived = $scope.archived.data;
+    ctrl.archiving = false;
 
     function toggleArchived() {
         var setVal = !ctrl.isArchived;
-        // FIXME:
+        ctrl.archiving = true;
+
+        // FIXME: theseus should return a `Resource` on `put` that we can
+        // update `ctrl.archived` with.
         $scope.archived
             .put({ data: setVal })
-            .response.then(resp => {
-                ctrl.isArchived = resp.body.data;
-            });
+            .response.then(
+                resp => ctrl.isArchived = resp.body.data,
+                resp => $window.alert('Failed to save the changes, please try again.')
+            ).finally(() => ctrl.archiving = false);
     }
 }]);
 
