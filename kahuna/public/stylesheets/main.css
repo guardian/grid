@@ -149,6 +149,7 @@ a:focus {
 }
 
 .top-bar__container {
+    display: flex;
     background-color: #ccc;
     box-sizing: border-box;
     padding: 10px;
@@ -157,22 +158,26 @@ a:focus {
     width: 100%;
     z-index: 1;
     box-shadow: 0px 1px 5px #999;
+    font-size: 1.4rem;
 }
 
-.top-bar__controls {
-    float: right;
+.top-bar__nav {
+    flex-grow: 1;
 }
 
-.top-bar__control {
+.top-bar__actions {
+    display: flex;
+}
+
+.top-bar__nav-item,
+.top-bar__action {
     margin-left: 10px;
-    display: inline-block;
     vertical-align: middle;
 }
 
 .logout {
-    font-family: "Guardian Agate Sans 1 Web";
     font-size: 1.2rem;
-    padding: 5px 10px;
+    padding-top: 5px;
 }
 
 
@@ -180,35 +185,24 @@ a:focus {
    Search
    ========================================================================== */
 
-.search {
-    float: left;
-}
-
-.search__control {
-    margin-right: 10px;
-    font-size: 1.4rem;
-}
+.search {}
 
 .search__query {
     padding: 5px 10px;
-    width: 200px;
+    max-width: 250px;
+    width: 100%;
 }
 
-.search__since-radios {
+.search__filters {
     display: inline-block;
 }
 
-/* 910 is based on knowing the width where it breaks */
-@media (max-width: 910px) {
-    .search__since-radios {
-        display: none;
-    }
+.search__filter {
+    vertical-align: middle;
+    margin-left: 10px;
 }
-
-@media (min-width: 910px) {
-    .search__since-select {
-        display: none;
-    }
+.search__filter--first {
+    margin: 0;
 }
 
 

@@ -25,20 +25,6 @@ query.controller('SearchQueryCtrl', ['$scope', '$state', '$stateParams', 'mediaA
         });
     }
 
-    ctrl.sinceSearches = [
-        {
-            name: 'anytime'
-        },
-        {
-            name: 'last 24 hours',
-            value: '24.hour'
-        },
-        {
-            name: 'last week',
-            value: '1.week'
-        }
-    ];
-
     // we can't user dynamic values in the ng:true-value see:
     // https://docs.angularjs.org/error/ngModel/constexpr
     // perhaps this functionality will change if we move to gmail type search e.g.
