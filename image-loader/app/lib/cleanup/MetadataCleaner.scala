@@ -11,6 +11,7 @@ object MetadataCleaner {
   val allCleaners = List(
     CountryCode,
     CapitaliseByline,
+    CapitaliseCountry,
     CapitaliseCity
   )
 
@@ -22,7 +23,7 @@ object MetadataCleaner {
 
 // By vague order of importance:
 
-// TODO: capitalise country (watching out for USA, etc)
+// TODO: remove rubbish country (., -)
 
 // TODO: strip location+date prefix from description
 // TODO: strip credit suffix from description
