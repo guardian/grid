@@ -12,7 +12,8 @@ results.controller('SearchResultsCtrl',
     // FIXME: This is being refreshed by the router. Make it watch a $stateParams collection instead
     // See:   https://github.com/guardian/media-service/pull/64#discussion-diff-17351746L116
     $scope.loading = true;
-    $scope.searched = search().then(function(images) {
+
+    $scope.searched = search({since: $stateParams.since}).then(function(images) {
         $scope.totalResults = images.total;
         $scope.images = images.data;
         // yield so images render before we check if there's more space
