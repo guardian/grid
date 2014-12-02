@@ -10,7 +10,6 @@ object CleanRubbishCountry extends MetadataCleaner {
     // if rubbish country name, strip it
     case Some(Rubbish(_)) => metadata.copy(country = None)
     // otherwise, just pass through
-    case Some(country)    => metadata
-    case None             => metadata
+    case _ => metadata
   }
 }
