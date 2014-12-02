@@ -1,13 +1,13 @@
 <div class="full-image" ng:controller="ImageCtrl">
     <div class="image-details" id="image-info">
         <dl class="image-info image-info--main">
-            <dt class="image-info__heading">Labels</dt>
+            <dt class="image-info__heading image-info__heading--first">Labels</dt>
             <dd>
                 <ui-image-labels labels="image.data.userMetadata.data.labels">
                 </ui-image-labels>
             </dd>
 
-            <dt class="image-info__heading image-info__heading--first">Description</dt>
+            <dt class="image-info__heading">Description</dt>
             <dd>{{image.data.metadata.description}}</dd>
 
             <dt class="image-info__heading">Uploaded</dt>
