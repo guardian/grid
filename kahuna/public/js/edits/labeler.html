@@ -2,10 +2,10 @@
     class="image-labels">
     <li ng:repeat="label in labels.data"
         class="image-label"
-        ng:class="{'image-label--removing': labelsCtrl.labelsBeingRemoved.has(label)}">
+        ng:class="{'image-label--removing': labeler.labelsBeingRemoved.has(label)}">
         <a ui:sref="search.results({query: label.data})"
            class="image-label__link">{{label.data}}</a>
-        <button ng:click="labelsCtrl.removeLabel(label)"
+        <button ng:click="labeler.removeLabel(label)"
                 class="image-label__remove"
                 title="Remove label">x</button>
     </li>
@@ -15,8 +15,8 @@
      class="image-no-labels"
 >No labels</div>
 
-<button ng:click="labelsCtrl.addLabel()"
-        ng:disabled="labelsCtrl.adding"
+<button ng:click="labeler.addLabel()"
+        ng:disabled="labeler.adding"
         class="button--shy">
-    Add<span ng:show="labelsCtrl.adding">ing…</span>
+    Add<span ng:show="labeler.adding">ing…</span>
 </button>
