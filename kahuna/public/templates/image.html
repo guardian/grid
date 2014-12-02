@@ -1,17 +1,17 @@
 <div class="full-image" ng:controller="ImageCtrl">
     <div class="image-details" id="image-info">
         <dl class="image-info image-info--main">
-            <dt class="image-info__heading image-info__heading--first">Description</dt>
-            <dd>{{image.data.metadata.description}}</dd>
-
-            <dt class="image-info__heading">Uploaded</dt>
-            <dd>{{image.data.uploadTime | date:'d MMM yyyy, HH:mm'}}</dd>
-
-            <dt class="image-info__heading">Labels</dt>
+            <dt class="image-info__heading image-info__heading--first">Labels</dt>
             <dd>
                 <ui-image-labels labels="image.data.userMetadata.data.labels">
                 </ui-image-labels>
             </dd>
+
+            <dt class="image-info__heading">Description</dt>
+            <dd>{{image.data.metadata.description}}</dd>
+
+            <dt class="image-info__heading">Uploaded</dt>
+            <dd>{{image.data.uploadTime | date:'d MMM yyyy, HH:mm'}}</dd>
         </dl>
 
         <div class="image-info image-info--sub">
@@ -67,13 +67,17 @@
         </div>
 
         <div class="palette">
-            <a class="palette__button" ui:sref="search.results">back to search</a>
+            <a class="palette__button" ui:sref="search.results">← search</a>
             <!-- Only allow cropping of valid images -->
             <a ng:if="image.data.valid"
                class="palette__button"
                ui:sref="crop({imageId: image.data.id})"
-            >create crop ✄</a>
-            <span ng:if="! image.data.valid">cannot crop invalid image (missing metadata)</a>
+            >✄ crop</a>
+
+            <ui-archiver class="palette__button"
+                      archived="image.data.userMetadata.data.archived"></ui-archiver>
+
+            <span ng:if="! image.data.valid">cannot crop invalid image (missing metadata)</span>
         </div>
     </div>
 

@@ -51,7 +51,9 @@ object Application extends Controller with ArgoHelpers {
 
   def getArchived(id: String) = Authenticated.async {
     dynamo.booleanGet(id, "archived") map { archived =>
-      Ok(Json.obj("data" -> archived)).as(ArgoMediaType)
+      Ok(archivedResponse(archived.getOrElse(false), id)).as(ArgoMediaType)
+    } recover {
+      case NoItemFound => Ok(archivedResponse(false, id)).as(ArgoMediaType)
     }
   }
 
@@ -59,7 +61,8 @@ object Application extends Controller with ArgoHelpers {
     booleanForm.bindFromRequest()(req).fold(
       errors => Future.successful(BadRequest(errors.errorsAsJson)),
       archived => {
-        dynamo.booleanSetOrRemove(id, "archived", archived) map publishAndRespond(id)
+        val entityResult = Accepted(archivedResponse(archived, id)).as(ArgoMediaType)
+        dynamo.booleanSetOrRemove(id, "archived", archived) map publishAndRespond(id, entityResult)
       }
     )
   }
@@ -110,6 +113,9 @@ object Application extends Controller with ArgoHelpers {
     }
   }
 
+
+  def archivedResponse(archived: Boolean, id: String): JsValue =
+    JsBoolean(archived).transform(transformers.wrapArchived(id)).get
 
   def metadataResponse(metadata: Map[String, String], id: String): JsValue =
     metadataResponse(Json.toJson(metadata), id)
