@@ -1,4 +1,5 @@
 import angular from 'angular';
+import template from './required-metadata-editor.html!text';
 
 export var jobs = angular.module('kahuna.upload.jobs.requiredMetadataEditor', []);
 
@@ -80,7 +81,7 @@ jobs.controller('DescriptionPlaceholderCtrl',
 }]);
 
 
-jobs.directive('uiRequiredMetadataEditor', ['jsDirectory', function(jsDirectory) {
+jobs.directive('uiRequiredMetadataEditor', [function() {
     return {
         restrict: 'E',
         scope: {
@@ -91,6 +92,6 @@ jobs.directive('uiRequiredMetadataEditor', ['jsDirectory', function(jsDirectory)
             onUpdate: '&'
         },
         controller: 'RequiredMetadataEditorCtrl as editorCtrl',
-        templateUrl: jsDirectory + '/upload/jobs/required-metadata-editor.html'
+        template: template
     };
 }]);

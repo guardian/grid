@@ -1,4 +1,5 @@
 import angular from 'angular';
+import template from './dnd-uploader.html!text';
 
 export var dndUploader = angular.module('kahuna.upload.dndUploader', []);
 
@@ -29,12 +30,12 @@ dndUploader.controller('DndUploaderCtrl',
  * This behaviour is pretty well observed:
  * https://code.google.com/p/chromium/issues/detail?id=131325
  */
-dndUploader.directive('dndUploader', ['$window', 'jsDirectory', 'delay', 'safeApply',
-                       function($window, jsDirectory, delay, safeApply) {
+dndUploader.directive('dndUploader', ['$window', 'delay', 'safeApply',
+                       function($window, delay, safeApply) {
     return {
         restrict: 'E',
         controller: 'DndUploaderCtrl as dndUploader',
-        templateUrl: jsDirectory + '/upload/dnd-uploader.html',
+        template: template,
         link: (scope, element, attrs) => {
             var dragging = false; // [1]
             var $$window = angular.element($window);

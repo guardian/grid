@@ -1,4 +1,3 @@
-import angular from 'angular';
 import apiServices from 'services/api';
 
 apiServices.factory('mediaCropper',
