@@ -74,7 +74,8 @@
                ui:sref="crop({imageId: image.data.id})"
             >✄ crop</a>
 
-            <archiver class="palette__button" archived="image.data.userMetadata.data.archived"></archiver>
+            <archiver class="palette__button"
+                      archived="image.data.userMetadata.data.archived"></archiver>
 
             <span ng:if="! image.data.valid">cannot crop invalid image (missing metadata)</a>
         </div>
