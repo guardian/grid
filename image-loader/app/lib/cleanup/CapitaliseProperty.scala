@@ -15,6 +15,11 @@ object CapitaliseCity extends MetadataCleaner with CapitalisationFixer {
     metadata.copy(city = metadata.city.map(fixCapitalisation))
 }
 
+object CapitaliseCountry extends MetadataCleaner with CapitalisationFixer {
+  def clean(metadata: ImageMetadata) =
+    metadata.copy(country = metadata.country.map(fixCapitalisation))
+}
+
 
 
 trait CapitalisationFixer {
