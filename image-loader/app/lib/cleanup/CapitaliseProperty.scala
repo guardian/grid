@@ -3,6 +3,9 @@ package lib.cleanup
 import lib.imaging.ImageMetadata
 
 object CapitaliseByline extends MetadataCleaner with CapitalisationFixer {
+  // Note: probably not exhaustive list
+  override val joinWords = List("van", "der", "den", "dem", "von", "de", "du", "la", "et")
+
   def clean(metadata: ImageMetadata) =
     metadata.copy(byline = metadata.byline.map(fixCapitalisation))
 }
@@ -32,10 +35,9 @@ trait CapitalisationFixer {
     capitalisedWords.mkString(" ")
   }
 
-  // Note: probably not exhaustive list
-  val joinWords = List("van", "der", "den", "dem", "von", "de", "du", "la", "et")
+  val joinWords: List[String] = List()
 
-  val delimiters = List("'", "-")
+  val delimiters: List[String] = List("'", "-")
 
   def capitaliseWord(word: String, firstOrLast: Boolean): String = {
     // Don't capitalise join words (e.g. Fleur de la Cour)
