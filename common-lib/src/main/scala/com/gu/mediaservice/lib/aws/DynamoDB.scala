@@ -40,6 +40,20 @@ class DynamoDB(credentials: AWSCredentials, region: Region, tableName: String) {
     }
   }
 
+  private def get(id: String, key: String)
+         (implicit ex: ExecutionContext): Future[Item] = Future {
+    table.getItem(
+      new GetItemSpec()
+        .withPrimaryKey(IdKey, id)
+        .withAttributesToGet(key)
+    )
+  } flatMap { itemOrNull =>
+    Option(itemOrNull) match {
+      case Some(item) => Future.successful(item)
+      case None       => Future.failed(NoItemFound)
+    }
+  }
+
   def removeKey(id: String, key: String)
                (implicit ex: ExecutionContext): Future[JsObject] =
     update(
@@ -111,15 +125,6 @@ class DynamoDB(credentials: AWSCredentials, region: Region, tableName: String) {
       new ValueMap().withStringSet(":value", value)
     )
 
-
-  def get(id: String, key: String)
-         (implicit ex: ExecutionContext): Future[Item] = Future {
-    table.getItem(
-      new GetItemSpec()
-        .withPrimaryKey(IdKey, id)
-        .withAttributesToGet(key)
-    )
-  }
 
   def update(id: String, expression: String, valueMap: ValueMap)
             (implicit ex: ExecutionContext): Future[JsObject] =
