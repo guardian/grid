@@ -28,7 +28,8 @@
                                              override-resource="job.image.data.userMetadata.data.metadata"
                                              on-update="overrideMetadata(job, metadata)"
                 ></ui-required-metadata-editor>
-                <ui-labeler labels="job.image.data.userMetadata.data.labels">
+                <ui-labeler ng:if="job.image"
+                            labels="job.image.data.userMetadata.data.labels">
                 </ui-labeler>
             </td>
         </tr>
