@@ -6,50 +6,42 @@
            ng:model="searchQuery.query"
     />
 
-    <label class="search__control">
+    <div class="search__filters">
+        <label class="search__filter search__filter--first">
         <!-- minor mindfuck logic as we want an optional flag
              when the option is off -->
-        <input type="checkbox"
-               ng:model="searchQuery.nonFree"
-               ng:true-value
-               ng:false-value="true"
-               ng:checked="{{!searchQuery.nonFree}}" />
-        free to use
-    </label>
-
-    <label class="search__control">
-        <input type="checkbox"
-               ng:model="searchQuery.uploadedByMe" />
-        your uploads
-    </label>
-
-    <!--
-    Anytime
-    Today (since midnight vs last 24 hours?)
-    Yesterday
-
-    Other: [since, to]
-    -->
-    <div class="search__since-radios">
-        <label class="search__control"
-               ng:repeat="sinceSearch in searchQuery.sinceSearches">
-
-            <input type="radio"
-                   value="{{sinceSearch.value}}"
-                   ng:model="searchQuery.since" />
-
-            {{sinceSearch.name}}
+            <input type="checkbox"
+                   ng:model="searchQuery.nonFree"
+                   ng:true-value
+                   ng:false-value="true"
+                   ng:checked="{{!searchQuery.nonFree}}" />
+            free to use
         </label>
+
+        <label class="search__filter">
+            <input type="checkbox"
+                   ng:model="searchQuery.uploadedByMe" />
+            your uploads
+        </label>
+
+        <label class="search__filter">
+            <input type="checkbox"
+                   ng:model="searchQuery.archived" />
+            archived
+        </label>
+
+        <!--
+        Anytime
+        Today (since midnight vs last 24 hours?)
+        Yesterday
+
+        Other: [since, to]
+        -->
+        <select class="search__filter"
+                ng:model="searchQuery.since">
+            <option value="">anytime</option>
+            <option value="24.hour">24 hours ago</option>
+            <option value="1.week">a week ago</option>
+        </select>
     </div>
-
-    <select class="search__since-select"
-            ng:model="searchQuery.since">
-
-        <option value="{{sinceSearch.value}}"
-                ng:repeat="sinceSearch in searchQuery.sinceSearches"
-                ng:selected="searchQuery.since === sinceSearch.value">
-            {{sinceSearch.name}}
-        </option>
-
-    </select>
 </form>
