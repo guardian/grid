@@ -9,6 +9,7 @@ trait MetadataCleaner {
 object MetadataCleaner {
 
   val allCleaners = List(
+    CleanRubbishCountry,
     CountryCode,
     CapitaliseByline,
     CapitaliseCountry,
@@ -22,8 +23,6 @@ object MetadataCleaner {
 }
 
 // By vague order of importance:
-
-// TODO: remove rubbish country (., -)
 
 // TODO: strip location+date prefix from description
 // TODO: strip credit suffix from description
