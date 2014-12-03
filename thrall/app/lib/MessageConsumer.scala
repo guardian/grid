@@ -13,7 +13,6 @@ import org.elasticsearch.action.update.UpdateResponse
 import _root_.play.api.libs.json._
 import _root_.play.api.libs.functional.syntax._
 import akka.actor.ActorSystem
-import scala.util.{Failure, Success}
 import scalaz.syntax.id._
 
 import com.gu.mediaservice.lib.json.PlayJsonHelpers._
