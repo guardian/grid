@@ -1,4 +1,4 @@
-<table>
+<table class="jobs">
     <tbody>
         <tr ng:repeat="job in jobs">
             <td class="job-info job-info--thumbnail">
@@ -28,6 +28,10 @@
                                              override-resource="job.image.data.userMetadata.data.metadata"
                                              on-update="overrideMetadata(job, metadata)"
                 ></ui-required-metadata-editor>
+                <ui-labeller class="jobs-labeller"
+                            ng:if="job.image"
+                            labels="job.image.data.userMetadata.data.labels">
+                </ui-labeller>
             </td>
         </tr>
     </tbody>
