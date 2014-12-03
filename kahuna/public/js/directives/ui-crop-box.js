@@ -59,7 +59,7 @@ controlsDirectives.directive('uiCropBox', ['$timeout', '$parse', 'safeApply', 'n
             // FIXME: the delay here is because the image is first draw with it's full width
             // and then redrawn to 100%. On occasion this redraw doesn't happen beofre we install
             // thus stretching the image.
-            element.on('load', delay(100).then(install));
+            element.on('load', () => delay(100).then(install));
 
             function install() {
                 var initialCoords = [
