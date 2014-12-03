@@ -13,6 +13,7 @@ import org.elasticsearch.action.update.UpdateResponse
 import _root_.play.api.libs.json._
 import _root_.play.api.libs.functional.syntax._
 import akka.actor.ActorSystem
+import scala.util.{Failure, Success}
 import scalaz.syntax.id._
 
 import com.gu.mediaservice.lib.json.PlayJsonHelpers._
@@ -72,15 +73,21 @@ object MessageConsumer {
   def updateImageUserMetadata(metadata: JsValue): Future[UpdateResponse] =
     withImageId(metadata)(id => ElasticSearch.applyImageMetadataOverride(id, metadata \ "data"))
 
-  def deleteImage(image: JsValue): Future[DeleteByQueryResponse] =
+  def deleteImage(image: JsValue): Future[EsResponse] =
     withImageId(image) { id =>
-      val future = ElasticSearch.deleteImage(id)
-      future.onSuccess { case t =>
-        // TODO: Catch if there were no hits in the query and give feedback
-        S3ImageStorage.deleteImage(id)
-        S3ImageStorage.deleteThumbnail(id)
+      // if we cannot delete the image as it's "protected", succeed and delete
+      // the message anyway.
+      ElasticSearch.deleteImage(id).map {
+        case r: DeleteByQueryResponse => {
+          S3ImageStorage.deleteImage(id)
+          S3ImageStorage.deleteThumbnail(id)
+          EsResponse(s"Image deleted: $id")
+        }
+      } recoverWith {
+        case ImageNotDeletable => {
+          Future.successful(EsResponse(s"Image cannot be deleted: $id"))
+        }
       }
-      future
     }
 
   def withImageId[A](image: JsValue)(f: String => A): A =
@@ -93,6 +100,9 @@ object MessageConsumer {
     client.deleteMessage(new DeleteMessageRequest(Config.queueUrl, message.getReceiptHandle))
 
 }
+
+// TODO: improve and use this (for logging especially) else where.
+case class EsResponse(message: String)
 
 case class SNSMessage(
   messageType: String,
