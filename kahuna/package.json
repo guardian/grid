@@ -6,8 +6,8 @@
     },
     "configFile": "public/config.js",
     "dependencies": {
-      "angular": "1.2.23",
-      "angular-ui-router": "0.2.11",
+      "angular": "1.3.5",
+      "angular-ui-router": "0.2.13",
       "css": "^0.1.0",
       "github:tapmodo/Jcrop": "0.9.12",
       "jcrop": "0.9.12",
