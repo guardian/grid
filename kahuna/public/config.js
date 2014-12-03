@@ -31,13 +31,6 @@ System.config({
       "ripemd160": "npm:ripemd160@0.2.0",
       "sha.js": "npm:sha.js@2.3.0"
     },
-    "github:jspm/nodelibs@0.0.7": {
-      "Base64": "npm:Base64@0.2.1",
-      "base64-js": "npm:base64-js@0.0.4",
-      "ieee754": "npm:ieee754@1.1.4",
-      "inherits": "npm:inherits@2.0.1",
-      "json": "github:systemjs/plugin-json@0.1.0"
-    },
     "npm:uri-templates@0.1.5": {
       "json": "npm:json@9.0.2"
     }
