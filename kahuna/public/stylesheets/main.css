@@ -493,7 +493,7 @@ a:focus {
 /* ==========================================================================
    Labeler
    ========================================================================== */
-.labeler {
+.labeller {
     font-size: 1.4rem;
     font-family: "Guardian Agate Sans 1 Web";
 }
@@ -626,7 +626,7 @@ a:focus {
     margin-bottom: 5px;
 }
 
-.jobs-labeler {
+.jobs-labeller {
     clear: both;
 }
 

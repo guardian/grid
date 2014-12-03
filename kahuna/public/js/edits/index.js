@@ -1,9 +1,9 @@
 import angular from 'angular';
 
 import 'edits/archiver';
-import 'edits/labeler';
+import 'edits/labeller';
 
 export var upload = angular.module('kahuna.edits', [
     'kahuna.edits.archiver',
-    'kahuna.edits.labeler'
+    'kahuna.edits.labeller'
 ]);
