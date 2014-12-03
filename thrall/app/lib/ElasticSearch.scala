@@ -11,7 +11,7 @@ import org.elasticsearch.index.query.QueryBuilders.matchAllQuery
 import org.elasticsearch.index.engine.VersionConflictEngineException
 import org.elasticsearch.script.ScriptService
 import org.elasticsearch.index.query.QueryBuilders.{filteredQuery, boolQuery, matchQuery}
-import org.elasticsearch.index.query.FilterBuilders.{missingFilter, andFilter}
+import org.elasticsearch.index.query.FilterBuilders.{missingFilter, andFilter, orFilter}
 import groovy.json.JsonSlurper
 import _root_.play.api.libs.json.{Json, JsValue}
 
@@ -20,6 +20,8 @@ import com.gu.mediaservice.syntax._
 
 import ThrallMetrics._
 
+
+object ImageNotDeletable extends Throwable("Image cannot be deleted")
 
 object ElasticSearch extends ElasticSearchClient {
 
@@ -38,19 +40,34 @@ object ElasticSearch extends ElasticSearchClient {
       .executeAndLog(s"Indexing image $id")
       .incrementOnSuccess(indexedImages)
 
-  def deleteImage(id: String)(implicit ex: ExecutionContext): Future[DeleteByQueryResponse] =
-    // TODO: this query succeeds even if it doesn't find anything, this shouldn't be the case
-    // TODO: Add check to user metadata archived.
-    client.prepareDeleteByQuery(imagesAlias)
-      .setTypes(imageType)
-      .setQuery(filteredQuery(
-        boolQuery.must(matchQuery("_id", id)),
+  def deleteImage(id: String)(implicit ex: ExecutionContext): Future[DeleteByQueryResponse] = {
+
+    val q = filteredQuery(
+      boolQuery.must(matchQuery("_id", id)),
         andFilter(
           missingOrEmptyFilter("exports"),
           missingOrEmptyFilter("userMetadata.archived"))
-      ))
-      .executeAndLog(s"Deleting image $id")
-      .incrementOnSuccess(deletedImages)
+      )
+
+    val deleteQuery = client
+      .prepareDeleteByQuery(imagesAlias)
+      .setTypes(imageType)
+      .setQuery(q)
+
+    // search for the image first, and then only delete and succeed
+    // this is because the delete query does not respond with anything useful
+    // TODO: is there a more efficient way to do this?
+    client
+      .prepareCount()
+      .setQuery(q)
+      .executeAndLog(s"Searching for image to delete: $id")
+      .flatMap { countQuery =>
+        countQuery.getCount match {
+          case 1 => deleteQuery.executeAndLog(s"Deleting image $id").incrementOnSuccess(deletedImages)
+          case _ => Future.failed(ImageNotDeletable)
+        }
+      }
+  }
 
   def updateImageExports(id: String, exports: JsValue)(implicit ex: ExecutionContext): Future[UpdateResponse] =
     prepareImageUpdate(id)
