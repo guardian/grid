@@ -1,10 +1,10 @@
 import angular from 'angular';
-import template from './labeler.html!text';
+import template from './labeller.html!text';
 
 
-export var labeler = angular.module('kahuna.edits.labeler', []);
+export var labeller = angular.module('kahuna.edits.labeller', []);
 
-labeler.controller('LabelerCtrl',
+labeller.controller('LabellerCtrl',
                   ['$scope', '$window',
                    function($scope, $window) {
 
@@ -47,7 +47,7 @@ labeler.controller('LabelerCtrl',
 
 }]);
 
-labeler.directive('uiLabeler', [function() {
+labeller.directive('uiLabeller', [function() {
     return {
         restrict: 'E',
         scope: {
@@ -55,7 +55,7 @@ labeler.directive('uiLabeler', [function() {
             // as we don't really want to modify the original
             labels: '='
         },
-        controller: 'LabelerCtrl as labeler',
+        controller: 'LabellerCtrl as labeller',
         template: template
     };
 }]);
