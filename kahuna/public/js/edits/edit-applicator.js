@@ -15,13 +15,15 @@ editApplicator.directive('uiEditApplicator', function() {
         // see: https://docs.angularjs.org/error/$rootScope/infdig
         scope: {
             giveThis: '&',
-            toThese: '&'
+            toThese: '&',
+            andThen: '&'
         },
         link: function(scope, element) {
             element.on('click', e => {
                 scope.toThese().forEach(resource => {
                     resource
-                        .post({ data: scope.giveThis() });
+                        .post({ data: scope.giveThis() })
+                        .then(scope.andThen());
                 });
             });
         },
