@@ -29,16 +29,19 @@
                                                  on-update="overrideMetadata(job, metadata)"
                     ></ui-required-metadata-editor>
 
-                    <ui-labeller class="jobs-labeller"
-                                 labels="job.image.data.userMetadata.data.labels">
-                    </ui-labeller>
+                    <div class="job-labels">
+                        <ui-labeller class="job-labeller"
+                                     labels="job.image.data.userMetadata.data.labels">
+                        </ui-labeller>
 
-                    <!-- TODO: find a more efficient way of of doing `jobsExcept` -->
-                    <ui-edit-applicator ng:if="job.image"
-                                        give-this="uploadJobsCtrl.getLabelsArrFrom(job.image)"
-                                        to-these="uploadJobsCtrl.getAllEditsOfType('labels', uploadJobsCtrl.jobsExcept(job))"
-                                        and-then="uploadJobsCtrl.updateLabels(uploadJobsCtrl.jobsExcept(job))">
-                    </ui-edit-applicator>
+                        <!-- TODO: find a more efficient way of of doing `jobsExcept` -->
+                        <ui-edit-applicator class="job-apply-to-all"
+                                            ng:if="job.image"
+                                            give-this="uploadJobsCtrl.getLabelsArrFrom(job.image)"
+                                            to-these="uploadJobsCtrl.getAllEditsOfType('labels', uploadJobsCtrl.jobsExcept(job))"
+                                            and-then="uploadJobsCtrl.updateLabels(uploadJobsCtrl.jobsExcept(job))">
+                        </ui-edit-applicator>
+                    </div>
                 </div>
             </td>
         </tr>
