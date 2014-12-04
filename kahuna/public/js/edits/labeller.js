@@ -18,9 +18,9 @@ labeller.controller('LabellerCtrl',
         if (label) {
             this.adding = true;
             $scope.labels.post({data: [label]}).
-                then(newLabel => {
+                then(newLabels => {
                     // FIXME: don't mutate original, replace the whole resource with the new state
-                    $scope.labels.data.push(newLabel);
+                    newLabels.data.forEach(label => $scope.labels.data.push(label));
                 }).
                 catch(saveFailed).
                 finally(() => {

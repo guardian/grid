@@ -7,7 +7,7 @@ PUT     /metadata/:id/archived            controllers.Application.setArchived(id
 DELETE  /metadata/:id/archived            controllers.Application.unsetArchived(id: String)
 
 GET     /metadata/:id/labels              controllers.Application.getLabels(id: String)
-POST    /metadata/:id/labels              controllers.Application.addLabel(id: String)
+POST    /metadata/:id/labels              controllers.Application.addLabels(id: String)
 DELETE  /metadata/:id/labels/:label       controllers.Application.removeLabel(id: String, label: String)
 
 GET     /metadata/:id/metadata            controllers.Application.getMetadata(id: String)
