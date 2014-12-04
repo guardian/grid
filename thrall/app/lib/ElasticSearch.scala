@@ -41,6 +41,7 @@ object ElasticSearch extends ElasticSearchClient {
       .incrementOnSuccess(indexedImages)
 
   def deleteImage(id: String)(implicit ex: ExecutionContext): Future[DeleteByQueryResponse] = {
+    
     val q = filteredQuery(
       boolQuery.must(matchQuery("_id", id)),
         andFilter(
