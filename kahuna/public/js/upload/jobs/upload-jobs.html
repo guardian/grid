@@ -33,10 +33,11 @@
                                  labels="job.image.data.userMetadata.data.labels">
                     </ui-labeller>
 
-
+                    <!-- TODO: find a more efficient way of of doing `jobsExcept` -->
                     <ui-edit-applicator ng:if="job.image"
                                         give-this="uploadJobsCtrl.getLabelsArrFrom(job.image)"
-                                        to-these="uploadJobsCtrl.getAllEditsOfType('labels', jobs, job)">
+                                        to-these="uploadJobsCtrl.getAllEditsOfType('labels', uploadJobsCtrl.jobsExcept(job))"
+                                        and-then="uploadJobsCtrl.updateLabels(uploadJobsCtrl.jobsExcept(job))">
                     </ui-edit-applicator>
                 </div>
             </td>
