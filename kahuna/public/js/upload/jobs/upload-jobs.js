@@ -71,12 +71,18 @@ jobs.controller('UploadJobsCtrl',
 
     // FIXME: Why do we have to filter `job.image` here when it's already
     // filtered in the template
-    this.getAllEditsOfType = (type, jobs, exclude) =>
-        jobs.filter(job => job.image && job !== exclude)
+    this.getAllEditsOfType = (type, jobs) =>
+        jobs.filter(job => job.image)
             .map(job => job.image.data.userMetadata.data[type]);
 
     this.getLabelsArrFrom = image =>
         image.data.userMetadata.data.labels.data.map(label => label.data);
+
+    this.updateLabels = jobs => resource =>
+        jobs.forEach(job => job.image.data.userMetadata.data.labels = resource);
+
+    this.jobsExcept = exclude => $scope.jobs.filter(job => job !== exclude);
+
 }]);
 
 
