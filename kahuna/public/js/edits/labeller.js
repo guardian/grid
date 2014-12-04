@@ -17,7 +17,7 @@ labeller.controller('LabellerCtrl',
         var label = ($window.prompt("Enter a label:") || '').trim();
         if (label) {
             this.adding = true;
-            $scope.labels.post({data: label}).
+            $scope.labels.post({data: [label]}).
                 then(newLabel => {
                     // FIXME: don't mutate original, replace the whole resource with the new state
                     $scope.labels.data.push(newLabel);
