@@ -12,7 +12,6 @@ fileUploader.controller('FileUploaderCtrl',
 
     ctrl.uploadFiles = uploadFiles;
 
-
     function uploadFiles(files) {
         // Queue up files for upload and go to the upload state to
         // show progress
