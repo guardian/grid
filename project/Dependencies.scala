@@ -26,8 +26,8 @@ object Dependencies {
   val awsDeps = Seq("com.amazonaws" % "aws-java-sdk" % "1.9.0")
 
   val pandaDeps = Seq(
-    ("com.gu" %% "pan-domain-auth-core" % "0.1.9") exclude ("xpp3", "xpp3"),
-    ("com.gu" %% "pan-domain-auth-play" % "0.1.9")
+    ("com.gu" %% "pan-domain-auth-core" % "0.1.10") exclude ("xpp3", "xpp3"),
+    ("com.gu" %% "pan-domain-auth-play" % "0.1.10")
   )
 
   val scalazDeps = Seq(
