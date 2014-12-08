@@ -31,7 +31,10 @@
     font-stretch: normal;
 }
 
-/* TODO: Make this Moz when we add a preprocessor  */
+@keyframes fadeIn {
+    0%   { opacity: 0; }
+    100% { opacity: 1; }
+}
 @-webkit-keyframes fadeIn {
     0%   { opacity: 0; }
     100% { opacity: 1; }
@@ -138,6 +141,11 @@ a:focus {
     -webkit-animation-duration: 1500ms;
     -webkit-animation-name: flipper;
     -webkit-animation-iteration-count: infinite;
+}
+@keyframes flipper {
+    0% {}
+    95% {}
+    100% { transform: rotateY(360deg); }
 }
 @-webkit-keyframes flipper {
     0% {}
