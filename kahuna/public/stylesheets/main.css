@@ -31,6 +31,12 @@
     font-stretch: normal;
 }
 
+/* TODO: Make this Moz when we add a preprocessor  */
+@-webkit-keyframes fadeIn {
+    0%   { opacity: 0; }
+    100% { opacity: 1; }
+}
+
 html {
     font: 62.5%/1.5 "Guardian Text Egyptian Web";
 }
@@ -222,6 +228,8 @@ a:focus {
 .results {
     display: flex;
     flex-wrap: wrap;
+    animation: fadeIn .25s;
+    -webkit-animation: fadeIn .25s;
 }
 
 .results-controls {
