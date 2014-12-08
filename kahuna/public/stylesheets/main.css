@@ -31,6 +31,15 @@
     font-stretch: normal;
 }
 
+@keyframes fadeIn {
+    0%   { opacity: 0; }
+    100% { opacity: 1; }
+}
+@-webkit-keyframes fadeIn {
+    0%   { opacity: 0; }
+    100% { opacity: 1; }
+}
+
 html {
     font: 62.5%/1.5 "Guardian Text Egyptian Web";
 }
@@ -133,6 +142,11 @@ a:focus {
     -webkit-animation-name: flipper;
     -webkit-animation-iteration-count: infinite;
 }
+@keyframes flipper {
+    0% {}
+    95% {}
+    100% { transform: rotateY(360deg); }
+}
 @-webkit-keyframes flipper {
     0% {}
     95% {}
@@ -222,6 +236,8 @@ a:focus {
 .results {
     display: flex;
     flex-wrap: wrap;
+    animation: fadeIn .25s;
+    -webkit-animation: fadeIn .25s;
 }
 
 .results-controls {
