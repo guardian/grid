@@ -5,6 +5,14 @@ export var editApplicator = angular.module('kahuna.edits.editApplicator', []);
 
 editApplicator.controller('EditApplicatorCtrl', function() {
 
+    this.applyEdits = () => {
+        this.toThese().forEach(resource => {
+            resource
+                .post({ data: this.giveThis() })
+                .then(this.andThen());
+        });
+    };
+
 });
 
 editApplicator.directive('uiEditApplicator', function() {
@@ -18,14 +26,10 @@ editApplicator.directive('uiEditApplicator', function() {
             toThese: '&',
             andThen: '&'
         },
-        link: function(scope, element) {
-            element.on('click', e => {
-                scope.toThese().forEach(resource => {
-                    resource
-                        .post({ data: scope.giveThis() })
-                        .then(scope.andThen());
-                });
-            });
+        bindToController: true,
+        controller: 'EditApplicatorCtrl as editApplicator',
+        link: function(scope, element, attrs, ctrl) {
+            element.on('click', ctrl.applyEdits);
         },
         template: template
     }
