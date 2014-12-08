@@ -4,6 +4,7 @@
            class="search__query"
            autofocus="autofocus"
            ng:model="searchQuery.query"
+           ng:model-options="{ debounce: 200 }"
     />
 
     <div class="search__filters">
