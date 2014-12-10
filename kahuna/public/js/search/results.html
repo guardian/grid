@@ -37,6 +37,8 @@
                         <figcaption class="image-result__caption">{{image.data.metadata.title || image.data.metadata.description}}</figcaption>
                     </figure>
                 </a>
+                <a class="image-results__popout" target="_blank" title="Pop out"
+                   ng:href="/images/{{image.data.id}}">◹</a>
                 <div class="image-result__meta">
                     <ul class="image-result__labels">
                         <li ng:repeat="label in image.data.userMetadata.data.labels.data"
