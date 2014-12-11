@@ -15,7 +15,8 @@ case class Image(id: String,
                  source: Asset,
                  thumbnail: Option[Asset],
                  fileMetadata: FileMetadata,
-                 metadata: ImageMetadata
+                 metadata: ImageMetadata,
+                 originalMetadata: ImageMetadata
 ) {
 
   def asJsValue: JsValue = Json.toJson(this)
@@ -31,7 +32,8 @@ object Image {
                   thumbnail: Asset,
                   fileMetadata: FileMetadata,
                   metadata: ImageMetadata): Image =
-    Image(id, DateTime.now, uploadedBy, source, Some(thumbnail), fileMetadata, metadata)
+    Image(id, DateTime.now, uploadedBy, source, Some(thumbnail),
+          fileMetadata, metadata, metadata)
 
   implicit val IptcMetadataWrites: Writes[ImageMetadata] =
     ((__ \ "description").writeNullable[String] ~
@@ -57,7 +59,8 @@ object Image {
       (__ \ "source").write[Asset] ~
       (__ \ "thumbnail").writeNullable[Asset] ~
       (__ \ "fileMetadata").write[FileMetadata] ~
-      (__ \ "metadata").write[ImageMetadata]
+      (__ \ "metadata").write[ImageMetadata] ~
+      (__ \ "originalMetadata").write[ImageMetadata]
     )(unlift(Image.unapply))
 
 }
