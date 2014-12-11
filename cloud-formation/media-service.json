@@ -95,6 +95,10 @@
             "Description": "AWS secret for panda bucket access",
             "Type": "String",
             "NoEcho": true
+        },
+        "MixpanelToken": {
+            "Description": "Mixpanel token for use in the client",
+            "Type": "String"
         }
     },
     "Resources": {
@@ -829,6 +833,7 @@
                         "aws.id=", { "Ref": "HostKeys" }, "\n",
                         "aws.secret=", { "Fn::GetAtt": [ "HostKeys", "SecretAccessKey" ] }, "\n",
                         "auth.keystore.bucket=", { "Ref": "KeyBucket" }, "\n",
+                        "mixpanel.token=", { "Ref": "MixpanelToken" }, "\n",
                         "EOF\n",
 
                         "start kahuna\n"
