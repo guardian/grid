@@ -264,6 +264,23 @@ a:focus {
     opacity: .5;
 }
 
+.image-results__popout {
+    position: absolute;
+    top: 0;
+    right: 0;
+    background: rgba(0, 0, 0, .5);
+    color: white;
+    display: none;
+    line-height: 18px;
+    width: 18px;
+    text-align: center;
+    font-size: 1.2rem;
+}
+
+.image-result:hover .image-results__popout {
+    display: block;
+}
+
 .image-result__link {
     background: #ddd;
     color: inherit;
