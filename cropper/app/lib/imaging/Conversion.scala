@@ -18,7 +18,7 @@ object Conversion {
     val op = new IMOperation
     op.addImage(source.getAbsolutePath)
       op.crop(w, h, x, y)
-      op.resize(dimensions.width, dimensions.height)
+      op.scale(dimensions.width, dimensions.height)
       op.colorspace("RGB")
       op.addImage(dest.getAbsolutePath)
     for {
