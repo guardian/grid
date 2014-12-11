@@ -93,9 +93,6 @@ object ElasticSearch extends ElasticSearchClient {
       // TODO: apply overrides from the original metadata each time?
       .setScript("""
                     if (userMetadata.metadata) {
-                      if (!ctx._source.originalMetadata) {
-                        ctx._source.originalMetadata = ctx._source.metadata;
-                      }
                       ctx._source.metadata += userMetadata.metadata;
                     }
                     ctx._source.userMetadata = userMetadata;
