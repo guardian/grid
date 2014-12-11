@@ -24,8 +24,10 @@ import uploadTemplate        from './upload/view.html!text';
 
 
 var apiLink = document.querySelector('link[rel="media-api-uri"]');
+var metaConfig = document.querySelector('meta[name="config"]');
 var config = {
     mediaApiUri: apiLink.getAttribute('href'),
+    mixpanelToken: apiLink.getAttribute('data-mixpanel-token'),
 
     // Static config
     'pandular.reAuthUri': '/login'

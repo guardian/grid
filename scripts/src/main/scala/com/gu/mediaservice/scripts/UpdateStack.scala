@@ -67,11 +67,11 @@ abstract class StackScript {
       case "TEST" :: xs => (Test, xs)
       case _ => usageError("Unrecognized or missing stage (should be one of TEST or PROD)")
     }
-    val (pandaKey, pandaSecret) = remainingArgs match {
-      case key :: secret :: _ => (Some(key), Some(secret))
-      case _ => (None, None)
+    val (pandaKey, pandaSecret, mixpanelToken) = remainingArgs match {
+      case key :: secret :: token ::  _ => (key, secret, token)
+      case _ => usageError("Missing required arguments")
     }
-    val stack = Stacks.mediaService(stage, pandaKey, pandaSecret)
+    val stack = Stacks.mediaService(stage, pandaKey, pandaSecret, mixpanelToken)
     val cfnClient = {
       val client = new AmazonCloudFormationClient(credentials)
       client.setEndpoint("cloudformation.eu-west-1.amazonaws.com")
@@ -84,7 +84,7 @@ abstract class StackScript {
 
   def usageError(msg: String): Nothing = {
     System.err.println(msg)
-    System.err.println("Usage: <CreateStack|UpdateStack> <STAGE> [PANDA_ACCESS_KEY PANDA_ACCESS_SECRET]")
+    System.err.println("Usage: <CreateStack|UpdateStack> <STAGE> <PANDA_ACCESS_KEY> <PANDA_ACCESS_SECRET> <MIXPANEL_TOKEN>")
     sys.exit(1)
   }
 
@@ -104,7 +104,9 @@ abstract class StackScript {
   object Stacks {
 
     /** Defines the Media Service stack for the specified stage */
-    def mediaService(stage: Stage, pandaAwsKey: Option[String], pandaAwsSecret: Option[String]): Stack = {
+    def mediaService(stage: Stage,
+                     pandaAwsKey: String, pandaAwsSecret: String,
+                     mixpanelToken: String): Stack = {
 
       val parentDomain = stage match {
         case Prod => "***REMOVED***"
@@ -176,7 +178,8 @@ abstract class StackScript {
           param("AlertActive", alertActive.toString),
           param("PandaDomain", parentDomain),
           param("PandaAwsKey",  pandaAwsKey),
-          param("PandaAwsSecret", pandaAwsSecret)
+          param("PandaAwsSecret", pandaAwsSecret),
+          param("MixpanelToken", mixpanelToken)
         )
       )
     }
