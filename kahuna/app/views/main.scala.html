@@ -9,10 +9,7 @@
     <title ui:title ui:title-suffix="the grid">the grid</title>
     <link rel="media-api-uri" href="@mediaApiUri" />
     <link rel="stylesheet" href="@routes.Assets.at("stylesheets/main.css")" />
-    <meta name="config"
-        @mixpanelToken.map { token =>
-            data-mixpanel-token="@token"
-        } />
+    <meta name="mixpanel-token" content="@mixpanelToken.map { token =>@token }" />
 
     <script src="@routes.Assets.at("jspm_packages/traceur-runtime.js")"></script>
     <script src="@routes.Assets.at("jspm_packages/system.js")"></script>
