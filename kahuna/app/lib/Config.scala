@@ -11,6 +11,7 @@ object Config extends CommonPlayAppConfig with CommonPlayAppProperties {
   val mediaApiUri: String = services.apiBaseUri
 
   val keyStoreBucket: String = properties("auth.keystore.bucket")
+  val mixpanelToken: Option[String] = properties.get("mixpanel.token")
 
   val awsCredentials: AWSCredentials =
     new BasicAWSCredentials(properties("aws.id"), properties("aws.secret"))
