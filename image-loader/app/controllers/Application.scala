@@ -42,25 +42,25 @@ class ImageLoader(storage: ImageStorage) extends Controller with ArgoHelpers {
     Ok(response).as(ArgoMediaType)
   }
 
-  def loadImage = Authenticated.async(digestedFile(createTempFile)) { request =>
+  def loadImage(uploadedBy: Option[String]) = Authenticated.async(digestedFile(createTempFile)) { request =>
     val DigestedFile(tempFile, id) = request.body
 
     // only allow AuthenticatedService to set with query string
-    val uploadedBy = (request.user, request.getQueryString("uploadedBy")) match {
+    val uploadedBy_ = (request.user, uploadedBy) match {
       case (user: AuthenticatedService, Some(qs)) => qs
       case (user: PandaUser, qs) => user.email
       case (user, qs) => user.name
     }
 
-    Logger.info(s"Received file, id: $id, uploadedBy: $uploadedBy")
+    Logger.info(s"Received file, id: $id, uploadedBy: $uploadedBy_")
 
     // Abort early if unsupported mime-type
     val mimeType = MimeTypeDetection.guessMimeType(tempFile)
     val future = if (Config.supportedMimeTypes.exists(Some(_) == mimeType)) {
-      storeFile(id, tempFile, mimeType, uploadedBy)
+      storeFile(id, tempFile, mimeType, uploadedBy_)
     } else {
       val mimeTypeName = mimeType getOrElse "none detected"
-      Logger.info(s"Rejected file, id: $id, uploadedBy: $uploadedBy, because the mime-type is not supported ($mimeTypeName). return 415")
+      Logger.info(s"Rejected file, id: $id, uploadedBy: $uploadedBy_, because the mime-type is not supported ($mimeTypeName). return 415")
       Future(UnsupportedMediaType(Json.obj("errorMessage" -> s"Unsupported mime-type: $mimeTypeName")))
     }
 
