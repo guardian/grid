@@ -36,7 +36,7 @@ class ImageLoader(storage: ImageStorage) extends Controller with ArgoHelpers {
     val response = Json.obj(
       "data"  -> Json.obj("description" -> "This is the Loader Service"),
       "links" -> Json.arr(
-        Json.obj("rel" -> "load", "href" -> s"$rootUri/images{?uploadedBy}")
+        Json.obj("rel" -> "load", "href" -> s"$rootUri/images{?uploadedBy,identifiers}")
       )
     )
     Ok(response).as(ArgoMediaType)
