@@ -12,6 +12,7 @@ import lib.imaging.{FileMetadata, ImageMetadata}
 case class Image(id: String,
                  uploadTime: DateTime,
                  uploadedBy: String,
+                 identifiers: Map[String, String],
                  source: Asset,
                  thumbnail: Option[Asset],
                  fileMetadata: FileMetadata,
@@ -28,12 +29,13 @@ object Image {
 
   def uploadedNow(id: String,
                   uploadedBy: String,
+                  identifiers: Map[String, String],
                   source: Asset,
                   thumbnail: Asset,
                   fileMetadata: FileMetadata,
                   metadata: ImageMetadata): Image =
-    Image(id, DateTime.now, uploadedBy, source, Some(thumbnail),
-          fileMetadata, metadata, metadata)
+    Image(id, DateTime.now, uploadedBy, identifiers, source, Some(thumbnail),
+      fileMetadata, metadata, metadata)
 
   implicit val IptcMetadataWrites: Writes[ImageMetadata] =
     ((__ \ "description").writeNullable[String] ~
@@ -56,6 +58,7 @@ object Image {
     (__ \ "id").write[String] ~
       (__ \ "uploadTime").write[String].contramap(printDateTime) ~
       (__ \ "uploadedBy").write[String] ~
+      (__ \ "identifiers").write[Map[String, String]] ~
       (__ \ "source").write[Asset] ~
       (__ \ "thumbnail").writeNullable[Asset] ~
       (__ \ "fileMetadata").write[FileMetadata] ~
