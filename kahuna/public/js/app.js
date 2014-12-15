@@ -22,10 +22,12 @@ import imageTemplate         from './image/view.html!text';
 import cropTemplate          from './crop/view.html!text';
 import uploadTemplate        from './upload/view.html!text';
 
-
+// TODO: move to an async config to remove deps on play
 var apiLink = document.querySelector('link[rel="media-api-uri"]');
+var mixpanelTokenMeta = document.querySelector('meta[name="mixpanel-token"]');
 var config = {
     mediaApiUri: apiLink.getAttribute('href'),
+    mixpanelToken: mixpanelTokenMeta.getAttribute('content'),
 
     // Static config
     'pandular.reAuthUri': '/login'

@@ -1,4 +1,4 @@
-@(mediaApiUri: String)
+@(mediaApiUri: String, mixpanelToken: Option[String])
 <!DOCTYPE html>
 <html>
   <head>
@@ -9,6 +9,7 @@
     <title ui:title ui:title-suffix="the grid">the grid</title>
     <link rel="media-api-uri" href="@mediaApiUri" />
     <link rel="stylesheet" href="@routes.Assets.at("stylesheets/main.css")" />
+    <meta name="mixpanel-token" content="@mixpanelToken" />
 
     <script src="@routes.Assets.at("jspm_packages/traceur-runtime.js")"></script>
     <script src="@routes.Assets.at("jspm_packages/system.js")"></script>

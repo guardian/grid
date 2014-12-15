@@ -14,8 +14,7 @@ object Application extends Controller with PanDomainAuthActions {
 
   def index(ignored: String) = AuthAction { req =>
     logUnsupportedBrowsers(req.headers.get("User-Agent"), req.user)
-
-    Ok(views.html.main(mediaApiUri = Config.mediaApiUri))
+    Ok(views.html.main(Config.mediaApiUri, Config.mixpanelToken))
   }
 
 
