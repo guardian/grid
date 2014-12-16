@@ -78,12 +78,12 @@ object Application extends Controller with ArgoHelpers {
     }
   }
 
-  def addLabel(id: String) = Authenticated.async { req =>
-    stringForm.bindFromRequest()(req).fold(
+  def addLabels(id: String) = Authenticated.async { req =>
+    listForm.bindFromRequest()(req).fold(
       errors => Future.successful(BadRequest(errors.errorsAsJson)),
-      label => {
-        val entityResult = Accepted(labelResponse(label, id)).as(ArgoMediaType)
-        dynamo.setAdd(id, "labels", label) map publishAndRespond(id, entityResult)
+      labels => {
+        val entityResult = Accepted(labelsResponse(labels, id)).as(ArgoMediaType)
+        dynamo.setAdd(id, "labels", labels) map publishAndRespond(id, entityResult)
       }
     )
   }
@@ -126,10 +126,10 @@ object Application extends Controller with ArgoHelpers {
   def labelResponse(label: String, id: String): JsValue =
     JsString(label).transform(transformers.wrapLabel(id)).get
 
-  def labelsResponse(labels: Seq[String], id: String): JsValue =
-    labelsResponse(Json.arr(labels), id)
+  def labelsResponse(labels: List[String], id: String): JsValue =
+    labelsResponse(Json.toJson(labels), id)
 
-  def labelsResponse(labels: JsArray, id: String): JsValue =
+  def labelsResponse(labels: JsValue, id: String): JsValue =
     labels.transform(transformers.wrapLabels(id)).get
 
   def allMetadataResponse(metadata: JsObject, id: String): JsValue =
@@ -159,6 +159,10 @@ object Application extends Controller with ArgoHelpers {
      single("data" -> text)
        .transform[String]({ case (value)       => value },
                           { case value: String => value })
+  )
+
+  val listForm: Form[List[String]] = Form(
+     single[List[String]]("data" -> list(text))
   )
 
 }
