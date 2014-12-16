@@ -10,6 +10,9 @@ You will need to install:
 * sbt
 * JDK 7
 * [bower](http://bower.io/)
+* [GraphicsMagick](http://www.graphicsmagick.org/) (this should be used over
+ImageMagick as it's what we use on the servers).
+`sudo apt-get install graphics` or `brew install graphicsmagick`.
 
 Then run `setup.sh` to install and start Elasticsearch.  You can use
 the script to start up Elasticsearch even if it's already installed.
