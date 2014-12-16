@@ -8,13 +8,13 @@ export var track = angular.module('analytics.track', ['mixpanel']);
 
 track.factory('track', ['$location', '$window', 'mixpanel', function($location, $window, mixpanel) {
     return function track(event, opts) {
-        angular.extend({}, opts, {
+        var finalOpts = angular.extend({}, opts, {
             'Url': $location.url(),
             'Screen resolution': window.screen.width + ' x ' + window.screen.height,
             'Screen viewport': document.documentElement.clientWidth + ' x ' + document.documentElement.clientHeight
         });
 
-        mixpanel.track(event, opts);
+        mixpanel.track(event, finalOpts);
     }
 }]);
 
