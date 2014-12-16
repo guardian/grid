@@ -103,9 +103,9 @@ object UpdateMapping extends EsScript {
           .setType(imageType)
           .setSource(Mappings.imageMapping)
           .execute.actionGet
-      }
 
-      client.close()
+        client.close
+      }
     }
 
     EsClient.updateMappings
