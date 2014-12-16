@@ -1,5 +1,5 @@
-GET     /                           controllers.Application.index
-POST    /images                     controllers.Application.loadImage(uploadedBy: Option[String], identifiers: Option[String])
+GET     /                           controllers.Application.index(uploadTime: Option[String])
+POST    /images                     controllers.Application.loadImage(uploadedBy: Option[String], identifiers: Option[String], uploadTime: Option[String])
 
 # Management
 GET     /management/healthcheck     com.gu.mediaservice.lib.management.Management.healthCheck
