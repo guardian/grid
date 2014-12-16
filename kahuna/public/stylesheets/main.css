@@ -659,8 +659,24 @@ a:focus {
     margin-bottom: 5px;
 }
 
-.jobs-labeller {
+.job-labels {
+    margin-top: 10px;
+    border: 1px solid #ccc;
+    padding: 5px;
+    border-radius: 2px;
+}
+.job-labels:after {
     clear: both;
+    content: " ";
+    display: table;
+}
+
+.job-labeller {
+    clear: both;
+}
+
+.job-apply-to-all {
+    float: right;
 }
 
 
