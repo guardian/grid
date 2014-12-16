@@ -36,7 +36,7 @@ class ImageLoader(storage: ImageStorage) extends Controller with ArgoHelpers {
   val keyStore = new KeyStore(Config.keyStoreBucket, Config.awsCredentials)
   val Authenticated = auth.Authenticated(keyStore, rootUri)
 
-  def index(uploadTime: Option[String]) = Action {
+  def index = Action {
     val response = Json.obj(
       "data"  -> Json.obj("description" -> "This is the Loader Service"),
       "links" -> Json.arr(
@@ -71,7 +71,7 @@ class ImageLoader(storage: ImageStorage) extends Controller with ArgoHelpers {
     // Abort early if unsupported mime-type
     val mimeType = MimeTypeDetection.guessMimeType(tempFile)
     val future = if (Config.supportedMimeTypes.exists(Some(_) == mimeType)) {
-      storeFile(id, tempFile, mimeType, uploadedBy_, identifiers_)
+      storeFile(id, tempFile, mimeType, uploadTime_, uploadedBy_, identifiers_)
     } else {
       val mimeTypeName = mimeType getOrElse "none detected"
       Logger.info(s"Rejected file, id: $id, uploadedBy: $uploadedBy_, because the mime-type is not supported ($mimeTypeName). return 415")
@@ -82,7 +82,10 @@ class ImageLoader(storage: ImageStorage) extends Controller with ArgoHelpers {
     future
   }
 
-  def storeFile(id: String, tempFile: File, mimeType: Option[String], uploadedBy: String, identifiers: Map[String, String]): Future[Result] = {
+  def storeFile(id: String, tempFile: File, mimeType: Option[String],
+                uploadTime: DateTime, uploadedBy: String,
+                identifiers: Map[String, String]): Future[Result] = {
+
     // Flatten identifiers to attach to S3 object
     val identifiersMeta = identifiers.map { case (k,v) => (s"identifier!$k", v) }.toMap
 
@@ -105,7 +108,7 @@ class ImageLoader(storage: ImageStorage) extends Controller with ArgoHelpers {
         thumbSize   = thumb.length
         thumbDimensions <- FileMetadata.dimensions(thumb)
         thumbAsset  = Asset(thumbUri, thumbSize, mimeType, thumbDimensions)
-        image       = Image.uploadedNow(id, uploadedBy, identifiers, sourceAsset, thumbAsset, fileMetadata, cleanMetadata)
+        image       = Image.upload(id, uploadTime, uploadedBy, identifiers, sourceAsset, thumbAsset, fileMetadata, cleanMetadata)
       } yield {
         Notifications.publish(Json.toJson(image), "image")
         // TODO: return an entity pointing to the Media API uri for the image
