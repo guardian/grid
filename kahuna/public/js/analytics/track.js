@@ -10,10 +10,8 @@ track.factory('track', ['$location', '$window', '$document', 'mixpanel',
                         function($location, $window, $document, mixpanel) {
     return function track(event, opts) {
         var doc = $document[0];
-        var winX = $window.screen.width;
-        var winY = $window.screen.height;
-        var docX = doc.documentElement.clientWidth;
-        var docY = doc.documentElement.clientHeight;
+        var { width: winX, height: winY } = $window.screen;
+        var { clientWidth: docX, clientHeight: docY } = doc.documentElement;
         var finalOpts = angular.extend({}, opts, {
             'Url': $location.url(),
             'Screen resolution': winX + ' x ' + winY,
