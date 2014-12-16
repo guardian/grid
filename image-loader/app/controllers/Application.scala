@@ -36,31 +36,34 @@ class ImageLoader(storage: ImageStorage) extends Controller with ArgoHelpers {
     val response = Json.obj(
       "data"  -> Json.obj("description" -> "This is the Loader Service"),
       "links" -> Json.arr(
-        Json.obj("rel" -> "load", "href" -> s"$rootUri/images{?uploadedBy}")
+        Json.obj("rel" -> "load", "href" -> s"$rootUri/images{?uploadedBy,identifiers}")
       )
     )
     Ok(response).as(ArgoMediaType)
   }
 
-  def loadImage = Authenticated.async(digestedFile(createTempFile)) { request =>
+  def loadImage(uploadedBy: Option[String], identifiers: Option[String]) = Authenticated.async(digestedFile(createTempFile)) { request =>
     val DigestedFile(tempFile, id) = request.body
 
     // only allow AuthenticatedService to set with query string
-    val uploadedBy = (request.user, request.getQueryString("uploadedBy")) match {
+    val uploadedBy_ = (request.user, uploadedBy) match {
       case (user: AuthenticatedService, Some(qs)) => qs
       case (user: PandaUser, qs) => user.email
       case (user, qs) => user.name
     }
 
-    Logger.info(s"Received file, id: $id, uploadedBy: $uploadedBy")
+    // TODO: should error if the JSON parsing failed
+    val identifiers_ = identifiers.map(Json.parse(_).as[Map[String, String]]) getOrElse Map()
+
+    Logger.info(s"Received file, id: $id, uploadedBy: $uploadedBy_")
 
     // Abort early if unsupported mime-type
     val mimeType = MimeTypeDetection.guessMimeType(tempFile)
     val future = if (Config.supportedMimeTypes.exists(Some(_) == mimeType)) {
-      storeFile(id, tempFile, mimeType, uploadedBy)
+      storeFile(id, tempFile, mimeType, uploadedBy_, identifiers_)
     } else {
       val mimeTypeName = mimeType getOrElse "none detected"
-      Logger.info(s"Rejected file, id: $id, uploadedBy: $uploadedBy, because the mime-type is not supported ($mimeTypeName). return 415")
+      Logger.info(s"Rejected file, id: $id, uploadedBy: $uploadedBy_, because the mime-type is not supported ($mimeTypeName). return 415")
       Future(UnsupportedMediaType(Json.obj("errorMessage" -> s"Unsupported mime-type: $mimeTypeName")))
     }
 
@@ -68,9 +71,12 @@ class ImageLoader(storage: ImageStorage) extends Controller with ArgoHelpers {
     future
   }
 
-  def storeFile(id: String, tempFile: File, mimeType: Option[String], uploadedBy: String): Future[Result] = {
+  def storeFile(id: String, tempFile: File, mimeType: Option[String], uploadedBy: String, identifiers: Map[String, String]): Future[Result] = {
+    // Flatten identifiers to attach to S3 object
+    val identifiersMeta = identifiers.map { case (k,v) => (s"identifier!$k", v) }.toMap
+
     // These futures are started outside the for-comprehension, otherwise they will not run in parallel
-    val uriFuture = storage.storeImage(id, tempFile, mimeType, Map("uploaded_by" -> uploadedBy))
+    val uriFuture = storage.storeImage(id, tempFile, mimeType, Map("uploaded_by" -> uploadedBy) ++ identifiersMeta)
     val thumbFuture = Thumbnailer.createThumbnail(Config.thumbWidth, tempFile.toString)
     val dimensionsFuture = FileMetadata.dimensions(tempFile)
     val fileMetadataFuture = FileMetadata.fromIPTCHeaders(tempFile)
@@ -88,7 +94,7 @@ class ImageLoader(storage: ImageStorage) extends Controller with ArgoHelpers {
         thumbSize   = thumb.length
         thumbDimensions <- FileMetadata.dimensions(thumb)
         thumbAsset  = Asset(thumbUri, thumbSize, mimeType, thumbDimensions)
-        image       = Image.uploadedNow(id, uploadedBy, sourceAsset, thumbAsset, fileMetadata, cleanMetadata)
+        image       = Image.uploadedNow(id, uploadedBy, identifiers, sourceAsset, thumbAsset, fileMetadata, cleanMetadata)
       } yield {
         Notifications.publish(Json.toJson(image), "image")
         // TODO: return an entity pointing to the Media API uri for the image

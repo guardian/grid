@@ -23,6 +23,12 @@ object Mappings {
 
   def nonAnalysedList(indexName: String) = Json.obj("type" -> "string", "index" -> "not_analyzed", "index_name" -> indexName)
 
+  val identifiersMapping =
+    nonDynamicObj(
+      // TODO: extract these to a configuration setting
+      "picdarUrn" -> standardAnalysedString
+    )
+
   val dimensionsMapping =
     nonDynamicObj(
       "width" -> integer,
@@ -83,7 +89,8 @@ object Mappings {
           "originalMetadata" -> metadataMapping,
           "exports" -> exportsMapping,
           "uploadTime" -> dateFormat,
-          "uploadedBy" -> nonAnalyzedString
+          "uploadedBy" -> nonAnalyzedString,
+          "identifiers" -> dynamicObj
         ),
         "dynamic_templates" -> Json.arr(Json.obj(
           "stored_json_object_template" -> Json.obj(
