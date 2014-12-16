@@ -1,8 +1,7 @@
 import angular from 'angular';
-import 'mp/mixpanel';
+import 'mixpanel/mixpanel';
 
 export var track = angular.module('analytics.track', ['mixpanel']);
-
 
 // TODO: look into tidying the async flow. There might be a small chance of
 // `track` being called before the session is got.
