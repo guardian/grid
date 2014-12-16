@@ -52,7 +52,8 @@ class ImageLoader(storage: ImageStorage) extends Controller with ArgoHelpers {
       case (user, qs) => user.name
     }
 
-    val identifiers_ = identifiers map parseColonList getOrElse Map()
+    // TODO: should error if the JSON parsing failed
+    val identifiers_ = identifiers.map(Json.parse(_).as[Map[String, String]]) getOrElse Map()
 
     Logger.info(s"Received file, id: $id, uploadedBy: $uploadedBy_")
 
@@ -113,20 +114,4 @@ class ImageLoader(storage: ImageStorage) extends Controller with ArgoHelpers {
   }
 
   def createTempFile = File.createTempFile("requestBody", "", new File(Config.tempDir))
-
-
-  def parseColonList(s: String): Map[String, String] = {
-    def parseColonList0(l: List[String]): Map[String, String] = l match {
-      case head :: tail => parseColonList0(tail) + parsePair(head)
-      case Nil => Map()
-    }
-
-    def parsePair(p: String): (String, String) = p.split(":", 2).toList match {
-      case k :: v :: Nil => k -> v
-      case _ => throw new Error("Expected identifier to be of the form key:value")
-    }
-
-    val pairs = s.split(",", 2).toList
-    parseColonList0(pairs)
-  }
 }
