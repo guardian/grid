@@ -5,6 +5,8 @@ import play.api.mvc._
 import play.api.libs.concurrent.Execution.Implicits._
 import play.api.libs.json.Json
 import play.api.Logger
+
+import org.joda.time.DateTime
 import scala.concurrent.Future
 
 import lib.play.BodyParsers.digestedFile
@@ -42,25 +44,32 @@ class ImageLoader(storage: ImageStorage) extends Controller with ArgoHelpers {
     Ok(response).as(ArgoMediaType)
   }
 
-  def loadImage(uploadedBy: Option[String], identifiers: Option[String]) = Authenticated.async(digestedFile(createTempFile)) { request =>
+  def loadImage(uploadedBy: Option[String], identifiers: Option[String], uploadTime: Option[String]) = Authenticated.async(digestedFile(createTempFile)) { request =>
     val DigestedFile(tempFile, id) = request.body
 
     // only allow AuthenticatedService to set with query string
     val uploadedBy_ = (request.user, uploadedBy) match {
-      case (user: AuthenticatedService, Some(qs)) => qs
-      case (user: PandaUser, qs) => user.email
-      case (user, qs) => user.name
+      case (user: AuthenticatedService, Some(by)) => by
+      case (user: PandaUser, _) => user.email
+      case (user, _) => user.name
     }
 
     // TODO: should error if the JSON parsing failed
     val identifiers_ = identifiers.map(Json.parse(_).as[Map[String, String]]) getOrElse Map()
 
-    Logger.info(s"Received file, id: $id, uploadedBy: $uploadedBy_")
+    // TODO: handle the error thrown by an invalid string to `DateTime`
+    // only allow uploadTime to be set by AuthenticatedService
+    val uploadTime_ = (request.user, uploadTime) match {
+      case (user: AuthenticatedService, Some(time)) => new DateTime(time)
+      case (_, _) => DateTime.now
+    }
+
+    Logger.info(s"Received file, id: $id, uploadedBy: $uploadedBy_, uploadTime: $uploadTime_")
 
     // Abort early if unsupported mime-type
     val mimeType = MimeTypeDetection.guessMimeType(tempFile)
     val future = if (Config.supportedMimeTypes.exists(Some(_) == mimeType)) {
-      storeFile(id, tempFile, mimeType, uploadedBy_, identifiers_)
+      storeFile(id, tempFile, mimeType, uploadTime_, uploadedBy_, identifiers_)
     } else {
       val mimeTypeName = mimeType getOrElse "none detected"
       Logger.info(s"Rejected file, id: $id, uploadedBy: $uploadedBy_, because the mime-type is not supported ($mimeTypeName). return 415")
@@ -71,7 +80,10 @@ class ImageLoader(storage: ImageStorage) extends Controller with ArgoHelpers {
     future
   }
 
-  def storeFile(id: String, tempFile: File, mimeType: Option[String], uploadedBy: String, identifiers: Map[String, String]): Future[Result] = {
+  def storeFile(id: String, tempFile: File, mimeType: Option[String],
+                uploadTime: DateTime, uploadedBy: String,
+                identifiers: Map[String, String]): Future[Result] = {
+
     // Flatten identifiers to attach to S3 object
     val identifiersMeta = identifiers.map { case (k,v) => (s"identifier!$k", v) }.toMap
 
@@ -94,7 +106,7 @@ class ImageLoader(storage: ImageStorage) extends Controller with ArgoHelpers {
         thumbSize   = thumb.length
         thumbDimensions <- FileMetadata.dimensions(thumb)
         thumbAsset  = Asset(thumbUri, thumbSize, mimeType, thumbDimensions)
-        image       = Image.uploadedNow(id, uploadedBy, identifiers, sourceAsset, thumbAsset, fileMetadata, cleanMetadata)
+        image       = Image.upload(id, uploadTime, uploadedBy, identifiers, sourceAsset, thumbAsset, fileMetadata, cleanMetadata)
       } yield {
         Notifications.publish(Json.toJson(image), "image")
         // TODO: return an entity pointing to the Media API uri for the image
