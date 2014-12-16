@@ -14,6 +14,8 @@ System.config({
     "github:tapmodo/Jcrop": "github:tapmodo/Jcrop@0.9.12",
     "jcrop": "github:tapmodo/Jcrop@0.9.12",
     "jquery": "github:components/jquery@2.1.1",
+    "mixpanel": "github:mixpanel/mixpanel-js@2.3.2",
+    "mixpanel-js": "github:mixpanel/mixpanel-js@2.3.2",
     "text": "github:systemjs/plugin-text@0.0.2",
     "theseus": "github:argo-rest/theseus@master",
     "github:angular-ui/ui-router@0.2.13": {
