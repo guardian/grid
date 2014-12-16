@@ -62,7 +62,7 @@ mixpanel['init'] = function (token, config, name) {
     mixpanel['_i'].push([token, config, name]);
 };
 
-require('mixpanel/mixpanel');
+require('mixpanel-js/mixpanel');
 
 // We can't export mixpanel here as that take a snap shot of the var at the time.
 // i.e. `export window.mixpanel` won't work as it is then modified, but we've already exported it
