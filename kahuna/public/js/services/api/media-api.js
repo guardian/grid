@@ -27,6 +27,7 @@ apiServices.factory('mediaApi',
     }
 
     function getSession() {
+        // TODO: make this queue requests so we only call this once
         return session || (session = root.follow('session').getData());
     }
 
