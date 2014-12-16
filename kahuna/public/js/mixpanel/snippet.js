@@ -8,7 +8,7 @@
 
 
 var mixpanel = [];
-var script, first_script, gen_fn, functions, i, lib_name = 'mixpanel';
+var script, functions, i, lib_name = 'mixpanel';
 
 window[lib_name] = mixpanel;
 mixpanel['__SV'] = 1.2;
