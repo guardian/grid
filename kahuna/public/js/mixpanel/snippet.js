@@ -2,8 +2,8 @@
  * Done so that we don't create a script tag the way mixpanel wants us to
  * i.e: https://github.com/mixpanel/mixpanel-js/blob/master/mixpanel-jslib-snippet.js
  *
- * This has to be a CommonJS module so we can load syncronously, which ES6 imports
- * don't because of hoisting.
+ * This has to be a CommonJS module as if we import mixpanel-js ES6 style, it will
+ * complain that this initialisation hasn't been setup.
  */
 
 
