@@ -28,9 +28,6 @@ editApplicator.directive('uiEditApplicator', function() {
         },
         bindToController: true,
         controller: 'EditApplicatorCtrl as editApplicator',
-        link: function(scope, element, attrs, ctrl) {
-            element.on('click', ctrl.applyEdits);
-        },
         template: template
     }
 });
