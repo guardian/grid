@@ -27,14 +27,15 @@ case class Image(id: String,
 
 object Image {
 
-  def uploadedNow(id: String,
-                  uploadedBy: String,
-                  identifiers: Map[String, String],
-                  source: Asset,
-                  thumbnail: Asset,
-                  fileMetadata: FileMetadata,
-                  metadata: ImageMetadata): Image =
-    Image(id, DateTime.now, uploadedBy, identifiers, source, Some(thumbnail),
+  def upload(id: String,
+             uploadTime: DateTime,
+             uploadedBy: String,
+             identifiers: Map[String, String],
+             source: Asset,
+             thumbnail: Asset,
+             fileMetadata: FileMetadata,
+             metadata: ImageMetadata): Image =
+    Image(id, uploadTime, uploadedBy, identifiers, source, Some(thumbnail),
       fileMetadata, metadata, metadata)
 
   implicit val IptcMetadataWrites: Writes[ImageMetadata] =
