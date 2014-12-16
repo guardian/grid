@@ -98,6 +98,14 @@ class DynamoDB(credentials: AWSCredentials, region: Region, tableName: String) {
       new ValueMap().withStringSet(":value", value)
     )
 
+  def setAdd(id: String, key: String, value: List[String])
+            (implicit ex: ExecutionContext): Future[JsObject] =
+    update(
+      id,
+      s"ADD $key :value",
+      new ValueMap().withStringSet(":value", value:_*)
+    )
+
 
   def jsonGet(id: String, key: String)
              (implicit ex: ExecutionContext): Future[JsValue] =

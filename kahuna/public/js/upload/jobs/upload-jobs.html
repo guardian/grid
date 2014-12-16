@@ -23,15 +23,26 @@
                 </div>
             </td>
             <td class="job-info job-info--editor">
-                <ui-required-metadata-editor ng:if="job.image"
-                                             initial="job.image.data.metadata"
-                                             override-resource="job.image.data.userMetadata.data.metadata"
-                                             on-update="overrideMetadata(job, metadata)"
-                ></ui-required-metadata-editor>
-                <ui-labeller class="jobs-labeller"
-                            ng:if="job.image"
-                            labels="job.image.data.userMetadata.data.labels">
-                </ui-labeller>
+                <div ng:if="job.image">
+                    <ui-required-metadata-editor initial="job.image.data.metadata"
+                                                 override-resource="job.image.data.userMetadata.data.metadata"
+                                                 on-update="overrideMetadata(job, metadata)"
+                    ></ui-required-metadata-editor>
+
+                    <div class="job-labels">
+                        <ui-labeller class="job-labeller"
+                                     labels="job.image.data.userMetadata.data.labels">
+                        </ui-labeller>
+
+                        <!-- TODO: find a more efficient way of of doing `jobsExcept` -->
+                        <ui-edit-applicator class="job-apply-to-all"
+                                            ng:if="job.image"
+                                            give-this="uploadJobsCtrl.getLabelsArrFrom(job.image)"
+                                            to-these="uploadJobsCtrl.getAllEditsOfType('labels', uploadJobsCtrl.jobsExcept(job))"
+                                            and-then="uploadJobsCtrl.updateLabels(uploadJobsCtrl.jobsExcept(job))">
+                        </ui-edit-applicator>
+                    </div>
+                </div>
             </td>
         </tr>
     </tbody>
