@@ -1,7 +1,6 @@
 package controllers
 
 import java.io.File
-import org.joda.time.format.{ISODateTimeFormat, DateTimeFormat}
 import play.api.mvc._
 import play.api.libs.concurrent.Execution.Implicits._
 import play.api.libs.json.Json
@@ -9,7 +8,6 @@ import play.api.Logger
 
 import org.joda.time.DateTime
 import scala.concurrent.Future
-import scala.util.Try
 
 import lib.play.BodyParsers.digestedFile
 import lib.play.DigestedFile
