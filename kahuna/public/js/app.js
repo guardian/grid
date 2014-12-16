@@ -14,6 +14,7 @@ import 'edits/index';
 import 'util/async';
 import 'util/digest';
 import 'pandular/heal';
+import 'analytics/track';
 
 // TODO: refactor all into their respective directories
 import searchTemplate        from './search/view.html!text';
@@ -39,6 +40,7 @@ var kahuna = angular.module('kahuna', [
     'pandular.heal',
     'util.async',
     'util.digest',
+    'analytics.track',
     'kahuna.upload',
     'kahuna.search',
     'kahuna.edits',
