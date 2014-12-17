@@ -157,15 +157,13 @@ kahuna.controller('SessionCtrl',
 
 
 kahuna.controller('ImageCtrl',
-                  ['$scope', '$stateParams', '$filter', 'mediaApi', 'mediaCropper',
-                   function($scope, $stateParams, $filter, mediaApi, mediaCropper) {
+                  ['$scope', '$stateParams', 'mediaApi', 'mediaCropper',
+                   function($scope, $stateParams, mediaApi, mediaCropper) {
 
     var imageId = $stateParams.imageId;
     $scope.cropKey = $stateParams.crop;
 
     mediaApi.find(imageId).then(function(image) {
-        var getCropKey = $filter('getCropKey');
-
         $scope.image = image;
 
         // FIXME: we need not to use imageSync but find a way to use the promised URI
@@ -173,7 +171,7 @@ kahuna.controller('ImageCtrl',
 
         mediaCropper.getCropsFor(image).then(function(crops) {
            $scope.crops = crops;
-           $scope.crop = crops.find(crop => getCropKey(crop) === $scope.cropKey);
+           $scope.crop = crops.find(crop => crop.id === $scope.cropKey);
         });
     });
 
@@ -240,7 +238,7 @@ kahuna.controller('ImageCropCtrl',
 
             $state.go('image', {
                 imageId: imageId,
-                crop: $filter('getCropKey')(crop.data)
+                crop: crop.data.id
             });
         // FIXME: traceur promises don't have finally?
         }).finally(function() {
@@ -249,15 +247,6 @@ kahuna.controller('ImageCropCtrl',
     }.bind(this);
 
 }]);
-
-// Create the key form the bounds as that's what we have in S3
-kahuna.filter('getCropKey', function() {
-    return function(crop) {
-        var bounds = crop.specification.bounds;
-        return ['x', 'y', 'width', 'height'].map(k => bounds[k]).join('_');
-    };
-});
-
 
 kahuna.filter('getExtremeAssets', function() {
     return function(image) {
