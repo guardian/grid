@@ -3,7 +3,7 @@ package model
 import play.api.libs.json._
 import play.api.libs.functional.syntax._
 
-case class Crop(specification: CropSource, assets: List[CropSizing])
+case class Crop(id: String, specification: CropSource, assets: List[CropSizing])
 
 object Crop {
   implicit val cropWrites: Writes[Crop] = Json.writes[Crop]
