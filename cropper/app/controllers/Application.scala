@@ -49,7 +49,7 @@ object Application extends Controller with ArgoHelpers {
       errors   => Future.successful(BadRequest(errors.errorsAsJson)),
       cropReq => {
         createSizings(cropReq).map { case (id, sizings) =>
-          val crops = cropResponse(Crop(cropReq, sizings))
+          val crops = cropResponse(Crop(getCropId(cropReq.bounds), cropReq, sizings))
           val exports = Json.obj(
             "id" -> id,
             "data" -> Json.arr(Json.obj("type" -> "crop") ++ crops)
@@ -65,7 +65,7 @@ object Application extends Controller with ArgoHelpers {
 
   def getCrops(id: String) = Authenticated.async { req =>
     CropStorage.listCrops(id) map (_.toList) map { crops =>
-      val all = crops.map { case (source, sizings) => cropResponse(Crop(source, sizings)) }
+      val all = crops.map { case (source, sizings) => cropResponse(Crop(getCropId(source.bounds), source, sizings)) }
 
       val links = for {
         (firstCropSource, _) <- crops.headOption
@@ -147,5 +147,7 @@ object Application extends Controller with ArgoHelpers {
 
   def outputFilename(source: SourceImage, bounds: Bounds, outputWidth: Int): String =
     s"${source.id}/${bounds.x}_${bounds.y}_${bounds.width}_${bounds.height}/$outputWidth.jpg"
+
+  def getCropId(b: Bounds) = List(b.x, b.y, b.width, b.height).mkString("_")
 
 }
