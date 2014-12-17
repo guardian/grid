@@ -146,7 +146,7 @@ object Application extends Controller with ArgoHelpers {
 
 
   def outputFilename(source: SourceImage, bounds: Bounds, outputWidth: Int): String =
-    s"${source.id}/${bounds.x}_${bounds.y}_${bounds.width}_${bounds.height}/$outputWidth.jpg"
+    s"${source.id}/${getCropId(bounds)}/$outputWidth.jpg"
 
   def getCropId(b: Bounds) = List(b.x, b.y, b.width, b.height).mkString("_")
 
