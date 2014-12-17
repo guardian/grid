@@ -63,6 +63,7 @@ object Mappings {
 
   val exportsMapping =
     nonDynamicObj(
+      "id" -> nonAnalyzedString,
       "type" -> nonAnalyzedString,
       "specification" -> dynamicObj,
       "assets" -> assetMapping
