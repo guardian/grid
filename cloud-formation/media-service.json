@@ -476,6 +476,8 @@
                             "wget -P /root https://s3.amazonaws.com/cloudformation-examples/aws-cfn-bootstrap-latest.tar.gz","\n",
                             "mkdir -p /root/aws-cfn-bootstrap-latest","\n",
                             "tar xvfz /root/aws-cfn-bootstrap-latest.tar.gz --strip-components=1 -C /root/aws-cfn-bootstrap-latest","\n",
+                            "easy_install pip\n",
+                            "pip install pbr==0.10.2\n",
                             "easy_install /root/aws-cfn-bootstrap-latest/","\n",
 
                             "cfn-init -s ", { "Ref" : "AWS::StackId" }, " -r ElasticsearchLaunchConfig ",
@@ -639,6 +641,8 @@
                         "wget -P /root https://s3.amazonaws.com/cloudformation-examples/aws-cfn-bootstrap-latest.tar.gz","\n",
                         "mkdir -p /root/aws-cfn-bootstrap-latest","\n",
                         "tar xvfz /root/aws-cfn-bootstrap-latest.tar.gz --strip-components=1 -C /root/aws-cfn-bootstrap-latest","\n",
+                        "easy_install pip\n",
+                        "pip install pbr==0.10.2\n",
                         "easy_install /root/aws-cfn-bootstrap-latest/","\n",
 
                         "cfn-init -s ", { "Ref" : "AWS::StackId" }, " -r MediaApiLaunchConfig ",
@@ -807,6 +811,8 @@
                         "wget -P /root https://s3.amazonaws.com/cloudformation-examples/aws-cfn-bootstrap-latest.tar.gz","\n",
                         "mkdir -p /root/aws-cfn-bootstrap-latest","\n",
                         "tar xvfz /root/aws-cfn-bootstrap-latest.tar.gz --strip-components=1 -C /root/aws-cfn-bootstrap-latest","\n",
+                        "easy_install pip\n",
+                        "pip install pbr==0.10.2\n",
                         "easy_install /root/aws-cfn-bootstrap-latest/","\n",
 
                         "cfn-init -s ", { "Ref" : "AWS::StackId" }, " -r KahunaLaunchConfig ",
@@ -933,6 +939,8 @@
                         "wget -P /root https://s3.amazonaws.com/cloudformation-examples/aws-cfn-bootstrap-latest.tar.gz","\n",
                         "mkdir -p /root/aws-cfn-bootstrap-latest","\n",
                         "tar xvfz /root/aws-cfn-bootstrap-latest.tar.gz --strip-components=1 -C /root/aws-cfn-bootstrap-latest","\n",
+                        "easy_install pip\n",
+                        "pip install pbr==0.10.2\n",
                         "easy_install /root/aws-cfn-bootstrap-latest/","\n",
 
                         "cfn-init -s ", { "Ref" : "AWS::StackId" }, " -r ThrallLaunchConfig ",
@@ -1099,6 +1107,8 @@
                         "wget -P /root https://s3.amazonaws.com/cloudformation-examples/aws-cfn-bootstrap-latest.tar.gz","\n",
                         "mkdir -p /root/aws-cfn-bootstrap-latest","\n",
                         "tar xvfz /root/aws-cfn-bootstrap-latest.tar.gz --strip-components=1 -C /root/aws-cfn-bootstrap-latest","\n",
+                        "easy_install pip\n",
+                        "pip install pbr==0.10.2\n",
                         "easy_install /root/aws-cfn-bootstrap-latest/","\n",
 
                         "cfn-init -s ", { "Ref" : "AWS::StackId" }, " -r ImageLoaderLaunchConfig ",
@@ -1282,6 +1292,8 @@
                         "wget -P /root https://s3.amazonaws.com/cloudformation-examples/aws-cfn-bootstrap-latest.tar.gz","\n",
                         "mkdir -p /root/aws-cfn-bootstrap-latest","\n",
                         "tar xvfz /root/aws-cfn-bootstrap-latest.tar.gz --strip-components=1 -C /root/aws-cfn-bootstrap-latest","\n",
+                        "easy_install pip\n",
+                        "pip install pbr==0.10.2\n",
                         "easy_install /root/aws-cfn-bootstrap-latest/","\n",
 
                         "cfn-init -s ", { "Ref" : "AWS::StackId" }, " -r CropperLaunchConfig ",
@@ -1595,6 +1607,8 @@
                         "wget -P /root https://s3.amazonaws.com/cloudformation-examples/aws-cfn-bootstrap-latest.tar.gz","\n",
                         "mkdir -p /root/aws-cfn-bootstrap-latest","\n",
                         "tar xvfz /root/aws-cfn-bootstrap-latest.tar.gz --strip-components=1 -C /root/aws-cfn-bootstrap-latest","\n",
+                        "easy_install pip\n",
+                        "pip install pbr==0.10.2\n",
                         "easy_install /root/aws-cfn-bootstrap-latest/","\n",
 
                         "cfn-init -s ", { "Ref" : "AWS::StackId" }, " -r MetadataEditorLaunchConfig ",
