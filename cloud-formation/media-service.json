@@ -470,8 +470,9 @@
                         "Fn::Join":["", [
                             "#!/bin/bash -ev\n",
 
+                            "locale-gen en_GB.UTF-8\n",
                             "apt-get -y update\n",
-                            "apt-get -y install language-pack-en openjdk-7-jre-headless\n",
+                            "apt-get -y install openjdk-7-jre-headless\n",
                             "apt-get -y install python-setuptools\n",
                             "wget -P /root https://s3.amazonaws.com/cloudformation-examples/aws-cfn-bootstrap-latest.tar.gz","\n",
                             "mkdir -p /root/aws-cfn-bootstrap-latest","\n",
@@ -635,8 +636,9 @@
                     "Fn::Join":["", [
                         "#!/bin/bash -ev\n",
 
+                        "locale-gen en_GB.UTF-8\n",
                         "apt-get -y update\n",
-                        "apt-get -y install language-pack-en openjdk-7-jre-headless\n",
+                        "apt-get -y install openjdk-7-jre-headless\n",
                         "apt-get -y install python-setuptools\n",
                         "wget -P /root https://s3.amazonaws.com/cloudformation-examples/aws-cfn-bootstrap-latest.tar.gz","\n",
                         "mkdir -p /root/aws-cfn-bootstrap-latest","\n",
@@ -805,8 +807,9 @@
                     "Fn::Join":["", [
                         "#!/bin/bash -ev\n",
 
+                        "locale-gen en_GB.UTF-8\n",
                         "apt-get -y update\n",
-                        "apt-get -y install language-pack-en openjdk-7-jre-headless\n",
+                        "apt-get -y install openjdk-7-jre-headless\n",
                         "apt-get -y install python-setuptools\n",
                         "wget -P /root https://s3.amazonaws.com/cloudformation-examples/aws-cfn-bootstrap-latest.tar.gz","\n",
                         "mkdir -p /root/aws-cfn-bootstrap-latest","\n",
@@ -932,9 +935,10 @@
                 "UserData": { "Fn::Base64": {
                     "Fn::Join":["", [
                         "#!/bin/bash -ev\n",
+                        "locale-gen en_GB.UTF-8\n",
 
                         "apt-get -y update\n",
-                        "apt-get -y install language-pack-en openjdk-7-jre-headless\n",
+                        "apt-get -y install openjdk-7-jre-headless\n",
                         "apt-get -y install python-setuptools\n",
                         "wget -P /root https://s3.amazonaws.com/cloudformation-examples/aws-cfn-bootstrap-latest.tar.gz","\n",
                         "mkdir -p /root/aws-cfn-bootstrap-latest","\n",
@@ -1099,9 +1103,10 @@
                 "UserData": { "Fn::Base64": {
                     "Fn::Join":["", [
                         "#!/bin/bash -ev\n",
+                        "locale-gen en_GB.UTF-8\n",
 
                         "apt-get -y update\n",
-                        "apt-get -y install language-pack-en openjdk-7-jre-headless\n",
+                        "apt-get -y install openjdk-7-jre-headless\n",
                         "apt-get -y install graphicsmagick graphicsmagick-imagemagick-compat\n",
                         "apt-get -y install python-setuptools\n",
                         "wget -P /root https://s3.amazonaws.com/cloudformation-examples/aws-cfn-bootstrap-latest.tar.gz","\n",
@@ -1284,9 +1289,10 @@
                 "UserData": { "Fn::Base64": {
                     "Fn::Join":["", [
                         "#!/bin/bash -ev\n",
+                        "locale-gen en_GB.UTF-8\n",
 
                         "apt-get -y update\n",
-                        "apt-get -y install language-pack-en openjdk-7-jre-headless\n",
+                        "apt-get -y install openjdk-7-jre-headless\n",
                         "apt-get -y install graphicsmagick graphicsmagick-imagemagick-compat\n",
                         "apt-get -y install python-setuptools\n",
                         "wget -P /root https://s3.amazonaws.com/cloudformation-examples/aws-cfn-bootstrap-latest.tar.gz","\n",
@@ -1600,9 +1606,10 @@
                 "UserData": { "Fn::Base64": {
                     "Fn::Join":["", [
                         "#!/bin/bash -ev\n",
+                        "locale-gen en_GB.UTF-8\n",
 
                         "apt-get -y update\n",
-                        "apt-get -y install language-pack-en openjdk-7-jre-headless\n",
+                        "apt-get -y install openjdk-7-jre-headless\n",
                         "apt-get -y install python-setuptools\n",
                         "wget -P /root https://s3.amazonaws.com/cloudformation-examples/aws-cfn-bootstrap-latest.tar.gz","\n",
                         "mkdir -p /root/aws-cfn-bootstrap-latest","\n",
