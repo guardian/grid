@@ -30,11 +30,11 @@
                 <dd>
                     <ul class="image-crops">
                         <li class="image-crop"
-                            ng:class="{'image-crop--selected': (crop|getCropKey) == cropKey}"
+                            ng:class="{'image-crop--selected': crop.id == cropKey}"
                             ng:repeat="crop in crops">
                             <a draggable="true"
                                ng:init="extremeAssets = (crop | getExtremeAssets)"
-                               ui:sref="{crop: (crop | getCropKey)}"
+                               ui:sref="{crop: crop.id}"
                                ui:drag-data="{{imageSync | asImageAndCropsDragData:crop}}"
                                ui:drag-image="{{extremeAssets.smallest | assetFile}}">
                                 <img class="image-crop__image" ng:src="{{extremeAssets.smallest | assetFile}}" />
