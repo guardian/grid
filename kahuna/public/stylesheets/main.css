@@ -415,7 +415,7 @@ a:focus {
 }
 
 .easel__canvas {
-    height: calc(100vh - 48px); /* viewport - palette */
+    height: calc(100vh - 48px); /* viewport - top-bar */
     vertical-align: middle;
 }
 
@@ -426,7 +426,7 @@ a:focus {
 
 .easel__image {
     display: block;
-    max-height: calc(100vh - 48px); /* viewport - palette */
+    max-height: calc(100vh - 48px); /* viewport - top-bar */
     max-width: 100%;
     margin: 0 auto;
     position: relative;
@@ -439,21 +439,6 @@ a:focus {
     padding: 20px;
 }
 
-.palette {
-    background: #555;
-    bottom: 0;
-    color: white;
-    display: block;
-    font-family: "Guardian Agate Sans 1 Web";
-}
-
-.palette__button {
-    color: inherit;
-    display: inline-block;
-    margin: 5px;
-    padding: 5px 10px;
-}
-
 .image-details {
     box-sizing: border-box;
     float: right;
@@ -462,7 +447,7 @@ a:focus {
     max-height: 100vh;
     padding: 10px 10px;
     overflow: auto;
-    width: 340px;
+    width: 300px;
 }
 .image-details:after {
     clear: both;
@@ -471,7 +456,7 @@ a:focus {
 }
 
 .image-holder {
-    margin-right: 350px;
+    margin-right: 310px;
 }
 
 .image-info__heading {
