@@ -26,6 +26,10 @@
             "sudo wget -P /root https://s3.amazonaws.com/cloudformation-examples/aws-cfn-bootstrap-latest.tar.gz",
             "sudo mkdir -p /root/aws-cfn-bootstrap-latest",
             "sudo tar xvfz /root/aws-cfn-bootstrap-latest.tar.gz --strip-components=1 -C /root/aws-cfn-bootstrap-latest",
+
+            "# TODO: Remove hack when PBR is ready",
+            "# we force the version of PBR here with pip as v0.10.3 breaks",
+            "# see: https://forums.aws.amazon.com/thread.jspa?messageID=590567#590567",
             "sudo easy_install pip",
             "sudo pip install pbr==0.10.2",
             "sudo easy_install /root/aws-cfn-bootstrap-latest/"
