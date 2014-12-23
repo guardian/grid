@@ -629,7 +629,7 @@
             },
             "Properties": {
                 "KeyName": { "Ref": "KeyName" },
-                "ImageId": {"Ref": "ImageIdEBSStorage"},
+                "ImageId": {"Ref": "ImageIdEBSStorageCFN"},
                 "SecurityGroups": [
                     { "Ref": "AppServerSecurityGroup" },
                     { "Ref": "SSHSecurityGroup" }
@@ -641,14 +641,6 @@
                         "#!/bin/bash -ev\n",
 
                         "apt-get -y update\n",
-                        "apt-get -y install language-pack-en openjdk-7-jre-headless\n",
-                        "apt-get -y install python-setuptools\n",
-                        "wget -P /root https://s3.amazonaws.com/cloudformation-examples/aws-cfn-bootstrap-latest.tar.gz","\n",
-                        "mkdir -p /root/aws-cfn-bootstrap-latest","\n",
-                        "tar xvfz /root/aws-cfn-bootstrap-latest.tar.gz --strip-components=1 -C /root/aws-cfn-bootstrap-latest","\n",
-                        "easy_install pip\n",
-                        "pip install pbr==0.10.2\n",
-                        "easy_install /root/aws-cfn-bootstrap-latest/","\n",
 
                         "cfn-init -s ", { "Ref" : "AWS::StackId" }, " -r MediaApiLaunchConfig ",
                         "  --region ", { "Ref" : "AWS::Region" }, " || error_exit 'Failed to run cfn-init'\n",
@@ -799,7 +791,7 @@
             },
             "Properties": {
                 "KeyName": { "Ref": "KeyName" },
-                "ImageId": {"Ref": "ImageIdEBSStorage"},
+                "ImageId": {"Ref": "ImageIdEBSStorageCFN"},
                 "SecurityGroups": [
                     { "Ref": "AppServerSecurityGroup" },
                     { "Ref": "SSHSecurityGroup" }
@@ -811,14 +803,6 @@
                         "#!/bin/bash -ev\n",
 
                         "apt-get -y update\n",
-                        "apt-get -y install language-pack-en openjdk-7-jre-headless\n",
-                        "apt-get -y install python-setuptools\n",
-                        "wget -P /root https://s3.amazonaws.com/cloudformation-examples/aws-cfn-bootstrap-latest.tar.gz","\n",
-                        "mkdir -p /root/aws-cfn-bootstrap-latest","\n",
-                        "tar xvfz /root/aws-cfn-bootstrap-latest.tar.gz --strip-components=1 -C /root/aws-cfn-bootstrap-latest","\n",
-                        "easy_install pip\n",
-                        "pip install pbr==0.10.2\n",
-                        "easy_install /root/aws-cfn-bootstrap-latest/","\n",
 
                         "cfn-init -s ", { "Ref" : "AWS::StackId" }, " -r KahunaLaunchConfig ",
                         "  --region ", { "Ref" : "AWS::Region" }, " || error_exit 'Failed to run cfn-init'\n",
@@ -927,7 +911,7 @@
             },
             "Properties": {
                 "KeyName": { "Ref": "KeyName" },
-                "ImageId": {"Ref": "ImageIdEBSStorage"},
+                "ImageId": {"Ref": "ImageIdEBSStorageCFN"},
                 "SecurityGroups": [
                     { "Ref": "AppServerSecurityGroup" },
                     { "Ref": "SSHSecurityGroup" }
@@ -939,14 +923,6 @@
                         "#!/bin/bash -ev\n",
 
                         "apt-get -y update\n",
-                        "apt-get -y install language-pack-en openjdk-7-jre-headless\n",
-                        "apt-get -y install python-setuptools\n",
-                        "wget -P /root https://s3.amazonaws.com/cloudformation-examples/aws-cfn-bootstrap-latest.tar.gz","\n",
-                        "mkdir -p /root/aws-cfn-bootstrap-latest","\n",
-                        "tar xvfz /root/aws-cfn-bootstrap-latest.tar.gz --strip-components=1 -C /root/aws-cfn-bootstrap-latest","\n",
-                        "easy_install pip\n",
-                        "pip install pbr==0.10.2\n",
-                        "easy_install /root/aws-cfn-bootstrap-latest/","\n",
 
                         "cfn-init -s ", { "Ref" : "AWS::StackId" }, " -r ThrallLaunchConfig ",
                         "  --region ", { "Ref" : "AWS::Region" }, " || error_exit 'Failed to run cfn-init'\n",
@@ -1594,7 +1570,7 @@
             },
             "Properties": {
                 "KeyName": { "Ref": "KeyName" },
-                "ImageId": {"Ref": "ImageIdEBSStorage"},
+                "ImageId": {"Ref": "ImageIdEBSStorageCFN"},
                 "SecurityGroups": [
                     { "Ref": "AppServerSecurityGroup" },
                     { "Ref": "AppClientSecurityGroup" },
@@ -1607,14 +1583,6 @@
                         "#!/bin/bash -ev\n",
 
                         "apt-get -y update\n",
-                        "apt-get -y install language-pack-en openjdk-7-jre-headless\n",
-                        "apt-get -y install python-setuptools\n",
-                        "wget -P /root https://s3.amazonaws.com/cloudformation-examples/aws-cfn-bootstrap-latest.tar.gz","\n",
-                        "mkdir -p /root/aws-cfn-bootstrap-latest","\n",
-                        "tar xvfz /root/aws-cfn-bootstrap-latest.tar.gz --strip-components=1 -C /root/aws-cfn-bootstrap-latest","\n",
-                        "easy_install pip\n",
-                        "pip install pbr==0.10.2\n",
-                        "easy_install /root/aws-cfn-bootstrap-latest/","\n",
 
                         "cfn-init -s ", { "Ref" : "AWS::StackId" }, " -r MetadataEditorLaunchConfig ",
                         "  --region ", { "Ref" : "AWS::Region" }, " || error_exit 'Failed to run cfn-init'\n",
