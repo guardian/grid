@@ -17,7 +17,11 @@
         "inline": [
             "sudo apt-get -y update",
             "sudo apt-get -y install language-pack-en openjdk-7-jre-headless",
-            "apt-get -y install graphicsmagick graphicsmagick-imagemagick-compat",
+
+            "# we're adding graphicsmagick to all AMIs so that we will only need",
+            "# one provisioner for all our builders",
+            "sudo apt-get -y install graphicsmagick graphicsmagick-imagemagick-compat",
+
             "sudo apt-get -y install python-setuptools",
             "sudo wget -P /root https://s3.amazonaws.com/cloudformation-examples/aws-cfn-bootstrap-latest.tar.gz",
             "sudo mkdir -p /root/aws-cfn-bootstrap-latest",
