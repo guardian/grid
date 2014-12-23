@@ -4,11 +4,11 @@
     "builders": [{
         "type": "amazon-ebs",
         "region": "eu-west-1",
-        "source_ami": "ami-30b46b47",
+        "source_ami": "ami-863686f1",
         "instance_type": "t2.micro",
         "ssh_username": "ubuntu",
-        "ami_name": "media-service_ebs-storage-cfn",
-        "name": "media-service_ebd-storage-cfn",
+        "ami_name": "media-service_ebs-storage-cfn_{{timestamp}}",
+        "name": "media-service_ebd-storage-cfn_{{timestamp}}",
         "ssh_username": "ubuntu"
     }],
 
