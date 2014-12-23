@@ -72,6 +72,8 @@ button {
     padding: 0;
     margin: 0;
     cursor: pointer;
+    color: inherit;
+    font-size: inherit;
 }
 
 .button {
@@ -158,40 +160,53 @@ a:focus {
    Top bar
    ========================================================================== */
 
-.top-bar {
-    height: 47px; /* faking we're in the flow */
+.top-bar-wrapper {
+    height: 48px; /* faking we're in the flow */
 }
 
-.top-bar__container {
-    display: flex;
+.top-bar {
     background-color: #ccc;
-    box-sizing: border-box;
     padding: 10px;
     font-family: "Guardian Agate Sans 1 Web";
-    position: fixed;
     width: 100%;
     z-index: 1;
-    box-shadow: 0px 1px 5px #999;
+    box-shadow: 0px 1px 5px rgba(0, 0, 0, 0.4);
     font-size: 1.4rem;
+    display: flex;
+    box-sizing: border-box;
+}
+.top-bar--fixed {
+    position: fixed;
 }
 
 .top-bar__nav {
     flex-grow: 1;
+    text-align: left;
 }
 
 .top-bar__actions {
     display: flex;
 }
 
-.top-bar__nav-item,
-.top-bar__action {
-    margin-left: 10px;
+.top-bar__item {
+    margin-left: 20px;
     vertical-align: middle;
+    line-height: 28px;
+}
+.top-bar__item--first {
+    margin-left: 0;
 }
 
 .logout {
     font-size: 1.2rem;
-    padding-top: 5px;
+}
+
+.top-bar--dark {
+    background: #333;
+}
+
+.top-bar--dark .top-bar__item {
+    color: white;
 }
 
 
@@ -413,7 +428,7 @@ a:focus {
 
 .easel__image {
     display: block;
-    max-height: calc(100vh - 44px); /* viewport - palette */
+    max-height: calc(100vh - 48px); /* viewport - palette */
     max-width: 100%;
     margin: 0 auto;
     position: relative;
@@ -421,8 +436,8 @@ a:focus {
     transform: translateY(-50%);
 }
 .easel__image--with-space {
-    max-width: calc(100% - 40px);
-    max-height: calc(100vh - 84px);
+    max-width: calc(100% - 20px);
+    max-height: calc(100vh - 68px);
     padding: 20px;
 }
 
@@ -751,12 +766,9 @@ a:focus {
 
 
 /* ==========================================================================
-   Portrait
+   Archviver
    ========================================================================== */
-.archiver {
-    font-size: 1.6rem;
-    color: white;
-}
+
 
 .archiver--archived {
     color: gold;
