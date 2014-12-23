@@ -43,6 +43,11 @@
             "Type": "String",
             "Default": "ami-30b46b47"
         },
+        "ImageIdEBSStorageCFN": {
+            "Description": "AMI id for instances with EBS storage",
+            "Type": "String",
+            "Default": "ami-cae55ebd"
+        },
         "ElasticsearchAutoscalingMinSize": {
             "Type": "Number"
         },
