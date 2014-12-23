@@ -39,6 +39,11 @@ object Dependencies {
     "org.im4java" % "im4java" % "1.4.0"
   )
 
+  val parsingDeps = Seq(
+    "org.parboiled" %% "parboiled" % "2.0.1"
+  )
+
+
   val commonsNetDeps = Seq(
     "commons-net" % "commons-net" % "3.3",
     "org.apache.httpcomponents" % "httpclient" % "4.3.1"
