@@ -34,3 +34,10 @@ You will then be told something like:
 
 Use the AMI ID ⤴ in the [CloudFormation script](./media-service.json) where
 applicable.
+
+
+## Deregistering past AMIs
+
+If you have provisioned a new AMI, be sure to clear up your mess and
+[deregister your previous one](https://eu-west-1.console.aws.amazon.com/ec2/v2/home?region=eu-west-1#Images:sort=name)
+and [delete it's snapshot](https://eu-west-1.console.aws.amazon.com/ec2/v2/home?region=eu-west-1#Snapshots:sort=snapshotId)
