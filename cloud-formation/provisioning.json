@@ -1,0 +1,37 @@
+{
+    "description": "Simple AMIs for the Grid",
+
+    "variables": {
+        "aws_access_key": "",
+        "aws_secret_key": ""
+    },
+
+    "builders": [{
+        "type": "amazon-ebs",
+        "access_key": "{{user `aws_access_key`}}",
+        "secret_key": "{{user `aws_secret_key`}}",
+        "region": "eu-west-1",
+        "source_ami": "ami-30b46b47",
+        "instance_type": "t2.micro",
+        "ssh_username": "ubuntu",
+        "ami_name": "media-service_ebs-storage-cfn",
+        "name": "media-service_ebd-storage-cfn",
+        "ssh_username": "ubuntu"
+    }],
+
+    "provisioners": [{
+        "type": "shell",
+        "inline": [
+            "sudo apt-get -y update",
+            "sudo apt-get -y install language-pack-en openjdk-7-jre-headless",
+            "apt-get -y install graphicsmagick graphicsmagick-imagemagick-compat",
+            "sudo apt-get -y install python-setuptools",
+            "sudo wget -P /root https://s3.amazonaws.com/cloudformation-examples/aws-cfn-bootstrap-latest.tar.gz",
+            "sudo mkdir -p /root/aws-cfn-bootstrap-latest",
+            "sudo tar xvfz /root/aws-cfn-bootstrap-latest.tar.gz --strip-components=1 -C /root/aws-cfn-bootstrap-latest",
+            "sudo easy_install pip",
+            "sudo pip install pbr==0.10.2",
+            "sudo easy_install /root/aws-cfn-bootstrap-latest/"
+        ]
+    }]
+}
