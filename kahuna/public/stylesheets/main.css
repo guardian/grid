@@ -162,6 +162,8 @@ a:focus {
 
 .top-bar-wrapper {
     height: 48px; /* faking we're in the flow */
+    position: relative;
+    z-index: 1;
 }
 
 .top-bar {
@@ -169,7 +171,6 @@ a:focus {
     padding: 10px;
     font-family: "Guardian Agate Sans 1 Web";
     width: 100%;
-    z-index: 1;
     box-shadow: 0px 1px 5px rgba(0, 0, 0, 0.4);
     font-size: 1.4rem;
     display: flex;
@@ -412,9 +413,6 @@ a:focus {
     display: block;
     text-align: center;
 }
-.easel--with-meta {
-    margin-right: 350px;
-}
 
 .easel__canvas {
     height: calc(100vh - 48px); /* viewport - palette */
@@ -470,6 +468,10 @@ a:focus {
     clear: both;
     content:  " ";
     display:  table;
+}
+
+.image-holder {
+    margin-right: 350px;
 }
 
 .image-info__heading {
