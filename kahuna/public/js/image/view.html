@@ -49,17 +49,16 @@
                 <dt class="image-info__heading">Keywords</dt>
                 <dd>
                     <ul>
-                        <li class="image-info__keyword">
-                            ng:repeat="keyword in image.data.metadata.keywords"
+                        <li class="image-info__keyword"
+                            ng:repeat="keyword in image.data.metadata.keywords">
                             {{keyword}}
                         </li>
-                    </ul>rome
+                    </ul>
                 </dd>
             </dl>
         </div>
     </div>
-
-    <div class="easel easel--with-meta">
+    <div class="image-holder">
         <div class="top-bar-wrapper">
             <div class="top-bar top-bar--dark">
                 <div class="top-bar__nav">
@@ -83,25 +82,26 @@
             </div>
         </div>
 
+        <div class="easel">
+            <div class="easel__canvas" ng:if="!cropKey && image.data">
+                <img class="easel__image"
+                     ng:src="{{image.data.source | assetFile}}"
+                     ui:drag-data="{{imageSync | asImageDragData}}" />
+            </div>
 
-        <div class="easel__canvas" ng:if="!cropKey && image.data">
-            <img class="easel__image"
-                 ng:src="{{image.data.source | assetFile}}"
-                 ui:drag-data="{{imageSync | asImageDragData}}" />
-        </div>
 
-
-        <!-- TODO: As this loads async, add a loader -->
-        <div class="easel__canvas" ng:if="cropKey">
-            <a draggable="true"
-               class="easel__image-container"
-               ng:if="crop"
-               ng:init="extremeAssets = (crop | getExtremeAssets)"
-               ui:sref="{crop: cropKey}"
-               ui:drag-data="{{imageSync | asImageAndCropsDragData:crop}}"
-               ui:drag-image="{{extremeAssets.smallest | assetFile}}">
-                <img class="easel__image" ng:src="{{extremeAssets.largest | assetFile}}" />
-            </a>
+            <!-- TODO: As this loads async, add a loader -->
+            <div class="easel__canvas" ng:if="cropKey">
+                <a draggable="true"
+                   class="easel__image-container"
+                   ng:if="crop"
+                   ng:init="extremeAssets = (crop | getExtremeAssets)"
+                   ui:sref="{crop: cropKey}"
+                   ui:drag-data="{{imageSync | asImageAndCropsDragData:crop}}"
+                   ui:drag-image="{{extremeAssets.smallest | assetFile}}">
+                    <img class="easel__image" ng:src="{{extremeAssets.largest | assetFile}}" />
+                </a>
+            </div>
         </div>
     </div>
 </div>
