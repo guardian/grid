@@ -17,13 +17,13 @@ These scripts require the [AWS CloudFormation Command Line Tools][1].
 We use [Packer](https://packer.io) to provision our AMIs. You will need this to
 update the AMIs.
 
+You will need your AWS credentials setup inline with the [AWS CLI Settings and
+precedence](http://docs.aws.amazon.com/cli/latest/userguide/cli-chap-getting-started.html#config-settings-and-precedence)
+
 Once you have made the changes to [provisioning.json](./provisioning.json) you
 will need to run:
 
-    packer build \                                                                                                     ⏎ ✭ ✚ ✱
-    -var 'aws_secret_key=YOUR_AWS_SECRET_Key' \
-    -var 'aws_access_key=YOUR_AWS_ACCESS_KEY' \
-    ./cloud-formation/provisioning.json
+    packer build ./cloud-formation/provisioning.json
 
 You will then be told something like:
 
