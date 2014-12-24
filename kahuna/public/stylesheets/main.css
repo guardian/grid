@@ -72,6 +72,8 @@ button {
     padding: 0;
     margin: 0;
     cursor: pointer;
+    color: inherit;
+    font-size: inherit;
 }
 
 .button {
@@ -158,40 +160,54 @@ a:focus {
    Top bar
    ========================================================================== */
 
-.top-bar {
-    height: 47px; /* faking we're in the flow */
+.top-bar-wrapper {
+    height: 48px; /* faking we're in the flow */
+    position: relative;
+    z-index: 1;
 }
 
-.top-bar__container {
-    display: flex;
+.top-bar {
     background-color: #ccc;
-    box-sizing: border-box;
     padding: 10px;
     font-family: "Guardian Agate Sans 1 Web";
-    position: fixed;
     width: 100%;
-    z-index: 1;
-    box-shadow: 0px 1px 5px #999;
+    box-shadow: 0px 1px 5px rgba(0, 0, 0, 0.4);
     font-size: 1.4rem;
+    display: flex;
+    box-sizing: border-box;
+}
+.top-bar--fixed {
+    position: fixed;
 }
 
 .top-bar__nav {
     flex-grow: 1;
+    text-align: left;
 }
 
 .top-bar__actions {
     display: flex;
 }
 
-.top-bar__nav-item,
-.top-bar__action {
-    margin-left: 10px;
+.top-bar__item {
+    margin-left: 20px;
     vertical-align: middle;
+    line-height: 28px;
+}
+.top-bar__item--first {
+    margin-left: 0;
 }
 
 .logout {
     font-size: 1.2rem;
-    padding-top: 5px;
+}
+
+.top-bar--dark {
+    background: #333;
+}
+
+.top-bar--dark .top-bar__item {
+    color: white;
 }
 
 
@@ -397,12 +413,9 @@ a:focus {
     display: block;
     text-align: center;
 }
-.easel--with-meta {
-    margin-right: 410px;
-}
 
 .easel__canvas {
-    height: calc(100vh - 44px); /* viewport - palette */
+    height: calc(100vh - 48px); /* viewport - top-bar */
     vertical-align: middle;
 }
 
@@ -413,7 +426,7 @@ a:focus {
 
 .easel__image {
     display: block;
-    max-height: calc(100vh - 44px); /* viewport - palette */
+    max-height: calc(100vh - 48px); /* viewport - top-bar */
     max-width: 100%;
     margin: 0 auto;
     position: relative;
@@ -421,24 +434,9 @@ a:focus {
     transform: translateY(-50%);
 }
 .easel__image--with-space {
-    max-width: calc(100% - 40px);
-    max-height: calc(100vh - 84px);
+    max-width: calc(100% -  20px);
+    max-height: calc(100vh - 68px);
     padding: 20px;
-}
-
-.palette {
-    background: #555;
-    bottom: 0;
-    color: white;
-    display: block;
-    font-family: "Guardian Agate Sans 1 Web";
-}
-
-.palette__button {
-    color: inherit;
-    display: inline-block;
-    margin: 5px;
-    padding: 5px 10px;
 }
 
 .image-details {
@@ -449,12 +447,16 @@ a:focus {
     max-height: 100vh;
     padding: 10px 10px;
     overflow: auto;
-    width: 400px;
+    width: 300px;
 }
 .image-details:after {
     clear: both;
     content:  " ";
     display:  table;
+}
+
+.image-holder {
+    margin-right: 310px;
 }
 
 .image-info__heading {
@@ -751,12 +753,8 @@ a:focus {
 
 
 /* ==========================================================================
-   Portrait
+   Archviver
    ========================================================================== */
-.archiver {
-    font-size: 1.6rem;
-    color: white;
-}
 
 .archiver--archived {
     color: gold;
@@ -768,35 +766,5 @@ a:focus {
    ========================================================================== */
 
 @media screen and (orientation:portrait) {
-    .full-image {
-        display: flex;
-        flex-wrap: wrap;
-    }
-    .easel--with-meta {
-        margin-right: 0;
-        order: 1;
-        width: 100%;
-    }
-    .easel--with-meta .easel__canvas {
-        height: calc(75vh - 44px); /* viewport - palette */
-    }
-    .easel--with-meta .easel__image {
-        max-height: calc(75vh - 44px); /* viewport - palette */
-    }
-    .image-details {
-        order: 2;
-        width: 100%;
-        max-height: none;
-    }
 
-    .image-info--sub {
-        display: flex;
-        flex-wrap: wrap;
-
-    }
-
-    .image-info__group {
-        flex-grow: 1;
-        width: 50%;
-    }
 }
