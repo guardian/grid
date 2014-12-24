@@ -14,7 +14,8 @@
       "jquery": "2.1.1",
       "mixpanel-js": "github:mixpanel/mixpanel-js@2.3.2",
       "text": "^0.0.2",
-      "theseus": "github:argo-rest/theseus@master"
+      "theseus": "github:argo-rest/theseus@master",
+      "ua-parser-js": "npm:ua-parser-js@^0.7.3"
     }
   },
   "devDependencies": {
