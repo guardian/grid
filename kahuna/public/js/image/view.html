@@ -49,8 +49,8 @@
                 <dt class="image-info__heading">Keywords</dt>
                 <dd>
                     <ul>
-                        <li ng:repeat="keyword in image.data.metadata.keywords"
-                            class="image-info__keyword">
+                        <li class="image-info__keyword"
+                            ng:repeat="keyword in image.data.metadata.keywords">
                             {{keyword}}
                         </li>
                     </ul>
@@ -58,47 +58,53 @@
             </dl>
         </div>
     </div>
+    <div class="image-holder">
+        <div class="top-bar-wrapper">
+            <div class="top-bar top-bar--dark">
+                <div class="top-bar__nav">
+                    <a class="top-bar__item top-bar__item--first"
+                       ui:sref="search.results">← search</a>
+                    <a class="top-bar__item top-bar__item"
+                       ng:if="cropKey"
+                       ui:sref="{ crop: null }">← original</a>
+                </div>
 
-    <div class="easel easel--with-meta" ng:if="! cropKey && image.data">
-        <div class="easel__canvas">
-            <img class="easel__image"
-                 ng:src="{{image.data.source | assetFile}}"
-                 ui:drag-data="{{imageSync | asImageDragData}}" />
+                <div class="top-bar__items">
+                    <ui-archiver class="top-bar__item"
+                                 ng:if="image.data"
+                                 archived="image.data.userMetadata.data.archived"></ui-archiver>
+
+                    <a class="top-bar__item"
+                       ng:if="image.data.valid"
+                       ui:sref="crop({imageId: image.data.id})">
+                       ✄ <span ng:if="cropKey">re</span>crop
+                    </a>
+                    <span class="top-bar__item"
+                          ng:if="! image.data.valid">cannot crop (missing metadata)</span>
+                </div>
+            </div>
         </div>
 
-        <div class="palette">
-            <a class="palette__button" ui:sref="search.results">← search</a>
-            <!-- Only allow cropping of valid images -->
-            <a ng:if="image.data.valid"
-               class="palette__button"
-               ui:sref="crop({imageId: image.data.id})"
-            >✄ crop</a>
+        <div class="easel">
+            <div class="easel__canvas" ng:if="!cropKey && image.data">
+                <img class="easel__image"
+                     ng:src="{{image.data.source | assetFile}}"
+                     ui:drag-data="{{imageSync | asImageDragData}}" />
+            </div>
 
-            <ui-archiver class="palette__button"
-                      archived="image.data.userMetadata.data.archived"></ui-archiver>
 
-            <span ng:if="! image.data.valid">cannot crop invalid image (missing metadata)</span>
-        </div>
-    </div>
-
-    <!-- if we want to see a crop -->
-    <div class="easel easel--with-meta" ng:if="cropKey">
-        <!-- TODO: As this loads async, add a loader -->
-        <div class="easel__canvas">
-            <a draggable="true"
-               class="easel__image-container"
-               ng:if="crop"
-               ng:init="extremeAssets = (crop | getExtremeAssets)"
-               ui:sref="{crop: cropKey}"
-               ui:drag-data="{{imageSync | asImageAndCropsDragData:crop}}"
-               ui:drag-image="{{extremeAssets.smallest | assetFile}}">
-                <img class="easel__image" ng:src="{{extremeAssets.largest | assetFile}}" />
-            </a>
-        </div>
-
-        <div class="palette">
-            <a class="palette__button" ui:sref="search.results">back to search</a>
-            <a class="palette__button" ui:sref="{crop: null}">back to original</a>
+            <!-- TODO: As this loads async, add a loader -->
+            <div class="easel__canvas" ng:if="cropKey">
+                <a draggable="true"
+                   class="easel__image-container"
+                   ng:if="crop"
+                   ng:init="extremeAssets = (crop | getExtremeAssets)"
+                   ui:sref="{crop: cropKey}"
+                   ui:drag-data="{{imageSync | asImageAndCropsDragData:crop}}"
+                   ui:drag-image="{{extremeAssets.smallest | assetFile}}">
+                    <img class="easel__image" ng:src="{{extremeAssets.largest | assetFile}}" />
+                </a>
+            </div>
         </div>
     </div>
 </div>

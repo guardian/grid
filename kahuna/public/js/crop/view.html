@@ -1,4 +1,39 @@
 <div class="crop-image">
+
+    <div class="top-bar-wrapper">
+        <div class="top-bar top-bar--dark">
+
+            <div class="top-bar__nav">
+                <a class="top-bar__item top-bar__item--first"
+                    ui:sref="image({ imageId: image.data.id })">← cancel</a>
+            </div>
+
+            <div class="top-bar__actions">
+                <label class="top-bar__item">
+                    <input type="radio" ng:model="imageCropCtrl.aspect" value="{{landscapeRatio}}" />
+                    landscape
+                </label>
+
+                <label class="top-bar__item">
+                    <input type="radio" ng:model="imageCropCtrl.aspect" value="{{portraitRatio}}" />
+                    portrait
+                </label>
+
+                <label class="top-bar__item">
+                    <input type="radio" ng:model="imageCropCtrl.aspect" value="{{freeRatio}}" />
+                    free-form
+                </label>
+                <div class="top-bar__item">
+                    <button class="button"
+                            type="button"
+                            ng:click="crop()"
+                            ng:disabled="cropping">
+                            crop<span ng:show="cropping">ping…</span></button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <div class="easel" ng:if="image.data">
         <div class="easel__canvas">
             <img class="easel__image easel__image--with-space"
@@ -9,26 +44,6 @@
                  ui:crop-box-aspect="imageCropCtrl.aspect"
                  ui:crop-box-background-opacity="0.3"
             />
-        </div>
-
-        <div class="palette">
-            <a class="palette__button" ui:sref="image({ imageId: image.data.id })">back to original</a>
-            <label class="palette__button">
-                <input type="radio" ng:model="imageCropCtrl.aspect" value="{{landscapeRatio}}" />
-                landscape
-            </label>
-            <label class="palette__button">
-                <input type="radio" ng:model="imageCropCtrl.aspect" value="{{portraitRatio}}" />
-                portrait
-            </label>
-            <label class="palette__button">
-                <input type="radio" ng:model="imageCropCtrl.aspect" value="{{freeRatio}}" />
-                free-form
-            </label>
-            <button class="button palette__button"
-                    type="button"
-                    ng:click="crop()"
-                    ng:disabled="cropping">crop<span ng:show="cropping">ping…</span></button>
         </div>
     </div>
 </div>
