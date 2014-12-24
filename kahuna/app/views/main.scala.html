@@ -9,7 +9,7 @@
     <title ui:title ui:title-suffix="the grid">the grid</title>
     <link rel="media-api-uri" href="@mediaApiUri" />
     <link rel="stylesheet" href="@routes.Assets.at("stylesheets/main.css")" />
-@mixpanelToken.foreach { token =>
+@mixpanelToken.map { token =>
     <meta name="mixpanel-token" content="@token" />
 }
 
