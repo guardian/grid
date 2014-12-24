@@ -8,7 +8,8 @@ export var mp = angular.module('mixpanel', []);
  * and not have to deal with the global `var`.
  */
 mp.factory('mixpanel', function() {
-    function init(mixpanelToken, id, { firstName, lastName, email }) {
+
+    function init(mixpanelToken, id, { firstName, lastName, email }, registerProps = {}) {
         mixpanel.init(mixpanelToken);
         mixpanel.identify(id);
         // setting the object with the `$` vars sets them as predefined
@@ -18,6 +19,7 @@ mp.factory('mixpanel', function() {
             '$last_name': lastName,
             '$email': email
         });
+        mixpanel.register(registerProps);
     }
 
     function track(event, opts) {
