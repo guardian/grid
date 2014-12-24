@@ -270,6 +270,7 @@ a:focus {
 .image-result {
     width: 20%;
     min-width: 200px;
+    max-width: 270px;
     flex: 1;
     background: #fff;
     margin: 10px 5px;
