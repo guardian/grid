@@ -32,8 +32,8 @@ track.factory('track', ['$location', '$window', '$document', 'mixpanel', 'tracki
     };
 }]);
 
-track.run(['$window', 'mixpanel', 'mixpanelToken', 'track', 'mediaApi', 'trackingEnabled',
-           function($window, mixpanel, mixpanelToken, track, mediaApi, trackingEnabled) {
+track.run(['mixpanel', 'mixpanelToken', 'track', 'mediaApi', 'trackingEnabled',
+           function(mixpanel, mixpanelToken, track, mediaApi, trackingEnabled) {
 
     mediaApi.getSession().then(({ user: {
         firstName,
