@@ -28,7 +28,7 @@ var apiLink = document.querySelector('link[rel="media-api-uri"]');
 var mixpanelTokenMeta = document.querySelector('meta[name="mixpanel-token"]');
 var config = {
     mediaApiUri: apiLink.getAttribute('href'),
-    mixpanelToken: mixpanelTokenMeta.getAttribute('content'),
+    mixpanelToken: mixpanelTokenMeta && mixpanelTokenMeta.getAttribute('content'),
 
     // Static config
     'pandular.reAuthUri': '/login'
