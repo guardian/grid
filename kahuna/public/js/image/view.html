@@ -50,7 +50,7 @@
                 <dd>
                     <ul>
                         <li class="image-info__keyword"
-                            ng:repeat="keyword in image.data.metadata.keywords">
+                            ng:repeat="keyword in image.data.metadata.keywords track by $index">
                             {{keyword}}
                         </li>
                     </ul>
