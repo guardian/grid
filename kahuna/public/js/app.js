@@ -17,11 +17,8 @@ import 'pandular/heal';
 import 'analytics/track';
 
 // TODO: refactor all into their respective directories
-import searchTemplate        from './search/view.html!text';
-import searchResultsTemplate from './search/results.html!text';
 import imageTemplate         from './image/view.html!text';
 import cropTemplate          from './crop/view.html!text';
-import uploadTemplate        from './upload/view.html!text';
 
 // TODO: move to an async config to remove deps on play
 var apiLink = document.querySelector('link[rel="media-api-uri"]');
@@ -65,24 +62,6 @@ kahuna.config(['$locationProvider',
 kahuna.config(['$stateProvider', '$urlRouterProvider',
                function($stateProvider, $urlRouterProvider) {
 
-    // TODO: move to search module config
-    $stateProvider.state('search', {
-        // Virtual state, we always want to be in a child state of this
-        abstract: true,
-        url: '/',
-        template: searchTemplate
-    });
-    $stateProvider.state('search.results', {
-        url: 'search?query&ids&since&nonFree&archived&valid&uploadedBy',
-        template: searchResultsTemplate,
-        controller: 'SearchResultsCtrl',
-        data: {
-            title: function(params) {
-                return params.query ? params.query : 'search';
-            }
-        }
-    });
-
     $stateProvider.state('image', {
         url: '/images/:imageId?crop',
         template: imageTemplate,
@@ -93,13 +72,6 @@ kahuna.config(['$stateProvider', '$urlRouterProvider',
         url: '/images/:imageId/crop',
         template: cropTemplate,
         controller: 'ImageCropCtrl as imageCropCtrl'
-    });
-
-    // TODO: move to upload module config
-    $stateProvider.state('upload', {
-        url: '/upload',
-        template: uploadTemplate,
-        controller: 'UploadCtrl as uploadCtrl'
     });
 
     $urlRouterProvider.otherwise("/search");
