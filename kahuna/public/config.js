@@ -17,6 +17,7 @@ System.config({
     "mixpanel-js": "github:mixpanel/mixpanel-js@2.3.2",
     "text": "github:systemjs/plugin-text@0.0.2",
     "theseus": "github:argo-rest/theseus@master",
+    "ua-parser-js": "npm:ua-parser-js@0.7.3",
     "github:angular-ui/ui-router@0.2.13": {
       "angular": "github:angular/bower-angular@1.3.5"
     },
@@ -41,6 +42,9 @@ System.config({
       "ieee754": "npm:ieee754@1.1.4",
       "inherits": "npm:inherits@2.0.1",
       "json": "github:systemjs/plugin-json@0.1.0"
+    },
+    "npm:ua-parser-js@0.7.3": {
+      "json": "npm:json@9.0.2"
     },
     "npm:uri-templates@0.1.5": {
       "json": "npm:json@9.0.2"

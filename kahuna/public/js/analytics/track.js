@@ -1,5 +1,6 @@
 import angular from 'angular';
 import 'mixpanel/mixpanel';
+import UAParser from 'ua-parser-js';
 
 export var track = angular.module('analytics.track', ['mixpanel']);
 
@@ -32,8 +33,21 @@ track.factory('track', ['$location', '$window', '$document', 'mixpanel', 'tracki
     };
 }]);
 
-track.run(['mixpanel', 'mixpanelToken', 'track', 'mediaApi', 'trackingEnabled',
-           function(mixpanel, mixpanelToken, track, mediaApi, trackingEnabled) {
+track.run(['$window', 'mixpanel', 'mixpanelToken', 'track', 'mediaApi', 'trackingEnabled',
+           function($window, mixpanel, mixpanelToken, track, mediaApi, trackingEnabled) {
+
+    // Pass in UA string as else UAParser doesn't detect it correctly (SystemJS?)
+    var ua      = new UAParser($window.navigator.userAgent);
+    var browser = ua.getBrowser();
+    var os      = ua.getOS();
+
+    // Set the browser and OS version for every tracked event
+    var props = {
+        // Note: Browser and Operating System already tracked by Mixpanel
+        'Browser Version': browser.major,
+        // Disabling 'os.version' as it seems to be buggy (returns 'Chromium' !?)
+        // 'Operating System Version': os.version
+    };
 
     mediaApi.getSession().then(({ user: {
         firstName,
@@ -41,7 +55,7 @@ track.run(['mixpanel', 'mixpanelToken', 'track', 'mediaApi', 'trackingEnabled',
         email
     }}) => {
         if (trackingEnabled) {
-            mixpanel.init(mixpanelToken, email, { firstName, lastName, email });
+            mixpanel.init(mixpanelToken, email, { firstName, lastName, email }, props);
             track('Page viewed');
         }
     });
