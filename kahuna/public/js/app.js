@@ -3,18 +3,18 @@
 
 import angular from 'angular';
 import 'angular-ui-router';
-import 'services/theseus';
-import 'services/api/media-api';
-import 'services/api/media-cropper';
-import 'services/api/loader';
-import 'directives/ui-crop-box';
-import 'upload/index';
-import 'search/index';
-import 'edits/index';
-import 'util/async';
-import 'util/digest';
-import 'pandular/heal';
-import 'analytics/track';
+import './services/theseus';
+import './services/api/media-api';
+import './services/api/media-cropper';
+import './services/api/loader';
+import './directives/ui-crop-box';
+import './upload/index';
+import './search/index';
+import './edits/index';
+import './util/async';
+import './util/digest';
+import './pandular/heal';
+import './analytics/track';
 
 // TODO: refactor all into their respective directories
 import searchTemplate        from './search/view.html!text';
