@@ -1,5 +1,4 @@
 // TODO: Grunt: hash dependencies? or ETag?
-// TODO: Load templates using AMD so they can be compiled in
 
 import angular from 'angular';
 import 'angular-ui-router';
