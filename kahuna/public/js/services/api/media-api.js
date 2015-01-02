@@ -1,4 +1,4 @@
-import apiServices from 'services/api';
+import apiServices from '../api';
 
 apiServices.factory('mediaApi',
                     ['mediaApiUri', 'theseus.Client',

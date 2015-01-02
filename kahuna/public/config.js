@@ -1,8 +1,9 @@
 System.config({
   "paths": {
     "*": "*.js",
-    "github:*": "../jspm_packages/github/*.js",
-    "npm:*": "../jspm_packages/npm/*.js"
+    "github:*": "jspm_packages/github/*.js",
+    "npm:*": "jspm_packages/npm/*.js",
+    "app/*": "js/*.js"
   }
 });
 
@@ -26,28 +27,32 @@ System.config({
       "reqwest": "github:ded/reqwest@1.1.5",
       "uri-templates": "npm:uri-templates@0.1.5"
     },
-    "github:jspm/nodelibs@0.0.5": {
-      "Base64": "npm:Base64@0.2.1",
-      "base64-js": "npm:base64-js@0.0.4",
-      "ieee754": "npm:ieee754@1.1.4",
-      "inherits": "npm:inherits@2.0.1",
-      "json": "github:systemjs/plugin-json@0.1.0",
-      "pbkdf2-compat": "npm:pbkdf2-compat@2.0.1",
-      "ripemd160": "npm:ripemd160@0.2.0",
-      "sha.js": "npm:sha.js@2.3.0"
+    "github:jspm/nodelibs-path@0.1.0": {
+      "path-browserify": "npm:path-browserify@0.0.0"
     },
-    "github:jspm/nodelibs@0.0.7": {
-      "Base64": "npm:Base64@0.2.1",
-      "base64-js": "npm:base64-js@0.0.4",
-      "ieee754": "npm:ieee754@1.1.4",
-      "inherits": "npm:inherits@2.0.1",
-      "json": "github:systemjs/plugin-json@0.1.0"
+    "github:jspm/nodelibs-process@0.1.0": {
+      "process": "npm:process@0.10.0"
+    },
+    "github:jspm/nodelibs-util@0.1.0": {
+      "util": "npm:util@0.10.3"
+    },
+    "npm:inherits@2.0.1": {
+      "util": "github:jspm/nodelibs-util@0.1.0"
+    },
+    "npm:path-browserify@0.0.0": {
+      "process": "github:jspm/nodelibs-process@0.1.0"
     },
     "npm:ua-parser-js@0.7.3": {
-      "json": "npm:json@9.0.2"
+      "systemjs-json": "github:systemjs/plugin-json@0.1.0"
     },
     "npm:uri-templates@0.1.5": {
-      "json": "npm:json@9.0.2"
+      "path": "github:jspm/nodelibs-path@0.1.0",
+      "systemjs-json": "github:systemjs/plugin-json@0.1.0",
+      "util": "github:jspm/nodelibs-util@0.1.0"
+    },
+    "npm:util@0.10.3": {
+      "inherits": "npm:inherits@2.0.1",
+      "process": "github:jspm/nodelibs-process@0.1.0"
     }
   }
 });
