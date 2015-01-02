@@ -19,15 +19,10 @@
     <script>
       // FIXME: could this be written to config.js instead? annoying to have to override
       System.config({
-        baseURL: "/assets",
-        paths: {
-          "*":        "js/*.js",
-          "npm:*":    "jspm_packages/npm/*.js",
-          "github:*": "jspm_packages/github/*.js"
-        }
+        baseURL: "/assets"
       });
 
-      System.import("app").catch(function(error) {
+      System.import("app/app").catch(function(error) {
           setTimeout(function(){ throw error; });
       });
     </script>
