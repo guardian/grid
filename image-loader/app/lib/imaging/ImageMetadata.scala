@@ -62,6 +62,14 @@ object ImageMetadata {
 
 }
 
+// TODO: add category
+// TODO: add Supplemental Category(s)
+//       https://www.iptc.org/std/photometadata/documentation/GenericGuidelines/index.htm#!Documents/guidelineformappingcategorycodestosubjectnewscodes.htm
+//       http://www.shutterpoint.com/Help-iptc.cfm#IC
+// TODO: add Subject Reference?
+//       http://cv.iptc.org/newscodes/subjectcode/
+// TODO: add Coded Character Set ?
+// TODO: add Application Record Version ?
 case class ImageMetadata(
   dateTaken:           Option[DateTime],
   description:         Option[String],
