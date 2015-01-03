@@ -23,11 +23,6 @@
     <!-- target prevents AngularJS from handling the navigation -->
     <div ui:view></div>
 
-    <!-- FIXME: We should be able to let SystemJS load traceur-runtime
-         if necessary, but there seems to be a bug.
-         https://github.com/jspm/jspm-cli/issues/350
-    -->
-    <script src="@routes.Assets.at("jspm_packages/traceur-runtime.js")"></script>
     <script src="@routes.Assets.at("jspm_packages/system.js")"></script>
     <script src="@routes.Assets.at("config.js")"></script>
     <script>
