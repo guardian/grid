@@ -36,8 +36,6 @@
           baseURL: "/assets"
       });
 
-      // FIXME: can't load app/test as it then won't match in the config.js.
-      // https://github.com/systemjs/systemjs/issues/293
       System.import("js/main").catch(function(error) {
           setTimeout(function(){ throw error; });
       });
