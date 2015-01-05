@@ -1,7 +1,7 @@
 package scala.lib.imaging
 
 import lib.imaging.{FileMetadata, ImageMetadata}
-import org.joda.time.DateTime
+import org.joda.time.{DateTimeZone, DateTime}
 import org.scalatest.{Matchers, FunSpec}
 
 class ImageMetadataTest extends FunSpec with Matchers {
@@ -78,34 +78,48 @@ class ImageMetadataTest extends FunSpec with Matchers {
 
   // Date Taken
 
-  it("should populate the dateTaken field of ImageMetadata from IPTC Date Created if present as ISO datetime") {
+  def normalizeDate(dateTime: DateTime) = dateTime.withZone(DateTimeZone.UTC)
+
+  it("should populate the dateTaken field of ImageMetadata from IPTC Date Created (2014-12-16T02:23:45+01:00)") {
     val fileMetadata = FileMetadata(Map("Date Created" -> "2014-12-16T02:23:45+01:00"), Map(), Map(), Map())
     val imageMetadata = ImageMetadata.fromFileMetadata(fileMetadata)
-    imageMetadata.dateTaken should be (Some(new DateTime("2014-12-16T01:23:45Z")))
+    imageMetadata.dateTaken should be (Some(DateTime.parse("2014-12-16T01:23:45Z")))
   }
 
-  it("should populate the dateTaken field of ImageMetadata from IPTC Date Created if present as ISO datetime without seconds") {
+  it("should populate the dateTaken field of ImageMetadata from IPTC Date Created (2014-12-16T02:23+01:00)") {
     val fileMetadata = FileMetadata(Map("Date Created" -> "2014-12-16T02:23+01:00"), Map(), Map(), Map())
     val imageMetadata = ImageMetadata.fromFileMetadata(fileMetadata)
-    imageMetadata.dateTaken should be (Some(new DateTime("2014-12-16T01:23:00Z")))
+    imageMetadata.dateTaken should be (Some(DateTime.parse("2014-12-16T01:23:00Z")))
   }
 
-  it("should populate the dateTaken field of ImageMetadata from IPTC Date Created if present as human-readable datetime") {
+  it("should populate the dateTaken field of ImageMetadata from IPTC Date Created (Tue Dec 16 01:23:45 GMT 2014)") {
     val fileMetadata = FileMetadata(Map("Date Created" -> "Tue Dec 16 01:23:45 GMT 2014"), Map(), Map(), Map())
     val imageMetadata = ImageMetadata.fromFileMetadata(fileMetadata)
-    imageMetadata.dateTaken should be (Some(new DateTime("2014-12-16T01:23:45Z")))
+    imageMetadata.dateTaken should be (Some(DateTime.parse("2014-12-16T01:23:45Z")))
   }
 
-  it("should populate the dateTaken field of ImageMetadata from IPTC Date Created if present as human-readable datetime (BST timezone)") {
-    val fileMetadata = FileMetadata(Map("Date Created" -> "Tue Dec 16 02:23:45 BST 2014"), Map(), Map(), Map())
+  it("should populate the dateTaken field of ImageMetadata from IPTC Date Created (Tue Dec 16 01:23:45 UTC 2014)") {
+    val fileMetadata = FileMetadata(Map("Date Created" -> "Tue Dec 16 01:23:45 UTC 2014"), Map(), Map(), Map())
     val imageMetadata = ImageMetadata.fromFileMetadata(fileMetadata)
-    imageMetadata.dateTaken should be (Some(new DateTime("2014-12-16T01:23:45Z")))
+    imageMetadata.dateTaken should be (Some(DateTime.parse("2014-12-16T01:23:45Z")))
   }
 
-  it("should populate the dateTaken field of ImageMetadata from IPTC Date Created if present as simple date") {
+  it("should populate the dateTaken field of ImageMetadata from IPTC Date Created (Tue Dec 16 01:23:45 BST 2014)") {
+    val fileMetadata = FileMetadata(Map("Date Created" -> "Tue Dec 16 01:23:45 BST 2014"), Map(), Map(), Map())
+    val imageMetadata = ImageMetadata.fromFileMetadata(fileMetadata)
+    imageMetadata.dateTaken should be (Some(DateTime.parse("2014-12-16T01:23:45+01:00").withZone(DateTimeZone.UTC)))
+  }
+
+  it("should populate the dateTaken field of ImageMetadata from IPTC Date Created (Tue Dec 16 01:23:45 PDT 2014)") {
+    val fileMetadata = FileMetadata(Map("Date Created" -> "Tue Dec 16 01:23:45 PDT 2014"), Map(), Map(), Map())
+    val imageMetadata = ImageMetadata.fromFileMetadata(fileMetadata)
+    imageMetadata.dateTaken should be (Some(DateTime.parse("2014-12-16T01:23:45-08:00").withZone(DateTimeZone.UTC)))
+  }
+
+  it("should populate the dateTaken field of ImageMetadata from IPTC Date Created (2014-12-16)") {
     val fileMetadata = FileMetadata(Map("Date Created" -> "2014-12-16"), Map(), Map(), Map())
     val imageMetadata = ImageMetadata.fromFileMetadata(fileMetadata)
-    imageMetadata.dateTaken should be (Some(new DateTime("2014-12-16T00:00:00Z")))
+    imageMetadata.dateTaken should be (Some(DateTime.parse("2014-12-16T00:00:00Z")))
   }
 
   it("should leave the dateTaken field of ImageMetadata empty if IPTC Date Created is not a valid date") {
