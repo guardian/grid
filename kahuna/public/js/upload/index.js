@@ -1,11 +1,11 @@
 import angular from 'angular';
 
-import 'upload/controller';
-import 'upload/file-uploader';
-import 'upload/manager';
-import 'upload/dnd-uploader';
-import 'upload/jobs/upload-jobs';
-import 'upload/jobs/required-metadata-editor';
+import './controller';
+import './file-uploader';
+import './manager';
+import './dnd-uploader';
+import './jobs/upload-jobs';
+import './jobs/required-metadata-editor';
 
 import uploadTemplate from 'upload/view.html!text';
 
