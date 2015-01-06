@@ -1,6 +1,7 @@
 import angular from 'angular';
-import 'mixpanel/mixpanel';
 import UAParser from 'ua-parser-js';
+
+import '../mixpanel/mixpanel';
 
 export var track = angular.module('analytics.track', ['mixpanel']);
 
