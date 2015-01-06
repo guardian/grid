@@ -60,8 +60,7 @@ object ImageMetadata {
     safeParsing(bstHumanDateFormat.parseDateTime(str)) map (_.minusHours(1))
 
   def parseRandomDate(str: String): Option[DateTime] =
-    safeParsing(randomDateFormat.parseDateTime(str)) orElse parseRandomDate(str) map (_.withZone(DateTimeZone.UTC))
-
+    safeParsing(randomDateFormat.parseDateTime(str)) orElse parseBstHumanDate(str) map (_.withZone(DateTimeZone.UTC))
 
   def safeParsing[A](parse: => A): Option[A] = Try(parse).toOption
 
