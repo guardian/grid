@@ -3,8 +3,8 @@ import angular from 'angular';
 import './query';
 import './results';
 
-import searchTemplate        from 'search/view.html!text';
-import searchResultsTemplate from 'search/results.html!text';
+import searchTemplate        from './view.html!text';
+import searchResultsTemplate from './results.html!text';
 
 
 export var search = angular.module('kahuna.search', [
