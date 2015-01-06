@@ -181,10 +181,10 @@ kahuna.filter('asAspectRatioWord', function() {
 kahuna.filter('asFileSize', function() {
     return function(byteSize) {
         // TODO: round to precision(1)
-        if (byteSize > 1000 * 1000) {
-            return Math.round(byteSize / (1000 * 1000)) + 'MB';
-        } else if (byteSize > 1000) {
-            return Math.round(byteSize / 1000) + 'KB';
+        if (byteSize > 1024 * 1024) {
+            return Math.round(byteSize / (1024 * 1024)) + 'MB';
+        } else if (byteSize > 1024) {
+            return Math.round(byteSize / 1024) + 'KB';
         } else {
             return byteSize + 'B';
         }
