@@ -2,20 +2,20 @@
 
 import angular from 'angular';
 import 'angular-ui-router';
-import 'services/theseus';
-import 'services/api/media-api';
-import 'services/api/media-cropper';
-import 'services/api/loader';
-import 'directives/ui-crop-box';
-import 'crop/index';
-import 'image/index';
-import 'upload/index';
-import 'search/index';
-import 'edits/index';
-import 'util/async';
-import 'util/digest';
-import 'pandular/heal';
-import 'analytics/track';
+import './services/theseus';
+import './services/api/media-api';
+import './services/api/media-cropper';
+import './services/api/loader';
+import './directives/ui-crop-box';
+import './crop/index';
+import './image/index';
+import './upload/index';
+import './search/index';
+import './edits/index';
+import './util/async';
+import './util/digest';
+import './pandular/heal';
+import './analytics/track';
 
 // TODO: move to an async config to remove deps on play
 var apiLink = document.querySelector('link[rel="media-api-uri"]');

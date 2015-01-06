@@ -1,7 +1,7 @@
 import angular from 'angular';
 
-import 'search/query';
-import 'search/results';
+import './query';
+import './results';
 
 import searchTemplate        from 'search/view.html!text';
 import searchResultsTemplate from 'search/results.html!text';
