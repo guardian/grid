@@ -16,6 +16,7 @@ System.config({
     "jcrop": "github:tapmodo/Jcrop@0.9.12",
     "jquery": "github:components/jquery@2.1.1",
     "mixpanel-js": "github:mixpanel/mixpanel-js@2.3.2",
+    "pandular": "npm:pandular@0.1.2",
     "text": "github:systemjs/plugin-text@0.0.2",
     "theseus": "github:argo-rest/theseus@master",
     "ua-parser-js": "npm:ua-parser-js@0.7.3",
@@ -38,6 +39,14 @@ System.config({
     },
     "npm:inherits@2.0.1": {
       "util": "github:jspm/nodelibs-util@0.1.0"
+    },
+    "npm:pandular@0.1.1": {
+      "angular": "github:angular/bower-angular@1.3.5",
+      "panda-session": "npm:panda-session@0.1.2"
+    },
+    "npm:pandular@0.1.2": {
+      "angular": "github:angular/bower-angular@1.3.5",
+      "panda-session": "npm:panda-session@0.1.2"
     },
     "npm:path-browserify@0.0.0": {
       "process": "github:jspm/nodelibs-process@0.1.0"
