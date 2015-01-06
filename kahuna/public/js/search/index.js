@@ -1,7 +1,7 @@
 import angular from 'angular';
 
-import 'search/query';
-import 'search/results';
+import './query';
+import './results';
 
 export var search = angular.module('kahuna.search', [
     'kahuna.search.query',
