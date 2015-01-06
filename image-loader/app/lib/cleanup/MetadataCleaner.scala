@@ -13,7 +13,8 @@ object MetadataCleaner {
     CountryCode,
     CapitaliseByline,
     CapitaliseCountry,
-    CapitaliseCity
+    CapitaliseCity,
+    DropRedundantTitle
   )
 
   def clean(inputMetadata: ImageMetadata): ImageMetadata =
