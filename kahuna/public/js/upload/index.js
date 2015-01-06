@@ -7,7 +7,7 @@ import './dnd-uploader';
 import './jobs/upload-jobs';
 import './jobs/required-metadata-editor';
 
-import uploadTemplate from 'upload/view.html!text';
+import uploadTemplate from './view.html!text';
 
 
 export var upload = angular.module('kahuna.upload', [

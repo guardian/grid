@@ -1,8 +1,8 @@
 import angular from 'angular';
 
-import 'crop/controller';
+import './controller';
 
-import cropTemplate from 'crop/view.html!text';
+import cropTemplate from './view.html!text';
 
 
 export var crop = angular.module('kahuna.crop', [

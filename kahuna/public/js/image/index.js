@@ -1,8 +1,8 @@
 import angular from 'angular';
 
-import 'image/controller';
+import './controller';
 
-import imageTemplate from 'image/view.html!text';
+import imageTemplate from './view.html!text';
 
 
 export var image = angular.module('kahuna.image', [
