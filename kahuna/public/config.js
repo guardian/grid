@@ -40,10 +40,6 @@ System.config({
     "npm:inherits@2.0.1": {
       "util": "github:jspm/nodelibs-util@0.1.0"
     },
-    "npm:pandular@0.1.1": {
-      "angular": "github:angular/bower-angular@1.3.5",
-      "panda-session": "npm:panda-session@0.1.2"
-    },
     "npm:pandular@0.1.2": {
       "angular": "github:angular/bower-angular@1.3.5",
       "panda-session": "npm:panda-session@0.1.2"
