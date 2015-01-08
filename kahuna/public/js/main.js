@@ -16,13 +16,17 @@ import './util/async';
 import './util/digest';
 import './pandular/heal';
 import './analytics/track';
+import './sentry/sentry';
 
 // TODO: move to an async config to remove deps on play
 var apiLink = document.querySelector('link[rel="media-api-uri"]');
 var mixpanelTokenMeta = document.querySelector('meta[name="mixpanel-token"]');
+var sentryDsnLink = document.querySelector('link[rel="sentry-dsn"]');
+
 var config = {
     mediaApiUri: apiLink.getAttribute('href'),
     mixpanelToken: mixpanelTokenMeta && mixpanelTokenMeta.getAttribute('content'),
+    sentryDsn: sentryDsnLink && sentryDsnLink.getAttribute('href'),
 
     // Static config
     'pandular.reAuthUri': '/login'
@@ -35,6 +39,7 @@ var kahuna = angular.module('kahuna', [
     'util.async',
     'util.digest',
     'analytics.track',
+    'sentry',
     'kahuna.crop',
     'kahuna.image',
     'kahuna.upload',
@@ -114,7 +119,7 @@ kahuna.controller('SessionCtrl',
 }]);
 
 
-kahuna.filter('getExtremeAssets', function() {
+kahuna.filter('getExtremeAssetss', function() {
     return function(image) {
         var orderedAssets = image.assets.sort((a, b) => {
             return (a.dimensions.width * a.dimensions.height) -
