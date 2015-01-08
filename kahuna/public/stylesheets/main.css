@@ -184,6 +184,7 @@ a:focus {
 }
 
 .top-bar {
+    background-color: #333;
     padding: 10px;
     font-family: "Guardian Agate Sans 1 Web";
     width: 100%;
