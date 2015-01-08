@@ -199,6 +199,16 @@ kahuna.filter('assetFile', function() {
     };
 });
 
+kahuna.filter('stripEmailDomain', function() {
+    return function(str) {
+        if (typeof str === 'string') {
+            return str.replace(/@.+/, '');
+        } else {
+            return str;
+        }
+    };
+});
+
 kahuna.directive('uiHasSpace', ['$window', function($window) {
     return {
         restrict: 'A',
