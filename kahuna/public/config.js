@@ -16,6 +16,7 @@ System.config({
     "jcrop": "github:tapmodo/Jcrop@0.9.12",
     "jquery": "github:components/jquery@2.1.1",
     "mixpanel-js": "github:mixpanel/mixpanel-js@2.3.2",
+    "raven-js": "github:getsentry/raven-js@1.1.16",
     "text": "github:systemjs/plugin-text@0.0.2",
     "theseus": "github:argo-rest/theseus@master",
     "ua-parser-js": "npm:ua-parser-js@0.7.3",
