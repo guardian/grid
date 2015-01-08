@@ -45,8 +45,8 @@ html {
 }
 
 body {
-    background-color: #f4f4f4;
-    color: #333;
+    background-color: #333;
+    color: #ccc;
     font-size: 1.6rem;
     margin: 0;
     padding: 0 0 0 0;
@@ -69,8 +69,14 @@ ul {
 }
 
 a {
-    color: #005689;
+    color: #00adee;
     text-decoration: none;
+}
+
+input[type="text"] {
+    background-color: #666;
+    color: #ccc;
+    border: 1px solid #999;
 }
 
 button {
@@ -116,14 +122,14 @@ a:focus {
 
 .button--shy {
     padding: 2px 5px;
-    color: #333;
+    color: #ccc;
     background: transparent;
-    box-shadow: 0 2px #ddd;
-    border: 1px solid #ddd;
+    box-shadow: 0 2px #666;
+    border: 1px solid #666;
     border-bottom: 0;
 }
 .button--shy:not([disabled]):hover {
-    background: #ddd;
+    background: #666;
 }
 
 
@@ -174,7 +180,6 @@ a:focus {
 }
 
 .top-bar {
-    background-color: #ccc;
     padding: 10px;
     font-family: "Guardian Agate Sans 1 Web";
     width: 100%;
@@ -207,14 +212,6 @@ a:focus {
 
 .logout {
     font-size: 1.2rem;
-}
-
-.top-bar--dark {
-    background: #333;
-}
-
-.top-bar--dark .top-bar__item {
-    color: white;
 }
 
 
@@ -279,7 +276,7 @@ a:focus {
     min-width: 200px;
     max-width: 270px;
     flex: 1;
-    background: #fff;
+    background: #393939; /* from NGW galleries... */
     margin: 10px 5px;
     position: relative;
     padding-bottom: 65px;
@@ -306,7 +303,6 @@ a:focus {
 }
 
 .image-result__link {
-    background: #ddd;
     color: inherit;
     display: block;
     text-align: center;
@@ -417,7 +413,6 @@ a:focus {
    ========================================================================== */
 
 .easel {
-    background: #333;
     display: block;
     text-align: center;
 }
@@ -480,7 +475,7 @@ a:focus {
 }
 
 .image-info__heading {
-    color: #999999;
+    color: #666;
 }
 .image-info__heading--first {
     margin-top: 0;
@@ -488,8 +483,8 @@ a:focus {
 
 .image-info__keyword {
     display: inline-block;
-    background-color: #ddd;
-    color: #333;
+    background-color: #222;
+    color: #999;
     border-radius: 8px;
     padding: 0 8px;
     margin-right: 5px;
@@ -502,21 +497,21 @@ a:focus {
 }
 
 .metadata-line {
-    color: #999999;
+    color: #666;
 }
 
 .metadata-line__info {
-    color: #333333;
+    color: #ccc;
 }
 
 .metadata-line__info a {
     color: inherit;
-    border-bottom: 1px solid #ccc;
+    border-bottom: 1px solid #666;
 }
 
 
 .metadata-reveal {
-    color: #999999;
+    color: #666;
     font-size: 1.4rem;
     font-family: inherit;
 }
@@ -755,7 +750,7 @@ a:focus {
    ========================================================================== */
 .dnd-uploader {
     border: 5px dashed #00adee;
-    background: rgba(255, 255, 255, .75);
+    background: rgba(20, 20, 20, .75);
     width: calc(100vw - 10px);
     height: calc(100vh - 10px); /* border-box doesn't work with v units */
     position: fixed;
