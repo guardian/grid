@@ -119,7 +119,7 @@ kahuna.controller('SessionCtrl',
 }]);
 
 
-kahuna.filter('getExtremeAssetss', function() {
+kahuna.filter('getExtremeAssets', function() {
     return function(image) {
         var orderedAssets = image.assets.sort((a, b) => {
             return (a.dimensions.width * a.dimensions.height) -
