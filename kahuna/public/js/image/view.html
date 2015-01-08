@@ -158,7 +158,7 @@
     <div class="image-holder">
         <div class="easel">
             <div class="easel__canvas" ng:if="!cropKey">
-                <img class="easel__image"
+                <img class="easel__image easel__image--with-space"
                      ng:src="{{image.data.source | assetFile}}"
                      ui:drag-data="{{imageSync | asImageDragData}}" />
             </div>
@@ -167,7 +167,7 @@
             <!-- TODO: As this loads async, add a loader -->
             <div class="easel__canvas" ng:if="cropKey">
                 <a draggable="true"
-                   class="easel__image-container"
+                   class="easel__image easel__image--with-space"
                    ng:if="crop"
                    ng:init="extremeAssets = (crop | getExtremeAssets)"
                    ui:sref="{crop: cropKey}"
