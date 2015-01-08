@@ -62,16 +62,21 @@ abstract class StackScript {
   lazy val iamClient = new AmazonIdentityManagementClient(credentials)
 
   def apply(args: List[String]) {
-    val (stage: Stage, remainingArgs: List[String]) = args match {
+    val (stage: Stage, requiredArgs: List[String]) = args match {
       case "PROD" :: xs => (Prod, xs)
       case "TEST" :: xs => (Test, xs)
       case _ => usageError("Unrecognized or missing stage (should be one of TEST or PROD)")
     }
-    val (pandaKey, pandaSecret, mixpanelToken) = remainingArgs match {
-      case key :: secret :: token ::  _ => (key, secret, token)
+    val (pandaKey, pandaSecret, mixpanelToken, optionalArgs) = requiredArgs match {
+      case key :: secret :: token :: xs => (key, secret, token, xs)
       case _ => usageError("Missing required arguments")
     }
-    val stack = Stacks.mediaService(stage, pandaKey, pandaSecret, mixpanelToken)
+    val (sentryDsn) = optionalArgs match {
+      case dsn :: _ => (Some(dsn))
+      case _ => None
+    }
+
+    val stack = Stacks.mediaService(stage, pandaKey, pandaSecret, mixpanelToken, sentryDsn)
     val cfnClient = {
       val client = new AmazonCloudFormationClient(credentials)
       client.setEndpoint("cloudformation.eu-west-1.amazonaws.com")
@@ -106,7 +111,7 @@ abstract class StackScript {
     /** Defines the Media Service stack for the specified stage */
     def mediaService(stage: Stage,
                      pandaAwsKey: String, pandaAwsSecret: String,
-                     mixpanelToken: String): Stack = {
+                     mixpanelToken: String, sentryDsn: Option[String]): Stack = {
 
       val parentDomain = stage match {
         case Prod => "***REMOVED***"
@@ -179,7 +184,8 @@ abstract class StackScript {
           param("PandaDomain", parentDomain),
           param("PandaAwsKey",  pandaAwsKey),
           param("PandaAwsSecret", pandaAwsSecret),
-          param("MixpanelToken", mixpanelToken)
+          param("MixpanelToken", mixpanelToken),
+          param("SentryDsn", sentryDsn.getOrElse(""))
         )
       )
     }
