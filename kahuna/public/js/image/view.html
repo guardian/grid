@@ -1,4 +1,4 @@
-<div class="full-image" ng:controller="ImageCtrl">
+<div class="full-image" ng:controller="ImageCtrl" ng:if="image">
     <div class="image-details" id="image-info">
 
         <div class="image-info">
@@ -139,7 +139,6 @@
 
                 <div class="top-bar__items">
                     <ui-archiver class="top-bar__item"
-                                 ng:if="image.data"
                                  archived="image.data.userMetadata.data.archived"></ui-archiver>
 
                     <a class="top-bar__item"
@@ -154,7 +153,7 @@
         </div>
 
         <div class="easel">
-            <div class="easel__canvas" ng:if="!cropKey && image.data">
+            <div class="easel__canvas" ng:if="!cropKey">
                 <img class="easel__image"
                      ng:src="{{image.data.source | assetFile}}"
                      ui:drag-data="{{imageSync | asImageDragData}}" />
