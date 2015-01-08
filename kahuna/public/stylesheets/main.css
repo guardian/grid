@@ -52,6 +52,13 @@ body {
     padding: 0 0 0 0;
 }
 
+h1, h2, h3, h4, h5, h6 {
+    font-size: inherit;
+    font-family: inherit;
+    font-weight: normal;
+    margin: 0;
+}
+
 figure, ul, li, dl, dd {
     margin: 0;
     padding: 0;
@@ -466,6 +473,10 @@ a:focus {
 
 .image-info__group {
     margin-bottom: 5px;
+}
+
+.image-info__title {
+    font-weight: bold;
 }
 
 .image-info__heading {

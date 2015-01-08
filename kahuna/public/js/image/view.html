@@ -3,7 +3,7 @@
 
         <div class="image-info">
             <div class="image-info__group">
-                <div ng:if="image.data.metadata.title" style="font-weight: bold">{{image.data.metadata.title}}</div>
+                <h2 ng:if="image.data.metadata.title" class="image-info__title">{{image.data.metadata.title}}</h2>
 
                 <div class="small-margin-bottom">{{image.data.metadata.description}}</div>
             </div>
