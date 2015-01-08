@@ -833,7 +833,7 @@
                         "aws.secret=", { "Fn::GetAtt": [ "HostKeys", "SecretAccessKey" ] }, "\n",
                         "auth.keystore.bucket=", { "Ref": "KeyBucket" }, "\n",
                         "mixpanel.token=", { "Ref": "MixpanelToken" }, "\n",
-                        "mixpanel.dsn=", { "Ref": "SentryDsn" }, "\n",
+                        "sentry.dsn=", { "Ref": "SentryDsn" }, "\n",
                         "EOF\n",
 
                         "start kahuna\n"
