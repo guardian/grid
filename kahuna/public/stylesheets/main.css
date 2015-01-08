@@ -69,8 +69,12 @@ ul {
 }
 
 a {
-    color: #00adee;
+    color: #ccc;
     text-decoration: none;
+}
+
+.coloured-link {
+    color: #00adee;
 }
 
 input[type="text"] {
@@ -124,12 +128,12 @@ a:focus {
     padding: 2px 5px;
     color: #ccc;
     background: transparent;
-    box-shadow: 0 2px #666;
-    border: 1px solid #666;
+    box-shadow: 0 2px #888;
+    border: 1px solid #888;
     border-bottom: 0;
 }
 .button--shy:not([disabled]):hover {
-    background: #666;
+    background: #888;
 }
 
 
@@ -211,7 +215,7 @@ a:focus {
 }
 
 .logout {
-    font-size: 1.2rem;
+    color: inherit;
 }
 
 
@@ -360,7 +364,7 @@ a:focus {
     font-size: 1.4rem;
     float: right;
     margin-right: 10px;
-    color: #666;
+    color: #888;
 }
 
 .image-result__cost {
@@ -405,7 +409,7 @@ a:focus {
 }
 
 .image-loading-results {
-    color: #666;
+    color: #888;
 }
 
 /* ==========================================================================
@@ -475,7 +479,7 @@ a:focus {
 }
 
 .image-info__heading {
-    color: #666;
+    color: #888;
 }
 .image-info__heading--first {
     margin-top: 0;
@@ -497,7 +501,7 @@ a:focus {
 }
 
 .metadata-line {
-    color: #666;
+    color: #888;
 }
 
 .metadata-line__info {
@@ -506,12 +510,12 @@ a:focus {
 
 .metadata-line__info a {
     color: inherit;
-    border-bottom: 1px solid #666;
+    border-bottom: 1px solid #888;
 }
 
 
 .metadata-reveal {
-    color: #666;
+    color: #888;
     font-size: 1.4rem;
     font-family: inherit;
 }
