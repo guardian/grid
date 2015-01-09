@@ -10,7 +10,7 @@ archiver.controller('ArchiverCtrl', ['$scope', '$window',
     var ctrl = this;
 
     ctrl.toggleArchived = toggleArchived;
-    ctrl.isArchived = $scope.archived.data;
+    ctrl.isArchived = ctrl.archived.data;
     ctrl.archiving = false;
 
     function toggleArchived() {
@@ -19,7 +19,7 @@ archiver.controller('ArchiverCtrl', ['$scope', '$window',
 
         // FIXME: theseus should return a `Resource` on `put` that we can
         // update `ctrl.archived` with.
-        $scope.archived
+        ctrl.archived
             .put({ data: setVal })
             .response.then(
                 resp => ctrl.isArchived = resp.body.data,
@@ -33,8 +33,10 @@ archiver.directive('uiArchiver', [function() {
         restrict: 'E',
         controller: 'ArchiverCtrl as archiver',
         scope: {
-            archived: '='
+            archived: '=',
+            withText: '='
         },
+        bindToController: true,
         template: template
     };
 }]);

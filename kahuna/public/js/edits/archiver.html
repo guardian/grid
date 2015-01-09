@@ -3,10 +3,12 @@
         ng:click="archiver.toggleArchived(archived)"
         ng:disabled="archiver.archiving">
     <!-- TODO: Start looking at a new loader to replace our "ing…" loader -->
-    <span ng:show="archiver.isArchived">
-        ✭ unarchiv<span ng:show="!archiver.archiving">e</span><span ng:show="archiver.archiving">ing…</span>
+    <span ng:show="archiver.isArchived" title="unarchive">
+        ✭
+        <span ng:show="archiver.withText">unarchiv<span ng:show="!archiver.archiving">e</span><span ng:show="archiver.archiving">ing…</span></span>
     </span>
-    <span ng:show="!archiver.isArchived">
-        ✩ archiv<span ng:show="!archiver.archiving">e</span><span ng:show="archiver.archiving">ing…</span>
+    <span ng:show="!archiver.isArchived" title="archive">
+        ✩
+        <span ng:show="archiver.withText">archiv<span ng:show="!archiver.archiving">e</span><span ng:show="archiver.archiving">ing…</span></span>
     </span>
 </button>
