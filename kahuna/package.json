@@ -11,7 +11,7 @@
       "jcrop": "0.9.12",
       "jquery": "2.1.1",
       "mixpanel-js": "github:mixpanel/mixpanel-js@2.3.2",
-      "raven-js": "github:getsentry/raven-js@1.1.16",
+      "raven-js": "1.1.16",
       "text": "^0.0.2",
       "theseus": "github:argo-rest/theseus@master",
       "ua-parser-js": "0.7.3"
