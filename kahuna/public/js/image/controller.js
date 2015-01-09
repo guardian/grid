@@ -21,10 +21,11 @@ image.controller('ImageCtrl',
         });
     });
 
-    var ignoredMetadata = ['description', 'source', 'copyright', 'keywords'];
+    var ignoredMetadata = [
+        'title', 'description', 'copyright', 'keywords', 'byline',
+        'credit', 'city', 'country'
+    ];
     $scope.isUsefulMetadata = function(metadataKey) {
         return ignoredMetadata.indexOf(metadataKey) === -1;
     };
-
-    $scope.priorityMetadata = ['byline', 'credit'];
 }]);
