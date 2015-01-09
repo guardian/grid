@@ -1,7 +1,8 @@
 import angular from 'angular';
-import controlsDirectives from 'directives';
 import jQuery from 'jquery';
 import 'jcrop';
+
+import controlsDirectives from '../directives';
 
 
 controlsDirectives.directive('uiCropBox', ['$timeout', '$parse', 'safeApply', 'nextTick', 'delay',
