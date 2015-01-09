@@ -1,9 +1,9 @@
 // import theseus from 'theseus';
 // ^ Not working, see https://github.com/jspm/project/issues/15
-import {Client} from 'theseus/src/theseus';
+import {Client} from 'theseus';
 
-import 'theseus/src/http/angular';
-import 'theseus/src/promise/angular';
+import 'theseus/http/angular';
+import 'theseus/promise/angular';
 
 import angular from 'angular';
 
