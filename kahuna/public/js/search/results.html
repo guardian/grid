@@ -37,8 +37,10 @@
                         <figcaption class="image-result__caption">{{image.data.metadata.title || image.data.metadata.description}}</figcaption>
                     </figure>
                 </a>
+
                 <a class="image-results__popout" target="_blank" title="Pop out"
                    ng:href="/images/{{image.data.id}}">◹</a>
+
                 <div class="image-result__meta">
                     <ul class="image-result__labels">
                         <li ng:repeat="label in image.data.userMetadata.data.labels.data"
@@ -52,6 +54,8 @@
                             title="Mark as seen all images until this point"
                             ui:localstore="search.seenFrom"
                             ui:localstore-val="getLastSeenVal(image)">♻</button>
+
+                    <ui-archiver archived="image.data.userMetadata.data.archived"></ui-archiver>
                     <div class="image-meta image-result__uploaded uploaded">
                         <span class="uploaded__time">{{image.data.uploadTime | date:'HH:mm'}}</span>
                         <span class="uploaded__date">{{image.data.uploadTime | date:'d/M/yy'}}</span>
