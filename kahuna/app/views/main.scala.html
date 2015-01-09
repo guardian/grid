@@ -8,7 +8,7 @@
 
     <title ui:title ui:title-suffix="the grid">the grid</title>
     <link rel="media-api-uri" href="@mediaApiUri" />
-@sentryDsn.filter(_ != "").map { dsn =>
+@sentryDsn.map { dsn =>
     <link rel="sentry-dsn" href="@dsn" />
 }
     <link rel="stylesheet" href="@routes.Assets.at("stylesheets/main.css")" />
