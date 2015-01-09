@@ -9,6 +9,14 @@
             </div>
 
             <div class="image-info__group">
+                <div ng:if="image.data.metadata.dateTaken"
+                     class="metadata-line">
+                    on
+                    <span class="metadata-line__info">
+                        {{image.data.metadata.dateTaken | date:'d MMM yyyy, HH:mm'}}
+                    </span>
+                </div>
+
                 <div ng:if="image.data.metadata.byline || image.data.metadata.credit"
                      class="metadata-line">
                     by
@@ -21,24 +29,18 @@
                     /
                     <span class="metadata-line__info">
                         <a ui:sref="search.results({query: image.data.metadata.credit})">{{image.data.metadata.credit}}</a>
-                        <!-- TODO: join if both present -->
                     </span>
                 </div>
 
-                <div ng:if="image.data.metadata.city || image.data.metadata.country"
+                <div ng:if="image.data.metadata.subLocation || image.data.metadata.city || image.data.metadata.state || image.data.metadata.country"
                      class="metadata-line">
                     in
-                    <span class="metadata-line__info">
-                        <a ui:sref="search.results({query: image.data.metadata.city})">{{image.data.metadata.city}}</a><!-- no whitespace before comma
-                                                                                                                         --></span>,
-                    <span class="metadata-line__info">
-                        <a ui:sref="search.results({query: image.data.metadata.country})">{{image.data.metadata.country}}</a>
+                    <span ng:repeat="prop in ['subLocation', 'city', 'state', 'country']" ng:if="image.data.metadata[prop]">
+                        <span class="metadata-line__info">
+                            <a ui:sref="search.results({query: image.data.metadata[prop]})">{{image.data.metadata[prop]}}</a><!-- no whitespace before comma
+                        --></span><span ng:if="! $last">,</span>
                     </span>
-                    <!-- TODO: join if all present -->
-                    <!-- FIXME: add subLocation, state -->
                 </div>
-
-                <!-- TODO: on date taken -->
 
                 <div ng:if="image.data.metadata.copyright"
                      class="metadata-line">
@@ -145,7 +147,7 @@
                     <a class="top-bar__item"
                        ng:if="image.data.valid"
                        ui:sref="crop({imageId: image.data.id})">
-                       ✄ <span ng:if="cropKey">re</span>crop
+                       ✂ <span ng:if="cropKey">re</span>crop
                     </a>
                     <span class="top-bar__item"
                           ng:if="! image.data.valid">cannot crop (missing metadata)</span>
