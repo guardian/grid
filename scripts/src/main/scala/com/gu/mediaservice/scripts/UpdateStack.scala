@@ -70,7 +70,7 @@ abstract class StackScript {
 
     // TODO: Make this read from a file
     val (pandaKey, pandaSecret, mixpanelToken, sentryDsn) = requiredArgs match {
-      case key :: secret :: token :: dsn :: xs => (key, secret, token, dsn, xs)
+      case key :: secret :: token :: dsn :: xs => (key, secret, token, dsn)
       case _ => usageError("Missing required arguments")
     }
 
