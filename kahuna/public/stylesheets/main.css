@@ -52,6 +52,13 @@ body {
     padding: 0 0 0 0;
 }
 
+h1, h2, h3, h4, h5, h6 {
+    font-size: inherit;
+    font-family: inherit;
+    font-weight: normal;
+    margin: 0;
+}
+
 figure, ul, li, dl, dd {
     margin: 0;
     padding: 0;
@@ -460,9 +467,20 @@ a:focus {
     margin-right: 310px;
 }
 
-.image-info__heading {
+.image-info {
+    margin-bottom: 15px;
+}
+
+.image-info__group {
+    margin-bottom: 5px;
+}
+
+.image-info__title {
     font-weight: bold;
-    margin: 15px 0 5px;
+}
+
+.image-info__heading {
+    color: #999999;
 }
 .image-info__heading--first {
     margin-top: 0;
@@ -470,7 +488,8 @@ a:focus {
 
 .image-info__keyword {
     display: inline-block;
-    background-color: #ccc;
+    background-color: #ddd;
+    color: #333;
     border-radius: 8px;
     padding: 0 8px;
     margin-right: 5px;
@@ -478,9 +497,33 @@ a:focus {
     font-size: 1.3rem;
 }
 
+.image-info__keyword a {
+    color: inherit;
+}
+
+.metadata-line {
+    color: #999999;
+}
+
+.metadata-line__info {
+    color: #333333;
+}
+
+.metadata-line__info a {
+    color: inherit;
+    border-bottom: 1px solid #ccc;
+}
+
+
+.metadata-reveal {
+    color: #999999;
+    font-size: 1.4rem;
+    font-family: inherit;
+}
+
+
 .metadata {
     font-family: "Guardian Agate Sans 1 Web";
-    margin-top: 15px;
 }
 
 .metadata__heading {
@@ -496,6 +539,9 @@ a:focus {
 
 .metadata__key {
     padding-right: 20px;
+    font-weight: normal;
+    color: #999999;
+    vertical-align: top;
     text-align: left;
 }
 
