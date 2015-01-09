@@ -22,7 +22,7 @@ trait MetadataHelper {
       keywords            = List(),
       subLocation         = metadata.get("subLocation"),
       city                = metadata.get("city"),
-      province            = metadata.get("province"),
+      state               = metadata.get("state"),
       country             = metadata.get("country")
     )
 }

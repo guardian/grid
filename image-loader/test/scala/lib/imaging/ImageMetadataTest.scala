@@ -23,7 +23,7 @@ class ImageMetadataTest extends FunSpec with Matchers {
     imageMetadata.keywords should be ('empty)
     imageMetadata.subLocation should be ('empty)
     imageMetadata.city should be ('empty)
-    imageMetadata.province should be ('empty)
+    imageMetadata.state should be ('empty)
     imageMetadata.country should be ('empty)
   }
 
@@ -40,7 +40,7 @@ class ImageMetadataTest extends FunSpec with Matchers {
       "Special Instructions" -> "the special instructions",
       "Sub-location" -> "the sub location",
       "City" -> "the city",
-      "Province/State" -> "the province",
+      "Province/State" -> "the state",
       "Country/Primary Location Name" -> "the country"
     ), Map(
       "Copyright" -> "the copyright"
@@ -59,7 +59,7 @@ class ImageMetadataTest extends FunSpec with Matchers {
     imageMetadata.specialInstructions should be (Some("the special instructions"))
     imageMetadata.subLocation should be (Some("the sub location"))
     imageMetadata.city should be (Some("the city"))
-    imageMetadata.province should be (Some("the province"))
+    imageMetadata.state should be (Some("the state"))
     imageMetadata.country should be (Some("the country"))
   }
 
