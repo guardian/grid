@@ -38,10 +38,12 @@ object Image {
     Image(id, uploadTime, uploadedBy, identifiers, source, Some(thumbnail),
       fileMetadata, metadata, metadata)
 
-  implicit val IptcMetadataWrites: Writes[ImageMetadata] =
-    ((__ \ "description").writeNullable[String] ~
+  implicit val IptcMetadataWrites: Writes[ImageMetadata] = (
+    (__ \ "dateTaken").writeNullable[String].contramap(printOptDateTime) ~
+      (__ \ "description").writeNullable[String] ~
       (__ \ "credit").writeNullable[String] ~
       (__ \ "byline").writeNullable[String] ~
+      (__ \ "bylineTitle").writeNullable[String] ~
       (__ \ "title").writeNullable[String] ~
       (__ \ "copyrightNotice").writeNullable[String] ~
       (__ \ "copyright").writeNullable[String] ~
@@ -49,9 +51,11 @@ object Image {
       (__ \ "source").writeNullable[String] ~
       (__ \ "specialInstructions").writeNullable[String] ~
       (__ \ "keywords").write[List[String]] ~
+      (__ \ "subLocation").writeNullable[String] ~
       (__ \ "city").writeNullable[String] ~
+      (__ \ "state").writeNullable[String] ~
       (__ \ "country").writeNullable[String]
-      )(unlift(ImageMetadata.unapply))
+    )(unlift(ImageMetadata.unapply))
 
   implicit val FileMetadataWrites: Writes[FileMetadata] = Json.writes[FileMetadata]
 
