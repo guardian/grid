@@ -23,7 +23,8 @@ image.controller('ImageCtrl',
 
     var ignoredMetadata = [
         'title', 'description', 'copyright', 'keywords', 'byline',
-        'credit', 'city', 'country'
+        'credit', 'subLocation', 'city', 'state', 'country',
+        'dateTaken'
     ];
     $scope.isUsefulMetadata = function(metadataKey) {
         return ignoredMetadata.indexOf(metadataKey) === -1;
