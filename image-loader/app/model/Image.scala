@@ -39,7 +39,7 @@ object Image {
       fileMetadata, metadata, metadata)
 
   implicit val IptcMetadataWrites: Writes[ImageMetadata] = (
-    (__ \ "dateTaken").writeNullable[DateTime] ~
+    (__ \ "dateTaken").writeNullable[String].contramap(printOptDateTime) ~
       (__ \ "description").writeNullable[String] ~
       (__ \ "credit").writeNullable[String] ~
       (__ \ "byline").writeNullable[String] ~
