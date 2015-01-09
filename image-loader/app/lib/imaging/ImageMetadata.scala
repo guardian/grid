@@ -22,7 +22,7 @@ object ImageMetadata {
       suppliersReference  = fileMetadata.iptc.get("Original Transmission Reference") orElse fileMetadata.iptc.get("Object Name"),
       source              = fileMetadata.iptc.get("Source"),
       specialInstructions = fileMetadata.iptc.get("Special Instructions"),
-      keywords            = fileMetadata.iptc.get("Keywords") map (_.split(Array(';', ',')).distinct.toList) getOrElse Nil,
+      keywords            = fileMetadata.iptc.get("Keywords") map (_.split(Array(';', ',')).distinct.map(_.trim).toList) getOrElse Nil,
       subLocation         = fileMetadata.iptc.get("Sub-location"),
       city                = fileMetadata.iptc.get("City"),
       state               = fileMetadata.iptc.get("Province/State"),
