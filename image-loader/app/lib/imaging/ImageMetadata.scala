@@ -25,7 +25,7 @@ object ImageMetadata {
       keywords            = fileMetadata.iptc.get("Keywords") map (_.split(Array(';', ',')).distinct.toList) getOrElse Nil,
       subLocation         = fileMetadata.iptc.get("Sub-location"),
       city                = fileMetadata.iptc.get("City"),
-      province            = fileMetadata.iptc.get("Province/State"),
+      state               = fileMetadata.iptc.get("Province/State"),
       country             = fileMetadata.iptc.get("Country/Primary Location Name")
     )
 
@@ -87,8 +87,8 @@ case class ImageMetadata(
   source:              Option[String],
   specialInstructions: Option[String],
   keywords:            List[String],
-  subLocation:         Option[String], // FIXME: or place?
+  subLocation:         Option[String],
   city:                Option[String],
-  province:            Option[String], // FIXME: or state?
+  state:               Option[String],
   country:             Option[String]
 )

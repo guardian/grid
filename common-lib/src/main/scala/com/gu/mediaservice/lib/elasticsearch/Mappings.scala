@@ -60,7 +60,7 @@ object Mappings {
       "keywords" -> nonAnalysedList("keyword"),
       "subLocation" -> standardAnalysedString,
       "city" -> standardAnalysedString,
-      "province" -> standardAnalysedString,
+      "state" -> standardAnalysedString,
       "country" -> standardAnalysedString
     )
   )
