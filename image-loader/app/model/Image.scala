@@ -53,7 +53,7 @@ object Image {
       (__ \ "keywords").write[List[String]] ~
       (__ \ "subLocation").writeNullable[String] ~
       (__ \ "city").writeNullable[String] ~
-      (__ \ "province").writeNullable[String] ~
+      (__ \ "state").writeNullable[String] ~
       (__ \ "country").writeNullable[String]
     )(unlift(ImageMetadata.unapply))
 
