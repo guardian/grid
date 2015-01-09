@@ -87,7 +87,7 @@ abstract class StackScript {
 
   def usageError(msg: String): Nothing = {
     System.err.println(msg)
-    System.err.println("Usage: <CreateStack|UpdateStack> <STAGE> <PANDA_ACCESS_KEY> <PANDA_ACCESS_SECRET> <MIXPANEL_TOKEN>")
+    System.err.println("Usage: <CreateStack|UpdateStack> <STAGE> <PANDA_ACCESS_KEY> <PANDA_ACCESS_SECRET> <MIXPANEL_TOKEN> <SENTRY_DSN>")
     sys.exit(1)
   }
 
