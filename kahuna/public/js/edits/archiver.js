@@ -19,7 +19,6 @@ archiver.controller('ArchiverCtrl', ['$scope', '$window',
 
         // FIXME: theseus should return a `Resource` on `put` that we can
         // update `ctrl.archived` with.
-        console.log(ctrl.archived)
         ctrl.archived
             .put({ data: setVal })
             .response.then(
