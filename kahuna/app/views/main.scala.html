@@ -13,25 +13,6 @@
     <meta name="mixpanel-token" content="@token" />
 }
 
-    <script src="@routes.Assets.at("jspm_packages/traceur-runtime.js")"></script>
-    <script src="@routes.Assets.at("jspm_packages/system.js")"></script>
-    <script src="@routes.Assets.at("config.js")"></script>
-    <script>
-      // FIXME: could this be written to config.js instead? annoying to have to override
-      System.config({
-        baseURL: "/assets",
-        paths: {
-          "*":        "js/*.js",
-          "npm:*":    "jspm_packages/npm/*.js",
-          "github:*": "jspm_packages/github/*.js"
-        }
-      });
-
-      System.import("app").catch(function(error) {
-          setTimeout(function(){ throw error; });
-      });
-    </script>
-
     <style>
         .ng-cloak { display: none }
     </style>
@@ -41,5 +22,18 @@
     <p class="loader" ng:hide="true">Loading the grid…</p>
     <!-- target prevents AngularJS from handling the navigation -->
     <div ui:view></div>
+
+    <script src="@routes.Assets.at("jspm_packages/system.js")"></script>
+    <script src="@routes.Assets.at("config.js")"></script>
+    <script>
+      // FIXME: could this be written to config.js instead? annoying to have to override
+      System.config({
+          baseURL: "/assets"
+      });
+
+      System.import("js/main").catch(function(error) {
+          setTimeout(function(){ throw error; });
+      });
+    </script>
   </body>
 </html>
