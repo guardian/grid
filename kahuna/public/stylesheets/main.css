@@ -77,7 +77,8 @@ a {
     color: #00adee;
 }
 
-input[type="text"] {
+input[type="text"],
+textarea {
     background-color: #666;
     color: #ccc;
     border: 1px solid #999;
