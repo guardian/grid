@@ -46,8 +46,10 @@ object Mappings {
 
   val metadataMapping = Json.obj(
     "properties" -> Json.obj(
+      "dateTaken" -> dateFormat,
       "description" -> snowballAnalysedString,
       "byline" -> standardAnalysedString,
+      "bylineTitle" -> standardAnalysedString,
       "title" -> snowballAnalysedString,
       "credit" -> nonAnalyzedString,
       "copyright" -> standardAnalysedString,
@@ -56,7 +58,9 @@ object Mappings {
       "source" -> standardAnalysedString,
       "specialInstructions" -> nonAnalyzedString,
       "keywords" -> nonAnalysedList("keyword"),
+      "subLocation" -> standardAnalysedString,
       "city" -> standardAnalysedString,
+      "state" -> standardAnalysedString,
       "country" -> standardAnalysedString
     )
   )

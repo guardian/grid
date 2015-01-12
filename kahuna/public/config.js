@@ -1,9 +1,9 @@
 System.config({
   "paths": {
     "*": "*.js",
+    "app/*": "lib/*.js",
     "github:*": "jspm_packages/github/*.js",
-    "npm:*": "jspm_packages/npm/*.js",
-    "app/*": "lib/*.js"
+    "npm:*": "jspm_packages/npm/*.js"
   }
 });
 
@@ -17,13 +17,14 @@ System.config({
     "jquery": "github:components/jquery@2.1.1",
     "mixpanel-js": "github:mixpanel/mixpanel-js@2.3.2",
     "pandular": "npm:pandular@0.1.2",
+    "raven-js": "github:getsentry/raven-js@1.1.16",
     "text": "github:systemjs/plugin-text@0.0.2",
-    "theseus": "github:argo-rest/theseus@master",
+    "theseus": "github:argo-rest/theseus@0.1.1",
     "ua-parser-js": "npm:ua-parser-js@0.7.3",
     "github:angular-ui/ui-router@0.2.13": {
       "angular": "github:angular/bower-angular@1.3.5"
     },
-    "github:argo-rest/theseus@master": {
+    "github:argo-rest/theseus@0.1.1": {
       "jquery": "github:components/jquery@2.1.1",
       "reqwest": "github:ded/reqwest@1.1.5",
       "uri-templates": "npm:uri-templates@0.1.5"
@@ -42,7 +43,7 @@ System.config({
     },
     "npm:pandular@0.1.2": {
       "angular": "github:angular/bower-angular@1.3.5",
-      "panda-session": "npm:panda-session@0.1.2"
+      "panda-session": "npm:panda-session@0.1.3"
     },
     "npm:path-browserify@0.0.0": {
       "process": "github:jspm/nodelibs-process@0.1.0"
