@@ -344,46 +344,49 @@ a:focus {
     font-size: 1.2rem;
 }
 
-.image-result__uploaded {
+.uploaded-time {
     font-size: 1.4rem;
     font-weight: bold;
     padding-left: 10px;
-    text-align: left;
-    float: left;
 }
 
-.uploaded__date {
+.image-result__bottom-bar {
+    display: flex;
+}
+
+.result-meta {
+    flex: 1;
+}
+
+.result-actions {
+    color: #666;
+}
+
+.result-action {
+    color: inherit;
+    display: inline-block;
+}
+
+.uploaded-date {
     color: #999;
     padding-left: 15px;
     font-weight: normal;
     font-size: 1.2rem;
 }
 
-.image-result__mark-as-seen {
-    vertical-align: middle;
-    font-size: 1.4rem;
-    float: right;
-    margin-right: 10px;
-    color: #666;
-}
-
-.image-result__cost {
-    background-color: darkgrey;
-    border-right: 0;
+.cost {
     color: white;
-    float: right;
     font-size: 1.4rem;
     padding: 2px 10px 0;
     text-align: center;
     vertical-align: middle;
 }
-.image-result__cost--free {
+.cost--free {
     background-color: green;
 }
-.image-result__cost--pay {
+.cost--pay {
     background-color: red;
 }
-
 
 .image-results-count {
     font-size: 1.4rem;
