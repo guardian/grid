@@ -79,7 +79,7 @@ a {
 
 input[type="text"],
 textarea {
-    background-color: #666;
+    background-color: #444;
     color: #ccc;
     border: 1px solid #999;
 }
@@ -361,7 +361,7 @@ a:focus {
 }
 
 .result-actions {
-    color: #999;
+    color: #aaa;
 }
 
 .result-action {
@@ -370,7 +370,7 @@ a:focus {
 }
 
 .uploaded-date {
-    color: #999;
+    color: #aaa;
     padding-left: 15px;
     font-weight: normal;
     font-size: 1.2rem;
@@ -414,7 +414,7 @@ a:focus {
 }
 
 .image-loading-results {
-    color: #888;
+    color: #999;
 }
 
 /* ==========================================================================
@@ -484,7 +484,7 @@ a:focus {
 }
 
 .image-info__heading {
-    color: #888;
+    color: #999;
 }
 .image-info__heading--first {
     margin-top: 0;
@@ -506,7 +506,7 @@ a:focus {
 }
 
 .metadata-line {
-    color: #888;
+    color: #999;
 }
 
 .metadata-line__info {
@@ -515,12 +515,12 @@ a:focus {
 
 .metadata-line__info a {
     color: inherit;
-    border-bottom: 1px solid #888;
+    border-bottom: 1px solid #999;
 }
 
 
 .metadata-reveal {
-    color: #888;
+    color: #999;
     font-size: 1.4rem;
     font-family: inherit;
 }
@@ -544,7 +544,7 @@ a:focus {
 .metadata__key {
     padding-right: 20px;
     font-weight: normal;
-    color: #999999;
+    color: #999;
     vertical-align: top;
     text-align: left;
 }
@@ -665,7 +665,7 @@ a:focus {
 }
 
 .job-file {
-    color: #999;
+    color: #aaa;
     font-size: 1.2rem;
     margin-top: 10px;
 }
