@@ -11,6 +11,7 @@
       "jcrop": "0.9.12",
       "jquery": "2.1.1",
       "mixpanel-js": "github:mixpanel/mixpanel-js@2.3.2",
+      "pandular": "npm:pandular@^0.1.2",
       "raven-js": "1.1.16",
       "text": "^0.0.2",
       "theseus": "0.1.1",

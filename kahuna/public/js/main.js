@@ -2,6 +2,7 @@
 
 import angular from 'angular';
 import 'angular-ui-router';
+import 'pandular';
 import './services/theseus';
 import './services/api/media-api';
 import './services/api/media-cropper';
@@ -14,7 +15,6 @@ import './search/index';
 import './edits/index';
 import './util/async';
 import './util/digest';
-import './pandular/heal';
 import './analytics/track';
 import './sentry/sentry';
 
