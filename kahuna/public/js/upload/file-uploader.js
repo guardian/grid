@@ -16,7 +16,8 @@ fileUploader.controller('FileUploaderCtrl',
         // Queue up files for upload and go to the upload state to
         // show progress
         uploadManager.upload(files);
-        $state.go('upload');
+        // Force reload, in case we're already in that state
+        $state.go('upload', {}, {reload: true});
     }
 }]);
 

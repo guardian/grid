@@ -1,4 +1,4 @@
-@(mediaApiUri: String, mixpanelToken: Option[String])
+@(mediaApiUri: String, mixpanelToken: Option[String], sentryDsn: Option[String])
 <!DOCTYPE html>
 <html>
   <head>
@@ -8,6 +8,9 @@
 
     <title ui:title ui:title-suffix="the grid">the grid</title>
     <link rel="media-api-uri" href="@mediaApiUri" />
+@sentryDsn.map { dsn =>
+    <link rel="sentry-dsn" href="@dsn" />
+}
     <link rel="stylesheet" href="@routes.Assets.at("stylesheets/main.css")" />
 @mixpanelToken.map { token =>
     <meta name="mixpanel-token" content="@token" />
