@@ -13,7 +13,7 @@ object Application extends Controller with PanDomainAuthActions {
   override lazy val authCallbackBaseUri = Config.rootUri
 
   def index(ignored: String) = AuthAction { req =>
-    Ok(views.html.main(Config.mediaApiUri, Config.mixpanelToken))
+    Ok(views.html.main(Config.mediaApiUri, Config.mixpanelToken, Config.sentryDsn))
   }
 
 }
