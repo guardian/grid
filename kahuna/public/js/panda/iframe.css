@@ -1,4 +1,0 @@
-/* The re-auth iframe should not be shown */
-.panda-session-iframe {
-    display: none;
-}
