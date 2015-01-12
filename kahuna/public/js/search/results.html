@@ -37,8 +37,10 @@
                         <figcaption class="image-result__caption">{{image.data.metadata.title || image.data.metadata.description}}</figcaption>
                     </figure>
                 </a>
+
                 <a class="image-results__popout" target="_blank" title="Pop out"
                    ng:href="/images/{{image.data.id}}">◹</a>
+
                 <div class="image-result__meta">
                     <ul class="image-result__labels">
                         <li ng:repeat="label in image.data.userMetadata.data.labels.data"
@@ -47,15 +49,30 @@
                                class="label__link">{{label.data}}</a>
                         </li>
                     </ul>
-                    <div class="image-result__cost image-result__cost--{{image.data.cost}}">{{image.data.cost}}</div>
-                    <button class="image-meta image-result__mark-as-seen"
-                            title="Mark as seen all images until this point"
-                            ui:localstore="search.seenFrom"
-                            ui:localstore-val="getLastSeenVal(image)">♻</button>
-                    <div class="image-meta image-result__uploaded uploaded">
-                        <span class="uploaded__time">{{image.data.uploadTime | date:'HH:mm'}}</span>
-                        <span class="uploaded__date">{{image.data.uploadTime | date:'d/M/yy'}}</span>
+
+                    <div class="image-result__bottom-bar">
+                        <div class="result-meta">
+                            <span class="uploaded-time">{{image.data.uploadTime | date:'HH:mm'}}</span>
+                            <span class="uploaded-date">{{image.data.uploadTime | date:'d/M/yy'}}</span>
+                        </div>
+
+                        <div class="result-actions">
+                            <button class="result-action mark-as-seen"
+                                    title="Mark all images until this point as seen"
+                                    ui:localstore="search.seenFrom"
+                                    ui:localstore-val="getLastSeenVal(image)">☑</button>
+
+                            <a title="crop" class="result-action" ui:sref="crop({ imageId: image.data.id })">✂</a>
+
+                            <!-- TODO: uncomment back in once we've fixed a theseus bug
+                                 https://github.com/guardian/media-service/issues/339 -->
+                            <!--ui-archiver class="result-action"
+                                         archived="image.data.userMetadata.data.archived"></ui-archiver-->
+
+                            <div class="result-action cost cost--{{image.data.cost}}">{{image.data.cost}}</div>
+                        </div>
                     </div>
+
                 </div>
             </li>
         </ul>
