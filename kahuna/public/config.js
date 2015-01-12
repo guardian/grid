@@ -19,12 +19,12 @@ System.config({
     "pandular": "npm:pandular@0.1.2",
     "raven-js": "github:getsentry/raven-js@1.1.16",
     "text": "github:systemjs/plugin-text@0.0.2",
-    "theseus": "github:argo-rest/theseus@0.1.1",
+    "theseus": "github:argo-rest/theseus@0.1.3",
     "ua-parser-js": "npm:ua-parser-js@0.7.3",
     "github:angular-ui/ui-router@0.2.13": {
       "angular": "github:angular/bower-angular@1.3.5"
     },
-    "github:argo-rest/theseus@0.1.1": {
+    "github:argo-rest/theseus@0.1.3": {
       "jquery": "github:components/jquery@2.1.1",
       "reqwest": "github:ded/reqwest@1.1.5",
       "uri-templates": "npm:uri-templates@0.1.5"
