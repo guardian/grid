@@ -18,10 +18,15 @@ System.config({
     "mixpanel-js": "github:mixpanel/mixpanel-js@2.3.2",
     "raven-js": "github:getsentry/raven-js@1.1.16",
     "text": "github:systemjs/plugin-text@0.0.2",
-    "theseus": "github:argo-rest/theseus@master",
+    "theseus": "github:argo-rest/theseus@0.1.1",
     "ua-parser-js": "npm:ua-parser-js@0.7.3",
     "github:angular-ui/ui-router@0.2.13": {
       "angular": "github:angular/bower-angular@1.3.5"
+    },
+    "github:argo-rest/theseus@0.1.1": {
+      "jquery": "github:components/jquery@2.1.1",
+      "reqwest": "github:ded/reqwest@1.1.5",
+      "uri-templates": "npm:uri-templates@0.1.5"
     },
     "github:argo-rest/theseus@master": {
       "jquery": "github:components/jquery@2.1.1",
