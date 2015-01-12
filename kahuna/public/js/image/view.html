@@ -1,5 +1,32 @@
 <div class="full-image" ng:controller="ImageCtrl" ng:if="image">
-    <div class="image-details" id="image-info">
+
+    <div class="top-bar-wrapper">
+        <div class="top-bar">
+            <div class="top-bar__nav">
+                <a class="top-bar__item top-bar__item--first"
+                   ui:sref="search.results">← search</a>
+                <a class="top-bar__item top-bar__item"
+                   ng:if="cropKey"
+                   ui:sref="{ crop: null }">← original</a>
+            </div>
+
+            <div class="top-bar__items">
+                <ui-archiver class="top-bar__item"
+                             archived="image.data.userMetadata.data.archived"
+                             with-text="true"></ui-archiver>
+
+                <a class="top-bar__item"
+                   ng:if="image.data.valid"
+                   ui:sref="crop({imageId: image.data.id})">
+                    ✂ <span ng:if="cropKey">re</span>crop
+                </a>
+                <span class="top-bar__item"
+                      ng:if="! image.data.valid">cannot crop (missing metadata)</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="image-details">
 
         <div class="image-info">
             <div class="image-info__group">
@@ -128,36 +155,11 @@
             </dl>
         </div>
     </div>
+
     <div class="image-holder">
-        <div class="top-bar-wrapper">
-            <div class="top-bar top-bar--dark">
-                <div class="top-bar__nav">
-                    <a class="top-bar__item top-bar__item--first"
-                       ui:sref="search.results">← search</a>
-                    <a class="top-bar__item top-bar__item"
-                       ng:if="cropKey"
-                       ui:sref="{ crop: null }">← original</a>
-                </div>
-
-                <div class="top-bar__items">
-                    <ui-archiver class="top-bar__item"
-                                 archived="image.data.userMetadata.data.archived"
-                                 with-text="true"></ui-archiver>
-
-                    <a class="top-bar__item"
-                       ng:if="image.data.valid"
-                       ui:sref="crop({imageId: image.data.id})">
-                       ✂ <span ng:if="cropKey">re</span>crop
-                    </a>
-                    <span class="top-bar__item"
-                          ng:if="! image.data.valid">cannot crop (missing metadata)</span>
-                </div>
-            </div>
-        </div>
-
         <div class="easel">
             <div class="easel__canvas" ng:if="!cropKey">
-                <img class="easel__image"
+                <img class="easel__image easel__image--with-space"
                      ng:src="{{image.data.source | assetFile}}"
                      ui:drag-data="{{imageSync | asImageDragData}}" />
             </div>
@@ -166,7 +168,7 @@
             <!-- TODO: As this loads async, add a loader -->
             <div class="easel__canvas" ng:if="cropKey">
                 <a draggable="true"
-                   class="easel__image-container"
+                   class="easel__image easel__image--with-space"
                    ng:if="crop"
                    ng:init="extremeAssets = (crop | getExtremeAssets)"
                    ui:sref="{crop: cropKey}"
