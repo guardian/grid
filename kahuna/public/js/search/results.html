@@ -13,11 +13,11 @@
     <div ng:show="images.length > 0">
 
         <div class="image-results-count">
-            {{totalResults}} matches
+            {{totalResults | toLocaleString}} matches
             <button ng:show="newImagesCount > 0"
                     ng:click="revealNewImages()"
                     class="image-results-count__new">
-                {{newImagesCount}} new
+                {{newImagesCount | toLocaleString}} new
             </button>
         </div>
 
