@@ -168,13 +168,13 @@
             <!-- TODO: As this loads async, add a loader -->
             <div class="easel__canvas" ng:if="cropKey">
                 <a draggable="true"
-                   class="easel__image easel__image--with-space"
+                   class="easel__image-container"
                    ng:if="crop"
                    ng:init="extremeAssets = (crop | getExtremeAssets)"
                    ui:sref="{crop: cropKey}"
                    ui:drag-data="{{imageSync | asImageAndCropsDragData:crop}}"
                    ui:drag-image="{{extremeAssets.smallest | assetFile}}">
-                    <img class="easel__image" ng:src="{{extremeAssets.largest | assetFile}}" />
+                    <img class="easel__image easel__image--with-space" ng:src="{{extremeAssets.largest | assetFile}}" />
                 </a>
             </div>
         </div>

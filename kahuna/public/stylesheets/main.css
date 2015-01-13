@@ -570,7 +570,7 @@ a:focus {
 }
 
 .image-crop__aspect-ratio {
-    background: white;
+    background: #333;
     padding: 2px;
     font-size: 1.2rem;
 }
