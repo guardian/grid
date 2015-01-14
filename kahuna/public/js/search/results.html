@@ -1,10 +1,10 @@
 <!-- TODO: show only after a delay -->
-<div ng:show="loading"
+<div ng:if="loading"
      class="image-loading-results">
     Fetching images…
 </div>
 
-<div ng:hide="loading">
+<div ng:if="! loading">
     <div ng:show="images.length == 0"
          class="image-no-results">
         No matches, sorry!
@@ -13,11 +13,11 @@
     <div ng:show="images.length > 0">
 
         <div class="image-results-count">
-            {{totalResults}} matches
+            {{totalResults | toLocaleString}} matches
             <button ng:show="newImagesCount > 0"
                     ng:click="revealNewImages()"
                     class="image-results-count__new">
-                {{newImagesCount}} new
+                {{newImagesCount | toLocaleString}} new
             </button>
         </div>
 
