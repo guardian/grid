@@ -50,6 +50,10 @@ dndUploader.directive('dndUploader', ['$window', 'delay', 'safeApply',
 
             scope.$on('$destroy', clean);
 
+            function eventContainsFiles(event) {
+                return event.originalEvent.dataTransfer.types.indexOf('Files') !== -1;
+            }
+
             function over(event) {
                 dragging = true;
                 // The dragover `preventDefault` is to allow for dropping
@@ -58,7 +62,10 @@ dndUploader.directive('dndUploader', ['$window', 'delay', 'safeApply',
 
             function enter(event) {
                 dragging = true;
-                activate();
+
+                if (eventContainsFiles(event)) {
+                    activate();
+                }
             }
 
             function leave(event) {
