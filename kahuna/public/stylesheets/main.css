@@ -448,7 +448,6 @@ a:focus {
 .easel__image--with-space {
     max-width: calc(100% -  20px);
     max-height: calc(100vh - 68px);
-    padding: 20px;
 }
 
 .image-details {
