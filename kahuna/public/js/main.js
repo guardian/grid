@@ -168,23 +168,18 @@ kahuna.filter('asImageAndCropsDragData', ['$filter',
 }]);
 
 kahuna.filter('asAspectRatioWord', function() {
-    // FIXME: Try to find one place to store these words to ratios
-    return function(aspectRatio) {
-        switch(aspectRatio) {
-            case '5:3':
-                return 'landscape';
-
-            case '3:2':
-                return 'portrait';
-
-            default:
-                return 'freeform';
-        }
+    // FIXME: Try to find one place to store these mappings
+    var aspectToName = {
+        '5:3': 'landscape',
+        '3:2': 'portrait'
     };
+    var defaultName = 'freeform';
+
+    return aspectRatio => aspectToName[aspectRatio] || defaultName;
 });
 
 kahuna.filter('asFileSize', function() {
-    return function(byteSize) {
+    return byteSize => {
         // TODO: round to precision(1)
         if (byteSize > 1000 * 1000) {
             return Math.round(byteSize / (1000 * 1000)) + 'MB';
@@ -201,11 +196,9 @@ kahuna.filter('toLocaleString', function() {
 });
 
 kahuna.filter('assetFile', function() {
-    return function(asset) {
-        // Prefer SSL asset, but default to HTTP URI if missing
-        // (e.g. non-PROD env)
-        return asset.secureUrl || asset.file;
-    };
+    // Prefer SSL asset, but default to HTTP URI if missing
+    // (e.g. non-PROD env)
+    return asset => asset.secureUrl || asset.file;
 });
 
 kahuna.filter('stripEmailDomain', function() {
