@@ -196,6 +196,10 @@ kahuna.filter('asFileSize', function() {
     };
 });
 
+kahuna.filter('toLocaleString', function() {
+    return number => number.toLocaleString();
+});
+
 kahuna.filter('assetFile', function() {
     return function(asset) {
         // Prefer SSL asset, but default to HTTP URI if missing
