@@ -87,11 +87,11 @@ dndUploader.directive('dndUploader', ['$window', 'delay', 'safeApply',
             }
 
             function clean() {
-                $$window.off('dragover', over)
-                $$window.off('dragenter', enter)
-                $$window.off('dragleave', leave)
-                $$window.off('drop', drop)
+                $$window.off('dragover', over);
+                $$window.off('dragenter', enter);
+                $$window.off('dragleave', leave);
+                $$window.off('drop', drop);
             }
         }
-    }
+    };
 }]);
