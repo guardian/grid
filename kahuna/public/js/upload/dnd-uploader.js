@@ -51,7 +51,8 @@ dndUploader.directive('dndUploader', ['$window', 'delay', 'safeApply',
             scope.$on('$destroy', clean);
 
             function eventContainsFiles(event) {
-                return event.originalEvent.dataTransfer.types.indexOf('Files') !== -1;
+                var types = Array.from(event.originalEvent.dataTransfer.types);
+                return types.indexOf('Files') !== -1;
             }
 
             function over(event) {
