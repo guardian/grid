@@ -83,8 +83,10 @@ dndUploader.directive('dndUploader', ['$window', 'delay', 'safeApply',
 
                 event.preventDefault();
 
-                scope.dndUploader.uploadFiles(files);
-                scope.$apply(deactivate);
+                if (files.length > 0) {
+                    scope.dndUploader.uploadFiles(files);
+                    scope.$apply(deactivate);
+                }
             }
 
             function clean() {
