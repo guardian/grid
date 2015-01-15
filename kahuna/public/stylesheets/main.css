@@ -438,15 +438,11 @@ a:focus {
 
 .easel__image {
     display: block;
-    max-height: calc(100vh - 48px); /* viewport - top-bar */
-    max-width: 100%;
     margin: 0 auto;
     position: relative;
     top: 50%;
     transform: translateY(-50%);
-}
-.easel__image--with-space {
-    max-width: calc(100% -  20px);
+    max-width: calc(100% - 20px); /* 20px here for padding */
     max-height: calc(100vh - 68px);
 }
 
