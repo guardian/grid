@@ -6,5 +6,5 @@ upload.controller('UploadCtrl',
                   ['$scope', 'uploadManager',
                    function($scope, uploadManager) {
 
-    $scope.latestJob = uploadManager.listUploads().slice(-1)[0];
+    this.latestJob = uploadManager.listUploads().slice(-1)[0];
 }]);
