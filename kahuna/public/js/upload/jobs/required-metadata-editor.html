@@ -1,4 +1,5 @@
-<form class="job-editor" name="jobEditor">
+<form class="job-editor" name="jobEditor"
+      ng:submit="editorCtrl.save()">
     <div class="job-editor__inputs">
         <label class="job-info--editor__field">
             <div class="job-info--editor__label">Description</div>
@@ -31,11 +32,11 @@
         </label>
     </div>
     <div class="job-editor__buttons">
-        <input type="submit"
+        <button type="submit"
                class="button job-editor__button"
-               value="{{ {true: 'Saving…', false: 'Save'}[editorCtrl.saving] }}"
                ng:click="editorCtrl.save()"
-               ng:disabled="jobEditor.$invalid || jobEditor.$pristine || editorCtrl.saving"
-        />
+               ng:disabled="jobEditor.$invalid || jobEditor.$pristine || editorCtrl.saving">
+            {{ {true: 'Saving…', false: 'Save'}[editorCtrl.saving] }}
+        </button>
     </div>
 </form>
