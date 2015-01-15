@@ -455,10 +455,11 @@ a:focus {
     float: right;
     font-family: "Guardian Agate Sans 1 Web";
     font-size: 1.4rem;
-    max-height: calc(100vh - 48px); /* viewport - top-bar */
+    height: calc(100vh - 48px); /* viewport - top-bar */
     padding: 10px 10px;
     overflow: auto;
     width: 300px;
+    border-left: 1px solid #222;
 }
 .image-details:after {
     clear: both;
@@ -467,7 +468,7 @@ a:focus {
 }
 
 .image-holder {
-    margin-right: 310px;
+    margin-right: 300px;
 }
 
 .image-info {
