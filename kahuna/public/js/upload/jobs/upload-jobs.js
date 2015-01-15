@@ -5,8 +5,8 @@ export var jobs = angular.module('kahuna.upload.jobs', []);
 
 
 jobs.controller('UploadJobsCtrl',
-                ['$scope', '$state', '$q', 'poll', 'mediaApi',
-                 function($scope, $state, $q, poll, mediaApi) {
+                ['$scope', '$state', '$q', 'safeApply', 'poll', 'mediaApi',
+                 function($scope, $state, $q, safeApply, poll, mediaApi) {
 
     var pollFrequency = 500; // ms
     var pollTimeout   = 20 * 1000; // ms
@@ -65,7 +65,7 @@ jobs.controller('UploadJobsCtrl',
         var waitIndexed = poll(apiSynced, pollFrequency, pollTimeout);
         waitIndexed.then(image => {
             jobItem.status = image.data.valid ? 'ready' : 'invalid';
-            jobItem.image.metadata = image.data.metadata;
+            jobItem.image.data.metadata = image.data.metadata;
         });
     };
 
