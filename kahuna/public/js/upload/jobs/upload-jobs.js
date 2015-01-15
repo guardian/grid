@@ -65,9 +65,13 @@ jobs.controller('UploadJobsCtrl',
         var waitIndexed = poll(apiSynced, pollFrequency, pollTimeout);
         waitIndexed.then(image => {
             jobItem.status = image.data.valid ? 'ready' : 'invalid';
+            jobItem.image.metadata = image.data.metadata;
         });
     };
 
+    this.overrideAllMetadata = (metadata) => {
+        $scope.jobs.forEach(job => $scope.overrideMetadata(job, metadata));
+    }
 
     // FIXME: Why do we have to filter `job.image` here when it's already
     // filtered in the template
@@ -82,6 +86,8 @@ jobs.controller('UploadJobsCtrl',
         jobs.forEach(job => job.image.data.userMetadata.data.labels = resource);
 
     this.jobsExcept = exclude => $scope.jobs.filter(job => job !== exclude);
+
+    this.getEdits = () => $scope.jobs.map(job => job.image.data.userMetadata);
 
 }]);
 

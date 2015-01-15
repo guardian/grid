@@ -14,9 +14,8 @@ applicator.controller('ApplicatorCtrl', [function() {
                 credit: ctrl.credit
             };
             resource.data.metadata.put({ data: data }).response.then(r => {
-
+                ctrl.onUpdate({ metadata: data });
             });
-        //    //resource.data.metadata.put({ data: data });
         });
     };
 }]);
@@ -25,7 +24,8 @@ applicator.directive('uiApplicator', function() {
     return {
         restrict: 'E',
         scope: {
-            applyTo: '='
+            applyTo: '=',
+            onUpdate: '&'
         },
         bindToController: true,
         template: template,
