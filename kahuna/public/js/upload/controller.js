@@ -6,5 +6,8 @@ upload.controller('UploadCtrl',
                   ['$scope', 'uploadManager',
                    function($scope, uploadManager) {
 
-    this.latestJob = uploadManager.listUploads().slice(-1)[0];
+    this.latestJob = uploadManager.listUploads().slice(-1)[0] || [];
+    this.getImages = () => {
+        this.latestJob.map(job => console.log(job))
+    }
 }]);
