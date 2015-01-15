@@ -59,7 +59,7 @@ kahuna.config(['$locationProvider',
                function($locationProvider) {
 
     // Use real URLs (with History API) instead of hashbangs
-    $locationProvider.html5Mode(true).hashPrefix('!');
+    $locationProvider.html5Mode({enabled: true, requireBase: false});
 }]);
 
 kahuna.config(['$urlRouterProvider',
