@@ -438,17 +438,12 @@ a:focus {
 
 .easel__image {
     display: block;
-    max-height: calc(100vh - 48px); /* viewport - top-bar */
-    max-width: 100%;
     margin: 0 auto;
     position: relative;
     top: 50%;
     transform: translateY(-50%);
-}
-.easel__image--with-space {
-    max-width: calc(100% -  20px);
+    max-width: calc(100% - 20px); /* 20px here for padding */
     max-height: calc(100vh - 68px);
-    padding: 20px;
 }
 
 .image-details {
@@ -456,10 +451,11 @@ a:focus {
     float: right;
     font-family: "Guardian Agate Sans 1 Web";
     font-size: 1.4rem;
-    max-height: 100vh;
+    height: calc(100vh - 48px); /* viewport - top-bar */
     padding: 10px 10px;
     overflow: auto;
     width: 300px;
+    border-left: 1px solid #222;
 }
 .image-details:after {
     clear: both;
@@ -468,7 +464,7 @@ a:focus {
 }
 
 .image-holder {
-    margin-right: 310px;
+    margin-right: 300px;
 }
 
 .image-info {
