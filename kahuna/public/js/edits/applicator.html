@@ -1,3 +1,18 @@
-<form>
-    
+<form ng:submit="ctrl.go()">
+    <label>
+        description
+        <textarea ng:model="ctrl.description"></textarea>
+    </label>
+
+    <label>
+        byline
+        <input type="text" ng:model="ctrl.byline" />
+    </label>
+
+    <label>
+        credit
+        <input type="text" ng:model="ctrl.credit" />
+    </label>
+
+    <button type="submit">Apply to all</button>
 </form>
