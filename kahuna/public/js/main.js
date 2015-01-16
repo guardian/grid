@@ -8,6 +8,7 @@ import './services/api/media-api';
 import './services/api/media-cropper';
 import './services/api/loader';
 import './directives/ui-crop-box';
+import './directives/funny-placeholder';
 import './crop/index';
 import './image/index';
 import './upload/index';

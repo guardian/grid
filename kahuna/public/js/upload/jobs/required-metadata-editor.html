@@ -1,41 +1,42 @@
-<form class="job-editor" name="jobEditor">
+<form class="job-editor" name="jobEditor"
+      ng:submit="editorCtrl.save()">
     <div class="job-editor__inputs">
         <label class="job-info--editor__field">
-            <div class="job-info--editor__label">Description</div>
+            <div class="job-info--editor__label">description</div>
             <textarea name="description"
-                      placeholder="e.g. {{funnyDescription}}…"
                       required
                       class="job-info--editor__input job-info--editor__input--description"
-                      ng:model="editorCtrl.description"
+                      ui:funny-placeholder
+                      ng:model="editorCtrl.initial.description"
                       ng:controller="DescriptionPlaceholderCtrl"
             ></textarea>
         </label>
         <label class="job-info--editor__field">
-            <div class="job-info--editor__label">Byline</div>
+            <div class="job-info--editor__label">byline</div>
             <input type="text"
                    name="byline"
                    placeholder="e.g. Tom Jenkins…"
                    class="job-info--editor__input job-info--editor__input--byline"
-                   ng:model="editorCtrl.byline"
+                   ng:model="editorCtrl.initial.byline"
             />
         </label>
         <label class="job-info--editor__field">
-            <div class="job-info--editor__label">Credit</div>
+            <div class="job-info--editor__label">credit</div>
             <input type="text"
                    name="credit"
                    placeholder="e.g. Getty Images…"
                    required
                    class="job-info--editor__input job-info--editor__input--credit"
-                   ng:model="editorCtrl.credit"
+                   ng:model="editorCtrl.initial.credit"
             />
         </label>
     </div>
     <div class="job-editor__buttons">
-        <input type="submit"
+        <button type="submit"
                class="button job-editor__button"
-               value="{{ {true: 'Saving…', false: 'Save'}[editorCtrl.saving] }}"
                ng:click="editorCtrl.save()"
-               ng:disabled="jobEditor.$invalid || jobEditor.$pristine || editorCtrl.saving"
-        />
+               ng:disabled="jobEditor.$invalid || jobEditor.$pristine || editorCtrl.saving">
+            {{ {true: 'saving…', false: 'save'}[editorCtrl.saving] }}
+        </button>
     </div>
 </form>

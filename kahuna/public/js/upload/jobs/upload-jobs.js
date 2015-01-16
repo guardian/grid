@@ -46,6 +46,12 @@ jobs.controller('UploadJobsCtrl',
     // don't have to wait and poll?
     $scope.overrideMetadata = (jobItem, metadata) => {
 
+        // we do the replacement here for a more responsive UI
+        // it should be once we know when it's updated, but we revert back on error [1]
+        var oldMetadata = jobItem.image.data.metadata;
+        var newMetadata = angular.extend({}, jobItem.image.data.metadata, metadata);
+        jobItem.image.data.metadata = newMetadata;
+
         jobItem.status = 're-indexing';
 
         // Wait until all values of `metadata' are seen in the media API
@@ -65,9 +71,17 @@ jobs.controller('UploadJobsCtrl',
         var waitIndexed = poll(apiSynced, pollFrequency, pollTimeout);
         waitIndexed.then(image => {
             jobItem.status = image.data.valid ? 'ready' : 'invalid';
+        }, () => {
+            // [1]
+            jobItem.image.data.metadata = oldMetadata;
         });
     };
 
+    this.overrideAllMetadata = (metadata) => {
+        $scope.jobs.forEach(job => $scope.overrideMetadata(job, metadata));
+    }
+
+    this.jobsUploadComplete = () => $scope.jobs.length === $scope.jobs.filter(job => job.image).length;
 
     // FIXME: Why do we have to filter `job.image` here when it's already
     // filtered in the template
@@ -82,6 +96,9 @@ jobs.controller('UploadJobsCtrl',
         jobs.forEach(job => job.image.data.userMetadata.data.labels = resource);
 
     this.jobsExcept = exclude => $scope.jobs.filter(job => job !== exclude);
+
+    this.getEdits = () =>
+        $scope.jobs.filter(job => job.image).map(job => job.image.data.userMetadata);
 
 }]);
 

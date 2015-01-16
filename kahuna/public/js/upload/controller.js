@@ -3,8 +3,8 @@ import angular from 'angular';
 var upload = angular.module('kahuna.upload.controller', []);
 
 upload.controller('UploadCtrl',
-                  ['$scope', 'uploadManager',
-                   function($scope, uploadManager) {
+                  ['uploadManager',
+                   function(uploadManager) {
 
-    $scope.latestJob = uploadManager.listUploads().slice(-1)[0];
+    this.latestJob = uploadManager.listUploads().slice(-1)[0] || [];
 }]);

@@ -10,16 +10,17 @@
     </div>
 </div>
 
-<section ng:if="latestJob"
+<section ng:if="ctrl.latestJob.length > 0"
          class="upload-latest">
+
     <h2>Uploading</h2>
 
-    <ui-upload-jobs jobs="latestJob"></ui-upload-jobs>
+    <ui-upload-jobs jobs="ctrl.latestJob"></ui-upload-jobs>
 </section>
 
 
 <p ng:controller="SessionCtrl" class="upload-yours">
-    Or see <a ui:sref="search.results({uploadedBy: user.email})" class="coloured-link">all your uploads</a>.
+    Drop your files here to upload them or <a ui:sref="search.results({uploadedBy: user.email})" class="coloured-link">take a look at all your previous uploads</a>.
 </p>
 
 <dnd-uploader></dnd-uploader>
