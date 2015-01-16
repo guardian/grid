@@ -6,9 +6,9 @@
         <label class="job-info--editor__field">
             <div class="job-info--editor__label">Description</div>
             <textarea name="description"
-                      placeholder="e.g. {{funnyDescription}}…"
                       required
                       class="job-info--editor__input job-info--editor__input--description"
+                      ui:funny-placeholder
                       ng:model="editorCtrl.initial.description"
                       ng:controller="DescriptionPlaceholderCtrl"
             ></textarea>

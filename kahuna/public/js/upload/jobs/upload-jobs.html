@@ -1,5 +1,13 @@
-<ui-applicator apply-to="uploadJobsCtrl.getEdits"
-               on-update="uploadJobsCtrl.overrideAllMetadata(metadata)"></ui-applicator>
+<div class="">
+    <div ng:click="applicatorExpanded = !applicatorExpanded">
+        batch editor
+        <span ng:hide="applicatorExpanded">▸</span>
+        <span ng:show="applicatorExpanded">▾</span>
+    </div>
+    <ui-applicator ng:show="applicatorExpanded"
+                   apply-to="uploadJobsCtrl.getEdits"
+                   on-update="uploadJobsCtrl.overrideAllMetadata(metadata)"></ui-applicator>
+</div>
 
 <table class="jobs">
     <tbody>
