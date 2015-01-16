@@ -84,6 +84,14 @@ textarea {
     border: 1px solid #999;
 }
 
+input[type="text"],
+textarea,
+label {
+    font-family: "Guardian Agate Sans 1 Web";
+    font-size: 1.4rem;
+    line-height: 1.4;
+}
+
 button {
     border: 0;
     background: transparent;
@@ -137,6 +145,9 @@ a:focus {
     background: #888;
 }
 
+.show-hide-button {
+
+}
 
 .loader {
     text-align: center;
@@ -804,11 +815,62 @@ a:focus {
 
 
 /* ==========================================================================
-   Archviver
+   Archiver
    ========================================================================== */
 
 .archiver--archived {
     color: gold;
+}
+
+
+/* ==========================================================================
+   Edit Applicator
+   ========================================================================== */
+
+.edit-applicator-wrapper {
+    border-bottom: 1px dashed #ccc;
+}
+
+.edit-applicator {
+    padding-bottom: 10px;
+    max-width: 500px;
+}
+
+.edit-applicator__byline,
+.edit-applicator__credit {
+    display: inline-block;
+    width: 50%;
+}
+
+
+.edit-applicator__description {
+    display: block;
+    margin: 10px 0;
+}
+
+.edit-applicator__description-input {
+    display: block;
+    box-sizing: border-box;
+    width: 100%;
+}
+
+.byline-and-credit {
+    display: flex;
+}
+
+.byline-and-credit__byline,
+.byline-and-credit__credit {
+    flex-grow: 1;
+}
+
+.byline-and-credit__input {
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.byline-and-credit__separator {
+    margin: 0 5px;
+    align-self: flex-end; /* Makes it shift to the baseline */
 }
 
 

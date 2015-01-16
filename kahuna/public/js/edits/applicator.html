@@ -1,17 +1,28 @@
 <form class="edit-applicator"
       ng:submit="ctrl.go()">
 
-    <label>
-        byline: <input type="text" ng:model="ctrl.byline" placeholder="e.g. Tom Jenkins…" />
-    </label>
-    /
-    <label>
-        credit: <input type="text" ng:model="ctrl.credit" placeholder="e.g. Getty Images…" />
-    </label>
 
-    <label class="edit-application__description">
+    <div class="byline-and-credit">
+        <label class="byline-and-credit__byline">
+            byline <input class="byline-and-credit__input"
+                           placeholder="e.g. Tom Jenkins…"
+                           type="text"
+                           ng:model="ctrl.byline" />
+        </label>
+        <span class="byline-and-credit__separator">/</span>
+        <label class="byline-and-credit__credit">
+            credit <input class="byline-and-credit__input"
+                           type="text"
+                           placeholder="e.g. Getty Images…"
+                           ng:model="ctrl.credit" />
+        </label>
+    </div>
+
+    <label class="edit-applicator__description">
         description
-        <textarea ng:model="ctrl.description" placeholder="description" ui:funny-placeholder></textarea>
+        <textarea class="edit-applicator__description-input"
+                  ng:model="ctrl.description"
+                  ui:funny-placeholder></textarea>
     </label>
 
     <button class="button" type="submit">Apply to all</button>

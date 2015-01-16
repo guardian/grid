@@ -1,12 +1,18 @@
-<div class="">
-    <div ng:click="applicatorExpanded = !applicatorExpanded">
+<!-- FIXME: move this to the `upload/view`.
+It's only here as it's using the `overrideAllMetadata`. -->
+<div ng:if="jobs.length > 0">
+    <!-- TODO: show/hide directive -->
+    <button class="show-hide-button"
+        ng:click="applicatorExpanded = !applicatorExpanded">
         batch editor
         <span ng:hide="applicatorExpanded">▸</span>
         <span ng:show="applicatorExpanded">▾</span>
+    </button>
+    <div class="edit-applicator-wrapper"
+        ng:show="applicatorExpanded">
+        <ui-applicator apply-to="uploadJobsCtrl.getEdits"
+                       on-update="uploadJobsCtrl.overrideAllMetadata(metadata)"></ui-applicator>
     </div>
-    <ui-applicator ng:show="applicatorExpanded"
-                   apply-to="uploadJobsCtrl.getEdits"
-                   on-update="uploadJobsCtrl.overrideAllMetadata(metadata)"></ui-applicator>
 </div>
 
 <table class="jobs">
