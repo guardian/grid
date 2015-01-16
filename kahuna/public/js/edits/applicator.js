@@ -18,7 +18,7 @@ applicator.controller('ApplicatorCtrl', [function() {
         var updateFields = Object.keys(metadata).filter(key => metadata[key]);
 
         updateFields.forEach(key => cleanMetadata[key] = metadata[key]);
-        
+
         if (updateFields.length > 0) {
             ctrl.applyTo().forEach(resource => {
                 resource.data.metadata.put({ data: cleanMetadata }).response.then(() => {
