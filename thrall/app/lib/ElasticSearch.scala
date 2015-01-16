@@ -25,6 +25,8 @@ object ImageNotDeletable extends Throwable("Image cannot be deleted")
 
 object ElasticSearch extends ElasticSearchClient {
 
+  import Config.persistenceIdentifier
+
   val host = Config.elasticsearchHost
   val port = Config.int("es.port")
   val cluster = Config("es.cluster")
@@ -46,7 +48,8 @@ object ElasticSearch extends ElasticSearchClient {
       boolQuery.must(matchQuery("_id", id)),
         andFilter(
           missingOrEmptyFilter("exports"),
-          missingOrEmptyFilter("userMetadata.archived"))
+          missingOrEmptyFilter("userMetadata.archived"),
+          missingOrEmptyFilter(s"identifiers.$persistenceIdentifier"))
       )
 
     val deleteQuery = client
