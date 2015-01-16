@@ -9,7 +9,7 @@ It's only here as it's using the `overrideAllMetadata`. -->
     </button>
     <div class="edit-applicator-wrapper"
         ng:show="applicatorExpanded">
-        <ui-applicator apply-to="uploadJobsCtrl.getEdits"
+        <ui-applicator apply-to="uploadJobsCtrl.getEdits()"
                        on-update="uploadJobsCtrl.overrideAllMetadata(metadata)"></ui-applicator>
     </div>
 </div>

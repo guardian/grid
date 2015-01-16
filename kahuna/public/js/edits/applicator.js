@@ -33,7 +33,9 @@ applicator.directive('uiApplicator', function() {
     return {
         restrict: 'E',
         scope: {
-            applyTo: '=',
+            // this is a func ref or we land up hitting too many iterations:
+            // https://docs.angularjs.org/error/$rootScope/infdig
+            applyTo: '&',
             onUpdate: '&'
         },
         template: template,
