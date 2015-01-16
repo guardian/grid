@@ -7,6 +7,7 @@ import './services/theseus';
 import './services/api/media-api';
 import './services/api/media-cropper';
 import './services/api/loader';
+import './services/api/edits-api';
 import './directives/ui-crop-box';
 import './crop/index';
 import './image/index';
