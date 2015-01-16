@@ -85,8 +85,7 @@ jobs.directive('uiRequiredMetadataEditor', [function() {
             // as we don't really want to modify the original
             initial: '=',
             overrideResource: '=',
-            onUpdate: '&',
-            jobEditor: '='
+            onUpdate: '&'
         },
         controller: 'RequiredMetadataEditorCtrl as editorCtrl',
         template: template,
