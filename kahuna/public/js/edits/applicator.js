@@ -7,25 +7,25 @@ applicator.controller('ApplicatorCtrl', [function() {
     var ctrl = this;
 
     ctrl.go = function() {
-        ctrl.applyTo().forEach(resource => {
-            // FIXME: a better way to do this?
-            // this is to avoid sending null values
-            var metadata = {
-                description: ctrl.description,
-                byline: ctrl.byline,
-                credit: ctrl.credit
-            };
-            var cleanMetadata = {};
-            var updateFields = Object.keys(metadata).filter(key => metadata[key]);
+        // FIXME: a better way to do this?
+        // this is to avoid sending null values
+        var metadata = {
+            description: ctrl.description,
+            byline: ctrl.byline,
+            credit: ctrl.credit
+        };
+        var cleanMetadata = {};
+        var updateFields = Object.keys(metadata).filter(key => metadata[key]);
 
-            updateFields.forEach(key => cleanMetadata[key] = metadata[key]);
-
-            if (updateFields.length > 0) {
+        updateFields.forEach(key => cleanMetadata[key] = metadata[key]);
+        
+        if (updateFields.length > 0) {
+            ctrl.applyTo().forEach(resource => {
                 resource.data.metadata.put({ data: cleanMetadata }).response.then(() => {
                     ctrl.onUpdate({ metadata: cleanMetadata });
                 });
-            }
-        });
+            });
+        }
     };
 }]);
 
