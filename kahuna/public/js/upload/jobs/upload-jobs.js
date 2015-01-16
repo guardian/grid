@@ -47,6 +47,7 @@ jobs.controller('UploadJobsCtrl',
     $scope.overrideMetadata = (jobItem, metadata) => {
 
         jobItem.status = 're-indexing';
+        jobItem.image.data.metadata = metadata;
 
         // Wait until all values of `metadata' are seen in the media API
         function matchesMetadata(image) {
@@ -65,7 +66,6 @@ jobs.controller('UploadJobsCtrl',
         var waitIndexed = poll(apiSynced, pollFrequency, pollTimeout);
         waitIndexed.then(image => {
             jobItem.status = image.data.valid ? 'ready' : 'invalid';
-            jobItem.image.data.metadata = image.data.metadata;
         });
     };
 

@@ -10,20 +10,16 @@ jobs.controller('RequiredMetadataEditorCtrl',
 
     var ctrl = this;
 
-    ctrl.description = $scope.initial.description;
-    ctrl.byline      = $scope.initial.byline;
-    ctrl.credit      = $scope.initial.credit;
-
     ctrl.saving = false;
 
     ctrl.save = function() {
         ctrl.saving = true;
         var metadata = {
-            description: ctrl.description,
-            byline:      ctrl.byline,
-            credit:      ctrl.credit
+            description: ctrl.initial.description,
+            byline:      ctrl.initial.byline,
+            credit:      ctrl.initial.credit
         };
-        var updatedResource = $scope.overrideResource.put({
+        var updatedResource = ctrl.overrideResource.put({
             // TODO: dispose of boilerplate, just send data as entity
             data: metadata
         });
@@ -31,7 +27,7 @@ jobs.controller('RequiredMetadataEditorCtrl',
         updatedResource.response.
             then(() => {
                 $scope.jobEditor.$setPristine();
-                $scope.onUpdate({metadata: metadata});
+                ctrl.onUpdate({metadata: metadata});
             }).
             catch(() => {
                 $window.alert('Failed to save the changes, please try again.');
@@ -89,9 +85,11 @@ jobs.directive('uiRequiredMetadataEditor', [function() {
             // as we don't really want to modify the original
             initial: '=',
             overrideResource: '=',
-            onUpdate: '&'
+            onUpdate: '&',
+            jobEditor: '='
         },
         controller: 'RequiredMetadataEditorCtrl as editorCtrl',
-        template: template
+        template: template,
+        bindToController: true
     };
 }]);

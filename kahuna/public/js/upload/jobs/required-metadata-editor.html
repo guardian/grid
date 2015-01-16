@@ -1,5 +1,7 @@
+{{job.image.data.metadata}}
 <form class="job-editor" name="jobEditor"
-      ng:submit="editorCtrl.save()">
+      ng:submit="editorCtrl.save()"
+      ng:disabled="true">
     <div class="job-editor__inputs">
         <label class="job-info--editor__field">
             <div class="job-info--editor__label">Description</div>
@@ -7,7 +9,7 @@
                       placeholder="e.g. {{funnyDescription}}…"
                       required
                       class="job-info--editor__input job-info--editor__input--description"
-                      ng:model="editorCtrl.description"
+                      ng:model="editorCtrl.initial.description"
                       ng:controller="DescriptionPlaceholderCtrl"
             ></textarea>
         </label>
@@ -17,7 +19,7 @@
                    name="byline"
                    placeholder="e.g. Tom Jenkins…"
                    class="job-info--editor__input job-info--editor__input--byline"
-                   ng:model="editorCtrl.byline"
+                   ng:model="editorCtrl.initial.byline"
             />
         </label>
         <label class="job-info--editor__field">
@@ -27,7 +29,7 @@
                    placeholder="e.g. Getty Images…"
                    required
                    class="job-info--editor__input job-info--editor__input--credit"
-                   ng:model="editorCtrl.credit"
+                   ng:model="editorCtrl.initial.credit"
             />
         </label>
     </div>
