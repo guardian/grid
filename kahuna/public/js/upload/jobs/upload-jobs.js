@@ -81,6 +81,8 @@ jobs.controller('UploadJobsCtrl',
         $scope.jobs.forEach(job => $scope.overrideMetadata(job, metadata));
     }
 
+    this.jobsUploadComplete = () => $scope.jobs.length === $scope.jobs.filter(job => job.image).length;
+
     // FIXME: Why do we have to filter `job.image` here when it's already
     // filtered in the template
     this.getAllEditsOfType = (type, jobs) =>
@@ -95,7 +97,8 @@ jobs.controller('UploadJobsCtrl',
 
     this.jobsExcept = exclude => $scope.jobs.filter(job => job !== exclude);
 
-    this.getEdits = () => $scope.jobs.map(job => job.image.data.userMetadata);
+    this.getEdits = () =>
+        $scope.jobs.filter(job => job.image).map(job => job.image.data.userMetadata);
 
 }]);
 

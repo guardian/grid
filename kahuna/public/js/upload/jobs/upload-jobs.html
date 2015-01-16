@@ -1,6 +1,6 @@
 <!-- FIXME: move this to the `upload/view`.
 It's only here as it's using the `overrideAllMetadata`. -->
-<div ng:if="jobs.length > 0">
+<div ng:if="uploadJobsCtrl.jobsUploadComplete()">
     <!-- TODO: show/hide directive -->
     <button ng:click="applicatorExpanded = !applicatorExpanded">
         batch editor
