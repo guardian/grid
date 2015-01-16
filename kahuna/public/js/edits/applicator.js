@@ -36,8 +36,9 @@ applicator.directive('uiApplicator', function() {
             applyTo: '=',
             onUpdate: '&'
         },
-        bindToController: true,
         template: template,
-        controller: 'ApplicatorCtrl as ctrl'
+        bindToController: true,
+        controller: 'ApplicatorCtrl',
+        controllerAs: 'ctrl'
     }
 });

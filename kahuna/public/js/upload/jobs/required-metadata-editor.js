@@ -87,8 +87,9 @@ jobs.directive('uiRequiredMetadataEditor', [function() {
             overrideResource: '=',
             onUpdate: '&'
         },
-        controller: 'RequiredMetadataEditorCtrl as editorCtrl',
         template: template,
-        bindToController: true
+        bindToController: true,
+        controller: 'RequiredMetadataEditorCtrl',
+        controllerAs: 'editorCtrl',
     };
 }]);
