@@ -42,7 +42,8 @@ object ElasticSearch extends ElasticSearchClient {
   val matchFields: Seq[String] = Seq("id") ++
     Seq("description", "title", "byline", "source", "credit", "keywords",
       "subLocation", "city", "state", "country", "suppliersReference").map("metadata." + _) ++
-    Seq("labels").map("userMetadata." + _)
+    Seq("labels").map("userMetadata." + _) ++
+    Config.queriableIdentifiers.map("identifiers." + _)
 
   def search(params: SearchParams)(implicit ex: ExecutionContext): Future[SearchResults] = {
 
@@ -57,6 +58,8 @@ object ElasticSearch extends ElasticSearchClient {
     val metadataFilter   = params.hasMetadata.map(metadataField).toNel.map(filters.exists)
     val archivedFilter   = params.archived.map(filters.existsOrMissing("userMetadata.archived", _))
     val hasExports       = params.hasExports.map(filters.existsOrMissing("exports", _))
+    val hasIdentifier    = params.hasIdentifier.map(idName => filters.exists(NonEmptyList(s"identifiers.$idName")))
+    val missingIdentifier= params.missingIdentifier.map(idName => filters.missing(NonEmptyList(s"identifiers.$idName")))
     val uploadedByFilter = params.uploadedBy.map(uploadedBy => filters.terms("uploadedBy", NonEmptyList(uploadedBy)))
 
     val validFilter      = Config.requiredMetadata.map(metadataField).toNel.map(filters.exists)
@@ -71,7 +74,7 @@ object ElasticSearch extends ElasticSearchClient {
 
     val filter = (metadataFilter.toList ++ labelFilter ++ archivedFilter ++
                   uploadedByFilter ++ idsFilter ++ validityFilter ++ costFilter ++
-                  hasExports)
+                  hasExports ++ hasIdentifier ++ missingIdentifier)
                    .foldLeft(dateFilter)(filters.and)
 
     val search = prepareImagesSearch.setQuery(query).setPostFilter(filter) |>
