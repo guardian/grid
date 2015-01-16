@@ -42,7 +42,8 @@ object ElasticSearch extends ElasticSearchClient {
   val matchFields: Seq[String] = Seq("id") ++
     Seq("description", "title", "byline", "source", "credit", "keywords",
       "subLocation", "city", "state", "country", "suppliersReference").map("metadata." + _) ++
-    Seq("labels").map("userMetadata." + _)
+    Seq("labels").map("userMetadata." + _) ++
+    Config.queriableIdentifiers.map("identifiers." + _)
 
   def search(params: SearchParams)(implicit ex: ExecutionContext): Future[SearchResults] = {
 
