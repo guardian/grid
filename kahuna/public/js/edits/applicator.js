@@ -8,14 +8,23 @@ applicator.controller('ApplicatorCtrl', [function() {
 
     ctrl.go = function() {
         ctrl.applyTo().forEach(resource => {
-            var data = {
+            // FIXME: a better way to do this?
+            // this is to avoid sending null values
+            var metadata = {
                 description: ctrl.description,
                 byline: ctrl.byline,
                 credit: ctrl.credit
             };
-            resource.data.metadata.put({ data: data }).response.then(r => {
-                ctrl.onUpdate({ metadata: data });
-            });
+            var cleanMetadata = {};
+            var updateFields = Object.keys(metadata).filter(key => metadata[key]);
+
+            updateFields.forEach(key => cleanMetadata[key] = metadata[key]);
+
+            if (updateFields.length > 0) {
+                resource.data.metadata.put({ data: cleanMetadata }).response.then(() => {
+                    ctrl.onUpdate({ metadata: cleanMetadata });
+                });
+            }
         });
     };
 }]);

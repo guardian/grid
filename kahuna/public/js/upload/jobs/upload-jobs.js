@@ -49,7 +49,8 @@ jobs.controller('UploadJobsCtrl',
         // we do the replacement here for a more responsive UI
         // it should be once we know when it's updated, but we revert back on error [1]
         var oldMetadata = jobItem.image.data.metadata;
-        jobItem.image.data.metadata = metadata;
+        var newMetadata = angular.extend({}, jobItem.image.data.metadata, metadata);
+        jobItem.image.data.metadata = newMetadata;
 
         jobItem.status = 're-indexing';
 
