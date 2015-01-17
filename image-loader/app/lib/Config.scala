@@ -26,6 +26,7 @@ object Config extends CommonPlayAppProperties {
   val imagickThreadPoolSize = 4
 
   val rootUri = services.loaderBaseUri
+  val apiUri = services.apiBaseUri
 
   lazy val corsAllAllowedOrigins: List[String] = List(services.kahunaBaseUri)
 
