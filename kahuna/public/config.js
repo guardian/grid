@@ -16,18 +16,17 @@ System.config({
     "jcrop": "github:tapmodo/Jcrop@0.9.12",
     "jquery": "github:components/jquery@2.1.1",
     "mixpanel-js": "github:mixpanel/mixpanel-js@2.3.2",
-    "pandular": "npm:pandular@0.1.2",
+    "pandular": "npm:pandular@0.1.3",
     "raven-js": "github:getsentry/raven-js@1.1.16",
     "text": "github:systemjs/plugin-text@0.0.2",
-    "theseus": "github:argo-rest/theseus@0.1.3",
+    "theseus": "npm:theseus@0.1.4",
     "ua-parser-js": "npm:ua-parser-js@0.7.3",
     "github:angular-ui/ui-router@0.2.13": {
       "angular": "github:angular/bower-angular@1.3.5"
     },
-    "github:argo-rest/theseus@0.1.3": {
-      "jquery": "github:components/jquery@2.1.1",
-      "reqwest": "github:ded/reqwest@1.1.5",
-      "uri-templates": "npm:uri-templates@0.1.5"
+    "github:jspm/nodelibs-fs@0.1.0": {
+      "assert": "npm:assert@1.3.0",
+      "fs": "github:jspm/nodelibs-fs@0.1.0"
     },
     "github:jspm/nodelibs-path@0.1.0": {
       "path-browserify": "npm:path-browserify@0.0.0"
@@ -38,15 +37,32 @@ System.config({
     "github:jspm/nodelibs-util@0.1.0": {
       "util": "npm:util@0.10.3"
     },
+    "npm:assert@1.3.0": {
+      "util": "npm:util@0.10.3"
+    },
     "npm:inherits@2.0.1": {
       "util": "github:jspm/nodelibs-util@0.1.0"
     },
-    "npm:pandular@0.1.2": {
+    "npm:jquery@2.1.3": {
+      "process": "github:jspm/nodelibs-process@0.1.0"
+    },
+    "npm:pandular@0.1.3": {
       "angular": "github:angular/bower-angular@1.3.5",
-      "panda-session": "npm:panda-session@0.1.3"
+      "panda-session": "npm:panda-session@0.1.4"
     },
     "npm:path-browserify@0.0.0": {
       "process": "github:jspm/nodelibs-process@0.1.0"
+    },
+    "npm:reqwest@1.1.5": {
+      "child_process": "github:jspm/nodelibs-child_process@0.1.0",
+      "fs": "github:jspm/nodelibs-fs@0.1.0",
+      "process": "github:jspm/nodelibs-process@0.1.0",
+      "systemjs-json": "github:systemjs/plugin-json@0.1.0"
+    },
+    "npm:theseus@0.1.4": {
+      "jquery": "npm:jquery@2.1.3",
+      "reqwest": "npm:reqwest@1.1.5",
+      "uri-templates": "npm:uri-templates@0.1.5"
     },
     "npm:ua-parser-js@0.7.3": {
       "systemjs-json": "github:systemjs/plugin-json@0.1.0"
