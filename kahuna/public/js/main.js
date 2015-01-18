@@ -328,7 +328,7 @@ kahuna.directive('uiTitle', ['$rootScope', function($rootScope) {
  *
  * TODO: Make a service for data retrieval?
  */
-kahuna.directive('uiLocalstore', function() {
+kahuna.directive('uiLocalstore', ['$window', function($window) {
     return {
         restrict: 'A',
         scope: {
@@ -338,7 +338,7 @@ kahuna.directive('uiLocalstore', function() {
         link: function(scope, element) {
             element.bind('click', function() {
                 var k = scope.key;
-                var currentMap = JSON.parse(localStorage.getItem(k) || '{}');
+                var currentMap = JSON.parse($window.localStorage.getItem(k) || '{}');
                 var mapUpdate = scope.value();
 
                 // Update map by removing keys set to the same value, or merging if not
@@ -350,12 +350,12 @@ kahuna.directive('uiLocalstore', function() {
                     }
                 });
 
-                localStorage.setItem(k, JSON.stringify(currentMap));
+                $window.localStorage.setItem(k, JSON.stringify(currentMap));
                 scope.$apply();
             });
         }
     };
-});
+}]);
 
 /**
  * this is for when you have dynamic content that makes the window scroll
