@@ -1,5 +1,5 @@
 /*jshint sub:true, maxlen:false, quotmark:false */
-/* global require */
+/* global require, window */
 /**
  * Done so that we don't create a script tag the way mixpanel wants us to
  * i.e: https://github.com/mixpanel/mixpanel-js/blob/master/mixpanel-jslib-snippet.js

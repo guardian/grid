@@ -10,6 +10,8 @@
                                 //   true     : ensure whatever is used is consistent
                                 //   "single" : require single quotes
                                 //   "double" : require double quotes
+    "undef"         : true,     // true: Require all non-global variables to be declared (prevents global leaks)
+    "unused"        : true,     // true: Require all defined variables be used
     "maxdepth"      : 2,        // {int} Max depth of nested blocks (within functions)
     "maxstatements" : 30,       // {int} Max number statements per function
     "maxcomplexity" : 10,       // {int} Max cyclomatic complexity per function
@@ -19,7 +21,7 @@
     "esnext"        : true,      // true: Allow ES.next (ES6) syntax (ex: `const`)
 
     // Environments
-    "browser"       : false,    // Web Browser (window, document, etc)
+    "browser"       : true,     // Web Browser (window, document, etc)
     "mocha"         : false,    // Mocha
 
     // Custom Globals
