@@ -10,12 +10,7 @@ jobs.controller('RequiredMetadataEditorCtrl',
 
     var ctrl = this;
 
-    // we only want a subset of the data
-    ctrl.metadata = {
-        byline: ctrl.originalMetadata.byline,
-        credit: ctrl.originalMetadata.credit,
-        description: ctrl.originalMetadata.description
-    };
+    setMetadataFromOriginal();
 
     ctrl.saving = false;
 
@@ -27,6 +22,21 @@ jobs.controller('RequiredMetadataEditorCtrl',
             .catch(() => $window.alert('Failed to save the changes, please try again.'))
             .finally(() => ctrl.saving = false);
     };
+
+    $scope.$watch(() => ctrl.originalMetadata, (n, o) => {
+        if (n !== o) {
+            setMetadataFromOriginal();
+        }
+    });
+
+    function setMetadataFromOriginal() {
+        // we only want a subset of the data
+        ctrl.metadata = {
+            byline: ctrl.originalMetadata.byline,
+            credit: ctrl.originalMetadata.credit,
+            description: ctrl.originalMetadata.description
+        };
+    }
 }]);
 
 jobs.controller('DescriptionPlaceholderCtrl',

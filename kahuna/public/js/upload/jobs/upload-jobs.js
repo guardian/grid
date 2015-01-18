@@ -39,10 +39,17 @@ jobs.controller('UploadJobsCtrl',
     });
 
     editsApi.onMetadataUpdate(({ resource, metadata, id }) => {
+        // FIXME: this will be simpler when theseus returns `Resource`s from `put`s
         var jobItem = $scope.jobs.find(job => job.image.data.id === id);
         overrideMetadata(jobItem, metadata);
     });
 
+
+    this.updateAllMetadata = (field, data) => {
+        $scope.jobs.forEach(job => {
+            editsApi.updateMetadata(job.image.data.id, { [field]: data });
+        });
+    };
 
     // When the metadata is overriden, we don't know if the resulting
     // image is valid or not. This code checks when the update has
@@ -50,7 +57,7 @@ jobs.controller('UploadJobsCtrl',
 
     // FIXME: re-engineer the metadata/validation architecture so we
     // don't have to wait and poll?
-    function overrideMetadata (jobItem, metadata) {
+    function overrideMetadata(jobItem, metadata) {
 
         jobItem.status = 're-indexing';
 
@@ -71,6 +78,7 @@ jobs.controller('UploadJobsCtrl',
 
         var waitIndexed = poll(apiSynced, pollFrequency, pollTimeout);
         waitIndexed.then(image => {
+            jobItem.image.data.metadata = image.data.metadata;
             jobItem.status = image.data.valid ? 'ready' : 'invalid';
         });
     };
