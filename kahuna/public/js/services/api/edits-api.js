@@ -30,15 +30,15 @@ apiServices.factory('editsApi', ['$q', 'mediaApi', function($q, mediaApi) {
         // updated theseus juice here to be able to return the `Resource` correctly
         return getMetadata(id).then(resource => resource.put({ data: metadata }))
                               .then(resource => {
-                                  updatedMetadataDef.resolve({ resource, metadata, id })
+                                  updatedMetadataDef.notify({ resource, metadata, id });
                                   return resource;
                               })
-                              .catch(e => updatedMetadataDef.reject);
+                              .catch(e => $q.all(updatedMetadataDefs).reject(e));
     }
 
-    function onMetadataUpdate(success, failure) {
-        return updatedMetadataDef.promise.then(success)
-                                         .catch(failure);
+    function onMetadataUpdate(onupdate, failure) {
+        // we don't return the promise here as we might not want other's to resolve it
+        updatedMetadataDef.promise.then(() => {}, failure, onupdate);
     }
 
     return {
