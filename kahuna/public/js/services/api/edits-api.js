@@ -1,8 +1,9 @@
 import apiServices from '../api';
 
-apiServices.factory('editsApi', ['mediaApi', function(mediaApi) {
+apiServices.factory('editsApi', ['$q', 'mediaApi', function($q, mediaApi) {
 
     var root;
+    var updatedMetadataDef = $q.defer();
 
     function getRoot() {
         return root || (root = mediaApi.root.follow('metadata'));
@@ -25,12 +26,20 @@ apiServices.factory('editsApi', ['mediaApi', function(mediaApi) {
     }
 
     function updateMetadata(id, metadata) {
-        // FIXME: this shouldn't be returning the response, but we need some
-        // updated theseus juice here
-        return getMetadata(id).then(r => r.put({ data: metadata }).response);
+        // FIXME: this shouldn't be returning the response and ID, but we need some
+        // updated theseus juice here to be able to return the `Resource` correctly
+        return getMetadata(id).then(resource => resource.put({ data: metadata }))
+                              .then(resource => updatedMetadataDef.resolve({ resource, metadata, id }));
+                              .catch(e => updatedMetadataDef.reject);
+    }
+
+    function onMetadataUpdate(success, failure) {
+        return updatedMetadataDef.promise.then(success)
+                                         .catch(failure);
     }
 
     return {
-        updateMetadata: updateMetadata
+        updateMetadata: updateMetadata,
+        onMetadataUpdate: onMetadataUpdate
     };
 }]);
