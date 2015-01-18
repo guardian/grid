@@ -14,7 +14,7 @@ labeller.controller('LabellerCtrl',
 
     this.addLabel = () => {
         // Prompt for a label and add if not empty
-        var label = ($window.prompt("Enter a label:") || '').trim();
+        var label = ($window.prompt('Enter a label:') || '').trim();
         if (label) {
             this.adding = true;
             $scope.labels.post({data: [label]}).
@@ -29,7 +29,7 @@ labeller.controller('LabellerCtrl',
         }
     };
 
-    this.labelsBeingRemoved = new Set;
+    this.labelsBeingRemoved = new Set();
     this.removeLabel = (label) => {
         this.labelsBeingRemoved.add(label);
 

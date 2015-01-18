@@ -19,7 +19,11 @@
     }
   },
   "devDependencies": {
+    "jshint": "^2.5.11",
     "jspm": "~0.10.3"
+  },
+  "scripts": {
+    "lint": "jshint public/js --exclude public/js/dist/build.js"
   },
   "repository": {
     "type": "git",
