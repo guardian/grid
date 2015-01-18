@@ -648,6 +648,7 @@ a:focus {
     vertical-align: top;
     padding: 20px 30px 20px;
     border-bottom: 1px dashed #ccc;
+    position: relative;
 }
 
 .job-info--thumbnail {
@@ -689,6 +690,16 @@ a:focus {
     /* FIXME: Horrible hack to reclaim vertical space caused by the
        element not being display:block.  CSS *sigh*. */
     margin-bottom: -7px;
+}
+
+.job-edit-disabler {
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, .75);
+    position: absolute;
+    left: 0;
+    top: 0;
+    z-index: 1;
 }
 
 .job-editor:after {
