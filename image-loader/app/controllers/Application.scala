@@ -80,6 +80,8 @@ class ImageLoader(storage: ImageStorage) extends Controller with ArgoHelpers {
     future
   }
 
+  import Config.apiUri
+
   def storeFile(id: String, tempFile: File, mimeType: Option[String],
                 uploadTime: DateTime, uploadedBy: String,
                 identifiers: Map[String, String]): Future[Result] = {
@@ -109,8 +111,8 @@ class ImageLoader(storage: ImageStorage) extends Controller with ArgoHelpers {
         image       = Image.upload(id, uploadTime, uploadedBy, identifiers, sourceAsset, thumbAsset, fileMetadata, cleanMetadata)
       } yield {
         Notifications.publish(Json.toJson(image), "image")
-        // TODO: return an entity pointing to the Media API uri for the image
-        Accepted(Json.obj("id" -> id)).as(ArgoMediaType)
+        // TODO: centralise where all these URLs are constructed
+        Accepted(Json.obj("uri" -> s"$apiUri/images/$id")).as(ArgoMediaType)
       }
 
       result recover {
