@@ -26,8 +26,9 @@ apiServices.factory('editsApi', ['$q', 'mediaApi', function($q, mediaApi) {
     }
 
     function updateMetadata(id, metadata) {
-        // FIXME: this shouldn't be returning the response and ID, but we need some
-        // updated theseus juice here to be able to return the `Resource` correctly
+        // FIXME: this shouldn't be returning the `Resource` and `id`, but we
+        // need some updated theseus juice here to be able to return the
+        // `Resource` with useful information
         return getMetadata(id).then(resource => resource.put({ data: metadata }))
                               .then(resource => {
                                   updatedMetadataDef.notify({ resource, metadata, id });

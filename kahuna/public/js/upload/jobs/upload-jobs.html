@@ -24,8 +24,19 @@
             </td>
             <td class="job-info job-info--editor">
                 <div ng:if="job.image">
+                    <pre>
+                        {{job.image.data.metadata | json}}
+                    </pre>
                     <ui-required-metadata-editor id="job.image.data.id"
                                                  metadata="job.image.data.metadata"></ui-required-metadata-editor>
+
+                    <div>
+                        Apply
+                        <button ng:click="uploadJobsCtrl.updateAllMetadata('byline', job.image.data.metadata.byline)">byline</button>
+                        /
+                        <button ng:click="uploadJobsCtrl.updateAllMetadata('credit', job.image.data.metadata.credit)">credit</button>
+                        to all
+                    </div>
 
                     <div class="job-labels">
                         <ui-labeller class="job-labeller"
