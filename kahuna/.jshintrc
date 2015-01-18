@@ -1,0 +1,27 @@
+{
+    // JSHint Config, copied from
+    // https://github.com/jshint/jshint/blob/master/examples/.jshintrc
+    // Only used to override defaults
+
+    // Enforcing
+    "newcap"        : true,     // true: Require capitalization of all constructor functions e.g. `new F()`
+    "quotmark"      : "single", // Quotation mark consistency:
+                                //   false    : do nothing (default)
+                                //   true     : ensure whatever is used is consistent
+                                //   "single" : require single quotes
+                                //   "double" : require double quotes
+    "maxdepth"      : 2,        // {int} Max depth of nested blocks (within functions)
+    "maxstatements" : 30,       // {int} Max number statements per function
+    "maxcomplexity" : 10,       // {int} Max cyclomatic complexity per function
+    "maxlen"        : 100,      // {int} Max number of characters per line
+
+    // Relaxing
+    "esnext"        : true,      // true: Allow ES.next (ES6) syntax (ex: `const`)
+
+    // Environments
+    "browser"       : false,    // Web Browser (window, document, etc)
+    "mocha"         : false,    // Mocha
+
+    // Custom Globals
+    "globals"       : {}        // additional predefined global variables
+}

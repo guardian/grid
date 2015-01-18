@@ -65,7 +65,7 @@ kahuna.config(['$locationProvider',
 kahuna.config(['$urlRouterProvider',
                function($urlRouterProvider) {
 
-    $urlRouterProvider.otherwise("/search");
+    $urlRouterProvider.otherwise('/search');
 }]);
 
 
@@ -223,7 +223,7 @@ kahuna.directive('uiNearBottom', ['$window', function($window) {
         scope: {
             nearBottom: '&uiNearBottom'
         },
-        link: function(scope, element, attrs) {
+        link: function(scope, element) {
             var scrolling = false;
             var $$window = angular.element($window);
 
@@ -236,7 +236,7 @@ kahuna.directive('uiNearBottom', ['$window', function($window) {
 
             // Pixel distance from bottom at which we are 'near' it
             var offset = 200;
-            function checkScrollNearBottom(e) {
+            function checkScrollNearBottom() {
                 var el = element[0];
 
                 var nowAt = $window.innerHeight + $window.scrollY;
@@ -303,9 +303,10 @@ kahuna.directive('uiTitle', ['$rootScope', function($rootScope) {
         restrict: 'A',
         link: function(scope, element, attrs) {
             $rootScope.$on('$stateChangeStart',
-              function(event, toState, toParams, fromState, fromParams) {
-                  var title = (toState.data && toState.data.title ? toState.data.title(toParams) : toState.name)
-                       + ' | ' + attrs.uiTitleSuffix;
+              function(event, toState, toParams) {
+                  var titleFunc = toState.data && toState.data.title;
+                  var title = (titleFunc ? titleFunc(toParams) : toState.name) +
+                          ' | ' + attrs.uiTitleSuffix;
 
                   element.text(title);
             });
@@ -334,7 +335,7 @@ kahuna.directive('uiLocalstore', function() {
             key: '@uiLocalstore',
             value: '&uiLocalstoreVal'
         },
-        link: function(scope, element, attrs) {
+        link: function(scope, element) {
             element.bind('click', function() {
                 var k = scope.key;
                 var currentMap = JSON.parse(localStorage.getItem(k) || '{}');
@@ -404,7 +405,7 @@ kahuna.directive('uiFile', function() {
         scope: {
             onchange: '&uiFileChange'
         },
-        link: function(scope, element, attrs) {
+        link: function(scope, element) {
             element.on('change', function() {
                 // TODO: no function reference
                 scope.onchange()(Array.from(element[0].files));

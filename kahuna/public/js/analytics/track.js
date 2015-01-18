@@ -40,7 +40,7 @@ track.run(['$window', 'mixpanel', 'mixpanelToken', 'track', 'mediaApi', 'trackin
     // Pass in UA string as else UAParser doesn't detect it correctly (SystemJS?)
     var ua      = new UAParser($window.navigator.userAgent);
     var browser = ua.getBrowser();
-    var os      = ua.getOS();
+    // var os      = ua.getOS();
 
     // Set the browser and OS version for every tracked event
     var props = {
