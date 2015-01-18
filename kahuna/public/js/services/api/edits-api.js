@@ -29,7 +29,7 @@ apiServices.factory('editsApi', ['$q', 'mediaApi', function($q, mediaApi) {
         // FIXME: this shouldn't be returning the response and ID, but we need some
         // updated theseus juice here to be able to return the `Resource` correctly
         return getMetadata(id).then(resource => resource.put({ data: metadata }))
-                              .then(resource => updatedMetadataDef.resolve({ resource, metadata, id }));
+                              .then(resource => updatedMetadataDef.resolve({ resource, metadata, id }))
                               .catch(e => updatedMetadataDef.reject);
     }
 
