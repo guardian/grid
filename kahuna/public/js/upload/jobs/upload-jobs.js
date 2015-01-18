@@ -38,10 +38,7 @@ jobs.controller('UploadJobsCtrl',
         });
     });
 
-    editsApi.onMetadataUpdate(({ resource, metadata, id }) => {
-        var jobItem = $scope.jobs.find(job => job.image.data.id === id);
-        overrideMetadata(jobItem, metadata);
-    });
+    editsApi.onMetadataUpdate(() => { console.log(arguments) });
 
 
     // When the metadata is overriden, we don't know if the resulting
