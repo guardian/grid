@@ -22,12 +22,10 @@ jobs.controller('RequiredMetadataEditorCtrl',
     ctrl.save = function() {
         ctrl.saving = true;
 
-        editsApi.updateMetadata(ctrl.id, ctrl.metadata).then((b) => {
-            console.log(b);
-            $scope.jobEditor.$setPristine();
-        })
-        .catch(() => $window.alert('Failed to save the changes, please try again.'))
-        .finally(() => ctrl.saving = false);
+        editsApi.updateMetadata(ctrl.id, ctrl.metadata)
+            .then((resource) => $scope.jobEditor.$setPristine())
+            .catch(() => $window.alert('Failed to save the changes, please try again.'))
+            .finally(() => ctrl.saving = false);
     };
 }]);
 
