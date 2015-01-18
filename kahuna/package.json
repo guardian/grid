@@ -23,6 +23,7 @@
     "jspm": "~0.10.3"
   },
   "scripts": {
+    "test": "npm run lint",
     "lint": "jshint public/js --exclude public/js/dist/build.js"
   },
   "repository": {
