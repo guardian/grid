@@ -15,7 +15,7 @@ upload.factory('uploadManager',
             name: file.name,
             size: file.size,
             // TODO: thumbnail? from File? else from request
-            idPromise: request.then(resp => resp.data.id)
+            resourcePromise: request
         };
     }
 
