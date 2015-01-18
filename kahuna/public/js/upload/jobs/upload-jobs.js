@@ -5,8 +5,8 @@ export var jobs = angular.module('kahuna.upload.jobs', []);
 
 
 jobs.controller('UploadJobsCtrl',
-                ['$scope', '$state', '$q', 'poll', 'mediaApi',
-                 function($scope, $state, $q, poll, mediaApi) {
+                ['$scope', '$state', '$q', 'poll', 'editsApi',
+                 function($scope, $state, $q, poll, editsApi) {
 
     var pollFrequency = 500; // ms
     var pollTimeout   = 20 * 1000; // ms
@@ -38,6 +38,11 @@ jobs.controller('UploadJobsCtrl',
         });
     });
 
+    editsApi.onMetadataUpdate(({ resource, metadata, id }) => {
+        var jobItem = $scope.jobs.find(job => job.image.data.id === id);
+        overrideMetadata(jobItem, metadata);
+    });
+
 
     // When the metadata is overriden, we don't know if the resulting
     // image is valid or not. This code checks when the update has
@@ -45,7 +50,7 @@ jobs.controller('UploadJobsCtrl',
 
     // FIXME: re-engineer the metadata/validation architecture so we
     // don't have to wait and poll?
-    $scope.overrideMetadata = (jobItem, metadata) => {
+    function overrideMetadata (jobItem, metadata) {
 
         jobItem.status = 're-indexing';
 
