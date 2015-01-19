@@ -47,6 +47,7 @@ jobs.controller('UploadJobsCtrl',
 
 
     this.updateAllMetadata = (field, data) => {
+        // TODO: make sure form is saved first
         $scope.jobs.forEach(job => {
             editsApi.updateMetadata(job.image.data.id, { [field]: data });
         });

@@ -708,14 +708,12 @@ a:focus {
     display: table;
 }
 
-.job-editor__inputs,
 .job-editor__buttons {
-    float: left;
-    margin-right: 20px;
+    text-align: right;
 }
 
 .job-editor__button {
-    display: block;
+    display: inline-block;
     margin-bottom: 5px;
 }
 
@@ -739,6 +737,16 @@ a:focus {
     float: right;
 }
 
+.metadata-applicator {
+    font-size: 1.4rem;
+    font-family: "Guardian Agate Sans 1 Web";
+    text-align: right;
+}
+
+.metadata-applicator__button {
+    font-weight: bold;
+    text-decoration: underline;
+}
 
 /* ==========================================================================
    jCrop
