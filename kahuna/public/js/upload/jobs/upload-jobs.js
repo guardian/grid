@@ -5,8 +5,8 @@ export var jobs = angular.module('kahuna.upload.jobs', []);
 
 
 jobs.controller('UploadJobsCtrl',
-                ['$scope', '$state', '$q', 'poll', 'editsApi',
-                 function($scope, $state, $q, poll, editsApi) {
+                ['$window', '$scope', '$state', '$q', 'poll', 'editsApi',
+                 function($window, $scope, $state, $q, poll, editsApi) {
 
     var pollFrequency = 500; // ms
     var pollTimeout   = 20 * 1000; // ms
@@ -41,7 +41,7 @@ jobs.controller('UploadJobsCtrl',
     var offMetadataUpdate = editsApi.onMetadataUpdate(({ resource, metadata, id }) => {
         var jobItem = $scope.jobs.find(job => job.image.data.id === id);
         overrideMetadata(jobItem, metadata);
-    });
+    }, () => $window.alert('Failed to save the changes. Please try again.'));
     $scope.$on("$destroy", offMetadataUpdate);
 
 
