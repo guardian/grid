@@ -2,6 +2,7 @@
     <tbody>
         <tr ng:repeat="job in jobs">
             <td class="job-info job-info--thumbnail">
+                <div class="job-edit-disabler" ng:if="job.disabled"></div>
                 <a ui:sref="image({imageId: job.image.data.id})"
                    ng:if="job.thumbnail">
                     <img ng:src="{{job.thumbnail | assetFile}}"
@@ -9,6 +10,7 @@
                 </a>
             </td>
             <td class="job-info job-info--file">
+                <div class="job-edit-disabler" ng:if="job.disabled"></div>
                 <div>
                     <span class="job-status {{'job-status--' + job.status}}">
                         {{job.status}}
@@ -28,7 +30,7 @@
                     <ui-required-metadata-editor id="job.image.data.id"
                                                  metadata="job.image.data.metadata"></ui-required-metadata-editor>
 
-                    <div class="metadata-applicator">
+                    <div class="metadata-applicator" ng:if="jobs.length > 1">
                         Apply
                         <button class="metadata-applicator__button"
                                 ng:click="uploadJobsCtrl.updateAllMetadata('byline', job.image.data.metadata.byline)">byline</button>
