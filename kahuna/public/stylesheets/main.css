@@ -84,6 +84,21 @@ textarea {
     border: 1px solid #999;
 }
 
+/* annoyingly we have to have these seperate as the moz-placeholder breaks the
+Chrome selector */
+input[disabled],
+textarea[disabled] {
+    color: #666;
+}
+input:disabled::-webkit-input-placeholder,
+textarea:disabled::-webkit-input-placeholder {
+    color: #666;
+}
+input:disabled::-moz-placeholder,
+textarea:disabled::-moz-placeholder {
+    color: #666;
+}
+
 button {
     border: 0;
     background: transparent;
@@ -688,7 +703,7 @@ a:focus {
     height: 4em;
 
     /* FIXME: Horrible hack to reclaim vertical space caused by the
-       element not being display:block.  CSS *sigh*. */
+       element not being display:block.  CSS sigh. */
     margin-bottom: -7px;
 }
 

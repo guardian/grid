@@ -17,7 +17,7 @@ jobs.controller('UploadJobsCtrl',
     // State machine-esque async transitions
     $scope.jobs.forEach(jobItem => {
         jobItem.status = 'uploading';
-        jobItem.disabled = false;
+        jobItem.busy = false;
 
         jobItem.resourcePromise.then(resource => {
             jobItem.status = 'indexing';
@@ -62,7 +62,7 @@ jobs.controller('UploadJobsCtrl',
     function overrideMetadata(jobItem, metadata) {
 
         jobItem.status = 're-indexing';
-        jobItem.disabled = true;
+        jobItem.busy = true;
 
         // Wait until all values of `metadata' are seen in the media API
         function matchesMetadata(image) {
@@ -83,7 +83,7 @@ jobs.controller('UploadJobsCtrl',
         waitIndexed.then(image => {
             jobItem.image.data.metadata = image.data.metadata;
             jobItem.status = image.data.valid ? 'ready' : 'invalid';
-        }).finally(() => jobItem.disabled = false);
+        }).finally(() => jobItem.busy = false);
     };
 
 
