@@ -11,4 +11,4 @@ x-terminal-emulator -T ftp-loader    -e "sbt -Dactive=$FTP_ACTIVE
                                              'project ftp-watcher'  'run 9004'" &
 x-terminal-emulator -T kahuna        -e "sbt 'project kahuna'       'run 9005'" &
 x-terminal-emulator -T cropper       -e "sbt 'project cropper'      'run 9006'" &
-x-terminal-emulator -T editor        -e "sbt 'project editor'       'run 9007'" &
+x-terminal-emulator -T metadata-editor -e "sbt 'project metadata-editor' 'run 9007'" &
