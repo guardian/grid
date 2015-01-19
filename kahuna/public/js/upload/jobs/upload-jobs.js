@@ -42,7 +42,7 @@ jobs.controller('UploadJobsCtrl',
         var jobItem = $scope.jobs.find(job => job.image.data.id === id);
         overrideMetadata(jobItem, metadata);
     }, () => $window.alert('Failed to save the changes. Please try again.'));
-    $scope.$on("$destroy", offMetadataUpdate);
+    $scope.$on('$destroy', offMetadataUpdate);
 
 
     // When the metadata is overriden, we don't know if the resulting
@@ -74,7 +74,7 @@ jobs.controller('UploadJobsCtrl',
         waitIndexed.then(image => {
             jobItem.status = image.data.valid ? 'ready' : 'invalid';
         });
-    };
+    }
 
 
     // FIXME: Why do we have to filter `job.image` here when it's already
