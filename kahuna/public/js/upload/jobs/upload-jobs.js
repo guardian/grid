@@ -18,12 +18,13 @@ jobs.controller('UploadJobsCtrl',
     $scope.jobs.forEach(jobItem => {
         jobItem.status = 'uploading';
 
-        jobItem.idPromise.then(id => {
+        jobItem.resourcePromise.then(resource => {
             jobItem.status = 'indexing';
-            jobItem.id = id;
+            jobItem.resource = resource;
 
-            // TODO: grouped polling for all ids where's interested in
-            var findImage = () => mediaApi.find(jobItem.id);
+            // TODO: grouped polling for all resources whe're interested in?
+            // TODO: update theseus so getResponse isn't needed
+            var findImage = () => resource.get().getResponse();
             var imageResponse = poll(findImage, pollFrequency, pollTimeout);
             imageResponse.then(image => {
                 jobItem.status = image.data.valid ? 'ready' : 'invalid';
@@ -60,7 +61,8 @@ jobs.controller('UploadJobsCtrl',
             }
         }
 
-        var apiSynced = () => mediaApi.find(jobItem.id).then(matchesMetadata);
+        // TODO: update theseus so getResponse isn't needed
+        var apiSynced = () => jobItem.resource.get().getResponse().then(matchesMetadata);
 
         var waitIndexed = poll(apiSynced, pollFrequency, pollTimeout);
         waitIndexed.then(image => {
