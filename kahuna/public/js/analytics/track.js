@@ -45,7 +45,7 @@ track.run(['$window', 'mixpanel', 'mixpanelToken', 'track', 'mediaApi', 'trackin
     // Set the browser and OS version for every tracked event
     var props = {
         // Note: Browser and Operating System already tracked by Mixpanel
-        'Browser Version': browser.major,
+        'Browser Version': browser.major
         // Disabling 'os.version' as it seems to be buggy (returns 'Chromium' !?)
         // 'Operating System Version': os.version
     };
