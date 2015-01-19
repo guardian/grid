@@ -10,6 +10,8 @@ jobs.controller('RequiredMetadataEditorCtrl',
 
     var ctrl = this;
 
+    ctrl.busy = ctrl.busy === true;
+
     // we only want a subset of the data
     ctrl.metadata = {
         byline: ctrl.originalMetadata.byline,
@@ -17,15 +19,13 @@ jobs.controller('RequiredMetadataEditorCtrl',
         description: ctrl.originalMetadata.description
     };
 
-    ctrl.saving = false;
-
     ctrl.save = function() {
-        ctrl.saving = true;
+        ctrl.busy = true;
 
         editsApi.updateMetadata(ctrl.id, ctrl.metadata)
             .then((resource) => $scope.jobEditor.$setPristine())
             .catch(() => $window.alert('Failed to save the changes, please try again.'))
-            .finally(() => ctrl.saving = false);
+            .finally(() => ctrl.busy = false);
     };
 }]);
 
@@ -73,7 +73,8 @@ jobs.directive('uiRequiredMetadataEditor', [function() {
         restrict: 'E',
         scope: {
             id: '=',
-            originalMetadata: '=metadata' // [1]
+            originalMetadata: '=metadata', // [1]
+            busy: '=?'
         },
         controller: 'RequiredMetadataEditorCtrl as ctrl',
         template: template,
