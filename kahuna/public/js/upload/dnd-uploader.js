@@ -36,7 +36,7 @@ dndUploader.directive('dndUploader', ['$window', 'delay', 'safeApply',
         restrict: 'E',
         controller: 'DndUploaderCtrl as dndUploader',
         template: template,
-        link: (scope, element, attrs) => {
+        link: (scope) => {
             var dragging = false; // [1]
             var $$window = angular.element($window);
 
@@ -56,12 +56,12 @@ dndUploader.directive('dndUploader', ['$window', 'delay', 'safeApply',
                 event.preventDefault();
             }
 
-            function enter(event) {
+            function enter() {
                 dragging = true;
                 activate();
             }
 
-            function leave(event) {
+            function leave() {
                 dragging = false;
                 delay(50).then(() => {
                     if (!dragging) {
@@ -80,11 +80,11 @@ dndUploader.directive('dndUploader', ['$window', 'delay', 'safeApply',
             }
 
             function clean() {
-                $$window.off('dragover', over)
-                $$window.off('dragenter', enter)
-                $$window.off('dragleave', leave)
-                $$window.off('drop', drop)
+                $$window.off('dragover', over);
+                $$window.off('dragenter', enter);
+                $$window.off('dragleave', leave);
+                $$window.off('drop', drop);
             }
         }
-    }
+    };
 }]);

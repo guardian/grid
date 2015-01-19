@@ -5,8 +5,8 @@ export var jobs = angular.module('kahuna.upload.jobs', []);
 
 
 jobs.controller('UploadJobsCtrl',
-                ['$window', '$scope', '$state', '$q', 'poll', 'editsApi',
-                 function($window, $scope, $state, $q, poll, editsApi) {
+                ['$window', '$scope', '$q', 'poll', 'editsApi',
+                 function($window, $scope, $q, poll, editsApi) {
 
     var pollFrequency = 500; // ms
     var pollTimeout   = 20 * 1000; // ms
