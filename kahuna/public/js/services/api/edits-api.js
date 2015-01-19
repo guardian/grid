@@ -3,7 +3,6 @@ import apiServices from '../api';
 apiServices.factory('editsApi', ['$q', 'mediaApi', function($q, mediaApi) {
 
     var root;
-    //var updatedMetadataDefs = [];
     var updatedMetadataDefs = new Map();
 
     function getRoot() {
