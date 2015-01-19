@@ -111,8 +111,8 @@ class ImageLoader(storage: ImageStorage) extends Controller with ArgoHelpers {
         image       = Image.upload(id, uploadTime, uploadedBy, identifiers, sourceAsset, thumbAsset, fileMetadata, cleanMetadata)
       } yield {
         Notifications.publish(Json.toJson(image), "image")
-        // TODO: once all clients migrated, stop returning "id"
-        Accepted(Json.obj("uri" -> s"$apiUri/images/$id", "id" -> id)).as(ArgoMediaType)
+        // TODO: centralise where all these URLs are constructed
+        Accepted(Json.obj("uri" -> s"$apiUri/images/$id")).as(ArgoMediaType)
       }
 
       result recover {
