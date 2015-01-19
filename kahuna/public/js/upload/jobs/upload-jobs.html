@@ -28,11 +28,13 @@
                     <ui-required-metadata-editor id="job.image.data.id"
                                                  metadata="job.image.data.metadata"></ui-required-metadata-editor>
 
-                    <div>
+                    <div class="metadata-applicator">
                         Apply
-                        <button ng:click="uploadJobsCtrl.updateAllMetadata('byline', job.image.data.metadata.byline)">byline</button>
+                        <button class="metadata-applicator__button"
+                                ng:click="uploadJobsCtrl.updateAllMetadata('byline', job.image.data.metadata.byline)">byline</button>
                         /
-                        <button ng:click="uploadJobsCtrl.updateAllMetadata('credit', job.image.data.metadata.credit)">credit</button>
+                        <button class="metadata-applicator__button"
+                                ng:click="uploadJobsCtrl.updateAllMetadata('credit', job.image.data.metadata.credit)">credit</button>
                         to all
                     </div>
 
