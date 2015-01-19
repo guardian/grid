@@ -1,5 +1,3 @@
-// import theseus from 'theseus';
-// ^ Not working, see https://github.com/jspm/project/issues/15
 import {Client} from 'theseus';
 
 import 'theseus/http/angular';
