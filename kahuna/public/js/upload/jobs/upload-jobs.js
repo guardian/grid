@@ -47,7 +47,14 @@ jobs.controller('UploadJobsCtrl',
     $scope.$on('$destroy', offMetadataUpdate);
 
 
-    // When the metadata is overridden, we don't know if the resulting
+    this.updateAllMetadata = (field, data) => {
+        // TODO: make sure form is saved first
+        $scope.jobs.forEach(job => {
+            editsApi.updateMetadata(job.image.data.id, { [field]: data });
+        });
+    };
+
+    // When the metadata is overriden, we don't know if the resulting
     // image is valid or not. This code checks when the update has
     // been processed and updates the status accordingly.
 
