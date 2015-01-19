@@ -1,3 +1,5 @@
+// As an exception, we refer to mixpanel on the window
+/* global mixpanel */
 import angular from 'angular';
 import './snippet';
 
