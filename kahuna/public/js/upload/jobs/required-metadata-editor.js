@@ -11,7 +11,7 @@ jobs.controller('RequiredMetadataEditorCtrl',
     var ctrl = this;
 
     ctrl.saving = false;
-    ctrl.disabled = () => ctrl.saving === true || ctrl.externallyDisabled === true;
+    ctrl.disabled = () => ctrl.saving || ctrl.externallyDisabled;
 
     setMetadataFromOriginal();
 
