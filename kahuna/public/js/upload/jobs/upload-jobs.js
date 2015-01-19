@@ -5,8 +5,8 @@ export var jobs = angular.module('kahuna.upload.jobs', []);
 
 
 jobs.controller('UploadJobsCtrl',
-                ['$scope', '$state', '$q', 'poll',
-                 function($scope, $state, $q, poll) {
+                ['$window', '$scope', '$q', 'poll', 'editsApi',
+                 function($window, $scope, $q, poll, editsApi) {
 
     var pollFrequency = 500; // ms
     var pollTimeout   = 20 * 1000; // ms
@@ -38,6 +38,12 @@ jobs.controller('UploadJobsCtrl',
         });
     });
 
+    var offMetadataUpdate = editsApi.onMetadataUpdate(({ resource, metadata, id }) => {
+        var jobItem = $scope.jobs.find(job => job.image.data.id === id);
+        overrideMetadata(jobItem, metadata);
+    }, () => $window.alert('Failed to save the changes. Please try again.'));
+    $scope.$on('$destroy', offMetadataUpdate);
+
 
     // When the metadata is overriden, we don't know if the resulting
     // image is valid or not. This code checks when the update has
@@ -45,7 +51,7 @@ jobs.controller('UploadJobsCtrl',
 
     // FIXME: re-engineer the metadata/validation architecture so we
     // don't have to wait and poll?
-    $scope.overrideMetadata = (jobItem, metadata) => {
+    function overrideMetadata(jobItem, metadata) {
 
         jobItem.status = 're-indexing';
 
@@ -68,7 +74,7 @@ jobs.controller('UploadJobsCtrl',
         waitIndexed.then(image => {
             jobItem.status = image.data.valid ? 'ready' : 'invalid';
         });
-    };
+    }
 
 
     // FIXME: Why do we have to filter `job.image` here when it's already

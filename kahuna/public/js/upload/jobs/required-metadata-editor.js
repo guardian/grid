@@ -5,40 +5,27 @@ export var jobs = angular.module('kahuna.upload.jobs.requiredMetadataEditor', []
 
 
 jobs.controller('RequiredMetadataEditorCtrl',
-                ['$scope', '$window',
-                 function($scope, $window) {
+                ['$scope', '$window', 'editsApi',
+                 function($scope, $window, editsApi) {
 
     var ctrl = this;
 
-    ctrl.description = $scope.initial.description;
-    ctrl.byline      = $scope.initial.byline;
-    ctrl.credit      = $scope.initial.credit;
+    ctrl.busy = ctrl.busy === true;
 
-    ctrl.saving = false;
+    // we only want a subset of the data
+    ctrl.metadata = {
+        byline: ctrl.originalMetadata.byline,
+        credit: ctrl.originalMetadata.credit,
+        description: ctrl.originalMetadata.description
+    };
 
     ctrl.save = function() {
-        ctrl.saving = true;
-        var metadata = {
-            description: ctrl.description,
-            byline:      ctrl.byline,
-            credit:      ctrl.credit
-        };
-        var updatedResource = $scope.overrideResource.put({
-            // TODO: dispose of boilerplate, just send data as entity
-            data: metadata
-        });
-        // FIXME: this is really a hack; should put() return a Promise?
-        updatedResource.response.
-            then(() => {
-                $scope.jobEditor.$setPristine();
-                $scope.onUpdate({metadata: metadata});
-            }).
-            catch(() => {
-                $window.alert('Failed to save the changes, please try again.');
-            }).
-            finally(() => {
-                ctrl.saving = false;
-            });
+        ctrl.busy = true;
+
+        editsApi.updateMetadata(ctrl.id, ctrl.metadata)
+            .then(() => $scope.jobEditor.$setPristine())
+            .catch(() => $window.alert('Failed to save the changes, please try again.'))
+            .finally(() => ctrl.busy = false);
     };
 }]);
 
@@ -85,13 +72,12 @@ jobs.directive('uiRequiredMetadataEditor', [function() {
     return {
         restrict: 'E',
         scope: {
-            // Annoying that we can't make a uni-directional binding
-            // as we don't really want to modify the original
-            initial: '=',
-            overrideResource: '=',
-            onUpdate: '&'
+            id: '=',
+            originalMetadata: '=metadata', // [1]
+            busy: '=?'
         },
-        controller: 'RequiredMetadataEditorCtrl as editorCtrl',
-        template: template
+        controller: 'RequiredMetadataEditorCtrl as ctrl',
+        template: template,
+        bindToController: true
     };
 }]);

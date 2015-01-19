@@ -24,10 +24,8 @@
             </td>
             <td class="job-info job-info--editor">
                 <div ng:if="job.image">
-                    <ui-required-metadata-editor initial="job.image.data.metadata"
-                                                 override-resource="job.image.data.userMetadata.data.metadata"
-                                                 on-update="overrideMetadata(job, metadata)"
-                    ></ui-required-metadata-editor>
+                    <ui-required-metadata-editor id="job.image.data.id"
+                                                 metadata="job.image.data.metadata"></ui-required-metadata-editor>
 
                     <div class="job-labels">
                         <ui-labeller class="job-labeller"
