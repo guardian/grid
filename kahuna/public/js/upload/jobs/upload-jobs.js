@@ -50,7 +50,7 @@ jobs.controller('UploadJobsCtrl',
 
     // FIXME: re-engineer the metadata/validation architecture so we
     // don't have to wait and poll?
-    function overrideMetadata (jobItem, metadata) {
+    function overrideMetadata(jobItem, metadata) {
 
         jobItem.status = 're-indexing';
 
