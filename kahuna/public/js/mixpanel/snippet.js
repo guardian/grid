@@ -1,3 +1,5 @@
+/*jshint sub:true, maxlen:false, quotmark:false */
+/* global require, window */
 /**
  * Done so that we don't create a script tag the way mixpanel wants us to
  * i.e: https://github.com/mixpanel/mixpanel-js/blob/master/mixpanel-jslib-snippet.js
@@ -8,7 +10,7 @@
 
 
 var mixpanel = [];
-var script, functions, i, lib_name = 'mixpanel';
+var functions, i, lib_name = 'mixpanel';
 
 window[lib_name] = mixpanel;
 mixpanel['__SV'] = 1.2;
@@ -42,7 +44,7 @@ mixpanel['init'] = function (token, config, name) {
 
     function _set_and_defer(target, fn) {
         var split = fn.split(".");
-        if (split.length == 2) {
+        if (split.length === 2) {
             target = target[split[0]];
             fn = split[1];
         }
