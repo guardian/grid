@@ -37,7 +37,9 @@ HTML in the cells e.g. `.job-edit-disabler` -->
                         /
                         <button class="metadata-applicator__button"
                                 ng:click="uploadJobsCtrl.updateAllMetadata('credit', job.image.data.metadata.credit)">credit</button>
-                        to all
+                        to all (save first)
+                        <!-- TODO: we should make sure that we use the value in
+                        the text field, at the moment this message will have to do -->
                     </div>
 
                     <div class="job-labels">
