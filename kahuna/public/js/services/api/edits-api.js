@@ -17,23 +17,16 @@ apiServices.factory('editsApi', ['$q', 'mediaApi', function($q, mediaApi) {
         return getEdits(id).then(r => r.data.metadata);
     }
 
-    function getArchived(id) {
-        return getEdits(id).then(r => r.data.archived);
-    }
-
-    function getLabels(id) {
-        return getEdits(id).then(r => r.data.labels);
-    }
-
     function updateMetadata(id, metadata) {
         // FIXME: this shouldn't be returning the response and ID, but we need some
         // updated theseus juice here to be able to return the `Resource` correctly
-        return getMetadata(id).then(resource => resource.put({ data: metadata }))
-                              .then(resource => {
-                                  updatedMetadataDefs.forEach(def => def.notify({ resource, metadata, id }));
-                                  return resource;
-                              })
-                              .catch(e => updatedMetadataDefs.forEach(def => def.reject(e)));
+        return getMetadata(id)
+            .then(resource => resource.put({ data: metadata }))
+            .then(resource => {
+                updatedMetadataDefs.forEach(def => def.notify({ resource, metadata, id }));
+                return resource;
+            })
+            .catch(e => updatedMetadataDefs.forEach(def => def.reject(e)));
     }
 
     function onMetadataUpdate(onupdate, failure) {
