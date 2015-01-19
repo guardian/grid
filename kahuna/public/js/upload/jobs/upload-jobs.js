@@ -85,7 +85,7 @@ jobs.controller('UploadJobsCtrl',
             jobItem.image.data.metadata = image.data.metadata;
             jobItem.status = image.data.valid ? 'ready' : 'invalid';
         }).finally(() => jobItem.busy = false);
-    };
+    }
 
 
     // FIXME: Why do we have to filter `job.image` here when it's already
