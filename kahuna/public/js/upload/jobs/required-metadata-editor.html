@@ -6,7 +6,8 @@
                       placeholder="e.g. {{funnyDescription}}…"
                       required
                       class="job-info--editor__input job-info--editor__input--description"
-                      ng:model="editorCtrl.description"
+                      ng:disabled="ctrl.busy"
+                      ng:model="ctrl.metadata.description"
                       ng:controller="DescriptionPlaceholderCtrl"
             ></textarea>
         </label>
@@ -16,7 +17,8 @@
                    name="byline"
                    placeholder="e.g. Tom Jenkins…"
                    class="job-info--editor__input job-info--editor__input--byline"
-                   ng:model="editorCtrl.byline"
+                   ng:disabled="ctrl.busy"
+                   ng:model="ctrl.metadata.byline"
             />
         </label>
         <label class="job-info--editor__field">
@@ -26,16 +28,17 @@
                    placeholder="e.g. Getty Images…"
                    required
                    class="job-info--editor__input job-info--editor__input--credit"
-                   ng:model="editorCtrl.credit"
+                   ng:disabled="ctrl.busy"
+                   ng:model="ctrl.metadata.credit"
             />
         </label>
     </div>
     <div class="job-editor__buttons">
         <input type="submit"
                class="button job-editor__button"
-               value="{{ {true: 'Saving…', false: 'Save'}[editorCtrl.saving] }}"
-               ng:click="editorCtrl.save()"
-               ng:disabled="jobEditor.$invalid || jobEditor.$pristine || editorCtrl.saving"
+               value="{{ {true: 'Saving…', false: 'Save'}[ctrl.busy] }}"
+               ng:click="ctrl.save()"
+               ng:disabled="jobEditor.$invalid || jobEditor.$pristine || ctrl.busy"
         />
     </div>
 </form>
