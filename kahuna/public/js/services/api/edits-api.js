@@ -33,7 +33,7 @@ apiServices.factory('editsApi', ['$q', 'mediaApi', function($q, mediaApi) {
                                   updatedMetadataDefs.forEach(def => def.notify({ resource, metadata, id }));
                                   return resource;
                               })
-                              .catch(e => updatedMetadataDef.reject(e));
+                              .catch(e => updatedMetadataDefs.forEach(def => def.reject(e)));
     }
 
     function onMetadataUpdate(onupdate, failure) {
