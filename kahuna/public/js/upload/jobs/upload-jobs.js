@@ -54,7 +54,7 @@ jobs.controller('UploadJobsCtrl',
         });
     };
 
-    // When the metadata is overriden, we don't know if the resulting
+    // When the metadata is overridden, we don't know if the resulting
     // image is valid or not. This code checks when the update has
     // been processed and updates the status accordingly.
 
