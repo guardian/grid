@@ -19,7 +19,7 @@ jobs.controller('RequiredMetadataEditorCtrl',
         ctrl.saving = true;
 
         editsApi.updateMetadata(ctrl.id, ctrl.metadata)
-            .then((resource) => $scope.jobEditor.$setPristine())
+            .then(() => $scope.jobEditor.$setPristine())
             .catch(() => $window.alert('Failed to save the changes, please try again.'))
             .finally(() => ctrl.saving = false);
     };
