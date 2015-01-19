@@ -10,17 +10,18 @@ jobs.controller('RequiredMetadataEditorCtrl',
 
     var ctrl = this;
 
-    ctrl.busy = ctrl.busy === true;
+    ctrl.saving = false;
+    ctrl.disabled = () => ctrl.saving === true || ctrl.externallyDisabled === true;
 
     setMetadataFromOriginal();
 
     ctrl.save = function() {
-        ctrl.busy = true;
+        ctrl.saving = true;
 
         editsApi.updateMetadata(ctrl.id, ctrl.metadata)
             .then((resource) => $scope.jobEditor.$setPristine())
             .catch(() => $window.alert('Failed to save the changes, please try again.'))
-            .finally(() => ctrl.busy = false);
+            .finally(() => ctrl.saving = false);
     };
 
     $scope.$watch(() => ctrl.originalMetadata, (n, o) => {
@@ -84,7 +85,7 @@ jobs.directive('uiRequiredMetadataEditor', [function() {
         scope: {
             id: '=',
             originalMetadata: '=metadata', // [1]
-            busy: '=?'
+            externallyDisabled: '=?disabled'
         },
         controller: 'RequiredMetadataEditorCtrl as ctrl',
         template: template,
