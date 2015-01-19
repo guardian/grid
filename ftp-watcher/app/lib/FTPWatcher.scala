@@ -111,8 +111,8 @@ class FTPWatcher(host: String, user: String, password: String) {
         val json = Json.parse(IOUtils.toByteArray(response.getEntity.getContent))
         response.close()
         client.close()
-        val id = (json \ "id").as[String]
-        logger.info(s"Uploaded $path to $uri id=$id")
+        val imageUri = (json \ "uri").as[String]
+        logger.info(s"Uploaded $path, created $imageUri")
         \/.right(path)
       }
       upload.onFinish {
