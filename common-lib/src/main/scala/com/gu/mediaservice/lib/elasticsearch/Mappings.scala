@@ -55,7 +55,7 @@ object Mappings {
       "copyright" -> standardAnalysedString,
       "copyrightNotice" -> standardAnalysedString,
       "suppliersReference" -> standardAnalysedString,
-      "source" -> standardAnalysedString,
+      "source" -> nonAnalyzedString,
       "specialInstructions" -> nonAnalyzedString,
       "keywords" -> nonAnalysedList("keyword"),
       "subLocation" -> standardAnalysedString,
