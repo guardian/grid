@@ -3,7 +3,8 @@ import apiServices from '../api';
 apiServices.factory('editsApi', ['$q', 'mediaApi', function($q, mediaApi) {
 
     var root;
-    var updatedMetadataDefs = [];
+    //var updatedMetadataDefs = [];
+    var updatedMetadataDefs = new Map();
 
     function getRoot() {
         return root || (root = mediaApi.root.follow('metadata'));
@@ -39,13 +40,18 @@ apiServices.factory('editsApi', ['$q', 'mediaApi', function($q, mediaApi) {
     function onMetadataUpdate(onupdate, failure) {
         var def = $q.defer();
         def.promise.then(() => {}, failure, onupdate);
-        updatedMetadataDefs.push(def);
+        updatedMetadataDefs.set(onupdate, def);
 
-        return def;
+        return () => offMetadataUpdate(onupdate);
+    }
+
+    function offMetadataUpdate(onupdate) {
+        return updatedMetadataDefs.delete(onupdate);
     }
 
     return {
         updateMetadata: updateMetadata,
-        onMetadataUpdate: onMetadataUpdate
+        onMetadataUpdate: onMetadataUpdate,
+        offMetadataUpdate: offMetadataUpdate
     };
 }]);
