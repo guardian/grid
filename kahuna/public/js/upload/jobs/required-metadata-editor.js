@@ -10,23 +10,30 @@ jobs.controller('RequiredMetadataEditorCtrl',
 
     var ctrl = this;
 
-    ctrl.busy = ctrl.busy === true;
-
-    // we only want a subset of the data
-    ctrl.metadata = {
-        byline: ctrl.originalMetadata.byline,
-        credit: ctrl.originalMetadata.credit,
-        description: ctrl.originalMetadata.description
-    };
+    ctrl.saving = false;
+    ctrl.disabled = () => ctrl.saving || ctrl.externallyDisabled;
 
     ctrl.save = function() {
-        ctrl.busy = true;
+        ctrl.saving = true;
 
         editsApi.updateMetadata(ctrl.id, ctrl.metadata)
             .then(() => $scope.jobEditor.$setPristine())
             .catch(() => $window.alert('Failed to save the changes, please try again.'))
-            .finally(() => ctrl.busy = false);
+            .finally(() => ctrl.saving = false);
     };
+
+    $scope.$watch(() => ctrl.originalMetadata, (n, o) => {
+        setMetadataFromOriginal();
+    });
+
+    function setMetadataFromOriginal() {
+        // we only want a subset of the data
+        ctrl.metadata = {
+            byline: ctrl.originalMetadata.byline,
+            credit: ctrl.originalMetadata.credit,
+            description: ctrl.originalMetadata.description
+        };
+    }
 }]);
 
 jobs.controller('DescriptionPlaceholderCtrl',
@@ -74,7 +81,7 @@ jobs.directive('uiRequiredMetadataEditor', [function() {
         scope: {
             id: '=',
             originalMetadata: '=metadata', // [1]
-            busy: '=?'
+            externallyDisabled: '=?disabled'
         },
         controller: 'RequiredMetadataEditorCtrl as ctrl',
         template: template,
