@@ -6,7 +6,7 @@
 GET     /                           controllers.MediaApi.index
 
 # Image metadata
-GET     /images/metadata            controllers.MediaApi.metadataSearch
+GET     /images/metadata/:field     controllers.MediaApi.metadataSearch(field: String)
 
 # Images
 GET     /images/:id                 controllers.MediaApi.getImage(id: String)
