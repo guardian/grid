@@ -22,7 +22,7 @@ jobs.controller('RequiredMetadataEditorCtrl',
             .finally(() => ctrl.saving = false);
     };
 
-    $scope.$watch(() => ctrl.originalMetadata, (n, o) => {
+    $scope.$watch(() => ctrl.originalMetadata, () => {
         setMetadataFromOriginal();
     });
 
