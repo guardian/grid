@@ -224,6 +224,7 @@ object SearchParams {
 case class MetadataSearchParams(field: String, q: Option[String], offset: Int, length: Int)
 
 object MetadataSearchParams {
+<<<<<<< HEAD
   def apply(request: Request[Any]): MetadataSearchParams = {
     MetadataSearchParams(
       request.getQueryString("field").get,
@@ -231,6 +232,10 @@ object MetadataSearchParams {
       ParamDefaults.offset(request.getQueryString("offset")),
       ParamDefaults.length(request.getQueryString("length"))
     )
+=======
+  def apply(request: Request[Any], field: String): MetadataSearchParams = {
+    MetadataSearchParams(field, request.getQueryString("q"))
+>>>>>>> metadata-search
   }
 }
 
