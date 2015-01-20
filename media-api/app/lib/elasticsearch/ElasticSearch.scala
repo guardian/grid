@@ -6,9 +6,10 @@ import play.api.libs.json.JsValue
 import org.elasticsearch.action.get.GetRequestBuilder
 import org.elasticsearch.action.search.SearchRequestBuilder
 import org.elasticsearch.index.query.{FilterBuilders, FilterBuilder}
-import org.elasticsearch.index.query.QueryBuilders._
+import org.elasticsearch.index.query.QueryBuilders.{multiMatchQuery, matchAllQuery, prefixQuery}
 import org.elasticsearch.index.query.MatchQueryBuilder.Operator
 import org.elasticsearch.search.sort.SortOrder
+import org.elasticsearch.search.aggregations.AggregationBuilders
 import org.joda.time.DateTime
 
 import scalaz.syntax.id._
@@ -19,7 +20,7 @@ import scalaz.NonEmptyList
 import com.gu.mediaservice.syntax._
 import com.gu.mediaservice.lib.elasticsearch.ElasticSearchClient
 import com.gu.mediaservice.lib.formatting.printDateTime
-import controllers.SearchParams
+import controllers.{SearchParams, MetadataSearchParams}
 import lib.{MediaApiMetrics, Config}
 
 
@@ -80,17 +81,30 @@ object ElasticSearch extends ElasticSearchClient {
     val search = prepareImagesSearch.setQuery(query).setPostFilter(filter) |>
                  sorts.parseFromRequest(params.orderBy)
 
+    getResults("image search", search, params.offset, params.length)
+  }
+
+  def metadataSearch(params: MetadataSearchParams)(implicit ex: ExecutionContext): Future[SearchResults] = {
+    val field = metadataField(params.field)
+    val query = prefixQuery(field, params.q.getOrElse(""))
+    val aggregate = AggregationBuilders.terms(params.field).field(field)
+    val search = prepareImagesSearch.setQuery(query).addAggregation(aggregate)
+
+    getResults("metadata search", search, params.offset, params.length)
+  }
+
+  def getResults(name: String, search: SearchRequestBuilder, offset: Int, length: Int)
+                (implicit ex: ExecutionContext): Future[SearchResults] =
     search
-      .setFrom(params.offset)
-      .setSize(params.length)
-      .executeAndLog("image search")
+      .setFrom(offset)
+      .setSize(length)
+      .executeAndLog(name)
       .toMetric(searchQueries)(_.getTookInMillis)
       .map(_.getHits)
-      .map { resultsHits =>
-        val hitsTuples = resultsHits.hits.toList flatMap (h => h.sourceOpt map (h.id -> _))
-        SearchResults(hitsTuples, resultsHits.getTotalHits)
+      .map { results =>
+        val hitsTuples = results.hits.toList flatMap (h => h.sourceOpt map (h.id -> _))
+        SearchResults(hitsTuples, results.getTotalHits)
       }
-  }
 
   def metadataField(field: String) = s"metadata.$field"
 
