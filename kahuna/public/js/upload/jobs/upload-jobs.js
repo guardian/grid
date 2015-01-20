@@ -17,6 +17,7 @@ jobs.controller('UploadJobsCtrl',
     // State machine-esque async transitions
     $scope.jobs.forEach(jobItem => {
         jobItem.status = 'uploading';
+        jobItem.busy = false;
 
         jobItem.resourcePromise.then(resource => {
             jobItem.status = 'indexing';
@@ -38,6 +39,7 @@ jobs.controller('UploadJobsCtrl',
         });
     });
 
+
     var offMetadataUpdate = editsApi.onMetadataUpdate(({ resource, metadata, id }) => {
         var jobItem = $scope.jobs.find(job => job.image.data.id === id);
         overrideMetadata(jobItem, metadata);
@@ -45,7 +47,14 @@ jobs.controller('UploadJobsCtrl',
     $scope.$on('$destroy', offMetadataUpdate);
 
 
-    // When the metadata is overriden, we don't know if the resulting
+    this.updateAllMetadata = (field, data) => {
+        // TODO: make sure form is saved first
+        $scope.jobs.forEach(job => {
+            editsApi.updateMetadata(job.image.data.id, { [field]: data });
+        });
+    };
+
+    // When the metadata is overridden, we don't know if the resulting
     // image is valid or not. This code checks when the update has
     // been processed and updates the status accordingly.
 
@@ -54,6 +63,7 @@ jobs.controller('UploadJobsCtrl',
     function overrideMetadata(jobItem, metadata) {
 
         jobItem.status = 're-indexing';
+        jobItem.busy = true;
 
         // Wait until all values of `metadata' are seen in the media API
         function matchesMetadata(image) {
@@ -72,8 +82,9 @@ jobs.controller('UploadJobsCtrl',
 
         var waitIndexed = poll(apiSynced, pollFrequency, pollTimeout);
         waitIndexed.then(image => {
+            jobItem.image.data.metadata = image.data.metadata;
             jobItem.status = image.data.valid ? 'ready' : 'invalid';
-        });
+        }).finally(() => jobItem.busy = false);
     }
 
 
