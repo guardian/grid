@@ -13,8 +13,6 @@ jobs.controller('RequiredMetadataEditorCtrl',
     ctrl.saving = false;
     ctrl.disabled = () => ctrl.saving || ctrl.externallyDisabled;
 
-    setMetadataFromOriginal();
-
     ctrl.save = function() {
         ctrl.saving = true;
 
@@ -25,9 +23,7 @@ jobs.controller('RequiredMetadataEditorCtrl',
     };
 
     $scope.$watch(() => ctrl.originalMetadata, (n, o) => {
-        if (n !== o) {
-            setMetadataFromOriginal();
-        }
+        setMetadataFromOriginal();
     });
 
     function setMetadataFromOriginal() {
