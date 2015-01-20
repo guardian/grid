@@ -147,6 +147,9 @@ object MediaApi extends Controller with ArgoHelpers {
 
   def metadataSearch = Authenticated { request =>
     Ok(Json.obj(
+      "offset" -> 0,
+      "length"-> 0,
+      "total" -> 0,
       "data" -> Json.arr(),
       "links" -> linksResponse
     )).as(ArgoMediaType)
