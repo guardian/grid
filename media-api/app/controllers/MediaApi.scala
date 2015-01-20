@@ -146,6 +146,10 @@ object MediaApi extends Controller with ArgoHelpers {
   }
 
   def metadataSearch(field: String) = Authenticated { request =>
+    ElasticSearch.metadataSearch(MetadataSearchParams(request)) map { case SearchResults(hits, totalCount) =>
+      hits.map(println(_))
+    }
+
     Ok(Json.obj(
       "offset" -> 0,
       "length"-> 0,
@@ -154,6 +158,11 @@ object MediaApi extends Controller with ArgoHelpers {
       "links" -> linksResponse
     )).as(ArgoMediaType)
   }
+}
+
+object ParamDefaults {
+  def offset(qs: Option[String]) = qs flatMap (s => Try(s.toInt).toOption) getOrElse 0
+  def length(qs: Option[String]) = qs flatMap (s => Try(s.toInt).toOption) getOrElse 10
 }
 
 case class GeneralParams(showSecureUrl: Boolean)
@@ -193,8 +202,8 @@ object SearchParams {
     SearchParams(
       request.getQueryString("q"),
       request.getQueryString("ids").map(_.split(",").toList),
-      request.getQueryString("offset") flatMap (s => Try(s.toInt).toOption) getOrElse 0,
-      request.getQueryString("length") flatMap (s => Try(s.toInt).toOption) getOrElse 10,
+      ParamDefaults.offset(request.getQueryString("offset")),
+      ParamDefaults.length(request.getQueryString("length")),
       request.getQueryString("orderBy") orElse request.getQueryString("sortBy"),
       request.getQueryString("fromDate") orElse request.getQueryString("since") flatMap parseDateFromQuery,
       request.getQueryString("toDate") orElse request.getQueryString("until") flatMap parseDateFromQuery,
@@ -212,13 +221,15 @@ object SearchParams {
 
 }
 
-case class MetadataSearchParams(field: String, q: Option[String])
+case class MetadataSearchParams(field: String, q: Option[String], offset: Int, length: Int)
 
 object MetadataSearchParams {
   def apply(request: Request[Any]): MetadataSearchParams = {
     MetadataSearchParams(
       request.getQueryString("field").get,
-      request.getQueryString("q")
+      request.getQueryString("q"),
+      ParamDefaults.offset(request.getQueryString("offset")),
+      ParamDefaults.length(request.getQueryString("length"))
     )
   }
 }
