@@ -146,7 +146,7 @@ object MediaApi extends Controller with ArgoHelpers {
   }
 
   def metadataSearch(field: String) = Authenticated { request =>
-    ElasticSearch.metadataSearch(MetadataSearchParams(request)) map { case SearchResults(hits, totalCount) =>
+    ElasticSearch.metadataSearch(MetadataSearchParams(request, field)) map { case SearchResults(hits, totalCount) =>
       hits.map(println(_))
     }
 
@@ -224,18 +224,13 @@ object SearchParams {
 case class MetadataSearchParams(field: String, q: Option[String], offset: Int, length: Int)
 
 object MetadataSearchParams {
-<<<<<<< HEAD
-  def apply(request: Request[Any]): MetadataSearchParams = {
+  def apply(request: Request[Any], field: String): MetadataSearchParams = {
     MetadataSearchParams(
-      request.getQueryString("field").get,
+      field,
       request.getQueryString("q"),
       ParamDefaults.offset(request.getQueryString("offset")),
       ParamDefaults.length(request.getQueryString("length"))
     )
-=======
-  def apply(request: Request[Any], field: String): MetadataSearchParams = {
-    MetadataSearchParams(field, request.getQueryString("q"))
->>>>>>> metadata-search
   }
 }
 
