@@ -30,23 +30,26 @@ object MediaApi extends Controller with ArgoHelpers {
   val kahunaUri = Config.kahunaUri
 
   def index = Action {
-    val searchParams = List("q", "ids", "offset", "length", "fromDate", "toDate",
-                            "orderBy", "since", "until", "uploadedBy", "archived",
-                            "valid", "free", "hasExports",
-                            "hasIdentifier", "missingIdentifier").mkString(",")
     val response = Json.obj(
       "data"  -> Json.obj("description" -> "This is the Media API"),
-      "links" -> Json.arr(
-        Json.obj("rel" -> "search", "href" -> s"$rootUri/images{?$searchParams}"),
-        Json.obj("rel" -> "image",  "href" -> s"$rootUri/images/{id}"),
-        Json.obj("rel" -> "cropper", "href" -> cropperUri),
-        Json.obj("rel" -> "loader", "href" -> loaderUri),
-        Json.obj("rel" -> "metadata", "href" -> metadataUri),
-        Json.obj("rel" -> "session", "href" -> s"$kahunaUri/session")
-      )
+      "links" -> linksResponse
     )
     Ok(response).as(ArgoMediaType)
   }
+
+  val searchParams = List("q", "ids", "offset", "length", "fromDate", "toDate",
+    "orderBy", "since", "until", "uploadedBy", "archived", "valid", "free",
+    "hasExports", "hasIdentifier", "missingIdentifier").mkString(",")
+
+  val linksResponse = Json.arr(
+    Json.obj("rel" -> "search", "href" -> s"$rootUri/images{?$searchParams}"),
+    Json.obj("rel" -> "image",  "href" -> s"$rootUri/images/{id}"),
+    Json.obj("rel" -> "metadata-search", "href" -> s"$rootUri/images/metadata?field,q"),
+    Json.obj("rel" -> "cropper", "href" -> cropperUri),
+    Json.obj("rel" -> "loader", "href" -> loaderUri),
+    Json.obj("rel" -> "metadata", "href" -> metadataUri),
+    Json.obj("rel" -> "session", "href" -> s"$kahunaUri/session")
+  )
 
   val Authenticated = auth.Authenticated(keyStore, Config.kahunaUri)
 
@@ -141,6 +144,13 @@ object MediaApi extends Controller with ArgoHelpers {
   def roundDateTime(t: DateTime, d: Duration) = {
     t minus (t.getMillis - (t.getMillis.toDouble / d.getMillis).round * d.getMillis)
   }
+
+  def metadataSearch = Authenticated { request =>
+    Ok(Json.obj(
+      "data" -> Json.arr(),
+      "links" -> linksResponse
+    )).as(ArgoMediaType)
+  }
 }
 
 case class GeneralParams(showSecureUrl: Boolean)
@@ -197,6 +207,17 @@ object SearchParams {
     )
   }
 
+}
+
+case class MetadataSearchParams(field: Option[String], q: Option[String])
+
+object MetadataSearchParams {
+  def apply(request: Request[Any]): MetadataSearchParams = {
+    MetadataSearchParams(
+      request.getQueryString("field"),
+      request.getQueryString("q")
+    )
+  }
 }
 
 // Default to pay for now
