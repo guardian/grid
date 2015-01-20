@@ -145,7 +145,7 @@ object MediaApi extends Controller with ArgoHelpers {
     t minus (t.getMillis - (t.getMillis.toDouble / d.getMillis).round * d.getMillis)
   }
 
-  def metadataSearch = Authenticated { request =>
+  def metadataSearch(field: String) = Authenticated { request =>
     Ok(Json.obj(
       "offset" -> 0,
       "length"-> 0,
@@ -212,12 +212,12 @@ object SearchParams {
 
 }
 
-case class MetadataSearchParams(field: Option[String], q: Option[String])
+case class MetadataSearchParams(field: String, q: Option[String])
 
 object MetadataSearchParams {
   def apply(request: Request[Any]): MetadataSearchParams = {
     MetadataSearchParams(
-      request.getQueryString("field"),
+      request.getQueryString("field").get,
       request.getQueryString("q")
     )
   }
