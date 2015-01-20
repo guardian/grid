@@ -1,3 +1,5 @@
+<!-- TODO: think about moving this to a list, tables are a pain to style with
+HTML in the cells e.g. `.job-edit-disabler` -->
 <table class="jobs">
     <tbody>
         <tr ng:repeat="job in jobs">
@@ -24,8 +26,21 @@
             </td>
             <td class="job-info job-info--editor">
                 <div ng:if="job.image">
-                    <ui-required-metadata-editor id="job.image.data.id"
+                    <ui-required-metadata-editor disabled="job.busy"
+                                                 id="job.image.data.id"
                                                  metadata="job.image.data.metadata"></ui-required-metadata-editor>
+
+                    <div class="metadata-applicator" ng:if="jobs.length > 1">
+                        Apply
+                        <button class="metadata-applicator__button"
+                                ng:click="uploadJobsCtrl.updateAllMetadata('byline', job.image.data.metadata.byline)">byline</button>
+                        /
+                        <button class="metadata-applicator__button"
+                                ng:click="uploadJobsCtrl.updateAllMetadata('credit', job.image.data.metadata.credit)">credit</button>
+                        to all (save first)
+                        <!-- TODO: we should make sure that we use the value in
+                        the text field, at the moment this message will have to do -->
+                    </div>
 
                     <div class="job-labels">
                         <ui-labeller class="job-labeller"

@@ -84,6 +84,21 @@ textarea {
     border: 1px solid #999;
 }
 
+/* annoyingly we have to have these seperate as the moz-placeholder breaks the
+Chrome selector */
+input[disabled],
+textarea[disabled] {
+    color: #666;
+}
+input:disabled::-webkit-input-placeholder,
+textarea:disabled::-webkit-input-placeholder {
+    color: #666;
+}
+input:disabled::-moz-placeholder,
+textarea:disabled::-moz-placeholder {
+    color: #666;
+}
+
 button {
     border: 0;
     background: transparent;
@@ -648,6 +663,7 @@ a:focus {
     vertical-align: top;
     padding: 20px 30px 20px;
     border-bottom: 1px dashed #ccc;
+    position: relative;
 }
 
 .job-info--thumbnail {
@@ -687,8 +703,18 @@ a:focus {
     height: 4em;
 
     /* FIXME: Horrible hack to reclaim vertical space caused by the
-       element not being display:block.  CSS *sigh*. */
+       element not being display:block.  CSS sigh. */
     margin-bottom: -7px;
+}
+
+.job-edit-disabler {
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, .75);
+    position: absolute;
+    left: 0;
+    top: 0;
+    z-index: 1;
 }
 
 .job-editor:after {
@@ -697,14 +723,12 @@ a:focus {
     display: table;
 }
 
-.job-editor__inputs,
 .job-editor__buttons {
-    float: left;
-    margin-right: 20px;
+    text-align: right;
 }
 
 .job-editor__button {
-    display: block;
+    display: inline-block;
     margin-bottom: 5px;
 }
 
@@ -728,6 +752,16 @@ a:focus {
     float: right;
 }
 
+.metadata-applicator {
+    font-size: 1.4rem;
+    font-family: "Guardian Agate Sans 1 Web";
+    text-align: right;
+}
+
+.metadata-applicator__button {
+    font-weight: bold;
+    text-decoration: underline;
+}
 
 /* ==========================================================================
    jCrop
