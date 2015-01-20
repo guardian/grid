@@ -5,6 +5,9 @@
 # Home page
 GET     /                           controllers.MediaApi.index
 
+# Image metadata
+GET     /images/metadata            controllers.MediaApi.metadataSearch
+
 # Images
 GET     /images/:id                 controllers.MediaApi.getImage(id: String)
 DELETE  /images/:id                 controllers.MediaApi.deleteImage(id: String)
