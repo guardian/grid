@@ -45,6 +45,7 @@ trait PicdarApi extends HttpClient with PicdarInterface {
       responseData = response.xml \ "ResponseData"
       resultCount  = (responseData \ "MatchCount" text).toInt
       searchId     = (responseData \ "SearchID" text).toInt
+      _            = Logger.debug(s"search results: $resultCount matches, search id $searchId")
     } yield SearchInstance(searchId, resultCount)
   }
 
@@ -94,7 +95,6 @@ trait PicdarApi extends HttpClient with PicdarInterface {
 
   def fetchAsset(mak: String, urn: String): Future[Asset] = {
     post(messages.retrieveAsset(mak, urn)) map { response =>
-      println(response.xml)
       val record = (response.xml \ "ResponseData" \ "Record")(0)
       val assetFile = (record \ "VURL") find (v => (v \ "@type" text) == "original") map (_.text) map URI.create
       val createdOn = extractField(record, "Created on")
