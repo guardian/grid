@@ -7,9 +7,9 @@ import com.gu.mediaservice.picdarexport.lib.picdar.PicdarClient
 import com.gu.mediaservice.picdarexport.lib.{Config, MediaConfig}
 import com.gu.mediaservice.picdarexport.model._
 import play.api.libs.json.Json
+import play.api.libs.concurrent.Execution.Implicits._
 
 import scala.concurrent.Future
-import scala.concurrent.ExecutionContext.Implicits.global
 import scala.language.postfixOps
 import org.joda.time.DateTime
 import org.joda.time.format.ISODateTimeFormat
@@ -117,23 +117,31 @@ trait ArgumentHelpers {
 
 }
 
-object ExportApp extends App with ExportManagerProvider with ArgumentHelpers {
+trait ExecutionHelpers {
+  // TODO: find a cleaner way to do this? play.api.Play.stop() doesn't seem to work...
+  def terminateAfter[T](process: => Future[T]) = {
+    process onComplete { _ => System.exit(0) }
+  }
+
+}
+
+object ExportApp extends App with ExportManagerProvider with ArgumentHelpers with ExecutionHelpers {
 
   val app = new play.core.StaticApplication(new java.io.File("."))
 
   args.toList match {
-    case "show" :: system :: urn :: Nil => {
+    case "show" :: system :: urn :: Nil => terminateAfter {
       // dummy media env as not used
       getExportManager(system, "dev").show(urn)
     }
-    case "query" :: system :: dateField :: date :: Nil => {
+    case "query" :: system :: dateField :: date :: Nil => terminateAfter {
       // dummy media env as not used
       getExportManager(system, "dev").query(dateField, parseDateRange(date))
     }
-    case "ingest" :: system :: env :: dateField :: date :: Nil => {
+    case "ingest" :: system :: env :: dateField :: date :: Nil => terminateAfter {
       getExportManager(system, env).ingest(dateField, parseDateRange(date), None)
     }
-    case "ingest" :: system :: env :: dateField :: date :: range :: Nil => {
+    case "ingest" :: system :: env :: dateField :: date :: range :: Nil => terminateAfter {
       getExportManager(system, env).ingest(dateField, parseDateRange(date), parseQueryRange(range))
     }
     case _ => println(
@@ -144,7 +152,5 @@ object ExportApp extends App with ExportManagerProvider with ArgumentHelpers {
       """.stripMargin
     )
   }
-
-  // FIXME: how can we shutdown the app?
 
 }
