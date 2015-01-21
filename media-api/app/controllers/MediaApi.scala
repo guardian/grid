@@ -30,26 +30,24 @@ object MediaApi extends Controller with ArgoHelpers {
   val kahunaUri = Config.kahunaUri
 
   def index = Action {
+    val searchParams = List("q", "ids", "offset", "length", "fromDate", "toDate",
+      "orderBy", "since", "until", "uploadedBy", "archived", "valid", "free",
+      "hasExports", "hasIdentifier", "missingIdentifier", "hasMetadata").mkString(",")
+
     val response = Json.obj(
       "data"  -> Json.obj("description" -> "This is the Media API"),
-      "links" -> linksResponse
+      "links" -> Json.arr(
+        Json.obj("rel" -> "search", "href" -> s"$rootUri/images{?$searchParams}"),
+        Json.obj("rel" -> "image",  "href" -> s"$rootUri/images/{id}"),
+        Json.obj("rel" -> "metadata-search", "href" -> s"$rootUri/metadata/{field}{?q}"),
+        Json.obj("rel" -> "cropper", "href" -> cropperUri),
+        Json.obj("rel" -> "loader", "href" -> loaderUri),
+        Json.obj("rel" -> "metadata", "href" -> metadataUri),
+        Json.obj("rel" -> "session", "href" -> s"$kahunaUri/session")
+      )
     )
     Ok(response).as(ArgoMediaType)
   }
-
-  val searchParams = List("q", "ids", "offset", "length", "fromDate", "toDate",
-    "orderBy", "since", "until", "uploadedBy", "archived", "valid", "free",
-    "hasExports", "hasIdentifier", "missingIdentifier").mkString(",")
-
-  val linksResponse = Json.arr(
-    Json.obj("rel" -> "search", "href" -> s"$rootUri/images{?$searchParams}"),
-    Json.obj("rel" -> "image",  "href" -> s"$rootUri/images/{id}"),
-    Json.obj("rel" -> "metadata-search", "href" -> s"$rootUri/images/metadata?field,q"),
-    Json.obj("rel" -> "cropper", "href" -> cropperUri),
-    Json.obj("rel" -> "loader", "href" -> loaderUri),
-    Json.obj("rel" -> "metadata", "href" -> metadataUri),
-    Json.obj("rel" -> "session", "href" -> s"$kahunaUri/session")
-  )
 
   val Authenticated = auth.Authenticated(keyStore, Config.kahunaUri)
 
@@ -145,21 +143,18 @@ object MediaApi extends Controller with ArgoHelpers {
     t minus (t.getMillis - (t.getMillis.toDouble / d.getMillis).round * d.getMillis)
   }
 
-  def metadataSearch(field: String) = Authenticated.async { request =>
-    ElasticSearch.metadataSearch(MetadataSearchParams(request, field)) map { case MetadataSearchResults(results, total) =>
+  def metadataSearch(field: String, q: Option[String]) = Authenticated.async { request =>
+    ElasticSearch.metadataSearch(MetadataSearchParams(field, q)) map { case MetadataSearchResults(results, total) =>
+      val searchHref = q.map(q => s"$rootUri/images?q=$q").getOrElse(s"$rootUri/images?hasMetadata=$field")
       Ok(Json.obj(
         "length"-> total,
         "data" -> Json.toJson(results),
-        "links" -> linksResponse
+        "links" -> Json.obj("rel" -> "search", "href" -> searchHref)
       )).as(ArgoMediaType)
     }
   }
 }
 
-object ParamDefaults {
-  def offset(qs: Option[String]) = qs flatMap (s => Try(s.toInt).toOption) getOrElse 0
-  def length(qs: Option[String]) = qs flatMap (s => Try(s.toInt).toOption) getOrElse 10
-}
 
 case class GeneralParams(showSecureUrl: Boolean)
 
@@ -198,8 +193,8 @@ object SearchParams {
     SearchParams(
       request.getQueryString("q"),
       request.getQueryString("ids").map(_.split(",").toList),
-      ParamDefaults.offset(request.getQueryString("offset")),
-      ParamDefaults.length(request.getQueryString("length")),
+      request.getQueryString("offset") flatMap (s => Try(s.toInt).toOption) getOrElse 0,
+      request.getQueryString("length") flatMap (s => Try(s.toInt).toOption) getOrElse 10,
       request.getQueryString("orderBy") orElse request.getQueryString("sortBy"),
       request.getQueryString("fromDate") orElse request.getQueryString("since") flatMap parseDateFromQuery,
       request.getQueryString("toDate") orElse request.getQueryString("until") flatMap parseDateFromQuery,
@@ -217,18 +212,7 @@ object SearchParams {
 
 }
 
-case class MetadataSearchParams(field: String, q: Option[String], offset: Int, length: Int)
-
-object MetadataSearchParams {
-  def apply(request: Request[Any], field: String): MetadataSearchParams = {
-    MetadataSearchParams(
-      field,
-      request.getQueryString("q"),
-      ParamDefaults.offset(request.getQueryString("offset")),
-      ParamDefaults.length(request.getQueryString("length"))
-    )
-  }
-}
+case class MetadataSearchParams(field: String, q: Option[String])
 
 // Default to pay for now
 object ImageExtras {
