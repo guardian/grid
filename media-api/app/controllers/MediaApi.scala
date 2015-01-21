@@ -9,7 +9,7 @@ import play.api.libs.concurrent.Execution.Implicits._
 import play.api.libs.json._
 import org.joda.time.{DateTime, Duration}
 
-import lib.elasticsearch.{ElasticSearch, SearchResults}
+import lib.elasticsearch.{MetadataSearchResults, ElasticSearch, SearchResults}
 import lib.{Notifications, Config, S3Client}
 import com.gu.mediaservice.lib.auth
 import com.gu.mediaservice.lib.auth.KeyStore
@@ -145,18 +145,14 @@ object MediaApi extends Controller with ArgoHelpers {
     t minus (t.getMillis - (t.getMillis.toDouble / d.getMillis).round * d.getMillis)
   }
 
-  def metadataSearch(field: String) = Authenticated { request =>
-    ElasticSearch.metadataSearch(MetadataSearchParams(request, field)) map { case SearchResults(hits, totalCount) =>
-      hits.map(println(_))
+  def metadataSearch(field: String) = Authenticated.async { request =>
+    ElasticSearch.metadataSearch(MetadataSearchParams(request, field)) map { case MetadataSearchResults(results, total) =>
+      Ok(Json.obj(
+        "length"-> total,
+        "data" -> Json.toJson(results),
+        "links" -> linksResponse
+      )).as(ArgoMediaType)
     }
-
-    Ok(Json.obj(
-      "offset" -> 0,
-      "length"-> 0,
-      "total" -> 0,
-      "data" -> Json.arr(),
-      "links" -> linksResponse
-    )).as(ArgoMediaType)
   }
 }
 
