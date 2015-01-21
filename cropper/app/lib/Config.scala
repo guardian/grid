@@ -33,6 +33,8 @@ object Config extends CommonPlayAppProperties {
 
   val imagingThreadPoolSize = 4
 
-  val landscapeCropSizingWidths = List(2000, 1000, 500, 140)
+  // FIXME: We don't need this many, but until we save the original, it's sizes
+  // that are currently popular
+  val landscapeCropSizingWidths = List(2000, 1000, 500, 460, 140)
   val portraitCropSizingHeights = List(2000, 1000, 500)
 }
