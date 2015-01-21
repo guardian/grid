@@ -145,11 +145,10 @@ object MediaApi extends Controller with ArgoHelpers {
 
   def metadataSearch(field: String, q: Option[String]) = Authenticated.async { request =>
     ElasticSearch.metadataSearch(MetadataSearchParams(field, q)) map { case MetadataSearchResults(results, total) =>
-      val searchHref = q.map(q => s"$rootUri/images?q=$q").getOrElse(s"$rootUri/images?hasMetadata=$field")
+      // TODO: Add some useful links
       Ok(Json.obj(
         "length"-> total,
-        "data" -> Json.toJson(results),
-        "links" -> Json.obj("rel" -> "search", "href" -> searchHref)
+        "data" -> Json.toJson(results)
       )).as(ArgoMediaType)
     }
   }
