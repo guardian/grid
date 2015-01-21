@@ -116,11 +116,24 @@ object ExportApp extends App with ExportManagerProvider with ArgumentHelpers wit
 
   val app = new play.core.StaticApplication(new java.io.File("."))
 
+  def dumpMetadata(metadata: Map[String,String]): String = {
+    metadata.map { case (key, value) => s"  $key: $value" }.mkString("\n")
+  }
+
   args.toList match {
     case "show" :: system :: urn :: Nil => terminateAfter {
       getPicdar(system).get(urn) map { asset =>
-        // TODO: format nicely
-        println(asset)
+        println(
+        s"""
+          |urn: ${asset.urn}
+          |file: ${asset.file}
+          |created: ${asset.created}
+          |modified: ${asset.modified getOrElse ""}
+          |infoUri: ${asset.infoUri getOrElse ""}
+          |metadata:
+          |${dumpMetadata(asset.metadata)}
+        """.stripMargin
+        )
       }
     }
     case "query" :: system :: dateField :: date :: Nil => terminateAfter {
