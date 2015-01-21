@@ -28,7 +28,10 @@ crop.controller('ImageCropCtrl',
         x2: 10000,
         y2: 10000
     };
-    this.cropSize = () => ($scope.coords.x2 - $scope.coords.x1) + ' x ' + ($scope.coords.y2 - $scope.coords.y1);
+    var cropWidth = () => $scope.coords.x2 - $scope.coords.x1;
+    var cropHeight = () => $scope.coords.y2 - $scope.coords.y1;
+    this.cropSize = () => cropWidth() + ' x ' + cropHeight();
+    this.cropSizeWarning = () => cropWidth() < 500;
 
 
     $scope.crop = function() {
