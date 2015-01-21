@@ -3,6 +3,7 @@ package com.gu.mediaservice.picdarexport.lib.media
 import java.net.URI
 
 import com.gu.mediaservice.picdarexport.lib.HttpClient
+import play.api.Logger
 
 import scala.concurrent.Future
 import scala.concurrent.ExecutionContext.Implicits.global
@@ -21,7 +22,7 @@ trait MediaLoader extends HttpClient {
     request map { response =>
       (response.json \ "uri").asOpt[String].map(URI.create)
     } recover { case e: Throwable =>
-      println(s"Upload error: $e")
+      Logger.warn(s"Upload error: $e")
       None
     }
   }
