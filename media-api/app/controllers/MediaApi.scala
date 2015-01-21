@@ -30,26 +30,24 @@ object MediaApi extends Controller with ArgoHelpers {
   val kahunaUri = Config.kahunaUri
 
   def index = Action {
+    val searchParams = List("q", "ids", "offset", "length", "fromDate", "toDate",
+      "orderBy", "since", "until", "uploadedBy", "archived", "valid", "free",
+      "hasExports", "hasIdentifier", "missingIdentifier", "hasMetadata").mkString(",")
+
     val response = Json.obj(
       "data"  -> Json.obj("description" -> "This is the Media API"),
-      "links" -> linksResponse
+      "links" -> Json.arr(
+        Json.obj("rel" -> "search", "href" -> s"$rootUri/images{?$searchParams}"),
+        Json.obj("rel" -> "image",  "href" -> s"$rootUri/images/{id}"),
+        Json.obj("rel" -> "metadata-search", "href" -> s"$rootUri/metadata/{field}{?q}"),
+        Json.obj("rel" -> "cropper", "href" -> cropperUri),
+        Json.obj("rel" -> "loader", "href" -> loaderUri),
+        Json.obj("rel" -> "metadata", "href" -> metadataUri),
+        Json.obj("rel" -> "session", "href" -> s"$kahunaUri/session")
+      )
     )
     Ok(response).as(ArgoMediaType)
   }
-
-  val searchParams = List("q", "ids", "offset", "length", "fromDate", "toDate",
-    "orderBy", "since", "until", "uploadedBy", "archived", "valid", "free",
-    "hasExports", "hasIdentifier", "missingIdentifier").mkString(",")
-
-  val linksResponse = Json.arr(
-    Json.obj("rel" -> "search", "href" -> s"$rootUri/images{?$searchParams}"),
-    Json.obj("rel" -> "image",  "href" -> s"$rootUri/images/{id}"),
-    Json.obj("rel" -> "metadata-search", "href" -> s"$rootUri/metadata/{field}?q"),
-    Json.obj("rel" -> "cropper", "href" -> cropperUri),
-    Json.obj("rel" -> "loader", "href" -> loaderUri),
-    Json.obj("rel" -> "metadata", "href" -> metadataUri),
-    Json.obj("rel" -> "session", "href" -> s"$kahunaUri/session")
-  )
 
   val Authenticated = auth.Authenticated(keyStore, Config.kahunaUri)
 
@@ -147,10 +145,16 @@ object MediaApi extends Controller with ArgoHelpers {
 
   def metadataSearch(field: String, q: Option[String]) = Authenticated { request =>
     val searchParams = MetadataSearchParams(field, q)
+    val searchHref = q.map(q => s"$rootUri/images?q=$q").getOrElse(s"$rootUri/images?hasMetadata=$field")
     Ok(Json.obj(
       "length"-> 0,
       "data" -> Json.arr(),
-      "links" -> linksResponse
+      "links" -> Json.arr(
+        Json.obj(
+          "rel" -> "search",
+          "href" -> searchHref
+        )
+      )
     )).as(ArgoMediaType)
   }
 }
