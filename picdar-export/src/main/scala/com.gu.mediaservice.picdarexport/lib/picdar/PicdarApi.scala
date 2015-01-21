@@ -78,21 +78,49 @@ trait PicdarApi extends HttpClient with PicdarInterface {
   // No timezone lol
   val picdarEsotericDateFormat = DateTimeFormat.forPattern("yyyyMMddHH:mm:ss")
 
+  // Picdar field -> Media metadata key mapping
+  // FIXME: Job_Description? Keywords  File_Name? Location Warnings Warning_Info
+  // FIXME: People Picture_Attributes Temporary_Notes Copyright_Group (opt? eg Agencies - contract)
+  // FIXME: or use case class?
+  val picdarFieldMap = Map(
+    "Headline"      -> "title",
+    "Copyright"     -> "copyright",
+    "Caption"       -> "description",
+    "Photographer"  -> "byline",
+    "Provider"      -> "credit",
+    "Source"        -> "source",
+    "Reference no." -> "suppliersReference"
+  )
+
   def fetchAsset(mak: String, urn: String): Future[Asset] = {
     post(messages.retrieveAsset(mak, urn)) map { response =>
-      val record = response.xml \ "ResponseData" \ "Record"
+      println(response.xml)
+      val record = (response.xml \ "ResponseData" \ "Record")(0)
       val assetFile = (record \ "VURL") find (v => (v \ "@type" text) == "original") map (_.text) map URI.create
-      val createdOn = (record \ "Field") find (v => (v \ "@name" text) == "Created on") map (_.text)
-      val createdAt = (record \ "Field") find (v => (v \ "@name" text) == "Created at") map (_.text)
+      val createdOn = extractField(record, "Created on")
+      val createdAt = extractField(record, "Created at")
       val created = (createdOn, createdAt) match {
         case (Some(on), Some(at)) => Some(DateTime.parse(s"$on$at", picdarEsotericDateFormat))
         case _ => None
       }
-      val modified = (record \ "Field") find (v => (v \ "@name" text) == "Modified on") map (_.text) map ISODateTimeFormat.basicDate().parseDateTime
-      val info = (record \ "Field") find (v => (v \ "@name" text) == "InfoURL") map (_.text) map URI.create
+
+      val modified = extractField(record, "Modified on") map ISODateTimeFormat.basicDate().parseDateTime
+      val infoUri = extractField(record, "InfoURL") map URI.create
+      val metadata = for {
+        (fieldName, metadataKey) <- picdarFieldMap
+        value                    <- extractField(record, fieldName)
+      } yield metadataKey -> value
+
+      // Notes: Date Loaded seems to be the same as Created on, it's not when the image was loaded into the Library...
+
       // FIXME: error if get fails
-      Asset(urn, assetFile get, created get, modified, info)
+      Asset(urn, assetFile get, created get, modified, metadata, infoUri)
     }
   }
+
+
+
+  private def extractField(record: Node, name: String): Option[String] =
+    (record \ "Field") find (v => (v \ "@name" text) == name) map (_.text.trim) filterNot (_.isEmpty)
 
 }
