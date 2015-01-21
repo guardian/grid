@@ -35,6 +35,10 @@
         </div>
     </div>
 
+    <div class="errors">
+        <div class="error" ng:if="imageCropCtrl.cropSizeWarning()">This crop is too small for us to produce an image. Please try to use a larger crop.</div>
+    </div>
+
     <div class="easel" ng:if="image.data">
         <div class="easel__canvas">
             <img class="easel__image"
