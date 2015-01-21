@@ -1,5 +1,4 @@
 <div class="crop-image">
-
     <div class="top-bar-wrapper">
         <div class="top-bar">
 
@@ -9,6 +8,8 @@
             </div>
 
             <div class="top-bar__actions">
+                <div class="top-bar__item">{{ imageCropCtrl.cropSize() }}</div>
+
                 <label class="top-bar__item">
                     <input type="radio" ng:model="imageCropCtrl.aspect" value="{{landscapeRatio}}" />
                     landscape
