@@ -106,7 +106,7 @@ object ElasticSearch extends ElasticSearchClient {
                    .setQuery(prefixQuery(field, params.q.getOrElse("")))
                    .addAggregation(AggregationBuilders.terms(aggName).field(field))
 
-    getResults("metadata search", search, params.offset, params.length).map{ response =>
+    getResults("metadata search", search, 0, 0).map{ response =>
       val buckets = response.getAggregations.getAsMap.get(aggName).asInstanceOf[StringTerms].getBuckets
       val results = buckets.toList map (s => BucketResult(s.getKey, s.getDocCount))
 
