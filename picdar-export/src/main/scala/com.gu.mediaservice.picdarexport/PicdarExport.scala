@@ -6,6 +6,7 @@ import com.gu.mediaservice.picdarexport.lib.media.MediaLoader
 import com.gu.mediaservice.picdarexport.lib.picdar.PicdarClient
 import com.gu.mediaservice.picdarexport.lib.{Config, MediaConfig}
 import com.gu.mediaservice.picdarexport.model._
+import play.api.Logger
 import play.api.libs.json.Json
 import play.api.libs.concurrent.Execution.Implicits._
 
@@ -18,27 +19,13 @@ class ArgumentError(message: String) extends Error(message)
 
 
 class ExportManager(picdar: PicdarClient, loader: MediaLoader) {
-  def show(picdarUrn: String) =
-    for {
-      asset <- picdar.get(picdarUrn)
-      _      = println(asset)
-    } yield asset
 
-  def query(dateField: String, dateRange: DateRange) =
-    for {
-      count <- picdar.count(dateField, dateRange)
-      _      = println(s"$count matches")
-    } yield count
-
-  def ingest(dateField: String, dateRange: DateRange, queryRange: Option[Range]) = {
+  def ingest(dateField: String, dateRange: DateRange, queryRange: Option[Range]) =
     for {
       assets       <- picdar.query(dateField, dateRange, queryRange)
-      _             = println(s"${assets.size} matches")
+      _             = Logger.info(s"${assets.size} matches")
       uploadedIds  <- Future.sequence(assets map uploadAsset)
-      _             = println(s"Uploaded $uploadedIds")
     } yield uploadedIds
-
-  }
 
 
   private def uploadAsset(asset: Asset): Future[Option[URI]] =
@@ -131,18 +118,24 @@ object ExportApp extends App with ExportManagerProvider with ArgumentHelpers wit
 
   args.toList match {
     case "show" :: system :: urn :: Nil => terminateAfter {
-      // dummy media env as not used
-      getExportManager(system, "dev").show(urn)
+      getPicdar(system).get(urn) map { asset =>
+        // TODO: format nicely
+        println(asset)
+      }
     }
     case "query" :: system :: dateField :: date :: Nil => terminateAfter {
-      // dummy media env as not used
-      getExportManager(system, "dev").query(dateField, parseDateRange(date))
+      getPicdar(system).count(dateField, parseDateRange(date)) map { count =>
+        println(s"$count matches")
+      }
     }
     case "ingest" :: system :: env :: dateField :: date :: Nil => terminateAfter {
       getExportManager(system, env).ingest(dateField, parseDateRange(date), None)
     }
     case "ingest" :: system :: env :: dateField :: date :: range :: Nil => terminateAfter {
-      getExportManager(system, env).ingest(dateField, parseDateRange(date), parseQueryRange(range))
+      getExportManager(system, env).ingest(dateField, parseDateRange(date), parseQueryRange(range)) map { uploadedIds =>
+        println(s"Uploaded $uploadedIds")
+        // TODO: show success/failures?
+      }
     }
     case _ => println(
       """
