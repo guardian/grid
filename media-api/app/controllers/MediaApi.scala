@@ -145,6 +145,7 @@ object MediaApi extends Controller with ArgoHelpers {
 
   def metadataSearch(field: String, q: Option[String]) = Authenticated { request =>
     val searchParams = MetadataSearchParams(field, q)
+    // TODO: update this use "credit: $field" search syntax once implemented
     val searchHref = q.map(q => s"$rootUri/images?q=$q").getOrElse(s"$rootUri/images?hasMetadata=$field")
     Ok(Json.obj(
       "length"-> 0,
