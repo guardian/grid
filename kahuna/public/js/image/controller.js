@@ -6,6 +6,7 @@ image.controller('ImageCtrl',
                  ['$scope', '$stateParams', 'mediaApi', 'mediaCropper',
                   function($scope, $stateParams, mediaApi, mediaCropper) {
 
+    // TODO: move from `$scope` to `ctrl`
     var imageId = $stateParams.imageId;
     $scope.cropKey = $stateParams.crop;
 
@@ -28,5 +29,12 @@ image.controller('ImageCtrl',
     ];
     $scope.isUsefulMetadata = function(metadataKey) {
         return ignoredMetadata.indexOf(metadataKey) === -1;
+    };
+
+    $scope.cropSelected = (crop) => {
+        $scope.$emit('events:crop-selected', {
+            image: $scope.image,
+            crop: crop
+        });
     };
 }]);
