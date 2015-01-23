@@ -63,10 +63,6 @@ dndUploader.directive('dndUploader', ['$window', 'delay', 'safeApply',
 
             function enter(event) {
                 dragging = true;
-                console.log(
-                    event.originalEvent.dataTransfer.types,
-                    event.originalEvent.dataTransfer.files
-                );
                 if (eventContainsFiles(event)) {
                     activate();
                 }
