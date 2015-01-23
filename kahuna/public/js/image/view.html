@@ -94,8 +94,8 @@
             <div class="image-info__group">
                 <button class="metadata-reveal"
                         ng:click="metadataExpanded = !metadataExpanded">
-                    <span ng:hide="metadataExpanded">⯆ Show</span>
-                    <span ng:show="metadataExpanded">⯅ Hide</span>
+                    <span ng:hide="metadataExpanded">▸ Show</span>
+                    <span ng:show="metadataExpanded">▾ Hide</span>
                     full metadata
                 </button>
 
@@ -120,21 +120,22 @@
 
 
         <div class="image-info">
-            <dl class="image-info__group" ng:if="crops.length > 0">
+            <dl class="image-info__group" ng:if="crops.data.length > 0">
                 <dt class="image-info__heading">Crops <span ng:if="cropKey">(<a ui:sref="{ crop: null }">original</a>)</span></dt>
                 <dd>
                     <ul class="image-crops">
                         <li class="image-crop"
                             ng:class="{'image-crop--selected': crop.id == cropKey}"
-                            ng:repeat="crop in crops">
+                            ng:repeat="crop in crops.data">
                             <a draggable="true"
-                               ng:init="extremeAssets = (crop | getExtremeAssets)"
-                               ui:sref="{crop: crop.id}"
-                               ui:drag-data="{{imageSync | asImageAndCropsDragData:crop}}"
+                               ng:init="extremeAssets = (crop.data | getExtremeAssets)"
+                               ng:click="ctrl.cropSelected(crop)"
+                               ui:sref="{crop: crop.data.id}"
+                               ui:drag-data="{{imageSync | asImageAndCropsDragData:crop.data}}"
                                ui:drag-image="{{extremeAssets.smallest | assetFile}}">
                                 <img class="image-crop__image" ng:src="{{extremeAssets.smallest | assetFile}}" />
                             </a>
-                            <div class="image-crop__aspect-ratio">{{crop.specification.aspectRatio | asAspectRatioWord}}</div>
+                            <div class="image-crop__aspect-ratio">{{crop.data.specification.aspectRatio | asAspectRatioWord}}</div>
                         </li>
                     </ul>
                 </dd>
@@ -170,9 +171,9 @@
                 <a draggable="true"
                    class="easel__image-container"
                    ng:if="crop"
-                   ng:init="extremeAssets = (crop | getExtremeAssets)"
+                   ng:init="extremeAssets = (crop.data | getExtremeAssets)"
                    ui:sref="{crop: cropKey}"
-                   ui:drag-data="{{imageSync | asImageAndCropsDragData:crop}}"
+                   ui:drag-data="{{imageSync | asImageAndCropsDragData:crop.data}}"
                    ui:drag-image="{{extremeAssets.smallest | assetFile}}">
                     <img class="easel__image" ng:src="{{extremeAssets.largest | assetFile}}" />
                 </a>
