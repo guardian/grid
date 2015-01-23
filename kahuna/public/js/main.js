@@ -3,7 +3,6 @@
 import angular from 'angular';
 import 'angular-ui-router';
 import 'pandular';
-import './services/theseus';
 import './services/api/media-api';
 import './services/api/media-cropper';
 import './services/api/loader';
@@ -35,7 +34,6 @@ var config = {
 
 var kahuna = angular.module('kahuna', [
     'ui.router',
-    'theseus',
     'pandular.heal',
     'util.async',
     'util.digest',

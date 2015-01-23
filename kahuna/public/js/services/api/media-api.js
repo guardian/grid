@@ -1,7 +1,7 @@
 import apiServices from '../api';
 
 apiServices.factory('mediaApi',
-                    ['mediaApiUri', 'theseus.Client',
+                    ['mediaApiUri', 'theseus.client',
                      function(mediaApiUri, client) {
 
     var root = client.resource(mediaApiUri);
