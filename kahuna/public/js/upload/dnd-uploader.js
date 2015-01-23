@@ -50,6 +50,11 @@ dndUploader.directive('dndUploader', ['$window', 'delay', 'safeApply',
 
             scope.$on('$destroy', clean);
 
+            function eventContainsFiles(event) {
+                var types = Array.from(event.originalEvent.dataTransfer.types);
+                return types.indexOf('Files') !== -1;
+            }
+
             function over(event) {
                 dragging = true;
                 // The dragover `preventDefault` is to allow for dropping
@@ -58,7 +63,9 @@ dndUploader.directive('dndUploader', ['$window', 'delay', 'safeApply',
 
             function enter() {
                 dragging = true;
-                activate();
+                if (eventContainsFiles(event)) {
+                    activate();
+                }
             }
 
             function leave() {
@@ -75,7 +82,9 @@ dndUploader.directive('dndUploader', ['$window', 'delay', 'safeApply',
 
                 event.preventDefault();
 
-                scope.dndUploader.uploadFiles(files);
+                if (files.length > 0) {
+                    scope.dndUploader.uploadFiles(files);
+                }
                 scope.$apply(deactivate);
             }
 
