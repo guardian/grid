@@ -120,13 +120,13 @@
 
 
         <div class="image-info">
-            <dl class="image-info__group" ng:if="crops.length > 0">
+            <dl class="image-info__group" ng:if="crops.data.length > 0">
                 <dt class="image-info__heading">Crops <span ng:if="cropKey">(<a ui:sref="{ crop: null }">original</a>)</span></dt>
                 <dd>
                     <ul class="image-crops">
                         <li class="image-crop"
                             ng:class="{'image-crop--selected': crop.id == cropKey}"
-                            ng:repeat="crop in crops">
+                            ng:repeat="crop in crops.data">
                             <a draggable="true"
                                ng:init="extremeAssets = (crop | getExtremeAssets)"
                                ng:click="ctrl.cropSelected(crop)"

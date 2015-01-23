@@ -92,9 +92,9 @@ kahuna.factory('getEntity', ['$q', function($q) {
 kahuna.run(['$rootScope', '$window', '$q', 'getEntity',
             function($rootScope, $window, $q, getEntity) {
 
-    $rootScope.$on('events:crop-created', (_, params) => {
-        var syncImage = getEntity(params.image);
-        var syncCrop  = getEntity(params.crop);
+    var sendCropToParent = (image, crop) => {
+        var syncImage = getEntity(image);
+        var syncCrop  = getEntity(crop);
         $q.all([syncImage, syncCrop]).then(([imageEntity, cropEntity]) => {
             // This interface is used when the app is embedded as an iframe
             var message = {
@@ -106,6 +106,16 @@ kahuna.run(['$rootScope', '$window', '$q', 'getEntity',
             // may be embedding us.
             $window.parent.postMessage(message, '*');
         });
+    }
+
+    $rootScope.$on('events:crop-selected', (_, params) => {
+        console.log(params);
+        sendCropToParent(params.image, params.crop)
+    });
+
+    $rootScope.$on('events:crop-created', (_, params) => {
+        console.log(params);
+        sendCropToParent(params.image, params.crop)
     });
 }]);
 

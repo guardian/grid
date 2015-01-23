@@ -27,7 +27,7 @@ apiServices.factory('mediaCropper',
     }
 
     function getCropsFor(image) {
-        return image.follow('crops').getData();
+        return image.follow('crops').getResponse();
     }
 
     return {
