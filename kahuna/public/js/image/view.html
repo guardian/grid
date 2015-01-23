@@ -129,7 +129,7 @@
                             ng:repeat="crop in crops">
                             <a draggable="true"
                                ng:init="extremeAssets = (crop | getExtremeAssets)"
-                               ng:click="ctrl"
+                               ng:click="ctrl.cropSelected(crop)"
                                ui:sref="{crop: crop.id}"
                                ui:drag-data="{{imageSync | asImageAndCropsDragData:crop}}"
                                ui:drag-image="{{extremeAssets.smallest | assetFile}}">

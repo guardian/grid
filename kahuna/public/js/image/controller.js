@@ -29,4 +29,11 @@ image.controller('ImageCtrl',
     $scope.isUsefulMetadata = function(metadataKey) {
         return ignoredMetadata.indexOf(metadataKey) === -1;
     };
+
+    this.cropSelected = (crop) => {
+        $scope.$emit('events:crop-selected', {
+            image: $scope.image,
+            crop: crop
+        });
+    }
 }]);
