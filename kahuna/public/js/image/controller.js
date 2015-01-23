@@ -6,6 +6,7 @@ image.controller('ImageCtrl',
                  ['$scope', '$stateParams', 'mediaApi', 'mediaCropper',
                   function($scope, $stateParams, mediaApi, mediaCropper) {
 
+    // TODO: move from scope to ctrl
     var imageId = $stateParams.imageId;
     $scope.cropKey = $stateParams.crop;
 
