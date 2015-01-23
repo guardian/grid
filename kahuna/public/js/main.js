@@ -90,6 +90,8 @@ kahuna.factory('getEntity', ['$q', function($q) {
 kahuna.run(['$rootScope', '$window', '$q', 'getEntity',
             function($rootScope, $window, $q, getEntity) {
 
+    // Note: we target all domains because we don't know who
+    // may be embedding us.
     var postMessage = message => $window.parent.postMessage(message, '*');
     var cropMessage = (image, crop) => { image, crop };
 
