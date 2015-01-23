@@ -64,6 +64,12 @@ object Build extends Build {
     .settings(sbtassembly.Plugin.assemblySettings: _*)
     .libraryDependencies(awsDeps ++ commonsNetDeps)
 
+  val picdarExport = project("picdar-export")
+    .enablePlugins(play.PlayScala)
+    .settings(sbtassembly.Plugin.assemblySettings: _*)
+    .settings(assemblyMergeSettings: _*)
+    .libraryDependencies(playDeps)
+
   @deprecated
   val devImageLoader = project("dev-image-loader")
     .libraryDependencies(playDeps ++ playWsDeps)
@@ -86,8 +92,10 @@ object Build extends Build {
         <exclude org="commons-logging"/>
         <exclude org="org.springframework"/>
         <exclude org="org.scala-tools.sbt"/>
-      </dependencies>,
+      </dependencies>
+  ) ++ assemblyMergeSettings
 
+  def assemblyMergeSettings = Seq(
     mergeStrategy in assembly <<= (mergeStrategy in assembly) { (old) => {
       case f if f.startsWith("org/apache/lucene/index/") => MergeStrategy.first
       case "play/core/server/ServerWithStop.class" => MergeStrategy.first

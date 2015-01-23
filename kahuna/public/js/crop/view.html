@@ -1,5 +1,4 @@
 <div class="crop-image">
-
     <div class="top-bar-wrapper">
         <div class="top-bar">
 
@@ -9,6 +8,8 @@
             </div>
 
             <div class="top-bar__actions">
+                <div class="top-bar__item">{{ imageCropCtrl.cropSize() }}</div>
+
                 <label class="top-bar__item">
                     <input type="radio" ng:model="imageCropCtrl.aspect" value="{{landscapeRatio}}" />
                     landscape
@@ -34,9 +35,13 @@
         </div>
     </div>
 
+    <div class="errors">
+        <div class="error" ng:if="imageCropCtrl.cropSizeWarning()">This crop is too small for us to produce an image. Please try to use a larger crop.</div>
+    </div>
+
     <div class="easel" ng:if="image.data">
         <div class="easel__canvas">
-            <img class="easel__image easel__image--with-space"
+            <img class="easel__image"
                  ng:src="{{image.data.source | assetFile}}"
                  ui:crop-box="coords"
                  ui:crop-box-original-width="image.data.source.dimensions.width"

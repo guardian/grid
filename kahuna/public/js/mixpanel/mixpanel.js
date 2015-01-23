@@ -1,5 +1,8 @@
+// As an exception, we refer to mixpanel on the window
+/* global mixpanel */
 import angular from 'angular';
 import './snippet';
+import UAParser from 'ua-parser-js';
 
 export var mp = angular.module('mixpanel', []);
 
@@ -7,7 +10,9 @@ export var mp = angular.module('mixpanel', []);
  * This module is to allow the rest of the app to include mixpanel as a dependency
  * and not have to deal with the global `var`.
  */
-mp.factory('mixpanel', function() {
+mp.factory('mixpanel', ['$window', function($window) {
+    var ua      = new UAParser($window.navigator.userAgent);
+    var browser = ua.getBrowser();
 
     function init(mixpanelToken, id, { firstName, lastName, email }, registerProps = {}) {
         mixpanel.init(mixpanelToken);
@@ -17,7 +22,8 @@ mp.factory('mixpanel', function() {
         mixpanel.people.set({
             '$first_name': firstName,
             '$last_name': lastName,
-            '$email': email
+            '$email': email,
+            'Browser version': browser.major
         });
         mixpanel.register(registerProps);
     }
@@ -30,4 +36,4 @@ mp.factory('mixpanel', function() {
         init: init,
         track: track
     };
-});
+}]);

@@ -5,8 +5,8 @@ export var jobs = angular.module('kahuna.upload.jobs', []);
 
 
 jobs.controller('UploadJobsCtrl',
-                ['$scope', '$state', '$q', 'poll', 'mediaApi',
-                 function($scope, $state, $q, poll, mediaApi) {
+                ['$window', '$scope', '$q', 'poll', 'editsApi',
+                 function($window, $scope, $q, poll, editsApi) {
 
     var pollFrequency = 500; // ms
     var pollTimeout   = 20 * 1000; // ms
@@ -17,13 +17,15 @@ jobs.controller('UploadJobsCtrl',
     // State machine-esque async transitions
     $scope.jobs.forEach(jobItem => {
         jobItem.status = 'uploading';
+        jobItem.busy = false;
 
-        jobItem.idPromise.then(id => {
+        jobItem.resourcePromise.then(resource => {
             jobItem.status = 'indexing';
-            jobItem.id = id;
+            jobItem.resource = resource;
 
-            // TODO: grouped polling for all ids where's interested in
-            var findImage = () => mediaApi.find(jobItem.id);
+            // TODO: grouped polling for all resources whe're interested in?
+            // TODO: update theseus so getResponse isn't needed
+            var findImage = () => resource.get().getResponse();
             var imageResponse = poll(findImage, pollFrequency, pollTimeout);
             imageResponse.then(image => {
                 jobItem.status = image.data.valid ? 'ready' : 'invalid';
@@ -38,15 +40,30 @@ jobs.controller('UploadJobsCtrl',
     });
 
 
-    // When the metadata is overriden, we don't know if the resulting
+    var offMetadataUpdate = editsApi.onMetadataUpdate(({ resource, metadata, id }) => {
+        var jobItem = $scope.jobs.find(job => job.image.data.id === id);
+        overrideMetadata(jobItem, metadata);
+    }, () => $window.alert('Failed to save the changes. Please try again.'));
+    $scope.$on('$destroy', offMetadataUpdate);
+
+
+    this.updateAllMetadata = (field, data) => {
+        // TODO: make sure form is saved first
+        $scope.jobs.forEach(job => {
+            editsApi.updateMetadata(job.image.data.id, { [field]: data });
+        });
+    };
+
+    // When the metadata is overridden, we don't know if the resulting
     // image is valid or not. This code checks when the update has
     // been processed and updates the status accordingly.
 
     // FIXME: re-engineer the metadata/validation architecture so we
     // don't have to wait and poll?
-    $scope.overrideMetadata = (jobItem, metadata) => {
+    function overrideMetadata(jobItem, metadata) {
 
         jobItem.status = 're-indexing';
+        jobItem.busy = true;
 
         // Wait until all values of `metadata' are seen in the media API
         function matchesMetadata(image) {
@@ -60,13 +77,15 @@ jobs.controller('UploadJobsCtrl',
             }
         }
 
-        var apiSynced = () => mediaApi.find(jobItem.id).then(matchesMetadata);
+        // TODO: update theseus so getResponse isn't needed
+        var apiSynced = () => jobItem.resource.get().getResponse().then(matchesMetadata);
 
         var waitIndexed = poll(apiSynced, pollFrequency, pollTimeout);
         waitIndexed.then(image => {
+            jobItem.image.data.metadata = image.data.metadata;
             jobItem.status = image.data.valid ? 'ready' : 'invalid';
-        });
-    };
+        }).finally(() => jobItem.busy = false);
+    }
 
 
     // FIXME: Why do we have to filter `job.image` here when it's already

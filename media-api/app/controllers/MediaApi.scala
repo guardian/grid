@@ -32,7 +32,8 @@ object MediaApi extends Controller with ArgoHelpers {
   def index = Action {
     val searchParams = List("q", "ids", "offset", "length", "fromDate", "toDate",
                             "orderBy", "since", "until", "uploadedBy", "archived",
-                            "valid", "free", "hasExports").mkString(",")
+                            "valid", "free", "hasExports",
+                            "hasIdentifier", "missingIdentifier").mkString(",")
     val response = Json.obj(
       "data"  -> Json.obj("description" -> "This is the Media API"),
       "links" -> Json.arr(
@@ -161,6 +162,8 @@ case class SearchParams(
   toDate: Option[DateTime],
   archived: Option[Boolean],
   hasExports: Option[Boolean],
+  hasIdentifier: Option[String],
+  missingIdentifier: Option[String],
   valid: Option[Boolean],
   free: Option[Boolean],
   uploadedBy: Option[String],
@@ -184,6 +187,8 @@ object SearchParams {
       request.getQueryString("toDate") orElse request.getQueryString("until") flatMap parseDateFromQuery,
       request.getQueryString("archived").map(_.toBoolean),
       request.getQueryString("hasExports").map(_.toBoolean),
+      request.getQueryString("hasIdentifier"),
+      request.getQueryString("missingIdentifier"),
       request.getQueryString("valid").map(_.toBoolean),
       request.getQueryString("free").map(_.toBoolean),
       request.getQueryString("uploadedBy"),

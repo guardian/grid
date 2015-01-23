@@ -29,5 +29,5 @@ editApplicator.directive('uiEditApplicator', function() {
         bindToController: true,
         controller: 'EditApplicatorCtrl as editApplicator',
         template: template
-    }
+    };
 });

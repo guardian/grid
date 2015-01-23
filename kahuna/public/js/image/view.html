@@ -159,7 +159,7 @@
     <div class="image-holder">
         <div class="easel">
             <div class="easel__canvas" ng:if="!cropKey">
-                <img class="easel__image easel__image--with-space"
+                <img class="easel__image"
                      ng:src="{{image.data.source | assetFile}}"
                      ui:drag-data="{{imageSync | asImageDragData}}" />
             </div>
@@ -174,7 +174,7 @@
                    ui:sref="{crop: cropKey}"
                    ui:drag-data="{{imageSync | asImageAndCropsDragData:crop}}"
                    ui:drag-image="{{extremeAssets.smallest | assetFile}}">
-                    <img class="easel__image easel__image--with-space" ng:src="{{extremeAssets.largest | assetFile}}" />
+                    <img class="easel__image" ng:src="{{extremeAssets.largest | assetFile}}" />
                 </a>
             </div>
         </div>
