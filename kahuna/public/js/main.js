@@ -90,19 +90,29 @@ kahuna.factory('getEntity', ['$q', function($q) {
 kahuna.run(['$rootScope', '$window', '$q', 'getEntity',
             function($rootScope, $window, $q, getEntity) {
 
+    // Note: we target all domains because we don't know who
+    // may be embedding us.
+    var postMessage = message => $window.parent.postMessage(message, '*');
+    var cropMessage = (image, crop) => { image, crop };
+
+    // These interfaces are used when the app is embedded as an iframe
+    $rootScope.$on('events:crop-selected', (_, params) => {
+        getEntity(params.image).then(imageEntity => {
+            // FIXME: `crop.data` is set as the cropper API doesn't return
+            // resources and this is the structure composer expects
+            var message = cropMessage(imageEntity, { data: params.crop });
+
+            postMessage(message);
+        });
+    });
+
     $rootScope.$on('events:crop-created', (_, params) => {
         var syncImage = getEntity(params.image);
         var syncCrop  = getEntity(params.crop);
         $q.all([syncImage, syncCrop]).then(([imageEntity, cropEntity]) => {
-            // This interface is used when the app is embedded as an iframe
-            var message = {
-                image: imageEntity,
-                crop:  cropEntity
-            };
+            var message = cropMessage(image, crop);
 
-            // Note: we target all domains because we don't know who
-            // may be embedding us.
-            $window.parent.postMessage(message, '*');
+            postMessage(message);
         });
     });
 }]);

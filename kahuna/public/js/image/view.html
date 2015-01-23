@@ -94,8 +94,8 @@
             <div class="image-info__group">
                 <button class="metadata-reveal"
                         ng:click="metadataExpanded = !metadataExpanded">
-                    <span ng:hide="metadataExpanded">⯆ Show</span>
-                    <span ng:show="metadataExpanded">⯅ Hide</span>
+                    <span ng:hide="metadataExpanded">▸ Show</span>
+                    <span ng:show="metadataExpanded">▾ Hide</span>
                     full metadata
                 </button>
 
@@ -129,6 +129,7 @@
                             ng:repeat="crop in crops">
                             <a draggable="true"
                                ng:init="extremeAssets = (crop | getExtremeAssets)"
+                               ng:click="cropSelected(crop)"
                                ui:sref="{crop: crop.id}"
                                ui:drag-data="{{imageSync | asImageAndCropsDragData:crop}}"
                                ui:drag-image="{{extremeAssets.smallest | assetFile}}">
