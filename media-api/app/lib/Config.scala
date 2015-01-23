@@ -55,4 +55,7 @@ object Config extends CommonPlayAppConfig with CommonPlayAppProperties {
     "Community Newswire", "THE RONALD GRANT ARCHIVE", "NPA ROTA", "Ronald Grant Archive", "PA WIRE", "AP POOL",
     "REUTER", "dpa", "BBC", "Allstar Picture Library", "AFP/Getty Images", "AAPIMAGE")
 
+  // TODO: move to config
+  val queriableIdentifiers = Seq("picdarUrn")
+
 }
