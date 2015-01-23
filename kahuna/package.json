@@ -4,7 +4,7 @@
       "baseURL": "public"
     },
     "dependencies": {
-      "angular": "1.3.5",
+      "angular": "1.3.10",
       "angular-ui-router": "0.2.13",
       "css": "^0.1.0",
       "github:tapmodo/Jcrop": "0.9.12",
