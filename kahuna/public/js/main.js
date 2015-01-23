@@ -93,7 +93,7 @@ kahuna.run(['$rootScope', '$window', '$q', 'getEntity',
     // Note: we target all domains because we don't know who
     // may be embedding us.
     var postMessage = message => $window.parent.postMessage(message, '*');
-    var cropMessage = (image, crop) => { image, crop };
+    var cropMessage = function(image, crop) {return { image, crop };};
 
     // These interfaces are used when the app is embedded as an iframe
     $rootScope.$on('events:crop-selected', (_, params) => {
@@ -110,7 +110,7 @@ kahuna.run(['$rootScope', '$window', '$q', 'getEntity',
         var syncImage = getEntity(params.image);
         var syncCrop  = getEntity(params.crop);
         $q.all([syncImage, syncCrop]).then(([imageEntity, cropEntity]) => {
-            var message = cropMessage(image, crop);
+            var message = cropMessage(imageEntity, cropEntity);
 
             postMessage(message);
         });
