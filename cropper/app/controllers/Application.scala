@@ -65,7 +65,12 @@ object Application extends Controller with ArgoHelpers {
 
   def getCrops(id: String) = Authenticated.async { req =>
     CropStorage.listCrops(id) map (_.toList) map { crops =>
-      val all = crops.map { case (source, sizings) => cropResponse(Crop(getCropId(source.bounds), source, sizings)) }
+      val all = crops.map { case (source, sizings) =>
+        Json.obj(
+          "uri" -> source.uri,
+          "data" -> cropResponse(Crop(getCropId(source.bounds), source, sizings))
+        )
+      }
 
       val links = for {
         (firstCropSource, _) <- crops.headOption

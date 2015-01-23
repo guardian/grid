@@ -17,7 +17,7 @@ image.controller('ImageCtrl',
 
         mediaCropper.getCropsFor(image).then(crops => {
            $scope.crops = crops;
-           $scope.crop = crops.data.find(crop => crop.id === $scope.cropKey);
+           $scope.crop = crops.data.find(crop => crop.data.id === $scope.cropKey);
         });
     });
 
@@ -35,5 +35,5 @@ image.controller('ImageCtrl',
             image: $scope.image,
             crop: crop
         });
-    }
+    };
 }]);
