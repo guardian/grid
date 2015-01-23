@@ -19,7 +19,8 @@ System.config({
     "pandular": "npm:pandular@0.1.3",
     "raven-js": "github:getsentry/raven-js@1.1.16",
     "text": "github:systemjs/plugin-text@0.0.2",
-    "theseus": "npm:theseus@0.1.4",
+    "theseus": "npm:theseus@0.2.0",
+    "theseus-angular": "npm:theseus-angular@0.2.2",
     "ua-parser-js": "npm:ua-parser-js@0.7.3",
     "github:angular-ui/ui-router@0.2.13": {
       "angular": "github:angular/bower-angular@1.3.5"
@@ -36,6 +37,12 @@ System.config({
     },
     "github:jspm/nodelibs-util@0.1.0": {
       "util": "npm:util@0.10.3"
+    },
+    "npm:any-http-angular@0.1.0": {
+      "angular": "github:angular/bower-angular@1.3.10"
+    },
+    "npm:any-promise-angular@0.1.1": {
+      "angular": "github:angular/bower-angular@1.3.10"
     },
     "npm:assert@1.3.0": {
       "util": "npm:util@0.10.3"
@@ -59,9 +66,13 @@ System.config({
       "process": "github:jspm/nodelibs-process@0.1.0",
       "systemjs-json": "github:systemjs/plugin-json@0.1.0"
     },
-    "npm:theseus@0.1.4": {
-      "jquery": "npm:jquery@2.1.3",
-      "reqwest": "npm:reqwest@1.1.5",
+    "npm:theseus-angular@0.2.2": {
+      "angular": "github:angular/bower-angular@1.3.10",
+      "any-http-angular": "npm:any-http-angular@0.1.0",
+      "any-promise-angular": "npm:any-promise-angular@0.1.1",
+      "theseus": "npm:theseus@0.2.0"
+    },
+    "npm:theseus@0.2.0": {
       "uri-templates": "npm:uri-templates@0.1.5"
     },
     "npm:ua-parser-js@0.7.3": {
