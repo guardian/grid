@@ -4,7 +4,7 @@
       "baseURL": "public"
     },
     "dependencies": {
-      "angular": "1.3.5",
+      "angular": "1.3.10",
       "angular-ui-router": "0.2.13",
       "css": "^0.1.0",
       "github:tapmodo/Jcrop": "0.9.12",
@@ -14,7 +14,8 @@
       "pandular": "npm:pandular@~0.1.3",
       "raven-js": "1.1.16",
       "text": "^0.0.2",
-      "theseus": "0.1.4",
+      "theseus": "~0.2.0",
+      "theseus-angular": "npm:theseus-angular@^0.2.2",
       "ua-parser-js": "0.7.3"
     }
   },
