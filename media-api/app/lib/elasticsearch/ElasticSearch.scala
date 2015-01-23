@@ -1,14 +1,18 @@
 package lib.elasticsearch
 
-import scala.concurrent.{ExecutionContext, Future}
+import org.elasticsearch.search.aggregations.bucket.terms.StringTerms
 
-import play.api.libs.json.JsValue
+import scala.concurrent.{ExecutionContext, Future}
+import scala.collection.JavaConversions._
+
+import play.api.libs.json.{Json, JsValue}
 import org.elasticsearch.action.get.GetRequestBuilder
-import org.elasticsearch.action.search.SearchRequestBuilder
+import org.elasticsearch.action.search.{SearchResponse, SearchRequestBuilder}
 import org.elasticsearch.index.query.{FilterBuilders, FilterBuilder}
-import org.elasticsearch.index.query.QueryBuilders._
+import org.elasticsearch.index.query.QueryBuilders.{multiMatchQuery, matchAllQuery, prefixQuery}
 import org.elasticsearch.index.query.MatchQueryBuilder.Operator
 import org.elasticsearch.search.sort.SortOrder
+import org.elasticsearch.search.aggregations.AggregationBuilders
 import org.joda.time.DateTime
 
 import scalaz.syntax.id._
@@ -19,12 +23,19 @@ import scalaz.NonEmptyList
 import com.gu.mediaservice.syntax._
 import com.gu.mediaservice.lib.elasticsearch.ElasticSearchClient
 import com.gu.mediaservice.lib.formatting.printDateTime
-import controllers.SearchParams
+import controllers.{SearchParams, MetadataSearchParams}
 import lib.{MediaApiMetrics, Config}
 
 
 case class SearchResults(hits: Seq[(ElasticSearch.Id, JsValue)], total: Long)
 
+case class MetadataSearchResults(results: Seq[BucketResult], total: Long)
+
+object BucketResult {
+  implicit val jsonWrites = Json.writes[BucketResult]
+}
+
+case class BucketResult(key: String, count: Long)
 
 object ElasticSearch extends ElasticSearchClient {
 
@@ -80,17 +91,37 @@ object ElasticSearch extends ElasticSearchClient {
     val search = prepareImagesSearch.setQuery(query).setPostFilter(filter) |>
                  sorts.parseFromRequest(params.orderBy)
 
-    search
-      .setFrom(params.offset)
-      .setSize(params.length)
-      .executeAndLog("image search")
-      .toMetric(searchQueries)(_.getTookInMillis)
+    getResults("image search", search, params.offset, params.length)
       .map(_.getHits)
-      .map { resultsHits =>
-        val hitsTuples = resultsHits.hits.toList flatMap (h => h.sourceOpt map (h.id -> _))
-        SearchResults(hitsTuples, resultsHits.getTotalHits)
+      .map { results =>
+        val hitsTuples = results.hits.toList flatMap (h => h.sourceOpt map (h.id -> _))
+        SearchResults(hitsTuples, results.getTotalHits)
       }
   }
+
+  def metadataSearch(params: MetadataSearchParams)(implicit ex: ExecutionContext): Future[MetadataSearchResults] = {
+    val field = metadataField(params.field)
+    val aggName = params.field
+    val search = prepareImagesSearch
+                   .setQuery(prefixQuery(field, params.q.getOrElse("")))
+                   .addAggregation(AggregationBuilders.terms(aggName).field(field))
+
+    getResults("metadata search", search, 0, 0).map{ response =>
+      val buckets = response.getAggregations.getAsMap.get(aggName).asInstanceOf[StringTerms].getBuckets
+      val results = buckets.toList map (s => BucketResult(s.getKey, s.getDocCount))
+
+      MetadataSearchResults(results, buckets.size)
+    }
+  }
+
+  def getResults(name: String, search: SearchRequestBuilder, offset: Int, length: Int)
+                (implicit ex: ExecutionContext): Future[SearchResponse] =
+    search
+      .setFrom(offset)
+      .setSize(length)
+      .executeAndLog(name)
+      .toMetric(searchQueries)(_.getTookInMillis)
+
 
   def metadataField(field: String) = s"metadata.$field"
 

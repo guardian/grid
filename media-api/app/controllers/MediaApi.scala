@@ -9,7 +9,7 @@ import play.api.libs.concurrent.Execution.Implicits._
 import play.api.libs.json._
 import org.joda.time.{DateTime, Duration}
 
-import lib.elasticsearch.{ElasticSearch, SearchResults}
+import lib.elasticsearch.{MetadataSearchResults, ElasticSearch, SearchResults}
 import lib.{Notifications, Config, S3Client}
 import com.gu.mediaservice.lib.auth
 import com.gu.mediaservice.lib.auth.KeyStore
@@ -31,14 +31,15 @@ object MediaApi extends Controller with ArgoHelpers {
 
   def index = Action {
     val searchParams = List("q", "ids", "offset", "length", "fromDate", "toDate",
-                            "orderBy", "since", "until", "uploadedBy", "archived",
-                            "valid", "free", "hasExports",
-                            "hasIdentifier", "missingIdentifier").mkString(",")
+      "orderBy", "since", "until", "uploadedBy", "archived", "valid", "free",
+      "hasExports", "hasIdentifier", "missingIdentifier", "hasMetadata").mkString(",")
+
     val response = Json.obj(
       "data"  -> Json.obj("description" -> "This is the Media API"),
       "links" -> Json.arr(
         Json.obj("rel" -> "search", "href" -> s"$rootUri/images{?$searchParams}"),
         Json.obj("rel" -> "image",  "href" -> s"$rootUri/images/{id}"),
+        Json.obj("rel" -> "metadata-search", "href" -> s"$rootUri/metadata/{field}{?q}"),
         Json.obj("rel" -> "cropper", "href" -> cropperUri),
         Json.obj("rel" -> "loader", "href" -> loaderUri),
         Json.obj("rel" -> "metadata", "href" -> metadataUri),
@@ -141,7 +142,18 @@ object MediaApi extends Controller with ArgoHelpers {
   def roundDateTime(t: DateTime, d: Duration) = {
     t minus (t.getMillis - (t.getMillis.toDouble / d.getMillis).round * d.getMillis)
   }
+
+  def metadataSearch(field: String, q: Option[String]) = Authenticated.async { request =>
+    ElasticSearch.metadataSearch(MetadataSearchParams(field, q)) map { case MetadataSearchResults(results, total) =>
+      // TODO: Add some useful links
+      Ok(Json.obj(
+        "length"-> total,
+        "data" -> Json.toJson(results)
+      )).as(ArgoMediaType)
+    }
+  }
 }
+
 
 case class GeneralParams(showSecureUrl: Boolean)
 
@@ -198,6 +210,8 @@ object SearchParams {
   }
 
 }
+
+case class MetadataSearchParams(field: String, q: Option[String])
 
 // Default to pay for now
 object ImageExtras {
