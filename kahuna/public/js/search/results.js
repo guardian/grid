@@ -4,8 +4,8 @@ export var results = angular.module('kahuna.search.results', []);
 
 // TODO: use Ctrl as ctrl syntax
 results.controller('SearchResultsCtrl',
-                  ['$scope', '$state', '$stateParams', '$timeout', 'mediaApi',
-                   function($scope, $state, $stateParams, $timeout, mediaApi) {
+                  ['$scope', '$state', '$stateParams', '$window', '$timeout', 'mediaApi',
+                   function($scope, $state, $stateParams, $window, $timeout, mediaApi) {
 
     $scope.images = [];
 
@@ -79,13 +79,13 @@ results.controller('SearchResultsCtrl',
         return image.data.uploadTime <= seenSince;
     };
 
-    $scope.$watch(() => localStorage.getItem(lastSeenKey), function() {
+    $scope.$watch(() => $window.localStorage.getItem(lastSeenKey), function() {
         seenSince = getSeenSince();
     });
 
     // TODO: Move this into localstore service
     function getSeenSince() {
-       return JSON.parse(localStorage.getItem(lastSeenKey) || '{}')[getQueryKey()];
+       return JSON.parse($window.localStorage.getItem(lastSeenKey) || '{}')[getQueryKey()];
     }
 
     $scope.$watch('nearBottom', function(nearBottom) {

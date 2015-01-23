@@ -1,4 +1,3 @@
-import angular from 'angular';
 import jQuery from 'jquery';
 import 'jcrop';
 
@@ -44,7 +43,7 @@ controlsDirectives.directive('uiCropBox', ['$timeout', '$parse', 'safeApply', 'n
             bgColor:        '=uiCropBoxBackgroundColor',
             bgOpacity:      '=uiCropBoxBackgroundOpacity'
         },
-        link: function (scope, element, attrs, ctrl) {
+        link: function (scope, element) {
             var jcropInstance;
             var $el = jQuery(element[0]);
 

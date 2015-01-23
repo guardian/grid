@@ -59,7 +59,7 @@ async.factory('poll',
         var timeout = delay(maxWait).then(() => { throw new Error('timeout'); });
 
         function pollRecursive() {
-            return func().catch(error => {
+            return func().catch(() => {
                 return delay(pollEvery).then(pollRecursive);
             });
         }

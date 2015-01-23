@@ -84,6 +84,21 @@ textarea {
     border: 1px solid #999;
 }
 
+/* annoyingly we have to have these seperate as the moz-placeholder breaks the
+Chrome selector */
+input[disabled],
+textarea[disabled] {
+    color: #666;
+}
+input:disabled::-webkit-input-placeholder,
+textarea:disabled::-webkit-input-placeholder {
+    color: #666;
+}
+input:disabled::-moz-placeholder,
+textarea:disabled::-moz-placeholder {
+    color: #666;
+}
+
 button {
     border: 0;
     background: transparent;
@@ -220,6 +235,16 @@ a:focus {
     color: inherit;
 }
 
+
+/* ==========================================================================
+   Errors
+   ========================================================================== */
+.error {
+    background: darkred;
+    color: white;
+    padding: 10px;
+    font-family: "Guardian Agate Sans", "Arial";
+}
 
 /* ==========================================================================
    Search
@@ -438,17 +463,12 @@ a:focus {
 
 .easel__image {
     display: block;
-    max-height: calc(100vh - 48px); /* viewport - top-bar */
-    max-width: 100%;
     margin: 0 auto;
     position: relative;
     top: 50%;
     transform: translateY(-50%);
-}
-.easel__image--with-space {
-    max-width: calc(100% -  20px);
+    max-width: calc(100% - 20px); /* 20px here for padding */
     max-height: calc(100vh - 68px);
-    padding: 20px;
 }
 
 .image-details {
@@ -456,10 +476,11 @@ a:focus {
     float: right;
     font-family: "Guardian Agate Sans 1 Web";
     font-size: 1.4rem;
-    max-height: 100vh;
+    height: calc(100vh - 48px); /* viewport - top-bar */
     padding: 10px 10px;
     overflow: auto;
     width: 300px;
+    border-left: 1px solid #222;
 }
 .image-details:after {
     clear: both;
@@ -468,7 +489,7 @@ a:focus {
 }
 
 .image-holder {
-    margin-right: 310px;
+    margin-right: 300px;
 }
 
 .image-info {
@@ -652,6 +673,7 @@ a:focus {
     vertical-align: top;
     padding: 20px 30px 20px;
     border-bottom: 1px dashed #ccc;
+    position: relative;
 }
 
 .job-info--thumbnail {
@@ -691,8 +713,18 @@ a:focus {
     height: 4em;
 
     /* FIXME: Horrible hack to reclaim vertical space caused by the
-       element not being display:block.  CSS *sigh*. */
+       element not being display:block.  CSS sigh. */
     margin-bottom: -7px;
+}
+
+.job-edit-disabler {
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, .75);
+    position: absolute;
+    left: 0;
+    top: 0;
+    z-index: 1;
 }
 
 .job-editor:after {
@@ -701,14 +733,12 @@ a:focus {
     display: table;
 }
 
-.job-editor__inputs,
 .job-editor__buttons {
-    float: left;
-    margin-right: 20px;
+    text-align: right;
 }
 
 .job-editor__button {
-    display: block;
+    display: inline-block;
     margin-bottom: 5px;
 }
 
@@ -732,6 +762,16 @@ a:focus {
     float: right;
 }
 
+.metadata-applicator {
+    font-size: 1.4rem;
+    font-family: "Guardian Agate Sans 1 Web";
+    text-align: right;
+}
+
+.metadata-applicator__button {
+    font-weight: bold;
+    text-decoration: underline;
+}
 
 /* ==========================================================================
    jCrop
