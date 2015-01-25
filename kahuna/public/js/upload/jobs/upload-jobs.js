@@ -24,10 +24,9 @@ jobs.controller('UploadJobsCtrl',
             jobItem.resource = resource;
 
             // TODO: grouped polling for all resources whe're interested in?
-            // TODO: update theseus so getResponse isn't needed
-            var findImage = () => resource.get().getResponse();
-            var imageResponse = poll(findImage, pollFrequency, pollTimeout);
-            imageResponse.then(image => {
+            var findImage = () => resource.get();
+            var imageResource = poll(findImage, pollFrequency, pollTimeout);
+            imageResource.then(image => {
                 jobItem.status = image.data.valid ? 'ready' : 'invalid';
                 jobItem.image = image;
                 jobItem.thumbnail = image.data.thumbnail;
@@ -77,8 +76,7 @@ jobs.controller('UploadJobsCtrl',
             }
         }
 
-        // TODO: update theseus so getResponse isn't needed
-        var apiSynced = () => jobItem.resource.get().getResponse().then(matchesMetadata);
+        var apiSynced = () => jobItem.resource.get().then(matchesMetadata);
 
         var waitIndexed = poll(apiSynced, pollFrequency, pollTimeout);
         waitIndexed.then(image => {

@@ -10,7 +10,7 @@ apiServices.factory('editsApi', ['$q', 'mediaApi', function($q, mediaApi) {
     }
 
     function getEdits(id) {
-        return getRoot().follow('metadata', { id }).getResponse();
+        return getRoot().follow('metadata', { id }).get();
     }
 
     function getMetadata(id) {

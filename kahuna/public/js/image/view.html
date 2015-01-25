@@ -131,7 +131,7 @@
                                ng:init="extremeAssets = (crop | getExtremeAssets)"
                                ng:click="cropSelected(crop)"
                                ui:sref="{crop: crop.id}"
-                               ui:drag-data="{{imageSync | asImageAndCropsDragData:crop}}"
+                               ui:drag-data="{{image | asImageAndCropsDragData:crop}}"
                                ui:drag-image="{{extremeAssets.smallest | assetFile}}">
                                 <img class="image-crop__image" ng:src="{{extremeAssets.smallest | assetFile}}" />
                             </a>
@@ -162,7 +162,7 @@
             <div class="easel__canvas" ng:if="!cropKey">
                 <img class="easel__image"
                      ng:src="{{image.data.source | assetFile}}"
-                     ui:drag-data="{{imageSync | asImageDragData}}" />
+                     ui:drag-data="{{image | asImageDragData}}" />
             </div>
 
 
@@ -173,7 +173,7 @@
                    ng:if="crop"
                    ng:init="extremeAssets = (crop | getExtremeAssets)"
                    ui:sref="{crop: cropKey}"
-                   ui:drag-data="{{imageSync | asImageAndCropsDragData:crop}}"
+                   ui:drag-data="{{image | asImageAndCropsDragData:crop}}"
                    ui:drag-image="{{extremeAssets.smallest | assetFile}}">
                     <img class="easel__image" ng:src="{{extremeAssets.largest | assetFile}}" />
                 </a>
