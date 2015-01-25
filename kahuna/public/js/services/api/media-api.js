@@ -18,12 +18,12 @@ apiServices.factory('mediaApi',
           archived:   archived,
           free:       free,
           length:     50
-        }).getResponse();
+        }).get();
     }
 
     function find(id) {
         // FIXME: or use lazy resource?
-        return root.follow('image', {id: id}).getResponse();
+        return root.follow('image', {id: id}).get();
     }
 
     function getSession() {
