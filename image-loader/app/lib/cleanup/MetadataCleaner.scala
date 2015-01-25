@@ -10,6 +10,7 @@ object MetadataCleaner {
 
   val allCleaners = List(
     CleanRubbishLocation,
+    StripCopyrightPrefix,
     CountryCode,
     CapitaliseByline,
     CapitaliseCountry,
