@@ -9,7 +9,7 @@ trait MetadataCleaner {
 object MetadataCleaner {
 
   val allCleaners = List(
-    CleanRubbishCountry,
+    CleanRubbishLocation,
     CountryCode,
     CapitaliseByline,
     CapitaliseCountry,
@@ -44,4 +44,3 @@ object MetadataCleaner {
 // TODO: add more location metadata (Province/State, Sub-location, etc.)
 
 // TODO: artist (vs byline)?
-
