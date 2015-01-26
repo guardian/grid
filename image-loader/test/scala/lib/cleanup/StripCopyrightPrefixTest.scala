@@ -29,6 +29,24 @@ class StripCopyrightPrefixTest extends FunSpec with Matchers with MetadataHelper
     cleanedMetadata.copyright should be (Some("Acme Corporation"))
   }
 
+  it("should strip lowercase copyright prefix") {
+    val metadata = createImageMetadata("copyright" -> "copyright Acme Corporation")
+    val cleanedMetadata = StripCopyrightPrefix.clean(metadata)
+    cleanedMetadata.copyright should be (Some("Acme Corporation"))
+  }
+
+  it("should strip Copyright of prefix") {
+    val metadata = createImageMetadata("copyright" -> "Copyright of Acme Corporation")
+    val cleanedMetadata = StripCopyrightPrefix.clean(metadata)
+    cleanedMetadata.copyright should be (Some("Acme Corporation"))
+  }
+
+  it("should strip copyright followed by colon prefix") {
+    val metadata = createImageMetadata("copyright" -> "Copyright : Acme Corporation")
+    val cleanedMetadata = StripCopyrightPrefix.clean(metadata)
+    cleanedMetadata.copyright should be (Some("Acme Corporation"))
+  }
+
   it("should strip any (c) prefix") {
     val metadata = createImageMetadata("copyright" -> "(c) Acme Corporation")
     val cleanedMetadata = StripCopyrightPrefix.clean(metadata)
