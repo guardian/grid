@@ -82,7 +82,7 @@ jobs.controller('UploadJobsCtrl',
 
         var waitIndexed = poll(apiSynced, pollFrequency, pollTimeout);
         waitIndexed.then(image => {
-            jobItem.image.data.metadata = image.data.metadata;
+            jobItem.image = image;
             jobItem.status = image.data.valid ? 'ready' : 'invalid';
         }).finally(() => jobItem.busy = false);
     }
