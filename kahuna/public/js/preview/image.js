@@ -1,10 +1,10 @@
 import angular from 'angular';
 
-import template from './preview.html!text';
+import template from './image.html!text';
 
-export var preview = angular.module('kahuna.image.preview', []);
+export var image = angular.module('kahuna.preview.image', []);
 
-preview.directive('uiPreview', function() {
+image.directive('uiPreviewImage', function() {
     return {
         restrict: 'E',
         scope: {

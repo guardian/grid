@@ -4,7 +4,7 @@ HTML in the cells e.g. `.job-edit-disabler` -->
     <tbody>
         <tr ng:repeat="job in jobs">
             <td class="job-info job-info--thumbnail">
-                <ui-preview ng:if="job.image"
+                <ui-preview-image ng:if="job.image"
                             image="job.image"
                             hide-info="true"></ui-preview>
             </td>
