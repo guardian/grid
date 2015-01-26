@@ -26,7 +26,12 @@
             ui:forget-window-scroll="searched">
             <li class="result"
                 ng:repeat="image in images"
-                ng:class="{ 'image-result--seen': imageHasBeenSeen(image) }">
+                ng:class="{ 'result--seen': imageHasBeenSeen(image) }">
+                <button class="mark-as-seen"
+                    title="Mark all images until this point as seen"
+                    ui:localstore="search.seenFrom"
+                    ui:localstore-val="getLastSeenVal(image)">☑</button>
+
                 <ui-preview image="image"></ui-preview>
             </li>
         </ul>
