@@ -1,0 +1,24 @@
+<div class="preview">
+    <a class="preview__link"
+       ui:sref="image({imageId: ctrl.image.data.id})">
+       <img class="preview__image"
+            ng:src="{{ctrl.image.data.thumbnail | assetFile}}" />
+    </a>
+
+    <p class="preview__description" ng:if="! ctrl.abbr"></p>
+
+    <div class="preview__bottom-bar bottom-bar">
+        <div class="bottom-bar__meta"></div>
+        <div class="bottom-bar__actions">
+            <a class="bottom-bar__action"
+               title="crop"
+               ng:if="ctrl.image.data.valid"
+               ui:sref="crop({ imageId: ctrl.image.data.id })">✂</a>
+
+            <ui-archiver class="bottom-bar__action"
+                         archived="ctrl.image.data.userMetadata.data.archived"></ui-archiver>
+
+            <div class="bottom-bar__action cost cost--{{ctrl.image.data.cost}}">{{ctrl.image.data.cost}}</div>
+        </div>
+    </div>
+</div>
