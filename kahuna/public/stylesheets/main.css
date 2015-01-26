@@ -140,15 +140,16 @@ a:focus {
     color: #ccc;
 }
 
-.button--shy {
+.button-shy {
     padding: 2px 5px;
     color: #ccc;
     background: transparent;
     box-shadow: 0 2px #888;
     border: 1px solid #888;
     border-bottom: 0;
+    font-size: inherit;
 }
-.button--shy:not([disabled]):hover {
+.button-shy:not([disabled]):hover {
     background: #888;
 }
 
@@ -294,7 +295,7 @@ a:focus {
 .results-controls {
     background: white;
     padding: 10px;
-    box-shadow: 0px 1px 5px #999;
+    box-shadow: 0 1px 5px #999;
 }
 
 .results__control {
@@ -302,103 +303,28 @@ a:focus {
     margin-right: 5px;
 }
 
-.image-result {
+.result {
+    display: flex;
+    flex: 1;
     width: 20%;
     min-width: 200px;
     max-width: 270px;
-    flex: 1;
-    background: #393939; /* from NGW galleries... */
     margin: 10px 5px;
+    background: #393939;
     position: relative;
-    padding-bottom: 65px;
 }
-.image-result--seen {
+.result--seen {
     opacity: .5;
 }
 
-.image-results__popout {
+.mark-as-seen {
     position: absolute;
-    top: 0;
-    right: 0;
-    background: rgba(0, 0, 0, .5);
-    color: white;
-    display: none;
-    line-height: 18px;
-    width: 18px;
-    text-align: center;
-    font-size: 1.2rem;
-}
-
-.image-result:hover .image-results__popout {
-    display: block;
-}
-
-.image-result__link {
-    color: inherit;
-    display: block;
-    text-align: center;
-}
-
-.image-result__image {
-    max-height: 200px;
-    max-width: 100%;
-    display: block;
-    margin: 0 auto;
-}
-
-.image-result__caption {
-    box-sizing: border-box;
-    bottom: 30px;
-    cursor: help;
-    font-size: 1.2rem;
-    overflow: hidden;
-    padding: 10px;
-    position: absolute;
-    text-align: left;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    width: 100%;
-}
-
-.image-result__meta {
-    bottom: 0;
-    position: absolute;
-    width: 100%;
-}
-
-.image-result__labels {
-    padding-left: 10px;
-    font-size: 1.2rem;
-}
-
-.uploaded-time {
-    font-size: 1.4rem;
-    font-weight: bold;
-    padding-left: 10px;
-}
-
-.image-result__bottom-bar {
-    display: flex;
-}
-
-.result-meta {
-    flex: 1;
-}
-
-.result-actions {
+    z-index: 2;
+    bottom: 3px;
+    right: 80px;
     color: #aaa;
-}
-
-.result-action {
-    color: inherit;
-    display: inline-block;
-}
-
-.uploaded-date {
-    color: #aaa;
-    padding-left: 15px;
-    font-weight: normal;
-    font-size: 1.2rem;
+    font-size: 1.6rem;
+    /* TODO: this position is a bit of a hack. Find a better place for it */
 }
 
 .cost {
@@ -440,6 +366,86 @@ a:focus {
 
 .image-loading-results {
     color: #999;
+}
+
+/* ==========================================================================
+   Preview
+   ========================================================================== */
+.preview {
+    background: #393939;
+    position: relative;
+}
+
+.preview__popout {
+    position: absolute;
+    top: 0;
+    right: 0;
+    background: rgba(0, 0, 0, .5);
+    color: white;
+    display: none;
+    line-height: 18px;
+    width: 18px;
+    text-align: center;
+    font-size: 1.2rem;
+}
+
+.preview:hover .preview__popout {
+    display: block;
+}
+
+.preview__link {
+    display: block;
+    height: 200px;
+}
+
+.preview__image {
+    display: block;
+    max-height: 200px;
+    max-width: 100%;
+    margin: 0 auto;
+}
+
+.preview__info {
+    font-size: 1.2rem;
+    padding-left: 10px;
+    margin: 5px 0;
+}
+
+.preview__description {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    margin: 0;
+}
+
+.preview__upload-date {
+    font-weight: bold;
+    margin-right: 10px;
+}
+
+.preview__upload-time {
+    font-size: 1.2rem;
+    color: #999;
+}
+
+.preview__bottom-bar {
+    font-size: 1.4rem;
+}
+
+.bottom-bar {
+    display: flex;
+}
+.bottom-bar__meta {
+    flex: 1;
+    padding-left: 10px;
+}
+.bottom-bar__actions {
+    color: #aaa;
+    font-size: 1.6rem;
+}
+.bottom-bar__action {
+    color: inherit;
+    display: inline-block;
 }
 
 /* ==========================================================================
@@ -601,12 +607,12 @@ a:focus {
    Labeller
    ========================================================================== */
 .labeller {
-    font-size: 1.4rem;
     font-family: "Guardian Agate Sans 1 Web";
 }
 
 .labels {
     display: inline-block;
+    font-size: 1.2rem;
 }
 
 .label {
@@ -678,8 +684,10 @@ a:focus {
 
 .job-info--thumbnail {
     /* reserve space */
-    width: 150px;
+    width: 200px;
     max-height: 150px;
+    padding-left: 0;
+    padding-right: 0;
 }
 .job-info--thumbnail__image {
     max-width: 100%;
@@ -747,6 +755,7 @@ a:focus {
     border: 1px solid #ccc;
     padding: 5px;
     border-radius: 2px;
+    font-size: 1.4rem;
 }
 .job-labels:after {
     clear: both;
