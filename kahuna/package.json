@@ -25,7 +25,9 @@
   },
   "scripts": {
     "test": "npm run lint",
-    "lint": "jshint public/js --exclude public/js/dist/build.js"
+    "lint": "jshint public/js --exclude public/js/dist/build.js",
+    "dist": "jspm bundle js/main public/js/dist/build.js -m --inject",
+    "undist": "jspm unbundle"
   },
   "repository": {
     "type": "git",
