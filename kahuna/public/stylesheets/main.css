@@ -140,15 +140,16 @@ a:focus {
     color: #ccc;
 }
 
-.button--shy {
+.button-shy {
     padding: 2px 5px;
     color: #ccc;
     background: transparent;
     box-shadow: 0 2px #888;
     border: 1px solid #888;
     border-bottom: 0;
+    font-size: inherit;
 }
-.button--shy:not([disabled]):hover {
+.button-shy:not([disabled]):hover {
     background: #888;
 }
 
@@ -440,6 +441,32 @@ a:focus {
 
 .image-loading-results {
     color: #999;
+}
+
+.preview {
+    background: #393939;
+}
+.preview__link {
+    display: block;
+}
+.preview__image {
+    display: block;
+}
+.preview__description {}
+.preview__bottom-bar {}
+
+.bottom-bar {
+    display: flex;
+}
+.bottom-bar__meta {
+    flex: 1;
+}
+.bottom-bar__actions {
+    color: #aaa;
+}
+.bottom-bar__action {
+    color: inherit;
+    display: inline-block;
 }
 
 /* ==========================================================================
@@ -747,6 +774,7 @@ a:focus {
     border: 1px solid #ccc;
     padding: 5px;
     border-radius: 2px;
+    font-size: 1.4rem;
 }
 .job-labels:after {
     clear: both;
