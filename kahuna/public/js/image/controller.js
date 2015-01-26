@@ -13,9 +13,6 @@ image.controller('ImageCtrl',
     mediaApi.find(imageId).then(image => {
         $scope.image = image;
 
-        // FIXME: we need not to use imageSync but find a way to use the promised URI
-        image.uri.then(uri => $scope.imageSync = {uri: uri, data: image.data});
-
         mediaCropper.getCropsFor(image).then(crops => {
            $scope.crops = crops;
            $scope.crop = crops.find(crop => crop.id === $scope.cropKey);
