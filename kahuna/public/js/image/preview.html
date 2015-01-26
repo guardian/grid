@@ -1,4 +1,9 @@
 <div class="preview">
+    <a class="preview__popout"
+        target="_blank"
+        title="Pop out"
+        ng:href="/images/{{image.data.id}}">◹</a>
+
     <a class="preview__link"
        ui:sref="image({imageId: ctrl.image.data.id})">
        <img class="preview__image"
