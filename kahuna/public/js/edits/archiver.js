@@ -21,9 +21,9 @@ archiver.controller('ArchiverCtrl', ['$scope', '$window',
         // update `ctrl.archived` with.
         ctrl.archived
             .put({ data: setVal })
-            .response.then(
-                resp => ctrl.isArchived = resp.body.data,
-                ()   => $window.alert('Failed to save the changes, please try again.')
+            .then(
+                res => ctrl.isArchived = res.data,
+                ()  => $window.alert('Failed to save the changes, please try again.')
             ).finally(() => ctrl.archiving = false);
     }
 }]);
