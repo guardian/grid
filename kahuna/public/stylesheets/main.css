@@ -295,7 +295,7 @@ a:focus {
 .results-controls {
     background: white;
     padding: 10px;
-    box-shadow: 0px 1px 5px #999;
+    box-shadow: 0 1px 5px #999;
 }
 
 .results__control {
@@ -311,6 +311,20 @@ a:focus {
     max-width: 270px;
     margin: 10px 5px;
     background: #393939;
+    position: relative;
+}
+.result--seen {
+    opacity: .5;
+}
+
+.mark-as-seen {
+    position: absolute;
+    z-index: 2;
+    bottom: 3px;
+    right: 80px;
+    color: #aaa;
+    font-size: 1.6rem;
+    /* TODO: this position is a bit of a hack. Find a better place for it */
 }
 
 .cost {
@@ -354,6 +368,9 @@ a:focus {
     color: #999;
 }
 
+/* ==========================================================================
+   Preview
+   ========================================================================== */
 .preview {
     background: #393939;
     position: relative;
@@ -388,10 +405,14 @@ a:focus {
     margin: 0 auto;
 }
 
-.preview__description {
+.preview__info {
     font-size: 1.2rem;
+    padding-left: 10px;
+    margin: 5px 0;
+}
+
+.preview__description {
     overflow: hidden;
-    padding: 10px;
     text-overflow: ellipsis;
     white-space: nowrap;
     margin: 0;
@@ -420,6 +441,7 @@ a:focus {
 }
 .bottom-bar__actions {
     color: #aaa;
+    font-size: 1.6rem;
 }
 .bottom-bar__action {
     color: inherit;
@@ -585,12 +607,12 @@ a:focus {
    Labeller
    ========================================================================== */
 .labeller {
-    font-size: 1.4rem;
     font-family: "Guardian Agate Sans 1 Web";
 }
 
 .labels {
     display: inline-block;
+    font-size: 1.2rem;
 }
 
 .label {
@@ -662,8 +684,10 @@ a:focus {
 
 .job-info--thumbnail {
     /* reserve space */
-    width: 150px;
+    width: 200px;
     max-height: 150px;
+    padding-left: 0;
+    padding-right: 0;
 }
 .job-info--thumbnail__image {
     max-width: 100%;
