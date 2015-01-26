@@ -10,7 +10,7 @@
             ng:src="{{ctrl.image.data.thumbnail | assetFile}}" />
     </a>
 
-    <div class="preview__info" ng:if="!ctrl.hideInfo">
+    <div class="preview__info" ng:if="! ctrl.hideInfo">
         <ul class="preview__labels labels">
             <li class="label"
                 ng:repeat="label in ctrl.image.data.userMetadata.data.labels.data">
