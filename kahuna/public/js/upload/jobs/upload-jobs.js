@@ -1,7 +1,8 @@
 import angular from 'angular';
 import template from './upload-jobs.html!text';
+import preview from '../../preview/image';
 
-export var jobs = angular.module('kahuna.upload.jobs', []);
+export var jobs = angular.module('kahuna.upload.jobs', ['kahuna.preview.image']);
 
 
 jobs.controller('UploadJobsCtrl',
@@ -80,7 +81,7 @@ jobs.controller('UploadJobsCtrl',
 
         var waitIndexed = poll(apiSynced, pollFrequency, pollTimeout);
         waitIndexed.then(image => {
-            jobItem.image.data.metadata = image.data.metadata;
+            jobItem.image = image;
             jobItem.status = image.data.valid ? 'ready' : 'invalid';
         }).finally(() => jobItem.busy = false);
     }

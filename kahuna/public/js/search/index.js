@@ -2,6 +2,7 @@ import angular from 'angular';
 
 import './query';
 import './results';
+import '../preview/image'
 
 import searchTemplate        from './view.html!text';
 import searchResultsTemplate from './results.html!text';
@@ -9,7 +10,8 @@ import searchResultsTemplate from './results.html!text';
 
 export var search = angular.module('kahuna.search', [
     'kahuna.search.query',
-    'kahuna.search.results'
+    'kahuna.search.results',
+    'kahuna.preview.image'
 ]);
 
 
