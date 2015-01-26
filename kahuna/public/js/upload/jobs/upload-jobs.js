@@ -1,7 +1,8 @@
 import angular from 'angular';
 import template from './upload-jobs.html!text';
+import preview from '../../preview/image';
 
-export var jobs = angular.module('kahuna.upload.jobs', []);
+export var jobs = angular.module('kahuna.upload.jobs', ['kahuna.preview.image']);
 
 
 jobs.controller('UploadJobsCtrl',
