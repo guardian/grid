@@ -24,54 +24,10 @@
         <ul class="results"
             ui:near-bottom="whenNearBottom()"
             ui:forget-window-scroll="searched">
-            <li class="image-result"
+            <li class="result"
                 ng:repeat="image in images"
                 ng:class="{ 'image-result--seen': imageHasBeenSeen(image) }">
-                <a class="image-result__link"
-                   title="{{image.data.metadata.title}}"
-                   ng:href="/images/{{image.data.id}}"
-                   ui:drag-data="{{image | asImageDragData}}">
-                    <figure>
-                        <img class="image-result__image"
-                             ng:src="{{image.data.thumbnail | assetFile}}"/>
-                        <figcaption class="image-result__caption">{{image.data.metadata.title || image.data.metadata.description}}</figcaption>
-                    </figure>
-                </a>
-
-                <a class="image-results__popout" target="_blank" title="Pop out"
-                   ng:href="/images/{{image.data.id}}">◹</a>
-
-                <div class="image-result__meta">
-                    <ul class="image-result__labels">
-                        <li ng:repeat="label in image.data.userMetadata.data.labels.data"
-                            class="label">
-                            <a ui:sref="search.results({query: label.data})"
-                               class="label__link">{{label.data}}</a>
-                        </li>
-                    </ul>
-
-                    <div class="image-result__bottom-bar">
-                        <div class="result-meta">
-                            <span class="uploaded-time">{{image.data.uploadTime | date:'HH:mm'}}</span>
-                            <span class="uploaded-date">{{image.data.uploadTime | date:'d/M/yy'}}</span>
-                        </div>
-
-                        <div class="result-actions">
-                            <button class="result-action mark-as-seen"
-                                    title="Mark all images until this point as seen"
-                                    ui:localstore="search.seenFrom"
-                                    ui:localstore-val="getLastSeenVal(image)">☑</button>
-
-                            <a title="crop" class="result-action" ui:sref="crop({ imageId: image.data.id })">✂</a>
-
-                            <ui-archiver class="result-action"
-                                         archived="image.data.userMetadata.data.archived"></ui-archiver>
-
-                            <div class="result-action cost cost--{{image.data.cost}}">{{image.data.cost}}</div>
-                        </div>
-                    </div>
-
-                </div>
+                <ui-preview image="image"></ui-preview>
             </li>
         </ul>
     </div>

@@ -10,10 +10,13 @@
             ng:src="{{ctrl.image.data.thumbnail | assetFile}}" />
     </a>
 
-    <p class="preview__description" ng:if="! ctrl.abbr"></p>
+    <p class="preview__description" ng:if="! ctrl.abbr">{{ctrl.image.data.metadata.title || ctrl.image.data.metadata.description}}</p>
 
     <div class="preview__bottom-bar bottom-bar">
-        <div class="bottom-bar__meta"></div>
+        <div class="bottom-bar__meta">
+            <span class="preview__upload-date">{{ctrl.image.data.uploadTime | date:'d/M/yy'}}</span>
+            <span class="preview__upload-time">{{ctrl.image.data.uploadTime | date:'HH:mm'}}</span>
+        </div>
         <div class="bottom-bar__actions">
             <a class="bottom-bar__action"
                title="crop"
