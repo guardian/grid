@@ -4,11 +4,9 @@ HTML in the cells e.g. `.job-edit-disabler` -->
     <tbody>
         <tr ng:repeat="job in jobs">
             <td class="job-info job-info--thumbnail">
-                <a ui:sref="image({imageId: job.image.data.id})"
-                   ng:if="job.thumbnail">
-                    <img ng:src="{{job.thumbnail | assetFile}}"
-                         class="job-info--thumbnail__image" />
-                </a>
+                <ui-preview-image ng:if="job.image"
+                            image="job.image"
+                            hide-info="true"></ui-preview>
             </td>
             <td class="job-info job-info--file">
                 <div>

@@ -1,0 +1,46 @@
+<div class="preview">
+    <a class="preview__popout"
+        target="_blank"
+        title="Pop out"
+        ng:href="/images/{{image.data.id}}">◹</a>
+
+    <a class="preview__link"
+       ui:sref="image({imageId: image.data.id})">
+       <img class="preview__image"
+            ng:src="{{image.data.thumbnail | assetFile}}" />
+    </a>
+
+    <div class="preview__info" ng:if="! hideInfo">
+        <ul class="preview__labels labels">
+            <li class="label"
+                ng:repeat="label in image.data.userMetadata.data.labels.data">
+                <a ui:sref="search.results({query: label.data})"
+                   class="label__link">{{label.data}}</a>
+            </li>
+        </ul>
+
+        <p class="preview__description">{{image.data.metadata.title || image.data.metadata.description}}</p>
+    </div>
+
+    <div class="preview__bottom-bar bottom-bar">
+        <div class="bottom-bar__meta">
+            <span class="preview__upload-date">{{image.data.uploadTime | date:'d/M/yy'}}</span>
+            <span class="preview__upload-time">{{image.data.uploadTime | date:'HH:mm'}}</span>
+        </div>
+        <div class="bottom-bar__actions">
+            <a class="bottom-bar__action"
+               title="crop"
+               ng:if="image.data.valid"
+               ui:sref="crop({ imageId: image.data.id })">✂</a>
+
+            <ui-archiver class="bottom-bar__action"
+                         archived="image.data.userMetadata.data.archived"></ui-archiver>
+
+            <div class="bottom-bar__action">
+                <div class="cost cost--{{image.data.cost}}">
+                {{image.data.cost}}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
