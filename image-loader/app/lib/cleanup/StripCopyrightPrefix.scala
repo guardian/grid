@@ -5,7 +5,7 @@ import lib.imaging.ImageMetadata
 object StripCopyrightPrefix extends MetadataCleaner {
 
   // Prefix-match any combination of copyright (separated by whitespace)
-  val WithoutCopyrightPrefix = """(?:©|Copyright|\(c\)|\s*)*(.*)""".r
+  val WithoutCopyrightPrefix = """(?i)(?:©|Copyright(?: of)?|\(c\)|\s|:)*(.*)""".r
 
   override def clean(metadata: ImageMetadata): ImageMetadata =
     metadata.copy(
