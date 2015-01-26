@@ -146,9 +146,10 @@ kahuna.filter('getExtremeAssets', function() {
 kahuna.filter('asImageDragData', function() {
     return function(image) {
         var url = image && image.uri;
+
         if (url) {
             return {
-                'application/vnd.mediaservice.image+json': JSON.stringify(image),
+                'application/vnd.mediaservice.image+json': JSON.stringify({ data: image.data }),
                 'text/plain':    url,
                 'text/uri-list': url
             };
@@ -170,6 +171,7 @@ kahuna.filter('asImageAndCropsDragData', ['$filter',
                                           function($filter) {
     var extend = angular.extend;
     return function(image, crops) {
+
         return extend(
             $filter('asImageDragData')(image),
             $filter('asCropsDragData')(crops));
