@@ -2,7 +2,7 @@ import angular from 'angular';
 
 import './query';
 import './results';
-import '../preview/image'
+import '../preview/image';
 
 import searchTemplate        from './view.html!text';
 import searchResultsTemplate from './results.html!text';
