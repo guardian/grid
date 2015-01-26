@@ -12,7 +12,7 @@ preview.directive('uiPreview', function() {
         controller: 'PreviewCtrl as ctrl',
         scope: {
             image: '=',
-            abbr: '='
+            hideInfo: '='
         },
         bindToController: true,
         template: template
