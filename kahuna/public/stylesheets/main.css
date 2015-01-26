@@ -445,14 +445,36 @@ a:focus {
 
 .preview {
     background: #393939;
+    position: relative;
 }
+
+.preview__popout {
+    position: absolute;
+    top: 0;
+    right: 0;
+    background: rgba(0, 0, 0, .5);
+    color: white;
+    display: none;
+    line-height: 18px;
+    width: 18px;
+    text-align: center;
+    font-size: 1.2rem;
+}
+
+.preview:hover .preview__popout {
+    display: block;
+}
+
 .preview__link {
     display: block;
 }
+
 .preview__image {
     display: block;
 }
+
 .preview__description {}
+
 .preview__bottom-bar {}
 
 .bottom-bar {
