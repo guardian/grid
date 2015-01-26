@@ -303,103 +303,14 @@ a:focus {
     margin-right: 5px;
 }
 
-.image-result {
+.result {
+    display: flex;
+    flex: 1;
     width: 20%;
     min-width: 200px;
     max-width: 270px;
-    flex: 1;
-    background: #393939; /* from NGW galleries... */
     margin: 10px 5px;
-    position: relative;
-    padding-bottom: 65px;
-}
-.image-result--seen {
-    opacity: .5;
-}
-
-.image-results__popout {
-    position: absolute;
-    top: 0;
-    right: 0;
-    background: rgba(0, 0, 0, .5);
-    color: white;
-    display: none;
-    line-height: 18px;
-    width: 18px;
-    text-align: center;
-    font-size: 1.2rem;
-}
-
-.image-result:hover .image-results__popout {
-    display: block;
-}
-
-.image-result__link {
-    color: inherit;
-    display: block;
-    text-align: center;
-}
-
-.image-result__image {
-    max-height: 200px;
-    max-width: 100%;
-    display: block;
-    margin: 0 auto;
-}
-
-.image-result__caption {
-    box-sizing: border-box;
-    bottom: 30px;
-    cursor: help;
-    font-size: 1.2rem;
-    overflow: hidden;
-    padding: 10px;
-    position: absolute;
-    text-align: left;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    width: 100%;
-}
-
-.image-result__meta {
-    bottom: 0;
-    position: absolute;
-    width: 100%;
-}
-
-.image-result__labels {
-    padding-left: 10px;
-    font-size: 1.2rem;
-}
-
-.uploaded-time {
-    font-size: 1.4rem;
-    font-weight: bold;
-    padding-left: 10px;
-}
-
-.image-result__bottom-bar {
-    display: flex;
-}
-
-.result-meta {
-    flex: 1;
-}
-
-.result-actions {
-    color: #aaa;
-}
-
-.result-action {
-    color: inherit;
-    display: inline-block;
-}
-
-.uploaded-date {
-    color: #aaa;
-    padding-left: 15px;
-    font-weight: normal;
-    font-size: 1.2rem;
+    background: #393939;
 }
 
 .cost {
@@ -467,21 +378,45 @@ a:focus {
 
 .preview__link {
     display: block;
+    height: 200px;
 }
 
 .preview__image {
     display: block;
+    max-height: 200px;
+    max-width: 100%;
+    margin: 0 auto;
 }
 
-.preview__description {}
+.preview__description {
+    font-size: 1.2rem;
+    overflow: hidden;
+    padding: 10px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    margin: 0;
+}
 
-.preview__bottom-bar {}
+.preview__upload-date {
+    font-weight: bold;
+    margin-right: 10px;
+}
+
+.preview__upload-time {
+    font-size: 1.2rem;
+    color: #999;
+}
+
+.preview__bottom-bar {
+    font-size: 1.4rem;
+}
 
 .bottom-bar {
     display: flex;
 }
 .bottom-bar__meta {
     flex: 1;
+    padding-left: 10px;
 }
 .bottom-bar__actions {
     color: #aaa;
