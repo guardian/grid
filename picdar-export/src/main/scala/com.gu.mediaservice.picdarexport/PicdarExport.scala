@@ -22,7 +22,7 @@ class ExportManager(picdar: PicdarClient, loader: MediaLoader) {
 
   def ingest(dateField: String, dateRange: DateRange, queryRange: Option[Range]) =
     for {
-      assets       <- picdar.query(dateField, dateRange, queryRange)
+      assets       <- picdar.queryAssets(dateField, dateRange, queryRange)
       _             = Logger.info(s"${assets.size} matches")
       uploadedIds  <- Future.sequence(assets map uploadAsset)
     } yield uploadedIds
