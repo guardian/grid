@@ -6,7 +6,7 @@ import template from './datalist.html!text';
 export var datalist = angular.module('kahuna.forms.datalist', []);
 
 datalist.controller('DatalistController', ['$timeout', function($timeout) {
-    var keys = { left: 37, up: 38, right: 39, down: 40, enter: 13, esc: 27, tab: 9 };
+    var keys = { 37: 'left', 38: 'up', 39: 'right', 40: 'down', 13: 'enter', 27: 'esc', 9: 'tab' };
     var selectedIndex = 0;
 
     var moveIndex = index => {
@@ -21,9 +21,19 @@ datalist.controller('DatalistController', ['$timeout', function($timeout) {
         }
     };
 
+    var keyFuncs = {
+        up: () => moveIndex(-1),
+        down: () => moveIndex(+1),
+        esc: () => this.active = false,
+        enter: event => { if(this.active) { this.setToCurrentValue(event); } }
+    };
+
     this.active = false;
     this.data = [];
 
+    // instead of creating an immutable set of data and have to clone it with the
+    // correct selected object, we have one mutable index. This is easy to get
+    // your head around as much as it is performant.
     this.setIndex = i => selectedIndex = i;
     this.isSelected = key => key === selectedIndex;
     this.setToCurrentValue = (event) => {
@@ -39,6 +49,7 @@ datalist.controller('DatalistController', ['$timeout', function($timeout) {
             this.data = data;
             selectedIndex = 0;
 
+            // only show if there is something to swap to
             if (!(this.data.length === 1 && this.ngModel === this.data[0])) {
                 this.active = true;
             }
@@ -47,22 +58,9 @@ datalist.controller('DatalistController', ['$timeout', function($timeout) {
 
     this.onFocus = this.onChange;
 
-    this.onKeydown = (event) => {
-        switch (event.which) {
-            case keys.down:
-                moveIndex(+1);
-                break;
-
-            case keys.up:
-                moveIndex(-1);
-                break;
-
-            case keys.enter:
-                if(this.active) {
-                    this.setToCurrentValue(event);
-                }
-                break;
-        }
+    this.onKeydown = event => {
+        var func = keyFuncs[keys[event.which]];
+        func && func(event);
     };
 
     // this is to allow clicking on options element.
