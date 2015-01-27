@@ -12,6 +12,7 @@ datalist.controller('DatalistController', ['$timeout', function($timeout) {
     var moveIndex = index => {
         var where = selectedIndex + index;
 
+        // TODO: not great logic, surely another way is possible
         if (where === this.data.length) {
             selectedIndex = 0;
         } else if (where < 0) {
