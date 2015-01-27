@@ -114,8 +114,6 @@ trait ExecutionHelpers {
 
 object ExportApp extends App with ExportManagerProvider with ArgumentHelpers with ExecutionHelpers {
 
-  val app = new play.core.StaticApplication(new java.io.File("."))
-
   def dumpMetadata(metadata: Map[String,String]): String = {
     metadata.map { case (key, value) => s"  $key: $value" }.mkString("\n")
   }
