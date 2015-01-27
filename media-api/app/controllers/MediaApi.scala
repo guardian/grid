@@ -143,6 +143,7 @@ object MediaApi extends Controller with ArgoHelpers {
     t minus (t.getMillis - (t.getMillis.toDouble / d.getMillis).round * d.getMillis)
   }
 
+  // TODO: work with analysed fields
   def metadataSearch(field: String, q: Option[String]) = Authenticated.async { request =>
     ElasticSearch.metadataSearch(MetadataSearchParams(field, q)) map { case MetadataSearchResults(results, total) =>
       // TODO: Add some useful links
