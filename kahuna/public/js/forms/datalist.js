@@ -26,7 +26,7 @@ datalist.controller('DatalistController', ['$timeout', function($timeout) {
         up: () => moveIndex(-1),
         down: () => moveIndex(+1),
         esc: () => this.active = false,
-        enter: event => { if(this.active) { this.setToCurrentValue(event); } }
+        enter: () => this.setToCurrentValue()
     };
 
     this.active = false;
@@ -37,10 +37,7 @@ datalist.controller('DatalistController', ['$timeout', function($timeout) {
     // your head around as much as it is performant.
     this.setIndex = i => selectedIndex = i;
     this.isSelected = key => key === selectedIndex;
-    this.setToCurrentValue = (event) => {
-        // TODO: should we be doing this in the directive link?
-        event.preventDefault();
-
+    this.setToCurrentValue = () => {
         this.ngModel = this.data[selectedIndex];
         this.active = false;
     };
@@ -61,7 +58,12 @@ datalist.controller('DatalistController', ['$timeout', function($timeout) {
 
     this.onKeydown = event => {
         var func = keyFuncs[keys[event.which]];
-        func && func(event);
+
+        if (this.active && func) {
+            // TODO: should we be doing this in the directive link?
+            event.preventDefault();
+            func(event);
+        }
     };
 
     // this is to allow clicking on options element.
