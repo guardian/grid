@@ -304,8 +304,7 @@ a:focus {
 }
 
 .result {
-    display: flex;
-    flex: 1;
+    flex-grow: 1;
     width: 20%;
     min-width: 200px;
     max-width: 270px;
