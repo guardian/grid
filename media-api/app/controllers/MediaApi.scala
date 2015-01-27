@@ -39,7 +39,7 @@ object MediaApi extends Controller with ArgoHelpers {
       "links" -> Json.arr(
         Json.obj("rel" -> "search", "href" -> s"$rootUri/images{?$searchParams}"),
         Json.obj("rel" -> "image",  "href" -> s"$rootUri/images/{id}"),
-        Json.obj("rel" -> "metadata-search", "href" -> s"$rootUri/metadata/{field}{?q}"),
+        Json.obj("rel" -> "metadata-search", "href" -> s"$rootUri/images/metadata/{field}{?q}"),
         Json.obj("rel" -> "cropper", "href" -> cropperUri),
         Json.obj("rel" -> "loader", "href" -> loaderUri),
         Json.obj("rel" -> "metadata", "href" -> metadataUri),
