@@ -24,7 +24,8 @@ class FTPWatcher(host: String, user: String, password: String) {
 
   def run: Task[Unit] =
     uploads
-      .pipeW(repeatedFailureThreshold(3))
+      .pipe(process1.liftL(repeatedFailureThreshold(3)))
+      // .pipeW(repeatedFailureThreshold(3))
       .drainW(moveFailedUploads)
       .to(deleteFile)
       .run
