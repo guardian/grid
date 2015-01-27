@@ -2,6 +2,8 @@ package controllers
 
 import java.net.{URI, URL}
 
+import org.joda.time.DateTime
+
 import scala.concurrent.Future
 
 import _root_.play.api.data._, Forms._
@@ -45,6 +47,7 @@ object Application extends Controller with ArgoHelpers {
   )
 
   def crop = Authenticated.async { req =>
+    val t0 = new DateTime().getMillis
     cropSourceForm.bindFromRequest()(req).fold(
       errors   => Future.successful(BadRequest(errors.errorsAsJson)),
       cropReq => {
@@ -56,6 +59,9 @@ object Application extends Controller with ArgoHelpers {
           )
 
           Notifications.publish(exports, "update-image-exports")
+
+          val t1 = new DateTime().getMillis
+          println("Executed in: " + (t1 - t0) + "ms")
 
           Ok(crops).as(ArgoMediaType)
         }
@@ -87,10 +93,10 @@ object Application extends Controller with ArgoHelpers {
       Bounds(_, _, masterW, masterH) = source.bounds
       aspect     = masterW.toFloat / masterH
       portrait   = masterW < masterH
-      outputDims = if (portrait)
+      outputDims = (if (portrait)
         Config.portraitCropSizingHeights.filter(_ <= masterH).map(h => Dimensions(math.round(h * aspect), h))
       else
-        Config.landscapeCropSizingWidths.filter(_ <= masterW).map(w => Dimensions(w, math.round(w / aspect)))
+        Config.landscapeCropSizingWidths.filter(_ <= masterW).map(w => Dimensions(w, math.round(w / aspect)))) ++ List(Dimensions(masterW, masterH))
 
       sizings <- Future.traverse(outputDims) { dim =>
         val filename = outputFilename(apiImage, source.bounds, dim.width)
