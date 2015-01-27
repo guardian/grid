@@ -3,7 +3,7 @@ import sbt.Keys
 
 object Dependencies {
 
-  val playVersion = "2.3.6" // also exists in plugins.sbt, TODO deduplicate this
+  val playVersion = "2.3.7" // also exists in plugins.sbt, TODO deduplicate this
 
   val playDeps = Seq(
     ("com.typesafe.play" %% "play" % playVersion)
@@ -23,7 +23,7 @@ object Dependencies {
 
   val elasticsearchDeps = Seq("org.elasticsearch" % "elasticsearch" % elasticsearchVersion)
 
-  val awsDeps = Seq("com.amazonaws" % "aws-java-sdk" % "1.9.3")
+  val awsDeps = Seq("com.amazonaws" % "aws-java-sdk" % "1.9.17")
 
   val pandaDeps = Seq(
     ("com.gu" %% "pan-domain-auth-core" % "0.2.4") exclude ("xpp3", "xpp3") exclude("com.google.guava", "guava-jdk5"),
@@ -31,8 +31,7 @@ object Dependencies {
   )
 
   val scalazDeps = Seq(
-    // FIXME: breaks build
-    "org.scalaz.stream" %% "scalaz-stream" % "0.5"
+    "org.scalaz.stream" %% "scalaz-stream" % "0.6"
   )
 
   val imagingDeps = Seq(
@@ -54,9 +53,9 @@ object Dependencies {
 
   val akkaAgentDeps = Seq("com.typesafe.akka" %% "akka-agent" % "2.3.4")
 
-  val scalaTestDeps = Seq("org.scalatest" %% "scalatest" % "2.2.1")
+  val scalaTestDeps = Seq("org.scalatest" %% "scalatest" % "2.2.3")
 
-  val scalaCheckDeps = Seq("org.scalacheck" %% "scalacheck" % "1.11.6")
+  val scalaCheckDeps = Seq("org.scalacheck" %% "scalacheck" % "1.12.1")
 
   val uriTemplateDeps = Seq("no.arktekk" %% "uri-template" % "1.0.2")
 
