@@ -86,5 +86,5 @@ datalist.directive('uiDatalist', ['$window', function() {
         controllerAs: 'ctrl',
         bindToController: true,
         template: template
-    }
+    };
 }]);
