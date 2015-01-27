@@ -5,11 +5,12 @@ export var jobs = angular.module('kahuna.upload.jobs.requiredMetadataEditor', []
 
 
 jobs.controller('RequiredMetadataEditorCtrl',
-                ['$scope', '$window', 'editsApi',
-                 function($scope, $window, editsApi) {
+                ['$scope', '$window', 'editsApi', 'mediaApi',
+                 function($scope, $window, editsApi, mediaApi) {
 
     var ctrl = this;
 
+    ctrl.autocompletions = {};
     ctrl.saving = false;
     ctrl.disabled = () => ctrl.saving || ctrl.externallyDisabled;
 
@@ -20,6 +21,12 @@ jobs.controller('RequiredMetadataEditorCtrl',
             .then(() => $scope.jobEditor.$setPristine())
             .catch(() => $window.alert('Failed to save the changes, please try again.'))
             .finally(() => ctrl.saving = false);
+    };
+
+    ctrl.metadataSearch = (field, q) => {
+        mediaApi.metadataSearch(field,  { q }).then(resource => {
+            ctrl.autocompletions[field] = resource;
+        });
     };
 
     $scope.$watch(() => ctrl.originalMetadata, () => {

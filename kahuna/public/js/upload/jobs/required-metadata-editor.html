@@ -28,9 +28,16 @@
                    placeholder="e.g. Getty Images…"
                    required
                    class="job-info--editor__input job-info--editor__input--credit"
+                   list="metadata-credit-{{ctrl.id}}"
                    ng:disabled="ctrl.disabled()"
-                   ng:model="ctrl.metadata.credit"
+                   ng:model="ctrl.metadata.credit",
+                   ng:change="ctrl.metadataSearch('credit', ctrl.metadata.credit)"
+                   ng:focus="ctrl.metadataSearch('credit', ctrl.metadata.credit)"
+                   ng:model-options="{ debounce: { 'default': 100, blur: 0 }}"
             />
+            <datalist id="metadata-credit-{{ctrl.id}}">
+                <option ng:repeat="credit in ctrl.autocompletions.credit.data">{{credit.key}}</option>
+            </datalist>
         </label>
     </div>
 
