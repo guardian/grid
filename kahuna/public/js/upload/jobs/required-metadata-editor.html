@@ -38,7 +38,7 @@
                class="button job-editor__button"
                value="{{ {true: 'Saving…', false: 'Save'}[ctrl.disabled()] }}"
                ng:click="ctrl.save()"
-               ng:disabled="jobEditor.$invalid || ctrl.disabled()"
+               ng:disabled="jobEditor.$pristine || ctrl.disabled()"
         />
     </div>
 </form>
