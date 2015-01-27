@@ -107,7 +107,9 @@ trait ArgumentHelpers {
 trait ExecutionHelpers {
   // TODO: find a cleaner way to do this? play.api.Play.stop() doesn't seem to work...
   def terminateAfter[T](process: => Future[T]) = {
-    process onComplete { _ => System.exit(0) }
+    val execution = process
+    execution onFailure  { case e: Throwable => e.printStackTrace; System.exit(1) }
+    execution onComplete { _ => System.exit(0) }
   }
 
 }
