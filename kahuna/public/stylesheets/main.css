@@ -4,28 +4,32 @@
 
 @font-face {
     font-family: "Guardian Text Egyptian Web";
-    src: url("fonts/GuardianEgyptianWeb-Regular.woff2") format("woff2");
+    src: url("fonts/GuardianTextEgyptianWeb-Regular.woff2") format("woff2"),
+         url("fonts/GuardianTextEgyptianWeb-Regular.woff") format("woff");
     font-weight: normal;
     font-style: normal;
     font-stretch: normal;
 }
 @font-face {
     font-family: "Guardian Text Egyptian Web";
-    src: url("fonts/GuardianEgyptianWeb-Bold.woff2") format("woff2");
+    src: url("fonts/GuardianTextEgyptianWeb-Bold.woff2") format("woff2"),
+         url("fonts/GuardianTextEgyptianWeb-Bold.woff") format("woff");
     font-weight: bold;
     font-style: normal;
     font-stretch: normal;
 }
 @font-face {
-    font-family: "Guardian Agate Sans 1 Web";
-    src: url("fonts/GuardianAgateSans1Web-Regular.woff2") format("woff2");
+    font-family: "Guardian Agate Sans Web";
+    src: url("fonts/GuardianAgateSans1Web-Regular.woff2") format("woff2"),
+         url("fonts/GuardianAgateSans1Web-Regular.woff") format("woff");
     font-weight: normal;
     font-style: normal;
     font-stretch: normal;
 }
 @font-face {
-    font-family: "Guardian Agate Sans 1 Web";
-    src: url("fonts/GuardianAgateSans1Web-Bold.woff2") format("woff2");
+    font-family: "Guardian Agate Sans Web";
+    src: url("fonts/GuardianAgateSans1Web-Bold.woff2") format("woff2"),
+         url("fonts/GuardianAgateSans1Web-Bold.woff") format("woff");
     font-weight: bold;
     font-style: normal;
     font-stretch: normal;
@@ -41,7 +45,7 @@
 }
 
 html {
-    font: 62.5%/1.5 "Guardian Text Egyptian Web";
+    font: 62.5%/1.5 "Guardian Text Egyptian Web", Georgia;
 }
 
 body {
@@ -107,6 +111,7 @@ button {
     cursor: pointer;
     color: inherit;
     font-size: inherit;
+    font-family: "Guardian Agate Sans Web", Helvetica, Arial;
 }
 
 .button {
@@ -118,7 +123,7 @@ button {
     color: white;
     display: block;
     padding: 5px 20px !important;
-    font-family: "Guardian Egyptian Text";
+    font-family: "Guardian Text Egyptian Web", Georgia;
     font-size: 1.6rem;
     position: relative;
 }
@@ -203,7 +208,7 @@ a:focus {
 .top-bar {
     background-color: #333;
     padding: 10px;
-    font-family: "Guardian Agate Sans 1 Web";
+    font-family: "Guardian Agate Sans Web", Helvetica, Arial;
     width: 100%;
     box-shadow: 0px 1px 5px rgba(0, 0, 0, 0.4);
     font-size: 1.4rem;
@@ -234,6 +239,7 @@ a:focus {
 
 .logout {
     color: inherit;
+    font-size: 1.2rem;
 }
 
 
@@ -244,7 +250,7 @@ a:focus {
     background: darkred;
     color: white;
     padding: 10px;
-    font-family: "Guardian Agate Sans", "Arial";
+    font-family: "Guardian Agate Sans Web", Helvetica, Arial;
 }
 
 /* ==========================================================================
@@ -320,7 +326,7 @@ a:focus {
     position: absolute;
     z-index: 2;
     bottom: 3px;
-    right: 80px;
+    right: 85px;
     color: #aaa;
     font-size: 1.6rem;
     /* TODO: this position is a bit of a hack. Find a better place for it */
@@ -399,8 +405,8 @@ a:focus {
 
 .preview__image {
     display: block;
-    max-height: 200px;
     max-width: 100%;
+    max-height: 100%;
     margin: 0 auto;
 }
 
@@ -429,6 +435,7 @@ a:focus {
 
 .preview__bottom-bar {
     font-size: 1.4rem;
+    margin-top: 10px;
 }
 
 .bottom-bar {
@@ -479,7 +486,7 @@ a:focus {
 .image-details {
     box-sizing: border-box;
     float: right;
-    font-family: "Guardian Agate Sans 1 Web";
+    font-family: "Guardian Agate Sans Web", Helvetica, Arial;
     font-size: 1.4rem;
     height: calc(100vh - 48px); /* viewport - top-bar */
     padding: 10px 10px;
@@ -553,7 +560,7 @@ a:focus {
 
 
 .metadata {
-    font-family: "Guardian Agate Sans 1 Web";
+    font-family: "Guardian Agate Sans Web", Helvetica, Arial;
 }
 
 .metadata__heading {
@@ -606,7 +613,7 @@ a:focus {
    Labeller
    ========================================================================== */
 .labeller {
-    font-family: "Guardian Agate Sans 1 Web";
+    font-family: "Guardian Agate Sans Web", Helvetica, Arial;
 }
 
 .labels {
@@ -772,7 +779,7 @@ a:focus {
 
 .metadata-applicator {
     font-size: 1.4rem;
-    font-family: "Guardian Agate Sans 1 Web";
+    font-family: "Guardian Agate Sans Web", Helvetica, Arial;
     text-align: right;
 }
 
