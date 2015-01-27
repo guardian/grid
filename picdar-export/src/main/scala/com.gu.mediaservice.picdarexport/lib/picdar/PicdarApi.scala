@@ -3,7 +3,7 @@ package com.gu.mediaservice.picdarexport.lib.picdar
 import java.net.URI
 
 import com.gu.mediaservice.picdarexport.lib.HttpClient
-import com.gu.mediaservice.picdarexport.model.{Asset, DateRange}
+import com.gu.mediaservice.picdarexport.model.{AssetRef, Asset, DateRange}
 import org.joda.time.DateTime
 import org.joda.time.format.{DateTimeFormat, ISODateTimeFormat}
 import play.api.Logger
@@ -26,7 +26,6 @@ trait PicdarApi extends HttpClient with PicdarInterface {
   }
 
   case class SearchInstance(id: Int, count: Int)
-  case class AssetRef(urn: String)
 
 
   lazy val currentMak: Future[Mak] = {
@@ -56,6 +55,9 @@ trait PicdarApi extends HttpClient with PicdarInterface {
   }
 
 
+  // No timezone lol
+  val picdarAmericanDateFormat = DateTimeFormat.forPattern("dd/MM/yyyy")
+
   def fetchResults(mak: Mak, searchInstance: SearchInstance, range: Option[Range]): Future[Seq[AssetRef]] = {
     Logger.debug("fetching results")
     val start = range.map(_.start) getOrElse 0
@@ -71,8 +73,10 @@ trait PicdarApi extends HttpClient with PicdarInterface {
     searchItemsFuture map { searchItems =>
       for {
         matchNode  <- searchItems
-        urn         = matchNode \ "MMRef" text
-      } yield AssetRef(urn)
+        urn         = (matchNode \ "MMRef" text)
+        dateLoaded  = extractField(matchNode, "Date Loaded") map picdarAmericanDateFormat.parseDateTime getOrElse
+          (throw new Error("Failed to read date loaded from search result"))
+      } yield AssetRef(urn, dateLoaded)
     }
   }
 

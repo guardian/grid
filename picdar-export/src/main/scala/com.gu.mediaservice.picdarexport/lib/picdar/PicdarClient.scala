@@ -1,7 +1,7 @@
 package com.gu.mediaservice.picdarexport.lib.picdar
 
 import com.gu.mediaservice.picdarexport.lib.HttpClient
-import com.gu.mediaservice.picdarexport.model.{Asset, DateRange}
+import com.gu.mediaservice.picdarexport.model.{AssetRef, Asset, DateRange}
 
 import scala.concurrent.Future
 import scala.concurrent.ExecutionContext.Implicits.global
