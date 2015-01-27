@@ -29,6 +29,7 @@ trait PicdarClient extends PicdarApi with HttpClient {
       searchInstance <- search(mak, dateField, dateRange)
       results        <- fetchResults(mak, searchInstance, queryRange)
       assets         <- Future.sequence(results.map(_.urn).map(urn => fetchAsset(mak, urn)))
+      _              <- closeSearch(mak, searchInstance)
     } yield assets
   }
 }
