@@ -73,7 +73,7 @@ class ImageLoader(storage: ImageStorage) extends Controller with ArgoHelpers {
     } else {
       val mimeTypeName = mimeType getOrElse "none detected"
       Logger.info(s"Rejected file, id: $id, uploadedBy: $uploadedBy_, because the mime-type is not supported ($mimeTypeName). return 415")
-      Future(UnsupportedMediaType(Json.obj("errorMessage" -> s"Unsupported mime-type: $mimeTypeName")))
+      Future(UnsupportedMediaType(Json.obj("errorMessage" -> s"Unsupported mime-type: $mimeTypeName. Supported: ${Config.supportedMimeTypes.mkString(", ")}")))
     }
 
     future.onComplete(_ => tempFile.delete())
