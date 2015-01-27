@@ -24,21 +24,12 @@
         </label>
         <label class="job-info--editor__field">
             <div class="job-info--editor__label">Credit</div>
-            <input type="text"
-                   name="credit"
-                   placeholder="e.g. Getty Images…"
-                   required
-                   class="job-info--editor__input job-info--editor__input--credit"
-                   list="metadata-credit-{{ctrl.id}}"
-                   ng:disabled="ctrl.disabled()"
-                   ng:model="ctrl.metadata.credit",
-                   ng:change="ctrl.metadataSearch('credit', ctrl.metadata.credit)"
-                   ng:focus="ctrl.metadataSearch('credit', ctrl.metadata.credit)"
-                   ng:model-options="{ debounce: { 'default': 100, blur: 0 }}"
-            />
-            <datalist id="metadata-credit-{{ctrl.id}}">
-                <option ng:repeat="credit in ctrl.autocompletions.credit.data">{{credit.key}}</option>
-            </datalist>
+            <ui-datalist class="job-info--editor__input"
+                         name="credit"
+                         placeholder="e.g. Getty Images…"
+                         ng:model="ctrl.metadata.credit"
+                         ng:change="ctrl.metadataSearch('credit', q)"
+                         ng:disabled="ctrl.disabled()"></ui-datalist>
         </label>
     </div>
 
@@ -47,7 +38,7 @@
                class="button job-editor__button"
                value="{{ {true: 'Saving…', false: 'Save'}[ctrl.disabled()] }}"
                ng:click="ctrl.save()"
-               ng:disabled="jobEditor.$invalid || jobEditor.$pristine || ctrl.busy"
+               ng:disabled="jobEditor.$invalid || ctrl.disabled()"
         />
     </div>
 </form>
