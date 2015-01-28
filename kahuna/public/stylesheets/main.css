@@ -78,6 +78,8 @@ textarea {
     background-color: #444;
     color: #ccc;
     border: 1px solid #999;
+    padding: 5px;
+    box-sizing: border-box;
 }
 
 /* annoyingly we have to have these seperate as the moz-placeholder breaks the
@@ -182,6 +184,14 @@ a:focus {
     0% {}
     95% {}
     100% { transform: rotateY(360deg); }
+}
+
+
+/* ==========================================================================
+   Angular
+   ========================================================================== */
+input.ng-invalid {
+    border-color: #ed5935;
 }
 
 
@@ -707,11 +717,7 @@ a:focus {
 }
 .job-info--editor__input {
     width: 300px;
-    border: 1px solid #dcdcdc;
-    padding: 5px;
-}
-.job-info--editor__input.ng-invalid {
-    border-color: #ed5935;
+    display: inline-block;
 }
 .job-info--editor__input--description {
     height: 4em;
