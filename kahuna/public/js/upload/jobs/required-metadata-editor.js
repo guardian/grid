@@ -1,12 +1,15 @@
 import angular from 'angular';
 import template from './required-metadata-editor.html!text';
+import '../../forms/datalist';
 
-export var jobs = angular.module('kahuna.upload.jobs.requiredMetadataEditor', []);
+export var jobs = angular.module('kahuna.upload.jobs.requiredMetadataEditor', [
+    'kahuna.forms.datalist'
+]);
 
 
 jobs.controller('RequiredMetadataEditorCtrl',
-                ['$scope', '$window', 'editsApi',
-                 function($scope, $window, editsApi) {
+                ['$scope', '$window', 'editsApi', 'mediaApi',
+                 function($scope, $window, editsApi, mediaApi) {
 
     var ctrl = this;
 
@@ -20,6 +23,12 @@ jobs.controller('RequiredMetadataEditorCtrl',
             .then(() => $scope.jobEditor.$setPristine())
             .catch(() => $window.alert('Failed to save the changes, please try again.'))
             .finally(() => ctrl.saving = false);
+    };
+
+    ctrl.metadataSearch = (field, q) => {
+        return mediaApi.metadataSearch(field,  { q }).then(resource => {
+            return resource.data.map(d => d.key);
+        });
     };
 
     $scope.$watch(() => ctrl.originalMetadata, () => {

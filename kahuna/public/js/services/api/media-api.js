@@ -32,10 +32,15 @@ apiServices.factory('mediaApi',
         return session || (session = root.follow('session').getData());
     }
 
+    function metadataSearch(field, { q }) {
+        return root.follow('metadata-search', { field, q }).get();
+    }
+
     return {
         root,
         search,
         find,
-        getSession
+        getSession,
+        metadataSearch
     };
 }]);
