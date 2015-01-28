@@ -1,7 +1,10 @@
 import angular from 'angular';
 import template from './file-uploader.html!text';
+import '../edits/results-editor';
 
-export var fileUploader = angular.module('kahuna.upload.fileUploader', []);
+export var fileUploader = angular.module('kahuna.upload.fileUploader', [
+    'kahuna.edits.resultsEditor'
+]);
 
 
 fileUploader.controller('FileUploaderCtrl',
