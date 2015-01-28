@@ -13,7 +13,6 @@ jobs.controller('RequiredMetadataEditorCtrl',
 
     var ctrl = this;
 
-    ctrl.autocompletions = {};
     ctrl.saving = false;
     ctrl.disabled = () => ctrl.saving || ctrl.externallyDisabled;
 
