@@ -33,8 +33,8 @@ datalist.controller('DatalistController', ['$timeout', function($timeout) {
         this.active = false;
     };
 
-    this.onChange = () => {
-        this.whenChanged({ q: this.ngModel }).then(data => {
+    this.search = () => {
+        this.request({ q: this.ngModel }).then(data => {
             this.data = data;
             selectedIndex = 0;
 
@@ -46,8 +46,6 @@ datalist.controller('DatalistController', ['$timeout', function($timeout) {
             }
         });
     };
-
-    this.onFocus = this.onChange;
 
     this.onKeydown = event => {
         var func = keyFuncs[keys[event.which]];
@@ -71,7 +69,7 @@ datalist.directive('uiDatalist', ['$window', function() {
         scope: {
             ngDisabled: '=',
             ngModel: '=',
-            whenChanged: '&ngChange',
+            request: '&',
             name: '@',
             placeholder: '@'
         },

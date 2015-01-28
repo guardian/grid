@@ -27,8 +27,8 @@
             <ui-datalist class="job-info--editor__input"
                          name="credit"
                          placeholder="e.g. Getty Images…"
+                         request="ctrl.metadataSearch('credit', q)"
                          ng:model="ctrl.metadata.credit"
-                         ng:change="ctrl.metadataSearch('credit', q)"
                          ng:disabled="ctrl.disabled()"></ui-datalist>
         </label>
     </div>
