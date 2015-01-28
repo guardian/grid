@@ -40,10 +40,10 @@
            name="{{ctrl.name}}"
            placeholder="{{ctrl.placeholder}}"
            ng:blur="ctrl.deactivate()"
-           ng:change="ctrl.onChange()"
+           ng:change="ctrl.search()"
            ng:model="ctrl.ngModel"
            ng:keydown="ctrl.onKeydown($event)"
-           ng:focus="ctrl.onFocus($event)"
+           ng:focus="ctrl.search()"
            ng:disabled="ctrl.ngDisabled" />
 
     <div class="datalist__options" ng:if="ctrl.active && ! ctrl.ngDisabled">
