@@ -10,16 +10,7 @@ datalist.controller('DatalistController', ['$timeout', function($timeout) {
     var selectedIndex = 0;
 
     var moveIndex = index => {
-        var where = selectedIndex + index;
-
-        // TODO: not great logic, surely another way is possible
-        if (where === this.data.length) {
-            selectedIndex = 0;
-        } else if (where < 0) {
-            selectedIndex = this.data.length-1;
-        } else {
-            selectedIndex = where;
-        }
+        selectedIndex = (selectedIndex + index + this.data.length) % this.data.length;
     };
 
     var keyFuncs = {
@@ -47,10 +38,11 @@ datalist.controller('DatalistController', ['$timeout', function($timeout) {
             this.data = data;
             selectedIndex = 0;
 
-            // If there is one result and it's the same as the value in the field
-            // don't bother showing it.
-            if (!(this.data.length === 1 && this.ngModel === this.data[0])) {
+            var isOnlySuggestion = !(this.data.length === 1 && this.ngModel === this.data[0]);
+            if (this.data.length !== 0 && isOnlySuggestion) {
                 this.active = true;
+            } else {
+                this.active = false;
             }
         });
     };
