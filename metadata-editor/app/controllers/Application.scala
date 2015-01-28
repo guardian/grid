@@ -28,7 +28,7 @@ object Application extends Controller with ArgoHelpers {
 
   val transformers = new Transformers(Config.services)
 
-
+  // TODO: add links to the different responses esp. to the reference image
   def index = Action {
     val response = Json.obj(
       "data"  -> Json.obj("description" -> "This is the Metadata Editor Service"),
