@@ -1,0 +1,58 @@
+<style>
+    .datalist {
+        position: relative;
+        width: 100%;
+    }
+
+    .datalist__options {
+        position: absolute;
+        width: 100%;
+        z-index: 1;
+        background: #444;
+        color: #ccc;
+        padding: 10px;
+        font-size: 1.2rem;
+        box-sizing: border-box;
+    }
+
+    .datalist__input {
+        width: 100%;
+        box-sizing: border-box;
+    }
+
+    .datalist__option {
+        cursor: pointer;
+        padding: 5px;
+    }
+
+    .datalist__option--selected {
+        background-color: #00adee;
+        color: white;
+    }
+</style>
+
+
+<div class="datalist">
+    <!-- TODO: Make required a param -->
+    <input type="text"
+           class="datalist__input"
+           required
+           name="{{ctrl.name}}"
+           placeholder="{{ctrl.placeholder}}"
+           ng:blur="ctrl.deactivate()"
+           ng:change="ctrl.search()"
+           ng:model="ctrl.ngModel"
+           ng:keydown="ctrl.onKeydown($event)"
+           ng:focus="ctrl.search()"
+           ng:disabled="ctrl.ngDisabled" />
+
+    <div class="datalist__options" ng:if="ctrl.active && ! ctrl.ngDisabled">
+        <div class="datalist__option"
+             ng:repeat="(key, datum) in ctrl.data"
+             ng:class="{ 'datalist__option--selected': ctrl.isSelected(key) }"
+             ng:mouseover="ctrl.setIndex(key)"
+             ng:click="ctrl.setToCurrentValue($event)">
+             {{datum}}
+        </div>
+    </div>
+</div>
