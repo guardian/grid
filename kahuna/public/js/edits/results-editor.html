@@ -4,17 +4,20 @@
     .result-editors {}
 
     .result-editor {
-        margin-bottom: 10px;
+        margin-bottom: 20px;
+        display: flex;
     }
 
     .result-editor__result {
-        display: inline-block;
         width: 200px;
     }
     .result-editor__editor {
-        display: inline-block;
-        vertical-align: top;
-        margin-left: 10px;
+        margin-left: 20px;
+        flex-grow: 1;
+    }
+
+    .result-editor__status {
+
     }
 </style>
 
@@ -34,6 +37,10 @@
                 <ui-required-metadata-editor id="result.data.id"
                                              metadata="result.data.metadata">
                 </ui-required-metadata-editor>
+            </div>
+
+            <div class="result-editor__status">
+                 ✔
             </div>
         </li>
     </ul>

@@ -10,23 +10,25 @@
     </div>
 </div>
 
-<section class="upload-latest"
-         ng:if="ctrl.latestJob">
-    <h2>Uploading</h2>
+<div class="page-wrapper">
+    <section class="upload-latest"
+             ng:if="ctrl.latestJob">
+        <h2>Uploading</h2>
 
-    <ui-upload-jobs jobs="ctrl.latestJob"></ui-upload-jobs>
-</section>
+        <ui-upload-jobs jobs="ctrl.latestJob"></ui-upload-jobs>
+    </section>
 
 
-<section>
-    <h2>Your uploads</h2>
+    <section>
+        <h2>Your uploads</h2>
 
-    <ui-results-editor query="ctrl.myUploadsQuery"
-                       ng:if="ctrl.myUploadsQuery"></ui-results-editor>
-</section>
+        <ui-results-editor query="ctrl.myUploadsQuery"
+                           ng:if="ctrl.myUploadsQuery"></ui-results-editor>
+    </section>
 
-<p ng:controller="SessionCtrl" class="upload-yours">
-    Or see <a ui:sref="search.results({uploadedBy: user.email})" class="coloured-link">all your uploads</a>.
-</p>
+    <p ng:controller="SessionCtrl" class="upload-yours">
+        Or see <a ui:sref="search.results({uploadedBy: user.email})" class="coloured-link">all your uploads</a>.
+    </p>
+</div>
 
 <dnd-uploader></dnd-uploader>
