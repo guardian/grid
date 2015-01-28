@@ -5,10 +5,17 @@ export var resultsEditor = angular.module('kahuna.edits.resultsEditor', []);
 
 resultsEditor.controller('ResultsEditorCtrl',
                          ['mediaApi', 'editsApi',
-                          function(mediaApi) {
+                          function(mediaApi, editsApi) {
+
     mediaApi.search('', this.query).then(resource => {
         this.results = resource;
     });
+
+
+    var offMetadataUpdate = editsApi.onMetadataUpdate(({ resource }) => {
+        //var edited = this.results.find(result => result.data.id == )
+    });
+
 }]);
 
 
