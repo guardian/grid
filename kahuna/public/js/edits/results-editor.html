@@ -11,13 +11,23 @@
     .result-editor__result {
         width: 200px;
     }
+
     .result-editor__editor {
-        margin-left: 20px;
+        margin: 0 20px;
+
+    }
+
+    .result-editor__info {
         flex-grow: 1;
     }
 
     .result-editor__status {
-
+        width: 50%;
+        display: block;
+        border-radius: 5px;
+        padding: 5px;
+        margin: 0 auto;
+        text-align: center;
     }
 </style>
 
@@ -37,10 +47,18 @@
                 <ui-required-metadata-editor id="result.data.id"
                                              metadata="result.data.metadata">
                 </ui-required-metadata-editor>
+
+                
             </div>
 
-            <div class="result-editor__status">
-                 {{ctrl.getStatus(result)}}
+            <div class="result-editor__info">
+                <!-- Trying to avoid static class names -->
+                 <span class="result-editor__status status"
+                       ng:init="status = ctrl.getStatus(result)"
+                       ng:class="{
+                           'status--invalid': status === 'invalid',
+                           'status--valid': status === 'ready'
+                       }">{{status}}</span>
             </div>
         </li>
     </ul>
