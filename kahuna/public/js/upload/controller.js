@@ -10,6 +10,6 @@ upload.controller('UploadCtrl',
 
     mediaApi.getSession().then(session => {
         var uploadedBy = session.user.email;
-        this.myUploads = mediaApi.search({ uploadedBy });
+        this.myUploadsQuery = { uploadedBy };
     });
 }]);

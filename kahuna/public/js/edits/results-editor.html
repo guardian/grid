@@ -1,1 +1,40 @@
-<h1>Results editor</h1>
+<style>
+    .results-editor {}
+
+    .result-editors {}
+
+    .result-editor {
+        margin-bottom: 10px;
+    }
+
+    .result-editor__result {
+        display: inline-block;
+        width: 200px;
+    }
+    .result-editor__editor {
+        display: inline-block;
+        vertical-align: top;
+        margin-left: 10px;
+    }
+</style>
+
+
+<div class="results-editor">
+    <div class="results-editor__total">{{ctrl.results.total}} results</div>
+
+    <ul class="result-editors">
+        <li class="result-editor"
+            ng:repeat="result in ctrl.results.data">
+
+            <div class="result-editor__result">
+                <ui-preview-image image="result" hide-info="true"></ui-preview-image>
+            </div>
+
+            <div class="result-editor__editor">
+                <ui-required-metadata-editor id="result.data.id"
+                                             metadata="result.data.metadata">
+                </ui-required-metadata-editor>
+            </div>
+        </li>
+    </ul>
+</div>
