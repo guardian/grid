@@ -10,11 +10,11 @@
     </div>
 </div>
 
-<section ng:if="latestJob"
-         class="upload-latest">
+<section class="upload-latest"
+         ng:if="ctrl.latestJob">
     <h2>Uploading</h2>
 
-    <ui-upload-jobs jobs="latestJob"></ui-upload-jobs>
+    <ui-upload-jobs jobs="ctrl.latestJob"></ui-upload-jobs>
 </section>
 
 
