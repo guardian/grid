@@ -47,7 +47,8 @@ datalist.controller('DatalistController', ['$timeout', function($timeout) {
             this.data = data;
             selectedIndex = 0;
 
-            // only show if there is something to swap to
+            // If there is one result and it's the same as the value in the field
+            // don't bother showing it.
             if (!(this.data.length === 1 && this.ngModel === this.data[0])) {
                 this.active = true;
             }
