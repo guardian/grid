@@ -3,7 +3,9 @@ import template from './results-editor.html!text';
 
 export var resultsEditor = angular.module('kahuna.edits.resultsEditor', []);
 
-resultsEditor.controller('ResultsEditorCtrl', ['mediaApi', function(mediaApi) {
+resultsEditor.controller('ResultsEditorCtrl',
+                         ['mediaApi', 'editsApi',
+                          function(mediaApi) {
     mediaApi.search('', this.query).then(resource => {
         this.results = resource;
     });
