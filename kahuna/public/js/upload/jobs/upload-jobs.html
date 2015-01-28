@@ -1,12 +1,12 @@
 <!-- TODO: think about moving this to a list, tables are a pain to style with
-HTML in the cells e.g. `.job-edit-disabler` -->
+HTML in the cells -->
 <table class="jobs">
     <tbody>
         <tr ng:repeat="job in jobs">
             <td class="job-info job-info--thumbnail">
                 <ui-preview-image ng:if="job.image"
                             image="job.image"
-                            hide-info="true"></ui-preview>
+                            hide-info="true"></ui-preview-image>
             </td>
             <td class="job-info job-info--file">
                 <div>
