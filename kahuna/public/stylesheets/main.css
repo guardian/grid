@@ -253,13 +253,26 @@ a:focus {
 
 
 /* ==========================================================================
-   Errors
+   Errors / status
    ========================================================================== */
 .error {
     background: darkred;
     color: white;
     padding: 10px;
     font-family: "Guardian Agate Sans Web", Helvetica, Arial;
+}
+
+.status {
+    color: white;
+    background-color: orange;
+}
+
+.status--valid {
+    background-color: green;
+}
+
+.status--invalid {
+    background-color: red;
 }
 
 /* ==========================================================================
