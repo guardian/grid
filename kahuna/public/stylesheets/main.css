@@ -476,6 +476,43 @@ a:focus {
     display: inline-block;
 }
 
+
+/* ==========================================================================
+   Results editorijQuond3
+   ========================================================================== */
+
+.results-editor {}
+
+.result-editors {}
+
+.result-editor {
+    margin-bottom: 20px;
+    display: flex;
+}
+
+.result-editor__result {
+    width: 200px;
+}
+
+.result-editor__editor {
+    margin: 0 20px;
+
+}
+
+.result-editor__info {
+    flex-grow: 1;
+}
+
+.result-editor__status {
+    width: 50%;
+    display: block;
+    border-radius: 5px;
+    padding: 5px;
+    margin: 0 auto;
+    text-align: center;
+}
+
+
 /* ==========================================================================
    Full Image / crop
    ========================================================================== */
