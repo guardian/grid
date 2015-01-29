@@ -1,5 +1,6 @@
 package com.gu.mediaservice.lib.auth
 
+import com.amazonaws.auth.BasicAWSCredentials
 import com.gu.pandomainauth.action.AuthActions
 import com.gu.pandomainauth.model.AuthenticatedUser
 
@@ -17,9 +18,11 @@ trait PanDomainAuthActions extends AuthActions {
 
   override def authCallbackUrl: String = s"$authCallbackBaseUri/oauthCallback"
 
-  override lazy val domain: String             = properties("panda.domain")
-  override lazy val awsKeyId: String           = properties("panda.aws.key")
-  override lazy val awsSecretAccessKey: String = properties("panda.aws.secret")
+  override lazy val domain: String = properties("panda.domain")
+  lazy val awsKeyId                = properties.get("panda.aws.key")
+  lazy val awsSecretAccessKey      = properties.get("panda.aws.secret")
+
+  override lazy val awsCredentials = for (key <- awsKeyId; sec <- awsSecretAccessKey) yield {new BasicAWSCredentials(key, sec)}
 
   override val system: String = "media-service"
 }
