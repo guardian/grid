@@ -9,9 +9,6 @@ jobs.controller('UploadJobsCtrl',
                 ['$window', '$scope', '$q', 'poll',
                  function($window, $scope, $q, poll) {
 
-    // TODO: show thumbnail while uploading
-    // https://developer.mozilla.org/en-US/docs/Using_files_from_web_applications#Example.3A_Showing_thumbnails_of_user-selected_images
-
     // State machine-esque async transitions
     var pollFrequency = 500; // ms
     var pollTimeout   = 20 * 1000; // ms
