@@ -1,11 +1,29 @@
 <ul>
     <li ng:repeat="job in ctrl.jobs">
-        <div class="status"
-             ng:if="!job.image"
-             ng:class="{
-                 'status--invalid': status === 'upload error',
-                 'status--valid': status === 'uploaded'
-             }">{{job.status}}</div>
+
+        <div ng:if="!job.image"
+             class="job-uploading">
+
+            <div class="job-preview preview">
+                <img ng:src="{{job.dataUrl}}" class="preview__image" />
+
+                <div class="preview__bottom-bar bottom-bar">
+                    <div class="bottom-bar__meta">
+                        {{job.name}}, {{job.size | asFileSize}}
+                    </div>
+
+                    <div class="bottom-bar__actions"></div>
+                </div>
+            </div>
+            <div class="job-status status"
+                 ng:class="{
+                     'status--invalid': status === 'upload error',
+                     'status--valid': status === 'uploaded'
+                 }">
+
+                 {{job.status}}
+            </div>
+        </div>
 
         <ui-image-editor ng:if="job.image"
                          image="job.image"
