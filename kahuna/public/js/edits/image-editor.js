@@ -9,6 +9,7 @@ imageEditor.controller('ImageEditorCtrl', ['$scope', '$q', 'poll', function($sco
     var pollTimeout   = 20 * 1000; // ms
 
     this.status = this.image.data.valid ? 'ready' : 'invalid';
+    this.saving = false;
 
     // Watch the metadata for an update from `required-metadata-editor`.
     // When the metadata is overridden, we don't know if the resulting
@@ -18,6 +19,8 @@ imageEditor.controller('ImageEditorCtrl', ['$scope', '$q', 'poll', function($sco
         if (newMetadata !== oldMetadata) {
 
             this.status = 're-indexing';
+            this.saving = true;
+
             var metadataMatches = (image) => {
                 var matches = Object.keys(newMetadata.data).every(key =>
                     newMetadata.data[key] === image.data.metadata[key]
@@ -34,7 +37,7 @@ imageEditor.controller('ImageEditorCtrl', ['$scope', '$q', 'poll', function($sco
                 // FIXME: this is a bit of a hack to not trigger the watch again.
                 image.data.userMetadata.data.metadata = this.image.data.userMetadata.data.metadata;
                 this.image = image;
-            });
+            }).finally(() => this.saving = false);
 
         }
     });
