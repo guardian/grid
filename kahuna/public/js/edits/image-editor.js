@@ -10,8 +10,10 @@ imageEditor.controller('ImageEditorCtrl', ['$scope', '$q', 'poll', function($sco
 
     this.status = this.image.data.valid ? 'ready' : 'invalid';
 
-    // watch the metadata for an update from `required-metadata-editor`.
-    // then poll the api to check the image has been consumed re-indexed.
+    // Watch the metadata for an update from `required-metadata-editor`.
+    // When the metadata is overridden, we don't know if the resulting
+    // image is valid or not. This code checks when the update has
+    // been processed and updates the status accordingly.
     $scope.$watch(() => this.image.data.userMetadata.data.metadata, (newMetadata, oldMetadata) => {
         if (newMetadata !== oldMetadata) {
 
@@ -20,7 +22,7 @@ imageEditor.controller('ImageEditorCtrl', ['$scope', '$q', 'poll', function($sco
                 var matches = Object.keys(newMetadata.data).every(key =>
                     newMetadata.data[key] === image.data.metadata[key]
                 );
-                console.log(matches);
+
                 return matches ? image : $q.reject('no match');
             };
             var apiSynced = () => this.image.get().then(metadataMatches);
@@ -46,8 +48,10 @@ imageEditor.directive('uiImageEditor', [function() {
         controllerAs: 'ctrl',
         bindToController: true,
         template: template,
+        transclude: true,
         scope: {
-            image: '='
+            image: '=',
+            applyTo: '&'
         }
     };
 }]);
