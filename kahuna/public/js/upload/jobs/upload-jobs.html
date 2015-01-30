@@ -1,5 +1,5 @@
 <ul>
-    <li ng:repeat="job in jobs">
+    <li ng:repeat="job in ctrl.jobs">
         <div class="status"
              ng:if="!job.image"
              ng:class="{
@@ -9,25 +9,24 @@
 
         <ui-image-editor ng:if="job.image"
                          image="job.image"
-                         apply-to="jobImages()">
-
+                         apply-to="ctrl.jobImages()">
 
              <ui-labeller class="job-labeller"
                           labels="job.image.data.userMetadata.data.labels">
              </ui-labeller>
 
-             <div class="metadata-applicator" ng:if="jobs.length > 1">
+             <div class="metadata-applicator" ng:if="ctrl.jobs.length > 1">
                 Apply
                 <button class="metadata-applicator__button"
-                        ng:click="uploadJobsCtrl.updateAllMetadata('byline', job.image.data.metadata.byline)">byline</button>
+                        ng:click="ctrl.updateAllMetadata('byline', job.image.data.metadata.byline)">byline</button>
                 /
                 <button class="metadata-applicator__button"
-                        ng:click="uploadJobsCtrl.updateAllMetadata('credit', job.image.data.metadata.credit)">credit</button>
+                        ng:click="ctrl.updateAllMetadata('credit', job.image.data.metadata.credit)">credit</button>
 
                 or
 
                 <button class="metadata-applicator__button"
-                        ng:click="uploadJobsCtrl.updateAllLabels(job.image.data.userMetadata.data.labels)">labels</button>
+                        ng:click="ctrl.updateAllLabels(job.image.data.userMetadata.data.labels)">labels</button>
 
                 to uploaded (save first)
                 <!-- TODO: we should make sure that we use the value in
