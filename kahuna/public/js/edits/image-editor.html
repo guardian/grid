@@ -17,11 +17,14 @@
 
     <div class="result-editor__info">
         <!-- Trying to avoid static class names -->
-         <span class="result-editor__status status"
-               ng:if="ctrl.image"
-               ng:class="{
-                   'status--invalid': ctrl.status === 'invalid',
-                   'status--valid': ctrl.status === 'ready'
-               }">{{ctrl.status}}</span>
+        <a class="result-editor__status status"
+           ng:if="ctrl.status !== 'ready'"
+           ng:class="{
+              'status--invalid': ctrl.status === 'invalid'
+           }">{{ctrl.status}}</a>
+
+        <a class="result-editor__status status status--valid"
+           ng:if="ctrl.status === 'ready'"
+           ui:sref="image({ imageId: ctrl.image.data.id })">View image ▸</a>
     </div>
 </div>
