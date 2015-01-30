@@ -9,13 +9,11 @@ jobs.controller('UploadJobsCtrl',
                 ['$window', '$scope', '$q', 'poll', 'editsApi',
                  function($window, $scope, $q, poll, editsApi) {
 
-    var pollFrequency = 500; // ms
-    var pollTimeout   = 20 * 1000; // ms
-
     // TODO: show thumbnail while uploading
     // https://developer.mozilla.org/en-US/docs/Using_files_from_web_applications#Example.3A_Showing_thumbnails_of_user-selected_images
 
-    // State machine-esque async transitions
+    var pollFrequency = 500; // ms
+    var pollTimeout   = 20 * 1000; // ms
     $scope.jobs.forEach(jobItem => {
         jobItem.status = 'uploading';
         jobItem.busy = false;
@@ -24,27 +22,20 @@ jobs.controller('UploadJobsCtrl',
             jobItem.status = 'indexing';
             jobItem.resource = resource;
 
-            // TODO: grouped polling for all resources whe're interested in?
+            // TODO: grouped polling for all resources we're interested in?
             var findImage = () => resource.get();
             var imageResource = poll(findImage, pollFrequency, pollTimeout);
             imageResource.then(image => {
-                jobItem.status = image.data.valid ? 'ready' : 'invalid';
+                jobItem.status = 'uploaded';
                 jobItem.image = image;
                 jobItem.thumbnail = image.data.thumbnail;
             });
         }, error => {
             var message = error.body.errorMessage;
-            jobItem.status = 'upload-error';
+            states.set(jobItem, 'upload error');
             jobItem.error = message;
         });
     });
-
-
-    var offMetadataUpdate = editsApi.onMetadataUpdate(({ resource, metadata, id }) => {
-        var jobItem = $scope.jobs.find(job => job.image.data.id === id);
-        overrideMetadata(jobItem, metadata);
-    }, () => $window.alert('Failed to save the changes. Please try again.'));
-    $scope.$on('$destroy', offMetadataUpdate);
 
 
     this.updateAllMetadata = (field, data) => {
