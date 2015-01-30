@@ -7,7 +7,23 @@
                  'status--valid': status === 'uploaded'
              }">{{job.status}}</div>
 
-        <ui-image-editor ng:if="job.image" image="job.image">
+        <ui-image-editor ng:if="job.image"
+                         image="job.image"
+                         apply-to="jobImages()">
+
+
+             <div class="metadata-applicator" ng:if="jobs.length > 1">
+                Apply
+                <button class="metadata-applicator__button"
+                        ng:click="uploadJobsCtrl.updateAllMetadata('byline', job.image.data.metadata.byline)">byline</button>
+                /
+                <button class="metadata-applicator__button"
+                        ng:click="uploadJobsCtrl.updateAllMetadata('credit', job.image.data.metadata.credit)">credit</button>
+                to all (save first)
+                <!-- TODO: we should make sure that we use the value in
+                the text field, at the moment this message will have to do -->
+            </div>
+
         </ui-image-editor>
     </li>
 </ul>
