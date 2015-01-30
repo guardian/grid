@@ -5,8 +5,8 @@ export var jobs = angular.module('kahuna.upload.jobs.requiredMetadataEditor', []
 
 
 jobs.controller('RequiredMetadataEditorCtrl',
-                ['$scope', '$window', 'editsApi',
-                 function($scope, $window, editsApi) {
+                ['$scope', '$window',
+                 function($scope, $window) {
 
     var ctrl = this;
 
@@ -16,8 +16,11 @@ jobs.controller('RequiredMetadataEditorCtrl',
     ctrl.save = function() {
         ctrl.saving = true;
 
-        editsApi.updateMetadata(ctrl.id, ctrl.metadata)
-            .then(() => $scope.jobEditor.$setPristine())
+        ctrl.resource.put({ data: ctrl.metadata })
+            .then(resource => {
+                ctrl.resource = resource;
+                $scope.jobEditor.$setPristine();
+            })
             .catch(() => $window.alert('Failed to save the changes, please try again.'))
             .finally(() => ctrl.saving = false);
     };
@@ -34,6 +37,20 @@ jobs.controller('RequiredMetadataEditorCtrl',
             description: ctrl.originalMetadata.description
         };
     }
+}]);
+
+jobs.directive('uiRequiredMetadataEditor', [function() {
+    return {
+        restrict: 'E',
+        scope: {
+            resource: '=',
+            originalMetadata: '=metadata',
+            externallyDisabled: '=?disabled'
+        },
+        controller: 'RequiredMetadataEditorCtrl as ctrl',
+        template: template,
+        bindToController: true
+    };
 }]);
 
 jobs.controller('DescriptionPlaceholderCtrl',
@@ -74,17 +91,3 @@ jobs.controller('DescriptionPlaceholderCtrl',
 
 }]);
 
-
-jobs.directive('uiRequiredMetadataEditor', [function() {
-    return {
-        restrict: 'E',
-        scope: {
-            id: '=',
-            originalMetadata: '=metadata', // [1]
-            externallyDisabled: '=?disabled'
-        },
-        controller: 'RequiredMetadataEditorCtrl as ctrl',
-        template: template,
-        bindToController: true
-    };
-}]);
