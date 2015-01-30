@@ -50,6 +50,16 @@ jobs.controller('UploadJobsCtrl',
         });
     };
 
+    this.updateAllLabels = master => {
+        var labels = master.data.map(resource => resource.data);
+
+        $scope.jobs.forEach(job => {
+            var labelResource = job.image.data.userMetadata.data.labels;
+            labelResource.post({ data: labels })
+                .then(resource => job.image.data.userMetadata.data.labels = resource);
+        });
+    };
+
     // FIXME: Why do we have to filter `job.image` here when it's already
     // filtered in the template
     this.getAllEditsOfType = (type, jobs) =>

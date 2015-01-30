@@ -12,6 +12,10 @@
                          apply-to="jobImages()">
 
 
+             <ui-labeller class="job-labeller"
+                          labels="job.image.data.userMetadata.data.labels">
+             </ui-labeller>
+
              <div class="metadata-applicator" ng:if="jobs.length > 1">
                 Apply
                 <button class="metadata-applicator__button"
@@ -19,7 +23,13 @@
                 /
                 <button class="metadata-applicator__button"
                         ng:click="uploadJobsCtrl.updateAllMetadata('credit', job.image.data.metadata.credit)">credit</button>
-                to all (save first)
+
+                or
+
+                <button class="metadata-applicator__button"
+                        ng:click="uploadJobsCtrl.updateAllLabels(job.image.data.userMetadata.data.labels)">labels</button>
+
+                to uploaded (save first)
                 <!-- TODO: we should make sure that we use the value in
                 the text field, at the moment this message will have to do -->
             </div>
