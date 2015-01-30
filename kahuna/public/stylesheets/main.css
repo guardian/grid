@@ -188,8 +188,24 @@ a:focus {
 
 
 /* ==========================================================================
+   Generics
+   ========================================================================== */
+
+.section {
+    margin-bottom: 25px;
+}
+
+.section-heading {
+    font-size: 1.8rem;
+    margin: 10px 0;
+    border-bottom: 1px solid #999;
+}
+
+
+/* ==========================================================================
    Angular
    ========================================================================== */
+
 input.ng-invalid {
     border-color: #ed5935;
 }
@@ -705,6 +721,7 @@ input.ng-invalid {
 
 /* ==========================================================================
    Uploads
+   TODO: remove unused classes
    ========================================================================== */
 
 .jobs {
@@ -714,21 +731,6 @@ input.ng-invalid {
 .job-status {
     padding: 5px 10px;
     border-radius: 5px;
-}
-.job-status--uploading,
-.job-status--indexing,
-.job-status--re-indexing {
-    color: white;
-    background-color: orange;
-}
-.job-status--ready {
-    color: white;
-    background-color: green;
-}
-.job-status--upload-error,
-.job-status--invalid {
-    color: white;
-    background-color: red;
 }
 
 .job-info {
@@ -825,6 +827,11 @@ input.ng-invalid {
 
 .job-apply-to-all {
     float: right;
+}
+
+.job-uploading {
+    width: 200px;
+    margin-bottom: 20px;
 }
 
 .metadata-applicator {
