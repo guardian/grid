@@ -4,8 +4,8 @@ import '../edits/image-editor';
 var upload = angular.module('kahuna.upload.controller', ['kahuna.edits.imageEditor']);
 
 upload.controller('UploadCtrl',
-                  ['$scope', 'uploadManager', 'mediaApi', 'editsApi', 'poll',
-                   function($scope, uploadManager, mediaApi, editsApi, poll) {
+                  ['$scope', 'uploadManager', 'mediaApi',
+                   function($scope, uploadManager, mediaApi) {
 
     this.latestJob = uploadManager.listUploads().slice(-1)[0];
 
