@@ -518,7 +518,6 @@ textarea.ng-invalid {
 }
 
 .result-editor__status {
-    width: 50%;
     display: block;
     border-radius: 5px;
     padding: 5px;
@@ -526,6 +525,11 @@ textarea.ng-invalid {
     text-align: center;
 }
 
+.result-editor__goto {
+    margin-top: 10px;
+    text-align: right;
+    display: block;
+}
 
 /* ==========================================================================
    Full Image / crop
@@ -770,7 +774,7 @@ textarea.ng-invalid {
     vertical-align: top;
 }
 .job-info--editor__input {
-    width: 300px;
+    width: 400px;
     display: inline-block;
 }
 .job-info--editor__input--description {
