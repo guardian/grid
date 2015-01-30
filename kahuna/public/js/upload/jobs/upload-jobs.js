@@ -6,15 +6,16 @@ export var jobs = angular.module('kahuna.upload.jobs', ['kahuna.preview.image'])
 
 
 jobs.controller('UploadJobsCtrl',
-                ['$window', '$scope', '$q', 'poll', 'editsApi',
-                 function($window, $scope, $q, poll, editsApi) {
+                ['$window', '$scope', '$q', 'poll',
+                 function($window, $scope, $q, poll) {
 
     // TODO: show thumbnail while uploading
     // https://developer.mozilla.org/en-US/docs/Using_files_from_web_applications#Example.3A_Showing_thumbnails_of_user-selected_images
 
+    // State machine-esque async transitions
     var pollFrequency = 500; // ms
     var pollTimeout   = 20 * 1000; // ms
-    $scope.jobs.forEach(jobItem => {
+    this.jobs.forEach(jobItem => {
         jobItem.status = 'uploading';
         jobItem.busy = false;
 
@@ -37,11 +38,12 @@ jobs.controller('UploadJobsCtrl',
         });
     });
 
-    $scope.jobImages = () => $scope.jobs.map(jobItem => jobItem.image);
+    // this needs to be a function due to the stateful `jobItem`
+    this.jobImages = () => this.jobs.map(jobItem => jobItem.image);
 
     this.updateAllMetadata = (field, value) => {
         // TODO: make sure form is saved first
-        $scope.jobs.forEach(job => {
+        this.jobs.forEach(job => {
             // we need to post all the data as that's what it expects.
             var data = angular.extend({}, job.image.data.userMetadata.data.metadata.data, { [field]: value });
             job.image.data.userMetadata.data.metadata.put({ data: data }).then(resource => {
@@ -53,26 +55,12 @@ jobs.controller('UploadJobsCtrl',
     this.updateAllLabels = master => {
         var labels = master.data.map(resource => resource.data);
 
-        $scope.jobs.forEach(job => {
+        this.jobs.forEach(job => {
             var labelResource = job.image.data.userMetadata.data.labels;
             labelResource.post({ data: labels })
                 .then(resource => job.image.data.userMetadata.data.labels = resource);
         });
     };
-
-    // FIXME: Why do we have to filter `job.image` here when it's already
-    // filtered in the template
-    this.getAllEditsOfType = (type, jobs) =>
-        jobs.filter(job => job.image)
-            .map(job => job.image.data.userMetadata.data[type]);
-
-    this.getLabelsArrFrom = image =>
-        image.data.userMetadata.data.labels.data.map(label => label.data);
-
-    this.updateLabels = jobs => resource =>
-        jobs.forEach(job => job.image.data.userMetadata.data.labels = resource);
-
-    this.jobsExcept = exclude => $scope.jobs.filter(job => job !== exclude);
 
 }]);
 
@@ -85,7 +73,9 @@ jobs.directive('uiUploadJobs', [function() {
             // as we don't really want to modify the original
             jobs: '='
         },
-        controller: 'UploadJobsCtrl as uploadJobsCtrl',
+        controller: 'UploadJobsCtrl',
+        controllerAs: 'ctrl',
+        bindToController: true,
         template: template
     };
 }]);
