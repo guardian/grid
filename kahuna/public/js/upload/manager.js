@@ -11,6 +11,8 @@ upload.factory('uploadManager',
 
     function createJobItem(file) {
         var request = fileUploader.upload(file);
+        // TODO: find out where we can revoke these
+        // see: https://developer.mozilla.org/en-US/docs/Web/API/URL.revokeObjectURL
         var dataUrl = $window.URL.createObjectURL(file);
 
         return {
