@@ -206,7 +206,9 @@ a:focus {
    Angular
    ========================================================================== */
 
-input.ng-invalid {
+/* FIXME: we use the element to be more specific, which is baloney */
+input.ng-invalid,
+textarea.ng-invalid {
     border-color: #ed5935;
 }
 
