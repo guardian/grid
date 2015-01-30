@@ -3,7 +3,7 @@ package com.gu.mediaservice.picdarexport.lib.picdar
 import java.net.URI
 
 import com.gu.mediaservice.picdarexport.lib.HttpClient
-import com.gu.mediaservice.picdarexport.model.{Asset, DateRange}
+import com.gu.mediaservice.picdarexport.model.{AssetRef, Asset, DateRange}
 import org.joda.time.DateTime
 import org.joda.time.format.{DateTimeFormat, ISODateTimeFormat}
 import play.api.Logger
@@ -26,7 +26,6 @@ trait PicdarApi extends HttpClient with PicdarInterface {
   }
 
   case class SearchInstance(id: Int, count: Int)
-  case class AssetRef(urn: String)
 
 
   lazy val currentMak: Future[Mak] = {
@@ -45,6 +44,7 @@ trait PicdarApi extends HttpClient with PicdarInterface {
       responseData = response.xml \ "ResponseData"
       resultCount  = (responseData \ "MatchCount" text).toInt
       searchId     = (responseData \ "SearchID" text).toInt
+      _            = Logger.debug(s"search results: $resultCount matches, search id $searchId")
     } yield SearchInstance(searchId, resultCount)
   }
 
@@ -54,6 +54,9 @@ trait PicdarApi extends HttpClient with PicdarInterface {
     post(messages.closeSearch(mak, searchInstance.id))
   }
 
+
+  // No timezone lol
+  val picdarAmericanDateFormat = DateTimeFormat.forPattern("dd/MM/yyyy")
 
   def fetchResults(mak: Mak, searchInstance: SearchInstance, range: Option[Range]): Future[Seq[AssetRef]] = {
     Logger.debug("fetching results")
@@ -70,8 +73,10 @@ trait PicdarApi extends HttpClient with PicdarInterface {
     searchItemsFuture map { searchItems =>
       for {
         matchNode  <- searchItems
-        urn         = matchNode \ "MMRef" text
-      } yield AssetRef(urn)
+        urn         = (matchNode \ "MMRef" text)
+        dateLoaded  = extractField(matchNode, "Date Loaded") map picdarAmericanDateFormat.parseDateTime getOrElse
+          (throw new Error("Failed to read date loaded from search result"))
+      } yield AssetRef(urn, dateLoaded)
     }
   }
 
@@ -94,7 +99,6 @@ trait PicdarApi extends HttpClient with PicdarInterface {
 
   def fetchAsset(mak: String, urn: String): Future[Asset] = {
     post(messages.retrieveAsset(mak, urn)) map { response =>
-      println(response.xml)
       val record = (response.xml \ "ResponseData" \ "Record")(0)
       val assetFile = (record \ "VURL") find (v => (v \ "@type" text) == "original") map (_.text) map URI.create
       val createdOn = extractField(record, "Created on")

@@ -3,22 +3,6 @@
    ========================================================================== */
 
 @font-face {
-    font-family: "Guardian Text Egyptian Web";
-    src: url("fonts/GuardianTextEgyptianWeb-Regular.woff2") format("woff2"),
-         url("fonts/GuardianTextEgyptianWeb-Regular.woff") format("woff");
-    font-weight: normal;
-    font-style: normal;
-    font-stretch: normal;
-}
-@font-face {
-    font-family: "Guardian Text Egyptian Web";
-    src: url("fonts/GuardianTextEgyptianWeb-Bold.woff2") format("woff2"),
-         url("fonts/GuardianTextEgyptianWeb-Bold.woff") format("woff");
-    font-weight: bold;
-    font-style: normal;
-    font-stretch: normal;
-}
-@font-face {
     font-family: "Guardian Agate Sans Web";
     src: url("fonts/GuardianAgateSans1Web-Regular.woff2") format("woff2"),
          url("fonts/GuardianAgateSans1Web-Regular.woff") format("woff");
@@ -45,7 +29,7 @@
 }
 
 html {
-    font: 62.5%/1.5 "Guardian Text Egyptian Web", Georgia;
+    font: 62.5%/1.5 "Guardian Agate Sans Web", Georgia;
 }
 
 body {
@@ -81,11 +65,21 @@ a {
     color: #00adee;
 }
 
+input,
+option,
+textarea,
+button {
+    font-family: "Guardian Agate Sans Web", Helvetica, Arial;
+    font-size: 1.4rem;
+}
+
 input[type="text"],
 textarea {
     background-color: #444;
     color: #ccc;
     border: 1px solid #999;
+    padding: 5px;
+    box-sizing: border-box;
 }
 
 /* annoyingly we have to have these seperate as the moz-placeholder breaks the
@@ -111,7 +105,6 @@ button {
     cursor: pointer;
     color: inherit;
     font-size: inherit;
-    font-family: "Guardian Agate Sans Web", Helvetica, Arial;
 }
 
 .button {
@@ -123,8 +116,7 @@ button {
     color: white;
     display: block;
     padding: 5px 20px !important;
-    font-family: "Guardian Text Egyptian Web", Georgia;
-    font-size: 1.6rem;
+    font-size: 1.4rem;
     position: relative;
 }
 .button:hover {
@@ -196,6 +188,14 @@ a:focus {
 
 
 /* ==========================================================================
+   Angular
+   ========================================================================== */
+input.ng-invalid {
+    border-color: #ed5935;
+}
+
+
+/* ==========================================================================
    Top bar
    ========================================================================== */
 
@@ -239,7 +239,7 @@ a:focus {
 
 .logout {
     color: inherit;
-    font-size: 1.2rem;
+    font-size: 1.3rem;
 }
 
 
@@ -433,7 +433,7 @@ a:focus {
 }
 
 .preview__info {
-    font-size: 1.2rem;
+    font-size: 1.3rem;
     padding-left: 10px;
     margin: 5px 0;
 }
@@ -673,7 +673,7 @@ a:focus {
 
 .labels {
     display: inline-block;
-    font-size: 1.2rem;
+    font-size: 1.3rem;
 }
 
 .label {
@@ -767,11 +767,7 @@ a:focus {
 }
 .job-info--editor__input {
     width: 300px;
-    border: 1px solid #dcdcdc;
-    padding: 5px;
-}
-.job-info--editor__input.ng-invalid {
-    border-color: #ed5935;
+    display: inline-block;
 }
 .job-info--editor__input--description {
     height: 4em;

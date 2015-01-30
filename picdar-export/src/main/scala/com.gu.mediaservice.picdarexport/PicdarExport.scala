@@ -22,7 +22,7 @@ class ExportManager(picdar: PicdarClient, loader: MediaLoader) {
 
   def ingest(dateField: String, dateRange: DateRange, queryRange: Option[Range]) =
     for {
-      assets       <- picdar.query(dateField, dateRange, queryRange)
+      assets       <- picdar.queryAssets(dateField, dateRange, queryRange)
       _             = Logger.info(s"${assets.size} matches")
       uploadedIds  <- Future.sequence(assets map uploadAsset)
     } yield uploadedIds
@@ -107,14 +107,14 @@ trait ArgumentHelpers {
 trait ExecutionHelpers {
   // TODO: find a cleaner way to do this? play.api.Play.stop() doesn't seem to work...
   def terminateAfter[T](process: => Future[T]) = {
-    process onComplete { _ => System.exit(0) }
+    val execution = process
+    execution onFailure  { case e: Throwable => e.printStackTrace; System.exit(1) }
+    execution onComplete { _ => System.exit(0) }
   }
 
 }
 
 object ExportApp extends App with ExportManagerProvider with ArgumentHelpers with ExecutionHelpers {
-
-  val app = new play.core.StaticApplication(new java.io.File("."))
 
   def dumpMetadata(metadata: Map[String,String]): String = {
     metadata.map { case (key, value) => s"  $key: $value" }.mkString("\n")
