@@ -37,46 +37,18 @@ jobs.controller('UploadJobsCtrl',
         });
     });
 
+    $scope.jobImages = () => $scope.jobs.map(jobItem => jobItem.image);
 
-    this.updateAllMetadata = (field, data) => {
+    this.updateAllMetadata = (field, value) => {
         // TODO: make sure form is saved first
         $scope.jobs.forEach(job => {
-            editsApi.updateMetadata(job.image.data.id, { [field]: data });
+            // we need to post all the data as that's what it expects.
+            var data = angular.extend({}, job.image.data.userMetadata.data.metadata.data, { [field]: value });
+            job.image.data.userMetadata.data.metadata.put({ data: data }).then(resource => {
+                job.image.data.userMetadata.data.metadata = resource;
+            });
         });
     };
-
-    // When the metadata is overridden, we don't know if the resulting
-    // image is valid or not. This code checks when the update has
-    // been processed and updates the status accordingly.
-
-    // FIXME: re-engineer the metadata/validation architecture so we
-    // don't have to wait and poll?
-    function overrideMetadata(jobItem, metadata) {
-
-        jobItem.status = 're-indexing';
-        jobItem.busy = true;
-
-        // Wait until all values of `metadata' are seen in the media API
-        function matchesMetadata(image) {
-            var imageMetadata = image.data.metadata;
-            var matches = Object.keys(metadata).every(key => imageMetadata[key] === metadata[key]);
-            if (matches) {
-                return image;
-            } else {
-                // not matching yet, keep polling
-                return $q.reject('no match');
-            }
-        }
-
-        var apiSynced = () => jobItem.resource.get().then(matchesMetadata);
-
-        var waitIndexed = poll(apiSynced, pollFrequency, pollTimeout);
-        waitIndexed.then(image => {
-            jobItem.image = image;
-            jobItem.status = image.data.valid ? 'ready' : 'invalid';
-        }).finally(() => jobItem.busy = false);
-    }
-
 
     // FIXME: Why do we have to filter `job.image` here when it's already
     // filtered in the template
