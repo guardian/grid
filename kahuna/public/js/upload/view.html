@@ -11,16 +11,17 @@
 </div>
 
 <div class="page-wrapper">
-    <section class="upload-latest"
+    <section class="section"
              ng:if="ctrl.latestJob">
-        <h2>Uploading</h2>
+
+        <h2 class="section-heading">Uploading</h2>
 
         <ui-upload-jobs jobs="ctrl.latestJob"></ui-upload-jobs>
     </section>
 
 
-    <section style="padding-top: 10px; margin-top: 10px; border-top: 5px solid white;">
-        <h2>Your uploads</h2>
+    <section class="section" ng:if="ctrl.myUploads.data.length > 0">
+        <h2 class="section-heading">Your past uploads</h2>
 
         <ul>
             <li ng:repeat="result in ctrl.myUploads.data">
