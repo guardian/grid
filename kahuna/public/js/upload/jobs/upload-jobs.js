@@ -30,7 +30,7 @@ jobs.controller('UploadJobsCtrl',
             });
         }, error => {
             var message = error.body.errorMessage;
-            states.set(jobItem, 'upload error');
+            jobItem.status = 'upload error';
             jobItem.error = message;
         });
     });
@@ -42,7 +42,10 @@ jobs.controller('UploadJobsCtrl',
         // TODO: make sure form is saved first
         this.jobs.forEach(job => {
             // we need to post all the data as that's what it expects.
-            var data = angular.extend({}, job.image.data.userMetadata.data.metadata.data, { [field]: value });
+            var data = angular.extend({},
+                job.image.data.userMetadata.data.metadata.data,
+                { [field]: value }
+            );
             job.image.data.userMetadata.data.metadata.put({ data: data }).then(resource => {
                 job.image.data.userMetadata.data.metadata = resource;
             });
