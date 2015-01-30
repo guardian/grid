@@ -821,6 +821,10 @@ a:focus {
 
 .job-labeller {
     clear: both;
+    text-align: right;
+    font-size: 1.4rem;
+    margin-top: 10px;
+    display: block;
 }
 
 .job-apply-to-all {
