@@ -8,6 +8,7 @@
 
     <div class="result-editor__editor">
         <ui-required-metadata-editor ng:if="ctrl.image"
+                                     disabled="ctrl.saving"
                                      resource="ctrl.image.data.userMetadata.data.metadata"
                                      metadata="ctrl.image.data.metadata">
         </ui-required-metadata-editor>

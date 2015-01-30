@@ -14,7 +14,6 @@ jobs.controller('UploadJobsCtrl',
     var pollTimeout   = 20 * 1000; // ms
     this.jobs.forEach(jobItem => {
         jobItem.status = 'uploading';
-        jobItem.busy = false;
 
         jobItem.resourcePromise.then(resource => {
             jobItem.status = 'indexing';
