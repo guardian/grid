@@ -65,7 +65,7 @@ object Build extends Build {
     .libraryDependencies(awsDeps ++ commonsNetDeps)
 
   val picdarExport = project("picdar-export")
-    .enablePlugins(play.PlayScala)
+    .dependsOn(lib)
     .settings(sbtassembly.Plugin.assemblySettings: _*)
     .settings(assemblyMergeSettings: _*)
     .libraryDependencies(playDeps)

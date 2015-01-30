@@ -12,6 +12,7 @@
             ></textarea>
         </label>
         <label class="job-info--editor__field">
+            <!-- TODO: autocomplete on byline when API responds correctly with results -->
             <div class="job-info--editor__label">Byline</div>
             <input type="text"
                    name="byline"
@@ -23,14 +24,12 @@
         </label>
         <label class="job-info--editor__field">
             <div class="job-info--editor__label">Credit</div>
-            <input type="text"
-                   name="credit"
-                   placeholder="e.g. Getty Images…"
-                   required
-                   class="job-info--editor__input job-info--editor__input--credit"
-                   ng:disabled="ctrl.disabled()"
-                   ng:model="ctrl.metadata.credit"
-            />
+            <ui-datalist class="job-info--editor__input"
+                         name="credit"
+                         placeholder="e.g. Getty Images…"
+                         request="ctrl.metadataSearch('credit', q)"
+                         ng:model="ctrl.metadata.credit"
+                         ng:disabled="ctrl.disabled()"></ui-datalist>
         </label>
     </div>
 
@@ -39,7 +38,7 @@
                class="button job-editor__button"
                value="{{ {true: 'Saving…', false: 'Save'}[ctrl.disabled()] }}"
                ng:click="ctrl.save()"
-               ng:disabled="jobEditor.$invalid || jobEditor.$pristine || ctrl.busy"
+               ng:disabled="jobEditor.$pristine || ctrl.disabled()"
         />
     </div>
 </form>

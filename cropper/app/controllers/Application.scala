@@ -56,7 +56,6 @@ object Application extends Controller with ArgoHelpers {
           )
 
           Notifications.publish(exports, "update-image-exports")
-
           Ok(crops).as(ArgoMediaType)
         }
       }

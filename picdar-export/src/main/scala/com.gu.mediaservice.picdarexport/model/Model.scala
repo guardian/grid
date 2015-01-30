@@ -13,4 +13,7 @@ case class Asset(
   infoUri: Option[URI]
 )
 
+
+case class AssetRef(urn: String, dateLoaded: DateTime)
+
 case class DateRange(start: Option[DateTime], end: Option[DateTime])
