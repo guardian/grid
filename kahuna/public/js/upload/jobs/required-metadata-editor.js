@@ -56,9 +56,10 @@ jobs.directive('uiRequiredMetadataEditor', [function() {
             originalMetadata: '=metadata',
             externallyDisabled: '=?disabled'
         },
-        controller: 'RequiredMetadataEditorCtrl as ctrl',
-        template: template,
-        bindToController: true
+        controller: 'RequiredMetadataEditorCtrl',
+        controllerAs: 'ctrl',
+        bindToController: true,
+        template: template
     };
 }]);
 
