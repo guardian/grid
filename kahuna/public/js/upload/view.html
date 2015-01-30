@@ -19,11 +19,14 @@
     </section>
 
 
-    <section>
+    <section style="padding-top: 10px; margin-top: 10px; border-top: 5px solid white;">
         <h2>Your uploads</h2>
 
-        <ui-results-editor query="ctrl.myUploadsQuery"
-                           ng:if="ctrl.myUploadsQuery"></ui-results-editor>
+        <ul>
+            <li ng:repeat="result in ctrl.myUploads.data">
+                <ui-image-editor image="result"></ui-image-editor>
+            </li>
+        </ul>
     </section>
 
     <p ng:controller="SessionCtrl" class="upload-yours">
