@@ -22,7 +22,9 @@ class S3(credentials: AWSCredentials) {
   lazy val client: AmazonS3 =
     new AmazonS3Client(credentials) <| (_ setEndpoint s3Endpoint)
 
-  def signUrl(bucket: Bucket, key: Key, expiration: DateTime): String = {
+  def signUrl(bucket: Bucket, url: URI, expiration: DateTime): String = {
+    // get path and remove leading `/`
+    val key: Key = url.getPath.drop(1)
     val request = new GeneratePresignedUrlRequest(bucket, key).withExpiration(expiration.toDate)
     client.generatePresignedUrl(request).toExternalForm
   }

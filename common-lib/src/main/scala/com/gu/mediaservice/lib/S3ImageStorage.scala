@@ -19,18 +19,24 @@ class S3ImageStorage(imageBucket: String, thumbnailBucket: String, credentials: 
   val cacheForever = s"max-age=${cacheDuration.toSeconds}"
 
   def storeImage(id: String, file: File, mimeType: Option[String], meta: Map[String, String] = Map.empty) =
-    store(imageBucket, id, file, mimeType, meta, Some(cacheForever))
+    store(imageBucket, fileKeyFromId(id), file, mimeType, meta, Some(cacheForever))
 
   def storeThumbnail(id: String, file: File, mimeType: Option[String]) =
-    store(thumbnailBucket, id, file, mimeType, cacheControl = Some(cacheForever))
+    store(thumbnailBucket, fileKeyFromId(id), file, mimeType, cacheControl = Some(cacheForever))
 
   def deleteImage(id: String) = Future {
+    // TODO: figure out how to get the image ID to this point so we don't have
+    // delete both the ID and generated ID
     client.deleteObject(imageBucket, id)
+    client.deleteObject(imageBucket, fileKeyFromId(id))
     log.info(s"Deleted image $id from bucket $imageBucket")
   }
 
   def deleteThumbnail(id: String) = Future {
     client.deleteObject(thumbnailBucket, id)
+    client.deleteObject(thumbnailBucket, fileKeyFromId(id))
   }
+
+  def fileKeyFromId(id: String): String = id.substring(0, 6).split("").mkString("/") + "/" + id
 
 }
