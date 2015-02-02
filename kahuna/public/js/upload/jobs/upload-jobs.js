@@ -6,8 +6,7 @@ export var jobs = angular.module('kahuna.upload.jobs', ['kahuna.preview.image'])
 
 
 jobs.controller('UploadJobsCtrl',
-                ['$window', '$scope', '$q', 'poll',
-                 function($window, $scope, $q, poll) {
+                ['poll', function(poll) {
 
     // State machine-esque async transitions
     var pollFrequency = 500; // ms
