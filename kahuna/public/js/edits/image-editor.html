@@ -17,11 +17,11 @@
 
     <div class="result-editor__info">
         <!-- Trying to avoid static class names -->
-        <a class="result-editor__status status"
+        <span class="result-editor__status status"
            ng:if="ctrl.status !== 'ready'"
            ng:class="{
               'status--invalid': ctrl.status === 'invalid'
-           }">{{ctrl.status}}</a>
+           }">{{ctrl.status}}</span>
 
         <a class="result-editor__status status status--valid"
            ng:if="ctrl.status === 'ready'"
