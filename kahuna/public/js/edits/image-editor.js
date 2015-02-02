@@ -53,8 +53,7 @@ imageEditor.directive('uiImageEditor', [function() {
         template: template,
         transclude: true,
         scope: {
-            image: '=',
-            applyTo: '&'
+            image: '='
         }
     };
 }]);
