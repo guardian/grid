@@ -97,7 +97,6 @@ object Application extends Controller with ArgoHelpers {
     dynamo.jsonGet(id, "metadata").map(metadata => Ok(metadataResponse(metadata, id)))
   }
 
-  // TODO: Make a metadataForm that restricts description / credit
   // ALWAYS send over the whole document or you'll lose your data
   case class MapEntity(data: Map[String, String])
 
