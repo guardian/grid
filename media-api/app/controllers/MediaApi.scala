@@ -1,6 +1,6 @@
 package controllers
 
-import com.gu.mediaservice.api.Transformers
+import java.net.URI
 
 import scala.util.Try
 
@@ -15,6 +15,7 @@ import com.gu.mediaservice.lib.auth
 import com.gu.mediaservice.lib.auth.KeyStore
 import com.gu.mediaservice.lib.argo.ArgoHelpers
 import com.gu.mediaservice.lib.formatting.parseDateFromQuery
+import com.gu.mediaservice.api.Transformers
 
 
 object MediaApi extends Controller with ArgoHelpers {
@@ -84,8 +85,10 @@ object MediaApi extends Controller with ArgoHelpers {
       // Round expiration time to try and hit the cache as much as possible
       // TODO: do we really need these expiration tokens? they kill our ability to cache...
       val expiration = roundDateTime(DateTime.now, Duration.standardMinutes(10)).plusMinutes(20)
-      val secureUrl = S3Client.signUrl(Config.imageBucket, id, expiration)
-      val secureThumbUrl = S3Client.signUrl(Config.thumbBucket, id, expiration)
+      val fileUri = new URI((source \ "source" \ "file").as[String])
+      val secureUrl = S3Client.signUrl(Config.imageBucket, fileUri, expiration)
+      val secureThumbUrl = S3Client.signUrl(Config.thumbBucket, fileUri, expiration)
+
       val credit = (source \ "metadata" \ "credit").as[Option[String]]
       // TODO: This might be easier to get from the `SearchParams`
       // downfall: it might give the wrong value if a bug is introduced
