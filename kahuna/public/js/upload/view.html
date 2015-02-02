@@ -21,17 +21,23 @@
 
 
     <section class="section" ng:if="ctrl.myUploads.data.length > 0">
-        <h2 class="section-heading">Your past uploads</h2>
+        <h2 class="section-heading">Your past 50 uploads</h2>
 
         <ul>
             <li ng:repeat="result in ctrl.myUploads.data">
                 <ui-image-editor image="result"></ui-image-editor>
             </li>
         </ul>
+
+        <p></p>
     </section>
 
-    <p ng:controller="SessionCtrl" class="upload-yours">
-        Or see <a ui:sref="search.results({uploadedBy: user.email})" class="coloured-link">all your uploads</a>.
+    <p class="upload-yours"
+       ng:controller="SessionCtrl"
+       ng:if="ctrl.myUploads.data.length === 0">
+        You haven't uploaded anything yet. Either drag 'n drop an image onto
+        this screen or click the blue upload button in the top right hand corner
+        to get your images on the Grid.
     </p>
 </div>
 
