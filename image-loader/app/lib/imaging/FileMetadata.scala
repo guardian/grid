@@ -37,9 +37,7 @@ object FileMetadata {
   def exportDirectory[T <: Directory](metadata: Metadata, directoryClass: Class[T]): Map[String, String] =
     Option(metadata.getDirectory(directoryClass)) map { directory =>
       directory.getTags.
-        // TODO: change to tag.hasTagName() once a minor issue has been fixed:
-        // https://github.com/drewnoakes/metadata-extractor/pull/78
-        filter(tag => directory.hasTagName(tag.getTagType)).
+        filter(tag => tag.hasTagName()).
         flatMap { tag =>
           nonEmptyTrimmed(tag.getDescription) map { value => tag.getTagName -> value }
         }.toMap
