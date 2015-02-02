@@ -25,11 +25,13 @@ class S3ImageStorage(imageBucket: String, thumbnailBucket: String, credentials: 
     store(thumbnailBucket, fileKeyFromId(id), file, mimeType, cacheControl = Some(cacheForever))
 
   def deleteImage(id: String) = Future {
+    client.deleteObject(imageBucket, id)
     client.deleteObject(imageBucket, fileKeyFromId(id))
     log.info(s"Deleted image $id from bucket $imageBucket")
   }
 
   def deleteThumbnail(id: String) = Future {
+    client.deleteObject(thumbnailBucket, id)
     client.deleteObject(thumbnailBucket, fileKeyFromId(id))
   }
 
