@@ -19,7 +19,18 @@ jobs.controller('RequiredMetadataEditorCtrl',
     ctrl.save = function() {
         ctrl.saving = true;
 
-        editsApi.updateMetadata(ctrl.id, ctrl.metadata)
+        // FIXME: I'm not really sure what we should be doing here. If we send
+        // over "" should we be:
+        // * overriding the original metadata with ""
+        // * clearing the override and falling back to the original
+        var cleanMetadata = {};
+        Object.keys(ctrl.metadata).forEach(key => {
+            if (ctrl.metadata[key]) {
+                cleanMetadata[key] = ctrl.metadata[key];
+            }
+        });
+
+        editsApi.updateMetadata(ctrl.id, cleanMetadata)
             .then(() => $scope.jobEditor.$setPristine())
             .catch(() => $window.alert('Failed to save the changes, please try again.'))
             .finally(() => ctrl.saving = false);
