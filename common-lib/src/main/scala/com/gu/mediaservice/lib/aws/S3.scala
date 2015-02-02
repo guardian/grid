@@ -25,10 +25,6 @@ class S3(credentials: AWSCredentials) {
   def signUrl(bucket: Bucket, url: URI, expiration: DateTime): String = {
     // get path and remove leading `/`
     val key: Key = url.getPath.drop(1)
-    signUrl(bucket, key, expiration)
-  }
-
-  def signUrl(bucket: Bucket, key: Key, expiration: DateTime): String = {
     val request = new GeneratePresignedUrlRequest(bucket, key).withExpiration(expiration.toDate)
     client.generatePresignedUrl(request).toExternalForm
   }
