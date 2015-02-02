@@ -29,16 +29,18 @@
             </li>
         </ul>
 
-        <p></p>
+        <p ng:controller="SessionCtrl">
+            <a class="coloured-link" ui:sref="search.results({uploadedBy: user.email})">View all your uploads.</a>
+        </p>
     </section>
 
-    <p class="upload-yours"
-       ng:controller="SessionCtrl"
+    <div class="upload-yours"
        ng:if="ctrl.myUploads.data.length === 0">
-        You haven't uploaded anything yet. Either drag 'n drop an image onto
-        this screen or click the blue upload button in the top right hand corner
-        to get your images on the Grid.
-    </p>
+        <p>You haven't uploaded anything yet.</p>
+        <p>Either drag 'n drop an image onto this screen or click the blue
+        upload button in the top right hand corner to get your images on
+        the Grid.</p>
+    </div>
 </div>
 
 <dnd-uploader></dnd-uploader>
