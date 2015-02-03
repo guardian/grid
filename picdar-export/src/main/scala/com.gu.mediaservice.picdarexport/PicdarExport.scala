@@ -162,14 +162,42 @@ object ExportApp extends App with ExportManagerProvider with ArgumentHelpers wit
       }
     }
 
-    case "+count" :: system :: Nil => terminateAfter {
+    case ":count-loaded" :: Nil => terminateAfter {
       dynamo.scanUnfetched(DateRange.all) map (urns => urns.size) map { count =>
         println(s"$count matching entries")
         count
       }
     }
-    case "+count" :: system :: date :: Nil => terminateAfter {
+    case ":count-loaded" :: date :: Nil => terminateAfter {
       dynamo.scanUnfetched(parseDateRange(date)) map (urns => urns.size) map { count =>
+        println(s"$count matching entries")
+        count
+      }
+    }
+
+    case ":count-fetched" :: Nil => terminateAfter {
+      dynamo.scanFetchedNotIngested(DateRange.all) map (urns => urns.size) map { count =>
+        println(s"$count matching entries")
+        count
+      }
+    }
+    case ":count-fetched" :: date :: Nil => terminateAfter {
+      dynamo.scanFetchedNotIngested(parseDateRange(date)) map (urns => urns.size) map { count =>
+        println(s"$count matching entries")
+        count
+      }
+    }
+
+    case ":count-ingested" :: env :: Nil => terminateAfter {
+      // FIXME: env?
+      dynamo.scanIngested(DateRange.all) map (urns => urns.size) map { count =>
+        println(s"$count matching entries")
+        count
+      }
+    }
+    case ":count-ingested" :: env :: date :: Nil => terminateAfter {
+      // FIXME: env?
+      dynamo.scanIngested(parseDateRange(date)) map (urns => urns.size) map { count =>
         println(s"$count matching entries")
         count
       }
@@ -217,8 +245,10 @@ object ExportApp extends App with ExportManagerProvider with ArgumentHelpers wit
         |usage: show   <desk|library> <picdarUrl>
         |       query  <desk|library> <created|modified|taken> <date>
         |       ingest <desk|library> <dev|test> <created|modified|taken> <date> [range]
+        |       :count-loaded   [dateLoaded]
+        |       :count-fetched  [dateLoaded]
+        |       :count-ingested <dev|test> [dateLoaded]
         |       +load  <desk|library> <created|modified|taken> <date> [range]
-        |       +count <desk|library> [dateLoaded]
         |       +fetch <desk|library> [dateLoaded] [range]
       """.stripMargin
     )
