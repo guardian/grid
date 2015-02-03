@@ -29,19 +29,8 @@ class ExportManager(picdar: PicdarClient, loader: MediaLoader) {
     } yield uploadedIds
 
 
-  private def uploadAsset(asset: Asset): Future[Option[URI]] =
-    for {
-      fileData <- picdar.readAssetFile(asset)
-      params    = loaderParams(asset)
-      mediaUri <- loader.upload(fileData, loaderParams(asset))
-    } yield mediaUri
-
-
-  private def loaderParams(asset: Asset): Map[String, String] = {
-    val identifiers = Json.stringify(Json.obj("picdarUrn" -> asset.urn))
-    val uploadTime = ISODateTimeFormat.dateTimeNoMillis().print(asset.created)
-    Map("identifiers" -> identifiers, "uploadTime" -> uploadTime)
-  }
+  private def uploadAsset(asset: Asset): Future[URI] =
+    loader.uploadUri(asset.file, asset.urn, asset.created)
 
 }
 
