@@ -67,8 +67,17 @@ object Build extends Build {
   val picdarExport = project("picdar-export")
     .dependsOn(lib)
     .settings(sbtassembly.Plugin.assemblySettings: _*)
+    .settings(playArtifactSettings: _*)
+    .settings(fiddlyExtraAssemblySettingsForExport: _*)
     .settings(assemblyMergeSettings: _*)
-    .libraryDependencies(playDeps)
+
+  def fiddlyExtraAssemblySettingsForExport = Seq(
+    mergeStrategy in assembly <<= (mergeStrategy in assembly) { (old) => {
+      case "version.txt" => MergeStrategy.first
+      case "play.plugins" => MergeStrategy.first
+      case x => old(x)
+    }}
+  )
 
   @deprecated
   val devImageLoader = project("dev-image-loader")
