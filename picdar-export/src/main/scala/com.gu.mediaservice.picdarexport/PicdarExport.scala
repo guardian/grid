@@ -2,6 +2,7 @@ package com.gu.mediaservice.picdarexport
 
 import java.net.URI
 
+import com.gu.mediaservice.picdarexport.lib.db.ExportDynamoDB
 import com.gu.mediaservice.picdarexport.lib.media.MediaLoader
 import com.gu.mediaservice.picdarexport.lib.picdar.PicdarClient
 import com.gu.mediaservice.picdarexport.lib.{Config, MediaConfig}
@@ -46,6 +47,9 @@ class ExportManager(picdar: PicdarClient, loader: MediaLoader) {
 
 
 trait ExportManagerProvider {
+
+  val dynamo = new ExportDynamoDB(Config.awsCredentials, Config.dynamoRegion, Config.picdarExportTable)
+
   lazy val picdarDesk = new PicdarClient {
     override val picdarUrl      = Config.picdarDeskUrl
     override val picdarUsername = Config.picdarDeskUsername
