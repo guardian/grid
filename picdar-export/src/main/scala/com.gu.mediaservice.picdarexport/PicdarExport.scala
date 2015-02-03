@@ -207,7 +207,7 @@ object ExportApp extends App with ExportManagerProvider with ArgumentHelpers wit
       dynamo.scanUnfetched(DateRange.all) flatMap { urns =>
         val updates = urns.map { assetRef =>
           getPicdar(system).get(assetRef.urn) flatMap { asset =>
-            dynamo.record(assetRef.urn, assetRef.dateLoaded, asset.file.toString, asset.created, asset.modified, asset.metadata)
+            dynamo.record(assetRef.urn, assetRef.dateLoaded, asset.file, asset.created, asset.modified, asset.metadata)
           }
         }
         Future.sequence(updates)
@@ -217,7 +217,7 @@ object ExportApp extends App with ExportManagerProvider with ArgumentHelpers wit
       dynamo.scanUnfetched(parseDateRange(date)) flatMap { urns =>
         val updates = urns.map { assetRef =>
           getPicdar(system).get(assetRef.urn) flatMap { asset =>
-            dynamo.record(assetRef.urn, assetRef.dateLoaded, asset.file.toString, asset.created, asset.modified, asset.metadata)
+            dynamo.record(assetRef.urn, assetRef.dateLoaded, asset.file, asset.created, asset.modified, asset.metadata)
           }
         }
         Future.sequence(updates)
@@ -232,7 +232,7 @@ object ExportApp extends App with ExportManagerProvider with ArgumentHelpers wit
         val rangeLen = rangeEnd - rangeStart
         val updates = urns.drop(rangeStart).take(rangeLen).map { assetRef =>
           getPicdar(system).get(assetRef.urn) flatMap { asset =>
-            dynamo.record(assetRef.urn, assetRef.dateLoaded, asset.file.toString, asset.created, asset.modified, asset.metadata)
+            dynamo.record(assetRef.urn, assetRef.dateLoaded, asset.file, asset.created, asset.modified, asset.metadata)
           }
         }
         Future.sequence(updates)
