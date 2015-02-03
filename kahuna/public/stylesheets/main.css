@@ -258,6 +258,11 @@ textarea.ng-invalid {
 .logout {
     color: inherit;
     font-size: 1.3rem;
+    position: fixed;
+    bottom: 0;
+    right: 0;
+    background: black;
+    padding: 10px;
 }
 
 
