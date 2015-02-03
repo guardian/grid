@@ -94,15 +94,16 @@ trait ArgumentHelpers {
   }
 
 
-  // TODO: for now we just allow a single day
-  //  val DateRangeExpr = """(?:(\d{4}-\d{2}-\d{2})--)?(\d{4}-\d{2}-\d{2})?""".r
-  val DateRangeExpr = """(\d{4}-\d{2}-\d{2})""".r
-
+  // FIXME: broken for --2014-11-12
+  val DateRangeExpr = """(?:(\d{4}-\d{2}-\d{2})?--)?(\d{4}-\d{2}-\d{2})?""".r
   def optDate(strOrNull: String): Option[DateTime] = Option(strOrNull).map(DateTime.parse)
 
   def parseDateRange(rangeSpec: String) = rangeSpec match {
-    case "today"                      => DateRange(Some(new DateTime), Some(new DateTime))
-    case DateRangeExpr(date)          => DateRange(optDate(date), optDate(date))
+    case "today"                         => DateRange(Some(new DateTime), Some(new DateTime))
+    case DateRangeExpr(fromDate, toDate) => {
+      val Seq(fromDateOpt, toDateOpt) = Seq(fromDate, toDate) map optDate
+      DateRange(fromDateOpt orElse toDateOpt, toDateOpt)
+    }
     case _ => throw new ArgumentError(s"Invalid range: $rangeSpec")
   }
 
@@ -220,7 +221,6 @@ object ExportApp extends App with ExportManagerProvider with ArgumentHelpers wit
         Future.sequence(updates)
       }
     }
-    // TODO: all take date *range*
     // TODO: "+ingest" => upload to Grid
 
     case _ => println(
