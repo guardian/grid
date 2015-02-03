@@ -238,7 +238,29 @@ object ExportApp extends App with ExportManagerProvider with ArgumentHelpers wit
         Future.sequence(updates)
       }
     }
-    // TODO: "+ingest" => upload to Grid
+
+    // TODO: allow no date range
+    // TODO: allow no range
+    case "+ingest" :: env :: date :: rangeStr :: Nil => terminateAfter {
+      val range = parseQueryRange(rangeStr)
+      dynamo.scanFetchedNotIngested(parseDateRange(date)) flatMap { assets =>
+        // FIXME: meh code
+        val rangeStart = range.map(_.start) getOrElse 0
+        val rangeEnd = range.map(_.end) getOrElse assets.size
+        val rangeLen = rangeEnd - rangeStart
+        // FIXME: parallel? or scale up image-loaders
+        val updates = assets.drop(rangeStart).take(rangeLen).map { asset =>
+          println(s"Start ingesting ${asset.picdarUrn}")
+          getLoader(env).uploadUri(asset.picdarAssetUrl, asset.picdarUrn, asset.picdarCreated) flatMap { mediaUri =>
+            println(s"Ingested ${asset.picdarUrn} to $mediaUri")
+            dynamo.recordIngested(asset.picdarUrn, asset.picdarCreated, mediaUri)
+          } recover { case e: Throwable =>
+            Logger.warn(s"Upload error for ${asset.picdarUrn}: $e")
+          }
+        }
+        Future.sequence(updates)
+      }
+    }
 
     case _ => println(
       """
@@ -250,6 +272,7 @@ object ExportApp extends App with ExportManagerProvider with ArgumentHelpers wit
         |       :count-ingested <dev|test> [dateLoaded]
         |       +load  <desk|library> <created|modified|taken> <date> [range]
         |       +fetch <desk|library> [dateLoaded] [range]
+        |       +ingest <dev|test> [dateLoaded] [range]
       """.stripMargin
     )
   }

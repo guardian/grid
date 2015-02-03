@@ -16,15 +16,10 @@ trait MediaLoader extends HttpClient {
   val loaderApiKey: String
 
   def uploadUri(uri: URI, picdarUrn: String, uploadTime: DateTime): Future[URI] = {
-    val start = new DateTime
     for {
       data   <- readBytes(uri)
-      downloaded = new DateTime
-      _       = println(s"READ FROM PICDAR IN ${downloaded.getMillis - start.getMillis}")
       params  = loaderParams(picdarUrn, uploadTime)
       uri    <- upload(data, params)
-      uploaded = new DateTime
-      _       = println(s"UPLOADED TO GRID IN ${uploaded.getMillis - downloaded.getMillis}")
     } yield uri
   }
 
