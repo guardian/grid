@@ -37,6 +37,6 @@ class S3ImageStorage(imageBucket: String, thumbnailBucket: String, credentials: 
     client.deleteObject(thumbnailBucket, fileKeyFromId(id))
   }
 
-  def fileKeyFromId(id: String): String = id.substring(0, 6).split("").mkString("/").substring(1) + "/" + id
+  def fileKeyFromId(id: String): String = id.take(6).mkString("/") + "/" + id
 
 }
