@@ -85,6 +85,14 @@ class DynamoDB(credentials: AWSCredentials, region: Region, tableName: String) {
       case false => removeKey(id, key)
     }
 
+  def stringSet(id: String, key: String, value: String)
+                (implicit ex: ExecutionContext): Future[JsObject] =
+    update(
+      id,
+      s"SET $key = :value",
+      new ValueMap().withString(":value", value)
+    )
+
 
   def setGet(id: String, key: String)
             (implicit ex: ExecutionContext): Future[Set[String]] =
