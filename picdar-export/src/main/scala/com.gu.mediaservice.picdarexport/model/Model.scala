@@ -17,3 +17,7 @@ case class Asset(
 case class AssetRef(urn: String, dateLoaded: DateTime)
 
 case class DateRange(start: Option[DateTime], end: Option[DateTime])
+
+object DateRange {
+  val all = DateRange(None, None)
+}
