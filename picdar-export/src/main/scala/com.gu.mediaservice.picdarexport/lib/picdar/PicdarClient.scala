@@ -8,8 +8,6 @@ import scala.concurrent.ExecutionContext.Implicits.global
 
 trait PicdarClient extends PicdarApi with HttpClient {
 
-  def readAssetFile(asset: Asset): Future[Array[Byte]] = readBytes(asset.file)
-
   def get(urn: String): Future[Asset] =
     for {
       mak   <- currentMak
