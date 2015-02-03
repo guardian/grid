@@ -154,11 +154,83 @@ object ExportApp extends App with ExportManagerProvider with ArgumentHelpers wit
         // TODO: show success/failures?
       }
     }
+
+    case "+load" :: system :: dateField :: date :: Nil => terminateAfter {
+      getPicdar(system).query(dateField, parseDateRange(date), None) flatMap { assetRefs =>
+        val saves = assetRefs.map { assetRef =>
+          dynamo.insert(assetRef.urn, assetRef.dateLoaded)
+        }
+        Future.sequence(saves)
+      }
+    }
+    case "+load" :: system :: dateField :: date :: range :: Nil => terminateAfter {
+      getPicdar(system).query(dateField, parseDateRange(date), parseQueryRange(range)) flatMap { assetRefs =>
+        val saves = assetRefs.map { assetRef =>
+          dynamo.insert(assetRef.urn, assetRef.dateLoaded)
+        }
+        Future.sequence(saves)
+      }
+    }
+
+    case "+count" :: system :: Nil => terminateAfter {
+      dynamo.scanUnfetched(DateRange.all) map (urns => urns.size) map { count =>
+        println(s"$count matching entries")
+        count
+      }
+    }
+    case "+count" :: system :: date :: Nil => terminateAfter {
+      dynamo.scanUnfetched(parseDateRange(date)) map (urns => urns.size) map { count =>
+        println(s"$count matching entries")
+        count
+      }
+    }
+
+    case "+fetch" :: system :: Nil => terminateAfter {
+      dynamo.scanUnfetched(DateRange.all) flatMap { urns =>
+        val updates = urns.map { assetRef =>
+          getPicdar(system).get(assetRef.urn) flatMap { asset =>
+            dynamo.record(assetRef.urn, assetRef.dateLoaded, asset.file.toString, asset.created, asset.modified, asset.metadata)
+          }
+        }
+        Future.sequence(updates)
+      }
+    }
+    case "+fetch" :: system :: date :: Nil => terminateAfter {
+      dynamo.scanUnfetched(parseDateRange(date)) flatMap { urns =>
+        val updates = urns.map { assetRef =>
+          getPicdar(system).get(assetRef.urn) flatMap { asset =>
+            dynamo.record(assetRef.urn, assetRef.dateLoaded, asset.file.toString, asset.created, asset.modified, asset.metadata)
+          }
+        }
+        Future.sequence(updates)
+      }
+    }
+    case "+fetch" :: system :: date :: rangeStr :: Nil => terminateAfter {
+      val range = parseQueryRange(rangeStr)
+      dynamo.scanUnfetched(parseDateRange(date)) flatMap { urns =>
+        // FIXME: meh code
+        val rangeStart = range.map(_.start) getOrElse 0
+        val rangeEnd = range.map(_.end) getOrElse urns.size
+        val rangeLen = rangeEnd - rangeStart
+        val updates = urns.drop(rangeStart).take(rangeLen).map { assetRef =>
+          getPicdar(system).get(assetRef.urn) flatMap { asset =>
+            dynamo.record(assetRef.urn, assetRef.dateLoaded, asset.file.toString, asset.created, asset.modified, asset.metadata)
+          }
+        }
+        Future.sequence(updates)
+      }
+    }
+    // TODO: all take date *range*
+    // TODO: "+ingest" => upload to Grid
+
     case _ => println(
       """
         |usage: show   <desk|library> <picdarUrl>
         |       query  <desk|library> <created|modified|taken> <date>
         |       ingest <desk|library> <dev|test> <created|modified|taken> <date> [range]
+        |       +load  <desk|library> <created|modified|taken> <date> [range]
+        |       +count <desk|library> [dateLoaded]
+        |       +fetch <desk|library> [dateLoaded] [range]
       """.stripMargin
     )
   }
