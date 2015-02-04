@@ -29,19 +29,8 @@ class ExportManager(picdar: PicdarClient, loader: MediaLoader) {
     } yield uploadedIds
 
 
-  private def uploadAsset(asset: Asset): Future[Option[URI]] =
-    for {
-      fileData <- picdar.readAssetFile(asset)
-      params    = loaderParams(asset)
-      mediaUri <- loader.upload(fileData, loaderParams(asset))
-    } yield mediaUri
-
-
-  private def loaderParams(asset: Asset): Map[String, String] = {
-    val identifiers = Json.stringify(Json.obj("picdarUrn" -> asset.urn))
-    val uploadTime = ISODateTimeFormat.dateTimeNoMillis().print(asset.created)
-    Map("identifiers" -> identifiers, "uploadTime" -> uploadTime)
-  }
+  private def uploadAsset(asset: Asset): Future[URI] =
+    loader.uploadUri(asset.file, asset.urn, asset.created)
 
 }
 
@@ -173,14 +162,42 @@ object ExportApp extends App with ExportManagerProvider with ArgumentHelpers wit
       }
     }
 
-    case "+count" :: system :: Nil => terminateAfter {
+    case ":count-loaded" :: Nil => terminateAfter {
       dynamo.scanUnfetched(DateRange.all) map (urns => urns.size) map { count =>
         println(s"$count matching entries")
         count
       }
     }
-    case "+count" :: system :: date :: Nil => terminateAfter {
+    case ":count-loaded" :: date :: Nil => terminateAfter {
       dynamo.scanUnfetched(parseDateRange(date)) map (urns => urns.size) map { count =>
+        println(s"$count matching entries")
+        count
+      }
+    }
+
+    case ":count-fetched" :: Nil => terminateAfter {
+      dynamo.scanFetchedNotIngested(DateRange.all) map (urns => urns.size) map { count =>
+        println(s"$count matching entries")
+        count
+      }
+    }
+    case ":count-fetched" :: date :: Nil => terminateAfter {
+      dynamo.scanFetchedNotIngested(parseDateRange(date)) map (urns => urns.size) map { count =>
+        println(s"$count matching entries")
+        count
+      }
+    }
+
+    case ":count-ingested" :: env :: Nil => terminateAfter {
+      // FIXME: env?
+      dynamo.scanIngested(DateRange.all) map (urns => urns.size) map { count =>
+        println(s"$count matching entries")
+        count
+      }
+    }
+    case ":count-ingested" :: env :: date :: Nil => terminateAfter {
+      // FIXME: env?
+      dynamo.scanIngested(parseDateRange(date)) map (urns => urns.size) map { count =>
         println(s"$count matching entries")
         count
       }
@@ -190,7 +207,7 @@ object ExportApp extends App with ExportManagerProvider with ArgumentHelpers wit
       dynamo.scanUnfetched(DateRange.all) flatMap { urns =>
         val updates = urns.map { assetRef =>
           getPicdar(system).get(assetRef.urn) flatMap { asset =>
-            dynamo.record(assetRef.urn, assetRef.dateLoaded, asset.file.toString, asset.created, asset.modified, asset.metadata)
+            dynamo.record(assetRef.urn, assetRef.dateLoaded, asset.file, asset.created, asset.modified, asset.metadata)
           }
         }
         Future.sequence(updates)
@@ -200,7 +217,7 @@ object ExportApp extends App with ExportManagerProvider with ArgumentHelpers wit
       dynamo.scanUnfetched(parseDateRange(date)) flatMap { urns =>
         val updates = urns.map { assetRef =>
           getPicdar(system).get(assetRef.urn) flatMap { asset =>
-            dynamo.record(assetRef.urn, assetRef.dateLoaded, asset.file.toString, asset.created, asset.modified, asset.metadata)
+            dynamo.record(assetRef.urn, assetRef.dateLoaded, asset.file, asset.created, asset.modified, asset.metadata)
           }
         }
         Future.sequence(updates)
@@ -215,22 +232,47 @@ object ExportApp extends App with ExportManagerProvider with ArgumentHelpers wit
         val rangeLen = rangeEnd - rangeStart
         val updates = urns.drop(rangeStart).take(rangeLen).map { assetRef =>
           getPicdar(system).get(assetRef.urn) flatMap { asset =>
-            dynamo.record(assetRef.urn, assetRef.dateLoaded, asset.file.toString, asset.created, asset.modified, asset.metadata)
+            dynamo.record(assetRef.urn, assetRef.dateLoaded, asset.file, asset.created, asset.modified, asset.metadata)
           }
         }
         Future.sequence(updates)
       }
     }
-    // TODO: "+ingest" => upload to Grid
+
+    // TODO: allow no date range
+    // TODO: allow no range
+    case "+ingest" :: env :: date :: rangeStr :: Nil => terminateAfter {
+      val range = parseQueryRange(rangeStr)
+      dynamo.scanFetchedNotIngested(parseDateRange(date)) flatMap { assets =>
+        // FIXME: meh code
+        val rangeStart = range.map(_.start) getOrElse 0
+        val rangeEnd = range.map(_.end) getOrElse assets.size
+        val rangeLen = rangeEnd - rangeStart
+        // FIXME: parallel? or scale up image-loaders
+        val updates = assets.drop(rangeStart).take(rangeLen).map { asset =>
+          println(s"Start ingesting ${asset.picdarUrn}")
+          getLoader(env).uploadUri(asset.picdarAssetUrl, asset.picdarUrn, asset.picdarCreated) flatMap { mediaUri =>
+            println(s"Ingested ${asset.picdarUrn} to $mediaUri")
+            dynamo.recordIngested(asset.picdarUrn, asset.picdarCreated, mediaUri)
+          } recover { case e: Throwable =>
+            Logger.warn(s"Upload error for ${asset.picdarUrn}: $e")
+          }
+        }
+        Future.sequence(updates)
+      }
+    }
 
     case _ => println(
       """
         |usage: show   <desk|library> <picdarUrl>
         |       query  <desk|library> <created|modified|taken> <date>
         |       ingest <desk|library> <dev|test> <created|modified|taken> <date> [range]
+        |       :count-loaded   [dateLoaded]
+        |       :count-fetched  [dateLoaded]
+        |       :count-ingested <dev|test> [dateLoaded]
         |       +load  <desk|library> <created|modified|taken> <date> [range]
-        |       +count <desk|library> [dateLoaded]
         |       +fetch <desk|library> [dateLoaded] [range]
+        |       +ingest <dev|test> [dateLoaded] [range]
       """.stripMargin
     )
   }
