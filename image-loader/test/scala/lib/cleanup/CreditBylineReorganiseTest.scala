@@ -20,28 +20,36 @@ class CreditBylineReorganiseTest extends FunSpec with Matchers with MetadataHelp
     .whenCleaned("Presseye/INPHO/REX", "Man/In/Suit")
   }
 
-  it ("should remove matching byline in slashed credit") {
-    pending
+
+
+
+  it ("should leave non matching byline and credit") {
+    CreditByline("Ella/BPI/REX", "Ella Ling/BPI/REX")
+    .whenCleaned("Ella/BPI/REX", "Ella Ling/BPI/REX")
+  }
+
+  it ("should remove matching byline from credit") {
+    CreditByline("Ella Ling/BPI/REX", "Ella Ling/BPI/REX")
+    .whenCleaned("BPI/REX", "Ella Ling")
+  }
+
+  it ("should remove matching byline from credit 2") {
     CreditByline("Jin Linpeng/Xinhua Press/Corbis", "Jin Linpeng")
     .whenCleaned("Xinhua Press/Corbis"            , "Jin Linpeng")
   }
 
-  it ("should make this right") {
+
+
+  it ("should remove matching byline in slashed credit u") {
     pending
-    CreditByline("Presseye / INPHO / REX", "Presseye / INPHO / REX")
-    .whenCleaned("INPHO/REX"             , "Presseye")
+    CreditByline("Jin Linpeng/Xinhua Press/Corbis", "Jin Linpeng/Xinhua Press")
+    .whenCleaned("Xinhua Press/Corbis"            , "Jin Linpeng")
   }
 
-  it ("should move first value in double slashed credit to byline if matching (non-spaced)") {
+  it ("should move first value in double slashed credit to byline if matching") {
     pending
     CreditByline("Andy Rowland/UK Sports Pics Ltd", "Andy Rowland")
     .whenCleaned("UK Sports Pics Ltd"             , "Andy Rowland")
-  }
-
-  it ("should move first value in double slashed credit to byline if matching (spaced)") {
-    pending
-    CreditByline("Zuma Press / eyevine", "Zuma Press / eyevine")
-    .whenCleaned("eyevine", "Zuma Press")
   }
 
   it ("should empty matching byline if matching without slashes") {
