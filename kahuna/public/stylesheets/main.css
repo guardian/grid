@@ -261,7 +261,7 @@ textarea.ng-invalid {
     position: fixed;
     bottom: 0;
     right: 0;
-    background: black;
+    background: rgba(0, 0, 0, .5);
     padding: 10px;
 }
 
