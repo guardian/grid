@@ -6,7 +6,7 @@ import lib.cleanup.StripCopyrightPrefix.stripCopyrightPrefix
 object ByLineCreditReorganise extends MetadataCleaner {
   type Field = Option[String]
 
-  val SpaceySlashes = """\s?\/\s?""".r
+  val SpaceySlashes = """\s*\/\s*""".r
 
   override def clean(metadata: ImageMetadata): ImageMetadata = {
     val cleanByline = cleanField(metadata.byline)
