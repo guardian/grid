@@ -9,12 +9,12 @@ case class MediaConfig(apiKey: String, loaderUrl: String)
 object Config {
   val properties = Properties.fromPath("/etc/gu/picdar-export.properties")
 
-  val awsAccessId = properties("aws.id")
-  val awsAccessSecret = properties("aws.secret")
+  def awsAccessId(env: String)       = properties(s"aws.$env.id")
+  def awsAccessSecret(env: String)   = properties(s"aws.$env.secret")
+  def picdarExportTable(env: String) = properties(s"aws.$env.picdarexport.table")
 
-  val awsCredentials = new BasicAWSCredentials(awsAccessId, awsAccessSecret)
+  def awsCredentials(env: String) = new BasicAWSCredentials(awsAccessId(env), awsAccessSecret(env))
   val dynamoRegion = Region.getRegion(Regions.EU_WEST_1)
-  val picdarExportTable = properties("aws.picdarexport.table")
 
 
   val picdarDeskUrl      = properties("picdar.desk.url")
