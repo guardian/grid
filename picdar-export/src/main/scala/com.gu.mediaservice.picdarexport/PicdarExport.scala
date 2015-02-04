@@ -37,8 +37,6 @@ class ExportManager(picdar: PicdarClient, loader: MediaLoader) {
 
 trait ExportManagerProvider {
 
-  val dynamo = new ExportDynamoDB(Config.awsCredentials, Config.dynamoRegion, Config.picdarExportTable)
-
   lazy val picdarDesk = new PicdarClient {
     override val picdarUrl      = Config.picdarDeskUrl
     override val picdarUsername = Config.picdarDeskUsername
@@ -66,6 +64,10 @@ trait ExportManagerProvider {
 
   def getExportManager(picdarSystem: String, mediaEnv: String) =
     new ExportManager(getPicdar(picdarSystem), getLoader(mediaEnv))
+
+  def getDynamo(env: String) = {
+    new ExportDynamoDB(Config.awsCredentials(env), Config.dynamoRegion, Config.picdarExportTable(env))
+  }
 
 }
 
@@ -145,7 +147,8 @@ object ExportApp extends App with ExportManagerProvider with ArgumentHelpers wit
       }
     }
 
-    case "+load" :: system :: dateField :: date :: Nil => terminateAfter {
+    case "+load" :: env :: system :: dateField :: date :: Nil => terminateAfter {
+      val dynamo = getDynamo(env)
       getPicdar(system).query(dateField, parseDateRange(date), None) flatMap { assetRefs =>
         val saves = assetRefs.map { assetRef =>
           dynamo.insert(assetRef.urn, assetRef.dateLoaded)
@@ -153,7 +156,8 @@ object ExportApp extends App with ExportManagerProvider with ArgumentHelpers wit
         Future.sequence(saves)
       }
     }
-    case "+load" :: system :: dateField :: date :: range :: Nil => terminateAfter {
+    case "+load" :: env :: system :: dateField :: date :: range :: Nil => terminateAfter {
+      val dynamo = getDynamo(env)
       getPicdar(system).query(dateField, parseDateRange(date), parseQueryRange(range)) flatMap { assetRefs =>
         val saves = assetRefs.map { assetRef =>
           dynamo.insert(assetRef.urn, assetRef.dateLoaded)
@@ -162,26 +166,30 @@ object ExportApp extends App with ExportManagerProvider with ArgumentHelpers wit
       }
     }
 
-    case ":count-loaded" :: Nil => terminateAfter {
+    case ":count-loaded" :: env :: Nil => terminateAfter {
+      val dynamo = getDynamo(env)
       dynamo.scanUnfetched(DateRange.all) map (urns => urns.size) map { count =>
         println(s"$count matching entries")
         count
       }
     }
-    case ":count-loaded" :: date :: Nil => terminateAfter {
+    case ":count-loaded" :: env :: date :: Nil => terminateAfter {
+      val dynamo = getDynamo(env)
       dynamo.scanUnfetched(parseDateRange(date)) map (urns => urns.size) map { count =>
         println(s"$count matching entries")
         count
       }
     }
 
-    case ":count-fetched" :: Nil => terminateAfter {
+    case ":count-fetched" :: env :: Nil => terminateAfter {
+      val dynamo = getDynamo(env)
       dynamo.scanFetchedNotIngested(DateRange.all) map (urns => urns.size) map { count =>
         println(s"$count matching entries")
         count
       }
     }
-    case ":count-fetched" :: date :: Nil => terminateAfter {
+    case ":count-fetched" :: env :: date :: Nil => terminateAfter {
+      val dynamo = getDynamo(env)
       dynamo.scanFetchedNotIngested(parseDateRange(date)) map (urns => urns.size) map { count =>
         println(s"$count matching entries")
         count
@@ -189,21 +197,22 @@ object ExportApp extends App with ExportManagerProvider with ArgumentHelpers wit
     }
 
     case ":count-ingested" :: env :: Nil => terminateAfter {
-      // FIXME: env?
+      val dynamo = getDynamo(env)
       dynamo.scanIngested(DateRange.all) map (urns => urns.size) map { count =>
         println(s"$count matching entries")
         count
       }
     }
     case ":count-ingested" :: env :: date :: Nil => terminateAfter {
-      // FIXME: env?
+      val dynamo = getDynamo(env)
       dynamo.scanIngested(parseDateRange(date)) map (urns => urns.size) map { count =>
         println(s"$count matching entries")
         count
       }
     }
 
-    case "+fetch" :: system :: Nil => terminateAfter {
+    case "+fetch" :: env :: system :: Nil => terminateAfter {
+      val dynamo = getDynamo(env)
       dynamo.scanUnfetched(DateRange.all) flatMap { urns =>
         val updates = urns.map { assetRef =>
           getPicdar(system).get(assetRef.urn) flatMap { asset =>
@@ -213,7 +222,8 @@ object ExportApp extends App with ExportManagerProvider with ArgumentHelpers wit
         Future.sequence(updates)
       }
     }
-    case "+fetch" :: system :: date :: Nil => terminateAfter {
+    case "+fetch" :: env :: system :: date :: Nil => terminateAfter {
+      val dynamo = getDynamo(env)
       dynamo.scanUnfetched(parseDateRange(date)) flatMap { urns =>
         val updates = urns.map { assetRef =>
           getPicdar(system).get(assetRef.urn) flatMap { asset =>
@@ -223,7 +233,8 @@ object ExportApp extends App with ExportManagerProvider with ArgumentHelpers wit
         Future.sequence(updates)
       }
     }
-    case "+fetch" :: system :: date :: rangeStr :: Nil => terminateAfter {
+    case "+fetch" :: env :: system :: date :: rangeStr :: Nil => terminateAfter {
+      val dynamo = getDynamo(env)
       val range = parseQueryRange(rangeStr)
       dynamo.scanUnfetched(parseDateRange(date)) flatMap { urns =>
         // FIXME: meh code
@@ -242,6 +253,7 @@ object ExportApp extends App with ExportManagerProvider with ArgumentHelpers wit
     // TODO: allow no date range
     // TODO: allow no range
     case "+ingest" :: env :: date :: rangeStr :: Nil => terminateAfter {
+      val dynamo = getDynamo(env)
       val range = parseQueryRange(rangeStr)
       dynamo.scanFetchedNotIngested(parseDateRange(date)) flatMap { assets =>
         // FIXME: meh code
@@ -267,11 +279,12 @@ object ExportApp extends App with ExportManagerProvider with ArgumentHelpers wit
         |usage: show   <desk|library> <picdarUrl>
         |       query  <desk|library> <created|modified|taken> <date>
         |       ingest <desk|library> <dev|test> <created|modified|taken> <date> [range]
-        |       :count-loaded   [dateLoaded]
-        |       :count-fetched  [dateLoaded]
+        |
+        |       :count-loaded   <dev|test> [dateLoaded]
+        |       :count-fetched  <dev|test> [dateLoaded]
         |       :count-ingested <dev|test> [dateLoaded]
-        |       +load  <desk|library> <created|modified|taken> <date> [range]
-        |       +fetch <desk|library> [dateLoaded] [range]
+        |       +load   <dev|test> <desk|library> <created|modified|taken> <date> [range]
+        |       +fetch  <dev|test> <desk|library> [dateLoaded] [range]
         |       +ingest <dev|test> [dateLoaded] [range]
       """.stripMargin
     )
