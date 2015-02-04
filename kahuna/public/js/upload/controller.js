@@ -1,10 +1,17 @@
 import angular from 'angular';
+import '../edits/image-editor';
 
-var upload = angular.module('kahuna.upload.controller', []);
+var upload = angular.module('kahuna.upload.controller', ['kahuna.edits.imageEditor']);
 
 upload.controller('UploadCtrl',
-                  ['$scope', 'uploadManager',
-                   function($scope, uploadManager) {
+                  ['$scope', 'uploadManager', 'mediaApi',
+                   function($scope, uploadManager, mediaApi) {
 
-    $scope.latestJob = uploadManager.listUploads().slice(-1)[0];
+    this.latestJob = uploadManager.listUploads().slice(-1)[0];
+
+    // my uploads
+    mediaApi.getSession().then(session => {
+        var uploadedBy = session.user.email;
+        mediaApi.search('', { uploadedBy }).then(resource => this.myUploads = resource);
+    });
 }]);

@@ -1,0 +1,30 @@
+<div class="result-editor">
+
+    <div class="result-editor__result">
+        <ui-preview-image image="ctrl.image"
+                          hide-info="true"></ui-preview-image>
+    </div>
+
+    <div class="result-editor__editor">
+        <ui-required-metadata-editor ng:if="ctrl.image"
+                                     disabled="ctrl.saving"
+                                     resource="ctrl.image.data.userMetadata.data.metadata"
+                                     metadata="ctrl.image.data.metadata">
+        </ui-required-metadata-editor>
+
+        <ng:transclude></ng:transclude>
+    </div>
+
+    <div class="result-editor__info">
+        <!-- Trying to avoid static class names -->
+        <span class="result-editor__status status"
+           ng:if="ctrl.status !== 'ready'"
+           ng:class="{
+              'status--invalid': ctrl.status === 'invalid'
+           }">{{ctrl.status}}</span>
+
+        <a class="result-editor__status status status--valid"
+           ng:if="ctrl.status === 'ready'"
+           ui:sref="image({ imageId: ctrl.image.data.id })">View image ▸</a>
+    </div>
+</div>

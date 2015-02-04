@@ -6,100 +6,59 @@ export var jobs = angular.module('kahuna.upload.jobs', ['kahuna.preview.image'])
 
 
 jobs.controller('UploadJobsCtrl',
-                ['$window', '$scope', '$q', 'poll', 'editsApi',
-                 function($window, $scope, $q, poll, editsApi) {
-
-    var pollFrequency = 500; // ms
-    var pollTimeout   = 20 * 1000; // ms
-
-    // TODO: show thumbnail while uploading
-    // https://developer.mozilla.org/en-US/docs/Using_files_from_web_applications#Example.3A_Showing_thumbnails_of_user-selected_images
+                ['poll', function(poll) {
 
     // State machine-esque async transitions
-    $scope.jobs.forEach(jobItem => {
+    var pollFrequency = 500; // ms
+    var pollTimeout   = 20 * 1000; // ms
+    this.jobs.forEach(jobItem => {
         jobItem.status = 'uploading';
-        jobItem.busy = false;
 
         jobItem.resourcePromise.then(resource => {
             jobItem.status = 'indexing';
             jobItem.resource = resource;
 
-            // TODO: grouped polling for all resources whe're interested in?
+            // TODO: grouped polling for all resources we're interested in?
             var findImage = () => resource.get();
             var imageResource = poll(findImage, pollFrequency, pollTimeout);
             imageResource.then(image => {
-                jobItem.status = image.data.valid ? 'ready' : 'invalid';
+                jobItem.status = 'uploaded';
                 jobItem.image = image;
                 jobItem.thumbnail = image.data.thumbnail;
             });
         }, error => {
             var message = error.body.errorMessage;
-            jobItem.status = 'upload-error';
+            jobItem.status = 'upload error';
             jobItem.error = message;
         });
     });
 
+    // this needs to be a function due to the stateful `jobItem`
+    this.jobImages = () => this.jobs.map(jobItem => jobItem.image);
 
-    var offMetadataUpdate = editsApi.onMetadataUpdate(({ resource, metadata, id }) => {
-        var jobItem = $scope.jobs.find(job => job.image.data.id === id);
-        overrideMetadata(jobItem, metadata);
-    }, () => $window.alert('Failed to save the changes. Please try again.'));
-    $scope.$on('$destroy', offMetadataUpdate);
-
-
-    this.updateAllMetadata = (field, data) => {
+    this.updateAllMetadata = (field, value) => {
         // TODO: make sure form is saved first
-        $scope.jobs.forEach(job => {
-            editsApi.updateMetadata(job.image.data.id, { [field]: data });
+        this.jobs.forEach(job => {
+            // we need to post all the data as that's what it expects.
+            var data = angular.extend({},
+                job.image.data.userMetadata.data.metadata.data,
+                { [field]: value }
+            );
+            job.image.data.userMetadata.data.metadata.put({ data: data }).then(resource => {
+                job.image.data.userMetadata.data.metadata = resource;
+            });
         });
     };
 
-    // When the metadata is overridden, we don't know if the resulting
-    // image is valid or not. This code checks when the update has
-    // been processed and updates the status accordingly.
+    this.updateAllLabels = master => {
+        var labels = master.data.map(resource => resource.data);
 
-    // FIXME: re-engineer the metadata/validation architecture so we
-    // don't have to wait and poll?
-    function overrideMetadata(jobItem, metadata) {
-
-        jobItem.status = 're-indexing';
-        jobItem.busy = true;
-
-        // Wait until all values of `metadata' are seen in the media API
-        function matchesMetadata(image) {
-            var imageMetadata = image.data.metadata;
-            var matches = Object.keys(metadata).every(key => imageMetadata[key] === metadata[key]);
-            if (matches) {
-                return image;
-            } else {
-                // not matching yet, keep polling
-                return $q.reject('no match');
-            }
-        }
-
-        var apiSynced = () => jobItem.resource.get().then(matchesMetadata);
-
-        var waitIndexed = poll(apiSynced, pollFrequency, pollTimeout);
-        waitIndexed.then(image => {
-            jobItem.image = image;
-            jobItem.status = image.data.valid ? 'ready' : 'invalid';
-        }).finally(() => jobItem.busy = false);
-    }
-
-
-    // FIXME: Why do we have to filter `job.image` here when it's already
-    // filtered in the template
-    this.getAllEditsOfType = (type, jobs) =>
-        jobs.filter(job => job.image)
-            .map(job => job.image.data.userMetadata.data[type]);
-
-    this.getLabelsArrFrom = image =>
-        image.data.userMetadata.data.labels.data.map(label => label.data);
-
-    this.updateLabels = jobs => resource =>
-        jobs.forEach(job => job.image.data.userMetadata.data.labels = resource);
-
-    this.jobsExcept = exclude => $scope.jobs.filter(job => job !== exclude);
+        this.jobs.forEach(job => {
+            var labelResource = job.image.data.userMetadata.data.labels;
+            labelResource.post({ data: labels })
+                .then(resource => job.image.data.userMetadata.data.labels = resource);
+        });
+    };
 
 }]);
 
@@ -112,7 +71,9 @@ jobs.directive('uiUploadJobs', [function() {
             // as we don't really want to modify the original
             jobs: '='
         },
-        controller: 'UploadJobsCtrl as uploadJobsCtrl',
+        controller: 'UploadJobsCtrl',
+        controllerAs: 'ctrl',
+        bindToController: true,
         template: template
     };
 }]);
