@@ -1,0 +1,108 @@
+{
+    "AWSTemplateFormatVersion": "2010-09-09",
+    "Description": "Picdar Export",
+    "Parameters": {
+        "Stage": {
+            "Description": "Environment name",
+            "Type": "String",
+            "AllowedValues": ["DEV", "TEST", "PROD"],
+            "Default": "PROD"
+        }
+    },
+    "Resources": {
+
+        "PicdarExportGroup": {
+            "Type": "AWS::IAM::Group",
+            "Properties": {
+                "Policies": [{
+                    "PolicyName": "PicdarExportDynamoTablePolicy",
+                    "PolicyDocument": {
+                        "Id": "PicdarExportDynamoTablePolicy",
+                        "Statement": [ {
+                            "Effect": "Allow",
+                            "Action": [ "dynamodb:*" ],
+                            "Resource": [
+                                { "Fn::Join" : [ "", [
+                                    "arn:aws:dynamodb:",
+                                    { "Ref" : "AWS::Region" },
+                                    ":",
+                                    { "Ref" : "AWS::AccountId" },
+                                    ":table/",
+                                    { "Ref" : "PicdarExportDynamoTable" }
+                                ] ] }
+                            ]
+                        } ]
+                    }
+                }, {
+                    "PolicyName": "MetricsPublishingGroup-Policy",
+                    "PolicyDocument": {
+                        "Version": "2012-10-17",
+                        "Statement": [
+                            {
+                                "Effect": "Allow",
+                                "Action": [ "cloudwatch:PutMetricData" ],
+                                "Resource": "*"
+                            }
+                        ]
+                    }
+                }]
+            }
+        },
+        "PicdarExportUser": {
+            "Type": "AWS::IAM::User",
+            "Properties": {
+                "Path": "/",
+                "Groups": [ { "Ref": "PicdarExportGroup" } ]
+            }
+        },
+        "PicdarExportCredentials": {
+            "Type": "AWS::IAM::AccessKey",
+            "Properties": {
+                "UserName": { "Ref": "PicdarExportUser" }
+            }
+        },
+
+        "PicdarExportDynamoTable": {
+            "Type": "AWS::DynamoDB::Table",
+            "Properties": {
+                "AttributeDefinitions": [
+                    {
+                        "AttributeName": "picdarUrn",
+                        "AttributeType": "S"
+                    },
+                    {
+                        "AttributeName": "picdarCreated",
+                        "AttributeType": "S"
+                    }
+                ],
+                "KeySchema": [
+                    {
+                        "AttributeName": "picdarUrn",
+                        "KeyType": "HASH"
+                    },
+                    {
+                        "AttributeName": "picdarCreated",
+                        "KeyType": "RANGE"
+                    }
+                ],
+                "ProvisionedThroughput": {
+                    "ReadCapacityUnits" : "30",
+                    "WriteCapacityUnits" : "30"
+                }
+            }
+        }
+
+    },
+    "Outputs": {
+        "PicdarExportDynamoTable": {
+            "Description": "ARN of the DynamoDB table storing Picdar export state",
+            "Value": { "Ref": "PicdarExportDynamoTable" }
+        },
+        "PicdarExportCredentialsId": {
+            "Value": { "Ref": "PicdarExportCredentials" }
+        },
+        "PicdarExportCredentialsSecret": {
+            "Value": { "Fn::GetAtt": [ "PicdarExportCredentials", "SecretAccessKey" ] }
+        }
+    }
+}
