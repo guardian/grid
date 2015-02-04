@@ -4,7 +4,10 @@
         <search-query class="top-bar__nav"></search-query>
 
         <div class="top-bar__actions">
-            <a class="top-bar__item" ui:sref="upload">your uploads</a>
+            <a class="top-bar__item your-uploads" ui:sref="upload">
+                your uploads
+                <ui-invalid-upload-count class="your-uploads__invalid"></ui-invalid-upload-count>
+            </a>
             <file-uploader class="top-bar__item"></file-uploader>
         </div>
     </div>

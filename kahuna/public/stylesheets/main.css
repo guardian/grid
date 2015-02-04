@@ -856,6 +856,22 @@ textarea.ng-invalid {
     text-decoration: underline;
 }
 
+.your-uploads {
+    position: relative;
+}
+
+.your-uploads__invalid {
+    background: red;
+    color: white;
+    position: absolute;
+    top: -6px;
+    right: -8px;
+    font-size: 1.1rem;
+    line-height: 1;
+    padding: 2px;
+}
+
+
 /* ==========================================================================
    jCrop
    ========================================================================== */
