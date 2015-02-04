@@ -10,13 +10,17 @@ class CreditBylineReorganiseTest extends FunSpec with Matchers with MetadataHelp
     .whenCleaned("Getty", "Jane Hobson")
   }
 
-  it ("should leave non matching, slashed credits") {
-    pending
+  it ("should leave non matching, non spaced, slashed credits") {
     CreditByline("AFP/Getty Images", "Ilyas Akengin")
     .whenCleaned("AFP/Getty Images", "Ilyas Akengin")
   }
 
-  it ("should move first value in triple slashed credit to byline if matching") {
+  it ("should remove spaces between slashes") {
+    CreditByline("Presseye/ INPHO /REX", "Man /In /Suit")
+    .whenCleaned("Presseye/INPHO/REX", "Man/In/Suit")
+  }
+
+  it ("should remove matching byline in slashed credit") {
     pending
     CreditByline("Jin Linpeng/Xinhua Press/Corbis", "Jin Linpeng")
     .whenCleaned("Xinhua Press/Corbis"            , "Jin Linpeng")
