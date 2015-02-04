@@ -188,9 +188,27 @@ a:focus {
 
 
 /* ==========================================================================
+   Generics
+   ========================================================================== */
+
+.section {
+    margin-bottom: 25px;
+}
+
+.section-heading {
+    font-size: 1.8rem;
+    margin: 10px 0;
+    border-bottom: 1px solid #999;
+}
+
+
+/* ==========================================================================
    Angular
    ========================================================================== */
-input.ng-invalid {
+
+/* FIXME: we use the element to be more specific, which is baloney */
+input.ng-invalid,
+textarea.ng-invalid {
     border-color: #ed5935;
 }
 
@@ -210,7 +228,7 @@ input.ng-invalid {
     padding: 10px;
     font-family: "Guardian Agate Sans Web", Helvetica, Arial;
     width: 100%;
-    box-shadow: 0px 1px 5px rgba(0, 0, 0, 0.4);
+    box-shadow: 0 1px 5px rgba(0, 0, 0, 0.4);
     font-size: 1.4rem;
     display: flex;
     box-sizing: border-box;
@@ -240,17 +258,44 @@ input.ng-invalid {
 .logout {
     color: inherit;
     font-size: 1.3rem;
+    position: fixed;
+    bottom: 0;
+    right: 0;
+    background: black;
+    padding: 10px;
 }
 
 
 /* ==========================================================================
-   Errors
+   Page
+   ========================================================================== */
+.page-wrapper {
+    margin: 0 auto;
+    max-width: 900px;
+}
+
+
+/* ==========================================================================
+   Errors / status
    ========================================================================== */
 .error {
     background: darkred;
     color: white;
     padding: 10px;
     font-family: "Guardian Agate Sans Web", Helvetica, Arial;
+}
+
+.status {
+    color: white;
+    background-color: orange;
+}
+
+.status--valid {
+    background-color: green;
+}
+
+.status--invalid {
+    background-color: red;
 }
 
 /* ==========================================================================
@@ -454,6 +499,43 @@ input.ng-invalid {
     display: inline-block;
 }
 
+
+/* ==========================================================================
+   Results editor
+   ========================================================================== */
+
+.result-editor {
+    margin-bottom: 20px;
+    display: flex;
+}
+
+.result-editor__result {
+    width: 200px;
+}
+
+.result-editor__editor {
+    margin: 0 20px;
+
+}
+
+.result-editor__info {
+    flex-grow: 1;
+}
+
+.result-editor__status {
+    display: block;
+    border-radius: 5px;
+    padding: 5px;
+    margin: 0 auto;
+    text-align: center;
+}
+
+.result-editor__goto {
+    margin-top: 10px;
+    text-align: right;
+    display: block;
+}
+
 /* ==========================================================================
    Full Image / crop
    ========================================================================== */
@@ -650,12 +732,8 @@ input.ng-invalid {
 
 /* ==========================================================================
    Uploads
+   TODO: remove unused classes
    ========================================================================== */
-
-.upload-latest,
-.upload-yours {
-    margin: 20px;
-}
 
 .jobs {
     border-collapse: collapse;
@@ -664,21 +742,6 @@ input.ng-invalid {
 .job-status {
     padding: 5px 10px;
     border-radius: 5px;
-}
-.job-status--uploading,
-.job-status--indexing,
-.job-status--re-indexing {
-    color: white;
-    background-color: orange;
-}
-.job-status--ready {
-    color: white;
-    background-color: green;
-}
-.job-status--upload-error,
-.job-status--invalid {
-    color: white;
-    background-color: red;
 }
 
 .job-info {
@@ -716,7 +779,7 @@ input.ng-invalid {
     vertical-align: top;
 }
 .job-info--editor__input {
-    width: 300px;
+    width: 400px;
     display: inline-block;
 }
 .job-info--editor__input--description {
@@ -767,10 +830,19 @@ input.ng-invalid {
 
 .job-labeller {
     clear: both;
+    text-align: right;
+    font-size: 1.4rem;
+    margin-top: 10px;
+    display: block;
 }
 
 .job-apply-to-all {
     float: right;
+}
+
+.job-uploading {
+    width: 200px;
+    margin-bottom: 20px;
 }
 
 .metadata-applicator {

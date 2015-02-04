@@ -8,13 +8,13 @@ export var jobs = angular.module('kahuna.upload.jobs.requiredMetadataEditor', [
 
 
 jobs.controller('RequiredMetadataEditorCtrl',
-                ['$scope', '$window', 'editsApi', 'mediaApi',
-                 function($scope, $window, editsApi, mediaApi) {
+                ['$scope', '$window', 'mediaApi',
+                 function($scope, $window, mediaApi) {
 
     var ctrl = this;
 
     ctrl.saving = false;
-    ctrl.disabled = () => ctrl.saving || ctrl.externallyDisabled;
+    ctrl.disabled = () => Boolean(ctrl.saving || ctrl.externallyDisabled);
 
     ctrl.save = function() {
         ctrl.saving = true;
@@ -30,8 +30,11 @@ jobs.controller('RequiredMetadataEditorCtrl',
             }
         });
 
-        editsApi.updateMetadata(ctrl.id, cleanMetadata)
-            .then(() => $scope.jobEditor.$setPristine())
+        ctrl.resource.put({ data: cleanMetadata })
+            .then(resource => {
+                ctrl.resource = resource;
+                $scope.jobEditor.$setPristine();
+            })
             .catch(() => $window.alert('Failed to save the changes, please try again.'))
             .finally(() => ctrl.saving = false);
     };
@@ -54,6 +57,21 @@ jobs.controller('RequiredMetadataEditorCtrl',
             description: ctrl.originalMetadata.description
         };
     }
+}]);
+
+jobs.directive('uiRequiredMetadataEditor', [function() {
+    return {
+        restrict: 'E',
+        scope: {
+            resource: '=',
+            originalMetadata: '=metadata',
+            externallyDisabled: '=?disabled'
+        },
+        controller: 'RequiredMetadataEditorCtrl',
+        controllerAs: 'ctrl',
+        bindToController: true,
+        template: template
+    };
 }]);
 
 jobs.controller('DescriptionPlaceholderCtrl',
@@ -94,17 +112,3 @@ jobs.controller('DescriptionPlaceholderCtrl',
 
 }]);
 
-
-jobs.directive('uiRequiredMetadataEditor', [function() {
-    return {
-        restrict: 'E',
-        scope: {
-            id: '=',
-            originalMetadata: '=metadata', // [1]
-            externallyDisabled: '=?disabled'
-        },
-        controller: 'RequiredMetadataEditorCtrl as ctrl',
-        template: template,
-        bindToController: true
-    };
-}]);
