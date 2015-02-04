@@ -5,13 +5,12 @@ import org.scalatest.{FunSpec, Matchers}
 
 class CreditBylineReorganiseTest extends FunSpec with Matchers with MetadataHelper {
 
-  it ("should leave byline empty") {
-    pending
-    CreditByline("Newsline Media", "")
-    .whenCleaned("Newsline Media", "")
+  it ("should remove copyright information") {
+    CreditByline("(c) Getty", "© Jane Hobson")
+    .whenCleaned("Getty", "Jane Hobson")
   }
 
-  it ("should leave non matching slashed credits") {
+  it ("should leave non matching, slashed credits") {
     pending
     CreditByline("AFP/Getty Images", "Ilyas Akengin")
     .whenCleaned("AFP/Getty Images", "Ilyas Akengin")
