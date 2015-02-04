@@ -33,4 +33,7 @@ object Config extends CommonPlayAppConfig {
         "App"   -> Seq(elasticsearchApp)
       ))
 
+  // The presence of this identifier prevents deletion
+  val persistenceIdentifier = "picdarUrn" // TODO: properties("persistence.identifier")
+
 }
