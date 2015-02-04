@@ -1,60 +1,60 @@
-<!-- TODO: think about moving this to a list, tables are a pain to style with
-HTML in the cells e.g. `.job-edit-disabler` -->
-<table class="jobs">
-    <tbody>
-        <tr ng:repeat="job in jobs">
-            <td class="job-info job-info--thumbnail">
-                <ui-preview-image ng:if="job.image"
-                            image="job.image"
-                            hide-info="true"></ui-preview-image>
-            </td>
-            <td class="job-info job-info--file">
-                <div>
-                    <span class="job-status {{'job-status--' + job.status}}">
-                        {{job.status}}
-                    </span>
-                </div>
-                <div ng:if="job.status == 'upload-error'">
-                    {{job.error}}
-                </div>
-                <div class="job-file">
-                    <div class="job-file__name">{{job.name}}</div>
-                    <div class="job-file__size">{{job.size | asFileSize}}</div>
-                </div>
-            </td>
-            <td class="job-info job-info--editor">
-                <div ng:if="job.image">
-                    <ui-required-metadata-editor disabled="job.busy"
-                                                 id="job.image.data.id"
-                                                 metadata="job.image.data.metadata"></ui-required-metadata-editor>
+<ul>
+    <li ng:repeat="job in ctrl.jobs">
 
-                    <div class="metadata-applicator" ng:if="jobs.length > 1">
-                        Apply
-                        <button class="metadata-applicator__button"
-                                ng:click="uploadJobsCtrl.updateAllMetadata('byline', job.image.data.metadata.byline)">byline</button>
-                        /
-                        <button class="metadata-applicator__button"
-                                ng:click="uploadJobsCtrl.updateAllMetadata('credit', job.image.data.metadata.credit)">credit</button>
-                        to all (save first)
-                        <!-- TODO: we should make sure that we use the value in
-                        the text field, at the moment this message will have to do -->
+        <div ng:if="!job.image"
+             class="job-uploading">
+
+            <div class="job-preview preview">
+                <img ng:src="{{job.dataUrl}}" class="preview__image" />
+
+                <div class="preview__bottom-bar bottom-bar">
+                    <div class="bottom-bar__meta">
+                        {{job.name}}, {{job.size | asFileSize}}
                     </div>
 
-                    <div class="job-labels">
-                        <ui-labeller class="job-labeller"
-                                     labels="job.image.data.userMetadata.data.labels">
-                        </ui-labeller>
-
-                        <!-- TODO: find a more efficient way of of doing `jobsExcept` -->
-                        <ui-edit-applicator class="job-apply-to-all"
-                                            ng:if="job.image"
-                                            give-this="uploadJobsCtrl.getLabelsArrFrom(job.image)"
-                                            to-these="uploadJobsCtrl.getAllEditsOfType('labels', uploadJobsCtrl.jobsExcept(job))"
-                                            and-then="uploadJobsCtrl.updateLabels(uploadJobsCtrl.jobsExcept(job))">
-                        </ui-edit-applicator>
-                    </div>
+                    <div class="bottom-bar__actions"></div>
                 </div>
-            </td>
-        </tr>
-    </tbody>
-</table>
+            </div>
+            <div class="job-status status"
+                 ng:class="{
+                     'status--invalid': status === 'upload error',
+                     'status--valid': status === 'uploaded'
+                 }">
+
+                 {{job.status}}
+            </div>
+        </div>
+
+        <ui-image-editor ng:if="job.image"
+                         image="job.image"
+                         apply-to="ctrl.jobImages()">
+
+            <!-- TODO: this is for the batch editing which has the controller as
+            the UploadsCtrl (correct) but from a UI is better here. Potentially
+            look into making this a separate form that would also work on the
+            results page -->
+             <ui-labeller class="job-labeller"
+                          labels="job.image.data.userMetadata.data.labels">
+             </ui-labeller>
+
+             <div class="metadata-applicator" ng:if="ctrl.jobs.length > 1">
+                Apply
+                <button class="metadata-applicator__button"
+                        ng:click="ctrl.updateAllMetadata('byline', job.image.data.metadata.byline)">byline</button>
+                /
+                <button class="metadata-applicator__button"
+                        ng:click="ctrl.updateAllMetadata('credit', job.image.data.metadata.credit)">credit</button>
+
+                or
+
+                <button class="metadata-applicator__button"
+                        ng:click="ctrl.updateAllLabels(job.image.data.userMetadata.data.labels)">labels</button>
+
+                to uploaded (save first)
+                <!-- TODO: we should make sure that we use the value in
+                the text field, at the moment this message will have to do -->
+            </div>
+
+        </ui-image-editor>
+    </li>
+</ul>

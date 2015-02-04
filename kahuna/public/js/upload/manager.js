@@ -3,18 +3,22 @@ import angular from 'angular';
 var upload = angular.module('kahuna.upload.manager', []);
 
 upload.factory('uploadManager',
-               ['fileUploader',
-                function(fileUploader) {
+               ['$window', 'fileUploader',
+                function($window, fileUploader) {
 
     var jobs = [];
 
 
     function createJobItem(file) {
         var request = fileUploader.upload(file);
+        // TODO: find out where we can revoke these
+        // see: https://developer.mozilla.org/en-US/docs/Web/API/URL.revokeObjectURL
+        var dataUrl = $window.URL.createObjectURL(file);
+
         return {
             name: file.name,
             size: file.size,
-            // TODO: thumbnail? from File? else from request
+            dataUrl: dataUrl,
             resourcePromise: request
         };
     }
@@ -25,7 +29,6 @@ upload.factory('uploadManager',
 
         // return $q.all(job)
     }
-
 
     function listUploads() {
         return jobs;

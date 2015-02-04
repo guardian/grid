@@ -1,4 +1,4 @@
-<form class="file-uploader top-bar__action">
+<form class="file-uploader">
     <div ui:event-share="click"
          ui:event-share-thief=".file-uploader__select-files"
          ui:event-share-victim=".file-uploader__file">
@@ -9,10 +9,6 @@
                multiple
                ui:file ui:file-change="fileUploader.uploadFiles" />
 
-        <button class="button file-uploader__select-files"
-                name="button" type="button"
-                ng:disabled="fileUploader.loading">
-            upload<span ng:show="fileUploader.loading">ing…</span>
-        </button>
+        <button class="file-uploader__select-files button">upload</button>
     </div>
 </form>

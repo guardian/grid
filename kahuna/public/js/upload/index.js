@@ -26,6 +26,8 @@ upload.config(['$stateProvider',
     $stateProvider.state('upload', {
         url: '/upload',
         template: uploadTemplate,
-        controller: 'UploadCtrl as uploadCtrl'
+        controller: 'UploadCtrl',
+        controllerAs: 'ctrl',
+        bindToController: true
     });
 }]);
