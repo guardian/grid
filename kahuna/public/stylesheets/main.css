@@ -310,7 +310,7 @@ input.ng-invalid {
 }
 
 .result {
-    flex-grow: 1;
+    flex: 1;
     width: 20%;
     min-width: 200px;
     max-width: 270px;
