@@ -1,16 +1,13 @@
-package lib
+package lib.querysyntax
 
 import org.parboiled2._
 
 class QuerySyntax(val input: ParserInput) extends Parser {
   def Query = rule { Expression ~ EOI }
 
-  def Expression = rule { oneOrMore(TermGroup) separatedBy Whitespace }
+  def Expression = rule { zeroOrMore(TermGroup) separatedBy Whitespace }
 
-  // TODO: OR syntax and tree
-  // TODO: paren syntax and tree - allow multi terms inside
   def TermGroup = rule { Term }
-//  def TermGroup = rule { Term | '(' ~ oneOrMore(Expression) ~ ')' }
 
   def Term = rule { NegatedFilter | Filter }
 
@@ -21,9 +18,21 @@ class QuerySyntax(val input: ParserInput) extends Parser {
 
   def ScopedMatch: Rule2[Field, String] = rule { MatchField ~ ':' ~ MatchValue }
 
-  def MatchField = rule { capture(AllowedFieldName) ~> NamedField }
-  // TODO: more fields, incl typed (e.g. dates)
-  def AllowedFieldName = rule { "photographer" | "by" }
+  def MatchField = rule { capture(AllowedFieldName) ~> resolveNamedField _ }
+
+  def AllowedFieldName = rule {
+    "location" | "city" | "province" | "country" | "in" |
+    "byline" | "by" | "photographer" |
+    "credit"
+  }
+
+  def resolveNamedField(name: String): Field = name match {
+    case "in"                  => MultipleField(List("location", "city", "province", "country"))
+    case "by" | "photographer" => SingleField("byline")
+    case "location"            => SingleField("subLocation")
+    case fieldName             => SingleField(fieldName)
+  }
+
 
   def AnyMatch = rule { MatchValue ~> ((v: String) => Match(AnyField, v)) }
 
@@ -46,12 +55,13 @@ class QuerySyntax(val input: ParserInput) extends Parser {
   def Chars      = rule { oneOrMore(CharPredicate.Visible -- '"' -- '\'') }
 }
 
-case class Negation(m: Match)
-case class Match(field: Field, value: String)
-
-sealed trait Field
-case object AnyField extends Field
-case class NamedField(name: String) extends Field
+// TODO:
+// - label: searches labels
+// - "..." as phrase match - can't do on multiple fields at once?
+// - uploaded: as alias for uploadedBy top-level field
+// - date uploaded (exact, range, expression (@today?))
+// - date taken (~)
+// - is archived, has exports, has picdarUrn
 
 // new QuerySyntax("hello world by:me").Query.run()
 // hello world
@@ -61,7 +71,3 @@ case class NamedField(name: String) extends Field
 // ?  -"not this"
 // by:"foo bar"
 // -by:foo
-
-// "-x OR by:you"
-// foo OR bar   -  foo | bar
-// hello (world OR baz)
