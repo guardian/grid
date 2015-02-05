@@ -29,7 +29,7 @@ object ByLineCreditReorganise extends MetadataCleaner {
 
         // if we have a split, and the first split is the same, remove if from credit
         // and use it as byline, the rest is the credit
-        case ((b1 :: bTail), (c1 :: cTail)) if (b1 == c1) => (b1, cTail.mkString)
+        case ((b1 :: bTail), (c1 :: cTail)) if (b1 == c1) => (b1, cTail.head)
         case _ => (byline, credit)
       }
     }
