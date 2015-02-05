@@ -19,7 +19,16 @@
 
     <button class="labeller__add"
             ng:click="ctrl.addLabel()"
-            ng:disabled="ctrl.adding">
-            +
+            ng:disabled="ctrl.adding"
+            ng:if="ctrl.smallAddButton">
+
+        <span ng:class="{ 'labeller__add-spin': ctrl.adding }">+</span>
+    </button>
+
+    <button class="button-shy labeller__add-button"
+          ng:click="ctrl.addLabel()"
+          ng:disabled="ctrl.adding"
+          ng:if="! ctrl.smallAddButton">
+        Add<span ng:show="ctrl.adding">ing…</span>
     </button>
 </div>
