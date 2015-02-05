@@ -1,5 +1,6 @@
 import angular from 'angular';
 
+import './controller';
 import './query';
 import './results';
 import '../preview/image';
@@ -9,6 +10,7 @@ import searchResultsTemplate from './results.html!text';
 
 
 export var search = angular.module('kahuna.search', [
+    'kahuna.search.controller',
     'kahuna.search.query',
     'kahuna.search.results',
     'kahuna.preview.image'
