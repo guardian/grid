@@ -9,6 +9,8 @@ object StripCopyrightPrefix extends MetadataCleaner {
 
   override def clean(metadata: ImageMetadata): ImageMetadata =
     metadata.copy(
+      byline = metadata.byline.map(stripCopyrightPrefix),
+      credit = metadata.credit.map(stripCopyrightPrefix),
       copyright = metadata.copyright.map(stripCopyrightPrefix)
     )
 
