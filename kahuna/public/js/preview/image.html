@@ -12,13 +12,7 @@
     </a>
 
     <div class="preview__info" ng:if="! hideInfo">
-        <ul class="preview__labels labels">
-            <li class="label"
-                ng:repeat="label in image.data.userMetadata.data.labels.data">
-                <a ui:sref="search.results({query: label.data})"
-                   class="label__link">{{label.data}}</a>
-            </li>
-        </ul>
+        <ui-labeller labels="image.data.userMetadata.data.labels"></ui-labeller>
         <p class="preview__description">{{image.data.metadata.title || image.data.metadata.description}}</p>
     </div>
 
