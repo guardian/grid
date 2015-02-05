@@ -1,5 +1,6 @@
 import angular from 'angular';
 import template from './labeller.html!text';
+import templateCompact from './labeller-compact.html!text';
 
 
 export var labeller = angular.module('kahuna.edits.labeller', []);
@@ -64,5 +65,25 @@ labeller.directive('uiLabeller', [function() {
         controllerAs: 'ctrl',
         bindToController: true,
         template: template
+    };
+}]);
+
+labeller.directive('uiLabellerCompact', [function() {
+    return {
+        restrict: 'E',
+        scope: {
+            // Annoying that we can't make a uni-directional binding
+            // as we don't really want to modify the original
+            // TODO: Take a look at removing these template variables and use a
+            // different directive / template bound to the same controller
+            labels: '=',
+            disableDelete:  '=',
+            hidePlaceholder: '=',
+            smallAddButton: '='
+        },
+        controller: 'LabellerCtrl',
+        controllerAs: 'ctrl',
+        bindToController: true,
+        template: templateCompact
     };
 }]);
