@@ -18,7 +18,6 @@
                    class="label__link">{{label.data}}</a>
             </li>
         </ul>
-
         <p class="preview__description">{{image.data.metadata.title || image.data.metadata.description}}</p>
     </div>
 
@@ -26,6 +25,10 @@
         <div class="bottom-bar__meta">
             <span class="preview__upload-date">{{image.data.uploadTime | date:'d/M/yy'}}</span>
             <span class="preview__upload-time">{{image.data.uploadTime | date:'HH:mm'}}</span>
+
+            <span class="bottom-bar__meta-item preview__has-crops"
+                  title="this image has crops"
+                  ng:if="image | hasExportsOfType:'crop'">⌍⌎</span>
         </div>
         <div class="bottom-bar__actions">
             <a class="bottom-bar__action"

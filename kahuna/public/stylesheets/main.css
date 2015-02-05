@@ -460,6 +460,11 @@ textarea.ng-invalid {
     margin: 5px 0;
 }
 
+.preview__labels {
+    min-height: 20px;
+    margin-top: 5px;
+}
+
 .preview__description {
     overflow: hidden;
     text-overflow: ellipsis;
@@ -472,9 +477,15 @@ textarea.ng-invalid {
     margin-right: 10px;
 }
 
-.preview__upload-time {
+.preview__upload-time,
+.preview__has-crops {
     font-size: 1.2rem;
     color: #999;
+}
+
+.preview__has-crops {
+    letter-spacing: -4px;
+    cursor: help;
 }
 
 .preview__bottom-bar {
@@ -488,6 +499,10 @@ textarea.ng-invalid {
 .bottom-bar__meta {
     flex: 1;
     padding-left: 10px;
+}
+.bottom-bar__meta-item {
+    font-size: 1.2rem;
+    margin-left: 5px;
 }
 .bottom-bar__actions {
     color: #aaa;
@@ -698,7 +713,6 @@ textarea.ng-invalid {
 }
 
 .labels {
-    display: inline-block;
     font-size: 1.3rem;
 }
 
