@@ -1,25 +1,34 @@
 <div class="labeller">
-    <ul ng:if="labels.data.length > 0"
-        class="labels">
-        <li ng:repeat="label in labels.data"
-            class="label"
-            ng:class="{'label--removing': labeller.labelsBeingRemoved.has(label)}">
+    <ul class="labels"
+        ng:if="ctrl.labels.data.length > 0">
+        <li class="label"
+            ng:repeat="label in ctrl.labels.data"
+            ng:class="{'label--removing': ctrl.labelsBeingRemoved.has(label)}">
             <a ui:sref="search.results({query: label.data})"
                class="label__link">{{label.data}}</a>
 
-            <button ng:click="labeller.removeLabel(label)"
-                    class="label__remove"
-                    title="Remove label">x</button>
+            <button class="label__remove"
+                    title="Remove label"
+                    ng:if="! ctrl.disableDelete"
+                    ng:click="ctrl.removeLabel(label)">x</button>
         </li>
     </ul>
 
-    <span ng:if="labels.data.length == 0"
-         class="image-no-labels"
-    >No labels</span>
+    <div class="labeller__placeholder"
+         ng:if="ctrl.labels.data.length == 0 && !ctrl.hidePlaceholder">No labels</div>
 
-    <button ng:click="labeller.addLabel()"
-            ng:disabled="labeller.adding"
-            class="button-shy">
-        Add<span ng:show="labeller.adding">ing…</span>
+    <button class="labeller__add"
+            ng:click="ctrl.addLabel()"
+            ng:disabled="ctrl.adding"
+            ng:if="ctrl.smallAddButton">
+
+        <span ng:class="{ 'labeller__add-spin': ctrl.adding }">+</span>
+    </button>
+
+    <button class="button-shy labeller__add-button"
+          ng:click="ctrl.addLabel()"
+          ng:disabled="ctrl.adding"
+          ng:if="! ctrl.smallAddButton">
+        Add<span ng:show="ctrl.adding">ing…</span>
     </button>
 </div>
