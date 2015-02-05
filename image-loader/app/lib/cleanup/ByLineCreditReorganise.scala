@@ -1,7 +1,6 @@
 package lib.cleanup
 
 import lib.imaging.ImageMetadata
-import lib.cleanup.StripCopyrightPrefix.stripCopyrightPrefix
 
 object ByLineCreditReorganise extends MetadataCleaner {
   type Field = Option[String]
@@ -42,9 +41,7 @@ object ByLineCreditReorganise extends MetadataCleaner {
     .getOrElse((creditField, bylineField))
 
   def cleanField(field: Field) =
-    field
-      .map(stripCopyrightPrefix)
-      .map(condenseSpaceySlashes)
+    field.map(condenseSpaceySlashes)
 
   def condenseSpaceySlashes(s: String): String = SpaceySlashes.replaceAllIn(s, "/")
 
