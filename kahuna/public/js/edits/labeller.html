@@ -1,25 +1,25 @@
 <div class="labeller">
-    <ul ng:if="labels.data.length > 0"
-        class="labels">
-        <li ng:repeat="label in labels.data"
-            class="label"
+    <ul class="labels"
+        ng:if="labeller.labels.data.length > 0">
+        <li class="label"
+            ng:repeat="label in labeller.labels.data"
             ng:class="{'label--removing': labeller.labelsBeingRemoved.has(label)}">
             <a ui:sref="search.results({query: label.data})"
                class="label__link">{{label.data}}</a>
 
-            <button ng:click="labeller.removeLabel(label)"
-                    class="label__remove"
-                    title="Remove label">x</button>
+            <button class="label__remove"
+                    title="Remove label"
+                    ng:if="! labeller.disableDelete"
+                    ng:click="labeller.removeLabel(label)">x</button>
         </li>
     </ul>
 
-    <span ng:if="labels.data.length == 0"
-         class="image-no-labels"
-    >No labels</span>
+    <div class="labeller__placeholder"
+         ng:if="labeller.labels.data.length == 0">No labels</div>
 
-    <button ng:click="labeller.addLabel()"
-            ng:disabled="labeller.adding"
-            class="button-shy">
+    <button class="labeller__add"
+            ng:click="labeller.addLabel()"
+            ng:disabled="labeller.adding">
             +
     </button>
 </div>

@@ -708,12 +708,12 @@ textarea.ng-invalid {
 /* ==========================================================================
    Labeller
    ========================================================================== */
-.labeller {
-    font-family: "Guardian Agate Sans Web", Helvetica, Arial;
-}
 
-.labels {
+.labels,
+.labeller__placeholder {
     font-size: 1.3rem;
+    display: inline-block;
+    margin-bottom: 5px
 }
 
 .label {
@@ -733,14 +733,7 @@ textarea.ng-invalid {
     color: white;
 }
 
-.labels,
-.no-labels {
-    margin-bottom: 5px
-}
-
-.no-labels {
-    font-style: italic;
-}
+.labeller__add {}
 
 
 /* ==========================================================================
