@@ -15,7 +15,7 @@
     </ul>
 
     <div class="labeller__placeholder"
-         ng:if="labeller.labels.data.length == 0">No labels</div>
+         ng:if="labeller.labels.data.length == 0 || !labeller.hidePlaceholder">No labels</div>
 
     <button class="labeller__add"
             ng:click="labeller.addLabel()"
