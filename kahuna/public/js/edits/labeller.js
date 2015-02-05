@@ -54,12 +54,7 @@ labeller.directive('uiLabeller', [function() {
         scope: {
             // Annoying that we can't make a uni-directional binding
             // as we don't really want to modify the original
-            // TODO: Take a look at removing these template variables and use a
-            // different directive / template bound to the same controller
-            labels: '=',
-            disableDelete:  '=',
-            hidePlaceholder: '=',
-            smallAddButton: '='
+            labels: '='
         },
         controller: 'LabellerCtrl',
         controllerAs: 'ctrl',
@@ -74,12 +69,7 @@ labeller.directive('uiLabellerCompact', [function() {
         scope: {
             // Annoying that we can't make a uni-directional binding
             // as we don't really want to modify the original
-            // TODO: Take a look at removing these template variables and use a
-            // different directive / template bound to the same controller
-            labels: '=',
-            disableDelete:  '=',
-            hidePlaceholder: '=',
-            smallAddButton: '='
+            labels: '='
         },
         controller: 'LabellerCtrl',
         controllerAs: 'ctrl',
