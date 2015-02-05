@@ -460,16 +460,22 @@ textarea.ng-invalid {
     margin: 5px 0;
 }
 
-.preview__labels {
-    min-height: 20px;
-    margin-top: 5px;
-}
-
 .preview__description {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
     margin: 0;
+}
+
+/*
+FIXME: this is a little targeted
+FIXME: what to do with touch devices
+*/
+.preview .labeller__add {
+    visibility: hidden;
+}
+.preview:hover .labeller__add {
+    visibility: visible;
 }
 
 .preview__upload-date {
