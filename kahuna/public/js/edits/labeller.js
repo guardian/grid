@@ -53,9 +53,11 @@ labeller.directive('uiLabeller', [function() {
         scope: {
             // Annoying that we can't make a uni-directional binding
             // as we don't really want to modify the original
-            labels: '='
+            labels: '=',
+            disableDelete:  '='
         },
         controller: 'LabellerCtrl as labeller',
+        bindToController: true,
         template: template
     };
 }]);
