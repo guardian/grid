@@ -369,7 +369,6 @@ textarea.ng-invalid {
 
 .mark-as-seen {
     position: absolute;
-    z-index: 2;
     bottom: 3px;
     right: 85px;
     color: #aaa;
