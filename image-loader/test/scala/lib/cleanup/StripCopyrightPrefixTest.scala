@@ -59,4 +59,24 @@ class StripCopyrightPrefixTest extends FunSpec with Matchers with MetadataHelper
     cleanedMetadata.copyright should be (Some("Acme Corporation"))
   }
 
+  it("should strip these from byline, credit and copyright") {
+    val metadata = createImageMetadata(
+      "byline" -> "© Acme Corporation",
+      "credit" -> "© Acme Corporation",
+      "copyright" -> "© Acme Corporation"
+    )
+    val cleanedMetadata = StripCopyrightPrefix.clean(metadata)
+    cleanedMetadata.byline should be (Some("Acme Corporation"))
+    cleanedMetadata.credit should be (Some("Acme Corporation"))
+    cleanedMetadata.copyright should be (Some("Acme Corporation"))
+  }
+
+  it("should leave these in fields like description") {
+    val metadata = createImageMetadata(
+      "description" -> "© Acme Corporation"
+    )
+    val cleanedMetadata = StripCopyrightPrefix.clean(metadata)
+    cleanedMetadata.description should be (Some("© Acme Corporation"))
+  }
+
 }
