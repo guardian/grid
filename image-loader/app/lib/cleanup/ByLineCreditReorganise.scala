@@ -33,10 +33,8 @@ object ByLineCreditReorganise extends MetadataCleaner {
         case _ => (byline, credit)
       }
     }
-    .map{ case (b, c) =>
-      // Convert the strings back to `Option`s
-      (if (b.isEmpty) None else Some(b), Some(c))
-    }
+    // Convert the strings back to `Option`s
+    .map{ case (b, c) => (Some(b), Some(c)) }
     // return the defaults if they both didn't exist
     .getOrElse((creditField, bylineField))
 
