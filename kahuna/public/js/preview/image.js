@@ -19,5 +19,5 @@ image.filter('hasExportsOfType', function() {
     return (image, type) => {
         return image.data.exports &&
                image.data.exports.some(ex => ex.type === type);
-    }
+    };
 });
