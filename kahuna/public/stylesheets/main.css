@@ -748,6 +748,11 @@ FIXME: what to do with touch devices
 
 .labeller__add {
     padding: 0 5px;
+    color: #00adee;
+}
+
+.labeller__add-button {
+    margin-left: 10px;
 }
 
 
