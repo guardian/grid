@@ -24,8 +24,8 @@ object ByLineCreditReorganise extends MetadataCleaner {
   def removeBylineFromCredit(bylineField: Field, creditField: Field) =
     bothExist(bylineField, creditField).map { case (byline, credit) =>
       (byline.split("/", 2).toList, credit.split("/", 2).toList) match {
-        // if no split - when equal, give it to credit
-        case ((b1 :: Nil, c1 :: Nil)) => if (b1 == c1) ("", c1) else (b1, c1)
+        // if no split, business as usual
+        case ((b1 :: Nil, c1 :: Nil)) => (b1, c1)
 
         // if we have a split, and the first split is the same, remove if from credit
         // and use it as byline, the rest is the credit
