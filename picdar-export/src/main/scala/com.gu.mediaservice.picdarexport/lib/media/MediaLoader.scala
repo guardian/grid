@@ -8,22 +8,18 @@ import org.joda.time.format.ISODateTimeFormat
 import play.api.libs.json.Json
 
 import scala.concurrent.Future
-import scala.concurrent.ExecutionContext.Implicits.global
+import com.gu.mediaservice.picdarexport.lib.ExecutionContexts.mediaService
+
 
 trait MediaLoader extends HttpClient {
 
   val loaderEndpointUrl: String
   val loaderApiKey: String
 
-  def uploadUri(uri: URI, picdarUrn: String, uploadTime: DateTime): Future[URI] = {
-    for {
-      data   <- readBytes(uri)
-      params  = loaderParams(picdarUrn, uploadTime)
-      uri    <- upload(data, params)
-    } yield uri
-  }
+  def upload(data: Array[Byte], picdarUrn: String, uploadTime: DateTime): Future[URI] =
+    postData(data, loaderParams(picdarUrn, uploadTime))
 
-  private def upload(data: Array[Byte], parameters: Map[String, String]): Future[URI] = {
+  private def postData(data: Array[Byte], parameters: Map[String, String]): Future[URI] = {
     val request = WS.url(loaderEndpointUrl).
       withQueryString(parameters.toSeq: _*).
       withHeaders("X-Gu-Media-Key" -> loaderApiKey).
