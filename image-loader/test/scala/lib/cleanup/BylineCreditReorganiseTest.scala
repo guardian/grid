@@ -35,15 +35,14 @@ class BylineCreditReorganiseTest extends FunSpec with Matchers with MetadataHelp
     .whenCleaned("Andy Rowland", "UK Sports Pics Ltd")
   }
 
-  it ("should empty matching byline if matching without slashes") {
-      val metadata = createImageMetadata(
-        "credit" -> "Barcroft Media",
-        "byline" -> "Barcroft Media"
-      )
-      val cleanMetadata = ByLineCreditReorganise.clean(metadata)
+  it ("should return the same if matching") {
+      CreditByline("Barcroft Media", "Barcroft Media")
+      .whenCleaned("Barcroft Media", "Barcroft Media")
+  }
 
-      cleanMetadata.credit should be (Some("Barcroft Media"))
-      cleanMetadata.byline should be (None)
+  it ("should return the same if no slashes") {
+      CreditByline("Barcroft Media", "Philip Glass")
+      .whenCleaned("Barcroft Media", "Philip Glass")
   }
 
   case class CreditByline(byline: String, credit: String) {
