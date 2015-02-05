@@ -28,6 +28,15 @@
     100% { opacity: 1; }
 }
 
+@keyframes spin {
+    from   { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+@-webkit-keyframes spin {
+    from   { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
 html {
     font: 62.5%/1.5 "Guardian Agate Sans Web", Georgia;
 }
@@ -754,6 +763,19 @@ FIXME: what to do with touch devices
 .labeller__add-button {
     margin-left: 10px;
 }
+
+.labeller__add-spin {
+    animation-name: spin;
+	animation-duration: 500ms;
+	animation-iteration-count: infinite;
+	animation-timing-function: ease-out;
+
+    -webkit-animation-name: spin;
+    -webkit-animation-iteration-count: infinite;
+    -webkit-animation-duration: 500ms;
+    -webkit-animation-timing-function: ease-out;
+}
+
 
 
 /* ==========================================================================
