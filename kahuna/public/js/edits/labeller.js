@@ -17,10 +17,10 @@ labeller.controller('LabellerCtrl',
         var label = ($window.prompt('Enter a label:') || '').trim();
         if (label) {
             this.adding = true;
-            $scope.labels.post({data: [label]}).
+            this.labels.post({data: [label]}).
                 then(newLabels => {
                     // FIXME: don't mutate original, replace the whole resource with the new state
-                    newLabels.data.forEach(label => $scope.labels.data.push(label));
+                    newLabels.data.forEach(label => this.labels.data.push(label));
                 }).
                 catch(saveFailed).
                 finally(() => {
@@ -36,8 +36,8 @@ labeller.controller('LabellerCtrl',
         label.delete().
             then(() => {
                 // FIXME: don't mutate original, replace the whole resource with the new state
-                var labelIndex = $scope.labels.data.findIndex(l => l.data === label.data);
-                $scope.labels.data.splice(labelIndex, 1);
+                var labelIndex = this.labels.data.findIndex(l => l.data === label.data);
+                this.labels.data.splice(labelIndex, 1);
             }).
             catch(saveFailed).
             finally(() => {

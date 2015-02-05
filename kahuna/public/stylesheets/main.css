@@ -710,21 +710,22 @@ textarea.ng-invalid {
    ========================================================================== */
 .labeller {
     min-height: 20px;
+    font-size: 1.3rem;
+    display: flex;
 }
 
-.labels,
-.labeller__placeholder {
-    font-size: 1.3rem;
-    display: inline-block;
+.labels {
+    overflow-x: scroll;
+    white-space: nowrap;
 }
 
 .label {
     background-color: #00adee;
     color: white;
     display: inline-block;
-    padding: 0 4px;
+    padding: 0 5px;
     border-radius: 2px;
-    margin-right: 5px;
+    margin: 0 5px 0 0;
 }
 .label--removing {
     background-color: #99ddff;
@@ -737,6 +738,10 @@ textarea.ng-invalid {
 
 .labeller__placeholder {
     color: #999;
+}
+
+.labeller__add {
+    padding: 0 5px;
 }
 
 
