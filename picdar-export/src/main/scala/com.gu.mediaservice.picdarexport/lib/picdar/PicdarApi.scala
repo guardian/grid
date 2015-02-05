@@ -10,7 +10,8 @@ import play.api.Logger
 import play.api.libs.ws.WSResponse
 
 import scala.concurrent.Future
-import scala.concurrent.ExecutionContext.Implicits.global
+//import scala.concurrent.ExecutionContext.Implicits.global
+import com.gu.mediaservice.picdarexport.lib.ExecutionContexts.picdar
 import scala.xml.Node
 
 import scala.language.postfixOps
