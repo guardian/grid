@@ -57,7 +57,8 @@ labeller.directive('uiLabeller', [function() {
             disableDelete:  '=',
             hidePlaceholder: '='
         },
-        controller: 'LabellerCtrl as labeller',
+        controller: 'LabellerCtrl',
+        controllerAs: 'ctrl',
         bindToController: true,
         template: template
     };
