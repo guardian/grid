@@ -5,9 +5,7 @@ import org.parboiled2._
 class QuerySyntax(val input: ParserInput) extends Parser {
   def Query = rule { Expression ~ EOI }
 
-  def Expression = rule { zeroOrMore(TermGroup) separatedBy Whitespace }
-
-  def TermGroup = rule { Term }
+  def Expression = rule { zeroOrMore(Term) separatedBy Whitespace }
 
   def Term = rule { NegatedFilter | Filter }
 
