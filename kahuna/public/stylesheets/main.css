@@ -337,6 +337,52 @@ textarea.ng-invalid {
 }
 
 
+.advanced-search-help {
+    /* position: absolute; */
+    /* bottom: -100%; */
+    position: relative;
+    background-color: #333;
+    position: absolute;
+    top: 49px;
+    padding: 10px;
+    padding-right: 50px;
+    box-shadow: 0 1px 5px rgba(0, 0, 0, 0.4);
+}
+
+.advanced-search-help__title {
+    font-weight: bold;
+}
+
+.advanced-search-help__close {
+    position: absolute;
+    top: 0;
+    right: 0;
+    padding: 13px 5px;
+}
+
+.advanced-search-example {
+    margin-bottom: 10px;
+}
+
+.advanced-search-example__inputs {
+    margin-bottom: 5px;
+}
+
+.advanced-search-example__input {
+    background-color: #444;
+    color: #ccc;
+    border: 1px solid #999;
+    padding: 2px 4px;
+    box-sizing: border-box;
+}
+
+
+.search__advanced-toggle {
+    margin: 0 10px;
+}
+
+
+
 /* ==========================================================================
    File uploader
    ========================================================================== */
