@@ -17,16 +17,19 @@ import './util/async';
 import './util/digest';
 import './analytics/track';
 import './sentry/sentry';
+import './assets/location';
 
 // TODO: move to an async config to remove deps on play
 var apiLink = document.querySelector('link[rel="media-api-uri"]');
 var mixpanelTokenMeta = document.querySelector('meta[name="mixpanel-token"]');
 var sentryDsnLink = document.querySelector('link[rel="sentry-dsn"]');
+var assetsRootLink = document.querySelector('link[rel="assets"]');
 
 var config = {
     mediaApiUri: apiLink.getAttribute('href'),
     mixpanelToken: mixpanelTokenMeta && mixpanelTokenMeta.getAttribute('content'),
     sentryDsn: sentryDsnLink && sentryDsnLink.getAttribute('href'),
+    assetsRoot: assetsRootLink && assetsRootLink.getAttribute('href'),
 
     // Static config
     'pandular.reAuthUri': '/login'
@@ -45,7 +48,8 @@ var kahuna = angular.module('kahuna', [
     'kahuna.search',
     'kahuna.edits',
     'kahuna.services.api',
-    'kahuna.directives'
+    'kahuna.directives',
+    'kahuna.assets.location'
 ]);
 
 
