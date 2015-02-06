@@ -11,6 +11,7 @@ import org.joda.time.{DateTime, Duration}
 
 import lib.elasticsearch.{MetadataSearchResults, ElasticSearch, SearchResults}
 import lib.{Notifications, Config, S3Client}
+import lib.querysyntax.{Condition, Parser}
 import com.gu.mediaservice.lib.auth
 import com.gu.mediaservice.lib.auth.KeyStore
 import com.gu.mediaservice.lib.argo.ArgoHelpers
@@ -170,6 +171,7 @@ object GeneralParams {
 
 case class SearchParams(
   query: Option[String],
+  structuredQuery: List[Condition],
   ids: Option[List[String]],
   offset: Int,
   length: Int,
@@ -193,8 +195,12 @@ object SearchParams {
 
     def commaSep(key: String): List[String] = request.getQueryString(key).toList.flatMap(_.trim.split(','))
 
+    val query = request.getQueryString("q")
+    val structuredQuery = query.map(Parser.run) getOrElse List()
+
     SearchParams(
-      request.getQueryString("q"),
+      query,
+      structuredQuery,
       request.getQueryString("ids").map(_.split(",").toList),
       request.getQueryString("offset") flatMap (s => Try(s.toInt).toOption) getOrElse 0,
       request.getQueryString("length") flatMap (s => Try(s.toInt).toOption) getOrElse 10,
