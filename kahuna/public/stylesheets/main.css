@@ -195,6 +195,11 @@ a:focus {
     100% { transform: rotateY(360deg); }
 }
 
+.ico {
+    width: 12px;
+    vertical-align: middle;
+    line-height: 12px;
+}
 
 /* ==========================================================================
    Generics
@@ -492,14 +497,12 @@ FIXME: what to do with touch devices
     margin-right: 10px;
 }
 
-.preview__upload-time,
-.preview__has-crops {
+.preview__upload-time {
     font-size: 1.2rem;
     color: #999;
 }
 
 .preview__has-crops {
-    letter-spacing: -4px;
     cursor: help;
 }
 
