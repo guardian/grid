@@ -727,11 +727,15 @@ FIXME: what to do with touch devices
     min-height: 20px;
     font-size: 1.3rem;
     display: flex;
+    overflow: hidden;
 }
 
 .labels {
     overflow-x: scroll;
     white-space: nowrap;
+}
+.labels::-webkit-scrollbar {
+    display: none;
 }
 
 .label {
