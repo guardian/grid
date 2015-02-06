@@ -338,8 +338,6 @@ textarea.ng-invalid {
 
 
 .advanced-search-help {
-    /* position: absolute; */
-    /* bottom: -100%; */
     position: relative;
     background-color: #333;
     position: absolute;
