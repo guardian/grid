@@ -6,7 +6,8 @@
         ng:href="/images/{{image.data.id}}">◹</a>
 
     <a class="preview__link"
-       ui:sref="image({imageId: image.data.id})">
+       ui:sref="image({imageId: image.data.id})"
+       ui:drag-data="{{image | asImageDragData}}">
        <img class="preview__image"
             ng:src="{{image.data.thumbnail | assetFile}}" />
     </a>
