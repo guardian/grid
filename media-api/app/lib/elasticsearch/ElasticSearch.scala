@@ -9,8 +9,7 @@ import play.api.libs.json.{Json, JsValue}
 import org.elasticsearch.action.get.GetRequestBuilder
 import org.elasticsearch.action.search.{SearchResponse, SearchRequestBuilder}
 import org.elasticsearch.index.query.{FilterBuilders, FilterBuilder}
-import org.elasticsearch.index.query.QueryBuilders.{multiMatchQuery, matchAllQuery, prefixQuery}
-import org.elasticsearch.index.query.MatchQueryBuilder.Operator
+import org.elasticsearch.index.query.QueryBuilders._
 import org.elasticsearch.search.sort.SortOrder
 import org.elasticsearch.search.aggregations.AggregationBuilders
 import org.joda.time.DateTime
@@ -25,6 +24,7 @@ import com.gu.mediaservice.lib.elasticsearch.ElasticSearchClient
 import com.gu.mediaservice.lib.formatting.printDateTime
 import controllers.{SearchParams, MetadataSearchParams}
 import lib.{MediaApiMetrics, Config}
+import lib.querysyntax._
 
 
 case class SearchResults(hits: Seq[(ElasticSearch.Id, JsValue)], total: Long)
@@ -56,12 +56,25 @@ object ElasticSearch extends ElasticSearchClient {
     Seq("labels").map("userMetadata." + _) ++
     Config.queriableIdentifiers.map("identifiers." + _)
 
+  def makeQueryBit(condition: Match) = condition.field match {
+    case AnyField              => multiMatchQuery(condition.value, matchFields: _*)
+    case MultipleField(fields) => multiMatchQuery(condition.value, fields: _*)
+    case SingleField(field)    => matchQuery(field, condition.value)
+  }
+
+  def makeQuery(conditions: List[Condition]) = conditions match {
+    case Nil      => matchAllQuery
+    case condList =>
+      condList.foldLeft(boolQuery) {
+        case (query, Negation(cond)    ) => query.mustNot(makeQueryBit(cond))
+        case (query, cond @ Match(_, _)) => query.must(makeQueryBit(cond))
+      }
+  }
+
+
   def search(params: SearchParams)(implicit ex: ExecutionContext): Future[SearchResults] = {
 
-    val query = params.query
-      .filter(_.nonEmpty)
-      .map(q => multiMatchQuery(q, matchFields: _*).operator(Operator.AND))
-      .getOrElse(matchAllQuery)
+    val query = makeQuery(params.structuredQuery)
 
     val dateFilter       = filters.date(params.fromDate, params.toDate)
     val idsFilter        = params.ids.map(filters.ids)
