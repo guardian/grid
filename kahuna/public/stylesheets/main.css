@@ -492,8 +492,7 @@ FIXME: what to do with touch devices
     margin-right: 10px;
 }
 
-.preview__upload-time,
-.preview__has-crops {
+.preview__upload-time {
     font-size: 1.2rem;
     color: #999;
 }
@@ -501,6 +500,7 @@ FIXME: what to do with touch devices
 .preview__has-crops {
     letter-spacing: -4px;
     cursor: help;
+    font-size: 1.2rem;
 }
 
 .preview__bottom-bar {
