@@ -76,6 +76,7 @@ object Build extends Build {
     mergeStrategy in assembly <<= (mergeStrategy in assembly) { (old) => {
       case "version.txt" => MergeStrategy.first
       case "play.plugins" => MergeStrategy.first
+      case "logback.xml" => MergeStrategy.first
       case x => old(x)
     }}
   )
