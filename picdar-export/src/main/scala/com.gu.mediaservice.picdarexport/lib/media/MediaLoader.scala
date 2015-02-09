@@ -26,6 +26,11 @@ trait MediaLoader extends HttpClient with LogHelper {
     val resp = Http(loaderEndpointUrl).
       params(parameters).
       header("X-Gu-Media-Key", loaderApiKey).
+      // Disable gzip as library doesn't seem to correctly decode response, and
+      // it's tiny anyway
+      compress(false).
+      // Patience is the mother of all virtues
+      timeout(loaderConnTimeout, loaderReadTimeout).
       postData(data).
       asString
 
