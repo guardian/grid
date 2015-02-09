@@ -27,6 +27,8 @@ trait PicdarApi extends HttpClient with PicdarInterface with LogHelper {
   private def post(body: Node): Future[Elem] = Future { logDuration("PicdarApi.post") {
     val respBody = Http(picdarUrl).
       header("Content-Type", "text/xml").
+      // Patience is the mother of all virtues
+      timeout(picdarApiConnTimeout, picdarApiReadTimeout).
       postData(body.toString()).
       asString.
       body
