@@ -5,10 +5,15 @@ import java.net.URI
 import scala.concurrent._
 import scalaj.http.Http
 
-trait HttpClient {
+trait HttpClient extends LogHelper {
 
-  def readBytes(uri: URI)(implicit executionContext: ExecutionContext): Future[Array[Byte]] = Future {
-    Http(uri.toString).asBytes.body
-  }
+  import Config.{picdarAssetConnTimeout, picdarAssetReadTimeout}
+
+  def readBytes(uri: URI)(implicit executionContext: ExecutionContext): Future[Array[Byte]] = Future { logDuration("HttpClient.readBytes") {
+    Http(uri.toString).
+      timeout(picdarAssetConnTimeout, picdarAssetReadTimeout).
+      asBytes.
+      body
+  } }
 
 }

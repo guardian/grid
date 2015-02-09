@@ -5,6 +5,8 @@ import java.util.concurrent.Executors
 import scala.concurrent.ExecutionContext
 
 object ExecutionContexts {
-  implicit val picdar       = ExecutionContext.fromExecutor(Executors.newFixedThreadPool(2))
-  implicit val mediaService = ExecutionContext.fromExecutor(Executors.newFixedThreadPool(2))
+  // Rely on global pool for now, seems to hold
+  implicit val picdar       = ExecutionContext.Implicits.global
+  implicit val picdarAsset  = ExecutionContext.fromExecutor(Executors.newFixedThreadPool(Config.concurrencyPicdarAsset))
+  implicit val mediaService = ExecutionContext.fromExecutor(Executors.newFixedThreadPool(Config.concurrencyMediaLoader))
 }

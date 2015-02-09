@@ -2,7 +2,7 @@ package com.gu.mediaservice.picdarexport.lib.picdar
 
 import java.net.URI
 
-import com.gu.mediaservice.picdarexport.lib.HttpClient
+import com.gu.mediaservice.picdarexport.lib.{Config, LogHelper, HttpClient}
 import com.gu.mediaservice.picdarexport.model.{AssetRef, Asset, DateRange}
 import org.joda.time.DateTime
 import org.joda.time.format.{DateTimeFormat, ISODateTimeFormat}
@@ -16,13 +16,15 @@ import scala.language.postfixOps
 
 import scalaj.http._
 
-trait PicdarApi extends HttpClient with PicdarInterface {
+trait PicdarApi extends HttpClient with PicdarInterface with LogHelper {
 
   val picdarUrl: String
   val picdarUsername: String
   val picdarPassword: String
 
-  private def post(body: Node): Future[Elem] = Future {
+  import Config.{picdarApiConnTimeout, picdarApiReadTimeout}
+
+  private def post(body: Node): Future[Elem] = Future { logDuration("PicdarApi.post") {
     val respBody = Http(picdarUrl).
       header("Content-Type", "text/xml").
       postData(body.toString()).
@@ -30,7 +32,7 @@ trait PicdarApi extends HttpClient with PicdarInterface {
       body
 
     XML.loadString(respBody)
-  }
+  } }
 
   case class SearchInstance(id: Int, count: Int)
 
