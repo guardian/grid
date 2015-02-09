@@ -2,37 +2,42 @@ package com.gu.mediaservice.picdarexport.lib.media
 
 import java.net.URI
 
-import com.gu.mediaservice.picdarexport.lib.HttpClient
+import com.gu.mediaservice.picdarexport.lib.{Config, LogHelper, HttpClient}
 import org.joda.time.DateTime
 import org.joda.time.format.ISODateTimeFormat
 import play.api.libs.json.Json
 
 import scala.concurrent.Future
-import scala.concurrent.ExecutionContext.Implicits.global
+import com.gu.mediaservice.picdarexport.lib.ExecutionContexts.mediaService
 
-trait MediaLoader extends HttpClient {
+import scalaj.http.Http
+
+trait MediaLoader extends HttpClient with LogHelper {
+
+  import Config.{loaderConnTimeout, loaderReadTimeout}
 
   val loaderEndpointUrl: String
   val loaderApiKey: String
 
-  def uploadUri(uri: URI, picdarUrn: String, uploadTime: DateTime): Future[URI] = {
-    for {
-      data   <- readBytes(uri)
-      params  = loaderParams(picdarUrn, uploadTime)
-      uri    <- upload(data, params)
-    } yield uri
-  }
+  def upload(data: Array[Byte], picdarUrn: String, uploadTime: DateTime): Future[URI] =
+    postData(data, loaderParams(picdarUrn, uploadTime))
 
-  private def upload(data: Array[Byte], parameters: Map[String, String]): Future[URI] = {
-    val request = WS.url(loaderEndpointUrl).
-      withQueryString(parameters.toSeq: _*).
-      withHeaders("X-Gu-Media-Key" -> loaderApiKey).
-      post(data)
+  private def postData(data: Array[Byte], parameters: Map[String, String]): Future[URI] = Future { logDuration("MediaLoader.postData") {
+    val resp = Http(loaderEndpointUrl).
+      params(parameters).
+      header("X-Gu-Media-Key", loaderApiKey).
+      // Disable gzip as library doesn't seem to correctly decode response, and
+      // it's tiny anyway
+      compress(false).
+      // Patience is the mother of all virtues
+      timeout(loaderConnTimeout, loaderReadTimeout).
+      postData(data).
+      asString
 
-    request map { response =>
-      URI.create((response.json \ "uri").as[String])
-    }
-  }
+    val respJson = Json.parse(resp.body)
+    val mediaUri = (respJson \ "uri").as[String]
+    URI.create(mediaUri)
+  } }
 
   val uploadTimeFormat = ISODateTimeFormat.dateTimeNoMillis()
   private def loaderParams(picdarUrn: String, uploadTime: DateTime): Map[String, String] = {
