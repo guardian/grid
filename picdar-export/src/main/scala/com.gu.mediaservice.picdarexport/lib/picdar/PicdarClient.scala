@@ -6,11 +6,14 @@ import com.gu.mediaservice.picdarexport.lib.HttpClient
 import com.gu.mediaservice.picdarexport.model.{AssetRef, Asset, DateRange}
 
 import scala.concurrent.Future
-import com.gu.mediaservice.picdarexport.lib.ExecutionContexts.picdar
+import com.gu.mediaservice.picdarexport.lib.ExecutionContexts
 
 trait PicdarClient extends PicdarApi with HttpClient {
 
-  def getAssetData(assetUri: URI): Future[Array[Byte]] = readBytes(assetUri)
+  // Use picdar pool for all operations by default
+  import ExecutionContexts.picdar
+
+  def getAssetData(assetUri: URI): Future[Array[Byte]] = readBytes(assetUri)(ExecutionContexts.picdarAsset)
 
   def get(urn: String): Future[Asset] =
     for {
