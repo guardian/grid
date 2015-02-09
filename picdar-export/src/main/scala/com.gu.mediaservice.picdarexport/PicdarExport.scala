@@ -8,13 +8,11 @@ import com.gu.mediaservice.picdarexport.lib.picdar.PicdarClient
 import com.gu.mediaservice.picdarexport.lib.{Config, MediaConfig}
 import com.gu.mediaservice.picdarexport.model._
 import play.api.Logger
-import play.api.libs.json.Json
 import play.api.libs.concurrent.Execution.Implicits._
 
 import scala.concurrent.Future
 import scala.language.postfixOps
 import org.joda.time.DateTime
-import org.joda.time.format.ISODateTimeFormat
 
 class ArgumentError(message: String) extends Error(message)
 

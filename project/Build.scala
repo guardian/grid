@@ -66,6 +66,7 @@ object Build extends Build {
 
   val picdarExport = project("picdar-export")
     .dependsOn(lib)
+    .libraryDependencies(legacyBlockingHttp)
     .settings(sbtassembly.Plugin.assemblySettings: _*)
     .settings(playArtifactSettings: _*)
     .settings(fiddlyExtraAssemblySettingsForExport: _*)
