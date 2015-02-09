@@ -10,6 +10,7 @@ import play.api.libs.json.Json
 import scala.concurrent.Future
 import com.gu.mediaservice.picdarexport.lib.ExecutionContexts.mediaService
 
+import scalaj.http.Http
 
 trait MediaLoader extends HttpClient {
 
@@ -19,15 +20,16 @@ trait MediaLoader extends HttpClient {
   def upload(data: Array[Byte], picdarUrn: String, uploadTime: DateTime): Future[URI] =
     postData(data, loaderParams(picdarUrn, uploadTime))
 
-  private def postData(data: Array[Byte], parameters: Map[String, String]): Future[URI] = {
-    val request = WS.url(loaderEndpointUrl).
-      withQueryString(parameters.toSeq: _*).
-      withHeaders("X-Gu-Media-Key" -> loaderApiKey).
-      post(data)
+  private def postData(data: Array[Byte], parameters: Map[String, String]): Future[URI] = Future {
+    val resp = Http(loaderEndpointUrl).
+      params(parameters).
+      header("X-Gu-Media-Key", loaderApiKey).
+      postData(data).
+      asString
 
-    request map { response =>
-      URI.create((response.json \ "uri").as[String])
-    }
+    val respJson = Json.parse(resp.body)
+    val mediaUri = (respJson \ "uri").as[String]
+    URI.create(mediaUri)
   }
 
   val uploadTimeFormat = ISODateTimeFormat.dateTimeNoMillis()
