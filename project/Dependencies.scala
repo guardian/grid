@@ -66,6 +66,8 @@ object Dependencies {
     "com.yakaz.elasticsearch.plugins" % "elasticsearch-action-updatebyquery" % "2.2.0"
   )
 
+  val legacyBlockingHttp = Seq("org.scalaj" %% "scalaj-http" % "1.1.3")
+
   implicit class DependencySyntax(self: Project) {
 
     def libraryDependencies(dependencies: Seq[ModuleID]): Project =
