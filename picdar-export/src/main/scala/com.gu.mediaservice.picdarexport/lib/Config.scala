@@ -25,6 +25,17 @@ object Config {
   val picdarLibraryUsername = properties("picdar.library.username")
   val picdarLibraryPassword = properties("picdar.library.password")
 
+  // Configure concurrency (thread pool size) of different services
+  val concurrencyPicdarAsset = properties("concurrency.picdar.asset").toInt
+  val concurrencyMediaLoader = properties("concurrency.media.loader").toInt
+
+  // Configure timeouts for all services
+  val picdarApiConnTimeout   =  5000 // ms
+  val picdarApiReadTimeout   = 15000 // ms
+  val picdarAssetConnTimeout =  5000 // ms
+  val picdarAssetReadTimeout = 15000 // ms
+  val loaderConnTimeout      =  5000 // ms
+  val loaderReadTimeout      = 15000 // ms
 
   def mediaConfig(env: String): MediaConfig = try {
     val apiKey    = properties(s"media.$env.apiKey")
