@@ -4,7 +4,7 @@ import java.net.URI
 
 import com.gu.mediaservice.picdarexport.lib.db.ExportDynamoDB
 import com.gu.mediaservice.picdarexport.lib.media.MediaLoader
-import com.gu.mediaservice.picdarexport.lib.picdar.PicdarClient
+import com.gu.mediaservice.picdarexport.lib.picdar.{PicdarError, PicdarClient}
 import com.gu.mediaservice.picdarexport.lib.{Config, MediaConfig}
 import com.gu.mediaservice.picdarexport.model._
 import play.api.Logger
@@ -227,6 +227,8 @@ object ExportApp extends App with ExportManagerProvider with ArgumentHelpers wit
         val updates = urns.map { assetRef =>
           getPicdar(system).get(assetRef.urn) flatMap { asset =>
             dynamo.record(assetRef.urn, assetRef.dateLoaded, asset.file, asset.created, asset.modified, asset.metadata)
+          } recover { case PicdarError(message) =>
+            Logger.warn(s"Picdar error during fetch: $message")
           }
         }
         Future.sequence(updates)
@@ -238,6 +240,8 @@ object ExportApp extends App with ExportManagerProvider with ArgumentHelpers wit
         val updates = urns.map { assetRef =>
           getPicdar(system).get(assetRef.urn) flatMap { asset =>
             dynamo.record(assetRef.urn, assetRef.dateLoaded, asset.file, asset.created, asset.modified, asset.metadata)
+          } recover { case PicdarError(message) =>
+            Logger.warn(s"Picdar error during fetch: $message")
           }
         }
         Future.sequence(updates)
@@ -254,6 +258,8 @@ object ExportApp extends App with ExportManagerProvider with ArgumentHelpers wit
         val updates = urns.drop(rangeStart).take(rangeLen).map { assetRef =>
           getPicdar(system).get(assetRef.urn) flatMap { asset =>
             dynamo.record(assetRef.urn, assetRef.dateLoaded, asset.file, asset.created, asset.modified, asset.metadata)
+          } recover { case PicdarError(message) =>
+            Logger.warn(s"Picdar error during fetch: $message")
           }
         }
         Future.sequence(updates)
