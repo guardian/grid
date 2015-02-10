@@ -12,22 +12,25 @@ class QuerySyntax(val input: ParserInput) extends Parser {
   def NegatedFilter = rule { '-' ~ Filter ~> Negation }
 
 
-  def Filter = rule { ScopedMatch ~> Match | AnyMatch }
+  def Filter = rule { ScopedMatch ~> Match | HashMatch | AnyMatch }
 
   def ScopedMatch: Rule2[Field, String] = rule { MatchField ~ ':' ~ MatchValue }
+  def HashMatch = rule { '#' ~ MatchValue ~> (label => Match(SingleField("labels"), label)) }
 
   def MatchField = rule { capture(AllowedFieldName) ~> resolveNamedField _ }
 
   def AllowedFieldName = rule {
     "location" | "city" | "province" | "country" | "in" |
     "byline" | "by" | "photographer" |
-    "credit"
+    "credit" |
+    "label"
   }
 
   def resolveNamedField(name: String): Field = name match {
     case "in"                  => MultipleField(List("location", "city", "province", "country"))
     case "by" | "photographer" => SingleField("byline")
     case "location"            => SingleField("subLocation")
+    case "label"               => SingleField("labels")
     case fieldName             => SingleField(fieldName)
   }
 
