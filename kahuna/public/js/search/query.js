@@ -4,11 +4,31 @@ import template from './query.html!text';
 
 export var query = angular.module('kahuna.search.query', []);
 
+function getLastMidnight() {
+    // Note that this correctly uses local datetime and returns
+    // midnight for the local user
+    var date = new Date();
+    date.setHours(0);
+    date.setMinutes(0);
+    date.setSeconds(0);
+    date.setMilliseconds(0);
+    return date;
+}
+
 query.controller('SearchQueryCtrl', ['$scope', '$state', '$stateParams', 'mediaApi',
                  function($scope, $state, $stateParams, mediaApi) {
 
     var ctrl = this;
     ctrl.uploadedByMe = false;
+
+    ctrl.lastMidnight = getLastMidnight().toISOString();
+
+    $scope.sinceOptions = [
+        {label: 'anytime'},  // value: undefined
+        {label: 'today',        value: getLastMidnight().toISOString()},
+        {label: '24 hours ago', value: '24.hour'},
+        {label: 'a week ago',   value: '1.week'}
+    ];
 
     Object.keys($stateParams)
           .forEach(setAndWatchParam);

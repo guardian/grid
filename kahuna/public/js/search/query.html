@@ -41,18 +41,9 @@
             archived
         </label>
 
-        <!--
-        Anytime
-        Today (since midnight vs last 24 hours?)
-        Yesterday
-
-        Other: [since, to]
-        -->
         <select class="search__filter"
-                ng:model="searchQuery.since">
-            <option value="">anytime</option>
-            <option value="24.hour">24 hours ago</option>
-            <option value="1.week">a week ago</option>
+                ng:model="searchQuery.since"
+                ng:options="opt.value as opt.label for opt in sinceOptions">
         </select>
     </div>
 </form>
