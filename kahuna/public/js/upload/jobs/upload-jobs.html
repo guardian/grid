@@ -40,6 +40,9 @@
              <div class="metadata-applicator" ng:if="ctrl.jobs.length > 1">
                 Apply
                 <button class="metadata-applicator__button"
+                        ng:click="ctrl.updateAllMetadata('description', job.image.data.metadata.description)">description</button>
+                /
+                <button class="metadata-applicator__button"
                         ng:click="ctrl.updateAllMetadata('byline', job.image.data.metadata.byline)">byline</button>
                 /
                 <button class="metadata-applicator__button"
