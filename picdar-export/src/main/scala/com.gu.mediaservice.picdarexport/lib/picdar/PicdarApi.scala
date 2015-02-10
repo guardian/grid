@@ -16,6 +16,8 @@ import scala.language.postfixOps
 
 import scalaj.http._
 
+case class PicdarError(message: String) extends RuntimeException(message)
+
 trait PicdarApi extends HttpClient with PicdarInterface with LogHelper {
 
   val picdarUrl: String
@@ -108,9 +110,9 @@ trait PicdarApi extends HttpClient with PicdarInterface with LogHelper {
   )
 
   def fetchAsset(mak: String, urn: String): Future[Asset] = {
-    post(messages.retrieveAsset(mak, urn)) map { response =>
+    post(messages.retrieveAsset(mak, urn)) flatMap { response =>
       val record = (response \ "ResponseData" \ "Record")(0)
-      val assetFile = (record \ "VURL") find (v => (v \ "@type" text) == "original") map (_.text) map URI.create
+      val assetFileOpt = (record \ "VURL") find (v => (v \ "@type" text) == "original") map (_.text) map URI.create
       val createdOn = extractField(record, "Created on")
       val createdAt = extractField(record, "Created at")
       val created = (createdOn, createdAt) match {
@@ -127,8 +129,12 @@ trait PicdarApi extends HttpClient with PicdarInterface with LogHelper {
 
       // Notes: Date Loaded seems to be the same as Created on, it's not when the image was loaded into the Library...
 
-      // FIXME: error if get fails
-      Asset(urn, assetFile get, created get, modified, metadata, infoUri)
+      // Sometimes there is no assetFile at all! lol
+      assetFileOpt map { assetFile =>
+        Future.successful(Asset(urn, assetFile, created get, modified, metadata, infoUri))
+      } getOrElse {
+        Future.failed(PicdarError(s"No asset file for $urn"))
+      }
     }
   }
 
