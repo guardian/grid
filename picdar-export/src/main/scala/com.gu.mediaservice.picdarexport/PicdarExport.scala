@@ -284,6 +284,21 @@ object ExportApp extends App with ExportManagerProvider with ArgumentHelpers wit
       }
     }
 
+
+    case "+clear" :: env :: Nil => terminateAfter {
+      val dynamo = getDynamo(env)
+      dynamo.delete(DateRange.all) map { rows =>
+        println(s"Cleared ${rows.size} entries")
+      }
+    }
+
+    case "+clear" :: env :: date :: Nil => terminateAfter {
+      val dynamo = getDynamo(env)
+      dynamo.delete(parseDateRange(date)) map { rows =>
+        println(s"Cleared ${rows.size} entries")
+      }
+    }
+
     case _ => println(
       """
         |usage: show   <desk|library> <picdarUrl>
@@ -297,6 +312,7 @@ object ExportApp extends App with ExportManagerProvider with ArgumentHelpers wit
         |       +load   <dev|test> <desk|library> <created|modified|taken> <date> [range]
         |       +fetch  <dev|test> <desk|library> [dateLoaded] [range]
         |       +ingest <dev|test> [dateLoaded] [range]
+        |       +clear  <dev|test> [dateLoaded]
       """.stripMargin
     )
   }

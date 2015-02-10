@@ -123,4 +123,22 @@ class ExportDynamoDB(credentials: AWSCredentials, region: Region, tableName: Str
     table.updateItem(baseUpdateSpec)
   }
 
+  def delete(dateRange: DateRange) = Future {
+    val queryConds = List() ++
+      dateRange.start.map(date => s"picdarCreated >= :startDate") ++
+      dateRange.end.map(date => s"picdarCreated <= :endDate")
+
+    val values = Map() ++
+      dateRange.start.map(asRangeString).map(":startDate" -> _) ++
+      dateRange.end.map(asRangeString).map(":endDate" -> _)
+
+    val query = queryConds.mkString(" AND ")
+    val items = table.scan(query, "picdarUrn, picdarCreated", null, values)
+    items.iterator.map { item =>
+      val Seq(picdarUrn, picdarCreated) = Seq("picdarUrn", "picdarCreated").map(item.getString)
+      table.deleteItem("picdarUrn", picdarUrn, "picdarCreated", picdarCreated)
+    }
+
+  }
+
 }
