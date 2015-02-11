@@ -23,6 +23,8 @@ class QuerySyntax(val input: ParserInput) extends Parser {
     "location" | "city" | "province" | "country" | "in" |
     "byline" | "by" | "photographer" |
     "credit" |
+    "copyright" |
+    "keyword" |
     "label"
   }
 
@@ -31,6 +33,7 @@ class QuerySyntax(val input: ParserInput) extends Parser {
     case "by" | "photographer" => SingleField("byline")
     case "location"            => SingleField("subLocation")
     case "label"               => SingleField("labels")
+    case "keyword"             => SingleField("keywords")
     case fieldName             => SingleField(fieldName)
   }
 
