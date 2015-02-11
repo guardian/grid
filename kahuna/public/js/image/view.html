@@ -48,14 +48,14 @@
                      class="metadata-line">
                     by
                     <span class="metadata-line__info" ng:show="image.data.metadata.byline">
-                        <a ui:sref="search.results({query: image.data.metadata.byline})">{{image.data.metadata.byline}}</a>
+                        <a ui:sref="search.results({query: (image.data.metadata.byline | queryFilter:'by')})">{{image.data.metadata.byline}}</a>
                     </span>
                     <span class="metadata-line__info" ng:hide="image.data.metadata.byline">
                         unknown
                     </span>
                     /
                     <span class="metadata-line__info">
-                        <a ui:sref="search.results({query: image.data.metadata.credit})">{{image.data.metadata.credit}}</a>
+                        <a ui:sref="search.results({query: (image.data.metadata.credit | queryFilter:'credit')})">{{image.data.metadata.credit}}</a>
                     </span>
                 </div>
 
@@ -64,7 +64,7 @@
                     in
                     <span ng:repeat="prop in ['subLocation', 'city', 'state', 'country']" ng:if="image.data.metadata[prop]">
                         <span class="metadata-line__info">
-                            <a ui:sref="search.results({query: image.data.metadata[prop]})">{{image.data.metadata[prop]}}</a><!-- no whitespace before comma
+                            <a ui:sref="search.results({query: (image.data.metadata[prop] | queryFilter:locationFieldMap[prop])})">{{image.data.metadata[prop]}}</a><!-- no whitespace before comma
                         --></span><span ng:if="! $last">,</span>
                     </span>
                 </div>
@@ -73,7 +73,7 @@
                      class="metadata-line">
                     ©
                     <span class="metadata-line__info">
-                        <a ui:sref="search.results({query: image.data.metadata.copyright})">{{image.data.metadata.copyright}}</a>
+                        <a ui:sref="search.results({query: (image.data.metadata.copyright | queryFilter:'copyright')})">{{image.data.metadata.copyright}}</a>
                     </span>
                     <!-- FIXME: do we want copyright or copyrightNotice? -->
                 </div>
@@ -147,7 +147,7 @@
                     <ul>
                         <li class="image-info__keyword"
                             ng:repeat="keyword in image.data.metadata.keywords track by $index">
-                            <a ui:sref="search.results({query: keyword})">
+                            <a ui:sref="search.results({query: (keyword | queryFilter:'keyword')})">
                                 {{keyword}}
                             </a>
                         </li>

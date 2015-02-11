@@ -19,3 +19,18 @@ image.config(['$stateProvider',
         controller: 'ImageCtrl'
     });
 }]);
+
+// TODO: move to another file?
+image.filter('queryFilter', function() {
+    var containsSpace = s => / /.test(s);
+    var stripQuotes = s => s.replace(/["']/g, '');
+
+    return (value, field) => {
+        let cleanValue = stripQuotes(value);
+        if (containsSpace(cleanValue)) {
+            return `${field}:"${cleanValue}"`;
+        } else {
+            return `${field}:${cleanValue}`;
+        }
+    };
+});
