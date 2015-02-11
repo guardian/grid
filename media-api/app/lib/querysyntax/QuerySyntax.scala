@@ -14,7 +14,7 @@ class QuerySyntax(val input: ParserInput) extends Parser {
 
   def Filter = rule { ScopedMatch ~> Match | HashMatch | AnyMatch }
 
-  def ScopedMatch: Rule2[Field, String] = rule { MatchField ~ ':' ~ MatchValue }
+  def ScopedMatch = rule { MatchField ~ ':' ~ MatchValue }
   def HashMatch = rule { '#' ~ MatchValue ~> (label => Match(SingleField("labels"), label)) }
 
   def MatchField = rule { capture(AllowedFieldName) ~> resolveNamedField _ }
@@ -35,10 +35,10 @@ class QuerySyntax(val input: ParserInput) extends Parser {
   }
 
 
-  def AnyMatch = rule { MatchValue ~> ((v: String) => Match(AnyField, v)) }
+  def AnyMatch = rule { MatchValue ~> (v => Match(AnyField, v)) }
 
 
-  def MatchValue: Rule1[String] = rule { QuotedString | String }
+  def MatchValue = rule { QuotedString ~> Phrase | String ~> Words }
 
   def String = rule { capture(Chars) }
 
@@ -57,8 +57,6 @@ class QuerySyntax(val input: ParserInput) extends Parser {
 }
 
 // TODO:
-// - label: searches labels
-// - "..." as phrase match - can't do on multiple fields at once?
 // - uploaded: as alias for uploadedBy top-level field
 // - date uploaded (exact, range, expression (@today?))
 // - date taken (~)

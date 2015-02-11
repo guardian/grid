@@ -1,5 +1,6 @@
 package lib.elasticsearch
 
+import org.elasticsearch.index.query.MultiMatchQueryBuilder
 import org.elasticsearch.search.aggregations.bucket.terms.StringTerms
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -56,10 +57,22 @@ object ElasticSearch extends ElasticSearchClient {
     Seq("labels").map("userMetadata." + _) ++
     Config.queriableIdentifiers.map("identifiers." + _)
 
+  // For some sad reason, there was no helpful alias for this in the ES library
+  def multiMatchPhraseQuery(value: String, fields: Seq[String]) =
+    new MultiMatchQueryBuilder(value, fields: _*).`type`(MultiMatchQueryBuilder.Type.PHRASE)
+
+  def makeMultiQuery(value: Value, fields: Seq[String]) = value match {
+    case Words(string) => multiMatchQuery(string, fields: _*)
+    case Phrase(string) => multiMatchPhraseQuery(string, fields)
+  }
+
   def makeQueryBit(condition: Match) = condition.field match {
-    case AnyField              => multiMatchQuery(condition.value, matchFields: _*)
-    case MultipleField(fields) => multiMatchQuery(condition.value, fields: _*)
-    case SingleField(field)    => matchQuery(field, condition.value)
+    case AnyField              => makeMultiQuery(condition.value, matchFields)
+    case MultipleField(fields) => makeMultiQuery(condition.value, fields)
+    case SingleField(field)    => condition.value match {
+      case Words(value)  => matchQuery(field, value)
+      case Phrase(value) => matchPhraseQuery(field, value)
+    }
   }
 
   def makeQuery(conditions: List[Condition]) = conditions match {
