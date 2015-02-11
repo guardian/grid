@@ -1,12 +1,14 @@
 import angular from 'angular';
 
 import './controller';
+import '../search/query-filter';
 
 import imageTemplate from './view.html!text';
 
 
 export var image = angular.module('kahuna.image', [
-    'kahuna.image.controller'
+    'kahuna.image.controller',
+    'kahuna.search.filters.query'
 ]);
 
 
@@ -19,18 +21,3 @@ image.config(['$stateProvider',
         controller: 'ImageCtrl'
     });
 }]);
-
-// TODO: move to another file?
-image.filter('queryFilter', function() {
-    var containsSpace = s => / /.test(s);
-    var stripQuotes = s => s.replace(/["']/g, '');
-
-    return (value, field) => {
-        let cleanValue = stripQuotes(value);
-        if (containsSpace(cleanValue)) {
-            return `${field}:"${cleanValue}"`;
-        } else {
-            return `${field}:${cleanValue}`;
-        }
-    };
-});
