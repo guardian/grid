@@ -1,8 +1,11 @@
 import angular from 'angular';
+import 'angular-animate';
 import template from './query.html!text';
 
 
-export var query = angular.module('kahuna.search.query', []);
+export var query = angular.module('kahuna.search.query', [
+    'ngAnimate'
+]);
 
 // FIXME: replace this stuff with moment for sanity's sake
 

@@ -352,6 +352,19 @@ input.search-query__input {
     margin: 5px 0;
 }
 
+/* fade in/out */
+.search-query__clear.ng-hide-add,
+.search-query__clear.ng-hide-remove {
+    -webkit-transition: 0.2s ease-out all;
+    transition: 0.2s ease-out all;
+}
+.search-query__clear.ng-hide {
+    opacity: 0;
+}
+.search-query__clear.ng-hide-remove.ng-hide-remove-active {
+    opacity: 1;
+}
+
 
 .advanced-search-help {
     position: relative;
