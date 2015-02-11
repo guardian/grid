@@ -1,11 +1,20 @@
 <form class="search">
-    <input type="text"
-           placeholder="search for images…"
-           class="search__query"
-           autofocus="autofocus"
-           ng:model="searchQuery.query"
-           ng:model-options="{ debounce: 200 }"
-    />
+    <span class="search-query">
+        <input type="text"
+               placeholder="search for images…"
+               class="search__query search-query__input"
+               autofocus="autofocus"
+               ng:model="searchQuery.query"
+               ng:model-options="{ debounce: 200 }"
+               grid:focus-on="search:focus-query"
+        />
+        <button class="search-query__clear"
+                type="button"
+                ng:show="searchQuery.query"
+                ng:click="searchQuery.resetQueryAndFocus()">
+            ❌
+        </button>
+    </span>
 
     <button class="search__advanced-toggle"
             type="button"

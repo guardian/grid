@@ -28,6 +28,7 @@ query.controller('SearchQueryCtrl', ['$scope', '$state', '$stateParams', 'mediaA
     ctrl.uploadedByMe = false;
 
     ctrl.lastMidnight = getLastMidnight().toISOString();
+    ctrl.resetQueryAndFocus = resetQueryAndFocus;
 
     ctrl.sinceOptions = [
         {label: 'anytime'},  // value: undefined
@@ -62,6 +63,11 @@ query.controller('SearchQueryCtrl', ['$scope', '$state', '$stateParams', 'mediaA
             ctrl.uploadedBy = newVal && ctrl.user.email;
         }
     });
+
+    function resetQueryAndFocus() {
+        ctrl.query = '';
+        $scope.$broadcast('search:focus-query');
+    }
 }]);
 
 query.directive('searchQuery', [function() {
@@ -71,3 +77,11 @@ query.directive('searchQuery', [function() {
         template: template
     };
 }]);
+
+query.directive('gridFocusOn', function() {
+   return function(scope, elem, attr) {
+      scope.$on(attr.gridFocusOn, function(e) {
+          elem[0].focus();
+      });
+   };
+});
