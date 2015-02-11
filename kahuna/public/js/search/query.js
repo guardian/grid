@@ -83,7 +83,7 @@ query.directive('searchQuery', [function() {
 
 query.directive('gridFocusOn', function() {
    return function(scope, elem, attr) {
-      scope.$on(attr.gridFocusOn, function(e) {
+      scope.$on(attr.gridFocusOn, () => {
           elem[0].focus();
       });
    };
