@@ -10,6 +10,14 @@ image.controller('ImageCtrl',
     var imageId = $stateParams.imageId;
     $scope.cropKey = $stateParams.crop;
 
+    // Map of metadata location field to query filter name
+    $scope.locationFieldMap = {
+        'subLocation': 'location',
+        'city':        'city',
+        'state':       'state',
+        'country':     'country'
+    };
+
     mediaApi.find(imageId).then(image => {
         $scope.image = image;
 
