@@ -30,12 +30,17 @@ object Config {
   val concurrencyMediaLoader = properties("concurrency.media.loader").toInt
 
   // Configure timeouts for all services
-  val picdarApiConnTimeout   =  5000 // ms
-  val picdarApiReadTimeout   = 15000 // ms
-  val picdarAssetConnTimeout =  5000 // ms
-  val picdarAssetReadTimeout = 15000 // ms
-  val loaderConnTimeout      =  5000 // ms
-  val loaderReadTimeout      = 15000 // ms
+  private val defaultConnectionTimeout =  5000 // ms
+  private val defaultReadTimeout       = 15000 // ms
+
+  private def readTimeout(name: String, default: Int) = properties.get(name).map(_.toInt) getOrElse default
+
+  val picdarApiConnTimeout   = readTimeout("timeout.connection.picdar.api",   defaultConnectionTimeout)
+  val picdarApiReadTimeout   = readTimeout("timeout.read.picdar.api",         defaultReadTimeout)
+  val picdarAssetConnTimeout = readTimeout("timeout.connection.picdar.asset", defaultConnectionTimeout)
+  val picdarAssetReadTimeout = readTimeout("timeout.read.picdar.asset",       defaultReadTimeout)
+  val loaderConnTimeout      = readTimeout("timeout.connection.media.loader", defaultConnectionTimeout)
+  val loaderReadTimeout      = readTimeout("timeout.read.media.loader",       defaultReadTimeout)
 
   def mediaConfig(env: String): MediaConfig = try {
     val apiKey    = properties(s"media.$env.apiKey")
