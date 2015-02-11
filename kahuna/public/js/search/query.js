@@ -29,7 +29,7 @@ query.controller('SearchQueryCtrl', ['$scope', '$state', '$stateParams', 'mediaA
 
     ctrl.lastMidnight = getLastMidnight().toISOString();
 
-    $scope.sinceOptions = [
+    ctrl.sinceOptions = [
         {label: 'anytime'},  // value: undefined
         {label: 'today',        value: asISOStringNoMillis(getLastMidnight())},
         {label: '24 hours ago', value: '24.hour'},
