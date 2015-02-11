@@ -1,25 +1,8 @@
 import angular from 'angular';
+import moment from 'moment';
 import template from './query.html!text';
 
-
 export var query = angular.module('kahuna.search.query', []);
-
-// FIXME: replace this stuff with moment for sanity's sake
-
-function getLastMidnight() {
-    // Note that this correctly uses local datetime and returns
-    // midnight for the local user
-    var date = new Date();
-    date.setHours(0);
-    date.setMinutes(0);
-    date.setSeconds(0);
-    date.setMilliseconds(0);
-    return date;
-}
-
-function asISOStringNoMillis(date) {
-    return date.toISOString().replace(/\.\d{3}Z$/, 'Z');
-}
 
 query.controller('SearchQueryCtrl', ['$scope', '$state', '$stateParams', 'mediaApi',
                  function($scope, $state, $stateParams, mediaApi) {
@@ -27,11 +10,13 @@ query.controller('SearchQueryCtrl', ['$scope', '$state', '$stateParams', 'mediaA
     var ctrl = this;
     ctrl.uploadedByMe = false;
 
-    ctrl.lastMidnight = getLastMidnight().toISOString();
+    // Note that this correctly uses local datetime and returns
+    // midnight for the local user
+    var lastMidnight = moment().startOf('day').toISOString();
 
     $scope.sinceOptions = [
         {label: 'anytime'},  // value: undefined
-        {label: 'today',        value: asISOStringNoMillis(getLastMidnight())},
+        {label: 'today',        value: lastMidnight},
         {label: '24 hours ago', value: '24.hour'},
         {label: 'a week ago',   value: '1.week'}
     ];
