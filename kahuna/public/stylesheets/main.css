@@ -337,6 +337,22 @@ textarea.ng-invalid {
 }
 
 
+.search-query {
+    position: relative;
+}
+
+/* input to win specificity war with 'input' rule ;_; */
+input.search-query__input {
+    padding-right: 20px;
+}
+
+.search-query__clear {
+    position: absolute;
+    right: 10px;
+    margin: 5px 0;
+}
+
+
 .advanced-search-help {
     position: relative;
     background-color: #333;
