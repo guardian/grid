@@ -1,8 +1,12 @@
 import angular from 'angular';
+import 'angular-animate';
 import moment from 'moment';
 import template from './query.html!text';
 
-export var query = angular.module('kahuna.search.query', []);
+
+export var query = angular.module('kahuna.search.query', [
+    'ngAnimate'
+]);
 
 query.controller('SearchQueryCtrl', ['$scope', '$state', '$stateParams', 'mediaApi',
                  function($scope, $state, $stateParams, mediaApi) {
@@ -10,11 +14,13 @@ query.controller('SearchQueryCtrl', ['$scope', '$state', '$stateParams', 'mediaA
     var ctrl = this;
     ctrl.uploadedByMe = false;
 
+    ctrl.resetQueryAndFocus = resetQueryAndFocus;
+
     // Note that this correctly uses local datetime and returns
     // midnight for the local user
     var lastMidnight = moment().startOf('day').toISOString();
 
-    $scope.sinceOptions = [
+    ctrl.sinceOptions = [
         {label: 'anytime'},  // value: undefined
         {label: 'today',        value: lastMidnight},
         {label: '24 hours ago', value: '24.hour'},
@@ -47,6 +53,11 @@ query.controller('SearchQueryCtrl', ['$scope', '$state', '$stateParams', 'mediaA
             ctrl.uploadedBy = newVal && ctrl.user.email;
         }
     });
+
+    function resetQueryAndFocus() {
+        ctrl.query = '';
+        $scope.$broadcast('search:focus-query');
+    }
 }]);
 
 query.directive('searchQuery', [function() {
@@ -56,3 +67,11 @@ query.directive('searchQuery', [function() {
         template: template
     };
 }]);
+
+query.directive('gridFocusOn', function() {
+   return function(scope, elem, attr) {
+      scope.$on(attr.gridFocusOn, () => {
+          elem[0].focus();
+      });
+   };
+});
