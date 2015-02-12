@@ -279,7 +279,7 @@ object ExportApp extends App with ExportManagerProvider with ArgumentHelpers wit
 
         val updates = assets.drop(rangeStart).take(rangeLen).map { asset =>
           getExportManager("library", env).ingest(asset.picdarAssetUrl, asset.picdarUrn, asset.picdarCreated) flatMap { mediaUri =>
-            println(s"Ingested ${asset.picdarUrn} to $mediaUri")
+            Logger.info(s"Ingested ${asset.picdarUrn} to $mediaUri")
             dynamo.recordIngested(asset.picdarUrn, asset.picdarCreated, mediaUri)
           } recover { case e: Throwable =>
             Logger.warn(s"Upload error for ${asset.picdarUrn}: $e")
