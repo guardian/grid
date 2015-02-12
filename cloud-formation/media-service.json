@@ -534,7 +534,11 @@
         "MediaApiLoadBalancer": {
             "Type": "AWS::ElasticLoadBalancing::LoadBalancer",
             "Properties": {
-                "AvailabilityZones": { "Fn::GetAZs": "" },
+                "CrossZone": true,
+                "AvailabilityZones": [
+                    "eu-west-1a",
+                    "eu-west-1c"
+                ],
                 "SecurityGroups": [{ "Fn::GetAtt": ["MediaApiLoadBalancerSecurityGroup", "GroupId"] }],
                 "Listeners": [
                     {
@@ -697,7 +701,11 @@
         "KahunaLoadBalancer": {
             "Type": "AWS::ElasticLoadBalancing::LoadBalancer",
             "Properties": {
-                "AvailabilityZones": { "Fn::GetAZs": "" },
+                "CrossZone": true,
+                "AvailabilityZones": [
+                    "eu-west-1a",
+                    "eu-west-1c"
+                ],
                 "SecurityGroups": [{ "Fn::GetAtt": ["KahunaLoadBalancerSecurityGroup", "GroupId"] }],
                 "Listeners": [
                     {
@@ -986,7 +994,11 @@
         "ImageLoaderLoadBalancer": {
             "Type": "AWS::ElasticLoadBalancing::LoadBalancer",
             "Properties": {
-                "AvailabilityZones": { "Fn::GetAZs": "" },
+                "CrossZone": true,
+                "AvailabilityZones": [
+                    "eu-west-1a",
+                    "eu-west-1c"
+                ],
                 "SecurityGroups": [{ "Fn::GetAtt": ["ImageLoaderLoadBalancerSecurityGroup", "GroupId"] }],
                 "Listeners": [
                     {
@@ -1169,7 +1181,11 @@
         "CropperLoadBalancer": {
             "Type": "AWS::ElasticLoadBalancing::LoadBalancer",
             "Properties": {
-                "AvailabilityZones": { "Fn::GetAZs": "" },
+                "CrossZone": true,
+                "AvailabilityZones": [
+                    "eu-west-1a",
+                    "eu-west-1c"
+                ],
                 "SecurityGroups": [
                     { "Fn::GetAtt": ["CropperLoadBalancerSecurityGroup", "GroupId"] }
                 ],
@@ -1486,7 +1502,11 @@
         "MetadataEditorLoadBalancer": {
             "Type": "AWS::ElasticLoadBalancing::LoadBalancer",
             "Properties": {
-                "AvailabilityZones": { "Fn::GetAZs": "" },
+                "CrossZone": true,
+                "AvailabilityZones": [
+                    "eu-west-1a",
+                    "eu-west-1c"
+                ],
                 "SecurityGroups": [
                     { "Fn::GetAtt": ["MetadataEditorLoadBalancerSecurityGroup", "GroupId"] }
                 ],
