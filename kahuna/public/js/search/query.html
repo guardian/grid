@@ -1,11 +1,20 @@
 <form class="search">
-    <input type="text"
-           placeholder="search for images…"
-           class="search__query"
-           autofocus="autofocus"
-           ng:model="searchQuery.query"
-           ng:model-options="{ debounce: 200 }"
-    />
+    <span class="search-query">
+        <input type="text"
+               placeholder="search for images…"
+               class="search__query search-query__input"
+               autofocus="autofocus"
+               ng:model="searchQuery.query"
+               ng:model-options="{ debounce: 200 }"
+               grid:focus-on="search:focus-query"
+        />
+        <button class="search-query__clear"
+                type="button"
+                ng:show="searchQuery.query"
+                ng:click="searchQuery.resetQueryAndFocus()">
+            ❌
+        </button>
+    </span>
 
     <button class="search__advanced-toggle"
             type="button"
@@ -43,7 +52,7 @@
 
         <select class="search__filter"
                 ng:model="searchQuery.since"
-                ng:options="opt.value as opt.label for opt in sinceOptions">
+                ng:options="opt.value as opt.label for opt in searchQuery.sinceOptions">
         </select>
     </div>
 </form>
