@@ -20,17 +20,20 @@ class QuerySyntax(val input: ParserInput) extends Parser {
   def MatchField = rule { capture(AllowedFieldName) ~> resolveNamedField _ }
 
   def AllowedFieldName = rule {
-    "location" | "city" | "province" | "country" | "in" |
+    "location" | "city" | "state" | "country" | "in" |
     "byline" | "by" | "photographer" |
     "credit" |
+    "copyright" |
+    "keyword" |
     "label"
   }
 
   def resolveNamedField(name: String): Field = name match {
-    case "in"                  => MultipleField(List("location", "city", "province", "country"))
+    case "in"                  => MultipleField(List("location", "city", "state", "country"))
     case "by" | "photographer" => SingleField("byline")
     case "location"            => SingleField("subLocation")
     case "label"               => SingleField("labels")
+    case "keyword"             => SingleField("keywords")
     case fieldName             => SingleField(fieldName)
   }
 
