@@ -9,11 +9,13 @@ trait HttpClient extends LogHelper {
 
   import Config.{picdarAssetConnTimeout, picdarAssetReadTimeout}
 
-  def readBytes(uri: URI)(implicit executionContext: ExecutionContext): Future[Array[Byte]] = Future { logDuration("HttpClient.readBytes") {
-    Http(uri.toString).
-      timeout(picdarAssetConnTimeout, picdarAssetReadTimeout).
-      asBytes.
-      body
-  } }
+  def readBytes(uri: URI)(implicit executionContext: ExecutionContext): Future[Array[Byte]] = Future {
+    logDuration("HttpClient.readBytes") {
+      Http(uri.toString).
+        timeout(picdarAssetConnTimeout, picdarAssetReadTimeout).
+        asBytes.
+        body
+    }
+  }
 
 }
