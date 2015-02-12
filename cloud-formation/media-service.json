@@ -575,7 +575,7 @@
                 "DesiredCapacity": {"Ref": "ServiceAutoscalingDesiredCapacity"},
                 "Cooldown": "180",
                 "HealthCheckType": "ELB",
-                "HealthCheckGracePeriod": 500,
+                "HealthCheckGracePeriod": 300,
                 "LoadBalancerNames": [
                     { "Ref": "MediaApiLoadBalancer" }
                 ],
@@ -742,7 +742,7 @@
                 "DesiredCapacity": {"Ref": "ServiceAutoscalingDesiredCapacity"},
                 "Cooldown": "180",
                 "HealthCheckType": "ELB",
-                "HealthCheckGracePeriod": 500,
+                "HealthCheckGracePeriod": 300,
                 "LoadBalancerNames": [
                     { "Ref": "KahunaLoadBalancer" }
                 ],
@@ -1035,7 +1035,7 @@
                 "DesiredCapacity": {"Ref": "ServiceAutoscalingDesiredCapacity"},
                 "Cooldown": "180",
                 "HealthCheckType": "ELB",
-                "HealthCheckGracePeriod": 500,
+                "HealthCheckGracePeriod": 300,
                 "LoadBalancerNames": [
                     { "Ref": "ImageLoaderLoadBalancer" }
                 ],
@@ -1224,7 +1224,7 @@
                 "DesiredCapacity": {"Ref": "ServiceAutoscalingDesiredCapacity"},
                 "Cooldown": "180",
                 "HealthCheckType": "ELB",
-                "HealthCheckGracePeriod": 500,
+                "HealthCheckGracePeriod": 300,
                 "LoadBalancerNames": [
                     { "Ref": "CropperLoadBalancer" }
                 ],
@@ -1545,7 +1545,7 @@
                 "DesiredCapacity": {"Ref": "ServiceAutoscalingDesiredCapacity"},
                 "Cooldown": "180",
                 "HealthCheckType": "ELB",
-                "HealthCheckGracePeriod": 500,
+                "HealthCheckGracePeriod": 300,
                 "LoadBalancerNames": [
                     { "Ref": "MetadataEditorLoadBalancer" }
                 ],
