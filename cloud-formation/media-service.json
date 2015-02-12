@@ -48,6 +48,15 @@
             "Type": "String",
             "Default": "ami-eadc679d"
         },
+        "ServiceAutoscalingMinSize": {
+            "Type": "Number"
+        },
+        "ServiceAutoscalingMaxSize": {
+            "Type": "Number"
+        },
+        "ServiceAutoscalingDesiredCapacity": {
+            "Type": "Number"
+        },
         "ElasticsearchAutoscalingMinSize": {
             "Type": "Number"
         },
@@ -552,13 +561,14 @@
         "MediaApiAutoscalingGroup": {
             "Type": "AWS::AutoScaling::AutoScalingGroup",
             "Properties": {
-                "AvailabilityZones": {
-                    "Fn::GetAZs": ""
-                },
+                "AvailabilityZones": [
+                    "eu-west-1a",
+                    "eu-west-1c"
+                ],
                 "LaunchConfigurationName": { "Ref": "MediaApiLaunchConfig" },
-                "MinSize": "1",
-                "MaxSize": "2",
-                "DesiredCapacity": "1",
+                "MinSize": {"Ref": "ServiceAutoscalingMinSize"},
+                "MaxSize": {"Ref": "ServiceAutoscalingMaxSize"},
+                "DesiredCapacity": {"Ref": "ServiceAutoscalingDesiredCapacity"},
                 "Cooldown": "180",
                 "HealthCheckType": "ELB",
                 "HealthCheckGracePeriod": 500,
@@ -714,13 +724,14 @@
         "KahunaAutoscalingGroup": {
             "Type": "AWS::AutoScaling::AutoScalingGroup",
             "Properties": {
-                "AvailabilityZones": {
-                    "Fn::GetAZs": ""
-                },
+                "AvailabilityZones": [
+                    "eu-west-1a",
+                    "eu-west-1c"
+                ],
                 "LaunchConfigurationName": { "Ref": "KahunaLaunchConfig" },
-                "MinSize": "1",
-                "MaxSize": "2",
-                "DesiredCapacity": "1",
+                "MinSize": {"Ref": "ServiceAutoscalingMinSize"},
+                "MaxSize": {"Ref": "ServiceAutoscalingMaxSize"},
+                "DesiredCapacity": {"Ref": "ServiceAutoscalingDesiredCapacity"},
                 "Cooldown": "180",
                 "HealthCheckType": "ELB",
                 "HealthCheckGracePeriod": 500,
@@ -1002,13 +1013,14 @@
         "ImageLoaderAutoscalingGroup": {
             "Type": "AWS::AutoScaling::AutoScalingGroup",
             "Properties": {
-                "AvailabilityZones": {
-                    "Fn::GetAZs": ""
-                },
+                "AvailabilityZones": [
+                    "eu-west-1a",
+                    "eu-west-1c"
+                ],
                 "LaunchConfigurationName": { "Ref": "ImageLoaderLaunchConfig" },
-                "MinSize": "1",
-                "MaxSize": "2",
-                "DesiredCapacity": "1",
+                "MinSize": {"Ref": "ServiceAutoscalingMinSize"},
+                "MaxSize": {"Ref": "ServiceAutoscalingMaxSize"},
+                "DesiredCapacity": {"Ref": "ServiceAutoscalingDesiredCapacity"},
                 "Cooldown": "180",
                 "HealthCheckType": "ELB",
                 "HealthCheckGracePeriod": 500,
@@ -1186,13 +1198,14 @@
         "CropperAutoscalingGroup": {
             "Type": "AWS::AutoScaling::AutoScalingGroup",
             "Properties": {
-                "AvailabilityZones": {
-                    "Fn::GetAZs": ""
-                },
+                "AvailabilityZones": [
+                    "eu-west-1a",
+                    "eu-west-1c"
+                ],
                 "LaunchConfigurationName": { "Ref": "CropperLaunchConfig" },
-                "MinSize": "1",
-                "MaxSize": "2",
-                "DesiredCapacity": "1",
+                "MinSize": {"Ref": "ServiceAutoscalingMinSize"},
+                "MaxSize": {"Ref": "ServiceAutoscalingMaxSize"},
+                "DesiredCapacity": {"Ref": "ServiceAutoscalingDesiredCapacity"},
                 "Cooldown": "180",
                 "HealthCheckType": "ELB",
                 "HealthCheckGracePeriod": 500,
@@ -1502,13 +1515,14 @@
         "MetadataEditorAutoscalingGroup": {
             "Type": "AWS::AutoScaling::AutoScalingGroup",
             "Properties": {
-                "AvailabilityZones": {
-                    "Fn::GetAZs": ""
-                },
+                "AvailabilityZones": [
+                    "eu-west-1a",
+                    "eu-west-1c"
+                ],
                 "LaunchConfigurationName": { "Ref": "MetadataEditorLaunchConfig" },
-                "MinSize": "1",
-                "MaxSize": "2",
-                "DesiredCapacity": "1",
+                "MinSize": {"Ref": "ServiceAutoscalingMinSize"},
+                "MaxSize": {"Ref": "ServiceAutoscalingMaxSize"},
+                "DesiredCapacity": {"Ref": "ServiceAutoscalingDesiredCapacity"},
                 "Cooldown": "180",
                 "HealthCheckType": "ELB",
                 "HealthCheckGracePeriod": 500,
