@@ -1,12 +1,14 @@
 import angular from 'angular';
 
 import './controller';
+import '../search/query-filter';
 
 import imageTemplate from './view.html!text';
 
 
 export var image = angular.module('kahuna.image', [
-    'kahuna.image.controller'
+    'kahuna.image.controller',
+    'kahuna.search.filters.query'
 ]);
 
 
