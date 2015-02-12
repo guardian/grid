@@ -1,8 +1,11 @@
 import angular from 'angular';
 import template from './labeller.html!text';
 
+import '../search/query-filter';
 
-export var labeller = angular.module('kahuna.edits.labeller', []);
+export var labeller = angular.module('kahuna.edits.labeller', [
+    'kahuna.search.filters.query'
+]);
 
 labeller.controller('LabellerCtrl',
                   ['$scope', '$window',
