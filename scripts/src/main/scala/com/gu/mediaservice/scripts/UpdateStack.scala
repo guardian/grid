@@ -126,11 +126,11 @@ abstract class StackScript {
       val cropperCertArn = getCertArn(s"cropper.$domainRoot-rotated")
       val metadataCertArn = getCertArn(s"$parentDomain-rotated")
 
-      val (serviceMinSize, serviceDesired) = stage {
+      val (serviceMinSize, serviceDesired) = stage match {
         case Prod => (2, 2)
         case _    => (1, 1)
       }
-      val serviceMaxSize = esDesired * 2 // allows for autoscaling deploys
+      val serviceMaxSize = serviceDesired * 2 // allows for autoscaling deploys
 
       val (esMinSize, esDesired) = stage match {
         case Prod => (3, 3)
