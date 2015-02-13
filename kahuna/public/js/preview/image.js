@@ -14,6 +14,8 @@ image.directive('uiPreviewImage', function() {
             image: '=',
             hideInfo: '='
         },
+        // extra actions can be transcluded in
+        transclude: true,
         template: template
     };
 });

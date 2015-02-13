@@ -32,6 +32,9 @@
                   ng:if="image | hasExportsOfType:'crop'"><img class="ico" ng:src="{{'images/ico/crop.svg'| assetLocation}}" /></span>
         </div>
         <div class="bottom-bar__actions">
+            <!-- transclusion point for extra actions -->
+            <ng:transclude></ng:transclude>
+
             <a class="bottom-bar__action"
                title="crop"
                ng:if="image.data.valid"
