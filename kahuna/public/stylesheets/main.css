@@ -455,12 +455,8 @@ input.search-query__input {
 }
 
 .mark-as-seen {
-    position: absolute;
-    bottom: 3px;
-    right: 85px;
     color: #aaa;
     font-size: 1.6rem;
-    /* TODO: this position is a bit of a hack. Find a better place for it */
 }
 
 .cost {
