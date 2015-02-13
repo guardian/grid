@@ -536,8 +536,8 @@
             "Properties": {
                 "CrossZone": true,
                 "AvailabilityZones": [
-                    "eu-west-1a",
-                    "eu-west-1c"
+                    {"Fn::Select" : [0, { "Fn::GetAZs": "" }]},
+                    {"Fn::Select" : [1, { "Fn::GetAZs": "" }]}
                 ],
                 "SecurityGroups": [{ "Fn::GetAtt": ["MediaApiLoadBalancerSecurityGroup", "GroupId"] }],
                 "Listeners": [
@@ -566,8 +566,8 @@
             "Type": "AWS::AutoScaling::AutoScalingGroup",
             "Properties": {
                 "AvailabilityZones": [
-                    "eu-west-1a",
-                    "eu-west-1c"
+                    {"Fn::Select" : [0, { "Fn::GetAZs": "" }]},
+                    {"Fn::Select" : [1, { "Fn::GetAZs": "" }]}
                 ],
                 "LaunchConfigurationName": { "Ref": "MediaApiLaunchConfig" },
                 "MinSize": {"Ref": "ServiceAutoscalingMinSize"},
@@ -703,8 +703,8 @@
             "Properties": {
                 "CrossZone": true,
                 "AvailabilityZones": [
-                    "eu-west-1a",
-                    "eu-west-1c"
+                    {"Fn::Select" : [0, { "Fn::GetAZs": "" }]},
+                    {"Fn::Select" : [1, { "Fn::GetAZs": "" }]}
                 ],
                 "SecurityGroups": [{ "Fn::GetAtt": ["KahunaLoadBalancerSecurityGroup", "GroupId"] }],
                 "Listeners": [
@@ -733,8 +733,8 @@
             "Type": "AWS::AutoScaling::AutoScalingGroup",
             "Properties": {
                 "AvailabilityZones": [
-                    "eu-west-1a",
-                    "eu-west-1c"
+                    {"Fn::Select" : [0, { "Fn::GetAZs": "" }]},
+                    {"Fn::Select" : [1, { "Fn::GetAZs": "" }]}
                 ],
                 "LaunchConfigurationName": { "Ref": "KahunaLaunchConfig" },
                 "MinSize": {"Ref": "ServiceAutoscalingMinSize"},
@@ -996,8 +996,8 @@
             "Properties": {
                 "CrossZone": true,
                 "AvailabilityZones": [
-                    "eu-west-1a",
-                    "eu-west-1c"
+                    {"Fn::Select" : [0, { "Fn::GetAZs": "" }]},
+                    {"Fn::Select" : [1, { "Fn::GetAZs": "" }]}
                 ],
                 "SecurityGroups": [{ "Fn::GetAtt": ["ImageLoaderLoadBalancerSecurityGroup", "GroupId"] }],
                 "Listeners": [
@@ -1026,8 +1026,8 @@
             "Type": "AWS::AutoScaling::AutoScalingGroup",
             "Properties": {
                 "AvailabilityZones": [
-                    "eu-west-1a",
-                    "eu-west-1c"
+                    {"Fn::Select" : [0, { "Fn::GetAZs": "" }]},
+                    {"Fn::Select" : [1, { "Fn::GetAZs": "" }]}
                 ],
                 "LaunchConfigurationName": { "Ref": "ImageLoaderLaunchConfig" },
                 "MinSize": {"Ref": "ServiceAutoscalingMinSize"},
@@ -1183,8 +1183,8 @@
             "Properties": {
                 "CrossZone": true,
                 "AvailabilityZones": [
-                    "eu-west-1a",
-                    "eu-west-1c"
+                    {"Fn::Select" : [0, { "Fn::GetAZs": "" }]},
+                    {"Fn::Select" : [1, { "Fn::GetAZs": "" }]}
                 ],
                 "SecurityGroups": [
                     { "Fn::GetAtt": ["CropperLoadBalancerSecurityGroup", "GroupId"] }
@@ -1215,8 +1215,8 @@
             "Type": "AWS::AutoScaling::AutoScalingGroup",
             "Properties": {
                 "AvailabilityZones": [
-                    "eu-west-1a",
-                    "eu-west-1c"
+                    {"Fn::Select" : [0, { "Fn::GetAZs": "" }]},
+                    {"Fn::Select" : [1, { "Fn::GetAZs": "" }]}
                 ],
                 "LaunchConfigurationName": { "Ref": "CropperLaunchConfig" },
                 "MinSize": {"Ref": "ServiceAutoscalingMinSize"},
@@ -1504,8 +1504,8 @@
             "Properties": {
                 "CrossZone": true,
                 "AvailabilityZones": [
-                    "eu-west-1a",
-                    "eu-west-1c"
+                    {"Fn::Select" : [0, { "Fn::GetAZs": "" }]},
+                    {"Fn::Select" : [1, { "Fn::GetAZs": "" }]}
                 ],
                 "SecurityGroups": [
                     { "Fn::GetAtt": ["MetadataEditorLoadBalancerSecurityGroup", "GroupId"] }
@@ -1536,8 +1536,8 @@
             "Type": "AWS::AutoScaling::AutoScalingGroup",
             "Properties": {
                 "AvailabilityZones": [
-                    "eu-west-1a",
-                    "eu-west-1c"
+                    {"Fn::Select" : [0, { "Fn::GetAZs": "" }]},
+                    {"Fn::Select" : [1, { "Fn::GetAZs": "" }]}
                 ],
                 "LaunchConfigurationName": { "Ref": "MetadataEditorLaunchConfig" },
                 "MinSize": {"Ref": "ServiceAutoscalingMinSize"},
