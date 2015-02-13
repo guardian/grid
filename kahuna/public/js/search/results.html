@@ -28,13 +28,12 @@
                 ng:repeat="image in images"
                 ng:class="{ 'result--seen': imageHasBeenSeen(image) }">
 
-                <ui-preview-image image="image"></ui-preview-image>
-
-                <!-- Positioned after to be laid over previous element -->
-                <button class="mark-as-seen"
-                        title="Mark all images until this point as seen"
-                        ui:localstore="search.seenFrom"
-                        ui:localstore-val="getLastSeenVal(image)">☑</button>
+                <ui-preview-image image="image">
+                    <button class="mark-as-seen"
+                            title="Mark all images until this point as seen"
+                            ui:localstore="search.seenFrom"
+                            ui:localstore-val="getLastSeenVal(image)">☑</button>
+                </ui-preview-image>
             </li>
         </ul>
     </div>
