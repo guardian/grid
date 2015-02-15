@@ -1,4 +1,4 @@
-<div class="full-image" ng:controller="ImageCtrl" ng:if="image">
+<div class="full-image">
 
     <div class="top-bar-wrapper">
         <div class="top-bar">
@@ -6,22 +6,22 @@
                 <a class="top-bar__item top-bar__item--first"
                    ui:sref="search.results">← search</a>
                 <a class="top-bar__item top-bar__item"
-                   ng:if="cropKey"
+                   ng:if="ctrl.crop"
                    ui:sref="{ crop: null }">← original</a>
             </div>
 
             <div class="top-bar__actions">
                 <ui-archiver class="top-bar__item"
-                             archived="image.data.userMetadata.data.archived"
+                             archived="ctrl.image.data.userMetadata.data.archived"
                              with-text="true"></ui-archiver>
 
                 <a class="top-bar__item"
-                   ng:if="image.data.valid"
-                   ui:sref="crop({imageId: image.data.id})">
-                    ✂ <span ng:if="cropKey">re</span>crop
+                   ng:if="ctrl.image.data.valid"
+                   ui:sref="crop({imageId: ctrl.image.data.id})">
+                    ✂ <span ng:if="ctrl.crop">re</span>crop
                 </a>
                 <span class="top-bar__item"
-                      ng:if="! image.data.valid">cannot crop (missing metadata)</span>
+                      ng:if="! ctrl.image.data.valid">cannot crop (missing metadata)</span>
             </div>
 
             <ui-user-actions></ui-user-actions>
@@ -37,50 +37,50 @@
             </div>
 
             <div class="image-info__group">
-                <h2 ng:if="image.data.metadata.title" class="image-info__title">{{image.data.metadata.title}}</h2>
+                <h2 ng:if="ctrl.metadata.title" class="image-info__title">{{ctrl.metadata.title}}</h2>
 
-                <div class="small-margin-bottom">{{image.data.metadata.description}}</div>
+                <div class="small-margin-bottom">{{ctrl.metadata.description}}</div>
             </div>
 
             <div class="image-info__group">
-                <div ng:if="image.data.metadata.dateTaken"
+                <div ng:if="ctrl.metadata.dateTaken"
                      class="metadata-line">
                     on
                     <span class="metadata-line__info">
-                        {{image.data.metadata.dateTaken | date:'d MMM yyyy, HH:mm'}}
+                        {{ctrl.metadata.dateTaken | date:'d MMM yyyy, HH:mm'}}
                     </span>
                 </div>
 
-                <div ng:if="image.data.metadata.byline || image.data.metadata.credit"
+                <div ng:if="ctrl.metadata.byline || ctrl.metadata.credit"
                      class="metadata-line">
                     by
-                    <span class="metadata-line__info" ng:if="image.data.metadata.byline">
-                        <a ui:sref="search.results({query: (image.data.metadata.byline | queryFilter:'by')})">{{image.data.metadata.byline}}</a>
+                    <span class="metadata-line__info" ng:if="ctrl.metadata.byline">
+                        <a ui:sref="search.results({query: (ctrl.metadata.byline | queryFilter:'by')})">{{ctrl.metadata.byline}}</a>
                     </span>
-                    <span class="metadata-line__info" ng:hide="image.data.metadata.byline">
+                    <span class="metadata-line__info" ng:hide="ctrl.metadata.byline">
                         unknown
                     </span>
                     /
                     <span class="metadata-line__info">
-                        <a ui:sref="search.results({query: (image.data.metadata.credit | queryFilter:'credit')})">{{image.data.metadata.credit}}</a>
+                        <a ui:sref="search.results({query: (ctrl.metadata.credit | queryFilter:'credit')})">{{ctrl.metadata.credit}}</a>
                     </span>
                 </div>
 
-                <div ng:if="image.data.metadata.subLocation || image.data.metadata.city || image.data.metadata.state || image.data.metadata.country"
+                <div ng:if="ctrl.metadata.subLocation || ctrl.metadata.city || ctrl.metadata.state || ctrl.metadata.country"
                      class="metadata-line">
                     in
-                    <span ng:repeat="prop in ['subLocation', 'city', 'state', 'country']" ng:if="image.data.metadata[prop]">
+                    <span ng:repeat="prop in ['subLocation', 'city', 'state', 'country']" ng:if="ctrl.metadata[prop]">
                         <span class="metadata-line__info">
-                            <a ui:sref="search.results({query: (image.data.metadata[prop] | queryFilter:locationFieldMap[prop])})">{{image.data.metadata[prop]}}</a><!-- no whitespace before comma
+                            <a ui:sref="search.results({query: (ctrl.metadata[prop] | queryFilter:locationFieldMap[prop])})">{{ctrl.metadata[prop]}}</a><!-- no whitespace before comma
                         --></span><span ng:if="! $last">,</span>
                     </span>
                 </div>
 
-                <div ng:if="image.data.metadata.copyright"
+                <div ng:if="ctrl.metadata.copyright"
                      class="metadata-line">
                     ©
                     <span class="metadata-line__info">
-                        <a ui:sref="search.results({query: (image.data.metadata.copyright | queryFilter:'copyright')})">{{image.data.metadata.copyright}}</a>
+                        <a ui:sref="search.results({query: (ctrl.metadata.copyright | queryFilter:'copyright')})">{{ctrl.metadata.copyright}}</a>
                     </span>
                     <!-- FIXME: do we want copyright or copyrightNotice? -->
                 </div>
@@ -88,10 +88,10 @@
                 <div class="metadata-line">
                     uploaded
                     <span class="metadata-line__info">
-                        {{image.data.uploadTime | date:'d MMM yyyy, HH:mm'}}
+                        {{ctrl.image.data.uploadTime | date:'d MMM yyyy, HH:mm'}}
                     </span>
                     <span class="metadata-line__info">
-                        (<a ui:sref="search.results({uploadedBy: image.data.uploadedBy})">{{image.data.uploadedBy | stripEmailDomain}}</a>)
+                        (<a ui:sref="search.results({uploadedBy: ctrl.image.data.uploadedBy})">{{ctrl.image.data.uploadedBy | stripEmailDomain}}</a>)
                     </span>
                 </div>
 
@@ -108,7 +108,7 @@
 
                 <table ng:show="metadataExpanded" class="metadata">
                     <tbody class="metadata__body">
-                        <tr ng:repeat="(key, value) in image.data.metadata" ng:if="isUsefulMetadata(key)">
+                        <tr ng:repeat="(key, value) in ctrl.metadata" ng:if="isUsefulMetadata(key)">
                             <th class="metadata__key">{{key}}</th>
                             <td>{{value}}</td>
                         </tr>
@@ -120,20 +120,20 @@
         <dl class="image-info">
             <dt class="image-info__heading image-info__heading--first">Labels</dt>
             <dd>
-                <ui-labeller labels="image.data.userMetadata.data.labels">
+                <ui-labeller labels="ctrl.image.data.userMetadata.data.labels">
                 </ui-labeller>
             </dd>
         </dl>
 
 
         <div class="image-info">
-            <dl class="image-info__group" ng:if="crops.length > 0">
-                <dt class="image-info__heading">Crops <span ng:if="cropKey">(<a ui:sref="{ crop: null }">original</a>)</span></dt>
+            <dl class="image-info__group" ng:if="ctrl.crops.length > 0">
+                <dt class="image-info__heading">Crops <span ng:if="ctrl.crop">(<a ui:sref="{ crop: null }">original</a>)</span></dt>
                 <dd>
                     <ul class="image-crops">
                         <li class="image-crop"
-                            ng:class="{'image-crop--selected': crop.id == cropKey}"
-                            ng:repeat="crop in crops">
+                            ng:repeat="crop in ctrl.crops"
+                            ng:class="{'image-crop--selected': crop == ctrl.crop}">
                             <a draggable="true"
                                ng:init="extremeAssets = (crop | getExtremeAssets)"
                                ng:click="cropSelected(crop)"
@@ -148,12 +148,12 @@
                 </dd>
             </dl>
 
-            <dl class="image-info__group" ng:if="image.data.metadata.keywords.length > 0">
+            <dl class="image-info__group" ng:if="ctrl.metadata.keywords.length > 0">
                 <dt class="image-info__heading">Keywords</dt>
                 <dd>
                     <ul>
                         <li class="image-info__keyword"
-                            ng:repeat="keyword in image.data.metadata.keywords track by $index">
+                            ng:repeat="keyword in ctrl.metadata.keywords track by $index">
                             <a ui:sref="search.results({query: (keyword | queryFilter:'keyword')})">
                                 {{keyword}}
                             </a>
@@ -166,19 +166,18 @@
 
     <div class="image-holder">
         <div class="easel">
-            <div class="easel__canvas" ng:if="!cropKey">
+            <div class="easel__canvas" ng:if="!ctrl.crop">
                 <img class="easel__image"
-                     ng:src="{{image.data.source | assetFile}}"
-                     ui:drag-data="{{image | asImageDragData}}" />
+                     ng:src="{{ctrl.image.data.source | assetFile}}"
+                     ui:drag-data="{{ctrl.image | asImageDragData}}" />
             </div>
 
 
             <!-- TODO: As this loads async, add a loader -->
-            <div class="easel__canvas" ng:if="cropKey">
+            <div class="easel__canvas" ng:if="ctrl.crop">
                 <a draggable="true"
                    class="easel__image-container"
-                   ng:if="crop"
-                   ng:init="extremeAssets = (crop | getExtremeAssets)"
+                   ng:init="extremeAssets = (ctrl.crop | getExtremeAssets)"
                    ui:sref="{crop: cropKey}"
                    ui:drag-data="{{image | asImageAndCropsDragData:crop}}"
                    ui:drag-image="{{extremeAssets.smallest | assetFile}}">
