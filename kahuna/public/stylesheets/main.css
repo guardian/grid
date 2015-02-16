@@ -269,6 +269,10 @@ textarea.ng-invalid {
     margin-left: 0;
 }
 
+.user-actions {
+    margin-right: -10px;
+}
+
 .logout {
     color: inherit;
     font-size: 1.3rem;
@@ -1076,9 +1080,24 @@ FIXME: what to do with touch devices
 
 
 /* ==========================================================================
-   Portrait
+   Drop menu
    ========================================================================== */
+.drop-menu {
+    position: relative;
+}
 
-@media screen and (orientation:portrait) {
+.drop-menu__button {
+    padding: 5px;
+    background-color: #333;
+}
 
+.drop-menu__items {
+    background-color: #333;
+    position: absolute;
+    padding: 10px;
+    box-shadow: 0 1px 5px rgba(0, 0, 0, 0.5);
+    top: calc(100% + 10px);
+}
+.drop-menu__items--right {
+    right: 0;
 }
