@@ -69,6 +69,15 @@ kahuna.config(['$urlRouterProvider',
     $urlRouterProvider.otherwise('/search');
 }]);
 
+kahuna.run(['$rootScope', 'mediaApi',
+            ($rootScope, mediaApi) => {
+
+    mediaApi.getSession().then(session => {
+        $rootScope.$emit('events:user-loaded', session.user);
+    });
+    // TODO: catch if 401, trigger login
+}]);
+
 
 /**
  * Takes a resources and returns a promise of the entity data (uri,
