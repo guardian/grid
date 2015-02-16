@@ -17,6 +17,7 @@ import './util/async';
 import './util/digest';
 import './analytics/track';
 import './sentry/sentry';
+import './common/index';
 
 // TODO: move to an async config to remove deps on play
 var apiLink = document.querySelector('link[rel="media-api-uri"]');
@@ -47,7 +48,8 @@ var kahuna = angular.module('kahuna', [
     'kahuna.search',
     'kahuna.edits',
     'kahuna.services.api',
-    'kahuna.directives'
+    'kahuna.directives',
+    'kahuna.common'
 ]);
 
 
