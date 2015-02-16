@@ -1,8 +1,11 @@
 import angular from 'angular';
 
 import template from './image.html!text';
+import '../assets/location';
 
-export var image = angular.module('kahuna.preview.image', []);
+export var image = angular.module('kahuna.preview.image', [
+    'kahuna.assets.location'
+]);
 
 image.directive('uiPreviewImage', function() {
     return {
@@ -11,6 +14,8 @@ image.directive('uiPreviewImage', function() {
             image: '=',
             hideInfo: '='
         },
+        // extra actions can be transcluded in
+        transclude: true,
         template: template
     };
 });

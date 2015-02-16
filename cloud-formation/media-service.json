@@ -48,6 +48,15 @@
             "Type": "String",
             "Default": "ami-eadc679d"
         },
+        "ServiceAutoscalingMinSize": {
+            "Type": "Number"
+        },
+        "ServiceAutoscalingMaxSize": {
+            "Type": "Number"
+        },
+        "ServiceAutoscalingDesiredCapacity": {
+            "Type": "Number"
+        },
         "ElasticsearchAutoscalingMinSize": {
             "Type": "Number"
         },
@@ -525,7 +534,11 @@
         "MediaApiLoadBalancer": {
             "Type": "AWS::ElasticLoadBalancing::LoadBalancer",
             "Properties": {
-                "AvailabilityZones": { "Fn::GetAZs": "" },
+                "CrossZone": true,
+                "AvailabilityZones": [
+                    {"Fn::Select" : [0, { "Fn::GetAZs": "" }]},
+                    {"Fn::Select" : [1, { "Fn::GetAZs": "" }]}
+                ],
                 "SecurityGroups": [{ "Fn::GetAtt": ["MediaApiLoadBalancerSecurityGroup", "GroupId"] }],
                 "Listeners": [
                     {
@@ -552,16 +565,17 @@
         "MediaApiAutoscalingGroup": {
             "Type": "AWS::AutoScaling::AutoScalingGroup",
             "Properties": {
-                "AvailabilityZones": {
-                    "Fn::GetAZs": ""
-                },
+                "AvailabilityZones": [
+                    {"Fn::Select" : [0, { "Fn::GetAZs": "" }]},
+                    {"Fn::Select" : [1, { "Fn::GetAZs": "" }]}
+                ],
                 "LaunchConfigurationName": { "Ref": "MediaApiLaunchConfig" },
-                "MinSize": "1",
-                "MaxSize": "2",
-                "DesiredCapacity": "1",
+                "MinSize": {"Ref": "ServiceAutoscalingMinSize"},
+                "MaxSize": {"Ref": "ServiceAutoscalingMaxSize"},
+                "DesiredCapacity": {"Ref": "ServiceAutoscalingDesiredCapacity"},
                 "Cooldown": "180",
                 "HealthCheckType": "ELB",
-                "HealthCheckGracePeriod": 500,
+                "HealthCheckGracePeriod": 300,
                 "LoadBalancerNames": [
                     { "Ref": "MediaApiLoadBalancer" }
                 ],
@@ -687,7 +701,11 @@
         "KahunaLoadBalancer": {
             "Type": "AWS::ElasticLoadBalancing::LoadBalancer",
             "Properties": {
-                "AvailabilityZones": { "Fn::GetAZs": "" },
+                "CrossZone": true,
+                "AvailabilityZones": [
+                    {"Fn::Select" : [0, { "Fn::GetAZs": "" }]},
+                    {"Fn::Select" : [1, { "Fn::GetAZs": "" }]}
+                ],
                 "SecurityGroups": [{ "Fn::GetAtt": ["KahunaLoadBalancerSecurityGroup", "GroupId"] }],
                 "Listeners": [
                     {
@@ -714,16 +732,17 @@
         "KahunaAutoscalingGroup": {
             "Type": "AWS::AutoScaling::AutoScalingGroup",
             "Properties": {
-                "AvailabilityZones": {
-                    "Fn::GetAZs": ""
-                },
+                "AvailabilityZones": [
+                    {"Fn::Select" : [0, { "Fn::GetAZs": "" }]},
+                    {"Fn::Select" : [1, { "Fn::GetAZs": "" }]}
+                ],
                 "LaunchConfigurationName": { "Ref": "KahunaLaunchConfig" },
-                "MinSize": "1",
-                "MaxSize": "2",
-                "DesiredCapacity": "1",
+                "MinSize": {"Ref": "ServiceAutoscalingMinSize"},
+                "MaxSize": {"Ref": "ServiceAutoscalingMaxSize"},
+                "DesiredCapacity": {"Ref": "ServiceAutoscalingDesiredCapacity"},
                 "Cooldown": "180",
                 "HealthCheckType": "ELB",
-                "HealthCheckGracePeriod": 500,
+                "HealthCheckGracePeriod": 300,
                 "LoadBalancerNames": [
                     { "Ref": "KahunaLoadBalancer" }
                 ],
@@ -975,7 +994,11 @@
         "ImageLoaderLoadBalancer": {
             "Type": "AWS::ElasticLoadBalancing::LoadBalancer",
             "Properties": {
-                "AvailabilityZones": { "Fn::GetAZs": "" },
+                "CrossZone": true,
+                "AvailabilityZones": [
+                    {"Fn::Select" : [0, { "Fn::GetAZs": "" }]},
+                    {"Fn::Select" : [1, { "Fn::GetAZs": "" }]}
+                ],
                 "SecurityGroups": [{ "Fn::GetAtt": ["ImageLoaderLoadBalancerSecurityGroup", "GroupId"] }],
                 "Listeners": [
                     {
@@ -1002,16 +1025,17 @@
         "ImageLoaderAutoscalingGroup": {
             "Type": "AWS::AutoScaling::AutoScalingGroup",
             "Properties": {
-                "AvailabilityZones": {
-                    "Fn::GetAZs": ""
-                },
+                "AvailabilityZones": [
+                    {"Fn::Select" : [0, { "Fn::GetAZs": "" }]},
+                    {"Fn::Select" : [1, { "Fn::GetAZs": "" }]}
+                ],
                 "LaunchConfigurationName": { "Ref": "ImageLoaderLaunchConfig" },
-                "MinSize": "1",
-                "MaxSize": "2",
-                "DesiredCapacity": "1",
+                "MinSize": {"Ref": "ServiceAutoscalingMinSize"},
+                "MaxSize": {"Ref": "ServiceAutoscalingMaxSize"},
+                "DesiredCapacity": {"Ref": "ServiceAutoscalingDesiredCapacity"},
                 "Cooldown": "180",
                 "HealthCheckType": "ELB",
-                "HealthCheckGracePeriod": 500,
+                "HealthCheckGracePeriod": 300,
                 "LoadBalancerNames": [
                     { "Ref": "ImageLoaderLoadBalancer" }
                 ],
@@ -1157,7 +1181,11 @@
         "CropperLoadBalancer": {
             "Type": "AWS::ElasticLoadBalancing::LoadBalancer",
             "Properties": {
-                "AvailabilityZones": { "Fn::GetAZs": "" },
+                "CrossZone": true,
+                "AvailabilityZones": [
+                    {"Fn::Select" : [0, { "Fn::GetAZs": "" }]},
+                    {"Fn::Select" : [1, { "Fn::GetAZs": "" }]}
+                ],
                 "SecurityGroups": [
                     { "Fn::GetAtt": ["CropperLoadBalancerSecurityGroup", "GroupId"] }
                 ],
@@ -1186,16 +1214,17 @@
         "CropperAutoscalingGroup": {
             "Type": "AWS::AutoScaling::AutoScalingGroup",
             "Properties": {
-                "AvailabilityZones": {
-                    "Fn::GetAZs": ""
-                },
+                "AvailabilityZones": [
+                    {"Fn::Select" : [0, { "Fn::GetAZs": "" }]},
+                    {"Fn::Select" : [1, { "Fn::GetAZs": "" }]}
+                ],
                 "LaunchConfigurationName": { "Ref": "CropperLaunchConfig" },
-                "MinSize": "1",
-                "MaxSize": "2",
-                "DesiredCapacity": "1",
+                "MinSize": {"Ref": "ServiceAutoscalingMinSize"},
+                "MaxSize": {"Ref": "ServiceAutoscalingMaxSize"},
+                "DesiredCapacity": {"Ref": "ServiceAutoscalingDesiredCapacity"},
                 "Cooldown": "180",
                 "HealthCheckType": "ELB",
-                "HealthCheckGracePeriod": 500,
+                "HealthCheckGracePeriod": 300,
                 "LoadBalancerNames": [
                     { "Ref": "CropperLoadBalancer" }
                 ],
@@ -1473,7 +1502,11 @@
         "MetadataEditorLoadBalancer": {
             "Type": "AWS::ElasticLoadBalancing::LoadBalancer",
             "Properties": {
-                "AvailabilityZones": { "Fn::GetAZs": "" },
+                "CrossZone": true,
+                "AvailabilityZones": [
+                    {"Fn::Select" : [0, { "Fn::GetAZs": "" }]},
+                    {"Fn::Select" : [1, { "Fn::GetAZs": "" }]}
+                ],
                 "SecurityGroups": [
                     { "Fn::GetAtt": ["MetadataEditorLoadBalancerSecurityGroup", "GroupId"] }
                 ],
@@ -1502,16 +1535,17 @@
         "MetadataEditorAutoscalingGroup": {
             "Type": "AWS::AutoScaling::AutoScalingGroup",
             "Properties": {
-                "AvailabilityZones": {
-                    "Fn::GetAZs": ""
-                },
+                "AvailabilityZones": [
+                    {"Fn::Select" : [0, { "Fn::GetAZs": "" }]},
+                    {"Fn::Select" : [1, { "Fn::GetAZs": "" }]}
+                ],
                 "LaunchConfigurationName": { "Ref": "MetadataEditorLaunchConfig" },
-                "MinSize": "1",
-                "MaxSize": "2",
-                "DesiredCapacity": "1",
+                "MinSize": {"Ref": "ServiceAutoscalingMinSize"},
+                "MaxSize": {"Ref": "ServiceAutoscalingMaxSize"},
+                "DesiredCapacity": {"Ref": "ServiceAutoscalingDesiredCapacity"},
                 "Cooldown": "180",
                 "HealthCheckType": "ELB",
-                "HealthCheckGracePeriod": 500,
+                "HealthCheckGracePeriod": 300,
                 "LoadBalancerNames": [
                     { "Ref": "MetadataEditorLoadBalancer" }
                 ],

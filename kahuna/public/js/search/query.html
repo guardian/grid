@@ -1,11 +1,28 @@
 <form class="search">
-    <input type="text"
-           placeholder="search for images…"
-           class="search__query"
-           autofocus="autofocus"
-           ng:model="searchQuery.query"
-           ng:model-options="{ debounce: 200 }"
-    />
+    <span class="search-query">
+        <input type="text"
+               placeholder="search for images…"
+               class="search__query search-query__input"
+               autofocus="autofocus"
+               ng:model="searchQuery.query"
+               ng:model-options="{ debounce: 200 }"
+               grid:focus-on="search:focus-query"
+        />
+        <button class="search-query__clear"
+                type="button"
+                ng:show="searchQuery.query"
+                ng:click="searchQuery.resetQueryAndFocus()">
+            ❌
+        </button>
+    </span>
+
+    <button class="search__advanced-toggle"
+            type="button"
+            ng:click="advancedShown = !advancedShown">
+        <span ng:hide="advancedShown">▸</span>
+        <span ng:show="advancedShown">▾</span>
+        advanced
+    </button>
 
     <div class="search__filters">
         <label class="search__filter search__filter--first">
@@ -33,18 +50,71 @@
             archived
         </label>
 
-        <!--
-        Anytime
-        Today (since midnight vs last 24 hours?)
-        Yesterday
-
-        Other: [since, to]
-        -->
         <select class="search__filter"
-                ng:model="searchQuery.since">
-            <option value="">anytime</option>
-            <option value="24.hour">24 hours ago</option>
-            <option value="1.week">a week ago</option>
+                ng:model="searchQuery.since"
+                ng:options="opt.value as opt.label for opt in searchQuery.sinceOptions">
         </select>
     </div>
 </form>
+
+<div ng:if="advancedShown" class="advanced-search-help">
+    <h2 class="advanced-search-help__title">Advanced search syntax</h2>
+    <p>To perform advanced searches, use the following syntax in the search field:</p>
+    <dl class="advanced-search-example">
+        <dt class="advanced-search-example__inputs">
+            <kbd class="advanced-search-example__input">by:Claire</kbd>
+            <kbd class="advanced-search-example__input">by:"Tom Jenkins"</kbd>
+        </dt>
+        <dd>
+            Search the <em>byline</em> field for a first, last or full name.
+        </dd>
+    </dl>
+    <dl class="advanced-search-example">
+        <dt class="advanced-search-example__inputs">
+            <kbd class="advanced-search-example__input">in:Tokyo</kbd>
+            <kbd class="advanced-search-example__input">city:"New York"</kbd>
+            <kbd class="advanced-search-example__input">country:Spain</kbd>
+        </dt>
+        <dd>
+            Search the <em>city</em> or <em>country</em> fields, or any of them using <em>in</em>.
+        </dd>
+    </dl>
+    <dl class="advanced-search-example">
+        <dt class="advanced-search-example__inputs">
+            <kbd class="advanced-search-example__input">credit:REUTERS</kbd>
+            <kbd class="advanced-search-example__input">copyright:"2015 Getty Images"</kbd>
+            <kbd class="advanced-search-example__input">keyword:football</kbd>
+        </dt>
+        <dd>
+            Search the <em>credit</em>, <em>copyright</em> or <em>keyword</em> field.<br/>
+            Please note that the <em>credit</em> field is currently case-sensitive.
+        </dd>
+    </dl>
+    <dl class="advanced-search-example">
+        <dt class="advanced-search-example__inputs">
+            <kbd class="advanced-search-example__input">label:ozpics</kbd>
+            <kbd class="advanced-search-example__input">#ozpics</kbd>
+        </dt>
+        <dd>
+            Search the <em>labels</em>.
+        </dd>
+    </dl>
+    <dl class="advanced-search-example">
+        <dt class="advanced-search-example__inputs">
+            <kbd class="advanced-search-example__input">"New York City"</kbd>
+            <kbd class="advanced-search-example__input">credit:"Getty Images"</kbd>
+        </dt>
+        <dd>
+            Search for an exact sequence of words.
+        </dd>
+    </dl>
+    <dl class="advanced-search-example">
+        <dt class="advanced-search-example__inputs">
+            <kbd class="advanced-search-example__input">-royalty</kbd>
+            <kbd class="advanced-search-example__input">-city:"Hong Kong"</kbd>
+        </dt>
+        <dd>
+            Exclude results containing the given terms in individual or all fields.
+        </dd>
+    </dl>
+</div>

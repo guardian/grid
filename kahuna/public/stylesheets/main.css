@@ -195,6 +195,11 @@ a:focus {
     100% { transform: rotateY(360deg); }
 }
 
+.ico {
+    width: 12px;
+    vertical-align: middle;
+    line-height: 12px;
+}
 
 /* ==========================================================================
    Generics
@@ -332,6 +337,79 @@ textarea.ng-invalid {
 }
 
 
+.search-query {
+    position: relative;
+}
+
+/* input to win specificity war with 'input' rule ;_; */
+input.search-query__input {
+    padding-right: 20px;
+}
+
+.search-query__clear {
+    position: absolute;
+    right: 10px;
+    margin: 5px 0;
+}
+
+/* fade in/out */
+.search-query__clear.ng-hide-add,
+.search-query__clear.ng-hide-remove {
+    -webkit-transition: 0.2s ease-out all;
+    transition: 0.2s ease-out all;
+}
+.search-query__clear.ng-hide {
+    opacity: 0;
+}
+.search-query__clear.ng-hide-remove.ng-hide-remove-active {
+    opacity: 1;
+}
+
+
+.advanced-search-help {
+    position: relative;
+    background-color: #333;
+    position: absolute;
+    top: 49px;
+    padding: 10px;
+    padding-right: 50px;
+    box-shadow: 0 1px 5px rgba(0, 0, 0, 0.4);
+}
+
+.advanced-search-help__title {
+    font-weight: bold;
+}
+
+.advanced-search-help__close {
+    position: absolute;
+    top: 0;
+    right: 0;
+    padding: 13px 5px;
+}
+
+.advanced-search-example {
+    margin-bottom: 10px;
+}
+
+.advanced-search-example__inputs {
+    margin-bottom: 5px;
+}
+
+.advanced-search-example__input {
+    background-color: #444;
+    color: #ccc;
+    border: 1px solid #999;
+    padding: 2px 4px;
+    box-sizing: border-box;
+}
+
+
+.search__advanced-toggle {
+    margin: 0 10px;
+}
+
+
+
 /* ==========================================================================
    File uploader
    ========================================================================== */
@@ -377,12 +455,8 @@ textarea.ng-invalid {
 }
 
 .mark-as-seen {
-    position: absolute;
-    bottom: 3px;
-    right: 85px;
     color: #aaa;
     font-size: 1.6rem;
-    /* TODO: this position is a bit of a hack. Find a better place for it */
 }
 
 .cost {
@@ -391,9 +465,6 @@ textarea.ng-invalid {
     padding: 2px 10px 0;
     text-align: center;
     vertical-align: middle;
-}
-.cost--free {
-    background-color: green;
 }
 .cost--pay {
     background-color: red;
@@ -492,14 +563,12 @@ FIXME: what to do with touch devices
     margin-right: 10px;
 }
 
-.preview__upload-time,
-.preview__has-crops {
+.preview__upload-time {
     font-size: 1.2rem;
     color: #999;
 }
 
 .preview__has-crops {
-    letter-spacing: -4px;
     cursor: help;
 }
 
@@ -727,11 +796,15 @@ FIXME: what to do with touch devices
     min-height: 20px;
     font-size: 1.3rem;
     display: flex;
+    overflow: hidden;
 }
 
 .labels {
-    overflow-x: scroll;
+    overflow-x: auto;
     white-space: nowrap;
+}
+.labels::-webkit-scrollbar {
+    display: none;
 }
 
 .label {

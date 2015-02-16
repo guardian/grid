@@ -39,6 +39,11 @@ object Dependencies {
     "org.im4java" % "im4java" % "1.4.0"
   )
 
+  val parsingDeps = Seq(
+    "org.parboiled" %% "parboiled" % "2.0.1"
+  )
+
+
   val commonsNetDeps = Seq(
     "commons-net" % "commons-net" % "3.3",
     "org.apache.httpcomponents" % "httpclient" % "4.3.1"
@@ -60,6 +65,8 @@ object Dependencies {
     "org.codehaus.groovy" % "groovy-json" % "2.3.7",
     "com.yakaz.elasticsearch.plugins" % "elasticsearch-action-updatebyquery" % "2.2.0"
   )
+
+  val legacyBlockingHttp = Seq("org.scalaj" %% "scalaj-http" % "1.1.3")
 
   implicit class DependencySyntax(self: Project) {
 

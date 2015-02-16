@@ -34,7 +34,7 @@ object Build extends Build {
     .settings(includeAssetsSettings: _*)
 
   val mediaApi = playProject("media-api")
-    .libraryDependencies(elasticsearchDeps ++ awsDeps ++ scalazDeps)
+    .libraryDependencies(elasticsearchDeps ++ awsDeps ++ scalazDeps ++ parsingDeps)
 
   val cropService = playProject("cropper")
     .libraryDependencies(awsDeps ++ imagingDeps ++ playWsDeps)
@@ -66,6 +66,7 @@ object Build extends Build {
 
   val picdarExport = project("picdar-export")
     .dependsOn(lib)
+    .libraryDependencies(legacyBlockingHttp)
     .settings(sbtassembly.Plugin.assemblySettings: _*)
     .settings(playArtifactSettings: _*)
     .settings(fiddlyExtraAssemblySettingsForExport: _*)
@@ -75,6 +76,7 @@ object Build extends Build {
     mergeStrategy in assembly <<= (mergeStrategy in assembly) { (old) => {
       case "version.txt" => MergeStrategy.first
       case "play.plugins" => MergeStrategy.first
+      case "logback.xml" => MergeStrategy.first
       case x => old(x)
     }}
   )

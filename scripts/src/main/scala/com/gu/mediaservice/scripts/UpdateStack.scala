@@ -126,6 +126,12 @@ abstract class StackScript {
       val cropperCertArn = getCertArn(s"cropper.$domainRoot-rotated")
       val metadataCertArn = getCertArn(s"$parentDomain-rotated")
 
+      val (serviceMinSize, serviceDesired) = stage match {
+        case Prod => (2, 2)
+        case _    => (1, 1)
+      }
+      val serviceMaxSize = serviceDesired * 2 // allows for autoscaling deploys
+
       val (esMinSize, esDesired) = stage match {
         case Prod => (3, 3)
         case _    => (2, 2)
@@ -167,6 +173,9 @@ abstract class StackScript {
           param("ImageLoaderSSLCertificateId", loaderCertArn),
           param("CropperSSLCertificateId", cropperCertArn),
           param("MetadataSSLCertificateId", metadataCertArn),
+          param("ServiceAutoscalingMinSize", serviceMinSize.toString),
+          param("ServiceAutoscalingMaxSize", serviceMaxSize.toString),
+          param("ServiceAutoscalingDesiredCapacity", serviceDesired.toString),
           param("ElasticsearchAutoscalingMinSize", esMinSize.toString),
           param("ElasticsearchAutoscalingMaxSize", esMaxSize.toString),
           param("ElasticsearchAutoscalingDesiredCapacity", esDesired.toString),
