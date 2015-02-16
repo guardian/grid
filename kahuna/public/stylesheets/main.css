@@ -454,9 +454,13 @@ input.search-query__input {
     opacity: .5;
 }
 
-.mark-as-seen {
+.preview .mark-as-seen {
     color: #aaa;
     font-size: 1.6rem;
+    display: none;
+}
+.preview:hover .mark-as-seen {
+    display: inline;
 }
 
 .cost {
@@ -545,6 +549,13 @@ input.search-query__input {
     text-overflow: ellipsis;
     white-space: nowrap;
     margin: 0;
+}
+
+.preview .preview__crop {
+    display: none;
+}
+.preview:hover .preview__crop {
+    display: inline;
 }
 
 /*
@@ -1050,6 +1061,14 @@ FIXME: what to do with touch devices
 /* ==========================================================================
    Archviver
    ========================================================================== */
+
+.preview .archiver {
+    display: none;
+}
+.preview:hover .archiver,
+.preview .archiver--archived {
+    display: inline;
+}
 
 .archiver--archived {
     color: gold;
