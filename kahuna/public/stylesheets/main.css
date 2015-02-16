@@ -1090,7 +1090,7 @@ FIXME: what to do with touch devices
 }
 
 .drop-menu__button {
-    padding: 5px;
+    padding: 5px 10px;
     background-color: #333;
 }
 
