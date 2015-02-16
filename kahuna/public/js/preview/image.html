@@ -14,10 +14,7 @@
 
     <div class="preview__info" ng:if="! hideInfo">
         <ui-labeller-compact class="preview__labeller"
-                             labels="image.data.userMetadata.data.labels"
-                             disable-delete="true"
-                             hide-placeholder="true"
-                             small-add-button="true"></ui-labeller>
+                             labels="image.data.userMetadata.data.labels"></ui-labeller>
 
         <p class="preview__description">{{image.data.metadata.description || image.data.metadata.title}}</p>
     </div>
