@@ -10,12 +10,14 @@ System.config({
 System.config({
   "map": {
     "angular": "github:angular/bower-angular@1.3.10",
+    "angular-animate": "github:angular/bower-angular-animate@1.3.10",
     "angular-ui-router": "github:angular-ui/ui-router@0.2.13",
     "css": "github:systemjs/plugin-css@0.1.0",
     "github:tapmodo/Jcrop": "github:tapmodo/Jcrop@0.9.12",
     "jcrop": "github:tapmodo/Jcrop@0.9.12",
     "jquery": "github:components/jquery@2.1.1",
     "mixpanel-js": "github:mixpanel/mixpanel-js@2.3.2",
+    "moment": "github:moment/moment@2.9.0",
     "pandular": "npm:pandular@0.1.3",
     "raven-js": "github:getsentry/raven-js@1.1.16",
     "text": "github:systemjs/plugin-text@0.0.2",
@@ -23,6 +25,9 @@ System.config({
     "theseus-angular": "npm:theseus-angular@0.2.3",
     "ua-parser-js": "npm:ua-parser-js@0.7.3",
     "github:angular-ui/ui-router@0.2.13": {
+      "angular": "github:angular/bower-angular@1.3.10"
+    },
+    "github:angular/bower-angular-animate@1.3.10": {
       "angular": "github:angular/bower-angular@1.3.10"
     },
     "github:jspm/nodelibs-path@0.1.0": {

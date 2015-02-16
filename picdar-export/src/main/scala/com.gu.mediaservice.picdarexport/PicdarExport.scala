@@ -4,34 +4,36 @@ import java.net.URI
 
 import com.gu.mediaservice.picdarexport.lib.db.ExportDynamoDB
 import com.gu.mediaservice.picdarexport.lib.media.MediaLoader
-import com.gu.mediaservice.picdarexport.lib.picdar.PicdarClient
+import com.gu.mediaservice.picdarexport.lib.picdar.{PicdarError, PicdarClient}
 import com.gu.mediaservice.picdarexport.lib.{Config, MediaConfig}
 import com.gu.mediaservice.picdarexport.model._
 import play.api.Logger
-import play.api.libs.json.Json
 import play.api.libs.concurrent.Execution.Implicits._
 
 import scala.concurrent.Future
 import scala.language.postfixOps
 import org.joda.time.DateTime
-import org.joda.time.format.ISODateTimeFormat
 
 class ArgumentError(message: String) extends Error(message)
 
 
 class ExportManager(picdar: PicdarClient, loader: MediaLoader) {
 
-  def ingest(dateField: String, dateRange: DateRange, queryRange: Option[Range]) =
+  def queryAndIngest(dateField: String, dateRange: DateRange, queryRange: Option[Range]) =
     for {
       assets       <- picdar.queryAssets(dateField, dateRange, queryRange)
       _             = Logger.info(s"${assets.size} matches")
-      uploadedIds  <- Future.sequence(assets map uploadAsset)
+      uploadedIds  <- Future.sequence(assets map ingestAsset)
     } yield uploadedIds
 
+  def ingest(assetUri: URI, picdarUrn: String, uploadTime: DateTime): Future[URI] =
+    for {
+      data   <- picdar.getAssetData(assetUri)
+      uri    <- loader.upload(data, picdarUrn, uploadTime)
+    } yield uri
 
-  private def uploadAsset(asset: Asset): Future[URI] =
-    loader.uploadUri(asset.file, asset.urn, asset.created)
-
+  private def ingestAsset(asset: Asset) =
+    ingest(asset.file, asset.urn, asset.created)
 }
 
 
@@ -138,10 +140,10 @@ object ExportApp extends App with ExportManagerProvider with ArgumentHelpers wit
       }
     }
     case "ingest" :: system :: env :: dateField :: date :: Nil => terminateAfter {
-      getExportManager(system, env).ingest(dateField, parseDateRange(date), None)
+      getExportManager(system, env).queryAndIngest(dateField, parseDateRange(date), None)
     }
     case "ingest" :: system :: env :: dateField :: date :: range :: Nil => terminateAfter {
-      getExportManager(system, env).ingest(dateField, parseDateRange(date), parseQueryRange(range)) map { uploadedIds =>
+      getExportManager(system, env).queryAndIngest(dateField, parseDateRange(date), parseQueryRange(range)) map { uploadedIds =>
         println(s"Uploaded $uploadedIds")
         // TODO: show success/failures?
       }
@@ -175,9 +177,17 @@ object ExportApp extends App with ExportManagerProvider with ArgumentHelpers wit
     }
     case ":count-loaded" :: env :: date :: Nil => terminateAfter {
       val dynamo = getDynamo(env)
-      dynamo.scanUnfetched(parseDateRange(date)) map (urns => urns.size) map { count =>
-        println(s"$count matching entries")
-        count
+      val dateRange = parseDateRange(date)
+      dynamo.scanUnfetched(dateRange) map (urns => urns.size) map { count =>
+        println(s"$count loaded entries")
+      } andThen { case _ =>
+        dynamo.scanFetchedNotIngested(dateRange) map (urns => urns.size) map { count =>
+          println(s"$count fetched entries")
+        }
+      } andThen { case _ =>
+        dynamo.scanIngested(dateRange) map (urns => urns.size) map { count =>
+          println(s"$count ingested entries")
+        }
       }
     }
 
@@ -217,6 +227,8 @@ object ExportApp extends App with ExportManagerProvider with ArgumentHelpers wit
         val updates = urns.map { assetRef =>
           getPicdar(system).get(assetRef.urn) flatMap { asset =>
             dynamo.record(assetRef.urn, assetRef.dateLoaded, asset.file, asset.created, asset.modified, asset.metadata)
+          } recover { case PicdarError(message) =>
+            Logger.warn(s"Picdar error during fetch: $message")
           }
         }
         Future.sequence(updates)
@@ -228,6 +240,8 @@ object ExportApp extends App with ExportManagerProvider with ArgumentHelpers wit
         val updates = urns.map { assetRef =>
           getPicdar(system).get(assetRef.urn) flatMap { asset =>
             dynamo.record(assetRef.urn, assetRef.dateLoaded, asset.file, asset.created, asset.modified, asset.metadata)
+          } recover { case PicdarError(message) =>
+            Logger.warn(s"Picdar error during fetch: $message")
           }
         }
         Future.sequence(updates)
@@ -244,6 +258,8 @@ object ExportApp extends App with ExportManagerProvider with ArgumentHelpers wit
         val updates = urns.drop(rangeStart).take(rangeLen).map { assetRef =>
           getPicdar(system).get(assetRef.urn) flatMap { asset =>
             dynamo.record(assetRef.urn, assetRef.dateLoaded, asset.file, asset.created, asset.modified, asset.metadata)
+          } recover { case PicdarError(message) =>
+            Logger.warn(s"Picdar error during fetch: $message")
           }
         }
         Future.sequence(updates)
@@ -260,17 +276,32 @@ object ExportApp extends App with ExportManagerProvider with ArgumentHelpers wit
         val rangeStart = range.map(_.start) getOrElse 0
         val rangeEnd = range.map(_.end) getOrElse assets.size
         val rangeLen = rangeEnd - rangeStart
-        // FIXME: parallel? or scale up image-loaders
+
         val updates = assets.drop(rangeStart).take(rangeLen).map { asset =>
-          println(s"Start ingesting ${asset.picdarUrn}")
-          getLoader(env).uploadUri(asset.picdarAssetUrl, asset.picdarUrn, asset.picdarCreated) flatMap { mediaUri =>
-            println(s"Ingested ${asset.picdarUrn} to $mediaUri")
+          getExportManager("library", env).ingest(asset.picdarAssetUrl, asset.picdarUrn, asset.picdarCreated) flatMap { mediaUri =>
+            Logger.info(s"Ingested ${asset.picdarUrn} to $mediaUri")
             dynamo.recordIngested(asset.picdarUrn, asset.picdarCreated, mediaUri)
           } recover { case e: Throwable =>
             Logger.warn(s"Upload error for ${asset.picdarUrn}: $e")
+            e.printStackTrace()
           }
         }
         Future.sequence(updates)
+      }
+    }
+
+
+    case "+clear" :: env :: Nil => terminateAfter {
+      val dynamo = getDynamo(env)
+      dynamo.delete(DateRange.all) map { rows =>
+        println(s"Cleared ${rows.size} entries")
+      }
+    }
+
+    case "+clear" :: env :: date :: Nil => terminateAfter {
+      val dynamo = getDynamo(env)
+      dynamo.delete(parseDateRange(date)) map { rows =>
+        println(s"Cleared ${rows.size} entries")
       }
     }
 
@@ -280,12 +311,14 @@ object ExportApp extends App with ExportManagerProvider with ArgumentHelpers wit
         |       query  <desk|library> <created|modified|taken> <date>
         |       ingest <desk|library> <dev|test> <created|modified|taken> <date> [range]
         |
+        |       :stats  <dev|test> [dateLoaded]
         |       :count-loaded   <dev|test> [dateLoaded]
         |       :count-fetched  <dev|test> [dateLoaded]
         |       :count-ingested <dev|test> [dateLoaded]
         |       +load   <dev|test> <desk|library> <created|modified|taken> <date> [range]
         |       +fetch  <dev|test> <desk|library> [dateLoaded] [range]
         |       +ingest <dev|test> [dateLoaded] [range]
+        |       +clear  <dev|test> [dateLoaded]
       """.stripMargin
     )
   }
