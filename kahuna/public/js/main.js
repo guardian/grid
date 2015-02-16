@@ -74,9 +74,8 @@ kahuna.run(['$rootScope', 'mediaApi',
 
     mediaApi.getSession().then(session => {
         $rootScope.$emit('events:user-loaded', session.user);
-    }, error => {
-        // TODO: if 401, trigger login
     });
+    // TODO: catch if 401, trigger login
 }]);
 
 
