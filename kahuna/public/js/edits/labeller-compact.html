@@ -1,0 +1,17 @@
+<div class="labeller">
+    <ul class="labels"
+        ng:if="ctrl.labels.data.length > 0">
+        <li class="label"
+            ng:repeat="label in ctrl.labels.data">
+            <a class="label__link"
+               ui:sref="search.results({query: label.data})">{{label.data}}</a>
+        </li>
+    </ul>
+
+    <button class="labeller__add"
+            ng:click="ctrl.addLabel()"
+            ng:disabled="ctrl.adding">
+
+        <span ng:class="{ 'labeller__add-spin': ctrl.adding }">+</span>
+    </button>
+</div>
