@@ -1,7 +1,6 @@
 <div class="crop-image">
     <div class="top-bar-wrapper">
         <div class="top-bar">
-
             <div class="top-bar__nav">
                 <a class="top-bar__item top-bar__item--first"
                     ui:sref="image({ imageId: image.data.id })">← cancel</a>
@@ -32,6 +31,7 @@
                             crop<span ng:show="cropping">ping…</span></button>
                 </div>
             </div>
+            <ui-user-actions></ui-user-actions>
         </div>
     </div>
 

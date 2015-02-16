@@ -1090,8 +1090,9 @@ FIXME: what to do with touch devices
 }
 
 .drop-menu__button {
-    padding: 5px 10px;
+    padding: 5px;
     background-color: #333;
+    line-height: 1.6rem;
 }
 
 .drop-menu__items {
@@ -1099,7 +1100,7 @@ FIXME: what to do with touch devices
     position: absolute;
     padding: 10px;
     box-shadow: 0 1px 5px rgba(0, 0, 0, 0.5);
-    top: calc(100% + 10px);
+    top: calc(100% + 12px);
 }
 .drop-menu__items--right {
     right: 0;

@@ -6,19 +6,9 @@
         <div class="top-bar__actions">
             <a class="top-bar__item" ui:sref="upload">your uploads</a>
             <file-uploader class="top-bar__item"></file-uploader>
-
-            <nav class="user-actions drop-menu">
-                <button class="drop-menu__button"
-                        type="button"
-                        ng:click="showUserActions = !showUserActions">
-                    <img class="ico" ng:src="{{'images/ico/person.svg'| assetLocation}}" />
-                </button>
-                <ul class="drop-menu__items drop-menu__items--right" ng:if="showUserActions">
-                    <li><a href="http://goo.gl/forms/L4H9gVpJwv" target="_blank">Feedback</a></li>
-                    <li><a href="/logout" target="_self">Logout</a></li>
-                </ul>
-            </nav>
         </div>
+
+        <ui-user-actions></ui-user-actions>
     </div>
 </div>
 
