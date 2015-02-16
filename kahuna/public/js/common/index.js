@@ -2,6 +2,6 @@ import angular from 'angular';
 
 import './user-actions';
 
-export var upload = angular.module('kahuna.common', [
+export var common = angular.module('kahuna.common', [
     'kahuna.common.userActions'
 ]);
