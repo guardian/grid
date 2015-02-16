@@ -29,6 +29,11 @@
     <div class="image-details">
 
         <div class="image-info">
+            <div ng:if="image.data.cost == 'pay'"
+                 class="image-info__group cost cost--{{image.data.cost}}">
+                pay to use
+            </div>
+
             <div class="image-info__group">
                 <h2 ng:if="image.data.metadata.title" class="image-info__title">{{image.data.metadata.title}}</h2>
 
