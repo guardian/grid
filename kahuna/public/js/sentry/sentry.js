@@ -29,8 +29,18 @@ sentry.config(['$httpProvider', function($httpProvider) {
     $httpProvider.interceptors.push('sentryErrorInterceptor');
 }]);
 
-sentry.run(['sentryEnabled', 'sentryDsn', function(sentryEnabled, sentryDsn) {
+sentry.run(['$rootScope', 'sentryEnabled', 'sentryDsn',
+            ($rootScope, sentryEnabled, sentryDsn) => {
     if (sentryEnabled) {
         raven.config(sentryDsn, {}).install();
+
+        $rootScope.$on('events:user-loaded', (_, user) => {
+            raven.setUserContext({
+                // Underscores get converted into spaces by Sentry:
+                email: user.email,
+                first_name: user.firstName,
+                last_name: user.lastName
+            });
+        });
     }
 }]);
