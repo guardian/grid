@@ -10,7 +10,7 @@
                    ui:sref="{ crop: null }">← original</a>
             </div>
 
-            <div class="top-bar__items">
+            <div class="top-bar__actions">
                 <ui-archiver class="top-bar__item"
                              archived="image.data.userMetadata.data.archived"
                              with-text="true"></ui-archiver>
@@ -23,6 +23,8 @@
                 <span class="top-bar__item"
                       ng:if="! image.data.valid">cannot crop (missing metadata)</span>
             </div>
+
+            <ui-user-actions></ui-user-actions>
         </div>
     </div>
 
