@@ -466,9 +466,6 @@ input.search-query__input {
     text-align: center;
     vertical-align: middle;
 }
-.cost--free {
-    background-color: green;
-}
 .cost--pay {
     background-color: red;
 }
