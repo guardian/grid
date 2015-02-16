@@ -2,28 +2,41 @@ package com.gu.mediaservice.picdarexport.lib.picdar
 
 import java.net.URI
 
-import com.gu.mediaservice.picdarexport.lib.HttpClient
+import com.gu.mediaservice.picdarexport.lib.{Config, LogHelper, HttpClient}
 import com.gu.mediaservice.picdarexport.model.{AssetRef, Asset, DateRange}
 import org.joda.time.DateTime
 import org.joda.time.format.{DateTimeFormat, ISODateTimeFormat}
 import play.api.Logger
-import play.api.libs.ws.WSResponse
 
 import scala.concurrent.Future
-import scala.concurrent.ExecutionContext.Implicits.global
-import scala.xml.Node
+import com.gu.mediaservice.picdarexport.lib.ExecutionContexts.picdar
+import scala.xml.{XML, Elem, Node}
 
 import scala.language.postfixOps
 
-trait PicdarApi extends HttpClient with PicdarInterface {
+import scalaj.http._
+
+case class PicdarError(message: String) extends RuntimeException(message)
+
+trait PicdarApi extends HttpClient with PicdarInterface with LogHelper {
 
   val picdarUrl: String
   val picdarUsername: String
   val picdarPassword: String
 
-  private def post(body: Node): Future[WSResponse] = {
-    WS.url(picdarUrl).post(body)
-  }
+  import Config.{picdarApiConnTimeout, picdarApiReadTimeout}
+
+  private def post(body: Node): Future[Elem] = Future { logDuration("PicdarApi.post") {
+    val respBody = Http(picdarUrl).
+      header("Content-Type", "text/xml").
+      // Patience is the mother of all virtues
+      timeout(picdarApiConnTimeout, picdarApiReadTimeout).
+      postData(body.toString()).
+      asString.
+      body
+
+    XML.loadString(respBody)
+  } }
 
   case class SearchInstance(id: Int, count: Int)
 
@@ -32,16 +45,15 @@ trait PicdarApi extends HttpClient with PicdarInterface {
     Logger.debug("getting picdar MAK code")
     for {
       response <- post(messages.login(picdarUsername, picdarPassword))
-      mak       = response.xml \ "ResponseData" \ "MAK" text
+      mak       = response \ "ResponseData" \ "MAK" text
     } yield mak
   }
-
 
   def search(mak: Mak, dateField: String, dateRange: DateRange, urn: Option[String] = None): Future[SearchInstance] = {
     Logger.debug(s"searching media mogul for assets $dateField on $dateRange")
     for {
       response    <- post(messages.search(mak, dateField, dateRange, urn))
-      responseData = response.xml \ "ResponseData"
+      responseData = response \ "ResponseData"
       resultCount  = (responseData \ "MatchCount" text).toInt
       searchId     = (responseData \ "SearchID" text).toInt
       _            = Logger.debug(s"search results: $resultCount matches, search id $searchId")
@@ -49,7 +61,7 @@ trait PicdarApi extends HttpClient with PicdarInterface {
   }
 
 
-  def closeSearch(mak: Mak, searchInstance: SearchInstance): Future[WSResponse] = {
+  def closeSearch(mak: Mak, searchInstance: SearchInstance): Future[Elem] = {
     Logger.debug(s"closing search $searchInstance")
     post(messages.closeSearch(mak, searchInstance.id))
   }
@@ -67,7 +79,7 @@ trait PicdarApi extends HttpClient with PicdarInterface {
     val lastIndex = math.min(start + length, searchInstance.count)
     val searchItemsFuture = for {
       response   <- post(messages.retrieveResults(mak, searchInstance.id, firstIndex, lastIndex))
-      searchItems = response.xml \ "ResponseData" \ "Match"
+      searchItems = response \ "ResponseData" \ "Match"
     } yield searchItems
 
     searchItemsFuture map { searchItems =>
@@ -98,9 +110,9 @@ trait PicdarApi extends HttpClient with PicdarInterface {
   )
 
   def fetchAsset(mak: String, urn: String): Future[Asset] = {
-    post(messages.retrieveAsset(mak, urn)) map { response =>
-      val record = (response.xml \ "ResponseData" \ "Record")(0)
-      val assetFile = (record \ "VURL") find (v => (v \ "@type" text) == "original") map (_.text) map URI.create
+    post(messages.retrieveAsset(mak, urn)) flatMap { response =>
+      val record = (response \ "ResponseData" \ "Record")(0)
+      val assetFileOpt = (record \ "VURL") find (v => (v \ "@type" text) == "original") map (_.text) map URI.create
       val createdOn = extractField(record, "Created on")
       val createdAt = extractField(record, "Created at")
       val created = (createdOn, createdAt) match {
@@ -117,8 +129,12 @@ trait PicdarApi extends HttpClient with PicdarInterface {
 
       // Notes: Date Loaded seems to be the same as Created on, it's not when the image was loaded into the Library...
 
-      // FIXME: error if get fails
-      Asset(urn, assetFile get, created get, modified, metadata, infoUri)
+      // Sometimes there is no assetFile at all! lol
+      assetFileOpt map { assetFile =>
+        Future.successful(Asset(urn, assetFile, created get, modified, metadata, infoUri))
+      } getOrElse {
+        Future.failed(PicdarError(s"No asset file for $urn"))
+      }
     }
   }
 

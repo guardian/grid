@@ -1,37 +1,48 @@
 package com.gu.mediaservice.picdarexport.lib.media
 
-import java.net.URI
+import java.net.{SocketTimeoutException, URI}
 
-import com.gu.mediaservice.picdarexport.lib.HttpClient
+import com.gu.mediaservice.picdarexport.lib.{Config, LogHelper, HttpClient}
 import org.joda.time.DateTime
 import org.joda.time.format.ISODateTimeFormat
 import play.api.libs.json.Json
 
 import scala.concurrent.Future
-import scala.concurrent.ExecutionContext.Implicits.global
+import com.gu.mediaservice.picdarexport.lib.ExecutionContexts.mediaService
 
-trait MediaLoader extends HttpClient {
+import scalaj.http.Http
+
+case class LoaderUploadError(message: String) extends Exception(message)
+
+trait MediaLoader extends HttpClient with LogHelper {
+
+  import Config.{loaderConnTimeout, loaderReadTimeout}
 
   val loaderEndpointUrl: String
   val loaderApiKey: String
 
-  def uploadUri(uri: URI, picdarUrn: String, uploadTime: DateTime): Future[URI] = {
-    for {
-      data   <- readBytes(uri)
-      params  = loaderParams(picdarUrn, uploadTime)
-      uri    <- upload(data, params)
-    } yield uri
-  }
+  def upload(data: Array[Byte], picdarUrn: String, uploadTime: DateTime): Future[URI] =
+    postData(data, loaderParams(picdarUrn, uploadTime))
 
-  private def upload(data: Array[Byte], parameters: Map[String, String]): Future[URI] = {
-    val request = WS.url(loaderEndpointUrl).
-      withQueryString(parameters.toSeq: _*).
-      withHeaders("X-Gu-Media-Key" -> loaderApiKey).
-      post(data)
+  private def postData(data: Array[Byte], parameters: Map[String, String]): Future[URI] = Future {
+    logDuration(s"MediaLoader.postData (${data.length} bytes)") {
+      val resp = Http(loaderEndpointUrl).
+        params(parameters).
+        header("X-Gu-Media-Key", loaderApiKey).
+        // Disable gzip as library doesn't seem to correctly decode response, and
+        // it's tiny anyway
+        compress(false).
+        // Patience is the mother of all virtues
+        timeout(loaderConnTimeout, loaderReadTimeout).
+        postData(data).
+        asString
 
-    request map { response =>
-      URI.create((response.json \ "uri").as[String])
+      val respJson = Json.parse(resp.body)
+      val mediaUri = (respJson \ "uri").as[String]
+      URI.create(mediaUri)
     }
+  } recoverWith {
+    case ex: SocketTimeoutException => Future.failed(LoaderUploadError(ex.getMessage))
   }
 
   val uploadTimeFormat = ISODateTimeFormat.dateTimeNoMillis()

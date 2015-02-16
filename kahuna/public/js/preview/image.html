@@ -1,12 +1,13 @@
 <div class="preview"
-     title="{{image.data.metadata.title || image.data.metadata.description}}">
+     title="{{image.data.metadata.description || image.data.metadata.title}}">
     <a class="preview__popout"
         target="_blank"
         title="Pop out"
         ng:href="/images/{{image.data.id}}">◹</a>
 
     <a class="preview__link"
-       ui:sref="image({imageId: image.data.id})">
+       ui:sref="image({imageId: image.data.id})"
+       ui:drag-data="{{image | asImageDragData}}">
        <img class="preview__image"
             ng:src="{{image.data.thumbnail | assetFile}}" />
     </a>
@@ -18,7 +19,7 @@
                              hide-placeholder="true"
                              small-add-button="true"></ui-labeller>
 
-        <p class="preview__description">{{image.data.metadata.title || image.data.metadata.description}}</p>
+        <p class="preview__description">{{image.data.metadata.description || image.data.metadata.title}}</p>
     </div>
 
     <div class="preview__bottom-bar bottom-bar">
@@ -28,9 +29,12 @@
 
             <span class="bottom-bar__meta-item preview__has-crops"
                   title="this image has crops"
-                  ng:if="image | hasExportsOfType:'crop'">⌍⌎</span>
+                  ng:if="image | hasExportsOfType:'crop'"><img class="ico" ng:src="{{'images/ico/crop.svg'| assetLocation}}" /></span>
         </div>
         <div class="bottom-bar__actions">
+            <!-- transclusion point for extra actions -->
+            <ng:transclude></ng:transclude>
+
             <a class="bottom-bar__action"
                title="crop"
                ng:if="image.data.valid"
@@ -40,8 +44,9 @@
                          archived="image.data.userMetadata.data.archived"></ui-archiver>
 
             <div class="bottom-bar__action">
-                <div class="cost cost--{{image.data.cost}}">
-                {{image.data.cost}}
+                <div ng:if="image.data.cost == 'pay'"
+                     class="cost cost--{{image.data.cost}}">
+                    pay
                 </div>
             </div>
         </div>
