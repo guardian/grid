@@ -9,26 +9,16 @@
 
             <button class="label__remove"
                     title="Remove label"
-                    ng:if="! ctrl.disableDelete"
                     ng:click="ctrl.removeLabel(label)">x</button>
         </li>
     </ul>
 
     <div class="labeller__placeholder"
-         ng:if="ctrl.labels.data.length == 0 && !ctrl.hidePlaceholder">No labels</div>
-
-    <button class="labeller__add"
-            ng:click="ctrl.addLabel()"
-            ng:disabled="ctrl.adding"
-            ng:if="ctrl.smallAddButton">
-
-        <span ng:class="{ 'labeller__add-spin': ctrl.adding }">+</span>
-    </button>
+         ng:if="ctrl.labels.data.length == 0">No labels</div>
 
     <button class="button-shy labeller__add-button"
           ng:click="ctrl.addLabel()"
-          ng:disabled="ctrl.adding"
-          ng:if="! ctrl.smallAddButton">
+          ng:disabled="ctrl.adding">
         Add<span ng:show="ctrl.adding">ing…</span>
     </button>
 </div>
