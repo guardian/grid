@@ -4,8 +4,8 @@ import 'jcrop';
 import controlsDirectives from '../directives';
 
 
-controlsDirectives.directive('uiCropBox', ['$timeout', '$parse', 'safeApply', 'nextTick', 'delay',
-                                           function($timeout, $parse, safeApply, nextTick, delay) {
+controlsDirectives.directive('uiCropBox', ['$document', '$timeout', '$parse', 'safeApply', 'nextTick', 'delay',
+                                           function($document, $timeout, $parse, safeApply, nextTick, delay) {
 
     // Annoyingly, AngularJS passes us values as strings,
     // so we need to convert them, which can potentially
@@ -41,7 +41,8 @@ controlsDirectives.directive('uiCropBox', ['$timeout', '$parse', 'safeApply', 'n
             minSize:        '=uiCropBoxMinSize',
             maxSize:        '=uiCropBoxMaxSize',
             bgColor:        '=uiCropBoxBackgroundColor',
-            bgOpacity:      '=uiCropBoxBackgroundOpacity'
+            bgOpacity:      '=uiCropBoxBackgroundOpacity',
+            fullsizeImage:  '=uiFullsizeImage'
         },
         link: function (scope, element) {
             var jcropInstance;
@@ -57,7 +58,7 @@ controlsDirectives.directive('uiCropBox', ['$timeout', '$parse', 'safeApply', 'n
             // browser cache (?).
             // TODO: check if already loaded, in which case call install immediately
             // FIXME: the delay here is because the image is first draw with it's full width
-            // and then redrawn to 100%. On occasion this redraw doesn't happen beofre we install
+            // and then redrawn to 100%. On occasion this redraw doesn't happen before we install
             // thus stretching the image.
             element.on('load', () => delay(100).then(install));
 
@@ -85,6 +86,10 @@ controlsDirectives.directive('uiCropBox', ['$timeout', '$parse', 'safeApply', 'n
                     // Note: must yield first
                     $timeout(postInit, 0);
                 });
+
+                // FIXME: massive hack as jCrop doesn't expose anything to be
+                // able to do access anything really
+                $document.find('.jcrop-holder img')[0].src = scope.fullsizeImage;
             }
 
             function destroy() {
