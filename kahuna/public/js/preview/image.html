@@ -44,8 +44,9 @@
                          archived="image.data.userMetadata.data.archived"></ui-archiver>
 
             <div class="bottom-bar__action">
-                <div class="cost cost--{{image.data.cost}}">
-                {{image.data.cost}}
+                <div ng:if="image.data.cost == 'pay'"
+                     class="cost cost--{{image.data.cost}}">
+                    pay
                 </div>
             </div>
         </div>
