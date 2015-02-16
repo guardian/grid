@@ -42,6 +42,7 @@
     <div class="easel" ng:if="image.data">
         <div class="easel__canvas">
             <img class="easel__image"
+                 style="background-image: url({{image.data.thumbnail | assetFile}});"
                  ng:src="{{image.data.source | assetFile}}"
                  ui:crop-box="coords"
                  ui:crop-box-original-width="image.data.source.dimensions.width"

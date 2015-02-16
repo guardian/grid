@@ -665,6 +665,9 @@ FIXME: what to do with touch devices
 }
 
 .easel__image {
+    /* this is for when we set the background as the thumbnail for perceived loading */
+    background-size: cover;
+
     display: block;
     margin: 0 auto;
     position: relative;
