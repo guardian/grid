@@ -34,8 +34,8 @@ track.factory('track', ['$location', '$window', '$document', 'mixpanel', 'tracki
     };
 }]);
 
-track.run(['$window', 'mixpanel', 'mixpanelToken', 'track', 'mediaApi', 'trackingEnabled',
-           function($window, mixpanel, mixpanelToken, track, mediaApi, trackingEnabled) {
+track.run(['$rootScope', '$window', 'mixpanel', 'mixpanelToken', 'track', 'trackingEnabled',
+           function($rootScope, $window, mixpanel, mixpanelToken, track, trackingEnabled) {
 
     // Pass in UA string as else UAParser doesn't detect it correctly (SystemJS?)
     var ua      = new UAParser($window.navigator.userAgent);
@@ -50,14 +50,12 @@ track.run(['$window', 'mixpanel', 'mixpanelToken', 'track', 'mediaApi', 'trackin
         // 'Operating System Version': os.version
     };
 
-    mediaApi.getSession().then(({ user: {
-        firstName,
-        lastName,
-        email
-    }}) => {
-        if (trackingEnabled) {
+    if (trackingEnabled) {
+        // Only init and track once session loaded
+        $rootScope.$on('events:user-loaded', (_, user) => {
+            let {firstName, lastName, email} = user;
             mixpanel.init(mixpanelToken, email, { firstName, lastName, email }, props);
             track('Page viewed');
-        }
-    });
+        });
+    }
 }]);
