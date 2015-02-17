@@ -75,6 +75,13 @@ controlsDirectives.directive('uiCropBox', ['$document', '$timeout', '$parse', 's
                     trueSize = [scope.originalWidth, scope.originalHeight];
                 }
 
+                // this resizes the thumbnail to the original
+                if (scope.originalHeight > scope.originalWidth) {
+                    $el.attr('height', scope.originalHeight);
+                } else {
+                    $el.attr('width', scope.originalWidth);
+                }
+
                 $el.Jcrop({
                     onChange: update,
                     onSelect: update,
