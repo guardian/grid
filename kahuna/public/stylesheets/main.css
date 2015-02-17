@@ -100,11 +100,11 @@ input[disabled],
 textarea[disabled] {
     color: #666;
 }
-input:disabled::-webkit-input-placeholder,
-textarea:disabled::-webkit-input-placeholder {
+input::-webkit-input-placeholder,
+textarea::-webkit-input-placeholder {
     color: #666;
 }
-input:disabled::-moz-placeholder,
+input::-moz-placeholder,
 textarea:disabled::-moz-placeholder {
     color: #666;
 }
