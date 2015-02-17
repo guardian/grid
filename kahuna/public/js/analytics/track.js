@@ -37,24 +37,11 @@ track.factory('track', ['$location', '$window', '$document', 'mixpanel', 'tracki
 track.run(['$rootScope', '$window', 'mixpanel', 'mixpanelToken', 'track', 'trackingEnabled',
            function($rootScope, $window, mixpanel, mixpanelToken, track, trackingEnabled) {
 
-    // Pass in UA string as else UAParser doesn't detect it correctly (SystemJS?)
-    var ua      = new UAParser($window.navigator.userAgent);
-    var browser = ua.getBrowser();
-    // var os      = ua.getOS();
-
-    // Set the browser and OS version for every tracked event
-    var props = {
-        // Note: Browser and Operating System already tracked by Mixpanel
-        'Browser Version': browser.major
-        // Disabling 'os.version' as it seems to be buggy (returns 'Chromium' !?)
-        // 'Operating System Version': os.version
-    };
-
     if (trackingEnabled) {
         // Only init and track once session loaded
         $rootScope.$on('events:user-loaded', (_, user) => {
             let {firstName, lastName, email} = user;
-            mixpanel.init(mixpanelToken, email, { firstName, lastName, email }, props);
+            mixpanel.init(mixpanelToken, email, { firstName, lastName, email });
             track('Page viewed');
         });
     }
