@@ -155,12 +155,18 @@ abstract class StackScript {
         case _    => None
       }
 
-      val corsAllowedOrigins = stage match {
+      val toolsOrigins = List(
+        "http://media-wat.gutools.co.uk",
+        "https://media-wat.local.dev-gutools.co.uk"
+      )
+      val composerOrigins = stage match {
         case Prod => List("https://composer.gutools.co.uk")
         case _    =>
           List("local", "code", "qa", "release").
             map(env => s"https://composer.$env.dev-gutools.co.uk")
+
       }
+      val corsAllowedOrigins = composerOrigins ++ toolsOrigins
 
       lib.Stack(
         stage,
