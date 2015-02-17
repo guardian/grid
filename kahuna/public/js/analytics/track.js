@@ -1,5 +1,4 @@
 import angular from 'angular';
-import UAParser from 'ua-parser-js';
 
 import '../mixpanel/mixpanel';
 
