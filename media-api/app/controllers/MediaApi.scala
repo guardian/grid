@@ -61,6 +61,14 @@ object MediaApi extends Controller with ArgoHelpers {
     }
   }
 
+  def getImageFileMetadata(id: String) = Authenticated.async { request =>
+    val params = GeneralParams(request)
+    ElasticSearch.getImageById(id) map {
+      case Some(source) => Ok(Json.obj("data" -> source \ "fileMetadata")).as(ArgoMediaType)
+      case None         => NotFound.as(ArgoMediaType)
+    }
+  }
+
   def deleteImage(id: String) = Authenticated {
     Notifications.publish(Json.obj("id" -> id), "delete-image")
     Accepted.as(ArgoMediaType)
@@ -100,6 +108,7 @@ object MediaApi extends Controller with ArgoHelpers {
       val image = source.transform(transformers.addSecureSourceUrl(secureUrl))
         .flatMap(_.transform(transformers.addSecureThumbUrl(secureThumbUrl)))
         .flatMap(_.transform(transformers.removeFileData))
+        .flatMap(_.transform(transformers.addFileMetadataUrl(s"$rootUri/images/$id/fileMetadata")))
         .flatMap(_.transform(transformers.wrapUserMetadata(id)))
         .flatMap(_.transform(transformers.addValidity(valid)))
         .flatMap(_.transform(transformers.addUsageCost(credit))).get
@@ -123,6 +132,9 @@ object MediaApi extends Controller with ArgoHelpers {
 
     def removeFileData: Reads[JsObject] =
       (__ \ "fileMetadata").json.prune
+
+    def addFileMetadataUrl(url: String): Reads[JsObject] =
+      __.json.update(__.read[JsObject].map (_ ++ Json.obj("fileMetadata" -> Json.obj("uri" -> url))))
 
     // FIXME: tidier way to replace a key in a JsObject?
     def wrapUserMetadata(id: String): Reads[JsObject] =
