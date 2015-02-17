@@ -8,11 +8,11 @@
                ng:model-options="{ debounce: 200 }"
                grid:focus-on="search:focus-query"
         />
-        <button class="search-query__clear"
+        <button class="search-query__clear clear-button"
                 type="button"
                 ng:show="searchQuery.query"
                 ng:click="searchQuery.resetQueryAndFocus()">
-            ❌
+            x
         </button>
     </span>
 
