@@ -41,8 +41,11 @@
 
     <div class="easel" ng:if="image.data">
         <div class="easel__canvas">
+            <!-- We set the image to the thumbnail and then update to the
+            `fullsizeImage` it later in the crop directive -->
             <img class="easel__image"
-                 ng:src="{{image.data.source | assetFile}}"
+                 ng:src="{{image.data.thumbnail | assetFile}}"
+                 ui:fullsize-image="image.data.source | assetFile"
                  ui:crop-box="coords"
                  ui:crop-box-original-width="image.data.source.dimensions.width"
                  ui:crop-box-original-height="image.data.source.dimensions.height"
