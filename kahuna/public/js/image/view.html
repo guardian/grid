@@ -52,7 +52,7 @@
                 <div ng:if="image.data.metadata.byline || image.data.metadata.credit"
                      class="metadata-line">
                     by
-                    <span class="metadata-line__info" ng:show="image.data.metadata.byline">
+                    <span class="metadata-line__info" ng:if="image.data.metadata.byline">
                         <a ui:sref="search.results({query: (image.data.metadata.byline | queryFilter:'by')})">{{image.data.metadata.byline}}</a>
                     </span>
                     <span class="metadata-line__info" ng:hide="image.data.metadata.byline">
