@@ -366,6 +366,12 @@ input.search-query__input {
 }
 
 
+.clear-button {
+    font-family: Arial, sans-serif;
+    font-weight: bold;
+}
+
+
 .advanced-search-help {
     position: relative;
     background-color: #333;
