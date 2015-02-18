@@ -306,6 +306,12 @@ textarea.ng-invalid {
     font-family: "Guardian Agate Sans Web", Helvetica, Arial;
 }
 
+.full-error {
+    margin-top: 3rem;
+    text-align: center;
+    font-size: 3rem;
+}
+
 .status {
     color: white;
     background-color: orange;

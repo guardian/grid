@@ -3,28 +3,34 @@ import angular from 'angular';
 var image = angular.module('kahuna.image.controller', []);
 
 image.controller('ImageCtrl',
-                 ['$scope', '$stateParams', 'mediaApi', 'mediaCropper',
-                  function($scope, $stateParams, mediaApi, mediaCropper) {
+                 ['$rootScope', 'image', 'cropKey', 'mediaCropper',
+                  function($rootScope, image, cropKey, mediaCropper) {
 
-    // TODO: move from `$scope` to `ctrl`
-    var imageId = $stateParams.imageId;
-    $scope.cropKey = $stateParams.crop;
+    var ctrl = this;
+
+    ctrl.image = image;
+    // TODO: we should be able to rely on ctrl.crop.id instead once
+    // all existing crops are migrated to have an id (they didn't
+    // initially)
+    ctrl.cropKey = cropKey;
+
+    // Alias for convenience in view
+    ctrl.metadata = image.data.metadata;
 
     // Map of metadata location field to query filter name
-    $scope.locationFieldMap = {
+    ctrl.locationFieldMap = {
         'subLocation': 'location',
         'city':        'city',
         'state':       'state',
         'country':     'country'
     };
 
-    mediaApi.find(imageId).then(image => {
-        $scope.image = image;
+    ctrl.isUsefulMetadata = isUsefulMetadata;
+    ctrl.cropSelected = cropSelected;
 
-        mediaCropper.getCropsFor(image).then(crops => {
-           $scope.crops = crops;
-           $scope.crop = crops.find(crop => crop.id === $scope.cropKey);
-        });
+    mediaCropper.getCropsFor(image).then(crops => {
+        ctrl.crops = crops;
+        ctrl.crop = crops.find(crop => crop.id === cropKey);
     });
 
     var ignoredMetadata = [
@@ -32,13 +38,13 @@ image.controller('ImageCtrl',
         'credit', 'subLocation', 'city', 'state', 'country',
         'dateTaken'
     ];
-    $scope.isUsefulMetadata = function(metadataKey) {
+    function isUsefulMetadata(metadataKey) {
         return ignoredMetadata.indexOf(metadataKey) === -1;
     };
 
-    $scope.cropSelected = (crop) => {
-        $scope.$emit('events:crop-selected', {
-            image: $scope.image,
+    function cropSelected(crop) {
+        $rootScope.$emit('events:crop-selected', {
+            image: ctrl.image,
             crop: crop
         });
     };
