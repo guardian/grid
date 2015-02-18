@@ -24,9 +24,16 @@ image.config(['$stateProvider',
         resolve: {
             imageId: ['$stateParams', $stateParams => $stateParams.imageId],
             cropKey: ['$stateParams', $stateParams => $stateParams.crop],
-            image: ['mediaApi', 'imageId',
-                    (mediaApi, imageId) => {
-                return mediaApi.find(imageId);
+            image: ['$state', '$q', 'mediaApi', 'imageId',
+                    ($state, $q, mediaApi, imageId) => {
+
+                return mediaApi.find(imageId).catch(error => {
+                    if (error && error.status === 404) {
+                        $state.go('image-not-found', {message: "Image not found"});
+                    } else {
+                        $q.reject(error);
+                    }
+                });
             }]
         }
     });
@@ -43,16 +50,4 @@ image.config(['$stateProvider',
             message: ['$stateParams', $stateParams => $stateParams.message]
         }
     });
-}]);
-
-image.run(['$rootScope', '$state',
-           ($rootScope, $state) => {
-
-    $rootScope.$on('$stateChangeError',
-                   function(event, toState, toParams, fromState, fromParams, error) {
-        if (toState.name === 'image' && error && error.status === 404) {
-            $state.go('image-not-found', {message: "Image not found"});
-        }
-    });
-
 }]);
