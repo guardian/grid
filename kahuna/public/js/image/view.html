@@ -1,36 +1,32 @@
 <div class="full-image">
 
-    <div class="top-bar-wrapper">
-        <div class="top-bar">
-            <div class="top-bar__nav">
-                <a class="top-bar__item top-bar__item--first"
-                   ui:sref="search">← search</a>
-                <a class="top-bar__item top-bar__item"
-                   ng:if="ctrl.crop"
-                   ui:sref="{ crop: null }">← original</a>
-            </div>
+    <grid-top-bar>
+        <grid-top-bar-nav>
+            <a class="top-bar__item top-bar__item--first"
+               ui:sref="search">← search</a>
+            <a class="top-bar__item top-bar__item"
+               ng:if="ctrl.crop"
+               ui:sref="{ crop: null }">← original</a>
+        </grid-top-bar-nav>
 
-            <div class="top-bar__actions">
-                <a class="top-bar__item" href="{{ ctrl.image.data.source | assetFile }}" download target="_blank">
-                    ⬇ download
-                </a>
+        <grid-top-bar-actions>
+            <a class="top-bar__item" href="{{ ctrl.image.data.source | assetFile }}" download target="_blank">
+                ⬇ download
+            </a>
 
-                <ui-archiver class="top-bar__item"
-                             image="ctrl.image"
-                             with-text="true"></ui-archiver>
+            <ui-archiver class="top-bar__item"
+                         image="ctrl.image"
+                         with-text="true"></ui-archiver>
 
-                <a class="top-bar__item"
-                   ng:if="ctrl.canBeCropped"
-                   ui:sref="crop({imageId: ctrl.image.data.id})">
-                    ✂ <span ng:if="ctrl.crop">re</span>crop
-                </a>
-                <span class="top-bar__item"
-                      ng:if="! ctrl.canBeCropped">cannot crop</span>
-            </div>
-
-            <ui-user-actions></ui-user-actions>
-        </div>
-    </div>
+            <a class="top-bar__item"
+               ng:if="ctrl.canBeCropped"
+               ui:sref="crop({imageId: ctrl.image.data.id})">
+                ✂ <span ng:if="ctrl.crop">re</span>crop
+            </a>
+            <span class="top-bar__item"
+                  ng:if="! ctrl.canBeCropped">cannot crop</span>
+        </grid-top-bar-actions>
+    </grid-top-bar>
 
     <div class="image-details">
 
