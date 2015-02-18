@@ -18,6 +18,7 @@ import './util/digest';
 import './analytics/track';
 import './sentry/sentry';
 import './common/index';
+import './errors/global';
 
 // TODO: move to an async config to remove deps on play
 var apiLink = document.querySelector('link[rel="media-api-uri"]');
@@ -49,7 +50,8 @@ var kahuna = angular.module('kahuna', [
     'kahuna.edits',
     'kahuna.services.api',
     'kahuna.directives',
-    'kahuna.common'
+    'kahuna.common',
+    'kahuna.errors.global'
 ]);
 
 
@@ -71,6 +73,23 @@ kahuna.config(['$urlRouterProvider',
     $urlRouterProvider.otherwise('/search');
 }]);
 
+kahuna.config(['$httpProvider', function ($httpProvider) {
+    function onUnauthroised() {
+        alert('Please reload');
+    }
+
+    $httpProvider.interceptors.push($q => {
+        return {
+            responseError: function (response) {
+                if (response.status === 401) {
+                    onUnauthroised();
+                }
+                return $q.reject(response);
+            }
+        };
+    });
+}]);
+
 kahuna.run(['$rootScope', 'mediaApi',
             ($rootScope, mediaApi) => {
 
@@ -79,7 +98,6 @@ kahuna.run(['$rootScope', 'mediaApi',
     });
     // TODO: catch if 401, trigger login
 }]);
-
 
 /**
  * Takes a resources and returns a promise of the entity data (uri,
