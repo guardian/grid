@@ -27,7 +27,8 @@ global.factory('globalErrors', function() {
     }
 });
 
-global.controller('GlobalErrorCtrl', ['globalErrors', function(globalErrors) {
+global.controller('GlobalErrorCtrl', ['globalErrors',
+                                      function(globalErrors) {
     var ctrl = this;
     ctrl.errors = globalErrors.getErrors();
 }]);
