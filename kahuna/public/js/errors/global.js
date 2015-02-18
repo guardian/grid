@@ -35,7 +35,7 @@ global.controller('GlobalErrorsCtrl',
 
     var ctrl = this;
     ctrl.errors = globalErrors.getErrors();
-    
+
 }]);
 
 
