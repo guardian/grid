@@ -99,7 +99,7 @@ kahuna.factory('httpUnauthorisedInterceptor', ['$q', '$rootScope', function($q, 
 }]);
 
 kahuna.run(['$rootScope', 'globalErrors', function($rootScope, globalErrors) {
-    $rootScope.$on('events:error:unauthorised', _ => globalErrors.trigger('unauthorised'));
+    $rootScope.$on('events:error:unauthorised', () => globalErrors.trigger('unauthorised'));
 }]);
 
 /**
