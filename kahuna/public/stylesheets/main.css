@@ -68,6 +68,7 @@ ul {
 a {
     color: #ccc;
     text-decoration: none;
+    cursor: pointer;
 }
 a:hover {
     color: white;
