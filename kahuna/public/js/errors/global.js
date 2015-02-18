@@ -25,7 +25,7 @@ global.factory('globalErrors', function() {
         trigger,
         destroy,
         getErrors
-    }
+    };
 });
 
 
