@@ -54,7 +54,11 @@ object Config extends CommonPlayAppConfig with CommonPlayAppProperties {
     "Pool", "Rex Features", "Allsport", "BFI", "ANSA", "The Art Archive", "Hulton Archive", "Hulton Getty", "RTRPIX",
     "Community Newswire", "THE RONALD GRANT ARCHIVE", "NPA ROTA", "Ronald Grant Archive", "PA WIRE", "AP POOL",
     "REUTER", "dpa", "BBC", "Allstar Picture Library", "AFP/Getty Images", "AAPIMAGE",
-    "IBL/REX", "Guardian")
+    // FIXME: we've actually settled on "The Guardian" as canonical source.
+    // There's now a MetadataCleaner to transform all to The Guardian canonical name.
+    // We need to migrate all indexed content with "Guardian" to "The Guardian" before we can
+    // retire Guardian from whitelist here.
+    "IBL/REX", "Guardian", "The Guardian")
 
   // TODO: move to config
   val queriableIdentifiers = Seq("picdarUrn")
