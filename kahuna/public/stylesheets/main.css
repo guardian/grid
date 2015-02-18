@@ -307,13 +307,13 @@ textarea.ng-invalid {
    Top bar
    ========================================================================== */
 
-.top-bar-wrapper {
+grid-top-bar {
     height: 48px; /* faking we're in the flow */
     position: relative;
     z-index: 2;
 }
 
-.top-bar {
+.top-bar-inner {
     background-color: #333;
     padding: 10px;
     font-family: "Guardian Agate Sans Web", Helvetica, Arial;
@@ -323,16 +323,13 @@ textarea.ng-invalid {
     display: flex;
     box-sizing: border-box;
 }
-.top-bar--fixed {
-    position: fixed;
-}
 
-.top-bar__nav {
+grid-top-bar-nav {
     flex-grow: 1;
     text-align: left;
 }
 
-.top-bar__actions {
+grid-top-bar-actions {
     display: flex;
 }
 
@@ -340,6 +337,7 @@ textarea.ng-invalid {
     margin-left: 20px;
     vertical-align: middle;
     line-height: 28px;
+    display: inline-block; /* ??? */
 }
 .top-bar__item--first {
     margin-left: 0;
@@ -425,6 +423,10 @@ textarea.ng-invalid {
    ========================================================================== */
 
 .search {}
+
+.search-bar {
+    position: fixed;
+}
 
 .search__query {
     padding: 5px 10px;
