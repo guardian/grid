@@ -25,11 +25,18 @@ mp.factory('mixpanel', ['$window', function($window) {
             '$email': email,
             'Browser version': browser.major
         });
-        mixpanel.register(registerProps);
+        // also record browser version alongside each event
+        mixpanel.register(angular.extend({
+            'Browser version': browser.major
+        }, registerProps));
     }
 
     function track(event, opts) {
-        mixpanel.track(event, opts);
+        if (mixpanel.track) {
+            mixpanel.track(event, opts);
+        } else {
+            throw new Error('mixpanel.track called but not defined (called before mixpanel.init?)');
+        }
     }
 
     return {
