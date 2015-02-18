@@ -79,9 +79,10 @@ kahuna.run(['$rootScope', 'mediaApi',
     mediaApi.getSession().then(session => {
         $rootScope.$emit('events:user-loaded', session.user);
     });
-    // TODO: catch if 401, trigger login
 }]);
 
+
+// Intercept 401s and emit an event
 kahuna.config(['$httpProvider', function($httpProvider) {
     $httpProvider.interceptors.push('httpUnauthorisedInterceptor');
 }]);
@@ -91,8 +92,8 @@ kahuna.factory('httpUnauthorisedInterceptor', ['$q', '$rootScope', function($q, 
         responseError: function(response) {
             if (response.status === 401) {
                 $rootScope.$emit('events:error:unauthorised');
-                return $q.reject(response);
             }
+            return $q.reject(response);
         }
     };
 }]);
