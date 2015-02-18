@@ -73,23 +73,6 @@ kahuna.config(['$urlRouterProvider',
     $urlRouterProvider.otherwise('/search');
 }]);
 
-kahuna.config(['$httpProvider', function ($httpProvider) {
-    function onUnauthroised() {
-        alert('Please reload');
-    }
-
-    $httpProvider.interceptors.push($q => {
-        return {
-            responseError: function (response) {
-                if (response.status === 401) {
-                    onUnauthroised();
-                }
-                return $q.reject(response);
-            }
-        };
-    });
-}]);
-
 kahuna.run(['$rootScope', 'mediaApi',
             ($rootScope, mediaApi) => {
 
@@ -97,6 +80,25 @@ kahuna.run(['$rootScope', 'mediaApi',
         $rootScope.$emit('events:user-loaded', session.user);
     });
     // TODO: catch if 401, trigger login
+}]);
+
+kahuna.config(['$httpProvider', function($httpProvider) {
+    $httpProvider.interceptors.push('httpUnauthorisedInterceptor');
+}]);
+
+kahuna.factory('httpUnauthorisedInterceptor', ['$q', '$rootScope', function($q, $rootScope) {
+    return {
+        responseError: function(response) {
+            if (response.status === 401) {
+                $rootScope.$emit('events:error:unauthorised');
+                return $q.reject(response);
+            }
+        }
+    };
+}]);
+
+kahuna.run(['$rootScope', 'globalErrors', function($rootScope, globalErrors) {
+    $rootScope.$on('events:error:unauthorised', _ => globalErrors.trigger('unauthorised'));
 }]);
 
 /**
