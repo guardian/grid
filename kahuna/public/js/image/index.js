@@ -29,7 +29,7 @@ image.config(['$stateProvider',
 
                 return mediaApi.find(imageId).catch(error => {
                     if (error && error.status === 404) {
-                        $state.go('image-not-found', {message: "Image not found"});
+                        $state.go('image-not-found', {message: 'Image not found'});
                     } else {
                         $q.reject(error);
                     }

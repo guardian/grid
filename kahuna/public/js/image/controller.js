@@ -40,12 +40,12 @@ image.controller('ImageCtrl',
     ];
     function isUsefulMetadata(metadataKey) {
         return ignoredMetadata.indexOf(metadataKey) === -1;
-    };
+    }
 
     function cropSelected(crop) {
         $rootScope.$emit('events:crop-selected', {
             image: ctrl.image,
             crop: crop
         });
-    };
+    }
 }]);
