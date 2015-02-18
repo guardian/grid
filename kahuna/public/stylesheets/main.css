@@ -299,11 +299,25 @@ textarea.ng-invalid {
 /* ==========================================================================
    Errors / status
    ========================================================================== */
+.global-errors {
+    position: absolute;
+    margin: 0 auto;
+    left: 0;
+    right: 0;
+    top: 5px;
+    z-index: 1;
+    text-align: center;
+}
+
+.global-error {
+    display: inline-block;
+    border-radius: 5px;
+}
+
 .error {
     background: darkred;
     color: white;
     padding: 10px;
-    font-family: "Guardian Agate Sans Web", Helvetica, Arial;
 }
 
 .status {

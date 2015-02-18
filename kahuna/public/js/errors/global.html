@@ -1,6 +1,10 @@
-<ng:messages for="ctrl.errors">
-    <div ng:message="unauthorised">
+<ng:messages for="ctrl.errors" class="global-errors">
+    <div class="global-error error"
+         ng:message="unauthorised">
         ͼ(ݓ_ݓ)ͽ Sorry, authentication seems to have let us down.
-        Please <a href="." target="_self" class="coloured-link">reload your page</a> to reauthenticate.
+        Please <a href=" " target="_self" class="coloured-link">reload your page</a> to reauthenticate.
+        <!-- The space is required so angular doesn't remove the functionality of the link all together
+        The target is require to trick angular into not handling it with the router -->
+        <!-- TODO: make link reauth and then reload route -->
     </div>
 </ng:messages>
