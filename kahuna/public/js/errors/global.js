@@ -2,8 +2,9 @@ import angular from 'angular';
 import template from './global.html!text';
 
 import 'angular-messages';
+import 'pandular';
 
-export var global = angular.module('kahuna.errors.global', ['ngMessages']);
+export var global = angular.module('kahuna.errors.global', ['ngMessages', 'pandular.session']);
 
 global.factory('globalErrors', function() {
     var errors = {};
@@ -28,10 +29,13 @@ global.factory('globalErrors', function() {
 });
 
 
-global.controller('GlobalErrorsCtrl', ['globalErrors',
-                                       function(globalErrors) {
+global.controller('GlobalErrorsCtrl',
+                  ['globalErrors',
+                   function(globalErrors) {
+
     var ctrl = this;
     ctrl.errors = globalErrors.getErrors();
+    
 }]);
 
 
