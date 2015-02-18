@@ -57,11 +57,11 @@
                     <span class="metadata-line__info" ng:if="ctrl.metadata.byline">
                         <a ui:sref="search.results({query: (ctrl.metadata.byline | queryFilter:'by')})">{{ctrl.metadata.byline}}</a>
                     </span>
-                    <span class="metadata-line__info" ng:hide="ctrl.metadata.byline">
+                    <span class="metadata-line__info" ng:if="! ctrl.metadata.byline">
                         unknown
                     </span>
                     /
-                    <span class="metadata-line__info">
+                    <span class="metadata-line__info" ng:if="ctrl.metadata.credit">
                         <a ui:sref="search.results({query: (ctrl.metadata.credit | queryFilter:'credit')})">{{ctrl.metadata.credit}}</a>
                     </span>
                 </div>
