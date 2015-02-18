@@ -32,7 +32,7 @@
 
         <div class="image-info">
             <div ng:if="image.data.cost == 'pay'"
-                 class="image-info__group cost cost--{{image.data.cost}}">
+                 class="image-info__group cost cost--{{ctrl.image.data.cost}}">
                 pay to use
             </div>
 
@@ -138,7 +138,7 @@
                                ng:init="extremeAssets = (crop | getExtremeAssets)"
                                ng:click="cropSelected(crop)"
                                ui:sref="{crop: crop.id}"
-                               ui:drag-data="{{image | asImageAndCropsDragData:crop}}"
+                               ui:drag-data="{{ctrl.image | asImageAndCropsDragData:crop}}"
                                ui:drag-image="{{extremeAssets.smallest | assetFile}}">
                                 <img class="image-crop__image" ng:src="{{extremeAssets.smallest | assetFile}}" />
                             </a>
@@ -179,7 +179,7 @@
                    class="easel__image-container"
                    ng:init="extremeAssets = (ctrl.crop | getExtremeAssets)"
                    ui:sref="{crop: cropKey}"
-                   ui:drag-data="{{image | asImageAndCropsDragData:crop}}"
+                   ui:drag-data="{{ctrl.image | asImageAndCropsDragData:crop}}"
                    ui:drag-image="{{extremeAssets.smallest | assetFile}}">
                     <img class="easel__image" ng:src="{{extremeAssets.largest | assetFile}}" />
                 </a>
