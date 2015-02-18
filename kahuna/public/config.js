@@ -12,6 +12,7 @@ System.config({
     "angular": "github:angular/bower-angular@1.3.10",
     "angular-animate": "github:angular/bower-angular-animate@1.3.10",
     "angular-ui-router": "github:angular-ui/ui-router@0.2.13",
+    "angular-ui-router-extras": "github:christopherthielen/ui-router-extras@0.0.13",
     "css": "github:systemjs/plugin-css@0.1.0",
     "github:tapmodo/Jcrop": "github:tapmodo/Jcrop@0.9.12",
     "jcrop": "github:tapmodo/Jcrop@0.9.12",

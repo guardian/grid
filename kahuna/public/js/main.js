@@ -3,6 +3,7 @@
 import angular from 'angular';
 import 'angular-ui-router';
 import 'pandular';
+import 'angular-ui-router-extras';
 import './services/api/media-api';
 import './services/api/media-cropper';
 import './services/api/loader';
@@ -38,6 +39,8 @@ var config = {
 var kahuna = angular.module('kahuna', [
     'ui.router',
     'pandular.heal',
+    'ct.ui.router.extras.dsr',
+    'ct.ui.router.extras.statevis',
     'util.async',
     'util.digest',
     'analytics.track',
@@ -68,7 +71,7 @@ kahuna.config(['$locationProvider',
 kahuna.config(['$urlRouterProvider',
                function($urlRouterProvider) {
 
-    $urlRouterProvider.otherwise('/search');
+        $urlRouterProvider.otherwise('/search');
 }]);
 
 kahuna.run(['$rootScope', 'mediaApi',
