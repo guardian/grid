@@ -14,7 +14,9 @@ export var search = angular.module('kahuna.search', [
     'kahuna.preview.image'
 ]);
 
-
+// TODO: add a resolver here so that if we error (e.g. 401) we don't keep trying
+// to render - similar to the image controller see:
+// https://github.com/guardian/media-service/pull/478
 search.config(['$stateProvider',
                function($stateProvider) {
 

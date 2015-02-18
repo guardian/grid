@@ -27,17 +27,18 @@ global.factory('globalErrors', function() {
     }
 });
 
-global.controller('GlobalErrorCtrl', ['globalErrors',
-                                      function(globalErrors) {
+
+global.controller('GlobalErrorsCtrl', ['globalErrors',
+                                       function(globalErrors) {
     var ctrl = this;
     ctrl.errors = globalErrors.getErrors();
 }]);
 
 
-global.directive('uiGlobalError', [function() {
+global.directive('uiGlobalErrors', [function() {
     return {
         restrict: 'E',
-        controller: 'GlobalErrorCtrl',
+        controller: 'GlobalErrorsCtrl',
         controllerAs: 'ctrl',
         bindToController: true,
         template: template
