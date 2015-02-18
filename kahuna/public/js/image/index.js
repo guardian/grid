@@ -4,6 +4,7 @@ import './controller';
 import '../search/query-filter';
 
 import imageTemplate from './view.html!text';
+import imageNotFoundTemplate from './404.html!text';
 
 
 export var image = angular.module('kahuna.image', [
@@ -30,10 +31,11 @@ image.config(['$stateProvider',
         }
     });
 
-    // FIXME: elsewhere:
-    $stateProvider.state('error', {
+    // Note: we may be able to make this state more generic if we want
+    // other error pages
+    $stateProvider.state('image-not-found', {
         params: {message: {}},
-        template: 'Error: {{message}}',
+        template: imageNotFoundTemplate,
         controller: ['$scope', 'message', ($scope, message) => {
             $scope.message = message;
         }],
@@ -49,7 +51,7 @@ image.run(['$rootScope', '$state',
     $rootScope.$on('$stateChangeError',
                    function(event, toState, toParams, fromState, fromParams, error) {
         if (toState.name === 'image' && error && error.status === 404) {
-            $state.go('error', {message: "Image not found"});
+            $state.go('image-not-found', {message: "Image not found"});
         }
     });
 

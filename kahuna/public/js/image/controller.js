@@ -9,6 +9,9 @@ image.controller('ImageCtrl',
     var ctrl = this;
 
     ctrl.image = image;
+    // TODO: we should be able to rely on ctrl.crop.id instead once
+    // all existing crops are migrated to have an id (they didn't
+    // initially)
     ctrl.cropKey = cropKey;
 
     // Alias for convenience in view
