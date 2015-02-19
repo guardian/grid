@@ -45,7 +45,7 @@ search.config(['$stateProvider',
 search.run(['$rootScope', '$state', function($rootScope, $state) {
     $rootScope.$on('$stateChangeSuccess', (_, toState) => {
         if (toState.name === 'search') {
-            $state.go('search.results');
+            $state.go('search.results', null, {reload: true});
         }
     });
 }]);
