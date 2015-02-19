@@ -12,6 +12,7 @@ object MetadataCleaner {
     CleanRubbishLocation,
     StripCopyrightPrefix,
     UseCanonicalGuardianCredit,
+    ExtractGuardianCreditFromByline,
     CountryCode,
     CapitaliseByline,
     CapitaliseCountry,
