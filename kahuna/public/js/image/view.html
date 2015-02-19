@@ -178,8 +178,8 @@
                 <a draggable="true"
                    class="easel__image-container"
                    ng:init="extremeAssets = (ctrl.crop | getExtremeAssets)"
-                   ui:sref="{crop: cropKey}"
-                   ui:drag-data="{{ctrl.image | asImageAndCropsDragData:crop}}"
+                   ui:sref="{crop: ctrl.cropKey}"
+                   ui:drag-data="{{ctrl.image | asImageAndCropsDragData:ctrl.crop}}"
                    ui:drag-image="{{extremeAssets.smallest | assetFile}}">
                     <img class="easel__image" ng:src="{{extremeAssets.largest | assetFile}}" />
                 </a>
