@@ -11,6 +11,8 @@ object MetadataCleaner {
   val allCleaners = List(
     CleanRubbishLocation,
     StripCopyrightPrefix,
+    UseCanonicalGuardianCredit,
+    ExtractGuardianCreditFromByline,
     CountryCode,
     CapitaliseByline,
     CapitaliseCountry,
