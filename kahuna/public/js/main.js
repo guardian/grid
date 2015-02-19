@@ -100,6 +100,7 @@ kahuna.factory('httpUnauthorisedInterceptor', ['$q', '$rootScope', function($q, 
 
 kahuna.run(['$rootScope', 'globalErrors', function($rootScope, globalErrors) {
     $rootScope.$on('events:error:unauthorised', () => globalErrors.trigger('unauthorised'));
+    $rootScope.$on('pandular:re-establishment:failed', () => globalErrors.trigger('unauthorised'));
 }]);
 
 /**
