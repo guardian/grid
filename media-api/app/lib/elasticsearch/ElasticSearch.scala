@@ -106,7 +106,7 @@ object ElasticSearch extends ElasticSearchClient {
     // Warning: this requires the capitalisation to be exact; we may want to sanitise the credits
     // to a canonical representation in the future
     val freeFilter       = Config.freeForUseFrom.toNel.map(cs => filters.terms("metadata.credit", cs))
-    val nonFreeFilter    = Config.freeForUseFrom.toNel.map(cs => filters.not(filters.terms("metadata.credit", cs)))
+    val nonFreeFilter    = freeFilter.map(filters.not)
     val costFilter       = params.free.flatMap(free => if (free) freeFilter else nonFreeFilter)
 
     val filter = (metadataFilter.toList ++ labelFilter ++ archivedFilter ++
