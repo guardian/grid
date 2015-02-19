@@ -47,5 +47,5 @@ search.run(['$rootScope', '$state', function($rootScope, $state) {
         if (toState.name === 'search') {
             $state.go('search.results');
         }
-    })
+    });
 }]);
