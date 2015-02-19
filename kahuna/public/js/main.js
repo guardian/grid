@@ -71,7 +71,7 @@ kahuna.config(['$locationProvider',
 kahuna.config(['$urlRouterProvider',
                function($urlRouterProvider) {
 
-        $urlRouterProvider.otherwise('/search');
+    $urlRouterProvider.otherwise('/search');
 }]);
 
 kahuna.run(['$rootScope', 'mediaApi',
