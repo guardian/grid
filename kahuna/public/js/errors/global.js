@@ -37,7 +37,7 @@ global.controller('GlobalErrorsCtrl',
     ctrl.errors = globalErrors.getErrors();
 
     // handy as these can happen anywhere
-    ctrl.currentLocation = $location.url();
+    ctrl.getCurrentLocation = () => $location.url();
 
 }]);
 
