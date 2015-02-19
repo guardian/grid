@@ -30,11 +30,14 @@ global.factory('globalErrors', function() {
 
 
 global.controller('GlobalErrorsCtrl',
-                  ['globalErrors',
-                   function(globalErrors) {
+                  ['$location', 'globalErrors',
+                   function($location, globalErrors) {
 
     var ctrl = this;
     ctrl.errors = globalErrors.getErrors();
+
+    // handy as these can happen anywhere
+    ctrl.currentLocation = $location.url();
 
 }]);
 
