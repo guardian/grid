@@ -15,7 +15,7 @@
       "jquery": "2.1.1",
       "mixpanel-js": "github:mixpanel/mixpanel-js@2.3.2",
       "moment": "2.9.0",
-      "pandular": "npm:pandular@0.1.4",
+      "pandular": "npm:pandular@0.1.5",
       "raven-js": "1.1.16",
       "text": "^0.0.2",
       "theseus": "~0.3.0",
