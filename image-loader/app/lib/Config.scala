@@ -61,6 +61,7 @@ object Config extends CommonPlayAppProperties {
     "Gary Calton",
     "Karen Robinson",
     "Katherine Anne Rose",
+    "Richard Saker",
     "Sophia Evans",
     "Suki Dhanda"
   )
