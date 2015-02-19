@@ -20,7 +20,7 @@ System.config({
     "jquery": "github:components/jquery@2.1.1",
     "mixpanel-js": "github:mixpanel/mixpanel-js@2.3.2",
     "moment": "github:moment/moment@2.9.0",
-    "pandular": "npm:pandular@0.1.4",
+    "pandular": "npm:pandular@0.1.5",
     "raven-js": "github:getsentry/raven-js@1.1.16",
     "text": "github:systemjs/plugin-text@0.0.2",
     "theseus": "npm:theseus@0.3.0",
@@ -50,7 +50,7 @@ System.config({
     "npm:inherits@2.0.1": {
       "util": "github:jspm/nodelibs-util@0.1.0"
     },
-    "npm:pandular@0.1.4": {
+    "npm:pandular@0.1.5": {
       "angular": "github:angular/bower-angular@1.3.10",
       "panda-session": "npm:panda-session@0.1.4"
     },
