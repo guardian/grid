@@ -18,6 +18,7 @@ import './util/digest';
 import './analytics/track';
 import './sentry/sentry';
 import './common/index';
+import './errors/global';
 
 // TODO: move to an async config to remove deps on play
 var apiLink = document.querySelector('link[rel="media-api-uri"]');
@@ -49,7 +50,8 @@ var kahuna = angular.module('kahuna', [
     'kahuna.edits',
     'kahuna.services.api',
     'kahuna.directives',
-    'kahuna.common'
+    'kahuna.common',
+    'kahuna.errors.global'
 ]);
 
 
@@ -77,9 +79,29 @@ kahuna.run(['$rootScope', 'mediaApi',
     mediaApi.getSession().then(session => {
         $rootScope.$emit('events:user-loaded', session.user);
     });
-    // TODO: catch if 401, trigger login
 }]);
 
+
+// Intercept 401s and emit an event
+kahuna.config(['$httpProvider', function($httpProvider) {
+    $httpProvider.interceptors.push('httpUnauthorisedInterceptor');
+}]);
+
+kahuna.factory('httpUnauthorisedInterceptor', ['$q', '$rootScope', function($q, $rootScope) {
+    return {
+        responseError: function(response) {
+            if (response.status === 401) {
+                $rootScope.$emit('events:error:unauthorised');
+            }
+            return $q.reject(response);
+        }
+    };
+}]);
+
+kahuna.run(['$rootScope', 'globalErrors', function($rootScope, globalErrors) {
+    $rootScope.$on('events:error:unauthorised', () => globalErrors.trigger('unauthorised'));
+    $rootScope.$on('pandular:re-establishment:fail', () => globalErrors.trigger('unauthorised'));
+}]);
 
 /**
  * Takes a resources and returns a promise of the entity data (uri,
