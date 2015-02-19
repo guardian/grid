@@ -31,7 +31,7 @@
     <div class="image-details">
 
         <div class="image-info">
-            <div ng:if="image.data.cost == 'pay'"
+            <div ng:if="ctrl.image.data.cost == 'pay'"
                  class="image-info__group cost cost--{{ctrl.image.data.cost}}">
                 pay to use
             </div>
@@ -108,7 +108,7 @@
 
                 <table ng:show="metadataExpanded" class="metadata">
                     <tbody class="metadata__body">
-                        <tr ng:repeat="(key, value) in ctrl.metadata" ng:if="isUsefulMetadata(key)">
+                        <tr ng:repeat="(key, value) in ctrl.metadata" ng:if="ctrl.isUsefulMetadata(key)">
                             <th class="metadata__key">{{key}}</th>
                             <td>{{value}}</td>
                         </tr>
