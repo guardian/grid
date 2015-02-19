@@ -98,7 +98,8 @@ object MediaApi extends Controller with ArgoHelpers {
       val secureUrl = S3Client.signUrl(Config.imageBucket, fileUri, expiration)
       val secureThumbUrl = S3Client.signUrl(Config.thumbBucket, fileUri, expiration)
 
-      val credit = (source \ "metadata" \ "credit").as[Option[String]]
+      val creditField = (source \ "metadata" \ "credit").as[Option[String]]
+      val sourceField = (source \ "metadata" \ "source").as[Option[String]]
       // TODO: This might be easier to get from the `SearchParams`
       // downfall: it might give the wrong value if a bug is introduced
       val valid = Config.requiredMetadata.forall { field =>
@@ -111,7 +112,7 @@ object MediaApi extends Controller with ArgoHelpers {
         .flatMap(_.transform(transformers.addFileMetadataUrl(s"$rootUri/images/$id/fileMetadata")))
         .flatMap(_.transform(transformers.wrapUserMetadata(id)))
         .flatMap(_.transform(transformers.addValidity(valid)))
-        .flatMap(_.transform(transformers.addUsageCost(credit))).get
+        .flatMap(_.transform(transformers.addUsageCost(creditField, sourceField))).get
 
       // FIXME: don't hardcode paths from other APIs - once we're
       // storing a copy of the data in the DB, we can use it to point
@@ -127,8 +128,8 @@ object MediaApi extends Controller with ArgoHelpers {
 
   object transformers {
 
-    def addUsageCost(copyright: Option[String]): Reads[JsObject] =
-      __.json.update(__.read[JsObject].map(_ ++ Json.obj("cost" -> ImageExtras.getCost(copyright))))
+    def addUsageCost(credit: Option[String], source: Option[String]): Reads[JsObject] =
+      __.json.update(__.read[JsObject].map(_ ++ Json.obj("cost" -> ImageExtras.getCost(credit, source))))
 
     def removeFileData: Reads[JsObject] =
       (__ \ "fileMetadata").json.prune
@@ -237,10 +238,13 @@ case class MetadataSearchParams(field: String, q: Option[String])
 
 // Default to pay for now
 object ImageExtras {
-  def getCost(credit: Option[String]) = {
-    credit match {
-      case Some(c) if Config.freeForUseFrom.exists(f => f.toLowerCase == c.toLowerCase) => "free"
-      case _ => "pay"
-    }
+  def getCost(credit: Option[String], source: Option[String]) = {
+    val freeCredit = credit.map(isFreeCredit) getOrElse false
+    val freeSource = source.map(! isPaySource(_)) getOrElse true
+    if (freeCredit && freeSource) "free"
+    else "pay"
   }
+
+  private def isFreeCredit(credit: String) = Config.freeCreditList.exists(f => f.toLowerCase == credit.toLowerCase)
+  private def isPaySource(source: String)  = Config.payGettySourceList.exists(f => f.toLowerCase == source.toLowerCase)
 }
