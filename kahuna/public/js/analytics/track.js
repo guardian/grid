@@ -41,6 +41,8 @@ track.run(['$rootScope', '$window', 'mixpanel', 'mixpanelToken', 'track', 'track
         $rootScope.$on('events:user-loaded', (_, user) => {
             let {firstName, lastName, email} = user;
             mixpanel.init(mixpanelToken, email, { firstName, lastName, email });
+            $rootScope.$emit('events:track-loaded');
+
             track('Page viewed');
         });
     }
