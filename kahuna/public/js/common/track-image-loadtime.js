@@ -12,7 +12,7 @@ trackImageLoadtime.controller('TrackImageLoadtimeCtrl',
 
     var id = ctrl.image.data.id;
     var { mimeType, dimensions: { width, height }, size } = ctrl.image.data.source;
-    var trackProps = { id, mimeType, width, height, size };
+    var trackProps = { id, mimeType, width, height, size, type: ctrl.type };
     var propsWithState = state =>
             angular.extend({ 'Load state': state }, trackProps);
 
@@ -51,7 +51,8 @@ trackImageLoadtime.directive('gridTrackImageLoadtime', [function() {
         controllerAs: 'ctrl',
         bindToController: true,
         scope: {
-            image: '=gridTrackImage'
+            image: '=gridTrackImage',
+            type: '=gridTrackImageType'
         },
         link: (_, element, __, ctrl) => {
             element.on('load', ctrl.trackSuccess);
