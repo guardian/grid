@@ -52,7 +52,7 @@ trackImageLoadtime.directive('gridTrackImageLoadtime', [function() {
         bindToController: true,
         scope: {
             image: '=gridTrackImage',
-            type: '=gridTrackImageType'
+            type: '@gridTrackImageType'
         },
         link: (_, element, __, ctrl) => {
             element.on('load', ctrl.trackSuccess);
