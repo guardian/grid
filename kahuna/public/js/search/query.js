@@ -8,8 +8,8 @@ export var query = angular.module('kahuna.search.query', [
     'ngAnimate'
 ]);
 
-query.controller('SearchQueryCtrl', ['$scope', '$state', '$stateParams', 'mediaApi',
-                 function($scope, $state, $stateParams, mediaApi) {
+query.controller('SearchQueryCtrl', ['$scope', '$state', '$stateParams', 'watchOnChange', 'mediaApi',
+                 function($scope, $state, $stateParams, watchOnChange, mediaApi) {
 
     var ctrl = this;
     ctrl.uploadedByMe = false;
@@ -33,18 +33,15 @@ query.controller('SearchQueryCtrl', ['$scope', '$state', '$stateParams', 'mediaA
     function setAndWatchParam(key) {
         ctrl[key] = $stateParams[key];
 
-        // TODO: make helper for onchange vs onupdate
-        $scope.$watch(() => ctrl[key], (newVal, oldVal) => {
-            if (newVal !== oldVal) {
-                // we replace empty strings etc with undefined to clear the querystring
-                $state.go('search.results', { [key]: newVal || undefined });
-            }
-        });
+        // pass undefined to the state on empty to remove the QueryString
+        function cleanVal(str) { return str || undefined; }
 
-        $scope.$watch(() => $stateParams[key], (newVal, oldVal) => {
-            if (newVal !== oldVal) {
-                ctrl[key] = newVal || undefined;
-            }
+        // watch ctrl and stateParams for changes and apply them accordingly
+        watchOnChange($scope, () => ctrl[key], (newVal) => {
+            $state.go('search.results', { [key]: cleanVal(newVal) });
+        });
+        watchOnChange($scope, () => $stateParams[key], (newVal) => {
+            ctrl[key] = cleanVal(newVal);
         });
     }
 
