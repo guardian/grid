@@ -8,7 +8,8 @@ export var query = angular.module('kahuna.search.query', [
     'ngAnimate'
 ]);
 
-query.controller('SearchQueryCtrl', ['$scope', '$state', '$stateParams', 'watchOnChange', 'mediaApi',
+query.controller('SearchQueryCtrl',
+                 ['$scope', '$state', '$stateParams', 'watchOnChange', 'mediaApi',
                  function($scope, $state, $stateParams, watchOnChange, mediaApi) {
 
     var ctrl = this;
