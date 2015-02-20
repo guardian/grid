@@ -41,6 +41,8 @@ object Config {
   val picdarAssetReadTimeout = readTimeout("timeout.read.picdar.asset",       defaultReadTimeout)
   val loaderConnTimeout      = readTimeout("timeout.connection.media.loader", defaultConnectionTimeout)
   val loaderReadTimeout      = readTimeout("timeout.read.media.loader",       defaultReadTimeout)
+  val mediaApiConnTimeout    = readTimeout("timeout.connection.media.api",    defaultConnectionTimeout)
+  val mediaApiReadTimeout    = readTimeout("timeout.read.media.api",          defaultReadTimeout)
 
   def mediaConfig(env: String): MediaConfig = try {
     val apiKey    = properties(s"media.$env.apiKey")

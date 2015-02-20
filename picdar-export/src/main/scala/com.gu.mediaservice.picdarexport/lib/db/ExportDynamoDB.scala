@@ -21,7 +21,9 @@ import scala.concurrent.Future
 case class AssetRow(
   picdarUrn: String,
   picdarCreated: DateTime,
-  picdarAssetUrl: URI
+  picdarAssetUrl: URI,
+  mediaUri: Option[URI] = None,
+  picdarMetadata: Option[Map[String, String]] = None
 )
 
 class ExportDynamoDB(credentials: AWSCredentials, region: Region, tableName: String)
@@ -90,25 +92,56 @@ class ExportDynamoDB(credentials: AWSCredentials, region: Region, tableName: Str
       dateRange.end.map(asRangeString).map(":endDate" -> _)
 
     val query = queryConds.mkString(" AND ")
-    val items = table.scan(query, "picdarUrn, picdarCreated, picdarAssetUrl", null, values)
+    val items = table.scan(query, "picdarUrn, picdarCreated, picdarAssetUrl, mediaUri", null, values)
     items.iterator.map { item =>
       val picdarCreated = rangeDateFormat.parseDateTime(item.getString("picdarCreated"))
-      AssetRow(item.getString("picdarUrn"), picdarCreated, URI.create(item.getString("picdarAssetUrl")))
+      val mediaUri = Option(item.getString("mediaUri")).map(URI.create)
+      AssetRow(item.getString("picdarUrn"), picdarCreated, URI.create(item.getString("picdarAssetUrl")), mediaUri)
+    }.toSeq
+  }
+
+  def scanIngestedNotOverridden(dateRange: DateRange): Future[Seq[AssetRow]] = Future {
+    // FIXME: query by range only?
+    val queryConds = List("attribute_exists(picdarAssetUrl)", "attribute_exists(mediaUri)", "attribute_not_exists(overridden)") ++
+      dateRange.start.map(date => s"picdarCreated >= :startDate") ++
+      dateRange.end.map(date => s"picdarCreated <= :endDate")
+
+    val values = Map() ++
+      dateRange.start.map(asRangeString).map(":startDate" -> _) ++
+      dateRange.end.map(asRangeString).map(":endDate" -> _)
+
+    val query = queryConds.mkString(" AND ")
+    val items = table.scan(query, "picdarUrn, picdarCreated, picdarAssetUrl, mediaUri", null, values)
+    items.iterator.map { item =>
+      val picdarCreated = rangeDateFormat.parseDateTime(item.getString("picdarCreated"))
+      val mediaUri = Option(item.getString("mediaUri")).map(URI.create)
+      val picdarMetadata = Option(item.getMap[String]("picdarMetadata")).map(_.toMap)
+      AssetRow(item.getString("picdarUrn"), picdarCreated, URI.create(item.getString("picdarAssetUrl")), mediaUri, picdarMetadata)
     }.toSeq
   }
 
   def record(urn: String, range: DateTime, assetUrl: URI, picdarCreated: DateTime, picdarModified: Option[DateTime], metadata: Map[String, String]) = Future {
+    val now = asTimestampString(new DateTime)
     val baseUpdateSpec = new UpdateItemSpec().
       withPrimaryKey(IdKey, urn, RangeKey, asRangeString(range)).
-      withUpdateExpression("SET picdarAssetUrl = :picdarAssetUrl").
-      withValueMap(new ValueMap().withString(":picdarAssetUrl", assetUrl.toString)).
+      withUpdateExpression("""|SET picdarAssetUrl         = :picdarAssetUrl,
+                              |    picdarAssetUrlModified = :picdarAssetUrlModified,
+                              |    picdarCreatedFull      = :picdarCreatedFull,
+                              |    picdarModified         = :picdarModified,
+                              |    picdarMetadata         = :picdarMetadata,
+                              |    picdarMetadataModified = :picdarMetadataModified
+                              |    """.stripMargin).
+      withValueMap(new ValueMap().
+        withString(":picdarAssetUrl", assetUrl.toString).
+        withString(":picdarAssetUrlModified", now).
+        withString(":picdarCreatedFull", asTimestampString(picdarCreated)).
+        withString(":picdarModified", picdarModified.map(asTimestampString).orNull).
+        withMap(":picdarMetadata", metadata).
+        withString(":picdarMetadataModified", now)
+      ).
       withReturnValues(ReturnValue.ALL_NEW)
 
     table.updateItem(baseUpdateSpec)
-
-    // TODO: store all
-    // TODO: bump assetUrlModifiedAt
-    // TODO: bump metadataModifiedAt
   }
 
   def recordIngested(urn: String, range: DateTime, mediaUri: URI) = Future {
@@ -118,6 +151,18 @@ class ExportDynamoDB(credentials: AWSCredentials, region: Region, tableName: Str
       withValueMap(new ValueMap().
         withString(":mediaUri", mediaUri.toString).
         withString(":mediaUriModified", asTimestampString(new DateTime))).
+      withReturnValues(ReturnValue.ALL_NEW)
+
+    table.updateItem(baseUpdateSpec)
+  }
+
+  def recordOverridden(urn: String, range: DateTime, overridden: Boolean) = Future {
+    val baseUpdateSpec = new UpdateItemSpec().
+      withPrimaryKey(IdKey, urn, RangeKey, asRangeString(range)).
+      withUpdateExpression("SET overridden = :overridden, overriddenModified = :overriddenModified").
+      withValueMap(new ValueMap().
+        withBoolean(":overridden", overridden).
+        withString(":overriddenModified", asTimestampString(new DateTime))).
       withReturnValues(ReturnValue.ALL_NEW)
 
     table.updateItem(baseUpdateSpec)
