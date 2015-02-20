@@ -155,8 +155,16 @@ abstract class StackScript {
         case _    => None
       }
 
+      val watProdUri = "http://media-wat.***REMOVED***"
+
+      // Only configure watUri to be set in PROD
+      val watUri = stage match {
+        case Prod => Some(watProdUri)
+        case _    => None
+      }
+
       val toolsOrigins = List(
-        "http://media-wat.***REMOVED***",
+        watProdUri,
         "https://media-wat.local.dev-***REMOVED***"
       )
       val composerOrigins = stage match {
@@ -197,6 +205,7 @@ abstract class StackScript {
           param("PandaDomain", parentDomain),
           param("PandaAwsKey",  pandaAwsKey),
           param("PandaAwsSecret", pandaAwsSecret),
+          param("WatUri", watUri.getOrElse("")),
           param("MixpanelToken", mixpanelToken),
           param("SentryDsn", sentryDsn)
         )
