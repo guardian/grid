@@ -58,7 +58,7 @@ object Config extends CommonPlayAppConfig with CommonPlayAppProperties {
     // There's now a MetadataCleaner to transform all to The Guardian canonical name.
     // We need to migrate all indexed content with "Guardian" to "The Guardian" before we can
     // retire Guardian from whitelist here.
-    "IBL/REX", "Guardian", "The Guardian")
+    "IBL/REX", "Guardian", "The Guardian", "The Observer")
 
   // TODO: move to config
   val queriableIdentifiers = Seq("picdarUrn")
