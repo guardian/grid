@@ -110,6 +110,10 @@
             "Type": "String",
             "NoEcho": true
         },
+        "WatUri": {
+            "Description": "URI of the service's Wat page",
+            "Type": "String"
+        },
         "MixpanelToken": {
             "Description": "Mixpanel token for use in the client",
             "Type": "String"
@@ -851,6 +855,7 @@
                         "aws.id=", { "Ref": "HostKeys" }, "\n",
                         "aws.secret=", { "Fn::GetAtt": [ "HostKeys", "SecretAccessKey" ] }, "\n",
                         "auth.keystore.bucket=", { "Ref": "KeyBucket" }, "\n",
+                        "wat.uri=", { "Ref": "WatUri" }, "\n",
                         "mixpanel.token=", { "Ref": "MixpanelToken" }, "\n",
                         "sentry.dsn=", { "Ref": "SentryDsn" }, "\n",
                         "EOF\n",
