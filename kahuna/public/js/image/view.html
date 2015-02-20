@@ -184,10 +184,8 @@
                    ui:sref="{crop: ctrl.cropKey}"
                    ui:drag-data="{{ctrl.image | asImageAndCropsDragData:ctrl.crop}}"
                    ui:drag-image="{{extremeAssets.smallest | assetFile}}">
-                    <img class="easel__image" ng:src="{{extremeAssets.largest | assetFile}}"
-                         grid:track-image="ctrl.crop"
-                         grid:track-image-type="crop-largest"
-                         grid:track-image-loadtime />
+                    <!-- TODO: Add tracking to crop -->
+                    <img class="easel__image" ng:src="{{extremeAssets.largest | assetFile}}" />
                 </a>
             </div>
         </div>
