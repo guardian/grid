@@ -24,6 +24,7 @@ class QuerySyntax(val input: ParserInput) extends Parser {
     "byline" | "by" | "photographer" |
     "credit" |
     "copyright" |
+    "source" |
     "keyword" |
     "label"
   }
