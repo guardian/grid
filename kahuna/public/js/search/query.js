@@ -40,6 +40,12 @@ query.controller('SearchQueryCtrl', ['$scope', '$state', '$stateParams', 'mediaA
                 $state.go('search.results', { [key]: newVal || undefined });
             }
         });
+
+        $scope.$watch(() => $stateParams[key], (newVal, oldVal) => {
+            if (newVal !== oldVal) {
+                ctrl[key] = newVal || undefined;
+            }
+        });
     }
 
     // we can't user dynamic values in the ng:true-value see:
