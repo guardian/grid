@@ -1,5 +1,6 @@
 package lib.cleanup
 
+import lib.Config
 import lib.imaging.ImageMetadata
 
 trait MetadataCleaner {
@@ -13,6 +14,8 @@ object MetadataCleaner {
     StripCopyrightPrefix,
     UseCanonicalGuardianCredit,
     ExtractGuardianCreditFromByline,
+    AttributeCreditFromByline(Config.guardianStaff, "The Guardian"),
+    AttributeCreditFromByline(Config.observerStaff, "The Observer"),
     CountryCode,
     CapitaliseByline,
     CapitaliseCountry,
@@ -43,7 +46,5 @@ object MetadataCleaner {
 
 // TODO: record Date Created or Date/Time Original
 // TODO: ignore Unknown tags from fileMetadata
-
-// TODO: add more location metadata (Province/State, Sub-location, etc.)
 
 // TODO: artist (vs byline)?
