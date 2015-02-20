@@ -120,12 +120,18 @@ class DynamoDB(credentials: AWSCredentials, region: Region, tableName: String) {
       get(id, key).map(item => Json.parse(item.getJSON(key)).as[JsObject])
 
   // We cannot update, so make sure you send over the WHOLE document
-  // TODO: deal with empty strings here as they through errors
   def jsonAdd(id: String, key: String, value: Map[String, String])
              (implicit ex: ExecutionContext): Future[JsObject] = {
 
+
     val valueMap = new ValueMap()
-    value.foreach{ case (key, value) => valueMap.withString(key, value) }
+    value.foreach{ case (key, value) => valueMap.withString(key, if(value == "") null else value) }
+    // FIXME: Really? Dynamo accepts `null`, but not `""`? This is a well
+    // moaned about issue around in the community. This guard keeps the
+    // introduction of `null` fairly fenced in this Dynamo play area. `null` is
+    // continual and big annoyance with AWS libs.
+    // see: https://forums.aws.amazon.com/message.jspa?messageID=389032
+    // see: http://docs.aws.amazon.com/amazondynamodb/latest/developerguide/DataModel.html
 
     update(
       id,

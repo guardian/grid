@@ -19,13 +19,10 @@ jobs.controller('RequiredMetadataEditorCtrl',
     ctrl.save = function() {
         ctrl.saving = true;
 
-        // FIXME: I'm not really sure what we should be doing here. If we send
-        // over "" should we be:
-        // * overriding the original metadata with ""
-        // * clearing the override and falling back to the original
+        // If there has been a change in the metadata, save it as an override
         var cleanMetadata = {};
         Object.keys(ctrl.metadata).forEach(key => {
-            if (ctrl.metadata[key]) {
+            if (ctrl.metadata[key] !== ctrl.originalMetadata[key]) {
                 cleanMetadata[key] = ctrl.metadata[key];
             }
         });
