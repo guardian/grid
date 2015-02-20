@@ -10,8 +10,14 @@ trackImageLoadtime.controller('TrackImageLoadtimeCtrl', function() {
     var trackProps = { id, mimeType, width, height, size };
 
     ctrl.trackLoaded = trackLoaded;
+    ctrl.trackError = trackError;
 
     function trackLoaded() {
+
+    }
+
+    function trackError() {
+
         
     }
 });
@@ -27,6 +33,7 @@ trackImageLoadtime.directive('gridTrackImageLoadtime', [function() {
         },
         link: (_, element, __, ctrl) => {
             element.on('load', ctrl.trackLoaded);
+            element.on('error', ctrl.trackError);
         }
     }
 }]);
