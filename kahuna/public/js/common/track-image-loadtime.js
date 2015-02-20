@@ -13,12 +13,14 @@ trackImageLoadtime.controller('TrackImageLoadtimeCtrl',
     var id = ctrl.image.data.id;
     var { mimeType, dimensions: { width, height }, size } = ctrl.image.data.source;
     var trackProps = { id, mimeType, width, height, size };
-    var propsWithState = state => angular.extend({ 'Load state': state }, trackProps);
+    var propsWithState = state =>
+            angular.extend({ 'Load state': state }, trackProps);
 
     // FIXME: not sure what best practise of retrieving Date is?
     var timeFrom = time => $window.Date.now() - time;
     var startTime = $window.Date.now();
-    var addTimerTo = (props, timer) => angular.extend({ 'Time to': timer || timeFrom(startTime) }, props);
+    var addTimerTo = (props, timer) =>
+            angular.extend({ 'Time to': timer || timeFrom(startTime) }, props);
 
     ctrl.trackSuccess = trackSuccess;
     ctrl.trackError = trackError;
@@ -55,5 +57,5 @@ trackImageLoadtime.directive('gridTrackImageLoadtime', [function() {
             element.on('load', ctrl.trackSuccess);
             element.on('error', ctrl.trackError);
         }
-    }
+    };
 }]);
