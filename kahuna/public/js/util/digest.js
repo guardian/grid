@@ -15,3 +15,11 @@ digest.value('safeApply', function (scope, fn) {
         });
     }
 });
+
+digest.value('watchOnChange', function(scope, val, fn) {
+    scope.$watch(val, (newVal, oldVal) => {
+        if (newVal !== oldVal) {
+            fn(newVal, oldVal);
+        }
+    });
+});
