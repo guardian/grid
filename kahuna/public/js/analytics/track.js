@@ -16,7 +16,7 @@ track.factory('track', ['$location', '$window', '$document', 'mixpanel', 'tracki
 
     function capitiliseKeys(obj = {}) {
         // Force this as it's nicer to read in mixpanel and follows their convention
-        var capObj= {}
+        var capObj= {};
         Object.keys(obj).forEach(k => {
             capObj[k.charAt(0).toUpperCase() + k.slice(1)] = obj[k];
         });
