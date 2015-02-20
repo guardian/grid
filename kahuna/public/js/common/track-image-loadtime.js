@@ -11,6 +11,7 @@ trackImageLoadtime.controller('TrackImageLoadtimeCtrl',
     var ctrl = this;
 
     var id = ctrl.image.data.id;
+
     var { mimeType, dimensions: { width, height }, size } = ctrl.image.data.source;
     var trackProps = { 'Image ID': id, mimeType, width, height, size, type: ctrl.type };
     var propsWithState = state =>
