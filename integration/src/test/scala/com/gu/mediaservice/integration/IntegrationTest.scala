@@ -14,7 +14,8 @@ import com.gu.mediaservice.lib.json._
 
 class IntegrationTest extends FunSpec with TestHarness with Matchers with BeforeAndAfterAll {
 
-  val config = devConfig getOrElse testStackConfig
+  // TODO: better error if missing
+  val config = devConfig.get
 
   val images = Seq(
     ImageFixture("honeybee.jpg",
