@@ -1,11 +1,5 @@
-STAGE=`cat /etc/gu/stage | tr '[:upper:]' '[:lower:]'`
-
-if [ "$STAGE" == "prod" ]
-then
-  SESSION_DOMAIN=".media.gutools.co.uk"
-else
-  SESSION_DOMAIN=".media.$STAGE.dev-gutools.co.uk"
-fi
+DOMAIN_ROOT=`cat /etc/gu/domain-root`
+SESSION_DOMAIN=".$DOMAIN_ROOT"
 
 # session.domain is read by Play
 APP_OPTIONS="-Dsession.domain=$SESSION_DOMAIN"
