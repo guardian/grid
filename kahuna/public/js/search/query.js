@@ -31,18 +31,18 @@ query.controller('SearchQueryCtrl',
     Object.keys($stateParams)
           .forEach(setAndWatchParam);
 
+    // pass undefined to the state on empty to remove the QueryString
+    function valOrUndefined(str) { return str || undefined; }
+
     function setAndWatchParam(key) {
         ctrl[key] = $stateParams[key];
 
-        // pass undefined to the state on empty to remove the QueryString
-        function cleanVal(str) { return str || undefined; }
-
         // watch ctrl and stateParams for changes and apply them accordingly
         watchOnChange($scope, () => ctrl[key], (newVal) => {
-            $state.go('search.results', { [key]: cleanVal(newVal) });
+            $state.go('search.results', { [key]: valOrUndefined(newVal) });
         });
         watchOnChange($scope, () => $stateParams[key], (newVal) => {
-            ctrl[key] = cleanVal(newVal);
+            ctrl[key] = valOrUndefined(newVal);
         });
     }
 
