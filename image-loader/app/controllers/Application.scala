@@ -15,7 +15,7 @@ import lib.play.DigestedFile
 import lib.{Config, Notifications}
 import lib.storage.S3ImageStorage
 import lib.imaging.{FileMetadata, MimeTypeDetection, Thumbnailer, ImageMetadataConverter}
-import lib.cleanup.MetadataCleaner
+import com.gu.mediaservice.lib.cleanup.MetadataCleaners
 
 import model.{Asset, Image}
 
@@ -33,6 +33,8 @@ class ImageLoader(storage: ImageStorage) extends Controller with ArgoHelpers {
 
   val keyStore = new KeyStore(Config.keyStoreBucket, Config.awsCredentials)
   val Authenticated = auth.Authenticated(keyStore, rootUri)
+
+  val metadataCleaners = new MetadataCleaners(Config.ownStaff)
 
   def index = Action {
     val response = Json.obj(
@@ -102,7 +104,7 @@ class ImageLoader(storage: ImageStorage) extends Controller with ArgoHelpers {
         dimensions <- dimensionsFuture
         fileMetadata <- fileMetadataFuture
         metadata    = ImageMetadataConverter.fromFileMetadata(fileMetadata)
-        cleanMetadata = MetadataCleaner.clean(metadata)
+        cleanMetadata = metadataCleaners.clean(metadata)
         sourceAsset = Asset(uri, tempFile.length, mimeType, dimensions)
         thumbUri   <- storage.storeThumbnail(id, thumb, mimeType)
         thumbSize   = thumb.length
