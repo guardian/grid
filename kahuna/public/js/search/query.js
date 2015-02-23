@@ -58,7 +58,11 @@ query.controller('SearchQueryCtrl',
 
     $scope.$watch(() => ctrl.uploadedByMe, onValChange(uploadedByMe => {
         // uploadedByMe typeof boolean
-        ctrl.uploadedBy = uploadedByMe && ctrl.user.email;
+        if (uploadedByMe) {
+            ctrl.uploadedBy = ctrl.user.email;
+        } else {
+            delete ctrl.uploadedBy;
+        }
     }));
 
     function resetQueryAndFocus() {
