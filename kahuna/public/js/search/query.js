@@ -1,16 +1,18 @@
 import angular from 'angular';
 import 'angular-animate';
 import moment from 'moment';
+import '../util/eq';
 import template from './query.html!text';
 
 
 export var query = angular.module('kahuna.search.query', [
-    'ngAnimate'
+    'ngAnimate',
+    'util.eq'
 ]);
 
 query.controller('SearchQueryCtrl',
-                 ['$scope', '$state', '$stateParams', 'watchOnChange', 'mediaApi',
-                 function($scope, $state, $stateParams, watchOnChange, mediaApi) {
+                 ['$scope', '$state', '$stateParams', 'onValChange', 'mediaApi',
+                 function($scope, $state, $stateParams, onValChange , mediaApi) {
 
     var ctrl = this;
     ctrl.uploadedByMe = false;
@@ -38,12 +40,13 @@ query.controller('SearchQueryCtrl',
         ctrl[key] = $stateParams[key];
 
         // watch ctrl and stateParams for changes and apply them accordingly
-        watchOnChange($scope, () => ctrl[key], (newVal) => {
+        $scope.$watch(() => ctrl[key], onValChange((newVal) => {
             $state.go('search.results', { [key]: valOrUndefined(newVal) });
-        });
-        watchOnChange($scope, () => $stateParams[key], (newVal) => {
+        }));
+
+        $scope.$watch(() => $stateParams[key], onValChange((newVal) => {
             ctrl[key] = valOrUndefined(newVal);
-        });
+        }));
     }
 
     // we can't user dynamic values in the ng:true-value see:
