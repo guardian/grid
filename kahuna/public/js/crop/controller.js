@@ -2,14 +2,20 @@ import angular from 'angular';
 
 var crop = angular.module('kahuna.crop.controller', []);
 
+// FIXME: get rid of `$scope.` rubbish and generally bring up to speed with our
+// other patterns
 crop.controller('ImageCropCtrl',
                 ['$scope', '$stateParams', '$state', '$filter', 'mediaApi', 'mediaCropper',
                  function($scope, $stateParams, $state, $filter, mediaApi, mediaCropper) {
 
     var imageId = $stateParams.imageId;
 
+    // TODO: add this to the route resolver
     mediaApi.find(imageId).then(function(image) {
         $scope.image = image;
+
+        var { width, height } = image.data.source.dimensions;
+        $scope.freeRatio = width / height;
     });
 
     $scope.cropping = false;
