@@ -40,11 +40,11 @@ query.controller('SearchQueryCtrl',
         ctrl[key] = $stateParams[key];
 
         // watch ctrl and stateParams for changes and apply them accordingly
-        $scope.$watch(() => ctrl[key], onValChange((newVal) => {
+        $scope.$watch(() => ctrl[key], onValChange(newVal => {
             $state.go('search.results', { [key]: valOrUndefined(newVal) });
         }));
 
-        $scope.$watch(() => $stateParams[key], onValChange((newVal) => {
+        $scope.$watch(() => $stateParams[key], onValChange(newVal => {
             ctrl[key] = valOrUndefined(newVal);
         }));
     }
@@ -55,11 +55,9 @@ query.controller('SearchQueryCtrl',
     // "uploadedBy:anthony.trollope@guardian.co.uk"
     mediaApi.getSession().then(session => ctrl.user = session.user);
     ctrl.uploadedByMe = !!$stateParams.uploadedBy;
-    $scope.$watch(() => ctrl.uploadedByMe, (newVal, oldVal) => {
-        if (newVal !== oldVal) {
-            ctrl.uploadedBy = newVal && ctrl.user.email;
-        }
-    });
+    $scope.$watch(() => ctrl.uploadedByMe, onValChange(newVal => {
+        ctrl.uploadedBy = newVal && ctrl.user.email;
+    }));
 
     function resetQueryAndFocus() {
         ctrl.query = '';
