@@ -1,6 +1,5 @@
-package scala.lib.cleanup
+package com.gu.mediaservice.lib.cleanup
 
-import lib.cleanup.CleanRubbishLocation
 import org.scalatest.{FunSpec, Matchers}
 
 class CleanRubbishLocationTest extends FunSpec with Matchers with MetadataHelper {
