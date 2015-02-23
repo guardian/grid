@@ -1,6 +1,6 @@
 package scala.lib.cleanup
 
-import lib.imaging.ImageMetadata
+import com.gu.mediaservice.model.ImageMetadata
 
 trait MetadataHelper {
   def createImageMetadata(metadata: (String, String)*): ImageMetadata =
