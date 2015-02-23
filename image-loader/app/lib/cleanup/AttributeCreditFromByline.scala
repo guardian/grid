@@ -1,7 +1,6 @@
 package lib.cleanup
 
-import lib.imaging.ImageMetadata
-import lib.Config
+import com.gu.mediaservice.model.ImageMetadata
 
 case class AttributeCreditFromByline(bylines: List[String], credit: String) extends MetadataCleaner {
 
