@@ -1,7 +1,7 @@
 package lib.cleanup
 
 import lib.Config
-import lib.imaging.ImageMetadata
+import com.gu.mediaservice.model.ImageMetadata
 
 trait MetadataCleaner {
   def clean(metadata: ImageMetadata): ImageMetadata

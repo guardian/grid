@@ -5,7 +5,9 @@ import org.joda.time.format._
 
 import scala.util.Try
 
-object ImageMetadata {
+import com.gu.mediaservice.model.ImageMetadata
+
+object ImageMetadataConverter {
 
   def fromFileMetadata(fileMetadata: FileMetadata): ImageMetadata =
     ImageMetadata(
@@ -74,21 +76,3 @@ object ImageMetadata {
 //       http://cv.iptc.org/newscodes/subjectcode/
 // TODO: add Coded Character Set ?
 // TODO: add Application Record Version ?
-case class ImageMetadata(
-  dateTaken:           Option[DateTime],
-  description:         Option[String],
-  credit:              Option[String],
-  byline:              Option[String],
-  bylineTitle:         Option[String],
-  title:               Option[String],
-  copyrightNotice:     Option[String],
-  copyright:           Option[String],
-  suppliersReference:  Option[String],
-  source:              Option[String],
-  specialInstructions: Option[String],
-  keywords:            List[String],
-  subLocation:         Option[String],
-  city:                Option[String],
-  state:               Option[String],
-  country:             Option[String]
-)
