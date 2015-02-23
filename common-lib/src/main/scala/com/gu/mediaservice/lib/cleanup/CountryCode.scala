@@ -1,4 +1,4 @@
-package lib.cleanup
+package com.gu.mediaservice.lib.cleanup
 
 import java.util.Locale
 import play.api.Logger
