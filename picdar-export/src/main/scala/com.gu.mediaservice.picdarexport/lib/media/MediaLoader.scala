@@ -8,7 +8,7 @@ import org.joda.time.format.ISODateTimeFormat
 import play.api.libs.json.Json
 
 import scala.concurrent.Future
-import com.gu.mediaservice.picdarexport.lib.ExecutionContexts.mediaService
+import com.gu.mediaservice.picdarexport.lib.ExecutionContexts.mediaLoader
 
 import scalaj.http.Http
 
