@@ -1,6 +1,5 @@
-package scala.lib.cleanup
+package com.gu.mediaservice.lib.cleanup
 
-import lib.cleanup.UseCanonicalGuardianCredit
 import org.scalatest.{FunSpec, Matchers}
 
 class UseCanonicalGuardianCreditTest extends FunSpec with Matchers with MetadataHelper {
