@@ -51,12 +51,18 @@ query.controller('SearchQueryCtrl',
 
     // we can't user dynamic values in the ng:true-value see:
     // https://docs.angularjs.org/error/ngModel/constexpr
-    // perhaps this functionality will change if we move to gmail type search e.g.
-    // "uploadedBy:anthony.trollope@***REMOVED***"
-    mediaApi.getSession().then(session => ctrl.user = session.user);
-    ctrl.uploadedByMe = !!$stateParams.uploadedBy;
-    $scope.$watch(() => ctrl.uploadedByMe, onValChange(newVal => {
-        ctrl.uploadedBy = newVal && ctrl.user.email;
+    mediaApi.getSession().then(session => {
+        ctrl.user = session.user;
+        ctrl.uploadedByMe = ctrl.uploadedBy === ctrl.user.email;
+    });
+
+    $scope.$watch(() => ctrl.uploadedByMe, onValChange(uploadedByMe => {
+        // uploadedByMe typeof boolean
+        if (uploadedByMe) {
+            ctrl.uploadedBy = ctrl.user.email;
+        } else {
+            delete ctrl.uploadedBy;
+        }
     }));
 
     function resetQueryAndFocus() {
