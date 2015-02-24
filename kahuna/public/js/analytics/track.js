@@ -23,6 +23,8 @@ track.factory('trackingService', ['trackingEnabled', function(trackingEnabled) {
     };
 }]);
 
+// convenience function to be used around the site allowing us to track before
+// we've initialised mixpanel
 track.factory('track', ['trackEvent', 'trackingService', function(trackEvent, trackingService) {
 
     return trackingService.enabled ? function track(event, opts) {
