@@ -5,8 +5,9 @@ import play.api.libs.json._
 import play.api.libs.functional.syntax._
 import org.joda.time.DateTime
 
+import lib.imaging.FileMetadata
 import com.gu.mediaservice.lib.formatting._
-import lib.imaging.{FileMetadata, ImageMetadata}
+import com.gu.mediaservice.model.ImageMetadata
 
 
 case class Image(id: String,

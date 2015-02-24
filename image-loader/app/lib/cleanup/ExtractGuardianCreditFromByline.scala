@@ -1,6 +1,6 @@
 package lib.cleanup
 
-import lib.imaging.ImageMetadata
+import com.gu.mediaservice.model.ImageMetadata
 
 object ExtractGuardianCreditFromByline extends MetadataCleaner {
 
