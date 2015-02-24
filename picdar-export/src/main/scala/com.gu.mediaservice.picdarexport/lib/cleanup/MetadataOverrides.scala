@@ -1,11 +1,27 @@
 package com.gu.mediaservice.picdarexport.lib.cleanup
 
+import com.gu.mediaservice.lib.cleanup.MetadataCleaners
 import com.gu.mediaservice.model.ImageMetadata
 
 
-object MetadataCleaners {
+object MetadataOverrides {
 
-  def cleanPicdarArtifacts(picdarMetadata: ImageMetadata, referenceMetadata: ImageMetadata): ImageMetadata = {
+  // FIXME: map config??
+  val metadataCleaners = new MetadataCleaners(Map())
+
+  def getOverrides(current: ImageMetadata, picdarOverrides: ImageMetadata): Option[ImageMetadata] = {
+    // Strip any Picdar-specific metadata artifacts
+    val picdarOverridesNoArtifacts = removePicdarArtifacts(picdarOverrides, current)
+
+    // Apply the canonical cleaners to the Picdar metadata
+    val cleanPicdarOverrides = metadataCleaners.clean(picdarOverridesNoArtifacts)
+
+    // Compare resulting metadata with current and only preserve overrides that differ (if any)
+    getNecessaryOverrides(current, cleanPicdarOverrides)
+  }
+
+
+  def removePicdarArtifacts(picdarMetadata: ImageMetadata, referenceMetadata: ImageMetadata): ImageMetadata = {
     val keywords = referenceMetadata.keywords
     picdarMetadata.copy(description = picdarMetadata.description.flatMap(excludesLinesContaining(keywords)))
   }
