@@ -23,10 +23,22 @@ track.factory('trackingService', ['trackingEnabled', function(trackingEnabled) {
     };
 }]);
 
-track.factory('track', ['$location', '$window', '$document', 'mixpanel', 'trackingService',
-                        function($location, $window, $document, mixpanel, trackingService) {
+track.factory('track', ['trackEvent', 'trackingService', function(trackEvent, trackingService) {
 
-    function track(event, opts) {
+    return trackingService.enabled ? function track(event, opts) {
+        if (trackingService.initialised) {
+            trackEvent(event, opts);
+        } else {
+            trackingService.queue.push(() => trackEvent(event, opts));
+        }
+    } : angular.noop;
+
+}]);
+
+track.factory('trackEvent', ['$location', '$window', '$document', 'mixpanel',
+                        function($location, $window, $document, mixpanel) {
+
+    return function trackEvent(event, opts) {
         var doc = $document[0];
         var { width: winX, height: winY } = $window.screen;
         var { clientWidth: docX, clientHeight: docY } = doc.documentElement;
@@ -40,18 +52,9 @@ track.factory('track', ['$location', '$window', '$document', 'mixpanel', 'tracki
             'Screen viewport Y': docY
         });
 
-        if (trackingService.enabled) {
-            mixpanel.track(event, finalOpts);
-        }
+        mixpanel.track(event, finalOpts);
     }
 
-    return function(event, opts) {
-        if (trackingService.initialised) {
-            track(event, opts);
-        } else {
-            trackingService.queue.push(() => track(event, opts));
-        }
-    };
 }]);
 
 track.run(['$rootScope', '$window', 'mixpanel', 'mixpanelToken', 'track', 'trackingService',
@@ -59,6 +62,7 @@ track.run(['$rootScope', '$window', 'mixpanel', 'mixpanelToken', 'track', 'track
 
     if (trackingService.enabled) {
         // Only init and track once session loaded
+        track('Page viewed')
         $rootScope.$on('events:user-loaded', (_, user) => {
             let {firstName, lastName, email} = user;
             mixpanel.init(mixpanelToken, email, { firstName, lastName, email });
