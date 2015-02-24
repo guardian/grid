@@ -7,7 +7,7 @@ export var track = angular.module('analytics.track', ['mixpanel']);
 // TODO: look into tidying the async flow. There might be a small chance of
 // `track` being called before the session is got.
 
-track.factory('trackingEnabled', ['mixpanelToken', function(mixpanelToken) {
+track.constant('trackingEnabled', ['mixpanelToken', function(mixpanelToken) {
     return angular.isString(mixpanelToken);
 }]);
 
