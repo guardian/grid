@@ -8,7 +8,7 @@ import com.amazonaws.services.dynamodbv2.document.spec.UpdateItemSpec
 import com.amazonaws.services.dynamodbv2.document.utils.ValueMap
 import com.amazonaws.services.dynamodbv2.model.ReturnValue
 import com.gu.mediaservice.lib.aws.DynamoDB
-import com.gu.mediaservice.picdarexport.lib.media.ImageMetadata
+import com.gu.mediaservice.model.ImageMetadata
 import com.gu.mediaservice.picdarexport.model.{DateRange, AssetRef}
 
 import org.joda.time.DateTime
