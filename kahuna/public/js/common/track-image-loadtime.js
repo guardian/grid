@@ -6,8 +6,8 @@ export var trackImageLoadtime = angular.module('kahuna.common.trackImageLoadtime
 ]);
 
 trackImageLoadtime.controller('TrackImageLoadtimeCtrl',
-                              ['$rootScope', '$window', 'track',
-                               function($rootScope, $window, track) {
+                              ['$rootScope', 'track',
+                               function($rootScope, track) {
     var ctrl = this;
 
     var id = ctrl.image.data.id;
@@ -18,10 +18,10 @@ trackImageLoadtime.controller('TrackImageLoadtimeCtrl',
             angular.extend({ 'Load state': state }, trackProps);
 
     // FIXME: not sure what best practise of retrieving Date is?
-    var timeFrom = time => $window.Date.now() - time;
-    var startTime = $window.Date.now();
+    var timeFrom = time => Date.now() - time;
+    var startTime = Date.now();
     var addTimerTo = (props, timer) =>
-            angular.extend({ 'Time to': timer || timeFrom(startTime) }, props);
+            angular.extend({ 'Duration': timer || timeFrom(startTime) }, props);
 
     ctrl.trackSuccess = trackSuccess;
     ctrl.trackError = trackError;
