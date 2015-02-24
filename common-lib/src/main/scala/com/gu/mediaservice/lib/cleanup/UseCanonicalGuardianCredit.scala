@@ -1,4 +1,4 @@
-package lib.cleanup
+package com.gu.mediaservice.lib.cleanup
 
 import com.gu.mediaservice.model.ImageMetadata
 
