@@ -1,6 +1,5 @@
-package scala.lib.cleanup
+package com.gu.mediaservice.lib.cleanup
 
-import lib.cleanup.CapitaliseByline
 import org.scalatest.{FunSpec, Matchers}
 
 
