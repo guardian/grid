@@ -28,6 +28,7 @@ object Config {
   // Configure concurrency (thread pool size) of different services
   val concurrencyPicdarAsset = properties("concurrency.picdar.asset").toInt
   val concurrencyMediaLoader = properties("concurrency.media.loader").toInt
+  val concurrencyMediaApi    = properties("concurrency.media.api").toInt
 
   // Configure timeouts for all services
   private val defaultConnectionTimeout =  5000 // ms
