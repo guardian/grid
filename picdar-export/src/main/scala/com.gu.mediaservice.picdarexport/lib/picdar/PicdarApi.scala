@@ -2,7 +2,7 @@ package com.gu.mediaservice.picdarexport.lib.picdar
 
 import java.net.URI
 
-import com.gu.mediaservice.picdarexport.lib.media.ImageMetadata
+import com.gu.mediaservice.model.ImageMetadata
 import com.gu.mediaservice.picdarexport.lib.{Config, LogHelper, HttpClient}
 import com.gu.mediaservice.picdarexport.model.{AssetRef, Asset, DateRange}
 import org.joda.time.DateTime
@@ -114,6 +114,7 @@ trait PicdarApi extends HttpClient with PicdarInterface with LogHelper {
       // FIXME: Job_Description? Keywords  File_Name? Location Warnings Warning_Info
       // FIXME: People Picture_Attributes Temporary_Notes Copyright_Group (opt? eg Agencies - contract)
       val metadata = ImageMetadata(
+        dateTaken           = None,
         description         = extractField(record, "Caption"),
         credit              = extractField(record, "Provider"),
         byline              = extractField(record, "Photographer"),
@@ -124,7 +125,7 @@ trait PicdarApi extends HttpClient with PicdarInterface with LogHelper {
         suppliersReference  = extractField(record, "Reference no."),
         source              = extractField(record, "Source"),
         specialInstructions = None,
-        keywords            = None,
+        keywords            = List(),
         subLocation         = None,
         city                = None,
         state               = None,

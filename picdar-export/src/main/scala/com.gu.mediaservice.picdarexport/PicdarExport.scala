@@ -2,6 +2,7 @@ package com.gu.mediaservice.picdarexport
 
 import java.net.URI
 
+import com.gu.mediaservice.model.ImageMetadata
 import com.gu.mediaservice.picdarexport.lib.cleanup.MetadataCleaners
 import com.gu.mediaservice.picdarexport.lib.db.ExportDynamoDB
 import com.gu.mediaservice.picdarexport.lib.media._

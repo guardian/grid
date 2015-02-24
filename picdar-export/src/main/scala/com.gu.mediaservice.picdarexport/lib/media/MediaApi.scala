@@ -2,6 +2,8 @@ package com.gu.mediaservice.picdarexport.lib.media
 
 import java.net.URI
 
+import com.gu.mediaservice.lib.formatting._
+import com.gu.mediaservice.model.ImageMetadata
 import play.api.libs.json._
 import play.api.libs.functional.syntax._
 
@@ -30,33 +32,6 @@ object Image {
       (__ \ "originalMetadata").read[ImageMetadata] ~
       (__ \ "userMetadata" \ "data" \ "metadata" \ "uri").read[URI]
     )(Image.apply _)
-}
-
-
-// FIXME: to be shared via common-lib
-case class ImageMetadata(
-//  dateTaken:           Option[DateTime],
-  description:         Option[String],
-  credit:              Option[String],
-  byline:              Option[String],
-  bylineTitle:         Option[String],
-  title:               Option[String],
-  copyrightNotice:     Option[String],
-  copyright:           Option[String],
-  suppliersReference:  Option[String],
-  source:              Option[String],
-  specialInstructions: Option[String],
-// FIXME: leave it as a list, improve parsing
-  keywords:            Option[List[String]],
-  subLocation:         Option[String],
-  city:                Option[String],
-  state:               Option[String],
-  country:             Option[String]
-)
-
-object ImageMetadata {
-  implicit val ImageMetadataReads: Reads[ImageMetadata] = Json.reads[ImageMetadata]
-  implicit val ImageMetadataWrites: Writes[ImageMetadata] = Json.writes[ImageMetadata]
 }
 
 
@@ -94,6 +69,9 @@ trait MediaApi extends LogHelper {
   def overrideMetadata(metadataOverrideUri: URI, metadata: ImageMetadata): Future[Unit] = Future {
     logDuration("MediaApi.overrideMetadata") {
       val metadataString = Json.stringify(Json.toJson(ImageMetadataEntity(metadata)))
+      // FIXME: horrible hack, find a way to omit empty lists
+      val metadataStringNoKeywords = metadataString.replace(""","keywords":[]""", "")
+      println(metadataStringNoKeywords)
       val response = Http(metadataOverrideUri.toString).
         header("X-Gu-Media-Key", mediaApiKey).
         timeout(mediaApiConnTimeout, mediaApiReadTimeout).
@@ -101,7 +79,7 @@ trait MediaApi extends LogHelper {
         // it's tiny anyway
         compress(false).
         header("Content-Type", "application/json").
-        postData(metadataString).
+        postData(metadataStringNoKeywords).
         method("put").
         asString
 
