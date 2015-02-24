@@ -14,7 +14,7 @@ track.factory('trackingEnabled', ['mixpanelToken', function(mixpanelToken) {
 track.factory('track', ['$location', '$window', '$document', 'mixpanel', 'trackingEnabled',
                         function($location, $window, $document, mixpanel, trackingEnabled) {
 
-    function capitiliseKeys(obj = {}) {
+    function capitaliseKeys(obj = {}) {
         // Force this as it's nicer to read in mixpanel and follows their convention
         var capObj= {};
         Object.keys(obj).forEach(k => {
@@ -27,7 +27,7 @@ track.factory('track', ['$location', '$window', '$document', 'mixpanel', 'tracki
         var doc = $document[0];
         var { width: winX, height: winY } = $window.screen;
         var { clientWidth: docX, clientHeight: docY } = doc.documentElement;
-        var finalOpts = angular.extend({}, capitiliseKeys(opts), {
+        var finalOpts = angular.extend({}, capitaliseKeys(opts), {
             'Url': $location.url(),
             'Screen resolution': winX + ' x ' + winY,
             'Screen resolution X': winX,
