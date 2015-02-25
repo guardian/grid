@@ -17,7 +17,18 @@ object MetadataOverrides {
     val cleanPicdarOverrides = metadataCleaners.clean(picdarOverridesNoArtifacts)
 
     // Compare resulting metadata with current and only preserve overrides that differ (if any)
-    getNecessaryOverrides(current, cleanPicdarOverrides)
+    val necessaryOverrides = getNecessaryOverrides(current, cleanPicdarOverrides)
+
+    // Apply any recovery
+    necessaryOverrides.map(includeFallbackOverrides(current, _))
+  }
+
+  def includeFallbackOverrides(current: ImageMetadata, overrides: ImageMetadata): ImageMetadata = current.credit match {
+    // The image has no credit, try harder to provide one as override:
+    // Picdar users use the "copyright" field to hold the agency etc; if no "credit", use "copyright" as "credit"
+    case None => overrides.copy(credit = overrides.credit orElse overrides.copyright)
+    // If the image has a credit, leave it to the normal overrides logic
+    case _    => overrides
   }
 
 
@@ -35,8 +46,6 @@ object MetadataOverrides {
     Option(descriptionNoKeywords).filterNot(_.isEmpty)
   }
 
-
-  // FIXME: copyright vs credit?
 
   def getNecessaryOverrides(current: ImageMetadata, overrides: ImageMetadata): Option[ImageMetadata] = {
     val necessaryOverrides = overrides.copy(
