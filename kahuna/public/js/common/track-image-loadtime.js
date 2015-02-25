@@ -20,7 +20,7 @@ trackImageLoadtime.controller('TrackImageLoadtimeCtrl',
         'Width':     width,
         'Height':    height,
         'File size': size,
-        'Location':  ctrl.location
+        'Image location':  ctrl.location
     };
     var propsWithState = state =>
             angular.extend({ 'Load state': state }, trackProps);
