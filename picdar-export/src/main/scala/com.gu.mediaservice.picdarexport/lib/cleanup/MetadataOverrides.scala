@@ -38,26 +38,49 @@ object MetadataOverrides {
 
   def getNecessaryOverrides(current: ImageMetadata, overrides: ImageMetadata): Option[ImageMetadata] = {
     val necessaryOverrides = overrides.copy(
-      title              = overrides.title.filterNot(Some(_) == current.title),
-      description        = overrides.description.filterNot(Some(_) == current.description),
-      copyright          = overrides.copyright.filterNot(Some(_) == current.copyright),
-      byline             = overrides.byline.filterNot(Some(_) == current.byline),
-      credit             = overrides.credit.filterNot(Some(_) == current.credit),
-      source             = overrides.source.filterNot(Some(_) == current.source),
-      suppliersReference = overrides.suppliersReference.filterNot(Some(_) == current.suppliersReference)
+      dateTaken           = necessaryOverride(overrides.dateTaken,           current.dateTaken),
+      description         = necessaryOverride(overrides.description,         current.description),
+      credit              = necessaryOverride(overrides.credit,              current.credit),
+      byline              = necessaryOverride(overrides.byline,              current.byline),
+      bylineTitle         = necessaryOverride(overrides.bylineTitle,         current.bylineTitle),
+      title               = necessaryOverride(overrides.title,               current.title),
+      copyrightNotice     = necessaryOverride(overrides.copyrightNotice,     current.copyrightNotice),
+      copyright           = necessaryOverride(overrides.copyright,           current.copyright),
+      suppliersReference  = necessaryOverride(overrides.suppliersReference,  current.suppliersReference),
+      source              = necessaryOverride(overrides.source,              current.source),
+      specialInstructions = necessaryOverride(overrides.specialInstructions, current.specialInstructions),
+      keywords            = if (overrides.keywords != current.keywords) overrides.keywords else List(),
+      subLocation         = necessaryOverride(overrides.subLocation,         current.subLocation),
+      city                = necessaryOverride(overrides.city,                current.city),
+      state               = necessaryOverride(overrides.state,               current.state),
+      country             = necessaryOverride(overrides.country,             current.country)
     )
     Some(necessaryOverrides).filterNot(emptyOverrides)
   }
 
+  private def necessaryOverride[T](overrideValue: Option[T], currentValue: Option[T]): Option[T] = {
+    overrideValue.filterNot(Some(_) == currentValue)
+  }
+
   private def emptyOverrides(overrides: ImageMetadata): Boolean = {
-    val overrideProps = List(
-      overrides.title,
+    // Fun duck-typing magic
+    val overrideProps = Seq[{ def isEmpty: Boolean }](
+      overrides.dateTaken,
       overrides.description,
-      overrides.copyright,
-      overrides.byline,
       overrides.credit,
+      overrides.byline,
+      overrides.bylineTitle,
+      overrides.title,
+      overrides.copyrightNotice,
+      overrides.copyright,
+      overrides.suppliersReference,
       overrides.source,
-      overrides.suppliersReference
+      overrides.specialInstructions,
+      overrides.keywords,
+      overrides.subLocation,
+      overrides.city,
+      overrides.state,
+      overrides.country
     )
     overrideProps.forall(_.isEmpty)
   }
