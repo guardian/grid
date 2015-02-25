@@ -1,5 +1,7 @@
 package com.gu.mediaservice.picdarexport.lib.cleanup
 
+import scala.language.reflectiveCalls
+
 import com.gu.mediaservice.lib.cleanup.MetadataCleaners
 import com.gu.mediaservice.model.ImageMetadata
 
