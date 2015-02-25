@@ -1132,3 +1132,10 @@ FIXME: what to do with touch devices
 .drop-menu__items--right {
     right: 0;
 }
+
+/* ==========================================================================
+   Heard not seen
+   ========================================================================== */
+.tracking-image {
+    display: none;
+}
