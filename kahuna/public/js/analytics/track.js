@@ -64,7 +64,6 @@ track.run(['$rootScope', '$window', 'mixpanel', 'mixpanelToken', 'track', 'track
 
     if (trackingService.enabled) {
         // Only init and track once session loaded
-        track('Page viewed')
         $rootScope.$on('events:user-loaded', (_, user) => {
             let {firstName, lastName, email} = user;
             mixpanel.init(mixpanelToken, email, { firstName, lastName, email });
