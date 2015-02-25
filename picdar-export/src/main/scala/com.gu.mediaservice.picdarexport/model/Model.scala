@@ -2,6 +2,7 @@ package com.gu.mediaservice.picdarexport.model
 
 import java.net.URI
 
+import com.gu.mediaservice.model.ImageMetadata
 import org.joda.time.DateTime
 
 case class Asset(
@@ -9,7 +10,7 @@ case class Asset(
   file: URI,
   created: DateTime,
   modified: Option[DateTime],
-  metadata: Map[String, String],
+  metadata: ImageMetadata,
   infoUri: Option[URI]
 )
 
