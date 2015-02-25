@@ -71,7 +71,6 @@ trait MediaApi extends LogHelper {
       val metadataString = Json.stringify(Json.toJson(ImageMetadataEntity(metadata)))
       // FIXME: horrible hack, find a way to omit empty lists
       val metadataStringNoKeywords = metadataString.replace(""","keywords":[]""", "")
-      println(metadataStringNoKeywords)
       val response = Http(metadataOverrideUri.toString).
         header("X-Gu-Media-Key", mediaApiKey).
         timeout(mediaApiConnTimeout, mediaApiReadTimeout).
