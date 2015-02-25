@@ -62,17 +62,15 @@ track.factory('trackEvent', ['$location', '$window', '$document', 'mixpanel',
 track.run(['$rootScope', '$window', 'mixpanel', 'mixpanelToken', 'track', 'trackingService',
            function($rootScope, $window, mixpanel, mixpanelToken, track, trackingService) {
 
-    if (trackingService.enabled) {
-        // Only init and track once session loaded
-        track('Page viewed')
-        $rootScope.$on('events:user-loaded', (_, user) => {
-            let {firstName, lastName, email} = user;
-            mixpanel.init(mixpanelToken, email, { firstName, lastName, email });
+    // Only init and track once session loaded
+    $rootScope.$on('events:user-loaded', (_, user) => {
+        let {firstName, lastName, email} = user;
+        mixpanel.init(mixpanelToken, email, { firstName, lastName, email });
 
-            trackingService.initialised = true;
-            trackingService.runQueue();
+        trackingService.initialised = true;
+        trackingService.runQueue();
 
-            track('Page viewed');
-        });
-    }
+        track('Page viewed');
+    });
+    
 }]);
