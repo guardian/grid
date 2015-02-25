@@ -15,12 +15,12 @@ trackImageLoadtime.controller('TrackImageLoadtimeCtrl',
 
     var { mimeType, dimensions: { width, height }, size } = ctrl.image.data.source;
     var trackProps = {
-        'Image ID':  id,
-        'Mime type': mimeType,
-        'Width':     width,
-        'Height':    height,
-        'File size': size,
-        'Image location':  ctrl.location
+        'Image ID':       id,
+        'Image width':    width,
+        'Image height':   height,
+        'Image location': ctrl.location,
+        'Mime type':      mimeType,
+        'File size':      size
     };
     var propsWithState = state =>
             angular.extend({ 'Load state': state }, trackProps);
