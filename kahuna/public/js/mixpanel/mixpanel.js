@@ -29,8 +29,9 @@ mp.factory('mixpanel', ['$window', 'mixpanelEnabled', function($window, mixpanel
             '$email': email,
             'Browser version': browser.major
         });
+
         // also record browser version alongside each event
-        mixpanel.register(angular.extend({
+        mixpanel.register_once(angular.extend({
             'Browser version': browser.major
         }, registerProps));
     }
