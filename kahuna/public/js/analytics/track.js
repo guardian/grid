@@ -4,17 +4,9 @@ import '../mixpanel/mixpanel';
 
 export var track = angular.module('analytics.track', ['mixpanel']);
 
-// TODO: look into tidying the async flow. There might be a small chance of
-// `track` being called before the session is got.
-
-track.constant('mixpanelEnabled', ['mixpanelToken', function(mixpanelToken) {
-    return angular.isString(mixpanelToken);
-}]);
-
-track.factory('trackingService', ['mixpanelEnabled', 'trackEvent', function(mixpanelEnabled, trackEvent) {
+track.factory('trackingService', ['trackEvent', function(trackEvent) {
     var queue = [];
     var initialised = false;
-    var enabled = mixpanelEnabled;
 
     // queue up results before we've started
     var track = (event, opts) => {
@@ -26,13 +18,12 @@ track.factory('trackingService', ['mixpanelEnabled', 'trackEvent', function(mixp
     };
 
     return {
-        isEnabled: () => enabled,
         start: function() {
             queue.forEach(fn => fn());
             queue = [];
             initialised = true;
         },
-        track: enabled ? track : angular.noop
+        track: track
     };
 
 }]);
@@ -45,10 +36,9 @@ track.factory('track', ['trackingService', function(trackingService) {
 }]);
 
 track.factory('trackEvent', ['$location', '$window', '$document', 'mixpanel',
-                        function($location, $window, $document, mixpanel) {
+                             function($location, $window, $document, mixpanel) {
 
     return function trackEvent(event, opts) {
-        console.log(event)
         var doc = $document[0];
         var { width: winX, height: winY } = $window.screen;
         var { clientWidth: docX, clientHeight: docY } = doc.documentElement;
@@ -62,26 +52,25 @@ track.factory('trackEvent', ['$location', '$window', '$document', 'mixpanel',
             'Screen viewport Y': docY
         });
 
-        mixpanel.track(event, finalOpts);
-    }
+        if (mixpanel.isEnabled()) {
+            mixpanel.track(event, finalOpts);
+        }
+    };
 
 }]);
 
-track.run(['$rootScope', '$window', 'mixpanel', 'mixpanelToken', 'track', 'trackingService',
-           function($rootScope, $window, mixpanel, mixpanelToken, track, trackingService) {
+track.run(['$rootScope', '$window', 'mixpanelToken', 'mixpanel', 'trackingService',
+            function($rootScope, $window, mixpanelToken, mixpanel, trackingService) {
 
-    if (trackingService.isEnabled()) {
-        track('Page viewed');
+    // Only init and track once session loaded
+    $rootScope.$on('events:user-loaded', (_, user) => {
+        let {firstName, lastName, email} = user;
 
-        // Only init and track once session loaded
-        $rootScope.$on('events:user-loaded', (_, user) => {
-            let {firstName, lastName, email} = user;
+        if (mixpanel.isEnabled()) {
             mixpanel.init(mixpanelToken, email, { firstName, lastName, email });
+        }
 
-            trackingService.start();
-
-            track('Page viewed');
-        });
-    }
+        trackingService.start();
+    });
 
 }]);
