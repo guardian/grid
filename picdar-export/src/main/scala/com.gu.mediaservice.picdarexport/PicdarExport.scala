@@ -2,8 +2,9 @@ package com.gu.mediaservice.picdarexport
 
 import java.net.URI
 
+import com.gu.mediaservice.picdarexport.lib.cleanup.MetadataCleaners
 import com.gu.mediaservice.picdarexport.lib.db.ExportDynamoDB
-import com.gu.mediaservice.picdarexport.lib.media.MediaLoader
+import com.gu.mediaservice.picdarexport.lib.media._
 import com.gu.mediaservice.picdarexport.lib.picdar.{PicdarError, PicdarClient}
 import com.gu.mediaservice.picdarexport.lib.{Config, MediaConfig}
 import com.gu.mediaservice.picdarexport.model._
@@ -17,7 +18,7 @@ import org.joda.time.DateTime
 class ArgumentError(message: String) extends Error(message)
 
 
-class ExportManager(picdar: PicdarClient, loader: MediaLoader) {
+class ExportManager(picdar: PicdarClient, loader: MediaLoader, mediaApi: MediaApi) {
 
   def queryAndIngest(dateField: String, dateRange: DateRange, queryRange: Option[Range]) =
     for {
@@ -31,6 +32,27 @@ class ExportManager(picdar: PicdarClient, loader: MediaLoader) {
       data   <- picdar.getAssetData(assetUri)
       uri    <- loader.upload(data, picdarUrn, uploadTime)
     } yield uri
+
+  def overrideMetadata(mediaUri: URI, picdarMetadata: ImageMetadata): Future[Boolean] =
+    for {
+      image              <- mediaApi.getImage(mediaUri)
+      currentMetadata     = image.metadata
+      cleanPicdarMetadata = MetadataCleaners.cleanPicdarArtifacts(picdarMetadata, currentMetadata)
+      // FIXME: apply MetadataCleaners from image-loader?
+      overridesOpt        = MetadataCleaners.getNecessaryOverrides(currentMetadata, cleanPicdarMetadata)
+      overridden         <- applyMetadataOverridesIfAny(image, overridesOpt)
+    } yield overridden
+
+
+  private def applyMetadataOverrides(image: Image, overrides: ImageMetadata): Future[Unit] = {
+    mediaApi.overrideMetadata(image.metadataOverrideUri, overrides)
+  }
+
+  private def applyMetadataOverridesIfAny(image: Image, overrides: Option[ImageMetadata]): Future[Boolean] = overrides match {
+    case Some(actualOverrides) => applyMetadataOverrides(image, actualOverrides).map(_ => true)
+    case None => Future.successful(false)
+  }
+
 
   private def ingestAsset(asset: Asset) =
     ingest(asset.file, asset.urn, asset.created)
@@ -56,6 +78,10 @@ trait ExportManagerProvider {
     override val loaderEndpointUrl = config.loaderUrl
   }
 
+  def mediaApiInstance(config: MediaConfig) = new MediaApi {
+    override val mediaApiKey = config.apiKey
+  }
+
   def getPicdar(system: String) = system match {
     case "desk"    => picdarDesk
     case "library" => picdarLib
@@ -63,9 +89,10 @@ trait ExportManagerProvider {
   }
 
   def getLoader(env: String) = loaderInstance(Config.mediaConfig(env))
+  def getMediaApi(env: String) = mediaApiInstance(Config.mediaConfig(env))
 
   def getExportManager(picdarSystem: String, mediaEnv: String) =
-    new ExportManager(getPicdar(picdarSystem), getLoader(mediaEnv))
+    new ExportManager(getPicdar(picdarSystem), getLoader(mediaEnv), getMediaApi(mediaEnv))
 
   def getDynamo(env: String) = {
     new ExportDynamoDB(Config.awsCredentials(env), Config.dynamoRegion, Config.picdarExportTable(env))
@@ -129,7 +156,7 @@ object ExportApp extends App with ExportManagerProvider with ArgumentHelpers wit
           |modified: ${asset.modified getOrElse ""}
           |infoUri: ${asset.infoUri getOrElse ""}
           |metadata:
-          |${dumpMetadata(asset.metadata)}
+          |${asset.metadata}
         """.stripMargin
         )
       }
@@ -291,6 +318,36 @@ object ExportApp extends App with ExportManagerProvider with ArgumentHelpers wit
     }
 
 
+    // TODO: allow no date range
+    // TODO: allow no range
+    case "+override" :: env :: date :: rangeStr :: Nil => terminateAfter {
+      val dynamo = getDynamo(env)
+      val range = parseQueryRange(rangeStr)
+      dynamo.scanIngestedNotOverridden(parseDateRange(date)) flatMap { assets =>
+        // FIXME: meh code
+        val rangeStart = range.map(_.start) getOrElse 0
+        val rangeEnd = range.map(_.end) getOrElse assets.size
+        val rangeLen = rangeEnd - rangeStart
+
+        val updates = assets.drop(rangeStart).take(rangeLen).map { asset =>
+          // TODO: if no mediaUri, skip
+          // FIXME: HACKK!
+          val mediaUri = asset.mediaUri.get
+          val metadata = asset.picdarMetadata.get
+          getExportManager("library", env).overrideMetadata(mediaUri, metadata) flatMap { overridden =>
+            Logger.info(s"Overridden ${mediaUri} metadata ($overridden)")
+            //dynamo.recordOverridden(asset.picdarUrn, asset.picdarCreated, overridden)
+            Future.successful()
+          } recover { case e: Throwable =>
+            Logger.warn(s"Metadata override error for ${asset.picdarUrn}: $e")
+            e.printStackTrace()
+          }
+        }
+        Future.sequence(updates)
+      }
+    }
+
+
     case "+clear" :: env :: Nil => terminateAfter {
       val dynamo = getDynamo(env)
       dynamo.delete(DateRange.all) map { rows =>
@@ -318,6 +375,7 @@ object ExportApp extends App with ExportManagerProvider with ArgumentHelpers wit
         |       +load   <dev|test> <desk|library> <created|modified|taken> <date> [range]
         |       +fetch  <dev|test> <desk|library> [dateLoaded] [range]
         |       +ingest <dev|test> [dateLoaded] [range]
+        |       +override <dev|test> [dateLoaded] [range]
         |       +clear  <dev|test> [dateLoaded]
       """.stripMargin
     )

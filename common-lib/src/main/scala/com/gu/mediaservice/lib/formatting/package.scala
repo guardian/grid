@@ -20,7 +20,7 @@ package object formatting {
       withZoneUTC
   }
 
-  private val dateTimeFormat = ISODateTimeFormat.dateTimeNoMillis.withZoneUTC
+  val dateTimeFormat = ISODateTimeFormat.dateTimeNoMillis.withZoneUTC
 
   def printDateTime(date: DateTime): String = dateTimeFormat.print(date)
   def printOptDateTime(date: Option[DateTime]): Option[String] = date.map(printDateTime)
