@@ -32,7 +32,7 @@
 
         <div class="image-info">
             <div ng:if="ctrl.image.data.cost == 'pay'"
-                 class="image-info__group cost cost--{{ctrl.image.data.cost}}">
+                 class="image-info__group cost cost--pay">
                 pay to use
             </div>
 
@@ -71,7 +71,7 @@
                     in
                     <span ng:repeat="prop in ['subLocation', 'city', 'state', 'country']" ng:if="ctrl.metadata[prop]">
                         <span class="metadata-line__info">
-                            <a ui:sref="search.results({query: (ctrl.metadata[prop] | queryFilter:locationFieldMap[prop])})">{{ctrl.metadata[prop]}}</a><!-- no whitespace before comma
+                            <a ui:sref="search.results({query: (ctrl.metadata[prop] | queryFilter:ctrl.locationFieldMap[prop])})">{{ctrl.metadata[prop]}}</a><!-- no whitespace before comma
                         --></span><span ng:if="! $last">,</span>
                     </span>
                 </div>

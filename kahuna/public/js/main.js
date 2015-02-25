@@ -103,6 +103,11 @@ kahuna.run(['$rootScope', 'globalErrors', function($rootScope, globalErrors) {
     $rootScope.$on('pandular:re-establishment:fail', () => globalErrors.trigger('unauthorised'));
 }]);
 
+
+kahuna.run(['track', function(track) {
+    track('Page viewed');
+}]);
+
 /**
  * Takes a resources and returns a promise of the entity data (uri,
  * data) as a plain JavaScript object.
