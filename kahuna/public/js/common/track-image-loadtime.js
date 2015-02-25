@@ -11,36 +11,41 @@ trackImageLoadtime.controller('TrackImageLoadtimeCtrl',
     var ctrl = this;
 
     var id = ctrl.image.data.id;
+    var trackEventName = 'Image loading';
 
     var { mimeType, dimensions: { width, height }, size } = ctrl.image.data.source;
-    var trackProps = { 'Image ID': id, mimeType, width, height, size, type: ctrl.type };
+    var trackProps = {
+        'Image ID':  id,
+        'Mime type': mimeType,
+        'Width':     width,
+        'Height':    height,
+        'File size': size,
+        'Location':  ctrl.location
+    };
     var propsWithState = state =>
             angular.extend({ 'Load state': state }, trackProps);
 
     // FIXME: not sure what best practise of retrieving Date is?
     var timeFrom = time => Date.now() - time;
     var startTime = Date.now();
-    var addTimerTo = (props, timer) =>
-            angular.extend({ 'Duration': timer || timeFrom(startTime) }, props);
+    var addTimerTo = props =>
+        angular.extend({ 'Duration': timeFrom(startTime) }, props);
 
     ctrl.trackSuccess = trackSuccess;
     ctrl.trackError = trackError;
 
-    // TODO: Remove this once `track` can deal with this
-    $rootScope.$on('events:track-loaded', trackStart);
+    trackStart();
 
     function trackStart() {
-        // We use 0 here as it might not be as we rely on the `track-loaded` event
-        // This would be inaccurate and just make the stats odd.
-        track('Image Loading', addTimerTo(propsWithState('start'), 0));
+        track(trackEventName, addTimerTo(propsWithState('start')));
     }
 
     function trackSuccess() {
-        track('Image Loading', addTimerTo(propsWithState('success')));
+        track(trackEventName, addTimerTo(propsWithState('success')));
     }
 
     function trackError() {
-        track('Image Loading', addTimerTo(propsWithState('error')));
+        track(trackEventName, addTimerTo(propsWithState('error')));
     }
 
 }]);
@@ -53,7 +58,7 @@ trackImageLoadtime.directive('gridTrackImageLoadtime', [function() {
         bindToController: true,
         scope: {
             image: '=gridTrackImage',
-            type: '@gridTrackImageType'
+            location: '@gridTrackImageLocation'
         },
         link: (_, element, __, ctrl) => {
             element.on('load', ctrl.trackSuccess);
