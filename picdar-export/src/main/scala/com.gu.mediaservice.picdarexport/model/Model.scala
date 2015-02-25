@@ -2,7 +2,7 @@ package com.gu.mediaservice.picdarexport.model
 
 import java.net.URI
 
-import com.gu.mediaservice.picdarexport.lib.media.ImageMetadata
+import com.gu.mediaservice.model.ImageMetadata
 import org.joda.time.DateTime
 
 case class Asset(
