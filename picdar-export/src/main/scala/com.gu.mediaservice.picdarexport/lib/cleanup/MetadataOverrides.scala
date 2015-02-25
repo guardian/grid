@@ -11,7 +11,7 @@ object MetadataOverrides {
 
   def getOverrides(current: ImageMetadata, picdarOverrides: ImageMetadata): Option[ImageMetadata] = {
     // Strip any Picdar-specific metadata artifacts
-    val picdarOverridesNoArtifacts = removePicdarArtifacts(picdarOverrides, current)
+    val picdarOverridesNoArtifacts = removePicdarArtifacts(current, picdarOverrides)
 
     // Apply the canonical cleaners to the Picdar metadata
     val cleanPicdarOverrides = metadataCleaners.clean(picdarOverridesNoArtifacts)
@@ -21,9 +21,11 @@ object MetadataOverrides {
   }
 
 
-  def removePicdarArtifacts(picdarMetadata: ImageMetadata, referenceMetadata: ImageMetadata): ImageMetadata = {
-    val keywords = referenceMetadata.keywords
-    picdarMetadata.copy(description = picdarMetadata.description.flatMap(excludesLinesContaining(keywords)))
+  def removePicdarArtifacts(current: ImageMetadata, picdarMetadata: ImageMetadata): ImageMetadata = {
+    picdarMetadata.copy(
+      // Picdar appends the keywords to the description - we strip that to recover the original description
+      description = picdarMetadata.description.flatMap(excludesLinesContaining(current.keywords))
+    )
   }
 
   private def excludesLinesContaining(keywords: List[String])(description: String): Option[String] = {
