@@ -1,7 +1,6 @@
-package scala.lib.cleanup
+package com.gu.mediaservice.lib.cleanup
 
 import org.scalatest.{Matchers, FunSpec}
-import lib.cleanup.DropRedundantTitle
 
 class DropRedundantTitleTest extends FunSpec with Matchers with MetadataHelper {
 

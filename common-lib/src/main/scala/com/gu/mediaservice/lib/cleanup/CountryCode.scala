@@ -1,9 +1,9 @@
-package lib.cleanup
+package com.gu.mediaservice.lib.cleanup
 
 import java.util.Locale
 import play.api.Logger
 
-import lib.imaging.ImageMetadata
+import com.gu.mediaservice.model.ImageMetadata
 
 object CountryCode extends MetadataCleaner {
 
