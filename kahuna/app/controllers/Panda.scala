@@ -1,6 +1,7 @@
 package controllers
 
 import lib.Config
+import org.joda.time.DateTime
 import play.api.libs.json.Json
 import play.api.mvc.{Action, Controller}
 import com.gu.mediaservice.lib.auth.PanDomainAuthActions
@@ -28,6 +29,19 @@ object Panda extends Controller with PanDomainAuthActions {
   def doLogin = AuthAction { req =>
     // Note: returning NoContent as iframe content seems to make browsers unhappy
     Ok("logged in")
+  }
+
+  def loginStatus = Action { request =>
+    val (status: String, expires: Long, gracePeriod: Long) = readAuthenticatedUser(request).map { user =>
+      val timeToExpiry = user.expires - DateTime.now().getMillis
+      ("authenticated", timeToExpiry, timeToExpiry + apiGracePeriod)
+    }.getOrElse(("expired", 0, 0))
+
+    Ok(Json.obj(
+      "status" -> status,
+      "expires" -> expires,
+      "gracePeriod" -> gracePeriod)
+    )
   }
 
   def oauthCallback = Action.async { implicit request =>
