@@ -35,10 +35,11 @@ object Panda extends Controller with PanDomainAuthActions {
     val (status: String, expires: Long, gracePeriod: Long) = readAuthenticatedUser(request).map { user =>
       val timeToExpiry = user.expires - DateTime.now().getMillis
       ("authenticated", timeToExpiry, timeToExpiry + apiGracePeriod)
-    }.getOrElse(("expired", 0, 0))
+    }.getOrElse(("unauthenticated", 0, 0))
 
     Ok(Json.obj(
       "status" -> status,
+      "isExpired" -> (expires < 0),
       "expires" -> expires,
       "gracePeriod" -> gracePeriod)
     )
