@@ -19,6 +19,7 @@ import './analytics/track';
 import './sentry/sentry';
 import './common/index';
 import './errors/global';
+import './errors/codes';
 
 // TODO: move to an async config to remove deps on play
 var apiLink = document.querySelector('link[rel="media-api-uri"]');
@@ -51,7 +52,8 @@ var kahuna = angular.module('kahuna', [
     'kahuna.services.api',
     'kahuna.directives',
     'kahuna.common',
-    'kahuna.errors.global'
+    'kahuna.errors.global',
+    'kahuna.errors.codes'
 ]);
 
 
@@ -87,10 +89,12 @@ kahuna.config(['$httpProvider', function($httpProvider) {
     $httpProvider.interceptors.push('httpUnauthorisedInterceptor');
 }]);
 
-kahuna.factory('httpUnauthorisedInterceptor', ['$q', '$rootScope', function($q, $rootScope) {
+kahuna.factory('httpUnauthorisedInterceptor',
+               ['$q', '$rootScope', 'errorCodes',
+                function($q, $rootScope, errorCodes) {
     return {
         responseError: function(response) {
-            if (response.status === 401) {
+            if (response.status === errorCodes.unauthorised) {
                 $rootScope.$emit('events:error:unauthorised');
             }
             return $q.reject(response);
@@ -98,9 +102,23 @@ kahuna.factory('httpUnauthorisedInterceptor', ['$q', '$rootScope', function($q, 
     };
 }]);
 
-kahuna.run(['$rootScope', 'globalErrors', function($rootScope, globalErrors) {
+// global errors UI
+kahuna.run(['$rootScope', 'globalErrors',
+            function($rootScope, globalErrors) {
+
     $rootScope.$on('events:error:unauthorised', () => globalErrors.trigger('unauthorised'));
     $rootScope.$on('pandular:re-establishment:fail', () => globalErrors.trigger('unauthorised'));
+}]);
+
+// tracking errors
+kahuna.run(['$rootScope', 'errorCodes', 'track',
+            function($rootScope, errorCodes, track) {
+
+    $rootScope.$on('events:error:unauthorised', () =>
+        track('Authentication error', { 'Error code': errorCodes.unauthorised }));
+
+    $rootScope.$on('pandular:re-establishment:fail', () =>
+        track('Authentication error', { 'Error code': errorCodes.authExpired }));
 }]);
 
 
