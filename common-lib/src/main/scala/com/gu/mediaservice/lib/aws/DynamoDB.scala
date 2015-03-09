@@ -7,7 +7,7 @@ import com.amazonaws.services.dynamodbv2.document.{DynamoDB => AwsDynamoDB, Upda
 import com.amazonaws.services.dynamodbv2.document.spec.{GetItemSpec, UpdateItemSpec}
 import com.amazonaws.services.dynamodbv2.document.utils.ValueMap
 import com.amazonaws.services.dynamodbv2.model.ReturnValue
-import play.api.libs.json.{JsValue, JsObject, Json}
+import play.api.libs.json._
 
 import scala.concurrent.{ExecutionContext, Future}
 import scalaz.syntax.id._
@@ -43,9 +43,11 @@ class DynamoDB(credentials: AWSCredentials, region: Region, tableName: String) {
     )
   } flatMap itemOrNotFound
 
-  def itemOrNotFound(itemOrNull: Item): Future[Item] = Option(itemOrNull) match {
-    case Some(item) => Future.successful(item)
-    case None       => Future.failed(NoItemFound)
+  def itemOrNotFound(itemOrNull: Item): Future[Item] = {
+    Option(itemOrNull) match {
+      case Some(item) => Future.successful(item)
+      case None       => Future.failed(NoItemFound)
+    }
   }
 
   def removeKey(id: String, key: String)
@@ -84,7 +86,7 @@ class DynamoDB(credentials: AWSCredentials, region: Region, tableName: String) {
     update(
       id,
       s"SET $key = :value",
-      new ValueMap().withString(":value", value)
+      valueMapWithNullForEmptyString(Map(":value" -> value))
     )
 
 
@@ -111,28 +113,16 @@ class DynamoDB(credentials: AWSCredentials, region: Region, tableName: String) {
 
   def jsonGet(id: String, key: String)
              (implicit ex: ExecutionContext): Future[JsValue] =
-      get(id, key).map(item => asJsObject(item))
+      get(id, key).map(item => asJsObject(item))  
 
   // We cannot update, so make sure you send over the WHOLE document
   def jsonAdd(id: String, key: String, value: Map[String, String])
-             (implicit ex: ExecutionContext): Future[JsObject] = {
-
-
-    val valueMap = new ValueMap()
-    value.foreach{ case (key, value) => valueMap.withString(key, if(value == "") null else value) }
-    // FIXME: Really? Dynamo accepts `null`, but not `""`? This is a well
-    // moaned about issue around in the community. This guard keeps the
-    // introduction of `null` fairly fenced in this Dynamo play area. `null` is
-    // continual and big annoyance with AWS libs.
-    // see: https://forums.aws.amazon.com/message.jspa?messageID=389032
-    // see: http://docs.aws.amazon.com/amazondynamodb/latest/developerguide/DataModel.html
-
+             (implicit ex: ExecutionContext): Future[JsObject] =
     update(
       id,
       s"SET $key = :value",
-        new ValueMap().withMap(":value", valueMap)
+        new ValueMap().withMap(":value", valueMapWithNullForEmptyString(value))
     )
-  }
 
   def setDelete(id: String, key: String, value: String)
                (implicit ex: ExecutionContext): Future[JsObject] =
@@ -162,9 +152,34 @@ class DynamoDB(credentials: AWSCredentials, region: Region, tableName: String) {
 
   // FIXME: surely there must be a better way to convert?
   def asJsObject(item: Item): JsObject =
-    Json.parse(item.toJSON).as[JsObject] - IdKey
+    withNullAsEmptyString(Json.parse(item.toJSON)).as[JsObject] - IdKey
 
   def asJsObject(outcome: UpdateItemOutcome): JsObject =
     asJsObject(outcome.getItem)
+
+
+  // FIXME: Dynamo accepts `null`, but not `""`. This is a well documented issue
+  // around the community. This guard keeps the introduction of `null` fairly
+  // fenced in this Dynamo play area. `null` is continual and big annoyance with AWS libs.
+  // see: https://forums.aws.amazon.com/message.jspa?messageID=389032
+  // see: http://docs.aws.amazon.com/amazondynamodb/latest/developerguide/DataModel.html
+  def mapJsValue(jsValue: JsValue)(f: JsValue => JsValue): JsValue = jsValue match {
+    case JsObject(items) => JsObject(items.map{ case (k, v) => k -> mapJsValue(v)(f) })
+    case JsArray(items) => JsArray(items.map(f))
+    case value => f(value)
+  }
+
+  def withNullAsEmptyString(jsValue: JsValue): JsValue = mapJsValue(jsValue) {
+    case JsNull => JsString("")
+    case value => value
+  }
+
+  def valueMapWithNullForEmptyString(value: Map[String, String]) = {
+    val valueMap = new ValueMap()
+    value.map     { case(k, v) => (k, if (v == "") null else v) }
+         .foreach { case(k, v) => valueMap.withString(k, v) }
+
+    valueMap
+  }
 
 }
