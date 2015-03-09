@@ -106,6 +106,7 @@ object Application extends Controller with ArgoHelpers {
     req.body.validate[MapEntity].map {
       case MapEntity(metadata) =>
         val entityResult = Accepted(metadataResponse(metadata, id)).as(ArgoMediaType)
+
         dynamo.jsonAdd(id, "metadata", metadata) map publishAndRespond(id, entityResult)
     } recoverTotal {
       case e => Future.successful(BadRequest("Invalid metadata sent: " + JsError.toFlatJson(e)))
