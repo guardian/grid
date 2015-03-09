@@ -102,20 +102,23 @@ kahuna.factory('httpUnauthorisedInterceptor',
     };
 }]);
 
-kahuna.run(['$rootScope', 'globalErrors', 'errorCodes', 'track',
-            function($rootScope, globalErrors, errorCodes, track) {
+// global errors UI
+kahuna.run(['$rootScope', 'globalErrors',
+            function($rootScope, globalErrors) {
 
-    var authError = errorCode => {
-        return function() {
-            globalErrors.trigger('unauthorised');
-            track('Authentication error', {
-                'Error code': errorCode
-            });
-        };
-    };
+    $rootScope.$on('events:error:unauthorised', () => globalErrors.trigger('unauthorised'));
+    $rootScope.$on('pandular:re-establishment:fail', () => globalErrors.trigger('unauthorised'));
+}]);
 
-    $rootScope.$on('events:error:unauthorised', authError(errorCodes.unauthorised));
-    $rootScope.$on('pandular:re-establishment:fail', authError(errorCodes.authExpired));
+// tracking errors
+kahuna.run(['$rootScope', 'errorCodes', 'track',
+            function($rootScope, errorCodes, track) {
+
+    $rootScope.$on('events:error:unauthorised', () =>
+        track('Authentication error', { 'Error code': errorCodes.unauthorised }));
+
+    $rootScope.$on('pandular:re-establishment:fail', () =>
+        track('Authentication error', { 'Error code': errorCodes.authExpired }));
 }]);
 
 
