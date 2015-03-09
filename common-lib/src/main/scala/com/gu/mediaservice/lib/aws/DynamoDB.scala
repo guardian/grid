@@ -113,7 +113,7 @@ class DynamoDB(credentials: AWSCredentials, region: Region, tableName: String) {
 
   def jsonGet(id: String, key: String)
              (implicit ex: ExecutionContext): Future[JsValue] =
-      get(id, key).map(item => asJsObject(item))  
+      get(id, key).map(item => asJsObject(item))
 
   // We cannot update, so make sure you send over the WHOLE document
   def jsonAdd(id: String, key: String, value: Map[String, String])
@@ -152,7 +152,7 @@ class DynamoDB(credentials: AWSCredentials, region: Region, tableName: String) {
 
   // FIXME: surely there must be a better way to convert?
   def asJsObject(item: Item): JsObject =
-    withNullAsEmptyString(Json.parse(item.toJSON)).as[JsObject] - IdKey
+    jsonWithNullAsEmptyString(Json.parse(item.toJSON)).as[JsObject] - IdKey
 
   def asJsObject(outcome: UpdateItemOutcome): JsObject =
     asJsObject(outcome.getItem)
@@ -169,7 +169,7 @@ class DynamoDB(credentials: AWSCredentials, region: Region, tableName: String) {
     case value => f(value)
   }
 
-  def withNullAsEmptyString(jsValue: JsValue): JsValue = mapJsValue(jsValue) {
+  def jsonWithNullAsEmptyString(jsValue: JsValue): JsValue = mapJsValue(jsValue) {
     case JsNull => JsString("")
     case value => value
   }
