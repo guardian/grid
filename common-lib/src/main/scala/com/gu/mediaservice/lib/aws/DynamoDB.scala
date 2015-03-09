@@ -32,13 +32,7 @@ class DynamoDB(credentials: AWSCredentials, region: Region, tableName: String) {
       new GetItemSpec().
         withPrimaryKey(IdKey, id)
     )
-  } flatMap { itemOrNull =>
-    // TODO: port this logic to update and other places where item may be null?
-    Option(itemOrNull) match {
-      case Some(item) => Future.successful(asJsObject(item))
-      case None       => Future.failed(NoItemFound)
-    }
-  }
+  } flatMap itemOrNotFound map asJsObject
 
   private def get(id: String, key: String)
          (implicit ex: ExecutionContext): Future[Item] = Future {
@@ -47,11 +41,11 @@ class DynamoDB(credentials: AWSCredentials, region: Region, tableName: String) {
         .withPrimaryKey(IdKey, id)
         .withAttributesToGet(key)
     )
-  } flatMap { itemOrNull =>
-    Option(itemOrNull) match {
-      case Some(item) => Future.successful(item)
-      case None       => Future.failed(NoItemFound)
-    }
+  } flatMap itemOrNotFound
+
+  def itemOrNotFound(itemOrNull: Item): Future[Item] = Option(itemOrNull) match {
+    case Some(item) => Future.successful(item)
+    case None       => Future.failed(NoItemFound)
   }
 
   def removeKey(id: String, key: String)
@@ -117,7 +111,7 @@ class DynamoDB(credentials: AWSCredentials, region: Region, tableName: String) {
 
   def jsonGet(id: String, key: String)
              (implicit ex: ExecutionContext): Future[JsValue] =
-      get(id, key).map(item => Json.parse(item.getJSON(key)).as[JsObject])
+      get(id, key).map(item => asJsObject(item))
 
   // We cannot update, so make sure you send over the WHOLE document
   def jsonAdd(id: String, key: String, value: Map[String, String])
