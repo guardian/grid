@@ -6,11 +6,15 @@ import UAParser from 'ua-parser-js';
 
 export var mp = angular.module('mixpanel', []);
 
+mp.constant('mixpanelEnabled', ['mixpanelToken', function(mixpanelToken) {
+    return angular.isString(mixpanelToken);
+}]);
+
 /**
  * This module is to allow the rest of the app to include mixpanel as a dependency
  * and not have to deal with the global `var`.
  */
-mp.factory('mixpanel', ['$window', function($window) {
+mp.factory('mixpanel', ['$window', 'mixpanelEnabled', function($window, mixpanelEnabled) {
     var ua      = new UAParser($window.navigator.userAgent);
     var browser = ua.getBrowser();
 
@@ -25,8 +29,9 @@ mp.factory('mixpanel', ['$window', function($window) {
             '$email': email,
             'Browser version': browser.major
         });
+
         // also record browser version alongside each event
-        mixpanel.register(angular.extend({
+        mixpanel.register_once(angular.extend({
             'Browser version': browser.major
         }, registerProps));
     }
@@ -41,6 +46,7 @@ mp.factory('mixpanel', ['$window', function($window) {
 
     return {
         init: init,
-        track: track
+        track: track,
+        isEnabled: () => mixpanelEnabled
     };
 }]);
