@@ -1,15 +1,18 @@
 import angular from 'angular';
 import 'angular-animate';
 import moment from 'moment';
+import '../util/eq';
 import template from './query.html!text';
 
 
 export var query = angular.module('kahuna.search.query', [
-    'ngAnimate'
+    'ngAnimate',
+    'util.eq'
 ]);
 
-query.controller('SearchQueryCtrl', ['$scope', '$state', '$stateParams', 'mediaApi',
-                 function($scope, $state, $stateParams, mediaApi) {
+query.controller('SearchQueryCtrl',
+                 ['$scope', '$state', '$stateParams', 'onValChange', 'mediaApi',
+                 function($scope, $state, $stateParams, onValChange , mediaApi) {
 
     var ctrl = this;
     ctrl.uploadedByMe = false;
@@ -30,29 +33,37 @@ query.controller('SearchQueryCtrl', ['$scope', '$state', '$stateParams', 'mediaA
     Object.keys($stateParams)
           .forEach(setAndWatchParam);
 
+    // pass undefined to the state on empty to remove the QueryString
+    function valOrUndefined(str) { return str || undefined; }
+
     function setAndWatchParam(key) {
         ctrl[key] = $stateParams[key];
 
-        // TODO: make helper for onchange vs onupdate
-        $scope.$watch(() => ctrl[key], (newVal, oldVal) => {
-            if (newVal !== oldVal) {
-                // we replace empty strings etc with undefined to clear the querystring
-                $state.go('search.results', { [key]: newVal || undefined });
-            }
-        });
+        // watch ctrl and stateParams for changes and apply them accordingly
+        $scope.$watch(() => ctrl[key], onValChange(newVal => {
+            $state.go('search.results', { [key]: valOrUndefined(newVal) });
+        }));
+
+        $scope.$watch(() => $stateParams[key], onValChange(newVal => {
+            ctrl[key] = valOrUndefined(newVal);
+        }));
     }
 
     // we can't user dynamic values in the ng:true-value see:
     // https://docs.angularjs.org/error/ngModel/constexpr
-    // perhaps this functionality will change if we move to gmail type search e.g.
-    // "uploadedBy:anthony.trollope@guardian.co.uk"
-    mediaApi.getSession().then(session => ctrl.user = session.user);
-    ctrl.uploadedByMe = !!$stateParams.uploadedBy;
-    $scope.$watch(() => ctrl.uploadedByMe, (newVal, oldVal) => {
-        if (newVal !== oldVal) {
-            ctrl.uploadedBy = newVal && ctrl.user.email;
-        }
+    mediaApi.getSession().then(session => {
+        ctrl.user = session.user;
+        ctrl.uploadedByMe = ctrl.uploadedBy === ctrl.user.email;
     });
+
+    $scope.$watch(() => ctrl.uploadedByMe, onValChange(uploadedByMe => {
+        // uploadedByMe typeof boolean
+        if (uploadedByMe) {
+            ctrl.uploadedBy = ctrl.user.email;
+        } else {
+            delete ctrl.uploadedBy;
+        }
+    }));
 
     function resetQueryAndFocus() {
         ctrl.query = '';

@@ -2,6 +2,7 @@ package com.gu.mediaservice.picdarexport.lib.picdar
 
 import java.net.URI
 
+import com.gu.mediaservice.model.ImageMetadata
 import com.gu.mediaservice.picdarexport.lib.{Config, LogHelper, HttpClient}
 import com.gu.mediaservice.picdarexport.model.{AssetRef, Asset, DateRange}
 import org.joda.time.DateTime
@@ -95,20 +96,6 @@ trait PicdarApi extends HttpClient with PicdarInterface with LogHelper {
   // No timezone lol
   val picdarEsotericDateFormat = DateTimeFormat.forPattern("yyyyMMddHH:mm:ss")
 
-  // Picdar field -> Media metadata key mapping
-  // FIXME: Job_Description? Keywords  File_Name? Location Warnings Warning_Info
-  // FIXME: People Picture_Attributes Temporary_Notes Copyright_Group (opt? eg Agencies - contract)
-  // FIXME: or use case class?
-  val picdarFieldMap = Map(
-    "Headline"      -> "title",
-    "Copyright"     -> "copyright",
-    "Caption"       -> "description",
-    "Photographer"  -> "byline",
-    "Provider"      -> "credit",
-    "Source"        -> "source",
-    "Reference no." -> "suppliersReference"
-  )
-
   def fetchAsset(mak: String, urn: String): Future[Asset] = {
     post(messages.retrieveAsset(mak, urn)) flatMap { response =>
       val record = (response \ "ResponseData" \ "Record")(0)
@@ -122,10 +109,28 @@ trait PicdarApi extends HttpClient with PicdarInterface with LogHelper {
 
       val modified = extractField(record, "Modified on") map ISODateTimeFormat.basicDate().parseDateTime
       val infoUri = extractField(record, "InfoURL") map URI.create
-      val metadata = for {
-        (fieldName, metadataKey) <- picdarFieldMap
-        value                    <- extractField(record, fieldName)
-      } yield metadataKey -> value
+
+      // Picdar field -> Media metadata key mapping
+      // FIXME: Job_Description? Keywords  File_Name? Location Warnings Warning_Info
+      // FIXME: People Picture_Attributes Temporary_Notes Copyright_Group (opt? eg Agencies - contract)
+      val metadata = ImageMetadata(
+        dateTaken           = None,
+        description         = extractField(record, "Caption"),
+        credit              = extractField(record, "Provider"),
+        byline              = extractField(record, "Photographer"),
+        bylineTitle         = None,
+        title               = extractField(record, "Headline"),
+        copyrightNotice     = None,
+        copyright           = extractField(record, "Copyright"),
+        suppliersReference  = extractField(record, "Reference no."),
+        source              = extractField(record, "Source"),
+        specialInstructions = None,
+        keywords            = List(),
+        subLocation         = None,
+        city                = None,
+        state               = None,
+        country             = None
+      )
 
       // Notes: Date Loaded seems to be the same as Created on, it's not when the image was loaded into the Library...
 
