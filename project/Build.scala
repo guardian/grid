@@ -81,10 +81,6 @@ object Build extends Build {
     }}
   )
 
-  @deprecated
-  val devImageLoader = project("dev-image-loader")
-    .libraryDependencies(playDeps ++ playWsDeps)
-
 
   def project(path: String): Project =
     Project(path, file(path)).settings(commonSettings: _*)

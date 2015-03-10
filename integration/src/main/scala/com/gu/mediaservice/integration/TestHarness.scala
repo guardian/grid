@@ -35,9 +35,6 @@ trait TestHarness {
     for (l <- props.get("loader.uri"); m <- props.get("mediaapi.uri"))
     yield Config(new URL(l), new URL(m))
 
-  val testStackConfig = Config(new URL("https://loader.media.test.dev-***REMOVED***"),
-                               new URL("https://api.media.test.dev-***REMOVED***"))
-
   val apiKeyHeader = ("X-Gu-Media-Key", props("integration.api.key"))
 
   implicit val ctx: ExecutionContext =
