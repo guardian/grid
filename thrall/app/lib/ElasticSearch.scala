@@ -65,10 +65,13 @@ object ElasticSearch extends ElasticSearchClient {
       .setQuery(q)
       .executeAndLog(s"Searching for image to delete: $id")
       .flatMap { countQuery =>
-        countQuery.getCount match {
-          case 1 => deleteQuery.executeAndLog(s"Deleting image $id").incrementOnSuccess(deletedImages)
+        val deleteFuture = countQuery.getCount match {
+          case 1 => deleteQuery.executeAndLog(s"Deleting image $id")
           case _ => Future.failed(ImageNotDeletable)
         }
+        deleteFuture
+          .incrementOnSuccess(deletedImages)
+          .incrementOnFailure(failedDeletedImages) { case ImageNotDeletable => true }
       }
   }
 
