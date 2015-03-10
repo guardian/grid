@@ -334,9 +334,8 @@ object ExportApp extends App with ExportManagerProvider with ArgumentHelpers wit
           val mediaUri = asset.mediaUri.get
           val metadata = asset.picdarMetadata.get
           getExportManager("library", env).overrideMetadata(mediaUri, metadata) flatMap { overridden =>
-            Logger.info(s"Overridden ${mediaUri} metadata ($overridden)")
-            //dynamo.recordOverridden(asset.picdarUrn, asset.picdarCreated, overridden)
-            Future.successful()
+            Logger.info(s"Overridden $mediaUri metadata ($overridden)")
+            dynamo.recordOverridden(asset.picdarUrn, asset.picdarCreated, overridden)
           } recover { case e: Throwable =>
             Logger.warn(s"Metadata override error for ${asset.picdarUrn}: $e")
             e.printStackTrace()
