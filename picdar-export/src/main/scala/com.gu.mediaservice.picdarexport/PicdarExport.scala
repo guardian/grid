@@ -3,7 +3,7 @@ package com.gu.mediaservice.picdarexport
 import java.net.URI
 
 import com.gu.mediaservice.model.ImageMetadata
-import com.gu.mediaservice.picdarexport.lib.cleanup.MetadataCleaners
+import com.gu.mediaservice.picdarexport.lib.cleanup.MetadataOverrides
 import com.gu.mediaservice.picdarexport.lib.db.ExportDynamoDB
 import com.gu.mediaservice.picdarexport.lib.media._
 import com.gu.mediaservice.picdarexport.lib.picdar.{PicdarError, PicdarClient}
@@ -38,10 +38,8 @@ class ExportManager(picdar: PicdarClient, loader: MediaLoader, mediaApi: MediaAp
     for {
       image              <- mediaApi.getImage(mediaUri)
       currentMetadata     = image.metadata
-      cleanPicdarMetadata = MetadataCleaners.cleanPicdarArtifacts(picdarMetadata, currentMetadata)
-      // FIXME: apply MetadataCleaners from image-loader?
-      overridesOpt        = MetadataCleaners.getNecessaryOverrides(currentMetadata, cleanPicdarMetadata)
-      overridden         <- applyMetadataOverridesIfAny(image, overridesOpt)
+      picdarOverridesOpt  = MetadataOverrides.getOverrides(currentMetadata, picdarMetadata)
+      overridden         <- applyMetadataOverridesIfAny(image, picdarOverridesOpt)
     } yield overridden
 
 
