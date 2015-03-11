@@ -1,6 +1,5 @@
 package com.gu.mediaservice.lib.auth
 
-import scala.concurrent.duration.DurationInt
 import com.amazonaws.auth.BasicAWSCredentials
 import com.gu.pandomainauth.action.AuthActions
 import com.gu.pandomainauth.model.AuthenticatedUser
@@ -18,7 +17,6 @@ trait PanDomainAuthActions extends AuthActions {
   val authCallbackBaseUri: String
 
   override def authCallbackUrl: String = s"$authCallbackBaseUri/oauthCallback"
-  override val apiGracePeriod = 1.hour.toMillis
 
   override lazy val domain: String = properties("panda.domain")
   lazy val awsKeyId                = properties.get("panda.aws.key")
