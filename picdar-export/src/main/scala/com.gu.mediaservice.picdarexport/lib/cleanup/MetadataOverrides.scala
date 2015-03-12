@@ -68,7 +68,12 @@ object MetadataOverrides {
       state               = necessaryOverride(overrides.state,               current.state),
       country             = necessaryOverride(overrides.country,             current.country)
     )
-    Some(necessaryOverrides).filterNot(emptyOverrides)
+    // We also filter out the copyright if it's the same as credit, since historically they filled in the
+    // copyright field in Picdar to record information we store in credit
+    val necessaryOverridesOptCopyright = necessaryOverrides.copy(
+      copyright = necessaryOverride(necessaryOverrides.copyright, current.credit)
+    )
+    Some(necessaryOverridesOptCopyright).filterNot(emptyOverrides)
   }
 
   private def necessaryOverride[T](overrideValue: Option[T], currentValue: Option[T]): Option[T] = {
