@@ -48,9 +48,17 @@ class ExportDynamoDB(credentials: AWSCredentials, region: Region, tableName: Str
   val timestampDateFormat = ISODateTimeFormat.dateTimeNoMillis
   def asTimestampString(dateTime: DateTime) = timestampDateFormat print dateTime
 
+
+  val fetchFields = List("picdarAssetUrl", "picdarMetadataModified")
+  val notFetchedCondition =
+    "(" + fetchFields.map(f => s"attribute_not_exists($f)").mkString(" OR ") + ")"
+  val fetchedCondition =
+    "(" + fetchFields.map(f => s"attribute_exists($f)").mkString(" AND ") + ")"
+
+
   def scanUnfetched(dateRange: DateRange): Future[Seq[AssetRef]] = Future {
     // FIXME: query by range only?
-    val queryConds = List("attribute_not_exists(picdarAssetUrl)") ++
+    val queryConds = List(notFetchedCondition) ++
       dateRange.start.map(date => s"picdarCreated >= :startDate") ++
       dateRange.end.map(date => s"picdarCreated <= :endDate")
 
@@ -67,7 +75,7 @@ class ExportDynamoDB(credentials: AWSCredentials, region: Region, tableName: Str
 
   def scanFetchedNotIngested(dateRange: DateRange): Future[Seq[AssetRow]] = Future {
     // FIXME: query by range only?
-    val queryConds = List("attribute_exists(picdarAssetUrl)", "attribute_not_exists(mediaUri)") ++
+    val queryConds = List(fetchedCondition, "attribute_not_exists(mediaUri)") ++
       dateRange.start.map(date => s"picdarCreated >= :startDate") ++
       dateRange.end.map(date => s"picdarCreated <= :endDate")
 
@@ -85,7 +93,7 @@ class ExportDynamoDB(credentials: AWSCredentials, region: Region, tableName: Str
 
   def scanIngested(dateRange: DateRange): Future[Seq[AssetRow]] = Future {
     // FIXME: query by range only?
-    val queryConds = List("attribute_exists(picdarAssetUrl)", "attribute_exists(mediaUri)") ++
+    val queryConds = List(fetchedCondition, "attribute_exists(mediaUri)") ++
       dateRange.start.map(date => s"picdarCreated >= :startDate") ++
       dateRange.end.map(date => s"picdarCreated <= :endDate")
 
@@ -104,7 +112,7 @@ class ExportDynamoDB(credentials: AWSCredentials, region: Region, tableName: Str
 
   def scanIngestedNotOverridden(dateRange: DateRange): Future[Seq[AssetRow]] = Future {
     // FIXME: query by range only?
-    val queryConds = List("attribute_exists(picdarAssetUrl)", "attribute_exists(mediaUri)", "attribute_not_exists(overridden)") ++
+    val queryConds = List(fetchedCondition, "attribute_exists(mediaUri)", "attribute_not_exists(overridden)") ++
       dateRange.start.map(date => s"picdarCreated >= :startDate") ++
       dateRange.end.map(date => s"picdarCreated <= :endDate")
 
