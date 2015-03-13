@@ -95,6 +95,7 @@ object Mappings {
           "exports" -> exportsMapping,
           "uploadTime" -> dateFormat,
           "uploadedBy" -> nonAnalyzedString,
+          "lastModified" -> dateFormat,
           "identifiers" -> dynamicObj
         ),
         "dynamic_templates" -> Json.arr(Json.obj(
