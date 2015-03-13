@@ -13,6 +13,7 @@ import com.gu.mediaservice.model.ImageMetadata
 case class Image(id: String,
                  uploadTime: DateTime,
                  uploadedBy: String,
+                 lastModified: Option[DateTime],
                  identifiers: Map[String, String],
                  source: Asset,
                  thumbnail: Option[Asset],
@@ -36,7 +37,7 @@ object Image {
              thumbnail: Asset,
              fileMetadata: FileMetadata,
              metadata: ImageMetadata): Image =
-    Image(id, uploadTime, uploadedBy, identifiers, source, Some(thumbnail),
+    Image(id, uploadTime, uploadedBy, Some(uploadTime), identifiers, source, Some(thumbnail),
       fileMetadata, metadata, metadata)
 
   implicit val FileMetadataWrites: Writes[FileMetadata] = Json.writes[FileMetadata]
@@ -45,6 +46,7 @@ object Image {
     (__ \ "id").write[String] ~
       (__ \ "uploadTime").write[String].contramap(printDateTime) ~
       (__ \ "uploadedBy").write[String] ~
+      (__ \ "lastModified").writeNullable[String].contramap(printOptDateTime) ~
       (__ \ "identifiers").write[Map[String, String]] ~
       (__ \ "source").write[Asset] ~
       (__ \ "thumbnail").writeNullable[Asset] ~
