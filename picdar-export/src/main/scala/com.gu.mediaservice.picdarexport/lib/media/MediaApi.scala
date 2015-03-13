@@ -11,7 +11,7 @@ import com.gu.mediaservice.picdarexport.lib.{Config, LogHelper}
 import com.gu.mediaservice.picdarexport.lib.ExecutionContexts.mediaApi
 
 import scala.concurrent.Future
-import scalaj.http.Http
+import scalaj.http.{HttpOptions, Http}
 
 
 case class ImageResource(data: Image)
@@ -78,6 +78,8 @@ trait MediaApi extends LogHelper {
         // it's tiny anyway
         compress(false).
         header("Content-Type", "application/json").
+        // TODO: technically only for TEST
+        option(HttpOptions.allowUnsafeSSL).
         postData(metadataStringNoKeywords).
         method("put").
         asString
