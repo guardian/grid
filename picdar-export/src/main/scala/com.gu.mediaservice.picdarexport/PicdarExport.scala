@@ -211,7 +211,7 @@ object ExportApp extends App with ExportManagerProvider with ArgumentHelpers wit
           println(s"$count fetched entries")
         }
       } andThen { case _ =>
-        dynamo.scanIngested(dateRange) map (urns => urns.size) map { count =>
+        dynamo.scanOverridden(dateRange) map (urns => urns.size) map { count =>
           println(s"$count ingested entries")
         }
       }
@@ -234,14 +234,29 @@ object ExportApp extends App with ExportManagerProvider with ArgumentHelpers wit
 
     case ":count-ingested" :: env :: Nil => terminateAfter {
       val dynamo = getDynamo(env)
-      dynamo.scanIngested(DateRange.all) map (urns => urns.size) map { count =>
+      dynamo.scanIngestedNotOverridden(DateRange.all) map (urns => urns.size) map { count =>
         println(s"$count matching entries")
         count
       }
     }
     case ":count-ingested" :: env :: date :: Nil => terminateAfter {
       val dynamo = getDynamo(env)
-      dynamo.scanIngested(parseDateRange(date)) map (urns => urns.size) map { count =>
+      dynamo.scanIngestedNotOverridden(parseDateRange(date)) map (urns => urns.size) map { count =>
+        println(s"$count matching entries")
+        count
+      }
+    }
+
+    case ":count-overridden" :: env :: Nil => terminateAfter {
+      val dynamo = getDynamo(env)
+      dynamo.scanOverridden(DateRange.all) map (urns => urns.size) map { count =>
+        println(s"$count matching entries")
+        count
+      }
+    }
+    case ":count-overridden" :: env :: date :: Nil => terminateAfter {
+      val dynamo = getDynamo(env)
+      dynamo.scanOverridden(parseDateRange(date)) map (urns => urns.size) map { count =>
         println(s"$count matching entries")
         count
       }
@@ -367,9 +382,10 @@ object ExportApp extends App with ExportManagerProvider with ArgumentHelpers wit
         |       ingest <desk|library> <dev|test> <created|modified|taken> <date> [range]
         |
         |       :stats  <dev|test> [dateLoaded]
-        |       :count-loaded   <dev|test> [dateLoaded]
-        |       :count-fetched  <dev|test> [dateLoaded]
-        |       :count-ingested <dev|test> [dateLoaded]
+        |       :count-loaded    <dev|test> [dateLoaded]
+        |       :count-fetched   <dev|test> [dateLoaded]
+        |       :count-ingested  <dev|test> [dateLoaded]
+        |       :count-overriden <dev|test> [dateLoaded]
         |       +load   <dev|test> <desk|library> <created|modified|taken> <date> [range]
         |       +fetch  <dev|test> <desk|library> [dateLoaded] [range]
         |       +ingest <dev|test> [dateLoaded] [range]
