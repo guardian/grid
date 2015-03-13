@@ -100,7 +100,7 @@ object ElasticSearch extends ElasticSearchClient {
     val uploadedByFilter = params.uploadedBy.map(uploadedBy => filters.terms("uploadedBy", NonEmptyList(uploadedBy)))
 
     val validFilter      = Config.requiredMetadata.map(metadataField).toNel.map(filters.exists)
-    val invalidFilter    = Config.requiredMetadata.map(metadataField).toNel.map(filters.missing)
+    val invalidFilter    = Config.requiredMetadata.map(metadataField).toNel.map(filters.anyMissing)
     val validityFilter   = params.valid.flatMap(valid => if(valid) validFilter else invalidFilter)
 
     // Warning: this requires the capitalisation to be exact; we may want to sanitise the credits
@@ -171,6 +171,7 @@ object ElasticSearch extends ElasticSearchClient {
             rangeFilter,
             termsFilter,
             andFilter,
+            orFilter,
             notFilter,
             existsFilter,
             missingFilter,
@@ -197,6 +198,9 @@ object ElasticSearch extends ElasticSearchClient {
 
     def missing(fields: NonEmptyList[String]): FilterBuilder =
       fields.map(f => missingFilter(f): FilterBuilder).foldRight1(andFilter(_, _))
+
+    def anyMissing(fields: NonEmptyList[String]): FilterBuilder =
+      fields.map(f => missingFilter(f): FilterBuilder).foldRight1(orFilter(_, _))
 
     def bool(field: String, bool: Boolean): FilterBuilder =
       termFilter(field, bool)
