@@ -91,25 +91,6 @@ class ExportDynamoDB(credentials: AWSCredentials, region: Region, tableName: Str
     }.toSeq
   }
 
-  def scanIngested(dateRange: DateRange): Future[Seq[AssetRow]] = Future {
-    // FIXME: query by range only?
-    val queryConds = List(fetchedCondition, "attribute_exists(mediaUri)") ++
-      dateRange.start.map(date => s"picdarCreated >= :startDate") ++
-      dateRange.end.map(date => s"picdarCreated <= :endDate")
-
-    val values = Map() ++
-      dateRange.start.map(asRangeString).map(":startDate" -> _) ++
-      dateRange.end.map(asRangeString).map(":endDate" -> _)
-
-    val query = queryConds.mkString(" AND ")
-    val items = table.scan(query, "picdarUrn, picdarCreated, picdarAssetUrl, mediaUri", null, values)
-    items.iterator.map { item =>
-      val picdarCreated = rangeDateFormat.parseDateTime(item.getString("picdarCreated"))
-      val mediaUri = Option(item.getString("mediaUri")).map(URI.create)
-      AssetRow(item.getString("picdarUrn"), picdarCreated, URI.create(item.getString("picdarAssetUrl")), mediaUri)
-    }.toSeq
-  }
-
   def scanIngestedNotOverridden(dateRange: DateRange): Future[Seq[AssetRow]] = Future {
     // FIXME: query by range only?
     val queryConds = List(fetchedCondition, "attribute_exists(mediaUri)", "attribute_not_exists(overridden)") ++
@@ -127,6 +108,25 @@ class ExportDynamoDB(credentials: AWSCredentials, region: Region, tableName: Str
       val mediaUri = Option(item.getString("mediaUri")).map(URI.create)
       val picdarMetadata = Option(item.getJSON("picdarMetadata")).map(json => Json.parse(json).as[ImageMetadata])
       AssetRow(item.getString("picdarUrn"), picdarCreated, URI.create(item.getString("picdarAssetUrl")), mediaUri, picdarMetadata)
+    }.toSeq
+  }
+
+  def scanOverridden(dateRange: DateRange): Future[Seq[AssetRow]] = Future {
+    // FIXME: query by range only?
+    val queryConds = List(fetchedCondition, "attribute_exists(mediaUri)", "attribute_exists(overridden)") ++
+      dateRange.start.map(date => s"picdarCreated >= :startDate") ++
+      dateRange.end.map(date => s"picdarCreated <= :endDate")
+
+    val values = Map() ++
+      dateRange.start.map(asRangeString).map(":startDate" -> _) ++
+      dateRange.end.map(asRangeString).map(":endDate" -> _)
+
+    val query = queryConds.mkString(" AND ")
+    val items = table.scan(query, "picdarUrn, picdarCreated, picdarAssetUrl, mediaUri", null, values)
+    items.iterator.map { item =>
+      val picdarCreated = rangeDateFormat.parseDateTime(item.getString("picdarCreated"))
+      val mediaUri = Option(item.getString("mediaUri")).map(URI.create)
+      AssetRow(item.getString("picdarUrn"), picdarCreated, URI.create(item.getString("picdarAssetUrl")), mediaUri)
     }.toSeq
   }
 

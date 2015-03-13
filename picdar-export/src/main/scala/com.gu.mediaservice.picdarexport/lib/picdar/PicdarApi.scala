@@ -51,9 +51,17 @@ trait PicdarApi extends HttpClient with PicdarInterface with LogHelper {
   }
 
   def search(mak: Mak, dateField: String, dateRange: DateRange, urn: Option[String] = None): Future[SearchInstance] = {
+    def failIfErrorResponse(responseNode: Node): Future[Unit] = {
+      extractAttribute(responseNode, "result") match {
+        case Some("OK") => Future.successful()
+        case _          => Future.failed(PicdarError(responseNode.text))
+      }
+    }
+
     Logger.debug(s"searching media mogul for assets $dateField on $dateRange")
     for {
       response    <- post(messages.search(mak, dateField, dateRange, urn))
+      _           <- failIfErrorResponse((response \ "Response") head) // Let's pray that it's there
       responseData = response \ "ResponseData"
       resultCount  = (responseData \ "MatchCount" text).toInt
       searchId     = (responseData \ "SearchID" text).toInt
@@ -147,5 +155,8 @@ trait PicdarApi extends HttpClient with PicdarInterface with LogHelper {
 
   private def extractField(record: Node, name: String): Option[String] =
     (record \ "Field") find (v => (v \ "@name" text) == name) map (_.text.trim) filterNot (_.isEmpty)
+
+  private def extractAttribute(node: Node, attrName: String): Option[String] =
+    node.attribute(attrName) flatMap (_.headOption) map (_.text.trim) filterNot (_.isEmpty)
 
 }
