@@ -63,7 +63,7 @@ object MessageConsumer {
   def extractSNSMessage(sqsMessage: SQSMessage): Option[SNSMessage] =
     Json.fromJson[SNSMessage](Json.parse(sqsMessage.getBody)) <| logParseErrors |> (_.asOpt)
 
-  def indexImage(image: JsValue): Future[IndexResponse] =
+  def indexImage(image: JsValue): Future[UpdateResponse] =
     withImageId(image)(id => ElasticSearch.indexImage(id, image))
 
   def updateImageExports(exports: JsValue): Future[UpdateResponse] =
