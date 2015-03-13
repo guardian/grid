@@ -60,6 +60,9 @@ object Config extends CommonPlayAppConfig with CommonPlayAppProperties {
     // retire Guardian from whitelist here.
     "IBL/REX", "Guardian", "The Guardian", "The Observer")
 
+
+  val freeSourceList = List("Corbis", "Rex Features")
+
   // Note: we filter exclusively on matching source, rather than combining credit=Getty and source=X
   // this is assumed to be good enough as it's unlikely other provider will use the same source.
   val payGettySourceList = List(
