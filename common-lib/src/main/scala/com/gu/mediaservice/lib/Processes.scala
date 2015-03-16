@@ -5,7 +5,6 @@ import scala.concurrent.duration._
 import scalaz.concurrent.Task
 import scalaz.stream.{Process, process1, Process1, Wye}
 import scalaz.stream.Process._
-//import scalaz.stream.io
 import scalaz.stream.ReceiveY.{ReceiveL, ReceiveR, HaltL, HaltR}
 import scalaz.stream.DefaultScheduler
 
