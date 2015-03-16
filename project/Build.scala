@@ -11,8 +11,8 @@ object Build extends Build {
 
   val commonSettings =
     Seq(
-      scalaVersion := "2.11.5",
-      scalaVersion in ThisBuild := "2.11.5",
+      scalaVersion := "2.11.6",
+      scalaVersion in ThisBuild := "2.11.6",
       organization := "com.gu",
       version      := "0.1",
       resolvers ++= Seq(
