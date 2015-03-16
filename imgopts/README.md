@@ -12,6 +12,8 @@ Local version of the imgopts service
 ./dev-start.sh
 ```
 
+[Is it running](https://media-imgopts.local.dev-gutools.co.uk/_)?
+
 ## Deploy
 To see any changes that you make within the configuration propagate to
 PROD / TEST you will need to update the Cloudformation script that spins up these
