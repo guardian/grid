@@ -261,6 +261,9 @@ The user interface should be up at
 [http://localhost:9007/](http://localhost:9007/).
 
 
+## [Run ImgOpts](imgopts/README.md)
+
+
 ## Troubleshooting
 
 ### Nginx returns "413 Request Entity Too Large"
