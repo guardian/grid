@@ -12,7 +12,7 @@ Local version of the imgopts service
 ./dev-start.sh
 ```
 
-# Is it running
+## Is it running
 [localhost](http://localhost:9008/_) | [URL](https://media-imgopts.local.dev-***REMOVED***/_)?
 
 ## Deploy
