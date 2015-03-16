@@ -8,7 +8,7 @@ Local version of the imgopts service
 
 ## Installation
 ``` Bash
-./dev-setup.sh
+./dev-setup.sh YOUR_IMAGE_BUCKET
 ./dev-start.sh
 ```
 
