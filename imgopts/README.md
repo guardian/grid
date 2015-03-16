@@ -3,7 +3,7 @@ Local version of the imgopts service
 
 ## Requirements
 * [GD](http://libgd.github.io/)
-** Linux: `sudo apt-get install libgd3`
+** Linux: `sudo apt-get install libgd-dev`
 ** Mac:  `brew install gd`
 
 ## Installation
