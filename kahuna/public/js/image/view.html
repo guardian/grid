@@ -168,7 +168,7 @@
         <div class="easel">
             <div class="easel__canvas" ng:if="!ctrl.crop">
                 <img class="easel__image"
-                     ng:src="{{ctrl.image.data.source | assetFile}}"
+                     ng:src="{{ctrl.image.data.source | assetFile | imgResize}}"
                      ui:drag-data="{{ctrl.image | asImageDragData}}"
                      grid:track-image="ctrl.image"
                      grid:track-image-location="original"
