@@ -2,14 +2,9 @@
 Local version of the imgopts service that run
 
 ## Requirements
-You can run [`./dev-install`](./dev-install) or complete the steps manually:
-
 * [GD](http://libgd.github.io/)
-** Linux: `sudo apt-get install gd`
+** Linux: `sudo apt-get install libgd3`
 ** Mac:  `brew install gd`
-* Removal of any nginx
-** Linux: `sudo apt-get remove nginx*`
-** Mac: `brew remove nginx`
 
 ## Notes
 
