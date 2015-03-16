@@ -1,3 +1,6 @@
 #!/usr/bin/env bash
-nginx/objs/nginx -s stop
+
+if [ -f ./nginx/logs/nginx.pid ]; then
+    nginx/objs/nginx -s stop
+fi
 nginx/objs/nginx
