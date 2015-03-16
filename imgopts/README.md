@@ -12,7 +12,8 @@ Local version of the imgopts service
 ./dev-start.sh
 ```
 
-[Is it running](https://media-imgopts.local.dev-gutools.co.uk/_)?
+# Is it running
+[localhost](http://localhost:9008/_) | [URL](https://media-imgopts.local.dev-gutools.co.uk/_)?
 
 ## Deploy
 To see any changes that you make within the configuration propagate to
