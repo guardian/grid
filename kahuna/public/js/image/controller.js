@@ -1,6 +1,7 @@
 import angular from 'angular';
+import '../imgopts/resize';
 
-var image = angular.module('kahuna.image.controller', []);
+var image = angular.module('kahuna.image.controller', ['imgopts.resize']);
 
 image.controller('ImageCtrl',
                  ['$rootScope', 'image', 'cropKey', 'mediaCropper',
