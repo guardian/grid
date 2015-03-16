@@ -53,12 +53,15 @@ object Config extends CommonPlayAppConfig with CommonPlayAppProperties {
     "Press Association Images", "Action Images", "Keystone", "AFP", "Getty Images", "Alamy", "FilmMagic", "WireImage",
     "Pool", "Rex Features", "Allsport", "BFI", "ANSA", "The Art Archive", "Hulton Archive", "Hulton Getty", "RTRPIX",
     "Community Newswire", "THE RONALD GRANT ARCHIVE", "NPA ROTA", "Ronald Grant Archive", "PA WIRE", "AP POOL",
-    "REUTER", "dpa", "BBC", "Allstar Picture Library", "AFP/Getty Images", "AAPIMAGE",
+    "REUTER", "dpa", "BBC", "Allstar Picture Library", "AFP/Getty Images", "AAPIMAGE", "IBL/REX", "Corbis",
     // FIXME: we've actually settled on "The Guardian" as canonical source.
     // There's now a MetadataCleaner to transform all to The Guardian canonical name.
     // We need to migrate all indexed content with "Guardian" to "The Guardian" before we can
     // retire Guardian from whitelist here.
-    "IBL/REX", "Guardian", "The Guardian", "The Observer")
+    "Guardian", "The Guardian", "The Observer")
+
+
+  val freeSourceList = List("Corbis", "Rex Features")
 
   // Note: we filter exclusively on matching source, rather than combining credit=Getty and source=X
   // this is assumed to be good enough as it's unlikely other provider will use the same source.
