@@ -18,6 +18,7 @@ class MetadataCleaners(creditBylineMap: Map[String, List[String]]) {
     UseCanonicalGuardianCredit,
     ExtractGuardianCreditFromByline
   ) ++ attrCreditFromBylineCleaners ++ List(
+    StripBylineFromCredit,
     CountryCode,
     CapitaliseByline,
     CapitaliseCountry,
