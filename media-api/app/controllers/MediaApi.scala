@@ -239,12 +239,14 @@ case class MetadataSearchParams(field: String, q: Option[String])
 // Default to pay for now
 object ImageExtras {
   def getCost(credit: Option[String], source: Option[String]) = {
-    val freeCredit = credit.map(isFreeCredit) getOrElse false
-    val freeSource = source.map(! isPaySource(_)) getOrElse true
-    if (freeCredit && freeSource) "free"
+    val freeCredit   = credit.exists(isFreeCredit)
+    val freeSource   = source.exists(isFreeSource)
+    val payingSource = source.exists(isPaySource)
+    if ((freeCredit || freeSource) && ! payingSource) "free"
     else "pay"
   }
 
   private def isFreeCredit(credit: String) = Config.freeCreditList.exists(f => f.toLowerCase == credit.toLowerCase)
+  private def isFreeSource(source: String) = Config.freeSourceList.exists(f => f.toLowerCase == source.toLowerCase)
   private def isPaySource(source: String)  = Config.payGettySourceList.exists(f => f.toLowerCase == source.toLowerCase)
 }
