@@ -36,6 +36,7 @@ make
 
 # logs
 mkdir logs
+chmod +w logs
 touch logs/access.log
 touch logs/error.log
 
@@ -53,3 +54,4 @@ ln -s $PWD/imgopts.conf $NGINX_LOCATION/conf/imgopts.conf
 
 # postclean
 yes | rm nginx-${NGINX_VERSION}.tar.gz*
+
