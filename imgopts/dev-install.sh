@@ -7,8 +7,6 @@ esac
 
 if [ $OS == "linux" ]; then
     sudo apt-get install gd
-    sudo apt-get remove nginx*
 elif [ $OS == "mac" ]; then
     brew install gd
-    brew remove nginx
 fi
