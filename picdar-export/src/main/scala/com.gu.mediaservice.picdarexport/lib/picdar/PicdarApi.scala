@@ -53,7 +53,7 @@ trait PicdarApi extends HttpClient with PicdarInterface with LogHelper {
   def search(mak: Mak, dateField: String, dateRange: DateRange, urn: Option[String] = None): Future[SearchInstance] = {
     def failIfErrorResponse(responseNode: Node): Future[Unit] = {
       extractAttribute(responseNode, "result") match {
-        case Some("OK") => Future.successful()
+        case Some("OK") => Future.successful(())
         case _          => Future.failed(PicdarError(responseNode.text))
       }
     }
