@@ -13,7 +13,8 @@ import org.elasticsearch.script.ScriptService
 import org.elasticsearch.index.query.QueryBuilders.{filteredQuery, boolQuery, matchQuery}
 import org.elasticsearch.index.query.FilterBuilders.{missingFilter, andFilter}
 import groovy.json.JsonSlurper
-import _root_.play.api.libs.json.{Json, JsValue}
+import _root_.play.api.libs.json._
+
 
 import com.gu.mediaservice.lib.elasticsearch.ElasticSearchClient
 import com.gu.mediaservice.syntax._
@@ -35,10 +36,10 @@ object ElasticSearch extends ElasticSearchClient {
 
   lazy val updateByQueryClient = new UpdateByQueryClientWrapper(client)
 
-  def indexImage(id: String, image: JsValue)(implicit ex: ExecutionContext): Future[IndexResponse] =
-    client.prepareIndex(imagesAlias, imageType, id)
-      .setSource(Json.stringify(image))
-      .setType(imageType)
+  def indexImage(id: String, image: JsValue)(implicit ex: ExecutionContext): Future[UpdateResponse] =
+    client.prepareUpdate(imagesAlias, imageType, id)
+      .setDoc(Json.stringify(asImageUpdate(image)))
+      .setUpsert(Json.stringify(image))
       .executeAndLog(s"Indexing image $id")
       .incrementOnSuccess(indexedImages)
 
@@ -125,5 +126,12 @@ object ElasticSearch extends ElasticSearchClient {
 
   def missingOrEmptyFilter(field: String) =
     missingFilter(field).existence(true).nullValue(true)
+
+  def asImageUpdate(image: JsValue): JsValue = {
+    def removeUploadInformation: Reads[JsObject] =
+      (__ \ "uploadTime").json.prune andThen (__ \ "uploadedBy").json.prune
+
+    image.transform(removeUploadInformation).get
+  }
 
 }
