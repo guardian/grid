@@ -46,7 +46,7 @@ object Dependencies {
 
   val commonsNetDeps = Seq(
     "commons-net" % "commons-net" % "3.3",
-    "org.apache.httpcomponents" % "httpclient" % "4.3.6"
+    "org.apache.httpcomponents" % "httpclient" % "4.3.1"
   )
 
   val commonsIODeps = Seq("commons-io" % "commons-io" % "2.4")
