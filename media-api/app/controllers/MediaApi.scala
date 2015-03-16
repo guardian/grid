@@ -17,7 +17,8 @@ import lib.querysyntax.{Condition, Parser}
 
 import com.gu.mediaservice.lib.auth
 import com.gu.mediaservice.lib.auth.KeyStore
-import com.gu.mediaservice.lib.argo.ArgoHelpers
+import com.gu.mediaservice.lib.argo._
+import com.gu.mediaservice.lib.argo.model._
 import com.gu.mediaservice.lib.formatting.parseDateFromQuery
 import com.gu.mediaservice.lib.cleanup.MetadataCleaners
 import com.gu.mediaservice.lib.config.MetadataConfig
@@ -38,46 +39,64 @@ object MediaApi extends Controller with ArgoHelpers {
   val kahunaUri = Config.kahunaUri
   val imgopsUri = Config.imgopsUri
 
-  def index = Action {
-    val searchParams = List("q", "ids", "offset", "length", "fromDate", "toDate",
+
+  val indexResponse = {
+    val searchParamList = List("q", "ids", "offset", "length", "fromDate", "toDate",
       "orderBy", "since", "until", "uploadedBy", "archived", "valid", "free",
       "hasExports", "hasIdentifier", "missingIdentifier", "hasMetadata").mkString(",")
 
-    val response = Json.obj(
-      "data"  -> Json.obj("description" -> "This is the Media API"),
-      "links" -> Json.arr(
-        Json.obj("rel" -> "search", "href" -> s"$rootUri/images{?$searchParams}"),
-        Json.obj("rel" -> "image",  "href" -> s"$rootUri/images/{id}"),
-        Json.obj("rel" -> "metadata-search", "href" -> s"$rootUri/images/metadata/{field}{?q}"),
-        Json.obj("rel" -> "cropper", "href" -> cropperUri),
-        Json.obj("rel" -> "loader", "href" -> loaderUri),
-        Json.obj("rel" -> "metadata", "href" -> metadataUri),
-        Json.obj("rel" -> "session", "href" -> s"$kahunaUri/session")
-      )
+    val indexData = Map("description" -> "This is the Media API")
+    val indexLinks = List(
+      Link("search",          s"$rootUri/images{?$searchParamList}"),
+      Link("image",           s"$rootUri/images/{id}"),
+      Link("metadata-search", s"$rootUri/images/metadata/{field}{?q}"),
+      Link("cropper",         cropperUri),
+      Link("loader",          loaderUri),
+      Link("metadata",        metadataUri),
+      Link("session",         s"$kahunaUri/session")
     )
-    Ok(response).as(ArgoMediaType)
+    respond(indexData, indexLinks)
   }
+
+  def index = Action { indexResponse }
+
 
   val Authenticated = auth.Authenticated(keyStore, Config.kahunaUri)
 
+  val ImageNotFound = respondError(NotFound, "image-not-found", "No image found with the given id")
+
   def getImage(id: String) = Authenticated.async { request =>
+    val imageLinks = List(
+      Link("crops",    s"$cropperUri/crops/$id"),
+      Link("metadata", s"$metadataUri/metadata/$id"),
+      // FIXME: broken
+      Link("optimised", makeImgopsUri(new URI(secureUrl)))
+    )
+
     val params = GeneralParams(request)
     ElasticSearch.getImageById(id) map {
-      case Some(source) => Ok(imageResponse(params)(id, source)).as(ArgoMediaType)
-      case None         => NotFound.as(ArgoMediaType)
+      case Some(source) => respond(imageResponse(params)(id, source), imageLinks)
+      case None         => ImageNotFound
     }
   }
 
   def getImageFileMetadata(id: String) = Authenticated.async { request =>
     val params = GeneralParams(request)
     ElasticSearch.getImageById(id) map {
-      case Some(source) => Ok(Json.obj("data" -> source \ "fileMetadata")).as(ArgoMediaType)
-      case None         => NotFound.as(ArgoMediaType)
+      // FIXME: link to image
+      case Some(source) => {
+        val links = List(
+          Link("image", s"$rootUri/images/$id")
+        )
+        respond(source \ "fileMetadata", links)
+      }
+      case None         => ImageNotFound
     }
   }
 
   def deleteImage(id: String) = Authenticated {
     Notifications.publish(Json.obj("id" -> id), "delete-image")
+    // TODO: use respond
     Accepted.as(ArgoMediaType)
   }
 
@@ -112,12 +131,12 @@ object MediaApi extends Controller with ArgoHelpers {
     val searchParams = SearchParams(request)
     ElasticSearch.search(searchParams) map { case SearchResults(hits, totalCount) =>
       val images = hits map (imageResponse(params) _).tupled
-      Ok(Json.obj(
-        "offset" -> searchParams.offset,
-        "length" -> images.size,
-        "total"  -> totalCount,
-        "data"   -> images
-      )).as(ArgoMediaType)
+      val imageEntities = images.map { image =>
+        // TODO: better error if id missing (should never happen)
+        val id = (image \ "id").asOpt[String].get
+        EmbeddedEntity(uri = URI.create(s"$rootUri/images/$id"), data = Some(image))
+      }
+      respond(imageEntities, Some(searchParams.offset), Some(totalCount))
     }
   }
 
@@ -138,23 +157,13 @@ object MediaApi extends Controller with ArgoHelpers {
         (source \ "metadata" \ field).asOpt[String].isDefined
       }
 
-      val image = source.transform(transformers.addSecureSourceUrl(secureUrl))
+      source.transform(transformers.addSecureSourceUrl(secureUrl))
         .flatMap(_.transform(transformers.addSecureThumbUrl(secureThumbUrl)))
         .flatMap(_.transform(transformers.removeFileData))
         .flatMap(_.transform(transformers.addFileMetadataUrl(s"$rootUri/images/$id/fileMetadata")))
         .flatMap(_.transform(transformers.wrapUserMetadata(id)))
         .flatMap(_.transform(transformers.addValidity(valid)))
         .flatMap(_.transform(transformers.addUsageCost(creditField, sourceField))).get
-
-      // FIXME: don't hardcode paths from other APIs - once we're
-      // storing a copy of the data in the DB, we can use it to point
-      // to the right place
-      val links = List(
-        Json.obj("rel" -> "crops",    "href" -> s"$cropperUri/crops/$id"),
-        Json.obj("rel" -> "metadata", "href" -> s"$metadataUri/metadata/$id"),
-        Json.obj("rel" -> "optimised", "href" -> makeImgopsUri(new URI(secureUrl)))
-      )
-      Json.obj("uri" -> s"$rootUri/images/$id", "data" -> image, "links" -> links)
     }
     else source
   // TODO: always add most transformers even if no showSecureUrl
@@ -196,13 +205,11 @@ object MediaApi extends Controller with ArgoHelpers {
   }
 
   // TODO: work with analysed fields
+  // TODO: recover with HTTP error if invalid field
   def metadataSearch(field: String, q: Option[String]) = Authenticated.async { request =>
     ElasticSearch.metadataSearch(MetadataSearchParams(field, q)) map { case MetadataSearchResults(results, total) =>
       // TODO: Add some useful links
-      Ok(Json.obj(
-        "length"-> total,
-        "data" -> Json.toJson(results)
-      )).as(ArgoMediaType)
+      respond(results, Some(0), Some(total))
     }
   }
 }
