@@ -3,7 +3,7 @@ import sbt.Keys
 
 object Dependencies {
 
-  val playVersion = "2.3.7" // also exists in plugins.sbt, TODO deduplicate this
+  val playVersion = "2.3.8" // also exists in plugins.sbt, TODO deduplicate this
 
   val playDeps = Seq(
     ("com.typesafe.play" %% "play" % playVersion)
@@ -23,7 +23,7 @@ object Dependencies {
 
   val elasticsearchDeps = Seq("org.elasticsearch" % "elasticsearch" % elasticsearchVersion)
 
-  val awsDeps = Seq("com.amazonaws" % "aws-java-sdk" % "1.9.17")
+  val awsDeps = Seq("com.amazonaws" % "aws-java-sdk" % "1.9.24")
 
   val pandaDeps = Seq(
     ("com.gu" %% "pan-domain-auth-core" % "0.2.4") exclude ("xpp3", "xpp3") exclude("com.google.guava", "guava-jdk5"),
@@ -40,7 +40,7 @@ object Dependencies {
   )
 
   val parsingDeps = Seq(
-    "org.parboiled" %% "parboiled" % "2.0.1"
+    "org.parboiled" %% "parboiled" % "2.1.0"
   )
 
 
@@ -51,9 +51,9 @@ object Dependencies {
 
   val commonsIODeps = Seq("commons-io" % "commons-io" % "2.4")
 
-  val akkaAgentDeps = Seq("com.typesafe.akka" %% "akka-agent" % "2.3.4")
+  val akkaAgentDeps = Seq("com.typesafe.akka" %% "akka-agent" % "2.3.9")
 
-  val scalaTestDeps = Seq("org.scalatest" %% "scalatest" % "2.2.3")
+  val scalaTestDeps = Seq("org.scalatest" %% "scalatest" % "2.2.4")
 
   val scalaCheckDeps = Seq("org.scalacheck" %% "scalacheck" % "1.12.1")
 
@@ -66,7 +66,7 @@ object Dependencies {
     "com.yakaz.elasticsearch.plugins" % "elasticsearch-action-updatebyquery" % "2.2.0"
   )
 
-  val legacyBlockingHttp = Seq("org.scalaj" %% "scalaj-http" % "1.1.3")
+  val legacyBlockingHttp = Seq("org.scalaj" %% "scalaj-http" % "1.1.4")
 
   implicit class DependencySyntax(self: Project) {
 
