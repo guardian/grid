@@ -1,4 +1,8 @@
-@(mediaApiUri: String, watUri: Option[String], mixpanelToken: Option[String], sentryDsn: Option[String])
+@(mediaApiUri: String,
+  imgoptsUri: String,
+  watUri: Option[String],
+  mixpanelToken: Option[String],
+  sentryDsn: Option[String])
 <!DOCTYPE html>
 <html>
   <head>
@@ -8,7 +12,10 @@
 
     <link rel="shortcut icon" type="image/png" href="@routes.Assets.at("images/grid-logo-32.png")"/>
     <link rel="assets" href="@routes.Assets.at("")"/>
+
     <link rel="media-api-uri" href="@mediaApiUri" />
+    <link rel="imgopts-uri" href="@imgoptsUri" />
+
 @watUri.map { uri =>
     <link rel="wat" href="@uri" />
 }
