@@ -1,5 +1,16 @@
 #!/usr/bin/env bash
 
+if [ $# -lt 1 ]
+then
+    echo "usage: dev-setup.sh <DEV_IMAGE_BUCKET>"
+    echo
+    echo "⚡ Pro tip⚡ : You can get your image bucket name by running"
+    echo
+    echo "   $ aws s3 ls | grep {{DEV_USERNAME}}-imagebucket"
+    echo
+    exit 1
+fi
+
 NGINX_VERSION=1.7.10
 NGINX_LOCATION=$PWD/nginx
 
