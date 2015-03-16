@@ -168,12 +168,16 @@
         <div class="easel">
             <div class="easel__canvas" ng:if="!ctrl.crop">
                 <img class="easel__image"
-                     ng:src="{{ctrl.image.data.source | assetFile | imgResize}}"
-                     ui:drag-data="{{ctrl.image | asImageDragData}}"
-                     grid:track-image="ctrl.image"
-                     grid:track-image-location="original"
-                     grid:track-image-loadtime />
+                     img:resize
+                     img:src="{{ctrl.image.data.source | assetFile}}"
+                     img:dimensions="ctrl.image.data.source.dimensions"
+
+                     ui:drag-data="{{ctrl.image | asImageDragData}}" />
             </div>
+            <!--
+            grid:track-image="ctrl.image"
+                     grid:track-image-location="original"
+                     grid:track-image-loadtime -->
 
 
             <!-- TODO: As this loads async, add a loader -->
