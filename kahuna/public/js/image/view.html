@@ -170,14 +170,11 @@
                 <img class="easel__image"
                      img:resize
                      img:src="{{ctrl.image.data.source | assetFile}}"
-                     img:dimensions="ctrl.image.data.source.dimensions"
-
+                     grid:track-image="ctrl.image"
+                     grid:track-image-location="original"
+                     grid:track-image-loadtime
                      ui:drag-data="{{ctrl.image | asImageDragData}}" />
             </div>
-            <!--
-            grid:track-image="ctrl.image"
-                     grid:track-image-location="original"
-                     grid:track-image-loadtime -->
 
 
             <!-- TODO: As this loads async, add a loader -->
