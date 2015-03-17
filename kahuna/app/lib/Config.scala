@@ -9,7 +9,6 @@ object Config extends CommonPlayAppConfig with CommonPlayAppProperties {
 
   val rootUri: String = services.kahunaBaseUri
   val mediaApiUri: String = services.apiBaseUri
-  val imgoptsUri: String = services.imgoptsBaseUri
 
   val keyStoreBucket: String = properties("auth.keystore.bucket")
   val mixpanelToken: Option[String] = properties.get("mixpanel.token").filterNot(_.isEmpty)
