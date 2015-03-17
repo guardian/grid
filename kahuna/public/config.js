@@ -23,7 +23,7 @@ System.config({
     "pandular": "npm:pandular@0.1.5",
     "raven-js": "github:getsentry/raven-js@1.1.16",
     "text": "github:systemjs/plugin-text@0.0.2",
-    "theseus": "npm:theseus@0.3.0",
+    "theseus": "npm:theseus@0.3.1",
     "theseus-angular": "npm:theseus-angular@0.2.3",
     "ua-parser-js": "npm:ua-parser-js@0.7.3",
     "github:angular-ui/ui-router@0.2.13": {
@@ -61,9 +61,9 @@ System.config({
       "angular": "github:angular/bower-angular@1.3.10",
       "any-http-angular": "npm:any-http-angular@0.1.0",
       "any-promise-angular": "npm:any-promise-angular@0.1.1",
-      "theseus": "npm:theseus@0.3.0"
+      "theseus": "npm:theseus@0.3.1"
     },
-    "npm:theseus@0.3.0": {
+    "npm:theseus@0.3.1": {
       "uri-templates": "npm:uri-templates@0.1.5"
     },
     "npm:ua-parser-js@0.7.3": {
