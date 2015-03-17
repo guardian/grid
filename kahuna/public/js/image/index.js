@@ -34,6 +34,14 @@ image.config(['$stateProvider',
                         $q.reject(error);
                     }
                 });
+            }],
+
+            optimisedImageUri: ['$window', '$q', 'image', ($window, $q, image) => {
+                var { width: w, height: h } = $window.screen;
+
+                return image.follow('optimised', { w, h, q: 95 }).getUri().catch(error => {
+                    return image.source.secureUrl || image.source.file;
+                });
             }]
         }
     });
