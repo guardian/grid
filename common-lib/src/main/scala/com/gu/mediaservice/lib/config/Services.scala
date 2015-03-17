@@ -20,7 +20,7 @@ class Services(domainRoot: String, ssl: Boolean) {
   val loaderBaseUri   = baseUri(loaderHost)
   val cropperBaseUri  = baseUri(cropperHost)
   val metadataBaseUri = baseUri(metadataHost)
-  val imgOptsBaseUri  = baseUri(imgoptsHost)
+  val imgoptsBaseUri  = baseUri(imgoptsHost)
 
   def baseUri(host: String) = {
     val protocol = if (ssl) "https" else "http"
