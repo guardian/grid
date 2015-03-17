@@ -42,7 +42,7 @@ class KeyStore(bucket: String, credentials: AWSCredentials) {
     val content = s3.client.getObject(bucket, key)
     val stream = content.getObjectContent
     try
-      Some(IOUtils.toString(stream, "utf-8"))
+      Some(IOUtils.toString(stream, "utf-8").trim)
     catch {
       case e: AmazonServiceException if e.getErrorCode == "NoSuchKey" => None
     }
