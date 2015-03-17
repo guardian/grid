@@ -9,58 +9,54 @@ trackImageLoadtime.controller('TrackImageLoadtimeCtrl',
                               ['$rootScope', 'track',
                                function($rootScope, track) {
     var ctrl = this;
-
-    var id = ctrl.image.data.id;
     var trackEventName = 'Image loading';
+    var startTime;
+    var imageProps;
 
-    var { mimeType, dimensions: { width, height }, size } = ctrl.image.data.source;
-    var trackProps = {
-        'Image ID':       id,
-        'Image width':    width,
-        'Image height':   height,
-        'Image location': ctrl.location,
-        'Mime type':      mimeType,
-        'File size':      size
-    };
-    var propsWithState = state =>
-            angular.extend({ 'Load state': state }, trackProps);
+    ctrl.trackStart = () => track(trackEventName, getTrackProps('start'));
+    ctrl.trackSuccess = () => track(trackEventName, getTrackProps('success'));
+    ctrl.trackError = () => track(trackEventName, getTrackProps('error'));
+    ctrl.init = init;
 
-    // FIXME: not sure what best practise of retrieving Date is?
-    var timeFrom = time => Date.now() - time;
-    var startTime = Date.now();
-    var addTimerTo = props =>
-        angular.extend({ 'Duration': timeFrom(startTime) }, props);
+    function init(image, location) {
+        var id = image.data.id;
+        var { mimeType, dimensions: { width, height }, size } = image.data.source;
 
-    ctrl.trackSuccess = trackSuccess;
-    ctrl.trackError = trackError;
-
-    trackStart();
-
-    function trackStart() {
-        track(trackEventName, addTimerTo(propsWithState('start')));
+        imageProps = {
+            'Image ID':       id,
+            'Image width':    width,
+            'Image height':   height,
+            'Image location': location,
+            'Mime type':      mimeType,
+            'File size':      size
+        };
+        startTime = Date.now();
     }
 
-    function trackSuccess() {
-        track(trackEventName, addTimerTo(propsWithState('success')));
+    function timeFrom(time) {
+        return Date.now() - time;
     }
 
-    function trackError() {
-        track(trackEventName, addTimerTo(propsWithState('error')));
+    function getTrackProps(state) {
+        return angular.extend({
+            'Load state': state,
+            'Duration': timeFrom(startTime)
+        }, imageProps);
     }
-
 }]);
 
 trackImageLoadtime.directive('gridTrackImageLoadtime', [function() {
     return {
         restrict: 'A',
         controller: 'TrackImageLoadtimeCtrl',
-        controllerAs: 'ctrl',
         bindToController: true,
-        scope: {
-            image: '=gridTrackImage',
-            location: '@gridTrackImageLocation'
-        },
-        link: (_, element, __, ctrl) => {
+        link: (scope, element, attrs, ctrl) => {
+            var image = scope.$eval(attrs.gridTrackImage);
+            var location = attrs.gridTrackImageLocation;
+
+            ctrl.init(image, location);
+            ctrl.trackStart();
+
             element.on('load', ctrl.trackSuccess);
             element.on('error', ctrl.trackError);
         }
