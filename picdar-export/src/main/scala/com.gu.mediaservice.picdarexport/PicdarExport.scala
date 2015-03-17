@@ -379,18 +379,18 @@ object ExportApp extends App with ExportManagerProvider with ArgumentHelpers wit
       """
         |usage: show   <desk|library> <picdarUrl>
         |       query  <desk|library> <created|modified|taken> <date>
-        |       ingest <desk|library> <dev|test> <created|modified|taken> <date> [range]
+        |       ingest <desk|library> <dev|test|prod> <created|modified|taken> <date> [range]
         |
-        |       :stats  <dev|test> [dateLoaded]
-        |       :count-loaded    <dev|test> [dateLoaded]
-        |       :count-fetched   <dev|test> [dateLoaded]
-        |       :count-ingested  <dev|test> [dateLoaded]
-        |       :count-overriden <dev|test> [dateLoaded]
-        |       +load   <dev|test> <desk|library> <created|modified|taken> <date> [range]
-        |       +fetch  <dev|test> <desk|library> [dateLoaded] [range]
-        |       +ingest <dev|test> [dateLoaded] [range]
-        |       +override <dev|test> [dateLoaded] [range]
-        |       +clear  <dev|test> [dateLoaded]
+        |       :stats  <dev|test|prod> [dateLoaded]
+        |       :count-loaded    <dev|test|prod> [dateLoaded]
+        |       :count-fetched   <dev|test|prod> [dateLoaded]
+        |       :count-ingested  <dev|test|prod> [dateLoaded]
+        |       :count-overriden <dev|test|prod> [dateLoaded]
+        |       +load   <dev|test|prod> <desk|library> <created|modified|taken> <date> [range]
+        |       +fetch  <dev|test|prod> <desk|library> [dateLoaded] [range]
+        |       +ingest <dev|test|prod> [dateLoaded] [range]
+        |       +override <dev|test|prod> [dateLoaded] [range]
+        |       +clear  <dev|test|prod> [dateLoaded]
       """.stripMargin
     )
   }
