@@ -15,7 +15,6 @@ object Application extends Controller with PanDomainAuthActions {
   def index(ignored: String) = AuthAction { req =>
     Ok(views.html.main(
       Config.mediaApiUri,
-      Config.imgoptsUri,
       Config.watUri,
       Config.mixpanelToken,
       Config.sentryDsn))
