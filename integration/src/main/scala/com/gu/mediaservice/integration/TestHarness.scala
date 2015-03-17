@@ -67,7 +67,7 @@ trait TestHarness {
 
   def deleteIndex: WSResponse = await() {
     log.info("Deleting index to clean up")
-    WS.url(config.deleteIndexEndpoint).withHeaders(apiKeyHeader).post()
+    WS.url(config.deleteIndexEndpoint).withHeaders(apiKeyHeader).post(())
   }
 
   def linkTemplate(rel: String): Option[URITemplate] = {
