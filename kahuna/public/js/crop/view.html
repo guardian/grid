@@ -42,7 +42,6 @@
     <div class="easel" ng:if="image.data">
         <div class="easel__canvas">
             <img class="easel__image"
-                 img:resize
                  img:src="{{image.data.source | assetFile}}"
                  ui:crop-box="coords"
                  ui:crop-box-original-width="image.data.source.dimensions.width"
@@ -54,7 +53,6 @@
             to the image as both directives are requesting isolated scope. See:
             https://docs.angularjs.org/error/$compile/multidir -->
             <img class="tracking-image"
-                 img:resize
                  img:src="{{image.data.source | assetFile}}"
                  grid:track-image="image"
                  grid:track-image-location="original-cropping"
