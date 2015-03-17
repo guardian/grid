@@ -2,7 +2,7 @@ import angular from 'angular';
 
 export var resize = angular.module('imgopts.resize', []);
 
-resize.directive('imgResize', ['imgOpts', imgOpts => {
+resize.directive('imgSrc', ['imgOpts', imgOpts => {
     return {
         restrict: 'A',
         link: (scope, element, attrs) => {
