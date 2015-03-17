@@ -1,6 +1,7 @@
 package controllers
 
 import java.net.URI
+import java.net.URLEncoder.encode
 
 import scala.util.Try
 
@@ -121,7 +122,7 @@ object MediaApi extends Controller with ArgoHelpers {
       val links = List(
         Json.obj("rel" -> "crops",    "href" -> s"$cropperUri/crops/$id"),
         Json.obj("rel" -> "metadata", "href" -> s"$metadataUri/metadata/$id"),
-        Json.obj("rel" -> "optimised", "href" -> makeImgoptsUri(secureUrl))
+        Json.obj("rel" -> "optimised", "href" -> makeImgoptsUri(new URI(secureUrl)))
       )
       Json.obj("uri" -> s"$rootUri/images/$id", "data" -> image, "links" -> links)
     }
@@ -157,10 +158,8 @@ object MediaApi extends Controller with ArgoHelpers {
       __.json.update(__.read[JsObject]).map(_ ++ Json.obj("valid" -> valid))
   }
 
-  def makeImgoptsUri(uri: String): String = {
-    val t = new URI(uri)
-    imgoptsUri + List(t.getPath, t.getQuery).mkString("?") + "{&w,h,q}"
-  }
+  def makeImgoptsUri(uri: URI): String =
+    imgoptsUri + List(uri.getPath, uri.getRawQuery).mkString("?") + "{&w,h,q}"
 
   def roundDateTime(t: DateTime, d: Duration) = {
     t minus (t.getMillis - (t.getMillis.toDouble / d.getMillis).round * d.getMillis)
