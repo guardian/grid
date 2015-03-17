@@ -2,7 +2,7 @@ import angular from 'angular';
 
 export var resize = angular.module('imgopts.resize', []);
 
-resize.directive('imgSrc', ['imgOpts', imgOpts => {
+resize.directive('imgSrc', ['imgopts', imgopts => {
     return {
         restrict: 'A',
         link: (scope, element, attrs) => {
@@ -10,13 +10,13 @@ resize.directive('imgSrc', ['imgOpts', imgOpts => {
             // trouble trying to acces the same scope values as other directives.
             // Damn lack of one way data binding:
             // https://docs.angularjs.org/error/$compile/multidir
-            element.attr('src', imgOpts.getSrc(attrs.imgSrc));
+            element.attr('src', imgopts.getSrc(attrs.imgSrc));
         }
     };
 }]);
 
 
-resize.factory('imgOpts', ['$window', 'imgoptsUri', ($window, imgoptsUri) => {
+resize.factory('imgopts', ['$window', 'imgoptsUri', ($window, imgoptsUri) => {
 
     var getResizeValues = () => {
         var { width: w, height: h } = $window.screen;
