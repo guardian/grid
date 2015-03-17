@@ -7,7 +7,7 @@ export var trackImageLoadtime = angular.module('kahuna.common.trackImageLoadtime
 
 trackImageLoadtime.controller('TrackImageLoadtimeCtrl',
                               ['$rootScope', 'track',
-                               function($rootScope, track) {
+                               ($rootScope, track) => {
     var ctrl = this;
     var trackEventName = 'Image loading';
     var startTime;
