@@ -11,6 +11,9 @@ resize.directive('imgSrc', ['imgopts', imgopts => {
             // Damn lack of one way data binding:
             // https://docs.angularjs.org/error/$compile/multidir
             element.attr('src', imgopts.getSrc(attrs.imgSrc));
+
+            // fallback to old src if the service fails
+            element.on('error', () => element.attr('src', attrs.imgSrc));
         }
     };
 }]);
