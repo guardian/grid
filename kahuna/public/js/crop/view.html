@@ -53,7 +53,7 @@
             to the image as both directives are requesting isolated scope. See:
             https://docs.angularjs.org/error/$compile/multidir -->
             <img class="tracking-image"
-                 img:src="{{image.data.source | assetFile}}"
+                 ng:src="{{image.data.source | assetFile}}"
                  grid:track-image="image"
                  grid:track-image-location="original-cropping"
                  grid:track-image-loadtime />
