@@ -32,7 +32,7 @@ crop.config(['$stateProvider',
                     }
                 });
             }],
-            optimisedImageUri: ['image', 'imgopts', (image, imgopts) => imgopts.getUri(image)]
+            optimisedImageUri: ['image', 'imgops', (image, imgops) => imgops.getUri(image)]
         }
     });
 
