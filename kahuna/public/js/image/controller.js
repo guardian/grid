@@ -3,12 +3,13 @@ import angular from 'angular';
 var image = angular.module('kahuna.image.controller', []);
 
 image.controller('ImageCtrl',
-                 ['$rootScope', 'image', 'cropKey', 'mediaCropper',
-                  function($rootScope, image, cropKey, mediaCropper) {
+                 ['$rootScope', 'image', 'optimisedImageUri', 'cropKey', 'mediaCropper',
+                  function($rootScope, image, optimisedImageUri, cropKey, mediaCropper) {
 
     var ctrl = this;
 
     ctrl.image = image;
+    ctrl.optimisedImageUri = optimisedImageUri;
     // TODO: we should be able to rely on ctrl.crop.id instead once
     // all existing crops are migrated to have an id (they didn't
     // initially)
