@@ -43,14 +43,14 @@ touch logs/error.log
 popd
 
 # replace the {{BUCKET}} variable with the supplied bucket name
-rm -f imgopts.conf
-sed -e 's/{{BUCKET}}/'$1'/g' imgopts.template.conf > imgopts.conf
+rm -f imgops.conf
+sed -e 's/{{BUCKET}}/'$1'/g' imgops.template.conf > imgops.conf
 
 # let our own conf usurp the default
 rm -f $NGINX_LOCATION/conf/nginx.conf
 
 ln -s $PWD/nginx.conf $NGINX_LOCATION/conf/nginx.conf
-ln -s $PWD/imgopts.conf $NGINX_LOCATION/conf/imgopts.conf
+ln -s $PWD/imgops.conf $NGINX_LOCATION/conf/imgops.conf
 
 # postclean
 rm -f nginx-${NGINX_VERSION}.tar.gz*
