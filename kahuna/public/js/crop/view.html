@@ -48,12 +48,7 @@
                  ui:crop-box-original-height="image.data.source.dimensions.height"
                  ui:crop-box-aspect="imageCropCtrl.aspect"
                  ui:crop-box-background-opacity="0.3"
-            />
-            <!-- FIXME: find a better way to do this. We can't add the tracking
-            to the image as both directives are requesting isolated scope. See:
-            https://docs.angularjs.org/error/$compile/multidir -->
-            <img class="tracking-image"
-                 ng:src="{{optimisedImageUri}}"
+
                  grid:track-image="image"
                  grid:track-image-location="original-cropping"
                  grid:track-image-loadtime />
