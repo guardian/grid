@@ -1,8 +1,8 @@
 import angular from 'angular';
 
-export var imgopts = angular.module('kahuna.imgopts', []);
+export var imgops = angular.module('kahuna.imgops', []);
 
-imgopts.factory('imgopts', ['$window', function($window) {
+imgops.factory('imgops', ['$window', function($window) {
 
     var getUri = image => {
         var { width: w, height: h } = $window.screen;

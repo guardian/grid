@@ -10,5 +10,5 @@ mappings:
     port: 9006
   - prefix: media-metadata
     port: 9007
-  - prefix: media-imgopts
+  - prefix: media-imgops
     port: 9008
