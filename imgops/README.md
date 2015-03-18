@@ -1,5 +1,5 @@
 # Img Opts for the Grid
-Local version of the imgopts service
+Local version of the imgops service
 
 ## Requirements
 * [GD](http://libgd.github.io/)
@@ -13,7 +13,7 @@ Local version of the imgopts service
 ```
 
 ## Is it running
-[localhost](http://localhost:9008/_) | [URL](https://media-imgopts.local.dev-***REMOVED***/_)?
+[localhost](http://localhost:9008/_) | [URL](https://media-imgops.local.dev-***REMOVED***/_)?
 
 ## Deploy
 To see any changes that you make within the configuration propagate to
