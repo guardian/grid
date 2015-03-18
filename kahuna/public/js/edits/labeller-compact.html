@@ -4,7 +4,7 @@
         <li class="label"
             ng:repeat="label in ctrl.labels.data">
             <a class="label__link"
-               ui:sref="search.results({query: label.data})">{{label.data}}</a>
+               ui:sref="search.results({query: (label.data | queryLabelFilter)})">{{label.data}}</a>
         </li>
     </ul>
 
