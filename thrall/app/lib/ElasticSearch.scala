@@ -76,10 +76,16 @@ object ElasticSearch extends ElasticSearchClient {
       }
   }
 
+  import org.joda.time.DateTime
+  import org.joda.time.format.ISODateTimeFormat
+
+  def currentIsoDateString = ISODateTimeFormat.dateTime().print(new DateTime())
+
   def updateImageExports(id: String, exports: JsValue)(implicit ex: ExecutionContext): Future[UpdateResponse] =
     prepareImageUpdate(id)
       .setScriptParams(Map(
-        "exports" -> asGroovy(exports)
+        "exports" -> asGroovy(exports),
+        "lastModified" -> asGroovy(JsString(currentIsoDateString))
       ).asJava)
       .setScript("""
                     if (ctx._source.exports == null) {
@@ -87,6 +93,8 @@ object ElasticSearch extends ElasticSearchClient {
                     } else {
                       ctx._source.exports += exports;
                     }
+
+                    ctx._source.lastModified = lastModified;
                  """, scriptType)
       .executeAndLog(s"updating exports on image $id")
       .incrementOnFailure(conflicts) { case e: VersionConflictEngineException => true }
@@ -94,7 +102,8 @@ object ElasticSearch extends ElasticSearchClient {
   def applyImageMetadataOverride(id: String, metadata: JsValue)(implicit ex: ExecutionContext): Future[UpdateResponse] =
     prepareImageUpdate(id)
       .setScriptParams(Map(
-        "userMetadata" -> asGroovy(metadata)
+        "userMetadata" -> asGroovy(metadata),
+        "lastModified" -> asGroovy(JsString(currentIsoDateString))
       ).asJava)
       // TODO: if metadata not set, should undo overrides?
       // TODO: apply overrides from the original metadata each time?
@@ -102,7 +111,9 @@ object ElasticSearch extends ElasticSearchClient {
                     if (userMetadata.metadata) {
                       ctx._source.metadata += userMetadata.metadata;
                     }
+
                     ctx._source.userMetadata = userMetadata;
+                    ctx._source.lastModified = lastModified;
                  """, scriptType)
       .executeAndLog(s"updating user metadata on image $id")
       .incrementOnFailure(conflicts) { case e: VersionConflictEngineException => true }
