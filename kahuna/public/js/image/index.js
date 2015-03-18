@@ -2,6 +2,7 @@ import angular from 'angular';
 
 import './controller';
 import '../search/query-filter';
+import '../imgopts/service';
 
 import imageTemplate from './view.html!text';
 import imageNotFoundTemplate from './404.html!text';
@@ -9,7 +10,8 @@ import imageNotFoundTemplate from './404.html!text';
 
 export var image = angular.module('kahuna.image', [
     'kahuna.image.controller',
-    'kahuna.search.filters.query'
+    'kahuna.search.filters.query',
+    'kahuna.imgopts'
 ]);
 
 
@@ -34,7 +36,9 @@ image.config(['$stateProvider',
                         $q.reject(error);
                     }
                 });
-            }]
+            }],
+
+            optimisedImageUri: ['image', 'imgopts', (image, imgopts) => imgopts.getUri(image)]
         }
     });
 

@@ -30,6 +30,7 @@ object MediaApi extends Controller with ArgoHelpers {
   val loaderUri = Config.loaderUri
   val metadataUri = Config.metadataUri
   val kahunaUri = Config.kahunaUri
+  val imgoptsUri = Config.imgoptsUri
 
   def index = Action {
     val searchParams = List("q", "ids", "offset", "length", "fromDate", "toDate",
@@ -119,7 +120,8 @@ object MediaApi extends Controller with ArgoHelpers {
       // to the right place
       val links = List(
         Json.obj("rel" -> "crops",    "href" -> s"$cropperUri/crops/$id"),
-        Json.obj("rel" -> "metadata", "href" -> s"$metadataUri/metadata/$id")
+        Json.obj("rel" -> "metadata", "href" -> s"$metadataUri/metadata/$id"),
+        Json.obj("rel" -> "optimised", "href" -> makeImgoptsUri(new URI(secureUrl)))
       )
       Json.obj("uri" -> s"$rootUri/images/$id", "data" -> image, "links" -> links)
     }
@@ -155,6 +157,8 @@ object MediaApi extends Controller with ArgoHelpers {
       __.json.update(__.read[JsObject]).map(_ ++ Json.obj("valid" -> valid))
   }
 
+  def makeImgoptsUri(uri: URI): String =
+    imgoptsUri + List(uri.getPath, uri.getRawQuery).mkString("?") + "{&w,h,q}"
 
   def roundDateTime(t: DateTime, d: Duration) = {
     t minus (t.getMillis - (t.getMillis.toDouble / d.getMillis).round * d.getMillis)
