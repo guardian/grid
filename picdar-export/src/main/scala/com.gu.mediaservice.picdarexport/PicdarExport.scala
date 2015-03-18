@@ -319,7 +319,7 @@ object ExportApp extends App with ExportManagerProvider with ArgumentHelpers wit
         val rangeLen = rangeEnd - rangeStart
 
         val updates = assets.drop(rangeStart).take(rangeLen).map { asset =>
-          getExportManager("library", env).ingest(asset.picdarAssetUrl, asset.picdarUrn, asset.picdarCreated) flatMap { mediaUri =>
+          getExportManager("library", env).ingest(asset.picdarAssetUrl, asset.picdarUrn, asset.picdarCreatedFull) flatMap { mediaUri =>
             Logger.info(s"Ingested ${asset.picdarUrn} to $mediaUri")
             dynamo.recordIngested(asset.picdarUrn, asset.picdarCreated, mediaUri)
           } recover { case e: Throwable =>
