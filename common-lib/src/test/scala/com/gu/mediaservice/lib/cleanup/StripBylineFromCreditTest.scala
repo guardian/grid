@@ -77,6 +77,19 @@ class StripBylineFromCreditTest extends FunSpec with Matchers with MetadataHelpe
     cleanedMetadata.credit should be (Some("Eduardo Valente/Frame/AGENCIA/Xinhua Press/Corbis"))
   }
 
+  it("should leave byline and credit as they are if they are not tokenisable and equal") {
+    val metadata = bylineAndCredit("PA", "PA")
+    val cleanedMetadata = StripBylineFromCredit.clean(metadata)
+    cleanedMetadata.byline should be (Some("PA"))
+    cleanedMetadata.credit should be (Some("PA"))
+  }
+
+  it("should leave byline and credit as they are if they are not tokenisable and not equal") {
+    val metadata = bylineAndCredit("PA", "Pamela")
+    val cleanedMetadata = StripBylineFromCredit.clean(metadata)
+    cleanedMetadata.byline should be (Some("PA"))
+    cleanedMetadata.credit should be (Some("Pamela"))
+  }
 
   def bylineAndCredit(byline: String, credit: String) =
     createImageMetadata("byline" -> byline, "credit" -> credit)
