@@ -1,7 +1,6 @@
 package controllers
 
 import java.net.URI
-import java.net.URLEncoder.encode
 
 import scala.util.Try
 
