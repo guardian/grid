@@ -12,7 +12,7 @@ class Services(domainRoot: String, ssl: Boolean) {
   val loaderHost: String   = s"loader.$domainRoot"
   val cropperHost: String  = s"cropper.$domainRoot"
   val metadataHost: String = s"$appName-metadata.$parentDomain"
-  val imgoptsHost: String = s"$appName-imgopts.$parentDomain"
+  val imgopsHost: String = s"$appName-imgops.$parentDomain"
 
 
   val kahunaBaseUri   = baseUri(kahunaHost)
@@ -20,7 +20,7 @@ class Services(domainRoot: String, ssl: Boolean) {
   val loaderBaseUri   = baseUri(loaderHost)
   val cropperBaseUri  = baseUri(cropperHost)
   val metadataBaseUri = baseUri(metadataHost)
-  val imgoptsBaseUri  = baseUri(imgoptsHost)
+  val imgopsBaseUri  = baseUri(imgopsHost)
 
   def baseUri(host: String) = {
     val protocol = if (ssl) "https" else "http"
