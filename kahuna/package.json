@@ -18,7 +18,7 @@
       "pandular": "npm:pandular@0.1.5",
       "raven-js": "1.1.16",
       "text": "^0.0.2",
-      "theseus": "~0.3.0",
+      "theseus": "~0.3.1",
       "theseus-angular": "^0.2.3",
       "ua-parser-js": "0.7.3"
     }

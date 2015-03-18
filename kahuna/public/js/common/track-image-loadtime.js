@@ -49,7 +49,6 @@ trackImageLoadtime.directive('gridTrackImageLoadtime', [function() {
     return {
         restrict: 'A',
         controller: 'TrackImageLoadtimeCtrl',
-        bindToController: true,
         link: (scope, element, attrs, ctrl) => {
             var image = scope.$eval(attrs.gridTrackImage);
             var location = attrs.gridTrackImageLocation;
