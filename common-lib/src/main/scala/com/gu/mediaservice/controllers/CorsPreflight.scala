@@ -12,7 +12,7 @@ object CorsPreflight extends Controller {
   def options(ignoredUrl: String) = Action {
     Ok("").withHeaders(
       "Access-Control-Allow-Methods" -> "GET, POST, PUT, DELETE, OPTIONS",
-      "Access-Control-Allow-Headers" -> "Content-Type, X-Requested-With, Accept",
+      "Access-Control-Allow-Headers" -> "Content-Type, X-Requested-With, Accept, X-GU-LoggingContext",
       "Access-Control-Max-Age" -> maxAge
     )
   }
