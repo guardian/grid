@@ -5,8 +5,8 @@ var crop = angular.module('kahuna.crop.controller', []);
 crop.controller('ImageCropCtrl',
                 ['$scope', '$stateParams', '$state', '$filter', 'mediaApi', 'mediaCropper',
                  'image', 'optimisedImageUri',
-                 ($scope, $stateParams, $state, $filter, mediaApi, mediaCropper,
-                  image, optimisedImageUri) => {
+                 function($scope, $stateParams, $state, $filter, mediaApi, mediaCropper,
+                  image, optimisedImageUri) {
 
     var imageId = $stateParams.imageId;
     $scope.image = image;
