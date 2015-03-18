@@ -23,6 +23,7 @@ import scala.concurrent.Future
 case class AssetRow(
   picdarUrn: String,
   picdarCreated: DateTime,
+  picdarCreatedFull: DateTime,
   picdarAssetUrl: URI,
   mediaUri: Option[URI] = None,
   picdarMetadata: Option[ImageMetadata] = None
@@ -84,10 +85,11 @@ class ExportDynamoDB(credentials: AWSCredentials, region: Region, tableName: Str
       dateRange.end.map(asRangeString).map(":endDate" -> _)
 
     val query = queryConds.mkString(" AND ")
-    val items = table.scan(query, "picdarUrn, picdarCreated, picdarAssetUrl", null, values)
+    val items = table.scan(query, "picdarUrn, picdarCreated, picdarCreatedFull, picdarAssetUrl", null, values)
     items.iterator.map { item =>
       val picdarCreated = rangeDateFormat.parseDateTime(item.getString("picdarCreated"))
-      AssetRow(item.getString("picdarUrn"), picdarCreated, URI.create(item.getString("picdarAssetUrl")))
+      val picdarCreatedFull = timestampDateFormat.parseDateTime(item.getString("picdarCreatedFull"))
+      AssetRow(item.getString("picdarUrn"), picdarCreated, picdarCreatedFull, URI.create(item.getString("picdarAssetUrl")))
     }.toSeq
   }
 
@@ -102,12 +104,13 @@ class ExportDynamoDB(credentials: AWSCredentials, region: Region, tableName: Str
       dateRange.end.map(asRangeString).map(":endDate" -> _)
 
     val query = queryConds.mkString(" AND ")
-    val items = table.scan(query, "picdarUrn, picdarCreated, picdarAssetUrl, mediaUri, picdarMetadata", null, values)
+    val items = table.scan(query, "picdarUrn, picdarCreated, picdarCreatedFull, picdarAssetUrl, mediaUri, picdarMetadata", null, values)
     items.iterator.map { item =>
       val picdarCreated = rangeDateFormat.parseDateTime(item.getString("picdarCreated"))
+      val picdarCreatedFull = timestampDateFormat.parseDateTime(item.getString("picdarCreatedFull"))
       val mediaUri = Option(item.getString("mediaUri")).map(URI.create)
       val picdarMetadata = Option(item.getJSON("picdarMetadata")).map(json => Json.parse(json).as[ImageMetadata])
-      AssetRow(item.getString("picdarUrn"), picdarCreated, URI.create(item.getString("picdarAssetUrl")), mediaUri, picdarMetadata)
+      AssetRow(item.getString("picdarUrn"), picdarCreated, picdarCreatedFull, URI.create(item.getString("picdarAssetUrl")), mediaUri, picdarMetadata)
     }.toSeq
   }
 
@@ -122,11 +125,12 @@ class ExportDynamoDB(credentials: AWSCredentials, region: Region, tableName: Str
       dateRange.end.map(asRangeString).map(":endDate" -> _)
 
     val query = queryConds.mkString(" AND ")
-    val items = table.scan(query, "picdarUrn, picdarCreated, picdarAssetUrl, mediaUri", null, values)
+    val items = table.scan(query, "picdarUrn, picdarCreated, picdarCreatedFull, picdarAssetUrl, mediaUri", null, values)
     items.iterator.map { item =>
       val picdarCreated = rangeDateFormat.parseDateTime(item.getString("picdarCreated"))
+      val picdarCreatedFull = timestampDateFormat.parseDateTime(item.getString("picdarCreatedFull"))
       val mediaUri = Option(item.getString("mediaUri")).map(URI.create)
-      AssetRow(item.getString("picdarUrn"), picdarCreated, URI.create(item.getString("picdarAssetUrl")), mediaUri)
+      AssetRow(item.getString("picdarUrn"), picdarCreated, picdarCreatedFull, URI.create(item.getString("picdarAssetUrl")), mediaUri)
     }.toSeq
   }
 
