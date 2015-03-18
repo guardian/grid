@@ -3,32 +3,56 @@ Media Service
 
 The new Guardian service to manage media (currently: images).
 
-## Requirements
+Running the applications
+------------------------
+
+### Requirements
 
 You will need to install:
 
 * sbt
 * JDK 7
+* Nginx
 * [bower](http://bower.io/)
 * [GraphicsMagick](http://www.graphicsmagick.org/) (this should be used over
 ImageMagick as it's what we use on the servers).
 `sudo apt-get install graphics` or `brew install graphicsmagick`.
 
-Then run `setup.sh` to install and start Elasticsearch.  You can use
+### Nginx
+
+To run correctly in standalone mode we run behind nginx, this can be installed as follows:
+
+1. Install nginx:
+  * *Linux:*   ```sudo apt-get install nginx```
+  * *Mac OSX:* ```brew install nginx```
+
+2. Make sure you have a sites-enabled folder under your nginx home. This should be
+  * *Linux:* ```/etc/nginx/sites-enabled```
+  * *Mac OSX:* ```/usr/local/etc/nginx/```
+
+3. Make sure your nginx.conf (found in your nginx home) contains the following line in the http{} block:
+`include sites-enabled/*;`
+  * you may also want to disable the default server on 8080
+
+4. Get the [dev-nginx](https://github.com/guardian/dev-nginx) repo checked out on your machine
+
+5. [Set up certs](https://github.com/guardian/dev-nginx#install-ssl-certificates) if you've not already done so
+
+6. Configure the app routes in nginx
+
+    sudo <path_of_dev-nginx>/setup-app.rb <path_of_media_service_repo>/nginx-mapping.yml
+
+### Elasticsearch
+
+You can run `setup.sh` to install and start Elasticsearch.  You can use
 the script to start up Elasticsearch even if it's already installed.
 
-Alternatively, you can do these steps manually:
-
-
-## Install Elasticsearch
+Alternatively you can do these steps manually:
 
 Run the Elasticsearch installer from the `elasticsearch` directory:
 
         $ cd elasticsearch/
         $ ./dev-install.sh
-
-
-## Run Elasticsearch
 
 Start Elasticsearch from the `elasticsearch` directory:
 
@@ -36,7 +60,7 @@ Start Elasticsearch from the `elasticsearch` directory:
         $ ./dev-start.sh
 
 
-## Pan-domain authentication config
+### Pan-domain authentication config
 
 First you need to setup some properties to configure the
 [pan-domain authentication](https://github.com/guardian/pan-domain-authentication)
@@ -51,7 +75,7 @@ panda.aws.secret=...
 This file will be used by the different applications to share auth
 config, so that CORS is enabled across APIs.
 
-## Run Media API
+### Run Media API
 
 First you need to create some dev credentials and resources in AWS.
 
@@ -91,7 +115,7 @@ The media api should be up at
 [http://localhost:9001/](http://localhost:9001/).
 
 
-## Run Thrall
+### Run Thrall
 
 Setup your local configuration in `/etc/gu/thrall.properties` using
 outputs from the dev stack above:
@@ -114,19 +138,19 @@ The thrall should be up at
 [http://localhost:9002/](http://localhost:9002/).
 
 
-## Run the Image Loader
+### Run the Image Loader
 
 Setup your local configuration in `/etc/gu/image-loader.properties` using
 outputs from the dev stack above:
 
 ```
+domain.root=...
 aws.id=...
 aws.secret=...
 s3.image.bucket=...
 s3.thumb.bucket=...
 auth.keystore.bucket=...
 sns.topic.arn=...
-domain.root=...
 ```
 
 From the project root, run via sbt:
@@ -147,7 +171,7 @@ curl -X POST --data-binary @integration/src/test/resources/images/honeybee.jpg h
 It should then appear in the Media API at [http://localhost:9001/images](http://localhost:9001/images).
 
 
-## Run the FTP Watcher
+### Run the FTP Watcher
 
 Setup your local configuration in `/etc/gu/ftp-watcher.properties` to
 point to the FTP server and your loader server:
@@ -172,7 +196,7 @@ The FTP watcher should be up at
 Images should appear in the Media API at [http://localhost:9001/images](http://localhost:9001/images).
 
 
-## Run Kahuna
+### Run Kahuna
 
 Setup your local configuration in `/etc/gu/kahuna.properties` to point
 to the Media API:
@@ -200,7 +224,7 @@ The user interface should be up at
 [http://localhost:9005/](http://localhost:9005/).
 
 
-## Run Cropper
+### Run Cropper
 
 Setup your local configuration in `/etc/gu/cropper.properties`:
 
@@ -238,7 +262,7 @@ The user interface should be up at
 [http://localhost:9006/](http://localhost:9006/).
 
 
-## Run Metadata Editor
+### Run Metadata Editor
 
 Setup your local configuration in `/etc/gu/metadata-editor.properties`:
 
@@ -261,7 +285,7 @@ The user interface should be up at
 [http://localhost:9007/](http://localhost:9007/).
 
 
-## [Run ImgOps](imgops/README.md)
+### [Run ImgOpts](imgopts/README.md)
 
 
 ## Troubleshooting
