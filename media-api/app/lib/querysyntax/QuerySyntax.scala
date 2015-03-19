@@ -22,6 +22,7 @@ class QuerySyntax(val input: ParserInput) extends Parser {
   def AllowedFieldName = rule {
     "location" | "city" | "state" | "country" | "in" |
     "byline" | "by" | "photographer" |
+    "description" |
     "credit" |
     "copyright" |
     "source" |
