@@ -115,7 +115,6 @@ results.controller('SearchResultsCtrl',
         // FIXME: Think of a way to not have to add a param in a million places to add it
         return mediaApi.search($stateParams.query, angular.extend({
             ids:        $stateParams.ids,
-            since:      $stateParams.since,
             archived:   $stateParams.archived,
             // The nonFree state param is the inverse of the free API param
             free:       $stateParams.nonFree === 'true' ? undefined: true,
@@ -123,8 +122,8 @@ results.controller('SearchResultsCtrl',
             valid:      $stateParams.valid === undefined ? true : $stateParams.valid,
             uploadedBy: $stateParams.uploadedBy
         }, {
-            until: until,
-            since: since
+            until: until || $stateParams.until,
+            since: since || $stateParams.since
         }));
     }
 

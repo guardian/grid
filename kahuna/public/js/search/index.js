@@ -31,7 +31,7 @@ search.config(['$stateProvider',
     });
 
     $stateProvider.state('search.results', {
-        url: 'search?query&ids&since&nonFree&archived&valid&uploadedBy',
+        url: 'search?query&ids&since&nonFree&archived&valid&uploadedBy&until',
         template: searchResultsTemplate,
         controller: 'SearchResultsCtrl',
         data: {
