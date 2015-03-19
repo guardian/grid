@@ -423,6 +423,7 @@ input.search-query__input {
 
 .advanced-search-example {
     margin-bottom: 10px;
+    max-width: 450px;
 }
 
 .advanced-search-example__inputs {
