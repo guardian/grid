@@ -28,6 +28,7 @@ object ImageNotDeletable extends Throwable("Image cannot be deleted")
 object ElasticSearch extends ElasticSearchClient {
 
   import Config.persistenceIdentifier
+  import com.gu.mediaservice.lib.formatting._
 
   val host = Config.elasticsearchHost
   val port = Config.int("es.port")
@@ -37,7 +38,7 @@ object ElasticSearch extends ElasticSearchClient {
 
   lazy val updateByQueryClient = new UpdateByQueryClientWrapper(client)
 
-  def currentIsoDateString = ISODateTimeFormat.dateTime().print(new DateTime())
+  def currentIsoDateString = printDateTime(new DateTime())
 
   def indexImage(id: String, image: JsValue)(implicit ex: ExecutionContext): Future[UpdateResponse] =
     client.prepareUpdate(imagesAlias, imageType, id)
