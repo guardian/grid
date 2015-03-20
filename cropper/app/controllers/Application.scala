@@ -13,8 +13,9 @@ import _root_.play.api.Logger
 import _root_.play.api.Play.current
 
 import com.gu.mediaservice.lib.auth
-import com.gu.mediaservice.lib.auth.KeyStore
+import com.gu.mediaservice.lib.auth.{AuthenticatedService, PandaUser, KeyStore}
 import com.gu.mediaservice.lib.argo.ArgoHelpers
+
 import lib._, Files._
 import model._
 
@@ -43,8 +44,6 @@ object Application extends Controller with ArgoHelpers {
       .transform[CropSource]({ case (source, x, y, w, h, r) => CropSource(source, Bounds(x, y, w, h), r) },
                        { case CropSource(source, Bounds(x, y, w, h), r) => (source, x, y, w, h, r) })
   )
-
-  import com.gu.mediaservice.lib.auth.{AuthenticatedService, PandaUser}
 
   def crop = Authenticated.async { req =>
     val author = req.user match {
