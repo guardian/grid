@@ -27,7 +27,7 @@ query.controller('SearchQueryCtrl',
         {label: 'anytime'},   // value: undefined
         {label: 'today',         value: lastMidnight},
         {label: 'past 24 hours', value: '24.hour'},
-        {label: 'past week',     value: '1.week'}
+        {label: 'past week',     value: '7.days'}
     ];
 
     Object.keys($stateParams)
