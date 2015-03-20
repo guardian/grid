@@ -285,7 +285,7 @@ The user interface should be up at
 [http://localhost:9007/](http://localhost:9007/).
 
 
-### [Run ImgOpts](imgopts/README.md)
+### [Run ImgOps](imgops/README.md)
 
 
 ## Troubleshooting
