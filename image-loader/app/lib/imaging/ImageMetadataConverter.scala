@@ -5,7 +5,7 @@ import org.joda.time.format._
 
 import scala.util.Try
 
-import com.gu.mediaservice.model.ImageMetadata
+import com.gu.mediaservice.model.{FileMetadata, ImageMetadata}
 
 object ImageMetadataConverter {
 
