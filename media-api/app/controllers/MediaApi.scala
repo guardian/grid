@@ -93,7 +93,14 @@ object MediaApi extends Controller with ArgoHelpers {
         val notification = Json.obj("id" -> id, "data" -> Json.toJson(cleanMetadata))
         Notifications.publish(notification, "update-image-metadata")
 
-        Ok(notification)
+        Ok(Json.obj(
+          "id" -> id,
+          "changed" -> JsBoolean(imageMetadata != cleanMetadata),
+          "data" -> Json.obj(
+            "oldMetadata" -> imageMetadata,
+            "cleanMetadata" -> cleanMetadata
+          )
+        )).as(ArgoMediaType)
       }
       case None => NotFound.as(ArgoMediaType)
     }
