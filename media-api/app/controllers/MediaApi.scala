@@ -75,6 +75,13 @@ object MediaApi extends Controller with ArgoHelpers {
     Accepted.as(ArgoMediaType)
   }
 
+  def cleanImage(id: String) = Authenticated.async {
+    ElasticSearch.getImageById(id) map {
+      case Some(source) => ???
+      case None => NotFound.as(ArgoMediaType)
+    }
+  }
+
 
   def imageSearch = Authenticated.async { request =>
     val params = GeneralParams(request)
