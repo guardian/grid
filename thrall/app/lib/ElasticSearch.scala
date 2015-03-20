@@ -100,8 +100,7 @@ object ElasticSearch extends ElasticSearchClient {
       .executeAndLog(s"updating user metadata on image $id")
       .incrementOnFailure(conflicts) { case e: VersionConflictEngineException => true }
 
-  def applyImageMetadataOverride(id: String, metadata: JsValue)(implicit ex: ExecutionContext): Future[UpdateResponse] = {
-    println(metadata)
+  def applyImageMetadataOverride(id: String, metadata: JsValue)(implicit ex: ExecutionContext): Future[UpdateResponse] =
     prepareImageUpdate(id)
       .setScriptParams(Map(
         "userMetadata" -> asGroovy(metadata)
@@ -115,7 +114,7 @@ object ElasticSearch extends ElasticSearchClient {
                     ctx._source.userMetadata = userMetadata;
                  """, scriptType)
       .executeAndLog(s"overriding user metadata on image $id")
-      .incrementOnFailure(conflicts) { case e: VersionConflictEngineException => true }}
+      .incrementOnFailure(conflicts) { case e: VersionConflictEngineException => true }
 
   def prepareImageUpdate(id: String): UpdateRequestBuilder =
     client.prepareUpdate(imagesAlias, imageType, id)
