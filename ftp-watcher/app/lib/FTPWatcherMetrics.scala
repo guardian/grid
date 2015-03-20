@@ -6,6 +6,10 @@ import com.amazonaws.services.cloudwatch.model.Dimension
 
 object FTPWatcherMetrics extends CloudWatchMetrics(s"$stage/FTPWatcher", metricsAwsCredentials) {
 
+  val retrievingImages = new CountMetric("RetrievingImages")
+
+  val retrievedImages = new CountMetric("RetrievedImages")
+
   val uploadedImages = new CountMetric("UploadedImages")
 
   val failedUploads = new CountMetric("FailedUploads")
