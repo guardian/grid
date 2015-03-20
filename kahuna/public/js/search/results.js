@@ -13,7 +13,7 @@ results.controller('SearchResultsCtrl',
     // See:   https://github.com/guardian/media-service/pull/64#discussion-diff-17351746L116
     $scope.loading = true;
 
-    $scope.searched = search({since: $stateParams.since}).then(function(images) {
+    $scope.searched = search().then(function(images) {
         $scope.totalResults = images.total;
         $scope.images = images.data;
         // yield so images render before we check if there's more space
@@ -103,7 +103,7 @@ results.controller('SearchResultsCtrl',
         var lastImage = $scope.images.slice(-1)[0];
         if (lastImage) {
             var until = lastImage.data.uploadTime;
-            return search({until: until, since: $stateParams.since}).then(function(moreImages) {
+            return search({until: until}).then(function(moreImages) {
                 // Filter out duplicates (esp. on exact same 'until' date)
                 var newImages = excludingCurrentImages(moreImages.data);
                 $scope.images = $scope.images.concat(newImages);
@@ -115,16 +115,15 @@ results.controller('SearchResultsCtrl',
         // FIXME: Think of a way to not have to add a param in a million places to add it
         return mediaApi.search($stateParams.query, angular.extend({
             ids:        $stateParams.ids,
-            since:      $stateParams.since,
             archived:   $stateParams.archived,
             // The nonFree state param is the inverse of the free API param
             free:       $stateParams.nonFree === 'true' ? undefined: true,
             // Search for valid only by default
             valid:      $stateParams.valid === undefined ? true : $stateParams.valid,
-            uploadedBy: $stateParams.uploadedBy
-        }, {
-            until: until,
-            since: since
+            uploadedBy: $stateParams.uploadedBy,
+            // Override $stateParams until/since with any explicitly provided argument
+            until:      until || $stateParams.until,
+            since:      since || $stateParams.since
         }));
     }
 
