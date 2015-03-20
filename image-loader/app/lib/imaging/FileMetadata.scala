@@ -1,11 +1,11 @@
 package lib.imaging
 
 import java.io.File
-import com.drew.metadata.exif.{ExifSubIFDDirectory, ExifIFD0Descriptor, ExifIFD0Directory}
+import com.drew.metadata.exif.{ExifSubIFDDirectory, ExifIFD0Directory}
 import com.drew.metadata.xmp.XmpDirectory
 import scala.concurrent.{ExecutionContext, Future}
 import com.drew.imaging.ImageMetadataReader
-import com.drew.metadata.iptc.{IptcDescriptor, IptcDirectory}
+import com.drew.metadata.iptc.IptcDirectory
 import com.drew.metadata.jpeg.JpegDirectory
 import model.Dimensions
 import com.drew.metadata.{Metadata, Directory}
