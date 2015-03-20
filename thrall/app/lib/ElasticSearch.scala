@@ -12,9 +12,10 @@ import org.elasticsearch.index.engine.VersionConflictEngineException
 import org.elasticsearch.script.ScriptService
 import org.elasticsearch.index.query.QueryBuilders.{filteredQuery, boolQuery, matchQuery}
 import org.elasticsearch.index.query.FilterBuilders.{missingFilter, andFilter}
+import org.joda.time.DateTime
+import org.joda.time.format.ISODateTimeFormat
 import groovy.json.JsonSlurper
 import _root_.play.api.libs.json._
-
 
 import com.gu.mediaservice.lib.elasticsearch.ElasticSearchClient
 import com.gu.mediaservice.syntax._
@@ -35,6 +36,8 @@ object ElasticSearch extends ElasticSearchClient {
   val scriptType = ScriptService.ScriptType.valueOf("INLINE")
 
   lazy val updateByQueryClient = new UpdateByQueryClientWrapper(client)
+
+  def currentIsoDateString = ISODateTimeFormat.dateTime().print(new DateTime())
 
   def indexImage(id: String, image: JsValue)(implicit ex: ExecutionContext): Future[UpdateResponse] =
     client.prepareUpdate(imagesAlias, imageType, id)
@@ -75,11 +78,6 @@ object ElasticSearch extends ElasticSearchClient {
           .incrementOnFailure(failedDeletedImages) { case ImageNotDeletable => true }
       }
   }
-
-  import org.joda.time.DateTime
-  import org.joda.time.format.ISODateTimeFormat
-
-  def currentIsoDateString = ISODateTimeFormat.dateTime().print(new DateTime())
 
   def updateImageExports(id: String, exports: JsValue)(implicit ex: ExecutionContext): Future[UpdateResponse] =
     prepareImageUpdate(id)
