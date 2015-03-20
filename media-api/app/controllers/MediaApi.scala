@@ -2,6 +2,8 @@ package controllers
 
 import java.net.URI
 
+import com.gu.mediaservice.lib.metadata.ImageMetadataConverter
+
 import scala.util.Try
 
 import play.api.mvc._
@@ -12,10 +14,14 @@ import org.joda.time.{DateTime, Duration}
 import lib.elasticsearch.{MetadataSearchResults, ElasticSearch, SearchResults}
 import lib.{Notifications, Config, S3Client}
 import lib.querysyntax.{Condition, Parser}
+
 import com.gu.mediaservice.lib.auth
 import com.gu.mediaservice.lib.auth.KeyStore
 import com.gu.mediaservice.lib.argo.ArgoHelpers
 import com.gu.mediaservice.lib.formatting.parseDateFromQuery
+import com.gu.mediaservice.lib.cleanup.MetadataCleaners
+import com.gu.mediaservice.lib.config.MetadataConfig
+import com.gu.mediaservice.model.FileMetadata
 import com.gu.mediaservice.api.Transformers
 
 
@@ -76,8 +82,23 @@ object MediaApi extends Controller with ArgoHelpers {
   }
 
   def cleanImage(id: String) = Authenticated.async {
+    val metadataCleaners = new MetadataCleaners(MetadataConfig.creditBylineMap)
+
     ElasticSearch.getImageById(id) map {
-      case Some(source) => ???
+      case Some(source) => {
+        val fileMetadata = (source \ "fileMetadata").as[FileMetadata]
+        val imageMetadata = ImageMetadataConverter.fromFileMetadata(fileMetadata)
+
+        
+
+        Notifications.publish(Json.obj(
+          "id" -> id,
+          "data" -> Json.toJson(imageMetadata)
+        ), "update-image-user-metadata")
+
+        metadataCleaners.clean(imageMetadata)
+        ???
+      }
       case None => NotFound.as(ArgoMediaType)
     }
   }
