@@ -3,6 +3,8 @@ package model
 import play.api.libs.json._
 import play.api.libs.functional.syntax._
 
+case class CropRequest(by: String, specification: CropSource)
+
 case class Crop(id: String, specification: CropSource, assets: List[CropSizing])
 
 object Crop {

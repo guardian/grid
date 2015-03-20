@@ -44,12 +44,23 @@ object Application extends Controller with ArgoHelpers {
                        { case CropSource(source, Bounds(x, y, w, h), r) => (source, x, y, w, h, r) })
   )
 
+  import com.gu.mediaservice.lib.auth.{AuthenticatedService, PandaUser}
+
   def crop = Authenticated.async { req =>
+    val author = req.user match {
+      case user: AuthenticatedService => user.name
+      case user: PandaUser => user.email
+      case _ => "unknown"
+    }
+
     cropSourceForm.bindFromRequest()(req).fold(
       errors   => Future.successful(BadRequest(errors.errorsAsJson)),
-      cropReq => {
-        createSizings(cropReq).map { case (id, sizings) =>
-          val crops = cropResponse(Crop(getCropId(cropReq.bounds), cropReq, sizings))
+      cropSrc => {
+        val cropRequest = CropRequest(by = author, specification = cropSrc)
+
+        createSizings(cropRequest).map { case (id, sizings) =>
+
+          val crops = cropResponse(Crop(getCropId(cropRequest.specification.bounds), cropRequest.specification, sizings))
           val exports = Json.obj(
             "id" -> id,
             "data" -> Json.arr(Json.obj("type" -> "crop") ++ crops)
@@ -78,7 +89,9 @@ object Application extends Controller with ArgoHelpers {
     }
   }
 
-  def createSizings(source: CropSource): Future[(String, List[CropSizing])] =
+  def createSizings(request: CropRequest): Future[(String, List[CropSizing])] = {
+    val source = request.specification
+
     for {
       apiImage   <- fetchSourceFromApi(source.uri)
       sourceFile <- tempFileFromURL(new URL(apiImage.source.secureUrl), "cropSource", "")
@@ -95,7 +108,7 @@ object Application extends Controller with ArgoHelpers {
         val filename = outputFilename(apiImage, source.bounds, dim.width)
         for {
           file    <- Crops.create(sourceFile, source, dim)
-          sizing  <- CropStorage.storeCropSizing(file, filename, "image/jpeg", source, dim)
+          sizing  <- CropStorage.storeCropSizing(file, filename, "image/jpeg", request, dim)
           _       <- delete(file)
         }
         yield sizing
@@ -103,6 +116,7 @@ object Application extends Controller with ArgoHelpers {
       _ <- delete(sourceFile)
     }
     yield (apiImage.id, sizings)
+  }
 
   def fetchSourceFromApi(uri: String): Future[SourceImage] =
     for (resp <- WS.url(uri).withHeaders("X-Gu-Media-Key" -> mediaApiKey).get)
