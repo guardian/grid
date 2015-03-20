@@ -11,6 +11,10 @@
             </div>
 
             <div class="top-bar__actions">
+                <a class="top-bar__item" href="{{ ctrl.image.data.source | assetFile }}" download target="_blank">
+                    ⬇ download
+                </a>
+
                 <ui-archiver class="top-bar__item"
                              archived="ctrl.image.data.userMetadata.data.archived"
                              with-text="true"></ui-archiver>
