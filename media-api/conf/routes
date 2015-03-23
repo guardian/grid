@@ -11,7 +11,7 @@ GET     /images/metadata/:field     controllers.MediaApi.metadataSearch(field: S
 # Images
 GET     /images/:id                 controllers.MediaApi.getImage(id: String)
 GET     /images/:id/fileMetadata    controllers.MediaApi.getImageFileMetadata(id: String)
-GET     /images/:id/clean           controllers.MediaApi.cleanImage(id: String)
+POST    /images/:id/reindex         controllers.MediaApi.cleanImage(id: String)
 DELETE  /images/:id                 controllers.MediaApi.deleteImage(id: String)
 
 GET     /images                     controllers.MediaApi.imageSearch
