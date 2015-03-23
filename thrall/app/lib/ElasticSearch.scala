@@ -13,7 +13,6 @@ import org.elasticsearch.script.ScriptService
 import org.elasticsearch.index.query.QueryBuilders.{filteredQuery, boolQuery, matchQuery}
 import org.elasticsearch.index.query.FilterBuilders.{missingFilter, andFilter}
 import org.joda.time.DateTime
-import org.joda.time.format.ISODateTimeFormat
 import groovy.json.JsonSlurper
 import _root_.play.api.libs.json._
 
