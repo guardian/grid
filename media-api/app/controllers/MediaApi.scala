@@ -100,7 +100,7 @@ object MediaApi extends Controller with ArgoHelpers {
             "oldMetadata" -> imageMetadata,
             "cleanMetadata" -> cleanMetadata
           )
-        )).as(ArgoMediaType)
+        ))
       }
       case None => NotFound.as(ArgoMediaType)
     }
