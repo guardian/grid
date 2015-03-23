@@ -12,9 +12,9 @@ import org.elasticsearch.index.engine.VersionConflictEngineException
 import org.elasticsearch.script.ScriptService
 import org.elasticsearch.index.query.QueryBuilders.{filteredQuery, boolQuery, matchQuery}
 import org.elasticsearch.index.query.FilterBuilders.{missingFilter, andFilter}
+import org.joda.time.DateTime
 import groovy.json.JsonSlurper
 import _root_.play.api.libs.json._
-
 
 import com.gu.mediaservice.lib.elasticsearch.ElasticSearchClient
 import com.gu.mediaservice.syntax._
@@ -27,6 +27,7 @@ object ImageNotDeletable extends Throwable("Image cannot be deleted")
 object ElasticSearch extends ElasticSearchClient {
 
   import Config.persistenceIdentifier
+  import com.gu.mediaservice.lib.formatting._
 
   val host = Config.elasticsearchHost
   val port = Config.int("es.port")
@@ -35,6 +36,8 @@ object ElasticSearch extends ElasticSearchClient {
   val scriptType = ScriptService.ScriptType.valueOf("INLINE")
 
   lazy val updateByQueryClient = new UpdateByQueryClientWrapper(client)
+
+  def currentIsoDateString = printDateTime(new DateTime())
 
   def indexImage(id: String, image: JsValue)(implicit ex: ExecutionContext): Future[UpdateResponse] =
     client.prepareUpdate(imagesAlias, imageType, id)
@@ -79,7 +82,8 @@ object ElasticSearch extends ElasticSearchClient {
   def updateImageExports(id: String, exports: JsValue)(implicit ex: ExecutionContext): Future[UpdateResponse] =
     prepareImageUpdate(id)
       .setScriptParams(Map(
-        "exports" -> asGroovy(exports)
+        "exports" -> asGroovy(exports),
+        "lastModified" -> asGroovy(JsString(currentIsoDateString))
       ).asJava)
       .setScript("""
                     if (ctx._source.exports == null) {
@@ -87,6 +91,8 @@ object ElasticSearch extends ElasticSearchClient {
                     } else {
                       ctx._source.exports += exports;
                     }
+
+                    ctx._source.lastModified = lastModified;
                  """, scriptType)
       .executeAndLog(s"updating exports on image $id")
       .incrementOnFailure(conflicts) { case e: VersionConflictEngineException => true }
@@ -94,7 +100,8 @@ object ElasticSearch extends ElasticSearchClient {
   def applyImageMetadataOverride(id: String, metadata: JsValue)(implicit ex: ExecutionContext): Future[UpdateResponse] =
     prepareImageUpdate(id)
       .setScriptParams(Map(
-        "userMetadata" -> asGroovy(metadata)
+        "userMetadata" -> asGroovy(metadata),
+        "lastModified" -> asGroovy(JsString(currentIsoDateString))
       ).asJava)
       // TODO: if metadata not set, should undo overrides?
       // TODO: apply overrides from the original metadata each time?
@@ -102,7 +109,9 @@ object ElasticSearch extends ElasticSearchClient {
                     if (userMetadata.metadata) {
                       ctx._source.metadata += userMetadata.metadata;
                     }
+
                     ctx._source.userMetadata = userMetadata;
+                    ctx._source.lastModified = lastModified;
                  """, scriptType)
       .executeAndLog(s"updating user metadata on image $id")
       .incrementOnFailure(conflicts) { case e: VersionConflictEngineException => true }
