@@ -45,14 +45,14 @@ object Application extends Controller with ArgoHelpers {
                        { case CropSource(source, Bounds(x, y, w, h), r) => (source, x, y, w, h, r) })
   )
 
-  def crop = Authenticated.async { req =>
-    val author = req.user match {
+  def crop = Authenticated.async { httpRequest =>
+    val author = httpRequest.user match {
       case user: AuthenticatedService => user.name
       case user: PandaUser => user.email
       case _ => "unknown"
     }
 
-    cropSourceForm.bindFromRequest()(req).fold(
+    cropSourceForm.bindFromRequest()(httpRequest).fold(
       errors   => Future.successful(BadRequest(errors.errorsAsJson)),
       cropSrc => {
         val cropRequest = CropRequest(by = author, specification = cropSrc)
@@ -72,7 +72,7 @@ object Application extends Controller with ArgoHelpers {
     )
   }
 
-  def getCrops(id: String) = Authenticated.async { req =>
+  def getCrops(id: String) = Authenticated.async { httpRequest =>
     CropStorage.listCrops(id) map (_.toList) map { crops =>
       val all = crops.map { case (source, sizings) => cropResponse(Crop(getCropId(source.bounds), source, sizings)) }
 
@@ -88,8 +88,8 @@ object Application extends Controller with ArgoHelpers {
     }
   }
 
-  def createSizings(request: CropRequest): Future[(String, List[CropSizing])] = {
-    val source = request.specification
+  def createSizings(cropRequest: CropRequest): Future[(String, List[CropSizing])] = {
+    val source = cropRequest.specification
 
     for {
       apiImage   <- fetchSourceFromApi(source.uri)
@@ -107,7 +107,7 @@ object Application extends Controller with ArgoHelpers {
         val filename = outputFilename(apiImage, source.bounds, dim.width)
         for {
           file    <- Crops.create(sourceFile, source, dim)
-          sizing  <- CropStorage.storeCropSizing(file, filename, "image/jpeg", request, dim)
+          sizing  <- CropStorage.storeCropSizing(file, filename, "image/jpeg", cropRequest, dim)
           _       <- delete(file)
         }
         yield sizing
