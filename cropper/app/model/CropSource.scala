@@ -2,8 +2,9 @@ package model
 
 import play.api.libs.json._
 import play.api.libs.functional.syntax._
+import org.joda.time.DateTime
 
-case class CropRequest(by: String, specification: CropSource)
+case class CropRequest(by: String, timeRequested: DateTime, specification: CropSource)
 
 case class Crop(id: String, specification: CropSource, assets: List[CropSizing])
 

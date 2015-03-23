@@ -21,6 +21,7 @@ object CropStorage extends S3(Config.imgPublishingCredentials) {
                        "bounds_w" -> w,
                        "bounds_h" -> h,
                        "author" -> request.by,
+                       "date" -> request.timeRequested,
                        "width" -> dimensions.width,
                        "height" -> dimensions.height
                    ) ++ r.map("aspect_ratio" -> _)
