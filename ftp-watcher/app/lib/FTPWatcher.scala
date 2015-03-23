@@ -39,6 +39,7 @@ class FTPWatcher(host: String, user: String, password: String) {
     sleepIfEmpty(100.millis)(withClient(listFiles(maxPerDir))).unchunk
 
   import scalaz.ListT
+  import FTPWatcherMetrics._
 
   def listFiles(maxPerDir: Int)(client: Client): Task[List[FilePath]] =
     (for {
@@ -50,7 +51,15 @@ class FTPWatcher(host: String, user: String, password: String) {
     withClient { client =>
       Task.now { path: FilePath =>
         val uploadedBy = path.takeWhile(_ != '/')
-        client.retrieveFile(path).map(bytes => File(path, bytes, uploadedBy))
+
+        logger.info(s"Retrieving file: $path from: $uploadedBy")
+        retrievingImages.increment(List(uploadedByDimension(uploadedBy)))
+
+        client.retrieveFile(path) map {
+          logger.info(s"Retrieved file: $path from: $uploadedBy")
+          retrievedImages.increment(List(uploadedByDimension(uploadedBy)))
+          bytes => File(path, bytes, uploadedBy)
+        }
       }
     }
 
