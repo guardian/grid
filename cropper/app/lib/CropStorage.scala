@@ -5,20 +5,22 @@ import java.net.URI
 import java.util.concurrent.Executors
 import scala.concurrent.{ExecutionContext, Future}
 import com.gu.mediaservice.lib.aws.S3
-import model.{Dimensions, Bounds, CropSource, CropSizing}
+import model.{Dimensions, Bounds, CropSource, CropSizing, CropRequest}
 
 object CropStorage extends S3(Config.imgPublishingCredentials) {
 
   private implicit val ctx: ExecutionContext =
     ExecutionContext.fromExecutor(Executors.newCachedThreadPool)
 
-  def storeCropSizing(file: File, filename: String, mimeType: String, source: CropSource, dimensions: Dimensions): Future[CropSizing] = {
-    val CropSource(sourceUri, Bounds(x, y, w, h), r) = source
+  def storeCropSizing(file: File, filename: String, mimeType: String, request: CropRequest, dimensions: Dimensions): Future[CropSizing] = {
+
+    val CropSource(sourceUri, Bounds(x, y, w, h), r) = request.specification
     val metadata = Map("source" -> sourceUri,
                        "bounds_x" -> x,
                        "bounds_y" -> y,
                        "bounds_w" -> w,
                        "bounds_h" -> h,
+                       "author" -> request.by,
                        "width" -> dimensions.width,
                        "height" -> dimensions.height
                    ) ++ r.map("aspect_ratio" -> _)
