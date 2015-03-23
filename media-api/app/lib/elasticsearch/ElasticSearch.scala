@@ -23,14 +23,14 @@ import scalaz.NonEmptyList
 import com.gu.mediaservice.syntax._
 import com.gu.mediaservice.lib.elasticsearch.ElasticSearchClient
 import com.gu.mediaservice.lib.formatting.printDateTime
-import controllers.{SearchParams, MetadataSearchParams}
+import controllers.{AggregateSearchParams, SearchParams}
 import lib.{MediaApiMetrics, Config}
 import lib.querysyntax._
 
 
 case class SearchResults(hits: Seq[(ElasticSearch.Id, JsValue)], total: Long)
 
-case class MetadataSearchResults(results: Seq[BucketResult], total: Long)
+case class AggregateSearchResults(results: Seq[BucketResult], total: Long)
 
 object BucketResult {
   implicit val jsonWrites = Json.writes[BucketResult]
@@ -135,18 +135,25 @@ object ElasticSearch extends ElasticSearchClient {
       }
   }
 
-  def metadataSearch(params: MetadataSearchParams)(implicit ex: ExecutionContext): Future[MetadataSearchResults] = {
-    val field = metadataField(params.field)
-    val aggName = params.field
-    val search = prepareImagesSearch
-                   .setQuery(prefixQuery(field, params.q.getOrElse("")))
-                   .addAggregation(AggregationBuilders.terms(aggName).field(field))
+  def metadataSearch(params: AggregateSearchParams)(implicit ex: ExecutionContext): Future[AggregateSearchResults] =
+    aggregateSearch("metadata", metadataField(params.field), params.q.getOrElse(""))
 
-    getResults("metadata search", search, 0, 0).map{ response =>
-      val buckets = response.getAggregations.getAsMap.get(aggName).asInstanceOf[StringTerms].getBuckets
+  def editsSearch(params: AggregateSearchParams)(implicit ex: ExecutionContext): Future[AggregateSearchResults] =
+    aggregateSearch("edits", editsField(params.field), params.q.getOrElse(""))
+
+  def aggregateSearch(name: String, field: String, q: String)(implicit ex: ExecutionContext): Future[AggregateSearchResults] = {
+    val aggregate = AggregationBuilders
+      .terms(name)
+      .field(field)
+      .include(q + ".*")
+
+    val search = prepareImagesSearch.addAggregation(aggregate)
+
+    getResults(s"$name search", search, 0, 0).map{ response =>
+      val buckets = response.getAggregations.getAsMap.get(name).asInstanceOf[StringTerms].getBuckets
       val results = buckets.toList map (s => BucketResult(s.getKey, s.getDocCount))
 
-      MetadataSearchResults(results, buckets.size)
+      AggregateSearchResults(results, buckets.size)
     }
   }
 
@@ -160,6 +167,7 @@ object ElasticSearch extends ElasticSearchClient {
 
 
   def metadataField(field: String) = s"metadata.$field"
+  def editsField(field: String) = s"userMetadata.$field"
 
   def imageExists(id: String)(implicit ex: ExecutionContext): Future[Boolean] =
     prepareGet(id).setFields().executeAndLog(s"check if image $id exists") map (_.isExists)
