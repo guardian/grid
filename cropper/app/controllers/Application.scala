@@ -13,8 +13,9 @@ import _root_.play.api.Logger
 import _root_.play.api.Play.current
 
 import com.gu.mediaservice.lib.auth
-import com.gu.mediaservice.lib.auth.KeyStore
+import com.gu.mediaservice.lib.auth.{AuthenticatedService, PandaUser, KeyStore}
 import com.gu.mediaservice.lib.argo.ArgoHelpers
+
 import lib._, Files._
 import model._
 
@@ -44,12 +45,21 @@ object Application extends Controller with ArgoHelpers {
                        { case CropSource(source, Bounds(x, y, w, h), r) => (source, x, y, w, h, r) })
   )
 
-  def crop = Authenticated.async { req =>
-    cropSourceForm.bindFromRequest()(req).fold(
+  def crop = Authenticated.async { httpRequest =>
+    val author = httpRequest.user match {
+      case user: AuthenticatedService => user.name
+      case user: PandaUser => user.email
+      case _ => "unknown"
+    }
+
+    cropSourceForm.bindFromRequest()(httpRequest).fold(
       errors   => Future.successful(BadRequest(errors.errorsAsJson)),
-      cropReq => {
-        createSizings(cropReq).map { case (id, sizings) =>
-          val crops = cropResponse(Crop(getCropId(cropReq.bounds), cropReq, sizings))
+      cropSrc => {
+        val cropRequest = CropRequest(by = author, specification = cropSrc)
+
+        createSizings(cropRequest).map { case (id, sizings) =>
+
+          val crops = cropResponse(Crop(getCropId(cropRequest.specification.bounds), cropRequest.specification, sizings))
           val exports = Json.obj(
             "id" -> id,
             "data" -> Json.arr(Json.obj("type" -> "crop") ++ crops)
@@ -62,7 +72,7 @@ object Application extends Controller with ArgoHelpers {
     )
   }
 
-  def getCrops(id: String) = Authenticated.async { req =>
+  def getCrops(id: String) = Authenticated.async { httpRequest =>
     CropStorage.listCrops(id) map (_.toList) map { crops =>
       val all = crops.map { case (source, sizings) => cropResponse(Crop(getCropId(source.bounds), source, sizings)) }
 
@@ -78,7 +88,9 @@ object Application extends Controller with ArgoHelpers {
     }
   }
 
-  def createSizings(source: CropSource): Future[(String, List[CropSizing])] =
+  def createSizings(cropRequest: CropRequest): Future[(String, List[CropSizing])] = {
+    val source = cropRequest.specification
+
     for {
       apiImage   <- fetchSourceFromApi(source.uri)
       sourceFile <- tempFileFromURL(new URL(apiImage.source.secureUrl), "cropSource", "")
@@ -95,7 +107,7 @@ object Application extends Controller with ArgoHelpers {
         val filename = outputFilename(apiImage, source.bounds, dim.width)
         for {
           file    <- Crops.create(sourceFile, source, dim)
-          sizing  <- CropStorage.storeCropSizing(file, filename, "image/jpeg", source, dim)
+          sizing  <- CropStorage.storeCropSizing(file, filename, "image/jpeg", cropRequest, dim)
           _       <- delete(file)
         }
         yield sizing
@@ -103,6 +115,7 @@ object Application extends Controller with ArgoHelpers {
       _ <- delete(sourceFile)
     }
     yield (apiImage.id, sizings)
+  }
 
   def fetchSourceFromApi(uri: String): Future[SourceImage] =
     for (resp <- WS.url(uri).withHeaders("X-Gu-Media-Key" -> mediaApiKey).get)
