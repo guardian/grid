@@ -146,6 +146,8 @@ object ElasticSearch extends ElasticSearchClient {
     val aggregate = AggregationBuilders
       .terms(name)
       .field(field)
+      // TODO: add case sensitivity flags:
+      // see: http://www.elastic.co/guide/en/elasticsearch/reference/current/search-aggregations-bucket-terms-aggregation.html#_filtering_values
       .include(q.getOrElse("") + ".*")
 
     val search = prepareImagesSearch.addAggregation(aggregate)
