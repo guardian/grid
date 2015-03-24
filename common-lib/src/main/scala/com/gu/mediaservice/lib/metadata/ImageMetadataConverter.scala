@@ -1,11 +1,11 @@
-package lib.imaging
+package com.gu.mediaservice.lib.metadata
 
 import org.joda.time.{DateTime, DateTimeZone}
 import org.joda.time.format._
 
 import scala.util.Try
 
-import com.gu.mediaservice.model.ImageMetadata
+import com.gu.mediaservice.model.{FileMetadata, ImageMetadata}
 
 object ImageMetadataConverter {
 

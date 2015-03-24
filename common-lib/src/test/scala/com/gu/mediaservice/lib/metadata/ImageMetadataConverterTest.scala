@@ -1,8 +1,8 @@
-package scala.lib.imaging
+package com.gu.mediaservice.lib.metadata
 
-import lib.imaging.{FileMetadata, ImageMetadataConverter}
-import org.joda.time.{DateTimeZone, DateTime}
-import org.scalatest.{Matchers, FunSpec}
+import com.gu.mediaservice.model.FileMetadata
+import org.joda.time.{DateTime, DateTimeZone}
+import org.scalatest.{FunSpec, Matchers}
 
 class ImageMetadataConverterTest extends FunSpec with Matchers {
 
