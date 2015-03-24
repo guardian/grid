@@ -4,7 +4,7 @@ import play.api.libs.json._
 import play.api.libs.functional.syntax._
 import org.joda.time.DateTime
 
-case class Crop(id: String, by: Option[String], timeRequested: Option[DateTime], specification: CropSource, cropSizings: List[CropSizing])
+case class Crop(id: String, author: Option[String], date: Option[DateTime], specification: CropSource, assets: List[CropSizing])
 object Crop {
   import com.gu.mediaservice.lib.formatting._
 
@@ -12,6 +12,7 @@ object Crop {
   def apply(by: Option[String], timeRequested: Option[DateTime], specification: CropSource, cropSizings: List[CropSizing] = Nil): Crop = Crop(
     getCropId(specification.bounds), by, timeRequested, specification, cropSizings
   )
+  def apply(crop: Crop, assets: List[CropSizing]): Crop = Crop(crop.id, crop.author, crop.date, crop.specification, assets)
 
   implicit val jodaDateWrites: Writes[org.joda.time.DateTime] = new Writes[org.joda.time.DateTime] {
     def writes(d: org.joda.time.DateTime): JsValue = JsString(printDateTime(d))
@@ -19,8 +20,8 @@ object Crop {
 
   implicit val cropWrites: Writes[Crop] = (
     (__ \ "id").write[String] ~
-    (__ \ "author").write[Option[String]] ~
-    (__ \ "date").write[Option[DateTime]] ~
+    (__ \ "author").writeNullable[String] ~
+    (__ \ "date").writeNullable[DateTime] ~
     (__ \ "specification").write[CropSource] ~
     (__ \ "assets").write[List[CropSizing]]
   )(unlift(Crop.unapply))
