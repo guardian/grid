@@ -1,5 +1,7 @@
 package lib.elasticsearch
 
+import java.util.regex.Pattern
+
 import org.elasticsearch.index.query.MultiMatchQueryBuilder
 import org.elasticsearch.search.aggregations.bucket.terms.StringTerms
 
@@ -148,7 +150,7 @@ object ElasticSearch extends ElasticSearchClient {
       .field(field)
       // TODO: add case sensitivity flags:
       // see: http://www.elastic.co/guide/en/elasticsearch/reference/current/search-aggregations-bucket-terms-aggregation.html#_filtering_values
-      .include(q.getOrElse("") + ".*")
+      .include(q.getOrElse("") + ".*", Pattern.CASE_INSENSITIVE)
 
     val search = prepareImagesSearch.addAggregation(aggregate)
 
