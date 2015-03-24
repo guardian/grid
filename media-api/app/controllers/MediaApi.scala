@@ -197,21 +197,17 @@ object MediaApi extends Controller with ArgoHelpers {
 
   // TODO: work with analysed fields
   def metadataSearch(field: String, q: Option[String]) = Authenticated.async { request =>
-    ElasticSearch.metadataSearch(AggregateSearchParams(field, q)) map { case AggregateSearchResults(results, total) =>
-      aggregateResponse(total, results)
-    }
+    ElasticSearch.metadataSearch(AggregateSearchParams(field, q)) map aggregateResponse
   }
 
   def editsSearch(field: String, q: Option[String]) = Authenticated.async { request =>
-    ElasticSearch.editsSearch(AggregateSearchParams(field, q)) map { case AggregateSearchResults(results, total) =>
-      aggregateResponse(total, results)
-    }
+    ElasticSearch.editsSearch(AggregateSearchParams(field, q)) map aggregateResponse
   }
 
   // TODO: Add some useful links
-  def aggregateResponse(total: Long, results: Seq[BucketResult]) = Ok(Json.obj(
-    "length"-> total,
-    "data" -> Json.toJson(results)
+  def aggregateResponse(aggregate: AggregateSearchResults) = Ok(Json.obj(
+    "length"-> aggregate.total,
+    "data" -> Json.toJson(aggregate.results)
   )).as(ArgoMediaType)
 }
 
