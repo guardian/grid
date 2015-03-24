@@ -14,14 +14,10 @@ object Crop {
   )
   def apply(crop: Crop, assets: List[CropSizing]): Crop = Crop(crop.id, crop.author, crop.date, crop.specification, assets)
 
-  implicit val jodaDateWrites: Writes[org.joda.time.DateTime] = new Writes[org.joda.time.DateTime] {
-    def writes(d: org.joda.time.DateTime): JsValue = JsString(printDateTime(d))
-  }
-
   implicit val cropWrites: Writes[Crop] = (
     (__ \ "id").write[String] ~
     (__ \ "author").writeNullable[String] ~
-    (__ \ "date").writeNullable[DateTime] ~
+    (__ \ "date").writeNullable[String].contramap(printOptDateTime) ~
     (__ \ "specification").write[CropSource] ~
     (__ \ "assets").write[List[CropSizing]]
   )(unlift(Crop.unapply))
