@@ -4,28 +4,39 @@ import play.api.libs.json._
 import play.api.libs.functional.syntax._
 import org.joda.time.DateTime
 
-case class CropRequest(by: String, timeRequested: DateTime, specification: CropSource)
-
-case class Crop(id: String, specification: CropSource, assets: List[CropSizing])
-
+case class Crop(id: String, by: Option[String], timeRequested: Option[DateTime], specification: CropSource, cropSizings: List[CropSizing])
 object Crop {
-  implicit val cropWrites: Writes[Crop] = Json.writes[Crop]
+  import com.gu.mediaservice.lib.formatting._
+
+  def getCropId(b: Bounds) = List(b.x, b.y, b.width, b.height).mkString("_")
+  def apply(by: Option[String], timeRequested: Option[DateTime], specification: CropSource, cropSizings: List[CropSizing] = Nil): Crop = Crop(
+    getCropId(specification.bounds), by, timeRequested, specification, cropSizings
+  )
+
+  implicit val jodaDateWrites: Writes[org.joda.time.DateTime] = new Writes[org.joda.time.DateTime] {
+    def writes(d: org.joda.time.DateTime): JsValue = JsString(printDateTime(d))
+  }
+
+  implicit val cropWrites: Writes[Crop] = (
+    (__ \ "id").write[String] ~
+    (__ \ "author").write[Option[String]] ~
+    (__ \ "date").write[Option[DateTime]] ~
+    (__ \ "specification").write[CropSource] ~
+    (__ \ "assets").write[List[CropSizing]]
+  )(unlift(Crop.unapply))
 }
 
 case class CropSizing(file: String, dimensions: Dimensions)
-
 object CropSizing {
   implicit val cropSizingWrites: Writes[CropSizing] = Json.writes[CropSizing]
 }
 
 case class CropSource(uri: String, bounds: Bounds, aspectRatio: Option[String])
-
 object CropSource {
   implicit val cropSourceWrites: Writes[CropSource] = Json.writes[CropSource]
 }
 
 case class Dimensions(width: Int, height: Int)
-
 object Dimensions {
   implicit val dimensionsReads: Reads[Dimensions] = Json.reads[Dimensions]
 
