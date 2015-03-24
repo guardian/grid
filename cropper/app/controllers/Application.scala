@@ -80,9 +80,9 @@ object Application extends Controller with ArgoHelpers {
   }
 
   def getCrops(id: String) = Authenticated.async { httpRequest =>
-    CropStorage.listCrops(id) map (_.toList) map { crops => {
+    CropStorage.listCrops(id) map (_.toList) map { crops =>
 
-      val all = crops.map { cropResponse(_) }
+      val all = crops.map(cropResponse)
       val links = for {
         crop <- crops.headOption
         link = Json.obj("rel" -> "image", "href" -> crop.specification.uri)
@@ -91,9 +91,8 @@ object Application extends Controller with ArgoHelpers {
       val entity = Json.obj(
         "data" -> all
       ) ++ (links getOrElse Json.obj())
-      Ok(entity).as(ArgoMediaType)
-    }
 
+      Ok(entity).as(ArgoMediaType)
     }
   }
 
@@ -133,10 +132,8 @@ object Application extends Controller with ArgoHelpers {
       resp.json.as[SourceImage]
     }
 
-  def cropResponse(crop: Crop): JsObject = {
+  def cropResponse(crop: Crop): JsObject =
     Json.toJson(crop).as[JsObject].transform(transformers.addSecureUrlToAssets).get
-  }
-
 
   object transformers {
 
