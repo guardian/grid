@@ -1,6 +1,7 @@
 package controllers
 
 import java.io.File
+
 import play.api.mvc._
 import play.api.libs.concurrent.Execution.Implicits._
 import play.api.libs.json.Json
@@ -14,7 +15,7 @@ import lib.play.DigestedFile
 
 import lib.{Config, Notifications}
 import lib.storage.S3ImageStorage
-import lib.imaging.{FileMetadataConverter, MimeTypeDetection, Thumbnailer, ImageMetadataConverter}
+import lib.imaging.{FileMetadataConverter, MimeTypeDetection, Thumbnailer}
 
 import model.{Asset, Image}
 
@@ -24,6 +25,7 @@ import com.gu.mediaservice.lib.auth.{AuthenticatedService, PandaUser, KeyStore}
 import com.gu.mediaservice.lib.argo.ArgoHelpers
 import com.gu.mediaservice.lib.cleanup.MetadataCleaners
 import com.gu.mediaservice.lib.config.MetadataConfig
+import com.gu.mediaservice.lib.metadata.ImageMetadataConverter
 
 
 object Application extends ImageLoader(S3ImageStorage)
