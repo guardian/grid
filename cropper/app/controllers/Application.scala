@@ -58,7 +58,7 @@ object Application extends Controller with ArgoHelpers {
     cropSourceForm.bindFromRequest()(httpRequest).fold(
       errors   => Future.successful(BadRequest(errors.errorsAsJson)),
       cropSrc => {
-        val crop= Crop(
+        val crop = Crop(
           by = author,
           timeRequested = Some(new DateTime()),
           specification = cropSrc
@@ -66,14 +66,14 @@ object Application extends Controller with ArgoHelpers {
 
         createSizings(crop).map { case (id, sizings) =>
 
-          val crops = cropResponse(crop)
+          val cropJson = cropResponse(Crop(crop, sizings))
           val exports = Json.obj(
             "id" -> id,
-            "data" -> Json.arr(Json.obj("type" -> "crop") ++ crops)
+            "data" -> Json.arr(Json.obj("type" -> "crop") ++ cropJson)
           )
 
           Notifications.publish(exports, "update-image-exports")
-          Ok(crops).as(ArgoMediaType)
+          Ok(cropJson).as(ArgoMediaType)
         }
       }
     )

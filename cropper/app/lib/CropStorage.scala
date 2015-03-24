@@ -21,8 +21,8 @@ object CropStorage extends S3(Config.imgPublishingCredentials) {
                        "bounds_y" -> y,
                        "bounds_w" -> w,
                        "bounds_h" -> h,
-                       "author" -> crop.by,
-                       "date" -> crop.timeRequested.map(printDateTime(_)),
+                       "author" -> crop.author,
+                       "date" -> crop.date.map(printDateTime),
                        "width" -> dimensions.width,
                        "height" -> dimensions.height
                    ) ++ r.map("aspect_ratio" -> _)
@@ -57,7 +57,7 @@ object CropStorage extends S3(Config.imgPublishingCredentials) {
             cropSource     = CropSource(source, Bounds(x, y, w, h), ratio)
             dimensions     = Dimensions(width, height)
             cropSizing     = CropSizing(translateImgHost(uri).toString, dimensions)
-            currentSizings = map.getOrElse(cid, Crop(author, date, cropSource)).cropSizings
+            currentSizings = map.getOrElse(cid, Crop(author, date, cropSource)).assets
           } yield cid -> Crop(author, date, cropSource, (currentSizings :+ cropSizing))
 
           map ++ updatedCrop
