@@ -16,6 +16,8 @@ import com.gu.mediaservice.lib.auth
 import com.gu.mediaservice.lib.auth.{AuthenticatedService, PandaUser, KeyStore}
 import com.gu.mediaservice.lib.argo.ArgoHelpers
 
+import org.joda.time.DateTime
+
 import lib._, Files._
 import model._
 
@@ -55,7 +57,11 @@ object Application extends Controller with ArgoHelpers {
     cropSourceForm.bindFromRequest()(httpRequest).fold(
       errors   => Future.successful(BadRequest(errors.errorsAsJson)),
       cropSrc => {
-        val cropRequest = CropRequest(by = author, specification = cropSrc)
+        val cropRequest = CropRequest(
+          by = author,
+          timeRequested = new DateTime(),
+          specification = cropSrc
+        )
 
         createSizings(cropRequest).map { case (id, sizings) =>
 
