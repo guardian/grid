@@ -3,6 +3,9 @@ package com.gu.mediaservice.lib.argo
 import play.api.libs.json.{Json, Writes}
 import play.api.mvc.{Results, Result}
 
+import com.gu.mediaservice.lib.argo.model._
+
+
 trait ArgoHelpers extends Results {
 
   val ArgoMediaType = "application/vnd.argo+json"
@@ -17,8 +20,8 @@ trait ArgoHelpers extends Results {
     serializeAndWrap(response, Ok)
   }
 
-  def respond[T](data: Seq[T], offset: Option[Long], total: Option[Long], links: List[Link] = Nil)
-                (implicit writes: Writes[T]): Result = {
+  def respondCollection[T](data: Seq[T], offset: Option[Long], total: Option[Long], links: List[Link] = Nil)
+                          (implicit writes: Writes[T]): Result = {
     val response = CollectionReponse(
       offset = offset,
       length = Some(data.size),
@@ -31,17 +34,18 @@ trait ArgoHelpers extends Results {
   }
 
 
-  def respondError[T](errorStatus: Status, errorKey: String, errorMessage: String, data: Option[T], links: List[Link] = Nil)
-                     (implicit writes: Writes[T]): Result = {
-    val response = ErrorReponse(
-      errorKey     = errorKey,
-      errorMessage = errorMessage,
-      data         = data,
-      links        = links
-    )
-
-    serializeAndWrap(response, errorStatus)
-  }
+// TODO: bring back once useful (causes Scala compiler tears)
+//  def respondError[T](errorStatus: Status, errorKey: String, errorMessage: String, data: Option[T], links: List[Link] = Nil)
+//                     (implicit writes: Writes[T]): Result = {
+//    val response = ErrorReponse(
+//      errorKey     = errorKey,
+//      errorMessage = errorMessage,
+//      data         = data,
+//      links        = links
+//    )
+//
+//    serializeAndWrap(response, errorStatus)
+//  }
 
   // TODO: find a nicer way to serialise ErrorResponse[Nothing] without this hack
   def respondError(errorStatus: Status, errorKey: String, errorMessage: String, links: List[Link] = Nil): Result = {
