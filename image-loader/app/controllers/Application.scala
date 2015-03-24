@@ -1,6 +1,7 @@
 package controllers
 
 import java.io.File
+
 import play.api.mvc._
 import play.api.libs.concurrent.Execution.Implicits._
 import play.api.libs.json.Json
@@ -14,7 +15,7 @@ import lib.play.DigestedFile
 
 import lib.{Config, Notifications}
 import lib.storage.S3ImageStorage
-import lib.imaging.{FileMetadata, MimeTypeDetection, Thumbnailer, ImageMetadataConverter}
+import lib.imaging.{FileMetadataConverter, MimeTypeDetection, Thumbnailer}
 
 import model.{Asset, Image}
 
@@ -24,6 +25,7 @@ import com.gu.mediaservice.lib.auth.{AuthenticatedService, PandaUser, KeyStore}
 import com.gu.mediaservice.lib.argo.ArgoHelpers
 import com.gu.mediaservice.lib.cleanup.MetadataCleaners
 import com.gu.mediaservice.lib.config.MetadataConfig
+import com.gu.mediaservice.lib.metadata.ImageMetadataConverter
 
 
 object Application extends ImageLoader(S3ImageStorage)
@@ -95,8 +97,8 @@ class ImageLoader(storage: ImageStorage) extends Controller with ArgoHelpers {
     // These futures are started outside the for-comprehension, otherwise they will not run in parallel
     val uriFuture = storage.storeImage(id, tempFile, mimeType, Map("uploaded_by" -> uploadedBy) ++ identifiersMeta)
     val thumbFuture = Thumbnailer.createThumbnail(Config.thumbWidth, tempFile.toString)
-    val dimensionsFuture = FileMetadata.dimensions(tempFile)
-    val fileMetadataFuture = FileMetadata.fromIPTCHeaders(tempFile)
+    val dimensionsFuture = FileMetadataConverter.dimensions(tempFile)
+    val fileMetadataFuture = FileMetadataConverter.fromIPTCHeaders(tempFile)
 
     // TODO: better error handling on all futures. Similar to metadata
     bracket(thumbFuture)(_.delete) { thumb =>
@@ -109,7 +111,7 @@ class ImageLoader(storage: ImageStorage) extends Controller with ArgoHelpers {
         sourceAsset = Asset(uri, tempFile.length, mimeType, dimensions)
         thumbUri   <- storage.storeThumbnail(id, thumb, mimeType)
         thumbSize   = thumb.length
-        thumbDimensions <- FileMetadata.dimensions(thumb)
+        thumbDimensions <- FileMetadataConverter.dimensions(thumb)
         thumbAsset  = Asset(thumbUri, thumbSize, mimeType, thumbDimensions)
         image       = Image.upload(id, uploadTime, uploadedBy, identifiers, sourceAsset, thumbAsset, fileMetadata, cleanMetadata)
       } yield {
