@@ -141,7 +141,8 @@ object ElasticSearch extends ElasticSearchClient {
   def editsSearch(params: AggregateSearchParams)(implicit ex: ExecutionContext): Future[AggregateSearchResults] =
     aggregateSearch("edits", editsField(params.field), params.q.getOrElse(""))
 
-  def aggregateSearch(name: String, field: String, q: String)(implicit ex: ExecutionContext): Future[AggregateSearchResults] = {
+  def aggregateSearch(name: String, field: String, q: String)
+                     (implicit ex: ExecutionContext): Future[AggregateSearchResults] = {
     val aggregate = AggregationBuilders
       .terms(name)
       .field(field)
