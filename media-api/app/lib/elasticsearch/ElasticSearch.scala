@@ -136,17 +136,17 @@ object ElasticSearch extends ElasticSearchClient {
   }
 
   def metadataSearch(params: AggregateSearchParams)(implicit ex: ExecutionContext): Future[AggregateSearchResults] =
-    aggregateSearch("metadata", metadataField(params.field), params.q.getOrElse(""))
+    aggregateSearch("metadata", metadataField(params.field), params.q)
 
   def editsSearch(params: AggregateSearchParams)(implicit ex: ExecutionContext): Future[AggregateSearchResults] =
-    aggregateSearch("edits", editsField(params.field), params.q.getOrElse(""))
+    aggregateSearch("edits", editsField(params.field), params.q)
 
-  def aggregateSearch(name: String, field: String, q: String)
+  def aggregateSearch(name: String, field: String, q: Option[String])
                      (implicit ex: ExecutionContext): Future[AggregateSearchResults] = {
     val aggregate = AggregationBuilders
       .terms(name)
       .field(field)
-      .include(q + ".*")
+      .include(q.getOrElse("") + ".*")
 
     val search = prepareImagesSearch.addAggregation(aggregate)
 
