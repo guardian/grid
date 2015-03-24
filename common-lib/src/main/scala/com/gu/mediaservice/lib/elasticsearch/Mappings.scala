@@ -69,6 +69,8 @@ object Mappings {
     nonDynamicObj(
       "id" -> nonAnalyzedString,
       "type" -> nonAnalyzedString,
+      "author" -> nonAnalyzedString,
+      "date" -> dateFormat,
       "specification" -> dynamicObj,
       "assets" -> assetMapping
     )
