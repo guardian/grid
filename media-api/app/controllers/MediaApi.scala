@@ -77,7 +77,6 @@ object MediaApi extends Controller with ArgoHelpers {
 
   def getImageFileMetadata(id: String) = Authenticated.async { request =>
     ElasticSearch.getImageById(id) map {
-      // FIXME: link to image
       case Some(source) => {
         val links = List(
           Link("image", s"$rootUri/images/$id")
