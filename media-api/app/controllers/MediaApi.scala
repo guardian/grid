@@ -66,15 +66,11 @@ object MediaApi extends Controller with ArgoHelpers {
   val ImageNotFound = respondError(NotFound, "image-not-found", "No image found with the given id")
 
   def getImage(id: String) = Authenticated.async { request =>
-    val imageLinks = List(
-      Link("crops",    s"$cropperUri/crops/$id"),
-      Link("metadata", s"$metadataUri/metadata/$id"),
-      // FIXME: broken
-      Link("optimised", makeImgopsUri(new URI(secureUrl)))
-    )
-
     ElasticSearch.getImageById(id) map {
-      case Some(source) => respond(imageResponse(id, source), imageLinks)
+      case Some(source) => {
+        val (imageData, imageLinks) = imageResponse(id, source)
+        respond(imageData, imageLinks)
+      }
       case None         => ImageNotFound
     }
   }
@@ -128,16 +124,16 @@ object MediaApi extends Controller with ArgoHelpers {
     val searchParams = SearchParams(request)
     ElasticSearch.search(searchParams) map { case SearchResults(hits, totalCount) =>
       val images = hits map (imageResponse _).tupled
-      val imageEntities = images.map { image =>
+      val imageEntities = images.map { case (imageData, imageLinks) =>
         // TODO: better error if id missing (should never happen)
-        val id = (image \ "id").asOpt[String].get
-        EmbeddedEntity(uri = URI.create(s"$rootUri/images/$id"), data = Some(image))
+        val id = (imageData \ "id").asOpt[String].get
+        EmbeddedEntity(uri = URI.create(s"$rootUri/images/$id"), data = Some(imageData), imageLinks)
       }
-      respond(imageEntities, Some(searchParams.offset), Some(totalCount))
+      respondCollection(imageEntities, Some(searchParams.offset), Some(totalCount))
     }
   }
 
-  def imageResponse(id: String, source: JsValue): JsValue = {
+  def imageResponse(id: String, source: JsValue): (JsValue, List[Link]) = {
     // Round expiration time to try and hit the cache as much as possible
     // TODO: do we really need these expiration tokens? they kill our ability to cache...
     val expiration = roundDateTime(DateTime.now, Duration.standardMinutes(10)).plusMinutes(20)
@@ -149,13 +145,21 @@ object MediaApi extends Controller with ArgoHelpers {
     val sourceField = (source \ "metadata" \ "source").as[Option[String]]
     val valid = ImageExtras.isValid(source \ "metadata")
 
-    source.transform(transformers.addSecureSourceUrl(secureUrl))
+    val imageData = source.transform(transformers.addSecureSourceUrl(secureUrl))
       .flatMap(_.transform(transformers.addSecureThumbUrl(secureThumbUrl)))
       .flatMap(_.transform(transformers.removeFileData))
       .flatMap(_.transform(transformers.addFileMetadataUrl(s"$rootUri/images/$id/fileMetadata")))
       .flatMap(_.transform(transformers.wrapUserMetadata(id)))
       .flatMap(_.transform(transformers.addValidity(valid)))
       .flatMap(_.transform(transformers.addUsageCost(creditField, sourceField))).get
+
+    val imageLinks = List(
+      Link("crops",     s"$cropperUri/crops/$id"),
+      Link("metadata",  s"$metadataUri/metadata/$id"),
+      Link("optimised", makeImgopsUri(new URI(secureUrl)))
+    )
+
+    (imageData, imageLinks)
   }
 
   object transformers {
@@ -199,7 +203,7 @@ object MediaApi extends Controller with ArgoHelpers {
   def metadataSearch(field: String, q: Option[String]) = Authenticated.async { request =>
     ElasticSearch.metadataSearch(MetadataSearchParams(field, q)) map { case MetadataSearchResults(results, total) =>
       // TODO: Add some useful links
-      respond(results, Some(0), Some(total))
+      respondCollection(results, Some(0), Some(total))
     }
   }
 }
