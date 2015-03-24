@@ -147,11 +147,7 @@ object MediaApi extends Controller with ArgoHelpers {
 
     val creditField = (source \ "metadata" \ "credit").as[Option[String]]
     val sourceField = (source \ "metadata" \ "source").as[Option[String]]
-    // TODO: This might be easier to get from the `SearchParams`
-    // downfall: it might give the wrong value if a bug is introduced
-    val valid = Config.requiredMetadata.forall { field =>
-      (source \ "metadata" \ field).asOpt[String].isDefined
-    }
+    val valid = ImageExtras.isValid(source \ "metadata")
 
     source.transform(transformers.addSecureSourceUrl(secureUrl))
       .flatMap(_.transform(transformers.addSecureThumbUrl(secureThumbUrl)))
@@ -265,6 +261,9 @@ case class MetadataSearchParams(field: String, q: Option[String])
 
 // Default to pay for now
 object ImageExtras {
+  def isValid(metadata: JsValue): Boolean =
+    Config.requiredMetadata.forall(field => (metadata \ field).asOpt[String].isDefined)
+
   def getCost(credit: Option[String], source: Option[String]) = {
     val freeCredit   = credit.exists(isFreeCredit)
     val freeSource   = source.exists(isFreeSource)
