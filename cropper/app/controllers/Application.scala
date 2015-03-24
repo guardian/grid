@@ -52,7 +52,6 @@ object Application extends Controller with ArgoHelpers {
     val author: Option[String] = httpRequest.user match {
       case user: AuthenticatedService => Some(user.name)
       case user: PandaUser => Some(user.email)
-      case _ => None
     }
 
     cropSourceForm.bindFromRequest()(httpRequest).fold(
