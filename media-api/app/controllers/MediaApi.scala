@@ -73,15 +73,13 @@ object MediaApi extends Controller with ArgoHelpers {
       Link("optimised", makeImgopsUri(new URI(secureUrl)))
     )
 
-    val params = GeneralParams(request)
     ElasticSearch.getImageById(id) map {
-      case Some(source) => respond(imageResponse(params)(id, source), imageLinks)
+      case Some(source) => respond(imageResponse(id, source), imageLinks)
       case None         => ImageNotFound
     }
   }
 
   def getImageFileMetadata(id: String) = Authenticated.async { request =>
-    val params = GeneralParams(request)
     ElasticSearch.getImageById(id) map {
       // FIXME: link to image
       case Some(source) => {
@@ -127,10 +125,9 @@ object MediaApi extends Controller with ArgoHelpers {
 
 
   def imageSearch = Authenticated.async { request =>
-    val params = GeneralParams(request)
     val searchParams = SearchParams(request)
     ElasticSearch.search(searchParams) map { case SearchResults(hits, totalCount) =>
-      val images = hits map (imageResponse(params) _).tupled
+      val images = hits map (imageResponse _).tupled
       val imageEntities = images.map { image =>
         // TODO: better error if id missing (should never happen)
         val id = (image \ "id").asOpt[String].get
@@ -140,33 +137,30 @@ object MediaApi extends Controller with ArgoHelpers {
     }
   }
 
-  def imageResponse(params: GeneralParams)(id: String, source: JsValue): JsValue =
-    if (params.showSecureUrl) {
-      // Round expiration time to try and hit the cache as much as possible
-      // TODO: do we really need these expiration tokens? they kill our ability to cache...
-      val expiration = roundDateTime(DateTime.now, Duration.standardMinutes(10)).plusMinutes(20)
-      val fileUri = new URI((source \ "source" \ "file").as[String])
-      val secureUrl = S3Client.signUrl(Config.imageBucket, fileUri, expiration)
-      val secureThumbUrl = S3Client.signUrl(Config.thumbBucket, fileUri, expiration)
+  def imageResponse(id: String, source: JsValue): JsValue = {
+    // Round expiration time to try and hit the cache as much as possible
+    // TODO: do we really need these expiration tokens? they kill our ability to cache...
+    val expiration = roundDateTime(DateTime.now, Duration.standardMinutes(10)).plusMinutes(20)
+    val fileUri = new URI((source \ "source" \ "file").as[String])
+    val secureUrl = S3Client.signUrl(Config.imageBucket, fileUri, expiration)
+    val secureThumbUrl = S3Client.signUrl(Config.thumbBucket, fileUri, expiration)
 
-      val creditField = (source \ "metadata" \ "credit").as[Option[String]]
-      val sourceField = (source \ "metadata" \ "source").as[Option[String]]
-      // TODO: This might be easier to get from the `SearchParams`
-      // downfall: it might give the wrong value if a bug is introduced
-      val valid = Config.requiredMetadata.forall { field =>
-        (source \ "metadata" \ field).asOpt[String].isDefined
-      }
-
-      source.transform(transformers.addSecureSourceUrl(secureUrl))
-        .flatMap(_.transform(transformers.addSecureThumbUrl(secureThumbUrl)))
-        .flatMap(_.transform(transformers.removeFileData))
-        .flatMap(_.transform(transformers.addFileMetadataUrl(s"$rootUri/images/$id/fileMetadata")))
-        .flatMap(_.transform(transformers.wrapUserMetadata(id)))
-        .flatMap(_.transform(transformers.addValidity(valid)))
-        .flatMap(_.transform(transformers.addUsageCost(creditField, sourceField))).get
+    val creditField = (source \ "metadata" \ "credit").as[Option[String]]
+    val sourceField = (source \ "metadata" \ "source").as[Option[String]]
+    // TODO: This might be easier to get from the `SearchParams`
+    // downfall: it might give the wrong value if a bug is introduced
+    val valid = Config.requiredMetadata.forall { field =>
+      (source \ "metadata" \ field).asOpt[String].isDefined
     }
-    else source
-  // TODO: always add most transformers even if no showSecureUrl
+
+    source.transform(transformers.addSecureSourceUrl(secureUrl))
+      .flatMap(_.transform(transformers.addSecureThumbUrl(secureThumbUrl)))
+      .flatMap(_.transform(transformers.removeFileData))
+      .flatMap(_.transform(transformers.addFileMetadataUrl(s"$rootUri/images/$id/fileMetadata")))
+      .flatMap(_.transform(transformers.wrapUserMetadata(id)))
+      .flatMap(_.transform(transformers.addValidity(valid)))
+      .flatMap(_.transform(transformers.addUsageCost(creditField, sourceField))).get
+  }
 
   object transformers {
 
@@ -214,15 +208,6 @@ object MediaApi extends Controller with ArgoHelpers {
   }
 }
 
-
-case class GeneralParams(showSecureUrl: Boolean)
-
-object GeneralParams {
-
-  def apply(request: Request[Any]): GeneralParams =
-    GeneralParams(request.getQueryString("show-secure-url") forall (_.toBoolean))
-
-}
 
 case class SearchParams(
   query: Option[String],
