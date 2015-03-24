@@ -96,7 +96,7 @@ object ElasticSearch extends ElasticSearchClient {
       .setScriptParams(Map(
         "userMetadata" -> asGroovy(metadata)
       ).asJava)
-      .setScript("""ctx._source.metadata += userMetadata;""", scriptType)
+      .setScript("""ctx._source.metadata = userMetadata;""", scriptType)
       .executeAndLog(s"updating user metadata on image $id")
       .incrementOnFailure(conflicts) { case e: VersionConflictEngineException => true }
 
