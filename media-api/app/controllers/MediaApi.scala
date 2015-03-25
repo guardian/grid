@@ -32,12 +32,7 @@ object MediaApi extends Controller with ArgoHelpers {
 
   val commonTransformers = new Transformers(Config.services)
 
-  val rootUri = Config.rootUri
-  val cropperUri = Config.cropperUri
-  val loaderUri = Config.loaderUri
-  val metadataUri = Config.metadataUri
-  val kahunaUri = Config.kahunaUri
-  val imgopsUri = Config.imgopsUri
+  import Config.{rootUri, cropperUri, loaderUri, metadataUri, kahunaUri, imgopsUri}
 
 
   val loginUri = s"$kahunaUri/login"
