@@ -66,6 +66,8 @@ object Config extends CommonPlayAppConfig with CommonPlayAppProperties {
 
   val freeSourceList = List("Corbis", "Rex Features")
 
+  val freeLabelsList: List[String] = List()
+
   // Note: we filter exclusively on matching source, rather than combining credit=Getty and source=X
   // this is assumed to be good enough as it's unlikely other provider will use the same source.
   val payGettySourceList = List(
