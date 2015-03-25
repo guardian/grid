@@ -38,62 +38,11 @@ class PandaAuthenticated(loginUri_ : String, authCallbackBaseUri_ : String)
     PandaUser(email, firstName, lastName, avatarUrl)
   }
 
+
   object ArgoAuthAction extends AbstractApiAuthAction with ArgoErrorResponses {
     // FIXME: for some reason an initialisation order issue causes this to be null if not lazy >:-(
     lazy val loginUri = loginUri_
   }
-
-  // FIXME: delete this once it is released as part of the panda lib:
-  // https://github.com/guardian/pan-domain-authentication/pull/7
-  trait AbstractApiAuthAction extends ActionBuilder[UserRequest] {
-
-    val notAuthenticatedResult: Result
-    val invalidCookieResult: Result
-    val expiredResult: Result
-    val notAuthorizedResult: Result
-
-    import play.api.Logger
-
-    override def invokeBlock[A](request: Request[A], block: (UserRequest[A]) => Future[Result]): Future[Result] = {
-      extractAuth(request) match {
-        case NotAuthenticated =>
-          Logger.debug(s"user not authed against $domain, return 401")
-          Future(notAuthenticatedResult)
-
-        case InvalidCookie(e) =>
-          Logger.warn("error checking user's auth, clear cookie and return 401", e)
-          // remove the invalid cookie data
-          Future(invalidCookieResult).map(flushCookie)
-
-        case Expired(authedUser) =>
-          Logger.debug(s"user ${authedUser.user.email} login expired, return 419")
-          Future(expiredResult)
-
-        case GracePeriod(authedUser) =>
-          Logger.debug(s"user ${authedUser.user.email} login expired but is in grace period.")
-          val response = block(new UserRequest(authedUser.user, request))
-          responseWithSystemCookie(response, authedUser)
-
-        case NotAuthorized(authedUser) =>
-          Logger.debug(s"user not authorized, return 403")
-          Logger.debug(invalidUserMessage(authedUser))
-          Future(notAuthorizedResult)
-
-        case Authenticated(authedUser) =>
-          val response = block(new UserRequest(authedUser.user, request))
-          responseWithSystemCookie(response, authedUser)
-      }
-    }
-
-    def responseWithSystemCookie(response: Future[Result], authedUser: AuthenticatedUser): Future[Result] =
-      if (authedUser.authenticatedIn(system)) {
-        response
-      } else {
-        Logger.debug(s"user ${authedUser.user.email} from other system valid: adding validity in $system.")
-        response.map(includeSystemInCookie(authedUser))
-      }
-  }
-
 }
 
 
