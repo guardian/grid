@@ -101,17 +101,22 @@ class PandaAuthenticated(loginUri_ : String, authCallbackBaseUri_ : String)
 
 
 case class Authenticated(keyStore: KeyStore, loginUri: String, authCallbackBaseUri: String)
-  extends ActionBuilder[({ type R[A] = AuthenticatedRequest[A, Principal] })#R] {
+  extends ActionBuilder[({ type R[A] = AuthenticatedRequest[A, Principal] })#R]
+  with ArgoErrorResponses {
 
   type RequestHandler[A] = AuthenticatedRequest[A, Principal] => Future[Result]
 
   class AuthException extends Exception
   case object NotAuthenticated extends AuthException
+  case object InvalidAuth extends AuthException
 
 
   // Try to auth by API key, and failing that, with Panda
   override def invokeBlock[A](request: Request[A], block: RequestHandler[A]): Future[Result] =
-    authByKey(request, block) recoverWith { case _: AuthException => authByPanda(request, block) }
+    authByKey(request, block) recoverWith {
+      case NotAuthenticated => authByPanda(request, block)
+      case InvalidAuth      => Future.successful(invalidApiKeyResult)
+    }
 
 
   // API Key authentication
@@ -127,7 +132,7 @@ case class Authenticated(keyStore: KeyStore, loginUri: String, authCallbackBaseU
       case Some(key) =>
         keyStore.lookupIdentity(key).flatMap {
           case Some(name) => block(new AuthenticatedRequest(AuthenticatedService(name), request))
-          case None => Future.failed(NotAuthenticated)
+          case None => Future.failed(InvalidAuth)
         }
       case None => Future.failed(NotAuthenticated)
     }
