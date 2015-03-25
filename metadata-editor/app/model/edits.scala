@@ -15,8 +15,12 @@ object Edits {
 
 
 
-case class Metadata(description: String, byline: String, credit: String)
+case class Metadata(description: Option[String], byline: Option[String], credit: Option[String])
 
 object Metadata {
-  implicit val MetadataReads: Reads[Metadata] = Json.reads[Metadata]
+  implicit val MetadataReads: Reads[Metadata] = (
+    (__ \ "description").readNullable[String] ~
+    (__ \ "byline").readNullable[String] ~
+    (__ \ "credit").readNullable[String]
+  )(Metadata(_, _, _))
 }
