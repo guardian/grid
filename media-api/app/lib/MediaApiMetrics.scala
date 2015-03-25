@@ -6,5 +6,6 @@ import Config.{awsCredentials, stage}
 object MediaApiMetrics extends CloudWatchMetrics(s"$stage/MediaApi", awsCredentials) {
 
   val searchQueries = new TimeMetric("ElasticSearch")
+  val aggregateSearchQueries = new TimeMetric("ElasticSearchAggregate")
 
 }
