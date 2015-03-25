@@ -23,7 +23,8 @@
 
         <ul class="results"
             ui:near-bottom="whenNearBottom()"
-            ui:forget-window-scroll="searched">
+            ui:forget-window-scroll="searched"
+            ui:window-resized="whenViewResized()">
             <li class="result"
                 ng:repeat="image in images"
                 ng:class="{ 'result--seen': imageHasBeenSeen(image) }">

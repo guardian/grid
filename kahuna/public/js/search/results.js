@@ -13,16 +13,20 @@ results.controller('SearchResultsCtrl',
     // See:   https://github.com/guardian/media-service/pull/64#discussion-diff-17351746L116
     $scope.loading = true;
 
-    $scope.searched = search().then(function(images) {
-        $scope.totalResults = images.total;
-        $scope.images = images.data;
-        // yield so images render before we check if there's more space
-        $timeout(function() {
+    function fillRemainingSpace(){
+         $timeout(function() {
+            console.log("is there space?", $scope.hasSpace);
             if ($scope.hasSpace) {
                 addImages();
             }
         });
+    }
 
+    $scope.searched = search().then(function(images) {
+        $scope.totalResults = images.total;
+        $scope.images = images.data;
+        // yield so images render before we check if there's more space
+        fillRemainingSpace();
         checkForNewImages();
     }).finally(() => {
         $scope.loading = false;
@@ -136,5 +140,6 @@ results.controller('SearchResultsCtrl',
         });
     }
 
+    $scope.whenViewResized = fillRemainingSpace;
     $scope.whenNearBottom = addImages;
 }]);
