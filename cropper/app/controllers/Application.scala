@@ -23,6 +23,7 @@ import model._
 
 
 object Application extends Controller with ArgoHelpers {
+  import com.gu.mediaservice.lib.formatting._
 
   import Config.{rootUri, loginUri, kahunaUri}
 
@@ -48,31 +49,30 @@ object Application extends Controller with ArgoHelpers {
   )
 
   def crop = Authenticated.async { httpRequest =>
-    val author = httpRequest.user match {
-      case user: AuthenticatedService => user.name
-      case user: PandaUser => user.email
-      case _ => "unknown"
+    val author: Option[String] = httpRequest.user match {
+      case user: AuthenticatedService => Some(user.name)
+      case user: PandaUser => Some(user.email)
     }
 
     cropSourceForm.bindFromRequest()(httpRequest).fold(
       errors   => Future.successful(BadRequest(errors.errorsAsJson)),
       cropSrc => {
-        val cropRequest = CropRequest(
+        val crop = Crop(
           by = author,
-          timeRequested = new DateTime(),
+          timeRequested = Some(new DateTime()),
           specification = cropSrc
         )
 
-        createSizings(cropRequest).map { case (id, sizings) =>
+        createSizings(crop).map { case (id, sizings) =>
 
-          val crops = cropResponse(Crop(getCropId(cropRequest.specification.bounds), cropRequest.specification, sizings))
+          val cropJson = cropResponse(Crop(crop, sizings))
           val exports = Json.obj(
             "id" -> id,
-            "data" -> Json.arr(Json.obj("type" -> "crop") ++ crops)
+            "data" -> Json.arr(Json.obj("type" -> "crop") ++ cropJson)
           )
 
           Notifications.publish(exports, "update-image-exports")
-          Ok(crops).as(ArgoMediaType)
+          Ok(cropJson).as(ArgoMediaType)
         }
       }
     )
@@ -80,22 +80,23 @@ object Application extends Controller with ArgoHelpers {
 
   def getCrops(id: String) = Authenticated.async { httpRequest =>
     CropStorage.listCrops(id) map (_.toList) map { crops =>
-      val all = crops.map { case (source, sizings) => cropResponse(Crop(getCropId(source.bounds), source, sizings)) }
 
+      val all = crops.map(cropResponse)
       val links = for {
-        (firstCropSource, _) <- crops.headOption
-        link = Json.obj("rel" -> "image", "href" -> firstCropSource.uri)
+        crop <- crops.headOption
+        link = Json.obj("rel" -> "image", "href" -> crop.specification.uri)
       } yield Json.obj("links" -> Json.arr(link))
 
       val entity = Json.obj(
         "data" -> all
       ) ++ (links getOrElse Json.obj())
+
       Ok(entity).as(ArgoMediaType)
     }
   }
 
-  def createSizings(cropRequest: CropRequest): Future[(String, List[CropSizing])] = {
-    val source = cropRequest.specification
+  def createSizings(crop: Crop): Future[(String, List[CropSizing])] = {
+    val source = crop.specification
 
     for {
       apiImage   <- fetchSourceFromApi(source.uri)
@@ -113,7 +114,7 @@ object Application extends Controller with ArgoHelpers {
         val filename = outputFilename(apiImage, source.bounds, dim.width)
         for {
           file    <- Crops.create(sourceFile, source, dim)
-          sizing  <- CropStorage.storeCropSizing(file, filename, "image/jpeg", cropRequest, dim)
+          sizing  <- CropStorage.storeCropSizing(file, filename, "image/jpeg", crop, dim)
           _       <- delete(file)
         }
         yield sizing
@@ -130,11 +131,8 @@ object Application extends Controller with ArgoHelpers {
       resp.json.as[SourceImage]
     }
 
-  def cropResponse(crop: Crop): JsObject = {
-    val cropObj = Json.toJson(crop).as[JsObject]
-    cropObj.transform(transformers.addSecureUrlToAssets).get
-  }
-
+  def cropResponse(crop: Crop): JsObject =
+    Json.toJson(crop).as[JsObject].transform(transformers.addSecureUrlToAssets).get
 
   object transformers {
 
@@ -163,9 +161,8 @@ object Application extends Controller with ArgoHelpers {
     } yield secureUri.toString
 
 
-  def outputFilename(source: SourceImage, bounds: Bounds, outputWidth: Int): String =
-    s"${source.id}/${getCropId(bounds)}/$outputWidth.jpg"
-
-  def getCropId(b: Bounds) = List(b.x, b.y, b.width, b.height).mkString("_")
+  def outputFilename(source: SourceImage, bounds: Bounds, outputWidth: Int): String = {
+    s"${source.id}/${Crop.getCropId(bounds)}/$outputWidth.jpg"
+  }
 
 }
