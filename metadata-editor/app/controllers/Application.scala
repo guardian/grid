@@ -18,6 +18,9 @@ import lib._
 
 import model.Edits
 
+import com.gu.mediaservice.lib.argo._
+import com.gu.mediaservice.lib.argo.model._
+
 
 object Application extends Controller with ArgoHelpers {
 
@@ -32,13 +35,9 @@ object Application extends Controller with ArgoHelpers {
 
   // TODO: add links to the different responses esp. to the reference image
   def index = Action {
-    val response = Json.obj(
-      "data"  -> Json.obj("description" -> "This is the Metadata Editor Service"),
-      "links" -> Json.arr(
-        Json.obj("rel" -> "metadata", "href" -> s"$rootUri/metadata/{id}")
-      )
-    )
-    Ok(response).as(ArgoMediaType)
+    respond(Map("description" -> "This is the Metadata Editor Service"), List(
+      Link("metadata", s"$rootUri/metadata/{id}")
+    ))
   }
 
   // TODO: Think about calling this `overrides` or something that isn't metadata
