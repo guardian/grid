@@ -19,12 +19,12 @@ import lib._
 
 object Application extends Controller with ArgoHelpers {
 
+  import Config.{rootUri, loginUri, kahunaUri}
+
   val keyStore = new KeyStore(Config.keyStoreBucket, Config.awsCredentials)
-  val Authenticated = auth.Authenticated(keyStore, Config.kahunaUri)
+  val Authenticated = auth.Authenticated(keyStore, loginUri, kahunaUri)
 
   val dynamo = new DynamoDB(Config.awsCredentials, Config.dynamoRegion, Config.editsTable)
-
-  val rootUri = Config.rootUri
 
   val transformers = new Transformers(Config.services)
 
