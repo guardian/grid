@@ -24,14 +24,14 @@ case class AuthenticatedService(name: String) extends Principal
 
 
 
-class PandaAuthenticated(authCallbackBaseUri_ : String)
+class PandaAuthenticated(loginUri_ : String, authCallbackBaseUri_ : String)
     extends ActionBuilder[({ type R[A] = AuthenticatedRequest[A, Principal] })#R]
     with PanDomainAuthActions {
 
   val authCallbackBaseUri = authCallbackBaseUri_
 
   override def invokeBlock[A](request: Request[A], block: AuthenticatedRequest[A, Principal] => Future[Result]): Future[Result] =
-    APIAuthAction.invokeBlock(request, (request: UserRequest[A]) => {
+    ArgoAuthAction.invokeBlock(request, (request: UserRequest[A]) => {
       block(new AuthenticatedRequest(pandaFromUser(request.user), request))
     })
 
@@ -39,11 +39,68 @@ class PandaAuthenticated(authCallbackBaseUri_ : String)
     val User(firstName, lastName, email, avatarUrl) = user
     PandaUser(email, firstName, lastName, avatarUrl)
   }
+
+
+  object ArgoAuthAction extends AbstractApiAuthAction with ArgoErrorResponses {
+    val loginUri = loginUri_
+  }
+
+  // FIXME: delete this once it is released as part of the panda lib:
+  // https://github.com/guardian/pan-domain-authentication/pull/7
+  trait AbstractApiAuthAction extends ActionBuilder[UserRequest] {
+
+    val notAuthenticatedResult: Result
+    val invalidCookieResult: Result
+    val expiredResult: Result
+    val notAuthorizedResult: Result
+
+    import play.api.Logger
+
+    override def invokeBlock[A](request: Request[A], block: (UserRequest[A]) => Future[Result]): Future[Result] = {
+      extractAuth(request) match {
+        case NotAuthenticated =>
+          Logger.debug(s"user not authed against $domain, return 401")
+          Future(notAuthenticatedResult)
+
+        case InvalidCookie(e) =>
+          Logger.warn("error checking user's auth, clear cookie and return 401", e)
+          // remove the invalid cookie data
+          Future(invalidCookieResult).map(flushCookie)
+
+        case Expired(authedUser) =>
+          Logger.debug(s"user ${authedUser.user.email} login expired, return 419")
+          Future(expiredResult)
+
+        case GracePeriod(authedUser) =>
+          Logger.debug(s"user ${authedUser.user.email} login expired but is in grace period.")
+          val response = block(new UserRequest(authedUser.user, request))
+          responseWithSystemCookie(response, authedUser)
+
+        case NotAuthorized(authedUser) =>
+          Logger.debug(s"user not authorized, return 403")
+          Logger.debug(invalidUserMessage(authedUser))
+          Future(notAuthorizedResult)
+
+        case Authenticated(authedUser) =>
+          val response = block(new UserRequest(authedUser.user, request))
+          responseWithSystemCookie(response, authedUser)
+      }
+    }
+
+    def responseWithSystemCookie(response: Future[Result], authedUser: AuthenticatedUser): Future[Result] =
+      if (authedUser.authenticatedIn(system)) {
+        response
+      } else {
+        Logger.debug(s"user ${authedUser.user.email} from other system valid: adding validity in $system.")
+        response.map(includeSystemInCookie(authedUser))
+      }
+  }
+
 }
 
 
 
-case class Authenticated(keyStore: KeyStore, authCallbackBaseUri: String)
+case class Authenticated(keyStore: KeyStore, loginUri: String, authCallbackBaseUri: String)
   extends ActionBuilder[({ type R[A] = AuthenticatedRequest[A, Principal] })#R] {
 
   type RequestHandler[A] = AuthenticatedRequest[A, Principal] => Future[Result]
@@ -78,7 +135,7 @@ case class Authenticated(keyStore: KeyStore, authCallbackBaseUri: String)
 
   // Panda authentication
 
-  val pandaAuth = new PandaAuthenticated(authCallbackBaseUri)
+  val pandaAuth = new PandaAuthenticated(loginUri, authCallbackBaseUri)
 
   def authByPanda[A](request: Request[A], block: RequestHandler[A]): Future[Result] =
     pandaAuth.invokeBlock(request, block)
