@@ -9,9 +9,9 @@ System.config({
 
 System.config({
   "map": {
-    "angular": "github:angular/bower-angular@1.3.10",
-    "angular-animate": "github:angular/bower-angular-animate@1.3.10",
-    "angular-messages": "github:angular/bower-angular-messages@1.3.10",
+    "angular": "github:angular/bower-angular@1.3.15",
+    "angular-animate": "github:angular/bower-angular-animate@1.3.15",
+    "angular-messages": "github:angular/bower-angular-messages@1.3.15",
     "angular-ui-router": "github:angular-ui/ui-router@0.2.13",
     "angular-ui-router-extras": "github:christopherthielen/ui-router-extras@0.0.13",
     "css": "github:systemjs/plugin-css@0.1.7",
@@ -27,10 +27,10 @@ System.config({
     "theseus-angular": "npm:theseus-angular@0.2.3",
     "ua-parser-js": "npm:ua-parser-js@0.7.3",
     "github:angular-ui/ui-router@0.2.13": {
-      "angular": "github:angular/bower-angular@1.3.10"
+      "angular": "github:angular/bower-angular@1.3.15"
     },
-    "github:angular/bower-angular-animate@1.3.10": {
-      "angular": "github:angular/bower-angular@1.3.10"
+    "github:angular/bower-angular-animate@1.3.15": {
+      "angular": "github:angular/bower-angular@1.3.15"
     },
     "github:jspm/nodelibs-assert@0.1.0": {
       "assert": "npm:assert@1.3.0"
@@ -86,10 +86,10 @@ System.config({
       "process": "github:jspm/nodelibs-process@0.1.1"
     },
     "npm:any-http-angular@0.1.0": {
-      "angular": "github:angular/bower-angular@1.3.10"
+      "angular": "github:angular/bower-angular@1.3.15"
     },
     "npm:any-promise-angular@0.1.1": {
-      "angular": "github:angular/bower-angular@1.3.10"
+      "angular": "github:angular/bower-angular@1.3.15"
     },
     "npm:assert@1.3.0": {
       "util": "npm:util@0.10.3"
@@ -134,7 +134,7 @@ System.config({
       "os": "github:jspm/nodelibs-os@0.1.0"
     },
     "npm:pandular@0.1.5": {
-      "angular": "github:angular/bower-angular@1.3.10",
+      "angular": "github:angular/bower-angular@1.3.15",
       "panda-session": "npm:panda-session@0.1.4"
     },
     "npm:path-browserify@0.0.0": {
@@ -170,7 +170,7 @@ System.config({
       "buffer": "github:jspm/nodelibs-buffer@0.1.0"
     },
     "npm:theseus-angular@0.2.3": {
-      "angular": "github:angular/bower-angular@1.3.10",
+      "angular": "github:angular/bower-angular@1.3.15",
       "any-http-angular": "npm:any-http-angular@0.1.0",
       "any-promise-angular": "npm:any-promise-angular@0.1.1",
       "theseus": "npm:theseus@0.3.1"
