@@ -38,9 +38,9 @@ class PandaAuthenticated(loginUri_ : String, authCallbackBaseUri_ : String)
     PandaUser(email, firstName, lastName, avatarUrl)
   }
 
-
   object ArgoAuthAction extends AbstractApiAuthAction with ArgoErrorResponses {
-    val loginUri = loginUri_
+    // FIXME: for some reason an initialisation order issue causes this to be null if not lazy >:-(
+    lazy val loginUri = loginUri_
   }
 
   // FIXME: delete this once it is released as part of the panda lib:
