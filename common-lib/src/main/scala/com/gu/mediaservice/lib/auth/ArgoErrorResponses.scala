@@ -4,7 +4,7 @@ import com.gu.mediaservice.lib.argo.ArgoHelpers
 import com.gu.mediaservice.lib.argo.model.Link
 
 trait ArgoErrorResponses extends ArgoHelpers {
-  val loginUri: String
+  def loginUri: String
 
   val loginLinks = List(
     Link("login", loginUri)
