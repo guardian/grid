@@ -131,7 +131,7 @@ object ElasticSearch extends ElasticSearchClient {
       .setFrom(params.offset)
       .setSize(params.length)
       .executeAndLog("image search")
-      .toMetric(searchQueries)(_.getTookInMillis)
+      .toMetric(searchQueries, List(searchTypeDimension("results")))(_.getTookInMillis)
       .map(_.getHits)
       .map { results =>
         val hitsTuples = results.hits.toList flatMap (h => h.sourceOpt map (h.id -> _))
@@ -150,7 +150,8 @@ object ElasticSearch extends ElasticSearchClient {
       .setFrom(0)
       .setSize(0)
       .executeAndLog("metadata aggregate search")
-      .toMetric(aggregateSearchQueries)(_.getTookInMillis).map{ response =>
+      .toMetric(searchQueries, List(searchTypeDimension("aggregate")))(_.getTookInMillis)
+      .map{ response =>
         val buckets = response.getAggregations.getAsMap.get(aggName).asInstanceOf[StringTerms].getBuckets
         val results = buckets.toList map (s => BucketResult(s.getKey, s.getDocCount))
 
