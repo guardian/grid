@@ -16,6 +16,8 @@ import com.gu.mediaservice.lib.auth.KeyStore
 import com.gu.mediaservice.lib.aws.{NoItemFound, DynamoDB}
 import lib._
 
+import model.Edits
+
 
 object Application extends Controller with ArgoHelpers {
 
@@ -42,7 +44,8 @@ object Application extends Controller with ArgoHelpers {
   // TODO: Think about calling this `overrides` or something that isn't metadata
   def getAllMetadata(id: String) = Authenticated.async {
     dynamo.get(id) map {
-      metadata => Ok(allMetadataResponse(metadata, id)).as(ArgoMediaType)
+      metadata =>
+        Ok(allMetadataResponse(metadata, id)).as(ArgoMediaType)
     } recover {
       // Empty object as no metadata edits recorded
       case NoItemFound => Ok(allMetadataResponse(Json.obj(), id)).as(ArgoMediaType)
