@@ -17,7 +17,8 @@ import lib.querysyntax.{Condition, Parser}
 
 import com.gu.mediaservice.lib.auth
 import com.gu.mediaservice.lib.auth.KeyStore
-import com.gu.mediaservice.lib.argo.ArgoHelpers
+import com.gu.mediaservice.lib.argo._
+import com.gu.mediaservice.lib.argo.model._
 import com.gu.mediaservice.lib.formatting.parseDateFromQuery
 import com.gu.mediaservice.lib.cleanup.MetadataCleaners
 import com.gu.mediaservice.lib.config.MetadataConfig
@@ -38,46 +39,57 @@ object MediaApi extends Controller with ArgoHelpers {
   val kahunaUri = Config.kahunaUri
   val imgopsUri = Config.imgopsUri
 
-  def index = Action {
-    val searchParams = List("q", "ids", "offset", "length", "fromDate", "toDate",
+
+  val indexResponse = {
+    val searchParamList = List("q", "ids", "offset", "length", "fromDate", "toDate",
       "orderBy", "since", "until", "uploadedBy", "archived", "valid", "free",
       "hasExports", "hasIdentifier", "missingIdentifier", "hasMetadata").mkString(",")
 
-    val response = Json.obj(
-      "data"  -> Json.obj("description" -> "This is the Media API"),
-      "links" -> Json.arr(
-        Json.obj("rel" -> "search", "href" -> s"$rootUri/images{?$searchParams}"),
-        Json.obj("rel" -> "image",  "href" -> s"$rootUri/images/{id}"),
-        Json.obj("rel" -> "metadata-search", "href" -> s"$rootUri/images/metadata/{field}{?q}"),
-        Json.obj("rel" -> "cropper", "href" -> cropperUri),
-        Json.obj("rel" -> "loader", "href" -> loaderUri),
-        Json.obj("rel" -> "metadata", "href" -> metadataUri),
-        Json.obj("rel" -> "session", "href" -> s"$kahunaUri/session")
-      )
+    val indexData = Map("description" -> "This is the Media API")
+    val indexLinks = List(
+      Link("search",          s"$rootUri/images{?$searchParamList}"),
+      Link("image",           s"$rootUri/images/{id}"),
+      Link("metadata-search", s"$rootUri/images/metadata/{field}{?q}"),
+      Link("cropper",         cropperUri),
+      Link("loader",          loaderUri),
+      Link("metadata",        metadataUri),
+      Link("session",         s"$kahunaUri/session")
     )
-    Ok(response).as(ArgoMediaType)
+    respond(indexData, indexLinks)
   }
+
+  def index = Action { indexResponse }
+
 
   val Authenticated = auth.Authenticated(keyStore, Config.kahunaUri)
 
+  val ImageNotFound = respondError(NotFound, "image-not-found", "No image found with the given id")
+
   def getImage(id: String) = Authenticated.async { request =>
-    val params = GeneralParams(request)
     ElasticSearch.getImageById(id) map {
-      case Some(source) => Ok(imageResponse(params)(id, source)).as(ArgoMediaType)
-      case None         => NotFound.as(ArgoMediaType)
+      case Some(source) => {
+        val (imageData, imageLinks) = imageResponse(id, source)
+        respond(imageData, imageLinks)
+      }
+      case None         => ImageNotFound
     }
   }
 
   def getImageFileMetadata(id: String) = Authenticated.async { request =>
-    val params = GeneralParams(request)
     ElasticSearch.getImageById(id) map {
-      case Some(source) => Ok(Json.obj("data" -> source \ "fileMetadata")).as(ArgoMediaType)
-      case None         => NotFound.as(ArgoMediaType)
+      case Some(source) => {
+        val links = List(
+          Link("image", s"$rootUri/images/$id")
+        )
+        respond(source \ "fileMetadata", links)
+      }
+      case None         => ImageNotFound
     }
   }
 
   def deleteImage(id: String) = Authenticated {
     Notifications.publish(Json.obj("id" -> id), "delete-image")
+    // TODO: use respond
     Accepted.as(ArgoMediaType)
   }
 
@@ -108,56 +120,45 @@ object MediaApi extends Controller with ArgoHelpers {
 
 
   def imageSearch = Authenticated.async { request =>
-    val params = GeneralParams(request)
     val searchParams = SearchParams(request)
     ElasticSearch.search(searchParams) map { case SearchResults(hits, totalCount) =>
-      val images = hits map (imageResponse(params) _).tupled
-      Ok(Json.obj(
-        "offset" -> searchParams.offset,
-        "length" -> images.size,
-        "total"  -> totalCount,
-        "data"   -> images
-      )).as(ArgoMediaType)
+      val images = hits map (imageResponse _).tupled
+      val imageEntities = images.map { case (imageData, imageLinks) =>
+        val id = (imageData \ "id").as[String]
+        EmbeddedEntity(uri = URI.create(s"$rootUri/images/$id"), data = Some(imageData), imageLinks)
+      }
+      respondCollection(imageEntities, Some(searchParams.offset), Some(totalCount))
     }
   }
 
-  def imageResponse(params: GeneralParams)(id: String, source: JsValue): JsValue =
-    if (params.showSecureUrl) {
-      // Round expiration time to try and hit the cache as much as possible
-      // TODO: do we really need these expiration tokens? they kill our ability to cache...
-      val expiration = roundDateTime(DateTime.now, Duration.standardMinutes(10)).plusMinutes(20)
-      val fileUri = new URI((source \ "source" \ "file").as[String])
-      val secureUrl = S3Client.signUrl(Config.imageBucket, fileUri, expiration)
-      val secureThumbUrl = S3Client.signUrl(Config.thumbBucket, fileUri, expiration)
+  def imageResponse(id: String, source: JsValue): (JsValue, List[Link]) = {
+    // Round expiration time to try and hit the cache as much as possible
+    // TODO: do we really need these expiration tokens? they kill our ability to cache...
+    val expiration = roundDateTime(DateTime.now, Duration.standardMinutes(10)).plusMinutes(20)
+    val fileUri = new URI((source \ "source" \ "file").as[String])
+    val secureUrl = S3Client.signUrl(Config.imageBucket, fileUri, expiration)
+    val secureThumbUrl = S3Client.signUrl(Config.thumbBucket, fileUri, expiration)
 
-      val creditField = (source \ "metadata" \ "credit").as[Option[String]]
-      val sourceField = (source \ "metadata" \ "source").as[Option[String]]
-      // TODO: This might be easier to get from the `SearchParams`
-      // downfall: it might give the wrong value if a bug is introduced
-      val valid = Config.requiredMetadata.forall { field =>
-        (source \ "metadata" \ field).asOpt[String].isDefined
-      }
+    val creditField = (source \ "metadata" \ "credit").as[Option[String]]
+    val sourceField = (source \ "metadata" \ "source").as[Option[String]]
+    val valid = ImageExtras.isValid(source \ "metadata")
 
-      val image = source.transform(transformers.addSecureSourceUrl(secureUrl))
-        .flatMap(_.transform(transformers.addSecureThumbUrl(secureThumbUrl)))
-        .flatMap(_.transform(transformers.removeFileData))
-        .flatMap(_.transform(transformers.addFileMetadataUrl(s"$rootUri/images/$id/fileMetadata")))
-        .flatMap(_.transform(transformers.wrapUserMetadata(id)))
-        .flatMap(_.transform(transformers.addValidity(valid)))
-        .flatMap(_.transform(transformers.addUsageCost(creditField, sourceField))).get
+    val imageData = source.transform(transformers.addSecureSourceUrl(secureUrl))
+      .flatMap(_.transform(transformers.addSecureThumbUrl(secureThumbUrl)))
+      .flatMap(_.transform(transformers.removeFileData))
+      .flatMap(_.transform(transformers.addFileMetadataUrl(s"$rootUri/images/$id/fileMetadata")))
+      .flatMap(_.transform(transformers.wrapUserMetadata(id)))
+      .flatMap(_.transform(transformers.addValidity(valid)))
+      .flatMap(_.transform(transformers.addUsageCost(creditField, sourceField))).get
 
-      // FIXME: don't hardcode paths from other APIs - once we're
-      // storing a copy of the data in the DB, we can use it to point
-      // to the right place
-      val links = List(
-        Json.obj("rel" -> "crops",    "href" -> s"$cropperUri/crops/$id"),
-        Json.obj("rel" -> "metadata", "href" -> s"$metadataUri/metadata/$id"),
-        Json.obj("rel" -> "optimised", "href" -> makeImgopsUri(new URI(secureUrl)))
-      )
-      Json.obj("uri" -> s"$rootUri/images/$id", "data" -> image, "links" -> links)
-    }
-    else source
-  // TODO: always add most transformers even if no showSecureUrl
+    val imageLinks = List(
+      Link("crops",     s"$cropperUri/crops/$id"),
+      Link("metadata",  s"$metadataUri/metadata/$id"),
+      Link("optimised", makeImgopsUri(new URI(secureUrl)))
+    )
+
+    (imageData, imageLinks)
+  }
 
   object transformers {
 
@@ -196,26 +197,15 @@ object MediaApi extends Controller with ArgoHelpers {
   }
 
   // TODO: work with analysed fields
+  // TODO: recover with HTTP error if invalid field
   def metadataSearch(field: String, q: Option[String]) = Authenticated.async { request =>
     ElasticSearch.metadataSearch(MetadataSearchParams(field, q)) map { case MetadataSearchResults(results, total) =>
       // TODO: Add some useful links
-      Ok(Json.obj(
-        "length"-> total,
-        "data" -> Json.toJson(results)
-      )).as(ArgoMediaType)
+      respondCollection(results, Some(0), Some(total))
     }
   }
 }
 
-
-case class GeneralParams(showSecureUrl: Boolean)
-
-object GeneralParams {
-
-  def apply(request: Request[Any]): GeneralParams =
-    GeneralParams(request.getQueryString("show-secure-url") forall (_.toBoolean))
-
-}
 
 case class SearchParams(
   query: Option[String],
@@ -273,6 +263,9 @@ case class MetadataSearchParams(field: String, q: Option[String])
 
 // Default to pay for now
 object ImageExtras {
+  def isValid(metadata: JsValue): Boolean =
+    Config.requiredMetadata.forall(field => (metadata \ field).asOpt[String].isDefined)
+
   def getCost(credit: Option[String], source: Option[String]) = {
     val freeCredit   = credit.exists(isFreeCredit)
     val freeSource   = source.exists(isFreeSource)
