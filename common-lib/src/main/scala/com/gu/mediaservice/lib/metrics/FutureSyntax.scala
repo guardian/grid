@@ -1,5 +1,7 @@
 package com.gu.mediaservice.lib.metrics
 
+import com.amazonaws.services.cloudwatch.model.Dimension
+
 import scala.concurrent.{ExecutionContext, Future}
 
 /** Convenience methods for attaching metrics to Scala Futures
@@ -25,8 +27,8 @@ trait FutureSyntax {
       self
     }
 
-    def toMetric[B](metric: Metric[B])(f: A => B): Future[A] = {
-      self.onSuccess { case a => metric.runRecordOne(f(a)) }
+    def toMetric[B](metric: Metric[B], dims: List[Dimension] = List())(f: A => B): Future[A] = {
+      self.onSuccess { case a => metric.runRecordOne(f(a), dims) }
       self
     }
 
