@@ -22,6 +22,8 @@ class Services(domainRoot: String, ssl: Boolean) {
   val metadataBaseUri = baseUri(metadataHost)
   val imgopsBaseUri  = baseUri(imgopsHost)
 
+  val loginUri = s"$kahunaBaseUri/login"
+
   def baseUri(host: String) = {
     val protocol = if (ssl) "https" else "http"
     s"$protocol://$host"
