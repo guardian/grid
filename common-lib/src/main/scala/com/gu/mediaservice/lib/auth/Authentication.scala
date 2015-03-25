@@ -3,11 +3,9 @@ package com.gu.mediaservice.lib.auth
 import scala.concurrent.Future
 
 import play.api.mvc._
-import play.api.libs.json.Json
 import play.api.libs.concurrent.Execution.Implicits._
 import play.api.mvc.Security.AuthenticatedRequest
 
-import com.gu.mediaservice.syntax._
 import com.gu.pandomainauth.model.{AuthenticatedUser, User}
 import com.gu.pandomainauth.action.UserRequest
 
