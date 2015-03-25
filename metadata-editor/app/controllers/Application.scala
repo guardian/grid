@@ -93,6 +93,27 @@ object Application extends Controller with ArgoHelpers {
   }
 
 
+  def getFlags(id: String) = Authenticated.async {
+    dynamo.setGet(id, "flags") map { flags =>
+      Ok(labelsResponse(flags.toList, id)).as(ArgoMediaType)
+    }
+  }
+
+  def addFlags(id: String) = Authenticated.async { req =>
+    listForm.bindFromRequest()(req).fold(
+      errors => Future.successful(BadRequest(errors.errorsAsJson)),
+      flags => {
+        val entityResult = Accepted(labelsResponse(flags, id)).as(ArgoMediaType)
+        dynamo.setAdd(id, "flags", flags) map publishAndRespond(id, entityResult)
+      }
+    )
+  }
+
+  def removeFlag(id: String, flag: String) = Authenticated.async {
+    dynamo.setDelete(id, "flags", flag) map publishAndRespond(id)
+  }
+
+
   def getMetadata(id: String) = Authenticated.async {
     dynamo.jsonGet(id, "metadata").map(metadata => Ok(metadataResponse(metadata, id)))
   }
