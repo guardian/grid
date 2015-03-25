@@ -124,8 +124,7 @@ object MediaApi extends Controller with ArgoHelpers {
     ElasticSearch.search(searchParams) map { case SearchResults(hits, totalCount) =>
       val images = hits map (imageResponse _).tupled
       val imageEntities = images.map { case (imageData, imageLinks) =>
-        // TODO: better error if id missing (should never happen)
-        val id = (imageData \ "id").asOpt[String].get
+        val id = (imageData \ "id").as[String]
         EmbeddedEntity(uri = URI.create(s"$rootUri/images/$id"), data = Some(imageData), imageLinks)
       }
       respondCollection(imageEntities, Some(searchParams.offset), Some(totalCount))
