@@ -25,7 +25,7 @@
   },
   "devDependencies": {
     "jshint": "^2.5.11",
-    "jspm": "~0.10.6"
+    "jspm": "^0.14.0"
   },
   "scripts": {
     "test": "npm run lint",
