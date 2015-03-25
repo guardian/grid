@@ -8,6 +8,30 @@ import org.elasticsearch.common.unit.TimeValue
 import com.gu.mediaservice.lib.elasticsearch.{Mappings, ElasticSearchClient}
 
 
+object Recreate extends EsScript {
+
+  def run(esHost: String, extraArgs: List[String]) {
+
+    object EsClient extends ElasticSearchClient {
+      val port = esPort
+      val host = esHost
+      val cluster = esCluster
+
+      def recreate {
+        createIndex("images")
+        assignAliasTo("images")
+      }
+    }
+
+    EsClient.recreate
+  }
+
+  def usageError: Nothing = {
+    System.err.println("Usage: Recreate <ES_HOST>")
+    sys.exit(1)
+  }
+}
+
 object Reindex extends EsScript {
 
   def run(esHost: String, extraArgs: List[String]) {
