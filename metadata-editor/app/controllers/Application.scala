@@ -1,6 +1,8 @@
 package controllers
 
 
+import java.net.URI
+
 import com.gu.mediaservice.api.Transformers
 import com.gu.mediaservice.lib.argo.ArgoHelpers
 
@@ -16,7 +18,7 @@ import com.gu.mediaservice.lib.auth.KeyStore
 import com.gu.mediaservice.lib.aws.{NoItemFound, DynamoDB}
 import lib._
 
-import model.Edits
+import model.{Metadata, Edits}
 
 import com.gu.mediaservice.lib.argo._
 import com.gu.mediaservice.lib.argo.model._
@@ -42,11 +44,25 @@ object Application extends Controller with ArgoHelpers {
 
   // TODO: Think about calling this `overrides` or something that isn't metadata
   def getAllMetadata(id: String) = Authenticated.async {
-    dynamo.get(id) map (m => respond(m.as[Edits])) recover {
+    dynamo.get(id) map { dynamoEntry =>
+      def uri(u: String = ""): URI = URI.create(s"$rootUri/metadata/$id$u")
+
+      // TODO: Find a way to return a hashmap of Entities
+      val m = dynamoEntry.as[Edits]
+      val archived = EmbeddedEntity(uri("/archived"), Some(m.archived))
+      val labels = EmbeddedEntity(uri("/labels"), Some(m.labels))
+      val rightsNotices = EmbeddedEntity(uri("/rightsNotices"), Some(m.rightsNotices))
+      val metadata = EmbeddedEntity(uri("/metadata"), Some(m.metadata))
+
+
+      // TODO: Fix this to take multiple types in Map.
+      respondMap(Some(uri()), data = Map(
+        "archived" -> archived
+      ))
+
+    } recover {
       // Empty object as no metadata edits recorded
-      // FIXME: Find out how to return an empty `Metadata` from the model's
-      // JSON Reads / Writes
-      case NoItemFound => respond(Json.obj("metadata"->Json.obj()).as[Edits])
+      case NoItemFound => respond(Json.obj().as[Edits])
     }
   }
 
