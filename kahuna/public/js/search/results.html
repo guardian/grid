@@ -22,9 +22,10 @@
         </div>
 
         <ul class="results"
-            ui:near-bottom="whenNearBottom()"
+            ui:has-space="uiHasSpace"
+            ui:near-bottom="fillRemainingSpace()"
             ui:forget-window-scroll="searched"
-            ui:window-resized="whenViewResized()">
+            ui:window-resized="fillRemainingSpace()">
             <li class="result"
                 ng:repeat="image in images"
                 ng:class="{ 'result--seen': imageHasBeenSeen(image) }">

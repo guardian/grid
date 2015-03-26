@@ -280,7 +280,7 @@ kahuna.directive('uiHasSpace', ['$window', function($window) {
         link: function(scope, element, attrs) {
             var el = element[0];
             scope.$watch(function() {
-                scope[attrs.uiHasSpace] = el.clientHeight + el.offsetTop <= $window.innerHeight;
+                scope.$parent[attrs.uiHasSpace] = el.clientHeight + el.offsetTop <= $window.innerHeight;
             });
         }
     };
