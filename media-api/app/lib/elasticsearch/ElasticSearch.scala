@@ -114,14 +114,9 @@ object ElasticSearch extends ElasticSearchClient {
       case (creditOpt,    sourceOpt)    => creditOpt orElse sourceOpt
     }
     val sourceExclFilter    = Config.payGettySourceList.toNel.map(cs => filters.not(filters.terms("metadata.source", cs)))
-    val freeCopyrightFilter = (freeWhitelist, sourceExclFilter) match {
+    val freeFilter = (freeWhitelist, sourceExclFilter) match {
       case (Some(whitelist), Some(sourceExcl)) => Some(filters.and(whitelist, sourceExcl))
       case (whitelistOpt,    sourceExclOpt)    => whitelistOpt orElse sourceExclOpt
-    }
-    val freeLabelsFilter    = Config.freeLabelsList.toNel.map(l => filters.terms("labels", l))
-    val freeFilter = (freeCopyrightFilter, freeLabelsFilter) match {
-      case (Some(freeCopyright), Some(freeLabels)) => Some(filters.or(freeCopyright, freeLabels))
-      case (freeCopyrightOpt,    freeLabelsOpt)    => freeCopyrightOpt orElse freeLabelsOpt
     }
     val nonFreeFilter       = freeFilter.map(filters.not)
     val costFilter          = params.free.flatMap(free => if (free) freeFilter else nonFreeFilter)
