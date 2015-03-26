@@ -42,21 +42,21 @@ object Application extends Controller with ArgoHelpers {
     ))
   }
 
+  def uri(id: String, endpoint: String = ""): URI = URI.create(s"$rootUri/metadata/$id/$endpoint")
+
   // TODO: Think about calling this `overrides` or something that isn't metadata
   def getAllMetadata(id: String) = Authenticated.async {
     dynamo.get(id) map { dynamoEntry =>
-      def uri(u: String = ""): URI = URI.create(s"$rootUri/metadata/$id$u")
-
       // TODO: Find a way to return a hashmap of Entities
       val m = dynamoEntry.as[Edits]
-      val archived = EmbeddedEntity(uri("/archived"), Some(m.archived))
-      val labels = EmbeddedEntity(uri("/labels"), Some(m.labels))
-      val rightsNotices = EmbeddedEntity(uri("/rightsNotices"), Some(m.rightsNotices))
-      val metadata = EmbeddedEntity(uri("/metadata"), Some(m.metadata))
+      val archived = EmbeddedEntity(uri(id, "archived"), Some(m.archived))
+      val labels = EmbeddedEntity(uri(id, "labels"), Some(m.labels))
+      val rightsNotices = EmbeddedEntity(uri(id, "rightsNotices"), Some(m.rightsNotices))
+      val metadata = EmbeddedEntity(uri(id, "metadata"), Some(m.metadata))
 
 
       // TODO: Fix this to take multiple types in Map.
-      respondMap(Some(uri()), data = Map(
+      respondMap(Some(uri(id)), data = Map(
         "archived" -> archived
       ))
 
@@ -68,10 +68,10 @@ object Application extends Controller with ArgoHelpers {
 
   def getArchived(id: String) = Authenticated.async {
     dynamo.booleanGet(id, "archived") map { archived =>
-      Ok(archivedResponse(archived.getOrElse(false), id)).as(ArgoMediaType)
+      EmbeddedEntity(uri(id, "archived"), Some(archived.getOrElse(false)))
     } recover {
-      case NoItemFound => Ok(archivedResponse(false, id)).as(ArgoMediaType)
-    }
+      case NoItemFound => EmbeddedEntity(uri(id, "archived"), Some(false))
+    } map (respondEntity(_))
   }
 
   def setArchived(id: String) = Authenticated.async { req =>
