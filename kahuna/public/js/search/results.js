@@ -141,5 +141,6 @@ results.controller('SearchResultsCtrl',
         });
     }
 
+    $scope.whenNearBottom = addImages;
     $scope.fillRemainingSpace = fillRemainingSpace;
 }]);
