@@ -27,12 +27,12 @@ import com.gu.mediaservice.lib.argo.model._
 // Some of these responses should be `Accepted` (202)
 object Application extends Controller with ArgoHelpers {
 
+  import Config.{rootUri, loginUri, kahunaUri}
+
   val keyStore = new KeyStore(Config.keyStoreBucket, Config.awsCredentials)
-  val Authenticated = auth.Authenticated(keyStore, Config.kahunaUri)
+  val Authenticated = auth.Authenticated(keyStore, loginUri, kahunaUri)
 
   val dynamo = new DynamoDB(Config.awsCredentials, Config.dynamoRegion, Config.editsTable)
-
-  val rootUri = Config.rootUri
 
   // TODO: add links to the different responses esp. to the reference image
   def index = Action {

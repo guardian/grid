@@ -22,7 +22,7 @@ trait ArgoHelpers extends Results {
     serializeAndWrap(response, Ok)
   }
 
-  def respondEntity[T](entity: EmbeddedEntity[T], links: List[Link] = Nil)(implicit writes: Writes[T]): Result = {
+  def respondEntity[T](entity: EmbeddedEntity[T])(implicit writes: Writes[T]): Result = {
     serializeAndWrap(entity, Ok)
   }
 
@@ -38,18 +38,6 @@ trait ArgoHelpers extends Results {
 
     serializeAndWrap(response, Ok)
   }
-
-  def respondMap[T](uri: Option[URI], data: Map[String, T], links: List[Link] = Nil)
-                   (implicit writes: Writes[T]): Result = {
-    val response = MapResponse(
-      uri = uri,
-      data = data,
-      links = links
-    )
-
-    serializeAndWrap(response, Ok)
-  }
-
 
 // TODO: bring back once useful (causes Scala compiler tears)
 //  def respondError[T](errorStatus: Status, errorKey: String, errorMessage: String, data: Option[T], links: List[Link] = Nil)

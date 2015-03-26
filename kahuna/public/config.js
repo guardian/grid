@@ -9,56 +9,60 @@ System.config({
 
 System.config({
   "map": {
-    "angular": "github:angular/bower-angular@1.3.10",
-    "angular-animate": "github:angular/bower-angular-animate@1.3.10",
-    "angular-messages": "github:angular/bower-angular-messages@1.3.10",
+    "angular": "github:angular/bower-angular@1.3.15",
+    "angular-animate": "github:angular/bower-angular-animate@1.3.15",
+    "angular-messages": "github:angular/bower-angular-messages@1.3.15",
     "angular-ui-router": "github:angular-ui/ui-router@0.2.13",
     "angular-ui-router-extras": "github:christopherthielen/ui-router-extras@0.0.13",
     "css": "github:systemjs/plugin-css@0.1.0",
     "github:tapmodo/Jcrop": "github:tapmodo/Jcrop@0.9.12",
     "jcrop": "github:tapmodo/Jcrop@0.9.12",
     "jquery": "github:components/jquery@2.1.1",
-    "mixpanel-js": "github:mixpanel/mixpanel-js@2.3.2",
+    "mixpanel-js": "github:mixpanel/mixpanel-js@2.4.2",
     "moment": "github:moment/moment@2.9.0",
     "pandular": "npm:pandular@0.1.5",
-    "raven-js": "github:getsentry/raven-js@1.1.16",
+    "raven-js": "github:getsentry/raven-js@1.1.18",
     "text": "github:systemjs/plugin-text@0.0.2",
     "theseus": "npm:theseus@0.3.1",
     "theseus-angular": "npm:theseus-angular@0.2.3",
     "ua-parser-js": "npm:ua-parser-js@0.7.3",
     "github:angular-ui/ui-router@0.2.13": {
-      "angular": "github:angular/bower-angular@1.3.10"
+      "angular": "github:angular/bower-angular@1.3.15"
     },
-    "github:angular/bower-angular-animate@1.3.10": {
-      "angular": "github:angular/bower-angular@1.3.10"
+    "github:angular/bower-angular-animate@1.3.15": {
+      "angular": "github:angular/bower-angular@1.3.15"
     },
     "github:jspm/nodelibs-path@0.1.0": {
       "path-browserify": "npm:path-browserify@0.0.0"
     },
-    "github:jspm/nodelibs-process@0.1.0": {
-      "process": "npm:process@0.10.0"
+    "github:jspm/nodelibs-process@0.1.1": {
+      "process": "npm:process@0.10.1"
     },
     "github:jspm/nodelibs-util@0.1.0": {
       "util": "npm:util@0.10.3"
     },
+    "github:tapmodo/Jcrop@0.9.12": {
+      "css": "github:systemjs/plugin-css@0.1.0",
+      "jquery": "github:components/jquery@2.1.1"
+    },
     "npm:any-http-angular@0.1.0": {
-      "angular": "github:angular/bower-angular@1.3.10"
+      "angular": "github:angular/bower-angular@1.3.15"
     },
     "npm:any-promise-angular@0.1.1": {
-      "angular": "github:angular/bower-angular@1.3.10"
+      "angular": "github:angular/bower-angular@1.3.15"
     },
     "npm:inherits@2.0.1": {
       "util": "github:jspm/nodelibs-util@0.1.0"
     },
     "npm:pandular@0.1.5": {
-      "angular": "github:angular/bower-angular@1.3.10",
+      "angular": "github:angular/bower-angular@1.3.15",
       "panda-session": "npm:panda-session@0.1.4"
     },
     "npm:path-browserify@0.0.0": {
-      "process": "github:jspm/nodelibs-process@0.1.0"
+      "process": "github:jspm/nodelibs-process@0.1.1"
     },
     "npm:theseus-angular@0.2.3": {
-      "angular": "github:angular/bower-angular@1.3.10",
+      "angular": "github:angular/bower-angular@1.3.15",
       "any-http-angular": "npm:any-http-angular@0.1.0",
       "any-promise-angular": "npm:any-promise-angular@0.1.1",
       "theseus": "npm:theseus@0.3.1"
@@ -76,7 +80,7 @@ System.config({
     },
     "npm:util@0.10.3": {
       "inherits": "npm:inherits@2.0.1",
-      "process": "github:jspm/nodelibs-process@0.1.0"
+      "process": "github:jspm/nodelibs-process@0.1.1"
     }
   }
 });
