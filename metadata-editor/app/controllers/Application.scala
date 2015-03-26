@@ -3,7 +3,6 @@ package controllers
 
 import java.net.URI
 
-import com.gu.mediaservice.api.Transformers
 import com.gu.mediaservice.lib.argo.ArgoHelpers
 
 import scala.concurrent.Future
@@ -32,8 +31,6 @@ object Application extends Controller with ArgoHelpers {
   val dynamo = new DynamoDB(Config.awsCredentials, Config.dynamoRegion, Config.editsTable)
 
   val rootUri = Config.rootUri
-
-  val transformers = new Transformers(Config.services)
 
   // TODO: add links to the different responses esp. to the reference image
   def index = Action {
@@ -138,9 +135,6 @@ object Application extends Controller with ArgoHelpers {
 
   def metadataEntity(id: String, metadata: Metadata) =
     EmbeddedEntity(uri(id, s"metadata"), Some(metadata))
-
-  def allMetadataResponse(metadata: JsObject, id: String): JsValue =
-    metadata.transform(transformers.wrapAllMetadata(id)).get
 
 
   // Publish changes to SNS and return an empty Result
