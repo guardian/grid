@@ -3,11 +3,9 @@ package com.gu.mediaservice.lib.auth
 import scala.concurrent.Future
 
 import play.api.mvc._
-import play.api.libs.json.Json
 import play.api.libs.concurrent.Execution.Implicits._
 import play.api.mvc.Security.AuthenticatedRequest
 
-import com.gu.mediaservice.syntax._
 import com.gu.pandomainauth.model.{AuthenticatedUser, User}
 import com.gu.pandomainauth.action.UserRequest
 
@@ -24,14 +22,14 @@ case class AuthenticatedService(name: String) extends Principal
 
 
 
-class PandaAuthenticated(authCallbackBaseUri_ : String)
+class PandaAuthenticated(loginUri_ : String, authCallbackBaseUri_ : String)
     extends ActionBuilder[({ type R[A] = AuthenticatedRequest[A, Principal] })#R]
     with PanDomainAuthActions {
 
   val authCallbackBaseUri = authCallbackBaseUri_
 
   override def invokeBlock[A](request: Request[A], block: AuthenticatedRequest[A, Principal] => Future[Result]): Future[Result] =
-    APIAuthAction.invokeBlock(request, (request: UserRequest[A]) => {
+    ArgoAuthAction.invokeBlock(request, (request: UserRequest[A]) => {
       block(new AuthenticatedRequest(pandaFromUser(request.user), request))
     })
 
@@ -39,22 +37,33 @@ class PandaAuthenticated(authCallbackBaseUri_ : String)
     val User(firstName, lastName, email, avatarUrl) = user
     PandaUser(email, firstName, lastName, avatarUrl)
   }
+
+
+  object ArgoAuthAction extends AbstractApiAuthAction with ArgoErrorResponses {
+    // FIXME: for some reason an initialisation order issue causes this to be null if not lazy >:-(
+    lazy val loginUri = loginUri_
+  }
 }
 
 
 
-case class Authenticated(keyStore: KeyStore, authCallbackBaseUri: String)
-  extends ActionBuilder[({ type R[A] = AuthenticatedRequest[A, Principal] })#R] {
+case class Authenticated(keyStore: KeyStore, loginUri: String, authCallbackBaseUri: String)
+  extends ActionBuilder[({ type R[A] = AuthenticatedRequest[A, Principal] })#R]
+  with ArgoErrorResponses {
 
   type RequestHandler[A] = AuthenticatedRequest[A, Principal] => Future[Result]
 
   class AuthException extends Exception
   case object NotAuthenticated extends AuthException
+  case object InvalidAuth extends AuthException
 
 
   // Try to auth by API key, and failing that, with Panda
   override def invokeBlock[A](request: Request[A], block: RequestHandler[A]): Future[Result] =
-    authByKey(request, block) recoverWith { case _: AuthException => authByPanda(request, block) }
+    authByKey(request, block) recoverWith {
+      case NotAuthenticated => authByPanda(request, block)
+      case InvalidAuth      => Future.successful(invalidApiKeyResult)
+    }
 
 
   // API Key authentication
@@ -70,7 +79,7 @@ case class Authenticated(keyStore: KeyStore, authCallbackBaseUri: String)
       case Some(key) =>
         keyStore.lookupIdentity(key).flatMap {
           case Some(name) => block(new AuthenticatedRequest(AuthenticatedService(name), request))
-          case None => Future.failed(NotAuthenticated)
+          case None => Future.failed(InvalidAuth)
         }
       case None => Future.failed(NotAuthenticated)
     }
@@ -78,7 +87,7 @@ case class Authenticated(keyStore: KeyStore, authCallbackBaseUri: String)
 
   // Panda authentication
 
-  val pandaAuth = new PandaAuthenticated(authCallbackBaseUri)
+  val pandaAuth = new PandaAuthenticated(loginUri, authCallbackBaseUri)
 
   def authByPanda[A](request: Request[A], block: RequestHandler[A]): Future[Result] =
     pandaAuth.invokeBlock(request, block)
