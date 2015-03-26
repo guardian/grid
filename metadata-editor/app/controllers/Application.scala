@@ -78,31 +78,30 @@ object Application extends Controller with ArgoHelpers {
     booleanForm.bindFromRequest()(req).fold(
       errors   => Future.successful(BadRequest(errors.errorsAsJson)),
       archived => {
-        val entityResult = respondEntity(archivedEntity(id, archived))
-        dynamo.booleanSetOrRemove(id, "archived", archived) map publishAndRespond(id, entityResult)
+        val response = respondEntity(archivedEntity(id, archived))
+        dynamo.booleanSetOrRemove(id, "archived", archived) map publishAndRespond(id, response)
       }
     )
   }
 
   def unsetArchived(id: String) = Authenticated.async {
-    dynamo.removeKey(id, "archived") map publishAndRespond(id)
+    val response = respondEntity(archivedEntity(id, false))
+    dynamo.removeKey(id, "archived") map publishAndRespond(id, response)
   }
 
 
   def getLabels(id: String) = Authenticated.async {
-    dynamo.setGet(id, "labels") map { labels =>
-      labels.map(label =>
-        EmbeddedEntity(uri(id, s"labels/$label"), Some(label))
-      ).toSeq
-    } map (respondCollection(_, None, None))
+    dynamo.setGet(id, "labels")
+      .map(labelsEntity(id, _))
+      .map(respondCollection(_, None, None))
   }
 
   def addLabels(id: String) = Authenticated.async { req =>
     listForm.bindFromRequest()(req).fold(
       errors => Future.successful(BadRequest(errors.errorsAsJson)),
       labels => {
-        val entityResult = Accepted(labelsResponse(labels, id)).as(ArgoMediaType)
-        dynamo.setAdd(id, "labels", labels) map publishAndRespond(id, entityResult)
+        val response = respondCollection(labelsEntity(id, labels.toSet), None, None)
+        dynamo.setAdd(id, "labels", labels) map publishAndRespond(id, response)
       }
     )
   }
@@ -127,9 +126,8 @@ object Application extends Controller with ArgoHelpers {
   def setMetadata(id: String) = Authenticated.async(parse.json) { req =>
     req.body.validate[MapEntity].map {
       case MapEntity(metadata) =>
-        val entityResult = Accepted(metadataResponse(metadata, id)).as(ArgoMediaType)
-
-        dynamo.jsonAdd(id, "metadata", metadata) map publishAndRespond(id, entityResult)
+        val response = respondEntity(metadataEntity(id, metadata))
+        dynamo.jsonAdd(id, "metadata", metadata) map publishAndRespond(id, response)
     } recoverTotal {
       case e => Future.successful(BadRequest("Invalid metadata sent: " + JsError.toFlatJson(e)))
     }
@@ -138,23 +136,14 @@ object Application extends Controller with ArgoHelpers {
   def archivedEntity(id: String, archived: Boolean): EmbeddedEntity[Boolean] =
     EmbeddedEntity(uri(id, "archived"), Some(archived))
 
-  def archivedResponse(archived: Boolean, id: String): Result =
-    respondEntity(EmbeddedEntity(uri(id, "archived"), Some(archived)))
+  def labelsEntity(id: String, labels: Set[String]): Seq[EmbeddedEntity[String]] =
+    labels.map(labelEntity(id, _)).toSeq
 
-  def metadataResponse(metadata: Map[String, String], id: String): JsValue =
-    metadataResponse(Json.toJson(metadata), id)
+  def labelEntity(id: String, label: String): EmbeddedEntity[String] =
+    EmbeddedEntity(uri(id, s"labels/$label"), Some(label))
 
-  def metadataResponse(metadata: JsValue, id: String): JsValue =
-    metadata.transform(transformers.wrapMetadata(id)).get
-
-  def labelResponse(label: String, id: String): JsValue =
-    JsString(label).transform(transformers.wrapLabel(id)).get
-
-  def labelsResponse(labels: List[String], id: String): JsValue =
-    labelsResponse(Json.toJson(labels), id)
-
-  def labelsResponse(labels: JsValue, id: String): JsValue =
-    labels.transform(transformers.wrapLabels(id)).get
+  def metadataEntity(id: String, metadata: Map[String, String]) =
+    EmbeddedEntity(uri(id, s"metadata"), Some(metadata))
 
   def allMetadataResponse(metadata: JsObject, id: String): JsValue =
     metadata.transform(transformers.wrapAllMetadata(id)).get
