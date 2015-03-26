@@ -43,6 +43,7 @@ object Config extends CommonPlayAppConfig with CommonPlayAppProperties {
   lazy val loaderUri: String = services.loaderBaseUri
   lazy val metadataUri: String = services.metadataBaseUri
   lazy val imgopsUri: String = services.imgopsBaseUri
+  lazy val loginUri: String = services.loginUri
 
   private lazy val corsAllowedOrigins = properties.getOrElse("cors.allowed.origins", "").split(",").toList
   lazy val corsAllAllowedOrigins: List[String] =
