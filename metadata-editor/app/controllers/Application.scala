@@ -48,7 +48,7 @@ object Application extends Controller with ArgoHelpers {
     dynamo.get(id) map { dynamoEntry =>
       val m = dynamoEntry.as[Edits]
       val archived = archivedEntity(id, m.archived)
-      val labels = labelsEntity(id, m.labels.toSet)
+      val labels = labelsCollection(id, m.labels.toSet)
       val metadata = metadataEntity(id, m.metadata)
 
       // TODO: Fix this to use some form of responseMap.
@@ -92,15 +92,18 @@ object Application extends Controller with ArgoHelpers {
 
   def getLabels(id: String) = Authenticated.async {
     dynamo.setGet(id, "labels")
-      .map(respond(_))
+      .map(labelsCollection(id, _))
+      .map(respondCollection(_, None, None))
   }
 
   def addLabels(id: String) = Authenticated.async { req =>
     listForm.bindFromRequest()(req).fold(
       errors =>
         Future.successful(BadRequest(errors.errorsAsJson)),
-      labels =>
-        dynamo.setAdd(id, "labels", labels) map publishAndRespond(id, respond(labels))
+      labels => {
+        dynamo.setAdd(id, "labels", labels)
+          .map(publishAndRespond(id, respondCollection(labelsCollection(id, labels.toSet), None, None)))
+      }
     )
   }
 
@@ -128,7 +131,7 @@ object Application extends Controller with ArgoHelpers {
   def archivedEntity(id: String, archived: Boolean): EmbeddedEntity[Boolean] =
     EmbeddedEntity(uri(id, "archived"), Some(archived))
 
-  def labelsEntity(id: String, labels: Set[String]): Seq[EmbeddedEntity[String]] =
+  def labelsCollection(id: String, labels: Set[String]): Seq[EmbeddedEntity[String]] =
     labels.map(labelEntity(id, _)).toSeq
 
   def labelEntity(id: String, label: String): EmbeddedEntity[String] =
