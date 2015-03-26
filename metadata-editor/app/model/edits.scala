@@ -3,13 +3,13 @@ package model
 import play.api.libs.json._
 import play.api.libs.functional.syntax._
 
-case class Edits(archived: Boolean, labels: List[String], flags: List[String], metadata: Metadata)
+case class Edits(archived: Boolean, labels: List[String], rightsNotices: List[String], metadata: Metadata)
 
 object Edits {
   implicit val EditsReads: Reads[Edits] = (
     (__ \ "archived").readNullable[Boolean].map(_ getOrElse false) ~
     (__ \ "labels").readNullable[List[String]].map(_ getOrElse Nil) ~
-    (__ \ "archived").readNullable[List[String]].map(_ getOrElse Nil) ~
+    (__ \ "rightsNotices").readNullable[List[String]].map(_ getOrElse Nil) ~
     (__ \ "metadata").read[Metadata]
   )(Edits(_, _, _, _))
 }
