@@ -22,15 +22,8 @@ trait ArgoHelpers extends Results {
     serializeAndWrap(response, Ok)
   }
 
-  def respondMap[T](uri: Option[URI], data: Map[String, T], links: List[Link] = Nil)
-                   (implicit writes: Writes[T]): Result = {
-    val response = MapResponse(
-      uri = uri,
-      data = data,
-      links = links
-    )
-
-    serializeAndWrap(response, Ok)
+  def respondEntity[T](entity: EmbeddedEntity[T], links: List[Link] = Nil)(implicit writes: Writes[T]): Result = {
+    serializeAndWrap(entity, Ok)
   }
 
   def respondCollection[T](data: Seq[T], offset: Option[Long], total: Option[Long], links: List[Link] = Nil)
@@ -41,6 +34,17 @@ trait ArgoHelpers extends Results {
       total  = total,
       data   = data,
       links  = links
+    )
+
+    serializeAndWrap(response, Ok)
+  }
+
+  def respondMap[T](uri: Option[URI], data: Map[String, T], links: List[Link] = Nil)
+                   (implicit writes: Writes[T]): Result = {
+    val response = MapResponse(
+      uri = uri,
+      data = data,
+      links = links
     )
 
     serializeAndWrap(response, Ok)
