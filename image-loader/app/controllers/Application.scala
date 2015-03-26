@@ -32,10 +32,10 @@ object Application extends ImageLoader(S3ImageStorage)
 
 class ImageLoader(storage: ImageStorage) extends Controller with ArgoHelpers {
 
-  val rootUri = Config.rootUri
+  import Config.{rootUri, loginUri}
 
   val keyStore = new KeyStore(Config.keyStoreBucket, Config.awsCredentials)
-  val Authenticated = auth.Authenticated(keyStore, rootUri)
+  val Authenticated = auth.Authenticated(keyStore, loginUri, rootUri)
 
   val metadataCleaners = new MetadataCleaners(MetadataConfig.creditBylineMap)
 
