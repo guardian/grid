@@ -91,8 +91,11 @@ object Application extends Controller with ArgoHelpers {
 
   def getLabels(id: String) = Authenticated.async {
     dynamo.setGet(id, "labels") map { labels =>
-      Ok(labelsResponse(labels.toList, id)).as(ArgoMediaType)
-    }
+      labels.map(label =>
+        EmbeddedEntity(uri(id, s"labels/$label"), Some(label))
+      ).toSeq
+
+    } map (respondCollection(_, None, None))
   }
 
   def addLabels(id: String) = Authenticated.async { req =>
@@ -107,27 +110,6 @@ object Application extends Controller with ArgoHelpers {
 
   def removeLabel(id: String, label: String) = Authenticated.async {
     dynamo.setDelete(id, "labels", label) map publishAndRespond(id)
-  }
-
-
-  def getFlags(id: String) = Authenticated.async {
-    dynamo.setGet(id, "flags") map { flags =>
-      Ok(labelsResponse(flags.toList, id)).as(ArgoMediaType)
-    }
-  }
-
-  def addFlags(id: String) = Authenticated.async { req =>
-    listForm.bindFromRequest()(req).fold(
-      errors => Future.successful(BadRequest(errors.errorsAsJson)),
-      flags => {
-        val entityResult = Accepted(labelsResponse(flags, id)).as(ArgoMediaType)
-        dynamo.setAdd(id, "flags", flags) map publishAndRespond(id, entityResult)
-      }
-    )
-  }
-
-  def removeFlag(id: String, flag: String) = Authenticated.async {
-    dynamo.setDelete(id, "flags", flag) map publishAndRespond(id)
   }
 
 
