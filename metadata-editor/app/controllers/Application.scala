@@ -1,7 +1,7 @@
 package controllers
 
 
-import java.net.URI
+import java.net.{URLEncoder, URI}
 
 import com.gu.mediaservice.lib.argo.ArgoHelpers
 
@@ -41,7 +41,8 @@ object Application extends Controller with ArgoHelpers {
     ))
   }
 
-  def uri(id: String, endpoint: String = ""): URI = URI.create(s"$rootUri/metadata/$id/$endpoint")
+  def uri(id: String, endpoint: String = ""): URI =
+    URI.create(s"$rootUri/metadata/$id$endpoint")
 
   // TODO: Think about calling this `overrides` or something that isn't metadata
   def getAllMetadata(id: String) = Authenticated.async {
@@ -130,16 +131,16 @@ object Application extends Controller with ArgoHelpers {
   }
 
   def archivedEntity(id: String, archived: Boolean): EmbeddedEntity[Boolean] =
-    EmbeddedEntity(uri(id, "archived"), Some(archived))
+    EmbeddedEntity(uri(id, "/archived"), Some(archived))
 
   def labelsCollection(id: String, labels: Set[String]): Seq[EmbeddedEntity[String]] =
     labels.map(labelEntity(id, _)).toSeq
 
   def labelEntity(id: String, label: String): EmbeddedEntity[String] =
-    EmbeddedEntity(uri(id, s"labels/$label"), Some(label))
+    EmbeddedEntity(uri(id, s"/labels/${URLEncoder.encode(label, "UTF-8")}"), Some(label))
 
   def metadataEntity(id: String, metadata: Metadata) =
-    EmbeddedEntity(uri(id, s"metadata"), Some(metadata))
+    EmbeddedEntity(uri(id, s"/metadata"), Some(metadata))
 
 
   // Publish changes to SNS and return an empty Result
