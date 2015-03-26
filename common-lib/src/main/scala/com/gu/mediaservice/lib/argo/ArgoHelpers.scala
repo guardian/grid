@@ -1,5 +1,7 @@
 package com.gu.mediaservice.lib.argo
 
+import java.net.URI
+
 import play.api.libs.json.{Json, Writes}
 import play.api.mvc.{Results, Result}
 
@@ -20,6 +22,10 @@ trait ArgoHelpers extends Results {
     serializeAndWrap(response, Ok)
   }
 
+  def respondEntity[T](entity: EmbeddedEntity[T])(implicit writes: Writes[T]): Result = {
+    serializeAndWrap(entity, Ok)
+  }
+
   def respondCollection[T](data: Seq[T], offset: Option[Long], total: Option[Long], links: List[Link] = Nil)
                           (implicit writes: Writes[T]): Result = {
     val response = CollectionReponse(
@@ -32,7 +38,6 @@ trait ArgoHelpers extends Results {
 
     serializeAndWrap(response, Ok)
   }
-
 
 // TODO: bring back once useful (causes Scala compiler tears)
 //  def respondError[T](errorStatus: Status, errorKey: String, errorMessage: String, data: Option[T], links: List[Link] = Nil)

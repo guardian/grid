@@ -1,7 +1,8 @@
 package controllers
 
 
-import com.gu.mediaservice.api.Transformers
+import java.net.URI
+
 import com.gu.mediaservice.lib.argo.ArgoHelpers
 
 import scala.concurrent.Future
@@ -16,7 +17,14 @@ import com.gu.mediaservice.lib.auth.KeyStore
 import com.gu.mediaservice.lib.aws.{NoItemFound, DynamoDB}
 import lib._
 
+import model.{Metadata, Edits}
 
+import com.gu.mediaservice.lib.argo._
+import com.gu.mediaservice.lib.argo.model._
+
+
+// FIXME: the argoHelpers are all returning `Ok`s (200)
+// Some of these responses should be `Accepted` (202)
 object Application extends Controller with ArgoHelpers {
 
   import Config.{rootUri, loginUri, kahunaUri}
@@ -26,64 +34,75 @@ object Application extends Controller with ArgoHelpers {
 
   val dynamo = new DynamoDB(Config.awsCredentials, Config.dynamoRegion, Config.editsTable)
 
-  val transformers = new Transformers(Config.services)
-
   // TODO: add links to the different responses esp. to the reference image
   def index = Action {
-    val response = Json.obj(
-      "data"  -> Json.obj("description" -> "This is the Metadata Editor Service"),
-      "links" -> Json.arr(
-        Json.obj("rel" -> "metadata", "href" -> s"$rootUri/metadata/{id}")
-      )
-    )
-    Ok(response).as(ArgoMediaType)
+    respond(Map("description" -> "This is the Metadata Editor Service"), List(
+      Link("metadata", s"$rootUri/metadata/{id}")
+    ))
   }
+
+  def uri(id: String, endpoint: String = ""): URI = URI.create(s"$rootUri/metadata/$id/$endpoint")
 
   // TODO: Think about calling this `overrides` or something that isn't metadata
   def getAllMetadata(id: String) = Authenticated.async {
-    dynamo.get(id) map {
-      metadata => Ok(allMetadataResponse(metadata, id)).as(ArgoMediaType)
+    dynamo.get(id) map { dynamoEntry =>
+      val m = dynamoEntry.as[Edits]
+      val archived = archivedEntity(id, m.archived)
+      val labels = labelsEntity(id, m.labels.toSet)
+      val metadata = metadataEntity(id, m.metadata)
+
+      // TODO: Fix this to use some form of responseMap.
+      Ok(Json.obj(
+        "uri" -> uri(id).toString,
+        "data" -> Json.obj(
+          "archived" -> archived,
+          "labels" -> labels,
+          "metadata" -> metadata
+        )
+      )).as(ArgoMediaType)
+
     } recover {
       // Empty object as no metadata edits recorded
-      case NoItemFound => Ok(allMetadataResponse(Json.obj(), id)).as(ArgoMediaType)
+      case NoItemFound => respond(Json.obj().as[Edits])
     }
   }
 
   def getArchived(id: String) = Authenticated.async {
     dynamo.booleanGet(id, "archived") map { archived =>
-      Ok(archivedResponse(archived.getOrElse(false), id)).as(ArgoMediaType)
+      archivedEntity(id, archived.getOrElse(false))
     } recover {
-      case NoItemFound => Ok(archivedResponse(false, id)).as(ArgoMediaType)
-    }
+      case NoItemFound => archivedEntity(id, false)
+    } map (respondEntity(_))
   }
 
   def setArchived(id: String) = Authenticated.async { req =>
     booleanForm.bindFromRequest()(req).fold(
-      errors => Future.successful(BadRequest(errors.errorsAsJson)),
+      errors   => Future.successful(BadRequest(errors.errorsAsJson)),
       archived => {
-        val entityResult = Accepted(archivedResponse(archived, id)).as(ArgoMediaType)
-        dynamo.booleanSetOrRemove(id, "archived", archived) map publishAndRespond(id, entityResult)
+        val response = respondEntity(archivedEntity(id, archived))
+        dynamo.booleanSetOrRemove(id, "archived", archived) map publishAndRespond(id, response)
       }
     )
   }
 
   def unsetArchived(id: String) = Authenticated.async {
-    dynamo.removeKey(id, "archived") map publishAndRespond(id)
+    val response = respondEntity(archivedEntity(id, false))
+    dynamo.removeKey(id, "archived") map publishAndRespond(id, response)
   }
 
 
   def getLabels(id: String) = Authenticated.async {
-    dynamo.setGet(id, "labels") map { labels =>
-      Ok(labelsResponse(labels.toList, id)).as(ArgoMediaType)
-    }
+    dynamo.setGet(id, "labels")
+      .map(labelsEntity(id, _))
+      .map(respondCollection(_, None, None))
   }
 
   def addLabels(id: String) = Authenticated.async { req =>
     listForm.bindFromRequest()(req).fold(
       errors => Future.successful(BadRequest(errors.errorsAsJson)),
       labels => {
-        val entityResult = Accepted(labelsResponse(labels, id)).as(ArgoMediaType)
-        dynamo.setAdd(id, "labels", labels) map publishAndRespond(id, entityResult)
+        val response = respondCollection(labelsEntity(id, labels.toSet), None, None)
+        dynamo.setAdd(id, "labels", labels) map publishAndRespond(id, response)
       }
     )
   }
@@ -94,46 +113,34 @@ object Application extends Controller with ArgoHelpers {
 
 
   def getMetadata(id: String) = Authenticated.async {
-    dynamo.jsonGet(id, "metadata").map(metadata => Ok(metadataResponse(metadata, id)))
+    dynamo.jsonGet(id, "metadata").map { dynamoEntry =>
+      val metadata = (dynamoEntry \ "metadata").as[Metadata]
+      EmbeddedEntity(uri(id, s"metadata"), Some(metadata))
+    } map (respondEntity(_))
   }
-
-  // ALWAYS send over the whole document or you'll lose your data
-  case class MapEntity(data: Map[String, String])
-
-  implicit val mapEntityReads: Reads[MapEntity] = Json.reads[MapEntity]
 
   def setMetadata(id: String) = Authenticated.async(parse.json) { req =>
-    req.body.validate[MapEntity].map {
-      case MapEntity(metadata) =>
-        val entityResult = Accepted(metadataResponse(metadata, id)).as(ArgoMediaType)
-
-        dynamo.jsonAdd(id, "metadata", metadata) map publishAndRespond(id, entityResult)
-    } recoverTotal {
-      case e => Future.successful(BadRequest("Invalid metadata sent: " + JsError.toFlatJson(e)))
-    }
+    metadataForm.bindFromRequest()(req).fold(
+      errors => Future.successful(BadRequest(errors.errorsAsJson)),
+      metadata => {
+        val response = respondEntity(metadataEntity(id, metadata))
+        // FIXME: Converting to convert back is a bit silly
+        dynamo.jsonAdd(id, "metadata", Json.toJson(metadata).as[Map[String, String]]) map publishAndRespond(id, response)
+      }
+    )
   }
 
+  def archivedEntity(id: String, archived: Boolean): EmbeddedEntity[Boolean] =
+    EmbeddedEntity(uri(id, "archived"), Some(archived))
 
-  def archivedResponse(archived: Boolean, id: String): JsValue =
-    JsBoolean(archived).transform(transformers.wrapArchived(id)).get
+  def labelsEntity(id: String, labels: Set[String]): Seq[EmbeddedEntity[String]] =
+    labels.map(labelEntity(id, _)).toSeq
 
-  def metadataResponse(metadata: Map[String, String], id: String): JsValue =
-    metadataResponse(Json.toJson(metadata), id)
+  def labelEntity(id: String, label: String): EmbeddedEntity[String] =
+    EmbeddedEntity(uri(id, s"labels/$label"), Some(label))
 
-  def metadataResponse(metadata: JsValue, id: String): JsValue =
-    metadata.transform(transformers.wrapMetadata(id)).get
-
-  def labelResponse(label: String, id: String): JsValue =
-    JsString(label).transform(transformers.wrapLabel(id)).get
-
-  def labelsResponse(labels: List[String], id: String): JsValue =
-    labelsResponse(Json.toJson(labels), id)
-
-  def labelsResponse(labels: JsValue, id: String): JsValue =
-    labels.transform(transformers.wrapLabels(id)).get
-
-  def allMetadataResponse(metadata: JsObject, id: String): JsValue =
-    metadata.transform(transformers.wrapAllMetadata(id)).get
+  def metadataEntity(id: String, metadata: Metadata) =
+    EmbeddedEntity(uri(id, s"metadata"), Some(metadata))
 
 
   // Publish changes to SNS and return an empty Result
@@ -148,6 +155,13 @@ object Application extends Controller with ArgoHelpers {
     result
   }
 
+  val metadataForm: Form[Metadata] = Form(
+    single("data" -> mapping(
+      "description" -> optional(text),
+      "byline" -> optional(text),
+      "credit" -> optional(text)
+    )(Metadata.apply)(Metadata.unapply))
+  )
 
   val booleanForm: Form[Boolean] = Form(
      single("data" -> boolean)
