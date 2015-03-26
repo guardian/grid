@@ -129,7 +129,11 @@ object ElasticSearch extends ElasticSearchClient {
     val search = prepareImagesSearch.setQuery(query).setPostFilter(filter) |>
                  sorts.parseFromRequest(params.orderBy)
 
-    getResults("image search", search, params.offset, params.length)
+    search
+      .setFrom(params.offset)
+      .setSize(params.length)
+      .executeAndLog("image search")
+      .toMetric(searchQueries, List(searchTypeDimension("results")))(_.getTookInMillis)
       .map(_.getHits)
       .map { results =>
         val hitsTuples = results.hits.toList flatMap (h => h.sourceOpt map (h.id -> _))
@@ -152,22 +156,18 @@ object ElasticSearch extends ElasticSearchClient {
 
     val search = prepareImagesSearch.addAggregation(aggregate)
 
-    getResults(s"$name search", search, 0, 0).map{ response =>
-      val buckets = response.getAggregations.getAsMap.get(name).asInstanceOf[StringTerms].getBuckets
-      val results = buckets.toList map (s => BucketResult(s.getKey, s.getDocCount))
-
-      AggregateSearchResults(results, buckets.size)
-    }
-  }
-
-  def getResults(name: String, search: SearchRequestBuilder, offset: Int, length: Int)
-                (implicit ex: ExecutionContext): Future[SearchResponse] =
     search
-      .setFrom(offset)
-      .setSize(length)
-      .executeAndLog(name)
-      .toMetric(searchQueries)(_.getTookInMillis)
+      .setFrom(0)
+      .setSize(0)
+      .executeAndLog("metadata aggregate search")
+      .toMetric(searchQueries, List(searchTypeDimension("aggregate")))(_.getTookInMillis)
+      .map{ response =>
+        val buckets = response.getAggregations.getAsMap.get(name).asInstanceOf[StringTerms].getBuckets
+        val results = buckets.toList map (s => BucketResult(s.getKey, s.getDocCount))
 
+        AggregateSearchResults(results, buckets.size)
+      }
+  }
 
   def metadataField(field: String) = s"metadata.$field"
   def editsField(field: String) = s"userMetadata.$field"
