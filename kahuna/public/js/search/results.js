@@ -7,22 +7,27 @@ results.controller('SearchResultsCtrl',
                   ['$scope', '$state', '$stateParams', '$window', '$timeout', 'mediaApi',
                    function($scope, $state, $stateParams, $window, $timeout, mediaApi) {
 
+    var ctrl = this;
+
     $scope.images = [];
 
     // FIXME: This is being refreshed by the router. Make it watch a $stateParams collection instead
     // See:   https://github.com/guardian/media-service/pull/64#discussion-diff-17351746L116
     $scope.loading = true;
 
+    function fillRemainingSpace(){
+         $timeout(function() {
+            if (ctrl.uiHasSpace) {
+                addImages();
+            }
+        });
+    }
+
     $scope.searched = search().then(function(images) {
         $scope.totalResults = images.total;
         $scope.images = images.data;
         // yield so images render before we check if there's more space
-        $timeout(function() {
-            if ($scope.hasSpace) {
-                addImages();
-            }
-        });
-
+        fillRemainingSpace();
         checkForNewImages();
     }).finally(() => {
         $scope.loading = false;
@@ -136,5 +141,5 @@ results.controller('SearchResultsCtrl',
         });
     }
 
-    $scope.whenNearBottom = addImages;
+    $scope.fillRemainingSpace = fillRemainingSpace;
 }]);
