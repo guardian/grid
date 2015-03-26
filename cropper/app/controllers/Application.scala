@@ -25,12 +25,12 @@ import model._
 object Application extends Controller with ArgoHelpers {
   import com.gu.mediaservice.lib.formatting._
 
+  import Config.{rootUri, loginUri, kahunaUri}
+
   val keyStore = new KeyStore(Config.keyStoreBucket, Config.awsCredentials)
-  val Authenticated = auth.Authenticated(keyStore, Config.kahunaUri)
+  val Authenticated = auth.Authenticated(keyStore, loginUri, kahunaUri)
 
   val mediaApiKey = keyStore.findKey("cropper").getOrElse(throw new Error("Missing cropper API key in key bucket"))
-
-  val rootUri = Config.rootUri
 
   def index = Action {
     val response = Json.obj(
