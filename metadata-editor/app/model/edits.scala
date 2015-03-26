@@ -11,7 +11,16 @@ object Edits {
     (__ \ "labels").readNullable[List[String]].map(_ getOrElse Nil) ~
     (__ \ "rightsNotices").readNullable[List[String]].map(_ getOrElse Nil) ~
     (__ \ "metadata").read[Metadata]
-  )(Edits(_, _, _, _))
+  )(Edits.apply _)
+
+
+  implicit val EditsWrites: Writes[Edits] = (
+      (__ \ "archived").write[Boolean] ~
+      (__ \ "labels").write[List[String]] ~
+      (__ \ "rightsNotices").write[List[String]] ~
+      // How
+      (__ \ "metadata").write[Metadata]
+    )(unlift(Edits.unapply))
 }
 
 
@@ -24,4 +33,13 @@ object Metadata {
     (__ \ "byline").readNullable[String] ~
     (__ \ "credit").readNullable[String]
   )(Metadata(_, _, _))
+
+
+  implicit val MetadataWrites: Writes[Metadata] = (
+    (__ \ "description").writeNullable[String] ~
+    (__ \ "byline").writeNullable[String] ~
+    (__ \ "credit").writeNullable[String]
+  )(unlift(Metadata.unapply))
+
+  def getEmpty = Metadata(None, None, None)
 }
