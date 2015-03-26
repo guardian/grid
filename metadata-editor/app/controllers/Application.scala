@@ -124,7 +124,8 @@ object Application extends Controller with ArgoHelpers {
       errors => Future.successful(BadRequest(errors.errorsAsJson)),
       metadata =>
         // FIXME: Converting to convert back is a bit silly
-        dynamo.jsonAdd(id, "metadata", Json.toJson(metadata).as[Map[String, String]]) map publishAndRespond(id, respond(metadata))
+        dynamo.jsonAdd(id, "metadata", Json.toJson(metadata).as[Map[String, String]])
+          .map(publishAndRespond(id, respond(metadata)))
     )
   }
 
