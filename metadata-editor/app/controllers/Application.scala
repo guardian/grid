@@ -68,9 +68,9 @@ object Application extends Controller with ArgoHelpers {
 
   def getArchived(id: String) = Authenticated.async {
     dynamo.booleanGet(id, "archived") map { archived =>
-      EmbeddedEntity(uri(id, "archived"), Some(archived.getOrElse(false)))
+      archivedEntity(id, archived.getOrElse(false))
     } recover {
-      case NoItemFound => EmbeddedEntity(uri(id, "archived"), Some(false))
+      case NoItemFound => archivedEntity(id, false)
     } map (respondEntity(_))
   }
 
@@ -78,7 +78,7 @@ object Application extends Controller with ArgoHelpers {
     booleanForm.bindFromRequest()(req).fold(
       errors   => Future.successful(BadRequest(errors.errorsAsJson)),
       archived => {
-        val entityResult = respondEntity(EmbeddedEntity(uri(id, "archived"), Some(archived)))
+        val entityResult = respondEntity(archivedEntity(id, archived))
         dynamo.booleanSetOrRemove(id, "archived", archived) map publishAndRespond(id, entityResult)
       }
     )
@@ -134,6 +134,12 @@ object Application extends Controller with ArgoHelpers {
       case e => Future.successful(BadRequest("Invalid metadata sent: " + JsError.toFlatJson(e)))
     }
   }
+
+  def archivedEntity(id: String, archived: Boolean): EmbeddedEntity[Boolean] =
+    EmbeddedEntity(uri(id, "archived"), Some(archived))
+
+  def archivedResponse(archived: Boolean, id: String): Result =
+    respondEntity(EmbeddedEntity(uri(id, "archived"), Some(archived)))
 
   def metadataResponse(metadata: Map[String, String], id: String): JsValue =
     metadataResponse(Json.toJson(metadata), id)
