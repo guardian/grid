@@ -114,7 +114,10 @@ object Application extends Controller with ArgoHelpers {
 
 
   def getMetadata(id: String) = Authenticated.async {
-    dynamo.jsonGet(id, "metadata").map(metadata => Ok(metadataResponse(metadata, id)))
+    dynamo.jsonGet(id, "metadata").map { dynamoEntry =>
+      val metadata = dynamoEntry.as[Metadata]
+      EmbeddedEntity(uri(id, s"metadata"), Some(metadata))
+    } map (respondEntity(_))
   }
 
   // ALWAYS send over the whole document or you'll lose your data
