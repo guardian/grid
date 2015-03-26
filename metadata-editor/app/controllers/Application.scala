@@ -76,9 +76,9 @@ object Application extends Controller with ArgoHelpers {
 
   def setArchived(id: String) = Authenticated.async { req =>
     booleanForm.bindFromRequest()(req).fold(
-      errors => Future.successful(BadRequest(errors.errorsAsJson)),
+      errors   => Future.successful(BadRequest(errors.errorsAsJson)),
       archived => {
-        val entityResult = Accepted(archivedResponse(archived, id)).as(ArgoMediaType)
+        val entityResult = respondEntity(EmbeddedEntity(uri(id, "archived"), Some(archived)))
         dynamo.booleanSetOrRemove(id, "archived", archived) map publishAndRespond(id, entityResult)
       }
     )
@@ -94,7 +94,6 @@ object Application extends Controller with ArgoHelpers {
       labels.map(label =>
         EmbeddedEntity(uri(id, s"labels/$label"), Some(label))
       ).toSeq
-
     } map (respondCollection(_, None, None))
   }
 
@@ -135,10 +134,6 @@ object Application extends Controller with ArgoHelpers {
       case e => Future.successful(BadRequest("Invalid metadata sent: " + JsError.toFlatJson(e)))
     }
   }
-
-
-  def archivedResponse(archived: Boolean, id: String): JsValue =
-    JsBoolean(archived).transform(transformers.wrapArchived(id)).get
 
   def metadataResponse(metadata: Map[String, String], id: String): JsValue =
     metadataResponse(Json.toJson(metadata), id)
