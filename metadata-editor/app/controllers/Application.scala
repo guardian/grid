@@ -49,11 +49,9 @@ object Application extends Controller with ArgoHelpers {
     dynamo.get(id) map { dynamoEntry =>
       // TODO: Find a way to return a hashmap of Entities
       val m = dynamoEntry.as[Edits]
-      val archived = EmbeddedEntity(uri(id, "archived"), Some(m.archived))
-      val labels = EmbeddedEntity(uri(id, "labels"), Some(m.labels))
-      val rightsNotices = EmbeddedEntity(uri(id, "rightsNotices"), Some(m.rightsNotices))
-      val metadata = EmbeddedEntity(uri(id, "metadata"), Some(m.metadata))
-
+      val archived = archivedEntity(id, m.archived)
+      val labels = labelsEntity(id, m.labels.toSet)
+      val metadata = metadataEntity(id, m.metadata)
 
       // TODO: Fix this to take multiple types in Map.
       respondMap(Some(uri(id)), data = Map(
@@ -113,24 +111,20 @@ object Application extends Controller with ArgoHelpers {
 
   def getMetadata(id: String) = Authenticated.async {
     dynamo.jsonGet(id, "metadata").map { dynamoEntry =>
-      val metadata = dynamoEntry.as[Metadata]
+      val metadata = (dynamoEntry \ "metadata").as[Metadata]
       EmbeddedEntity(uri(id, s"metadata"), Some(metadata))
     } map (respondEntity(_))
   }
 
-  // ALWAYS send over the whole document or you'll lose your data
-  case class MapEntity(data: Map[String, String])
-
-  implicit val mapEntityReads: Reads[MapEntity] = Json.reads[MapEntity]
-
   def setMetadata(id: String) = Authenticated.async(parse.json) { req =>
-    req.body.validate[MapEntity].map {
-      case MapEntity(metadata) =>
+    metadataForm.bindFromRequest()(req).fold(
+      errors => Future.successful(BadRequest(errors.errorsAsJson)),
+      metadata => {
         val response = respondEntity(metadataEntity(id, metadata))
-        dynamo.jsonAdd(id, "metadata", metadata) map publishAndRespond(id, response)
-    } recoverTotal {
-      case e => Future.successful(BadRequest("Invalid metadata sent: " + JsError.toFlatJson(e)))
-    }
+        // FIXME: Converting to convert back is a bit silly
+        dynamo.jsonAdd(id, "metadata", Json.toJson(metadata).as[Map[String, String]]) map publishAndRespond(id, response)
+      }
+    )
   }
 
   def archivedEntity(id: String, archived: Boolean): EmbeddedEntity[Boolean] =
@@ -142,7 +136,7 @@ object Application extends Controller with ArgoHelpers {
   def labelEntity(id: String, label: String): EmbeddedEntity[String] =
     EmbeddedEntity(uri(id, s"labels/$label"), Some(label))
 
-  def metadataEntity(id: String, metadata: Map[String, String]) =
+  def metadataEntity(id: String, metadata: Metadata) =
     EmbeddedEntity(uri(id, s"metadata"), Some(metadata))
 
   def allMetadataResponse(metadata: JsObject, id: String): JsValue =
@@ -161,6 +155,13 @@ object Application extends Controller with ArgoHelpers {
     result
   }
 
+  val metadataForm: Form[Metadata] = Form(
+    single("data" -> mapping(
+      "description" -> optional(text),
+      "byline" -> optional(text),
+      "credit" -> optional(text)
+    )(Metadata.apply)(Metadata.unapply))
+  )
 
   val booleanForm: Form[Boolean] = Form(
      single("data" -> boolean)
