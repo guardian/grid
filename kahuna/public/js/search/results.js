@@ -15,8 +15,7 @@ results.controller('SearchResultsCtrl',
 
     function fillRemainingSpace(){
          $timeout(function() {
-            console.log("is there space?", $scope.hasSpace);
-            if ($scope.hasSpace) {
+            if ($scope.uiHasSpace) {
                 addImages();
             }
         });
@@ -140,6 +139,5 @@ results.controller('SearchResultsCtrl',
         });
     }
 
-    $scope.whenViewResized = fillRemainingSpace;
-    $scope.whenNearBottom = addImages;
+    $scope.fillRemainingSpace = fillRemainingSpace;
 }]);
