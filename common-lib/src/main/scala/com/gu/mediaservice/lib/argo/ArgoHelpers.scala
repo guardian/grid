@@ -1,5 +1,7 @@
 package com.gu.mediaservice.lib.argo
 
+import java.net.URI
+
 import play.api.libs.json.{Json, Writes}
 import play.api.mvc.{Results, Result}
 
@@ -14,6 +16,17 @@ trait ArgoHelpers extends Results {
   def respond[T](data: T, links: List[Link] = Nil)(implicit writes: Writes[T]): Result = {
     val response = EntityReponse(
       data  = data,
+      links = links
+    )
+
+    serializeAndWrap(response, Ok)
+  }
+
+  def respondMap[T](uri: Option[URI], data: Map[String, T], links: List[Link] = Nil)
+                   (implicit writes: Writes[T]): Result = {
+    val response = MapResponse(
+      uri = uri,
+      data = data,
       links = links
     )
 

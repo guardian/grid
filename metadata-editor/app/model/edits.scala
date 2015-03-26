@@ -10,7 +10,7 @@ object Edits {
     (__ \ "archived").readNullable[Boolean].map(_ getOrElse false) ~
     (__ \ "labels").readNullable[List[String]].map(_ getOrElse Nil) ~
     (__ \ "rightsNotices").readNullable[List[String]].map(_ getOrElse Nil) ~
-    (__ \ "metadata").read[Metadata]
+    (__ \ "metadata").readNullable[Metadata].map(_ getOrElse Metadata())
   )(Edits.apply _)
 
 
@@ -18,14 +18,23 @@ object Edits {
       (__ \ "archived").write[Boolean] ~
       (__ \ "labels").write[List[String]] ~
       (__ \ "rightsNotices").write[List[String]] ~
-      // How
-      (__ \ "metadata").write[Metadata]
+      (__ \ "metadata").writeNullable[Metadata].contramap(noneIfEmptyMetadata)
     )(unlift(Edits.unapply))
+
+  def noneIfEmptyMetadata(m: Metadata) = if(m.isEmpty) None else Some(m)
 }
 
 
 
-case class Metadata(description: Option[String], byline: Option[String], credit: Option[String])
+
+// work with Picdar extra fields eg copyright
+case class Metadata(
+  description: Option[String] = None,
+  byline: Option[String] = None,
+  credit: Option[String] = None
+) {
+  def isEmpty = description.isEmpty && byline.isEmpty && credit.isEmpty
+}
 
 object Metadata {
   implicit val MetadataReads: Reads[Metadata] = (
@@ -40,6 +49,4 @@ object Metadata {
     (__ \ "byline").writeNullable[String] ~
     (__ \ "credit").writeNullable[String]
   )(unlift(Metadata.unapply))
-
-  def getEmpty = Metadata(None, None, None)
 }
