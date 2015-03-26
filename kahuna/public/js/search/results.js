@@ -7,6 +7,8 @@ results.controller('SearchResultsCtrl',
                   ['$scope', '$state', '$stateParams', '$window', '$timeout', 'mediaApi',
                    function($scope, $state, $stateParams, $window, $timeout, mediaApi) {
 
+    var ctrl = this;
+
     $scope.images = [];
 
     // FIXME: This is being refreshed by the router. Make it watch a $stateParams collection instead
@@ -15,7 +17,7 @@ results.controller('SearchResultsCtrl',
 
     function fillRemainingSpace(){
          $timeout(function() {
-            if ($scope.uiHasSpace) {
+            if (ctrl.uiHasSpace) {
                 addImages();
             }
         });

@@ -274,13 +274,14 @@ kahuna.filter('stripEmailDomain', function() {
     return str => str.replace(/@.+/, '');
 });
 
-kahuna.directive('uiHasSpace', ['$window', function($window) {
+kahuna.directive('uiHasSpace', ['$window', '$parse', function($window, $parse) {
     return {
         restrict: 'A',
         link: function(scope, element, attrs) {
             var el = element[0];
             scope.$watch(function() {
-                scope.$parent[attrs.uiHasSpace] = el.clientHeight + el.offsetTop <= $window.innerHeight;
+                var hasSpace = el.clientHeight + el.offsetTop <= $window.innerHeight;
+                $parse(attrs.uiHasSpace).assign(scope, hasSpace);
             });
         }
     };
