@@ -41,7 +41,7 @@ object Application extends Controller with ArgoHelpers {
     ))
   }
 
-  def uri(id: String, endpoint: String = ""): URI =
+  def entityUri(id: String, endpoint: String = ""): URI =
     URI.create(s"$rootUri/metadata/$id$endpoint")
 
   // TODO: Think about calling this `overrides` or something that isn't metadata
@@ -54,7 +54,7 @@ object Application extends Controller with ArgoHelpers {
 
       // TODO: Fix this to use some form of responseMap.
       Ok(Json.obj(
-        "uri" -> uri(id).toString,
+        "uri" -> entityUri(id).toString,
         "data" -> Json.obj(
           "archived" -> archived,
           "labels" -> labels,
@@ -131,16 +131,16 @@ object Application extends Controller with ArgoHelpers {
   }
 
   def archivedEntity(id: String, archived: Boolean): EmbeddedEntity[Boolean] =
-    EmbeddedEntity(uri(id, "/archived"), Some(archived))
+    EmbeddedEntity(entityUri(id, "/archived"), Some(archived))
 
   def labelsCollection(id: String, labels: Set[String]): Seq[EmbeddedEntity[String]] =
     labels.map(labelEntity(id, _)).toSeq
 
   def labelEntity(id: String, label: String): EmbeddedEntity[String] =
-    EmbeddedEntity(uri(id, s"/labels/${URLEncoder.encode(label, "UTF-8")}"), Some(label))
+    EmbeddedEntity(entityUri(id, s"/labels/${URLEncoder.encode(label, "UTF-8")}"), Some(label))
 
   def metadataEntity(id: String, metadata: Metadata) =
-    EmbeddedEntity(uri(id, s"/metadata"), Some(metadata))
+    EmbeddedEntity(entityUri(id, s"/metadata"), Some(metadata))
 
 
   // Publish changes to SNS and return an empty Result
