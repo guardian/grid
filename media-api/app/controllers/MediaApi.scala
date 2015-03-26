@@ -11,7 +11,7 @@ import play.api.libs.concurrent.Execution.Implicits._
 import play.api.libs.json._
 import org.joda.time.{DateTime, Duration}
 
-import lib.elasticsearch.{MetadataSearchResults, ElasticSearch, SearchResults}
+import lib.elasticsearch._
 import lib.{Notifications, Config, S3Client}
 import lib.querysyntax.{Condition, Parser}
 
@@ -199,11 +199,16 @@ object MediaApi extends Controller with ArgoHelpers {
   // TODO: work with analysed fields
   // TODO: recover with HTTP error if invalid field
   def metadataSearch(field: String, q: Option[String]) = Authenticated.async { request =>
-    ElasticSearch.metadataSearch(MetadataSearchParams(field, q)) map { case MetadataSearchResults(results, total) =>
-      // TODO: Add some useful links
-      respondCollection(results, Some(0), Some(total))
-    }
+    ElasticSearch.metadataSearch(AggregateSearchParams(field, q)) map aggregateResponse
   }
+
+  def editsSearch(field: String, q: Option[String]) = Authenticated.async { request =>
+    ElasticSearch.editsSearch(AggregateSearchParams(field, q)) map aggregateResponse
+  }
+
+  // TODO: Add some useful links
+  def aggregateResponse(agg: AggregateSearchResults) =
+    respondCollection(agg.results, Some(0), Some(agg.total))
 }
 
 
@@ -259,7 +264,9 @@ object SearchParams {
 
 }
 
-case class MetadataSearchParams(field: String, q: Option[String])
+case class AggregateSearchParams(field: String, q: Option[String])
+
+case class ResultsSearchParams(field: String, q: Option[String])
 
 // Default to pay for now
 object ImageExtras {
