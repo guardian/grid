@@ -1,7 +1,5 @@
 package com.gu.mediaservice.lib.argo
 
-import java.net.URI
-
 import play.api.libs.json.{Json, Writes}
 import play.api.mvc.{Results, Result}
 
