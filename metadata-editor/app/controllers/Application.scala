@@ -69,24 +69,23 @@ object Application extends Controller with ArgoHelpers {
 
   def getArchived(id: String) = Authenticated.async {
     dynamo.booleanGet(id, "archived") map { archived =>
-      archivedEntity(id, archived.getOrElse(false))
+      respond(archived.getOrElse(false))
     } recover {
-      case NoItemFound => archivedEntity(id, false)
-    } map (respondEntity(_))
+      case NoItemFound => respond(false)
+    }
   }
 
   def setArchived(id: String) = Authenticated.async { req =>
     booleanForm.bindFromRequest()(req).fold(
       errors   => Future.successful(BadRequest(errors.errorsAsJson)),
-      archived => {
-        val response = respondEntity(archivedEntity(id, archived))
-        dynamo.booleanSetOrRemove(id, "archived", archived) map publishAndRespond(id, response)
-      }
+      archived => dynamo.booleanSetOrRemove(id, "archived", archived).map(
+        publishAndRespond(id, respond(archived))
+      )
     )
   }
 
   def unsetArchived(id: String) = Authenticated.async {
-    val response = respondEntity(archivedEntity(id, false))
+    val response = respond(false)
     dynamo.removeKey(id, "archived") map publishAndRespond(id, response)
   }
 
