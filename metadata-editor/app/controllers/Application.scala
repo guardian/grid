@@ -42,12 +42,11 @@ object Application extends Controller with ArgoHelpers {
 
   // TODO: Think about calling this `overrides` or something that isn't metadata
   def getAllMetadata(id: String) = Authenticated.async {
-    dynamo.get(id) map {
-      metadata =>
-        Ok(allMetadataResponse(metadata, id)).as(ArgoMediaType)
-    } recover {
+    dynamo.get(id) map (m => respond(m.as[Edits])) recover {
       // Empty object as no metadata edits recorded
-      case NoItemFound => Ok(allMetadataResponse(Json.obj(), id)).as(ArgoMediaType)
+      // FIXME: Find out how to return an empty `Metadata` from the model's
+      // JSON Reads / Writes
+      case NoItemFound => respond(Json.obj("metadata"->Json.obj()).as[Edits])
     }
   }
 
