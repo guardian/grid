@@ -23,6 +23,8 @@ import com.gu.mediaservice.lib.argo._
 import com.gu.mediaservice.lib.argo.model._
 
 
+// FIXME: the argoHelpers are all returning `Ok`s (200)
+// Some of these responses should be `Accepted` (202)
 object Application extends Controller with ArgoHelpers {
 
   val keyStore = new KeyStore(Config.keyStoreBucket, Config.awsCredentials)
@@ -44,16 +46,20 @@ object Application extends Controller with ArgoHelpers {
   // TODO: Think about calling this `overrides` or something that isn't metadata
   def getAllMetadata(id: String) = Authenticated.async {
     dynamo.get(id) map { dynamoEntry =>
-      // TODO: Find a way to return a hashmap of Entities
       val m = dynamoEntry.as[Edits]
       val archived = archivedEntity(id, m.archived)
       val labels = labelsEntity(id, m.labels.toSet)
       val metadata = metadataEntity(id, m.metadata)
 
-      // TODO: Fix this to take multiple types in Map.
-      respondMap(Some(uri(id)), data = Map(
-        "archived" -> archived
-      ))
+      // TODO: Fix this to use some form of responseMap.
+      Ok(Json.obj(
+        "uri" -> uri(id).toString,
+        "data" -> Json.obj(
+          "archived" -> archived,
+          "labels" -> labels,
+          "metadata" -> metadata
+        )
+      )).as(ArgoMediaType)
 
     } recover {
       // Empty object as no metadata edits recorded
