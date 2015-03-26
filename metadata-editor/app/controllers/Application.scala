@@ -77,10 +77,10 @@ object Application extends Controller with ArgoHelpers {
 
   def setArchived(id: String) = Authenticated.async { req =>
     booleanForm.bindFromRequest()(req).fold(
-      errors   => Future.successful(BadRequest(errors.errorsAsJson)),
-      archived => dynamo.booleanSetOrRemove(id, "archived", archived).map(
-        publishAndRespond(id, respond(archived))
-      )
+      errors   =>
+        Future.successful(BadRequest(errors.errorsAsJson)),
+      archived =>
+        dynamo.booleanSetOrRemove(id, "archived", archived) map publishAndRespond(id, respond(archived))
     )
   }
 
@@ -92,17 +92,15 @@ object Application extends Controller with ArgoHelpers {
 
   def getLabels(id: String) = Authenticated.async {
     dynamo.setGet(id, "labels")
-      .map(labelsEntity(id, _))
-      .map(respondCollection(_, None, None))
+      .map(respond(_))
   }
 
   def addLabels(id: String) = Authenticated.async { req =>
     listForm.bindFromRequest()(req).fold(
-      errors => Future.successful(BadRequest(errors.errorsAsJson)),
-      labels => {
-        val response = respondCollection(labelsEntity(id, labels.toSet), None, None)
-        dynamo.setAdd(id, "labels", labels) map publishAndRespond(id, response)
-      }
+      errors =>
+        Future.successful(BadRequest(errors.errorsAsJson)),
+      labels =>
+        dynamo.setAdd(id, "labels", labels) map publishAndRespond(id, respond(labels))
     )
   }
 
@@ -114,18 +112,16 @@ object Application extends Controller with ArgoHelpers {
   def getMetadata(id: String) = Authenticated.async {
     dynamo.jsonGet(id, "metadata").map { dynamoEntry =>
       val metadata = (dynamoEntry \ "metadata").as[Metadata]
-      EmbeddedEntity(uri(id, s"metadata"), Some(metadata))
-    } map (respondEntity(_))
+      respond(metadata)
+    }
   }
 
   def setMetadata(id: String) = Authenticated.async(parse.json) { req =>
     metadataForm.bindFromRequest()(req).fold(
       errors => Future.successful(BadRequest(errors.errorsAsJson)),
-      metadata => {
-        val response = respondEntity(metadataEntity(id, metadata))
+      metadata =>
         // FIXME: Converting to convert back is a bit silly
-        dynamo.jsonAdd(id, "metadata", Json.toJson(metadata).as[Map[String, String]]) map publishAndRespond(id, response)
-      }
+        dynamo.jsonAdd(id, "metadata", Json.toJson(metadata).as[Map[String, String]]) map publishAndRespond(id, respond(metadata))
     )
   }
 
