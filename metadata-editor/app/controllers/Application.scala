@@ -48,12 +48,12 @@ object Application extends Controller with ArgoHelpers {
   // TODO: Think about calling this `overrides` or something that isn't metadata
   def getAllMetadata(id: String) = Authenticated.async {
     dynamo.get(id) map { dynamoEntry =>
-      val m = dynamoEntry.as[Edits]
-      val archived = archivedEntity(id, m.archived)
-      val labels = labelsCollection(id, m.labels.toSet)
-      val metadata = metadataEntity(id, m.metadata)
+      val edits = dynamoEntry.as[Edits]
+      val archived = archivedEntity(id, edits.archived)
+      val labels = labelsCollection(id, edits.labels.toSet)
+      val metadata = metadataEntity(id, edits.metadata)
 
-      // TODO: Fix this to use some form of responseMap.
+      // TODO: Create a writer on `Edits` that returns this.
       Ok(Json.obj(
         "uri" -> entityUri(id).toString,
         "data" -> Json.obj(
@@ -63,9 +63,14 @@ object Application extends Controller with ArgoHelpers {
         )
       )).as(ArgoMediaType)
 
+      respond(Json.toJson(edits)(Edits.EditsWritesArgo))
+
     } recover {
       // Empty object as no metadata edits recorded
-      case NoItemFound => respond(Json.obj().as[Edits])
+      case NoItemFound => {
+        val e = Edits(false, List(), Edits.emptyMetadata)
+        respond(Json.toJson(e)(Edits.EditsWritesArgo))
+      }
     }
   }
 
