@@ -23,8 +23,10 @@ System.config({
     "pandular": "npm:pandular@0.1.5",
     "raven-js": "github:getsentry/raven-js@1.1.18",
     "text": "github:systemjs/plugin-text@0.0.2",
-    "theseus": "npm:theseus@0.3.2",
-    "theseus-angular": "npm:theseus-angular@0.2.3",
+    "theseus": "npm:theseus@0.4.0",
+    "theseus-angular": "npm:theseus-angular@0.3.0",
+    "traceur": "github:jmcriffey/bower-traceur@0.0.87",
+    "traceur-runtime": "github:jmcriffey/bower-traceur-runtime@0.0.87",
     "ua-parser-js": "npm:ua-parser-js@0.7.3",
     "github:angular-ui/ui-router@0.2.13": {
       "angular": "github:angular/bower-angular@1.3.15"
@@ -61,19 +63,19 @@ System.config({
     "npm:path-browserify@0.0.0": {
       "process": "github:jspm/nodelibs-process@0.1.1"
     },
-    "npm:theseus-angular@0.2.3": {
+    "npm:theseus-angular@0.3.0": {
       "angular": "github:angular/bower-angular@1.3.15",
       "any-http-angular": "npm:any-http-angular@0.1.0",
       "any-promise-angular": "npm:any-promise-angular@0.1.1",
-      "theseus": "npm:theseus@0.3.2"
+      "theseus": "npm:theseus@0.4.0"
     },
-    "npm:theseus@0.3.2": {
-      "uri-templates": "npm:uri-templates@0.1.5"
+    "npm:theseus@0.4.0": {
+      "uri-templates": "npm:uri-templates@0.1.7"
     },
     "npm:ua-parser-js@0.7.3": {
       "systemjs-json": "github:systemjs/plugin-json@0.1.0"
     },
-    "npm:uri-templates@0.1.5": {
+    "npm:uri-templates@0.1.7": {
       "path": "github:jspm/nodelibs-path@0.1.0",
       "systemjs-json": "github:systemjs/plugin-json@0.1.0",
       "util": "github:jspm/nodelibs-util@0.1.0"
