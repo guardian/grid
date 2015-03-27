@@ -50,8 +50,7 @@ case class AuthenticatedUpload(keyStore: KeyStore, loginUri: String, authCallbac
   import java.io.File
   import com.gu.mediaservice.lib.play.DigestedFile
 
-  // TODO: Add Config back in here
-  def createTempFile = File.createTempFile("requestBody", "", new File("/tmp"))
+  def createTempFile(dir: String) = File.createTempFile("requestBody", "", new File(dir))
 
    // Try to auth by API key, and failing that, with Panda
   override def invokeBlock[A](request: Request[A], block: RequestHandler[A]): Future[Result] = {
