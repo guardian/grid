@@ -51,7 +51,9 @@ class ImageLoader(storage: ImageStorage) extends Controller with ArgoHelpers {
     Ok(response).as(ArgoMediaType)
   }
 
-  def loadImage(uploadedBy: Option[String], identifiers: Option[String], uploadTime: Option[String]) = AuthenticatedUpload.async(digestedFile(AuthenticatedUpload.createTempFile)) { request =>
+  def loadImage(uploadedBy: Option[String], identifiers: Option[String], uploadTime: Option[String]) =
+    AuthenticatedUpload.async(digestedFile(AuthenticatedUpload.createTempFile(Config.tempDir))) { request =>
+
     val DigestedFile(tempFile, id) = request.body
 
     // only allow AuthenticatedService to set with query string
