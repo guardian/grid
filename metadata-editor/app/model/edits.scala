@@ -1,47 +1,31 @@
 package model
 
+import com.gu.mediaservice.model.ImageMetadata
 import play.api.libs.json._
 import play.api.libs.functional.syntax._
 
-case class Edits(archived: Boolean, labels: List[String], metadata: Metadata)
+case class Edits(archived: Boolean, labels: List[String], metadata: ImageMetadata)
 
 object Edits {
   implicit val EditsReads: Reads[Edits] = (
     (__ \ "archived").readNullable[Boolean].map(_ getOrElse false) ~
     (__ \ "labels").readNullable[List[String]].map(_ getOrElse Nil) ~
-    (__ \ "metadata").readNullable[Metadata].map(_ getOrElse Metadata())
+    (__ \ "metadata").readNullable[ImageMetadata].map(_ getOrElse emptyMetadata)
   )(Edits.apply _)
 
 
   implicit val EditsWrites: Writes[Edits] = (
       (__ \ "archived").write[Boolean] ~
       (__ \ "labels").write[List[String]] ~
-      (__ \ "metadata").writeNullable[Metadata].contramap(noneIfEmptyMetadata)
+      (__ \ "metadata").writeNullable[ImageMetadata].contramap(noneIfEmptyMetadata)
     )(unlift(Edits.unapply))
 
-  def noneIfEmptyMetadata(m: Metadata) = if(m.isEmpty) None else Some(m)
-}
 
-// TODO: work with Picdar extra fields eg copyright
-case class Metadata(
-  description: Option[String] = None,
-  byline: Option[String] = None,
-  credit: Option[String] = None
-) {
-  def isEmpty = description.isEmpty && byline.isEmpty && credit.isEmpty
-}
+  def noneIfEmptyMetadata(m: ImageMetadata): Option[ImageMetadata] =
+    if(m == emptyMetadata) None else Some(m)
 
-object Metadata {
-  implicit val MetadataReads: Reads[Metadata] = (
-    (__ \ "description").readNullable[String] ~
-    (__ \ "byline").readNullable[String] ~
-    (__ \ "credit").readNullable[String]
-  )(Metadata(_, _, _))
-
-
-  implicit val MetadataWrites: Writes[Metadata] = (
-    (__ \ "description").writeNullable[String] ~
-    (__ \ "byline").writeNullable[String] ~
-    (__ \ "credit").writeNullable[String]
-  )(unlift(Metadata.unapply))
+  // We could set these as default on the case class, but that feel like polluting
+  // the ocean instead of just polluting this little puddle.
+  val emptyMetadata =
+    ImageMetadata(None, None, None, None, None, None, None, None, None, None, None, List(), None, None, None, None)
 }
