@@ -45,11 +45,35 @@ class PandaAuthenticated(loginUri_ : String, authCallbackBaseUri_ : String)
   }
 }
 
+case class AuthenticatedUpload(keyStore: KeyStore, loginUri: String, authCallbackBaseUri: String) extends AuthenticatedBase {
 
+  import java.io.File
+  import com.gu.mediaservice.lib.play.DigestedFile
 
-case class Authenticated(keyStore: KeyStore, loginUri: String, authCallbackBaseUri: String)
-  extends ActionBuilder[({ type R[A] = AuthenticatedRequest[A, Principal] })#R]
-  with ArgoErrorResponses {
+  // TODO: Add Config back in here
+  def createTempFile = File.createTempFile("requestBody", "", new File("/tmp"))
+
+   // Try to auth by API key, and failing that, with Panda
+  override def invokeBlock[A](request: Request[A], block: RequestHandler[A]): Future[Result] = {
+    val DigestedFile(tempFile, id) = request.body
+
+    val result = authByKey(request, block) recoverWith {
+      case NotAuthenticated => authByPanda(request, block)
+      case InvalidAuth      => Future.successful(invalidApiKeyResult)
+    }
+
+    // TODO: This must happen after above is wrapped in a future and resolved
+    result.onComplete(_ => tempFile.delete())
+    result
+  }
+}
+
+case class Authenticated(keyStore: KeyStore, loginUri: String, authCallbackBaseUri: String) extends AuthenticatedBase
+trait AuthenticatedBase extends ActionBuilder[({ type R[A] = AuthenticatedRequest[A, Principal] })#R] with ArgoErrorResponses {
+
+  val keyStore: KeyStore
+  val loginUri: String
+  val authCallbackBaseUri: String
 
   type RequestHandler[A] = AuthenticatedRequest[A, Principal] => Future[Result]
 
