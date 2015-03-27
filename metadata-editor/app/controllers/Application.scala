@@ -4,6 +4,7 @@ package controllers
 import java.net.{URLEncoder, URI}
 
 import com.gu.mediaservice.lib.argo.ArgoHelpers
+import com.gu.mediaservice.model.ImageMetadata
 
 import scala.concurrent.Future
 
@@ -17,7 +18,7 @@ import com.gu.mediaservice.lib.auth.KeyStore
 import com.gu.mediaservice.lib.aws.{NoItemFound, DynamoDB}
 import lib._
 
-import model.{Metadata, Edits}
+import model.Edits
 
 import com.gu.mediaservice.lib.argo._
 import com.gu.mediaservice.lib.argo.model._
@@ -115,7 +116,7 @@ object Application extends Controller with ArgoHelpers {
 
   def getMetadata(id: String) = Authenticated.async {
     dynamo.jsonGet(id, "metadata").map { dynamoEntry =>
-      val metadata = (dynamoEntry \ "metadata").as[Metadata]
+      val metadata = (dynamoEntry \ "metadata").as[ImageMetadata]
       respond(metadata)
     }
   }
@@ -139,7 +140,7 @@ object Application extends Controller with ArgoHelpers {
   def labelEntity(id: String, label: String): EmbeddedEntity[String] =
     EmbeddedEntity(entityUri(id, s"/labels/${URLEncoder.encode(label, "UTF-8")}"), Some(label))
 
-  def metadataEntity(id: String, metadata: Metadata) =
+  def metadataEntity(id: String, metadata: ImageMetadata) =
     EmbeddedEntity(entityUri(id, s"/metadata"), Some(metadata))
 
 
@@ -155,12 +156,25 @@ object Application extends Controller with ArgoHelpers {
     result
   }
 
-  val metadataForm: Form[Metadata] = Form(
+  val metadataForm: Form[ImageMetadata] = Form(
     single("data" -> mapping(
+      "dateTaken" -> optional(jodaDate),
       "description" -> optional(text),
+      "credit" -> optional(text),
       "byline" -> optional(text),
-      "credit" -> optional(text)
-    )(Metadata.apply)(Metadata.unapply))
+      "bylineTitle" -> optional(text),
+      "title" -> optional(text),
+      "copyrightNotice" -> optional(text),
+      "copyright" -> optional(text),
+      "suppliersReference" -> optional(text),
+      "source" -> optional(text),
+      "specialInstructions" -> optional(text),
+      "keywords" -> list(text),
+      "subLocation" -> optional(text),
+      "city" -> optional(text),
+      "state" -> optional(text),
+      "country" -> optional(text)
+    )(ImageMetadata.apply)(ImageMetadata.unapply))
   )
 
   val booleanForm: Form[Boolean] = Form(
