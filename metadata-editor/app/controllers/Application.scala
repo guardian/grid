@@ -49,15 +49,17 @@ object Application extends Controller with ArgoHelpers {
   def getAllMetadata(id: String) = Authenticated.async {
     dynamo.get(id) map { dynamoEntry =>
 
+      val edits = dynamoEntry.as[Edits]
+
       // We have to do the to JSON here as we are using a custom JSON writes.
       // TODO: have the argo helpers allow you to do this
-      respond(Json.toJson(dynamoEntry.as[Edits])(Edits.EditsWritesArgo))
+      respond(Json.toJson(edits)(Edits.EditsWritesArgo(id)))
 
     } recover {
       // Empty object as no metadata edits recorded
       case NoItemFound => {
         val e = Edits(false, List(), Edits.emptyMetadata)
-        respond(Json.toJson(e)(Edits.EditsWritesArgo))
+        respond(Json.toJson(e)(Edits.EditsWritesArgo(id)))
       }
     }
   }
@@ -124,18 +126,11 @@ object Application extends Controller with ArgoHelpers {
     )
   }
 
-  def archivedEntity(id: String, archived: Boolean): EmbeddedEntity[Boolean] =
-    EmbeddedEntity(entityUri(id, "/archived"), Some(archived))
-
   def labelsCollection(id: String, labels: Set[String]): Seq[EmbeddedEntity[String]] =
     labels.map(labelEntity(id, _)).toSeq
 
   def labelEntity(id: String, label: String): EmbeddedEntity[String] =
     EmbeddedEntity(entityUri(id, s"/labels/${URLEncoder.encode(label, "UTF-8")}"), Some(label))
-
-  def metadataEntity(id: String, metadata: ImageMetadata) =
-    EmbeddedEntity(entityUri(id, s"/metadata"), Some(metadata))
-
 
   // Publish changes to SNS and return an empty Result
   def publishAndRespond(id: String, result: Result = NoContent)(metadata: JsObject): Result = {
