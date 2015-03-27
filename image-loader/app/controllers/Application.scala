@@ -35,7 +35,9 @@ class ImageLoader(storage: ImageStorage) extends Controller with ArgoHelpers {
   import Config.{rootUri, loginUri}
 
   val keyStore = new KeyStore(Config.keyStoreBucket, Config.awsCredentials)
+
   val Authenticated = auth.Authenticated(keyStore, loginUri, rootUri)
+  val AuthenticatedUpload = auth.AuthenticatedUpload(keyStore, loginUri, rootUri)
 
   val metadataCleaners = new MetadataCleaners(MetadataConfig.creditBylineMap)
 
@@ -49,7 +51,7 @@ class ImageLoader(storage: ImageStorage) extends Controller with ArgoHelpers {
     Ok(response).as(ArgoMediaType)
   }
 
-  def loadImage(uploadedBy: Option[String], identifiers: Option[String], uploadTime: Option[String]) = Authenticated.async(digestedFile(createTempFile)) { request =>
+  def loadImage(uploadedBy: Option[String], identifiers: Option[String], uploadTime: Option[String]) = AuthenticatedUpload.async(digestedFile(AuthenticatedUpload.createTempFile)) { request =>
     val DigestedFile(tempFile, id) = request.body
 
     // only allow AuthenticatedService to set with query string
@@ -81,7 +83,6 @@ class ImageLoader(storage: ImageStorage) extends Controller with ArgoHelpers {
       Future(UnsupportedMediaType(Json.obj("errorMessage" -> s"Unsupported mime-type: $mimeTypeName. Supported: ${Config.supportedMimeTypes.mkString(", ")}")))
     }
 
-    future.onComplete(_ => tempFile.delete())
     future
   }
 
@@ -131,6 +132,4 @@ class ImageLoader(storage: ImageStorage) extends Controller with ArgoHelpers {
       }
     }
   }
-
-  def createTempFile = File.createTempFile("requestBody", "", new File(Config.tempDir))
 }
