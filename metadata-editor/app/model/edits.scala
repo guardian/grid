@@ -28,24 +28,25 @@ object Edits {
       (__ \ "metadata").writeNullable[ImageMetadata].contramap(noneIfEmptyMetadata)
     )(unlift(Edits.unapply))
 
-  val EditsWritesArgo: Writes[Edits] = (
-      (__ \ "archived").write[ArchivedEntity].contramap(archivedEntity) ~
-      (__ \ "labels").write[LabelsEntity].contramap(labelsEntity) ~
-      (__ \ "metadata").writeNullable[MetadataEntity].contramap(metadataEntity)
+  // the types are in the arguments because of a whining scala compiler
+  def EditsWritesArgo(id: String): Writes[Edits] = (
+      (__ \ "archived").write[ArchivedEntity].contramap(archivedEntity(id, _: Boolean)) ~
+      (__ \ "labels").write[LabelsEntity].contramap(labelsEntity(id, _: List[String])) ~
+      (__ \ "metadata").writeNullable[MetadataEntity].contramap(metadataEntity(id, _: ImageMetadata))
     )(unlift(Edits.unapply))
 
   def noneIfEmptyMetadata(m: ImageMetadata): Option[ImageMetadata] =
     if(m == emptyMetadata) None else Some(m)
 
 
-  def archivedEntity(a: Boolean): ArchivedEntity =
-    EmbeddedEntity(entityUri("", "archived"), Some(a))
+  def archivedEntity(id: String, a: Boolean): ArchivedEntity =
+    EmbeddedEntity(entityUri(id, "/archived"), Some(a))
 
-  def labelsEntity(ls: List[String]): LabelsEntity =
-    EmbeddedEntity(entityUri("", "labels"), Some(ls))
+  def labelsEntity(id: String, ls: List[String]): LabelsEntity =
+    EmbeddedEntity(entityUri(id, "/labels"), Some(ls))
 
-  def metadataEntity(m: ImageMetadata): Option[MetadataEntity] =
-    noneIfEmptyMetadata(m).map(i => EmbeddedEntity(entityUri("", "metadata"), Some(i)))
+  def metadataEntity(id: String, m: ImageMetadata): Option[MetadataEntity] =
+    noneIfEmptyMetadata(m).map(i => EmbeddedEntity(entityUri(id, "/metadata"), Some(i)))
 
   // We could set these as default on the case class, but that feel like polluting
   // the ocean instead of just polluting this little puddle.
