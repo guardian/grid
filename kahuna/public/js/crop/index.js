@@ -21,10 +21,18 @@ crop.config(['$stateProvider',
             // TODO: abstract these resolvers out as we use them on the image
             // view too
             imageId: ['$stateParams', $stateParams => $stateParams.imageId],
-            image: ['$state', '$q', 'mediaApi', 'imageId',
-                    ($state, $q, mediaApi, imageId) => {
+            image: ['$state', '$q', 'mediaApi', 'mediaCropper', 'imageId',
+                    ($state, $q, mediaApi, mediaCropper, imageId) => {
 
-                return mediaApi.find(imageId).catch(error => {
+                return mediaApi.find(imageId).then(image => {
+                    return mediaCropper.canBeCropped(image).then(croppable => {
+                        if (croppable) {
+                            return image;
+                        } else {
+                            $state.go('image-error', {message: 'Image cannot be cropped'});
+                        }
+                    });
+                }).catch(error => {
                     if (error && error.status === 404) {
                         $state.go('image-error', {message: 'Image not found'});
                     } else {
