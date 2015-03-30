@@ -121,16 +121,13 @@ object Application extends Controller with ArgoHelpers {
       errors => Future.successful(BadRequest(errors.errorsAsJson)),
       metadata =>
         // FIXME: Converting to convert back is a bit silly
-        dynamo.jsonAdd(id, "metadata", Json.toJson(metadata).as[Map[String, String]])
+        dynamo.jsonAdd(id, "metadata", Json.toJson(metadata))
           .map(publishAndRespond(id, respond(metadata)))
     )
   }
 
   def labelsCollection(id: String, labels: Set[String]): Seq[EmbeddedEntity[String]] =
-    labels.map(labelEntity(id, _)).toSeq
-
-  def labelEntity(id: String, label: String): EmbeddedEntity[String] =
-    EmbeddedEntity(entityUri(id, s"/labels/${URLEncoder.encode(label, "UTF-8")}"), Some(label))
+    labels.map(Edits.labelEntity(id, _)).toSeq
 
   // Publish changes to SNS and return an empty Result
   def publishAndRespond(id: String, result: Result = NoContent)(metadata: JsObject): Result = {
@@ -144,6 +141,7 @@ object Application extends Controller with ArgoHelpers {
     result
   }
 
+  // FIXME: Find a way to not have to write all this junk
   val metadataForm: Form[ImageMetadata] = Form(
     single("data" -> mapping(
       "dateTaken" -> optional(jodaDate),
@@ -157,7 +155,7 @@ object Application extends Controller with ArgoHelpers {
       "suppliersReference" -> optional(text),
       "source" -> optional(text),
       "specialInstructions" -> optional(text),
-      "keywords" -> list(text),
+      "keywords" -> default(list(text), List()),
       "subLocation" -> optional(text),
       "city" -> optional(text),
       "state" -> optional(text),
