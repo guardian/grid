@@ -77,10 +77,10 @@ class ImageLoader(storage: ImageStorage) extends Controller with ArgoHelpers {
     val mimeType = MimeTypeDetection.guessMimeType(tempFile)
     val future = if (Config.supportedMimeTypes.exists(Some(_) == mimeType)) {
       storeFile(id, tempFile, mimeType, uploadTime_, uploadedBy_, identifiers_)
-    } else {
+    } else Future {
       val mimeTypeName = mimeType getOrElse "none detected"
       Logger.info(s"Rejected file, id: $id, uploadedBy: $uploadedBy_, because the mime-type is not supported ($mimeTypeName). return 415")
-      Future(UnsupportedMediaType(Json.obj("errorMessage" -> s"Unsupported mime-type: $mimeTypeName. Supported: ${Config.supportedMimeTypes.mkString(", ")}")))
+      respondError(UnsupportedMediaType, "unsupported-type", s"Unsupported mime-type: $mimeTypeName. Supported: ${Config.supportedMimeTypes.mkString(", ")}")
     }
 
     future.onComplete(_ => tempFile.delete())
@@ -127,8 +127,7 @@ class ImageLoader(storage: ImageStorage) extends Controller with ArgoHelpers {
           Logger.info(s"Rejected file, id: $id, uploadedBy: $uploadedBy, because: ${e.getMessage}. return 400")
           // TODO: Log when an image isn't deleted
           storage.deleteImage(id)
-          // TODO: add errorCode
-          BadRequest(Json.obj("errorMessage" -> e.getMessage))
+          respondError(BadRequest, "upload-error", e.getMessage)
         }
       }
     }
