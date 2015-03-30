@@ -20,7 +20,7 @@ jobs.controller('RequiredMetadataEditorCtrl',
         ctrl.saving = true;
 
         // If there has been a change in the metadata, save it as an override
-        var cleanMetadata = { keywords: ["Things", "thang"] };
+        var cleanMetadata = {};
         Object.keys(ctrl.metadata).forEach(key => {
             if (ctrl.metadata[key] !== ctrl.originalMetadata[key]) {
                 cleanMetadata[key] = ctrl.metadata[key];
