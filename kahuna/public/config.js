@@ -40,6 +40,7 @@ System.config({
     "traceur": "github:jmcriffey/bower-traceur@0.0.90",
     "traceur-runtime": "github:jmcriffey/bower-traceur-runtime@0.0.90",
     "ua-parser-js": "npm:ua-parser-js@0.7.3",
+    "uri-templates": "npm:uri-templates@0.1.5",
     "github:angular-ui/ui-router@0.2.15": {
       "angular": "github:angular/bower-angular@1.4.3"
     },
@@ -231,4 +232,3 @@ System.config({
     }
   }
 });
-

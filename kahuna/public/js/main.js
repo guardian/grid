@@ -3,6 +3,7 @@
 import angular from 'angular';
 import 'angular-ui-router';
 import 'pandular';
+import uriTemplates from 'uri-templates';
 import './services/api/media-api';
 import './services/api/media-cropper';
 import './services/api/loader';
@@ -72,23 +73,34 @@ angular.forEach(config, function(value, key) {
 
 kahuna.config(['$provide', function ($provide) {
 
-    $provide.decorator('$http', ['$delegate', '$location', '$log',
-                                 function ($http, $location, $log) {
+    $provide.decorator('$http', ['$delegate', '$window', '$location', '$log',
+                                 function ($http, $window, $location, $log) {
 
         function httpCatchUnauthorized(func) {
             // FIXME: do we want to return the chain, or just hook the handler and return orig?
+            // FIXME: iff from one of the Grid services?
             return func().catch(error => {
                 // If missing a session, send for auth
                 if (error && error.status === 401) {
                     $log.info('No session, send for auth');
 
-                    // FIXME: error should include a Resource with link
-                    // FIXME: add redirectUri param to login link
-                    // FIXME: use link to construct URL
+                    // FIXME: error should include a Resource with
+                    // link so we don't have to mess around with
+                    // uriTemplates here
 
                     // FIXME: assert kahuna URL in /login handler
-                    // $location.url('/login?redirectUri=' + $location.url());
-                    document.location.href = '/login?redirectUri=' + document.location.pathname;
+                    var links = (error.data && error.data.links) || [];
+                    var loginLink = links.find(link => link.rel === 'login');
+                    var loginUriTemplate = loginLink && uriTemplates(loginLink.href);
+                    if (loginUriTemplate) {
+                        // Come back to the current URI after login flow
+                        var loginUri = loginUriTemplate.fillFromObject({redirectUri: $location.url()});
+                        // Full page redirect to the login URI
+                        $window.location.href = loginUri;
+                    } else {
+                        // Couldn't extract a login URI, die noisily
+                        throw error;
+                    }
                 } else {
                     // Forward any other error
                     throw error;
