@@ -39,11 +39,11 @@ object Panda extends Controller
     }
   }
 
-  // Trigger the auth cycle and return a dummy page
-  // Typically used for automatically re-auth'ing in the background
-  def doLogin = AuthAction { req =>
-    // Note: returning NoContent as iframe content seems to make browsers unhappy
-    Ok("logged in")
+  // Trigger the auth cycle
+  // If a redirectUri is provided, redirect the browser there once auth'd,
+  // else return a dummy page (e.g. for automatically re-auth'ing in the background)
+  def doLogin(redirectUri: Option[String] = None) = AuthAction { req =>
+    redirectUri map (Redirect(_)) getOrElse Ok("logged in")
   }
 
   def oauthCallback = Action.async { implicit request =>
