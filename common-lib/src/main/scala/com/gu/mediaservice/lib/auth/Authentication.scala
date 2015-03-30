@@ -47,10 +47,13 @@ class PandaAuthenticated(loginUri_ : String, authCallbackBaseUri_ : String)
 
 case class AuthenticatedUpload(keyStore: KeyStore, loginUri: String, authCallbackBaseUri: String) extends AuthenticatedBase {
 
-  import java.io.File
+  import com.gu.mediaservice.lib.play.BodyParsers.digestedFile
   import com.gu.mediaservice.lib.play.DigestedFile
+  import java.io.File
 
-  def createTempFile(dir: String) = File.createTempFile("requestBody", "", new File(dir))
+  def digestedFileAsync(tempDir: String):(AuthenticatedRequest[DigestedFile,Principal] => Future[Result]) => Action[DigestedFile] = {
+    AuthenticatedUpload(keyStore, loginUri, authCallbackBaseUri).async(digestedFile(createTempFile(tempDir))) _
+  }
 
    // Try to auth by API key, and failing that, with Panda
   override def invokeBlock[A](request: Request[A], block: RequestHandler[A]): Future[Result] = {
@@ -65,6 +68,8 @@ case class AuthenticatedUpload(keyStore: KeyStore, loginUri: String, authCallbac
     result.onComplete(_ => tempFile.delete())
     result
   }
+
+  def createTempFile(dir: String) = File.createTempFile("requestBody", "", new File(dir))
 }
 
 case class Authenticated(keyStore: KeyStore, loginUri: String, authCallbackBaseUri: String) extends AuthenticatedBase
