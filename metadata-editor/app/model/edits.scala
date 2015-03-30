@@ -8,29 +8,37 @@ import com.gu.mediaservice.model.ImageMetadata
 import play.api.libs.json._
 import play.api.libs.functional.syntax._
 
-case class Edits(archived: Boolean, labels: List[String], metadata: ImageMetadata)
+case class Edits(
+  archived: Boolean = false,
+  labels: List[String] = List(),
+  rights: List[String] = List(),
+  metadata: ImageMetadata
+  )
 
 object Edits {
   type ArchivedEntity = EmbeddedEntity[Boolean]
-  type LabelsEntity = EmbeddedEntity[Seq[EmbeddedEntity[String]]]
+  type SetEntity = EmbeddedEntity[Seq[EmbeddedEntity[String]]]
   type MetadataEntity = EmbeddedEntity[ImageMetadata]
 
   implicit val EditsReads: Reads[Edits] = (
     (__ \ "archived").readNullable[Boolean].map(_ getOrElse false) ~
     (__ \ "labels").readNullable[List[String]].map(_ getOrElse Nil) ~
+    (__ \ "rights").readNullable[List[String]].map(_ getOrElse Nil) ~
     (__ \ "metadata").readNullable[ImageMetadata].map(_ getOrElse emptyMetadata)
   )(Edits.apply _)
 
   implicit val EditsWrites: Writes[Edits] = (
       (__ \ "archived").write[Boolean] ~
       (__ \ "labels").write[List[String]] ~
+      (__ \ "rights").write[List[String]] ~
       (__ \ "metadata").writeNullable[ImageMetadata].contramap(noneIfEmptyMetadata)
     )(unlift(Edits.unapply))
 
   // the types are in the arguments because of a whining scala compiler
   def EditsWritesArgo(id: String): Writes[Edits] = (
       (__ \ "archived").write[ArchivedEntity].contramap(archivedEntity(id, _: Boolean)) ~
-      (__ \ "labels").write[LabelsEntity].contramap(setEntity(id, "labels", _: List[String])) ~
+      (__ \ "labels").write[SetEntity].contramap(setEntity(id, "labels", _: List[String])) ~
+      (__ \ "rights").write[SetEntity].contramap(setEntity(id, "rights", _: List[String])) ~
       (__ \ "metadata").writeNullable[MetadataEntity].contramap(metadataEntity(id, _: ImageMetadata))
     )(unlift(Edits.unapply))
 
@@ -43,7 +51,7 @@ object Edits {
   def metadataEntity(id: String, m: ImageMetadata): Option[MetadataEntity] =
     noneIfEmptyMetadata(m).map(i => EmbeddedEntity(entityUri(id, "/metadata"), Some(i)))
 
-  def setEntity(id: String, setName: String, labels: List[String]): LabelsEntity =
+  def setEntity(id: String, setName: String, labels: List[String]): SetEntity =
     EmbeddedEntity(entityUri(id, s"/$setName"), Some(labels.map(setUnitEntity(id, setName, _))))
 
   def setUnitEntity(id: String, setName: String, name: String): EmbeddedEntity[String] =
@@ -56,4 +64,6 @@ object Edits {
 
   def entityUri(id: String, endpoint: String = ""): URI =
     URI.create(s"$rootUri/metadata/$id$endpoint")
+
+  def getEmpty = Edits(metadata = emptyMetadata)
 }
