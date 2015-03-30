@@ -111,7 +111,7 @@ object Application extends Controller with ArgoHelpers {
 
   def getRights(id: String) = Authenticated.async {
     dynamo.setGet(id, "rights")
-      .map(labelsCollection(id, _))
+      .map(rightsCollection(id, _))
       .map(respondCollection(_))
   }
 
@@ -121,7 +121,7 @@ object Application extends Controller with ArgoHelpers {
         Future.successful(BadRequest(errors.errorsAsJson)),
       rights => {
         dynamo.setAdd(id, "rights", rights)
-          .map(publishAndRespond(id, respondCollection(labelsCollection(id, rights.toSet), None, None)))
+          .map(publishAndRespond(id, respondCollection(rightsCollection(id, rights.toSet), None, None)))
       }
     )
   }
@@ -147,8 +147,11 @@ object Application extends Controller with ArgoHelpers {
     )
   }
 
+  def rightsCollection(id: String, rights: Set[String]): Seq[EmbeddedEntity[String]] =
+    rights.map(Edits.setEntity(id, "rights", _)).toSeq
+
   def labelsCollection(id: String, labels: Set[String]): Seq[EmbeddedEntity[String]] =
-    labels.map(Edits.labelEntity(id, _)).toSeq
+    labels.map(Edits.setEntity(id, "labels", _)).toSeq
 
   // Publish changes to SNS and return an empty Result
   def publishAndRespond(id: String, result: Result = NoContent)(metadata: JsObject): Result = {
