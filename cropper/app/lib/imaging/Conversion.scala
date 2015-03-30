@@ -14,9 +14,9 @@ object Conversion {
   private implicit val ctx: ExecutionContext =
     ExecutionContext.fromExecutor(Executors.newFixedThreadPool(Config.imagingThreadPoolSize))
 
-  def stripMeta(op: IMOperation) = op |< (_.strip())
+  def imageSource(source: File) = (new IMOperation()) |< (_.addImage(source.getAbsolutePath))
 
-  def imageSource(source: File): IMOperation = (new IMOperation()) |< (_.addImage(source.getAbsolutePath))
+  def stripMeta(op: IMOperation) = op |< (_.strip())
 
   def addDestImage(op: IMOperation, dest: File) = op |< (_.addImage(dest.getAbsolutePath))
 

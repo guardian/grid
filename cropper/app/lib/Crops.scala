@@ -6,9 +6,6 @@ import scala.concurrent.Future
 import _root_.play.api.libs.concurrent.Execution.Implicits._
 import lib.Files._
 import model.{Dimensions, CropSource}
-//import lib.imaging.Conversion
-
-import com.gu.mediaservice.syntax.{PipeSyntax}
 
 
 object Crops {
