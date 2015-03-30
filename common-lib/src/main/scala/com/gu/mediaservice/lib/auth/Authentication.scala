@@ -64,7 +64,6 @@ case class AuthenticatedUpload(keyStore: KeyStore, loginUri: String, authCallbac
       case InvalidAuth      => Future.successful(invalidApiKeyResult)
     }
 
-    // TODO: This must happen after above is wrapped in a future and resolved
     result.onComplete(_ => tempFile.delete())
     result
   }
