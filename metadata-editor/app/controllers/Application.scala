@@ -148,10 +148,10 @@ object Application extends Controller with ArgoHelpers {
   }
 
   def rightsCollection(id: String, rights: Set[String]): Seq[EmbeddedEntity[String]] =
-    rights.map(Edits.setEntity(id, "rights", _)).toSeq
+    rights.map(Edits.setUnitEntity(id, "rights", _)).toSeq
 
   def labelsCollection(id: String, labels: Set[String]): Seq[EmbeddedEntity[String]] =
-    labels.map(Edits.setEntity(id, "labels", _)).toSeq
+    labels.map(Edits.setUnitEntity(id, "labels", _)).toSeq
 
   // Publish changes to SNS and return an empty Result
   def publishAndRespond(id: String, result: Result = NoContent)(metadata: JsObject): Result = {
