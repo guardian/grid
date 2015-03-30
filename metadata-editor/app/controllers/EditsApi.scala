@@ -14,10 +14,10 @@ import lib.Config
 
 object EditsApi extends Controller with ArgoHelpers {
 
-  import Config.{rootUri, loginUri, kahunaUri, keyStoreBucket, awsCredentials}
+  import Config.{rootUri, loginUriTemplate, kahunaUri, keyStoreBucket, awsCredentials}
 
   val keyStore = new KeyStore(keyStoreBucket, awsCredentials)
-  val Authenticated = auth.Authenticated(keyStore, loginUri, kahunaUri)
+  val Authenticated = auth.Authenticated(keyStore, loginUriTemplate, kahunaUri)
 
     // TODO: add links to the different responses esp. to the reference image
   val indexResponse = {
