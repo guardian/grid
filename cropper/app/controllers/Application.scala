@@ -41,7 +41,7 @@ object Application extends Controller with ArgoHelpers {
     respond(indexData, indexLinks)
   }
 
-  def index = Action { indexResponse }
+  def index = Authenticated { indexResponse }
 
 
   val cropSourceForm: Form[CropSource] = Form(

@@ -48,7 +48,7 @@ class ImageLoader(storage: ImageStorage) extends Controller with ArgoHelpers {
     respond(indexData, indexLinks)
   }
 
-  def index = Action { indexResponse }
+  def index = Authenticated { indexResponse }
 
 
   def loadImage(uploadedBy: Option[String], identifiers: Option[String], uploadTime: Option[String]) = Authenticated.async(digestedFile(createTempFile)) { request =>
