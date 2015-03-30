@@ -68,6 +68,57 @@ angular.forEach(config, function(value, key) {
     kahuna.constant(key, value);
 });
 
+
+
+kahuna.config(['$provide', function ($provide) {
+
+    $provide.decorator('$http', ['$delegate', '$location', '$log',
+                                 function ($http, $location, $log) {
+
+        function httpCatchUnauthorized(func) {
+            // FIXME: do we want to return the chain, or just hook the handler and return orig?
+            return func().catch(error => {
+                // If missing a session, send for auth
+                if (error && error.status === 401) {
+                    $log.info('No session, send for auth');
+
+                    // FIXME: error should include a Resource with link
+                    // FIXME: add redirectUri param to login link
+                    // FIXME: use link to construct URL
+
+                    // FIXME: assert kahuna URL in /login handler
+                    // $location.url('/login?redirectUri=' + $location.url());
+                    document.location.href = '/login?redirectUri=' + document.location.pathname;
+                } else {
+                    // Forward any other error
+                    throw error;
+                }
+            });
+        }
+
+
+        // Wrap $http
+        var wrapper = function(...args) {
+            // FIXME: or just call and .catch(handle)?
+            return httpCatchUnauthorized(() => $http(...args));
+        };
+
+        // Wrap convenience methods (e.g. $http.get(), etc)
+        // FIXME: are there other keys we should be copying straight?
+        Object.keys($http).filter(function (key) {
+            return (typeof $http[key] === 'function');
+        }).forEach(function (key) {
+            wrapper[key] = function(...args) {
+                return httpCatchUnauthorized(() => $http[key](...args));
+            };
+        });
+
+        return wrapper;
+    }]);
+}]);
+
+
+
 kahuna.config(['$locationProvider',
                function($locationProvider) {
 
