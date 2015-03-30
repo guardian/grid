@@ -1,17 +1,17 @@
 package controllers
 
 
-import java.net.{URLEncoder, URI}
+import java.net.URI
 
 import com.gu.mediaservice.lib.argo.ArgoHelpers
 import com.gu.mediaservice.model.ImageMetadata
 
 import scala.concurrent.Future
 
-import _root_.play.api.data._, Forms._
-import _root_.play.api.mvc.{Action, Controller, Result}
-import _root_.play.api.libs.json._
-import _root_.play.api.libs.concurrent.Execution.Implicits._
+import play.api.data._, Forms._
+import play.api.mvc.{Action, Controller, Result}
+import play.api.libs.json._
+import play.api.libs.concurrent.Execution.Implicits._
 
 import com.gu.mediaservice.lib.auth
 import com.gu.mediaservice.lib.auth.KeyStore
@@ -120,8 +120,7 @@ object Application extends Controller with ArgoHelpers {
     metadataForm.bindFromRequest()(req).fold(
       errors => Future.successful(BadRequest(errors.errorsAsJson)),
       metadata =>
-        // FIXME: Converting to convert back is a bit silly
-        dynamo.jsonAdd(id, "metadata", Json.toJson(metadata))
+        dynamo.jsonAdd(id, "metadata", metadataAsMap(metadata))
           .map(publishAndRespond(id, respond(metadata)))
     )
   }
@@ -140,6 +139,10 @@ object Application extends Controller with ArgoHelpers {
 
     result
   }
+
+  // FIXME: At the moment we can't accept keywords as it is a list
+  def metadataAsMap(metadata: ImageMetadata) =
+    (Json.toJson(metadata).as[JsObject]-"keywords").as[Map[String, String]]
 
   // FIXME: Find a way to not have to write all this junk
   val metadataForm: Form[ImageMetadata] = Form(
