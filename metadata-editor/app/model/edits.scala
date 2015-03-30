@@ -44,10 +44,10 @@ object Edits {
     noneIfEmptyMetadata(m).map(i => EmbeddedEntity(entityUri(id, "/metadata"), Some(i)))
 
   def labelsEntity(id: String, labels: List[String]): LabelsEntity =
-    EmbeddedEntity(entityUri(id, s"/labels"), Some(labels.map(labelEntity(id, _))))
+    EmbeddedEntity(entityUri(id, s"/labels"), Some(labels.map(setEntity(id, "labels", _))))
 
-  def labelEntity(id: String, label: String): EmbeddedEntity[String] =
-    EmbeddedEntity(entityUri(id, s"/labels/${URLEncoder.encode(label, "UTF-8")}"), Some(label))
+  def setEntity(id: String, setName: String, name: String): EmbeddedEntity[String] =
+    EmbeddedEntity(entityUri(id, s"/$setName/${URLEncoder.encode(name, "UTF-8")}"), Some(name))
 
   // We could set these as default on the case class, but that feel like polluting
   // the ocean instead of just polluting this little puddle.
