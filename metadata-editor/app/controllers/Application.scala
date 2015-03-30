@@ -109,6 +109,28 @@ object Application extends Controller with ArgoHelpers {
   }
 
 
+  def getRights(id: String) = Authenticated.async {
+    dynamo.setGet(id, "rights")
+      .map(labelsCollection(id, _))
+      .map(respondCollection(_))
+  }
+
+  def addRights(id: String) = Authenticated.async { req =>
+    listForm.bindFromRequest()(req).fold(
+      errors =>
+        Future.successful(BadRequest(errors.errorsAsJson)),
+      rights => {
+        dynamo.setAdd(id, "rights", rights)
+          .map(publishAndRespond(id, respondCollection(labelsCollection(id, rights.toSet), None, None)))
+      }
+    )
+  }
+
+  def removeRight(id: String, right: String) = Authenticated.async {
+    dynamo.setDelete(id, "right", right) map publishAndRespond(id)
+  }
+
+
   def getMetadata(id: String) = Authenticated.async {
     dynamo.jsonGet(id, "metadata").map { dynamoEntry =>
       val metadata = (dynamoEntry \ "metadata").as[ImageMetadata]
