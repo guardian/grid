@@ -6,23 +6,26 @@ import scala.concurrent.Future
 import _root_.play.api.libs.concurrent.Execution.Implicits._
 import lib.Files._
 import model.{Dimensions, CropSource}
-import lib.imaging.Conversion
+//import lib.imaging.Conversion
+
+import com.gu.mediaservice.syntax.{PipeSyntax}
 
 
 object Crops {
+  import lib.imaging.Conversion._
 
   /** Crops the source image and saves the output to a JPEG file on disk.
     *
     * It is the responsibility of the caller to clean up the file when it is no longer needed.
     */
-  def create(sourceFile: File, source: CropSource, dimensions: Dimensions): Future[File] =
+  def create(sourceFile: File, spec: CropSource, dimensions: Dimensions): Future[File] =
     for {
       outputFile <- createTempFile("cropOutput", ".jpg")
-      imageSource = Conversion.imageSource(outputFile)
-      cropped     = Conversion.cropResize(imageSource, source.bounds, dimensions)
-      stripped    = Conversion.stripMeta(cropped)
-      addOutput   = Conversion.addDestImage(stripped, outputFile)
-      _          <- Conversion.runOp(addOutput)
+      source      = imageSource(outputFile)
+      cropped     = cropResize(source, spec.bounds, dimensions)
+      stripped    = stripMeta(cropped)
+      addOutput   = addDestImage(stripped, outputFile)
+      _          <- runOp(addOutput)
     }
     yield outputFile
 
