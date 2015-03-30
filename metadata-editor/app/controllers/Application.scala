@@ -90,7 +90,7 @@ object Application extends Controller with ArgoHelpers {
   def getLabels(id: String) = Authenticated.async {
     dynamo.setGet(id, "labels")
       .map(labelsCollection(id, _))
-      .map(respondCollection(_, None, None))
+      .map(respondCollection(_))
   }
 
   def addLabels(id: String) = Authenticated.async { req =>
