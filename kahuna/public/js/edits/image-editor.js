@@ -22,7 +22,7 @@ imageEditor.controller('ImageEditorCtrl', ['$scope', '$q', 'poll', function($sco
             this.saving = true;
 
             var metadataMatches = (image) => {
-                // FIXME: Bad hack for a modelling problem in edits. Keywords shouldn't
+                // FIXME: Hack for a modelling problem in edits. Keywords shouldn't
                 // be sent across, but they are as the `ImageMetadata.Writes` converts nothing
                 // into `Nil`. [] !== [] in JS, so we need to convert to string
                 var matches = Object.keys(newMetadata.data).every(key =>
