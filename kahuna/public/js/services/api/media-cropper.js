@@ -24,12 +24,19 @@ apiServices.factory('mediaCropper',
         });
     }
 
+    function canBeCropped(image) {
+        // Images can only be cropped if there is a link to the crops
+        return image.getLink('crops').
+            then(() => true, () => false);
+    }
+
     function getCropsFor(image) {
         return image.follow('crops').getData();
     }
 
     return {
-        createCrop: createCrop,
-        getCropsFor: getCropsFor
+        createCrop,
+        canBeCropped,
+        getCropsFor
     };
 }]);
