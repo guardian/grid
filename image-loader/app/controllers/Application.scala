@@ -10,15 +10,14 @@ import play.api.Logger
 import org.joda.time.DateTime
 import scala.concurrent.Future
 
-import lib.play.BodyParsers.digestedFile
-import lib.play.DigestedFile
-
 import lib.{Config, Notifications}
 import lib.storage.S3ImageStorage
 import lib.imaging.{FileMetadataConverter, MimeTypeDetection, Thumbnailer}
 
 import model.{Asset, Image}
 
+import com.gu.mediaservice.lib.play.BodyParsers.digestedFile
+import com.gu.mediaservice.lib.play.DigestedFile
 import com.gu.mediaservice.lib.{auth, ImageStorage}
 import com.gu.mediaservice.lib.resource.FutureResources._
 import com.gu.mediaservice.lib.auth.{AuthenticatedService, PandaUser, KeyStore}
