@@ -12,4 +12,9 @@ package object syntax
   implicit class KestrelSyntax[A](self: A) {
     def |< (f: A => Unit): A = { f(self); self }
   }
+
+  implicit class PipeSyntax[A](self: A) {
+    def |> [B] (f: A => B): B = f(self)
+  }
+
 }
