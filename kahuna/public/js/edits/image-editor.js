@@ -24,7 +24,7 @@ imageEditor.controller('ImageEditorCtrl', ['$scope', '$q', 'poll', function($sco
             var metadataMatches = (image) => {
                 // FIXME: Hack for a modelling problem in edits. Keywords shouldn't
                 // be sent across, but they are as the `ImageMetadata.Writes` converts nothing
-                // into `Nil`. [] !== [] in JS, so we need to convert to string
+                // into `Nil`.
                 var matches = Object.keys(newMetadata.data).every(key =>
                     angular.equals(newMetadata.data[key], image.data.metadata[key])
                 );
