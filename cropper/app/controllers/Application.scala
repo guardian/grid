@@ -25,7 +25,6 @@ import model._
 case object InvalidImage extends Exception("Invalid image cannot be cropped")
 
 object Application extends Controller with ArgoHelpers {
-  import com.gu.mediaservice.lib.formatting._
 
   import Config.{rootUri, loginUri, kahunaUri}
 
