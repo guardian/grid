@@ -33,7 +33,7 @@ image.config(['$stateProvider',
                     if (error && error.status === 404) {
                         $state.go('image-not-found', {message: 'Image not found'});
                     } else {
-                        $q.reject(error);
+                        return $q.reject(error);
                     }
                 });
             }],
