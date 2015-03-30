@@ -34,6 +34,11 @@ image.controller('ImageCtrl',
         ctrl.crop = crops.find(crop => crop.id === cropKey);
     });
 
+    mediaCropper.canBeCropped(image).then(croppable => {
+        ctrl.canBeCropped = croppable;
+    });
+
+
     var ignoredMetadata = [
         'title', 'description', 'copyright', 'keywords', 'byline',
         'credit', 'subLocation', 'city', 'state', 'country',
