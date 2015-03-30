@@ -26,7 +26,7 @@ imageEditor.controller('ImageEditorCtrl', ['$scope', '$q', 'poll', function($sco
                 // be sent across, but they are as the `ImageMetadata.Writes` converts nothing
                 // into `Nil`. [] !== [] in JS, so we need to convert to string
                 var matches = Object.keys(newMetadata.data).every(key =>
-                    newMetadata.data[key].toString() === image.data.metadata[key].toString()
+                    angular.equals(newMetadata.data[key], image.data.metadata[key])
                 );
 
                 return matches ? image : $q.reject('no match');
