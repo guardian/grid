@@ -30,7 +30,7 @@ object Edits {
   // the types are in the arguments because of a whining scala compiler
   def EditsWritesArgo(id: String): Writes[Edits] = (
       (__ \ "archived").write[ArchivedEntity].contramap(archivedEntity(id, _: Boolean)) ~
-      (__ \ "labels").write[LabelsEntity].contramap(labelsEntity(id, _: List[String])) ~
+      (__ \ "labels").write[LabelsEntity].contramap(setEntity(id, "labels", _: List[String])) ~
       (__ \ "metadata").writeNullable[MetadataEntity].contramap(metadataEntity(id, _: ImageMetadata))
     )(unlift(Edits.unapply))
 
@@ -43,10 +43,10 @@ object Edits {
   def metadataEntity(id: String, m: ImageMetadata): Option[MetadataEntity] =
     noneIfEmptyMetadata(m).map(i => EmbeddedEntity(entityUri(id, "/metadata"), Some(i)))
 
-  def labelsEntity(id: String, labels: List[String]): LabelsEntity =
-    EmbeddedEntity(entityUri(id, s"/labels"), Some(labels.map(setEntity(id, "labels", _))))
+  def setEntity(id: String, setName: String, labels: List[String]): LabelsEntity =
+    EmbeddedEntity(entityUri(id, s"/$setName"), Some(labels.map(setUnitEntity(id, setName, _))))
 
-  def setEntity(id: String, setName: String, name: String): EmbeddedEntity[String] =
+  def setUnitEntity(id: String, setName: String, name: String): EmbeddedEntity[String] =
     EmbeddedEntity(entityUri(id, s"/$setName/${URLEncoder.encode(name, "UTF-8")}"), Some(name))
 
   // We could set these as default on the case class, but that feel like polluting
