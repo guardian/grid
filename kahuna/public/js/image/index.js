@@ -5,7 +5,7 @@ import '../search/query-filter';
 import '../imgops/service';
 
 import imageTemplate from './view.html!text';
-import imageNotFoundTemplate from './404.html!text';
+import imageErrorTemplate from './image-error.html!text';
 
 
 export var image = angular.module('kahuna.image', [
@@ -31,7 +31,7 @@ image.config(['$stateProvider',
 
                 return mediaApi.find(imageId).catch(error => {
                     if (error && error.status === 404) {
-                        $state.go('image-not-found', {message: 'Image not found'});
+                        $state.go('image-error', {message: 'Image not found'});
                     } else {
                         return $q.reject(error);
                     }
@@ -44,9 +44,9 @@ image.config(['$stateProvider',
 
     // Note: we may be able to make this state more generic if we want
     // other error pages
-    $stateProvider.state('image-not-found', {
+    $stateProvider.state('image-error', {
         params: {message: {}},
-        template: imageNotFoundTemplate,
+        template: imageErrorTemplate,
         controller: ['$scope', 'message', ($scope, message) => {
             $scope.message = message;
         }],
