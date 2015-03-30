@@ -57,10 +57,8 @@ object Application extends Controller with ArgoHelpers {
 
     } recover {
       // Empty object as no metadata edits recorded
-      case NoItemFound => {
-        val e = Edits(false, List(), Edits.emptyMetadata)
-        respond(Json.toJson(e)(Edits.EditsWritesArgo(id)))
-      }
+      case NoItemFound =>
+        respond(Json.toJson(Edits.getEmpty)(Edits.EditsWritesArgo(id)))
     }
   }
 
