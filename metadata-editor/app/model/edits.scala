@@ -1,6 +1,6 @@
 package model
 
-import java.net.URI
+import java.net.{URLEncoder, URI}
 import lib.Config
 import Config.rootUri
 import com.gu.mediaservice.lib.argo.model.EmbeddedEntity
@@ -12,7 +12,7 @@ case class Edits(archived: Boolean, labels: List[String], metadata: ImageMetadat
 
 object Edits {
   type ArchivedEntity = EmbeddedEntity[Boolean]
-  type LabelsEntity = EmbeddedEntity[List[String]]
+  type LabelsEntity = EmbeddedEntity[Seq[EmbeddedEntity[String]]]
   type MetadataEntity = EmbeddedEntity[ImageMetadata]
 
   implicit val EditsReads: Reads[Edits] = (
@@ -20,7 +20,6 @@ object Edits {
     (__ \ "labels").readNullable[List[String]].map(_ getOrElse Nil) ~
     (__ \ "metadata").readNullable[ImageMetadata].map(_ getOrElse emptyMetadata)
   )(Edits.apply _)
-
 
   implicit val EditsWrites: Writes[Edits] = (
       (__ \ "archived").write[Boolean] ~
@@ -38,15 +37,17 @@ object Edits {
   def noneIfEmptyMetadata(m: ImageMetadata): Option[ImageMetadata] =
     if(m == emptyMetadata) None else Some(m)
 
-
   def archivedEntity(id: String, a: Boolean): ArchivedEntity =
     EmbeddedEntity(entityUri(id, "/archived"), Some(a))
 
-  def labelsEntity(id: String, ls: List[String]): LabelsEntity =
-    EmbeddedEntity(entityUri(id, "/labels"), Some(ls))
-
   def metadataEntity(id: String, m: ImageMetadata): Option[MetadataEntity] =
     noneIfEmptyMetadata(m).map(i => EmbeddedEntity(entityUri(id, "/metadata"), Some(i)))
+
+  def labelsEntity(id: String, labels: List[String]): LabelsEntity =
+    EmbeddedEntity(entityUri(id, s"/labels"), Some(labels.map(labelEntity(id, _))))
+
+  def labelEntity(id: String, label: String): EmbeddedEntity[String] =
+    EmbeddedEntity(entityUri(id, s"/labels/${URLEncoder.encode(label, "UTF-8")}"), Some(label))
 
   // We could set these as default on the case class, but that feel like polluting
   // the ocean instead of just polluting this little puddle.
