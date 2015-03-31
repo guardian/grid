@@ -38,8 +38,8 @@ crop.controller('ImageCropCtrl',
     $scope.crop = function() {
         // TODO: show crop
         var coords = {
-            x: $scope.coords.x1,
-            y: $scope.coords.y1,
+            x: Math.round($scope.coords.x1),
+            y: Math.round($scope.coords.y1),
             width:  cropWidth(),
             height: cropHeight()
         };
