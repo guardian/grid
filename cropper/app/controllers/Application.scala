@@ -22,8 +22,9 @@ import lib._, Files._
 import model._
 
 
+case object InvalidImage extends Exception("Invalid image cannot be cropped")
+
 object Application extends Controller with ArgoHelpers {
-  import com.gu.mediaservice.lib.formatting._
 
   import Config.{rootUri, loginUri, kahunaUri}
 
@@ -73,6 +74,8 @@ object Application extends Controller with ArgoHelpers {
 
           Notifications.publish(exports, "update-image-exports")
           Ok(cropJson).as(ArgoMediaType)
+        } recover {
+          case InvalidImage => respondError(BadRequest, "invalid-image", "Invalid image cannot be cropped")
         }
       }
     )
@@ -100,6 +103,8 @@ object Application extends Controller with ArgoHelpers {
 
     for {
       apiImage   <- fetchSourceFromApi(source.uri)
+      // Only allow cropping if image is valid, else exit
+      _          <- if (apiImage.valid) Future.successful(()) else Future.failed(InvalidImage)
       sourceFile <- tempFileFromURL(new URL(apiImage.source.secureUrl), "cropSource", "")
 
       metadata   = apiImage.metadata
