@@ -25,5 +25,4 @@ object Config extends CommonPlayAppProperties {
   val loginUri = services.loginUri
 
   val corsAllAllowedOrigins = List(services.kahunaBaseUri)
-
 }
