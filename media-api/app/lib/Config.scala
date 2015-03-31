@@ -155,6 +155,5 @@ object Config extends CommonPlayAppConfig with CommonPlayAppProperties {
 
   // TODO: move to config
   val queriableIdentifiers = Seq("picdarUrn")
-  val freeRights: List[String] = List("handout", "PR image")
 
 }
