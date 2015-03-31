@@ -136,6 +136,7 @@ object MediaApi extends Controller with ArgoHelpers {
 
     val creditField = (source \ "metadata" \ "credit").as[Option[String]]
     val sourceField = (source \ "metadata" \ "source").as[Option[String]]
+    val rightsField = (source \ "userMetadata" \ "rights").as[Option[List[String]]]
     val valid = ImageExtras.isValid(source \ "metadata")
 
     val imageData = source.transform(transformers.addSecureSourceUrl(secureUrl))
@@ -144,7 +145,7 @@ object MediaApi extends Controller with ArgoHelpers {
       .flatMap(_.transform(transformers.addFileMetadataUrl(s"$rootUri/images/$id/fileMetadata")))
       .flatMap(_.transform(transformers.wrapUserMetadata(id)))
       .flatMap(_.transform(transformers.addValidity(valid)))
-      .flatMap(_.transform(transformers.addUsageCost(creditField, sourceField))).get
+      .flatMap(_.transform(transformers.addUsageCost(creditField, sourceField, rightsField))).get
 
     val cropLink = Link("crops", s"$cropperUri/crops/$id")
     val staticLinks = List(
@@ -162,8 +163,8 @@ object MediaApi extends Controller with ArgoHelpers {
 
   object transformers {
 
-    def addUsageCost(credit: Option[String], source: Option[String]): Reads[JsObject] =
-      __.json.update(__.read[JsObject].map(_ ++ Json.obj("cost" -> ImageExtras.getCost(credit, source))))
+    def addUsageCost(credit: Option[String], source: Option[String], rights: Option[List[String]]): Reads[JsObject] =
+      __.json.update(__.read[JsObject].map(_ ++ Json.obj("cost" -> ImageExtras.getCost(credit, source, rights))))
 
     def removeFileData: Reads[JsObject] =
       (__ \ "fileMetadata").json.prune
@@ -273,15 +274,17 @@ object ImageExtras {
   def isValid(metadata: JsValue): Boolean =
     Config.requiredMetadata.forall(field => (metadata \ field).asOpt[String].isDefined)
 
-  def getCost(credit: Option[String], source: Option[String]) = {
+  def getCost(credit: Option[String], source: Option[String], rights: Option[List[String]]) = {
     val freeCredit   = credit.exists(isFreeCredit)
     val freeSource   = source.exists(isFreeSource)
     val payingSource = source.exists(isPaySource)
-    if ((freeCredit || freeSource) && ! payingSource) "free"
+    val freeRights   = rights.exists(hasFreeRights)
+    if (((freeCredit || freeSource) && ! payingSource) || freeRights) "free"
     else "pay"
   }
 
-  private def isFreeCredit(credit: String) = Config.freeCreditList.exists(f => f.toLowerCase == credit.toLowerCase)
-  private def isFreeSource(source: String) = Config.freeSourceList.exists(f => f.toLowerCase == source.toLowerCase)
-  private def isPaySource(source: String)  = Config.payGettySourceList.exists(f => f.toLowerCase == source.toLowerCase)
+  private def isFreeCredit(credit: String)        = Config.freeCreditList.exists(f => f.toLowerCase == credit.toLowerCase)
+  private def isFreeSource(source: String)        = Config.freeSourceList.exists(f => f.toLowerCase == source.toLowerCase)
+  private def isPaySource(source: String)         = Config.payGettySourceList.exists(f => f.toLowerCase == source.toLowerCase)
+  private def hasFreeRights(rights: List[String]) = rights.exists(Config.freeRights.contains(_))
 }
