@@ -7,7 +7,18 @@ object CapitaliseByline extends MetadataCleaner with CapitalisationFixer {
   override val joinWords = List("van", "der", "den", "dem", "von", "de", "du", "la", "et")
 
   def clean(metadata: ImageMetadata) =
-    metadata.copy(byline = metadata.byline.map(fixCapitalisation))
+    metadata.copy(byline = metadata.byline.map(fixNameCapitalisation))
+
+  def fixNameCapitalisation(s: String): String =
+    if (looksLikeAName(s)) {
+      fixCapitalisation(s)
+    } else s
+
+  // FIXME: is there no more efficient way of partial matching a regexp on a string?
+  val notNumbersOrSlash = """[^/0-9]+"""
+  def looksLikeAName(s: String): Boolean =
+    s.matches(notNumbersOrSlash) && s.split("\\s+").length > 1
+
 }
 
 object CapitaliseCity extends MetadataCleaner with CapitalisationFixer {
@@ -25,7 +36,7 @@ object CapitaliseCountry extends MetadataCleaner with CapitalisationFixer {
 trait CapitalisationFixer {
 
   def fixCapitalisation(s: String): String =
-    if (looksLikeAName(s) && isAllUpperCase(s)) {
+    if (isAllUpperCase(s)) {
       capitalise(s)
     } else s
 
@@ -56,11 +67,6 @@ trait CapitalisationFixer {
   def capitaliseAround(s: String, delimiter: String): String =
     s.split(delimiter).map(_.capitalize).mkString(delimiter)
 
-
-  // FIXME: is there no more efficient way of partial matching a regexp on a string?
-  val notNumbersOrSlash = """[^/0-9]+"""
-  def looksLikeAName(s: String): Boolean =
-    s.matches(notNumbersOrSlash) && s.split("\\s+").length > 1
 
   def isAllUpperCase(s: String): Boolean = s == s.toUpperCase
 }
