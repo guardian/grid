@@ -12,22 +12,31 @@ import java.io.InputStream
 import java.util.Scanner
 
 object ExifTool {
-  class ExifToolOutputConsumer extends OutputConsumer{
+  class ExifToolOutputConsumer extends OutputConsumer {
     import scala.concurrent.ExecutionContext.Implicits.global
     import akka.agent.Agent
 
-    val stringAgent: Agent[String] = Agent("")
+    private val consumerAgent: Agent[Map[String, String]] = Agent(Map[String, String]())
     def consumeOutput(is: InputStream) = {
-      stringAgent send convertStreamToString(is)
+      consumerAgent send convertExifToolTagOutputStringToMap(convertStreamToString(is))
+      is.close()
     }
 
-    def get(): String = {
-      stringAgent.get()
+    def future(): Future[Map[String, String]] = {
+      consumerAgent.future
+    }
+
+    private def convertExifToolTagOutputStringToMap(s: String): Map[String,String] = {
+      s.split("\\r?\\n").foldLeft(Map[String, String]()) { (memo, element) =>
+        memo + ((element.trim).split(":").map(_.trim) match {
+          case Array(key, value) => key -> value
+        })
+      }
     }
 
     private def convertStreamToString(is: InputStream): String = {
       val s = new Scanner(is).useDelimiter("\\A");
-      if(s.hasNext()) s.next() else ""
+      (if(s.hasNext()) s.next() else "")
     }
   }
   case class StreamableExifToolCmd(cmd: ExiftoolCmd, consumer: ExifToolOutputConsumer)
@@ -46,11 +55,11 @@ object ExifTool {
   def tagSource(source: File) = (new ETOperation()) |< (_.addImage(source.getAbsolutePath))
   def getTags(op: ETOperation)(tags: String) = op |< (_.getTags(tags))
 
-  def runOp(op: ETOperation): Future[String] = {
+  def runOp(op: ETOperation): Future[Map[String, String]] = {
     val exifTool = StreamableExifToolCmd.create
     exifTool.cmd.run(op)
 
-    exifTool.consumer.stringAgent.future
+    exifTool.consumer.future
   }
 }
 
