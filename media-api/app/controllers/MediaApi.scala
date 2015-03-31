@@ -147,11 +147,16 @@ object MediaApi extends Controller with ArgoHelpers {
       .flatMap(_.transform(transformers.addValidity(valid)))
       .flatMap(_.transform(transformers.addUsageCost(creditField, sourceField, rightsField))).get
 
-    val imageLinks = List(
-      Link("crops",     s"$cropperUri/crops/$id"),
+    val cropLink = Link("crops", s"$cropperUri/crops/$id")
+    val staticLinks = List(
       Link("metadata",  s"$metadataUri/metadata/$id"),
       Link("optimised", makeImgopsUri(new URI(secureUrl)))
     )
+    val imageLinks = if (valid) {
+      cropLink :: staticLinks
+    } else {
+      staticLinks
+    }
 
     (imageData, imageLinks)
   }
