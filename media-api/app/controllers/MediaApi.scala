@@ -272,11 +272,11 @@ object ImageExtras {
     val freeCredit   = credit.exists(isFreeCredit)
     val freeSource   = source.exists(isFreeSource)
     val payingSource = source.exists(isPaySource)
-    if ((freeCredit || freeSource) && ! payingSource) "free"
+    if ((freeCredit || freeSource) && ! payingSource)  "free"
     else "pay"
   }
 
-  private def isFreeCredit(credit: String) = Config.freeCreditList.exists(f => f.toLowerCase == credit.toLowerCase)
-  private def isFreeSource(source: String) = Config.freeSourceList.exists(f => f.toLowerCase == source.toLowerCase)
-  private def isPaySource(source: String)  = Config.payGettySourceList.exists(f => f.toLowerCase == source.toLowerCase)
+  private def isFreeCredit(credit: String)       = Config.freeCreditList.exists(f => f.toLowerCase == credit.toLowerCase)
+  private def isFreeSource(source: String)       = Config.freeSourceList.exists(f => f.toLowerCase == source.toLowerCase)
+  private def isPaySource(source: String)        = Config.payGettySourceList.exists(f => f.toLowerCase == source.toLowerCase)
 }
