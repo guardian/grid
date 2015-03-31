@@ -11,4 +11,6 @@ trait CommonPlayAppProperties {
 
   lazy val services = new Services(domainRoot, ssl)
 
+  lazy val freeRights: List[String] = List("handout", "PR image")
+
 }
