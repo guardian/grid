@@ -107,19 +107,19 @@ object ElasticSearch extends ElasticSearchClient {
 
     // Warning: this requires the capitalisation to be exact; we may want to sanitise the credits
     // to a canonical representation in the future
-    val creditFilter       = Config.freeCreditList.toNel.map(cs => filters.terms("metadata.credit", cs))
-    val sourceFilter       = Config.freeSourceList.toNel.map(cs => filters.terms("metadata.source", cs))
-    val freeWhitelist      = (creditFilter, sourceFilter) match {
+    val creditFilter        = Config.freeCreditList.toNel.map(cs => filters.terms("metadata.credit", cs))
+    val sourceFilter        = Config.freeSourceList.toNel.map(cs => filters.terms("metadata.source", cs))
+    val freeWhitelist       = (creditFilter, sourceFilter) match {
       case (Some(credit), Some(source)) => Some(filters.or(credit, source))
       case (creditOpt,    sourceOpt)    => creditOpt orElse sourceOpt
     }
-    val sourceExclFilter   = Config.payGettySourceList.toNel.map(cs => filters.not(filters.terms("metadata.source", cs)))
+    val sourceExclFilter    = Config.payGettySourceList.toNel.map(cs => filters.not(filters.terms("metadata.source", cs)))
     val freeFilter = (freeWhitelist, sourceExclFilter) match {
       case (Some(whitelist), Some(sourceExcl)) => Some(filters.and(whitelist, sourceExcl))
       case (whitelistOpt,    sourceExclOpt)    => whitelistOpt orElse sourceExclOpt
     }
-    val nonFreeFilter    = freeFilter.map(filters.not)
-    val costFilter       = params.free.flatMap(free => if (free) freeFilter else nonFreeFilter)
+    val nonFreeFilter       = freeFilter.map(filters.not)
+    val costFilter          = params.free.flatMap(free => if (free) freeFilter else nonFreeFilter)
 
     val filter = (metadataFilter.toList ++ labelFilter ++ archivedFilter ++
                   uploadedByFilter ++ idsFilter ++ validityFilter ++ costFilter ++
