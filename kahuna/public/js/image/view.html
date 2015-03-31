@@ -20,12 +20,12 @@
                              with-text="true"></ui-archiver>
 
                 <a class="top-bar__item"
-                   ng:if="ctrl.image.data.valid"
+                   ng:if="ctrl.canBeCropped"
                    ui:sref="crop({imageId: ctrl.image.data.id})">
                     ✂ <span ng:if="ctrl.crop">re</span>crop
                 </a>
                 <span class="top-bar__item"
-                      ng:if="! ctrl.image.data.valid">cannot crop (missing metadata)</span>
+                      ng:if="! ctrl.canBeCropped">cannot crop</span>
             </div>
 
             <ui-user-actions></ui-user-actions>
@@ -35,7 +35,11 @@
     <div class="image-details">
 
         <div class="image-info">
-            <div ng:if="ctrl.image.data.cost == 'pay'"
+            <div ng:if="! ctrl.image.data.valid"
+                 class="image-info__group cost cost--pay">
+                invalid (missing metadata)
+            </div>
+            <div ng:if="ctrl.image.data.valid && ctrl.image.data.cost == 'pay'"
                  class="image-info__group cost cost--pay">
                 pay to use
             </div>

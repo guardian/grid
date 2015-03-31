@@ -51,14 +51,14 @@ object Bounds {
 
 
 // TODO: share in common lib
-case class SourceImage(id: String, source: Asset, metadata: ImageMetadata)
-
+case class SourceImage(id: String, source: Asset, valid: Boolean, metadata: ImageMetadata)
 object SourceImage {
   implicit val sourceImageReads: Reads[SourceImage] =
     ((__ \ "data" \ "id").read[String] ~
-     (__ \ "data" \ "source").read[Asset] ~
-     (__ \ "data" \ "metadata").read[ImageMetadata]
-    )(SourceImage.apply _)
+      (__ \ "data" \ "source").read[Asset] ~
+      (__ \ "data" \ "valid").read[Boolean] ~
+      (__ \ "data" \ "metadata").read[ImageMetadata]
+      )(SourceImage.apply _)
 }
 
 case class Asset(file: String, dimensions: Dimensions, secureUrl: String)

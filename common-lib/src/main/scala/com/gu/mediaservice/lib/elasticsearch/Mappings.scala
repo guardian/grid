@@ -79,6 +79,7 @@ object Mappings {
     nonDynamicObj(
       "metadata" -> metadataMapping,
       "labels"   -> nonAnalysedList("label"),
+      "rights"   -> nonAnalysedList("right"),
       "archived" -> boolean
     )
 
