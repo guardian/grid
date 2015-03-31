@@ -102,6 +102,7 @@ object Application extends Controller with ArgoHelpers {
       apiImage   <- fetchSourceFromApi(source.uri)
       sourceFile <- tempFileFromURL(new URL(apiImage.source.secureUrl), "cropSource", "")
 
+      metadata   = apiImage.metadata
       Bounds(_, _, masterW, masterH) = source.bounds
       aspect     = masterW.toFloat / masterH
       portrait   = masterW < masterH
@@ -113,7 +114,7 @@ object Application extends Controller with ArgoHelpers {
       sizings <- Future.traverse(outputDims) { dim =>
         val filename = outputFilename(apiImage, source.bounds, dim.width)
         for {
-          file    <- Crops.create(sourceFile, source, dim)
+          file    <- Crops.create(sourceFile, source, dim, metadata)
           sizing  <- CropStorage.storeCropSizing(file, filename, "image/jpeg", crop, dim)
           _       <- delete(file)
         }
