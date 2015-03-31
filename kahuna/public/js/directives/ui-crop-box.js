@@ -99,10 +99,10 @@ controlsDirectives.directive('uiCropBox', ['$timeout', '$parse', 'safeApply', 'n
                 // (e.g. redraw after aspect changed) or not (user
                 // interaction)
                 safeApply(scope, function() {
-                    scope.coords.x1 = parseInt(c.x, 10);
-                    scope.coords.y1 = parseInt(c.y, 10);
-                    scope.coords.x2 = parseInt(c.x2, 10);
-                    scope.coords.y2 = parseInt(c.y2, 10);
+                    scope.coords.x1 = c.x;
+                    scope.coords.y1 = c.y;
+                    scope.coords.x2 = c.x2;
+                    scope.coords.y2 = c.y2;
                 });
             }
 

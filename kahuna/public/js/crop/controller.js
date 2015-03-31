@@ -28,8 +28,9 @@ crop.controller('ImageCropCtrl',
         x2: 10000,
         y2: 10000
     };
-    var cropWidth = () => $scope.coords.x2 - $scope.coords.x1;
-    var cropHeight = () => $scope.coords.y2 - $scope.coords.y1;
+
+    var cropWidth = () => Math.round($scope.coords.x2 - $scope.coords.x1);
+    var cropHeight = () => Math.round($scope.coords.y2 - $scope.coords.y1);
     this.cropSize = () => cropWidth() + ' x ' + cropHeight();
     this.cropSizeWarning = () => cropWidth() < 500;
 
@@ -39,8 +40,8 @@ crop.controller('ImageCropCtrl',
         var coords = {
             x: $scope.coords.x1,
             y: $scope.coords.y1,
-            width:  $scope.coords.x2 - $scope.coords.x1,
-            height: $scope.coords.y2 - $scope.coords.y1
+            width:  cropWidth(),
+            height: cropHeight()
         };
 
         var ratio;
