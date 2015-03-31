@@ -34,6 +34,7 @@ search.config(['$stateProvider',
         url: 'search?query&ids&since&nonFree&archived&valid&uploadedBy&until',
         template: searchResultsTemplate,
         controller: 'SearchResultsCtrl',
+        controllerAs: 'searchResultsCtrl',
         data: {
             title: function(params) {
                 return params.query ? params.query : 'search';

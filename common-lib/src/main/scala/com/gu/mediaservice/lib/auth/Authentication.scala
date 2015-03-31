@@ -9,6 +9,9 @@ import play.api.mvc.Security.AuthenticatedRequest
 import com.gu.pandomainauth.model.{AuthenticatedUser, User}
 import com.gu.pandomainauth.action.UserRequest
 
+import com.gu.mediaservice.lib.play.DigestedFile
+import java.io.File
+
 
 sealed trait Principal {
   def name: String
@@ -19,8 +22,6 @@ case class PandaUser(email: String, firstName: String, lastName: String, avatarU
 }
 
 case class AuthenticatedService(name: String) extends Principal
-
-
 
 class PandaAuthenticated(loginUri_ : String, authCallbackBaseUri_ : String)
     extends ActionBuilder[({ type R[A] = AuthenticatedRequest[A, Principal] })#R]
@@ -45,11 +46,31 @@ class PandaAuthenticated(loginUri_ : String, authCallbackBaseUri_ : String)
   }
 }
 
+case class AuthenticatedUpload(keyStore: KeyStore, loginUri: String, authCallbackBaseUri: String) extends AuthenticatedBase {
 
+  import com.gu.mediaservice.lib.play.BodyParsers.digestedFile
 
-case class Authenticated(keyStore: KeyStore, loginUri: String, authCallbackBaseUri: String)
-  extends ActionBuilder[({ type R[A] = AuthenticatedRequest[A, Principal] })#R]
-  with ArgoErrorResponses {
+  def digestedFileAsync(tempDir: String):(AuthenticatedRequest[DigestedFile,Principal] => Future[Result]) => Action[DigestedFile] = {
+    AuthenticatedUpload(keyStore, loginUri, authCallbackBaseUri).async(digestedFile(createTempFile(tempDir))) _
+  }
+
+  override def invokeBlock[A](request: Request[A], block: RequestHandler[A]): Future[Result] = {
+    val DigestedFile(tempFile, id) = request.body
+    val result  = super.invokeBlock(request, block)
+
+    result.onComplete(_ => tempFile.delete())
+    result
+  }
+
+  def createTempFile(dir: String) = File.createTempFile("requestBody", "", new File(dir))
+}
+
+case class Authenticated(keyStore: KeyStore, loginUri: String, authCallbackBaseUri: String) extends AuthenticatedBase
+trait AuthenticatedBase extends ActionBuilder[({ type R[A] = AuthenticatedRequest[A, Principal] })#R] with ArgoErrorResponses {
+
+  val keyStore: KeyStore
+  val loginUri: String
+  val authCallbackBaseUri: String
 
   type RequestHandler[A] = AuthenticatedRequest[A, Principal] => Future[Result]
 
