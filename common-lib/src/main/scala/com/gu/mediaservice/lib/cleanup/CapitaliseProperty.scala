@@ -36,7 +36,7 @@ object CapitaliseCountry extends MetadataCleaner with CapitalisationFixer {
 trait CapitalisationFixer {
 
   def fixCapitalisation(s: String): String =
-    if (isAllUpperCase(s)) {
+    if (isAllUpperCase(s) || isAllLowerCase(s)) {
       capitalise(s)
     } else s
 
@@ -69,4 +69,5 @@ trait CapitalisationFixer {
 
 
   def isAllUpperCase(s: String): Boolean = s == s.toUpperCase
+  def isAllLowerCase(s: String): Boolean = s == s.toLowerCase
 }
