@@ -114,18 +114,19 @@ object Application extends Controller with ArgoHelpers {
   }
 
   def addRights(id: String) = Authenticated.async { req =>
-    listForm.bindFromRequest()(req).fold(
-      errors =>
-        Future.successful(BadRequest(errors.errorsAsJson)),
-      rights => {
+    rightsForm.bindFromRequest()(req).fold(
+      form => {
+        val errorMessage = getDataListFormError(form)
+        Future.successful(respondError(BadRequest, "invalid-rights-data", errorMessage))
+      },
+      rights =>
         dynamo.setAdd(id, "rights", rights)
           .map(publishAndRespond(id, respondCollection(rightsCollection(id, rights.toSet), None, None)))
-      }
     )
   }
 
   def removeRight(id: String, right: String) = Authenticated.async {
-    dynamo.setDelete(id, "right", right) map publishAndRespond(id)
+    dynamo.setDelete(id, "rights", right) map publishAndRespond(id)
   }
 
 
@@ -161,6 +162,19 @@ object Application extends Controller with ArgoHelpers {
     Notifications.publish(message, "update-image-user-metadata")
 
     result
+  }
+
+  // This get's the form error based on out data structure that we send over i.e.
+  // { "data": {data} }
+  def getDataListFormError(form: Form[List[String]]): String = {
+    def printData(data: Map[String, String]): String = {
+      data.map{case(k, v) => v}.toList.mkString(", ")
+    }
+    // only use the head error as they are going to be the same
+    val message = form.errors.headOption
+                      .map(_.message + s", given data: ${printData(form.data)}")
+                      .getOrElse(s"Unknown error, given data: ${printData(form.data)}")
+    message
   }
 
   // FIXME: At the moment we can't accept keywords as it is a list
@@ -203,6 +217,13 @@ object Application extends Controller with ArgoHelpers {
 
   val listForm: Form[List[String]] = Form(
      single[List[String]]("data" -> list(text))
+  )
+
+  val rightsForm: Form[List[String]] = Form(
+     single[List[String]](
+      "data" -> list(text.verifying(
+        s"Invalid rights values. Rights allowed are: ${Config.freeRights.mkString(", ")}",
+        Config.freeRights.contains(_))))
   )
 
 }
