@@ -26,9 +26,19 @@ object CapitaliseCity extends MetadataCleaner with CapitalisationFixer {
     metadata.copy(city = metadata.city.map(fixCapitalisation))
 }
 
+object CapitaliseState extends MetadataCleaner with CapitalisationFixer {
+  def clean(metadata: ImageMetadata) =
+    metadata.copy(state = metadata.state.map(fixCapitalisation))
+}
+
 object CapitaliseCountry extends MetadataCleaner with CapitalisationFixer {
   def clean(metadata: ImageMetadata) =
     metadata.copy(country = metadata.country.map(fixCapitalisation))
+}
+
+object CapitaliseSubLocation extends MetadataCleaner with CapitalisationFixer {
+  def clean(metadata: ImageMetadata) =
+    metadata.copy(subLocation = metadata.subLocation.map(fixCapitalisation))
 }
 
 
