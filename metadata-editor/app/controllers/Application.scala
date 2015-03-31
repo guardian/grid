@@ -57,10 +57,8 @@ object Application extends Controller with ArgoHelpers {
 
     } recover {
       // Empty object as no metadata edits recorded
-      case NoItemFound => {
-        val e = Edits(false, List(), Edits.emptyMetadata)
-        respond(Json.toJson(e)(Edits.EditsWritesArgo(id)))
-      }
+      case NoItemFound =>
+        respond(Json.toJson(Edits.getEmpty)(Edits.EditsWritesArgo(id)))
     }
   }
 
@@ -109,6 +107,28 @@ object Application extends Controller with ArgoHelpers {
   }
 
 
+  def getRights(id: String) = Authenticated.async {
+    dynamo.setGet(id, "rights")
+      .map(rightsCollection(id, _))
+      .map(respondCollection(_))
+  }
+
+  def addRights(id: String) = Authenticated.async { req =>
+    listForm.bindFromRequest()(req).fold(
+      errors =>
+        Future.successful(BadRequest(errors.errorsAsJson)),
+      rights => {
+        dynamo.setAdd(id, "rights", rights)
+          .map(publishAndRespond(id, respondCollection(rightsCollection(id, rights.toSet), None, None)))
+      }
+    )
+  }
+
+  def removeRight(id: String, right: String) = Authenticated.async {
+    dynamo.setDelete(id, "right", right) map publishAndRespond(id)
+  }
+
+
   def getMetadata(id: String) = Authenticated.async {
     dynamo.jsonGet(id, "metadata").map { dynamoEntry =>
       val metadata = (dynamoEntry \ "metadata").as[ImageMetadata]
@@ -125,8 +145,11 @@ object Application extends Controller with ArgoHelpers {
     )
   }
 
+  def rightsCollection(id: String, rights: Set[String]): Seq[EmbeddedEntity[String]] =
+    rights.map(Edits.setUnitEntity(id, "rights", _)).toSeq
+
   def labelsCollection(id: String, labels: Set[String]): Seq[EmbeddedEntity[String]] =
-    labels.map(Edits.labelEntity(id, _)).toSeq
+    labels.map(Edits.setUnitEntity(id, "labels", _)).toSeq
 
   // Publish changes to SNS and return an empty Result
   def publishAndRespond(id: String, result: Result = NoContent)(metadata: JsObject): Result = {
