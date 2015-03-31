@@ -22,7 +22,9 @@ class MetadataCleaners(creditBylineMap: Map[String, List[String]]) {
     CountryCode,
     CapitaliseByline,
     CapitaliseCountry,
+    CapitaliseState,
     CapitaliseCity,
+    CapitaliseSubLocation,
     DropRedundantTitle
   )
 
