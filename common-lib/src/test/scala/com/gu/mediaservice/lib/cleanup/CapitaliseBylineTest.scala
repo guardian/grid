@@ -17,6 +17,10 @@ class CapitaliseBylineTest extends FunSpec with Matchers with MetadataHelper {
     expectUnchanged("Sébastien Cevey")
   }
 
+  it("should capitalise simple lowercase names") {
+    expectCleaned("james gorrie", "James Gorrie")
+  }
+
   it("should capitalise simple uppercase names") {
     expectCleaned("JAMES GORRIE", "James Gorrie")
   }
