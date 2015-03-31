@@ -125,7 +125,7 @@ object Application extends Controller with ArgoHelpers {
   }
 
   def removeRight(id: String, right: String) = Authenticated.async {
-    dynamo.setDelete(id, "right", right) map publishAndRespond(id)
+    dynamo.setDelete(id, "rights", right) map publishAndRespond(id)
   }
 
 
