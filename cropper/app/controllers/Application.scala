@@ -103,6 +103,7 @@ object Application extends Controller with ArgoHelpers {
 
     for {
       apiImage   <- fetchSourceFromApi(source.uri)
+      // Only allow cropping if image is valid, else exit
       _          <- if (apiImage.valid) Future.successful(()) else Future.failed(InvalidImage)
       sourceFile <- tempFileFromURL(new URL(apiImage.source.secureUrl), "cropSource", "")
 
