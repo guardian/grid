@@ -54,7 +54,6 @@ case class AuthenticatedUpload(keyStore: KeyStore, loginUri: String, authCallbac
     AuthenticatedUpload(keyStore, loginUri, authCallbackBaseUri).async(digestedFile(createTempFile(tempDir))) _
   }
 
-   // Try to auth by API key, and failing that, with Panda
   override def invokeBlock[A](request: Request[A], block: RequestHandler[A]): Future[Result] = {
     val DigestedFile(tempFile, id) = request.body
     val result  = super.invokeBlock(request, block)
