@@ -1,4 +1,4 @@
-package lib.play
+package com.gu.mediaservice.lib.play
 
 import java.io.{FileOutputStream, File}
 import java.security.MessageDigest
