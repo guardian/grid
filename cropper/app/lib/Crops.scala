@@ -15,14 +15,12 @@ object Crops {
   import lib.imaging.ExifTool._
 
   def tagFilter(metadata: ImageMetadata) = {
-    //val tags = metadata.getClass.getDeclaredFields.map(
-    //  _.getName -> metadata.productIterator.next
-    //).toMap.collect {
-    //  case ("copyright", Some(value)) => ("Copyright", value)
-    //  case ("copyrightNotice", Some(value)) => ("Copyright Notice", value)
-    //}.toMap
-
-    //println(tags)
+    Map(
+      "Copyright" -> metadata.copyright,
+      "Copyright Notice" -> metadata.copyrightNotice,
+      "Credit" -> metadata.credit,
+      "Original Transmission, Reference" -> metadata.suppliersReference
+    ).collect { case (key, Some(value)) => (key, value) }
   }
 
   /** Crops the source image and saves the output to a JPEG file on disk.
@@ -30,10 +28,6 @@ object Crops {
     * It is the responsibility of the caller to clean up the file when it is no longer needed.
     */
   def create(sourceFile: File, spec: CropSource, dimensions: Dimensions, metadata: ImageMetadata): Future[File] = {
-    tagFilter(metadata)
-
-    val tags = Map("Creator" -> "Jim Bob")
-
     for {
       outputFile <- createTempFile("cropOutput", ".jpg")
       cropSource  = imageSource(sourceFile)
@@ -42,6 +36,7 @@ object Crops {
       addOutput   = addDestImage(stripped)(outputFile)
       _          <- runConvertCmd(addOutput)
       source      = tagSource(outputFile)
+      tags        = tagFilter(metadata)
       tagged      = setTags(source)(tags)
       _          <- runExiftoolCmd(tagged)
     }
