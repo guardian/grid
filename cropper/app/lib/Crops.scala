@@ -19,8 +19,8 @@ object Crops {
     for {
       outputFile <- createTempFile("cropOutput", ".jpg")
       source      = imageSource(sourceFile)
-      cropped     = cropResize(source, spec.bounds, dimensions)
-      stripped    = stripMeta(cropped)
+      stripped    = stripMeta(source)
+      cropped     = cropResize(stripped, spec.bounds, dimensions)
       addOutput   = addDestImage(stripped, outputFile)
       _          <- runOp(addOutput)
     }
