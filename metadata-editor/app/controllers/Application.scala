@@ -114,9 +114,10 @@ object Application extends Controller with ArgoHelpers {
   }
 
   def addRights(id: String) = Authenticated.async { req =>
-    listForm.bindFromRequest()(req).fold(
-      errors =>
-        Future.successful(BadRequest(errors.errorsAsJson)),
+    rightsForm.bindFromRequest()(req).fold(
+      errors =>{
+        println("WRONGWRONG")
+        Future.successful(BadRequest(errors.errorsAsJson))},
       rights => {
         dynamo.setAdd(id, "rights", rights)
           .map(publishAndRespond(id, respondCollection(rightsCollection(id, rights.toSet), None, None)))
@@ -203,6 +204,10 @@ object Application extends Controller with ArgoHelpers {
 
   val listForm: Form[List[String]] = Form(
      single[List[String]]("data" -> list(text))
+  )
+
+  val rightsForm: Form[List[String]] = Form(
+     single[List[String]]("data" -> list(text.verifying(Config.freeRights.contains(_))))
   )
 
 }
