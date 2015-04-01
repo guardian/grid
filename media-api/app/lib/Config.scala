@@ -51,13 +51,46 @@ object Config extends CommonPlayAppConfig with CommonPlayAppProperties {
 
   val requiredMetadata = List("credit", "description")
 
-  val freeCreditList = List("EPA", "REUTERS", "PA", "AP", "Associated Press", "RONALD GRANT",
-    "Press Association Images", "Action Images", "Keystone", "AFP", "Alamy", "FilmMagic", "WireImage",
-    "Pool", "Rex Features", "Allsport", "BFI", "ANSA", "The Art Archive", "Hulton Archive", "Hulton Getty", "RTRPIX",
-    "Community Newswire", "THE RONALD GRANT ARCHIVE", "NPA ROTA", "Ronald Grant Archive", "PA WIRE", "AP POOL",
-    "REUTER", "dpa", "BBC", "Allstar Picture Library", "AAPIMAGE", "IBL/REX", "Corbis", "NASA Earth Observatory",
-    "Getty Images", "AFP/Getty Images", "Bloomberg via Getty Images",
-    "Fairfax Media via Getty Images", "Fairfax Media via Getty Images",
+  // TODO: Review these with RCS et al
+  val freeCreditList = List(
+    "AAPIMAGE",
+    "AFP",
+    "ANSA",
+    "AP",
+    "AP POOL",
+    "Action Images",
+    "Alamy",
+    "Allsport",
+    "Allstar Picture Library",
+    "Associated Press",
+    "BBC",
+    "BFI",
+    "Community Newswire",
+    "Corbis",
+    "dpa",
+    "EPA",
+    "FilmMagic",
+    "Hulton Archive",
+    "Hulton Getty",
+    "IBL/REX",
+    "Keystone",
+    "NASA Earth Observatory",
+    "NPA ROTA", "PA", "PA WIRE",
+    "Pool",
+    // annoyingly I have seen some REUTER images
+    "REUTER", "REUTERS",
+    "RONALD GRANT",
+    "RTRPIX",
+    "Rex Features",
+    "Ronald Grant Archive",
+    "THE RONALD GRANT ARCHIVE",
+    "The Art Archive",
+    "WireImage",
+    // Getty
+    "Getty Images",
+    "AFP/Getty Images",
+    "Bloomberg via Getty Images",
+    "Fairfax Media via Getty Images",
     // FIXME: we've actually settled on "The Guardian" as canonical source.
     // There's now a MetadataCleaner to transform all to The Guardian canonical name.
     // We need to migrate all indexed content with "Guardian" to "The Guardian" before we can
