@@ -49,7 +49,7 @@ object MediaApi extends Controller with ArgoHelpers {
       Link("metadata-search", s"$rootUri/images/metadata/{field}{?q}"),
       Link("cropper",         cropperUri),
       Link("loader",          loaderUri),
-      Link("metadata",        metadataUri),
+      Link("edits",           metadataUri),
       Link("session",         s"$kahunaUri/session")
     )
     respond(indexData, indexLinks)
