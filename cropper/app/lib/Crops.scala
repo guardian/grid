@@ -9,17 +9,16 @@ import model.{Dimensions, CropSource}
 
 import com.gu.mediaservice.model.ImageMetadata
 
-
 object Crops {
   import lib.imaging.Convert._
   import lib.imaging.ExifTool._
 
   def tagFilter(metadata: ImageMetadata) = {
-    Map(
+    Map[String, Option[String]](
       "Copyright" -> metadata.copyright,
-      "Copyright Notice" -> metadata.copyrightNotice,
+      "CopyrightNotice" -> metadata.copyrightNotice,
       "Credit" -> metadata.credit,
-      "Original Transmission, Reference" -> metadata.suppliersReference
+      "OriginalTransmissionReference" -> metadata.suppliersReference
     ).collect { case (key, Some(value)) => (key, value) }
   }
 
@@ -33,7 +32,7 @@ object Crops {
       cropSource  = imageSource(sourceFile)
       stripped    = stripMeta(cropSource)
       cropped     = cropResize(stripped)(spec.bounds, dimensions)
-      addOutput   = addDestImage(stripped)(outputFile)
+      addOutput   = addDestImage(cropped)(outputFile)
       _          <- runConvertCmd(addOutput)
       source      = tagSource(outputFile)
       tags        = tagFilter(metadata)
