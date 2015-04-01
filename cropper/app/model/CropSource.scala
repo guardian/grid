@@ -4,6 +4,8 @@ import play.api.libs.json._
 import play.api.libs.functional.syntax._
 import org.joda.time.DateTime
 
+import com.gu.mediaservice.model.ImageMetadata
+
 case class Crop(id: String, author: Option[String], date: Option[DateTime], specification: CropSource, assets: List[CropSizing])
 object Crop {
   import com.gu.mediaservice.lib.formatting._
@@ -49,13 +51,13 @@ object Bounds {
 
 
 // TODO: share in common lib
-case class SourceImage(id: String, source: Asset, valid: Boolean)
-
+case class SourceImage(id: String, source: Asset, valid: Boolean, metadata: ImageMetadata)
 object SourceImage {
   implicit val sourceImageReads: Reads[SourceImage] =
     ((__ \ "data" \ "id").read[String] ~
       (__ \ "data" \ "source").read[Asset] ~
-      (__ \ "data" \ "valid").read[Boolean]
+      (__ \ "data" \ "valid").read[Boolean] ~
+      (__ \ "data" \ "metadata").read[ImageMetadata]
       )(SourceImage.apply _)
 }
 
