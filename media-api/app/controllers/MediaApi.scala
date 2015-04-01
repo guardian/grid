@@ -50,6 +50,7 @@ object MediaApi extends Controller with ArgoHelpers {
       Link("cropper",         cropperUri),
       Link("loader",          loaderUri),
       Link("metadata",        metadataUri),
+      Link("edits",           metadataUri),
       Link("session",         s"$kahunaUri/session")
     )
     respond(indexData, indexLinks)
@@ -150,6 +151,7 @@ object MediaApi extends Controller with ArgoHelpers {
     val cropLink = Link("crops", s"$cropperUri/crops/$id")
     val staticLinks = List(
       Link("metadata",  s"$metadataUri/metadata/$id"),
+      Link("edits",     s"$metadataUri/metadata/$id"),
       Link("optimised", makeImgopsUri(new URI(secureUrl)))
     )
     val imageLinks = if (valid) {
