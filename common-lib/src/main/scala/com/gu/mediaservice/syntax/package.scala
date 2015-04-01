@@ -7,3 +7,4 @@ package object syntax
   with PlayJsonSyntax
   with RequestHeaderSyntax
   with FutureSyntax
+  with ProcessSyntax
