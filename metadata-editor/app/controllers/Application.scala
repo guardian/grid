@@ -43,7 +43,7 @@ object Application extends Controller with ArgoHelpers {
       Link("archived", s"$rootUri/metadata/{id}/archived"),
       Link("labels",   s"$rootUri/metadata/{id}/labels"),
       Link("rights",   s"$rootUri/metadata/{id}/rights"),
-      Link("metadata", s"$rootUri/metadata/{id}/rights")
+      Link("metadata", s"$rootUri/metadata/{id}/metdata")
     )
     respond(indexData, indexLinks)
   }
