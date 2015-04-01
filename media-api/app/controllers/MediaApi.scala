@@ -50,6 +50,7 @@ object MediaApi extends Controller with ArgoHelpers {
       Link("cropper",         cropperUri),
       Link("loader",          loaderUri),
       Link("metadata",        metadataUri),
+      Link("edits",           metadataUri),
       Link("session",         s"$kahunaUri/session")
     )
     respond(indexData, indexLinks)
