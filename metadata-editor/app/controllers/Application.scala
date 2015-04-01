@@ -36,11 +36,16 @@ object Application extends Controller with ArgoHelpers {
   val dynamo = new DynamoDB(Config.awsCredentials, Config.dynamoRegion, Config.editsTable)
 
   // TODO: add links to the different responses esp. to the reference image
-  def index = Action {
-    respond(Map("description" -> "This is the Metadata Editor Service"), List(
+  val indexResponse = {
+    val indexData = Map("description" -> "This is the Metadata Editor Service")
+    val indexLinks = List(
       Link("metadata", s"$rootUri/metadata/{id}")
-    ))
+    )
+    respond(indexData, indexLinks)
   }
+
+  def index = Authenticated { indexResponse }
+  
 
   def entityUri(id: String, endpoint: String = ""): URI =
     URI.create(s"$rootUri/metadata/$id$endpoint")
