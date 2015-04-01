@@ -5,7 +5,7 @@ import org.scalatest.{FunSpec, Matchers}
 
 class CapitaliseBylineTest extends FunSpec with Matchers with MetadataHelper {
 
-  it("should not apply capitilisation to single words") {
+  it("should not apply capitalisation to single words") {
     expectUnchanged("PA")
   }
 
@@ -15,6 +15,10 @@ class CapitaliseBylineTest extends FunSpec with Matchers with MetadataHelper {
 
   it("should not change a correctly capitalised name that includes accents") {
     expectUnchanged("Sébastien Cevey")
+  }
+
+  it("should capitalise simple lowercase names") {
+    expectCleaned("james gorrie", "James Gorrie")
   }
 
   it("should capitalise simple uppercase names") {
