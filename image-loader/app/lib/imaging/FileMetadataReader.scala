@@ -17,7 +17,7 @@ import model.Dimensions
 import com.gu.mediaservice.model.FileMetadata
 
 
-object FileMetadataConverter {
+object FileMetadataReader {
 
   private implicit val ctx: ExecutionContext =
     ExecutionContext.fromExecutor(Executors.newCachedThreadPool)
