@@ -3,31 +3,45 @@ package lib.imaging
 import java.util.concurrent.Executors
 import java.io.File
 import scala.concurrent.{Future, ExecutionContext}
-import org.im4java.core.{IMOperation, ConvertCmd}
+import org.im4java.core.{ETOperation, IMOperation, Operation, ConvertCmd, ExiftoolCmd}
+import org.im4java.process.OutputConsumer
 import lib.Config
 import model.{Bounds, Dimensions}
+import java.io.InputStream
+import java.util.Scanner
+import scalaz.syntax.id._
 
-object Conversion {
 
+object ExifTool {
   private implicit val ctx: ExecutionContext =
     ExecutionContext.fromExecutor(Executors.newFixedThreadPool(Config.imagingThreadPoolSize))
 
-  def cropResize(source: File, dest: File, bounds: Bounds, dimensions: Dimensions): Future[Unit] = {
-    val Bounds(x, y, w, h) = bounds
-    val cmd = new ConvertCmd
-    val op = new IMOperation
-    op.addImage(source.getAbsolutePath)
-      op.crop(w, h, x, y)
-      op.scale(dimensions.width, dimensions.height)
-      op.colorspace("RGB")
-      op.addImage(dest.getAbsolutePath)
-    for {
-      _ <- runOp(cmd, op)
-    }
-    yield ()
+  def tagSource(source: File) = (new ETOperation()) <| (_.addImage(source.getAbsolutePath))
+
+  def setTags(ops: ETOperation)(tags: Map[String, String]): ETOperation =  {
+    tags.foldLeft(ops) { case (ops, (key, value)) => ops <| (_.setTags(s"$key=$value")) }
   }
 
-  private def runOp(cmd: ConvertCmd, op: IMOperation): Future[Unit] =
-    Future(cmd.run(op))
+  def runExiftoolCmd(op: ETOperation): Future[Unit] = Future((new ExiftoolCmd).run(op))
+}
 
+object Convert {
+  private implicit val ctx: ExecutionContext =
+    ExecutionContext.fromExecutor(Executors.newFixedThreadPool(Config.imagingThreadPoolSize))
+
+  def imageSource(source: File) = (new IMOperation()) <| (_.addImage(source.getAbsolutePath))
+
+  def stripMeta(op: IMOperation) = op <| (_.strip())
+
+  def addDestImage(op: IMOperation)(dest: File) = op <| (_.addImage(dest.getAbsolutePath))
+
+  def cropResize(op: IMOperation)(bounds: Bounds, dimensions: Dimensions): IMOperation = op <| { o =>
+    val Bounds(x, y, w, h) = bounds
+
+    o.crop(w, h, x, y)
+    o.scale(dimensions.width, dimensions.height)
+    o.colorspace("RGB")
+  }
+
+  def runConvertCmd(op: IMOperation): Future[Unit] = Future((new ConvertCmd).run(op))
 }
