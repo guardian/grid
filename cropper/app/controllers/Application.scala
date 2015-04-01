@@ -15,6 +15,7 @@ import _root_.play.api.Play.current
 import com.gu.mediaservice.lib.auth
 import com.gu.mediaservice.lib.auth.{AuthenticatedService, PandaUser, KeyStore}
 import com.gu.mediaservice.lib.argo.ArgoHelpers
+import com.gu.mediaservice.lib.argo.model.Link
 
 import org.joda.time.DateTime
 
@@ -33,15 +34,16 @@ object Application extends Controller with ArgoHelpers {
 
   val mediaApiKey = keyStore.findKey("cropper").getOrElse(throw new Error("Missing cropper API key in key bucket"))
 
-  def index = Action {
-    val response = Json.obj(
-      "data"  -> Json.obj("description" -> "This is the Cropper Service"),
-      "links" -> Json.arr(
-        Json.obj("rel" -> "crop", "href" -> s"$rootUri/crops")
-      )
+  val indexResponse = {
+    val indexData = Map("description" -> "This is the Cropper Service")
+    val indexLinks = List(
+      Link("crop", s"$rootUri/crops")
     )
-    Ok(response).as(ArgoMediaType)
+    respond(indexData, indexLinks)
   }
+
+  def index = Authenticated { indexResponse }
+
 
   val cropSourceForm: Form[CropSource] = Form(
     tuple("source" -> nonEmptyText, "x" -> number, "y" -> number, "width" -> number, "height" -> number, "aspectRatio" -> optional(nonEmptyText))

@@ -34,6 +34,8 @@ object MediaApi extends Controller with ArgoHelpers {
 
   import Config.{rootUri, cropperUri, loaderUri, metadataUri, kahunaUri, imgopsUri, loginUri}
 
+  val Authenticated = auth.Authenticated(keyStore, loginUri, Config.kahunaUri)
+
 
   val indexResponse = {
     val searchParamList = List("q", "ids", "offset", "length", "fromDate", "toDate",
@@ -53,10 +55,8 @@ object MediaApi extends Controller with ArgoHelpers {
     respond(indexData, indexLinks)
   }
 
-  def index = Action { indexResponse }
+  def index = Authenticated { indexResponse }
 
-
-  val Authenticated = auth.Authenticated(keyStore, loginUri, Config.kahunaUri)
 
   val ImageNotFound = respondError(NotFound, "image-not-found", "No image found with the given id")
 
