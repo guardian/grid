@@ -39,13 +39,17 @@ object Application extends Controller with ArgoHelpers {
   val indexResponse = {
     val indexData = Map("description" -> "This is the Metadata Editor Service")
     val indexLinks = List(
-      Link("metadata", s"$rootUri/metadata/{id}")
+      Link("edits", s"$rootUri/metadata/{id}"),
+      Link("archived", s"$rootUri/metadata/{id}/archived"),
+      Link("labels", s"$rootUri/metadata/{id}/labels"),
+      Link("rights", s"$rootUri/metadata/{id}/rights"),
+      Link("metadata", s"$rootUri/metadata/{id}/metadata")
     )
     respond(indexData, indexLinks)
   }
 
   def index = Authenticated { indexResponse }
-  
+
 
   def entityUri(id: String, endpoint: String = ""): URI =
     URI.create(s"$rootUri/metadata/$id$endpoint")
@@ -55,6 +59,12 @@ object Application extends Controller with ArgoHelpers {
     dynamo.get(id) map { dynamoEntry =>
 
       val edits = dynamoEntry.as[Edits]
+      val links = List(
+        Link("archived", s"$rootUri/metadata/$id/archived"),
+        Link("labels", s"$rootUri/metadata/$id/labels"),
+        Link("rights", s"$rootUri/metadata/$id/rights"),
+        Link("metadata", s"$rootUri/metadata/$id/metadata")
+      )
 
       // We have to do the to JSON here as we are using a custom JSON writes.
       // TODO: have the argo helpers allow you to do this

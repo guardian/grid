@@ -6,15 +6,11 @@ apiServices.factory('editsApi', ['$q', 'mediaApi', function($q, mediaApi) {
     var updatedMetadataDefs = new Map();
 
     function getRoot() {
-        return root || (root = mediaApi.root.follow('metadata'));
-    }
-
-    function getEdits(id) {
-        return getRoot().follow('metadata', { id }).get();
+        return root || (root = mediaApi.root.follow('edits'));
     }
 
     function getMetadata(id) {
-        return getEdits(id).then(r => r.data.metadata);
+        return getRoot().follow('metadata', { id });
     }
 
     function updateMetadata(id, metadata) {
