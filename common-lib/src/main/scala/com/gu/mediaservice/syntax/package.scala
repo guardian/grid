@@ -7,9 +7,3 @@ package object syntax
   with PlayJsonSyntax
   with RequestHeaderSyntax
   with FutureSyntax
-  with ProcessSyntax {
-
-  implicit class KestrelSyntax[A](self: A) {
-    def |< (f: A => Unit): A = { f(self); self }
-  }
-}
