@@ -22,6 +22,7 @@ import com.gu.mediaservice.lib.{auth, ImageStorage}
 import com.gu.mediaservice.lib.resource.FutureResources._
 import com.gu.mediaservice.lib.auth.{AuthenticatedService, PandaUser, KeyStore}
 import com.gu.mediaservice.lib.argo.ArgoHelpers
+import com.gu.mediaservice.lib.argo.model.Link
 import com.gu.mediaservice.lib.cleanup.MetadataCleaners
 import com.gu.mediaservice.lib.config.MetadataConfig
 import com.gu.mediaservice.lib.metadata.ImageMetadataConverter
@@ -40,15 +41,16 @@ class ImageLoader(storage: ImageStorage) extends Controller with ArgoHelpers {
 
   val metadataCleaners = new MetadataCleaners(MetadataConfig.creditBylineMap)
 
-  def index = Action {
-    val response = Json.obj(
-      "data"  -> Json.obj("description" -> "This is the Loader Service"),
-      "links" -> Json.arr(
-        Json.obj("rel" -> "load", "href" -> s"$rootUri/images{?uploadedBy,identifiers}")
-      )
+  val indexResponse = {
+    val indexData = Map("description" -> "This is the Loader Service")
+    val indexLinks = List(
+      Link("load", s"$rootUri/images{?uploadedBy,identifiers}")
     )
-    Ok(response).as(ArgoMediaType)
+    respond(indexData, indexLinks)
   }
+
+  def index = Authenticated { indexResponse }
+
 
   def loadImage(uploadedBy: Option[String], identifiers: Option[String], uploadTime: Option[String]) =
     AuthenticatedUpload { request =>
@@ -78,10 +80,10 @@ class ImageLoader(storage: ImageStorage) extends Controller with ArgoHelpers {
     val mimeType = MimeTypeDetection.guessMimeType(tempFile)
     val future = if (Config.supportedMimeTypes.exists(Some(_) == mimeType)) {
       storeFile(id, tempFile, mimeType, uploadTime_, uploadedBy_, identifiers_)
-    } else {
+    } else Future {
       val mimeTypeName = mimeType getOrElse "none detected"
       Logger.info(s"Rejected file, id: $id, uploadedBy: $uploadedBy_, because the mime-type is not supported ($mimeTypeName). return 415")
-      Future(UnsupportedMediaType(Json.obj("errorMessage" -> s"Unsupported mime-type: $mimeTypeName. Supported: ${Config.supportedMimeTypes.mkString(", ")}")))
+      respondError(UnsupportedMediaType, "unsupported-type", s"Unsupported mime-type: $mimeTypeName. Supported: ${Config.supportedMimeTypes.mkString(", ")}")
     }
 
     future
@@ -127,8 +129,7 @@ class ImageLoader(storage: ImageStorage) extends Controller with ArgoHelpers {
           Logger.info(s"Rejected file, id: $id, uploadedBy: $uploadedBy, because: ${e.getMessage}. return 400")
           // TODO: Log when an image isn't deleted
           storage.deleteImage(id)
-          // TODO: add errorCode
-          BadRequest(Json.obj("errorMessage" -> e.getMessage))
+          respondError(BadRequest, "upload-error", e.getMessage)
         }
       }
     }
