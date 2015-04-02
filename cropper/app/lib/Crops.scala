@@ -8,10 +8,16 @@ import lib.Files._
 import model.{Dimensions, CropSource}
 
 import com.gu.mediaservice.model.ImageMetadata
+import model._
+
 
 object Crops {
   import lib.imaging.Convert._
   import lib.imaging.ExifTool._
+  import com.gu.mediaservice.lib.util.Counter
+
+
+  val cropCounter = new Counter()
 
   def tagFilter(metadata: ImageMetadata) = {
     Map[String, Option[String]](
@@ -22,24 +28,33 @@ object Crops {
     ).collect { case (key, Some(value)) => (key, value) }
   }
 
-  /** Crops the source image and saves the output to a JPEG file on disk.
-    *
-    * It is the responsibility of the caller to clean up the file when it is no longer needed.
-    */
-  def create(sourceFile: File, spec: CropSource, dimensions: Dimensions, metadata: ImageMetadata): Future[File] = {
+  def cropImage(sourceFile: File, bounds: Bounds): Future[File] = {
     for {
-      outputFile <- createTempFile("cropOutput", ".jpg")
+      outputFile <- createTempFile(s"crop-${cropCounter.incr}-", ".jpg")
       cropSource  = imageSource(sourceFile)
       stripped    = stripMeta(cropSource)
-      cropped     = cropResize(stripped)(spec.bounds, dimensions)
-      addOutput   = addDestImage(cropped)(outputFile)
+      cropped     = crop(stripped)(bounds)
+      normed      = normalizeColorspace(cropped)
+      addOutput   = addDestImage(normed)(outputFile)
       _          <- runConvertCmd(addOutput)
-      source      = tagSource(outputFile)
-      tags        = tagFilter(metadata)
-      tagged      = setTags(source)(tags)
-      _          <- runExiftoolCmd(tagged)
     }
     yield outputFile
   }
 
+  def appendMetadata(sourceFile: File, metadata: ImageMetadata): Future[File] = {
+    runExiftoolCmd(
+      setTags(tagSource(sourceFile))(tagFilter(metadata))
+      ).map(_ => sourceFile)
+  }
+
+  def resizeImage(sourceFile: File, dimensions: Dimensions): Future[File] = {
+    for {
+      outputFile  <- createTempFile(s"resize-${cropCounter.incr}-", ".jpg")
+      resizeSource = imageSource(sourceFile)
+      resized      = scale(resizeSource)(dimensions)
+      addOutput    = addDestImage(resized)(outputFile)
+      _           <- runConvertCmd(addOutput)
+    }
+    yield outputFile
+  }
 }
