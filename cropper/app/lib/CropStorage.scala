@@ -14,7 +14,6 @@ object CropStorage extends S3(Config.imgPublishingCredentials) {
     ExecutionContext.fromExecutor(Executors.newCachedThreadPool)
 
   def storeCropSizing(file: File, filename: String, mimeType: String, crop: Crop, dimensions: Dimensions): Future[CropSizing] = {
-
     val CropSource(sourceUri, Bounds(x, y, w, h), r) = crop.specification
     val metadata = Map("source" -> sourceUri,
                        "bounds_x" -> x,
