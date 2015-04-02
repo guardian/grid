@@ -1,11 +1,19 @@
 import angular from 'angular';
 import template from './rights.html!text';
 
-export var rights = angular.module('kahuna.edits.rights', []);
+import './service';
 
-rights.controller('RightsCtrl', [function() {
+export var rights = angular.module('kahuna.edits.rights', ['kahuna.edits.service']);
+
+rights.controller('RightsCtrl', ['editsService', function(editsService) {
 
     var ctrl = this;
+
+    // TODO: potentially get this from an API
+    ctrl.rights = [
+        "PR image",
+        "handout"
+    ];
 
     // FIXME: quite stateful, quite crap
     // TODO: perhaps look into abstracting a collection of radios into a directive
@@ -17,12 +25,12 @@ rights.controller('RightsCtrl', [function() {
         } else {
             rightsSet.add(right);
         }
+
+        ctrl.save([...rightsSet]);
     };
 
-    ctrl.rights = [
-        "PR image",
-        "handout"
-    ];
+    ctrl.save = data => editsService.update(ctrl.imageRights, data, ctrl.image);
+
 }]);
 
 
@@ -33,7 +41,8 @@ rights.directive('gridRights', [function() {
         controllerAs: 'ctrl',
         bindToController: true,
         scope: {
-            //rights: '='
+            imageRights: '=rights',
+            image: '='
         },
         template: template
     };
