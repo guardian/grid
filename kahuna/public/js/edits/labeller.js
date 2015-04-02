@@ -23,7 +23,15 @@ labeller.controller('LabellerCtrl',
             this.adding = true;
             this.labels.post({data: [label]}).
                 then(newLabels => {
-                    this.labels = newLabels;
+                    // TODO: Put this back and remove the hack once the API has
+                    // been out long enough
+                    //this.labels = newLabels;
+                    // Below === above mentioned hack
+                    newLabels.forEach(newLabel => {
+                        if (this.labels.indexOf(newLabel) === -1) {
+                            this.labels.data.push(label);
+                        }
+                    });
                 }).
                 catch(saveFailed).
                 finally(() => {
@@ -37,8 +45,12 @@ labeller.controller('LabellerCtrl',
         this.labelsBeingRemoved.add(label);
 
         label.delete().
-            then(newLabels => {
-                this.labels = newLabels;
+            then(() => {
+                // TODO: Put this back and remove the hack once the API has
+                // been out long enough
+                //this.labels = newLabels;
+                // Below === above mentioned hack
+                this.labelsBeingRemoved.remove(label);
             }).
             catch(saveFailed).
             finally(() => {
