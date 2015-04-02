@@ -52,8 +52,9 @@ case class AuthenticatedUpload(keyStore: KeyStore, loginUri: String, authCallbac
 
   import com.gu.mediaservice.lib.play.BodyParsers.digestedFile
 
-  def digestedFileAsync(tempDir: String, c: Counter):(AuthenticatedRequest[DigestedFile,Principal] => Future[Result]) => Action[DigestedFile] = {
-    AuthenticatedUpload(keyStore, loginUri, authCallbackBaseUri).async(digestedFile(createTempFile(tempDir, c))) _
+  val uploadCounter = new Counter()
+  def digestedFileAsync(tempDir: String):(AuthenticatedRequest[DigestedFile,Principal] => Future[Result]) => Action[DigestedFile] = {
+    AuthenticatedUpload(keyStore, loginUri, authCallbackBaseUri).async(digestedFile(createTempFile(tempDir))) _
   }
 
   override def invokeBlock[A](request: Request[A], block: RequestHandler[A]): Future[Result] = {
@@ -64,8 +65,8 @@ case class AuthenticatedUpload(keyStore: KeyStore, loginUri: String, authCallbac
     result
   }
 
-  def createTempFile(dir: String, c: Counter) = {
-    File.createTempFile(s"upload-${c.incr}-", "", new File(dir))
+  def createTempFile(dir: String) = {
+    File.createTempFile(s"upload-${uploadCounter.incr}-", "", new File(dir))
   }
 }
 
