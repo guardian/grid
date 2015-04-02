@@ -26,6 +26,8 @@ import com.gu.mediaservice.lib.argo.model.Link
 import com.gu.mediaservice.lib.cleanup.MetadataCleaners
 import com.gu.mediaservice.lib.config.MetadataConfig
 import com.gu.mediaservice.lib.metadata.ImageMetadataConverter
+import com.gu.mediaservice.lib.util.Counter
+import java.util.concurrent.atomic.AtomicLong
 
 
 object Application extends ImageLoader(S3ImageStorage)
@@ -35,9 +37,10 @@ class ImageLoader(storage: ImageStorage) extends Controller with ArgoHelpers {
   import Config.{rootUri, loginUri}
 
   val keyStore = new KeyStore(Config.keyStoreBucket, Config.awsCredentials)
+  val uploadCounter = (new Counter())
 
   val Authenticated = auth.Authenticated(keyStore, loginUri, rootUri)
-  val AuthenticatedUpload = auth.AuthenticatedUpload(keyStore, loginUri, rootUri).digestedFileAsync(Config.tempDir)
+  val AuthenticatedUpload = auth.AuthenticatedUpload(keyStore, loginUri, rootUri)
 
   val metadataCleaners = new MetadataCleaners(MetadataConfig.creditBylineMap)
 
@@ -51,9 +54,8 @@ class ImageLoader(storage: ImageStorage) extends Controller with ArgoHelpers {
 
   def index = Authenticated { indexResponse }
 
-
   def loadImage(uploadedBy: Option[String], identifiers: Option[String], uploadTime: Option[String]) =
-    AuthenticatedUpload { request =>
+    AuthenticatedUpload.digestedFileAsync(Config.tempDir, uploadCounter) { request =>
 
     val DigestedFile(tempFile, id) = request.body
 
@@ -74,7 +76,7 @@ class ImageLoader(storage: ImageStorage) extends Controller with ArgoHelpers {
       case (_, _) => DateTime.now
     }
 
-    Logger.info(s"Received file, id: $id, uploadedBy: $uploadedBy_, uploadTime: $uploadTime_")
+    Logger.info(s"Received file, $uploadCounter, id: $id, uploadedBy: $uploadedBy_, uploadTime: $uploadTime_")
 
     // Abort early if unsupported mime-type
     val mimeType = MimeTypeDetection.guessMimeType(tempFile)
