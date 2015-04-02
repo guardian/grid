@@ -119,7 +119,7 @@ object Application extends Controller with ArgoHelpers {
   def removeLabel(id: String, label: String) = Authenticated.async {
     dynamo.setDelete(id, "labels", label)
       .map(publish(id))
-      .map(_ => NoContent)
+      .map(edits => respondCollection(labelsCollection(id, edits.labels.toSet)))
   }
 
 
@@ -145,7 +145,7 @@ object Application extends Controller with ArgoHelpers {
   def removeRight(id: String, right: String) = Authenticated.async {
     dynamo.setDelete(id, "rights", right)
       .map(publish(id))
-      .map(_ => NoContent)
+      .map(edits => respondCollection(rightsCollection(id, edits.rights.toSet)))
   }
 
 
