@@ -1,7 +1,9 @@
 import angular from 'angular';
 import template from './image-editor.html!text';
 
-export var imageEditor = angular.module('kahuna.edits.imageEditor', []);
+import rights from './rights';
+
+export var imageEditor = angular.module('kahuna.edits.imageEditor', ['kahuna.edits.rights']);
 
 imageEditor.controller('ImageEditorCtrl', ['$scope', '$q', 'poll', function($scope, $q, poll) {
 

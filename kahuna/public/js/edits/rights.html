@@ -1,11 +1,8 @@
 <form>
-    <label>
-        Handout
-        <input type="checkbox" />
-    </label>
-
-    <label>
-        PR image
-        <input type="checkbox" />
+    <label ng:repeat="right in ctrl.rights">
+        {{right}}
+        <input type="checkbox"
+               ng:checked="ctrl.rightExists(right)"
+               ng:click="ctrl.toggleRight(right)" />
     </label>
 </form>
