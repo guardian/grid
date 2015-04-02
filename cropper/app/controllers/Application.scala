@@ -122,7 +122,7 @@ object Application extends Controller with ArgoHelpers {
       else
         Config.landscapeCropSizingWidths.filter(_ <= masterW).map(w => Dimensions(w, math.round(w / aspect)))
 
-      sizings <- Future.traverse(outputDims) { dimensions =>
+      sizings <- Future.sequence(outputDims.map { dimensions =>
         val filename = outputFilename(apiImage, source.bounds, dimensions.width)
         for {
           file    <- Crops.resizeImage(masterCrop, dimensions)
@@ -130,7 +130,7 @@ object Application extends Controller with ArgoHelpers {
           _       <- delete(file)
         }
         yield sizing
-      }
+      })
       _ <- delete(sourceFile)
     }
     yield (apiImage.id, sizings)
