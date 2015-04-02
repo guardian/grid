@@ -9,12 +9,8 @@ apiServices.factory('editsApi', ['$q', 'mediaApi', function($q, mediaApi) {
         return root || (root = mediaApi.root.follow('edits'));
     }
 
-    function getEdits(id) {
-        return getRoot().follow('edits', { id }).get();
-    }
-
     function getMetadata(id) {
-        return getEdits(id).then(r => r.data.metadata);
+        return getRoot(id).follow('metadata');
     }
 
     function updateMetadata(id, metadata) {
