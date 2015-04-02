@@ -35,13 +35,11 @@ object Convert {
 
   def addDestImage(op: IMOperation)(dest: File) = op <| (_.addImage(dest.getAbsolutePath))
 
-  def cropResize(op: IMOperation)(bounds: Bounds, dimensions: Dimensions): IMOperation = op <| { o =>
-    val Bounds(x, y, w, h) = bounds
+  def crop(op: IMOperation)(b: Bounds): IMOperation = op <| (_.crop(b.width, b.height, b.x, b.y))
 
-    o.crop(w, h, x, y)
-    o.scale(dimensions.width, dimensions.height)
-    o.colorspace("RGB")
-  }
+  def scale(op: IMOperation)(dimensions: Dimensions): IMOperation = op <| (_.scale(dimensions.width, dimensions.height))
+
+  def normalizeColorspace(op: IMOperation): IMOperation = op <| (_.colorspace("RGB"))
 
   def runConvertCmd(op: IMOperation): Future[Unit] = Future((new ConvertCmd).run(op))
 }

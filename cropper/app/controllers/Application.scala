@@ -52,6 +52,7 @@ object Application extends Controller with ArgoHelpers {
   )
 
   def crop = Authenticated.async { httpRequest =>
+
     val author: Option[String] = httpRequest.user match {
       case user: AuthenticatedService => Some(user.name)
       case user: PandaUser => Some(user.email)
@@ -108,21 +109,24 @@ object Application extends Controller with ArgoHelpers {
       // Only allow cropping if image is valid, else exit
       _          <- if (apiImage.valid) Future.successful(()) else Future.failed(InvalidImage)
       sourceFile <- tempFileFromURL(new URL(apiImage.source.secureUrl), "cropSource", "")
-
       metadata   = apiImage.metadata
       Bounds(_, _, masterW, masterH) = source.bounds
       aspect     = masterW.toFloat / masterH
       portrait   = masterW < masterH
+
+      strippedCrop <- Crops.cropImage(sourceFile, source.bounds)
+      masterCrop   <- Crops.appendMetadata(strippedCrop, metadata)
+
       outputDims = if (portrait)
         Config.portraitCropSizingHeights.filter(_ <= masterH).map(h => Dimensions(math.round(h * aspect), h))
       else
         Config.landscapeCropSizingWidths.filter(_ <= masterW).map(w => Dimensions(w, math.round(w / aspect)))
 
-      sizings <- Future.traverse(outputDims) { dim =>
-        val filename = outputFilename(apiImage, source.bounds, dim.width)
+      sizings <- Future.traverse(outputDims) { dimensions =>
+        val filename = outputFilename(apiImage, source.bounds, dimensions.width)
         for {
-          file    <- Crops.create(sourceFile, source, dim, metadata)
-          sizing  <- CropStorage.storeCropSizing(file, filename, "image/jpeg", crop, dim)
+          file    <- Crops.resizeImage(masterCrop, dimensions)
+          sizing  <- CropStorage.storeCropSizing(file, filename, "image/jpeg", crop, dimensions)
           _       <- delete(file)
         }
         yield sizing
