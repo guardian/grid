@@ -23,8 +23,7 @@ labeller.controller('LabellerCtrl',
             this.adding = true;
             this.labels.post({data: [label]}).
                 then(newLabels => {
-                    // FIXME: don't mutate original, replace the whole resource with the new state
-                    newLabels.data.forEach(label => this.labels.data.push(label));
+                    this.labels = newLabels;
                 }).
                 catch(saveFailed).
                 finally(() => {
