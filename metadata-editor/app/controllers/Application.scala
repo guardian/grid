@@ -84,13 +84,16 @@ object Application extends Controller with ArgoHelpers {
       errors   =>
         Future.successful(BadRequest(errors.errorsAsJson)),
       archived =>
-        dynamo.booleanSetOrRemove(id, "archived", archived) map publishAndRespond(id, respond(archived))
+        dynamo.booleanSetOrRemove(id, "archived", archived)
+          .map(publish(id))
+          .map(edits => respond(edits.archived))
     )
   }
 
   def unsetArchived(id: String) = Authenticated.async {
-    val response = respond(false)
-    dynamo.removeKey(id, "archived") map publishAndRespond(id, response)
+    dynamo.removeKey(id, "archived")
+      .map(publish(id))
+      .map(_ => respond(false))
   }
 
 
@@ -105,14 +108,18 @@ object Application extends Controller with ArgoHelpers {
       errors =>
         Future.successful(BadRequest(errors.errorsAsJson)),
       labels => {
-        dynamo.setAdd(id, "labels", labels)
-          .map(publishAndRespond(id, respondCollection(labelsCollection(id, labels.toSet), None, None)))
+        dynamo
+          .setAdd(id, "labels", labels)
+          .map(publish(id))
+          .map(edits => respondCollection(labelsCollection(id, edits.labels.toSet)))
       }
     )
   }
 
   def removeLabel(id: String, label: String) = Authenticated.async {
-    dynamo.setDelete(id, "labels", label) map publishAndRespond(id)
+    dynamo.setDelete(id, "labels", label)
+      .map(publish(id))
+      .map(_ => NoContent)
   }
 
 
@@ -130,12 +137,15 @@ object Application extends Controller with ArgoHelpers {
       },
       rights =>
         dynamo.setAdd(id, "rights", rights)
-          .map(publishAndRespond(id, respondCollection(rightsCollection(id, rights.toSet), None, None)))
+          .map(publish(id))
+          .map(edits => respondCollection(rightsCollection(id, edits.rights.toSet)))
     )
   }
 
   def removeRight(id: String, right: String) = Authenticated.async {
-    dynamo.setDelete(id, "rights", right) map publishAndRespond(id)
+    dynamo.setDelete(id, "rights", right)
+      .map(publish(id))
+      .map(_ => NoContent)
   }
 
 
@@ -151,7 +161,8 @@ object Application extends Controller with ArgoHelpers {
       errors => Future.successful(BadRequest(errors.errorsAsJson)),
       metadata =>
         dynamo.jsonAdd(id, "metadata", metadataAsMap(metadata))
-          .map(publishAndRespond(id, respond(metadata)))
+          .map(publish(id))
+          .map(respond(_))
     )
   }
 
@@ -161,17 +172,17 @@ object Application extends Controller with ArgoHelpers {
   def labelsCollection(id: String, labels: Set[String]): Seq[EmbeddedEntity[String]] =
     labels.map(Edits.setUnitEntity(id, "labels", _)).toSeq
 
-  // Publish changes to SNS and return an empty Result
-  def publishAndRespond(id: String, result: Result = NoContent)(metadata: JsObject): Result = {
-    // TODO: transform first? uri, embedded entities
+
+  def publish(id: String)(metadata: JsObject): Edits = {
     val message = Json.obj(
       "id" -> id,
       "data" -> metadata
     )
     Notifications.publish(message, "update-image-user-metadata")
 
-    result
+    metadata.as[Edits]
   }
+
 
   // This get's the form error based on out data structure that we send over i.e.
   // { "data": {data} }
