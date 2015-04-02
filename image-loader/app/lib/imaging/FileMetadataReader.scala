@@ -36,7 +36,7 @@ object FileMetadataReader {
     }
 
   // Export all the metadata in the directory
-  def exportDirectory[T <: Directory](metadata: Metadata, directoryClass: Class[T]): Map[String, String] =
+  private def exportDirectory[T <: Directory](metadata: Metadata, directoryClass: Class[T]): Map[String, String] =
     Option(metadata.getDirectory(directoryClass)) map { directory =>
       directory.getTags.
         filter(tag => tag.hasTagName()).
