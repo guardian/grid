@@ -37,7 +37,7 @@ class ImageLoader(storage: ImageStorage) extends Controller with ArgoHelpers {
   val keyStore = new KeyStore(Config.keyStoreBucket, Config.awsCredentials)
 
   val Authenticated = auth.Authenticated(keyStore, loginUri, rootUri)
-  val AuthenticatedUpload = auth.AuthenticatedUpload(keyStore, loginUri, rootUri).digestedFileAsync(Config.tempDir)
+  val AuthenticatedUpload = auth.AuthenticatedUpload(keyStore, loginUri, rootUri)
 
   val metadataCleaners = new MetadataCleaners(MetadataConfig.creditBylineMap)
 
@@ -51,9 +51,8 @@ class ImageLoader(storage: ImageStorage) extends Controller with ArgoHelpers {
 
   def index = Authenticated { indexResponse }
 
-
   def loadImage(uploadedBy: Option[String], identifiers: Option[String], uploadTime: Option[String]) =
-    AuthenticatedUpload { request =>
+    AuthenticatedUpload.digestedFileAsync(Config.tempDir) { request =>
 
     val DigestedFile(tempFile, id) = request.body
 
