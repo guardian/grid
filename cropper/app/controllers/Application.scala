@@ -114,14 +114,19 @@ object Application extends Controller with ArgoHelpers {
       aspect     = masterW.toFloat / masterH
       portrait   = masterW < masterH
 
+      // Create master crop
       strippedCrop <- Crops.cropImage(sourceFile, source.bounds)
       masterCrop   <- Crops.appendMetadata(strippedCrop, metadata)
+      masterDimensions = Dimensions(masterW, masterH)
+      masterFilename   = outputFilename(apiImage, source.bounds, masterDimensions.width)
+      _ <- CropStorage.storeCropSizing(masterCrop, masterFilename, "image/jpeg", crop, masterDimensions)
 
       outputDims = if (portrait)
         Config.portraitCropSizingHeights.filter(_ <= masterH).map(h => Dimensions(math.round(h * aspect), h))
       else
         Config.landscapeCropSizingWidths.filter(_ <= masterW).map(w => Dimensions(w, math.round(w / aspect)))
 
+      // Create resized crops
       sizings <- Future.sequence(outputDims.map { dimensions =>
         val filename = outputFilename(apiImage, source.bounds, dimensions.width)
         for {
