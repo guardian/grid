@@ -9,7 +9,9 @@ import play.api.mvc.Security.AuthenticatedRequest
 import com.gu.pandomainauth.model.{AuthenticatedUser, User}
 import com.gu.pandomainauth.action.UserRequest
 
+import com.gu.mediaservice.lib.util.Counter
 import com.gu.mediaservice.lib.play.DigestedFile
+
 import java.io.File
 
 
@@ -50,8 +52,8 @@ case class AuthenticatedUpload(keyStore: KeyStore, loginUri: String, authCallbac
 
   import com.gu.mediaservice.lib.play.BodyParsers.digestedFile
 
-  def digestedFileAsync(tempDir: String):(AuthenticatedRequest[DigestedFile,Principal] => Future[Result]) => Action[DigestedFile] = {
-    AuthenticatedUpload(keyStore, loginUri, authCallbackBaseUri).async(digestedFile(createTempFile(tempDir))) _
+  def digestedFileAsync(tempDir: String, c: Counter):(AuthenticatedRequest[DigestedFile,Principal] => Future[Result]) => Action[DigestedFile] = {
+    AuthenticatedUpload(keyStore, loginUri, authCallbackBaseUri).async(digestedFile(createTempFile(tempDir, c))) _
   }
 
   override def invokeBlock[A](request: Request[A], block: RequestHandler[A]): Future[Result] = {
@@ -62,7 +64,9 @@ case class AuthenticatedUpload(keyStore: KeyStore, loginUri: String, authCallbac
     result
   }
 
-  def createTempFile(dir: String) = File.createTempFile("requestBody", "", new File(dir))
+  def createTempFile(dir: String, c: Counter) = {
+    File.createTempFile(s"upload-${c.incr}-", "", new File(dir))
+  }
 }
 
 case class Authenticated(keyStore: KeyStore, loginUri: String, authCallbackBaseUri: String) extends AuthenticatedBase
