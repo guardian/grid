@@ -33,6 +33,7 @@ object Application extends ImageLoader(S3ImageStorage)
 class ImageLoader(storage: ImageStorage) extends Controller with ArgoHelpers {
 
   import Config.{rootUri, loginUri}
+  import com.gu.mediaservice.lib.play.BodyParsers.digestedFile
 
   val keyStore = new KeyStore(Config.keyStoreBucket, Config.awsCredentials)
 
@@ -51,8 +52,10 @@ class ImageLoader(storage: ImageStorage) extends Controller with ArgoHelpers {
 
   def index = Authenticated { indexResponse }
 
+  def createTempFile = File.createTempFile("requestBody", "", new File(Config.tempDir))
+
   def loadImage(uploadedBy: Option[String], identifiers: Option[String], uploadTime: Option[String]) =
-    AuthenticatedUpload.digestedFileAsync(Config.tempDir) { request =>
+    AuthenticatedUpload.async(digestedFile(createTempFile)) { request =>
 
     val DigestedFile(tempFile, id) = request.body
 
