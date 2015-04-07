@@ -2,6 +2,7 @@ package controllers
 
 
 import java.net.URI
+import java.net.URLDecoder.decode
 
 import com.gu.mediaservice.lib.argo.ArgoHelpers
 import com.gu.mediaservice.model.ImageMetadata
@@ -9,7 +10,7 @@ import com.gu.mediaservice.model.ImageMetadata
 import scala.concurrent.Future
 
 import play.api.data._, Forms._
-import play.api.mvc.{Action, Controller, Result}
+import play.api.mvc.Controller
 import play.api.libs.json._
 import play.api.libs.concurrent.Execution.Implicits._
 
@@ -50,9 +51,10 @@ object Application extends Controller with ArgoHelpers {
 
   def index = Authenticated { indexResponse }
 
-
   def entityUri(id: String, endpoint: String = ""): URI =
     URI.create(s"$rootUri/metadata/$id$endpoint")
+
+  def decodeUriParam(param: String): String = decode(param, "UTF-8")
 
   // TODO: Think about calling this `overrides` or something that isn't metadata
   def getAllMetadata(id: String) = Authenticated.async {
@@ -117,7 +119,7 @@ object Application extends Controller with ArgoHelpers {
   }
 
   def removeLabel(id: String, label: String) = Authenticated.async {
-    dynamo.setDelete(id, "labels", label)
+    dynamo.setDelete(id, "labels", decodeUriParam(label))
       .map(publish(id))
       .map(edits => respondCollection(labelsCollection(id, edits.labels.toSet)))
   }
@@ -143,7 +145,7 @@ object Application extends Controller with ArgoHelpers {
   }
 
   def removeRight(id: String, right: String) = Authenticated.async {
-    dynamo.setDelete(id, "rights", right)
+    dynamo.setDelete(id, "rights", decodeUriParam(right))
       .map(publish(id))
       .map(edits => respondCollection(rightsCollection(id, edits.rights.toSet)))
   }
