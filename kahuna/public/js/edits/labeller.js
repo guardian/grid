@@ -23,8 +23,7 @@ labeller.controller('LabellerCtrl',
             this.adding = true;
             this.labels.post({data: [label]}).
                 then(newLabels => {
-                    // FIXME: don't mutate original, replace the whole resource with the new state
-                    newLabels.data.forEach(label => this.labels.data.push(label));
+                    this.labels = newLabels;
                 }).
                 catch(saveFailed).
                 finally(() => {
@@ -38,10 +37,8 @@ labeller.controller('LabellerCtrl',
         this.labelsBeingRemoved.add(label);
 
         label.delete().
-            then(() => {
-                // FIXME: don't mutate original, replace the whole resource with the new state
-                var labelIndex = this.labels.data.findIndex(l => l.data === label.data);
-                this.labels.data.splice(labelIndex, 1);
+            then(newLabels => {
+                this.labels = newLabels;
             }).
             catch(saveFailed).
             finally(() => {
