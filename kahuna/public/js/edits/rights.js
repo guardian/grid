@@ -29,7 +29,8 @@ rights.controller('RightsCtrl', ['editsService', function(editsService) {
         ctrl.save([...rightsSet]);
     };
 
-    ctrl.save = data => editsService.update(ctrl.imageRights, data, ctrl.image);
+    ctrl.save = data =>
+        editsService.update(ctrl.imageRights, data, ctrl.image);
 
 }]);
 
