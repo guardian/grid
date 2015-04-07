@@ -14,10 +14,6 @@ import model._
 object Crops {
   import lib.imaging.Convert._
   import lib.imaging.ExifTool._
-  import com.gu.mediaservice.lib.util.Counter
-
-
-  val cropCounter = new Counter()
 
   def tagFilter(metadata: ImageMetadata) = {
     Map[String, Option[String]](
@@ -30,7 +26,7 @@ object Crops {
 
   def cropImage(sourceFile: File, bounds: Bounds): Future[File] = {
     for {
-      outputFile <- createTempFile(s"crop-${cropCounter.incr}-", ".jpg")
+      outputFile <- createTempFile(s"crop-", ".jpg")
       cropSource  = imageSource(sourceFile)
       stripped    = stripMeta(cropSource)
       cropped     = crop(stripped)(bounds)
@@ -49,7 +45,7 @@ object Crops {
 
   def resizeImage(sourceFile: File, dimensions: Dimensions): Future[File] = {
     for {
-      outputFile  <- createTempFile(s"resize-${cropCounter.incr}-", ".jpg")
+      outputFile  <- createTempFile(s"resize-", ".jpg")
       resizeSource = imageSource(sourceFile)
       resized      = scale(resizeSource)(dimensions)
       addOutput    = addDestImage(resized)(outputFile)
