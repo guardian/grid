@@ -1,5 +1,7 @@
 package com.gu.mediaservice.api
 
+import java.net.URLEncoder
+
 import com.gu.mediaservice.lib.config.Services
 import play.api.libs.json._
 
@@ -16,6 +18,7 @@ class Transformers(services: Services) {
   def objectOrEmpty(obj: JsValue): JsObject =
     obj.asOpt[JsObject].getOrElse(Json.obj())
 
+  def encodeUriParam(param: String) = URLEncoder.encode(param, "UTF-8")
 
   def wrapAllMetadata(id: String): Reads[JsObject] =
     __.read[JsObject].map { data =>
@@ -25,6 +28,7 @@ class Transformers(services: Services) {
           data ++ Json.obj(
             "archived" -> boolOrFalse(data \ "archived").transform(wrapArchived(id)).get,
             "labels" -> arrayOrEmpty(data \ "labels").transform(wrapLabels(id)).get,
+            "rights" -> arrayOrEmpty(data \ "rights").transform(wrapRights(id)).get,
             "metadata" -> objectOrEmpty(data \ "metadata").transform(wrapMetadata(id)).get
           )
         )
@@ -58,8 +62,24 @@ class Transformers(services: Services) {
   def wrapLabel(id: String): Reads[JsObject] =
     __.read[JsString].map { case JsString(label) =>
       Json.obj(
-        "uri" -> s"$metadataBaseUri/metadata/$id/labels/$label",
+        "uri" -> s"$metadataBaseUri/metadata/$id/labels/${encodeUriParam(label)}",
         "data" -> label
+      )
+    }
+
+  def wrapRights(id: String): Reads[JsObject] =
+    __.read[JsArray].map { rights =>
+      Json.obj(
+        "uri" -> s"$metadataBaseUri/metadata/$id/rights",
+        "data" -> rights.value.map(right => right.transform(wrapRight(id)).get)
+      )
+    }
+
+  def wrapRight(id: String): Reads[JsObject] =
+    __.read[JsString].map { case JsString(right) =>
+      Json.obj(
+        "uri" -> s"$metadataBaseUri/metadata/$id/rights/${encodeUriParam(right)}",
+        "data" -> right
       )
     }
 }

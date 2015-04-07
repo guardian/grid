@@ -2,6 +2,7 @@ package controllers
 
 
 import java.net.URI
+import java.net.URLDecoder.decode
 
 import com.gu.mediaservice.lib.argo.ArgoHelpers
 import com.gu.mediaservice.model.ImageMetadata
@@ -9,7 +10,7 @@ import com.gu.mediaservice.model.ImageMetadata
 import scala.concurrent.Future
 
 import play.api.data._, Forms._
-import play.api.mvc.{Action, Controller, Result}
+import play.api.mvc.Controller
 import play.api.libs.json._
 import play.api.libs.concurrent.Execution.Implicits._
 
@@ -50,9 +51,10 @@ object Application extends Controller with ArgoHelpers {
 
   def index = Authenticated { indexResponse }
 
-
   def entityUri(id: String, endpoint: String = ""): URI =
     URI.create(s"$rootUri/metadata/$id$endpoint")
+
+  def decodeUriParam(param: String): String = decode(param, "UTF-8")
 
   // TODO: Think about calling this `overrides` or something that isn't metadata
   def getAllMetadata(id: String) = Authenticated.async {
@@ -84,13 +86,16 @@ object Application extends Controller with ArgoHelpers {
       errors   =>
         Future.successful(BadRequest(errors.errorsAsJson)),
       archived =>
-        dynamo.booleanSetOrRemove(id, "archived", archived) map publishAndRespond(id, respond(archived))
+        dynamo.booleanSetOrRemove(id, "archived", archived)
+          .map(publish(id))
+          .map(edits => respond(edits.archived))
     )
   }
 
   def unsetArchived(id: String) = Authenticated.async {
-    val response = respond(false)
-    dynamo.removeKey(id, "archived") map publishAndRespond(id, response)
+    dynamo.removeKey(id, "archived")
+      .map(publish(id))
+      .map(_ => respond(false))
   }
 
 
@@ -105,14 +110,18 @@ object Application extends Controller with ArgoHelpers {
       errors =>
         Future.successful(BadRequest(errors.errorsAsJson)),
       labels => {
-        dynamo.setAdd(id, "labels", labels)
-          .map(publishAndRespond(id, respondCollection(labelsCollection(id, labels.toSet), None, None)))
+        dynamo
+          .setAdd(id, "labels", labels)
+          .map(publish(id))
+          .map(edits => respondCollection(labelsCollection(id, edits.labels.toSet)))
       }
     )
   }
 
   def removeLabel(id: String, label: String) = Authenticated.async {
-    dynamo.setDelete(id, "labels", label) map publishAndRespond(id)
+    dynamo.setDelete(id, "labels", decodeUriParam(label))
+      .map(publish(id))
+      .map(edits => respondCollection(labelsCollection(id, edits.labels.toSet)))
   }
 
 
@@ -130,12 +139,15 @@ object Application extends Controller with ArgoHelpers {
       },
       rights =>
         dynamo.setAdd(id, "rights", rights)
-          .map(publishAndRespond(id, respondCollection(rightsCollection(id, rights.toSet), None, None)))
+          .map(publish(id))
+          .map(edits => respondCollection(rightsCollection(id, edits.rights.toSet)))
     )
   }
 
   def removeRight(id: String, right: String) = Authenticated.async {
-    dynamo.setDelete(id, "rights", right) map publishAndRespond(id)
+    dynamo.setDelete(id, "rights", decodeUriParam(right))
+      .map(publish(id))
+      .map(edits => respondCollection(rightsCollection(id, edits.rights.toSet)))
   }
 
 
@@ -151,7 +163,8 @@ object Application extends Controller with ArgoHelpers {
       errors => Future.successful(BadRequest(errors.errorsAsJson)),
       metadata =>
         dynamo.jsonAdd(id, "metadata", metadataAsMap(metadata))
-          .map(publishAndRespond(id, respond(metadata)))
+          .map(publish(id))
+          .map(respond(_))
     )
   }
 
@@ -161,17 +174,17 @@ object Application extends Controller with ArgoHelpers {
   def labelsCollection(id: String, labels: Set[String]): Seq[EmbeddedEntity[String]] =
     labels.map(Edits.setUnitEntity(id, "labels", _)).toSeq
 
-  // Publish changes to SNS and return an empty Result
-  def publishAndRespond(id: String, result: Result = NoContent)(metadata: JsObject): Result = {
-    // TODO: transform first? uri, embedded entities
+
+  def publish(id: String)(metadata: JsObject): Edits = {
     val message = Json.obj(
       "id" -> id,
       "data" -> metadata
     )
     Notifications.publish(message, "update-image-user-metadata")
 
-    result
+    metadata.as[Edits]
   }
+
 
   // This get's the form error based on out data structure that we send over i.e.
   // { "data": {data} }
