@@ -119,7 +119,8 @@ object Application extends Controller with ArgoHelpers {
       masterCrop   <- Crops.appendMetadata(strippedCrop, metadata)
       masterDimensions = Dimensions(masterW, masterH)
       masterFilename   = outputFilename(apiImage, source.bounds, masterDimensions.width)
-      masterSizing <- CropStorage.storeCropSizing(masterCrop, masterFilename, "image/jpeg", crop, masterDimensions)
+      mediaType        = "image/jpeg" // Hard-coding this for now, until we handle other image types
+      masterSizing <- CropStorage.storeCropSizing(masterCrop, masterFilename, mediaType, crop, masterDimensions)
 
       outputDims = if (portrait)
         Config.portraitCropSizingHeights.filter(_ <= masterH).map(h => Dimensions(math.round(h * aspect), h))
@@ -131,7 +132,7 @@ object Application extends Controller with ArgoHelpers {
         val filename = outputFilename(apiImage, source.bounds, dimensions.width)
         for {
           file    <- Crops.resizeImage(masterCrop, dimensions)
-          sizing  <- CropStorage.storeCropSizing(file, filename, "image/jpeg", crop, dimensions)
+          sizing  <- CropStorage.storeCropSizing(file, filename, mediaType, crop, dimensions)
           _       <- delete(file)
         }
         yield sizing
