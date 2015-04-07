@@ -164,7 +164,7 @@ object Application extends Controller with ArgoHelpers {
       metadata =>
         dynamo.jsonAdd(id, "metadata", metadataAsMap(metadata))
           .map(publish(id))
-          .map(respond(_))
+          .map(edits => respond(edits.metadata))
     )
   }
 
