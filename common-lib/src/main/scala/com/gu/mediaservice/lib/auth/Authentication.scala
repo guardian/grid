@@ -51,7 +51,6 @@ case class AuthenticatedUpload(keyStore: KeyStore, loginUri: String, authCallbac
 
   import com.gu.mediaservice.lib.play.BodyParsers.digestedFile
 
-  val uploadCounter = new Counter()
   def digestedFileAsync(tempDir: String):(AuthenticatedRequest[DigestedFile,Principal] => Future[Result]) => Action[DigestedFile] = {
     AuthenticatedUpload(keyStore, loginUri, authCallbackBaseUri).async(digestedFile(createTempFile(tempDir))) _
   }
