@@ -49,12 +49,6 @@ class PandaAuthenticated(loginUri_ : String, authCallbackBaseUri_ : String)
 
 case class AuthenticatedUpload(keyStore: KeyStore, loginUri: String, authCallbackBaseUri: String) extends AuthenticatedBase {
 
-  import com.gu.mediaservice.lib.play.BodyParsers.digestedFile
-
-  def digestedFileAsync(tempDir: String):(AuthenticatedRequest[DigestedFile,Principal] => Future[Result]) => Action[DigestedFile] = {
-    AuthenticatedUpload(keyStore, loginUri, authCallbackBaseUri).async(digestedFile(createTempFile(tempDir))) _
-  }
-
   override def invokeBlock[A](request: Request[A], block: RequestHandler[A]): Future[Result] = {
     val DigestedFile(tempFile, id) = request.body
     val result  = super.invokeBlock(request, block)
@@ -63,9 +57,6 @@ case class AuthenticatedUpload(keyStore: KeyStore, loginUri: String, authCallbac
     result
   }
 
-  def createTempFile(dir: String) = {
-    File.createTempFile(s"upload-", "", new File(dir))
-  }
 }
 
 case class Authenticated(keyStore: KeyStore, loginUri: String, authCallbackBaseUri: String) extends AuthenticatedBase
