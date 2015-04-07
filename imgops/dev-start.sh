@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 
+SCRIPT_DIR=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
 if [ -f ./nginx/logs/nginx.pid ]; then
-    nginx/objs/nginx -s stop
+    $SCRIPT_DIR/nginx/objs/nginx -s stop
 fi
-nginx/objs/nginx
+$SCRIPT_DIR/nginx/objs/nginx
