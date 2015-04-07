@@ -29,7 +29,10 @@ object Convert {
   private implicit val ctx: ExecutionContext =
     ExecutionContext.fromExecutor(Executors.newFixedThreadPool(Config.imagingThreadPoolSize))
 
-  def imageSource(source: File) = (new IMOperation()) <| (_.addImage(source.getAbsolutePath))
+  def imageSource(source: File)(qual: Double) = (new IMOperation()) <| { op => {
+    op.quality(qual)
+    op.addImage(source.getAbsolutePath)
+  }}
 
   def stripMeta(op: IMOperation) = op <| (_.strip())
 

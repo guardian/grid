@@ -115,7 +115,7 @@ object Application extends Controller with ArgoHelpers {
       portrait   = masterW < masterH
 
       // Create master crop
-      strippedCrop <- Crops.cropImage(sourceFile, source.bounds)
+      strippedCrop <- Crops.cropImage(sourceFile, source.bounds, 100d)
       masterCrop   <- Crops.appendMetadata(strippedCrop, metadata)
       masterDimensions = Dimensions(masterW, masterH)
       masterFilename   = outputFilename(apiImage, source.bounds, masterDimensions.width)
@@ -131,7 +131,7 @@ object Application extends Controller with ArgoHelpers {
       sizings <- Future.sequence(outputDims.map { dimensions =>
         val filename = outputFilename(apiImage, source.bounds, dimensions.width)
         for {
-          file    <- Crops.resizeImage(masterCrop, dimensions)
+          file    <- Crops.resizeImage(masterCrop, dimensions, 75d)
           sizing  <- CropStorage.storeCropSizing(file, filename, mediaType, crop, dimensions)
           _       <- delete(file)
         }
