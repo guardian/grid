@@ -24,10 +24,10 @@ object Crops {
     ).collect { case (key, Some(value)) => (key, value) }
   }
 
-  def cropImage(sourceFile: File, bounds: Bounds): Future[File] = {
+  def cropImage(sourceFile: File, bounds: Bounds, quality: Double = 100d): Future[File] = {
     for {
       outputFile <- createTempFile(s"crop-", ".jpg")
-      cropSource  = imageSource(sourceFile)
+      cropSource  = imageSource(sourceFile)(quality)
       stripped    = stripMeta(cropSource)
       cropped     = crop(stripped)(bounds)
       normed      = normalizeColorspace(cropped)
@@ -43,10 +43,10 @@ object Crops {
       ).map(_ => sourceFile)
   }
 
-  def resizeImage(sourceFile: File, dimensions: Dimensions): Future[File] = {
+  def resizeImage(sourceFile: File, dimensions: Dimensions, quality: Double = 100d): Future[File] = {
     for {
       outputFile  <- createTempFile(s"resize-", ".jpg")
-      resizeSource = imageSource(sourceFile)
+      resizeSource = imageSource(sourceFile)(quality)
       resized      = scale(resizeSource)(dimensions)
       addOutput    = addDestImage(resized)(outputFile)
       _           <- runConvertCmd(addOutput)
