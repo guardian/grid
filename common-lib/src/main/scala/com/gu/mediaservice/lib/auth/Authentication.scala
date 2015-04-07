@@ -9,7 +9,6 @@ import play.api.mvc.Security.AuthenticatedRequest
 import com.gu.pandomainauth.model.{AuthenticatedUser, User}
 import com.gu.pandomainauth.action.UserRequest
 
-import com.gu.mediaservice.lib.util.Counter
 import com.gu.mediaservice.lib.play.DigestedFile
 
 import java.io.File
@@ -52,7 +51,6 @@ case class AuthenticatedUpload(keyStore: KeyStore, loginUri: String, authCallbac
 
   import com.gu.mediaservice.lib.play.BodyParsers.digestedFile
 
-  val uploadCounter = new Counter()
   def digestedFileAsync(tempDir: String):(AuthenticatedRequest[DigestedFile,Principal] => Future[Result]) => Action[DigestedFile] = {
     AuthenticatedUpload(keyStore, loginUri, authCallbackBaseUri).async(digestedFile(createTempFile(tempDir))) _
   }
@@ -66,7 +64,7 @@ case class AuthenticatedUpload(keyStore: KeyStore, loginUri: String, authCallbac
   }
 
   def createTempFile(dir: String) = {
-    File.createTempFile(s"upload-${uploadCounter.incr}-", "", new File(dir))
+    File.createTempFile(s"upload-", "", new File(dir))
   }
 }
 
