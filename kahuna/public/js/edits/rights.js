@@ -18,8 +18,7 @@ rights.controller('RightsCtrl', ['editsService', function(editsService) {
 
     ctrl.imageRights = angular.copy({}, ctrl.originalImageRights);
 
-    ctrl.hasRight = right =>
-        findResource(right, ctrl.imageRights) ? true : false;
+    ctrl.hasRight = right => !!findResource(right, ctrl.imageRights);
 
     ctrl.toggleRight = right => {
         const resource = findResource(right, ctrl.imageRights);
