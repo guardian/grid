@@ -5,6 +5,9 @@ import '../services/api/media-api';
 
 export var service = angular.module('kahuna.edits.service', []);
 
+// TODO: For now we're sending over the image so we can compare against it to
+// see when it's synced. We should have a link on the resource to be able to do
+// this.
 service.factory('editsService', ['$q', 'editsApi', 'mediaApi', 'poll', function($q, editsApi, mediaApi, poll) {
 
     const pollFrequency = 500; // ms
@@ -46,14 +49,16 @@ service.factory('editsService', ['$q', 'editsApi', 'mediaApi', 'poll', function(
         return poll(checkSynced, pollFrequency, pollTimeout);
     }
 
-    // TODO: At the moment we are passing the image as we don't have a link back
-    // to is - I want to test this as a methodology first, and we'd have to think
-    // about bloating the image response.
     function update(resource, data, originalImage) {
         return resource.post({ data }).then(edit =>
             getSynced(originalImage, newImage => matches(edit, newImage)));
     }
 
+    // This is a bit of a hack function as we don't have a way of deleting from
+    // a collection on the API, only per label / right. We should probably
+    // choose between working with the collection e.g. labels, or working with
+    // each collection item directly, whereas now, for adding, we use the
+    // collection, and for deleting we use the collection item
     function deleteFromCollection(resource, collection, originalImage) {
         return resource.delete().then(edit =>
             getSynced(originalImage, newImage => missing(edit, collection, newImage)));
