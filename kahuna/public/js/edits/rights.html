@@ -1,0 +1,11 @@
+<form class="rights-editor">
+    <label
+        ng:class="{ 'disabled': ctrl.saving }"
+        ng:repeat="right in ctrl.rights">
+        {{right}}
+        <input type="checkbox"
+               ng:checked="ctrl.hasRight(right)"
+               ng:click="ctrl.toggleRight(right)"
+               ng:disabled="ctrl.saving" />
+    </label>
+</form>
