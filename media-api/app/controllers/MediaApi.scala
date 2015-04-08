@@ -9,6 +9,11 @@ import play.api.libs.concurrent.Execution.Implicits._
 import play.api.libs.json._
 import org.joda.time.{DateTime, Duration}
 
+import uritemplate._
+import Syntax._
+
+import scalaz.syntax.std.list._
+
 import lib.elasticsearch._
 import lib.{Notifications, Config, S3Client}
 import lib.querysyntax.{Condition, Parser}
@@ -17,7 +22,7 @@ import com.gu.mediaservice.lib.auth
 import com.gu.mediaservice.lib.auth.KeyStore
 import com.gu.mediaservice.lib.argo._
 import com.gu.mediaservice.lib.argo.model._
-import com.gu.mediaservice.lib.formatting.parseDateFromQuery
+import com.gu.mediaservice.lib.formatting.{printDateTime, parseDateFromQuery}
 import com.gu.mediaservice.lib.cleanup.MetadataCleaners
 import com.gu.mediaservice.lib.config.MetadataConfig
 import com.gu.mediaservice.lib.metadata.ImageMetadataConverter
@@ -123,9 +128,56 @@ object MediaApi extends Controller with ArgoHelpers {
         val id = (imageData \ "id").as[String]
         EmbeddedEntity(uri = URI.create(s"$rootUri/images/$id"), data = Some(imageData), imageLinks)
       }
-      respondCollection(imageEntities, Some(searchParams.offset), Some(totalCount))
+
+      val prevLink = getPrevLink(searchParams)
+      val nextLink = getNextLink(searchParams, totalCount)
+      val links = List(prevLink, nextLink).flatten
+
+      respondCollection(imageEntities, Some(searchParams.offset), Some(totalCount), links)
     }
   }
+
+
+  val searchTemplate = URITemplate(searchLinkHref)
+
+  private def getSearchUrl(searchParams: SearchParams, updatedOffset: Int, length: Int): String = {
+
+    // Enforce a toDate to exclude new images since the current request
+    val toDate = searchParams.toDate.getOrElse(DateTime.now)
+
+    val paramMap = searchParams.toStringMap ++ Map(
+      "offset" -> updatedOffset.toString,
+      "length" -> length.toString,
+      "toDate" -> printDateTime(toDate)
+    )
+
+    val paramVars = paramMap.map { case (key, value) => key := value }.toSeq
+
+    searchTemplate expand (paramVars: _*)
+  }
+
+  private def getPrevLink(searchParams: SearchParams): Option[Link] = {
+    val prevOffset = List(searchParams.offset - searchParams.length, 0).max
+    if (searchParams.offset > 0) {
+      // adapt length to avoid overlapping with current
+      val prevLength = List(searchParams.length, searchParams.offset - prevOffset).min
+      val prevUrl = getSearchUrl(searchParams, prevOffset, prevLength)
+      Some(Link("prev", prevUrl))
+    } else {
+      None
+    }
+  }
+
+  private def getNextLink(searchParams: SearchParams, totalCount: Long): Option[Link] = {
+    val nextOffset = searchParams.offset + searchParams.length
+    if (nextOffset < totalCount) {
+      val nextUrl = getSearchUrl(searchParams, nextOffset, searchParams.length)
+      Some(Link("next", nextUrl))
+    } else {
+      None
+    }
+  }
+
 
   def imageResponse(id: String, source: JsValue): (JsValue, List[Link]) = {
     // Round expiration time to try and hit the cache as much as possible
@@ -232,7 +284,29 @@ case class SearchParams(
   uploadedBy: Option[String],
   labels: List[String],
   hasMetadata: List[String]
-)
+) {
+  def toStringMap: Map[String, String] =
+    Map(
+      "q"                 -> query,
+      "ids"               -> ids.map(_.mkString(",")),
+      "offset"            -> Some(offset.toString),
+      "length"            -> Some(length.toString),
+      "fromDate"          -> fromDate.map(printDateTime),
+      "toDate"            -> toDate.map(printDateTime),
+      "archived"          -> archived.map(_.toString),
+      "hasExports"        -> hasExports.map(_.toString),
+      "hasIdentifier"     -> hasIdentifier,
+      "missingIdentifier" -> missingIdentifier,
+      "valid"             -> valid.map(_.toString),
+      "free"              -> free.map(_.toString),
+      "uploadedBy"        -> uploadedBy,
+      "labels"            -> labels.toNel.map(_.list.mkString(",")),
+      "hasMetadata"       -> hasMetadata.toNel.map(_.list.mkString(","))
+    ).foldLeft(Map[String, String]()) {
+      case (acc, (key, Some(value))) => acc + (key -> value)
+      case (acc, (_,   None))        => acc
+    }
+}
 
 object SearchParams {
 
