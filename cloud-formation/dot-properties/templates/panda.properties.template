@@ -1,0 +1,3 @@
+panda.domain={{panda_domain}}
+panda.aws.key={{panda_aws_key}}
+panda.aws.secret={{panda_aws_secret}}
