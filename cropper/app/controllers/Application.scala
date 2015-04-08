@@ -106,6 +106,7 @@ object Application extends Controller with ArgoHelpers {
 
     for {
       apiImage   <- fetchSourceFromApi(source.uri)
+
       // Only allow cropping if image is valid, else exit
       _          <- if (apiImage.valid) Future.successful(()) else Future.failed(InvalidImage)
       sourceFile <- tempFileFromURL(new URL(apiImage.source.secureUrl), "cropSource", "")
@@ -117,10 +118,10 @@ object Application extends Controller with ArgoHelpers {
       // Create master crop
       strippedCrop <- Crops.cropImage(sourceFile, source.bounds, 100d)
       masterCrop   <- Crops.appendMetadata(strippedCrop, metadata)
-      masterDimensions = Dimensions(masterW, masterH)
-      masterFilename   = outputFilename(apiImage, source.bounds, masterDimensions.width)
-      mediaType        = "image/jpeg" // Hard-coding this for now, until we handle other image types
-      masterSizing <- CropStorage.storeCropSizing(masterCrop, masterFilename, mediaType, crop, masterDimensions)
+      masterDimensions   = Dimensions(masterW, masterH)
+      masterFilename     = outputFilename(apiImage, source.bounds, masterDimensions.width)
+      mediaType          = "image/jpeg" // Hard-coding this for now, until we handle other image types
+      masterSizingFuture = CropStorage.storeCropSizing(masterCrop, masterFilename, mediaType, crop, masterDimensions)
 
       outputDims = if (portrait)
         Config.portraitCropSizingHeights.filter(_ <= masterH).map(h => Dimensions(math.round(h * aspect), h))
@@ -136,7 +137,7 @@ object Application extends Controller with ArgoHelpers {
           _       <- delete(file)
         }
         yield sizing
-      } :+ Future(masterSizing) )
+      } :+ masterSizingFuture)
       _ <- delete(sourceFile)
     }
     yield (apiImage.id, sizings)
