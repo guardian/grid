@@ -43,7 +43,9 @@ object Dimensions {
     ((__ \ "width").write[Int] ~ (__ \ "height").write[Int])(unlift(Dimensions.unapply))
 }
 
-case class Bounds(x: Int, y: Int, width: Int, height: Int)
+case class Bounds(x: Int, y: Int, width: Int, height: Int) {
+  def isPortrait: Boolean = width < height
+}
 
 object Bounds {
   implicit val boundsWrites: Writes[Bounds] = Json.writes[Bounds]
