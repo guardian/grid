@@ -29,6 +29,7 @@ rights.controller('RightsCtrl', ['editsService', function(editsService) {
 
         promise
             .then(rights => ctrl.imageRights = rights)
+            .catch(() => $window.alert('Failed to save the changes, please try again.'))
             .finally(() => ctrl.saving = false);
     };
 
