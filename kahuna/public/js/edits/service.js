@@ -32,13 +32,15 @@ service.factory('editsService', ['$q', 'editsApi', 'mediaApi', 'poll', function(
         return collection.getUri().then(uri => {
             // find the edit which we're modifying
             const edits = image.data.userMetadata.data;
-            const shouldBeDeleted = Object.keys(edits)
+            const findIn = Object.keys(edits)
                 .map(key => edits[key])
                 .find(r => {
                     return r.uri === uri;
-                }).data.find(r => r.uri === edit.uri);
+                });
+            const stillPresent = findIn.data &&
+                                 findIn.data.find(r => r.uri === edit.uri);
 
-            return shouldBeDeleted ?
+            return stillPresent ?
                 $q.reject('data not matching') :
                 collection.get();
         });
