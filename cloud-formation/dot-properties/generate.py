@@ -21,7 +21,13 @@ def _get_stack_outputs(connection, stack_name_or_id):
 
     if stack:
         LOGGER.info('Stack found: {stack}'.format(stack=stack_name_or_id))
-        return {o.key: o.value for o in stack[0].outputs}
+        outputs = {o.key: o.value for o in stack[0].outputs}
+
+        # Cropper service doesn't expect a protocol to be included,
+        # remove the http:// string from the ImageOriginWebsite item.
+        outputs['ImageOriginWebsite'] = outputs['ImageOriginWebsite'].replace('http://', '')
+
+        return outputs
     else:
         LOGGER.warn('Stack not found: {stack}'.format(stack=stack_name_or_id))
         return None
