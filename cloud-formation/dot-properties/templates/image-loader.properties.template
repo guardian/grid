@@ -1,0 +1,7 @@
+domain.root={{domain_root}}
+aws.id={{AwsId}}
+aws.secret={{AwsSecret}}
+s3.image.bucket={{ImageBucket}}
+s3.thumb.bucket={{ThumbBucket}}
+auth.keystore.bucket={{KeyBucket}}
+sns.topic.arn={{SnsTopicArn}}
