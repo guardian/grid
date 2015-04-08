@@ -5,7 +5,7 @@ import './service';
 
 export var rights = angular.module('kahuna.edits.rights', ['kahuna.edits.service']);
 
-rights.controller('RightsCtrl', ['editsService', function(editsService) {
+rights.controller('RightsCtrl', ['$window', 'editsService', function($window, editsService) {
 
     var ctrl = this;
 

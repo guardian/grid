@@ -13,36 +13,40 @@ service.factory('editsService', ['$q', 'editsApi', 'mediaApi', 'poll', function(
     const pollFrequency = 500; // ms
     const pollTimeout   = 20 * 1000; // ms
 
-    function matches(edit, image) {
-        // find that matching resource
+    /**
+     * @param edit {Resource} the edit you'd like to match
+     * @param image {Resource} the image which you're searching in
+     * @return {Promise.<Resource>}
+     */
+    function findMatchingEditInImage(edit, image) {
         return edit.getUri().then(uri => {
-            // find the edit which we're modifying
             const edits = image.data.userMetadata.data;
-            const imageEdit = Object.keys(edits)
-                .map(key => edits[key])
-                .find(r => {
-                    return r.uri === uri;
-                });
 
-            return angular.equals(imageEdit.data, edit.data) ? edit : $q.reject('data not matching');
+            const matchingEdit = Object.keys(edits)
+                                       .map(key => edits[key])
+                                       .find(r => r.uri === uri);
+
+            return matchingEdit;
         });
     }
 
+    // `matches` and `missing` must either return a Resource or reject to be
+    // polled again until the `image` and `edit` match
+    function matches(edit, image) {
+        // find that matching resource
+        return findMatchingEditInImage(edit, image).then(matchingEdit =>
+            matchingEdit && angular.equals(matchingEdit.data, edit.data) ?
+                edit : $q.reject('data not matching')
+        );
+    }
+
     function missing(edit, collection, image) {
-        return collection.getUri().then(uri => {
-            // find the edit which we're modifying
-            const edits = image.data.userMetadata.data;
-            const findIn = Object.keys(edits)
-                .map(key => edits[key])
-                .find(r => {
-                    return r.uri === uri;
-                });
-            const stillPresent = findIn.data &&
-                                 findIn.data.find(r => r.uri === edit.uri);
+        return findMatchingEditInImage(collection, image).then(matchingEdit => {
+            const stillPresent = matchingEdit &&
+                                 matchingEdit.data.find(r => r.uri === edit.uri);
 
             return stillPresent ?
-                $q.reject('data not matching') :
-                collection.get();
+                $q.reject('data not matching') : collection.get();
         });
     }
 
