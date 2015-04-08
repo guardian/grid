@@ -22,19 +22,19 @@ For bonus points, use [virtualenvwrapper](https://virtualenvwrapper.readthedocs.
 If you're using a virtual environment, you first need to create one:
 
 ```sh
-    virtualenv venv
+virtualenv venv
 ```
 
 Then activate it:
 
 ```sh
-    source venv/bin/activate
+source venv/bin/activate
 ```
 
 Install python requirements:
 
 ```sh
-    pip install -r requirements.txt
+pip install -r requirements.txt
 ```
 
 
@@ -48,24 +48,24 @@ Create a file called ```settings_dev.py``` in the ```settings``` directory. Wher
 This file should have the following contents:
 
 ```python
-    PROPERTIES = {
-        'domain_root': <PRIVATE_VALUE>,
-        'mixpanel_token': <PRIVATE_VALUE>,
-        'panda_domain': <PRIVATE_VALUE>,
-        'panda_aws_key': <PRIVATE_VALUE>,
-        'panda_aws_secret': <PRIVATE_VALUE>,
-        'cors': <PRIVATE_VALUE>,
-    }
+PROPERTIES = {
+    'domain_root': <PRIVATE_VALUE>,
+    'mixpanel_token': <PRIVATE_VALUE>,
+    'panda_domain': <PRIVATE_VALUE>,
+    'panda_aws_key': <PRIVATE_VALUE>,
+    'panda_aws_secret': <PRIVATE_VALUE>,
+    'cors': <PRIVATE_VALUE>,
+}
 
-    STACK = <CLOUD_FORMATION_NAME_OR_ID>
+STACK = <CLOUD_FORMATION_NAME_OR_ID>
 ```
 
 Additionally, you can specify:
 
 ```python
-    OUTPUT_DIRECTORY = <OUTPUT_DIRECTORY>
-    AWS_PROFILE_NAME = <AWS_CLI_CONFIGURATION_PROFILE>
-    AWS_REGION = <AWS_REGION>
+OUTPUT_DIRECTORY = <OUTPUT_DIRECTORY>
+AWS_PROFILE_NAME = <AWS_CLI_CONFIGURATION_PROFILE>
+AWS_REGION = <AWS_REGION>
 ```
 
 Where:
@@ -85,12 +85,12 @@ contents: ```FLEXI_RUN_ENV=dev``` where ```dev``` is the name of your settings f
 To generate the .properties files, run the command:
 
 ```sh
-    python generate.py
+python generate.py
 ```
 
 NB: If you've set ```OUTPUT_DIRECTORY``` to a location not writable by the current user (e.g. ```/etc/gu```),
 you can run:
 
 ```sh
-    sudo python generate.py
+sudo python generate.py
 ```
