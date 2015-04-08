@@ -145,7 +145,7 @@ object MediaApi extends Controller with ArgoHelpers {
     // Enforce a toDate to exclude new images since the current request
     val toDate = searchParams.toDate.getOrElse(DateTime.now)
 
-    val paramMap = searchParams.toStringMap ++ Map(
+    val paramMap = SearchParams.toStringMap(searchParams) ++ Map(
       "offset" -> updatedOffset.toString,
       "length" -> length.toString,
       "toDate" -> printDateTime(toDate)
@@ -284,35 +284,16 @@ case class SearchParams(
   uploadedBy: Option[String],
   labels: List[String],
   hasMetadata: List[String]
-) {
-  def toStringMap: Map[String, String] =
-    Map(
-      "q"                 -> query,
-      "ids"               -> ids.map(_.mkString(",")),
-      "offset"            -> Some(offset.toString),
-      "length"            -> Some(length.toString),
-      "fromDate"          -> fromDate.map(printDateTime),
-      "toDate"            -> toDate.map(printDateTime),
-      "archived"          -> archived.map(_.toString),
-      "hasExports"        -> hasExports.map(_.toString),
-      "hasIdentifier"     -> hasIdentifier,
-      "missingIdentifier" -> missingIdentifier,
-      "valid"             -> valid.map(_.toString),
-      "free"              -> free.map(_.toString),
-      "uploadedBy"        -> uploadedBy,
-      "labels"            -> labels.toNel.map(_.list.mkString(",")),
-      "hasMetadata"       -> hasMetadata.toNel.map(_.list.mkString(","))
-    ).foldLeft(Map[String, String]()) {
-      case (acc, (key, Some(value))) => acc + (key -> value)
-      case (acc, (_,   None))        => acc
-    }
-}
+)
 
 object SearchParams {
 
+  def commasToList(s: String): List[String] = s.trim.split(',').toList
+  def listToCommas(list: List[String]): Option[String] = list.toNel.map(_.list.mkString(","))
+
   def apply(request: Request[Any]): SearchParams = {
 
-    def commaSep(key: String): List[String] = request.getQueryString(key).toList.flatMap(_.trim.split(','))
+    def commaSep(key: String): List[String] = request.getQueryString(key).toList.flatMap(commasToList)
 
     val query = request.getQueryString("q")
     val structuredQuery = query.map(Parser.run) getOrElse List()
@@ -333,10 +314,33 @@ object SearchParams {
       request.getQueryString("valid").map(_.toBoolean),
       request.getQueryString("free").map(_.toBoolean),
       request.getQueryString("uploadedBy"),
-      request.getQueryString("labels").map(_.toString.split(",").toList) getOrElse List(),
+      commaSep("labels"),
       commaSep("hasMetadata")
     )
   }
+
+
+  def toStringMap(searchParams: SearchParams): Map[String, String] =
+    Map(
+      "q"                 -> searchParams.query,
+      "ids"               -> searchParams.ids.map(_.mkString(",")),
+      "offset"            -> Some(searchParams.offset.toString),
+      "length"            -> Some(searchParams.length.toString),
+      "fromDate"          -> searchParams.fromDate.map(printDateTime),
+      "toDate"            -> searchParams.toDate.map(printDateTime),
+      "archived"          -> searchParams.archived.map(_.toString),
+      "hasExports"        -> searchParams.hasExports.map(_.toString),
+      "hasIdentifier"     -> searchParams.hasIdentifier,
+      "missingIdentifier" -> searchParams.missingIdentifier,
+      "valid"             -> searchParams.valid.map(_.toString),
+      "free"              -> searchParams.free.map(_.toString),
+      "uploadedBy"        -> searchParams.uploadedBy,
+      "labels"            -> listToCommas(searchParams.labels),
+      "hasMetadata"       -> listToCommas(searchParams.hasMetadata)
+    ).foldLeft(Map[String, String]()) {
+      case (acc, (key, Some(value))) => acc + (key -> value)
+      case (acc, (_,   None))        => acc
+    }
 
 }
 
