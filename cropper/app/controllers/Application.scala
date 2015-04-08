@@ -121,15 +121,21 @@ object Application extends Controller with ArgoHelpers {
       masterDimensions   = Dimensions(masterW, masterH)
       masterFilename     = outputFilename(apiImage, source.bounds, masterDimensions.width)
       mediaType          = "image/jpeg" // Hard-coding this for now, until we handle other image types
-      masterSizingFuture = CropStorage.storeCropSizing(masterCrop, masterFilename, mediaType, crop, masterDimensions)
 
-      outputDims = if (portrait)
+      // Defer storage as we wish to parallelise
+      masterSizingFuture =  CropStorage.storeCropSizing(masterCrop, masterFilename, mediaType, crop, masterDimensions)
+
+      // Compile resizings from config
+      standardDims = if (portrait)
         Config.portraitCropSizingHeights.filter(_ <= masterH).map(h => Dimensions(math.round(h * aspect), h))
       else
         Config.landscapeCropSizingWidths.filter(_ <= masterW).map(w => Dimensions(w, math.round(w / aspect)))
 
-      // Create resized crops
-      sizings <- Future.sequence(outputDims.map { dimensions =>
+      // Append original dimensions to size list (resize noop with quality reduction)
+      outputDims = standardDims :+ masterDimensions
+
+      // Perform parallel resize / store operations
+      sizings <- Future.sequence[CropSizing, List](outputDims.map { dimensions =>
         val filename = outputFilename(apiImage, source.bounds, dimensions.width)
         for {
           file    <- Crops.resizeImage(masterCrop, dimensions, 75d)
@@ -137,10 +143,16 @@ object Application extends Controller with ArgoHelpers {
           _       <- delete(file)
         }
         yield sizing
-      } :+ masterSizingFuture)
-      _ <- delete(sourceFile)
+        // Perform master crop storage in parallel by prepending to sequence of futures
+      }.+:(masterSizingFuture))
+
+      // Extract master crop sizing (pattern matching, requires mastercrop op to be first)
+      masterSizing::otherSizings = sizings
+
+      // Delete temporary artefacts in parallel
+      _ <- Future.sequence(List(masterCrop,sourceFile).map(delete(_)))
     }
-    yield (apiImage.id, sizings)
+    yield (apiImage.id, otherSizings)
   }
 
   def fetchSourceFromApi(uri: String): Future[SourceImage] =
