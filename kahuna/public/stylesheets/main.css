@@ -98,7 +98,8 @@ textarea {
 /* annoyingly we have to have these seperate as the moz-placeholder breaks the
 Chrome selector */
 input[disabled],
-textarea[disabled] {
+textarea[disabled],
+.disabled {
     color: #666;
 }
 input::-webkit-input-placeholder,
