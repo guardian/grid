@@ -98,7 +98,8 @@ textarea {
 /* annoyingly we have to have these seperate as the moz-placeholder breaks the
 Chrome selector */
 input[disabled],
-textarea[disabled] {
+textarea[disabled],
+.disabled {
     color: #666;
 }
 input::-webkit-input-placeholder,
@@ -1014,13 +1015,18 @@ FIXME: what to do with touch devices
 
 .metadata-applicator {
     font-size: 1.4rem;
-    font-family: "Guardian Agate Sans Web", Helvetica, Arial;
     text-align: right;
 }
 
 .metadata-applicator__button {
     font-weight: bold;
     text-decoration: underline;
+}
+
+.result-editor__rights-editor {
+    float: right;
+    /*display: none;*/
+    /* TODO: remove this once we have actual styling */
 }
 
 /* ==========================================================================
