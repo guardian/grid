@@ -14,7 +14,7 @@ object Crops {
   import Files._
 
   def outputFilename(source: SourceImage, bounds: Bounds, outputWidth: Int, isMaster: Boolean = false): String = {
-    s"${source.id}/${Crop.getCropId(bounds)}/${if(isMaster) "master/"}$outputWidth.jpg"
+    s"${source.id}/${Crop.getCropId(bounds)}/${if(isMaster) "master/" else ""}$outputWidth.jpg"
   }
 
   def createMasterCrop(apiImage: SourceImage, sourceFile: File, crop: Crop, mediaType: String): Future[MasterCrop] = {
@@ -26,7 +26,7 @@ object Crops {
       file  <- ExportOperations.appendMetadata(strip, metadata)
 
       dimensions = Dimensions(source.bounds.width, source.bounds.height)
-      filename   = outputFilename(apiImage, source.bounds, dimensions.width)
+      filename   = outputFilename(apiImage, source.bounds, dimensions.width, true)
       sizing     = CropStorage.storeCropSizing(file, filename, mediaType, crop, dimensions)
       aspect     = source.bounds.width.toFloat / source.bounds.height
     }
