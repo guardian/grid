@@ -8,7 +8,9 @@ export var service = angular.module('kahuna.edits.service', []);
 // TODO: For now we're sending over the image so we can compare against it to
 // see when it's synced. We should have a link on the resource to be able to do
 // this.
-service.factory('editsService', ['$q', 'editsApi', 'mediaApi', 'poll', function($q, editsApi, mediaApi, poll) {
+service.factory('editsService',
+                ['$q', 'editsApi', 'mediaApi', 'poll',
+                 function($q, editsApi, mediaApi, poll) {
 
     const pollFrequency = 500; // ms
     const pollTimeout   = 20 * 1000; // ms

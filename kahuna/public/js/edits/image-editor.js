@@ -1,7 +1,7 @@
 import angular from 'angular';
 import template from './image-editor.html!text';
 
-import rights from './rights';
+import './rights';
 
 export var imageEditor = angular.module('kahuna.edits.imageEditor', ['kahuna.edits.rights']);
 
