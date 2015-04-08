@@ -16,7 +16,6 @@ rights.controller('RightsCtrl', ['editsService', function(editsService) {
         "handout"
     ];
 
-    // trying to make this as unidirectional as possible
     ctrl.imageRights = angular.copy({}, ctrl.originalImageRights);
 
     ctrl.hasRight = right =>
