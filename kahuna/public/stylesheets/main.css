@@ -1015,13 +1015,16 @@ FIXME: what to do with touch devices
 
 .metadata-applicator {
     font-size: 1.4rem;
-    font-family: "Guardian Agate Sans Web", Helvetica, Arial;
     text-align: right;
 }
 
 .metadata-applicator__button {
     font-weight: bold;
     text-decoration: underline;
+}
+
+.result-editor__rights-editor {
+    float: right;
 }
 
 /* ==========================================================================
