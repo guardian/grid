@@ -19,11 +19,11 @@ import com.gu.mediaservice.lib.argo.model.Link
 
 import org.joda.time.DateTime
 
+import lib.imaging._
+
 import lib._, Files._
 import model._
 
-
-case object InvalidImage extends Exception("Invalid image cannot be cropped")
 
 object Application extends Controller with ArgoHelpers {
 
@@ -66,8 +66,9 @@ object Application extends Controller with ArgoHelpers {
           timeRequested = Some(new DateTime()),
           specification = cropSrc
         )
+        val sourceImageFuture = fetchSourceFromApi(crop.specification.uri)
 
-        createSizings(crop).map { case (id, sizings) =>
+        Crops.createSizings(sourceImageFuture, crop).map { case ExportResult(id, masterSizing, sizings) =>
 
           val cropJson = cropResponse(Crop(crop, sizings))
           val exports = Json.obj(
@@ -101,60 +102,6 @@ object Application extends Controller with ArgoHelpers {
     }
   }
 
-  def createSizings(crop: Crop): Future[(String, List[CropSizing])] = {
-    val source = crop.specification
-
-    for {
-      apiImage   <- fetchSourceFromApi(source.uri)
-
-      // Only allow cropping if image is valid, else exit
-      _          <- if (apiImage.valid) Future.successful(()) else Future.failed(InvalidImage)
-      sourceFile <- tempFileFromURL(new URL(apiImage.source.secureUrl), "cropSource", "")
-      metadata   = apiImage.metadata
-      Bounds(_, _, masterW, masterH) = source.bounds
-      aspect     = masterW.toFloat / masterH
-      portrait   = masterW < masterH
-
-      // Create master crop
-      strippedCrop <- Crops.cropImage(sourceFile, source.bounds, 100d)
-      masterCrop   <- Crops.appendMetadata(strippedCrop, metadata)
-      masterDimensions   = Dimensions(masterW, masterH)
-      masterFilename     = outputFilename(apiImage, source.bounds, masterDimensions.width)
-      mediaType          = "image/jpeg" // Hard-coding this for now, until we handle other image types
-
-      // Defer storage as we wish to parallelise
-      masterSizingFuture =  CropStorage.storeCropSizing(masterCrop, masterFilename, mediaType, crop, masterDimensions)
-
-      // Compile resizings from config
-      standardDims = if (portrait)
-        Config.portraitCropSizingHeights.filter(_ <= masterH).map(h => Dimensions(math.round(h * aspect), h))
-      else
-        Config.landscapeCropSizingWidths.filter(_ <= masterW).map(w => Dimensions(w, math.round(w / aspect)))
-
-      // Append original dimensions to size list (resize noop with quality reduction)
-      outputDims = standardDims :+ masterDimensions
-
-      // Perform parallel resize / store operations
-      sizings <- Future.sequence[CropSizing, List](outputDims.map { dimensions =>
-        val filename = outputFilename(apiImage, source.bounds, dimensions.width)
-        for {
-          file    <- Crops.resizeImage(masterCrop, dimensions, 75d)
-          sizing  <- CropStorage.storeCropSizing(file, filename, mediaType, crop, dimensions)
-          _       <- delete(file)
-        }
-        yield sizing
-        // Perform master crop storage in parallel by prepending to sequence of futures
-      }.+:(masterSizingFuture))
-
-      // Extract master crop sizing (pattern matching, requires mastercrop op to be first)
-      masterSizing::otherSizings = sizings
-
-      // Delete temporary artefacts in parallel
-      _ <- Future.sequence(List(masterCrop,sourceFile).map(delete(_)))
-    }
-    yield (apiImage.id, otherSizings)
-  }
-
   def fetchSourceFromApi(uri: String): Future[SourceImage] =
     for (resp <- WS.url(uri).withHeaders("X-Gu-Media-Key" -> mediaApiKey).get)
     yield {
@@ -183,17 +130,10 @@ object Application extends Controller with ArgoHelpers {
       })
   }
 
-
   def getSecureCropUri(uri: String): Option[String] =
     for {
       secureHost <- Config.imgPublishingSecureHost
       cropUri     = URI.create(uri)
       secureUri   = new URI("https", secureHost, cropUri.getPath, cropUri.getFragment)
     } yield secureUri.toString
-
-
-  def outputFilename(source: SourceImage, bounds: Bounds, outputWidth: Int): String = {
-    s"${source.id}/${Crop.getCropId(bounds)}/$outputWidth.jpg"
-  }
-
 }

@@ -1,56 +1,74 @@
 package lib
 
-import java.io._
 import scala.concurrent.Future
+import lib.imaging.{ExportOperations, ExportResult}
+import model.{Crop, SourceImage, Bounds, Dimensions, CropSizing}
+import java.net.{URI, URL}
+import java.io.File
 
-import _root_.play.api.libs.concurrent.Execution.Implicits._
-import lib.Files._
-import model.{Dimensions, CropSource}
-
-import com.gu.mediaservice.model.ImageMetadata
-import model._
-
+case object InvalidImage extends Exception("Invalid image cannot be cropped")
+case class MasterCrop(sizing: Future[CropSizing], file: File, dimensions: Dimensions, aspectRatio: Float)
 
 object Crops {
-  import lib.imaging.Convert._
-  import lib.imaging.ExifTool._
+  import scala.concurrent.ExecutionContext.Implicits.global
+  import Files._
 
-  def tagFilter(metadata: ImageMetadata) = {
-    Map[String, Option[String]](
-      "Copyright" -> metadata.copyright,
-      "CopyrightNotice" -> metadata.copyrightNotice,
-      "Credit" -> metadata.credit,
-      "OriginalTransmissionReference" -> metadata.suppliersReference
-    ).collect { case (key, Some(value)) => (key, value) }
+  def outputFilename(source: SourceImage, bounds: Bounds, outputWidth: Int, isMaster: Boolean = false): String = {
+    s"${source.id}/${Crop.getCropId(bounds)}/${if(isMaster) "master/"}$outputWidth.jpg"
   }
 
-  def cropImage(sourceFile: File, bounds: Bounds, quality: Double = 100d): Future[File] = {
+  def createMasterCrop(apiImage: SourceImage, sourceFile: File, crop: Crop, mediaType: String): Future[MasterCrop] = {
+    val source   = crop.specification
+    val metadata = apiImage.metadata
+
     for {
-      outputFile <- createTempFile(s"crop-", ".jpg")
-      cropSource  = imageSource(sourceFile)(quality)
-      stripped    = stripMeta(cropSource)
-      cropped     = crop(stripped)(bounds)
-      normed      = normalizeColorspace(cropped)
-      addOutput   = addDestImage(normed)(outputFile)
-      _          <- runConvertCmd(addOutput)
+      strip <- ExportOperations.cropImage(sourceFile, source.bounds, 100d)
+      file  <- ExportOperations.appendMetadata(strip, metadata)
+
+      dimensions = Dimensions(source.bounds.width, source.bounds.height)
+      filename   = outputFilename(apiImage, source.bounds, dimensions.width)
+      sizing     = CropStorage.storeCropSizing(file, filename, mediaType, crop, dimensions)
+      aspect     = source.bounds.width.toFloat / source.bounds.height
     }
-    yield outputFile
+    yield MasterCrop(sizing, file, dimensions, aspect)
   }
 
-  def appendMetadata(sourceFile: File, metadata: ImageMetadata): Future[File] = {
-    runExiftoolCmd(
-      setTags(tagSource(sourceFile))(tagFilter(metadata))
-      ).map(_ => sourceFile)
+  def createCrops(sourceFile: File, dimensionList: List[Dimensions], apiImage: SourceImage, crop: Crop, mediaType: String): Future[List[CropSizing]] = {
+    Future.sequence[CropSizing, List](dimensionList.map { dimensions =>
+      val filename = outputFilename(apiImage, crop.specification.bounds, dimensions.width)
+      for {
+        file    <- ExportOperations.resizeImage(sourceFile, dimensions, 75d)
+        sizing  <- CropStorage.storeCropSizing(file, filename, mediaType, crop, dimensions)
+        _       <- delete(file)
+      }
+      yield sizing
+    })
   }
 
-  def resizeImage(sourceFile: File, dimensions: Dimensions, quality: Double = 100d): Future[File] = {
+  def dimesionsFromConfig(bounds: Bounds, aspectRatio: Float): List[Dimensions] = if (bounds.isPortrait)
+      Config.portraitCropSizingHeights.filter(_ <= bounds.height).map(h => Dimensions(math.round(h * aspectRatio), h))
+    else
+      Config.landscapeCropSizingWidths.filter(_ <= bounds.width).map(w => Dimensions(w, math.round(w / aspectRatio)))
+
+  def createSizings(sourceImageFuture: Future[SourceImage], crop: Crop): Future[ExportResult] = {
+    val source    = crop.specification
+    val mediaType = "image/jpeg"
+
     for {
-      outputFile  <- createTempFile(s"resize-", ".jpg")
-      resizeSource = imageSource(sourceFile)(quality)
-      resized      = scale(resizeSource)(dimensions)
-      addOutput    = addDestImage(resized)(outputFile)
-      _           <- runConvertCmd(addOutput)
+      apiImage   <- sourceImageFuture
+      _          <- if (apiImage.valid) Future.successful(()) else Future.failed(InvalidImage)
+      sourceFile <- tempFileFromURL(new URL(apiImage.source.secureUrl), "cropSource", "")
+      masterCrop <- createMasterCrop(apiImage,sourceFile, crop, mediaType)
+
+      outputDims = dimesionsFromConfig(source.bounds, masterCrop.aspectRatio) :+ masterCrop.dimensions
+
+      sizes      <- createCrops(masterCrop.file, outputDims, apiImage, crop, mediaType)
+      masterSize <- masterCrop.sizing
+
+      // Delete temporary artefacts
+      _ <- Future.sequence(List(masterCrop.file,sourceFile).map(delete(_)))
     }
-    yield outputFile
+    yield ExportResult(apiImage.id, masterSize, sizes)
   }
+
 }
