@@ -2,7 +2,7 @@
     <label ng:repeat="right in ctrl.rights">
         {{right}}
         <input type="checkbox"
-               ng:checked="ctrl.rightExists(right)"
+               ng:checked="ctrl.hasRight(right)"
                ng:click="ctrl.toggleRight(right)" />
     </label>
 </form>
