@@ -12,8 +12,8 @@ rights.controller('RightsCtrl', ['$window', 'editsService', function($window, ed
     ctrl.saving = false;
     // TODO: potentially get this from an API
     ctrl.rights = [
-        "PR image",
-        "handout"
+        'PR image',
+        'handout'
     ];
 
     ctrl.imageRights = angular.copy({}, ctrl.originalImageRights);
