@@ -9,28 +9,39 @@ rights.controller('RightsCtrl', ['editsService', function(editsService) {
 
     var ctrl = this;
 
+    ctrl.saving = false;
     // TODO: potentially get this from an API
     ctrl.rights = [
         "PR image",
         "handout"
     ];
 
-    // FIXME: quite stateful, quite crap
-    // TODO: perhaps look into abstracting a collection of radios into a directive
-    var rightsSet = new Set();
-    ctrl.rightExists = right => rightsSet.has(right);
-    ctrl.toggleRight = right => {
-        if (rightsSet.has(right)) {
-            rightsSet.delete(right);
-        } else {
-            rightsSet.add(right);
-        }
+    // trying to make this as unidirectional as possible
+    ctrl.imageRights = angular.copy({}, ctrl.originalImageRights);
 
-        ctrl.save([...rightsSet]);
+    ctrl.hasRight = right =>
+        findResource(right, ctrl.imageRights) ? true : false;
+
+    ctrl.toggleRight = right => {
+        const resource = findResource(right, ctrl.imageRights);
+        const promise = resource ? ctrl.delete(resource) : ctrl.save(right);
+
+        ctrl.saving = true;
+
+        promise
+            .then(rights => ctrl.imageRights = rights)
+            .finally(() => ctrl.saving = false);
     };
 
-    ctrl.save = data =>
-        editsService.update(ctrl.imageRights, data, ctrl.image);
+    ctrl.save = right =>
+        editsService.update(ctrl.imageRights, [right], ctrl.image);
+
+    ctrl.delete = rightResource =>
+        editsService.deleteFromCollection(rightResource, ctrl.imageRights, ctrl.image);
+
+    function findResource(right, imageRights) {
+        return imageRights.data.find(imageRight => imageRight.data === right);
+    }
 
 }]);
 
@@ -42,7 +53,7 @@ rights.directive('gridRights', [function() {
         controllerAs: 'ctrl',
         bindToController: true,
         scope: {
-            imageRights: '=rights',
+            originalImageRights: '=rights',
             image: '='
         },
         template: template
