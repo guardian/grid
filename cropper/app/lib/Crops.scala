@@ -65,7 +65,6 @@ object Crops {
       sizes      <- createCrops(masterCrop.file, outputDims, apiImage, crop, mediaType)
       masterSize <- masterCrop.sizing
 
-      // Delete temporary artefacts
       _ <- Future.sequence(List(masterCrop.file,sourceFile).map(delete(_)))
     }
     yield ExportResult(apiImage.id, masterSize, sizes)
