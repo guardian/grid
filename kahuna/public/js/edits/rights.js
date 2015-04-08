@@ -22,7 +22,7 @@ rights.controller('RightsCtrl', ['editsService', function(editsService) {
 
     ctrl.toggleRight = right => {
         const resource = findResource(right, ctrl.imageRights);
-        const promise = resource ? ctrl.delete(resource) : ctrl.save(right);
+        const promise = resource ? del(resource) : save(right);
 
         ctrl.saving = true;
 
@@ -32,11 +32,13 @@ rights.controller('RightsCtrl', ['editsService', function(editsService) {
             .finally(() => ctrl.saving = false);
     };
 
-    ctrl.save = right =>
-        editsService.update(ctrl.imageRights, [right], ctrl.image);
+    function save(right) {
+        return editsService.update(ctrl.imageRights, [right], ctrl.image);
+    }
 
-    ctrl.delete = rightResource =>
-        editsService.deleteFromCollection(rightResource, ctrl.imageRights, ctrl.image);
+    function del(rightResource) {
+        return editsService.deleteFromCollection(rightResource, ctrl.imageRights, ctrl.image);
+    }
 
     function findResource(right, imageRights) {
         return imageRights.data.find(imageRight => imageRight.data === right);
