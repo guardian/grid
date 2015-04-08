@@ -36,14 +36,16 @@ object MediaApi extends Controller with ArgoHelpers {
   val Authenticated = auth.Authenticated(keyStore, loginUri, Config.kahunaUri)
 
 
-  val indexResponse = {
-    val searchParamList = List("q", "ids", "offset", "length", "fromDate", "toDate",
-      "orderBy", "since", "until", "uploadedBy", "archived", "valid", "free",
-      "hasExports", "hasIdentifier", "missingIdentifier", "hasMetadata").mkString(",")
+  val searchParamList = List("q", "ids", "offset", "length", "fromDate", "toDate",
+    "orderBy", "since", "until", "uploadedBy", "archived", "valid", "free",
+    "hasExports", "hasIdentifier", "missingIdentifier", "hasMetadata").mkString(",")
 
+  val searchLinkHref = s"$rootUri/images{?$searchParamList}"
+
+  val indexResponse = {
     val indexData = Map("description" -> "This is the Media API")
     val indexLinks = List(
-      Link("search",          s"$rootUri/images{?$searchParamList}"),
+      Link("search",          searchLinkHref),
       Link("image",           s"$rootUri/images/{id}"),
       Link("metadata-search", s"$rootUri/images/metadata/{field}{?q}"),
       Link("cropper",         cropperUri),
