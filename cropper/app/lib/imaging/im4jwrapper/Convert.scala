@@ -1,29 +1,15 @@
-package lib.imaging
+package lib.imaging.im4jwrapper
 
 import java.util.concurrent.Executors
+import lib.Config
+
 import java.io.File
 import scala.concurrent.{Future, ExecutionContext}
-import org.im4java.core.{ETOperation, IMOperation, Operation, ConvertCmd, ExiftoolCmd}
-import org.im4java.process.OutputConsumer
-import lib.Config
-import model.{Bounds, Dimensions}
-import java.io.InputStream
-import java.util.Scanner
+import org.im4java.core.{IMOperation, ConvertCmd}
 import scalaz.syntax.id._
 
+import model.{Bounds, Dimensions}
 
-object ExifTool {
-  private implicit val ctx: ExecutionContext =
-    ExecutionContext.fromExecutor(Executors.newFixedThreadPool(Config.imagingThreadPoolSize))
-
-  def tagSource(source: File) = (new ETOperation()) <| (_.addImage(source.getAbsolutePath))
-
-  def setTags(ops: ETOperation)(tags: Map[String, String]): ETOperation =  {
-    tags.foldLeft(ops) { case (ops, (key, value)) => ops <| (_.setTags(s"$key=$value")) }
-  }
-
-  def runExiftoolCmd(op: ETOperation): Future[Unit] = Future((new ExiftoolCmd).run(op))
-}
 
 object Convert {
   private implicit val ctx: ExecutionContext =
