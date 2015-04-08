@@ -12,7 +12,7 @@ import scala.concurrent.Future
 
 import lib.{Config, Notifications}
 import lib.storage.S3ImageStorage
-import lib.imaging.{FileMetadataConverter, MimeTypeDetection, Thumbnailer}
+import lib.imaging.{FileMetadataReader, MimeTypeDetection, Thumbnailer}
 
 import model.{Asset, Image}
 
@@ -103,8 +103,8 @@ class ImageLoader(storage: ImageStorage) extends Controller with ArgoHelpers {
     // These futures are started outside the for-comprehension, otherwise they will not run in parallel
     val uriFuture = storage.storeImage(id, tempFile, mimeType, Map("uploaded_by" -> uploadedBy) ++ identifiersMeta)
     val thumbFuture = Thumbnailer.createThumbnail(Config.thumbWidth, tempFile.toString)
-    val dimensionsFuture = FileMetadataConverter.dimensions(tempFile)
-    val fileMetadataFuture = FileMetadataConverter.fromIPTCHeaders(tempFile)
+    val dimensionsFuture = FileMetadataReader.dimensions(tempFile)
+    val fileMetadataFuture = FileMetadataReader.fromIPTCHeaders(tempFile)
 
     // TODO: better error handling on all futures. Similar to metadata
     bracket(thumbFuture)(_.delete) { thumb =>
@@ -117,7 +117,7 @@ class ImageLoader(storage: ImageStorage) extends Controller with ArgoHelpers {
         sourceAsset = Asset(uri, tempFile.length, mimeType, dimensions)
         thumbUri   <- storage.storeThumbnail(id, thumb, mimeType)
         thumbSize   = thumb.length
-        thumbDimensions <- FileMetadataConverter.dimensions(thumb)
+        thumbDimensions <- FileMetadataReader.dimensions(thumb)
         thumbAsset  = Asset(thumbUri, thumbSize, mimeType, thumbDimensions)
         image       = Image.upload(id, uploadTime, uploadedBy, identifiers, sourceAsset, thumbAsset, fileMetadata, cleanMetadata)
       } yield {
