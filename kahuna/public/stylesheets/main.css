@@ -1025,7 +1025,7 @@ FIXME: what to do with touch devices
 
 .result-editor__rights-editor {
     float: right;
-    /*display: none;*/
+    display: none;
     /* TODO: remove this once we have actual styling */
 }
 
