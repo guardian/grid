@@ -40,6 +40,9 @@ object CropStorage extends S3(Config.imgPublishingCredentials) {
     list(Config.imgPublishingBucket, id).map { crops =>
       crops.foldLeft(Map[String, Crop]()) {
         case (map, (uri, metadata)) => {
+          val filename::containingFolder::_ = uri.getPath.split("/").reverse.toList
+          var isMaster = containingFolder == "master"
+
           val updatedCrop = for {
             // Note: if any is missing, the entry won't be registered
             source <- metadata.get("source")
@@ -49,6 +52,10 @@ object CropStorage extends S3(Config.imgPublishingCredentials) {
             h      <- metadata.get("bounds_h").map(_.toInt)
             width  <- metadata.get("width").map(_.toInt)
             height <- metadata.get("height").map(_.toInt)
+
+            // Exclude master from results
+            if !isMaster
+
             cid            = s"$id-$x-$y-$w-$h"
             ratio          = metadata.get("aspect_ratio")
             author         = metadata.get("author")

@@ -11,10 +11,12 @@ object Crop {
   import com.gu.mediaservice.lib.formatting._
 
   def getCropId(b: Bounds) = List(b.x, b.y, b.width, b.height).mkString("_")
-  def apply(by: Option[String], timeRequested: Option[DateTime], specification: CropSource, cropSizings: List[CropSizing] = Nil): Crop = Crop(
-    getCropId(specification.bounds), by, timeRequested, specification, cropSizings
-  )
-  def apply(crop: Crop, assets: List[CropSizing]): Crop = Crop(crop.id, crop.author, crop.date, crop.specification, assets)
+
+  def apply(by: Option[String], timeRequested: Option[DateTime], specification: CropSource, cropSizings: List[CropSizing] = Nil): Crop =
+    Crop(getCropId(specification.bounds), by, timeRequested, specification, cropSizings)
+
+  def apply(crop: Crop, assets: List[CropSizing]): Crop =
+    Crop(crop.id, crop.author, crop.date, crop.specification, assets)
 
   implicit val cropWrites: Writes[Crop] = (
     (__ \ "id").write[String] ~
