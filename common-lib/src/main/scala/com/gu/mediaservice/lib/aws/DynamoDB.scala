@@ -92,7 +92,11 @@ class DynamoDB(credentials: AWSCredentials, region: Region, tableName: String) {
 
   def setGet(id: String, key: String)
             (implicit ex: ExecutionContext): Future[Set[String]] =
-    get(id, key).map(_.getStringSet(key).asScala.toSet)
+    get(id, key).map{ item => Option(item.getStringSet(key)) match {
+        case Some(set) => set.asScala.toSet
+        case None      => Set()
+      }
+    }
 
   def setAdd(id: String, key: String, value: String)
             (implicit ex: ExecutionContext): Future[JsObject] =
