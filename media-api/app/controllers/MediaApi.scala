@@ -2,8 +2,6 @@ package controllers
 
 import java.net.URI
 
-import com.gu.mediaservice.lib.metadata.ImageMetadataConverter
-
 import scala.util.Try
 
 import play.api.mvc._
@@ -22,6 +20,7 @@ import com.gu.mediaservice.lib.argo.model._
 import com.gu.mediaservice.lib.formatting.parseDateFromQuery
 import com.gu.mediaservice.lib.cleanup.MetadataCleaners
 import com.gu.mediaservice.lib.config.MetadataConfig
+import com.gu.mediaservice.lib.metadata.ImageMetadataConverter
 import com.gu.mediaservice.model.FileMetadata
 import com.gu.mediaservice.api.Transformers
 
