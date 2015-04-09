@@ -37,6 +37,7 @@ object ExportOperations {
     yield outputFile
   }
 
+  // Updates metadata on existing file
   def appendMetadata(sourceFile: File, metadata: ImageMetadata): Future[File] = {
     runExiftoolCmd(
       setTags(tagSource(sourceFile))(tagFilter(metadata))
