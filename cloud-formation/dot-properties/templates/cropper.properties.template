@@ -1,0 +1,9 @@
+domain.root={{domain_root}}
+aws.id={{AwsId}}
+aws.secret={{AwsSecret}}
+auth.keystore.bucket={{KeyBucket}}
+publishing.image.bucket={{ImageOriginBucket}}
+publishing.image.host={{ImageOriginWebsite}}
+publishing.aws.id={{AwsId}}
+publishing.aws.secret={{AwsSecret}}
+sns.topic.arn={{SnsTopicArn}}
