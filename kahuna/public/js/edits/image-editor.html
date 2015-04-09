@@ -2,8 +2,13 @@
 <div class="result-editor">
 
     <div class="result-editor__result">
-        <img class="preview__image"
-             ng:src="{{ctrl.image.data.thumbnail | assetFile}}" />
+        <a class="result-editor__img-link"
+           ui:sref="image({imageId: image.data.id})"
+           ui:drag-data="{{image | asImageDragData}}">
+
+            <img class="result-editor__img"
+                 ng:src="{{ctrl.image.data.thumbnail | assetFile}}" />
+        </a>
 
         <div class="result-editor__info">
             <div class="result-editor__info-item result-editor__info-item--first"
