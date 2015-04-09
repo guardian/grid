@@ -30,7 +30,7 @@ service.factory('editsService',
             const matchingEdit = Object.keys(edits)
                                        .map(key => edits[key])
                                        .find(r => r.uri === uri);
-            console.log(edit, matchingEdit);
+
             return matchingEdit;
         });
     }
