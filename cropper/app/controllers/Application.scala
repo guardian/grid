@@ -76,7 +76,7 @@ object Application extends Controller with ArgoHelpers {
 
         export.map { case ExportResult(id, masterSizing, sizings) =>
 
-          val cropJson = cropResponse(Crop(crop, sizings))
+          val cropJson = cropResponse(Crop(crop, masterSizing, sizings))
           val exports = Json.obj(
             "id" -> id,
             "data" -> Json.arr(Json.obj("type" -> "crop") ++ cropJson)

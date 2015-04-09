@@ -53,18 +53,19 @@ object CropStorage extends S3(Config.imgPublishingCredentials) {
             width  <- metadata.get("width").map(_.toInt)
             height <- metadata.get("height").map(_.toInt)
 
-            // Exclude master from results
-            if !isMaster
-
             cid            = s"$id-$x-$y-$w-$h"
             ratio          = metadata.get("aspect_ratio")
             author         = metadata.get("author")
             date           = metadata.get("date").flatMap(parseDateTime(_))
             cropSource     = CropSource(source, Bounds(x, y, w, h), ratio)
             dimensions     = Dimensions(width, height)
-            cropSizing     = CropSizing(translateImgHost(uri).toString, dimensions)
-            currentSizings = map.getOrElse(cid, Crop(author, date, cropSource)).assets
-          } yield cid -> Crop(author, date, cropSource, (currentSizings :+ cropSizing))
+            sizing         = CropSizing(translateImgHost(uri).toString, dimensions)
+            lastCrop       = map.getOrElse(cid, Crop(author, date, cropSource))
+            lastSizings    = lastCrop.assets
+
+            currentSizings = if (isMaster) lastSizings else lastSizings :+ sizing
+            masterSizing   = if (isMaster) Some(sizing) else lastCrop.master
+          } yield cid -> Crop(author, date, cropSource, masterSizing, currentSizings)
 
           map ++ updatedCrop
         }
