@@ -55,6 +55,7 @@ rights.directive('gridRights', [function() {
         bindToController: true,
         scope: {
             originalImageRights: '=rights',
+            // TODO: remove this once we add links to the resources
             image: '='
         },
         template: template

@@ -30,7 +30,7 @@ service.factory('editsService',
             const matchingEdit = Object.keys(edits)
                                        .map(key => edits[key])
                                        .find(r => r.uri === uri);
-
+            console.log(edit, matchingEdit);
             return matchingEdit;
         });
     }
@@ -64,6 +64,17 @@ service.factory('editsService',
         runWatcher(resource, 'update-start');
 
         return resource.post({ data }).then(edit =>
+            getSynced(originalImage, newImage => matches(edit, newImage))).
+            then(edit => {
+                runWatcher(resource, 'update-end');
+                return edit;
+            });
+    }
+
+    function update(resource, data, originalImage) {
+        runWatcher(resource, 'update-start');
+
+        return resource.put({ data }).then(edit =>
             getSynced(originalImage, newImage => matches(edit, newImage))).
             then(edit => {
                 runWatcher(resource, 'update-end');
@@ -119,6 +130,6 @@ service.factory('editsService',
         });
     }
 
-    return { add, removeFromCollection, on };
+    return { update, add, removeFromCollection, on };
 
 }]);
