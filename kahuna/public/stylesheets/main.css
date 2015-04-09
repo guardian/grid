@@ -675,6 +675,11 @@ FIXME: what to do with touch devices
     width: 256px;
 }
 
+.result-editor__img,
+.result-editor__img-link {
+    display: block;
+}
+
 .result-editor__editor {
     flex-grow: 1;
     margin: 0 10px;
