@@ -1,0 +1,5 @@
+aws.id={{AwsId}}
+aws.secret={{AwsSecret}}
+s3.image.bucket={{ImageBucket}}
+s3.thumb.bucket={{ThumbBucket}}
+sqs.queue.url={{SqsQueueUrl}}
