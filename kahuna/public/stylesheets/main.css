@@ -205,8 +205,22 @@ a:focus {
     line-height: 12px;
 }
 
-.nopad {
-    padding: 0 !important;
+.saving {
+    display: inline;
+    width: 15px;
+    line-height: 15px;
+    text-align: center;
+    padding: 0 2px;
+    color: #00adee;
+
+    animation-name: spin;
+	animation-duration: 1500ms;
+	animation-iteration-count: infinite;
+	animation-timing-function: linear;
+    -webkit-animation-name: spin;
+    -webkit-animation-iteration-count: infinite;
+    -webkit-animation-duration: 1500ms;
+    -webkit-animation-timing-function: linear;
 }
 
 /* ==========================================================================
@@ -749,7 +763,6 @@ FIXME: what to do with touch devices
 .image-details {
     box-sizing: border-box;
     float: right;
-    font-family: "Guardian Agate Sans Web", Helvetica, Arial;
     font-size: 1.4rem;
     height: calc(100vh - 48px); /* viewport - top-bar */
     padding: 10px 10px;
