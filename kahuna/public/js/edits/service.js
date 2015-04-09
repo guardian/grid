@@ -12,6 +12,9 @@ service.factory('editsService',
                 ['$q', 'editsApi', 'mediaApi', 'poll',
                  function($q, editsApi, mediaApi, poll) {
 
+    // TODO: Use proper names from http://en.wikipedia.org/wiki/Watcher_%28comics%29
+    const watchers = new Map();
+
     const pollFrequency = 500; // ms
     const pollTimeout   = 20 * 1000; // ms
 
@@ -57,9 +60,15 @@ service.factory('editsService',
         return poll(checkSynced, pollFrequency, pollTimeout);
     }
 
-    function update(resource, data, originalImage) {
+    function add(resource, data, originalImage) {
+        runWatcher(resource, 'update-start');
+
         return resource.post({ data }).then(edit =>
-            getSynced(originalImage, newImage => matches(edit, newImage)));
+            getSynced(originalImage, newImage => matches(edit, newImage))).
+            then(edit => {
+                runWatcher(resource, 'update-end');
+                return edit;
+            });
     }
 
     // This is a bit of a hack function as we don't have a way of deleting from
@@ -67,13 +76,49 @@ service.factory('editsService',
     // choose between working with the collection e.g. labels, or working with
     // each collection item directly, whereas now, for adding, we use the
     // collection, and for deleting we use the collection item
-    function deleteFromCollection(resource, collection, originalImage) {
+    function removeFromCollection(resource, collection, originalImage) {
+        runWatcher(collection, 'update-start');
+
         return resource.delete().then(edit =>
-            getSynced(originalImage, newImage => missing(edit, collection, newImage)));
+            getSynced(originalImage, newImage => missing(edit, collection, newImage))).
+            then(collection => {
+                runWatcher(collection, 'update-end');
+                return collection;
+            });
     }
 
+    // Event handling
+    function createWatcher() {
+        return new Map([
+            ['update-start', new Map()],
+            ['update-end',   new Map()]
+        ]);
+    }
 
+    function runWatcher(resource, event) {
+        resource.getUri().then(uri => {
+            const watcher = watchers.get(uri);
 
-    return { update, deleteFromCollection };
+            if (watcher) {
+                watcher.get(event).forEach(cb => cb());
+            }
+        });
+    }
+
+    function on(resource, event, cb) {
+        resource.getUri().then(uri => {
+            var watcher = watchers.get(uri);
+
+            if (!watcher) {
+                watchers.set(uri, createWatcher());
+                // just a wee bit of mutability as we don't have `Option`s just `undefined`s
+                watcher = watchers.get(uri);
+            }
+
+            watcher.get(event).set(cb, cb);
+        });
+    }
+
+    return { add, removeFromCollection, on };
 
 }]);

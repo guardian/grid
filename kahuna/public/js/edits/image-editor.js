@@ -1,11 +1,17 @@
 import angular from 'angular';
 import template from './image-editor.html!text';
 
+import './service';
 import './rights';
 
-export var imageEditor = angular.module('kahuna.edits.imageEditor', ['kahuna.edits.rights']);
+export var imageEditor = angular.module('kahuna.edits.imageEditor', [
+    'kahuna.edits.rights',
+    'kahuna.edits.service'
+]);
 
-imageEditor.controller('ImageEditorCtrl', ['$scope', '$q', 'poll', function($scope, $q, poll) {
+imageEditor.controller('ImageEditorCtrl',
+                       ['$scope', '$q', 'poll', 'editsService',
+                        function($scope, $q, poll, editsService) {
 
     var pollFrequency = 500; // ms
     var pollTimeout   = 20 * 1000; // ms
@@ -13,14 +19,35 @@ imageEditor.controller('ImageEditorCtrl', ['$scope', '$q', 'poll', function($sco
     this.status = this.image.data.valid ? 'ready' : 'invalid';
     this.saving = false;
 
+    editsService.on(
+        this.image.data.userMetadata.data.rights,
+        'update-start',
+        () => {
+            this.status = 'saving';
+            this.saving = true;
+        }
+    );
+
+    editsService.on(
+        this.image.data.userMetadata.data.rights,
+        'update-end',
+        () => {
+            this.image.get().then(newImage => {
+                this.image = newImage;
+                this.status = this.image.data.valid ? 'ready' : 'invalid';
+            });
+        }
+    );
+
     // Watch the metadata for an update from `required-metadata-editor`.
     // When the metadata is overridden, we don't know if the resulting
     // image is valid or not. This code checks when the update has
     // been processed and updates the status accordingly.
+    // TODO: Move this over to use the new `edits-service`
     $scope.$watch(() => this.image.data.userMetadata.data.metadata, (newMetadata, oldMetadata) => {
         if (newMetadata !== oldMetadata) {
 
-            this.status = 're-indexing';
+            this.status = 'saving';
             this.saving = true;
 
             var metadataMatches = (image) => {
