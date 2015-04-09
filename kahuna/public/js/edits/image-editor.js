@@ -10,8 +10,8 @@ export var imageEditor = angular.module('kahuna.edits.imageEditor', [
 ]);
 
 imageEditor.controller('ImageEditorCtrl',
-                       ['$scope', '$q', 'poll', 'editsService',
-                        function($scope, $q, poll, editsService) {
+                       ['$scope', 'editsService',
+                        function($scope, editsService) {
 
     var ctrl = this;
 
@@ -20,11 +20,25 @@ imageEditor.controller('ImageEditorCtrl',
     const rights = ctrl.image.data.userMetadata.data.rights;
     const metadata = ctrl.image.data.userMetadata.data.metadata;
 
-    editsService.on(rights, 'update-start', () => ctrl.status = 'saving');
-    editsService.on(rights, 'update-end', refreshImage);
+    const offRightsUpdateStart =
+        editsService.on(rights, 'update-start', () => ctrl.status = 'saving');
 
-    editsService.on(metadata, 'update-start', () => ctrl.status = 'saving')
-    editsService.on(metadata, 'update-end', refreshImage);
+    const offRightsUpdateEnd =
+        editsService.on(rights, 'update-end', refreshImage);
+
+    const offMetadataUpdateStart =
+        editsService.on(metadata, 'update-start', () => ctrl.status = 'saving');
+
+    const offMetadataUpdateEnd =
+        editsService.on(metadata, 'update-end', refreshImage);
+
+    $scope.$on('destroy', () => {
+        offRightsUpdateStart();
+        offRightsUpdateEnd();
+        offMetadataUpdateStart();
+        offMetadataUpdateEnd();
+    });
+
 
     function refreshImage() {
         return ctrl.image.get().then(newImage => {
