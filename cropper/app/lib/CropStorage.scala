@@ -5,6 +5,7 @@ import java.net.URI
 import java.util.concurrent.Executors
 import scala.concurrent.{ExecutionContext, Future}
 import com.gu.mediaservice.lib.aws.S3
+import com.gu.mediaservice.model.Dimensions
 import model._
 
 object CropStorage extends S3(Config.imgPublishingCredentials) {

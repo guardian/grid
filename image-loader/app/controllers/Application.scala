@@ -14,8 +14,9 @@ import lib.{Config, Notifications}
 import lib.storage.S3ImageStorage
 import lib.imaging.{FileMetadataReader, MimeTypeDetection, Thumbnailer}
 
-import model.{Asset, Image}
+import model.Image
 
+import com.gu.mediaservice.model.Asset
 import com.gu.mediaservice.lib.play.BodyParsers.digestedFile
 import com.gu.mediaservice.lib.play.DigestedFile
 import com.gu.mediaservice.lib.{auth, ImageStorage}

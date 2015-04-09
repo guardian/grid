@@ -8,7 +8,8 @@ import scala.concurrent.{Future, ExecutionContext}
 import org.im4java.core.{IMOperation, ConvertCmd}
 import scalaz.syntax.id._
 
-import model.{Bounds, Dimensions}
+import com.gu.mediaservice.model.Dimensions
+import model.Bounds
 
 
 object Convert {
