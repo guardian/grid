@@ -45,7 +45,7 @@ object Crops {
     })
   }
 
-  def dimesionsFromConfig(bounds: Bounds, aspectRatio: Float): List[Dimensions] = if (bounds.isPortrait)
+  def dimensionsFromConfig(bounds: Bounds, aspectRatio: Float): List[Dimensions] = if (bounds.isPortrait)
       Config.portraitCropSizingHeights.filter(_ <= bounds.height).map(h => Dimensions(math.round(h * aspectRatio), h))
     else
       Config.landscapeCropSizingWidths.filter(_ <= bounds.width).map(w => Dimensions(w, math.round(w / aspectRatio)))
@@ -60,7 +60,7 @@ object Crops {
       sourceFile <- tempFileFromURL(new URL(apiImage.source.secureUrl), "cropSource", "")
       masterCrop <- createMasterCrop(apiImage,sourceFile, crop, mediaType)
 
-      outputDims = dimesionsFromConfig(source.bounds, masterCrop.aspectRatio) :+ masterCrop.dimensions
+      outputDims = dimensionsFromConfig(source.bounds, masterCrop.aspectRatio) :+ masterCrop.dimensions
 
       sizes      <- createCrops(masterCrop.file, outputDims, apiImage, crop, mediaType)
       masterSize <- masterCrop.sizing
