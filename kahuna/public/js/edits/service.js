@@ -127,6 +127,14 @@ service.factory('editsService',
             }
 
             watcher.get(event).set(cb, cb);
+
+            return () => off(resource, event, cb);
+        });
+    }
+
+    function off(resource, event, cb) {
+        resource.getUri().then(uri => {
+            watchers.get(uri).get(event).delete(cb);
         });
     }
 
