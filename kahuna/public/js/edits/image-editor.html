@@ -1,35 +1,69 @@
+<!-- TODO: results editor is a shit name -->
 <div class="result-editor">
 
     <div class="result-editor__result">
-        <ui-preview-image image="ctrl.image"
-                          hide-info="true"></ui-preview-image>
+        <img class="preview__image"
+             ng:src="{{ctrl.image.data.thumbnail | assetFile}}" />
+
+        <div class="result-editor__info">
+            <div class="result-editor__info-item result-editor__info-item--first"
+                 ng:switch="ctrl.status">
+                <span class="result-editor__status status status--valid"
+                      ng:switch-when="ready">Valid</span>
+
+                <span class="result-editor__status status"
+                      ng:switch-when="re-indexing">Saving</span>
+
+                <span class="result-editor__status status status--invalid"
+                      ng:switch-when="invalid">Invalid</span>
+            </div>
+
+            <div class="result-editor__info-item"
+                 ng:switch="ctrl.image.data.cost">
+                <span class="result-editor__status status status--invalid"
+                      ng:switch-when="pay">Pay to use</span>
+
+                <span class="result-editor__status status status--valid"
+                      ng:switch-when="free">Free to use</span>
+            </div>
+
+            <ui-archiver
+                class="result-editor__archiver"
+                archived="ctrl.image.data.userMetadata.data.archived"
+            ></ui-archiver>
+        </div>
     </div>
 
     <div class="result-editor__editor">
-        <ui-required-metadata-editor ng:if="ctrl.image"
-                                     disabled="ctrl.saving"
-                                     resource="ctrl.image.data.userMetadata.data.metadata"
-                                     metadata="ctrl.image.data.metadata">
-        </ui-required-metadata-editor>
+        <ui-required-metadata-editor
+            class="result-editor__metadata-editor"
+            disabled="ctrl.saving"
+            resource="ctrl.image.data.userMetadata.data.metadata"
+            metadata="ctrl.image.data.metadata"
+        ></ui-required-metadata-editor>
 
         <ng:transclude></ng:transclude>
 
-        <grid:rights
-            class="result-editor__rights-editor"
-            rights="ctrl.image.data.userMetadata.data.rights"
-            image="ctrl.image"></grid:rights>
-    </div>
+        <div class="result-editor__labeller-container">
+            <ui-labeller
+                class="result-editor__labeller"
+                labels="ctrl.image.data.userMetadata.data.labels"
+            ></ui-labeller>
+        </div>
 
-    <div class="result-editor__info">
-        <!-- Trying to avoid static class names -->
-        <span class="result-editor__status status"
-           ng:if="ctrl.status !== 'ready'"
-           ng:class="{
-              'status--invalid': ctrl.status === 'invalid'
-           }">{{ctrl.status}}</span>
-
-        <a class="result-editor__status status status--valid"
-           ng:if="ctrl.status === 'ready'"
-           ui:sref="image({ imageId: ctrl.image.data.id })">View image ▸</a>
+        <div class="drop-menu result-editor__rights-container">
+            <button class="drop-menu__button"
+                ng:click="showRightsEditor = !showRightsEditor">
+                <span ng:hide="showRightsEditor">▸</span>
+                <span ng:show="showRightsEditor">▾</span>
+                Rights
+            </button>
+            <grid:rights
+                class="result-editor__rights-editor drop-menu__items drop-menu__items--right"
+                ng:show="showRightsEditor"
+                rights="ctrl.image.data.userMetadata.data.rights"
+                image="ctrl.image"
+            ></grid:rights>
+        </div>
     </div>
 </div>
