@@ -72,6 +72,7 @@ object Mappings {
       "author" -> nonAnalyzedString,
       "date" -> dateFormat,
       "specification" -> dynamicObj,
+      "master" -> assetMapping,
       "assets" -> assetMapping
     )
 
