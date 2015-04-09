@@ -61,14 +61,20 @@ object Application extends Controller with ArgoHelpers {
     cropSourceForm.bindFromRequest()(httpRequest).fold(
       errors   => Future.successful(BadRequest(errors.errorsAsJson)),
       cropSrc => {
+
         val crop = Crop(
           by = author,
           timeRequested = Some(new DateTime()),
           specification = cropSrc
         )
-        val sourceImageFuture = fetchSourceFromApi(crop.specification.uri)
 
-        Crops.createSizings(sourceImageFuture, crop).map { case ExportResult(id, masterSizing, sizings) =>
+        val export = for {
+          apiImage <- fetchSourceFromApi(crop.specification.uri)
+          _        <- if (apiImage.valid) Future.successful(()) else Future.failed(InvalidImage)
+          export   <- Crops.export(apiImage, crop)
+        } yield export
+
+        export.map { case ExportResult(id, masterSizing, sizings) =>
 
           val cropJson = cropResponse(Crop(crop, masterSizing, sizings))
           val exports = Json.obj(
