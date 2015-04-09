@@ -37,7 +37,7 @@ object FileMetadataReader {
 
   // Export all the metadata in the directory
   private def exportDirectory[T <: Directory](metadata: Metadata, directoryClass: Class[T]): Map[String, String] =
-    Option(metadata.getDirectory(directoryClass)) map { directory =>
+    Option(metadata.getFirstDirectoryOfType(directoryClass)) map { directory =>
       directory.getTags.
         filter(tag => tag.hasTagName()).
         flatMap { tag =>
@@ -52,7 +52,7 @@ object FileMetadataReader {
     }
     yield {
       for {
-        jpegDir <- Option(metadata.getDirectory(classOf[JpegDirectory]))
+        jpegDir <- Option(metadata.getFirstDirectoryOfType(classOf[JpegDirectory]))
       }
       yield Dimensions(jpegDir.getImageWidth, jpegDir.getImageHeight)
     }
