@@ -60,10 +60,12 @@ class FileMetadataReaderTest extends FunSpec with Matchers with ScalaFutures {
       val exif = Map(
         "Image Description" -> "Austria's Matthias Mayer attends the men's downhill training of the FIS Alpine Skiing World Cup in Kitzbuehel, Austria, on January 22, 2015.       AFP PHOTO / CHRISTOF STACHECHRISTOF STACHE/AFP/Getty Images"
       )
-      metadata.iptc should be (iptc)
-      metadata.exif should be (exif)
-      metadata.exifSub should be (Map())
-      metadata.xmp should be (Map())
+
+
+      sameMaps(metadata.iptc, iptc)
+      sameMaps(metadata.exif, exif)
+      sameMaps(metadata.exifSub, Map())
+      sameMaps(metadata.xmp, Map())
     }
   }
 
@@ -90,10 +92,11 @@ class FileMetadataReaderTest extends FunSpec with Matchers with ScalaFutures {
         "Original Transmission Reference" -> "70266837",
         "Date Created" -> "Wed Apr 01 00:00:00 BST 2015"
       )
-      metadata.iptc should be (iptc)
-      metadata.exif should be (Map())
-      metadata.exifSub should be (Map())
-      metadata.xmp should be (Map())
+
+      sameMaps(metadata.iptc, iptc)
+      sameMaps(metadata.exif, Map())
+      sameMaps(metadata.exifSub, Map())
+      sameMaps(metadata.xmp, Map())
     }
   }
 
@@ -175,10 +178,22 @@ class FileMetadataReaderTest extends FunSpec with Matchers with ScalaFutures {
         "Saturation" -> "None",
         "Max Aperture Value" -> "F4"
       )
-      metadata.iptc should be (iptc)
-      metadata.exif should be (exif)
-      metadata.exifSub should be (exifSub)
-      metadata.xmp should be (Map())
+
+      sameMaps(metadata.iptc, iptc)
+      sameMaps(metadata.exif, exif)
+      sameMaps(metadata.exifSub, exifSub)
+      sameMaps(metadata.xmp, Map())
+    }
+  }
+
+
+  def sameMaps(actual: Map[String, String], expected: Map[String, String]) = {
+    // Detect mismatching keys
+    actual.keys should be (expected.keys)
+
+    // Detect mismatching values individually for better errors
+    actual.keys.foreach { key =>
+      actual.get(key) should be (expected.get(key))
     }
   }
 
