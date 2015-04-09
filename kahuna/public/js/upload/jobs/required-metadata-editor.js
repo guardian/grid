@@ -1,15 +1,18 @@
 import angular from 'angular';
 import template from './required-metadata-editor.html!text';
+
+import '../../edits/service';
 import '../../forms/datalist';
 
 export var jobs = angular.module('kahuna.upload.jobs.requiredMetadataEditor', [
+    'kahuna.edits.service',
     'kahuna.forms.datalist'
 ]);
 
 
 jobs.controller('RequiredMetadataEditorCtrl',
-                ['$scope', '$window', 'mediaApi',
-                 function($scope, $window, mediaApi) {
+                ['$scope', '$window', 'mediaApi', 'editsService',
+                 function($scope, $window, mediaApi, editsService) {
 
     var ctrl = this;
 
@@ -27,13 +30,14 @@ jobs.controller('RequiredMetadataEditorCtrl',
             }
         });
 
-        ctrl.resource.put({ data: cleanMetadata })
-            .then(resource => {
+        editsService.
+            update(ctrl.resource, cleanMetadata, ctrl.image).
+            then(resource => {
                 ctrl.resource = resource;
                 $scope.jobEditor.$setPristine();
-            })
-            .catch(() => $window.alert('Failed to save the changes, please try again.'))
-            .finally(() => ctrl.saving = false);
+            }).
+            catch(() => $window.alert('Failed to save the changes, please try again.')).
+            finally(() => ctrl.saving = false);
     };
 
     ctrl.metadataSearch = (field, q) => {
@@ -62,7 +66,9 @@ jobs.directive('uiRequiredMetadataEditor', [function() {
         scope: {
             resource: '=',
             originalMetadata: '=metadata',
-            externallyDisabled: '=?disabled'
+            externallyDisabled: '=?disabled',
+            // TODO: remove this once we add links to the resources
+            image: '='
         },
         controller: 'RequiredMetadataEditorCtrl',
         controllerAs: 'ctrl',
