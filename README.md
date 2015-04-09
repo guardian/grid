@@ -59,23 +59,7 @@ Start Elasticsearch from the `elasticsearch` directory:
         $ cd elasticsearch/
         $ ./dev-start.sh
 
-
-### Pan-domain authentication config
-
-First you need to setup some properties to configure the
-[pan-domain authentication](https://github.com/guardian/pan-domain-authentication)
-in `/etc/gu/panda.properties`:
-
-```
-panda.domain=...
-panda.aws.key=...
-panda.aws.secret=...
-```
-
-This file will be used by the different applications to share auth
-config, so that CORS is enabled across APIs.
-
-### Run Media API
+### Create CloudFormation Stack
 
 First you need to create some dev credentials and resources in AWS.
 
@@ -86,20 +70,18 @@ Go to the CloudFormation console and add a new stack, call it
 `media-service-DEV-{your-username}`, upload the template file from
 `cloud-formation/dev-template.json` and create the stack.
 
-Once created, select the stack and go to the Outputs tab; copy the
-result into your local configuration in
-`/etc/gu/media-api.properties`:
+### .properties files
 
-```
-domain.root=...
-aws.id=...
-aws.secret=...
-s3.image.bucket=...imagebucket...
-s3.thumb.bucket=...thumbbucket...
-auth.keystore.bucket=...
-sns.topic.arn=...
-cors.allowed.origins=...
-```
+Generate your .properties files for the various media-service services using the
+[dot-properties generator](cloud-formation/dot-properties)
+
+This will also create a ```panda.properties``` file that configures the
+[pan-domain authentication](https://github.com/guardian/pan-domain-authentication)
+
+This file will be used by the different applications to share auth
+config, so that CORS is enabled across APIs.
+
+### Run Media API
 
 From the project root, run via sbt:
 
@@ -117,17 +99,6 @@ The media api should be up at
 
 ### Run Thrall
 
-Setup your local configuration in `/etc/gu/thrall.properties` using
-outputs from the dev stack above:
-
-```
-aws.id=...
-aws.secret=...
-s3.image.bucket=...imagebucket...
-s3.thumb.bucket=...thumbbucket...
-sqs.queue.url=...
-```
-
 From the project root, run via sbt:
 
         $ sbt
@@ -139,19 +110,6 @@ The thrall should be up at
 
 
 ### Run the Image Loader
-
-Setup your local configuration in `/etc/gu/image-loader.properties` using
-outputs from the dev stack above:
-
-```
-domain.root=...
-aws.id=...
-aws.secret=...
-s3.image.bucket=...imagebucket...
-s3.thumb.bucket=...thumbbucket...
-auth.keystore.bucket=...
-sns.topic.arn=...
-```
 
 From the project root, run via sbt:
 
@@ -173,17 +131,6 @@ It should then appear in the Media API at [http://localhost:9001/images](http://
 
 ### Run the FTP Watcher
 
-Setup your local configuration in `/etc/gu/ftp-watcher.properties` to
-point to the FTP server and your loader server:
-
-```
-ftp.host=...
-ftp.user=...
-ftp.password=...
-loader.uri=http://localhost:9003/images
-auth.key.ftpwatcher=...
-```
-
 From the project root, run via sbt:
 
         $ sbt -Dftp.active=true
@@ -197,17 +144,6 @@ Images should appear in the Media API at [http://localhost:9001/images](http://l
 
 
 ### Run Kahuna
-
-Setup your local configuration in `/etc/gu/kahuna.properties` to point
-to the Media API:
-
-```
-domain.root=...
-aws.id=...
-aws.secret=...
-auth.keystore.bucket=...
-mixpanel.token=...
-```
 
 Run the `setup.sh` script from the kahuna directory to get started:
 
@@ -225,20 +161,6 @@ The user interface should be up at
 
 
 ### Run Cropper
-
-Setup your local configuration in `/etc/gu/cropper.properties`:
-
-```
-domain.root=...
-aws.id=...
-aws.secret=...
-auth.keystore.bucket=...
-publishing.image.bucket=...imageoriginbucket...
-publishing.image.host=...
-publishing.aws.id=...
-publishing.aws.secret=...
-sns.topic.arn=...
-```
 
 Add an API key for cropper to your key bucket:
 
@@ -263,17 +185,6 @@ The user interface should be up at
 
 
 ### Run Metadata Editor
-
-Setup your local configuration in `/etc/gu/metadata-editor.properties`:
-
-```
-domain.root=...
-aws.id=...
-aws.secret=...
-auth.keystore.bucket=...
-sns.topic.arn=...
-dynamo.table.edits=...
-```
 
 From the project root, run via sbt:
 
