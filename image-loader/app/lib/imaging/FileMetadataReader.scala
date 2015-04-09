@@ -40,6 +40,9 @@ object FileMetadataReader {
     Option(metadata.getFirstDirectoryOfType(directoryClass)) map { directory =>
       directory.getTags.
         filter(tag => tag.hasTagName()).
+        // Ignore seemingly useless "Padding" fields
+        // see: https://github.com/drewnoakes/metadata-extractor/issues/100
+        filter(tag => tag.getTagName != "Padding").
         flatMap { tag =>
           nonEmptyTrimmed(tag.getDescription) map { value => tag.getTagName -> value }
         }.toMap
