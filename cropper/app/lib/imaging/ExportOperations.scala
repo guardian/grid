@@ -5,7 +5,8 @@ import scala.concurrent.Future
 
 import _root_.play.api.libs.concurrent.Execution.Implicits._
 import lib.Files._
-import model.{Bounds, Dimensions, CropSource, CropSizing}
+import model.{Bounds, CropSource, CropSizing}
+import com.gu.mediaservice.model.Dimensions
 
 import com.gu.mediaservice.model.ImageMetadata
 

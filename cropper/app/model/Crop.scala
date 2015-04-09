@@ -3,6 +3,7 @@ package model
 import play.api.libs.json._
 import play.api.libs.functional.syntax._
 import org.joda.time.DateTime
+import com.gu.mediaservice.model.Dimensions
 
 import com.gu.mediaservice.model.ImageMetadata
 
@@ -36,14 +37,6 @@ object CropSizing {
 case class CropSource(uri: String, bounds: Bounds, aspectRatio: Option[String])
 object CropSource {
   implicit val cropSourceWrites: Writes[CropSource] = Json.writes[CropSource]
-}
-
-case class Dimensions(width: Int, height: Int)
-object Dimensions {
-  implicit val dimensionsReads: Reads[Dimensions] = Json.reads[Dimensions]
-
-  implicit val dimensionsWrites: Writes[Dimensions] =
-    ((__ \ "width").write[Int] ~ (__ \ "height").write[Int])(unlift(Dimensions.unapply))
 }
 
 case class Bounds(x: Int, y: Int, width: Int, height: Int) {

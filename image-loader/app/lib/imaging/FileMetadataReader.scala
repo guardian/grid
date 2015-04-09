@@ -12,7 +12,7 @@ import com.drew.metadata.jpeg.JpegDirectory
 import com.drew.metadata.exif.{ExifSubIFDDirectory, ExifIFD0Directory}
 import com.drew.metadata.xmp.XmpDirectory
 
-import model.Dimensions
+import com.gu.mediaservice.model.Dimensions
 
 import com.gu.mediaservice.model.FileMetadata
 
