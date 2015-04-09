@@ -28,15 +28,7 @@
         <ui-image-editor ng:if="job.image"
                          image="job.image"
                          apply-to="ctrl.jobImages()">
-
-            <!-- TODO: this is for the batch editing which has the controller as
-            the UploadsCtrl (correct) but from a UI is better here. Potentially
-            look into making this a separate form that would also work on the
-            results page -->
-             <ui-labeller class="job-labeller"
-                          labels="job.image.data.userMetadata.data.labels">
-             </ui-labeller>
-
+                         
              <div class="metadata-applicator" ng:if="ctrl.jobs.length > 1">
                 Apply
                 <button class="metadata-applicator__button"
