@@ -1,0 +1,6 @@
+domain.root={{domain_root}}
+aws.id={{AwsId}}
+aws.secret={{AwsSecret}}
+auth.keystore.bucket={{KeyBucket}}
+sns.topic.arn={{SnsTopicArn}}
+dynamo.table.edits={{EditsDynamoTable}}
