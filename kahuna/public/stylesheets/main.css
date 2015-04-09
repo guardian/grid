@@ -1049,6 +1049,11 @@ FIXME: what to do with touch devices
 .metadata-applicator {
     font-size: 1.4rem;
     text-align: right;
+
+    /* FIXME: This is to get the text to lay next to the save button of the
+    `metadata-editor` */
+    padding-right: 80px;
+    margin-top: -25px;
 }
 
 .metadata-applicator__button {
