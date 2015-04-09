@@ -15,8 +15,8 @@ object Crop {
   def apply(by: Option[String], timeRequested: Option[DateTime], specification: CropSource, master: Option[CropSizing] = None, cropSizings: List[CropSizing] = Nil): Crop =
     Crop(getCropId(specification.bounds), by, timeRequested, specification, master, cropSizings)
 
-  def apply(crop: Crop, assets: List[CropSizing]): Crop =
-    Crop(crop.id, crop.author, crop.date, crop.specification, None, assets)
+  def apply(crop: Crop, master: CropSizing, assets: List[CropSizing]): Crop =
+    Crop(crop.id, crop.author, crop.date, crop.specification, Some(master), assets)
 
   implicit val cropWrites: Writes[Crop] = (
     (__ \ "id").write[String] ~
