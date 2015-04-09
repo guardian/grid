@@ -50,13 +50,11 @@ object Crops {
     else
       Config.landscapeCropSizingWidths.filter(_ <= bounds.width).map(w => Dimensions(w, math.round(w / aspectRatio)))
 
-  def createSizings(sourceImageFuture: Future[SourceImage], crop: Crop): Future[ExportResult] = {
+  def export(apiImage: SourceImage, crop: Crop): Future[ExportResult] = {
     val source    = crop.specification
     val mediaType = "image/jpeg"
 
     for {
-      apiImage   <- sourceImageFuture
-      _          <- if (apiImage.valid) Future.successful(()) else Future.failed(InvalidImage)
       sourceFile <- tempFileFromURL(new URL(apiImage.source.secureUrl), "cropSource", "")
       masterCrop <- createMasterCrop(apiImage,sourceFile, crop, mediaType)
 
