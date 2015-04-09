@@ -8,7 +8,7 @@ import org.joda.time.DateTime
 import com.gu.mediaservice.model.FileMetadata
 import com.gu.mediaservice.lib.formatting._
 import com.gu.mediaservice.model.ImageMetadata
-
+import com.gu.mediaservice.model.Asset
 
 case class Image(id: String,
                  uploadTime: DateTime,
@@ -57,29 +57,3 @@ object Image {
 
 }
 
-case class Dimensions(
-  width: Int,
-  height: Int
-)
-
-object Dimensions {
-  implicit val DimensionsWrites: Writes[Dimensions] =
-    ((__ \ "width").write[Int] ~ (__ \ "height").write[Int])(unlift(Dimensions.unapply))
-}
-
-case class Asset(file: URI,
-                 size: Long,
-                 mimeType: Option[String],
-                 dimensions: Option[Dimensions]
-)
-
-object Asset {
-
-  implicit val AssetWrites: Writes[Asset] =
-    ((__ \ "file").write[String].contramap((_: URI).toString) ~
-      (__ \ "size").write[Long] ~
-      (__ \ "mimeType").writeNullable[String] ~
-      (__ \ "dimensions").writeNullable[Dimensions]
-      )(unlift(Asset.unapply))
-
-}
