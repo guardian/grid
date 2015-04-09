@@ -27,6 +27,21 @@ import com.gu.mediaservice.lib.argo.model._
 
 // FIXME: the argoHelpers are all returning `Ok`s (200)
 // Some of these responses should be `Accepted` (202)
+// TODO: Look at adding actions e.g. to collections / sets where we could `PUT`
+// a singular collection item e.g.
+// {
+//   "labels": {
+//     "uri": "...",
+//     "data": [],
+//     "actions": [
+//       {
+//         "method": "PUT",
+//         "rel": "create",
+//         "href": "../metadata/{id}/labels/{label}"
+//       }
+//     ]
+//   }
+// }
 object Application extends Controller with ArgoHelpers {
 
   import Config.{rootUri, loginUri, kahunaUri}
@@ -164,7 +179,7 @@ object Application extends Controller with ArgoHelpers {
       metadata =>
         dynamo.jsonAdd(id, "metadata", metadataAsMap(metadata))
           .map(publish(id))
-          .map(respond(_))
+          .map(edits => respond(edits.metadata))
     )
   }
 
