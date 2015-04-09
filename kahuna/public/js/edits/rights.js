@@ -33,11 +33,11 @@ rights.controller('RightsCtrl', ['$window', 'editsService', function($window, ed
     };
 
     function add(right) {
-        return editsService.update(ctrl.imageRights, [right], ctrl.image);
+        return editsService.add(ctrl.imageRights, [right], ctrl.image);
     }
 
     function remove(rightResource) {
-        return editsService.deleteFromCollection(rightResource, ctrl.imageRights, ctrl.image);
+        return editsService.removeFromCollection(rightResource, ctrl.imageRights, ctrl.image);
     }
 
     function findResource(right, imageRights) {
