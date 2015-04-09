@@ -19,11 +19,11 @@ import com.gu.mediaservice.lib.argo.model.Link
 
 import org.joda.time.DateTime
 
+import lib.imaging._
+
 import lib._, Files._
 import model._
 
-
-case object InvalidImage extends Exception("Invalid image cannot be cropped")
 
 object Application extends Controller with ArgoHelpers {
 
@@ -52,6 +52,7 @@ object Application extends Controller with ArgoHelpers {
   )
 
   def crop = Authenticated.async { httpRequest =>
+
     val author: Option[String] = httpRequest.user match {
       case user: AuthenticatedService => Some(user.name)
       case user: PandaUser => Some(user.email)
@@ -60,13 +61,20 @@ object Application extends Controller with ArgoHelpers {
     cropSourceForm.bindFromRequest()(httpRequest).fold(
       errors   => Future.successful(BadRequest(errors.errorsAsJson)),
       cropSrc => {
+
         val crop = Crop(
           by = author,
           timeRequested = Some(new DateTime()),
           specification = cropSrc
         )
 
-        createSizings(crop).map { case (id, sizings) =>
+        val export = for {
+          apiImage <- fetchSourceFromApi(crop.specification.uri)
+          _        <- if (apiImage.valid) Future.successful(()) else Future.failed(InvalidImage)
+          export   <- Crops.export(apiImage, crop)
+        } yield export
+
+        export.map { case ExportResult(id, masterSizing, sizings) =>
 
           val cropJson = cropResponse(Crop(crop, sizings))
           val exports = Json.obj(
@@ -100,38 +108,6 @@ object Application extends Controller with ArgoHelpers {
     }
   }
 
-  def createSizings(crop: Crop): Future[(String, List[CropSizing])] = {
-    val source = crop.specification
-
-    for {
-      apiImage   <- fetchSourceFromApi(source.uri)
-      // Only allow cropping if image is valid, else exit
-      _          <- if (apiImage.valid) Future.successful(()) else Future.failed(InvalidImage)
-      sourceFile <- tempFileFromURL(new URL(apiImage.source.secureUrl), "cropSource", "")
-
-      metadata   = apiImage.metadata
-      Bounds(_, _, masterW, masterH) = source.bounds
-      aspect     = masterW.toFloat / masterH
-      portrait   = masterW < masterH
-      outputDims = if (portrait)
-        Config.portraitCropSizingHeights.filter(_ <= masterH).map(h => Dimensions(math.round(h * aspect), h))
-      else
-        Config.landscapeCropSizingWidths.filter(_ <= masterW).map(w => Dimensions(w, math.round(w / aspect)))
-
-      sizings <- Future.traverse(outputDims) { dim =>
-        val filename = outputFilename(apiImage, source.bounds, dim.width)
-        for {
-          file    <- Crops.create(sourceFile, source, dim, metadata)
-          sizing  <- CropStorage.storeCropSizing(file, filename, "image/jpeg", crop, dim)
-          _       <- delete(file)
-        }
-        yield sizing
-      }
-      _ <- delete(sourceFile)
-    }
-    yield (apiImage.id, sizings)
-  }
-
   def fetchSourceFromApi(uri: String): Future[SourceImage] =
     for (resp <- WS.url(uri).withHeaders("X-Gu-Media-Key" -> mediaApiKey).get)
     yield {
@@ -160,17 +136,10 @@ object Application extends Controller with ArgoHelpers {
       })
   }
 
-
   def getSecureCropUri(uri: String): Option[String] =
     for {
       secureHost <- Config.imgPublishingSecureHost
       cropUri     = URI.create(uri)
       secureUri   = new URI("https", secureHost, cropUri.getPath, cropUri.getFragment)
     } yield secureUri.toString
-
-
-  def outputFilename(source: SourceImage, bounds: Bounds, outputWidth: Int): String = {
-    s"${source.id}/${Crop.getCropId(bounds)}/$outputWidth.jpg"
-  }
-
 }
