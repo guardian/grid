@@ -205,6 +205,10 @@ a:focus {
     line-height: 12px;
 }
 
+.nopad {
+    padding: 0 !important;
+}
+
 /* ==========================================================================
    Generics
    ========================================================================== */
@@ -685,31 +689,23 @@ FIXME: what to do with touch devices
     background: black;
     padding: 2px 5px;
 }
+
 .result-editor__labeller-container {
-    width: 100%;
-    margin-top: 5px;
+    display: flex;
 }
-.result-editor__labeller-container:after {
-    /* I hate floats */
-    clear: both;
-    content:  " ";
-    display:  table;
-}
-.result-editor__labeller {
-    float: right;
-    margin-top: 5px;
+.result-editor__labeller-label {
+    width: 100px;
 }
 
 .result-editor__rights-container {
-    float: right;
-    margin-top: 5px;
     font-size: 1.4rem;
     position: relative;
+    display: inline-block;
+    margin-top: 5px;
 }
 
 .result-editor__rights-editor {
     white-space: nowrap;
-    top: 100%; /* overriding the dropdown style */
 }
 
 
@@ -1049,7 +1045,6 @@ FIXME: what to do with touch devices
 .metadata-applicator {
     font-size: 1.4rem;
     text-align: right;
-
     /* FIXME: This is to get the text to lay next to the save button of the
     `metadata-editor` */
     padding-right: 80px;
@@ -1161,6 +1156,9 @@ FIXME: what to do with touch devices
     background-color: #333;
     line-height: 1.6rem;
 }
+.drop-menu__button--nopad {
+    padding: 0;
+}
 
 .drop-menu__items {
     background-color: #333;
@@ -1171,6 +1169,9 @@ FIXME: what to do with touch devices
 }
 .drop-menu__items--right {
     right: 0;
+}
+.drop-menu__items--nopad {
+    top: 100%;
 }
 
 /* ==========================================================================
