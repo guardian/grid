@@ -2,10 +2,9 @@ package model
 
 import play.api.libs.json._
 import play.api.libs.functional.syntax._
-import org.joda.time.DateTime
-import com.gu.mediaservice.model.Dimensions
 
-import com.gu.mediaservice.model.ImageMetadata
+import org.joda.time.DateTime
+import com.gu.mediaservice.model.{Dimensions, ImageMetadata, Asset}
 
 case class Crop(id: String, author: Option[String], date: Option[DateTime], specification: CropSource, master: Option[CropSizing], assets: List[CropSizing])
 object Crop {
@@ -45,23 +44,4 @@ case class Bounds(x: Int, y: Int, width: Int, height: Int) {
 
 object Bounds {
   implicit val boundsWrites: Writes[Bounds] = Json.writes[Bounds]
-}
-
-
-// TODO: share in common lib
-case class SourceImage(id: String, source: Asset, valid: Boolean, metadata: ImageMetadata)
-object SourceImage {
-  implicit val sourceImageReads: Reads[SourceImage] =
-    ((__ \ "data" \ "id").read[String] ~
-      (__ \ "data" \ "source").read[Asset] ~
-      (__ \ "data" \ "valid").read[Boolean] ~
-      (__ \ "data" \ "metadata").read[ImageMetadata]
-      )(SourceImage.apply _)
-}
-
-case class Asset(file: String, dimensions: Dimensions, secureUrl: String)
-
-object Asset {
-  implicit val assetReads: Reads[Asset] =
-    ((__ \ "file").read[String] ~ (__ \ "dimensions").read[Dimensions] ~ (__ \ "secureUrl").read[String])(Asset.apply _)
 }
