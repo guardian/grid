@@ -1,7 +1,7 @@
 package lib
 
 import java.io.File
-import java.net.URI
+import java.net.{URI,URL}
 import java.util.concurrent.Executors
 import scala.concurrent.{ExecutionContext, Future}
 import com.gu.mediaservice.lib.aws.S3
@@ -13,6 +13,9 @@ object CropStorage extends S3(Config.imgPublishingCredentials) {
 
   private implicit val ctx: ExecutionContext =
     ExecutionContext.fromExecutor(Executors.newCachedThreadPool)
+
+  def getSecureCropUri(uri: URI): Option[URL] =
+    Config.imgPublishingSecureHost.map((new URI("https",_, uri.getPath, uri.getFragment).toURL))
 
   def storeCropSizing(file: File, filename: String, mimeType: String, crop: Crop, dimensions: Dimensions): Future[Asset] = {
     val CropSource(sourceUri, Bounds(x, y, w, h), r) = crop.specification
@@ -33,7 +36,13 @@ object CropStorage extends S3(Config.imgPublishingCredentials) {
     }.mapValues(_.toString)
 
     store(Config.imgPublishingBucket, filename, file, Some(mimeType), filteredMetadata) map { s3Object=>
-      Asset(translateImgHost(s3Object.uri), s3Object.size, s3Object.metadata.objectMetadata.contentType, Some(dimensions), None)
+      Asset(
+        translateImgHost(s3Object.uri),
+        s3Object.size,
+        s3Object.metadata.objectMetadata.contentType,
+        Some(dimensions),
+        getSecureCropUri(s3Object.uri)
+      )
     }
   }
 
@@ -69,7 +78,7 @@ object CropStorage extends S3(Config.imgPublishingCredentials) {
                 s3Object.size,
                 objectMetadata.contentType,
                 Some(dimensions),
-                None
+                getSecureCropUri(s3Object.uri)
               )
             lastCrop       = map.getOrElse(cid, Crop(author, date, cropSource))
             lastSizings    = lastCrop.assets

@@ -76,9 +76,8 @@ object Application extends Controller with ArgoHelpers {
         } yield export
 
         export.map { case ExportResult(id, masterSizing, sizings) =>
-
-          val cropJson = cropResponse(Crop(crop, masterSizing, sizings))
-          val exports = Json.obj(
+          val cropJson = Json.toJson(Crop(crop, masterSizing, sizings)).as[JsObject]
+          val exports  = Json.obj(
             "id" -> id,
             "data" -> Json.arr(Json.obj("type" -> "crop") ++ cropJson)
           )
@@ -95,7 +94,7 @@ object Application extends Controller with ArgoHelpers {
   def getCrops(id: String) = Authenticated.async { httpRequest =>
     CropStorage.listCrops(id) map (_.toList) map { crops =>
 
-      val all = crops.map(cropResponse)
+      val all = crops.map(Json.toJson(_).as[JsObject])
       val links = for {
         crop <- crops.headOption
         link = Json.obj("rel" -> "image", "href" -> crop.specification.uri)
@@ -115,32 +114,4 @@ object Application extends Controller with ArgoHelpers {
       if (resp.status != 200) Logger.warn(s"HTTP status ${resp.status} ${resp.statusText} from $uri")
       resp.json.as[SourceImage]
     }
-
-  def cropResponse(crop: Crop): JsObject =
-    Json.toJson(crop).as[JsObject].transform(transformers.addSecureUrlToAssets).get
-
-  object transformers {
-
-    // Slightly tedious transform to add secureUrl to each asset
-    def addSecureUrlToAssets: Reads[JsObject] =
-      (__ \ "assets").json.update(__.read[JsArray].map { array =>
-        JsArray(array.value.map(_.transform(addSecureUrl).get))
-      })
-
-    def addSecureUrl: Reads[JsObject] =
-      __.json.update(__.read[JsObject].map { asset =>
-        val url = (asset \ "file").as[String]
-        getSecureCropUri(url) match {
-          case Some(secureUrl) => asset ++ Json.obj("secureUrl" -> secureUrl)
-          case None            => asset
-        }
-      })
-  }
-
-  def getSecureCropUri(uri: String): Option[String] =
-    for {
-      secureHost <- Config.imgPublishingSecureHost
-      cropUri     = URI.create(uri)
-      secureUri   = new URI("https", secureHost, cropUri.getPath, cropUri.getFragment)
-    } yield secureUri.toString
 }
