@@ -16,10 +16,11 @@ import com.gu.mediaservice.lib.auth
 import com.gu.mediaservice.lib.auth.{AuthenticatedService, PandaUser, KeyStore}
 import com.gu.mediaservice.lib.argo.ArgoHelpers
 import com.gu.mediaservice.lib.argo.model.Link
+import com.gu.mediaservice.model.SourceImage
 
 import org.joda.time.DateTime
 
-import lib.imaging._
+import lib.imaging.ExportResult
 
 import lib._, Files._
 import model._

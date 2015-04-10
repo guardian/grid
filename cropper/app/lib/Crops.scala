@@ -2,8 +2,8 @@ package lib
 
 import scala.concurrent.Future
 import lib.imaging.{ExportOperations, ExportResult}
-import com.gu.mediaservice.model.{Asset, Dimensions}
-import model.{Crop, SourceImage, Bounds, CropSizing}
+import com.gu.mediaservice.model.{Asset, Dimensions, SourceImage}
+import model.{Crop, Bounds, CropSizing}
 import java.net.{URI, URL}
 import java.io.File
 
@@ -56,7 +56,7 @@ object Crops {
     val mediaType = "image/jpeg"
 
     for {
-      sourceFile <- tempFileFromURL(new URL(apiImage.source.secureUrl), "cropSource", "")
+      sourceFile <- tempFileFromURL(apiImage.source.file.toURL, "cropSource", "")
       masterCrop <- createMasterCrop(apiImage,sourceFile, crop, mediaType)
 
       outputDims = dimensionsFromConfig(source.bounds, masterCrop.aspectRatio) :+ masterCrop.dimensions
