@@ -21,13 +21,13 @@ imageEditor.controller('ImageEditorCtrl',
     const metadata = ctrl.image.data.userMetadata.data.metadata;
 
     const offRightsUpdateStart =
-        editsService.on(rights, 'update-start', () => ctrl.status = 'saving');
+        editsService.on(rights, 'update-start', () => ctrl.saving = true);
 
     const offRightsUpdateEnd =
         editsService.on(rights, 'update-end', refreshImage);
 
     const offMetadataUpdateStart =
-        editsService.on(metadata, 'update-start', () => ctrl.status = 'saving');
+        editsService.on(metadata, 'update-start', () => ctrl.saving = true);
 
     const offMetadataUpdateEnd =
         editsService.on(metadata, 'update-end', refreshImage);
@@ -44,6 +44,7 @@ imageEditor.controller('ImageEditorCtrl',
         return ctrl.image.get().then(newImage => {
             ctrl.image = newImage;
             ctrl.status = ctrl.image.data.valid ? 'ready' : 'invalid';
+            ctrl.saving = false;
         });
     }
 
