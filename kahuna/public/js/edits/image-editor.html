@@ -9,7 +9,9 @@
         <ui-required-metadata-editor ng:if="ctrl.image"
                                      disabled="ctrl.saving"
                                      resource="ctrl.image.data.userMetadata.data.metadata"
-                                     metadata="ctrl.image.data.metadata">
+                                     metadata="ctrl.image.data.metadata"
+                                     can-apply-all="ctrl.canApplyAll"
+                                     listens-to-apply-all="ctrl.listensToApplyAll">
         </ui-required-metadata-editor>
 
         <ng:transclude></ng:transclude>
