@@ -2,13 +2,10 @@ package lib.imaging
 
 import java.io._
 import scala.concurrent.Future
-
-import _root_.play.api.libs.concurrent.Execution.Implicits._
+import play.api.libs.concurrent.Execution.Implicits._
 import lib.Files._
 import model.{Bounds, CropSource, CropSizing}
-import com.gu.mediaservice.model.Dimensions
-
-import com.gu.mediaservice.model.ImageMetadata
+import com.gu.mediaservice.model.{Dimensions, ImageMetadata}
 
 case class ExportResult(id: String, masterCrop: CropSizing, othersizings: List[CropSizing])
 
