@@ -61,7 +61,7 @@ object Application extends Controller with ArgoHelpers {
 
     cropSourceForm.bindFromRequest()(httpRequest).fold(
       errors   => Future.successful(BadRequest(errors.errorsAsJson)),
-      cropSrc => {
+      cropSrc  => {
 
         val crop = Crop(
           by = author,
