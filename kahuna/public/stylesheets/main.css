@@ -712,19 +712,18 @@ FIXME: what to do with touch devices
 .result-editor__labeller-container {
     display: flex;
 }
-.result-editor__labeller-label {
+.result-editor__label {
+    display: inline-block;
     width: 100px;
 }
 
 .result-editor__rights-container {
-    font-size: 1.4rem;
-    position: relative;
-    display: inline-block;
     margin-top: 5px;
 }
 
 .result-editor__rights-editor {
-    white-space: nowrap;
+    display: inline-block;
+    margin-left: -8px;
 }
 
 
