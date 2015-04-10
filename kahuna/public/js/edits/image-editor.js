@@ -60,7 +60,10 @@ imageEditor.directive('uiImageEditor', [function() {
         template: template,
         transclude: true,
         scope: {
-            image: '='
+            image: '=',
+            // FIXME: we only need these to pass them through to `required-metadata-editor`
+            canApplyAll: '=',
+            listensToApplyAll: '='
         }
     };
 }]);

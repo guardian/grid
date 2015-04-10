@@ -1,4 +1,5 @@
 <form class="job-editor" name="jobEditor">
+    Has ears? {{ctrl.listensToApplyAll}}
     <div class="job-editor__inputs">
         <label class="job-info--editor__field">
             <div class="job-info--editor__label">Description</div>
@@ -10,6 +11,12 @@
                       ng:model="ctrl.metadata.description"
                       ng:controller="DescriptionPlaceholderCtrl"
             ></textarea>
+            <button
+                class="job-editor__apply-to-all"
+                title="Apply this description to all"
+                ng:if="ctrl.canApplyAll"
+                ng:click="ctrl.applyMetadata('description')"
+            >✏</button>
         </label>
         <label class="job-info--editor__field">
             <!-- TODO: autocomplete on byline when API responds correctly with results -->
@@ -21,6 +28,14 @@
                    ng:disabled="ctrl.disabled()"
                    ng:model="ctrl.metadata.byline"
             />
+
+            <button
+                class="job-editor__apply-to-all"
+                title="Apply this description to all"
+                ng:if="ctrl.canApplyAll"
+                ng:click="ctrl.applyMetadata('byline')"
+            >✏</button>
+
         </label>
         <label class="job-info--editor__field">
             <div class="job-info--editor__label">Credit</div>
@@ -29,7 +44,15 @@
                          placeholder="e.g. Getty Images…"
                          request="ctrl.metadataSearch('credit', q)"
                          ng:model="ctrl.metadata.credit"
-                         ng:disabled="ctrl.disabled()"></ui-datalist>
+                         ng:disabled="ctrl.disabled()"
+            ></ui-datalist>
+
+            <button
+                class="job-editor__apply-to-all"
+                title="Apply this description to all"
+                ng:if="ctrl.canApplyAll"
+                ng:click="ctrl.applyMetadata('credit')"
+            >✏</button>
         </label>
     </div>
 
