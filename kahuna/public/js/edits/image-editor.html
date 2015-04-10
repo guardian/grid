@@ -50,23 +50,19 @@
         <ng:transclude></ng:transclude>
 
         <div class="result-editor__labeller-container">
-            <span class="result-editor__labeller-label">Labels</span>
+            <span class="result-editor__label">Labels</span>
             <ui-labeller
                 class="result-editor__labeller"
                 labels="ctrl.image.data.userMetadata.data.labels"
             ></ui-labeller>
         </div>
 
-        <div class="drop-menu result-editor__rights-container">
-            <button class="drop-menu__button drop-menu__button--nopad"
-                ng:click="showRightsEditor = !showRightsEditor">
-                Rights
-                <span ng:hide="showRightsEditor">▸</span>
-                <span ng:show="showRightsEditor">▾</span>
-            </button>
+
+
+        <div class="result-editor__rights-container">
+            <label class="result-editor__label">Rights</label>
             <grid:rights
-                class="result-editor__rights-editor drop-menu__items drop-menu__items--nopad"
-                ng:show="showRightsEditor"
+                class="result-editor__rights-editor"
                 rights="ctrl.image.data.userMetadata.data.rights"
                 image="ctrl.image"
             ></grid:rights>
