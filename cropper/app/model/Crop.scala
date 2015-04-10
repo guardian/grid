@@ -6,16 +6,16 @@ import play.api.libs.functional.syntax._
 import org.joda.time.DateTime
 import com.gu.mediaservice.model.{Dimensions, ImageMetadata, Asset}
 
-case class Crop(id: String, author: Option[String], date: Option[DateTime], specification: CropSource, master: Option[CropSizing], assets: List[CropSizing])
+case class Crop(id: String, author: Option[String], date: Option[DateTime], specification: CropSource, master: Option[Asset], assets: List[Asset])
 object Crop {
   import com.gu.mediaservice.lib.formatting._
 
   def getCropId(b: Bounds) = List(b.x, b.y, b.width, b.height).mkString("_")
 
-  def apply(by: Option[String], timeRequested: Option[DateTime], specification: CropSource, master: Option[CropSizing] = None, cropSizings: List[CropSizing] = Nil): Crop =
+  def apply(by: Option[String], timeRequested: Option[DateTime], specification: CropSource, master: Option[Asset] = None, cropSizings: List[Asset] = Nil): Crop =
     Crop(getCropId(specification.bounds), by, timeRequested, specification, master, cropSizings)
 
-  def apply(crop: Crop, master: CropSizing, assets: List[CropSizing]): Crop =
+  def apply(crop: Crop, master: Asset, assets: List[Asset]): Crop =
     Crop(crop.id, crop.author, crop.date, crop.specification, Some(master), assets)
 
   implicit val cropWrites: Writes[Crop] = (
@@ -23,14 +23,9 @@ object Crop {
     (__ \ "author").writeNullable[String] ~
     (__ \ "date").writeNullable[String].contramap(printOptDateTime) ~
     (__ \ "specification").write[CropSource] ~
-    (__ \ "master").writeNullable[CropSizing] ~
-    (__ \ "assets").write[List[CropSizing]]
+    (__ \ "master").writeNullable[Asset] ~
+    (__ \ "assets").write[List[Asset]]
   )(unlift(Crop.unapply))
-}
-
-case class CropSizing(file: String, dimensions: Dimensions)
-object CropSizing {
-  implicit val cropSizingWrites: Writes[CropSizing] = Json.writes[CropSizing]
 }
 
 case class CropSource(uri: String, bounds: Bounds, aspectRatio: Option[String])

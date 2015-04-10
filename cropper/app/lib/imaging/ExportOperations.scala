@@ -4,10 +4,10 @@ import java.io._
 import scala.concurrent.Future
 import play.api.libs.concurrent.Execution.Implicits._
 import lib.Files._
-import model.{Bounds, CropSource, CropSizing}
-import com.gu.mediaservice.model.{Dimensions, ImageMetadata}
+import model.{Bounds, CropSource}
+import com.gu.mediaservice.model.{Dimensions, ImageMetadata, Asset}
 
-case class ExportResult(id: String, masterCrop: CropSizing, othersizings: List[CropSizing])
+case class ExportResult(id: String, masterCrop: Asset, othersizings: List[Asset])
 
 object ExportOperations {
   import lib.imaging.im4jwrapper.Convert._
