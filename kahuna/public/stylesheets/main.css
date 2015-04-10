@@ -1014,6 +1014,7 @@ FIXME: what to do with touch devices
 .job-info--editor__field {
     display: flex;
     margin-bottom: 5px;
+    position: relative;
 }
 .job-info--editor__label {
     width: 100px;
@@ -1080,6 +1081,15 @@ FIXME: what to do with touch devices
 .job-uploading {
     width: 200px;
     margin-bottom: 20px;
+}
+
+.job-editor__apply-to-all {
+    position: absolute;
+    right: 5px;
+    top: 5px;
+    z-index: 1;
+    padding-left: 5px;
+    background: #444;
 }
 
 .metadata-applicator {

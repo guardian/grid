@@ -11,13 +11,14 @@ export var jobs = angular.module('kahuna.upload.jobs.requiredMetadataEditor', [
 
 
 jobs.controller('RequiredMetadataEditorCtrl',
-                ['$scope', '$window', 'mediaApi', 'editsService',
-                 function($scope, $window, mediaApi, editsService) {
+                ['$rootScope', '$scope', '$window', 'mediaApi', 'editsService',
+                 function($rootScope, $scope, $window, mediaApi, editsService) {
 
     var ctrl = this;
 
     ctrl.saving = false;
     ctrl.disabled = () => Boolean(ctrl.saving || ctrl.externallyDisabled);
+    ctrl.metadata = metadataFromOriginal(ctrl.originalMetadata);
 
     ctrl.save = function() {
         ctrl.saving = true;
@@ -46,16 +47,29 @@ jobs.controller('RequiredMetadataEditorCtrl',
         });
     };
 
-    $scope.$watch(() => ctrl.originalMetadata, () => {
-        setMetadataFromOriginal();
-    });
+    // TODO: Find a way to broadcast more selectively
+    const applyMetadataEvent = 'events:apply-metadata';
 
-    function setMetadataFromOriginal() {
+    if (Boolean(ctrl.listensToApplyAll)) {
+        console.log('I have ears')
+        $scope.$on(applyMetadataEvent, (e, { field, value }) => {
+            ctrl.metadata[field] = value;
+            ctrl.save();
+        });
+    }
+
+    if (Boolean(ctrl.canApplyAll)) {
+        ctrl.applyMetadata = field => {
+            $rootScope.$broadcast(applyMetadataEvent, { field, value: ctrl.metadata[field] });
+        };
+    }
+
+    function metadataFromOriginal(originalMetadata) {
         // we only want a subset of the data
-        ctrl.metadata = {
-            byline: ctrl.originalMetadata.byline,
-            credit: ctrl.originalMetadata.credit,
-            description: ctrl.originalMetadata.description
+        return {
+            byline: originalMetadata.byline,
+            credit: originalMetadata.credit,
+            description: originalMetadata.description
         };
     }
 }]);
@@ -68,7 +82,9 @@ jobs.directive('uiRequiredMetadataEditor', [function() {
             originalMetadata: '=metadata',
             externallyDisabled: '=?disabled',
             // TODO: remove this once we add links to the resources
-            image: '='
+            image: '=',
+            canApplyAll: '=?',
+            listensToApplyAll: '=?'
         },
         controller: 'RequiredMetadataEditorCtrl',
         controllerAs: 'ctrl',
