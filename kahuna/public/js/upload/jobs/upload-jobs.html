@@ -27,29 +27,8 @@
 
         <ui-image-editor ng:if="job.image"
                          image="job.image"
-                         apply-to="ctrl.jobImages()">
-
-             <div class="metadata-applicator" ng:if="ctrl.jobs.length > 1">
-                Apply
-                <button class="metadata-applicator__button"
-                        ng:click="ctrl.updateAllMetadata('description', job.image.data.metadata.description)">description</button>
-                /
-                <button class="metadata-applicator__button"
-                        ng:click="ctrl.updateAllMetadata('byline', job.image.data.metadata.byline)">byline</button>
-                /
-                <button class="metadata-applicator__button"
-                        ng:click="ctrl.updateAllMetadata('credit', job.image.data.metadata.credit)">credit</button>
-
-                or
-
-                <button class="metadata-applicator__button"
-                        ng:click="ctrl.updateAllLabels(job.image.data.userMetadata.data.labels)">labels</button>
-
-                to uploaded (save first)
-                <!-- TODO: we should make sure that we use the value in
-                the text field, at the moment this message will have to do -->
-            </div>
-
+                         can-apply-all="true"
+                         listens-to-apply-all="true"
         </ui-image-editor>
     </li>
 </ul>
