@@ -85,7 +85,8 @@ object Application extends Controller with ArgoHelpers {
           Notifications.publish(exports, "update-image-exports")
           Ok(cropJson).as(ArgoMediaType)
         } recover {
-          case InvalidImage => respondError(BadRequest, "invalid-image", "Invalid image cannot be cropped")
+          case InvalidImage => respondError(BadRequest, "invalid-image", InvalidImage.getMessage)
+          case MissingSecureSourceUrl => respondError(BadRequest, "no-source-image", MissingSecureSourceUrl.getMessage)
         }
       }
     )
