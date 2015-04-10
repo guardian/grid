@@ -27,37 +27,8 @@
 
         <ui-image-editor ng:if="job.image"
                          image="job.image"
-                         apply-to="ctrl.jobImages()">
-
-            <!-- TODO: this is for the batch editing which has the controller as
-            the UploadsCtrl (correct) but from a UI is better here. Potentially
-            look into making this a separate form that would also work on the
-            results page -->
-             <ui-labeller class="job-labeller"
-                          labels="job.image.data.userMetadata.data.labels">
-             </ui-labeller>
-
-             <div class="metadata-applicator" ng:if="ctrl.jobs.length > 1">
-                Apply
-                <button class="metadata-applicator__button"
-                        ng:click="ctrl.updateAllMetadata('description', job.image.data.metadata.description)">description</button>
-                /
-                <button class="metadata-applicator__button"
-                        ng:click="ctrl.updateAllMetadata('byline', job.image.data.metadata.byline)">byline</button>
-                /
-                <button class="metadata-applicator__button"
-                        ng:click="ctrl.updateAllMetadata('credit', job.image.data.metadata.credit)">credit</button>
-
-                or
-
-                <button class="metadata-applicator__button"
-                        ng:click="ctrl.updateAllLabels(job.image.data.userMetadata.data.labels)">labels</button>
-
-                to uploaded (save first)
-                <!-- TODO: we should make sure that we use the value in
-                the text field, at the moment this message will have to do -->
-            </div>
-
+                         can-apply-all="true"
+                         listens-to-apply-all="true">
         </ui-image-editor>
     </li>
 </ul>

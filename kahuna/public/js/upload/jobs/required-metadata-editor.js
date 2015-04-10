@@ -8,13 +8,14 @@ export var jobs = angular.module('kahuna.upload.jobs.requiredMetadataEditor', [
 
 
 jobs.controller('RequiredMetadataEditorCtrl',
-                ['$scope', '$window', 'mediaApi',
-                 function($scope, $window, mediaApi) {
+                ['$rootScope', '$scope', '$window', 'mediaApi',
+                 function($rootScope, $scope, $window, mediaApi) {
 
     var ctrl = this;
 
     ctrl.saving = false;
     ctrl.disabled = () => Boolean(ctrl.saving || ctrl.externallyDisabled);
+    ctrl.metadata = metadataFromOriginal(ctrl.originalMetadata);
 
     ctrl.save = function() {
         ctrl.saving = true;
@@ -42,16 +43,28 @@ jobs.controller('RequiredMetadataEditorCtrl',
         });
     };
 
-    $scope.$watch(() => ctrl.originalMetadata, () => {
-        setMetadataFromOriginal();
-    });
+    // TODO: Find a way to broadcast more selectively
+    const applyMetadataEvent = 'events:apply-metadata';
 
-    function setMetadataFromOriginal() {
+    if (Boolean(ctrl.listensToApplyAll)) {
+        $scope.$on(applyMetadataEvent, (e, { field, value }) => {
+            ctrl.metadata[field] = value;
+            ctrl.save();
+        });
+    }
+
+    if (Boolean(ctrl.canApplyAll)) {
+        ctrl.applyMetadata = field => {
+            $rootScope.$broadcast(applyMetadataEvent, { field, value: ctrl.metadata[field] });
+        };
+    }
+
+    function metadataFromOriginal(originalMetadata) {
         // we only want a subset of the data
-        ctrl.metadata = {
-            byline: ctrl.originalMetadata.byline,
-            credit: ctrl.originalMetadata.credit,
-            description: ctrl.originalMetadata.description
+        return {
+            byline: originalMetadata.byline,
+            credit: originalMetadata.credit,
+            description: originalMetadata.description
         };
     }
 }]);
@@ -62,7 +75,9 @@ jobs.directive('uiRequiredMetadataEditor', [function() {
         scope: {
             resource: '=',
             originalMetadata: '=metadata',
-            externallyDisabled: '=?disabled'
+            externallyDisabled: '=?disabled',
+            canApplyAll: '=?',
+            listensToApplyAll: '=?'
         },
         controller: 'RequiredMetadataEditorCtrl',
         controllerAs: 'ctrl',
