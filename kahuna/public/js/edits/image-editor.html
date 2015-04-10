@@ -12,24 +12,29 @@
 
         <div class="result-editor__info">
             <div class="result-editor__info-item result-editor__info-item--first"
-                 ng:switch="ctrl.status">
-                <span class="result-editor__status status status--valid"
-                      ng:switch-when="ready">Valid</span>
-
-                <span class="result-editor__status status"
-                      ng:switch-when="saving">Saving</span>
-
-                <span class="result-editor__status status status--invalid"
-                      ng:switch-when="invalid">Invalid</span>
-            </div>
-
-            <div class="result-editor__info-item"
                  ng:switch="ctrl.image.data.cost">
                 <span class="result-editor__status status status--invalid"
                       ng:switch-when="pay">Pay to use</span>
 
                 <span class="result-editor__status status status--valid"
                       ng:switch-when="free">Free to use</span>
+            </div>
+
+            <div class="result-editor__info-item"
+                 ng:switch="ctrl.status">
+                <a class="result-editor__status status status--valid"
+                   ng:switch-when="ready"
+                   ui:sref="image({imageId: image.data.id})">View image ▸</a>
+
+                <span class="result-editor__status status"
+                      ng:switch-when="saving">Saving</span>
+
+                <span class="result-editor__status status status--invalid"
+                      ng:switch-when="invalid">
+                        Info missing
+                        <span class="ico ico--circled ico--help"
+                              title="You need to add both a credit and description">?</span>
+                </span>
             </div>
 
             <ui-archiver
@@ -56,8 +61,6 @@
                 labels="ctrl.image.data.userMetadata.data.labels"
             ></ui-labeller>
         </div>
-
-
 
         <div class="result-editor__rights-container">
             <label class="result-editor__label">Rights</label>
