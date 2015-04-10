@@ -8,6 +8,8 @@ import java.net.{URI, URL}
 import java.io.File
 
 case object InvalidImage extends Exception("Invalid image cannot be cropped")
+case object MissingSecureSourceUrl extends Exception("Missing secureUrl from source API")
+
 case class MasterCrop(sizing: Future[Asset], file: File, dimensions: Dimensions, aspectRatio: Float)
 
 object Crops {
@@ -54,9 +56,10 @@ object Crops {
   def export(apiImage: SourceImage, crop: Crop): Future[ExportResult] = {
     val source    = crop.specification
     val mediaType = "image/jpeg"
+    val secureUrl = apiImage.source.secureUrl.getOrElse(throw MissingSecureSourceUrl)
 
     for {
-      sourceFile <- tempFileFromURL(apiImage.source.secureUrl.get, "cropSource", "")
+      sourceFile <- tempFileFromURL(secureUrl, "cropSource", "")
       masterCrop <- createMasterCrop(apiImage, sourceFile, crop, mediaType)
 
       outputDims = dimensionsFromConfig(source.bounds, masterCrop.aspectRatio) :+ masterCrop.dimensions
