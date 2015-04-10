@@ -15,7 +15,7 @@ import scalaz.syntax.id._
 
 case class S3Object(uri: URI, size: Long, metadata: S3Metadata)
 case class S3Metadata(userMetadata:Map[String, String], objectMetadata: S3ObjectMetadata)
-case class S3ObjectMetadata(contentType: Option[String], cacheControl: Option[String], lastModified: DateTime)
+case class S3ObjectMetadata(contentType: Option[String], cacheControl: Option[String], lastModified: Option[DateTime] = None)
 
 class S3(credentials: AWSCredentials) {
 
@@ -55,8 +55,7 @@ class S3(credentials: AWSCredentials) {
           meta,
           S3ObjectMetadata(
             mimeType,
-            cacheControl,
-            DateTime.now()
+            cacheControl
           )
         )
       )
@@ -83,7 +82,7 @@ class S3(credentials: AWSCredentials) {
       S3ObjectMetadata(
         contentType  = Option(meta.getContentType()),
         cacheControl = Option(meta.getCacheControl()),
-        lastModified = new DateTime(meta.getLastModified())
+        lastModified = Option(meta.getLastModified()).map(new DateTime(_))
       )
     )
   }
