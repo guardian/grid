@@ -69,7 +69,7 @@ class S3(credentials: AWSCredentials) {
       val summaries = listing.getObjectSummaries.asScala
       summaries.map(summary => (summary.getKey, summary)).foldLeft(List[S3Object]()) {
         case (memo: List[S3Object], (key: String, summary: S3ObjectSummary)) => {
-          memo :+ S3Object(objectUrl(bucket, key), summary.getSize(), getMetadata(bucket, key))
+          S3Object(objectUrl(bucket, key), summary.getSize(), getMetadata(bucket, key)) :: memo
         }
       }
     }
