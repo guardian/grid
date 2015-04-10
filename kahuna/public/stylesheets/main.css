@@ -205,6 +205,17 @@ a:focus {
     line-height: 12px;
 }
 
+.ico--circled {
+    font-size: 1.2rem;
+    display: inline-block;
+    border: 1px solid white;
+    border-radius: 50%;
+}
+
+.ico--help {
+    cursor: help;
+}
+
 .saving {
     display: inline;
     width: 15px;
@@ -692,6 +703,7 @@ FIXME: what to do with touch devices
 .result-editor__info-item {
     flex: 1;
     margin-left: 1px;
+    font-size: 1.4rem;
 }
 .result-editor__info-item--first {
     margin-left: 0;
@@ -701,12 +713,12 @@ FIXME: what to do with touch devices
     display: block;
     margin: 0 auto;
     text-align: center;
-    padding: 2px 10px;
+    padding: 2px 5px;
 }
 
 .result-editor__archiver {
     background: black;
-    padding: 2px 5px;
+    padding: 0 5px;
 }
 
 .result-editor__labeller-container {
