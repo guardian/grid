@@ -51,7 +51,6 @@ jobs.controller('RequiredMetadataEditorCtrl',
     const applyMetadataEvent = 'events:apply-metadata';
 
     if (Boolean(ctrl.listensToApplyAll)) {
-        console.log('I have ears')
         $scope.$on(applyMetadataEvent, (e, { field, value }) => {
             ctrl.metadata[field] = value;
             ctrl.save();
