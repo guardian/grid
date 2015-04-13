@@ -51,8 +51,7 @@
             resource="ctrl.image.data.userMetadata.data.metadata"
             metadata="ctrl.image.data.metadata"
             image="ctrl.image"
-            can-apply-all="ctrl.canApplyAll"
-            listens-to-apply-all="ctrl.listensToApplyAll"
+            with-batch="ctrl.withBatch"
         ></ui-required-metadata-editor>
 
         <ng:transclude></ng:transclude>
@@ -68,6 +67,7 @@
             <ui-labeller
                 class="result-editor__labeller"
                 labels="ctrl.image.data.userMetadata.data.labels"
+                with-batch="ctrl.withBatch"
             ></ui-labeller>
         </div>
 

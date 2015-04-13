@@ -16,9 +16,9 @@
             <button
                 class="job-editor__apply-to-all"
                 title="Apply this description to all"
-                ng:if="ctrl.canApplyAll"
-                ng:click="ctrl.applyMetadata('description')"
-            >✏</button>
+                ng:if="ctrl.withBatch"
+                ng:click="ctrl.batchApplyMetadata('description')"
+            >⇔</button>
         </label>
 
         <label class="job-info--editor__field">
@@ -37,9 +37,9 @@
             <button
                 class="job-editor__apply-to-all"
                 title="Apply this description to all"
-                ng:if="ctrl.canApplyAll"
-                ng:click="ctrl.applyMetadata('byline')"
-            >✏</button>
+                ng:if="ctrl.withBatch"
+                ng:click="ctrl.batchApplyMetadata('byline')"
+            >⇔</button>
 
         </label>
         <label class="job-info--editor__field">
@@ -57,9 +57,9 @@
             <button
                 class="job-editor__apply-to-all"
                 title="Apply this description to all"
-                ng:if="ctrl.canApplyAll"
-                ng:click="ctrl.applyMetadata('credit')"
-            >✏</button>
+                ng:if="ctrl.withBatch"
+                ng:click="ctrl.batchApplyMetadata('credit')"
+            >⇔</button>
         </label>
     </div>
 </form>

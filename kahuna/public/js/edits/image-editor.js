@@ -62,8 +62,7 @@ imageEditor.directive('uiImageEditor', [function() {
         scope: {
             image: '=',
             // FIXME: we only need these to pass them through to `required-metadata-editor`
-            canApplyAll: '=',
-            listensToApplyAll: '='
+            withBatch: '='
         }
     };
 }]);
