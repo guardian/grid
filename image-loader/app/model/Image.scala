@@ -28,17 +28,26 @@ case class Image(id: String,
 }
 
 object Image {
-
-  def upload(id: String,
-             uploadTime: DateTime,
-             uploadedBy: String,
-             identifiers: Map[String, String],
-             source: Asset,
-             thumbnail: Asset,
-             fileMetadata: FileMetadata,
-             metadata: ImageMetadata): Image =
-    Image(id, uploadTime, uploadedBy, Some(uploadTime), identifiers, source, Some(thumbnail),
-      fileMetadata, metadata, metadata)
+  def fromUploadRequest(
+    uploadRequest: UploadRequest,
+    source: Asset,
+    thumbnail: Asset,
+    fileMetadata: FileMetadata,
+    metadata: ImageMetadata
+  ): Image = {
+    Image(
+      uploadRequest.id,
+      uploadRequest.uploadTime,
+      uploadRequest.uploadedBy,
+      Some(uploadRequest.uploadTime),
+      uploadRequest.identifiers,
+      source,
+      Some(thumbnail),
+      fileMetadata,
+      metadata,
+      metadata
+    )
+  }
 
   implicit val FileMetadataWrites: Writes[FileMetadata] = Json.writes[FileMetadata]
 

@@ -3,10 +3,28 @@ package com.gu.mediaservice.model
 import java.net.{URI, URL}
 import play.api.libs.json._
 import play.api.libs.functional.syntax._
-
+import com.gu.mediaservice.lib.aws.S3Object
 
 case class Asset(file: URI, size: Long, mimeType: Option[String], dimensions: Option[Dimensions], secureUrl: Option[URL] = None)
 object Asset {
+
+  def fromS3Object(s3Object: S3Object): Asset = {
+    val userMetadata   = s3Object.metadata.userMetadata
+    val objectMetadata = s3Object.metadata.objectMetadata
+
+    val dimensions     = for {
+      width <- userMetadata.get("width").map(_.toInt)
+      height <-userMetadata.get("height").map(_.toInt)
+    } yield Dimensions(width, height)
+
+    Asset(
+      s3Object.uri,
+      s3Object.size,
+      objectMetadata.contentType,
+      dimensions,
+      None
+    )
+  }
 
   implicit val assetReads: Reads[Asset] =
     ((__ \ "file").read[String].map(URI.create(_)) ~
