@@ -3,8 +3,8 @@
 
     <div class="result-editor__result">
         <a class="result-editor__img-link"
-           ui:sref="image({imageId: image.data.id})"
-           ui:drag-data="{{image | asImageDragData}}">
+           ui:sref="image({imageId: ctrl.image.data.id})"
+           ui:drag-data="{{ctrl.image | asImageDragData}}">
 
             <img class="result-editor__img"
                  ng:src="{{ctrl.image.data.thumbnail | assetFile}}" />
