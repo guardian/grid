@@ -14,7 +14,7 @@ import scalaz.syntax.id._
 
 
 case class S3Object(uri: URI, size: Long, metadata: S3Metadata)
-case class S3Metadata(userMetadata:Map[String, String], objectMetadata: S3ObjectMetadata)
+case class S3Metadata(userMetadata: Map[String, String], objectMetadata: S3ObjectMetadata)
 case class S3ObjectMetadata(contentType: Option[String], cacheControl: Option[String], lastModified: Option[DateTime] = None)
 
 class S3(credentials: AWSCredentials) {
