@@ -36,30 +36,6 @@ jobs.controller('UploadJobsCtrl',
     // this needs to be a function due to the stateful `jobItem`
     this.jobImages = () => this.jobs.map(jobItem => jobItem.image);
 
-    this.updateAllMetadata = (field, value) => {
-        // TODO: make sure form is saved first
-        this.jobs.forEach(job => {
-            // we need to post all the data as that's what it expects.
-            var data = angular.extend({},
-                job.image.data.userMetadata.data.metadata.data,
-                { [field]: value }
-            );
-            job.image.data.userMetadata.data.metadata.put({ data: data }).then(resource => {
-                job.image.data.userMetadata.data.metadata = resource;
-            });
-        });
-    };
-
-    this.updateAllLabels = master => {
-        var labels = master.data.map(resource => resource.data);
-
-        this.jobs.forEach(job => {
-            var labelResource = job.image.data.userMetadata.data.labels;
-            labelResource.post({ data: labels })
-                .then(resource => job.image.data.userMetadata.data.labels = resource);
-        });
-    };
-
 }]);
 
 

@@ -967,6 +967,10 @@ FIXME: what to do with touch devices
     -webkit-animation-timing-function: ease-out;
 }
 
+.labeller__apply-all {
+    margin-left: 10px;
+    line-height: 20px;
+}
 
 
 /* ==========================================================================
@@ -1083,7 +1087,7 @@ FIXME: what to do with touch devices
 .job-editor__apply-to-all {
     position: absolute;
     right: 5px;
-    top: 5px;
+    top: 1px;
     z-index: 1;
     padding-left: 5px;
     background: #444;

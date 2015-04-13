@@ -48,19 +48,16 @@ jobs.controller('RequiredMetadataEditorCtrl',
     };
 
     // TODO: Find a way to broadcast more selectively
-    const applyMetadataEvent = 'events:apply-metadata';
+    const batchApplyMetadataEvent = 'events:batch-apply:metadata';
 
-    if (Boolean(ctrl.listensToApplyAll)) {
-        $scope.$on(applyMetadataEvent, (e, { field, value }) => {
-            ctrl.metadata[field] = value;
+    if (Boolean(ctrl.withBatch)) {
+        $scope.$on(batchApplyMetadataEvent, (e, { field, data }) => {
+            ctrl.metadata[field] = data;
             ctrl.save();
         });
-    }
 
-    if (Boolean(ctrl.canApplyAll)) {
-        ctrl.applyMetadata = field => {
-            $rootScope.$broadcast(applyMetadataEvent, { field, value: ctrl.metadata[field] });
-        };
+        ctrl.batchApplyMetadata = field =>
+            $rootScope.$broadcast(batchApplyMetadataEvent, { field, data: ctrl.metadata[field] });
     }
 
     function metadataFromOriginal(originalMetadata) {
@@ -82,8 +79,7 @@ jobs.directive('uiRequiredMetadataEditor', [function() {
             externallyDisabled: '=?disabled',
             // TODO: remove this once we add links to the resources
             image: '=',
-            canApplyAll: '=?',
-            listensToApplyAll: '=?'
+            withBatch: '=?'
         },
         controller: 'RequiredMetadataEditorCtrl',
         controllerAs: 'ctrl',
