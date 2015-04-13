@@ -57,6 +57,12 @@
 
         <ng:transclude></ng:transclude>
 
+        <grid:rights
+            class="result-editor__rights-editor"
+            rights="ctrl.image.data.userMetadata.data.rights"
+            image="ctrl.image"
+        ></grid:rights>
+
         <div class="result-editor__labeller-container">
             <span class="result-editor__label">Labels</span>
             <ui-labeller
@@ -65,13 +71,5 @@
             ></ui-labeller>
         </div>
 
-        <div class="result-editor__rights-container">
-            <label class="result-editor__label">Rights</label>
-            <grid:rights
-                class="result-editor__rights-editor"
-                rights="ctrl.image.data.userMetadata.data.rights"
-                image="ctrl.image"
-            ></grid:rights>
-        </div>
     </div>
 </div>
