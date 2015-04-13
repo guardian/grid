@@ -27,7 +27,7 @@
 
         <ui-image-editor ng:if="job.image"
                          image="job.image"
-                         with-batch="true"
+                         with-batch="ctrl.jobs.length > 1"
         </ui-image-editor>
     </li>
 </ul>
