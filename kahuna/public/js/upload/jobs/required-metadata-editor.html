@@ -1,16 +1,18 @@
-<form class="job-editor" name="jobEditor">
-    Has ears? {{ctrl.listensToApplyAll}}
+<form class="job-editor" name="jobEditor" ng:submit="ctrl.save()">
     <div class="job-editor__inputs">
         <label class="job-info--editor__field">
             <div class="job-info--editor__label">Description</div>
-            <textarea name="description"
-                      placeholder="e.g. {{funnyDescription}}…"
-                      required
-                      class="job-info--editor__input job-info--editor__input--description"
-                      ng:disabled="ctrl.disabled()"
-                      ng:model="ctrl.metadata.description"
-                      ng:controller="DescriptionPlaceholderCtrl"
+            <textarea
+                name="description"
+                placeholder="e.g. {{funnyDescription}}…"
+                required
+                class="job-info--editor__input job-info--editor__input--description"
+                ng:model="ctrl.metadata.description"
+                ng:controller="DescriptionPlaceholderCtrl"
+                ng:change="ctrl.save()"
+                ng:model-options="{updateOn: 'default blur', debounce: { default: 500, blur: 0 }}"
             ></textarea>
+
             <button
                 class="job-editor__apply-to-all"
                 title="Apply this description to all"
@@ -18,15 +20,18 @@
                 ng:click="ctrl.applyMetadata('description')"
             >✏</button>
         </label>
+
         <label class="job-info--editor__field">
             <!-- TODO: autocomplete on byline when API responds correctly with results -->
             <div class="job-info--editor__label">Byline</div>
-            <input type="text"
-                   name="byline"
-                   placeholder="e.g. Tom Jenkins…"
-                   class="job-info--editor__input job-info--editor__input--byline"
-                   ng:disabled="ctrl.disabled()"
-                   ng:model="ctrl.metadata.byline"
+            <input
+                type="text"
+                name="byline"
+                placeholder="e.g. Tom Jenkins…"
+                class="job-info--editor__input job-info--editor__input--byline"
+                ng:model="ctrl.metadata.byline"
+                ng:change="ctrl.save()"
+                ng:model-options="{updateOn: 'default blur', debounce: { default: 500, blur: 0 }}"
             />
 
             <button
@@ -44,7 +49,6 @@
                          placeholder="e.g. Getty Images…"
                          request="ctrl.metadataSearch('credit', q)"
                          ng:model="ctrl.metadata.credit"
-                         ng:disabled="ctrl.disabled()"
             ></ui-datalist>
 
             <button
@@ -54,14 +58,5 @@
                 ng:click="ctrl.applyMetadata('credit')"
             >✏</button>
         </label>
-    </div>
-
-    <div class="job-editor__buttons">
-        <input type="submit"
-               class="button job-editor__button"
-               value="{{ {true: 'Saving…', false: 'Save'}[ctrl.disabled()] }}"
-               ng:click="ctrl.save()"
-               ng:disabled="jobEditor.$pristine || ctrl.disabled()"
-        />
     </div>
 </form>
