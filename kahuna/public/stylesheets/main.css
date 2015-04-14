@@ -697,7 +697,8 @@ FIXME: what to do with touch devices
 .result-editor__save-status {
     background: rgba(0, 0, 0, .75);
     color: #00adee;
-    padding: 3px 5px;
+    padding: 2px 5px;
+    display: inline-block;
 }
 
 .result-editor__save-status--error {
