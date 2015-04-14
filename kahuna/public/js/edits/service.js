@@ -12,9 +12,6 @@ service.factory('editsService',
                 ['$q', 'editsApi', 'mediaApi', 'poll',
                  function($q, editsApi, mediaApi, poll) {
 
-    // TODO: Use proper names from http://en.wikipedia.org/wiki/Watcher_%28comics%29
-    const watchers = new Map();
-
     const pollFrequency = 500; // ms
     const pollTimeout   = 20 * 1000; // ms
 
@@ -36,8 +33,14 @@ service.factory('editsService',
         });
     }
 
-    // `matches` and `missing` must either return a Resource or reject to be
-    // polled again until the `image` and `edit` match
+    /**
+     *
+     * @param edit {Resource}
+     * @param image {Resource}
+     * @returns {Promise.<Resource>|reject} return the `edit` resource on `success`
+     *
+     * Searches for the `edit` in `image` and compares the two
+     */
     function matches(edit, image) {
         // find that matching resource
         return findMatchingEditInImage(edit, image).then(matchingEdit =>
@@ -46,6 +49,15 @@ service.factory('editsService',
         );
     }
 
+    /**
+     *
+     * @param edit {Resource} edit to search for
+     * @param collection {Resource} collection to search from
+     * @param image {Resource} image to tell when the re-index has happened
+     * @returns {Promise.<Resource>|reject} return the `collection.get` `Promise`
+     *
+     * Searches for the `edit` in `image` and compares the two
+     */
     function missing(edit, collection, image) {
         return findMatchingEditInImage(collection, image).then(matchingEdit => {
             const stillPresent = matchingEdit &&
@@ -123,6 +135,19 @@ service.factory('editsService',
     }
 
     // Event handling
+    // TODO: Use proper names from http://en.wikipedia.org/wiki/Watcher_%28comics%29
+    /**
+     *
+     * @type {Map.<String => Map>} a map with key as the resource URI and value
+     * as a watcher Map (see `createWatcher`).
+     */
+    const watchers = new Map();
+
+    /**
+     *
+     * @returns {Map.<String => Set>} a map of `key = event` and a Set of
+     * callback functions to rn on that event.
+     */
     const publicWatcherEvents = ['update-start', 'update-end'];
     function createWatcher() {
         return new Map(
