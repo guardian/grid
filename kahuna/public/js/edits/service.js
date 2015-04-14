@@ -88,7 +88,8 @@ service.factory('editsService',
             then(edit => {
                 runWatcher(resource, 'update-end');
                 return edit;
-            });
+            }).
+            catch(error => runWatcher(resource, 'update-error'));
     }
 
     /**
@@ -106,7 +107,9 @@ service.factory('editsService',
             then(edit => {
                 runWatcher(resource, 'update-end');
                 return edit;
-            });
+            }).
+            catch(error => runWatcher(resource, 'update-error'));
+
     }
 
     //
@@ -148,7 +151,7 @@ service.factory('editsService',
      * @returns {Map.<String => Set>} a map of `key = event` and a Set of
      * callback functions to rn on that event.
      */
-    const publicWatcherEvents = ['update-start', 'update-end'];
+    const publicWatcherEvents = ['update-start', 'update-end', 'update-error'];
     function createWatcher() {
         return new Map(
             publicWatcherEvents.map(event => [event, new Set()])
