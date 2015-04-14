@@ -2,14 +2,17 @@ package controllers
 
 import java.net.URI
 
-import com.gu.mediaservice.lib.metadata.ImageMetadataConverter
-
 import scala.util.Try
 
 import play.api.mvc._
 import play.api.libs.concurrent.Execution.Implicits._
 import play.api.libs.json._
 import org.joda.time.{DateTime, Duration}
+
+import uritemplate._
+import Syntax._
+
+import scalaz.syntax.std.list._
 
 import lib.elasticsearch._
 import lib.{Notifications, Config, S3Client}
@@ -19,9 +22,10 @@ import com.gu.mediaservice.lib.auth
 import com.gu.mediaservice.lib.auth.KeyStore
 import com.gu.mediaservice.lib.argo._
 import com.gu.mediaservice.lib.argo.model._
-import com.gu.mediaservice.lib.formatting.parseDateFromQuery
+import com.gu.mediaservice.lib.formatting.{printDateTime, parseDateFromQuery}
 import com.gu.mediaservice.lib.cleanup.MetadataCleaners
 import com.gu.mediaservice.lib.config.MetadataConfig
+import com.gu.mediaservice.lib.metadata.ImageMetadataConverter
 import com.gu.mediaservice.model.FileMetadata
 import com.gu.mediaservice.api.Transformers
 
@@ -37,14 +41,16 @@ object MediaApi extends Controller with ArgoHelpers {
   val Authenticated = auth.Authenticated(keyStore, loginUri, Config.kahunaUri)
 
 
-  val indexResponse = {
-    val searchParamList = List("q", "ids", "offset", "length", "fromDate", "toDate",
-      "orderBy", "since", "until", "uploadedBy", "archived", "valid", "free",
-      "hasExports", "hasIdentifier", "missingIdentifier", "hasMetadata").mkString(",")
+  val searchParamList = List("q", "ids", "offset", "length", "fromDate", "toDate",
+    "orderBy", "since", "until", "uploadedBy", "archived", "valid", "free",
+    "hasExports", "hasIdentifier", "missingIdentifier", "hasMetadata").mkString(",")
 
+  val searchLinkHref = s"$rootUri/images{?$searchParamList}"
+
+  val indexResponse = {
     val indexData = Map("description" -> "This is the Media API")
     val indexLinks = List(
-      Link("search",          s"$rootUri/images{?$searchParamList}"),
+      Link("search",          searchLinkHref),
       Link("image",           s"$rootUri/images/{id}"),
       Link("metadata-search", s"$rootUri/images/metadata/{field}{?q}"),
       Link("cropper",         cropperUri),
@@ -122,9 +128,56 @@ object MediaApi extends Controller with ArgoHelpers {
         val id = (imageData \ "id").as[String]
         EmbeddedEntity(uri = URI.create(s"$rootUri/images/$id"), data = Some(imageData), imageLinks)
       }
-      respondCollection(imageEntities, Some(searchParams.offset), Some(totalCount))
+
+      val prevLink = getPrevLink(searchParams)
+      val nextLink = getNextLink(searchParams, totalCount)
+      val links = List(prevLink, nextLink).flatten
+
+      respondCollection(imageEntities, Some(searchParams.offset), Some(totalCount), links)
     }
   }
+
+
+  val searchTemplate = URITemplate(searchLinkHref)
+
+  private def getSearchUrl(searchParams: SearchParams, updatedOffset: Int, length: Int): String = {
+
+    // Enforce a toDate to exclude new images since the current request
+    val toDate = searchParams.toDate.getOrElse(DateTime.now)
+
+    val paramMap = SearchParams.toStringMap(searchParams) ++ Map(
+      "offset" -> updatedOffset.toString,
+      "length" -> length.toString,
+      "toDate" -> printDateTime(toDate)
+    )
+
+    val paramVars = paramMap.map { case (key, value) => key := value }.toSeq
+
+    searchTemplate expand (paramVars: _*)
+  }
+
+  private def getPrevLink(searchParams: SearchParams): Option[Link] = {
+    val prevOffset = List(searchParams.offset - searchParams.length, 0).max
+    if (searchParams.offset > 0) {
+      // adapt length to avoid overlapping with current
+      val prevLength = List(searchParams.length, searchParams.offset - prevOffset).min
+      val prevUrl = getSearchUrl(searchParams, prevOffset, prevLength)
+      Some(Link("prev", prevUrl))
+    } else {
+      None
+    }
+  }
+
+  private def getNextLink(searchParams: SearchParams, totalCount: Long): Option[Link] = {
+    val nextOffset = searchParams.offset + searchParams.length
+    if (nextOffset < totalCount) {
+      val nextUrl = getSearchUrl(searchParams, nextOffset, searchParams.length)
+      Some(Link("next", nextUrl))
+    } else {
+      None
+    }
+  }
+
 
   def imageResponse(id: String, source: JsValue): (JsValue, List[Link]) = {
     // Round expiration time to try and hit the cache as much as possible
@@ -235,9 +288,12 @@ case class SearchParams(
 
 object SearchParams {
 
+  def commasToList(s: String): List[String] = s.trim.split(',').toList
+  def listToCommas(list: List[String]): Option[String] = list.toNel.map(_.list.mkString(","))
+
   def apply(request: Request[Any]): SearchParams = {
 
-    def commaSep(key: String): List[String] = request.getQueryString(key).toList.flatMap(_.trim.split(','))
+    def commaSep(key: String): List[String] = request.getQueryString(key).toList.flatMap(commasToList)
 
     val query = request.getQueryString("q")
     val structuredQuery = query.map(Parser.run) getOrElse List()
@@ -258,10 +314,33 @@ object SearchParams {
       request.getQueryString("valid").map(_.toBoolean),
       request.getQueryString("free").map(_.toBoolean),
       request.getQueryString("uploadedBy"),
-      request.getQueryString("labels").map(_.toString.split(",").toList) getOrElse List(),
+      commaSep("labels"),
       commaSep("hasMetadata")
     )
   }
+
+
+  def toStringMap(searchParams: SearchParams): Map[String, String] =
+    Map(
+      "q"                 -> searchParams.query,
+      "ids"               -> searchParams.ids.map(_.mkString(",")),
+      "offset"            -> Some(searchParams.offset.toString),
+      "length"            -> Some(searchParams.length.toString),
+      "fromDate"          -> searchParams.fromDate.map(printDateTime),
+      "toDate"            -> searchParams.toDate.map(printDateTime),
+      "archived"          -> searchParams.archived.map(_.toString),
+      "hasExports"        -> searchParams.hasExports.map(_.toString),
+      "hasIdentifier"     -> searchParams.hasIdentifier,
+      "missingIdentifier" -> searchParams.missingIdentifier,
+      "valid"             -> searchParams.valid.map(_.toString),
+      "free"              -> searchParams.free.map(_.toString),
+      "uploadedBy"        -> searchParams.uploadedBy,
+      "labels"            -> listToCommas(searchParams.labels),
+      "hasMetadata"       -> listToCommas(searchParams.hasMetadata)
+    ).foldLeft(Map[String, String]()) {
+      case (acc, (key, Some(value))) => acc + (key -> value)
+      case (acc, (_,   None))        => acc
+    }
 
 }
 
