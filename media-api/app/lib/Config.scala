@@ -77,13 +77,15 @@ object Config extends CommonPlayAppConfig with CommonPlayAppProperties {
     "NASA Earth Observatory",
     "NPA ROTA", "PA", "PA WIRE",
     "Pool",
-    // annoyingly I have seen some REUTER images
-    "REUTER", "REUTERS",
-    "RONALD GRANT",
+    // Reuters
+    "REUTERS",
+    "Reuters",
     "RTRPIX",
+    // REX
     "Rex Features",
     "Ronald Grant Archive",
     "THE RONALD GRANT ARCHIVE",
+    "RONALD GRANT",
     "The Art Archive",
     "WireImage",
     // Getty
