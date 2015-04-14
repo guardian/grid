@@ -123,10 +123,10 @@ service.factory('editsService',
     }
 
     // Event handling
-    const publicEvents = ['update-start', 'update-end'];
+    const publicWatcherEvents = ['update-start', 'update-end'];
     function createWatcher() {
         return new Map(
-            publicEvents.map(event => [event, new Map()])
+            publicWatcherEvents.map(event => [event, new Set()])
         );
     }
 
@@ -157,7 +157,7 @@ service.factory('editsService',
                 watcher = watchers.get(uri);
             }
 
-            watcher.get(event).set(cb, cb);
+            watcher.get(event).add(cb);
         });
 
         return () => off(resource, event, cb);
