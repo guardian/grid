@@ -19,6 +19,7 @@ service.factory('editsService',
     const pollTimeout   = 20 * 1000; // ms
 
     /**
+     *
      * @param edit {Resource} the edit you'd like to match
      * @param image {Resource} the image which you're searching in
      * @return {Promise.<Resource>}
@@ -60,6 +61,13 @@ service.factory('editsService',
         return poll(checkSynced, pollFrequency, pollTimeout);
     }
 
+    /**
+     *
+     * @param resource {Resource} resource to update
+     * @param data {*} add to original `data`
+     * @param originalImage {Resource} the image used to check if we've re-indexed yet
+     * @returns {Promise.<Resource>} completed when information is synced
+     */
     function add(resource, data, originalImage) {
         runWatcher(resource, 'update-start');
 
@@ -71,6 +79,13 @@ service.factory('editsService',
             });
     }
 
+    /**
+     *
+     * @param resource {Resource} resource to update
+     * @param data {*} PUTs `data` and replaces old data
+     * @param originalImage {Resource} the image used to check if we've re-indexed yet
+     * @returns {Promise.<Resource>} completed when information is synced
+     */
     function update(resource, data, originalImage) {
         runWatcher(resource, 'update-start');
 
@@ -82,11 +97,20 @@ service.factory('editsService',
             });
     }
 
-    // This is a bit of a hack function as we don't have a way of deleting from
-    // a collection on the API, only per label / right. We should probably
-    // choose between working with the collection e.g. labels, or working with
-    // each collection item directly, whereas now, for adding, we use the
-    // collection, and for deleting we use the collection item
+    //
+    /**
+     *
+     * @param resource {Resource} resource to remove
+     * @param collection {Resource} the collection you want to remove a `Resource` from
+     * @param originalImage {Resource} the image used to check if we've re-indexed yet
+     * @returns {Promise.<Resource>} completed when information is synced
+     *
+     * This is a bit of a hack function as we don't have a way of deleting from
+     * a collection on the API, only per label / right. We should probably
+     * choose between working with the collection e.g. labels, or working with
+     * each collection item directly, whereas now, for adding, we use the
+     * collection, and for deleting we use the collection item
+     */
     function removeFromCollection(resource, collection, originalImage) {
         runWatcher(collection, 'update-start');
 
@@ -99,11 +123,11 @@ service.factory('editsService',
     }
 
     // Event handling
+    const publicEvents = ['update-start', 'update-end'];
     function createWatcher() {
-        return new Map([
-            ['update-start', new Map()],
-            ['update-end',   new Map()]
-        ]);
+        return new Map(
+            publicEvents.map(event => [event, new Map()])
+        );
     }
 
     function runWatcher(resource, event) {
@@ -116,6 +140,13 @@ service.factory('editsService',
         });
     }
 
+    /**
+     *
+     * @param resource {Resource}
+     * @param event {String} event that matches in `publicEvents`
+     * @param cb {Function} callback to run on event
+     * @return {Function} function you should run to de-register event
+     */
     function on(resource, event, cb) {
         resource.getUri().then(uri => {
             var watcher = watchers.get(uri);
