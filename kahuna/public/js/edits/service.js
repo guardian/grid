@@ -89,7 +89,7 @@ service.factory('editsService',
                 runWatcher(resource, 'update-end');
                 return edit;
             }).
-            catch(error => runWatcher(resource, 'update-error'));
+            catch(() => runWatcher(resource, 'update-error'));
     }
 
     /**
@@ -108,7 +108,7 @@ service.factory('editsService',
                 runWatcher(resource, 'update-end');
                 return edit;
             }).
-            catch(error => runWatcher(resource, 'update-error'));
+            catch(() => runWatcher(resource, 'update-error'));
 
     }
 
