@@ -2,13 +2,22 @@
 <div class="result-editor">
 
     <div class="result-editor__result">
-        <a class="result-editor__img-link"
-           ui:sref="image({imageId: ctrl.image.data.id})"
-           ui:drag-data="{{ctrl.image | asImageDragData}}">
+
+        <!-- only give the image link if the image is valid -->
+        <div ng:switch="ctrl.status === 'ready'">
+            <a class="result-editor__img-link"
+               ng:switch-when="true"
+               ui:sref="image({imageId: ctrl.image.data.id})"
+               ui:drag-data="{{ctrl.image | asImageDragData}}">
+
+                <img class="result-editor__img"
+                     ng:src="{{ctrl.image.data.thumbnail | assetFile}}" />
+            </a>
 
             <img class="result-editor__img"
+                 ng:switch-default
                  ng:src="{{ctrl.image.data.thumbnail | assetFile}}" />
-        </a>
+        </div>
 
         <div class="result-editor__info">
             <div class="result-editor__info-item result-editor__info-item--first"
