@@ -127,9 +127,9 @@ service.factory('editsService',
             }
 
             watcher.get(event).set(cb, cb);
-
-            return () => off(resource, event, cb);
         });
+
+        return () => off(resource, event, cb);
     }
 
     function off(resource, event, cb) {

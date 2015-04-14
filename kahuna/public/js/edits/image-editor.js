@@ -32,7 +32,7 @@ imageEditor.controller('ImageEditorCtrl',
     const offMetadataUpdateEnd =
         editsService.on(metadata, 'update-end', refreshImage);
 
-    $scope.$on('destroy', () => {
+    $scope.$on('$destroy', () => {
         offRightsUpdateStart();
         offRightsUpdateEnd();
         offMetadataUpdateStart();
