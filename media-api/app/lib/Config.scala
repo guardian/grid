@@ -98,7 +98,15 @@ object Config extends CommonPlayAppConfig with CommonPlayAppProperties {
     "Guardian", "The Guardian", "The Observer")
 
 
-  val freeSourceList = List("Corbis", "Rex Features")
+  val freeSourceList = List(
+    "Corbis",
+    "Rex Features",
+    // Barcroft Media & sons
+    "Barcroft Media",
+    "Barcroft India",
+    "Barcroft USA",
+    "Barcroft Cars"
+  )
 
   // Note: we filter exclusively on matching source, rather than combining credit=Getty and source=X
   // this is assumed to be good enough as it's unlikely other provider will use the same source.
@@ -106,7 +114,10 @@ object Config extends CommonPlayAppConfig with CommonPlayAppProperties {
     "ASAblanca",
     "Anadolu",
     "BBC News & Current Affairs",
-    "Barcroft",
+    // TODO: put back in once we can filter on both
+    // supplier/collection, since we have a direct deal with
+    // Barcroft. Also, should it be "Barcroft Media"?
+    // "Barcroft",
     "Blom UK",
     "Boston Globe",
     "British Athletics",
