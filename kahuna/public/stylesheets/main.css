@@ -687,14 +687,22 @@ FIXME: what to do with touch devices
     width: 256px;
 }
 
-.result-editor__saving {
+.result-editor__save-status-container {
     position: absolute;
     top: 0;
     right: 0;
+    font-size: 1.4rem;
+}
+
+.result-editor__save-status {
     background: rgba(0, 0, 0, .75);
     color: #00adee;
-    padding: 2px 5px;
-    font-size: 1.4rem;
+    padding: 3px 5px;
+}
+
+.result-editor__save-status--error {
+    background: red;
+    color: white;
 }
 
 .result-editor__img,

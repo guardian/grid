@@ -39,9 +39,16 @@
                 archived="ctrl.image.data.userMetadata.data.archived"
             ></ui-archiver>
         </div>
-        <span class="result-editor__saving"
-              ng:show="ctrl.saving">
-            Saving… <span class="saving">⧖</span>
+
+        <span class="result-editor__save-status-container">
+            <span class="result-editor__save-status"
+                  ng:show="ctrl.saving">Saving… <span class="saving">⧖</span>
+            </span>
+            <span class="result-editor__save-status"
+                  ng:show="ctrl.saved">Saved</span>
+
+            <span class="result-editor__save-status result-editor__save-status--error"
+                  ng:show="ctrl.error">Something went wrong... try again?</span>
         </span>
     </div>
 
