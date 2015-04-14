@@ -16,7 +16,6 @@ service.factory('editsService',
     const pollTimeout   = 20 * 1000; // ms
 
     /**
-     *
      * @param edit {Resource} the edit you'd like to match
      * @param image {Resource} the image which you're searching in
      * @return {Promise.<Resource>}
@@ -34,12 +33,10 @@ service.factory('editsService',
     }
 
     /**
-     *
+     * Searches for the `edit` in `image` and compares the two
      * @param edit {Resource}
      * @param image {Resource}
      * @returns {Promise.<Resource>|reject} return the `edit` resource on `success`
-     *
-     * Searches for the `edit` in `image` and compares the two
      */
     function matches(edit, image) {
         // find that matching resource
@@ -50,13 +47,11 @@ service.factory('editsService',
     }
 
     /**
-     *
+     * Searches for the `edit` in `image` and compares the two
      * @param edit {Resource} edit to search for
      * @param collection {Resource} collection to search from
      * @param image {Resource} image to tell when the re-index has happened
      * @returns {Promise.<Resource>|reject} return the `collection.get` `Promise`
-     *
-     * Searches for the `edit` in `image` and compares the two
      */
     function missing(edit, collection, image) {
         return findMatchingEditInImage(collection, image).then(matchingEdit => {
@@ -74,7 +69,6 @@ service.factory('editsService',
     }
 
     /**
-     *
      * @param resource {Resource} resource to update
      * @param data {*} add to original `data`
      * @param originalImage {Resource} the image used to check if we've re-indexed yet
@@ -93,7 +87,6 @@ service.factory('editsService',
     }
 
     /**
-     *
      * @param resource {Resource} resource to update
      * @param data {*} PUTs `data` and replaces old data
      * @param originalImage {Resource} the image used to check if we've re-indexed yet
@@ -114,17 +107,15 @@ service.factory('editsService',
 
     //
     /**
-     *
-     * @param resource {Resource} resource to remove
-     * @param collection {Resource} the collection you want to remove a `Resource` from
-     * @param originalImage {Resource} the image used to check if we've re-indexed yet
-     * @returns {Promise.<Resource>} completed when information is synced
-     *
      * This is a bit of a hack function as we don't have a way of deleting from
      * a collection on the API, only per label / right. We should probably
      * choose between working with the collection e.g. labels, or working with
      * each collection item directly, whereas now, for adding, we use the
      * collection, and for deleting we use the collection item
+     * @param resource {Resource} resource to remove
+     * @param collection {Resource} the collection you want to remove a `Resource` from
+     * @param originalImage {Resource} the image used to check if we've re-indexed yet
+     * @returns {Promise.<Resource>} completed when information is synced
      */
     function removeFromCollection(resource, collection, originalImage) {
         runWatcher(collection, 'update-start');
@@ -140,14 +131,12 @@ service.factory('editsService',
     // Event handling
     // TODO: Use proper names from http://en.wikipedia.org/wiki/Watcher_%28comics%29
     /**
-     *
      * @type {Map.<String => Map>} a map with key as the resource URI and value
      * as a watcher Map (see `createWatcher`).
      */
     const watchers = new Map();
 
     /**
-     *
      * @returns {Map.<String => Set>} a map of `key = event` and a Set of
      * callback functions to rn on that event.
      */
@@ -169,7 +158,6 @@ service.factory('editsService',
     }
 
     /**
-     *
      * @param resource {Resource}
      * @param event {String} event that matches in `publicEvents`
      * @param cb {Function} callback to run on event
