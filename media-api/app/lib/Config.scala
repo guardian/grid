@@ -81,6 +81,7 @@ object Config extends CommonPlayAppConfig with CommonPlayAppProperties {
     "REUTERS",
     "Reuters",
     "RTRPIX",
+    "USA Today Sports", // via Reuters too
     // REX
     "Rex Features",
     "Ronald Grant Archive",
