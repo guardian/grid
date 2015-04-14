@@ -225,9 +225,9 @@ a:focus {
     color: #00adee;
 
     animation-name: spin;
-	animation-duration: 1500ms;
-	animation-iteration-count: infinite;
-	animation-timing-function: linear;
+    animation-duration: 1500ms;
+    animation-iteration-count: infinite;
+    animation-timing-function: linear;
     -webkit-animation-name: spin;
     -webkit-animation-iteration-count: infinite;
     -webkit-animation-duration: 1500ms;
