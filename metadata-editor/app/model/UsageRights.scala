@@ -10,7 +10,7 @@ case class UsageRights(
   category: String,
   prCategory: Option[String],
   description: String,
-  restrictions: String
+  restriction: String
 )
 
 object UsageRights {
@@ -23,7 +23,7 @@ object UsageRights {
     (__ \ "category").write[String] ~
     (__ \ "prCategory").writeNullable[String] ~
     (__ \ "description").write[String] ~
-    (__ \ "restrictions").write[String]
+    (__ \ "restriction").write[String]
   )(unlift(UsageRights.unapply))
 
   def costToString(c: Cost): String = c.toString
