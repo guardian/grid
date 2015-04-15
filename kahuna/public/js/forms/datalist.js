@@ -33,7 +33,10 @@ datalist.controller('DatalistController', ['$timeout', function($timeout) {
         // model, even though it's bi-directionally bound. So we send a message
         // saying we've changed it
         this.ngModel = this.data[selectedIndex];
-        this.onselect && this.onselect({ value: this.ngModel });
+
+        if (this.onselect) {
+            this.onselect({ value: this.ngModel });
+        }
         this.active = false;
     };
 
