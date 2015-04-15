@@ -65,14 +65,12 @@ object Mappings {
     )
   )
 
-  val usageRightsMapping = Json.obj(
-    "properties" -> Json.obj(
-      "cost" -> nonAnalyzedString,
-      "category" -> nonAnalyzedString,
-      "prCategory" -> nonAnalyzedString,
-      "description" -> standardAnalysedString,
-      "restrictions" -> standardAnalysedString
-    )
+  val usageRightsMapping = nonDynamicObj(
+    "cost" -> nonAnalyzedString,
+    "category" -> nonAnalyzedString,
+    "prCategory" -> nonAnalyzedString,
+    "description" -> standardAnalysedString,
+    "restrictions" -> standardAnalysedString
   )
 
   val exportsMapping =
