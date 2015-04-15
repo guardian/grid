@@ -6,7 +6,7 @@ import template from './datalist.html!text';
 export var datalist = angular.module('kahuna.forms.datalist', []);
 
 datalist.controller('DatalistController', ['$timeout', function($timeout) {
-    var keys = { 37: 'left', 38: 'up', 39: 'right', 40: 'down', 13: 'enter', 27: 'esc', 9: 'tab' };
+    var keys = { 38: 'up', 40: 'down', 13: 'enter', 27: 'esc', 9: 'tab' };
     var selectedIndex = 0;
 
     var moveIndex = index => {
@@ -92,6 +92,7 @@ datalist.directive('uiDatalist', ['$window', function() {
             placeholder: '@',
             ngDisabled: '=',
             // TODO: decouple this from the parent's model
+            ngChange: '&',
             ngModel: '=',
             ngModelOptions: '='
         },
