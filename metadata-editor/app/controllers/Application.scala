@@ -271,14 +271,6 @@ object Application extends Controller with ArgoHelpers {
     )(ImageMetadata.apply)(ImageMetadata.unapply))
   )
 
-//  val usageRightsForm: Form[UsageRights] = Form(single("data" -> mapping(
-//    "cost" -> text,
-//    "type" -> text,
-//    "category" -> text,
-//    "description" -> text,
-//    "prType" -> optional(text)
-//  )(UsageRights.apply)(UsageRights.unapply)))
-
   val booleanForm: Form[Boolean] = Form(
      single("data" -> boolean)
        .transform[Boolean]({ case (value)        => value },
