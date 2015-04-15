@@ -5,7 +5,7 @@ import java.net.URI
 import java.net.URLDecoder.decode
 
 import com.gu.mediaservice.lib.argo.ArgoHelpers
-import com.gu.mediaservice.model.ImageMetadata
+import com.gu.mediaservice.model.{UsageRights, ImageMetadata}
 
 import scala.concurrent.Future
 
@@ -19,7 +19,7 @@ import com.gu.mediaservice.lib.auth.KeyStore
 import com.gu.mediaservice.lib.aws.{NoItemFound, DynamoDB}
 import lib._
 
-import model.{UsageRights, Edits}
+import model.Edits
 
 import com.gu.mediaservice.lib.argo._
 import com.gu.mediaservice.lib.argo.model._
