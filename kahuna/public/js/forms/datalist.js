@@ -29,9 +29,15 @@ datalist.controller('DatalistController', ['$timeout', function($timeout) {
     this.setIndex = i => selectedIndex = i;
     this.isSelected = key => key === selectedIndex;
     this.setToCurrentValue = () => {
+        // Annoyingly setting the model doesn't seem to bubble up to the parent
+        // model, even though it's bi-directionally bound. So we send a message
+        // saying we've changed it
         this.ngModel = this.data[selectedIndex];
+
+        if (this.onselect) {
+            this.onselect({ value: this.ngModel });
+        }
         this.active = false;
-        this.ngChange();
     };
 
     this.search = q => {
@@ -80,11 +86,12 @@ datalist.directive('uiDatalist', ['$window', function() {
     return {
         restrict: 'E',
         scope: {
-            ngDisabled: '=',
+            onselect: '&?',
             request: '&',
             name: '@',
             placeholder: '@',
-            ngChange: '&',
+            ngDisabled: '=',
+            // TODO: decouple this from the parent's model
             ngModel: '=',
             ngModelOptions: '='
         },

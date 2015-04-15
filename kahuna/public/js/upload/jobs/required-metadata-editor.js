@@ -35,7 +35,6 @@ jobs.controller('RequiredMetadataEditorCtrl',
             update(ctrl.resource, cleanMetadata, ctrl.image).
             then(resource => {
                 ctrl.resource = resource;
-                $scope.jobEditor.$setPristine();
             }).
             catch(() => $window.alert('Failed to save the changes, please try again.')).
             finally(() => ctrl.saving = false);
@@ -45,6 +44,11 @@ jobs.controller('RequiredMetadataEditorCtrl',
         return mediaApi.metadataSearch(field,  { q }).then(resource => {
             return resource.data.map(d => d.key);
         });
+    };
+
+    ctrl.setCredit = credit => {
+        ctrl.metadata.credit = credit;
+        ctrl.save();
     };
 
     // TODO: Find a way to broadcast more selectively
