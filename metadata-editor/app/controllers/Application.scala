@@ -57,11 +57,12 @@ object Application extends Controller with ArgoHelpers {
   val indexResponse = {
     val indexData = Map("description" -> "This is the Metadata Editor Service")
     val indexLinks = List(
-      Link("edits",    s"$rootUri/metadata/{id}"),
-      Link("archived", s"$rootUri/metadata/{id}/archived"),
-      Link("labels",   s"$rootUri/metadata/{id}/labels"),
-      Link("rights",   s"$rootUri/metadata/{id}/rights"),
-      Link("metadata", s"$rootUri/metadata/{id}/metdata")
+      Link("edits",       s"$rootUri/metadata/{id}"),
+      Link("archived",    s"$rootUri/metadata/{id}/archived"),
+      Link("labels",      s"$rootUri/metadata/{id}/labels"),
+      Link("rights",      s"$rootUri/metadata/{id}/rights"),
+      Link("usageRights", s"$rootUri/metadata/{id}/usage-rights"),
+      Link("metadata",    s"$rootUri/metadata/{id}/metadata")
     )
     respond(indexData, indexLinks)
   }
