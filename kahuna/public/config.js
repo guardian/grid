@@ -22,6 +22,7 @@ System.config({
     "mixpanel-js": "github:mixpanel/mixpanel-js@2.4.2",
     "moment": "github:moment/moment@2.9.0",
     "pandular": "npm:pandular@0.1.5",
+    "pikaday": "github:dbushell/Pikaday@1.3.1",
     "raven-js": "github:getsentry/raven-js@1.1.18",
     "text": "github:systemjs/plugin-text@0.0.2",
     "theseus": "npm:theseus@0.4.0",
