@@ -480,7 +480,9 @@ input.search-query__input {
     margin: 0 10px;
 }
 
-
+.search__date {
+    display: inline-block;
+}
 
 /* ==========================================================================
    File uploader
