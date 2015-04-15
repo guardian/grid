@@ -8,7 +8,6 @@ case class UsageRights(
   // TODO: Not sure if we should have `case object`s representing these as they
   // might change more than, say, `Cost`
   category: String,
-  description: String,
   restrictions: String
 )
 
@@ -20,7 +19,6 @@ object UsageRights {
   implicit val UsageRightsWrites: Writes[UsageRights] = (
     (__ \ "cost").write[String].contramap(costToString) ~
     (__ \ "category").write[String] ~
-    (__ \ "description").write[String] ~
     (__ \ "restrictions").write[String]
   )(unlift(UsageRights.unapply))
 
