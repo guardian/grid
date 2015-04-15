@@ -29,12 +29,9 @@ class Transformers(services: Services) {
             "archived" -> boolOrFalse(data \ "archived").transform(wrapArchived(id)).get,
             "labels" -> arrayOrEmpty(data \ "labels").transform(wrapLabels(id)).get,
             "rights" -> arrayOrEmpty(data \ "rights").transform(wrapRights(id)).get,
-            "metadata" -> objectOrEmpty(data \ "metadata").transform(wrapMetadata(id)).get
-          ) ++
-          // TODO: Move over to Argo so we don't have to do this
-          // This is because we won't show usageRights if there aren't any
-          (data \ "usageRights").asOpt[JsObject].map(obj =>
-            Json.obj("usageRights" -> obj.transform(wrapUsageRights(id)).get)).getOrElse(Json.obj())
+            "metadata" -> objectOrEmpty(data \ "metadata").transform(wrapMetadata(id)).get,
+            "usageRights" -> objectOrEmpty(data \ "usageRights").transform(wrapUsageRights(id)).get
+          )
         )
       )
     }
