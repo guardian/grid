@@ -34,8 +34,8 @@ datalist.controller('DatalistController', ['$timeout', function($timeout) {
         // saying we've changed it
         this.ngModel = this.data[selectedIndex];
 
-        if (this.onselect) {
-            this.onselect({ value: this.ngModel });
+        if (this.onValueSelect) {
+            this.onValueSelect({ value: this.ngModel });
         }
         this.active = false;
     };
@@ -86,7 +86,7 @@ datalist.directive('uiDatalist', ['$window', function() {
     return {
         restrict: 'E',
         scope: {
-            onselect: '&?',
+            onValueSelect: '&?',
             request: '&',
             name: '@',
             placeholder: '@',
