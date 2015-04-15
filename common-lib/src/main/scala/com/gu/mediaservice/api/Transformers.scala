@@ -44,10 +44,15 @@ class Transformers(services: Services) {
     }
 
   def wrapMetadata(id: String): Reads[JsObject] =
-    __.read[JsValue].map { metadata =>
+    __.read[JsObject].map { metadata =>
       Json.obj(
         "uri" -> s"$metadataBaseUri/metadata/$id/metadata",
-        "data" -> metadata
+        // FIXME: This is because we `Json.write` from the `ImageMetadata` case
+        // class on the edits service. As we haven't keywords writeNullable, it
+        // always returns Array(). This is just making sure that bug is replicated
+        // so we can do equalities to see if the services are synced. This will
+        // be rectified when we use Argo here.
+        "data" -> (metadata ++ Json.obj("keywords" -> Json.arr()))
       )
     }
 

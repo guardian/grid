@@ -1,35 +1,85 @@
+<!-- TODO: results editor is a shit name -->
 <div class="result-editor">
 
     <div class="result-editor__result">
-        <ui-preview-image image="ctrl.image"
-                          hide-info="true"></ui-preview-image>
+
+        <!-- only give the image link if the image is valid -->
+        <div ng:switch="ctrl.status === 'ready'">
+            <a class="result-editor__img-link"
+               ng:switch-when="true"
+               ui:sref="image({imageId: ctrl.image.data.id})"
+               ui:drag-data="{{ctrl.image | asImageDragData}}">
+
+                <img class="result-editor__img"
+                     ng:src="{{ctrl.image.data.thumbnail | assetFile}}" />
+            </a>
+
+            <img class="result-editor__img"
+                 ng:switch-default
+                 ng:src="{{ctrl.image.data.thumbnail | assetFile}}" />
+        </div>
+
+        <div class="result-editor__info">
+            <div class="result-editor__info-item result-editor__info-item--first"
+                 ng:switch="ctrl.image.data.cost">
+                <span class="result-editor__status status status--invalid"
+                      ng:switch-when="pay">Pay to use</span>
+
+                <span class="result-editor__status status status--valid"
+                      ng:switch-when="free">Free to use</span>
+            </div>
+
+            <div class="result-editor__info-item"
+                 ng:switch="ctrl.status">
+                <a class="result-editor__status status status--valid"
+                   ng:switch-when="ready"
+                   ui:sref="image({imageId: image.data.id})">View image ▸</a>
+
+                <span class="result-editor__status status status--invalid"
+                      ng:switch-when="invalid">
+                        Info missing
+                        <span class="ico ico--circled ico--help"
+                              title="You need to add both a credit and description">?</span>
+                </span>
+            </div>
+
+            <ui-archiver
+                class="result-editor__archiver"
+                archived="ctrl.image.data.userMetadata.data.archived"
+            ></ui-archiver>
+        </div>
+
+        <span class="result-editor__save-status-container">
+            <span class="result-editor__save-status"
+                  ng:show="ctrl.saving">Saving… <span class="saving">⧖</span>
+            </span>
+            <span class="result-editor__save-status"
+                  ng:show="ctrl.saved">Saved</span>
+
+            <span class="result-editor__save-status result-editor__save-status--error"
+                  ng:show="ctrl.error">Something went wrong... try again?</span>
+        </span>
     </div>
 
     <div class="result-editor__editor">
-        <ui-required-metadata-editor ng:if="ctrl.image"
-                                     disabled="ctrl.saving"
-                                     resource="ctrl.image.data.userMetadata.data.metadata"
-                                     metadata="ctrl.image.data.metadata">
-        </ui-required-metadata-editor>
+        <ui-required-metadata-editor
+            class="result-editor__metadata-editor"
+            resource="ctrl.image.data.userMetadata.data.metadata"
+            metadata="ctrl.image.data.metadata"
+            image="ctrl.image"
+            with-batch="ctrl.withBatch"
+        ></ui-required-metadata-editor>
 
         <ng:transclude></ng:transclude>
 
-        <grid:rights
-            class="result-editor__rights-editor"
-            rights="ctrl.image.data.userMetadata.data.rights"
-            image="ctrl.image"></grid:rights>
-    </div>
+        <div class="result-editor__labeller-container">
+            <span class="result-editor__label">Labels</span>
+            <ui-labeller
+                class="result-editor__labeller"
+                labels="ctrl.image.data.userMetadata.data.labels"
+                with-batch="ctrl.withBatch"
+            ></ui-labeller>
+        </div>
 
-    <div class="result-editor__info">
-        <!-- Trying to avoid static class names -->
-        <span class="result-editor__status status"
-           ng:if="ctrl.status !== 'ready'"
-           ng:class="{
-              'status--invalid': ctrl.status === 'invalid'
-           }">{{ctrl.status}}</span>
-
-        <a class="result-editor__status status status--valid"
-           ng:if="ctrl.status === 'ready'"
-           ui:sref="image({ imageId: ctrl.image.data.id })">View image ▸</a>
     </div>
 </div>

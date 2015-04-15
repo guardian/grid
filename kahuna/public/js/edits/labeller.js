@@ -9,8 +9,8 @@ export var labeller = angular.module('kahuna.edits.labeller', [
 ]);
 
 labeller.controller('LabellerCtrl',
-                  ['$scope', '$window',
-                   function($scope, $window) {
+                  ['$rootScope', '$scope', '$window',
+                   function($rootScope, $scope, $window) {
 
     function saveFailed() {
         $window.alert('Something went wrong when saving, please try again!');
@@ -20,20 +20,25 @@ labeller.controller('LabellerCtrl',
         // Prompt for a label and add if not empty
         var label = ($window.prompt('Enter a label:') || '').trim();
         if (label) {
-            this.adding = true;
-            this.labels.post({data: [label]}).
-                then(newLabels => {
-                    this.labels = newLabels;
-                }).
-                catch(saveFailed).
-                finally(() => {
-                    this.adding = false;
-                });
+            this.addLabels([label]);
         }
     };
 
+    this.addLabels = labels => {
+        this.adding = true;
+        this.labels.post({data: labels}).
+            then(newLabels => {
+                this.labels = newLabels;
+            }).
+            catch(saveFailed).
+            finally(() => {
+                this.adding = false;
+            });
+    };
+
+
     this.labelsBeingRemoved = new Set();
-    this.removeLabel = (label) => {
+    this.removeLabel = label => {
         this.labelsBeingRemoved.add(label);
 
         label.delete().
@@ -46,6 +51,14 @@ labeller.controller('LabellerCtrl',
             });
     };
 
+    const batchApplyLabelsEvent = 'events:batch-apply:labels';
+    if (Boolean(this.withBatch)) {
+        $scope.$on(batchApplyLabelsEvent, (e, labels) => this.addLabels(labels));
+
+        this.batchApplyLabels = () =>
+            $rootScope.$broadcast(batchApplyLabelsEvent, this.labels.data.map(label => label.data));
+    }
+
 }]);
 
 labeller.directive('uiLabeller', [function() {
@@ -54,7 +67,8 @@ labeller.directive('uiLabeller', [function() {
         scope: {
             // Annoying that we can't make a uni-directional binding
             // as we don't really want to modify the original
-            labels: '='
+            labels: '=',
+            withBatch: '=?'
         },
         controller: 'LabellerCtrl',
         controllerAs: 'ctrl',
