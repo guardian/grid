@@ -41,11 +41,13 @@
            placeholder="{{ctrl.placeholder}}"
            autocomplete="off"
            ng:blur="ctrl.deactivate()"
-           ng:change="ctrl.search()"
-           ng:model="ctrl.ngModel"
            ng:keydown="ctrl.onKeydown($event)"
-           ng:focus="ctrl.search()"
-           ng:disabled="ctrl.ngDisabled" />
+           ng:keyup="ctrl.onKeyup($event)"
+           ng:focus="ctrl.search(ctrl.ngModel)"
+           ng:disabled="ctrl.ngDisabled"
+           ng:change="ctrl.ngChange()"
+           ng:model="ctrl.ngModel"
+           ng:model-options="ctrl.ngModelOptions" />
 
     <div class="datalist__options" ng:if="ctrl.active && ! ctrl.ngDisabled">
         <div class="datalist__option"

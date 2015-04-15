@@ -21,4 +21,11 @@
           ng:disabled="ctrl.adding">
         Add<span ng:show="ctrl.adding">ing…</span>
     </button>
+
+    <button
+        class="labeller__apply-all"
+        title="Apply these labels to all"
+        ng:if="ctrl.withBatch"
+        ng:click="ctrl.batchApplyLabels()"
+    >⇔</button>
 </div>

@@ -1,20 +1,24 @@
 import angular from 'angular';
 import template from './required-metadata-editor.html!text';
+
+import '../../edits/service';
 import '../../forms/datalist';
 
 export var jobs = angular.module('kahuna.upload.jobs.requiredMetadataEditor', [
+    'kahuna.edits.service',
     'kahuna.forms.datalist'
 ]);
 
 
 jobs.controller('RequiredMetadataEditorCtrl',
-                ['$scope', '$window', 'mediaApi',
-                 function($scope, $window, mediaApi) {
+                ['$rootScope', '$scope', '$window', 'mediaApi', 'editsService',
+                 function($rootScope, $scope, $window, mediaApi, editsService) {
 
     var ctrl = this;
 
     ctrl.saving = false;
     ctrl.disabled = () => Boolean(ctrl.saving || ctrl.externallyDisabled);
+    ctrl.metadata = metadataFromOriginal(ctrl.originalMetadata);
 
     ctrl.save = function() {
         ctrl.saving = true;
@@ -27,13 +31,14 @@ jobs.controller('RequiredMetadataEditorCtrl',
             }
         });
 
-        ctrl.resource.put({ data: cleanMetadata })
-            .then(resource => {
+        editsService.
+            update(ctrl.resource, cleanMetadata, ctrl.image).
+            then(resource => {
                 ctrl.resource = resource;
                 $scope.jobEditor.$setPristine();
-            })
-            .catch(() => $window.alert('Failed to save the changes, please try again.'))
-            .finally(() => ctrl.saving = false);
+            }).
+            catch(() => $window.alert('Failed to save the changes, please try again.')).
+            finally(() => ctrl.saving = false);
     };
 
     ctrl.metadataSearch = (field, q) => {
@@ -42,16 +47,25 @@ jobs.controller('RequiredMetadataEditorCtrl',
         });
     };
 
-    $scope.$watch(() => ctrl.originalMetadata, () => {
-        setMetadataFromOriginal();
-    });
+    // TODO: Find a way to broadcast more selectively
+    const batchApplyMetadataEvent = 'events:batch-apply:metadata';
 
-    function setMetadataFromOriginal() {
+    if (Boolean(ctrl.withBatch)) {
+        $scope.$on(batchApplyMetadataEvent, (e, { field, data }) => {
+            ctrl.metadata[field] = data;
+            ctrl.save();
+        });
+
+        ctrl.batchApplyMetadata = field =>
+            $rootScope.$broadcast(batchApplyMetadataEvent, { field, data: ctrl.metadata[field] });
+    }
+
+    function metadataFromOriginal(originalMetadata) {
         // we only want a subset of the data
-        ctrl.metadata = {
-            byline: ctrl.originalMetadata.byline,
-            credit: ctrl.originalMetadata.credit,
-            description: ctrl.originalMetadata.description
+        return {
+            byline: originalMetadata.byline,
+            credit: originalMetadata.credit,
+            description: originalMetadata.description
         };
     }
 }]);
@@ -62,7 +76,10 @@ jobs.directive('uiRequiredMetadataEditor', [function() {
         scope: {
             resource: '=',
             originalMetadata: '=metadata',
-            externallyDisabled: '=?disabled'
+            externallyDisabled: '=?disabled',
+            // TODO: remove this once we add links to the resources
+            image: '=',
+            withBatch: '=?'
         },
         controller: 'RequiredMetadataEditorCtrl',
         controllerAs: 'ctrl',
