@@ -19,7 +19,7 @@ import com.gu.mediaservice.lib.auth.KeyStore
 import com.gu.mediaservice.lib.aws.{NoItemFound, DynamoDB}
 import lib._
 
-import _root_.model.{Cost, UsageRights, Edits}
+import model.{UsageRights, Edits}
 
 import com.gu.mediaservice.lib.argo._
 import com.gu.mediaservice.lib.argo.model._
