@@ -68,7 +68,6 @@ object Mappings {
   val usageRightsMapping = nonDynamicObj(
     "cost" -> nonAnalyzedString,
     "category" -> nonAnalyzedString,
-    "description" -> standardAnalysedString,
     "restrictions" -> standardAnalysedString
   )
 
