@@ -1,51 +1,60 @@
 import angular from 'angular';
 import template from './image-editor.html!text';
 
-import './rights';
+import './service';
 
-export var imageEditor = angular.module('kahuna.edits.imageEditor', ['kahuna.edits.rights']);
+export var imageEditor = angular.module('kahuna.edits.imageEditor', [
+    'kahuna.edits.service'
+]);
 
-imageEditor.controller('ImageEditorCtrl', ['$scope', '$q', 'poll', function($scope, $q, poll) {
+imageEditor.controller('ImageEditorCtrl',
+                       ['$scope', '$timeout', 'editsService',
+                        function($scope, $timeout, editsService) {
 
-    var pollFrequency = 500; // ms
-    var pollTimeout   = 20 * 1000; // ms
+    var ctrl = this;
 
-    this.status = this.image.data.valid ? 'ready' : 'invalid';
-    this.saving = false;
+    ctrl.status = ctrl.image.data.valid ? 'ready' : 'invalid';
+    ctrl.saving = false;
+    ctrl.saved = false;
+    ctrl.error = false;
 
-    // Watch the metadata for an update from `required-metadata-editor`.
-    // When the metadata is overridden, we don't know if the resulting
-    // image is valid or not. This code checks when the update has
-    // been processed and updates the status accordingly.
-    $scope.$watch(() => this.image.data.userMetadata.data.metadata, (newMetadata, oldMetadata) => {
-        if (newMetadata !== oldMetadata) {
+    const metadata = ctrl.image.data.userMetadata.data.metadata;
 
-            this.status = 're-indexing';
-            this.saving = true;
+    const offMetadataUpdateStart =
+        editsService.on(metadata, 'update-start', () => ctrl.saving = true);
 
-            var metadataMatches = (image) => {
-                // FIXME: Hack for a modelling problem in edits. Keywords shouldn't
-                // be sent across, but they are as the `ImageMetadata.Writes` converts nothing
-                // into `Nil`.
-                var matches = Object.keys(newMetadata.data).every(key =>
-                    angular.equals(newMetadata.data[key], image.data.metadata[key])
-                );
+    const offMetadataUpdateEnd =
+        editsService.on(metadata, 'update-end', onSave);
 
-                return matches ? image : $q.reject('no match');
-            };
-            var apiSynced = () => this.image.get().then(metadataMatches);
+    const offMetadataUpdateError =
+        editsService.on(metadata, 'update-error', onError);
 
-            var whenIndexed = poll(apiSynced, pollFrequency, pollTimeout);
-            whenIndexed.then(image => {
-                this.status = image.data.valid ? 'ready' : 'invalid';
-
-                // FIXME: this is a bit of a hack to not trigger the watch again.
-                image.data.userMetadata.data.metadata = this.image.data.userMetadata.data.metadata;
-                this.image = image;
-            }).finally(() => this.saving = false);
-
-        }
+    $scope.$on('$destroy', () => {
+        offMetadataUpdateStart();
+        offMetadataUpdateEnd();
+        offMetadataUpdateError();
     });
+
+
+    function onSave() {
+        return ctrl.image.get().then(newImage => {
+            ctrl.image = newImage;
+            ctrl.status = ctrl.image.data.valid ? 'ready' : 'invalid';
+            ctrl.saving = false;
+
+            ctrl.error = false;
+            ctrl.saved = true;
+            $timeout(() => ctrl.saved = false, 1000);
+        }).
+        // TODO: we could retry here again, but re-saving does that, and given
+        // it's auto-save, it should be fine.
+        then(() => onError);
+    }
+
+    function onError() {
+        ctrl.error = true;
+    }
+
 }]);
 
 
@@ -58,7 +67,9 @@ imageEditor.directive('uiImageEditor', [function() {
         template: template,
         transclude: true,
         scope: {
-            image: '='
+            image: '=',
+            // FIXME: we only need these to pass them through to `required-metadata-editor`
+            withBatch: '='
         }
     };
 }]);

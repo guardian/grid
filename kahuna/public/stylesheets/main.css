@@ -157,7 +157,6 @@ a:focus {
     background: transparent;
     box-shadow: 0 2px #888;
     border: 1px solid #888;
-    border-bottom: 0;
     font-size: inherit;
 }
 .button-shy:not([disabled]):hover {
@@ -204,6 +203,35 @@ a:focus {
     width: 12px;
     vertical-align: middle;
     line-height: 12px;
+}
+
+.ico--circled {
+    font-size: 1.2rem;
+    display: inline-block;
+    border: 1px solid white;
+    border-radius: 50%;
+}
+
+.ico--help {
+    cursor: help;
+}
+
+.saving {
+    display: inline;
+    width: 15px;
+    line-height: 15px;
+    text-align: center;
+    padding: 0 2px;
+    color: #00adee;
+
+    animation-name: spin;
+    animation-duration: 1500ms;
+    animation-iteration-count: infinite;
+    animation-timing-function: linear;
+    -webkit-animation-name: spin;
+    -webkit-animation-iteration-count: infinite;
+    -webkit-animation-duration: 1500ms;
+    -webkit-animation-timing-function: linear;
 }
 
 /* ==========================================================================
@@ -650,36 +678,92 @@ FIXME: what to do with touch devices
    ========================================================================== */
 
 .result-editor {
-    margin-bottom: 20px;
     display: flex;
+    margin-bottom: 20px;
 }
 
 .result-editor__result {
-    width: 200px;
+    position: relative;
+    width: 256px;
+}
+
+.result-editor__save-status-container {
+    position: absolute;
+    top: 0;
+    right: 0;
+    font-size: 1.4rem;
+}
+
+.result-editor__save-status {
+    background: rgba(0, 0, 0, .75);
+    color: #00adee;
+    padding: 2px 5px;
+    display: inline-block;
+}
+
+.result-editor__save-status--error {
+    background: red;
+    color: white;
+}
+
+.result-editor__img,
+.result-editor__img-link {
+    display: block;
 }
 
 .result-editor__editor {
-    margin: 0 20px;
-
+    flex-grow: 1;
+    margin: 0 10px;
 }
 
 .result-editor__info {
-    flex-grow: 1;
+    display: flex;
+}
+
+.result-editor__info-item {
+    flex: 1;
+    margin-left: 1px;
+    font-size: 1.4rem;
+}
+.result-editor__info-item--first {
+    margin-left: 0;
 }
 
 .result-editor__status {
     display: block;
-    border-radius: 5px;
-    padding: 5px;
     margin: 0 auto;
     text-align: center;
+    padding: 2px 5px;
 }
 
-.result-editor__goto {
-    margin-top: 10px;
-    text-align: right;
-    display: block;
+.result-editor__archiver {
+    background: black;
+    padding: 0 5px;
 }
+
+.result-editor__labeller-container {
+    display: flex;
+    width: 100%;
+    margin-top: 5px;
+}
+.result-editor__label {
+    display: inline-block;
+    width: 100px;
+}
+
+.result-editor__rights-editor {
+    float: right;
+    display: none;
+}
+
+
+/* ==========================================================================
+   Rights editor
+   ========================================================================== */
+.rights-editor {
+    font-size: 1.4rem;
+}
+
 
 /* ==========================================================================
    Full Image / crop
@@ -713,7 +797,6 @@ FIXME: what to do with touch devices
 .image-details {
     box-sizing: border-box;
     float: right;
-    font-family: "Guardian Agate Sans Web", Helvetica, Arial;
     font-size: 1.4rem;
     height: calc(100vh - 48px); /* viewport - top-bar */
     padding: 10px 10px;
@@ -778,13 +861,11 @@ FIXME: what to do with touch devices
     border-bottom: 1px solid #999;
 }
 
-
 .metadata-reveal {
     color: #999;
     font-size: 1.4rem;
     font-family: inherit;
 }
-
 
 .metadata {
     font-family: "Guardian Agate Sans Web", Helvetica, Arial;
@@ -896,6 +977,10 @@ FIXME: what to do with touch devices
     -webkit-animation-timing-function: ease-out;
 }
 
+.labeller__apply-all {
+    margin-left: 10px;
+    line-height: 20px;
+}
 
 
 /* ==========================================================================
@@ -938,24 +1023,20 @@ FIXME: what to do with touch devices
 }
 
 .job-info--editor__field {
-    display: block;
+    display: flex;
     margin-bottom: 5px;
+    position: relative;
 }
 .job-info--editor__label {
     width: 100px;
-    display: inline-block;
     vertical-align: top;
 }
 .job-info--editor__input {
-    width: 400px;
     display: inline-block;
+    flex-grow: 1;
 }
 .job-info--editor__input--description {
     height: 4em;
-
-    /* FIXME: Horrible hack to reclaim vertical space caused by the
-       element not being display:block.  CSS sigh. */
-    margin-bottom: -7px;
 }
 
 .job-edit-disabler {
@@ -1013,9 +1094,22 @@ FIXME: what to do with touch devices
     margin-bottom: 20px;
 }
 
+.job-editor__apply-to-all {
+    position: absolute;
+    right: 5px;
+    top: 1px;
+    z-index: 1;
+    padding-left: 5px;
+    background: #444;
+}
+
 .metadata-applicator {
     font-size: 1.4rem;
     text-align: right;
+    /* FIXME: This is to get the text to lay next to the save button of the
+    `metadata-editor` */
+    padding-right: 80px;
+    margin-top: -25px;
 }
 
 .metadata-applicator__button {
@@ -1023,11 +1117,6 @@ FIXME: what to do with touch devices
     text-decoration: underline;
 }
 
-.result-editor__rights-editor {
-    float: right;
-    display: none;
-    /* TODO: remove this once we have actual styling */
-}
 
 /* ==========================================================================
    jCrop
@@ -1128,6 +1217,9 @@ FIXME: what to do with touch devices
     background-color: #333;
     line-height: 1.6rem;
 }
+.drop-menu__button--nopad {
+    padding: 0;
+}
 
 .drop-menu__items {
     background-color: #333;
@@ -1138,6 +1230,9 @@ FIXME: what to do with touch devices
 }
 .drop-menu__items--right {
     right: 0;
+}
+.drop-menu__items--nopad {
+    top: 100%;
 }
 
 /* ==========================================================================
