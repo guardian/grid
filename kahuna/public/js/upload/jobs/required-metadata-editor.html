@@ -49,7 +49,7 @@
                 name="credit"
                 placeholder="e.g. Getty Images…"
                 request="ctrl.metadataSearch('credit', q)"
-                ng:change="ctrl.save()"
+                onselect="ctrl.setCredit(value)"
                 ng:model="ctrl.metadata.credit"
                 ng:model-options="{updateOn: 'blur'}"
             ></ui-datalist>
