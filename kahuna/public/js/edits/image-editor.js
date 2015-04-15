@@ -2,10 +2,8 @@ import angular from 'angular';
 import template from './image-editor.html!text';
 
 import './service';
-import './rights';
 
 export var imageEditor = angular.module('kahuna.edits.imageEditor', [
-    'kahuna.edits.rights',
     'kahuna.edits.service'
 ]);
 
@@ -20,17 +18,7 @@ imageEditor.controller('ImageEditorCtrl',
     ctrl.saved = false;
     ctrl.error = false;
 
-    const rights = ctrl.image.data.userMetadata.data.rights;
     const metadata = ctrl.image.data.userMetadata.data.metadata;
-
-    const offRightsUpdateStart =
-        editsService.on(rights, 'update-start', () => ctrl.saving = true);
-
-    const offRightsUpdateEnd =
-        editsService.on(rights, 'update-end', onSave);
-
-    const offRightsUpdateError =
-        editsService.on(rights, 'update-error', onError);
 
     const offMetadataUpdateStart =
         editsService.on(metadata, 'update-start', () => ctrl.saving = true);
@@ -42,10 +30,6 @@ imageEditor.controller('ImageEditorCtrl',
         editsService.on(metadata, 'update-error', onError);
 
     $scope.$on('$destroy', () => {
-        offRightsUpdateStart();
-        offRightsUpdateEnd();
-        offRightsUpdateError();
-
         offMetadataUpdateStart();
         offMetadataUpdateEnd();
         offMetadataUpdateError();
