@@ -6,10 +6,11 @@ import play.api.libs.functional.syntax._
 case class UsageRight(
   cost: Cost,
   // TODO: Not sure if we should have `case object`s representing these as they
-  // might change more that, say, cost
+  // might change more than, say, `Cost`
   category: String,
   description: String,
-  restriction: String
+  restriction: String,
+  prType: Option[String]
 )
 
 object UsageRight {
@@ -21,7 +22,8 @@ object UsageRight {
     (__ \ "cost").write[String].contramap(costToString) ~
     (__ \ "category").write[String] ~
     (__ \ "description").write[String] ~
-    (__ \ "restriction").write[String]
+    (__ \ "restriction").write[String] ~
+    (__ \ "prType").writeNullable[String]
   )(unlift(UsageRight.unapply))
 
   def costToString(c: Cost): String = c.toString
