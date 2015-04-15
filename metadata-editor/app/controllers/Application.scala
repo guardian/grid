@@ -19,10 +19,12 @@ import com.gu.mediaservice.lib.auth.KeyStore
 import com.gu.mediaservice.lib.aws.{NoItemFound, DynamoDB}
 import lib._
 
-import model.Edits
+import _root_.model.{Cost, UsageRights, Edits}
 
 import com.gu.mediaservice.lib.argo._
 import com.gu.mediaservice.lib.argo.model._
+
+import scala.util.{Success, Failure, Try}
 
 
 // FIXME: the argoHelpers are all returning `Ok`s (200)
@@ -183,6 +185,32 @@ object Application extends Controller with ArgoHelpers {
     )
   }
 
+  def getUsageRights(id: String) = Authenticated.async {
+    dynamo.jsonGet(id, "usageRights").map { dynamoEntry =>
+      val usageRights = (dynamoEntry \ "usageRights").as[UsageRights]
+      respond(usageRights)
+    }
+  }
+
+  def setUsageRights(id: String) = Authenticated.async(parse.json) { req =>
+    bindFromRequest[UsageRights](req.body) match {
+      case Success(usageRights) =>
+        dynamo.jsonAdd(id, "usageRights", caseClassToMap(usageRights))
+          .map(publish(id))
+          .map(edits => respond(usageRights))
+
+      case Failure(e) =>
+        Future.successful(respondError(BadRequest, "bad-form-data", "Invalid form data"))
+    }
+  }
+
+  def bindFromRequest[T](json: JsValue)(implicit fjs: Reads[T]): Try[T] =
+    Try((json \ "data").as[T])
+
+  // TODO: Move this to the dynamo lib
+  def caseClassToMap[T](caseClass: T)(implicit tjs: Writes[T]): Map[String, String] =
+    Json.toJson[T](caseClass).as[JsObject].as[Map[String, String]]
+
   def rightsCollection(id: String, rights: Set[String]): Seq[EmbeddedEntity[String]] =
     rights.map(Edits.setUnitEntity(id, "rights", _)).toSeq
 
@@ -219,6 +247,8 @@ object Application extends Controller with ArgoHelpers {
     (Json.toJson(metadata).as[JsObject]-"keywords").as[Map[String, String]]
 
   // FIXME: Find a way to not have to write all this junk
+  // We can use the new bindFromRequest as we've done most the grunt work in the
+  // JSON combinators
   val metadataForm: Form[ImageMetadata] = Form(
     single("data" -> mapping(
       "dateTaken" -> optional(jodaDate),
@@ -239,6 +269,14 @@ object Application extends Controller with ArgoHelpers {
       "country" -> optional(text)
     )(ImageMetadata.apply)(ImageMetadata.unapply))
   )
+
+//  val usageRightsForm: Form[UsageRights] = Form(single("data" -> mapping(
+//    "cost" -> text,
+//    "type" -> text,
+//    "category" -> text,
+//    "description" -> text,
+//    "prType" -> optional(text)
+//  )(UsageRights.apply)(UsageRights.unapply)))
 
   val booleanForm: Form[Boolean] = Form(
      single("data" -> boolean)
