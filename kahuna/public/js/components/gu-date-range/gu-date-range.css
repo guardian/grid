@@ -1,0 +1,46 @@
+.filter__box {
+    font-size: 14px;
+    width: 248px;
+    height: 14px;
+    line-height: 14px;
+    padding: 5px;
+    border: 1px solid #999;
+    cursor: pointer;
+}
+
+.filter__box--value {
+    display: inline-block;
+}
+
+.filter__box--icon {
+    float: right;
+    width: 20px;
+    text-align: center;
+}
+
+.filer__modal {
+    position: absolute;
+    background-color: #444;
+    display: inline-block;
+    padding: 10px;
+}
+
+.filter__modal__pikaday {
+    padding-bottom: 5px;
+}
+
+.filter__modal__pikaday__container {
+    width: 258px;
+    height: 228px;
+    display: inline-block;
+}
+
+.filter__modal__buttons {
+    float: right;
+}
+
+.filter__modal__button__cancel,
+.filter__modal__button__ok {
+    /* !important to override .button and .button-shy */
+    display: inline-block !important;
+}

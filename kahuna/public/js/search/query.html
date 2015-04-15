@@ -50,10 +50,10 @@
             archived
         </label>
 
-        <select class="search__filter"
-                ng:model="searchQuery.since"
-                ng:options="opt.value as opt.label for opt in searchQuery.sinceOptions">
-        </select>
+        <gu-date-range class="search__filter search__date"
+               gu:start-date="searchQuery.since"
+               gu:end-date="searchQuery.until">
+        </gu-date-range>
     </div>
 </form>
 

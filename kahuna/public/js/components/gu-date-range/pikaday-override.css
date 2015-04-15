@@ -1,0 +1,11 @@
+.pika-single {
+    /*
+    HACK When February has 28 days the height of the pikaday element shrinks, creating a jumpy UI.
+    Forcing it to 100% fixes this, however it means its parent needs to have a fixed height of 228px.
+    */
+    height: 100%;
+}
+
+.pika-button:hover {
+    background-color: #444 !important;
+}
