@@ -2,6 +2,7 @@ package lib.elasticsearch
 
 import java.util.regex.Pattern
 
+import com.gu.mediaservice.model.{Free, Conditional}
 import org.elasticsearch.index.query.MultiMatchQueryBuilder
 import org.elasticsearch.search.aggregations.bucket.terms.StringTerms
 
@@ -95,7 +96,7 @@ object ElasticSearch extends ElasticSearchClient {
     val idsFilter        = params.ids.map(filters.ids)
     val labelFilter      = params.labels.toNel.map(filters.terms("labels", _))
     val metadataFilter   = params.hasMetadata.map(metadataField).toNel.map(filters.exists)
-    val archivedFilter   = params.archived.map(filters.existsOrMissing("userMetadata.archived", _))
+    val archivedFilter   = params.archived.map(filters.existsOrMissing(editsField("archived"), _))
     val hasExports       = params.hasExports.map(filters.existsOrMissing("exports", _))
     val hasIdentifier    = params.hasIdentifier.map(idName => filters.exists(NonEmptyList(s"identifiers.$idName")))
     val missingIdentifier= params.missingIdentifier.map(idName => filters.missing(NonEmptyList(s"identifiers.$idName")))
@@ -118,7 +119,11 @@ object ElasticSearch extends ElasticSearchClient {
       case (Some(whitelist), Some(sourceExcl)) => Some(filters.and(whitelist, sourceExcl))
       case (whitelistOpt,    sourceExclOpt)    => whitelistOpt orElse sourceExclOpt
     }
-    val freeRightsFilter   = Config.freeRights.toNel.map(r => filters.terms("rights", r))
+
+    // We're showing `Conditional` here too as we're considering them potetially
+    // free. We could look into sending over the search query as a cost filter
+    // that could take a comma seperated list e.g. `cost=free,conditional`.
+    val freeRightsFilter   = List(Free, Conditional).map(_.toString).toNel.map(filters.terms(editsField("usageRights.cost"), _))
     val freeFilter = (freeCopyrightFilter, freeRightsFilter) match {
       case (Some(freeCopyright), Some(freeRights)) => Some(filters.or(freeCopyright, freeRights))
       case (freeCopyrightOpt,    freeRightsOpt)    => freeCopyrightOpt orElse freeRightsOpt
