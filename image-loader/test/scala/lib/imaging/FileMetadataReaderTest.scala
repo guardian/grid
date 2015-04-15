@@ -187,6 +187,13 @@ class FileMetadataReaderTest extends FunSpec with Matchers with ScalaFutures {
     }
   }
 
+  it("should read the correct metadata for Guardian photographer JPG images") {
+    val image = fileAt("guardian-turner.jpg")
+    val metadataFuture = FileMetadataReader.fromIPTCHeaders(image)
+    whenReady(metadataFuture) { metadata =>
+      sameMaps(metadata.xmp, Map())
+    }
+  }
 
   def sameMaps(actual: Map[String, String], expected: Map[String, String]) = {
     // Detect mismatching keys
