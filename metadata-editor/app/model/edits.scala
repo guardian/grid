@@ -4,7 +4,7 @@ import java.net.{URLEncoder, URI}
 import lib.Config
 import Config.rootUri
 import com.gu.mediaservice.lib.argo.model.EmbeddedEntity
-import com.gu.mediaservice.model.ImageMetadata
+import com.gu.mediaservice.model.{UsageRights, ImageMetadata}
 import play.api.libs.json._
 import play.api.libs.functional.syntax._
 
