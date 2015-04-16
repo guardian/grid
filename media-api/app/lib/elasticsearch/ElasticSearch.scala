@@ -134,8 +134,7 @@ object ElasticSearch extends ElasticSearchClient {
       List(Pay)
         .map(_.toString).toNel
         .map(filters.terms(editsField("usageRights.cost"), _))
-        .map (filters.not)
-
+        .map(filters.not)
 
     val freeFilterWithOverride = (freeFilter, freeOverrideFilter) match {
       case (Some(free), Some(freeOverride)) => Some(filters.and(free, freeOverride))
