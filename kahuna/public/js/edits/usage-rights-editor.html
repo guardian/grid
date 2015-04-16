@@ -12,7 +12,7 @@
             ng:model="ctrl.usageRights.cost">
             <option value="free">free</option>
             <option value="conditional" selected="selected">restricted</option>
-            <option value="pay">Pay</option>
+            <option value="pay">pay</option>
         </select>
     </label>
 
@@ -36,6 +36,8 @@
             </button>
         </div>
 
-        <button class="ure__delete" ng:click="ctrl.delete()">remove</button>
+        <button class="ure__delete"
+            ng:if="ctrl.isNotEmpty()"
+            ng:click="ctrl.delete()">remove</button>
     </div>
 </div>
