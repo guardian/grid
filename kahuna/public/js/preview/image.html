@@ -55,7 +55,10 @@
                 </div>
 
                 <div ng:switch-when="conditional"
-                     class="cost cost--conditional">
+                     class="cost cost--conditional"
+                     title="{{image.data.userMetadata.data.usageRights.data.restrictions}}">
+                     <!-- As `conditional` can only be set with usageRights, let's
+                     just assume it's here. We might need to revisit this. -->
                     restricted
                 </div>
             </div>
