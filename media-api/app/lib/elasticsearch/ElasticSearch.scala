@@ -130,15 +130,15 @@ object ElasticSearch extends ElasticSearchClient {
     }
 
     // lastly we make sure there isn't an override on the cost
-    val freeOverrideFilter  =
+    val notPayUsageRightsFilter  =
       List(Pay)
         .map(_.toString).toNel
         .map(filters.terms(editsField("usageRights.cost"), _))
         .map(filters.not)
 
-    val freeFilterWithOverride = (freeFilter, freeOverrideFilter) match {
-      case (Some(free), Some(freeOverride)) => Some(filters.and(free, freeOverride))
-      case (freeOpt,    freeOverrideOpt)    => freeOpt orElse freeOverrideOpt
+    val freeFilterWithOverride = (freeFilter, notPayUsageRightsFilter) match {
+      case (Some(free), Some(notPayUsageRights)) => Some(filters.and(free, notPayUsageRights))
+      case (freeOpt,    notPayUsageRightsOpt)    => freeOpt orElse notPayUsageRightsOpt
     }
 
     val nonFreeFilter       = freeFilterWithOverride.map(filters.not)
