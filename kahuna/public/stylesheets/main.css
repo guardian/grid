@@ -150,6 +150,10 @@ a:focus {
     box-shadow: 0 2px #666;
     color: #ccc;
 }
+.button--green {
+    background: forestgreen;
+    box-shadow: 0 2px darkgreen;
+}
 
 .button-shy {
     padding: 2px 5px;
