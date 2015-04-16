@@ -1,20 +1,35 @@
 <div class="usage-rights-editor ure">
     <label class="ure__category">
-        <input type="checkbox" />PR Image
+        <input type="checkbox"
+            ng:model="ctrl.usageRights.category"
+            ng:true-value="'PR Image'" />
+            PR Image
     </label>
 
     <label class="ure__cost">
-        <select>
-            <option>Free</option>
-            <option selected="selected">Restricted</option>
-            <option>Pay</option>
+        <select
+            ng:disabled="ctrl.isDisabled()"
+            ng:model="ctrl.usageRights.cost">
+            <option value="free">free</option>
+            <option value="conditional" selected="selected">restricted</option>
+            <option value="pay">Pay</option>
         </select>
     </label>
 
     <label class="ure__restrictions">
         Restrictions
-        <textarea class="ure__restrictions-text"></textarea>
+        <textarea class="ure__restrictions-text"
+            ng:model="ctrl.usageRights.restrictions"
+            ng:disabled="ctrl.isDisabled()"></textarea>
     </label>
 
-    <button class="button" class="ure__submit">Save</button>
+
+    <button class="button"
+        ng:class="{ 'button--green': ctrl.saved }"
+        ng:click="ctrl.save()"
+        ng:disabled="ctrl.isDisabled()">
+            <span ng:if="!(ctrl.saving || ctrl.saved)">Save</span>
+            <span ng:if="ctrl.saving">Saving</span>
+            <span ng:if="ctrl.saved">Saved</span>
+    </button>
 </div>
