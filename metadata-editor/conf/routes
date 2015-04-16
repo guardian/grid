@@ -19,6 +19,7 @@ PUT     /metadata/:id/metadata            controllers.Application.setMetadata(id
 
 GET     /metadata/:id/usage-rights        controllers.Application.getUsageRights(id: String)
 PUT     /metadata/:id/usage-rights        controllers.Application.setUsageRights(id: String)
+DELETE  /metadata/:id/usage-rights        controllers.Application.deleteUsageRights(id: String)
 
 # Management
 GET     /management/healthcheck           com.gu.mediaservice.lib.management.Management.healthCheck
