@@ -1,7 +1,7 @@
 <div ng:init="showModal = false">
     <div class="filter__box" ng:click="showModal = !showModal">
         <div class="filter__box--value">
-            {{displayValue}}
+            from {{startValue}} to {{endValue}}
         </div>
 
         <div class="filter__box--icon">
@@ -11,6 +11,12 @@
     </div>
 
     <div class="filer__modal" ng:show="showModal">
+        <div class="filer__modal__presets">
+            <button class="filer__modal__preset__button button" ng:repeat="presetDate in guPresetDates" ng:click="setPresetDate(presetDate.value)">
+                {{presetDate.label}}
+            </button>
+        </div>
+
         <div class="filter__modal__pikaday">
             <div class="filter__modal__pikaday__container" id="filter__modal__pikaday--start"/>
             <div class="filter__modal__pikaday__container" id="filter__modal__pikaday--end"/>

@@ -16,7 +16,8 @@ guDateRange.directive('guDateRange', [function () {
         replace: true,
         scope: {
             guStartDate: '=guStartDate',
-            guEndDate: '=guEndDate'
+            guEndDate: '=guEndDate',
+            guPresetDates: '=guPresetDates'
         },
         link: function ($scope, el) {
             var startInput = el.find('#filter__input__start--hidden')[0];
@@ -55,46 +56,78 @@ guDateRange.directive('guDateRange', [function () {
                 }
             });
 
-            function init () {
-                if ($scope.guStartDate !== undefined && $scope.guEndDate !== undefined) {
-                    var startDate = moment($scope.guStartDate).toDate();
-                    pikaStart.setDate(startDate);
+            function setDisplayValue (start, end) {
+                if (start !== undefined) {
+                    $scope.startValue = moment(start).format('DD-MMM-YYYY');
+                    pikaStart.setDate(start);
+                } else {
+                    $scope.startValue = 'anytime';
+                    pikaStart.setDate(start, true);
+                    pikaEnd.setMinDate();
+                    pikaEnd.setMaxDate(new Date());
+                    pikaEnd.hide();
+                    pikaEnd.show();
+                }
 
-                    var endDate = moment($scope.guEndDate).toDate();
-                    pikaEnd.setDate(endDate);
-
-                    setDisplayValue();
+                if (end !== undefined) {
+                    $scope.endValue = moment(end).format('DD-MMM-YYYY');
+                    pikaEnd.setDate(end);
+                } else {
+                    $scope.endValue = 'now';
+                    pikaEnd.setDate(end, true);
+                    pikaStart.setMinDate();
+                    pikaStart.setMaxDate(new Date());
+                    pikaStart.hide();
+                    pikaStart.show();
                 }
             };
 
-            init();
+            function setDateRange (start, end) {
+                $scope.guStartDate = start !== undefined
+                    ? moment(start).toISOString()
+                    : undefined;
 
-            function getStartDate () {
-                return moment(pikaStart.getDate()).startOf('day');
-            }
+                $scope.guEndDate = end !== undefined
+                    ? moment(end).toISOString()
+                    : undefined;
 
-            function getEndDate () {
-                return moment(pikaEnd.getDate()).endOf('day');
-            }
-
-            function setDisplayValue () {
-                var startDate = getStartDate().format('DD-MMM-YYYY');
-                var endDate = getEndDate().format('DD-MMM-YYYY');
-
-                $scope.displayValue = [startDate, endDate].join(' to ');
+                setDisplayValue(start, end);
             };
 
-            $scope.cancel = function () {
-                init();
+            function closeModal () {
                 $scope.showModal = false;
             };
 
-            $scope.save = function () {
-                $scope.guStartDate = getStartDate().toISOString();
-                $scope.guEndDate = getEndDate().toISOString();
-                setDisplayValue();
-                $scope.showModal = false;
+            function reset() {
+                setDateRange($scope.guStartDate, $scope.guEndDate);
             };
+
+            function cancel () {
+                reset();
+                closeModal();
+            };
+
+            function save () {
+                var start = pikaStart.getDate();
+                start = start ? moment(start).startOf('day').toDate() : undefined;
+
+                var end = pikaEnd.getDate();
+                end = end ? moment(end).endOf('day').toDate() : undefined;
+
+                setDateRange(start, end);
+                closeModal();
+            };
+
+            function setPresetDate (preset) {
+                setDateRange(preset, undefined);
+                closeModal();
+            };
+
+            $scope.cancel = cancel;
+            $scope.save = save;
+            $scope.setPresetDate = setPresetDate;
+
+            reset();
         }
     };
 }]);
