@@ -25,11 +25,14 @@ query.controller('SearchQueryCtrl',
     // midnight for the local user
     var lastMidnight = moment().startOf('day').toISOString();
 
+    var past24Hours = moment().subtract(24, 'hours').toISOString();
+    var pastWeek = moment().subtract(7, 'days').toISOString();
+
     ctrl.sinceOptions = [
         {label: 'anytime'},   // value: undefined
         {label: 'today',         value: lastMidnight},
-        {label: 'past 24 hours', value: '24.hour'},
-        {label: 'past week',     value: '7.days'}
+        {label: 'past 24 hours', value: past24Hours},
+        {label: 'past week',     value: pastWeek}
     ];
 
     Object.keys($stateParams)
