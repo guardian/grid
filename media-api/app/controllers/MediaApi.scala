@@ -358,10 +358,9 @@ object ImageExtras {
     val freeSource      = source.exists(isFreeSource)
     val payingSource    = source.exists(isPaySource)
 
-    if ((freeCredit || freeSource) && ! payingSource) Free
-    else usageRights match {
-      case Some(u) => u.cost
-      case None => Pay
+    usageRights.map(_.cost).getOrElse {
+      if ((freeCredit || freeSource) && ! payingSource) Free
+      else Pay
     }
   }
 

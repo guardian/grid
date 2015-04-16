@@ -2,7 +2,7 @@ package lib.elasticsearch
 
 import java.util.regex.Pattern
 
-import com.gu.mediaservice.model.{Free, Conditional}
+import com.gu.mediaservice.model.{Pay, Free, Conditional}
 import org.elasticsearch.index.query.MultiMatchQueryBuilder
 import org.elasticsearch.search.aggregations.bucket.terms.StringTerms
 
@@ -120,16 +120,30 @@ object ElasticSearch extends ElasticSearchClient {
       case (whitelistOpt,    sourceExclOpt)    => whitelistOpt orElse sourceExclOpt
     }
 
-    // We're showing `Conditional` here too as we're considering them potetially
+    // We're showing `Conditional` here too as we're considering them potentially
     // free. We could look into sending over the search query as a cost filter
     // that could take a comma seperated list e.g. `cost=free,conditional`.
-    val freeRightsFilter   = List(Free, Conditional).map(_.toString).toNel.map(filters.terms(editsField("usageRights.cost"), _))
-    val freeFilter = (freeCopyrightFilter, freeRightsFilter) match {
-      case (Some(freeCopyright), Some(freeRights)) => Some(filters.or(freeCopyright, freeRights))
-      case (freeCopyrightOpt,    freeRightsOpt)    => freeCopyrightOpt orElse freeRightsOpt
+    val freeUsageRightsFilter = List(Free, Conditional).map(_.toString).toNel.map(filters.terms(editsField("usageRights.cost"), _))
+    val freeFilter = (freeCopyrightFilter, freeUsageRightsFilter) match {
+      case (Some(freeCopyright), Some(freeUsageRights)) => Some(filters.or(freeCopyright, freeUsageRights))
+      case (freeCopyrightOpt,    freeUsageRightsOpt)    => freeCopyrightOpt orElse freeUsageRightsOpt
     }
-    val nonFreeFilter       = freeFilter.map(filters.not)
-    val costFilter          = params.free.flatMap(free => if (free) freeFilter else nonFreeFilter)
+
+    // lastly we make sure there isn't an override on the cost
+    val freeOverrideFilter  =
+      List(Pay)
+        .map(_.toString).toNel
+        .map(filters.terms(editsField("usageRights.cost"), _))
+        .map (filters.not)
+
+
+    val freeFilterWithOverride = (freeFilter, freeOverrideFilter) match {
+      case (Some(free), Some(freeOverride)) => Some(filters.and(free, freeOverride))
+      case (freeOpt,    freeOverrideOpt)    => freeOpt orElse freeOverrideOpt
+    }
+
+    val nonFreeFilter       = freeFilterWithOverride.map(filters.not)
+    val costFilter          = params.free.flatMap(free => if (free) freeFilterWithOverride else nonFreeFilter)
 
     val filter = (metadataFilter.toList ++ labelFilter ++ archivedFilter ++
                   uploadedByFilter ++ idsFilter ++ validityFilter ++ costFilter ++
