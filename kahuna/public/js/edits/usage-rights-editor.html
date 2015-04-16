@@ -1,13 +1,14 @@
-<div class="usage-rights-editor ure">
+<form class="usage-rights-editor ure" ng:submit="ctrl.save()">
     <label class="ure__category">
-        <input type="checkbox"
+        <input type="checkbox" required
             ng:model="ctrl.usageRights.category"
-            ng:true-value="'PR Image'" />
+            ng:true-value="'PR Image'"
+            ng:disabled="ctrl.saving" />
             PR Image
     </label>
 
     <label class="ure__cost">
-        <select
+        <select required
             ng:disabled="ctrl.isDisabled()"
             ng:model="ctrl.usageRights.cost">
             <option value="free">free</option>
@@ -18,7 +19,7 @@
 
     <label class="ure__restrictions">
         Restrictions
-        <textarea class="ure__restrictions-text"
+        <textarea class="ure__restrictions-text" required
             ng:model="ctrl.usageRights.restrictions"
             ng:disabled="ctrl.isDisabled()"></textarea>
     </label>
@@ -26,9 +27,8 @@
 
     <div class="ure__actions">
         <div class="ure__submit">
-            <button class="button"
+            <button class="button" type="submit"
                 ng:class="{ 'button--green': ctrl.saved }"
-                ng:click="ctrl.save()"
                 ng:disabled="ctrl.isDisabled()">
                     <span ng:if="!(ctrl.saving || ctrl.saved)">Save</span>
                     <span ng:if="ctrl.saving">Saving</span>
@@ -40,4 +40,4 @@
             ng:if="ctrl.isNotEmpty()"
             ng:click="ctrl.delete()">remove</button>
     </div>
-</div>
+</form>
