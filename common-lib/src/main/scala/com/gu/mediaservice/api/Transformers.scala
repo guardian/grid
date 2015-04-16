@@ -29,7 +29,8 @@ class Transformers(services: Services) {
             "archived" -> boolOrFalse(data \ "archived").transform(wrapArchived(id)).get,
             "labels" -> arrayOrEmpty(data \ "labels").transform(wrapLabels(id)).get,
             "rights" -> arrayOrEmpty(data \ "rights").transform(wrapRights(id)).get,
-            "metadata" -> objectOrEmpty(data \ "metadata").transform(wrapMetadata(id)).get
+            "metadata" -> objectOrEmpty(data \ "metadata").transform(wrapMetadata(id)).get,
+            "usageRights" -> objectOrEmpty(data \ "usageRights").transform(wrapUsageRights(id)).get
           )
         )
       )
@@ -53,6 +54,14 @@ class Transformers(services: Services) {
         // so we can do equalities to see if the services are synced. This will
         // be rectified when we use Argo here.
         "data" -> (metadata ++ Json.obj("keywords" -> Json.arr()))
+      )
+    }
+
+  def wrapUsageRights(id: String): Reads[JsObject] =
+    __.read[JsObject].map { usageRights =>
+      Json.obj(
+        "uri" -> s"$metadataBaseUri/metadata/$id/usage-rights",
+        "data" -> usageRights
       )
     }
 
