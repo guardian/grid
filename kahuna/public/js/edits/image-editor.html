@@ -82,7 +82,9 @@
 
             <gr:usage-rights-editor
                 class="drop-menu__items drop-menu__items--right"
-                ng:show="showUsageRights">
+                ng:show="showUsageRights"
+                gr:image="ctrl.image"
+                gr:usage-rights="ctrl.image.data.userMetadata.data.usageRights">
             </gr:usage-rights-editor>
         </div>
 
