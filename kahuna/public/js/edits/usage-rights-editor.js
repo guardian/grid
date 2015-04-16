@@ -4,8 +4,8 @@ import template from './usage-rights-editor.html!text';
 export var usageRightsEditor = angular.module('kahuna.edits.usageRightsEditor', []);
 
 usageRightsEditor.controller('UsageRightsEditorCtrl',
-                             ['$timeout', 'editsService',
-                              function($timeout, editsService) {
+                             ['$window', '$timeout', 'editsService',
+                              function($window, $timeout, editsService) {
 
     var ctrl = this;
     ctrl.saving = false;
@@ -13,11 +13,17 @@ usageRightsEditor.controller('UsageRightsEditorCtrl',
 
     setModelFromResource(ctrl.resource);
 
-    ctrl.save = () => {
+    ctrl.save = () => save(ctrl.usageRights);
+
+    ctrl.delete = () => save({});
+
+    ctrl.isDisabled = () => !Boolean(ctrl.usageRights.category) || this.saving;
+
+    function save(data) {
         ctrl.saving = true;
 
-        editsService.
-            update(ctrl.resource, ctrl.usageRights, ctrl.image).
+        return editsService.
+            update(ctrl.resource, data, ctrl.image).
             then(resource => {
                 ctrl.resource = resource;
                 setModelFromResource(resource);
@@ -29,14 +35,7 @@ usageRightsEditor.controller('UsageRightsEditorCtrl',
             finally(() => {
                 ctrl.saving = false;
             });
-
-        ctrl.resource.put({data: ctrl.usageRights}).then(newResource => {
-            ctrl.resource = newResource;
-            setModelFromResource(newResource);
-        });
-    };
-
-    ctrl.isDisabled = () => !Boolean(ctrl.usageRights.category) || this.saving;
+    }
 
     function setModelFromResource(resource) {
         ctrl.usageRights = angular.extend({}, resource.data);
