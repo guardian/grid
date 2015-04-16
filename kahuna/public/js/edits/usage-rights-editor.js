@@ -31,16 +31,13 @@ usageRightsEditor.controller('UsageRightsEditorCtrl',
         ctrl.saving = true;
 
         editsService.remove(ctrl.resource, ctrl.image).
-            then(resource => {
-                updateResourceAndModel(resource);
-                uiSaved();
-            }).
+            then(updateResourceAndModel).
             catch(uiError).
-            finally(() => ctrl.saving = false);
+            finally(() => ctrl.saving = false   );
     };
 
-    ctrl.isDisabled = () => !Boolean(ctrl.usageRights.category) || this.saving;
-    ctrl.isNotEmpty = () => !angular.equals(ctrl.usageRights, {});
+    ctrl.isDisabled = () => !Boolean(ctrl.usageRights.category) || ctrl.saving;
+    ctrl.isNotEmpty = () => !angular.equals(ctrl.resource.data, {});
 
     function updateResourceAndModel(resource) {
         ctrl.resource = resource;
