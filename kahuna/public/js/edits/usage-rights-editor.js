@@ -10,6 +10,7 @@ usageRightsEditor.controller('UsageRightsEditorCtrl',
     var ctrl = this;
     ctrl.saving = false;
     ctrl.saved = false;
+    ctrl.usageRights = {}; // this is the model used in the view
 
     updateResourceAndModel(ctrl.resource);
 
@@ -44,6 +45,12 @@ usageRightsEditor.controller('UsageRightsEditorCtrl',
     function updateResourceAndModel(resource) {
         ctrl.resource = resource;
         ctrl.usageRights = angular.extend({}, resource.data);
+
+        // set the default state of cost, otherwise the view creates a blank option
+        // in the select, thanks Angular.
+        if (!ctrl.usageRights.cost) {
+            ctrl.usageRights.cost = 'conditional';
+        }
     }
 
     function uiSaved() {
