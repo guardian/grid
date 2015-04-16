@@ -22,6 +22,7 @@ imageEditor.controller('ImageEditorCtrl',
     ctrl.error = false;
 
     const metadata = ctrl.image.data.userMetadata.data.metadata;
+    const usageRights =  ctrl.image.data.userMetadata.data.usageRights;
 
     const offMetadataUpdateStart =
         editsService.on(metadata, 'update-start', () => ctrl.saving = true);
@@ -32,10 +33,22 @@ imageEditor.controller('ImageEditorCtrl',
     const offMetadataUpdateError =
         editsService.on(metadata, 'update-error', onError);
 
+    const offUsageRightsUpdateStart =
+        editsService.on(usageRights, 'update-start', () => ctrl.saving = true);
+
+    const offUsageRightsUpdateEnd =
+        editsService.on(usageRights, 'update-end', onSave);
+
+    const offUsageRightsUpdateError =
+        editsService.on(usageRights, 'update-error', onError);
+
     $scope.$on('$destroy', () => {
         offMetadataUpdateStart();
         offMetadataUpdateEnd();
         offMetadataUpdateError();
+        offUsageRightsUpdateStart();
+        offUsageRightsUpdateEnd();
+        offUsageRightsUpdateError();
     });
 
     function onSave() {

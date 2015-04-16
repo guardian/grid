@@ -110,15 +110,15 @@ service.factory('editsService',
     }
 
     function remove(resource, originalImage) {
-        runWatcher(resource, 'delete-start');
+        runWatcher(resource, 'update-start');
 
         return resource.delete().then(() =>
             getSynced(originalImage, newImage => isEmpty(resource, newImage)).
             then(emptyEdit => {
-                runWatcher(resource, 'delete-end');
+                runWatcher(resource, 'update-end');
                 return emptyEdit;
             }).
-            catch(() => runWatcher(resource, 'delete-error')));
+            catch(() => runWatcher(resource, 'update-error')));
     }
 
 
@@ -135,10 +135,7 @@ service.factory('editsService',
      * @returns {Map.<String => Set>} a map of `key = event` and a Set of
      * callback functions to rn on that event.
      */
-    const publicWatcherEvents = [
-        'update-start', 'update-end', 'update-error',
-        'delete-start', 'delete-end', 'delete-error'
-    ];
+    const publicWatcherEvents = ['update-start', 'update-end', 'update-error'];
     function createWatcher() {
         return new Map(
             publicWatcherEvents.map(event => [event, new Set()])
