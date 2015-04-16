@@ -18,10 +18,6 @@
         <li>
             <ng:transclude></ng:transclude>
         </li>
-        <li>
-            <ui-archiver class="preview__control"
-                         archived="image.data.userMetadata.data.archived"></ui-archiver>
-        </li>
     </ul>
 
     <a class="preview__link"
@@ -48,6 +44,8 @@
                   ng:if="image | hasExportsOfType:'crop'"><img class="ico" ng:src="{{'images/ico/crop.svg'| assetLocation}}" /></span>
         </div>
         <div class="bottom-bar__actions">
+            <ui-archiver class="bottom-bar__action"
+                         archived="image.data.userMetadata.data.archived"></ui-archiver>
             <div class="bottom-bar__action" ng:switch="image.data.cost">
                 <div ng:switch-when="pay"
                      class="cost cost--pay">
