@@ -123,9 +123,29 @@ guDateRange.directive('guDateRange', [function () {
                 closeModal();
             };
 
+            function clearStart () {
+                pikaStart.setDate();
+                pikaEnd.setMinDate();
+                pikaEnd.setMaxDate(new Date());
+                pikaEnd.hide();
+                pikaEnd.show();
+                pikaStart.gotoToday();
+            };
+
+            function clearEnd () {
+                pikaEnd.setDate();
+                pikaStart.setMinDate();
+                pikaStart.setMaxDate(new Date());
+                pikaStart.hide();
+                pikaStart.show();
+                pikaEnd.gotoToday();
+            };
+
             $scope.cancel = cancel;
             $scope.save = save;
             $scope.setPresetDate = setPresetDate;
+            $scope.clearStart = clearStart;
+            $scope.clearEnd = clearEnd;
 
             reset();
         }
