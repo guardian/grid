@@ -33,7 +33,7 @@
                  ng:switch="ctrl.status">
                 <a class="result-editor__status status status--valid"
                    ng:switch-when="ready"
-                   ui:sref="image({imageId: image.data.id})">View image ▸</a>
+                   ui:sref="image({imageId: ctrl.image.data.id})">View image ▸</a>
 
                 <span class="result-editor__status status status--invalid"
                       ng:switch-when="invalid">
