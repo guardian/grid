@@ -24,12 +24,18 @@
     </label>
 
 
-    <button class="button"
-        ng:class="{ 'button--green': ctrl.saved }"
-        ng:click="ctrl.save()"
-        ng:disabled="ctrl.isDisabled()">
-            <span ng:if="!(ctrl.saving || ctrl.saved)">Save</span>
-            <span ng:if="ctrl.saving">Saving</span>
-            <span ng:if="ctrl.saved">Saved</span>
-    </button>
+    <div class="ure__actions">
+        <div class="ure__submit">
+            <button class="button"
+                ng:class="{ 'button--green': ctrl.saved }"
+                ng:click="ctrl.save()"
+                ng:disabled="ctrl.isDisabled()">
+                    <span ng:if="!(ctrl.saving || ctrl.saved)">Save</span>
+                    <span ng:if="ctrl.saving">Saving</span>
+                    <span ng:if="ctrl.saved">Saved</span>
+            </button>
+        </div>
+
+        <button class="ure__delete" ng:click="ctrl.delete()">remove</button>
+    </div>
 </div>
