@@ -647,6 +647,10 @@ FIXME: what to do with touch devices
     cursor: help;
 }
 
+.preview__cost {
+    margin-left: 5px;
+}
+
 .preview__bottom-bar {
     font-size: 1.4rem;
     margin-top: 10px;
