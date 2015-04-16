@@ -29,10 +29,14 @@
     padding: 5px 0px;
 }
 
-.filter__modal__pikaday__container {
+.filter__modal__pikaday__wrapper {
     width: 258px;
-    height: 228px;
     display: inline-block;
+}
+
+.filter__modal__pikaday__container {
+    width: 100%;
+    height: 228px;
 }
 
 .filter__modal__buttons {

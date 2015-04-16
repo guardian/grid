@@ -18,8 +18,15 @@
         </div>
 
         <div class="filter__modal__pikaday">
-            <div class="filter__modal__pikaday__container" id="filter__modal__pikaday--start"/>
-            <div class="filter__modal__pikaday__container" id="filter__modal__pikaday--end"/>
+            <span class="filter__modal__pikaday__wrapper">
+                <div class="filter__modal__pikaday__container" id="filter__modal__pikaday--start"/>
+                <button class="filter__modal__pikaday__clear button-shy" ng:click="clearStart()">clear</button>
+            </span>
+
+            <span class="filter__modal__pikaday__wrapper">
+                <div class="filter__modal__pikaday__container" id="filter__modal__pikaday--end"/>
+                <button class="filter__modal__pikaday__clear button-shy" ng:click="clearEnd()">clear</button>
+            </span>
         </div>
 
         <div class="filter__modal__buttons">
