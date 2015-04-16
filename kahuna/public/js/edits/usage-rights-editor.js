@@ -11,34 +11,48 @@ usageRightsEditor.controller('UsageRightsEditorCtrl',
     ctrl.saving = false;
     ctrl.saved = false;
 
-    setModelFromResource(ctrl.resource);
+    updateResourceAndModel(ctrl.resource);
 
-    ctrl.save = () => save(ctrl.usageRights);
-
-    ctrl.delete = () => save({});
-
-    ctrl.isDisabled = () => !Boolean(ctrl.usageRights.category) || this.saving;
-
-    function save(data) {
+    ctrl.save = () => {
         ctrl.saving = true;
 
-        return editsService.
-            update(ctrl.resource, data, ctrl.image).
+        editsService.
+            update(ctrl.resource, ctrl.usageRights, ctrl.image).
             then(resource => {
-                ctrl.resource = resource;
-                setModelFromResource(resource);
-
-                ctrl.saved = true;
-                $timeout(() => ctrl.saved = false, 1500);
+                updateResourceAndModel(resource);
+                uiSaved();
             }).
-            catch(() => $window.alert('Failed to save the changes, please try again.')).
-            finally(() => {
-                ctrl.saving = false;
-            });
+            catch(uiError).
+            finally(() => ctrl.saving = false);
+    };
+
+    ctrl.delete = () => {
+        ctrl.saving = true;
+
+        editsService.remove(ctrl.resource, ctrl.image).
+            then(resource => {
+                updateResourceAndModel(resource);
+                uiSaved();
+            }).
+            catch(uiError).
+            finally(() => ctrl.saving = false);
+    };
+
+    ctrl.isDisabled = () => !Boolean(ctrl.usageRights.category) || this.saving;
+    ctrl.isNotEmpty = () => !angular.equals(ctrl.usageRights, {});
+
+    function updateResourceAndModel(resource) {
+        ctrl.resource = resource;
+        ctrl.usageRights = angular.extend({}, resource.data);
     }
 
-    function setModelFromResource(resource) {
-        ctrl.usageRights = angular.extend({}, resource.data);
+    function uiSaved() {
+        ctrl.saved = true;
+        $timeout(() => ctrl.saved = false, 1500);
+    }
+
+    function uiError() {
+        $window.alert('Failed to save the changes, please try again.');
     }
 
 }]);
