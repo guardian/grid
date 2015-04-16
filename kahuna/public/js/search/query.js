@@ -15,7 +15,9 @@ query.controller('SearchQueryCtrl',
                  function($scope, $state, $stateParams, onValChange , mediaApi) {
 
     var ctrl = this;
-    ctrl.uploadedByMe = false;
+    ctrl.filter = {
+        uploadedByMe: false
+    };
 
     ctrl.resetQueryAndFocus = resetQueryAndFocus;
 
@@ -37,36 +39,27 @@ query.controller('SearchQueryCtrl',
     function valOrUndefined(str) { return str || undefined; }
 
     function setAndWatchParam(key) {
-        ctrl[key] = $stateParams[key];
-
-        // watch ctrl and stateParams for changes and apply them accordingly
-        $scope.$watch(() => ctrl[key], onValChange(newVal => {
-            $state.go('search.results', { [key]: valOrUndefined(newVal) });
-        }));
+        ctrl.filter[key] = $stateParams[key];
 
         $scope.$watch(() => $stateParams[key], onValChange(newVal => {
             ctrl[key] = valOrUndefined(newVal);
         }));
     }
 
+    $scope.$watchCollection(() => ctrl.filter, onValChange(x => {
+        x.uploadedBy = x.uploadedByMe ? ctrl.user.email : undefined;
+        $state.go('search.results', x);
+    }));
+
     // we can't user dynamic values in the ng:true-value see:
     // https://docs.angularjs.org/error/ngModel/constexpr
     mediaApi.getSession().then(session => {
         ctrl.user = session.user;
-        ctrl.uploadedByMe = ctrl.uploadedBy === ctrl.user.email;
+        ctrl.filter.uploadedByMe = ctrl.uploadedBy === ctrl.user.email;
     });
 
-    $scope.$watch(() => ctrl.uploadedByMe, onValChange(uploadedByMe => {
-        // uploadedByMe typeof boolean
-        if (uploadedByMe) {
-            ctrl.uploadedBy = ctrl.user.email;
-        } else {
-            delete ctrl.uploadedBy;
-        }
-    }));
-
     function resetQueryAndFocus() {
-        ctrl.query = '';
+        ctrl.filter.query = '';
         $scope.$broadcast('search:focus-query');
     }
 }]);
