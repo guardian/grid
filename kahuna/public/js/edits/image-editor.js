@@ -2,9 +2,12 @@ import angular from 'angular';
 import template from './image-editor.html!text';
 
 import './service';
+import './usage-rights-editor';
+
 
 export var imageEditor = angular.module('kahuna.edits.imageEditor', [
-    'kahuna.edits.service'
+    'kahuna.edits.service',
+    'kahuna.edits.usageRightsEditor'
 ]);
 
 imageEditor.controller('ImageEditorCtrl',
@@ -34,7 +37,6 @@ imageEditor.controller('ImageEditorCtrl',
         offMetadataUpdateEnd();
         offMetadataUpdateError();
     });
-
 
     function onSave() {
         return ctrl.image.get().then(newImage => {
