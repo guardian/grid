@@ -65,6 +65,12 @@ object Mappings {
     )
   )
 
+  val usageRightsMapping = nonDynamicObj(
+    "cost" -> nonAnalyzedString,
+    "category" -> nonAnalyzedString,
+    "restrictions" -> standardAnalysedString
+  )
+
   val exportsMapping =
     nonDynamicObj(
       "id" -> nonAnalyzedString,
@@ -78,10 +84,11 @@ object Mappings {
 
   val userMetadataMapping =
     nonDynamicObj(
-      "metadata" -> metadataMapping,
-      "labels"   -> nonAnalysedList("label"),
-      "rights"   -> nonAnalysedList("right"),
-      "archived" -> boolean
+      "archived"    -> boolean,
+      "labels"      -> nonAnalysedList("label"),
+      "rights"      -> nonAnalysedList("right"),
+      "metadata"    -> metadataMapping,
+      "usageRights" -> usageRightsMapping
     )
 
   val imageMapping: String =

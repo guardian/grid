@@ -19,10 +19,12 @@ import com.gu.mediaservice.lib.auth.KeyStore
 import com.gu.mediaservice.lib.aws.{NoItemFound, DynamoDB}
 import lib._
 
-import model.Edits
+import model.{UsageRights, Edits}
 
 import com.gu.mediaservice.lib.argo._
 import com.gu.mediaservice.lib.argo.model._
+
+import scala.util.{Success, Failure, Try}
 
 
 // FIXME: the argoHelpers are all returning `Ok`s (200)
@@ -55,11 +57,12 @@ object Application extends Controller with ArgoHelpers {
   val indexResponse = {
     val indexData = Map("description" -> "This is the Metadata Editor Service")
     val indexLinks = List(
-      Link("edits",    s"$rootUri/metadata/{id}"),
-      Link("archived", s"$rootUri/metadata/{id}/archived"),
-      Link("labels",   s"$rootUri/metadata/{id}/labels"),
-      Link("rights",   s"$rootUri/metadata/{id}/rights"),
-      Link("metadata", s"$rootUri/metadata/{id}/metdata")
+      Link("edits",       s"$rootUri/metadata/{id}"),
+      Link("archived",    s"$rootUri/metadata/{id}/archived"),
+      Link("labels",      s"$rootUri/metadata/{id}/labels"),
+      Link("rights",      s"$rootUri/metadata/{id}/rights"),
+      Link("usageRights", s"$rootUri/metadata/{id}/usage-rights"),
+      Link("metadata",    s"$rootUri/metadata/{id}/metadata")
     )
     respond(indexData, indexLinks)
   }
@@ -183,6 +186,32 @@ object Application extends Controller with ArgoHelpers {
     )
   }
 
+  def getUsageRights(id: String) = Authenticated.async {
+    dynamo.jsonGet(id, "usageRights").map { dynamoEntry =>
+      val usageRights = (dynamoEntry \ "usageRights").as[UsageRights]
+      respond(usageRights)
+    }
+  }
+
+  def setUsageRights(id: String) = Authenticated.async(parse.json) { req =>
+    bindFromRequest[UsageRights](req.body) match {
+      case Success(usageRights) =>
+        dynamo.jsonAdd(id, "usageRights", caseClassToMap(usageRights))
+          .map(publish(id))
+          .map(edits => respond(usageRights))
+
+      case Failure(e) =>
+        Future.successful(respondError(BadRequest, "bad-form-data", "Invalid form data"))
+    }
+  }
+
+  def bindFromRequest[T](json: JsValue)(implicit fjs: Reads[T]): Try[T] =
+    Try((json \ "data").as[T])
+
+  // TODO: Move this to the dynamo lib
+  def caseClassToMap[T](caseClass: T)(implicit tjs: Writes[T]): Map[String, String] =
+    Json.toJson[T](caseClass).as[JsObject].as[Map[String, String]]
+
   def rightsCollection(id: String, rights: Set[String]): Seq[EmbeddedEntity[String]] =
     rights.map(Edits.setUnitEntity(id, "rights", _)).toSeq
 
@@ -219,6 +248,8 @@ object Application extends Controller with ArgoHelpers {
     (Json.toJson(metadata).as[JsObject]-"keywords").as[Map[String, String]]
 
   // FIXME: Find a way to not have to write all this junk
+  // We can use the new bindFromRequest as we've done most the grunt work in the
+  // JSON combinators
   val metadataForm: Form[ImageMetadata] = Form(
     single("data" -> mapping(
       "dateTaken" -> optional(jodaDate),

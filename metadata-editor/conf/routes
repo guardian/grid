@@ -17,6 +17,9 @@ DELETE  /metadata/:id/rights/*right       controllers.Application.removeRight(id
 GET     /metadata/:id/metadata            controllers.Application.getMetadata(id: String)
 PUT     /metadata/:id/metadata            controllers.Application.setMetadata(id: String)
 
+GET     /metadata/:id/usage-rights        controllers.Application.getUsageRights(id: String)
+PUT     /metadata/:id/usage-rights        controllers.Application.setUsageRights(id: String)
+
 # Management
 GET     /management/healthcheck           com.gu.mediaservice.lib.management.Management.healthCheck
 GET     /management/manifest              com.gu.mediaservice.lib.management.Management.manifest
