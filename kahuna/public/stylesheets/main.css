@@ -150,6 +150,10 @@ a:focus {
     box-shadow: 0 2px #666;
     color: #ccc;
 }
+.button--green {
+    background: forestgreen;
+    box-shadow: 0 2px darkgreen;
+}
 
 .button-shy {
     padding: 2px 5px;
@@ -214,6 +218,9 @@ a:focus {
 
 .ico--help {
     cursor: help;
+    text-align: center;
+    padding-left: 1px;
+    margin-left: 2px;
 }
 
 .saving {
@@ -755,19 +762,39 @@ FIXME: what to do with touch devices
     width: 100px;
 }
 
-.result-editor__rights-editor {
-    float: right;
-    display: none;
+.result-editor__usage-rights-container {
+    margin-bottom: 10px;
+    margin-left: 50%;
+    text-align: right;
+    width: 50%;
+    font-size: 1.4rem;
+}
+.result-editor__usage-rights {
+    width: 100%;
+    text-align: left;
 }
 
 
 /* ==========================================================================
-   Rights editor
+   Usage Rights editor (URE)
    ========================================================================== */
-.rights-editor {
-    font-size: 1.4rem;
+.ure {
+    line-height: 26px;
+    width: 100%;
+    box-sizing: border-box;
 }
 
+.ure__cost {
+    margin-left: 20px;
+}
+
+.ure__restrictions {
+    display: block;
+}
+
+.ure__restrictions-text {
+    width: 100%;
+}
 
 /* ==========================================================================
    Full Image / crop
@@ -1226,12 +1253,20 @@ FIXME: what to do with touch devices
     padding: 0;
 }
 
+.drop-menu__close {
+    position: absolute;
+    top: 5px;
+    right: 5px;
+    padding: 2px;
+}
+
 .drop-menu__items {
     background-color: #333;
     position: absolute;
     padding: 10px;
     box-shadow: 0 1px 5px rgba(0, 0, 0, 0.5);
     top: calc(100% + 12px);
+    z-index: 1;
 }
 .drop-menu__items--right {
     right: 0;
