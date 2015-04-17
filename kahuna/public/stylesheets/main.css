@@ -218,6 +218,9 @@ a:focus {
 
 .ico--help {
     cursor: help;
+    text-align: center;
+    padding-left: 1px;
+    margin-left: 2px;
 }
 
 .saving {

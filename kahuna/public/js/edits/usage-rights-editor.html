@@ -5,16 +5,20 @@
             ng:true-value="'PR Image'"
             ng:disabled="ctrl.saving"
             ng:change="ctrl.checkCategorySetOrDelete()" />
-            PR Image
+            <abbr title="Press Release">PR</abbr> Image
+            <span class="ico ico--circled ico--help"
+                  title="A press or publicity image that we have been given to use for free or promotional purposes">
+                  ?
+            </span>
     </label>
 
     <label class="ure__cost">
         <select required
             ng:disabled="ctrl.isDisabled()"
             ng:model="ctrl.usageRights.cost">
-            <option value="free">free</option>
+            <option value="free">free to use</option>
             <option value="conditional">restricted</option>
-            <option value="pay">pay</option>
+            <option value="pay">pay to use</option>
         </select>
     </label>
 
