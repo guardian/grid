@@ -428,9 +428,7 @@ input.search-query__input {
     font-weight: bold;
 }
 
-
 .advanced-search-help {
-    position: relative;
     background-color: #333;
     position: absolute;
     top: 49px;
@@ -518,15 +516,6 @@ input.search-query__input {
     opacity: .5;
 }
 
-.preview .mark-as-seen {
-    color: #aaa;
-    font-size: 1.6rem;
-    display: none;
-}
-.preview:hover .mark-as-seen {
-    display: inline;
-}
-
 .cost {
     color: white;
     font-size: 1.4rem;
@@ -536,6 +525,9 @@ input.search-query__input {
 }
 .cost--pay {
     background-color: red;
+}
+.cost--conditional {
+    background-color: orange;
 }
 
 .image-results-count {
@@ -573,20 +565,28 @@ input.search-query__input {
     position: relative;
 }
 
-.preview__popout {
+.preview__controls {
     position: absolute;
     top: 0;
     right: 0;
-    background: rgba(0, 0, 0, .5);
-    color: white;
+    background: rgba(0, 0, 0, .75);
     display: none;
-    line-height: 18px;
-    width: 18px;
     text-align: center;
     font-size: 1.2rem;
 }
 
-.preview:hover .preview__popout {
+.preview__control {
+    line-height: 24px;
+    width: 24px;
+    color: white;
+    display: block;
+    border-top: 1px dashed rgba(255, 255, 255, .5);
+}
+.preview__control--first {
+    border-top: 0;
+}
+
+.preview:hover .preview__controls {
     display: block;
 }
 
@@ -645,6 +645,10 @@ FIXME: what to do with touch devices
 
 .preview__has-crops {
     cursor: help;
+}
+
+.preview__cost {
+    margin-left: 5px;
 }
 
 .preview__bottom-bar {
