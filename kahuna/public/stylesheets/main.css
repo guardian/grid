@@ -760,10 +760,10 @@ FIXME: what to do with touch devices
     margin-left: 50%;
     text-align: right;
     width: 50%;
+    font-size: 1.4rem;
 }
 .result-editor__usage-rights {
     width: 100%;
-    font-size: 1.4rem;
     text-align: left;
 }
 
@@ -1243,6 +1243,13 @@ FIXME: what to do with touch devices
 }
 .drop-menu__button--nopad {
     padding: 0;
+}
+
+.drop-menu__close {
+    position: absolute;
+    top: 5px;
+    right: 5px;
+    padding: 2px;
 }
 
 .drop-menu__items {
