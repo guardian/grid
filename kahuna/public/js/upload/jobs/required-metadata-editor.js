@@ -47,8 +47,10 @@ jobs.controller('RequiredMetadataEditorCtrl',
     };
 
     ctrl.setCredit = credit => {
-        ctrl.metadata.credit = credit;
-        ctrl.save();
+        if (ctrl.metadata.credit !== credit) {
+            ctrl.metadata.credit = credit;
+            ctrl.save();
+        }
     };
 
     // TODO: Find a way to broadcast more selectively

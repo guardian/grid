@@ -44,15 +44,15 @@
         </label>
         <label class="job-info--editor__field">
             <div class="job-info--editor__label">Credit</div>
+
             <ui-datalist
                 class="job-info--editor__input"
                 name="credit"
                 placeholder="e.g. Getty Images…"
                 request="ctrl.metadataSearch('credit', q)"
                 on-value-select="ctrl.setCredit(value)"
-                ng:change="ctrl.save()"
-                ng:model="ctrl.metadata.credit"
-                ng:model-options="{updateOn: 'blur'}"
+                on-deactivate="ctrl.setCredit(value)"
+                initial-value="{{ctrl.metadata.credit}}"
             ></ui-datalist>
 
             <button
