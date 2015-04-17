@@ -73,7 +73,7 @@
             with-batch="ctrl.withBatch"
         ></ui-required-metadata-editor>
 
-        <div class="result-editor__usage-rights drop-menu">
+        <div class="result-editor__usage-rights-container drop-menu">
             <button ng:click="showUsageRights = !showUsageRights">
                 <span ng:hide="showUsageRights">▸</span>
                 <span ng:show="showUsageRights">▾</span>
@@ -81,7 +81,7 @@
             </button>
 
             <gr:usage-rights-editor
-                class="drop-menu__items drop-menu__items--right"
+                class="result-editor__usage-rights drop-menu__items drop-menu__items--right"
                 ng:show="showUsageRights"
                 gr:image="ctrl.image"
                 gr:usage-rights="ctrl.image.data.userMetadata.data.usageRights">
