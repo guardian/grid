@@ -16,6 +16,7 @@
             <button
                 class="job-editor__apply-to-all"
                 title="Apply this description to all"
+                type="button"
                 ng:if="ctrl.withBatch"
                 ng:click="ctrl.batchApplyMetadata('description')"
             >⇔</button>
@@ -37,6 +38,7 @@
             <button
                 class="job-editor__apply-to-all"
                 title="Apply this byline to all"
+                type="button"
                 ng:if="ctrl.withBatch"
                 ng:click="ctrl.batchApplyMetadata('byline')"
             >⇔</button>
@@ -44,23 +46,27 @@
         </label>
         <label class="job-info--editor__field">
             <div class="job-info--editor__label">Credit</div>
+
             <ui-datalist
                 class="job-info--editor__input"
                 name="credit"
                 placeholder="e.g. Getty Images…"
                 request="ctrl.metadataSearch('credit', q)"
                 on-value-select="ctrl.setCredit(value)"
-                ng:change="ctrl.save()"
-                ng:model="ctrl.metadata.credit"
-                ng:model-options="{updateOn: 'blur'}"
+                on-deactivate="ctrl.setCredit(value)"
+                initial-value="{{ctrl.metadata.credit}}"
             ></ui-datalist>
 
             <button
                 class="job-editor__apply-to-all"
                 title="Apply this credit to all"
+                type="button"
                 ng:if="ctrl.withBatch"
                 ng:click="ctrl.batchApplyMetadata('credit')"
             >⇔</button>
         </label>
     </div>
+    <!-- Angular doesn't submit a form without a submit element, bonza!
+    see: https://docs.angularjs.org/api/ng/directive/form#submitting-a-form-and-preventing-the-default-action -->
+    <input type="submit" class="ng-hide" />
 </form>
