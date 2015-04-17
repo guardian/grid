@@ -755,13 +755,16 @@ FIXME: what to do with touch devices
     width: 100px;
 }
 
-.result-editor__usage-rights {
-    font-size: 1.4rem;
+.result-editor__usage-rights-container {
     margin-bottom: 10px;
-    max-width: 50%;
     margin-left: 50%;
     text-align: right;
+    width: 50%;
+}
+.result-editor__usage-rights {
     width: 100%;
+    font-size: 1.4rem;
+    text-align: left;
 }
 
 
@@ -770,8 +773,6 @@ FIXME: what to do with touch devices
    ========================================================================== */
 .ure {
     line-height: 26px;
-    /* This is crap as I am reseting the alignment on `.result-editor__usage-rights` */
-    text-align: left;
     width: 100%;
     box-sizing: border-box;
 }
