@@ -47,22 +47,26 @@ service.factory('editsService',
     }
 
     /**
-     * Searches for the `edit` in `image` and compares the two
-     * @param edit {Resource} edit to search for
-     * @param collection {Resource} collection to search from
-     * @param image {Resource} image to tell when the re-index has happened
-     * @returns {Promise.<Resource>|reject} return the `collection.get` `Promise`
+     * Makes sure the image's edit is empty ({} || [])
+     * @param edit {Resource}
+     * @param image {Resource}
+     * @returns {Promise.<Resource>|reject} return the now empty edit
      */
-    function missing(edit, collection, image) {
-        return findMatchingEditInImage(collection, image).then(matchingEdit => {
-            const stillPresent = matchingEdit &&
-                                 matchingEdit.data.find(r => r.uri === edit.uri);
-
-            return stillPresent ?
-                $q.reject('data not matching') : collection.get();
-        });
+    function isEmpty(edit, image) {
+        // find that matching resource
+        return findMatchingEditInImage(edit, image).then(matchingEdit =>
+            angular.equals(matchingEdit.data, {}) || angular.equals(matchingEdit.data, []) ?
+                matchingEdit : $q.reject('data not matching')
+        );
     }
 
+    /**
+     *
+     * @param image {Resource} image to observe for synchronisation
+     * @param check {Function} a function that takes the new image as an argument
+     * to compare against
+     * @returns {Promise}
+     */
     function getSynced(image, check) {
         const checkSynced = () => image.get().then(check);
         return poll(checkSynced, pollFrequency, pollTimeout);
@@ -105,28 +109,19 @@ service.factory('editsService',
 
     }
 
-    //
-    /**
-     * This is a bit of a hack function as we don't have a way of deleting from
-     * a collection on the API, only per label / right. We should probably
-     * choose between working with the collection e.g. labels, or working with
-     * each collection item directly, whereas now, for adding, we use the
-     * collection, and for deleting we use the collection item
-     * @param resource {Resource} resource to remove
-     * @param collection {Resource} the collection you want to remove a `Resource` from
-     * @param originalImage {Resource} the image used to check if we've re-indexed yet
-     * @returns {Promise.<Resource>} completed when information is synced
-     */
-    function removeFromCollection(resource, collection, originalImage) {
-        runWatcher(collection, 'update-start');
+    function remove(resource, originalImage) {
+        runWatcher(resource, 'update-start');
 
-        return resource.delete().then(edit =>
-            getSynced(originalImage, newImage => missing(edit, collection, newImage))).
-            then(collection => {
-                runWatcher(collection, 'update-end');
-                return collection;
-            });
+        return resource.delete().then(() =>
+            getSynced(originalImage, newImage => isEmpty(resource, newImage)).
+            then(emptyEdit => {
+                runWatcher(resource, 'update-end');
+                return emptyEdit;
+            }).
+            catch(() => runWatcher(resource, 'update-error')));
     }
+
+
 
     // Event handling
     // TODO: Use proper names from http://en.wikipedia.org/wiki/Watcher_%28comics%29
@@ -185,6 +180,6 @@ service.factory('editsService',
         });
     }
 
-    return { update, add, removeFromCollection, on };
+    return { update, add, on, remove };
 
 }]);

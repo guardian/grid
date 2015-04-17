@@ -1,0 +1,45 @@
+<form class="usage-rights-editor ure" ng:submit="ctrl.save()">
+    <label class="ure__category">
+        <input type="checkbox" required
+            ng:model="ctrl.usageRights.category"
+            ng:true-value="'PR Image'"
+            ng:disabled="ctrl.saving"
+            ng:change="ctrl.checkCategorySetOrDelete()" />
+            <abbr title="Press Release">PR</abbr> Image
+            <span class="ico ico--circled ico--help"
+                  title="A press or publicity image that we have been given to use for free or promotional purposes">
+                  ?
+            </span>
+    </label>
+
+    <label class="ure__cost">
+        <select required
+            ng:disabled="ctrl.isDisabled()"
+            ng:model="ctrl.usageRights.cost">
+            <option value="free">free to use</option>
+            <option value="conditional">restricted</option>
+            <option value="pay">pay to use</option>
+        </select>
+    </label>
+
+    <label class="ure__restrictions">
+        <span ng:switch="ctrl.usageRights.cost">
+            <span ng:switch-when="conditional">Restrictions</span>
+            <span ng:switch-default>Reason</span>
+        </span>
+        <textarea class="ure__restrictions-text" required
+            ng:model="ctrl.usageRights.restrictions"
+            ng:disabled="ctrl.isDisabled()"></textarea>
+    </label>
+
+    <div class="ure__submit">
+        <button class="button" type="submit"
+            ng:class="{ 'button--green': ctrl.saved }"
+            ng:disabled="ctrl.isDisabled()">
+                <span ng:if="!(ctrl.saving || ctrl.saved)">Save</span>
+                <span ng:if="ctrl.saving">Saving</span>
+                <span ng:if="ctrl.saved">Saved</span>
+        </button>
+    </div>
+
+</form>

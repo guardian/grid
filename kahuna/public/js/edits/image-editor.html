@@ -27,6 +27,9 @@
 
                 <span class="result-editor__status status status--valid"
                       ng:switch-when="free">Free to use</span>
+
+                <span class="result-editor__status status"
+                      ng:switch-when="conditional">Restricted use</span>
             </div>
 
             <div class="result-editor__info-item"
@@ -57,7 +60,7 @@
                   ng:show="ctrl.saved">Saved</span>
 
             <span class="result-editor__save-status result-editor__save-status--error"
-                  ng:show="ctrl.error">Something went wrong... try again?</span>
+                  ng:show="ctrl.error">Something went wrong… try again?</span>
         </span>
     </div>
 
@@ -70,7 +73,28 @@
             with-batch="ctrl.withBatch"
         ></ui-required-metadata-editor>
 
-        <ng:transclude></ng:transclude>
+        <div class="result-editor__usage-rights-container drop-menu">
+            <button ng:click="showUsageRights = !showUsageRights">
+                <span ng:hide="showUsageRights">▸</span>
+                <span ng:show="showUsageRights">▾</span>
+                Usage rights
+            </button>
+
+            <div class="result-editor__usage-rights drop-menu__items drop-menu__items--right"
+                 ng:show="showUsageRights">
+
+                <button type="button" class="drop-menu__close"
+                        ng:click="showUsageRights = !showUsageRights">
+                        x
+                </button>
+
+                <gr:usage-rights-editor
+                    gr:image="ctrl.image"
+                    gr:usage-rights="ctrl.image.data.userMetadata.data.usageRights">
+                </gr:usage-rights-editor>
+
+            </div>
+        </div>
 
         <div class="result-editor__labeller-container">
             <span class="result-editor__label">Labels</span>
