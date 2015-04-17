@@ -851,7 +851,6 @@ FIXME: what to do with touch devices
 
 .image-info__group {
     margin-bottom: 5px;
-    padding: 10px;
 }
 
 .image-info__title {
@@ -878,6 +877,10 @@ FIXME: what to do with touch devices
 
 .image-info__keyword a {
     color: inherit;
+}
+
+.image-notice {
+    padding: 10px;
 }
 
 .metadata-line {
