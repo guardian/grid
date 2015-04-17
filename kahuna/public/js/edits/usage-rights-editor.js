@@ -44,7 +44,7 @@ usageRightsEditor.controller('UsageRightsEditorCtrl',
             finally(() => ctrl.saving = false);
     };
 
-    ctrl.isDisabled = () => !Boolean(ctrl.usageRights.category) || ctrl.saving;
+    ctrl.isDisabled = () => angular.isUndefined(ctrl.usageRights.category) || ctrl.saving;
     ctrl.isNotEmpty = () => !angular.equals(ctrl.resource.data, {});
 
     function updateResourceAndModel(resource) {
