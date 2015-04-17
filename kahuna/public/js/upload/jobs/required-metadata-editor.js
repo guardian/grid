@@ -26,7 +26,7 @@ jobs.controller('RequiredMetadataEditorCtrl',
         // If there has been a change in the metadata, save it as an override
         var cleanMetadata = {};
         Object.keys(ctrl.metadata).forEach(key => {
-            if (ctrl.metadata[key] !== ctrl.originalMetadata[key]) {
+            if (ctrl.metadata[key] !== ctrl.saveWhenChangedFrom[key]) {
                 cleanMetadata[key] = ctrl.metadata[key];
             }
         });
@@ -83,6 +83,7 @@ jobs.directive('uiRequiredMetadataEditor', [function() {
             resource: '=',
             originalMetadata: '=metadata',
             externallyDisabled: '=?disabled',
+            saveWhenChangedFrom: '=',
             // TODO: remove this once we add links to the resources
             image: '=',
             withBatch: '=?'
