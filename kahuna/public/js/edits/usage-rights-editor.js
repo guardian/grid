@@ -27,13 +27,21 @@ usageRightsEditor.controller('UsageRightsEditorCtrl',
             finally(() => ctrl.saving = false);
     };
 
+    ctrl.checkCategorySetOrDelete = () => {
+        // delete if there is no category from the UI and if there is something
+        // to delete
+        if (!ctrl.usageRights.category && ctrl.isNotEmpty()) {
+            ctrl.delete();
+        }
+    };
+
     ctrl.delete = () => {
         ctrl.saving = true;
 
         editsService.remove(ctrl.resource, ctrl.image).
             then(updateResourceAndModel).
             catch(uiError).
-            finally(() => ctrl.saving = false   );
+            finally(() => ctrl.saving = false);
     };
 
     ctrl.isDisabled = () => !Boolean(ctrl.usageRights.category) || ctrl.saving;
