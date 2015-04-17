@@ -42,12 +42,12 @@
 
             <div ng:if="ctrl.image.data.valid" ng:switch="ctrl.image.data.cost">
                 <div ng:switch-when="pay"
-                     class="image-info__group status cost cost--pay">
+                     class="image-notice image-info__group status cost cost--pay">
                     pay to use
                 </div>
 
                 <div ng:switch-when="conditional"
-                     class="image-info__group cost cost--conditional"
+                     class="image-notice image-info__group cost cost--conditional"
                      title="This image can be used but only within certain restrictions">
                     <b>restricted:</b> {{ctrl.image.data.userMetadata.data.usageRights.data.restrictions}}
                 </div>
