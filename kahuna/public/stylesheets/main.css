@@ -788,18 +788,6 @@ FIXME: what to do with touch devices
     width: 100%;
 }
 
-.ure__actions {
-    display: flex;
-}
-
-.ure__submit {
-    flex-grow: 1;
-}
-
-.ure__delete {
-    font-size: 1.2rem;
-}
-
 /* ==========================================================================
    Full Image / crop
    ========================================================================== */

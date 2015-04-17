@@ -3,7 +3,8 @@
         <input type="checkbox" required
             ng:model="ctrl.usageRights.category"
             ng:true-value="'PR Image'"
-            ng:disabled="ctrl.saving" />
+            ng:disabled="ctrl.saving"
+            ng:change="ctrl.checkCategorySetOrDelete()" />
             PR Image
     </label>
 
@@ -24,21 +25,14 @@
             ng:disabled="ctrl.isDisabled()"></textarea>
     </label>
 
-
-    <div class="ure__actions">
-        <div class="ure__submit">
-            <button class="button" type="submit"
-                ng:class="{ 'button--green': ctrl.saved }"
-                ng:disabled="ctrl.isDisabled()">
-                    <span ng:if="!(ctrl.saving || ctrl.saved)">Save</span>
-                    <span ng:if="ctrl.saving">Saving</span>
-                    <span ng:if="ctrl.saved">Saved</span>
-            </button>
-        </div>
-
-        <button class="ure__delete"
-            type="button"
-            ng:if="ctrl.isNotEmpty()"
-            ng:click="ctrl.delete()">remove</button>
+    <div class="ure__submit">
+        <button class="button" type="submit"
+            ng:class="{ 'button--green': ctrl.saved }"
+            ng:disabled="ctrl.isDisabled()">
+                <span ng:if="!(ctrl.saving || ctrl.saved)">Save</span>
+                <span ng:if="ctrl.saving">Saving</span>
+                <span ng:if="ctrl.saved">Saved</span>
+        </button>
     </div>
+
 </form>
