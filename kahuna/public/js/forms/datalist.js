@@ -5,81 +5,75 @@ import template from './datalist.html!text';
 
 export var datalist = angular.module('kahuna.forms.datalist', []);
 
-datalist.controller('DatalistController', ['$timeout', function($timeout) {
+datalist.controller('DatalistController',
+                    ['$scope', '$timeout',
+                    function($scope, $timeout) {
+
     var keys = { 38: 'up', 40: 'down', 13: 'enter', 27: 'esc', 9: 'tab' };
     var selectedIndex = 0;
 
-    var moveIndex = index => {
-        selectedIndex = (selectedIndex + index + this.data.length) % this.data.length;
-    };
+    var ctrl = this;
+    ctrl.value = ctrl.initialValue;
+    ctrl.active = false;
+    ctrl.data = [];
+
+    var moveIndex = index =>
+        selectedIndex = (selectedIndex + index + ctrl.data.length) % ctrl.data.length;
 
     var keyFuncs = {
-        up: () => moveIndex(-1),
-        down: () => moveIndex(+1),
-        esc: () => this.active = false,
-        enter: () => this.setToCurrentValue()
+        up: ()    => moveIndex(-1),
+        down: ()  => moveIndex(+1),
+        esc: ()   => ctrl.active = false,
+        enter: () => ctrl.setToCurrentValue()
     };
-
-    this.active = false;
-    this.data = [];
 
     // instead of creating an immutable set of data and have to clone it with the
     // correct selected object, we have one mutable index. This is easy to get
     // your head around as much as it is performant.
-    this.setIndex = i => selectedIndex = i;
-    this.isSelected = key => key === selectedIndex;
-    this.setToCurrentValue = () => {
-        // Annoyingly setting the model doesn't seem to bubble up to the parent
-        // model, even though it's bi-directionally bound. So we send a message
-        // saying we've changed it
-        this.ngModel = this.data[selectedIndex];
-
-        if (this.onValueSelect) {
-            this.onValueSelect({ value: this.ngModel });
+    ctrl.setIndex = i => selectedIndex = i;
+    ctrl.isSelected = key => key === selectedIndex;
+    ctrl.setToCurrentValue = () => {
+        ctrl.value = ctrl.data[selectedIndex];
+        if (ctrl.onValueSelect) {
+            ctrl.onValueSelect({ value: ctrl.value });
         }
-        this.active = false;
+        ctrl.active = false;
     };
 
-    this.search = q => {
-        this.request({ q }).then(data => {
-            this.data = data;
+    ctrl.search = q => {
+        ctrl.request({ q }).then(data => {
+            ctrl.data = data;
             selectedIndex = 0;
 
-            var isOnlySuggestion = !(this.data.length === 1 && q === this.data[0]);
-            if (this.data.length !== 0 && isOnlySuggestion) {
-                this.active = true;
+            var isOnlySuggestion = !(ctrl.data.length === 1 && q === ctrl.data[0]);
+            if (ctrl.data.length !== 0 && isOnlySuggestion) {
+                ctrl.active = true;
             } else {
-                this.active = false;
+                ctrl.active = false;
             }
         });
     };
 
     // TODO: should we be doing key / change stuff in the directive link?
-    this.onKeydown = event => {
+    ctrl.onKeydown = event => {
         var func = keyFuncs[keys[event.which]];
 
-        if (this.active && func) {
+        if (ctrl.active && func) {
             event.preventDefault();
             func(event);
-        }
-    };
-
-    // Search on keyup so that we can assign a callback on the model change event
-    // FIXME: a better way of looking for a change?
-    var lastSearchQ = this.ngModel;
-    this.onKeyup = event => {
-        const q = event.target.value;
-
-        if (q !== lastSearchQ) {
-            this.search(q);
-            lastSearchQ  = q;
         }
     };
 
     // this is to allow clicking on options element.
     // it would be nice to have it `onblur` of the actual component, but with
     // angular and HTML in general, it's all a bit hacky, more so that this.
-    this.deactivate = () => $timeout(() => this.active = false, 150);
+    ctrl.deactivate = () => {
+        $timeout(() => ctrl.active = false, 150);
+        if (ctrl.onDeactivate) {
+            ctrl.onDeactivate({value: ctrl.value});
+        }
+    };
+
 }]);
 
 datalist.directive('uiDatalist', ['$window', function() {
@@ -87,14 +81,12 @@ datalist.directive('uiDatalist', ['$window', function() {
         restrict: 'E',
         scope: {
             onValueSelect: '&?',
+            onDeactivate: '&?',
             request: '&',
             name: '@',
             placeholder: '@',
             ngDisabled: '=',
-            // TODO: decouple this from the parent's model
-            ngChange: '&',
-            ngModel: '=',
-            ngModelOptions: '='
+            initialValue: '@'
         },
         controller: 'DatalistController',
         controllerAs: 'ctrl',
