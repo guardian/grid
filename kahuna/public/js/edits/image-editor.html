@@ -80,12 +80,20 @@
                 Usage rights
             </button>
 
-            <gr:usage-rights-editor
-                class="result-editor__usage-rights drop-menu__items drop-menu__items--right"
-                ng:show="showUsageRights"
-                gr:image="ctrl.image"
-                gr:usage-rights="ctrl.image.data.userMetadata.data.usageRights">
-            </gr:usage-rights-editor>
+            <div class="result-editor__usage-rights drop-menu__items drop-menu__items--right"
+                 ng:show="showUsageRights">
+
+                <button type="button" class="drop-menu__close"
+                        ng:click="showUsageRights = !showUsageRights">
+                        x
+                </button>
+
+                <gr:usage-rights-editor
+                    gr:image="ctrl.image"
+                    gr:usage-rights="ctrl.image.data.userMetadata.data.usageRights">
+                </gr:usage-rights-editor>
+
+            </div>
         </div>
 
         <div class="result-editor__labeller-container">
