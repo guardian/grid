@@ -38,15 +38,15 @@ case object ImageUpload {
         metadata      = ImageMetadataConverter.fromFileMetadata(fileMetadata)
         cleanMetadata = metadataCleaners.clean(metadata)
 
-        asset = Asset.fromS3Object(s3Source)
-        thumb = Asset.fromS3Object(s3Thumb)
+        sourceAsset = Asset.fromS3Object(s3Source)
+        thumbAsset  = Asset.fromS3Object(s3Thumb)
       }
       yield ImageUpload(
         uploadRequest,
         Image.fromUploadRequest(
           uploadRequest,
-          asset,
-          thumb,
+          sourceAsset,
+          thumbAsset,
           fileMetadata,
           cleanMetadata
         )
