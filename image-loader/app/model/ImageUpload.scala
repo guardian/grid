@@ -35,12 +35,7 @@ case object ImageUpload {
 
       for {
         s3Source     <- sourceStoreFuture
-        s3Thumb      <-
-          storage.storeThumbnail(
-            uploadRequest.id,
-            thumb,
-            uploadRequest.mimeType
-          )
+        s3Thumb      <- storeThumbnail(uploadRequest, thumb, storage)
         fileMetadata <- fileMetadataFuture
 
         metadata      = ImageMetadataConverter.fromFileMetadata(fileMetadata)
@@ -67,6 +62,11 @@ case object ImageUpload {
     uploadRequest.tempFile,
     uploadRequest.mimeType,
     Map("uploaded_by" -> uploadRequest.uploadedBy) ++ uploadRequest.identifiersMeta
+  )
+  def storeThumbnail(uploadRequest: UploadRequest, thumbFile: File, storage: ImageStorage) = storage.storeThumbnail(
+    uploadRequest.id,
+    thumbFile,
+    uploadRequest.mimeType
   )
   def dimensionsFuture(f: File)  = FileMetadataReader.dimensions(f)
 }
