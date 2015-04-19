@@ -27,22 +27,28 @@ case object ImageUpload {
     val uploadedFile = uploadRequest.tempFile
 
     // These futures are started outside the for-comprehension, otherwise they will not run in parallel
-    val sourceStoreFuture  = storeSource(uploadRequest, storage)
-    val thumbFuture        = Thumbnailer.createThumbnail(Config.thumbWidth, uploadedFile.toString)
-    val fileMetadataFuture = FileMetadataReader.fromIPTCHeaders(uploadedFile)
+    val sourceStoreFuture      = storeSource(uploadRequest, storage)
+    val thumbFuture            = Thumbnailer.createThumbnail(Config.thumbWidth, uploadedFile.toString)
+    val sourceDimensionsFuture = FileMetadataReader.dimensions(uploadedFile)
+    val fileMetadataFuture     = FileMetadataReader.fromIPTCHeaders(uploadedFile)
 
     bracket(thumbFuture)(_.delete) { thumb =>
+      // Run the operations in parallel
+      val thumbStoreFuture      = storeThumbnail(uploadRequest, thumb, storage)
+      val thumbDimensionsFuture = FileMetadataReader.dimensions(thumb)
 
       for {
-        s3Source     <- sourceStoreFuture
-        s3Thumb      <- storeThumbnail(uploadRequest, thumb, storage)
-        fileMetadata <- fileMetadataFuture
+        s3Source         <- sourceStoreFuture
+        s3Thumb          <- thumbStoreFuture
+        sourceDimensions <- sourceDimensionsFuture
+        thumbDimensions  <- thumbDimensionsFuture
+        fileMetadata     <- fileMetadataFuture
 
         metadata      = ImageMetadataConverter.fromFileMetadata(fileMetadata)
         cleanMetadata = metadataCleaners.clean(metadata)
 
-        sourceAsset = Asset.fromS3Object(s3Source)
-        thumbAsset  = Asset.fromS3Object(s3Thumb)
+        sourceAsset = Asset.fromS3Object(s3Source, sourceDimensions)
+        thumbAsset  = Asset.fromS3Object(s3Thumb,  thumbDimensions)
       }
       yield ImageUpload(
         uploadRequest,
@@ -68,5 +74,4 @@ case object ImageUpload {
     thumbFile,
     uploadRequest.mimeType
   )
-  def dimensionsFuture(f: File)  = FileMetadataReader.dimensions(f)
 }
