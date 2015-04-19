@@ -8,7 +8,7 @@ import org.joda.time.DateTime
 import com.gu.mediaservice.model.FileMetadata
 import com.gu.mediaservice.lib.formatting._
 import com.gu.mediaservice.model.ImageMetadata
-
+import com.gu.mediaservice.model.Asset
 
 case class Image(id: String,
                  uploadTime: DateTime,
@@ -28,17 +28,26 @@ case class Image(id: String,
 }
 
 object Image {
-
-  def upload(id: String,
-             uploadTime: DateTime,
-             uploadedBy: String,
-             identifiers: Map[String, String],
-             source: Asset,
-             thumbnail: Asset,
-             fileMetadata: FileMetadata,
-             metadata: ImageMetadata): Image =
-    Image(id, uploadTime, uploadedBy, Some(uploadTime), identifiers, source, Some(thumbnail),
-      fileMetadata, metadata, metadata)
+  def fromUploadRequest(
+    uploadRequest: UploadRequest,
+    source: Asset,
+    thumbnail: Asset,
+    fileMetadata: FileMetadata,
+    metadata: ImageMetadata
+  ): Image = {
+    Image(
+      uploadRequest.id,
+      uploadRequest.uploadTime,
+      uploadRequest.uploadedBy,
+      Some(uploadRequest.uploadTime),
+      uploadRequest.identifiers,
+      source,
+      Some(thumbnail),
+      fileMetadata,
+      metadata,
+      metadata
+    )
+  }
 
   implicit val FileMetadataWrites: Writes[FileMetadata] = Json.writes[FileMetadata]
 
@@ -57,29 +66,3 @@ object Image {
 
 }
 
-case class Dimensions(
-  width: Int,
-  height: Int
-)
-
-object Dimensions {
-  implicit val DimensionsWrites: Writes[Dimensions] =
-    ((__ \ "width").write[Int] ~ (__ \ "height").write[Int])(unlift(Dimensions.unapply))
-}
-
-case class Asset(file: URI,
-                 size: Long,
-                 mimeType: Option[String],
-                 dimensions: Option[Dimensions]
-)
-
-object Asset {
-
-  implicit val AssetWrites: Writes[Asset] =
-    ((__ \ "file").write[String].contramap((_: URI).toString) ~
-      (__ \ "size").write[Long] ~
-      (__ \ "mimeType").writeNullable[String] ~
-      (__ \ "dimensions").writeNullable[Dimensions]
-      )(unlift(Asset.unapply))
-
-}

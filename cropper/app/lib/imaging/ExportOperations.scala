@@ -2,14 +2,12 @@ package lib.imaging
 
 import java.io._
 import scala.concurrent.Future
-
-import _root_.play.api.libs.concurrent.Execution.Implicits._
+import play.api.libs.concurrent.Execution.Implicits._
 import lib.Files._
-import model.{Bounds, Dimensions, CropSource, CropSizing}
+import model.{Bounds, CropSource}
+import com.gu.mediaservice.model.{Dimensions, ImageMetadata, Asset}
 
-import com.gu.mediaservice.model.ImageMetadata
-
-case class ExportResult(id: String, masterCrop: CropSizing, othersizings: List[CropSizing])
+case class ExportResult(id: String, masterCrop: Asset, othersizings: List[Asset])
 
 object ExportOperations {
   import lib.imaging.im4jwrapper.Convert._
