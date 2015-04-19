@@ -2,12 +2,15 @@ package lib
 
 import scala.concurrent.Future
 import lib.imaging.{ExportOperations, ExportResult}
-import model.{Crop, SourceImage, Bounds, Dimensions, CropSizing}
+import com.gu.mediaservice.model.{Asset, Dimensions, SourceImage}
+import model.{Crop, Bounds}
 import java.net.{URI, URL}
 import java.io.File
 
 case object InvalidImage extends Exception("Invalid image cannot be cropped")
-case class MasterCrop(sizing: Future[CropSizing], file: File, dimensions: Dimensions, aspectRatio: Float)
+case object MissingSecureSourceUrl extends Exception("Missing secureUrl from source API")
+
+case class MasterCrop(sizing: Future[Asset], file: File, dimensions: Dimensions, aspectRatio: Float)
 
 object Crops {
   import scala.concurrent.ExecutionContext.Implicits.global
@@ -33,8 +36,8 @@ object Crops {
     yield MasterCrop(sizing, file, dimensions, aspect)
   }
 
-  def createCrops(sourceFile: File, dimensionList: List[Dimensions], apiImage: SourceImage, crop: Crop, mediaType: String): Future[List[CropSizing]] = {
-    Future.sequence[CropSizing, List](dimensionList.map { dimensions =>
+  def createCrops(sourceFile: File, dimensionList: List[Dimensions], apiImage: SourceImage, crop: Crop, mediaType: String): Future[List[Asset]] = {
+    Future.sequence[Asset, List](dimensionList.map { dimensions =>
       val filename = outputFilename(apiImage, crop.specification.bounds, dimensions.width)
       for {
         file    <- ExportOperations.resizeImage(sourceFile, dimensions, 75d)
@@ -53,10 +56,11 @@ object Crops {
   def export(apiImage: SourceImage, crop: Crop): Future[ExportResult] = {
     val source    = crop.specification
     val mediaType = "image/jpeg"
+    val secureUrl = apiImage.source.secureUrl.getOrElse(throw MissingSecureSourceUrl)
 
     for {
-      sourceFile <- tempFileFromURL(new URL(apiImage.source.secureUrl), "cropSource", "")
-      masterCrop <- createMasterCrop(apiImage,sourceFile, crop, mediaType)
+      sourceFile <- tempFileFromURL(secureUrl, "cropSource", "")
+      masterCrop <- createMasterCrop(apiImage, sourceFile, crop, mediaType)
 
       outputDims = dimensionsFromConfig(source.bounds, masterCrop.aspectRatio) :+ masterCrop.dimensions
 

@@ -12,9 +12,9 @@ import scala.concurrent.Future
 
 import lib.{Config, Notifications}
 import lib.storage.S3ImageStorage
-import lib.imaging.{FileMetadataReader, MimeTypeDetection, Thumbnailer}
+import lib.imaging.MimeTypeDetection
 
-import model.{Asset, Image}
+import model.{Image, UploadRequest, ImageUpload}
 
 import com.gu.mediaservice.lib.play.BodyParsers.digestedFile
 import com.gu.mediaservice.lib.play.DigestedFile
@@ -23,9 +23,6 @@ import com.gu.mediaservice.lib.resource.FutureResources._
 import com.gu.mediaservice.lib.auth.{AuthenticatedService, PandaUser, KeyStore}
 import com.gu.mediaservice.lib.argo.ArgoHelpers
 import com.gu.mediaservice.lib.argo.model.Link
-import com.gu.mediaservice.lib.cleanup.MetadataCleaners
-import com.gu.mediaservice.lib.config.MetadataConfig
-import com.gu.mediaservice.lib.metadata.ImageMetadataConverter
 
 
 object Application extends ImageLoader(S3ImageStorage)
@@ -40,7 +37,6 @@ class ImageLoader(storage: ImageStorage) extends Controller with ArgoHelpers {
   val Authenticated = auth.Authenticated(keyStore, loginUri, rootUri)
   val AuthenticatedUpload = auth.AuthenticatedUpload(keyStore, loginUri, rootUri)
 
-  val metadataCleaners = new MetadataCleaners(MetadataConfig.creditBylineMap)
 
   val indexResponse = {
     val indexData = Map("description" -> "This is the Loader Service")
@@ -57,7 +53,7 @@ class ImageLoader(storage: ImageStorage) extends Controller with ArgoHelpers {
   def loadImage(uploadedBy: Option[String], identifiers: Option[String], uploadTime: Option[String]) =
     AuthenticatedUpload.async(digestedFile(createTempFile)) { request =>
 
-    val DigestedFile(tempFile, id) = request.body
+    val DigestedFile(tempFile_, id_) = request.body
 
     // only allow AuthenticatedService to set with query string
     val uploadedBy_ = (request.user, uploadedBy) match {
@@ -76,63 +72,59 @@ class ImageLoader(storage: ImageStorage) extends Controller with ArgoHelpers {
       case (_, _) => DateTime.now
     }
 
-    Logger.info(s"Received file, id: $id, uploadedBy: $uploadedBy_, uploadTime: $uploadTime_")
-
     // Abort early if unsupported mime-type
-    val mimeType = MimeTypeDetection.guessMimeType(tempFile)
-    val future = if (Config.supportedMimeTypes.exists(Some(_) == mimeType)) {
-      storeFile(id, tempFile, mimeType, uploadTime_, uploadedBy_, identifiers_)
-    } else Future {
-      val mimeTypeName = mimeType getOrElse "none detected"
-      Logger.info(s"Rejected file, id: $id, uploadedBy: $uploadedBy_, because the mime-type is not supported ($mimeTypeName). return 415")
-      respondError(UnsupportedMediaType, "unsupported-type", s"Unsupported mime-type: $mimeTypeName. Supported: ${Config.supportedMimeTypes.mkString(", ")}")
-    }
+    val mimeType_ = MimeTypeDetection.guessMimeType(tempFile_)
 
-    future
+    val uploadRequest = UploadRequest(
+      id = id_,
+      tempFile = tempFile_,
+      mimeType = mimeType_,
+      uploadTime = uploadTime_,
+      uploadedBy = uploadedBy_,
+      identifiers = identifiers_
+    )
+
+    Logger.info(s"Received ${uploadRequestDescription(uploadRequest)}")
+
+    val supportedMimeType = Config.supportedMimeTypes.exists(Some(_) == mimeType_)
+
+    if (supportedMimeType) storeFile(uploadRequest) else unsupportedTypeError(uploadRequest)
   }
 
-  import Config.apiUri
+  def uploadRequestDescription(u: UploadRequest): String = {
+    s"id: ${u.id}, by: ${u.uploadedBy} @ ${u.uploadTime}, mimeType: ${u.mimeType getOrElse "none"}"
+  }
 
-  def storeFile(id: String, tempFile: File, mimeType: Option[String],
-                uploadTime: DateTime, uploadedBy: String,
-                identifiers: Map[String, String]): Future[Result] = {
+  def unsupportedTypeError(u: UploadRequest): Future[Result] = Future {
+    Logger.info(s"Rejected ${uploadRequestDescription(u)}: mime-type is not supported")
+    val mimeType = u.mimeType getOrElse "none"
 
-    // Flatten identifiers to attach to S3 object
-    val identifiersMeta = identifiers.map { case (k,v) => (s"identifier!$k", v) }.toMap
+    respondError(
+      UnsupportedMediaType,
+      "unsupported-type",
+      s"Unsupported mime-type: $mimeType. Supported: ${Config.supportedMimeTypes.mkString(", ")}"
+    )
+  }
 
-    // These futures are started outside the for-comprehension, otherwise they will not run in parallel
-    val uriFuture = storage.storeImage(id, tempFile, mimeType, Map("uploaded_by" -> uploadedBy) ++ identifiersMeta)
-    val thumbFuture = Thumbnailer.createThumbnail(Config.thumbWidth, tempFile.toString)
-    val dimensionsFuture = FileMetadataReader.dimensions(tempFile)
-    val fileMetadataFuture = FileMetadataReader.fromIPTCHeaders(tempFile)
+  def storeFile(uploadRequest: UploadRequest): Future[Result] = {
+    import Config.apiUri
 
-    // TODO: better error handling on all futures. Similar to metadata
-    bracket(thumbFuture)(_.delete) { thumb =>
-      val result = for {
-        uri        <- uriFuture
-        dimensions <- dimensionsFuture
-        fileMetadata <- fileMetadataFuture
-        metadata    = ImageMetadataConverter.fromFileMetadata(fileMetadata)
-        cleanMetadata = metadataCleaners.clean(metadata)
-        sourceAsset = Asset(uri, tempFile.length, mimeType, dimensions)
-        thumbUri   <- storage.storeThumbnail(id, thumb, mimeType)
-        thumbSize   = thumb.length
-        thumbDimensions <- FileMetadataReader.dimensions(thumb)
-        thumbAsset  = Asset(thumbUri, thumbSize, mimeType, thumbDimensions)
-        image       = Image.upload(id, uploadTime, uploadedBy, identifiers, sourceAsset, thumbAsset, fileMetadata, cleanMetadata)
-      } yield {
-        Notifications.publish(Json.toJson(image), "image")
-        // TODO: centralise where all these URLs are constructed
-        Accepted(Json.obj("uri" -> s"$apiUri/images/$id")).as(ArgoMediaType)
-      }
+    val result = for {
+      imageUpload <- ImageUpload.fromUploadRequest(uploadRequest, storage)
+      image        = imageUpload.image
+    } yield {
+      Notifications.publish(Json.toJson(image), "image")
+      // TODO: centralise where all these URLs are constructed
+      Accepted(Json.obj("uri" -> s"$apiUri/images/${uploadRequest.id}")).as(ArgoMediaType)
+    }
 
-      result recover {
-        case e => {
-          Logger.info(s"Rejected file, id: $id, uploadedBy: $uploadedBy, because: ${e.getMessage}. return 400")
-          // TODO: Log when an image isn't deleted
-          storage.deleteImage(id)
-          respondError(BadRequest, "upload-error", e.getMessage)
-        }
+    result recover {
+      case e => {
+        Logger.info(s"Rejected ${uploadRequestDescription(uploadRequest)}: ${e.getMessage}.")
+
+        // TODO: Log when an image isn't deleted
+        storage.deleteImage(uploadRequest.id)
+        respondError(BadRequest, "upload-error", e.getMessage)
       }
     }
   }

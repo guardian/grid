@@ -1,10 +1,11 @@
 package lib
 
 import java.io.File
-import java.net.URI
+import java.net.{URI,URL}
 import java.util.concurrent.Executors
 import scala.concurrent.{ExecutionContext, Future}
 import com.gu.mediaservice.lib.aws.S3
+import com.gu.mediaservice.model.{Dimensions, Asset}
 import model._
 
 object CropStorage extends S3(Config.imgPublishingCredentials) {
@@ -13,7 +14,10 @@ object CropStorage extends S3(Config.imgPublishingCredentials) {
   private implicit val ctx: ExecutionContext =
     ExecutionContext.fromExecutor(Executors.newCachedThreadPool)
 
-  def storeCropSizing(file: File, filename: String, mimeType: String, crop: Crop, dimensions: Dimensions): Future[CropSizing] = {
+  def getSecureCropUri(uri: URI): Option[URL] =
+    Config.imgPublishingSecureHost.map((new URI("https",_, uri.getPath, uri.getFragment).toURL))
+
+  def storeCropSizing(file: File, filename: String, mimeType: String, crop: Crop, dimensions: Dimensions): Future[Asset] = {
     val CropSource(sourceUri, Bounds(x, y, w, h), r) = crop.specification
     val metadata = Map("source" -> sourceUri,
                        "bounds_x" -> x,
@@ -31,35 +35,51 @@ object CropStorage extends S3(Config.imgPublishingCredentials) {
       case (key, value)       => key -> value
     }.mapValues(_.toString)
 
-    store(Config.imgPublishingBucket, filename, file, Some(mimeType), filteredMetadata) map { uri =>
-      CropSizing(translateImgHost(uri).toString, dimensions)
+    store(Config.imgPublishingBucket, filename, file, Some(mimeType), filteredMetadata) map { s3Object=>
+      Asset(
+        translateImgHost(s3Object.uri),
+        s3Object.size,
+        s3Object.metadata.objectMetadata.contentType,
+        Some(dimensions),
+        getSecureCropUri(s3Object.uri)
+      )
     }
   }
 
   def listCrops(id: String): Future[List[Crop]] = {
     list(Config.imgPublishingBucket, id).map { crops =>
       crops.foldLeft(Map[String, Crop]()) {
-        case (map, (uri, metadata)) => {
-          val filename::containingFolder::_ = uri.getPath.split("/").reverse.toList
-          var isMaster = containingFolder == "master"
+        case (map, (s3Object)) => {
+          val filename::containingFolder::_ = s3Object.uri.getPath.split("/").reverse.toList
+          var isMaster       = containingFolder == "master"
+          val userMetadata   = s3Object.metadata.userMetadata
+          val objectMetadata = s3Object.metadata.objectMetadata
 
           val updatedCrop = for {
             // Note: if any is missing, the entry won't be registered
-            source <- metadata.get("source")
-            x      <- metadata.get("bounds_x").map(_.toInt)
-            y      <- metadata.get("bounds_y").map(_.toInt)
-            w      <- metadata.get("bounds_w").map(_.toInt)
-            h      <- metadata.get("bounds_h").map(_.toInt)
-            width  <- metadata.get("width").map(_.toInt)
-            height <- metadata.get("height").map(_.toInt)
+            source <- userMetadata.get("source")
+            x      <- userMetadata.get("bounds_x").map(_.toInt)
+            y      <- userMetadata.get("bounds_y").map(_.toInt)
+            w      <- userMetadata.get("bounds_w").map(_.toInt)
+            h      <- userMetadata.get("bounds_h").map(_.toInt)
+            width  <- userMetadata.get("width").map(_.toInt)
+            height <- userMetadata.get("height").map(_.toInt)
 
             cid            = s"$id-$x-$y-$w-$h"
-            ratio          = metadata.get("aspect_ratio")
-            author         = metadata.get("author")
-            date           = metadata.get("date").flatMap(parseDateTime(_))
+            ratio          = userMetadata.get("aspect_ratio")
+            author         = userMetadata.get("author")
+            date           = userMetadata.get("date").flatMap(parseDateTime(_))
             cropSource     = CropSource(source, Bounds(x, y, w, h), ratio)
             dimensions     = Dimensions(width, height)
-            sizing         = CropSizing(translateImgHost(uri).toString, dimensions)
+
+            sizing         =
+              Asset(
+                translateImgHost(s3Object.uri),
+                s3Object.size,
+                objectMetadata.contentType,
+                Some(dimensions),
+                getSecureCropUri(s3Object.uri)
+              )
             lastCrop       = map.getOrElse(cid, Crop(author, date, cropSource))
             lastSizings    = lastCrop.assets
 
