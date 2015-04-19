@@ -24,16 +24,24 @@ case object ImageUpload {
 
   def fromUploadRequest(uploadRequest: UploadRequest, storage: ImageStorage): Future[ImageUpload] = {
 
-    bracket(thumbCreateFuture(uploadRequest.tempFile))(_.delete) { thumb =>
+    val uploadedFile = uploadRequest.tempFile
+
+    // These futures are started outside the for-comprehension, otherwise they will not run in parallel
+    val sourceStoreFuture  = storeSource(uploadRequest, storage)
+    val thumbFuture        = Thumbnailer.createThumbnail(Config.thumbWidth, uploadedFile.toString)
+    val fileMetadataFuture = FileMetadataReader.fromIPTCHeaders(uploadedFile)
+
+    bracket(thumbFuture)(_.delete) { thumb =>
+
       for {
-        s3Source     <- sourceStoreFuture(uploadRequest, storage)
+        s3Source     <- sourceStoreFuture
         s3Thumb      <-
           storage.storeThumbnail(
             uploadRequest.id,
             thumb,
             uploadRequest.mimeType
           )
-        fileMetadata <- fileMetadataFuture(uploadRequest.tempFile)
+        fileMetadata <- fileMetadataFuture
 
         metadata      = ImageMetadataConverter.fromFileMetadata(fileMetadata)
         cleanMetadata = metadataCleaners.clean(metadata)
@@ -54,13 +62,11 @@ case object ImageUpload {
     }
   }
 
-  def thumbCreateFuture(f: File) = Thumbnailer.createThumbnail(Config.thumbWidth, f.toString)
-  def sourceStoreFuture(uploadRequest: UploadRequest, storage: ImageStorage) = storage.storeImage(
+  def storeSource(uploadRequest: UploadRequest, storage: ImageStorage) = storage.storeImage(
     uploadRequest.id,
     uploadRequest.tempFile,
     uploadRequest.mimeType,
     Map("uploaded_by" -> uploadRequest.uploadedBy) ++ uploadRequest.identifiersMeta
   )
   def dimensionsFuture(f: File)  = FileMetadataReader.dimensions(f)
-  def fileMetadataFuture(f: File) = FileMetadataReader.fromIPTCHeaders(f)
 }
