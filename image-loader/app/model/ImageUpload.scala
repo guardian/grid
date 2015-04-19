@@ -20,8 +20,9 @@ import com.gu.mediaservice.model.Asset
 case class ImageUpload(uploadRequest: UploadRequest, image: Image)
 case object ImageUpload {
 
+  val metadataCleaners = new MetadataCleaners(MetadataConfig.creditBylineMap)
+
   def fromUploadRequest(uploadRequest: UploadRequest, storage: ImageStorage): Future[ImageUpload] = {
-    val metadataCleaners = new MetadataCleaners(MetadataConfig.creditBylineMap)
 
     bracket(thumbCreateFuture(uploadRequest.tempFile))(_.delete) { thumb =>
       for {
