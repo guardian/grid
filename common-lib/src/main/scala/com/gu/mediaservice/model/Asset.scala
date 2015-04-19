@@ -8,14 +8,9 @@ import com.gu.mediaservice.lib.aws.S3Object
 case class Asset(file: URI, size: Long, mimeType: Option[String], dimensions: Option[Dimensions], secureUrl: Option[URL] = None)
 object Asset {
 
-  def fromS3Object(s3Object: S3Object): Asset = {
+  def fromS3Object(s3Object: S3Object, dimensions: Option[Dimensions]): Asset = {
     val userMetadata   = s3Object.metadata.userMetadata
     val objectMetadata = s3Object.metadata.objectMetadata
-
-    val dimensions     = for {
-      width <- userMetadata.get("width").map(_.toInt)
-      height <-userMetadata.get("height").map(_.toInt)
-    } yield Dimensions(width, height)
 
     Asset(
       s3Object.uri,
