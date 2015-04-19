@@ -29,7 +29,7 @@ case object ImageUpload {
         s3Thumb      <-
           storage.storeThumbnail(
             uploadRequest.id,
-            uploadRequest.tempFile,
+            thumb,
             uploadRequest.mimeType
           )
         fileMetadata <- fileMetadataFuture(uploadRequest.tempFile)
