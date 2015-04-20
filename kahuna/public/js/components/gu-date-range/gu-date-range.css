@@ -11,14 +11,18 @@
     display: inline-block;
 }
 
-.gu-date-range__display--toggle {
-    float: right;
+.gu-date-range__display__icon {
     width: 20px;
     text-align: center;
+    display: inline-block;
+}
+
+.gu-date-range__display__icon__toggle {
+    float: right;
 }
 
 .gu-date-range__overlay__pikaday {
-    padding: 5px 0px;
+    padding-top: 20px;
 }
 
 .gu-date-range__overlay__pikaday__wrapper {

@@ -12,3 +12,10 @@
     */
     background-color: #444 !important;
 }
+
+.pika-label::after {
+    /*
+    Add an arrow to make it more obvious that its a clickable element.
+    */
+    content: ' \25BE'
+}
