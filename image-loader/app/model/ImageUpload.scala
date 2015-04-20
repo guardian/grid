@@ -20,32 +20,42 @@ import com.gu.mediaservice.model.Asset
 case class ImageUpload(uploadRequest: UploadRequest, image: Image)
 case object ImageUpload {
 
-  def fromUploadRequest(uploadRequest: UploadRequest, storage: ImageStorage): Future[ImageUpload] = {
-    val metadataCleaners = new MetadataCleaners(MetadataConfig.creditBylineMap)
+  val metadataCleaners = new MetadataCleaners(MetadataConfig.creditBylineMap)
 
-    bracket(thumbCreateFuture(uploadRequest.tempFile))(_.delete) { thumb =>
+  def fromUploadRequest(uploadRequest: UploadRequest, storage: ImageStorage): Future[ImageUpload] = {
+
+    val uploadedFile = uploadRequest.tempFile
+
+    // These futures are started outside the for-comprehension, otherwise they will not run in parallel
+    val sourceStoreFuture      = storeSource(uploadRequest, storage)
+    val thumbFuture            = Thumbnailer.createThumbnail(Config.thumbWidth, uploadedFile.toString)
+    val sourceDimensionsFuture = FileMetadataReader.dimensions(uploadedFile)
+    val fileMetadataFuture     = FileMetadataReader.fromIPTCHeaders(uploadedFile)
+
+    bracket(thumbFuture)(_.delete) { thumb =>
+      // Run the operations in parallel
+      val thumbStoreFuture      = storeThumbnail(uploadRequest, thumb, storage)
+      val thumbDimensionsFuture = FileMetadataReader.dimensions(thumb)
+
       for {
-        s3Source     <- sourceStoreFuture(uploadRequest, storage)
-        s3Thumb      <-
-          storage.storeThumbnail(
-            uploadRequest.id,
-            uploadRequest.tempFile,
-            uploadRequest.mimeType
-          )
-        fileMetadata <- fileMetadataFuture(uploadRequest.tempFile)
+        s3Source         <- sourceStoreFuture
+        s3Thumb          <- thumbStoreFuture
+        sourceDimensions <- sourceDimensionsFuture
+        thumbDimensions  <- thumbDimensionsFuture
+        fileMetadata     <- fileMetadataFuture
 
         metadata      = ImageMetadataConverter.fromFileMetadata(fileMetadata)
         cleanMetadata = metadataCleaners.clean(metadata)
 
-        asset = Asset.fromS3Object(s3Source)
-        thumb = Asset.fromS3Object(s3Thumb)
+        sourceAsset = Asset.fromS3Object(s3Source, sourceDimensions)
+        thumbAsset  = Asset.fromS3Object(s3Thumb,  thumbDimensions)
       }
       yield ImageUpload(
         uploadRequest,
         Image.fromUploadRequest(
           uploadRequest,
-          asset,
-          thumb,
+          sourceAsset,
+          thumbAsset,
           fileMetadata,
           cleanMetadata
         )
@@ -53,13 +63,15 @@ case object ImageUpload {
     }
   }
 
-  def thumbCreateFuture(f: File) = Thumbnailer.createThumbnail(Config.thumbWidth, f.toString)
-  def sourceStoreFuture(uploadRequest: UploadRequest, storage: ImageStorage) = storage.storeImage(
+  def storeSource(uploadRequest: UploadRequest, storage: ImageStorage) = storage.storeImage(
     uploadRequest.id,
     uploadRequest.tempFile,
     uploadRequest.mimeType,
     Map("uploaded_by" -> uploadRequest.uploadedBy) ++ uploadRequest.identifiersMeta
   )
-  def dimensionsFuture(f: File)  = FileMetadataReader.dimensions(f)
-  def fileMetadataFuture(f: File) = FileMetadataReader.fromIPTCHeaders(f)
+  def storeThumbnail(uploadRequest: UploadRequest, thumbFile: File, storage: ImageStorage) = storage.storeThumbnail(
+    uploadRequest.id,
+    thumbFile,
+    uploadRequest.mimeType
+  )
 }
