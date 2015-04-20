@@ -443,10 +443,6 @@ input.search-query__input {
     padding-right: 50px;
 }
 
-.advanced-search-help__title {
-    font-weight: bold;
-}
-
 .advanced-search-help__close {
     position: absolute;
     top: 0;
@@ -487,6 +483,9 @@ input.search-query__input {
     position: absolute;
 }
 
+.search__overlay__title {
+    font-weight: bold;
+}
 
 /* ==========================================================================
    File uploader
