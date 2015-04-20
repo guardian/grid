@@ -1,4 +1,4 @@
-.filter__box {
+.gu-date-range__display {
     font-size: 14px;
     height: 14px;
     line-height: 14px;
@@ -7,50 +7,50 @@
     cursor: pointer;
 }
 
-.filter__box--value {
+.gu-date-range__display--value {
     display: inline-block;
 }
 
-.filter__box--icon {
+.gu-date-range__display--toggle {
     float: right;
     width: 20px;
     text-align: center;
 }
 
-.filter__modal__pikaday {
+.gu-date-range__overlay__pikaday {
     padding: 5px 0px;
 }
 
-.filter__modal__pikaday__wrapper {
+.gu-date-range__overlay__pikaday__wrapper {
     width: 258px;
     display: inline-block;
 }
 
-.filter__modal__pikaday__container {
+.gu-date-range__overlay__pikaday__container {
     width: 100%;
     height: 228px;
     margin-bottom: 5px;
 }
 
-.filter__modal__buttons {
+.gu-date-range__overlay__buttons {
     float: right;
 }
 
-.filer__modal__preset__button,
-.filter__modal__button__cancel,
-.filter__modal__button__ok {
+.gu-date-range__overlay__preset__button,
+.gu-date-range__overlay__button__cancel,
+.gu-date-range__overlay__button__ok {
     /* !important to override .button and .button-shy */
     display: inline-block !important;
 }
 
-.filer__modal__preset__button {
+.gu-date-range__overlay__preset__button {
     margin: 0px 5px;
 }
 
-.filer__modal__preset__button:first-child {
+.gu-date-range__overlay__preset__button:first-child {
     margin-left: 0px;
 }
 
-.filer__modal__preset__button:last-child {
+.gu-date-range__overlay__preset__button:last-child {
     margin-right: 0px;
 }

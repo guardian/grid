@@ -1,42 +1,42 @@
-<div ng:init="showModal = false">
-    <div class="filter__box" ng:click="showModal = !showModal">
-        <div class="filter__box--value">
+<div class="gu-date-range" ng:init="showOverlay = false">
+    <div class="gu-date-range__display" ng:click="showOverlay = !showOverlay">
+        <div class="gu-date-range__display--value">
             <span ng:show="startValue !== guAnyTimeText && !endValue">from </span>
             {{startValue}}
             <span ng-show="endValue">to {{endValue}}</span>
         </div>
 
-        <div class="filter__box--icon">
-            <span ng:hide="showModal">▸</span>
-            <span ng:show="showModal">▾</span>
+        <div class="gu-date-range__display--toggle">
+            <span ng:hide="showOverlay">▸</span>
+            <span ng:show="showOverlay">▾</span>
         </div>
     </div>
 
-    <div class="filer__modal modal--open" ng:show="showModal">
-        <div class="filer__modal__presets">
-            <button class="filer__modal__preset__button button" ng:repeat="presetDate in guPresetDates" ng:click="setPresetDate(presetDate.value)">
+    <div class="gu-date-range__overlay search__overlay" ng:show="showOverlay">
+        <div class="gu-date-range__overlay__presets">
+            <button class="gu-date-range__overlay__preset__button button" ng:repeat="presetDate in guPresetDates" ng:click="setPresetDate(presetDate.value)">
                 {{presetDate.label}}
             </button>
         </div>
 
-        <div class="filter__modal__pikaday">
-            <span class="filter__modal__pikaday__wrapper">
-                <div class="filter__modal__pikaday__container" id="filter__modal__pikaday--start"/>
-                <button class="filter__modal__pikaday__clear button-shy" ng:click="clearStart()">clear</button>
+        <div class="gu-date-range__overlay__pikaday">
+            <span class="gu-date-range__overlay__pikaday__wrapper">
+                <div class="gu-date-range__overlay__pikaday__container" id="gu-date-range__overlay__pikaday--start"/>
+                <button class="gu-date-range__overlay__pikaday__clear button-shy" ng:click="clearStart()">clear</button>
             </span>
 
-            <span class="filter__modal__pikaday__wrapper">
-                <div class="filter__modal__pikaday__container" id="filter__modal__pikaday--end"/>
-                <button class="filter__modal__pikaday__clear button-shy" ng:click="clearEnd()">clear</button>
+            <span class="gu-date-range__overlay__pikaday__wrapper">
+                <div class="gu-date-range__overlay__pikaday__container" id="gu-date-range__overlay__pikaday--end"/>
+                <button class="gu-date-range__overlay__pikaday__clear button-shy" ng:click="clearEnd()">clear</button>
             </span>
         </div>
 
-        <div class="filter__modal__buttons">
-            <button class="filter__modal__button__cancel button-shy" ng:click="cancel()">Cancel</button>
-            <button class="filter__modal__button__ok button" ng:click="save()">OK</button>
+        <div class="gu-date-range__overlay__buttons">
+            <button class="gu-date-range__overlay__button__cancel button-shy" ng:click="cancel()">Cancel</button>
+            <button class="gu-date-range__overlay__button__ok button" ng:click="save()">OK</button>
         </div>
     </div>
 
-    <input hidden type="text" id="filter__input__start--hidden">
-    <input hidden type="text" id="filter__input__end--hidden">
+    <input hidden type="text" id="gu-date-range__input__start--hidden">
+    <input hidden type="text" id="gu-date-range__input__end--hidden">
 </div>
