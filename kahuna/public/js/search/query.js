@@ -2,12 +2,13 @@ import angular from 'angular';
 import 'angular-animate';
 import moment from 'moment';
 import '../util/eq';
+import '../components/gu-date-range/gu-date-range';
 import template from './query.html!text';
-
 
 export var query = angular.module('kahuna.search.query', [
     'ngAnimate',
-    'util.eq'
+    'util.eq',
+    'gu-dateRange'
 ]);
 
 query.controller('SearchQueryCtrl',
@@ -49,9 +50,9 @@ query.controller('SearchQueryCtrl',
         }));
     }
 
-    $scope.$watchCollection(() => ctrl.filter, onValChange(x => {
-        x.uploadedBy = x.uploadedByMe ? ctrl.user.email : undefined;
-        $state.go('search.results', x);
+    $scope.$watchCollection(() => ctrl.filter, onValChange(filter => {
+        filter.uploadedBy = filter.uploadedByMe ? ctrl.user.email : undefined;
+        $state.go('search.results', filter);
     }));
 
     // we can't user dynamic values in the ng:true-value see:

@@ -7,5 +7,8 @@
 }
 
 .pika-button:hover {
+    /*
+    Pikaday uses background-colour: #ff8000. Override this rule to match the theme of The Grid.
+    */
     background-color: #444 !important;
 }
