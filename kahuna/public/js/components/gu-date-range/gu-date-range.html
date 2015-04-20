@@ -1,7 +1,9 @@
 <div ng:init="showModal = false">
     <div class="filter__box" ng:click="showModal = !showModal">
         <div class="filter__box--value">
-            from {{startValue}} to {{endValue}}
+            <span ng:show="startValue !== guAnyTimeText && !endValue">from </span>
+            {{startValue}}
+            <span ng-show="endValue">to {{endValue}}</span>
         </div>
 
         <div class="filter__box--icon">

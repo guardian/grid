@@ -17,9 +17,14 @@ guDateRange.directive('guDateRange', [function () {
         scope: {
             guStartDate: '=guStartDate',
             guEndDate: '=guEndDate',
-            guPresetDates: '=guPresetDates'
+            guPresetDates: '=guPresetDates',
+            guDateFormat: '=?guDateFormat',
+            guAnyTimeText: '=?guAnyTimeText'
         },
         link: function ($scope, el) {
+            $scope.guDateFormat = $scope.guDateFormat || 'DD-MMM-YYYY';
+            $scope.guAnyTimeText = $scope.guAnyTimeText || 'anytime';
+
             var startInput = el.find('#filter__input__start--hidden')[0];
             var startContainer = el.find('#filter__modal__pikaday--start')[0];
 
@@ -56,38 +61,39 @@ guDateRange.directive('guDateRange', [function () {
                 }
             });
 
+            function _clearPikadays(primary, secondary) {
+                primary.setDate(undefined, true);
+
+                secondary.setMinDate();
+                secondary.setMaxDate(new Date());
+                secondary.hide();
+                secondary.show();
+            };
+
             function setDisplayValue (start, end) {
-                if (start !== undefined) {
-                    $scope.startValue = moment(start).format('DD-MMM-YYYY');
+                if (angular.isDefined(start)) {
+                    $scope.startValue = moment(start).format($scope.guDateFormat);
                     pikaStart.setDate(start);
                 } else {
-                    $scope.startValue = 'anytime';
-                    pikaStart.setDate(start, true);
-                    pikaEnd.setMinDate();
-                    pikaEnd.setMaxDate(new Date());
-                    pikaEnd.hide();
-                    pikaEnd.show();
+                    $scope.startValue = $scope.guAnyTimeText;
+                    _clearPikadays(pikaStart, pikaEnd);
                 }
 
-                if (end !== undefined) {
-                    $scope.endValue = moment(end).format('DD-MMM-YYYY');
+                if (angular.isDefined(end)) {
+                    $scope.endValue = moment(end).format($scope.guDateFormat);
                     pikaEnd.setDate(end);
                 } else {
-                    $scope.endValue = 'now';
-                    pikaEnd.setDate(end, true);
-                    pikaStart.setMinDate();
-                    pikaStart.setMaxDate(new Date());
-                    pikaStart.hide();
-                    pikaStart.show();
+                    $scope.endValue = undefined;
+                    _clearPikadays(pikaEnd, pikaStart);
                 }
             };
 
             function setDateRange (start, end) {
-                $scope.guStartDate = start !== undefined
+                $scope.guStartDate = angular.isDefined(start)
                     ? moment(start).toISOString()
                     : undefined;
 
-                $scope.guEndDate = end !== undefined
+                $scope.guEndDate = angular.isDefined(end)
                     ? moment(end).toISOString()
                     : undefined;
 
@@ -124,20 +130,12 @@ guDateRange.directive('guDateRange', [function () {
             };
 
             function clearStart () {
-                pikaStart.setDate();
-                pikaEnd.setMinDate();
-                pikaEnd.setMaxDate(new Date());
-                pikaEnd.hide();
-                pikaEnd.show();
+                _clearPikadays(pikaStart, pikaEnd);
                 pikaStart.gotoToday();
             };
 
             function clearEnd () {
-                pikaEnd.setDate();
-                pikaStart.setMinDate();
-                pikaStart.setMaxDate(new Date());
-                pikaStart.hide();
-                pikaStart.show();
+                _clearPikadays(pikaEnd, pikaStart);
                 pikaEnd.gotoToday();
             };
 
