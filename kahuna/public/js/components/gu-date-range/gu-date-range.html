@@ -1,18 +1,23 @@
 <div class="gu-date-range" ng:init="showOverlay = false">
     <div class="gu-date-range__display" ng:click="showOverlay = !showOverlay">
+        <div class="gu-date-range__display__icon gu-date-range__display__icon__calendar">
+            &#128197;
+        </div>
+
         <div class="gu-date-range__display--value">
             <span ng:show="startValue !== guAnyTimeText && !endValue">from </span>
             {{startValue}}
             <span ng-show="endValue">to {{endValue}}</span>
         </div>
 
-        <div class="gu-date-range__display--toggle">
+        <div class="gu-date-range__display__icon gu-date-range__display__icon__toggle">
             <span ng:hide="showOverlay">▸</span>
             <span ng:show="showOverlay">▾</span>
         </div>
     </div>
 
     <div class="gu-date-range__overlay search__overlay" ng:show="showOverlay">
+        <h2 class="gu-date-range__overlay__title search__overlay__title">Presets</h2>
         <div class="gu-date-range__overlay__presets">
             <button class="gu-date-range__overlay__preset__button button" ng:repeat="presetDate in guPresetDates" ng:click="setPresetDate(presetDate.value)">
                 {{presetDate.label}}
@@ -20,12 +25,15 @@
         </div>
 
         <div class="gu-date-range__overlay__pikaday">
+            <h2 class="gu-date-range__overlay__title search__overlay__title">Custom Date Range</h2>
             <span class="gu-date-range__overlay__pikaday__wrapper">
+                <h2 class="gu-date-range__overlay__title search__overlay__title">From</h2>
                 <div class="gu-date-range__overlay__pikaday__container gu-date-range__overlay__pikaday--start"/>
                 <button class="gu-date-range__overlay__pikaday__clear button-shy" ng:click="clearStart()">clear</button>
             </span>
 
             <span class="gu-date-range__overlay__pikaday__wrapper">
+                <h2 class="gu-date-range__overlay__title search__overlay__title">To</h2>
                 <div class="gu-date-range__overlay__pikaday__container gu-date-range__overlay__pikaday--end"/>
                 <button class="gu-date-range__overlay__pikaday__clear button-shy" ng:click="clearEnd()">clear</button>
             </span>
