@@ -27,11 +27,11 @@ guDateRange.directive('guDateRange', [function () {
             $scope.guAnyTimeText = $scope.guAnyTimeText || 'anytime';
             $scope.guFirstDay = $scope.guFirstDay || 0;
 
-            var startInput = el.find('#gu-date-range__input__start--hidden')[0];
-            var startContainer = el.find('#gu-date-range__overlay__pikaday--start')[0];
+            var startInput = el.find('.gu-date-range__input__start--hidden')[0];
+            var startContainer = el.find('.gu-date-range__overlay__pikaday--start')[0];
 
-            var endInput = el.find('#gu-date-range__input__end--hidden')[0];
-            var endContainer = el.find('#gu-date-range__overlay__pikaday--end')[0];
+            var endInput = el.find('.gu-date-range__input__end--hidden')[0];
+            var endContainer = el.find('.gu-date-range__overlay__pikaday--end')[0];
 
             var pikaStart = new Pikaday({
                 field: startInput,
