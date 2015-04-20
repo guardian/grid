@@ -19,23 +19,26 @@ guDateRange.directive('guDateRange', [function () {
             guEndDate: '=guEndDate',
             guPresetDates: '=guPresetDates',
             guDateFormat: '=?guDateFormat',
-            guAnyTimeText: '=?guAnyTimeText'
+            guAnyTimeText: '=?guAnyTimeText',
+            guFirstDay: '=?guFirstDay'
         },
         link: function ($scope, el) {
             $scope.guDateFormat = $scope.guDateFormat || 'DD-MMM-YYYY';
             $scope.guAnyTimeText = $scope.guAnyTimeText || 'anytime';
+            $scope.guFirstDay = $scope.guFirstDay || 0;
 
-            var startInput = el.find('#filter__input__start--hidden')[0];
-            var startContainer = el.find('#filter__modal__pikaday--start')[0];
+            var startInput = el.find('#gu-date-range__input__start--hidden')[0];
+            var startContainer = el.find('#gu-date-range__overlay__pikaday--start')[0];
 
-            var endInput = el.find('#filter__input__end--hidden')[0];
-            var endContainer = el.find('#filter__modal__pikaday--end')[0];
+            var endInput = el.find('#gu-date-range__input__end--hidden')[0];
+            var endContainer = el.find('#gu-date-range__overlay__pikaday--end')[0];
 
             var pikaStart = new Pikaday({
                 field: startInput,
                 container: startContainer,
                 bound: false,
                 maxDate: new Date(),
+                firstDay: parseInt($scope.guFirstDay),
                 onSelect: function () {
                     var otherPika = pikaEnd;
                     var value = this.getDate();
@@ -51,6 +54,7 @@ guDateRange.directive('guDateRange', [function () {
                 container: endContainer,
                 bound: false,
                 maxDate: new Date(),
+                firstDay: parseInt($scope.guFirstDay),
                 onSelect: function () {
                     var otherPika = pikaStart;
                     var value = this.getDate();
@@ -100,8 +104,8 @@ guDateRange.directive('guDateRange', [function () {
                 setDisplayValue(start, end);
             };
 
-            function closeModal () {
-                $scope.showModal = false;
+            function closeOverlay () {
+                $scope.showOverlay = false;
             };
 
             function reset() {
@@ -110,7 +114,7 @@ guDateRange.directive('guDateRange', [function () {
 
             function cancel () {
                 reset();
-                closeModal();
+                closeOverlay();
             };
 
             function save () {
@@ -121,12 +125,12 @@ guDateRange.directive('guDateRange', [function () {
                 end = end ? moment(end).endOf('day').toDate() : undefined;
 
                 setDateRange(start, end);
-                closeModal();
+                closeOverlay();
             };
 
             function setPresetDate (preset) {
                 setDateRange(preset, undefined);
-                closeModal();
+                closeOverlay();
             };
 
             function clearStart () {

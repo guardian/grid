@@ -53,12 +53,13 @@
         <gu-date-range class="search__filter search__date"
             gu:start-date="searchQuery.filter.since"
             gu:end-date="searchQuery.filter.until"
-            gu:preset-dates="searchQuery.sinceOptions">
+            gu:preset-dates="searchQuery.sinceOptions"
+            gu:first-day="1">
         </gu-date-range>
     </div>
 </form>
 
-<div ng:if="advancedShown" class="advanced-search-help modal--open">
+<div ng:if="advancedShown" class="advanced-search-help search__overlay">
     <h2 class="advanced-search-help__title">Advanced search syntax</h2>
     <p>To perform advanced searches, use the following syntax in the search field:</p>
     <dl class="advanced-search-example">

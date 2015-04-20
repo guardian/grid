@@ -20,7 +20,6 @@ import './sentry/sentry';
 import './common/index';
 import './errors/global';
 import './errors/codes';
-import './components/gu-date-range/gu-date-range';
 
 // TODO: move to an async config to remove deps on play
 var apiLink = document.querySelector('link[rel="media-api-uri"]');
@@ -54,8 +53,7 @@ var kahuna = angular.module('kahuna', [
     'kahuna.directives',
     'kahuna.common',
     'kahuna.errors.global',
-    'kahuna.errors.codes',
-    'gu-dateRange'
+    'kahuna.errors.codes'
 ]);
 
 
