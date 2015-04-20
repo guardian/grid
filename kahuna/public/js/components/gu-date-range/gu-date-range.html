@@ -12,7 +12,7 @@
         </div>
     </div>
 
-    <div class="filer__modal" ng:show="showModal">
+    <div class="filer__modal modal--open" ng:show="showModal">
         <div class="filer__modal__presets">
             <button class="filer__modal__preset__button button" ng:repeat="presetDate in guPresetDates" ng:click="setPresetDate(presetDate.value)">
                 {{presetDate.label}}
