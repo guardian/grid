@@ -17,13 +17,6 @@
     text-align: center;
 }
 
-.filer__modal {
-    position: absolute;
-    background-color: #444;
-    display: inline-block;
-    padding: 10px;
-}
-
 .filter__modal__pikaday {
     padding: 5px 0px;
 }
@@ -36,6 +29,7 @@
 .filter__modal__pikaday__container {
     width: 100%;
     height: 228px;
+    margin-bottom: 5px;
 }
 
 .filter__modal__buttons {
