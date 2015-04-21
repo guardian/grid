@@ -63,12 +63,16 @@ class FileMetadataReaderTest extends FunSpec with Matchers with ScalaFutures {
       val exif = Map(
         "Image Description" -> "Austria's Matthias Mayer attends the men's downhill training of the FIS Alpine Skiing World Cup in Kitzbuehel, Austria, on January 22, 2015.       AFP PHOTO / CHRISTOF STACHECHRISTOF STACHE/AFP/Getty Images"
       )
+      val getty = Map(
+        "Original Filename" -> "43885812_SEA.jpg"
+      )
 
 
       sameMaps(metadata.iptc, iptc)
       sameMaps(metadata.exif, exif)
       sameMaps(metadata.exifSub, Map())
       sameMaps(metadata.xmp, Map())
+      sameMaps(metadata.getty, getty)
     }
   }
 
@@ -103,6 +107,7 @@ class FileMetadataReaderTest extends FunSpec with Matchers with ScalaFutures {
       sameMaps(metadata.exif, Map())
       sameMaps(metadata.exifSub, Map())
       sameMaps(metadata.xmp, xmp)
+      sameMaps(metadata.getty, Map())
     }
   }
 
@@ -194,6 +199,7 @@ class FileMetadataReaderTest extends FunSpec with Matchers with ScalaFutures {
       sameMaps(metadata.exif, exif)
       sameMaps(metadata.exifSub, exifSub)
       sameMaps(metadata.xmp, xmp)
+      sameMaps(metadata.getty, Map())
     }
   }
 
@@ -269,6 +275,7 @@ class FileMetadataReaderTest extends FunSpec with Matchers with ScalaFutures {
       sameMaps(metadata.exif, exif)
       sameMaps(metadata.exifSub, exifSub)
       sameMaps(metadata.xmp, xmp)
+      sameMaps(metadata.getty, Map())
     }
   }
 
