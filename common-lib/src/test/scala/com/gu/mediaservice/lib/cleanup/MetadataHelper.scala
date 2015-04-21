@@ -16,6 +16,8 @@ trait MetadataHelper {
       title               = metadata.get("title"),
       copyrightNotice     = metadata.get("copyrightNotice"),
       copyright           = metadata.get("copyright"),
+      supplier            = metadata.get("supplier"),
+      collection          = metadata.get("collection"),
       suppliersReference  = metadata.get("suppliersReference"),
       source              = metadata.get("source"),
       specialInstructions = metadata.get("specialInstructions"),

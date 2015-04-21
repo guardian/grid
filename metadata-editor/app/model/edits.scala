@@ -68,7 +68,7 @@ object Edits {
   // We could set these as default on the case class, but that feel like polluting
   // the ocean instead of just polluting this little puddle.
   val emptyMetadata =
-    ImageMetadata(None, None, None, None, None, None, None, None, None, None, None, List(), None, None, None, None)
+    ImageMetadata(None, None, None, None, None, None, None, None, None, None, None, None, None, List(), None, None, None, None)
 
   def entityUri(id: String, endpoint: String = ""): URI =
     URI.create(s"$rootUri/metadata/$id$endpoint")

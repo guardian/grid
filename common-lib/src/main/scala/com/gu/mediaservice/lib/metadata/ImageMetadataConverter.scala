@@ -21,6 +21,9 @@ object ImageMetadataConverter {
       copyrightNotice     = fileMetadata.iptc.get("Copyright Notice"),
       // FIXME: why default to copyrightNotice again?
       copyright           = fileMetadata.exif.get("Copyright") orElse fileMetadata.iptc.get("Copyright Notice"),
+      // Note: this will be filled in by the supplier parsers
+      supplier            = None,
+      collection          = None,
       suppliersReference  = fileMetadata.iptc.get("Original Transmission Reference") orElse fileMetadata.iptc.get("Object Name"),
       source              = fileMetadata.iptc.get("Source"),
       specialInstructions = fileMetadata.iptc.get("Special Instructions"),
