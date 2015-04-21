@@ -1,6 +1,6 @@
 package scala.lib.imaging
 
-import java.io.{FileNotFoundException, File}
+import java.io.File
 
 import org.scalatest.{FunSpec, Matchers}
 import org.scalatest.concurrent.ScalaFutures
@@ -92,11 +92,14 @@ class FileMetadataReaderTest extends FunSpec with Matchers with ScalaFutures {
         "Original Transmission Reference" -> "70266837",
         "Date Created" -> "Wed Apr 01 00:00:00 BST 2015"
       )
+      val xmp = Map(
+        "Subject" -> "Akron clj Great Lakes States Midwest North America Ohio Summit County thepicturesoftheday.com USA zmct zumapress.com"
+      )
 
       sameMaps(metadata.iptc, iptc)
       sameMaps(metadata.exif, Map())
       sameMaps(metadata.exifSub, Map())
-      sameMaps(metadata.xmp, Map())
+      sameMaps(metadata.xmp, xmp)
     }
   }
 
@@ -164,7 +167,7 @@ class FileMetadataReaderTest extends FunSpec with Matchers with ScalaFutures {
         "Exposure Program" -> "Manual control",
         "Digital Zoom Ratio" -> "1",
         "Exposure Bias Value" -> "1/3 EV",
-        "F-Number" -> "F4",
+        "F-Number" -> "f/4.0",
         "Color Space" -> "sRGB",
         "FlashPix Version" -> "1.00",
         "Sub-Sec Time" -> "70",
@@ -177,21 +180,92 @@ class FileMetadataReaderTest extends FunSpec with Matchers with ScalaFutures {
         "File Source" -> "Digital Still Camera (DSC)",
         "Sub-Sec Time Digitized" -> "70",
         "Saturation" -> "None",
-        "Max Aperture Value" -> "F4"
+        "Max Aperture Value" -> "f/4.0"
+      )
+      val xmp = Map(
+        "Rating" -> "0.0",
+        "Subject" -> "cricket england cricket world cup talking points"
       )
 
       sameMaps(metadata.iptc, iptc)
       sameMaps(metadata.exif, exif)
       sameMaps(metadata.exifSub, exifSub)
-      sameMaps(metadata.xmp, Map())
+      sameMaps(metadata.xmp, xmp)
     }
   }
 
   it("should read the correct metadata for Guardian photographer JPG images") {
     val image = fileAt("guardian-turner.jpg")
     val metadataFuture = FileMetadataReader.fromIPTCHeaders(image)
+    val iptc = Map(
+      "Coded Character Set" -> "UTF-8",
+      "Application Record Version" -> "0",
+      "Caption/Abstract" -> "Reuben Smith age 5 from Hampshire and  \"Darwin Hybrid Mix' tulips in the cut flower Garden at Arundel Castle.\r18,000 tulips were planted in  a total of 52,000 spring bulbs last autumn.\rPhotograph: Graham Turner.",
+      "Time Created" -> "01:08:44+0000",
+      "By-line" -> "Graham Turner",
+      "Object Name" -> "Tulips",
+      "Date Created" -> "Wed Apr 15 00:00:00 BST 2015"
+    )
+    val exif = Map(
+      "Image Description" -> "Reuben Smith age 5 from Hampshire and  \"Darwin Hybrid Mix' tulips in the cut flower Garden at Arundel Castle.\n18,000 tulips were planted in  a total of 52,000 spring bulbs last autumn.\nPhotograph: Graham Turner.",
+      "X Resolution" -> "300 dots per inch",
+      "Software" -> "Adobe Photoshop CS6 (Macintosh)",
+      "Make" -> "Canon",
+      "Date/Time" -> "2015:04:15 15:22:46",
+      "Model" -> "Canon EOS 5D Mark III",
+      "Orientation" -> "Top, left side (Horizontal / normal)",
+      "Resolution Unit" -> "Inch",
+      "Y Resolution" -> "300 dots per inch",
+      "Artist" -> "Graham Turner"
+    )
+    val exifSub = Map(
+      "Exif Version" -> "2.30",
+      "Exposure Mode" -> "Manual exposure",
+      "ISO Speed Ratings" -> "320",
+      "Lens Specification" -> "70/1 200/1 0/0 0/0",
+      "Body Serial Number" -> "093024002053",
+      "Custom Rendered" -> "Normal process",
+      "Exif Image Height" -> "3840 pixels",
+      "Lens Serial Number" -> "000043c4bb",
+      "Flash" -> "Flash did not fire, auto",
+      "Focal Length" -> "88.0 mm",
+      "Date/Time Original" -> "2015:04:15 01:08:44",
+      "White Balance Mode" -> "Auto white balance",
+      "Shutter Speed Value" -> "1/1599 sec",
+      "Exif Image Width" -> "5760 pixels",
+      "Focal Plane Y Resolution" -> "1/1600 cm",
+      "Sub-Sec Time Original" -> "88",
+      "Exposure Time" -> "1/1600 sec",
+      "Metering Mode" -> "Multi-segment",
+      "Exposure Program" -> "Manual control",
+      "Exposure Bias Value" -> "0 EV",
+      "F-Number" -> "f/3.5",
+      "Color Space" -> "Undefined",
+      "Sub-Sec Time" -> "88",
+      "Lens Model" -> "EF70-200mm f/2.8L IS II USM",
+      "Date/Time Digitized" -> "2015:04:15 01:08:44",
+      "Recommended Exposure Index" -> "320",
+      "Aperture Value" -> "f/3.5",
+      "Sensitivity Type" -> "Recommended Exposure Index",
+      "Scene Capture Type" -> "Standard",
+      "Focal Plane Resolution Unit" -> "cm",
+      "Sub-Sec Time Digitized" -> "88",
+      "Focal Plane X Resolution" -> "1/1600 cm",
+      "Max Aperture Value" -> "f/2.8"
+    )
+    val xmp = Map(
+      "Rating" -> "0.0",
+      "Serial Number" -> "093024002053",
+      "Firmware" -> "1.2.1",
+      "Lens" -> "EF70-200mm f/2.8L IS II USM",
+      "Lens Information" -> "70/1 200/1 0/0 0/0"
+    )
+
     whenReady(metadataFuture) { metadata =>
-      sameMaps(metadata.xmp, Map())
+      sameMaps(metadata.iptc, iptc)
+      sameMaps(metadata.exif, exif)
+      sameMaps(metadata.exifSub, exifSub)
+      sameMaps(metadata.xmp, xmp)
     }
   }
 
