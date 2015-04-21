@@ -32,7 +32,8 @@ object FileMetadataReader {
         exportDirectory(metadata, classOf[IptcDirectory]),
         exportDirectory(metadata, classOf[ExifIFD0Directory]),
         exportDirectory(metadata, classOf[ExifSubIFDDirectory]),
-        exportDirectory(metadata, classOf[XmpDirectory])
+        exportDirectory(metadata, classOf[XmpDirectory]),
+        exportGettyDirectory(metadata)
       )
     }
 
@@ -49,6 +50,17 @@ object FileMetadataReader {
         flatMap { tag =>
           nonEmptyTrimmed(tag.getDescription) map { value => tag.getTagName -> value }
         }.toMap
+    } getOrElse Map()
+
+  // Getty made up their own XMP namespace.
+  // We're awaiting actual documentation of the properties available, so
+  // this only extracts a small subset of properties as a means to identify Getty images.
+  private def exportGettyDirectory(metadata: Metadata): Map[String, String] =
+    Option(metadata.getFirstDirectoryOfType(classOf[XmpDirectory])) map { directory =>
+      val xmpProperties = directory.getXmpProperties.toMap
+      Map(
+        "Original Filename" -> xmpProperties.get("GettyImagesGIFT:OriginalFilename")
+      ).flattenOptions
     } getOrElse Map()
 
 
@@ -68,4 +80,12 @@ object FileMetadataReader {
 
   private def readMetadata(file: File): Future[Metadata] =
     Future(ImageMetadataReader.readMetadata(file))
+
+
+  // Helper to flatten maps of options
+  implicit class MapFlattener[K, V](val map: Map[K, Option[V]]) {
+    def flattenOptions: Map[K, V] =
+      map.collect { case (key, Some(value)) => key -> value }
+  }
+
 }
