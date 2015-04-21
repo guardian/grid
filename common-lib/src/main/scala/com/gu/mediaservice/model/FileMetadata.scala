@@ -12,5 +12,13 @@ case class FileMetadata(
 )
 
 object FileMetadata {
-  implicit val ImageMetadataReads: Reads[FileMetadata] = Json.reads[FileMetadata]
+  // TODO: reindex all images to make the getty map always present
+  // for data consistency, so we can fallback to use the default Reads
+  implicit val ImageMetadataReads: Reads[FileMetadata] = (
+    (__ \ "iptc").read[Map[String,String]] ~
+    (__ \ "exif").read[Map[String,String]] ~
+    (__ \ "exifSub").read[Map[String,String]] ~
+    (__ \ "xmp").read[Map[String,String]] ~
+    (__ \ "getty").readNullable[Map[String,String]].map(_ getOrElse Map())
+    )(FileMetadata.apply _)
 }
