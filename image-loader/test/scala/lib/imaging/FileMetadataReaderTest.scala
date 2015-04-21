@@ -1,6 +1,6 @@
 package scala.lib.imaging
 
-import java.io.{FileNotFoundException, File}
+import java.io.File
 
 import org.scalatest.{FunSpec, Matchers}
 import org.scalatest.concurrent.ScalaFutures
