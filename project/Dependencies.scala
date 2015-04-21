@@ -35,7 +35,7 @@ object Dependencies {
   )
 
   val imagingDeps = Seq(
-    "com.drewnoakes" % "metadata-extractor" % "2.8.0",
+    "com.drewnoakes" % "metadata-extractor" % "2.8.1",
     "org.im4java" % "im4java" % "1.4.0"
   )
 
