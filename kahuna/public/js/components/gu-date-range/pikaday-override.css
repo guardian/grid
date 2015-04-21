@@ -1,4 +1,9 @@
-.pika-single {
+/* ==========================================================================
+   Override styles provided from pikaday.
+   Applying the .gu-date-range selector to win on specificity and to keep the
+   styles componentised.
+   ========================================================================== */
+.gu-date-range .pika-single {
     /*
     HACK When February has 28 days the height of the pikaday element shrinks, creating a jumpy UI.
     Forcing it to 100% fixes this, however it means its parent needs to have a fixed height of 228px.
@@ -6,14 +11,14 @@
     height: 100%;
 }
 
-.pika-button:hover {
+.gu-date-range .pika-button:hover {
     /*
     Pikaday uses background-colour: #ff8000. Override this rule to match the theme of The Grid.
     */
     background-color: #444 !important;
 }
 
-.pika-label::after {
+.gu-date-range .pika-label::after {
     /*
     Add an arrow to make it more obvious that its a clickable element.
     */
