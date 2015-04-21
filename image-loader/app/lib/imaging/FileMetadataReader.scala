@@ -37,9 +37,12 @@ object FileMetadataReader {
 
   // Export all the metadata in the directory
   private def exportDirectory[T <: Directory](metadata: Metadata, directoryClass: Class[T]): Map[String, String] =
-    Option(metadata.getDirectory(directoryClass)) map { directory =>
+    Option(metadata.getFirstDirectoryOfType(directoryClass)) map { directory =>
       directory.getTags.
         filter(tag => tag.hasTagName()).
+        // Ignore seemingly useless "Padding" fields
+        // see: https://github.com/drewnoakes/metadata-extractor/issues/100
+        filter(tag => tag.getTagName != "Padding").
         flatMap { tag =>
           nonEmptyTrimmed(tag.getDescription) map { value => tag.getTagName -> value }
         }.toMap
@@ -52,7 +55,7 @@ object FileMetadataReader {
     }
     yield {
       for {
-        jpegDir <- Option(metadata.getDirectory(classOf[JpegDirectory]))
+        jpegDir <- Option(metadata.getFirstDirectoryOfType(classOf[JpegDirectory]))
       }
       yield Dimensions(jpegDir.getImageWidth, jpegDir.getImageHeight)
     }
