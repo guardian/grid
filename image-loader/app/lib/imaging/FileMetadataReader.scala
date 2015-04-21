@@ -27,6 +27,7 @@ object FileMetadataReader {
       metadata <- readMetadata(image)
     }
     yield {
+      // FIXME: JPEG, JFIF, Photoshop, GPS, File, ICC directories?
       FileMetadata(
         exportDirectory(metadata, classOf[IptcDirectory]),
         exportDirectory(metadata, classOf[ExifIFD0Directory]),
