@@ -43,6 +43,8 @@ object FileMetadataReader {
         // Ignore seemingly useless "Padding" fields
         // see: https://github.com/drewnoakes/metadata-extractor/issues/100
         filter(tag => tag.getTagName != "Padding").
+        // Ignore meta-metadata
+        filter(tag => tag.getTagName != "XMP Value Count").
         flatMap { tag =>
           nonEmptyTrimmed(tag.getDescription) map { value => tag.getTagName -> value }
         }.toMap
