@@ -28,7 +28,7 @@ class SupplierParsersTest extends FunSpec with Matchers with MetadataHelper {
       val cleanedMetadata = applyParsers(metadata)
       cleanedMetadata.supplier should be(Some("AAP"))
       cleanedMetadata.collection should be(None)
-      cleanedMetadata.credit should be(Some("AAPIMAGE"))
+      cleanedMetadata.credit should be(Some("AAP"))
     }
   }
 
