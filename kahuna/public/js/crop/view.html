@@ -24,9 +24,9 @@
                     free-form
                 </label>
                 <div class="top-bar__item">
-                    <button class="button"
+                    <button ng:class="imageCropCtrl.cropSizeWarning() ? 'button button--warning' : 'button'"
                             type="button"
-                            ng:click="crop()"
+                            ng:click="preCrop()"
                             ng:disabled="cropping">
                             crop<span ng:show="cropping">ping…</span></button>
                 </div>
@@ -36,7 +36,23 @@
     </div>
 
     <div class="errors">
-        <div class="error" ng:if="imageCropCtrl.cropSizeWarning()">This crop is too small for us to produce an image. Please try to use a larger crop.</div>
+        <div class="error" ng:if="promptToCrop">
+            We don't advise using such small crops...
+            <div class="error__buttons">
+                <button class="error__button button-shy"
+                    ng:click="reloadRoute()"
+                    ng:disabled="cropping">
+                    restart crop
+                </button>
+
+                <button class="error__button button"
+                    ng:click="crop()"
+                    ng:disabled="cropping">
+                    <span ng:show="cropping">cropping</span>
+                    <span ng:hide="cropping">crop anyway</span>
+                </button>
+            </div>
+        </div>
     </div>
 
     <div class="easel" ng:if="image.data">

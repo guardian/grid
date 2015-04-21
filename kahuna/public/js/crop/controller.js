@@ -32,8 +32,26 @@ crop.controller('ImageCropCtrl',
     var cropWidth = () => Math.round($scope.coords.x2 - $scope.coords.x1);
     var cropHeight = () => Math.round($scope.coords.y2 - $scope.coords.y1);
     this.cropSize = () => cropWidth() + ' x ' + cropHeight();
-    this.cropSizeWarning = () => cropWidth() < 500;
+    this.cropSizeWarning = () => {
+        var tooSmall = cropWidth() < 500;
 
+        // when the crop box is resized, and reaches a good size, hide the error bar.
+        if ($scope.promptToCrop && !tooSmall) {
+            $scope.promptToCrop = false;
+        }
+
+        return tooSmall;
+    };
+
+    $scope.reloadRoute = () => $state.reload();
+
+    $scope.preCrop = function () {
+        $scope.promptToCrop = $scope.imageCropCtrl.cropSizeWarning();
+
+        if (!$scope.promptToCrop) {
+            $scope.crop();
+        }
+    };
 
     $scope.crop = function() {
         // TODO: show crop
