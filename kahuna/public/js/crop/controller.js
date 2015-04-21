@@ -45,13 +45,7 @@ crop.controller('ImageCropCtrl',
 
     $scope.reloadRoute = () => $state.reload();
 
-    $scope.preCrop = function () {
-        $scope.promptToCrop = $scope.imageCropCtrl.cropSizeWarning();
-
-        if (!$scope.promptToCrop) {
-            $scope.crop();
-        }
-    };
+    $scope.preCrop = () => { $scope.promptToCrop = $scope.imageCropCtrl.cropSizeWarning(); }
 
     $scope.crop = function() {
         // TODO: show crop
