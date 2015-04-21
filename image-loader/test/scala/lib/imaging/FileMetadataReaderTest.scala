@@ -2,6 +2,7 @@ package scala.lib.imaging
 
 import java.io.File
 
+import org.scalatest.time.{Millis, Span}
 import org.scalatest.{FunSpec, Matchers}
 import org.scalatest.concurrent.ScalaFutures
 
@@ -16,6 +17,8 @@ import lib.imaging.FileMetadataReader
  * highlight differences and integration issues when upgrading the library.
  */
 class FileMetadataReaderTest extends FunSpec with Matchers with ScalaFutures {
+
+  implicit override val patienceConfig = PatienceConfig(timeout = Span(500, Millis), interval = Span(25, Millis))
 
   it("should read the correct dimensions for a JPG images") {
     val image = fileAt("getty.jpg")
