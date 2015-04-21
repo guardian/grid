@@ -45,7 +45,7 @@ case object ImageUpload {
         fileMetadata     <- fileMetadataFuture
 
         metadata      = ImageMetadataConverter.fromFileMetadata(fileMetadata)
-        cleanMetadata = metadataCleaners.clean(metadata)
+        cleanMetadata = metadataCleaners.clean(metadata, fileMetadata)
 
         sourceAsset = Asset.fromS3Object(s3Source, sourceDimensions)
         thumbAsset  = Asset.fromS3Object(s3Thumb,  thumbDimensions)

@@ -1,8 +1,15 @@
 package com.gu.mediaservice.lib.cleanup
 
-import com.gu.mediaservice.model.ImageMetadata
+import com.gu.mediaservice.model.{FileMetadata, ImageMetadata}
 
-trait MetadataCleaner {
+trait BaseMetadataCleaner {
+  // Extended method with fileMetadata passed in for the few cleaners that need it
+  def clean(metadata: ImageMetadata, fileMetadata: FileMetadata): ImageMetadata
+}
+
+trait MetadataCleaner extends BaseMetadataCleaner {
+  def clean(metadata: ImageMetadata, fileMetadata: FileMetadata): ImageMetadata = clean(metadata)
+
   def clean(metadata: ImageMetadata): ImageMetadata
 }
 
@@ -12,7 +19,7 @@ class MetadataCleaners(creditBylineMap: Map[String, List[String]]) {
     AttributeCreditFromByline(bylines, credit)
   }
 
-  val allCleaners: List[MetadataCleaner] = List(
+  val allCleaners: List[BaseMetadataCleaner] = List(
     CleanRubbishLocation,
     StripCopyrightPrefix,
     UseCanonicalGuardianCredit,
@@ -28,9 +35,9 @@ class MetadataCleaners(creditBylineMap: Map[String, List[String]]) {
     DropRedundantTitle
   )
 
-  def clean(inputMetadata: ImageMetadata): ImageMetadata =
+  def clean(inputMetadata: ImageMetadata, fileMetadata: FileMetadata): ImageMetadata =
     allCleaners.foldLeft(inputMetadata) {
-      case (metadata, cleaner) => cleaner.clean(metadata)
+      case (metadata, cleaner) => cleaner.clean(metadata, fileMetadata)
     }
 }
 
