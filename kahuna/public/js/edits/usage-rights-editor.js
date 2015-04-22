@@ -24,12 +24,12 @@ usageRightsEditor.controller('UsageRightsEditorCtrl',
             update(ctrl.resource, ctrl.usageRights, ctrl.image).
             then(resource => {
                 updateResourceAndModel(resource);
+                ctrl.onSave();
                 uiSaved();
             }).
             catch(uiError).
             finally(() => {
                 ctrl.saving = false;
-                ctrl.onSave();
             });
     };
 
