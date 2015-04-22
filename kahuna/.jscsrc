@@ -1,0 +1,31 @@
+{
+//    "disallowMultipleVarDecl": "exceptUndefined",
+//    "requireMultipleVarDecl": true,
+    "requireCurlyBraces": true,
+    "requireLineFeedAtFileEnd": true,
+    "requireSemicolons": true,
+    "requireSpaceBeforeBinaryOperators": true,
+    "requireSpaceAfterBinaryOperators": true,
+    "requireSpaceAfterKeywords": [
+        "if",
+        "else",
+        "for",
+        "while",
+        "do",
+        "switch",
+        "try",
+        "catch"
+    ],
+/* TODO: debate?
+    "disallowSpacesInAnonymousFunctionExpression": {
+        "beforeOpeningRoundBrace": true
+    },
+    "disallowSpacesInNamedFunctionExpression": {
+        "beforeOpeningRoundBrace": true
+    },
+*/
+    "disallowSpacesInCallExpression": true,
+    "disallowTrailingComma": true,
+    "disallowTrailingWhitespace": true
+//    "validateIndentation": 4
+}

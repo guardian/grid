@@ -20,8 +20,8 @@ controlsDirectives.directive('uiCropBox', ['$timeout', '$parse', 'safeApply', 'n
                         mappedValue = mapper(value);
                     }
                     func(mappedValue);
-                } catch(e) {
-                    throw new Error('Non float value '+value+' where float expected');
+                } catch (e) {
+                    throw new Error('Non float value ' + value + ' where float expected');
                 }
             };
         };
