@@ -21,7 +21,7 @@ controlsDirectives.directive('uiCropBox', ['$timeout', '$parse', 'safeApply', 'n
                     }
                     func(mappedValue);
                 } catch (e) {
-                    throw new Error('Non float value ' + value + ' where float expected');
+                    throw new Error(`Non float value ${value} where float expected`);
                 }
             };
         };
