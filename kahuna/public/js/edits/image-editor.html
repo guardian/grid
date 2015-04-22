@@ -74,7 +74,8 @@
             with-batch="ctrl.withBatch"
         ></ui-required-metadata-editor>
 
-        <div class="result-editor__usage-rights-container drop-menu">
+        <div class="result-editor__usage-rights-container drop-menu"
+             ng:init="showUsageRights = false">
             <button ng:click="showUsageRights = !showUsageRights">
                 <span ng:hide="showUsageRights">▸</span>
                 <span ng:show="showUsageRights">▾</span>
