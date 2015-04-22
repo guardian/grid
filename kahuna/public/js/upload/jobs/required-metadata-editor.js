@@ -1,4 +1,5 @@
 import angular from 'angular';
+import 'angular-elastic';
 import template from './required-metadata-editor.html!text';
 
 import '../../edits/service';
@@ -6,7 +7,8 @@ import '../../forms/datalist';
 
 export var jobs = angular.module('kahuna.upload.jobs.requiredMetadataEditor', [
     'kahuna.edits.service',
-    'kahuna.forms.datalist'
+    'kahuna.forms.datalist',
+    'monospaced.elastic'
 ]);
 
 
@@ -132,4 +134,3 @@ jobs.controller('DescriptionPlaceholderCtrl',
     $scope.funnyDescription = [people, actions, things].map(random).join(' ');
 
 }]);
-

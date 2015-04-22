@@ -1,7 +1,10 @@
 import angular from 'angular';
+import 'angular-elastic';
 import template from './usage-rights-editor.html!text';
 
-export var usageRightsEditor = angular.module('kahuna.edits.usageRightsEditor', []);
+export var usageRightsEditor = angular.module('kahuna.edits.usageRightsEditor', [
+    'monospaced.elastic'
+]);
 
 usageRightsEditor.controller('UsageRightsEditorCtrl',
                              ['$window', '$timeout', 'editsService',
