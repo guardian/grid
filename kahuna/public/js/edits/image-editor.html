@@ -86,13 +86,14 @@
                  ng:show="showUsageRights">
 
                 <button type="button" class="drop-menu__close"
-                        ng:click="showUsageRights = !showUsageRights">
+                        ng:click="showUsageRights = false">
                         x
                 </button>
 
                 <gr:usage-rights-editor
                     gr:image="ctrl.image"
-                    gr:usage-rights="ctrl.image.data.userMetadata.data.usageRights">
+                    gr:usage-rights="ctrl.image.data.userMetadata.data.usageRights"
+                    gr:on-save="showUsageRights = false">
                 </gr:usage-rights-editor>
 
             </div>
