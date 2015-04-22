@@ -27,9 +27,11 @@
             <span ng:switch-when="conditional">Restrictions</span>
             <span ng:switch-default>Reason</span>
         </span>
-        <textarea class="ure__restrictions-text" required
-            ng:model="ctrl.usageRights.restrictions"
-            ng:disabled="ctrl.isDisabled()"></textarea>
+        <textarea class="ure__restrictions-text"
+                  required
+                  msd-elastic
+                  ng:model="ctrl.usageRights.restrictions"
+                  ng:disabled="ctrl.isDisabled()"></textarea>
     </label>
 
     <div class="ure__submit">
