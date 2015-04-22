@@ -94,6 +94,9 @@ textarea {
     padding: 5px;
     box-sizing: border-box;
 }
+textarea {
+    resize: vertical;
+}
 
 /* annoyingly we have to have these seperate as the moz-placeholder breaks the
 Chrome selector */
