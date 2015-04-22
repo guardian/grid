@@ -12,18 +12,18 @@ export var guDateRange = angular.module('gu-dateRange', []);
 guDateRange.controller('GuDateRangeCtrl', [function () {
     function getDateISOString (val) {
         return angular.isDefined(val) ? moment(val).toISOString() : undefined;
-    };
+    }
 
     var ctrl = this;
 
     ctrl.setDateRangeForDisplay = function () {
-        ctrl.guDisplayStartDate = angular.isDefined(ctrl.guStartDate)
-            ? moment(ctrl.guStartDate).format(ctrl.guDateFormat)
-            : ctrl.guAnyTimeText;
+        ctrl.guDisplayStartDate = angular.isDefined(ctrl.guStartDate) ?
+            moment(ctrl.guStartDate).format(ctrl.guDateFormat) :
+            ctrl.guAnyTimeText;
 
-        ctrl.guDisplayEndDate = angular.isDefined(ctrl.guEndDate)
-            ? moment(ctrl.guEndDate).format(ctrl.guDateFormat)
-            : undefined;
+        ctrl.guDisplayEndDate = angular.isDefined(ctrl.guEndDate) ?
+            moment(ctrl.guEndDate).format(ctrl.guDateFormat) :
+            undefined;
     };
 
     ctrl.setDateRange = function (start, end) {
@@ -118,22 +118,22 @@ guDateRange.directive('guDateRange', [function () {
                 pikaEnd.setDate(ctrl.guEndDate);
 
                 ctrl.closeOverlay();
-            };
+            }
 
             function getStartValue () {
                 var start = pikaStart.getDate();
                 return start ? moment(start).startOf('day').toDate() : undefined;
-            };
+            }
 
             function getEndValue () {
                 var end = pikaEnd.getDate();
                 return end ? moment(end).endOf('day').toDate() : undefined;
-            };
+            }
 
             function setPresetDate (preset) {
                 ctrl.save(preset);
                 resetView();
-            };
+            }
 
             function setCustomRange () {
                 var start = getStartValue();
@@ -146,12 +146,12 @@ guDateRange.directive('guDateRange', [function () {
             function clearStart () {
                 pikaStart.setDate();
                 pikaStart.gotoToday();
-            };
+            }
 
             function clearEnd () {
                 pikaEnd.setDate();
                 pikaEnd.gotoToday();
-            };
+            }
 
             $scope.cancel = resetView;
             $scope.save = setCustomRange;
