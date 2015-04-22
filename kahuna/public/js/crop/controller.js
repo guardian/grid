@@ -43,8 +43,6 @@ crop.controller('ImageCropCtrl',
         return tooSmall;
     };
 
-    $scope.reloadRoute = () => $state.reload();
-
     $scope.preCrop = () => { $scope.promptToCrop = $scope.imageCropCtrl.cropSizeWarning(); }
 
     $scope.crop = function() {

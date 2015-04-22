@@ -169,6 +169,7 @@ a:focus {
 
 .button--warning {
     background: darkred;
+    box-shadow: 0 2px #640000;
 }
 
 .button--warning:hover {

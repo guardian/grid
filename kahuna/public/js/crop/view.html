@@ -44,11 +44,11 @@
     </div>
 
     <div class="errors">
-        <div class="error" ng:if="promptToCrop">
+        <div class="error" ng:show="promptToCrop">
             This crop is very small and will result in a low-quality image. Are you sure you want to proceed?
             <div class="error__buttons">
                 <button class="error__button button-shy"
-                    ng:click="reloadRoute()"
+                    ng:click="promptToCrop = false"
                     ng:disabled="cropping">
                     back to crop
                 </button>
@@ -57,7 +57,7 @@
                     ng:click="crop()"
                     ng:disabled="cropping">
                     <span ng:show="cropping">cropping</span>
-                    <span ng:hide="cropping">crop anyway</span>
+                    <span ng:hide="cropping">complete this crop</span>
                 </button>
             </div>
         </div>
