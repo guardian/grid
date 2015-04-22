@@ -14,7 +14,8 @@
         "do",
         "switch",
         "try",
-        "catch"
+        "catch",
+        "finally"
     ],
 /* TODO: debate?
     "disallowSpacesInAnonymousFunctionExpression": {
