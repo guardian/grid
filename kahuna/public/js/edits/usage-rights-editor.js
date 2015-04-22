@@ -27,7 +27,10 @@ usageRightsEditor.controller('UsageRightsEditorCtrl',
                 uiSaved();
             }).
             catch(uiError).
-            finally(() => ctrl.saving = false);
+            finally(() => {
+                ctrl.saving = false;
+                ctrl.onSave();
+            });
     };
 
     ctrl.checkCategorySetOrDelete = () => {
@@ -82,7 +85,8 @@ usageRightsEditor.directive('grUsageRightsEditor', [function() {
         template: template,
         scope: {
             resource: '=grUsageRights',
-            image: '=grImage'
+            image: '=grImage',
+            onSave: '&?grOnSave'
         }
     };
 }]);
