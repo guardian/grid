@@ -28,6 +28,7 @@
     }
   },
   "devDependencies": {
+    "jscs": "^1.12.0",
     "jshint": "^2.5.11",
     "jspm": "~0.15.0"
   },
