@@ -2,12 +2,13 @@ import angular from 'angular';
 import 'angular-animate';
 import moment from 'moment';
 import '../util/eq';
+import '../components/gu-date-range/gu-date-range';
 import template from './query.html!text';
-
 
 export var query = angular.module('kahuna.search.query', [
     'ngAnimate',
-    'util.eq'
+    'util.eq',
+    'gu-dateRange'
 ]);
 
 query.controller('SearchQueryCtrl',
@@ -15,7 +16,9 @@ query.controller('SearchQueryCtrl',
                  function($scope, $state, $stateParams, onValChange , mediaApi) {
 
     var ctrl = this;
-    ctrl.uploadedByMe = false;
+    ctrl.filter = {
+        uploadedByMe: false
+    };
 
     ctrl.resetQueryAndFocus = resetQueryAndFocus;
 
@@ -23,11 +26,14 @@ query.controller('SearchQueryCtrl',
     // midnight for the local user
     var lastMidnight = moment().startOf('day').toISOString();
 
+    var past24Hours = moment().subtract(24, 'hours').toISOString();
+    var pastWeek = moment().subtract(7, 'days').toISOString();
+
     ctrl.sinceOptions = [
         {label: 'anytime'},   // value: undefined
         {label: 'today',         value: lastMidnight},
-        {label: 'past 24 hours', value: '24.hour'},
-        {label: 'past week',     value: '7.days'}
+        {label: 'past 24 hours', value: past24Hours},
+        {label: 'past week',     value: pastWeek}
     ];
 
     Object.keys($stateParams)
@@ -37,36 +43,27 @@ query.controller('SearchQueryCtrl',
     function valOrUndefined(str) { return str || undefined; }
 
     function setAndWatchParam(key) {
-        ctrl[key] = $stateParams[key];
-
-        // watch ctrl and stateParams for changes and apply them accordingly
-        $scope.$watch(() => ctrl[key], onValChange(newVal => {
-            $state.go('search.results', { [key]: valOrUndefined(newVal) });
-        }));
+        ctrl.filter[key] = $stateParams[key];
 
         $scope.$watch(() => $stateParams[key], onValChange(newVal => {
             ctrl[key] = valOrUndefined(newVal);
         }));
     }
 
+    $scope.$watchCollection(() => ctrl.filter, onValChange(filter => {
+        filter.uploadedBy = filter.uploadedByMe ? ctrl.user.email : undefined;
+        $state.go('search.results', filter);
+    }));
+
     // we can't user dynamic values in the ng:true-value see:
     // https://docs.angularjs.org/error/ngModel/constexpr
     mediaApi.getSession().then(session => {
         ctrl.user = session.user;
-        ctrl.uploadedByMe = ctrl.uploadedBy === ctrl.user.email;
+        ctrl.filter.uploadedByMe = ctrl.uploadedBy === ctrl.user.email;
     });
 
-    $scope.$watch(() => ctrl.uploadedByMe, onValChange(uploadedByMe => {
-        // uploadedByMe typeof boolean
-        if (uploadedByMe) {
-            ctrl.uploadedBy = ctrl.user.email;
-        } else {
-            delete ctrl.uploadedBy;
-        }
-    }));
-
     function resetQueryAndFocus() {
-        ctrl.query = '';
+        ctrl.filter.query = '';
         $scope.$broadcast('search:focus-query');
     }
 }]);

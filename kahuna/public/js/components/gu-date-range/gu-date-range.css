@@ -1,0 +1,60 @@
+.gu-date-range__display {
+    font-size: 14px;
+    height: 14px;
+    line-height: 14px;
+    padding: 5px;
+    border: 1px solid #999;
+    cursor: pointer;
+}
+
+.gu-date-range__display--value {
+    display: inline-block;
+}
+
+.gu-date-range__display__icon {
+    width: 20px;
+    text-align: center;
+    display: inline-block;
+}
+
+.gu-date-range__display__icon__toggle {
+    float: right;
+}
+
+.gu-date-range__overlay__pikaday {
+    padding-top: 20px;
+}
+
+.gu-date-range__overlay__pikaday__wrapper {
+    width: 258px;
+    display: inline-block;
+}
+
+.gu-date-range__overlay__pikaday__container {
+    width: 100%;
+    height: 228px;
+    margin-bottom: 5px;
+}
+
+.gu-date-range__overlay__buttons {
+    float: right;
+}
+
+.gu-date-range__overlay__preset__button,
+.gu-date-range__overlay__button__cancel,
+.gu-date-range__overlay__button__ok {
+    /* !important to override .button and .button-shy */
+    display: inline-block !important;
+}
+
+.gu-date-range__overlay__preset__button {
+    margin: 0px 5px;
+}
+
+.gu-date-range__overlay__preset__button:first-child {
+    margin-left: 0px;
+}
+
+.gu-date-range__overlay__preset__button:last-child {
+    margin-right: 0px;
+}
