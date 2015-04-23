@@ -439,16 +439,8 @@ input.search-query__input {
 }
 
 .advanced-search-help {
-    background-color: #333;
-    position: absolute;
     top: 49px;
-    padding: 10px;
     padding-right: 50px;
-    box-shadow: 0 1px 5px rgba(0, 0, 0, 0.4);
-}
-
-.advanced-search-help__title {
-    font-weight: bold;
 }
 
 .advanced-search-help__close {
@@ -480,7 +472,20 @@ input.search-query__input {
     margin: 0 10px;
 }
 
+.search__date {
+    display: inline-block;
+}
 
+.search__overlay {
+    background-color: #333;
+    box-shadow: 0 1px 5px rgba(0, 0, 0, 0.4);
+    padding: 10px;
+    position: absolute;
+}
+
+.search__overlay__title {
+    font-weight: bold;
+}
 
 /* ==========================================================================
    File uploader
