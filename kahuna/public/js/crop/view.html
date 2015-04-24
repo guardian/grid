@@ -11,12 +11,12 @@
 
                 <label class="top-bar__item">
                     <input type="radio" ng:model="imageCropCtrl.aspect" value="{{landscapeRatio}}" />
-                    landscape
+                    landscape ({{::imageCropCtrl.getRatioString(landscapeRatio)}})
                 </label>
 
                 <label class="top-bar__item">
                     <input type="radio" ng:model="imageCropCtrl.aspect" value="{{portraitRatio}}" />
-                    portrait
+                    portrait ({{::imageCropCtrl.getRatioString(portraitRatio)}})
                 </label>
 
                 <label class="top-bar__item">
