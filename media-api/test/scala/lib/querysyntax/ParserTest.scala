@@ -37,7 +37,6 @@ class ParserTest extends FunSpec with Matchers {
       //     Match(SingleField("uploaded"),
       //       DateRange(
       //         new DateTime("2014-01-01T01:23:45Z"),
-      //         // FIXME: would that match in ES?
       //         new DateTime("2014-01-01T01:23:45Z")
       //       )
       //     ))
@@ -226,6 +225,16 @@ class ParserTest extends FunSpec with Matchers {
             )
           ))
         )
+      }
+
+    }
+
+    describe("error") {
+
+      // FIXME: make this pass
+      it("should treat ignore an invalid date argument") {
+        // Parser.run("date:NAZGUL") should be (List(
+        // ))
       }
 
     }
