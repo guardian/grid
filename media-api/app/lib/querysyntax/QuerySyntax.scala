@@ -129,12 +129,3 @@ class QuerySyntax(val input: ParserInput) extends Parser {
 
 // TODO:
 // - is archived, has exports, has picdarUrn
-
-// new QuerySyntax("hello world by:me").Query.run()
-// hello world
-// hello -world
-// hello by:foo
-// "hello world" foo
-// ?  -"not this"
-// by:"foo bar"
-// -by:foo
