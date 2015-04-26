@@ -137,7 +137,18 @@ class ParserTest extends FunSpec with Matchers {
           ))
         )
       }
-      // TODO: date:yesterday
+
+      it("should match yesterday") {
+        Parser.run("date:yesterday") should be (List(
+          Match(SingleField("uploadTime"),
+            DateRange(
+              DateTime.now.minusDays(1).withTimeAtStartOfDay,
+              DateTime.now.withTimeAtStartOfDay.minusMillis(1)
+            )
+          ))
+        )
+      }
+
       // TODO: date:"last week"
       // TODO: date:last.week
       // TODO: date:last.three.hours
