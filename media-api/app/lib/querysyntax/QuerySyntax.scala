@@ -16,7 +16,11 @@ class QuerySyntax(val input: ParserInput) extends Parser {
   def NegatedFilter = rule { '-' ~ Filter ~> Negation }
 
 
-  def Filter = rule { ScopedMatch ~> Match | DateMatch ~> Match | HashMatch | AnyMatch }
+  def Filter = rule {
+    ScopedMatch ~> Match | HashMatch |
+    DateMatch ~> Match | AtMatch |
+    AnyMatch
+  }
 
   def ScopedMatch = rule { MatchField ~ ':' ~ MatchValue }
   def HashMatch = rule { '#' ~ MatchValue ~> (label => Match(SingleField("labels"), label)) }
@@ -53,8 +57,12 @@ class QuerySyntax(val input: ParserInput) extends Parser {
 
   def String = rule { capture(Chars) }
 
-  // TODO: also comparisons, also @shortcut
+
+  // TODO: also comparisons
   def DateMatch = rule { MatchDateField ~ ':' ~ MatchDateValue }
+
+  def AtMatch = rule { '@' ~ MatchDateValue ~> (range => Match(SingleField("uploadTime"), range)) }
+
   def MatchDateField = rule { capture(AllowedDateFieldName) ~> resolveDateField _ }
 
   def resolveDateField(name: String): Field = name match {

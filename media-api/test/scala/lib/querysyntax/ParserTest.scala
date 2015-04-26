@@ -184,16 +184,16 @@ class ParserTest extends FunSpec with Matchers {
 
     describe("shortcut and facets") {
 
-      // it("should match '@' shortcut") {
-      //   Parser.run("@2014-01-01") should be (List(
-      //     Match(SingleField("uploadTime"),
-      //       DateRange(
-      //         new DateTime("2014-01-01T00:00:00.000Z"),
-      //         new DateTime("2014-01-01T23:59:59.999Z")
-      //       )
-      //     ))
-      //   )
-      // }
+      it("should match '@' shortcut") {
+        Parser.run("@2014-01-01") should be (List(
+          Match(SingleField("uploadTime"),
+            DateRange(
+              new DateTime("2014-01-01T00:00:00.000Z"),
+              new DateTime("2014-01-01T23:59:59.999Z")
+            )
+          ))
+        )
+      }
 
       it("should match uploaded facet term") {
         Parser.run("uploaded:2014-01-01") should be (List(
