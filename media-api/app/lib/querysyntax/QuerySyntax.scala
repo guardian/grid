@@ -110,7 +110,7 @@ class QuerySyntax(val input: ParserInput) extends Parser {
 
   def Whitespace = rule { oneOrMore(' ') }
   // any character except quotes
-  def Chars      = rule { oneOrMore(CharPredicate.Visible -- '"' -- '\'') }
+  def Chars      = rule { oneOrMore(CharPredicate.Visible -- DoubleQuote -- SingleQuote) }
 }
 
 // TODO:
