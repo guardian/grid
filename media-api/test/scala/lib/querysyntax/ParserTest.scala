@@ -20,6 +20,10 @@ class ParserTest extends FunSpec with Matchers with BeforeAndAfter {
       // FIXME: or should it be Words("cats dogs") ?
     }
 
+    it("should match multiple terms separated by multiple whitespace") {
+      Parser.run("cats  dogs") should be (List(Match(AnyField, Words("cats")), Match(AnyField, Words("dogs"))))
+    }
+
     it("should match multiple terms including 'in'") {
       Parser.run("cats in dogs") should be (List(Match(AnyField, Words("cats")), Match(AnyField, Words("in")), Match(AnyField, Words("dogs"))))
       // FIXME: query results?
