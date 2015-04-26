@@ -83,7 +83,7 @@ class QuerySyntax(val input: ParserInput) extends Parser {
   }
   val yesterdayParser = {
     val today = DateTime.now.withTimeAtStartOfDay
-    DateAliasParser("today", today.minusDays(1), today.minusMillis(1))
+    DateAliasParser("yesterday", today.minusDays(1), today.minusMillis(1))
   }
   val humanDateParser  = DateRangeFormatParser("dd MMMMM YYYY", _.plusDays(1))
   val isoDateParser    = DateRangeFormatParser("YYYY-MM-dd", _.plusDays(1))
