@@ -229,12 +229,14 @@ class ParserTest extends FunSpec with Matchers {
 
     }
 
+
     describe("error") {
 
-      // FIXME: make this pass
-      it("should treat ignore an invalid date argument") {
-        // Parser.run("date:NAZGUL") should be (List(
-        // ))
+      // TODO: or better, return parse error to client?
+      it("should ignore an invalid date argument") {
+        Parser.run("date:NAZGUL") should be (List(
+          Match(AnyField, Words("date:NAZGUL"))
+        ))
       }
 
     }
