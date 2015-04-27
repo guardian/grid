@@ -23,7 +23,7 @@ object ImageMetadataConverter {
       copyright           = fileMetadata.exif.get("Copyright") orElse fileMetadata.iptc.get("Copyright Notice"),
       // Note: this will be filled in by the supplier parsers
       supplier            = None,
-      collection          = None,
+      suppliersCollection = None,
       suppliersReference  = fileMetadata.iptc.get("Original Transmission Reference") orElse fileMetadata.iptc.get("Object Name"),
       source              = fileMetadata.iptc.get("Source"),
       specialInstructions = fileMetadata.iptc.get("Special Instructions"),
