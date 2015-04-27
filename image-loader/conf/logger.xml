@@ -2,14 +2,28 @@
 
     <contextName>image-loader</contextName>
 
+    <appender name="LOGFILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>${application.home}/logs/application.log</file>
+
+        <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+            <fileNamePattern>${application.home}/logs/application.log.%d{yyyy-MM-dd}.gz</fileNamePattern>
+            <maxHistory>7</maxHistory>
+        </rollingPolicy>
+
+        <encoder>
+            <pattern>%date - [%level] - from %logger in %thread %n%message%n%xException%n</pattern>
+        </encoder>
+    </appender>
+
     <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
         <encoder>
             <pattern>%date [%thread] %-5level GUUID=%X{GUUID} %logger{36}:%L - %msg%n%xException{15}</pattern>
         </encoder>
     </appender>
 
-    <root level="DEBUG">
+    <root level="ERROR">
         <appender-ref ref="CONSOLE"/>
+        <appender-ref ref="LOGFILE"/>
     </root>
 
 </configuration>
