@@ -51,7 +51,7 @@
     "lint": "jscs --esnext public/js/ && jshint public/js --exclude public/js/dist/build.js",
     "ci": "jspm config endpoints.github.auth `echo -n JSPM_GITHUB_AUTH_USERNAME:$JSPM_GITHUB_AUTH_TOKEN | base64`",
     "dist": "jspm bundle js/main public/js/dist/build.js -m --inject",
-    "undist": "jspm unbundle"
+    "undist": "jspm unbundle && rm -f public/js/dist/build.js*"
   },
   "repository": {
     "type": "git",
