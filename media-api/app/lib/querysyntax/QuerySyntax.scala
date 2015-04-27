@@ -67,7 +67,7 @@ class QuerySyntax(val input: ParserInput) extends Parser {
 
   def resolveDateField(name: String): Field = name match {
     case "date" | "uploaded" => SingleField("uploadTime")
-    case fieldName           => SingleField(fieldName)
+    case "taken"             => SingleField("dateTaken")
   }
 
   def AllowedDateFieldName = rule { "date" | "uploaded" | "taken" }

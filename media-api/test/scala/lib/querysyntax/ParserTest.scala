@@ -218,7 +218,7 @@ class ParserTest extends FunSpec with Matchers {
 
       it("should match taken facet term") {
         Parser.run("taken:2014-01-01") should be (List(
-          Match(SingleField("taken"),
+          Match(SingleField("dateTaken"),
             DateRange(
               new DateTime("2014-01-01T00:00:00.000Z"),
               new DateTime("2014-01-01T23:59:59.999Z")
