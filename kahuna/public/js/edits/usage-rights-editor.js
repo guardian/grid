@@ -24,10 +24,13 @@ usageRightsEditor.controller('UsageRightsEditorCtrl',
             update(ctrl.resource, ctrl.usageRights, ctrl.image).
             then(resource => {
                 updateResourceAndModel(resource);
+                ctrl.onSave();
                 uiSaved();
             }).
             catch(uiError).
-            finally(() => ctrl.saving = false);
+            finally(() => {
+                ctrl.saving = false;
+            });
     };
 
     ctrl.checkCategorySetOrDelete = () => {
@@ -82,7 +85,8 @@ usageRightsEditor.directive('grUsageRightsEditor', [function() {
         template: template,
         scope: {
             resource: '=grUsageRights',
-            image: '=grImage'
+            image: '=grImage',
+            onSave: '&?grOnSave'
         }
     };
 }]);
