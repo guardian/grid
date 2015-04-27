@@ -6,8 +6,10 @@ import play.api.{Application, GlobalSettings}
 import play.api.mvc.WithFilters
 import play.filters.gzip.GzipFilter
 
+import com.gu.mediaservice.lib.play.RequestLoggingFilter
 
-object Global extends WithFilters(CorsFilter, new GzipFilter) with GlobalSettings {
+
+object Global extends WithFilters(CorsFilter, RequestLoggingFilter, new GzipFilter) with GlobalSettings {
 
   override def beforeStart(app: Application) {
     ElasticSearch.ensureAliasAssigned()
