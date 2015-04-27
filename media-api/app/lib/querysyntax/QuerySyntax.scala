@@ -73,7 +73,10 @@ class QuerySyntax(val input: ParserInput) extends Parser {
   def AllowedDateFieldName = rule { "date" | "uploaded" | "taken" }
 
 
-  def MatchDateValue = rule { (String | QuotedString) ~> normaliseDateExpr _ ~> parseDateRange _ }
+  def MatchDateValue = rule {
+    // TODO: needed to ignore invalid dates, but code could be cleaner
+    (String | QuotedString) ~> normaliseDateExpr _ ~> parseDateRange _ ~> (d => test(d.isDefined) ~ push(d.get))
+  }
 
   def normaliseDateExpr(expr: String): String = expr.replaceAll("\\.", " ")
 
@@ -98,12 +101,10 @@ class QuerySyntax(val input: ParserInput) extends Parser {
     yearParser
   )
 
-  def parseDateRange(expr: String): DateRange = {
-    val parsedRange = dateRangeParsers.foldLeft[Option[DateRange]](None) { case (res, parser) =>
+  def parseDateRange(expr: String): Option[DateRange] = {
+    dateRangeParsers.foldLeft[Option[DateRange]](None) { case (res, parser) =>
       res orElse parser.parse(expr)
     }
-    // FIXME: how to backtrack if no match? or just generate "something"?
-    parsedRange.getOrElse(throw new Error("avoid match?"))
   }
 
 
