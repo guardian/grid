@@ -267,7 +267,7 @@ object Application extends Controller with ArgoHelpers {
       "copyrightNotice" -> optional(text),
       "copyright" -> optional(text),
       "supplier" -> optional(text),
-      "collection" -> optional(text),
+      "suppliersCollection" -> optional(text),
       "suppliersReference" -> optional(text),
       "source" -> optional(text),
       "specialInstructions" -> optional(text),

@@ -131,7 +131,7 @@ trait PicdarApi extends HttpClient with PicdarInterface with LogHelper {
         copyrightNotice     = None,
         copyright           = extractField(record, "Copyright"),
         supplier            = None,
-        collection          = None,
+        suppliersCollection = None,
         suppliersReference  = extractField(record, "Reference no."),
         source              = extractField(record, "Source"),
         specialInstructions = None,
