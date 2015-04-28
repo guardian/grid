@@ -3,6 +3,7 @@ import angular from 'angular';
 import './controller';
 import '../search/query-filter';
 import '../imgops/service';
+import 'angular-xeditable';
 
 import imageTemplate from './view.html!text';
 import imageErrorTemplate from './image-error.html!text';
@@ -11,7 +12,8 @@ import imageErrorTemplate from './image-error.html!text';
 export var image = angular.module('kahuna.image', [
     'kahuna.image.controller',
     'kahuna.search.filters.query',
-    'kahuna.imgops'
+    'kahuna.imgops',
+    'xeditable'
 ]);
 
 
