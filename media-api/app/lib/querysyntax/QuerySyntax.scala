@@ -1,5 +1,9 @@
 package lib.querysyntax
 
+import scala.util.Try
+
+import org.joda.time.DateTime
+import org.joda.time.format.{DateTimeFormatter, DateTimeFormat}
 import org.parboiled2._
 
 class QuerySyntax(val input: ParserInput) extends Parser {
@@ -12,7 +16,11 @@ class QuerySyntax(val input: ParserInput) extends Parser {
   def NegatedFilter = rule { '-' ~ Filter ~> Negation }
 
 
-  def Filter = rule { ScopedMatch ~> Match | HashMatch | AnyMatch }
+  def Filter = rule {
+    ScopedMatch ~> Match | HashMatch |
+    DateMatch ~> Match | AtMatch |
+    AnyMatch
+  }
 
   def ScopedMatch = rule { MatchField ~ ':' ~ MatchValue }
   def HashMatch = rule { '#' ~ MatchValue ~> (label => Match(SingleField("labels"), label)) }
@@ -49,6 +57,61 @@ class QuerySyntax(val input: ParserInput) extends Parser {
 
   def String = rule { capture(Chars) }
 
+
+  // TODO: also comparisons
+  def DateMatch = rule { MatchDateField ~ ':' ~ MatchDateValue }
+
+  def AtMatch = rule { '@' ~ MatchDateValue ~> (range => Match(SingleField("uploadTime"), range)) }
+
+  def MatchDateField = rule { capture(AllowedDateFieldName) ~> resolveDateField _ }
+
+  def resolveDateField(name: String): Field = name match {
+    case "date" | "uploaded" => SingleField("uploadTime")
+    case "taken"             => SingleField("dateTaken")
+  }
+
+  def AllowedDateFieldName = rule { "date" | "uploaded" | "taken" }
+
+
+  def MatchDateValue = rule {
+    // TODO: needed to ignore invalid dates, but code could be cleaner
+    (String | QuotedString) ~> normaliseDateExpr _ ~> parseDateRange _ ~> (d => test(d.isDefined) ~ push(d.get))
+  }
+
+  def normaliseDateExpr(expr: String): String = expr.replaceAll("\\.", " ")
+
+  val todayParser = {
+    val today = DateTime.now.withTimeAtStartOfDay
+    DateAliasParser("today", today, today.plusDays(1).minusMillis(1))
+  }
+  val yesterdayParser = {
+    val today = DateTime.now.withTimeAtStartOfDay
+    DateAliasParser("yesterday", today.minusDays(1), today.minusMillis(1))
+  }
+  val humanDateParser  = DateRangeFormatParser("dd MMMMM YYYY", _.plusDays(1))
+  val slashDateParser  = DateRangeFormatParser("d/M/YYYY", _.plusDays(1))
+  val paddedslashDateParser = DateRangeFormatParser("dd/MM/YYYY", _.plusDays(1))
+  val isoDateParser    = DateRangeFormatParser("YYYY-MM-dd", _.plusDays(1))
+  val humanMonthParser = DateRangeFormatParser("MMMMM YYYY", _.plusMonths(1))
+  val yearParser       = DateRangeFormatParser("YYYY", _.plusYears(1))
+  val dateRangeParsers: List[DateRangeParser] = List(
+    todayParser,
+    yesterdayParser,
+    humanDateParser,
+    slashDateParser,
+    paddedslashDateParser,
+    isoDateParser,
+    humanMonthParser,
+    yearParser
+  )
+
+  def parseDateRange(expr: String): Option[DateRange] = {
+    dateRangeParsers.foldLeft[Option[DateRange]](None) { case (res, parser) =>
+      res orElse parser.parse(expr)
+    }
+  }
+
+
   // Quoted strings
   def SingleQuote = "'"
   def DoubleQuote = "\""
@@ -60,13 +123,10 @@ class QuerySyntax(val input: ParserInput) extends Parser {
 
   def Whitespace = rule { oneOrMore(' ') }
   // any character except quotes
-  def Chars      = rule { oneOrMore(CharPredicate.Visible -- '"' -- '\'') }
+  def Chars      = rule { oneOrMore(CharPredicate.Visible -- DoubleQuote -- SingleQuote) }
 }
 
 // TODO:
-// - uploaded: as alias for uploadedBy top-level field
-// - date uploaded (exact, range, expression (@today?))
-// - date taken (~)
 // - is archived, has exports, has picdarUrn
 
 // new QuerySyntax("hello world by:me").Query.run()
