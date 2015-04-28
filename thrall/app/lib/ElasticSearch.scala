@@ -157,7 +157,7 @@ object ElasticSearch extends ElasticSearchClient {
   // from the original metadata and the overrides
   private val refreshMetadataScript =
     """| ctx._source.metadata = ctx._source.originalMetadata;
-       | if (ctx._source.userMetadata.metadata) {
+       | if (ctx._source.userMetadata && ctx._source.userMetadata.metadata) {
        |   ctx._source.metadata += ctx._source.userMetadata.metadata;
        | }
     """.stripMargin
