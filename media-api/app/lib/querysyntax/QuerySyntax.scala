@@ -89,6 +89,8 @@ class QuerySyntax(val input: ParserInput) extends Parser {
     DateAliasParser("yesterday", today.minusDays(1), today.minusMillis(1))
   }
   val humanDateParser  = DateRangeFormatParser("dd MMMMM YYYY", _.plusDays(1))
+  val slashDateParser  = DateRangeFormatParser("d/M/YYYY", _.plusDays(1))
+  val paddedslashDateParser = DateRangeFormatParser("dd/MM/YYYY", _.plusDays(1))
   val isoDateParser    = DateRangeFormatParser("YYYY-MM-dd", _.plusDays(1))
   val humanMonthParser = DateRangeFormatParser("MMMMM YYYY", _.plusMonths(1))
   val yearParser       = DateRangeFormatParser("YYYY", _.plusYears(1))
@@ -96,6 +98,8 @@ class QuerySyntax(val input: ParserInput) extends Parser {
     todayParser,
     yesterdayParser,
     humanDateParser,
+    slashDateParser,
+    paddedslashDateParser,
     isoDateParser,
     humanMonthParser,
     yearParser
