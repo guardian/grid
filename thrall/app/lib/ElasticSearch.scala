@@ -120,17 +120,12 @@ object ElasticSearch extends ElasticSearchClient {
         "userMetadata" -> asGroovy(metadata),
         "lastModified" -> asGroovy(JsString(currentIsoDateString))
       ).asJava)
-      // TODO: if metadata not set, should undo overrides?
-      // TODO: apply overrides from the original metadata each time?
-      .setScript("""
-                    if (userMetadata.metadata) {
-                      ctx._source.metadata += userMetadata.metadata;
-                    }
-
-                    ctx._source.userMetadata = userMetadata;
-                    ctx._source.lastModified = lastModified;
-                 """, scriptType)
-      .executeAndLog(s"overriding user metadata on image $id")
+      .setScript(
+        "ctx._source.userMetadata = userMetadata;" +
+          refreshMetadataScript +
+          updateLastModifiedScript,
+        scriptType)
+      .executeAndLog(s"updating user metadata on image $id")
       .incrementOnFailure(conflicts) { case e: VersionConflictEngineException => true }
 
   def prepareImageUpdate(id: String): UpdateRequestBuilder =
@@ -159,5 +154,19 @@ object ElasticSearch extends ElasticSearchClient {
 
     image.transform(removeUploadInformation).get
   }
+
+  // Script that refreshes the "metadata" object by recomputing it
+  // from the original metadata and the overrides
+  private val refreshMetadataScript =
+    """| ctx._source.metadata = ctx._source.originalMetadata;
+       | if (ctx._source.userMetadata.metadata) {
+       |   ctx._source.metadata += ctx._source.userMetadata.metadata;
+       | }
+    """.stripMargin
+
+  // Script that updates the "lastModified" property using the "lastModified" parameter
+  private val updateLastModifiedScript =
+    """| ctx._source.lastModified = lastModified;
+    """.stripMargin
 
 }
