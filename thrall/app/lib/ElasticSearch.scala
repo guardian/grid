@@ -85,15 +85,16 @@ object ElasticSearch extends ElasticSearchClient {
         "exports" -> asGroovy(exports),
         "lastModified" -> asGroovy(JsString(currentIsoDateString))
       ).asJava)
-      .setScript("""
+      .setScript(
+        """
                     if (ctx._source.exports == null) {
                       ctx._source.exports = exports;
                     } else {
                       ctx._source.exports += exports;
                     }
-
-                    ctx._source.lastModified = lastModified;
-                 """, scriptType)
+                 """ +
+          updateLastModifiedScript,
+        scriptType)
       .executeAndLog(s"updating exports on image $id")
       .incrementOnFailure(conflicts) { case e: VersionConflictEngineException => true }
 
