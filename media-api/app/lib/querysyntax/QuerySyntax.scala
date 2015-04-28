@@ -53,13 +53,7 @@ class QuerySyntax(val input: ParserInput) extends Parser {
   def AnyMatch = rule { MatchValue ~> (v => Match(AnyField, v)) }
 
 
-  // Note: order matters, check for quoted string first
-  def MatchValue = rule {
-    QuotedString ~> Phrase |
-    StringSequence ~> (words => Words(words.mkString(" ")))
-  }
-
-  def StringSequence = rule { oneOrMore(String) separatedBy Whitespace }
+  def MatchValue = rule { QuotedString ~> Phrase | String ~> Words }
 
   def String = rule { capture(Chars) }
 
@@ -80,9 +74,8 @@ class QuerySyntax(val input: ParserInput) extends Parser {
 
 
   def MatchDateValue = rule {
-    // Note: order matters, check for quoted string first
     // TODO: needed to ignore invalid dates, but code could be cleaner
-    (QuotedString | String) ~> normaliseDateExpr _ ~> parseDateRange _ ~> (d => test(d.isDefined) ~ push(d.get))
+    (String | QuotedString) ~> normaliseDateExpr _ ~> parseDateRange _ ~> (d => test(d.isDefined) ~ push(d.get))
   }
 
   def normaliseDateExpr(expr: String): String = expr.replaceAll("\\.", " ")
@@ -129,8 +122,18 @@ class QuerySyntax(val input: ParserInput) extends Parser {
   def NotDoubleQuote = rule { oneOrMore(noneOf(DoubleQuote)) }
 
   def Whitespace = rule { oneOrMore(' ') }
-  def Chars      = rule { oneOrMore(CharPredicate.Visible) }
+  // any character except quotes
+  def Chars      = rule { oneOrMore(CharPredicate.Visible -- DoubleQuote -- SingleQuote) }
 }
 
 // TODO:
 // - is archived, has exports, has picdarUrn
+
+// new QuerySyntax("hello world by:me").Query.run()
+// hello world
+// hello -world
+// hello by:foo
+// "hello world" foo
+// ?  -"not this"
+// by:"foo bar"
+// -by:foo
