@@ -100,18 +100,16 @@ object ElasticSearch extends ElasticSearchClient {
   def updateImageMetadata(id: String, metadata: JsValue)(implicit ex: ExecutionContext): Future[UpdateResponse] =
     prepareImageUpdate(id)
       .setScriptParams(Map(
-        "userMetadata" -> asGroovy(metadata)
+        "metadata" -> asGroovy(metadata),
+        "lastModified" -> asGroovy(JsString(currentIsoDateString))
       ).asJava)
       // replace metadata, then merge in edits
       .setScript(
-        """
-          ctx._source.metadata = userMetadata;
-          ctx._source.originalMetadata = userMetadata;
-          if (ctx._source.userMetadata.metadata) {
-            ctx._source.metadata += ctx._source.userMetadata.metadata;
-          }
-        """.stripMargin, scriptType)
-      .executeAndLog(s"updating user metadata on image $id")
+        "ctx._source.originalMetadata = metadata;" +
+          refreshMetadataScript +
+          updateLastModifiedScript,
+        scriptType)
+      .executeAndLog(s"updating image metadata on image $id")
       .incrementOnFailure(conflicts) { case e: VersionConflictEngineException => true }
 
   def applyImageMetadataOverride(id: String, metadata: JsValue)(implicit ex: ExecutionContext): Future[UpdateResponse] =
