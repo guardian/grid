@@ -41,8 +41,26 @@ object ElasticSearch extends ElasticSearchClient {
 
   def indexImage(id: String, image: JsValue)(implicit ex: ExecutionContext): Future[UpdateResponse] =
     client.prepareUpdate(imagesAlias, imageType, id)
-      .setDoc(Json.stringify(asImageUpdate(image)))
+      // Use upsert: if not present, will index the argument (the image)
       .setUpsert(Json.stringify(image))
+      // if already present, will run the script with the provided parameters
+      .setScriptParams(Map(
+        "doc" -> asGroovy(asImageUpdate(image)),
+        "lastModified" -> asGroovy(JsString(currentIsoDateString))
+      ).asJava)
+      .setScript(
+        // Note: we merge old and new identifiers (in that order) to make easier to re-ingest
+        // images without forwarding any existing identifiers.
+        """ | previousIdentifiers = ctx._source.identifiers;
+            | ctx._source += doc;
+            | if (previousIdentifiers) {
+            |   ctx._source.identifiers += previousIdentifiers;
+            |   ctx._source.identifiers += doc.identifiers;
+            | }
+            |""".stripMargin +
+          refreshMetadataScript +
+          updateLastModifiedScript,
+        scriptType)
       .executeAndLog(s"Indexing image $id")
       .incrementOnSuccess(indexedImages)
 
