@@ -1,9 +1,10 @@
 package lib.querysyntax
 
-import org.scalatest.{FunSpec, Matchers}
+import org.scalatest.{FunSpec, Matchers, BeforeAndAfter}
 import org.joda.time.DateTime
+import org.joda.time.DateTimeUtils
 
-class ParserTest extends FunSpec with Matchers {
+class ParserTest extends FunSpec with Matchers with BeforeAndAfter {
 
   describe("text") {
     it("should match single terms") {
@@ -148,12 +149,22 @@ class ParserTest extends FunSpec with Matchers {
 
 
     describe("relative") {
+      // Mock current time so we can assert based on the fake "now"
+      before {
+        val earlyMillenium = new DateTime("2000-01-02T03:04:05Z")
+        DateTimeUtils.setCurrentMillisFixed(earlyMillenium.getMillis)
+      }
+
+      after {
+        DateTimeUtils.setCurrentMillisSystem()
+      }
+
       it("should match today") {
         Parser.run("date:today") should be (List(
           Match(SingleField("uploadTime"),
             DateRange(
-              DateTime.now.withTimeAtStartOfDay,
-              DateTime.now.plusDays(1).withTimeAtStartOfDay.minusMillis(1)
+              new DateTime("2000-01-02T00:00:00.000Z"),
+              new DateTime("2000-01-02T23:59:59.999Z")
             )
           ))
         )
@@ -163,8 +174,8 @@ class ParserTest extends FunSpec with Matchers {
         Parser.run("date:yesterday") should be (List(
           Match(SingleField("uploadTime"),
             DateRange(
-              DateTime.now.minusDays(1).withTimeAtStartOfDay,
-              DateTime.now.withTimeAtStartOfDay.minusMillis(1)
+              new DateTime("2000-01-01T00:00:00.000Z"),
+              new DateTime("2000-01-01T23:59:59.999Z")
             )
           ))
         )
