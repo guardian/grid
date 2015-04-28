@@ -170,6 +170,14 @@ a:focus {
     background: #888;
 }
 
+.button--warning {
+    background: darkred;
+    box-shadow: 0 2px #640000;
+}
+
+.button--warning:hover {
+    background: #660000;
+}
 
 .loader {
     text-align: center;
@@ -277,7 +285,7 @@ textarea.ng-invalid {
 .top-bar-wrapper {
     height: 48px; /* faking we're in the flow */
     position: relative;
-    z-index: 1;
+    z-index: 2; /* bump the z-index above .errors*/
 }
 
 .top-bar {
@@ -354,10 +362,24 @@ textarea.ng-invalid {
     border-radius: 5px;
 }
 
+.errors {
+    position: absolute;
+    z-index: 1;
+    width: 100%;
+}
+
 .error {
     background: darkred;
     color: white;
     padding: 20px 40px;
+}
+
+.error__buttons {
+    float: right;
+}
+
+.error__button {
+    display: inline-block;
 }
 
 .full-error {

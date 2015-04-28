@@ -26,9 +26,17 @@
                 <div class="top-bar__item">
                     <button class="button"
                             type="button"
+                            ng:show="!imageCropCtrl.cropSizeWarning()"
                             ng:click="crop()"
                             ng:disabled="cropping">
                             crop<span ng:show="cropping">ping…</span></button>
+
+                    <button class="button button--warning"
+                            ng:show="imageCropCtrl.cropSizeWarning()"
+                            ng:click="preCrop()"
+                            ng:disabled="cropping">
+                            crop<span ng:show="cropping">ping…</span></button>
+                    </button>
                 </div>
             </div>
             <ui-user-actions></ui-user-actions>
@@ -36,7 +44,23 @@
     </div>
 
     <div class="errors">
-        <div class="error" ng:if="imageCropCtrl.cropSizeWarning()">This crop is too small for us to produce an image. Please try to use a larger crop.</div>
+        <div class="error" ng:show="promptToCrop">
+            This crop is very small and will result in a low-quality image. Are you sure you want to proceed?
+            <div class="error__buttons">
+                <button class="error__button button-shy"
+                    ng:click="promptToCrop = false"
+                    ng:disabled="cropping">
+                    back to crop
+                </button>
+
+                <button class="error__button button"
+                    ng:click="crop()"
+                    ng:disabled="cropping">
+                    <span ng:show="cropping">cropping</span>
+                    <span ng:hide="cropping">complete this crop</span>
+                </button>
+            </div>
+        </div>
     </div>
 
     <div class="easel" ng:if="image.data">
