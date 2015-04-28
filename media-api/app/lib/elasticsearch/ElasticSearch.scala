@@ -3,7 +3,7 @@ package lib.elasticsearch
 import java.util.regex.Pattern
 
 import com.gu.mediaservice.model.{Pay, Free, Conditional}
-import org.elasticsearch.index.query.{MultiMatchQueryBuilder, FilterBuilders, FilterBuilder}
+import org.elasticsearch.index.query.{MatchQueryBuilder, MultiMatchQueryBuilder, FilterBuilders, FilterBuilder}
 import org.elasticsearch.search.aggregations.bucket.terms.StringTerms
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -67,7 +67,8 @@ object ElasticSearch extends ElasticSearchClient {
     new MultiMatchQueryBuilder(value, fields: _*).`type`(MultiMatchQueryBuilder.Type.PHRASE)
 
   def makeMultiQuery(value: Value, fields: Seq[String]) = value match {
-    case Words(string) => multiMatchQuery(string, fields: _*)
+    // Force AND operator else it will only require *any* of the words, not *all*
+    case Words(string) => multiMatchQuery(string, fields: _*).operator(MatchQueryBuilder.Operator.AND)
     case Phrase(string) => multiMatchPhraseQuery(string, fields)
     // That's OK, we only do date queries on a single field at a time
     case DateRange(start, end) => throw InvalidQuery("Cannot do multiQuery on date range")
@@ -77,7 +78,8 @@ object ElasticSearch extends ElasticSearchClient {
     case AnyField              => makeMultiQuery(condition.value, matchFields)
     case MultipleField(fields) => makeMultiQuery(condition.value, fields)
     case SingleField(field)    => condition.value match {
-      case Words(value)  => matchQuery(field, value)
+      // Force AND operator else it will only require *any* of the words, not *all*
+      case Words(value)  => matchQuery(field, value).operator(MatchQueryBuilder.Operator.AND)
       case Phrase(value) => matchPhraseQuery(field, value)
       case DateRange(start, end) => rangeQuery(field).from(start.toString).to(end.toString)
     }
