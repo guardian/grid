@@ -11,10 +11,9 @@ import play.api.libs.functional.syntax._
 case class Edits(
   archived: Boolean = false,
   labels: List[String] = List(),
-  rights: List[String] = List(),
   metadata: ImageMetadata,
   usageRights: Option[UsageRights] = None
-  )
+)
 
 object Edits {
   type ArchivedEntity = EmbeddedEntity[Boolean]
@@ -25,7 +24,6 @@ object Edits {
   implicit val EditsReads: Reads[Edits] = (
     (__ \ "archived").readNullable[Boolean].map(_ getOrElse false) ~
     (__ \ "labels").readNullable[List[String]].map(_ getOrElse Nil) ~
-    (__ \ "rights").readNullable[List[String]].map(_ getOrElse Nil) ~
     (__ \ "metadata").readNullable[ImageMetadata].map(_ getOrElse emptyMetadata) ~
     (__ \ "usageRights").readNullable[UsageRights]
   )(Edits.apply _)
@@ -33,7 +31,6 @@ object Edits {
   implicit val EditsWrites: Writes[Edits] = (
       (__ \ "archived").write[Boolean] ~
       (__ \ "labels").write[List[String]] ~
-      (__ \ "rights").write[List[String]] ~
       (__ \ "metadata").writeNullable[ImageMetadata].contramap(noneIfEmptyMetadata) ~
       (__ \ "usageRights").writeNullable[UsageRights]
     )(unlift(Edits.unapply))
@@ -42,7 +39,6 @@ object Edits {
   def EditsWritesArgo(id: String): Writes[Edits] = (
       (__ \ "archived").write[ArchivedEntity].contramap(archivedEntity(id, _: Boolean)) ~
       (__ \ "labels").write[SetEntity].contramap(setEntity(id, "labels", _: List[String])) ~
-      (__ \ "rights").write[SetEntity].contramap(setEntity(id, "rights", _: List[String])) ~
       (__ \ "metadata").writeNullable[MetadataEntity].contramap(metadataEntity(id, _: ImageMetadata)) ~
       (__ \ "usageRights").writeNullable[UsageRightsEntity].contramap(usageRightsEntity(id, _: Option[UsageRights]))
     )(unlift(Edits.unapply))
