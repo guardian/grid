@@ -3,7 +3,7 @@ package com.gu.mediaservice.picdarexport.lib.media
 import java.net.URI
 
 import com.gu.mediaservice.lib.formatting._
-import com.gu.mediaservice.model.ImageMetadata
+import com.gu.mediaservice.model.{FileMetadata, ImageMetadata}
 import play.api.libs.json._
 import play.api.libs.functional.syntax._
 
@@ -21,7 +21,12 @@ object ImageResource {
 }
 
 
-case class Image(metadata: ImageMetadata, originalMetadata: ImageMetadata, metadataOverrideUri: URI)
+case class Image(
+  metadata: ImageMetadata,
+  originalMetadata: ImageMetadata,
+  fileMetadata: FileMetadata,
+  metadataOverrideUri: URI
+)
 
 object Image {
 
@@ -30,6 +35,7 @@ object Image {
   implicit val ImageReads: Reads[Image] =
     ((__ \ "metadata").read[ImageMetadata] ~
       (__ \ "originalMetadata").read[ImageMetadata] ~
+      (__ \ "fileMetadata").read[FileMetadata] ~
       (__ \ "userMetadata" \ "data" \ "metadata" \ "uri").read[URI]
     )(Image.apply _)
 }

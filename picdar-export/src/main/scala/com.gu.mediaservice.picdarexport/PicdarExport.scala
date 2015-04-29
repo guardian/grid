@@ -38,7 +38,8 @@ class ExportManager(picdar: PicdarClient, loader: MediaLoader, mediaApi: MediaAp
     for {
       image              <- mediaApi.getImage(mediaUri)
       currentMetadata     = image.metadata
-      picdarOverridesOpt  = MetadataOverrides.getOverrides(currentMetadata, picdarMetadata)
+      fileMetadata        = image.fileMetadata
+      picdarOverridesOpt  = MetadataOverrides.getOverrides(currentMetadata, fileMetadata, picdarMetadata)
       overridden         <- applyMetadataOverridesIfAny(image, picdarOverridesOpt)
     } yield overridden
 
