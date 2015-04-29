@@ -51,13 +51,13 @@ object ElasticSearch extends ElasticSearchClient {
       .setScript(
         // Note: we merge old and new identifiers (in that order) to make easier to re-ingest
         // images without forwarding any existing identifiers.
-        """ | previousIdentifiers = ctx._source.identifiers;
-            | ctx._source += doc;
-            | if (previousIdentifiers) {
-            |   ctx._source.identifiers += previousIdentifiers;
-            |   ctx._source.identifiers += doc.identifiers;
-            | }
-            |""".stripMargin +
+        """| previousIdentifiers = ctx._source.identifiers;
+           | ctx._source += doc;
+           | if (previousIdentifiers) {
+           |   ctx._source.identifiers += previousIdentifiers;
+           |   ctx._source.identifiers += doc.identifiers;
+           | }
+           |""".stripMargin +
           refreshMetadataScript +
           updateLastModifiedScript,
         scriptType)
