@@ -4,6 +4,7 @@ import play.api.libs.json._
 import play.api.libs.functional.syntax._
 
 
+// TODO: Eventually needs to be unified with UsageRights
 case class ImageUsageRights(
   supplier:            Option[String] = None,
   suppliersCollection: Option[String] = None
