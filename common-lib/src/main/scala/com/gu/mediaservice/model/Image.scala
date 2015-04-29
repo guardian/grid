@@ -23,7 +23,23 @@ case class Image(
 
 object Image {
 
-  implicit val FileMetadataWrites: Writes[FileMetadata] = Json.writes[FileMetadata]
+  implicit val ImageReads: Reads[Image] = (
+    (__ \ "id").read[String] ~
+      (__ \ "uploadTime").read[String].map(unsafeParseDateTime) ~
+      (__ \ "uploadedBy").read[String] ~
+      // FIXME: next two nullable - re-ingest all files into envs to backfill the data
+      (__ \ "lastModified").readNullable[String].map(parseOptDateTime) ~
+      (__ \ "identifiers").read[Map[String, String]] ~
+      (__ \ "source").read[Asset] ~
+      (__ \ "thumbnail").readNullable[Asset] ~
+      // FIXME: fileMetadata can be null - re-ingest all files into envs to backfill the data
+      (__ \ "fileMetadata").read[FileMetadata] ~
+      (__ \ "metadata").read[ImageMetadata] ~
+      // FIXME: three next nullable - re-ingest all files into envs to backfill the data
+      (__ \ "originalMetadata").read[ImageMetadata] ~
+      (__ \ "usageRights").read[ImageUsageRights] ~
+      (__ \ "originalUsageRights").read[ImageUsageRights]
+    )(Image.apply _)
 
   implicit val ImageWrites: Writes[Image] = (
     (__ \ "id").write[String] ~
