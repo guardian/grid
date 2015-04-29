@@ -28,7 +28,6 @@ class Transformers(services: Services) {
           data ++ Json.obj(
             "archived" -> boolOrFalse(data \ "archived").transform(wrapArchived(id)).get,
             "labels" -> arrayOrEmpty(data \ "labels").transform(wrapLabels(id)).get,
-            "rights" -> arrayOrEmpty(data \ "rights").transform(wrapRights(id)).get,
             "metadata" -> objectOrEmpty(data \ "metadata").transform(wrapMetadata(id)).get,
             "usageRights" -> objectOrEmpty(data \ "usageRights").transform(wrapUsageRights(id)).get
           )
@@ -81,19 +80,4 @@ class Transformers(services: Services) {
       )
     }
 
-  def wrapRights(id: String): Reads[JsObject] =
-    __.read[JsArray].map { rights =>
-      Json.obj(
-        "uri" -> s"$metadataBaseUri/metadata/$id/rights",
-        "data" -> rights.value.map(right => right.transform(wrapRight(id)).get)
-      )
-    }
-
-  def wrapRight(id: String): Reads[JsObject] =
-    __.read[JsString].map { case JsString(right) =>
-      Json.obj(
-        "uri" -> s"$metadataBaseUri/metadata/$id/rights/${encodeUriParam(right)}",
-        "data" -> right
-      )
-    }
 }
