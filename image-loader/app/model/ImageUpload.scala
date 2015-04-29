@@ -72,6 +72,7 @@ case object ImageUpload {
 
   private def createImage(uploadRequest: UploadRequest, source: Asset, thumbnail: Asset,
                   fileMetadata: FileMetadata, metadata: ImageMetadata): Image = {
+    val usageRights = ImageUsageRights()
     Image(
       uploadRequest.id,
       uploadRequest.uploadTime,
@@ -83,7 +84,8 @@ case object ImageUpload {
       fileMetadata,
       metadata,
       metadata,
-      ImageUsageRights()
+      usageRights,
+      usageRights
     )
   }
 

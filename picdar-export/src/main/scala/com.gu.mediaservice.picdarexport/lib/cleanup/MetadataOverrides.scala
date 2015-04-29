@@ -11,12 +11,12 @@ object MetadataOverrides {
 
   val metadataCleaners = new MetadataCleaners(MetadataConfig.creditBylineMap)
 
-  def getOverrides(current: ImageMetadata, fileMetadata: FileMetadata, picdarOverrides: ImageMetadata): Option[ImageMetadata] = {
+  def getOverrides(current: ImageMetadata, picdarOverrides: ImageMetadata): Option[ImageMetadata] = {
     // Strip any Picdar-specific metadata artifacts
     val picdarOverridesNoArtifacts = removePicdarArtifacts(current, picdarOverrides)
 
     // Apply the canonical cleaners to the Picdar metadata
-    val cleanPicdarOverrides = metadataCleaners.clean(picdarOverridesNoArtifacts, fileMetadata)
+    val cleanPicdarOverrides = metadataCleaners.clean(picdarOverridesNoArtifacts)
 
     // Compare resulting metadata with current and only preserve overrides that differ (if any)
     val necessaryOverrides = getNecessaryOverrides(current, cleanPicdarOverrides)

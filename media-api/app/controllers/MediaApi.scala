@@ -23,7 +23,7 @@ import com.gu.mediaservice.lib.auth.KeyStore
 import com.gu.mediaservice.lib.argo._
 import com.gu.mediaservice.lib.argo.model._
 import com.gu.mediaservice.lib.formatting.{printDateTime, parseDateFromQuery}
-import com.gu.mediaservice.lib.cleanup.MetadataCleaners
+import com.gu.mediaservice.lib.cleanup.{SupplierProcessors, MetadataCleaners}
 import com.gu.mediaservice.lib.config.MetadataConfig
 import com.gu.mediaservice.lib.metadata.ImageMetadataConverter
 import com.gu.mediaservice.model._
