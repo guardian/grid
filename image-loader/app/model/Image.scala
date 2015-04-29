@@ -1,14 +1,11 @@
 package model
 
-import java.net.URI
 import play.api.libs.json._
 import play.api.libs.functional.syntax._
 import org.joda.time.DateTime
 
-import com.gu.mediaservice.model.FileMetadata
+import com.gu.mediaservice.model.{FileMetadata, ImageMetadata, Asset}
 import com.gu.mediaservice.lib.formatting._
-import com.gu.mediaservice.model.ImageMetadata
-import com.gu.mediaservice.model.Asset
 
 case class Image(id: String,
                  uploadTime: DateTime,
@@ -19,7 +16,8 @@ case class Image(id: String,
                  thumbnail: Option[Asset],
                  fileMetadata: FileMetadata,
                  metadata: ImageMetadata,
-                 originalMetadata: ImageMetadata
+                 originalMetadata: ImageMetadata,
+                 usageRights: ImageUsageRights
 ) {
 
   def asJsValue: JsValue = Json.toJson(this)
@@ -45,7 +43,8 @@ object Image {
       Some(thumbnail),
       fileMetadata,
       metadata,
-      metadata
+      metadata,
+      ImageUsageRights()
     )
   }
 
@@ -61,7 +60,8 @@ object Image {
       (__ \ "thumbnail").writeNullable[Asset] ~
       (__ \ "fileMetadata").write[FileMetadata] ~
       (__ \ "metadata").write[ImageMetadata] ~
-      (__ \ "originalMetadata").write[ImageMetadata]
+      (__ \ "originalMetadata").write[ImageMetadata] ~
+      (__ \ "usageRights").write[ImageUsageRights]
     )(unlift(Image.unapply))
 
 }

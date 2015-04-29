@@ -14,8 +14,6 @@ case class ImageMetadata(
   title:               Option[String],
   copyrightNotice:     Option[String],
   copyright:           Option[String],
-  supplier:            Option[String],
-  suppliersCollection: Option[String],
   suppliersReference:  Option[String],
   source:              Option[String],
   specialInstructions: Option[String],
@@ -36,8 +34,6 @@ object ImageMetadata {
       (__ \ "title").readNullable[String] ~
       (__ \ "copyrightNotice").readNullable[String] ~
       (__ \ "copyright").readNullable[String] ~
-      (__ \ "supplier").readNullable[String] ~
-      (__ \ "suppliersCollection").readNullable[String] ~
       (__ \ "suppliersReference").readNullable[String] ~
       (__ \ "source").readNullable[String] ~
       (__ \ "specialInstructions").readNullable[String] ~
@@ -57,8 +53,6 @@ object ImageMetadata {
       (__ \ "title").writeNullable[String] ~
       (__ \ "copyrightNotice").writeNullable[String] ~
       (__ \ "copyright").writeNullable[String] ~
-      (__ \ "supplier").writeNullable[String] ~
-      (__ \ "suppliersCollection").writeNullable[String] ~
       (__ \ "suppliersReference").writeNullable[String] ~
       (__ \ "source").writeNullable[String] ~
       (__ \ "specialInstructions").writeNullable[String] ~
