@@ -54,7 +54,12 @@ class QuerySyntax(val input: ParserInput) extends Parser {
 
 
   // Note: order matters, check for quoted string first
-  def MatchValue = rule { QuotedString ~> Phrase | String ~> Words }
+  def MatchValue = rule {
+    QuotedString ~> Phrase |
+    StringSequence ~> (words => Words(words.mkString(" ")))
+  }
+
+  def StringSequence = rule { oneOrMore(String) separatedBy Whitespace }
 
   def String = rule { capture(Chars) }
 
