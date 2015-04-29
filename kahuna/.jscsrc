@@ -1,6 +1,7 @@
 {
 //    "disallowMultipleVarDecl": "exceptUndefined",
 //    "requireMultipleVarDecl": true,
+    "esnext": true,
     "requireCurlyBraces": true,
     "requireLineFeedAtFileEnd": true,
     "requireSemicolons": true,
