@@ -1,7 +1,7 @@
-package model
+package com.gu.mediaservice.model
 
-import play.api.libs.json._
 import play.api.libs.functional.syntax._
+import play.api.libs.json._
 
 
 // TODO: Eventually needs to be unified with UsageRights

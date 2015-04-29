@@ -33,7 +33,7 @@ class MetadataCleaners(creditBylineMap: Map[String, List[String]]) {
     CapitaliseCity,
     CapitaliseSubLocation,
     DropRedundantTitle
-  ) ++ SupplierParsers.all
+  )
 
   def clean(inputMetadata: ImageMetadata, fileMetadata: FileMetadata): ImageMetadata =
     allCleaners.foldLeft(inputMetadata) {
