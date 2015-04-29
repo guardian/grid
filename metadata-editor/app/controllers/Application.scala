@@ -209,7 +209,7 @@ object Application extends Controller with ArgoHelpers {
   def deleteUsageRights(id: String) = Authenticated.async { req =>
     dynamo.removeKey(id, "usageRights").map(publish(id)).map(edits => Accepted)
   }
-  
+
 
   def bindFromRequest[T](json: JsValue)(implicit fjs: Reads[T]): Try[T] =
     Try((json \ "data").as[T])
