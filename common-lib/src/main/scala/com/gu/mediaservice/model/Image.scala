@@ -37,8 +37,8 @@ object Image {
       (__ \ "metadata").read[ImageMetadata] ~
       // FIXME: three next nullable - re-ingest all files into envs to backfill the data
       (__ \ "originalMetadata").read[ImageMetadata] ~
-      (__ \ "usageRights").read[ImageUsageRights] ~
-      (__ \ "originalUsageRights").read[ImageUsageRights]
+      (__ \ "usageRights").readNullable[ImageUsageRights].map(_ getOrElse ImageUsageRights()) ~
+      (__ \ "originalUsageRights").readNullable[ImageUsageRights].map(_ getOrElse ImageUsageRights())
     )(Image.apply _)
 
   implicit val ImageWrites: Writes[Image] = (
