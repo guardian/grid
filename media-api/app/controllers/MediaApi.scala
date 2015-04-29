@@ -101,7 +101,7 @@ object MediaApi extends Controller with ArgoHelpers {
       case Some(source) => {
         val fileMetadata = (source \ "fileMetadata").as[FileMetadata]
         val imageMetadata = ImageMetadataConverter.fromFileMetadata(fileMetadata)
-        val cleanMetadata = metadataCleaners.clean(imageMetadata, fileMetadata)
+        val cleanMetadata = metadataCleaners.clean(imageMetadata)
 
         val notification = Json.obj("id" -> id, "data" -> Json.toJson(cleanMetadata))
         Notifications.publish(notification, "update-image-metadata")
