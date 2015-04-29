@@ -40,9 +40,27 @@ object ElasticSearch extends ElasticSearchClient {
   def currentIsoDateString = printDateTime(new DateTime())
 
   def indexImage(id: String, image: JsValue)(implicit ex: ExecutionContext): Future[UpdateResponse] =
-    client.prepareUpdate(imagesAlias, imageType, id)
-      .setDoc(Json.stringify(asImageUpdate(image)))
+    prepareImageUpdate(id)
+      // Use upsert: if not present, will index the argument (the image)
       .setUpsert(Json.stringify(image))
+      // if already present, will run the script with the provided parameters
+      .setScriptParams(Map(
+        "doc" -> asGroovy(asImageUpdate(image)),
+        "lastModified" -> asGroovy(JsString(currentIsoDateString))
+      ).asJava)
+      .setScript(
+        // Note: we merge old and new identifiers (in that order) to make easier to re-ingest
+        // images without forwarding any existing identifiers.
+        """| previousIdentifiers = ctx._source.identifiers;
+           | ctx._source += doc;
+           | if (previousIdentifiers) {
+           |   ctx._source.identifiers += previousIdentifiers;
+           |   ctx._source.identifiers += doc.identifiers;
+           | }
+           |""".stripMargin +
+          refreshMetadataScript +
+          updateLastModifiedScript,
+        scriptType)
       .executeAndLog(s"Indexing image $id")
       .incrementOnSuccess(indexedImages)
 
@@ -85,33 +103,32 @@ object ElasticSearch extends ElasticSearchClient {
         "exports" -> asGroovy(exports),
         "lastModified" -> asGroovy(JsString(currentIsoDateString))
       ).asJava)
-      .setScript("""
+      .setScript(
+        """
                     if (ctx._source.exports == null) {
                       ctx._source.exports = exports;
                     } else {
                       ctx._source.exports += exports;
                     }
-
-                    ctx._source.lastModified = lastModified;
-                 """, scriptType)
+                 """ +
+          updateLastModifiedScript,
+        scriptType)
       .executeAndLog(s"updating exports on image $id")
       .incrementOnFailure(conflicts) { case e: VersionConflictEngineException => true }
 
   def updateImageMetadata(id: String, metadata: JsValue)(implicit ex: ExecutionContext): Future[UpdateResponse] =
     prepareImageUpdate(id)
       .setScriptParams(Map(
-        "userMetadata" -> asGroovy(metadata)
+        "metadata" -> asGroovy(metadata),
+        "lastModified" -> asGroovy(JsString(currentIsoDateString))
       ).asJava)
       // replace metadata, then merge in edits
       .setScript(
-        """
-          ctx._source.metadata = userMetadata;
-          ctx._source.originalMetadata = userMetadata;
-          if (ctx._source.userMetadata.metadata) {
-            ctx._source.metadata += ctx._source.userMetadata.metadata;
-          }
-        """.stripMargin, scriptType)
-      .executeAndLog(s"updating user metadata on image $id")
+        "ctx._source.originalMetadata = metadata;" +
+          refreshMetadataScript +
+          updateLastModifiedScript,
+        scriptType)
+      .executeAndLog(s"updating image metadata on image $id")
       .incrementOnFailure(conflicts) { case e: VersionConflictEngineException => true }
 
   def applyImageMetadataOverride(id: String, metadata: JsValue)(implicit ex: ExecutionContext): Future[UpdateResponse] =
@@ -120,17 +137,12 @@ object ElasticSearch extends ElasticSearchClient {
         "userMetadata" -> asGroovy(metadata),
         "lastModified" -> asGroovy(JsString(currentIsoDateString))
       ).asJava)
-      // TODO: if metadata not set, should undo overrides?
-      // TODO: apply overrides from the original metadata each time?
-      .setScript("""
-                    if (userMetadata.metadata) {
-                      ctx._source.metadata += userMetadata.metadata;
-                    }
-
-                    ctx._source.userMetadata = userMetadata;
-                    ctx._source.lastModified = lastModified;
-                 """, scriptType)
-      .executeAndLog(s"overriding user metadata on image $id")
+      .setScript(
+        "ctx._source.userMetadata = userMetadata;" +
+          refreshMetadataScript +
+          updateLastModifiedScript,
+        scriptType)
+      .executeAndLog(s"updating user metadata on image $id")
       .incrementOnFailure(conflicts) { case e: VersionConflictEngineException => true }
 
   def prepareImageUpdate(id: String): UpdateRequestBuilder =
@@ -159,5 +171,19 @@ object ElasticSearch extends ElasticSearchClient {
 
     image.transform(removeUploadInformation).get
   }
+
+  // Script that refreshes the "metadata" object by recomputing it
+  // from the original metadata and the overrides
+  private val refreshMetadataScript =
+    """| ctx._source.metadata = ctx._source.originalMetadata;
+       | if (ctx._source.userMetadata && ctx._source.userMetadata.metadata) {
+       |   ctx._source.metadata += ctx._source.userMetadata.metadata;
+       | }
+    """.stripMargin
+
+  // Script that updates the "lastModified" property using the "lastModified" parameter
+  private val updateLastModifiedScript =
+    """| ctx._source.lastModified = lastModified;
+    """.stripMargin
 
 }
