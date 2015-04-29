@@ -7,17 +7,18 @@ import play.api.libs.json._
 import com.gu.mediaservice.lib.formatting._
 
 case class Image(
-  id:               String,
-  uploadTime:       DateTime,
-  uploadedBy:       String,
-  lastModified:     Option[DateTime],
-  identifiers:      Map[String, String],
-  source:           Asset,
-  thumbnail:        Option[Asset],
-  fileMetadata:     FileMetadata,
-  metadata:         ImageMetadata,
-  originalMetadata: ImageMetadata,
-  usageRights:      ImageUsageRights
+  id:                  String,
+  uploadTime:          DateTime,
+  uploadedBy:          String,
+  lastModified:        Option[DateTime],
+  identifiers:         Map[String, String],
+  source:              Asset,
+  thumbnail:           Option[Asset],
+  fileMetadata:        FileMetadata,
+  metadata:            ImageMetadata,
+  originalMetadata:    ImageMetadata,
+  usageRights:         ImageUsageRights,
+  originalUsageRights: ImageUsageRights
 )
 
 object Image {
@@ -35,7 +36,8 @@ object Image {
       (__ \ "fileMetadata").write[FileMetadata] ~
       (__ \ "metadata").write[ImageMetadata] ~
       (__ \ "originalMetadata").write[ImageMetadata] ~
-      (__ \ "usageRights").write[ImageUsageRights]
+      (__ \ "usageRights").write[ImageUsageRights] ~
+      (__ \ "originalUsageRights").write[ImageUsageRights]
     )(unlift(Image.unapply))
 
 }
