@@ -40,7 +40,7 @@ object ElasticSearch extends ElasticSearchClient {
   def currentIsoDateString = printDateTime(new DateTime())
 
   def indexImage(id: String, image: JsValue)(implicit ex: ExecutionContext): Future[UpdateResponse] =
-    client.prepareUpdate(imagesAlias, imageType, id)
+    prepareImageUpdate(id)
       // Use upsert: if not present, will index the argument (the image)
       .setUpsert(Json.stringify(image))
       // if already present, will run the script with the provided parameters
