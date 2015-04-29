@@ -60,7 +60,6 @@ object Application extends Controller with ArgoHelpers {
       Link("edits",       s"$rootUri/metadata/{id}"),
       Link("archived",    s"$rootUri/metadata/{id}/archived"),
       Link("labels",      s"$rootUri/metadata/{id}/labels"),
-      Link("rights",      s"$rootUri/metadata/{id}/rights"),
       Link("usageRights", s"$rootUri/metadata/{id}/usage-rights"),
       Link("metadata",    s"$rootUri/metadata/{id}/metadata")
     )
@@ -143,32 +142,6 @@ object Application extends Controller with ArgoHelpers {
   }
 
 
-  def getRights(id: String) = Authenticated.async {
-    dynamo.setGet(id, "rights")
-      .map(rightsCollection(id, _))
-      .map(respondCollection(_))
-  }
-
-  def addRights(id: String) = Authenticated.async { req =>
-    rightsForm.bindFromRequest()(req).fold(
-      form => {
-        val errorMessage = getDataListFormError(form)
-        Future.successful(respondError(BadRequest, "invalid-rights-data", errorMessage))
-      },
-      rights =>
-        dynamo.setAdd(id, "rights", rights)
-          .map(publish(id))
-          .map(edits => respondCollection(rightsCollection(id, edits.rights.toSet)))
-    )
-  }
-
-  def removeRight(id: String, right: String) = Authenticated.async {
-    dynamo.setDelete(id, "rights", decodeUriParam(right))
-      .map(publish(id))
-      .map(edits => respondCollection(rightsCollection(id, edits.rights.toSet)))
-  }
-
-
   def getMetadata(id: String) = Authenticated.async {
     dynamo.jsonGet(id, "metadata").map { dynamoEntry =>
       val metadata = (dynamoEntry \ "metadata").as[ImageMetadata]
@@ -209,7 +182,7 @@ object Application extends Controller with ArgoHelpers {
   def deleteUsageRights(id: String) = Authenticated.async { req =>
     dynamo.removeKey(id, "usageRights").map(publish(id)).map(edits => Accepted)
   }
-  
+
 
   def bindFromRequest[T](json: JsValue)(implicit fjs: Reads[T]): Try[T] =
     Try((json \ "data").as[T])
@@ -217,9 +190,6 @@ object Application extends Controller with ArgoHelpers {
   // TODO: Move this to the dynamo lib
   def caseClassToMap[T](caseClass: T)(implicit tjs: Writes[T]): Map[String, String] =
     Json.toJson[T](caseClass).as[JsObject].as[Map[String, String]]
-
-  def rightsCollection(id: String, rights: Set[String]): Seq[EmbeddedEntity[String]] =
-    rights.map(Edits.setUnitEntity(id, "rights", _)).toSeq
 
   def labelsCollection(id: String, labels: Set[String]): Seq[EmbeddedEntity[String]] =
     labels.map(Edits.setUnitEntity(id, "labels", _)).toSeq
@@ -291,13 +261,6 @@ object Application extends Controller with ArgoHelpers {
 
   val listForm: Form[List[String]] = Form(
      single[List[String]]("data" -> list(text))
-  )
-
-  val rightsForm: Form[List[String]] = Form(
-     single[List[String]](
-      "data" -> list(text.verifying(
-        s"Invalid rights values. Rights allowed are: ${Config.freeRights.mkString(", ")}",
-        Config.freeRights.contains(_))))
   )
 
 }
