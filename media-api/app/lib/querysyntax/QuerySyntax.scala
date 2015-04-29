@@ -1,5 +1,9 @@
 package lib.querysyntax
 
+import scala.util.Try
+
+import org.joda.time.DateTime
+import org.joda.time.format.{DateTimeFormatter, DateTimeFormat}
 import org.parboiled2._
 
 class QuerySyntax(val input: ParserInput) extends Parser {
@@ -12,7 +16,11 @@ class QuerySyntax(val input: ParserInput) extends Parser {
   def NegatedFilter = rule { '-' ~ Filter ~> Negation }
 
 
-  def Filter = rule { ScopedMatch ~> Match | HashMatch | AnyMatch }
+  def Filter = rule {
+    ScopedMatch ~> Match | HashMatch |
+    DateMatch ~> Match | AtMatch |
+    AnyMatch
+  }
 
   def ScopedMatch = rule { MatchField ~ ':' ~ MatchValue }
   def HashMatch = rule { '#' ~ MatchValue ~> (label => Match(SingleField("labels"), label)) }
@@ -45,9 +53,71 @@ class QuerySyntax(val input: ParserInput) extends Parser {
   def AnyMatch = rule { MatchValue ~> (v => Match(AnyField, v)) }
 
 
-  def MatchValue = rule { QuotedString ~> Phrase | String ~> Words }
+  // Note: order matters, check for quoted string first
+  def MatchValue = rule {
+    QuotedString ~> Phrase |
+    StringSequence ~> (words => Words(words.mkString(" ")))
+  }
+
+  def StringSequence = rule { oneOrMore(String) separatedBy Whitespace }
 
   def String = rule { capture(Chars) }
+
+
+  // TODO: also comparisons
+  def DateMatch = rule { MatchDateField ~ ':' ~ MatchDateValue }
+
+  def AtMatch = rule { '@' ~ MatchDateValue ~> (range => Match(SingleField("uploadTime"), range)) }
+
+  def MatchDateField = rule { capture(AllowedDateFieldName) ~> resolveDateField _ }
+
+  def resolveDateField(name: String): Field = name match {
+    case "date" | "uploaded" => SingleField("uploadTime")
+    case "taken"             => SingleField("dateTaken")
+  }
+
+  def AllowedDateFieldName = rule { "date" | "uploaded" | "taken" }
+
+
+  def MatchDateValue = rule {
+    // Note: order matters, check for quoted string first
+    // TODO: needed to ignore invalid dates, but code could be cleaner
+    (QuotedString | String) ~> normaliseDateExpr _ ~> parseDateRange _ ~> (d => test(d.isDefined) ~ push(d.get))
+  }
+
+  def normaliseDateExpr(expr: String): String = expr.replaceAll("\\.", " ")
+
+  val todayParser = {
+    val today = DateTime.now.withTimeAtStartOfDay
+    DateAliasParser("today", today, today.plusDays(1).minusMillis(1))
+  }
+  val yesterdayParser = {
+    val today = DateTime.now.withTimeAtStartOfDay
+    DateAliasParser("yesterday", today.minusDays(1), today.minusMillis(1))
+  }
+  val humanDateParser  = DateRangeFormatParser("dd MMMMM YYYY", _.plusDays(1))
+  val slashDateParser  = DateRangeFormatParser("d/M/YYYY", _.plusDays(1))
+  val paddedslashDateParser = DateRangeFormatParser("dd/MM/YYYY", _.plusDays(1))
+  val isoDateParser    = DateRangeFormatParser("YYYY-MM-dd", _.plusDays(1))
+  val humanMonthParser = DateRangeFormatParser("MMMMM YYYY", _.plusMonths(1))
+  val yearParser       = DateRangeFormatParser("YYYY", _.plusYears(1))
+  val dateRangeParsers: List[DateRangeParser] = List(
+    todayParser,
+    yesterdayParser,
+    humanDateParser,
+    slashDateParser,
+    paddedslashDateParser,
+    isoDateParser,
+    humanMonthParser,
+    yearParser
+  )
+
+  def parseDateRange(expr: String): Option[DateRange] = {
+    dateRangeParsers.foldLeft[Option[DateRange]](None) { case (res, parser) =>
+      res orElse parser.parse(expr)
+    }
+  }
+
 
   // Quoted strings
   def SingleQuote = "'"
@@ -59,21 +129,8 @@ class QuerySyntax(val input: ParserInput) extends Parser {
   def NotDoubleQuote = rule { oneOrMore(noneOf(DoubleQuote)) }
 
   def Whitespace = rule { oneOrMore(' ') }
-  // any character except quotes
-  def Chars      = rule { oneOrMore(CharPredicate.Visible -- '"' -- '\'') }
+  def Chars      = rule { oneOrMore(CharPredicate.Visible) }
 }
 
 // TODO:
-// - uploaded: as alias for uploadedBy top-level field
-// - date uploaded (exact, range, expression (@today?))
-// - date taken (~)
 // - is archived, has exports, has picdarUrn
-
-// new QuerySyntax("hello world by:me").Query.run()
-// hello world
-// hello -world
-// hello by:foo
-// "hello world" foo
-// ?  -"not this"
-// by:"foo bar"
-// -by:foo
