@@ -17,7 +17,8 @@ case class Image(id: String,
                  fileMetadata: FileMetadata,
                  metadata: ImageMetadata,
                  originalMetadata: ImageMetadata,
-                 usageRights: ImageUsageRights
+                 usageRights: ImageUsageRights,
+                 originalUsageRights: ImageUsageRights
 ) {
 
   def asJsValue: JsValue = Json.toJson(this)
@@ -33,6 +34,7 @@ object Image {
     fileMetadata: FileMetadata,
     metadata: ImageMetadata
   ): Image = {
+    val usageRights = ImageUsageRights()
     Image(
       uploadRequest.id,
       uploadRequest.uploadTime,
@@ -44,7 +46,8 @@ object Image {
       fileMetadata,
       metadata,
       metadata,
-      ImageUsageRights()
+      usageRights,
+      usageRights
     )
   }
 
@@ -61,7 +64,8 @@ object Image {
       (__ \ "fileMetadata").write[FileMetadata] ~
       (__ \ "metadata").write[ImageMetadata] ~
       (__ \ "originalMetadata").write[ImageMetadata] ~
-      (__ \ "usageRights").write[ImageUsageRights]
+      (__ \ "usageRights").write[ImageUsageRights] ~
+      (__ \ "originalUsageRights").write[ImageUsageRights]
     )(unlift(Image.unapply))
 
 }
