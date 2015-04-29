@@ -66,22 +66,17 @@ object Mappings {
   )
 
 
-  val baseUsageRightsProperties = Seq[(String, JsValueWrapper)](
-    "category" -> nonAnalyzedString,
-    "restrictions" -> standardAnalysedString,
+  // Ultimately both these usageRights should be unified, but
+  // keeping them separate for now until used as such
+  val imageUsageRightsMapping = nonDynamicObj(
     "supplier" -> nonAnalyzedString,
     "suppliersCollection" -> nonAnalyzedString
   )
 
-  val usageRightsMapping = nonDynamicObj(
-    baseUsageRightsProperties: _*
-  )
-
-  // In userMetadata, the dynamic usageRights.cost can be overridden
   val userMetadataUsageRightsMapping = nonDynamicObj(
-    baseUsageRightsProperties ++ Seq[(String, JsValueWrapper)](
-      "cost" -> nonAnalyzedString
-    ): _*
+    "cost" -> nonAnalyzedString,
+    "category" -> nonAnalyzedString,
+    "restrictions" -> standardAnalysedString
   )
 
 
@@ -112,7 +107,7 @@ object Mappings {
         "properties" -> Json.obj(
           "id" -> nonAnalyzedString,
           "metadata" -> metadataMapping,
-          "usageRights" -> usageRightsMapping,
+          "usageRights" -> imageUsageRightsMapping,
           "source" -> assetMapping,
           "thumbnail" -> assetMapping,
           "userMetadata" -> userMetadataMapping,
