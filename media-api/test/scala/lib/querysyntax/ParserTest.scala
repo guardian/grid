@@ -16,36 +16,35 @@ class ParserTest extends FunSpec with Matchers with BeforeAndAfter {
     }
 
     it("should match multiple terms") {
-      Parser.run("cats dogs") should be (List(Match(AnyField, Words("cats")), Match(AnyField, Words("dogs"))))
-      // FIXME: or should it be Words("cats dogs") ?
+      Parser.run("cats dogs") should be (List(Match(AnyField, Words("cats dogs"))))
     }
 
     it("should match multiple terms separated by multiple whitespace") {
-      Parser.run("cats  dogs") should be (List(Match(AnyField, Words("cats")), Match(AnyField, Words("dogs"))))
+      Parser.run("cats  dogs") should be (List(Match(AnyField, Words("cats dogs"))))
     }
 
     it("should match multiple terms including 'in'") {
-      Parser.run("cats in dogs") should be (List(Match(AnyField, Words("cats")), Match(AnyField, Words("in")), Match(AnyField, Words("dogs"))))
+      Parser.run("cats in dogs") should be (List(Match(AnyField, Words("cats in dogs"))))
       // FIXME: query results?
     }
 
     it("should match multiple terms including 'by'") {
-      Parser.run("cats by dogs") should be (List(Match(AnyField, Words("cats")), Match(AnyField, Words("by")), Match(AnyField, Words("dogs"))))
+      Parser.run("cats by dogs") should be (List(Match(AnyField, Words("cats by dogs"))))
       // FIXME: query results?
     }
 
     it("should match multiple terms including apostrophes") {
-      Parser.run("it's a cat") should be (List(Match(AnyField, Words("it's")), Match(AnyField, Words("a")), Match(AnyField, Words("cat"))))
+      Parser.run("it's a cat") should be (List(Match(AnyField, Words("it's a cat"))))
       // FIXME: query results?
     }
 
     it("should match multiple terms including commas") {
-      Parser.run("cats, dogs") should be (List(Match(AnyField, Words("cats,")), Match(AnyField, Words("dogs"))))
+      Parser.run("cats, dogs") should be (List(Match(AnyField, Words("cats, dogs"))))
       // FIXME: query results?
     }
 
     it("should match multiple terms including single double quotes") {
-      Parser.run("5\" cats") should be (List(Match(AnyField, Words("5\"")), Match(AnyField, Words("cats"))))
+      Parser.run("5\" cats") should be (List(Match(AnyField, Words("5\" cats"))))
       // FIXME: query results?
     }
 
