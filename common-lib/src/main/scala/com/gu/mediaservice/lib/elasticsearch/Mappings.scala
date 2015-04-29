@@ -2,7 +2,7 @@
 package com.gu.mediaservice.lib.elasticsearch
 
 import play.api.libs.json.Json.JsValueWrapper
-import play.api.libs.json.{Json}
+import play.api.libs.json.Json
 
 
 object Mappings {
@@ -95,7 +95,6 @@ object Mappings {
     nonDynamicObj(
       "archived"    -> boolean,
       "labels"      -> nonAnalysedList("label"),
-      "rights"      -> nonAnalysedList("right"),
       "metadata"    -> metadataMapping,
       "usageRights" -> userMetadataUsageRightsMapping
     )
@@ -107,12 +106,13 @@ object Mappings {
         "properties" -> Json.obj(
           "id" -> nonAnalyzedString,
           "metadata" -> metadataMapping,
+          "originalMetadata" -> metadataMapping,
           "usageRights" -> imageUsageRightsMapping,
+          "originalUsageRights" -> imageUsageRightsMapping,
           "source" -> assetMapping,
           "thumbnail" -> assetMapping,
           "userMetadata" -> userMetadataMapping,
           "fileMetadata" -> dynamicObj,
-          "originalMetadata" -> metadataMapping,
           "exports" -> exportsMapping,
           "uploadTime" -> dateFormat,
           "uploadedBy" -> nonAnalyzedString,
