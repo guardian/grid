@@ -99,19 +99,22 @@ object MediaApi extends Controller with ArgoHelpers {
 
     ElasticSearch.getImageById(id) map {
       case Some(source) => {
-        val fileMetadata = (source \ "fileMetadata").as[FileMetadata]
-        val imageMetadata = ImageMetadataConverter.fromFileMetadata(fileMetadata)
-        val cleanMetadata = metadataCleaners.clean(imageMetadata)
+        val image = source.as[Image]
 
-        val notification = Json.obj("id" -> id, "data" -> Json.toJson(cleanMetadata))
-        Notifications.publish(notification, "update-image-metadata")
+        val imageMetadata = ImageMetadataConverter.fromFileMetadata(image.fileMetadata)
+        val cleanMetadata = metadataCleaners.clean(imageMetadata)
+        val imageCleanMetadata = image.copy(metadata = cleanMetadata, originalMetadata = cleanMetadata)
+        val processedImage = SupplierProcessors.process(imageCleanMetadata)
+
+        val notification = Json.toJson(processedImage)
+        Notifications.publish(notification, "update-image")
 
         Ok(Json.obj(
           "id" -> id,
-          "changed" -> JsBoolean(imageMetadata != cleanMetadata),
+          "changed" -> JsBoolean(image != processedImage),
           "data" -> Json.obj(
-            "oldMetadata" -> imageMetadata,
-            "cleanMetadata" -> cleanMetadata
+            "oldImage" -> image,
+            "updatedImage" -> processedImage
           )
         ))
       }
