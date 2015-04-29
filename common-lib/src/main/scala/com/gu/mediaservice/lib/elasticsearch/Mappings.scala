@@ -54,8 +54,6 @@ object Mappings {
       "credit" -> nonAnalyzedString,
       "copyright" -> standardAnalysedString,
       "copyrightNotice" -> standardAnalysedString,
-      "supplier" -> nonAnalyzedString,
-      "suppliersCollection" -> nonAnalyzedString,
       "suppliersReference" -> standardAnalysedString,
       "source" -> nonAnalyzedString,
       "specialInstructions" -> nonAnalyzedString,
@@ -67,11 +65,25 @@ object Mappings {
     )
   )
 
-  val usageRightsMapping = nonDynamicObj(
-    "cost" -> nonAnalyzedString,
+
+  val baseUsageRightsProperties = Seq[(String, JsValueWrapper)](
     "category" -> nonAnalyzedString,
-    "restrictions" -> standardAnalysedString
+    "restrictions" -> standardAnalysedString,
+    "supplier" -> nonAnalyzedString,
+    "suppliersCollection" -> nonAnalyzedString
   )
+
+  val usageRightsMapping = nonDynamicObj(
+    baseUsageRightsProperties: _*
+  )
+
+  // In userMetadata, the dynamic usageRights.cost can be overridden
+  val userMetadataUsageRightsMapping = nonDynamicObj(
+    baseUsageRightsProperties ++ Seq[(String, JsValueWrapper)](
+      "cost" -> nonAnalyzedString
+    ): _*
+  )
+
 
   val exportsMapping =
     nonDynamicObj(
@@ -90,7 +102,7 @@ object Mappings {
       "labels"      -> nonAnalysedList("label"),
       "rights"      -> nonAnalysedList("right"),
       "metadata"    -> metadataMapping,
-      "usageRights" -> usageRightsMapping
+      "usageRights" -> userMetadataUsageRightsMapping
     )
 
   val imageMapping: String =
@@ -100,6 +112,7 @@ object Mappings {
         "properties" -> Json.obj(
           "id" -> nonAnalyzedString,
           "metadata" -> metadataMapping,
+          "usageRights" -> usageRightsMapping,
           "source" -> assetMapping,
           "thumbnail" -> assetMapping,
           "userMetadata" -> userMetadataMapping,
