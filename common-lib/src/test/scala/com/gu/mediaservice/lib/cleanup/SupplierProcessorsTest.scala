@@ -5,7 +5,7 @@ import org.scalatest.{Matchers, FunSpec}
 
 class SupplierProcessorsTest extends FunSpec with Matchers with MetadataHelper {
 
-  it("should leave supplier, collection and credit empty by default") {
+  it("should leave supplier, suppliersCollection and credit empty by default") {
     val image = createImageFromMetadata()
     val processedImage = applyProcessors(image)
     processedImage.usageRights.supplier should be (None)
@@ -13,7 +13,7 @@ class SupplierProcessorsTest extends FunSpec with Matchers with MetadataHelper {
     processedImage.metadata.credit should be (None)
   }
 
-  it("should leave supplier and collection empty if credit doesn't match") {
+  it("should leave supplier and suppliersCollection empty if credit doesn't match") {
     val image = createImageFromMetadata("credit" -> "Unknown Party")
     val processedImage = applyProcessors(image)
     processedImage.usageRights.supplier should be (None)
@@ -132,7 +132,7 @@ class SupplierProcessorsTest extends FunSpec with Matchers with MetadataHelper {
 
 
   describe("Getty Images") {
-    it("should detect getty file metadata and use source as collection") {
+    it("should detect getty file metadata and use source as suppliersCollection") {
       val image = createImageFromMetadata("credit" -> "AFP/Getty", "source" -> "AFP")
       val gettyImage = image.copy(fileMetadata = FileMetadata(getty = Map("Original Filename" -> "lol.jpg")))
       val processedImage = applyProcessors(gettyImage)
