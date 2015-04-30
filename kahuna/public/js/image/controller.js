@@ -35,10 +35,6 @@ image.controller('ImageCtrl', [
         // Alias for convenience in view
         ctrl.metadata = image.data.metadata;
 
-        ctrl.originalMetadata = image.data.originalMetadata;
-
-        ctrl.resource = image.data.userMetadata.data.metadata;
-
         // Map of metadata location field to query filter name
         ctrl.locationFieldMap = {
             'subLocation': 'location',
@@ -80,8 +76,8 @@ image.controller('ImageCtrl', [
         function getMetadataDiff (updated) {
             var toUpdate = {};
 
-            Object.keys(ctrl.originalMetadata).forEach(function (key) {
-                if (ctrl.originalMetadata[key] !== updated[key]) {
+            Object.keys(image.data.originalMetadata).forEach(function (key) {
+                if (image.data.originalMetadata[key] !== updated[key]) {
                     toUpdate[key] = updated[key];
                 }
             });
@@ -89,15 +85,11 @@ image.controller('ImageCtrl', [
             return toUpdate;
         }
 
-        ctrl.save = function (metadata) {
-            return editsService
-                .update(ctrl.resource, metadata, ctrl.image)
-                .then(resource => {
-                    ctrl.resource = resource;
-                });
-        };
+        function save (metadata) {
+            return editsService.update(image.data.userMetadata.data.metadata, metadata, ctrl.image);
+        }
 
-        function _updateMetadata (field, value) {
+        ctrl.updateMetadata = function (field, value) {
             if (ctrl.metadata[field] === value) {
                 /*
                  Nothing has changed.
@@ -115,18 +107,7 @@ image.controller('ImageCtrl', [
 
             var changed = getMetadataDiff(proposedMetadata);
 
-            return ctrl
-                .save(changed)
-                .catch(() => {
-                    return 'failed to save (press esc to cancel)';
-                });
-        }
-
-        ctrl.updateTitle = (value) => { return _updateMetadata('title', value); };
-
-        ctrl.updateDescription = (value) => { return _updateMetadata('description', value); };
-
-        ctrl.updateByline = (value) => { return _updateMetadata('byline', value); };
-
-        ctrl.updateCredit = (value) => { return _updateMetadata('credit', value); };
+            return save(changed)
+                .catch(() => 'failed to save (press esc to cancel)');
+        };
     }]);
