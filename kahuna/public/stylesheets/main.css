@@ -939,19 +939,13 @@ FIXME: what to do with touch devices
     width: calc(100% - 40px);
 }
 
-.image-info__title--error,
-.image-info__description--error,
-.image-info__byline--error,
-.image-info__credit--error {
-    border: 1px #BB1212 solid !important;
+.image-info__wrap .editable-wrap .image-info__editor--error {
+    border: 1px solid #BB1212;
     outline: none;
 }
 
-.image-info__title--saving,
-.image-info__description--saving,
-.image-info__byline--saving,
-.image-info__credit--saving {
-    border: 1px #CCC dashed !important;
+.image-info__wrap .editable-wrap .image-info__editor--saving {
+    border: 1px dashed #CCC;
     outline: none;
 }
 
