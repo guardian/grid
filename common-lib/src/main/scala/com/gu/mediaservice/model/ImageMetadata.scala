@@ -6,22 +6,22 @@ import play.api.libs.functional.syntax._
 import play.api.libs.json._
 
 case class ImageMetadata(
-  dateTaken:           Option[DateTime],
-  description:         Option[String],
-  credit:              Option[String],
-  byline:              Option[String],
-  bylineTitle:         Option[String],
-  title:               Option[String],
-  copyrightNotice:     Option[String],
-  copyright:           Option[String],
-  suppliersReference:  Option[String],
-  source:              Option[String],
-  specialInstructions: Option[String],
-  keywords:            List[String],
-  subLocation:         Option[String],
-  city:                Option[String],
-  state:               Option[String],
-  country:             Option[String]
+  dateTaken:           Option[DateTime] = None,
+  description:         Option[String]   = None,
+  credit:              Option[String]   = None,
+  byline:              Option[String]   = None,
+  bylineTitle:         Option[String]   = None,
+  title:               Option[String]   = None,
+  copyrightNotice:     Option[String]   = None,
+  copyright:           Option[String]   = None,
+  suppliersReference:  Option[String]   = None,
+  source:              Option[String]   = None,
+  specialInstructions: Option[String]   = None,
+  keywords:            List[String]     = Nil,
+  subLocation:         Option[String]   = None,
+  city:                Option[String]   = None,
+  state:               Option[String]   = None,
+  country:             Option[String]   = None
 )
 
 object ImageMetadata {

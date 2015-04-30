@@ -23,20 +23,19 @@ case class Image(
 
 object Image {
 
+  // FIXME: many fields made nullable to accomodate for legacy data that pre-dates them.
+  // We should migrate the data for better consistency so nullable can be retired.
   implicit val ImageReads: Reads[Image] = (
     (__ \ "id").read[String] ~
       (__ \ "uploadTime").read[String].map(unsafeParseDateTime) ~
       (__ \ "uploadedBy").read[String] ~
-      // FIXME: next two nullable - re-ingest all files into envs to backfill the data
       (__ \ "lastModified").readNullable[String].map(parseOptDateTime) ~
-      (__ \ "identifiers").read[Map[String, String]] ~
+      (__ \ "identifiers").readNullable[Map[String, String]].map(_ getOrElse Map()) ~
       (__ \ "source").read[Asset] ~
       (__ \ "thumbnail").readNullable[Asset] ~
-      // FIXME: fileMetadata can be null - re-ingest all files into envs to backfill the data
-      (__ \ "fileMetadata").read[FileMetadata] ~
+      (__ \ "fileMetadata").readNullable[FileMetadata].map(_ getOrElse FileMetadata()) ~
       (__ \ "metadata").read[ImageMetadata] ~
-      // FIXME: three next nullable - re-ingest all files into envs to backfill the data
-      (__ \ "originalMetadata").read[ImageMetadata] ~
+      (__ \ "originalMetadata").readNullable[ImageMetadata].map(_ getOrElse ImageMetadata()) ~
       (__ \ "usageRights").readNullable[ImageUsageRights].map(_ getOrElse ImageUsageRights()) ~
       (__ \ "originalUsageRights").readNullable[ImageUsageRights].map(_ getOrElse ImageUsageRights())
     )(Image.apply _)
