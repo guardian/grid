@@ -14,7 +14,7 @@ import lib.{Config, Notifications}
 import lib.storage.S3ImageStorage
 import lib.imaging.MimeTypeDetection
 
-import model.{Image, UploadRequest, ImageUpload}
+import model.{UploadRequest, ImageUpload}
 
 import com.gu.mediaservice.lib.play.BodyParsers.digestedFile
 import com.gu.mediaservice.lib.play.DigestedFile
