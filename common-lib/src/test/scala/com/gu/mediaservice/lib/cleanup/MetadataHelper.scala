@@ -8,6 +8,7 @@ import org.joda.time.DateTime
 trait MetadataHelper {
   def createImageFromMetadata(metadata: (String, String)*): Image = {
     val metadataMap = createImageMetadata(metadata.toMap)
+    val usageRights = ImageUsageRights()
     Image(
       id = "test",
       metadata = metadataMap,
@@ -19,7 +20,8 @@ trait MetadataHelper {
       thumbnail = None,
       fileMetadata = FileMetadata(),
       originalMetadata = metadataMap,
-      usageRights = ImageUsageRights()
+      usageRights = usageRights,
+      originalUsageRights = usageRights
     )
   }
 
