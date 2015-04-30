@@ -360,6 +360,13 @@ textarea.ng-invalid {
     padding: 20px 40px;
 }
 
+.warning {
+    background: #ffbc01;
+    color: black;
+    padding: 20px 40px;
+    text-align: center;
+}
+
 .full-error {
     margin-top: 3rem;
     text-align: center;
