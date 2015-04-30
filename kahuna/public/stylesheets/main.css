@@ -364,6 +364,7 @@ textarea.ng-invalid {
     background: #ffbc01;
     color: black;
     padding: 20px 40px;
+    text-align: center;
 }
 
 .full-error {
