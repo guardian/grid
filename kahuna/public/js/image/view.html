@@ -65,7 +65,7 @@
                         blur="submit"
                         onbeforesave="ctrl.updateMetadata('title', $data)"
                         e:ng-class="{'image-info__editor--error': $error, 'image-info__editor--saving': titleEditForm.$waiting}"
-                        e:form="titleEditForm">{{ctrl.metadata.title}}</h2>
+                        e:form="titleEditForm">{{ctrl.metadata.title || "unknown (click ✎ to add the title)"}}</h2>
                 </div>
 
                 <div class="image-info__wrap">
@@ -80,7 +80,7 @@
                          onbeforesave="ctrl.updateMetadata('description', $data)"
                          e:msd-elastic
                          e:ng-class="{'image-info__editor--error': $error, 'image-info__editor--saving': descriptionEditForm.$waiting}"
-                         e:form="descriptionEditForm">{{ctrl.metadata.description}}</div>
+                         e:form="descriptionEditForm">{{ctrl.metadata.description || "unknown (click ✎ to add the description)"}}</div>
                 </div>
             </div>
 
@@ -110,7 +110,7 @@
                             <a ui:sref="search.results({query: (ctrl.metadata.byline | queryFilter:'by')})">{{ctrl.metadata.byline}}</a>
                         </span>
                         <span ng:if="! ctrl.metadata.byline">
-                            unknown
+                            unknown (click ✎ to add the byline)
                         </span>
                     </span>
                 </div>
@@ -127,7 +127,13 @@
                           onbeforesave="ctrl.updateMetadata('credit', $data)"
                           e:ng-class="{'image-info__editor--error': $error, 'image-info__editor--saving': creditEditForm.$waiting}"
                           e:form="creditEditForm">
-                        <a ui:sref="search.results({query: (ctrl.metadata.credit | queryFilter:'credit')})">{{ctrl.metadata.credit}}</a>
+
+                        <span ng:if="ctrl.metadata.credit">
+                            <a ui:sref="search.results({query: (ctrl.metadata.credit | queryFilter:'credit')})">{{ctrl.metadata.credit}}</a>
+                        </span>
+                        <span ng:if="! ctrl.metadata.credit">
+                            unknown (click ✎ to add the credit)
+                        </span>
                     </span>
                 </div>
 
