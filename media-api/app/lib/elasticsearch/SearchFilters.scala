@@ -13,13 +13,13 @@ trait SearchFilters extends ImageFields {
 
   // Warning: this requires the capitalisation to be exact; we may want to sanitise the credits
   // to a canonical representation in the future
-  val creditFilter        = Config.freeCreditList.toNel.map(cs => filters.terms("metadata.credit", cs))
-  val sourceFilter        = Config.freeSourceList.toNel.map(cs => filters.terms("metadata.source", cs))
+  val creditFilter        = Config.freeCreditList.toNel.map(cs => filters.terms(metadataField("credit"), cs))
+  val sourceFilter        = Config.freeSourceList.toNel.map(cs => filters.terms(metadataField("source"), cs))
   val freeWhitelist       = (creditFilter, sourceFilter) match {
     case (Some(credit), Some(source)) => Some(filters.or(credit, source))
     case (creditOpt,    sourceOpt)    => creditOpt orElse sourceOpt
   }
-  val sourceExclFilter    = Config.payGettySourceList.toNel.map(cs => filters.not(filters.terms("metadata.source", cs)))
+  val sourceExclFilter    = Config.payGettySourceList.toNel.map(cs => filters.not(filters.terms(metadataField("source"), cs)))
   val freeCopyrightFilter = (freeWhitelist, sourceExclFilter) match {
     case (Some(whitelist), Some(sourceExcl)) => Some(filters.and(whitelist, sourceExcl))
     case (whitelistOpt,    sourceExclOpt)    => whitelistOpt orElse sourceExclOpt
@@ -28,7 +28,7 @@ trait SearchFilters extends ImageFields {
   // We're showing `Conditional` here too as we're considering them potentially
   // free. We could look into sending over the search query as a cost filter
   // that could take a comma seperated list e.g. `cost=free,conditional`.
-  val freeUsageRightsFilter = List(Free, Conditional).map(_.toString).toNel.map(filters.terms(editsField("usageRights.cost"), _))
+  val freeUsageRightsFilter = List(Free, Conditional).map(_.toString).toNel.map(filters.terms(editsField(usageRightsField("cost")), _))
   val freeFilter = (freeCopyrightFilter, freeUsageRightsFilter) match {
     case (Some(freeCopyright), Some(freeUsageRights)) => Some(filters.or(freeCopyright, freeUsageRights))
     case (freeCopyrightOpt,    freeUsageRightsOpt)    => freeCopyrightOpt orElse freeUsageRightsOpt
@@ -38,7 +38,7 @@ trait SearchFilters extends ImageFields {
   val notPayUsageRightsFilter  =
     List(Pay)
       .map(_.toString).toNel
-      .map(filters.terms(editsField("usageRights.cost"), _))
+      .map(filters.terms(editsField(usageRightsField("cost")), _))
       .map(filters.not)
 
   val freeFilterWithOverride = (freeFilter, notPayUsageRightsFilter) match {
