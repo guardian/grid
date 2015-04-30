@@ -56,7 +56,7 @@ case object ImageUpload {
         // FIXME: dirty hack to sync the originalUsageRights as well
         finalImage     = processedImage.copy(originalUsageRights = processedImage.usageRights)
       }
-      yield ImageUpload(uploadRequest, processedImage)
+      yield ImageUpload(uploadRequest, finalImage)
     }
   }
 
