@@ -23,7 +23,7 @@ import com.gu.mediaservice.lib.auth.KeyStore
 import com.gu.mediaservice.lib.argo._
 import com.gu.mediaservice.lib.argo.model._
 import com.gu.mediaservice.lib.formatting.{printDateTime, parseDateFromQuery}
-import com.gu.mediaservice.lib.cleanup.MetadataCleaners
+import com.gu.mediaservice.lib.cleanup.{SupplierProcessors, MetadataCleaners}
 import com.gu.mediaservice.lib.config.MetadataConfig
 import com.gu.mediaservice.lib.metadata.ImageMetadataConverter
 import com.gu.mediaservice.model._
@@ -99,19 +99,25 @@ object MediaApi extends Controller with ArgoHelpers {
 
     ElasticSearch.getImageById(id) map {
       case Some(source) => {
-        val fileMetadata = (source \ "fileMetadata").as[FileMetadata]
-        val imageMetadata = ImageMetadataConverter.fromFileMetadata(fileMetadata)
-        val cleanMetadata = metadataCleaners.clean(imageMetadata, fileMetadata)
+        val image = source.as[Image]
 
-        val notification = Json.obj("id" -> id, "data" -> Json.toJson(cleanMetadata))
-        Notifications.publish(notification, "update-image-metadata")
+        val imageMetadata = ImageMetadataConverter.fromFileMetadata(image.fileMetadata)
+        val cleanMetadata = metadataCleaners.clean(imageMetadata)
+        val imageCleanMetadata = image.copy(metadata = cleanMetadata, originalMetadata = cleanMetadata)
+        val processedImage = SupplierProcessors.process(imageCleanMetadata)
+
+        // FIXME: dirty hack to sync the originalUsageRights as well
+        val finalImage = processedImage.copy(originalUsageRights = processedImage.usageRights)
+
+        val notification = Json.toJson(finalImage)
+        Notifications.publish(notification, "update-image")
 
         Ok(Json.obj(
           "id" -> id,
-          "changed" -> JsBoolean(imageMetadata != cleanMetadata),
+          "changed" -> JsBoolean(image != finalImage),
           "data" -> Json.obj(
-            "oldMetadata" -> imageMetadata,
-            "cleanMetadata" -> cleanMetadata
+            "oldImage" -> image,
+            "updatedImage" -> finalImage
           )
         ))
       }
