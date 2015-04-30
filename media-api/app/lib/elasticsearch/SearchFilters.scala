@@ -8,14 +8,14 @@ import com.gu.mediaservice.model.{Pay, Free, Conditional}
 
 trait SearchFilters extends ImageFields {
 
-  val validFilter      = Config.requiredMetadata.map(metadataField).toNel.map(filters.exists)
-  val invalidFilter    = Config.requiredMetadata.map(metadataField).toNel.map(filters.anyMissing)
+  val validFilter   = Config.requiredMetadata.map(metadataField).toNel.map(filters.exists)
+  val invalidFilter = Config.requiredMetadata.map(metadataField).toNel.map(filters.anyMissing)
 
   // Warning: this requires the capitalisation to be exact; we may want to sanitise the credits
   // to a canonical representation in the future
-  val creditFilter        = Config.freeCreditList.toNel.map(cs => filters.terms(metadataField("credit"), cs))
-  val sourceFilter        = Config.freeSourceList.toNel.map(cs => filters.terms(metadataField("source"), cs))
-  val freeWhitelist       = (creditFilter, sourceFilter) match {
+  val creditFilter  = Config.freeCreditList.toNel.map(cs => filters.terms(metadataField("credit"), cs))
+  val sourceFilter  = Config.freeSourceList.toNel.map(cs => filters.terms(metadataField("source"), cs))
+  val freeWhitelist = (creditFilter, sourceFilter) match {
     case (Some(credit), Some(source)) => Some(filters.or(credit, source))
     case (creditOpt,    sourceOpt)    => creditOpt orElse sourceOpt
   }
@@ -45,6 +45,6 @@ trait SearchFilters extends ImageFields {
     case (Some(free), Some(notPayUsageRights)) => Some(filters.and(free, notPayUsageRights))
     case (freeOpt,    notPayUsageRightsOpt)    => freeOpt orElse notPayUsageRightsOpt
   }
-  val nonFreeFilter       = freeFilterWithOverride.map(filters.not)
+  val nonFreeFilter = freeFilterWithOverride.map(filters.not)
 
 }
