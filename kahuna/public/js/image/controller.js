@@ -74,15 +74,26 @@ image.controller('ImageCtrl', [
         }
 
         function getMetadataDiff (updated) {
-            var toUpdate = {};
+            var diff = {};
 
-            Object.keys(image.data.originalMetadata).forEach(function (key) {
-                if (image.data.originalMetadata[key] !== updated[key]) {
-                    toUpdate[key] = updated[key];
+            // jscs has a maximumLineLength of 100 characters, hence the line break
+            var keys = new Set(Object.keys(updated).concat(
+                Object.keys(image.data.originalMetadata)));
+
+            // Keywords is an array, the comparison below only works with string comparison.
+            // For simplicity, ignore keywords as we're not updating this field at the moment.
+            keys.delete('keywords');
+
+            keys.forEach((key) => {
+                if (updated[key] !== image.data.originalMetadata[key]) {
+                    // if the user has provided an override of '' (e.g. they want remove the title),
+                    // angular sets the value in the object to undefined.
+                    // We need to use an empty string in the PUT request to obey user input.
+                    diff[key] = updated[key] || '';
                 }
             });
 
-            return toUpdate;
+            return diff;
         }
 
         function save (metadata) {
