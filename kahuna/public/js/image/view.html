@@ -64,7 +64,7 @@
                         buttons="no"
                         blur="submit"
                         onbeforesave="ctrl.updateTitle($data)"
-                        e:ng-class="{'image-info__title--error': $error, 'image-info__title--saving': titleEditForm.$waiting}"
+                        e:ng-class="{'image-info__editor--error': $error, 'image-info__editor--saving': titleEditForm.$waiting}"
                         e:form="titleEditForm">{{ctrl.metadata.title}}</h2>
                 </div>
 
@@ -79,7 +79,7 @@
                          blur="submit"
                          onbeforesave="ctrl.updateDescription($data)"
                          e:msd-elastic
-                         e:ng-class="{'image-info__description--error': $error, 'image-info__description--saving': descriptionEditForm.$waiting}"
+                         e:ng-class="{'image-info__editor--error': $error, 'image-info__editor--saving': descriptionEditForm.$waiting}"
                          e:form="descriptionEditForm">{{ctrl.metadata.description}}</div>
                 </div>
             </div>
@@ -103,7 +103,7 @@
                           buttons="no"
                           blur="submit"
                           onbeforesave="ctrl.updateByline($data)"
-                          e:ng-class="{'image-info__byline--error': $error, 'image-info__byline--saving': bylineEditForm.$waiting}"
+                          e:ng-class="{'image-info__editor--error': $error, 'image-info__editor--saving': bylineEditForm.$waiting}"
                           e:form="bylineEditForm">
 
                         <span ng:if="ctrl.metadata.byline">
@@ -125,7 +125,7 @@
                           buttons="no"
                           blur="submit"
                           onbeforesave="ctrl.updateCredit($data)"
-                          e:ng-class="{'image-info__credit--error': $error, 'image-info__credit--saving': creditEditForm.$waiting}"
+                          e:ng-class="{'image-info__editor--error': $error, 'image-info__editor--saving': creditEditForm.$waiting}"
                           e:form="creditEditForm">
                         <a ui:sref="search.results({query: (ctrl.metadata.credit | queryFilter:'credit')})">{{ctrl.metadata.credit}}</a>
                     </span>
