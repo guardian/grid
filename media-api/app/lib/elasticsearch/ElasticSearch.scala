@@ -33,7 +33,7 @@ object BucketResult {
 case class BucketResult(key: String, count: Long)
 
 
-object ElasticSearch extends ElasticSearchClient with SearchFilters {
+object ElasticSearch extends ElasticSearchClient with SearchFilters with ImageFields {
 
   import MediaApiMetrics._
 
@@ -48,9 +48,9 @@ object ElasticSearch extends ElasticSearchClient with SearchFilters {
 
   val matchFields: Seq[String] = Seq("id") ++
     Seq("description", "title", "byline", "source", "credit", "keywords",
-      "subLocation", "city", "state", "country", "suppliersReference").map("metadata." + _) ++
-    Seq("labels").map("userMetadata." + _) ++
-    Config.queriableIdentifiers.map("identifiers." + _)
+      "subLocation", "city", "state", "country", "suppliersReference").map(metadataField) ++
+    Seq("labels").map(editsField) ++
+    Config.queriableIdentifiers.map(identifierField)
 
   val queryBuilder = new QueryBuilder(matchFields)
 
@@ -65,8 +65,8 @@ object ElasticSearch extends ElasticSearchClient with SearchFilters {
     val metadataFilter   = params.hasMetadata.map(metadataField).toNel.map(filters.exists)
     val archivedFilter   = params.archived.map(filters.existsOrMissing(editsField("archived"), _))
     val hasExports       = params.hasExports.map(filters.existsOrMissing("exports", _))
-    val hasIdentifier    = params.hasIdentifier.map(idName => filters.exists(NonEmptyList(s"identifiers.$idName")))
-    val missingIdentifier= params.missingIdentifier.map(idName => filters.missing(NonEmptyList(s"identifiers.$idName")))
+    val hasIdentifier    = params.hasIdentifier.map(idName => filters.exists(NonEmptyList(identifierField(idName))))
+    val missingIdentifier= params.missingIdentifier.map(idName => filters.missing(NonEmptyList(identifierField(idName))))
     val uploadedByFilter = params.uploadedBy.map(uploadedBy => filters.terms("uploadedBy", NonEmptyList(uploadedBy)))
 
     val validityFilter   = params.valid.flatMap(valid => if(valid) validFilter else invalidFilter)
