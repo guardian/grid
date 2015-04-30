@@ -106,15 +106,18 @@ object MediaApi extends Controller with ArgoHelpers {
         val imageCleanMetadata = image.copy(metadata = cleanMetadata, originalMetadata = cleanMetadata)
         val processedImage = SupplierProcessors.process(imageCleanMetadata)
 
-        val notification = Json.toJson(processedImage)
+        // FIXME: dirty hack to sync the originalUsageRights as well
+        val finalImage = processedImage.copy(originalUsageRights = processedImage.usageRights)
+
+        val notification = Json.toJson(finalImage)
         Notifications.publish(notification, "update-image")
 
         Ok(Json.obj(
           "id" -> id,
-          "changed" -> JsBoolean(image != processedImage),
+          "changed" -> JsBoolean(image != finalImage),
           "data" -> Json.obj(
             "oldImage" -> image,
-            "updatedImage" -> processedImage
+            "updatedImage" -> finalImage
           )
         ))
       }
