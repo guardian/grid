@@ -1,8 +1,28 @@
 package com.gu.mediaservice.lib.cleanup
 
-import com.gu.mediaservice.model.ImageMetadata
+import java.net.URI
+
+import com.gu.mediaservice.model._
+import org.joda.time.DateTime
 
 trait MetadataHelper {
+  def createImageFromMetadata(metadata: (String, String)*): Image = {
+    val metadataMap = createImageMetadata(metadata.toMap)
+    Image(
+      id = "test",
+      metadata = metadataMap,
+      uploadTime = DateTime.now,
+      uploadedBy = "tester",
+      lastModified = None,
+      identifiers = Map(),
+      source = Asset(URI.create("http://example.com/image.jpg"), 0, None, None),
+      thumbnail = None,
+      fileMetadata = FileMetadata(),
+      originalMetadata = metadataMap,
+      usageRights = ImageUsageRights()
+    )
+  }
+
   def createImageMetadata(metadata: (String, String)*): ImageMetadata =
     createImageMetadata(metadata.toMap)
 

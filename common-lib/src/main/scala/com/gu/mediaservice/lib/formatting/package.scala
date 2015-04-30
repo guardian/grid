@@ -25,8 +25,13 @@ package object formatting {
   def printDateTime(date: DateTime): String = dateTimeFormat.print(date)
   def printOptDateTime(date: Option[DateTime]): Option[String] = date.map(printDateTime)
 
+  // Only use this on dates that have been confidently written using printDateTime
+  def unsafeParseDateTime(string: String): DateTime =
+    dateTimeFormat.parseDateTime(string)
+
   def parseDateTime(string: String): Option[DateTime] =
     Try(parseDateTimeFormat.parseDateTime(string)).toOption
+  def parseOptDateTime(string: Option[String]): Option[DateTime] = string.flatMap(parseDateTime)
 
   /** Parses either a UTC timestamp, or a duration before the current time (e.g. "30.days") */
   def parseDateFromQuery(string: String): Option[DateTime] =

@@ -21,4 +21,7 @@ object FileMetadata {
     (__ \ "xmp").read[Map[String,String]] ~
     (__ \ "getty").readNullable[Map[String,String]].map(_ getOrElse Map())
     )(FileMetadata.apply _)
+
+  implicit val FileMetadataWrites: Writes[FileMetadata] = Json.writes[FileMetadata]
+
 }
