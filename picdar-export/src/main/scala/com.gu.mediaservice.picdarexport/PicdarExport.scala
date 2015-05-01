@@ -193,6 +193,15 @@ object ExportApp extends App with ExportManagerProvider with ArgumentHelpers wit
         Future.sequence(saves)
       }
     }
+    case "+load" :: env :: system :: dateField :: date :: range :: query :: Nil => terminateAfter {
+      val dynamo = getDynamo(env)
+      getPicdar(system).query(dateField, parseDateRange(date), parseQueryRange(range), Some(query)) flatMap { assetRefs =>
+        val saves = assetRefs.map { assetRef =>
+          dynamo.insert(assetRef.urn, assetRef.dateLoaded)
+        }
+        Future.sequence(saves)
+      }
+    }
 
     case ":count-loaded" :: env :: Nil => terminateAfter {
       val dynamo = getDynamo(env)
@@ -386,7 +395,7 @@ object ExportApp extends App with ExportManagerProvider with ArgumentHelpers wit
         |       :count-fetched   <dev|test|prod> [dateLoaded]
         |       :count-ingested  <dev|test|prod> [dateLoaded]
         |       :count-overriden <dev|test|prod> [dateLoaded]
-        |       +load   <dev|test|prod> <desk|library> <created|modified|taken> <date> [range]
+        |       +load   <dev|test|prod> <desk|library> <created|modified|taken> <date> [range] [query]
         |       +fetch  <dev|test|prod> <desk|library> [dateLoaded] [range]
         |       +ingest <dev|test|prod> [dateLoaded] [range]
         |       +override <dev|test|prod> [dateLoaded] [range]
