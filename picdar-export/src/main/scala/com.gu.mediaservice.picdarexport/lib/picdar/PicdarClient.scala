@@ -26,10 +26,10 @@ trait PicdarClient extends PicdarApi with HttpClient {
       asset <- fetchAsset(mak, urn)
     } yield asset
 
-  def count(dateField: String, dateRange: DateRange): Future[Int] =
+  def count(dateField: String, dateRange: DateRange, query: Option[String] = None): Future[Int] =
     for {
       mak            <- currentMak
-      searchInstance <- search(mak, dateField, dateRange)
+      searchInstance <- search(mak, dateField, dateRange, query = query)
       _              <- closeSearch(mak, searchInstance)
     } yield searchInstance.count
 
