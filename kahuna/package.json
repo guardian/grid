@@ -11,6 +11,7 @@
       "angular-ui-router": "github:angular-ui/ui-router@0.2.13",
       "angular-ui-router-extras": "github:christopherthielen/ui-router-extras@0.0.13",
       "css": "github:systemjs/plugin-css@0.1.9",
+      "font-awesome": "npm:font-awesome@^4.3.0",
       "github:tapmodo/Jcrop": "github:tapmodo/Jcrop@0.9.12",
       "jcrop": "github:tapmodo/Jcrop@0.9.12",
       "jquery": "github:components/jquery@2.1.1",
