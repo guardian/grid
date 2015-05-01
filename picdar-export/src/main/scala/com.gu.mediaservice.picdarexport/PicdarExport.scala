@@ -118,6 +118,7 @@ trait ArgumentHelpers {
   def optDate(strOrNull: String): Option[DateTime] = Option(strOrNull).map(DateTime.parse)
 
   def parseDateRange(rangeSpec: String) = rangeSpec match {
+    case "any"                           => DateRange.all
     case "today"                         => DateRange(Some(new DateTime), Some(new DateTime))
     case DateRangeExpr(fromDate, toDate) => {
       val Seq(fromDateOpt, toDateOpt) = Seq(fromDate, toDate) map optDate
