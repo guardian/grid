@@ -165,6 +165,11 @@ object ExportApp extends App with ExportManagerProvider with ArgumentHelpers wit
         println(s"$count matches")
       }
     }
+    case "query" :: system :: dateField :: date :: query :: Nil => terminateAfter {
+      getPicdar(system).count(dateField, parseDateRange(date), Some(query)) map { count =>
+        println(s"$count matches")
+      }
+    }
     case "ingest" :: system :: env :: dateField :: date :: Nil => terminateAfter {
       getExportManager(system, env).queryAndIngest(dateField, parseDateRange(date), None)
     }
@@ -387,7 +392,7 @@ object ExportApp extends App with ExportManagerProvider with ArgumentHelpers wit
     case _ => println(
       """
         |usage: show   <desk|library> <picdarUrl>
-        |       query  <desk|library> <created|modified|taken> <date>
+        |       query  <desk|library> <created|modified|taken> <date> [query]
         |       ingest <desk|library> <dev|test|prod> <created|modified|taken> <date> [range]
         |
         |       :stats  <dev|test|prod> [dateLoaded]
