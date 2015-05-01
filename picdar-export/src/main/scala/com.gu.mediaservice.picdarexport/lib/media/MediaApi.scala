@@ -24,7 +24,6 @@ object ImageResource {
 case class Image(
   metadata: ImageMetadata,
   originalMetadata: ImageMetadata,
-  fileMetadata: FileMetadata,
   metadataOverrideUri: URI
 )
 
@@ -35,7 +34,6 @@ object Image {
   implicit val ImageReads: Reads[Image] =
     ((__ \ "metadata").read[ImageMetadata] ~
       (__ \ "originalMetadata").read[ImageMetadata] ~
-      (__ \ "fileMetadata").read[FileMetadata] ~
       (__ \ "userMetadata" \ "data" \ "metadata" \ "uri").read[URI]
     )(Image.apply _)
 }
