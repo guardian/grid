@@ -228,24 +228,26 @@ object Application extends Controller with ArgoHelpers {
   // JSON combinators
   val metadataForm: Form[ImageMetadata] = Form(
     single("data" -> mapping(
-      "dateTaken" -> optional(jodaDate),
-      "description" -> optional(text),
-      "credit" -> optional(text),
-      "byline" -> optional(text),
-      "bylineTitle" -> optional(text),
-      "title" -> optional(text),
-      "copyrightNotice" -> optional(text),
-      "copyright" -> optional(text),
-      "suppliersReference" -> optional(text),
-      "source" -> optional(text),
-      "specialInstructions" -> optional(text),
+      "dateTaken" -> trueOptional(jodaDate),
+      "description" -> trueOptional(text),
+      "credit" -> trueOptional(text),
+      "byline" -> trueOptional(text),
+      "bylineTitle" -> trueOptional(text),
+      "title" -> trueOptional(text),
+      "copyrightNotice" -> trueOptional(text),
+      "copyright" -> trueOptional(text),
+      "suppliersReference" -> trueOptional(text),
+      "source" -> trueOptional(text),
+      "specialInstructions" -> trueOptional(text),
       "keywords" -> default(list(text), List()),
-      "subLocation" -> optional(text),
-      "city" -> optional(text),
-      "state" -> optional(text),
-      "country" -> optional(text)
+      "subLocation" -> trueOptional(text),
+      "city" -> trueOptional(text),
+      "state" -> trueOptional(text),
+      "country" -> trueOptional(text)
     )(ImageMetadata.apply)(ImageMetadata.unapply))
   )
+
+  def trueOptional[T](mapping: Mapping[T]) = TrueOptionalMapping(mapping)
 
   val booleanForm: Form[Boolean] = Form(
      single("data" -> boolean)
