@@ -105,7 +105,10 @@ service.factory('editsService',
                 runWatcher(resource, 'update-end');
                 return edit;
             }).
-            catch(() => runWatcher(resource, 'update-error'));
+            catch(e => {
+                runWatcher(resource, 'update-error');
+                return $q.reject(e);
+            });
 
     }
 
