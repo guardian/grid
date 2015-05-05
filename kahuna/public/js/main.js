@@ -275,7 +275,7 @@ kahuna.filter('stripEmailDomain', function() {
 });
 
 
-kahuna.factory('escapeHtml', [function($sce) {
+kahuna.factory('escapeHtml', [function() {
     return str => str.
             replace(/&/g, '&amp;').
             replace(/>/g, '&gt;').
