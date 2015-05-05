@@ -56,6 +56,7 @@
             <div class="image-info__group">
                 <div class="image-info__wrap" ng:if="ctrl.metadata.title">
                     <button class="image-info__edit"
+                            ng:if="ctrl.userCanEdit"
                             ng:click="titleEditForm.$show()"
                             ng:hide="titleEditForm.$visible">✎</button>
 
@@ -70,6 +71,7 @@
 
                 <div class="image-info__wrap">
                     <button class="image-info__edit"
+                            ng:if="ctrl.userCanEdit"
                             ng:click="descriptionEditForm.$show()"
                             ng:hide="descriptionEditForm.$visible">✎</button>
 
@@ -95,6 +97,7 @@
 
                 <div class="image-info__byline image-info__wrap metadata-line">
                     <button class="image-info__edit"
+                            ng:if="ctrl.userCanEdit"
                             ng:click="bylineEditForm.$show()"
                             ng:hide="bylineEditForm.$visible">✎</button>
                     by
@@ -117,6 +120,7 @@
 
                 <div class="image-info__credit image-info__wrap metadata-line">
                     <button class="image-info__edit"
+                            ng:if="ctrl.userCanEdit"
                             ng:click="creditEditForm.$show()"
                             ng:hide="creditEditForm.$visible">✎</button>
                     credit
