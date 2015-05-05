@@ -54,7 +54,7 @@
             </div>
 
             <div class="image-info__group">
-                <div class="image-info__wrap">
+                <div class="image-info__wrap" ng:if="ctrl.metadata.title">
                     <button class="image-info__edit"
                             ng:click="titleEditForm.$show()"
                             ng:hide="titleEditForm.$visible">✎</button>
