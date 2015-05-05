@@ -274,6 +274,21 @@ kahuna.filter('stripEmailDomain', function() {
     return str => str.replace(/@.+/, '');
 });
 
+
+kahuna.factory('escapeHtml', [function($sce) {
+    return str => str.
+            replace(/&/g, '&amp;').
+            replace(/>/g, '&gt;').
+            replace(/</g, '&lt;');
+}]);
+
+kahuna.filter('newlineToHtml', ['$sce', 'escapeHtml', function($sce, escapeHtml) {
+    // Escape HTML before trusting it
+    return str => $sce.trustAsHtml(
+        escapeHtml(str).replace(/\n/g, '<br/>')
+    );
+}]);
+
 kahuna.directive('uiHasSpace', ['$window', '$parse', function($window, $parse) {
     return {
         restrict: 'A',
