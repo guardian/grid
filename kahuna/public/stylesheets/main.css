@@ -894,6 +894,66 @@ FIXME: what to do with touch devices
     color: inherit;
 }
 
+.image-info__wrap {
+    position: relative;
+}
+
+.image-info__wrap:hover .image-info__edit {
+    display: block
+}
+
+.image-info__edit {
+    display: none;
+    position: absolute;
+    top: 0;
+    right: 0;
+    line-height: 21px;
+    width: 21px;
+    border-radius: 50%;
+    color: #222;
+    background-color: white;
+}
+
+.image-info__edit:hover {
+    color: white;
+    background-color: #222;
+    border: 1px solid white;
+}
+
+.image-info__wrap .editable-wrap,
+.image-info__wrap .editable-input {
+    width: 100%;
+}
+
+.image-info__wrap .editable-error {
+    text-align: right;
+    font-size: 12px;
+    color: #BB1212;
+}
+
+.image-info__wrap .editable-empty,
+.image-info__wrap .editable-empty:hover {
+    color: #999;
+}
+
+.image-info__byline .editable-wrap {
+    width: calc(100% - 20px);
+}
+
+.image-info__credit .editable-wrap {
+    width: calc(100% - 40px);
+}
+
+.image-info__wrap .editable-wrap .image-info__editor--error {
+    border: 1px solid #BB1212;
+    outline: none;
+}
+
+.image-info__wrap .editable-wrap .image-info__editor--saving {
+    border: 1px dashed #CCC;
+    outline: none;
+}
+
 .image-notice {
     padding: 10px;
 }
