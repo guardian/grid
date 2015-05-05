@@ -118,6 +118,7 @@ trait ArgumentHelpers {
   def optDate(strOrNull: String): Option[DateTime] = Option(strOrNull).map(DateTime.parse)
 
   def parseDateRange(rangeSpec: String) = rangeSpec match {
+    case "any"                           => DateRange.all
     case "today"                         => DateRange(Some(new DateTime), Some(new DateTime))
     case DateRangeExpr(fromDate, toDate) => {
       val Seq(fromDateOpt, toDateOpt) = Seq(fromDate, toDate) map optDate
@@ -165,6 +166,11 @@ object ExportApp extends App with ExportManagerProvider with ArgumentHelpers wit
         println(s"$count matches")
       }
     }
+    case "query" :: system :: dateField :: date :: query :: Nil => terminateAfter {
+      getPicdar(system).count(dateField, parseDateRange(date), Some(query)) map { count =>
+        println(s"$count matches")
+      }
+    }
     case "ingest" :: system :: env :: dateField :: date :: Nil => terminateAfter {
       getExportManager(system, env).queryAndIngest(dateField, parseDateRange(date), None)
     }
@@ -187,6 +193,15 @@ object ExportApp extends App with ExportManagerProvider with ArgumentHelpers wit
     case "+load" :: env :: system :: dateField :: date :: range :: Nil => terminateAfter {
       val dynamo = getDynamo(env)
       getPicdar(system).query(dateField, parseDateRange(date), parseQueryRange(range)) flatMap { assetRefs =>
+        val saves = assetRefs.map { assetRef =>
+          dynamo.insert(assetRef.urn, assetRef.dateLoaded)
+        }
+        Future.sequence(saves)
+      }
+    }
+    case "+load" :: env :: system :: dateField :: date :: range :: query :: Nil => terminateAfter {
+      val dynamo = getDynamo(env)
+      getPicdar(system).query(dateField, parseDateRange(date), parseQueryRange(range), Some(query)) flatMap { assetRefs =>
         val saves = assetRefs.map { assetRef =>
           dynamo.insert(assetRef.urn, assetRef.dateLoaded)
         }
@@ -378,7 +393,7 @@ object ExportApp extends App with ExportManagerProvider with ArgumentHelpers wit
     case _ => println(
       """
         |usage: show   <desk|library> <picdarUrl>
-        |       query  <desk|library> <created|modified|taken> <date>
+        |       query  <desk|library> <created|modified|taken> <date> [query]
         |       ingest <desk|library> <dev|test|prod> <created|modified|taken> <date> [range]
         |
         |       :stats  <dev|test|prod> [dateLoaded]
@@ -386,7 +401,7 @@ object ExportApp extends App with ExportManagerProvider with ArgumentHelpers wit
         |       :count-fetched   <dev|test|prod> [dateLoaded]
         |       :count-ingested  <dev|test|prod> [dateLoaded]
         |       :count-overriden <dev|test|prod> [dateLoaded]
-        |       +load   <dev|test|prod> <desk|library> <created|modified|taken> <date> [range]
+        |       +load   <dev|test|prod> <desk|library> <created|modified|taken> <date> [range] [query]
         |       +fetch  <dev|test|prod> <desk|library> [dateLoaded] [range]
         |       +ingest <dev|test|prod> [dateLoaded] [range]
         |       +override <dev|test|prod> [dateLoaded] [range]
