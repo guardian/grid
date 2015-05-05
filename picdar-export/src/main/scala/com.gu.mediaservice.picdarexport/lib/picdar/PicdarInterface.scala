@@ -22,7 +22,7 @@ trait PicdarInterface {
         </ActionData>
       </MogulAction>
 
-    def search(mak: Mak, dateField: String, dateRange: DateRange, urn: Option[String]) =
+    def search(mak: Mak, dateField: String, dateRange: DateRange, urn: Option[String] = None, query: Option[String] = None) =
       <MogulAction>
         <MAK>{mak}</MAK>
         <ActionType>Search</ActionType>
@@ -30,10 +30,15 @@ trait PicdarInterface {
           <ResultSets>Multiple</ResultSets>
           <SearchType>Asset</SearchType>
           <MMRef>{urn.getOrElse("")}</MMRef>
+          {queryCriterium(query)}
           {dateCriteria(dateField, dateRange.start, dateRange.end)}
         </ActionData>
       </MogulAction>
-    //        <SearchField name="Caption" type="text">goat</SearchField>
+
+    private def queryCriterium(queryOpt: Option[String]) = queryOpt match {
+      case Some(query) => <SearchField name="Caption" type="text">{query}</SearchField>
+      case None        => NodeSeq.Empty
+    }
 
     private def dateCriteria(field: String, startDate: Option[DateTime], endDate: Option[DateTime]) = {
       if (startDate.isDefined && endDate.isDefined)
