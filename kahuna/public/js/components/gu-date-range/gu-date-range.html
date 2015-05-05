@@ -1,7 +1,7 @@
 <div class="gu-date-range" ng:init="ctrl.showOverlay = false">
     <div class="gu-date-range__display" ng:click="ctrl.showOverlay = !ctrl.showOverlay">
         <div class="gu-date-range__display__icon gu-date-range__display__icon__calendar">
-            <i class="fa fa-calendar" />
+            &#128197;
         </div>
 
         <div class="gu-date-range__display--value">
@@ -11,7 +11,8 @@
         </div>
 
         <div class="gu-date-range__display__icon gu-date-range__display__icon__toggle">
-            <i ng-class="{'fa fa-caret-down': ctrl.showOverlay, 'fa fa-caret-right': ! ctrl.showOverlay}" />
+            <span ng:hide="ctrl.showOverlay">▸</span>
+            <span ng:show="ctrl.showOverlay">▾</span>
         </div>
     </div>
 
