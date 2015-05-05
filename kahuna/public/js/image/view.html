@@ -56,7 +56,8 @@
             <div class="image-info__group">
                 <h2 ng:if="ctrl.metadata.title" class="image-info__title">{{ctrl.metadata.title}}</h2>
 
-                <div class="small-margin-bottom">{{ctrl.metadata.description}}</div>
+                <div class="small-margin-bottom"
+                     ng:bind-html="ctrl.metadata.description | newlineToHtml"></div>
             </div>
 
             <div class="image-info__group">
