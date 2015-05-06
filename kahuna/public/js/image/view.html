@@ -66,10 +66,10 @@
                         blur="submit"
                         onbeforesave="ctrl.updateMetadata('title', $data)"
                         e:ng-class="{'image-info__editor--error': $error, 'image-info__editor--saving': titleEditForm.$waiting}"
-                        e:form="titleEditForm">{{ctrl.metadata.title || "unknown (click ✎ to add the title)"}}</h2>
+                        e:form="titleEditForm">{{ctrl.metadata.title}}</h2>
                 </div>
 
-                <div class="image-info__wrap">
+                <div class="image-info__wrap" ng:if="ctrl.metadata.description || ctrl.userCanEdit">
                     <button class="image-info__edit"
                             ng:if="ctrl.userCanEdit"
                             ng:click="descriptionEditForm.$show()"
@@ -95,7 +95,7 @@
                     </span>
                 </div>
 
-                <div class="image-info__byline image-info__wrap metadata-line">
+                <div class="image-info__byline image-info__wrap metadata-line" ng:if="ctrl.metadata.byline || ctrl.userCanEdit">
                     <button class="image-info__edit"
                             ng:if="ctrl.userCanEdit"
                             ng:click="bylineEditForm.$show()"
@@ -118,7 +118,7 @@
                     </span>
                 </div>
 
-                <div class="image-info__credit image-info__wrap metadata-line">
+                <div class="image-info__credit image-info__wrap metadata-line" ng:if="ctrl.metadata.credit || ctrl.userCanEdit">
                     <button class="image-info__edit"
                             ng:if="ctrl.userCanEdit"
                             ng:click="creditEditForm.$show()"
