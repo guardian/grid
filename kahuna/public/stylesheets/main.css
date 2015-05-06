@@ -879,6 +879,11 @@ FIXME: what to do with touch devices
     margin-top: 0;
 }
 
+.image-info__description {
+    /* respect newlines in text */
+    white-space: pre-line;
+}
+
 .image-info__keyword {
     display: inline-block;
     background-color: #222;
