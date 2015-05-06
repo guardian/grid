@@ -53,6 +53,7 @@ object Config extends CommonPlayAppConfig with CommonPlayAppProperties {
 
   // TODO: Review these with RCS et al
   val freeCreditList = List(
+    "AAP",
     "AAPIMAGE",
     "AFP",
     "ANSA",
