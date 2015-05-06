@@ -21,13 +21,6 @@ class ArgumentError(message: String) extends Error(message)
 
 class ExportManager(picdar: PicdarClient, loader: MediaLoader, mediaApi: MediaApi) {
 
-  def queryAndIngest(dateField: String, dateRange: DateRange, queryRange: Option[Range]) =
-    for {
-      assets       <- picdar.queryAssets(dateField, dateRange, queryRange)
-      _             = Logger.info(s"${assets.size} matches")
-      uploadedIds  <- Future.sequence(assets map ingestAsset)
-    } yield uploadedIds
-
   def ingest(assetUri: URI, picdarUrn: String, uploadTime: DateTime): Future[URI] =
     for {
       data   <- picdar.getAssetData(assetUri)
@@ -258,16 +251,6 @@ object ExportApp extends App with ExportManagerProvider with ArgumentHelpers wit
 
 
   args.toList match {
-    case "ingest" :: system :: env :: dateField :: date :: Nil => terminateAfter {
-      getExportManager(system, env).queryAndIngest(dateField, parseDateRange(date), None)
-    }
-    case "ingest" :: system :: env :: dateField :: date :: range :: Nil => terminateAfter {
-      getExportManager(system, env).queryAndIngest(dateField, parseDateRange(date), parseQueryRange(range)) map { uploadedIds =>
-        println(s"Uploaded $uploadedIds")
-        // TODO: show success/failures?
-      }
-    }
-
     case ":count-loaded" :: env :: Nil => terminateAfter {
       val dynamo = getDynamo(env)
       dynamo.scanUnfetched(DateRange.all) map (urns => urns.size) map { count =>
@@ -406,9 +389,7 @@ object ExportApp extends App with ExportManagerProvider with ArgumentHelpers wit
 
     case _ => println(
       """
-        |usage: ingest <desk|library> <dev|test|prod> <created|modified|taken> <date> [range]
-        |
-        |       :count-loaded    <dev|test|prod> [dateLoaded]
+        |usage: :count-loaded    <dev|test|prod> [dateLoaded]
         |       :count-fetched   <dev|test|prod> [dateLoaded]
         |       :count-ingested  <dev|test|prod> [dateLoaded]
         |       :count-overriden <dev|test|prod> [dateLoaded]
