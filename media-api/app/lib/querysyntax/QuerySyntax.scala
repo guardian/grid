@@ -50,19 +50,11 @@ class QuerySyntax(val input: ParserInput) extends Parser {
   }
 
 
-  def AnyMatch = rule { AnyMatchValue ~> (v => Match(AnyField, v)) }
+  def AnyMatch = rule { MatchValue ~> (v => Match(AnyField, v)) }
 
 
   // Note: order matters, check for quoted string first
   def MatchValue = rule { QuotedString ~> Phrase | String ~> Words }
-
-  // Note: order matters, check for quoted string first
-  def AnyMatchValue = rule {
-    QuotedString ~> Phrase |
-    StringSequence ~> (words => Words(words.mkString(" ")))
-  }
-
-  def StringSequence = rule { oneOrMore(String) separatedBy Whitespace }
 
   def String = rule { capture(Chars) }
 
