@@ -151,6 +151,28 @@ object ExportApp extends App with ExportManagerProvider with ArgumentHelpers wit
   }
 
 
+  def show(system: String, urn: String) = {
+    getPicdar(system).get(urn) map { asset =>
+      println(
+        s"""
+           |urn: ${asset.urn}
+            |file: ${asset.file}
+            |created: ${asset.created}
+            |modified: ${asset.modified getOrElse ""}
+            |infoUri: ${asset.infoUri getOrElse ""}
+            |metadata:
+            |${asset.metadata}
+        """.stripMargin
+      )
+    }
+  }
+
+  def query(system: String, dateField: String, dateRange: DateRange = DateRange.all, query: Option[String] = None) = {
+    getPicdar(system).count(dateField, dateRange, query) map { count =>
+      println(s"$count matches")
+    }
+  }
+
   def stats(env: String, dateRange: DateRange = DateRange.all): Future[Unit] = {
     val dynamo = getDynamo(env)
     for {
@@ -236,31 +258,6 @@ object ExportApp extends App with ExportManagerProvider with ArgumentHelpers wit
 
 
   args.toList match {
-    case "show" :: system :: urn :: Nil => terminateAfter {
-      getPicdar(system).get(urn) map { asset =>
-        println(
-        s"""
-          |urn: ${asset.urn}
-          |file: ${asset.file}
-          |created: ${asset.created}
-          |modified: ${asset.modified getOrElse ""}
-          |infoUri: ${asset.infoUri getOrElse ""}
-          |metadata:
-          |${asset.metadata}
-        """.stripMargin
-        )
-      }
-    }
-    case "query" :: system :: dateField :: date :: Nil => terminateAfter {
-      getPicdar(system).count(dateField, parseDateRange(date)) map { count =>
-        println(s"$count matches")
-      }
-    }
-    case "query" :: system :: dateField :: date :: query :: Nil => terminateAfter {
-      getPicdar(system).count(dateField, parseDateRange(date), Some(query)) map { count =>
-        println(s"$count matches")
-      }
-    }
     case "ingest" :: system :: env :: dateField :: date :: Nil => terminateAfter {
       getExportManager(system, env).queryAndIngest(dateField, parseDateRange(date), None)
     }
@@ -269,16 +266,6 @@ object ExportApp extends App with ExportManagerProvider with ArgumentHelpers wit
         println(s"Uploaded $uploadedIds")
         // TODO: show success/failures?
       }
-    }
-
-    case "+load" :: env :: system :: dateField :: date :: Nil => terminateAfter {
-      load(env, system, dateField, parseDateRange(date))
-    }
-    case "+load" :: env :: system :: dateField :: date :: rangeStr :: Nil => terminateAfter {
-      load(env, system, dateField, parseDateRange(date), parseQueryRange(rangeStr))
-    }
-    case "+load" :: env :: system :: dateField :: date :: rangeStr :: query :: Nil => terminateAfter {
-      load(env, system, dateField, parseDateRange(date), parseQueryRange(rangeStr), Some(query))
     }
 
     case ":count-loaded" :: env :: Nil => terminateAfter {
@@ -349,11 +336,33 @@ object ExportApp extends App with ExportManagerProvider with ArgumentHelpers wit
     }
 
 
+    case ":show" :: system :: urn :: Nil => terminateAfter {
+      show(system, urn)
+    }
+
+    case ":query" :: system :: dateField :: date :: Nil => terminateAfter {
+      query(system, dateField, parseDateRange(date))
+    }
+    case ":query" :: system :: dateField :: date :: queryStr :: Nil => terminateAfter {
+      query(system, dateField, parseDateRange(date), Some(queryStr))
+    }
+
     case ":stats" :: env :: Nil => terminateAfter {
       stats(env)
     }
     case ":stats" :: env :: date :: Nil => terminateAfter {
       stats(env, parseDateRange(date))
+    }
+
+
+    case "+load" :: env :: system :: dateField :: date :: Nil => terminateAfter {
+      load(env, system, dateField, parseDateRange(date))
+    }
+    case "+load" :: env :: system :: dateField :: date :: rangeStr :: Nil => terminateAfter {
+      load(env, system, dateField, parseDateRange(date), parseQueryRange(rangeStr))
+    }
+    case "+load" :: env :: system :: dateField :: date :: rangeStr :: query :: Nil => terminateAfter {
+      load(env, system, dateField, parseDateRange(date), parseQueryRange(rangeStr), Some(query))
     }
 
     case "+fetch" :: env :: system :: Nil => terminateAfter {
@@ -397,15 +406,15 @@ object ExportApp extends App with ExportManagerProvider with ArgumentHelpers wit
 
     case _ => println(
       """
-        |usage: show   <desk|library> <picdarUrl>
-        |       query  <desk|library> <created|modified|taken> <date> [query]
-        |       ingest <desk|library> <dev|test|prod> <created|modified|taken> <date> [range]
+        |usage: ingest <desk|library> <dev|test|prod> <created|modified|taken> <date> [range]
         |
         |       :count-loaded    <dev|test|prod> [dateLoaded]
         |       :count-fetched   <dev|test|prod> [dateLoaded]
         |       :count-ingested  <dev|test|prod> [dateLoaded]
         |       :count-overriden <dev|test|prod> [dateLoaded]
         |
+        |       :show   <desk|library> <picdarUrl>
+        |       :query  <desk|library> <created|modified|taken> <date> [query]
         |       :stats  <dev|test|prod> [dateLoaded]
         |       +load   <dev|test|prod> <desk|library> <created|modified|taken> <date> [range] [query]
         |       +fetch  <dev|test|prod> <desk|library> [dateLoaded] [range]
