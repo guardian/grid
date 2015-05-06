@@ -358,8 +358,11 @@ class ParserTest extends FunSpec with Matchers with BeforeAndAfter {
       ))
     }
 
-    it("should combination of terms (negation, phrase, word)") {
-      Parser.run("""-credit:"cats dogs" unicorns""") should be (List(Negation(Match(SingleField("credit"), Phrase("cats dogs"))), Match(AnyField, Words("unicorns"))))
+    it("should combination of terms (negated faceted phrase, word)") {
+      Parser.run("""-credit:"cats dogs" unicorns""") should be (List(
+        Negation(Match(SingleField("credit"), Phrase("cats dogs"))),
+        Match(AnyField, Words("unicorns"))
+      ))
     }
 
     it("should combination of terms (multiple words, label)") {
