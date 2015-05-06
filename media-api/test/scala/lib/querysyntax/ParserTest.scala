@@ -56,9 +56,16 @@ class ParserTest extends FunSpec with Matchers with BeforeAndAfter {
       Parser.run("credit:cats") should be (List(Match(SingleField("credit"), Words("cats"))))
     }
 
-    it("should match multiple faceted terms") {
+    it("should match multiple faceted terms on the same facet") {
       Parser.run("label:cats label:dogs") should be (List(
         Match(SingleField("labels"), Words("cats")),
+        Match(SingleField("labels"), Words("dogs"))
+      ))
+    }
+
+    it("should match multiple faceted terms on different facets") {
+      Parser.run("credit:cats label:dogs") should be (List(
+        Match(SingleField("credit"), Words("cats")),
         Match(SingleField("labels"), Words("dogs"))
       ))
     }
