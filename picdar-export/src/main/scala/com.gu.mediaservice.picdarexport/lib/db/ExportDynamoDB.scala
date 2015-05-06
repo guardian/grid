@@ -69,7 +69,7 @@ class ExportDynamoDB(credentials: AWSCredentials, region: Region, tableName: Str
       dateRange.end.map(asRangeString).map(":endDate" -> _)
 
     val projectionAttrs = List("picdarUrn", "picdarCreated")
-    val items = scan(queryConds, List("picdarUrn", "picdarCreated"), values)
+    val items = scan(queryConds, projectionAttrs, values)
     items.iterator.map { item =>
       AssetRef(item.getString("picdarUrn"), rangeDateFormat.parseDateTime(item.getString("picdarCreated")))
     }.toSeq
@@ -86,7 +86,7 @@ class ExportDynamoDB(credentials: AWSCredentials, region: Region, tableName: Str
       dateRange.end.map(asRangeString).map(":endDate" -> _)
 
     val projectionAttrs = List("picdarUrn", "picdarCreated", "picdarCreatedFull", "picdarAssetUrl")
-    val items = scan(queryConds, List("picdarUrn", "picdarCreated", "picdarCreatedFull", "picdarAssetUrl"), values)
+    val items = scan(queryConds, projectionAttrs, values)
     items.iterator.map { item =>
       val picdarCreated = rangeDateFormat.parseDateTime(item.getString("picdarCreated"))
       val picdarCreatedFull = timestampDateFormat.parseDateTime(item.getString("picdarCreatedFull"))
