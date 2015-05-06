@@ -145,6 +145,90 @@ object ExportApp extends App with ExportManagerProvider with ArgumentHelpers wit
     metadata.map { case (key, value) => s"  $key: $value" }.mkString("\n")
   }
 
+
+  def load(env: String, system: String, dateField: String, dateRange: DateRange = DateRange.all,
+           range: Option[Range] = None, query: Option[String] = None) = {
+    val dynamo = getDynamo(env)
+    getPicdar(system).query(dateField, dateRange, range, query) flatMap { assetRefs =>
+      val saves = assetRefs.map { assetRef =>
+        dynamo.insert(assetRef.urn, assetRef.dateLoaded)
+      }
+      Future.sequence(saves)
+    }
+  }
+
+  def fetch(env: String, system: String, dateRange: DateRange = DateRange.all, range: Option[Range] = None) = {
+    val dynamo = getDynamo(env)
+    dynamo.scanUnfetched(dateRange) flatMap { urns =>
+      // FIXME: meh code
+      val rangeStart = range.map(_.start) getOrElse 0
+      val rangeEnd = range.map(_.end) getOrElse urns.size
+      val rangeLen = rangeEnd - rangeStart
+      val updates = urns.drop(rangeStart).take(rangeLen).map { assetRef =>
+        getPicdar(system).get(assetRef.urn) flatMap { asset =>
+          dynamo.record(assetRef.urn, assetRef.dateLoaded, asset.file, asset.created, asset.modified, asset.metadata)
+        } recover { case PicdarError(message) =>
+          Logger.warn(s"Picdar error during fetch: $message")
+        }
+      }
+      Future.sequence(updates)
+    }
+  }
+
+  def ingest(env: String, dateRange: DateRange = DateRange.all, range: Option[Range] = None) = {
+    val dynamo = getDynamo(env)
+    dynamo.scanFetchedNotIngested(dateRange) flatMap { assets =>
+      // FIXME: meh code
+      val rangeStart = range.map(_.start) getOrElse 0
+      val rangeEnd = range.map(_.end) getOrElse assets.size
+      val rangeLen = rangeEnd - rangeStart
+
+      val updates = assets.drop(rangeStart).take(rangeLen).map { asset =>
+        getExportManager("library", env).ingest(asset.picdarAssetUrl, asset.picdarUrn, asset.picdarCreatedFull) flatMap { mediaUri =>
+          Logger.info(s"Ingested ${asset.picdarUrn} to $mediaUri")
+          dynamo.recordIngested(asset.picdarUrn, asset.picdarCreated, mediaUri)
+        } recover { case e: Throwable =>
+          Logger.warn(s"Upload error for ${asset.picdarUrn}: $e")
+          e.printStackTrace()
+        }
+      }
+      Future.sequence(updates)
+    }
+  }
+
+  def doOverride(env: String, dateRange: DateRange = DateRange.all, range: Option[Range] = None) = {
+    val dynamo = getDynamo(env)
+    dynamo.scanIngestedNotOverridden(dateRange) flatMap { assets =>
+      // FIXME: meh code
+      val rangeStart = range.map(_.start) getOrElse 0
+      val rangeEnd = range.map(_.end) getOrElse assets.size
+      val rangeLen = rangeEnd - rangeStart
+
+      val updates = assets.drop(rangeStart).take(rangeLen).map { asset =>
+        // TODO: if no mediaUri, skip
+        // FIXME: HACKK!
+        val mediaUri = asset.mediaUri.get
+        val metadata = asset.picdarMetadata.get
+        getExportManager("library", env).overrideMetadata(mediaUri, metadata) flatMap { overridden =>
+          Logger.info(s"Overridden $mediaUri metadata ($overridden)")
+          dynamo.recordOverridden(asset.picdarUrn, asset.picdarCreated, overridden)
+        } recover { case e: Throwable =>
+          Logger.warn(s"Metadata override error for ${asset.picdarUrn}: $e")
+          e.printStackTrace()
+        }
+      }
+      Future.sequence(updates)
+    }
+  }
+
+  def clear(env: String, dateRange: DateRange = DateRange.all) = {
+    val dynamo = getDynamo(env)
+    dynamo.delete(dateRange) map { rows =>
+      println(s"Cleared ${rows.size} entries")
+    }
+  }
+
+
   args.toList match {
     case "show" :: system :: urn :: Nil => terminateAfter {
       getPicdar(system).get(urn) map { asset =>
@@ -182,31 +266,13 @@ object ExportApp extends App with ExportManagerProvider with ArgumentHelpers wit
     }
 
     case "+load" :: env :: system :: dateField :: date :: Nil => terminateAfter {
-      val dynamo = getDynamo(env)
-      getPicdar(system).query(dateField, parseDateRange(date), None) flatMap { assetRefs =>
-        val saves = assetRefs.map { assetRef =>
-          dynamo.insert(assetRef.urn, assetRef.dateLoaded)
-        }
-        Future.sequence(saves)
-      }
+      load(env, system, dateField, parseDateRange(date))
     }
-    case "+load" :: env :: system :: dateField :: date :: range :: Nil => terminateAfter {
-      val dynamo = getDynamo(env)
-      getPicdar(system).query(dateField, parseDateRange(date), parseQueryRange(range)) flatMap { assetRefs =>
-        val saves = assetRefs.map { assetRef =>
-          dynamo.insert(assetRef.urn, assetRef.dateLoaded)
-        }
-        Future.sequence(saves)
-      }
+    case "+load" :: env :: system :: dateField :: date :: rangeStr :: Nil => terminateAfter {
+      load(env, system, dateField, parseDateRange(date), parseQueryRange(rangeStr))
     }
-    case "+load" :: env :: system :: dateField :: date :: range :: query :: Nil => terminateAfter {
-      val dynamo = getDynamo(env)
-      getPicdar(system).query(dateField, parseDateRange(date), parseQueryRange(range), Some(query)) flatMap { assetRefs =>
-        val saves = assetRefs.map { assetRef =>
-          dynamo.insert(assetRef.urn, assetRef.dateLoaded)
-        }
-        Future.sequence(saves)
-      }
+    case "+load" :: env :: system :: dateField :: date :: rangeStr :: query :: Nil => terminateAfter {
+      load(env, system, dateField, parseDateRange(date), parseQueryRange(rangeStr), Some(query))
     }
 
     case ":count-loaded" :: env :: Nil => terminateAfter {
@@ -278,116 +344,42 @@ object ExportApp extends App with ExportManagerProvider with ArgumentHelpers wit
     }
 
     case "+fetch" :: env :: system :: Nil => terminateAfter {
-      val dynamo = getDynamo(env)
-      dynamo.scanUnfetched(DateRange.all) flatMap { urns =>
-        val updates = urns.map { assetRef =>
-          getPicdar(system).get(assetRef.urn) flatMap { asset =>
-            dynamo.record(assetRef.urn, assetRef.dateLoaded, asset.file, asset.created, asset.modified, asset.metadata)
-          } recover { case PicdarError(message) =>
-            Logger.warn(s"Picdar error during fetch: $message")
-          }
-        }
-        Future.sequence(updates)
-      }
+      fetch(env, system)
     }
     case "+fetch" :: env :: system :: date :: Nil => terminateAfter {
-      val dynamo = getDynamo(env)
-      dynamo.scanUnfetched(parseDateRange(date)) flatMap { urns =>
-        val updates = urns.map { assetRef =>
-          getPicdar(system).get(assetRef.urn) flatMap { asset =>
-            dynamo.record(assetRef.urn, assetRef.dateLoaded, asset.file, asset.created, asset.modified, asset.metadata)
-          } recover { case PicdarError(message) =>
-            Logger.warn(s"Picdar error during fetch: $message")
-          }
-        }
-        Future.sequence(updates)
-      }
+      fetch(env, system, parseDateRange(date))
     }
     case "+fetch" :: env :: system :: date :: rangeStr :: Nil => terminateAfter {
-      val dynamo = getDynamo(env)
-      val range = parseQueryRange(rangeStr)
-      dynamo.scanUnfetched(parseDateRange(date)) flatMap { urns =>
-        // FIXME: meh code
-        val rangeStart = range.map(_.start) getOrElse 0
-        val rangeEnd = range.map(_.end) getOrElse urns.size
-        val rangeLen = rangeEnd - rangeStart
-        val updates = urns.drop(rangeStart).take(rangeLen).map { assetRef =>
-          getPicdar(system).get(assetRef.urn) flatMap { asset =>
-            dynamo.record(assetRef.urn, assetRef.dateLoaded, asset.file, asset.created, asset.modified, asset.metadata)
-          } recover { case PicdarError(message) =>
-            Logger.warn(s"Picdar error during fetch: $message")
-          }
-        }
-        Future.sequence(updates)
-      }
+      fetch(env, system, parseDateRange(date), parseQueryRange(rangeStr))
     }
 
-    // TODO: allow no date range
-    // TODO: allow no range
+    case "+ingest" :: env :: Nil => terminateAfter {
+      ingest(env)
+    }
+    case "+ingest" :: env :: date :: Nil => terminateAfter {
+      ingest(env, parseDateRange(date))
+    }
     case "+ingest" :: env :: date :: rangeStr :: Nil => terminateAfter {
-      val dynamo = getDynamo(env)
-      val range = parseQueryRange(rangeStr)
-      dynamo.scanFetchedNotIngested(parseDateRange(date)) flatMap { assets =>
-        // FIXME: meh code
-        val rangeStart = range.map(_.start) getOrElse 0
-        val rangeEnd = range.map(_.end) getOrElse assets.size
-        val rangeLen = rangeEnd - rangeStart
-
-        val updates = assets.drop(rangeStart).take(rangeLen).map { asset =>
-          getExportManager("library", env).ingest(asset.picdarAssetUrl, asset.picdarUrn, asset.picdarCreatedFull) flatMap { mediaUri =>
-            Logger.info(s"Ingested ${asset.picdarUrn} to $mediaUri")
-            dynamo.recordIngested(asset.picdarUrn, asset.picdarCreated, mediaUri)
-          } recover { case e: Throwable =>
-            Logger.warn(s"Upload error for ${asset.picdarUrn}: $e")
-            e.printStackTrace()
-          }
-        }
-        Future.sequence(updates)
-      }
+      ingest(env, parseDateRange(date), parseQueryRange(rangeStr))
     }
 
 
-    // TODO: allow no date range
-    // TODO: allow no range
+    case "+override" :: env :: Nil => terminateAfter {
+      doOverride(env)
+    }
+    case "+override" :: env :: date :: Nil => terminateAfter {
+      doOverride(env, parseDateRange(date))
+    }
     case "+override" :: env :: date :: rangeStr :: Nil => terminateAfter {
-      val dynamo = getDynamo(env)
-      val range = parseQueryRange(rangeStr)
-      dynamo.scanIngestedNotOverridden(parseDateRange(date)) flatMap { assets =>
-        // FIXME: meh code
-        val rangeStart = range.map(_.start) getOrElse 0
-        val rangeEnd = range.map(_.end) getOrElse assets.size
-        val rangeLen = rangeEnd - rangeStart
-
-        val updates = assets.drop(rangeStart).take(rangeLen).map { asset =>
-          // TODO: if no mediaUri, skip
-          // FIXME: HACKK!
-          val mediaUri = asset.mediaUri.get
-          val metadata = asset.picdarMetadata.get
-          getExportManager("library", env).overrideMetadata(mediaUri, metadata) flatMap { overridden =>
-            Logger.info(s"Overridden $mediaUri metadata ($overridden)")
-            dynamo.recordOverridden(asset.picdarUrn, asset.picdarCreated, overridden)
-          } recover { case e: Throwable =>
-            Logger.warn(s"Metadata override error for ${asset.picdarUrn}: $e")
-            e.printStackTrace()
-          }
-        }
-        Future.sequence(updates)
-      }
+      doOverride(env, parseDateRange(date), parseQueryRange(rangeStr))
     }
 
 
     case "+clear" :: env :: Nil => terminateAfter {
-      val dynamo = getDynamo(env)
-      dynamo.delete(DateRange.all) map { rows =>
-        println(s"Cleared ${rows.size} entries")
-      }
+      clear(env)
     }
-
     case "+clear" :: env :: date :: Nil => terminateAfter {
-      val dynamo = getDynamo(env)
-      dynamo.delete(parseDateRange(date)) map { rows =>
-        println(s"Cleared ${rows.size} entries")
-      }
+      clear(env, parseDateRange(date))
     }
 
     case _ => println(
