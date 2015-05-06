@@ -25,27 +25,22 @@ class ParserTest extends FunSpec with Matchers with BeforeAndAfter {
 
     it("should match multiple terms including 'in'") {
       Parser.run("cats in dogs") should be (List(Match(AnyField, Words("cats in dogs"))))
-      // FIXME: query results?
     }
 
     it("should match multiple terms including 'by'") {
       Parser.run("cats by dogs") should be (List(Match(AnyField, Words("cats by dogs"))))
-      // FIXME: query results?
     }
 
     it("should match multiple terms including apostrophes") {
       Parser.run("it's a cat") should be (List(Match(AnyField, Words("it's a cat"))))
-      // FIXME: query results?
     }
 
     it("should match multiple terms including commas") {
       Parser.run("cats, dogs") should be (List(Match(AnyField, Words("cats, dogs"))))
-      // FIXME: query results?
     }
 
     it("should match multiple terms including single double quotes") {
       Parser.run("5\" cats") should be (List(Match(AnyField, Words("5\" cats"))))
-      // FIXME: query results?
     }
 
     // it("should match multiple terms including '#' character") {
@@ -59,6 +54,20 @@ class ParserTest extends FunSpec with Matchers with BeforeAndAfter {
 
     it("should match faceted terms") {
       Parser.run("credit:cats") should be (List(Match(SingleField("credit"), Words("cats"))))
+    }
+
+    it("should match multiple faceted terms on the same facet") {
+      Parser.run("label:cats label:dogs") should be (List(
+        Match(SingleField("labels"), Words("cats")),
+        Match(SingleField("labels"), Words("dogs"))
+      ))
+    }
+
+    it("should match multiple faceted terms on different facets") {
+      Parser.run("credit:cats label:dogs") should be (List(
+        Match(SingleField("credit"), Words("cats")),
+        Match(SingleField("labels"), Words("dogs"))
+      ))
     }
   }
 
