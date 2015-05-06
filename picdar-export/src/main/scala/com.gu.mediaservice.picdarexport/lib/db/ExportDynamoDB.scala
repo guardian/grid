@@ -4,7 +4,8 @@ import java.net.URI
 
 import com.amazonaws.auth.AWSCredentials
 import com.amazonaws.regions.Region
-import com.amazonaws.services.dynamodbv2.document.spec.UpdateItemSpec
+import com.amazonaws.services.dynamodbv2.document.{ScanOutcome, ItemCollection}
+import com.amazonaws.services.dynamodbv2.document.spec.{ScanSpec, UpdateItemSpec}
 import com.amazonaws.services.dynamodbv2.document.utils.ValueMap
 import com.amazonaws.services.dynamodbv2.model.ReturnValue
 import com.gu.mediaservice.lib.aws.DynamoDB
@@ -67,8 +68,8 @@ class ExportDynamoDB(credentials: AWSCredentials, region: Region, tableName: Str
       dateRange.start.map(asRangeString).map(":startDate" -> _) ++
       dateRange.end.map(asRangeString).map(":endDate" -> _)
 
-    val query = queryConds.mkString(" AND ")
-    val items = table.scan(query, "picdarUrn, picdarCreated", null, values)
+    val projectionAttrs = List("picdarUrn", "picdarCreated")
+    val items = scan(queryConds, projectionAttrs, values)
     items.iterator.map { item =>
       AssetRef(item.getString("picdarUrn"), rangeDateFormat.parseDateTime(item.getString("picdarCreated")))
     }.toSeq
@@ -84,8 +85,8 @@ class ExportDynamoDB(credentials: AWSCredentials, region: Region, tableName: Str
       dateRange.start.map(asRangeString).map(":startDate" -> _) ++
       dateRange.end.map(asRangeString).map(":endDate" -> _)
 
-    val query = queryConds.mkString(" AND ")
-    val items = table.scan(query, "picdarUrn, picdarCreated, picdarCreatedFull, picdarAssetUrl", null, values)
+    val projectionAttrs = List("picdarUrn", "picdarCreated", "picdarCreatedFull", "picdarAssetUrl")
+    val items = scan(queryConds, projectionAttrs, values)
     items.iterator.map { item =>
       val picdarCreated = rangeDateFormat.parseDateTime(item.getString("picdarCreated"))
       val picdarCreatedFull = timestampDateFormat.parseDateTime(item.getString("picdarCreatedFull"))
@@ -103,8 +104,8 @@ class ExportDynamoDB(credentials: AWSCredentials, region: Region, tableName: Str
       dateRange.start.map(asRangeString).map(":startDate" -> _) ++
       dateRange.end.map(asRangeString).map(":endDate" -> _)
 
-    val query = queryConds.mkString(" AND ")
-    val items = table.scan(query, "picdarUrn, picdarCreated, picdarCreatedFull, picdarAssetUrl, mediaUri, picdarMetadata", null, values)
+    val projectionAttrs = List("picdarUrn", "picdarCreated", "picdarCreatedFull", "picdarAssetUrl", "mediaUri", "picdarMetadata")
+    val items = scan(queryConds, projectionAttrs, values)
     items.iterator.map { item =>
       val picdarCreated = rangeDateFormat.parseDateTime(item.getString("picdarCreated"))
       val picdarCreatedFull = timestampDateFormat.parseDateTime(item.getString("picdarCreatedFull"))
@@ -124,8 +125,8 @@ class ExportDynamoDB(credentials: AWSCredentials, region: Region, tableName: Str
       dateRange.start.map(asRangeString).map(":startDate" -> _) ++
       dateRange.end.map(asRangeString).map(":endDate" -> _)
 
-    val query = queryConds.mkString(" AND ")
-    val items = table.scan(query, "picdarUrn, picdarCreated, picdarCreatedFull, picdarAssetUrl, mediaUri", null, values)
+    val projectionAttrs = List("picdarUrn", "picdarCreated", "picdarCreatedFull", "picdarAssetUrl", "mediaUri")
+    val items = scan(queryConds, projectionAttrs, values)
     items.iterator.map { item =>
       val picdarCreated = rangeDateFormat.parseDateTime(item.getString("picdarCreated"))
       val picdarCreatedFull = timestampDateFormat.parseDateTime(item.getString("picdarCreatedFull"))
@@ -201,6 +202,21 @@ class ExportDynamoDB(credentials: AWSCredentials, region: Region, tableName: Str
 
   }
 
+
+  private def makeScanSpec(filterConditions: Seq[String], projectionAttrs: Seq[String], valueMap: Map[String, String]): ScanSpec = {
+    val baseScanSpec = new ScanSpec().
+      withFilterExpression(filterConditions.mkString(" AND ")).
+      withProjectionExpression(projectionAttrs.mkString(", "))
+
+    if (valueMap.isEmpty)
+      baseScanSpec
+    else
+      baseScanSpec.withValueMap(valueMap)
+  }
+
+  private def scan(filterConditions: Seq[String], projectionAttrs: Seq[String], valueMap: Map[String, String]): ItemCollection[ScanOutcome] = {
+    table.scan(makeScanSpec(filterConditions, projectionAttrs, valueMap))
+  }
 
   private def toMap(metadata: ImageMetadata): Map[String, String] = {
     Map() ++
