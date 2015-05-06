@@ -145,6 +145,11 @@ object ExportApp extends App with ExportManagerProvider with ArgumentHelpers wit
     metadata.map { case (key, value) => s"  $key: $value" }.mkString("\n")
   }
 
+  def takeRange[T](items: Seq[T], rangeOpt: Option[Range]): Seq[T] = rangeOpt match {
+    case Some(range) => items.drop(range.start).take(range.length)
+    case None        => items
+  }
+
 
   def load(env: String, system: String, dateField: String, dateRange: DateRange = DateRange.all,
            range: Option[Range] = None, query: Option[String] = None) = {
@@ -160,11 +165,7 @@ object ExportApp extends App with ExportManagerProvider with ArgumentHelpers wit
   def fetch(env: String, system: String, dateRange: DateRange = DateRange.all, range: Option[Range] = None) = {
     val dynamo = getDynamo(env)
     dynamo.scanUnfetched(dateRange) flatMap { urns =>
-      // FIXME: meh code
-      val rangeStart = range.map(_.start) getOrElse 0
-      val rangeEnd = range.map(_.end) getOrElse urns.size
-      val rangeLen = rangeEnd - rangeStart
-      val updates = urns.drop(rangeStart).take(rangeLen).map { assetRef =>
+      val updates = takeRange(urns, range).map { assetRef =>
         getPicdar(system).get(assetRef.urn) flatMap { asset =>
           dynamo.record(assetRef.urn, assetRef.dateLoaded, asset.file, asset.created, asset.modified, asset.metadata)
         } recover { case PicdarError(message) =>
@@ -178,12 +179,7 @@ object ExportApp extends App with ExportManagerProvider with ArgumentHelpers wit
   def ingest(env: String, dateRange: DateRange = DateRange.all, range: Option[Range] = None) = {
     val dynamo = getDynamo(env)
     dynamo.scanFetchedNotIngested(dateRange) flatMap { assets =>
-      // FIXME: meh code
-      val rangeStart = range.map(_.start) getOrElse 0
-      val rangeEnd = range.map(_.end) getOrElse assets.size
-      val rangeLen = rangeEnd - rangeStart
-
-      val updates = assets.drop(rangeStart).take(rangeLen).map { asset =>
+      val updates = takeRange(assets, range).map { asset =>
         getExportManager("library", env).ingest(asset.picdarAssetUrl, asset.picdarUrn, asset.picdarCreatedFull) flatMap { mediaUri =>
           Logger.info(s"Ingested ${asset.picdarUrn} to $mediaUri")
           dynamo.recordIngested(asset.picdarUrn, asset.picdarCreated, mediaUri)
@@ -199,12 +195,7 @@ object ExportApp extends App with ExportManagerProvider with ArgumentHelpers wit
   def doOverride(env: String, dateRange: DateRange = DateRange.all, range: Option[Range] = None) = {
     val dynamo = getDynamo(env)
     dynamo.scanIngestedNotOverridden(dateRange) flatMap { assets =>
-      // FIXME: meh code
-      val rangeStart = range.map(_.start) getOrElse 0
-      val rangeEnd = range.map(_.end) getOrElse assets.size
-      val rangeLen = rangeEnd - rangeStart
-
-      val updates = assets.drop(rangeStart).take(rangeLen).map { asset =>
+      val updates = takeRange(assets, range).map { asset =>
         // TODO: if no mediaUri, skip
         // FIXME: HACKK!
         val mediaUri = asset.mediaUri.get
