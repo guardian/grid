@@ -151,6 +151,21 @@ object ExportApp extends App with ExportManagerProvider with ArgumentHelpers wit
   }
 
 
+  def stats(env: String, dateRange: DateRange = DateRange.all): Future[Unit] = {
+    val dynamo = getDynamo(env)
+    for {
+      loaded     <- dynamo.scanUnfetched(dateRange)
+      _           = println(s"${loaded.size} loaded entries to fetch")
+      fetched    <- dynamo.scanFetchedNotIngested(dateRange)
+      _           = println(s"${fetched.size} fetched entries to ingest")
+      ingested   <- dynamo.scanIngestedNotOverridden(dateRange)
+      _           = println(s"${ingested.size} ingested entries to override")
+      overridden <- dynamo.scanOverridden(dateRange)
+      _           = println(s"${overridden.size} overridden entries")
+    } yield ()
+
+  }
+
   def load(env: String, system: String, dateField: String, dateRange: DateRange = DateRange.all,
            range: Option[Range] = None, query: Option[String] = None) = {
     val dynamo = getDynamo(env)
@@ -276,17 +291,16 @@ object ExportApp extends App with ExportManagerProvider with ArgumentHelpers wit
     case ":count-loaded" :: env :: date :: Nil => terminateAfter {
       val dynamo = getDynamo(env)
       val dateRange = parseDateRange(date)
-      dynamo.scanUnfetched(dateRange) map (urns => urns.size) map { count =>
-        println(s"$count loaded entries")
-      } andThen { case _ =>
-        dynamo.scanFetchedNotIngested(dateRange) map (urns => urns.size) map { count =>
-          println(s"$count fetched entries")
-        }
-      } andThen { case _ =>
-        dynamo.scanOverridden(dateRange) map (urns => urns.size) map { count =>
-          println(s"$count ingested entries")
-        }
-      }
+      for {
+        loaded     <- dynamo.scanUnfetched(dateRange)
+        _           = println(s"${loaded.size} loaded entries to fetch")
+        fetched    <- dynamo.scanFetchedNotIngested(dateRange)
+        _           = println(s"${fetched.size} fetched entries to ingest")
+        ingested   <- dynamo.scanIngestedNotOverridden(dateRange)
+        _           = println(s"${ingested.size} ingested entries to override")
+        overridden <- dynamo.scanOverridden(dateRange)
+        _           = println(s"${overridden.size} overridden entries")
+      } yield ()
     }
 
     case ":count-fetched" :: env :: Nil => terminateAfter {
@@ -334,6 +348,14 @@ object ExportApp extends App with ExportManagerProvider with ArgumentHelpers wit
       }
     }
 
+
+    case ":stats" :: env :: Nil => terminateAfter {
+      stats(env)
+    }
+    case ":stats" :: env :: date :: Nil => terminateAfter {
+      stats(env, parseDateRange(date))
+    }
+
     case "+fetch" :: env :: system :: Nil => terminateAfter {
       fetch(env, system)
     }
@@ -379,11 +401,12 @@ object ExportApp extends App with ExportManagerProvider with ArgumentHelpers wit
         |       query  <desk|library> <created|modified|taken> <date> [query]
         |       ingest <desk|library> <dev|test|prod> <created|modified|taken> <date> [range]
         |
-        |       :stats  <dev|test|prod> [dateLoaded]
         |       :count-loaded    <dev|test|prod> [dateLoaded]
         |       :count-fetched   <dev|test|prod> [dateLoaded]
         |       :count-ingested  <dev|test|prod> [dateLoaded]
         |       :count-overriden <dev|test|prod> [dateLoaded]
+        |
+        |       :stats  <dev|test|prod> [dateLoaded]
         |       +load   <dev|test|prod> <desk|library> <created|modified|taken> <date> [range] [query]
         |       +fetch  <dev|test|prod> <desk|library> [dateLoaded] [range]
         |       +ingest <dev|test|prod> [dateLoaded] [range]
