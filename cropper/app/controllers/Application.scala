@@ -93,7 +93,7 @@ object Application extends Controller with ArgoHelpers {
   }
 
   def getCrops(id: String) = Authenticated.async { httpRequest =>
-    CropStorage.listCrops(id) map (_.toList) map { crops =>
+    CropStore.listCrops(id) map (_.toList) map { crops =>
 
       val all = crops.map(Json.toJson(_).as[JsObject])
       val links = for {
