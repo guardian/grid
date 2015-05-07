@@ -84,8 +84,8 @@ object MessageConsumer {
       // the message anyway.
       ElasticSearch.deleteImage(id).map {
         case r: DeleteByQueryResponse => {
-          S3ImageStorage.deleteImage(id)
-          S3ImageStorage.deleteThumbnail(id)
+          ImageStore.deleteOriginal(id)
+          ImageStore.deleteThumbnail(id)
           EsResponse(s"Image deleted: $id")
         }
       } recoverWith {

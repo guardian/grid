@@ -11,7 +11,7 @@ import org.joda.time.DateTime
 import scala.concurrent.Future
 
 import lib.{Config, Notifications}
-import lib.storage.S3ImageStorage
+import lib.storage.ImageStore
 import lib.imaging.MimeTypeDetection
 
 import model.{UploadRequest, ImageUpload}
@@ -25,9 +25,9 @@ import com.gu.mediaservice.lib.argo.ArgoHelpers
 import com.gu.mediaservice.lib.argo.model.Link
 
 
-object Application extends ImageLoader(S3ImageStorage)
+object Application extends ImageLoader
 
-class ImageLoader(storage: ImageStorage) extends Controller with ArgoHelpers {
+class ImageLoader extends Controller with ArgoHelpers {
 
   import Config.{rootUri, loginUri}
   import com.gu.mediaservice.lib.play.BodyParsers.digestedFile
@@ -110,7 +110,7 @@ class ImageLoader(storage: ImageStorage) extends Controller with ArgoHelpers {
     import Config.apiUri
 
     val result = for {
-      imageUpload <- ImageUpload.fromUploadRequest(uploadRequest, storage)
+      imageUpload <- ImageUpload.fromUploadRequest(uploadRequest)
       image        = imageUpload.image
     } yield {
       Notifications.publish(Json.toJson(image), "image")
@@ -123,7 +123,7 @@ class ImageLoader(storage: ImageStorage) extends Controller with ArgoHelpers {
         Logger.info(s"Rejected ${uploadRequestDescription(uploadRequest)}: ${e.getMessage}.")
 
         // TODO: Log when an image isn't deleted
-        storage.deleteImage(uploadRequest.id)
+        ImageStore.deleteOriginal(uploadRequest.id)
         respondError(BadRequest, "upload-error", e.getMessage)
       }
     }
