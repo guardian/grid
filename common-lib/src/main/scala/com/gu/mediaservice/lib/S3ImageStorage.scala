@@ -6,37 +6,15 @@ import com.amazonaws.auth.AWSCredentials
 import com.gu.mediaservice.lib.aws.S3
 import org.slf4j.LoggerFactory
 
-import scala.concurrent.duration._
-import scala.language.postfixOps
 
-class S3ImageStorage(imageBucket: String, thumbnailBucket: String, credentials: AWSCredentials)
-  extends S3(credentials) with ImageStorage {
-
+class S3ImageStorage(credentials: AWSCredentials) extends S3(credentials) with ImageStorage {
   private val log = LoggerFactory.getLogger(getClass)
 
-  // Images can be cached "forever" as they never should change
-  val cacheDuration = 365 days
-  val cacheForever = s"max-age=${cacheDuration.toSeconds}"
+  def storeImage(bucket: String, id: String, file: File, mimeType: Option[String], meta: Map[String, String] = Map.empty) =
+    store(bucket, id, file, mimeType, meta, Some(cacheForever))
 
-  def storeImage(id: String, file: File, mimeType: Option[String], meta: Map[String, String] = Map.empty) =
-    store(imageBucket, fileKeyFromId(id), file, mimeType, meta, Some(cacheForever))
-
-  def storeThumbnail(id: String, file: File, mimeType: Option[String]) =
-    store(thumbnailBucket, fileKeyFromId(id), file, mimeType, cacheControl = Some(cacheForever))
-
-  def deleteImage(id: String) = Future {
-    // TODO: figure out how to get the image ID to this point so we don't have
-    // delete both the ID and generated ID
-    client.deleteObject(imageBucket, id)
-    client.deleteObject(imageBucket, fileKeyFromId(id))
-    log.info(s"Deleted image $id from bucket $imageBucket")
+  def deleteImage(bucket: String, id: String) = Future {
+    client.deleteObject(bucket, id)
+    log.info(s"Deleted image $id from bucket $bucket")
   }
-
-  def deleteThumbnail(id: String) = Future {
-    client.deleteObject(thumbnailBucket, id)
-    client.deleteObject(thumbnailBucket, fileKeyFromId(id))
-  }
-
-  def fileKeyFromId(id: String): String = id.take(6).mkString("/") + "/" + id
-
 }
