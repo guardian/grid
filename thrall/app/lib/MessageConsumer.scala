@@ -51,8 +51,6 @@ object MessageConsumer {
       case "delete-image"               => deleteImage
       case "update-image        "       => indexImage
       case "update-image-exports"       => updateImageExports
-      // TODO: deprecate once media-api no longer sends this
-      case "update-image-metadata"      => updateImageMetadata
       case "update-image-user-metadata" => updateImageUserMetadata
     }
 
@@ -71,9 +69,6 @@ object MessageConsumer {
 
   def updateImageExports(exports: JsValue): Future[UpdateResponse] =
     withImageId(exports)(id => ElasticSearch.updateImageExports(id, exports \ "data"))
-
-  def updateImageMetadata(metadata: JsValue): Future[UpdateResponse] =
-    withImageId(metadata)(id => ElasticSearch.updateImageMetadata(id, metadata \ "data"))
 
   def updateImageUserMetadata(metadata: JsValue): Future[UpdateResponse] =
     withImageId(metadata)(id => ElasticSearch.applyImageMetadataOverride(id, metadata \ "data"))
