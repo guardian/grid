@@ -3,16 +3,16 @@ package lib
 import java.io.File
 import java.net.{URI,URL}
 import java.util.concurrent.Executors
+
 import scala.concurrent.{ExecutionContext, Future}
-import com.gu.mediaservice.lib.aws.S3
+
+import com.gu.mediaservice.lib.S3ImageStorage
 import com.gu.mediaservice.model.{Dimensions, Asset}
+
 import model._
 
-object CropStorage extends S3(Config.imgPublishingCredentials) {
+object CropStore extends S3ImageStorage(Config.imgPublishingCredentials) {
   import com.gu.mediaservice.lib.formatting._
-
-  private implicit val ctx: ExecutionContext =
-    ExecutionContext.fromExecutor(Executors.newCachedThreadPool)
 
   def getSecureCropUri(uri: URI): Option[URL] =
     Config.imgPublishingSecureHost.map((new URI("https",_, uri.getPath, uri.getFragment).toURL))
@@ -35,7 +35,7 @@ object CropStorage extends S3(Config.imgPublishingCredentials) {
       case (key, value)       => key -> value
     }.mapValues(_.toString)
 
-    store(Config.imgPublishingBucket, filename, file, Some(mimeType), filteredMetadata) map { s3Object=>
+    storeImage(Config.imgPublishingBucket, filename, file, Some(mimeType), filteredMetadata) map { s3Object=>
       Asset(
         translateImgHost(s3Object.uri),
         s3Object.size,
