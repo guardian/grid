@@ -13,16 +13,8 @@ class ImageIngestOperations(imageBucket: String, thumbnailBucket: String, creden
   def storeThumbnail(id: String, file: File, mimeType: Option[String]) =
     storeImage(thumbnailBucket, fileKeyFromId(id), file, mimeType)
 
-  def deleteOriginal(id: String) = Future {
-    deleteImage(imageBucket, id)
-    deleteImage(imageBucket, fileKeyFromId(id))
-  }
-
-  def deleteThumbnail(id: String) = Future {
-    deleteImage(thumbnailBucket, id)
-    deleteImage(thumbnailBucket, fileKeyFromId(id))
-  }
+  def deleteOriginal(id: String) = deleteImage(imageBucket, fileKeyFromId(id))
+  def deleteThumbnail(id: String) = deleteImage(thumbnailBucket, fileKeyFromId(id))
 
   def fileKeyFromId(id: String): String = id.take(6).mkString("/") + "/" + id
-
 }
