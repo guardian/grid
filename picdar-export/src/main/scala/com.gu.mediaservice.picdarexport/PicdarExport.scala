@@ -21,13 +21,6 @@ class ArgumentError(message: String) extends Error(message)
 
 class ExportManager(picdar: PicdarClient, loader: MediaLoader, mediaApi: MediaApi) {
 
-  def queryAndIngest(dateField: String, dateRange: DateRange, queryRange: Option[Range]) =
-    for {
-      assets       <- picdar.queryAssets(dateField, dateRange, queryRange)
-      _             = Logger.info(s"${assets.size} matches")
-      uploadedIds  <- Future.sequence(assets map ingestAsset)
-    } yield uploadedIds
-
   def ingest(assetUri: URI, picdarUrn: String, uploadTime: DateTime): Future[URI] =
     for {
       data   <- picdar.getAssetData(assetUri)
@@ -145,70 +138,119 @@ object ExportApp extends App with ExportManagerProvider with ArgumentHelpers wit
     metadata.map { case (key, value) => s"  $key: $value" }.mkString("\n")
   }
 
-  args.toList match {
-    case "show" :: system :: urn :: Nil => terminateAfter {
-      getPicdar(system).get(urn) map { asset =>
-        println(
+  def takeRange[T](items: Seq[T], rangeOpt: Option[Range]): Seq[T] = rangeOpt match {
+    case Some(range) => items.drop(range.start).take(range.length)
+    case None        => items
+  }
+
+
+  def show(system: String, urn: String) = {
+    getPicdar(system).get(urn) map { asset =>
+      println(
         s"""
-          |urn: ${asset.urn}
-          |file: ${asset.file}
-          |created: ${asset.created}
-          |modified: ${asset.modified getOrElse ""}
-          |infoUri: ${asset.infoUri getOrElse ""}
-          |metadata:
-          |${asset.metadata}
+           |urn: ${asset.urn}
+            |file: ${asset.file}
+            |created: ${asset.created}
+            |modified: ${asset.modified getOrElse ""}
+            |infoUri: ${asset.infoUri getOrElse ""}
+            |metadata:
+            |${asset.metadata}
         """.stripMargin
-        )
-      }
+      )
     }
-    case "query" :: system :: dateField :: date :: Nil => terminateAfter {
-      getPicdar(system).count(dateField, parseDateRange(date)) map { count =>
-        println(s"$count matches")
-      }
-    }
-    case "query" :: system :: dateField :: date :: query :: Nil => terminateAfter {
-      getPicdar(system).count(dateField, parseDateRange(date), Some(query)) map { count =>
-        println(s"$count matches")
-      }
-    }
-    case "ingest" :: system :: env :: dateField :: date :: Nil => terminateAfter {
-      getExportManager(system, env).queryAndIngest(dateField, parseDateRange(date), None)
-    }
-    case "ingest" :: system :: env :: dateField :: date :: range :: Nil => terminateAfter {
-      getExportManager(system, env).queryAndIngest(dateField, parseDateRange(date), parseQueryRange(range)) map { uploadedIds =>
-        println(s"Uploaded $uploadedIds")
-        // TODO: show success/failures?
-      }
-    }
+  }
 
-    case "+load" :: env :: system :: dateField :: date :: Nil => terminateAfter {
-      val dynamo = getDynamo(env)
-      getPicdar(system).query(dateField, parseDateRange(date), None) flatMap { assetRefs =>
-        val saves = assetRefs.map { assetRef =>
-          dynamo.insert(assetRef.urn, assetRef.dateLoaded)
-        }
-        Future.sequence(saves)
-      }
+  def query(system: String, dateField: String, dateRange: DateRange = DateRange.all, query: Option[String] = None) = {
+    getPicdar(system).count(dateField, dateRange, query) map { count =>
+      println(s"$count matches")
     }
-    case "+load" :: env :: system :: dateField :: date :: range :: Nil => terminateAfter {
-      val dynamo = getDynamo(env)
-      getPicdar(system).query(dateField, parseDateRange(date), parseQueryRange(range)) flatMap { assetRefs =>
-        val saves = assetRefs.map { assetRef =>
-          dynamo.insert(assetRef.urn, assetRef.dateLoaded)
-        }
-        Future.sequence(saves)
-      }
-    }
-    case "+load" :: env :: system :: dateField :: date :: range :: query :: Nil => terminateAfter {
-      val dynamo = getDynamo(env)
-      getPicdar(system).query(dateField, parseDateRange(date), parseQueryRange(range), Some(query)) flatMap { assetRefs =>
-        val saves = assetRefs.map { assetRef =>
-          dynamo.insert(assetRef.urn, assetRef.dateLoaded)
-        }
-        Future.sequence(saves)
-      }
-    }
+  }
 
+  def stats(env: String, dateRange: DateRange = DateRange.all): Future[Unit] = {
+    val dynamo = getDynamo(env)
+    for {
+      loaded     <- dynamo.scanUnfetched(dateRange)
+      _           = println(s"${loaded.size} loaded entries to fetch")
+      fetched    <- dynamo.scanFetchedNotIngested(dateRange)
+      _           = println(s"${fetched.size} fetched entries to ingest")
+      ingested   <- dynamo.scanIngestedNotOverridden(dateRange)
+      _           = println(s"${ingested.size} ingested entries to override")
+      overridden <- dynamo.scanOverridden(dateRange)
+      _           = println(s"${overridden.size} overridden entries")
+    } yield ()
+
+  }
+
+  def load(env: String, system: String, dateField: String, dateRange: DateRange = DateRange.all,
+           range: Option[Range] = None, query: Option[String] = None) = {
+    val dynamo = getDynamo(env)
+    getPicdar(system).query(dateField, dateRange, range, query) flatMap { assetRefs =>
+      val saves = assetRefs.map { assetRef =>
+        dynamo.insert(assetRef.urn, assetRef.dateLoaded)
+      }
+      Future.sequence(saves)
+    }
+  }
+
+  def fetch(env: String, system: String, dateRange: DateRange = DateRange.all, range: Option[Range] = None) = {
+    val dynamo = getDynamo(env)
+    dynamo.scanUnfetched(dateRange) flatMap { urns =>
+      val updates = takeRange(urns, range).map { assetRef =>
+        getPicdar(system).get(assetRef.urn) flatMap { asset =>
+          dynamo.record(assetRef.urn, assetRef.dateLoaded, asset.file, asset.created, asset.modified, asset.metadata)
+        } recover { case PicdarError(message) =>
+          Logger.warn(s"Picdar error during fetch: $message")
+        }
+      }
+      Future.sequence(updates)
+    }
+  }
+
+  def ingest(env: String, dateRange: DateRange = DateRange.all, range: Option[Range] = None) = {
+    val dynamo = getDynamo(env)
+    dynamo.scanFetchedNotIngested(dateRange) flatMap { assets =>
+      val updates = takeRange(assets, range).map { asset =>
+        getExportManager("library", env).ingest(asset.picdarAssetUrl, asset.picdarUrn, asset.picdarCreatedFull) flatMap { mediaUri =>
+          Logger.info(s"Ingested ${asset.picdarUrn} to $mediaUri")
+          dynamo.recordIngested(asset.picdarUrn, asset.picdarCreated, mediaUri)
+        } recover { case e: Throwable =>
+          Logger.warn(s"Upload error for ${asset.picdarUrn}: $e")
+          e.printStackTrace()
+        }
+      }
+      Future.sequence(updates)
+    }
+  }
+
+  def doOverride(env: String, dateRange: DateRange = DateRange.all, range: Option[Range] = None) = {
+    val dynamo = getDynamo(env)
+    dynamo.scanIngestedNotOverridden(dateRange) flatMap { assets =>
+      val updates = takeRange(assets, range).map { asset =>
+        // TODO: if no mediaUri, skip
+        // FIXME: HACKK!
+        val mediaUri = asset.mediaUri.get
+        val metadata = asset.picdarMetadata.get
+        getExportManager("library", env).overrideMetadata(mediaUri, metadata) flatMap { overridden =>
+          Logger.info(s"Overridden $mediaUri metadata ($overridden)")
+          dynamo.recordOverridden(asset.picdarUrn, asset.picdarCreated, overridden)
+        } recover { case e: Throwable =>
+          Logger.warn(s"Metadata override error for ${asset.picdarUrn}: $e")
+          e.printStackTrace()
+        }
+      }
+      Future.sequence(updates)
+    }
+  }
+
+  def clear(env: String, dateRange: DateRange = DateRange.all) = {
+    val dynamo = getDynamo(env)
+    dynamo.delete(dateRange) map { rows =>
+      println(s"Cleared ${rows.size} entries")
+    }
+  }
+
+
+  args.toList match {
     case ":count-loaded" :: env :: Nil => terminateAfter {
       val dynamo = getDynamo(env)
       dynamo.scanUnfetched(DateRange.all) map (urns => urns.size) map { count =>
@@ -219,17 +261,16 @@ object ExportApp extends App with ExportManagerProvider with ArgumentHelpers wit
     case ":count-loaded" :: env :: date :: Nil => terminateAfter {
       val dynamo = getDynamo(env)
       val dateRange = parseDateRange(date)
-      dynamo.scanUnfetched(dateRange) map (urns => urns.size) map { count =>
-        println(s"$count loaded entries")
-      } andThen { case _ =>
-        dynamo.scanFetchedNotIngested(dateRange) map (urns => urns.size) map { count =>
-          println(s"$count fetched entries")
-        }
-      } andThen { case _ =>
-        dynamo.scanOverridden(dateRange) map (urns => urns.size) map { count =>
-          println(s"$count ingested entries")
-        }
-      }
+      for {
+        loaded     <- dynamo.scanUnfetched(dateRange)
+        _           = println(s"${loaded.size} loaded entries to fetch")
+        fetched    <- dynamo.scanFetchedNotIngested(dateRange)
+        _           = println(s"${fetched.size} fetched entries to ingest")
+        ingested   <- dynamo.scanIngestedNotOverridden(dateRange)
+        _           = println(s"${ingested.size} ingested entries to override")
+        overridden <- dynamo.scanOverridden(dateRange)
+        _           = println(s"${overridden.size} overridden entries")
+      } yield ()
     }
 
     case ":count-fetched" :: env :: Nil => terminateAfter {
@@ -277,130 +318,85 @@ object ExportApp extends App with ExportManagerProvider with ArgumentHelpers wit
       }
     }
 
+
+    case ":show" :: system :: urn :: Nil => terminateAfter {
+      show(system, urn)
+    }
+
+    case ":query" :: system :: dateField :: date :: Nil => terminateAfter {
+      query(system, dateField, parseDateRange(date))
+    }
+    case ":query" :: system :: dateField :: date :: queryStr :: Nil => terminateAfter {
+      query(system, dateField, parseDateRange(date), Some(queryStr))
+    }
+
+    case ":stats" :: env :: Nil => terminateAfter {
+      stats(env)
+    }
+    case ":stats" :: env :: date :: Nil => terminateAfter {
+      stats(env, parseDateRange(date))
+    }
+
+
+    case "+load" :: env :: system :: dateField :: date :: Nil => terminateAfter {
+      load(env, system, dateField, parseDateRange(date))
+    }
+    case "+load" :: env :: system :: dateField :: date :: rangeStr :: Nil => terminateAfter {
+      load(env, system, dateField, parseDateRange(date), parseQueryRange(rangeStr))
+    }
+    case "+load" :: env :: system :: dateField :: date :: rangeStr :: query :: Nil => terminateAfter {
+      load(env, system, dateField, parseDateRange(date), parseQueryRange(rangeStr), Some(query))
+    }
+
     case "+fetch" :: env :: system :: Nil => terminateAfter {
-      val dynamo = getDynamo(env)
-      dynamo.scanUnfetched(DateRange.all) flatMap { urns =>
-        val updates = urns.map { assetRef =>
-          getPicdar(system).get(assetRef.urn) flatMap { asset =>
-            dynamo.record(assetRef.urn, assetRef.dateLoaded, asset.file, asset.created, asset.modified, asset.metadata)
-          } recover { case PicdarError(message) =>
-            Logger.warn(s"Picdar error during fetch: $message")
-          }
-        }
-        Future.sequence(updates)
-      }
+      fetch(env, system)
     }
     case "+fetch" :: env :: system :: date :: Nil => terminateAfter {
-      val dynamo = getDynamo(env)
-      dynamo.scanUnfetched(parseDateRange(date)) flatMap { urns =>
-        val updates = urns.map { assetRef =>
-          getPicdar(system).get(assetRef.urn) flatMap { asset =>
-            dynamo.record(assetRef.urn, assetRef.dateLoaded, asset.file, asset.created, asset.modified, asset.metadata)
-          } recover { case PicdarError(message) =>
-            Logger.warn(s"Picdar error during fetch: $message")
-          }
-        }
-        Future.sequence(updates)
-      }
+      fetch(env, system, parseDateRange(date))
     }
     case "+fetch" :: env :: system :: date :: rangeStr :: Nil => terminateAfter {
-      val dynamo = getDynamo(env)
-      val range = parseQueryRange(rangeStr)
-      dynamo.scanUnfetched(parseDateRange(date)) flatMap { urns =>
-        // FIXME: meh code
-        val rangeStart = range.map(_.start) getOrElse 0
-        val rangeEnd = range.map(_.end) getOrElse urns.size
-        val rangeLen = rangeEnd - rangeStart
-        val updates = urns.drop(rangeStart).take(rangeLen).map { assetRef =>
-          getPicdar(system).get(assetRef.urn) flatMap { asset =>
-            dynamo.record(assetRef.urn, assetRef.dateLoaded, asset.file, asset.created, asset.modified, asset.metadata)
-          } recover { case PicdarError(message) =>
-            Logger.warn(s"Picdar error during fetch: $message")
-          }
-        }
-        Future.sequence(updates)
-      }
+      fetch(env, system, parseDateRange(date), parseQueryRange(rangeStr))
     }
 
-    // TODO: allow no date range
-    // TODO: allow no range
+    case "+ingest" :: env :: Nil => terminateAfter {
+      ingest(env)
+    }
+    case "+ingest" :: env :: date :: Nil => terminateAfter {
+      ingest(env, parseDateRange(date))
+    }
     case "+ingest" :: env :: date :: rangeStr :: Nil => terminateAfter {
-      val dynamo = getDynamo(env)
-      val range = parseQueryRange(rangeStr)
-      dynamo.scanFetchedNotIngested(parseDateRange(date)) flatMap { assets =>
-        // FIXME: meh code
-        val rangeStart = range.map(_.start) getOrElse 0
-        val rangeEnd = range.map(_.end) getOrElse assets.size
-        val rangeLen = rangeEnd - rangeStart
-
-        val updates = assets.drop(rangeStart).take(rangeLen).map { asset =>
-          getExportManager("library", env).ingest(asset.picdarAssetUrl, asset.picdarUrn, asset.picdarCreatedFull) flatMap { mediaUri =>
-            Logger.info(s"Ingested ${asset.picdarUrn} to $mediaUri")
-            dynamo.recordIngested(asset.picdarUrn, asset.picdarCreated, mediaUri)
-          } recover { case e: Throwable =>
-            Logger.warn(s"Upload error for ${asset.picdarUrn}: $e")
-            e.printStackTrace()
-          }
-        }
-        Future.sequence(updates)
-      }
+      ingest(env, parseDateRange(date), parseQueryRange(rangeStr))
     }
 
 
-    // TODO: allow no date range
-    // TODO: allow no range
+    case "+override" :: env :: Nil => terminateAfter {
+      doOverride(env)
+    }
+    case "+override" :: env :: date :: Nil => terminateAfter {
+      doOverride(env, parseDateRange(date))
+    }
     case "+override" :: env :: date :: rangeStr :: Nil => terminateAfter {
-      val dynamo = getDynamo(env)
-      val range = parseQueryRange(rangeStr)
-      dynamo.scanIngestedNotOverridden(parseDateRange(date)) flatMap { assets =>
-        // FIXME: meh code
-        val rangeStart = range.map(_.start) getOrElse 0
-        val rangeEnd = range.map(_.end) getOrElse assets.size
-        val rangeLen = rangeEnd - rangeStart
-
-        val updates = assets.drop(rangeStart).take(rangeLen).map { asset =>
-          // TODO: if no mediaUri, skip
-          // FIXME: HACKK!
-          val mediaUri = asset.mediaUri.get
-          val metadata = asset.picdarMetadata.get
-          getExportManager("library", env).overrideMetadata(mediaUri, metadata) flatMap { overridden =>
-            Logger.info(s"Overridden $mediaUri metadata ($overridden)")
-            dynamo.recordOverridden(asset.picdarUrn, asset.picdarCreated, overridden)
-          } recover { case e: Throwable =>
-            Logger.warn(s"Metadata override error for ${asset.picdarUrn}: $e")
-            e.printStackTrace()
-          }
-        }
-        Future.sequence(updates)
-      }
+      doOverride(env, parseDateRange(date), parseQueryRange(rangeStr))
     }
 
 
     case "+clear" :: env :: Nil => terminateAfter {
-      val dynamo = getDynamo(env)
-      dynamo.delete(DateRange.all) map { rows =>
-        println(s"Cleared ${rows.size} entries")
-      }
+      clear(env)
     }
-
     case "+clear" :: env :: date :: Nil => terminateAfter {
-      val dynamo = getDynamo(env)
-      dynamo.delete(parseDateRange(date)) map { rows =>
-        println(s"Cleared ${rows.size} entries")
-      }
+      clear(env, parseDateRange(date))
     }
 
     case _ => println(
       """
-        |usage: show   <desk|library> <picdarUrl>
-        |       query  <desk|library> <created|modified|taken> <date> [query]
-        |       ingest <desk|library> <dev|test|prod> <created|modified|taken> <date> [range]
-        |
-        |       :stats  <dev|test|prod> [dateLoaded]
-        |       :count-loaded    <dev|test|prod> [dateLoaded]
+        |usage: :count-loaded    <dev|test|prod> [dateLoaded]
         |       :count-fetched   <dev|test|prod> [dateLoaded]
         |       :count-ingested  <dev|test|prod> [dateLoaded]
         |       :count-overriden <dev|test|prod> [dateLoaded]
+        |
+        |       :show   <desk|library> <picdarUrl>
+        |       :query  <desk|library> <created|modified|taken> <date> [query]
+        |       :stats  <dev|test|prod> [dateLoaded]
         |       +load   <dev|test|prod> <desk|library> <created|modified|taken> <date> [range] [query]
         |       +fetch  <dev|test|prod> <desk|library> [dateLoaded] [range]
         |       +ingest <dev|test|prod> [dateLoaded] [range]
