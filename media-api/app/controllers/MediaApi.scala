@@ -195,6 +195,8 @@ object MediaApi extends Controller with ArgoHelpers {
 
     val creditField = (source \ "metadata" \ "credit").as[Option[String]]
     val sourceField = (source \ "metadata" \ "source").as[Option[String]]
+    val supplierField     = (source \ "usageRights" \ "supplier").asOpt[String]
+    val supplierCollField = (source \ "usageRights" \ "suppliersCollection").asOpt[String]
     val usageRightsField = (source \ "userMetadata" \ "usageRights").asOpt[UsageRights]
     val valid = ImageExtras.isValid(source \ "metadata")
 
@@ -204,7 +206,7 @@ object MediaApi extends Controller with ArgoHelpers {
       .flatMap(_.transform(transformers.addFileMetadataUrl(s"$rootUri/images/$id/fileMetadata")))
       .flatMap(_.transform(transformers.wrapUserMetadata(id)))
       .flatMap(_.transform(transformers.addValidity(valid)))
-      .flatMap(_.transform(transformers.addUsageCost(creditField, sourceField, usageRightsField))).get
+      .flatMap(_.transform(transformers.addUsageCost(creditField, sourceField, supplierField, supplierCollField, usageRightsField))).get
 
     val cropLink = Link("crops", s"$cropperUri/crops/$id")
     val staticLinks = List(
@@ -222,8 +224,11 @@ object MediaApi extends Controller with ArgoHelpers {
 
   object transformers {
 
-    def addUsageCost(credit: Option[String], source: Option[String], usageRights: Option[UsageRights]): Reads[JsObject] =
-      __.json.update(__.read[JsObject].map(_ ++ Json.obj("cost" -> ImageExtras.getCost(credit, source, usageRights).toString)))
+    def addUsageCost(credit: Option[String], source: Option[String], supplier: Option[String],
+                     supplierColl: Option[String], usageRights: Option[UsageRights]): Reads[JsObject] = {
+      val cost = ImageExtras.getCost(credit, source, supplier, supplierColl, usageRights)
+      __.json.update(__.read[JsObject].map(_ ++ Json.obj("cost" -> cost.toString)))
+    }
 
     def removeFileData: Reads[JsObject] =
       (__ \ "fileMetadata").json.prune
@@ -359,13 +364,19 @@ object ImageExtras {
   def isValid(metadata: JsValue): Boolean =
     Config.requiredMetadata.forall(field => (metadata \ field).asOpt[String].isDefined)
 
-  def getCost(credit: Option[String], source: Option[String], usageRights: Option[UsageRights]): Cost = {
+  def getCost(credit: Option[String], source: Option[String], supplier: Option[String], supplierColl: Option[String],
+              usageRights: Option[UsageRights]): Cost = {
     val freeCredit      = credit.exists(isFreeCredit)
     val freeSource      = source.exists(isFreeSource)
     val payingSource    = source.exists(isPaySource)
+    val freeCreditOrSource = (freeCredit || freeSource) && ! payingSource
+
+    val freeSupplier    = supplier.exists { suppl =>
+      isFreeSupplier(suppl) && ! supplierColl.exists(isExcludedColl(suppl, _))
+    }
 
     usageRights.map(_.cost).getOrElse {
-      if ((freeCredit || freeSource) && ! payingSource) Free
+      if (freeCreditOrSource || freeSupplier) Free
       else Pay
     }
   }
@@ -373,4 +384,8 @@ object ImageExtras {
   private def isFreeCredit(credit: String) = Config.freeCreditList.exists(f => f.toLowerCase == credit.toLowerCase)
   private def isFreeSource(source: String) = Config.freeSourceList.exists(f => f.toLowerCase == source.toLowerCase)
   private def isPaySource(source: String)  = Config.payGettySourceList.exists(f => f.toLowerCase == source.toLowerCase)
+
+  private def isFreeSupplier(supplier: String) = Config.freeSuppliers.contains(supplier)
+  private def isExcludedColl(supplier: String, supplierColl: String) =
+    Config.suppliersCollectionExcl.get(supplier).exists(_.contains(supplierColl))
 }
