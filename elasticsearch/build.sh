@@ -23,12 +23,13 @@ then
     cp ../elasticsearch.yml downloads/elasticsearch/config
     cp ../logging.yml downloads/elasticsearch/config
     cp ../elasticsearch.conf downloads
+    cp -r ../scripts downloads/scripts
 else
     echo 'Failed to download Elasticsearch'
     exit 1
 fi
 
-tar czfv packages/elasticsearch/elasticsearch.tar.gz -C downloads elasticsearch elasticsearch.conf
+tar czfv packages/elasticsearch/elasticsearch.tar.gz -C downloads elasticsearch scripts elasticsearch.conf
 cp ../deploy.json .
 zip -rv artifacts.zip packages/ deploy.json
 
