@@ -49,7 +49,7 @@ object MessageConsumer {
     PartialFunction.condOpt(subject) {
       case "image"                      => indexImage
       case "delete-image"               => deleteImage
-      case "update-image        "       => indexImage
+      case "update-image"               => indexImage
       case "update-image-exports"       => updateImageExports
       // TODO: deprecate once media-api no longer sends this
       case "update-image-metadata"      => updateImageMetadata
