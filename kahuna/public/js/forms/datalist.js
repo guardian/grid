@@ -55,9 +55,11 @@ datalist.controller('DatalistController',
     };
 
     // This is here so you can change the value from the parent ctrl.
-    $scope.$watch(() => ctrl.watchValue, onValChange(newVal => {
-        ctrl.value = newVal;
-    }));
+    if (ctrl.watchValue) {
+        $scope.$watch(() => ctrl.watchValue, onValChange(newVal => {
+            ctrl.value = newVal;
+        }));
+    }
 
     // TODO: should we be doing key / change stuff in the directive link?
     ctrl.onKeydown = event => {
