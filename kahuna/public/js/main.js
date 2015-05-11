@@ -18,8 +18,8 @@ import './util/digest';
 import './analytics/track';
 import './sentry/sentry';
 import './common/index';
+import './errors/http';
 import './errors/global';
-import './errors/codes';
 
 // TODO: move to an async config to remove deps on play
 var apiLink = document.querySelector('link[rel="media-api-uri"]');

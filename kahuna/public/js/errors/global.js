@@ -4,7 +4,7 @@ import template from './global.html!text';
 import 'angular-messages';
 import 'pandular';
 import '../sentry/sentry';
-import './codes';
+import './http';
 
 export var global = angular.module('kahuna.errors.global', ['ngMessages', 'pandular.session', 'kahuna.errors.http']);
 
