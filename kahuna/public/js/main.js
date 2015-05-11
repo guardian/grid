@@ -202,12 +202,22 @@ kahuna.filter('getExtremeAssets', function() {
 
 // Take an image and return a drag data map of mime-type -> value
 kahuna.filter('asImageDragData', function() {
+    // Annoyingly cannot use Resource#getLink because it returns a
+    // Promise and Angular filters are synchronous :-(
+    function syncGetLinkUri(resource, rel) {
+        const links = resource && resource.links || [];
+        const link = links.filter(link => link.rel === rel)[0];
+        return link && link.href;
+    }
+
     return function(image) {
         var url = image && image.uri;
 
         if (url) {
+            const kahunaUri = syncGetLinkUri(image, 'ui:image');
             return {
                 'application/vnd.mediaservice.image+json': JSON.stringify({ data: image.data }),
+                'application/vnd.mediaservice.kahuna.uri': kahunaUri,
                 'text/plain':    url,
                 'text/uri-list': url
             };
