@@ -204,4 +204,23 @@ object Config extends CommonPlayAppConfig with CommonPlayAppProperties {
   // TODO: move to config
   val queriableIdentifiers = Seq("picdarUrn")
 
+
+  // New rights model, will supersede `freeCreditList` soon
+  val freeSuppliers = List(
+    "AAP",
+    "Action Images",
+    "Alamy",
+    "AP",
+    "Barcroft Media",
+    "Corbis",
+    "EPA",
+    "Getty Images",
+    "PA",
+    "Reuters",
+    "Rex Features"
+  )
+
+  val suppliersCollectionExcl = Map(
+    "Getty Images" -> payGettySourceList
+  )
 }

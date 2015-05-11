@@ -30,14 +30,19 @@ object filters {
     builder
   }
 
+  def term(field: String, term: String): FilterBuilder =
+    termFilter(field, term)
+
   def terms(field: String, terms: NonEmptyList[String]): FilterBuilder =
     termsFilter(field, terms.list: _*)
 
-  def and(filter1: FilterBuilder, filter2: FilterBuilder): FilterBuilder =
-    andFilter(filter1, filter2)
+  def and(filters: FilterBuilder*): FilterBuilder =
+    andFilter(filters: _*)
 
-  def or(filter1: FilterBuilder, filter2: FilterBuilder): FilterBuilder =
-    orFilter(filter1, filter2)
+  def or(filters: FilterBuilder*): FilterBuilder =
+    orFilter(filters: _*)
+
+  def or(filters: NonEmptyList[FilterBuilder]): FilterBuilder = or(filters.list: _*)
 
   def not(filter: FilterBuilder): FilterBuilder =
     notFilter(filter)
