@@ -10,23 +10,13 @@ sentry.factory('sentryEnabled', ['sentryDsn', function(sentryDsn) {
     return angular.isString(sentryDsn);
 }]);
 
-sentry.factory('sentryErrorInterceptor', ['$q', function ($q) {
-    return {
-        responseError: function responseError(rejection) {
-            raven.captureException(new Error('HTTP response error'), {
-                extra: {
-                    config: rejection.status,
-                    status: rejection.statusText,
-                    data: rejection.data
-                }
-            });
-            return $q.reject(rejection);
-        }
-    };
-}]);
+sentry.factory('sentry', [function() {
 
-sentry.config(['$httpProvider', function($httpProvider) {
-    $httpProvider.interceptors.push('sentryErrorInterceptor');
+    function trigger(errorMessage, extra) {
+        raven.captureException(new Error(errorMessage), { extra });
+    }
+
+    return { trigger };
 }]);
 
 sentry.run(['$rootScope', 'sentryEnabled', 'sentryDsn',
