@@ -13,7 +13,6 @@ global.factory('globalErrors', ['sentry', 'httpErrors', function(sentry, httpErr
 
     function trigger(key) {
         const { errorMessage, errorCode } = httpErrors[key] || httpErrors.unknown;
-        console.log(errorMessage, errorCode, key)
         sentry.trigger(errorMessage, { errorCode });
         errors[key] = true;
     }
