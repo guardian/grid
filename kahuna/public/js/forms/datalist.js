@@ -6,8 +6,8 @@ import template from './datalist.html!text';
 export var datalist = angular.module('kahuna.forms.datalist', []);
 
 datalist.controller('DatalistController',
-                    ['$scope', '$timeout',
-                    function($scope, $timeout) {
+                    ['$scope', '$timeout', 'onValChange',
+                    function($scope, $timeout, onValChange) {
 
     var keys = { 38: 'up', 40: 'down', 13: 'enter', 27: 'esc', 9: 'tab' };
     var selectedIndex = 0;
@@ -54,6 +54,13 @@ datalist.controller('DatalistController',
         });
     };
 
+    // This is here so you can change the value from the parent ctrl.
+    if (ctrl.watchValue) {
+        $scope.$watch(() => ctrl.watchValue, onValChange(newVal => {
+            ctrl.value = newVal;
+        }));
+    }
+
     // TODO: should we be doing key / change stuff in the directive link?
     ctrl.onKeydown = event => {
         var func = keyFuncs[keys[event.which]];
@@ -86,7 +93,8 @@ datalist.directive('uiDatalist', ['$window', function() {
             name: '@',
             placeholder: '@',
             ngDisabled: '=',
-            initialValue: '@'
+            initialValue: '@',
+            watchValue: '=?'
         },
         controller: 'DatalistController',
         controllerAs: 'ctrl',
