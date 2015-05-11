@@ -56,6 +56,7 @@
                 on-value-select="ctrl.setCredit(value)"
                 on-deactivate="ctrl.setCredit(value)"
                 initial-value="{{ctrl.metadata.credit}}"
+                watch-value="ctrl.metadata.credit"
             ></ui-datalist>
 
             <button
