@@ -76,7 +76,7 @@ object ElasticSearch extends ElasticSearchClient with SearchFilters with ImageFi
     val filter = (metadataFilter.toList ++ labelFilter ++ archivedFilter ++
                   uploadedByFilter ++ idsFilter ++ validityFilter ++ costFilter ++
                   hasExports ++ hasIdentifier ++ missingIdentifier)
-                   .foldLeft(dateFilter)(filters.and)
+                   .foldLeft(dateFilter)(filters.and(_, _))
 
     val search = prepareImagesSearch.setQuery(query).setPostFilter(filter) |>
                  sorts.parseFromRequest(params.orderBy)
