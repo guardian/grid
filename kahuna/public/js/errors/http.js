@@ -1,8 +1,8 @@
 import angular from 'angular';
 
-export var errors = angular.module('kahuna.errors.http', []);
+export var httpErrors = angular.module('kahuna.errors.http', []);
 
-errors.constant('httpErrors', {
+httpErrors.constant('httpErrors', {
     unknown: {
         errorCode: 'unknown',
         errorMessage: 'Unknown error'
