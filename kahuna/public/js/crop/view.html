@@ -23,6 +23,22 @@
                     <input type="radio" ng:model="imageCropCtrl.aspect" value="{{freeRatio}}" />
                     free-form
                 </label>
+
+                <div class="top-bar__item" ng:switch="image.data.cost">
+                    <div ng:switch-when="pay"
+                         class="cost cost--pay">
+                        pay to use
+                    </div>
+
+                    <div ng:switch-when="conditional"
+                         class="cost cost--conditional"
+                         title="{{image.data.userMetadata.data.usageRights.data.restrictions}}">
+                         <!-- As `conditional` can only be set with usageRights, let's
+                         just assume it's here. We might need to revisit this. -->
+                        restricted usage
+                    </div>
+                </div>
+
                 <div class="top-bar__item">
                     <button class="button"
                             type="button"
