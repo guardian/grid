@@ -30,7 +30,7 @@ object Crops {
 
       dimensions = Dimensions(source.bounds.width, source.bounds.height)
       filename   = outputFilename(apiImage, source.bounds, dimensions.width, true)
-      sizing     = CropStorage.storeCropSizing(file, filename, mediaType, crop, dimensions)
+      sizing     = CropStore.storeCropSizing(file, filename, mediaType, crop, dimensions)
       aspect     = source.bounds.width.toFloat / source.bounds.height
     }
     yield MasterCrop(sizing, file, dimensions, aspect)
@@ -41,7 +41,7 @@ object Crops {
       val filename = outputFilename(apiImage, crop.specification.bounds, dimensions.width)
       for {
         file    <- ExportOperations.resizeImage(sourceFile, dimensions, 75d)
-        sizing  <- CropStorage.storeCropSizing(file, filename, mediaType, crop, dimensions)
+        sizing  <- CropStore.storeCropSizing(file, filename, mediaType, crop, dimensions)
         _       <- delete(file)
       }
       yield sizing
