@@ -52,8 +52,8 @@ var kahuna = angular.module('kahuna', [
     'kahuna.services.api',
     'kahuna.directives',
     'kahuna.common',
-    'kahuna.errors.global',
-    'kahuna.errors.codes'
+    'kahuna.errors.http',
+    'kahuna.errors.global'
 ]);
 
 
@@ -90,11 +90,11 @@ kahuna.config(['$httpProvider', function($httpProvider) {
 }]);
 
 kahuna.factory('httpUnauthorisedInterceptor',
-               ['$q', '$rootScope', 'errorCodes',
-                function($q, $rootScope, errorCodes) {
+               ['$q', '$rootScope', 'httpErrors',
+                function($q, $rootScope, httpErrors) {
     return {
         responseError: function(response) {
-            if (response.status === errorCodes.unauthorised) {
+            if (response.status === httpErrors.unauthorised.errorCode) {
                 $rootScope.$emit('events:error:unauthorised');
             }
             return $q.reject(response);
@@ -107,18 +107,18 @@ kahuna.run(['$rootScope', 'globalErrors',
             function($rootScope, globalErrors) {
 
     $rootScope.$on('events:error:unauthorised', () => globalErrors.trigger('unauthorised'));
-    $rootScope.$on('pandular:re-establishment:fail', () => globalErrors.trigger('authExpired'));
+    $rootScope.$on('pandular:re-establishment:fail', () => globalErrors.trigger('authFailed'));
 }]);
 
 // tracking errors
-kahuna.run(['$rootScope', 'errorCodes', 'track',
-            function($rootScope, errorCodes, track) {
+kahuna.run(['$rootScope', 'httpErrors', 'track',
+            function($rootScope, httpErrors, track) {
 
     $rootScope.$on('events:error:unauthorised', () =>
-        track('Authentication error', { 'Error code': errorCodes.unauthorised }));
+        track('Authentication error', { 'Error code': httpErrors.unauthorised.errorCode }));
 
     $rootScope.$on('pandular:re-establishment:fail', () =>
-        track('Authentication error', { 'Error code': errorCodes.authExpired }));
+        track('Authentication error', { 'Error code': httpErrors.authFailed.errorCode }));
 }]);
 
 
