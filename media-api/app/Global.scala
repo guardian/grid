@@ -17,6 +17,7 @@ object Global extends WithFilters(CorsFilter, RequestLoggingFilter, new GzipFilt
 
   override def onStart(app: Application) {
     MediaApi.keyStore.scheduleUpdates(Akka.system(app).scheduler)
+    MediaApi.configStore.scheduleUpdates(Akka.system(app).scheduler)
   }
 
 }

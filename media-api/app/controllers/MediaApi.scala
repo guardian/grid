@@ -4,6 +4,7 @@ import java.net.URI
 
 import play.api.mvc.Security.AuthenticatedRequest
 
+import scala.concurrent.Future
 import scala.util.Try
 
 import play.api.mvc._
@@ -21,7 +22,7 @@ import lib.{Notifications, Config, S3Client}
 import lib.querysyntax.{Condition, Parser}
 
 import com.gu.mediaservice.lib.auth
-import com.gu.mediaservice.lib.auth.{Principal, PandaUser, KeyStore}
+import com.gu.mediaservice.lib.auth.{PermissionStore, Principal, PandaUser, KeyStore}
 import com.gu.mediaservice.lib.argo._
 import com.gu.mediaservice.lib.argo.model._
 import com.gu.mediaservice.lib.formatting.{printDateTime, parseDateFromQuery}
@@ -35,6 +36,7 @@ import com.gu.mediaservice.api.Transformers
 object MediaApi extends Controller with ArgoHelpers {
 
   val keyStore = new KeyStore(Config.keyStoreBucket, Config.awsCredentials)
+  val configStore = new PermissionStore(Config.configBucket, Config.awsCredentials)
 
   val commonTransformers = new Transformers(Config.services)
 
@@ -69,25 +71,36 @@ object MediaApi extends Controller with ArgoHelpers {
   val ImageNotFound = respondError(NotFound, "image-not-found", "No image found with the given id")
 
   def canUserWriteMetadata(request: AuthenticatedRequest[AnyContent, Principal], source: JsValue) = {
-    val userEmail = request.user match {
-      case user: PandaUser => Some(user.email)
-      case _ => None
+    request.user match {
+      case user: PandaUser => {
+        (source \ "uploadedBy").asOpt[String] match {
+          case Some(uploader) => {
+            if (user.email == uploader) {
+              Future.successful(true)
+            } else {
+              configStore.hasPermission("withGlobalMetadataEdit", user.email)
+            }
+          }
+          case None => configStore.hasPermission("withGlobalMetadataEdit", user.email)
+        }
+      }
+      case _ => Future.successful(false)
     }
-
-    val uploadedBy = (source \ "uploadedBy").asOpt[String]
-
-    userEmail == uploadedBy && userEmail.isDefined && uploadedBy.isDefined
   }
 
   def getImage(id: String) = Authenticated.async { request =>
-    ElasticSearch.getImageById(id) map {
+    ElasticSearch.getImageById(id) flatMap {
       case Some(source) => {
         val withWritePermission = canUserWriteMetadata(request, source)
 
-        val (imageData, imageLinks) = imageResponse(id, source, withWritePermission)
-        respond(imageData, imageLinks)
+        withWritePermission.map {
+          permission => {
+            val (imageData, imageLinks) = imageResponse(id, source, permission)
+            respond(imageData, imageLinks)
+          }
+        }
       }
-      case None         => ImageNotFound
+      case None         => Future.successful(ImageNotFound)
     }
   }
 
@@ -142,25 +155,24 @@ object MediaApi extends Controller with ArgoHelpers {
 
 
   def imageSearch = Authenticated.async { request =>
-    val searchParams = SearchParams(request)
-    ElasticSearch.search(searchParams) map { case SearchResults(hits, totalCount) =>
-      val images = hits map {
-        case (elasticId, source) =>
-          val withWritePermission = canUserWriteMetadata(request, source)
-          imageResponse(elasticId, source, withWritePermission)
-      }
+    def hitToImageEntity(elasticId: ElasticSearch.Id, source: JsValue): Future[EmbeddedEntity[JsValue]] = {
+      val withWritePermission = canUserWriteMetadata(request, source)
 
-      val imageEntities = images.map { case (imageData, imageLinks) =>
+      withWritePermission.map { permission =>
+        val (imageData, imageLinks) = imageResponse(elasticId, source, permission)
         val id = (imageData \ "id").as[String]
         EmbeddedEntity(uri = URI.create(s"$rootUri/images/$id"), data = Some(imageData), imageLinks)
       }
-
-      val prevLink = getPrevLink(searchParams)
-      val nextLink = getNextLink(searchParams, totalCount)
-      val links = List(prevLink, nextLink).flatten
-
-      respondCollection(imageEntities, Some(searchParams.offset), Some(totalCount), links)
     }
+
+    val searchParams = SearchParams(request)
+    for {
+      SearchResults(hits, totalCount) <- ElasticSearch.search(searchParams)
+      imageEntities <- Future.sequence(hits map (hitToImageEntity _).tupled)
+      prevLink = getPrevLink(searchParams)
+      nextLink = getNextLink(searchParams, totalCount)
+      links = List(prevLink, nextLink).flatten
+    } yield respondCollection(imageEntities, Some(searchParams.offset), Some(totalCount), links)
   }
 
 
