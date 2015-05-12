@@ -8,12 +8,10 @@ import './http';
 
 export var global = angular.module('kahuna.errors.global', ['ngMessages', 'pandular.session', 'kahuna.errors.http']);
 
-global.factory('globalErrors', ['sentry', 'httpErrors', function(sentry, httpErrors) {
+global.factory('globalErrors', [function() {
     var errors = {};
 
     function trigger(key) {
-        const { errorMessage, errorCode } = httpErrors[key] || httpErrors.unknown;
-        sentry.trigger(errorMessage, { errorCode });
         errors[key] = true;
     }
 
