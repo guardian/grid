@@ -165,7 +165,28 @@
                 "Bucket": { "Ref": "ImageOriginBucket" }
             }
         },
-
+        "ConfigBucket": {
+            "Type": "AWS::S3::Bucket"
+        },
+        "ConfigBucketPolicy": {
+            "Type": "AWS::S3::BucketPolicy",
+            "Properties": {
+                "PolicyDocument": {
+                    "Id": "ConfigBucketPolicy",
+                    "Statement": [
+                        {
+                            "Action": [ "s3:GetObject" ],
+                            "Effect": "Allow",
+                            "Resource": { "Fn::Join": [ "",
+                                [ "arn:aws:s3:::", { "Ref": "ConfigBucket" } , "/*" ] ]
+                            },
+                            "Principal": { "AWS": { "Fn::GetAtt": [ "User", "Arn" ] } }
+                        }
+                    ]
+                },
+                "Bucket": { "Ref": "ConfigBucket" }
+            }
+        },
 
         "EditsDynamoTable": {
             "Type": "AWS::DynamoDB::Table",
@@ -249,6 +270,9 @@
         },
         "ImageOriginWebsite": {
             "Value": { "Fn::GetAtt": [ "ImageOriginBucket", "WebsiteURL" ] }
+        },
+        "ConfigBucket": {
+            "Value": { "Ref": "ConfigBucket" }
         },
         "EditsDynamoTable": {
             "Value": { "Ref": "EditsDynamoTable" }
