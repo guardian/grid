@@ -1,0 +1,95 @@
+package com.gu.mediaservice.lib.auth
+
+import com.gu.mediaservice.lib.config.Properties
+
+import scala.collection.JavaConverters._
+import scala.concurrent.Future
+import scala.concurrent.duration._
+
+import akka.actor.Scheduler
+import akka.agent.Agent
+
+import play.api.libs.concurrent.Execution.Implicits._
+
+import com.gu.mediaservice.lib.aws.S3
+import com.amazonaws.auth.AWSCredentials
+import org.apache.commons.io.IOUtils
+import com.amazonaws.AmazonServiceException
+
+abstract class BaseStore[TStoreKey, TStoreVal](bucket: String, credentials: AWSCredentials) {
+  val s3 = new S3(credentials)
+
+  protected val store: Agent[Map[TStoreKey, TStoreVal]] = Agent(Map.empty)
+
+  protected def getIdentity(key: String): Option[String] = {
+    val content = s3.client.getObject(bucket, key)
+    val stream = content.getObjectContent
+    try
+      Some(IOUtils.toString(stream, "utf-8").trim)
+    catch {
+      case e: AmazonServiceException if e.getErrorCode == "NoSuchKey" => None
+    }
+    finally
+      stream.close()
+  }
+
+  def scheduleUpdates(scheduler: Scheduler) {
+    scheduler.schedule(0.seconds, 10.minutes)(update())
+  }
+
+  def update(): Unit
+}
+
+class KeyStore(bucket: String, credentials: AWSCredentials) extends BaseStore[String, String](bucket, credentials) {
+  def lookupIdentity(key: String): Future[Option[String]] =
+    store.future.map(_.get(key))
+
+  def findKey(prefix: String): Option[String] = s3.syncFindKey(bucket, prefix)
+
+  def update() {
+    store.sendOff(_ => fetchAll)
+  }
+
+  private def fetchAll: Map[String, String] = {
+    val keys = s3.client.listObjects(bucket).getObjectSummaries.asScala.map(_.getKey)
+    keys.flatMap(k => getIdentity(k).map(k -> _)).toMap
+  }
+}
+
+class PermissionStore(bucket: String, credentials: AWSCredentials) extends BaseStore[String, List[String]](bucket, credentials) {
+  private val permissions = List("withGlobalMetadataEdit")
+
+  def hasPermission(permission: String, userEmail: String) = {
+    store.future().map {
+      case list => {
+        list.get(permission) match {
+          case Some(userList) => userList.contains(userEmail)
+          case None => false
+        }
+      }
+    }
+  }
+
+  def update() {
+    store.sendOff(_ => getList())
+  }
+
+  private def getList(): Map[String, List[String]] = {
+    val fileContents = getIdentity("media-service.properties")
+    fileContents match {
+      case Some(contents) => {
+        val properties = Properties.fromString(contents)
+
+        permissions.map(permission => {
+          properties.get(permission) match {
+            case Some(value) => (permission, value.split(",").toList)
+            case None => (permission, List())
+          }
+        }).toMap
+      }
+      case None => {
+        permissions.map(permission => (permission, List())).toMap
+      }
+    }
+  }
+}
