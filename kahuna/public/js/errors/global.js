@@ -3,10 +3,15 @@ import template from './global.html!text';
 
 import 'angular-messages';
 import 'pandular';
+import '../sentry/sentry';
+import './http';
 
-export var global = angular.module('kahuna.errors.global', ['ngMessages', 'pandular.session']);
+export var global = angular.module(
+    'kahuna.errors.global',
+    ['ngMessages', 'pandular.session', 'kahuna.errors.http']
+);
 
-global.factory('globalErrors', function() {
+global.factory('globalErrors', [function() {
     var errors = {};
 
     function trigger(key) {
@@ -26,7 +31,7 @@ global.factory('globalErrors', function() {
         destroy,
         getErrors
     };
-});
+}]);
 
 
 global.controller('GlobalErrorsCtrl',
