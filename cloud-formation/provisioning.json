@@ -4,7 +4,7 @@
     "builders": [{
         "type": "amazon-ebs",
         "region": "eu-west-1",
-        "source_ami": "ami-863686f1",
+        "source_ami": "ami-b17a12c6",
         "instance_type": "t2.micro",
         "ssh_username": "ubuntu",
         "ami_name": "media-service_ebs-storage-cfn_{{timestamp}}",
