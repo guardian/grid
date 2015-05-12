@@ -587,31 +587,6 @@ input.search-query__input {
     position: relative;
 }
 
-.preview__controls {
-    position: absolute;
-    top: 0;
-    right: 0;
-    background: rgba(0, 0, 0, .75);
-    display: none;
-    text-align: center;
-    font-size: 1.2rem;
-}
-
-.preview__control {
-    line-height: 24px;
-    width: 24px;
-    color: white;
-    display: block;
-    border-top: 1px dashed rgba(255, 255, 255, .5);
-}
-.preview__control--first {
-    border-top: 0;
-}
-
-.preview:hover .preview__controls {
-    display: block;
-}
-
 .preview__link {
     display: block;
     height: 200px;
@@ -696,6 +671,38 @@ FIXME: what to do with touch devices
 .bottom-bar__action {
     color: inherit;
     display: inline-block;
+}
+
+
+/* ==========================================================================
+   Image actions
+   ========================================================================== */
+.image-actions-container .image-actions {
+    display: none;
+}
+.image-actions-container:hover .image-actions {
+    display: block;
+}
+
+.image-actions {
+    position: absolute;
+    top: 0;
+    right: 0;
+    background: rgba(0, 0, 0, .75);
+    display: none;
+    text-align: center;
+    font-size: 1.2rem;
+}
+
+.image-action {
+    line-height: 24px;
+    width: 24px;
+    color: white;
+    display: block;
+    border-top: 1px dashed rgba(255, 255, 255, .5);
+}
+.image-action--first {
+    border-top: 0;
 }
 
 

@@ -4,7 +4,7 @@
     <div class="result-editor__result">
 
         <!-- only give the image link if the image is valid -->
-        <div ng:switch="ctrl.status === 'ready'">
+        <div ng:switch="ctrl.status === 'ready'" class="image-actions-container">
             <a class="result-editor__img-link"
                ng:switch-when="true"
                ui:sref="image({imageId: ctrl.image.data.id})"
@@ -17,6 +17,22 @@
             <img class="result-editor__img"
                  ng:switch-default
                  ng:src="{{ctrl.image.data.thumbnail | assetFile}}" />
+
+            <ul class="image-actions">
+                <li>
+                    <a class="image-action image-action--first"
+                       target="_blank"
+                       title="Pop out"
+                       ng:href="/images/{{image.data.id}}">◹</a>
+                </li>
+
+                <li>
+                    <a class="image-action"
+                       title="crop"
+                       ng:if="ctrl.image.data.valid"
+                       ui:sref="crop({ imageId: image.data.id })">✂</a>
+                </li>
+            </ul>
         </div>
 
         <div class="result-editor__info">
