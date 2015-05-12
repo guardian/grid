@@ -1,16 +1,16 @@
-<div class="preview"
+<div class="preview image-actions-container"
      title="{{image.data.metadata.description || image.data.metadata.title}}">
 
-    <ul class="preview__controls">
+    <ul class="image-actions">
         <li>
-            <a class="preview__control preview__control--first"
+            <a class="image-action image-action--first"
                target="_blank"
                title="Pop out"
                ng:href="/images/{{image.data.id}}">◹</a>
         </li>
 
         <li>
-            <a class="preview__control"
+            <a class="image-action"
                title="crop"
                ng:if="image.data.valid"
                ui:sref="crop({ imageId: image.data.id })">✂</a>
