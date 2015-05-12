@@ -55,9 +55,9 @@ image.controller('ImageCtrl', [
             ctrl.canBeCropped = croppable;
         });
 
-        // Only specific people should be able to edit metadata.
-        // TODO replace this with actual logic.
-        ctrl.userCanEdit = false;
+        editsService.canUserEdit(image).then(editable => {
+            ctrl.userCanEdit = editable;
+        });
 
         var ignoredMetadata = [
             'title', 'description', 'copyright', 'keywords', 'byline',
