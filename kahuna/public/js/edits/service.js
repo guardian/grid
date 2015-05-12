@@ -183,6 +183,11 @@ service.factory('editsService',
         });
     }
 
-    return { update, add, on, remove };
+    function canUserEdit(image) {
+        return image.getLink('edits')
+            .then(() => true, () => false);
+    }
+
+    return { update, add, on, remove, canUserEdit };
 
 }]);
