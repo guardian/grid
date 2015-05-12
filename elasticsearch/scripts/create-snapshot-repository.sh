@@ -21,7 +21,8 @@ do
                 "region": "'$AWS_REGION'"
             }
         }'
-        $SNOK=$?
+
+        SNOK=$?
 
         if [ $SNOK -ne 0 ]
         then
