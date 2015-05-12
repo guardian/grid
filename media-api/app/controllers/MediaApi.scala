@@ -2,6 +2,8 @@ package controllers
 
 import java.net.URI
 
+import play.api.mvc.Security.AuthenticatedRequest
+
 import scala.util.Try
 
 import play.api.mvc._
@@ -19,7 +21,7 @@ import lib.{Notifications, Config, S3Client}
 import lib.querysyntax.{Condition, Parser}
 
 import com.gu.mediaservice.lib.auth
-import com.gu.mediaservice.lib.auth.KeyStore
+import com.gu.mediaservice.lib.auth.{Principal, PandaUser, KeyStore}
 import com.gu.mediaservice.lib.argo._
 import com.gu.mediaservice.lib.argo.model._
 import com.gu.mediaservice.lib.formatting.{printDateTime, parseDateFromQuery}
@@ -66,10 +68,23 @@ object MediaApi extends Controller with ArgoHelpers {
 
   val ImageNotFound = respondError(NotFound, "image-not-found", "No image found with the given id")
 
+  def canUserWriteMetadata(request: AuthenticatedRequest[AnyContent, Principal], source: JsValue) = {
+    val userEmail = request.user match {
+      case user: PandaUser => Some(user.email)
+      case _ => None
+    }
+
+    val uploadedBy = (source \ "uploadedBy").asOpt[String]
+
+    userEmail == uploadedBy && userEmail.isDefined && uploadedBy.isDefined
+  }
+
   def getImage(id: String) = Authenticated.async { request =>
     ElasticSearch.getImageById(id) map {
       case Some(source) => {
-        val (imageData, imageLinks) = imageResponse(id, source)
+        val withWritePermission = canUserWriteMetadata(request, source)
+
+        val (imageData, imageLinks) = imageResponse(id, source, withWritePermission)
         respond(imageData, imageLinks)
       }
       case None         => ImageNotFound
@@ -129,7 +144,12 @@ object MediaApi extends Controller with ArgoHelpers {
   def imageSearch = Authenticated.async { request =>
     val searchParams = SearchParams(request)
     ElasticSearch.search(searchParams) map { case SearchResults(hits, totalCount) =>
-      val images = hits map (imageResponse _).tupled
+      val images = hits map {
+        case (elasticId, source) =>
+          val withWritePermission = canUserWriteMetadata(request, source)
+          imageResponse(elasticId, source, withWritePermission)
+      }
+
       val imageEntities = images.map { case (imageData, imageLinks) =>
         val id = (imageData \ "id").as[String]
         EmbeddedEntity(uri = URI.create(s"$rootUri/images/$id"), data = Some(imageData), imageLinks)
@@ -185,7 +205,7 @@ object MediaApi extends Controller with ArgoHelpers {
   }
 
 
-  def imageResponse(id: String, source: JsValue): (JsValue, List[Link]) = {
+  def imageResponse(id: String, source: JsValue, withWritePermission: Boolean): (JsValue, List[Link]) = {
     // Round expiration time to try and hit the cache as much as possible
     // TODO: do we really need these expiration tokens? they kill our ability to cache...
     val expiration = roundDateTime(DateTime.now, Duration.standardMinutes(10)).plusMinutes(20)
@@ -209,15 +229,20 @@ object MediaApi extends Controller with ArgoHelpers {
       .flatMap(_.transform(transformers.addUsageCost(creditField, sourceField, supplierField, supplierCollField, usageRightsField))).get
 
     val cropLink = Link("crops", s"$cropperUri/crops/$id")
-    val staticLinks = List(
-      Link("edits",     s"$metadataUri/metadata/$id"),
-      Link("optimised", makeImgopsUri(new URI(secureUrl))),
-      Link("ui:image",  s"$kahunaUri/images/$id")
-    )
-    val imageLinks = if (valid) {
-      cropLink :: staticLinks
+    val editLink = Link("edits", s"$metadataUri/metadata/$id")
+    val optimisedLink = Link("optimised", makeImgopsUri(new URI(secureUrl)))
+    val imageLink = Link("ui:image",  s"$kahunaUri/images/$id")
+
+    val baseLinks = if (withWritePermission) {
+      List(editLink, optimisedLink, imageLink)
     } else {
-      staticLinks
+      List(optimisedLink, imageLink)
+    }
+
+    val imageLinks = if (valid) {
+      cropLink :: baseLinks
+    } else {
+      baseLinks
     }
 
     (imageData, imageLinks)
