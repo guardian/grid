@@ -1150,6 +1150,10 @@ FIXME: what to do with touch devices
     display: inline-block;
     flex-grow: 1;
 }
+.job-info--editor__input--with-batch {
+    padding-right: 25px;
+}
+
 .job-info--editor__input--description {
     height: 4em;
 }
@@ -1211,10 +1215,11 @@ FIXME: what to do with touch devices
 
 .job-editor__apply-to-all {
     position: absolute;
-    right: 5px;
+    /* These positions are so that we don't overlay the input borders */
+    right: 1px;
     top: 1px;
     z-index: 1;
-    padding-left: 5px;
+    padding: 0 5px;
     background: #444;
 }
 
