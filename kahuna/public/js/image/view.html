@@ -217,7 +217,12 @@
                                ui:drag-image="{{extremeAssets.smallest | assetFile}}">
                                 <img class="image-crop__image" ng:src="{{extremeAssets.smallest | assetFile}}" />
                             </a>
-                            <div class="image-crop__aspect-ratio">{{crop.specification.aspectRatio | asAspectRatioWord}}</div>
+                            <div class="image-crop__aspect-ratio">
+                                {{crop.specification.aspectRatio | asAspectRatioWord}}
+                                <span ng:if="crop.specification.aspectRatio">
+                                    ({{crop.specification.aspectRatio}})
+                                </span>
+                            </div>
                         </li>
                     </ul>
                 </dd>

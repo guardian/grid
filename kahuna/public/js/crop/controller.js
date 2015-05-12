@@ -34,6 +34,14 @@ crop.controller('ImageCropCtrl',
     this.cropSize = () => cropWidth() + ' x ' + cropHeight();
     this.cropSizeWarning = () => cropWidth() < 500;
 
+    this.getRatioString = (aspect) => {
+        if (Number(aspect) === $scope.landscapeRatio) {
+            return '5:3';
+        } else if (Number(aspect) === $scope.portraitRatio) {
+            return '3:2';
+        }
+        // else undefined is fine
+    };
 
     $scope.crop = function() {
         // TODO: show crop
@@ -44,12 +52,7 @@ crop.controller('ImageCropCtrl',
             height: cropHeight()
         };
 
-        var ratio;
-        if (Number(this.aspect) === $scope.landscapeRatio) {
-            ratio = '5:3';
-        } else if (Number(this.aspect) === $scope.portraitRatio) {
-            ratio = '3:2';
-        }
+        var ratio = this.getRatioString(this.aspect);
 
         $scope.cropping = true;
 
