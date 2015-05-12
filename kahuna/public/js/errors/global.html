@@ -1,9 +1,25 @@
 <ng:messages for="ctrl.errors" class="global-errors">
     <div class="global-error error"
          ng:message="unauthorised">
-        ͼ(ݓ_ݓ)ͽ Your session has expired.
+        ͼ(ݓ_ݓ)ͽ Your session has become invalid.
         Please <a href="{{ctrl.getCurrentLocation()}}" target="_self" class="coloured-link">login again</a> to reauthenticate.
-        <!-- The space is required so angular doesn't remove the functionality of the link all together
-        The target is require to trick angular into not handling it with the router -->
+    </div>
+
+    <div class="global-error error"
+         ng:message="authFailed">
+        <div>ͼ(ݓ_ݓ)ͽ We couldn't log you back in.</div>
+
+        <div>
+            We are looking into this but if the problem persists please
+            <a href="mailto:thegrid.dev@theguardian.com"
+            class="coloured-link">email the Grid team</a>.
+        </div>
+
+        <div>
+            In the interim - please
+            <a href="{{ctrl.getCurrentLocation()}}"
+               target="_self" class="coloured-link">login again</a>
+            to reauthenticate.
+        </div>
     </div>
 </ng:messages>
