@@ -64,9 +64,12 @@ class FileMetadataReaderTest extends FunSpec with Matchers with ScalaFutures {
         "Image Description" -> "Austria's Matthias Mayer attends the men's downhill training of the FIS Alpine Skiing World Cup in Kitzbuehel, Austria, on January 22, 2015.       AFP PHOTO / CHRISTOF STACHECHRISTOF STACHE/AFP/Getty Images"
       )
       val getty = Map(
-        "Original Filename" -> "43885812_SEA.jpg"
+        "Call For Image" -> "False",
+        "Image Rank" -> "3",
+        "Original Filename" -> "43885812_SEA.jpg",
+        "Exclusive Coverage" -> "False",
+        "Original Create Date Time" -> "0001-01-01T00:00:00 +00:00"
       )
-
 
       sameMaps(metadata.iptc, iptc)
       sameMaps(metadata.exif, exif)
