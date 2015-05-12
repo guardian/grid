@@ -58,8 +58,21 @@ object FileMetadataReader {
   private def exportGettyDirectory(metadata: Metadata): Map[String, String] =
     Option(metadata.getFirstDirectoryOfType(classOf[XmpDirectory])) map { directory =>
       val xmpProperties = directory.getXmpProperties.toMap
+
+      def readProperty(name: String): Option[String] = xmpProperties.get(name) flatMap nonEmptyTrimmed
+
       Map(
-        "Original Filename" -> xmpProperties.get("GettyImagesGIFT:OriginalFilename")
+        "Asset ID"                  -> readProperty("GettyImagesGIFT:AssetID"),
+        "Call For Image"            -> readProperty("GettyImagesGIFT:CallForImage"),
+        "Camera Filename"           -> readProperty("GettyImagesGIFT:CameraFilename"),
+        "Camera Make Model"         -> readProperty("GettyImagesGIFT:CameraMakeModel"),
+        "Composition"               -> readProperty("GettyImagesGIFT:Composition"),
+        "Exclusive Coverage"        -> readProperty("GettyImagesGIFT:ExclusiveCoverage"),
+        "Image Rank"                -> readProperty("GettyImagesGIFT:ImageRank"),
+        "Original Create Date Time" -> readProperty("GettyImagesGIFT:OriginalCreateDateTime"),
+        "Original Filename"         -> readProperty("GettyImagesGIFT:OriginalFilename"),
+        "Personality"               -> readProperty("GettyImagesGIFT:Personality"),
+        "Time Shot"                 -> readProperty("GettyImagesGIFT:TimeShot")
       ).flattenOptions
     } getOrElse Map()
 
