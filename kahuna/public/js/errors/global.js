@@ -6,7 +6,10 @@ import 'pandular';
 import '../sentry/sentry';
 import './http';
 
-export var global = angular.module('kahuna.errors.global', ['ngMessages', 'pandular.session', 'kahuna.errors.http']);
+export var global = angular.module(
+    'kahuna.errors.global',
+    ['ngMessages', 'pandular.session', 'kahuna.errors.http']
+);
 
 global.factory('globalErrors', [function() {
     var errors = {};
