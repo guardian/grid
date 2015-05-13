@@ -3,11 +3,10 @@ import angular from 'angular';
 var upload = angular.module('kahuna.upload.manager', []);
 
 upload.factory('uploadManager',
-               ['$window', 'fileUploader',
-                function($window, fileUploader) {
+               ['$q', '$window', 'fileUploader',
+                function($q, $window, fileUploader) {
 
-    var jobs = [];
-
+    var jobs = new Set();
 
     function createJobItem(file) {
         var request = fileUploader.upload(file);
@@ -25,18 +24,22 @@ upload.factory('uploadManager',
 
     function upload(files) {
         var job = files.map(createJobItem);
-        jobs.push(job);
+        var promises = job.map(jobItem => jobItem.resourcePromise);
 
-        // return $q.all(job)
+        jobs.add(job);
+
+        // once all `jobItems` in a job are complete, remove it
+        // TODO: potentially move these to a `completeJobs` `Set`
+        $q.all(promises).then(() => jobs.delete(job));
     }
 
-    function listUploads() {
-        return jobs;
+    function getLatestRunningJob() {
+        return jobs.values().next().value;
     }
 
     return {
         upload,
-        listUploads
+        getLatestRunningJob
     };
 }]);
 
