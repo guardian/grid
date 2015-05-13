@@ -7,7 +7,8 @@ upload.controller('UploadCtrl',
                   ['$scope', 'uploadManager', 'mediaApi',
                    function($scope, uploadManager, mediaApi) {
 
-    this.latestJob = uploadManager.listUploads().slice(-1)[0];
+    // TODO: Show multiple jobs?
+    this.latestJob = uploadManager.getLatestRunningJob();
 
     // my uploads
     mediaApi.getSession().then(session => {
