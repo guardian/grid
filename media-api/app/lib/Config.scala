@@ -63,6 +63,7 @@ object Config extends CommonPlayAppConfig with CommonPlayAppProperties {
     "Alamy",
     "Allsport",
     "Allstar Picture Library",
+    "ASSOCIATED PRESS",
     "Associated Press",
     "BBC",
     "BFI",
