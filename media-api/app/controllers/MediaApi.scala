@@ -36,7 +36,7 @@ import com.gu.mediaservice.api.Transformers
 object MediaApi extends Controller with ArgoHelpers {
 
   val keyStore = new KeyStore(Config.keyStoreBucket, Config.awsCredentials)
-  val configStore = new PermissionStore(Config.configBucket, Config.awsCredentials)
+  val permissionStore = new PermissionStore(Config.configBucket, Config.awsCredentials)
 
   val commonTransformers = new Transformers(Config.services)
 
@@ -74,14 +74,8 @@ object MediaApi extends Controller with ArgoHelpers {
     request.user match {
       case user: PandaUser => {
         (source \ "uploadedBy").asOpt[String] match {
-          case Some(uploader) => {
-            if (user.email == uploader) {
-              Future.successful(true)
-            } else {
-              configStore.hasPermission(PermissionType.EditMetadata, user.email)
-            }
-          }
-          case None => configStore.hasPermission(PermissionType.EditMetadata, user.email)
+          case Some(uploader) if user.email == uploader => Future.successful(true)
+          case _ => permissionStore.hasPermission(PermissionType.EditMetadata, user.email)
         }
       }
       case _ => Future.successful(false)
