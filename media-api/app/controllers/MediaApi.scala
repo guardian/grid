@@ -382,9 +382,9 @@ object ImageExtras {
     }
   }
 
-  private def isFreeCredit(credit: String) = Config.freeCreditList.exists(f => f.toLowerCase == credit.toLowerCase)
-  private def isFreeSource(source: String) = Config.freeSourceList.exists(f => f.toLowerCase == source.toLowerCase)
-  private def isPaySource(source: String)  = Config.payGettySourceList.exists(f => f.toLowerCase == source.toLowerCase)
+  private def isFreeCredit(credit: String) = Config.freeCreditList.contains(credit)
+  private def isFreeSource(source: String) = Config.freeSourceList.contains(source)
+  private def isPaySource(source: String)  = Config.payGettySourceList.contains(source)
 
   private def isFreeSupplier(supplier: String) = Config.freeSuppliers.contains(supplier)
   private def isExcludedColl(supplier: String, supplierColl: String) =
