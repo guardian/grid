@@ -2,6 +2,7 @@ package com.gu.mediaservice.lib.auth
 
 import com.gu.mediaservice.lib.auth.PermissionType.PermissionType
 import com.gu.mediaservice.lib.config.Properties
+import org.slf4j.LoggerFactory
 
 import scala.collection.JavaConverters._
 import scala.concurrent.Future
@@ -20,6 +21,8 @@ import com.amazonaws.AmazonServiceException
 abstract class BaseStore[TStoreKey, TStoreVal](bucket: String, credentials: AWSCredentials) {
   val s3 = new S3(credentials)
 
+  private val log = LoggerFactory.getLogger(getClass)
+
   protected val store: Agent[Map[TStoreKey, TStoreVal]] = Agent(Map.empty)
 
   protected def getS3Object(key: String): Option[String] = {
@@ -28,7 +31,10 @@ abstract class BaseStore[TStoreKey, TStoreVal](bucket: String, credentials: AWSC
     try
       Some(IOUtils.toString(stream, "utf-8").trim)
     catch {
-      case e: AmazonServiceException if e.getErrorCode == "NoSuchKey" => None
+      case e: AmazonServiceException if e.getErrorCode == "NoSuchKey" => {
+        log.warn(s"Cannot find key: $key in bucket: $bucket")
+        None
+      }
     }
     finally
       stream.close()
