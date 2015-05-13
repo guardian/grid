@@ -38,7 +38,7 @@ crop.controller('ImageCropCtrl',
         if (Number(aspect) === $scope.landscapeRatio) {
             return '5:3';
         } else if (Number(aspect) === $scope.portraitRatio) {
-            return '3:2';
+            return '2:3';
         }
         // else undefined is fine
     };
