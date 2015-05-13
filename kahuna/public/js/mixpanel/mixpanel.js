@@ -32,7 +32,8 @@ mp.factory('mixpanel', ['$window', 'mixpanelEnabled', function($window, mixpanel
 
         // also record browser version alongside each event
         mixpanel.register_once(angular.extend({
-            'Browser version': browser.major
+            'Browser version': browser.major,
+            'Email': email
         }, registerProps));
     }
 
