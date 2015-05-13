@@ -56,15 +56,15 @@ object AlamyParser extends ImageProcessor {
 }
 
 object ApParser extends ImageProcessor {
-  val InvisionFor = "^Invision for (.+)".r
-  val PersonInvisionAp = "(.+)\\s*/Invision/AP$".r
+  val InvisionFor = "^invision for (.+)".r
+  val PersonInvisionAp = "(.+)\\s*/invision/ap$".r
 
-  def apply(image: Image): Image = image.metadata.credit match {
-    case Some("AP") | Some("Associated Press") => image.copy(
+  def apply(image: Image): Image = image.metadata.credit.map(_.toLowerCase) match {
+    case Some("ap") | Some("associated press") => image.copy(
       usageRights = image.usageRights.copy(supplier = Some("AP")),
       metadata    = image.metadata.copy(credit = Some("AP"))
     )
-    case Some("Invision") | Some("Invision/AP") | Some("INVISION/AP") |
+    case Some("invision") | Some("invision/ap") |
          Some(InvisionFor(_)) | Some(PersonInvisionAp(_)) => image.copy(
       usageRights = image.usageRights.copy(supplier = Some("AP"), suppliersCollection = Some("Invision"))
     )
