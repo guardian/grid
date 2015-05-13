@@ -1,5 +1,6 @@
 package com.gu.mediaservice.lib.auth
 
+import com.gu.mediaservice.lib.auth.PermissionType.PermissionType
 import com.gu.mediaservice.lib.config.Properties
 
 import scala.collection.JavaConverters._
@@ -56,10 +57,13 @@ class KeyStore(bucket: String, credentials: AWSCredentials) extends BaseStore[St
   }
 }
 
-class PermissionStore(bucket: String, credentials: AWSCredentials) extends BaseStore[String, List[String]](bucket, credentials) {
-  private val permissions = List("withGlobalMetadataEdit")
+object PermissionType extends Enumeration {
+  type PermissionType = Value
+  val EditMetadata = Value("editMetadata")
+}
 
-  def hasPermission(permission: String, userEmail: String) = {
+class PermissionStore(bucket: String, credentials: AWSCredentials) extends BaseStore[PermissionType, List[String]](bucket, credentials) {
+  def hasPermission(permission: PermissionType, userEmail: String) = {
     store.future().map {
       case list => {
         list.get(permission) match {
@@ -74,21 +78,21 @@ class PermissionStore(bucket: String, credentials: AWSCredentials) extends BaseS
     store.sendOff(_ => getList())
   }
 
-  private def getList(): Map[String, List[String]] = {
+  private def getList(): Map[PermissionType, List[String]] = {
     val fileContents = getIdentity("media-service.properties")
     fileContents match {
       case Some(contents) => {
         val properties = Properties.fromString(contents)
 
-        permissions.map(permission => {
-          properties.get(permission) match {
+        PermissionType.values.toList.map(permission => {
+          properties.get(permission.toString) match {
             case Some(value) => (permission, value.split(",").toList)
             case None => (permission, List())
           }
         }).toMap
       }
       case None => {
-        permissions.map(permission => (permission, List())).toMap
+        PermissionType.values.toList.map(permission => (permission, List())).toMap
       }
     }
   }
