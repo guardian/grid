@@ -22,7 +22,7 @@ import lib.{Notifications, Config, S3Client}
 import lib.querysyntax.{Condition, Parser}
 
 import com.gu.mediaservice.lib.auth
-import com.gu.mediaservice.lib.auth.{PermissionStore, Principal, PandaUser, KeyStore}
+import com.gu.mediaservice.lib.auth._
 import com.gu.mediaservice.lib.argo._
 import com.gu.mediaservice.lib.argo.model._
 import com.gu.mediaservice.lib.formatting.{printDateTime, parseDateFromQuery}
@@ -78,10 +78,10 @@ object MediaApi extends Controller with ArgoHelpers {
             if (user.email == uploader) {
               Future.successful(true)
             } else {
-              configStore.hasPermission("withGlobalMetadataEdit", user.email)
+              configStore.hasPermission(PermissionType.EditMetadata, user.email)
             }
           }
-          case None => configStore.hasPermission("withGlobalMetadataEdit", user.email)
+          case None => configStore.hasPermission(PermissionType.EditMetadata, user.email)
         }
       }
       case _ => Future.successful(false)
