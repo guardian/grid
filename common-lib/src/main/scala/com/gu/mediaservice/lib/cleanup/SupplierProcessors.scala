@@ -60,8 +60,9 @@ object ApParser extends ImageProcessor {
   val PersonInvisionAp = "(.+)\\s*/Invision/AP$".r
 
   def apply(image: Image): Image = image.metadata.credit match {
-    case Some("AP") => image.copy(
-      usageRights = image.usageRights.copy(supplier = Some("AP"))
+    case Some("AP") | Some("Associated Press") => image.copy(
+      usageRights = image.usageRights.copy(supplier = Some("AP")),
+      metadata    = image.metadata.copy(credit = Some("AP"))
     )
     case Some("Invision") | Some("Invision/AP") | Some("INVISION/AP") |
          Some(InvisionFor(_)) | Some(PersonInvisionAp(_)) => image.copy(
