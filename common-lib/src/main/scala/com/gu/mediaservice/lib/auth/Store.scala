@@ -22,7 +22,7 @@ abstract class BaseStore[TStoreKey, TStoreVal](bucket: String, credentials: AWSC
 
   protected val store: Agent[Map[TStoreKey, TStoreVal]] = Agent(Map.empty)
 
-  protected def getIdentity(key: String): Option[String] = {
+  protected def getS3Object(key: String): Option[String] = {
     val content = s3.client.getObject(bucket, key)
     val stream = content.getObjectContent
     try
@@ -53,7 +53,7 @@ class KeyStore(bucket: String, credentials: AWSCredentials) extends BaseStore[St
 
   private def fetchAll: Map[String, String] = {
     val keys = s3.client.listObjects(bucket).getObjectSummaries.asScala.map(_.getKey)
-    keys.flatMap(k => getIdentity(k).map(k -> _)).toMap
+    keys.flatMap(k => getS3Object(k).map(k -> _)).toMap
   }
 }
 
@@ -65,7 +65,7 @@ object PermissionType extends Enumeration {
 class PermissionStore(bucket: String, credentials: AWSCredentials) extends BaseStore[PermissionType, List[String]](bucket, credentials) {
   def hasPermission(permission: PermissionType, userEmail: String) = {
     store.future().map {
-      case list => {
+      list => {
         list.get(permission) match {
           case Some(userList) => userList.contains(userEmail)
           case None => false
@@ -79,7 +79,7 @@ class PermissionStore(bucket: String, credentials: AWSCredentials) extends BaseS
   }
 
   private def getList(): Map[PermissionType, List[String]] = {
-    val fileContents = getIdentity("media-service.properties")
+    val fileContents = getS3Object("permissions.properties")
     fileContents match {
       case Some(contents) => {
         val properties = Properties.fromString(contents)
