@@ -1,4 +1,4 @@
-domain.root={{domain_root}}
+domain.root={{domain.root}}
 aws.id={{AwsId}}
 aws.secret={{AwsSecret}}
 auth.keystore.bucket={{KeyBucket}}
