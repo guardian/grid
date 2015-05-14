@@ -35,6 +35,8 @@ object Config extends CommonPlayAppConfig with CommonPlayAppProperties {
 
   val topicArn: String = properties("sns.topic.arn")
 
+  val configBucket: String = properties("s3.config.bucket")
+
   // Note: had to make these lazy to avoid init order problems ;_;
 
   lazy val rootUri: String = services.apiBaseUri
