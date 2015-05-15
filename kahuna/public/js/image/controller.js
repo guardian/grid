@@ -1,8 +1,9 @@
 import angular from 'angular';
 
 import '../edits/service';
+import '../analytics/track';
 
-var image = angular.module('kahuna.image.controller', ['kahuna.edits.service']);
+var image = angular.module('kahuna.image.controller', ['kahuna.edits.service', 'analytics.track']);
 
 image.controller('ImageCtrl', [
     '$rootScope',
@@ -13,6 +14,7 @@ image.controller('ImageCtrl', [
     'cropKey',
     'mediaCropper',
     'editsService',
+    'track',
 
     function ($rootScope,
               $scope,
@@ -21,7 +23,8 @@ image.controller('ImageCtrl', [
               optimisedImageUri,
               cropKey,
               mediaCropper,
-              editsService) {
+              editsService,
+              track) {
 
         var ctrl = this;
 
@@ -122,6 +125,17 @@ image.controller('ImageCtrl', [
             var changed = getMetadataDiff(proposedMetadata);
 
             return save(changed)
-                .catch(() => 'failed to save (press esc to cancel)');
+                .then(() => {
+                    track('Edit Metadata Successful', {field: field});
+                })
+                .catch((resp) => {
+                    track('Edit Metadata Failure', {
+                        field: field,
+                        status: resp.status,
+                        reason: resp.body,
+                        fullResponse: resp
+                    });
+                    return 'failed to save (press esc to cancel)'
+                });
         };
     }]);
