@@ -22,7 +22,7 @@ cd cropper
 
 # Copy profiles into target location
 mkdir -p target/packages/cropper
-cp -r icc_profiles target/packages/cropper
+cp srgb.icc target/packages/cropper/srgb.icc
 
 # Append icc_profiles to zip
-cd target; zip -g artifacts.zip packages/cropper/icc_profiles/*
+cd target; zip -g artifacts.zip packages/cropper/srgb.icc
