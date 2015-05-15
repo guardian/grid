@@ -27,9 +27,11 @@ object Convert {
 
   def crop(op: IMOperation)(b: Bounds): IMOperation = op <| (_.crop(b.width, b.height, b.x, b.y))
 
-  def scale(op: IMOperation)(dimensions: Dimensions): IMOperation = op <| (_.scale(dimensions.width, dimensions.height))
+  def profile(op: IMOperation)(profileFileLocation: String): IMOperation = op <| (_.profile(profileFileLocation))
 
-  def normalizeColorspace(op: IMOperation): IMOperation = op <| (_.colorspace("RGB"))
+  def set(op: IMOperation)(attribute: String, value: String): IMOperation = op <| (_.set(attribute, value))
+
+  def scale(op: IMOperation)(dimensions: Dimensions): IMOperation = op <| (_.scale(dimensions.width, dimensions.height))
 
   def runConvertCmd(op: IMOperation): Future[Unit] = Future((new ConvertCmd).run(op))
 }
