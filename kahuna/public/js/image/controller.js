@@ -59,6 +59,9 @@ image.controller('ImageCtrl', [
             ctrl.userCanEdit = editable;
         });
 
+        const onMetadataUpdateEnd =
+            editsService.on(image.data.userMetadata.data.metadata, 'update-end', onSave);
+
         var ignoredMetadata = [
             'title', 'description', 'copyright', 'keywords', 'byline',
             'credit', 'subLocation', 'city', 'state', 'country',
@@ -103,6 +106,13 @@ image.controller('ImageCtrl', [
             return editsService.update(image.data.userMetadata.data.metadata, metadata, ctrl.image);
         }
 
+        function onSave () {
+            return ctrl.image.get()
+                .then(newImage => {
+                    ctrl.image = newImage;
+                })
+        }
+
         ctrl.updateMetadata = function (field, value) {
             if (ctrl.metadata[field] === value) {
                 /*
@@ -124,4 +134,8 @@ image.controller('ImageCtrl', [
             return save(changed)
                 .catch(() => 'failed to save (press esc to cancel)');
         };
+
+        $scope.$on('$destroy', () => {
+            onMetadataUpdateEnd();
+        });
     }]);
