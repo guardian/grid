@@ -3,10 +3,6 @@
 BUILD_LOCAL=$1
 SBT_CMD="sbt-tc"
 
-# Ensure we are always running sbt in the parent directory
-SCRIPT_DIR=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
-cd $SCRIPT_DIR/..
-
 # Option to use plain sbt when not building in teamcity
 if [ "$BUILD_LOCAL" = "local" ]; then
     SBT_CMD="sbt"
