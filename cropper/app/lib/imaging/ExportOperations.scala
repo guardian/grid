@@ -18,7 +18,7 @@ object ExportOperations {
   import lib.imaging.im4jwrapper.Convert._
   import lib.imaging.im4jwrapper.ExifTool._
 
-  lazy val imageProfileLocation = s"${play.api.Play.current.path}/app/assets/srgb.icc"
+  lazy val imageProfileLocation = s"${play.api.Play.current.path}/icc_profiles/srgb.icc"
 
   def tagFilter(metadata: ImageMetadata) = {
     Map[String, Option[String]](
