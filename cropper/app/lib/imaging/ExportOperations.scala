@@ -38,8 +38,6 @@ object ExportOperations {
     for {
       outputFile <- createTempFile(s"crop-", ".jpg")
       cropSource  = addImage(sourceFile)
-      identity   <- identifyCmd(cropSource)
-      _           = extractIdentity(identity)
       qualified   = quality(cropSource)(qual)
       converted   = profile(qualified)(imageProfileLocation)
       stripped    = stripMeta(converted)
