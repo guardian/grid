@@ -12,24 +12,17 @@ import com.gu.mediaservice.model.Dimensions
 import model.Bounds
 
 
-object Convert {
+object ImageMagick {
   private implicit val ctx: ExecutionContext =
     ExecutionContext.fromExecutor(Executors.newFixedThreadPool(Config.imagingThreadPoolSize))
 
-  def imageSource(source: File)(qual: Double) = (new IMOperation()) <| { op => {
-    op.quality(qual)
-    op.addImage(source.getAbsolutePath)
-  }}
-
+  def addImage(source: File) = (new IMOperation()) <| { op => { op.addImage(source.getAbsolutePath) }}
+  def quality(op: IMOperation)(qual: Double) = op <| (_.quality(qual))
   def stripMeta(op: IMOperation) = op <| (_.strip())
-
   def addDestImage(op: IMOperation)(dest: File) = op <| (_.addImage(dest.getAbsolutePath))
-
   def crop(op: IMOperation)(b: Bounds): IMOperation = op <| (_.crop(b.width, b.height, b.x, b.y))
-
+  def profile(op: IMOperation)(profileFileLocation: String): IMOperation = op <| (_.profile(profileFileLocation))
+  def set(op: IMOperation)(attribute: String, value: String): IMOperation = op <| (_.set(attribute, value))
   def scale(op: IMOperation)(dimensions: Dimensions): IMOperation = op <| (_.scale(dimensions.width, dimensions.height))
-
-  def normalizeColorspace(op: IMOperation): IMOperation = op <| (_.colorspace("RGB"))
-
   def runConvertCmd(op: IMOperation): Future[Unit] = Future((new ConvertCmd).run(op))
 }
