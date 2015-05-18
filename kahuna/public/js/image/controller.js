@@ -150,7 +150,7 @@ image.controller('ImageCtrl', [
 
                      http://vitalets.github.io/angular-xeditable/#onbeforesave
                      */
-                    return 'failed to save (press esc to cancel)'
+                    return 'failed to save (press esc to cancel)';
                 });
         };
 
