@@ -1,7 +1,6 @@
 package lib.imaging
 
 import java.io._
-import java.util.ArrayList
 
 import scala.concurrent.Future
 
@@ -28,10 +27,6 @@ object ExportOperations {
       "Credit" -> metadata.credit,
       "OriginalTransmissionReference" -> metadata.suppliersReference
     ).collect { case (key, Some(value)) => (key, value) }
-  }
-
-  def extractIdentity(identityArray: ArrayList[String]) ={
-    println(identityArray)
   }
 
   def cropImage(sourceFile: File, bounds: Bounds, qual: Double = 100d): Future[File] = {
