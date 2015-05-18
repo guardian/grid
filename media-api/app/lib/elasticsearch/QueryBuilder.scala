@@ -27,7 +27,7 @@ class QueryBuilder(matchFields: Seq[String]) {
       // Force AND operator else it will only require *any* of the words, not *all*
       case Words(value)  => matchQuery(field, value).operator(MatchQueryBuilder.Operator.AND)
       case Phrase(value) => matchPhraseQuery(field, value)
-      case DateRange(start, end) => rangeQuery(field).from(start.toString).to(end.toString)
+      case DateRange(start, end) => rangeQuery(field).from(start.toString()).to(end.toString())
     }
   }
 

@@ -1,17 +1,24 @@
 package lib.imaging
 
 import java.io._
+
 import scala.concurrent.Future
+
 import play.api.libs.concurrent.Execution.Implicits._
+
+import com.gu.mediaservice.model.{Dimensions, ImageMetadata, Asset}
+
 import lib.Files._
 import model.{Bounds, CropSource}
-import com.gu.mediaservice.model.{Dimensions, ImageMetadata, Asset}
+
 
 case class ExportResult(id: String, masterCrop: Asset, othersizings: List[Asset])
 
 object ExportOperations {
-  import lib.imaging.im4jwrapper.Convert._
+  import lib.imaging.im4jwrapper.ImageMagick._
   import lib.imaging.im4jwrapper.ExifTool._
+
+  lazy val imageProfileLocation = s"${play.api.Play.current.path}/srgb.icc"
 
   def tagFilter(metadata: ImageMetadata) = {
     Map[String, Option[String]](
@@ -22,14 +29,16 @@ object ExportOperations {
     ).collect { case (key, Some(value)) => (key, value) }
   }
 
-  def cropImage(sourceFile: File, bounds: Bounds, quality: Double = 100d): Future[File] = {
+  def cropImage(sourceFile: File, bounds: Bounds, qual: Double = 100d): Future[File] = {
     for {
       outputFile <- createTempFile(s"crop-", ".jpg")
-      cropSource  = imageSource(sourceFile)(quality)
-      stripped    = stripMeta(cropSource)
-      cropped     = crop(stripped)(bounds)
-      normed      = normalizeColorspace(cropped)
-      addOutput   = addDestImage(normed)(outputFile)
+      cropSource  = addImage(sourceFile)
+      qualified   = quality(cropSource)(qual)
+      converted   = profile(qualified)(imageProfileLocation)
+      stripped    = stripMeta(converted)
+      profiled    = set(stripped)("profile", imageProfileLocation)
+      cropped     = crop(profiled)(bounds)
+      addOutput   = addDestImage(cropped)(outputFile)
       _          <- runConvertCmd(addOutput)
     }
     yield outputFile
@@ -42,11 +51,12 @@ object ExportOperations {
       ).map(_ => sourceFile)
   }
 
-  def resizeImage(sourceFile: File, dimensions: Dimensions, quality: Double = 100d): Future[File] = {
+  def resizeImage(sourceFile: File, dimensions: Dimensions, qual: Double = 100d): Future[File] = {
     for {
       outputFile  <- createTempFile(s"resize-", ".jpg")
-      resizeSource = imageSource(sourceFile)(quality)
-      resized      = scale(resizeSource)(dimensions)
+      resizeSource = addImage(sourceFile)
+      qualified    = quality(resizeSource)(qual)
+      resized      = scale(qualified)(dimensions)
       addOutput    = addDestImage(resized)(outputFile)
       _           <- runConvertCmd(addOutput)
     }

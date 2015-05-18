@@ -22,13 +22,23 @@ object PlayArtifact extends Plugin {
 
     // package config for Magenta and Upstart
     playArtifactResources <<= (assembly, baseDirectory, name, magentaPackageName) map {
-      (assembly, base, name, packageName) =>
-        Seq(
+      (assembly, base, name, packageName) => {
+        val common = Seq(
           base / "conf" / "deploy.json" -> "deploy.json",
           base / "conf" / "start.sh" -> s"packages/$packageName/start.sh",
           base / "conf" / (name + ".conf") -> s"packages/$packageName/$name.conf",
           assembly -> s"packages/$packageName/${assembly.getName}"
         )
+
+        val cropper = Seq(
+          base / "srgb.icc" -> s"packages/$packageName/srgb.icc"
+        )
+
+       name match {
+         case "cropper" => common ++ cropper
+         case default => common
+       }
+      }
     },
 
     playArtifactFile := "artifacts.zip",
