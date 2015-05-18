@@ -1,5 +1,5 @@
-ftp.host={{ftp.host}}
-ftp.user={{ftp.user}}
-ftp.password={{ftp.password}}
+ftp.host={{ftp_host}}
+ftp.user={{ftp_user}}
+ftp.password={{ftp_password}}
 loader.uri=http://localhost:9003/images
-auth.key.ftpwatcher={{auth.key.ftpwatcher}}
+auth.key.ftpwatcher={{ftp_key}}
