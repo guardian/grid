@@ -110,7 +110,7 @@ image.controller('ImageCtrl', [
             return ctrl.image.get()
                 .then(newImage => {
                     ctrl.image = newImage;
-                })
+                });
         }
 
         ctrl.updateMetadata = function (field, value) {
