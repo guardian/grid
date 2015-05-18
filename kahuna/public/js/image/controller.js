@@ -1,8 +1,9 @@
 import angular from 'angular';
 
 import '../edits/service';
+import '../analytics/track';
 
-var image = angular.module('kahuna.image.controller', ['kahuna.edits.service']);
+var image = angular.module('kahuna.image.controller', ['kahuna.edits.service', 'analytics.track']);
 
 image.controller('ImageCtrl', [
     '$rootScope',
@@ -13,6 +14,7 @@ image.controller('ImageCtrl', [
     'cropKey',
     'mediaCropper',
     'editsService',
+    'track',
 
     function ($rootScope,
               $scope,
@@ -21,7 +23,8 @@ image.controller('ImageCtrl', [
               optimisedImageUri,
               cropKey,
               mediaCropper,
-              editsService) {
+              editsService,
+              track) {
 
         var ctrl = this;
 
@@ -132,7 +135,23 @@ image.controller('ImageCtrl', [
             var changed = getMetadataDiff(proposedMetadata);
 
             return save(changed)
-                .catch(() => 'failed to save (press esc to cancel)');
+                .then(() => {
+                    track('Metadata edit', {successful: true, field: field});
+                })
+                .catch(() => {
+                    track('Metadata edit', {successful: false, field: field});
+
+                    /*
+                     Save failed.
+
+                     Per the angular-xeditable docs, returning a string indicates an error and will
+                     not update the local model, nor will the form close (so the edit is not lost).
+                     Instead, a message is shown and the field keeps focus for user to edit again.
+
+                     http://vitalets.github.io/angular-xeditable/#onbeforesave
+                     */
+                    return 'failed to save (press esc to cancel)'
+                });
         };
 
         $scope.$on('$destroy', () => {
