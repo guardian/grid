@@ -130,6 +130,16 @@ image.controller('ImageCtrl', [
                 })
                 .catch(() => {
                     track('Metadata edit', {successful: false, field: field});
+
+                    /*
+                     Save failed.
+
+                     Per the angular-xeditable docs, returning a string indicates an error and will
+                     not update the local model, nor will the form close (so the edit is not lost).
+                     Instead, a message is shown and the field keeps focus for user to edit again.
+
+                     http://vitalets.github.io/angular-xeditable/#onbeforesave
+                     */
                     return 'failed to save (press esc to cancel)'
                 });
         };
