@@ -1,6 +1,7 @@
 package lib.imaging
 
 import java.io._
+import java.util.ArrayList
 
 import scala.concurrent.Future
 
@@ -15,7 +16,7 @@ import model.{Bounds, CropSource}
 case class ExportResult(id: String, masterCrop: Asset, othersizings: List[Asset])
 
 object ExportOperations {
-  import lib.imaging.im4jwrapper.Convert._
+  import lib.imaging.im4jwrapper.ImageMagick._
   import lib.imaging.im4jwrapper.ExifTool._
 
   lazy val imageProfileLocation = s"${play.api.Play.current.path}/srgb.icc"
@@ -29,11 +30,18 @@ object ExportOperations {
     ).collect { case (key, Some(value)) => (key, value) }
   }
 
-  def cropImage(sourceFile: File, bounds: Bounds, quality: Double = 100d): Future[File] = {
+  def extractIdentity(identityArray: ArrayList[String]) ={
+    println(identityArray)
+  }
+
+  def cropImage(sourceFile: File, bounds: Bounds, qual: Double = 100d): Future[File] = {
     for {
       outputFile <- createTempFile(s"crop-", ".jpg")
-      cropSource  = imageSource(sourceFile)(quality)
-      converted   = profile(cropSource)(imageProfileLocation)
+      cropSource  = addImage(sourceFile)
+      identity   <- identifyCmd(cropSource)
+      _           = extractIdentity(identity)
+      qualified   = quality(cropSource)(qual)
+      converted   = profile(qualified)(imageProfileLocation)
       stripped    = stripMeta(converted)
       profiled    = set(stripped)("profile", imageProfileLocation)
       cropped     = crop(profiled)(bounds)
@@ -50,11 +58,12 @@ object ExportOperations {
       ).map(_ => sourceFile)
   }
 
-  def resizeImage(sourceFile: File, dimensions: Dimensions, quality: Double = 100d): Future[File] = {
+  def resizeImage(sourceFile: File, dimensions: Dimensions, qual: Double = 100d): Future[File] = {
     for {
       outputFile  <- createTempFile(s"resize-", ".jpg")
-      resizeSource = imageSource(sourceFile)(quality)
-      resized      = scale(resizeSource)(dimensions)
+      resizeSource = addImage(sourceFile)
+      qualified    = quality(resizeSource)(qual)
+      resized      = scale(qualified)(dimensions)
       addOutput    = addDestImage(resized)(outputFile)
       _           <- runConvertCmd(addOutput)
     }
