@@ -314,6 +314,7 @@ textarea.ng-invalid {
 
 .user-actions {
     margin-right: -10px;
+    padding: 0px 5px;
 }
 
 .logout {
