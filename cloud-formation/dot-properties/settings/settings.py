@@ -1,17 +1,17 @@
 INITIAL_PROPERTIES = {
-    'domain.root': '',
+    'domain_root': '',
 
-    'ftp.host': '',
-    'ftp.user': '',
-    'ftp.password': '',
-    'auth.key.ftpwatcher': '',
+    'ftp_host': '',
+    'ftp_user': '',
+    'ftp_password': '',
+    'ftp_key': '',
 
-    'mixpanel.token': '',
+    'mixpanel_token': '',
 
-    'cors.allowed.origins': '',
-    'panda.domain': '',
-    'panda.aws.key': '',
-    'panda.aws.secret': '',
+    'cors': '',
+    'panda_domain': '',
+    'panda_aws_key': '',
+    'panda_aws_secret': '',
 }
 
 AWS_PROFILE_NAME = 'default'
