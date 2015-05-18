@@ -712,7 +712,6 @@ FIXME: what to do with touch devices
 
 .result-editor {
     display: flex;
-    margin-bottom: 20px;
 }
 
 .result-editor__result {
@@ -746,7 +745,7 @@ FIXME: what to do with touch devices
 
 .result-editor__editor {
     flex-grow: 1;
-    margin: 0 10px;
+    margin-left: 10px;
 }
 
 .result-editor__info {
@@ -962,7 +961,7 @@ FIXME: what to do with touch devices
 }
 
 .image-info__wrap .editable-wrap .image-info__editor--saving {
-    border: 1px dashed #CCC;
+    border: 1px dashed #ccc;
     outline: none;
 }
 
@@ -1242,6 +1241,12 @@ FIXME: what to do with touch devices
 .metadata-applicator__button {
     font-weight: bold;
     text-decoration: underline;
+}
+
+.upload-result {
+    margin-bottom: 10px;
+    padding-bottom: 20px;
+    border-bottom: 1px dashed #999;
 }
 
 
