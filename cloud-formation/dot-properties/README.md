@@ -49,12 +49,12 @@ This file should have the following contents:
 
 ```python
 PROPERTIES = {
-    'domain.root': <PRIVATE_VALUE>,
-    'mixpanel.token': <PRIVATE_VALUE>,
-    'panda.domain': <PRIVATE_VALUE>,
-    'panda.aws.key': <PRIVATE_VALUE>,
-    'panda.aws.secret': <PRIVATE_VALUE>,
-    'cors.allowed.origins': <PRIVATE_VALUE>,
+    'domain_root': <PRIVATE_VALUE>,
+    'mixpanel_token': <PRIVATE_VALUE>,
+    'panda_domain': <PRIVATE_VALUE>,
+    'panda_aws_key': <PRIVATE_VALUE>,
+    'panda_aws_secret': <PRIVATE_VALUE>,
+    'cors': <PRIVATE_VALUE>,
 }
 
 STACK = <CLOUD_FORMATION_NAME_OR_ID>
