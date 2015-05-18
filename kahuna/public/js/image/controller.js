@@ -126,15 +126,10 @@ image.controller('ImageCtrl', [
 
             return save(changed)
                 .then(() => {
-                    track('Edit Metadata Successful', {field: field});
+                    track('Metadata edit', {successful: true, field: field});
                 })
-                .catch((resp) => {
-                    track('Edit Metadata Failure', {
-                        field: field,
-                        status: resp.status,
-                        reason: resp.body,
-                        fullResponse: resp
-                    });
+                .catch(() => {
+                    track('Metadata edit', {successful: false, field: field});
                     return 'failed to save (press esc to cancel)'
                 });
         };
