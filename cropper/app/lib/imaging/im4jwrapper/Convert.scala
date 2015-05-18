@@ -27,17 +27,4 @@ object ImageMagick {
   def set(op: IMOperation)(attribute: String, value: String): IMOperation = op <| (_.set(attribute, value))
   def scale(op: IMOperation)(dimensions: Dimensions): IMOperation = op <| (_.scale(dimensions.width, dimensions.height))
   def runConvertCmd(op: IMOperation): Future[Unit] = Future((new ConvertCmd).run(op))
-  def identifyCmd(op: IMOperation): Future[ArrayList[String]] = Future {
-    val identify = new IdentifyCmd
-    val output = new ArrayListOutputConsumer
-
-    // Efficiently determine image characteristics
-    // See: http://www.imagemagick.org/Usage/basics/#identify_ping, http://www.graphicsmagick.org/identify.html
-    op.ping
-
-    identify.setOutputConsumer(output)
-    identify.run(op);
-
-    output.getOutput();
-  }
 }
