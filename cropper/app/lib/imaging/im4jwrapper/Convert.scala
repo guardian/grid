@@ -1,13 +1,11 @@
 package lib.imaging.im4jwrapper
 
 import java.util.concurrent.Executors
-import java.util.ArrayList
 import lib.Config
 
 import java.io.File
 import scala.concurrent.{Future, ExecutionContext}
-import org.im4java.core.{IMOperation, ConvertCmd, IdentifyCmd}
-import org.im4java.process.ArrayListOutputConsumer
+import org.im4java.core.{IMOperation, ConvertCmd}
 import scalaz.syntax.id._
 
 import com.gu.mediaservice.model.Dimensions
