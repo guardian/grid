@@ -36,7 +36,7 @@ object ExportOperations {
       qualified   = quality(cropSource)(qual)
       converted   = profile(qualified)(imageProfileLocation)
       stripped    = stripMeta(converted)
-      profiled    = set(stripped)("profile", imageProfileLocation)
+      profiled    = profile(stripped)(imageProfileLocation)
       cropped     = crop(profiled)(bounds)
       addOutput   = addDestImage(cropped)(outputFile)
       _          <- runConvertCmd(addOutput)
