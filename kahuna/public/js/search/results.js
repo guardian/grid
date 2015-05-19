@@ -1,10 +1,12 @@
 import angular from 'angular';
 
-export var results = angular.module('kahuna.search.results', []);
+import '../services/preview-selection';
+
+export var results = angular.module('kahuna.search.results', ['kahuna.services.selection']);
 
 results.controller('SearchResultsCtrl',
-                  ['$scope', '$state', '$stateParams', '$window', '$timeout', 'mediaApi',
-                   function($scope, $state, $stateParams, $window, $timeout, mediaApi) {
+                  ['$scope', '$state', '$stateParams', '$window', '$timeout', 'mediaApi', 'selectionService',
+                   function($scope, $state, $stateParams, $window, $timeout, mediaApi, selection) {
 
     const ctrl = this;
 
@@ -150,4 +152,23 @@ results.controller('SearchResultsCtrl',
             }).length === 0;
         });
     }
+
+    ctrl.selectedImages = selection.selectedImages;
+
+    var fields = ['title', 'description', 'byline', 'credit'];
+
+    function onImageSelect (image) {
+        image.selected
+            ? selection.add(image, selection.updateMetadata, fields)
+            : selection.remove(image, selection.updateMetadata, fields);
+    }
+
+    ctrl.onImageSelect = onImageSelect;
+
+   ctrl.onImageClick = function (image) {
+       if (ctrl.selectedImages.size > 0) {
+           image.selected = !image.selected;
+           onImageSelect(image);
+       }
+   };
 }]);

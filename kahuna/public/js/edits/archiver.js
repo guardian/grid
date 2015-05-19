@@ -34,7 +34,8 @@ archiver.directive('uiArchiver', [function() {
         controller: 'ArchiverCtrl as archiver',
         scope: {
             archived: '=',
-            withText: '='
+            withText: '=',
+            active: '='
         },
         bindToController: true,
         template: template
