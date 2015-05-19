@@ -82,7 +82,7 @@
                          onbeforesave="ctrl.updateMetadata('description', $data)"
                          e:msd-elastic
                          e:ng-class="{'image-info__editor--error': $error, 'image-info__editor--saving': descriptionEditForm.$waiting}"
-                         e:form="descriptionEditForm">{{ctrl.universalNewlines(ctrl.metadata.description) || "unknown (click ✎ to add the description)"}}</div>
+                         e:form="descriptionEditForm">{{(ctrl.metadata.description|universalNewlines) || "unknown (click ✎ to add the description)"}}</div>
                 </div>
             </div>
 
