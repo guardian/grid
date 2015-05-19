@@ -1,4 +1,4 @@
-<div class="labeller">
+<div class="labeller" ng:if="ctrl.active">
     <ul class="labels"
         ng:if="ctrl.labels.data.length > 0">
         <li class="label"
@@ -14,4 +14,13 @@
 
         <span ng:class="{ 'labeller__add-spin': ctrl.adding }">+</span>
     </button>
+</div>
+
+<div class="labeller" ng:if="!ctrl.active">
+    <ul class="labels"
+        ng:if="ctrl.labels.data.length > 0">
+        <li class="label" ng:repeat="label in ctrl.labels.data">
+            {{label.data}}
+        </li>
+    </ul>
 </div>
