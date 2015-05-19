@@ -9,11 +9,11 @@ import com.drew.imaging.ImageMetadataReader
 import com.drew.metadata.{Metadata, Directory}
 import com.drew.metadata.iptc.IptcDirectory
 import com.drew.metadata.jpeg.JpegDirectory
+import com.drew.metadata.icc.IccDirectory
 import com.drew.metadata.exif.{ExifSubIFDDirectory, ExifIFD0Directory}
 import com.drew.metadata.xmp.XmpDirectory
 
 import com.gu.mediaservice.model.Dimensions
-
 import com.gu.mediaservice.model.FileMetadata
 
 
@@ -28,6 +28,24 @@ object FileMetadataReader {
     }
     yield {
       // FIXME: JPEG, JFIF, Photoshop, GPS, File, ICC directories?
+
+      val iccMeta = exportDirectory(metadata, classOf[IccDirectory])
+      val colorspaceFuture = ImageMagick.getColorspace(image.getAbsolutePath)
+
+      colorspaceFuture onSuccess {
+        case c => println(c)
+      }
+
+      // At the moment the image can be deleted before reporting the colorspace
+      colorspaceFuture onFailure {
+        case t => println("An error has occured: " + t.getMessage)
+      }
+
+      println(iccMeta.get("Device model"))
+      println(iccMeta.get("Device manufacturer"))
+      println(iccMeta.get("Profile Description"))
+      println(iccMeta.get("Color space"))
+
       FileMetadata(
         exportDirectory(metadata, classOf[IptcDirectory]),
         exportDirectory(metadata, classOf[ExifIFD0Directory]),
