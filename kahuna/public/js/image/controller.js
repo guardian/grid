@@ -49,6 +49,10 @@ image.controller('ImageCtrl', [
         ctrl.isUsefulMetadata = isUsefulMetadata;
         ctrl.cropSelected = cropSelected;
 
+        // This is here as we sometimes get \r from images as they've edited on
+        // MS machines. This way we get the best of both.
+        ctrl.universalNewlines = text => text.replace('\r|\n', '\r\n');
+
         mediaCropper.getCropsFor(image).then(crops => {
             ctrl.crops = crops;
             ctrl.crop = crops.find(crop => crop.id === cropKey);
