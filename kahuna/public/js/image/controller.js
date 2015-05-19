@@ -158,3 +158,10 @@ image.controller('ImageCtrl', [
             onMetadataUpdateEnd();
         });
     }]);
+
+
+image.filter('universalNewlines', function() {
+    // This is here as we sometimes get \r from images as they've edited on
+    // MS machines. This way we get the best of both.
+    return text => text.replace('\r|\n', '\r\n');
+});
