@@ -9,5 +9,5 @@ object ColorModel {
   implicit val ColorModelReads: Reads[ColorModel] = Json.reads[ColorModel]
   implicit val ColorModelWrites: Writes[ColorModel] = Json.writes[ColorModel]
 
-  val default = ColorModel("rgb")
+  val default = ColorModel("RGB")
 }
