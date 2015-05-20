@@ -6,10 +6,9 @@ import scala.concurrent.Future
 
 import play.api.libs.concurrent.Execution.Implicits._
 
-import com.gu.mediaservice.model.{Dimensions, ImageMetadata, Asset}
+import com.gu.mediaservice.model.{Dimensions, ImageMetadata, Asset, Bounds, CropSource}
 
 import lib.Files._
-import model.{Bounds, CropSource}
 
 
 case class ExportResult(id: String, masterCrop: Asset, othersizings: List[Asset])

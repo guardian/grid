@@ -1,12 +1,13 @@
-package model
+package com.gu.mediaservice.model
 
 import java.net.{URLEncoder, URI}
-import lib.Config
-import Config.rootUri
+
+import com.gu.mediaservice.lib.config.CommonConfig.services.metadataBaseUri
 import com.gu.mediaservice.lib.argo.model.EmbeddedEntity
-import com.gu.mediaservice.model.{UsageRights, ImageMetadata}
+
 import play.api.libs.json._
 import play.api.libs.functional.syntax._
+
 
 case class Edits(
   archived: Boolean = false,
@@ -67,7 +68,7 @@ object Edits {
     ImageMetadata(None, None, None, None, None, None, None, None, None, None, None, List(), None, None, None, None)
 
   def entityUri(id: String, endpoint: String = ""): URI =
-    URI.create(s"$rootUri/metadata/$id$endpoint")
+    URI.create(s"$metadataBaseUri/metadata/$id$endpoint")
 
   def getEmpty = Edits(metadata = emptyMetadata)
 }

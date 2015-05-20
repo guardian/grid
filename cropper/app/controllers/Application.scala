@@ -16,14 +16,13 @@ import com.gu.mediaservice.lib.auth
 import com.gu.mediaservice.lib.auth.{AuthenticatedService, PandaUser, KeyStore}
 import com.gu.mediaservice.lib.argo.ArgoHelpers
 import com.gu.mediaservice.lib.argo.model.Link
-import com.gu.mediaservice.model.SourceImage
+import com.gu.mediaservice.model.{Crop, SourceImage, CropSource, Bounds}
 
 import org.joda.time.DateTime
 
 import lib.imaging.ExportResult
 
 import lib._, Files._
-import model._
 
 
 object Application extends Controller with ArgoHelpers {
