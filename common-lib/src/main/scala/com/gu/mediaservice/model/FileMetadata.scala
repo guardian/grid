@@ -5,13 +5,13 @@ import play.api.libs.functional.syntax._
 
 
 case class FileMetadata(
-  iptc: Map[String, String]    = Map(),
-  exif: Map[String, String]    = Map(),
-  exifSub: Map[String, String] = Map(),
-  xmp: Map[String, String]     = Map(),
-  icc: Map[String, String]     = Map(),
-  getty: Map[String, String]   = Map(),
-  colorModel: ColorModel       = ColorModel("rgb")
+  iptc: Map[String, String]      = Map(),
+  exif: Map[String, String]      = Map(),
+  exifSub: Map[String, String]   = Map(),
+  xmp: Map[String, String]       = Map(),
+  icc: Map[String, String]       = Map(),
+  getty: Map[String, String]     = Map(),
+  colorModel: Option[ColorModel] = None
 )
 
 object FileMetadata {
@@ -24,7 +24,7 @@ object FileMetadata {
     (__ \ "xmp").read[Map[String,String]] ~
     (__ \ "icc").readNullable[Map[String,String]].map(_ getOrElse Map()) ~
     (__ \ "getty").readNullable[Map[String,String]].map(_ getOrElse Map()) ~
-    (__ \ "colorModel").readNullable[ColorModel].map(_ getOrElse ColorModel.default)
+    (__ \ "colorModel").readNullable[ColorModel]
   )(FileMetadata.apply _)
 
   implicit val FileMetadataWrites: Writes[FileMetadata] = Json.writes[FileMetadata]
