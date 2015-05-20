@@ -13,8 +13,7 @@ import com.drew.metadata.icc.IccDirectory
 import com.drew.metadata.exif.{ExifSubIFDDirectory, ExifIFD0Directory}
 import com.drew.metadata.xmp.XmpDirectory
 
-import com.gu.mediaservice.model.Dimensions
-import com.gu.mediaservice.model.FileMetadata
+import com.gu.mediaservice.model.{Dimensions, FileMetadata, ColorModel}
 
 
 object FileMetadataReader {
@@ -24,34 +23,20 @@ object FileMetadataReader {
 
   def fromIPTCHeaders(image: File): Future[FileMetadata] =
     for {
-      metadata <- readMetadata(image)
+      metadata   <- readMetadata(image)
+      colorModel <- readColorModel(image)
     }
     yield {
-      // FIXME: JPEG, JFIF, Photoshop, GPS, File, ICC directories?
-
-      val iccMeta = exportDirectory(metadata, classOf[IccDirectory])
-      val colorspaceFuture = ImageMagick.getColorspace(image.getAbsolutePath)
-
-      colorspaceFuture onSuccess {
-        case c => println(c)
-      }
-
-      // At the moment the image can be deleted before reporting the colorspace
-      colorspaceFuture onFailure {
-        case t => println("An error has occured: " + t.getMessage)
-      }
-
-      println(iccMeta.get("Device model"))
-      println(iccMeta.get("Device manufacturer"))
-      println(iccMeta.get("Profile Description"))
-      println(iccMeta.get("Color space"))
+      // FIXME: JPEG, JFIF, Photoshop, GPS, File
 
       FileMetadata(
         exportDirectory(metadata, classOf[IptcDirectory]),
         exportDirectory(metadata, classOf[ExifIFD0Directory]),
         exportDirectory(metadata, classOf[ExifSubIFDDirectory]),
         exportDirectory(metadata, classOf[XmpDirectory]),
-        exportGettyDirectory(metadata)
+        exportDirectory(metadata, classOf[IccDirectory]),
+        exportGettyDirectory(metadata),
+        colorModel
       )
     }
 
@@ -112,6 +97,8 @@ object FileMetadataReader {
   private def readMetadata(file: File): Future[Metadata] =
     Future(ImageMetadataReader.readMetadata(file))
 
+  private def readColorModel(file: File): Future[ColorModel] =
+    ColorModelDetection.getColorModel(file.getAbsolutePath)
 
   // Helper to flatten maps of options
   implicit class MapFlattener[K, V](val map: Map[K, Option[V]]) {
