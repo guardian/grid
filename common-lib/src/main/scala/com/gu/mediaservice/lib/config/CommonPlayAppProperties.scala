@@ -12,3 +12,7 @@ trait CommonPlayAppProperties {
   lazy val services = new Services(domainRoot, ssl)
 
 }
+
+object CommonConfig extends CommonPlayAppProperties {
+  val properties: Map[String, String] = Map()
+}

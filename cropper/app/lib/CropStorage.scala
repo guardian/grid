@@ -7,9 +7,7 @@ import java.util.concurrent.Executors
 import scala.concurrent.{ExecutionContext, Future}
 
 import com.gu.mediaservice.lib.S3ImageStorage
-import com.gu.mediaservice.model.{Dimensions, Asset}
-
-import model._
+import com.gu.mediaservice.model.{Dimensions, Asset, Crop, CropSource, Bounds}
 
 object CropStore extends S3ImageStorage(Config.imgPublishingCredentials) {
   import com.gu.mediaservice.lib.formatting._
