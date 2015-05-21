@@ -30,8 +30,6 @@ class FileMetadataReaderTest extends FunSpec with Matchers with ScalaFutures {
     }
   }
 
-
-
   it("should read the correct metadata for Getty JPG images") {
     val image = fileAt("getty.jpg")
     val metadataFuture = FileMetadataReader.fromIPTCHeaders(image)
