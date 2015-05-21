@@ -1,4 +1,4 @@
-package scala.lib.imaging
+package test.lib.imaging
 
 import java.io.File
 
@@ -9,13 +9,11 @@ import org.scalatest.concurrent.ScalaFutures
 import lib.imaging.ColorModelDetection
 import com.gu.mediaservice.model.ColorModel
 
+
 class ColorModelDetectionTest extends FunSpec with Matchers with ScalaFutures {
+  import test.lib.ResourceHelpers._
 
   implicit override val patienceConfig = PatienceConfig(timeout = Span(500, Millis), interval = Span(25, Millis))
-
-  def fileAt(resourcePath: String): File = {
-    new File(getClass.getResource(s"/$resourcePath").toURI)
-  }
 
   it("should read the correct color model for a JPG images") {
     val images = Map(
