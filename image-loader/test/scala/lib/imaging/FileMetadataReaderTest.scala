@@ -1,4 +1,4 @@
-package scala.lib.imaging
+package test.lib.imaging
 
 import java.io.File
 
@@ -17,6 +17,7 @@ import lib.imaging.FileMetadataReader
  * highlight differences and integration issues when upgrading the library.
  */
 class FileMetadataReaderTest extends FunSpec with Matchers with ScalaFutures {
+  import test.lib.ResourceHelpers._
 
   implicit override val patienceConfig = PatienceConfig(timeout = Span(500, Millis), interval = Span(25, Millis))
 
@@ -288,9 +289,5 @@ class FileMetadataReaderTest extends FunSpec with Matchers with ScalaFutures {
     actual.keys.foreach { key =>
       actual.get(key) should be (expected.get(key))
     }
-  }
-
-  def fileAt(resourcePath: String): File = {
-    new File(getClass.getResource(s"/$resourcePath").toURI)
   }
 }
