@@ -19,16 +19,9 @@ object ColorModelDetection {
   // while this property is still inferrable from other sources
 
   def getColorModel(fileLocation: String): Option[ColorModel] = {
-    Try {
-      ColorModel((new Info(fileLocation)).getProperty("Colorspace"))
-    } match {
-      case Success(colorModel) => Some(colorModel)
-      case Failure(e) => {
-        Logger.error(s"Failed to get ColorModel: ${e.getMessage}")
-
-        None
-      }
-    }
+    Try { ColorModel((new Info(fileLocation)).getProperty("Colorspace")) }.recoverWith {
+       case e => Logger.error(s"Failed to get ColorModel: ${e.getMessage}"); Failure(e)
+    }.toOption
   }
 }
 
