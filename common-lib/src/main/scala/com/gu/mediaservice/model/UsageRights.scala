@@ -46,18 +46,27 @@ object Cost {
 
 
 sealed trait UsageRightsCategory
-
 object UsageRightsCategory {
   def fromString(string: String): UsageRightsCategory =
     // I think as we move forward we can find out what the more intelligent and
     // correct default here. This feels better that reverting to `None` though as
     // it's required by `UsageRights`.
     // TODO: Perhaps we should validate on this?
-    Vector(PrImage).find(_.toString == string).getOrElse(PrImage)
+    Vector(Agency, PrImage).find(_.toString == string).getOrElse(PayToUse)
 
     implicit val UsageRightsCategoryReads: Reads[UsageRightsCategory] =
       __.read[String].map(fromString)
+
+    implicit val UsageRightsCategoryWrites: Writes[UsageRightsCategory] =
+      __.write[String].contramap(_.toString)
 }
+
+
+case object PayToUse
+  extends UsageRightsCategory { override def toString = "pay-to-use" }
+
+case object Agency
+  extends UsageRightsCategory { override def toString = "agency" }
 
 case object PrImage
   extends UsageRightsCategory { override def toString = "PR Image" }
