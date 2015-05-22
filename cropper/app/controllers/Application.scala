@@ -62,7 +62,7 @@ object Application extends Controller with ArgoHelpers {
       errors   => Future.successful(BadRequest(errors.errorsAsJson)),
       cropSrc  => {
 
-        val crop = Crop(
+        val crop = Crop.createFromCropSource(
           by = author,
           timeRequested = Some(new DateTime()),
           specification = cropSrc
@@ -75,7 +75,7 @@ object Application extends Controller with ArgoHelpers {
         } yield export
 
         export.map { case ExportResult(id, masterSizing, sizings) =>
-          val cropJson = Json.toJson(Crop(crop, masterSizing, sizings)).as[JsObject]
+          val cropJson = Json.toJson(Crop.createFromCrop(crop, masterSizing, sizings)).as[JsObject]
           val exports  = Json.obj(
             "id" -> id,
             "data" -> Json.arr(Json.obj("type" -> "crop") ++ cropJson)

@@ -78,12 +78,12 @@ object CropStore extends S3ImageStorage(Config.imgPublishingCredentials) {
                 Some(dimensions),
                 getSecureCropUri(s3Object.uri)
               )
-            lastCrop       = map.getOrElse(cid, Crop(author, date, cropSource))
+            lastCrop       = map.getOrElse(cid, Crop.createFromCropSource(author, date, cropSource))
             lastSizings    = lastCrop.assets
 
             currentSizings = if (isMaster) lastSizings else lastSizings :+ sizing
             masterSizing   = if (isMaster) Some(sizing) else lastCrop.master
-          } yield cid -> Crop(author, date, cropSource, masterSizing, currentSizings)
+          } yield cid -> Crop.createFromCropSource(author, date, cropSource, masterSizing, currentSizings)
 
           map ++ updatedCrop
         }

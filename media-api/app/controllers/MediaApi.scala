@@ -21,6 +21,8 @@ import lib.elasticsearch._
 import lib.{Notifications, Config, S3Client}
 import lib.querysyntax.{Condition, Parser}
 
+import model.ImageResponseData
+
 import com.gu.mediaservice.lib.auth
 import com.gu.mediaservice.lib.auth._
 import com.gu.mediaservice.lib.argo._
@@ -212,6 +214,10 @@ object MediaApi extends Controller with ArgoHelpers {
 
 
   def imageResponse(id: String, source: JsValue, withWritePermission: Boolean): (JsValue, List[Link]) = {
+
+    val d = source.as[ImageResponseData](ImageResponseData.elasticSearchReads)
+    val j = Json.toJson(d)(ImageResponseData.imageResponseWrites(d.id))
+
     // Round expiration time to try and hit the cache as much as possible
     // TODO: do we really need these expiration tokens? they kill our ability to cache...
     val expiration = roundDateTime(DateTime.now, Duration.standardMinutes(10)).plusMinutes(20)
@@ -251,7 +257,8 @@ object MediaApi extends Controller with ArgoHelpers {
       baseLinks
     }
 
-    (imageData, imageLinks)
+    //(imageData, imageLinks)
+    (j, imageLinks)
   }
 
   object transformers {
