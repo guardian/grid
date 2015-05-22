@@ -67,7 +67,7 @@ results.controller('SearchResultsCtrl',
         $state.transitionTo($state.current, $stateParams, {
             reload: true, inherit: false, notify: true
         });
-    };
+    }
 
 
     var seenSince;
@@ -79,11 +79,11 @@ results.controller('SearchResultsCtrl',
         val[key] = image.data.uploadTime;
 
         return val;
-    };
+    }
 
     function imageHasBeenSeen(image) {
         return image.data.uploadTime <= seenSince;
-    };
+    }
 
     $scope.$watch(() => $window.localStorage.getItem(lastSeenKey), function() {
         seenSince = getSeenSince();
