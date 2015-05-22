@@ -9,11 +9,11 @@ results.controller('SearchResultsCtrl',
 
     var ctrl = this;
 
-    $scope.images = [];
+    ctrl.images = [];
 
     // FIXME: This is being refreshed by the router. Make it watch a $stateParams collection instead
     // See:   https://github.com/guardian/media-service/pull/64#discussion-diff-17351746L116
-    $scope.loading = true;
+    ctrl.loading = true;
 
     function fillRemainingSpace(){
          $timeout(function() {
@@ -23,14 +23,14 @@ results.controller('SearchResultsCtrl',
         });
     }
 
-    $scope.searched = search().then(function(images) {
-        $scope.totalResults = images.total;
-        $scope.images = images.data;
+    ctrl.searched = search().then(function(images) {
+        ctrl.totalResults = images.total;
+        ctrl.images = images.data;
         // yield so images render before we check if there's more space
         fillRemainingSpace();
         checkForNewImages();
     }).finally(() => {
-        $scope.loading = false;
+        ctrl.loading = false;
     });
 
     // Safer than clearing the timeout in case of race conditions
@@ -42,16 +42,16 @@ results.controller('SearchResultsCtrl',
 
 
     var pollingPeriod = 5 * 1000; // ms
-    $scope.newImagesCount = 0;
+    ctrl.newImagesCount = 0;
 
     // FIXME: this will only add up to 50 images (search capped)
     function checkForNewImages() {
         $timeout(() => {
-            var latestTime = $scope.images[0] && $scope.images[0].data.uploadTime;
+            var latestTime = ctrl.images[0] && ctrl.images[0].data.uploadTime;
             search({since: latestTime}).then(resp => {
                 // FIXME: minor assumption that only the latest
                 // displayed image is matching the uploadTime
-                $scope.newImagesCount = resp.total - 1;
+                ctrl.newImagesCount = resp.total - 1;
 
                 if (! scopeGone) {
                     checkForNewImages();
@@ -60,7 +60,7 @@ results.controller('SearchResultsCtrl',
         }, pollingPeriod);
     }
 
-    $scope.revealNewImages = function() {
+    ctrl.revealNewImages = function() {
         // FIXME: should ideally be able to just call $state.reload(),
         // but there seems to be a bug (alluded to in the docs) when
         // notify is false, so forcing to true explicitly instead:
@@ -72,7 +72,7 @@ results.controller('SearchResultsCtrl',
 
     var seenSince;
     var lastSeenKey = 'search.seenFrom';
-    $scope.getLastSeenVal = function(image) {
+    ctrl.getLastSeenVal = function(image) {
         var key = getQueryKey();
         var val = {};
         val[key] = image.data.uploadTime;
@@ -80,7 +80,7 @@ results.controller('SearchResultsCtrl',
         return val;
     };
 
-    $scope.imageHasBeenSeen = function(image) {
+    ctrl.imageHasBeenSeen = function(image) {
         return image.data.uploadTime <= seenSince;
     };
 
@@ -105,13 +105,13 @@ results.controller('SearchResultsCtrl',
 
     function addImages() {
         // TODO: stop once reached the end
-        var lastImage = $scope.images.slice(-1)[0];
+        var lastImage = ctrl.images.slice(-1)[0];
         if (lastImage) {
             var until = lastImage.data.uploadTime;
             return search({until: until}).then(function(moreImages) {
                 // Filter out duplicates (esp. on exact same 'until' date)
                 var newImages = excludingCurrentImages(moreImages.data);
-                $scope.images = $scope.images.concat(newImages);
+                ctrl.images = ctrl.images.concat(newImages);
             });
         }
     }
@@ -134,13 +134,13 @@ results.controller('SearchResultsCtrl',
 
     function excludingCurrentImages(otherImages) {
         return otherImages.filter(function(image) {
-            return $scope.images.filter(function(existing) {
+            return ctrl.images.filter(function(existing) {
                 // TODO: revert back to using uri
                 return existing.data.id === image.data.id;
             }).length === 0;
         });
     }
 
-    $scope.whenNearBottom = addImages;
-    $scope.fillRemainingSpace = fillRemainingSpace;
+    ctrl.whenNearBottom = addImages;
+    ctrl.fillRemainingSpace = fillRemainingSpace;
 }]);
