@@ -148,6 +148,8 @@ object RexParser extends ImageProcessor {
 
 object AddAgencyCategory extends ImageProcessor {
   // TODO: Hmmm. Better way of doing this?
+  // TODO: potentially do some validation / cleanup around things like having a
+  // collection but no supplier?
   def apply(image: Image): Image =
     isAgency(image).map(addAgency).getOrElse(image)
 
