@@ -14,7 +14,7 @@ crop.controller('ImageCropCtrl',
     $scope.image = image;
     $scope.optimisedImageUri = optimisedImageUri;
 
-    $scope.cropping = false;
+    ctrl.cropping = false;
 
     // Standard ratios
     $scope.landscapeRatio = 5 / 3;
@@ -47,7 +47,7 @@ crop.controller('ImageCropCtrl',
         // else undefined is fine
     };
 
-    $scope.crop = function() {
+    ctrl.crop = function() {
         // TODO: show crop
         var coords = {
             x: Math.round($scope.coords.x1),
@@ -58,7 +58,7 @@ crop.controller('ImageCropCtrl',
 
         var ratio = ctrl.getRatioString(ctrl.aspect);
 
-        $scope.cropping = true;
+        ctrl.cropping = true;
 
         mediaCropper.createCrop($scope.image, coords, ratio).then(crop => {
             // Global notification of action
@@ -72,7 +72,7 @@ crop.controller('ImageCropCtrl',
                 crop: crop.data.id
             });
         }).finally(() => {
-            $scope.cropping = false;
+            ctrl.cropping = false;
         });
     };
 
