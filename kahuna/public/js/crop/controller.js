@@ -17,14 +17,14 @@ crop.controller('ImageCropCtrl',
     ctrl.cropping = false;
 
     // Standard ratios
-    $scope.landscapeRatio = 5 / 3;
-    $scope.portraitRatio = 2 / 3;
-    $scope.freeRatio = null;
+    ctrl.landscapeRatio = 5 / 3;
+    ctrl.portraitRatio = 2 / 3;
+    ctrl.freeRatio = null;
 
     const originalDimensions = image.data.source.dimensions;
 
     // TODO: migrate the other properties to be on the ctrl (this) instead of $scope
-    ctrl.aspect = $scope.landscapeRatio;
+    ctrl.aspect = ctrl.landscapeRatio;
     ctrl.coords = {
         x1: 0,
         y1: 0,
@@ -39,9 +39,9 @@ crop.controller('ImageCropCtrl',
     ctrl.cropSizeWarning = () => cropWidth() < 500;
 
     ctrl.getRatioString = (aspect) => {
-        if (Number(aspect) === $scope.landscapeRatio) {
+        if (Number(aspect) === ctrl.landscapeRatio) {
             return '5:3';
-        } else if (Number(aspect) === $scope.portraitRatio) {
+        } else if (Number(aspect) === ctrl.portraitRatio) {
             return '2:3';
         }
         // else undefined is fine
