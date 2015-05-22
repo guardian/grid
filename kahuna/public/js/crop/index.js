@@ -16,7 +16,7 @@ crop.config(['$stateProvider',
     $stateProvider.state('crop', {
         url: '/images/:imageId/crop',
         template: cropTemplate,
-        controller: 'ImageCropCtrl as imageCropCtrl',
+        controller: 'ImageCropCtrl as ctrl',
         resolve: {
             // TODO: abstract these resolvers out as we use them on the image
             // view too
