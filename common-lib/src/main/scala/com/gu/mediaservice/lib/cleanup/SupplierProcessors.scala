@@ -1,6 +1,6 @@
 package com.gu.mediaservice.lib.cleanup
 
-import com.gu.mediaservice.model.Image
+import com.gu.mediaservice.model.{Agency, Image}
 
 
 trait ImageProcessor {
@@ -19,7 +19,8 @@ object SupplierProcessors {
     GettyParser,
     PaParser,
     ReutersParser,
-    RexParser
+    RexParser,
+    AddUsageRightsCategory
   )
 
   def process(image: Image): Image =
@@ -143,4 +144,12 @@ object RexParser extends ImageProcessor {
     )
     case _ => image
   }
+}
+
+object AddUsageRightsCategory extends ImageProcessor {
+  // TODO: Hmmm. Better way of doing this?
+  def apply(image: Image): Image =
+    if (image.usageRights.supplier.nonEmpty)
+       image.copy(usageRights = image.usageRights.copy(category = Some(Agency)))
+    else image
 }

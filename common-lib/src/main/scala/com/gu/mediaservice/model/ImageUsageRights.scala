@@ -16,17 +16,15 @@ case class ImageUsageRights(
 
 object ImageUsageRights {
 
-  implicit val ImageUsageRightsReads: Reads[ImageUsageRights] = (
-    (__ \ "category").readNullable[UsageRightsCategory] ~
-      (__ \ "supplier").readNullable[String] ~
-      (__ \ "suppliersCollection").readNullable[String]
-    )(ImageUsageRights.apply _)
+  implicit val ImageUsageRightsReads: Reads[ImageUsageRights] = Json.reads[ImageUsageRights]
 
   implicit val ImageUsageRightsWrites: Writes[ImageUsageRights] = (
-    (__ \ "category").writeNullable[UsageRightsCategory] ~
+    (__ \ "category").writeNullable[String].contramap(oToString) ~
       (__ \ "supplier").writeNullable[String] ~
       (__ \ "suppliersCollection").writeNullable[String]
     )(unlift(ImageUsageRights.unapply))
+
+  def oToString[T](o: Option[T]): Option[String] = o.map(_.toString)
 
 }
 
