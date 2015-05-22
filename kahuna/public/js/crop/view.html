@@ -10,17 +10,17 @@
                 <div class="top-bar__item">{{ ctrl.cropSize() }}</div>
 
                 <label class="top-bar__item">
-                    <input type="radio" ng:model="ctrl.aspect" value="{{landscapeRatio}}" />
-                    landscape ({{::ctrl.getRatioString(landscapeRatio)}})
+                    <input type="radio" ng:model="ctrl.aspect" value="{{ctrl.landscapeRatio}}" />
+                    landscape ({{::ctrl.getRatioString(ctrl.landscapeRatio)}})
                 </label>
 
                 <label class="top-bar__item">
-                    <input type="radio" ng:model="ctrl.aspect" value="{{portraitRatio}}" />
-                    portrait ({{::ctrl.getRatioString(portraitRatio)}})
+                    <input type="radio" ng:model="ctrl.aspect" value="{{ctrl.portraitRatio}}" />
+                    portrait ({{::ctrl.getRatioString(ctrl.portraitRatio)}})
                 </label>
 
                 <label class="top-bar__item">
-                    <input type="radio" ng:model="ctrl.aspect" value="{{freeRatio}}" />
+                    <input type="radio" ng:model="ctrl.aspect" value="{{ctrl.freeRatio}}" />
                     free-form
                 </label>
 
