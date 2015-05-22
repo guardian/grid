@@ -7,7 +7,7 @@ results.controller('SearchResultsCtrl',
                   ['$scope', '$state', '$stateParams', '$window', '$timeout', 'mediaApi',
                    function($scope, $state, $stateParams, $window, $timeout, mediaApi) {
 
-    var ctrl = this;
+    const ctrl = this;
 
     ctrl.images = [];
 
@@ -47,7 +47,7 @@ results.controller('SearchResultsCtrl',
     // FIXME: this will only add up to 50 images (search capped)
     function checkForNewImages() {
         $timeout(() => {
-            var latestTime = ctrl.images[0] && ctrl.images[0].data.uploadTime;
+            const latestTime = ctrl.images[0] && ctrl.images[0].data.uploadTime;
             search({since: latestTime}).then(resp => {
                 // FIXME: minor assumption that only the latest
                 // displayed image is matching the uploadTime
@@ -105,9 +105,9 @@ results.controller('SearchResultsCtrl',
 
     function addImages() {
         // TODO: stop once reached the end
-        var lastImage = ctrl.images.slice(-1)[0];
+        const lastImage = ctrl.images.slice(-1)[0];
         if (lastImage) {
-            var until = lastImage.data.uploadTime;
+            const until = lastImage.data.uploadTime;
             return search({until: until}).then(function(moreImages) {
                 // Filter out duplicates (esp. on exact same 'until' date)
                 var newImages = excludingCurrentImages(moreImages.data);
