@@ -3,9 +3,9 @@ import angular from 'angular';
 var crop = angular.module('kahuna.crop.controller', []);
 
 crop.controller('ImageCropCtrl',
-                ['$scope', '$stateParams', '$state', '$filter', 'mediaApi', 'mediaCropper',
+                ['$rootScope', '$stateParams', '$state', '$filter', 'mediaApi', 'mediaCropper',
                  'image', 'optimisedImageUri',
-                 function($scope, $stateParams, $state, $filter, mediaApi, mediaCropper,
+                 function($rootScope, $stateParams, $state, $filter, mediaApi, mediaCropper,
                   image, optimisedImageUri) {
 
     const ctrl = this;
@@ -61,7 +61,7 @@ crop.controller('ImageCropCtrl',
 
         mediaCropper.createCrop(ctrl.image, coords, ratio).then(crop => {
             // Global notification of action
-            $scope.$emit('events:crop-created', {
+            $rootScope.$emit('events:crop-created', {
                 image: ctrl.image,
                 crop: crop
             });
