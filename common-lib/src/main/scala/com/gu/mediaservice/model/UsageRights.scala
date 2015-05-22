@@ -52,7 +52,7 @@ object UsageRightsCategory {
     // correct default here. This feels better that reverting to `None` though as
     // it's required by `UsageRights`.
     // TODO: Perhaps we should validate on this?
-    Vector(Agency, PrImage).find(_.toString == string).getOrElse(PayToUse)
+    Vector(Agency, PrImage).find(_.toString == string).getOrElse(PrImage)
 
     implicit val UsageRightsCategoryReads: Reads[UsageRightsCategory] =
       __.read[String].map(fromString)
@@ -60,10 +60,6 @@ object UsageRightsCategory {
     implicit val UsageRightsCategoryWrites: Writes[UsageRightsCategory] =
       __.write[String].contramap(_.toString)
 }
-
-
-case object PayToUse
-  extends UsageRightsCategory { override def toString = "pay-to-use" }
 
 case object Agency
   extends UsageRightsCategory { override def toString = "agency" }
