@@ -61,7 +61,7 @@
         <div class="easel__canvas">
             <img class="easel__image"
                  ng:src="{{optimisedImageUri}}"
-                 ui:crop-box="coords"
+                 ui:crop-box="ctrl.coords"
                  ui:crop-box-original-width="image.data.source.dimensions.width"
                  ui:crop-box-original-height="image.data.source.dimensions.height"
                  ui:crop-box-aspect="ctrl.aspect"

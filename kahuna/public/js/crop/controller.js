@@ -25,7 +25,7 @@ crop.controller('ImageCropCtrl',
 
     // TODO: migrate the other properties to be on the ctrl (this) instead of $scope
     ctrl.aspect = $scope.landscapeRatio;
-    $scope.coords = {
+    ctrl.coords = {
         x1: 0,
         y1: 0,
         // fill the image with the selection
@@ -33,8 +33,8 @@ crop.controller('ImageCropCtrl',
         y2: originalDimensions.height
     };
 
-    var cropWidth = () => Math.round($scope.coords.x2 - $scope.coords.x1);
-    var cropHeight = () => Math.round($scope.coords.y2 - $scope.coords.y1);
+    var cropWidth = () => Math.round(ctrl.coords.x2 - ctrl.coords.x1);
+    var cropHeight = () => Math.round(ctrl.coords.y2 - ctrl.coords.y1);
     ctrl.cropSize = () => cropWidth() + ' x ' + cropHeight();
     ctrl.cropSizeWarning = () => cropWidth() < 500;
 
@@ -50,8 +50,8 @@ crop.controller('ImageCropCtrl',
     ctrl.crop = function() {
         // TODO: show crop
         var coords = {
-            x: Math.round($scope.coords.x1),
-            y: Math.round($scope.coords.y1),
+            x: Math.round(ctrl.coords.x1),
+            y: Math.round(ctrl.coords.y1),
             width:  cropWidth(),
             height: cropHeight()
         };
