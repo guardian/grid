@@ -15,8 +15,8 @@ object UsageRights {
   // Annoyingly there doesn't seem to be a way to create a `JsString` with the
   // Json writers, so we have to do this manually
   implicit val UsageRightsWrites: Writes[UsageRights] = (
-    (__ \ "cost").write[String].contramap(costToString) ~
-    (__ \ "category").write[String].contramap(categoryToString) ~
+    (__ \ "cost").write[Cost] ~
+    (__ \ "category").write[UsageRightsCategory] ~
     (__ \ "restrictions").write[String]
   )(unlift(UsageRights.unapply))
 
@@ -35,12 +35,12 @@ case object Pay
   extends Cost { override def toString = "pay" }
 
 object Cost {
-  // TODO: Find out how to do a Json.writes for a JsString, it appears that Play
-  // requires you to write a JsObject, which isn't really helpful in this instance
   def fromString(string: String): Cost =
     Vector(Free, Conditional, Pay).find(_.toString == string).getOrElse(Pay)
 
   implicit val CostReads: Reads[Cost] = __.read[String].map(fromString)
+
+  implicit val CostWrites: Writes[Cost] = Writes[Cost](c => JsString(c.toString))
 
 }
 
@@ -62,7 +62,7 @@ object UsageRightsCategory {
       __.read[String].map(fromString)
 
     implicit val UsageRightsCategoryWrites: Writes[UsageRightsCategory] =
-      __.write[String].contramap(_.toString)
+      Writes[UsageRightsCategory](cat => JsString(cat.toString))
 }
 
 case object Agency
