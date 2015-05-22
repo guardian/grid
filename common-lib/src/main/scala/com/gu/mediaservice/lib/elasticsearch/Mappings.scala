@@ -69,6 +69,7 @@ object Mappings {
   // Ultimately both these usageRights should be unified, but
   // keeping them separate for now until used as such
   val imageUsageRightsMapping = nonDynamicObj(
+    "category" -> nonAnalyzedString,
     "supplier" -> nonAnalyzedString,
     "suppliersCollection" -> nonAnalyzedString
   )
