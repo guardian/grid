@@ -22,14 +22,16 @@ crop.controller('ImageCropCtrl',
     ctrl.freeRatio = null;
 
     const originalDimensions = image.data.source.dimensions;
+    ctrl.originalWidth  = originalDimensions.width;
+    ctrl.originalHeight = originalDimensions.height;
 
     ctrl.aspect = ctrl.landscapeRatio;
     ctrl.coords = {
         x1: 0,
         y1: 0,
         // fill the image with the selection
-        x2: originalDimensions.width,
-        y2: originalDimensions.height
+        x2: ctrl.originalWidth,
+        y2: ctrl.originalHeight
     };
 
     var cropWidth = () => Math.round(ctrl.coords.x2 - ctrl.coords.x1);
