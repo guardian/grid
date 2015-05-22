@@ -24,8 +24,6 @@ object ImageUsageRights {
       (__ \ "suppliersCollection").writeNullable[String]
     )(unlift(ImageUsageRights.unapply))
 
-  def oToString[T](o: Option[T]): Option[String] = o.map(_.toString)
-
 }
 
 
