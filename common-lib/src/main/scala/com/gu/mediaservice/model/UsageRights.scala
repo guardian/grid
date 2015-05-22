@@ -10,7 +10,11 @@ case class UsageRights(
 )
 
 object UsageRights {
-  implicit val UsageRightsReads: Reads[UsageRights] = Json.reads[UsageRights]
+  implicit val UsageRightsReads: Reads[UsageRights] = (
+    (__ \ "cost").readNullable[String].map(_.map(Cost.fromString(_)).getOrElse(Pay)) ~
+    (__ \ "category").readNullable[String].map(_.map(UsageRightsCategory.fromString(_)).getOrElse(PrImage)) ~
+    (__ \ "restrictions").readNullable[String].map(_.getOrElse("None"))
+  )(UsageRights.apply _)
 
   // Annoyingly there doesn't seem to be a way to create a `JsString` with the
   // Json writers, so we have to do this manually
