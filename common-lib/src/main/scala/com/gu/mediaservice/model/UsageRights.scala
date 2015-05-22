@@ -19,9 +19,6 @@ object UsageRights {
     (__ \ "category").write[UsageRightsCategory] ~
     (__ \ "restrictions").write[String]
   )(unlift(UsageRights.unapply))
-
-  def costToString(c: Cost): String = c.toString
-  def categoryToString(c: UsageRightsCategory): String = c.toString
 }
 
 sealed trait Cost
