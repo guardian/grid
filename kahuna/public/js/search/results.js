@@ -10,18 +10,19 @@ results.controller('SearchResultsCtrl',
     const ctrl = this;
 
     ctrl.images = [];
+    ctrl.newImagesCount = 0;
 
     // FIXME: This is being refreshed by the router. Make it watch a $stateParams collection instead
     // See:   https://github.com/guardian/media-service/pull/64#discussion-diff-17351746L116
     ctrl.loading = true;
 
-    function fillRemainingSpace(){
-         $timeout(function() {
-            if (ctrl.uiHasSpace) {
-                addImages();
-            }
-        });
-    }
+    ctrl.whenNearBottom = addImages;
+    ctrl.fillRemainingSpace = fillRemainingSpace;
+
+    ctrl.revealNewImages = revealNewImages;
+
+    ctrl.getLastSeenVal = getLastSeenVal;
+    ctrl.imageHasBeenSeen = imageHasBeenSeen;
 
     ctrl.searched = search().then(function(images) {
         ctrl.totalResults = images.total;
@@ -33,6 +34,7 @@ results.controller('SearchResultsCtrl',
         ctrl.loading = false;
     });
 
+
     // Safer than clearing the timeout in case of race conditions
     // FIXME: nicer (reactive?) way to do this?
     var scopeGone = false;
@@ -41,8 +43,7 @@ results.controller('SearchResultsCtrl',
     });
 
 
-    var pollingPeriod = 5 * 1000; // ms
-    ctrl.newImagesCount = 0;
+    const pollingPeriod = 5 * 1000; // ms
 
     // FIXME: this will only add up to 50 images (search capped)
     function checkForNewImages() {
@@ -60,7 +61,7 @@ results.controller('SearchResultsCtrl',
         }, pollingPeriod);
     }
 
-    ctrl.revealNewImages = function() {
+    function revealNewImages() {
         // FIXME: should ideally be able to just call $state.reload(),
         // but there seems to be a bug (alluded to in the docs) when
         // notify is false, so forcing to true explicitly instead:
@@ -71,16 +72,17 @@ results.controller('SearchResultsCtrl',
 
 
     var seenSince;
-    var lastSeenKey = 'search.seenFrom';
-    ctrl.getLastSeenVal = function(image) {
-        var key = getQueryKey();
+    const lastSeenKey = 'search.seenFrom';
+
+    function getLastSeenVal(image) {
+        const key = getQueryKey();
         var val = {};
         val[key] = image.data.uploadTime;
 
         return val;
     };
 
-    ctrl.imageHasBeenSeen = function(image) {
+    function imageHasBeenSeen(image) {
         return image.data.uploadTime <= seenSince;
     };
 
@@ -101,6 +103,15 @@ results.controller('SearchResultsCtrl',
 
     function getQueryKey() {
         return $stateParams.query || '*';
+    }
+
+
+    function fillRemainingSpace(){
+         $timeout(function() {
+            if (ctrl.uiHasSpace) {
+                addImages();
+            }
+        });
     }
 
     function addImages() {
@@ -140,7 +151,4 @@ results.controller('SearchResultsCtrl',
             }).length === 0;
         });
     }
-
-    ctrl.whenNearBottom = addImages;
-    ctrl.fillRemainingSpace = fillRemainingSpace;
 }]);
