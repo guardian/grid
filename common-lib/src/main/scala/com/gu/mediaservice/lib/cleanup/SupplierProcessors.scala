@@ -150,11 +150,12 @@ object AddAgencyCategory extends ImageProcessor {
   // TODO: Hmmm. Better way of doing this?
   // TODO: potentially do some validation / cleanup around things like having a
   // collection but no supplier?
+  // FIXME: this probably belongs in some sort of `UsageRightsCategoryProcessors`
   def apply(image: Image): Image =
-    isAgency(image).map(addAgency).getOrElse(image)
+    if (shouldHaveAgency(image)) imageWithAgency(image) else image
 
-  def addAgency(image: Image): Image =
+  def imageWithAgency(image: Image): Image =
     image.copy(usageRights = image.usageRights.copy(category = Some(Agency)))
 
-  def isAgency(image: Image): Option[Image] = image.usageRights.supplier.map(s => image)
+  def shouldHaveAgency(image: Image): Boolean = image.usageRights.supplier.nonEmpty
 }
