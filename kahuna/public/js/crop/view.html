@@ -7,20 +7,20 @@
             </div>
 
             <div class="top-bar__actions">
-                <div class="top-bar__item">{{ imageCropCtrl.cropSize() }}</div>
+                <div class="top-bar__item">{{ ctrl.cropSize() }}</div>
 
                 <label class="top-bar__item">
-                    <input type="radio" ng:model="imageCropCtrl.aspect" value="{{landscapeRatio}}" />
-                    landscape ({{::imageCropCtrl.getRatioString(landscapeRatio)}})
+                    <input type="radio" ng:model="ctrl.aspect" value="{{landscapeRatio}}" />
+                    landscape ({{::ctrl.getRatioString(landscapeRatio)}})
                 </label>
 
                 <label class="top-bar__item">
-                    <input type="radio" ng:model="imageCropCtrl.aspect" value="{{portraitRatio}}" />
-                    portrait ({{::imageCropCtrl.getRatioString(portraitRatio)}})
+                    <input type="radio" ng:model="ctrl.aspect" value="{{portraitRatio}}" />
+                    portrait ({{::ctrl.getRatioString(portraitRatio)}})
                 </label>
 
                 <label class="top-bar__item">
-                    <input type="radio" ng:model="imageCropCtrl.aspect" value="{{freeRatio}}" />
+                    <input type="radio" ng:model="ctrl.aspect" value="{{freeRatio}}" />
                     free-form
                 </label>
 
@@ -52,7 +52,7 @@
         </div>
     </div>
 
-    <div class="warning" ng:if="imageCropCtrl.cropSizeWarning()">
+    <div class="warning" ng:if="ctrl.cropSizeWarning()">
         This crop is very small and will result in a low-quality image.
         Please try to use a larger crop.
     </div>
@@ -64,7 +64,7 @@
                  ui:crop-box="coords"
                  ui:crop-box-original-width="image.data.source.dimensions.width"
                  ui:crop-box-original-height="image.data.source.dimensions.height"
-                 ui:crop-box-aspect="imageCropCtrl.aspect"
+                 ui:crop-box-aspect="ctrl.aspect"
                  ui:crop-box-background-opacity="0.3"
 
                  grid:track-image="image"
