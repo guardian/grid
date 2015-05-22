@@ -13,7 +13,8 @@ Local version of the imgops service
 ```
 
 ## Is it running
-[localhost](http://localhost:9008/_) | [URL](https://media-imgops.local.dev-***REMOVED***/_)?
+
+[](http://localhost:9008/_)
 
 ## Deploy
 To see any changes that you make within the configuration propagate to
