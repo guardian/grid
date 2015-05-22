@@ -2,7 +2,6 @@ import angular from 'angular';
 
 export var results = angular.module('kahuna.search.results', []);
 
-// TODO: use Ctrl as ctrl syntax
 results.controller('SearchResultsCtrl',
                   ['$scope', '$state', '$stateParams', '$window', '$timeout', 'mediaApi',
                    function($scope, $state, $stateParams, $window, $timeout, mediaApi) {
