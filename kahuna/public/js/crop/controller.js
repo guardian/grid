@@ -8,6 +8,8 @@ crop.controller('ImageCropCtrl',
                  function($scope, $stateParams, $state, $filter, mediaApi, mediaCropper,
                   image, optimisedImageUri) {
 
+    const ctrl = this;
+
     var imageId = $stateParams.imageId;
     $scope.image = image;
     $scope.optimisedImageUri = optimisedImageUri;
@@ -22,7 +24,7 @@ crop.controller('ImageCropCtrl',
     const originalDimensions = image.data.source.dimensions;
 
     // TODO: migrate the other properties to be on the ctrl (this) instead of $scope
-    this.aspect = $scope.landscapeRatio;
+    ctrl.aspect = $scope.landscapeRatio;
     $scope.coords = {
         x1: 0,
         y1: 0,
@@ -33,10 +35,10 @@ crop.controller('ImageCropCtrl',
 
     var cropWidth = () => Math.round($scope.coords.x2 - $scope.coords.x1);
     var cropHeight = () => Math.round($scope.coords.y2 - $scope.coords.y1);
-    this.cropSize = () => cropWidth() + ' x ' + cropHeight();
-    this.cropSizeWarning = () => cropWidth() < 500;
+    ctrl.cropSize = () => cropWidth() + ' x ' + cropHeight();
+    ctrl.cropSizeWarning = () => cropWidth() < 500;
 
-    this.getRatioString = (aspect) => {
+    ctrl.getRatioString = (aspect) => {
         if (Number(aspect) === $scope.landscapeRatio) {
             return '5:3';
         } else if (Number(aspect) === $scope.portraitRatio) {
@@ -54,7 +56,7 @@ crop.controller('ImageCropCtrl',
             height: cropHeight()
         };
 
-        var ratio = this.getRatioString(this.aspect);
+        var ratio = ctrl.getRatioString(ctrl.aspect);
 
         $scope.cropping = true;
 
@@ -72,6 +74,6 @@ crop.controller('ImageCropCtrl',
         }).finally(() => {
             $scope.cropping = false;
         });
-    }.bind(this);
+    };
 
 }]);
