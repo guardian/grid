@@ -19,14 +19,16 @@ crop.controller('ImageCropCtrl',
     $scope.portraitRatio = 2 / 3;
     $scope.freeRatio = null;
 
+    const originalDimensions = image.data.source.dimensions;
+
     // TODO: migrate the other properties to be on the ctrl (this) instead of $scope
     this.aspect = $scope.landscapeRatio;
     $scope.coords = {
         x1: 0,
         y1: 0,
-        // max out to fill the image with the selection
-        x2: 10000,
-        y2: 10000
+        // fill the image with the selection
+        x2: originalDimensions.width,
+        y2: originalDimensions.height
     };
 
     var cropWidth = () => Math.round($scope.coords.x2 - $scope.coords.x1);
