@@ -1,7 +1,7 @@
 package model
 
 import org.joda.time.{DateTime}
-import com.gu.mediaservice.model.{Asset, ImageMetadata, UsageRights, Crop, FileMetadata, Edits}
+import com.gu.mediaservice.model.{DateFormat, Asset, ImageMetadata, UsageRights, Crop, FileMetadata, Edits}
 import com.gu.mediaservice.lib.argo.model.EmbeddedEntity
 
 import java.net.{URLEncoder, URI}
@@ -29,6 +29,26 @@ case class ImageResponseData(
 )
 
 object ImageResponseData {
+  implicit val dateTimeFormat = DateFormat
+
+  val elasticSearchReads: Reads[ImageResponseData] = (
+    (__ \ "id").read[String] ~
+    (__ \ "uploadTime").read[DateTime] ~
+    (__ \ "uploadedBy").read[String] ~
+    (__ \ "lastModified").read[DateTime] ~
+    (__ \ "source").read[Asset] ~
+    (__ \ "thumbnail").read[Asset] ~
+    (__ \ "metadata").read[ImageMetadata] ~
+    (__ \ "originalMetadata").read[ImageMetadata] ~
+    (__ \ "usageRights").readNullable[UsageRights] ~
+    (__ \ "originalUsageRights").readNullable[UsageRights] ~
+    (__ \ "exports").readNullable[List[Crop]] ~
+    (__ \ "fileMetadata").read[FileMetadata] ~
+    (__ \ "userMetadata").read[Edits] ~
+    (__ \ "valid").readNullable[Boolean].map(_ => true) ~
+    (__ \ "cost").readNullable[Boolean].map(_ => "loadsamoney")
+  )(ImageResponseData.apply _)
+
   type SourceEntity = EmbeddedEntity[Asset]
   type ThumbnailEntity = EmbeddedEntity[Asset]
   type FileMetadataEntity = EmbeddedEntity[FileMetadata]
@@ -44,6 +64,7 @@ object ImageResponseData {
     (__ \ "source").write[SourceEntity].contramap(sourceEntity(_: Asset)) ~
     (__ \ "thumbnail").write[ThumbnailEntity].contramap(thumbnailEntity(_:Asset)) ~
     (__ \ "metadata").write[ImageMetadata] ~
+    (__ \ "originalMetadata").write[ImageMetadata] ~
     (__ \ "usageRights").writeNullable[UsageRights] ~
     (__ \ "originalUsageRights").writeNullable[UsageRights] ~
     (__ \ "exports").writeNullable[List[Crop]] ~
