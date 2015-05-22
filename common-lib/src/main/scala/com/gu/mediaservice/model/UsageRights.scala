@@ -45,14 +45,18 @@ object Cost {
 }
 
 
+class NoSuchUsageRightsCategory(category: String) extends RuntimeException(s"no such category: $category")
+
 sealed trait UsageRightsCategory
 object UsageRightsCategory {
-  def fromString(string: String): UsageRightsCategory =
+  def fromString(category: String): UsageRightsCategory =
     // I think as we move forward we can find out what the more intelligent and
     // correct default here. This feels better that reverting to `None` though as
     // it's required by `UsageRights`.
     // TODO: Perhaps we should validate on this?
-    Vector(Agency, PrImage).find(_.toString == string).getOrElse(PrImage)
+    Vector(Agency, PrImage).find(_.toString == category).getOrElse {
+      throw new NoSuchUsageRightsCategory(category)
+    }
 
     implicit val UsageRightsCategoryReads: Reads[UsageRightsCategory] =
       __.read[String].map(fromString)
