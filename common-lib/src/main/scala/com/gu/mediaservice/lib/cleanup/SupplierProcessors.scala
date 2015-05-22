@@ -20,7 +20,7 @@ object SupplierProcessors {
     PaParser,
     ReutersParser,
     RexParser,
-    AddUsageRightsCategory
+    AddAgencyCategory
   )
 
   def process(image: Image): Image =
@@ -146,10 +146,13 @@ object RexParser extends ImageProcessor {
   }
 }
 
-object AddUsageRightsCategory extends ImageProcessor {
+object AddAgencyCategory extends ImageProcessor {
   // TODO: Hmmm. Better way of doing this?
   def apply(image: Image): Image =
-    if (image.usageRights.supplier.nonEmpty)
-       image.copy(usageRights = image.usageRights.copy(category = Some(Agency)))
-    else image
+    isAgency(image).map(addAgency).getOrElse(image)
+
+  def addAgency(image: Image): Image =
+    image.copy(usageRights = image.usageRights.copy(category = Some(Agency)))
+
+  def isAgency(image: Image): Option[Image] = image.usageRights.supplier.map(s => image)
 }
