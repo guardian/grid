@@ -11,8 +11,8 @@ crop.controller('ImageCropCtrl',
     const ctrl = this;
 
     var imageId = $stateParams.imageId;
-    $scope.image = image;
-    $scope.optimisedImageUri = optimisedImageUri;
+    ctrl.image = image;
+    ctrl.optimisedImageUri = optimisedImageUri;
 
     ctrl.cropping = false;
 
@@ -23,7 +23,6 @@ crop.controller('ImageCropCtrl',
 
     const originalDimensions = image.data.source.dimensions;
 
-    // TODO: migrate the other properties to be on the ctrl (this) instead of $scope
     ctrl.aspect = ctrl.landscapeRatio;
     ctrl.coords = {
         x1: 0,
@@ -60,10 +59,10 @@ crop.controller('ImageCropCtrl',
 
         ctrl.cropping = true;
 
-        mediaCropper.createCrop($scope.image, coords, ratio).then(crop => {
+        mediaCropper.createCrop(ctrl.image, coords, ratio).then(crop => {
             // Global notification of action
             $scope.$emit('events:crop-created', {
-                image: $scope.image,
+                image: ctrl.image,
                 crop: crop
             });
 
