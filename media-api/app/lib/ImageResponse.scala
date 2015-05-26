@@ -7,7 +7,7 @@ import play.api.libs.functional.syntax._
 
 import org.joda.time.{DateTime, Duration}
 
-import com.gu.mediaservice.model.{DateFormat, Asset, ImageMetadata, UsageRights, Crop, FileMetadata, Edits}
+import com.gu.mediaservice.model.{Export, DateFormat, Asset, ImageMetadata, UsageRights, Crop, FileMetadata, Edits}
 import com.gu.mediaservice.lib.argo.model.{EmbeddedEntity, Link}
 import com.gu.mediaservice.model.{Cost, Pay, Free, Image, ImageUsageRights}
 import com.gu.mediaservice.api.Transformers
@@ -116,7 +116,9 @@ object ImageResponse {
     (__ \ "originalMetadata").write[ImageMetadata] ~
     (__ \ "usageRights").write[ImageUsageRights] ~
     (__ \ "originalUsageRights").write[ImageUsageRights] ~
-    (__ \ "exports").writeNullable[List[Crop]]
+    (__ \ "exports").writeNullable[List[Export]]
+      .contramap((cropsOption: Option[List[Crop]]) => cropsOption.map(_.map(Export.fromCrop(_:Crop))))
+
   )(unlift(Image.unapply))
 
   def fileMetadataEntity(id: String, expandFileMetaData: Boolean, fileMetadata: FileMetadata) = {
@@ -125,3 +127,4 @@ object ImageResponse {
     EmbeddedEntity[FileMetadata](fileMetaDataUri(id), displayableMetadata)
   }
 }
+
