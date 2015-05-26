@@ -1,5 +1,5 @@
 <button class="archiver"
-        ng:if="archiver.active"
+        ng:if="!archiver.disabled"
         ng:class="{'archiver--archived': archiver.isArchived}"
         ng:click="archiver.toggleArchived(archived)"
         ng:disabled="archiver.archiving">
@@ -15,4 +15,4 @@
 </button>
 
 <button class="archiver archiver--archived"
-        ng:if="!archiver.active && archiver.isArchived">✭</button>
+        ng:if="archiver.disabled && archiver.isArchived">✭</button>

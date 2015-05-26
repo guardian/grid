@@ -17,7 +17,7 @@ grPanel.controller('GrPanel', [
         var ctrl = this;
 
         ctrl.selectedImages = selection.selectedImages;
-        ctrl.multipleValues = (val) => Array.isArray(val);
+        ctrl.hasMultipleValues = (val) => Array.isArray(val);
         ctrl.clear = selection.clear;
 
         $scope.$watch(() => selection.getMetadata(), onValChange(newMetadata => {
