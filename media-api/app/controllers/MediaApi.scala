@@ -18,10 +18,8 @@ import Syntax._
 import scalaz.syntax.std.list._
 
 import lib.elasticsearch._
-import lib.{Notifications, Config, S3Client}
+import lib.{Notifications, Config, S3Client, ImageResponse}
 import lib.querysyntax.{Condition, Parser}
-
-import model.ImageResponse
 
 import com.gu.mediaservice.lib.auth
 import com.gu.mediaservice.lib.auth._
@@ -85,13 +83,17 @@ object MediaApi extends Controller with ArgoHelpers {
   }
 
   def getImage(id: String) = Authenticated.async { request =>
+
+    val includedQuery: Option[String] = request.getQueryString("include")
+    val included = includedQuery.map(_.split(",")).map(_.map(_.trim.toLowerCase)).getOrElse(Array())
+
     ElasticSearch.getImageById(id) flatMap {
       case Some(source) => {
         val withWritePermission = canUserWriteMetadata(request, source)
 
         withWritePermission.map {
           permission => {
-            val (imageData, imageLinks) = ImageResponse.create(id, source, permission)
+            val (imageData, imageLinks) = ImageResponse.create(id, source, permission, included)
             respond(imageData, imageLinks)
           }
         }
@@ -170,7 +172,6 @@ object MediaApi extends Controller with ArgoHelpers {
       links = List(prevLink, nextLink).flatten
     } yield respondCollection(imageEntities, Some(searchParams.offset), Some(totalCount), links)
   }
-
 
   val searchTemplate = URITemplate(searchLinkHref)
 

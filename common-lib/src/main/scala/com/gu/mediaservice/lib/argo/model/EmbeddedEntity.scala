@@ -18,15 +18,8 @@ object EmbeddedEntity extends WriteHelpers {
 
   implicit def embeddedEntityWrites[T: Writes]: Writes[EmbeddedEntity[T]] = (
     (__ \ "uri").write[String].contramap((_: URI).toString) ~
-    (__ \ "data").writeNullable[T] ~
-    (__ \ "links").writeNullable[List[Link]].contramap(someListOrNone[Link])
-  )(unlift(EmbeddedEntity.unapply[T]))
-
-  def hiddenEmbeddedEntityWrites[T: Writes]: Writes[EmbeddedEntity[T]] = (
-    (__ \ "uri").write[String].contramap((_: URI).toString) ~
-    (__ \ "data").writeNullable[T].contramap((_:Option[T]) => None) ~
-    (__ \ "links").writeNullable[List[Link]].contramap(someListOrNone[Link])
-  )(unlift(EmbeddedEntity.unapply[T]))
-
+      (__ \ "data").writeNullable[T] ~
+      (__ \ "links").writeNullable[List[Link]].contramap(someListOrNone[Link])
+    )(unlift(EmbeddedEntity.unapply[T]))
 
 }
