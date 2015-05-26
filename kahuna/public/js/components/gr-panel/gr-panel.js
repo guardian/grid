@@ -8,9 +8,11 @@ export var grPanel = angular.module('grPanel', ['kahuna.services.selection']);
 grPanel.controller('GrPanel', [
     '$scope',
     'selectionService',
+    'onValChange',
     function (
         $scope,
-        selection) {
+        selection,
+        onValChange) {
 
         var ctrl = this;
 
@@ -18,10 +20,8 @@ grPanel.controller('GrPanel', [
         ctrl.multipleValues = (val) => Array.isArray(val);
         ctrl.clear = selection.clear;
 
-        $scope.$watchCollection(() => selection.getMetadata(), (newMetadata, oldMetadata) => {
-            if (!angular.equals(newMetadata, oldMetadata)) {
-                ctrl.metadata = newMetadata;
-            }
-        });
+        $scope.$watch(() => selection.getMetadata(), onValChange(newMetadata => {
+            ctrl.metadata = newMetadata;
+        }));
     }
 ]);
