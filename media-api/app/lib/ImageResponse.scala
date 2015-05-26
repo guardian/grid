@@ -1,18 +1,16 @@
-package model
-
-import org.joda.time.{DateTime, Duration}
-
-import lib.{Config, S3Client}
-
-import com.gu.mediaservice.model.{DateFormat, Asset, ImageMetadata, UsageRights, Crop, FileMetadata, Edits}
-import com.gu.mediaservice.lib.argo.model.{EmbeddedEntity, Link}
-import com.gu.mediaservice.model.{Cost, Pay, Free, Image, ImageUsageRights}
-import com.gu.mediaservice.api.Transformers
+package lib
 
 import java.net.{URLEncoder, URI}
 
 import play.api.libs.json._
 import play.api.libs.functional.syntax._
+
+import org.joda.time.{DateTime, Duration}
+
+import com.gu.mediaservice.model.{DateFormat, Asset, ImageMetadata, UsageRights, Crop, FileMetadata, Edits}
+import com.gu.mediaservice.lib.argo.model.{EmbeddedEntity, Link}
+import com.gu.mediaservice.model.{Cost, Pay, Free, Image, ImageUsageRights}
+import com.gu.mediaservice.api.Transformers
 
 
 object ImageResponse {
@@ -24,10 +22,12 @@ object ImageResponse {
 
   def fileMetaDataUri(id: String) = URI.create(s"${Config.rootUri}/images/$id/fileMetadata")
 
-  def create(id: String, esSource: JsValue, withWritePermission: Boolean): (JsValue, List[Link]) = {
+  def create(id: String, esSource: JsValue, withWritePermission: Boolean, included: Array[String] = Array()): (JsValue, List[Link]) = {
 
     val image = esSource.as[Image]
-    val source = Json.toJson(image)(imageResponseWrites(image.id))
+    val source = Json.toJson(image)(
+      imageResponseWrites(image.id, included.contains("filemetadata"))
+    )
 
     // Round expiration time to try and hit the cache as much as possible
     // TODO: do we really need these expiration tokens? they kill our ability to cache...
@@ -36,18 +36,13 @@ object ImageResponse {
     val secureUrl = S3Client.signUrl(Config.imageBucket, fileUri, expiration)
     val secureThumbUrl = S3Client.signUrl(Config.thumbBucket, fileUri, expiration)
 
-    val creditField = (source \ "metadata" \ "credit").as[Option[String]]
-    val sourceField = (source \ "metadata" \ "source").as[Option[String]]
-    val supplierField     = (source \ "usageRights" \ "supplier").asOpt[String]
-    val supplierCollField = (source \ "usageRights" \ "suppliersCollection").asOpt[String]
-    val usageRightsField = (source \ "userMetadata" \ "usageRights").asOpt[UsageRights]
     val valid = ImageExtras.isValid(source \ "metadata")
 
     val data = source.transform(addSecureSourceUrl(secureUrl))
       .flatMap(_.transform(wrapUserMetadata(id)))
       .flatMap(_.transform(addSecureThumbUrl(secureThumbUrl)))
       .flatMap(_.transform(addValidity(valid)))
-      .flatMap(_.transform(addUsageCost(creditField, sourceField, supplierField, supplierCollField, usageRightsField))).get
+      .flatMap(_.transform(addUsageCost(source))).get
 
     val links = imageLinks(id, secureUrl, withWritePermission, valid)
 
@@ -69,14 +64,18 @@ object ImageResponse {
     if (valid) (cropLink :: baseLinks) else baseLinks
   }
 
-  def addUsageCost(credit: Option[String], source: Option[String], supplier: Option[String],
-    supplierColl: Option[String], usageRights: Option[UsageRights]): Reads[JsObject] = {
-      val cost = ImageExtras.getCost(credit, source, supplier, supplierColl, usageRights)
-      __.json.update(__.read[JsObject].map(_ ++ Json.obj("cost" -> cost.toString)))
-  }
+  def addUsageCost(source: JsValue): Reads[JsObject] = {
 
-  def removeFileData: Reads[JsObject] =
-    (__ \ "fileMetadata").json.prune
+    val cost = ImageExtras.getCost(
+      (source \ "metadata" \ "credit").as[Option[String]],
+      (source \ "metadata" \ "source").as[Option[String]],
+      (source \ "usageRights" \ "supplier").asOpt[String],
+      (source \ "usageRights" \ "suppliersCollection").asOpt[String],
+      (source \ "userMetadata" \ "usageRights").asOpt[UsageRights]
+    )
+
+    __.json.update(__.read[JsObject].map(_ ++ Json.obj("cost" -> cost.toString)))
+  }
 
   // FIXME: tidier way to replace a key in a JsObject?
   def wrapUserMetadata(id: String): Reads[JsObject] =
@@ -102,7 +101,7 @@ object ImageResponse {
   def makeImgopsUri(uri: URI): String =
     Config.imgopsUri + List(uri.getPath, uri.getRawQuery).mkString("?") + "{&w,h,q}"
 
-  def imageResponseWrites(id: String): Writes[Image] = (
+  def imageResponseWrites(id: String, expandFileMetaData: Boolean): Writes[Image] = (
     (__ \ "id").write[String] ~
     (__ \ "uploadTime").write[DateTime] ~
     (__ \ "uploadedBy").write[String] ~
@@ -110,7 +109,8 @@ object ImageResponse {
     (__ \ "identifiers").write[Map[String,String]] ~
     (__ \ "source").write[Asset] ~
     (__ \ "thumbnail").writeNullable[Asset] ~
-    (__ \ "fileMetadata").write[FileMetadataEntity].contramap(fileMetadataEntity(id, _: FileMetadata)) ~
+    (__ \ "fileMetadata").write[FileMetadataEntity]
+      .contramap(fileMetadataEntity(id, expandFileMetaData, _: FileMetadata)) ~
     (__ \ "userMetadata").writeNullable[Edits] ~
     (__ \ "metadata").write[ImageMetadata] ~
     (__ \ "originalMetadata").write[ImageMetadata] ~
@@ -119,36 +119,9 @@ object ImageResponse {
     (__ \ "exports").writeNullable[List[Crop]]
   )(unlift(Image.unapply))
 
-  def fileMetadataEntity(id: String, fileMetadata: FileMetadata) =
-    EmbeddedEntity[FileMetadata](fileMetaDataUri(id), Some(fileMetadata))
-}
+  def fileMetadataEntity(id: String, expandFileMetaData: Boolean, fileMetadata: FileMetadata) = {
+    val displayableMetadata = if(expandFileMetaData) Some(fileMetadata) else None
 
-object ImageExtras {
-  def isValid(metadata: JsValue): Boolean =
-    Config.requiredMetadata.forall(field => (metadata \ field).asOpt[String].isDefined)
-
-  def getCost(credit: Option[String], source: Option[String], supplier: Option[String], supplierColl: Option[String],
-              usageRights: Option[UsageRights]): Cost = {
-    val freeCredit      = credit.exists(isFreeCredit)
-    val freeSource      = source.exists(isFreeSource)
-    val payingSource    = source.exists(isPaySource)
-    val freeCreditOrSource = (freeCredit || freeSource) && ! payingSource
-
-    val freeSupplier    = supplier.exists { suppl =>
-      isFreeSupplier(suppl) && ! supplierColl.exists(isExcludedColl(suppl, _))
-    }
-
-    usageRights.map(_.cost).getOrElse {
-      if (freeCreditOrSource || freeSupplier) Free
-      else Pay
-    }
+    EmbeddedEntity[FileMetadata](fileMetaDataUri(id), displayableMetadata)
   }
-
-  private def isFreeCredit(credit: String) = Config.freeCreditList.contains(credit)
-  private def isFreeSource(source: String) = Config.freeSourceList.contains(source)
-  private def isPaySource(source: String)  = Config.payGettySourceList.contains(source)
-
-  private def isFreeSupplier(supplier: String) = Config.freeSuppliers.contains(supplier)
-  private def isExcludedColl(supplier: String, supplierColl: String) =
-    Config.suppliersCollectionExcl.get(supplier).exists(_.contains(supplierColl))
 }

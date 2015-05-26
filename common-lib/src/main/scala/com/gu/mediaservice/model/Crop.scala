@@ -5,6 +5,7 @@ import play.api.libs.functional.syntax._
 
 import org.joda.time.DateTime
 
+
 case class Crop(id: String, author: Option[String], date: Option[DateTime], specification: CropSource, master: Option[Asset], assets: List[Asset])
 object Crop {
   import com.gu.mediaservice.lib.formatting._
