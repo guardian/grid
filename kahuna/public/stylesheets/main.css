@@ -1060,6 +1060,10 @@ FIXME: what to do with touch devices
     border-color: #00adee;
 }
 
+.result--selected .preview {
+    background-color: #4c4c4c;
+}
+
 .image-crop__image {
     display: block;
     width: 100%;
