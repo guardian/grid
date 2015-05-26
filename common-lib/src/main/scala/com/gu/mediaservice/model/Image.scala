@@ -15,10 +15,12 @@ case class Image(
   source:              Asset,
   thumbnail:           Option[Asset],
   fileMetadata:        FileMetadata,
+  userMetadata:        Option[Edits],
   metadata:            ImageMetadata,
   originalMetadata:    ImageMetadata,
   usageRights:         ImageUsageRights,
-  originalUsageRights: ImageUsageRights
+  originalUsageRights: ImageUsageRights,
+  exports:             Option[List[Crop]]
 )
 
 object Image {
@@ -34,10 +36,12 @@ object Image {
       (__ \ "source").read[Asset] ~
       (__ \ "thumbnail").readNullable[Asset] ~
       (__ \ "fileMetadata").readNullable[FileMetadata].map(_ getOrElse FileMetadata()) ~
+      (__ \ "userMetadata").readNullable[Edits] ~
       (__ \ "metadata").read[ImageMetadata] ~
       (__ \ "originalMetadata").readNullable[ImageMetadata].map(_ getOrElse ImageMetadata()) ~
       (__ \ "usageRights").readNullable[ImageUsageRights].map(_ getOrElse ImageUsageRights()) ~
-      (__ \ "originalUsageRights").readNullable[ImageUsageRights].map(_ getOrElse ImageUsageRights())
+      (__ \ "originalUsageRights").readNullable[ImageUsageRights].map(_ getOrElse ImageUsageRights()) ~
+      (__ \ "exports").readNullable[List[Crop]]
     )(Image.apply _)
 
   implicit val ImageWrites: Writes[Image] = (
@@ -49,10 +53,12 @@ object Image {
       (__ \ "source").write[Asset] ~
       (__ \ "thumbnail").writeNullable[Asset] ~
       (__ \ "fileMetadata").write[FileMetadata] ~
+      (__ \ "userMetadata").writeNullable[Edits] ~
       (__ \ "metadata").write[ImageMetadata] ~
       (__ \ "originalMetadata").write[ImageMetadata] ~
       (__ \ "usageRights").write[ImageUsageRights] ~
-      (__ \ "originalUsageRights").write[ImageUsageRights]
+      (__ \ "originalUsageRights").write[ImageUsageRights] ~
+      (__ \ "exports").writeNullable[List[Crop]]
     )(unlift(Image.unapply))
 
 }
