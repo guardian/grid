@@ -84,10 +84,12 @@ case object ImageUpload {
       source,
       Some(thumbnail),
       fileMetadata,
+      None,
       metadata,
       metadata,
       usageRights,
-      usageRights
+      usageRights,
+      None
     )
   }
 
