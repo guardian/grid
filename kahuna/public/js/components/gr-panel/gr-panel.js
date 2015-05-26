@@ -19,7 +19,7 @@ grPanel.controller('GrPanel', [
         ctrl.clear = selection.clear;
 
         $scope.$watchCollection(() => selection.getMetadata(), (newMetadata, oldMetadata) => {
-            if(!angular.equals(newMetadata, oldMetadata)) {
+            if (!angular.equals(newMetadata, oldMetadata)) {
                 ctrl.metadata = newMetadata;
             }
         });
