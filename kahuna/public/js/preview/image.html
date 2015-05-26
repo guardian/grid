@@ -35,7 +35,7 @@
     <div class="preview__info" ng:if="! hideInfo">
         <ui-labeller-compact class="preview__labeller"
                              labels="image.data.userMetadata.data.labels"
-                             active="!selectionMode"></ui-labeller-compact>
+                             disabled="selectionMode"></ui-labeller-compact>
 
         <p class="preview__description">{{image.data.metadata.description || image.data.metadata.title}}</p>
     </div>
@@ -54,7 +54,7 @@
             <ui-archiver
                 class="bottom-bar__action"
                 archived="image.data.userMetadata.data.archived"
-                active="!selectionMode"></ui-archiver>
+                disabled="selectionMode"></ui-archiver>
 
             <div class="preview__cost bottom-bar__action" ng:switch="image.data.cost">
                 <div ng:switch-when="pay"
