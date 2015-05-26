@@ -15,6 +15,7 @@ case class ImageResponseData(
   uploadTime: DateTime,
   uploadedBy: String,
   lastModified: DateTime,
+  identifiers: Map[String,String],
   source: Asset,
   thumbnail: Asset,
   metadata: ImageMetadata,
@@ -36,6 +37,7 @@ object ImageResponseData {
     (__ \ "uploadTime").read[DateTime] ~
     (__ \ "uploadedBy").read[String] ~
     (__ \ "lastModified").read[DateTime] ~
+    (__ \ "identifiers").read[Map[String,String]] ~
     (__ \ "source").read[Asset] ~
     (__ \ "thumbnail").read[Asset] ~
     (__ \ "metadata").read[ImageMetadata] ~
@@ -49,8 +51,6 @@ object ImageResponseData {
     (__ \ "cost").readNullable[Boolean].map(_ => "loadsamoney")
   )(ImageResponseData.apply _)
 
-  type SourceEntity = EmbeddedEntity[Asset]
-  type ThumbnailEntity = EmbeddedEntity[Asset]
   type FileMetadataEntity = EmbeddedEntity[FileMetadata]
   type UserMetadataEntity = EmbeddedEntity[Edits]
 
@@ -61,8 +61,9 @@ object ImageResponseData {
     (__ \ "uploadTime").write[DateTime] ~
     (__ \ "uploadedBy").write[String] ~
     (__ \ "lastModified").write[DateTime] ~
-    (__ \ "source").write[SourceEntity].contramap(sourceEntity(_: Asset)) ~
-    (__ \ "thumbnail").write[ThumbnailEntity].contramap(thumbnailEntity(_:Asset)) ~
+    (__ \ "identifiers").write[Map[String,String]] ~
+    (__ \ "source").write[Asset] ~
+    (__ \ "thumbnail").write[Asset] ~
     (__ \ "metadata").write[ImageMetadata] ~
     (__ \ "originalMetadata").write[ImageMetadata] ~
     (__ \ "usageRights").writeNullable[UsageRights] ~
@@ -76,6 +77,4 @@ object ImageResponseData {
 
   def userMetadataEntity(userMetadata: Edits) = EmbeddedEntity[Edits](fakeUri, Some(userMetadata))
   def fileMetadataEntity(fileMetadata: FileMetadata) = EmbeddedEntity[FileMetadata](fakeUri, Some(fileMetadata))
-  def thumbnailEntity(thumbnail: Asset): ThumbnailEntity = EmbeddedEntity[Asset](fakeUri, Some(thumbnail))
-  def sourceEntity(source: Asset): SourceEntity = EmbeddedEntity[Asset](fakeUri, Some(source))
 }
