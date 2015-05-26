@@ -10,21 +10,21 @@
         <div class="image-info__group">
             <div class="image-info__wrap" ng:if="ctrl.metadata.title">
                 <h2 class="image-info__title"
-                    ng:if="!ctrl.multipleValues(ctrl.metadata.title)"
+                    ng:if="!ctrl.hasMultipleValues(ctrl.metadata.title)"
                     >{{ctrl.metadata.title}}</h2>
 
                 <h2 class="image-info__title image-info--multiple"
-                    ng:if="ctrl.multipleValues(ctrl.metadata.title)"
+                    ng:if="ctrl.hasMultipleValues(ctrl.metadata.title)"
                     >multiple titles</h2>
             </div>
 
             <div class="image-info__wrap">
                 <div class="image-info__description"
-                     ng:if="ctrl.metadata.description && !ctrl.multipleValues(ctrl.metadata.description)"
+                     ng:if="ctrl.metadata.description && !ctrl.hasMultipleValues(ctrl.metadata.description)"
                     >{{ctrl.metadata.description}}</div>
 
                 <div class="image-info__description image-info--multiple"
-                     ng:if="ctrl.metadata.description && ctrl.multipleValues(ctrl.metadata.description)"
+                     ng:if="ctrl.metadata.description && ctrl.hasMultipleValues(ctrl.metadata.description)"
                     >multiple descriptions</div>
             </div>
         </div>
@@ -32,11 +32,11 @@
         <div class="image-info__group">
             <div class="image-info__wrap metadata-line image-info__byline">
                 by
-                <span class="metadata-line__info" ng:if="ctrl.metadata.byline && !ctrl.multipleValues(ctrl.metadata.byline)">
+                <span class="metadata-line__info" ng:if="ctrl.metadata.byline && !ctrl.hasMultipleValues(ctrl.metadata.byline)">
                     <a ui:sref="search.results({query: (ctrl.metadata.byline | queryFilter:'by')})">{{ctrl.metadata.byline}}</a>
                 </span>
 
-                <span class="metadata-line__info image-info--multiple" ng:if="ctrl.metadata.byline && ctrl.multipleValues(ctrl.metadata.byline)">
+                <span class="metadata-line__info image-info--multiple" ng:if="ctrl.metadata.byline && ctrl.hasMultipleValues(ctrl.metadata.byline)">
                     multiple values
                 </span>
 
@@ -47,11 +47,11 @@
 
             <div class="image-info__wrap metadata-line image-info__credit">
                 credit
-                <span class="metadata-line__info" ng:if="ctrl.metadata.credit && !ctrl.multipleValues(ctrl.metadata.credit)">
+                <span class="metadata-line__info" ng:if="ctrl.metadata.credit && !ctrl.hasMultipleValues(ctrl.metadata.credit)">
                     <a ui:sref="search.results({query: (ctrl.metadata.credit | queryFilter:'credit')})">{{ctrl.metadata.credit}}</a>
                 </span>
 
-                <span class="metadata-line__info image-info--multiple" ng:if="ctrl.metadata.credit && ctrl.multipleValues(ctrl.metadata.credit)">
+                <span class="metadata-line__info image-info--multiple" ng:if="ctrl.metadata.credit && ctrl.hasMultipleValues(ctrl.metadata.credit)">
                     multiple values
                 </span>
 

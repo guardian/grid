@@ -154,23 +154,24 @@ results.controller('SearchResultsCtrl', [
             });
         }
 
-        ctrl.selectedImages = selection.selectedImages;
-
         var fields = ['title', 'description', 'byline', 'credit'];
 
-        function onImageSelect (image) {
-            /*jshint laxbreak: true */
-            return image.selected
-                ? selection.add(image, selection.updateMetadata, fields)
-                : selection.remove(image, selection.updateMetadata, fields);
-        }
+        ctrl.selectedImages = selection.selectedImages;
 
-        ctrl.onImageSelect = onImageSelect;
+        ctrl.inSelectionMode = () => ctrl.selectedImages.size > 0;
+
+        ctrl.imageHasBeenSelected = (image) => selection.isSelected(image);
+
+        ctrl.toggleSelection = function (image, select) {
+            /*jshint laxbreak: true */
+            return select
+                ? selection.add(image, fields)
+                : selection.remove(image, fields);
+        };
 
         ctrl.onImageClick = function (image) {
-            if (ctrl.selectedImages.size > 0) {
-                image.selected = !image.selected;
-                onImageSelect(image);
+            if (ctrl.inSelectionMode()) {
+                ctrl.toggleSelection(image, !ctrl.imageHasBeenSelected(image));
             }
         };
     }

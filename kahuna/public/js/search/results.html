@@ -5,7 +5,7 @@
 </div>
 
 <div ng:if="! ctrl.loading"
-    ng:class="{'results--left': ctrl.selectedImages.size > 0}">
+    ng:class="{'results--left': ctrl.inSelectionMode()}">
     <div ng:show="ctrl.images.length == 0"
          class="image-no-results">
         No matches, sorry!
@@ -29,12 +29,25 @@
             ui:window-resized="ctrl.fillRemainingSpace()">
             <li class="result"
                 ng:repeat="image in ctrl.images"
-                ng:class="{ 'result--seen': ctrl.imageHasBeenSeen(image), 'result--selected': image.selected}">
+                ng:class="{ 'result--seen': ctrl.imageHasBeenSeen(image), 'result--selected': ctrl.imageHasBeenSelected(image)}">
 
-                <input type="checkbox" class="result__select" ng:model="image.selected" ng:change="ctrl.onImageSelect(image)"/>
+                <!-- <HACK> -->
+                <!-- We don't want to add a property on `image` to determine the state of the checkbox, so render two individual inputs. -->
+                <!-- </HACK> -->
 
-                <ui-preview-image image="image" selection-mode="ctrl.selectedImages.size > 0"
-                    ng:class="{'preview__quick-select': ctrl.selectedImages.size > 0}"
+                <input ng:if="ctrl.imageHasBeenSelected(image)"
+                       type="checkbox"
+                       class="result__select"
+                       checked="true"
+                       ng:click="ctrl.toggleSelection(image, false)"/>
+
+                <input ng:if="!ctrl.imageHasBeenSelected(image)"
+                       type="checkbox"
+                       class="result__select"
+                       ng:click="ctrl.toggleSelection(image, true)"/>
+
+                <ui-preview-image image="image" selection-mode="ctrl.inSelectionMode()"
+                    ng:class="{'preview__quick-select': ctrl.inSelectionMode()}"
                     ng:click="ctrl.onImageClick(image)">
                     <button class="mark-as-seen image-action"
                             title="Mark all images until this point as seen"

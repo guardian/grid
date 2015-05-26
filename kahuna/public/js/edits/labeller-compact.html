@@ -1,4 +1,4 @@
-<div class="labeller" ng:if="ctrl.active">
+<div class="labeller" ng:if="!ctrl.disabled">
     <ul class="labels"
         ng:if="ctrl.labels.data.length > 0">
         <li class="label"
@@ -16,7 +16,7 @@
     </button>
 </div>
 
-<div class="labeller" ng:if="!ctrl.active">
+<div class="labeller" ng:if="ctrl.disabled">
     <ul class="labels"
         ng:if="ctrl.labels.data.length > 0">
         <li class="label" ng:repeat="label in ctrl.labels.data">

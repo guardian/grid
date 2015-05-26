@@ -47,27 +47,24 @@ selectionService.factory('selectionService', [function () {
 
     return {
         selectedImages: selectedImages,
-        getMetadata: () => selectedMetadata,
-        updateMetadata: updateMetadata,
-        add: (image, callback, args) => {
-            selectedImages.add(image);
-            if (typeof callback === 'function') {
-                callback.call(this, args);
-            }
-        },
-        remove: (image, callback, args) => {
-            selectedImages.delete(image);
-            if (typeof callback === 'function') {
-                callback.call(this, args);
-            }
-        },
-        clear: () => {
-            for (let image of selectedImages) {
-                image.selected = false;
-            }
 
-            selectedImages.clear();
-        }
+        getMetadata: () => selectedMetadata,
+
+        updateMetadata: updateMetadata,
+
+        isSelected: (image) => selectedImages.has(image),
+
+        add: (image, fields) => {
+            selectedImages.add(image);
+            updateMetadata(fields);
+        },
+
+        remove: (image, fields) => {
+            selectedImages.delete(image);
+            updateMetadata(fields);
+        },
+
+        clear: () => selectedImages.clear()
     };
 }]);
 
