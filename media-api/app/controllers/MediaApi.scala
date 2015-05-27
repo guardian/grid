@@ -101,7 +101,7 @@ object MediaApi extends Controller with ArgoHelpers {
           }
         }
       }
-      case None         => Future.successful(ImageNotFound)
+      case None => Future.successful(ImageNotFound)
     }
   }
 
