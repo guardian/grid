@@ -14,7 +14,7 @@ INITIAL_PROPERTIES = {
     'panda_aws_secret': '',
 }
 
-AWS_PROFILE_NAME = 'default'
+AWS_PROFILE_NAME = 'media-service'
 AWS_REGION = 'eu-west-1'
 OUTPUT_DIRECTORY = 'output'
 STACK = None
