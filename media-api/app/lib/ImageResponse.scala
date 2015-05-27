@@ -116,8 +116,8 @@ object ImageResponse {
     (__ \ "originalMetadata").write[ImageMetadata] ~
     (__ \ "usageRights").write[ImageUsageRights] ~
     (__ \ "originalUsageRights").write[ImageUsageRights] ~
-    (__ \ "exports").writeNullable[List[Export]]
-      .contramap((cropsOption: Option[List[Crop]]) => cropsOption.map(_.map(Export.fromCrop(_:Crop))))
+    (__ \ "exports").write[List[Export]]
+      .contramap((crops: List[Crop]) => crops.map(Export.fromCrop(_:Crop)))
 
   )(unlift(Image.unapply))
 
