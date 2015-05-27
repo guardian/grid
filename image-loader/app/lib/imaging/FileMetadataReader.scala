@@ -9,12 +9,11 @@ import com.drew.imaging.ImageMetadataReader
 import com.drew.metadata.{Metadata, Directory}
 import com.drew.metadata.iptc.IptcDirectory
 import com.drew.metadata.jpeg.JpegDirectory
+import com.drew.metadata.icc.IccDirectory
 import com.drew.metadata.exif.{ExifSubIFDDirectory, ExifIFD0Directory}
 import com.drew.metadata.xmp.XmpDirectory
 
-import com.gu.mediaservice.model.Dimensions
-
-import com.gu.mediaservice.model.FileMetadata
+import com.gu.mediaservice.model.{Dimensions, FileMetadata}
 
 
 object FileMetadataReader {
@@ -27,12 +26,14 @@ object FileMetadataReader {
       metadata <- readMetadata(image)
     }
     yield {
-      // FIXME: JPEG, JFIF, Photoshop, GPS, File, ICC directories?
+      // FIXME: JPEG, JFIF, Photoshop, GPS, File
+
       FileMetadata(
         exportDirectory(metadata, classOf[IptcDirectory]),
         exportDirectory(metadata, classOf[ExifIFD0Directory]),
         exportDirectory(metadata, classOf[ExifSubIFDDirectory]),
         exportDirectory(metadata, classOf[XmpDirectory]),
+        exportDirectory(metadata, classOf[IccDirectory]),
         exportGettyDirectory(metadata)
       )
     }
@@ -93,7 +94,6 @@ object FileMetadataReader {
 
   private def readMetadata(file: File): Future[Metadata] =
     Future(ImageMetadataReader.readMetadata(file))
-
 
   // Helper to flatten maps of options
   implicit class MapFlattener[K, V](val map: Map[K, Option[V]]) {
