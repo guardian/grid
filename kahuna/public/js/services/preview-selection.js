@@ -54,11 +54,9 @@ selectionService.factory('selectionService', [function () {
     }
 
     return {
-        selectedImages: selectedImages,
+        selectedImages,
 
         getMetadata: () => selectedMetadata,
-
-        updateMetadata: updateMetadata,
 
         isSelected: (image) => selectedImages.has(image),
 
