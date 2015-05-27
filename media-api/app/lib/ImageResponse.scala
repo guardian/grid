@@ -27,7 +27,7 @@ object ImageResponse {
 
     val image = esSource.as[Image]
     val source = Json.toJson(image)(
-      imageResponseWrites(image.id, included.contains("filemetadata"))
+      imageResponseWrites(image.id, included.contains("fileMetadata"))
     )
 
     // Round expiration time to try and hit the cache as much as possible

@@ -69,6 +69,11 @@ object MediaApi extends Controller with ArgoHelpers {
 
 
   val ImageNotFound = respondError(NotFound, "image-not-found", "No image found with the given id")
+  def getIncludedFromParams(request: AuthenticatedRequest[AnyContent, Principal]): List[String] = {
+    val includedQuery: Option[String] = request.getQueryString("include")
+
+    includedQuery.map(_.split(",").map(_.trim).toList).getOrElse(List())
+  }
 
   def canUserWriteMetadata(request: AuthenticatedRequest[AnyContent, Principal], source: JsValue) = {
     request.user match {
@@ -83,9 +88,7 @@ object MediaApi extends Controller with ArgoHelpers {
   }
 
   def getImage(id: String) = Authenticated.async { request =>
-
-    val includedQuery: Option[String] = request.getQueryString("include")
-    val included: List[String] = includedQuery.map(_.split(",").map(_.trim).toList).getOrElse(List())
+    val include = getIncludedFromParams(request)
 
     ElasticSearch.getImageById(id) flatMap {
       case Some(source) => {
@@ -93,7 +96,7 @@ object MediaApi extends Controller with ArgoHelpers {
 
         withWritePermission.map {
           permission => {
-            val (imageData, imageLinks) = ImageResponse.create(id, source, permission, included)
+            val (imageData, imageLinks) = ImageResponse.create(id, source, permission, include)
             respond(imageData, imageLinks)
           }
         }
@@ -153,11 +156,13 @@ object MediaApi extends Controller with ArgoHelpers {
 
 
   def imageSearch = Authenticated.async { request =>
+    val include = getIncludedFromParams(request)
+
     def hitToImageEntity(elasticId: ElasticSearch.Id, source: JsValue): Future[EmbeddedEntity[JsValue]] = {
       val withWritePermission = canUserWriteMetadata(request, source)
 
       withWritePermission.map { permission =>
-        val (imageData, imageLinks) = ImageResponse.create(elasticId, source, permission)
+        val (imageData, imageLinks) = ImageResponse.create(elasticId, source, permission, include)
         val id = (imageData \ "id").as[String]
         EmbeddedEntity(uri = URI.create(s"$rootUri/images/$id"), data = Some(imageData), imageLinks)
       }
