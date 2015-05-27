@@ -23,8 +23,7 @@ object FileMetadataReader {
 
   def fromIPTCHeaders(image: File): Future[FileMetadata] =
     for {
-      metadata   <- readMetadata(image)
-      colorModel <- readColorModel(image)
+      metadata <- readMetadata(image)
     }
     yield {
       // FIXME: JPEG, JFIF, Photoshop, GPS, File
@@ -35,8 +34,7 @@ object FileMetadataReader {
         exportDirectory(metadata, classOf[ExifSubIFDDirectory]),
         exportDirectory(metadata, classOf[XmpDirectory]),
         exportDirectory(metadata, classOf[IccDirectory]),
-        exportGettyDirectory(metadata),
-        colorModel
+        exportGettyDirectory(metadata)
       )
     }
 
@@ -96,9 +94,6 @@ object FileMetadataReader {
 
   private def readMetadata(file: File): Future[Metadata] =
     Future(ImageMetadataReader.readMetadata(file))
-
-  private def readColorModel(file: File): Future[Option[ColorModel]] =
-    Future(ColorModelDetection.getColorModel(file.getAbsolutePath))
 
   // Helper to flatten maps of options
   implicit class MapFlattener[K, V](val map: Map[K, Option[V]]) {
