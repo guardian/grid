@@ -23,7 +23,7 @@ object ImageResponse {
 
   def fileMetaDataUri(id: String) = URI.create(s"${Config.rootUri}/images/$id/fileMetadata")
 
-  def create(id: String, esSource: JsValue, withWritePermission: Boolean, included: Array[String] = Array()): (JsValue, List[Link]) = {
+  def create(id: String, esSource: JsValue, withWritePermission: Boolean, included: List[String] = List()): (JsValue, List[Link]) = {
 
     val image = esSource.as[Image]
     val source = Json.toJson(image)(
