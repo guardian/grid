@@ -44,6 +44,7 @@ import scala.util.{Success, Failure, Try}
 //     ]
 //   }
 // }
+
 object Application extends Controller with ArgoHelpers {
 
   import Config.{rootUri, loginUri, kahunaUri}
@@ -81,12 +82,12 @@ object Application extends Controller with ArgoHelpers {
 
       // We have to do the to JSON here as we are using a custom JSON writes.
       // TODO: have the argo helpers allow you to do this
-      respond(Json.toJson(edits)(Edits.EditsWritesArgo(id)))
+      respond(Json.toJson(edits)(EditsResponse.editsResponseWrites(id)))
 
     } recover {
       // Empty object as no metadata edits recorded
       case NoItemFound =>
-        respond(Json.toJson(Edits.getEmpty)(Edits.EditsWritesArgo(id)))
+        respond(Json.toJson(Edits.getEmpty)(EditsResponse.editsResponseWrites(id)))
     }
   }
 
@@ -192,7 +193,7 @@ object Application extends Controller with ArgoHelpers {
     Json.toJson[T](caseClass).as[JsObject].as[Map[String, String]]
 
   def labelsCollection(id: String, labels: Set[String]): Seq[EmbeddedEntity[String]] =
-    labels.map(Edits.setUnitEntity(id, "labels", _)).toSeq
+    labels.map(EditsResponse.setUnitEntity(id, "labels", _)).toSeq
 
 
   def publish(id: String)(metadata: JsObject): Edits = {
