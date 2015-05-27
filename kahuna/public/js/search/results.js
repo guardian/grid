@@ -154,20 +154,13 @@ results.controller('SearchResultsCtrl', [
             });
         }
 
-        var fields = ['title', 'description', 'byline', 'credit'];
-
         ctrl.selectedImages = selection.selectedImages;
 
         ctrl.inSelectionMode = () => ctrl.selectedImages.size > 0;
 
         ctrl.imageHasBeenSelected = (image) => selection.isSelected(image);
 
-        ctrl.toggleSelection = function (image, select) {
-            /*jshint laxbreak: true */
-            return select
-                ? selection.add(image, fields)
-                : selection.remove(image, fields);
-        };
+        ctrl.toggleSelection = (image, select) => selection.toggleSelection(image, select);
 
         ctrl.onImageClick = function (image) {
             if (ctrl.inSelectionMode()) {
