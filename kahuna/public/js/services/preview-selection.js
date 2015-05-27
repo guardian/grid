@@ -6,22 +6,20 @@ selectionService.factory('selectionService', [function () {
     var selectedImages = new Set();
     var selectedMetadata = {};
 
-    function groupMetadata (fields) {
+    function groupMetadata () {
         var metadata = {};
 
-        fields.forEach((field) => {
-            metadata[field] = metadata[field] || new Set();
-
-            for (let image of selectedImages) {
-                metadata[field].add(image.data.metadata[field]);
-            }
-        });
-
+        for (let image of selectedImages) {
+            Object.keys(image.data.metadata).forEach((key) => {
+                metadata[key] = metadata[key] || new Set();
+                metadata[key].add(image.data.metadata[key]);
+            });
+        }
         return metadata;
     }
 
-    function updateMetadata (fields) {
-        var metadata = groupMetadata(fields);
+    function updateMetadata () {
+        var metadata = groupMetadata();
 
         var displayMetadata = {};
 
@@ -45,6 +43,16 @@ selectionService.factory('selectionService', [function () {
         selectedMetadata = displayMetadata;
     }
 
+    function add (image) {
+        selectedImages.add(image);
+        updateMetadata();
+    }
+
+    function remove (image) {
+        selectedImages.delete(image);
+        updateMetadata();
+    }
+
     return {
         selectedImages: selectedImages,
 
@@ -54,14 +62,12 @@ selectionService.factory('selectionService', [function () {
 
         isSelected: (image) => selectedImages.has(image),
 
-        add: (image, fields) => {
-            selectedImages.add(image);
-            updateMetadata(fields);
-        },
+        add: add,
 
-        remove: (image, fields) => {
-            selectedImages.delete(image);
-            updateMetadata(fields);
+        remove: remove,
+
+        toggleSelection: (image, select) => {
+            return select ? add(image) : remove(image);
         },
 
         clear: () => selectedImages.clear()
