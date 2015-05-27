@@ -85,7 +85,7 @@ object MediaApi extends Controller with ArgoHelpers {
   def getImage(id: String) = Authenticated.async { request =>
 
     val includedQuery: Option[String] = request.getQueryString("include")
-    val included = includedQuery.map(_.split(",")).map(_.map(_.trim.toLowerCase)).getOrElse(Array())
+    val included: List[String] = includedQuery.map(_.split(",").map(_.trim).toList).getOrElse(List())
 
     ElasticSearch.getImageById(id) flatMap {
       case Some(source) => {
