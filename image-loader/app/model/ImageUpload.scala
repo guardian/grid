@@ -89,7 +89,7 @@ case object ImageUpload {
       metadata,
       usageRights,
       usageRights,
-      None
+      List()
     )
   }
 
