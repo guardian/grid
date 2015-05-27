@@ -15,7 +15,7 @@ import com.gu.mediaservice.api.Transformers
 
 object ImageResponse {
   import com.gu.mediaservice.lib.formatting._
-  implicit val dateFormat = dateTimeFormat
+  implicit val dateTimeFormat = DateFormat
 
   val commonTransformers = new Transformers(Config.services)
 
