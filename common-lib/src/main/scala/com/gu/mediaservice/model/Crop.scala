@@ -9,7 +9,7 @@ import org.joda.time.DateTime
 case class Crop(id: String, author: Option[String], date: Option[DateTime], specification: CropSource, master: Option[Asset], assets: List[Asset])
 object Crop {
   import com.gu.mediaservice.lib.formatting._
-  implicit val dateFormat = dateTimeFormat
+  implicit val dateTimeFormat = DateFormat
 
   def getCropId(b: Bounds) = List(b.x, b.y, b.width, b.height).mkString("_")
 
