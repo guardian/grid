@@ -4,7 +4,6 @@ import org.joda.time.DateTime
 import play.api.libs.functional.syntax._
 import play.api.libs.json._
 
-import com.gu.mediaservice.lib.formatting._
 
 case class Image(
   id:                  String,
@@ -24,6 +23,9 @@ case class Image(
 )
 
 object Image {
+
+  import com.gu.mediaservice.lib.formatting._
+  implicit val dateFormat = dateTimeFormat
 
   // FIXME: many fields made nullable to accomodate for legacy data that pre-dates them.
   // We should migrate the data for better consistency so nullable can be retired.

@@ -7,14 +7,15 @@ import play.api.libs.functional.syntax._
 
 import org.joda.time.{DateTime, Duration}
 
-import com.gu.mediaservice.model.{Export, DateFormat, Asset, ImageMetadata, UsageRights, Crop, FileMetadata, Edits}
+import com.gu.mediaservice.model._
 import com.gu.mediaservice.lib.argo.model.{EmbeddedEntity, Link}
 import com.gu.mediaservice.model.{Cost, Pay, Free, Image, ImageUsageRights}
 import com.gu.mediaservice.api.Transformers
 
 
 object ImageResponse {
-  implicit val dateTimeFormat = DateFormat
+  import com.gu.mediaservice.lib.formatting._
+  implicit val dateFormat = dateTimeFormat
 
   val commonTransformers = new Transformers(Config.services)
 
