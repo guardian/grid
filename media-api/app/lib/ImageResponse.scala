@@ -2,6 +2,9 @@ package lib
 
 import java.net.{URLEncoder, URI}
 
+import scala.util.{Try, Failure}
+
+import play.api.Logger
 import play.api.libs.json._
 import play.api.libs.functional.syntax._
 
@@ -25,10 +28,19 @@ object ImageResponse {
 
   def create(id: String, esSource: JsValue, withWritePermission: Boolean, included: List[String] = List()): (JsValue, List[Link]) = {
 
-    val image = esSource.as[Image]
-    val source = Json.toJson(image)(
-      imageResponseWrites(image.id, included.contains("fileMetadata"))
-    )
+    val (image: Image, source: JsValue) = Try {
+      val image = esSource.as[Image]
+      val source = Json.toJson(image)(
+        imageResponseWrites(image.id, included.contains("fileMetadata"))
+      )
+
+      (image, source)
+    }.recoverWith {
+      case e => {
+        Logger.error(s"Failed to read ElasticSearch response into Image object: ${e.getMessage}")
+        Failure(e)
+      }
+    }.get
 
     // Round expiration time to try and hit the cache as much as possible
     // TODO: do we really need these expiration tokens? they kill our ability to cache...
