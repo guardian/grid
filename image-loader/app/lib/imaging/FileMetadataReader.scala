@@ -13,7 +13,7 @@ import com.drew.metadata.icc.IccDirectory
 import com.drew.metadata.exif.{ExifSubIFDDirectory, ExifIFD0Directory}
 import com.drew.metadata.xmp.XmpDirectory
 
-import com.gu.mediaservice.model.{Dimensions, FileMetadata, ColorModel}
+import com.gu.mediaservice.model.{Dimensions, FileMetadata}
 
 
 object FileMetadataReader {
