@@ -5,11 +5,14 @@
 
 .panel--side {
     width: 280px;
-    height: calc(100vh - 68px);
+    height: calc(100vh - 48px);
 }
 
 .panel--right {
     float: right;
+    position: fixed;
+    right: 0;
+    bottom: 0;
 }
 
 .panel__title {
