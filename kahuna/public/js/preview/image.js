@@ -12,7 +12,8 @@ image.directive('uiPreviewImage', function() {
         restrict: 'E',
         scope: {
             image: '=',
-            hideInfo: '='
+            hideInfo: '=',
+            selectionMode: '='
         },
         // extra actions can be transcluded in
         transclude: true,

@@ -4,16 +4,19 @@ import 'angular-ui-router-extras';
 import './query';
 import './results';
 import '../preview/image';
+import '../components/gr-panel/gr-panel';
 
 import searchTemplate        from './view.html!text';
 import searchResultsTemplate from './results.html!text';
+import panelTemplate        from '../components/gr-panel/gr-panel.html!text';
 
 
 export var search = angular.module('kahuna.search', [
     'ct.ui.router.extras.dsr',
     'kahuna.search.query',
     'kahuna.search.results',
-    'kahuna.preview.image'
+    'kahuna.preview.image',
+    'grPanel'
 ]);
 
 // TODO: add a resolver here so that if we error (e.g. 401) we don't keep trying
@@ -32,12 +35,21 @@ search.config(['$stateProvider',
 
     $stateProvider.state('search.results', {
         url: 'search?query&ids&since&nonFree&archived&valid&uploadedBy&until',
-        template: searchResultsTemplate,
-        controller: 'SearchResultsCtrl',
-        controllerAs: 'searchResultsCtrl',
         data: {
             title: function(params) {
                 return params.query ? params.query : 'search';
+            }
+        },
+        views: {
+            results: {
+                template: searchResultsTemplate,
+                controller: 'SearchResultsCtrl',
+                controllerAs: 'ctrl'
+            },
+            panel: {
+                template: panelTemplate,
+                controller: 'GrPanel',
+                controllerAs: 'ctrl'
             }
         }
     });
