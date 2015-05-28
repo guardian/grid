@@ -81,6 +81,9 @@ This will also create a ```panda.properties``` file that configures the
 This file will be used by the different applications to share auth
 config, so that CORS is enabled across APIs.
 
+Make sure you put the generated ```.properties``` files in
+```/etc/gu/``` instead of ```~/.gu/``` as many apps do.
+
 ### Run Media API
 
 From the project root, run via sbt:
