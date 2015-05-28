@@ -1,6 +1,6 @@
 package com.gu.mediaservice.lib.cleanup
 
-import com.gu.mediaservice.model.{Agency, Image, FileMetadata, ImageMetadata}
+import com.gu.mediaservice.model._
 import org.scalatest.{Matchers, FunSpec}
 
 class SupplierProcessorsTest extends FunSpec with Matchers with MetadataHelper {
@@ -234,7 +234,7 @@ class SupplierProcessorsTest extends FunSpec with Matchers with MetadataHelper {
     }
 
     it("should add agency as category if supplier is present") {
-      val image = createImageFromMetadata("credit" -> "AAPIMAGE")
+      val image = createImageFromMetadata().copy(usageRights = ImageUsageRights(supplier = Some("AP")))
       val processedImage = applyProcessors(image)
 
       processedImage.usageRights.category should be (Some(Agency))
