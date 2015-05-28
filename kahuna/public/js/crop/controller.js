@@ -3,63 +3,68 @@ import angular from 'angular';
 var crop = angular.module('kahuna.crop.controller', []);
 
 crop.controller('ImageCropCtrl',
-                ['$scope', '$stateParams', '$state', '$filter', 'mediaApi', 'mediaCropper',
+                ['$rootScope', '$stateParams', '$state', '$filter', 'mediaApi', 'mediaCropper',
                  'image', 'optimisedImageUri',
-                 function($scope, $stateParams, $state, $filter, mediaApi, mediaCropper,
+                 function($rootScope, $stateParams, $state, $filter, mediaApi, mediaCropper,
                   image, optimisedImageUri) {
 
-    var imageId = $stateParams.imageId;
-    $scope.image = image;
-    $scope.optimisedImageUri = optimisedImageUri;
+    const ctrl = this;
 
-    $scope.cropping = false;
+    var imageId = $stateParams.imageId;
+    ctrl.image = image;
+    ctrl.optimisedImageUri = optimisedImageUri;
+
+    ctrl.cropping = false;
 
     // Standard ratios
-    $scope.landscapeRatio = 5 / 3;
-    $scope.portraitRatio = 2 / 3;
-    $scope.freeRatio = null;
+    ctrl.landscapeRatio = 5 / 3;
+    ctrl.portraitRatio = 2 / 3;
+    ctrl.freeRatio = null;
 
-    // TODO: migrate the other properties to be on the ctrl (this) instead of $scope
-    this.aspect = $scope.landscapeRatio;
-    $scope.coords = {
+    const originalDimensions = image.data.source.dimensions;
+    ctrl.originalWidth  = originalDimensions.width;
+    ctrl.originalHeight = originalDimensions.height;
+
+    ctrl.aspect = ctrl.landscapeRatio;
+    ctrl.coords = {
         x1: 0,
         y1: 0,
-        // max out to fill the image with the selection
-        x2: 10000,
-        y2: 10000
+        // fill the image with the selection
+        x2: ctrl.originalWidth,
+        y2: ctrl.originalHeight
     };
 
-    var cropWidth = () => Math.round($scope.coords.x2 - $scope.coords.x1);
-    var cropHeight = () => Math.round($scope.coords.y2 - $scope.coords.y1);
-    this.cropSize = () => cropWidth() + ' x ' + cropHeight();
-    this.cropSizeWarning = () => cropWidth() < 500;
+    var cropWidth = () => Math.round(ctrl.coords.x2 - ctrl.coords.x1);
+    var cropHeight = () => Math.round(ctrl.coords.y2 - ctrl.coords.y1);
+    ctrl.cropSize = () => cropWidth() + ' x ' + cropHeight();
+    ctrl.cropSizeWarning = () => cropWidth() < 500;
 
-    this.getRatioString = (aspect) => {
-        if (Number(aspect) === $scope.landscapeRatio) {
+    ctrl.getRatioString = (aspect) => {
+        if (Number(aspect) === ctrl.landscapeRatio) {
             return '5:3';
-        } else if (Number(aspect) === $scope.portraitRatio) {
+        } else if (Number(aspect) === ctrl.portraitRatio) {
             return '2:3';
         }
         // else undefined is fine
     };
 
-    $scope.crop = function() {
+    ctrl.crop = function() {
         // TODO: show crop
         var coords = {
-            x: Math.round($scope.coords.x1),
-            y: Math.round($scope.coords.y1),
+            x: Math.round(ctrl.coords.x1),
+            y: Math.round(ctrl.coords.y1),
             width:  cropWidth(),
             height: cropHeight()
         };
 
-        var ratio = this.getRatioString(this.aspect);
+        var ratio = ctrl.getRatioString(ctrl.aspect);
 
-        $scope.cropping = true;
+        ctrl.cropping = true;
 
-        mediaCropper.createCrop($scope.image, coords, ratio).then(crop => {
+        mediaCropper.createCrop(ctrl.image, coords, ratio).then(crop => {
             // Global notification of action
-            $scope.$emit('events:crop-created', {
-                image: $scope.image,
+            $rootScope.$emit('events:crop-created', {
+                image: ctrl.image,
                 crop: crop
             });
 
@@ -68,8 +73,8 @@ crop.controller('ImageCropCtrl',
                 crop: crop.data.id
             });
         }).finally(() => {
-            $scope.cropping = false;
+            ctrl.cropping = false;
         });
-    }.bind(this);
+    };
 
 }]);
