@@ -1,7 +1,7 @@
 <div class="preview image-actions-container"
      title="{{image.data.metadata.description || image.data.metadata.title}}">
 
-    <ul class="image-actions">
+    <ul class="image-actions" ng:if="! selectionMode">
         <li>
             <a class="image-action image-action--first"
                target="_blank"
@@ -20,16 +20,22 @@
         </li>
     </ul>
 
-    <a class="preview__link"
+    <a ng:if="! selectionMode" class="preview__link"
        ui:sref="image({imageId: image.data.id})"
        ui:drag-data="{{image | asImageDragData}}">
        <img class="preview__image"
             ng:src="{{image.data.thumbnail | assetFile}}" />
     </a>
 
+    <span  ng:if="selectionMode" class="preview__no-link">
+        <img class="preview__image"
+             ng:src="{{image.data.thumbnail | assetFile}}"/>
+    </span>
+
     <div class="preview__info" ng:if="! hideInfo">
         <ui-labeller-compact class="preview__labeller"
-                             labels="image.data.userMetadata.data.labels"></ui-labeller-compact>
+                             labels="image.data.userMetadata.data.labels"
+                             disabled="selectionMode"></ui-labeller-compact>
 
         <p class="preview__description">{{image.data.metadata.description || image.data.metadata.title}}</p>
     </div>
@@ -47,7 +53,8 @@
 
             <ui-archiver
                 class="bottom-bar__action"
-                archived="image.data.userMetadata.data.archived"></ui-archiver>
+                archived="image.data.userMetadata.data.archived"
+                disabled="selectionMode"></ui-archiver>
 
             <div class="preview__cost bottom-bar__action" ng:switch="image.data.cost">
                 <div ng:switch-when="pay"
