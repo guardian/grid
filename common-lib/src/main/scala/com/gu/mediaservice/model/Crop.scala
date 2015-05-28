@@ -5,8 +5,9 @@ import play.api.libs.functional.syntax._
 
 import org.joda.time.DateTime
 
+//FIXME: Both id and filesize here should not be an Option and are awaiting backfilling the correct data in ES
 
-case class Crop(id: String, author: Option[String], date: Option[DateTime], specification: CropSource, master: Option[Asset], assets: List[Asset])
+case class Crop(id: Option[String], author: Option[String], date: Option[DateTime], specification: CropSource, master: Option[Asset], assets: List[Asset])
 object Crop {
   import com.gu.mediaservice.lib.formatting._
   implicit val dateTimeFormat = DateFormat
@@ -14,13 +15,13 @@ object Crop {
   def getCropId(b: Bounds) = List(b.x, b.y, b.width, b.height).mkString("_")
 
   def createFromCropSource(by: Option[String], timeRequested: Option[DateTime], specification: CropSource, master: Option[Asset] = None, cropSizings: List[Asset] = Nil): Crop =
-    Crop(getCropId(specification.bounds), by, timeRequested, specification, master, cropSizings)
+    Crop(Some(getCropId(specification.bounds)), by, timeRequested, specification, master, cropSizings)
 
   def createFromCrop(crop: Crop, master: Asset, assets: List[Asset]): Crop =
     Crop(crop.id, crop.author, crop.date, crop.specification, Some(master), assets)
 
   implicit val cropReads: Reads[Crop] = (
-    (__ \ "id").read[String] ~
+    (__ \ "id").readNullable[String] ~
     (__ \ "author").readNullable[String] ~
     (__ \ "date").readNullable[DateTime] ~
     (__ \ "specification").read[CropSource] ~
@@ -29,7 +30,7 @@ object Crop {
   )(Crop.apply _)
 
   implicit val cropWrites: Writes[Crop] = (
-    (__ \ "id").write[String] ~
+    (__ \ "id").writeNullable[String] ~
     (__ \ "author").writeNullable[String] ~
     (__ \ "date").writeNullable[String].contramap(printOptDateTime) ~
     (__ \ "specification").write[CropSource] ~
