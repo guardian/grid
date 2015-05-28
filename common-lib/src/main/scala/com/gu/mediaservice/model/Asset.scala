@@ -5,25 +5,25 @@ import play.api.libs.json._
 import play.api.libs.functional.syntax._
 import com.gu.mediaservice.lib.aws.S3Object
 
-case class Asset(file: URI, size: Long, mimeType: Option[String], dimensions: Option[Dimensions], secureUrl: Option[URL] = None)
+case class Asset(file: URI, size: Option[Long], mimeType: Option[String], dimensions: Option[Dimensions], secureUrl: Option[URL] = None)
 object Asset {
 
-  def fromS3Object(s3Object: S3Object, dimensions: Option[Dimensions]): Asset = {
+  def fromS3Object(s3Object: S3Object, dims: Option[Dimensions]): Asset = {
     val userMetadata   = s3Object.metadata.userMetadata
     val objectMetadata = s3Object.metadata.objectMetadata
 
     Asset(
-      s3Object.uri,
-      s3Object.size,
-      objectMetadata.contentType,
-      dimensions,
-      None
+      file       = s3Object.uri,
+      size       = Some(s3Object.size),
+      mimeType   = objectMetadata.contentType,
+      dimensions = dims,
+      secureUrl  = None
     )
   }
 
   implicit val assetReads: Reads[Asset] =
     ((__ \ "file").read[String].map(URI.create(_)) ~
-      (__ \ "size").read[Long] ~
+      (__ \ "size").readNullable[Long] ~
       (__ \ "mimeType").readNullable[String] ~
       (__ \ "dimensions").readNullable[Dimensions] ~
       (__ \ "secureUrl").readNullable[String].map(_.map(new URL(_)))
@@ -31,7 +31,7 @@ object Asset {
 
   implicit val assetWrites: Writes[Asset] =
     ((__ \ "file").write[String].contramap((_: URI).toString) ~
-      (__ \ "size").write[Long] ~
+      (__ \ "size").writeNullable[Long] ~
       (__ \ "mimeType").writeNullable[String] ~
       (__ \ "dimensions").writeNullable[Dimensions] ~
       (__ \ "secureUrl").writeNullable[String].contramap((_: Option[URL]).map(_.toString))
