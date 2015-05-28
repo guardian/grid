@@ -1,40 +1,40 @@
 <!-- TODO: show only after a delay -->
-<div ng:if="loading"
+<div ng:if="ctrl.loading"
      class="image-loading-results">
     Fetching images…
 </div>
 
-<div ng:if="! loading">
-    <div ng:show="images.length == 0"
+<div ng:if="! ctrl.loading">
+    <div ng:show="ctrl.images.length == 0"
          class="image-no-results">
         No matches, sorry!
     </div>
 
-    <div ng:show="images.length > 0">
+    <div ng:show="ctrl.images.length > 0">
 
         <div class="image-results-count">
-            {{totalResults | toLocaleString}} matches
-            <button ng:show="newImagesCount > 0"
-                    ng:click="revealNewImages()"
+            {{ctrl.totalResults | toLocaleString}} matches
+            <button ng:show="ctrl.newImagesCount > 0"
+                    ng:click="ctrl.revealNewImages()"
                     class="image-results-count__new">
-                {{newImagesCount | toLocaleString}} new
+                {{ctrl.newImagesCount | toLocaleString}} new
             </button>
         </div>
 
         <ul class="results"
-            ui:has-space="searchResultsCtrl.uiHasSpace"
-            ui:near-bottom="whenNearBottom()"
-            ui:forget-window-scroll="searched"
-            ui:window-resized="fillRemainingSpace()">
+            ui:has-space="ctrl.uiHasSpace"
+            ui:near-bottom="ctrl.whenNearBottom()"
+            ui:forget-window-scroll="ctrl.searched"
+            ui:window-resized="ctrl.fillRemainingSpace()">
             <li class="result"
-                ng:repeat="image in images"
-                ng:class="{ 'result--seen': imageHasBeenSeen(image) }">
+                ng:repeat="image in ctrl.images"
+                ng:class="{ 'result--seen': ctrl.imageHasBeenSeen(image) }">
 
                 <ui-preview-image image="image">
                     <button class="mark-as-seen image-action"
                             title="Mark all images until this point as seen"
                             ui:localstore="search.seenFrom"
-                            ui:localstore-val="getLastSeenVal(image)">☑</button>
+                            ui:localstore-val="ctrl.getLastSeenVal(image)">☑</button>
                 </ui-preview-image>
             </li>
         </ul>
