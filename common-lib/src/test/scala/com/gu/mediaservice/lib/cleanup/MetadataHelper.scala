@@ -16,12 +16,14 @@ trait MetadataHelper {
       uploadedBy = "tester",
       lastModified = None,
       identifiers = Map(),
-      source = Asset(URI.create("http://example.com/image.jpg"), 0, None, None),
+      source = Asset(URI.create("http://example.com/image.jpg"), Some(0), None, None),
       thumbnail = None,
       fileMetadata = FileMetadata(),
+      userMetadata = None,
       originalMetadata = metadataMap,
       usageRights = usageRights,
-      originalUsageRights = usageRights
+      originalUsageRights = usageRights,
+      exports = List()
     )
   }
 

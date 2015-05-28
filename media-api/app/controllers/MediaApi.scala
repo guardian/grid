@@ -18,7 +18,7 @@ import Syntax._
 import scalaz.syntax.std.list._
 
 import lib.elasticsearch._
-import lib.{Notifications, Config, S3Client}
+import lib.{Notifications, Config, S3Client, ImageResponse}
 import lib.querysyntax.{Condition, Parser}
 
 import com.gu.mediaservice.lib.auth
@@ -69,6 +69,11 @@ object MediaApi extends Controller with ArgoHelpers {
 
 
   val ImageNotFound = respondError(NotFound, "image-not-found", "No image found with the given id")
+  def getIncludedFromParams(request: AuthenticatedRequest[AnyContent, Principal]): List[String] = {
+    val includedQuery: Option[String] = request.getQueryString("include")
+
+    includedQuery.map(_.split(",").map(_.trim).toList).getOrElse(List())
+  }
 
   def canUserWriteMetadata(request: AuthenticatedRequest[AnyContent, Principal], source: JsValue) = {
     request.user match {
@@ -83,18 +88,20 @@ object MediaApi extends Controller with ArgoHelpers {
   }
 
   def getImage(id: String) = Authenticated.async { request =>
+    val include = getIncludedFromParams(request)
+
     ElasticSearch.getImageById(id) flatMap {
       case Some(source) => {
         val withWritePermission = canUserWriteMetadata(request, source)
 
         withWritePermission.map {
           permission => {
-            val (imageData, imageLinks) = imageResponse(id, source, permission)
+            val (imageData, imageLinks) = ImageResponse.create(id, source, permission, include)
             respond(imageData, imageLinks)
           }
         }
       }
-      case None         => Future.successful(ImageNotFound)
+      case None => Future.successful(ImageNotFound)
     }
   }
 
@@ -149,11 +156,13 @@ object MediaApi extends Controller with ArgoHelpers {
 
 
   def imageSearch = Authenticated.async { request =>
+    val include = getIncludedFromParams(request)
+
     def hitToImageEntity(elasticId: ElasticSearch.Id, source: JsValue): Future[EmbeddedEntity[JsValue]] = {
       val withWritePermission = canUserWriteMetadata(request, source)
 
       withWritePermission.map { permission =>
-        val (imageData, imageLinks) = imageResponse(elasticId, source, permission)
+        val (imageData, imageLinks) = ImageResponse.create(elasticId, source, permission, include)
         val id = (imageData \ "id").as[String]
         EmbeddedEntity(uri = URI.create(s"$rootUri/images/$id"), data = Some(imageData), imageLinks)
       }
@@ -168,7 +177,6 @@ object MediaApi extends Controller with ArgoHelpers {
       links = List(prevLink, nextLink).flatten
     } yield respondCollection(imageEntities, Some(searchParams.offset), Some(totalCount), links)
   }
-
 
   val searchTemplate = URITemplate(searchLinkHref)
 
@@ -208,89 +216,6 @@ object MediaApi extends Controller with ArgoHelpers {
     } else {
       None
     }
-  }
-
-
-  def imageResponse(id: String, source: JsValue, withWritePermission: Boolean): (JsValue, List[Link]) = {
-    // Round expiration time to try and hit the cache as much as possible
-    // TODO: do we really need these expiration tokens? they kill our ability to cache...
-    val expiration = roundDateTime(DateTime.now, Duration.standardMinutes(10)).plusMinutes(20)
-    val fileUri = new URI((source \ "source" \ "file").as[String])
-    val secureUrl = S3Client.signUrl(Config.imageBucket, fileUri, expiration)
-    val secureThumbUrl = S3Client.signUrl(Config.thumbBucket, fileUri, expiration)
-
-    val creditField = (source \ "metadata" \ "credit").as[Option[String]]
-    val sourceField = (source \ "metadata" \ "source").as[Option[String]]
-    val supplierField     = (source \ "usageRights" \ "supplier").asOpt[String]
-    val supplierCollField = (source \ "usageRights" \ "suppliersCollection").asOpt[String]
-    val usageRightsField = (source \ "userMetadata" \ "usageRights").asOpt[UsageRights]
-    val valid = ImageExtras.isValid(source \ "metadata")
-
-    val imageData = source.transform(transformers.addSecureSourceUrl(secureUrl))
-      .flatMap(_.transform(transformers.addSecureThumbUrl(secureThumbUrl)))
-      .flatMap(_.transform(transformers.removeFileData))
-      .flatMap(_.transform(transformers.addFileMetadataUrl(s"$rootUri/images/$id/fileMetadata")))
-      .flatMap(_.transform(transformers.wrapUserMetadata(id)))
-      .flatMap(_.transform(transformers.addValidity(valid)))
-      .flatMap(_.transform(transformers.addUsageCost(creditField, sourceField, supplierField, supplierCollField, usageRightsField))).get
-
-    val cropLink = Link("crops", s"$cropperUri/crops/$id")
-    val editLink = Link("edits", s"$metadataUri/metadata/$id")
-    val optimisedLink = Link("optimised", makeImgopsUri(new URI(secureUrl)))
-    val imageLink = Link("ui:image",  s"$kahunaUri/images/$id")
-
-    val baseLinks = if (withWritePermission) {
-      List(editLink, optimisedLink, imageLink)
-    } else {
-      List(optimisedLink, imageLink)
-    }
-
-    val imageLinks = if (valid) {
-      cropLink :: baseLinks
-    } else {
-      baseLinks
-    }
-
-    (imageData, imageLinks)
-  }
-
-  object transformers {
-
-    def addUsageCost(credit: Option[String], source: Option[String], supplier: Option[String],
-                     supplierColl: Option[String], usageRights: Option[UsageRights]): Reads[JsObject] = {
-      val cost = ImageExtras.getCost(credit, source, supplier, supplierColl, usageRights)
-      __.json.update(__.read[JsObject].map(_ ++ Json.obj("cost" -> cost.toString)))
-    }
-
-    def removeFileData: Reads[JsObject] =
-      (__ \ "fileMetadata").json.prune
-
-    def addFileMetadataUrl(url: String): Reads[JsObject] =
-      __.json.update(__.read[JsObject].map (_ ++ Json.obj("fileMetadata" -> Json.obj("uri" -> url))))
-
-    // FIXME: tidier way to replace a key in a JsObject?
-    def wrapUserMetadata(id: String): Reads[JsObject] =
-      __.read[JsObject].map { root =>
-        val userMetadata = commonTransformers.objectOrEmpty(root \ "userMetadata")
-        val wrappedUserMetadata = userMetadata.transform(commonTransformers.wrapAllMetadata(id)).get
-        root ++ Json.obj("userMetadata" -> wrappedUserMetadata)
-      }
-
-    def addSecureSourceUrl(url: String): Reads[JsObject] =
-      (__ \ "source").json.update(__.read[JsObject].map(_ ++ Json.obj("secureUrl" -> url)))
-
-    def addSecureThumbUrl(url: String): Reads[JsObject] =
-      (__ \ "thumbnail").json.update(__.read[JsObject].map (_ ++ Json.obj("secureUrl" -> url)))
-
-    def addValidity(valid: Boolean): Reads[JsObject] =
-      __.json.update(__.read[JsObject]).map(_ ++ Json.obj("valid" -> valid))
-  }
-
-  def makeImgopsUri(uri: URI): String =
-    imgopsUri + List(uri.getPath, uri.getRawQuery).mkString("?") + "{&w,h,q}"
-
-  def roundDateTime(t: DateTime, d: Duration) = {
-    t minus (t.getMillis - (t.getMillis.toDouble / d.getMillis).round * d.getMillis)
   }
 
   // TODO: work with analysed fields

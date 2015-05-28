@@ -16,14 +16,13 @@ import com.gu.mediaservice.lib.auth
 import com.gu.mediaservice.lib.auth.{AuthenticatedService, PandaUser, KeyStore}
 import com.gu.mediaservice.lib.argo.ArgoHelpers
 import com.gu.mediaservice.lib.argo.model.Link
-import com.gu.mediaservice.model.SourceImage
+import com.gu.mediaservice.model.{Crop, SourceImage, CropSource, Bounds}
 
 import org.joda.time.DateTime
 
 import lib.imaging.ExportResult
 
 import lib._, Files._
-import model._
 
 
 object Application extends Controller with ArgoHelpers {
@@ -63,7 +62,7 @@ object Application extends Controller with ArgoHelpers {
       errors   => Future.successful(BadRequest(errors.errorsAsJson)),
       cropSrc  => {
 
-        val crop = Crop(
+        val crop = Crop.createFromCropSource(
           by = author,
           timeRequested = Some(new DateTime()),
           specification = cropSrc
@@ -76,7 +75,7 @@ object Application extends Controller with ArgoHelpers {
         } yield export
 
         export.map { case ExportResult(id, masterSizing, sizings) =>
-          val cropJson = Json.toJson(Crop(crop, masterSizing, sizings)).as[JsObject]
+          val cropJson = Json.toJson(Crop.createFromCrop(crop, masterSizing, sizings)).as[JsObject]
           val exports  = Json.obj(
             "id" -> id,
             "data" -> Json.arr(Json.obj("type" -> "crop") ++ cropJson)

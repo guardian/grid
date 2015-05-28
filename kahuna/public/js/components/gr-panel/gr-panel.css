@@ -1,0 +1,34 @@
+.panel {
+    padding: 10px;
+    background-color: #444;
+}
+
+.panel--side {
+    width: 280px;
+    height: calc(100vh - 48px);
+}
+
+.panel--right {
+    float: right;
+    position: fixed;
+    right: 0;
+    bottom: 0;
+}
+
+.panel__title {
+    display: inline-block;
+    float: left;
+}
+
+.panel__close {
+    float: right;
+    display: inline-block;
+}
+
+.panel__content {
+    clear: both;
+}
+
+.panel__bottom .panel__close{
+    width: 100%;
+}
