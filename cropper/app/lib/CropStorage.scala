@@ -7,9 +7,7 @@ import java.util.concurrent.Executors
 import scala.concurrent.{ExecutionContext, Future}
 
 import com.gu.mediaservice.lib.S3ImageStorage
-import com.gu.mediaservice.model.{Dimensions, Asset}
-
-import model._
+import com.gu.mediaservice.model.{Dimensions, Asset, Crop, CropSource, Bounds}
 
 object CropStore extends S3ImageStorage(Config.imgPublishingCredentials) {
   import com.gu.mediaservice.lib.formatting._
@@ -38,7 +36,7 @@ object CropStore extends S3ImageStorage(Config.imgPublishingCredentials) {
     storeImage(Config.imgPublishingBucket, filename, file, Some(mimeType), filteredMetadata) map { s3Object=>
       Asset(
         translateImgHost(s3Object.uri),
-        s3Object.size,
+        Some(s3Object.size),
         s3Object.metadata.objectMetadata.contentType,
         Some(dimensions),
         getSecureCropUri(s3Object.uri)
@@ -75,17 +73,17 @@ object CropStore extends S3ImageStorage(Config.imgPublishingCredentials) {
             sizing         =
               Asset(
                 translateImgHost(s3Object.uri),
-                s3Object.size,
+                Some(s3Object.size),
                 objectMetadata.contentType,
                 Some(dimensions),
                 getSecureCropUri(s3Object.uri)
               )
-            lastCrop       = map.getOrElse(cid, Crop(author, date, cropSource))
+            lastCrop       = map.getOrElse(cid, Crop.createFromCropSource(author, date, cropSource))
             lastSizings    = lastCrop.assets
 
             currentSizings = if (isMaster) lastSizings else lastSizings :+ sizing
             masterSizing   = if (isMaster) Some(sizing) else lastCrop.master
-          } yield cid -> Crop(author, date, cropSource, masterSizing, currentSizings)
+          } yield cid -> Crop.createFromCropSource(author, date, cropSource, masterSizing, currentSizings)
 
           map ++ updatedCrop
         }
