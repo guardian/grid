@@ -451,7 +451,7 @@ kahuna.directive('uiForgetWindowScroll',
     return {
         restrict: 'A',
         link: function(scope, element, attrs) {
-            scope[attrs.uiForgetWindowScroll].finally(function() {
+            scope.$eval(attrs.uiForgetWindowScroll).finally(function() {
                 // FIXME: even if this is a hack, using timeout as the DOM
                 // hasn't loaded is balony.
                 $timeout(function() {

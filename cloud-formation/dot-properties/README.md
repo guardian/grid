@@ -5,30 +5,45 @@ This directory holds a python script that can be used to generate the .propertie
 ## System Requirements
 
   * Python 2.7
+  * AWS CLI with a `media-service` profile (`aws configure --profile media-service`).
 
-### Optional
-
-It's recommended to use virtual environments to keep project dependencies separate from system site packages and other
+It's recommended to use [virtual environments](http://docs.python-guide.org/en/latest/dev/virtualenvs/) to keep project dependencies separate from system site packages and other
 projects - makes managing dependencies on different versions easy!
 
-  * [virtualenv](http://docs.python-guide.org/en/latest/dev/virtualenvs/)
+Additionally, [virtualenvwrapper](https://virtualenvwrapper.readthedocs.org/en/latest/) makes managing virtual environments easy!
 
-For bonus points, use [virtualenvwrapper](https://virtualenvwrapper.readthedocs.org/en/latest/) on top of virtualenv.
+Install virtualenv:
+
+```sh
+pip install virtualenv
+```
+
+Install virtualenvwrapper:
+
+```sh
+pip install virtualenvwrapper
+```
+
+NB: From the virtualenvwrapper docs:
+
+> You will want to add the command to `source /usr/local/bin/virtualenvwrapper.sh` to your shell startup file, changing the path to virtualenvwrapper.sh depending on where it was installed by pip.
 
 ## Usage
 
 ### Install requirements
 
-If you're using a virtual environment, you first need to create one:
+This assumes you're using [virtualenvwrapper](https://virtualenvwrapper.readthedocs.org/en/latest/).
+
+Create a virtual environment:
 
 ```sh
-virtualenv venv
+mkvirtualenv media-service
 ```
 
-Then activate it:
+If you've previously created it, run:
 
 ```sh
-source venv/bin/activate
+workon media-service
 ```
 
 Install python requirements:
@@ -37,13 +52,13 @@ Install python requirements:
 pip install -r requirements.txt
 ```
 
-
 ### Configure
 
-Configuration is done via a settings file.
+You need to create the following files within the `settings` directory.
 
-Create a file called ```settings_dev.py``` in the ```settings``` directory. Where ```dev``` denotes the environment
-(or developer). Although the filename is somewhat arbitrary, it must be prefixed with ```settings_```.
+NB: These files are excluded in [`.gitignore`](./.gitignore).
+
+#### settings_dev.py
 
 This file should have the following contents:
 
@@ -73,15 +88,20 @@ Where:
   * ```<OUTPUT_DIRECTORY>``` is the location to write the .properties files to. Default is ```output```.
   * ```CLOUD_FORMATION_NAME_OR_ID``` is the Name or ID of your CloudFormatuon Stack.
   * ```<AWS_CLI_CONFIGURATION_PROFILE>``` is the name of an [AWS CLI Profile](http://docs.aws.amazon.com/cli/latest/userguide/cli-chap-getting-started.html)
-    If none is specified it is defaulted to ```default```.
+    If none is specified it is defaulted to ```media-service```.
   * ```<AWS_REGION>``` is the region your CloudFormation is in. If none is specified it is defaulted to ```eu-west-1```.
 
+#### env.py
+
+This file should have the following contents:
+
+```py
+FLEXI_RUN_ENV=dev
+```
+
+This file is used to determine which settings file to use; it will take the values from `settings.py` and apply overrides from `settings_dev.py`.
+
 ### Generating .properties
-
-Now that you've got your configuration file, you need to tell the script what settings file to use. You can either set
-the ```FLEXI_RUN_ENV``` environment variable or create a file ```env.py``` in the ```settings``` directory with the
-contents: ```FLEXI_RUN_ENV=dev``` where ```dev``` is the name of your settings file created above.
-
 To generate the .properties files, run the command:
 
 ```sh

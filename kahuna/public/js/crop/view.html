@@ -3,28 +3,28 @@
         <div class="top-bar">
             <div class="top-bar__nav">
                 <a class="top-bar__item top-bar__item--first"
-                    ui:sref="image({ imageId: image.data.id })">← cancel</a>
+                    ui:sref="image({ imageId: ctrl.image.data.id })">← cancel</a>
             </div>
 
             <div class="top-bar__actions">
-                <div class="top-bar__item">{{ imageCropCtrl.cropSize() }}</div>
+                <div class="top-bar__item">{{ ctrl.cropSize() }}</div>
 
                 <label class="top-bar__item">
-                    <input type="radio" ng:model="imageCropCtrl.aspect" value="{{landscapeRatio}}" />
-                    landscape ({{::imageCropCtrl.getRatioString(landscapeRatio)}})
+                    <input type="radio" ng:model="ctrl.aspect" value="{{ctrl.landscapeRatio}}" />
+                    landscape ({{::ctrl.getRatioString(ctrl.landscapeRatio)}})
                 </label>
 
                 <label class="top-bar__item">
-                    <input type="radio" ng:model="imageCropCtrl.aspect" value="{{portraitRatio}}" />
-                    portrait ({{::imageCropCtrl.getRatioString(portraitRatio)}})
+                    <input type="radio" ng:model="ctrl.aspect" value="{{ctrl.portraitRatio}}" />
+                    portrait ({{::ctrl.getRatioString(ctrl.portraitRatio)}})
                 </label>
 
                 <label class="top-bar__item">
-                    <input type="radio" ng:model="imageCropCtrl.aspect" value="{{freeRatio}}" />
+                    <input type="radio" ng:model="ctrl.aspect" value="{{ctrl.freeRatio}}" />
                     free-form
                 </label>
 
-                <div class="top-bar__item" ng:switch="image.data.cost">
+                <div class="top-bar__item" ng:switch="ctrl.image.data.cost">
                     <div ng:switch-when="pay"
                          class="cost cost--pay">
                         pay to use
@@ -32,7 +32,7 @@
 
                     <div ng:switch-when="conditional"
                          class="cost cost--conditional"
-                         title="{{image.data.userMetadata.data.usageRights.data.restrictions}}">
+                         title="{{ctrl.image.data.userMetadata.data.usageRights.data.restrictions}}">
                          <!-- As `conditional` can only be set with usageRights, let's
                          just assume it's here. We might need to revisit this. -->
                         restricted use
@@ -43,31 +43,31 @@
                 <div class="top-bar__item">
                     <button class="button"
                             type="button"
-                            ng:click="crop()"
-                            ng:disabled="cropping">
-                            crop<span ng:show="cropping">ping…</span></button>
+                            ng:click="ctrl.crop()"
+                            ng:disabled="ctrl.cropping">
+                            crop<span ng:show="ctrl.cropping">ping…</span></button>
                 </div>
             </div>
             <ui-user-actions></ui-user-actions>
         </div>
     </div>
 
-    <div class="warning" ng:if="imageCropCtrl.cropSizeWarning()">
+    <div class="warning" ng:if="ctrl.cropSizeWarning()">
         This crop is very small and will result in a low-quality image.
         Please try to use a larger crop.
     </div>
 
-    <div class="easel" ng:if="image.data">
+    <div class="easel">
         <div class="easel__canvas">
             <img class="easel__image"
-                 ng:src="{{optimisedImageUri}}"
-                 ui:crop-box="coords"
-                 ui:crop-box-original-width="image.data.source.dimensions.width"
-                 ui:crop-box-original-height="image.data.source.dimensions.height"
-                 ui:crop-box-aspect="imageCropCtrl.aspect"
+                 ng:src="{{ctrl.optimisedImageUri}}"
+                 ui:crop-box="ctrl.coords"
+                 ui:crop-box-original-width="ctrl.originalWidth"
+                 ui:crop-box-original-height="ctrl.originalHeight"
+                 ui:crop-box-aspect="ctrl.aspect"
                  ui:crop-box-background-opacity="0.3"
 
-                 grid:track-image="image"
+                 grid:track-image="ctrl.image"
                  grid:track-image-location="original-cropping"
                  grid:track-image-loadtime />
         </div>
