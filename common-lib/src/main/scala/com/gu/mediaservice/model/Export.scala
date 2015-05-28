@@ -7,7 +7,7 @@ import org.joda.time.DateTime
 
 
 case class Export(
-  id: String,
+  id: Option[String],
   author: Option[String],
   date: Option[DateTime],
   specification: CropSource,
@@ -31,7 +31,7 @@ object Export {
   )
 
   implicit val exportWrites: Writes[Export] = (
-    (__ \ "id").write[String] ~
+    (__ \ "id").writeNullable[String] ~
     (__ \ "author").writeNullable[String] ~
     (__ \ "date").writeNullable[String].contramap(printOptDateTime) ~
     (__ \ "specification").write[CropSource] ~
