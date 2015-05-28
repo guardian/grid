@@ -36,7 +36,7 @@ object CropStore extends S3ImageStorage(Config.imgPublishingCredentials) {
     storeImage(Config.imgPublishingBucket, filename, file, Some(mimeType), filteredMetadata) map { s3Object=>
       Asset(
         translateImgHost(s3Object.uri),
-        s3Object.size,
+        Some(s3Object.size),
         s3Object.metadata.objectMetadata.contentType,
         Some(dimensions),
         getSecureCropUri(s3Object.uri)
@@ -73,7 +73,7 @@ object CropStore extends S3ImageStorage(Config.imgPublishingCredentials) {
             sizing         =
               Asset(
                 translateImgHost(s3Object.uri),
-                s3Object.size,
+                Some(s3Object.size),
                 objectMetadata.contentType,
                 Some(dimensions),
                 getSecureCropUri(s3Object.uri)
