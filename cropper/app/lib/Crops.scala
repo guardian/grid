@@ -2,8 +2,7 @@ package lib
 
 import scala.concurrent.Future
 import lib.imaging.{ExportOperations, ExportResult}
-import com.gu.mediaservice.model.{Asset, Dimensions, SourceImage}
-import model.{Crop, Bounds}
+import com.gu.mediaservice.model.{Asset, Dimensions, SourceImage, Crop, Bounds}
 import java.net.{URI, URL}
 import java.io.File
 
