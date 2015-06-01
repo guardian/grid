@@ -125,6 +125,7 @@ object ElasticSearch extends ElasticSearchClient {
       .setScript(
         "ctx._source.userMetadata = userMetadata;" +
           refreshMetadataScript +
+          refreshUsageRightsScript +
           updateLastModifiedScript,
         scriptType)
       .executeAndLog(s"updating user metadata on image $id")
@@ -163,6 +164,13 @@ object ElasticSearch extends ElasticSearchClient {
     """| ctx._source.metadata = ctx._source.originalMetadata;
        | if (ctx._source.userMetadata && ctx._source.userMetadata.metadata) {
        |   ctx._source.metadata += ctx._source.userMetadata.metadata;
+       | }
+    """.stripMargin
+
+  // Script that overrides the "usageRights" object from the "userMetadata"
+  private val refreshUsageRightsScript =
+    """| if (ctx._source.userMetadata && ctx._source.userMetadata.usageRights) {
+       |   ctx._source.usageRights = ctx._source.userMetadata.usageRights;
        | }
     """.stripMargin
 
