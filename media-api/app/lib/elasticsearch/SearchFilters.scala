@@ -61,7 +61,14 @@ trait SearchFilters extends ImageFields {
   // We're showing `Conditional` here too as we're considering them potentially
   // free. We could look into sending over the search query as a cost filter
   // that could take a comma seperated list e.g. `cost=free,conditional`.
-  val freeUsageRightsFilter = List(Free, Conditional).map(_.toString).toNel.map(filters.terms(editsField(usageRightsField("cost")), _))
+  val freeUsageRightsOverrideFilter = List(Free, Conditional).map(_.toString).toNel.map(filters.terms(editsField(usageRightsField("cost")), _))
+  val freeUsageRightsCategoryFilter = Config.freeUsageRightsCategories.map(_.toString).toNel.map(filters.terms(usageRightsField("category"), _))
+
+  val freeUsageRightsFilter = (freeUsageRightsOverrideFilter, freeUsageRightsCategoryFilter) match {
+    case (Some(freeUsageRightsOverride), Some(freeUsageRightsCategory)) => Some(filters.or(freeUsageRightsOverride, freeUsageRightsCategory))
+    case (freeUsageRightsOverrideOpt,    freeUsageRightsCategoryOpt)    => freeUsageRightsOverrideOpt orElse freeUsageRightsCategoryOpt
+  }
+
   val freeFilter = (freeMetadataFilter, freeUsageRightsFilter) match {
     case (Some(freeMetadata), Some(freeUsageRights)) => Some(filters.or(freeMetadata, freeUsageRights))
     case (freeMetadataOpt,    freeUsageRightsOpt)    => freeMetadataOpt orElse freeUsageRightsOpt
