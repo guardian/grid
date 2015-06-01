@@ -227,5 +227,5 @@ object Config extends CommonPlayAppConfig with CommonPlayAppProperties {
     "Getty Images" -> payGettySourceList
   )
 
-  val freeUsageRightsCategories = Vector(Handout, Screengrab)
+  val freeUsageRightsCategories = List(Handout, Screengrab)
 }
