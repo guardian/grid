@@ -52,12 +52,14 @@ class NoSuchUsageRightsCategory(category: String) extends RuntimeException(s"no 
 
 sealed trait UsageRightsCategory
 object UsageRightsCategory {
+  private val usageRightsCategories = Vector(Agency, PrImage, Handout, Screengrab)
+
   def fromString(category: String): UsageRightsCategory =
     // I think as we move forward we can find out what the more intelligent and
     // correct default here. This feels better that reverting to `None` though as
     // it's required by `UsageRights`.
     // TODO: Perhaps we should validate on this?
-    Vector(Agency, PrImage).find(_.toString == category).getOrElse {
+    usageRightsCategories.find(_.toString == category).getOrElse {
       throw new NoSuchUsageRightsCategory(category)
     }
 
@@ -73,3 +75,9 @@ case object Agency
 
 case object PrImage
   extends UsageRightsCategory { override def toString = "PR Image" }
+
+case object Handout
+  extends UsageRightsCategory { override def toString = "handout" }
+
+case object Screengrab
+  extends UsageRightsCategory { override def toString = "screengrab" }
