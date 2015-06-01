@@ -315,34 +315,3 @@ object SearchParams {
 case class AggregateSearchParams(field: String, q: Option[String])
 
 case class ResultsSearchParams(field: String, q: Option[String])
-
-// Default to pay for now
-object ImageExtras {
-  def isValid(metadata: JsValue): Boolean =
-    Config.requiredMetadata.forall(field => (metadata \ field).asOpt[String].isDefined)
-
-  def getCost(credit: Option[String], source: Option[String], supplier: Option[String], supplierColl: Option[String],
-              usageRights: Option[UsageRights]): Cost = {
-    val freeCredit      = credit.exists(isFreeCredit)
-    val freeSource      = source.exists(isFreeSource)
-    val payingSource    = source.exists(isPaySource)
-    val freeCreditOrSource = (freeCredit || freeSource) && ! payingSource
-
-    val freeSupplier    = supplier.exists { suppl =>
-      isFreeSupplier(suppl) && ! supplierColl.exists(isExcludedColl(suppl, _))
-    }
-
-    usageRights.map(_.cost).getOrElse {
-      if (freeCreditOrSource || freeSupplier) Free
-      else Pay
-    }
-  }
-
-  private def isFreeCredit(credit: String) = Config.freeCreditList.contains(credit)
-  private def isFreeSource(source: String) = Config.freeSourceList.contains(source)
-  private def isPaySource(source: String)  = Config.payGettySourceList.contains(source)
-
-  private def isFreeSupplier(supplier: String) = Config.freeSuppliers.contains(supplier)
-  private def isExcludedColl(supplier: String, supplierColl: String) =
-    Config.suppliersCollectionExcl.get(supplier).exists(_.contains(supplierColl))
-}
