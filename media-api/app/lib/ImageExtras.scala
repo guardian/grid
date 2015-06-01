@@ -12,16 +12,20 @@ object ImageExtras {
 
   def getCost(credit: Option[String], source: Option[String], supplier: Option[String], supplierColl: Option[String],
               usageRights: Option[UsageRights], usageRightsCategory: Option[UsageRightsCategory]): Cost = {
+
+    // Old model
     val freeCredit      = credit.exists(isFreeCredit)
     val freeSource      = source.exists(isFreeSource)
     val payingSource    = source.exists(isPaySource)
     val freeCreditOrSource = (freeCredit || freeSource) && ! payingSource
-    val freeUsageRightsCategory = usageRightsCategory.exists(isFreeUsageRightsCategory)
 
+    // New model
+    val freeUsageRightsCategory = usageRightsCategory.exists(isFreeUsageRightsCategory)
     val freeSupplier    = supplier.exists { suppl =>
       isFreeSupplier(suppl) && ! supplierColl.exists(isExcludedColl(suppl, _))
     }
 
+    // TODO: Deprecate this once we remove cost from `UsageRights`
     usageRights.flatMap(_.cost).getOrElse {
       if (freeCreditOrSource || freeSupplier || freeUsageRightsCategory) Free
       else Pay
