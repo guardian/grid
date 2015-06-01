@@ -5,7 +5,10 @@ import play.api.libs.json._
 
 
 // TODO: Eventually needs to be unified with UsageRights
+// TODO: All of these are now going to be optional, whereas it should probably
+// be optional on the Image level
 case class ImageUsageRights(
+  category:            Option[UsageRightsCategory] = None,
   supplier:            Option[String] = None,
   suppliersCollection: Option[String] = None
 )
@@ -13,14 +16,16 @@ case class ImageUsageRights(
 
 object ImageUsageRights {
 
-  implicit val ImageUsageRightsReads: Reads[ImageUsageRights] = (
-    (__ \ "supplier").readNullable[String] ~
-      (__ \ "suppliersCollection").readNullable[String]
-    )(ImageUsageRights.apply _)
+  implicit val ImageUsageRightsReads: Reads[ImageUsageRights] = Json.reads[ImageUsageRights]
 
   implicit val ImageUsageRightsWrites: Writes[ImageUsageRights] = (
-    (__ \ "supplier").writeNullable[String] ~
+    (__ \ "category").writeNullable[UsageRightsCategory] ~
+      (__ \ "supplier").writeNullable[String] ~
       (__ \ "suppliersCollection").writeNullable[String]
     )(unlift(ImageUsageRights.unapply))
 
 }
+
+
+
+

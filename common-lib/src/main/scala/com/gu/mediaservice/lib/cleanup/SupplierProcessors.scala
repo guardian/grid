@@ -1,6 +1,6 @@
 package com.gu.mediaservice.lib.cleanup
 
-import com.gu.mediaservice.model.Image
+import com.gu.mediaservice.model.{Agency, Image}
 
 
 trait ImageProcessor {
@@ -19,7 +19,8 @@ object SupplierProcessors {
     GettyParser,
     PaParser,
     ReutersParser,
-    RexParser
+    RexParser,
+    AddAgencyCategory
   )
 
   def process(image: Image): Image =
@@ -143,4 +144,18 @@ object RexParser extends ImageProcessor {
     )
     case _ => image
   }
+}
+
+object AddAgencyCategory extends ImageProcessor {
+  // TODO: Hmmm. Better way of doing this?
+  // TODO: potentially do some validation / cleanup around things like having a
+  // collection but no supplier?
+  // FIXME: this probably belongs in some sort of `UsageRightsCategoryProcessors`
+  def apply(image: Image): Image =
+    if (shouldHaveAgency(image)) imageWithAgency(image) else image
+
+  def imageWithAgency(image: Image): Image =
+    image.copy(usageRights = image.usageRights.copy(category = Some(Agency)))
+
+  def shouldHaveAgency(image: Image): Boolean = image.usageRights.supplier.nonEmpty
 }
