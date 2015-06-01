@@ -2,6 +2,7 @@ package lib
 
 import com.amazonaws.services.ec2.AmazonEC2Client
 import com.amazonaws.auth.{BasicAWSCredentials, AWSCredentials}
+import com.gu.mediaservice.model.{Screengrab, Handout}
 import scalaz.syntax.id._
 
 import com.gu.mediaservice.lib.elasticsearch.EC2._
@@ -225,4 +226,6 @@ object Config extends CommonPlayAppConfig with CommonPlayAppProperties {
   val suppliersCollectionExcl = Map(
     "Getty Images" -> payGettySourceList
   )
+
+  val freeUsageRightsCategories = Vector(Handout, Screengrab)
 }
