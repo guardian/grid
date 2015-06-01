@@ -167,7 +167,8 @@ object ElasticSearch extends ElasticSearchClient {
        | }
     """.stripMargin
 
-  // Script that overrides the "usageRights" object from the "userMetadata"
+  // Script that overrides the "usageRights" object from the "userMetadata".
+  // We revert to the "originalUsageRights" if they are vacant.
   // As cost will be deduced from the category, we remove it here, and it will
   // be deprecated from the Edits API soon
   // FIXME: don't remove cost when it's not sent over any more
@@ -176,6 +177,8 @@ object ElasticSearch extends ElasticSearchClient {
        |   ur = ctx._source.userMetadata.usageRights.clone();
        |   ur.remove('cost')
        |   ctx._source.usageRights = ur;
+       | } else {
+       |   ctx._source.usageRights = ctx._source.originalUsageRights
        | }
     """.stripMargin
 
