@@ -168,9 +168,14 @@ object ElasticSearch extends ElasticSearchClient {
     """.stripMargin
 
   // Script that overrides the "usageRights" object from the "userMetadata"
+  // As cost will be deduced from the category, we remove it here, and it will
+  // be deprecated from the Edits API soon
+  // FIXME: don't remove cost when it's not sent over any more
   private val refreshUsageRightsScript =
     """| if (ctx._source.userMetadata && ctx._source.userMetadata.usageRights) {
-       |   ctx._source.usageRights = ctx._source.userMetadata.usageRights;
+       |   ur = ctx._source.userMetadata.usageRights.clone();
+       |   ur.remove('cost')
+       |   ctx._source.usageRights = ur;
        | }
     """.stripMargin
 
