@@ -10,7 +10,8 @@ import play.api.libs.json._
 case class ImageUsageRights(
   category:            Option[UsageRightsCategory] = None,
   supplier:            Option[String] = None,
-  suppliersCollection: Option[String] = None
+  suppliersCollection: Option[String] = None,
+  restrictions:        Option[String] = None
 )
 
 
@@ -21,7 +22,8 @@ object ImageUsageRights {
   implicit val ImageUsageRightsWrites: Writes[ImageUsageRights] = (
     (__ \ "category").writeNullable[UsageRightsCategory] ~
       (__ \ "supplier").writeNullable[String] ~
-      (__ \ "suppliersCollection").writeNullable[String]
+      (__ \ "suppliersCollection").writeNullable[String] ~
+      (__ \ "restrictions").writeNullable[String]
     )(unlift(ImageUsageRights.unapply))
 
 }

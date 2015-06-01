@@ -197,25 +197,15 @@ object Application extends Controller with ArgoHelpers {
 
 
   def publish(id: String)(metadata: JsObject): Edits = {
-    val data = stripCostFromUsageRights(metadata)
-
     val message = Json.obj(
       "id" -> id,
-      "data" -> data
+      "data" -> metadata
     )
 
     Notifications.publish(message, "update-image-user-metadata")
 
     metadata.as[Edits]
   }
-
-  // This removes cost from the usage rights as we're going to deprecate it, as
-  // it'll be set dependant on the category.
-  // TODO: remove once cost model is update to work off `usageRights`
-  private def stripCostFromUsageRights(edits: JsObject): JsObject =
-    (edits \ "usageRights").asOpt[JsObject].map(_ - "cost").map { usageRightsNoCost =>
-      edits ++ Json.obj("usageRights" -> usageRightsNoCost)
-    }.getOrElse(edits)
 
 
   // This get's the form error based on out data structure that we send over i.e.
