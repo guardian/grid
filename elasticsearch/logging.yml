@@ -1,4 +1,4 @@
-rootLogger: DEBUG, file
+rootLogger: INFO, file
 
 logger:
   # log action execution errors for easier debugging
