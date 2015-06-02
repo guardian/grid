@@ -2,7 +2,8 @@
     <label class="ure__category">
         <select
             ng:model="ctrl.usageRights.category"
-            ng:disabled="ctrl.saving">
+            ng:disabled="ctrl.saving"
+            ng:change="ctrl.cleanModel()">
             <option value="">None</option>
             <option value="PR Image">PR Image</option>
             <option value="handout">Handout</option>
@@ -10,11 +11,21 @@
         </select>
     </label>
 
-    <div class="ure__cost"
-         ng:switch="ctrl.usageRights.category">
+    <label class="ure__cost-selector"
+           ng:if="ctrl.isVariableCost()">
 
-        <div class="cost cost--conditional"
-             ng:switch-when="PR Image">Restricted use</div>
+        <select required
+            ng:disabled="ctrl.isDisabled()"
+            ng:model="ctrl.usageRights.cost">
+            <option value="free">free to use</option>
+            <option value="conditional">restricted</option>
+            <option value="pay">pay to use</option>
+        </select>
+    </label>
+
+    <div class="ure__cost"
+         ng:switch="ctrl.usageRights.category"
+         ng:if="!ctrl.isVariableCost()">
 
         <div class="cost cost--free"
              ng:switch-when="handout">Free to use</div>
@@ -39,7 +50,7 @@
     </div>
 
     <label class="ure__restrictions"
-           ng:if="ctrl.usageRights.category == 'PR Image'">
+           ng:if="ctrl.isVariableCost()">
 
         Restrictions
         <textarea class="ure__restrictions-text"
