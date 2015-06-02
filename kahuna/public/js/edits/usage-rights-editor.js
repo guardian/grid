@@ -50,7 +50,11 @@ usageRightsEditor.controller('UsageRightsEditorCtrl',
         ctrl.saving = true;
 
         editsService.remove(ctrl.resource, ctrl.image).
-            then(updateResourceAndModel).
+            then(resource => {
+                updateResourceAndModel(resource);
+                ctrl.onSave();
+                uiSaved();
+            }).
             catch(uiError).
             finally(() => ctrl.saving = false);
     }
