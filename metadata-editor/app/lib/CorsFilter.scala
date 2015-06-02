@@ -15,7 +15,7 @@ object CorsFilter extends Filter {
     Try(URI.create(uri)).toOption.exists(_.getHost == "localhost")
 
   def isAllowed(origin: String) =
-    true||Config.corsAllAllowedOrigins.contains(origin) || isLocal(origin)
+    Config.corsAllAllowedOrigins.contains(origin) || isLocal(origin)
 
   def apply(f: (RequestHeader) => Future[Result])(request: RequestHeader): Future[Result] = {
 
