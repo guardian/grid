@@ -841,6 +841,10 @@ FIXME: what to do with touch devices
     margin-left: 20px;
 }
 
+.ure__cost-selector {
+    margin-left: 20px;
+}
+
 .ure__description {
     margin: 10px 0;
 }

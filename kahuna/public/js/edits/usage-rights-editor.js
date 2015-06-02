@@ -26,6 +26,25 @@ usageRightsEditor.controller('UsageRightsEditorCtrl',
     };
     ctrl.isDisabled = () => ctrl.saving;
     ctrl.isNotEmpty = () => !angular.equals(ctrl.resource.data, {});
+    ctrl.isVariableCost = isVariableCost;
+    ctrl.cleanModel = cleanModel;
+
+
+    // TODO: Hopefully we will lose the idea of variable cost in the future,
+    // making "PR Image"'s cost restricted. Let's test it first though.
+    function cleanModel() {
+        if (!isVariableCost()) {
+            delete ctrl.usageRights.cost;
+            delete ctrl.usageRights.restrictions;
+        } else {
+            // set the default
+            ctrl.usageRights.cost = 'conditional';
+        }
+    }
+
+    function isVariableCost() {
+        return ctrl.usageRights.category === 'PR Image';
+    }
 
     function del() {
         ctrl.saving = true;
