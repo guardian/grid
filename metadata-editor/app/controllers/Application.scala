@@ -201,6 +201,7 @@ object Application extends Controller with ArgoHelpers {
       "id" -> id,
       "data" -> metadata
     )
+
     Notifications.publish(message, "update-image-user-metadata")
 
     metadata.as[Edits]

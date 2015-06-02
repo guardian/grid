@@ -9,10 +9,12 @@ case class UsageRights(
   restrictions: String
 )
 
+// FIXME: Deprecate cost as this will be assumed from the category. This will
+// more that likely be done when merging with ImageUsageRights
 object UsageRights {
   implicit val UsageRightsReads: Reads[UsageRights] = (
-    (__ \ "cost").read[String].map(Cost.fromString(_)) ~
-    (__ \ "category").read[String].map(UsageRightsCategory.fromString(_)) ~
+    (__ \ "cost").read[Cost] ~
+    (__ \ "category").read[UsageRightsCategory] ~
     (__ \ "restrictions").read[String]
   )(UsageRights.apply _)
 

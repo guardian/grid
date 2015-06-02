@@ -71,7 +71,8 @@ object Mappings {
   val imageUsageRightsMapping = nonDynamicObj(
     "category" -> nonAnalyzedString,
     "supplier" -> nonAnalyzedString,
-    "suppliersCollection" -> nonAnalyzedString
+    "suppliersCollection" -> nonAnalyzedString,
+    "restrictions" -> standardAnalysedString
   )
 
   val userMetadataUsageRightsMapping = nonDynamicObj(
