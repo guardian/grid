@@ -15,7 +15,7 @@
     {
         "type": "file",
         "source": "config/logrotate/media-service",
-        "destination": "/etc/logrotate.d/media-service"
+        "destination": "/tmp/media-service_logrotate"
     },
     {
         "type": "shell",
