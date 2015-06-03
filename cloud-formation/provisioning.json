@@ -11,7 +11,13 @@
         "name": "media-service_ebd-storage-cfn_{{timestamp}}"
     }],
 
-    "provisioners": [{
+    "provisioners": [
+    {
+        "type": "file",
+        "source": "config/logrotate/media-service",
+        "destination": "/etc/logrotate.d/media-service"
+    },
+    {
         "type": "shell",
         "script": "media-service-ami.sh",
         "execute_command": "{{ .Vars }} sudo -E bash -x '{{ .Path }}'"
