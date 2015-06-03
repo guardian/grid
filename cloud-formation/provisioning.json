@@ -4,30 +4,22 @@
     "builders": [{
         "type": "amazon-ebs",
         "region": "eu-west-1",
-        "source_ami": "ami-b17a12c6",
+        "source_ami": "ami-ef7f0898",
         "instance_type": "t2.micro",
         "ssh_username": "ubuntu",
         "ami_name": "media-service_ebs-storage-cfn_{{timestamp}}",
-        "name": "media-service_ebd-storage-cfn_{{timestamp}}",
-        "ssh_username": "ubuntu"
+        "name": "media-service_ebd-storage-cfn_{{timestamp}}"
     }],
 
-    "provisioners": [{
+    "provisioners": [
+    {
+        "type": "file",
+        "source": "config/logrotate/media-service",
+        "destination": "/tmp/media-service_logrotate"
+    },
+    {
         "type": "shell",
-        "inline": [
-            "sudo apt-get -y update",
-            "sudo apt-get -y install language-pack-en openjdk-7-jre-headless",
-
-            "# we're adding graphicsmagick to all AMIs so that we will only need",
-            "# one provisioner for all our builders",
-            "sudo apt-get -y install graphicsmagick graphicsmagick-imagemagick-compat",
-
-            "sudo apt-get -y install python-setuptools",
-            "sudo wget -P /root https://s3.amazonaws.com/cloudformation-examples/aws-cfn-bootstrap-latest.tar.gz",
-            "sudo mkdir -p /root/aws-cfn-bootstrap-latest",
-            "sudo tar xvfz /root/aws-cfn-bootstrap-latest.tar.gz --strip-components=1 -C /root/aws-cfn-bootstrap-latest",
-
-            "sudo easy_install /root/aws-cfn-bootstrap-latest/"
-        ]
+        "script": "media-service-ami.sh",
+        "execute_command": "{{ .Vars }} sudo -E bash -x '{{ .Path }}'"
     }]
 }
