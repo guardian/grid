@@ -46,6 +46,8 @@ datalist.directive('grDatalistInput', ['onValChange', function(onValChange) {
         require:['^grDatalist', '?ngModel'],
 
         link: function(scope, element, _/*attrs*/, [parentCtrl, ngModel]) {
+            // I've put this here to be able to access it in the template
+            // Not sure where else it could go really.
             parentCtrl.active = false;
 
             const input = angular.element(element[0]);
