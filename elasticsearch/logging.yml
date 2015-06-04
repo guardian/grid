@@ -32,7 +32,7 @@ appender:
       conversionPattern: "%d{ISO8601} %-5p %-25c %m%n"
 
   file:
-    type: dailyRollingFile
+    type: file
     file: ${path.logs}/elasticsearch.log
     datePattern: "'.'yyyy-MM-dd"
     layout:
@@ -40,7 +40,7 @@ appender:
       conversionPattern: "%d{ISO8601} %-5p %-25c %m%n"
 
   index_search_slow_log_file:
-    type: dailyRollingFile
+    type: file
     file: ${path.logs}/elasticsearch-index-search-slowlog.log
     datePattern: "'.'yyyy-MM-dd"
     layout:
@@ -48,7 +48,7 @@ appender:
       conversionPattern: "%d{ISO8601} %-5p %-25c %m%n"
 
   index_indexing_slow_log_file:
-    type: dailyRollingFile
+    type: file
     file: ${path.logs}/elasticsearch-index-indexing-slowlog.log
     datePattern: "'.'yyyy-MM-dd"
     layout:
