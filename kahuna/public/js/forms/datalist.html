@@ -1,25 +1,11 @@
 <div class="datalist">
-    <!-- TODO: Make required a param -->
-    <input type="text"
-           class="datalist__input"
-           required
-           name="{{ctrl.name}}"
-           placeholder="{{ctrl.placeholder}}"
-           autocomplete="off"
-           ng:blur="ctrl.deactivate()"
-           ng:keydown="ctrl.onKeydown($event)"
-           ng:focus="ctrl.search(ctrl.value)"
-           ng:disabled="ctrl.ngDisabled"
-           ng:change="ctrl.search(ctrl.value)"
-           ng:model="ctrl.value" />
-
-    <div class="datalist__options" ng:if="ctrl.active && ! ctrl.ngDisabled">
+    <ng:transclude></ng:transclude>
+    <div class="datalist__options" ng:if="ctrl.active">
         <div class="datalist__option"
-             ng:repeat="(key, datum) in ctrl.data"
-             ng:class="{ 'datalist__option--selected': ctrl.isSelected(key) }"
-             ng:mouseover="ctrl.setIndex(key)"
-             ng:click="ctrl.setToCurrentValue($event)">
-             {{datum}}
+             ng:repeat="(key, result) in ctrl.results"
+             ng:click="ctrl.setValueTo(result)"
+             ng:class="{ 'datalist__option--selected': ctrl.isSelected(key) }">
+             {{result}}
         </div>
     </div>
 </div>
