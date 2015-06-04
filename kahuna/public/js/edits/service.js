@@ -188,6 +188,38 @@ service.factory('editsService',
             .then(() => true, () => false);
     }
 
-    return { update, add, on, remove, canUserEdit };
+    function getMetadataDiff (image, metadata) {
+        var diff = {};
+
+        // jscs has a maximumLineLength of 100 characters, hence the line break
+        var keys = new Set(Object.keys(metadata).concat(
+            Object.keys(image.data.originalMetadata)));
+
+        // Keywords is an array, the comparison below only works with string comparison.
+        // For simplicity, ignore keywords as we're not updating this field at the moment.
+        keys.delete('keywords');
+
+        keys.forEach((key) => {
+            if (metadata[key] !== image.data.originalMetadata[key]) {
+                // if the user has provided an override of '' (e.g. they want remove the title),
+                // angular sets the value in the object to undefined.
+                // We need to use an empty string in the PUT request to obey user input.
+                diff[key] = metadata[key] || '';
+            }
+        });
+
+        return diff;
+    }
+
+    function updateMetadata (image, field, value) {
+        var proposedMetadata = angular.copy(image.data.metadata);
+        proposedMetadata[field] = value;
+
+        var changed = getMetadataDiff(image, proposedMetadata);
+
+        return update(image.data.userMetadata.data.metadata, changed, image);
+    }
+
+    return { update, add, on, remove, canUserEdit, updateMetadata };
 
 }]);
