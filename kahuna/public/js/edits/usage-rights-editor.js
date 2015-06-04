@@ -14,10 +14,16 @@ usageRightsEditor.controller('UsageRightsEditorCtrl',
     ctrl.saving = false;
     ctrl.saved = false;
     ctrl.usageRights = {}; // this is the model used in the view
+    ctrl.usageRightsCategories = [
+        usageRightsCategory('PR Image', 'PR Image'),
+        usageRightsCategory('Handout', 'handout'),
+        usageRightsCategory('Screengrab', 'screengrab')
+    ];
 
     updateResourceAndModel(ctrl.resource);
 
     ctrl.save = () => {
+        console.log(ctrl.usageRights.category);
         if (ctrl.usageRights.category === '') {
             del();
         } else {
@@ -85,6 +91,10 @@ usageRightsEditor.controller('UsageRightsEditorCtrl',
 
     function uiError() {
         $window.alert('Failed to save the changes, please try again.');
+    }
+
+    function usageRightsCategory(name, value) {
+        return { name, value };
     }
 
 }]);
