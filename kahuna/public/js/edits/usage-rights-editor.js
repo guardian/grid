@@ -14,10 +14,60 @@ usageRightsEditor.controller('UsageRightsEditorCtrl',
     ctrl.saving = false;
     ctrl.saved = false;
     ctrl.usageRights = {}; // this is the model used in the view
+    ctrl.usageRightsCategories = [
+        usageRightsCategory('PR Image', 'PR Image'),
+        usageRightsCategory('Handout', 'handout'),
+        usageRightsCategory('Screengrab', 'screengrab')
+    ];
 
     updateResourceAndModel(ctrl.resource);
 
     ctrl.save = () => {
+        // Angular's `null` value on selects is `""`.
+        // See: https://docs.angularjs.org/api/ng/directive/select
+        if (ctrl.usageRights.category === '') {
+            del();
+        } else {
+            save();
+        }
+    };
+    ctrl.isDisabled = () => ctrl.saving;
+    ctrl.isNotEmpty = () => !angular.equals(ctrl.resource.data, {});
+    ctrl.isVariableCost = isVariableCost;
+    ctrl.cleanModel = cleanModel;
+
+
+    // TODO: Hopefully we will lose the idea of variable cost in the future,
+    // making "PR Image"'s cost restricted. Let's test it first though.
+    function cleanModel() {
+        if (isVariableCost()) {
+            // set the default
+            ctrl.usageRights.cost = 'conditional';
+        } else {
+            // we are inferring the cost from the category here.
+            delete ctrl.usageRights.cost;
+            delete ctrl.usageRights.restrictions;
+        }
+    }
+
+    function isVariableCost() {
+        return ctrl.usageRights.category === 'PR Image';
+    }
+
+    function del() {
+        ctrl.saving = true;
+
+        editsService.remove(ctrl.resource, ctrl.image).
+            then(resource => {
+                updateResourceAndModel(resource);
+                ctrl.onSave();
+                uiSaved();
+            }).
+            catch(uiError).
+            finally(() => ctrl.saving = false);
+    }
+
+    function save() {
         ctrl.saving = true;
 
         editsService.
@@ -28,40 +78,12 @@ usageRightsEditor.controller('UsageRightsEditorCtrl',
                 uiSaved();
             }).
             catch(uiError).
-            finally(() => {
-                ctrl.saving = false;
-            });
-    };
-
-    ctrl.checkCategorySetOrDelete = () => {
-        // delete if there is no category from the UI and if there is something
-        // to delete
-        if (!ctrl.usageRights.category && ctrl.isNotEmpty()) {
-            ctrl.delete();
-        }
-    };
-
-    ctrl.delete = () => {
-        ctrl.saving = true;
-
-        editsService.remove(ctrl.resource, ctrl.image).
-            then(updateResourceAndModel).
-            catch(uiError).
             finally(() => ctrl.saving = false);
-    };
-
-    ctrl.isDisabled = () => angular.isUndefined(ctrl.usageRights.category) || ctrl.saving;
-    ctrl.isNotEmpty = () => !angular.equals(ctrl.resource.data, {});
+    }
 
     function updateResourceAndModel(resource) {
         ctrl.resource = resource;
         ctrl.usageRights = angular.extend({}, resource.data);
-
-        // set the default state of cost, otherwise the view creates a blank option
-        // in the select, thanks Angular.
-        if (!ctrl.usageRights.cost) {
-            ctrl.usageRights.cost = 'conditional';
-        }
     }
 
     function uiSaved() {
@@ -71,6 +93,10 @@ usageRightsEditor.controller('UsageRightsEditorCtrl',
 
     function uiError() {
         $window.alert('Failed to save the changes, please try again.');
+    }
+
+    function usageRightsCategory(name, value) {
+        return { name, value };
     }
 
 }]);

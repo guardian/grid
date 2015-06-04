@@ -570,6 +570,9 @@ input.search-query__input {
 .cost--conditional {
     background-color: orange;
 }
+.cost--free {
+    background-color: green;
+}
 
 .image-results-count {
     font-size: 1.4rem;
@@ -814,9 +817,9 @@ FIXME: what to do with touch devices
 
 .result-editor__usage-rights-container {
     margin-bottom: 10px;
-    margin-left: 50%;
+    margin-left: 35%;
     text-align: right;
-    width: 50%;
+    width: 65%;
     font-size: 1.4rem;
 }
 .result-editor__usage-rights {
@@ -829,13 +832,21 @@ FIXME: what to do with touch devices
    Usage Rights editor (URE)
    ========================================================================== */
 .ure {
-    line-height: 26px;
     width: 100%;
     box-sizing: border-box;
 }
 
 .ure__cost {
+    display: inline-block;
     margin-left: 20px;
+}
+
+.ure__cost-selector {
+    margin-left: 20px;
+}
+
+.ure__description {
+    margin: 10px 0;
 }
 
 .ure__restrictions {
