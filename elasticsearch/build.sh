@@ -15,11 +15,14 @@ if wget -nv -O downloads/elasticsearch.tar.gz https://download.elasticsearch.org
 then
     tar xfv downloads/elasticsearch.tar.gz -C downloads
     mv downloads/elasticsearch-* downloads/elasticsearch
+
     ./downloads/elasticsearch/bin/plugin -install elasticsearch/elasticsearch-cloud-aws/2.3.0
     ./downloads/elasticsearch/bin/plugin -install mobz/elasticsearch-head
     ./downloads/elasticsearch/bin/plugin -install lukas-vlcek/bigdesk
+    ./downloads/elasticsearch/bin/plugin -url https://github.com/guardian/elasticsearch-cloudwatch/releases/download/1.2/elasticsearch-CloudwatchPlugin-1.2.zip -install CloudwatchPlugin
     ./downloads/elasticsearch/bin/plugin -install karmi/elasticsearch-paramedic
     ./downloads/elasticsearch/bin/plugin -install com.yakaz.elasticsearch.plugins/elasticsearch-action-updatebyquery/2.2.0
+
     cp ../elasticsearch.yml downloads/elasticsearch/config
     cp ../logging.yml downloads/elasticsearch/config
     cp ../elasticsearch.conf downloads
