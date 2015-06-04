@@ -23,12 +23,10 @@ usageRightsEditor.controller('UsageRightsEditorCtrl',
     updateResourceAndModel(ctrl.resource);
 
     ctrl.save = () => {
-        // Angular's `null` value on selects is `""`.
-        // See: https://docs.angularjs.org/api/ng/directive/select
-        if (ctrl.usageRights.category === '') {
-            del();
-        } else {
+        if (ctrl.usageRights.category) {
             save();
+        } else {
+            del();
         }
     };
     ctrl.isDisabled = () => ctrl.saving;
