@@ -24,8 +24,6 @@ jobs.controller('RequiredMetadataEditorCtrl',
 
     ctrl.save = function() {
         ctrl.saving = true;
-        //ctrl.saveing = false;
-        //return;
 
         // If there has been a change in the metadata, save it as an override
         var cleanMetadata = {};
@@ -48,13 +46,6 @@ jobs.controller('RequiredMetadataEditorCtrl',
         return mediaApi.metadataSearch(field,  { q }).then(resource => {
             return resource.data.map(d => d.key);
         });
-    };
-
-    ctrl.setCredit = credit => {
-        if (ctrl.metadata.credit !== credit) {
-            ctrl.metadata.credit = credit;
-            ctrl.save();
-        }
     };
 
     // TODO: Find a way to broadcast more selectively
