@@ -3,11 +3,9 @@
         <select
             ng:model="ctrl.usageRights.category"
             ng:disabled="ctrl.saving"
-            ng:change="ctrl.cleanModel()">
+            ng:change="ctrl.cleanModel()"
+            ng:options="category.value as category.name for category in ctrl.usageRightsCategories">
             <option value="">None</option>
-            <option value="PR Image">PR Image</option>
-            <option value="handout">Handout</option>
-            <option value="screengrab">Screengrab</option>
         </select>
     </label>
 
