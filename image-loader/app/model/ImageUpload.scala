@@ -5,13 +5,14 @@ import java.io.File
 import play.api.libs.concurrent.Execution.Implicits._
 import scala.concurrent.Future
 
-import lib.imaging.{FileMetadataReader, MimeTypeDetection, Thumbnailer}
+import lib.imaging.{FileMetadataReader, Thumbnailer}
 import lib.Config
 
 import com.gu.mediaservice.lib.metadata.ImageMetadataConverter
 import com.gu.mediaservice.lib.resource.FutureResources._
 import com.gu.mediaservice.lib.cleanup.{SupplierProcessors, MetadataCleaners}
 import com.gu.mediaservice.lib.config.MetadataConfig
+import com.gu.mediaservice.lib.formatting._
 
 import lib.storage.ImageStore
 import com.gu.mediaservice.model._
@@ -63,7 +64,10 @@ case object ImageUpload {
     uploadRequest.id,
     uploadRequest.tempFile,
     uploadRequest.mimeType,
-    Map("uploaded_by" -> uploadRequest.uploadedBy) ++ uploadRequest.identifiersMeta
+    Map(
+      "uploaded_by" -> uploadRequest.uploadedBy,
+      "upload_time" -> printDateTime(uploadRequest.uploadTime)
+    ) ++ uploadRequest.identifiersMeta
   )
   def storeThumbnail(uploadRequest: UploadRequest, thumbFile: File) = ImageStore.storeThumbnail(
     uploadRequest.id,
