@@ -84,7 +84,8 @@ object ImageResponse {
       (source \ "metadata" \ "source").as[Option[String]],
       (source \ "usageRights" \ "supplier").asOpt[String],
       (source \ "usageRights" \ "suppliersCollection").asOpt[String],
-      (source \ "userMetadata" \ "usageRights").asOpt[UsageRights]
+      (source \ "userMetadata" \ "usageRights").asOpt[UsageRights],
+      (source \ "usageRights" \ "category").asOpt[UsageRightsCategory]
     )
 
     __.json.update(__.read[JsObject].map(_ ++ Json.obj("cost" -> cost.toString)))
