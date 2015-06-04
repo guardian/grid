@@ -40,12 +40,13 @@ usageRightsEditor.controller('UsageRightsEditorCtrl',
     // TODO: Hopefully we will lose the idea of variable cost in the future,
     // making "PR Image"'s cost restricted. Let's test it first though.
     function cleanModel() {
-        if (!isVariableCost()) {
-            delete ctrl.usageRights.cost;
-            delete ctrl.usageRights.restrictions;
-        } else {
+        if (isVariableCost()) {
             // set the default
             ctrl.usageRights.cost = 'conditional';
+        } else {
+            // we are inferring the cost from the category here.
+            delete ctrl.usageRights.cost;
+            delete ctrl.usageRights.restrictions;
         }
     }
 
