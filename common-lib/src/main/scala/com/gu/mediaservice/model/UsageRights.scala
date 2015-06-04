@@ -3,27 +3,28 @@ package com.gu.mediaservice.model
 import play.api.libs.functional.syntax._
 import play.api.libs.json._
 
+// TODO: deprecate cost here and infer from category
 case class UsageRights(
-  cost: Cost,
+  cost: Option[Cost],
   category: UsageRightsCategory,
-  restrictions: String
+  restrictions: Option[String]
 )
 
 // FIXME: Deprecate cost as this will be assumed from the category. This will
 // more that likely be done when merging with ImageUsageRights
 object UsageRights {
   implicit val UsageRightsReads: Reads[UsageRights] = (
-    (__ \ "cost").read[Cost] ~
+    (__ \ "cost").readNullable[Cost] ~
     (__ \ "category").read[UsageRightsCategory] ~
-    (__ \ "restrictions").read[String]
+    (__ \ "restrictions").readNullable[String]
   )(UsageRights.apply _)
 
   // Annoyingly there doesn't seem to be a way to create a `JsString` with the
   // Json writers, so we have to do this manually
   implicit val UsageRightsWrites: Writes[UsageRights] = (
-    (__ \ "cost").write[Cost] ~
+    (__ \ "cost").writeNullable[Cost] ~
     (__ \ "category").write[UsageRightsCategory] ~
-    (__ \ "restrictions").write[String]
+    (__ \ "restrictions").writeNullable[String]
   )(unlift(UsageRights.unapply))
 }
 
@@ -52,12 +53,14 @@ class NoSuchUsageRightsCategory(category: String) extends RuntimeException(s"no 
 
 sealed trait UsageRightsCategory
 object UsageRightsCategory {
+  private val usageRightsCategories = Vector(Agency, PrImage, Handout, Screengrab)
+
   def fromString(category: String): UsageRightsCategory =
     // I think as we move forward we can find out what the more intelligent and
     // correct default here. This feels better that reverting to `None` though as
     // it's required by `UsageRights`.
     // TODO: Perhaps we should validate on this?
-    Vector(Agency, PrImage).find(_.toString == category).getOrElse {
+    usageRightsCategories.find(_.toString == category).getOrElse {
       throw new NoSuchUsageRightsCategory(category)
     }
 
@@ -73,3 +76,9 @@ case object Agency
 
 case object PrImage
   extends UsageRightsCategory { override def toString = "PR Image" }
+
+case object Handout
+  extends UsageRightsCategory { override def toString = "handout" }
+
+case object Screengrab
+  extends UsageRightsCategory { override def toString = "screengrab" }
