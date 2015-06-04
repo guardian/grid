@@ -50,8 +50,12 @@
         <div class="job-info--editor__field">
             <div class="job-info--editor__label">Credit</div>
 
-            <gr:datalist gr:search="ctrl.metadataSearch('credit', q)">
+            <gr:datalist
+                class="job-info--editor__input"
+                gr:search="ctrl.metadataSearch('credit', q)">
+
                 <input type="text"
+                    class="job-info__credit"
                     gr:datalist-input
                     ng:model="ctrl.metadata.credit"
                     ng:change="ctrl.save()"
