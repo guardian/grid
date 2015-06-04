@@ -356,3 +356,7 @@ index.indexing.slowlog.threshold.index.trace: 500ms
 ################## Index config ##################
 action.auto_create_index: false
 action.disable_delete_all_indices: true
+
+
+################## ES Cloudwatch config ##################
+metrics.cloudwatch.namespace: "@@STAGE/Elasticsearch"
