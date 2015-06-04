@@ -23,7 +23,8 @@ usageRightsEditor.controller('UsageRightsEditorCtrl',
     updateResourceAndModel(ctrl.resource);
 
     ctrl.save = () => {
-        console.log(ctrl.usageRights.category);
+        // Angular's `null` value on selects is `""`.
+        // See: https://docs.angularjs.org/api/ng/directive/select
         if (ctrl.usageRights.category === '') {
             del();
         } else {
