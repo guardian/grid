@@ -1202,6 +1202,10 @@ FIXME: what to do with touch devices
     height: 4em;
 }
 
+.job-info__credit {
+    width: 100%;
+}
+
 .job-edit-disabler {
     width: 100%;
     height: 100%;
