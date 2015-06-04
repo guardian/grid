@@ -33,7 +33,7 @@ datalist.directive('grDatalist', [function() {
             ctrl.setValueTo = value => ctrl.value = value;
             ctrl.setValueFromSelectedIndex = () => {
                 ctrl.value = ctrl.results[selectedIndex];
-            }
+            };
         }],
         bindToController: true
     };
