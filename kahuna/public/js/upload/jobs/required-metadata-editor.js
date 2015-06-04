@@ -24,6 +24,8 @@ jobs.controller('RequiredMetadataEditorCtrl',
 
     ctrl.save = function() {
         ctrl.saving = true;
+        //ctrl.saveing = false;
+        //return;
 
         // If there has been a change in the metadata, save it as an override
         var cleanMetadata = {};
