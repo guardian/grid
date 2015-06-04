@@ -31,8 +31,14 @@ datalist.directive('grDatalist', [function() {
                 ctrl.search({ q }).then(results => ctrl.results = results);
 
             ctrl.setValueTo = value => ctrl.value = value;
+
             ctrl.setValueFromSelectedIndex = () => {
                 ctrl.value = ctrl.results[selectedIndex];
+            };
+
+            ctrl.reset = () => {
+                selectedIndex = 0;
+                ctrl.results = [];
             };
         }],
         bindToController: true
@@ -40,14 +46,16 @@ datalist.directive('grDatalist', [function() {
 }]);
 
 
-datalist.directive('grDatalistInput', ['onValChange', function(onValChange) {
+datalist.directive('grDatalistInput',
+                   ['$timeout', 'onValChange',
+                   function($timeout, onValChange) {
     return {
         restrict: 'A',
         require:['^grDatalist', '?ngModel'],
 
         link: function(scope, element, _/*attrs*/, [parentCtrl, ngModel]) {
-            // I've put this here to be able to access it in the template
-            // Not sure where else it could go really.
+            // This feels like it should be set to this directive, but it is
+            // needed in the template so we set it here.
             parentCtrl.active = false;
 
             const input = angular.element(element[0]);
@@ -55,8 +63,8 @@ datalist.directive('grDatalistInput', ['onValChange', function(onValChange) {
             const keyFuncs = {
                 up:    () => parentCtrl.moveIndex(-1),
                 down:  () => parentCtrl.moveIndex(+1),
-                esc:   () => parentCtrl.active = false,
-                enter: () => parentCtrl.setValueFromSelectedIndex()
+                enter: () => parentCtrl.setValueFromSelectedIndex(),
+                esc:   deactivate
             };
 
             input.on('keyup', event => {
@@ -66,18 +74,32 @@ datalist.directive('grDatalistInput', ['onValChange', function(onValChange) {
                     event.preventDefault();
                     scope.$apply(func);
                 } else {
-                    parentCtrl.searchFor(input.val()).then(activate);
+                    searchAndActivate();
                 }
             });
 
-            input.on('click', () => parentCtrl.searchFor(input.val()).then(activate));
+            input.on('focus', searchAndActivate);
+            input.on('click', searchAndActivate);
+
+            // This is done to make the results disappear when you select
+            // somewhere else on the document, but still allowing you to click
+            // a result. What would have been nicer would be to have looked for
+            // a `document.click` and `stopPropagation`ed on the parent element.
+            // Unfortunately this isn't possible as a `document.click` is fired
+            // from the submit button of a form (which most forms have).
+            input.on('blur', () => $timeout(deactivate, 150));
 
             scope.$watch(() => parentCtrl.value, onValChange(newVal => {
                 ngModel.$setViewValue(newVal, 'gr:datalist:update');
                 ngModel.$commitViewValue();
                 ngModel.$render();
+
                 deactivate();
             }));
+
+            function searchAndActivate() {
+                parentCtrl.searchFor(input.val()).then(activate);
+            }
 
             function activate(results) {
                 const isOnlyResult = results.length === 1 && input.val() === results[0];
@@ -87,8 +109,8 @@ datalist.directive('grDatalistInput', ['onValChange', function(onValChange) {
             }
 
             function deactivate() {
-                parentCtrl.selectedIndex = 0;
                 parentCtrl.active = false;
+                parentCtrl.reset();
             }
         }
     };
