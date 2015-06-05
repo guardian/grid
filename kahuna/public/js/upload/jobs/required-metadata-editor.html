@@ -47,19 +47,21 @@
             >⇔</button>
 
         </label>
-        <label class="job-info--editor__field">
+        <div class="job-info--editor__field">
             <div class="job-info--editor__label">Credit</div>
 
-            <ui-datalist
+            <gr:datalist
                 class="job-info--editor__input"
-                name="credit"
-                placeholder="e.g. Getty Images…"
-                request="ctrl.metadataSearch('credit', q)"
-                on-value-select="ctrl.setCredit(value)"
-                on-deactivate="ctrl.setCredit(value)"
-                initial-value="{{ctrl.metadata.credit}}"
-                watch-value="ctrl.metadata.credit"
-            ></ui-datalist>
+                gr:search="ctrl.metadataSearch('credit', q)">
+
+                <input type="text"
+                    class="job-info__credit"
+                    required
+                    gr:datalist-input
+                    ng:model="ctrl.metadata.credit"
+                    ng:change="ctrl.save()"
+                    ng:model-options="{ updateOn: 'gr:datalist:update blur' }" />
+            </gr:datalist>
 
             <button
                 class="job-editor__apply-to-all"
@@ -68,7 +70,7 @@
                 ng:if="ctrl.withBatch"
                 ng:click="ctrl.batchApplyMetadata('credit')"
             >⇔</button>
-        </label>
+        </div>
     </div>
     <!-- Angular doesn't submit a form without a submit element, bonza!
     see: https://docs.angularjs.org/api/ng/directive/form#submitting-a-form-and-preventing-the-default-action -->
