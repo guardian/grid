@@ -114,7 +114,7 @@ object ElasticSearch extends ElasticSearchClient {
           updateLastModifiedScript,
         scriptType)
       .executeAndLog(s"updating exports on image $id")
-      .incrementOnFailure(conflicts) { case e: VersionConflictEngineException => true }
+      .incrementOnFailure(failedExportsUpdates) { case e: VersionConflictEngineException => true }
 
   def applyImageMetadataOverride(id: String, metadata: JsValue)(implicit ex: ExecutionContext): Future[UpdateResponse] =
     prepareImageUpdate(id)
@@ -129,7 +129,7 @@ object ElasticSearch extends ElasticSearchClient {
           updateLastModifiedScript,
         scriptType)
       .executeAndLog(s"updating user metadata on image $id")
-      .incrementOnFailure(conflicts) { case e: VersionConflictEngineException => true }
+      .incrementOnFailure(failedMetadataUpdates) { case e: VersionConflictEngineException => true }
 
   def prepareImageUpdate(id: String): UpdateRequestBuilder =
     client.prepareUpdate(imagesAlias, imageType, id)
