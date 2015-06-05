@@ -144,7 +144,7 @@ object ElasticSearch extends ElasticSearchClient {
       .setQuery(matchAllQuery)
       .setScript(script)
       .executeAndLog("Running update by query script")
-      .incrementOnFailure(conflicts) { case e: VersionConflictEngineException => true }
+      .incrementOnFailure(failedQueryUpdates) { case e: VersionConflictEngineException => true }
 
   def asGroovy(collection: JsValue) = new JsonSlurper().parseText(collection.toString)
 
