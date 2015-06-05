@@ -11,6 +11,10 @@ object ThrallMetrics extends CloudWatchMetrics(s"$stage/Thrall", awsCredentials)
 
   val failedDeletedImages = new CountMetric("FailedDeletedImages")
 
+  val failedMetadataUpdates = new CountMetric("FailedMetadataUpdates")
+
+  val failedExportsUpdates = new CountMetric("FailedMetadataUpdates")
+
   val conflicts = new CountMetric("ElasticSearch/Conflicts")
 
 }
