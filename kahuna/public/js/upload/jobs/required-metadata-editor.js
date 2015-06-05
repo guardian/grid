@@ -48,13 +48,6 @@ jobs.controller('RequiredMetadataEditorCtrl',
         });
     };
 
-    ctrl.setCredit = credit => {
-        if (ctrl.metadata.credit !== credit) {
-            ctrl.metadata.credit = credit;
-            ctrl.save();
-        }
-    };
-
     // TODO: Find a way to broadcast more selectively
     const batchApplyMetadataEvent = 'events:batch-apply:metadata';
 
