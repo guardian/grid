@@ -10,6 +10,7 @@ set -e
 
 new_section "Moving config files into place"
 mv /tmp/media-service_logrotate /etc/logrotate.d/media-service
+sudo chown root:root /etc/logrotate.d/media-service
 
 new_section "Updating package lists"
 apt-get -y update
