@@ -58,7 +58,7 @@ object ElasticSearch extends ElasticSearchClient {
            |   ctx._source.identifiers += doc.identifiers;
            | }
            |""".stripMargin +
-          refreshMetadataScript +
+          refreshEditsScript +
           updateLastModifiedScript,
         scriptType)
       .executeAndLog(s"Indexing image $id")
@@ -104,13 +104,7 @@ object ElasticSearch extends ElasticSearchClient {
         "lastModified" -> asGroovy(JsString(currentIsoDateString))
       ).asJava)
       .setScript(
-        """
-                    if (ctx._source.exports == null) {
-                      ctx._source.exports = exports;
-                    } else {
-                      ctx._source.exports += exports;
-                    }
-                 """ +
+          addExportsScript +
           updateLastModifiedScript,
         scriptType)
       .executeAndLog(s"updating exports on image $id")
@@ -124,8 +118,7 @@ object ElasticSearch extends ElasticSearchClient {
       ).asJava)
       .setScript(
         "ctx._source.userMetadata = userMetadata;" +
-          refreshMetadataScript +
-          refreshUsageRightsScript +
+          refreshEditsScript +
           updateLastModifiedScript,
         scriptType)
       .executeAndLog(s"updating user metadata on image $id")
@@ -158,6 +151,15 @@ object ElasticSearch extends ElasticSearchClient {
     image.transform(removeUploadInformation).get
   }
 
+  // Create the exports key or add to it
+  private val addExportsScript =
+    """| if (ctx._source.exports == null) {
+       |   ctx._source.exports = exports;
+       | } else {
+       |   ctx._source.exports += exports;
+       | }
+    """.stripMargin
+
   // Script that refreshes the "metadata" object by recomputing it
   // from the original metadata and the overrides
   private val refreshMetadataScript =
@@ -181,6 +183,9 @@ object ElasticSearch extends ElasticSearchClient {
        |   ctx._source.usageRights = ctx._source.originalUsageRights
        | }
     """.stripMargin
+
+  // updating all user edits
+  private val refreshEditsScript = refreshMetadataScript + refreshUsageRightsScript
 
   // Script that updates the "lastModified" property using the "lastModified" parameter
   private val updateLastModifiedScript =
