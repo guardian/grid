@@ -62,9 +62,6 @@ image.controller('ImageCtrl', [
             ctrl.userCanEdit = editable;
         });
 
-        const onMetadataUpdateEnd =
-            editsService.on(image.data.userMetadata.data.metadata, 'update-end', onSave);
-
         var ignoredMetadata = [
             'title', 'description', 'copyright', 'keywords', 'byline',
             'credit', 'subLocation', 'city', 'state', 'country',
@@ -82,28 +79,10 @@ image.controller('ImageCtrl', [
             });
         }
 
-        function onSave () {
-            return ctrl.image.get()
-                .then(newImage => {
-                    ctrl.image = newImage;
-                });
-        }
-
         ctrl.updateMetadata = function (field, value) {
-            if (ctrl.metadata[field] === value) {
-                /*
-                 Nothing has changed.
-
-                 Per the angular-xeditable docs, returning false indicates success but model
-                 will not be updated.
-
-                 http://vitalets.github.io/angular-xeditable/#onbeforesave
-                 */
-                return false;
-            }
-
             return editsService.updateMetadata(image, field, value)
-                .then(() => {
+                .then((updatedImage) => {
+                    ctrl.image = updatedImage;
                     track('Metadata edit', {successful: true, field: field});
                 })
                 .catch(() => {
@@ -121,8 +100,4 @@ image.controller('ImageCtrl', [
                     return 'failed to save (press esc to cancel)';
                 });
         };
-
-        $scope.$on('$destroy', () => {
-            onMetadataUpdateEnd();
-        });
     }]);
