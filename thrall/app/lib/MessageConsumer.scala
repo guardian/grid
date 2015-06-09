@@ -1,6 +1,9 @@
 package lib
 
+import com.amazonaws.services.cloudwatch.model.Dimension
 import org.elasticsearch.action.deletebyquery.DeleteByQueryResponse
+import org.joda.time.DateTime
+import org.joda.time.format.ISODateTimeFormat
 
 import scala.collection.JavaConverters._
 import scala.concurrent.{Future, ExecutionContext}
@@ -8,7 +11,6 @@ import scala.concurrent.duration._
 
 import com.amazonaws.services.sqs.AmazonSQSClient
 import com.amazonaws.services.sqs.model.{Message => SQSMessage, DeleteMessageRequest, ReceiveMessageRequest}
-import org.elasticsearch.action.index.IndexResponse
 import org.elasticsearch.action.update.UpdateResponse
 import _root_.play.api.libs.json._
 import _root_.play.api.libs.functional.syntax._
@@ -40,9 +42,19 @@ object MessageConsumer {
         _ <- processor.fold(
           sys.error(s"Unrecognised message subject ${message.subject}"))(
           _.apply(message.body))
+        _ = recordMessageLatency(message)
       } yield ()
       future |> deleteOnSuccess(msg)
     }
+  }
+
+  def recordMessageLatency(message: SNSMessage) = {
+    val latency = DateTime.now.getMillis - message.timestamp.getMillis
+    val dimensions = message.subject match {
+      case Some(subject) => List(new Dimension().withName("subject").withValue(subject))
+      case None          => List()
+    }
+    ThrallMetrics.processingLatency.runRecordOne(latency, dimensions)
   }
 
   def chooseProcessor(subject: String): Option[JsValue => Future[Any]] =
@@ -109,16 +121,21 @@ case class SNSMessage(
   messageId: String,
   topicArn: String,
   subject: Option[String],
+  timestamp: DateTime,
   body: JsValue
 )
 
 object SNSMessage {
+  private def parseTimestamp(timestamp: String): DateTime =
+    ISODateTimeFormat.dateTime.withZoneUTC.parseDateTime(timestamp)
+
   implicit def snsMessageReads: Reads[SNSMessage] =
     (
       (__ \ "Type").read[String] ~
       (__ \ "MessageId").read[String] ~
       (__ \ "TopicArn").read[String] ~
       (__ \ "Subject").readNullable[String] ~
+      (__ \ "Timestamp").read[String].map(parseTimestamp) ~
       (__ \ "Message").read[String].map(Json.parse)
-    )(SNSMessage(_, _, _, _, _))
+    )(SNSMessage(_, _, _, _, _, _))
 }
