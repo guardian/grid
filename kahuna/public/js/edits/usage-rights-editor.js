@@ -47,13 +47,16 @@ usageRightsEditor.controller('UsageRightsEditorCtrl',
                 restrictions: ctrl.restrictions,
                 // TODO: remove cost here once it's deprecated from the API
                 cost
-            }
+            };
         }
     }
 
     function getCost(cat) {
-        if      (isFree(cat))       { return 'free' }
-        else if (isRestricted(cat)) { return 'conditional' }
+        if (isFree(cat)) {
+            return 'free';
+        } else if (isRestricted(cat)) {
+            return 'conditional';
+        }
     }
 
     function isFree(cat) {
