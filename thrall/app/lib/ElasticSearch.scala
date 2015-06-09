@@ -164,6 +164,9 @@ object ElasticSearch extends ElasticSearchClient {
     """| ctx._source.metadata = ctx._source.originalMetadata;
        | if (ctx._source.userMetadata && ctx._source.userMetadata.metadata) {
        |   ctx._source.metadata += ctx._source.userMetadata.metadata;
+       |   // Get rid of "" values
+       |   def nonEmptyKeys = ctx._source.metadata.findAll { it.value != "" }.collect { it.key }
+       |   ctx._source.metadata = ctx._source.metadata.subMap(nonEmptyKeys)
        | }
     """.stripMargin
 
