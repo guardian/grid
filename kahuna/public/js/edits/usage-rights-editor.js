@@ -13,43 +13,60 @@ usageRightsEditor.controller('UsageRightsEditorCtrl',
     var ctrl = this;
     ctrl.saving = false;
     ctrl.saved = false;
-    ctrl.usageRights = {}; // this is the model used in the view
-    ctrl.usageRightsCategories = [
-        usageRightsCategory('PR Image', 'PR Image'),
-        usageRightsCategory('Handout', 'handout'),
-        usageRightsCategory('Screengrab', 'screengrab')
+    ctrl.category = null;
+    ctrl.restrictions = null;
+    ctrl.categories = [
+        category('PR Image', 'PR Image'),
+        category('Handout', 'handout'),
+        category('Screengrab', 'screengrab')
     ];
 
-    updateResourceAndModel(ctrl.resource);
+    updateResource(ctrl.resource);
 
     ctrl.save = () => {
-        if (ctrl.usageRights.category) {
-            save();
+        if (ctrl.category) {
+            save(modelToData());
         } else {
             del();
         }
     };
     ctrl.isDisabled = () => ctrl.saving;
     ctrl.isNotEmpty = () => !angular.equals(ctrl.resource.data, {});
-    ctrl.isVariableCost = isVariableCost;
-    ctrl.cleanModel = cleanModel;
 
+    ctrl.getCost = () => getCost(ctrl.category);
 
-    // TODO: Hopefully we will lose the idea of variable cost in the future,
-    // making "PR Image"'s cost restricted. Let's test it first though.
-    function cleanModel() {
-        if (isVariableCost()) {
-            // set the default
-            ctrl.usageRights.cost = 'conditional';
-        } else {
-            // we are inferring the cost from the category here.
-            delete ctrl.usageRights.cost;
-            delete ctrl.usageRights.restrictions;
+    function modelToData() {
+        const cost = getCost(ctrl.category);
+
+        if (cost === 'free') {
+            return { category: ctrl.category };
+
+        } else if (cost === 'conditional') {
+            return {
+                category: ctrl.category,
+                restrictions: ctrl.restrictions,
+                // TODO: remove cost here once it's deprecated from the API
+                cost
+            }
         }
     }
 
-    function isVariableCost() {
-        return ctrl.usageRights.category === 'PR Image';
+    function getCost(cat) {
+        if      (isFree(cat))       { return 'free' }
+        else if (isRestricted(cat)) { return 'conditional' }
+    }
+
+    function isFree(cat) {
+        return contains(['handout', 'screengrab'], cat);
+    }
+
+    function isRestricted(cat) {
+        return contains(['PR Image'], cat);
+    }
+
+    // I can't believe there is no helper for this
+    function contains(arr, val) {
+        return arr.indexOf(val) !== -1;
     }
 
     function del() {
@@ -57,7 +74,7 @@ usageRightsEditor.controller('UsageRightsEditorCtrl',
 
         editsService.remove(ctrl.resource, ctrl.image).
             then(resource => {
-                updateResourceAndModel(resource);
+                updateResource(resource);
                 ctrl.onSave();
                 uiSaved();
             }).
@@ -65,13 +82,13 @@ usageRightsEditor.controller('UsageRightsEditorCtrl',
             finally(() => ctrl.saving = false);
     }
 
-    function save() {
+    function save(data) {
         ctrl.saving = true;
 
         editsService.
-            update(ctrl.resource, ctrl.usageRights, ctrl.image).
+            update(ctrl.resource, data, ctrl.image).
             then(resource => {
-                updateResourceAndModel(resource);
+                updateResource(resource);
                 ctrl.onSave();
                 uiSaved();
             }).
@@ -79,9 +96,8 @@ usageRightsEditor.controller('UsageRightsEditorCtrl',
             finally(() => ctrl.saving = false);
     }
 
-    function updateResourceAndModel(resource) {
+    function updateResource(resource) {
         ctrl.resource = resource;
-        ctrl.usageRights = angular.extend({}, resource.data);
     }
 
     function uiSaved() {
@@ -93,7 +109,7 @@ usageRightsEditor.controller('UsageRightsEditorCtrl',
         $window.alert('Failed to save the changes, please try again.');
     }
 
-    function usageRightsCategory(name, value) {
+    function category(name, value) {
         return { name, value };
     }
 
