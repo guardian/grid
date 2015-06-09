@@ -9,8 +9,8 @@ export var service = angular.module('kahuna.edits.service', []);
 // see when it's synced. We should have a link on the resource to be able to do
 // this.
 service.factory('editsService',
-                ['$q', 'editsApi', 'mediaApi', 'poll',
-                 function($q, editsApi, mediaApi, poll) {
+                ['$rootScope', '$q', 'editsApi', 'mediaApi', 'poll',
+                 function($rootScope, $q, editsApi, mediaApi, poll) {
 
     const pollFrequency = 500; // ms
     const pollTimeout   = 20 * 1000; // ms
@@ -212,14 +212,40 @@ service.factory('editsService',
     }
 
     function updateMetadata (image, field, value) {
-        var proposedMetadata = angular.copy(image.data.metadata);
+        var metadata = image.data.metadata;
+
+        if (metadata[field] === value) {
+            /*
+             Nothing has changed.
+
+             Per the angular-xeditable docs, returning false indicates success but model
+             will not be updated.
+
+             http://vitalets.github.io/angular-xeditable/#onbeforesave
+             */
+
+            return Promise.resolve(false);
+        }
+
+        var proposedMetadata = angular.copy(metadata);
         proposedMetadata[field] = value;
 
         var changed = getMetadataDiff(image, proposedMetadata);
 
-        return update(image.data.userMetadata.data.metadata, changed, image);
+        return update(image.data.userMetadata.data.metadata, changed, image)
+            .then(() => {
+                return image.get().then(updatedImage => {
+                    $rootScope.$emit('image-updated', updatedImage, image);
+                    return updatedImage;
+                });
+            });
     }
 
-    return { update, add, on, remove, canUserEdit, updateMetadata };
+    function batchUpdateMetadata (images, field, value) {
+        images = Array.from(images);
+        return $q.all(images.map(image => updateMetadata(image, field, value)));
+    }
+
+    return { update, add, on, remove, canUserEdit, updateMetadata, batchUpdateMetadata };
 
 }]);

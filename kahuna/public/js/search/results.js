@@ -5,8 +5,8 @@ import '../services/preview-selection';
 export var results = angular.module('kahuna.search.results', ['kahuna.services.selection']);
 
 results.controller('SearchResultsCtrl', [
-    '$scope', '$state', '$stateParams', '$window', '$timeout', 'mediaApi', 'selectionService',
-    function($scope, $state, $stateParams, $window, $timeout, mediaApi, selection) {
+    '$rootScope', '$scope', '$state', '$stateParams', '$window', '$timeout', 'mediaApi', 'selectionService',
+    function($rootScope, $scope, $state, $stateParams, $window, $timeout, mediaApi, selection) {
 
         const ctrl = this;
 
@@ -167,5 +167,13 @@ results.controller('SearchResultsCtrl', [
                 ctrl.toggleSelection(image, !ctrl.imageHasBeenSelected(image));
             }
         };
+
+        $rootScope.$on('image-updated', (e, updatedImage, oldImage) => {
+            var index = ctrl.images.findIndex(i => i.data.id === updatedImage.data.id);
+            ctrl.images[index] = updatedImage;
+
+            selection.remove(oldImage);
+            selection.add(updatedImage);
+        });
     }
 ]);
