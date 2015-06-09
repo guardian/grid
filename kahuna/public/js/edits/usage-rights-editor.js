@@ -13,8 +13,8 @@ usageRightsEditor.controller('UsageRightsEditorCtrl',
     var ctrl = this;
     ctrl.saving = false;
     ctrl.saved = false;
-    ctrl.category = null;
-    ctrl.restrictions = null;
+    ctrl.category = ctrl.resource.data.category;
+    ctrl.restrictions = ctrl.resource.data.restrictions;
     ctrl.categories = [
         category('PR Image', 'PR Image'),
         category('Handout', 'handout'),
