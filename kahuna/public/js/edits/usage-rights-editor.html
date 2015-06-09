@@ -1,39 +1,27 @@
-<form class="usage-rights-editor ure" ng:submit="ctrl.save()">
+<form class="usage-rights-editor ure"
+      ng:submit="usageRights.$valid && ctrl.save()"
+      name="usageRights">
     <label class="ure__category">
         <select
-            ng:model="ctrl.usageRights.category"
+            ng:model="ctrl.category"
             ng:disabled="ctrl.saving"
-            ng:change="ctrl.cleanModel()"
-            ng:options="category.value as category.name for category in ctrl.usageRightsCategories">
+            ng:options="category.value as category.name for category in ctrl.categories">
             <option value="">None</option>
         </select>
     </label>
 
-    <label class="ure__cost-selector"
-           ng:if="ctrl.isVariableCost()">
-
-        <select required
-            ng:disabled="ctrl.isDisabled()"
-            ng:model="ctrl.usageRights.cost">
-            <option value="free">free to use</option>
-            <option value="conditional">restricted</option>
-            <option value="pay">pay to use</option>
-        </select>
-    </label>
-
     <div class="ure__cost"
-         ng:switch="ctrl.usageRights.category"
-         ng:if="!ctrl.isVariableCost()">
+         ng:switch="ctrl.getCost()">
 
         <div class="cost cost--free"
-             ng:switch-when="handout">Free to use</div>
+             ng:switch-when="free">Free to use</div>
 
-        <div class="cost cost--free"
-             ng:switch-when="screengrab">Free to use</div>
+        <div class="cost cost--conditional"
+             ng:switch-when="conditional">Restricted use</div>
     </div>
 
     <div class="ure__description"
-         ng:switch="ctrl.usageRights.category">
+         ng:switch="ctrl.category">
         <div ng:switch-when="PR Image">
             These are used to promote specific exhibitions, auctions, etc. and only available for such purposes.
         </div>
@@ -48,20 +36,20 @@
     </div>
 
     <label class="ure__restrictions"
-           ng:if="ctrl.isVariableCost()">
+           ng:if="ctrl.getCost() === 'conditional'">
 
         Restrictions
         <textarea class="ure__restrictions-text"
                   required
                   msd-elastic
-                  ng:model="ctrl.usageRights.restrictions"
+                  ng:model="ctrl.restrictions"
                   ng:disabled="ctrl.isDisabled()"></textarea>
     </label>
 
     <div class="ure__submit">
         <button class="button" type="submit"
             ng:class="{ 'button--green': ctrl.saved }"
-            ng:disabled="ctrl.isDisabled()">
+            ng:disabled="ctrl.isDisabled() || !usageRights.$valid">
                 <span ng:if="!(ctrl.saving || ctrl.saved)">Save</span>
                 <span ng:if="ctrl.saving">Saving</span>
                 <span ng:if="ctrl.saved">Saved</span>
