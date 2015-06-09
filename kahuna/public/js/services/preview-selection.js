@@ -1,10 +1,13 @@
 import angular from 'angular';
 
+import '../edits/service';
+
 var selectionService = angular.module('kahuna.services.selection', ['kahuna.edits.service']);
 
-selectionService.factory('selectionService', [function () {
+selectionService.factory('selectionService', ['$q', 'editsService', function ($q, editsService) {
     var selectedImages = new Set();
     var selectedMetadata = {};
+    var selectedMetadataForDisplay = {};
 
     function groupMetadata () {
         var metadata = {};
@@ -19,55 +22,81 @@ selectionService.factory('selectionService', [function () {
     }
 
     function updateMetadata () {
-        var metadata = groupMetadata();
+        var groupedMetadata = groupMetadata();
 
-        var displayMetadata = {};
+        var metadata = {};
 
-        Object.keys(metadata).forEach(function (key) {
-            switch (metadata[key].size) {
+        Object.keys(groupedMetadata).forEach(function (key) {
+            switch (groupedMetadata[key].size) {
                 case 0: {
-                    displayMetadata[key] = undefined;
+                    metadata[key] = undefined;
                     break;
                 }
                 case 1: {
-                    displayMetadata[key] = Array.from(metadata[key])[0];
+                    metadata[key] = Array.from(groupedMetadata[key])[0];
                     break;
                 }
                 default: {
-                    displayMetadata[key] = Array.from(metadata[key]);
+                    metadata[key] = Array.from(groupedMetadata[key]);
                     break;
                 }
             }
         });
 
-        selectedMetadata = displayMetadata;
+        return metadata;
+    }
+
+    function updateDisplayMetadata () {
+        var metadata = updateMetadata();
+
+        var displayMetadata = {};
+
+        Object.keys(metadata).forEach((key) => {
+            if (Array.isArray(metadata[key])) {
+                displayMetadata[key] = undefined;
+            } else {
+                displayMetadata[key] = metadata[key];
+            }
+        });
+
+        selectedMetadata = metadata;
+        selectedMetadataForDisplay = displayMetadata;
+    }
+
+    function canUserEdit () {
+        var promises = [];
+
+        for (let image of selectedImages) {
+            promises.push(editsService.canUserEdit(image));
+        }
+
+        return $q.all(promises).then(values => {
+            var valueSet = new Set(values);
+            return valueSet.size === 1 && valueSet.has(true);
+        });
     }
 
     function add (image) {
         selectedImages.add(image);
-        updateMetadata();
+        updateDisplayMetadata();
     }
 
     function remove (image) {
         selectedImages.delete(image);
-        updateMetadata();
+        updateDisplayMetadata();
     }
 
     return {
         selectedImages,
-
+        add,
+        remove,
+        canUserEdit,
         getMetadata: () => selectedMetadata,
-
+        getDisplayMetadata: () => selectedMetadataForDisplay,
         isSelected: (image) => selectedImages.has(image),
-
-        add: add,
-
-        remove: remove,
-
         toggleSelection: (image, select) => {
             return select ? add(image) : remove(image);
         },
-
         clear: () => selectedImages.clear()
     };
 }]);
