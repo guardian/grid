@@ -211,7 +211,7 @@ service.factory('editsService',
         return diff;
     }
 
-    function updateMetadata (image, field, value) {
+    function updateMetadataField (image, field, value) {
         var metadata = image.data.metadata;
 
         if (metadata[field] === value) {
@@ -222,6 +222,10 @@ service.factory('editsService',
              will not be updated.
 
              http://vitalets.github.io/angular-xeditable/#onbeforesave
+
+             NOTE: Tying a service to a UI component isn't ideal as it means
+             consumers of this function have to either xeditable or adopt the
+             same behaviour as xeditable.
              */
 
             return Promise.resolve(false);
@@ -241,11 +245,10 @@ service.factory('editsService',
             });
     }
 
-    function batchUpdateMetadata (images, field, value) {
-        images = Array.from(images);
-        return $q.all(images.map(image => updateMetadata(image, field, value)));
+    function batchUpdateMetadataField (images, field, value) {
+        return $q.all(images.map(image => updateMetadataField(image, field, value)));
     }
 
-    return { update, add, on, remove, canUserEdit, updateMetadata, batchUpdateMetadata };
+    return { update, add, on, remove, canUserEdit, updateMetadataField, batchUpdateMetadataField };
 
 }]);

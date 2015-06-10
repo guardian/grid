@@ -17,7 +17,7 @@
                      editable-text="ctrl.metadata.title"
                      buttons="no"
                      blur="submit"
-                     onbeforesave="ctrl.updateMetadata('title', $data)"
+                     onbeforesave="ctrl.updateMetadataField('title', $data)"
                      e:form="titleEditForm"
                      e:ng-class="{'image-info__editor--error': $error, 'image-info__editor--saving': titleEditForm.$waiting}">
 
@@ -48,7 +48,7 @@
                      editable-textarea="ctrl.metadata.description"
                      buttons="no"
                      blur="submit"
-                     onbeforesave="ctrl.updateMetadata('description', $data)"
+                     onbeforesave="ctrl.updateMetadataField('description', $data)"
                      e:msd-elastic
                      e:form="descriptionEditForm"
                      e:ng-class="{'image-info__editor--error': $error, 'image-info__editor--saving': descriptionEditForm.$waiting}">
@@ -87,7 +87,7 @@
                      editable-text="ctrl.metadata.byline"
                      buttons="no"
                      blur="submit"
-                     onbeforesave="ctrl.updateMetadata('byline', $data)"
+                     onbeforesave="ctrl.updateMetadataField('byline', $data)"
                      e:form="bylineEditForm"
                      e:ng-class="{'image-info__editor--error': $error, 'image-info__editor--saving': bylineEditForm.$waiting}">
 
@@ -119,7 +119,7 @@
                       editable-text="ctrl.metadata.credit"
                       buttons="no"
                       blur="submit"
-                      onbeforesave="ctrl.updateMetadata('credit', $data)"
+                      onbeforesave="ctrl.updateMetadataField('credit', $data)"
                       e:form="creditEditForm"
                       e:ng-class="{'image-info__editor--error': $error, 'image-info__editor--saving': creditEditForm.$waiting}">
 
