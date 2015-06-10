@@ -1,5 +1,7 @@
 package com.gu.mediaservice.lib.config
 
+import com.gu.mediaservice.model._
+
 object UsageRightsConfig {
 
   // Note: we filter exclusively on matching source, rather than combining credit=Getty and source=X
@@ -109,6 +111,15 @@ object UsageRightsConfig {
   val suppliersCollectionExcl = Map(
     "Getty Images" -> payGettySourceList
   )
+
+  val categoryCosts: Map[UsageRightsCategory, Cost] = Map(
+    Handout    -> Free,
+    Screengrab -> Free,
+    PrImage    -> Conditional
+  )
+
+  def getCategoriesOfCost(cost: Cost): List[UsageRightsCategory] =
+    categoryCosts.filter(_._2 == cost).keys.toList
 }
 
 
