@@ -17,8 +17,8 @@
             </div>
             <div class="job-status status"
                  ng:class="{
-                     'status--invalid': status === 'upload error',
-                     'status--valid': status === 'uploaded'
+                     'status--invalid': job.status === 'upload error',
+                     'status--valid':   job.status === 'uploaded'
                  }">
 
                  {{job.status}}

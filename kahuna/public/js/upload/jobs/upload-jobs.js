@@ -25,6 +25,9 @@ jobs.controller('UploadJobsCtrl',
                 jobItem.status = 'uploaded';
                 jobItem.image = image;
                 jobItem.thumbnail = image.data.thumbnail;
+            }, error => {
+                jobItem.status = 'upload error';
+                jobItem.error = error.message;
             });
         }, error => {
             var message = error.body.errorMessage;
