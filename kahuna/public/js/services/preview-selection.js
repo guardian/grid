@@ -64,16 +64,20 @@ selectionService.factory('selectionService', ['$q', 'editsService', function ($q
     }
 
     function canUserEdit () {
-        var promises = [];
+        var images = Array.from(selectedImages);
 
-        for (let image of selectedImages) {
-            promises.push(editsService.canUserEdit(image));
-        }
+        return $q.all(images.map(i => editsService.canUserEdit(i)))
+            .then(permissions => {
+                /*
+                `permissions` is an array of booleans and is the result of
+                checking if the user can edit all the images that have been selected.
 
-        return $q.all(promises).then(values => {
-            var valueSet = new Set(values);
-            return valueSet.size === 1 && valueSet.has(true);
-        });
+                Check that `permissions` only contains `true`,
+                i.e. the user has permissions to all selected images.
+                 */
+                var uniquePermissions = new Set(permissions);
+                return uniquePermissions.size === 1 && uniquePermissions.has(true);
+            });
     }
 
     function add (image) {
