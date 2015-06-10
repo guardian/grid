@@ -2,22 +2,22 @@ GET     /                                 controllers.EditsApi.index
 GET     /metadata/usage-rights            controllers.EditsApi.getUsageRights()
 
 # Image
-GET     /metadata/:id                     controllers.Image.getAllMetadata(id: String)
+GET     /metadata/:id                     controllers.EditsController.getAllMetadata(id: String)
 
-GET     /metadata/:id/archived            controllers.Image.getArchived(id: String)
-PUT     /metadata/:id/archived            controllers.Image.setArchived(id: String)
-DELETE  /metadata/:id/archived            controllers.Image.unsetArchived(id: String)
+GET     /metadata/:id/archived            controllers.EditsController.getArchived(id: String)
+PUT     /metadata/:id/archived            controllers.EditsController.setArchived(id: String)
+DELETE  /metadata/:id/archived            controllers.EditsController.unsetArchived(id: String)
 
-GET     /metadata/:id/labels              controllers.Image.getLabels(id: String)
-POST    /metadata/:id/labels              controllers.Image.addLabels(id: String)
-DELETE  /metadata/:id/labels/*label       controllers.Image.removeLabel(id: String, label: String)
+GET     /metadata/:id/labels              controllers.EditsController.getLabels(id: String)
+POST    /metadata/:id/labels              controllers.EditsController.addLabels(id: String)
+DELETE  /metadata/:id/labels/*label       controllers.EditsController.removeLabel(id: String, label: String)
 
-GET     /metadata/:id/metadata            controllers.Image.getMetadata(id: String)
-PUT     /metadata/:id/metadata            controllers.Image.setMetadata(id: String)
+GET     /metadata/:id/metadata            controllers.EditsController.getMetadata(id: String)
+PUT     /metadata/:id/metadata            controllers.EditsController.setMetadata(id: String)
 
-GET     /metadata/:id/usage-rights        controllers.Image.getUsageRights(id: String)
-PUT     /metadata/:id/usage-rights        controllers.Image.setUsageRights(id: String)
-DELETE  /metadata/:id/usage-rights        controllers.Image.deleteUsageRights(id: String)
+GET     /metadata/:id/usage-rights        controllers.EditsController.getUsageRights(id: String)
+PUT     /metadata/:id/usage-rights        controllers.EditsController.setUsageRights(id: String)
+DELETE  /metadata/:id/usage-rights        controllers.EditsController.deleteUsageRights(id: String)
 
 # Management
 GET     /management/healthcheck           com.gu.mediaservice.lib.management.Management.healthCheck
