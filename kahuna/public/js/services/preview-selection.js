@@ -71,7 +71,8 @@ selectionService.factory('selectionService', ['$q', 'editsService', function ($q
         selectedMetadata = selectedImageData.metadata;
         selectedMetadataForDisplay = displayMetadata;
 
-        selectedCost = selectedImageData.cost.size === 1 ? selectedImageData.cost.values().next().value : 'mixed';
+        selectedCost = selectedImageData.cost.size === 1 ?
+            selectedImageData.cost.values().next().value : 'mixed';
     }
 
     function canUserEdit () {
