@@ -5,6 +5,7 @@ import org.elasticsearch.action.deletebyquery.DeleteByQueryResponse
 import org.joda.time.DateTime
 import org.joda.time.format.ISODateTimeFormat
 
+import scala.annotation.tailrec
 import scala.collection.JavaConverters._
 import scala.concurrent.{Future, ExecutionContext}
 import scala.concurrent.duration._
@@ -29,11 +30,12 @@ object MessageConsumer {
     ExecutionContext.fromExecutor(Executors.newCachedThreadPool)
 
   def startSchedule(): Unit =
-    actorSystem.scheduler.schedule(0.seconds, 1.seconds)(processMessages())
+    actorSystem.scheduler.scheduleOnce(0.seconds)(processMessages())
 
   lazy val client =
     new AmazonSQSClient(Config.awsCredentials) <| (_ setEndpoint Config.awsEndpoint)
 
+  @tailrec
   def processMessages() {
     // Pull 1 message at a time to avoid starvation
     // Wait for maximum duration (20s) as per doc recommendation:
@@ -49,6 +51,8 @@ object MessageConsumer {
       } yield ()
       future |> deleteOnSuccess(msg)
     }
+
+    processMessages()
   }
 
   def recordMessageLatency(message: SNSMessage) = {
