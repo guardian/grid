@@ -1,5 +1,7 @@
 GET     /                                 controllers.EditsApi.index
+GET     /metadata/usage-rights            controllers.EditsApi.getUsageRights()
 
+# Image
 GET     /metadata/:id                     controllers.Image.getAllMetadata(id: String)
 
 GET     /metadata/:id/archived            controllers.Image.getArchived(id: String)
