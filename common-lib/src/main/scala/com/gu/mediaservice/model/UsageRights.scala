@@ -79,3 +79,12 @@ case object Handout
 
 case object Screengrab
   extends UsageRightsCategory { override def toString = "screengrab" }
+
+case object GuardianWitness
+  extends UsageRightsCategory { override def toString = "guardian-witness" }
+
+case object SocialMedia
+  extends UsageRightsCategory { override def toString = "social-media" }
+
+case object Obituary
+  extends UsageRightsCategory { override def toString = "obituary" }
