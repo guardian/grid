@@ -30,7 +30,7 @@ object EditsApi extends Controller with ArgoHelpers {
       Link("labels",          s"$rootUri/metadata/{id}/labels"),
       Link("usageRights",     s"$rootUri/metadata/{id}/usage-rights"),
       Link("metadata",        s"$rootUri/metadata/{id}/metadata"),
-      Link("usageRightsList", s"$rootUri/usage-rights")
+      Link("usageRightsList", s"$rootUri/usage-rights-categories")
     )
     respond(indexData, indexLinks)
   }
