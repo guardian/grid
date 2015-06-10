@@ -4,7 +4,10 @@ import './gr-panel.css!';
 import '../../services/preview-selection';
 import '../../edits/service';
 
-export var grPanel = angular.module('grPanel', ['kahuna.services.selection', 'kahuna.edits.service']);
+export var grPanel = angular.module('grPanel', [
+    'kahuna.services.selection',
+    'kahuna.edits.service'
+]);
 
 grPanel.controller('GrPanel', [
     '$scope',
@@ -35,7 +38,8 @@ grPanel.controller('GrPanel', [
         }));
 
         ctrl.updateMetadataField = function (field, value) {
-            return editsService.batchUpdateMetadataField(Array.from(ctrl.selectedImages), field, value);
-        }
+            var imageArray = Array.from(ctrl.selectedImages);
+            return editsService.batchUpdateMetadataField(imageArray, field, value);
+        };
     }
 ]);
