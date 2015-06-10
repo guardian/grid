@@ -16,8 +16,6 @@ import play.api.libs.concurrent.Execution.Implicits._
 
 import com.gu.mediaservice.model.Edits
 
-import com.gu.mediaservice.lib.auth
-import com.gu.mediaservice.lib.auth.KeyStore
 import com.gu.mediaservice.lib.aws.{NoItemFound, DynamoDB}
 import lib._
 
@@ -45,29 +43,12 @@ import scala.util.{Success, Failure, Try}
 //   }
 // }
 
-object Application extends Controller with ArgoHelpers {
+object Image extends Controller with ArgoHelpers {
 
-  import Config.{rootUri, loginUri, kahunaUri}
+  import Config.rootUri
 
-  val keyStore = new KeyStore(Config.keyStoreBucket, Config.awsCredentials)
-  val Authenticated = auth.Authenticated(keyStore, loginUri, kahunaUri)
-
+  val Authenticated = EditsApi.Authenticated
   val dynamo = new DynamoDB(Config.awsCredentials, Config.dynamoRegion, Config.editsTable)
-
-  // TODO: add links to the different responses esp. to the reference image
-  val indexResponse = {
-    val indexData = Map("description" -> "This is the Metadata Editor Service")
-    val indexLinks = List(
-      Link("edits",       s"$rootUri/metadata/{id}"),
-      Link("archived",    s"$rootUri/metadata/{id}/archived"),
-      Link("labels",      s"$rootUri/metadata/{id}/labels"),
-      Link("usageRights", s"$rootUri/metadata/{id}/usage-rights"),
-      Link("metadata",    s"$rootUri/metadata/{id}/metadata")
-    )
-    respond(indexData, indexLinks)
-  }
-
-  def index = Authenticated { indexResponse }
 
   def entityUri(id: String, endpoint: String = ""): URI =
     URI.create(s"$rootUri/metadata/$id$endpoint")
