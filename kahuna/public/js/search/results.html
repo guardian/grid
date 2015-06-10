@@ -15,6 +15,7 @@
 
         <div class="image-results-count">
             {{ctrl.totalResults | toLocaleString}} matches
+            <span ng:if="ctrl.inSelectionMode()">({{ctrl.selectedImages.size}} selected)</span>
             <button ng:show="ctrl.newImagesCount > 0"
                     ng:click="ctrl.revealNewImages()"
                     class="image-results-count__new">
