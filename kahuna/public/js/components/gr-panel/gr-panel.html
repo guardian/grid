@@ -7,6 +7,24 @@
     </div>
 
     <div class="panel__content">
+        <div ng:switch="ctrl.selectedCost">
+            <div ng:switch-when="mixed"
+                 class="image-notice image-info__group status cost cost--conditional">
+                mixed
+            </div>
+
+            <div ng:switch-when="pay"
+                 class="image-notice image-info__group status cost cost--pay">
+                pay to use
+            </div>
+
+            <div ng:switch-when="conditional"
+                 class="image-notice image-info__group cost cost--conditional"
+                 title="This image can be used but only within certain restrictions">
+                <b>restricted use:</b> {{ctrl.image.data.userMetadata.data.usageRights.data.restrictions}}
+            </div>
+        </div>
+
         <div class="image-info__group">
             <div class="image-info__wrap" ng:if="ctrl.rawMetadata.title">
                 <button class="image-info__edit"
