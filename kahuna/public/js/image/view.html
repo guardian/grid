@@ -64,7 +64,7 @@
                         editable-text="ctrl.metadata.title"
                         buttons="no"
                         blur="submit"
-                        onbeforesave="ctrl.updateMetadata('title', $data)"
+                        onbeforesave="ctrl.updateMetadataField('title', $data)"
                         e:ng-class="{'image-info__editor--error': $error, 'image-info__editor--saving': titleEditForm.$waiting}"
                         e:form="titleEditForm">{{ctrl.metadata.title}}</h2>
                 </div>
@@ -79,7 +79,7 @@
                          editable-textarea="ctrl.metadata.description"
                          buttons="no"
                          blur="submit"
-                         onbeforesave="ctrl.updateMetadata('description', $data)"
+                         onbeforesave="ctrl.updateMetadataField('description', $data)"
                          e:msd-elastic
                          e:ng-class="{'image-info__editor--error': $error, 'image-info__editor--saving': descriptionEditForm.$waiting}"
                          e:form="descriptionEditForm">{{ctrl.metadata.description || "unknown (click ✎ to add the description)"}}</div>
@@ -105,7 +105,7 @@
                           editable-text="ctrl.metadata.byline"
                           buttons="no"
                           blur="submit"
-                          onbeforesave="ctrl.updateMetadata('byline', $data)"
+                          onbeforesave="ctrl.updateMetadataField('byline', $data)"
                           e:ng-class="{'image-info__editor--error': $error, 'image-info__editor--saving': bylineEditForm.$waiting}"
                           e:form="bylineEditForm">
 
@@ -128,7 +128,7 @@
                           editable-text="ctrl.metadata.credit"
                           buttons="no"
                           blur="submit"
-                          onbeforesave="ctrl.updateMetadata('credit', $data)"
+                          onbeforesave="ctrl.updateMetadataField('credit', $data)"
                           e:ng-class="{'image-info__editor--error': $error, 'image-info__editor--saving': creditEditForm.$waiting}"
                           e:form="creditEditForm">
 

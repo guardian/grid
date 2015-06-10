@@ -32,8 +32,8 @@ grPanel.controller('GrPanel', [
             });
         }));
 
-        ctrl.updateMetadata = function (field, value) {
-            return editsService.batchUpdateMetadata(ctrl.selectedImages, field, value);
+        ctrl.updateMetadataField = function (field, value) {
+            return editsService.batchUpdateMetadataField(Array.from(ctrl.selectedImages), field, value);
         }
     }
 ]);
