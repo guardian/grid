@@ -6,11 +6,8 @@ import com.gu.mediaservice.model._
 
 
 object CostCalculator {
-  val categoryCosts: Map[UsageRightsCategory, Cost] = Map(
-    Handout    -> Free,
-    Screengrab -> Free,
-    PrImage    -> Conditional
-  )
+  import UsageRightsConfig.{ categoryCosts, freeSuppliers, suppliersCollectionExcl, payGettySourceList  }
+  import DeprecatedUsageRightsConfig.{ freeCreditList, freeSourceList }
 
   def getCost(category: UsageRightsCategory): Option[Cost] =
     categoryCosts.get(category)
@@ -21,7 +18,6 @@ object CostCalculator {
       if (free) Some(Free) else None
     }
 
-
   def getCost(usageRights: ImageUsageRights): Option[Cost] = {
       val categoryCost: Option[Cost] = usageRights.category.flatMap(getCost)
       val supplierCost: Option[Cost] = getCost(usageRights.supplier, usageRights.suppliersCollection)
@@ -29,11 +25,10 @@ object CostCalculator {
       categoryCost.orElse(supplierCost)
   }
 
-  private def isFreeSupplier(supplier: String) = UsageRightsConfig.freeSuppliers.contains(supplier)
+  private def isFreeSupplier(supplier: String) = freeSuppliers.contains(supplier)
 
   private def isExcludedColl(supplier: String, supplierColl: String) =
-    UsageRightsConfig.suppliersCollectionExcl.get(supplier).exists(_.contains(supplierColl))
-
+    suppliersCollectionExcl.get(supplier).exists(_.contains(supplierColl))
 
 
   // Deprecated
@@ -49,9 +44,9 @@ object CostCalculator {
     if (freeCreditOrSource) Some(Free) else None
   }
 
-  private def isFreeCredit(credit: String) = DeprecatedUsageRightsConfig.freeCreditList.contains(credit)
-  private def isFreeSource(source: String) = DeprecatedUsageRightsConfig.freeSourceList.contains(source)
-  private def isPaySource(source: String)  = UsageRightsConfig.payGettySourceList.contains(source)
+  private def isFreeCredit(credit: String) = freeCreditList.contains(credit)
+  private def isFreeSource(source: String) = freeSourceList.contains(source)
+  private def isPaySource(source: String)  = payGettySourceList.contains(source)
 
 
 
