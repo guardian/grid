@@ -1,14 +1,15 @@
 import angular from 'angular';
 import 'angular-elastic';
 import template from './usage-rights-editor.html!text';
+import '../services/api/edits-api';
 
 export var usageRightsEditor = angular.module('kahuna.edits.usageRightsEditor', [
     'monospaced.elastic'
 ]);
 
 usageRightsEditor.controller('UsageRightsEditorCtrl',
-                             ['$window', '$timeout', 'editsService',
-                              function($window, $timeout, editsService) {
+                             ['$window', '$timeout', 'editsService', 'editsApi',
+                              function($window, $timeout, editsService, editsApi) {
 
     var ctrl = this;
     ctrl.saving = false;
@@ -20,6 +21,8 @@ usageRightsEditor.controller('UsageRightsEditorCtrl',
         category('Handout', 'handout'),
         category('Screengrab', 'screengrab')
     ];
+
+    editsApi.getUsageRights().then(usageRights => console.log(usageRights));
 
     updateResource(ctrl.resource);
 
