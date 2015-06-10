@@ -67,6 +67,7 @@ imageEditor.controller('ImageEditorCtrl',
     }
 
     function onError() {
+        ctrl.saving = false;
         ctrl.error = true;
     }
 
