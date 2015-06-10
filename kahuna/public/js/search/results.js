@@ -170,10 +170,13 @@ results.controller('SearchResultsCtrl', [
 
         $rootScope.$on('image-updated', (e, updatedImage, oldImage) => {
             var index = ctrl.images.findIndex(i => i.data.id === updatedImage.data.id);
-            ctrl.images[index] = updatedImage;
 
-            selection.remove(oldImage);
-            selection.add(updatedImage);
+            if (index !== -1) {
+                ctrl.images[index] = updatedImage;
+
+                selection.remove(oldImage);
+                selection.add(updatedImage);
+            }
         });
     }
 ]);
