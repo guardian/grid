@@ -51,20 +51,25 @@ async.factory('race',
 
 
 async.factory('poll',
-              ['delay', 'race',
-               function(delay, race) {
+              ['$q', 'delay', 'race',
+               function($q, delay, race) {
 
     function poll(func, pollEvery, maxWait) {
-        // FIXME: how to avoid the error bubbling up if race won by the pollRecursive?
-        var timeout = delay(maxWait).then(() => { throw new Error('timeout'); });
+        var timeout = delay(maxWait).then(() => $q.reject(new Error('timeout')));
+
+        // Returns the result of promise or a rejected timeout
+        // promise, whichever happens first
+        function withTimeout(promise) {
+            return race([promise, timeout]);
+        }
 
         function pollRecursive() {
             return func().catch(() => {
-                return delay(pollEvery).then(pollRecursive);
+                return withTimeout(delay(pollEvery)).then(pollRecursive);
             });
         }
 
-        return race([pollRecursive(), timeout]);
+        return withTimeout(pollRecursive());
     }
 
     return poll;
