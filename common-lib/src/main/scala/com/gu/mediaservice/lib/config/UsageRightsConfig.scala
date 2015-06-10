@@ -1,6 +1,6 @@
 package com.gu.mediaservice.lib.config
 
-object UsageRightsConfig extends DeprecatedUsageRightsConfig {
+object UsageRightsConfig {
 
   // Note: we filter exclusively on matching source, rather than combining credit=Getty and source=X
   // this is assumed to be good enough as it's unlikely other provider will use the same source.

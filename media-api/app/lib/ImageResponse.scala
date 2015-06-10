@@ -2,6 +2,8 @@ package lib
 
 import java.net.{URLEncoder, URI}
 
+import com.gu.mediaservice.lib.usagerights.CostCalculator
+
 import scala.util.{Try, Failure}
 
 import play.api.Logger
@@ -78,14 +80,19 @@ object ImageResponse {
   }
 
   def addUsageCost(source: JsValue): Reads[JsObject] = {
+    // We do the merge here as some records haven't had the user override applied
+    // to the root level `usageRights`
+    // TODO: Solve with reindex
+    val usageRights = List(
+      (source \ "usageRights").asOpt[JsObject],
+      (source \ "userMetadata" \ "usageRights").asOpt[JsObject]
+    ).flatten.foldLeft(Json.obj())(_ ++ _).as[ImageUsageRights]
 
-    val cost = ImageExtras.getCost(
+    val cost = CostCalculator.getCost(
+      usageRights,
       (source \ "metadata" \ "credit").as[Option[String]],
       (source \ "metadata" \ "source").as[Option[String]],
-      (source \ "usageRights" \ "supplier").asOpt[String],
-      (source \ "usageRights" \ "suppliersCollection").asOpt[String],
-      (source \ "userMetadata" \ "usageRights").asOpt[UsageRights],
-      (source \ "usageRights" \ "category").asOpt[UsageRightsCategory]
+      (source \ "usageRights" \ "supplier").asOpt[String]
     )
 
     __.json.update(__.read[JsObject].map(_ ++ Json.obj("cost" -> cost.toString)))
