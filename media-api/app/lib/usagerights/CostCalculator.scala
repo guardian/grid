@@ -1,13 +1,11 @@
-package com.gu.mediaservice.lib.usagerights
+package lib.usagerights
 
-
-import com.gu.mediaservice.lib.config.{DeprecatedUsageRightsConfig, UsageRightsConfig}
 import com.gu.mediaservice.model._
 
 
 object CostCalculator {
-  import UsageRightsConfig.{ categoryCosts, freeSuppliers, suppliersCollectionExcl, payGettySourceList  }
-  import DeprecatedUsageRightsConfig.{ freeCreditList, freeSourceList }
+  import DeprecatedConfig.{freeCreditList, freeSourceList}
+  import Config.{categoryCosts, freeSuppliers, payGettySourceList, suppliersCollectionExcl}
 
   def getCost(category: UsageRightsCategory): Option[Cost] =
     categoryCosts.get(category)

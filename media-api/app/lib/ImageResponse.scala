@@ -1,25 +1,21 @@
 package lib
 
-import java.net.{URLEncoder, URI}
+import lib.usagerights.CostCalculator
 
-import com.gu.mediaservice.lib.usagerights.CostCalculator
-
+import java.net.URI
 import scala.util.{Try, Failure}
+import org.joda.time.{DateTime, Duration}
 
 import play.api.Logger
 import play.api.libs.json._
 import play.api.libs.functional.syntax._
 
-import org.joda.time.{DateTime, Duration}
-
 import com.gu.mediaservice.model._
 import com.gu.mediaservice.lib.argo.model.{EmbeddedEntity, Link}
-import com.gu.mediaservice.model.{Cost, Pay, Free, Image, ImageUsageRights}
 import com.gu.mediaservice.api.Transformers
 
 
 object ImageResponse {
-  import com.gu.mediaservice.lib.formatting._
   implicit val dateTimeFormat = DateFormat
 
   val commonTransformers = new Transformers(Config.services)
