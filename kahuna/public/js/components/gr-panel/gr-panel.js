@@ -30,6 +30,8 @@ grPanel.controller('GrPanel', [
             selection.canUserEdit().then(editable => {
                 ctrl.userCanEdit = editable;
             });
+
+            ctrl.selectedCost = selection.getCost();
         }));
 
         ctrl.updateMetadataField = function (field, value) {

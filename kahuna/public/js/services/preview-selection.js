@@ -8,59 +8,70 @@ selectionService.factory('selectionService', ['$q', 'editsService', function ($q
     var selectedImages = new Set();
     var selectedMetadata = {};
     var selectedMetadataForDisplay = {};
+    var selectedCost;
 
-    function groupMetadata () {
+    function _group () {
         var metadata = {};
+        var cost = new Set();
 
         for (let image of selectedImages) {
             Object.keys(image.data.metadata).forEach((key) => {
                 metadata[key] = metadata[key] || new Set();
                 metadata[key].add(image.data.metadata[key]);
             });
+            cost.add(image.data.cost);
         }
-        return metadata;
+        return {
+            metadata: metadata,
+            cost: cost
+        };
     }
 
-    function updateMetadata () {
-        var groupedMetadata = groupMetadata();
+    function _update () {
+        var grouped = _group();
 
         var metadata = {};
 
-        Object.keys(groupedMetadata).forEach(function (key) {
-            switch (groupedMetadata[key].size) {
+        Object.keys(grouped.metadata).forEach(function (key) {
+            switch (grouped.metadata[key].size) {
                 case 0: {
                     metadata[key] = undefined;
                     break;
                 }
                 case 1: {
-                    metadata[key] = Array.from(groupedMetadata[key])[0];
+                    metadata[key] = Array.from(grouped.metadata[key])[0];
                     break;
                 }
                 default: {
-                    metadata[key] = Array.from(groupedMetadata[key]);
+                    metadata[key] = Array.from(grouped.metadata[key]);
                     break;
                 }
             }
         });
 
-        return metadata;
+        return {
+            metadata: metadata,
+            cost: grouped.cost
+        };
     }
 
-    function updateDisplayMetadata () {
-        var metadata = updateMetadata();
+    function update () {
+        var selectedImageData = _update();
 
         var displayMetadata = {};
 
-        Object.keys(metadata).forEach((key) => {
-            if (Array.isArray(metadata[key])) {
+        Object.keys(selectedImageData.metadata).forEach((key) => {
+            if (Array.isArray(selectedImageData.metadata[key])) {
                 displayMetadata[key] = undefined;
             } else {
-                displayMetadata[key] = metadata[key];
+                displayMetadata[key] = selectedImageData.metadata[key];
             }
         });
 
-        selectedMetadata = metadata;
+        selectedMetadata = selectedImageData.metadata;
         selectedMetadataForDisplay = displayMetadata;
+
+        selectedCost = selectedImageData.cost.size === 1 ? selectedImageData.cost.values().next().value : 'mixed';
     }
 
     function canUserEdit () {
@@ -82,12 +93,12 @@ selectionService.factory('selectionService', ['$q', 'editsService', function ($q
 
     function add (image) {
         selectedImages.add(image);
-        updateDisplayMetadata();
+        update();
     }
 
     function remove (image) {
         selectedImages.delete(image);
-        updateDisplayMetadata();
+        update();
     }
 
     return {
@@ -95,6 +106,7 @@ selectionService.factory('selectionService', ['$q', 'editsService', function ($q
         add,
         remove,
         canUserEdit,
+        getCost: () => selectedCost,
         getMetadata: () => selectedMetadata,
         getDisplayMetadata: () => selectedMetadataForDisplay,
         isSelected: (image) => selectedImages.has(image),
