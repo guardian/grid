@@ -50,7 +50,8 @@ class NoSuchUsageRightsCategory(category: String) extends RuntimeException(s"no 
 
 sealed trait UsageRightsCategory
 object UsageRightsCategory {
-  private val usageRightsCategories = Vector(Agency, PrImage, Handout, Screengrab)
+  private val usageRightsCategories =
+    Vector(Agency, PrImage, Handout, Screengrab, GuardianWitness, SocialMedia, Obituary)
 
   def fromString(category: String): UsageRightsCategory =
     // I think as we move forward we can find out what the more intelligent and
@@ -68,6 +69,9 @@ object UsageRightsCategory {
       Writes[UsageRightsCategory](cat => JsString(cat.toString))
 }
 
+
+// When you add a category, don't forget to add it to `usageRightsCategories`
+// TODO: Find a way not to have to do ^
 case object Agency
   extends UsageRightsCategory { override def toString = "agency" }
 

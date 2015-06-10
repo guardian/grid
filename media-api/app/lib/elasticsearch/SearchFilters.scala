@@ -1,6 +1,6 @@
 package lib.elasticsearch
 
-import lib.usagerights.{DeprecatedConfig => UsageRightsDepConfig, Config => UsageRightsConfig}
+import lib.usagerights.{DeprecatedConfig => UsageRightsDepConfig, Config => UsageRightsConfig, CostCalculator}
 
 import scalaz.syntax.std.list._
 
@@ -65,7 +65,7 @@ trait SearchFilters extends ImageFields {
   // free. We could look into sending over the search query as a cost filter
   // that could take a comma seperated list e.g. `cost=free,conditional`.
   val freeUsageRightsOverrideFilter = List(Free, Conditional).map(_.toString).toNel.map(filters.terms(editsField(usageRightsField("cost")), _))
-  val freeUsageRightsCategoryFilter = UsageRightsConfig.getCategoriesOfCost(Free).map(_.toString).toNel.map(filters.terms(usageRightsField("category"), _))
+  val freeUsageRightsCategoryFilter = CostCalculator.getCategoriesOfCost(Free).map(_.toString).toNel.map(filters.terms(usageRightsField("category"), _))
 
   val freeUsageRightsFilter = (freeUsageRightsOverrideFilter, freeUsageRightsCategoryFilter) match {
     case (Some(freeUsageRightsOverride), Some(freeUsageRightsCategory)) => Some(filters.or(freeUsageRightsOverride, freeUsageRightsCategory))
