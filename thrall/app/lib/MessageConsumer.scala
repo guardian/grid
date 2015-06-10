@@ -40,7 +40,7 @@ object MessageConsumer {
     // Pull 1 message at a time to avoid starvation
     // Wait for maximum duration (20s) as per doc recommendation:
     // http://docs.aws.amazon.com/AWSSimpleQueueService/latest/SQSDeveloperGuide/sqs-long-polling.html
-    for (msg <- poll(waitTime = 20, maxMessages = 1)) {
+    for (msg <- getMessages(waitTime = 20, maxMessages = 1)) {
       val future = for {
         message <- Future(extractSNSMessage(msg) getOrElse sys.error("Invalid message structure (not via SNS?)"))
         processor = message.subject.flatMap(chooseProcessor)
@@ -76,7 +76,7 @@ object MessageConsumer {
   def deleteOnSuccess(msg: SQSMessage)(f: Future[Any]): Unit =
     f.onSuccess { case _ => deleteMessage(msg) }
 
-  def poll(waitTime: Int, maxMessages: Int): Seq[SQSMessage] =
+  def getMessages(waitTime: Int, maxMessages: Int): Seq[SQSMessage] =
     client.receiveMessage(
       new ReceiveMessageRequest(Config.queueUrl)
         .withWaitTimeSeconds(waitTime)
