@@ -5,8 +5,22 @@ import '../services/preview-selection';
 export var results = angular.module('kahuna.search.results', ['kahuna.services.selection']);
 
 results.controller('SearchResultsCtrl', [
-    '$rootScope', '$scope', '$state', '$stateParams', '$window', '$timeout', 'mediaApi', 'selectionService',
-    function($rootScope, $scope, $state, $stateParams, $window, $timeout, mediaApi, selection) {
+    '$rootScope',
+    '$scope',
+    '$state',
+    '$stateParams',
+    '$window',
+    '$timeout',
+    'mediaApi',
+    'selectionService',
+    function($rootScope,
+             $scope,
+             $state,
+             $stateParams,
+             $window,
+             $timeout,
+             mediaApi,
+             selection) {
 
         const ctrl = this;
 
