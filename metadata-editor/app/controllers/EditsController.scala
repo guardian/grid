@@ -43,7 +43,7 @@ import scala.util.{Success, Failure, Try}
 //   }
 // }
 
-object Image extends Controller with ArgoHelpers {
+object EditsController extends Controller with ArgoHelpers {
 
   import Config.rootUri
 
