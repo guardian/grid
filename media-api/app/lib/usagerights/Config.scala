@@ -1,8 +1,8 @@
-package com.gu.mediaservice.lib.config
+package lib.usagerights
 
 import com.gu.mediaservice.model._
 
-object UsageRightsConfig {
+object Config {
 
   // Note: we filter exclusively on matching source, rather than combining credit=Getty and source=X
   // this is assumed to be good enough as it's unlikely other provider will use the same source.
@@ -123,7 +123,7 @@ object UsageRightsConfig {
 }
 
 
-object DeprecatedUsageRightsConfig {
+object DeprecatedConfig {
 
   // TODO: Review these with RCS et al
   val freeCreditList = List(

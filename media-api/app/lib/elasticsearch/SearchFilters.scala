@@ -1,6 +1,6 @@
 package lib.elasticsearch
 
-import com.gu.mediaservice.lib.config.{DeprecatedUsageRightsConfig, UsageRightsConfig}
+import lib.usagerights.{DeprecatedConfig => UsageRightsDepConfig, Config => UsageRightsConfig}
 
 import scalaz.syntax.std.list._
 
@@ -16,7 +16,7 @@ trait SearchFilters extends ImageFields {
   // NOTE: cost matching using credit/source soon to be deprecated
 
   import UsageRightsConfig.{ suppliersCollectionExcl, freeSuppliers, payGettySourceList }
-  import DeprecatedUsageRightsConfig.{ freeCreditList, freeSourceList }
+  import UsageRightsDepConfig.{ freeCreditList, freeSourceList }
 
   // Warning: this requires the capitalisation to be exact; we may want to sanitise the credits
   // to a canonical representation in the future
