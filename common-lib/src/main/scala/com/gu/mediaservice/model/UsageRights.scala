@@ -50,7 +50,7 @@ class NoSuchUsageRightsCategory(category: String) extends RuntimeException(s"no 
 
 trait UsageRightsCategory {
   val name = toString.replace("-", " ").split(" ").map(_.capitalize).mkString(" ")
-  val restrictions: Option[String] = None
+  val recommendedRestrictions: Option[String] = None
 }
 object UsageRightsCategory {
   private val usageRightsCategories =
@@ -90,7 +90,7 @@ case object Screengrab
 case object GuardianWitness
   extends UsageRightsCategory {
     override def toString = "guardian-witness"
-    override val restrictions =
+    override val recommendedRestrictions =
       Some("Images may only be used in association with the assignment, otherwise standard editorial charges apply")
   }
 
