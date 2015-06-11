@@ -1,11 +1,13 @@
 package lib.usagerights
 
+import com.gu.mediaservice.lib.config.UsageRightsConfig
 import com.gu.mediaservice.model._
 
 
 object CostCalculator {
   import DeprecatedConfig.{freeCreditList, freeSourceList}
-  import Config.{categoryCosts, freeSuppliers, payGettySourceList, suppliersCollectionExcl}
+  import Config.{freeSuppliers, payGettySourceList, suppliersCollectionExcl}
+  import UsageRightsConfig.categoryCosts
 
   def getCost(category: UsageRightsCategory): Option[Cost] =
     categoryCosts.get(category)
@@ -22,6 +24,9 @@ object CostCalculator {
 
       categoryCost.orElse(supplierCost)
   }
+
+  def getCategoriesOfCost(cost: Cost): List[UsageRightsCategory] =
+    categoryCosts.filter(_._2 == cost).keys.toList
 
   private def isFreeSupplier(supplier: String) = freeSuppliers.contains(supplier)
 

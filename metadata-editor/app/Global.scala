@@ -3,7 +3,7 @@ import play.api.{Application, GlobalSettings}
 import play.api.mvc.WithFilters
 import play.filters.gzip.GzipFilter
 
-import controllers.{Application => App}
+import controllers.EditsApi
 
 import com.gu.mediaservice.lib.play.RequestLoggingFilter
 
@@ -11,7 +11,7 @@ import com.gu.mediaservice.lib.play.RequestLoggingFilter
 object Global extends WithFilters(CorsFilter, RequestLoggingFilter, new GzipFilter) with GlobalSettings {
 
   override def onStart(app: Application) {
-    App.keyStore.scheduleUpdates(Akka.system(app).scheduler)
+    EditsApi.keyStore.scheduleUpdates(Akka.system(app).scheduler)
   }
 
 }
