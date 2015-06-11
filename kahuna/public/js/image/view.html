@@ -59,7 +59,7 @@
                             ng:if="ctrl.userCanEdit"
                             ng:click="titleEditForm.$show()"
                             ng:hide="titleEditForm.$visible">✎</button>
-
+                    <div class="metadata-line">title</div>
                     <h2 class="image-info__title"
                         editable-text="ctrl.metadata.title"
                         buttons="no"
@@ -74,7 +74,7 @@
                             ng:if="ctrl.userCanEdit"
                             ng:click="descriptionEditForm.$show()"
                             ng:hide="descriptionEditForm.$visible">✎</button>
-
+                    <div class="metadata-line">description</div>
                     <div class="image-info__description"
                          editable-textarea="ctrl.metadata.description"
                          buttons="no"
