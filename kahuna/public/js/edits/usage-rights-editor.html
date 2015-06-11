@@ -5,13 +5,13 @@
         <select
             ng:model="ctrl.category"
             ng:disabled="ctrl.saving"
-            ng:options="category.value as category.name for category in ctrl.categories">
+            ng:options="category as category.name for category in ctrl.categories track by category.value">
             <option value="">None</option>
         </select>
     </label>
 
     <div class="ure__cost"
-         ng:switch="ctrl.getCost()">
+         ng:switch="ctrl.category.cost">
 
         <div class="cost cost--free"
              ng:switch-when="free">Free to use</div>
@@ -36,7 +36,7 @@
     </div>
 
     <label class="ure__restrictions"
-           ng:if="ctrl.getCost() === 'conditional'">
+           ng:if="ctrl.category.cost === 'conditional'">
 
         Restrictions
         <textarea class="ure__restrictions-text"
