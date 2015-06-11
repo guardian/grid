@@ -20,19 +20,8 @@
              ng:switch-when="conditional">Restricted use</div>
     </div>
 
-    <div class="ure__description"
-         ng:switch="ctrl.category">
-        <div ng:switch-when="PR Image">
-            These are used to promote specific exhibitions, auctions, etc. and only available for such purposes.
-        </div>
-
-        <div ng:switch-when="handout">
-            These are provided free of use for press purposes e.g. police images for new stories, family shots in biographical pieces, etc.
-        </div>
-
-        <div ng:switch-when="screengrab">
-            Still images created by us from moving footage in television broadcasts usually in relation to breaking news stories.
-        </div>
+    <div class="ure__description">
+        {{ctrl.category.description}}
     </div>
 
     <label class="ure__restrictions"
