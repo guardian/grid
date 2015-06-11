@@ -1,7 +1,9 @@
 package controllers
 
 import java.io.File
+import java.net.URI
 
+import play.api.mvc.Security.AuthenticatedRequest
 import play.api.mvc._
 import play.api.libs.concurrent.Execution.Implicits._
 import play.api.libs.json.Json
@@ -10,19 +12,20 @@ import play.api.Logger
 import org.joda.time.DateTime
 import scala.concurrent.Future
 
-import lib.{Config, Notifications}
+import lib.{Downloader, Config, Notifications}
 import lib.storage.ImageStore
 import lib.imaging.MimeTypeDetection
 
 import model.{UploadRequest, ImageUpload}
 
-import com.gu.mediaservice.lib.play.BodyParsers.digestedFile
 import com.gu.mediaservice.lib.play.DigestedFile
-import com.gu.mediaservice.lib.{auth, ImageStorage}
-import com.gu.mediaservice.lib.resource.FutureResources._
-import com.gu.mediaservice.lib.auth.{AuthenticatedService, PandaUser, KeyStore}
+import com.gu.mediaservice.lib.auth
+import com.gu.mediaservice.lib.auth.{Principal, AuthenticatedService, PandaUser, KeyStore}
 import com.gu.mediaservice.lib.argo.ArgoHelpers
 import com.gu.mediaservice.lib.argo.model.Link
+
+import scala.util.Try
+import scala.util.control.NonFatal
 
 
 object Application extends ImageLoader
@@ -41,7 +44,8 @@ class ImageLoader extends Controller with ArgoHelpers {
   val indexResponse = {
     val indexData = Map("description" -> "This is the Loader Service")
     val indexLinks = List(
-      Link("load", s"$rootUri/images{?uploadedBy,identifiers}")
+      Link("load",   s"$rootUri/images{?uploadedBy,identifiers,uploadTime}"),
+      Link("import", s"$rootUri/import{?uri,uploadedBy,identifiers,uploadTime}")
     )
     respond(indexData, indexLinks)
   }
@@ -50,13 +54,32 @@ class ImageLoader extends Controller with ArgoHelpers {
 
   def createTempFile = File.createTempFile("requestBody", "", new File(Config.tempDir))
 
-  def loadImage(uploadedBy: Option[String], identifiers: Option[String], uploadTime: Option[String]) =
-    AuthenticatedUpload.async(digestedFile(createTempFile)) { request =>
 
-    val DigestedFile(tempFile_, id_) = request.body
+  def loadImage(uploadedBy: Option[String], identifiers: Option[String], uploadTime: Option[String]) =
+    AuthenticatedUpload.async(digestedFile(createTempFile))(loadFile(uploadedBy, identifiers, uploadTime))
+
+  def importImage(uri: String, uploadedBy: Option[String], identifiers: Option[String], uploadTime: Option[String]) =
+    Authenticated.async { request =>
+      Try(URI.create(uri)) map { validUri =>
+        Downloader.download(validUri).flatMap { digestedFile =>
+          val result = loadFile(digestedFile, request.user, uploadedBy, identifiers, uploadTime)
+          result onComplete (_ => digestedFile.file.delete())
+          result
+        } recover {
+          case NonFatal(e) => failedUriDownload
+        }
+
+      } getOrElse Future.successful(invalidUri)
+    }
+
+
+  def loadFile(digestedFile: DigestedFile, user: Principal,
+               uploadedBy: Option[String], identifiers: Option[String],
+               uploadTime: Option[String]): Future[Result] = {
+    val DigestedFile(tempFile_, id_) = digestedFile
 
     // only allow AuthenticatedService to set with query string
-    val uploadedBy_ = (request.user, uploadedBy) match {
+    val uploadedBy_ = (user, uploadedBy) match {
       case (user: AuthenticatedService, Some(by)) => by
       case (user: PandaUser, _) => user.email
       case (user, _) => user.name
@@ -67,7 +90,7 @@ class ImageLoader extends Controller with ArgoHelpers {
 
     // TODO: handle the error thrown by an invalid string to `DateTime`
     // only allow uploadTime to be set by AuthenticatedService
-    val uploadTime_ = (request.user, uploadTime) match {
+    val uploadTime_ = (user, uploadTime) match {
       case (user: AuthenticatedService, Some(time)) => new DateTime(time)
       case (_, _) => DateTime.now
     }
@@ -91,9 +114,18 @@ class ImageLoader extends Controller with ArgoHelpers {
     if (supportedMimeType) storeFile(uploadRequest) else unsupportedTypeError(uploadRequest)
   }
 
+  // Convenience alias
+  def loadFile(uploadedBy: Option[String], identifiers: Option[String], uploadTime: Option[String])
+              (request: AuthenticatedRequest[DigestedFile, Principal]): Future[Result] =
+    loadFile(request.body, request.user, uploadedBy, identifiers, uploadTime)
+
+
   def uploadRequestDescription(u: UploadRequest): String = {
     s"id: ${u.id}, by: ${u.uploadedBy} @ ${u.uploadTime}, mimeType: ${u.mimeType getOrElse "none"}"
   }
+
+  val invalidUri        = respondError(BadRequest, "invalid-uri", s"The provided 'uri' is not valid")
+  val failedUriDownload = respondError(BadRequest, "failed-uri-download", s"The provided 'uri' could not be downloaded")
 
   def unsupportedTypeError(u: UploadRequest): Future[Result] = Future {
     Logger.info(s"Rejected ${uploadRequestDescription(u)}: mime-type is not supported")
