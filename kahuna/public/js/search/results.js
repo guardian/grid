@@ -192,5 +192,9 @@ results.controller('SearchResultsCtrl', [
                 selection.add(updatedImage);
             }
         });
+
+        $scope.$on('$destroy', function() {
+            selection.clear();
+        });
     }
 ]);
