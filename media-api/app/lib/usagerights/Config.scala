@@ -112,14 +112,6 @@ object Config {
     "Getty Images" -> payGettySourceList
   )
 
-  val categoryCosts: Map[UsageRightsCategory, Cost] = Map(
-    Handout    -> Free,
-    Screengrab -> Free,
-    PrImage    -> Conditional
-  )
-
-  def getCategoriesOfCost(cost: Cost): List[UsageRightsCategory] =
-    categoryCosts.filter(_._2 == cost).keys.toList
 }
 
 
