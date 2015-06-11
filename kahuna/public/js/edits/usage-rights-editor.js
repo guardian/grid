@@ -1,7 +1,6 @@
 import angular from 'angular';
 import 'angular-elastic';
 import template from './usage-rights-editor.html!text';
-import '../services/api/edits-api';
 
 export var usageRightsEditor = angular.module('kahuna.edits.usageRightsEditor', [
     'monospaced.elastic'
@@ -14,21 +13,25 @@ usageRightsEditor.controller('UsageRightsEditorCtrl',
     var ctrl = this;
     ctrl.saving = false;
     ctrl.saved = false;
-    ctrl.category = ctrl.resource.data.category;
     ctrl.restrictions = ctrl.resource.data.restrictions;
-    ctrl.categories = [
-        category('PR Image', 'PR Image'),
-        category('Handout', 'handout'),
-        category('Screengrab', 'screengrab')
-    ];
-
-    editsApi.getUsageRights().then(usageRights => console.log(usageRights));
+    ctrl.categories = [];
 
     updateResource(ctrl.resource);
 
+    // TODO: What error would we like to show here?
+    // TODO: How do we make this more syncronous? You can only resolve on the
+    // routeProvider, which is actually bound to the UploadCtrl in this instance
+    // SEE: https://github.com/angular/angular.js/issues/2095
+    editsApi.getUsageRightsCategories().then(cats => {
+        const catVal = ctrl.resource.data.category;
+        ctrl.categories = cats;
+        // set the current category
+        ctrl.category = cats.find(cat => cat.value === catVal);
+    });
+
     ctrl.save = () => {
         if (ctrl.category) {
-            save(modelToData());
+            save(modelToData(ctrl.category, ctrl.restrictions));
         } else {
             del();
         }
@@ -38,41 +41,19 @@ usageRightsEditor.controller('UsageRightsEditorCtrl',
 
     ctrl.getCost = () => getCost(ctrl.category);
 
-    function modelToData() {
-        const cost = getCost(ctrl.category);
+    function modelToData(cat, restrictions) {
+        if (cat === 'free') {
+            return { category: cat.value };
 
-        if (cost === 'free') {
-            return { category: ctrl.category };
+        }
 
-        } else if (cost === 'conditional') {
+        // annoyingly even if the restrictions isn't rendered, it's in the model.
+        else {
             return {
-                category: ctrl.category,
-                restrictions: ctrl.restrictions,
-                // TODO: remove cost here once it's deprecated from the API
-                cost
+                category: cat.value,
+                restrictions: restrictions
             };
         }
-    }
-
-    function getCost(cat) {
-        if (isFree(cat)) {
-            return 'free';
-        } else if (isRestricted(cat)) {
-            return 'conditional';
-        }
-    }
-
-    function isFree(cat) {
-        return contains(['handout', 'screengrab'], cat);
-    }
-
-    function isRestricted(cat) {
-        return contains(['PR Image'], cat);
-    }
-
-    // I can't believe there is no helper for this
-    function contains(arr, val) {
-        return arr.indexOf(val) !== -1;
     }
 
     function del() {
