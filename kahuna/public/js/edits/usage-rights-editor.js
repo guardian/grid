@@ -22,12 +22,7 @@ usageRightsEditor.controller('UsageRightsEditorCtrl',
     // TODO: How do we make this more syncronous? You can only resolve on the
     // routeProvider, which is actually bound to the UploadCtrl in this instance
     // SEE: https://github.com/angular/angular.js/issues/2095
-    editsApi.getUsageRightsCategories().then(cats => {
-        const catVal = ctrl.resource.data.category;
-        ctrl.categories = cats;
-        // set the current category
-        ctrl.category = cats.find(cat => cat.value === catVal);
-    });
+    editsApi.getUsageRightsCategories().then(setCategories);
 
     ctrl.save = () => {
         if (ctrl.category) {
@@ -38,6 +33,13 @@ usageRightsEditor.controller('UsageRightsEditorCtrl',
     };
     ctrl.isDisabled = () => ctrl.saving;
     ctrl.isNotEmpty = () => !angular.equals(ctrl.resource.data, {});
+
+    function setCategories(cats) {
+        ctrl.categories = cats;
+
+        // set the current category
+        ctrl.category = cats.find(cat => cat.value === ctrl.resource.data.category);
+    }
 
     function modelToData(cat, restrictions) {
         if (cat === 'free') {
