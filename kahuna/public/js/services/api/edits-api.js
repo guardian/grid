@@ -10,7 +10,7 @@ apiServices.factory('editsApi', ['$q', 'mediaApi', function($q, mediaApi) {
     }
 
     function getUsageRightsCategories() {
-        return categories || (categories = getRoot().follow('usageRightsList').getData());
+        return categories || (categories = getRoot().follow('usage-rights-list').getData());
     }
 
     return {
