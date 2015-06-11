@@ -15,6 +15,7 @@
 
         <div class="image-results-count">
             {{ctrl.totalResults | toLocaleString}} matches
+            <span ng:if="ctrl.inSelectionMode()">({{ctrl.selectedImages.size}} selected)</span>
             <button ng:show="ctrl.newImagesCount > 0"
                     ng:click="ctrl.revealNewImages()"
                     class="image-results-count__new">
@@ -34,17 +35,24 @@
                 <!-- <HACK> -->
                 <!-- We don't want to add a property on `image` to determine the state of the checkbox, so render two individual inputs. -->
                 <!-- </HACK> -->
+                <div class="result__select result__select--selected" ng:if="ctrl.imageHasBeenSelected(image)">
+                    <input type="checkbox"
+                           class="result__select__checkbox"
+                           id="{{image.data.id}}-result__select__checkbox--select"
+                           checked="true"
+                           ng:click="ctrl.toggleSelection(image, false)"/>
+                    <label for="{{image.data.id}}-result__select__checkbox--select"
+                           class="result__select__checkbox__label"></label>
+                </div>
 
-                <input ng:if="ctrl.imageHasBeenSelected(image)"
-                       type="checkbox"
-                       class="result__select"
-                       checked="true"
-                       ng:click="ctrl.toggleSelection(image, false)"/>
-
-                <input ng:if="!ctrl.imageHasBeenSelected(image)"
-                       type="checkbox"
-                       class="result__select"
-                       ng:click="ctrl.toggleSelection(image, true)"/>
+                <div class="result__select" ng:if="!ctrl.imageHasBeenSelected(image)">
+                    <input type="checkbox"
+                           class="result__select__checkbox"
+                           id="{{image.data.id}}-result__select__checkbox--deselect"
+                           ng:click="ctrl.toggleSelection(image, true)" />
+                    <label for="{{image.data.id}}-result__select__checkbox--deselect"
+                           class="result__select__checkbox__label"></label>
+                </div>
 
                 <ui-preview-image image="image" selection-mode="ctrl.inSelectionMode()"
                     ng:class="{'preview__quick-select': ctrl.inSelectionMode()}"

@@ -62,9 +62,6 @@ image.controller('ImageCtrl', [
             ctrl.userCanEdit = editable;
         });
 
-        const onMetadataUpdateEnd =
-            editsService.on(image.data.userMetadata.data.metadata, 'update-end', onSave);
-
         var ignoredMetadata = [
             'title', 'description', 'copyright', 'keywords', 'byline',
             'credit', 'subLocation', 'city', 'state', 'country',
@@ -82,60 +79,10 @@ image.controller('ImageCtrl', [
             });
         }
 
-        function getMetadataDiff (updated) {
-            var diff = {};
-
-            // jscs has a maximumLineLength of 100 characters, hence the line break
-            var keys = new Set(Object.keys(updated).concat(
-                Object.keys(image.data.originalMetadata)));
-
-            // Keywords is an array, the comparison below only works with string comparison.
-            // For simplicity, ignore keywords as we're not updating this field at the moment.
-            keys.delete('keywords');
-
-            keys.forEach((key) => {
-                if (updated[key] !== image.data.originalMetadata[key]) {
-                    // if the user has provided an override of '' (e.g. they want remove the title),
-                    // angular sets the value in the object to undefined.
-                    // We need to use an empty string in the PUT request to obey user input.
-                    diff[key] = updated[key] || '';
-                }
-            });
-
-            return diff;
-        }
-
-        function save (metadata) {
-            return editsService.update(image.data.userMetadata.data.metadata, metadata, ctrl.image);
-        }
-
-        function onSave () {
-            return ctrl.image.get()
-                .then(newImage => {
-                    ctrl.image = newImage;
-                });
-        }
-
-        ctrl.updateMetadata = function (field, value) {
-            if (ctrl.metadata[field] === value) {
-                /*
-                 Nothing has changed.
-
-                 Per the angular-xeditable docs, returning false indicates success but model
-                 will not be updated.
-
-                 http://vitalets.github.io/angular-xeditable/#onbeforesave
-                 */
-                return false;
-            }
-
-            var proposedMetadata = angular.copy(ctrl.metadata);
-            proposedMetadata[field] = value;
-
-            var changed = getMetadataDiff(proposedMetadata);
-
-            return save(changed)
-                .then(() => {
+        ctrl.updateMetadataField = function (field, value) {
+            return editsService.updateMetadataField(image, field, value)
+                .then((updatedImage) => {
+                    ctrl.image = updatedImage;
                     track('Metadata edit', {successful: true, field: field});
                 })
                 .catch(() => {
@@ -153,8 +100,4 @@ image.controller('ImageCtrl', [
                     return 'failed to save (press esc to cancel)';
                 });
         };
-
-        $scope.$on('$destroy', () => {
-            onMetadataUpdateEnd();
-        });
     }]);
