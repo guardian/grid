@@ -48,8 +48,9 @@ object Cost {
 
 class NoSuchUsageRightsCategory(category: String) extends RuntimeException(s"no such category: $category")
 
-sealed trait UsageRightsCategory {
+trait UsageRightsCategory {
   val name = toString.replace("-", " ").split(" ").map(_.capitalize).mkString(" ")
+  val restrictions: Option[String] = None
 }
 object UsageRightsCategory {
   private val usageRightsCategories =
@@ -87,7 +88,11 @@ case object Screengrab
   extends UsageRightsCategory { override def toString = "screengrab" }
 
 case object GuardianWitness
-  extends UsageRightsCategory { override def toString = "guardian-witness" }
+  extends UsageRightsCategory {
+    override def toString = "guardian-witness"
+    override val restrictions =
+      Some("Images may only be used in association with the assignment, otherwise standard editorial charges apply")
+  }
 
 case object SocialMedia
   extends UsageRightsCategory { override def toString = "social-media" }
