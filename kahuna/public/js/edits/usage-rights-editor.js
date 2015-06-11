@@ -39,8 +39,6 @@ usageRightsEditor.controller('UsageRightsEditorCtrl',
     ctrl.isDisabled = () => ctrl.saving;
     ctrl.isNotEmpty = () => !angular.equals(ctrl.resource.data, {});
 
-    ctrl.getCost = () => getCost(ctrl.category);
-
     function modelToData(cat, restrictions) {
         if (cat === 'free') {
             return { category: cat.value };
@@ -95,11 +93,6 @@ usageRightsEditor.controller('UsageRightsEditorCtrl',
     function uiError() {
         $window.alert('Failed to save the changes, please try again.');
     }
-
-    function category(name, value) {
-        return { name, value };
-    }
-
 }]);
 
 
