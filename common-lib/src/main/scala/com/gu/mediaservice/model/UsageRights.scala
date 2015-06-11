@@ -5,7 +5,6 @@ import play.api.libs.json._
 
 // TODO: deprecate cost here and infer from category
 case class UsageRights(
-  cost: Option[Cost],
   category: UsageRightsCategory,
   restrictions: Option[String]
 )
@@ -14,7 +13,6 @@ case class UsageRights(
 // more that likely be done when merging with ImageUsageRights
 object UsageRights {
   implicit val UsageRightsReads: Reads[UsageRights] = (
-    (__ \ "cost").readNullable[Cost] ~
     (__ \ "category").read[UsageRightsCategory] ~
     (__ \ "restrictions").readNullable[String]
   )(UsageRights.apply _)
@@ -22,7 +20,6 @@ object UsageRights {
   // Annoyingly there doesn't seem to be a way to create a `JsString` with the
   // Json writers, so we have to do this manually
   implicit val UsageRightsWrites: Writes[UsageRights] = (
-    (__ \ "cost").writeNullable[Cost] ~
     (__ \ "category").write[UsageRightsCategory] ~
     (__ \ "restrictions").writeNullable[String]
   )(unlift(UsageRights.unapply))
@@ -53,7 +50,8 @@ class NoSuchUsageRightsCategory(category: String) extends RuntimeException(s"no 
 
 sealed trait UsageRightsCategory
 object UsageRightsCategory {
-  private val usageRightsCategories = Vector(Agency, PrImage, Handout, Screengrab)
+  private val usageRightsCategories =
+    Vector(Agency, PrImage, Handout, Screengrab, GuardianWitness, SocialMedia, Obituary)
 
   def fromString(category: String): UsageRightsCategory =
     // I think as we move forward we can find out what the more intelligent and
@@ -71,6 +69,9 @@ object UsageRightsCategory {
       Writes[UsageRightsCategory](cat => JsString(cat.toString))
 }
 
+
+// When you add a category, don't forget to add it to `usageRightsCategories`
+// TODO: Find a way not to have to do ^
 case object Agency
   extends UsageRightsCategory { override def toString = "agency" }
 
@@ -82,3 +83,12 @@ case object Handout
 
 case object Screengrab
   extends UsageRightsCategory { override def toString = "screengrab" }
+
+case object GuardianWitness
+  extends UsageRightsCategory { override def toString = "guardian-witness" }
+
+case object SocialMedia
+  extends UsageRightsCategory { override def toString = "social-media" }
+
+case object Obituary
+  extends UsageRightsCategory { override def toString = "obituary" }

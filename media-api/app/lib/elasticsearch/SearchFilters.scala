@@ -1,5 +1,7 @@
 package lib.elasticsearch
 
+import lib.usagerights.{DeprecatedConfig => UsageRightsDepConfig, Config => UsageRightsConfig, CostCalculator}
+
 import scalaz.syntax.std.list._
 
 import lib.Config
@@ -13,15 +15,18 @@ trait SearchFilters extends ImageFields {
 
   // NOTE: cost matching using credit/source soon to be deprecated
 
+  import UsageRightsConfig.{ suppliersCollectionExcl, freeSuppliers, payGettySourceList }
+  import UsageRightsDepConfig.{ freeCreditList, freeSourceList }
+
   // Warning: this requires the capitalisation to be exact; we may want to sanitise the credits
   // to a canonical representation in the future
-  val creditFilter  = Config.freeCreditList.toNel.map(cs => filters.terms(metadataField("credit"), cs))
-  val sourceFilter  = Config.freeSourceList.toNel.map(cs => filters.terms(metadataField("source"), cs))
+  val creditFilter  = freeCreditList.toNel.map(cs => filters.terms(metadataField("credit"), cs))
+  val sourceFilter  = freeSourceList.toNel.map(cs => filters.terms(metadataField("source"), cs))
   val freeWhitelist = (creditFilter, sourceFilter) match {
     case (Some(credit), Some(source)) => Some(filters.or(credit, source))
     case (creditOpt,    sourceOpt)    => creditOpt orElse sourceOpt
   }
-  val sourceExclFilter = Config.payGettySourceList.toNel.map(cs => filters.not(filters.terms(metadataField("source"), cs)))
+  val sourceExclFilter = payGettySourceList.toNel.map(cs => filters.not(filters.terms(metadataField("source"), cs)))
   val freeCreditFilter = (freeWhitelist, sourceExclFilter) match {
     case (Some(whitelist), Some(sourceExcl)) => Some(filters.and(whitelist, sourceExcl))
     case (whitelistOpt,    sourceExclOpt)    => whitelistOpt orElse sourceExclOpt
@@ -29,8 +34,6 @@ trait SearchFilters extends ImageFields {
 
 
   // NOTE: cost matching using supplier/suppliersCollection soon to take over credit/source
-
-  import Config.{freeSuppliers, suppliersCollectionExcl}
 
   val (suppliersWithExclusions, suppliersNoExclusions) = freeSuppliers.partition(suppliersCollectionExcl.contains)
   val suppliersWithExclusionsFilters = for {
@@ -62,7 +65,7 @@ trait SearchFilters extends ImageFields {
   // free. We could look into sending over the search query as a cost filter
   // that could take a comma seperated list e.g. `cost=free,conditional`.
   val freeUsageRightsOverrideFilter = List(Free, Conditional).map(_.toString).toNel.map(filters.terms(editsField(usageRightsField("cost")), _))
-  val freeUsageRightsCategoryFilter = Config.freeUsageRightsCategories.map(_.toString).toNel.map(filters.terms(usageRightsField("category"), _))
+  val freeUsageRightsCategoryFilter = CostCalculator.getCategoriesOfCost(Free).map(_.toString).toNel.map(filters.terms(usageRightsField("category"), _))
 
   val freeUsageRightsFilter = (freeUsageRightsOverrideFilter, freeUsageRightsCategoryFilter) match {
     case (Some(freeUsageRightsOverride), Some(freeUsageRightsCategory)) => Some(filters.or(freeUsageRightsOverride, freeUsageRightsCategory))
