@@ -16,7 +16,7 @@ import lib.imaging.MimeTypeDetection
 
 import model.{UploadRequest, ImageUpload}
 
-import com.gu.mediaservice.lib.play.BodyParsers.digestedFile
+import com.gu.mediaservice.lib.play.DigestBodyParser
 import com.gu.mediaservice.lib.play.DigestedFile
 import com.gu.mediaservice.lib.{auth, ImageStorage}
 import com.gu.mediaservice.lib.resource.FutureResources._
@@ -30,7 +30,6 @@ object Application extends ImageLoader
 class ImageLoader extends Controller with ArgoHelpers {
 
   import Config.{rootUri, loginUri}
-  import com.gu.mediaservice.lib.play.BodyParsers.digestedFile
 
   val keyStore = new KeyStore(Config.keyStoreBucket, Config.awsCredentials)
 
@@ -51,7 +50,7 @@ class ImageLoader extends Controller with ArgoHelpers {
   def createTempFile = File.createTempFile("requestBody", "", new File(Config.tempDir))
 
   def loadImage(uploadedBy: Option[String], identifiers: Option[String], uploadTime: Option[String]) =
-    AuthenticatedUpload.async(digestedFile(createTempFile)) { request =>
+    AuthenticatedUpload.async(DigestBodyParser.create(createTempFile)) { request =>
 
     val DigestedFile(tempFile_, id_) = request.body
 
