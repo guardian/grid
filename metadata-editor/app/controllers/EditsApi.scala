@@ -56,15 +56,10 @@ object CategoryResponse {
   def fromCat(cat: UsageRightsCategory): CategoryResponse =
     CategoryResponse(
       value = cat.toString,
-      name  = makeCategoryName(cat.toString),
+      name  = cat.name,
       cost  = UsageRightsConfig.categoryCosts.getOrElse(cat, Pay).toString
     )
-
-  // Not sure about this, but I don't want to add it to the case classes.
-  private def makeCategoryName(s: String) =
-    s.replace("-", " ").split(" ").map(_.capitalize).mkString(" ")
-
-
+    
   implicit val categoryResponseWrites: Writes[CategoryResponse] = Json.writes[CategoryResponse]
 
 }

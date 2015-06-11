@@ -48,7 +48,9 @@ object Cost {
 
 class NoSuchUsageRightsCategory(category: String) extends RuntimeException(s"no such category: $category")
 
-sealed trait UsageRightsCategory
+sealed trait UsageRightsCategory {
+  val name = toString.replace("-", " ").split(" ").map(_.capitalize).mkString(" ")
+}
 object UsageRightsCategory {
   private val usageRightsCategories =
     Vector(Agency, PrImage, Handout, Screengrab, GuardianWitness, SocialMedia, Obituary)
