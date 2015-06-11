@@ -25,12 +25,12 @@ object EditsApi extends Controller with ArgoHelpers {
   val indexResponse = {
     val indexData = Map("description" -> "This is the Metadata Editor Service")
     val indexLinks = List(
-      Link("edits",           s"$rootUri/metadata/{id}"),
-      Link("archived",        s"$rootUri/metadata/{id}/archived"),
-      Link("labels",          s"$rootUri/metadata/{id}/labels"),
-      Link("usageRights",     s"$rootUri/metadata/{id}/usage-rights"),
-      Link("metadata",        s"$rootUri/metadata/{id}/metadata"),
-      Link("usageRightsList", s"$rootUri/usage-rights-categories")
+      Link("edits",             s"$rootUri/metadata/{id}"),
+      Link("archived",          s"$rootUri/metadata/{id}/archived"),
+      Link("labels",            s"$rootUri/metadata/{id}/labels"),
+      Link("usageRights",       s"$rootUri/metadata/{id}/usage-rights"),
+      Link("metadata",          s"$rootUri/metadata/{id}/metadata"),
+      Link("usage-rights-list", s"$rootUri/usage-rights/categories")
     )
     respond(indexData, indexLinks)
   }
