@@ -49,21 +49,17 @@ object EditsApi extends Controller with ArgoHelpers {
   def getUsageRights = Authenticated { usageRightsResponse }
 }
 
-case class CategoryResponse(value: String, name: String, cost: String)
+case class CategoryResponse(value: String, name: String, cost: String, recommendedRestrictions: Option[String] = None)
 object CategoryResponse {
   // I'd like to have an override of the `apply`, but who nows how you do that
   // with the JSON parsing stuff
   def fromCat(cat: UsageRightsCategory): CategoryResponse =
     CategoryResponse(
       value = cat.toString,
-      name  = makeCategoryName(cat.toString),
-      cost  = UsageRightsConfig.categoryCosts.getOrElse(cat, Pay).toString
+      name  = cat.name,
+      cost  = UsageRightsConfig.categoryCosts.getOrElse(cat, Pay).toString,
+      recommendedRestrictions = cat.recommendedRestrictions
     )
-
-  // Not sure about this, but I don't want to add it to the case classes.
-  private def makeCategoryName(s: String) =
-    s.replace("-", " ").split(" ").map(_.capitalize).mkString(" ")
-
 
   implicit val categoryResponseWrites: Writes[CategoryResponse] = Json.writes[CategoryResponse]
 
