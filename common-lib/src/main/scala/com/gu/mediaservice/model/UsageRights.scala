@@ -48,7 +48,10 @@ object Cost {
 
 class NoSuchUsageRightsCategory(category: String) extends RuntimeException(s"no such category: $category")
 
-sealed trait UsageRightsCategory
+sealed trait UsageRightsCategory {
+  val name = toString.replace("-", " ").split(" ").map(_.capitalize).mkString(" ")
+  val description: String
+}
 object UsageRightsCategory {
   private val usageRightsCategories =
     Vector(Agency, PrImage, Handout, Screengrab, GuardianWitness, SocialMedia, Obituary)
@@ -73,22 +76,60 @@ object UsageRightsCategory {
 // When you add a category, don't forget to add it to `usageRightsCategories`
 // TODO: Find a way not to have to do ^
 case object Agency
-  extends UsageRightsCategory { override def toString = "agency" }
+  extends UsageRightsCategory {
+    override def toString = "agency"
+    val description =
+      "Agencies such as Getty, Reuters, Press Association, etc. where" +
+      "subscription fees are paid to access and use pictures."
+  }
 
 case object PrImage
-  extends UsageRightsCategory { override def toString = "PR Image" }
+  extends UsageRightsCategory {
+    override def toString = "PR Image"
+    val description =
+      "Used to promote specific exhibitions, auctions, etc. and only available" +
+      "for such purposes."
+  }
 
 case object Handout
-  extends UsageRightsCategory { override def toString = "handout" }
+  extends UsageRightsCategory {
+    override def toString = "handout"
+    val description =
+      "Provided free of use for press purposes e.g. police images for new" +
+      "stories, family shots in biographical pieces, etc."
+  }
 
 case object Screengrab
-  extends UsageRightsCategory { override def toString = "screengrab" }
+  extends UsageRightsCategory {
+    override def toString = "screengrab"
+    val description =
+      "Still images created by us from moving footage in television broadcasts" +
+      "usually in relation to breaking news stories."
+  }
 
 case object GuardianWitness
-  extends UsageRightsCategory { override def toString = "guardian-witness" }
+  extends UsageRightsCategory {
+    override def toString = "guardian-witness"
+    val description =
+      "Images provided by readers in response to callouts and assignments on" +
+      "Guardian Witness."
+  }
 
 case object SocialMedia
-  extends UsageRightsCategory { override def toString = "social-media" }
+  extends UsageRightsCategory {
+    override def toString = "social-media"
+    val description =
+      "Images taken from public websites and social media to support" +
+      "breaking news where no other image is available from usual sources." +
+      "Permission should be sought from the copyright holder, but in" +
+      "extreme circumstances an image may be used with the approval of" +
+      "a senior editor."
+  }
 
 case object Obituary
-  extends UsageRightsCategory { override def toString = "obituary" }
+  extends UsageRightsCategory {
+    override def toString = "obituary"
+    val description =
+      "Acquired from private sources, e.g. family members, for the purposes of" +
+      "obituaries."
+  }
