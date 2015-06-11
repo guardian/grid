@@ -1,23 +1,21 @@
 package lib
 
-import java.net.{URLEncoder, URI}
+import lib.usagerights.CostCalculator
 
+import java.net.URI
 import scala.util.{Try, Failure}
+import org.joda.time.{DateTime, Duration}
 
 import play.api.Logger
 import play.api.libs.json._
 import play.api.libs.functional.syntax._
 
-import org.joda.time.{DateTime, Duration}
-
 import com.gu.mediaservice.model._
 import com.gu.mediaservice.lib.argo.model.{EmbeddedEntity, Link}
-import com.gu.mediaservice.model.{Cost, Pay, Free, Image, ImageUsageRights}
 import com.gu.mediaservice.api.Transformers
 
 
 object ImageResponse {
-  import com.gu.mediaservice.lib.formatting._
   implicit val dateTimeFormat = DateFormat
 
   val commonTransformers = new Transformers(Config.services)
@@ -78,14 +76,19 @@ object ImageResponse {
   }
 
   def addUsageCost(source: JsValue): Reads[JsObject] = {
+    // We do the merge here as some records haven't had the user override applied
+    // to the root level `usageRights`
+    // TODO: Solve with reindex
+    val usageRights = List(
+      (source \ "usageRights").asOpt[JsObject],
+      (source \ "userMetadata" \ "usageRights").asOpt[JsObject]
+    ).flatten.foldLeft(Json.obj())(_ ++ _).as[ImageUsageRights]
 
-    val cost = ImageExtras.getCost(
+    val cost = CostCalculator.getCost(
+      usageRights,
       (source \ "metadata" \ "credit").as[Option[String]],
       (source \ "metadata" \ "source").as[Option[String]],
-      (source \ "usageRights" \ "supplier").asOpt[String],
-      (source \ "usageRights" \ "suppliersCollection").asOpt[String],
-      (source \ "userMetadata" \ "usageRights").asOpt[UsageRights],
-      (source \ "usageRights" \ "category").asOpt[UsageRightsCategory]
+      (source \ "usageRights" \ "supplier").asOpt[String]
     )
 
     __.json.update(__.read[JsObject].map(_ ++ Json.obj("cost" -> cost.toString)))
