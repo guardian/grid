@@ -14,9 +14,12 @@ jobs.controller('UploadJobsCtrl',
     // State machine-esque async transitions
     var pollFrequency = 500; // ms
     var pollTimeout   = 20 * 1000; // ms
+    var eventName = 'Image upload';
 
     ctrl.jobs.forEach(jobItem => {
         jobItem.status = 'uploading';
+
+        track.startTimerFor(eventName);
 
         jobItem.resourcePromise.then(resource => {
             jobItem.status = 'indexing';
@@ -25,30 +28,30 @@ jobs.controller('UploadJobsCtrl',
             // TODO: grouped polling for all resources we're interested in?
             var findImage = () => resource.get();
             var imageResource = poll(findImage, pollFrequency, pollTimeout);
-            
+
             imageResource.then(image => {
                 jobItem.status = 'uploaded';
                 jobItem.image = image;
                 jobItem.thumbnail = image.data.thumbnail;
 
-                track('Image upload', { state: 'successful' });
+                track.timedEvent(eventName, { state: 'successful' });
             }, error => {
                 jobItem.status = 'upload error';
                 jobItem.error = error.message;
 
-                track('Image upload', { state: 'failed-index' });
+                track.timedEvent(eventName, { state: 'failed-index' });
             });
         }, error => {
-            var message = error.body.errorMessage;
+            var message = error.body && error.body.errorMessage || 'unknown';
             jobItem.status = 'upload error';
             jobItem.error = message;
 
-            track('Image upload', { state: 'failed-upload' });
+            track.timedEvent(eventName, { state: 'failed-upload' });
         });
     });
 
     // this needs to be a function due to the stateful `jobItem`
-    ctrl.jobImages = () => this.jobs.map(jobItem => jobItem.image);
+    ctrl.jobImages = () => ctrl.jobs.map(jobItem => jobItem.image);
 
 }]);
 
