@@ -35,6 +35,9 @@ class QuerySyntax(val input: ParserInput) extends Parser {
     "credit" |
     "copyright" |
     "source" |
+    "category" |
+    "supplier" |
+    "collection" |
     "keyword" |
     "label"
   }
@@ -46,6 +49,7 @@ class QuerySyntax(val input: ParserInput) extends Parser {
     case "location"            => SingleField("subLocation")
     case "label"               => SingleField("labels")
     case "keyword"             => SingleField("keywords")
+    case "collection"          => SingleField("suppliersCollection")
     case fieldName             => SingleField(fieldName)
   }
 
