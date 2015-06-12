@@ -13,7 +13,6 @@ track.factory('trackingService', ['trackEvent', function(trackEvent) {
     function event(eventName, opts = {}, config = {}) {
         if (initialised) {
             const finalOpts = config.timed ? addTimer(eventName, opts) : opts;
-            console.log(finalOpts)
             trackEvent(eventName, finalOpts);
         } else {
             queue.push(() => trackEvent(eventName, opts, config));
