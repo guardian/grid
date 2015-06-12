@@ -15,6 +15,7 @@ import play.api.Logger
 
 import com.gu.mediaservice.lib.argo.ArgoHelpers
 
+
 case class DigestedFile(file: File, digest: String)
 
 object DigestedFile {
@@ -23,6 +24,18 @@ object DigestedFile {
 }
 
 object DigestBodyParser extends ArgoHelpers {
+
+  val missingContenLengthError = respondError(
+    Status(411),
+    "missing-content-length",
+    s"Missing content-length. Please specify a correct 'Content-Length' header"
+  )
+
+  val incorrectContentLengthError = respondError(
+    Status(400),
+    "incorrect-content-length",
+    s"Incorrect content-length. The specified content-length does match that of the received file."
+  )
 
   def slurp(to: File)(implicit ec: ExecutionContext): Iteratee[Array[Byte],(MessageDigest, FileOutputStream)]= {
       Iteratee.fold[Array[Byte], (MessageDigest, FileOutputStream)](
@@ -37,26 +50,18 @@ object DigestBodyParser extends ArgoHelpers {
      }
   }
 
-  val missingContenLengthError = respondError(
-    Status(411),
-    "missing-content-length",
-    s"Missing content-length. Please specify a correct 'Content-Length' header"
-  )
-
-  val incorrectContentLengthError = respondError(
-    Status(400),
-    "incorrect-content-length",
-    s"Incorrect content-length. The specified content-length does match that of the received file."
-  )
+  def failValidation(foo: Result, message: String) = {
+    Logger.info(message)
+    Left(foo)
+  }
 
   def validate(request: RequestHeader, to: File, md: MessageDigest): Either[Result, DigestedFile] = {
-    request.headers.get("Content-Length").foldLeft[Either[Result, DigestedFile]](Left(missingContenLengthError)) {
+    request.headers.get("Content-Length").foldLeft[Either[Result, DigestedFile]]( {
+          failValidation(missingContenLengthError, "Missing content-length. Please specify a correct 'Content-Length' header")
+        } ) {
       (_,expectedContentLength) => {
-        if(to.length==expectedContentLength.toInt) Right(DigestedFile(to, md.digest))
-        else {
-          Logger.info("Received file does not match specified 'Content-Length'")
-          Left(incorrectContentLengthError)
-        }
+        if (to.length == expectedContentLength.toInt) Right(DigestedFile(to, md.digest))
+        else failValidation(incorrectContentLengthError, "Received file does not match specified 'Content-Length'")
       }
     }
   }
