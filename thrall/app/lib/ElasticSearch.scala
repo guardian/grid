@@ -146,7 +146,9 @@ object ElasticSearch extends ElasticSearchClient {
 
   def asImageUpdate(image: JsValue): JsValue = {
     def removeUploadInformation: Reads[JsObject] =
-      (__ \ "uploadTime").json.prune andThen (__ \ "uploadedBy").json.prune
+      (__ \ "uploadTime").json.prune andThen
+      (__ \ "exports").json.prune andThen
+      (__ \ "uploadedBy").json.prune
 
     image.transform(removeUploadInformation).get
   }
