@@ -34,7 +34,7 @@ jobs.controller('UploadJobsCtrl',
                 jobItem.image = image;
                 jobItem.thumbnail = image.data.thumbnail;
 
-                track.success(eventName, config = { timed: true });
+                track.success(eventName, {}, { timed: true });
             }, error => {
                 jobItem.status = 'upload error';
                 jobItem.error = error.message;
