@@ -9,8 +9,8 @@ export var service = angular.module('kahuna.edits.service', []);
 // see when it's synced. We should have a link on the resource to be able to do
 // this.
 service.factory('editsService',
-                ['$q', 'editsApi', 'mediaApi', 'poll',
-                 function($q, editsApi, mediaApi, poll) {
+                ['$rootScope', '$q', 'editsApi', 'mediaApi', 'poll',
+                 function($rootScope, $q, editsApi, mediaApi, poll) {
 
     const pollFrequency = 500; // ms
     const pollTimeout   = 20 * 1000; // ms
@@ -188,6 +188,66 @@ service.factory('editsService',
             .then(() => true, () => false);
     }
 
-    return { update, add, on, remove, canUserEdit };
+    function getMetadataDiff (image, metadata) {
+        var diff = {};
+
+        // jscs has a maximumLineLength of 100 characters, hence the line break
+        var keys = new Set(Object.keys(metadata).concat(
+            Object.keys(image.data.originalMetadata)));
+
+        // Keywords is an array, the comparison below only works with string comparison.
+        // For simplicity, ignore keywords as we're not updating this field at the moment.
+        keys.delete('keywords');
+
+        keys.forEach((key) => {
+            if ((image.data.originalMetadata[key] || image.data.metadata[key]) &&
+                (metadata[key] !== image.data.metadata[key])) {
+
+                diff[key] = metadata[key];
+            }
+        });
+
+        return diff;
+    }
+
+    function updateMetadataField (image, field, value) {
+        var metadata = image.data.metadata;
+
+        if (metadata[field] === value) {
+            /*
+             Nothing has changed.
+
+             Per the angular-xeditable docs, returning false indicates success but model
+             will not be updated.
+
+             http://vitalets.github.io/angular-xeditable/#onbeforesave
+
+             NOTE: Tying a service to a UI component isn't ideal as it means
+             consumers of this function have to either xeditable or adopt the
+             same behaviour as xeditable.
+             */
+
+            return Promise.resolve(false);
+        }
+
+        var proposedMetadata = angular.copy(metadata);
+        proposedMetadata[field] = value;
+
+        var changed = getMetadataDiff(image, proposedMetadata);
+
+        return update(image.data.userMetadata.data.metadata, changed, image)
+            .then(() => {
+                return image.get().then(updatedImage => {
+                    $rootScope.$emit('image-updated', updatedImage, image);
+                    return updatedImage;
+                });
+            });
+    }
+
+    function batchUpdateMetadataField (images, field, value) {
+        return $q.all(images.map(image => updateMetadataField(image, field, value)));
+    }
+
+    return { update, add, on, remove, canUserEdit, updateMetadataField, batchUpdateMetadataField };
 
 }]);
