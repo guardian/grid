@@ -13,9 +13,10 @@ trackImageLoadtime.controller('TrackImageLoadtimeCtrl',
     var startTime;
     var imageProps;
 
-    ctrl.trackStart = () => track(trackEventName, getTrackProps('start'));
-    ctrl.trackSuccess = () => track(trackEventName, getTrackProps('success'));
-    ctrl.trackError = () => track(trackEventName, getTrackProps('error'));
+    // TODO: Get these to work with the new timed events
+    ctrl.trackStart   = () => track.event(trackEventName, getTrackProps('start'));
+    ctrl.trackSuccess = () => track.event(trackEventName, getTrackProps('success'));
+    ctrl.trackError   = () => track.event(trackEventName, getTrackProps('error'));
     ctrl.init = init;
 
     function init(image, location) {
