@@ -34,19 +34,19 @@ jobs.controller('UploadJobsCtrl',
                 jobItem.image = image;
                 jobItem.thumbnail = image.data.thumbnail;
 
-                track.timedEvent(eventName, { state: 'successful' });
+                track.success(eventName, {}, { timed: true });
             }, error => {
                 jobItem.status = 'upload error';
                 jobItem.error = error.message;
 
-                track.timedEvent(eventName, { state: 'failed-index' });
+                track.failure(eventName, { failedOn: 'index' }, { timed: true });
             });
         }, error => {
             var message = error.body && error.body.errorMessage || 'unknown';
             jobItem.status = 'upload error';
             jobItem.error = message;
 
-            track.timedEvent(eventName, { state: 'failed-upload' });
+            track.failure(eventName, { failedOn: 'upload' }, { timed: true });
         });
     });
 
