@@ -52,22 +52,25 @@ class ImageLoader extends Controller with ArgoHelpers {
 
   def index = Authenticated { indexResponse }
 
-  def createTempFile = File.createTempFile("requestBody", "", new File(Config.tempDir))
+  def createTempFile(prefix: String) = File.createTempFile(prefix, "", new File(Config.tempDir))
 
 
   def loadImage(uploadedBy: Option[String], identifiers: Option[String], uploadTime: Option[String]) =
-    AuthenticatedUpload.async(DigestBodyParser.create(createTempFile))(loadFile(uploadedBy, identifiers, uploadTime))
+    AuthenticatedUpload.async(DigestBodyParser.create(createTempFile("requestBody")))(loadFile(uploadedBy, identifiers, uploadTime))
 
   def importImage(uri: String, uploadedBy: Option[String], identifiers: Option[String], uploadTime: Option[String]) =
     Authenticated.async { request =>
       Try(URI.create(uri)) map { validUri =>
-        Downloader.download(validUri).flatMap { digestedFile =>
-          val result = loadFile(digestedFile, request.user, uploadedBy, identifiers, uploadTime)
-          result onComplete (_ => digestedFile.file.delete())
-          result
+        val tmpFile = createTempFile("download")
+
+        val result = Downloader.download(validUri, tmpFile).flatMap { digestedFile =>
+          loadFile(digestedFile, request.user, uploadedBy, identifiers, uploadTime)
         } recover {
           case NonFatal(e) => failedUriDownload
         }
+
+        result onComplete (_ => tmpFile.delete())
+        result
 
       } getOrElse Future.successful(invalidUri)
     }

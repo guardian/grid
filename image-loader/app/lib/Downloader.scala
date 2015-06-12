@@ -15,12 +15,10 @@ import com.gu.mediaservice.lib.play.DigestedFile
 
 
 object Downloader {
-  def createTempFile = File.createTempFile("download", "", new File(Config.tempDir))
 
-  def download(uri: URI): Future[DigestedFile] =
+  def download(uri: URI, file: File): Future[DigestedFile] =
     WS.url(uri.toString).getStream().flatMap { case (headers, body) =>
       val md = MessageDigest.getInstance("SHA-1")
-      val file = createTempFile
       val outputStream = new FileOutputStream(file)
 
       // The iteratee that writes to the output stream
