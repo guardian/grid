@@ -219,6 +219,10 @@ a:focus {
     border-radius: 50%;
 }
 
+.ico--with-text {
+    margin-left: 5px;
+}
+
 .ico--help {
     cursor: help;
     text-align: center;
