@@ -10,22 +10,24 @@ track.factory('trackingService', ['trackEvent', function(trackEvent) {
     const timers = new Map();
 
     // queue up results before we've started
-    function event(eventName, opts) {
+    function event(eventName, opts, config) {
         if (initialised) {
-            trackEvent(eventName, opts);
+            const finalOpts = config.timed ? addTimer(eventName, opts) : opts;
+
+            trackEvent(eventName, finalOpts);
         } else {
-            queue.push(() => trackEvent(eventName, opts));
+            queue.push(() => trackEvent(eventName, opts, config));
         }
     }
 
-    function timedEvent(eventName, opts) {
-        const timedOpts = addTimer(eventName, opts);
-
-        event(event, timedOpts);
+    function success(eventName, opts, config) {
+        const finalOpts = angular.extend({}, opts, { state: 'success' });
+        event(eventName, finalOpts, config);
     }
 
-    function startTimerFor(eventName) {
-        timers.set(eventName, Date.now());
+    function failure(eventName, opts, config) {
+        const finalOpts = angular.extend({}, opts, { state: 'failure' });
+        event(eventName, finalOpts, config);
     }
 
     function start() {
@@ -34,16 +36,20 @@ track.factory('trackingService', ['trackEvent', function(trackEvent) {
         initialised = true;
     }
 
+    function startTimerFor(eventName) {
+        timers.set(eventName, Date.now());
+    }
+
     function addTimer(eventName, opts) {
         const timer = timers.get(eventName);
-        return timer ? angular.extend({}, { took: timeSince(timer) }, opts) : opts;
+        return timer ? angular.extend({}, opts, { took: timeSince(timer) }) : opts;
     }
 
     function timeSince(from) {
         return Date.now() - from;
     }
 
-    return { start, event, startTimerFor, timedEvent };
+    return { start, event, startTimerFor, success, failure };
 
 }]);
 
