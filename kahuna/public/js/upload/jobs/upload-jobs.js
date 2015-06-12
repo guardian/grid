@@ -39,14 +39,14 @@ jobs.controller('UploadJobsCtrl',
                 jobItem.status = 'upload error';
                 jobItem.error = error.message;
 
-                track.failure(eventName, { failedOn: 'index' }, { timed: true });
+                track.failure(eventName, { 'Failed on': 'index' }, { timed: true });
             });
         }, error => {
             var message = error.body && error.body.errorMessage || 'unknown';
             jobItem.status = 'upload error';
             jobItem.error = message;
 
-            track.failure(eventName, { failedOn: 'upload' }, { timed: true });
+            track.failure(eventName, { 'Failed on': 'upload' }, { timed: true });
         });
     });
 
