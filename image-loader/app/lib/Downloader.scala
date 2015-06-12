@@ -13,11 +13,12 @@ import play.api.libs.ws.WS
 
 import com.gu.mediaservice.lib.play.DigestedFile
 
+case object TruncatedDownload extends Exception
 
 object Downloader {
 
   def download(uri: URI, file: File): Future[DigestedFile] =
-    WS.url(uri.toString).getStream().flatMap { case (headers, body) =>
+    WS.url(uri.toString).getStream().flatMap { case (responseHeaders, body) =>
       val md = MessageDigest.getInstance("SHA-1")
       val outputStream = new FileOutputStream(file)
 
@@ -34,7 +35,12 @@ object Downloader {
           outputStream.close()
           // Get the result or rethrow the error
           result.get
-      }.map(_ => DigestedFile(file, md.digest))
+      }.flatMap(_ =>
+        responseHeaders.headers.get("Content-Length").flatMap(_.headOption) match {
+          case Some(len) if file.length == len.toInt => Future.successful(DigestedFile(file, md.digest))
+          case _ => Future.failed(TruncatedDownload)
+        }
+      )
     }
 
 }
