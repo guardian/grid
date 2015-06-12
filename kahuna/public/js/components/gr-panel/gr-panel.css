@@ -15,6 +15,10 @@
     bottom: 0;
 }
 
+.panel__top {
+    font-size: 18px;
+}
+
 .panel__title {
     display: inline-block;
     float: left;

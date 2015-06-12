@@ -18,6 +18,7 @@ import lib.imaging.MimeTypeDetection
 
 import model.{UploadRequest, ImageUpload}
 
+import com.gu.mediaservice.lib.play.DigestBodyParser
 import com.gu.mediaservice.lib.play.DigestedFile
 import com.gu.mediaservice.lib.auth
 import com.gu.mediaservice.lib.auth.{Principal, AuthenticatedService, PandaUser, KeyStore}
@@ -33,7 +34,6 @@ object Application extends ImageLoader
 class ImageLoader extends Controller with ArgoHelpers {
 
   import Config.{rootUri, loginUri}
-  import com.gu.mediaservice.lib.play.BodyParsers.digestedFile
 
   val keyStore = new KeyStore(Config.keyStoreBucket, Config.awsCredentials)
 
@@ -56,7 +56,7 @@ class ImageLoader extends Controller with ArgoHelpers {
 
 
   def loadImage(uploadedBy: Option[String], identifiers: Option[String], uploadTime: Option[String]) =
-    AuthenticatedUpload.async(digestedFile(createTempFile))(loadFile(uploadedBy, identifiers, uploadTime))
+    AuthenticatedUpload.async(DigestBodyParser.create(createTempFile))(loadFile(uploadedBy, identifiers, uploadTime))
 
   def importImage(uri: String, uploadedBy: Option[String], identifiers: Option[String], uploadTime: Option[String]) =
     Authenticated.async { request =>
@@ -71,7 +71,6 @@ class ImageLoader extends Controller with ArgoHelpers {
 
       } getOrElse Future.successful(invalidUri)
     }
-
 
   def loadFile(digestedFile: DigestedFile, user: Principal,
                uploadedBy: Option[String], identifiers: Option[String],
