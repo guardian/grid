@@ -3,7 +3,7 @@ import template from './upload-jobs.html!text';
 import '../../preview/image';
 import '../../analytics/track';
 
-export var jobs = angular.module('kahuna.upload.jobs', ['kahuna.preview.image']);
+export var jobs = angular.module('kahuna.upload.jobs', ['kahuna.preview.image', 'analytics.track']);
 
 
 jobs.controller('UploadJobsCtrl',
