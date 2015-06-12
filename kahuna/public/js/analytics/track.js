@@ -7,31 +7,50 @@ export var track = angular.module('analytics.track', ['mixpanel']);
 track.factory('trackingService', ['trackEvent', function(trackEvent) {
     var queue = [];
     var initialised = false;
+    const timers = new Map();
 
     // queue up results before we've started
-    var track = (event, opts) => {
+    function event(eventName, opts) {
         if (initialised) {
-            trackEvent(event, opts);
+            trackEvent(eventName, opts);
         } else {
-            queue.push(() => trackEvent(event, opts));
+            queue.push(() => trackEvent(eventName, opts));
         }
-    };
+    }
 
-    return {
-        start: function() {
-            queue.forEach(fn => fn());
-            queue = [];
-            initialised = true;
-        },
-        track: track
-    };
+    function timedEvent(eventName, opts) {
+        const timedOpts = addTimer(eventName, opts);
+
+        event(event, timedOpts);
+    }
+
+    function startTimerFor(eventName) {
+        timers.set(eventName, Date.now());
+    }
+
+    function start() {
+        queue.forEach(fn => fn());
+        queue = [];
+        initialised = true;
+    }
+
+    function addTimer(eventName, opts) {
+        const timer = timers.get(eventName);
+        return timer ? angular.extend({}, { took: timeSince(timer) }, opts) : opts;
+    }
+
+    function timeSince(from) {
+        return Date.now() - from;
+    }
+
+    return { start, event, startTimerFor, timedEvent };
 
 }]);
 
-// convenience function
+// convenience naming
 track.factory('track', ['trackingService', function(trackingService) {
 
-    return trackingService.track;
+    return trackingService;
 
 }]);
 
