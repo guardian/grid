@@ -125,7 +125,7 @@ class FTPWatcher(host: String, user: String, password: String) {
         \/.right(path)
       }
       upload.onFinish {
-        case None      => uploadedImages.increment(List(uploadedByDimension(uploadedBy)))
+        case None      => incrementUploaded(uploadedBy)
         case Some(err) => failedUploads.increment(List(causedByDimension(err)))
       }.handle {
         case NonFatal(err) => \/.left(FailedUpload(path))
