@@ -40,7 +40,6 @@ object DigestBodyParser extends ArgoHelpers {
   def slurp(to: File)(implicit ec: ExecutionContext): Iteratee[Array[Byte],(MessageDigest, FileOutputStream)]= {
       Iteratee.fold[Array[Byte], (MessageDigest, FileOutputStream)](
         (MessageDigest.getInstance("SHA-1"), new FileOutputStream(to))) {
-
         case ((md, os), data) => {
           md.update(data)
           os.write(data)
@@ -56,12 +55,13 @@ object DigestBodyParser extends ArgoHelpers {
   }
 
   def validate(request: RequestHeader, to: File, md: MessageDigest): Either[Result, DigestedFile] = {
-    request.headers.get("Content-Length").foldLeft[Either[Result, DigestedFile]]( {
-          failValidation(missingContenLengthError, "Missing content-length. Please specify a correct 'Content-Length' header")
-        } ) {
-      (_,expectedContentLength) => {
-        if (to.length == expectedContentLength.toInt) Right(DigestedFile(to, md.digest))
+    request.headers.get("Content-Length") match {
+      case Some(contentLength) => {
+        if (to.length == contentLength.toInt) Right(DigestedFile(to, md.digest))
         else failValidation(incorrectContentLengthError, "Received file does not match specified 'Content-Length'")
+      }
+      case None => {
+          failValidation(missingContenLengthError, "Missing content-length. Please specify a correct 'Content-Length' header")
       }
     }
   }
