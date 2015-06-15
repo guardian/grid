@@ -19,5 +19,11 @@ object ExifTool {
     tags.foldLeft(ops) { case (ops, (key, value)) => ops <| (_.setTags(s"$key=$value")) }
   }
 
-  def runExiftoolCmd(op: ETOperation): Future[Unit] = Future((new ExiftoolCmd).run(op))
+  def overwriteOriginal(ops: ETOperation): ETOperation = ops <| (_.overwrite_original())
+
+  def runExiftoolCmd(ops: ETOperation): Future[Unit] = {
+    // Set overwrite original to ensure temporary file deletion
+    overwriteOriginal(ops)
+    Future((new ExiftoolCmd).run(ops))
+  }
 }
