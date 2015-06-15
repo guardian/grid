@@ -17,7 +17,7 @@ import io.resource
 import com.gu.mediaservice.lib.Processes._
 import com.gu.mediaservice.syntax.ProcessSyntax._
 
-class FTPWatcher(host: String, user: String, password: String) {
+class FTPWatcher(host: String, port: Int, user: String, password: String) {
 
   val mediaApiKey = Config.mediaApiKey
   val guMediaApiHeader = "X-Gu-Media-Key"
@@ -84,7 +84,7 @@ class FTPWatcher(host: String, user: String, password: String) {
 
   private def initClient: Task[Client] =
     Task.delay(new Client).flatMap { client =>
-      client.connect(host, 21) >>
+      client.connect(host, port) >>
         client.login(user, password) >>
         client.enterLocalPassiveMode >>
         client.setBinaryFileType >|
