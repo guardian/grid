@@ -12,7 +12,7 @@ object CostCalculator {
   def getCost(category: UsageRightsCategory): Option[Cost] =
     categoryCosts.get(category)
 
-  def getCost(supplier: Option[String], collection: Option[String ]): Option[Cost] =
+  def getCost(supplier: Option[String], collection: Option[String]): Option[Cost] =
     supplier.flatMap { suppl =>
       val free = isFreeSupplier(suppl) && ! collection.exists(isExcludedColl(suppl, _))
       if (free) Some(Free) else None
