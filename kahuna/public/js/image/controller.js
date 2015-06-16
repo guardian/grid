@@ -54,13 +54,8 @@ image.controller('ImageCtrl', [
             ctrl.crop = crops.find(crop => crop.id === cropKey);
         });
 
-        mediaCropper.canBeCropped(image).then(croppable => {
-            ctrl.canBeCropped = croppable;
-        });
+        updateAbilities(image);
 
-        editsService.canUserEdit(image).then(editable => {
-            ctrl.userCanEdit = editable;
-        });
 
         var ignoredMetadata = [
             'title', 'description', 'copyright', 'keywords', 'byline',
@@ -79,10 +74,21 @@ image.controller('ImageCtrl', [
             });
         }
 
+        function updateAbilities(image) {
+            mediaCropper.canBeCropped(image).then(croppable => {
+                ctrl.canBeCropped = croppable;
+            });
+
+            editsService.canUserEdit(image).then(editable => {
+                ctrl.userCanEdit = editable;
+            });
+        }
+
         ctrl.updateMetadataField = function (field, value) {
             return editsService.updateMetadataField(image, field, value)
                 .then((updatedImage) => {
                     ctrl.image = updatedImage;
+                    updateAbilities(updatedImage);
                     track('Metadata edit', {successful: true, field: field});
                 })
                 .catch(() => {
