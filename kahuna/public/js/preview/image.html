@@ -56,7 +56,15 @@
                 archived="image.data.userMetadata.data.archived"
                 disabled="selectionMode"></ui-archiver>
 
-            <div class="preview__cost bottom-bar__action" ng:switch="image.data.cost">
+            <!-- Invalid overrides all other cost info -->
+            <div class="preview__cost bottom-bar__action" ng:if="!image.data.valid">
+                <div class="cost cost--pay">
+                    incomplete
+                </div>
+            </div>
+            <div class="preview__cost bottom-bar__action"
+                 ng:if="image.data.valid"
+                 ng:switch="image.data.cost">
                 <div ng:switch-when="pay"
                      class="cost cost--pay">
                     pay
