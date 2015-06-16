@@ -33,6 +33,12 @@ usageRightsEditor.controller('UsageRightsEditorCtrl',
     };
     ctrl.isDisabled = () => ctrl.saving;
     ctrl.isNotEmpty = () => !angular.equals(ctrl.resource.data, {});
+    ctrl.getCost = () => {
+        // TODO: Can we move this to the server
+        if (ctrl.restrictions) { return 'conditional'; }
+        
+        return ctrl.category && ctrl.category.cost;
+    };
 
     function setCategories(cats) {
         ctrl.categories = cats;

@@ -11,7 +11,7 @@
     </label>
 
     <div class="ure__cost"
-         ng:switch="ctrl.category.cost">
+         ng:switch="ctrl.getCost()">
 
         <div class="cost cost--free"
              ng:switch-when="free">Free to use</div>
@@ -24,13 +24,12 @@
         {{ctrl.category.description}}
     </div>
 
-    <label class="ure__restrictions"
-           ng:if="ctrl.category.cost === 'conditional'">
-
+    <label class="ure__restrictions" ng:if="ctrl.category">
         Restrictions
+
         <textarea class="ure__restrictions-text"
-                  required
                   msd-elastic
+                  ng:required="ctrl.category.cost === 'conditional'"
                   ng:model="ctrl.restrictions"
                   ng:disabled="ctrl.isDisabled()"></textarea>
     </label>
