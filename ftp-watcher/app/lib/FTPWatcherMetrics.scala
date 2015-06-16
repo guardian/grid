@@ -2,13 +2,14 @@ package lib
 
 import com.gu.mediaservice.lib.metrics.CloudWatchMetrics
 import lib.Config._
+import scalaz.concurrent.Task
 import com.amazonaws.services.cloudwatch.model.Dimension
 
 object FTPWatcherMetrics extends CloudWatchMetrics(s"$stage/FTPWatcher", metricsAwsCredentials) {
 
-  def incrementUploaded(uploader: String) =  {
-    uploadedImages.increment(List(uploadedByDimension(uploader)))
-    uploadedImages.increment()
+  def incrementUploaded(uploader: String) =  Task {
+    uploadedImages.increment(List(uploadedByDimension(uploader))).run
+    uploadedImages.increment().run
   }
 
   val retrievingImages = new CountMetric("RetrievingImages")
