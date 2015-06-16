@@ -14,13 +14,18 @@ selectionService.factory('selectionService', ['$q', 'editsService', function ($q
         var metadata = {};
         var cost = new Set();
 
-        for (let image of selectedImages) {
-            Object.keys(image.data.metadata).forEach((key) => {
+        var allFields = [];
+        selectedImages.forEach(img => allFields = allFields.concat(Object.keys(img.data.metadata)));
+
+        var uniqueFields = new Set(allFields);
+
+        selectedImages.forEach(image => {
+            uniqueFields.forEach((key) => {
                 metadata[key] = metadata[key] || new Set();
                 metadata[key].add(image.data.metadata[key]);
             });
             cost.add(image.data.cost);
-        }
+        });
         return {
             metadata: metadata,
             cost: cost
