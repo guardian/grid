@@ -36,11 +36,12 @@
 
         <div class="image-info">
             <div ng:if="! ctrl.image.data.valid"
-                 class="image-info__group cost cost--pay">
-                invalid (missing metadata)
+                 class="image-notice image-info__group cost cost--pay">
+                <strong>Incomplete metadata</strong><br>
+                Fill in description and credit before use
             </div>
 
-            <div ng:if="ctrl.image.data.valid" ng:switch="ctrl.image.data.cost">
+            <div ng:switch="ctrl.image.data.cost">
                 <div ng:switch-when="pay"
                      class="image-notice image-info__group status cost cost--pay">
                     pay to use
