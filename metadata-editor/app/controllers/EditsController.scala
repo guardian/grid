@@ -23,6 +23,8 @@ import com.gu.mediaservice.lib.argo._
 import com.gu.mediaservice.lib.argo.model._
 
 import scala.util.{Success, Failure, Try}
+import scalaz.Validation
+import scalaz.syntax.validation._
 
 
 // FIXME: the argoHelpers are all returning `Ok`s (200)
@@ -150,24 +152,25 @@ object EditsController extends Controller with ArgoHelpers {
   }
 
   def setUsageRights(id: String) = Authenticated.async(parse.json) { req =>
-    bindFromRequest[UsageRights](req.body) match {
-      case Success(usageRights) =>
+    bindFromRequest[UsageRights](req.body).fold(
+      error => Future.successful(respondError(BadRequest, error.key, error.message)),
+      usageRights =>
         dynamo.jsonAdd(id, "usageRights", caseClassToMap(usageRights))
           .map(publish(id))
           .map(edits => respond(usageRights))
-
-      case Failure(e) =>
-        Future.successful(respondError(BadRequest, "bad-form-data", "Invalid form data"))
-    }
+    )
   }
 
   def deleteUsageRights(id: String) = Authenticated.async { req =>
     dynamo.removeKey(id, "usageRights").map(publish(id)).map(edits => Accepted)
   }
 
-
-  def bindFromRequest[T](json: JsValue)(implicit fjs: Reads[T]): Try[T] =
-    Try((json \ "data").as[T])
+  case class ArgoError(status: Status, key: String, message: String) extends Throwable
+  def bindFromRequest[T](json: JsValue)(implicit fjs: Reads[T]): Validation[ArgoError, T] =
+    Try((json \ "data").as[T]) match {
+      case Success(obj) => obj.success
+      case Failure(e)   => ArgoError(BadRequest, "bad-data-structure", "Unrecognised form data").fail
+    }
 
   // TODO: Move this to the dynamo lib
   def caseClassToMap[T](caseClass: T)(implicit tjs: Writes[T]): Map[String, String] =
