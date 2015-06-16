@@ -201,7 +201,7 @@ service.factory('editsService',
 
         keys.forEach((key) => {
             if ((image.data.originalMetadata[key] || image.data.metadata[key]) &&
-                (metadata[key] !== image.data.metadata[key])) {
+                (metadata[key] !== image.data.originalMetadata[key])) {
 
                 diff[key] = metadata[key];
             }
