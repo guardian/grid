@@ -620,6 +620,7 @@ input.search-query__input {
     display: initial;
 }
 
+.validity,
 .cost {
     color: white;
     font-size: 1.4rem;
@@ -627,6 +628,7 @@ input.search-query__input {
     text-align: center;
     vertical-align: middle;
 }
+.validity--invalid,
 .cost--pay {
     background-color: red;
 }
