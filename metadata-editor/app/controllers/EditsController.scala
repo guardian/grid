@@ -5,7 +5,8 @@ import java.net.URI
 import java.net.URLDecoder.decode
 
 import com.gu.mediaservice.lib.argo.ArgoHelpers
-import com.gu.mediaservice.model.{UsageRights, ImageMetadata}
+import com.gu.mediaservice.lib.config.UsageRightsConfig
+import com.gu.mediaservice.model.{Conditional, UsageRights, ImageMetadata, Edits}
 
 import scala.concurrent.Future
 
@@ -13,8 +14,6 @@ import play.api.data._, Forms._
 import play.api.mvc.Controller
 import play.api.libs.json._
 import play.api.libs.concurrent.Execution.Implicits._
-
-import com.gu.mediaservice.model.Edits
 
 import com.gu.mediaservice.lib.aws.{NoItemFound, DynamoDB}
 import lib._
@@ -152,12 +151,23 @@ object EditsController extends Controller with ArgoHelpers {
   }
 
   def setUsageRights(id: String) = Authenticated.async(parse.json) { req =>
+    // TODO = not the best way really
+    def error(e: EditsValidationError) =
+      Future.successful(respondError(BadRequest, e.key, e.message))
+
+    // TODO: Can we fold better than this?
     bindFromRequest[UsageRights](req.body).fold(
-      error => Future.successful(respondError(BadRequest, error.key, error.message)),
+      e => error(e),
+
       usageRights =>
-        dynamo.jsonAdd(id, "usageRights", caseClassToMap(usageRights))
-          .map(publish(id))
-          .map(edits => respond(usageRights))
+        EditsValidator(usageRights).fold(
+          e => error(e),
+
+          usageRights =>
+            dynamo.jsonAdd(id, "usageRights", caseClassToMap(usageRights))
+              .map(publish(id))
+              .map(edits => respond(usageRights))
+        )
     )
   }
 
@@ -165,11 +175,10 @@ object EditsController extends Controller with ArgoHelpers {
     dynamo.removeKey(id, "usageRights").map(publish(id)).map(edits => Accepted)
   }
 
-  case class ArgoError(status: Status, key: String, message: String) extends Throwable
-  def bindFromRequest[T](json: JsValue)(implicit fjs: Reads[T]): Validation[ArgoError, T] =
+  def bindFromRequest[T](json: JsValue)(implicit fjs: Reads[T]): Validation[EditsValidationError, T] =
     Try((json \ "data").as[T]) match {
       case Success(obj) => obj.success
-      case Failure(e)   => ArgoError(BadRequest, "bad-data-structure", "Unrecognised form data").fail
+      case Failure(e)   => EditsValidationError("unrecognised-form-data", "Unrecognised form data").fail
     }
 
   // TODO: Move this to the dynamo lib
@@ -251,4 +260,22 @@ object EditsController extends Controller with ArgoHelpers {
      single[List[String]]("data" -> list(text))
   )
 
+}
+
+case class EditsValidationError(key: String, message: String) extends Throwable
+
+object EditsValidator {
+  def apply(usageRights: UsageRights): Validation[EditsValidationError, UsageRights] = {
+    val cost = UsageRightsConfig.categoryCosts.get(usageRights.category)
+    val missingRestriction = cost.contains(Conditional) && isEmptyOptString(usageRights.restrictions)
+
+    if (missingRestriction) {
+      EditsValidationError("invalid-form-data", s"${usageRights.category} must have restrictions set").fail
+    } else {
+      usageRights.success
+    }
+  }
+
+  private def isEmptyOptString(s: Option[String]) =
+    s.map(_.trim).forall(_.isEmpty)
 }
