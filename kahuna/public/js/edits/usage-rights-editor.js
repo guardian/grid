@@ -52,7 +52,7 @@ usageRightsEditor.controller('UsageRightsEditorCtrl',
     }
 
     function modelToData(cat, restrictions) {
-        return restrictions === "" ? { category: cat.value } : {
+        return restrictions === '' ? { category: cat.value } : {
             category: cat.value,
             restrictions: restrictions
         };
