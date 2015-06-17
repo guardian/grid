@@ -1,21 +1,55 @@
 import angular from 'angular';
 import template from './dnd-uploader.html!text';
 
-export var dndUploader = angular.module('kahuna.upload.dndUploader', []);
+import '../services/api/witness';
+
+export var dndUploader = angular.module('kahuna.upload.dndUploader', [
+    'kahuna.witness'
+]);
 
 
 dndUploader.controller('DndUploaderCtrl',
-                  ['$state', 'uploadManager',
-                   function($state, uploadManager) {
+                  ['$state', 'uploadManager', 'loaderApi', 'editsService',
+                   'poll', 'witnessApi',
+                   function($state, uploadManager, loaderApi, editsService,
+                            poll, witnessApi) {
 
     var ctrl = this;
     ctrl.uploadFiles = uploadFiles;
+    ctrl.importWitnessImage = importWitnessImage;
+    ctrl.isWitnessUri = witnessApi.isWitnessUri;
 
     function uploadFiles(files) {
         // Queue up files for upload and go to the upload state to
         // show progress
         uploadManager.upload(files);
         $state.go('upload', {}, { reload: true });
+    }
+
+    function importWitnessImage(uri) {
+        const witnessReportId = witnessApi.extractReportId(uri);
+        if (witnessReportId) {
+            witnessApi.getReport(witnessReportId).then(({fileUri, metadata}) => {
+                loaderApi.import(fileUri).then(mediaResp => {
+                    // FIXME: share poll util
+                    // Wait until image indexed
+                    return poll(() => mediaResp.get(), 500, 20*1000);
+                }).then(fullImage => {
+                    // Override with Witness metadata
+                    const userMetadata = fullImage.data.userMetadata.data.metadata;
+                    return editsService.
+                        update(userMetadata, metadata, fullImage).
+                        then(() => fullImage.data.id);
+                    // TODO: category: guardian-witness, restriction = assignment?
+                }).then(imageId => {
+                    // Go to image preview page
+                    $state.go('image', {imageId});
+                });
+            });
+        } else {
+            // Should not get to here
+            alert('Failed to identify the Witness contribution, please try again');
+        }
     }
 }]);
 
@@ -78,12 +112,18 @@ dndUploader.directive('dndUploader', ['$window', 'delay', 'safeApply',
             }
 
             function drop(event) {
-                var files = Array.from(event.originalEvent.dataTransfer.files);
+                const dataTransfer = event.originalEvent.dataTransfer;
+                const files = Array.from(dataTransfer.files);
+                const uri = dataTransfer.getData('text/uri-list');
 
                 event.preventDefault();
 
                 if (files.length > 0) {
                     scope.dndUploader.uploadFiles(files);
+                } else if (scope.dndUploader.isWitnessUri(uri)) {
+                    scope.dndUploader.importWitnessImage(uri);
+                } else {
+                    alert('You must drop valid files or Guardian Witness URLs to upload them');
                 }
                 scope.$apply(deactivate);
             }
