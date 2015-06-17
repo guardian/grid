@@ -24,7 +24,6 @@ import com.gu.mediaservice.lib.argo.model._
 import scala.util.{Success, Failure, Try}
 import scalaz.Validation
 import scalaz.syntax.validation._
-import scalaz._
 
 
 // FIXME: the argoHelpers are all returning `Ok`s (200)
