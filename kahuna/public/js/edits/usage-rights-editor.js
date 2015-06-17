@@ -28,6 +28,8 @@ usageRightsEditor.controller('UsageRightsEditorCtrl',
         ctrl.error = null;
 
         if (ctrl.category) {
+            console.log(modelToData(ctrl.category, ctrl.restrictions));
+            return;
             save(modelToData(ctrl.category, ctrl.restrictions));
         } else {
             del();
@@ -52,7 +54,7 @@ usageRightsEditor.controller('UsageRightsEditorCtrl',
     }
 
     function modelToData(cat, restrictions) {
-        return restrictions === '' ? { category: cat.value } : {
+        return angular.isUndefined(restrictions) ? { category: cat.value } : {
             category: cat.value,
             restrictions: restrictions
         };
