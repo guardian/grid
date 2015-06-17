@@ -150,8 +150,6 @@ results.controller('SearchResultsCtrl', [
                 archived:   $stateParams.archived,
                 // The nonFree state param is the inverse of the free API param
                 free:       $stateParams.nonFree === 'true' ? undefined: true,
-                // Search for valid only by default
-                valid:      $stateParams.valid === undefined ? true : $stateParams.valid,
                 uploadedBy: $stateParams.uploadedBy,
                 // Override $stateParams until/since with any explicitly provided argument
                 until:      until || $stateParams.until,
