@@ -19,8 +19,34 @@ mod.factory('witnessApi', ['mediaApi', function(mediaApi) {
         return reportId;
     }
 
+    function parseReportResponse(response) {
+        // FIXME: check moderation status
+
+        const update = response.updates[0];
+        const fileUri = update.image.extralarge;
+        const metadata = {
+            title:       response.headline,
+            // FIXME: which fields?
+            description: update.body,
+            byline:      update.user.displayName,
+            credit:      update.via
+        };
+        const witnessData = {
+            // FIXME: use/save them?
+            creditUri:   response.webUrl,
+            apiUri:      response.apiUrl,
+            noticeboard: response.noticeboard,
+            report:      response.id.replace('report/')
+        };
+
+        return {fileUri, metadata, witnessData};
+    }
+
     function getReport(id) {
-        return mediaApi.root.follow('witness-report', {id}).get();
+        return mediaApi.root.
+            follow('witness-report', {id}).
+            get({}, {withCredentials: false}).
+            then(parseReportResponse);
     }
 
     return {
