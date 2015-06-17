@@ -50,18 +50,10 @@ usageRightsEditor.controller('UsageRightsEditorCtrl',
     }
 
     function modelToData(cat, restrictions) {
-        if (cat === 'free') {
-            return { category: cat.value };
-
-        }
-
-        // annoyingly even if the restrictions isn't rendered, it's in the model.
-        else {
-            return {
-                category: cat.value,
-                restrictions: restrictions
-            };
-        }
+        return restrictions === "" ? { category: cat.value } : {
+            category: cat.value,
+            restrictions: restrictions
+        };
     }
 
     function del() {
