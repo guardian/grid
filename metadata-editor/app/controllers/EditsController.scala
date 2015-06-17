@@ -151,12 +151,9 @@ object EditsController extends Controller with ArgoHelpers {
   }
 
   def setUsageRights(id: String) = Authenticated.async(parse.json) { req =>
-    // TODO = not the best way really
-    def error(e: EditsValidationError) =
-      Future.successful(respondError(BadRequest, e.key, e.message))
 
     bindFromRequest[UsageRights](req.body).flatMap(EditsValidator(_)).fold(
-      e => error(e),
+      e => Future.successful(respondError(BadRequest, e.key, e.message)),
 
       usageRights =>
         dynamo.jsonAdd(id, "usageRights", caseClassToMap(usageRights))
