@@ -2,8 +2,10 @@
     class="panel panel--side panel--right image-details">
 
     <div class="panel__top">
-        <h1 class="panel__title">Metadata ({{ctrl.selectedImages.size}} image<span ng:if="ctrl.selectedImages.size > 1">s</span>)</h1>
-        <button class="panel__close" ng:click="ctrl.clear()" title="Clear selection and close">x</button>
+        <h1 class="panel__title">{{ctrl.selectedImages.size}} image<span ng:if="ctrl.selectedImages.size > 1">s</span> selected</h1>
+        <button class="panel__close" ng:click="ctrl.clear()" title="Clear selection and close">
+            <i class="material-icons">close</i>
+        </button>
     </div>
 
     <div class="panel__content">
@@ -171,9 +173,5 @@
             </div>
         </div>
 
-    </div>
-
-    <div class="panel__bottom">
-        <button class="panel__close button-shy" ng:click="ctrl.clear()">clear selection</button>
     </div>
 </div>
