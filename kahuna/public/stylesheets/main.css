@@ -19,6 +19,37 @@
     font-stretch: normal;
 }
 
+/* see http://google.github.io/material-design-icons/#icon-font-for-the-web */
+@font-face {
+    font-family: 'Material Icons';
+    font-style: normal;
+    font-weight: 400;
+    src: url("fonts/MaterialIcons-Regular.woff2") format('woff2'),
+         url("fonts/MaterialIcons-Regular.woff") format('woff');
+}
+
+.material-icons {
+    font-family: 'Material Icons';
+    font-weight: normal;
+    font-style: normal;
+    font-size: 16px;  /* Preferred icon size */
+    display: inline-block;
+    width: 1em;
+    height: 1em;
+    line-height: 1;
+    text-transform: none;
+    letter-spacing: normal;
+    word-wrap: normal;
+
+    /* Support for all WebKit browsers. */
+    -webkit-font-smoothing: antialiased;
+    /* Support for Safari and Chrome. */
+    text-rendering: optimizeLegibility;
+
+    /* Support for Firefox. */
+    -moz-osx-font-smoothing: grayscale;
+}
+
 @keyframes fadeIn {
     0%   { opacity: 0; }
     100% { opacity: 1; }
@@ -550,69 +581,22 @@ input.search-query__input {
 }
 
 .result__select {
-    width: 28px;
-    height: 28px;
-    background: #fcfff4;
-
     position: absolute;
     display: none;
 
     /* above thumbnail */
     z-index: 1;
-
-    background: -webkit-linear-gradient(top, #fcfff4 0%, #dfe5d7 40%, #b3bead 100%);
-    background: -moz-linear-gradient(top, #fcfff4 0%, #dfe5d7 40%, #b3bead 100%);
-    background: linear-gradient(top, #fcfff4 0%, #dfe5d7 40%, #b3bead 100%);
-
-    -webkit-box-shadow: inset 0px 1px 1px white, 0px 1px 3px rgba(0,0,0,0.5);
-    -moz-box-shadow: inset 0px 1px 1px white, 0px 1px 3px rgba(0,0,0,0.5);
-    box-shadow: inset 0px 1px 1px white, 0px 1px 3px rgba(0,0,0,0.5);
 }
 
 .result__select__checkbox__label {
+    position: absolute;
+    top: 0px;
+    left: 0px;
     cursor: pointer;
-    position: absolute;
-    width: 20px;
-    height: 20px;
-    left: 4px;
-    top: 4px;
-
-    -webkit-box-shadow: inset 0px 1px 1px rgba(0,0,0,0.5), 0px 1px 0px rgba(255,255,255,1);
-    -moz-box-shadow: inset 0px 1px 1px rgba(0,0,0,0.5), 0px 1px 0px rgba(255,255,255,1);
-    box-shadow: inset 0px 1px 1px rgba(0,0,0,0.5), 0px 1px 0px rgba(255,255,255,1);
-
-    background: -webkit-linear-gradient(top, #222 0%, #45484d 100%);
-    background: -moz-linear-gradient(top, #222 0%, #45484d 100%);
-    background: linear-gradient(top, #222 0%, #45484d 100%);
 }
 
-.result__select__checkbox__label:after {
-    filter: alpha(opacity=0);
-    opacity: 0;
-    content: '';
-    position: absolute;
-    width: 9px;
-    height: 5px;
-    background: transparent;
-    top: 4px;
-    left: 4px;
-    border: 3px solid #fcfff4;
-    border-top: none;
-    border-right: none;
-
-    -webkit-transform: rotate(-45deg);
-    -moz-transform: rotate(-45deg);
-    transform: rotate(-45deg);
-}
-
-.result__select__checkbox__label:hover::after {
-    filter: alpha(opacity=30);
-    opacity: 0.3;
-}
-
-.result input[type=checkbox]:checked + label:after {
-    filter: alpha(opacity=100);
-    opacity: 1;
+.result__select__checkbox__label .material-icons {
+    font-size: 25px;
 }
 
 .result:hover .result__select,
