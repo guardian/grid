@@ -7,10 +7,10 @@ export var track = angular.module('analytics.track', ['mixpanel']);
 track.factory('trackingService', ['trackEvent', function(trackEvent) {
     var queue = [];
     var initialised = false;
-    const tracker = { start, event, success, failure };
+    const tracker = { action, success, failure };
 
     // queue up results before we've started
-    function event(eventName, opts = {}) {
+    function action(eventName, opts = {}) {
         if (initialised) {
             trackEvent(eventName, opts);
         } else {
@@ -18,14 +18,14 @@ track.factory('trackingService', ['trackEvent', function(trackEvent) {
         }
     }
 
-    function success(eventName, opts) {
+    function success(eventName, opts = {}) {
         const finalOpts = angular.extend({}, opts, { 'State': 'success' });
-        event(eventName, finalOpts);
+        action(eventName, finalOpts);
     }
 
-    function failure(eventName, opts) {
+    function failure(eventName, opts = {}) {
         const finalOpts = angular.extend({}, opts, { 'State': 'failure' });
-        event(eventName, finalOpts);
+        action(eventName, finalOpts);
     }
 
     function start() {
@@ -37,6 +37,7 @@ track.factory('trackingService', ['trackEvent', function(trackEvent) {
     function timeSince(from) {
         return Date.now() - from;
     }
+
 
     function makeTimedTrack() {
         const started = Date.now();
@@ -51,9 +52,7 @@ track.factory('trackingService', ['trackEvent', function(trackEvent) {
         return timedTrack;
     }
 
-
-
-    return angular.extend({}, tracker, { makeTimedTrack });
+    return angular.extend({}, tracker, { makeTimedTrack, start });
 
 }]);
 

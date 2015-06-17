@@ -43,8 +43,8 @@
     }
   },
   "devDependencies": {
-    "jscs": "^1.13.0",
-    "jshint": "^2.5.11",
+    "jscs": "^1.13.1",
+    "jshint": "^2.8.0",
     "jspm": "~0.15.0"
   },
   "scripts": {

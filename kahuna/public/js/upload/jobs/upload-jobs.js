@@ -7,7 +7,7 @@ export var jobs = angular.module('kahuna.upload.jobs', ['kahuna.preview.image', 
 
 
 jobs.controller('UploadJobsCtrl',
-                ['$scope', 'poll', 'track', '$timeout', function($scope, poll, track, $timeout) {
+                ['$scope', 'poll', 'track', function($scope, poll, track) {
 
     var ctrl = this;
 
@@ -34,7 +34,7 @@ jobs.controller('UploadJobsCtrl',
                 jobItem.image = image;
                 jobItem.thumbnail = image.data.thumbnail;
 
-                timedTrack.success(eventName, {});
+                timedTrack.success(eventName);
             }, error => {
                 jobItem.status = 'upload error';
                 jobItem.error = error.message;
@@ -52,8 +52,6 @@ jobs.controller('UploadJobsCtrl',
 
     // this needs to be a function due to the stateful `jobItem`
     ctrl.jobImages = () => ctrl.jobs.map(jobItem => jobItem.image);
-
-    $scope.$on('$destroy', () => track.endTimerFor(eventName));
 
 }]);
 

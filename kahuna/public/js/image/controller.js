@@ -83,10 +83,10 @@ image.controller('ImageCtrl', [
             return editsService.updateMetadataField(image, field, value)
                 .then((updatedImage) => {
                     ctrl.image = updatedImage;
-                    track.event('Metadata edit', {successful: true, field: field});
+                    track.action('Metadata edit', {successful: true, field: field});
                 })
                 .catch(() => {
-                    track.event('Metadata edit', {successful: false, field: field});
+                    track.action('Metadata edit', {successful: false, field: field});
 
                     /*
                      Save failed.
