@@ -200,10 +200,14 @@ service.factory('editsService',
         keys.delete('keywords');
 
         keys.forEach((key) => {
-            if ((image.data.originalMetadata[key] || image.data.metadata[key]) &&
-                (metadata[key] !== image.data.metadata[key])) {
-
+            if (metadata[key] && angular.isUndefined(image.data.originalMetadata[key])) {
                 diff[key] = metadata[key];
+            } else if (metadata[key] !== image.data.originalMetadata[key] &&
+                angular.isDefined(image.data.originalMetadata[key])) {
+                // if the user has provided an override of '' (e.g. they want remove the title),
+                // angular sets the value in the object to undefined.
+                // We need to use an empty string in the PUT request to obey user input.
+                diff[key] = metadata[key] || '';
             }
         });
 
