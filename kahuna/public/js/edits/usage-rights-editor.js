@@ -25,7 +25,11 @@ usageRightsEditor.controller('UsageRightsEditorCtrl',
     editsApi.getUsageRightsCategories().then(setCategories);
 
     ctrl.save = () => {
+        ctrl.error = null;
+
         if (ctrl.category) {
+            console.log(modelToData(ctrl.category, ctrl.restrictions));
+            return;
             save(modelToData(ctrl.category, ctrl.restrictions));
         } else {
             del();
@@ -33,6 +37,14 @@ usageRightsEditor.controller('UsageRightsEditorCtrl',
     };
     ctrl.isDisabled = () => ctrl.saving;
     ctrl.isNotEmpty = () => !angular.equals(ctrl.resource.data, {});
+    ctrl.getCost = () => {
+        // TODO: Can we move this to the server
+        if (ctrl.restrictions) { return 'conditional'; }
+
+        return ctrl.category && ctrl.category.cost;
+    };
+    ctrl.pluraliseCategory = () => ctrl.category.name +
+        (ctrl.category.name.toLowerCase().endsWith('image') ? 's' : ' images');
 
     function setCategories(cats) {
         ctrl.categories = cats;
@@ -42,18 +54,10 @@ usageRightsEditor.controller('UsageRightsEditorCtrl',
     }
 
     function modelToData(cat, restrictions) {
-        if (cat === 'free') {
-            return { category: cat.value };
-
-        }
-
-        // annoyingly even if the restrictions isn't rendered, it's in the model.
-        else {
-            return {
-                category: cat.value,
-                restrictions: restrictions
-            };
-        }
+        return angular.isUndefined(restrictions) ? { category: cat.value } : {
+            category: cat.value,
+            restrictions: restrictions
+        };
     }
 
     function del() {
@@ -92,8 +96,8 @@ usageRightsEditor.controller('UsageRightsEditorCtrl',
         $timeout(() => ctrl.saved = false, 1500);
     }
 
-    function uiError() {
-        $window.alert('Failed to save the changes, please try again.');
+    function uiError(error) {
+        ctrl.error = error.body.errorMessage;
     }
 }]);
 

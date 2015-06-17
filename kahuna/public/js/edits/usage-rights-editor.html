@@ -11,7 +11,7 @@
     </label>
 
     <div class="ure__cost"
-         ng:switch="ctrl.category.cost">
+         ng:switch="ctrl.getCost()">
 
         <div class="cost cost--free"
              ng:switch-when="free">Free to use</div>
@@ -24,13 +24,19 @@
         {{ctrl.category.description}}
     </div>
 
-    <label class="ure__restrictions"
-           ng:if="ctrl.category.cost === 'conditional'">
+    <label class="ure__restrictions" ng:if="ctrl.category">
 
-        Restrictions
+        <div class="form-label">
+            <div class="form-label__text">Restrictions</div>
+            <div class="form-label__error"
+                 ng:if="usageRights.restrictions.$error.required">Required for {{ctrl.pluraliseCategory()}}.</div>
+        </div>
+
+
         <textarea class="ure__restrictions-text"
-                  required
                   msd-elastic
+                  name="restrictions"
+                  ng:required="ctrl.category.cost === 'conditional'"
                   ng:model="ctrl.restrictions"
                   ng:disabled="ctrl.isDisabled()"></textarea>
     </label>
@@ -43,6 +49,7 @@
                 <span ng:if="ctrl.saving">Saving</span>
                 <span ng:if="ctrl.saved">Saved</span>
         </button>
+        <div class="ure__error" ng:if="ctrl.error" ng:bind="ctrl.error"></div>
     </div>
 
 </form>
