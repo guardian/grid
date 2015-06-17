@@ -923,6 +923,17 @@ FIXME: what to do with touch devices
     width: 100%;
 }
 
+.ure__submit {
+    display: flex;
+}
+
+.ure__error {
+    margin-left: 10px;
+    background: red;
+    padding: 2px 10px;
+    color: white;
+}
+
 /* ==========================================================================
    Full Image / crop
    ========================================================================== */
@@ -1534,6 +1545,23 @@ FIXME: what to do with touch devices
 /* ==========================================================================
    Heard not seen
    ========================================================================== */
+
 .tracking-image {
     display: none;
+}
+
+
+/* ==========================================================================
+   Forms
+   ========================================================================== */
+
+.form-label {
+    display: flex;
+}
+
+.form-label__error {
+    font-size: 1.2rem;
+    color: #ed5935;
+    flex-grow: 1;
+    text-align: right;
 }
