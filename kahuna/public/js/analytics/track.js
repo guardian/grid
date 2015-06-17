@@ -12,7 +12,6 @@ track.factory('trackingService', ['trackEvent', function(trackEvent) {
     // queue up results before we've started
     function event(eventName, opts = {}) {
         if (initialised) {
-            console.log(eventName, opts);
             trackEvent(eventName, opts);
         } else {
             queue.push(() => trackEvent(eventName, opts));
