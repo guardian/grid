@@ -115,15 +115,15 @@ kahuna.run(['$rootScope', 'httpErrors', 'track',
             function($rootScope, httpErrors, track) {
 
     $rootScope.$on('events:error:unauthorised', () =>
-        track('Authentication error', { 'Error code': httpErrors.unauthorised.errorCode }));
+        track.action('Authentication error', { 'Error code': httpErrors.unauthorised.errorCode }));
 
     $rootScope.$on('pandular:re-establishment:fail', () =>
-        track('Authentication error', { 'Error code': httpErrors.authFailed.errorCode }));
+        track.action('Authentication error', { 'Error code': httpErrors.authFailed.errorCode }));
 }]);
 
 
 kahuna.run(['track', function(track) {
-    track('Page viewed');
+    track.action('Page viewed');
 }]);
 
 /**

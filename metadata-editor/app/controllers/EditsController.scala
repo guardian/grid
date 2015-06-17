@@ -5,7 +5,8 @@ import java.net.URI
 import java.net.URLDecoder.decode
 
 import com.gu.mediaservice.lib.argo.ArgoHelpers
-import com.gu.mediaservice.model.{UsageRights, ImageMetadata}
+import com.gu.mediaservice.lib.config.UsageRightsConfig
+import com.gu.mediaservice.model.{Conditional, UsageRights, ImageMetadata, Edits}
 
 import scala.concurrent.Future
 
@@ -14,8 +15,6 @@ import play.api.mvc.Controller
 import play.api.libs.json._
 import play.api.libs.concurrent.Execution.Implicits._
 
-import com.gu.mediaservice.model.Edits
-
 import com.gu.mediaservice.lib.aws.{NoItemFound, DynamoDB}
 import lib._
 
@@ -23,6 +22,8 @@ import com.gu.mediaservice.lib.argo._
 import com.gu.mediaservice.lib.argo.model._
 
 import scala.util.{Success, Failure, Try}
+import scalaz.Validation
+import scalaz.syntax.validation._
 
 
 // FIXME: the argoHelpers are all returning `Ok`s (200)
@@ -150,24 +151,25 @@ object EditsController extends Controller with ArgoHelpers {
   }
 
   def setUsageRights(id: String) = Authenticated.async(parse.json) { req =>
-    bindFromRequest[UsageRights](req.body) match {
-      case Success(usageRights) =>
+
+    bindFromRequest[UsageRights](req.body).flatMap(EditsValidator(_)).fold(
+      e => Future.successful(respondError(BadRequest, e.key, e.message)),
+
+      usageRights =>
         dynamo.jsonAdd(id, "usageRights", caseClassToMap(usageRights))
           .map(publish(id))
           .map(edits => respond(usageRights))
-
-      case Failure(e) =>
-        Future.successful(respondError(BadRequest, "bad-form-data", "Invalid form data"))
-    }
+    )
   }
 
   def deleteUsageRights(id: String) = Authenticated.async { req =>
     dynamo.removeKey(id, "usageRights").map(publish(id)).map(edits => Accepted)
   }
 
-
-  def bindFromRequest[T](json: JsValue)(implicit fjs: Reads[T]): Try[T] =
-    Try((json \ "data").as[T])
+  def bindFromRequest[T](json: JsValue)(implicit fjs: Reads[T]): Validation[EditsValidationError, T] =
+    (json \ "data").asOpt[T]
+      .map(_.success)
+      .getOrElse(EditsValidationError("unrecognised-form-data", "Unrecognised form data").fail)
 
   // TODO: Move this to the dynamo lib
   def caseClassToMap[T](caseClass: T)(implicit tjs: Writes[T]): Map[String, String] =
@@ -248,4 +250,22 @@ object EditsController extends Controller with ArgoHelpers {
      single[List[String]]("data" -> list(text))
   )
 
+}
+
+case class EditsValidationError(key: String, message: String) extends Throwable
+
+object EditsValidator {
+  def apply(usageRights: UsageRights): Validation[EditsValidationError, UsageRights] = {
+    val cost = UsageRightsConfig.categoryCosts.get(usageRights.category)
+    val missingRestriction = cost.contains(Conditional) && isEmptyOptString(usageRights.restrictions)
+
+    if (missingRestriction) {
+      EditsValidationError("invalid-form-data", s"${usageRights.category} must have restrictions set").fail
+    } else {
+      usageRights.success
+    }
+  }
+
+  private def isEmptyOptString(s: Option[String]) =
+    s.map(_.trim).forall(_.isEmpty)
 }
