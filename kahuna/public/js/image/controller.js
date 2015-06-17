@@ -89,10 +89,10 @@ image.controller('ImageCtrl', [
                 .then((updatedImage) => {
                     ctrl.image = updatedImage;
                     updateAbilities(updatedImage);
-                    track('Metadata edit', {successful: true, field: field});
+                    track.success('Metadata edit', { field: field });
                 })
                 .catch(() => {
-                    track('Metadata edit', {successful: false, field: field});
+                    track.failure('Metadata edit', { field: field });
 
                     /*
                      Save failed.

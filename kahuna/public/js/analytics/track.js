@@ -7,31 +7,59 @@ export var track = angular.module('analytics.track', ['mixpanel']);
 track.factory('trackingService', ['trackEvent', function(trackEvent) {
     var queue = [];
     var initialised = false;
+    const tracker = { action, success, failure };
 
     // queue up results before we've started
-    var track = (event, opts) => {
+    function action(eventName, opts = {}) {
         if (initialised) {
-            trackEvent(event, opts);
+            trackEvent(eventName, opts);
         } else {
-            queue.push(() => trackEvent(event, opts));
+            queue.push(() => trackEvent(eventName, opts));
         }
-    };
+    }
 
-    return {
-        start: function() {
-            queue.forEach(fn => fn());
-            queue = [];
-            initialised = true;
-        },
-        track: track
-    };
+    function success(eventName, opts = {}) {
+        const finalOpts = angular.extend({}, opts, { successful: true });
+        action(eventName, finalOpts);
+    }
+
+    function failure(eventName, opts = {}) {
+        const finalOpts = angular.extend({}, opts, { successful: false });
+        action(eventName, finalOpts);
+    }
+
+    function start() {
+        queue.forEach(fn => fn());
+        queue = [];
+        initialised = true;
+    }
+
+    function timeSince(from) {
+        return Date.now() - from;
+    }
+
+
+    function makeTimedTrack() {
+        const started = Date.now();
+        const timedTrack = Object.keys(tracker).reduce((prev, def) => {
+            prev[def] = function(eventName, opts = {}) {
+                const timedOpts = angular.extend({}, opts, { 'Duration': timeSince(started) });
+                tracker[def](eventName, timedOpts);
+            };
+            return prev;
+        }, {});
+
+        return timedTrack;
+    }
+
+    return angular.extend({}, tracker, { makeTimedTrack, start });
 
 }]);
 
-// convenience function
+// convenience naming
 track.factory('track', ['trackingService', function(trackingService) {
 
-    return trackingService.track;
+    return trackingService;
 
 }]);
 
