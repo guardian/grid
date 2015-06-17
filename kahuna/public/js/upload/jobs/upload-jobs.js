@@ -7,7 +7,7 @@ export var jobs = angular.module('kahuna.upload.jobs', ['kahuna.preview.image', 
 
 
 jobs.controller('UploadJobsCtrl',
-                ['$scope', 'poll', 'track', function($scope, poll, track) {
+                ['$scope', 'poll', 'track', '$timeout', function($scope, poll, track, $timeout) {
 
     var ctrl = this;
 
@@ -19,7 +19,7 @@ jobs.controller('UploadJobsCtrl',
     ctrl.jobs.forEach(jobItem => {
         jobItem.status = 'uploading';
 
-        track.startTimerFor(eventName);
+        const timedTrack = track.makeTimedTrack();
 
         jobItem.resourcePromise.then(resource => {
             jobItem.status = 'indexing';
@@ -34,19 +34,19 @@ jobs.controller('UploadJobsCtrl',
                 jobItem.image = image;
                 jobItem.thumbnail = image.data.thumbnail;
 
-                track.success(eventName, {}, { timed: true });
+                timedTrack.success(eventName, {});
             }, error => {
                 jobItem.status = 'upload error';
                 jobItem.error = error.message;
 
-                track.failure(eventName, { 'Failed on': 'index' }, { timed: true });
+                timedTrack.failure(eventName, { 'Failed on': 'index' });
             });
         }, error => {
             var message = error.body && error.body.errorMessage || 'unknown';
             jobItem.status = 'upload error';
             jobItem.error = message;
 
-            track.failure(eventName, { 'Failed on': 'upload' }, { timed: true });
+            timedTrack.failure(eventName, { 'Failed on': 'upload' });
         });
     });
 

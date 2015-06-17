@@ -7,26 +7,26 @@ export var track = angular.module('analytics.track', ['mixpanel']);
 track.factory('trackingService', ['trackEvent', function(trackEvent) {
     var queue = [];
     var initialised = false;
-    const timers = new Map();
+    const tracker = { start, event, success, failure };
 
     // queue up results before we've started
-    function event(eventName, opts = {}, config = {}) {
+    function event(eventName, opts = {}) {
         if (initialised) {
-            const finalOpts = config.timed ? addTimer(eventName, opts) : opts;
-            trackEvent(eventName, finalOpts);
+            console.log(eventName, opts);
+            trackEvent(eventName, opts);
         } else {
-            queue.push(() => trackEvent(eventName, opts, config));
+            queue.push(() => trackEvent(eventName, opts));
         }
     }
 
-    function success(eventName, opts, config) {
+    function success(eventName, opts) {
         const finalOpts = angular.extend({}, opts, { 'State': 'success' });
-        event(eventName, finalOpts, config);
+        event(eventName, finalOpts);
     }
 
-    function failure(eventName, opts, config) {
+    function failure(eventName, opts) {
         const finalOpts = angular.extend({}, opts, { 'State': 'failure' });
-        event(eventName, finalOpts, config);
+        event(eventName, finalOpts);
     }
 
     function start() {
@@ -35,24 +35,26 @@ track.factory('trackingService', ['trackEvent', function(trackEvent) {
         initialised = true;
     }
 
-    function startTimerFor(eventName) {
-        timers.set(eventName, Date.now());
-    }
-
-    function endTimerFor(eventName) {
-        timers.delete(eventName);
-    }
-
-    function addTimer(eventName, opts) {
-        const timer = timers.get(eventName);
-        return timer ? angular.extend({}, opts, { 'Duration': timeSince(timer) }) : opts;
-    }
-
     function timeSince(from) {
         return Date.now() - from;
     }
 
-    return { start, event, success, failure, startTimerFor, endTimerFor };
+    function makeTimedTrack() {
+        const started = Date.now();
+        const timedTrack = Object.keys(tracker).reduce((prev, def) => {
+            prev[def] = function(eventName, opts = {}) {
+                const timedOpts = angular.extend({}, opts, { 'Duration': timeSince(started) });
+                tracker[def](eventName, timedOpts);
+            };
+            return prev;
+        }, {});
+
+        return timedTrack;
+    }
+
+
+
+    return angular.extend({}, tracker, { makeTimedTrack });
 
 }]);
 
