@@ -19,12 +19,12 @@ track.factory('trackingService', ['trackEvent', function(trackEvent) {
     }
 
     function success(eventName, opts = {}) {
-        const finalOpts = angular.extend({}, opts, { 'State': 'success' });
+        const finalOpts = angular.extend({}, opts, { successful: true });
         action(eventName, finalOpts);
     }
 
     function failure(eventName, opts = {}) {
-        const finalOpts = angular.extend({}, opts, { 'State': 'failure' });
+        const finalOpts = angular.extend({}, opts, { successful: false });
         action(eventName, finalOpts);
     }
 
