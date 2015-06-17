@@ -1,18 +1,25 @@
 import angular from 'angular';
 import template from './upload-jobs.html!text';
 import '../../preview/image';
+import '../../analytics/track';
 
-export var jobs = angular.module('kahuna.upload.jobs', ['kahuna.preview.image']);
+export var jobs = angular.module('kahuna.upload.jobs', ['kahuna.preview.image', 'analytics.track']);
 
 
 jobs.controller('UploadJobsCtrl',
-                ['poll', function(poll) {
+                ['$scope', 'poll', 'track', function($scope, poll, track) {
+
+    var ctrl = this;
 
     // State machine-esque async transitions
     var pollFrequency = 500; // ms
     var pollTimeout   = 20 * 1000; // ms
-    this.jobs.forEach(jobItem => {
+    var eventName = 'Image upload';
+
+    ctrl.jobs.forEach(jobItem => {
         jobItem.status = 'uploading';
+
+        const timedTrack = track.makeTimedTrack();
 
         jobItem.resourcePromise.then(resource => {
             jobItem.status = 'indexing';
@@ -21,23 +28,30 @@ jobs.controller('UploadJobsCtrl',
             // TODO: grouped polling for all resources we're interested in?
             var findImage = () => resource.get();
             var imageResource = poll(findImage, pollFrequency, pollTimeout);
+
             imageResource.then(image => {
                 jobItem.status = 'uploaded';
                 jobItem.image = image;
                 jobItem.thumbnail = image.data.thumbnail;
+
+                timedTrack.success(eventName);
             }, error => {
                 jobItem.status = 'upload error';
                 jobItem.error = error.message;
+
+                timedTrack.failure(eventName, { 'Failed on': 'index' });
             });
         }, error => {
-            var message = error.body.errorMessage;
+            var message = error.body && error.body.errorMessage || 'unknown';
             jobItem.status = 'upload error';
             jobItem.error = message;
+
+            timedTrack.failure(eventName, { 'Failed on': 'upload' });
         });
     });
 
     // this needs to be a function due to the stateful `jobItem`
-    this.jobImages = () => this.jobs.map(jobItem => jobItem.image);
+    ctrl.jobImages = () => ctrl.jobs.map(jobItem => jobItem.image);
 
 }]);
 
