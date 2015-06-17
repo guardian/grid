@@ -41,6 +41,8 @@ usageRightsEditor.controller('UsageRightsEditorCtrl',
 
         return ctrl.category && ctrl.category.cost;
     };
+    ctrl.pluraliseCategory = () => ctrl.category.name +
+        (ctrl.category.name.toLowerCase().endsWith('image') ? 's' : ' images');
 
     function setCategories(cats) {
         ctrl.categories = cats;
