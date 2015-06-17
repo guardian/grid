@@ -623,6 +623,23 @@ input.search-query__input {
     background-color: green;
 }
 
+
+/* Hacky pointer to some element above */
+.validity--invalid--point-up {
+    position: relative;
+}
+.validity--invalid--point-up::before {
+    content: "";
+    border-left: 20px solid rgba(0, 0, 0, 0);
+    border-right: 20px solid rgba(0, 0, 0, 0);
+    border-bottom: 10px solid red;
+    position: absolute;
+    top: -9px;
+    right: 30px;
+    z-index: 200;
+}
+
+
 .image-results-count {
     font-size: 1.4rem;
     margin: 10px;
