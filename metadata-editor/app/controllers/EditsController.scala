@@ -167,10 +167,9 @@ object EditsController extends Controller with ArgoHelpers {
   }
 
   def bindFromRequest[T](json: JsValue)(implicit fjs: Reads[T]): Validation[EditsValidationError, T] =
-    Try((json \ "data").as[T]) match {
-      case Success(obj) => obj.success
-      case Failure(e)   => EditsValidationError("unrecognised-form-data", "Unrecognised form data").fail
-    }
+    (json \ "data").asOpt[T]
+      .map(_.success)
+      .getOrElse(EditsValidationError("unrecognised-form-data", "Unrecognised form data").fail)
 
   // TODO: Move this to the dynamo lib
   def caseClassToMap[T](caseClass: T)(implicit tjs: Writes[T]): Map[String, String] =
