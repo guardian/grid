@@ -1,9 +1,6 @@
 package lib.querysyntax
 
-import scala.util.Try
-
 import org.joda.time.DateTime
-import org.joda.time.format.{DateTimeFormatter, DateTimeFormat}
 import org.parboiled2._
 
 class QuerySyntax(val input: ParserInput) extends Parser {
@@ -128,7 +125,21 @@ class QuerySyntax(val input: ParserInput) extends Parser {
   def NotDoubleQuote = rule { oneOrMore(noneOf(DoubleQuote)) }
 
   def Whitespace = rule { oneOrMore(' ') }
-  def Chars      = rule { oneOrMore(CharPredicate.Visible) }
+  def Chars = rule { oneOrMore(visibleChars) }
+
+
+  // Note: this is a somewhat arbitrarily list of common Unicode ranges that we
+  // expect people to want to use (e.g. Latin1 accented characters, curly quotes, etc).
+  // This is likely not exhaustive and will need reviewing in the future.
+  val latin1SupplementSubset = CharPredicate('\u00a1' to '\u00ff')
+  val latin1ExtendedA = CharPredicate('\u0100' to '\u017f')
+  val latin1ExtendedB = CharPredicate('\u0180' to '\u024f')
+  val generalPunctuation = CharPredicate('\u2010' to '\u203d')
+  val latin1ExtendedAdditional = CharPredicate('\u1e00' to '\u1eff')
+  val extraVisibleCharacters = latin1SupplementSubset ++ latin1ExtendedA ++ latin1ExtendedB ++ generalPunctuation
+
+  val visibleChars = CharPredicate.Visible ++ extraVisibleCharacters
+
 }
 
 // TODO:
