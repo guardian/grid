@@ -24,6 +24,7 @@ import com.gu.mediaservice.lib.argo.model._
 import scala.util.{Success, Failure, Try}
 import scalaz.Validation
 import scalaz.syntax.validation._
+import scalaz._
 
 
 // FIXME: the argoHelpers are all returning `Ok`s (200)
@@ -155,19 +156,13 @@ object EditsController extends Controller with ArgoHelpers {
     def error(e: EditsValidationError) =
       Future.successful(respondError(BadRequest, e.key, e.message))
 
-    // TODO: Can we fold better than this?
-    bindFromRequest[UsageRights](req.body).fold(
+    bindFromRequest[UsageRights](req.body).flatMap(EditsValidator(_)).fold(
       e => error(e),
 
       usageRights =>
-        EditsValidator(usageRights).fold(
-          e => error(e),
-
-          usageRights =>
-            dynamo.jsonAdd(id, "usageRights", caseClassToMap(usageRights))
-              .map(publish(id))
-              .map(edits => respond(usageRights))
-        )
+        dynamo.jsonAdd(id, "usageRights", caseClassToMap(usageRights))
+          .map(publish(id))
+          .map(edits => respond(usageRights))
     )
   }
 
