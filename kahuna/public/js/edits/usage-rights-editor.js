@@ -54,7 +54,8 @@ usageRightsEditor.controller('UsageRightsEditorCtrl',
     }
 
     function modelToData(cat, restrictions) {
-        return angular.isUndefined(restrictions) ? { category: cat.value } : {
+        // this removes everything, including ""
+        return !restrictions ? { category: cat.value } : {
             category: cat.value,
             restrictions: restrictions
         };
