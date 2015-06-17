@@ -19,10 +19,13 @@ object CostCalculator {
     }
 
   def getCost(usageRights: ImageUsageRights): Option[Cost] = {
+      val restricted  : Option[Cost] = usageRights.restrictions.map(r => Conditional)
       val categoryCost: Option[Cost] = usageRights.category.flatMap(getCost)
       val supplierCost: Option[Cost] = getCost(usageRights.supplier, usageRights.suppliersCollection)
 
-      categoryCost.orElse(supplierCost)
+      restricted
+        .orElse(categoryCost)
+        .orElse(supplierCost)
   }
 
   def getCategoriesOfCost(costs: List[Cost]): List[UsageRightsCategory] =
