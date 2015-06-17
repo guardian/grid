@@ -25,7 +25,13 @@ apiServices.factory('loaderApi',
             follow('load').post(imageData, options);
     }
 
+    function import_(uri) {
+        return getLoaderRoot().
+            follow('import', {uri}).post();
+    }
+
     return {
-        load: load
+        load,
+        import: import_
     };
 }]);
