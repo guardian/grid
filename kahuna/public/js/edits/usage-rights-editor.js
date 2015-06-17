@@ -25,6 +25,8 @@ usageRightsEditor.controller('UsageRightsEditorCtrl',
     editsApi.getUsageRightsCategories().then(setCategories);
 
     ctrl.save = () => {
+        ctrl.error = null;
+
         if (ctrl.category) {
             save(modelToData(ctrl.category, ctrl.restrictions));
         } else {
@@ -36,7 +38,7 @@ usageRightsEditor.controller('UsageRightsEditorCtrl',
     ctrl.getCost = () => {
         // TODO: Can we move this to the server
         if (ctrl.restrictions) { return 'conditional'; }
-        
+
         return ctrl.category && ctrl.category.cost;
     };
 
@@ -98,8 +100,8 @@ usageRightsEditor.controller('UsageRightsEditorCtrl',
         $timeout(() => ctrl.saved = false, 1500);
     }
 
-    function uiError() {
-        $window.alert('Failed to save the changes, please try again.');
+    function uiError(error) {
+        ctrl.error = error.body.errorMessage;
     }
 }]);
 
