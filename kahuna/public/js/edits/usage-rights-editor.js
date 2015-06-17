@@ -28,8 +28,6 @@ usageRightsEditor.controller('UsageRightsEditorCtrl',
         ctrl.error = null;
 
         if (ctrl.category) {
-            console.log(modelToData(ctrl.category, ctrl.restrictions));
-            return;
             save(modelToData(ctrl.category, ctrl.restrictions));
         } else {
             del();
