@@ -145,14 +145,11 @@ results.controller('SearchResultsCtrl', [
 
         function search({until, since} = {}) {
             // FIXME: Think of a way to not have to add a param in a million places to add it
-            // The nonFree state param is the inverse of the free API param
-            const free = $stateParams.nonFree === 'true' ? undefined: true;
             return mediaApi.search($stateParams.query, angular.extend({
                 ids:        $stateParams.ids,
                 archived:   $stateParams.archived,
-                free:       free,
-                // Filter out invalid images alongside pay
-                valid:      free,
+                // The nonFree state param is the inverse of the free API param
+                free:       $stateParams.nonFree === 'true' ? undefined: true,
                 uploadedBy: $stateParams.uploadedBy,
                 // Override $stateParams until/since with any explicitly provided argument
                 until:      until || $stateParams.until,
