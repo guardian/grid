@@ -36,6 +36,7 @@
         <textarea class="ure__restrictions-text"
                   msd-elastic
                   name="restrictions"
+                  placeholder="{{ctrl.restrictionsPlaceholder()}}"
                   ng:required="ctrl.category.cost === 'conditional'"
                   ng:model="ctrl.restrictions"
                   ng:disabled="ctrl.isDisabled()"></textarea>
