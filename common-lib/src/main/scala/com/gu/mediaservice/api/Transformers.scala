@@ -18,6 +18,9 @@ class Transformers(services: Services) {
   def objectOrEmpty(obj: JsValue): JsObject =
     obj.asOpt[JsObject].getOrElse(Json.obj())
 
+  def dataObjOrEmpty(obj: JsValue): JsObject =
+    obj.asOpt[JsObject].map(u => Json.obj("data" -> u)).getOrElse(Json.obj())
+
   def encodeUriParam(param: String) = URLEncoder.encode(param, "UTF-8")
 
   def wrapAllMetadata(id: String): Reads[JsObject] =
@@ -29,7 +32,7 @@ class Transformers(services: Services) {
             "archived" -> boolOrFalse(data \ "archived").transform(wrapArchived(id)).get,
             "labels" -> arrayOrEmpty(data \ "labels").transform(wrapLabels(id)).get,
             "metadata" -> objectOrEmpty(data \ "metadata").transform(wrapMetadata(id)).get,
-            "usageRights" -> objectOrEmpty(data \ "usageRights").transform(wrapUsageRights(id)).get
+            "usageRights" -> (data \ "usageRights").transform(wrapUsageRights(id)).get
           )
         )
       )
@@ -56,12 +59,14 @@ class Transformers(services: Services) {
       )
     }
 
+  // no data == no overide
+  // {} data == override with nothing
+  // otherwise treat as normal
   def wrapUsageRights(id: String): Reads[JsObject] =
-    __.read[JsObject].map { usageRights =>
+    __.read[JsValue].map { usageRights =>
       Json.obj(
-        "uri" -> s"$metadataBaseUri/metadata/$id/usage-rights",
-        "data" -> usageRights
-      )
+        "uri" -> s"$metadataBaseUri/metadata/$id/usage-rights"
+      ) ++ dataObjOrEmpty(usageRights)
     }
 
   def wrapLabels(id: String): Reads[JsObject] =
