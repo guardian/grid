@@ -55,7 +55,7 @@ usageRightsEditor.controller('UsageRightsEditorCtrl',
 
     ctrl.restrictionsPlaceholder = () => ctrl.getCost() === 'conditional' ?
         'e.g. Use in relation to the Windsor Triathlon only' :
-        'Adding restrictions will mark this image as restricted. '+
+        'Adding restrictions will mark this image as restricted. ' +
         'Leave blank if there aren\'t any.';
 
     function setCategories(cats) {
