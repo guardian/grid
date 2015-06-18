@@ -38,16 +38,25 @@ usageRightsEditor.controller('UsageRightsEditorCtrl',
             del();
         }
     };
+
     ctrl.isDisabled = () => ctrl.saving;
+
     ctrl.isNotEmpty = () => !angular.equals(ctrl.resource.data, {});
+
     ctrl.getCost = () => {
         // TODO: Can we move this to the server
         if (ctrl.restrictions) { return 'conditional'; }
 
         return ctrl.category && ctrl.category.cost;
     };
+
     ctrl.pluraliseCategory = () => ctrl.category.name +
         (ctrl.category.name.toLowerCase().endsWith('image') ? 's' : ' images');
+
+    ctrl.restrictionsPlaceholder = () => ctrl.getCost() === 'conditional' ?
+        'e.g. Use in relation to the Windsor Triathlon only' :
+        'Adding restrictions will mark this image as restricted. '+
+        'Leave blank if there aren\'t any.';
 
     function setCategories(cats) {
         ctrl.categories = cats;
