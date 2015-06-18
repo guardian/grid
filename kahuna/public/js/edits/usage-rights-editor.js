@@ -11,9 +11,14 @@ usageRightsEditor.controller('UsageRightsEditorCtrl',
                               function($window, $timeout, editsService, editsApi) {
 
     var ctrl = this;
+
+    // setting our initial values
+    const { restrictions, category: categoryVal } =
+        angular.extend({}, ctrl.resource.data);
+
     ctrl.saving = false;
     ctrl.saved = false;
-    ctrl.restrictions = ctrl.resource.data.restrictions;
+    ctrl.restrictions = restrictions;
     ctrl.categories = [];
 
     updateResource(ctrl.resource);
@@ -48,7 +53,7 @@ usageRightsEditor.controller('UsageRightsEditorCtrl',
         ctrl.categories = cats;
 
         // set the current category
-        ctrl.category = cats.find(cat => cat.value === ctrl.resource.data.category);
+        ctrl.category = cats.find(cat => cat.value === categoryVal);
     }
 
     function modelToData(cat, restrictions) {
@@ -109,8 +114,8 @@ usageRightsEditor.directive('grUsageRightsEditor', [function() {
         bindToController: true,
         template: template,
         scope: {
-            resource: '=grUsageRights',
             image: '=grImage',
+            resource: '=grResource',
             onSave: '&?grOnSave'
         }
     };
