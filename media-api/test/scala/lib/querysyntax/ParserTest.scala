@@ -11,6 +11,13 @@ class ParserTest extends FunSpec with Matchers with BeforeAndAfter {
       Parser.run("cats") should be (List(Match(AnyField, Words("cats"))))
     }
 
+    it("should match single terms with accents") {
+      Parser.run("séb") should be (List(Match(AnyField, Words("séb"))))
+    }
+    it("should match single terms with curly apostrophe") {
+      Parser.run("l’apostrophe") should be (List(Match(AnyField, Words("l’apostrophe"))))
+    }
+
     it("should ignore surrounding whitespace") {
       Parser.run(" cats ") should be (List(Match(AnyField, Words("cats"))))
     }
