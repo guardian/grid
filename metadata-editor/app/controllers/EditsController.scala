@@ -255,17 +255,22 @@ object EditsController extends Controller with ArgoHelpers {
 case class EditsValidationError(key: String, message: String) extends Throwable
 
 object EditsValidator {
+
   def apply(usageRights: UsageRights): Validation[EditsValidationError, UsageRights] = {
     val cost = UsageRightsConfig.categoryCosts.get(usageRights.category)
-    val missingRestriction = cost.contains(Conditional) && isEmptyOptString(usageRights.restrictions)
+
+    // Look to see if we have Some(" ") or equivalent, remove it, and return the
+    // cleaned usageRights, or error on having no restrictions when required
+    val cleanUsageRights = usageRights.copy(restrictions = emptyOptStringToNone(usageRights.restrictions))
+    val missingRestriction = cost.contains(Conditional) && cleanUsageRights.restrictions.isEmpty
 
     if (missingRestriction) {
       EditsValidationError("invalid-form-data", s"${usageRights.category} must have restrictions set").fail
     } else {
-      usageRights.success
+      cleanUsageRights.success
     }
   }
 
-  private def isEmptyOptString(s: Option[String]) =
-    s.map(_.trim).forall(_.isEmpty)
+  private def emptyOptStringToNone(s: Option[String]) =
+    s.map(_.trim).filterNot(_.isEmpty)
 }
