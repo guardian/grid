@@ -14,7 +14,7 @@ usageRightsEditor.controller('UsageRightsEditorCtrl',
 
     // setting our initial values
     const { restrictions, category: categoryVal } =
-        angular.extend({}, ctrl.initVal, ctrl.resource.data);
+        angular.extend({}, ctrl.resource.data);
 
     ctrl.saving = false;
     ctrl.saved = false;
@@ -114,9 +114,8 @@ usageRightsEditor.directive('grUsageRightsEditor', [function() {
         bindToController: true,
         template: template,
         scope: {
-            resource: '=grResource',
             image: '=grImage',
-            initVal: '=grInitVal',
+            resource: '=grResource',
             onSave: '&?grOnSave'
         }
     };
