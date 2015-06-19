@@ -37,7 +37,7 @@
 .panel__content {
     clear: both;
     height: calc(100% - 40px - 40px); /* 40px panel__top, 40px panel__bottom */
-    overflow: scroll;
+    overflow: auto;
 }
 
 .panel__bottom {
