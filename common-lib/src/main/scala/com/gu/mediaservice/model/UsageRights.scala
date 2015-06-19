@@ -5,7 +5,7 @@ import play.api.libs.json._
 
 // TODO: deprecate cost here and infer from category
 case class UsageRights(
-  category: UsageRightsCategory,
+  category: Option[UsageRightsCategory],
   restrictions: Option[String]
 )
 
@@ -13,14 +13,14 @@ case class UsageRights(
 // more that likely be done when merging with ImageUsageRights
 object UsageRights {
   implicit val UsageRightsReads: Reads[UsageRights] = (
-    (__ \ "category").read[UsageRightsCategory] ~
+    (__ \ "category").readNullable[UsageRightsCategory]  ~
     (__ \ "restrictions").readNullable[String]
   )(UsageRights.apply _)
 
   // Annoyingly there doesn't seem to be a way to create a `JsString` with the
   // Json writers, so we have to do this manually
   implicit val UsageRightsWrites: Writes[UsageRights] = (
-    (__ \ "category").write[UsageRightsCategory] ~
+    (__ \ "category").writeNullable[UsageRightsCategory] ~
     (__ \ "restrictions").writeNullable[String]
   )(unlift(UsageRights.unapply))
 }
@@ -56,14 +56,16 @@ object UsageRightsCategory {
   private val usageRightsCategories =
     Vector(Agency, PrImage, Handout, Screengrab, GuardianWitness, SocialMedia, Obituary)
 
-  def fromString(category: String): UsageRightsCategory =
+  def fromString(category: String): UsageRightsCategory = {
+
+
     // I think as we move forward we can find out what the more intelligent and
     // correct default here. This feels better that reverting to `None` though as
     // it's required by `UsageRights`.
     // TODO: Perhaps we should validate on this?
     usageRightsCategories.find(_.toString == category).getOrElse {
       throw new NoSuchUsageRightsCategory(category)
-    }
+    }}
 
     implicit val UsageRightsCategoryReads: Reads[UsageRightsCategory] =
       __.read[String].map(fromString)
