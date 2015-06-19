@@ -9,9 +9,9 @@ export var dndUploader = angular.module('kahuna.upload.dndUploader', [
 
 
 dndUploader.controller('DndUploaderCtrl',
-                  ['$state', 'uploadManager', 'loaderApi', 'editsService',
+                  ['$state', '$window', 'uploadManager', 'loaderApi', 'editsService',
                    'apiPoll', 'witnessApi',
-                   function($state, uploadManager, loaderApi, editsService,
+                   function($state, $window, uploadManager, loaderApi, editsService,
                             apiPoll, witnessApi) {
 
     var ctrl = this;
@@ -57,7 +57,7 @@ dndUploader.controller('DndUploaderCtrl',
             });
         } else {
             // Should not get to here
-            alert('Failed to identify the Witness contribution, please try again');
+            $window.alert('Failed to identify the Witness contribution, please try again');
         }
     }
 }]);
@@ -99,7 +99,7 @@ dndUploader.directive('dndUploader', ['$window', 'delay', 'safeApply',
                 event.preventDefault();
             }
 
-            function enter(event) {
+            function enter() {
                 dragging = true;
                 activate();
             }
@@ -125,7 +125,8 @@ dndUploader.directive('dndUploader', ['$window', 'delay', 'safeApply',
                 } else if (scope.dndUploader.isWitnessUri(uri)) {
                     scope.dndUploader.importWitnessImage(uri);
                 } else {
-                    alert('You must drop valid files or Guardian Witness URLs to upload them');
+                    $window.alert('You must drop valid files or ' +
+                                  'Guardian Witness URLs to upload them');
                 }
                 scope.$apply(deactivate);
             }
