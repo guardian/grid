@@ -27,7 +27,8 @@ mod.factory('witnessApi', ['mediaApi', function(mediaApi) {
             title:       response.headline,
             description: update.body,
             byline:      response.user.displayName,
-            credit:      'GuardianWitness'
+            credit:      'GuardianWitness',
+            creditUri:   response.webUrl
         };
         const identifiers = {
             // FIXME: all of them?

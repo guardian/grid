@@ -216,6 +216,7 @@ object EditsController extends Controller with ArgoHelpers {
       "dateTaken" -> trueOptional(jodaDate),
       "description" -> trueOptional(text),
       "credit" -> trueOptional(text),
+      "creditUri" -> trueOptional(text),
       "byline" -> trueOptional(text),
       "bylineTitle" -> trueOptional(text),
       "title" -> trueOptional(text),
