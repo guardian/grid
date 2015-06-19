@@ -7,13 +7,11 @@ export var jobs = angular.module('kahuna.upload.jobs', ['kahuna.preview.image', 
 
 
 jobs.controller('UploadJobsCtrl',
-                ['$scope', 'poll', 'track', function($scope, poll, track) {
+                ['$scope', 'apiPoll', 'track', function($scope, apiPoll, track) {
 
     var ctrl = this;
 
     // State machine-esque async transitions
-    var pollFrequency = 500; // ms
-    var pollTimeout   = 20 * 1000; // ms
     var eventName = 'Image upload';
 
     ctrl.jobs.forEach(jobItem => {
@@ -27,7 +25,7 @@ jobs.controller('UploadJobsCtrl',
 
             // TODO: grouped polling for all resources we're interested in?
             var findImage = () => resource.get();
-            var imageResource = poll(findImage, pollFrequency, pollTimeout);
+            var imageResource = apiPoll(findImage);
 
             imageResource.then(image => {
                 jobItem.status = 'uploaded';
