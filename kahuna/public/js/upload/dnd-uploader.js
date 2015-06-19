@@ -10,9 +10,9 @@ export var dndUploader = angular.module('kahuna.upload.dndUploader', [
 
 dndUploader.controller('DndUploaderCtrl',
                   ['$state', 'uploadManager', 'loaderApi', 'editsService',
-                   'poll', 'witnessApi',
+                   'apiPoll', 'witnessApi',
                    function($state, uploadManager, loaderApi, editsService,
-                            poll, witnessApi) {
+                            apiPoll, witnessApi) {
 
     var ctrl = this;
     ctrl.uploadFiles = uploadFiles;
@@ -29,18 +29,27 @@ dndUploader.controller('DndUploaderCtrl',
     function importWitnessImage(uri) {
         const witnessReportId = witnessApi.extractReportId(uri);
         if (witnessReportId) {
-            witnessApi.getReport(witnessReportId).then(({fileUri, metadata}) => {
-                loaderApi.import(fileUri).then(mediaResp => {
-                    // FIXME: share poll util
+            witnessApi.getReport(witnessReportId).then(({fileUri, metadata, identifiers}) => {
+                loaderApi.import(fileUri, identifiers).then(mediaResp => {
                     // Wait until image indexed
-                    return poll(() => mediaResp.get(), 500, 20*1000);
+                    return apiPoll(() => mediaResp.get());
                 }).then(fullImage => {
                     // Override with Witness metadata
                     const userMetadata = fullImage.data.userMetadata.data.metadata;
-                    return editsService.
-                        update(userMetadata, metadata, fullImage).
+                    const metadataUpdate = editsService.
+                        update(userMetadata, metadata, fullImage);
+
+                    const rights = {
+                        category: 'guardian-witness',
+                        // FIXME: can we avoid hardcoding?
+                        restrictions: 'Contact the GuardianWitness desk before use!'
+                    };
+                    const userRights = fullImage.data.userMetadata.data.usageRights;
+                    const rightsUpdate = editsService.
+                        update(userRights, rights, fullImage);
+
+                    return Promise.all([metadataUpdate, rightsUpdate]).
                         then(() => fullImage.data.id);
-                    // TODO: category: guardian-witness, restriction = assignment?
                 }).then(imageId => {
                     // Go to image preview page
                     $state.go('image', {imageId});
