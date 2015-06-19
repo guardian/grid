@@ -8,14 +8,15 @@ const mod = angular.module('kahuna.witness', [
 
 mod.factory('witnessApi', ['mediaApi', function(mediaApi) {
 
-    const witnessPattern = /https:\/\/witness.theguardian.com\/assignment\/([0-9a-f]+)\/([0-9a-f]+)/;
+    const witnessPattern =
+        /https:\/\/witness.theguardian.com\/assignment\/([0-9a-f]+)\/([0-9a-f]+)/;
 
     function isWitnessUri(uri) {
         return witnessPattern.test(uri);
     }
 
     function extractReportId(witnessUri) {
-        const [all, assignmentId, reportId] = witnessUri.match(witnessPattern) || [];
+        const [/*all*/, /*assignmentId*/, reportId] = witnessUri.match(witnessPattern) || [];
         return reportId;
     }
 
