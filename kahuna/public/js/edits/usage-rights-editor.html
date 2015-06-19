@@ -43,13 +43,16 @@
     </label>
 
     <div class="ure__submit">
-        <button class="button" type="submit"
+        <button class="ure__submit-button button" type="submit"
             ng:class="{ 'button--green': ctrl.saved }"
             ng:disabled="ctrl.isDisabled() || !usageRights.$valid">
                 <span ng:if="!(ctrl.saving || ctrl.saved)">Save</span>
                 <span ng:if="ctrl.saving">Saving</span>
                 <span ng:if="ctrl.saved">Saved</span>
         </button>
+
+        <button class="ure__reset" type="button" ng:click="ctrl.delete()">reset</button>
+
         <div class="ure__error" ng:if="ctrl.error" ng:bind="ctrl.error"></div>
     </div>
 

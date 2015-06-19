@@ -30,13 +30,13 @@ usageRightsEditor.controller('UsageRightsEditorCtrl',
     editsApi.getUsageRightsCategories().then(setCategories);
 
     ctrl.save = () => {
-        ctrl.error = null;
+        uiReset();
+        save(modelToData(ctrl.category, ctrl.restrictions));
+    };
 
-        if (ctrl.category) {
-            save(modelToData(ctrl.category, ctrl.restrictions));
-        } else {
-            del();
-        }
+    ctrl.delete = () => {
+        uiReset();
+        del();
     };
 
     ctrl.isDisabled = () => ctrl.saving;
@@ -66,11 +66,16 @@ usageRightsEditor.controller('UsageRightsEditorCtrl',
     }
 
     function modelToData(cat, restrictions) {
-        // this removes everything, including ""
-        return !restrictions ? { category: cat.value } : {
-            category: cat.value,
-            restrictions: restrictions
-        };
+        const cleanCat = cat && cat.value;
+        const dirty = { category: cleanCat, restrictions };
+
+        const data = Object.keys(dirty).reduce((prev, curr) => {
+            // remove all rubbish including ""
+            if (dirty[curr]) { prev[curr] = dirty[curr]; }
+            return prev;
+        }, {});
+
+        return data;
     }
 
     function del() {
@@ -87,6 +92,7 @@ usageRightsEditor.controller('UsageRightsEditorCtrl',
     }
 
     function save(data) {
+        console.log('saving...', data);
         ctrl.saving = true;
 
         editsService.
@@ -111,6 +117,10 @@ usageRightsEditor.controller('UsageRightsEditorCtrl',
 
     function uiError(error) {
         ctrl.error = error.body.errorMessage;
+    }
+
+    function uiReset() {
+        ctrl.error = null;
     }
 }]);
 
