@@ -1184,16 +1184,30 @@ FIXME: what to do with touch devices
     display: none;
 }
 
+.labels--batch {
+    white-space: normal;
+}
+
+.labels--batch li {
+    display: inline-block;
+}
+
 .label {
     background-color: #00adee;
     color: white;
     display: inline-block;
     padding: 0 5px;
     border-radius: 2px;
-    margin: 0 5px 0 0;
+    margin: 0 5px 5px 0;
 }
 .label--removing {
     background-color: #99ddff;
+}
+
+.label--partial,
+.label--partial .material-icons {
+    background-color: white;
+    color: #00adee;
 }
 
 .label__link,

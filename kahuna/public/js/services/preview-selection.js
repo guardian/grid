@@ -8,14 +8,30 @@ selectionService.factory('selectionService', ['$q', 'editsService', function ($q
     var selectedImages = new Set();
     var selectedMetadata = {};
     var selectedMetadataForDisplay = {};
-    var selectedCost;
+    var selectedCost, selectedLabels;
 
     function _group () {
         var metadata = {};
         var cost = new Set();
+        var labels = [];
 
         var allFields = [];
-        selectedImages.forEach(img => allFields = allFields.concat(Object.keys(img.data.metadata)));
+
+        selectedImages.forEach(img => {
+            allFields = allFields.concat(Object.keys(img.data.metadata));
+
+            cost.add(img.data.cost);
+
+            img.data.userMetadata.data.labels.data.forEach(label => {
+                var index = labels.findIndex(x => x.data === label.data);
+
+                if (index === -1) {
+                    labels.push({data: label.data, count: 1});
+                } else {
+                    labels[index].count++;
+                }
+            });
+        });
 
         var uniqueFields = new Set(allFields);
 
@@ -24,11 +40,12 @@ selectionService.factory('selectionService', ['$q', 'editsService', function ($q
                 metadata[key] = metadata[key] || new Set();
                 metadata[key].add(image.data.metadata[key]);
             });
-            cost.add(image.data.cost);
         });
+
         return {
             metadata: metadata,
-            cost: cost
+            cost: cost,
+            labels: labels
         };
     }
 
@@ -56,7 +73,8 @@ selectionService.factory('selectionService', ['$q', 'editsService', function ($q
 
         return {
             metadata: metadata,
-            cost: grouped.cost
+            cost: grouped.cost,
+            labels: grouped.labels
         };
     }
 
@@ -78,6 +96,8 @@ selectionService.factory('selectionService', ['$q', 'editsService', function ($q
 
         selectedCost = selectedImageData.cost.size === 1 ?
             selectedImageData.cost.values().next().value : 'mixed';
+
+        selectedLabels = selectedImageData.labels;
     }
 
     function canUserEdit () {
@@ -115,6 +135,7 @@ selectionService.factory('selectionService', ['$q', 'editsService', function ($q
         getCost: () => selectedCost,
         getMetadata: () => selectedMetadata,
         getDisplayMetadata: () => selectedMetadataForDisplay,
+        getLabels: () => selectedLabels,
         isSelected: (image) => selectedImages.has(image),
         toggleSelection: (image, select) => {
             return select ? add(image) : remove(image);

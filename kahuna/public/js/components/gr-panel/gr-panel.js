@@ -11,11 +11,13 @@ export var grPanel = angular.module('grPanel', [
 
 grPanel.controller('GrPanel', [
     '$scope',
+    '$window',
     'selectionService',
     'editsService',
     'onValChange',
     function (
         $scope,
+        $window,
         selection,
         editsService,
         onValChange) {
@@ -35,11 +37,30 @@ grPanel.controller('GrPanel', [
             });
 
             ctrl.selectedCost = selection.getCost();
+            ctrl.selectedLabels = selection.getLabels();
         }));
 
         ctrl.updateMetadataField = function (field, value) {
             var imageArray = Array.from(ctrl.selectedImages);
             return editsService.batchUpdateMetadataField(imageArray, field, value);
+        };
+
+        ctrl.addLabel = function (label) {
+            var imageArray = Array.from(ctrl.selectedImages);
+            editsService.batchAddLabels(imageArray, [label]);
+        };
+
+        ctrl.removeLabel = function (label) {
+            var imageArray = Array.from(ctrl.selectedImages);
+            editsService.batchRemoveLabels(imageArray, [label]);
+        };
+
+        ctrl.newLabel = function () {
+            var label = ($window.prompt('Enter a label:') || '').trim();
+
+            if (label) {
+                ctrl.addLabel(label);
+            }
         };
     }
 ]);
