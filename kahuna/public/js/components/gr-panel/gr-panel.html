@@ -177,8 +177,8 @@
             <div class="metadata-line">labels</div>
             <ul class="labels labels--batch">
                 <li class="label"
-                    ng:class="{'label--partial': label.count < ctrl.selectedImages.size}"
-                    ng:repeat="label in ctrl.selectedLabels | orderBy:'data'">
+                    ng:repeat="label in ctrl.selectedLabels | orderBy:'data'"
+                    ng:class="{'label--partial': label.count < ctrl.selectedImages.size}">
                     {{label.data}}
                     <button class="label__remove"
                             title="Remove label from all"
