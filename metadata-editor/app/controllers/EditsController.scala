@@ -102,7 +102,7 @@ object EditsController extends Controller with ArgoHelpers {
   def getLabels(id: String) = Authenticated.async {
     dynamo.setGet(id, "labels")
       .map(labelsCollection(id, _))
-      .map(respondCollection(_))
+      .map {case (uri, labels) => respondCollection(labels)}
   }
 
   def addLabels(id: String) = Authenticated.async { req =>
@@ -113,7 +113,8 @@ object EditsController extends Controller with ArgoHelpers {
         dynamo
           .setAdd(id, "labels", labels)
           .map(publish(id))
-          .map(edits => respondCollection(labelsCollection(id, edits.labels.toSet)))
+          .map(edits => labelsCollection(id, edits.labels.toSet))
+          .map {case (uri, labels) => respondCollection(labels)}
       }
     )
   }
@@ -121,7 +122,8 @@ object EditsController extends Controller with ArgoHelpers {
   def removeLabel(id: String, label: String) = Authenticated.async {
     dynamo.setDelete(id, "labels", decodeUriParam(label))
       .map(publish(id))
-      .map(edits => respondCollection(labelsCollection(id, edits.labels.toSet)))
+      .map(edits => labelsCollection(id, edits.labels.toSet))
+      .map {case (uri, labels) => respondCollection(labels, uri=Some(uri))}
   }
 
 
@@ -175,8 +177,10 @@ object EditsController extends Controller with ArgoHelpers {
   def caseClassToMap[T](caseClass: T)(implicit tjs: Writes[T]): Map[String, String] =
     Json.toJson[T](caseClass).as[JsObject].as[Map[String, String]]
 
-  def labelsCollection(id: String, labels: Set[String]): Seq[EmbeddedEntity[String]] =
-    labels.map(EditsResponse.setUnitEntity(id, "labels", _)).toSeq
+  def labelsCollection(id: String, labels: Set[String]): (URI, Seq[EmbeddedEntity[String]]) = {
+    val labelsUri = EditsResponse.entityUri(id, "/labels")
+    (labelsUri, labels.map(EditsResponse.setUnitEntity(id, "labels", _)).toSeq)
+  }
 
 
   def publish(id: String)(metadata: JsObject): Edits = {
