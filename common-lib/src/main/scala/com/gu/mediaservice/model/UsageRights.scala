@@ -51,6 +51,7 @@ class NoSuchUsageRightsCategory(category: String) extends RuntimeException(s"no 
 sealed trait UsageRightsCategory {
   val name = toString.replace("-", " ").split(" ").map(_.capitalize).mkString(" ")
   val description: String
+  val defaultRestrictions: Option[String] = None
 }
 object UsageRightsCategory {
   private val usageRightsCategories =
@@ -115,6 +116,9 @@ case object GuardianWitness
     val description =
       "Images provided by readers in response to callouts and assignments on " +
       "GuardianWitness."
+    override val defaultRestrictions = Some(
+      "Contact the GuardianWitness desk before use (witness.editorial@theguardian.com)!"
+    )
   }
 
 case object SocialMedia
