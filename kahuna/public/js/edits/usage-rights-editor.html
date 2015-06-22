@@ -18,11 +18,18 @@
 
         <div class="cost cost--conditional"
              ng:switch-when="conditional">Restricted use</div>
+
+        <div class="cost cost--pay"
+             ng:switch-default>Pay to use</div>
     </div>
 
-    <div class="ure__description">
+    <div class="ure__description" ng:if="ctrl.category">
         {{ctrl.category.description}}
     </div>
+    <div class="ure__description" ng:if="!ctrl.category">
+        This image has no usage rights and will be set to pay to use.
+    </div>
+
 
     <label class="ure__restrictions" ng:if="ctrl.category">
 
@@ -51,7 +58,13 @@
                 <span ng:if="ctrl.saved">Saved</span>
         </button>
 
-        <button class="ure__reset" type="button" ng:click="ctrl.delete()">reset</button>
+        <button
+            class="ure__reset"
+            type="button"
+            ng:click="ctrl.delete()"
+            title="Set the usage rights to what they were before any overrides were applied.">
+            <i class="material-icons">delete</i> Remove
+        </button>
 
         <div class="ure__error" ng:if="ctrl.error" ng:bind="ctrl.error"></div>
     </div>

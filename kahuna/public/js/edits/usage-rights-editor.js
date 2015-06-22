@@ -45,9 +45,10 @@ usageRightsEditor.controller('UsageRightsEditorCtrl',
 
     ctrl.getCost = () => {
         // TODO: Can we move this to the server
+        if (!ctrl.category)    { return 'pay'; }
         if (ctrl.restrictions) { return 'conditional'; }
 
-        return ctrl.category && ctrl.category.cost;
+        return ctrl.category.cost;
     };
 
     ctrl.pluraliseCategory = () => ctrl.category.name +
@@ -62,19 +63,14 @@ usageRightsEditor.controller('UsageRightsEditorCtrl',
         ctrl.categories = cats;
 
         // set the current category
-        ctrl.category = cats.find(cat => cat.value === categoryVal);
+        ctrl.category = cats.find(cat => cat.value === categoryVal) || {};
     }
 
     function modelToData(cat, restrictions) {
-        const dirty = { category: (cat && cat.value), restrictions };
-
-        const data = Object.keys(dirty).reduce((prev, curr) => {
-            // remove all rubbish including ""
-            if (dirty[curr]) { prev[curr] = dirty[curr]; }
-            return prev;
-        }, {});
-
-        return data;
+        // If there is no category - then an empty object
+        // else only add the restrictions if they are there and !== ""
+        return !cat ? {} :
+            (restrictions ? { category: cat.value, restrictions } : { category: cat.value });
     }
 
     function del() {
