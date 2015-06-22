@@ -16,7 +16,7 @@ object EditsResponse {
   type MetadataEntity = EmbeddedEntity[ImageMetadata]
   type UsageRightsEntity = EmbeddedEntity[UsageRights]
 
-  val metadataBaseUri = Config.services
+  val metadataBaseUri = Config.services.metadataBaseUri
 
   // the types are in the arguments because of a whining scala compiler
   def editsResponseWrites(id: String): Writes[Edits] = (
