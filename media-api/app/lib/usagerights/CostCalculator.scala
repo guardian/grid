@@ -20,7 +20,7 @@ object CostCalculator {
 
   def getCost(usageRights: ImageUsageRights): Option[Cost] = {
       val restricted  : Option[Cost] = usageRights.restrictions.map(r => Conditional)
-      val categoryCost: Option[Cost] = usageRights.category.flatMap(cat => getCost(Some(cat)))
+      val categoryCost: Option[Cost] = getCost(usageRights.category)
       val supplierCost: Option[Cost] = getCost(usageRights.supplier, usageRights.suppliersCollection)
 
       restricted
@@ -53,7 +53,6 @@ object CostCalculator {
   private def isFreeCredit(credit: String) = freeCreditList.contains(credit)
   private def isFreeSource(source: String) = freeSourceList.contains(source)
   private def isPaySource(source: String)  = payGettySourceList.contains(source)
-
 
 
   // This function is just used until we have deprecated the old model completely
