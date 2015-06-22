@@ -132,7 +132,7 @@ object ImageResponse {
     (__ \ "metadata").write[ImageMetadata] ~
     (__ \ "originalMetadata").write[ImageMetadata] ~
     (__ \ "usageRights").write[ImageUsageRights].contramap(usageRightsWithDefaults) ~
-    (__ \ "originalUsageRights").write[ImageUsageRights] ~
+    (__ \ "originalUsageRights").write[ImageUsageRights].contramap(usageRightsWithDefaults) ~
     (__ \ "exports").write[List[Export]]
       .contramap((crops: List[Crop]) => crops.map(Export.fromCrop(_:Crop)))
 
