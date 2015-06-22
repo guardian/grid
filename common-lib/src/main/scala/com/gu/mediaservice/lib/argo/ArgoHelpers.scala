@@ -1,5 +1,6 @@
 package com.gu.mediaservice.lib.argo
 
+import java.net.URI
 import play.api.libs.json.{Json, Writes}
 import play.api.mvc.{Results, Result}
 
@@ -20,9 +21,10 @@ trait ArgoHelpers extends Results {
     serializeAndWrap(response, Ok)
   }
 
-  def respondCollection[T](data: Seq[T], offset: Option[Long] = None, total: Option[Long] = None, links: List[Link] = Nil)
+  def respondCollection[T](data: Seq[T], offset: Option[Long] = None, total: Option[Long] = None, links: List[Link] = Nil, uri: Option[URI] = None)
                           (implicit writes: Writes[T]): Result = {
     val response = CollectionReponse(
+      uri    = uri,
       offset = offset,
       length = Some(data.size),
       total  = total,
