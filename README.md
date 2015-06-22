@@ -11,7 +11,7 @@ Running the applications
 You will need to install:
 
 * sbt
-* JDK 7
+* JDK 8
 * Nginx
 * [bower](http://bower.io/)
 * [GraphicsMagick](http://www.graphicsmagick.org/) (this should be used over
@@ -233,6 +233,6 @@ install, and `/path/to/global/jre/lib/security/cacerts` the location
 of the `cacerts` file for the JRE you're using.
 
 On Mac OS X, it may be something like
-`/Library/Java/JavaVirtualMachines/jdk1.7.0_67.jdk/Contents/Home/jre/lib/security/cacerts`;
+`/Library/Java/JavaVirtualMachines/jdk1.8.0_25.jdk/Contents/Home/jre/lib/security/cacerts`;
 on GNU Linux, it may be something like
-`/usr/lib/jvm/java-1.7.0-openjdk-amd64/jre/lib/security/cacerts`.
+`/usr/lib/jvm/java-1.8.0-openjdk-amd64/jre/lib/security/cacerts`.
