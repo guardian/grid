@@ -44,9 +44,7 @@ dndUploader.controller('DndUploaderCtrl',
                         update(userMetadata, metadata, fullImage);
 
                     const rights = {
-                        category: 'guardian-witness',
-                        // FIXME: can we avoid hardcoding?
-                        restrictions: 'Contact the GuardianWitness desk before use!'
+                        category: 'guardian-witness'
                     };
                     const userRights = fullImage.data.userMetadata.data.usageRights;
                     const rightsUpdate = editsService.
