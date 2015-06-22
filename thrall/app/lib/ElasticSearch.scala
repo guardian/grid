@@ -181,9 +181,8 @@ object ElasticSearch extends ElasticSearchClient {
   // be deprecated from the Edits API soon
   // FIXME: don't remove cost when it's not sent over any more
   private val refreshUsageRightsScript =
-    """| if (ctx._source.userMetadata && ctx._source.userMetadata.usageRights) {
+    """| if (ctx._source.userMetadata && ctx._source.userMetadata.containsKey("usageRights")) {
        |   ur = ctx._source.userMetadata.usageRights.clone();
-       |   ur.remove('cost')
        |   ctx._source.usageRights = ur;
        | } else {
        |   ctx._source.usageRights = ctx._source.originalUsageRights

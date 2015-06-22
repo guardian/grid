@@ -57,7 +57,7 @@ object CategoryResponse {
     CategoryResponse(
       value       = cat.toString,
       name        = cat.name,
-      cost        = UsageRightsConfig.categoryCosts.getOrElse(cat, Pay).toString,
+      cost        = UsageRightsConfig.categoryCosts.getOrElse(Some(cat), Pay).toString,
       description = cat.description
     )
 
