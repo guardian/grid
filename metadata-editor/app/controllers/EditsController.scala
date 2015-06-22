@@ -102,7 +102,7 @@ object EditsController extends Controller with ArgoHelpers {
   def getLabels(id: String) = Authenticated.async {
     dynamo.setGet(id, "labels")
       .map(labelsCollection(id, _))
-      .map(labels => respondCollection(labels._2))
+      .map {case (uri, labels) => respondCollection(labels)}
   }
 
   def addLabels(id: String) = Authenticated.async { req =>
@@ -113,7 +113,8 @@ object EditsController extends Controller with ArgoHelpers {
         dynamo
           .setAdd(id, "labels", labels)
           .map(publish(id))
-          .map(edits => respondCollection(labelsCollection(id, edits.labels.toSet)._2))
+          .map(edits => labelsCollection(id, edits.labels.toSet))
+          .map {case (uri, labels) => respondCollection(labels)}
       }
     )
   }
@@ -122,7 +123,7 @@ object EditsController extends Controller with ArgoHelpers {
     dynamo.setDelete(id, "labels", decodeUriParam(label))
       .map(publish(id))
       .map(edits => labelsCollection(id, edits.labels.toSet))
-      .map(labels => respondCollection(labels._2, uri=Some(labels._1)))
+      .map {case (uri, labels) => respondCollection(labels, uri=Some(uri))}
   }
 
 
