@@ -2,10 +2,12 @@ import angular from 'angular';
 
 import './gr-panel.css!';
 import '../../services/preview-selection';
+import '../../services/label';
 import '../../edits/service';
 
 export var grPanel = angular.module('grPanel', [
     'kahuna.services.selection',
+    'kahuna.services.label',
     'kahuna.edits.service'
 ]);
 
@@ -13,12 +15,14 @@ grPanel.controller('GrPanel', [
     '$scope',
     '$window',
     'selectionService',
+    'labelService',
     'editsService',
     'onValChange',
     function (
         $scope,
         $window,
         selection,
+        labelService,
         editsService,
         onValChange) {
 
@@ -47,12 +51,12 @@ grPanel.controller('GrPanel', [
 
         ctrl.addLabel = function (label) {
             var imageArray = Array.from(ctrl.selectedImages);
-            editsService.batchAddLabels(imageArray, [label]);
+            labelService.batchAdd(imageArray, [label]);
         };
 
         ctrl.removeLabel = function (label) {
             var imageArray = Array.from(ctrl.selectedImages);
-            editsService.batchRemoveLabels(imageArray, [label]);
+            labelService.batchRemove(imageArray, label);
         };
 
         ctrl.newLabel = function () {

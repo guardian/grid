@@ -252,47 +252,9 @@ service.factory('editsService',
         return $q.all(images.map(image => updateMetadataField(image, field, value)));
     }
 
-    function addLabels (image, labels) {
-        image.data.userMetadata.data.labels
-            .post({data: labels})
-            .then((newLabels) => {
-                image.data.userMetadata.data.labels = newLabels;
-                $rootScope.$emit('image-updated', image, image);
-            });
-    }
-
-    function removeLabel(image, label) {
-        var imageLabels = image.data.userMetadata.data.labels.data;
-
-        var labelIndex = imageLabels.findIndex(l => l.data === label);
-
-        if (labelIndex !== -1) {
-            imageLabels[labelIndex]
-                .delete()
-                .then(newLabels => {
-                    image.data.userMetadata.data.labels = newLabels;
-                    $rootScope.$emit('image-updated', image, image);
-                });
-        }
-    }
-
-    function removeLabels (image, labels) {
-        return $q.all(labels.map(label => removeLabel(image, label)));
-    }
-
-    function batchAddLabels (images, labels) {
-        return $q.all(images.map(image => addLabels(image, labels)));
-    }
-
-    function batchRemoveLabels (images, labels) {
-        return $q.all(images.map(image => removeLabels(image, labels)));
-    }
-
     return {
         update, add, on, remove, canUserEdit,
-        updateMetadataField, batchUpdateMetadataField,
-        addLabels, batchAddLabels,
-        removeLabels, batchRemoveLabels
+        updateMetadataField, batchUpdateMetadataField
     };
 
 }]);

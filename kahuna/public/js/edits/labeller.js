@@ -3,14 +3,16 @@ import template from './labeller.html!text';
 import templateCompact from './labeller-compact.html!text';
 
 import '../search/query-filter';
+import '../services/label';
 
 export var labeller = angular.module('kahuna.edits.labeller', [
-    'kahuna.search.filters.query'
+    'kahuna.search.filters.query',
+    'kahuna.services.label'
 ]);
 
 labeller.controller('LabellerCtrl',
-                  ['$rootScope', '$scope', '$window',
-                   function($rootScope, $scope, $window) {
+                  ['$rootScope', '$scope', '$window', 'labelService',
+                   function($rootScope, $scope, $window, labelService) {
 
     function saveFailed() {
         $window.alert('Something went wrong when saving, please try again!');
@@ -26,12 +28,10 @@ labeller.controller('LabellerCtrl',
 
     this.addLabels = labels => {
         this.adding = true;
-        this.labels.post({data: labels}).
-            then(newLabels => {
-                this.labels = newLabels;
-            }).
-            catch(saveFailed).
-            finally(() => {
+
+        labelService.add(this.image, labels)
+            .catch(saveFailed)
+            .finally(() => {
                 this.adding = false;
             });
     };
@@ -41,12 +41,9 @@ labeller.controller('LabellerCtrl',
     this.removeLabel = label => {
         this.labelsBeingRemoved.add(label);
 
-        label.delete().
-            then(newLabels => {
-                this.labels = newLabels;
-            }).
-            catch(saveFailed).
-            finally(() => {
+        labelService.remove(this.image, label)
+            .catch(saveFailed)
+            .finally(() => {
                 this.labelsBeingRemoved.remove(label);
             });
     };
@@ -67,7 +64,7 @@ labeller.directive('uiLabeller', [function() {
         scope: {
             // Annoying that we can't make a uni-directional binding
             // as we don't really want to modify the original
-            labels: '=',
+            image: '=',
             withBatch: '=?'
         },
         controller: 'LabellerCtrl',
@@ -83,7 +80,7 @@ labeller.directive('uiLabellerCompact', [function() {
         scope: {
             // Annoying that we can't make a uni-directional binding
             // as we don't really want to modify the original
-            labels: '=',
+            image: '=',
             disabled: '='
         },
         controller: 'LabellerCtrl',
