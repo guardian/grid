@@ -9,9 +9,9 @@ export var dndUploader = angular.module('kahuna.upload.dndUploader', [
 
 
 dndUploader.controller('DndUploaderCtrl',
-                  ['$state', '$window', 'uploadManager', 'loaderApi', 'editsService',
+                  ['$state', '$window', '$q', 'uploadManager', 'loaderApi', 'editsService',
                    'apiPoll', 'witnessApi',
-                   function($state, $window, uploadManager, loaderApi, editsService,
+                   function($state, $window, $q, uploadManager, loaderApi, editsService,
                             apiPoll, witnessApi) {
 
     var ctrl = this;
@@ -29,8 +29,8 @@ dndUploader.controller('DndUploaderCtrl',
     function importWitnessImage(uri) {
         const witnessReportId = witnessApi.extractReportId(uri);
         if (witnessReportId) {
-            witnessApi.getReport(witnessReportId).then(({fileUri, metadata, identifiers}) => {
-                loaderApi.import(fileUri, identifiers).then(mediaResp => {
+            return witnessApi.getReport(witnessReportId).then(({fileUri, metadata, identifiers}) => {
+                return loaderApi.import(fileUri, identifiers).then(mediaResp => {
                     // Wait until image indexed
                     return apiPoll(() => mediaResp.get());
                 }).then(fullImage => {
@@ -54,10 +54,14 @@ dndUploader.controller('DndUploaderCtrl',
                     // Go to image preview page
                     $state.go('image', {imageId});
                 });
+            }).catch(error => {
+                $window.alert('An error occurred while importing the ' +
+                              'Witness contribution, please try again');
             });
         } else {
             // Should not get to here
             $window.alert('Failed to identify the Witness contribution, please try again');
+            return $q.reject();
         }
     }
 }]);
@@ -77,14 +81,17 @@ dndUploader.directive('dndUploader', ['$window', 'delay', 'safeApply',
                        function($window, delay, safeApply) {
     return {
         restrict: 'E',
-        controller: 'DndUploaderCtrl as dndUploader',
+        controller: 'DndUploaderCtrl',
+        controllerAs: 'dndUploader',
         template: template,
-        link: (scope) => {
-            var dragging = false; // [1]
-            var $$window = angular.element($window);
+        scope: true,
+        bindToController: true,
+        link: (scope, element, attrs, ctrl) => {
+            let dragging = false; // [1]
+            const $$window = angular.element($window);
 
-            var activate   = () => safeApply(scope, () => scope.activated = true);
-            var deactivate = () => safeApply(scope, () => scope.activated = false);
+            const activate   = () => safeApply(scope, () => ctrl.activated = true);
+            const deactivate = () => safeApply(scope, () => ctrl.activated = false);
 
             $$window.on('dragover', over);
             $$window.on('dragenter', enter);
@@ -121,9 +128,12 @@ dndUploader.directive('dndUploader', ['$window', 'delay', 'safeApply',
                 event.preventDefault();
 
                 if (files.length > 0) {
-                    scope.dndUploader.uploadFiles(files);
-                } else if (scope.dndUploader.isWitnessUri(uri)) {
-                    scope.dndUploader.importWitnessImage(uri);
+                    ctrl.uploadFiles(files);
+                } else if (ctrl.isWitnessUri(uri)) {
+                    ctrl.importing = true;
+                    ctrl.importWitnessImage(uri).finally(() => {
+                        ctrl.importing = false;
+                    });
                 } else {
                     $window.alert('You must drop valid files or ' +
                                   'Guardian Witness URLs to upload them');
