@@ -9,7 +9,7 @@ object CostCalculator {
   import Config.{freeSuppliers, payGettySourceList, suppliersCollectionExcl}
   import UsageRightsConfig.categoryCosts
 
-  def getCost(category: UsageRightsCategory): Option[Cost] =
+  def getCost(category: Option[UsageRightsCategory]): Option[Cost] =
     categoryCosts.get(category)
 
   def getCost(supplier: Option[String], collection: Option[String]): Option[Cost] =
@@ -20,7 +20,7 @@ object CostCalculator {
 
   def getCost(usageRights: ImageUsageRights): Option[Cost] = {
       val restricted  : Option[Cost] = usageRights.restrictions.map(r => Conditional)
-      val categoryCost: Option[Cost] = usageRights.category.flatMap(getCost)
+      val categoryCost: Option[Cost] = getCost(usageRights.category)
       val supplierCost: Option[Cost] = getCost(usageRights.supplier, usageRights.suppliersCollection)
 
       restricted
@@ -28,7 +28,7 @@ object CostCalculator {
         .orElse(supplierCost)
   }
 
-  def getCategoriesOfCost(costs: List[Cost]): List[UsageRightsCategory] =
+  def getCategoriesOfCost(costs: List[Cost]): List[Option[UsageRightsCategory]] =
     categoryCosts.filter { case (_, cost) => costs.contains(cost) }.keys.toList
 
   private def isFreeSupplier(supplier: String) = freeSuppliers.contains(supplier)
