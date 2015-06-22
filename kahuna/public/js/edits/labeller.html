@@ -1,15 +1,15 @@
 <div class="labeller">
     <ul class="labels"
-        ng:if="ctrl.labels.data.length > 0">
+        ng:if="ctrl.image.data.userMetadata.data.labels.data.length > 0">
         <li class="label"
-            ng:repeat="label in ctrl.labels.data"
+            ng:repeat="label in ctrl.image.data.userMetadata.data.labels.data"
             ng:class="{'label--removing': ctrl.labelsBeingRemoved.has(label)}">
             <a ui:sref="search.results({query: (label.data | queryLabelFilter)})"
                class="label__link">{{label.data}}</a>
 
             <button class="label__remove"
                     title="Remove label"
-                    ng:click="ctrl.removeLabel(label)">x</button>
+                    ng:click="ctrl.removeLabel(label.data)">x</button>
         </li>
     </ul>
 
