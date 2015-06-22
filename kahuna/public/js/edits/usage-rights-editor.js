@@ -66,8 +66,7 @@ usageRightsEditor.controller('UsageRightsEditorCtrl',
     }
 
     function modelToData(cat, restrictions) {
-        const cleanCat = cat && cat.value;
-        const dirty = { category: cleanCat, restrictions };
+        const dirty = { category: (cat && cat.value), restrictions };
 
         const data = Object.keys(dirty).reduce((prev, curr) => {
             // remove all rubbish including ""
@@ -92,7 +91,6 @@ usageRightsEditor.controller('UsageRightsEditorCtrl',
     }
 
     function save(data) {
-        console.log('saving...', data);
         ctrl.saving = true;
 
         editsService.
