@@ -4,7 +4,11 @@ import template from './dnd-uploader.html!text';
 import '../services/api/witness';
 
 export var dndUploader = angular.module('kahuna.upload.dndUploader', [
-    'kahuna.witness'
+    'kahuna.upload.manager',
+    'kahuna.services.api',
+    'kahuna.edits.service',
+    'kahuna.witness',
+    'util.async'
 ]);
 
 
