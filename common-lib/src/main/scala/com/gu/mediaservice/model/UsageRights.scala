@@ -112,7 +112,7 @@ case object GuardianWitness
     override def toString = "guardian-witness"
     val description =
       "Images provided by readers in response to callouts and assignments on " +
-      "Guardian Witness."
+      "GuardianWitness."
   }
 
 case object SocialMedia
