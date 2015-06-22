@@ -1,7 +1,7 @@
 package lib.usagerights
 
-import com.gu.mediaservice.model.{Free, Handout, Conditional, ImageUsageRights}
-import org.scalatest.{FunSpec, Matchers, BeforeAndAfter}
+import com.gu.mediaservice.model._
+import org.scalatest.{FunSpec, Matchers}
 
 class CostCalculatorTest extends FunSpec with Matchers {
 
@@ -24,15 +24,11 @@ class CostCalculatorTest extends FunSpec with Matchers {
       cost should be (Some(Conditional))
     }
 
-    it("should be conditional if there are restrictions") {
-      val usageRights = ImageUsageRights(restrictions = Some("Restrictions"))
-      val cost = CostCalculator.getCost(usageRights)
-
-      cost should be (Some(Conditional))
-    }
-
     it("should be free with a free supplier") {
-      val usageRights = ImageUsageRights(supplier = Some("Getty Images"))
+      val usageRights = ImageUsageRights(
+        category = Some(Agency),
+        supplier = Some("Getty Images")
+      )
       val cost = CostCalculator.getCost(usageRights)
 
       cost should be (Some(Free))
@@ -40,6 +36,7 @@ class CostCalculatorTest extends FunSpec with Matchers {
 
     it("should not be free with a free supplier but excluded collection") {
       val usageRights = ImageUsageRights(
+        category = Some(Agency),
         supplier = Some("Getty Images"),
         suppliersCollection = Some("Anadolu")
       )
@@ -47,6 +44,5 @@ class CostCalculatorTest extends FunSpec with Matchers {
 
       cost should be (None)
     }
-
   }
 }
