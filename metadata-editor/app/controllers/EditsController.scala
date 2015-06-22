@@ -119,9 +119,12 @@ object EditsController extends Controller with ArgoHelpers {
   }
 
   def removeLabel(id: String, label: String) = Authenticated.async {
+    val labelsUri = EditsResponse.entityUri(id, "/labels")
+
     dynamo.setDelete(id, "labels", decodeUriParam(label))
       .map(publish(id))
-      .map(edits => respondCollection(labelsCollection(id, edits.labels.toSet)))
+      .map(edits => labelsCollection(id, edits.labels.toSet))
+      .map(labels => respondCollection(labels, uri=Option(labelsUri)))
   }
 
 
