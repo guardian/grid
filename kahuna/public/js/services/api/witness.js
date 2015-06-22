@@ -43,6 +43,9 @@ mod.factory('witnessApi', ['mediaApi', function(mediaApi) {
     function getReport(id) {
         return mediaApi.root.
             follow('witness-report', {id}).
+            // The API is not auth'd, and if withCredentials is true,
+            // CORS fails because they don't support credentials in
+            // their CORS headers.
             get({}, {withCredentials: false}).
             then(parseReportResponse);
     }
