@@ -1,7 +1,26 @@
-Media Service
-=============
+Grid
+====
 
-The new Guardian service to manage media (currently: images).
+**Grid** is [the Guardian](http://www.theguardian.com/)’s new **image
+management system**, which provides a **universal** and **fast**
+experience accessing media that is **organised** and using it in an
+**affordable** way to produce **high-quality** content.
+
+See the [Vision](VISION.md) document for more details on the core
+principles behind this project.
+
+![Screenshot of Grid search](docs/images/screenshot-2015-07-03T11:34:43.png)
+
+Grid runs as a set of independent micro-services
+([Scala](http://www.scala-lang.org/) and
+[Play Framework](https://playframework.com/)) exposed as hypermedia
+APIs ([argo](https://github.com/argo-rest/spec)) and accessed using a
+rich Web user interface ([AngularJS](https://angularjs.org/)).
+
+Grid relies on [Elasticsearch](https://www.elastic.co/) for
+blazing-fast searching, and AWS services as additional storage and
+communication mechanisms.
+
 
 Running the applications
 ------------------------
