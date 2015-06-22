@@ -140,7 +140,7 @@ dndUploader.directive('dndUploader', ['$window', 'delay', 'safeApply',
                     });
                 } else {
                     $window.alert('You must drop valid files or ' +
-                                  'Guardian Witness URLs to upload them');
+                                  'GuardianWitness URLs to upload them');
                 }
                 scope.$apply(deactivate);
             }
