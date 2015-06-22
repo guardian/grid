@@ -122,7 +122,7 @@ object EditsController extends Controller with ArgoHelpers {
     dynamo.setDelete(id, "labels", decodeUriParam(label))
       .map(publish(id))
       .map(edits => labelsCollection(id, edits.labels.toSet))
-      .map(labels => respondCollection(labels._2, uri=Option(labels._1)))
+      .map(labels => respondCollection(labels._2, uri=Some(labels._1)))
   }
 
 
