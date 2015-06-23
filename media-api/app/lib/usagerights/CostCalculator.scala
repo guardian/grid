@@ -28,8 +28,8 @@ object CostCalculator {
         .orElse(supplierCost)
   }
 
-  def getCategoriesOfCost(costs: List[Cost]): List[Option[UsageRightsCategory]] =
-    categoryCosts.filter { case (_, cost) => costs.contains(cost) }.keys.toList
+  def getCategoriesOfCost(costs: List[Cost]): List[UsageRightsCategory] =
+    categoryCosts.filter { case (_, cost) => costs.contains(cost) }.keys.flatten.toList
 
   private def isFreeSupplier(supplier: String) = freeSuppliers.contains(supplier)
 
