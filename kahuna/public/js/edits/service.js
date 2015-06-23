@@ -252,6 +252,9 @@ service.factory('editsService',
         return $q.all(images.map(image => updateMetadataField(image, field, value)));
     }
 
-    return { update, add, on, remove, canUserEdit, updateMetadataField, batchUpdateMetadataField };
+    return {
+        update, add, on, remove, canUserEdit,
+        updateMetadataField, batchUpdateMetadataField
+    };
 
 }]);

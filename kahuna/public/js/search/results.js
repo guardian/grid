@@ -186,8 +186,10 @@ results.controller('SearchResultsCtrl', [
             if (index !== -1) {
                 ctrl.images[index] = updatedImage;
 
-                selection.remove(oldImage);
-                selection.add(updatedImage);
+                if (ctrl.selectedImages.has(oldImage)) {
+                    selection.remove(oldImage);
+                    selection.add(updatedImage);
+                }
             }
         });
 
