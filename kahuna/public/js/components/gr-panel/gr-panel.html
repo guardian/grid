@@ -172,6 +172,32 @@
                 </span>
             </div>
         </div>
+
+        <div class="image-info__group">
+            <div class="metadata-line">labels</div>
+            <ul class="labels labels--batch">
+                <li class="label"
+                    ng:repeat="label in ctrl.selectedLabels | orderBy:'data'"
+                    ng:class="{'label--partial': label.count < ctrl.selectedImages.size}">
+                    <button ng:if="label.count < ctrl.selectedImages.size"
+                            title="Apply label to all"
+                            ng:click="ctrl.addLabel(label.data)">
+                        <i class="material-icons">library_add</i>
+                    </button>
+                    {{label.data}}
+                    <button class="label__remove"
+                            title="Remove label from all"
+                            ng:click="ctrl.removeLabel(label.data)">
+                        <i class="material-icons">close</i>
+                    </button>
+                </li>
+                <li>
+                    <button class="button-shy" title="Add Label" ng:click="ctrl.newLabel()">
+                        Add
+                    </button>
+                </li>
+            </ul>
+        </div>
     </div>
 
     <div class="panel__bottom">
