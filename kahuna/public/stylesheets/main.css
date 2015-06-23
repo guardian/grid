@@ -599,6 +599,7 @@ input.search-query__input {
 
 .result__select__checkbox__label .material-icons {
     font-size: 25px;
+    color: #00adee;
 }
 
 .result:hover .result__select,
