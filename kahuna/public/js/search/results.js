@@ -215,14 +215,19 @@ results.controller('SearchResultsCtrl', [
 
         $rootScope.$on('image-updated', (e, updatedImage, oldImage) => {
             var index = ctrl.images.findIndex(i => i.data.id === updatedImage.data.id);
-
             if (index !== -1) {
                 ctrl.images[index] = updatedImage;
 
+                // FIXME: does this really belong here?
                 if (ctrl.selectedImages.has(oldImage)) {
                     selection.remove(oldImage);
                     selection.add(updatedImage);
                 }
+            }
+
+            var indexAll = ctrl.imagesAll.findIndex(i => i.data.id === updatedImage.data.id);
+            if (indexAll !== -1) {
+                ctrl.imagesAll[indexAll] = updatedImage;
             }
         });
 
