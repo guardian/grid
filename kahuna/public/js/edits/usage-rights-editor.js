@@ -30,13 +30,13 @@ usageRightsEditor.controller('UsageRightsEditorCtrl',
     editsApi.getUsageRightsCategories().then(setCategories);
 
     ctrl.save = () => {
-        ctrl.error = null;
+        uiReset();
+        save(modelToData(ctrl.category, ctrl.restrictions));
+    };
 
-        if (ctrl.category) {
-            save(modelToData(ctrl.category, ctrl.restrictions));
-        } else {
-            del();
-        }
+    ctrl.delete = () => {
+        uiReset();
+        del();
     };
 
     ctrl.isDisabled = () => ctrl.saving;
@@ -45,9 +45,10 @@ usageRightsEditor.controller('UsageRightsEditorCtrl',
 
     ctrl.getCost = () => {
         // TODO: Can we move this to the server
+        if (!ctrl.category)    { return 'pay'; }
         if (ctrl.restrictions) { return 'conditional'; }
 
-        return ctrl.category && ctrl.category.cost;
+        return ctrl.category.cost;
     };
 
     ctrl.pluraliseCategory = () => ctrl.category.name +
@@ -62,15 +63,14 @@ usageRightsEditor.controller('UsageRightsEditorCtrl',
         ctrl.categories = cats;
 
         // set the current category
-        ctrl.category = cats.find(cat => cat.value === categoryVal);
+        ctrl.category = cats.find(cat => cat.value === categoryVal) || {};
     }
 
     function modelToData(cat, restrictions) {
-        // this removes everything, including ""
-        return !restrictions ? { category: cat.value } : {
-            category: cat.value,
-            restrictions: restrictions
-        };
+        // If there is no category - then an empty object
+        // else only add the restrictions if they are there and !== ""
+        return !cat ? {} :
+            (restrictions ? { category: cat.value, restrictions } : { category: cat.value });
     }
 
     function del() {
@@ -111,6 +111,10 @@ usageRightsEditor.controller('UsageRightsEditorCtrl',
 
     function uiError(error) {
         ctrl.error = error.body.errorMessage;
+    }
+
+    function uiReset() {
+        ctrl.error = null;
     }
 }]);
 

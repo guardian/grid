@@ -929,6 +929,10 @@ FIXME: what to do with touch devices
     display: flex;
 }
 
+.ure__reset {
+    margin-left: 10px;
+}
+
 .ure__error {
     margin-left: 10px;
     background: red;
