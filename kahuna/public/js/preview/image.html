@@ -23,11 +23,13 @@
     <a ng:if="! selectionMode" class="preview__link"
        ui:sref="image({imageId: image.data.id})"
        ui:drag-data="{{image | asImageDragData}}">
+       <div class="preview__fade"></div>
        <img class="preview__image"
             ng:src="{{image.data.thumbnail | assetFile}}" />
     </a>
 
     <span  ng:if="selectionMode" class="preview__no-link">
+        <div class="preview__fade"></div>
         <img class="preview__image"
              ng:src="{{image.data.thumbnail | assetFile}}"/>
     </span>
