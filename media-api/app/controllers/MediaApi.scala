@@ -221,6 +221,10 @@ object MediaApi extends Controller with ArgoHelpers {
     }
   }
 
+  def suggestMetadataCredit(q: String) = Authenticated.async { request =>
+    ElasticSearch.completionSuggestion(q) map(c => respond(c.results))
+  }
+
   // TODO: work with analysed fields
   // TODO: recover with HTTP error if invalid field
   def metadataSearch(field: String, q: Option[String]) = Authenticated.async { request =>
