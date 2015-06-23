@@ -542,8 +542,6 @@ input.search-query__input {
    ========================================================================== */
 
 .results {
-    display: flex;
-    flex-wrap: wrap;
     animation: fadeIn .25s;
     -webkit-animation: fadeIn .25s;
 }
@@ -565,17 +563,16 @@ input.search-query__input {
 }
 
 .result {
-    flex: 1;
-    width: 20%;
-    min-width: 200px;
-    max-width: 270px;
-    margin: 10px 5px;
-    background: #393939;
     position: relative;
     border: solid 5px transparent;
+    box-sizing: border-box;
 }
 .result--seen {
     opacity: .5;
+}
+
+.result ui-preview-image {
+    background: #393939;
 }
 
 .result__select input[type=checkbox] {
