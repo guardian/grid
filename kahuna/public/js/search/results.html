@@ -24,13 +24,17 @@
         </div>
 
         <ul class="results"
-            ui:has-space="ctrl.uiHasSpace"
-            ui:near-bottom="ctrl.whenNearBottom()"
-            ui:forget-window-scroll="ctrl.searched"
-            ui:window-resized="ctrl.fillRemainingSpace()">
+            gu:lazy-table="ctrl.imagesAll"
+            gu:lazy-table-cell-min-width="280"
+            gu:lazy-table-cell-height="287"
+            gu:lazy-table-preloaded-rows="4"
+            gu:lazy-table-load-range="ctrl.loadRange($start, $end)">
+
             <li class="result"
-                ng:repeat="image in ctrl.images"
-                ng:class="{ 'result--seen': ctrl.imageHasBeenSeen(image), 'result--selected': ctrl.imageHasBeenSelected(image)}">
+                ng:repeat="image in ctrl.images track by image.data.id"
+                gu:lazy-table-cell="image"
+                ng:class="{ 'result--seen': ctrl.imageHasBeenSeen(image),
+                            'result--selected': ctrl.imageHasBeenSelected(image)}">
 
                 <!-- <HACK> -->
                 <!-- We don't want to add a property on `image` to determine the state of the checkbox, so render two individual inputs. -->
