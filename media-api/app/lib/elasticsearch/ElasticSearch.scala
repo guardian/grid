@@ -3,18 +3,21 @@ package lib.elasticsearch
 import java.util.regex.Pattern
 
 import org.elasticsearch.search.aggregations.bucket.terms.StringTerms
+import org.elasticsearch.search.suggest.Suggest.Suggestion
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.collection.JavaConversions._
 
-import play.api.libs.json.{Json, JsValue}
+import play.api.libs.json._
 import org.elasticsearch.action.get.GetRequestBuilder
 import org.elasticsearch.action.search.SearchRequestBuilder
 import org.elasticsearch.search.aggregations.AggregationBuilders
+import org.elasticsearch.search.suggest.completion.{CompletionSuggestion, CompletionSuggestionBuilder}
 
 import scalaz.syntax.id._
 import scalaz.syntax.std.list._
 import scalaz.NonEmptyList
+
 
 import com.gu.mediaservice.syntax._
 import com.gu.mediaservice.lib.elasticsearch.ElasticSearchClient
@@ -25,6 +28,18 @@ import lib.{MediaApiMetrics, Config}
 case class SearchResults(hits: Seq[(ElasticSearch.Id, JsValue)], total: Long)
 
 case class AggregateSearchResults(results: Seq[BucketResult], total: Long)
+
+case class CompletionSuggestionResult(key: String, score: Float)
+object CompletionSuggestionResult {
+  implicit val jsonWrites = Json.writes[CompletionSuggestionResult]
+}
+
+case class CompletionSuggestionResults(results: List[CompletionSuggestionResult])
+object CompletionSuggestionResults {
+  implicit val jsonWrites = Json.writes[CompletionSuggestionResults]
+}
+
+
 
 object BucketResult {
   implicit val jsonWrites = Json.writes[BucketResult]
@@ -120,6 +135,31 @@ object ElasticSearch extends ElasticSearchClient with SearchFilters with ImageFi
         AggregateSearchResults(results, buckets.size)
       }
   }
+
+  def completionSuggestion(q: String)(implicit ex: ExecutionContext): Future[CompletionSuggestionResults] = {
+    val name = "suggestMetadataCredit"
+    val builder = completionSuggestionBuilder(name).field(name).text(q).size(10)
+
+    client
+      .prepareSuggest(imagesAlias)
+      .addSuggestion(builder)
+      .executeAndLog("completion suggestion query")
+      .map { response =>
+        val options =
+          response.getSuggest
+          .getSuggestion(name)
+          .asInstanceOf[CompletionSuggestion]
+          .getEntries.toList.headOption.map { entry =>
+            entry.getOptions.map(
+              option => CompletionSuggestionResult(option.getText.toString, option.getScore)
+            ).toList
+          }.getOrElse(List())
+
+        CompletionSuggestionResults(options)
+      }
+  }
+
+  def completionSuggestionBuilder(name: String) = new CompletionSuggestionBuilder(name)
 
   def imageExists(id: String)(implicit ex: ExecutionContext): Future[Boolean] =
     prepareGet(id).setFields().executeAndLog(s"check if image $id exists") map (_.isExists)
