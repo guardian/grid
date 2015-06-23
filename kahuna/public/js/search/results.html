@@ -73,5 +73,11 @@
                 </ui-preview-image>
             </li>
         </ul>
+
+        <div ng:if="ctrl.totalResults > ctrl.maxResults"
+             class="image-results-more">
+            <div class="image-results-more__heading">Too many results to display</div>
+            <div class="image-results-more__instructions">Please refine your search to limit the number of results</div>
+        </div>
     </div>
 </div>
