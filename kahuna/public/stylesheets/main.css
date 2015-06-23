@@ -764,7 +764,7 @@ FIXME: what to do with touch devices
 
 .preview__bottom-bar {
     font-size: 1.4rem;
-    margin-top: 10px;
+    margin-top: 5px;
 }
 
 .preview__quick-select {
@@ -1210,7 +1210,7 @@ FIXME: what to do with touch devices
    Labeller
    ========================================================================== */
 .labeller {
-    min-height: 20px;
+    min-height: 24px;
     font-size: 1.3rem;
     display: flex;
     overflow: hidden;
