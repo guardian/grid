@@ -25,7 +25,14 @@ apiServices.factory('loaderApi',
             follow('load').post(imageData, options);
     }
 
+    function import_(uri, identifiersMap = {}) {
+        const identifiers = JSON.stringify(identifiersMap);
+        return getLoaderRoot().
+            follow('import', {uri, identifiers}).post();
+    }
+
     return {
-        load: load
+        load,
+        import: import_
     };
 }]);
