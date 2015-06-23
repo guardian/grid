@@ -1215,6 +1215,20 @@ FIXME: what to do with touch devices
     color: white;
 }
 
+.label button:hover .material-icons {
+    color: #333;
+}
+
+.label button:active .material-icons {
+    background-color: #008fc5;
+    color: #333;
+}
+
+.label--partial button:active .material-icons {
+    background-color: #CFCFCF;
+    color: #333;
+}
+
 .labeller__placeholder {
     color: #999;
 }
