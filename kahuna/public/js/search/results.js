@@ -99,7 +99,7 @@ results.controller('SearchResultsCtrl', [
         function checkForNewImages() {
             $timeout(() => {
                 const latestTime = ctrl.images[0] && ctrl.images[0].data.uploadTime;
-                search({since: latestTime}).then(resp => {
+                search({since: latestTime, length: 0}).then(resp => {
                     // FIXME: minor assumption that only the latest
                     // displayed image is matching the uploadTime
                     ctrl.newImagesCount = resp.total - 1;
