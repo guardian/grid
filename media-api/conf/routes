@@ -17,6 +17,9 @@ DELETE  /images/:id                 controllers.MediaApi.deleteImage(id: String)
 
 GET     /images                     controllers.MediaApi.imageSearch
 
+# completion
+GET     /completion/metadata/credit controllers.MediaApi.suggestMetadataCredit(q: String)
+
 # Management
 GET     /management/healthcheck     controllers.HealthCheck.healthCheck
 GET     /management/manifest        com.gu.mediaservice.lib.management.Management.manifest
