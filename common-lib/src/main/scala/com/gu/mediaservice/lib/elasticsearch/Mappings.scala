@@ -52,6 +52,7 @@ object Mappings {
       "bylineTitle" -> standardAnalysedString,
       "title" -> snowballAnalysedString,
       "credit" -> nonAnalyzedString,
+      "creditUri" -> nonAnalyzedString,
       "copyright" -> standardAnalysedString,
       "copyrightNotice" -> standardAnalysedString,
       "suppliersReference" -> standardAnalysedString,

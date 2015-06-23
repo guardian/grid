@@ -9,11 +9,8 @@ export var service = angular.module('kahuna.edits.service', []);
 // see when it's synced. We should have a link on the resource to be able to do
 // this.
 service.factory('editsService',
-                ['$rootScope', '$q', 'editsApi', 'mediaApi', 'poll',
-                 function($rootScope, $q, editsApi, mediaApi, poll) {
-
-    const pollFrequency = 500; // ms
-    const pollTimeout   = 20 * 1000; // ms
+                ['$rootScope', '$q', 'editsApi', 'mediaApi', 'apiPoll',
+                 function($rootScope, $q, editsApi, mediaApi, apiPoll) {
 
     /**
      * @param edit {Resource} the edit you'd like to match
@@ -69,7 +66,7 @@ service.factory('editsService',
      */
     function getSynced(image, check) {
         const checkSynced = () => image.get().then(check);
-        return poll(checkSynced, pollFrequency, pollTimeout);
+        return apiPoll(checkSynced);
     }
 
     /**

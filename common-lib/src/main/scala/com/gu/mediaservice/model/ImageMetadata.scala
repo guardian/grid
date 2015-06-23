@@ -9,6 +9,7 @@ case class ImageMetadata(
   dateTaken:           Option[DateTime] = None,
   description:         Option[String]   = None,
   credit:              Option[String]   = None,
+  creditUri:           Option[String]   = None,
   byline:              Option[String]   = None,
   bylineTitle:         Option[String]   = None,
   title:               Option[String]   = None,
@@ -29,6 +30,7 @@ object ImageMetadata {
     (__ \ "dateTaken").readNullable[String].map(_.flatMap(parseDateTime)) ~
       (__ \ "description").readNullable[String] ~
       (__ \ "credit").readNullable[String] ~
+      (__ \ "creditUri").readNullable[String] ~
       (__ \ "byline").readNullable[String] ~
       (__ \ "bylineTitle").readNullable[String] ~
       (__ \ "title").readNullable[String] ~
@@ -48,6 +50,7 @@ object ImageMetadata {
     (__ \ "dateTaken").writeNullable[String].contramap(printOptDateTime) ~
       (__ \ "description").writeNullable[String] ~
       (__ \ "credit").writeNullable[String] ~
+      (__ \ "creditUri").writeNullable[String] ~
       (__ \ "byline").writeNullable[String] ~
       (__ \ "bylineTitle").writeNullable[String] ~
       (__ \ "title").writeNullable[String] ~
