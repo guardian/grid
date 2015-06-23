@@ -6,12 +6,12 @@
 
 <div ng:if="! ctrl.loading"
     ng:class="{'results--left': ctrl.inSelectionMode()}">
-    <div ng:show="ctrl.images.length == 0"
+    <div ng:if="ctrl.totalResults == 0"
          class="image-no-results">
         No matches, sorry!
     </div>
 
-    <div ng:show="ctrl.images.length > 0">
+    <div ng:if="ctrl.totalResults > 0">
 
         <div class="image-results-count">
             {{ctrl.totalResults | toLocaleString}} matches
@@ -35,7 +35,8 @@
                 <!-- <HACK> -->
                 <!-- We don't want to add a property on `image` to determine the state of the checkbox, so render two individual inputs. -->
                 <!-- </HACK> -->
-                <div class="result__select result__select--selected" ng:if="ctrl.imageHasBeenSelected(image)">
+                <div class="result__select result__select--selected"
+                     ng:if="ctrl.imageHasBeenSelected(image)">
                     <input type="checkbox"
                            class="result__select__checkbox"
                            id="{{image.data.id}}-result__select__checkbox--select"
