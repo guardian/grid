@@ -1,6 +1,6 @@
 import angular from 'angular';
 
-export var lazyTableCell = angular.module('gr.lazy-table-cell', [
+export var lazyTableCell = angular.module('gu.lazyTableCell', [
     'rx.helpers'
 ]);
 

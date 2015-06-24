@@ -14,8 +14,8 @@ import {
 } from './observable-utils';
 
 
-export var lazyTable = angular.module('gr.lazy-table', [
-    'gr.lazy-table-cell',
+export var lazyTable = angular.module('gu.lazyTable', [
+    'gu.lazyTableCell',
     'rx.helpers'
 ]);
 
