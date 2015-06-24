@@ -166,6 +166,12 @@ results.controller('SearchResultsCtrl', [
             });
         }
 
+        function* range (start, end) {
+            for (let i = start; i <= end; i += 1) {
+                yield i;
+            }
+        }
+
         ctrl.selectedImages = selection.selectedImages;
 
         ctrl.inSelectionMode = () => ctrl.selectedImages.size > 0;
@@ -174,9 +180,35 @@ results.controller('SearchResultsCtrl', [
 
         ctrl.toggleSelection = (image, select) => selection.toggleSelection(image, select);
 
-        ctrl.onImageClick = function (image) {
+        ctrl.onImageClick = function (image, $event) {
             if (ctrl.inSelectionMode()) {
-                ctrl.toggleSelection(image, !ctrl.imageHasBeenSelected(image));
+                if ($event.shiftKey) {
+                    var selectedArray = Array.from(ctrl.selectedImages);
+                    var lastSelected = selectedArray[selectedArray.length - 1];
+                    var lastSelectedIndex = ctrl.images.findIndex(i => {
+                        return i.data.id === lastSelected.data.id;
+                    });
+
+                    var imageIndex = ctrl.images.indexOf(image);
+
+                    if (imageIndex === lastSelectedIndex) {
+                        ctrl.toggleSelection(image, !ctrl.imageHasBeenSelected(image));
+                        return;
+                    }
+
+                    var start = imageIndex > lastSelectedIndex ?
+                        lastSelectedIndex : imageIndex;
+
+                    var end = imageIndex > lastSelectedIndex ?
+                        imageIndex : lastSelectedIndex;
+
+                    for (let i of range(start, end)) {
+                        ctrl.toggleSelection(ctrl.images[i], true);
+                    }
+                }
+                else {
+                    ctrl.toggleSelection(image, !ctrl.imageHasBeenSelected(image));
+                }
             }
         };
 
