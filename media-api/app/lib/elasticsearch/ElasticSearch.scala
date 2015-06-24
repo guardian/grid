@@ -3,7 +3,6 @@ package lib.elasticsearch
 import java.util.regex.Pattern
 
 import org.elasticsearch.search.aggregations.bucket.terms.StringTerms
-import org.elasticsearch.search.suggest.Suggest.Suggestion
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.collection.JavaConversions._
@@ -136,8 +135,7 @@ object ElasticSearch extends ElasticSearchClient with SearchFilters with ImageFi
       }
   }
 
-  def completionSuggestion(q: String)(implicit ex: ExecutionContext): Future[CompletionSuggestionResults] = {
-    val name = "suggestMetadataCredit"
+  def completionSuggestion(name: String, q: String)(implicit ex: ExecutionContext): Future[CompletionSuggestionResults] = {
     val builder = completionSuggestionBuilder(name).field(name).text(q).size(10)
 
     client
