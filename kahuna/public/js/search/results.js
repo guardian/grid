@@ -5,7 +5,7 @@ import '../components/gu-lazy-table/gu-lazy-table';
 
 export var results = angular.module('kahuna.search.results', [
     'kahuna.services.selection',
-    'gr.lazy-table'
+    'gu.lazyTable'
 ]);
 
 
