@@ -10,7 +10,7 @@
 
     <div class="panel__content">
         <ul class="costs" ng:if="ctrl.showCosts">
-            <li ng:repeat="cost in ctrl.selectedCost | orderBy:'data'">
+            <li ng:repeat="cost in ctrl.selectedCosts | orderBy:'data'">
                 <div ng:switch="cost.data">
                     <div ng:switch-when="free"
                          class="image-notice image-info__group status cost cost--free">
