@@ -137,11 +137,11 @@ object ElasticSearch extends ElasticSearchClient with SearchFilters with ImageFi
 
   def completionSuggestion(name: String, q: String, size: Int)(implicit ex: ExecutionContext): Future[CompletionSuggestionResults] = {
     val builder = completionSuggestionBuilder(name).field(name).text(q).size(size)
+    val search = prepareImagesSearch.addSuggestion(builder).setFrom(0).setSize(0)
 
-    client
-      .prepareSuggest(imagesAlias)
-      .addSuggestion(builder)
+    search
       .executeAndLog("completion suggestion query")
+      .toMetric(searchQueries, List(searchTypeDimension("suggestion-completition")))(_.getTookInMillis)
       .map { response =>
         val options =
           response.getSuggest
