@@ -13,6 +13,12 @@ object Mappings {
   val snowballAnalysedString = Json.obj("type" -> "string", "analyzer" -> "snowball")
   val standardAnalysedString = Json.obj("type" -> "string", "analyzer" -> "standard")
 
+  val simpleSuggester = Json.obj(
+    "type" -> "completion",
+    "index_analyzer" -> "simple",
+    "search_analyzer" -> "simple"
+  )
+
   val integer = Json.obj("type" -> "integer")
   val boolean = Json.obj("type" -> "boolean")
   val dateFormat = Json.obj("type" -> "date")
@@ -43,27 +49,25 @@ object Mappings {
       "mimeType" -> nonAnalyzedString,
       "dimensions" -> dimensionsMapping
     )
-
-  val metadataMapping = Json.obj(
-    "properties" -> Json.obj(
-      "dateTaken" -> dateFormat,
-      "description" -> snowballAnalysedString,
-      "byline" -> standardAnalysedString,
-      "bylineTitle" -> standardAnalysedString,
-      "title" -> snowballAnalysedString,
-      "credit" -> nonAnalyzedString,
-      "creditUri" -> nonAnalyzedString,
-      "copyright" -> standardAnalysedString,
-      "copyrightNotice" -> standardAnalysedString,
-      "suppliersReference" -> standardAnalysedString,
-      "source" -> nonAnalyzedString,
-      "specialInstructions" -> nonAnalyzedString,
-      "keywords" -> nonAnalysedList("keyword"),
-      "subLocation" -> standardAnalysedString,
-      "city" -> standardAnalysedString,
-      "state" -> standardAnalysedString,
-      "country" -> standardAnalysedString
-    )
+  
+  val metadataMapping = nonDynamicObj(
+    "dateTaken" -> dateFormat,
+    "description" -> snowballAnalysedString,
+    "byline" -> standardAnalysedString,
+    "bylineTitle" -> standardAnalysedString,
+    "title" -> snowballAnalysedString,
+    "credit" -> nonAnalyzedString,
+    "creditUri" -> nonAnalyzedString,
+    "copyright" -> standardAnalysedString,
+    "copyrightNotice" -> standardAnalysedString,
+    "suppliersReference" -> standardAnalysedString,
+    "source" -> nonAnalyzedString,
+    "specialInstructions" -> nonAnalyzedString,
+    "keywords" -> nonAnalysedList("keyword"),
+    "subLocation" -> standardAnalysedString,
+    "city" -> standardAnalysedString,
+    "state" -> standardAnalysedString,
+    "country" -> standardAnalysedString
   )
 
 
@@ -120,7 +124,8 @@ object Mappings {
           "uploadTime" -> dateFormat,
           "uploadedBy" -> nonAnalyzedString,
           "lastModified" -> dateFormat,
-          "identifiers" -> dynamicObj
+          "identifiers" -> dynamicObj,
+          "suggestMetadataCredit" -> simpleSuggester
         ),
         "dynamic_templates" -> Json.arr(Json.obj(
           "stored_json_object_template" -> Json.obj(
