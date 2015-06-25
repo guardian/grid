@@ -631,6 +631,18 @@ input.search-query__input {
     background-color: green;
 }
 
+.costs {
+    display: flex;
+}
+
+.costs li {
+    flex-grow: 1;
+    flex-basis: 0;
+}
+
+.costs .image-notice {
+    padding: 3px;
+}
 
 /* Hacky pointer to some element above */
 .validity--invalid--point-up {

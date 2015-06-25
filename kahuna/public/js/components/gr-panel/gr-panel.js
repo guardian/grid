@@ -41,6 +41,9 @@ grPanel.controller('GrPanel', [
             });
 
             ctrl.selectedCost = selection.getCost();
+
+            ctrl.showCosts = ctrl.selectedCost.length > 1 || ctrl.selectedCost[0].data !== 'free';
+
             ctrl.selectedLabels = selection.getLabels();
         }));
 
