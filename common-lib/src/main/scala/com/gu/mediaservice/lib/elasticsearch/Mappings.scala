@@ -49,7 +49,7 @@ object Mappings {
       "mimeType" -> nonAnalyzedString,
       "dimensions" -> dimensionsMapping
     )
-  
+
   val metadataMapping = nonDynamicObj(
     "dateTaken" -> dateFormat,
     "description" -> snowballAnalysedString,
