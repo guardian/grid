@@ -14,20 +14,17 @@
                 <div ng:switch="cost.data">
                     <div ng:switch-when="free"
                          class="image-notice image-info__group status cost cost--free">
-                        free
-                        <div ng:if="ctrl.selectedImages.size > 1">({{cost.count}} of {{ctrl.selectedImages.size}})</div>
+                        {{cost.count}} free
                     </div>
 
                     <div ng:switch-when="pay"
                          class="image-notice image-info__group status cost cost--pay">
-                        pay to use
-                        <div ng:if="ctrl.selectedImages.size > 1">({{cost.count}} of {{ctrl.selectedImages.size}})</div>
+                        {{cost.count}} pay
                     </div>
 
                     <div ng:switch-when="conditional"
                          class="image-notice image-info__group cost cost--conditional">
-                        restricted
-                        <div ng:if="ctrl.selectedImages.size > 1">({{cost.count}} of {{ctrl.selectedImages.size}})</div>
+                        {{cost.count}} restricted
                     </div>
                 </div>
             </li>
