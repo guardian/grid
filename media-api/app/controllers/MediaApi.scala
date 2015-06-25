@@ -221,8 +221,8 @@ object MediaApi extends Controller with ArgoHelpers {
     }
   }
 
-  def suggestMetadataCredit(q: String) = Authenticated.async { request =>
-    ElasticSearch.completionSuggestion("suggestMetadataCredit", q) map(c => respond(c.results))
+  def suggestMetadataCredit(q: String, size: Option[Int]) = Authenticated.async { request =>
+    ElasticSearch.completionSuggestion("suggestMetadataCredit", q, size.getOrElse(10)) map(c => respond(c.results))
   }
 
   // TODO: work with analysed fields
