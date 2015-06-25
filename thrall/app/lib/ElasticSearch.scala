@@ -39,7 +39,7 @@ object ElasticSearch extends ElasticSearchClient {
 
   def currentIsoDateString = printDateTime(new DateTime())
 
-  def indexImage(id: String, image: JsValue)(implicit ex: ExecutionContext): Future[UpdateResponse] =
+  def indexImage(id: String, image: JsValue)(implicit ex: ExecutionContext): Future[UpdateResponse] = {
     prepareImageUpdate(id)
       // Use upsert: if not present, will index the argument (the image)
       .setUpsert(Json.stringify(image))
@@ -59,10 +59,11 @@ object ElasticSearch extends ElasticSearchClient {
            | }
            |""".stripMargin +
           refreshEditsScript +
-          updateLastModifiedScript,
+          updateLastModifiedScript +
+          addToSuggestersScript,
         scriptType)
       .executeAndLog(s"Indexing image $id")
-      .incrementOnSuccess(indexedImages)
+      .incrementOnSuccess(indexedImages)}
 
   def deleteImage(id: String)(implicit ex: ExecutionContext): Future[DeleteByQueryResponse] = {
 
@@ -154,6 +155,12 @@ object ElasticSearch extends ElasticSearchClient {
     image.transform(removeUploadInformation).get
   }
 
+  private val addToSuggestersScript =
+    """
+      | suggestMetadataCredit = [ input: [ ctx._source.metadata.credit] ];
+      | ctx._source.suggestMetadataCredit = suggestMetadataCredit;
+    """.stripMargin
+
   // Create the exports key or add to it
   private val addExportsScript =
     """| if (ctx._source.exports == null) {
@@ -171,7 +178,7 @@ object ElasticSearch extends ElasticSearchClient {
        |   ctx._source.metadata += ctx._source.userMetadata.metadata;
        |   // Get rid of "" values
        |   def nonEmptyKeys = ctx._source.metadata.findAll { it.value != "" }.collect { it.key }
-       |   ctx._source.metadata = ctx._source.metadata.subMap(nonEmptyKeys)
+       |   ctx._source.metadata = ctx._source.metadata.subMap(nonEmptyKeys);
        | }
     """.stripMargin
 
@@ -185,7 +192,7 @@ object ElasticSearch extends ElasticSearchClient {
        |   ur = ctx._source.userMetadata.usageRights.clone();
        |   ctx._source.usageRights = ur;
        | } else {
-       |   ctx._source.usageRights = ctx._source.originalUsageRights
+       |   ctx._source.usageRights = ctx._source.originalUsageRights;
        | }
     """.stripMargin
 

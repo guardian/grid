@@ -23,7 +23,9 @@ object Build extends Build {
     net.virtualvoid.sbt.graph.Plugin.graphSettings
 
   val lib = project("common-lib")
-    .libraryDependencies(awsDeps ++ elasticsearchDeps ++ playDeps ++ playWsDeps ++ scalazDeps ++ commonsIODeps ++ akkaAgentDeps ++ pandaDeps)
+    .libraryDependencies(awsDeps ++ elasticsearchDeps ++
+      playDeps ++ playWsDeps ++ scalazDeps ++ commonsIODeps ++ akkaAgentDeps ++
+      pandaDeps)
     .testDependencies(scalaCheckDeps ++ scalaTestDeps)
 
   val thrall = playProject("thrall")
@@ -34,7 +36,8 @@ object Build extends Build {
     .settings(includeAssetsSettings: _*)
 
   val mediaApi = playProject("media-api")
-    .libraryDependencies(elasticsearchDeps ++ awsDeps ++ scalazDeps ++ parsingDeps ++ uriTemplateDeps)
+    .libraryDependencies(elasticsearchDeps ++ awsDeps ++
+      scalazDeps ++ parsingDeps ++ uriTemplateDeps)
     .testDependencies(scalaTestDeps)
 
   val cropService = playProject("cropper")
