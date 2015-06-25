@@ -8,11 +8,11 @@ selectionService.factory('selectionService', ['$q', 'editsService', function ($q
     var selectedImages = new Set();
     var selectedMetadata = {};
     var selectedMetadataForDisplay = {};
-    var selectedCost, selectedLabels;
+    var selectedCosts, selectedLabels;
 
     function _group () {
         var metadata = {};
-        var cost = new Set();
+        var cost = [];
         var labels = [];
 
         var allFields = [];
@@ -20,7 +20,15 @@ selectionService.factory('selectionService', ['$q', 'editsService', function ($q
         selectedImages.forEach(img => {
             allFields = allFields.concat(Object.keys(img.data.metadata));
 
-            cost.add(img.data.cost);
+            var imgCost = img.data.cost;
+
+            var costIndex = cost.findIndex(x => x.data === imgCost);
+
+            if (costIndex === -1) {
+                cost.push({data: imgCost, count: 1});
+            } else {
+                cost[costIndex].count++;
+            }
 
             img.data.userMetadata.data.labels.data.forEach(label => {
                 var index = labels.findIndex(x => x.data === label.data);
@@ -94,9 +102,7 @@ selectionService.factory('selectionService', ['$q', 'editsService', function ($q
         selectedMetadata = selectedImageData.metadata;
         selectedMetadataForDisplay = displayMetadata;
 
-        selectedCost = selectedImageData.cost.size === 1 ?
-            selectedImageData.cost.values().next().value : 'mixed';
-
+        selectedCosts = selectedImageData.cost;
         selectedLabels = selectedImageData.labels;
     }
 
@@ -132,7 +138,7 @@ selectionService.factory('selectionService', ['$q', 'editsService', function ($q
         add,
         remove,
         canUserEdit,
-        getCost: () => selectedCost,
+        getCost: () => selectedCosts,
         getMetadata: () => selectedMetadata,
         getDisplayMetadata: () => selectedMetadataForDisplay,
         getLabels: () => selectedLabels,

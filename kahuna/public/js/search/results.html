@@ -54,13 +54,13 @@
                            ng:click="ctrl.toggleSelection(image, true)" />
                     <label for="{{image.data.id}}-result__select__checkbox--deselect"
                            class="result__select__checkbox__label">
-                        <i class="material-icons">check_box_outline_blank</i>
+                        <i class="material-icons">check_box</i>
                     </label>
                 </div>
 
                 <ui-preview-image image="image" selection-mode="ctrl.inSelectionMode()"
                     ng:class="{'preview__quick-select': ctrl.inSelectionMode()}"
-                    ng:click="ctrl.onImageClick(image)">
+                    ng:click="ctrl.onImageClick(image, $event)">
                     <button class="mark-as-seen image-action"
                             title="Mark all images until this point as seen"
                             ui:localstore="search.seenFrom"

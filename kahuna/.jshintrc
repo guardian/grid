@@ -12,7 +12,7 @@
                                 //   "double" : require double quotes
     "undef"         : true,     // true: Require all non-global variables to be declared (prevents global leaks)
     "unused"        : true,     // true: Require all defined variables be used
-    "maxdepth"      : 2,        // {int} Max depth of nested blocks (within functions)
+    "maxdepth"      : 3,        // {int} Max depth of nested blocks (within functions)
     "maxcomplexity" : 10,       // {int} Max cyclomatic complexity per function
     "maxlen"        : 100,      // {int} Max number of characters per line
 
