@@ -640,6 +640,10 @@ input.search-query__input {
     flex-basis: 0;
 }
 
+.costs .image-notice {
+    padding: 3px;
+}
+
 /* Hacky pointer to some element above */
 .validity--invalid--point-up {
     position: relative;
