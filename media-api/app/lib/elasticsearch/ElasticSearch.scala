@@ -141,7 +141,7 @@ object ElasticSearch extends ElasticSearchClient with SearchFilters with ImageFi
 
     search
       .executeAndLog("completion suggestion query")
-      .toMetric(searchQueries, List(searchTypeDimension("suggestion-completition")))(_.getTookInMillis)
+      .toMetric(searchQueries, List(searchTypeDimension("suggestion-completion")))(_.getTookInMillis)
       .map { response =>
         val options =
           response.getSuggest
