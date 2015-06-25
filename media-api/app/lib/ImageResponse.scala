@@ -131,12 +131,17 @@ object ImageResponse {
     (__ \ "userMetadata").writeNullable[Edits] ~
     (__ \ "metadata").write[ImageMetadata] ~
     (__ \ "originalMetadata").write[ImageMetadata] ~
-    (__ \ "usageRights").write[ImageUsageRights] ~
-    (__ \ "originalUsageRights").write[ImageUsageRights] ~
+    (__ \ "usageRights").write[ImageUsageRights].contramap(usageRightsWithDefaults) ~
+    (__ \ "originalUsageRights").write[ImageUsageRights].contramap(usageRightsWithDefaults) ~
     (__ \ "exports").write[List[Export]]
       .contramap((crops: List[Crop]) => crops.map(Export.fromCrop(_:Crop)))
 
   )(unlift(Image.unapply))
+
+  def usageRightsWithDefaults(usageRights: ImageUsageRights) = {
+    val defaultRestrictions = usageRights.category.flatMap(_.defaultRestrictions)
+    usageRights.copy(restrictions = usageRights.restrictions orElse defaultRestrictions)
+  }
 
   def fileMetadataEntity(id: String, expandFileMetaData: Boolean, fileMetadata: FileMetadata) = {
     val displayableMetadata = if(expandFileMetaData) Some(fileMetadata) else None
@@ -144,4 +149,3 @@ object ImageResponse {
     EmbeddedEntity[FileMetadata](fileMetaDataUri(id), displayableMetadata)
   }
 }
-

@@ -87,9 +87,11 @@ image.controller('ImageCtrl', [
         ctrl.updateMetadataField = function (field, value) {
             return editsService.updateMetadataField(image, field, value)
                 .then((updatedImage) => {
-                    ctrl.image = updatedImage;
-                    updateAbilities(updatedImage);
-                    track.success('Metadata edit', { field: field });
+                    if (updatedImage) {
+                        ctrl.image = updatedImage;
+                        updateAbilities(updatedImage);
+                        track.success('Metadata edit', { field: field });
+                    }
                 })
                 .catch(() => {
                     track.failure('Metadata edit', { field: field });

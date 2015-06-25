@@ -52,8 +52,10 @@ labeller.controller('LabellerCtrl',
     if (Boolean(this.withBatch)) {
         $scope.$on(batchApplyLabelsEvent, (e, labels) => this.addLabels(labels));
 
-        this.batchApplyLabels = () =>
-            $rootScope.$broadcast(batchApplyLabelsEvent, this.labels.data.map(label => label.data));
+        this.batchApplyLabels = () => {
+            const labels = this.image.data.userMetadata.data.labels;
+            $rootScope.$broadcast(batchApplyLabelsEvent, labels.data.map(label => label.data));
+        };
     }
 
 }]);
