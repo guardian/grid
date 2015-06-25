@@ -631,26 +631,14 @@ input.search-query__input {
     background-color: green;
 }
 
+.costs {
+    display: flex;
+}
+
 .costs li {
-    display: inline-block;
-    padding: 0;
-    margin: 0;
+    flex-grow: 1;
+    flex-basis: 0;
 }
-
-.costs li:first-child:nth-last-child(1) {
-    width: 100%;
-}
-
-.costs li:first-child:nth-last-child(2),
-.costs li:first-child:nth-last-child(2) ~ li {
-    width: 50%;
-}
-
-.costs li:first-child:nth-last-child(3),
-.costs li:first-child:nth-last-child(3) ~ li {
-    width: 33%;
-}
-
 
 /* Hacky pointer to some element above */
 .validity--invalid--point-up {
