@@ -597,11 +597,17 @@ input.search-query__input {
     cursor: pointer;
 }
 
-.result__select__checkbox__label .material-icons {
+.result__select .result__select__checkbox__label .material-icons {
     font-size: 25px;
+    color: white;
+}
+
+.result__select--selected .result__select__checkbox__label .material-icons {
+    color: #00adee;
 }
 
 .result:hover .result__select,
+.result:hover .preview__fade,
 .result__select--selected {
     display: initial;
 }
@@ -625,6 +631,18 @@ input.search-query__input {
     background-color: green;
 }
 
+.costs {
+    display: flex;
+}
+
+.costs li {
+    flex-grow: 1;
+    flex-basis: 0;
+}
+
+.costs .image-notice {
+    padding: 3px;
+}
 
 /* Hacky pointer to some element above */
 .validity--invalid--point-up {
@@ -753,6 +771,14 @@ FIXME: what to do with touch devices
     cursor: pointer;
 }
 
+.preview__fade {
+    width: 100%;
+    background: linear-gradient(to top, rgba(255, 255, 255, 0), rgba(160, 160, 160, 1));
+    height: 35px;
+    position: absolute;
+    display: none;
+}
+
 .bottom-bar {
     display: flex;
 }
@@ -792,6 +818,8 @@ FIXME: what to do with touch devices
     display: none;
     text-align: center;
     font-size: 1.2rem;
+    /* above preview__fade */
+    z-index: 1;
 }
 
 .image-action {
