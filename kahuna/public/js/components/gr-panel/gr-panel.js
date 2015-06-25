@@ -40,11 +40,11 @@ grPanel.controller('GrPanel', [
                 ctrl.userCanEdit = editable;
             });
 
-            ctrl.selectedCost = selection.getCost();
+            ctrl.selectedCosts = selection.getCost();
 
-            ctrl.showCosts = ctrl.selectedCost.length === 1 ?
-                ctrl.selectedCost[0].data !== 'free' :
-                ctrl.selectedCost.length > 1;
+            ctrl.showCosts = ctrl.selectedCosts.length === 1 ?
+            ctrl.selectedCosts[0].data !== 'free' :
+            ctrl.selectedCosts.length > 1;
 
             ctrl.selectedLabels = selection.getLabels();
         }));
