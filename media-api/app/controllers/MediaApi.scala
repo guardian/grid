@@ -56,6 +56,8 @@ object MediaApi extends Controller with ArgoHelpers {
     val indexLinks = List(
       Link("search",          searchLinkHref),
       Link("image",           s"$rootUri/images/{id}"),
+      // FIXME: credit is the only field availble for now as it's the only on
+      // that we are indexing as a completion suggestion
       Link("metadata-search", s"$rootUri/suggest/metadata/{field}{?q}"),
       Link("cropper",         cropperUri),
       Link("loader",          loaderUri),
