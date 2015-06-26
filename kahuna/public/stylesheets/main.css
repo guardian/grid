@@ -1212,14 +1212,6 @@ FIXME: what to do with touch devices
     display: none;
 }
 
-.labels--batch {
-    white-space: normal;
-}
-
-.labels--batch li {
-    display: inline-block;
-}
-
 .label {
     background-color: #00adee;
     color: white;
