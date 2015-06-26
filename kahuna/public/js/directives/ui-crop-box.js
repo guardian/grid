@@ -113,6 +113,10 @@ controlsDirectives.directive('uiCropBox', ['$timeout', '$parse', 'safeApply', 'n
 
             // Once initialised, sync all options to Jcrop
             function postInit() {
+                scope.$watch('coords', asFloat(function(aspectRatio) {
+                    jcropInstance.setSelect(coordsToSelectArray(scope.coords));
+                }));
+
                 scope.$watch('aspectRatio', asFloat(function(aspectRatio) {
                     jcropInstance.setOptions({aspectRatio: aspectRatio});
                 }));
