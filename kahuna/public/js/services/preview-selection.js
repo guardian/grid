@@ -51,9 +51,9 @@ selectionService.factory('selectionService', ['$q', 'editsService', function ($q
         });
 
         return {
-            metadata: metadata,
-            cost: cost,
-            labels: labels
+            metadata,
+            cost,
+            labels
         };
     }
 
@@ -79,11 +79,9 @@ selectionService.factory('selectionService', ['$q', 'editsService', function ($q
             }
         });
 
-        return {
-            metadata: metadata,
-            cost: grouped.cost,
-            labels: grouped.labels
-        };
+        grouped.metadata = metadata;
+
+        return grouped;
     }
 
     function update () {

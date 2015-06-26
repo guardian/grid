@@ -176,9 +176,9 @@
             </div>
         </div>
 
-        <div class="image-info__group">
+        <div class="image-info__group batch-label">
             <div class="metadata-line">labels</div>
-            <ul class="labels labels--batch">
+            <ul class="labels">
                 <li class="label"
                     ng:repeat="label in ctrl.selectedLabels | orderBy:'data'"
                     ng:class="{'label--partial': label.count < ctrl.selectedImages.size}">
