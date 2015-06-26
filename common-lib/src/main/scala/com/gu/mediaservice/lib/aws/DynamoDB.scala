@@ -159,7 +159,9 @@ class DynamoDB(credentials: AWSCredentials, region: Region, tableName: String) {
     jsonWithNullAsEmptyString(Json.parse(item.toJSON)).as[JsObject] - IdKey
 
   def asJsObject(outcome: UpdateItemOutcome): JsObject =
-    asJsObject(outcome.getItem)
+    // solve for null
+    Option(outcome.getItem) map asJsObject getOrElse Json.obj()
+
 
 
   // FIXME: Dynamo accepts `null`, but not `""`. This is a well documented issue
