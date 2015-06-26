@@ -53,20 +53,22 @@
     white-space: normal;
 }
 
-.batch-label .labels li {
+.batch-label .labels .label,
+.batch-label .labels .label__add {
     display: inline-block;
 }
 
-.batch-archive button {
+.batch-archive .batch-archive__archive,
+.batch-archive .batch-archive__unarchive {
     display: block;
     width: 100%;
     height: 35px;
     text-align: left;
     border: 1px solid #888;
     margin-bottom: 5px;
-
 }
 
-.batch-archive button:hover {
+.batch-archive .batch-archive__archive:hover,
+.batch-archive .batch-archive__unarchive:hover {
     color: gold;
 }
