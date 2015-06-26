@@ -3,10 +3,12 @@ import angular from 'angular';
 var crop = angular.module('kahuna.crop.controller', []);
 
 crop.controller('ImageCropCtrl',
-                ['$rootScope', '$stateParams', '$state', '$filter', 'mediaApi', 'mediaCropper',
+                ['$scope', '$rootScope', '$stateParams', '$state',
+                 '$filter', 'mediaApi', 'mediaCropper',
                  'image', 'optimisedImageUri',
-                 function($rootScope, $stateParams, $state, $filter, mediaApi, mediaCropper,
-                  image, optimisedImageUri) {
+                 function($scope, $rootScope, $stateParams, $state,
+                          $filter, mediaApi, mediaCropper,
+                          image, optimisedImageUri) {
 
     const ctrl = this;
 
@@ -33,6 +35,20 @@ crop.controller('ImageCropCtrl',
         x2: ctrl.originalWidth,
         y2: ctrl.originalHeight
     };
+
+    $scope.$watch('ctrl.aspect', (newAspect) => {
+        // freeRatio's 'null' gets converted to empty string somehow, meh
+        const isFreeRatio = newAspect === '';
+        if (isFreeRatio) {
+            ctrl.coords = {
+                x1: 0,
+                y1: 0,
+                // fill the image with the selection
+                x2: ctrl.originalWidth,
+                y2: ctrl.originalHeight
+            };
+        }
+    });
 
     var cropWidth = () => Math.round(ctrl.coords.x2 - ctrl.coords.x1);
     var cropHeight = () => Math.round(ctrl.coords.y2 - ctrl.coords.y1);

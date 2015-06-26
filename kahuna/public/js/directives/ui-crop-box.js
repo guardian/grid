@@ -62,12 +62,7 @@ controlsDirectives.directive('uiCropBox', ['$timeout', '$parse', 'safeApply', 'n
             element.on('load', () => delay(100).then(install));
 
             function install() {
-                var initialCoords = [
-                    scope.coords.x1, // x
-                    scope.coords.y1, // y
-                    scope.coords.x2, // x2
-                    scope.coords.y2  // y2
-                ];
+                var initialCoords = coordsToSelectArray(scope.coords);
 
                 var trueSize;
                 if (scope.originalWidth && scope.originalHeight) {
@@ -106,9 +101,22 @@ controlsDirectives.directive('uiCropBox', ['$timeout', '$parse', 'safeApply', 'n
                 });
             }
 
+            function coordsToSelectArray(coords) {
+                return [
+                    coords.x1, // x
+                    coords.y1, // y
+                    coords.x2, // x2
+                    coords.y2  // y2
+                ];
+            }
+
 
             // Once initialised, sync all options to Jcrop
             function postInit() {
+                scope.$watch('coords', function(coords) {
+                    jcropInstance.setSelect(coordsToSelectArray(coords));
+                });
+
                 scope.$watch('aspectRatio', asFloat(function(aspectRatio) {
                     jcropInstance.setOptions({aspectRatio: aspectRatio});
                 }));
