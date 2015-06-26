@@ -173,7 +173,11 @@ lazyTable.directive('guLazyTable', ['$window', 'observe$', 'subscribe$',
             // FIXME: buffer size?
 
             const offsetTop$ = viewportScrolled$.map(() => {
-                return Math.max(document.body.scrollTop - element[0].offsetTop, 0);
+                // For Chrome we need to read scrollTop on body, for
+                // other browser it's on the documentElement. Meh.
+                // https://miketaylr.com/posts/2014/11/document-body-scrollTop.html
+                const scrollTop = document.body.scrollTop || document.documentElement.scrollTop;
+                return Math.max(scrollTop - element[0].offsetTop, 0);
             }).shareReplay();
             // FIXME: buffer size?
 
