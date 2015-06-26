@@ -19,7 +19,10 @@
     <div class="gu-date-range__overlay search__overlay" ng:show="ctrl.showOverlay">
         <h2 class="gu-date-range__overlay__title search__overlay__title">Presets</h2>
         <div class="gu-date-range__overlay__presets">
-            <button class="gu-date-range__overlay__preset__button button" ng:repeat="presetDate in ctrl.guPresetDates" ng:click="setPresetDate(presetDate.value)">
+            <button type="button"
+                    class="gu-date-range__overlay__preset__button button"
+                    ng:repeat="presetDate in ctrl.guPresetDates"
+                    ng:click="setPresetDate(presetDate.value)">
                 {{presetDate.label}}
             </button>
         </div>
@@ -29,19 +32,35 @@
             <span class="gu-date-range__overlay__pikaday__wrapper">
                 <h2 class="gu-date-range__overlay__title search__overlay__title">From</h2>
                 <div class="gu-date-range__overlay__pikaday__container gu-date-range__overlay__pikaday--start"/>
-                <button class="gu-date-range__overlay__pikaday__clear button-shy" ng:click="clearStart()">Clear</button>
+                <button type="button"
+                        class="gu-date-range__overlay__pikaday__clear button-shy"
+                        ng:click="clearStart()">
+                    Clear
+                </button>
             </span>
 
             <span class="gu-date-range__overlay__pikaday__wrapper">
                 <h2 class="gu-date-range__overlay__title search__overlay__title">To</h2>
                 <div class="gu-date-range__overlay__pikaday__container gu-date-range__overlay__pikaday--end"/>
-                <button class="gu-date-range__overlay__pikaday__clear button-shy" ng:click="clearEnd()">Clear</button>
+                <button type="button"
+                        class="gu-date-range__overlay__pikaday__clear button-shy"
+                        ng:click="clearEnd()">
+                    Clear
+                </button>
             </span>
         </div>
 
         <div class="gu-date-range__overlay__buttons">
-            <button class="gu-date-range__overlay__button__cancel button-shy" ng:click="cancel()">Cancel</button>
-            <button class="gu-date-range__overlay__button__ok button" ng:click="save()">Filter</button>
+            <button type="button"
+                    class="gu-date-range__overlay__button__cancel button-shy"
+                    ng:click="cancel()">
+                Cancel
+            </button>
+            <button type="button"
+                    class="gu-date-range__overlay__button__ok button"
+                    ng:click="save()">
+                Filter
+            </button>
         </div>
     </div>
 
