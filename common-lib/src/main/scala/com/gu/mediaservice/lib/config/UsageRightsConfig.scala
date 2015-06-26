@@ -10,7 +10,8 @@ object UsageRightsConfig {
     Some(PrImage)         -> Conditional,
     Some(GuardianWitness) -> Conditional,
     Some(SocialMedia)     -> Conditional,
-    Some(Obituary)        -> Conditional
+    Some(Obituary)        -> Conditional,
+    Some(Pool)            -> Conditional
   )
 
 }
