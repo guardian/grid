@@ -3,11 +3,13 @@ import angular from 'angular';
 import './gr-panel.css!';
 import '../../services/preview-selection';
 import '../../services/label';
+import '../../services/archive';
 import '../../edits/service';
 
 export var grPanel = angular.module('grPanel', [
     'kahuna.services.selection',
     'kahuna.services.label',
+    'kahuna.services.archive',
     'kahuna.edits.service'
 ]);
 
@@ -16,6 +18,7 @@ grPanel.controller('GrPanel', [
     '$window',
     'selectionService',
     'labelService',
+    'archiveService',
     'editsService',
     'onValChange',
     function (
@@ -23,6 +26,7 @@ grPanel.controller('GrPanel', [
         $window,
         selection,
         labelService,
+        archiveService,
         editsService,
         onValChange) {
 
@@ -71,5 +75,16 @@ grPanel.controller('GrPanel', [
                 ctrl.addLabel(label);
             }
         };
+
+        ctrl.archive = () => {
+            var imageArray = Array.from(ctrl.selectedImages);
+            archiveService.batchArchive(imageArray);
+        };
+
+        ctrl.unarchive = () => {
+            var imageArray = Array.from(ctrl.selectedImages);
+            archiveService.batchUnarchive(imageArray);
+        };
+
     }
 ]);
