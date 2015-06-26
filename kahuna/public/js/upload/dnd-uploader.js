@@ -87,6 +87,9 @@ dndUploader.controller('DndUploaderCtrl',
  */
 dndUploader.directive('dndUploader', ['$window', 'delay', 'safeApply',
                        function($window, delay, safeApply) {
+
+    const gridImageMimeType = 'application/vnd.mediaservice.image+json';
+
     return {
         restrict: 'E',
         controller: 'DndUploaderCtrl',
@@ -108,15 +111,24 @@ dndUploader.directive('dndUploader', ['$window', 'delay', 'safeApply',
 
             scope.$on('$destroy', clean);
 
+            function isDraggingFromGrid(event) {
+                const dataTransfer = event.originalEvent.dataTransfer;
+                return dataTransfer.types.indexOf(gridImageMimeType) !== -1;
+            }
+
             function over(event) {
-                dragging = true;
+                if (! isDraggingFromGrid(event)) {
+                    dragging = true;
+                }
                 // The dragover `preventDefault` is to allow for dropping
                 event.preventDefault();
             }
 
-            function enter() {
-                dragging = true;
-                activate();
+            function enter(event) {
+                if (! isDraggingFromGrid(event)) {
+                    dragging = true;
+                    activate();
+                }
             }
 
             function leave() {
@@ -135,7 +147,9 @@ dndUploader.directive('dndUploader', ['$window', 'delay', 'safeApply',
 
                 event.preventDefault();
 
-                if (files.length > 0) {
+                if (isDraggingFromGrid(event)) {
+                    // noop - probably didn't mean to drop on Grid too
+                } else if (files.length > 0) {
                     ctrl.uploadFiles(files);
                 } else if (ctrl.isWitnessUri(uri)) {
                     ctrl.importing = true;
