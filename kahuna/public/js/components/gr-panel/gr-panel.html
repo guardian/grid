@@ -194,7 +194,7 @@
                         <i class="material-icons">close</i>
                     </button>
                 </li>
-                <li>
+                <li class="label__add">
                     <button class="button-shy" title="Add Label" ng:click="ctrl.newLabel()">
                         Add
                     </button>
@@ -203,10 +203,10 @@
         </div>
 
         <div class="image-info__group batch-archive">
-            <button ng:click="ctrl.archive()">
+            <button class="batch-archive__archive" ng:click="ctrl.archive()">
                 <i class="material-icons">star</i> archive all
             </button>
-            <button ng:click="ctrl.unarchive()">
+            <button class="batch-archive__unarchive" ng:click="ctrl.unarchive()">
                 <i class="material-icons">star_border</i> unarchive all
             </button>
         </div>
