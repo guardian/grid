@@ -56,7 +56,9 @@ object MediaApi extends Controller with ArgoHelpers {
     val indexLinks = List(
       Link("search",          searchLinkHref),
       Link("image",           s"$rootUri/images/{id}"),
-      Link("metadata-search", s"$rootUri/images/metadata/{field}{?q}"),
+      // FIXME: credit is the only field availble for now as it's the only on
+      // that we are indexing as a completion suggestion
+      Link("metadata-search", s"$rootUri/suggest/metadata/{field}{?q}"),
       Link("cropper",         cropperUri),
       Link("loader",          loaderUri),
       Link("edits",           metadataUri),
@@ -225,7 +227,7 @@ object MediaApi extends Controller with ArgoHelpers {
   def suggestMetadataCredit(q: Option[String], size: Option[Int]) = Authenticated.async { request =>
     ElasticSearch
       .completionSuggestion("suggestMetadataCredit", q.getOrElse(""), size.getOrElse(10))
-      .map(c => respond(c.results))
+      .map(c => respondCollection(c.results))
   }
 
   // TODO: work with analysed fields
