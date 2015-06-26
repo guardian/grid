@@ -103,6 +103,9 @@ guDateRange.directive('guDateRange', [function () {
                 pikaStart.show();
             });
 
+            $scope.$watch('ctrl.guStartDate', resetView);
+            $scope.$watch('ctrl.guEndDate',   resetView);
+
             $scope.$on('$destroy', function() {
                 pikaStart.destroy();
                 pikaEnd.destroy();
