@@ -103,19 +103,19 @@ controlsDirectives.directive('uiCropBox', ['$timeout', '$parse', 'safeApply', 'n
 
             function coordsToSelectArray(coords) {
                 return [
-                    scope.coords.x1, // x
-                    scope.coords.y1, // y
-                    scope.coords.x2, // x2
-                    scope.coords.y2  // y2
+                    coords.x1, // x
+                    coords.y1, // y
+                    coords.x2, // x2
+                    coords.y2  // y2
                 ];
             }
 
 
             // Once initialised, sync all options to Jcrop
             function postInit() {
-                scope.$watch('coords', asFloat(function(aspectRatio) {
-                    jcropInstance.setSelect(coordsToSelectArray(scope.coords));
-                }));
+                scope.$watch('coords', function(coords) {
+                    jcropInstance.setSelect(coordsToSelectArray(coords));
+                });
 
                 scope.$watch('aspectRatio', asFloat(function(aspectRatio) {
                     jcropInstance.setOptions({aspectRatio: aspectRatio});
