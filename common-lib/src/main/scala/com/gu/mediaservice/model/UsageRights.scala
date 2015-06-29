@@ -7,26 +7,14 @@ import play.api.libs.json._
 // TODO: deprecate cost here and infer from category
 case class UsageRights(
   category: Option[UsageRightsCategory],
-  restrictions: Option[String]
+  restrictions: Option[String],
+  photographer: Option[String]
 )
 
-// FIXME: Deprecate cost as this will be assumed from the category. This will
-// more that likely be done when merging with ImageUsageRights
 object UsageRights {
+  implicit val UsageRightsReads: Reads[UsageRights] = Json.reads[UsageRights]
 
-
-
-  implicit val UsageRightsReads: Reads[UsageRights] = (
-    (__ \ "category").readNullable[UsageRightsCategory]  ~
-    (__ \ "restrictions").readNullable[String]
-  )(UsageRights.apply _)
-
-  // Annoyingly there doesn't seem to be a way to create a `JsString` with the
-  // Json writers, so we have to do this manually
-  implicit val UsageRightsWrites: Writes[UsageRights] = (
-    (__ \ "category").writeNullable[UsageRightsCategory] ~
-    (__ \ "restrictions").writeNullable[String]
-  )(unlift(UsageRights.unapply))
+  implicit val UsageRightsWrites: Writes[UsageRights] = Json.writes[UsageRights]
 }
 
 sealed trait Cost
