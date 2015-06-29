@@ -3,11 +3,13 @@ import angular from 'angular';
 import './gr-panel.css!';
 import '../../services/preview-selection';
 import '../../services/label';
+import '../../services/archive';
 import '../../edits/service';
 
 export var grPanel = angular.module('grPanel', [
     'kahuna.services.selection',
     'kahuna.services.label',
+    'kahuna.services.archive',
     'kahuna.edits.service'
 ]);
 
@@ -16,6 +18,7 @@ grPanel.controller('GrPanel', [
     '$window',
     'selectionService',
     'labelService',
+    'archiveService',
     'editsService',
     'onValChange',
     function (
@@ -23,6 +26,7 @@ grPanel.controller('GrPanel', [
         $window,
         selection,
         labelService,
+        archiveService,
         editsService,
         onValChange) {
 
@@ -47,6 +51,23 @@ grPanel.controller('GrPanel', [
                 ctrl.selectedCosts.length > 1;
 
             ctrl.selectedLabels = selection.getLabels();
+
+            ctrl.archivedCount = selection.getArchivedCount();
+
+            switch (ctrl.archivedCount) {
+                case 0: {
+                    ctrl.archivedState = 'unarchived';
+                    break;
+                }
+                case ctrl.selectedImages.size: {
+                    ctrl.archivedState = 'archived';
+                    break;
+                }
+                default: {
+                    ctrl.archivedState = 'mixed';
+                    break;
+                }
+            }
         }));
 
         ctrl.updateMetadataField = function (field, value) {
@@ -70,6 +91,24 @@ grPanel.controller('GrPanel', [
             if (label) {
                 ctrl.addLabel(label);
             }
+        };
+
+        ctrl.archive = () => {
+            ctrl.archiving = true;
+            var imageArray = Array.from(ctrl.selectedImages);
+            archiveService.batchArchive(imageArray)
+                .then(() => {
+                    ctrl.archiving = false;
+                });
+        };
+
+        ctrl.unarchive = () => {
+            ctrl.archiving = true;
+            var imageArray = Array.from(ctrl.selectedImages);
+            archiveService.batchUnarchive(imageArray)
+                .then(() => {
+                    ctrl.archiving = false;
+                });
         };
     }
 ]);

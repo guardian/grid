@@ -176,9 +176,9 @@
             </div>
         </div>
 
-        <div class="image-info__group">
+        <div class="image-info__group batch-label">
             <div class="metadata-line">labels</div>
-            <ul class="labels labels--batch">
+            <ul class="labels">
                 <li class="label"
                     ng:repeat="label in ctrl.selectedLabels | orderBy:'data'"
                     ng:class="{'label--partial': label.count < ctrl.selectedImages.size}">
@@ -194,12 +194,55 @@
                         <i class="material-icons">close</i>
                     </button>
                 </li>
-                <li>
+                <li class="label__add">
                     <button class="button-shy" title="Add Label" ng:click="ctrl.newLabel()">
                         Add
                     </button>
                 </li>
             </ul>
+        </div>
+
+        <div class="image-info__group batch-archive" ng:switch="ctrl.archivedState"
+            ng:class="{'batch-archive--archiving': ctrl.archiving}">
+            <div ng:switch-when="mixed" class="batch-archive--mixed">
+                <div class="metadata-line">
+                    <i class="material-icons">star_half</i>
+                    <span ng:if="!ctrl.archiving">{{ctrl.archivedCount}} archived</span>
+                    <span ng:if="ctrl.archiving">saving...</span>
+                </div>
+                <span class="batch-archive__action" ng:if="!ctrl.archiving">
+                    <button class="button-shy batch-archive__archive" ng:click="ctrl.archive()">
+                        <i class="material-icons">star</i> all
+                    </button>
+                    <button class="button-shy batch-archive__unarchive" ng:click="ctrl.unarchive()">
+                        <i class="material-icons">star_border</i> none
+                    </button>
+                </span>
+            </div>
+            <div ng:switch-when="archived" class="batch-archive--all-archived">
+                <div class="metadata-line">
+                    <i class="material-icons">star</i>
+                    <span ng:if="!ctrl.archiving">all archived</span>
+                    <span ng:if="ctrl.archiving">saving...</span>
+                </div>
+                <span class="batch-archive__action" ng:if="!ctrl.archiving">
+                    <button class="button-shy batch-archive__unarchive" ng:click="ctrl.unarchive()">
+                        <i class="material-icons">star_border</i> unarchive all
+                    </button>
+                </span>
+            </div>
+            <div ng:switch-when="unarchived" class="batch-archive--all-unarchived">
+                <div class="metadata-line">
+                    <i class="material-icons">star_border</i>
+                    <span ng:if="!ctrl.archiving">all unarchived</span>
+                    <span ng:if="ctrl.archiving">saving...</span>
+                </div>
+                <span class="batch-archive__action" ng:if="!ctrl.archiving">
+                    <button class="button-shy batch-archive__archive" ng:click="ctrl.archive()">
+                        <i class="material-icons">star</i> archive all
+                    </button>
+                </span>
+            </div>
         </div>
     </div>
 
