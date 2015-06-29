@@ -91,17 +91,40 @@ lazyTable.controller('GuLazyTableCtrl', [function() {
         const viewHeight$ = mult$(rows$, cellHeight$);
 
         // Mutations needed here to access streams in this closure ;_;
-        ctrl.getCellPosition$ = function(item) {
+
+        // Share subscriptions to these streams between all cells that
+        // register to getCellPosition$
+        ctrl.getCellPosition$ = createGetCellPosition$({
+            items$:          items$.shareReplay(1),
+            cellWidth$:      cellWidth$.shareReplay(1),
+            cellHeight$:     cellHeight$.shareReplay(1),
+            columns$:        columns$.shareReplay(1),
+            preloadedRows$:  preloadedRows$.shareReplay(1),
+            viewportTop$:    viewportTop$.shareReplay(1),
+            viewportBottom$: viewportBottom$.shareReplay(1)
+        });
+
+        return {
+            viewHeight$, rangeToLoad$
+        };
+    };
+
+
+    function createGetCellPosition$({items$, cellWidth$, cellHeight$, columns$,
+                                     preloadedRows$, viewportTop$, viewportBottom$}) {
+
+        const width$  = cellWidth$;
+        const height$ = cellHeight$;
+        const loadedHeight$ = mult$(preloadedRows$, height$);
+
+        return (item) => {
             // share() because it's an expensive operation
             const index$  = items$.map(items => items.indexOf(item)).share();
 
-            const width$  = cellWidth$;
-            const height$ = cellHeight$;
             const top$    = mult$(floor$(div$(index$, columns$)), height$);
             const left$   = mult$(mod$(index$, columns$), width$);
 
             const bottom$ = add$(top$, height$);
-            const loadedHeight$ = mult$(preloadedRows$, height$);
             const display$ = combine$(top$, bottom$, loadedHeight$,
                                       viewportTop$, viewportBottom$,
                                       (top, bottom, loadedHeight,
@@ -117,11 +140,8 @@ lazyTable.controller('GuLazyTableCtrl', [function() {
                 return ({top, left, width, height, display});
             });
         };
+    }
 
-        return {
-            viewHeight$, rangeToLoad$
-        };
-    };
 }]);
 
 
@@ -170,8 +190,7 @@ lazyTable.directive('guLazyTable', ['$window', 'observe$', 'subscribe$',
                 viewportResized$,
                 elementResized$,
                 () => element[0].clientWidth
-            ).shareReplay();
-            // FIXME: buffer size?
+            ).shareReplay(1);
 
             const offsetTop$ = viewportScrolled$.map(() => {
                 // For Chrome we need to read scrollTop on body, for
@@ -179,13 +198,11 @@ lazyTable.directive('guLazyTable', ['$window', 'observe$', 'subscribe$',
                 // https://miketaylr.com/posts/2014/11/document-body-scrollTop.html
                 const scrollTop = document.body.scrollTop || document.documentElement.scrollTop;
                 return Math.max(scrollTop - element[0].offsetTop, 0);
-            }).shareReplay();
-            // FIXME: buffer size?
+            }).shareReplay(1);
 
             const offsetHeight$ = combine$(viewportScrolled$, viewportResized$, () => {
                 return Math.max(document.documentElement.clientHeight - element[0].offsetTop, 0);
-            }).shareReplay();
-            // FIXME: buffer size?
+            }).shareReplay(1);
 
             const viewportTop$    = offsetTop$;
             const viewportBottom$ = add$(offsetTop$, offsetHeight$);
