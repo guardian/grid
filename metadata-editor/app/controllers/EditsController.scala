@@ -21,7 +21,6 @@ import lib._
 import com.gu.mediaservice.lib.argo._
 import com.gu.mediaservice.lib.argo.model._
 
-import scala.util.{Success, Failure, Try}
 import scalaz.Validation
 import scalaz.syntax.validation._
 
