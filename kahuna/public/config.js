@@ -26,6 +26,9 @@ System.config({
     "pandular": "npm:pandular@0.1.5",
     "pikaday": "github:dbushell/Pikaday@1.3.2",
     "raven-js": "github:getsentry/raven-js@1.1.18",
+    "rx": "npm:rx@2.5.3",
+    "rx-angular": "npm:rx-angular@0.0.14",
+    "rx-dom": "npm:rx-dom@6.0.0",
     "text": "github:systemjs/plugin-text@0.0.2",
     "theseus": "npm:theseus@0.4.0",
     "theseus-angular": "npm:theseus-angular@0.3.0",
@@ -172,6 +175,16 @@ System.config({
       "stream-browserify": "npm:stream-browserify@1.0.0",
       "string_decoder": "npm:string_decoder@0.10.31",
       "util": "github:jspm/nodelibs-util@0.1.0"
+    },
+    "npm:rx-angular@0.0.14": {
+      "rx": "npm:rx@2.5.3"
+    },
+    "npm:rx-dom@6.0.0": {
+      "process": "github:jspm/nodelibs-process@0.1.1",
+      "rx": "npm:rx@2.5.3"
+    },
+    "npm:rx@2.5.3": {
+      "process": "github:jspm/nodelibs-process@0.1.1"
     },
     "npm:source-map@0.4.2": {
       "amdefine": "npm:amdefine@0.1.0",
