@@ -1,5 +1,6 @@
 package com.gu.mediaservice.model
 
+import com.gu.mediaservice.lib.config.UsageRightsConfig
 import play.api.libs.functional.syntax._
 import play.api.libs.json._
 
@@ -12,6 +13,9 @@ case class UsageRights(
 // FIXME: Deprecate cost as this will be assumed from the category. This will
 // more that likely be done when merging with ImageUsageRights
 object UsageRights {
+
+
+
   implicit val UsageRightsReads: Reads[UsageRights] = (
     (__ \ "category").readNullable[UsageRightsCategory]  ~
     (__ \ "restrictions").readNullable[String]
@@ -54,12 +58,21 @@ sealed trait UsageRightsCategory {
   val defaultRestrictions: Option[String] = None
 }
 object UsageRightsCategory {
+
+  def getCost(cat: UsageRightsCategory): Option[Cost] =
+    UsageRightsConfig.categoryCosts.get(Some(cat))
+
+  def getRequirements(cat: UsageRightsCategory): List[UsageRightsRequirement] = {
+    getCost(cat) match {
+      case Some(Conditional) => List(RestrictionsRequirement)
+      case _ => List()
+    }
+  }
+
   private val usageRightsCategories =
     Vector(Agency, PrImage, Handout, Screengrab, GuardianWitness, SocialMedia, Obituary)
 
   def fromString(category: String): UsageRightsCategory = {
-
-
     // I think as we move forward we can find out what the more intelligent and
     // correct default here. This feels better that reverting to `None` though as
     // it's required by `UsageRights`.
@@ -73,6 +86,27 @@ object UsageRightsCategory {
 
     implicit val UsageRightsCategoryWrites: Writes[UsageRightsCategory] =
       Writes[UsageRightsCategory](cat => JsString(cat.toString))
+}
+
+sealed trait UsageRightsRequirement {
+  val value: String
+  val name: String
+  val `type`: String
+}
+
+object UsageRightsRequirement {
+  implicit val jsonWrites: Writes[UsageRightsRequirement] = (
+    (__ \ "value").write[String] ~
+    (__ \ "name").write[String] ~
+    (__ \ "type").write[String]
+  )(u => (u.value, u.name, u.`type`))
+}
+
+case object RestrictionsRequirement
+  extends UsageRightsRequirement {
+  val value = "restrictions"
+  val name = "Restrictions"
+  val `type` = "textarea"
 }
 
 
@@ -138,4 +172,11 @@ case object Obituary
     val description =
       "Acquired from private sources, e.g. family members, for the purposes of " +
       "obituaries."
+  }
+
+case object StaffPhotographer
+  extends UsageRightsCategory {
+    override def toString = "staff-photographer"
+    val description =
+      "Pictures created by photographers who are or were members of staff."
   }

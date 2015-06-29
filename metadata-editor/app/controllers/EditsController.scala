@@ -267,13 +267,18 @@ object EditsValidator {
     // Look to see if we have Some(" ") or equivalent, remove it, and return the
     // cleaned usageRights, or error on having no restrictions when required
     val cleanUsageRights = usageRights.copy(restrictions = emptyOptStringToNone(usageRights.restrictions))
-    val missingRestriction = cost.contains(Conditional) && cleanUsageRights.restrictions.isEmpty && usageRights.category.flatMap(_.defaultRestrictions).isEmpty
+    val missingRestriction = missingRestrictions(cleanUsageRights)
 
     if (missingRestriction) {
       EditsValidationError("invalid-form-data", s"${usageRights.category} must have restrictions set").fail
     } else {
       cleanUsageRights.success
     }
+  }
+
+  def missingRestrictions(usageRights: UsageRights): Boolean = {
+    val cost = UsageRightsConfig.categoryCosts.get(usageRights.category)
+    cost.contains(Conditional) && usageRights.restrictions.isEmpty && usageRights.category.flatMap(_.defaultRestrictions).isEmpty
   }
 
   private def emptyOptStringToNone(s: Option[String]) =
