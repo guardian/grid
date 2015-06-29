@@ -19,14 +19,18 @@ lazyTableCell.directive('guLazyTableCell',
             const position$ = ctrl.getCellPosition$(item);
             subscribe$(scope, position$,
                        ({top, left, width, height, display}) => {
-                scope.guLazyTableCellVisible = display === 'block';
-                element.css({
-                    position: 'absolute',
-                    top:    top    + 'px',
-                    left:   left   + 'px',
-                    width:  width  + 'px',
-                    height: height + 'px',
-                    display: display
+                // use applyAsync rather than rx.safeApply to batch
+                // all cell's updates together
+                scope.$applyAsync(() => {
+                    scope.guLazyTableCellVisible = display === 'block';
+                    element.css({
+                        position: 'absolute',
+                        top:    top    + 'px',
+                        left:   left   + 'px',
+                        width:  width  + 'px',
+                        height: height + 'px',
+                        display: display
+                    });
                 });
             });
         }

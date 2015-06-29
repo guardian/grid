@@ -223,7 +223,11 @@ lazyTable.directive('guLazyTable', ['$window', 'observe$',
             });
 
             subscribe$(scope, viewHeight$.distinctUntilChanged(), viewHeight => {
-                element.css('height', viewHeight + 'px');
+                // Delay application until after this cycle, possibly
+                // with other cell rendering updates
+                scope.$applyAsync(() => {
+                    element.css('height', viewHeight + 'px');
+                });
             });
         }
     };
