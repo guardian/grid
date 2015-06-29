@@ -46,7 +46,9 @@ query.controller('SearchQueryCtrl',
         ctrl.filter[key] = $stateParams[key];
 
         $scope.$watch(() => $stateParams[key], onValChange(newVal => {
-            ctrl[key] = valOrUndefined(newVal);
+            // FIXME: broken for 'your uploads'
+            // FIXME: + they triggers filter $watch and $state.go (breaks history)
+            ctrl.filter[key] = valOrUndefined(newVal);
         }));
     }
 
