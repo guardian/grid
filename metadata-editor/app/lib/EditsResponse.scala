@@ -14,7 +14,7 @@ object EditsResponse {
   type ArchivedEntity = EmbeddedEntity[Boolean]
   type SetEntity = EmbeddedEntity[Seq[EmbeddedEntity[String]]]
   type MetadataEntity = EmbeddedEntity[ImageMetadata]
-  type UsageRightsEntity = EmbeddedEntity[UsageRights]
+  type UsageRightssEntity = EmbeddedEntity[UsageRights]
 
   val metadataBaseUri = Config.services.metadataBaseUri
 
@@ -23,7 +23,7 @@ object EditsResponse {
       (__ \ "archived").write[ArchivedEntity].contramap(archivedEntity(id, _: Boolean)) ~
       (__ \ "labels").write[SetEntity].contramap(setEntity(id, "labels", _: List[String])) ~
       (__ \ "metadata").writeNullable[MetadataEntity].contramap(metadataEntity(id, _: ImageMetadata)) ~
-      (__ \ "usageRights").writeNullable[UsageRightsEntity].contramap(usageRightsEntity(id, _: Option[UsageRights]))
+      (__ \ "usageRights").writeNullable[UsageRightssEntity].contramap(usageRightsEntity(id, _: Option[UsageRights]))
     )(unlift(Edits.unapply))
 
   def archivedEntity(id: String, a: Boolean): ArchivedEntity =
@@ -32,7 +32,7 @@ object EditsResponse {
   def metadataEntity(id: String, m: ImageMetadata): Option[MetadataEntity] =
     Edits.noneIfEmptyMetadata(m).map(i => EmbeddedEntity(entityUri(id, "/metadata"), Some(i)))
 
-  def usageRightsEntity(id: String, u: Option[UsageRights]): Option[UsageRightsEntity] =
+  def usageRightsEntity(id: String, u: Option[UsageRights]): Option[UsageRightssEntity] =
     u.map(i => EmbeddedEntity(entityUri(id, "/usage-rights"), Some(i)))
 
   def setEntity(id: String, setName: String, labels: List[String]): SetEntity =

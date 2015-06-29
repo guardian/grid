@@ -77,13 +77,19 @@ object Mappings {
     "category" -> nonAnalyzedString,
     "supplier" -> nonAnalyzedString,
     "suppliersCollection" -> nonAnalyzedString,
-    "restrictions" -> standardAnalysedString
+    "restrictions" -> standardAnalysedString,
+    "photographer" -> standardAnalysedString,
+    "publication" -> standardAnalysedString
   )
 
   val userMetadataUsageRightsMapping = nonDynamicObj(
     "cost" -> nonAnalyzedString,
     "category" -> nonAnalyzedString,
-    "restrictions" -> standardAnalysedString
+    "supplier" -> nonAnalyzedString,
+    "suppliersCollection" -> nonAnalyzedString,
+    "restrictions" -> standardAnalysedString,
+    "photographer" -> standardAnalysedString,
+    "publication" -> standardAnalysedString
   )
 
 

@@ -5,8 +5,7 @@ import java.net.URI
 import java.net.URLDecoder.decode
 
 import com.gu.mediaservice.lib.argo.ArgoHelpers
-import com.gu.mediaservice.lib.config.UsageRightsConfig
-import com.gu.mediaservice.model.{Conditional, UsageRights, ImageMetadata, Edits}
+import com.gu.mediaservice.model._
 
 import scala.concurrent.Future
 
@@ -21,8 +20,7 @@ import lib._
 import com.gu.mediaservice.lib.argo._
 import com.gu.mediaservice.lib.argo.model._
 
-import scala.util.{Success, Failure, Try}
-import scalaz.Validation
+import scalaz.ValidationNel
 import scalaz.syntax.validation._
 
 
@@ -59,7 +57,7 @@ object EditsController extends Controller with ArgoHelpers {
   // TODO: Think about calling this `overrides` or something that isn't metadata
   def getAllMetadata(id: String) = Authenticated.async {
     dynamo.get(id) map { dynamoEntry =>
-
+      println(dynamoEntry)
       val edits = dynamoEntry.as[Edits]
 
       // We have to do the to JSON here as we are using a custom JSON writes.
@@ -153,25 +151,21 @@ object EditsController extends Controller with ArgoHelpers {
   }
 
   def setUsageRights(id: String) = Authenticated.async(parse.json) { req =>
-
-    bindFromRequest[UsageRights](req.body).flatMap(EditsValidator(_)).fold(
-      e => Future.successful(respondError(BadRequest, e.key, e.message)),
-
-      usageRights =>
-        dynamo.jsonAdd(id, "usageRights", caseClassToMap(usageRights))
-          .map(publish(id))
-          .map(edits => respond(usageRights))
-    )
+    (req.body \ "data").asOpt[UsageRights].map(usageRight => {
+      dynamo.jsonAdd(id, "usageRights", caseClassToMap(usageRight))
+        .map(publish(id))
+        .map(edits => respond(usageRight))
+    }).getOrElse(Future.successful(respondError(BadRequest, "invalid-form-data", "Invalid form data")))
   }
 
   def deleteUsageRights(id: String) = Authenticated.async { req =>
     dynamo.removeKey(id, "usageRights").map(publish(id)).map(edits => Accepted)
   }
 
-  def bindFromRequest[T](json: JsValue)(implicit fjs: Reads[T]): Validation[EditsValidationError, T] =
+  def bindFromRequest[T](json: JsValue)(implicit fjs: Reads[T]): ValidationNel[EditsValidationError, T] =
     (json \ "data").asOpt[T]
-      .map(_.success)
-      .getOrElse(EditsValidationError("unrecognised-form-data", "Unrecognised form data").fail)
+      .map(_.successNel)
+      .getOrElse(EditsValidationError("unrecognised-form-data", "Unrecognised form data").failNel)
 
   // TODO: Move this to the dynamo lib
   def caseClassToMap[T](caseClass: T)(implicit tjs: Writes[T]): Map[String, String] =
@@ -190,6 +184,7 @@ object EditsController extends Controller with ArgoHelpers {
     )
 
     Notifications.publish(message, "update-image-user-metadata")
+    println(message)
 
     metadata.as[Edits]
   }
@@ -258,24 +253,3 @@ object EditsController extends Controller with ArgoHelpers {
 }
 
 case class EditsValidationError(key: String, message: String) extends Throwable
-
-object EditsValidator {
-
-  def apply(usageRights: UsageRights): Validation[EditsValidationError, UsageRights] = {
-    val cost = UsageRightsConfig.categoryCosts.get(usageRights.category)
-
-    // Look to see if we have Some(" ") or equivalent, remove it, and return the
-    // cleaned usageRights, or error on having no restrictions when required
-    val cleanUsageRights = usageRights.copy(restrictions = emptyOptStringToNone(usageRights.restrictions))
-    val missingRestriction = cost.contains(Conditional) && cleanUsageRights.restrictions.isEmpty && usageRights.category.flatMap(_.defaultRestrictions).isEmpty
-
-    if (missingRestriction) {
-      EditsValidationError("invalid-form-data", s"${usageRights.category} must have restrictions set").fail
-    } else {
-      cleanUsageRights.success
-    }
-  }
-
-  private def emptyOptStringToNone(s: Option[String]) =
-    s.map(_.trim).filterNot(_.isEmpty)
-}
