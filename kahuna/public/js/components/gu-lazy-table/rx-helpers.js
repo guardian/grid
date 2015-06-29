@@ -18,7 +18,9 @@ rxHelpers.factory('observe$', ['observeOnScope', function(observeOnScope) {
     };
 }]);
 
-rxHelpers.factory('observeCollection$', ['observeCollectionOnScope', function(observeCollectionOnScope) {
+rxHelpers.factory('observeCollection$',
+                  ['observeCollectionOnScope',
+                   function(observeCollectionOnScope) {
     return function observeCollection$(scope, watchExpression) {
         return observeCollectionOnScope(scope, watchExpression).
             map(({newValue}) => newValue);
