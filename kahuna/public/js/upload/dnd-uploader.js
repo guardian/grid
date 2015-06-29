@@ -117,9 +117,7 @@ dndUploader.directive('dndUploader', ['$window', 'delay', 'safeApply',
             }
 
             function over(event) {
-                if (! isDraggingFromGrid(event)) {
-                    dragging = true;
-                }
+                dragging = ! isDraggingFromGrid(event);
                 // The dragover `preventDefault` is to allow for dropping
                 event.preventDefault();
             }
