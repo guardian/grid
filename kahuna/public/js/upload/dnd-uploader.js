@@ -145,9 +145,14 @@ dndUploader.directive('dndUploader', ['$window', 'delay', 'safeApply',
 
                 event.preventDefault();
 
-                if (isDraggingFromGrid(event)) {
-                    // noop - probably didn't mean to drop on Grid too
-                } else if (files.length > 0) {
+                if (! isDraggingFromGrid(event)) {
+                    performDropAction(files, uri);
+                }
+                scope.$apply(deactivate);
+            }
+
+            function performDropAction(files, uri) {
+                if (files.length > 0) {
                     ctrl.uploadFiles(files);
                 } else if (ctrl.isWitnessUri(uri)) {
                     ctrl.importing = true;
@@ -158,7 +163,6 @@ dndUploader.directive('dndUploader', ['$window', 'delay', 'safeApply',
                     $window.alert('You must drop valid files or ' +
                                   'GuardianWitness URLs to upload them');
                 }
-                scope.$apply(deactivate);
             }
 
             function clean() {
