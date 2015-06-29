@@ -27,6 +27,8 @@ object UsageRights {
       publication = emptyOptStringToNone(usageRights.restrictions)
     )
 
+    // TODO: We're returning the last usageRights, but it would be good if we
+    // could just have one in the first place.
     (missingRestrictions(cleanUsageRights) |@| missingPhotographer(cleanUsageRights)) apply ((a, b) => b)
   }
 
