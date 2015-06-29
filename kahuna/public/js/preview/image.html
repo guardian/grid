@@ -6,7 +6,7 @@
             <a class="image-action image-action--first"
                target="_blank"
                title="Pop out"
-               ng:href="/images/{{image.data.id}}">◹</a>
+               ng:href="/images/{{::image.data.id}}">◹</a>
         </li>
 
         <li>
@@ -22,16 +22,16 @@
 
     <a ng:if="! selectionMode" class="preview__link"
        ui:sref="image({imageId: image.data.id})"
-       ui:drag-data="{{image | asImageDragData}}">
+       ui:drag-data="{{::image | asImageDragData}}">
        <div class="preview__fade"></div>
        <img class="preview__image"
-            ng:src="{{image.data.thumbnail | assetFile}}" />
+            ng:src="{{::image.data.thumbnail | assetFile}}" />
     </a>
 
-    <span  ng:if="selectionMode" class="preview__no-link">
+    <span ng:if="selectionMode" class="preview__no-link">
         <div class="preview__fade"></div>
         <img class="preview__image"
-             ng:src="{{image.data.thumbnail | assetFile}}"/>
+             ng:src="{{::image.data.thumbnail | assetFile}}"/>
     </span>
 
     <div class="preview__info" ng:if="! hideInfo">
@@ -45,12 +45,12 @@
 
     <div class="preview__bottom-bar bottom-bar">
         <div class="bottom-bar__meta">
-            <span class="preview__upload-date">{{image.data.uploadTime | date:'d/M/yy'}}</span>
-            <span class="preview__upload-time">{{image.data.uploadTime | date:'HH:mm'}}</span>
+            <span class="preview__upload-date">{{::image.data.uploadTime | date:'d/M/yy'}}</span>
+            <span class="preview__upload-time">{{::image.data.uploadTime | date:'HH:mm'}}</span>
 
             <span class="bottom-bar__meta-item preview__has-crops"
                   title="this image has crops"
-                  ng:if="image | hasExportsOfType:'crop'"><img class="ico" ng:src="{{'images/ico/crop.svg'| assetLocation}}" /></span>
+                  ng:if="::image | hasExportsOfType:'crop'"><img class="ico" ng:src="{{::'images/ico/crop.svg'| assetLocation}}" /></span>
         </div>
         <div class="bottom-bar__actions">
 
