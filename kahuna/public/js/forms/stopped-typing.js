@@ -22,5 +22,5 @@ stoppedTyping.directive('grStoppedTyping', function() {
                 ngModel.$commitViewValue();
             });
         }
-    }
+    };
 });
