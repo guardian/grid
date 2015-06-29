@@ -145,8 +145,10 @@ lazyTable.controller('GuLazyTableCtrl', [function() {
 }]);
 
 
-lazyTable.directive('guLazyTable', ['$window', 'observe$', 'subscribe$',
-                                     function($window, observe$, subscribe$) {
+lazyTable.directive('guLazyTable', ['$window', 'observe$',
+                                    'observeCollection$', 'subscribe$',
+                                    function($window, observe$,
+                                             observeCollection$, subscribe$) {
 
     return {
         restrict: 'A',
@@ -161,7 +163,7 @@ lazyTable.directive('guLazyTable', ['$window', 'observe$', 'subscribe$',
                 guLazyTablePreloadedRows: preloadedRowsAttr
             } = attrs;
 
-            const items$         = observe$(scope, itemsAttr);
+            const items$         = observeCollection$(scope, itemsAttr);
             const cellMinWidth$  = observe$(scope, cellMinWidthAttr).map(asInt);
             const cellHeight$    = observe$(scope, cellHeightAttr).map(asInt);
             const preloadedRows$ = observe$(scope, preloadedRowsAttr).map(asInt);
