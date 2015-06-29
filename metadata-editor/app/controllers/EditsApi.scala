@@ -1,6 +1,7 @@
 package controllers
 
-import play.api.libs.json.{Json, Writes}
+import model.UsageRightsProperty
+import play.api.libs.json._
 import play.api.mvc.Controller
 
 import com.gu.mediaservice.lib.argo.ArgoHelpers
@@ -55,10 +56,10 @@ case class CategoryResponse(
   name: String,
   cost: String,
   description: String,
-  requirements: List[UsageRightsRequirement] = List()
+  properties: List[UsageRightsProperty] = List()
 )
 object CategoryResponse {
-  // I'd like to have an override of the `apply`, but who nows how you do that
+  // I'd like to have an override of the `apply`, but who knows how you do that
   // with the JSON parsing stuff
   def fromCat(cat: UsageRightsCategory): CategoryResponse =
     CategoryResponse(
@@ -66,9 +67,12 @@ object CategoryResponse {
       name         = cat.name,
       cost         = UsageRightsCategory.getCost(cat).getOrElse(Pay).toString,
       description  = cat.description,
-      requirements = UsageRightsCategory.getRequirements(cat)
+      properties   = UsageRightsProperty.getPropertiesForCat(cat)
     )
 
   implicit val categoryResponseWrites: Writes[CategoryResponse] = Json.writes[CategoryResponse]
 
 }
+
+
+

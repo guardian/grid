@@ -27,7 +27,7 @@ object UsageRights {
       publication = emptyOptStringToNone(usageRights.restrictions)
     )
 
-    (missingRestrictions(cleanUsageRights) |@| missingPhotographer(cleanUsageRights)) apply ((a, b) => a)
+    (missingRestrictions(cleanUsageRights) |@| missingPhotographer(cleanUsageRights)) apply ((a, b) => b)
   }
 
   private def missingRestrictions(usageRights: UsageRights): UsageRightsValidation = {

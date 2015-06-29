@@ -17,21 +17,6 @@ object UsageRightsCategory {
   def getCost(cat: UsageRightsCategory): Option[Cost] =
     UsageRightsConfig.categoryCosts.get(Some(cat))
 
-  def getRequirements(cat: UsageRightsCategory): List[UsageRightsRequirement] = {
-    // FIXME: Works, but this is terrible
-    val costReq = getCost(cat) match {
-      case Some(Conditional) => List(RestrictionsRequirement)
-      case _ => List()
-    }
-
-    val photographerReq = cat match {
-      case StaffPhotographer => List(PhotographerRequirement)
-      case _ => List()
-    }
-
-    costReq ++ photographerReq
-  }
-
   private val usageRightsCategories =
     Vector(Agency, PrImage, Handout, Screengrab, GuardianWitness, SocialMedia,
       Obituary, StaffPhotographer)
@@ -53,35 +38,6 @@ object UsageRightsCategory {
 }
 
 class NoSuchUsageRightsCategory(category: String) extends RuntimeException(s"no such category: $category")
-
-sealed trait UsageRightsRequirement {
-  val value: String
-  val name: String
-  val `type`: String
-}
-
-object UsageRightsRequirement {
-  implicit val jsonWrites: Writes[UsageRightsRequirement] = (
-    (__ \ "value").write[String] ~
-    (__ \ "name").write[String] ~
-    (__ \ "type").write[String]
-  )(u => (u.value, u.name, u.`type`))
-}
-
-case object RestrictionsRequirement
-  extends UsageRightsRequirement {
-  val value = "restrictions"
-  val name = "Restrictions"
-  val `type` = "textarea"
-}
-
-case object PhotographerRequirement
-  extends UsageRightsRequirement {
-  val value = "photographer"
-  val name = "Photographer"
-  val `type` = "text"
-}
-
 
 // When you add a category, don't forget to add it to `usageRightsCategories`
 // TODO: Find a way not to have to do ^
@@ -153,3 +109,7 @@ case object StaffPhotographer
     val description =
       "Pictures created by photographers who are or were members of staff."
   }
+
+
+
+
