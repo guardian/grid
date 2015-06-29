@@ -26,7 +26,7 @@ object CorsFilter extends Filter {
           "Access-Control-Allow-Credentials" -> "true",
           "Access-Control-Allow-Origin" -> origin
         ) }
-      case None =>
+      case _ =>
         f(request)
     }
   }
