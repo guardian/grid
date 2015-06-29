@@ -1,5 +1,6 @@
 import angular from 'angular';
 import Rx from 'rx';
+import 'rx-dom';
 
 import elementResize from 'javascript-detect-element-resize';
 let {addResizeListener, removeResizeListener} = elementResize;
@@ -147,11 +148,11 @@ lazyTable.directive('guLazyTable', ['$window', 'observe$', 'subscribe$',
 
             // Observe events affecting the view
 
-            const viewportScrolled$ = Rx.Observable.fromEvent($window, 'scroll').
+            const viewportScrolled$ = Rx.DOM.fromEvent($window, 'scroll').
                 debounce(100).
                 startWith({/* init */});
 
-            const viewportResized$ = Rx.Observable.fromEvent($window, 'resize').
+            const viewportResized$ = Rx.DOM.fromEvent($window, 'resize').
                 debounce(100).
                 startWith({/* init */});
 
