@@ -14,7 +14,7 @@ stoppedTyping.directive('grStoppedTyping', function() {
             const throttle = attrs.grStoppedTyping || 750;
             const stopstream = upstream
                 .map(e => e.target.value)
-                .throttle(throttle)
+                .debounce(throttle)
                 .distinctUntilChanged();
 
             stopstream.subscribe(val => {
