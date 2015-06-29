@@ -8,6 +8,7 @@ archiveService.factory('archiveService', ['$rootScope', '$q', function ($rootSco
             .put({ data: archived })
             .then(resource => {
                 image.data.userMetadata.data.archived = resource;
+                $rootScope.$emit('image-updated', image, image);
             });
     }
 

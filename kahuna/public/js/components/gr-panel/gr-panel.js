@@ -51,6 +51,23 @@ grPanel.controller('GrPanel', [
                 ctrl.selectedCosts.length > 1;
 
             ctrl.selectedLabels = selection.getLabels();
+
+            ctrl.archivedCount = selection.getArchivedCount();
+
+            switch (ctrl.archivedCount) {
+                case 0: {
+                    ctrl.archivedState = 'unarchived';
+                    break;
+                }
+                case ctrl.selectedImages.size: {
+                    ctrl.archivedState = 'archived';
+                    break;
+                }
+                default: {
+                    ctrl.archivedState = 'mixed';
+                    break;
+                }
+            }
         }));
 
         ctrl.updateMetadataField = function (field, value) {
@@ -77,14 +94,21 @@ grPanel.controller('GrPanel', [
         };
 
         ctrl.archive = () => {
+            ctrl.archiving = true;
             var imageArray = Array.from(ctrl.selectedImages);
-            archiveService.batchArchive(imageArray);
+            archiveService.batchArchive(imageArray)
+                .then(() => {
+                    ctrl.archiving = false;
+                });
         };
 
         ctrl.unarchive = () => {
+            ctrl.archiving = true;
             var imageArray = Array.from(ctrl.selectedImages);
-            archiveService.batchUnarchive(imageArray);
+            archiveService.batchUnarchive(imageArray)
+                .then(() => {
+                    ctrl.archiving = false;
+                });
         };
-
     }
 ]);
