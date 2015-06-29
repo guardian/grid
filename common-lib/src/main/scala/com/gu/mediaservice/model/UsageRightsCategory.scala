@@ -15,7 +15,7 @@ object UsageRightsCategory {
     UsageRightsConfig.categoryCosts.get(cat)
 
   def getCost(cat: UsageRightsCategory): Option[Cost] =
-    UsageRightsConfig.categoryCosts.get(Some(cat))
+    getCost(Some(cat))
 
   private val usageRightsCategories =
     Vector(Agency, PrImage, Handout, Screengrab, GuardianWitness, SocialMedia,
