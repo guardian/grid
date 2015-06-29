@@ -4,13 +4,14 @@ import template from './required-metadata-editor.html!text';
 
 import '../../edits/service';
 import '../../forms/datalist';
+import '../../forms/stopped-typing';
 
 export var jobs = angular.module('kahuna.upload.jobs.requiredMetadataEditor', [
     'kahuna.edits.service',
     'kahuna.forms.datalist',
+    'kahuna.forms.stoppedTyping',
     'monospaced.elastic'
 ]);
-
 
 jobs.controller('RequiredMetadataEditorCtrl',
                 ['$rootScope', '$scope', '$window', 'mediaApi', 'editsService',
