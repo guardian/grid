@@ -11,7 +11,9 @@ case class ImageUsageRights(
   category:            Option[UsageRightsCategory] = None,
   supplier:            Option[String] = None,
   suppliersCollection: Option[String] = None,
-  restrictions:        Option[String] = None
+  restrictions:        Option[String] = None,
+  photographer:        Option[String] = None,
+  publication:         Option[String] = None
 )
 
 
@@ -19,12 +21,7 @@ object ImageUsageRights {
 
   implicit val ImageUsageRightsReads: Reads[ImageUsageRights] = Json.reads[ImageUsageRights]
 
-  implicit val ImageUsageRightsWrites: Writes[ImageUsageRights] = (
-    (__ \ "category").writeNullable[UsageRightsCategory] ~
-      (__ \ "supplier").writeNullable[String] ~
-      (__ \ "suppliersCollection").writeNullable[String] ~
-      (__ \ "restrictions").writeNullable[String]
-    )(unlift(ImageUsageRights.unapply))
+  implicit val ImageUsageRightsWrites: Writes[ImageUsageRights] = Json.writes[ImageUsageRights]
 
 }
 

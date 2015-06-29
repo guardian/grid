@@ -1,7 +1,7 @@
 package controllers
 
-import com.gu.mediaservice.lib.config.UsageRightsConfig
-import play.api.libs.json.{Json, Writes}
+import model.UsageRightsProperty
+import play.api.libs.json._
 import play.api.mvc.Controller
 
 import com.gu.mediaservice.lib.argo.ArgoHelpers
@@ -42,7 +42,7 @@ object EditsApi extends Controller with ArgoHelpers {
     // FIXME: GuardianWitness should be there but isn't for simplicity;
     // their images can be imported by drag and drop instead
     val usageRightsData =
-      List(PrImage, Handout, Screengrab, SocialMedia, Obituary)
+      List(PrImage, Handout, Screengrab, SocialMedia, Obituary, StaffPhotographer)
         .map(CategoryResponse.fromCat)
 
     respond(usageRightsData)
@@ -51,18 +51,28 @@ object EditsApi extends Controller with ArgoHelpers {
   def getUsageRights = Authenticated { usageRightsResponse }
 }
 
-case class CategoryResponse(value: String, name: String, cost: String, description: String)
+case class CategoryResponse(
+  value: String,
+  name: String,
+  cost: String,
+  description: String,
+  properties: List[UsageRightsProperty] = List()
+)
 object CategoryResponse {
-  // I'd like to have an override of the `apply`, but who nows how you do that
+  // I'd like to have an override of the `apply`, but who knows how you do that
   // with the JSON parsing stuff
   def fromCat(cat: UsageRightsCategory): CategoryResponse =
     CategoryResponse(
-      value       = cat.toString,
-      name        = cat.name,
-      cost        = UsageRightsConfig.categoryCosts.getOrElse(Some(cat), Pay).toString,
-      description = cat.description
+      value        = cat.toString,
+      name         = cat.name,
+      cost         = UsageRightsCategory.getCost(cat).getOrElse(Pay).toString,
+      description  = cat.description,
+      properties   = UsageRightsProperty.getPropertiesForCat(cat)
     )
 
   implicit val categoryResponseWrites: Writes[CategoryResponse] = Json.writes[CategoryResponse]
 
 }
+
+
+
