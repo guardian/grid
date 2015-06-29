@@ -43,21 +43,20 @@
                      ng:if="ctrl.imageHasBeenSelected(image)">
                     <input type="checkbox"
                            class="result__select__checkbox"
-                           id="{{image.data.id}}-result__select__checkbox--select"
+                           id="{{::image.data.id}}-result__select__checkbox--select"
                            checked="true"
                            ng:click="ctrl.toggleSelection(image, false)"/>
-                    <label for="{{image.data.id}}-result__select__checkbox--select"
+                    <label for="{{::image.data.id}}-result__select__checkbox--select"
                            class="result__select__checkbox__label">
                         <i class="material-icons">check_box</i>
                     </label>
                 </div>
-
                 <div class="result__select" ng:if="!ctrl.imageHasBeenSelected(image)">
                     <input type="checkbox"
                            class="result__select__checkbox"
-                           id="{{image.data.id}}-result__select__checkbox--deselect"
+                           id="{{::image.data.id}}-result__select__checkbox--deselect"
                            ng:click="ctrl.toggleSelection(image, true)" />
-                    <label for="{{image.data.id}}-result__select__checkbox--deselect"
+                    <label for="{{::image.data.id}}-result__select__checkbox--deselect"
                            class="result__select__checkbox__label">
                         <i class="material-icons">check_box</i>
                     </label>
