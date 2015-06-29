@@ -87,6 +87,9 @@ dndUploader.controller('DndUploaderCtrl',
  */
 dndUploader.directive('dndUploader', ['$window', 'delay', 'safeApply',
                        function($window, delay, safeApply) {
+
+    const gridImageMimeType = 'application/vnd.mediaservice.image+json';
+
     return {
         restrict: 'E',
         controller: 'DndUploaderCtrl',
@@ -108,15 +111,22 @@ dndUploader.directive('dndUploader', ['$window', 'delay', 'safeApply',
 
             scope.$on('$destroy', clean);
 
+            function isDraggingFromGrid(event) {
+                const dataTransfer = event.originalEvent.dataTransfer;
+                return dataTransfer.types.indexOf(gridImageMimeType) !== -1;
+            }
+
             function over(event) {
-                dragging = true;
+                dragging = ! isDraggingFromGrid(event);
                 // The dragover `preventDefault` is to allow for dropping
                 event.preventDefault();
             }
 
-            function enter() {
-                dragging = true;
-                activate();
+            function enter(event) {
+                if (! isDraggingFromGrid(event)) {
+                    dragging = true;
+                    activate();
+                }
             }
 
             function leave() {
@@ -135,6 +145,13 @@ dndUploader.directive('dndUploader', ['$window', 'delay', 'safeApply',
 
                 event.preventDefault();
 
+                if (! isDraggingFromGrid(event)) {
+                    performDropAction(files, uri);
+                }
+                scope.$apply(deactivate);
+            }
+
+            function performDropAction(files, uri) {
                 if (files.length > 0) {
                     ctrl.uploadFiles(files);
                 } else if (ctrl.isWitnessUri(uri)) {
@@ -146,7 +163,6 @@ dndUploader.directive('dndUploader', ['$window', 'delay', 'safeApply',
                     $window.alert('You must drop valid files or ' +
                                   'GuardianWitness URLs to upload them');
                 }
-                scope.$apply(deactivate);
             }
 
             function clean() {
