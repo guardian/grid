@@ -34,7 +34,7 @@ rxHelpers.factory('subscribe$', [function() {
     };
 }]);
 
-rxHelpers.factory('observeCollectionOnScope', function(rx) {
+rxHelpers.factory('observeCollectionOnScope', ['rx', function(rx) {
     return function(scope, watchExpression) {
         return rx.Observable.create(function (observer) {
             // Create function to handle old and new Value
@@ -46,4 +46,4 @@ rxHelpers.factory('observeCollectionOnScope', function(rx) {
             return scope.$watchCollection(watchExpression, listener);
         });
     };
-});
+}]);
