@@ -52,6 +52,8 @@ object UsageRightsCategory {
       Writes[UsageRightsCategory](cat => JsString(cat.toString))
 }
 
+class NoSuchUsageRightsCategory(category: String) extends RuntimeException(s"no such category: $category")
+
 sealed trait UsageRightsRequirement {
   val value: String
   val name: String

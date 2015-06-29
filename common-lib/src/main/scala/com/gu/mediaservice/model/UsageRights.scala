@@ -60,5 +60,3 @@ object UsageRights {
 }
 
 case class UsageRightsValidationError(key: String, message: String) extends Throwable
-
-class NoSuchUsageRightsCategory(category: String) extends RuntimeException(s"no such category: $category")
