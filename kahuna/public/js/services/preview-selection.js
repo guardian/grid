@@ -8,12 +8,13 @@ selectionService.factory('selectionService', ['$q', 'editsService', function ($q
     var selectedImages = new Set();
     var selectedMetadata = {};
     var selectedMetadataForDisplay = {};
-    var selectedCosts, selectedLabels;
+    var selectedCosts, selectedLabels, archivedCount;
 
     function _group () {
         var metadata = {};
         var cost = [];
         var labels = [];
+        var totalArchived = 0;
 
         var allFields = [];
 
@@ -39,6 +40,10 @@ selectionService.factory('selectionService', ['$q', 'editsService', function ($q
                     labels[index].count++;
                 }
             });
+
+            if (img.data.userMetadata.data.archived.data) {
+                totalArchived++;
+            }
         });
 
         var uniqueFields = new Set(allFields);
@@ -53,7 +58,8 @@ selectionService.factory('selectionService', ['$q', 'editsService', function ($q
         return {
             metadata,
             cost,
-            labels
+            labels,
+            totalArchived
         };
     }
 
@@ -102,6 +108,7 @@ selectionService.factory('selectionService', ['$q', 'editsService', function ($q
 
         selectedCosts = selectedImageData.cost;
         selectedLabels = selectedImageData.labels;
+        archivedCount = selectedImageData.totalArchived;
     }
 
     function canUserEdit () {
@@ -140,6 +147,7 @@ selectionService.factory('selectionService', ['$q', 'editsService', function ($q
         getMetadata: () => selectedMetadata,
         getDisplayMetadata: () => selectedMetadataForDisplay,
         getLabels: () => selectedLabels,
+        getArchivedCount: () => archivedCount,
         isSelected: (image) => selectedImages.has(image),
         toggleSelection: (image, select) => {
             return select ? add(image) : remove(image);
