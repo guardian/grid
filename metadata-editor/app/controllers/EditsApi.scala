@@ -41,7 +41,7 @@ object EditsApi extends Controller with ArgoHelpers {
     // FIXME: GuardianWitness should be there but isn't for simplicity;
     // their images can be imported by drag and drop instead
     val usageRightsData =
-      List(PrImage, Handout, Screengrab, SocialMedia, Obituary)
+      List(PrImage, Handout, Screengrab, SocialMedia, Obituary, StaffPhotographer)
         .map(CategoryResponse.fromCat)
 
     respond(usageRightsData)

@@ -63,14 +63,23 @@ object UsageRightsCategory {
     UsageRightsConfig.categoryCosts.get(Some(cat))
 
   def getRequirements(cat: UsageRightsCategory): List[UsageRightsRequirement] = {
-    getCost(cat) match {
+    // FIXME: Works, but this is terrible
+    val costReq = getCost(cat) match {
       case Some(Conditional) => List(RestrictionsRequirement)
       case _ => List()
     }
+
+    val photographerReq = cat match {
+      case StaffPhotographer => List(PhotographerRequirement)
+      case _ => List()
+    }
+
+    costReq ++ photographerReq
   }
 
   private val usageRightsCategories =
-    Vector(Agency, PrImage, Handout, Screengrab, GuardianWitness, SocialMedia, Obituary)
+    Vector(Agency, PrImage, Handout, Screengrab, GuardianWitness, SocialMedia,
+      Obituary, StaffPhotographer)
 
   def fromString(category: String): UsageRightsCategory = {
     // I think as we move forward we can find out what the more intelligent and
@@ -107,6 +116,13 @@ case object RestrictionsRequirement
   val value = "restrictions"
   val name = "Restrictions"
   val `type` = "textarea"
+}
+
+case object PhotographerRequirement
+  extends UsageRightsRequirement {
+  val value = "photographer"
+  val name = "Photographer"
+  val `type` = "text"
 }
 
 
