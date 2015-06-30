@@ -1112,18 +1112,6 @@ FIXME: what to do with touch devices
     outline: none;
 }
 
-/* targetting .image-info__wrap to win on specificity against default xeditable style */
-.image-info__wrap .editable-input.editable-has-buttons {
-    width: 100%;
-}
-
-/* targetting .image-info__wrap to win on specificity against default xeditable style */
-.image-info__wrap .editable-buttons {
-    display: block;
-    float: right;
-}
-
-
 .image-info--multiple {
     font-style: italic;
 }
