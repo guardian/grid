@@ -23,8 +23,8 @@ object UsageRights {
   def validate(usageRights: UsageRights): UsageRightsValidation = {
     val cleanUsageRights = usageRights.copy(
       restrictions = emptyOptStringToNone(usageRights.restrictions),
-      photographer = emptyOptStringToNone(usageRights.restrictions),
-      publication = emptyOptStringToNone(usageRights.restrictions)
+      photographer = emptyOptStringToNone(usageRights.photographer),
+      publication = emptyOptStringToNone(usageRights.publication)
     )
 
     // TODO: We're returning the last usageRights, but it would be good if we
