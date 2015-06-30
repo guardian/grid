@@ -5,12 +5,14 @@ import '../../services/preview-selection';
 import '../../services/label';
 import '../../services/archive';
 import '../../edits/service';
+import '../../forms/gr-xeditable/gr-xeditable';
 
 export var grPanel = angular.module('grPanel', [
     'kahuna.services.selection',
     'kahuna.services.label',
     'kahuna.services.archive',
-    'kahuna.edits.service'
+    'kahuna.edits.service',
+    'grXeditable'
 ]);
 
 grPanel.controller('GrPanel', [
