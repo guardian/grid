@@ -11,7 +11,9 @@ case class ImageUsageRights(
   category:            Option[UsageRightsCategory] = None,
   supplier:            Option[String] = None,
   suppliersCollection: Option[String] = None,
-  restrictions:        Option[String] = None
+  restrictions:        Option[String] = None,
+  photographer:        Option[String] = None,
+  publication:         Option[String] = None
 )
 
 
