@@ -1,0 +1,22 @@
+.gr-xeditable__submit,
+.gr-xeditable__cancel {
+    width: 24px;
+    height: 24px;
+    color: white;
+}
+
+.gr-xeditable__submit {
+    background-color: #00adee;
+}
+
+.gr-xeditable__submit:hover {
+    background-color: #008fc5;
+}
+
+.gr-xeditable__cancel {
+    background-color: #898989;
+}
+
+.gr-xeditable__cancel:hover {
+    background-color: #666666;
+}
