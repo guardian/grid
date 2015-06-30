@@ -39,8 +39,6 @@
                 <div class="metadata-line">title</div>
                 <div ng:class="{'image-info--multiple': ctrl.hasMultipleValues(ctrl.rawMetadata.title)}"
                      editable-text="ctrl.metadata.title"
-                     buttons="no"
-                     blur="submit"
                      onbeforesave="ctrl.updateMetadataField('title', $data)"
                      e:form="titleEditForm"
                      e:ng-class="{'image-info__editor--error': $error, 'image-info__editor--saving': titleEditForm.$waiting}">
@@ -75,8 +73,6 @@
                 <div class="metadata-line">description</div>
                 <div ng:class="{'image-info--multiple': ctrl.hasMultipleValues(ctrl.rawMetadata.description)}"
                      editable-textarea="ctrl.metadata.description"
-                     buttons="no"
-                     blur="submit"
                      onbeforesave="ctrl.updateMetadataField('description', $data)"
                      e:msd-elastic
                      e:form="descriptionEditForm"
@@ -119,8 +115,6 @@
                 by
                 <span ng:class="{'image-info--multiple': ctrl.hasMultipleValues(ctrl.rawMetadata.byline)}"
                      editable-text="ctrl.metadata.byline"
-                     buttons="no"
-                     blur="submit"
                      onbeforesave="ctrl.updateMetadataField('byline', $data)"
                      e:form="bylineEditForm"
                      e:ng-class="{'image-info__editor--error': $error, 'image-info__editor--saving': bylineEditForm.$waiting}">
@@ -151,8 +145,6 @@
                 credit
                 <span ng:class="{'image-info--multiple': ctrl.hasMultipleValues(ctrl.rawMetadata.credit)}"
                       editable-text="ctrl.metadata.credit"
-                      buttons="no"
-                      blur="submit"
                       onbeforesave="ctrl.updateMetadataField('credit', $data)"
                       e:form="creditEditForm"
                       e:ng-class="{'image-info__editor--error': $error, 'image-info__editor--saving': creditEditForm.$waiting}">
