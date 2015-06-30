@@ -21,12 +21,7 @@ object ImageUsageRights {
 
   implicit val ImageUsageRightsReads: Reads[ImageUsageRights] = Json.reads[ImageUsageRights]
 
-  implicit val ImageUsageRightsWrites: Writes[ImageUsageRights] = (
-    (__ \ "category").writeNullable[UsageRightsCategory] ~
-      (__ \ "supplier").writeNullable[String] ~
-      (__ \ "suppliersCollection").writeNullable[String] ~
-      (__ \ "restrictions").writeNullable[String]
-    )(unlift(ImageUsageRights.unapply))
+  implicit val ImageUsageRightsWrites: Writes[ImageUsageRights] = Json.writes[ImageUsageRights]
 
 }
 
