@@ -113,7 +113,9 @@ dndUploader.directive('dndUploader', ['$window', 'delay', 'safeApply',
 
             function isDraggingFromGrid(event) {
                 const dataTransfer = event.originalEvent.dataTransfer;
-                return dataTransfer.types.indexOf(gridImageMimeType) !== -1;
+                // Convert as FF uses DOMStringList and Chrome an Array
+                const types = Array.from(dataTransfer.types);
+                return types.indexOf(gridImageMimeType) !== -1;
             }
 
             function over(event) {

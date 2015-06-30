@@ -1,30 +1,34 @@
 import angular from 'angular';
 import template from './archiver.html!text';
+import '../services/archive';
 
+export var archiver = angular.module('kahuna.edits.archiver', [
+    'kahuna.services.archive'
+]);
 
-export var archiver = angular.module('kahuna.edits.archiver', []);
-
-archiver.controller('ArchiverCtrl', ['$scope', '$window',
-                    function($scope, $window) {
+archiver.controller('ArchiverCtrl', ['$scope', '$window', 'archiveService', 'onValChange',
+                    function($scope, $window, archiveService, onValChange) {
 
     var ctrl = this;
 
     ctrl.toggleArchived = toggleArchived;
-    ctrl.isArchived = ctrl.archived.data;
+    ctrl.isArchived = ctrl.image.data.userMetadata.data.archived.data;
     ctrl.archiving = false;
 
+    $scope.$watch(() => ctrl.image.data.userMetadata.data.archived.data, onValChange(newState => {
+        ctrl.isArchived = newState;
+    }));
+
     function toggleArchived() {
-        var setVal = !ctrl.isArchived;
         ctrl.archiving = true;
 
-        // FIXME: theseus should return a `Resource` on `put` that we can
-        // update `ctrl.archived` with.
-        ctrl.archived
-            .put({ data: setVal })
-            .then(
-                res => ctrl.isArchived = res.data,
-                ()  => $window.alert('Failed to save the changes, please try again.')
-            ).finally(() => ctrl.archiving = false);
+        var promise = ctrl.isArchived ?
+            archiveService.unarchive(ctrl.image) :
+            archiveService.archive(ctrl.image);
+
+        promise
+            .catch(()  => $window.alert('Failed to save the changes, please try again.'))
+            .finally(() => ctrl.archiving = false);
     }
 }]);
 
@@ -33,7 +37,7 @@ archiver.directive('uiArchiver', [function() {
         restrict: 'E',
         controller: 'ArchiverCtrl as archiver',
         scope: {
-            archived: '=',
+            image: '=',
             withText: '=',
             disabled: '='
         },
