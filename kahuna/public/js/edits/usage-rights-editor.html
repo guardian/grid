@@ -42,8 +42,8 @@
                         ng:if="property.options"
                         ng:model="ctrl.model[property.name]"
                         ng:required="property.required"
-                        ng:options="o as o for o in property.options">
-                        <option value="">None</option>
+                        ng:options="o for o in property.options">
+                        <option value="" >None</option>
                     </select>
 
                 </div>
@@ -70,5 +70,4 @@
         </button>
         <div class="ure__error" ng:if="ctrl.error" ng:bind="ctrl.error"></div>
     </div>
-
 </form>
