@@ -48,3 +48,30 @@
     width: 100%;
     height: 100%;
 }
+
+.batch-label .labels {
+    white-space: normal;
+}
+
+.batch-label .labels .label,
+.batch-label .labels .label__add {
+    display: inline-block;
+}
+
+.batch-archive .metadata-line {
+    float: left;
+}
+
+.batch-archive__action {
+    float: right;
+}
+
+.batch-archive--all-archived .metadata-line,
+.batch-archive--mixed .metadata-line .material-icons {
+    color: gold;
+}
+
+.batch-archive__archive:hover,
+.batch-archive__unarchive:hover {
+    color: gold;
+}
