@@ -10,6 +10,7 @@ sealed trait UsageRightsProperty {
   val label: String
   val `type`: String
   val required: Boolean
+  val options: Option[List[String]] = None
 }
 
 object UsageRightsProperty {
@@ -17,8 +18,9 @@ object UsageRightsProperty {
     (__ \ "name").write[String] ~
     (__ \ "label").write[String] ~
     (__ \ "type").write[String] ~
-    (__ \ "required").write[Boolean]
-  )(u => (u.name, u.label, u.`type`, u.required))
+    (__ \ "required").write[Boolean] ~
+    (__ \ "options").writeNullable[List[String]]
+  )(u => (u.name, u.label, u.`type`, u.required, u.options))
 
   def getPropertiesForCat(cat: UsageRightsCategory): List[UsageRightsProperty] = {
     photographerProperties(cat) ++ restrictionProperties(cat)
@@ -59,4 +61,6 @@ case object PublicationProperty
   val label = "Publication"
   val `type` = "string"
   val required = true
+  // TODO: Configurise
+  override val options = Some(List("The Guardian", "The Observer"))
 }

@@ -28,13 +28,26 @@
 
             <div ng:switch="property.type">
 
-                <input
-                    class="form-input-text"
-                    type="text"
-                    name="{{ property.name }}"
-                    ng:model="ctrl.model[property.name]"
-                    ng:switch-when="string"
-                    ng:required="property.required" />
+                <div ng:switch-when="string">
+                    <input
+                        class="form-input-text"
+                        type="text"
+                        name="{{ property.name }}"
+                        ng:if="!property.options"
+                        ng:model="ctrl.model[property.name]"
+                        ng:required="property.required" />
+
+                    <select
+                        name="{{ property.name }}"
+                        ng:if="property.options"
+                        ng:model="ctrl.model[property.name]"
+                        ng:required="property.required"
+                        ng:options="o as o for o in property.options">
+                        <option value="">None</option>
+                    </select>
+
+                </div>
+
 
                 <textarea
                     class="form-input-text"
