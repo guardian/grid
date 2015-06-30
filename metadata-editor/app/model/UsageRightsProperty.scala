@@ -21,7 +21,7 @@ object UsageRightsProperty {
   )(u => (u.name, u.label, u.`type`, u.required))
 
   def getPropertiesForCat(cat: UsageRightsCategory): List[UsageRightsProperty] = {
-    restrictionProperties(cat) ++ photographerProperties(cat)
+    photographerProperties(cat) ++ restrictionProperties(cat)
   }
 
   private def restrictionProperties(cat: UsageRightsCategory): List[UsageRightsProperty] = {

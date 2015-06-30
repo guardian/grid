@@ -2,45 +2,49 @@
       ng:submit="usageRights.$valid && ctrl.save()"
       name="usageRights">
     <label class="ure__category">
+        <!-- We reset the model here else properties remain attached to the\
+        model, even though they don't exist in the form -->
         <select
             ng:model="ctrl.category"
             ng:disabled="ctrl.saving"
-            ng:options="category as category.name for category in ctrl.categories track by category.value">
+            ng:options="category as category.name for category in ctrl.categories track by category.value"
+            ng:change="ctrl.resetModel()">
             <option value="">None</option>
         </select>
     </label>
-
-    <div class="ure__cost"
-         ng:switch="ctrl.getCost()">
-
-        <div class="cost cost--free"
-             ng:switch-when="free">Free to use</div>
-
-        <div class="cost cost--conditional"
-             ng:switch-when="conditional">Restricted use</div>
-    </div>
 
     <div class="ure__description">
         {{ctrl.category.description}}
     </div>
 
-    <label class="ure__restrictions" ng:if="ctrl.category">
+    <div class="ure__properties" ng:if="ctrl.category">
+        <label ng:repeat="property in ctrl.category.properties" class="form-property">
 
-        <div class="form-label">
-            <div class="form-label__text">Restrictions</div>
-            <div class="form-label__error"
-                 ng:if="usageRights.restrictions.$error.required">Required for {{ctrl.pluraliseCategory()}}.</div>
-        </div>
+            <div class="form-label">
+                <div class="form-label__text">{{ property.label }}</div>
+                <div class="form-label__error">Info text</div>
+            </div>
 
+            <div ng:switch="property.type">
 
-        <textarea class="ure__restrictions-text"
-                  msd-elastic
-                  name="restrictions"
-                  placeholder="{{ctrl.restrictionsPlaceholder()}}"
-                  ng:required="ctrl.category.cost === 'conditional'"
-                  ng:model="ctrl.restrictions"
-                  ng:disabled="ctrl.isDisabled()"></textarea>
-    </label>
+                <input
+                    class="form-input-text"
+                    type="text"
+                    name="{{ property.name }}"
+                    ng:model="ctrl.model[property.name]"
+                    ng:switch-when="string"
+                    ng:required="property.required" />
+
+                <textarea
+                    class="form-input-text"
+                    name="{{ property.name }}"
+                    ng:model="ctrl.model[property.name]"
+                    ng:switch-when="large-string"
+                    ng:required="property.required"></textarea>
+
+            </div>
+        </label>
+    </div>
 
     <div class="ure__submit">
         <button class="button" type="submit"

@@ -932,25 +932,8 @@ FIXME: what to do with touch devices
     box-sizing: border-box;
 }
 
-.ure__cost {
-    display: inline-block;
-    margin-left: 20px;
-}
-
-.ure__cost-selector {
-    margin-left: 20px;
-}
-
 .ure__description {
     margin: 10px 0;
-}
-
-.ure__restrictions {
-    display: block;
-}
-
-.ure__restrictions-text {
-    width: 100%;
 }
 
 .ure__submit {
@@ -1613,6 +1596,11 @@ FIXME: what to do with touch devices
    Forms
    ========================================================================== */
 
+.form-property {
+    display: block;
+    margin-bottom: 10px;
+}
+
 .form-label {
     display: flex;
 }
@@ -1622,4 +1610,8 @@ FIXME: what to do with touch devices
     color: #ed5935;
     flex-grow: 1;
     text-align: right;
+}
+
+.form-input-text {
+    width: 100%;
 }

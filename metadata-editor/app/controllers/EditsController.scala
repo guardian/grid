@@ -162,7 +162,10 @@ object EditsController extends Controller with ArgoHelpers {
         )
       }.fold(
         // TODO: Deal with NEL[Errors] in Argo
-        es => Future.successful(respondError(BadRequest, "invalid-form-data", "Invalid for data")),
+        es => {
+          es.map(e => println(e.message))
+          Future.successful(respondError(BadRequest, "invalid-form-data", "Invalid form  data"))
+        },
 
         usageRights =>
           dynamo.jsonAdd(id, "usageRights", caseClassToMap(usageRights))
