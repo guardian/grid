@@ -42,9 +42,7 @@ case class RestrictionsProperty(required: Boolean)
   extends UsageRightsProperty {
   val name = "restrictions"
   val label = "Restrictions"
-  // We could look at doing something like this instead:
-  // https://github.com/joshfire/jsonform/wiki#large-text-the-textarea-type
-  val `type` = "large-string"
+  val `type` = "text"
 }
 
 case object PhotographerProperty
