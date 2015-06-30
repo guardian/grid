@@ -10,7 +10,7 @@ export var grXeditable = angular.module('grXeditable', [
     'xeditable'
 ]);
 
-grXeditable.run(function (editableOptions, editableThemes) {
+grXeditable.run(['editableOptions', 'editableThemes', function (editableOptions, editableThemes) {
     /*
      This is how xeditable is themed. BLEUGH!
 
@@ -20,4 +20,4 @@ grXeditable.run(function (editableOptions, editableThemes) {
 
     editableThemes['default'].submitTpl = submitButton;
     editableThemes['default'].cancelTpl = cancelButton;
-});
+}]);
