@@ -41,9 +41,10 @@ object EditsApi extends Controller with ArgoHelpers {
   val usageRightsResponse = {
     // FIXME: GuardianWitness should be there but isn't for simplicity;
     // their images can be imported by drag and drop instead
+    // FIXME: Creating new instances? Rubbish.
     val usageRightsData =
-      List(PrImage, Handout, Screengrab, SocialMedia, Obituary, StaffPhotographer)
-        .map(CategoryResponse.fromCat)
+      List(uPrImage(), uHandout(), uScreengrab(), uSocialMedia(), uObituary(), uStaffPhotographer("e", "e"))
+        .map(CategoryResponse.fromUsageRights)
 
     respond(usageRightsData)
   }
@@ -61,13 +62,13 @@ case class CategoryResponse(
 object CategoryResponse {
   // I'd like to have an override of the `apply`, but who knows how you do that
   // with the JSON parsing stuff
-  def fromCat(cat: UsageRightsCategory): CategoryResponse =
+  def fromUsageRights(u: UsageRights): CategoryResponse =
     CategoryResponse(
-      value        = cat.toString,
-      name         = cat.name,
-      cost         = UsageRightsCategory.getCost(cat).getOrElse(Pay).toString,
-      description  = cat.description,
-      properties   = UsageRightsProperty.getPropertiesForCat(cat)
+      value        = u.category,
+      name         = u.name,
+      cost         = u.defaultCost.getOrElse(Pay).toString,
+      description  = u.description,
+      properties   = UsageRightsProperty.getPropertiesForCat(u)
     )
 
   implicit val categoryResponseWrites: Writes[CategoryResponse] = Json.writes[CategoryResponse]

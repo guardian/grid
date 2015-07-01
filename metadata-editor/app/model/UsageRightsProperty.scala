@@ -3,7 +3,7 @@ package model
 import play.api.libs.functional.syntax._
 import play.api.libs.json._
 
-import com.gu.mediaservice.model.{StaffPhotographer, Conditional, UsageRightsCategory}
+import com.gu.mediaservice.model._
 
 sealed trait UsageRightsProperty {
   val name: String
@@ -22,19 +22,17 @@ object UsageRightsProperty {
     (__ \ "options").writeNullable[List[String]]
   )(u => (u.name, u.label, u.`type`, u.required, u.options))
 
-  def getPropertiesForCat(cat: UsageRightsCategory): List[UsageRightsProperty] = {
-    photographerProperties(cat) ++ restrictionProperties(cat)
+  def getPropertiesForCat(u: UsageRights): List[UsageRightsProperty] = {
+    photographerProperties(u) ++ restrictionProperties(u)
   }
 
-  private def restrictionProperties(cat: UsageRightsCategory): List[UsageRightsProperty] = {
-    // we use `Some` here as everything, for now, can have restriction
-    // when we move to having a "No Rights" category, this will change
-    List(RestrictionsProperty(UsageRightsCategory.getCost(cat).contains(Conditional)))
+  private def restrictionProperties(u: UsageRights): List[UsageRightsProperty] = {
+    List(RestrictionsProperty(u.defaultCost.contains(Conditional)))
   }
 
-  private def photographerProperties(cat: UsageRightsCategory): List[UsageRightsProperty] = {
-    cat match {
-      case StaffPhotographer => List(PhotographerProperty, PublicationProperty)
+  private def photographerProperties(u: UsageRights): List[UsageRightsProperty] = {
+    u match {
+      case s: uStaffPhotographer => List(PhotographerProperty, PublicationProperty)
       case _ => List()
     }
   }

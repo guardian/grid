@@ -230,7 +230,7 @@ class SupplierProcessorsTest extends FunSpec with Matchers with MetadataHelper {
       val image = createImageFromMetadata().copy(usageRights = uAgency("AP"))
       val processedImage = applyProcessors(image)
 
-      processedImage.usageRights.category should be (Some(Agency))
+      processedImage.usageRights should be (uAgency("AP"))
     }
   }
 
