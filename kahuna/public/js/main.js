@@ -511,7 +511,7 @@ kahuna.directive('grImageFadeOnLoad', ['$q', function ($q) {
 
     return {
         restrict: 'A',
-        link: function (scope, element, attrs) {
+        link: function (scope, element) {
             hide();
             isLoaded().finally(reveal);
 
