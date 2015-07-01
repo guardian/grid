@@ -25,13 +25,15 @@
        ui:drag-data="{{image | asImageDragData}}">
        <div class="preview__fade"></div>
        <img class="preview__image"
-            ng:src="{{image.data.thumbnail | assetFile}}" />
+            ng:src="{{image.data.thumbnail | assetFile}}"
+            gr:image-fade-on-load />
     </a>
 
     <span  ng:if="selectionMode" class="preview__no-link">
         <div class="preview__fade"></div>
         <img class="preview__image"
-             ng:src="{{image.data.thumbnail | assetFile}}"/>
+             ng:src="{{image.data.thumbnail | assetFile}}"
+             gr:image-fade-on-load />
     </span>
 
     <div class="preview__info" ng:if="! hideInfo">
