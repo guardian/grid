@@ -1,141 +1,64 @@
 package com.gu.mediaservice.model
 
-import play.api.libs.functional.syntax._
 import play.api.libs.json._
+
+import scalaz.ValidationNel
+import scalaz.syntax.validation._
+import scalaz.syntax.applicative._
 
 // TODO: deprecate cost here and infer from category
 case class UsageRights(
   category: Option[UsageRightsCategory],
-  restrictions: Option[String]
+  restrictions: Option[String] = None,
+  photographer: Option[String] = None,
+  publication: Option[String] = None
 )
 
-// FIXME: Deprecate cost as this will be assumed from the category. This will
-// more that likely be done when merging with ImageUsageRights
 object UsageRights {
-  implicit val UsageRightsReads: Reads[UsageRights] = (
-    (__ \ "category").readNullable[UsageRightsCategory]  ~
-    (__ \ "restrictions").readNullable[String]
-  )(UsageRights.apply _)
+  implicit val UsageRightsReads: Reads[UsageRights] = Json.reads[UsageRights]
+  implicit val UsageRightsWrites: Writes[UsageRights] = Json.writes[UsageRights]
 
-  // Annoyingly there doesn't seem to be a way to create a `JsString` with the
-  // Json writers, so we have to do this manually
-  implicit val UsageRightsWrites: Writes[UsageRights] = (
-    (__ \ "category").writeNullable[UsageRightsCategory] ~
-    (__ \ "restrictions").writeNullable[String]
-  )(unlift(UsageRights.unapply))
-}
+  type UsageRightsValidation = ValidationNel[UsageRightsValidationError, UsageRights]
 
-sealed trait Cost
-case object Free
-  extends Cost { override def toString = "free" }
-
-case object Conditional
-  extends Cost { override def toString = "conditional" }
-
-case object Pay
-  extends Cost { override def toString = "pay" }
-
-object Cost {
-  def fromString(string: String): Cost =
-    Vector(Free, Conditional, Pay).find(_.toString == string).getOrElse(Pay)
-
-  implicit val CostReads: Reads[Cost] = __.read[String].map(fromString)
-
-  implicit val CostWrites: Writes[Cost] = Writes[Cost](c => JsString(c.toString))
-
-}
-
-
-class NoSuchUsageRightsCategory(category: String) extends RuntimeException(s"no such category: $category")
-
-sealed trait UsageRightsCategory {
-  val name = toString.replace("-", " ").split(" ").map(_.capitalize).mkString(" ")
-  val description: String
-  val defaultRestrictions: Option[String] = None
-}
-object UsageRightsCategory {
-  private val usageRightsCategories =
-    Vector(Agency, PrImage, Handout, Screengrab, GuardianWitness, SocialMedia, Obituary)
-
-  def fromString(category: String): UsageRightsCategory = {
-
-
-    // I think as we move forward we can find out what the more intelligent and
-    // correct default here. This feels better that reverting to `None` though as
-    // it's required by `UsageRights`.
-    // TODO: Perhaps we should validate on this?
-    usageRightsCategories.find(_.toString == category).getOrElse {
-      throw new NoSuchUsageRightsCategory(category)
-    }}
-
-    implicit val UsageRightsCategoryReads: Reads[UsageRightsCategory] =
-      __.read[String].map(fromString)
-
-    implicit val UsageRightsCategoryWrites: Writes[UsageRightsCategory] =
-      Writes[UsageRightsCategory](cat => JsString(cat.toString))
-}
-
-
-// When you add a category, don't forget to add it to `usageRightsCategories`
-// TODO: Find a way not to have to do ^
-case object Agency
-  extends UsageRightsCategory {
-    override def toString = "agency"
-    val description =
-      "Agencies such as Getty, Reuters, Press Association, etc. where " +
-      "subscription fees are paid to access and use pictures."
-  }
-
-case object PrImage
-  extends UsageRightsCategory {
-    override def toString = "PR Image"
-    val description =
-      "Used to promote specific exhibitions, auctions, etc. and only available " +
-      "for such purposes."
-  }
-
-case object Handout
-  extends UsageRightsCategory {
-    override def toString = "handout"
-    val description =
-      "Provided free of use for press purposes e.g. police images for new " +
-      "stories, family shots in biographical pieces, etc."
-  }
-
-case object Screengrab
-  extends UsageRightsCategory {
-    override def toString = "screengrab"
-    val description =
-      "Still images created by us from moving footage in television broadcasts " +
-      "usually in relation to breaking news stories."
-  }
-
-case object GuardianWitness
-  extends UsageRightsCategory {
-    override def toString = "guardian-witness"
-    val description =
-      "Images provided by readers in response to callouts and assignments on " +
-      "GuardianWitness."
-    override val defaultRestrictions = Some(
-      "Contact the GuardianWitness desk before use (witness.editorial@theguardian.com)!"
+  def validate(usageRights: UsageRights): UsageRightsValidation = {
+    val cleanUsageRights = usageRights.copy(
+      restrictions = emptyOptStringToNone(usageRights.restrictions),
+      photographer = emptyOptStringToNone(usageRights.photographer),
+      publication = emptyOptStringToNone(usageRights.publication)
     )
+
+    // TODO: We're returning the last usageRights, but it would be good if we
+    // could just have one in the first place.
+    (missingRestrictions(cleanUsageRights) |@| missingPhotographer(cleanUsageRights)) apply ((a, b) => b)
   }
 
-case object SocialMedia
-  extends UsageRightsCategory {
-    override def toString = "social-media"
-    val description =
-      "Images taken from public websites and social media to support " +
-      "breaking news where no other image is available from usual sources. " +
-      "Permission should be sought from the copyright holder, but in " +
-      "extreme circumstances an image may be used with the approval of " +
-      "a senior editor."
+  private def missingRestrictions(usageRights: UsageRights): UsageRightsValidation = {
+    val cost = UsageRightsCategory.getCost(usageRights.category)
+    val missing = cost.contains(Conditional) &&
+      usageRights.restrictions.isEmpty &&
+      usageRights.category.flatMap(_.defaultRestrictions).isEmpty
+
+    if (missing) {
+      UsageRightsValidationError("missing-field", s"${usageRights.category} must have restrictions set").failNel
+    } else {
+      usageRights.successNel
+    }
   }
 
-case object Obituary
-  extends UsageRightsCategory {
-    override def toString = "obituary"
-    val description =
-      "Acquired from private sources, e.g. family members, for the purposes of " +
-      "obituaries."
+  private def missingPhotographer(usageRights: UsageRights): UsageRightsValidation = {
+    usageRights.category match {
+      case Some(StaffPhotographer) if usageRights.photographer.isEmpty =>
+        UsageRightsValidationError("missing-field", s"Photographer must have the photographer set").failNel
+
+      case Some(StaffPhotographer) if usageRights.publication.isEmpty =>
+        UsageRightsValidationError("missing-field", s"Photographer must have the publication set").failNel
+
+      case _ => usageRights.successNel
+    }
   }
+
+  private def emptyOptStringToNone(s: Option[String]) =
+    s.map(_.trim).filterNot(_.isEmpty)
+}
+
+case class UsageRightsValidationError(key: String, message: String) extends Throwable
