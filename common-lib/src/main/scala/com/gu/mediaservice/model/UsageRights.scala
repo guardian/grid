@@ -9,6 +9,8 @@ sealed trait UsageRights {
   val restrictions: Option[String]
   val defaultRestrictions: Option[String] = None
 
+  val defaultCost: Option[Cost]
+
   def name = category.replace("-", " ").split(" ").map(_.capitalize).mkString(" ")
   override def toString = category
 
@@ -51,9 +53,10 @@ object UsageRights {
     private def isNoRights(json: JsValue): Option[JsValue] = Some(json).filter(_ == NoRights.jsonVal)
 }
 
-case class NoRights(restrictions: Option[String])
+case class NoRights(restrictions: Option[String] = None)
   extends UsageRights {
     val category = "no-rights"
+    val defaultCost = Some(Pay)
     val description =
       "Remove any rights that have been applied to this image. It will appear as" +
       "pay to use."
@@ -66,9 +69,10 @@ object NoRights {
 }
 
 
-case class uAgency(supplier: String, suppliersCollection: Option[String], restrictions: Option[String])
+case class uAgency(supplier: String, suppliersCollection: Option[String] = None, restrictions: Option[String] = None)
   extends UsageRights {
     val category = "agency"
+    val defaultCost = None
     val description =
       "Agencies such as Getty, Reuters, Press Association, etc. where " +
       "subscription fees are paid to access and use ***REMOVED***."
@@ -83,9 +87,10 @@ object uAgency {
  )(s => (s.category, s.supplier, s.suppliersCollection, s.restrictions))
 }
 
-case class uPrImage(restrictions: Option[String])
+case class uPrImage(restrictions: Option[String] = None)
   extends UsageRights {
     val category = "PR Image"
+    val defaultCost = Some(Conditional)
     val description =
       "Used to promote specific exhibitions, auctions, etc. and only available " +
       "for such purposes."
@@ -96,9 +101,10 @@ object uPrImage {
   implicit val jsonWrites: Writes[uPrImage] = UsageRights.defaultWrites
 }
 
-case class uHandout(restrictions: Option[String])
+case class uHandout(restrictions: Option[String] = None)
   extends UsageRights {
     val category = "handout"
+    val defaultCost = Some(Free)
     val description =
       "Provided free of use for press purposes e.g. police images for new " +
       "stories, family shots in biographical pieces, etc."
@@ -108,9 +114,10 @@ object uHandout {
   implicit val jsonWrites: Writes[uHandout] = UsageRights.defaultWrites
 }
 
-case class uScreengrab(restrictions: Option[String])
+case class uScreengrab(restrictions: Option[String] = None)
   extends UsageRights {
     val category = "screengrab"
+    val defaultCost = Some(Conditional)
     val description =
       "Still images created by us from moving footage in television broadcasts " +
       "usually in relation to breaking news stories."
@@ -121,9 +128,10 @@ object uScreengrab {
 }
 
 
-case class uGuardianWitness(restrictions: Option[String])
+case class uGuardianWitness(restrictions: Option[String] = None)
   extends UsageRights {
     val category = "guardian-witness"
+    val defaultCost = Some(Conditional)
     val description =
       "Images provided by readers in response to callouts and assignments on " +
       "GuardianWitness."
@@ -138,9 +146,10 @@ object uGuardianWitness {
 }
 
 
-case class uSocialMedia(restrictions: Option[String])
+case class uSocialMedia(restrictions: Option[String] = None)
   extends UsageRights {
     val category = "social-media"
+    val defaultCost = Some(Conditional)
     val description =
       "Images taken from public websites and social media to support " +
       "breaking news where no other image is available from usual sources. " +
@@ -154,9 +163,10 @@ object uSocialMedia {
 }
 
 
-case class uObituary(restrictions: Option[String])
+case class uObituary(restrictions: Option[String] = None)
   extends UsageRights {
     val category = "obituary"
+    val defaultCost = Some(Conditional)
     val description =
       "Acquired from private sources, e.g. family members, for the purposes of " +
       "obituaries."
@@ -167,9 +177,10 @@ object uObituary {
 }
 
 
-case class uStaffPhotographer(photographer: String, publication: String, restrictions: Option[String])
+case class uStaffPhotographer(photographer: String, publication: String, restrictions: Option[String] = None)
   extends UsageRights {
     val category = "staff-photographer"
+    val defaultCost = Some(Free)
     val description =
       "Pictures created by photographers who are or were members of staff."
   }

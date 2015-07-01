@@ -12,16 +12,18 @@ object CostCalculator {
   def getCost(category: Option[UsageRightsCategory]): Option[Cost] =
     categoryCosts.get(category)
 
-  def getCost(supplier: Option[String], collection: Option[String]): Option[Cost] =
-    supplier.flatMap { suppl =>
-      val free = isFreeSupplier(suppl) && ! collection.exists(isExcludedColl(suppl, _))
+  def getCost(supplier: String, collection: Option[String]): Option[Cost] = {
+      val free = isFreeSupplier(supplier) && ! collection.exists(isExcludedColl(supplier, _))
       if (free) Some(Free) else None
-    }
+  }
 
-  def getCost(usageRights: ImageUsageRights): Option[Cost] = {
+  def getCost(usageRights: UsageRights): Option[Cost] = {
       val restricted  : Option[Cost] = usageRights.restrictions.map(r => Conditional)
-      val categoryCost: Option[Cost] = getCost(usageRights.category)
-      val supplierCost: Option[Cost] = getCost(usageRights.supplier, usageRights.suppliersCollection)
+      val categoryCost: Option[Cost] = usageRights.defaultCost
+      val supplierCost: Option[Cost] = usageRights match {
+        case u: uAgency => getCost(u.supplier, u.suppliersCollection)
+        case _ => None
+      }
 
       restricted
         .orElse(categoryCost)
@@ -56,7 +58,7 @@ object CostCalculator {
 
 
   // This function is just used until we have deprecated the old model completely
-  def getCost(usageRights: ImageUsageRights,
+  def getCost(usageRights: UsageRights,
               credit: Option[String], source: Option[String],
               supplier: Option[String]): Cost = {
 
