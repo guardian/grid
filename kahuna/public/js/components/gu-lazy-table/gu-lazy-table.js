@@ -171,7 +171,9 @@ lazyTable.directive('guLazyTable', ['$window', 'observe$',
             // Observe events affecting the view
 
             const viewportScrolled$ = Rx.DOM.fromEvent($window, 'scroll').
-                debounce(100).
+                // delay fine-tuned to roughly match 'slow scrolling'
+                // speed but not fast scrolling
+                debounce(80).
                 startWith({/* init */});
 
             const viewportResized$ = Rx.DOM.fromEvent($window, 'resize').
