@@ -16,7 +16,7 @@ object CostCalculator {
       val restricted  : Option[Cost] = usageRights.restrictions.map(r => Conditional)
       val categoryCost: Option[Cost] = usageRights.defaultCost
       val supplierCost: Option[Cost] = usageRights match {
-        case u: uAgency => getCost(u.supplier, u.suppliersCollection)
+        case u: Agency => getCost(u.supplier, u.suppliersCollection)
         case _ => None
       }
 
