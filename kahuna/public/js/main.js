@@ -505,4 +505,50 @@ kahuna.directive('uiWindowResized', ['$window', function ($window) {
     };
 }]);
 
+kahuna.directive('grImageFadeOnLoad', ['$q', function ($q) {
+    // TODO: customise duration, transition
+    const animationDuration = 0.2; // s - as string because
+
+    return {
+        restrict: 'A',
+        link: function (scope, element, attrs) {
+            hide();
+            isLoaded().finally(reveal);
+
+            function isLoaded() {
+                const defer = $q.defer();
+
+                // already loaded
+                if (element[0].complete) {
+                    defer.resolve();
+                } else {
+                    // wait until loaded/error
+                    element.bind('load', defer.resolve);
+                    element.bind('error', defer.reject);
+
+                    // free listeners
+                    scope.$on('$destroy', () => {
+                        element.unbind('load', defer.resolve);
+                        element.unbind('error', defer.reject);
+                    });
+                }
+
+                return defer.promise;
+            }
+
+            function hide() {
+                element.css({
+                    opacity: 0,
+                    transition: `opacity ${animationDuration}s ease-out`
+                });
+            }
+
+            function reveal() {
+                element.css({opacity: 1});
+            }
+
+        }
+    };
+}]);
+
 angular.bootstrap(document, ['kahuna']);
