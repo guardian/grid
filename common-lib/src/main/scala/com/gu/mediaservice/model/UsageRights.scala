@@ -23,28 +23,28 @@ object UsageRights {
   )(u => (u.category, u.restrictions, u.defaultRestrictions))
 
   implicit val jsonWrites: Writes[UsageRights] = Writes[UsageRights]{
-    case o: uAgency => uAgency.jsonWrites.writes(o)
-    case o: uPrImage => uPrImage.jsonWrites.writes(o)
-    case o: uHandout => uHandout.jsonWrites.writes(o)
-    case o: uScreengrab => uScreengrab.jsonWrites.writes(o)
-    case o: uGuardianWitness => uGuardianWitness.jsonWrites.writes(o)
-    case o: uSocialMedia => uSocialMedia.jsonWrites.writes(o)
-    case o: uObituary => uObituary.jsonWrites.writes(o)
-    case o: uStaffPhotographer => uStaffPhotographer.jsonWrites.writes(o)
+    case o: Agency => Agency.jsonWrites.writes(o)
+    case o: PrImage => PrImage.jsonWrites.writes(o)
+    case o: Handout => Handout.jsonWrites.writes(o)
+    case o: Screengrab => Screengrab.jsonWrites.writes(o)
+    case o: GuardianWitness => GuardianWitness.jsonWrites.writes(o)
+    case o: SocialMedia => SocialMedia.jsonWrites.writes(o)
+    case o: Obituary => Obituary.jsonWrites.writes(o)
+    case o: StaffPhotographer => StaffPhotographer.jsonWrites.writes(o)
     case o: NoRights => NoRights.jsonWrites.writes(o)
   }
 
   implicit val jsonReads: Reads[UsageRights] =
     Reads[UsageRights] { json  =>
       ((json \ "category").asOpt[String] map {
-        case "agency" => uAgency.jsonReads.reads(json)
-        case "PR Image" => uPrImage.jsonReads.reads(json)
-        case "handout" => uHandout.jsonReads.reads(json)
-        case "screengrab" => uScreengrab.jsonReads.reads(json)
-        case "guardian-witness" => uGuardianWitness.jsonReads.reads(json)
-        case "social-media" => uSocialMedia.jsonReads.reads(json)
-        case "obituary" => uObituary.jsonReads.reads(json)
-        case "staff-photographer" => uStaffPhotographer.jsonReads.reads(json)
+        case "agency" => Agency.jsonReads.reads(json)
+        case "PR Image" => PrImage.jsonReads.reads(json)
+        case "handout" => Handout.jsonReads.reads(json)
+        case "screengrab" => Screengrab.jsonReads.reads(json)
+        case "guardian-witness" => GuardianWitness.jsonReads.reads(json)
+        case "social-media" => SocialMedia.jsonReads.reads(json)
+        case "obituary" => Obituary.jsonReads.reads(json)
+        case "staff-photographer" => StaffPhotographer.jsonReads.reads(json)
       })
       .orElse(isNoRights(json).map(NoRights.jsonReads.reads))
       .getOrElse(JsError("No such usage rights category"))
@@ -69,7 +69,7 @@ object NoRights {
 }
 
 
-case class uAgency(supplier: String, suppliersCollection: Option[String] = None, restrictions: Option[String] = None)
+case class Agency(supplier: String, suppliersCollection: Option[String] = None, restrictions: Option[String] = None)
   extends UsageRights {
     val category = "agency"
     val defaultCost = None
@@ -77,9 +77,9 @@ case class uAgency(supplier: String, suppliersCollection: Option[String] = None,
       "Agencies such as Getty, Reuters, Press Association, etc. where " +
       "subscription fees are paid to access and use ***REMOVED***."
   }
-object uAgency {
- implicit val jsonReads: Reads[uAgency] = Json.reads[uAgency]
- implicit val jsonWrites: Writes[uAgency] = (
+object Agency {
+ implicit val jsonReads: Reads[Agency] = Json.reads[Agency]
+ implicit val jsonWrites: Writes[Agency] = (
    (__ \ "category").write[String] ~
    (__ \ "supplier").write[String] ~
    (__ \ "suppliersCollection").writeNullable[String] ~
@@ -87,7 +87,7 @@ object uAgency {
  )(s => (s.category, s.supplier, s.suppliersCollection, s.restrictions))
 }
 
-case class uPrImage(restrictions: Option[String] = None)
+case class PrImage(restrictions: Option[String] = None)
   extends UsageRights {
     val category = "PR Image"
     val defaultCost = Some(Conditional)
@@ -96,12 +96,12 @@ case class uPrImage(restrictions: Option[String] = None)
       "for such purposes."
   }
 
-object uPrImage {
-  implicit val jsonReads: Reads[uPrImage] = Json.reads[uPrImage]
-  implicit val jsonWrites: Writes[uPrImage] = UsageRights.defaultWrites
+object PrImage {
+  implicit val jsonReads: Reads[PrImage] = Json.reads[PrImage]
+  implicit val jsonWrites: Writes[PrImage] = UsageRights.defaultWrites
 }
 
-case class uHandout(restrictions: Option[String] = None)
+case class Handout(restrictions: Option[String] = None)
   extends UsageRights {
     val category = "handout"
     val defaultCost = Some(Free)
@@ -109,12 +109,12 @@ case class uHandout(restrictions: Option[String] = None)
       "Provided free of use for press purposes e.g. police images for new " +
       "stories, family shots in biographical pieces, etc."
   }
-object uHandout {
-  implicit val jsonReads: Reads[uHandout] = Json.reads[uHandout]
-  implicit val jsonWrites: Writes[uHandout] = UsageRights.defaultWrites
+object Handout {
+  implicit val jsonReads: Reads[Handout] = Json.reads[Handout]
+  implicit val jsonWrites: Writes[Handout] = UsageRights.defaultWrites
 }
 
-case class uScreengrab(restrictions: Option[String] = None)
+case class Screengrab(restrictions: Option[String] = None)
   extends UsageRights {
     val category = "screengrab"
     val defaultCost = Some(Conditional)
@@ -122,13 +122,13 @@ case class uScreengrab(restrictions: Option[String] = None)
       "Still images created by us from moving footage in television broadcasts " +
       "usually in relation to breaking news stories."
   }
-object uScreengrab {
- implicit val jsonReads: Reads[uScreengrab] = Json.reads[uScreengrab]
- implicit val jsonWrites: Writes[uScreengrab] = UsageRights.defaultWrites
+object Screengrab {
+ implicit val jsonReads: Reads[Screengrab] = Json.reads[Screengrab]
+ implicit val jsonWrites: Writes[Screengrab] = UsageRights.defaultWrites
 }
 
 
-case class uGuardianWitness(restrictions: Option[String] = None)
+case class GuardianWitness(restrictions: Option[String] = None)
   extends UsageRights {
     val category = "guardian-witness"
     val defaultCost = Some(Conditional)
@@ -140,13 +140,13 @@ case class uGuardianWitness(restrictions: Option[String] = None)
       "Contact the GuardianWitness desk before use (witness.editorial@theguardian.com)!"
     )
   }
-object uGuardianWitness {
- implicit val jsonReads: Reads[uGuardianWitness] = Json.reads[uGuardianWitness]
- implicit val jsonWrites: Writes[uGuardianWitness] = UsageRights.defaultWrites
+object GuardianWitness {
+ implicit val jsonReads: Reads[GuardianWitness] = Json.reads[GuardianWitness]
+ implicit val jsonWrites: Writes[GuardianWitness] = UsageRights.defaultWrites
 }
 
 
-case class uSocialMedia(restrictions: Option[String] = None)
+case class SocialMedia(restrictions: Option[String] = None)
   extends UsageRights {
     val category = "social-media"
     val defaultCost = Some(Conditional)
@@ -157,13 +157,13 @@ case class uSocialMedia(restrictions: Option[String] = None)
       "extreme circumstances an image may be used with the approval of " +
       "a senior editor."
   }
-object uSocialMedia {
- implicit val jsonReads: Reads[uSocialMedia] = Json.reads[uSocialMedia]
- implicit val jsonWrites: Writes[uSocialMedia] = UsageRights.defaultWrites
+object SocialMedia {
+ implicit val jsonReads: Reads[SocialMedia] = Json.reads[SocialMedia]
+ implicit val jsonWrites: Writes[SocialMedia] = UsageRights.defaultWrites
 }
 
 
-case class uObituary(restrictions: Option[String] = None)
+case class Obituary(restrictions: Option[String] = None)
   extends UsageRights {
     val category = "obituary"
     val defaultCost = Some(Conditional)
@@ -171,22 +171,22 @@ case class uObituary(restrictions: Option[String] = None)
       "Acquired from private sources, e.g. family members, for the purposes of " +
       "obituaries."
   }
-object uObituary {
- implicit val jsonReads: Reads[uObituary] = Json.reads[uObituary]
- implicit val jsonWrites: Writes[uObituary] = UsageRights.defaultWrites
+object Obituary {
+ implicit val jsonReads: Reads[Obituary] = Json.reads[Obituary]
+ implicit val jsonWrites: Writes[Obituary] = UsageRights.defaultWrites
 }
 
 
-case class uStaffPhotographer(photographer: String, publication: String, restrictions: Option[String] = None)
+case class StaffPhotographer(photographer: String, publication: String, restrictions: Option[String] = None)
   extends UsageRights {
     val category = "staff-photographer"
     val defaultCost = Some(Free)
     val description =
       "Pictures created by photographers who are or were members of staff."
   }
-object uStaffPhotographer {
- implicit val jsonReads: Reads[uStaffPhotographer] = Json.reads[uStaffPhotographer]
- implicit val jsonWrites: Writes[uStaffPhotographer] = (
+object StaffPhotographer {
+ implicit val jsonReads: Reads[StaffPhotographer] = Json.reads[StaffPhotographer]
+ implicit val jsonWrites: Writes[StaffPhotographer] = (
    (__ \ "category").write[String] ~
    (__ \ "photographer").write[String] ~
    (__ \ "publication").write[String] ~

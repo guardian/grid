@@ -32,7 +32,7 @@ object UsageRightsProperty {
 
   private def photographerProperties(u: UsageRights): List[UsageRightsProperty] = {
     u match {
-      case s: uStaffPhotographer => List(PhotographerProperty, PublicationProperty)
+      case s: StaffPhotographer => List(PhotographerProperty, PublicationProperty)
       case _ => List()
     }
   }
