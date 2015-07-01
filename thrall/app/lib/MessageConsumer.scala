@@ -33,7 +33,7 @@ object MessageConsumer {
     actorSystem.scheduler.scheduleOnce(0.seconds)(processMessages())
 
   lazy val client =
-    new AmazonSQSClient(Config.awsCredentials) <| (_ setEndpoint Config.awsEndpoint)
+    new AmazonSQSClient(Config.awsCredentials, Config.clientConfiguration) <| (_ setEndpoint Config.awsEndpoint)
 
   @tailrec
   def processMessages() {
