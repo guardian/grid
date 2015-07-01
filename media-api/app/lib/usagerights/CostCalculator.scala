@@ -1,16 +1,11 @@
 package lib.usagerights
 
-import com.gu.mediaservice.lib.config.UsageRightsConfig
 import com.gu.mediaservice.model._
 
 
 object CostCalculator {
   import DeprecatedConfig.{freeCreditList, freeSourceList}
   import Config.{freeSuppliers, payGettySourceList, suppliersCollectionExcl}
-  import UsageRightsConfig.categoryCosts
-
-  def getCost(category: Option[UsageRightsCategory]): Option[Cost] =
-    categoryCosts.get(category)
 
   def getCost(supplier: String, collection: Option[String]): Option[Cost] = {
       val free = isFreeSupplier(supplier) && ! collection.exists(isExcludedColl(supplier, _))
@@ -29,9 +24,6 @@ object CostCalculator {
         .orElse(categoryCost)
         .orElse(supplierCost)
   }
-
-  def getCategoriesOfCost(costs: List[Cost]): List[UsageRightsCategory] =
-    categoryCosts.filter { case (_, cost) => costs.contains(cost) }.keys.flatten.toList
 
   private def isFreeSupplier(supplier: String) = freeSuppliers.contains(supplier)
 
