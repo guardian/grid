@@ -137,13 +137,27 @@
                 </span>
             </div>
 
+
             <div class="image-info__wrap metadata-line image-info__credit">
                 <button class="image-info__edit"
                         ng:if="ctrl.userCanEdit"
                         ng:click="creditEditForm.$show()"
                         ng:hide="creditEditForm.$visible">✎</button>
                 credit
-                <span ng:class="{'image-info--multiple': ctrl.hasMultipleValues(ctrl.rawMetadata.credit)}"
+                <gr:datalist
+                    class="image-info--editor__input"
+                    gr:search="ctrl.metadataSearch('credit', q)">
+
+                    <input type="text"
+                        class="image-info__credit"
+                        required
+                        gr:datalist-input
+                        ng:model="ctrl.metadata.credit"
+                        ng:change="ctrl.save()"
+                        ng:model-options="{ updateOn: 'gr:datalist:update blur' }" />
+                </gr:datalist>
+
+               <span ng:class="{'image-info--multiple': ctrl.hasMultipleValues(ctrl.rawMetadata.credit)}"
                       editable-text="ctrl.metadata.credit"
                       onbeforesave="ctrl.updateMetadataField('credit', $data)"
                       e:form="creditEditForm"

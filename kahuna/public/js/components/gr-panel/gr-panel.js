@@ -18,6 +18,7 @@ export var grPanel = angular.module('grPanel', [
 grPanel.controller('GrPanel', [
     '$scope',
     '$window',
+    'mediaApi',
     'selectionService',
     'labelService',
     'archiveService',
@@ -26,6 +27,7 @@ grPanel.controller('GrPanel', [
     function (
         $scope,
         $window,
+        mediaApi,
         selection,
         labelService,
         archiveService,
@@ -34,9 +36,16 @@ grPanel.controller('GrPanel', [
 
         var ctrl = this;
 
+
         ctrl.selectedImages = selection.selectedImages;
         ctrl.hasMultipleValues = (val) => Array.isArray(val);
         ctrl.clear = selection.clear;
+
+        ctrl.metadataSearch = (field, q) => {
+            return mediaApi.metadataSearch(field,  { q }).then(resource => {
+                return resource.data.map(d => d.key);
+            });
+        };
 
         $scope.$watch(() => selection.getMetadata(), onValChange(newMetadata => {
             ctrl.rawMetadata = newMetadata;
