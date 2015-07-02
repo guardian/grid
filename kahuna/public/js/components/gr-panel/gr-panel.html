@@ -146,7 +146,7 @@
                 credit
                 <span ng:class="{'image-info--multiple': ctrl.hasMultipleValues(ctrl.rawMetadata.credit)}"
                       editable-text="ctrl.metadata.credit"
-                      e:typeahead="credit for credit in ctrl.credits | filter:$viewValue | limitTo:8"
+                      e:typeahead="credit for credit in ctrl.credits($viewValue) | limitTo:8"
                       onbeforesave="ctrl.updateMetadataField('credit', $data)"
                       e:form="creditEditForm"
                       e:ng-class="{'image-info__editor--error': $error, 'image-info__editor--saving': creditEditForm.$waiting}">
