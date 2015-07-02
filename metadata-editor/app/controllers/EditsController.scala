@@ -57,7 +57,6 @@ object EditsController extends Controller with ArgoHelpers {
   // TODO: Think about calling this `overrides` or something that isn't metadata
   def getAllMetadata(id: String) = Authenticated.async {
     dynamo.get(id) map { dynamoEntry =>
-      println(dynamoEntry)
       val edits = dynamoEntry.as[Edits]
 
       // We have to do the to JSON here as we are using a custom JSON writes.
