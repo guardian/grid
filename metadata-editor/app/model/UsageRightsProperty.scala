@@ -5,6 +5,9 @@ import play.api.libs.json._
 
 import com.gu.mediaservice.model._
 
+
+// TODO: We'll be able to deprecate this and build it up directly from case
+// classes.
 sealed trait UsageRightsProperty {
   val name: String
   val label: String

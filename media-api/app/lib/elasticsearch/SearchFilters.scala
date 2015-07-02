@@ -86,7 +86,8 @@ trait SearchFilters extends ImageFields {
   }
   val nonFreeFilter = freeFilterWithOverride.map(filters.not)
 
-  // FIXME: There must be a better way (._.)
+  // FIXME: There must be a better way (._.). Potentially making cost a lookup
+  // again?
   lazy val freeToUseCategories: List[String] = List(
     "PR Image",
     "handout",
@@ -94,7 +95,8 @@ trait SearchFilters extends ImageFields {
     "guardian-witness",
     "social-media",
     "obituary",
-    "staff-photographer"
+    "staff-photographer",
+    "pool"
   )
 
 }

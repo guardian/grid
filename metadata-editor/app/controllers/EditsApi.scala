@@ -41,9 +41,10 @@ object EditsApi extends Controller with ArgoHelpers {
   val usageRightsResponse = {
     // FIXME: GuardianWitness should be there but isn't for simplicity;
     // their images can be imported by drag and drop instead
-    // FIXME: Creating new instances? Rubbish.
+    // FIXME: Creating new instances? Rubbish ಠ_ಠ.
     val usageRightsData =
-      List(PrImage(), Handout(), Screengrab(), SocialMedia(), Obituary(), StaffPhotographer("e", "e"))
+      List(PrImage(), Handout(), Screengrab(), SocialMedia(), Obituary(), Pool(),
+           StaffPhotographer("?", "?"))
         .map(CategoryResponse.fromUsageRights)
 
     respond(usageRightsData)
