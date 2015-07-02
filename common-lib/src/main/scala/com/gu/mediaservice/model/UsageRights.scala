@@ -33,6 +33,7 @@ object UsageRights {
     case o: SocialMedia       => SocialMedia.jsonWrites.writes(o)
     case o: Obituary          => Obituary.jsonWrites.writes(o)
     case o: StaffPhotographer => StaffPhotographer.jsonWrites.writes(o)
+    case o: Pool              => Pool.jsonWrites.writes(o)
     case o: NoRights          => NoRights.jsonWrites.writes(o)
   }
 
@@ -47,6 +48,7 @@ object UsageRights {
         case "social-media"       => Some(SocialMedia.jsonReads.reads(json))
         case "obituary"           => Some(Obituary.jsonReads.reads(json))
         case "staff-photographer" => Some(StaffPhotographer.jsonReads.reads(json))
+        case "pool"               => Some(Pool.jsonReads.reads(json))
         case _                    => None
       })
       .orElse(isNoRights(json).map(NoRights.jsonReads.reads))
@@ -197,4 +199,16 @@ object StaffPhotographer {
  )(s => (s.category, s.photographer, s.publication, s.restrictions))
 }
 
-
+case class Pool(restrictions: Option[String] = None)
+  extends UsageRights {
+    val category = "pool"
+    val defaultCost = Some(Conditional)
+    val description =
+      "Images issued during major national events that are free to use and" +
+      "shared amongst news media organisations during that event. " +
+      "Rights revert to the copyright holder when the pool is terminated."
+  }
+object Pool {
+ implicit val jsonReads: Reads[Pool] = Json.reads[Pool]
+ implicit val jsonWrites: Writes[Pool] = UsageRights.defaultWrites
+}
