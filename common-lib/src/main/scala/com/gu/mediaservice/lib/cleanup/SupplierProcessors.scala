@@ -154,12 +154,12 @@ object AddAgencyCategory extends ImageProcessor {
   // collection but no supplier?
   // FIXME: this probably belongs in some sort of `UsageRightsCategoryProcessors`
   def apply(image: Image): Image =
-    isAgency(image).map(supplier => imageWithAgency(image, supplier)).getOrElse(image)
+    getAgencySupplier(image).map(supplier => imageWithAgency(image, supplier)).getOrElse(image)
 
   def imageWithAgency(image: Image, supplier: String): Image =
     image.copy(usageRights = Agency(supplier))
 
-  def isAgency(image: Image): Option[String] = image.usageRights match {
+  def getAgencySupplier(image: Image): Option[String] = image.usageRights match {
     case s: Agency => Some(s.supplier)
     case _ => None
   }
