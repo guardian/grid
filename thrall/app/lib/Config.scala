@@ -1,5 +1,6 @@
 package lib
 
+import com.amazonaws.ClientConfiguration
 import com.amazonaws.auth.{BasicAWSCredentials, AWSCredentials}
 import com.amazonaws.services.ec2.AmazonEC2Client
 import scalaz.syntax.id._
@@ -35,5 +36,9 @@ object Config extends CommonPlayAppConfig {
 
   // The presence of this identifier prevents deletion
   val persistenceIdentifier = "picdarUrn" // TODO: properties("persistence.identifier")
+
+  val maxRetries = properties("maxRetries").toInt
+
+  val clientConfiguration = new ClientConfiguration().withMaxErrorRetry(maxRetries)
 
 }

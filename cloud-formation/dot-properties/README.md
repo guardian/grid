@@ -70,6 +70,7 @@ PROPERTIES = {
     'panda_aws_key': <PRIVATE_VALUE>,
     'panda_aws_secret': <PRIVATE_VALUE>,
     'cors': <PRIVATE_VALUE>,
+    'thrall_max_retries': <VALUE>
 }
 
 STACK = <CLOUD_FORMATION_NAME_OR_ID>
