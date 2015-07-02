@@ -63,7 +63,7 @@ case class NoRights(restrictions: Option[String] = None)
     val category = "no-rights"
     val defaultCost = Some(Pay)
     val description =
-      "Remove any rights that have been applied to this image. It will appear as" +
+      "Remove any rights that have been applied to this image. It will appear as " +
       "pay to use."
   }
 object NoRights {
