@@ -36,15 +36,16 @@ object UsageRights {
 
   implicit val jsonReads: Reads[UsageRights] =
     Reads[UsageRights] { json  =>
-      ((json \ "category").asOpt[String] map {
-        case "agency" => Agency.jsonReads.reads(json)
-        case "PR Image" => PrImage.jsonReads.reads(json)
-        case "handout" => Handout.jsonReads.reads(json)
-        case "screengrab" => Screengrab.jsonReads.reads(json)
-        case "guardian-witness" => GuardianWitness.jsonReads.reads(json)
-        case "social-media" => SocialMedia.jsonReads.reads(json)
-        case "obituary" => Obituary.jsonReads.reads(json)
-        case "staff-photographer" => StaffPhotographer.jsonReads.reads(json)
+      ((json \ "category").asOpt[String] flatMap {
+        case "agency"             => Some(Agency.jsonReads.reads(json))
+        case "PR Image"           => Some(PrImage.jsonReads.reads(json))
+        case "handout"            => Some(Handout.jsonReads.reads(json))
+        case "screengrab"         => Some(Screengrab.jsonReads.reads(json))
+        case "guardian-witness"   => Some(GuardianWitness.jsonReads.reads(json))
+        case "social-media"       => Some(SocialMedia.jsonReads.reads(json))
+        case "obituary"           => Some(Obituary.jsonReads.reads(json))
+        case "staff-photographer" => Some(StaffPhotographer.jsonReads.reads(json))
+        case _                    => None
       })
       .orElse(isNoRights(json).map(NoRights.jsonReads.reads))
       .getOrElse(JsError("No such usage rights category"))
