@@ -65,10 +65,11 @@ object UsageRights {
 
 // We have a custom writes and reads for NoRights as it is represented by `{}`
 // in the DB layer.
-case class NoRights(restrictions: Option[String] = None)
+case class NoRights
   extends UsageRights {
     val category = "no-rights"
     val defaultCost = Some(Pay)
+    val restrictions = None
     val description =
       "Remove any rights that have been applied to this image. It will appear as " +
       "pay to use."
