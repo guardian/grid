@@ -43,7 +43,9 @@ grPanel.controller('GrPanel', [
         ctrl.hasMultipleValues = (val) => Array.isArray(val);
         ctrl.clear = selection.clear;
 
-        ctrl.credits = ['guardian'];
+        ctrl.credits = function(searchText) {
+            return ctrl.metadataSearch('credit', searchText);
+        };
 
         ctrl.metadataSearch = (field, q) => {
             return mediaApi.metadataSearch(field,  { q }).then(resource => {
