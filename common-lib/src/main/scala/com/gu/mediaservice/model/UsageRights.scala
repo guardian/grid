@@ -23,15 +23,15 @@ object UsageRights {
   )(u => (u.category, u.restrictions, u.defaultRestrictions))
 
   implicit val jsonWrites: Writes[UsageRights] = Writes[UsageRights]{
-    case o: Agency => Agency.jsonWrites.writes(o)
-    case o: PrImage => PrImage.jsonWrites.writes(o)
-    case o: Handout => Handout.jsonWrites.writes(o)
-    case o: Screengrab => Screengrab.jsonWrites.writes(o)
-    case o: GuardianWitness => GuardianWitness.jsonWrites.writes(o)
-    case o: SocialMedia => SocialMedia.jsonWrites.writes(o)
-    case o: Obituary => Obituary.jsonWrites.writes(o)
+    case o: Agency            => Agency.jsonWrites.writes(o)
+    case o: PrImage           => PrImage.jsonWrites.writes(o)
+    case o: Handout           => Handout.jsonWrites.writes(o)
+    case o: Screengrab        => Screengrab.jsonWrites.writes(o)
+    case o: GuardianWitness   => GuardianWitness.jsonWrites.writes(o)
+    case o: SocialMedia       => SocialMedia.jsonWrites.writes(o)
+    case o: Obituary          => Obituary.jsonWrites.writes(o)
     case o: StaffPhotographer => StaffPhotographer.jsonWrites.writes(o)
-    case o: NoRights => NoRights.jsonWrites.writes(o)
+    case o: NoRights          => NoRights.jsonWrites.writes(o)
   }
 
   implicit val jsonReads: Reads[UsageRights] =
