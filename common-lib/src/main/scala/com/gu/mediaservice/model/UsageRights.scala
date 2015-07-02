@@ -24,6 +24,11 @@ object UsageRights {
   // restrictions if restrictions are omitted
 
 
+  // When using `Json.as[UsageRights]` or `Json.toJson(usageRights)` we want to
+  // make sure we right the correct subtype parser. This allows us to retain any
+  // additional fields to the case classes (like "photographer" on
+  // `StaffPhotographer`), or, as in the case of `NoRights`, create a custom parser
+  // all together.
   implicit val jsonWrites: Writes[UsageRights] = Writes[UsageRights]{
     case o: Agency            => Agency.jsonWrites.writes(o)
     case o: PrImage           => PrImage.jsonWrites.writes(o)
