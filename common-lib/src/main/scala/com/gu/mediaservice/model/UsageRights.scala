@@ -18,9 +18,11 @@ sealed trait UsageRights {
 object UsageRights {
   val defaultWrites: Writes[UsageRights] = (
     (__ \ "category").write[String] ~
-    (__ \ "restrictions").writeNullable[String] ~
-    (__ \ "defaultRestrictions").writeNullable[String]
-  )(u => (u.category, u.restrictions, u.defaultRestrictions))
+    (__ \ "restrictions").writeNullable[String]
+  )(u => (u.category, u.restrictions.orElse(u.defaultRestrictions)))
+  // as this is rendering logic, we leave it here, displaying the default
+  // restrictions if restrictions are omitted
+
 
   implicit val jsonWrites: Writes[UsageRights] = Writes[UsageRights]{
     case o: Agency            => Agency.jsonWrites.writes(o)
