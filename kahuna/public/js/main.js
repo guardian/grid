@@ -8,6 +8,7 @@ import './services/api/media-cropper';
 import './services/api/loader';
 import './services/api/edits-api';
 import './directives/ui-crop-box';
+import './directives/gr-image-fade-on-load';
 import './crop/index';
 import './image/index';
 import './upload/index';
@@ -53,7 +54,10 @@ var kahuna = angular.module('kahuna', [
     'kahuna.directives',
     'kahuna.common',
     'kahuna.errors.http',
-    'kahuna.errors.global'
+    'kahuna.errors.global',
+
+    // directives used throughout
+    'gr.imageFadeOnLoad'
 ]);
 
 
@@ -501,52 +505,6 @@ kahuna.directive('uiWindowResized', ['$window', function ($window) {
             angular.element($window).bind('resize', function() {
                 scope.$eval(attrs.uiWindowResized);
             });
-        }
-    };
-}]);
-
-kahuna.directive('grImageFadeOnLoad', ['$q', function ($q) {
-    // TODO: customise duration, transition
-    const animationDuration = 0.2; // s - as string because
-
-    return {
-        restrict: 'A',
-        link: function (scope, element) {
-            hide();
-            isLoaded().finally(reveal);
-
-            function isLoaded() {
-                const defer = $q.defer();
-
-                // already loaded
-                if (element[0].complete) {
-                    defer.resolve();
-                } else {
-                    // wait until loaded/error
-                    element.bind('load', defer.resolve);
-                    element.bind('error', defer.reject);
-
-                    // free listeners
-                    scope.$on('$destroy', () => {
-                        element.unbind('load', defer.resolve);
-                        element.unbind('error', defer.reject);
-                    });
-                }
-
-                return defer.promise;
-            }
-
-            function hide() {
-                element.css({
-                    opacity: 0,
-                    transition: `opacity ${animationDuration}s ease-out`
-                });
-            }
-
-            function reveal() {
-                element.css({opacity: 1});
-            }
-
         }
     };
 }]);
