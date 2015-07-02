@@ -1,4 +1,5 @@
 import angular from 'angular';
+import 'angular-bootstrap'
 
 import './gr-panel.css!';
 import '../../services/preview-selection';
@@ -12,7 +13,8 @@ export var grPanel = angular.module('grPanel', [
     'kahuna.services.label',
     'kahuna.services.archive',
     'kahuna.edits.service',
-    'grXeditable'
+    'grXeditable',
+    'ui.bootstrap'
 ]);
 
 grPanel.controller('GrPanel', [
@@ -40,6 +42,8 @@ grPanel.controller('GrPanel', [
         ctrl.selectedImages = selection.selectedImages;
         ctrl.hasMultipleValues = (val) => Array.isArray(val);
         ctrl.clear = selection.clear;
+
+        ctrl.credits = ['guardian'];
 
         ctrl.metadataSearch = (field, q) => {
             return mediaApi.metadataSearch(field,  { q }).then(resource => {
