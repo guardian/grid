@@ -58,6 +58,8 @@ object UsageRights {
     private def isNoRights(json: JsValue): Option[JsValue] = Some(json).filter(_ == NoRights.jsonVal)
 }
 
+// We have a custom writes and reads for NoRights as it is represented by `{}`
+// in the DB layer.
 case class NoRights(restrictions: Option[String] = None)
   extends UsageRights {
     val category = "no-rights"
