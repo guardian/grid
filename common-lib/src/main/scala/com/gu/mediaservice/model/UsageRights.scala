@@ -29,34 +29,36 @@ object UsageRights {
   // additional fields to the case classes (like "photographer" on
   // `StaffPhotographer`), or, as in the case of `NoRights`, create a custom parser
   // all together.
-  implicit val jsonWrites: Writes[UsageRights] = Writes[UsageRights]{
-    case o: Agency            => Agency.jsonWrites.writes(o)
-    case o: PrImage           => PrImage.jsonWrites.writes(o)
-    case o: Handout           => Handout.jsonWrites.writes(o)
-    case o: Screengrab        => Screengrab.jsonWrites.writes(o)
-    case o: GuardianWitness   => GuardianWitness.jsonWrites.writes(o)
-    case o: SocialMedia       => SocialMedia.jsonWrites.writes(o)
-    case o: Obituary          => Obituary.jsonWrites.writes(o)
-    case o: StaffPhotographer => StaffPhotographer.jsonWrites.writes(o)
-    case o: Pool              => Pool.jsonWrites.writes(o)
-    case o: NoRights          => NoRights.jsonWrites.writes(o)
+  implicit val jsonWrites: Writes[UsageRights] = Writes[UsageRights] {
+    case o @ (
+        _: Agency
+      | _: PrImage
+      | _: Handout
+      | _: Screengrab
+      | _: GuardianWitness
+      | _: SocialMedia
+      | _: Obituary
+      | _: StaffPhotographer
+      | _: Pool
+      | _: NoRights) => Json.toJson(o)
   }
 
   implicit val jsonReads: Reads[UsageRights] =
     Reads[UsageRights] { json  =>
       ((json \ "category").asOpt[String] flatMap {
-        case "agency"             => Some(Agency.jsonReads.reads(json))
-        case "PR Image"           => Some(PrImage.jsonReads.reads(json))
-        case "handout"            => Some(Handout.jsonReads.reads(json))
-        case "screengrab"         => Some(Screengrab.jsonReads.reads(json))
-        case "guardian-witness"   => Some(GuardianWitness.jsonReads.reads(json))
-        case "social-media"       => Some(SocialMedia.jsonReads.reads(json))
-        case "obituary"           => Some(Obituary.jsonReads.reads(json))
-        case "staff-photographer" => Some(StaffPhotographer.jsonReads.reads(json))
-        case "pool"               => Some(Pool.jsonReads.reads(json))
+        case "agency"             => Some(json.as[Agency])
+        case "PR Image"           => Some(json.as[PrImage])
+        case "handout"            => Some(json.as[Handout])
+        case "screengrab"         => Some(json.as[Screengrab])
+        case "guardian-witness"   => Some(json.as[GuardianWitness])
+        case "social-media"       => Some(json.as[SocialMedia])
+        case "obituary"           => Some(json.as[Obituary])
+        case "staff-photographer" => Some(json.as[StaffPhotographer])
+        case "pool"               => Some(json.as[Pool])
         case _                    => None
       })
-      .orElse(isNoRights(json).map(NoRights.jsonReads.reads))
+      .orElse(isNoRights(json).map(_.as[NoRights]))
+      .map(JsSuccess(_))
       .getOrElse(JsError("No such usage rights category"))
     }
 
