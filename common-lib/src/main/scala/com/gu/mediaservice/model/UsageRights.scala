@@ -40,24 +40,26 @@ object UsageRights {
       | _: Obituary
       | _: StaffPhotographer
       | _: Pool
-      | _: NoRights) => Json.toJson(o)
+      | _: NoRights.type) => Json.toJson(o)
   }
+
+
 
   implicit val jsonReads: Reads[UsageRights] =
     Reads[UsageRights] { json  =>
       ((json \ "category").asOpt[String] flatMap {
-        case "agency"             => Some(json.as[Agency])
-        case "PR Image"           => Some(json.as[PrImage])
-        case "handout"            => Some(json.as[Handout])
-        case "screengrab"         => Some(json.as[Screengrab])
-        case "guardian-witness"   => Some(json.as[GuardianWitness])
-        case "social-media"       => Some(json.as[SocialMedia])
-        case "obituary"           => Some(json.as[Obituary])
-        case "staff-photographer" => Some(json.as[StaffPhotographer])
-        case "pool"               => Some(json.as[Pool])
+        case "agency"             => json.asOpt[Agency]
+        case "PR Image"           => json.asOpt[PrImage]
+        case "handout"            => json.asOpt[Handout]
+        case "screengrab"         => json.asOpt[Screengrab]
+        case "guardian-witness"   => json.asOpt[GuardianWitness]
+        case "social-media"       => json.asOpt[SocialMedia]
+        case "obituary"           => json.asOpt[Obituary]
+        case "staff-photographer" => json.asOpt[StaffPhotographer]
+        case "pool"               => json.asOpt[Pool]
         case _                    => None
       })
-      .orElse(isNoRights(json).map(_.as[NoRights]))
+      .orElse(json.asOpt[NoRights.type])
       .map(JsSuccess(_))
       .getOrElse(JsError("No such usage rights category"))
     }
@@ -67,20 +69,25 @@ object UsageRights {
 
 // We have a custom writes and reads for NoRights as it is represented by `{}`
 // in the DB layer.
-case class NoRights(restrictions: Option[String] = None)
+case object NoRights
   extends UsageRights {
     val category = "no-rights"
     val defaultCost = Some(Pay)
+    val restrictions = None
     val description =
       "Remove any rights that have been applied to this image. It will appear as " +
       "pay to use."
-  }
-object NoRights {
-  implicit val jsonReads: Reads[NoRights] = Json.reads[NoRights]
-  implicit val jsonWrites: Writes[NoRights] = Writes[NoRights](_ => jsonVal)
 
-  val jsonVal = Json.obj()
-}
+    implicit val jsonReads: Reads[NoRights.type] = Reads[NoRights.type]{ json =>
+      json == jsonVal match {
+        case true => JsSuccess(NoRights)
+        case false => JsError("Value should be {} for no rights")
+      }
+    }
+    implicit val jsonWrites: Writes[NoRights.type] = Writes[NoRights.type](_ => jsonVal)
+
+    lazy val jsonVal = Json.obj()
+  }
 
 
 case class Agency(supplier: String, suppliersCollection: Option[String] = None, restrictions: Option[String] = None)
