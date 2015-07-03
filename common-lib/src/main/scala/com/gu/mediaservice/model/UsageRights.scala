@@ -44,8 +44,6 @@ object UsageRights {
     case o: NoRights.type     => NoRights.jsonWrites.writes(o)
   }
 
-
-
   implicit val jsonReads: Reads[UsageRights] =
     Reads[UsageRights] { json  =>
       ((json \ "category").asOpt[String] flatMap {
@@ -79,14 +77,10 @@ case object NoRights
 
     lazy val jsonVal = Json.obj()
 
-
-
     implicit val jsonReads: Reads[NoRights.type] = Reads[NoRights.type]{ json =>
       if (json == jsonVal) JsSuccess(NoRights) else JsError("Value should be {} for no rights")
     }
     implicit val jsonWrites: Writes[NoRights.type] = Writes[NoRights.type](_ => jsonVal)
-
-
   }
 
 
