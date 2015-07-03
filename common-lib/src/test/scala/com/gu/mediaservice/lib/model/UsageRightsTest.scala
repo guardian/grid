@@ -4,6 +4,13 @@ import org.scalatest.{FunSpec, Matchers}
 import play.api.libs.json._
 
 
+
+case class TestImage(name: String, usageRights: UsageRights)
+object TestImage {
+  implicit val jsonReads: Reads[TestImage] = Json.reads[TestImage]
+  implicit val jsonWrites: Writes[TestImage] = Json.writes[TestImage]
+}
+
 class UsageRightsTest extends FunSpec with Matchers {
 
   val invalidJson = Json.parse("""{ "category": "animated-gif", "fps": "∞" }""")
@@ -13,7 +20,7 @@ class UsageRightsTest extends FunSpec with Matchers {
     val suppliersCollection = "AFP"
     val usageRights = Agency(supplier, Some(suppliersCollection))
 
-    val json = Json.toJson(usageRights)(Agency.jsonWrites)
+    val json = Json.toJson(usageRights)
 
     (json \ "category").as[String] should be (usageRights.category)
     (json \ "supplier").as[String] should be (supplier)
@@ -46,11 +53,11 @@ class UsageRightsTest extends FunSpec with Matchers {
     val json = Json.parse("{}")
     val usageRights = json.as[UsageRights]
 
-     usageRights should be (NoRights)
+    usageRights should be (NoRights)
   }
 
   it ("should serialise to {} from NoRights") {
-    val jsonString = Json.toJson(NoRights)(NoRights.jsonWrites).toString()
+    val jsonString = Json.toJson(NoRights).toString()
 
      jsonString should be ("{}")
   }
@@ -71,6 +78,25 @@ class UsageRightsTest extends FunSpec with Matchers {
     jsError.errors.headOption.map { case (path, errors) =>
       errors.head.message should be ("No such usage rights category")
     }
+  }
+
+  it ("should deserialise as a property of a case class") {
+    val noRights = TestImage("test", NoRights)
+    val agency = TestImage("test", Agency("Getty Images"))
+
+    (Json.toJson(noRights) \ "usageRights") should be (NoRights.jsonVal)
+    (Json.toJson(agency) \ "usageRights" \ "supplier").as[String] should be ("Getty Images")
+  }
+
+  it ("should serialise as a property of a case class") {
+    val noRightsJson = Json.parse("""{ "name": "Test Image", "usageRights": {} }""")
+    val agencyJson = Json.parse("""{ "name": "Test Image", "usageRights": { "category": "agency", "supplier": "Getty Images" } }""")
+
+    val noRightsImage = noRightsJson.as[TestImage]
+    noRightsImage.usageRights should be (NoRights)
+
+    val agencyImage = agencyJson.as[TestImage]
+    agencyImage.usageRights should be (Agency("Getty Images"))
   }
 
 }
