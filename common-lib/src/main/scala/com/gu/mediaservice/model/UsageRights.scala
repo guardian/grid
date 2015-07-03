@@ -32,16 +32,16 @@ object UsageRights {
   // TODO: I haven't figured out why Json.toJson[T](o) doesn't work here, it'd
   // be good to know though.
   implicit def jsonWrites[T <: UsageRights]: Writes[T] = Writes[T] {
-    case o: Agency => Agency.jsonWrites.writes(o)
-    case o: PrImage => PrImage.jsonWrites.writes(o)
-    case o: Handout => Handout.jsonWrites.writes(o)
-    case o: Screengrab => Screengrab.jsonWrites.writes(o)
-    case o: GuardianWitness => GuardianWitness.jsonWrites.writes(o)
-    case o: SocialMedia => SocialMedia.jsonWrites.writes(o)
-    case o: Obituary => Obituary.jsonWrites.writes(o)
+    case o: Agency            => Agency.jsonWrites.writes(o)
+    case o: PrImage           => PrImage.jsonWrites.writes(o)
+    case o: Handout           => Handout.jsonWrites.writes(o)
+    case o: Screengrab        => Screengrab.jsonWrites.writes(o)
+    case o: GuardianWitness   => GuardianWitness.jsonWrites.writes(o)
+    case o: SocialMedia       => SocialMedia.jsonWrites.writes(o)
+    case o: Obituary          => Obituary.jsonWrites.writes(o)
     case o: StaffPhotographer => StaffPhotographer.jsonWrites.writes(o)
-    case o: Pool => Pool.jsonWrites.writes(o)
-    case o: NoRights.type => NoRights.jsonWrites.writes(o)
+    case o: Pool              => Pool.jsonWrites.writes(o)
+    case o: NoRights.type     => NoRights.jsonWrites.writes(o)
   }
 
 
