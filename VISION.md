@@ -3,9 +3,8 @@
 The goal of the Grid is to provide a **[universal](#universal)** and
 **[fast](#fast)** experience accessing media that is
 **[organised](#organised)** and using it in an
-**[affordable](#affordable)** way.
-
-*Note: what about "quality"?*
+**[affordable](#affordable)** way to produce
+**[high-quality](#high-quality)** content.
 
 
 ## Universal
@@ -119,3 +118,23 @@ optimised.
 
 - Operational cost
 - Copyright fees, e.g. misuse of expensive images
+
+
+## High quality
+
+Top-quality content should be the default, not extra work in the
+process.
+
+Generated assets should be optimised for best quality and fidelity on
+the targeted media (e.g. Web, mobile), regardless of the properties of
+the source asset.
+
+Where other services may be consuming the exported assets
+(e.g. subsequent resizing and optimisation), files should be provided
+so as to maximise the quality of that output as well.
+
+
+### KPIs
+
+- Correctness of exported assets (e.g. colourspace, etc)
+- Optimal file format and size of exported assets
