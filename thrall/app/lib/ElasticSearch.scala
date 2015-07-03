@@ -60,7 +60,8 @@ object ElasticSearch extends ElasticSearchClient {
            |""".stripMargin +
           refreshEditsScript +
           updateLastModifiedScript +
-          addToSuggestersScript,
+          addToSuggestersScript +
+          removeCostFromUserUsageRights,
         scriptType)
       .executeAndLog(s"Indexing image $id")
       .incrementOnSuccess(indexedImages)}
@@ -182,11 +183,17 @@ object ElasticSearch extends ElasticSearchClient {
        | }
     """.stripMargin
 
+  // TODO: remove this once we've reindex relevant images.
+  private val removeCostFromUserUsageRights =
+    """| if (ctx._source.userMetadata && ctx._source.userMetadata.containsKey("usageRights")) {
+       |   userUsageRights = ctx._source.userMetadata.usageRights.clone();
+       |   userUsageRights.remove('cost')
+       |   ctx._source.userMetadata.usageRights = userUsageRights;
+       | }
+    """.stripMargin
+
   // Script that overrides the "usageRights" object from the "userMetadata".
   // We revert to the "originalUsageRights" if they are vacant.
-  // As cost will be deduced from the category, we remove it here, and it will
-  // be deprecated from the Edits API soon
-  // FIXME: don't remove cost when it's not sent over any more
   private val refreshUsageRightsScript =
     """| if (ctx._source.userMetadata && ctx._source.userMetadata.containsKey("usageRights")) {
        |   ur = ctx._source.userMetadata.usageRights.clone();
