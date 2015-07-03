@@ -73,7 +73,7 @@ Go to the CloudFormation console and add a new stack, call it
 ### .properties files
 
 Generate your .properties files for the various media-service services using the
-[dot-properties generator](cloud-formation/dot-properties)
+[dot-properties generator](scripts/dot-properties)
 
 This will also create a ```panda.properties``` file that configures the
 [pan-domain authentication](https://github.com/guardian/pan-domain-authentication)
