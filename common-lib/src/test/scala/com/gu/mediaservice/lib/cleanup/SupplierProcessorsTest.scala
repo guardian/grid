@@ -9,14 +9,14 @@ class SupplierProcessorsTest extends FunSpec with Matchers with MetadataHelper {
     val image = createImageFromMetadata()
     val processedImage = applyProcessors(image)
 
-    processedImage.usageRights should be(NoRights())
+    processedImage.usageRights should be(NoRights)
     processedImage.metadata.credit should be (None)
   }
 
   it("should leave supplier and suppliersCollection empty if credit doesn't match") {
     val image = createImageFromMetadata("credit" -> "Unknown Party")
     val processedImage = applyProcessors(image)
-    processedImage.usageRights should be (NoRights())
+    processedImage.usageRights should be (NoRights)
     processedImage.metadata.credit should be (Some("Unknown Party"))
   }
 
@@ -164,7 +164,7 @@ class SupplierProcessorsTest extends FunSpec with Matchers with MetadataHelper {
     it("should not match Press Association Images credit") {
       val image = createImageFromMetadata("credit" -> "Press Association Images")
       val processedImage = applyProcessors(image)
-      processedImage.usageRights should be (NoRights())
+      processedImage.usageRights should be (NoRights)
       processedImage.metadata.credit should be(Some("Press Association Images"))
     }
   }

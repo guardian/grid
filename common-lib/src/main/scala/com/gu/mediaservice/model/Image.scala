@@ -41,8 +41,8 @@ object Image {
       (__ \ "userMetadata").readNullable[Edits] ~
       (__ \ "metadata").read[ImageMetadata] ~
       (__ \ "originalMetadata").readNullable[ImageMetadata].map(_ getOrElse ImageMetadata()) ~
-      (__ \ "usageRights").readNullable[UsageRights].map(_ getOrElse NoRights()) ~
-      (__ \ "originalUsageRights").readNullable[UsageRights].map(_ getOrElse NoRights()) ~
+      (__ \ "usageRights").readNullable[UsageRights].map(_ getOrElse NoRights) ~
+      (__ \ "originalUsageRights").readNullable[UsageRights].map(_ getOrElse NoRights) ~
       (__ \ "exports").readNullable[List[Crop]].map(_ getOrElse List())
     )(Image.apply _)
 

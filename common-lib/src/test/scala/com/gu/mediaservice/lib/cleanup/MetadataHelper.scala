@@ -9,7 +9,7 @@ trait MetadataHelper {
   def createImageFromMetadata(metadata: (String, String)*): Image = {
     val metadataMap = createImageMetadata(metadata.toMap)
     // TODO: find out why this is here
-    val usageRights = NoRights()
+    val usageRights = NoRights
     Image(
       id = "test",
       metadata = metadataMap,

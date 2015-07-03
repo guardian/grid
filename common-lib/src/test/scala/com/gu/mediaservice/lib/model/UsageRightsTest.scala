@@ -46,11 +46,11 @@ class UsageRightsTest extends FunSpec with Matchers {
     val json = Json.parse("{}")
     val usageRights = json.as[UsageRights]
 
-     usageRights should be (NoRights())
+     usageRights should be (NoRights)
   }
 
   it ("should serialise to {} from NoRights") {
-    val jsonString = Json.toJson(NoRights())(NoRights.jsonWrites).toString()
+    val jsonString = Json.toJson(NoRights)(NoRights.jsonWrites).toString()
 
      jsonString should be ("{}")
   }
