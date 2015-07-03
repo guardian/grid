@@ -29,18 +29,19 @@ object UsageRights {
   // additional fields to the case classes (like "photographer" on
   // `StaffPhotographer`), or, as in the case of `NoRights`, create a custom parser
   // all together.
-  implicit val jsonWrites: Writes[UsageRights] = Writes[UsageRights] {
-    case o @ (
-        _: Agency
-      | _: PrImage
-      | _: Handout
-      | _: Screengrab
-      | _: GuardianWitness
-      | _: SocialMedia
-      | _: Obituary
-      | _: StaffPhotographer
-      | _: Pool
-      | _: NoRights.type) => Json.toJson(o)
+  // TODO: I haven't figured out why Json.toJson[T](o) doesn't work here, it'd
+  // be good to know though.
+  implicit def jsonWrites[T <: UsageRights]: Writes[T] = Writes[T] {
+    case o: Agency => Agency.jsonWrites.writes(o)
+    case o: PrImage => PrImage.jsonWrites.writes(o)
+    case o: Handout => Handout.jsonWrites.writes(o)
+    case o: Screengrab => Screengrab.jsonWrites.writes(o)
+    case o: GuardianWitness => GuardianWitness.jsonWrites.writes(o)
+    case o: SocialMedia => SocialMedia.jsonWrites.writes(o)
+    case o: Obituary => Obituary.jsonWrites.writes(o)
+    case o: StaffPhotographer => StaffPhotographer.jsonWrites.writes(o)
+    case o: Pool => Pool.jsonWrites.writes(o)
+    case o: NoRights.type => NoRights.jsonWrites.writes(o)
   }
 
 
@@ -63,8 +64,6 @@ object UsageRights {
       .map(JsSuccess(_))
       .getOrElse(JsError("No such usage rights category"))
     }
-
-    private def isNoRights(json: JsValue): Option[JsValue] = Some(json).filter(_ == NoRights.jsonVal)
 }
 
 // We have a custom writes and reads for NoRights as it is represented by `{}`
@@ -78,15 +77,16 @@ case object NoRights
       "Remove any rights that have been applied to this image. It will appear as " +
       "pay to use."
 
+    lazy val jsonVal = Json.obj()
+
+
+
     implicit val jsonReads: Reads[NoRights.type] = Reads[NoRights.type]{ json =>
-      json == jsonVal match {
-        case true => JsSuccess(NoRights)
-        case false => JsError("Value should be {} for no rights")
-      }
+      if (json == jsonVal) JsSuccess(NoRights) else JsError("Value should be {} for no rights")
     }
     implicit val jsonWrites: Writes[NoRights.type] = Writes[NoRights.type](_ => jsonVal)
 
-    lazy val jsonVal = Json.obj()
+
   }
 
 
