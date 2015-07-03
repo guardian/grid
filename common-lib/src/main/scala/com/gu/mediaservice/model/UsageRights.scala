@@ -55,10 +55,10 @@ sealed trait UsageRightsCategory {
 }
 object UsageRightsCategory {
   private val usageRightsCategories =
-    Vector(Agency, PrImage, Handout, Screengrab, GuardianWitness, SocialMedia, Obituary)
+    Vector(Agency, PrImage, Handout, Screengrab, GuardianWitness, SocialMedia,
+            Obituary, Pool)
 
   def fromString(category: String): UsageRightsCategory = {
-
 
     // I think as we move forward we can find out what the more intelligent and
     // correct default here. This feels better that reverting to `None` though as
@@ -138,4 +138,13 @@ case object Obituary
     val description =
       "Acquired from private sources, e.g. family members, for the purposes of " +
       "obituaries."
+  }
+
+case object Pool
+  extends UsageRightsCategory {
+    override def toString = "pool"
+    val description =
+      "Images issued during major national events that are free to use and" +
+      "shared amongst news media organisations during that event. " +
+      "Rights revert to the copyright holder when the pool is terminated."
   }
