@@ -3,20 +3,20 @@ import './top-bar.css!';
 
 export var topBar = angular.module('kahuna.common.topBar', []);
 
-topBar.directive('gridTopBar', [function() {
+topBar.directive('grTopBar', [function() {
     return {
         restrict: 'E',
         transclude: 'replace',
         scope: {
             fixed: '='
         },
-        template: `<ng:transclude class="grid-top-bar-inner"
-                                  ng:class="{'grid-top-bar-inner--fixed': fixed}">
+        template: `<ng:transclude class="gr-top-bar-inner"
+                                  ng:class="{'gr-top-bar-inner--fixed': fixed}">
                    </ng:transclude>`
     };
 }]);
 
-topBar.directive('gridTopBarNav', [function() {
+topBar.directive('grTopBarNav', [function() {
     return {
         restrict: 'E',
         transclude: true,
@@ -24,7 +24,7 @@ topBar.directive('gridTopBarNav', [function() {
     };
 }]);
 
-topBar.directive('gridTopBarActions', [function() {
+topBar.directive('grTopBarActions', [function() {
     return {
         restrict: 'E',
         transclude: true,

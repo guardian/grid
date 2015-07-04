@@ -1,10 +1,10 @@
-<grid-top-bar>
-    <grid-top-bar-nav>
+<gr-top-bar>
+    <gr-top-bar-nav>
         <a class="top-bar-item"
            ui:sref="image({ imageId: ctrl.image.data.id })">← cancel</a>
-    </grid-top-bar-nav>
+    </gr-top-bar-nav>
 
-    <grid-top-bar-actions>
+    <gr-top-bar-actions>
         <div class="top-bar-item">{{ ctrl.cropSize() }}</div>
 
         <label class="top-bar-item">
@@ -45,8 +45,8 @@
                     ng:disabled="ctrl.cropping">
                 crop<span ng:show="ctrl.cropping">ping…</span></button>
         </div>
-    </grid-top-bar-actions>
-</grid-top-bar>
+    </gr-top-bar-actions>
+</gr-top-bar>
 
 <div class="warning" ng:if="ctrl.cropSizeWarning()">
     This crop is very small and will result in a low-quality image.
