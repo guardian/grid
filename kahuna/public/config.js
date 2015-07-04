@@ -1,10 +1,11 @@
 System.config({
+  "baseURL": "/assets",
+  "defaultJSExtensions": true,
   "transpiler": "traceur",
   "paths": {
-    "*": "*.js",
     "app/*": "lib/*.js",
-    "github:*": "jspm_packages/github/*.js",
-    "npm:*": "jspm_packages/npm/*.js"
+    "github:*": "jspm_packages/github/*",
+    "npm:*": "jspm_packages/npm/*"
   }
 });
 
