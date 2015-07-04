@@ -1,13 +1,13 @@
-<grid-top-bar>
-    <grid-top-bar-nav>
+<gr-top-bar>
+    <gr-top-bar-nav>
         <a class="top-bar-item"
            ui:sref="search">← search</a>
         <a class="top-bar-item"
            ng:if="ctrl.crop"
            ui:sref="{ crop: null }">← original</a>
-    </grid-top-bar-nav>
+    </gr-top-bar-nav>
 
-    <grid-top-bar-actions>
+    <gr-top-bar-actions>
         <a class="top-bar-item" href="{{ ctrl.image.data.source | assetFile }}" download target="_blank">
             ⬇ download
         </a>
@@ -23,8 +23,8 @@
         </a>
         <span class="top-bar-item"
               ng:if="! ctrl.canBeCropped">cannot crop</span>
-    </grid-top-bar-actions>
-</grid-top-bar>
+    </gr-top-bar-actions>
+</gr-top-bar>
 
 <div class="image-details">
 

@@ -1,22 +1,22 @@
-grid-top-bar {
+gr-top-bar {
     display: block;
     height: 48px; /* faking we're in the flow */
     position: relative;
     z-index: 2;
 }
 
-grid-top-bar-nav {
+gr-top-bar-nav {
     display: block;
     flex-grow: 1;
     text-align: left;
 }
 
-grid-top-bar-actions {
+gr-top-bar-actions {
     display: flex;
 }
 
 
-.grid-top-bar-inner {
+.gr-top-bar-inner {
     background-color: #333;
     padding: 10px;
     font-family: "Guardian Agate Sans Web", Helvetica, Arial;
@@ -27,6 +27,6 @@ grid-top-bar-actions {
     box-sizing: border-box;
 }
 
-.grid-top-bar-inner--fixed {
+.gr-top-bar-inner--fixed {
     position: fixed;
 }
