@@ -1,7 +1,7 @@
 import angular from 'angular';
-import './top-bar.css!';
+import './gr-top-bar.css!';
 
-export var topBar = angular.module('kahuna.common.topBar', []);
+export var topBar = angular.module('gr.topBar', []);
 
 topBar.directive('grTopBar', [function() {
     return {

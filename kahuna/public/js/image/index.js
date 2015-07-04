@@ -4,6 +4,7 @@ import './controller';
 import '../search/query-filter';
 import '../imgops/service';
 import '../forms/gr-xeditable/gr-xeditable';
+import '../components/gr-top-bar/gr-top-bar';
 
 import imageTemplate from './view.html!text';
 import imageErrorTemplate from './image-error.html!text';
@@ -13,6 +14,7 @@ export var image = angular.module('kahuna.image', [
     'kahuna.image.controller',
     'kahuna.search.filters.query',
     'kahuna.imgops',
+    'gr.topBar',
     'grXeditable'
 ]);
 
