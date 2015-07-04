@@ -1,0 +1,32 @@
+grid-top-bar {
+    display: block;
+    height: 48px; /* faking we're in the flow */
+    position: relative;
+    z-index: 2;
+}
+
+grid-top-bar-nav {
+    display: block;
+    flex-grow: 1;
+    text-align: left;
+}
+
+grid-top-bar-actions {
+    display: flex;
+}
+
+
+.grid-top-bar-inner {
+    background-color: #333;
+    padding: 10px;
+    font-family: "Guardian Agate Sans Web", Helvetica, Arial;
+    width: 100%;
+    box-shadow: 0 1px 5px rgba(0, 0, 0, 0.4);
+    font-size: 1.4rem;
+    display: flex;
+    box-sizing: border-box;
+}
+
+.grid-top-bar-inner--fixed {
+    position: fixed;
+}

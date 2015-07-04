@@ -1,4 +1,5 @@
 import angular from 'angular';
+import './top-bar.css!';
 
 export var topBar = angular.module('kahuna.common.topBar', []);
 
