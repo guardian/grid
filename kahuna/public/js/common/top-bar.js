@@ -7,8 +7,12 @@ topBar.directive('gridTopBar', [function() {
     return {
         restrict: 'E',
         transclude: 'replace',
-        template: `<div ng:transclude class="top-bar-inner"></div>`
-
+        scope: {
+            fixed: '='
+        },
+        template: `<ng:transclude class="grid-top-bar-inner"
+                                  ng:class="{'grid-top-bar-inner--fixed': fixed}">
+                   </ng:transclude>`
     };
 }]);
 
