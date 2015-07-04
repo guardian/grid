@@ -1,262 +1,259 @@
-<div class="full-image">
+<grid-top-bar>
+    <grid-top-bar-nav>
+        <a class="top-bar__item top-bar__item--first"
+           ui:sref="search">← search</a>
+        <a class="top-bar__item top-bar__item"
+           ng:if="ctrl.crop"
+           ui:sref="{ crop: null }">← original</a>
+    </grid-top-bar-nav>
 
-    <grid-top-bar>
-        <grid-top-bar-nav>
-            <a class="top-bar__item top-bar__item--first"
-               ui:sref="search">← search</a>
-            <a class="top-bar__item top-bar__item"
-               ng:if="ctrl.crop"
-               ui:sref="{ crop: null }">← original</a>
-        </grid-top-bar-nav>
+    <grid-top-bar-actions>
+        <a class="top-bar__item" href="{{ ctrl.image.data.source | assetFile }}" download target="_blank">
+            ⬇ download
+        </a>
 
-        <grid-top-bar-actions>
-            <a class="top-bar__item" href="{{ ctrl.image.data.source | assetFile }}" download target="_blank">
-                ⬇ download
-            </a>
+        <ui-archiver class="top-bar__item"
+                     image="ctrl.image"
+                     with-text="true"></ui-archiver>
 
-            <ui-archiver class="top-bar__item"
-                         image="ctrl.image"
-                         with-text="true"></ui-archiver>
+        <a class="top-bar__item"
+           ng:if="ctrl.canBeCropped"
+           ui:sref="crop({imageId: ctrl.image.data.id})">
+            ✂ <span ng:if="ctrl.crop">re</span>crop
+        </a>
+        <span class="top-bar__item"
+              ng:if="! ctrl.canBeCropped">cannot crop</span>
+    </grid-top-bar-actions>
+</grid-top-bar>
 
-            <a class="top-bar__item"
-               ng:if="ctrl.canBeCropped"
-               ui:sref="crop({imageId: ctrl.image.data.id})">
-                ✂ <span ng:if="ctrl.crop">re</span>crop
-            </a>
-            <span class="top-bar__item"
-                  ng:if="! ctrl.canBeCropped">cannot crop</span>
-        </grid-top-bar-actions>
-    </grid-top-bar>
+<div class="image-details">
 
-    <div class="image-details">
+    <div class="image-info">
+        <div ng:if="! ctrl.image.data.valid"
+             class="image-notice image-info__group validity validity--invalid validity--invalid--point-up">
+            <strong>Incomplete metadata</strong><br>
+            Fill in description and credit before use
+        </div>
 
-        <div class="image-info">
-            <div ng:if="! ctrl.image.data.valid"
-                 class="image-notice image-info__group validity validity--invalid validity--invalid--point-up">
-                <strong>Incomplete metadata</strong><br>
-                Fill in description and credit before use
+        <div ng:switch="ctrl.image.data.cost">
+            <div ng:switch-when="pay"
+                 class="image-notice image-info__group status cost cost--pay">
+                pay to use
             </div>
 
-            <div ng:switch="ctrl.image.data.cost">
-                <div ng:switch-when="pay"
-                     class="image-notice image-info__group status cost cost--pay">
-                    pay to use
-                </div>
-
-                <div ng:switch-when="conditional"
-                     class="image-notice image-info__group cost cost--conditional"
-                     title="This image can be used but only within certain restrictions">
-                    <b>restricted use:</b> {{ctrl.image.data.usageRights.restrictions}}
-                </div>
-            </div>
-
-            <div class="image-info__group">
-                <div class="image-info__wrap" ng:if="ctrl.metadata.title">
-                    <button class="image-info__edit"
-                            ng:if="ctrl.userCanEdit"
-                            ng:click="titleEditForm.$show()"
-                            ng:hide="titleEditForm.$visible">✎</button>
-                    <div class="metadata-line">title</div>
-                    <h2 class="image-info__title"
-                        editable-text="ctrl.metadata.title"
-                        onbeforesave="ctrl.updateMetadataField('title', $data)"
-                        e:ng-class="{'image-info__editor--error': $error, 'image-info__editor--saving': titleEditForm.$waiting}"
-                        e:form="titleEditForm">{{ctrl.metadata.title}}</h2>
-                </div>
-
-                <div class="image-info__wrap" ng:if="ctrl.metadata.description || ctrl.userCanEdit">
-                    <button class="image-info__edit"
-                            ng:if="ctrl.userCanEdit"
-                            ng:click="descriptionEditForm.$show()"
-                            ng:hide="descriptionEditForm.$visible">✎</button>
-                    <div class="metadata-line">description</div>
-                    <div class="image-info__description"
-                         editable-textarea="ctrl.metadata.description"
-                         onbeforesave="ctrl.updateMetadataField('description', $data)"
-                         e:msd-elastic
-                         e:ng-class="{'image-info__editor--error': $error, 'image-info__editor--saving': descriptionEditForm.$waiting}"
-                         e:form="descriptionEditForm">{{ctrl.metadata.description || "unknown (click ✎ to add the description)"}}</div>
-                </div>
-            </div>
-
-            <div class="image-info__group">
-                <div ng:if="ctrl.metadata.dateTaken"
-                     class="metadata-line">
-                    taken on
-                    <span class="metadata-line__info">
-                        {{ctrl.metadata.dateTaken | date:'d MMM yyyy, HH:mm'}}
-                    </span>
-                </div>
-
-                <div class="image-info__byline image-info__wrap metadata-line" ng:if="ctrl.metadata.byline || ctrl.userCanEdit">
-                    <button class="image-info__edit"
-                            ng:if="ctrl.userCanEdit"
-                            ng:click="bylineEditForm.$show()"
-                            ng:hide="bylineEditForm.$visible">✎</button>
-                    by
-                    <span class="image-info__byline metadata-line__info"
-                          editable-text="ctrl.metadata.byline"
-                          onbeforesave="ctrl.updateMetadataField('byline', $data)"
-                          e:ng-class="{'image-info__editor--error': $error, 'image-info__editor--saving': bylineEditForm.$waiting}"
-                          e:form="bylineEditForm">
-
-                        <span ng:if="ctrl.metadata.byline">
-                            <a ui:sref="search.results({query: (ctrl.metadata.byline | queryFilter:'by')})">{{ctrl.metadata.byline}}</a>
-                        </span>
-                        <span ng:if="! ctrl.metadata.byline">
-                            unknown (click ✎ to add the byline)
-                        </span>
-                    </span>
-                </div>
-
-                <div class="image-info__credit image-info__wrap metadata-line" ng:if="ctrl.metadata.credit || ctrl.userCanEdit">
-                    <button class="image-info__edit"
-                            ng:if="ctrl.userCanEdit"
-                            ng:click="creditEditForm.$show()"
-                            ng:hide="creditEditForm.$visible">✎</button>
-                    credit
-                    <span class="image-info__credit metadata-line__info"
-                          editable-text="ctrl.metadata.credit"
-                          onbeforesave="ctrl.updateMetadataField('credit', $data)"
-                          e:ng-class="{'image-info__editor--error': $error, 'image-info__editor--saving': creditEditForm.$waiting}"
-                          e:form="creditEditForm">
-
-                        <span ng:if="ctrl.metadata.credit">
-                            <a ui:sref="search.results({query: (ctrl.metadata.credit | queryFilter:'credit')})">{{ctrl.metadata.credit}}</a>
-                        </span>
-                        <span ng:if="! ctrl.metadata.credit">
-                            unknown (click ✎ to add the credit)
-                        </span>
-                    </span>
-                </div>
-
-                <div ng:if="ctrl.metadata.subLocation || ctrl.metadata.city || ctrl.metadata.state || ctrl.metadata.country"
-                     class="metadata-line">
-                    in
-                    <span ng:repeat="prop in ['subLocation', 'city', 'state', 'country']" ng:if="ctrl.metadata[prop]">
-                        <span class="metadata-line__info">
-                            <a ui:sref="search.results({query: (ctrl.metadata[prop] | queryFilter:ctrl.locationFieldMap[prop])})">{{ctrl.metadata[prop]}}</a><!-- no whitespace before comma
-                        --></span><span ng:if="! $last">,</span>
-                    </span>
-                </div>
-
-                <div ng:if="ctrl.metadata.copyright"
-                     class="metadata-line">
-                    ©
-                    <span class="metadata-line__info">
-                        <a ui:sref="search.results({query: (ctrl.metadata.copyright | queryFilter:'copyright')})">{{ctrl.metadata.copyright}}</a>
-                    </span>
-                    <!-- FIXME: do we want copyright or copyrightNotice? -->
-                </div>
-
-                <div class="metadata-line">
-                    uploaded
-                    <span class="metadata-line__info">
-                        {{ctrl.image.data.uploadTime | date:'d MMM yyyy, HH:mm'}}
-                    </span>
-                    <span class="metadata-line__info">
-                        (<a ui:sref="search.results({uploadedBy: ctrl.image.data.uploadedBy})">{{ctrl.image.data.uploadedBy | stripEmailDomain}}</a>)
-                    </span>
-                </div>
-
-            </div>
-
-            <!-- FIXME: iff has useful metadata -->
-            <div class="image-info__group">
-                <button class="metadata-reveal"
-                        ng:click="metadataExpanded = !metadataExpanded">
-                    <span ng:hide="metadataExpanded">▸ Show</span>
-                    <span ng:show="metadataExpanded">▾ Hide</span>
-                    full metadata
-                </button>
-
-                <table ng:show="metadataExpanded" class="metadata">
-                    <tbody class="metadata__body">
-                        <tr ng:repeat="(key, value) in ctrl.metadata" ng:if="ctrl.isUsefulMetadata(key)">
-                            <th class="metadata__key">{{key}}</th>
-                            <td>{{value}}</td>
-                        </tr>
-                    </tbody>
-                </table>
+            <div ng:switch-when="conditional"
+                 class="image-notice image-info__group cost cost--conditional"
+                 title="This image can be used but only within certain restrictions">
+                <b>restricted use:</b> {{ctrl.image.data.usageRights.restrictions}}
             </div>
         </div>
 
-        <dl class="image-info">
-            <dt class="image-info__heading image-info__heading--first">Labels</dt>
-            <dd>
-                <ui-labeller image="ctrl.image">
-                </ui-labeller>
-            </dd>
-        </dl>
+        <div class="image-info__group">
+            <div class="image-info__wrap" ng:if="ctrl.metadata.title">
+                <button class="image-info__edit"
+                        ng:if="ctrl.userCanEdit"
+                        ng:click="titleEditForm.$show()"
+                        ng:hide="titleEditForm.$visible">✎</button>
+                <div class="metadata-line">title</div>
+                <h2 class="image-info__title"
+                    editable-text="ctrl.metadata.title"
+                    onbeforesave="ctrl.updateMetadataField('title', $data)"
+                    e:ng-class="{'image-info__editor--error': $error, 'image-info__editor--saving': titleEditForm.$waiting}"
+                    e:form="titleEditForm">{{ctrl.metadata.title}}</h2>
+            </div>
 
+            <div class="image-info__wrap" ng:if="ctrl.metadata.description || ctrl.userCanEdit">
+                <button class="image-info__edit"
+                        ng:if="ctrl.userCanEdit"
+                        ng:click="descriptionEditForm.$show()"
+                        ng:hide="descriptionEditForm.$visible">✎</button>
+                <div class="metadata-line">description</div>
+                <div class="image-info__description"
+                     editable-textarea="ctrl.metadata.description"
+                     onbeforesave="ctrl.updateMetadataField('description', $data)"
+                     e:msd-elastic
+                     e:ng-class="{'image-info__editor--error': $error, 'image-info__editor--saving': descriptionEditForm.$waiting}"
+                     e:form="descriptionEditForm">{{ctrl.metadata.description || "unknown (click ✎ to add the description)"}}</div>
+            </div>
+        </div>
 
-        <div class="image-info">
-            <dl class="image-info__group" ng:if="ctrl.crops.length > 0">
-                <dt class="image-info__heading">Crops <span ng:if="ctrl.crop">(<a ui:sref="{ crop: null }">original</a>)</span></dt>
-                <dd>
-                    <ul class="image-crops">
-                        <li class="image-crop"
-                            ng:repeat="crop in ctrl.crops"
-                            ng:class="{'image-crop--selected': crop == ctrl.crop}">
-                            <a draggable="true"
-                               ng:init="extremeAssets = (crop | getExtremeAssets)"
-                               ng:click="ctrl.cropSelected(crop)"
-                               ui:sref="{crop: crop.id}"
-                               ui:drag-data="{{ctrl.image | asImageAndCropsDragData:crop}}"
-                               ui:drag-image="{{extremeAssets.smallest | assetFile}}">
-                                <img class="image-crop__image" ng:src="{{extremeAssets.smallest | assetFile}}" />
-                            </a>
-                            <div class="image-crop__aspect-ratio">
-                                {{crop.specification.aspectRatio | asAspectRatioWord}}
-                                <span ng:if="crop.specification.aspectRatio">
-                                    ({{crop.specification.aspectRatio}})
-                                </span>
-                            </div>
-                        </li>
-                    </ul>
-                </dd>
-            </dl>
+        <div class="image-info__group">
+            <div ng:if="ctrl.metadata.dateTaken"
+                 class="metadata-line">
+                taken on
+                <span class="metadata-line__info">
+                    {{ctrl.metadata.dateTaken | date:'d MMM yyyy, HH:mm'}}
+                </span>
+            </div>
 
-            <dl class="image-info__group" ng:if="ctrl.metadata.keywords.length > 0">
-                <dt class="image-info__heading">Keywords</dt>
-                <dd>
-                    <ul>
-                        <li class="image-info__keyword"
-                            ng:repeat="keyword in ctrl.metadata.keywords track by $index">
-                            <a ui:sref="search.results({query: (keyword | queryFilter:'keyword')})">
-                                {{keyword}}
-                            </a>
-                        </li>
-                    </ul>
-                </dd>
-            </dl>
+            <div class="image-info__byline image-info__wrap metadata-line" ng:if="ctrl.metadata.byline || ctrl.userCanEdit">
+                <button class="image-info__edit"
+                        ng:if="ctrl.userCanEdit"
+                        ng:click="bylineEditForm.$show()"
+                        ng:hide="bylineEditForm.$visible">✎</button>
+                by
+                <span class="image-info__byline metadata-line__info"
+                      editable-text="ctrl.metadata.byline"
+                      onbeforesave="ctrl.updateMetadataField('byline', $data)"
+                      e:ng-class="{'image-info__editor--error': $error, 'image-info__editor--saving': bylineEditForm.$waiting}"
+                      e:form="bylineEditForm">
+
+                    <span ng:if="ctrl.metadata.byline">
+                        <a ui:sref="search.results({query: (ctrl.metadata.byline | queryFilter:'by')})">{{ctrl.metadata.byline}}</a>
+                    </span>
+                    <span ng:if="! ctrl.metadata.byline">
+                        unknown (click ✎ to add the byline)
+                    </span>
+                </span>
+            </div>
+
+            <div class="image-info__credit image-info__wrap metadata-line" ng:if="ctrl.metadata.credit || ctrl.userCanEdit">
+                <button class="image-info__edit"
+                        ng:if="ctrl.userCanEdit"
+                        ng:click="creditEditForm.$show()"
+                        ng:hide="creditEditForm.$visible">✎</button>
+                credit
+                <span class="image-info__credit metadata-line__info"
+                      editable-text="ctrl.metadata.credit"
+                      onbeforesave="ctrl.updateMetadataField('credit', $data)"
+                      e:ng-class="{'image-info__editor--error': $error, 'image-info__editor--saving': creditEditForm.$waiting}"
+                      e:form="creditEditForm">
+
+                    <span ng:if="ctrl.metadata.credit">
+                        <a ui:sref="search.results({query: (ctrl.metadata.credit | queryFilter:'credit')})">{{ctrl.metadata.credit}}</a>
+                    </span>
+                    <span ng:if="! ctrl.metadata.credit">
+                        unknown (click ✎ to add the credit)
+                    </span>
+                </span>
+            </div>
+
+            <div ng:if="ctrl.metadata.subLocation || ctrl.metadata.city || ctrl.metadata.state || ctrl.metadata.country"
+                 class="metadata-line">
+                in
+                <span ng:repeat="prop in ['subLocation', 'city', 'state', 'country']" ng:if="ctrl.metadata[prop]">
+                    <span class="metadata-line__info">
+                        <a ui:sref="search.results({query: (ctrl.metadata[prop] | queryFilter:ctrl.locationFieldMap[prop])})">{{ctrl.metadata[prop]}}</a><!-- no whitespace before comma
+                                                                                                                                                           --></span><span ng:if="! $last">,</span>
+                </span>
+            </div>
+
+            <div ng:if="ctrl.metadata.copyright"
+                 class="metadata-line">
+                ©
+                <span class="metadata-line__info">
+                    <a ui:sref="search.results({query: (ctrl.metadata.copyright | queryFilter:'copyright')})">{{ctrl.metadata.copyright}}</a>
+                </span>
+                <!-- FIXME: do we want copyright or copyrightNotice? -->
+            </div>
+
+            <div class="metadata-line">
+                uploaded
+                <span class="metadata-line__info">
+                    {{ctrl.image.data.uploadTime | date:'d MMM yyyy, HH:mm'}}
+                </span>
+                <span class="metadata-line__info">
+                    (<a ui:sref="search.results({uploadedBy: ctrl.image.data.uploadedBy})">{{ctrl.image.data.uploadedBy | stripEmailDomain}}</a>)
+                </span>
+            </div>
+
+        </div>
+
+        <!-- FIXME: iff has useful metadata -->
+        <div class="image-info__group">
+            <button class="metadata-reveal"
+                    ng:click="metadataExpanded = !metadataExpanded">
+                <span ng:hide="metadataExpanded">▸ Show</span>
+                <span ng:show="metadataExpanded">▾ Hide</span>
+                full metadata
+            </button>
+
+            <table ng:show="metadataExpanded" class="metadata">
+                <tbody class="metadata__body">
+                    <tr ng:repeat="(key, value) in ctrl.metadata" ng:if="ctrl.isUsefulMetadata(key)">
+                        <th class="metadata__key">{{key}}</th>
+                        <td>{{value}}</td>
+                    </tr>
+                </tbody>
+            </table>
         </div>
     </div>
 
-    <div class="image-holder">
-        <div class="easel">
-            <div class="easel__canvas" ng:if="!ctrl.crop">
-                <img class="easel__image"
-                     ng:src="{{ctrl.optimisedImageUri}}"
-                     grid:track-image="ctrl.image"
-                     grid:track-image-location="original"
-                     grid:track-image-loadtime
-                     ui:drag-data="{{ctrl.image | asImageDragData}}" />
-            </div>
+    <dl class="image-info">
+        <dt class="image-info__heading image-info__heading--first">Labels</dt>
+        <dd>
+            <ui-labeller image="ctrl.image">
+            </ui-labeller>
+        </dd>
+    </dl>
 
 
-            <!-- TODO: As this loads async, add a loader -->
-            <div class="easel__canvas" ng:if="ctrl.crop">
-                <a draggable="true"
-                   class="easel__image-container"
-                   ng:init="extremeAssets = (ctrl.crop | getExtremeAssets)"
-                   ui:sref="{crop: ctrl.cropKey}"
-                   ui:drag-data="{{ctrl.image | asImageAndCropsDragData:ctrl.crop}}"
-                   ui:drag-image="{{extremeAssets.smallest | assetFile}}">
-                    <!-- TODO: Add tracking to crop -->
-                    <img class="easel__image" ng:src="{{extremeAssets.largest | assetFile}}" />
-                </a>
-            </div>
+    <div class="image-info">
+        <dl class="image-info__group" ng:if="ctrl.crops.length > 0">
+            <dt class="image-info__heading">Crops <span ng:if="ctrl.crop">(<a ui:sref="{ crop: null }">original</a>)</span></dt>
+            <dd>
+                <ul class="image-crops">
+                    <li class="image-crop"
+                        ng:repeat="crop in ctrl.crops"
+                        ng:class="{'image-crop--selected': crop == ctrl.crop}">
+                        <a draggable="true"
+                           ng:init="extremeAssets = (crop | getExtremeAssets)"
+                           ng:click="ctrl.cropSelected(crop)"
+                           ui:sref="{crop: crop.id}"
+                           ui:drag-data="{{ctrl.image | asImageAndCropsDragData:crop}}"
+                           ui:drag-image="{{extremeAssets.smallest | assetFile}}">
+                            <img class="image-crop__image" ng:src="{{extremeAssets.smallest | assetFile}}" />
+                        </a>
+                        <div class="image-crop__aspect-ratio">
+                            {{crop.specification.aspectRatio | asAspectRatioWord}}
+                            <span ng:if="crop.specification.aspectRatio">
+                                ({{crop.specification.aspectRatio}})
+                            </span>
+                        </div>
+                    </li>
+                </ul>
+            </dd>
+        </dl>
+
+        <dl class="image-info__group" ng:if="ctrl.metadata.keywords.length > 0">
+            <dt class="image-info__heading">Keywords</dt>
+            <dd>
+                <ul>
+                    <li class="image-info__keyword"
+                        ng:repeat="keyword in ctrl.metadata.keywords track by $index">
+                        <a ui:sref="search.results({query: (keyword | queryFilter:'keyword')})">
+                            {{keyword}}
+                        </a>
+                    </li>
+                </ul>
+            </dd>
+        </dl>
+    </div>
+</div>
+
+<div class="image-holder">
+    <div class="easel">
+        <div class="easel__canvas" ng:if="!ctrl.crop">
+            <img class="easel__image"
+                 ng:src="{{ctrl.optimisedImageUri}}"
+                 grid:track-image="ctrl.image"
+                 grid:track-image-location="original"
+                 grid:track-image-loadtime
+                 ui:drag-data="{{ctrl.image | asImageDragData}}" />
+        </div>
+
+
+        <!-- TODO: As this loads async, add a loader -->
+        <div class="easel__canvas" ng:if="ctrl.crop">
+            <a draggable="true"
+               class="easel__image-container"
+               ng:init="extremeAssets = (ctrl.crop | getExtremeAssets)"
+               ui:sref="{crop: ctrl.cropKey}"
+               ui:drag-data="{{ctrl.image | asImageAndCropsDragData:ctrl.crop}}"
+               ui:drag-image="{{extremeAssets.smallest | assetFile}}">
+                <!-- TODO: Add tracking to crop -->
+                <img class="easel__image" ng:src="{{extremeAssets.largest | assetFile}}" />
+            </a>
         </div>
     </div>
 </div>
