@@ -1,28 +1,28 @@
 <grid-top-bar>
     <grid-top-bar-nav>
-        <a class="top-bar__item top-bar__item--first"
+        <a class="top-bar-item"
            ui:sref="image({ imageId: ctrl.image.data.id })">← cancel</a>
     </grid-top-bar-nav>
 
     <grid-top-bar-actions>
-        <div class="top-bar__item">{{ ctrl.cropSize() }}</div>
+        <div class="top-bar-item">{{ ctrl.cropSize() }}</div>
 
-        <label class="top-bar__item">
+        <label class="top-bar-item">
             <input type="radio" ng:model="ctrl.aspect" value="{{ctrl.landscapeRatio}}" />
             landscape ({{::ctrl.getRatioString(ctrl.landscapeRatio)}})
         </label>
 
-        <label class="top-bar__item">
+        <label class="top-bar-item">
             <input type="radio" ng:model="ctrl.aspect" value="{{ctrl.portraitRatio}}" />
             portrait ({{::ctrl.getRatioString(ctrl.portraitRatio)}})
         </label>
 
-        <label class="top-bar__item">
+        <label class="top-bar-item">
             <input type="radio" ng:model="ctrl.aspect" value="{{ctrl.freeRatio}}" />
             free-form
         </label>
 
-        <div class="top-bar__item" ng:switch="ctrl.image.data.cost">
+        <div class="top-bar-item" ng:switch="ctrl.image.data.cost">
             <div ng:switch-when="pay"
                  class="cost cost--pay">
                 pay to use
@@ -38,7 +38,7 @@
             </div>
         </div>
 
-        <div class="top-bar__item">
+        <div class="top-bar-item">
             <button class="button"
                     type="button"
                     ng:click="ctrl.crop()"
