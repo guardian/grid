@@ -83,7 +83,7 @@ case object Agency
     override def toString = "agency"
     val description =
       "Agencies such as Getty, Reuters, Press Association, etc. where " +
-      "subscription fees are paid to access and use ***REMOVED***."
+      "subscription fees are paid to access and use pictures."
   }
 
 case object PrImage
