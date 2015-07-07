@@ -23,6 +23,8 @@
             </button>
         </div>
 
+        <button class-"image-results-reset" ng:if="ctrl.fullPreview" ng:click="ctrl.resetImages()">Return to search</button>
+
         <ul class="results"
             ui:has-space="ctrl.uiHasSpace"
             ui:near-bottom="ctrl.whenNearBottom()"
@@ -30,7 +32,7 @@
             ui:window-resized="ctrl.fillRemainingSpace()">
             <li class="result"
                 ng:repeat="image in ctrl.images"
-                ng:class="{ 'result--seen': ctrl.imageHasBeenSeen(image), 'result--selected': ctrl.imageHasBeenSelected(image)}">
+                ng:class="{ 'result--seen': ctrl.imageHasBeenSeen(image), 'result--selected': ctrl.imageHasBeenSelected(image), 'result--full' : ctrl.fullPreview }">
 
                 <!-- <HACK> -->
                 <!-- We don't want to add a property on `image` to determine the state of the checkbox, so render two individual inputs. -->
