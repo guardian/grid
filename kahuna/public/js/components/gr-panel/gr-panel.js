@@ -1,5 +1,5 @@
 import angular from 'angular';
-import 'angular-bootstrap'
+import 'angular-bootstrap';
 
 import './gr-panel.css!';
 import '../../services/preview-selection';
