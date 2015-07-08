@@ -58,10 +58,10 @@ object ElasticSearch extends ElasticSearchClient {
            |   ctx._source.identifiers += doc.identifiers;
            | }
            |""".stripMargin +
+          removeCostFromUserUsageRights +
           refreshEditsScript +
           updateLastModifiedScript +
-          addToSuggestersScript +
-          removeCostFromUserUsageRights,
+          addToSuggestersScript,
         scriptType)
       .executeAndLog(s"Indexing image $id")
       .incrementOnSuccess(indexedImages)}
@@ -187,7 +187,7 @@ object ElasticSearch extends ElasticSearchClient {
   private val removeCostFromUserUsageRights =
     """| if (ctx._source.userMetadata && ctx._source.userMetadata.containsKey("usageRights")) {
        |   userUsageRights = ctx._source.userMetadata.usageRights.clone();
-       |   userUsageRights.remove('cost')
+       |   userUsageRights.remove('cost');
        |   ctx._source.userMetadata.usageRights = userUsageRights;
        | }
     """.stripMargin
@@ -197,6 +197,7 @@ object ElasticSearch extends ElasticSearchClient {
   private val refreshUsageRightsScript =
     """| if (ctx._source.userMetadata && ctx._source.userMetadata.containsKey("usageRights")) {
        |   ur = ctx._source.userMetadata.usageRights.clone();
+       |   ur.remove('cost');
        |   ctx._source.usageRights = ur;
        | } else {
        |   ctx._source.usageRights = ctx._source.originalUsageRights;
