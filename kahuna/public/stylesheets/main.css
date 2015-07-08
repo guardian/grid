@@ -1037,6 +1037,7 @@ FIXME: what to do with touch devices
 
 .image-info__wrap {
     position: relative;
+    vertical-align: top;
 }
 
 .image-info__wrap:hover .image-info__edit {
@@ -1513,8 +1514,9 @@ FIXME: what to do with touch devices
 
 
 /* ==========================================================================
-   Drop menu
+   Drop menu e.g top level navigation
    ========================================================================== */
+
 .drop-menu {
     position: relative;
 }
@@ -1549,6 +1551,27 @@ FIXME: what to do with touch devices
 }
 .drop-menu__items--nopad {
     top: 100%;
+}
+
+
+/* ==========================================================================
+   Dropdown menu e.g. autocomplete
+   ========================================================================== */
+
+.dropdown-menu {
+    z-index: 1;
+    background: #333;
+    padding: 5px;
+}
+
+.dropdown-menu li {
+    cursor: pointer;
+    color: #ccc;
+    padding: 5px;
+}
+
+.dropdown-menu li:hover {
+    background-color: #00adee
 }
 
 
