@@ -42,8 +42,7 @@ object EditsApi extends Controller with ArgoHelpers {
     // their images can be imported by drag and drop instead
     // FIXME: Creating new instances? Rubbish ಠ_ಠ.
     val usageRightsData =
-      List(PrImage(), Handout(), Screengrab(), SocialMedia(), Obituary(), Pool(),
-           StaffPhotographer("?", "?"))
+      List(PrImage(), Handout(), Screengrab(), SocialMedia(), Obituary(), Pool())
         .map(CategoryResponse.fromUsageRights)
 
     respond(usageRightsData)
