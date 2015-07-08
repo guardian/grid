@@ -6,6 +6,7 @@ import './manager';
 import './dnd-uploader';
 import './jobs/upload-jobs';
 import './jobs/required-metadata-editor';
+import '../components/gr-top-bar/gr-top-bar';
 
 import uploadTemplate from './view.html!text';
 
@@ -16,7 +17,8 @@ export var upload = angular.module('kahuna.upload', [
     'kahuna.upload.manager',
     'kahuna.upload.dndUploader',
     'kahuna.upload.jobs',
-    'kahuna.upload.jobs.requiredMetadataEditor'
+    'kahuna.upload.jobs.requiredMetadataEditor',
+    'gr.topBar'
 ]);
 
 
