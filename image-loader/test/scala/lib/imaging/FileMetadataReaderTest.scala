@@ -92,7 +92,7 @@ class FileMetadataReaderTest extends FunSpec with Matchers with ScalaFutures {
         "Credit" -> "© Mike Cardew/ZUMA Press/Corbis",
         "Source" -> "Corbis",
         "City" -> "Akron",
-        "Keywords" -> "Akron;clj;Great Lakes States;Midwest;North America;Ohio;Summit County;the***REMOVED***oftheday.com;USA;zmct;zumapress.com",
+        "Keywords" -> "Akron;clj;Great Lakes States;Midwest;North America;Ohio;Summit County;thepicturesoftheday.com;USA;zmct;zumapress.com",
         "By-line" -> "Mike Cardew",
         "Special Instructions" -> "For latest restrictions check www.corbisimages.com",
         "Headline" -> "Former Navy Seal On Trial",
@@ -102,7 +102,7 @@ class FileMetadataReaderTest extends FunSpec with Matchers with ScalaFutures {
         "Date Created" -> "Wed Apr 01 00:00:00 BST 2015"
       )
       val xmp = Map(
-        "Subject" -> "Akron clj Great Lakes States Midwest North America Ohio Summit County the***REMOVED***oftheday.com USA zmct zumapress.com"
+        "Subject" -> "Akron clj Great Lakes States Midwest North America Ohio Summit County thepicturesoftheday.com USA zmct zumapress.com"
       )
 
       sameMaps(metadata.iptc, iptc)

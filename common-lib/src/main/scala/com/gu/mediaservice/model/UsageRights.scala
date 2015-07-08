@@ -90,7 +90,7 @@ case class Agency(supplier: String, suppliersCollection: Option[String] = None, 
     val defaultCost = None
     val description =
       "Agencies such as Getty, Reuters, Press Association, etc. where " +
-      "subscription fees are paid to access and use ***REMOVED***."
+      "subscription fees are paid to access and use pictures."
   }
 object Agency {
  implicit val jsonReads: Reads[Agency] = Json.reads[Agency]
