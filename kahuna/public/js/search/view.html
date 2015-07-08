@@ -1,16 +1,14 @@
 <!-- TODO: rename this file and split it into it's components -->
-<div class="top-bar-wrapper">
-    <div class="top-bar top-bar--fixed">
-        <search-query class="top-bar__nav"></search-query>
+<gr-top-bar fixed="true">
+    <gr-top-bar-nav>
+        <search-query></search-query>
+    </gr-top-bar-nav>
 
-        <div class="top-bar__actions">
-            <a class="top-bar__item" ui:sref="upload">your recent uploads</a>
-            <file-uploader class="top-bar__item"></file-uploader>
-        </div>
-
-        <ui-user-actions></ui-user-actions>
-    </div>
-</div>
+    <gr-top-bar-actions>
+        <a class="top-bar-item" ui:sref="upload">your recent uploads</a>
+        <file-uploader class="top-bar-item"></file-uploader>
+    </gr-top-bar-actions>
+</gr-top-bar>
 
 <ui-view name="results"></ui-view>
 <ui-view name="panel"></ui-view>

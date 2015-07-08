@@ -1,15 +1,12 @@
-<div class="top-bar-wrapper">
-    <div class="top-bar">
-        <div class="top-bar__nav">
-            <a class="top-bar__item top-bar__item--first"
-               ui:sref="search.results">← search</a>
-        </div>
+<gr-top-bar>
+    <gr-top-bar-nav>
+        <a class="top-bar-item"
+           ui:sref="search.results">← search</a>
+    </gr-top-bar-nav>
 
-        <div class="top-bar__actions">
-            <ui-user-actions></ui-user-actions>
-        </div>
-    </div>
-</div>
+    <gr-top-bar-actions>
+    </gr-top-bar-actions>
+</gr-top-bar>
 
 <div class="full-error">
     Error: {{message}}

@@ -4,6 +4,7 @@ import 'angular-ui-router-extras';
 import './query';
 import './results';
 import '../preview/image';
+import '../components/gr-top-bar/gr-top-bar';
 import '../components/gr-panel/gr-panel';
 
 import searchTemplate        from './view.html!text';
@@ -16,6 +17,7 @@ export var search = angular.module('kahuna.search', [
     'kahuna.search.query',
     'kahuna.search.results',
     'kahuna.preview.image',
+    'gr.topBar',
     'grPanel'
 ]);
 
