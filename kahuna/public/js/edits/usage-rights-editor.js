@@ -13,12 +13,15 @@ usageRightsEditor.controller('UsageRightsEditorCtrl',
     var ctrl = this;
 
     // setting our initial values
-    const { category: initialCatVal } = ctrl.resource.data;
+    const { restrictions, category: categoryVal } =
+        angular.extend({}, ctrl.resource.data);
 
     ctrl.saving = false;
     ctrl.saved = false;
+    ctrl.restrictions = restrictions;
     ctrl.categories = [];
-    ctrl.model = angular.extend({}, ctrl.resource.data);
+
+    updateResource(ctrl.resource);
 
     // TODO: What error would we like to show here?
     // TODO: How do we make this more syncronous? You can only resolve on the
@@ -30,7 +33,7 @@ usageRightsEditor.controller('UsageRightsEditorCtrl',
         ctrl.error = null;
 
         if (ctrl.category) {
-            save(modelToData(ctrl.model));
+            save(modelToData(ctrl.category, ctrl.restrictions));
         } else {
             del();
         }
@@ -40,6 +43,13 @@ usageRightsEditor.controller('UsageRightsEditorCtrl',
 
     ctrl.isNotEmpty = () => !angular.equals(ctrl.resource.data, {});
 
+    ctrl.getCost = () => {
+        // TODO: Can we move this to the server
+        if (ctrl.restrictions) { return 'conditional'; }
+
+        return ctrl.category && ctrl.category.cost;
+    };
+
     ctrl.pluraliseCategory = () => ctrl.category.name +
         (ctrl.category.name.toLowerCase().endsWith('image') ? 's' : ' images');
 
@@ -48,24 +58,19 @@ usageRightsEditor.controller('UsageRightsEditorCtrl',
         'Adding restrictions will mark this image as restricted. ' +
         'Leave blank if there aren\'t any.';
 
-    ctrl.resetModel = () => ctrl.model = {};
-
     function setCategories(cats) {
         ctrl.categories = cats;
 
         // set the current category
-        ctrl.category = cats.find(cat => cat.value === initialCatVal);
+        ctrl.category = cats.find(cat => cat.value === categoryVal);
     }
 
-    function modelToData(model) {
-        return Object.keys(model).reduce((clean, key) => {
-            // remove everything !thing including ""
-            if (model[key]) {
-                clean[key] = model[key];
-            }
-
-            return clean;
-        }, { category: ctrl.category && ctrl.category.value });
+    function modelToData(cat, restrictions) {
+        // this removes everything, including ""
+        return !restrictions ? { category: cat.value } : {
+            category: cat.value,
+            restrictions: restrictions
+        };
     }
 
     function del() {
