@@ -307,41 +307,13 @@ textarea.ng-invalid {
    Top bar
    ========================================================================== */
 
-.top-bar-wrapper {
-    height: 48px; /* faking we're in the flow */
-    position: relative;
-    z-index: 2;
-}
-
-.top-bar {
-    background-color: #333;
-    padding: 10px;
-    font-family: "Guardian Agate Sans Web", Helvetica, Arial;
-    width: 100%;
-    box-shadow: 0 1px 5px rgba(0, 0, 0, 0.4);
-    font-size: 1.4rem;
-    display: flex;
-    box-sizing: border-box;
-}
-.top-bar--fixed {
-    position: fixed;
-}
-
-.top-bar__nav {
-    flex-grow: 1;
-    text-align: left;
-}
-
-.top-bar__actions {
-    display: flex;
-}
-
-.top-bar__item {
+.top-bar-item {
     margin-left: 20px;
     vertical-align: middle;
     line-height: 28px;
+    display: inline-block;
 }
-.top-bar__item--first {
+.top-bar-item:first-child {
     margin-left: 0;
 }
 
@@ -1037,6 +1009,7 @@ FIXME: what to do with touch devices
 
 .image-info__wrap {
     position: relative;
+    vertical-align: top;
 }
 
 .image-info__wrap:hover .image-info__edit {
@@ -1513,8 +1486,9 @@ FIXME: what to do with touch devices
 
 
 /* ==========================================================================
-   Drop menu
+   Drop menu e.g top level navigation
    ========================================================================== */
+
 .drop-menu {
     position: relative;
 }
@@ -1549,6 +1523,27 @@ FIXME: what to do with touch devices
 }
 .drop-menu__items--nopad {
     top: 100%;
+}
+
+
+/* ==========================================================================
+   Dropdown menu e.g. autocomplete
+   ========================================================================== */
+
+.dropdown-menu {
+    z-index: 1;
+    background: #333;
+    padding: 5px;
+}
+
+.dropdown-menu li {
+    cursor: pointer;
+    color: #ccc;
+    padding: 5px;
+}
+
+.dropdown-menu li:hover {
+    background-color: #00adee
 }
 
 

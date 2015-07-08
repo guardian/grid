@@ -1,12 +1,14 @@
 import angular from 'angular';
 
 import './controller';
+import '../components/gr-top-bar/gr-top-bar';
 
 import cropTemplate from './view.html!text';
 
 
 export var crop = angular.module('kahuna.crop', [
-    'kahuna.crop.controller'
+    'kahuna.crop.controller',
+    'gr.topBar'
 ]);
 
 

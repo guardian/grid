@@ -82,6 +82,8 @@ object Mappings {
     "publication" -> nonAnalyzedString
   )
 
+  // We've had to leave `cost` in here so as to not break re-indexing as some of
+  // our documents have this as a legacy issue.
   val userMetadataUsageRightsMapping = nonDynamicObj(
     "cost" -> nonAnalyzedString,
     "category" -> nonAnalyzedString,
