@@ -121,6 +121,7 @@
                     credit
                     <span class="image-info__credit metadata-line__info"
                           editable-text="ctrl.metadata.credit"
+                          e:typeahead="credit for credit in ctrl.credits($viewValue) | limitTo:8"
                           onbeforesave="ctrl.updateMetadataField('credit', $data)"
                           e:ng-class="{'image-info__editor--error': $error, 'image-info__editor--saving': creditEditForm.$waiting}"
                           e:form="creditEditForm">
