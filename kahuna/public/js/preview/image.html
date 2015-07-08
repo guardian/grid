@@ -39,37 +39,36 @@
                              disabled="selectionMode"></ui-labeller-compact>
 
         <p class="preview__description">{{image.data.metadata.description || image.data.metadata.title}}</p>
-    </div>
 
-    <div class="preview__bottom-bar bottom-bar">
-        <div class="bottom-bar__meta">
-            <span class="preview__upload-date">{{image.data.uploadTime | date:'d/M/yy'}}</span>
-            <span class="preview__upload-time">{{image.data.uploadTime | date:'HH:mm'}}</span>
+        <div class="preview__bottom-bar bottom-bar">
+            <div class="bottom-bar__meta">
+                <span class="preview__upload-date">{{image.data.uploadTime | date:'d/M/yy'}}</span>
+                <span class="preview__upload-time">{{image.data.uploadTime | date:'HH:mm'}}</span>
 
-            <span class="bottom-bar__meta-item preview__has-crops"
-                  title="this image has crops"
-                  ng:if="image | hasExportsOfType:'crop'"><img class="ico" ng:src="{{'images/ico/crop.svg'| assetLocation}}" /></span>
-        </div>
-        <div class="bottom-bar__actions">
+                <span class="bottom-bar__meta-item preview__has-crops"
+                      title="this image has crops"
+                      ng:if="image | hasExportsOfType:'crop'"><img class="ico" ng:src="{{'images/ico/crop.svg'| assetLocation}}" /></span>
+            </div>
+            <div class="bottom-bar__actions">
 
-            <ui-archiver
-                class="bottom-bar__action"
-                image="image"
-                disabled="selectionMode"></ui-archiver>
+                <ui-archiver
+                 class="bottom-bar__action"
+                 image="image"
+                 disabled="selectionMode"></ui-archiver>
 
-            <div class="preview__cost bottom-bar__action" ng:switch="image.data.cost">
-                <div ng:switch-when="pay"
-                     class="cost cost--pay">
-                    pay
-                </div>
+                 <div class="preview__cost bottom-bar__action" ng:switch="image.data.cost">
+                     <div ng:switch-when="pay" class="cost cost--pay">
+                         pay
+                     </div>
 
-                <div ng:switch-when="conditional"
-                     class="cost cost--conditional"
-                     title="{{image.data.usageRights.restrictions}}">
-                     <!-- As `conditional` can only be set with usageRights, let's
-                     just assume it's here. We might need to revisit this. -->
-                    restricted
-                </div>
+                     <div ng:switch-when="conditional"
+                      class="cost cost--conditional"
+                      title="{{image.data.usageRights.restrictions}}">
+                         <!-- As `conditional` can only be set with usageRights, let's
+                             just assume it's here. We might need to revisit this. -->
+                             restricted
+                     </div>
+                 </div>
             </div>
         </div>
     </div>

@@ -582,7 +582,7 @@ input.search-query__input {
     width: 100%;
     min-width: 0;
     max-width: 100%;
-    height: calc(100vh - 120px);
+    height: calc(100vh);
 }
 
 .result__select input[type=checkbox] {
@@ -725,20 +725,35 @@ input.search-query__input {
 }
 
 .result--full .preview__link, .result--full .preview__no-link {
-    height: calc(100vh - 200px);
+    height: calc(100vh);
 }
 
 .result--full .preview__image {
-    height: calc(100vh - 200px);
-    max-height: calc(100vh - 200px);
+    height: calc(100vh);
+    max-height: calc(100vh);
 }
-
 
 .preview__info {
     font-size: 1.3rem;
     padding-left: 10px;
     margin: 5px 0;
 }
+
+.result--full .preview__info {
+    position: absolute;
+    bottom: 0px;
+    background-color: rgba(30,0,0,0.5);
+    width: 100%;
+    margin: 0px;
+    padding: 0px;
+    opacity: 0.1;
+}
+
+.result--full .preview__info:hover {
+    opacity: 1;
+}
+
+.preview__info.ng-scope {}
 
 .preview__description {
     overflow: hidden;
@@ -810,7 +825,7 @@ FIXME: what to do with touch devices
 }
 .bottom-bar__meta {
     flex: 1;
-    padding-left: 10px;
+    /* padding-left: 10px; */
 }
 .bottom-bar__meta-item {
     font-size: 1.2rem;
