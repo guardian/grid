@@ -40,9 +40,19 @@ results.controller('SearchResultsCtrl', [
         ctrl.getLastSeenVal = getLastSeenVal;
         ctrl.imageHasBeenSeen = imageHasBeenSeen;
 
-        ctrl.searched = search().then(function(images) {
+        ctrl.updateImages = function(images) {
             ctrl.totalResults = images.total;
             ctrl.images = images.data;
+        };
+
+        ctrl.resetImages = function() {
+            ctrl.updateImages(ctrl.lastImages);
+            ctrl.fullPreview = false;
+        }
+
+        ctrl.searched = search().then(function(images) {
+            ctrl.lastImages = images;
+            ctrl.updateImages(images);
             // yield so images render before we check if there's more space
             fillRemainingSpace();
             checkForNewImages();
@@ -64,7 +74,7 @@ results.controller('SearchResultsCtrl', [
         // FIXME: this will only add up to 50 images (search capped)
         function checkForNewImages() {
             $timeout(() => {
-                const latestTime = ctrl.images[0] && ctrl.images[0].data.uploadTime;
+                const latestTime = ctrl.lastImages.data[0] && ctrl.lastImages.data[0].data.uploadTime;
                 search({since: latestTime}).then(resp => {
                     // FIXME: minor assumption that only the latest
                     // displayed image is matching the uploadTime
@@ -133,7 +143,7 @@ results.controller('SearchResultsCtrl', [
         function addImages() {
             // TODO: stop once reached the end
             const lastImage = ctrl.images.slice(-1)[0];
-            if (lastImage) {
+            if (lastImage && !ctrl.fullPreview) {
                 const until = lastImage.data.uploadTime;
                 return search({until: until}).then(function(moreImages) {
                     // Filter out duplicates (esp. on exact same 'until' date)
@@ -209,6 +219,10 @@ results.controller('SearchResultsCtrl', [
                 else {
                     ctrl.toggleSelection(image, !ctrl.imageHasBeenSelected(image));
                 }
+            } else {
+                ctrl.updateImages({ data: [image] });
+                ctrl.toggleSelection(image, !ctrl.imageHasBeenSelected(image));
+                ctrl.fullPreview = true;
             }
         };
 
