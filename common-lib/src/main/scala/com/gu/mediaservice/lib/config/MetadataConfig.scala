@@ -31,7 +31,7 @@ object MetadataConfig {
       "Suki Dhanda"         -> "The Observer"
     )
 
-    val creditBylineMap = store.groupBy(_._2).map(o => o._1 -> o._2.keys.toList)
+    val creditBylineMap: Map[String, List[String]] = store.groupBy(_._2).map(o => o._1 -> o._2.keys.toList)
     val list = store.keys.toList
 
     def getOrganisation(name: String): Option[String] = store.get(name)

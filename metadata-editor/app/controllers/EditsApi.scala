@@ -1,5 +1,6 @@
 package controllers
 
+import model.UsageRightsProperty
 import play.api.libs.json._
 import play.api.mvc.Controller
 
@@ -42,7 +43,8 @@ object EditsApi extends Controller with ArgoHelpers {
     // their images can be imported by drag and drop instead
     // FIXME: Creating new instances? Rubbish ಠ_ಠ.
     val usageRightsData =
-      List(PrImage(), Handout(), Screengrab(), SocialMedia(), Obituary(), Pool())
+      List(PrImage(), Handout(), Screengrab(), SocialMedia(), Obituary(), Pool(),
+           StaffPhotographer("?", "?"))
         .map(CategoryResponse.fromUsageRights)
 
     respond(usageRightsData)
@@ -55,7 +57,8 @@ case class CategoryResponse(
   value: String,
   name: String,
   cost: String,
-  description: String
+  description: String,
+  properties: List[UsageRightsProperty] = List()
 )
 object CategoryResponse {
   // I'd like to have an override of the `apply`, but who knows how you do that
@@ -65,7 +68,8 @@ object CategoryResponse {
       value        = u.category,
       name         = u.name,
       cost         = u.defaultCost.getOrElse(Pay).toString,
-      description  = u.description
+      description  = u.description,
+      properties   = UsageRightsProperty.getPropertiesForCat(u)
     )
 
   implicit val categoryResponseWrites: Writes[CategoryResponse] = Json.writes[CategoryResponse]
