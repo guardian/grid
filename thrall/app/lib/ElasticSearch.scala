@@ -58,10 +58,10 @@ object ElasticSearch extends ElasticSearchClient {
            |   ctx._source.identifiers += doc.identifiers;
            | }
            |""".stripMargin +
+          removeCostFromUserUsageRights +
           refreshEditsScript +
           updateLastModifiedScript +
-          addToSuggestersScript +
-          removeCostFromUserUsageRights,
+          addToSuggestersScript,
         scriptType)
       .executeAndLog(s"Indexing image $id")
       .incrementOnSuccess(indexedImages)}
