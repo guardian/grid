@@ -10,6 +10,7 @@ image.controller('ImageCtrl', [
     '$scope',
     'onValChange',
     'image',
+    'mediaApi',
     'optimisedImageUri',
     'cropKey',
     'mediaCropper',
@@ -20,6 +21,7 @@ image.controller('ImageCtrl', [
               $scope,
               onValChange,
               image,
+              mediaApi,
               optimisedImageUri,
               cropKey,
               mediaCropper,
@@ -27,6 +29,16 @@ image.controller('ImageCtrl', [
               track) {
 
         var ctrl = this;
+
+        ctrl.credits = function(searchText) {
+            return ctrl.metadataSearch('credit', searchText);
+        };
+
+        ctrl.metadataSearch = (field, q) => {
+            return mediaApi.metadataSearch(field,  { q }).then(resource => {
+                return resource.data.map(d => d.key);
+            });
+        };
 
         ctrl.image = image;
         ctrl.optimisedImageUri = optimisedImageUri;
