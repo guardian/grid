@@ -12,7 +12,6 @@ sealed trait UsageRights {
   val defaultCost: Option[Cost]
 
   def name = category.replace("-", " ").split(" ").map(_.capitalize).mkString(" ")
-  override def toString = category
 
 }
 object UsageRights {
