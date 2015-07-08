@@ -1,6 +1,5 @@
 package controllers
 
-import model.UsageRightsProperty
 import play.api.libs.json._
 import play.api.mvc.Controller
 
@@ -57,8 +56,7 @@ case class CategoryResponse(
   value: String,
   name: String,
   cost: String,
-  description: String,
-  properties: List[UsageRightsProperty] = List()
+  description: String
 )
 object CategoryResponse {
   // I'd like to have an override of the `apply`, but who knows how you do that
@@ -68,8 +66,7 @@ object CategoryResponse {
       value        = u.category,
       name         = u.name,
       cost         = u.defaultCost.getOrElse(Pay).toString,
-      description  = u.description,
-      properties   = UsageRightsProperty.getPropertiesForCat(u)
+      description  = u.description
     )
 
   implicit val categoryResponseWrites: Writes[CategoryResponse] = Json.writes[CategoryResponse]
