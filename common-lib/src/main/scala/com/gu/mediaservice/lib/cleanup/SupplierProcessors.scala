@@ -30,7 +30,7 @@ object SupplierProcessors {
 
 object StaffPhotographerParser extends ImageProcessor {
   def apply(image: Image): Image = {
-    image.metadata.byline.map(p => (p,StaffPhotographers.getOrganisation(p))) match {
+    image.metadata.byline.map(p => (p,StaffPhotographers.getPublication(p))) match {
       case Some((photographer, Some(publication))) => image.copy(
         usageRights = StaffPhotographer(photographer, publication),
         metadata    = image.metadata.copy(credit = Some(publication))
