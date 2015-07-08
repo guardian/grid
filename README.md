@@ -9,7 +9,7 @@ experience accessing media that is **organised** and using it in an
 See the [Vision](VISION.md) document for more details on the core
 principles behind this project.
 
-![Screenshot of Grid search](docs/images/screenshot-2015-07-03T11:34:43.png)
+![Screenshot of Grid search](docs/images/screenshot-2015-07-03T11:34:43.jpg)
 
 Grid runs as a set of independent micro-services
 ([Scala](http://www.scala-lang.org/) and

@@ -8,6 +8,7 @@ import './services/api/media-cropper';
 import './services/api/loader';
 import './services/api/edits-api';
 import './directives/ui-crop-box';
+import './directives/gr-image-fade-on-load';
 import './crop/index';
 import './image/index';
 import './upload/index';
@@ -53,7 +54,10 @@ var kahuna = angular.module('kahuna', [
     'kahuna.directives',
     'kahuna.common',
     'kahuna.errors.http',
-    'kahuna.errors.global'
+    'kahuna.errors.global',
+
+    // directives used throughout
+    'gr.imageFadeOnLoad'
 ]);
 
 
