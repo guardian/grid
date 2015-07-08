@@ -11,12 +11,16 @@
                ui:drag-data="{{ctrl.image | asImageDragData}}">
 
                 <img class="result-editor__img"
-                     ng:src="{{ctrl.image.data.thumbnail | assetFile}}" />
+                     ng:src="{{ctrl.image.data.thumbnail | assetFile}}"
+                     gr:image-fade-on-load
+                 />
             </a>
 
             <img class="result-editor__img"
                  ng:switch-default
-                 ng:src="{{ctrl.image.data.thumbnail | assetFile}}" />
+                 ng:src="{{ctrl.image.data.thumbnail | assetFile}}"
+                 gr:image-fade-on-load
+             />
 
             <ul class="image-actions">
                 <li>
