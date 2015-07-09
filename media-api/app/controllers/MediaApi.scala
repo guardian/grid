@@ -27,7 +27,7 @@ import com.gu.mediaservice.lib.argo._
 import com.gu.mediaservice.lib.argo.model._
 import com.gu.mediaservice.lib.formatting.{printDateTime, parseDateFromQuery}
 import com.gu.mediaservice.lib.cleanup.{SupplierProcessors, MetadataCleaners}
-import com.gu.mediaservice.lib.config.MetadataConfig
+import com.gu.mediaservice.lib.config.MetadataConfig.StaffPhotographers
 import com.gu.mediaservice.lib.metadata.ImageMetadataConverter
 import com.gu.mediaservice.model._
 import com.gu.mediaservice.api.Transformers
@@ -127,7 +127,7 @@ object MediaApi extends Controller with ArgoHelpers {
   }
 
   def cleanImage(id: String) = Authenticated.async {
-    val metadataCleaners = new MetadataCleaners(MetadataConfig.creditBylineMap)
+    val metadataCleaners = new MetadataCleaners(StaffPhotographers.creditBylineMap)
 
     ElasticSearch.getImageById(id) map {
       case Some(source) => {

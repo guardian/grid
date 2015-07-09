@@ -59,7 +59,7 @@ results.controller('SearchResultsCtrl', [
         });
 
 
-        const pollingPeriod = 5 * 1000; // ms
+        const pollingPeriod = 15 * 1000; // ms
 
         // FIXME: this will only add up to 50 images (search capped)
         function checkForNewImages() {
