@@ -1,16 +1,14 @@
 <form class="file-uploader">
-    <div>
-        <!-- you cannot bind ng:model="files" nor use ng:change:
-        https://github.com/angular/angular.js/issues/1375 -->
-        <input class="file-uploader__file"
-               name="files" type="file"
-               multiple
-               gr:file-change="ctrl.uploadFiles" />
+    <!-- you cannot bind ng:model="files" nor use ng:change:
+    https://github.com/angular/angular.js/issues/1375 -->
+    <input class="file-uploader__file"
+           name="files" type="file"
+           multiple
+           gr:file-change="ctrl.uploadFiles" />
 
-        <button class="file-uploader__select-files button"
-                gr:track-click="Upload button">
-            <i class="material-icons">file_upload</i>
-            <span class="file-uploader__select-files--label">upload</span>
-        </button>
-    </div>
+    <button class="file-uploader__select-files button"
+            gr:track-click="Upload button">
+        <i class="material-icons">file_upload</i>
+        <span class="file-uploader__select-files--label">upload</span>
+    </button>
 </form>
