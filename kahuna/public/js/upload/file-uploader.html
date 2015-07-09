@@ -1,15 +1,14 @@
 <form class="file-uploader">
-    <div ui:event-share="click"
-         ui:event-share-thief=".file-uploader__select-files"
-         ui:event-share-victim=".file-uploader__file">
+    <div>
         <!-- you cannot bind ng:model="files" nor use ng:change:
         https://github.com/angular/angular.js/issues/1375 -->
         <input class="file-uploader__file"
                name="files" type="file"
                multiple
-               ui:file ui:file-change="fileUploader.uploadFiles" />
+               gr:file-change="ctrl.uploadFiles" />
 
-        <button class="file-uploader__select-files button">
+        <button class="file-uploader__select-files button"
+                gr:track-click="Upload button">
             <i class="material-icons">file_upload</i>
             <span class="file-uploader__select-files--label">upload</span>
         </button>
