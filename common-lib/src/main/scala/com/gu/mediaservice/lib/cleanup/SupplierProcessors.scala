@@ -1,7 +1,7 @@
 package com.gu.mediaservice.lib.cleanup
 
-import com.gu.mediaservice.model.{Agency, Image}
-
+import com.gu.mediaservice.model.{Agency, Image, StaffPhotographer}
+import com.gu.mediaservice.lib.config.MetadataConfig.StaffPhotographers
 
 trait ImageProcessor {
   def apply(image: Image): Image
@@ -19,13 +19,25 @@ object SupplierProcessors {
     GettyParser,
     PaParser,
     ReutersParser,
-    RexParser
+    RexParser,
+    StaffPhotographerParser
   )
 
   def process(image: Image): Image =
     all.foldLeft(image) { case (im, processor) => processor(im) }
 }
 
+object StaffPhotographerParser extends ImageProcessor {
+  def apply(image: Image): Image = {
+    image.metadata.byline.map(p => (p,StaffPhotographers.getPublication(p))) match {
+      case Some((photographer, Some(publication))) => image.copy(
+        usageRights = StaffPhotographer(photographer, publication),
+        metadata    = image.metadata.copy(credit = Some(publication))
+      )
+      case _ => image
+    }
+  }
+}
 
 object AapParser extends ImageProcessor {
   def apply(image: Image): Image = image.metadata.credit match {
