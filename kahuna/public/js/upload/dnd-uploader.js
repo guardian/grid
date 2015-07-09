@@ -2,13 +2,15 @@ import angular from 'angular';
 import template from './dnd-uploader.html!text';
 
 import '../services/api/witness';
+import '../analytics/track';
 
 export var dndUploader = angular.module('kahuna.upload.dndUploader', [
     'kahuna.upload.manager',
     'kahuna.services.api',
     'kahuna.edits.service',
     'kahuna.witness',
-    'util.async'
+    'util.async',
+    'analytics.track'
 ]);
 
 
@@ -85,8 +87,8 @@ dndUploader.controller('DndUploaderCtrl',
  * This behaviour is pretty well observed:
  * https://code.google.com/p/chromium/issues/detail?id=131325
  */
-dndUploader.directive('dndUploader', ['$window', 'delay', 'safeApply',
-                       function($window, delay, safeApply) {
+dndUploader.directive('dndUploader', ['$window', 'delay', 'safeApply', 'track',
+                       function($window, delay, safeApply, track) {
 
     const gridImageMimeType = 'application/vnd.mediaservice.image+json';
 
@@ -101,8 +103,11 @@ dndUploader.directive('dndUploader', ['$window', 'delay', 'safeApply',
             let dragging = false; // [1]
             const $$window = angular.element($window);
 
-            const activate   = () => safeApply(scope, () => ctrl.activated = true);
-            const deactivate = () => safeApply(scope, () => ctrl.activated = false);
+            const activate    = () => safeApply(scope, () => ctrl.activated = true);
+            const deactivate  = () => safeApply(scope, () => ctrl.activated = false);
+            const trackEvent  = 'Upload action';
+            const trackAction = (actionName, what) => ({ 'Action': actionName });
+            const dropAction  = content => angular.extend({}, trackAction('Drop'), { 'Content': content });
 
             $$window.on('dragover', over);
             $$window.on('dragenter', enter);
@@ -128,6 +133,7 @@ dndUploader.directive('dndUploader', ['$window', 'delay', 'safeApply',
                 if (! isDraggingFromGrid(event)) {
                     dragging = true;
                     activate();
+                    track.action(trackEvent, trackAction('Drag enter'));
                 }
             }
 
@@ -151,19 +157,25 @@ dndUploader.directive('dndUploader', ['$window', 'delay', 'safeApply',
                     performDropAction(files, uri);
                 }
                 scope.$apply(deactivate);
+
+                track.action(trackEvent, trackAction('Drag enter'));
             }
 
             function performDropAction(files, uri) {
                 if (files.length > 0) {
                     ctrl.uploadFiles(files);
+                    track.action(trackEvent, dropAction('Files'));
                 } else if (ctrl.isWitnessUri(uri)) {
                     ctrl.importing = true;
                     ctrl.importWitnessImage(uri).finally(() => {
                         ctrl.importing = false;
                     });
+                    track.action(trackEvent, dropAction('Witness'));
                 } else {
                     $window.alert('You must drop valid files or ' +
                                   'GuardianWitness URLs to upload them');
+
+                    track.action(trackEvent, dropAction('Invalid'));
                 }
             }
 

@@ -103,13 +103,17 @@ track.run(['$rootScope', '$window', 'mixpanelToken', 'mixpanel', 'trackingServic
 
 }]);
 
-track.directive('grTrackClick', ['track', function(track) {
+track.directive('grTrackClick', ['$parse', 'track', function($parse, track) {
 
     return {
         restrict: 'A',
         link: function(scope, element, attrs) {
             const name = attrs.grTrackClick;
-            element.on('click', () => track.action(name));
+            const data = $parse(attrs.grTrackClickData)(scope);
+
+            element.on('click', () => {
+                track.action(name, data);
+            });
         }
     };
 
