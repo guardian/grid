@@ -23,7 +23,7 @@
             <div class="form-label">
                 <div class="form-label__text">{{ property.label }}</div>
                 <!-- TODO: Show errors here -->
-                <!--<div class="form-label__error">Info text</div>-->
+                <!--<div class="form-label__error">Error</div>-->
             </div>
 
             <div ng:switch="property.type">
@@ -48,7 +48,7 @@
 
                     <select
                         name="{{ property.name }}"
-                        ng:if="property.optionMap"
+                        ng:if="property.optionsMap"
                         ng:model="ctrl.model[property.name]"
                         ng:required="property.required"
                         ng:options="o for o in ctrl.getOptionsFor(property)">
