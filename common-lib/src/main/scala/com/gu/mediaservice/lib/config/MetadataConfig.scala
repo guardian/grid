@@ -33,8 +33,8 @@ object MetadataConfig {
 
 
     val creditBylineMap: Map[String, List[String]] = store
-      .groupBy(_ match { case (photographer, publication) => publication })
-      .map(_ match { case (publication, photographers) => publication -> photographers.keys.toList })
+      .groupBy{ case (photographer, publication) => publication }
+      .map{ case (publication, photographers) => publication -> photographers.keys.toList }
 
     val list = store.keys.toList
 
