@@ -895,47 +895,6 @@ FIXME: what to do with touch devices
     text-align: left;
 }
 
-
-/* ==========================================================================
-   Usage Rights editor (URE)
-   ========================================================================== */
-.ure {
-    width: 100%;
-    box-sizing: border-box;
-}
-
-.ure__cost {
-    display: inline-block;
-    margin-left: 20px;
-}
-
-.ure__cost-selector {
-    margin-left: 20px;
-}
-
-.ure__description {
-    margin: 10px 0;
-}
-
-.ure__restrictions {
-    display: block;
-}
-
-.ure__restrictions-text {
-    width: 100%;
-}
-
-.ure__submit {
-    display: flex;
-}
-
-.ure__error {
-    margin-left: 10px;
-    background: red;
-    padding: 2px 10px;
-    color: white;
-}
-
 /* ==========================================================================
    Full Image / crop
    ========================================================================== */
@@ -1621,4 +1580,13 @@ FIXME: what to do with touch devices
     color: #ed5935;
     flex-grow: 1;
     text-align: right;
+}
+
+.form-property {
+    display: block;
+    margin-bottom: 10px;
+}
+
+.form-input-text {
+    width: 100%;
 }
