@@ -45,7 +45,8 @@ object UsageRights {
 
   implicit val jsonReads: Reads[UsageRights] =
     Reads[UsageRights] { json  =>
-      ((json \ "category").asOpt[String] flatMap {
+      val category = (json \ "category").asOpt[String]
+      (category flatMap {
         case "agency"             => json.asOpt[Agency]
         case "PR Image"           => json.asOpt[PrImage]
         case "handout"            => json.asOpt[Handout]
@@ -59,7 +60,7 @@ object UsageRights {
       })
       .orElse(json.asOpt[NoRights.type])
       .map(JsSuccess(_))
-      .getOrElse(JsError("No such usage rights category"))
+      .getOrElse(JsError(s"No such usage rights category: ${category.getOrElse("None")}"))
     }
 }
 
