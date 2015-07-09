@@ -165,7 +165,7 @@ button {
     box-sizing: border-box;
     color: white;
     display: block;
-    padding: 5px 20px !important;
+    padding: 5px 20px;
     font-size: 1.4rem;
     position: relative;
 }
@@ -308,7 +308,7 @@ textarea.ng-invalid {
    ========================================================================== */
 
 .top-bar-item {
-    margin-left: 20px;
+    margin-left: 10px;
     vertical-align: middle;
     line-height: 28px;
     display: inline-block;
@@ -518,6 +518,15 @@ input.search-query__input {
     display: none;
 }
 
+.file-uploader__select-files {
+    padding: 5px 10px;
+}
+
+@media screen and (max-width: 1200px) {
+    .file-uploader__select-files--label {
+        display: none;
+    }
+}
 
 /* ==========================================================================
    Results
