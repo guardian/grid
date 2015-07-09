@@ -25,7 +25,6 @@ object ImageResponse {
   def fileMetaDataUri(id: String) = URI.create(s"${Config.rootUri}/images/$id/fileMetadata")
 
   def create(id: String, esSource: JsValue, withWritePermission: Boolean, included: List[String] = List()): (JsValue, List[Link]) = {
-
     val (image: Image, source: JsValue) = Try {
       val image = esSource.as[Image]
       val source = Json.toJson(image)(
@@ -35,7 +34,7 @@ object ImageResponse {
       (image, source)
     }.recoverWith {
       case e => {
-        Logger.error(s"Failed to read ElasticSearch response into Image object: ${e.getMessage}")
+        Logger.error(s"Failed to read ElasticSearch response ${id} into Image object: ${e.getMessage}")
         Failure(e)
       }
     }.get

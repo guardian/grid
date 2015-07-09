@@ -322,6 +322,16 @@ textarea.ng-invalid {
     padding: 0px 5px;
 }
 
+.home-link {
+    text-indent: -9999px;
+    width: 24px;
+    height: 24px;
+    background: url(/assets/images/grid-logo-32.png) no-repeat center;
+    margin-right: 10px;
+    vertical-align: top;
+    float: left;
+}
+
 .logout {
     color: inherit;
     font-size: 1.3rem;
