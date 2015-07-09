@@ -76,7 +76,7 @@ object UsageRights {
 case object NoRights
   extends UsageRights {
     val category = "no-rights"
-    val defaultCost = Some(Pay)
+    val defaultCost = None
     val restrictions = None
     val description =
       "Remove any rights that have been applied to this image. It will appear as " +
