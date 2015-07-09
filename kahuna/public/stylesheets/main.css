@@ -307,47 +307,29 @@ textarea.ng-invalid {
    Top bar
    ========================================================================== */
 
-.top-bar-wrapper {
-    height: 48px; /* faking we're in the flow */
-    position: relative;
-    z-index: 2;
-}
-
-.top-bar {
-    background-color: #333;
-    padding: 10px;
-    font-family: "Guardian Agate Sans Web", Helvetica, Arial;
-    width: 100%;
-    box-shadow: 0 1px 5px rgba(0, 0, 0, 0.4);
-    font-size: 1.4rem;
-    display: flex;
-    box-sizing: border-box;
-}
-.top-bar--fixed {
-    position: fixed;
-}
-
-.top-bar__nav {
-    flex-grow: 1;
-    text-align: left;
-}
-
-.top-bar__actions {
-    display: flex;
-}
-
-.top-bar__item {
+.top-bar-item {
     margin-left: 20px;
     vertical-align: middle;
     line-height: 28px;
+    display: inline-block;
 }
-.top-bar__item--first {
+.top-bar-item:first-child {
     margin-left: 0;
 }
 
 .user-actions {
     margin-right: -10px;
     padding: 0px 5px;
+}
+
+.home-link {
+    text-indent: -9999px;
+    width: 24px;
+    height: 24px;
+    background: url(/assets/images/grid-logo-32.png) no-repeat center;
+    margin-right: 10px;
+    vertical-align: top;
+    float: left;
 }
 
 .logout {
