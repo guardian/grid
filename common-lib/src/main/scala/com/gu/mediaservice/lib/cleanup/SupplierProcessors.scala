@@ -20,7 +20,6 @@ object SupplierProcessors {
     PaParser,
     ReutersParser,
     RexParser,
-    AddAgencyCategory,
     StaffPhotographerParser
   )
 
