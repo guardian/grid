@@ -14,12 +14,14 @@ usageRightsEditor.controller('UsageRightsEditorCtrl',
     var ctrl = this;
 
     // setting our initial values
-    const { category: initialCatVal } = ctrl.resource.data;
+    const initialCategory = ctrl.resource ? ctrl.resource.data.category : undefined;
+    const initialModel    = ctrl.resource ? ctrl.resource.data : undefined;
+
 
     ctrl.saving = false;
     ctrl.saved = false;
     ctrl.categories = [];
-    ctrl.model = angular.extend({}, ctrl.resource.data);
+    ctrl.model = angular.extend({}, initialModel);
 
     // TODO: What error would we like to show here?
     // TODO: How do we make this more syncronous? You can only resolve on the
@@ -61,7 +63,7 @@ usageRightsEditor.controller('UsageRightsEditorCtrl',
         ctrl.categories = cats;
 
         // set the current category
-        ctrl.category = cats.find(cat => cat.value === initialCatVal);
+        ctrl.category = cats.find(cat => cat.value === initialCategory);
     }
 
     function modelToData(model) {
