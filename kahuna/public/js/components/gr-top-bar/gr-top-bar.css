@@ -1,6 +1,6 @@
 gr-top-bar {
     display: block;
-    height: 48px; /* faking we're in the flow */
+    height: 50px; /* faking we're in the flow */
     position: relative;
     z-index: 2;
 }
@@ -18,10 +18,11 @@ gr-top-bar-actions {
 
 .gr-top-bar-inner {
     background-color: #333;
-    padding: 10px;
+    padding: 0px 10px;
     font-family: "Guardian Agate Sans Web", Helvetica, Arial;
     width: 100%;
-    box-shadow: 0 1px 5px rgba(0, 0, 0, 0.4);
+    height: 50px;
+    border-bottom: 1px solid #565656;
     font-size: 1.4rem;
     display: flex;
     box-sizing: border-box;
