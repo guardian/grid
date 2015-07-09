@@ -1,6 +1,7 @@
 import angular from 'angular';
 import 'angular-elastic';
 import template from './usage-rights-editor.html!text';
+import './usage-rights-editor.css!';
 
 export var usageRightsEditor = angular.module('kahuna.edits.usageRightsEditor', [
     'monospaced.elastic'
