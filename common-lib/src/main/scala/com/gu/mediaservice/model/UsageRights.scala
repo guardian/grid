@@ -46,6 +46,12 @@ object UsageRights {
   implicit val jsonReads: Reads[UsageRights] =
     Reads[UsageRights] { json  =>
       val category = (json \ "category").asOpt[String]
+
+      // We use supplier as an indicator that an image is an Agency
+      // image as some images have been indexed without a category.
+      // TODO: Fix with reindex
+      val supplier = (json \ "supplier").asOpt[String]
+
       (category flatMap {
         case "agency"             => json.asOpt[Agency]
         case "PR Image"           => json.asOpt[PrImage]
@@ -58,6 +64,7 @@ object UsageRights {
         case "pool"               => json.asOpt[Pool]
         case _                    => None
       })
+      .orElse(supplier.flatMap(_ => json.asOpt[Agency]))
       .orElse(json.asOpt[NoRights.type])
       .map(JsSuccess(_))
       .getOrElse(JsError(s"No such usage rights category: ${category.getOrElse("None")}"))
