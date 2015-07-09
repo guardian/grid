@@ -40,6 +40,9 @@ grPanel.controller('GrPanel', [
 
 
         ctrl.selectedImages = selection.selectedImages;
+        ctrl.imageArray = Array.from(ctrl.selectedImages);
+        ctrl.image = ctrl.imageArray[0];
+
         ctrl.hasMultipleValues = (val) => Array.isArray(val);
         ctrl.clear = selection.clear;
 
@@ -88,8 +91,7 @@ grPanel.controller('GrPanel', [
         }));
 
         ctrl.updateMetadataField = function (field, value) {
-            var imageArray = Array.from(ctrl.selectedImages);
-            return editsService.batchUpdateMetadataField(imageArray, field, value);
+            return editsService.batchUpdateMetadataField(ctrl.imageArray, field, value);
         };
 
         ctrl.addLabel = function (label) {
