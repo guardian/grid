@@ -107,6 +107,50 @@
         </div>
 
         <div class="image-info__group">
+            <div class="image-info__wrap" ng:if="ctrl.rawMetadata.specialInstructions">
+                <button class="image-info__edit"
+                        ng:if="ctrl.userCanEdit"
+                        ng:click="specialInstructionsEditForm.$show()"
+                        ng:hide="specialInstructionsEditForm.$visible">✎</button>
+                <div class="metadata-line">special instructions</div>
+
+
+                <div ng:class="{'image-info--multiple': ctrl.hasMultipleValues(ctrl.rawMetadata.specialInstructions)}"
+                     editable-textarea="ctrl.metadata.specialInstructions"
+                     onbeforesave="ctrl.updateMetadataField('specialInstructions', $data)"
+                     e:form="specialInstructionsEditForm"
+                     e:ng-class="{'image-info__editor--error': $error,
+                                  'image-info__editor--saving': specialInstructionsEditForm.$waiting}">
+
+                    <div ng:if="ctrl.userCanEdit">
+                        <span ng:if="ctrl.hasMultipleValues(ctrl.rawMetadata.specialInstructions)"
+                              class="image-info__special-instructions"
+                            >multiple special instructions (click ✎ to edit <strong>all</strong>)
+                        </span>
+
+                        <span ng:if="!ctrl.hasMultipleValues(ctrl.rawMetadata.specialInstructions)"
+                              class="image-info__special-instructions"
+                            >{{ctrl.metadata.specialInstructions}}
+                        </span>
+                    </div>
+
+                    <div ng:if="!ctrl.userCanEdit">
+                        <span ng:if="ctrl.hasMultipleValues(ctrl.rawMetadata.specialInstructions)"
+                              class="image-info__special-instructions"
+                            >multiple special instructions
+                        </span>
+
+                        <span ng:if="!ctrl.hasMultipleValues(ctrl.rawMetadata.specialInstructions)"
+                              class="image-info__special-instructions"
+                            >{{ctrl.metadata.specialInstructions}}
+                        </span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+
+        <div class="image-info__group">
             <div class="image-info__wrap metadata-line image-info__byline">
                 <button class="image-info__edit"
                         ng:if="ctrl.userCanEdit"
