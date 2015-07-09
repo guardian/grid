@@ -159,20 +159,3 @@ object RexParser extends ImageProcessor {
     case _ => image
   }
 }
-
-object AddAgencyCategory extends ImageProcessor {
-  // TODO: Hmmm. Better way of doing this?
-  // TODO: potentially do some validation / cleanup around things like having a
-  // collection but no supplier?
-  // FIXME: this probably belongs in some sort of `UsageRightsCategoryProcessors`
-  def apply(image: Image): Image =
-    getAgencySupplier(image).map(supplier => imageWithAgency(image, supplier)).getOrElse(image)
-
-  def imageWithAgency(image: Image, supplier: String): Image =
-    image.copy(usageRights = Agency(supplier))
-
-  def getAgencySupplier(image: Image): Option[String] = image.usageRights match {
-    case s: Agency => Some(s.supplier)
-    case _ => None
-  }
-}
