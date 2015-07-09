@@ -76,6 +76,3 @@ object CategoryResponse {
   implicit val categoryResponseWrites: Writes[CategoryResponse] = Json.writes[CategoryResponse]
 
 }
-
-
-
