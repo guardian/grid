@@ -78,6 +78,23 @@
         </div>
 
         <div class="image-info__group">
+            <div class="image-info__wrap" ng:if="ctrl.metadata.specialInstructions">
+                <button class="image-info__edit"
+                        ng:if="ctrl.userCanEdit"
+                        ng:click="specialInstructionsEditForm.$show()"
+                        ng:hide="specialInstructionsEditForm.$visible">✎</button>
+                <div class="metadata-line">special instructions</div>
+                <div class="image-info__special-instructions"
+                     editable-textarea="ctrl.metadata.specialInstructions"
+                     onbeforesave="ctrl.updateMetadataField('specialInstructions', $data)"
+                     e:msd-elastic
+                     e:ng-class="{'image-info__editor--error': $error,
+                                 'image-info__editor--saving': specialInstructionsEditForm.$waiting}"
+                     e:form="specialInstructionsEditForm">{{ctrl.metadata.specialInstructions}}</div>
+            </div>
+        </div>
+
+        <div class="image-info__group">
             <div ng:if="ctrl.metadata.dateTaken"
                  class="metadata-line">
                 taken on

@@ -1014,7 +1014,8 @@ FIXME: what to do with touch devices
     margin-top: 0;
 }
 
-.image-info__description {
+.image-info__description,
+.image-info__special-instructions {
     /* respect newlines in text */
     white-space: pre-line;
 }
