@@ -82,7 +82,7 @@ object ImageResponse {
     val usageRights = List(
       (source \ "usageRights").asOpt[JsObject],
       (source \ "userMetadata" \ "usageRights").asOpt[JsObject]
-    ).flatten.foldLeft(Json.obj())(_ ++ _).as[ImageUsageRights]
+    ).flatten.foldLeft(Json.obj())(_ ++ _).as[UsageRights]
 
     val cost = CostCalculator.getCost(
       usageRights,
@@ -131,17 +131,12 @@ object ImageResponse {
     (__ \ "userMetadata").writeNullable[Edits] ~
     (__ \ "metadata").write[ImageMetadata] ~
     (__ \ "originalMetadata").write[ImageMetadata] ~
-    (__ \ "usageRights").write[ImageUsageRights].contramap(usageRightsWithDefaults) ~
-    (__ \ "originalUsageRights").write[ImageUsageRights].contramap(usageRightsWithDefaults) ~
+    (__ \ "usageRights").write[UsageRights] ~
+    (__ \ "originalUsageRights").write[UsageRights] ~
     (__ \ "exports").write[List[Export]]
       .contramap((crops: List[Crop]) => crops.map(Export.fromCrop(_:Crop)))
 
   )(unlift(Image.unapply))
-
-  def usageRightsWithDefaults(usageRights: ImageUsageRights) = {
-    val defaultRestrictions = usageRights.category.flatMap(_.defaultRestrictions)
-    usageRights.copy(restrictions = usageRights.restrictions orElse defaultRestrictions)
-  }
 
   def fileMetadataEntity(id: String, expandFileMetaData: Boolean, fileMetadata: FileMetadata) = {
     val displayableMetadata = if(expandFileMetaData) Some(fileMetadata) else None
