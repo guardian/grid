@@ -13,7 +13,8 @@ object TestImage {
 
 class UsageRightsTest extends FunSpec with Matchers {
 
-  val invalidJson = Json.parse("""{ "category": "animated-gif", "fps": "∞" }""")
+  val invalidCategory = "animated-gif"
+  val invalidJson = Json.parse(s"""{ "category": "$invalidCategory", "fps": "∞" }""")
 
   it ("should serialise to JSON correctly") {
     val supplier = "Getty Images"
@@ -76,7 +77,7 @@ class UsageRightsTest extends FunSpec with Matchers {
     }
 
     jsError.errors.headOption.map { case (path, errors) =>
-      errors.head.message should be ("No such usage rights category")
+      errors.head.message should be (s"No such usage rights category: $invalidCategory")
     }
   }
 
