@@ -17,7 +17,6 @@ usageRightsEditor.controller('UsageRightsEditorCtrl',
     const initialCategory = ctrl.resource ? ctrl.resource.data.category : undefined;
     const initialModel    = ctrl.resource ? ctrl.resource.data : undefined;
 
-
     ctrl.saving = false;
     ctrl.saved = false;
     ctrl.categories = [];

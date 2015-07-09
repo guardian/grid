@@ -40,8 +40,6 @@ grPanel.controller('GrPanel', [
 
 
         ctrl.selectedImages = selection.selectedImages;
-        ctrl.imageArray = Array.from(ctrl.selectedImages);
-        ctrl.image = ctrl.imageArray[0];
 
         ctrl.hasMultipleValues = (val) => Array.isArray(val);
         ctrl.clear = selection.clear;
@@ -59,6 +57,9 @@ grPanel.controller('GrPanel', [
         $scope.$watch(() => selection.getMetadata(), onValChange(newMetadata => {
             ctrl.rawMetadata = newMetadata;
             ctrl.metadata = selection.getDisplayMetadata();
+
+            ctrl.imageArray = Array.from(ctrl.selectedImages);
+            ctrl.image = ctrl.imageArray[0];
 
             selection.canUserEdit().then(editable => {
                 ctrl.userCanEdit = editable;
