@@ -19,8 +19,7 @@ object SupplierProcessors {
     GettyParser,
     PaParser,
     ReutersParser,
-    RexParser,
-    AddAgencyCategory
+    RexParser
   )
 
   def process(image: Image): Image =
@@ -31,7 +30,7 @@ object SupplierProcessors {
 object AapParser extends ImageProcessor {
   def apply(image: Image): Image = image.metadata.credit match {
     case Some("AAPIMAGE") | Some("AAP IMAGE") => image.copy(
-      usageRights = image.usageRights.copy(supplier = Some("AAP")),
+      usageRights = Agency("AAP"),
       metadata    = image.metadata.copy(credit = Some("AAP"))
     )
     case _ => image
@@ -41,7 +40,7 @@ object AapParser extends ImageProcessor {
 object ActionImagesParser extends ImageProcessor {
   def apply(image: Image): Image = image.metadata.credit match {
     case Some("Action Images") => image.copy(
-      usageRights = image.usageRights.copy(supplier = Some("Action Images"))
+      usageRights = Agency("Action Images")
     )
     case _ => image
   }
@@ -50,7 +49,7 @@ object ActionImagesParser extends ImageProcessor {
 object AlamyParser extends ImageProcessor {
   def apply(image: Image): Image = image.metadata.credit match {
     case Some("Alamy") => image.copy(
-      usageRights = image.usageRights.copy(supplier = Some("Alamy"))
+      usageRights = Agency("Alamy")
     )
     case _ => image
   }
@@ -62,12 +61,12 @@ object ApParser extends ImageProcessor {
 
   def apply(image: Image): Image = image.metadata.credit.map(_.toLowerCase) match {
     case Some("ap") | Some("associated press") => image.copy(
-      usageRights = image.usageRights.copy(supplier = Some("AP")),
+      usageRights = Agency("AP"),
       metadata    = image.metadata.copy(credit = Some("AP"))
     )
     case Some("invision") | Some("invision/ap") |
          Some(InvisionFor(_)) | Some(PersonInvisionAp(_)) => image.copy(
-      usageRights = image.usageRights.copy(supplier = Some("AP"), suppliersCollection = Some("Invision"))
+      usageRights = Agency("AP", Some("Invision"))
     )
     case _ => image
   }
@@ -77,7 +76,7 @@ object BarcroftParser extends ImageProcessor {
   def apply(image: Image): Image = image.metadata.credit match {
     // TODO: store barcroft office somewhere?
     case Some("Barcroft Media") | Some("Barcroft India") | Some("Barcroft USA") | Some("Barcroft Cars") => image.copy(
-      usageRights = image.usageRights.copy(supplier = Some("Barcroft Media"))
+      usageRights = Agency("Barcroft Media")
     )
     case _ => image
   }
@@ -86,7 +85,7 @@ object BarcroftParser extends ImageProcessor {
 object CorbisParser extends ImageProcessor {
   def apply(image: Image): Image = image.metadata.source match {
     case Some("Corbis") => image.copy(
-      usageRights = image.usageRights.copy(supplier = Some("Corbis"))
+      usageRights = Agency("Corbis")
     )
     case _ => image
   }
@@ -95,7 +94,7 @@ object CorbisParser extends ImageProcessor {
 object EpaParser extends ImageProcessor {
   def apply(image: Image): Image = image.metadata.credit match {
     case Some("EPA") => image.copy(
-      usageRights = image.usageRights.copy(supplier = Some("EPA"))
+      usageRights = Agency("EPA")
     )
     case _ => image
   }
@@ -105,7 +104,7 @@ object GettyParser extends ImageProcessor {
   def apply(image: Image): Image = image.fileMetadata.getty.isEmpty match {
     // Only images supplied by Getty have getty fileMetadata
     case false => image.copy(
-      usageRights = image.usageRights.copy(supplier = Some("Getty Images"), suppliersCollection = image.metadata.source),
+      usageRights = Agency("Getty Images", suppliersCollection = image.metadata.source),
       // Set a default "credit" for when Getty is too lazy to provide one
       metadata    = image.metadata.copy(credit = Some(image.metadata.credit.getOrElse("Getty Images")))
     )
@@ -116,7 +115,7 @@ object GettyParser extends ImageProcessor {
 object PaParser extends ImageProcessor {
   def apply(image: Image): Image = image.metadata.credit match {
     case Some("PA") => image.copy(
-      usageRights = image.usageRights.copy(supplier = Some("PA"))
+      usageRights = Agency("PA")
     )
     case _ => image
   }
@@ -127,12 +126,12 @@ object ReutersParser extends ImageProcessor {
     // Reuters and other misspellings
     // TODO: use case-insensitive matching instead once credit is no longer indexed as case-sensitive
     case Some("REUTERS") | Some("Reuters") | Some("RETUERS") | Some("REUTERS/") => image.copy(
-      usageRights = image.usageRights.copy(supplier = Some("Reuters")),
+      usageRights = Agency("Reuters"),
       metadata = image.metadata.copy(credit = Some("Reuters"))
     )
     // Others via Reuters
     case Some("USA Today Sports") | Some("TT NEWS AGENCY") => image.copy(
-      usageRights = image.usageRights.copy(supplier = Some("Reuters"))
+      usageRights = Agency("Reuters")
     )
     case _ => image
   }
@@ -142,22 +141,8 @@ object RexParser extends ImageProcessor {
   def apply(image: Image): Image = image.metadata.source match {
     // TODO: cleanup byline/credit
     case Some("Rex Features") => image.copy(
-      usageRights = image.usageRights.copy(supplier = Some("Rex Features"))
+      usageRights = Agency("Rex Features")
     )
     case _ => image
   }
-}
-
-object AddAgencyCategory extends ImageProcessor {
-  // TODO: Hmmm. Better way of doing this?
-  // TODO: potentially do some validation / cleanup around things like having a
-  // collection but no supplier?
-  // FIXME: this probably belongs in some sort of `UsageRightsCategoryProcessors`
-  def apply(image: Image): Image =
-    if (shouldHaveAgency(image)) imageWithAgency(image) else image
-
-  def imageWithAgency(image: Image): Image =
-    image.copy(usageRights = image.usageRights.copy(category = Some(Agency)))
-
-  def shouldHaveAgency(image: Image): Boolean = image.usageRights.supplier.nonEmpty
 }
