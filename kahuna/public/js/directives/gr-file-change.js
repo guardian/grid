@@ -2,7 +2,7 @@ import angular from 'angular';
 
 export var fileChange = angular.module('gr.fileChange', []);
 
-fileChange.directive('grFileChange', ['$parse', function($parse) {
+fileChange.directive('grFileChange', [function() {
     return {
         restrict: 'A',
         link: function(scope, element, attrs) {
