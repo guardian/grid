@@ -3,3 +3,4 @@ aws.secret={{AwsSecret}}
 s3.image.bucket={{ImageBucket}}
 s3.thumb.bucket={{ThumbBucket}}
 sqs.queue.url={{SqsQueueUrl}}
+sqs.heartbeat.message.min.frequency={{sqs_heartbeat_message_min_frequency}}
