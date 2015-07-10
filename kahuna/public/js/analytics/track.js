@@ -109,7 +109,9 @@ track.directive('grTrackClick', ['track', function(track) {
         restrict: 'A',
         link: function(scope, element, attrs) {
             const name = attrs.grTrackClick;
-            element.on('click', () => track.action(name));
+            const data = scope.$eval(attrs.grTrackClickData);
+
+            element.on('click', () => track.action(name, data));
         }
     };
 

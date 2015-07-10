@@ -467,37 +467,6 @@ kahuna.directive('uiForgetWindowScroll',
     };
 }]);
 
-kahuna.directive('uiEventShare', function() {
-    return {
-        restrict: 'A',
-        link: function(scope, element, attrs) {
-            // TODO: remove selectors as a means here
-            var thief = element.find(attrs.uiEventShareThief)[0];
-            var victim = element.find(attrs.uiEventShareVictim)[0];
-
-            thief.addEventListener(attrs.uiEventShare, function(event) {
-                event.preventDefault();
-                victim[attrs.uiEventShare]();
-            });
-        }
-    };
-});
-
-kahuna.directive('uiFile', function() {
-    return {
-        restrict: 'A',
-        scope: {
-            onchange: '&uiFileChange'
-        },
-        link: function(scope, element) {
-            element.on('change', function() {
-                // TODO: no function reference
-                scope.onchange()(Array.from(element[0].files));
-            });
-        }
-    };
-});
-
 kahuna.directive('uiWindowResized', ['$window', function ($window) {
     return {
         restrict: 'A',
