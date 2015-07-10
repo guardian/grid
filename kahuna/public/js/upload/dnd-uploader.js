@@ -157,8 +157,6 @@ dndUploader.directive('dndUploader', ['$window', 'delay', 'safeApply', 'track',
                     performDropAction(files, uri);
                 }
                 scope.$apply(deactivate);
-
-                track.action(trackEvent, trackAction('Drag enter'));
             }
 
             function performDropAction(files, uri) {
