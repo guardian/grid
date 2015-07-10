@@ -7,8 +7,9 @@ fileChange.directive('grFileChange', ['$parse', function($parse) {
         restrict: 'A',
         link: function(scope, element, attrs) {
             element.on('change', function() {
-                const onchange = $parse(attrs.grFileChange)(scope);
-                onchange(Array.from(element[0].files));
+                scope.$eval(attrs.grFileChange, {
+                    $files: Array.from(element[0].files)
+                });
             });
         }
     };
