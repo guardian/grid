@@ -4,7 +4,7 @@
     <input class="file-uploader__file"
            name="files" type="file"
            multiple
-           gr:file-change="ctrl.uploadFiles" />
+           gr:file-change="ctrl.uploadFiles($files)" />
 
     <button class="file-uploader__select-files button"
             gr:track-click="Upload action"
