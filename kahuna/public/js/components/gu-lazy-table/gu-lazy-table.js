@@ -93,8 +93,8 @@ lazyTable.controller('GuLazyTableCtrl', [function() {
         // Mutations needed here to access streams in this closure ;_;
 
         // Share subscriptions to these streams between all cells that
-        // register to getCellPosition$
-        ctrl.getCellPosition$ = createGetCellPosition$({
+        // register to getItemPosition$
+        ctrl.getItemPosition$ = createGetItemPosition$({
             items$:          items$.shareReplay(1),
             cellWidth$:      cellWidth$.shareReplay(1),
             cellHeight$:     cellHeight$.shareReplay(1),
@@ -110,19 +110,16 @@ lazyTable.controller('GuLazyTableCtrl', [function() {
     };
 
 
-    function createGetCellPosition$({items$, cellWidth$, cellHeight$, columns$,
+    function createGetCellPosition$({cellWidth$, cellHeight$, columns$,
                                      preloadedRows$, viewportTop$, viewportBottom$}) {
 
         const width$  = cellWidth$;
         const height$ = cellHeight$;
         const loadedHeight$ = mult$(preloadedRows$, height$);
 
-        return (item) => {
-            // share() because it's an expensive operation
-            const index$  = items$.map(items => items.indexOf(item)).share();
-
-            const top$    = mult$(floor$(div$(index$, columns$)), height$);
-            const left$   = mult$(mod$(index$, columns$), width$);
+        return (index) => {
+            const top$    = mult$(floor$(columns$.map(col => index / col)), height$);
+            const left$   = mult$(columns$.map(col => index % col), width$);
 
             const bottom$ = add$(top$, height$);
             const display$ = combine$(top$, bottom$, loadedHeight$,
@@ -139,6 +136,19 @@ lazyTable.controller('GuLazyTableCtrl', [function() {
                             (top, left, width, height, display) => {
                 return ({top, left, width, height, display});
             });
+        };
+    }
+
+    function createGetItemPosition$({items$, cellWidth$, cellHeight$, columns$,
+                                     preloadedRows$, viewportTop$, viewportBottom$}) {
+        return (item) => {
+            // share() because it's an expensive operation
+            const index$  = items$.map(items => items.indexOf(item)).share();
+            const getPos$ = createGetCellPosition$({
+                cellWidth$, cellHeight$, columns$,
+                preloadedRows$, viewportTop$, viewportBottom$
+            });
+            return index$.flatMap(getPos$);
         };
     }
 
