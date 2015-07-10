@@ -8,6 +8,7 @@ import './services/api/media-cropper';
 import './services/api/loader';
 import './services/api/edits-api';
 import './directives/ui-crop-box';
+import './directives/gr-image-fade-on-load';
 import './crop/index';
 import './image/index';
 import './upload/index';
@@ -53,7 +54,10 @@ var kahuna = angular.module('kahuna', [
     'kahuna.directives',
     'kahuna.common',
     'kahuna.errors.http',
-    'kahuna.errors.global'
+    'kahuna.errors.global',
+
+    // directives used throughout
+    'gr.imageFadeOnLoad'
 ]);
 
 
@@ -379,36 +383,6 @@ kahuna.directive('uiLocalstore', ['$window', function($window) {
     };
 }]);
 
-kahuna.directive('uiEventShare', function() {
-    return {
-        restrict: 'A',
-        link: function(scope, element, attrs) {
-            // TODO: remove selectors as a means here
-            var thief = element.find(attrs.uiEventShareThief)[0];
-            var victim = element.find(attrs.uiEventShareVictim)[0];
-
-            thief.addEventListener(attrs.uiEventShare, function(event) {
-                event.preventDefault();
-                victim[attrs.uiEventShare]();
-            });
-        }
-    };
-});
-
-kahuna.directive('uiFile', function() {
-    return {
-        restrict: 'A',
-        scope: {
-            onchange: '&uiFileChange'
-        },
-        link: function(scope, element) {
-            element.on('change', function() {
-                // TODO: no function reference
-                scope.onchange()(Array.from(element[0].files));
-            });
-        }
-    };
-});
 
 kahuna.directive('uiWindowResized', ['$window', function ($window) {
     return {

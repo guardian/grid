@@ -17,8 +17,8 @@ case class Image(
   userMetadata:        Option[Edits],
   metadata:            ImageMetadata,
   originalMetadata:    ImageMetadata,
-  usageRights:         ImageUsageRights,
-  originalUsageRights: ImageUsageRights,
+  usageRights:         UsageRights,
+  originalUsageRights: UsageRights,
   exports:             List[Crop]
 )
 
@@ -41,8 +41,8 @@ object Image {
       (__ \ "userMetadata").readNullable[Edits] ~
       (__ \ "metadata").read[ImageMetadata] ~
       (__ \ "originalMetadata").readNullable[ImageMetadata].map(_ getOrElse ImageMetadata()) ~
-      (__ \ "usageRights").readNullable[ImageUsageRights].map(_ getOrElse ImageUsageRights()) ~
-      (__ \ "originalUsageRights").readNullable[ImageUsageRights].map(_ getOrElse ImageUsageRights()) ~
+      (__ \ "usageRights").readNullable[UsageRights].map(_ getOrElse NoRights) ~
+      (__ \ "originalUsageRights").readNullable[UsageRights].map(_ getOrElse NoRights) ~
       (__ \ "exports").readNullable[List[Crop]].map(_ getOrElse List())
     )(Image.apply _)
 
@@ -58,8 +58,8 @@ object Image {
       (__ \ "userMetadata").writeNullable[Edits] ~
       (__ \ "metadata").write[ImageMetadata] ~
       (__ \ "originalMetadata").write[ImageMetadata] ~
-      (__ \ "usageRights").write[ImageUsageRights] ~
-      (__ \ "originalUsageRights").write[ImageUsageRights] ~
+      (__ \ "usageRights").write[UsageRights] ~
+      (__ \ "originalUsageRights").write[UsageRights] ~
       (__ \ "exports").write[List[Crop]]
     )(unlift(Image.unapply))
 

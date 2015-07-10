@@ -8,15 +8,14 @@ class CostCalculatorTest extends FunSpec with Matchers {
   describe("from usage rights") {
 
     it("should be free with a free category") {
-      val usageRights = ImageUsageRights(category = Some(Handout))
+      val usageRights = Handout()
       val cost = CostCalculator.getCost(usageRights)
 
       cost should be (Some(Free))
     }
 
     it("should be conditional with a free category and restrictions") {
-      val usageRights = ImageUsageRights(
-        category = Some(Handout),
+      val usageRights = Handout(
         restrictions = Some("Restrictions")
       )
       val cost = CostCalculator.getCost(usageRights)
@@ -25,21 +24,14 @@ class CostCalculatorTest extends FunSpec with Matchers {
     }
 
     it("should be free with a free supplier") {
-      val usageRights = ImageUsageRights(
-        category = Some(Agency),
-        supplier = Some("Getty Images")
-      )
+      val usageRights = Agency("Getty Images")
       val cost = CostCalculator.getCost(usageRights)
 
       cost should be (Some(Free))
     }
 
     it("should not be free with a free supplier but excluded collection") {
-      val usageRights = ImageUsageRights(
-        category = Some(Agency),
-        supplier = Some("Getty Images"),
-        suppliersCollection = Some("Anadolu")
-      )
+      val usageRights = Agency("Getty Images", Some("Anadolu"))
       val cost = CostCalculator.getCost(usageRights)
 
       cost should be (None)

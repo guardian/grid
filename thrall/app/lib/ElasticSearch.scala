@@ -3,7 +3,6 @@ package lib
 import scala.concurrent.{ExecutionContext, Future}
 import scala.collection.convert.decorateAll._
 import org.elasticsearch.client.UpdateByQueryClientWrapper
-import org.elasticsearch.action.index.IndexResponse
 import org.elasticsearch.action.update.{UpdateResponse, UpdateRequestBuilder}
 import org.elasticsearch.action.deletebyquery.DeleteByQueryResponse
 import org.elasticsearch.action.updatebyquery.UpdateByQueryResponse
@@ -184,9 +183,6 @@ object ElasticSearch extends ElasticSearchClient {
 
   // Script that overrides the "usageRights" object from the "userMetadata".
   // We revert to the "originalUsageRights" if they are vacant.
-  // As cost will be deduced from the category, we remove it here, and it will
-  // be deprecated from the Edits API soon
-  // FIXME: don't remove cost when it's not sent over any more
   private val refreshUsageRightsScript =
     """| if (ctx._source.userMetadata && ctx._source.userMetadata.containsKey("usageRights")) {
        |   ur = ctx._source.userMetadata.usageRights.clone();
