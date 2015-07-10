@@ -22,10 +22,10 @@ object HealthCheck extends Controller {
   }
 
   def sqsHealth = {
-    val lastHeartBeat = MessageConsumer.lastHeartBeat.get
+    val timeLastMessage = MessageConsumer.timeMessageLastProcessed.get
 
-    if (lastHeartBeat.plusMinutes(Config.heartRate).isBeforeNow)
-      ServiceUnavailable(s"Heart has not beat since $lastHeartBeat")
+    if (timeLastMessage.plusMinutes(Config.healthyMessageRate).isBeforeNow)
+      ServiceUnavailable(s"Not received a message since $timeLastMessage")
     else
       Ok("SQS is healthy")
   }

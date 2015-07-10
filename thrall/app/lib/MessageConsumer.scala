@@ -28,7 +28,7 @@ object MessageConsumer {
 
   val actorSystem = ActorSystem("MessageConsumer")
 
-  val lastHeartBeat = new AtomicReference[DateTime](DateTime.now)
+  val timeMessageLastProcessed = new AtomicReference[DateTime](DateTime.now)
 
   private implicit val ctx: ExecutionContext =
     ExecutionContext.fromExecutor(Executors.newCachedThreadPool)
@@ -52,6 +52,7 @@ object MessageConsumer {
           sys.error(s"Unrecognised message subject ${message.subject}"))(
           _.apply(message.body))
         _ = recordMessageLatency(message)
+        _ = timeMessageLastProcessed.lazySet(DateTime.now)
       } yield ()
       future |> deleteOnSuccess(msg)
     }
@@ -79,7 +80,7 @@ object MessageConsumer {
     }
 
   def heartbeat(msg: JsValue) = Future {
-    lastHeartBeat.lazySet(DateTime.now)
+    None
   }
 
   def deleteOnSuccess(msg: SQSMessage)(f: Future[Any]): Unit =
