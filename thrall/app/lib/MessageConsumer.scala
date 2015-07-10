@@ -1,7 +1,5 @@
 package lib
 
-import java.util.concurrent.atomic.{AtomicReference, AtomicLong}
-
 import com.amazonaws.services.cloudwatch.model.Dimension
 import org.elasticsearch.action.deletebyquery.DeleteByQueryResponse
 import org.joda.time.DateTime
@@ -27,8 +25,6 @@ import java.util.concurrent.Executors
 object MessageConsumer {
 
   val actorSystem = ActorSystem("MessageConsumer")
-
-  val lastHeartBeat = new AtomicReference[DateTime](DateTime.now)
 
   private implicit val ctx: ExecutionContext =
     ExecutionContext.fromExecutor(Executors.newCachedThreadPool)
@@ -75,12 +71,7 @@ object MessageConsumer {
       case "update-image"               => indexImage
       case "update-image-exports"       => updateImageExports
       case "update-image-user-metadata" => updateImageUserMetadata
-      case "heartbeat"                  => heartbeat
     }
-
-  def heartbeat(msg: JsValue) = Future {
-    lastHeartBeat.lazySet(DateTime.now)
-  }
 
   def deleteOnSuccess(msg: SQSMessage)(f: Future[Any]): Unit =
     f.onSuccess { case _ => deleteMessage(msg) }
