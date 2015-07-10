@@ -111,9 +111,7 @@ track.directive('grTrackClick', ['$parse', 'track', function($parse, track) {
             const name = attrs.grTrackClick;
             const data = $parse(attrs.grTrackClickData)(scope);
 
-            element.on('click', () => {
-                track.action(name, data);
-            });
+            element.on('click', () => track.action(name, data));
         }
     };
 
