@@ -16,7 +16,7 @@ lazyTableCell.directive('guLazyTableCell',
         template: '<ng-transclude ng:if="guLazyTableCellVisible"></ng-transclude>',
         link: function(scope, element, attrs, ctrl) {
             const item = scope.$eval(attrs.guLazyTableCell);
-            const position$ = ctrl.getCellPosition$(item);
+            const position$ = ctrl.getItemPosition$(item);
             subscribe$(scope, position$,
                        ({top, left, width, height, display}) => {
                 // use applyAsync rather than rx.safeApply to batch
