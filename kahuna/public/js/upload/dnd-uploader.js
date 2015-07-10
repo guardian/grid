@@ -106,8 +106,9 @@ dndUploader.directive('dndUploader', ['$window', 'delay', 'safeApply', 'track',
             const activate    = () => safeApply(scope, () => ctrl.activated = true);
             const deactivate  = () => safeApply(scope, () => ctrl.activated = false);
             const trackEvent  = 'Upload action';
-            const trackAction = (actionName, what) => ({ 'Action': actionName });
-            const dropAction  = content => angular.extend({}, trackAction('Drop'), { 'Content': content });
+            const trackAction = actionName => ({ 'Action': actionName });
+            const dropAction  = content =>
+                angular.extend({}, trackAction('Drop'), { 'Content': content });
 
             $$window.on('dragover', over);
             $$window.on('dragenter', enter);
