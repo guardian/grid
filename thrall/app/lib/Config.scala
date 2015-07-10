@@ -36,4 +36,5 @@ object Config extends CommonPlayAppConfig {
   // The presence of this identifier prevents deletion
   val persistenceIdentifier = "picdarUrn" // TODO: properties("persistence.identifier")
 
+  val heartRate = properties("sqs.heartbeat.message.min.frequency").toInt
 }
