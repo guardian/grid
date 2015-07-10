@@ -50,7 +50,7 @@ lazyTable.controller('GuLazyTableCtrl', [function() {
 
     ctrl.init = function({items$, preloadedRows$, cellHeight$, cellMinWidth$,
                           containerWidth$, viewportTop$, viewportBottom$}) {
-        const itemsCount$ = items$.map(items => items.length);
+        const itemsCount$ = items$.map(items => items.length).distinctUntilChanged();
 
         const columns$ = max$(floor$(div$(containerWidth$, cellMinWidth$)), 1);
         const rows$ = ceil$(div$(itemsCount$, columns$));
