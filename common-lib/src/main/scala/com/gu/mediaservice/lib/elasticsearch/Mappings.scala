@@ -70,22 +70,14 @@ object Mappings {
     "country" -> standardAnalysedString
   )
 
-
-  // Ultimately both these usageRights should be unified, but
-  // keeping them separate for now until used as such
-  val imageUsageRightsMapping = nonDynamicObj(
+  val usageRightsMapping = nonDynamicObj(
     "category" -> nonAnalyzedString,
+    "restrictions" -> standardAnalysedString,
     "supplier" -> nonAnalyzedString,
     "suppliersCollection" -> nonAnalyzedString,
-    "restrictions" -> standardAnalysedString
+    "photographer" -> standardAnalysedString,
+    "publication" -> nonAnalyzedString
   )
-
-  val userMetadataUsageRightsMapping = nonDynamicObj(
-    "cost" -> nonAnalyzedString,
-    "category" -> nonAnalyzedString,
-    "restrictions" -> standardAnalysedString
-  )
-
 
   val exportsMapping =
     nonDynamicObj(
@@ -103,7 +95,7 @@ object Mappings {
       "archived"    -> boolean,
       "labels"      -> nonAnalysedList("label"),
       "metadata"    -> metadataMapping,
-      "usageRights" -> userMetadataUsageRightsMapping
+      "usageRights" -> usageRightsMapping
     )
 
   val imageMapping: String =
@@ -114,8 +106,8 @@ object Mappings {
           "id" -> nonAnalyzedString,
           "metadata" -> metadataMapping,
           "originalMetadata" -> metadataMapping,
-          "usageRights" -> imageUsageRightsMapping,
-          "originalUsageRights" -> imageUsageRightsMapping,
+          "usageRights" -> usageRightsMapping,
+          "originalUsageRights" -> usageRightsMapping,
           "source" -> assetMapping,
           "thumbnail" -> assetMapping,
           "userMetadata" -> userMetadataMapping,

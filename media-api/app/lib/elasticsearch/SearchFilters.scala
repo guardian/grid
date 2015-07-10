@@ -2,6 +2,7 @@ package lib.elasticsearch
 
 import lib.usagerights.{DeprecatedConfig => UsageRightsDepConfig, Config => UsageRightsConfig, CostCalculator}
 
+import scalaz.NonEmptyList
 import scalaz.syntax.std.list._
 
 import lib.Config
@@ -63,8 +64,8 @@ trait SearchFilters extends ImageFields {
 
   // We're showing `Conditional` here too as we're considering them potentially
   // free. We could look into sending over the search query as a cost filter
-  // that could take a comma seperated list e.g. `cost=free,conditional`.
-  val freeUsageRightsFilter = CostCalculator.getCategoriesOfCost(List(Free, Conditional)).map(_.toString).toNel.map(filters.terms(usageRightsField("category"), _))
+  // that could take a comma separated list e.g. `cost=free,conditional`.
+  val freeUsageRightsFilter = freeToUseCategories.toNel.map(filters.terms(usageRightsField("category"), _))
 
   val freeFilter = (freeMetadataFilter, freeUsageRightsFilter) match {
     case (Some(freeMetadata), Some(freeUsageRights)) => Some(filters.or(freeMetadata, freeUsageRights))
@@ -84,5 +85,18 @@ trait SearchFilters extends ImageFields {
     case (freeOpt,    notPayUsageRightsOpt)    => freeOpt orElse notPayUsageRightsOpt
   }
   val nonFreeFilter = freeFilterWithOverride.map(filters.not)
+
+  // FIXME: There must be a better way (._.). Potentially making cost a lookup
+  // again?
+  lazy val freeToUseCategories: List[String] = List(
+    "PR Image",
+    "handout",
+    "screengrab",
+    "guardian-witness",
+    "social-media",
+    "obituary",
+    "staff-photographer",
+    "pool"
+  )
 
 }

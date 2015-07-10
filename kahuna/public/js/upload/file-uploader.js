@@ -1,7 +1,13 @@
 import angular from 'angular';
 import template from './file-uploader.html!text';
 
-export var fileUploader = angular.module('kahuna.upload.fileUploader', []);
+import '../analytics/track';
+import '../directives/gr-file-change';
+
+export var fileUploader = angular.module('kahuna.upload.fileUploader', [
+    'analytics.track',
+    'gr.fileChange'
+]);
 
 
 fileUploader.controller('FileUploaderCtrl',
@@ -26,7 +32,14 @@ fileUploader.controller('FileUploaderCtrl',
 fileUploader.directive('fileUploader', [function() {
     return {
         restrict: 'E',
-        controller: 'FileUploaderCtrl as fileUploader',
-        template: template
+        controller: 'FileUploaderCtrl',
+        controllerAs: 'ctrl',
+        template: template,
+        link: function(_, element) {
+            // fake the click on the file input
+            element.on('click', () => {
+                element.find('input[type="file"]')[0].click();
+            });
+        }
     };
 }]);

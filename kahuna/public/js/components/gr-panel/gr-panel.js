@@ -1,4 +1,5 @@
 import angular from 'angular';
+import 'angular-bootstrap';
 
 import './gr-panel.css!';
 import '../../services/preview-selection';
@@ -12,12 +13,14 @@ export var grPanel = angular.module('grPanel', [
     'kahuna.services.label',
     'kahuna.services.archive',
     'kahuna.edits.service',
-    'grXeditable'
+    'grXeditable',
+    'ui.bootstrap'
 ]);
 
 grPanel.controller('GrPanel', [
     '$scope',
     '$window',
+    'mediaApi',
     'selectionService',
     'labelService',
     'archiveService',
@@ -26,6 +29,7 @@ grPanel.controller('GrPanel', [
     function (
         $scope,
         $window,
+        mediaApi,
         selection,
         labelService,
         archiveService,
@@ -34,9 +38,20 @@ grPanel.controller('GrPanel', [
 
         var ctrl = this;
 
+
         ctrl.selectedImages = selection.selectedImages;
         ctrl.hasMultipleValues = (val) => Array.isArray(val);
         ctrl.clear = selection.clear;
+
+        ctrl.credits = function(searchText) {
+            return ctrl.metadataSearch('credit', searchText);
+        };
+
+        ctrl.metadataSearch = (field, q) => {
+            return mediaApi.metadataSearch(field,  { q }).then(resource => {
+                return resource.data.map(d => d.key);
+            });
+        };
 
         $scope.$watch(() => selection.getMetadata(), onValChange(newMetadata => {
             ctrl.rawMetadata = newMetadata;
