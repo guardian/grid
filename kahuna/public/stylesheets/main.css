@@ -51,6 +51,9 @@
 
     vertical-align: middle;
 }
+.material-icons--small {
+    font-size: 1.2rem;
+}
 
 @keyframes fadeIn {
     0%   { opacity: 0; }

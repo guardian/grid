@@ -171,7 +171,7 @@
                     {{ctrl.image.data.uploadTime | date:'d MMM yyyy, HH:mm'}}
                 </span>
                 <span class="metadata-line__info">
-                    (<a ui:sref="search.results({uploadedBy: ctrl.image.data.uploadedBy})">{{ctrl.image.data.uploadedBy | stripEmailDomain}}</a>)
+                    (<a ui:sref="search.results({query: (ctrl.image.data.uploadedBy | queryFilter:'uploader')})">{{ctrl.image.data.uploadedBy | stripEmailDomain}}</a>)
                 </span>
             </div>
 
