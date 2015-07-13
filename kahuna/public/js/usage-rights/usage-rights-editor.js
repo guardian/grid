@@ -7,26 +7,48 @@ export var usageRightsEditor = angular.module('kahuna.edits.usageRightsEditor', 
     'monospaced.elastic'
 ]);
 
-usageRightsEditor.controller('UsageRightsEditorCtrl',
-                             ['$window', '$timeout', 'editsService', 'editsApi',
-                              function($window, $timeout, editsService, editsApi) {
+usageRightsEditor.controller(
+    'UsageRightsEditorCtrl',
+    ['$scope', '$window', '$timeout', 'editsService', 'editsApi',
+    function($scope, $window, $timeout, editsService, editsApi) {
 
     var ctrl = this;
 
+    ctrl.resetCategory = () => ctrl.category = {}
+    ctrl.setCategory = function(c) {
+        ctrl.category = ctrl.categories.find(cat => cat.value === c);
+    }
+
+    ctrl.updateFromImages = function(images) {
+        ctrl.images = images;
+
+        if(images.length == 1) {
+            ctrl.setCategory(images[0].data.usageRights.category)
+            ctrl.model = angular.extend({}, images[0].data.usageRights)
+        } else {
+            ctrl.resetCategory();
+            ctrl.resetModel();
+        }
+    }
+
+    $scope.$on('usage-rights:update-images', function (e, images) {
+        ctrl.updateFromImages(images);
+    });
+
     // setting our initial values
-    const initialCategory = ctrl.resource ? ctrl.resource.data.category : undefined;
-    const initialModel    = ctrl.resource ? ctrl.resource.data : undefined;
+    editsApi.getUsageRightsCategories().then((cats) => {
+        ctrl.categories = cats;
+
+        ctrl.setCategory(ctrl.resource ? ctrl.resource.data.category : undefined);
+        ctrl.model = ctrl.resource ? angular.extend({}, ctrl.resource.data) : undefined;
+    });
 
     ctrl.saving = false;
     ctrl.saved = false;
+    ctrl.images = [];
     ctrl.categories = [];
-    ctrl.model = angular.extend({}, initialModel);
 
-    // TODO: What error would we like to show here?
-    // TODO: How do we make this more syncronous? You can only resolve on the
-    // routeProvider, which is actually bound to the UploadCtrl in this instance
-    // SEE: https://github.com/angular/angular.js/issues/2095
-    editsApi.getUsageRightsCategories().then(setCategories);
+    ctrl.multipleImages = () => ctrl.images.length > 1
 
     ctrl.save = () => {
         ctrl.error = null;
@@ -57,13 +79,6 @@ usageRightsEditor.controller('UsageRightsEditorCtrl',
         const val = ctrl.model[key];
         return property.optionsMap[val];
     };
-
-    function setCategories(cats) {
-        ctrl.categories = cats;
-
-        // set the current category
-        ctrl.category = cats.find(cat => cat.value === initialCategory);
-    }
 
     function modelToData(model) {
         return Object.keys(model).reduce((clean, key) => {

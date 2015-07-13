@@ -18,6 +18,7 @@ export var grPanel = angular.module('grPanel', [
 ]);
 
 grPanel.controller('GrPanel', [
+    '$rootScope',
     '$scope',
     '$window',
     'mediaApi',
@@ -27,6 +28,7 @@ grPanel.controller('GrPanel', [
     'editsService',
     'onValChange',
     function (
+        $rootScope,
         $scope,
         $window,
         mediaApi,
@@ -41,7 +43,7 @@ grPanel.controller('GrPanel', [
 
         ctrl.selectedImages = selection.selectedImages;
 
-        ctrl.hasMultipleValues = (val) => Array.isArray(val);
+        ctrl.hasMultipleValues = (val) => Array.isArray(val) && val.length > 1;
         ctrl.clear = selection.clear;
 
         ctrl.credits = function(searchText) {
@@ -59,13 +61,16 @@ grPanel.controller('GrPanel', [
             ctrl.metadata = selection.getDisplayMetadata();
 
             ctrl.imageArray = Array.from(ctrl.selectedImages);
-            ctrl.image = ctrl.imageArray[0];
+            ctrl.image = (ctrl.imageArray.length == 1) ? ctrl.imageArray[0] : undefined;
+
+            $rootScope.$broadcast('usage-rights:update-images', ctrl.imageArray);
 
             selection.canUserEdit().then(editable => {
                 ctrl.userCanEdit = editable;
             });
 
             ctrl.selectedCosts = selection.getCost();
+            ctrl.selectedUsageRights = selection.getUsageRights();
 
             ctrl.showCosts = ctrl.selectedCosts.length === 1 ?
                 ctrl.selectedCosts[0].data !== 'free' :

@@ -8,18 +8,24 @@ selectionService.factory('selectionService', ['$q', 'editsService', function ($q
     var selectedImages = new Set();
     var selectedMetadata = {};
     var selectedMetadataForDisplay = {};
-    var selectedCosts, selectedLabels, archivedCount;
+    var selectedCosts,
+        selectedLabels,
+        archivedCount,
+        selectedUsageRights;
 
     function _group () {
         var metadata = {};
         var cost = [];
         var labels = [];
+        var usageRights = [];
         var totalArchived = 0;
 
         var allFields = [];
 
         selectedImages.forEach(img => {
             allFields = allFields.concat(Object.keys(img.data.metadata));
+
+            usageRights.push({data: img.data.usageRights});
 
             var imgCost = img.data.cost;
 
@@ -58,6 +64,7 @@ selectionService.factory('selectionService', ['$q', 'editsService', function ($q
         return {
             metadata,
             cost,
+            usageRights,
             labels,
             totalArchived
         };
@@ -106,6 +113,7 @@ selectionService.factory('selectionService', ['$q', 'editsService', function ($q
         selectedMetadata = selectedImageData.metadata;
         selectedMetadataForDisplay = displayMetadata;
 
+        selectedUsageRights = selectedImageData.usageRights
         selectedCosts = selectedImageData.cost;
         selectedLabels = selectedImageData.labels;
         archivedCount = selectedImageData.totalArchived;
@@ -145,6 +153,7 @@ selectionService.factory('selectionService', ['$q', 'editsService', function ($q
         canUserEdit,
         getCost: () => selectedCosts,
         getMetadata: () => selectedMetadata,
+        getUsageRights: () => selectedUsageRights,
         getDisplayMetadata: () => selectedMetadataForDisplay,
         getLabels: () => selectedLabels,
         getArchivedCount: () => archivedCount,
