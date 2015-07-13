@@ -1500,7 +1500,7 @@ FIXME: what to do with touch devices
     position: absolute;
     padding: 10px;
     box-shadow: 0 1px 5px rgba(0, 0, 0, 0.5);
-    top: calc(100% + 12px);
+    top: calc(100% + 8px);
     z-index: 4;
     /* Drop items should win over everything */
 }

@@ -31,6 +31,27 @@
         </ul>
 
         <div class="image-info__group">
+            <div class="image-info__wrap metadata-line drop-menu image-info__usage-rights"
+                 ng:init="showUsageRights = false">
+                <button ng:click="showUsageRights = !showUsageRights">
+                    usage rights
+                    <span ng:hide="showUsageRights">▸</span>
+                    <span ng:show="showUsageRights">▾</span>
+                </button>
+
+                <div class="image-info__usage-rights drop-menu__items drop-menu__items--right"
+                     ng:show="showUsageRights">
+
+                    <gr:usage-rights-editor
+                        gr:image="ctrl.image"
+                        gr:resource="ctrl.image.data.userMetadata.data.usageRights"
+                        gr:on-save="showUsageRights = false">
+                    </gr:usage-rights-editor>
+                </div>
+            </div>
+        </div>
+
+        <div class="image-info__group">
             <div class="image-info__wrap" ng:if="ctrl.rawMetadata.title">
                 <button class="image-info__edit"
                         ng:if="ctrl.userCanEdit"
@@ -135,27 +156,6 @@
                         <span ng:if="!ctrl.metadata.byline && ctrl.userCanEdit">unknown (click ✎ to add the byline)</span>
                     </span>
                 </span>
-            </div>
-
-            <div class="image-info__group">
-                <div class="image-info__wrap metadata-line drop-menu image-info__usage-rights"
-                     ng:init="showUsageRights = false">
-                    <button ng:click="showUsageRights = !showUsageRights">
-                        usage rights
-                        <span ng:hide="showUsageRights">▸</span>
-                        <span ng:show="showUsageRights">▾</span>
-                    </button>
-
-                    <div class="image-info__usage-rights drop-menu__items drop-menu__items--right"
-                         ng:show="showUsageRights">
-
-                        <gr:usage-rights-editor
-                            gr:image="ctrl.image"
-                            gr:resource="ctrl.image.data.userMetadata.data.usageRights"
-                            gr:on-save="showUsageRights = false">
-                        </gr:usage-rights-editor>
-                    </div>
-                </div>
             </div>
 
             <div class="image-info__wrap metadata-line image-info__credit">
