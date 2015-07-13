@@ -10,7 +10,7 @@ import './gu-lazy-table-cell';
 
 import {
     combine$,
-    add$, sub$, mult$, div$, mod$,
+    add$, sub$, mult$, div$,
     floor$, ceil$, max$
 } from './observable-utils';
 
