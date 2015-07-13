@@ -33,7 +33,7 @@
         <div class="image-info__group">
             <div class="image-info__wrap metadata-line drop-menu image-info__usage-rights"
                  ng:init="showUsageRights = false">
-                usage rights
+                usage rights category
                 <div class="image-info__usage-rights drop-menu__items drop-menu__items--right"
                      ng:show="showUsageRights">
 
@@ -44,14 +44,8 @@
                     </gr:usage-rights-editor>
                 </div>
 
-                <h2 class="image-info__title"
-                    ng:if="ctrl.hasMultipleValues(ctrl.selectedUsageRights)">
-                    multiple usage rights
-                </h2>
-
-                <h2 class="image-info__title"
-                    ng:if="!ctrl.hasMultipleValues(ctrl.selectedUsageRights)">
-                    nope
+                <h2 class="image-info__title">
+                    {{ctrl.usageCategory}}
                 </h2>
 
                 <button ng:click="showUsageRights = !showUsageRights" class="image-info__edit">
