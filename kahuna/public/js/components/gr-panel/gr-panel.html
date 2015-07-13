@@ -37,6 +37,10 @@
                 <div class="image-info__usage-rights drop-menu__items drop-menu__items--right"
                      ng:show="showUsageRights">
 
+                    <button type="button" class="drop-menu__close" ng:click="showUsageRights = false">
+                        <i class="material-icons">close</i>
+                    </button>
+
                     <gr:usage-rights-editor
                         gr:images="ctrl.images"
                         gr:on-save="showUsageRights = false">
@@ -47,10 +51,10 @@
                     {{ctrl.usageCategory}}
                 </h2>
 
-                <button ng:click="showUsageRights = !showUsageRights" class="image-info__edit">
-                    <span ng:hide="showUsageRights">▸</span>
-                    <span ng:show="showUsageRights">▾</span>
-                </button>
+                <button
+                    ng:click="showUsageRights = !showUsageRights"
+                    ng:hide="showUsageRights"
+                    class="image-info__edit">✎</button>
             </div>
         </div>
 

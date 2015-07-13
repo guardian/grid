@@ -964,6 +964,7 @@ FIXME: what to do with touch devices
 
 .image-info__title {
     font-weight: bold;
+    color: #ccc;
 }
 
 .image-info__heading {

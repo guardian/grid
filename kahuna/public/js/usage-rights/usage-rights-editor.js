@@ -71,6 +71,8 @@ usageRightsEditor.controller(
         'Adding restrictions will mark this image as restricted. ' +
         'Leave blank if there aren\'t any.';
 
+    ctrl.descriptionPlaceholder = "Remove all restrictions on the use of this image."
+
     ctrl.resetModel = () => ctrl.model = {};
 
     ctrl.getOptionsFor = property => {
