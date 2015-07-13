@@ -19,12 +19,12 @@ usageRightsEditor.controller(
         ctrl.category = ctrl.categories.find(cat => cat.value === c);
     }
 
-    ctrl.updateFromImages = function(images) {
-        ctrl.images = images;
+    var getResource = (image) => image.data.userMetadata.data.usageRights;
 
-        if(images.length == 1) {
-            ctrl.setCategory(images[0].data.usageRights.category)
-            ctrl.model = angular.extend({}, images[0].data.usageRights)
+    ctrl.updateFromImages = function() {
+        if(ctrl.images.length == 1) {
+            ctrl.setCategory(ctrl.images[0].data.usageRights.category)
+            ctrl.model = angular.extend({}, ctrl.images[0].data.usageRights)
         } else {
             ctrl.resetCategory();
             ctrl.resetModel();
@@ -32,20 +32,19 @@ usageRightsEditor.controller(
     }
 
     $scope.$on('usage-rights:update-images', function (e, images) {
-        ctrl.updateFromImages(images);
+        ctrl.images = images;
+        ctrl.updateFromImages();
     });
 
     // setting our initial values
     editsApi.getUsageRightsCategories().then((cats) => {
         ctrl.categories = cats;
 
-        ctrl.setCategory(ctrl.resource ? ctrl.resource.data.category : undefined);
-        ctrl.model = ctrl.resource ? angular.extend({}, ctrl.resource.data) : undefined;
+        ctrl.updateFromImages();
     });
 
     ctrl.saving = false;
     ctrl.saved = false;
-    ctrl.images = [];
     ctrl.categories = [];
 
     ctrl.multipleImages = () => ctrl.images.length > 1
@@ -62,7 +61,7 @@ usageRightsEditor.controller(
 
     ctrl.isDisabled = () => ctrl.saving;
 
-    ctrl.isNotEmpty = () => !angular.equals(ctrl.resource.data, {});
+    ctrl.isNotEmpty = () => !angular.equals(ctrl.model, {});
 
     ctrl.pluraliseCategory = () => ctrl.category.name +
         (ctrl.category.name.toLowerCase().endsWith('image') ? 's' : ' images');
@@ -93,33 +92,29 @@ usageRightsEditor.controller(
 
     function del() {
         ctrl.saving = true;
-
-        editsService.remove(ctrl.resource, ctrl.image).
-            then(resource => {
-                updateResource(resource);
-                ctrl.onSave();
-                uiSaved();
-            }).
-            catch(uiError).
-            finally(() => ctrl.saving = false);
+        ctrl.images.forEach((image) => {
+            editsService.remove(getResource(image), image).
+                then(resource => {
+                    ctrl.onSave();
+                    uiSaved();
+                }).
+                catch(uiError).
+                finally(() => ctrl.saving = false);
+        });
     }
 
     function save(data) {
         ctrl.saving = true;
-
-        editsService.
-            update(ctrl.resource, data, ctrl.image).
-            then(resource => {
-                updateResource(resource);
-                ctrl.onSave();
-                uiSaved();
-            }).
-            catch(uiError).
-            finally(() => ctrl.saving = false);
-    }
-
-    function updateResource(resource) {
-        ctrl.resource = resource;
+        ctrl.images.forEach((image) => {
+            editsService.
+                update(getResource(image), data, image).
+                then(resource => {
+                    ctrl.onSave();
+                    uiSaved();
+                }).
+                catch(uiError).
+                finally(() => ctrl.saving = false);
+        });
     }
 
     function uiSaved() {
@@ -141,8 +136,7 @@ usageRightsEditor.directive('grUsageRightsEditor', [function() {
         bindToController: true,
         template: template,
         scope: {
-            image: '=grImage',
-            resource: '=grResource',
+            images: '=grImages',
             onSave: '&?grOnSave'
         }
     };

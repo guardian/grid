@@ -61,11 +61,9 @@ grPanel.controller('GrPanel', [
         $scope.$watch(() => selection.getMetadata(), onValChange(newMetadata => {
             ctrl.rawMetadata = newMetadata;
             ctrl.metadata = selection.getDisplayMetadata();
+            ctrl.images = Array.from(ctrl.selectedImages);
 
-            ctrl.imageArray = Array.from(ctrl.selectedImages);
-            ctrl.image = (ctrl.imageArray.length == 1) ? ctrl.imageArray[0] : undefined;
-
-            $rootScope.$broadcast('usage-rights:update-images', ctrl.imageArray);
+            $rootScope.$broadcast('usage-rights:update-images', ctrl.images);
 
             selection.canUserEdit().then(editable => {
                 ctrl.userCanEdit = editable;
