@@ -69,7 +69,8 @@ results.controller('SearchResultsCtrl', [
 
         ctrl.loadRange = function(start, end) {
             const length = end - start + 1;
-            search({offset: start, length: length}).then(images => {
+            const latestTime = ctrl.images[0] && ctrl.images[0].data.uploadTime;
+            search({offset: start, length: length, until: latestTime}).then(images => {
                 // Update imagesAll with newly loaded images
                 images.data.forEach((image, index) => {
                     // Only set images that were missing from the Array
