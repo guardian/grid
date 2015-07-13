@@ -26,6 +26,7 @@ grPanel.controller('GrPanel', [
     'labelService',
     'archiveService',
     'editsService',
+    'editsApi',
     'onValChange',
     function (
         $rootScope,
@@ -36,6 +37,7 @@ grPanel.controller('GrPanel', [
         labelService,
         archiveService,
         editsService,
+        editsApi,
         onValChange) {
 
         var ctrl = this;
@@ -71,6 +73,16 @@ grPanel.controller('GrPanel', [
 
             ctrl.selectedCosts = selection.getCost();
             ctrl.selectedUsageRights = selection.getUsageRights();
+
+            editsApi.getUsageRightsCategories().then((cats) => {
+                var categoryCode = ctrl.selectedUsageRights.reduce((m, o) => {
+                    return (m == o.data.category) ? o.data.category : "multiple categories";
+                }, ctrl.selectedUsageRights[0].data.category);
+
+                var usageCategory = cats.find(cat => cat.value === categoryCode);
+
+                ctrl.usageCategory = usageCategory ? usageCategory.name : categoryCode;
+            });
 
             ctrl.showCosts = ctrl.selectedCosts.length === 1 ?
                 ctrl.selectedCosts[0].data !== 'free' :
