@@ -1,17 +1,32 @@
 package controllers
 
-import play.api.mvc.{Action, Controller}
+import play.api.mvc.{Result, Action, Controller}
 import play.api.libs.concurrent.Execution.Implicits._
-import lib.{MessageConsumer, ElasticSearch}
+import lib.{Config, MessageConsumer, ElasticSearch}
 import com.gu.mediaservice.syntax._
 
 object HealthCheck extends Controller {
 
   def healthCheck = Action.async {
+    elasticHealth map {
+      case r: Result => sqsHealth
+      case _ => ServiceUnavailable("ES is not healthy")
+    }
+  }
+
+  def elasticHealth = {
     ElasticSearch.client.prepareSearch().setSize(0)
       .executeAndLog("Health check")
       .filter(_ => ! MessageConsumer.actorSystem.isTerminated)
-      .map(_ => Ok("OK"))
+      .map(_ => Ok("ES is healthy"))
   }
 
+  def sqsHealth = {
+    val timeLastMessage = MessageConsumer.timeMessageLastProcessed.get
+
+    if (timeLastMessage.plusMinutes(Config.healthyMessageRate).isBeforeNow)
+      ServiceUnavailable(s"Not received a message since $timeLastMessage")
+    else
+      Ok("SQS is healthy")
+  }
 }
