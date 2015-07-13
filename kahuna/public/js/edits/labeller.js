@@ -14,47 +14,57 @@ labeller.controller('LabellerCtrl',
                   ['$rootScope', '$scope', '$window', 'labelService',
                    function($rootScope, $scope, $window, labelService) {
 
+    var ctrl = this;
+    ctrl.labels = ctrl.image.data.userMetadata.data.labels;
+
     function saveFailed() {
         $window.alert('Something went wrong when saving, please try again!');
     }
 
-    this.addLabel = () => {
+    ctrl.addLabel = () => {
         // Prompt for a label and add if not empty
         var label = ($window.prompt('Enter a label:') || '').trim();
         if (label) {
-            this.addLabels([label]);
+            ctrl.addLabels([label]);
         }
     };
 
-    this.addLabels = labels => {
-        this.adding = true;
+    ctrl.addLabels = labels => {
+        ctrl.adding = true;
 
-        labelService.add(this.image, labels)
+        labelService.add(ctrl.image, labels)
+            .then(img => {
+                ctrl.image = img;
+                ctrl.labels = ctrl.image.data.userMetadata.data.labels;
+            })
             .catch(saveFailed)
             .finally(() => {
-                this.adding = false;
+                ctrl.adding = false;
             });
     };
 
 
-    this.labelsBeingRemoved = new Set();
-    this.removeLabel = label => {
-        this.labelsBeingRemoved.add(label);
+    ctrl.labelsBeingRemoved = new Set();
+    ctrl.removeLabel = label => {
+        ctrl.labelsBeingRemoved.add(label);
 
-        labelService.remove(this.image, label)
+        labelService.remove(ctrl.image, label)
+            .then(img => {
+                ctrl.image = img;
+                ctrl.labels = ctrl.image.data.userMetadata.data.labels;
+            })
             .catch(saveFailed)
             .finally(() => {
-                this.labelsBeingRemoved.remove(label);
+                ctrl.labelsBeingRemoved.remove(label);
             });
     };
 
     const batchApplyLabelsEvent = 'events:batch-apply:labels';
-    if (Boolean(this.withBatch)) {
-        $scope.$on(batchApplyLabelsEvent, (e, labels) => this.addLabels(labels));
+    if (Boolean(ctrl.withBatch)) {
+        $scope.$on(batchApplyLabelsEvent, (e, labels) => ctrl.addLabels(labels));
 
-        this.batchApplyLabels = () => {
-            const labels = this.image.data.userMetadata.data.labels;
-            $rootScope.$broadcast(batchApplyLabelsEvent, labels.data.map(label => label.data));
+        ctrl.batchApplyLabels = () => {
+            $rootScope.$broadcast(batchApplyLabelsEvent, ctrl.labels.data.map(label => label.data));
         };
     }
 
