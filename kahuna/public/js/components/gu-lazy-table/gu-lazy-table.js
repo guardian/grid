@@ -130,8 +130,10 @@ lazyTable.controller('GuLazyTableCtrl', [function() {
                                       viewportTop$, viewportBottom$,
                                       (top, bottom, loadedHeight,
                                        viewportTop, viewportBottom) => {
-                return (top    > viewportTop    - loadedHeight &&
-                        bottom < viewportBottom + loadedHeight) ?
+                // TODO: allow this to be configured
+                const unloadHeight = 2 * loadedHeight;
+                return (top    > viewportTop    - unloadHeight &&
+                        bottom < viewportBottom + unloadHeight) ?
                        'block' :
                        'none';
             });
