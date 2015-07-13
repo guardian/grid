@@ -135,15 +135,18 @@ lazyTable.controller('GuLazyTableCtrl', [function() {
             return combine$(top$, left$, width$, height$, display$,
                             (top, left, width, height, display) => {
                 return ({top, left, width, height, display});
-            });
+            }).
+                distinctUntilChanged(({top, left, width, height, display}) =>
+                                    `${top}-${left}-${width}-${height}-${display}`);
         };
     }
 
     function createGetItemPosition$({items$, cellWidth$, cellHeight$, columns$,
                                      preloadedRows$, viewportTop$, viewportBottom$}) {
         return (item) => {
+            // first() because it's static and should never change
             // share() because it's an expensive operation
-            const index$  = items$.map(items => items.indexOf(item)).share();
+            const index$  = items$.map(items => items.indexOf(item)).first().share();
             const getPos$ = createGetCellPosition$({
                 cellWidth$, cellHeight$, columns$,
                 preloadedRows$, viewportTop$, viewportBottom$
