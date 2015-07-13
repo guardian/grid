@@ -82,6 +82,10 @@ lazyTable.controller('GuLazyTableCtrl', [function() {
                 return {$start, $end};
             }
         ).
+            // Debounce range loading, which also helps discard
+            // erroneous large ranges while combining
+            // loadedRangeStart$ and loadedRangeEnd$ changes (one after the other)
+            debounce(10).
             // Ignore if either end isn't set (whole range already loaded)
             filter(({$start, $end}) => $start !== -1 && $end !== -1).
             // Ignore if $start after $end (incomplete combine$ state)
