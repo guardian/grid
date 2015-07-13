@@ -2,6 +2,11 @@
       ng:submit="usageRights.$valid && ctrl.save()"
       name="usageRights">
 
+    <div class="ure__multi"
+        ng:if="ctrl.multipleImages()">
+        multiple usage rights
+    </div>
+
     <label class="ure__category">
         <!-- We reset the model here else properties remain attached to the\
         model, even though they don't exist in the form -->
