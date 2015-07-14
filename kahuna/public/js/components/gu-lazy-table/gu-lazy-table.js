@@ -10,8 +10,8 @@ import './gu-lazy-table-cell';
 
 import {
     combine$,
-    add$, sub$, mult$, div$,
-    floor$, ceil$, max$
+    add$, sub$, mult$, div$, mod$,
+    floor$, ceil$, max$, min$
 } from './observable-utils';
 
 
@@ -122,8 +122,8 @@ lazyTable.controller('GuLazyTableCtrl', [function() {
         const loadedHeight$ = mult$(preloadedRows$, height$);
 
         return (index) => {
-            const top$    = mult$(floor$(columns$.map(col => index / col)), height$);
-            const left$   = mult$(columns$.map(col => index % col), width$);
+            const top$    = mult$(floor$(div$(index, columns$)), height$);
+            const left$   = mult$(mod$(index, columns$), width$);
 
             const bottom$ = add$(top$, height$);
             const display$ = combine$(top$, bottom$, loadedHeight$,
