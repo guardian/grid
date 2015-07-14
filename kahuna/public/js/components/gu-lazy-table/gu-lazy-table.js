@@ -97,7 +97,8 @@ lazyTable.controller('GuLazyTableCtrl', [function() {
         // Placeholders
         const placeholderExtraCount$ = mult$(columns$, preloadedRows$);
         const placeholderRangeStart$ = max$(sub$(loadedRangeStart$, placeholderExtraCount$), 0);
-        const placeholderRangeEnd$ = min$(add$(loadedRangeEnd$, placeholderExtraCount$), itemsCount$);
+        const placeholderRangeEnd$ = min$(add$(loadedRangeEnd$, placeholderExtraCount$),
+                                          itemsCount$);
 
         const placeholderIndexes$ = combine$(
             items$, placeholderRangeStart$, placeholderRangeEnd$,
