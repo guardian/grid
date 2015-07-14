@@ -315,6 +315,7 @@ textarea.ng-invalid {
     padding: 0px 10px;
     border-left: 1px solid #565656;
     border-right: 1px solid #565656;
+    height: 50px;
 }
 .top-bar-item--full {
     padding: 0px;
@@ -540,6 +541,8 @@ input.search-query__input {
 }
 
 .file-uploader__select-files {
+    position: relative;
+    top: 12px;
     padding: 5px 10px;
 }
 
