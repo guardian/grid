@@ -107,7 +107,7 @@ grPanel.controller('GrPanel', [
         }));
 
         ctrl.updateMetadataField = function (field, value) {
-            return editsService.batchUpdateMetadataField(ctrl.imageArray, field, value);
+            return editsService.batchUpdateMetadataField(ctrl.images, field, value);
         };
 
         ctrl.addLabel = function (label) {
