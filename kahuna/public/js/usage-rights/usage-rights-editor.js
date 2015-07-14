@@ -9,10 +9,12 @@ export var usageRightsEditor = angular.module('kahuna.edits.usageRightsEditor', 
 
 usageRightsEditor.controller(
     'UsageRightsEditorCtrl',
-    ['$scope', '$window', '$timeout', 'editsService', 'editsApi',
-    function($scope, $window, $timeout, editsService, editsApi) {
+    ['$q', '$scope', '$window', '$timeout', 'editsService', 'editsApi',
+    function($q, $scope, $window, $timeout, editsService, editsApi) {
 
     var ctrl = this;
+
+    ctrl.$q = $q;
 
     ctrl.resetCategory = () => ctrl.category = {}
     ctrl.setCategory = function(c) {
@@ -107,25 +109,27 @@ usageRightsEditor.controller(
 
     function save(data) {
         ctrl.saving = true;
-        ctrl.images.forEach((image) => {
-            editsService.
+        var a = ctrl.images.map((image) => {
+            return editsService.
                 update(getResource(image), data, image).
                 then(resource => {
 
                     // Cost is a calulated field so we must retrieve it
-                    image.get().then((i) => {
-                        image.data.cost = i.data.cost;
-                        image.data.usageRights = i.data.usageRights;
+                    return image.get().then((newImage) => {
+                        image.data.cost = newImage.data.cost;
+                        image.data.usageRights = newImage.data.usageRights;
                     });
 
-                    ctrl.onSave();
-                    uiSaved();
-                }).
-                catch(uiError).
-                finally(() => {
-                    ctrl.saving = false
                 });
         });
+
+        ctrl.$q.all(a).
+            catch(uiError).
+            finally(() => {
+                ctrl.onSave();
+                uiSaved();
+                ctrl.saving = false
+            });
     }
 
     function uiSaved() {
