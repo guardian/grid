@@ -316,6 +316,9 @@ textarea.ng-invalid {
     border-left: 1px solid #565656;
     border-right: 1px solid #565656;
 }
+.top-bar-item--full {
+    padding: 0px;
+}
 .top-bar-item:first-child {
     margin-left: 0;
 }
