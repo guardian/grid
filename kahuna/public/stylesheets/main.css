@@ -328,6 +328,7 @@ textarea.ng-invalid {
 .user-actions {
     margin-right: -10px;
     padding: 0px 5px;
+    margin-top: 12px;
 }
 
 .home-link {
@@ -418,7 +419,9 @@ textarea.ng-invalid {
    Search
    ========================================================================== */
 
-.search {}
+.search {
+    margin-top: 12px;
+}
 
 .search__query {
     padding: 5px 10px;
