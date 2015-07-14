@@ -14,8 +14,6 @@ usageRightsEditor.controller(
 
     var ctrl = this;
 
-    ctrl.$q = $q;
-
     ctrl.resetCategory = () => ctrl.category = {}
     ctrl.setCategory = function(c) {
         ctrl.category = ctrl.categories.find(cat => cat.value === c);
@@ -123,7 +121,7 @@ usageRightsEditor.controller(
                 });
         });
 
-        ctrl.$q.all(a).
+        $q.all(a).
             catch(uiError).
             finally(() => {
                 ctrl.onSave();
