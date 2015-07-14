@@ -111,11 +111,20 @@ usageRightsEditor.controller(
             editsService.
                 update(getResource(image), data, image).
                 then(resource => {
+
+                    // Cost is a calulated field so we must retrieve it
+                    image.get().then((i) => {
+                        image.data.cost = i.data.cost;
+                        image.data.usageRights = i.data.usageRights;
+                    });
+
                     ctrl.onSave();
                     uiSaved();
                 }).
                 catch(uiError).
-                finally(() => ctrl.saving = false);
+                finally(() => {
+                    ctrl.saving = false
+                });
         });
     }
 
