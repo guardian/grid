@@ -327,6 +327,9 @@ textarea.ng-invalid {
 	background-color: #666666;
 }
 
+.top-bar-item--static:hover {
+    background-color: transparent;
+}
 
 .user-actions {
     margin-right: -10px;
