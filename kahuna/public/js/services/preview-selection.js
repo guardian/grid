@@ -150,6 +150,7 @@ selectionService.factory('selectionService', ['$q', 'editsService', function ($q
         selectedImages,
         add,
         remove,
+        update,
         canUserEdit,
         getCost: () => selectedCosts,
         getMetadata: () => selectedMetadata,

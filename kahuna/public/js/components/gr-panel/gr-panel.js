@@ -58,6 +58,12 @@ grPanel.controller('GrPanel', [
             });
         };
 
+        ctrl.refreshUsageRights = () => {
+            selection.update();
+            ctrl.selectedCosts = selection.getCost();
+            ctrl.selectedUsageRights = selection.getUsageRights();
+        };
+
         $scope.$watch(() => selection.getMetadata(), onValChange(newMetadata => {
             ctrl.rawMetadata = newMetadata;
             ctrl.metadata = selection.getDisplayMetadata();
