@@ -7,6 +7,7 @@ let {addResizeListener, removeResizeListener} = elementResize;
 
 import './rx-helpers';
 import './gu-lazy-table-cell';
+import './gu-lazy-table-placeholder';
 
 import {
     combine$,
@@ -17,6 +18,7 @@ import {
 
 export var lazyTable = angular.module('gu.lazyTable', [
     'gu.lazyTableCell',
+    'gu.lazyTablePlaceholder',
     'rx.helpers'
 ]);
 
@@ -92,12 +94,30 @@ lazyTable.controller('GuLazyTableCtrl', [function() {
             filter(({$start, $end}) => $start <= $end).
             distinctUntilChanged(({$start, $end}) => `${$start}-${$end}`);
 
+        // Placeholders
+        const placeholderExtraCount$ = mult$(columns$, preloadedRows$);
+        const placeholderRangeStart$ = max$(sub$(loadedRangeStart$, placeholderExtraCount$), 0);
+        const placeholderRangeEnd$ = min$(add$(loadedRangeEnd$, placeholderExtraCount$), itemsCount$);
+
+        const placeholderIndexes$ = combine$(
+            items$, placeholderRangeStart$, placeholderRangeEnd$,
+            (items, placeholderRangeStart, placeholderRangeEnd) => {
+                let indexes = [];
+                for (let i = placeholderRangeStart; i < placeholderRangeEnd; i++) {
+                    indexes.push(i);
+                }
+                return indexes;
+            }
+        );
+
         const viewHeight$ = mult$(rows$, cellHeight$);
 
         // Mutations needed here to access streams in this closure ;_;
 
         // Share subscriptions to these streams between all cells that
         // register to getItemPosition$
+
+        // TODO: share shareReplay between the two
         ctrl.getItemPosition$ = createGetItemPosition$({
             items$:          items$.shareReplay(1),
             cellWidth$:      cellWidth$.shareReplay(1),
@@ -108,8 +128,17 @@ lazyTable.controller('GuLazyTableCtrl', [function() {
             viewportBottom$: viewportBottom$.shareReplay(1)
         });
 
+        ctrl.getCellPosition$ = createGetCellPosition$({
+            cellWidth$:      cellWidth$.shareReplay(1),
+            cellHeight$:     cellHeight$.shareReplay(1),
+            columns$:        columns$.shareReplay(1),
+            preloadedRows$:  preloadedRows$.shareReplay(1),
+            viewportTop$:    viewportTop$.shareReplay(1),
+            viewportBottom$: viewportBottom$.shareReplay(1)
+        });
+
         return {
-            viewHeight$, rangeToLoad$
+            viewHeight$, rangeToLoad$, placeholderIndexes$
         };
     };
 
@@ -172,6 +201,15 @@ lazyTable.directive('guLazyTable', ['$window', 'observe$',
     return {
         restrict: 'A',
         controller: 'GuLazyTableCtrl',
+        transclude: true,
+        template: `
+<ul>
+  <li ng:repeat="placeholderIndex in $placeholders"
+      class="result-placeholder"
+      gu:lazy-table-placeholder="placeholderIndex"></li>
+</ul>
+<ng-transclude></ng-transclude>
+`,
         link: function (scope, element, attrs, ctrl) {
             // Map attributes as Observable streams
             const {
@@ -231,7 +269,7 @@ lazyTable.directive('guLazyTable', ['$window', 'observe$',
             const viewportBottom$ = add$(offsetTop$, offsetHeight$);
 
 
-            const {viewHeight$, rangeToLoad$} = ctrl.init({
+            const {viewHeight$, rangeToLoad$, placeholderIndexes$} = ctrl.init({
                 items$, preloadedRows$, cellHeight$, cellMinWidth$,
                 containerWidth$, viewportTop$, viewportBottom$
             });
@@ -241,6 +279,10 @@ lazyTable.directive('guLazyTable', ['$window', 'observe$',
 
             subscribe$(scope, rangeToLoad$, range => {
                 scope.$eval(loadRangeFn, range);
+            });
+
+            subscribe$(scope, placeholderIndexes$, indexes => {
+                scope.$placeholders = indexes;
             });
 
             subscribe$(scope, viewHeight$.distinctUntilChanged(), viewHeight => {
