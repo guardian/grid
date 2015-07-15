@@ -39,6 +39,7 @@ object UsageRights {
     case o: SocialMedia              => SocialMedia.jsonWrites.writes(o)
     case o: Obituary                 => Obituary.jsonWrites.writes(o)
     case o: StaffPhotographer        => StaffPhotographer.jsonWrites.writes(o)
+    case o: ContractPhotographer     => ContractPhotographer.jsonWrites.writes(o)
     case o: CommissionedPhotographer => CommissionedPhotographer.jsonWrites.writes(o)
     case o: Pool                     => Pool.jsonWrites.writes(o)
     case o: NoRights.type            => NoRights.jsonWrites.writes(o)
@@ -62,6 +63,7 @@ object UsageRights {
         case "social-media"              => json.asOpt[SocialMedia]
         case "obituary"                  => json.asOpt[Obituary]
         case "staff-photographer"        => json.asOpt[StaffPhotographer]
+        case "contract-photographer"     => json.asOpt[ContractPhotographer]
         case "commissioned-photographer" => json.asOpt[CommissionedPhotographer]
         case "pool"                      => json.asOpt[Pool]
         case _                           => None
@@ -211,6 +213,23 @@ case class StaffPhotographer(photographer: String, publication: String, restrict
 object StaffPhotographer {
  implicit val jsonReads: Reads[StaffPhotographer] = Json.reads[StaffPhotographer]
  implicit val jsonWrites: Writes[StaffPhotographer] = (
+   (__ \ "category").write[String] ~
+   (__ \ "photographer").write[String] ~
+   (__ \ "publication").write[String] ~
+   (__ \ "restrictions").writeNullable[String]
+ )(s => (s.category, s.photographer, s.publication, s.restrictions))
+}
+
+case class ContractPhotographer(photographer: String, publication: String, restrictions: Option[String] = None)
+  extends UsageRights {
+    val category = "contract-photographer"
+    val defaultCost = Some(Free)
+    val description =
+      "From freelance photographers on fixed-term contracts."
+  }
+object ContractPhotographer {
+ implicit val jsonReads: Reads[ContractPhotographer] = Json.reads[ContractPhotographer]
+ implicit val jsonWrites: Writes[ContractPhotographer] = (
    (__ \ "category").write[String] ~
    (__ \ "photographer").write[String] ~
    (__ \ "publication").write[String] ~
