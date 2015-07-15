@@ -342,6 +342,10 @@ textarea.ng-invalid {
 	background-color: #666666;
 }
 
+.top-bar-item--filled {
+    padding: 0px;
+}
+
 .top-bar-item--static:hover {
     background-color: transparent;
 }
@@ -1609,6 +1613,11 @@ FIXME: what to do with touch devices
 /* ==========================================================================
    Archviver
    ========================================================================== */
+
+.top-bar-item .archiver {
+    padding: 0px 10px;
+    height: 100%;
+}
 
 .preview .archiver {
     display: none;
