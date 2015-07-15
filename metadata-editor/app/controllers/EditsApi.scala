@@ -45,7 +45,8 @@ object EditsApi extends Controller with ArgoHelpers {
     // to access the `val`s of the classes though without instantiating them.
     val usageRightsData =
       List(PrImage(), Handout(), Screengrab(), SocialMedia(), Obituary(), Pool(),
-           StaffPhotographer("?", "?"), ContractPhotographer("?", "?"), CommissionedPhotographer("?", "?"))
+           StaffPhotographer("?", "?"), ContractPhotographer("?", "?"), CommissionedPhotographer("?", "?"),
+           Agency("?"))
         .map(CategoryResponse.fromUsageRights)
 
     respond(usageRightsData)
