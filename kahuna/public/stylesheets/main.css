@@ -536,7 +536,7 @@ input.search-query__input {
    Crop
    ========================================================================== */
 
-.crop__start-crop {
+.crop__action {
     position: relative;
     top: 12px;
 }
