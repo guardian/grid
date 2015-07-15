@@ -738,11 +738,6 @@ FIXME: what to do with touch devices
     visibility: visible;
 }
 
-.preview__upload-date {
-    font-weight: bold;
-    margin-right: 10px;
-}
-
 .preview__upload-time {
     font-size: 1.2rem;
     color: #999;
