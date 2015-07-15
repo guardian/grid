@@ -3,7 +3,6 @@ package lib
 import scala.concurrent.{ExecutionContext, Future}
 import scala.collection.convert.decorateAll._
 import org.elasticsearch.client.UpdateByQueryClientWrapper
-import org.elasticsearch.action.index.IndexResponse
 import org.elasticsearch.action.update.{UpdateResponse, UpdateRequestBuilder}
 import org.elasticsearch.action.deletebyquery.DeleteByQueryResponse
 import org.elasticsearch.action.updatebyquery.UpdateByQueryResponse
@@ -58,7 +57,6 @@ object ElasticSearch extends ElasticSearchClient {
            |   ctx._source.identifiers += doc.identifiers;
            | }
            |""".stripMargin +
-          removeCostFromUserUsageRights +
           refreshEditsScript +
           updateLastModifiedScript +
           addToSuggestersScript,
@@ -183,21 +181,11 @@ object ElasticSearch extends ElasticSearchClient {
        | }
     """.stripMargin
 
-  // TODO: remove this once we've reindex relevant images.
-  private val removeCostFromUserUsageRights =
-    """| if (ctx._source.userMetadata && ctx._source.userMetadata.containsKey("usageRights")) {
-       |   userUsageRights = ctx._source.userMetadata.usageRights.clone();
-       |   userUsageRights.remove('cost');
-       |   ctx._source.userMetadata.usageRights = userUsageRights;
-       | }
-    """.stripMargin
-
   // Script that overrides the "usageRights" object from the "userMetadata".
   // We revert to the "originalUsageRights" if they are vacant.
   private val refreshUsageRightsScript =
     """| if (ctx._source.userMetadata && ctx._source.userMetadata.containsKey("usageRights")) {
        |   ur = ctx._source.userMetadata.usageRights.clone();
-       |   ur.remove('cost');
        |   ctx._source.usageRights = ur;
        | } else {
        |   ctx._source.usageRights = ctx._source.originalUsageRights;

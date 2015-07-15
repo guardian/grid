@@ -1,10 +1,11 @@
 import angular from 'angular';
 
+import '../analytics/track';
+
 import template from './image.html!text';
-import '../assets/location';
 
 export var image = angular.module('kahuna.preview.image', [
-    'kahuna.assets.location'
+    'analytics.track'
 ]);
 
 image.directive('uiPreviewImage', function() {

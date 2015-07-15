@@ -6,7 +6,8 @@
             <a class="image-action image-action--first"
                target="_blank"
                title="Pop out"
-               ng:href="/images/{{image.data.id}}">◹</a>
+               ng:href="/images/{{image.data.id}}"
+               gr:track-click="Popout button">◹</a>
         </li>
 
         <li>
@@ -51,7 +52,10 @@
 
             <span class="bottom-bar__meta-item preview__has-crops"
                   title="this image has crops"
-                  ng:if="image | hasExportsOfType:'crop'"><img class="ico" ng:src="{{'images/ico/crop.svg'| assetLocation}}" /></span>
+                  ng:if="image | hasExportsOfType:'crop'">
+
+                <i class="material-icons material-icons--small">crop</i>
+            </span>
         </div>
         <div class="bottom-bar__actions">
 

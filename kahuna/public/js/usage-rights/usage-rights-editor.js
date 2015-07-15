@@ -21,10 +21,10 @@ usageRightsEditor.controller(
 
     var getResource = (image) => image.data.userMetadata.data.usageRights;
 
-    ctrl.updateFromImages = function() {
-        if(ctrl.images.length == 1) {
-            ctrl.setCategory(ctrl.images[0].data.usageRights.category)
-            ctrl.model = angular.extend({}, ctrl.images[0].data.usageRights)
+    ctrl.update = function() {
+        if(ctrl.usageRights.length == 1) {
+            ctrl.setCategory(ctrl.usageRights[0].category)
+            ctrl.model = angular.extend({}, ctrl.usageRights[0])
         } else {
             ctrl.resetCategory();
             ctrl.resetModel();
@@ -39,15 +39,14 @@ usageRightsEditor.controller(
     // setting our initial values
     editsApi.getUsageRightsCategories().then((cats) => {
         ctrl.categories = cats;
-
-        ctrl.updateFromImages();
+        ctrl.update();
     });
 
     ctrl.saving = false;
     ctrl.saved = false;
     ctrl.categories = [];
 
-    ctrl.multipleImages = () => ctrl.images.length > 1
+    ctrl.multipleUsageRights = () => ctrl.multipleUsageRights.length > 1
 
     ctrl.save = () => {
         ctrl.error = null;
@@ -55,7 +54,7 @@ usageRightsEditor.controller(
         if (ctrl.category) {
             save(modelToData(ctrl.model));
         } else {
-            del();
+            remove();
         }
     };
 
@@ -76,7 +75,10 @@ usageRightsEditor.controller(
     ctrl.resetModel = () => ctrl.model = {};
 
     ctrl.getOptionsFor = property => {
-        const key = ctrl.category.properties.find(prop => prop.name === property.optionsMapKey).name;
+        const key = ctrl.category
+                        .properties
+                        .find(prop => prop.name === property.optionsMapKey)
+                        .name;
         const val = ctrl.model[key];
         return property.optionsMap[val];
     };
@@ -92,42 +94,30 @@ usageRightsEditor.controller(
         }, { category: ctrl.category && ctrl.category.value });
     }
 
-    function del() {
+    function remove() {
         ctrl.saving = true;
-        ctrl.images.forEach((image) => {
-            editsService.remove(getResource(image), image).
-                then(resource => {
-                    ctrl.onSave();
-                    uiSaved();
-                }).
-                catch(uiError).
-                finally(() => ctrl.saving = false);
-        });
+        $q.all(ctrl.usageRights.map((usageRights) => {
+            return ctrl.usageRights.remove()
+        })).catch(uiError).
+            finally(() => ctrl.saving = false);
     }
 
     function save(data) {
         ctrl.saving = true;
-        var a = ctrl.images.map((image) => {
-            return editsService.
-                update(getResource(image), data, image).
-                then(resource => {
+        $q.all(ctrl.usageRights.map((usageRights) => {
+            return usageRights.save(data);
+        })).catch(uiError).
+            finally(() => updateSuccess());
+    }
 
-                    // Cost is a calulated field so we must retrieve it
-                    return image.get().then((newImage) => {
-                        image.data.cost = newImage.data.cost;
-                        image.data.usageRights = newImage.data.usageRights;
-                    });
+    function updateSuccess() {
+        ctrl.onSave();
+        uiSaved();
+        ctrl.saving = false;
+    }
 
-                });
-        });
-
-        $q.all(a).
-            catch(uiError).
-            finally(() => {
-                ctrl.onSave();
-                uiSaved();
-                ctrl.saving = false
-            });
+    function updateResource(resource) {
+        ctrl.usageRights.resource = resource;
     }
 
     function uiSaved() {
@@ -149,7 +139,7 @@ usageRightsEditor.directive('grUsageRightsEditor', [function() {
         bindToController: true,
         template: template,
         scope: {
-            images: '=grImages',
+            usageRights: '=grUsageRights',
             onSave: '&?grOnSave'
         }
     };

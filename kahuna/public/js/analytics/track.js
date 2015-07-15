@@ -102,3 +102,17 @@ track.run(['$rootScope', '$window', 'mixpanelToken', 'mixpanel', 'trackingServic
     });
 
 }]);
+
+track.directive('grTrackClick', ['track', function(track) {
+
+    return {
+        restrict: 'A',
+        link: function(scope, element, attrs) {
+            const name = attrs.grTrackClick;
+            const data = scope.$eval(attrs.grTrackClickData);
+
+            element.on('click', () => track.action(name, data));
+        }
+    };
+
+}]);
