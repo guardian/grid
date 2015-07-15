@@ -38,8 +38,8 @@ object UsageRightsProperty {
   def restrictionsField(required: Boolean) =
     UsageRightsProperty("restrictions", "Restrictions", "text", required)
 
-  def publicationField(publications: Options) =
-    UsageRightsProperty("publication", "Publication", "string", true, Some(publications))
+  def publicationField =
+    UsageRightsProperty("publication", "Publication", "string", true, Some(StaffPhotographers.creditBylineMap.keys.toList))
 
   def photographerField =
     UsageRightsProperty("photographer", "Photographer", "string", true)
@@ -59,12 +59,17 @@ object UsageRightsProperty {
     u match {
 
       case _:StaffPhotographer => List(
-        publicationField(StaffPhotographers.creditBylineMap.keys.toList),
+        publicationField,
         photographerField(StaffPhotographers.creditBylineMap, "publication")
       )
 
       case _:CommissionedPhotographer => List(
-        publicationField(StaffPhotographers.creditBylineMap.keys.toList),
+        publicationField,
+        photographerField
+      )
+
+      case _:ContractPhotographer => List(
+        publicationField,
         photographerField
       )
 
