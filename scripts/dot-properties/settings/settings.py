@@ -12,6 +12,7 @@ INITIAL_PROPERTIES = {
     'panda_domain': '',
     'panda_aws_key': '',
     'panda_aws_secret': '',
+    'sqs_message_min_frequency': 5,
 }
 
 AWS_PROFILE_NAME = 'media-service'

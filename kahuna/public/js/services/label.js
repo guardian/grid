@@ -13,16 +13,20 @@ labelService.factory('labelService', ['$rootScope', '$q', function ($rootScope, 
                 .then(newLabels => {
                     image.data.userMetadata.data.labels = newLabels;
                     $rootScope.$emit('image-updated', image, image);
+                    return image;
                 });
         }
     }
 
     function add (image, labels) {
+        labels = labels.filter(label => label && label.trim().length > 0);
+
         return image.data.userMetadata.data.labels
             .post({data: labels})
             .then(newLabels => {
                 image.data.userMetadata.data.labels = newLabels;
                 $rootScope.$emit('image-updated', image, image);
+                return image;
             });
     }
 

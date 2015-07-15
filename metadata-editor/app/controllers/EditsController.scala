@@ -244,7 +244,7 @@ object EditsController extends Controller with ArgoHelpers {
   )
 
   val listForm: Form[List[String]] = Form(
-     single[List[String]]("data" -> list(text))
+     single[List[String]]("data" -> list(nonEmptyText))
   )
 
 }

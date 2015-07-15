@@ -1,5 +1,7 @@
 package lib
 
+import java.util.concurrent.atomic.{AtomicReference, AtomicLong}
+
 import com.amazonaws.services.cloudwatch.model.Dimension
 import org.elasticsearch.action.deletebyquery.DeleteByQueryResponse
 import org.joda.time.DateTime
@@ -26,6 +28,8 @@ object MessageConsumer {
 
   val actorSystem = ActorSystem("MessageConsumer")
 
+  val timeMessageLastProcessed = new AtomicReference[DateTime](DateTime.now)
+
   private implicit val ctx: ExecutionContext =
     ExecutionContext.fromExecutor(Executors.newCachedThreadPool)
 
@@ -48,6 +52,7 @@ object MessageConsumer {
           sys.error(s"Unrecognised message subject ${message.subject}"))(
           _.apply(message.body))
         _ = recordMessageLatency(message)
+        _ = timeMessageLastProcessed.lazySet(DateTime.now)
       } yield ()
       future |> deleteOnSuccess(msg)
     }
@@ -71,7 +76,12 @@ object MessageConsumer {
       case "update-image"               => indexImage
       case "update-image-exports"       => updateImageExports
       case "update-image-user-metadata" => updateImageUserMetadata
+      case "heartbeat"                  => heartbeat
     }
+
+  def heartbeat(msg: JsValue) = Future {
+    None
+  }
 
   def deleteOnSuccess(msg: SQSMessage)(f: Future[Any]): Unit =
     f.onSuccess { case _ => deleteMessage(msg) }

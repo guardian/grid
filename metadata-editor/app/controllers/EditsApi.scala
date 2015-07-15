@@ -41,7 +41,8 @@ object EditsApi extends Controller with ArgoHelpers {
   val usageRightsResponse = {
     // FIXME: GuardianWitness should be there but isn't for simplicity;
     // their images can be imported by drag and drop instead
-    // FIXME: Creating new instances? Rubbish ಠ_ಠ.
+    // FIXME: Creating new instances? Rubbish ಠ_ಠ. I can't think of a way
+    // to access the `val`s of the classes though without instantiating them.
     val usageRightsData =
       List(PrImage(), Handout(), Screengrab(), SocialMedia(), Obituary(), Pool(),
            StaffPhotographer("?", "?"))
@@ -75,6 +76,3 @@ object CategoryResponse {
   implicit val categoryResponseWrites: Writes[CategoryResponse] = Json.writes[CategoryResponse]
 
 }
-
-
-
