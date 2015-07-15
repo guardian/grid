@@ -165,7 +165,7 @@ button {
     box-sizing: border-box;
     color: white;
     display: block;
-    padding: 5px 20px;
+    padding: 5px 10px;
     font-size: 1.4rem;
     position: relative;
 }
@@ -312,7 +312,7 @@ textarea.ng-invalid {
     }
 }
    
-@media screen and (max-width: 910px) {
+@media screen and (max-width: 1100px) {
     .top-bar-item--label-text {
         display: none;
     }
@@ -478,7 +478,7 @@ textarea.ng-invalid {
     }
 
 }
-@media screen and (max-width: 1054px) {
+@media screen and (max-width: 1100px) {
 
     .search__filters-toggle {
         display: inherit;
@@ -622,7 +622,7 @@ input.search-query__input {
     padding: 5px 10px;
 }
 
-@media screen and (max-width: 1200px) {
+@media screen and (max-width: 1100px) {
     .file-uploader__select-files--label {
         display: none;
     }
