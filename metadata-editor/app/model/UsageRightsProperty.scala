@@ -25,18 +25,7 @@ object UsageRightsProperty {
   type OptionsMap = Map[String, List[String]]
   type Options = List[String]
 
-  implicit val jsonWrites: Writes[UsageRightsProperty] = (
-    (__ \ "name").write[String] ~
-    (__ \ "label").write[String] ~
-    (__ \ "type").write[String] ~
-    (__ \ "required").write[Boolean] ~
-    (__ \ "options").writeNullable[Options] ~
-    (__ \ "optionsMap").writeNullable[OptionsMap] ~
-    (__ \ "optionsMapKey").writeNullable[String]
-  )(u => (u.name, u.label, u.`type`, u.required, u.options, u.optionsMap, u.optionsMapKey))
-
-  def restrictionsField(required: Boolean) =
-    UsageRightsProperty("restrictions", "Restrictions", "text", required)
+  implicit val jsonWrites: Writes[UsageRightsProperty] = Json.writes[UsageRightsProperty]
 
   def publicationField =
     UsageRightsProperty("publication", "Publication", "string", true, Some(StaffPhotographers.creditBylineMap.keys.toList))
@@ -47,33 +36,38 @@ object UsageRightsProperty {
   def photographerField(photographers: OptionsMap, key: String) =
     UsageRightsProperty("photographer", "Photographer", "string", true, optionsMap = Some(photographers), optionsMapKey = Some(key))
 
-  def getPropertiesForCat(u: UsageRights): List[UsageRightsProperty] = {
-    photographerProperties(u) ++ restrictionProperties(u)
-  }
+  def getPropertiesForCat(u: UsageRights): List[UsageRightsProperty] =
+    agencyProperties(u) ++ photographerProperties(u) ++ restrictionProperties(u)
 
   private def restrictionProperties(u: UsageRights): List[UsageRightsProperty] = {
-    List(restrictionsField(u.defaultCost.contains(Conditional)))
+    List(UsageRightsProperty("restrictions", "Restrictions", "text", u.defaultCost.contains(Conditional)))
   }
 
-  private def photographerProperties(u: UsageRights): List[UsageRightsProperty] = {
-    u match {
+  private def agencyProperties(u: UsageRights): List[UsageRightsProperty] = u match {
+    case _:Agency => List(
+      UsageRightsProperty("supplier", "Supplier", "string", true, Some(UsageRightsConfig.freeSuppliers)),
+      UsageRightsProperty("suppliersCollection", "Collection", "string", false)
+    )
+    case _ => List()
+  }
 
-      case _:StaffPhotographer => List(
-        publicationField,
-        photographerField(StaffPhotographers.creditBylineMap, "publication")
-      )
 
-      case _:CommissionedPhotographer => List(
-        publicationField,
-        photographerField
-      )
+  private def photographerProperties(u: UsageRights): List[UsageRightsProperty] = u match {
+    case _:StaffPhotographer => List(
+      publicationField,
+      photographerField(StaffPhotographers.creditBylineMap, "publication")
+    )
 
-      case _:ContractPhotographer => List(
-        publicationField,
-        photographerField
-      )
+    case _:CommissionedPhotographer => List(
+      publicationField,
+      photographerField
+    )
 
-      case _ => List()
-    }
+    case _:ContractPhotographer => List(
+      publicationField,
+      photographerField
+    )
+
+    case _ => List()
   }
 }
