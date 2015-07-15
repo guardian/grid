@@ -52,7 +52,10 @@ usageRightsEditor.controller('UsageRightsEditorCtrl',
     ctrl.resetModel = () => ctrl.model = {};
 
     ctrl.getOptionsFor = property => {
-        const key = ctrl.category.properties.find(prop => prop.name === property.optionsMapKey).name;
+        const key = ctrl.category
+                        .properties
+                        .find(prop => prop.name === property.optionsMapKey)
+                        .name;
         const val = ctrl.model[key];
         return property.optionsMap[val];
     };
