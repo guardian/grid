@@ -24,38 +24,56 @@
         advanced
     </button>
 
-    <div class="search__filters">
-        <label class="search__filter search__filter--first">
-        <!-- minor mindfuck logic as we want an optional flag
-             when the option is off -->
-            <input type="checkbox"
-                   ng:model="searchQuery.filter.nonFree"
-                   ng:true-value="undefined"
-                   ng:false-value="true"
-                   ng:checked="{{!searchQuery.filter.nonFree}}" />
-            free to use only
-        </label>
+    <div class="search__filters-container">
+    <button class="search__filters-toggle"
+            type="button"
+            ng:click="filtersShown = !filtersShown ">
+        <span ng:hide="filtersShown">▸</span>
+        <span ng:show="filtersShown">▾</span>
+        search filters
+    </button>
 
-        <label class="search__filter">
-            <input type="checkbox"
-                   ng:model="searchQuery.filter.uploadedByMe" />
-            your uploads
-        </label>
+    <ul class="search__filters" ng:class="filtersShown ? 'search__filters-show' : 'search__filters-hide'">
+            <li>
+                <label class="search__filter search__filter--first">
+                    <!-- minor mindfuck logic as we want an optional flag
+                        when the option is off -->
+                        <input type="checkbox"
+                               ng:model="searchQuery.filter.nonFree"
+                               ng:true-value="undefined"
+                               ng:false-value="true"
+                               ng:checked="{{!searchQuery.filter.nonFree}}" />
+                        free to use only
+                </label>
+            </li>
 
-        <label class="search__filter">
-            <input type="checkbox"
-                   ng:true-value="'true'"
-                   ng:false-value="undefined"
-                   ng:model="searchQuery.filter.archived" />
-            archived
-        </label>
+            <li>
+                <label class="search__filter">
+                    <input type="checkbox"
+                           ng:model="searchQuery.filter.uploadedByMe" />
+                    your uploads
+                </label>
+            </li>
 
-        <gu-date-range class="search__filter search__date"
-            gu:start-date="searchQuery.filter.since"
-            gu:end-date="searchQuery.filter.until"
-            gu:preset-dates="searchQuery.sinceOptions"
-            gu:first-day="1">
-        </gu-date-range>
+            <li>
+                <label class="search__filter">
+                    <input type="checkbox"
+                           ng:true-value="'true'"
+                           ng:false-value="undefined"
+                           ng:model="searchQuery.filter.archived" />
+                    archived
+                </label>
+            </li>
+
+            <li>
+                <gu-date-range class="search__filter search__date"
+                               gu:start-date="searchQuery.filter.since"
+                               gu:end-date="searchQuery.filter.until"
+                               gu:preset-dates="searchQuery.sinceOptions"
+                               gu:first-day="1">
+                </gu-date-range>
+            <li>
+        </ul>
     </div>
 </form>
 
