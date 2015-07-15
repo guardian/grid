@@ -306,6 +306,20 @@ textarea.ng-invalid {
 /* ==========================================================================
    Top bar
    ========================================================================== */
+@media screen and (max-width: 700px) {
+    .top-bar-item.top-bar-item--surplus {
+        display: none;
+    }
+}
+   
+@media screen and (max-width: 910px) {
+    .top-bar-item--label-text {
+        display: none;
+    }
+    .top-bar-item .archiver--label-text {
+        display: none;
+    }
+}
 
 .top-bar-item {
     margin-left: -4px;
