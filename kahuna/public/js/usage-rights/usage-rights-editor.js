@@ -14,12 +14,12 @@ usageRightsEditor.controller('UsageRightsEditorCtrl',
     var ctrl = this;
 
     // setting our initial values
-    const { category: initialCatVal } = ctrl.resource.data;
+    const { category: initialCatVal } = ctrl.usageRights.data;
 
     ctrl.saving = false;
     ctrl.saved = false;
     ctrl.categories = [];
-    ctrl.model = angular.extend({}, ctrl.resource.data);
+    ctrl.model = angular.extend({}, ctrl.usageRights.data);
 
     // TODO: What error would we like to show here?
     // TODO: How do we make this more syncronous? You can only resolve on the
@@ -33,13 +33,13 @@ usageRightsEditor.controller('UsageRightsEditorCtrl',
         if (ctrl.category) {
             save(modelToData(ctrl.model));
         } else {
-            del();
+            remove();
         }
     };
 
     ctrl.isDisabled = () => ctrl.saving;
 
-    ctrl.isNotEmpty = () => !angular.equals(ctrl.resource.data, {});
+    ctrl.isNotEmpty = () => !angular.equals(ctrl.model, {});
 
     ctrl.pluraliseCategory = () => ctrl.category.name +
         (ctrl.category.name.toLowerCase().endsWith('image') ? 's' : ' images');
@@ -75,15 +75,11 @@ usageRightsEditor.controller('UsageRightsEditorCtrl',
         }, { category: ctrl.category && ctrl.category.value });
     }
 
-    function del() {
+    function remove() {
         ctrl.saving = true;
 
-        editsService.remove(ctrl.resource, ctrl.image).
-            then(resource => {
-                updateResource(resource);
-                ctrl.onSave();
-                uiSaved();
-            }).
+        ctrl.usageRights.remove().
+            then(updateSuccess).
             catch(uiError).
             finally(() => ctrl.saving = false);
     }
@@ -91,19 +87,20 @@ usageRightsEditor.controller('UsageRightsEditorCtrl',
     function save(data) {
         ctrl.saving = true;
 
-        editsService.
-            update(ctrl.resource, data, ctrl.image).
-            then(resource => {
-                updateResource(resource);
-                ctrl.onSave();
-                uiSaved();
-            }).
+        ctrl.usageRights.save(data).
+            then(updateSuccess).
             catch(uiError).
             finally(() => ctrl.saving = false);
     }
 
+    function updateSuccess(resource) {
+        updateResource(resource);
+        ctrl.onSave();
+        uiSaved();
+    }
+
     function updateResource(resource) {
-        ctrl.resource = resource;
+        ctrl.usageRights.resource = resource;
     }
 
     function uiSaved() {
@@ -125,8 +122,7 @@ usageRightsEditor.directive('grUsageRightsEditor', [function() {
         bindToController: true,
         template: template,
         scope: {
-            image: '=grImage',
-            resource: '=grResource',
+            usageRights: '=grUsageRights',
             onSave: '&?grOnSave'
         }
     };
