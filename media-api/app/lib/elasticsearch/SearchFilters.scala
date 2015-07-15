@@ -96,6 +96,8 @@ trait SearchFilters extends ImageFields {
     "social-media",
     "obituary",
     "staff-photographer",
+    "contract-photographer",
+    "commissioned-photographer",
     "pool"
   )
 
