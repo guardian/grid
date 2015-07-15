@@ -440,6 +440,61 @@ textarea.ng-invalid {
     display: inline-block;
 }
 
+.search__filters li {
+    display: inline;   
+}
+
+.search__filters-container {
+    position: relative;
+    display: inline-block;
+}
+
+.search__filters-toggle {
+    display: none;
+}
+
+@media screen and (max-width: 614px) {
+    .search__advanced-toggle {
+        display: none;
+    }
+}
+@media screen and (max-width: 700px) {
+    input.search-query__input {
+        width: 170px
+    }
+
+}
+@media screen and (max-width: 1054px) {
+
+    .search__filters-toggle {
+        display: inherit;
+    }
+    .search__filters {
+        display: inherit;
+        position: absolute;
+        top: 25px;
+        left: 0px;
+        width: 150px;
+        background-color: #333;
+        position: absolute;
+        padding: 10px;
+        box-shadow: 0 1px 5px rgba(0, 0, 0, 0.5);
+    }
+    .search__filters.search__filters-hide {
+        display: none;
+    }
+    .search__filters.search__filters-show {
+        display: inherit;
+    }
+    .search__filters li {
+        display: list-item;
+    }
+
+    .search .search__filter {
+        margin-left: 0px;
+    }
+}
+
 .search__filter {
     vertical-align: middle;
     margin-left: 10px;
