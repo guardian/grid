@@ -606,8 +606,7 @@ input.search-query__input {
    ========================================================================== */
 
 .crop__action {
-    position: relative;
-    top: 12px;
+    margin-top: 12px;
 }
 
 /* ==========================================================================
@@ -619,8 +618,7 @@ input.search-query__input {
 }
 
 .file-uploader__select-files {
-    position: relative;
-    top: 12px;
+    margin-top: 12px;
     padding: 5px 10px;
 }
 
