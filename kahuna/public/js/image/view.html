@@ -1,25 +1,25 @@
 <gr-top-bar>
     <gr-top-bar-nav>
         <a class="top-bar-item"
-           ui:sref="search">← search</a>
+           ui:sref="search"><i class="material-icons">search</i><span class="top-bar-item__label">search</span></a>
         <a class="top-bar-item"
            ng:if="ctrl.crop"
-           ui:sref="{ crop: null }">← original</a>
+           ui:sref="{ crop: null }"><i class="material-icons">crop_original</i><span class="top-bar-item__label">original</span></a>
     </gr-top-bar-nav>
 
     <gr-top-bar-actions>
         <a class="top-bar-item" href="{{ ctrl.image.data.source | assetFile }}" download target="_blank">
-            ⬇ download
+            <i class="material-icons">file_download</i><span class="top-bar-item__label">download</span>
         </a>
 
-        <ui-archiver class="top-bar-item"
+        <ui-archiver class="top-bar-item top-bar-item--filled"
                      image="ctrl.image"
                      with-text="true"></ui-archiver>
 
         <a class="top-bar-item"
            ng:if="ctrl.canBeCropped"
            ui:sref="crop({imageId: ctrl.image.data.id})">
-            ✂ <span ng:if="ctrl.crop">re</span>crop
+            <i class="material-icons">crop</i><span class="top-bar-item__label">crop</span>
         </a>
         <span class="top-bar-item"
               ng:if="! ctrl.canBeCropped">cannot crop</span>
