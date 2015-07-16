@@ -494,10 +494,10 @@ textarea.ng-invalid {
         padding: 10px;
         box-shadow: 0 1px 5px rgba(0, 0, 0, 0.5);
     }
-    .search__filters.search__filters-hide {
+    .search__filters--hide {
         display: none;
     }
-    .search__filters.search__filters-show {
+    .search__filters--show {
         display: inherit;
     }
     .search__filters li {
