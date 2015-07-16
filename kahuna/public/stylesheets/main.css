@@ -467,17 +467,13 @@ textarea.ng-invalid {
     display: none;
 }
 
-@media screen and (max-width: 614px) {
-    .search__advanced-toggle {
-        display: none;
-    }
-}
 @media screen and (max-width: 700px) {
     input.search-query__input {
         width: 170px
     }
 
 }
+
 @media screen and (max-width: 1100px) {
 
     .search__filters-toggle {
