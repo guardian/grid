@@ -2,7 +2,7 @@
     <gr-top-bar-nav>
         <a class="top-bar-item"
            ui:sref="image({ imageId: ctrl.image.data.id })">
-            <i class="material-icons">cancel</i><span class="top-bar-item--label-text">cancel</span></a>
+            <i class="material-icons">cancel</i><span class="top-bar-item__label">cancel</span></a>
     </gr-top-bar-nav>
 
     <gr-top-bar-actions>
@@ -10,17 +10,17 @@
 
         <label class="top-bar-item" title="landscape">
             <input type="radio" ng:model="ctrl.aspect" value="{{ctrl.landscapeRatio}}"/>
-            <i class="material-icons">crop_landscape</i><span class="top-bar-item--label-text">landscape</span> ({{::ctrl.getRatioString(ctrl.landscapeRatio)}})
+            <i class="material-icons">crop_landscape</i><span class="top-bar-item__label">landscape</span> ({{::ctrl.getRatioString(ctrl.landscapeRatio)}})
         </label>
 
         <label class="top-bar-item" title="portrait">
             <input type="radio" ng:model="ctrl.aspect" value="{{ctrl.portraitRatio}}" />
-            <i class="material-icons">crop_portrait</i><span class="top-bar-item--label-text">portrait</span> ({{::ctrl.getRatioString(ctrl.portraitRatio)}})
+            <i class="material-icons">crop_portrait</i><span class="top-bar-item__label">portrait</span> ({{::ctrl.getRatioString(ctrl.portraitRatio)}})
         </label>
 
         <label class="top-bar-item" title="free-form">
             <input type="radio" ng:model="ctrl.aspect" value="{{ctrl.freeRatio}}" />
-            <i class="material-icons">crop_free</i><span class="top-bar-item--label-text">free-form</span>
+            <i class="material-icons">crop_free</i><span class="top-bar-item__label">free-form</span>
         </label>
 
         <div class="top-bar-item top-bar-item--full" ng:switch="ctrl.image.data.cost">
@@ -34,7 +34,7 @@
                  title="restricted use: {{ctrl.image.data.usageRights.restrictions}}">
                 <!-- As `conditional` can only be set with usageRights, let's
                      just assume it's here. We might need to revisit this. -->
-                     <i class="material-icons">warning</i><span class="top-bar-item--label-text"> restricted use
+                     <i class="material-icons">warning</i><span class="top-bar-item__label"> restricted use
                          <span class="ico ico--circled ico--help">?</span></span>
             </div>
         </div>
@@ -44,7 +44,7 @@
                     type="button"
                     ng:click="ctrl.crop()"
                     ng:disabled="ctrl.cropping">
-                <i class="material-icons">crop</i><span class="top-bar-item--label-text">crop<span ng:show="ctrl.cropping">ping…</span></span>
+                <i class="material-icons">crop</i><span class="top-bar-item__label">crop<span ng:show="ctrl.cropping">ping…</span></span>
             </button>
         </div>
     </gr-top-bar-actions>
