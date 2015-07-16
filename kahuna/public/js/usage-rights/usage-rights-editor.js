@@ -57,9 +57,11 @@ usageRightsEditor.controller('UsageRightsEditorCtrl',
 
     function setCategories(cats) {
         ctrl.categories = cats;
+        setCategory(initialCatVal);
+    }
 
-        // set the current category
-        ctrl.category = cats.find(cat => cat.value === initialCatVal) || cats[0];
+    function setCategory(val) {
+        ctrl.category = ctrl.categories.find(cat => cat.value === val) || ctrl.categories[0];
     }
 
     function modelToData(model) {
@@ -96,8 +98,10 @@ usageRightsEditor.controller('UsageRightsEditorCtrl',
             finally(() => ctrl.saving = false);
     }
 
-    function updateSuccess() {
+    function updateSuccess(data) {
+        ctrl.model = data;
         ctrl.onSave();
+        setCategory(data.category);
         uiSaved();
     }
 
