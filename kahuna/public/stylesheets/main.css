@@ -168,7 +168,7 @@ button {
     box-sizing: border-box;
     color: white;
     display: block;
-    padding: 5px 20px;
+    padding: 5px 10px;
     font-size: 1.4rem;
     position: relative;
 }
@@ -310,29 +310,58 @@ textarea.ng-invalid {
    Top bar
    ========================================================================== */
 
+.top-bar-item__label {
+    padding-left: 5px;
+}
+
 .top-bar-item {
-    margin-left: 10px;
+    margin-left: -4px;
     vertical-align: middle;
-    line-height: 28px;
+    line-height: 50px;
     display: inline-block;
+    padding: 0 10px;
+    border-left: 1px solid #565656;
+    border-right: 1px solid #565656;
+    height: 50px;
+}
+.top-bar-item--full {
+    padding: 0;
 }
 .top-bar-item:first-child {
     margin-left: 0;
 }
 
+.top-bar-item:hover {
+	background-color: #666666;
+}
+
+.top-bar-item--filled {
+    padding: 0;
+}
+
+/* --static is for top bar items that perform no action, only display information */
+.top-bar-item--static:hover {
+    background-color: transparent;
+}
+
 .user-actions {
     margin-right: -10px;
-    padding: 0px 5px;
+    padding: 0 5px;
+    margin-top: 12px;
 }
 
 .home-link {
     text-indent: -9999px;
-    width: 24px;
-    height: 24px;
+    width: 50px;
+    height: 50px;
     background: url(/assets/images/grid-logo-32.png) no-repeat center;
-    margin-right: 10px;
+    margin-right: 0;
     vertical-align: top;
     float: left;
+}
+
+.home-link:hover {
+    background-color: #666666;
 }
 
 .logout {
@@ -345,6 +374,11 @@ textarea.ng-invalid {
     padding: 10px;
 }
 
+@media screen and (max-width: 1100px) {
+    .top-bar-item__label {
+        display: none;
+    }
+}
 
 /* ==========================================================================
    Page
@@ -409,7 +443,9 @@ textarea.ng-invalid {
    Search
    ========================================================================== */
 
-.search {}
+.search {
+    margin-top: 12px;
+}
 
 .search__query {
     padding: 5px 10px;
@@ -419,6 +455,56 @@ textarea.ng-invalid {
 
 .search__filters {
     display: inline-block;
+}
+
+.search__filter-item {
+    display: inline;
+}
+
+.search__filters-container {
+    position: relative;
+    display: inline-block;
+}
+
+.search__filters-toggle {
+    display: none;
+}
+
+@media screen and (max-width: 700px) {
+    input.search-query__input {
+        width: 170px
+    }
+}
+
+@media screen and (max-width: 1100px) {
+
+    .search__filters-toggle {
+        display: inherit;
+    }
+    .search__filters {
+        display: inherit;
+        position: absolute;
+        top: 25px;
+        left: 0;
+        width: 150px;
+        background-color: #333;
+        position: absolute;
+        padding: 10px;
+        box-shadow: 0 1px 5px rgba(0, 0, 0, 0.5);
+    }
+    .search__filters--hide {
+        display: none;
+    }
+    .search__filters--show {
+        display: inherit;
+    }
+    .search__filter-item {
+        display: list-item;
+    }
+
+    .search .search__filter {
+        margin-left: 0;
+    }
 }
 
 .search__filter {
@@ -507,10 +593,19 @@ input.search-query__input {
     box-shadow: 0 1px 5px rgba(0, 0, 0, 0.4);
     padding: 10px;
     position: absolute;
+    min-width: 520px;
 }
 
 .search__overlay__title {
     font-weight: bold;
+}
+
+/* ==========================================================================
+   Crop
+   ========================================================================== */
+
+.crop__action {
+    margin-top: 12px;
 }
 
 /* ==========================================================================
@@ -522,10 +617,11 @@ input.search-query__input {
 }
 
 .file-uploader__select-files {
+    margin-top: 12px;
     padding: 5px 10px;
 }
 
-@media screen and (max-width: 1200px) {
+@media screen and (max-width: 1100px) {
     .file-uploader__select-files--label {
         display: none;
     }
@@ -586,8 +682,8 @@ input.search-query__input {
 
 .result__select__checkbox__label {
     position: absolute;
-    top: 0px;
-    left: 0px;
+    top: 0;
+    left: 0;
     cursor: pointer;
 }
 
@@ -1434,7 +1530,7 @@ FIXME: what to do with touch devices
 }
 
 .dnd-uploader__info {
-    border: 0px solid #00adee;
+    border: 0 solid #00adee;
     color: white;
     background: #00adee;
     max-width: 500px;
@@ -1470,6 +1566,17 @@ FIXME: what to do with touch devices
 /* ==========================================================================
    Archviver
    ========================================================================== */
+
+@media screen and (max-width: 1100px) {
+    .archiver__label {
+        display: none;
+    }
+}
+
+.top-bar-item .archiver {
+    padding: 0 10px;
+    height: 100%;
+}
 
 .preview .archiver {
     display: none;
