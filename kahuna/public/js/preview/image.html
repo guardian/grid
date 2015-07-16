@@ -47,8 +47,15 @@
 
     <div class="preview__bottom-bar bottom-bar">
         <div class="bottom-bar__meta">
-            <span class="preview__upload-date">{{image.data.uploadTime | date:'d/M/yy'}}</span>
-            <span class="preview__upload-time">{{image.data.uploadTime | date:'HH:mm'}}</span>
+            <span ng:if="ctrl.displayAsRelative(image.data.uploadTime)"
+                  class="preview__upload-time">
+                {{ctrl.relativeFormat(image.data.uploadTime)}}
+            </span>
+
+            <span ng:if="!ctrl.displayAsRelative(image.data.uploadTime)"
+                class="preview__upload-time">
+                {{image.data.uploadTime | date:'d/M/yy'}} at {{image.data.uploadTime | date:'HH:mm'}}
+            </span>
 
             <span class="bottom-bar__meta-item preview__has-crops"
                   title="this image has crops"
