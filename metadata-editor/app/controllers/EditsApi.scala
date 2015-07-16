@@ -12,8 +12,6 @@ import com.gu.mediaservice.model._
 
 import lib.Config
 
-
-
 object EditsApi extends Controller with ArgoHelpers {
 
   import Config.{rootUri, loginUri, kahunaUri, keyStoreBucket, awsCredentials}
@@ -36,7 +34,6 @@ object EditsApi extends Controller with ArgoHelpers {
   }
 
   def index = Authenticated { indexResponse }
-
 
   val usageRightsResponse = {
     // FIXME: GuardianWitness should be there but isn't for simplicity;
