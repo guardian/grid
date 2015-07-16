@@ -43,7 +43,7 @@ object EditsApi extends Controller with ArgoHelpers {
     val usageRightsData =
       List(PrImage(), Handout(), Screengrab(), SocialMedia(), Obituary(), Pool(),
            StaffPhotographer("?", "?"), ContractPhotographer("?", "?"), CommissionedPhotographer("?", "?"),
-           Agency("?"))
+           Agency("?"), NoRights)
         .map(CategoryResponse.fromUsageRights)
 
     respond(usageRightsData)
