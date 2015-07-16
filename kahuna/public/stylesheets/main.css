@@ -660,12 +660,12 @@ input.search-query__input {
     cursor: pointer;
 }
 
-.result__select .result__select__checkbox__label .gr-icon {
+.result__select .result__select__checkbox__label gr-icon {
     font-size: 25px;
     color: white;
 }
 
-.result__select--selected .result__select__checkbox__label .gr-icon {
+.result__select--selected .result__select__checkbox__label gr-icon {
     color: #00adee;
 }
 
@@ -1256,7 +1256,7 @@ FIXME: what to do with touch devices
 }
 
 .label--partial,
-.label--partial .gr-icon {
+.label--partial gr-icon {
     background-color: white;
     color: #00adee;
 }
@@ -1266,16 +1266,16 @@ FIXME: what to do with touch devices
     color: white;
 }
 
-.label button:hover .gr-icon {
+.label button:hover gr-icon {
     color: #333;
 }
 
-.label button:active .gr-icon {
+.label button:active gr-icon {
     background-color: #008fc5;
     color: #333;
 }
 
-.label--partial button:active .gr-icon {
+.label--partial button:active gr-icon {
     background-color: #CFCFCF;
     color: #333;
 }
