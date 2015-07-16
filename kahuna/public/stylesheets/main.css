@@ -454,7 +454,7 @@ textarea.ng-invalid {
     display: inline-block;
 }
 
-.search__filters li {
+.search__filter-item {
     display: inline;
 }
 
@@ -471,7 +471,6 @@ textarea.ng-invalid {
     input.search-query__input {
         width: 170px
     }
-
 }
 
 @media screen and (max-width: 1100px) {
@@ -496,7 +495,7 @@ textarea.ng-invalid {
     .search__filters--show {
         display: inherit;
     }
-    .search__filters li {
+    .search__filter-item {
         display: list-item;
     }
 
