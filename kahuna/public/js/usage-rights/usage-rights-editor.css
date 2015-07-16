@@ -28,6 +28,10 @@
     display: flex;
 }
 
+.ure__remove {
+    margin-left: 5px;
+}
+
 .ure__error {
     margin-left: 10px;
     background: red;

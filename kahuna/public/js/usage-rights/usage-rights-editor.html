@@ -9,7 +9,6 @@
             ng:disabled="ctrl.saving"
             ng:options="category as category.name for category in ctrl.categories track by category.value"
             ng:change="ctrl.resetModel()">
-            <option value="">None</option>
         </select>
     </label>
 
@@ -76,6 +75,10 @@
                 <span ng:if="!(ctrl.saving || ctrl.saved)">Save</span>
                 <span ng:if="ctrl.saving">Saving</span>
                 <span ng:if="ctrl.saved">Saved</span>
+        </button>
+        <button class="ico-button ure__remove" type="button" ng:click="ctrl.remove()"
+            title="remove usage rights overrides">
+            <i class="material-icons">delete</i>
         </button>
         <div class="ure__error" ng:if="ctrl.error" ng:bind="ctrl.error"></div>
     </div>
