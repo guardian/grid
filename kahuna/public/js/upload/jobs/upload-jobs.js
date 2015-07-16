@@ -12,7 +12,7 @@ jobs.controller('UploadJobsCtrl',
     var ctrl = this;
 
     // State machine-esque async transitions
-    var eventName = 'Image upload';
+    const eventName = 'Image upload';
 
     ctrl.jobs.forEach(jobItem => {
         jobItem.status = 'uploading';
@@ -24,13 +24,22 @@ jobs.controller('UploadJobsCtrl',
             jobItem.resource = resource;
 
             // TODO: grouped polling for all resources we're interested in?
-            var findImage = () => resource.get();
-            var imageResource = apiPoll(findImage);
+            const findImage = () => resource.get();
+            const imageResource = apiPoll(findImage);
 
             imageResource.then(image => {
                 jobItem.status = 'uploaded';
                 jobItem.image = image;
                 jobItem.thumbnail = image.data.thumbnail;
+
+                // we use the filename of the image if the description is missing
+                if (!jobItem.image.data.metadata.description) {
+                    const newDescription = jobItem.name
+                        .substr(0, jobItem.name.lastIndexOf('.'))
+                        .replace('_', ' ');
+
+                    jobItem.image.data.metadata.description = newDescription;
+                }
 
                 timedTrack.success(eventName);
             }, error => {
@@ -40,7 +49,7 @@ jobs.controller('UploadJobsCtrl',
                 timedTrack.failure(eventName, { 'Failed on': 'index' });
             });
         }, error => {
-            var message = error.body && error.body.errorMessage || 'unknown';
+            const message = error.body && error.body.errorMessage || 'unknown';
             jobItem.status = 'upload error';
             jobItem.error = message;
 
