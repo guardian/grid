@@ -1,12 +1,12 @@
 package lib.elasticsearch
 
-import lib.usagerights.{DeprecatedConfig => UsageRightsDepConfig, Config => UsageRightsConfig, CostCalculator}
+import lib.usagerights.{DeprecatedConfig => UsageRightsDepConfig}
+import com.gu.mediaservice.lib.config.UsageRightsConfig
 
-import scalaz.NonEmptyList
 import scalaz.syntax.std.list._
 
 import lib.Config
-import com.gu.mediaservice.model.{Pay, Free, Conditional}
+import com.gu.mediaservice.model.Pay
 
 
 trait SearchFilters extends ImageFields {
@@ -96,6 +96,8 @@ trait SearchFilters extends ImageFields {
     "social-media",
     "obituary",
     "staff-photographer",
+    "contract-photographer",
+    "commissioned-photographer",
     "pool"
   )
 
