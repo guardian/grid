@@ -49,13 +49,7 @@ object ImageResponse {
     val valid = ImageExtras.isValid(source \ "metadata")
 
     val isAutoRetained = image.identifiers.contains(Config.persistenceIdentifier) || image.exports.length > 0
-
-    val userArchived = image.userMetadata.map(_.archived) match {
-      case Some(ua) => ua
-      case None => false
-    }
-
-    val isRetained = isAutoRetained || userArchived
+    val isRetained = isAutoRetained || image.userMetadata.exists(_.archived)
 
     val data = source.transform(addSecureSourceUrl(secureUrl))
       .flatMap(_.transform(wrapUserMetadata(id)))
