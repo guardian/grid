@@ -336,6 +336,7 @@ textarea.ng-invalid {
     padding: 0;
 }
 
+/* --static is for top bar items that perform no action, only display information */
 .top-bar-item--static:hover {
     background-color: transparent;
 }
