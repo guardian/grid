@@ -32,7 +32,13 @@ object CostCalculator {
     suppliersCollectionExcl.get(supplier).exists(_.contains(supplierColl))
 
 
-  // Deprecated
+  // Deprecated (remove after reindex)
+  private def deprecatedGetCost(overrides: Option[UsageRights]): Option[Cost] = overrides.flatMap {
+    // If we have overridden with NoRights, make it pay.
+    case _:NoRights.type => Some(Pay)
+    case _ => None
+  }
+
   private def deprecatedGetCost(credit: Option[String], source: Option[String],
                                 supplier: Option[String]): Option[Cost] = {
 
@@ -52,10 +58,12 @@ object CostCalculator {
 
   // This function is just used until we have deprecated the old model completely
   def getCost(usageRights: UsageRights,
+              usageRightsOverride: Option[UsageRights],
               credit: Option[String], source: Option[String],
               supplier: Option[String]): Cost = {
 
-    getCost(usageRights)
+    getCost(usageRightsOverride.getOrElse(usageRights))
+      .orElse(deprecatedGetCost(usageRightsOverride))
       .orElse(deprecatedGetCost(credit, source, supplier))
       .getOrElse(Pay)
   }

@@ -75,16 +75,15 @@ object ImageResponse {
   }
 
   def addUsageCost(source: JsValue): Reads[JsObject] = {
-    // We do the merge here as some records haven't had the user override applied
-    // to the root level `usageRights`
+    // we send over both here as some records haven't had the
+    // user override applied to the root level `usageRights`
     // TODO: Solve with reindex
-    val usageRights = List(
-      (source \ "usageRights").asOpt[JsObject],
-      (source \ "userMetadata" \ "usageRights").asOpt[JsObject]
-    ).flatten.foldLeft(Json.obj())(_ ++ _).as[UsageRights]
+    val usageRights = (source \ "usageRights").asOpt[UsageRights].getOrElse(NoRights)
+    val usageRightsOverrides = (source \ "userMetadata" \ "usageRights").asOpt[UsageRights]
 
     val cost = CostCalculator.getCost(
       usageRights,
+      usageRightsOverrides,
       (source \ "metadata" \ "credit").as[Option[String]],
       (source \ "metadata" \ "source").as[Option[String]],
       (source \ "usageRights" \ "supplier").asOpt[String]
