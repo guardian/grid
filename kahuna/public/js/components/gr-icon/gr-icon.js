@@ -7,9 +7,11 @@ icon.directive('grIcon', [function() {
     return {
         restrict: 'E',
         transclude: 'replace',
-        scope: {
-            grSmall: '='
-        },
-        template: `<i class="gr-icon" ng:class="{'gr-icon--small': grSmall}" ng:transclude></i>`
+        template: `<i class="gr-icon" ng:class="{'gr-icon--small': grSmall}" ng:transclude></i>`,
+        link: function (scope, element, attrs) {
+            if (angular.isDefined(attrs.grSmall)) {
+                scope.grSmall = true;
+            }
+        }
     };
 }]);
