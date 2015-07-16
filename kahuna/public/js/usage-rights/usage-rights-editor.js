@@ -63,12 +63,13 @@ usageRightsEditor.controller('UsageRightsEditorCtrl',
     }
 
     function modelToData(model) {
-        const modelWithCat = angular.extend({}, { category: ctrl.category && ctrl.category.value });
+        const modelWithCat = angular.extend({},
+            model, { category: ctrl.category && ctrl.category.value });
 
         return Object.keys(modelWithCat).reduce((clean, key) => {
             // remove everything !thing including ""
-            if (model[key]) {
-                clean[key] = model[key];
+            if (modelWithCat[key]) {
+                clean[key] = modelWithCat[key];
             }
 
             return clean;
