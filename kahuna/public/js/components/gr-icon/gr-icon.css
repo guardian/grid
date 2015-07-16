@@ -1,7 +1,6 @@
-.gr-icon {
+gr-icon {
     font-family: 'Material Icons';
     font-weight: normal;
-    font-style: normal;
     font-size: 16px;  /* Preferred icon size */
     display: inline-block;
     width: 1em;
@@ -22,6 +21,10 @@
     vertical-align: middle;
 }
 
-.gr-icon--small {
+gr-icon .gr-icon { /* avoid targeting i element */
+    font-style: normal;
+}
+
+gr-icon .gr-icon--small {
     font-size: 1.2rem;
 }

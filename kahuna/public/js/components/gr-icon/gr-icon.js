@@ -8,8 +8,8 @@ icon.directive('grIcon', [function() {
         restrict: 'E',
         transclude: 'replace',
         scope: {
-            small: '='
+            grSmall: '='
         },
-        template: `<i class="gr-icon" ng:class="{'gr-icon--small': small}" ng:transclude></i>`
+        template: `<i class="gr-icon" ng:class="{'gr-icon--small': grSmall}" ng:transclude></i>`
     };
 }]);
