@@ -306,19 +306,8 @@ textarea.ng-invalid {
 /* ==========================================================================
    Top bar
    ========================================================================== */
-@media screen and (max-width: 700px) {
-    .top-bar-item.top-bar-item--surplus {
-        display: none;
-    }
-}
 
-@media screen and (max-width: 1100px) {
-    .top-bar-item--label-text {
-        display: none;
-    }
-}
-
-.top-bar-item--label-text {
+.top-bar-item__label {
     padding-left: 5px;
 }
 
@@ -381,6 +370,11 @@ textarea.ng-invalid {
     padding: 10px;
 }
 
+@media screen and (max-width: 1100px) {
+    .top-bar-item__label {
+        display: none;
+    }
+}
 
 /* ==========================================================================
    Page
