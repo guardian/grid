@@ -22,7 +22,7 @@ imageService.factory('imageService', ['editsService', function(editsService) {
         const save = newData => editsService.update(resource, newData, image);
         const remove = () => editsService.remove(resource, image);
 
-        return { data, resource, image, save, remove };
+        return { data, save, remove };
     }
 
 

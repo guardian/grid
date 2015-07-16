@@ -95,14 +95,9 @@ usageRightsEditor.controller('UsageRightsEditorCtrl',
             finally(() => ctrl.saving = false);
     }
 
-    function updateSuccess(resource) {
-        updateResource(resource);
+    function updateSuccess() {
         ctrl.onSave();
         uiSaved();
-    }
-
-    function updateResource(resource) {
-        ctrl.usageRights.resource = resource;
     }
 
     function uiSaved() {
