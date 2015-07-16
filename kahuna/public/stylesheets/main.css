@@ -205,6 +205,9 @@ a:focus {
 .button-shy:not([disabled]):hover {
     background: #888;
 }
+.ico-button {
+    padding: 4px;
+}
 
 
 .loader {

@@ -22,20 +22,14 @@ usageRightsEditor.controller('UsageRightsEditorCtrl',
     ctrl.model = angular.extend({}, ctrl.usageRights.data);
 
     // TODO: What error would we like to show here?
-    // TODO: How do we make this more syncronous? You can only resolve on the
+    // TODO: How do we make this more synchronous? You can only resolve on the
     // routeProvider, which is actually bound to the UploadCtrl in this instance
     // SEE: https://github.com/angular/angular.js/issues/2095
     editsApi.getUsageRightsCategories().then(setCategories);
 
-    ctrl.save = () => {
-        ctrl.error = null;
+    ctrl.save = () => save(modelToData(ctrl.model));
 
-        if (ctrl.category) {
-            save(modelToData(ctrl.model));
-        } else {
-            remove();
-        }
-    };
+    ctrl.remove = remove;
 
     ctrl.isDisabled = () => ctrl.saving;
 
@@ -56,6 +50,7 @@ usageRightsEditor.controller('UsageRightsEditorCtrl',
                         .properties
                         .find(prop => prop.name === property.optionsMapKey)
                         .name;
+
         const val = ctrl.model[key];
         return property.optionsMap[val];
     };
@@ -64,21 +59,24 @@ usageRightsEditor.controller('UsageRightsEditorCtrl',
         ctrl.categories = cats;
 
         // set the current category
-        ctrl.category = cats.find(cat => cat.value === initialCatVal);
+        ctrl.category = cats.find(cat => cat.value === initialCatVal) || cats[0];
     }
 
     function modelToData(model) {
-        return Object.keys(model).reduce((clean, key) => {
+        const modelWithCat = angular.extend({}, { category: ctrl.category && ctrl.category.value });
+
+        return Object.keys(modelWithCat).reduce((clean, key) => {
             // remove everything !thing including ""
             if (model[key]) {
                 clean[key] = model[key];
             }
 
             return clean;
-        }, { category: ctrl.category && ctrl.category.value });
+        }, {});
     }
 
     function remove() {
+        ctrl.error = null;
         ctrl.saving = true;
 
         ctrl.usageRights.remove().
@@ -88,6 +86,7 @@ usageRightsEditor.controller('UsageRightsEditorCtrl',
     }
 
     function save(data) {
+        ctrl.error = null;
         ctrl.saving = true;
 
         ctrl.usageRights.save(data).
