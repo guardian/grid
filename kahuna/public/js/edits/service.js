@@ -46,7 +46,7 @@ service.factory('editsService',
     // TODO: Theseus returns a data object as { uri: 'http://...' }
     // for some reason, this is just a hack till we fix that.
     function isEmptyBuggyTheseusEmbeddedEntity(data) {
-        return Object.keys(data) === ['uri'];
+        return angular.equals(Object.keys(data), ['uri']);
     }
 
     /**
@@ -57,12 +57,14 @@ service.factory('editsService',
      */
     function isEmpty(edit, image) {
         // find that matching resource
-        return findMatchingEditInImage(edit, image).then(matchingEdit =>
-            angular.equals(matchingEdit.data, {}) ||
+        return findMatchingEditInImage(edit, image).then(matchingEdit => {
+            console.log(matchingEdit.data);
+
+            return angular.equals(matchingEdit.data, {}) ||
             angular.equals(matchingEdit.data, []) ||
             isEmptyBuggyTheseusEmbeddedEntity(matchingEdit.data) ?
                 matchingEdit : $q.reject('data not matching')
-        );
+        });
     }
 
     /**
