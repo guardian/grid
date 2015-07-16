@@ -11,12 +11,6 @@
     display: inline-block;
 }
 
-.gu-date-range__display__icon {
-    width: 20px;
-    text-align: center;
-    display: inline-block;
-}
-
 .gu-date-range__display__icon__toggle {
     float: right;
 }
