@@ -1,8 +1,8 @@
 <gr-top-bar>
     <gr-top-bar-nav>
         <a class="top-bar-item"
-           ui:sref="image({ imageId: ctrl.image.data.id })"><i class="material-icons">cancel</i>
-           <span class="top-bar-item--label-text"> cancel</span></a>
+           ui:sref="image({ imageId: ctrl.image.data.id })">
+            <i class="material-icons">cancel</i><span class="top-bar-item--label-text">cancel</span></a>
     </gr-top-bar-nav>
 
     <gr-top-bar-actions>
@@ -10,17 +10,17 @@
 
         <label class="top-bar-item" title="landscape">
             <input type="radio" ng:model="ctrl.aspect" value="{{ctrl.landscapeRatio}}"/>
-            <span class="top-bar-item--label-text">landscape </span><i class="material-icons">crop_landscape</i> ({{::ctrl.getRatioString(ctrl.landscapeRatio)}})
+            <i class="material-icons">crop_landscape</i><span class="top-bar-item--label-text">landscape</span> ({{::ctrl.getRatioString(ctrl.landscapeRatio)}})
         </label>
 
         <label class="top-bar-item" title="portrait">
             <input type="radio" ng:model="ctrl.aspect" value="{{ctrl.portraitRatio}}" />
-            <span class="top-bar-item--label-text">portrait </span><i class="material-icons">crop_portrait</i> ({{::ctrl.getRatioString(ctrl.portraitRatio)}})
+            <i class="material-icons">crop_portrait</i><span class="top-bar-item--label-text">portrait</span> ({{::ctrl.getRatioString(ctrl.portraitRatio)}})
         </label>
 
         <label class="top-bar-item" title="free-form">
             <input type="radio" ng:model="ctrl.aspect" value="{{ctrl.freeRatio}}" />
-            <span class="top-bar-item--label-text">free-form </span><i class="material-icons">crop_free</i>
+            <i class="material-icons">crop_free</i><span class="top-bar-item--label-text">free-form</span>
         </label>
 
         <div class="top-bar-item top-bar-item--full" ng:switch="ctrl.image.data.cost">
@@ -44,11 +44,7 @@
                     type="button"
                     ng:click="ctrl.crop()"
                     ng:disabled="ctrl.cropping">
-                <span class="top-bar-item--label-text">
-                crop<span ng:show="ctrl.cropping">ping…</span>
-                &nbsp;
-                </span>
-                <i class="material-icons">crop</i>
+                <i class="material-icons">crop</i><span class="top-bar-item--label-text">crop<span ng:show="ctrl.cropping">ping…</span></span>
             </button>
         </div>
     </gr-top-bar-actions>
