@@ -34,9 +34,9 @@ jobs.controller('UploadJobsCtrl',
 
                 // we use the filename of the image if the description is missing
                 if (!jobItem.image.data.metadata.description) {
-                    // remove file extension
-                    const newDescription =
-                        jobItem.name.substr(0, jobItem.name.lastIndexOf('.'));
+                    const newDescription = jobItem.name
+                        .substr(0, jobItem.name.lastIndexOf('.'))
+                        .replace('_', ' ');
 
                     jobItem.image.data.metadata.description = newDescription;
                 }
