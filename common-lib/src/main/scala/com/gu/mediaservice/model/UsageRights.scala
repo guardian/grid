@@ -93,7 +93,7 @@ case object NoRights
     }
     implicit val jsonWrites: Writes[NoRights.type] = Writes[NoRights.type](_ => jsonVal)
 
-    override val name = "No Rights"
+    override val name = "No rights"
   }
 
 
