@@ -31,16 +31,18 @@ object UsageRights {
   // TODO: I haven't figured out why Json.toJson[T](o) doesn't work here, it'd
   // be good to know though.
   implicit def jsonWrites[T <: UsageRights]: Writes[T] = Writes[T] {
-    case o: Agency            => Agency.jsonWrites.writes(o)
-    case o: PrImage           => PrImage.jsonWrites.writes(o)
-    case o: Handout           => Handout.jsonWrites.writes(o)
-    case o: Screengrab        => Screengrab.jsonWrites.writes(o)
-    case o: GuardianWitness   => GuardianWitness.jsonWrites.writes(o)
-    case o: SocialMedia       => SocialMedia.jsonWrites.writes(o)
-    case o: Obituary          => Obituary.jsonWrites.writes(o)
-    case o: StaffPhotographer => StaffPhotographer.jsonWrites.writes(o)
-    case o: Pool              => Pool.jsonWrites.writes(o)
-    case o: NoRights.type     => NoRights.jsonWrites.writes(o)
+    case o: Agency                   => Agency.jsonWrites.writes(o)
+    case o: PrImage                  => PrImage.jsonWrites.writes(o)
+    case o: Handout                  => Handout.jsonWrites.writes(o)
+    case o: Screengrab               => Screengrab.jsonWrites.writes(o)
+    case o: GuardianWitness          => GuardianWitness.jsonWrites.writes(o)
+    case o: SocialMedia              => SocialMedia.jsonWrites.writes(o)
+    case o: Obituary                 => Obituary.jsonWrites.writes(o)
+    case o: StaffPhotographer        => StaffPhotographer.jsonWrites.writes(o)
+    case o: ContractPhotographer     => ContractPhotographer.jsonWrites.writes(o)
+    case o: CommissionedPhotographer => CommissionedPhotographer.jsonWrites.writes(o)
+    case o: Pool                     => Pool.jsonWrites.writes(o)
+    case o: NoRights.type            => NoRights.jsonWrites.writes(o)
   }
 
   implicit val jsonReads: Reads[UsageRights] =
@@ -53,16 +55,18 @@ object UsageRights {
       val supplier = (json \ "supplier").asOpt[String]
 
       (category flatMap {
-        case "agency"             => json.asOpt[Agency]
-        case "PR Image"           => json.asOpt[PrImage]
-        case "handout"            => json.asOpt[Handout]
-        case "screengrab"         => json.asOpt[Screengrab]
-        case "guardian-witness"   => json.asOpt[GuardianWitness]
-        case "social-media"       => json.asOpt[SocialMedia]
-        case "obituary"           => json.asOpt[Obituary]
-        case "staff-photographer" => json.asOpt[StaffPhotographer]
-        case "pool"               => json.asOpt[Pool]
-        case _                    => None
+        case "agency"                    => json.asOpt[Agency]
+        case "PR Image"                  => json.asOpt[PrImage]
+        case "handout"                   => json.asOpt[Handout]
+        case "screengrab"                => json.asOpt[Screengrab]
+        case "guardian-witness"          => json.asOpt[GuardianWitness]
+        case "social-media"              => json.asOpt[SocialMedia]
+        case "obituary"                  => json.asOpt[Obituary]
+        case "staff-photographer"        => json.asOpt[StaffPhotographer]
+        case "contract-photographer"     => json.asOpt[ContractPhotographer]
+        case "commissioned-photographer" => json.asOpt[CommissionedPhotographer]
+        case "pool"                      => json.asOpt[Pool]
+        case _                           => None
       })
       .orElse(supplier.flatMap(_ => json.asOpt[Agency]))
       .orElse(json.asOpt[NoRights.type])
@@ -141,7 +145,7 @@ case class Screengrab(restrictions: Option[String] = None)
     val category = "screengrab"
     val defaultCost = Some(Conditional)
     val description =
-      "Still images created by us from moving footage in television broadcasts " +
+      "Stills created by us from moving footage in television broadcasts " +
       "usually in relation to breaking news stories."
   }
 object Screengrab {
@@ -155,7 +159,7 @@ case class GuardianWitness(restrictions: Option[String] = None)
     val category = "guardian-witness"
     val defaultCost = Some(Conditional)
     val description =
-      "Images provided by readers in response to callouts and assignments on " +
+      "Provided by readers in response to callouts and assignments on " +
       "GuardianWitness."
 
     override val defaultRestrictions = Some(
@@ -173,7 +177,7 @@ case class SocialMedia(restrictions: Option[String] = None)
     val category = "social-media"
     val defaultCost = Some(Conditional)
     val description =
-      "Images taken from public websites and social media to support " +
+      "Taken from public websites and social media to support " +
       "breaking news where no other image is available from usual sources. " +
       "Permission should be sought from the copyright holder, but in " +
       "extreme circumstances an image may be used with the approval of " +
@@ -204,11 +208,45 @@ case class StaffPhotographer(photographer: String, publication: String, restrict
     val category = "staff-photographer"
     val defaultCost = Some(Free)
     val description =
-      "Pictures created by photographers who are or were members of staff."
+      "From photographers who are or were members of staff."
   }
 object StaffPhotographer {
  implicit val jsonReads: Reads[StaffPhotographer] = Json.reads[StaffPhotographer]
  implicit val jsonWrites: Writes[StaffPhotographer] = (
+   (__ \ "category").write[String] ~
+   (__ \ "photographer").write[String] ~
+   (__ \ "publication").write[String] ~
+   (__ \ "restrictions").writeNullable[String]
+ )(s => (s.category, s.photographer, s.publication, s.restrictions))
+}
+
+case class ContractPhotographer(photographer: String, publication: String, restrictions: Option[String] = None)
+  extends UsageRights {
+    val category = "contract-photographer"
+    val defaultCost = Some(Free)
+    val description =
+      "From freelance photographers on fixed-term contracts."
+  }
+object ContractPhotographer {
+ implicit val jsonReads: Reads[ContractPhotographer] = Json.reads[ContractPhotographer]
+ implicit val jsonWrites: Writes[ContractPhotographer] = (
+   (__ \ "category").write[String] ~
+   (__ \ "photographer").write[String] ~
+   (__ \ "publication").write[String] ~
+   (__ \ "restrictions").writeNullable[String]
+ )(s => (s.category, s.photographer, s.publication, s.restrictions))
+}
+
+case class CommissionedPhotographer(photographer: String, publication: String, restrictions: Option[String] = None)
+  extends UsageRights {
+    val category = "commissioned-photographer"
+    val defaultCost = Some(Free)
+    val description =
+      "Commissioned for assignments on an ad hoc basis."
+  }
+object CommissionedPhotographer {
+ implicit val jsonReads: Reads[CommissionedPhotographer] = Json.reads[CommissionedPhotographer]
+ implicit val jsonWrites: Writes[CommissionedPhotographer] = (
    (__ \ "category").write[String] ~
    (__ \ "photographer").write[String] ~
    (__ \ "publication").write[String] ~
@@ -221,7 +259,7 @@ case class Pool(restrictions: Option[String] = None)
     val category = "pool"
     val defaultCost = Some(Conditional)
     val description =
-      "Images issued during major national events that are free to use and" +
+      "Issued during major national events that are free to use and" +
       "shared amongst news media organisations during that event. " +
       "Rights revert to the copyright holder when the pool is terminated."
   }
