@@ -316,9 +316,6 @@ textarea.ng-invalid {
     .top-bar-item--label-text {
         display: none;
     }
-    .top-bar-item .archiver--label-text {
-        display: none;
-    }
 }
 
 .top-bar-item--label-text {
@@ -1617,6 +1614,12 @@ FIXME: what to do with touch devices
 /* ==========================================================================
    Archviver
    ========================================================================== */
+
+@media screen and (max-width: 1100px) {
+    .archiver__label {
+        display: none;
+    }
+}
 
 .top-bar-item .archiver {
     padding: 0px 10px;
