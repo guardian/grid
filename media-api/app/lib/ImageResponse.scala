@@ -48,22 +48,35 @@ object ImageResponse {
 
     val valid = ImageExtras.isValid(source \ "metadata")
 
+    val isAutoRetained = image.identifiers.contains(Config.persistenceIdentifier) || image.exports.length > 0
+
+    val userArchived = image.userMetadata.map(_.archived) match {
+      case Some(ua) => ua
+      case None => false
+    }
+
+    val isRetained = isAutoRetained || userArchived
+
     val data = source.transform(addSecureSourceUrl(secureUrl))
       .flatMap(_.transform(wrapUserMetadata(id)))
       .flatMap(_.transform(addSecureThumbUrl(secureThumbUrl)))
       .flatMap(_.transform(addValidity(valid)))
-      .flatMap(_.transform(addUsageCost(source))).get
+      .flatMap(_.transform(addUsageCost(source)))
+      .flatMap(_.transform(addRetainmentStatus(isRetained))).get
 
-    val links = imageLinks(id, secureUrl, withWritePermission, valid)
+    val links = imageLinks(id, secureUrl, withWritePermission, valid, isAutoRetained)
 
     (data, links)
   }
 
-  def imageLinks(id: String, secureUrl: String, withWritePermission: Boolean, valid: Boolean) = {
+  def imageLinks(id: String, secureUrl: String, withWritePermission: Boolean, valid: Boolean, isAutoRetained: Boolean) = {
+    val metadataUri = s"${Config.metadataUri}/metadata/$id"
+
     val cropLink = Link("crops", s"${Config.cropperUri}/crops/$id")
-    val editLink = Link("edits", s"${Config.metadataUri}/metadata/$id")
+    val editLink = Link("edits", metadataUri)
     val optimisedLink = Link("optimised", makeImgopsUri(new URI(secureUrl)))
     val imageLink = Link("ui:image",  s"${Config.kahunaUri}/images/$id")
+    val archiveLink = Link("archived", s"$metadataUri/archived")
 
     val baseLinks = if (withWritePermission) {
       List(editLink, optimisedLink, imageLink)
@@ -71,7 +84,8 @@ object ImageResponse {
       List(optimisedLink, imageLink)
     }
 
-    if (valid) (cropLink :: baseLinks) else baseLinks
+    val cropLinks = if (valid) (cropLink :: baseLinks) else baseLinks
+    if (isAutoRetained) cropLinks else (archiveLink :: cropLinks)
   }
 
   def addUsageCost(source: JsValue): Reads[JsObject] = {
@@ -92,6 +106,9 @@ object ImageResponse {
 
     __.json.update(__.read[JsObject].map(_ ++ Json.obj("cost" -> cost.toString)))
   }
+
+  def addRetainmentStatus(isRetained: Boolean): Reads[JsObject] =
+    __.json.update(__.read[JsObject]).map(_ ++ Json.obj("retained" -> isRetained))
 
   // FIXME: tidier way to replace a key in a JsObject?
   def wrapUserMetadata(id: String): Reads[JsObject] =
