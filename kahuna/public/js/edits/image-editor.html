@@ -27,14 +27,18 @@
                     <a class="image-action image-action--first"
                        target="_blank"
                        title="Pop out"
-                       ng:href="/images/{{ctrl.image.data.id}}">◹</a>
+                       ng:href="/images/{{ctrl.image.data.id}}">
+                        <gr-icon>open_in_new</gr-icon>
+                    </a>
                 </li>
 
                 <li>
                     <a class="image-action"
                        title="crop"
                        ng:if="ctrl.image.data.valid"
-                       ui:sref="crop({ imageId: ctrl.image.data.id })">✂</a>
+                       ui:sref="crop({ imageId: ctrl.image.data.id })">
+                        <gr-icon>crop</gr-icon>
+                    </a>
                 </li>
             </ul>
         </div>
