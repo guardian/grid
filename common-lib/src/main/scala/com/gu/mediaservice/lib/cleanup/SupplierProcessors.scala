@@ -125,10 +125,16 @@ object GettyParser extends ImageProcessor {
 }
 
 object PaParser extends ImageProcessor {
-  def apply(image: Image): Image = image.metadata.credit match {
-    case Some("PA") => image.copy(
+  def apply(image: Image): Image = image.metadata.credit.map(_.toLowerCase) match {
+    case Some("pa") => image.copy(
       usageRights = Agency("PA")
     )
+
+    case Some("pa wire") =>image.copy(
+      metadata = image.metadata.copy(credit = Some("PA WIRE")),
+      usageRights = Agency("PA")
+    )
+
     case _ => image
   }
 }
