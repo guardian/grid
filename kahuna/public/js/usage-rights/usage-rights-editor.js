@@ -9,32 +9,27 @@ export var usageRightsEditor = angular.module('kahuna.edits.usageRightsEditor', 
 
 usageRightsEditor.controller(
     'UsageRightsEditorCtrl',
-    ['$q', '$scope', '$window', '$timeout', 'editsService', 'editsApi',
-    function($q, $scope, $window, $timeout, editsService, editsApi) {
+    ['$q', '$scope', '$window', '$timeout', 'editsService', 'editsApi', 'onValChange',
+    function($q, $scope, $window, $timeout, editsService, editsApi, onValChange) {
 
     var ctrl = this;
 
     ctrl.resetCategory = () => ctrl.category = {}
-    ctrl.setCategory = function(c) {
-        ctrl.category = ctrl.categories.find(cat => cat.value === c);
-    }
+    ctrl.resetModel = () => ctrl.model = {};
 
-    var getResource = (image) => image.data.userMetadata.data.usageRights;
+    ctrl.multipleUsageRights = () => ctrl.usageRights.length > 1
+
+    var getGroupCategory = (usageRights) => ctrl.categories.find(cat => cat.value === usageRights.reduce(
+            (m, o) => (m == o.data.category) ? o.data.category : {},
+            usageRights[0].data.category
+    ));
+
+    var getGroupModel = (usageRights) => (ctrl.multipleUsageRights()) ? {} : angular.extend({}, usageRights[0].data);
 
     ctrl.update = function() {
-        if(ctrl.usageRights.length == 1) {
-            ctrl.setCategory(ctrl.usageRights[0].category)
-            ctrl.model = angular.extend({}, ctrl.usageRights[0])
-        } else {
-            ctrl.resetCategory();
-            ctrl.resetModel();
-        }
+        ctrl.category = getGroupCategory(ctrl.usageRights);
+        ctrl.model = getGroupModel(ctrl.usageRights);
     }
-
-    $scope.$on('usage-rights:update-images', function (e, images) {
-        ctrl.images = images;
-        ctrl.updateFromImages();
-    });
 
     // setting our initial values
     editsApi.getUsageRightsCategories().then((cats) => {
@@ -42,11 +37,13 @@ usageRightsEditor.controller(
         ctrl.update();
     });
 
+    $scope.$watchCollection(() => ctrl.usageRights, onValChange(newUsageRights => {
+        ctrl.update();
+    }));
+
     ctrl.saving = false;
     ctrl.saved = false;
     ctrl.categories = [];
-
-    ctrl.multipleUsageRights = () => ctrl.multipleUsageRights.length > 1
 
     ctrl.save = () => {
         ctrl.error = null;
@@ -71,8 +68,6 @@ usageRightsEditor.controller(
         'Leave blank if there aren\'t any.';
 
     ctrl.descriptionPlaceholder = "Remove all restrictions on the use of this image."
-
-    ctrl.resetModel = () => ctrl.model = {};
 
     ctrl.getOptionsFor = property => {
         const key = ctrl.category
