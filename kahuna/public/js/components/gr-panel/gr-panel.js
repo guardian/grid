@@ -21,6 +21,7 @@ grPanel.controller('GrPanel', [
     '$rootScope',
     '$scope',
     '$window',
+    '$q',
     'mediaApi',
     'selectionService',
     'labelService',
@@ -32,6 +33,7 @@ grPanel.controller('GrPanel', [
         $rootScope,
         $scope,
         $window,
+        $q,
         mediaApi,
         selection,
         labelService,
@@ -41,7 +43,6 @@ grPanel.controller('GrPanel', [
         onValChange) {
 
         var ctrl = this;
-
 
         ctrl.selectedImages = selection.selectedImages;
 
@@ -58,43 +59,46 @@ grPanel.controller('GrPanel', [
             });
         };
 
-        ctrl.refreshUsageRights = () => {
-            selection.update();
-            ctrl.selectedCosts = selection.getCost();
-            ctrl.selectedUsageRights = selection.getUsageRights();
+        ctrl.updateUsageRights = () => {
+            const refresh = ctrl.images.map(
+                    (image, index) => image.get().then(
+                        (newImage) => ctrl.images[index] = newImage));
+
+            $q.all(refresh).then(() => {
+                selection.clear();
+                control.images.forEach((image) => selection.add(image));
+
+                ctrl.selectedCosts = selection.getCost();
+                ctrl.selectedUsageRights = selection.getUsageRights();
+            });
         };
 
         $scope.$watch(() => selection.getMetadata(), onValChange(newMetadata => {
             ctrl.rawMetadata = newMetadata;
-            ctrl.metadata = selection.getDisplayMetadata();
             ctrl.images = Array.from(ctrl.selectedImages);
 
-            $rootScope.$broadcast('usage-rights:update-images', ctrl.images);
+            ctrl.metadata = selection.getDisplayMetadata();
+            ctrl.usageRights = selection.getUsageRights();
+            ctrl.selectedCosts = selection.getCost();
+            ctrl.selectedLabels = selection.getLabels();
+            ctrl.archivedCount = selection.getArchivedCount();
 
             selection.canUserEdit().then(editable => {
                 ctrl.userCanEdit = editable;
             });
 
-            ctrl.selectedCosts = selection.getCost();
-            ctrl.selectedUsageRights = selection.getUsageRights();
-
             editsApi.getUsageRightsCategories().then((cats) => {
-                var categoryCode = ctrl.selectedUsageRights.reduce((m, o) => {
+                var categoryCode = ctrl.usageRights.reduce((m, o) => {
                     return (m == o.data.category) ? o.data.category : "multiple categories";
-                }, ctrl.selectedUsageRights[0].data.category);
+                }, ctrl.usageRights[0].data.category);
 
                 var usageCategory = cats.find(cat => cat.value === categoryCode);
-
                 ctrl.usageCategory = usageCategory ? usageCategory.name : categoryCode;
             });
 
             ctrl.showCosts = ctrl.selectedCosts.length === 1 ?
                 ctrl.selectedCosts[0].data !== 'free' :
                 ctrl.selectedCosts.length > 1;
-
-            ctrl.selectedLabels = selection.getLabels();
-
-            ctrl.archivedCount = selection.getArchivedCount();
 
             switch (ctrl.archivedCount) {
                 case 0: {
