@@ -1,6 +1,4 @@
 import angular from 'angular';
-import moment from 'moment';
-
 import '../analytics/track';
 
 import template from './image.html!text';
@@ -8,15 +6,6 @@ import template from './image.html!text';
 export var image = angular.module('kahuna.preview.image', [
     'analytics.track'
 ]);
-
-image.controller('uiPreviewImageCtrl', [function () {
-    var ctrl = this;
-
-    ctrl.displayAsRelative = dateTime =>
-        moment().diff(moment(dateTime), 'days') < 7;
-
-    ctrl.relativeFormat = uploadTime => moment(uploadTime).fromNow();
-}]);
 
 image.directive('uiPreviewImage', function() {
     return {
@@ -28,9 +17,7 @@ image.directive('uiPreviewImage', function() {
         },
         // extra actions can be transcluded in
         transclude: true,
-        template: template,
-        controller: 'uiPreviewImageCtrl',
-        controllerAs: 'ctrl'
+        template: template
     };
 });
 
