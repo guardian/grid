@@ -105,14 +105,10 @@
             <div class="result-editor__usage-rights drop-menu__items drop-menu__items--right"
                  ng:show="showUsageRights">
 
-                <button type="button" class="drop-menu__close"
-                        ng:click="showUsageRights = false">
-                        <gr-icon>close</gr-icon>
-                </button>
-
                 <gr:usage-rights-editor
                     gr:usage-rights="ctrl.usageRights"
-                    gr:on-save="showUsageRights = false">
+                    gr:on-save="showUsageRights = false"
+                    gr:on-cancel="showUsageRights = false">
                 </gr:usage-rights-editor>
 
             </div>
