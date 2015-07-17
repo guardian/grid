@@ -857,7 +857,15 @@ FIXME: what to do with touch devices
 }
 .bottom-bar__action {
     color: inherit;
-    display: inline-block;
+    display: block;
+}
+
+.bottom-bar__actions ui-archiver {
+    float: left;
+}
+
+.bottom-bar__actions .preview__cost {
+    float: right;
 }
 
 
@@ -1556,7 +1564,7 @@ FIXME: what to do with touch devices
 }
 
 .preview .archiver--archived {
-    display: inline;
+    display: block;
 }
 
 .archiver--archived {
