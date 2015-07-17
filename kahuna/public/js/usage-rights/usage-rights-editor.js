@@ -31,6 +31,8 @@ usageRightsEditor.controller('UsageRightsEditorCtrl',
 
     ctrl.remove = remove;
 
+    ctrl.cancel = () => ctrl.onCancel();
+
     ctrl.isDisabled = () => ctrl.saving;
 
     ctrl.isNotEmpty = () => !angular.equals(ctrl.model, {});
@@ -125,6 +127,7 @@ usageRightsEditor.directive('grUsageRightsEditor', [function() {
         template: template,
         scope: {
             usageRights: '=grUsageRights',
+            onCancel: '&?grOnCancel',
             onSave: '&?grOnSave'
         }
     };

@@ -178,8 +178,13 @@ a:focus {
 .button-shy:not([disabled]):hover {
     background: #888;
 }
-.ico-button {
+.button-ico {
     padding: 4px;
+}
+
+.button-save {
+    background: #00adee;
+    color: white;
 }
 
 
@@ -1690,6 +1695,10 @@ FIXME: what to do with touch devices
 .form-property {
     display: block;
     margin-bottom: 10px;
+}
+
+.form-property--last {
+    margin-bottom: 0;
 }
 
 .form-input-text {
