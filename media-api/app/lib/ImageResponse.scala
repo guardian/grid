@@ -48,8 +48,9 @@ object ImageResponse {
 
     val valid = ImageExtras.isValid(source \ "metadata")
 
-    val isAutoRetained = image.identifiers.contains(Config.persistenceIdentifier) || image.exports.length > 0
-    val isRetained = isAutoRetained || image.userMetadata.exists(_.archived)
+    val isRetained = image.identifiers.contains(Config.persistenceIdentifier) ||
+      image.exports.length > 0 ||
+      image.userMetadata.exists(_.archived)
 
     val data = source.transform(addSecureSourceUrl(secureUrl))
       .flatMap(_.transform(wrapUserMetadata(id)))
@@ -58,19 +59,16 @@ object ImageResponse {
       .flatMap(_.transform(addUsageCost(source)))
       .flatMap(_.transform(addRetainmentStatus(isRetained))).get
 
-    val links = imageLinks(id, secureUrl, withWritePermission, valid, isAutoRetained)
+    val links = imageLinks(id, secureUrl, withWritePermission, valid)
 
     (data, links)
   }
 
-  def imageLinks(id: String, secureUrl: String, withWritePermission: Boolean, valid: Boolean, isAutoRetained: Boolean) = {
-    val metadataUri = s"${Config.metadataUri}/metadata/$id"
-
+  def imageLinks(id: String, secureUrl: String, withWritePermission: Boolean, valid: Boolean) = {
     val cropLink = Link("crops", s"${Config.cropperUri}/crops/$id")
-    val editLink = Link("edits", metadataUri)
+    val editLink = Link("edits", s"${Config.metadataUri}/metadata/$id")
     val optimisedLink = Link("optimised", makeImgopsUri(new URI(secureUrl)))
     val imageLink = Link("ui:image",  s"${Config.kahunaUri}/images/$id")
-    val archiveLink = Link("archived", s"$metadataUri/archived")
 
     val baseLinks = if (withWritePermission) {
       List(editLink, optimisedLink, imageLink)
@@ -78,8 +76,7 @@ object ImageResponse {
       List(optimisedLink, imageLink)
     }
 
-    val cropLinks = if (valid) (cropLink :: baseLinks) else baseLinks
-    if (isAutoRetained) cropLinks else (archiveLink :: cropLinks)
+    if (valid) (cropLink :: baseLinks) else baseLinks
   }
 
   def addUsageCost(source: JsValue): Reads[JsObject] = {
