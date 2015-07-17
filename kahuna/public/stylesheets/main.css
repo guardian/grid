@@ -831,7 +831,7 @@ FIXME: what to do with touch devices
 
 .preview__fade {
     width: 100%;
-    background: linear-gradient(to top, rgba(255, 255, 255, 0), rgba(160, 160, 160, 1));
+    background: linear-gradient(to top, rgba(0, 0, 0, 0), rgba(0, 0, 0, 0.75));
     height: 35px;
     position: absolute;
     display: none;
