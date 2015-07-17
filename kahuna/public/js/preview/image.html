@@ -7,14 +7,18 @@
                target="_blank"
                title="Pop out"
                ng:href="/images/{{image.data.id}}"
-               gr:track-click="Popout button">◹</a>
+               gr:track-click="Popout button">
+                <gr-icon>open_in_new</gr-icon>
+            </a>
         </li>
 
         <li>
             <a class="image-action"
                title="crop"
                ng:if="image.data.valid"
-               ui:sref="crop({ imageId: image.data.id })">✂</a>
+               ui:sref="crop({ imageId: image.data.id })">
+                <gr-icon>crop</gr-icon>
+            </a>
         </li>
         <li>
             <ng:transclude></ng:transclude>
@@ -61,7 +65,7 @@
                   title="this image has crops"
                   ng:if="image | hasExportsOfType:'crop'">
 
-                <i class="material-icons material-icons--small">crop</i>
+                <gr-icon gr-small>crop</gr-icon>
             </span>
         </div>
         <div class="bottom-bar__actions">
