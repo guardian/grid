@@ -28,33 +28,6 @@
          url("fonts/MaterialIcons-Regular.woff") format('woff');
 }
 
-.material-icons {
-    font-family: 'Material Icons';
-    font-weight: normal;
-    font-style: normal;
-    font-size: 16px;  /* Preferred icon size */
-    display: inline-block;
-    width: 1em;
-    height: 1em;
-    line-height: 1;
-    text-transform: none;
-    letter-spacing: normal;
-    word-wrap: normal;
-
-    /* Support for all WebKit browsers. */
-    -webkit-font-smoothing: antialiased;
-    /* Support for Safari and Chrome. */
-    text-rendering: optimizeLegibility;
-
-    /* Support for Firefox. */
-    -moz-osx-font-smoothing: grayscale;
-
-    vertical-align: middle;
-}
-.material-icons--small {
-    font-size: 1.2rem;
-}
-
 @keyframes fadeIn {
     0%   { opacity: 0; }
     100% { opacity: 1; }
@@ -687,12 +660,12 @@ input.search-query__input {
     cursor: pointer;
 }
 
-.result__select .result__select__checkbox__label .material-icons {
+.result__select .result__select__checkbox__label gr-icon {
     font-size: 25px;
     color: white;
 }
 
-.result__select--selected .result__select__checkbox__label .material-icons {
+.result__select--selected .result__select__checkbox__label gr-icon {
     color: #00adee;
 }
 
@@ -1283,7 +1256,7 @@ FIXME: what to do with touch devices
 }
 
 .label--partial,
-.label--partial .material-icons {
+.label--partial gr-icon {
     background-color: white;
     color: #00adee;
 }
@@ -1293,16 +1266,16 @@ FIXME: what to do with touch devices
     color: white;
 }
 
-.label button:hover .material-icons {
+.label button:hover gr-icon {
     color: #333;
 }
 
-.label button:active .material-icons {
+.label button:active gr-icon {
     background-color: #008fc5;
     color: #333;
 }
 
-.label--partial button:active .material-icons {
+.label--partial button:active gr-icon {
     background-color: #CFCFCF;
     color: #333;
 }
