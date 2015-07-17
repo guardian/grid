@@ -883,12 +883,16 @@ FIXME: what to do with touch devices
 .image-action {
     line-height: 24px;
     width: 24px;
-    color: white;
+    color: #999;
     display: block;
     border-top: 1px dashed rgba(255, 255, 255, .5);
 }
 .image-action--first {
     border-top: 0;
+}
+
+.image-action:hover {
+    color: white;
 }
 
 
