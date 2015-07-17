@@ -65,8 +65,7 @@ grPanel.controller('GrPanel', [
                         (newImage) => ctrl.images[index] = newImage));
 
             $q.all(refresh).then(() => {
-                selection.clear();
-                control.images.forEach((image) => selection.add(image));
+                selection.update();
 
                 ctrl.selectedCosts = selection.getCost();
                 ctrl.selectedUsageRights = selection.getUsageRights();
