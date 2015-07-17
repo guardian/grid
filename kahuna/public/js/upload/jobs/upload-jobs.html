@@ -1,5 +1,5 @@
 <ul>
-    <li ng:repeat="job in ctrl.jobs"  class="upload-result">
+    <li ng:repeat="job in ctrl.jobs | orderBy: 'name'"  class="upload-result">
 
         <div ng:if="!job.image"
              class="job-uploading">
