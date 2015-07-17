@@ -73,10 +73,7 @@
 
     <div class="ure__bar">
 
-        <button class="ure__action button-ico" type="button" ng:click="ctrl.remove()"
-            title="remove usage rights overrides">
-            <gr-icon>delete</gr-icon>
-        </button>
+        <gr-confirm-delete gr:on-confirm="ctrl.remove()"></gr-confirm-delete>
 
         <button class="ure__action button-ico" type="button" ng:click="ctrl.cancel()"
             title="close usage rights overrides">
