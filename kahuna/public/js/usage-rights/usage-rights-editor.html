@@ -80,9 +80,10 @@
             <gr-icon>close</gr-icon>
         </button>
 
-        <button class="ure__action button-ico button-save" type="submit"
+        <button class="ure__action button-ico button-save" type="submit" ng:disabled="ctrl.saving"
             title="save usage rights overrides">
-            <gr-icon>check</gr-icon>
+            <gr-icon ng:if="!ctrl.saving">check</gr-icon>
+            <gr-icon ng:if="ctrl.saving">timelapse</gr-icon>
         </button>
 
     </div>
