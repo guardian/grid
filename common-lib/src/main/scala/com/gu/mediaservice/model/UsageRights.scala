@@ -79,7 +79,7 @@ object UsageRights {
 // in the DB layer.
 case object NoRights
   extends UsageRights {
-    val category = "no-rights"
+    val category = ""
     val defaultCost = None
     val restrictions = None
     val description =
@@ -92,6 +92,8 @@ case object NoRights
       if (json == jsonVal) JsSuccess(NoRights) else JsError("Value should be {} for no rights")
     }
     implicit val jsonWrites: Writes[NoRights.type] = Writes[NoRights.type](_ => jsonVal)
+
+    override val name = "No rights"
   }
 
 

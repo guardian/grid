@@ -9,7 +9,6 @@
             ng:disabled="ctrl.saving"
             ng:options="category as category.name for category in ctrl.categories track by category.value"
             ng:change="ctrl.resetModel()">
-            <option value="">None</option>
         </select>
     </label>
 
@@ -18,7 +17,10 @@
     </div>
 
     <div class="ure__properties" ng:if="ctrl.category">
-        <label ng:repeat="property in ctrl.category.properties" class="form-property">
+        <label
+            class="form-property"
+            ng:repeat="property in ctrl.category.properties"
+            ng:class="{ 'form-property--last': $last }">
 
             <div class="form-label">
                 <div class="form-label__text">{{ property.label }}</div>
@@ -69,14 +71,20 @@
         </label>
     </div>
 
-    <div class="ure__submit">
-        <button class="button" type="submit"
-            ng:class="{ 'button--green': ctrl.saved }"
-            ng:disabled="ctrl.isDisabled() || !usageRights.$valid">
-                <span ng:if="!(ctrl.saving || ctrl.saved)">Save</span>
-                <span ng:if="ctrl.saving">Saving</span>
-                <span ng:if="ctrl.saved">Saved</span>
+    <div class="ure__bar">
+
+        <gr-confirm-delete gr:on-confirm="ctrl.remove()"></gr-confirm-delete>
+
+        <button class="ure__action button-ico" type="button" ng:click="ctrl.cancel()"
+            title="close usage rights overrides">
+            <gr-icon>close</gr-icon>
         </button>
-        <div class="ure__error" ng:if="ctrl.error" ng:bind="ctrl.error"></div>
+
+        <button class="ure__action button-ico button-save" type="submit" ng:disabled="ctrl.saving"
+            title="save usage rights overrides">
+            <gr-icon ng:if="!ctrl.saving">check</gr-icon>
+            <gr-icon ng:if="ctrl.saving">timelapse</gr-icon>
+        </button>
+
     </div>
 </form>

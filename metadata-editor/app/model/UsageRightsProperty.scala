@@ -27,20 +27,21 @@ object UsageRightsProperty {
 
   implicit val jsonWrites: Writes[UsageRightsProperty] = Json.writes[UsageRightsProperty]
 
-  def publicationField =
-    UsageRightsProperty("publication", "Publication", "string", true, Some(StaffPhotographers.creditBylineMap.keys.toList))
-
-  def photographerField =
-    UsageRightsProperty("photographer", "Photographer", "string", true)
-
-  def photographerField(photographers: OptionsMap, key: String) =
-    UsageRightsProperty("photographer", "Photographer", "string", true, optionsMap = Some(photographers), optionsMapKey = Some(key))
-
   def getPropertiesForCat(u: UsageRights): List[UsageRightsProperty] =
     agencyProperties(u) ++ photographerProperties(u) ++ restrictionProperties(u)
 
-  private def restrictionProperties(u: UsageRights): List[UsageRightsProperty] = {
-    List(UsageRightsProperty("restrictions", "Restrictions", "text", u.defaultCost.contains(Conditional)))
+  private def publicationField =
+    UsageRightsProperty("publication", "Publication", "string", true, Some(StaffPhotographers.creditBylineMap.keys.toList))
+
+  private def photographerField =
+    UsageRightsProperty("photographer", "Photographer", "string", true)
+
+  private def photographerField(photographers: OptionsMap, key: String) =
+    UsageRightsProperty("photographer", "Photographer", "string", true, optionsMap = Some(photographers), optionsMapKey = Some(key))
+
+  private def restrictionProperties(u: UsageRights): List[UsageRightsProperty] = u match {
+    case _:NoRights.type => List()
+    case _ => List(UsageRightsProperty("restrictions", "Restrictions", "text", u.defaultCost.contains(Conditional)))
   }
 
   private def agencyProperties(u: UsageRights): List[UsageRightsProperty] = u match {
