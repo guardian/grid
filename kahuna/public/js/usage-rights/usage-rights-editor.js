@@ -1,10 +1,14 @@
 import angular from 'angular';
 import 'angular-elastic';
+
 import template from './usage-rights-editor.html!text';
 import './usage-rights-editor.css!';
 
+import '../components/gr-confirm-delete/gr-confirm-delete.js';
+
 export var usageRightsEditor = angular.module('kahuna.edits.usageRightsEditor', [
-    'monospaced.elastic'
+    'monospaced.elastic',
+    'gr.confirmDelete'
 ]);
 
 usageRightsEditor.controller('UsageRightsEditorCtrl',
@@ -130,31 +134,4 @@ usageRightsEditor.directive('grUsageRightsEditor', [function() {
             onSave: '&?grOnSave'
         }
     };
-}]);
-
-
-usageRightsEditor.directive('grConfirmDelete', ['$timeout', function($timeout) {
-
-    return {
-        restrict: 'E',
-        template: `
-            <button class="button-ico" type="button" ng:click="showConfirm = true"
-                title="remove usage rights overrides">
-                <span class="confirm" ng:if="showConfirm">Sure?</span>
-                <gr-icon>delete</gr-icon>
-            </button>`,
-
-        link: function(scope, element, attrs) {
-            const onChange = () => scope.$eval(attrs.grOnConfirm);
-
-            element.on('click', function() {
-                element.on('click', onChange);
-                $timeout(() => {
-                    element.off('click', onChange);
-                    scope.showConfirm = false;
-                }, 5000);
-            });
-        }
-    }
-
 }]);
