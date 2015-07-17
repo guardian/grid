@@ -683,6 +683,24 @@ input.search-query__input {
 
 .result:hover .result__select,
 .result:hover .preview__fade,
+.result:hover .image-actions,
+.result:hover .labeller__add,
+.result:hover .archiver {
+    display: block;
+}
+
+.result:hover {
+    border-color: #404040;
+}
+
+.result:hover .preview {
+    background-color: #404040;
+}
+
+.result--selected:hover .preview__fade {
+    display: none;
+}
+
 .result__select--selected {
     display: initial;
 }
@@ -796,27 +814,12 @@ input.search-query__input {
     margin: 0;
 }
 
-.preview .preview__crop {
-    display: none;
-}
-
-.preview:hover {
-    background-color: #404040;
-}
-
-.preview:hover .preview__crop {
-    display: inline;
-}
-
 /*
 FIXME: this is a little targeted
 FIXME: what to do with touch devices
 */
 .preview .labeller__add {
-    visibility: hidden;
-}
-.preview:hover .labeller__add {
-    visibility: visible;
+    display: none;
 }
 
 .preview__upload-time {
@@ -866,7 +869,15 @@ FIXME: what to do with touch devices
 }
 .bottom-bar__action {
     color: inherit;
-    display: inline-block;
+    display: block;
+}
+
+.bottom-bar__actions ui-archiver {
+    float: left;
+}
+
+.bottom-bar__actions .preview__cost {
+    float: right;
 }
 
 
@@ -875,9 +886,6 @@ FIXME: what to do with touch devices
    ========================================================================== */
 .image-actions-container .image-actions {
     display: none;
-}
-.image-actions-container:hover .image-actions {
-    display: block;
 }
 
 .image-actions {
@@ -1221,7 +1229,8 @@ FIXME: what to do with touch devices
     box-sizing: border-box;
 }
 .image-crop--selected,
-.result--selected {
+.result--selected,
+.result--selected:hover {
     border-color: #00adee;
 }
 
@@ -1245,7 +1254,7 @@ FIXME: what to do with touch devices
    Labeller
    ========================================================================== */
 .labeller {
-    min-height: 20px;
+    height: 25px;
     font-size: 1.3rem;
     display: flex;
     overflow: hidden;
@@ -1565,9 +1574,9 @@ FIXME: what to do with touch devices
 .preview .archiver {
     display: none;
 }
-.preview:hover .archiver,
+
 .preview .archiver--archived {
-    display: inline;
+    display: block;
 }
 
 .archiver--archived {
