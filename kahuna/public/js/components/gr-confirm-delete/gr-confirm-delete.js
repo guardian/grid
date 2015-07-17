@@ -24,6 +24,6 @@ confirmDelete.directive('grConfirmDelete', ['$timeout', function($timeout) {
                 }, 5000);
             });
         }
-    }
+    };
 
 }]);
