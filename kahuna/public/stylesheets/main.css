@@ -347,7 +347,7 @@ textarea.ng-invalid {
     padding: 10px;
 }
 
-@media screen and (max-width: 1100px) {
+@media screen and (max-width: 800px) {
     .top-bar-item__label {
         display: none;
     }
@@ -594,7 +594,7 @@ input.search-query__input {
     padding: 5px 10px;
 }
 
-@media screen and (max-width: 1100px) {
+@media screen and (max-width: 800px) {
     .file-uploader__select-files--label {
         display: none;
     }
@@ -1535,7 +1535,7 @@ FIXME: what to do with touch devices
    Archviver
    ========================================================================== */
 
-@media screen and (max-width: 1100px) {
+@media screen and (max-width: 800px) {
     .archiver__label {
         display: none;
     }
