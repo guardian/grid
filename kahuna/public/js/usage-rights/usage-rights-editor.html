@@ -42,7 +42,7 @@
                         ng:if="property.options"
                         ng:model="ctrl.model[property.name]"
                         ng:required="property.required"
-                        ng:options="o for o in property.options">
+                        ng:options="o for o in property.options | orderBy:'toString()'">
                         <option value="">None</option>
                     </select>
 
@@ -51,7 +51,7 @@
                         ng:if="property.optionsMap"
                         ng:model="ctrl.model[property.name]"
                         ng:required="property.required"
-                        ng:options="o for o in ctrl.getOptionsFor(property)">
+                        ng:options="o for o in ctrl.getOptionsFor(property) | orderBy:'toString()'">
                         <option value="">None</option>
                     </select>
 
