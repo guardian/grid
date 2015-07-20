@@ -1,10 +1,12 @@
 import angular from 'angular';
 
 import '../services/preview-selection';
+import '../util/seq';
 import '../components/gu-lazy-table/gu-lazy-table';
 
 export var results = angular.module('kahuna.search.results', [
     'kahuna.services.selection',
+    'util.seq',
     'gu.lazyTable'
 ]);
 
@@ -22,6 +24,7 @@ results.controller('SearchResultsCtrl', [
     '$timeout',
     'mediaApi',
     'selectionService',
+    'range',
     function($rootScope,
              $scope,
              $state,
@@ -29,7 +32,8 @@ results.controller('SearchResultsCtrl', [
              $window,
              $timeout,
              mediaApi,
-             selection) {
+             selection,
+             range) {
 
         const ctrl = this;
 
@@ -167,12 +171,6 @@ results.controller('SearchResultsCtrl', [
             }));
         }
 
-
-        function* range (start, end) {
-            for (let i = start; i <= end; i += 1) {
-                yield i;
-            }
-        }
 
         ctrl.selectedImages = selection.selectedImages;
 

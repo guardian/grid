@@ -7,17 +7,21 @@ let {addResizeListener, removeResizeListener} = elementResize;
 
 import './rx-helpers';
 import './gu-lazy-table-cell';
+import './gu-lazy-table-placeholder';
+import '../../util/seq';
 
 import {
     combine$,
-    add$, sub$, mult$, div$,
-    floor$, ceil$, max$
+    add$, sub$, mult$, div$, mod$,
+    floor$, ceil$, max$, min$
 } from './observable-utils';
 
 
 export var lazyTable = angular.module('gu.lazyTable', [
     'gu.lazyTableCell',
-    'rx.helpers'
+    'gu.lazyTablePlaceholder',
+    'rx.helpers',
+    'util.seq'
 ]);
 
 
@@ -45,7 +49,7 @@ function findLastIndexFrom(array, item, fromIndex) {
 }
 
 
-lazyTable.controller('GuLazyTableCtrl', [function() {
+lazyTable.controller('GuLazyTableCtrl', ['range', function(range) {
     let ctrl = this;
 
     ctrl.init = function({items$, preloadedRows$, cellHeight$, cellMinWidth$,
@@ -92,24 +96,56 @@ lazyTable.controller('GuLazyTableCtrl', [function() {
             filter(({$start, $end}) => $start <= $end).
             distinctUntilChanged(({$start, $end}) => `${$start}-${$end}`);
 
+        // Placeholders
+        const placeholderExtraCount$ = mult$(columns$, preloadedRows$);
+        const placeholderRangeStart$ = max$(sub$(loadedRangeStart$, placeholderExtraCount$), 0);
+        const placeholderRangeEnd$ = min$(add$(loadedRangeEnd$, placeholderExtraCount$),
+                                          sub$(itemsCount$, 1));
+
+        const placeholderIndexes$ = combine$(
+            placeholderRangeStart$, placeholderRangeEnd$,
+            (placeholderRangeStart, placeholderRangeEnd) => {
+                let indexes = range(placeholderRangeStart, placeholderRangeEnd);
+                return Array.from(indexes);
+            }
+        );
+
         const viewHeight$ = mult$(rows$, cellHeight$);
 
         // Mutations needed here to access streams in this closure ;_;
 
-        // Share subscriptions to these streams between all cells that
-        // register to getItemPosition$
+        // Share subscriptions to these streams between all cells and
+        // placeholders that register to their position
+
+        const itemsShared$          = items$.shareReplay(1);
+        const cellWidthShared$      = cellWidth$.shareReplay(1);
+        const cellHeightShared$     = cellHeight$.shareReplay(1);
+        const columnsShared$        = columns$.shareReplay(1);
+        const preloadedRowsShared$  = preloadedRows$.shareReplay(1);
+        const viewportTopShared$    = viewportTop$.shareReplay(1);
+        const viewportBottomShared$ = viewportBottom$.shareReplay(1);
+
         ctrl.getItemPosition$ = createGetItemPosition$({
-            items$:          items$.shareReplay(1),
-            cellWidth$:      cellWidth$.shareReplay(1),
-            cellHeight$:     cellHeight$.shareReplay(1),
-            columns$:        columns$.shareReplay(1),
-            preloadedRows$:  preloadedRows$.shareReplay(1),
-            viewportTop$:    viewportTop$.shareReplay(1),
-            viewportBottom$: viewportBottom$.shareReplay(1)
+            items$:          itemsShared$,
+            cellWidth$:      cellWidthShared$,
+            cellHeight$:     cellHeightShared$,
+            columns$:        columnsShared$,
+            preloadedRows$:  preloadedRowsShared$,
+            viewportTop$:    viewportTopShared$,
+            viewportBottom$: viewportBottomShared$
+        });
+
+        ctrl.getCellPosition$ = createGetCellPosition$({
+            cellWidth$:      cellWidthShared$,
+            cellHeight$:     cellHeightShared$,
+            columns$:        columnsShared$,
+            preloadedRows$:  preloadedRowsShared$,
+            viewportTop$:    viewportTopShared$,
+            viewportBottom$: viewportBottomShared$
         });
 
         return {
-            viewHeight$, rangeToLoad$
+            viewHeight$, rangeToLoad$, placeholderIndexes$
         };
     };
 
@@ -122,8 +158,8 @@ lazyTable.controller('GuLazyTableCtrl', [function() {
         const loadedHeight$ = mult$(preloadedRows$, height$);
 
         return (index) => {
-            const top$    = mult$(floor$(columns$.map(col => index / col)), height$);
-            const left$   = mult$(columns$.map(col => index % col), width$);
+            const top$    = mult$(floor$(div$(index, columns$)), height$);
+            const left$   = mult$(mod$(index, columns$), width$);
 
             const bottom$ = add$(top$, height$);
             const display$ = combine$(top$, bottom$, loadedHeight$,
@@ -172,6 +208,15 @@ lazyTable.directive('guLazyTable', ['$window', 'observe$',
     return {
         restrict: 'A',
         controller: 'GuLazyTableCtrl',
+        transclude: true,
+        template: `
+<ul>
+  <li ng:repeat="placeholderIndex in $placeholders"
+      class="result-placeholder"
+      gu:lazy-table-placeholder="placeholderIndex"></li>
+</ul>
+<ng-transclude></ng-transclude>
+`,
         link: function (scope, element, attrs, ctrl) {
             // Map attributes as Observable streams
             const {
@@ -231,7 +276,7 @@ lazyTable.directive('guLazyTable', ['$window', 'observe$',
             const viewportBottom$ = add$(offsetTop$, offsetHeight$);
 
 
-            const {viewHeight$, rangeToLoad$} = ctrl.init({
+            const {viewHeight$, rangeToLoad$, placeholderIndexes$} = ctrl.init({
                 items$, preloadedRows$, cellHeight$, cellMinWidth$,
                 containerWidth$, viewportTop$, viewportBottom$
             });
@@ -241,6 +286,10 @@ lazyTable.directive('guLazyTable', ['$window', 'observe$',
 
             subscribe$(scope, rangeToLoad$, range => {
                 scope.$eval(loadRangeFn, range);
+            });
+
+            subscribe$(scope, placeholderIndexes$, indexes => {
+                scope.$placeholders = indexes;
             });
 
             subscribe$(scope, viewHeight$.distinctUntilChanged(), viewHeight => {

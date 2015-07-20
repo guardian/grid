@@ -569,6 +569,13 @@ input.search-query__input {
     background: #393939;
 }
 
+.result-placeholder {
+    position: relative;
+    border: solid 5px #333;
+    box-sizing: border-box;
+    background: #393939;
+}
+
 .result__select input[type=checkbox] {
     visibility: hidden;
 }
