@@ -115,27 +115,34 @@ lazyTable.controller('GuLazyTableCtrl', [function() {
 
         // Mutations needed here to access streams in this closure ;_;
 
-        // Share subscriptions to these streams between all cells that
-        // register to getItemPosition$
+        // Share subscriptions to these streams between all cells and
+        // placeholders that register to their position
 
-        // TODO: share shareReplay between the two
+        const itemsShared$          = items$.shareReplay(1);
+        const cellWidthShared$      = cellWidth$.shareReplay(1);
+        const cellHeightShared$     = cellHeight$.shareReplay(1);
+        const columnsShared$        = columns$.shareReplay(1);
+        const preloadedRowsShared$  = preloadedRows$.shareReplay(1);
+        const viewportTopShared$    = viewportTop$.shareReplay(1);
+        const viewportBottomShared$ = viewportBottom$.shareReplay(1);
+
         ctrl.getItemPosition$ = createGetItemPosition$({
-            items$:          items$.shareReplay(1),
-            cellWidth$:      cellWidth$.shareReplay(1),
-            cellHeight$:     cellHeight$.shareReplay(1),
-            columns$:        columns$.shareReplay(1),
-            preloadedRows$:  preloadedRows$.shareReplay(1),
-            viewportTop$:    viewportTop$.shareReplay(1),
-            viewportBottom$: viewportBottom$.shareReplay(1)
+            items$:          itemsShared$,
+            cellWidth$:      cellWidthShared$,
+            cellHeight$:     cellHeightShared$,
+            columns$:        columnsShared$,
+            preloadedRows$:  preloadedRowsShared$,
+            viewportTop$:    viewportTopShared$,
+            viewportBottom$: viewportBottomShared$
         });
 
         ctrl.getCellPosition$ = createGetCellPosition$({
-            cellWidth$:      cellWidth$.shareReplay(1),
-            cellHeight$:     cellHeight$.shareReplay(1),
-            columns$:        columns$.shareReplay(1),
-            preloadedRows$:  preloadedRows$.shareReplay(1),
-            viewportTop$:    viewportTop$.shareReplay(1),
-            viewportBottom$: viewportBottom$.shareReplay(1)
+            cellWidth$:      cellWidthShared$,
+            cellHeight$:     cellHeightShared$,
+            columns$:        columnsShared$,
+            preloadedRows$:  preloadedRowsShared$,
+            viewportTop$:    viewportTopShared$,
+            viewportBottom$: viewportBottomShared$
         });
 
         return {
