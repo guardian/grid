@@ -16,7 +16,7 @@ imageFade.directive('grImageFadeOnLoad',
             // If not loaded after animationThreshold, hide and wait
             // until loaded to fade in
             $timeout(() => {
-                if (! isLoaded) {
+                if (! isLoaded()) {
                     hide();
                     whenLoaded().finally(reveal);
                 }
@@ -31,7 +31,7 @@ imageFade.directive('grImageFadeOnLoad',
                 const defer = $q.defer();
 
                 // already loaded
-                if (isLoaded) {
+                if (isLoaded()) {
                     defer.resolve();
                 } else {
                     // wait until loaded/error
