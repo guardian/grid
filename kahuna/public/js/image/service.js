@@ -7,7 +7,8 @@ export const imageService = angular.module('gr.image.service', ['kahuna.edits.se
 imageService.factory('imageService', ['editsService', function(editsService) {
     function forImage(image) {
         return {
-            usageRights: usageRights(image)
+            usageRights: usageRights(image),
+            states: getStates(image)
         };
     }
 
@@ -28,6 +29,18 @@ imageService.factory('imageService', ['editsService', function(editsService) {
         return { data, save, remove };
     }
 
+    function hasExportsOfType(image, type) {
+        return image.data.exports &&
+                image.data.exports.some(ex => ex.type === type);
+    }
+
+    function getStates(image) {
+        return {
+            cost: image.data.cost,
+            hasCrops: hasExportsOfType(image, 'crop'),
+            isValid: image.data.valid
+        };
+    }
 
     return image => forImage(image);
 }]);

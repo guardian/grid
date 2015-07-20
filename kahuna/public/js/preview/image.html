@@ -1,12 +1,12 @@
 <div class="preview image-actions-container"
-     title="{{image.data.metadata.description || image.data.metadata.title}}">
+     title="{{ctrl.image.data.metadata.description || ctrl.image.data.metadata.title}}">
 
-    <ul class="image-actions" ng:if="! selectionMode">
+    <ul class="image-actions" ng:if="! ctrl.selectionMode">
         <li>
             <a class="image-action image-action--first"
                target="_blank"
                title="Pop out"
-               ng:href="/images/{{image.data.id}}"
+               ng:href="/images/{{ctrl.image.data.id}}"
                gr:track-click="Popout button">
                 <gr-icon>open_in_new</gr-icon>
             </a>
@@ -15,8 +15,8 @@
         <li>
             <a class="image-action"
                title="crop"
-               ng:if="image.data.valid"
-               ui:sref="crop({ imageId: image.data.id })">
+               ng:if="ctrl.states.valid"
+               ui:sref="crop({ imageId: ctrl.image.data.id })">
                 <gr-icon>crop</gr-icon>
             </a>
         </li>
@@ -25,39 +25,39 @@
         </li>
     </ul>
 
-    <a ng:if="! selectionMode" class="preview__link"
-       ui:sref="image({imageId: image.data.id})"
-       ui:drag-data="{{image | asImageDragData}}">
+    <a ng:if="! ctrl.selectionMode" class="preview__link"
+       ui:sref="ctrl.image({imageId: ctrl.image.data.id})"
+       ui:drag-data="{{ctrl.image | asImageDragData}}">
        <div class="preview__fade"></div>
        <img class="preview__image"
-            ng:src="{{image.data.thumbnail | assetFile}}"
+            ng:src="{{ctrl.image.data.thumbnail | assetFile}}"
             gr:image-fade-on-load />
     </a>
 
-    <span  ng:if="selectionMode" class="preview__no-link">
+    <span  ng:if="ctrl.selectionMode" class="preview__no-link">
         <div class="preview__fade"></div>
         <img class="preview__image"
-             ng:src="{{image.data.thumbnail | assetFile}}"
+             ng:src="{{ctrl.image.data.thumbnail | assetFile}}"
              gr:image-fade-on-load />
     </span>
 
-    <div class="preview__info" ng:if="! hideInfo">
+    <div class="preview__info" ng:if="! ctrl.hideInfo">
         <ui-labeller-compact class="preview__labeller"
-                             image="image"
-                             disabled="selectionMode"></ui-labeller-compact>
+                             image="ctrl.image"
+                             disabled="ctrl.selectionMode"></ui-labeller-compact>
 
-        <p class="preview__description">{{image.data.metadata.description || image.data.metadata.title}}</p>
+        <p class="preview__description">{{ctrl.image.data.metadata.description || ctrl.image.data.metadata.title}}</p>
     </div>
 
     <div class="preview__bottom-bar bottom-bar">
         <div class="bottom-bar__meta">
             <span class="preview__upload-time">
-                {{image.data.uploadTime | date:'dd/MM/yy'}} {{image.data.uploadTime | date:'HH:mm'}}
+                {{ctrl.image.data.uploadTime | date:'dd/MM/yy'}} {{ctrl.image.data.uploadTime | date:'HH:mm'}}
             </span>
 
             <span class="bottom-bar__meta-item preview__has-crops"
                   title="this image has crops"
-                  ng:if="image | hasExportsOfType:'crop'">
+                  ng:if="ctrl.states.hasCrops">
 
                 <gr-icon gr-small>crop</gr-icon>
             </span>
@@ -66,10 +66,10 @@
 
             <ui-archiver
                 class="bottom-bar__action"
-                image="image"
-                disabled="selectionMode"></ui-archiver>
+                image="ctrl.image"
+                disabled="ctrl.selectionMode"></ui-archiver>
 
-            <div class="preview__cost bottom-bar__action" ng:switch="image.data.cost">
+            <div class="preview__cost bottom-bar__action" ng:switch="ctrl.states.cost">
                 <div ng:switch-when="pay"
                      class="cost cost--pay">
                     pay
@@ -77,7 +77,7 @@
 
                 <div ng:switch-when="conditional"
                      class="cost cost--conditional"
-                     title="{{image.data.usageRights.restrictions}}">
+                     title="{{ctrl.image.data.usageRights.restrictions}}">
                      <!-- As `conditional` can only be set with usageRights, let's
                      just assume it's here. We might need to revisit this. -->
                     restricted
