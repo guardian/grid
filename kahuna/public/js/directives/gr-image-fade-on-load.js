@@ -38,8 +38,8 @@ imageFade.directive('grImageFadeOnLoad',
                     element.bind('load', defer.resolve);
                     element.bind('error', defer.reject);
 
-                    // free listeners
-                    scope.$on('$destroy', () => {
+                    // free listeners once observed
+                    defer.promise.finally(() => {
                         element.unbind('load', defer.resolve);
                         element.unbind('error', defer.reject);
                     });
