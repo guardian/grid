@@ -48,7 +48,7 @@ object ImageResponse {
 
     val valid = ImageExtras.isValid(source \ "metadata")
 
-    val isRetained = image.identifiers.contains(Config.persistenceIdentifier) ||
+    val isPersisted = image.identifiers.contains(Config.persistenceIdentifier) ||
       image.exports.length > 0 ||
       image.userMetadata.exists(_.archived)
 
@@ -57,7 +57,7 @@ object ImageResponse {
       .flatMap(_.transform(addSecureThumbUrl(secureThumbUrl)))
       .flatMap(_.transform(addValidity(valid)))
       .flatMap(_.transform(addUsageCost(source)))
-      .flatMap(_.transform(addRetainmentStatus(isRetained))).get
+      .flatMap(_.transform(addPersistedState(isPersisted))).get
 
     val links = imageLinks(id, secureUrl, withWritePermission, valid)
 
@@ -98,8 +98,8 @@ object ImageResponse {
     __.json.update(__.read[JsObject].map(_ ++ Json.obj("cost" -> cost.toString)))
   }
 
-  def addRetainmentStatus(isRetained: Boolean): Reads[JsObject] =
-    __.json.update(__.read[JsObject]).map(_ ++ Json.obj("retained" -> isRetained))
+  def addPersistedState(isPersisted: Boolean): Reads[JsObject] =
+    __.json.update(__.read[JsObject]).map(_ ++ Json.obj("persisted" -> isPersisted))
 
   // FIXME: tidier way to replace a key in a JsObject?
   def wrapUserMetadata(id: String): Reads[JsObject] =
