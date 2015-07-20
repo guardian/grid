@@ -894,7 +894,7 @@ FIXME: what to do with touch devices
     width: 24px;
     color: #999;
     display: block;
-    border-top: 1px dashed rgba(255, 255, 255, .5);
+    border-top: 1px solid rgba(255, 255, 255, .3);
 }
 .image-action--first {
     border-top: 0;
