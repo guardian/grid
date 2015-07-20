@@ -32,8 +32,8 @@ System.config({
     "text": "github:systemjs/plugin-text@0.0.2",
     "theseus": "npm:theseus@0.4.0",
     "theseus-angular": "npm:theseus-angular@0.3.0",
-    "traceur": "github:jmcriffey/bower-traceur@0.0.88",
-    "traceur-runtime": "github:jmcriffey/bower-traceur-runtime@0.0.88",
+    "traceur": "github:jmcriffey/bower-traceur@0.0.90",
+    "traceur-runtime": "github:jmcriffey/bower-traceur-runtime@0.0.90",
     "ua-parser-js": "npm:ua-parser-js@0.7.3",
     "github:angular-ui/ui-router@0.2.13": {
       "angular": "github:angular/bower-angular@1.3.15"
