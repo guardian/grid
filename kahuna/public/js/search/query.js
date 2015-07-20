@@ -55,7 +55,7 @@ query.controller('SearchQueryCtrl',
 
             // don't track changes to `query` as it would trigger on every keypress
             if (key !== 'query') {
-                track.success('Query Change', { field: key, value: newVal });
+                track.success('Query change', { field: key, value: newVal });
             }
         }));
     }
