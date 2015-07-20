@@ -50,13 +50,15 @@ imageFade.directive('grImageFadeOnLoad',
 
             function hide() {
                 element.css({
-                    opacity: 0,
-                    transition: `opacity ${animationDuration}ms ease-out`
+                    opacity: 0
                 });
             }
 
             function reveal() {
-                element.css({opacity: 1});
+                element.css({
+                    opacity: 1,
+                    transition: `opacity ${animationDuration}ms ease-out`
+                });
             }
 
         }
