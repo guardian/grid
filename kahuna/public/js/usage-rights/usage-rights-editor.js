@@ -43,7 +43,7 @@ usageRightsEditor.controller('UsageRightsEditorCtrl',
         } else {
             remove();
         }
-    }
+    };
 
     ctrl.remove = remove;
 
@@ -76,9 +76,10 @@ usageRightsEditor.controller('UsageRightsEditorCtrl',
     function setCategories(cats, selected) {
         ctrl.categories = cats;
         setCategory(selected);
-        
-        // FIXME [1]: This is because we don't allow the override of NoRights yet (needs reindexing).
-        // We don't however want to default the first category as that can be confusing.
+
+        // FIXME [1]: This is because we don't allow the override of
+        // NoRights yet (needs reindexing). We don't however want to
+        // default the first category as that can be confusing.
         if (!ctrl.category) {
             ctrl.categories = [noRights].concat(ctrl.categories);
             ctrl.category = noRights;
