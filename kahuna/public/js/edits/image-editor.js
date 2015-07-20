@@ -2,17 +2,19 @@ import angular from 'angular';
 import template from './image-editor.html!text';
 
 import './service';
-import './usage-rights-editor';
+import '../image/service';
+import '../usage-rights/usage-rights-editor';
 
 
 export var imageEditor = angular.module('kahuna.edits.imageEditor', [
     'kahuna.edits.service',
+    'gr.image.service',
     'kahuna.edits.usageRightsEditor'
 ]);
 
 imageEditor.controller('ImageEditorCtrl',
-                       ['$scope', '$timeout', 'editsService',
-                        function($scope, $timeout, editsService) {
+                       ['$scope', '$timeout', 'editsService', 'imageService',
+                        function($scope, $timeout, editsService, imageService) {
 
     var ctrl = this;
 
@@ -71,6 +73,8 @@ imageEditor.controller('ImageEditorCtrl',
         ctrl.error = true;
     }
 
+
+    ctrl.usageRights = imageService(ctrl.image).usageRights;
 }]);
 
 

@@ -48,7 +48,7 @@
                            ng:click="ctrl.toggleSelection(image, false)"/>
                     <label for="{{::image.data.id}}-result__select__checkbox--select"
                            class="result__select__checkbox__label">
-                        <i class="material-icons">check_box</i>
+                        <gr-icon>check_box</gr-icon>
                     </label>
                 </div>
                 <div class="result__select" ng:if="!ctrl.imageHasBeenSelected(image)">
@@ -58,7 +58,7 @@
                            ng:click="ctrl.toggleSelection(image, true)" />
                     <label for="{{::image.data.id}}-result__select__checkbox--deselect"
                            class="result__select__checkbox__label">
-                        <i class="material-icons">check_box</i>
+                        <gr-icon>check_box</gr-icon>
                     </label>
                 </div>
 
@@ -68,7 +68,9 @@
                     <button class="mark-as-seen image-action"
                             title="Mark all images until this point as seen"
                             ui:localstore="search.seenFrom"
-                            ui:localstore-val="ctrl.getLastSeenVal(image)">☑</button>
+                            ui:localstore-val="ctrl.getLastSeenVal(image)">
+                        <gr-icon>remove_red_eye</gr-icon>
+                    </button>
                 </ui-preview-image>
             </li>
         </ul>
