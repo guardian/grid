@@ -19,10 +19,13 @@ imageService.factory('imageService', ['editsService', function(editsService) {
         );
         const resource = image.data.userMetadata.data.usageRights;
 
-        const save = newData => editsService.update(resource, newData, image);
-        const remove = () => editsService.remove(resource, image);
+        const save = newData =>
+            editsService.update(resource, newData, image).then(resource => resource.data);
 
-        return { data, resource, image, save, remove };
+        const remove = () =>
+            editsService.remove(resource, image).then(() => image.data.usageRights);
+
+        return { data, save, remove };
     }
 
 

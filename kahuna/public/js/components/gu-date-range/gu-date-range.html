@@ -1,9 +1,6 @@
 <div class="gu-date-range" ng:init="ctrl.showOverlay = false">
     <div class="gu-date-range__display" ng:click="ctrl.showOverlay = !ctrl.showOverlay">
-        <div class="gu-date-range__display__icon gu-date-range__display__icon__calendar">
-            &#128197;
-        </div>
-
+        <gr-icon>event</gr-icon>
         <div class="gu-date-range__display--value">
             <span ng:show="ctrl.guDisplayStartDate !== ctrl.guAnyTimeText && !ctrl.guDisplayEndDate">from </span>
             {{ctrl.guDisplayStartDate}}

@@ -3,73 +3,72 @@ package model
 import play.api.libs.functional.syntax._
 import play.api.libs.json._
 import com.gu.mediaservice.lib.config.MetadataConfig.StaffPhotographers
-
-
+import com.gu.mediaservice.lib.config.UsageRightsConfig
 import com.gu.mediaservice.model._
 
 
 // TODO: We'll be able to deprecate this and build it up directly from case
 // classes.
 // TODO: turn this into a case class?
-sealed trait UsageRightsProperty {
-  val name: String
-  val label: String
-  val `type`: String
-  val required: Boolean
-  val options: Option[List[String]] = None
-  val optionsMap: Option[Map[String, List[String]]] = None
-  val optionsMapKey: Option[String] = None
-}
+case class UsageRightsProperty(
+  name: String,
+  label: String,
+  `type`: String,
+  required: Boolean,
+  options: Option[List[String]] = None,
+  optionsMap: Option[Map[String, List[String]]] = None,
+  optionsMapKey: Option[String] = None
+)
+
 
 object UsageRightsProperty {
-  implicit val jsonWrites: Writes[UsageRightsProperty] = (
-    (__ \ "name").write[String] ~
-    (__ \ "label").write[String] ~
-    (__ \ "type").write[String] ~
-    (__ \ "required").write[Boolean] ~
-    (__ \ "options").writeNullable[List[String]] ~
-    (__ \ "optionsMap").writeNullable[Map[String, List[String]]] ~
-    (__ \ "optionsMapKey").writeNullable[String]
-  )(u => (u.name, u.label, u.`type`, u.required, u.options, u.optionsMap, u.optionsMapKey))
+  type OptionsMap = Map[String, List[String]]
+  type Options = List[String]
 
-  def getPropertiesForCat(u: UsageRights): List[UsageRightsProperty] = {
-    photographerProperties(u) ++ restrictionProperties(u)
+  implicit val jsonWrites: Writes[UsageRightsProperty] = Json.writes[UsageRightsProperty]
+
+  def getPropertiesForCat(u: UsageRights): List[UsageRightsProperty] =
+    agencyProperties(u) ++ photographerProperties(u) ++ restrictionProperties(u)
+
+  private def publicationField =
+    UsageRightsProperty("publication", "Publication", "string", true, Some(StaffPhotographers.creditBylineMap.keys.toList))
+
+  private def photographerField =
+    UsageRightsProperty("photographer", "Photographer", "string", true)
+
+  private def photographerField(photographers: OptionsMap, key: String) =
+    UsageRightsProperty("photographer", "Photographer", "string", true, optionsMap = Some(photographers), optionsMapKey = Some(key))
+
+  private def restrictionProperties(u: UsageRights): List[UsageRightsProperty] = u match {
+    case _:NoRights.type => List()
+    case _ => List(UsageRightsProperty("restrictions", "Restrictions", "text", u.defaultCost.contains(Conditional)))
   }
 
-  private def restrictionProperties(u: UsageRights): List[UsageRightsProperty] = {
-    List(RestrictionsProperty(u.defaultCost.contains(Conditional)))
+  private def agencyProperties(u: UsageRights): List[UsageRightsProperty] = u match {
+    case _:Agency => List(
+      UsageRightsProperty("supplier", "Supplier", "string", true, Some(UsageRightsConfig.freeSuppliers)),
+      UsageRightsProperty("suppliersCollection", "Collection", "string", false)
+    )
+    case _ => List()
   }
 
-  private def photographerProperties(u: UsageRights): List[UsageRightsProperty] = {
-    u match {
-      case s: StaffPhotographer => List(PublicationProperty, PhotographerProperty)
-      case _ => List()
-    }
+
+  private def photographerProperties(u: UsageRights): List[UsageRightsProperty] = u match {
+    case _:StaffPhotographer => List(
+      publicationField,
+      photographerField(StaffPhotographers.creditBylineMap, "publication")
+    )
+
+    case _:CommissionedPhotographer => List(
+      publicationField,
+      photographerField
+    )
+
+    case _:ContractPhotographer => List(
+      publicationField,
+      photographerField
+    )
+
+    case _ => List()
   }
-}
-
-case class RestrictionsProperty(required: Boolean)
-  extends UsageRightsProperty {
-  val name = "restrictions"
-  val label = "Restrictions"
-  val `type` = "text"
-}
-
-case object PhotographerProperty
-  extends UsageRightsProperty {
-  val name = "photographer"
-  val label = "Photographer"
-  val `type` = "string"
-  val required = true
-  override val optionsMap = Some(StaffPhotographers.creditBylineMap)
-  override val optionsMapKey = Some("publication")
-}
-
-case object PublicationProperty
-  extends UsageRightsProperty {
-  val name = "publication"
-  val label = "Publication"
-  val `type` = "string"
-  val required = true
-  override val options = Some(StaffPhotographers.creditBylineMap.keys.toList)
 }

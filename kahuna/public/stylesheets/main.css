@@ -28,33 +28,6 @@
          url("fonts/MaterialIcons-Regular.woff") format('woff');
 }
 
-.material-icons {
-    font-family: 'Material Icons';
-    font-weight: normal;
-    font-style: normal;
-    font-size: 16px;  /* Preferred icon size */
-    display: inline-block;
-    width: 1em;
-    height: 1em;
-    line-height: 1;
-    text-transform: none;
-    letter-spacing: normal;
-    word-wrap: normal;
-
-    /* Support for all WebKit browsers. */
-    -webkit-font-smoothing: antialiased;
-    /* Support for Safari and Chrome. */
-    text-rendering: optimizeLegibility;
-
-    /* Support for Firefox. */
-    -moz-osx-font-smoothing: grayscale;
-
-    vertical-align: middle;
-}
-.material-icons--small {
-    font-size: 1.2rem;
-}
-
 @keyframes fadeIn {
     0%   { opacity: 0; }
     100% { opacity: 1; }
@@ -204,6 +177,18 @@ a:focus {
 }
 .button-shy:not([disabled]):hover {
     background: #888;
+}
+.button-ico {
+    padding: 4px;
+}
+
+.button-save {
+    background: #00adee;
+    color: white;
+}
+
+.confirm-delete {
+
 }
 
 
@@ -374,7 +359,7 @@ textarea.ng-invalid {
     padding: 10px;
 }
 
-@media screen and (max-width: 1100px) {
+@media screen and (max-width: 800px) {
     .top-bar-item__label {
         display: none;
     }
@@ -621,7 +606,7 @@ input.search-query__input {
     padding: 5px 10px;
 }
 
-@media screen and (max-width: 1100px) {
+@media screen and (max-width: 800px) {
     .file-uploader__select-files--label {
         display: none;
     }
@@ -687,17 +672,35 @@ input.search-query__input {
     cursor: pointer;
 }
 
-.result__select .result__select__checkbox__label .material-icons {
+.result__select .result__select__checkbox__label gr-icon {
     font-size: 25px;
     color: white;
 }
 
-.result__select--selected .result__select__checkbox__label .material-icons {
+.result__select--selected .result__select__checkbox__label gr-icon {
     color: #00adee;
 }
 
 .result:hover .result__select,
 .result:hover .preview__fade,
+.result:hover .image-actions,
+.result:hover .labeller__add,
+.result:hover .archiver {
+    display: block;
+}
+
+.result:hover {
+    border-color: #404040;
+}
+
+.result:hover .preview {
+    background-color: #404040;
+}
+
+.result--selected:hover .preview__fade {
+    display: none;
+}
+
 .result__select--selected {
     display: initial;
 }
@@ -811,32 +814,12 @@ input.search-query__input {
     margin: 0;
 }
 
-.preview .preview__crop {
-    display: none;
-}
-
-.preview:hover {
-    background-color: #404040;
-}
-
-.preview:hover .preview__crop {
-    display: inline;
-}
-
 /*
 FIXME: this is a little targeted
 FIXME: what to do with touch devices
 */
 .preview .labeller__add {
-    visibility: hidden;
-}
-.preview:hover .labeller__add {
-    visibility: visible;
-}
-
-.preview__upload-date {
-    font-weight: bold;
-    margin-right: 10px;
+    display: none;
 }
 
 .preview__upload-time {
@@ -863,7 +846,7 @@ FIXME: what to do with touch devices
 
 .preview__fade {
     width: 100%;
-    background: linear-gradient(to top, rgba(255, 255, 255, 0), rgba(160, 160, 160, 1));
+    background: linear-gradient(to top, rgba(0, 0, 0, 0), rgba(0, 0, 0, 0.75));
     height: 35px;
     position: absolute;
     display: none;
@@ -886,7 +869,15 @@ FIXME: what to do with touch devices
 }
 .bottom-bar__action {
     color: inherit;
-    display: inline-block;
+    display: block;
+}
+
+.bottom-bar__actions ui-archiver {
+    float: left;
+}
+
+.bottom-bar__actions .preview__cost {
+    float: right;
 }
 
 
@@ -895,9 +886,6 @@ FIXME: what to do with touch devices
    ========================================================================== */
 .image-actions-container .image-actions {
     display: none;
-}
-.image-actions-container:hover .image-actions {
-    display: block;
 }
 
 .image-actions {
@@ -915,12 +903,16 @@ FIXME: what to do with touch devices
 .image-action {
     line-height: 24px;
     width: 24px;
-    color: white;
+    color: #999;
     display: block;
     border-top: 1px dashed rgba(255, 255, 255, .5);
 }
 .image-action--first {
     border-top: 0;
+}
+
+.image-action:hover {
+    color: white;
 }
 
 
@@ -1238,7 +1230,8 @@ FIXME: what to do with touch devices
     box-sizing: border-box;
 }
 .image-crop--selected,
-.result--selected {
+.result--selected,
+.result--selected:hover {
     border-color: #00adee;
 }
 
@@ -1262,7 +1255,7 @@ FIXME: what to do with touch devices
    Labeller
    ========================================================================== */
 .labeller {
-    min-height: 20px;
+    height: 25px;
     font-size: 1.3rem;
     display: flex;
     overflow: hidden;
@@ -1289,7 +1282,7 @@ FIXME: what to do with touch devices
 }
 
 .label--partial,
-.label--partial .material-icons {
+.label--partial gr-icon {
     background-color: white;
     color: #00adee;
 }
@@ -1299,16 +1292,16 @@ FIXME: what to do with touch devices
     color: white;
 }
 
-.label button:hover .material-icons {
+.label button:hover gr-icon {
     color: #333;
 }
 
-.label button:active .material-icons {
+.label button:active gr-icon {
     background-color: #008fc5;
     color: #333;
 }
 
-.label--partial button:active .material-icons {
+.label--partial button:active gr-icon {
     background-color: #CFCFCF;
     color: #333;
 }
@@ -1568,7 +1561,7 @@ FIXME: what to do with touch devices
    Archviver
    ========================================================================== */
 
-@media screen and (max-width: 1100px) {
+@media screen and (max-width: 800px) {
     .archiver__label {
         display: none;
     }
@@ -1582,9 +1575,9 @@ FIXME: what to do with touch devices
 .preview .archiver {
     display: none;
 }
-.preview:hover .archiver,
+
 .preview .archiver--archived {
-    display: inline;
+    display: block;
 }
 
 .archiver--archived {
@@ -1716,6 +1709,10 @@ FIXME: what to do with touch devices
 .form-property {
     display: block;
     margin-bottom: 10px;
+}
+
+.form-property--last {
+    margin-bottom: 0;
 }
 
 .form-input-text {
