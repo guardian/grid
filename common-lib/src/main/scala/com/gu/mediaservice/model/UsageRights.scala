@@ -118,10 +118,9 @@ object Agency {
 case class PrImage(restrictions: Option[String] = None)
   extends UsageRights {
     val category = "PR Image"
-    val defaultCost = Some(Conditional)
+    val defaultCost = Some(Free)
     val description =
-      "Used to promote specific exhibitions, auctions, etc. and only available " +
-      "for such purposes."
+      "Used for publicity and promotional purposes such as exhibitions, auctions, etc."
   }
 
 object PrImage {
