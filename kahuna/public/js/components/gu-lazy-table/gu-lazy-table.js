@@ -100,12 +100,12 @@ lazyTable.controller('GuLazyTableCtrl', ['range', function(range) {
         const placeholderExtraCount$ = mult$(columns$, preloadedRows$);
         const placeholderRangeStart$ = max$(sub$(loadedRangeStart$, placeholderExtraCount$), 0);
         const placeholderRangeEnd$ = min$(add$(loadedRangeEnd$, placeholderExtraCount$),
-                                          itemsCount$);
+                                          sub$(itemsCount$, 1));
 
         const placeholderIndexes$ = combine$(
             placeholderRangeStart$, placeholderRangeEnd$,
             (placeholderRangeStart, placeholderRangeEnd) => {
-                let indexes = range(placeholderRangeStart, placeholderRangeEnd - 1);
+                let indexes = range(placeholderRangeStart, placeholderRangeEnd);
                 return Array.from(indexes);
             }
         );
