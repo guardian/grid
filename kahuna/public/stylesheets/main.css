@@ -1474,6 +1474,10 @@ FIXME: what to do with touch devices
     border-bottom: 1px dashed #999;
 }
 
+.upload-result:hover .image-actions {
+    display: block;
+}
+
 
 /* ==========================================================================
    jCrop
