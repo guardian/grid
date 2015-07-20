@@ -8,6 +8,7 @@ let {addResizeListener, removeResizeListener} = elementResize;
 import './rx-helpers';
 import './gu-lazy-table-cell';
 import './gu-lazy-table-placeholder';
+import '../../util/seq';
 
 import {
     combine$,
@@ -19,7 +20,8 @@ import {
 export var lazyTable = angular.module('gu.lazyTable', [
     'gu.lazyTableCell',
     'gu.lazyTablePlaceholder',
-    'rx.helpers'
+    'rx.helpers',
+    'util.seq'
 ]);
 
 
@@ -47,7 +49,7 @@ function findLastIndexFrom(array, item, fromIndex) {
 }
 
 
-lazyTable.controller('GuLazyTableCtrl', [function() {
+lazyTable.controller('GuLazyTableCtrl', ['range', function(range) {
     let ctrl = this;
 
     ctrl.init = function({items$, preloadedRows$, cellHeight$, cellMinWidth$,
@@ -101,13 +103,10 @@ lazyTable.controller('GuLazyTableCtrl', [function() {
                                           itemsCount$);
 
         const placeholderIndexes$ = combine$(
-            items$, placeholderRangeStart$, placeholderRangeEnd$,
-            (items, placeholderRangeStart, placeholderRangeEnd) => {
-                let indexes = [];
-                for (let i = placeholderRangeStart; i < placeholderRangeEnd; i++) {
-                    indexes.push(i);
-                }
-                return indexes;
+            placeholderRangeStart$, placeholderRangeEnd$,
+            (placeholderRangeStart, placeholderRangeEnd) => {
+                let indexes = range(placeholderRangeStart, placeholderRangeEnd - 1);
+                return Array.from(indexes);
             }
         );
 
