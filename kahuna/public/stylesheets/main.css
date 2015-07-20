@@ -28,42 +28,6 @@
          url("fonts/MaterialIcons-Regular.woff") format('woff');
 }
 
-.material-icons {
-    font-family: 'Material Icons';
-    font-weight: normal;
-    font-style: normal;
-    font-size: 16px;  /* Preferred icon size */
-    display: inline-block;
-    width: 1em;
-    height: 1em;
-    line-height: 1;
-    text-transform: none;
-    letter-spacing: normal;
-    word-wrap: normal;
-
-    /* Support for all WebKit browsers. */
-    -webkit-font-smoothing: antialiased;
-    /* Support for Safari and Chrome. */
-    text-rendering: optimizeLegibility;
-
-    /* Support for Firefox. */
-    -moz-osx-font-smoothing: grayscale;
-
-    vertical-align: middle;
-}
-.material-icons--small {
-    font-size: 1.2rem;
-}
-
-@keyframes fadeIn {
-    0%   { opacity: 0; }
-    100% { opacity: 1; }
-}
-@-webkit-keyframes fadeIn {
-    0%   { opacity: 0; }
-    100% { opacity: 1; }
-}
-
 @keyframes spin {
     from   { transform: rotate(0deg); }
     to { transform: rotate(360deg); }
@@ -168,7 +132,7 @@ button {
     box-sizing: border-box;
     color: white;
     display: block;
-    padding: 5px 20px;
+    padding: 5px 10px;
     font-size: 1.4rem;
     position: relative;
 }
@@ -204,6 +168,18 @@ a:focus {
 }
 .button-shy:not([disabled]):hover {
     background: #888;
+}
+.button-ico {
+    padding: 4px;
+}
+
+.button-save {
+    background: #00adee;
+    color: white;
+}
+
+.confirm-delete {
+
 }
 
 
@@ -310,29 +286,58 @@ textarea.ng-invalid {
    Top bar
    ========================================================================== */
 
+.top-bar-item__label {
+    padding-left: 5px;
+}
+
 .top-bar-item {
-    margin-left: 10px;
+    margin-left: -4px;
     vertical-align: middle;
-    line-height: 28px;
+    line-height: 50px;
     display: inline-block;
+    padding: 0 10px;
+    border-left: 1px solid #565656;
+    border-right: 1px solid #565656;
+    height: 50px;
+}
+.top-bar-item--full {
+    padding: 0;
 }
 .top-bar-item:first-child {
     margin-left: 0;
 }
 
+.top-bar-item:hover {
+	background-color: #666666;
+}
+
+.top-bar-item--filled {
+    padding: 0;
+}
+
+/* --static is for top bar items that perform no action, only display information */
+.top-bar-item--static:hover {
+    background-color: transparent;
+}
+
 .user-actions {
     margin-right: -10px;
-    padding: 0px 5px;
+    padding: 0 5px;
+    margin-top: 12px;
 }
 
 .home-link {
     text-indent: -9999px;
-    width: 24px;
-    height: 24px;
+    width: 50px;
+    height: 50px;
     background: url(/assets/images/grid-logo-32.png) no-repeat center;
-    margin-right: 10px;
+    margin-right: 0;
     vertical-align: top;
     float: left;
+}
+
+.home-link:hover {
+    background-color: #666666;
 }
 
 .logout {
@@ -345,6 +350,11 @@ textarea.ng-invalid {
     padding: 10px;
 }
 
+@media screen and (max-width: 800px) {
+    .top-bar-item__label {
+        display: none;
+    }
+}
 
 /* ==========================================================================
    Page
@@ -409,7 +419,9 @@ textarea.ng-invalid {
    Search
    ========================================================================== */
 
-.search {}
+.search {
+    margin-top: 12px;
+}
 
 .search__query {
     padding: 5px 10px;
@@ -419,6 +431,56 @@ textarea.ng-invalid {
 
 .search__filters {
     display: inline-block;
+}
+
+.search__filter-item {
+    display: inline;
+}
+
+.search__filters-container {
+    position: relative;
+    display: inline-block;
+}
+
+.search__filters-toggle {
+    display: none;
+}
+
+@media screen and (max-width: 700px) {
+    input.search-query__input {
+        width: 170px
+    }
+}
+
+@media screen and (max-width: 1100px) {
+
+    .search__filters-toggle {
+        display: inherit;
+    }
+    .search__filters {
+        display: inherit;
+        position: absolute;
+        top: 25px;
+        left: 0;
+        width: 150px;
+        background-color: #333;
+        position: absolute;
+        padding: 10px;
+        box-shadow: 0 1px 5px rgba(0, 0, 0, 0.5);
+    }
+    .search__filters--hide {
+        display: none;
+    }
+    .search__filters--show {
+        display: inherit;
+    }
+    .search__filter-item {
+        display: list-item;
+    }
+
+    .search .search__filter {
+        margin-left: 0;
+    }
 }
 
 .search__filter {
@@ -507,10 +569,19 @@ input.search-query__input {
     box-shadow: 0 1px 5px rgba(0, 0, 0, 0.4);
     padding: 10px;
     position: absolute;
+    min-width: 520px;
 }
 
 .search__overlay__title {
     font-weight: bold;
+}
+
+/* ==========================================================================
+   Crop
+   ========================================================================== */
+
+.crop__action {
+    margin-top: 12px;
 }
 
 /* ==========================================================================
@@ -522,10 +593,11 @@ input.search-query__input {
 }
 
 .file-uploader__select-files {
+    margin-top: 12px;
     padding: 5px 10px;
 }
 
-@media screen and (max-width: 1200px) {
+@media screen and (max-width: 800px) {
     .file-uploader__select-files--label {
         display: none;
     }
@@ -536,8 +608,8 @@ input.search-query__input {
    ========================================================================== */
 
 .results {
-    animation: fadeIn .25s;
-    -webkit-animation: fadeIn .25s;
+    display: flex;
+    flex-wrap: wrap;
 }
 
 .results--left {
@@ -590,22 +662,40 @@ input.search-query__input {
 
 .result__select__checkbox__label {
     position: absolute;
-    top: 0px;
-    left: 0px;
+    top: 0;
+    left: 0;
     cursor: pointer;
 }
 
-.result__select .result__select__checkbox__label .material-icons {
+.result__select .result__select__checkbox__label gr-icon {
     font-size: 25px;
     color: white;
 }
 
-.result__select--selected .result__select__checkbox__label .material-icons {
+.result__select--selected .result__select__checkbox__label gr-icon {
     color: #00adee;
 }
 
 .result:hover .result__select,
 .result:hover .preview__fade,
+.result:hover .image-actions,
+.result:hover .labeller__add,
+.result:hover .archiver {
+    display: block;
+}
+
+.result:hover {
+    border-color: #404040;
+}
+
+.result:hover .preview {
+    background-color: #404040;
+}
+
+.result--selected:hover .preview__fade {
+    display: none;
+}
+
 .result__select--selected {
     display: initial;
 }
@@ -730,32 +820,12 @@ input.search-query__input {
     margin: 0;
 }
 
-.preview .preview__crop {
-    display: none;
-}
-
-.preview:hover {
-    background-color: #404040;
-}
-
-.preview:hover .preview__crop {
-    display: inline;
-}
-
 /*
 FIXME: this is a little targeted
 FIXME: what to do with touch devices
 */
 .preview .labeller__add {
-    visibility: hidden;
-}
-.preview:hover .labeller__add {
-    visibility: visible;
-}
-
-.preview__upload-date {
-    font-weight: bold;
-    margin-right: 10px;
+    display: none;
 }
 
 .preview__upload-time {
@@ -782,7 +852,7 @@ FIXME: what to do with touch devices
 
 .preview__fade {
     width: 100%;
-    background: linear-gradient(to top, rgba(255, 255, 255, 0), rgba(160, 160, 160, 1));
+    background: linear-gradient(to top, rgba(0, 0, 0, 0), rgba(0, 0, 0, 0.75));
     height: 35px;
     position: absolute;
     display: none;
@@ -805,7 +875,15 @@ FIXME: what to do with touch devices
 }
 .bottom-bar__action {
     color: inherit;
-    display: inline-block;
+    display: block;
+}
+
+.bottom-bar__actions ui-archiver {
+    float: left;
+}
+
+.bottom-bar__actions .preview__cost {
+    float: right;
 }
 
 
@@ -814,9 +892,6 @@ FIXME: what to do with touch devices
    ========================================================================== */
 .image-actions-container .image-actions {
     display: none;
-}
-.image-actions-container:hover .image-actions {
-    display: block;
 }
 
 .image-actions {
@@ -834,12 +909,16 @@ FIXME: what to do with touch devices
 .image-action {
     line-height: 24px;
     width: 24px;
-    color: white;
+    color: #999;
     display: block;
-    border-top: 1px dashed rgba(255, 255, 255, .5);
+    border-top: 1px solid rgba(255, 255, 255, .3);
 }
 .image-action--first {
     border-top: 0;
+}
+
+.image-action:hover {
+    color: white;
 }
 
 
@@ -930,47 +1009,6 @@ FIXME: what to do with touch devices
 .result-editor__usage-rights {
     width: 100%;
     text-align: left;
-}
-
-
-/* ==========================================================================
-   Usage Rights editor (URE)
-   ========================================================================== */
-.ure {
-    width: 100%;
-    box-sizing: border-box;
-}
-
-.ure__cost {
-    display: inline-block;
-    margin-left: 20px;
-}
-
-.ure__cost-selector {
-    margin-left: 20px;
-}
-
-.ure__description {
-    margin: 10px 0;
-}
-
-.ure__restrictions {
-    display: block;
-}
-
-.ure__restrictions-text {
-    width: 100%;
-}
-
-.ure__submit {
-    display: flex;
-}
-
-.ure__error {
-    margin-left: 10px;
-    background: red;
-    padding: 2px 10px;
-    color: white;
 }
 
 /* ==========================================================================
@@ -1197,7 +1235,8 @@ FIXME: what to do with touch devices
     box-sizing: border-box;
 }
 .image-crop--selected,
-.result--selected {
+.result--selected,
+.result--selected:hover {
     border-color: #00adee;
 }
 
@@ -1221,7 +1260,7 @@ FIXME: what to do with touch devices
    Labeller
    ========================================================================== */
 .labeller {
-    min-height: 24px;
+    height: 25px;
     font-size: 1.3rem;
     display: flex;
     overflow: hidden;
@@ -1248,7 +1287,7 @@ FIXME: what to do with touch devices
 }
 
 .label--partial,
-.label--partial .material-icons {
+.label--partial gr-icon {
     background-color: white;
     color: #00adee;
 }
@@ -1258,16 +1297,16 @@ FIXME: what to do with touch devices
     color: white;
 }
 
-.label button:hover .material-icons {
+.label button:hover gr-icon {
     color: #333;
 }
 
-.label button:active .material-icons {
+.label button:active gr-icon {
     background-color: #008fc5;
     color: #333;
 }
 
-.label--partial button:active .material-icons {
+.label--partial button:active gr-icon {
     background-color: #CFCFCF;
     color: #333;
 }
@@ -1452,6 +1491,10 @@ FIXME: what to do with touch devices
     border-bottom: 1px dashed #999;
 }
 
+.upload-result:hover .image-actions {
+    display: block;
+}
+
 
 /* ==========================================================================
    jCrop
@@ -1490,7 +1533,7 @@ FIXME: what to do with touch devices
 }
 
 .dnd-uploader__info {
-    border: 0px solid #00adee;
+    border: 0 solid #00adee;
     color: white;
     background: #00adee;
     max-width: 500px;
@@ -1527,12 +1570,23 @@ FIXME: what to do with touch devices
    Archviver
    ========================================================================== */
 
+@media screen and (max-width: 800px) {
+    .archiver__label {
+        display: none;
+    }
+}
+
+.top-bar-item .archiver {
+    padding: 0 10px;
+    height: 100%;
+}
+
 .preview .archiver {
     display: none;
 }
-.preview:hover .archiver,
+
 .preview .archiver--archived {
-    display: inline;
+    display: block;
 }
 
 .archiver--archived {
@@ -1659,4 +1713,17 @@ FIXME: what to do with touch devices
     color: #ed5935;
     flex-grow: 1;
     text-align: right;
+}
+
+.form-property {
+    display: block;
+    margin-bottom: 10px;
+}
+
+.form-property--last {
+    margin-bottom: 0;
+}
+
+.form-input-text {
+    width: 100%;
 }

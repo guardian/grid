@@ -7,3 +7,4 @@ auth.keystore.bucket={{KeyBucket}}
 sns.topic.arn={{SnsTopicArn}}
 cors.allowed.origins={{cors}}
 s3.config.bucket={{ConfigBucket}}
+persistence.identifier=picdarUrn

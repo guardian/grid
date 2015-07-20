@@ -22,19 +22,23 @@
                  gr:image-fade-on-load
              />
 
-            <ul class="image-actions">
+            <ul class="image-actions"
+                ng:if="ctrl.image.data.valid">
                 <li>
                     <a class="image-action image-action--first"
                        target="_blank"
                        title="Pop out"
-                       ng:href="/images/{{ctrl.image.data.id}}">◹</a>
+                       ng:href="/images/{{ctrl.image.data.id}}">
+                        <gr-icon>open_in_new</gr-icon>
+                    </a>
                 </li>
 
                 <li>
                     <a class="image-action"
                        title="crop"
-                       ng:if="ctrl.image.data.valid"
-                       ui:sref="crop({ imageId: ctrl.image.data.id })">✂</a>
+                       ui:sref="crop({ imageId: ctrl.image.data.id })">
+                        <gr-icon>crop</gr-icon>
+                    </a>
                 </li>
             </ul>
         </div>
@@ -105,15 +109,10 @@
             <div class="result-editor__usage-rights drop-menu__items drop-menu__items--right"
                  ng:show="showUsageRights">
 
-                <button type="button" class="drop-menu__close"
-                        ng:click="showUsageRights = false">
-                        <i class="material-icons">close</i>
-                </button>
-
                 <gr:usage-rights-editor
-                    gr:image="ctrl.image"
-                    gr:resource="ctrl.image.data.userMetadata.data.usageRights"
-                    gr:on-save="showUsageRights = false">
+                    gr:usage-rights="ctrl.usageRights"
+                    gr:on-save="showUsageRights = false"
+                    gr:on-cancel="showUsageRights = false">
                 </gr:usage-rights-editor>
 
             </div>

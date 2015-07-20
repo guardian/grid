@@ -5,16 +5,20 @@
         ng:disabled="archiver.archiving">
     <!-- TODO: Start looking at a new loader to replace our "ing…" loader -->
     <span ng:show="archiver.isArchived" title="unarchive">
-        <i class="material-icons">star</i>
-        <span ng:show="archiver.withText">unarchiv<span ng:show="!archiver.archiving">e</span><span ng:show="archiver.archiving">ing…</span></span>
+        <gr-icon>star</gr-icon>
+        <span class="archiver__label">
+            <span ng:show="archiver.withText">unarchiv<span ng:show="!archiver.archiving">e</span><span ng:show="archiver.archiving">ing…</span></span>
+        </span>
     </span>
     <span ng:show="!archiver.isArchived" title="archive">
-        <i class="material-icons">star_border</i>
-        <span ng:show="archiver.withText">archiv<span ng:show="!archiver.archiving">e</span><span ng:show="archiver.archiving">ing…</span></span>
+        <gr-icon>star_border</gr-icon>
+        <span class="archiver__label">
+            <span ng:show="archiver.withText">archiv<span ng:show="!archiver.archiving">e</span><span ng:show="archiver.archiving">ing…</span></span>
+        </span>
     </span>
 </button>
 
 <button class="archiver archiver--archived"
         ng:if="archiver.disabled && archiver.isArchived">
-    <i class="material-icons">star</i>
+    <gr-icon>star</gr-icon>
 </button>

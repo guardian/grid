@@ -53,6 +53,6 @@ object Config extends CommonPlayAppConfig with CommonPlayAppProperties {
 
   val requiredMetadata = List("credit", "description")
 
-  // TODO: move to config
-  val queriableIdentifiers = Seq("picdarUrn")
+  val persistenceIdentifier = properties("persistence.identifier")
+  val queriableIdentifiers = Seq(persistenceIdentifier)
 }

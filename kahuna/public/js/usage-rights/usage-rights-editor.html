@@ -1,0 +1,92 @@
+<form class="usage-rights-editor ure"
+      ng:submit="usageRights.$valid && ctrl.save()"
+      name="usageRights">
+    <label class="ure__category">
+        <!-- We reset the model here else properties remain attached to the\
+        model, even though they don't exist in the form -->
+        <select
+            ng:model="ctrl.category"
+            ng:disabled="ctrl.saving"
+            ng:options="category as category.name for category in ctrl.categories track by category.value"
+            ng:change="ctrl.resetModel()">
+        </select>
+    </label>
+
+    <div class="ure__description">
+        {{ctrl.category.description}}
+    </div>
+
+    <div class="ure__properties" ng:if="ctrl.category">
+        <label
+            class="form-property"
+            ng:repeat="property in ctrl.category.properties"
+            ng:class="{ 'form-property--last': $last }">
+
+            <div class="form-label">
+                <div class="form-label__text">{{ property.label }}</div>
+                <!-- TODO: Show errors here -->
+                <!--<div class="form-label__error">Error</div>-->
+            </div>
+
+            <div ng:switch="property.type">
+
+                <div ng:switch-when="string">
+                    <input
+                        class="form-input-text"
+                        type="text"
+                        name="{{ property.name }}"
+                        ng:if="!property.options && !property.optionsMap"
+                        ng:model="ctrl.model[property.name]"
+                        ng:required="property.required" />
+
+                    <select
+                        name="{{ property.name }}"
+                        ng:if="property.options"
+                        ng:model="ctrl.model[property.name]"
+                        ng:required="property.required"
+                        ng:options="o for o in property.options">
+                        <option value="">None</option>
+                    </select>
+
+                    <select
+                        name="{{ property.name }}"
+                        ng:if="property.optionsMap"
+                        ng:model="ctrl.model[property.name]"
+                        ng:required="property.required"
+                        ng:options="o for o in ctrl.getOptionsFor(property)">
+                        <option value="">None</option>
+                    </select>
+
+                </div>
+
+
+                <textarea
+                    class="form-input-text"
+                    name="{{ property.name }}"
+                    ng:model="ctrl.model[property.name]"
+                    ng:switch-when="text"
+                    ng:required="property.required"></textarea>
+
+            </div>
+        </label>
+    </div>
+
+    <div class="ure__bar">
+
+        <gr-confirm-delete
+            ng:if="ctrl.category.value"
+            gr:on-confirm="ctrl.remove()"></gr-confirm-delete>
+
+        <button class="ure__action button-ico" type="button" ng:click="ctrl.cancel()"
+            title="close usage rights overrides">
+            <gr-icon>close</gr-icon>
+        </button>
+
+        <button class="ure__action button-ico button-save" type="submit" ng:disabled="ctrl.saving"
+            title="save usage rights overrides">
+            <gr-icon ng:if="!ctrl.saving">check</gr-icon>
+            <gr-icon ng:if="ctrl.saving">timelapse</gr-icon>
+        </button>
+
+    </div>
+</form>
