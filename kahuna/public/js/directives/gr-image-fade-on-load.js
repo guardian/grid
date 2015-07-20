@@ -16,7 +16,7 @@ imageFade.directive('grImageFadeOnLoad',
             // If not loaded after animationThreshold, hide and wait
             // until loaded to fade in
             $timeout(() => {
-                if (! isLoaded) {
+                if (! isLoaded()) {
                     hide();
                     whenLoaded().finally(reveal);
                 }
@@ -31,15 +31,15 @@ imageFade.directive('grImageFadeOnLoad',
                 const defer = $q.defer();
 
                 // already loaded
-                if (isLoaded) {
+                if (isLoaded()) {
                     defer.resolve();
                 } else {
                     // wait until loaded/error
                     element.bind('load', defer.resolve);
                     element.bind('error', defer.reject);
 
-                    // free listeners
-                    scope.$on('$destroy', () => {
+                    // free listeners once observed
+                    defer.promise.finally(() => {
                         element.unbind('load', defer.resolve);
                         element.unbind('error', defer.reject);
                     });
@@ -50,13 +50,15 @@ imageFade.directive('grImageFadeOnLoad',
 
             function hide() {
                 element.css({
-                    opacity: 0,
-                    transition: `opacity ${animationDuration}ms ease-out`
+                    opacity: 0
                 });
             }
 
             function reveal() {
-                element.css({opacity: 1});
+                element.css({
+                    opacity: 1,
+                    transition: `opacity ${animationDuration}ms ease-out`
+                });
             }
 
         }
