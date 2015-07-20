@@ -72,7 +72,8 @@
             <div class="preview__cost bottom-bar__action" ng:switch="ctrl.states.cost">
                 <div ng:switch-when="pay"
                      class="cost cost--pay">
-                    <gr-icon>attach_money</gr-icon>
+                    <!-- material icons doesn't have a £ icon -->
+                    <span title="pay to use">£</span>
                 </div>
 
                 <div ng:switch-when="conditional"
