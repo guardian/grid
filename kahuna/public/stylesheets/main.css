@@ -630,15 +630,13 @@ input.search-query__input {
 
 .result {
     position: relative;
-    border: solid 5px transparent;
+    border: 5px solid transparent;
     box-sizing: border-box;
+    margin: 5px;
+    background-color: #39393;
 }
 .result--seen {
     opacity: .5;
-}
-
-.result ui-preview-image {
-    background: #393939;
 }
 
 .result-placeholder {
@@ -685,10 +683,6 @@ input.search-query__input {
 }
 
 .result:hover {
-    border-color: #404040;
-}
-
-.result:hover .preview {
     background-color: #404040;
 }
 
@@ -790,7 +784,6 @@ input.search-query__input {
    Preview
    ========================================================================== */
 .preview {
-    background: #393939;
     position: relative;
 }
 
