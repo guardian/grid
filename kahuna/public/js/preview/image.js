@@ -3,9 +3,18 @@ import '../analytics/track';
 
 import template from './image.html!text';
 
+import '../image/service';
+
 export var image = angular.module('kahuna.preview.image', [
+    'gr.image.service',
     'analytics.track'
 ]);
+
+image.controller('uiPreviewImageCtrl', ['imageService', function (imageService) {
+    var ctrl = this;
+
+    ctrl.states = imageService(ctrl.image).states;
+}]);
 
 image.directive('uiPreviewImage', function() {
     return {
@@ -17,13 +26,9 @@ image.directive('uiPreviewImage', function() {
         },
         // extra actions can be transcluded in
         transclude: true,
-        template: template
-    };
-});
-
-image.filter('hasExportsOfType', function() {
-    return (image, type) => {
-        return image.data.exports &&
-               image.data.exports.some(ex => ex.type === type);
+        template: template,
+        controller: 'uiPreviewImageCtrl',
+        controllerAs: 'ctrl',
+        bindToController: true
     };
 });
