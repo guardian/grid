@@ -1,5 +1,4 @@
 import angular from 'angular';
-
 import '../analytics/track';
 
 import template from './image.html!text';

@@ -12,8 +12,6 @@ import com.gu.mediaservice.model._
 
 import lib.Config
 
-
-
 object EditsApi extends Controller with ArgoHelpers {
 
   import Config.{rootUri, loginUri, kahunaUri, keyStoreBucket, awsCredentials}
@@ -37,7 +35,6 @@ object EditsApi extends Controller with ArgoHelpers {
 
   def index = Authenticated { indexResponse }
 
-
   val usageRightsResponse = {
     // FIXME: GuardianWitness should be there but isn't for simplicity;
     // their images can be imported by drag and drop instead
@@ -45,7 +42,8 @@ object EditsApi extends Controller with ArgoHelpers {
     // to access the `val`s of the classes though without instantiating them.
     val usageRightsData =
       List(PrImage(), Handout(), Screengrab(), SocialMedia(), Obituary(), Pool(),
-           StaffPhotographer("?", "?"))
+           StaffPhotographer("?", "?"), ContractPhotographer("?", "?"), CommissionedPhotographer("?", "?"),
+           Agency("?"))
         .map(CategoryResponse.fromUsageRights)
 
     respond(usageRightsData)
