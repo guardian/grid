@@ -847,6 +847,7 @@ FIXME: what to do with touch devices
 
 .bottom-bar__actions .preview__cost {
     float: right;
+    width: 35px;
 }
 
 
