@@ -13,6 +13,7 @@
 
 .gu-date-range__display__icon__toggle {
     float: right;
+    margin-left: 5px;
 }
 
 .gu-date-range__overlay__pikaday {
