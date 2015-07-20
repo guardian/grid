@@ -19,19 +19,31 @@ usageRightsEditor.controller('UsageRightsEditorCtrl',
 
     // setting our initial values
     const { category: initialCatVal } = ctrl.usageRights.data;
+    const noRights = { name: 'None', value: '' };
 
     ctrl.saving = false;
     ctrl.saved = false;
     ctrl.categories = [];
     ctrl.model = angular.extend({}, ctrl.usageRights.data);
 
+
     // TODO: What error would we like to show here?
     // TODO: How do we make this more synchronous? You can only resolve on the
     // routeProvider, which is actually bound to the UploadCtrl in this instance
     // SEE: https://github.com/angular/angular.js/issues/2095
-    editsApi.getUsageRightsCategories().then(setCategories);
+    editsApi.getUsageRightsCategories().then(cats => setCategories(cats, initialCatVal));
 
-    ctrl.save = () => save(modelToData(ctrl.model));
+    ctrl.save = () => {
+        // FIXME [1]: We do this as images that didn't have usagerights in the first place will have
+        // the no rights option, this is to make sure we don't override but rather delete.
+        const data = modelToData(ctrl.model);
+
+        if (data.category) {
+            save(data);
+        } else {
+            remove();
+        }
+    }
 
     ctrl.remove = remove;
 
@@ -61,13 +73,20 @@ usageRightsEditor.controller('UsageRightsEditorCtrl',
         return property.optionsMap[val];
     };
 
-    function setCategories(cats) {
+    function setCategories(cats, selected) {
         ctrl.categories = cats;
-        setCategory(initialCatVal);
+        setCategory(selected);
     }
 
     function setCategory(val) {
-        ctrl.category = ctrl.categories.find(cat => cat.value === val) || ctrl.categories[0];
+        ctrl.category = ctrl.categories.find(cat => cat.value === val);
+
+        // FIXME [1]: THis is because we don't allow the override of NoRights yet (needs reindexing).
+        // We don't however want to default the first category as that can be confusing.
+        if (!ctrl.category) {
+            ctrl.categories = [noRights].concat(ctrl.categories);
+            ctrl.category = noRights;
+        }
     }
 
     function modelToData(model) {
