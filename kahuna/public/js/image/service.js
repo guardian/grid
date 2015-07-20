@@ -8,7 +8,7 @@ imageService.factory('imageService', ['editsService', function(editsService) {
     function forImage(image) {
         return {
             usageRights: usageRights(image),
-            states: states(image)
+            states: getStates(image)
         };
     }
 
@@ -34,7 +34,7 @@ imageService.factory('imageService', ['editsService', function(editsService) {
                 image.data.exports.some(ex => ex.type === type);
     }
 
-    function states(image) {
+    function getStates(image) {
         return {
             cost: image.data.cost,
             hasCrops: hasExportsOfType(image, 'crop'),
