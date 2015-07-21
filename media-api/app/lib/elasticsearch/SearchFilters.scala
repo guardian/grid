@@ -6,7 +6,6 @@ import com.gu.mediaservice.lib.config.UsageRightsConfig
 import scalaz.syntax.std.list._
 
 import lib.Config
-import com.gu.mediaservice.model.Pay
 
 
 trait SearchFilters extends ImageFields {
@@ -73,18 +72,7 @@ trait SearchFilters extends ImageFields {
   }
 
 
-  // lastly we make sure there isn't an override on the cost
-  val notPayUsageRightsFilter  =
-    List(Pay)
-      .map(_.toString).toNel
-      .map(filters.terms(editsField(usageRightsField("cost")), _))
-      .map(filters.not)
-
-  val freeFilterWithOverride = (freeFilter, notPayUsageRightsFilter) match {
-    case (Some(free), Some(notPayUsageRights)) => Some(filters.and(free, notPayUsageRights))
-    case (freeOpt,    notPayUsageRightsOpt)    => freeOpt orElse notPayUsageRightsOpt
-  }
-  val nonFreeFilter = freeFilterWithOverride.map(filters.not)
+  val nonFreeFilter = freeFilter.map(filters.not)
 
   // FIXME: There must be a better way (._.). Potentially making cost a lookup
   // again?
