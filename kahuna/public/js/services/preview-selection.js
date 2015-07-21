@@ -11,8 +11,8 @@ var selectionService = angular.module(
         ]
 );
 
-selectionService.factory(
-    'selectionService', ['$q', 'editsService', 'imageService', function ($q, editsService, imageService) {
+selectionService.factory('selectionService',
+    ['$q', 'editsService', 'imageService', function ($q, editsService, imageService) {
     var selectedImages = new Set();
     var selectedMetadata = {};
     var selectedMetadataForDisplay = {};
@@ -33,7 +33,7 @@ selectionService.factory(
         selectedImages.forEach(img => {
             allFields = allFields.concat(Object.keys(img.data.metadata));
 
-            usageRights.push(imageService(img).usageRights)
+            usageRights.push(imageService(img).usageRights);
 
             var imgCost = img.data.cost;
 
@@ -121,7 +121,7 @@ selectionService.factory(
         selectedMetadata = selectedImageData.metadata;
         selectedMetadataForDisplay = displayMetadata;
 
-        selectedUsageRights = selectedImageData.usageRights
+        selectedUsageRights = selectedImageData.usageRights;
         selectedCosts = selectedImageData.cost;
         selectedLabels = selectedImageData.labels;
         archivedCount = selectedImageData.totalArchived;

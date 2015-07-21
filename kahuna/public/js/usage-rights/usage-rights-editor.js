@@ -33,27 +33,35 @@ usageRightsEditor.controller(
     };
 
 
-    ctrl.resetCategory = () => ctrl.category = {};
-    ctrl.resetModel = () => ctrl.model = {};
-    ctrl.multipleUsageRights = () => ctrl.usageRights.length > 1;
-
-    const getGroupCategory = (usageRights, cats) => cats.find(cat => cat.value === usageRights.reduce(
-        (m, o) => (m == o.data.category) ? o.data.category : {},
-        usageRights[0].data.category
-    ));
+    const getGroupCategory =
+        (usageRights, cats) => cats.find(cat => cat.value === usageRights.reduce(
+            (m, o) => (m == o.data.category) ? o.data.category : {},
+            usageRights[0].data.category
+        ));
 
     const getGroupModel = usageRights =>
         ctrl.multipleUsageRights() ? {} : angular.extend({}, usageRights[0].data);
+
+    ctrl.resetCategory = () => ctrl.category = {};
+    ctrl.resetModel = () => ctrl.model = {};
+    ctrl.multipleUsageRights = () => ctrl.usageRights.length > 1;
 
     ctrl.update = function() {
         ctrl.category = getGroupCategory(ctrl.usageRights, ctrl.categories);
 
         // If we have multi or no rights we need to add the option to
         // the drop down and select it to give the user feedback as to
-        // what's going on.
-        !ctrl.category ?
-            (ctrl.usageRights.length > 1 ? setMultiRightsCats() : setNoRightsCats()) :
+        // what's going on (can't use terner).
+        if (!ctrl.category) {
+            if (ctrl.usageRights.length > 1) {
+                setMultiRightsCats();
+            } else {
+                setNoRightsCats();
+            }
+        } else {
             setStandardCats();
+        }
+
 
         ctrl.model = getGroupModel(ctrl.usageRights);
     };
@@ -86,8 +94,6 @@ usageRightsEditor.controller(
 
         if (data.category) {
             save(data);
-        } else {
-            remove();
         }
     };
 
@@ -99,6 +105,12 @@ usageRightsEditor.controller(
 
     ctrl.isNotEmpty = () => !angular.equals(ctrl.model, {});
 
+    // stop saving on no/multi rights
+    ctrl.savingDisabled = () => {
+        return ctrl.saving ||
+            angular.equals(ctrl.category, noRights) || angular.equals(ctrl.category, multiRights);
+    };
+
     ctrl.pluraliseCategory = () => ctrl.category.name +
         (ctrl.category.name.toLowerCase().endsWith('image') ? 's' : ' images');
 
@@ -106,8 +118,6 @@ usageRightsEditor.controller(
         'e.g. Use in relation to the Windsor Triathlon only' :
         'Adding restrictions will mark this image as restricted. ' +
         'Leave blank if there aren\'t any.';
-
-    ctrl.descriptionPlaceholder = "Remove all restrictions on the use of this image."
 
     ctrl.getOptionsFor = property => {
         const key = ctrl.category
@@ -141,7 +151,7 @@ usageRightsEditor.controller(
         ctrl.error = null;
         ctrl.saving = true;
         $q.all(ctrl.usageRights.map((usageRights) => {
-            return usageRights.remove()
+            return usageRights.remove();
         })).catch(uiError).
             finally(() => ctrl.saving = false);
     }

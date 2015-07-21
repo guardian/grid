@@ -87,7 +87,7 @@ service.factory('editsService',
 
         return resource.post({ data }).then(edit =>
             getSynced(originalImage, newImage => matches(edit, newImage))).
-            then(({ edit, update }) => {
+            then(({ edit }) => {
                 runWatcher(resource, 'update-end');
                 return edit;
             }).
