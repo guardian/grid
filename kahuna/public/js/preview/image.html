@@ -69,10 +69,13 @@
                 image="ctrl.image"
                 disabled="ctrl.selectionMode"></ui-archiver>
 
-            <div class="preview__cost bottom-bar__action" ng:switch="ctrl.states.cost">
+            <div class="preview__cost bottom-bar__action"
+                 ng:if="ctrl.states.cost !== 'free'"
+                 ng:switch="ctrl.states.cost">
                 <div ng:switch-when="pay"
                      class="cost cost--pay">
-                    pay
+                    <!-- material icons doesn't have a £ icon -->
+                    <span title="pay to use">£</span>
                 </div>
 
                 <div ng:switch-when="conditional"
@@ -80,7 +83,7 @@
                      title="{{ctrl.image.data.usageRights.restrictions}}">
                      <!-- As `conditional` can only be set with usageRights, let's
                      just assume it's here. We might need to revisit this. -->
-                    restricted
+                    <gr-icon>flag</gr-icon>
                 </div>
             </div>
         </div>
