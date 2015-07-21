@@ -39,7 +39,7 @@ service.factory('editsService',
         // find that matching resource
         return findMatchingEditInImage(edit, image).then(matchingEdit =>
             matchingEdit && angular.equals(matchingEdit.data, edit.data) ?
-                edit : $q.reject('data not matching')
+                { edit, image } : $q.reject('data not matching')
         );
     }
 
@@ -87,7 +87,7 @@ service.factory('editsService',
 
         return resource.post({ data }).then(edit =>
             getSynced(originalImage, newImage => matches(edit, newImage))).
-            then(edit => {
+            then(({ edit, update }) => {
                 runWatcher(resource, 'update-end');
                 return edit;
             }).
@@ -105,8 +105,12 @@ service.factory('editsService',
 
         return resource.put({ data }).then(edit =>
             getSynced(originalImage, newImage => matches(edit, newImage))).
-            then(edit => {
+            then(({ edit, image }) => {
+
                 runWatcher(resource, 'update-end');
+
+                $rootScope.$emit('image-updated', image, originalImage);
+
                 return edit;
             }).
             catch(e => {

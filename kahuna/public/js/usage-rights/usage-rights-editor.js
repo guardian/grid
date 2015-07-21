@@ -18,10 +18,10 @@ usageRightsEditor.controller(
 
     var ctrl = this;
 
-    ctrl.resetCategory = () => ctrl.category = {}
+    ctrl.resetCategory = () => ctrl.category = {};
     ctrl.resetModel = () => ctrl.model = {};
 
-    ctrl.multipleUsageRights = () => ctrl.usageRights.length > 1
+    ctrl.multipleUsageRights = () => ctrl.usageRights.length > 1;
 
     var getGroupCategory = (usageRights) => ctrl.categories.find(cat => cat.value === usageRights.reduce(
             (m, o) => (m == o.data.category) ? o.data.category : {},
@@ -33,7 +33,7 @@ usageRightsEditor.controller(
     ctrl.update = function() {
         ctrl.category = getGroupCategory(ctrl.usageRights);
         ctrl.model = getGroupModel(ctrl.usageRights);
-    }
+    };
 
     // setting our initial values
     editsApi.getUsageRightsCategories().then((cats) => {
@@ -54,7 +54,7 @@ usageRightsEditor.controller(
     // TODO: How do we make this more synchronous? You can only resolve on the
     // routeProvider, which is actually bound to the UploadCtrl in this instance
     // SEE: https://github.com/angular/angular.js/issues/2095
-    editsApi.getUsageRightsCategories().then(setCategories);
+    //editsApi.getUsageRightsCategories().then(setCategories);
 
     ctrl.save = () => save(modelToData(ctrl.model));
 
@@ -86,10 +86,10 @@ usageRightsEditor.controller(
         return property.optionsMap[val];
     };
 
-    function setCategories(cats) {
-        ctrl.categories = cats;
-        setCategory(initialCatVal);
-    }
+    //function setCategories(cats) {
+    //    ctrl.categories = cats;
+    //    setCategory(initialCatVal);
+    //}
 
     function setCategory(val) {
         ctrl.category = ctrl.categories.find(cat => cat.value === val) || ctrl.categories[0];
