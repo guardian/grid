@@ -54,8 +54,6 @@ usageRightsEditor.controller(
     // TODO: How do we make this more synchronous? You can only resolve on the
     // routeProvider, which is actually bound to the UploadCtrl in this instance
     // SEE: https://github.com/angular/angular.js/issues/2095
-    //editsApi.getUsageRightsCategories().then(setCategories);
-
     ctrl.save = () => save(modelToData(ctrl.model));
 
     ctrl.remove = remove;
@@ -85,11 +83,6 @@ usageRightsEditor.controller(
         const val = ctrl.model[key];
         return property.optionsMap[val];
     };
-
-    //function setCategories(cats) {
-    //    ctrl.categories = cats;
-    //    setCategory(initialCatVal);
-    //}
 
     function setCategory(val) {
         ctrl.category = ctrl.categories.find(cat => cat.value === val) || ctrl.categories[0];
