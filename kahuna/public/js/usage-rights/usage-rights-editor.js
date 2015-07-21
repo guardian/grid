@@ -131,7 +131,7 @@ usageRightsEditor.controller(
         ctrl.error = null;
         ctrl.saving = true;
         $q.all(ctrl.usageRights.map((usageRights) => {
-            return ctrl.usageRights.remove()
+            return usageRights.remove()
         })).catch(uiError).
             finally(() => ctrl.saving = false);
     }
