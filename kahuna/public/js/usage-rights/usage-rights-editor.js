@@ -18,12 +18,26 @@ usageRightsEditor.controller(
 
     var ctrl = this;
 
+    const multiRights = { name: 'Multiple rights', value: '' };
+    const noRights = { name: 'None', value: '' };
+    const catsWithNoRights = () => [noRights].concat(ctrl.originalCats);
+    const catsWithMultiRights = () => [multiRights].concat(ctrl.originalCats);
+    const setStandardCats = () => ctrl.categories = ctrl.originalCats;
+    const setNoRightsCats = () => {
+        ctrl.categories = catsWithNoRights();
+        ctrl.category = noRights;
+    };
+    const setMultiRightsCats = () => {
+        ctrl.categories = catsWithMultiRights();
+        ctrl.category = multiRights;
+    };
+
+
     ctrl.resetCategory = () => ctrl.category = {};
     ctrl.resetModel = () => ctrl.model = {};
-
     ctrl.multipleUsageRights = () => ctrl.usageRights.length > 1;
 
-    const getGroupCategory = usageRights => ctrl.categories.find(cat => cat.value === usageRights.reduce(
+    const getGroupCategory = (usageRights, cats) => cats.find(cat => cat.value === usageRights.reduce(
         (m, o) => (m == o.data.category) ? o.data.category : {},
         usageRights[0].data.category
     ));
@@ -31,16 +45,23 @@ usageRightsEditor.controller(
     const getGroupModel = usageRights =>
         ctrl.multipleUsageRights() ? {} : angular.extend({}, usageRights[0].data);
 
-    const noRights = { name: 'None', value: '' };
-
     ctrl.update = function() {
-        ctrl.category = getGroupCategory(ctrl.usageRights);
+        ctrl.category = getGroupCategory(ctrl.usageRights, ctrl.categories);
+
+        // If we have multi or no rights we need to add the option to
+        // the drop down and select it to give the user feedback as to
+        // what's going on.
+        !ctrl.category ?
+            (ctrl.usageRights.length > 1 ? setMultiRightsCats() : setNoRightsCats()) :
+            setStandardCats();
+
         ctrl.model = getGroupModel(ctrl.usageRights);
     };
 
     // setting our initial values
-    editsApi.getUsageRightsCategories().then((cats) => {
-        setCategories(cats);
+    editsApi.getUsageRightsCategories().then(cats => {
+        ctrl.categories = cats;
+        ctrl.originalCats = cats;
         ctrl.update();
     });
 
@@ -97,18 +118,6 @@ usageRightsEditor.controller(
         const val = ctrl.model[key];
         return property.optionsMap[val];
     };
-
-    function setCategories(cats, selected) {
-        ctrl.categories = cats;
-        setCategory(selected);
-
-        // FIXME [1]: This is because we don't allow the override of
-        // NoRights yet (needs reindexing). We don't however want to
-        // default the first category as that can be confusing.
-        if (!ctrl.category) {
-            ctrl.categories = [noRights].concat(ctrl.categories);
-        }
-    }
 
     function setCategory(val) {
         ctrl.category = ctrl.categories.find(cat => cat.value === val);
