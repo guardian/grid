@@ -61,7 +61,7 @@ service.factory('editsService',
             angular.equals(matchingEdit.data, {}) ||
             angular.equals(matchingEdit.data, []) ||
             isEmptyBuggyTheseusEmbeddedEntity(matchingEdit.data) ?
-                matchingEdit : $q.reject('data not matching'));
+                { matchingEdit, image } : $q.reject('data not matching'));
     }
 
     /**
@@ -125,8 +125,12 @@ service.factory('editsService',
 
         return resource.delete().then(() =>
             getSynced(originalImage, newImage => isEmpty(resource, newImage)).
-            then(emptyEdit => {
+            then(({ emptyEdit, image }) => {
+
                 runWatcher(resource, 'update-end');
+
+                $rootScope.$emit('image-updated', image, originalImage);
+
                 return emptyEdit;
             }).
             catch(() => runWatcher(resource, 'update-error')));
