@@ -23,12 +23,13 @@ usageRightsEditor.controller(
 
     ctrl.multipleUsageRights = () => ctrl.usageRights.length > 1;
 
-    var getGroupCategory = (usageRights) => ctrl.categories.find(cat => cat.value === usageRights.reduce(
-            (m, o) => (m == o.data.category) ? o.data.category : {},
-            usageRights[0].data.category
+    const getGroupCategory = usageRights => ctrl.categories.find(cat => cat.value === usageRights.reduce(
+        (m, o) => (m == o.data.category) ? o.data.category : {},
+        usageRights[0].data.category
     ));
 
-    var getGroupModel = (usageRights) => (ctrl.multipleUsageRights()) ? {} : angular.extend({}, usageRights[0].data);
+    const getGroupModel = usageRights =>
+        ctrl.multipleUsageRights() ? {} : angular.extend({}, usageRights[0].data);
 
     const noRights = { name: 'None', value: '' };
 
@@ -43,7 +44,7 @@ usageRightsEditor.controller(
         ctrl.update();
     });
 
-    $scope.$watchCollection(() => ctrl.usageRights, onValChange(newUsageRights => {
+    $scope.$watchCollection(() => ctrl.usageRights, onValChange(() => {
         ctrl.update();
     }));
 
