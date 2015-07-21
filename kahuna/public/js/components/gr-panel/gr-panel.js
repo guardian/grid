@@ -59,19 +59,6 @@ grPanel.controller('GrPanel', [
             });
         };
 
-        ctrl.updateUsageRights = () => {
-            const refresh = ctrl.images.map(
-                    (image, index) => image.get().then(
-                        (newImage) => ctrl.images[index] = newImage));
-
-            $q.all(refresh).then(() => {
-                selection.update();
-
-                ctrl.selectedCosts = selection.getCost();
-                ctrl.selectedUsageRights = selection.getUsageRights();
-            });
-        };
-
         $scope.$watch(() => selection.getMetadata(), onValChange(newMetadata => {
             ctrl.rawMetadata = newMetadata;
             ctrl.images = Array.from(ctrl.selectedImages);
