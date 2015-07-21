@@ -18,9 +18,6 @@ usageRightsEditor.controller(
 
     var ctrl = this;
 
-    const { category: initialCatVal } = getGroupCategory(ctrl.usageRights);
-    const noRights = { name: 'None', value: '' };
-
     ctrl.resetCategory = () => ctrl.category = {};
     ctrl.resetModel = () => ctrl.model = {};
 
@@ -33,6 +30,8 @@ usageRightsEditor.controller(
 
     var getGroupModel = (usageRights) => (ctrl.multipleUsageRights()) ? {} : angular.extend({}, usageRights[0].data);
 
+    const noRights = { name: 'None', value: '' };
+
     ctrl.update = function() {
         ctrl.category = getGroupCategory(ctrl.usageRights);
         ctrl.model = getGroupModel(ctrl.usageRights);
@@ -40,7 +39,7 @@ usageRightsEditor.controller(
 
     // setting our initial values
     editsApi.getUsageRightsCategories().then((cats) => {
-        setCategories(cats, initialCatVal);
+        setCategories(cats);
         ctrl.update();
     });
 
@@ -107,7 +106,6 @@ usageRightsEditor.controller(
         // default the first category as that can be confusing.
         if (!ctrl.category) {
             ctrl.categories = [noRights].concat(ctrl.categories);
-            ctrl.category = noRights;
         }
     }
 
