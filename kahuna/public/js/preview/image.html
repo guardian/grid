@@ -69,7 +69,9 @@
                 image="ctrl.image"
                 disabled="ctrl.selectionMode"></ui-archiver>
 
-            <div class="preview__cost bottom-bar__action" ng:switch="ctrl.states.cost">
+            <div class="preview__cost bottom-bar__action"
+                 ng:if="ctrl.states.cost !== 'free'"
+                 ng:switch="ctrl.states.cost">
                 <div ng:switch-when="pay"
                      class="cost cost--pay">
                     <!-- material icons doesn't have a £ icon -->
