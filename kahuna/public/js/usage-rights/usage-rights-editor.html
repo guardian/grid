@@ -23,6 +23,15 @@
     </div>
 
     <div class="ure__properties" ng:if="ctrl.category">
+        <div ng:if="ctrl.multipleUsageRights()">
+            Multiple usage rights
+            <gr-icon
+                title="Some information about specific usage rights might be missing below">
+                help
+            </gr-icon>
+            .
+        </div>
+
         <label
             class="form-property"
             ng:repeat="property in ctrl.category.properties"
