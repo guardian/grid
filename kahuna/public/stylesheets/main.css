@@ -177,6 +177,10 @@ a:focus {
     background: #00adee;
     color: white;
 }
+.button-save[disabled] {
+    background: #888;
+    cursor: auto;
+}
 
 .confirm-delete {
 
