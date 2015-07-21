@@ -50,7 +50,7 @@
 
                 <button
                     ng:click="showUsageRights = !showUsageRights"
-                    ng:hide="showUsageRights"
+                    ng:hide="!ctrl.userCanEdit || showUsageRights"
                     class="image-info__edit">✎</button>
             </div>
         </div>
