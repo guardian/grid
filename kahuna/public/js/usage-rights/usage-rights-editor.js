@@ -18,6 +18,9 @@ usageRightsEditor.controller(
 
     var ctrl = this;
 
+    const { category: initialCatVal } = getGroupCategory(ctrl.usageRights);
+    const noRights = { name: 'None', value: '' };
+
     ctrl.resetCategory = () => ctrl.category = {};
     ctrl.resetModel = () => ctrl.model = {};
 
@@ -37,7 +40,7 @@ usageRightsEditor.controller(
 
     // setting our initial values
     editsApi.getUsageRightsCategories().then((cats) => {
-        ctrl.categories = cats;
+        setCategories(cats, initialCatVal);
         ctrl.update();
     });
 
@@ -50,11 +53,22 @@ usageRightsEditor.controller(
     ctrl.categories = [];
     ctrl.model = angular.extend({}, ctrl.usageRights.data);
 
+
     // TODO: What error would we like to show here?
     // TODO: How do we make this more synchronous? You can only resolve on the
     // routeProvider, which is actually bound to the UploadCtrl in this instance
     // SEE: https://github.com/angular/angular.js/issues/2095
-    ctrl.save = () => save(modelToData(ctrl.model));
+    ctrl.save = () => {
+        // FIXME [1]: We do this as images that didn't have usagerights in the first place will have
+        // the no rights option, this is to make sure we don't override but rather delete.
+        const data = modelToData(ctrl.model);
+
+        if (data.category) {
+            save(data);
+        } else {
+            remove();
+        }
+    };
 
     ctrl.remove = remove;
 
@@ -84,8 +98,21 @@ usageRightsEditor.controller(
         return property.optionsMap[val];
     };
 
+    function setCategories(cats, selected) {
+        ctrl.categories = cats;
+        setCategory(selected);
+
+        // FIXME [1]: This is because we don't allow the override of
+        // NoRights yet (needs reindexing). We don't however want to
+        // default the first category as that can be confusing.
+        if (!ctrl.category) {
+            ctrl.categories = [noRights].concat(ctrl.categories);
+            ctrl.category = noRights;
+        }
+    }
+
     function setCategory(val) {
-        ctrl.category = ctrl.categories.find(cat => cat.value === val) || ctrl.categories[0];
+        ctrl.category = ctrl.categories.find(cat => cat.value === val);
     }
 
     function modelToData(model) {

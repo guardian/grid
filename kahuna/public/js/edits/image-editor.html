@@ -22,7 +22,8 @@
                  gr:image-fade-on-load
              />
 
-            <ul class="image-actions">
+            <ul class="image-actions"
+                ng:if="ctrl.image.data.valid">
                 <li>
                     <a class="image-action image-action--first"
                        target="_blank"
@@ -35,7 +36,6 @@
                 <li>
                     <a class="image-action"
                        title="crop"
-                       ng:if="ctrl.image.data.valid"
                        ui:sref="crop({ imageId: ctrl.image.data.id })">
                         <gr-icon>crop</gr-icon>
                     </a>
@@ -65,8 +65,7 @@
                 <span class="result-editor__status status status--invalid"
                       ng:switch-when="invalid">
                         Info missing
-                        <span class="ico ico--circled ico--help"
-                              title="You need to add both a credit and description">?</span>
+                    <gr-icon title="You need to add both a credit and description">help</gr-icon>
                 </span>
             </div>
 
