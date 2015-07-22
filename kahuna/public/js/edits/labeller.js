@@ -11,8 +11,8 @@ export var labeller = angular.module('kahuna.edits.labeller', [
 ]);
 
 labeller.controller('LabellerCtrl',
-                  ['$rootScope', '$scope', '$window', 'labelService',
-                   function($rootScope, $scope, $window, labelService) {
+                  ['$rootScope', '$scope', '$window', '$timeout', 'labelService',
+                   function($rootScope, $scope, $window, $timeout, labelService) {
 
     var ctrl = this;
     ctrl.labels = ctrl.image.data.userMetadata.data.labels;
@@ -76,8 +76,17 @@ labeller.controller('LabellerCtrl',
             if (labels.length > 0) {
                 $rootScope.$broadcast(batchAddLabelsEvent, labels);
             } else {
-                $rootScope.$broadcast(batchRemoveLabelsEvent);
+                ctrl.confirmDelete = true;
+
+                $timeout(() => {
+                    ctrl.confirmDelete = false;
+                }, 5000);
             }
+        };
+
+        ctrl.batchRemoveLabels = () => {
+            ctrl.confirmDelete = false;
+            $rootScope.$broadcast(batchRemoveLabelsEvent);
         };
     }
 
