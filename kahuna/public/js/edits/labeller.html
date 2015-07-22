@@ -22,10 +22,19 @@
         Add<span ng:show="ctrl.adding">ing…</span>
     </button>
 
-    <button
-        class="labeller__apply-all"
-        title="Apply these labels to all"
-        ng:if="ctrl.withBatch"
-        ng:click="ctrl.batchApplyLabels()"
-    >⇔</button>
+    <span ng:if="ctrl.withBatch" class="labeller__apply-all">
+        <button
+            title="Apply these labels to all"
+            ng:if="!ctrl.confirmDelete"
+            ng:click="ctrl.batchApplyLabels()"
+        >⇔</button>
+
+        <button title="Remove ALL labels"
+                class="button button--confirm-delete"
+                ng:if="ctrl.confirmDelete"
+                ng:click="ctrl.batchRemoveLabels()">
+            <gr-icon>warning</gr-icon>Remove ALL labels in job?
+        </button>
+    </span>
+
 </div>
