@@ -1141,6 +1141,11 @@ FIXME: what to do with touch devices
     float: right;
 }
 
+.image-info__usage-rights {
+    width: 100%;
+    box-sizing: border-box;
+}
+
 
 .image-info--multiple {
     font-style: italic;
