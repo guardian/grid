@@ -1141,6 +1141,11 @@ FIXME: what to do with touch devices
     float: right;
 }
 
+.image-info__usage-rights {
+    width: 100%;
+    box-sizing: border-box;
+}
+
 
 .image-info--multiple {
     font-style: italic;
@@ -1677,12 +1682,14 @@ FIXME: what to do with touch devices
     display: flex;
 }
 
-.form-label__error {
+.form-label__error,
+.form-label__notice {
     font-size: 1.2rem;
-    color: #ed5935;
     flex-grow: 1;
     text-align: right;
 }
+.form-label__error { color: #ed5935; }
+.form-label__notice { color: orange; }
 
 .form-property {
     display: block;
