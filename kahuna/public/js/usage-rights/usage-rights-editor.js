@@ -18,7 +18,7 @@ usageRightsEditor.controller(
 
     var ctrl = this;
 
-    const multiRights = { name: 'Multiple rights', value: '' };
+    const multiRights = { name: 'Multiple categories', value: '' };
     const noRights = { name: 'None', value: '' };
     const catsWithNoRights = () => [noRights].concat(ctrl.originalCats);
     const catsWithMultiRights = () => [multiRights].concat(ctrl.originalCats);
