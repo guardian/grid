@@ -73,9 +73,11 @@ labeller.controller('LabellerCtrl',
         ctrl.batchApplyLabels = () => {
             var labels = ctrl.labels.data.map(label => label.data);
 
-            labels.length > 0 ?
-                $rootScope.$broadcast(batchAddLabelsEvent, labels) :
+            if (labels.length > 0) {
+                $rootScope.$broadcast(batchAddLabelsEvent, labels);
+            } else {
                 $rootScope.$broadcast(batchRemoveLabelsEvent);
+            }
         };
     }
 
