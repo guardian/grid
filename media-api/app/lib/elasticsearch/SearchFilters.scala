@@ -26,9 +26,9 @@ trait SearchFilters extends ImageFields {
     case (Some(credit), Some(source)) => Some(filters.or(credit, source))
     case (creditOpt,    sourceOpt)    => creditOpt orElse sourceOpt
   }
-  val sourceExclFilter = payGettySourceList.toNel.map(cs => filters.not(filters.terms(metadataField("source"), cs)))
+  val sourceExclFilter = payGettySourceList.toNel.map(cs => filters.terms(metadataField("source"), cs))
   val freeCreditFilter = (freeWhitelist, sourceExclFilter) match {
-    case (Some(whitelist), Some(sourceExcl)) => Some(filters.and(whitelist, sourceExcl))
+    case (Some(whitelist), Some(sourceExcl)) => Some(filters.bool.must(whitelist).mustNot(sourceExcl))
     case (whitelistOpt,    sourceExclOpt)    => whitelistOpt orElse sourceExclOpt
   }
 
@@ -40,9 +40,10 @@ trait SearchFilters extends ImageFields {
     supplier            <- suppliersWithExclusions
     excludedCollections <- suppliersCollectionExcl.get(supplier).flatMap(_.toNel)
   } yield {
-      filters.and(
-        filters.term(usageRightsField("supplier"), supplier),
-        filters.not(filters.terms(usageRightsField("suppliersCollection"), excludedCollections))
+      filters.bool.must(
+        filters.term(usageRightsField("supplier"), supplier)
+      ).mustNot(
+        filters.terms(usageRightsField("suppliersCollection"), excludedCollections)
       )
     }
   val suppliersWithExclusionsFilter = suppliersWithExclusionsFilters.toList.toNel.map(filters.or)
