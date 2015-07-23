@@ -68,10 +68,10 @@
 
 .batch-archive--all-archived .metadata-line,
 .batch-archive--mixed .metadata-line .material-icons {
-    color: gold;
+    color: #ccc;
 }
 
 .batch-archive__archive:hover,
 .batch-archive__unarchive:hover {
-    color: gold;
+    color: white;
 }
