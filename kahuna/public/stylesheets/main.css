@@ -178,10 +178,17 @@ a:focus {
     color: white;
 }
 
-.confirm-delete {
-
+.button--confirm-delete {
+    background: red;
 }
 
+.button--confirm-delete gr-icon {
+    padding-right: 5px;
+}
+
+.button--confirm-delete:hover {
+    background: #960000;
+}
 
 .loader {
     text-align: center;
@@ -216,26 +223,6 @@ a:focus {
     0% {}
     95% {}
     100% { transform: rotateY(360deg); }
-}
-
-.ico {
-    width: 12px;
-    vertical-align: middle;
-    line-height: 12px;
-}
-
-.ico--circled {
-    font-size: 1.2rem;
-    display: inline-block;
-    border: 1px solid white;
-    border-radius: 50%;
-}
-
-.ico--help {
-    cursor: help;
-    text-align: center;
-    padding-left: 1px;
-    margin-left: 2px;
 }
 
 .saving {
@@ -877,6 +864,7 @@ FIXME: what to do with touch devices
 
 .bottom-bar__actions .preview__cost {
     float: right;
+    width: 35px;
 }
 
 

@@ -6,7 +6,6 @@ import com.gu.mediaservice.lib.config.UsageRightsConfig
 import scalaz.syntax.std.list._
 
 import lib.Config
-import com.gu.mediaservice.model.Pay
 
 
 trait SearchFilters extends ImageFields {
@@ -27,9 +26,9 @@ trait SearchFilters extends ImageFields {
     case (Some(credit), Some(source)) => Some(filters.or(credit, source))
     case (creditOpt,    sourceOpt)    => creditOpt orElse sourceOpt
   }
-  val sourceExclFilter = payGettySourceList.toNel.map(cs => filters.not(filters.terms(metadataField("source"), cs)))
+  val sourceExclFilter = payGettySourceList.toNel.map(cs => filters.terms(metadataField("source"), cs))
   val freeCreditFilter = (freeWhitelist, sourceExclFilter) match {
-    case (Some(whitelist), Some(sourceExcl)) => Some(filters.and(whitelist, sourceExcl))
+    case (Some(whitelist), Some(sourceExcl)) => Some(filters.bool.must(whitelist).mustNot(sourceExcl))
     case (whitelistOpt,    sourceExclOpt)    => whitelistOpt orElse sourceExclOpt
   }
 
@@ -41,9 +40,10 @@ trait SearchFilters extends ImageFields {
     supplier            <- suppliersWithExclusions
     excludedCollections <- suppliersCollectionExcl.get(supplier).flatMap(_.toNel)
   } yield {
-      filters.and(
-        filters.term(usageRightsField("supplier"), supplier),
-        filters.not(filters.terms(usageRightsField("suppliersCollection"), excludedCollections))
+      filters.bool.must(
+        filters.term(usageRightsField("supplier"), supplier)
+      ).mustNot(
+        filters.terms(usageRightsField("suppliersCollection"), excludedCollections)
       )
     }
   val suppliersWithExclusionsFilter = suppliersWithExclusionsFilters.toList.toNel.map(filters.or)
@@ -73,18 +73,7 @@ trait SearchFilters extends ImageFields {
   }
 
 
-  // lastly we make sure there isn't an override on the cost
-  val notPayUsageRightsFilter  =
-    List(Pay)
-      .map(_.toString).toNel
-      .map(filters.terms(editsField(usageRightsField("cost")), _))
-      .map(filters.not)
-
-  val freeFilterWithOverride = (freeFilter, notPayUsageRightsFilter) match {
-    case (Some(free), Some(notPayUsageRights)) => Some(filters.and(free, notPayUsageRights))
-    case (freeOpt,    notPayUsageRightsOpt)    => freeOpt orElse notPayUsageRightsOpt
-  }
-  val nonFreeFilter = freeFilterWithOverride.map(filters.not)
+  val nonFreeFilter = freeFilter.map(filters.not)
 
   // FIXME: There must be a better way (._.). Potentially making cost a lookup
   // again?
