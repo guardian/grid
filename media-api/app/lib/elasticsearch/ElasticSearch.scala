@@ -2,6 +2,7 @@ package lib.elasticsearch
 
 import java.util.regex.Pattern
 
+import org.elasticsearch.index.query.FilteredQueryBuilder
 import org.elasticsearch.search.aggregations.bucket.terms.StringTerms
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -92,7 +93,9 @@ object ElasticSearch extends ElasticSearchClient with SearchFilters with ImageFi
                   hasExports ++ hasIdentifier ++ missingIdentifier)
                    .foldLeft(dateFilter)(filters.and(_, _))
 
-    val search = prepareImagesSearch.setQuery(query).setPostFilter(filter) |>
+    val queryFiltered = new FilteredQueryBuilder(query, filter)
+
+    val search = prepareImagesSearch.setQuery(queryFiltered) |>
                  sorts.parseFromRequest(params.orderBy)
 
     search
