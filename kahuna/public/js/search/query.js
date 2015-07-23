@@ -9,16 +9,19 @@ import '../util/eq';
 import '../components/gu-date-range/gu-date-range';
 import template from './query.html!text';
 
+import '../analytics/track';
+
 export var query = angular.module('kahuna.search.query', [
     // Note: temporarily disabled for performance reasons, see above
     // 'ngAnimate',
     'util.eq',
-    'gu-dateRange'
+    'gu-dateRange',
+    'analytics.track'
 ]);
 
 query.controller('SearchQueryCtrl',
-                 ['$scope', '$state', '$stateParams', 'onValChange', 'mediaApi',
-                 function($scope, $state, $stateParams, onValChange , mediaApi) {
+                 ['$scope', '$state', '$stateParams', 'onValChange', 'mediaApi', 'track',
+                 function($scope, $state, $stateParams, onValChange , mediaApi, track) {
 
     var ctrl = this;
     ctrl.filter = {
@@ -54,6 +57,11 @@ query.controller('SearchQueryCtrl',
             // FIXME: broken for 'your uploads'
             // FIXME: + they triggers filter $watch and $state.go (breaks history)
             ctrl.filter[key] = valOrUndefined(newVal);
+
+            // don't track changes to `query` as it would trigger on every keypress
+            if (key !== 'query') {
+                track.success('Query change', { field: key, value: newVal });
+            }
         }));
     }
 
