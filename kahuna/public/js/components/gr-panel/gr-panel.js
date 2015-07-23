@@ -64,11 +64,13 @@ grPanel.controller('grMetadataEditorCtrl', function() {
     var ctrl = this;
     ctrl.model = {};
     ctrl.placeholders = {};
-    ctrl.hasMultiples = false;
 
     ctrl.service.metadata$.subscribe(m => {
         ctrl.model.description = m.description.length > 1 ? '' : m.description[0];
         ctrl.placeholders.description = m.description.length >= 0 ? 'multiple descriptions' : '';
+
+        ctrl.model.title = m.title.length > 1 ? '' : m.title[0];
+        ctrl.placeholders.title = m.title.length >= 0 ? 'multiple titles' : '';
     });
 
     ctrl.save = () => ctrl.service.save(ctrl.model);
@@ -86,9 +88,24 @@ grPanel.directive('grMetadataEditor', function() {
         },
         template: `
             <form ng:submit="ctrl.save()">
-                Description
-                <textarea ng:model="ctrl.model.description" placeholder="{{ctrl.placeholders.description}}"></textarea>
-                <button type="submit" ng:disabled="ctrl.hasMultiples">Save</button>
+                <div class="form__property">
+                    <div class="form-label">Title</div>
+                    <input type="text"
+                        class="form-input-text"
+                        placeholder="{{ctrl.placeholders.title}}"
+                        ng:model="ctrl.model.title" />
+                </div>
+
+                <div class="form__property">
+                    <div class="form-label">Description</div>
+                    <textarea
+                        class="form-input-text"
+                        placeholder="{{ctrl.placeholders.description}}"
+                        ng:model="ctrl.model.description"></textarea>
+                </div>
+
+                <button type="submit">Save</button>
+
             </form>
         `
     };
