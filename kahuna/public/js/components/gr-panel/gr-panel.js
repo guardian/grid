@@ -66,15 +66,24 @@ grPanel.controller('grMetadataEditorCtrl', function() {
     ctrl.placeholders = {};
 
     ctrl.service.metadata$.subscribe(m => {
-        ctrl.model.description = m.description.length > 1 ? '' : m.description[0];
-        ctrl.placeholders.description = m.description.length >= 0 ? 'multiple descriptions' : '';
-
-        ctrl.model.title = m.title.length > 1 ? '' : m.title[0];
-        ctrl.placeholders.title = m.title.length >= 0 ? 'multiple titles' : '';
+        Object.keys(m).forEach(field => {
+            ctrl.model[field] = m[field].length > 1 ? '' : m[field][0];
+            ctrl.placeholders[field] = m[field].length >= 0 ? `multiple ${field}s` : '';
+        });
     });
 
-    ctrl.save = () => ctrl.service.save(ctrl.model);
+    ctrl.saveField = field => ctrl.service.saveField(field, ctrl.model[field]);
 
+});
+
+grPanel.directive('grSaveButton', function() {
+    return {
+        restrict: 'E',
+        template: `
+        <button class="button-save">
+            <gr-icon>check</gr-icon>
+        </button>`
+    }
 });
 
 grPanel.directive('grMetadataEditor', function() {
@@ -87,27 +96,67 @@ grPanel.directive('grMetadataEditor', function() {
             service: '=grService'
         },
         template: `
-            <form ng:submit="ctrl.save()">
-                <div class="form__property">
+            <div>
+                <div class="form-property">
                     <div class="form-label">Title</div>
                     <input type="text"
                         class="form-input-text"
                         placeholder="{{ctrl.placeholders.title}}"
                         ng:model="ctrl.model.title" />
+
+                    <gr:save-button
+                        ng:click="ctrl.saveField('title')">
+                    </gr:save-button>
                 </div>
 
-                <div class="form__property">
+                <div class="form-property">
                     <div class="form-label">Description</div>
                     <textarea
                         class="form-input-text"
                         placeholder="{{ctrl.placeholders.description}}"
                         ng:model="ctrl.model.description"></textarea>
+
+                    <gr:save-button
+                        ng:click="ctrl.saveField('description')">
+                    </gr:save-button>
                 </div>
 
-                <button type="submit">Save</button>
+                <div class="form-property">
+                    <div class="form-label">Special instructions</div>
+                    <textarea
+                        class="form-input-text"
+                        placeholder="{{ctrl.placeholders.specialInstructions}}"
+                        ng:model="ctrl.model.specialInstructions"></textarea>
 
-            </form>
-        `
+                    <gr:save-button
+                        ng:click="ctrl.saveField('specialInstructions')">
+                    </gr:save-button>
+                </div>
+
+                <div class="form-property">
+                    <div class="form-label">Byline</div>
+                    <input type="text"
+                        class="form-input-text"
+                        placeholder="{{ctrl.placeholders.byline}}"
+                        ng:model="ctrl.model.byline" />
+
+                    <gr:save-button
+                        ng:click="ctrl.saveField('byline')">
+                    </gr:save-button>
+                </div>
+
+                <div class="form-property">
+                    <div class="form-label">Credit</div>
+                    <input type="text"
+                        class="form-input-text"
+                        placeholder="{{ctrl.placeholders.credit}}"
+                        ng:model="ctrl.model.credit" />
+
+                    <gr:save-button
+                        ng:click="ctrl.saveField('credit')">
+                    </gr:save-button>
+                </div>
+            </div>`
     };
 });
 

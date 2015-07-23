@@ -57,28 +57,59 @@ imageService.factory('imagesService', ['$q', 'editsService', function($q, editsS
         ).map(reduceMetadatas).map(cleanReducedMetadata);
 
 
-        return { metadata$, save };
+        return { metadata$, saveField };
 
-        function save(data) {
-            // TODO - check if there's been overrides against originalMetadata
+        function saveField(field, value) {
+            // TODO: A better implementation?
+            const saves = images$.getValue().map(image => {
+                var data;
+                const fieldData = { [field]: value };
+                const overrideData = getMetadata(image).data;
+                const override = overrideData[field];
+                const sameAsOverride = override === value;
+                const sameAsOriginal = image.data.originalMetadata[field] === value;
 
-            const saves = images$.getValue().map(image => editsService.
-                update(getMetadata(image), data, image).
-                then(() => image.get()).
-                // TODO: we could probably just get the image from the edits service.
-                then(newImage => {
-                    // update the bits that could have changed -> the client could be a little more
-                    // stupid here.
-                    image.data.metadata = newImage.data.metadata;
-                    image.data.valid = newImage.data.valid;
-                    image.data.userMetadata.data.metadata =
-                        newImage.data.userMetadata.data.metadata;
-                })
-            );
+                // beware - mutants!
+                if (sameAsOriginal && override) {
+                    // remove the field if it's the same as the original.
+                    data = Object.keys(overrideData).reduce((prev, curr) => {
+                        if (curr !== field) {
+                            prev[curr] = overrideData[field]
+                        }
+                        return prev;
+                    }, {});
+                } else if (!sameAsOriginal && !sameAsOverride) {
+                    data = angular.extend({}, overrideData, fieldData);
+                }
+
+                if (data) {
+                    return editsService
+                        .update(getMetadata(image), data, image)
+                        .then(() => image.get())
+                        .then(newImage => updateImage(image, newImage))
+                }
+
+                const def = $q.defer();
+                def.resolve(image);
+                return def.promise;
+            });
 
             $q.all(saves).then(images => images$.onNext(images));
         }
 
+        // TODO: Implement
+        function save(data) {}
+
+        function updateImage(oldImage, newImage) {
+            // TODO: we could probably just get the image from the edits service.
+            // update the bits that could have changed -> the client could be a little more
+            // stupid here.
+            oldImage.data.metadata = newImage.data.metadata;
+            oldImage.data.valid = newImage.data.valid;
+            oldImage.data.userMetadata.data.metadata = newImage.data.userMetadata.data.metadata;
+
+            return oldImage;
+        }
 
         function reduceMetadatas(metadatas) {
             return metadatas.reduce((prev, curr) => {
@@ -116,8 +147,6 @@ imageService.factory('imagesService', ['$q', 'editsService', function($q, editsS
         ).length);
 
         return { add, remove, count$, archivedCount$, notArchivedCount$ };
-
-
 
         function add() {
             save(true);

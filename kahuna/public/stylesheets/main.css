@@ -176,6 +176,7 @@ a:focus {
 .button-save {
     background: #00adee;
     color: white;
+    padding: 4px;
 }
 
 .confirm-delete {
