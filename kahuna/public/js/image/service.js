@@ -45,7 +45,66 @@ imageService.factory('imageService', ['editsService', function(editsService) {
     return image => forImage(image);
 }]);
 
-imageService.factory('imagesService', ['$q', function($q) {
+// TODO split into multiple services
+imageService.factory('imagesService', ['$q', 'editsService', function($q, editsService) {
+
+    function metadataCollection(images$) {
+        const editableMetadata = ['title', 'description', 'specialInstructions', 'byline', 'credit'];
+
+        const metadata$ = images$.map(images =>
+            images.map(image => image.data.metadata)
+        ).map(reduceMetadatas).map(cleanReducedMetadata);
+
+
+        return { metadata$, save };
+
+        function save(data) {
+            // TODO - check if there's been overrides against originalMetadata
+
+            const saves = images$.getValue().map(image => editsService.
+                update(getMetadata(image), data, image).
+                then(metadata => {
+                    image.data.userMetadata.data.metadata = metadata;
+                    // TODO: Should we actually return the image from the service so we
+                    // can just override it? Probably.
+                    image.data.metadata = angular.extend(image.data.metadata, metadata.data);
+                    return image;
+                })
+            );
+
+            $q.all(saves).then(images => images$.onNext(images));
+        }
+
+
+        function reduceMetadatas(metadatas) {
+            return metadatas.reduce((prev, curr) => {
+                editableMetadata.forEach(field => {
+                    prev[field] = (prev[field] || []).concat([curr[field]]);
+                });
+                return prev;
+            }, {});
+        }
+
+        function cleanReducedMetadata(metadata) {
+            return editableMetadata.reduce((prev, field) => {
+                prev[field] = unique(metadata[field]).filter(v => v);
+                return prev;
+            }, {});
+        }
+
+        function unique(arr) {
+            return arr.reduce((prev, curr) =>
+                prev.indexOf(curr) !== -1 ? prev : prev.concat([curr])
+            , []);
+        }
+
+        function getMetadata(image) {
+            return image.data.userMetadata.data.metadata;
+        }
+    }
+
+
+
 
     function archiveCollection(images$) {
         const count$ = images$.map(images => images.length);
@@ -57,6 +116,8 @@ imageService.factory('imagesService', ['$q', function($q) {
         ).length);
 
         return { add, remove, count$, archivedCount$, notArchivedCount$ };
+
+
 
         function add() {
             save(true);
@@ -84,7 +145,7 @@ imageService.factory('imagesService', ['$q', function($q) {
     }
 
     return {
-        archiveCollection
+        archiveCollection, metadataCollection
     };
 
 }]);

@@ -50,13 +50,48 @@ grPanel.directive('grArchiver', function() {
                 <gr-icon>star</gr-icon>
                 archive
             </button>
-            <span ng;if="ctrl.notArchivedCount !== 0 && ctrl.archivedCount !== 0">/</span>
+            <span ng:if="ctrl.notArchivedCount !== 0 && ctrl.archivedCount !== 0">/</span>
             <button ng:click="ctrl.remove()" ng:if="ctrl.archivedCount !== 0">
                 unarchive
                 <gr-icon>star_border</gr-icon>
             </button>
         `
-    }
+    };
+});
+
+grPanel.controller('grMetadataEditorCtrl', function() {
+
+    var ctrl = this;
+    ctrl.model = {};
+    ctrl.placeholders = {};
+    ctrl.hasMultiples = false;
+
+    ctrl.service.metadata$.subscribe(m => {
+        ctrl.model.description = m.description.length > 1 ? '' : m.description[0];
+        ctrl.placeholders.description = m.description.length >= 0 ? 'multiple descriptions' : '';
+    });
+
+    ctrl.save = () => ctrl.service.save(ctrl.model);
+
+});
+
+grPanel.directive('grMetadataEditor', function() {
+    return {
+        restrict: 'E',
+        controller: 'grMetadataEditorCtrl',
+        controllerAs: 'ctrl',
+        bindToController: true,
+        scope: {
+            service: '=grService'
+        },
+        template: `
+            <form ng:submit="ctrl.save()">
+                Description
+                <textarea ng:model="ctrl.model.description" placeholder="{{ctrl.placeholders.description}}"></textarea>
+                <button type="submit" ng:disabled="ctrl.hasMultiples">Save</button>
+            </form>
+        `
+    };
 });
 
 grPanel.controller('GrPanel', [
@@ -89,6 +124,7 @@ grPanel.controller('GrPanel', [
 
 
         ctrl.archivedService = imagesService.archiveCollection(selection.images$);
+        ctrl.metadataService = imagesService.metadataCollection(selection.images$);
 
 
         ctrl.credits = function(searchText) {
