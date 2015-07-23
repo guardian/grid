@@ -6,6 +6,7 @@ import '../../services/preview-selection';
 import '../../services/label';
 import '../../services/archive';
 import '../../edits/service';
+import '../../image/service';
 import '../../forms/gr-xeditable/gr-xeditable';
 
 export var grPanel = angular.module('grPanel', [
@@ -13,9 +14,50 @@ export var grPanel = angular.module('grPanel', [
     'kahuna.services.label',
     'kahuna.services.archive',
     'kahuna.edits.service',
+    'gr.image.service',
     'grXeditable',
     'ui.bootstrap'
 ]);
+
+
+grPanel.controller('grArchiverCtrl', function() {
+
+    var ctrl = this;
+    ctrl.count = 0;
+    ctrl.notArchivedCount = 0;
+    ctrl.archivedCount = 0;
+
+    ctrl.service.count$.subscribe(i => ctrl.count = i);
+    ctrl.service.archivedCount$.subscribe(i => ctrl.archivedCount = i);
+    ctrl.service.notArchivedCount$.subscribe(i => ctrl.notArchivedCount = i);
+
+    ctrl.add = ctrl.service.add;
+    ctrl.remove = ctrl.service.remove;
+});
+
+grPanel.directive('grArchiver', function() {
+    return {
+        restrict: 'E',
+        controller: 'grArchiverCtrl',
+        controllerAs: 'ctrl',
+        bindToController: true,
+        scope: {
+            service: '=grService'
+        },
+        template: `
+            {{ctrl.count}}
+            <button ng:click="ctrl.add()" ng:if="ctrl.notArchivedCount !== 0">
+                <gr-icon>star</gr-icon>
+                archive
+            </button>
+            <span ng;if="ctrl.notArchivedCount !== 0 && ctrl.archivedCount !== 0">/</span>
+            <button ng:click="ctrl.remove()" ng:if="ctrl.archivedCount !== 0">
+                unarchive
+                <gr-icon>star_border</gr-icon>
+            </button>
+        `
+    }
+});
 
 grPanel.controller('GrPanel', [
     '$scope',
@@ -25,6 +67,7 @@ grPanel.controller('GrPanel', [
     'labelService',
     'archiveService',
     'editsService',
+    'imagesService',
     'onValChange',
     function (
         $scope,
@@ -34,6 +77,7 @@ grPanel.controller('GrPanel', [
         labelService,
         archiveService,
         editsService,
+        imagesService,
         onValChange) {
 
         var ctrl = this;
@@ -42,6 +86,10 @@ grPanel.controller('GrPanel', [
         ctrl.selectedImages = selection.selectedImages;
         ctrl.hasMultipleValues = (val) => Array.isArray(val);
         ctrl.clear = selection.clear;
+
+
+        ctrl.archivedService = imagesService.archiveCollection(selection.images$);
+
 
         ctrl.credits = function(searchText) {
             return ctrl.metadataSearch('credit', searchText);

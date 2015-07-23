@@ -1,4 +1,5 @@
 import angular from 'angular';
+import Rx from 'rx';
 
 import '../edits/service';
 
@@ -9,6 +10,7 @@ selectionService.factory('selectionService', ['$q', 'editsService', function ($q
     var selectedMetadata = {};
     var selectedMetadataForDisplay = {};
     var selectedCosts, selectedLabels, archivedCount;
+    const images$ = new Rx.BehaviorSubject([]);
 
     function _group () {
         var metadata = {};
@@ -130,15 +132,22 @@ selectionService.factory('selectionService', ['$q', 'editsService', function ($q
 
     function add (image) {
         selectedImages.add(image);
+        updateStream();
         update();
     }
 
     function remove (image) {
         selectedImages.delete(image);
+        updateStream();
         update();
     }
 
+    function updateStream() {
+        images$.onNext(Array.from(selectedImages.values()));
+    }
+
     return {
+        images$,
         selectedImages,
         add,
         remove,

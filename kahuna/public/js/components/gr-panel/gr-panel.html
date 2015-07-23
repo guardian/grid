@@ -240,6 +240,10 @@
             </ul>
         </div>
 
+        <gr:archiver
+            gr:service="ctrl.archivedService">
+        </gr:archiver>
+
         <div class="image-info__group batch-archive" ng:switch="ctrl.archivedState"
             ng:class="{'batch-archive--archiving': ctrl.archiving}">
             <div ng:switch-when="mixed" class="batch-archive--mixed">

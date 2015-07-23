@@ -44,3 +44,47 @@ imageService.factory('imageService', ['editsService', function(editsService) {
 
     return image => forImage(image);
 }]);
+
+imageService.factory('imagesService', ['$q', function($q) {
+
+    function archiveCollection(images$) {
+        const count$ = images$.map(images => images.length);
+        const archivedCount$ = images$.map(images => images.filter(image =>
+            getArchived(image).data === true
+        ).length);
+        const notArchivedCount$ = images$.map(images => images.filter(image =>
+            getArchived(image).data === false
+        ).length);
+
+        return { add, remove, count$, archivedCount$, notArchivedCount$ };
+
+        function add() {
+            save(true);
+        }
+
+        function remove() {
+            save(false);
+        }
+
+        function save(val) {
+            const saves = images$.getValue().map(image => getArchived(image).
+                put({ data: val }).
+                then(archived => {
+                    image.data.userMetadata.data.archived = archived;
+                    return image;
+                })
+            );
+
+            $q.all(saves).then(images => images$.onNext(images));
+        }
+
+        function getArchived(image) {
+            return image.data.userMetadata.data.archived;
+        }
+    }
+
+    return {
+        archiveCollection
+    };
+
+}]);
