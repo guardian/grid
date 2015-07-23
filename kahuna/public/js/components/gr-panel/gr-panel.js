@@ -81,6 +81,7 @@ grPanel.directive('grLabeller', function() {
             service: '=grService'
         },
         template: `
+            Labels
             <ul class="labels">
                 <li class="label" ng:repeat="label in ctrl.labels">
                     {{label}}
@@ -100,27 +101,21 @@ grPanel.controller('grMetadataEditorCtrl', function() {
 
     var ctrl = this;
     ctrl.model = {};
-    ctrl.placeholders = {};
+    ctrl.hasMultiples = {};
 
     ctrl.service.metadata$.subscribe(m => {
         Object.keys(m).forEach(field => {
-            ctrl.model[field] = m[field].length > 1 ? '' : m[field][0];
-            ctrl.placeholders[field] = m[field].length >= 0 ? `multiple ${field}s` : '';
+            ctrl.hasMultiples[field] = m[field].length > 1;
+            ctrl.model[field] = ctrl.hasMultiples[field] ? '' : m[field][0];
         });
     });
 
     ctrl.saveField = field => ctrl.service.saveField(field, ctrl.model[field]);
 
-});
+    // shitty ng:placeholder placeholder
+    ctrl.placeholder = (field, placeholder) => ctrl.hasMultiples[field] ? placeholder : '';
+    ctrl.disableSave = field => !ctrl.model[field] && ctrl.hasMultiples[field];
 
-grPanel.directive('grSaveButton', function() {
-    return {
-        restrict: 'E',
-        template: `
-        <button class="button-save">
-            <gr-icon>check</gr-icon>
-        </button>`
-    };
 });
 
 grPanel.directive('grMetadataEditor', function() {
@@ -138,60 +133,70 @@ grPanel.directive('grMetadataEditor', function() {
                     <div class="form-label">Title</div>
                     <input type="text"
                         class="form-input-text"
-                        placeholder="{{ctrl.placeholders.title}}"
+                        placeholder="{{ctrl.placeholder('title', 'multiple titles')}}"
                         ng:model="ctrl.model.title" />
 
-                    <gr:save-button
-                        ng:click="ctrl.saveField('title')">
-                    </gr:save-button>
+                    <button class="button-save"
+                            ng:disabled="ctrl.disableSave('title')"
+                            ng:click="ctrl.saveField('title')">
+                        <gr-icon>check</gr-icon>
+                    </button>
                 </div>
 
                 <div class="form-property">
                     <div class="form-label">Description</div>
                     <textarea
                         class="form-input-text"
-                        placeholder="{{ctrl.placeholders.description}}"
+                        placeholder="{{ctrl.placeholder('description', 'multiple descriptions')}}"
                         ng:model="ctrl.model.description"></textarea>
 
-                    <gr:save-button
-                        ng:click="ctrl.saveField('description')">
-                    </gr:save-button>
+                    <button class="button-save"
+                            ng:disabled="ctrl.disableSave('description')"
+                            ng:click="ctrl.saveField('description')">
+                        <gr-icon>check</gr-icon>
+                    </button>
                 </div>
 
                 <div class="form-property">
                     <div class="form-label">Special instructions</div>
                     <textarea
                         class="form-input-text"
-                        placeholder="{{ctrl.placeholders.specialInstructions}}"
+                        placeholder="{{ctrl.placeholder('specialInstructions', 'multiple special instructions')}}"
                         ng:model="ctrl.model.specialInstructions"></textarea>
 
-                    <gr:save-button
-                        ng:click="ctrl.saveField('specialInstructions')">
-                    </gr:save-button>
+                    <button class="button-save"
+                            ng:disabled="ctrl.disableSave('specialInstructions')"
+                            ng:click="ctrl.saveField('specialInstructions')">
+                        <gr-icon>check</gr-icon>
+                    </button>
                 </div>
 
                 <div class="form-property">
                     <div class="form-label">Byline</div>
                     <input type="text"
                         class="form-input-text"
-                        placeholder="{{ctrl.placeholders.byline}}"
+                        placeholder="{{ctrl.placeholder('byline', 'multiple bylines')}}"
                         ng:model="ctrl.model.byline" />
 
-                    <gr:save-button
-                        ng:click="ctrl.saveField('byline')">
-                    </gr:save-button>
+                    <button class="button-save"
+                            ng:disabled="ctrl.disableSave('byline')"
+                            ng:click="ctrl.saveField('byline')">
+                        <gr-icon>check</gr-icon>
+                    </button>
                 </div>
 
                 <div class="form-property">
                     <div class="form-label">Credit</div>
                     <input type="text"
                         class="form-input-text"
-                        placeholder="{{ctrl.placeholders.credit}}"
+                        placeholder="{{ctrl.placeholder('credit', 'multiple credits')}}"
                         ng:model="ctrl.model.credit" />
 
-                    <gr:save-button
-                        ng:click="ctrl.saveField('credit')">
-                    </gr:save-button>
+                    <button class="button-save"
+                            ng:disabled="ctrl.disableSave('credit')"
+                            ng:click="ctrl.saveField('credit')">
+                        <gr-icon>check</gr-icon>
+                    </button>
                 </div>
             </div>`
     };
