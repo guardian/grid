@@ -59,6 +59,43 @@ grPanel.directive('grArchiver', function() {
     };
 });
 
+
+grPanel.controller('grLabellerCtrl', ['$window', function($window) {
+    var ctrl = this;
+
+    ctrl.service.labels$.subscribe(labels => ctrl.labels = labels);
+
+    ctrl.addLabel = () =>
+        ctrl.service.add($window.prompt('Enter a label:') || '');
+
+    ctrl.remove = label => ctrl.service.remove(label);
+}]);
+
+grPanel.directive('grLabeller', function() {
+    return {
+        restrict: 'E',
+        controller: 'grLabellerCtrl',
+        controllerAs: 'ctrl',
+        bindToController: true,
+        scope: {
+            service: '=grService'
+        },
+        template: `
+            <ul class="labels">
+                <li class="label" ng:repeat="label in ctrl.labels">
+                    {{label}}
+                    <button class="label__remove" ng:click="ctrl.remove(label)">
+                        <gr-icon gr:small>close</gr-icon>
+                    </button>
+                </li>
+            </ul>
+            <button class="button-ico" ng:click="ctrl.addLabel()">
+                <gr-icon>add</gr-icon>
+            </button>`
+    };
+});
+
+
 grPanel.controller('grMetadataEditorCtrl', function() {
 
     var ctrl = this;
@@ -83,7 +120,7 @@ grPanel.directive('grSaveButton', function() {
         <button class="button-save">
             <gr-icon>check</gr-icon>
         </button>`
-    }
+    };
 });
 
 grPanel.directive('grMetadataEditor', function() {
@@ -170,6 +207,7 @@ grPanel.controller('GrPanel', [
     'editsService',
     'archivedService',
     'metadataService',
+    'labelsService',
     'onValChange',
     function (
         $scope,
@@ -181,6 +219,7 @@ grPanel.controller('GrPanel', [
         editsService,
         archivedService,
         metadataService,
+        labelsService,
         onValChange) {
 
         var ctrl = this;
@@ -196,6 +235,9 @@ grPanel.controller('GrPanel', [
 
         ctrl.metadataService = metadataService(selection.images$);
         ctrl.metadataService.onUpdate(updates => selection.updateImages(updates));
+
+        ctrl.labelsService = labelsService(selection.images$);
+        ctrl.labelsService.onUpdate(updates => selection.updateImages(updates));
 
 
         ctrl.credits = function(searchText) {

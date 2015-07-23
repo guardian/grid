@@ -46,20 +46,75 @@ imageService.factory('imageService', ['editsService', function(editsService) {
 }]);
 
 
-
-imageService.factory('imagesService', function() {
-    return {
-        // This is just to omve it out the way.
-        // We need to rethink this as it's as good as mutation and stream emitting should
-        // be in one place i.e. the image selection service
-        edited: (images$, edits) => images$.onNext(edits)
-    }
+imageService.factory('unique', function() {
+    return arr => {
+        return arr.reduce((prev, curr) =>
+            prev.indexOf(curr) !== -1 ? prev : prev.concat([curr]), []);
+    };
 });
+
+imageService.factory('labelsService', ['$q', 'unique', function($q, unique) {
+    var onUpdateFunc = () => {};
+
+    function getLabels(image) {
+        return image.data.userMetadata.data.labels;
+    }
+
+    function onUpdate(func) {
+        onUpdateFunc = func;
+    }
+
+    function labelsService(images$) {
+        const labels$ = images$.map(uniqueLabels);
+
+        return { add, remove, onUpdate, labels$ };
+
+        function uniqueLabels(images) {
+            return unique(images.reduce((prev, curr) =>
+                prev.concat(curr.data.userMetadata.data.labels.data.map(l => l.data)), []));
+        }
+
+        function remove(label) {
+            if (label) {
+                const edits = images$.getValue().map(image => {
+                    const labelResource =
+                        getLabels(image).data.find(labelResource => labelResource.data === label);
+
+                    if (labelResource) {
+                        return labelResource.delete().then(labels => {
+                            image.data.userMetadata.data.labels = labels;
+                            return image;
+                        });
+                    }
+                }).filter(v => v);
+
+                $q.all(edits).then(images => onUpdateFunc(images));
+            }
+        }
+
+        function add(label) {
+            if (label) {
+                const edits = images$.getValue().map(image => getLabels(image).
+                    post({ data: [label] }).
+                    then(labels => {
+                        image.data.userMetadata.data.labels = labels;
+                        return image;
+                    })
+                );
+
+                $q.all(edits).then(images => onUpdateFunc(images));
+            }
+        }
+    }
+
+    return labelsService;
+
+}]);
 
 
 imageService.factory('metadataService',
-                    ['$q', 'imagesService', 'editsService',
-                    function($q, imagesService, editsService) {
+                    ['$q', 'editsService', 'unique',
+                    function($q, editsService, unique) {
 
     var onUpdateFunc = () => {};
     const editableMetadata = ['title', 'description', 'specialInstructions', 'byline', 'credit'];
@@ -104,11 +159,6 @@ imageService.factory('metadataService',
         return oldImage;
     }
 
-    function unique(arr) {
-        return arr.reduce((prev, curr) =>
-            prev.indexOf(curr) !== -1 ? prev : prev.concat([curr]), []);
-    }
-
     function getMetadata(image) {
         return image.data.userMetadata.data.metadata;
     }
@@ -129,7 +179,7 @@ imageService.factory('metadataService',
                     // remove the field if it's the same as the original.
                     data = Object.keys(overrideData).reduce((prev, curr) => {
                         if (curr !== field) {
-                            prev[curr] = overrideData[field]
+                            prev[curr] = overrideData[field];
                         }
                         return prev;
                     }, {});
@@ -141,17 +191,12 @@ imageService.factory('metadataService',
                     return editsService
                         .update(getMetadata(image), data, image)
                         .then(() => image.get())
-                        .then(newImage => updateImage(image, newImage))
+                        .then(newImage => updateImage(image, newImage));
                 }
-
-                // if nothing has changed, just return the image.
-                const def = $q.defer();
-                def.resolve(image);
-                return def.promise;
-            });
+            }).filter(v => v);
 
             $q.all(edits).then(images => onUpdateFunc(images));
-        }
+        };
     }
 
     return fromStream;
@@ -189,12 +234,13 @@ imageService.factory('archivedService', ['$q', function($q) {
         }
 
         function save(val) {
-            const edits = images$.getValue().map(image => getArchived(image).
-                put({ data: val }).
-                then(archived => {
-                    image.data.userMetadata.data.archived = archived;
-                    return image;
-                })
+            const edits = images$.getValue().map(image =>
+                getArchived(image).
+                    put({ data: val }).
+                    then(archived => {
+                        image.data.userMetadata.data.archived = archived;
+                        return image;
+                    })
             );
 
             $q.all(edits).then(images => onUpdateFunc(images));

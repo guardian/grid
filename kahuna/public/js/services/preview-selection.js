@@ -147,8 +147,13 @@ selectionService.factory('selectionService', ['$q', 'editsService', function ($q
     }
 
     function updateImages(updates) {
-        // TODO: This should probably do some for of zip instead of just smash the value in
-        images$.onNext(updates);
+        // Poor mans zip
+        const updatedImages = images$.getValue().map(image => {
+            const update = updates.find(update => update.data.id === image.data.id);
+            return update || image;
+        });
+
+        images$.onNext(updatedImages);
     }
 
     return {
