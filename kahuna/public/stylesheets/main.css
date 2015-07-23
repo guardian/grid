@@ -178,10 +178,17 @@ a:focus {
     color: white;
 }
 
-.confirm-delete {
-
+.button--confirm-delete {
+    background: red;
 }
 
+.button--confirm-delete gr-icon {
+    padding-right: 5px;
+}
+
+.button--confirm-delete:hover {
+    background: #960000;
+}
 
 .loader {
     text-align: center;
