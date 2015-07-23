@@ -146,8 +146,14 @@ selectionService.factory('selectionService', ['$q', 'editsService', function ($q
         images$.onNext(Array.from(selectedImages.values()));
     }
 
+    function updateImages(updates) {
+        // TODO: This should probably do some for of zip instead of just smash the value in
+        images$.onNext(updates);
+    }
+
     return {
         images$,
+        updateImages,
         selectedImages,
         add,
         remove,

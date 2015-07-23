@@ -61,7 +61,12 @@ imageService.factory('metadataService',
                     ['$q', 'imagesService', 'editsService',
                     function($q, imagesService, editsService) {
 
+    var onUpdateFunc = () => {};
     const editableMetadata = ['title', 'description', 'specialInstructions', 'byline', 'credit'];
+
+    function onUpdate(func) {
+        onUpdateFunc = func;
+    }
 
     function fromStream(images$) {
         const metadata$ = images$.map(images =>
@@ -69,7 +74,7 @@ imageService.factory('metadataService',
         ).map(reduceMetadatas).map(cleanReducedMetadata);
 
 
-        return { metadata$, saveField: saveFieldOnImages(images$) };
+        return { metadata$, onUpdate, saveField: saveFieldOnImages(images$) };
     }
 
     function reduceMetadatas(metadatas) {
@@ -145,7 +150,7 @@ imageService.factory('metadataService',
                 return def.promise;
             });
 
-            $q.all(edits).then(images => imagesService.edited(images$, images));
+            $q.all(edits).then(images => onUpdateFunc(images));
         }
     }
 
@@ -154,6 +159,15 @@ imageService.factory('metadataService',
 
 
 imageService.factory('archivedService', ['$q', function($q) {
+    var onUpdateFunc = () => {};
+
+    function getArchived(image) {
+        return image.data.userMetadata.data.archived;
+    }
+
+    function onUpdate(func) {
+        onUpdateFunc = func;
+    }
 
     function archivedService(images$) {
         const count$ = images$.map(images => images.length);
@@ -164,7 +178,7 @@ imageService.factory('archivedService', ['$q', function($q) {
             getArchived(image).data === false
         ).length);
 
-        return { add, remove, count$, archivedCount$, notArchivedCount$ };
+        return { add, remove, onUpdate, count$, archivedCount$, notArchivedCount$ };
 
         function add() {
             save(true);
@@ -183,11 +197,7 @@ imageService.factory('archivedService', ['$q', function($q) {
                 })
             );
 
-            $q.all(edits).then(images => imagesService.edited(images$, images));
-        }
-
-        function getArchived(image) {
-            return image.data.userMetadata.data.archived;
+            $q.all(edits).then(images => onUpdateFunc(images));
         }
     }
 

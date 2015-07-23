@@ -192,7 +192,10 @@ grPanel.controller('GrPanel', [
 
 
         ctrl.archivedService = archivedService(selection.images$);
+        ctrl.archivedService.onUpdate(updates => selection.updateImages(updates));
+
         ctrl.metadataService = metadataService(selection.images$);
+        ctrl.metadataService.onUpdate(updates => selection.updateImages(updates));
 
 
         ctrl.credits = function(searchText) {
