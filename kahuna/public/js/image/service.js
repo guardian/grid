@@ -45,25 +45,75 @@ imageService.factory('imageService', ['editsService', function(editsService) {
     return image => forImage(image);
 }]);
 
-// TODO split into multiple services
-imageService.factory('imagesService', ['$q', 'editsService', function($q, editsService) {
 
-    function metadataCollection(images$) {
-        const editableMetadata =
-            ['title', 'description', 'specialInstructions', 'byline', 'credit'];
 
+imageService.factory('imagesService', function() {
+    return {
+        // This is just to omve it out the way.
+        // We need to rethink this as it's as good as mutation and stream emitting should
+        // be in one place i.e. the image selection service
+        edited: (images$, edits) => images$.onNext(edits)
+    }
+});
+
+
+imageService.factory('metadataService',
+                    ['$q', 'imagesService', 'editsService',
+                    function($q, imagesService, editsService) {
+
+    const editableMetadata = ['title', 'description', 'specialInstructions', 'byline', 'credit'];
+
+    function fromStream(images$) {
         const metadata$ = images$.map(images =>
             images.map(image => image.data.metadata)
         ).map(reduceMetadatas).map(cleanReducedMetadata);
 
 
-        return { metadata$, saveField };
+        return { metadata$, saveField: saveFieldOnImages(images$) };
+    }
 
-        function saveField(field, value) {
+    function reduceMetadatas(metadatas) {
+        return metadatas.reduce((prev, curr) => {
+            editableMetadata.forEach(field => {
+                prev[field] = (prev[field] || []).concat([curr[field]]);
+            });
+            return prev;
+        }, {});
+    }
+
+    function cleanReducedMetadata(metadata) {
+        return editableMetadata.reduce((prev, field) => {
+            prev[field] = unique(metadata[field]).filter(v => v);
+            return prev;
+        }, {});
+    }
+
+    function updateImage(oldImage, newImage) {
+        // TODO: we could probably just get the image from the edits service.
+        // update the bits that could have changed -> the client could be a little more
+        // stupid here.
+        oldImage.data.metadata = newImage.data.metadata;
+        oldImage.data.valid = newImage.data.valid;
+        oldImage.data.userMetadata.data.metadata = newImage.data.userMetadata.data.metadata;
+
+        return oldImage;
+    }
+
+    function unique(arr) {
+        return arr.reduce((prev, curr) =>
+            prev.indexOf(curr) !== -1 ? prev : prev.concat([curr]), []);
+    }
+
+    function getMetadata(image) {
+        return image.data.userMetadata.data.metadata;
+    }
+
+    function saveFieldOnImages(images$) {
+        return function saveField(field, value) {
             // TODO: A better implementation?
-            const saves = images$.getValue().map(image => {
+            const edits = images$.getValue().map(image => {
                 var data;
-                const fieldData = { [field]: value };
+                const fieldData = {[field]: value};
                 const overrideData = getMetadata(image).data;
                 const override = overrideData[field];
                 const sameAsOverride = override === value;
@@ -89,55 +139,23 @@ imageService.factory('imagesService', ['$q', 'editsService', function($q, editsS
                         .then(newImage => updateImage(image, newImage))
                 }
 
+                // if nothing has changed, just return the image.
                 const def = $q.defer();
                 def.resolve(image);
                 return def.promise;
             });
 
-            $q.all(saves).then(images => images$.onNext(images));
-        }
-
-        // TODO: Implement
-        function save(data) {}
-
-        function updateImage(oldImage, newImage) {
-            // TODO: we could probably just get the image from the edits service.
-            // update the bits that could have changed -> the client could be a little more
-            // stupid here.
-            oldImage.data.metadata = newImage.data.metadata;
-            oldImage.data.valid = newImage.data.valid;
-            oldImage.data.userMetadata.data.metadata = newImage.data.userMetadata.data.metadata;
-
-            return oldImage;
-        }
-
-        function reduceMetadatas(metadatas) {
-            return metadatas.reduce((prev, curr) => {
-                editableMetadata.forEach(field => {
-                    prev[field] = (prev[field] || []).concat([curr[field]]);
-                });
-                return prev;
-            }, {});
-        }
-
-        function cleanReducedMetadata(metadata) {
-            return editableMetadata.reduce((prev, field) => {
-                prev[field] = unique(metadata[field]).filter(v => v);
-                return prev;
-            }, {});
-        }
-
-        function unique(arr) {
-            return arr.reduce((prev, curr) =>
-                prev.indexOf(curr) !== -1 ? prev : prev.concat([curr]), []);
-        }
-
-        function getMetadata(image) {
-            return image.data.userMetadata.data.metadata;
+            $q.all(edits).then(images => imagesService.edited(images$, images));
         }
     }
 
-    function archiveCollection(images$) {
+    return fromStream;
+}]);
+
+
+imageService.factory('archivedService', ['$q', function($q) {
+
+    function archivedService(images$) {
         const count$ = images$.map(images => images.length);
         const archivedCount$ = images$.map(images => images.filter(image =>
             getArchived(image).data === true
@@ -157,7 +175,7 @@ imageService.factory('imagesService', ['$q', 'editsService', function($q, editsS
         }
 
         function save(val) {
-            const saves = images$.getValue().map(image => getArchived(image).
+            const edits = images$.getValue().map(image => getArchived(image).
                 put({ data: val }).
                 then(archived => {
                     image.data.userMetadata.data.archived = archived;
@@ -165,7 +183,7 @@ imageService.factory('imagesService', ['$q', 'editsService', function($q, editsS
                 })
             );
 
-            $q.all(saves).then(images => images$.onNext(images));
+            $q.all(edits).then(images => imagesService.edited(images$, images));
         }
 
         function getArchived(image) {
@@ -173,8 +191,6 @@ imageService.factory('imagesService', ['$q', 'editsService', function($q, editsS
         }
     }
 
-    return {
-        archiveCollection, metadataCollection
-    };
+    return archivedService;
 
 }]);

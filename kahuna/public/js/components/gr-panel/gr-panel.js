@@ -168,7 +168,8 @@ grPanel.controller('GrPanel', [
     'labelService',
     'archiveService',
     'editsService',
-    'imagesService',
+    'archivedService',
+    'metadataService',
     'onValChange',
     function (
         $scope,
@@ -178,7 +179,8 @@ grPanel.controller('GrPanel', [
         labelService,
         archiveService,
         editsService,
-        imagesService,
+        archivedService,
+        metadataService,
         onValChange) {
 
         var ctrl = this;
@@ -189,8 +191,8 @@ grPanel.controller('GrPanel', [
         ctrl.clear = selection.clear;
 
 
-        ctrl.archivedService = imagesService.archiveCollection(selection.images$);
-        ctrl.metadataService = imagesService.metadataCollection(selection.images$);
+        ctrl.archivedService = archivedService(selection.images$);
+        ctrl.metadataService = metadataService(selection.images$);
 
 
         ctrl.credits = function(searchText) {
