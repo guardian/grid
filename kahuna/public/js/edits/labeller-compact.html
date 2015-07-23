@@ -1,8 +1,8 @@
 <div class="labeller" ng:if="!ctrl.disabled">
     <ul class="labels"
-        ng:if="ctrl.image.data.userMetadata.data.labels.data.length > 0">
+        ng:if="ctrl.labels.data.length > 0">
         <li class="label"
-            ng:repeat="label in ctrl.image.data.userMetadata.data.labels.data">
+            ng:repeat="label in ctrl.labels.data">
             <a class="label__link"
                ui:sref="search.results({query: (label.data | queryLabelFilter)})">{{label.data}}</a>
         </li>
@@ -18,8 +18,8 @@
 
 <div class="labeller" ng:if="ctrl.disabled">
     <ul class="labels"
-        ng:if="ctrl.image.data.userMetadata.data.labels.data.length > 0">
-        <li class="label" ng:repeat="label in ctrl.image.data.userMetadata.data.labels.data">
+        ng:if="ctrl.labels.data.length > 0">
+        <li class="label" ng:repeat="label in ctrl.labels.data">
             {{label.data}}
         </li>
     </ul>
