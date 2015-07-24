@@ -8,7 +8,8 @@ imageService.factory('imageService', ['editsService', function(editsService) {
     function forImage(image) {
         return {
             usageRights: usageRights(image),
-            states: getStates(image)
+            states: getStates(image),
+            dimensions: getDimensions(image)
         };
     }
 
@@ -40,6 +41,10 @@ imageService.factory('imageService', ['editsService', function(editsService) {
             hasCrops: hasExportsOfType(image, 'crop'),
             isValid: image.data.valid
         };
+    }
+
+    function getDimensions(image) {
+        return image.data.source.dimensions;
     }
 
     return image => forImage(image);

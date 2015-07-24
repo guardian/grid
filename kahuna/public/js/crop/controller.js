@@ -50,10 +50,9 @@ crop.controller('ImageCropCtrl',
         }
     });
 
-    var cropWidth = () => Math.round(ctrl.coords.x2 - ctrl.coords.x1);
-    var cropHeight = () => Math.round(ctrl.coords.y2 - ctrl.coords.y1);
-    ctrl.cropSize = () => cropWidth() + ' x ' + cropHeight();
-    ctrl.cropSizeWarning = () => cropWidth() < 500;
+    ctrl.cropWidth = () => Math.round(ctrl.coords.x2 - ctrl.coords.x1);
+    ctrl.cropHeight = () => Math.round(ctrl.coords.y2 - ctrl.coords.y1);
+    ctrl.cropSizeWarning = () => ctrl.cropWidth() < 500;
 
     ctrl.getRatioString = (aspect) => {
         if (Number(aspect) === ctrl.landscapeRatio) {
@@ -69,8 +68,8 @@ crop.controller('ImageCropCtrl',
         var coords = {
             x: Math.round(ctrl.coords.x1),
             y: Math.round(ctrl.coords.y1),
-            width:  cropWidth(),
-            height: cropHeight()
+            width:  ctrl.cropWidth(),
+            height: ctrl.cropHeight()
         };
 
         var ratio = ctrl.getRatioString(ctrl.aspect);
