@@ -290,64 +290,6 @@ kahuna.filter('stripEmailDomain', function() {
     return str => str.replace(/@.+/, '');
 });
 
-kahuna.directive('uiHasSpace', ['$window', '$parse', function($window, $parse) {
-    return {
-        restrict: 'A',
-        link: function(scope, element, attrs) {
-            var el = element[0];
-            scope.$watch(function() {
-                var hasSpace = el.clientHeight + el.offsetTop <= $window.innerHeight;
-                $parse(attrs.uiHasSpace).assign(scope, hasSpace);
-            });
-        }
-    };
-}]);
-
-kahuna.directive('uiNearBottom', ['$window', function($window) {
-    return {
-        restrict: 'A',
-        scope: {
-            nearBottom: '&uiNearBottom'
-        },
-        link: function(scope, element) {
-            var scrolling = false;
-            var $$window = angular.element($window);
-
-            // Observe scroll on window, remove listener when directive dies
-            // TODO: debounce
-            $$window.bind('scroll', checkScrollNearBottom);
-            scope.$on('$destroy', function() {
-                $$window.unbind('scroll', checkScrollNearBottom);
-            });
-
-            // Pixel distance from bottom at which we are 'near' it
-            var offset = 200;
-            function checkScrollNearBottom() {
-                var el = element[0];
-
-                var nowAt = $window.innerHeight + $window.scrollY;
-                var end = el.scrollHeight + el.offsetTop - offset;
-
-                if (!scrolling && nowAt >= end) {
-                    scrolling = true;
-                    var afterNearBottom = scope.nearBottom();
-                    // FIXME: This hack seems to be needed because the
-                    // directive gets destroyed (and this handler
-                    // unregistered) too late.  We should be able to
-                    // remove this once we throttle and delay the
-                    // scroll handler a little?
-                    if (afterNearBottom) {
-                        afterNearBottom.finally(function() {
-                            scrolling = false;
-                        });
-                    } else {
-                        scrolling = false;
-                    }
-                }
-            }
-        }
-    };
-}]);
 
 kahuna.directive('uiDragData', function() {
     return {
@@ -443,31 +385,6 @@ kahuna.directive('uiLocalstore', ['$window', function($window) {
     };
 }]);
 
-/**
- * this is for when you have dynamic content that makes the window scroll
- * Chrome remembers your last scroll location, so when scrolling starts
- * you get a massive jump on first scroll, good for static content,
- * not for dynamic. This is a craphack.
- *
- * http://stackoverflow.com/questions/18617367/disable-browers-auto-scroll-after-a-page-refresh
- */
-kahuna.directive('uiForgetWindowScroll',
-                 ['$window', '$timeout',
-                  function($window, $timeout) {
-    return {
-        restrict: 'A',
-        link: function(scope, element, attrs) {
-            scope.$eval(attrs.uiForgetWindowScroll).finally(function() {
-                // FIXME: even if this is a hack, using timeout as the DOM
-                // hasn't loaded is balony.
-                $timeout(function() {
-                    $window.scrollTo(0, 1);
-                    $window.scrollTo(0, 0);
-                }, 200);
-            });
-        }
-    };
-}]);
 
 kahuna.directive('uiWindowResized', ['$window', function ($window) {
     return {
