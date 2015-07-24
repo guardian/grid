@@ -44,6 +44,7 @@ grPanel.controller('GrPanel', [
 
         var ctrl = this;
 
+        ctrl.panelHidden = true;
         ctrl.selectedImages = selection.selectedImages;
 
         ctrl.hasMultipleValues = (val) => Array.isArray(val) && val.length > 1;

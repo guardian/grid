@@ -604,8 +604,7 @@ input.search-query__input {
 }
 
 .results--left {
-    width: calc(100vw - 300px);
-    float: left;
+
 }
 
 .results-controls {
