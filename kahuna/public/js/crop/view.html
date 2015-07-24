@@ -6,7 +6,7 @@
     </gr-top-bar-nav>
 
     <gr-top-bar-actions>
-        <div class="top-bar-item top-bar-item--static">{{ ctrl.cropSize() }}</div>
+        <div class="top-bar-item top-bar-item--static">{{ ctrl.cropWidth() }}<gr-icon>close</gr-icon>{{ ctrl.cropHeight() }}</div>
 
         <label class="top-bar-item" title="landscape">
             <input type="radio" ng:model="ctrl.aspect" value="{{ctrl.landscapeRatio}}"/>
