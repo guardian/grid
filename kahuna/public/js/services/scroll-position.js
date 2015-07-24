@@ -3,8 +3,8 @@ import angular from 'angular';
 var scrollPosService = angular.module('kahuna.services.scroll-position', []);
 
 scrollPosService.factory('scrollPosition',
-                         ['$window', '$q', 'delay',
-                          function ($window, $q, delay) {
+                         ['$window',
+                          function ($window) {
 
     // The saved scroll top position
     let positionTop;
