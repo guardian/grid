@@ -84,3 +84,16 @@ async.factory('apiPoll', ['poll', function(poll) {
 
     return func => poll(func, pollFrequency, pollTimeout);
 }]);
+
+
+// Return a promise resolved the next time the event is fired on the scope
+async.factory('onNextEvent', ['$q', function($q) {
+
+    function onNextEvent(scope, event) {
+        const defer = $q.defer();
+        const unregister = scope.$on(event, defer.resolve);
+        return defer.promise.finally(unregister);
+    }
+
+    return onNextEvent;
+}]);
