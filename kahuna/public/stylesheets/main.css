@@ -182,10 +182,17 @@ a:focus {
     cursor: auto;
 }
 
-.confirm-delete {
-
+.button--confirm-delete {
+    background: red;
 }
 
+.button--confirm-delete gr-icon {
+    padding-right: 5px;
+}
+
+.button--confirm-delete:hover {
+    background: #960000;
+}
 
 .loader {
     text-align: center;
@@ -436,7 +443,7 @@ textarea.ng-invalid {
     }
 }
 
-@media screen and (max-width: 1100px) {
+@media screen and (max-width: 1000px) {
 
     .search__filters-toggle {
         display: inherit;

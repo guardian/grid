@@ -4,7 +4,7 @@ import scalaz.NonEmptyList
 import scalaz.syntax.foldable1._
 
 import org.joda.time.DateTime
-import org.elasticsearch.index.query.{FilterBuilders, FilterBuilder}
+import org.elasticsearch.index.query.{BoolFilterBuilder, FilterBuilders, FilterBuilder}
 
 import com.gu.mediaservice.lib.formatting.printDateTime
 
@@ -14,8 +14,7 @@ object filters {
   import FilterBuilders.{
     rangeFilter,
     termsFilter,
-    andFilter,
-    orFilter,
+    boolFilter,
     notFilter,
     existsFilter,
     missingFilter,
@@ -36,11 +35,14 @@ object filters {
   def terms(field: String, terms: NonEmptyList[String]): FilterBuilder =
     termsFilter(field, terms.list: _*)
 
+  // Note: slightly leaky API, would be nice to keep our DSL abstracted
+  def bool: BoolFilterBuilder = boolFilter()
+
   def and(filters: FilterBuilder*): FilterBuilder =
-    andFilter(filters: _*)
+    boolFilter().must(filters: _*)
 
   def or(filters: FilterBuilder*): FilterBuilder =
-    orFilter(filters: _*)
+    boolFilter().should(filters: _*)
 
   def or(filters: NonEmptyList[FilterBuilder]): FilterBuilder = or(filters.list: _*)
 
@@ -48,16 +50,13 @@ object filters {
     notFilter(filter)
 
   def exists(fields: NonEmptyList[String]): FilterBuilder =
-    fields.map(f => existsFilter(f): FilterBuilder).foldRight1(andFilter(_, _))
+    fields.map(f => existsFilter(f): FilterBuilder).foldRight1(and(_, _))
 
   def missing(fields: NonEmptyList[String]): FilterBuilder =
-    fields.map(f => missingFilter(f): FilterBuilder).foldRight1(andFilter(_, _))
+    fields.map(f => missingFilter(f): FilterBuilder).foldRight1(and(_, _))
 
   def anyMissing(fields: NonEmptyList[String]): FilterBuilder =
-    fields.map(f => missingFilter(f): FilterBuilder).foldRight1(orFilter(_, _))
-
-  def bool(field: String, bool: Boolean): FilterBuilder =
-    termFilter(field, bool)
+    fields.map(f => missingFilter(f): FilterBuilder).foldRight1(or(_, _))
 
   def ids(idList: List[String]): FilterBuilder =
     FilterBuilders.idsFilter().addIds(idList:_*)

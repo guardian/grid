@@ -36,7 +36,7 @@ search.config(['$stateProvider',
     });
 
     $stateProvider.state('search.results', {
-        url: 'search?query&ids&since&nonFree&archived&uploadedBy&until',
+        url: 'search?query&ids&since&nonFree&uploadedBy&until',
         data: {
             title: function(params) {
                 return params.query ? params.query : 'search';
