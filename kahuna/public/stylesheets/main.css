@@ -616,17 +616,21 @@ input.search-query__input {
 }
 
 .result {
-    flex: 1;
-    width: 20%;
-    min-width: 200px;
-    max-width: 270px;
-    margin: 10px 5px;
-    background: #393939;
     position: relative;
-    border: solid 5px transparent;
+    border: 5px solid transparent;
+    box-sizing: border-box;
+    margin: 5px;
+    background-color: #39393;
 }
 .result--seen {
     opacity: .5;
+}
+
+.result-placeholder {
+    position: relative;
+    border: solid 5px #333;
+    box-sizing: border-box;
+    background: #393939;
 }
 
 .result__select input[type=checkbox] {
@@ -666,10 +670,6 @@ input.search-query__input {
 }
 
 .result:hover {
-    border-color: #404040;
-}
-
-.result:hover .preview {
     background-color: #404040;
 }
 
@@ -745,6 +745,17 @@ input.search-query__input {
     margin-left: 5px;
 }
 
+.image-results-more {
+    margin: 40px 0;
+    text-align: center;
+}
+.image-results-more__heading {
+    font-size: 36px;
+}
+.image-results-more__instructions {
+    font-size: 20px;
+}
+
 .image-loading-results,
 .image-no-results {
     font-size: 3rem;
@@ -760,7 +771,6 @@ input.search-query__input {
    Preview
    ========================================================================== */
 .preview {
-    background: #393939;
     position: relative;
 }
 
@@ -813,7 +823,7 @@ FIXME: what to do with touch devices
 
 .preview__bottom-bar {
     font-size: 1.4rem;
-    margin-top: 10px;
+    margin-top: 5px;
 }
 
 .preview__quick-select {
