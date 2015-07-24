@@ -1019,7 +1019,8 @@ FIXME: what to do with touch devices
     padding: 10px 10px;
     overflow: auto;
     width: 300px;
-    border-left: 1px solid #222;
+    border-left: 1px solid #565656;
+    background-color: #444;
 }
 .image-details:after {
     clear: both;
