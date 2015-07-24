@@ -1560,8 +1560,12 @@ FIXME: what to do with touch devices
     display: block;
 }
 
-.archiver--archived {
-    color: gold;
+ui-archiver {
+    color: #ccc;
+}
+
+ui-archiver .archiver:hover {
+    color: white;
 }
 
 
