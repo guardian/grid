@@ -11,8 +11,8 @@ export var labeller = angular.module('kahuna.edits.labeller', [
 ]);
 
 labeller.controller('LabellerCtrl',
-                  ['$rootScope', '$scope', '$window', 'labelService',
-                   function($rootScope, $scope, $window, labelService) {
+                  ['$rootScope', '$scope', '$window', '$timeout', 'labelService',
+                   function($rootScope, $scope, $window, $timeout, labelService) {
 
     var ctrl = this;
     ctrl.labels = ctrl.image.data.userMetadata.data.labels;
@@ -59,12 +59,34 @@ labeller.controller('LabellerCtrl',
             });
     };
 
-    const batchApplyLabelsEvent = 'events:batch-apply:labels';
+    ctrl.removeLabels = () => {
+        ctrl.labels.data.map(label => ctrl.removeLabel(label.data));
+    };
+
+    const batchAddLabelsEvent = 'events:batch-apply:add-labels';
+    const batchRemoveLabelsEvent = 'events:batch-apply:remove-labels';
+
     if (Boolean(ctrl.withBatch)) {
-        $scope.$on(batchApplyLabelsEvent, (e, labels) => ctrl.addLabels(labels));
+        $scope.$on(batchAddLabelsEvent, (e, labels) => ctrl.addLabels(labels));
+        $scope.$on(batchRemoveLabelsEvent, () => ctrl.removeLabels());
 
         ctrl.batchApplyLabels = () => {
-            $rootScope.$broadcast(batchApplyLabelsEvent, ctrl.labels.data.map(label => label.data));
+            var labels = ctrl.labels.data.map(label => label.data);
+
+            if (labels.length > 0) {
+                $rootScope.$broadcast(batchAddLabelsEvent, labels);
+            } else {
+                ctrl.confirmDelete = true;
+
+                $timeout(() => {
+                    ctrl.confirmDelete = false;
+                }, 5000);
+            }
+        };
+
+        ctrl.batchRemoveLabels = () => {
+            ctrl.confirmDelete = false;
+            $rootScope.$broadcast(batchRemoveLabelsEvent);
         };
     }
 
