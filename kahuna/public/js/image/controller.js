@@ -1,14 +1,9 @@
 import angular from 'angular';
 
-import './service';
 import '../edits/service';
 import '../analytics/track';
 
-var image = angular.module('kahuna.image.controller', [
-    'gr.image.service',
-    'kahuna.edits.service',
-    'analytics.track'
-]);
+var image = angular.module('kahuna.image.controller', ['kahuna.edits.service', 'analytics.track']);
 
 image.controller('ImageCtrl', [
     '$rootScope',
@@ -19,7 +14,6 @@ image.controller('ImageCtrl', [
     'optimisedImageUri',
     'cropKey',
     'mediaCropper',
-    'imageService',
     'editsService',
     'track',
 
@@ -31,7 +25,6 @@ image.controller('ImageCtrl', [
               optimisedImageUri,
               cropKey,
               mediaCropper,
-              imageService,
               editsService,
               track) {
 
@@ -48,9 +41,6 @@ image.controller('ImageCtrl', [
         };
 
         ctrl.image = image;
-
-        ctrl.imageDimensions = imageService(ctrl.image).dimensions;
-
         ctrl.optimisedImageUri = optimisedImageUri;
         // TODO: we should be able to rely on ctrl.crop.id instead once
         // all existing crops are migrated to have an id (they didn't
