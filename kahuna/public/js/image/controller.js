@@ -1,14 +1,9 @@
 import angular from 'angular';
 
-import './service';
 import '../edits/service';
 import '../analytics/track';
 
-var image = angular.module('kahuna.image.controller', [
-    'gr.image.service',
-    'kahuna.edits.service',
-    'analytics.track'
-]);
+var image = angular.module('kahuna.image.controller', ['kahuna.edits.service', 'analytics.track']);
 
 image.controller('ImageCtrl', [
     '$rootScope',
@@ -19,7 +14,6 @@ image.controller('ImageCtrl', [
     'optimisedImageUri',
     'cropKey',
     'mediaCropper',
-    'imageService',
     'editsService',
     'track',
 
@@ -31,7 +25,6 @@ image.controller('ImageCtrl', [
               optimisedImageUri,
               cropKey,
               mediaCropper,
-              imageService,
               editsService,
               track) {
 
@@ -48,8 +41,6 @@ image.controller('ImageCtrl', [
         };
 
         ctrl.image = image;
-
-        ctrl.imageDimensions = imageService(ctrl.image).dimensions;
 
         ctrl.optimisedImageUri = optimisedImageUri;
         // TODO: we should be able to rely on ctrl.crop.id instead once
@@ -71,9 +62,24 @@ image.controller('ImageCtrl', [
         ctrl.isUsefulMetadata = isUsefulMetadata;
         ctrl.cropSelected = cropSelected;
 
+        // TODO: move this to a more sensible place.
+        function getCropDimensions() {
+            return {
+                width: ctrl.crop.specification.bounds.width,
+                height: ctrl.crop.specification.bounds.height
+            };
+        }
+        // TODO: move this to a more sensible place.
+        function getImageDimensions() {
+            return ctrl.image.data.source.dimensions;
+        }
+
         mediaCropper.getCropsFor(image).then(crops => {
             ctrl.crops = crops;
             ctrl.crop = crops.find(crop => crop.id === cropKey);
+        }).finally(() => {
+            ctrl.imageDimensions = angular.isDefined(ctrl.crop) ?
+                getCropDimensions() : getImageDimensions();
         });
 
         updateAbilities(image);
