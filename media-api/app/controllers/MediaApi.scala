@@ -107,12 +107,12 @@ object MediaApi extends Controller with ArgoHelpers {
     ElasticSearch.getImageById(id) flatMap {
       case Some(source) => {
         val withWritePermission = canUserWriteMetadata(request, source)
+        val withDeletePermission = canUserDeleteImage(request, source)
 
-        withWritePermission.map {
-          permission => {
-            val (imageData, imageLinks) = ImageResponse.create(id, source, permission, include)
-            respond(imageData, imageLinks)
-          }
+        Future.sequence(List(withWritePermission, withDeletePermission)).map {
+          case List(writePermission, deletePermission) =>
+            val (imageData, imageLinks, imageActions) = ImageResponse.create(id, source, writePermission, deletePermission, include)
+            respond(imageData, imageLinks, imageActions)
         }
       }
       case None => Future.successful(ImageNotFound)
@@ -199,11 +199,14 @@ object MediaApi extends Controller with ArgoHelpers {
 
     def hitToImageEntity(elasticId: ElasticSearch.Id, source: JsValue): Future[EmbeddedEntity[JsValue]] = {
       val withWritePermission = canUserWriteMetadata(request, source)
+      val withDeletePermission = canUserDeleteImage(request, source)
 
-      withWritePermission.map { permission =>
-        val (imageData, imageLinks) = ImageResponse.create(elasticId, source, permission, include)
-        val id = (imageData \ "id").as[String]
-        EmbeddedEntity(uri = URI.create(s"$rootUri/images/$id"), data = Some(imageData), imageLinks)
+      Future.sequence(List(withWritePermission, withDeletePermission)).map {
+        case List(writePermission, deletePermission) =>
+          val (imageData, imageLinks, imageActions) = ImageResponse.create(elasticId, source, writePermission, deletePermission, include)
+          val id = (imageData \ "id").as[String]
+          val imageUri = URI.create(s"$rootUri/images/$id")
+          EmbeddedEntity(uri = imageUri, data = Some(imageData), imageLinks, imageActions)
       }
     }
 
