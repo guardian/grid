@@ -131,10 +131,32 @@ object MediaApi extends Controller with ArgoHelpers {
     }
   }
 
-  def deleteImage(id: String) = Authenticated {
-    Notifications.publish(Json.obj("id" -> id), "delete-image")
-    // TODO: use respond
-    Accepted.as(ArgoMediaType)
+
+  val ImageCannotBeDeleted = respondError(MethodNotAllowed, "cannot-delete", "Cannot delete persisted images")
+  val ImageDeleteForbidden = respondError(Forbidden, "delete-not-allowed", "No permission to delete this image")
+
+  def deleteImage(id: String) = Authenticated.async { request =>
+    ElasticSearch.getImageById(id) flatMap {
+      case Some(source) =>
+        val image = source.as[Image]
+
+        val isPersisted = ImageResponse.imageIsPersisted(image)
+        if (isPersisted) {
+          Future.successful(ImageCannotBeDeleted)
+        } else {
+          canUserDeleteImage(request, source) map { canDelete =>
+            if (canDelete) {
+              Notifications.publish(Json.obj("id" -> id), "delete-image")
+              // TODO: use respond
+              Accepted.as(ArgoMediaType)
+            } else {
+              ImageDeleteForbidden
+            }
+          }
+        }
+
+      case None => Future.successful(ImageNotFound)
+    }
   }
 
   def cleanImage(id: String) = Authenticated.async {
