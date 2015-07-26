@@ -11,7 +11,7 @@ import play.api.libs.json._
 import play.api.libs.functional.syntax._
 
 import com.gu.mediaservice.model._
-import com.gu.mediaservice.lib.argo.model.{EmbeddedEntity, Link}
+import com.gu.mediaservice.lib.argo.model._
 import com.gu.mediaservice.api.Transformers
 
 
@@ -31,7 +31,9 @@ object ImageResponse {
       image.userMetadata.exists(_.archived)
   }
 
-  def create(id: String, esSource: JsValue, withWritePermission: Boolean, included: List[String] = List()): (JsValue, List[Link]) = {
+  def create(id: String, esSource: JsValue, withWritePermission: Boolean,
+             withDeletePermission: Boolean, included: List[String] = List()):
+            (JsValue, List[Link], List[Action]) = {
     val (image: Image, source: JsValue) = Try {
       val image = esSource.as[Image]
       val source = Json.toJson(image)(
@@ -66,7 +68,9 @@ object ImageResponse {
 
     val links = imageLinks(id, secureUrl, withWritePermission, valid)
 
-    (data, links)
+    val actions = imageActions(id, isPersisted, withDeletePermission)
+
+    (data, links, actions)
   }
 
   def imageLinks(id: String, secureUrl: String, withWritePermission: Boolean, valid: Boolean) = {
@@ -82,6 +86,13 @@ object ImageResponse {
     }
 
     if (valid) (cropLink :: baseLinks) else baseLinks
+  }
+
+  def imageActions(id: String, isPersisted: Boolean, withDeletePermission: Boolean) = {
+    val imageUri = URI.create(s"${Config.rootUri}/images/$id")
+    val deleteAction = Action("delete", imageUri, "DELETE")
+
+    if (! isPersisted && withDeletePermission) List(deleteAction) else Nil
   }
 
   def addUsageCost(source: JsValue): Reads[JsObject] = {
