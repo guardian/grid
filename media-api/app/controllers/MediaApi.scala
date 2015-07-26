@@ -78,17 +78,28 @@ object MediaApi extends Controller with ArgoHelpers {
     includedQuery.map(_.split(",").map(_.trim).toList).getOrElse(List())
   }
 
-  def canUserWriteMetadata(request: AuthenticatedRequest[AnyContent, Principal], source: JsValue) = {
+
+  def isUploaderOrHasPermission(request: AuthenticatedRequest[AnyContent, Principal], source: JsValue,
+                                permission: PermissionType.PermissionType) = {
     request.user match {
       case user: PandaUser => {
         (source \ "uploadedBy").asOpt[String] match {
           case Some(uploader) if user.email == uploader => Future.successful(true)
-          case _ => permissionStore.hasPermission(PermissionType.EditMetadata, user.email)
+          case _ => permissionStore.hasPermission(permission, user.email)
         }
       }
       case _ => Future.successful(false)
     }
   }
+
+  def canUserWriteMetadata(request: AuthenticatedRequest[AnyContent, Principal], source: JsValue) = {
+    isUploaderOrHasPermission(request, source, PermissionType.EditMetadata)
+  }
+
+  def canUserDeleteImage(request: AuthenticatedRequest[AnyContent, Principal], source: JsValue) = {
+    isUploaderOrHasPermission(request, source, PermissionType.DeleteImage)
+  }
+
 
   def getImage(id: String) = Authenticated.async { request =>
     val include = getIncludedFromParams(request)
