@@ -24,6 +24,13 @@ object ImageResponse {
 
   def fileMetaDataUri(id: String) = URI.create(s"${Config.rootUri}/images/$id/fileMetadata")
 
+  // TODO: move this as a method of Image (fiddly due to dep on Config)
+  def imageIsPersisted(image: Image) = {
+    image.identifiers.contains(Config.persistenceIdentifier) ||
+      image.exports.length > 0 ||
+      image.userMetadata.exists(_.archived)
+  }
+
   def create(id: String, esSource: JsValue, withWritePermission: Boolean, included: List[String] = List()): (JsValue, List[Link]) = {
     val (image: Image, source: JsValue) = Try {
       val image = esSource.as[Image]
@@ -48,9 +55,7 @@ object ImageResponse {
 
     val valid = ImageExtras.isValid(source \ "metadata")
 
-    val isPersisted = image.identifiers.contains(Config.persistenceIdentifier) ||
-      image.exports.length > 0 ||
-      image.userMetadata.exists(_.archived)
+    val isPersisted = imageIsPersisted(image)
 
     val data = source.transform(addSecureSourceUrl(secureUrl))
       .flatMap(_.transform(wrapUserMetadata(id)))
