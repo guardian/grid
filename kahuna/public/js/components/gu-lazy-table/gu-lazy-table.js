@@ -297,6 +297,7 @@ lazyTable.directive('guLazyTable', ['$window', 'observe$',
                 // with other cell rendering updates
                 scope.$applyAsync(() => {
                     element.css('height', viewHeight + 'px');
+                    scope.$emit('gu-lazy-table:height-changed', viewHeight);
                 });
             });
         }
