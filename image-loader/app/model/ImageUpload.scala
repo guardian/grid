@@ -75,10 +75,23 @@ case object ImageUpload {
     uploadRequest.mimeType
   )
 
+  private def isStaffPhotographer(metadata: ImageMetadata) = {
+    metadata.byline match {
+      case Some(byline: String) => StaffPhotographers.store.contains(byline)
+      case _                    => false
+    }
+  }
+
+  private def autoArchivedMetadata() = {
+    Option(Edits(archived=true, metadata=Edits.emptyMetadata))
+  }
 
   private def createImage(uploadRequest: UploadRequest, source: Asset, thumbnail: Asset,
                   fileMetadata: FileMetadata, metadata: ImageMetadata): Image = {
     val usageRights = NoRights
+
+    val userMetadata = if (isStaffPhotographer(metadata)) autoArchivedMetadata() else None
+
     Image(
       uploadRequest.id,
       uploadRequest.uploadTime,
@@ -88,7 +101,7 @@ case object ImageUpload {
       source,
       Some(thumbnail),
       fileMetadata,
-      None,
+      userMetadata,
       metadata,
       metadata,
       usageRights,
