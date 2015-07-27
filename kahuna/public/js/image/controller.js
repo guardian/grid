@@ -78,8 +78,12 @@ image.controller('ImageCtrl', [
             ctrl.crops = crops;
             ctrl.crop = crops.find(crop => crop.id === cropKey);
         }).finally(() => {
-            ctrl.imageDimensions = angular.isDefined(ctrl.crop) ?
+            ctrl.dimensions = angular.isDefined(ctrl.crop) ?
                 getCropDimensions() : getImageDimensions();
+
+            if (angular.isDefined(ctrl.crop)) {
+                ctrl.originalDimensions = getImageDimensions();
+            }
         });
 
         updateAbilities(image);
