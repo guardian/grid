@@ -13,14 +13,39 @@
 
     <div ng:if="ctrl.totalResults > 0">
 
-        <div class="image-results-count">
-            {{ctrl.totalResults | toLocaleString}} matches
-            <span ng:if="ctrl.inSelectionMode()">({{ctrl.selectedImages.size}} selected)</span>
-            <button ng:show="ctrl.newImagesCount > 0"
-                    ng:click="ctrl.revealNewImages()"
-                    class="image-results-count__new">
-                {{ctrl.newImagesCount | toLocaleString}} new
-            </button>
+        <div class="results-toolbar">
+            <div class="image-results-count">
+                {{ctrl.totalResults | toLocaleString}} matches
+                <span ng:if="ctrl.inSelectionMode()">({{ctrl.selectedImages.size}} selected)</span>
+                <button ng:show="ctrl.newImagesCount > 0"
+                        ng:click="ctrl.revealNewImages()"
+                        class="image-results-count__new">
+                    {{ctrl.newImagesCount | toLocaleString}} new
+                </button>
+            </div>
+            <div class="sort-direction">
+                <div class="radio-list">
+                    <div class="radio-list__item">
+                        <input type="radio"
+                               id="sort-direction__desc"
+                               class="radio-list__circle"
+                               name="sort-direction">
+                        <label for="sort-direction__desc" class="radio-list__label">
+                            Newest First
+                        </label>
+                    </div>
+                    
+                    <div class="radio-list__item">
+                        <input type="radio"
+                               id="sort-direction__asc"
+                               class="radio-list__circle"
+                               name="sort-direction">
+                        <label for="sort-direction__asc" class="radio-list__label">
+                            Oldest First
+                        </label>
+                    </div>
+                </div>
+            </div>
         </div>
 
         <ul class="results"

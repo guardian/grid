@@ -242,7 +242,8 @@ results.controller('SearchResultsCtrl', [
                 until:      until,
                 since:      since,
                 offset:     offset,
-                length:     length
+                length:     length,
+                orderBy:    $stateParams.orderBy
             }));
         }
 
