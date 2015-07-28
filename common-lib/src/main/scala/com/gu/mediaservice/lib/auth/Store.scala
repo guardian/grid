@@ -66,6 +66,7 @@ class KeyStore(bucket: String, credentials: AWSCredentials) extends BaseStore[St
 object PermissionType extends Enumeration {
   type PermissionType = Value
   val EditMetadata = Value("editMetadata")
+  val DeleteImage  = Value("deleteImage")
 }
 
 class PermissionStore(bucket: String, credentials: AWSCredentials) extends BaseStore[PermissionType, List[String]](bucket, credentials) {

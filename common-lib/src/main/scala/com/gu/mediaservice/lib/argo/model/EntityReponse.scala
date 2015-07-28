@@ -11,7 +11,8 @@ import com.gu.mediaservice.lib.argo.WriteHelpers
 case class EntityReponse[T](
   uri: Option[URI] = None,
   data: T,
-  links: List[Link] = Nil
+  links: List[Link] = Nil,
+  actions: List[Action] = Nil
 )
 
 object EntityReponse extends WriteHelpers {
@@ -19,7 +20,8 @@ object EntityReponse extends WriteHelpers {
   implicit def entityResponseWrites[T: Writes]: Writes[EntityReponse[T]] = (
     (__ \ "uri").writeNullable[String].contramap((_: Option[URI]).map(_.toString)) ~
       (__ \ "data").write[T] ~
-      (__ \ "links").writeNullable[List[Link]].contramap(someListOrNone[Link])
+      (__ \ "links").writeNullable[List[Link]].contramap(someListOrNone[Link]) ~
+      (__ \ "actions").writeNullable[List[Action]].contramap(someListOrNone[Action])
     )(unlift(EntityReponse.unapply[T]))
 
 }
