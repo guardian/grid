@@ -241,7 +241,8 @@ imageService.factory('archivedService', ['$q', function($q) {
 
 imageService.factory('usageRightsService', ['$q', 'unique', 'editsApi', function($q, unique, editsApi) {
     const updates$ = new Rx.Subject();
-    const category$ = new Rx.Subject();
+    const multiCatsCat = { name: 'Multiple categories', value: '' };
+    const noRightsCat = { name: 'No Rights', value: '' };
 
     function getUsageRights(image) {
         return image.data.userMetadata.data.usageRights;
@@ -252,7 +253,33 @@ imageService.factory('usageRightsService', ['$q', 'unique', 'editsApi', function
             images.map(image => image.data.usageRights)
         ).map(reduceUsageRights).map(cleanReducedUsageRights);
 
-        return { usageRights$, updates$ };
+        const apiCategories$ = Rx.Observable.fromPromise(editsApi.getUsageRightsCategories());
+
+        const category$ = apiCategories$.combineLatest(usageRights$, (usageRights, cats) => {
+            const l = usageRights.category ? usageRights.category.length : 0;
+
+            if (l > 1) {
+                return multiCatsCat;
+            } else if (l === 1) {
+                return cats.find(cat => cat.value === usageRights.category[0]);
+            } else {
+                return noRightsCat;
+            }
+        });
+
+        const categories$ = category$.combineLatest(apiCategories$, (cat, cats) => {
+            if (angular.equals(cat, multiCatsCat)) {
+                return [multiCatsCat].concat(cats);
+            } else if (angular.equals(cat, noRightsCat)) {
+                // TODO: This will be deprecated once we have no rights as the standard option.
+                return [noRightsCat].concat(cats)
+            } else {
+                return cats;
+            }
+        });
+
+
+        return { categories$, category$, usageRights$, updates$ };
     }
 
     function reduceUsageRights(usageRights) {

@@ -37,8 +37,8 @@ grPanel.directive('grUsageRightsEditorr', function() {
 grPanel.controller('grUsageRightsEditorCtrl', function() {
 
     var ctrl = this;
-    //ctrl.service.getCategories.then(cats => ctrl.categories = cats);
-    ctrl.service.usageRights$.subscribe(ur => console.log(ur));
+    ctrl.service.categories$.subscribe(cats => ctrl.categories = cats);
+    ctrl.service.category$.subscribe(cat => ctrl.category = cat);
 
 
 });
