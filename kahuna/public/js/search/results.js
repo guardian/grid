@@ -76,6 +76,12 @@ results.controller('SearchResultsCtrl', [
         // scrollbar becomes hyper-sensitive
         ctrl.maxResults = 5000;
 
+        // If not reloading a previous search, discard any previous
+        // state related to the last search
+        if (! isReloadingPreviousSearch) {
+            lastSearchFirstResultTime = undefined;
+        }
+
         // TODO: avoid this initial search (two API calls to init!)
         ctrl.searched = search({length: 1}).then(function(images) {
             ctrl.totalResults = images.total;
