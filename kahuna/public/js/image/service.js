@@ -282,6 +282,22 @@ imageService.factory('usageRightsService',
             }
         });
 
+        // Not sure we want to combine on usageRights as category already does this and there might
+        // be a performance degradation, but we need to update when the usageRights list is updated.
+        const model$ = category$.combineLatest(usageRights$, (cat, usageRights) => {
+            if (!angular.equals(cat, noRightsCat) && !angular.equals(cat, multiCatsCat)) {
+                return Object.keys(usageRights).reduce((prev, key) => {
+                    if (usageRights[key] && usageRights[key].length === 1) {
+                        prev[key] = usageRights[key][0];
+                    }
+
+                    return prev;
+                }, {});
+            } else {
+                return {};
+            }
+        });
+
         const categories$ = category$.combineLatest(apiCategories$, (cat, cats) => {
             if (angular.equals(cat, multiCatsCat)) {
                 return [multiCatsCat].concat(cats);
@@ -294,7 +310,7 @@ imageService.factory('usageRightsService',
         });
 
 
-        return { categories$, category$, usageRights$, updates$ };
+        return { categories$, category$, model$, usageRights$, updates$ };
     }
 
     return usageRightsService;
