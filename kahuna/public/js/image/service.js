@@ -116,11 +116,10 @@ imageService.factory('metadataService',
     const updates$ = new Rx.Subject();
     const editableMetadata = ['title', 'description', 'specialInstructions', 'byline', 'credit'];
 
-    function fromStream(images$) {
+    function metadataService(images$) {
         const metadata$ = images$.map(images =>
             images.map(image => image.data.metadata)
         ).map(reduceMetadatas).map(cleanReducedMetadata);
-
 
         return { metadata$, updates$, saveField: saveFieldOnImages(images$) };
     }
@@ -192,7 +191,7 @@ imageService.factory('metadataService',
         };
     }
 
-    return fromStream;
+    return metadataService;
 }]);
 
 
@@ -237,5 +236,41 @@ imageService.factory('archivedService', ['$q', function($q) {
     }
 
     return archivedService;
+
+}]);
+
+imageService.factory('usageRightsService', ['$q', 'unique', 'editsApi', function($q, unique, editsApi) {
+    const updates$ = new Rx.Subject();
+    const category$ = new Rx.Subject();
+
+    function getUsageRights(image) {
+        return image.data.userMetadata.data.usageRights;
+    }
+
+    function usageRightsService(images$) {
+        const usageRights$ = images$.map(images =>
+            images.map(image => image.data.usageRights)
+        ).map(reduceUsageRights).map(cleanReducedUsageRights);
+
+        return { usageRights$, updates$ };
+    }
+
+    function reduceUsageRights(usageRights) {
+        return usageRights.reduce((prev, curr) => {
+            Object.keys(prev).concat(Object.keys(curr)).forEach(field => {
+                prev[field] = (prev[field] || []).concat([curr[field]]);
+            });
+            return prev;
+        }, {});
+    }
+
+    function cleanReducedUsageRights(usageRights) {
+        return Object.keys(usageRights).reduce((prev, field) => {
+            prev[field] = unique(usageRights[field]).filter(v => v);
+            return prev;
+        }, {});
+    }
+
+    return usageRightsService;
 
 }]);

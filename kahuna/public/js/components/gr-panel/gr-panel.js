@@ -8,6 +8,7 @@ import '../../services/archive';
 import '../../edits/service';
 import '../../image/service';
 import '../../forms/gr-xeditable/gr-xeditable';
+import ureTempalte from '../../usage-rights/usage-rights-editor.html!text';
 
 export var grPanel = angular.module('grPanel', [
     'kahuna.services.selection',
@@ -18,6 +19,29 @@ export var grPanel = angular.module('grPanel', [
     'grXeditable',
     'ui.bootstrap'
 ]);
+
+
+grPanel.directive('grUsageRightsEditorr', function() {
+    return {
+        restrict: 'E',
+        controller: 'grUsageRightsEditorCtrl',
+        controllerAs: 'ctrl',
+        bindToController: true,
+        template: ureTempalte,
+        scope: {
+            service: '=grService'
+        }
+    }
+});
+
+grPanel.controller('grUsageRightsEditorCtrl', function() {
+
+    var ctrl = this;
+    //ctrl.service.getCategories.then(cats => ctrl.categories = cats);
+    ctrl.service.usageRights$.subscribe(ur => console.log(ur));
+
+
+});
 
 
 grPanel.controller('grArchiverCtrl', function() {
@@ -213,6 +237,7 @@ grPanel.controller('GrPanel', [
     'archivedService',
     'metadataService',
     'labelsService',
+    'usageRightsService',
     'onValChange',
     function (
         $scope,
@@ -225,6 +250,7 @@ grPanel.controller('GrPanel', [
         archivedService,
         metadataService,
         labelsService,
+        usageRightsService,
         onValChange) {
 
         var ctrl = this;
@@ -238,6 +264,7 @@ grPanel.controller('GrPanel', [
         ctrl.archivedService = archivedService(selection.images$);
         ctrl.metadataService = metadataService(selection.images$);
         ctrl.labelsService = labelsService(selection.images$);
+        ctrl.usageRightsService = usageRightsService(selection.images$);
 
         selection.watchUpdates(
             ctrl.archivedService.updates$,
