@@ -5,14 +5,12 @@ import play.api.libs.functional.syntax._
 
 sealed trait UsageRights {
   val category: String
+  val name: String
   val description: String
   val restrictions: Option[String]
   val defaultRestrictions: Option[String] = None
 
   val defaultCost: Option[Cost]
-
-  def name = category.replace("-", " ").split(" ").map(_.capitalize).mkString(" ")
-
 }
 object UsageRights {
   val defaultWrites: Writes[UsageRights] = (
@@ -82,6 +80,7 @@ case object NoRights
     val category = ""
     val defaultCost = None
     val restrictions = None
+    val name = "No Rights"
     val description =
       "Remove any rights that have been applied to this image. It will appear as " +
       "pay to use."
@@ -92,8 +91,6 @@ case object NoRights
       if (json == jsonVal) JsSuccess(NoRights) else JsError("Value should be {} for no rights")
     }
     implicit val jsonWrites: Writes[NoRights.type] = Writes[NoRights.type](_ => jsonVal)
-
-    override val name = "No rights"
   }
 
 
@@ -101,6 +98,7 @@ case class Agency(supplier: String, suppliersCollection: Option[String] = None, 
   extends UsageRights {
     val category = "agency"
     val defaultCost = None
+    val name = "Agency"
     val description =
       "Agencies such as Getty, Reuters, Press Association, etc. where " +
       "subscription fees are paid to access and use pictures."
@@ -119,6 +117,7 @@ case class PrImage(restrictions: Option[String] = None)
   extends UsageRights {
     val category = "PR Image"
     val defaultCost = Some(Free)
+    val name = "PR Image"
     val description =
       "Used for publicity and promotional purposes such as exhibitions, auctions, etc."
   }
@@ -132,6 +131,7 @@ case class Handout(restrictions: Option[String] = None)
   extends UsageRights {
     val category = "handout"
     val defaultCost = Some(Free)
+    val name = "Handout"
     val description =
       "Provided free of use for press purposes e.g. police images for new " +
       "stories, family shots in biographical pieces, etc."
@@ -145,6 +145,7 @@ case class Screengrab(restrictions: Option[String] = None)
   extends UsageRights {
     val category = "screengrab"
     val defaultCost = Some(Conditional)
+    val name = "Screengrab"
     val description =
       "Stills created by us from moving footage in television broadcasts " +
       "usually in relation to breaking news stories."
@@ -159,6 +160,7 @@ case class GuardianWitness(restrictions: Option[String] = None)
   extends UsageRights {
     val category = "guardian-witness"
     val defaultCost = Some(Conditional)
+    val name = "Guardian Witness"
     val description =
       "Provided by readers in response to callouts and assignments on " +
       "GuardianWitness."
@@ -177,6 +179,7 @@ case class SocialMedia(restrictions: Option[String] = None)
   extends UsageRights {
     val category = "social-media"
     val defaultCost = Some(Conditional)
+    val name = "Social Media"
     val description =
       "Taken from public websites and social media to support " +
       "breaking news where no other image is available from usual sources. " +
@@ -194,6 +197,7 @@ case class Obituary(restrictions: Option[String] = None)
   extends UsageRights {
     val category = "obituary"
     val defaultCost = Some(Conditional)
+    val name = "Obituary"
     val description =
       "Acquired from private sources, e.g. family members, for the purposes of " +
       "obituaries."
@@ -208,6 +212,7 @@ case class StaffPhotographer(photographer: String, publication: String, restrict
   extends UsageRights {
     val category = "staff-photographer"
     val defaultCost = Some(Free)
+    val name = "Photographer - Staff"
     val description =
       "From photographers who are or were members of staff."
   }
@@ -225,6 +230,7 @@ case class ContractPhotographer(photographer: String, publication: String, restr
   extends UsageRights {
     val category = "contract-photographer"
     val defaultCost = Some(Free)
+    val name = "Photographer - Contract"
     val description =
       "From freelance photographers on fixed-term contracts."
   }
@@ -242,6 +248,7 @@ case class CommissionedPhotographer(photographer: String, publication: String, r
   extends UsageRights {
     val category = "commissioned-photographer"
     val defaultCost = Some(Free)
+    val name = "Photographer - Commissioned"
     val description =
       "Commissioned for assignments on an ad hoc basis."
   }
@@ -259,6 +266,7 @@ case class Pool(restrictions: Option[String] = None)
   extends UsageRights {
     val category = "pool"
     val defaultCost = Some(Conditional)
+    val name = "Pool"
     val description =
       "Issued during major national events that are free to use and" +
       "shared amongst news media organisations during that event. " +
