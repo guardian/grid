@@ -1,6 +1,7 @@
 <form class="usage-rights-editor ure"
-      ng:submit="usageRights.$valid && ctrl.save()"
-      name="usageRights">
+      novalidate
+      name="usageRights"
+      ng:submit="usageRights.$valid && ctrl.save()">
 
     <div class="ure__multi"
         ng:if="ctrl.multipleImages()">
@@ -54,14 +55,28 @@
                         ng:model="ctrl.model[property.name]"
                         ng:required="property.required" />
 
-                    <select
-                        name="{{ property.name }}"
-                        ng:if="property.options"
-                        ng:model="ctrl.model[property.name]"
-                        ng:required="property.required"
-                        ng:options="o for o in property.options">
-                        <option value="">None</option>
-                    </select>
+                    <div ng:if="property.options"
+                         ng:switch="property.options.length > 2">
+                            <div class="radio-list" ng:switch-when="false">
+                                <label class="radio-list__item"
+                                    ng:repeat="o in property.options">
+                                    <input type="radio"
+                                        value="{{o}}"
+                                        ng:required="property.required"
+                                        ng:model="ctrl.model[property.name]" />
+                                    {{ o }}
+                                </label>
+                            </div>
+
+                            <select
+                                name="{{ property.name }}"
+                                ng:switch-when="true"
+                                ng:model="ctrl.model[property.name]"
+                                ng:required="property.required"
+                                ng:options="o for o in property.options">
+                                <option value="">None</option>
+                            </select>
+                    </div>
 
                     <select
                         name="{{ property.name }}"
