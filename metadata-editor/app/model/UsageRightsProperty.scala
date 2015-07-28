@@ -31,7 +31,7 @@ object UsageRightsProperty {
     agencyProperties(u) ++ photographerProperties(u) ++ restrictionProperties(u)
 
   private def publicationField =
-    UsageRightsProperty("publication", "Publication", "string", true, Some(StaffPhotographers.creditBylineMap.keys.toList))
+    UsageRightsProperty("publication", "Publication", "string", true, Some(StaffPhotographers.creditBylineMap.keys.toList.sortWith(_.toLowerCase < _.toLowerCase)))
 
   private def photographerField =
     UsageRightsProperty("photographer", "Photographer", "string", true)
@@ -46,7 +46,7 @@ object UsageRightsProperty {
 
   private def agencyProperties(u: UsageRights): List[UsageRightsProperty] = u match {
     case _:Agency => List(
-      UsageRightsProperty("supplier", "Supplier", "string", true, Some(UsageRightsConfig.freeSuppliers)),
+      UsageRightsProperty("supplier", "Supplier", "string", true, Some(UsageRightsConfig.freeSuppliers.sortWith(_.toLowerCase < _.toLowerCase))),
       UsageRightsProperty("suppliersCollection", "Collection", "string", false)
     )
     case _ => List()

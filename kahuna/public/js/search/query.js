@@ -1,5 +1,9 @@
 import angular from 'angular';
-import 'angular-animate';
+// FIXME: used to fade 'x' query clear button, but disabled as it ends
+// up being enabled globally and severely degrades the performance of
+// the lazy-table for results. Once there is a working way to disable
+// animations locally, we should turn it back on here.
+// import 'angular-animate';
 import moment from 'moment';
 import '../util/eq';
 import '../components/gu-date-range/gu-date-range';
@@ -8,7 +12,8 @@ import template from './query.html!text';
 import '../analytics/track';
 
 export var query = angular.module('kahuna.search.query', [
-    'ngAnimate',
+    // Note: temporarily disabled for performance reasons, see above
+    // 'ngAnimate',
     'util.eq',
     'gu-dateRange',
     'analytics.track'

@@ -182,10 +182,17 @@ a:focus {
     cursor: auto;
 }
 
-.confirm-delete {
-
+.button--confirm-delete {
+    background: red;
 }
 
+.button--confirm-delete gr-icon {
+    padding-right: 5px;
+}
+
+.button--confirm-delete:hover {
+    background: #960000;
+}
 
 .loader {
     text-align: center;
@@ -436,7 +443,7 @@ textarea.ng-invalid {
     }
 }
 
-@media screen and (max-width: 1100px) {
+@media screen and (max-width: 1000px) {
 
     .search__filters-toggle {
         display: inherit;
@@ -613,17 +620,21 @@ input.search-query__input {
 }
 
 .result {
-    flex: 1;
-    width: 20%;
-    min-width: 200px;
-    max-width: 270px;
-    margin: 10px 5px;
-    background: #393939;
     position: relative;
-    border: solid 5px transparent;
+    border: 5px solid transparent;
+    box-sizing: border-box;
+    margin: 5px;
+    background-color: #39393;
 }
 .result--seen {
     opacity: .5;
+}
+
+.result-placeholder {
+    position: relative;
+    border: solid 5px #333;
+    box-sizing: border-box;
+    background: #393939;
 }
 
 .result__select input[type=checkbox] {
@@ -663,10 +674,6 @@ input.search-query__input {
 }
 
 .result:hover {
-    border-color: #404040;
-}
-
-.result:hover .preview {
     background-color: #404040;
 }
 
@@ -742,6 +749,17 @@ input.search-query__input {
     margin-left: 5px;
 }
 
+.image-results-more {
+    margin: 40px 0;
+    text-align: center;
+}
+.image-results-more__heading {
+    font-size: 36px;
+}
+.image-results-more__instructions {
+    font-size: 20px;
+}
+
 .image-loading-results,
 .image-no-results {
     font-size: 3rem;
@@ -757,7 +775,6 @@ input.search-query__input {
    Preview
    ========================================================================== */
 .preview {
-    background: #393939;
     position: relative;
 }
 
@@ -810,7 +827,7 @@ FIXME: what to do with touch devices
 
 .preview__bottom-bar {
     font-size: 1.4rem;
-    margin-top: 10px;
+    margin-top: 5px;
 }
 
 .preview__quick-select {
@@ -1016,7 +1033,8 @@ FIXME: what to do with touch devices
     padding: 10px 10px;
     overflow: auto;
     width: 300px;
-    border-left: 1px solid #222;
+    border-left: 1px solid #565656;
+    background-color: #444;
 }
 .image-details:after {
     clear: both;
@@ -1139,6 +1157,11 @@ FIXME: what to do with touch devices
 .image-info__wrap .editable-buttons {
     display: block;
     float: right;
+}
+
+.image-info__usage-rights {
+    width: 100%;
+    box-sizing: border-box;
 }
 
 
@@ -1558,8 +1581,12 @@ FIXME: what to do with touch devices
     display: block;
 }
 
-.archiver--archived {
-    color: gold;
+ui-archiver {
+    color: #ccc;
+}
+
+ui-archiver .archiver:hover {
+    color: white;
 }
 
 
@@ -1677,12 +1704,14 @@ FIXME: what to do with touch devices
     display: flex;
 }
 
-.form-label__error {
+.form-label__error,
+.form-label__notice {
     font-size: 1.2rem;
-    color: #ed5935;
     flex-grow: 1;
     text-align: right;
 }
+.form-label__error { color: #ed5935; }
+.form-label__notice { color: orange; }
 
 .form-property {
     display: block;
@@ -1695,4 +1724,11 @@ FIXME: what to do with touch devices
 
 .form-input-text {
     width: 100%;
+}
+
+.radio-list {
+    display: flex;
+}
+.radio-list__item {
+    flex-grow: 1;
 }

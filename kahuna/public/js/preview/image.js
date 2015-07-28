@@ -10,8 +10,21 @@ export var image = angular.module('kahuna.preview.image', [
     'analytics.track'
 ]);
 
-image.controller('uiPreviewImageCtrl', ['imageService', function (imageService) {
+image.controller('uiPreviewImageCtrl', [
+    '$rootScope',
+    'imageService',
+    function (
+        $rootScope,
+        imageService) {
     var ctrl = this;
+
+    $rootScope.$on('image-updated', (e, updatedImage) => {
+        if (ctrl.image.data.id === updatedImage.data.id) {
+            ctrl.states = imageService(updatedImage).states;
+            ctrl.image = updatedImage;
+        }
+
+    });
 
     ctrl.states = imageService(ctrl.image).states;
 }]);

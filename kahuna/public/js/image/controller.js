@@ -86,9 +86,28 @@ image.controller('ImageCtrl', [
         ctrl.isUsefulMetadata = isUsefulMetadata;
         ctrl.cropSelected = cropSelected;
 
+        // TODO: move this to a more sensible place.
+        function getCropDimensions() {
+            return {
+                width: ctrl.crop.specification.bounds.width,
+                height: ctrl.crop.specification.bounds.height
+            };
+        }
+        // TODO: move this to a more sensible place.
+        function getImageDimensions() {
+            return ctrl.image.data.source.dimensions;
+        }
+
         mediaCropper.getCropsFor(image).then(crops => {
             ctrl.crops = crops;
             ctrl.crop = crops.find(crop => crop.id === cropKey);
+        }).finally(() => {
+            ctrl.dimensions = angular.isDefined(ctrl.crop) ?
+                getCropDimensions() : getImageDimensions();
+
+            if (angular.isDefined(ctrl.crop)) {
+                ctrl.originalDimensions = getImageDimensions();
+            }
         });
 
         updateAbilities(image);
