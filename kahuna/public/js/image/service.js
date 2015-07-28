@@ -54,6 +54,31 @@ imageService.factory('unique', function() {
     };
 });
 
+// takes an array of objects and turns it into an object with an array of unique values
+// e.g. [{ a: 1, b: 2 }, { a: 2, b: 2, c: 3 }] => { a: [1,2], b: [2], c: [3] }
+imageService.factory('reduceObjectsToArrays', [function() {
+
+    return function (objects, presetKeys) {
+        return objects.reduce((prev, curr) => {
+            const keys = presetKeys || Object.keys(prev).concat(Object.keys(curr));
+            keys.forEach(field => {
+                prev[field] = (prev[field] || []).concat([curr[field]]);
+            });
+            return prev;
+        }, {});
+    }
+
+}]);
+
+imageService.factory('uniqueArrayKeyValues', ['unique', function(unique) {
+    return function (object) {
+        return Object.keys(object).reduce((prev, field) => {
+            prev[field] = unique(object[field]).filter(v => v);
+            return prev;
+        }, {});
+    }
+}])
+
 imageService.factory('labelsService', ['$q', 'unique', function($q, unique) {
     const updates$ = new Rx.Subject();
 
@@ -110,8 +135,8 @@ imageService.factory('labelsService', ['$q', 'unique', function($q, unique) {
 
 
 imageService.factory('metadataService',
-                    ['$q', 'editsService', 'unique',
-                    function($q, editsService, unique) {
+                    ['$q', 'editsService', 'reduceObjectsToArrays', 'uniqueArrayKeyValues',
+                    function($q, editsService, reduceObjectsToArrays, uniqueArrayKeyValues) {
 
     const updates$ = new Rx.Subject();
     const editableMetadata = ['title', 'description', 'specialInstructions', 'byline', 'credit'];
@@ -119,25 +144,13 @@ imageService.factory('metadataService',
     function metadataService(images$) {
         const metadata$ = images$.map(images =>
             images.map(image => image.data.metadata)
-        ).map(reduceMetadatas).map(cleanReducedMetadata);
+        ).map(reduceMetadatas).map(uniqueArrayKeyValues);
 
         return { metadata$, updates$, saveField: saveFieldOnImages(images$) };
     }
 
     function reduceMetadatas(metadatas) {
-        return metadatas.reduce((prev, curr) => {
-            editableMetadata.forEach(field => {
-                prev[field] = (prev[field] || []).concat([curr[field]]);
-            });
-            return prev;
-        }, {});
-    }
-
-    function cleanReducedMetadata(metadata) {
-        return editableMetadata.reduce((prev, field) => {
-            prev[field] = unique(metadata[field]).filter(v => v);
-            return prev;
-        }, {});
+        return reduceObjectsToArrays(metadatas, editableMetadata);
     }
 
     function updateImage(oldImage, newImage) {
@@ -239,7 +252,9 @@ imageService.factory('archivedService', ['$q', function($q) {
 
 }]);
 
-imageService.factory('usageRightsService', ['$q', 'unique', 'editsApi', function($q, unique, editsApi) {
+imageService.factory('usageRightsService',
+                    ['$q', 'editsApi', 'reduceObjectsToArrays', 'uniqueArrayKeyValues',
+                    function($q, editsApi, reduceObjectsToArrays, uniqueArrayKeyValues) {
     const updates$ = new Rx.Subject();
     const multiCatsCat = { name: 'Multiple categories', value: '' };
     const noRightsCat = { name: 'No Rights', value: '' };
@@ -251,11 +266,11 @@ imageService.factory('usageRightsService', ['$q', 'unique', 'editsApi', function
     function usageRightsService(images$) {
         const usageRights$ = images$.map(images =>
             images.map(image => image.data.usageRights)
-        ).map(reduceUsageRights).map(cleanReducedUsageRights);
+        ).map(usageRights => reduceObjectsToArrays(usageRights)).map(uniqueArrayKeyValues);
 
         const apiCategories$ = Rx.Observable.fromPromise(editsApi.getUsageRightsCategories());
 
-        const category$ = apiCategories$.combineLatest(usageRights$, (usageRights, cats) => {
+        const category$ = apiCategories$.combineLatest(usageRights$, (cats, usageRights) => {
             const l = usageRights.category ? usageRights.category.length : 0;
 
             if (l > 1) {
@@ -280,22 +295,6 @@ imageService.factory('usageRightsService', ['$q', 'unique', 'editsApi', function
 
 
         return { categories$, category$, usageRights$, updates$ };
-    }
-
-    function reduceUsageRights(usageRights) {
-        return usageRights.reduce((prev, curr) => {
-            Object.keys(prev).concat(Object.keys(curr)).forEach(field => {
-                prev[field] = (prev[field] || []).concat([curr[field]]);
-            });
-            return prev;
-        }, {});
-    }
-
-    function cleanReducedUsageRights(usageRights) {
-        return Object.keys(usageRights).reduce((prev, field) => {
-            prev[field] = unique(usageRights[field]).filter(v => v);
-            return prev;
-        }, {});
     }
 
     return usageRightsService;
