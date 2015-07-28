@@ -6,7 +6,7 @@
             <a class="image-action image-action--first"
                target="_blank"
                title="Pop out"
-               ng:href="/images/{{ctrl.image.data.id}}"
+               ng:href="/images/{{::ctrl.image.data.id}}"
                gr:track-click="Popout button">
                 <gr-icon>open_in_new</gr-icon>
             </a>
@@ -15,7 +15,7 @@
         <li>
             <a class="image-action"
                title="crop"
-               ng:if="ctrl.states.valid"
+               ng:if="ctrl.states.isValid"
                ui:sref="crop({ imageId: ctrl.image.data.id })">
                 <gr-icon>crop</gr-icon>
             </a>
@@ -30,14 +30,14 @@
        ui:drag-data="{{ctrl.image | asImageDragData}}">
        <div class="preview__fade"></div>
        <img class="preview__image"
-            ng:src="{{ctrl.image.data.thumbnail | assetFile}}"
+            ng:src="{{::ctrl.image.data.thumbnail | assetFile}}"
             gr:image-fade-on-load />
     </a>
 
     <span  ng:if="ctrl.selectionMode" class="preview__no-link">
         <div class="preview__fade"></div>
         <img class="preview__image"
-             ng:src="{{ctrl.image.data.thumbnail | assetFile}}"
+             ng:src="{{::ctrl.image.data.thumbnail | assetFile}}"
              gr:image-fade-on-load />
     </span>
 
@@ -46,13 +46,15 @@
                              image="ctrl.image"
                              disabled="ctrl.selectionMode"></ui-labeller-compact>
 
-        <p class="preview__description">{{ctrl.image.data.metadata.description || ctrl.image.data.metadata.title}}</p>
+        <!-- Ensure contents in P to maintain height -->
+        <p class="preview__description">{{ctrl.image.data.metadata.description || ctrl.image.data.metadata.title || '&nbsp;'}}</p>
     </div>
 
     <div class="preview__bottom-bar bottom-bar">
         <div class="bottom-bar__meta">
             <span class="preview__upload-time">
-                {{ctrl.image.data.uploadTime | date:'dd/MM/yy'}} {{ctrl.image.data.uploadTime | date:'HH:mm'}}
+                {{::ctrl.image.data.uploadTime | date:'dd/MM/yy'}}
+                {{::ctrl.image.data.uploadTime | date:'HH:mm'}}
             </span>
 
             <span class="bottom-bar__meta-item preview__has-crops"

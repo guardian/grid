@@ -1,3 +1,5 @@
+import angular from 'angular';
+
 import apiServices from '../api';
 
 apiServices.factory('mediaApi',
@@ -7,7 +9,8 @@ apiServices.factory('mediaApi',
     var root = client.resource(mediaApiUri);
     var session;
 
-    function search(query = '', {ids, since, until, archived, valid, free, uploadedBy} = {}) {
+    function search(query = '', {ids, since, until, archived, valid,
+                                 free, uploadedBy, offset, length} = {}) {
         return root.follow('search', {
           q:          query,
           ids:        ids,
@@ -17,7 +20,8 @@ apiServices.factory('mediaApi',
           valid:      valid,
           archived:   archived,
           free:       free,
-          length:     50
+          offset:     offset,
+          length:     angular.isDefined(length) ? length : 50
         }).get();
     }
 

@@ -31,3 +31,7 @@
 .ure__action {
     margin-left: 4px;
 }
+
+.ure__multiple-rights-warning {
+    color: orange;
+}
