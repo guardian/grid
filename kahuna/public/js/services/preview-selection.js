@@ -146,8 +146,7 @@ selectionService.factory('selectionService', ['$q', 'editsService', function ($q
         images$.onNext(Array.from(selectedImages.values()));
     }
 
-    function updateImages(updates) {
-        // Poor mans zip
+    function zipImages(updates) {
         const updatedImages = images$.getValue().map(image => {
             const update = updates.find(update => update.data.id === image.data.id);
             return update || image;
@@ -156,9 +155,14 @@ selectionService.factory('selectionService', ['$q', 'editsService', function ($q
         images$.onNext(updatedImages);
     }
 
+    function watchUpdates(...updates$) {
+        updates$.forEach(update$ => {
+            update$.subscribe(zipImages);
+        });
+    }
+
     return {
         images$,
-        updateImages,
         selectedImages,
         add,
         remove,
@@ -172,7 +176,8 @@ selectionService.factory('selectionService', ['$q', 'editsService', function ($q
         toggleSelection: (image, select) => {
             return select ? add(image) : remove(image);
         },
-        clear: () => selectedImages.clear()
+        clear: () => selectedImages.clear(),
+        watchUpdates
     };
 }]);
 

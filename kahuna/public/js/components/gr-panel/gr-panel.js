@@ -236,13 +236,14 @@ grPanel.controller('GrPanel', [
 
 
         ctrl.archivedService = archivedService(selection.images$);
-        ctrl.archivedService.updates$.subscribe(updates => selection.updateImages(updates));
-
         ctrl.metadataService = metadataService(selection.images$);
-        ctrl.metadataService.updates$.subscribe(updates => selection.updateImages(updates));
-
         ctrl.labelsService = labelsService(selection.images$);
-        ctrl.labelsService.updates$.subscribe(updates => selection.updateImages(updates));
+
+        selection.watchUpdates(
+            ctrl.archivedService.updates$,
+            ctrl.metadataService.updates$,
+            ctrl.labelsService.updates$
+        );
 
 
         ctrl.credits = function(searchText) {
