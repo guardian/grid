@@ -32,15 +32,43 @@ search.config(['$stateProvider',
         // it, which we need to do to access it's deeper / remembered chile state
         url: '/',
         template: searchTemplate,
-        deepStateRedirect: true
+        deepStateRedirect: {
+            // Inject a transient $stateParams for the results state
+            // below to pick up and expose
+            fn: ['$dsr$', function($dsr$) {
+                const params = angular.extend({}, $dsr$.redirect.params, {
+                    isDeepStateRedirect: true
+                });
+                return {state: $dsr$.redirect.state, params};
+            }]
+        }
     });
 
     $stateProvider.state('search.results', {
         url: 'search?query&ids&since&nonFree&uploadedBy&until',
+        // Non-URL parameters
+        params: {
+            // Routing-level property indicating whether the state has
+            // been loaded as part of a deep-state redirect. Note that
+            // this param gets cleared below so it should never reach
+            // controllers
+            isDeepStateRedirect: {value: false, type: 'bool'}
+        },
         data: {
             title: function(params) {
                 return params.query ? params.query : 'search';
             }
+        },
+        resolve: {
+            // Helper state to determine whether this is just
+            // reloading a previous search state, or a new search
+            isReloadingPreviousSearch: ['$stateParams', function($stateParams) {
+                const isDeepStateRedirect = $stateParams.isDeepStateRedirect;
+                // *Clear* that transient routing-level flag so we
+                // *don't pollute the $stateParams
+                delete $stateParams.isDeepStateRedirect;
+                return isDeepStateRedirect;
+            }]
         },
         views: {
             results: {
