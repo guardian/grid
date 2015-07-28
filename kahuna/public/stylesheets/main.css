@@ -1725,3 +1725,10 @@ ui-archiver .archiver:hover {
 .form-input-text {
     width: 100%;
 }
+
+.radio-list {
+    display: flex;
+}
+.radio-list__item {
+    flex-grow: 1;
+}
