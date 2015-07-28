@@ -1,8 +1,23 @@
 import angular from 'angular';
 
 import '../services/preview-selection';
+import '../services/scroll-position';
+import '../util/async';
+import '../util/seq';
+import '../components/gu-lazy-table/gu-lazy-table';
 
-export var results = angular.module('kahuna.search.results', ['kahuna.services.selection']);
+export var results = angular.module('kahuna.search.results', [
+    'kahuna.services.selection',
+    'kahuna.services.scroll-position',
+    'util.async',
+    'util.seq',
+    'gu.lazyTable'
+]);
+
+
+function compact(array) {
+    return array.filter(angular.isDefined);
+}
 
 results.controller('SearchResultsCtrl', [
     '$rootScope',
@@ -11,16 +26,24 @@ results.controller('SearchResultsCtrl', [
     '$stateParams',
     '$window',
     '$timeout',
+    'delay',
+    'onNextEvent',
+    'scrollPosition',
     'mediaApi',
     'selectionService',
+    'range',
     function($rootScope,
              $scope,
              $state,
              $stateParams,
              $window,
              $timeout,
+             delay,
+             onNextEvent,
+             scrollPosition,
              mediaApi,
-             selection) {
+             selection,
+             range) {
 
         const ctrl = this;
 
@@ -32,24 +55,50 @@ results.controller('SearchResultsCtrl', [
         // See:   https://github.com/guardian/media-service/pull/64#discussion-diff-17351746L116
         ctrl.loading = true;
 
-        ctrl.whenNearBottom = addImages;
-        ctrl.fillRemainingSpace = fillRemainingSpace;
-
         ctrl.revealNewImages = revealNewImages;
 
         ctrl.getLastSeenVal = getLastSeenVal;
         ctrl.imageHasBeenSeen = imageHasBeenSeen;
 
-        ctrl.searched = search().then(function(images) {
+        // Arbitrary limit of number of results; too many and the
+        // scrollbar becomes hyper-sensitive
+        ctrl.maxResults = 5000;
+
+        // TODO: avoid this initial search (two API calls to init!)
+        ctrl.searched = search({length: 0}).then(function(images) {
             ctrl.totalResults = images.total;
+
+            // images is the array of loaded images, used for display
             ctrl.images = images.data;
-            // yield so images render before we check if there's more space
-            fillRemainingSpace();
+
+            // imagesAll is a sparse array of all the results
+            ctrl.imagesAll = [].concat(images.data);
+            ctrl.imagesAll.length = Math.min(images.total, ctrl.maxResults);
+
             checkForNewImages();
         }).finally(() => {
             ctrl.loading = false;
         });
 
+
+        ctrl.loadRange = function(start, end) {
+            const length = end - start + 1;
+            const latestTime = ctrl.images[0] && ctrl.images[0].data.uploadTime;
+            search({offset: start, length: length, until: latestTime}).then(images => {
+                // Update imagesAll with newly loaded images
+                images.data.forEach((image, index) => {
+                    // Only set images that were missing from the Array
+                    // FIXME: might be safer to override, but causes
+                    // issues with object identity in the ng:repeat
+                    if (! ctrl.imagesAll[index + start]) {
+                        ctrl.imagesAll[index + start] = image;
+                    }
+                });
+
+                // images should not contain any 'holes'
+                ctrl.images = compact(ctrl.imagesAll);
+            });
+        };
 
         // Safer than clearing the timeout in case of race conditions
         // FIXME: nicer (reactive?) way to do this?
@@ -59,13 +108,32 @@ results.controller('SearchResultsCtrl', [
         });
 
 
+        // == Vertical position ==
+
+        // Logic to resume vertical position when navigating back to the same results
+
+        onNextEvent($scope, 'gu-lazy-table:height-changed').
+            // Attempt to resume the top position ASAP, so as to limit
+            // visible jump
+            then(() => scrollPosition.resume($stateParams)).
+            // When navigating back, resuming the position immediately
+            // doesn't work, so we try again after a little while
+            then(() => delay(30)).
+            then(() => scrollPosition.resume($stateParams)).
+            then(scrollPosition.clear);
+
+        $scope.$on('$destroy', () => {
+            scrollPosition.save($stateParams);
+        });
+
+
         const pollingPeriod = 15 * 1000; // ms
 
         // FIXME: this will only add up to 50 images (search capped)
         function checkForNewImages() {
             $timeout(() => {
                 const latestTime = ctrl.images[0] && ctrl.images[0].data.uploadTime;
-                search({since: latestTime}).then(resp => {
+                search({since: latestTime, length: 0}).then(resp => {
                     // FIXME: minor assumption that only the latest
                     // displayed image is matching the uploadTime
                     ctrl.newImagesCount = resp.total - 1;
@@ -111,39 +179,12 @@ results.controller('SearchResultsCtrl', [
            return JSON.parse($window.localStorage.getItem(lastSeenKey) || '{}')[getQueryKey()];
         }
 
-        $scope.$watch('nearBottom', function(nearBottom) {
-            if (nearBottom) {
-                addImages();
-            }
-        });
-
         function getQueryKey() {
             return $stateParams.query || '*';
         }
 
 
-        function fillRemainingSpace(){
-             $timeout(function() {
-                if (ctrl.uiHasSpace) {
-                    addImages();
-                }
-            });
-        }
-
-        function addImages() {
-            // TODO: stop once reached the end
-            const lastImage = ctrl.images.slice(-1)[0];
-            if (lastImage) {
-                const until = lastImage.data.uploadTime;
-                return search({until: until}).then(function(moreImages) {
-                    // Filter out duplicates (esp. on exact same 'until' date)
-                    var newImages = excludingCurrentImages(moreImages.data);
-                    ctrl.images = ctrl.images.concat(newImages);
-                });
-            }
-        }
-
-        function search({until, since} = {}) {
+        function search({until, since, offset, length} = {}) {
             // FIXME: Think of a way to not have to add a param in a million places to add it
             return mediaApi.search($stateParams.query, angular.extend({
                 ids:        $stateParams.ids,
@@ -153,24 +194,12 @@ results.controller('SearchResultsCtrl', [
                 uploadedBy: $stateParams.uploadedBy,
                 // Override $stateParams until/since with any explicitly provided argument
                 until:      until || $stateParams.until,
-                since:      since || $stateParams.since
+                since:      since || $stateParams.since,
+                offset:     offset,
+                length:     length
             }));
         }
 
-        function excludingCurrentImages(otherImages) {
-            return otherImages.filter(function(image) {
-                return ctrl.images.filter(function(existing) {
-                    // TODO: revert back to using uri
-                    return existing.data.id === image.data.id;
-                }).length === 0;
-            });
-        }
-
-        function* range (start, end) {
-            for (let i = start; i <= end; i += 1) {
-                yield i;
-            }
-        }
 
         ctrl.selectedImages = selection.selectedImages;
 
@@ -214,14 +243,19 @@ results.controller('SearchResultsCtrl', [
 
         $rootScope.$on('image-updated', (e, updatedImage, oldImage) => {
             var index = ctrl.images.findIndex(i => i.data.id === updatedImage.data.id);
-
             if (index !== -1) {
                 ctrl.images[index] = updatedImage;
 
+                // FIXME: does this really belong here?
                 if (ctrl.selectedImages.has(oldImage)) {
                     selection.remove(oldImage);
                     selection.add(updatedImage);
                 }
+            }
+
+            var indexAll = ctrl.imagesAll.findIndex(i => i.data.id === updatedImage.data.id);
+            if (indexAll !== -1) {
+                ctrl.imagesAll[indexAll] = updatedImage;
             }
         });
 

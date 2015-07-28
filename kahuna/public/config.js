@@ -11,47 +11,48 @@ System.config({
 
 System.config({
   "map": {
-    "angular": "github:angular/bower-angular@1.3.15",
-    "angular-animate": "github:angular/bower-angular-animate@1.3.15",
-    "angular-bootstrap": "github:angular-ui/bootstrap-bower@0.13.0",
-    "angular-elastic": "github:monospaced/angular-elastic@2.4.2",
-    "angular-messages": "github:angular/bower-angular-messages@1.3.15",
+    "angular": "github:angular/bower-angular@1.4.3",
+    "angular-animate": "github:angular/bower-angular-animate@1.4.3",
+    "angular-bootstrap": "github:angular-ui/bootstrap-bower@0.13.1",
+    "angular-elastic": "github:monospaced/angular-elastic@2.5.0",
+    "angular-messages": "github:angular/bower-angular-messages@1.4.3",
     "angular-ui-router": "github:angular-ui/ui-router@0.2.13",
     "angular-ui-router-extras": "github:christopherthielen/ui-router-extras@0.0.13",
     "angular-xeditable": "github:vitalets/angular-xeditable@0.1.9",
-    "clean-css": "npm:clean-css@3.3.5",
+    "clean-css": "npm:clean-css@3.3.6",
     "css": "github:systemjs/plugin-css@0.1.13",
     "github:tapmodo/Jcrop": "github:tapmodo/Jcrop@0.9.12",
+    "javascript-detect-element-resize": "github:sdecima/javascript-detect-element-resize@0.5.3",
     "jcrop": "github:tapmodo/Jcrop@0.9.12",
     "jquery": "github:components/jquery@2.1.1",
-    "mixpanel-js": "github:mixpanel/mixpanel-js@2.4.2",
-    "moment": "github:moment/moment@2.9.0",
+    "mixpanel-js": "github:mixpanel/mixpanel-js@2.5.2",
+    "moment": "github:moment/moment@2.10.6",
     "pandular": "npm:pandular@0.1.5",
-    "pikaday": "github:dbushell/Pikaday@1.3.2",
-    "raven-js": "github:getsentry/raven-js@1.1.18",
+    "pikaday": "github:dbushell/Pikaday@1.3.3",
+    "raven-js": "github:getsentry/raven-js@1.1.19",
     "rx": "npm:rx@2.5.3",
     "rx-angular": "npm:rx-angular@0.0.14",
     "rx-dom": "npm:rx-dom@6.0.0",
     "text": "github:systemjs/plugin-text@0.0.2",
     "theseus": "npm:theseus@0.4.0",
     "theseus-angular": "npm:theseus-angular@0.3.0",
-    "traceur": "github:jmcriffey/bower-traceur@0.0.88",
-    "traceur-runtime": "github:jmcriffey/bower-traceur-runtime@0.0.88",
+    "traceur": "github:jmcriffey/bower-traceur@0.0.90",
+    "traceur-runtime": "github:jmcriffey/bower-traceur-runtime@0.0.90",
     "ua-parser-js": "npm:ua-parser-js@0.7.3",
     "github:angular-ui/ui-router@0.2.13": {
-      "angular": "github:angular/bower-angular@1.3.15"
+      "angular": "github:angular/bower-angular@1.4.3"
     },
-    "github:angular/bower-angular-animate@1.3.15": {
-      "angular": "github:angular/bower-angular@1.3.15"
+    "github:angular/bower-angular-animate@1.4.3": {
+      "angular": "github:angular/bower-angular@1.4.3"
     },
-    "github:dbushell/Pikaday@1.3.2": {
+    "github:dbushell/Pikaday@1.3.3": {
       "css": "github:systemjs/plugin-css@0.1.13"
     },
     "github:jspm/nodelibs-assert@0.1.0": {
       "assert": "npm:assert@1.3.0"
     },
     "github:jspm/nodelibs-buffer@0.1.0": {
-      "buffer": "npm:buffer@3.3.0"
+      "buffer": "npm:buffer@3.3.1"
     },
     "github:jspm/nodelibs-events@0.1.1": {
       "events": "npm:events@1.0.2"
@@ -90,30 +91,30 @@ System.config({
       "jquery": "github:components/jquery@2.1.1"
     },
     "github:vitalets/angular-xeditable@0.1.9": {
-      "angular": "github:angular/bower-angular@1.3.15",
+      "angular": "github:angular/bower-angular@1.4.3",
       "css": "github:systemjs/plugin-css@0.1.13"
     },
-    "npm:amdefine@0.1.1": {
+    "npm:amdefine@1.0.0": {
       "fs": "github:jspm/nodelibs-fs@0.1.2",
       "module": "github:jspm/nodelibs-module@0.1.0",
       "path": "github:jspm/nodelibs-path@0.1.0",
       "process": "github:jspm/nodelibs-process@0.1.1"
     },
     "npm:any-http-angular@0.1.0": {
-      "angular": "github:angular/bower-angular@1.3.15"
+      "angular": "github:angular/bower-angular@1.4.3"
     },
     "npm:any-promise-angular@0.1.1": {
-      "angular": "github:angular/bower-angular@1.3.15"
+      "angular": "github:angular/bower-angular@1.4.3"
     },
     "npm:assert@1.3.0": {
       "util": "npm:util@0.10.3"
     },
-    "npm:buffer@3.3.0": {
+    "npm:buffer@3.3.1": {
       "base64-js": "npm:base64-js@0.0.8",
       "ieee754": "npm:ieee754@1.1.6",
       "is-array": "npm:is-array@1.0.1"
     },
-    "npm:clean-css@3.3.5": {
+    "npm:clean-css@3.3.6": {
       "buffer": "github:jspm/nodelibs-buffer@0.1.0",
       "commander": "npm:commander@2.8.1",
       "fs": "github:jspm/nodelibs-fs@0.1.2",
@@ -122,7 +123,7 @@ System.config({
       "os": "github:jspm/nodelibs-os@0.1.0",
       "path": "github:jspm/nodelibs-path@0.1.0",
       "process": "github:jspm/nodelibs-process@0.1.1",
-      "source-map": "npm:source-map@0.4.2",
+      "source-map": "npm:source-map@0.4.4",
       "url": "github:jspm/nodelibs-url@0.1.0",
       "util": "github:jspm/nodelibs-util@0.1.0"
     },
@@ -150,7 +151,7 @@ System.config({
       "os": "github:jspm/nodelibs-os@0.1.0"
     },
     "npm:pandular@0.1.5": {
-      "angular": "github:angular/bower-angular@1.3.15",
+      "angular": "github:angular/bower-angular@1.4.3",
       "panda-session": "npm:panda-session@0.1.4"
     },
     "npm:path-browserify@0.0.0": {
@@ -179,10 +180,8 @@ System.config({
     "npm:rx@2.5.3": {
       "process": "github:jspm/nodelibs-process@0.1.1"
     },
-    "npm:source-map@0.4.2": {
-      "amdefine": "npm:amdefine@0.1.1",
-      "fs": "github:jspm/nodelibs-fs@0.1.2",
-      "path": "github:jspm/nodelibs-path@0.1.0",
+    "npm:source-map@0.4.4": {
+      "amdefine": "npm:amdefine@1.0.0",
       "process": "github:jspm/nodelibs-process@0.1.1"
     },
     "npm:stream-browserify@1.0.0": {
@@ -194,7 +193,7 @@ System.config({
       "buffer": "github:jspm/nodelibs-buffer@0.1.0"
     },
     "npm:theseus-angular@0.3.0": {
-      "angular": "github:angular/bower-angular@1.3.15",
+      "angular": "github:angular/bower-angular@1.4.3",
       "any-http-angular": "npm:any-http-angular@0.1.0",
       "any-promise-angular": "npm:any-promise-angular@0.1.1",
       "theseus": "npm:theseus@0.4.0"

@@ -56,16 +56,6 @@
             </li>
 
             <li class="search__filter-item">
-                <label class="search__filter">
-                    <input type="checkbox"
-                           ng:true-value="'true'"
-                           ng:false-value="undefined"
-                           ng:model="searchQuery.filter.archived" />
-                    archived
-                </label>
-            </li>
-
-            <li class="search__filter-item">
                 <gu-date-range class="search__filter search__date"
                                gu:start-date="searchQuery.filter.since"
                                gu:end-date="searchQuery.filter.until"

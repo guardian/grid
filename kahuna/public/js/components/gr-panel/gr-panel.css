@@ -4,7 +4,7 @@
 }
 
 .panel--side {
-    width: 280px;
+    width: 284px; /* width of gr-top-bar-actions on search page */
     height: calc(100vh - 48px);
 }
 
@@ -68,10 +68,10 @@
 
 .batch-archive--all-archived .metadata-line,
 .batch-archive--mixed .metadata-line .material-icons {
-    color: gold;
+    color: #ccc;
 }
 
 .batch-archive__archive:hover,
 .batch-archive__unarchive:hover {
-    color: gold;
+    color: white;
 }

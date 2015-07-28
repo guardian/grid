@@ -1,4 +1,5 @@
 import angular from 'angular';
+import Rx from 'rx';
 
 import '../edits/service';
 
@@ -54,20 +55,16 @@ imageService.factory('unique', function() {
 });
 
 imageService.factory('labelsService', ['$q', 'unique', function($q, unique) {
-    var onUpdateFunc = () => {};
+    const updates$ = new Rx.Subject();
 
     function getLabels(image) {
         return image.data.userMetadata.data.labels;
     }
 
-    function onUpdate(func) {
-        onUpdateFunc = func;
-    }
-
     function labelsService(images$) {
         const labels$ = images$.map(uniqueLabels);
 
-        return { add, remove, onUpdate, labels$ };
+        return { add, remove, updates$, labels$ };
 
         function uniqueLabels(images) {
             return unique(images.reduce((prev, curr) =>
@@ -88,7 +85,7 @@ imageService.factory('labelsService', ['$q', 'unique', function($q, unique) {
                     }
                 }).filter(v => v);
 
-                $q.all(edits).then(images => onUpdateFunc(images));
+                $q.all(edits).then(images => updates$.onNext(images));
             }
         }
 
@@ -102,7 +99,7 @@ imageService.factory('labelsService', ['$q', 'unique', function($q, unique) {
                     })
                 );
 
-                $q.all(edits).then(images => onUpdateFunc(images));
+                $q.all(edits).then(images => updates$.onNext(images));
             }
         }
     }
@@ -116,12 +113,8 @@ imageService.factory('metadataService',
                     ['$q', 'editsService', 'unique',
                     function($q, editsService, unique) {
 
-    var onUpdateFunc = () => {};
+    const updates$ = new Rx.Subject();
     const editableMetadata = ['title', 'description', 'specialInstructions', 'byline', 'credit'];
-
-    function onUpdate(func) {
-        onUpdateFunc = func;
-    }
 
     function fromStream(images$) {
         const metadata$ = images$.map(images =>
@@ -129,7 +122,7 @@ imageService.factory('metadataService',
         ).map(reduceMetadatas).map(cleanReducedMetadata);
 
 
-        return { metadata$, onUpdate, saveField: saveFieldOnImages(images$) };
+        return { metadata$, updates$, saveField: saveFieldOnImages(images$) };
     }
 
     function reduceMetadatas(metadatas) {
@@ -195,7 +188,7 @@ imageService.factory('metadataService',
                 }
             }).filter(v => v);
 
-            $q.all(edits).then(images => onUpdateFunc(images));
+            $q.all(edits).then(images => updates$.onNext(images));
         };
     }
 
@@ -204,14 +197,10 @@ imageService.factory('metadataService',
 
 
 imageService.factory('archivedService', ['$q', function($q) {
-    var onUpdateFunc = () => {};
+    const updates$ = new Rx.Subject();
 
     function getArchived(image) {
         return image.data.userMetadata.data.archived;
-    }
-
-    function onUpdate(func) {
-        onUpdateFunc = func;
     }
 
     function archivedService(images$) {
@@ -223,7 +212,7 @@ imageService.factory('archivedService', ['$q', function($q) {
             getArchived(image).data === false
         ).length);
 
-        return { add, remove, onUpdate, count$, archivedCount$, notArchivedCount$ };
+        return { add, remove, updates$, count$, archivedCount$, notArchivedCount$ };
 
         function add() {
             save(true);
@@ -243,7 +232,7 @@ imageService.factory('archivedService', ['$q', function($q) {
                     })
             );
 
-            $q.all(edits).then(images => onUpdateFunc(images));
+            $q.all(edits).then(images => updates$.onNext(images));
         }
     }
 
