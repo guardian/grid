@@ -27,7 +27,7 @@ object ImageResponse {
   // TODO: move this as a method of Image (fiddly due to dep on Config)
   def imageIsPersisted(image: Image) = {
     image.identifiers.contains(Config.persistenceIdentifier) ||
-      image.exports.length > 0 ||
+      image.exports.nonEmpty ||
       image.userMetadata.exists(_.archived)
   }
 
