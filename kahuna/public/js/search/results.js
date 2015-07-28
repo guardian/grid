@@ -1,11 +1,15 @@
 import angular from 'angular';
 
 import '../services/preview-selection';
+import '../services/scroll-position';
+import '../util/async';
 import '../util/seq';
 import '../components/gu-lazy-table/gu-lazy-table';
 
 export var results = angular.module('kahuna.search.results', [
     'kahuna.services.selection',
+    'kahuna.services.scroll-position',
+    'util.async',
     'util.seq',
     'gu.lazyTable'
 ]);
@@ -22,6 +26,9 @@ results.controller('SearchResultsCtrl', [
     '$stateParams',
     '$window',
     '$timeout',
+    'delay',
+    'onNextEvent',
+    'scrollPosition',
     'mediaApi',
     'selectionService',
     'range',
@@ -31,6 +38,9 @@ results.controller('SearchResultsCtrl', [
              $stateParams,
              $window,
              $timeout,
+             delay,
+             onNextEvent,
+             scrollPosition,
              mediaApi,
              selection,
              range) {
@@ -95,6 +105,25 @@ results.controller('SearchResultsCtrl', [
         var scopeGone = false;
         $scope.$on('$destroy', () => {
             scopeGone = true;
+        });
+
+
+        // == Vertical position ==
+
+        // Logic to resume vertical position when navigating back to the same results
+
+        onNextEvent($scope, 'gu-lazy-table:height-changed').
+            // Attempt to resume the top position ASAP, so as to limit
+            // visible jump
+            then(() => scrollPosition.resume($stateParams)).
+            // When navigating back, resuming the position immediately
+            // doesn't work, so we try again after a little while
+            then(() => delay(30)).
+            then(() => scrollPosition.resume($stateParams)).
+            then(scrollPosition.clear);
+
+        $scope.$on('$destroy', () => {
+            scrollPosition.save($stateParams);
         });
 
 
