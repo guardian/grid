@@ -90,7 +90,7 @@ guDateRange.directive('guDateRange', [function () {
             });
 
             $scope.$watch('pikaStartValue', function (pikaStartValue) {
-                var date = pikaStartValue && new Date(pikaStartValue);
+                var date = (pikaStartValue && new Date(pikaStartValue)) || new Date();
                 pikaEnd.setMinDate(date);
                 pikaEnd.hide();
                 pikaEnd.show();
