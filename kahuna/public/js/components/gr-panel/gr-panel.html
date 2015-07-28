@@ -143,6 +143,7 @@
                 <div ng:class="{'image-info--multiple': ctrl.hasMultipleValues(ctrl.rawMetadata.specialInstructions)}"
                      editable-textarea="ctrl.metadata.specialInstructions"
                      onbeforesave="ctrl.updateMetadataField('specialInstructions', $data)"
+                     e:msd-elastic
                      e:form="specialInstructionsEditForm"
                      e:ng-class="{'image-info__editor--error': $error,
                                   'image-info__editor--saving': specialInstructionsEditForm.$waiting}">

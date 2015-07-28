@@ -11,7 +11,7 @@ import play.api.libs.json._
 import play.api.libs.functional.syntax._
 
 import com.gu.mediaservice.model._
-import com.gu.mediaservice.lib.argo.model.{EmbeddedEntity, Link}
+import com.gu.mediaservice.lib.argo.model._
 import com.gu.mediaservice.api.Transformers
 
 
@@ -24,7 +24,16 @@ object ImageResponse {
 
   def fileMetaDataUri(id: String) = URI.create(s"${Config.rootUri}/images/$id/fileMetadata")
 
-  def create(id: String, esSource: JsValue, withWritePermission: Boolean, included: List[String] = List()): (JsValue, List[Link]) = {
+  // TODO: move this as a method of Image (fiddly due to dep on Config)
+  def imageIsPersisted(image: Image) = {
+    image.identifiers.contains(Config.persistenceIdentifier) ||
+      image.exports.nonEmpty ||
+      image.userMetadata.exists(_.archived)
+  }
+
+  def create(id: String, esSource: JsValue, withWritePermission: Boolean,
+             withDeletePermission: Boolean, included: List[String] = List()):
+            (JsValue, List[Link], List[Action]) = {
     val (image: Image, source: JsValue) = Try {
       val image = esSource.as[Image]
       val source = Json.toJson(image)(
@@ -48,9 +57,7 @@ object ImageResponse {
 
     val valid = ImageExtras.isValid(source \ "metadata")
 
-    val isPersisted = image.identifiers.contains(Config.persistenceIdentifier) ||
-      image.exports.length > 0 ||
-      image.userMetadata.exists(_.archived)
+    val isPersisted = imageIsPersisted(image)
 
     val data = source.transform(addSecureSourceUrl(secureUrl))
       .flatMap(_.transform(wrapUserMetadata(id)))
@@ -61,7 +68,9 @@ object ImageResponse {
 
     val links = imageLinks(id, secureUrl, withWritePermission, valid)
 
-    (data, links)
+    val actions = imageActions(id, isPersisted, withDeletePermission)
+
+    (data, links, actions)
   }
 
   def imageLinks(id: String, secureUrl: String, withWritePermission: Boolean, valid: Boolean) = {
@@ -77,6 +86,13 @@ object ImageResponse {
     }
 
     if (valid) (cropLink :: baseLinks) else baseLinks
+  }
+
+  def imageActions(id: String, isPersisted: Boolean, withDeletePermission: Boolean) = {
+    val imageUri = URI.create(s"${Config.rootUri}/images/$id")
+    val deleteAction = Action("delete", imageUri, "DELETE")
+
+    if (! isPersisted && withDeletePermission) List(deleteAction) else Nil
   }
 
   def addUsageCost(source: JsValue): Reads[JsObject] = {
