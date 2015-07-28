@@ -174,7 +174,25 @@
                     (<a ui:sref="search.results({query: (ctrl.image.data.uploadedBy | queryFilter:'uploader')})">{{ctrl.image.data.uploadedBy | stripEmailDomain}}</a>)
                 </span>
             </div>
+        </div>
 
+        <div class="image-info__group" ng:if="!ctrl.crop">
+            <div class="metadata-line">
+                dimensions
+                <span class="metadata-line__info">{{ctrl.dimensions.width}} &times; {{ctrl.dimensions.height}}</span>
+            </div>
+        </div>
+
+        <div class="image-info__group" ng:if="ctrl.crop">
+            <div class="metadata-line">
+                dimensions (crop)
+                <span class="metadata-line__info">{{ctrl.dimensions.width}} &times; {{ctrl.dimensions.height}}</span>
+            </div>
+
+            <div class="metadata-line">
+                dimensions (original)
+                <span class="metadata-line__info">{{ctrl.originalDimensions.width}} &times; {{ctrl.originalDimensions.height}}</span>
+            </div>
         </div>
 
         <!-- FIXME: iff has useful metadata -->
