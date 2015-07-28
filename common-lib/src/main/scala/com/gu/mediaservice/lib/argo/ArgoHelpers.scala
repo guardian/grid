@@ -11,13 +11,11 @@ trait ArgoHelpers extends Results {
 
   val ArgoMediaType = "application/vnd.argo+json"
 
-  // FIXME: DSL to append links and actions?
-  def respond[T](data: T, links: List[Link] = Nil, actions: List[Action] = Nil)
-                (implicit writes: Writes[T]): Result = {
+  // FIXME: DSL to append links?
+  def respond[T](data: T, links: List[Link] = Nil)(implicit writes: Writes[T]): Result = {
     val response = EntityReponse(
-      data    = data,
-      links   = links,
-      actions = actions
+      data  = data,
+      links = links
     )
 
     serializeAndWrap(response, Ok)
