@@ -56,16 +56,39 @@
                         ng:required="property.required" />
 
                     <div ng:if="property.options"
-                         ng:switch="property.options.length > 2">
+                         ng:switch="property.options.length > 3">
                             <div class="radio-list" ng:switch-when="false">
-                                <label class="radio-list__item"
+                                <div class="radio-list__item"
                                     ng:repeat="o in property.options">
+
+                                    <input type="radio"
+                                        ng:if="$first && !property.required"
+                                        value=""
+                                        id="none-{{property.name}}-radio-list__item"
+                                        ng:checked="!ctrl.model[property.name]"
+                                        class="radio-list__circle"
+                                        name="{{property.name}}-radio-list" />
+                                    <label
+                                        ng:if="$first && !property.required"
+                                        for="none-{{property.name}}-radio-list__item"
+                                        class="radio-list__label">
+                                        None
+                                    </label>
+
                                     <input type="radio"
                                         value="{{o}}"
+                                        id="{{o}}-{{property.name}}-radio-list__item"
+                                        class="radio-list__circle"
+                                        name="{{property.name}}-radio-list"
                                         ng:required="property.required"
                                         ng:model="ctrl.model[property.name]" />
-                                    {{ o }}
-                                </label>
+                                    <label
+                                        for="{{o}}-{{property.name}}-radio-list__item"
+                                        class="radio-list__label">
+                                        {{ o }}
+                                    </label>
+
+                                </div>
                             </div>
 
                             <select
@@ -106,7 +129,7 @@
         <button class="ure__action button-ico button-save"
             type="submit"
             title="save usage rights overrides"
-            ng:disabled="ctrl.savingDisabled()">
+            ng:disabled="ctrl.savingDisabled() || !usageRights.$valid">
             <gr-icon ng:if="!ctrl.saving">check</gr-icon>
             <gr-icon ng:if="ctrl.saving">timelapse</gr-icon>
         </button>
