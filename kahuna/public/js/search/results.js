@@ -19,6 +19,16 @@ function compact(array) {
     return array.filter(angular.isDefined);
 }
 
+
+// Global session-level state to remember the uploadTime of the first
+// result in the last search.  This allows to always paginate the same
+// set of results, as well as recovering the same set of results if
+// navigating back to the same search.
+// Note: I tried to do this using non-URL $stateParams and it was a
+// rabbit-hole that doesn't seem to have any end. Hence this slightly
+// horrid global state.
+let lastSearchFirstResultTime;
+
 results.controller('SearchResultsCtrl', [
     '$rootScope',
     '$scope',
@@ -32,6 +42,7 @@ results.controller('SearchResultsCtrl', [
     'mediaApi',
     'selectionService',
     'range',
+    'isReloadingPreviousSearch',
     function($rootScope,
              $scope,
              $state,
@@ -43,7 +54,8 @@ results.controller('SearchResultsCtrl', [
              scrollPosition,
              mediaApi,
              selection,
-             range) {
+             range,
+             isReloadingPreviousSearch) {
 
         const ctrl = this;
 
@@ -64,18 +76,38 @@ results.controller('SearchResultsCtrl', [
         // scrollbar becomes hyper-sensitive
         ctrl.maxResults = 5000;
 
+        // If not reloading a previous search, discard any previous
+        // state related to the last search
+        if (! isReloadingPreviousSearch) {
+            lastSearchFirstResultTime = undefined;
+        }
+
         // TODO: avoid this initial search (two API calls to init!)
-        ctrl.searched = search({length: 0}).then(function(images) {
+        ctrl.searched = search({length: 1}).then(function(images) {
             ctrl.totalResults = images.total;
 
-            // images is the array of loaded images, used for display
-            ctrl.images = images.data;
+            // images will be the array of loaded images, used for display
+            ctrl.images = [];
 
-            // imagesAll is a sparse array of all the results
-            ctrl.imagesAll = [].concat(images.data);
+            // imagesAll will be a sparse array of all the results
+            ctrl.imagesAll = [];
             ctrl.imagesAll.length = Math.min(images.total, ctrl.maxResults);
 
             checkForNewImages();
+
+            // Keep track of time of the latest result for all
+            // subsequent searches (so we always query the same set of
+            // results), unless we're reloading a previous search in
+            // which case we reuse the previous time too
+
+            // FIXME: the resolution of uploadTime is seconds, which could
+            // not be enough to avoid multiple images sharing an
+            // uploadTime and issues with duplicate results in the
+            // queried set
+            const latestTime = images.data[0] && images.data[0].data.uploadTime;
+            if (latestTime && ! isReloadingPreviousSearch) {
+                lastSearchFirstResultTime = latestTime;
+            }
         }).finally(() => {
             ctrl.loading = false;
         });
@@ -83,8 +115,7 @@ results.controller('SearchResultsCtrl', [
 
         ctrl.loadRange = function(start, end) {
             const length = end - start + 1;
-            const latestTime = ctrl.images[0] && ctrl.images[0].data.uploadTime;
-            search({offset: start, length: length, until: latestTime}).then(images => {
+            search({offset: start, length: length}).then(images => {
                 // Update imagesAll with newly loaded images
                 images.data.forEach((image, index) => {
                     // Only set images that were missing from the Array
@@ -132,8 +163,11 @@ results.controller('SearchResultsCtrl', [
         // FIXME: this will only add up to 50 images (search capped)
         function checkForNewImages() {
             $timeout(() => {
-                const latestTime = ctrl.images[0] && ctrl.images[0].data.uploadTime;
-                search({since: latestTime, length: 0}).then(resp => {
+                const latestTime = lastSearchFirstResultTime;
+                // Blank any 'until' parameter to look for new images
+                // TODO: if a manual until was set (e.g. using date
+                // picker), don't check for new images until now
+                search({since: latestTime, length: 0, until: null}).then(resp => {
                     // FIXME: minor assumption that only the latest
                     // displayed image is matching the uploadTime
                     ctrl.newImagesCount = resp.total - 1;
@@ -186,15 +220,23 @@ results.controller('SearchResultsCtrl', [
 
         function search({until, since, offset, length} = {}) {
             // FIXME: Think of a way to not have to add a param in a million places to add it
+
+            // Default explicit unti/since to $stateParams
+            if (angular.isUndefined(until)) {
+                until = $stateParams.until || lastSearchFirstResultTime;
+            }
+            if (angular.isUndefined(since)) {
+                since = $stateParams.since;
+            }
+
             return mediaApi.search($stateParams.query, angular.extend({
                 ids:        $stateParams.ids,
                 archived:   $stateParams.archived,
                 // The nonFree state param is the inverse of the free API param
                 free:       $stateParams.nonFree === 'true' ? undefined: true,
                 uploadedBy: $stateParams.uploadedBy,
-                // Override $stateParams until/since with any explicitly provided argument
-                until:      until || $stateParams.until,
-                since:      since || $stateParams.since,
+                until:      until,
+                since:      since,
                 offset:     offset,
                 length:     length
             }));
