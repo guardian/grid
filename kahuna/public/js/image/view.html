@@ -49,6 +49,31 @@
         </div>
 
         <div class="image-info__group">
+            <div class="image-info__wrap metadata-line drop-menu image-info__usage-rights"
+                 ng:init="showUsageRights = false">
+                usage rights category
+                <div class="image-info__usage-rights drop-menu__items drop-menu__items--right"
+                     ng:show="showUsageRights">
+
+                    <gr:usage-rights-editor
+                        gr:usage-rights="[ctrl.usageRights]"
+                        gr:on-save="showUsageRights = false"
+                        gr:on-cancel="showUsageRights = false">
+                    </gr:usage-rights-editor>
+                </div>
+
+                <h2 class="image-info__title">
+                    {{ctrl.usageCategory}}
+                </h2>
+
+                <button
+                    ng:click="showUsageRights = !showUsageRights"
+                    ng:hide="!ctrl.userCanEdit || showUsageRights"
+                    class="image-info__edit">✎</button>
+            </div>
+        </div>
+
+        <div class="image-info__group">
             <div class="image-info__wrap" ng:if="ctrl.metadata.title">
                 <button class="image-info__edit"
                         ng:if="ctrl.userCanEdit"
