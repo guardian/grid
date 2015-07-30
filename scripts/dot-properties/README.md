@@ -96,7 +96,7 @@ Where:
 This file should have the following contents:
 
 ```py
-FLEXI_RUN_ENV=dev
+FLEXI_RUN_ENV='dev'
 ```
 
 This file is used to determine which settings file to use; it will take the values from `settings.py` and apply overrides from `settings_dev.py`.
