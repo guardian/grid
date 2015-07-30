@@ -140,12 +140,9 @@ image.controller('ImageCtrl', [
         }
 
         $rootScope.$on('image-updated', (e, updatedImage) => {
-            if (ctrl.image.data.id === updatedImage.data.id) {
-                ctrl.image = updatedImage;
-                ctrl.usageRights = imageService(ctrl.image).usageRights;
-
-                ctrl.setUsageCategory(ctrl.usageCategories, ctrl.usageRights.data.category);
-            }
+            ctrl.image = updatedImage;
+            ctrl.usageRights = imageService(ctrl.image).usageRights;
+            ctrl.setUsageCategory(ctrl.usageCategories, ctrl.usageRights.data.category);
         });
 
         ctrl.updateMetadataField = function (field, value) {
