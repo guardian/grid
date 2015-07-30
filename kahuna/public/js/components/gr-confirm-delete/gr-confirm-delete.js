@@ -7,10 +7,9 @@ confirmDelete.directive('grConfirmDelete', ['$timeout', function($timeout) {
     return {
         restrict: 'E',
         template: `
-            <button class="button-ico" type="button" ng:click="showConfirm = true"
-                title="remove usage rights overrides">
+            <button class="button-ico" type="button" ng:click="showConfirm = true">
                 <span class="confirm" ng:if="showConfirm">Sure?</span>
-                <gr-icon>delete</gr-icon>
+                <gr-icon>undo</gr-icon>
             </button>`,
 
         link: function(scope, element, attrs) {

@@ -11,15 +11,71 @@ export var usageRightsEditor = angular.module('kahuna.edits.usageRightsEditor', 
     'gr.confirmDelete'
 ]);
 
-usageRightsEditor.controller('UsageRightsEditorCtrl',
-                             ['$window', '$timeout', 'editsService', 'editsApi',
-                              function($window, $timeout, editsService, editsApi) {
+usageRightsEditor.controller(
+    'UsageRightsEditorCtrl',
+    ['$q', '$scope', '$window', '$timeout', 'editsService', 'editsApi', 'onValChange',
+    function($q, $scope, $window, $timeout, editsService, editsApi, onValChange) {
 
     var ctrl = this;
 
-    // setting our initial values
-    const { category: initialCatVal } = ctrl.usageRights.data;
+    const multiRights = { name: 'Multiple categories', value: '' };
     const noRights = { name: 'None', value: '' };
+    const catsWithNoRights = () => [noRights].concat(ctrl.originalCats);
+    const catsWithMultiRights = () => [multiRights].concat(ctrl.originalCats);
+    const setStandardCats = () => ctrl.categories = ctrl.originalCats;
+    const setNoRightsCats = () => {
+        ctrl.categories = catsWithNoRights();
+        ctrl.category = noRights;
+    };
+    const setMultiRightsCats = () => {
+        ctrl.categories = catsWithMultiRights();
+        ctrl.category = multiRights;
+    };
+
+
+    const getGroupCategory =
+        (usageRights, cats) => cats.find(cat => cat.value === usageRights.reduce(
+            (m, o) => (m == o.data.category) ? o.data.category : {},
+            usageRights[0].data.category
+        ));
+
+    const getGroupModel = usageRights =>
+        ctrl.multipleUsageRights() ? {} : angular.extend({}, usageRights[0].data);
+
+    ctrl.resetCategory = () => ctrl.category = {};
+    ctrl.resetModel = () => ctrl.model = {};
+    ctrl.multipleUsageRights = () => ctrl.usageRights.length > 1;
+
+    ctrl.update = function() {
+        ctrl.category = getGroupCategory(ctrl.usageRights, ctrl.categories);
+
+        // If we have multi or no rights we need to add the option to
+        // the drop down and select it to give the user feedback as to
+        // what's going on (can't use terner).
+        if (!ctrl.category) {
+            if (ctrl.usageRights.length > 1) {
+                setMultiRightsCats();
+            } else {
+                setNoRightsCats();
+            }
+        } else {
+            setStandardCats();
+        }
+
+
+        ctrl.model = getGroupModel(ctrl.usageRights);
+    };
+
+    // setting our initial values
+    editsApi.getUsageRightsCategories().then(cats => {
+        ctrl.categories = cats;
+        ctrl.originalCats = cats;
+        ctrl.update();
+    });
+
+    $scope.$watchCollection(() => ctrl.usageRights, onValChange(() => {
+        ctrl.update();
+    }));
 
     ctrl.saving = false;
     ctrl.saved = false;
@@ -31,8 +87,6 @@ usageRightsEditor.controller('UsageRightsEditorCtrl',
     // TODO: How do we make this more synchronous? You can only resolve on the
     // routeProvider, which is actually bound to the UploadCtrl in this instance
     // SEE: https://github.com/angular/angular.js/issues/2095
-    editsApi.getUsageRightsCategories().then(cats => setCategories(cats, initialCatVal));
-
     ctrl.save = () => {
         // FIXME [1]: We do this as images that didn't have usagerights in the first place will have
         // the no rights option, this is to make sure we don't override but rather delete.
@@ -40,8 +94,6 @@ usageRightsEditor.controller('UsageRightsEditorCtrl',
 
         if (data.category) {
             save(data);
-        } else {
-            remove();
         }
     };
 
@@ -53,6 +105,12 @@ usageRightsEditor.controller('UsageRightsEditorCtrl',
 
     ctrl.isNotEmpty = () => !angular.equals(ctrl.model, {});
 
+    // stop saving on no/multi rights
+    ctrl.savingDisabled = () => {
+        return ctrl.saving ||
+            angular.equals(ctrl.category, noRights) || angular.equals(ctrl.category, multiRights);
+    };
+
     ctrl.pluraliseCategory = () => ctrl.category.name +
         (ctrl.category.name.toLowerCase().endsWith('image') ? 's' : ' images');
 
@@ -60,8 +118,6 @@ usageRightsEditor.controller('UsageRightsEditorCtrl',
         'e.g. Use in relation to the Windsor Triathlon only' :
         'Adding restrictions will mark this image as restricted. ' +
         'Leave blank if there aren\'t any.';
-
-    ctrl.resetModel = () => ctrl.model = {};
 
     ctrl.getOptionsFor = property => {
         const key = ctrl.category
@@ -72,19 +128,6 @@ usageRightsEditor.controller('UsageRightsEditorCtrl',
         const val = ctrl.model[key];
         return property.optionsMap[val];
     };
-
-    function setCategories(cats, selected) {
-        ctrl.categories = cats;
-        setCategory(selected);
-
-        // FIXME [1]: This is because we don't allow the override of
-        // NoRights yet (needs reindexing). We don't however want to
-        // default the first category as that can be confusing.
-        if (!ctrl.category) {
-            ctrl.categories = [noRights].concat(ctrl.categories);
-            ctrl.category = noRights;
-        }
-    }
 
     function setCategory(val) {
         ctrl.category = ctrl.categories.find(cat => cat.value === val);
@@ -107,21 +150,19 @@ usageRightsEditor.controller('UsageRightsEditorCtrl',
     function remove() {
         ctrl.error = null;
         ctrl.saving = true;
-
-        ctrl.usageRights.remove().
-            then(updateSuccess).
-            catch(uiError).
+        $q.all(ctrl.usageRights.map((usageRights) => {
+            return usageRights.remove();
+        })).catch(uiError).
             finally(() => ctrl.saving = false);
     }
 
     function save(data) {
         ctrl.error = null;
         ctrl.saving = true;
-
-        ctrl.usageRights.save(data).
-            then(updateSuccess).
-            catch(uiError).
-            finally(() => ctrl.saving = false);
+        $q.all(ctrl.usageRights.map((usageRights) => {
+            return usageRights.save(data);
+        })).catch(uiError).
+            finally(() => updateSuccess(data));
     }
 
     function updateSuccess(data) {
@@ -129,6 +170,7 @@ usageRightsEditor.controller('UsageRightsEditorCtrl',
         ctrl.onSave();
         setCategory(data.category);
         uiSaved();
+        ctrl.saving = false;
     }
 
     function uiSaved() {
