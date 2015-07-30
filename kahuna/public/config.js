@@ -16,8 +16,8 @@ System.config({
     "angular-bootstrap": "github:angular-ui/bootstrap-bower@0.13.1",
     "angular-elastic": "github:monospaced/angular-elastic@2.5.0",
     "angular-messages": "github:angular/bower-angular-messages@1.4.3",
-    "angular-ui-router": "github:angular-ui/ui-router@0.2.13",
-    "angular-ui-router-extras": "github:christopherthielen/ui-router-extras@0.0.13",
+    "angular-ui-router": "github:angular-ui/ui-router@0.2.15",
+    "angular-ui-router-extras": "github:christopherthielen/ui-router-extras@0.0.14",
     "angular-xeditable": "github:vitalets/angular-xeditable@0.1.9",
     "clean-css": "npm:clean-css@3.3.6",
     "css": "github:systemjs/plugin-css@0.1.13",
@@ -39,7 +39,7 @@ System.config({
     "traceur": "github:jmcriffey/bower-traceur@0.0.90",
     "traceur-runtime": "github:jmcriffey/bower-traceur-runtime@0.0.90",
     "ua-parser-js": "npm:ua-parser-js@0.7.3",
-    "github:angular-ui/ui-router@0.2.13": {
+    "github:angular-ui/ui-router@0.2.15": {
       "angular": "github:angular/bower-angular@1.4.3"
     },
     "github:angular/bower-angular-animate@1.4.3": {
