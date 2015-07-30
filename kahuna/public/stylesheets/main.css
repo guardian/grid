@@ -1728,7 +1728,34 @@ ui-archiver .archiver:hover {
 
 .radio-list {
     display: flex;
+    border: 1px solid transparent;
+}
+.radio-list--invalid {
+    border: 1px solid #ed5935;
+
 }
 .radio-list__item {
     flex-grow: 1;
+    display:flex;
+    cursor:pointer;
+}
+
+.radio-list__item:last-child {
+    border-right: 1px;
+}
+
+.radio-list__label {
+   padding: 5px;
+   flex-grow: 1;
+   color: #CCC;
+   background-color: #444;
+   text-align: center;
+   border: 1px solid #555;
+}
+.radio-list__circle:checked + .radio-list__label { 
+   background-color:#666;
+   border: 1px solid #777;
+}
+.radio-list__circle {
+   display: none;
 }
