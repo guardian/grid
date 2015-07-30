@@ -4,3 +4,4 @@ aws.secret={{AwsSecret}}
 auth.keystore.bucket={{KeyBucket}}
 sns.topic.arn={{SnsTopicArn}}
 dynamo.table.edits={{EditsDynamoTable}}
+sqs.queue.url={{ImageUploadSqsQueueUrl}}
