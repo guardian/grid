@@ -39,7 +39,7 @@ service.factory('editsService',
         // find that matching resource
         return findMatchingEditInImage(edit, image).then(matchingEdit =>
             matchingEdit && angular.equals(matchingEdit.data, edit.data) ?
-                edit : $q.reject('data not matching')
+                { edit, image } : $q.reject('data not matching')
         );
     }
 
@@ -61,7 +61,7 @@ service.factory('editsService',
             angular.equals(matchingEdit.data, {}) ||
             angular.equals(matchingEdit.data, []) ||
             isEmptyBuggyTheseusEmbeddedEntity(matchingEdit.data) ?
-                matchingEdit : $q.reject('data not matching'));
+                { matchingEdit, image } : $q.reject('data not matching'));
     }
 
     /**
@@ -87,7 +87,7 @@ service.factory('editsService',
 
         return resource.post({ data }).then(edit =>
             getSynced(originalImage, newImage => matches(edit, newImage))).
-            then(edit => {
+            then(({ edit }) => {
                 runWatcher(resource, 'update-end');
                 return edit;
             }).
@@ -105,8 +105,12 @@ service.factory('editsService',
 
         return resource.put({ data }).then(edit =>
             getSynced(originalImage, newImage => matches(edit, newImage))).
-            then(edit => {
+            then(({ edit, image }) => {
+
                 runWatcher(resource, 'update-end');
+
+                $rootScope.$emit('image-updated', image, originalImage);
+
                 return edit;
             }).
             catch(e => {
@@ -121,8 +125,12 @@ service.factory('editsService',
 
         return resource.delete().then(() =>
             getSynced(originalImage, newImage => isEmpty(resource, newImage)).
-            then(emptyEdit => {
+            then(({ emptyEdit, image }) => {
+
                 runWatcher(resource, 'update-end');
+
+                $rootScope.$emit('image-updated', image, originalImage);
+
                 return emptyEdit;
             }).
             catch(() => runWatcher(resource, 'update-error')));

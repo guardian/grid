@@ -177,6 +177,10 @@ a:focus {
     background: #00adee;
     color: white;
 }
+.button-save[disabled] {
+    background: #888;
+    cursor: auto;
+}
 
 .button--confirm-delete {
     background: red;
@@ -1052,6 +1056,7 @@ FIXME: what to do with touch devices
 
 .image-info__title {
     font-weight: bold;
+    color: #ccc;
 }
 
 .image-info__heading {
@@ -1152,6 +1157,11 @@ FIXME: what to do with touch devices
 .image-info__wrap .editable-buttons {
     display: block;
     float: right;
+}
+
+.image-info__usage-rights {
+    width: 100%;
+    box-sizing: border-box;
 }
 
 
@@ -1609,7 +1619,7 @@ ui-archiver .archiver:hover {
     position: absolute;
     padding: 10px;
     box-shadow: 0 1px 5px rgba(0, 0, 0, 0.5);
-    top: calc(100% + 12px);
+    top: calc(100% + 8px);
     z-index: 4;
     /* Drop items should win over everything */
 }
@@ -1694,12 +1704,14 @@ ui-archiver .archiver:hover {
     display: flex;
 }
 
-.form-label__error {
+.form-label__error,
+.form-label__notice {
     font-size: 1.2rem;
-    color: #ed5935;
     flex-grow: 1;
     text-align: right;
 }
+.form-label__error { color: #ed5935; }
+.form-label__notice { color: orange; }
 
 .form-property {
     display: block;
@@ -1712,4 +1724,38 @@ ui-archiver .archiver:hover {
 
 .form-input-text {
     width: 100%;
+}
+
+.radio-list {
+    display: flex;
+    border: 1px solid transparent;
+}
+.radio-list--invalid {
+    border: 1px solid #ed5935;
+
+}
+.radio-list__item {
+    flex-grow: 1;
+    display:flex;
+    cursor:pointer;
+}
+
+.radio-list__item:last-child {
+    border-right: 1px;
+}
+
+.radio-list__label {
+   padding: 5px;
+   flex-grow: 1;
+   color: #CCC;
+   background-color: #444;
+   text-align: center;
+   border: 1px solid #555;
+}
+.radio-list__circle:checked + .radio-list__label { 
+   background-color:#666;
+   border: 1px solid #777;
+}
+.radio-list__circle {
+   display: none;
 }

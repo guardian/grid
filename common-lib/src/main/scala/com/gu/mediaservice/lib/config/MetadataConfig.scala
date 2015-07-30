@@ -31,12 +31,11 @@ object MetadataConfig {
       "Suki Dhanda"         -> "The Observer"
     )
 
-
     val creditBylineMap: Map[String, List[String]] = store
       .groupBy{ case (photographer, publication) => publication }
-      .map{ case (publication, photographers) => publication -> photographers.keys.toList }
+      .map{ case (publication, photographers) => publication -> photographers.keys.toList.sortWith(_.toLowerCase < _.toLowerCase) }
 
-    val list = store.keys.toList
+    val list = store.keys.toList.sortWith(_.toLowerCase < _.toLowerCase)
 
     def getPublication(name: String): Option[String] = store.get(name)
   }

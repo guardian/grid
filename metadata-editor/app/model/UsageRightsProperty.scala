@@ -30,8 +30,8 @@ object UsageRightsProperty {
   def getPropertiesForCat(u: UsageRights): List[UsageRightsProperty] =
     agencyProperties(u) ++ photographerProperties(u) ++ restrictionProperties(u)
 
-  private def publicationField =
-    UsageRightsProperty("publication", "Publication", "string", true, Some(StaffPhotographers.creditBylineMap.keys.toList))
+  private def publicationField(required: Boolean)  =
+    UsageRightsProperty("publication", "Publication", "string", required, Some(StaffPhotographers.creditBylineMap.keys.toList.sortWith(_.toLowerCase < _.toLowerCase)))
 
   private def photographerField =
     UsageRightsProperty("photographer", "Photographer", "string", true)
@@ -46,7 +46,7 @@ object UsageRightsProperty {
 
   private def agencyProperties(u: UsageRights): List[UsageRightsProperty] = u match {
     case _:Agency => List(
-      UsageRightsProperty("supplier", "Supplier", "string", true, Some(UsageRightsConfig.freeSuppliers)),
+      UsageRightsProperty("supplier", "Supplier", "string", true, Some(UsageRightsConfig.freeSuppliers.sortWith(_.toLowerCase < _.toLowerCase))),
       UsageRightsProperty("suppliersCollection", "Collection", "string", false)
     )
     case _ => List()
@@ -55,17 +55,17 @@ object UsageRightsProperty {
 
   private def photographerProperties(u: UsageRights): List[UsageRightsProperty] = u match {
     case _:StaffPhotographer => List(
-      publicationField,
+      publicationField(true),
       photographerField(StaffPhotographers.creditBylineMap, "publication")
     )
 
     case _:CommissionedPhotographer => List(
-      publicationField,
+      publicationField(false),
       photographerField
     )
 
     case _:ContractPhotographer => List(
-      publicationField,
+      publicationField(false),
       photographerField
     )
 
