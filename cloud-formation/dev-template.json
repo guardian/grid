@@ -22,8 +22,18 @@
                             },
                             {
                                 "Effect": "Allow",
+                                "Action": ["sqs:DeleteMessage", "sqs:ReceiveMessage"],
+                                "Resource": [ { "Fn::GetAtt": ["ImageUploadQueue", "Arn"] } ]
+                            },
+                            {
+                                "Effect": "Allow",
                                 "Action": ["sns:Publish"],
                                 "Resource": { "Ref": "Topic" }
+                            },
+                            {
+                                "Effect": "Allow",
+                                "Action": ["sns:Publish"],
+                                "Resource": { "Ref": "ImageUploadTopic" }
                             },
                             {
                                 "Effect": "Allow",
@@ -265,6 +275,43 @@
                 },
                 "Queues": [ { "Ref": "Queue" } ]
             }
+        },
+        "ImageUploadTopic": {
+            "Type": "AWS::SNS::Topic",
+            "Properties": {
+                "Subscription": [
+                    {
+                        "Endpoint": { "Fn::GetAtt": [ "ImageUploadQueue", "Arn" ] },
+                        "Protocol": "sqs"
+                    }
+                ]
+            }
+        },
+        "ImageUploadQueue": {
+            "Type": "AWS::SQS::Queue",
+            "Properties": {
+            }
+        },
+        "ImageUploadQueuePolicy": {
+            "Type": "AWS::SQS::QueuePolicy",
+            "Properties": {
+                "PolicyDocument": {
+                    "Id": "ImageUploadQueuePolicy",
+                    "Statement": [
+                        {
+                            "Sid": "Allow-SendMessage-To-Queue-From-Topic",
+                            "Effect": "Allow",
+                            "Principal": { "AWS": "*" },
+                            "Action": ["sqs:SendMessage"],
+                            "Resource": "*",
+                            "Condition": {
+                                "ArnEquals": { "aws:SourceArn": { "Ref": "ImageUploadTopic" } }
+                            }
+                        }
+                    ]
+                },
+                "Queues": [ { "Ref": "ImageUploadQueue" } ]
+            }
         }
     },
     "Outputs": {
@@ -300,6 +347,12 @@
         },
         "SqsQueueUrl": {
             "Value": { "Ref" : "Queue" }
+        },
+        "ImageUploadSnsTopicArn": {
+            "Value": { "Ref": "ImageUploadTopic" }
+        },
+        "ImageUploadSqsQueueUrl": {
+            "Value": { "Ref" : "ImageUploadQueue" }
         }
     }
 }
