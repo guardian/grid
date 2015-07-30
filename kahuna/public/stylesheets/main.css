@@ -1752,10 +1752,14 @@ ui-archiver .archiver:hover {
    text-align: center;
    border: 1px solid #555;
 }
-.radio-list__circle:checked + .radio-list__label { 
+.radio-list__circle:checked + .radio-list__label {
    background-color:#666;
    border: 1px solid #777;
 }
 .radio-list__circle {
    display: none;
+}
+
+.full-width {
+    width: 100%;
 }
