@@ -88,6 +88,7 @@ object MediaApi extends Controller with ArgoHelpers {
           case _ => permissionStore.hasPermission(permission, user.email)
         }
       }
+      case service: AuthenticatedService => Future.successful(true)
       case _ => Future.successful(false)
     }
   }
