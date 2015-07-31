@@ -21,3 +21,9 @@ GET     /session                    controllers.Panda.session
 # Management
 GET     /management/healthcheck     com.gu.mediaservice.lib.management.Management.healthCheck
 GET     /management/manifest        com.gu.mediaservice.lib.management.Management.manifest
+
+
+# HACK: appalling workaround to serve this image asset from the erroneous URL it is requested at,
+#       due to a shortcoming in the SystemJS plugin-css build process:
+#       https://github.com/systemjs/plugin-css/issues/52
+GET     /images/$id<[0-9a-z]+>/jspm_packages/github/tapmodo/Jcrop@0.9.12/css/Jcrop.gif controllers.Application.hackJcropGif(id)
