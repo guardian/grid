@@ -43,6 +43,7 @@ results.controller('SearchResultsCtrl', [
     'selectionService',
     'range',
     'isReloadingPreviousSearch',
+    'onValChange',
     function($rootScope,
              $scope,
              $state,
@@ -55,7 +56,8 @@ results.controller('SearchResultsCtrl', [
              mediaApi,
              selection,
              range,
-             isReloadingPreviousSearch) {
+             isReloadingPreviousSearch,
+             onValChange) {
 
         const ctrl = this;
 
@@ -287,6 +289,20 @@ results.controller('SearchResultsCtrl', [
                 }
             }
         };
+
+        ctrl.filter = {
+            sortDirection: $stateParams.orderBy === 'uploadTime' ? 'ASC' : 'DESC'
+        };
+
+        $scope.$watch(() => ctrl.filter.sortDirection, onValChange(newVal => {
+            var filter = {orderBy: undefined};
+
+            if (newVal === 'ASC') {
+                filter.orderBy = 'uploadTime';
+            }
+
+            $state.go('search.results', filter);
+        }));
 
         const freeUpdateListener = $rootScope.$on('image-updated', (e, updatedImage, oldImage) => {
             var index = ctrl.images.findIndex(i => i.data.id === updatedImage.data.id);

@@ -29,17 +29,21 @@
                         <input type="radio"
                                id="sort-direction__desc"
                                class="radio-list__circle"
-                               name="sort-direction">
+                               name="sort-direction"
+                               value="DESC"
+                               ng:model="ctrl.filter.sortDirection">
                         <label for="sort-direction__desc" class="radio-list__label">
-                            Newest First
+                            Most Recent First
                         </label>
                     </div>
-                    
+
                     <div class="radio-list__item">
                         <input type="radio"
                                id="sort-direction__asc"
                                class="radio-list__circle"
-                               name="sort-direction">
+                               name="sort-direction"
+                               value="ASC"
+                               ng:model="ctrl.filter.sortDirection">
                         <label for="sort-direction__asc" class="radio-list__label">
                             Oldest First
                         </label>
