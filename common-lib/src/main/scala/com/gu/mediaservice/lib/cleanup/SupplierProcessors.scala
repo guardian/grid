@@ -85,13 +85,11 @@ object ApParser extends ImageProcessor {
 }
 
 object BarcroftParser extends ImageProcessor {
-  def apply(image: Image): Image = image.metadata.credit match {
-    // TODO: store barcroft office somewhere?
-    case Some("Barcroft Media") | Some("Barcroft India") | Some("Barcroft USA") | Some("Barcroft Cars") => image.copy(
-      usageRights = Agency("Barcroft Media")
-    )
-    case _ => image
-  }
+  def apply(image: Image): Image = 
+    // We search the credit and the source here as Barcroft seems to use both
+    if(List(image.metadata.credit, image.metadata.source).flatten.map(_.toLowerCase).exists { s =>
+      List("barcroft media", "barcroft india", "barcroft usa", "barcroft cars").contains(s)
+    }) image.copy(usageRights = Agency("Barcroft Media")) else image
 }
 
 object CorbisParser extends ImageProcessor {
