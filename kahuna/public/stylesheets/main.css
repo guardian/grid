@@ -1764,7 +1764,7 @@ ui-archiver .archiver:hover {
    background-color: #444;
    text-align: center;
    border: 1px solid #555;
-   cursor:pointer;
+   cursor: pointer;
 }
 .radio-list__circle:checked + .radio-list__label {
    background-color:#666;
