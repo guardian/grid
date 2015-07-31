@@ -287,7 +287,7 @@ results.controller('SearchResultsCtrl', [
             }
         };
 
-        $rootScope.$on('image-updated', (e, updatedImage, oldImage) => {
+        const freeUpdateListener = $rootScope.$on('image-updated', (e, updatedImage, oldImage) => {
             var index = ctrl.images.findIndex(i => i.data.id === updatedImage.data.id);
             if (index !== -1) {
                 ctrl.images[index] = updatedImage;
@@ -299,13 +299,14 @@ results.controller('SearchResultsCtrl', [
                 }
             }
 
-            var indexAll = ctrl.imagesAll.findIndex(i => i.data.id === updatedImage.data.id);
+            var indexAll = ctrl.imagesAll.findIndex(i => i && i.data.id === updatedImage.data.id);
             if (indexAll !== -1) {
                 ctrl.imagesAll[indexAll] = updatedImage;
             }
         });
 
         $scope.$on('$destroy', function() {
+            freeUpdateListener();
             selection.clear();
         });
     }
