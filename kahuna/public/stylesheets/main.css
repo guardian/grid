@@ -1006,7 +1006,7 @@ FIXME: what to do with touch devices
 }
 
 .easel__canvas {
-    height: calc(100vh - 48px); /* viewport - top-bar */
+    height: calc(100vh - 50px); /* viewport - top-bar */
     vertical-align: middle;
 }
 
@@ -1029,7 +1029,7 @@ FIXME: what to do with touch devices
     box-sizing: border-box;
     float: right;
     font-size: 1.4rem;
-    height: calc(100vh - 48px); /* viewport - top-bar */
+    height: calc(100vh - 50px); /* viewport - top-bar */
     padding: 10px 10px;
     overflow: auto;
     width: 300px;
