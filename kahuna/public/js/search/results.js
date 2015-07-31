@@ -74,7 +74,11 @@ results.controller('SearchResultsCtrl', [
 
         // Arbitrary limit of number of results; too many and the
         // scrollbar becomes hyper-sensitive
-        ctrl.maxResults = 5000;
+        const searchFilteredLimit = 5000;
+        // When reviewing all images, we accept a degraded scroll
+        // experience to allow seeing around one day's worth of images
+        const searchAllLimit = 20000;
+        ctrl.maxResults = $stateParams.query ? searchFilteredLimit : searchAllLimit;
 
         // If not reloading a previous search, discard any previous
         // state related to the last search
