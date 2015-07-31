@@ -1,7 +1,8 @@
 package com.gu.mediaservice.lib.cleanup
 
-import com.gu.mediaservice.model.{Agency, Image, StaffPhotographer}
-import com.gu.mediaservice.lib.config.MetadataConfig.StaffPhotographers
+import com.gu.mediaservice.model.{Agency, Image, StaffPhotographer, ContractPhotographer, CommissionedPhotographer}
+import com.gu.mediaservice.lib.config.PhotographersList
+import com.gu.mediaservice.lib.config.MetadataConfig.{staffPhotographers, contractedPhotographers}
 
 trait ImageProcessor {
   def apply(image: Image): Image
@@ -29,13 +30,40 @@ object SupplierProcessors {
 
 object StaffPhotographerParser extends ImageProcessor {
   def apply(image: Image): Image = {
-    image.metadata.byline.map(p => (p,StaffPhotographers.getPublication(p))) match {
+    image.metadata.byline.map(p => (p, PhotographersList.getPublication(staffPhotographers, p))) match {
       case Some((photographer, Some(publication))) => image.copy(
         usageRights = StaffPhotographer(photographer, publication),
         metadata    = image.metadata.copy(credit = Some(publication))
       )
       case _ => image
     }
+  }
+}
+
+object ContractedPhotographerParser extends ImageProcessor {
+  def apply(image: Image): Image = {
+    image.metadata.byline.map(p => (p, PhotographersList.getPublication(contractedPhotographers, p))) match {
+      case Some((photographer, Some(publication))) => image.copy(
+        usageRights = ContractPhotographer(photographer, publication),
+        metadata    = image.metadata.copy(credit = Some(publication))
+      )
+      case _ => image
+    }
+  }
+}
+
+object CommissionedPhotographerParser extends ImageProcessor {
+  def apply(image: Image): Image = {
+    image.metadata.byline.map { byline =>
+      (byline,
+        image.metadata.credit.map(_.toLowerCase),
+        PhotographersList.getPublication(staffPhotographers, byline),
+        PhotographersList.getPublication(contractedPhotographers, byline))
+    } map {
+      case (byline: String, Some("the guardian"), None, None) => image.copy(usageRights = CommissionedPhotographer(byline, "The Guardian"))
+      case (byline: String, Some("the observer"), None, None) => image.copy(usageRights = CommissionedPhotographer(byline, "The Observer"))
+      case _ => image
+    } getOrElse image
   }
 }
 
