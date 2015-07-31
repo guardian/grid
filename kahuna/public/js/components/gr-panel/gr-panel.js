@@ -76,7 +76,7 @@ grPanel.controller('GrPanel', [
             editsApi.getUsageRightsCategories().then((cats) => {
                 var categoryCode = ctrl.usageRights.reduce((m, o) => {
                     return (m == o.data.category) ? o.data.category : 'multiple categories';
-                }, ctrl.usageRights[0].data.category);
+                }, ctrl.usageRights[0] && ctrl.usageRights[0].data.category);
 
                 var usageCategory = cats.find(cat => cat.value === categoryCode);
                 ctrl.usageCategory = usageCategory ? usageCategory.name : categoryCode;
