@@ -299,7 +299,7 @@ results.controller('SearchResultsCtrl', [
                 }
             }
 
-            var indexAll = ctrl.imagesAll.findIndex(i => i.data.id === updatedImage.data.id);
+            var indexAll = ctrl.imagesAll.findIndex(i => i && i.data.id === updatedImage.data.id);
             if (indexAll !== -1) {
                 ctrl.imagesAll[indexAll] = updatedImage;
             }
