@@ -1,27 +1,38 @@
 import angular from 'angular';
 import Rx from 'rx';
 
+import '../image/service';
 import '../edits/service';
 
-var selectionService = angular.module('kahuna.services.selection', ['kahuna.edits.service']);
+var selectionService = angular.module(
+        'kahuna.services.selection',
+        [
+            'gr.image.service',
+            'kahuna.edits.service'
+        ]
+);
 
-selectionService.factory('selectionService', ['$q', 'editsService', function ($q, editsService) {
+selectionService.factory('selectionService',
+    ['$q', 'editsService', 'imageService', function ($q, editsService, imageService) {
     var selectedImages = new Set();
     var selectedMetadata = {};
     var selectedMetadataForDisplay = {};
-    var selectedCosts, selectedLabels, archivedCount;
+    var selectedCosts, selectedLabels, archivedCount, selectedUsageRights;
     const images$ = new Rx.BehaviorSubject([]);
 
     function _group () {
         var metadata = {};
         var cost = [];
         var labels = [];
+        var usageRights = [];
         var totalArchived = 0;
 
         var allFields = [];
 
         selectedImages.forEach(img => {
             allFields = allFields.concat(Object.keys(img.data.metadata));
+
+            usageRights.push(imageService(img).usageRights);
 
             var imgCost = img.data.cost;
 
@@ -60,6 +71,7 @@ selectionService.factory('selectionService', ['$q', 'editsService', function ($q
         return {
             metadata,
             cost,
+            usageRights,
             labels,
             totalArchived
         };
@@ -108,6 +120,7 @@ selectionService.factory('selectionService', ['$q', 'editsService', function ($q
         selectedMetadata = selectedImageData.metadata;
         selectedMetadataForDisplay = displayMetadata;
 
+        selectedUsageRights = selectedImageData.usageRights;
         selectedCosts = selectedImageData.cost;
         selectedLabels = selectedImageData.labels;
         archivedCount = selectedImageData.totalArchived;
@@ -166,9 +179,11 @@ selectionService.factory('selectionService', ['$q', 'editsService', function ($q
         selectedImages,
         add,
         remove,
+        update,
         canUserEdit,
         getCost: () => selectedCosts,
         getMetadata: () => selectedMetadata,
+        getUsageRights: () => selectedUsageRights,
         getDisplayMetadata: () => selectedMetadataForDisplay,
         getLabels: () => selectedLabels,
         getArchivedCount: () => archivedCount,

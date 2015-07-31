@@ -31,6 +31,31 @@
         </ul>
 
         <div class="image-info__group">
+            <div class="image-info__wrap metadata-line drop-menu image-info__usage-rights"
+                 ng:init="showUsageRights = false">
+                usage rights category
+                <div class="image-info__usage-rights drop-menu__items drop-menu__items--right"
+                     ng:show="showUsageRights">
+
+                    <gr:usage-rights-editor
+                        gr:usage-rights="ctrl.usageRights"
+                        gr:on-save="showUsageRights = false"
+                        gr:on-cancel="showUsageRights = false">
+                    </gr:usage-rights-editor>
+                </div>
+
+                <h2 class="image-info__title">
+                    {{ctrl.usageCategory}}
+                </h2>
+
+                <button
+                    ng:click="showUsageRights = !showUsageRights"
+                    ng:hide="!ctrl.userCanEdit || showUsageRights"
+                    class="image-info__edit">✎</button>
+            </div>
+        </div>
+
+        <div class="image-info__group">
             <div class="image-info__wrap" ng:if="ctrl.rawMetadata.title">
                 <button class="image-info__edit"
                         ng:if="ctrl.userCanEdit"
@@ -118,6 +143,7 @@
                 <div ng:class="{'image-info--multiple': ctrl.hasMultipleValues(ctrl.rawMetadata.specialInstructions)}"
                      editable-textarea="ctrl.metadata.specialInstructions"
                      onbeforesave="ctrl.updateMetadataField('specialInstructions', $data)"
+                     e:msd-elastic
                      e:form="specialInstructionsEditForm"
                      e:ng-class="{'image-info__editor--error': $error,
                                   'image-info__editor--saving': specialInstructionsEditForm.$waiting}">
@@ -180,7 +206,6 @@
                     </span>
                 </span>
             </div>
-
 
             <div class="image-info__wrap metadata-line image-info__credit">
                 <button class="image-info__edit"

@@ -232,8 +232,10 @@ grPanel.directive('grMetadataEditor', function() {
 });
 
 grPanel.controller('GrPanel', [
+    '$rootScope',
     '$scope',
     '$window',
+    '$q',
     'mediaApi',
     'selectionService',
     'labelService',
@@ -245,8 +247,10 @@ grPanel.controller('GrPanel', [
     'usageRightsService',
     'onValChange',
     function (
+        $rootScope,
         $scope,
         $window,
+        $q,
         mediaApi,
         selection,
         labelService,
@@ -260,9 +264,9 @@ grPanel.controller('GrPanel', [
 
         var ctrl = this;
 
-
         ctrl.selectedImages = selection.selectedImages;
-        ctrl.hasMultipleValues = (val) => Array.isArray(val);
+
+        ctrl.hasMultipleValues = (val) => Array.isArray(val) && val.length > 1;
         ctrl.clear = selection.clear;
 
 
@@ -290,21 +294,30 @@ grPanel.controller('GrPanel', [
 
         $scope.$watch(() => selection.getMetadata(), onValChange(newMetadata => {
             ctrl.rawMetadata = newMetadata;
+            ctrl.images = Array.from(ctrl.selectedImages);
+
             ctrl.metadata = selection.getDisplayMetadata();
+            ctrl.usageRights = selection.getUsageRights();
+            ctrl.selectedCosts = selection.getCost();
+            ctrl.selectedLabels = selection.getLabels();
+            ctrl.archivedCount = selection.getArchivedCount();
 
             selection.canUserEdit().then(editable => {
                 ctrl.userCanEdit = editable;
             });
 
-            ctrl.selectedCosts = selection.getCost();
+            editsApi.getUsageRightsCategories().then((cats) => {
+                var categoryCode = ctrl.usageRights.reduce((m, o) => {
+                    return (m == o.data.category) ? o.data.category : 'multiple categories';
+                }, ctrl.usageRights[0].data.category);
+
+                var usageCategory = cats.find(cat => cat.value === categoryCode);
+                ctrl.usageCategory = usageCategory ? usageCategory.name : categoryCode;
+            });
 
             ctrl.showCosts = ctrl.selectedCosts.length === 1 ?
                 ctrl.selectedCosts[0].data !== 'free' :
                 ctrl.selectedCosts.length > 1;
-
-            ctrl.selectedLabels = selection.getLabels();
-
-            ctrl.archivedCount = selection.getArchivedCount();
 
             switch (ctrl.archivedCount) {
                 case 0: {
@@ -323,8 +336,7 @@ grPanel.controller('GrPanel', [
         }));
 
         ctrl.updateMetadataField = function (field, value) {
-            var imageArray = Array.from(ctrl.selectedImages);
-            return editsService.batchUpdateMetadataField(imageArray, field, value);
+            return editsService.batchUpdateMetadataField(ctrl.images, field, value);
         };
 
         ctrl.addLabel = function (label) {
