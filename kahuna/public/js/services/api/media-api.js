@@ -22,7 +22,7 @@ apiServices.factory('mediaApi',
           free:       free,
           offset:     offset,
           length:     angular.isDefined(length) ? length : 50,
-          orderBy:    orderBy
+          orderBy:    orderBy === 'oldest' ? 'uploadTime' : '-uploadTime'
         }).get();
     }
 

@@ -30,8 +30,8 @@
                                id="sort-direction__desc"
                                class="radio-list__circle"
                                name="sort-direction"
-                               value="DESC"
-                               ng:model="ctrl.filter.sortDirection">
+                               ng:value="undefined"
+                               ng:model="ctrl.filter.orderBy">
                         <label for="sort-direction__desc" class="radio-list__label">
                             Newest first
                         </label>
@@ -42,8 +42,8 @@
                                id="sort-direction__asc"
                                class="radio-list__circle"
                                name="sort-direction"
-                               value="ASC"
-                               ng:model="ctrl.filter.sortDirection">
+                               ng:value="'oldest'"
+                               ng:model="ctrl.filter.orderBy">
                         <label for="sort-direction__asc" class="radio-list__label">
                             Oldest first
                         </label>

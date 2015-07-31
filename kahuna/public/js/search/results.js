@@ -290,18 +290,10 @@ results.controller('SearchResultsCtrl', [
             }
         };
 
-        ctrl.filter = {
-            sortDirection: $stateParams.orderBy === 'uploadTime' ? 'ASC' : 'DESC'
-        };
+        ctrl.filter = { orderBy: $stateParams.orderBy };
 
-        $scope.$watch(() => ctrl.filter.sortDirection, onValChange(newVal => {
-            var filter = {orderBy: undefined};
-
-            if (newVal === 'ASC') {
-                filter.orderBy = 'uploadTime';
-            }
-
-            $state.go('search.results', filter);
+        $scope.$watch(() => ctrl.filter.orderBy, onValChange(newVal => {
+            $state.go('search.results', {orderBy: newVal});
         }));
 
         const freeUpdateListener = $rootScope.$on('image-updated', (e, updatedImage, oldImage) => {
