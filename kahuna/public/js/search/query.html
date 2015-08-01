@@ -30,7 +30,8 @@
             ng:click="filtersShown = !filtersShown ">
         <span ng:show="!filtersShown">▸</span>
         <span ng:show="filtersShown">▾</span>
-        search filters
+        <gr-icon class="search__filters-toggle__icon">settings</gr-icon>
+        <span class="search__filters-toggle__text">search filters</span>
     </button>
 
     <ul class="search__filters" ng:class="filtersShown ? 'search__filters--show' : 'search__filters--hide'">
