@@ -34,7 +34,7 @@ System.config({
     "rx-angular": "npm:rx-angular@0.0.14",
     "rx-dom": "npm:rx-dom@6.0.0",
     "text": "github:systemjs/plugin-text@0.0.2",
-    "theseus": "npm:theseus@0.4.1",
+    "theseus": "npm:theseus@0.5.0",
     "theseus-angular": "npm:theseus-angular@0.3.0",
     "traceur": "github:jmcriffey/bower-traceur@0.0.90",
     "traceur-runtime": "github:jmcriffey/bower-traceur-runtime@0.0.90",
@@ -196,9 +196,9 @@ System.config({
       "angular": "github:angular/bower-angular@1.4.3",
       "any-http-angular": "npm:any-http-angular@0.1.0",
       "any-promise-angular": "npm:any-promise-angular@0.1.1",
-      "theseus": "npm:theseus@0.4.1"
+      "theseus": "npm:theseus@0.5.0"
     },
-    "npm:theseus@0.4.1": {
+    "npm:theseus@0.5.0": {
       "uri-templates": "npm:uri-templates@0.1.7"
     },
     "npm:ua-parser-js@0.7.3": {
