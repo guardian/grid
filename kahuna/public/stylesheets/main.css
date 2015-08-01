@@ -436,10 +436,30 @@ textarea.ng-invalid {
 .search__filters-toggle {
     display: none;
 }
+.search__filters-toggle__icon {
+    display: none;
+}
 
 @media screen and (max-width: 700px) {
     input.search-query__input {
         width: 170px
+    }
+}
+
+@media screen and (max-width: 550px) {
+    input.search-query__input {
+        width: 130px;
+    }
+
+    .search__advanced-toggle {
+        display: none;
+    }
+
+    .search__filters-toggle__icon {
+        display: inline;
+    }
+    .search__filters-toggle__text {
+        display: none;
     }
 }
 
