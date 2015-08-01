@@ -547,8 +547,9 @@ input.search-query__input {
 }
 
 
-.search__advanced-toggle {
-    margin: 0 10px;
+.search__advanced-toggle,
+.search__filters-container {
+    margin-left: 10px;
 }
 
 .search__date {
