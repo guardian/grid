@@ -11,6 +11,7 @@ case class Image(
   uploadedBy:          String,
   lastModified:        Option[DateTime],
   identifiers:         Map[String, String],
+  filename:            Option[String],
   source:              Asset,
   thumbnail:           Option[Asset],
   fileMetadata:        FileMetadata,
@@ -35,6 +36,7 @@ object Image {
       (__ \ "uploadedBy").read[String] ~
       (__ \ "lastModified").readNullable[String].map(parseOptDateTime) ~
       (__ \ "identifiers").readNullable[Map[String, String]].map(_ getOrElse Map()) ~
+      (__ \ "filename").readNullable[String] ~
       (__ \ "source").read[Asset] ~
       (__ \ "thumbnail").readNullable[Asset] ~
       (__ \ "fileMetadata").readNullable[FileMetadata].map(_ getOrElse FileMetadata()) ~
@@ -52,6 +54,7 @@ object Image {
       (__ \ "uploadedBy").write[String] ~
       (__ \ "lastModified").writeNullable[String].contramap(printOptDateTime) ~
       (__ \ "identifiers").write[Map[String, String]] ~
+      (__ \ "filename").writeNullable[String] ~
       (__ \ "source").write[Asset] ~
       (__ \ "thumbnail").writeNullable[Asset] ~
       (__ \ "fileMetadata").write[FileMetadata] ~
