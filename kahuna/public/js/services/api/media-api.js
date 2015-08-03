@@ -42,7 +42,7 @@ apiServices.factory('mediaApi',
 
     // TODO: move to separate service (refactored imageService?)
     function canDelete(image) {
-        return image.getLink('delete');
+        return image.getAction('delete').then(action => !! action);
     }
 
     function delete_(image) {
