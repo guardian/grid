@@ -148,8 +148,7 @@ object MediaApi extends Controller with ArgoHelpers {
           canUserDeleteImage(request, source) map { canDelete =>
             if (canDelete) {
               Notifications.publish(Json.obj("id" -> id), "delete-image")
-              // TODO: use respond
-              Accepted.as(ArgoMediaType)
+              Accepted
             } else {
               ImageDeleteForbidden
             }
