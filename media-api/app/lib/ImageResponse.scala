@@ -147,6 +147,7 @@ object ImageResponse {
     (__ \ "uploadedBy").write[String] ~
     (__ \ "lastModified").writeNullable[DateTime] ~
     (__ \ "identifiers").write[Map[String,String]] ~
+    (__ \ "filename").writeNullable[String] ~
     (__ \ "source").write[Asset] ~
     (__ \ "thumbnail").writeNullable[Asset] ~
     (__ \ "fileMetadata").write[FileMetadataEntity]

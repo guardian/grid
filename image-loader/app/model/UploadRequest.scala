@@ -10,7 +10,8 @@ case class UploadRequest(
   mimeType: Option[String],
   uploadTime: DateTime,
   uploadedBy: String,
-  identifiers: Map[String, String]
+  identifiers: Map[String, String],
+  filename: Option[String]
 ) {
   val identifiersMeta = identifiers.map { case (k,v) => (s"identifier!$k", v) }.toMap
 }

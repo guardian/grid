@@ -55,16 +55,16 @@ class ImageLoader extends Controller with ArgoHelpers {
   def createTempFile(prefix: String) = File.createTempFile(prefix, "", new File(Config.tempDir))
 
 
-  def loadImage(uploadedBy: Option[String], identifiers: Option[String], uploadTime: Option[String]) =
-    AuthenticatedUpload.async(DigestBodyParser.create(createTempFile("requestBody")))(loadFile(uploadedBy, identifiers, uploadTime))
+  def loadImage(uploadedBy: Option[String], identifiers: Option[String], uploadTime: Option[String], filename: Option[String]) =
+    AuthenticatedUpload.async(DigestBodyParser.create(createTempFile("requestBody")))(loadFile(uploadedBy, identifiers, uploadTime, filename))
 
-  def importImage(uri: String, uploadedBy: Option[String], identifiers: Option[String], uploadTime: Option[String]) =
+  def importImage(uri: String, uploadedBy: Option[String], identifiers: Option[String], uploadTime: Option[String], filename: Option[String]) =
     Authenticated.async { request =>
       Try(URI.create(uri)) map { validUri =>
         val tmpFile = createTempFile("download")
 
         val result = Downloader.download(validUri, tmpFile).flatMap { digestedFile =>
-          loadFile(digestedFile, request.user, uploadedBy, identifiers, uploadTime)
+          loadFile(digestedFile, request.user, uploadedBy, identifiers, uploadTime, filename: Option[String])
         } recover {
           case NonFatal(e) => failedUriDownload
         }
@@ -77,7 +77,7 @@ class ImageLoader extends Controller with ArgoHelpers {
 
   def loadFile(digestedFile: DigestedFile, user: Principal,
                uploadedBy: Option[String], identifiers: Option[String],
-               uploadTime: Option[String]): Future[Result] = {
+               uploadTime: Option[String], filename: Option[String]): Future[Result] = {
     val DigestedFile(tempFile_, id_) = digestedFile
 
     // only allow AuthenticatedService to set with query string
@@ -106,7 +106,8 @@ class ImageLoader extends Controller with ArgoHelpers {
       mimeType = mimeType_,
       uploadTime = uploadTime_,
       uploadedBy = uploadedBy_,
-      identifiers = identifiers_
+      identifiers = identifiers_,
+      filename = filename
     )
 
     Logger.info(s"Received ${uploadRequestDescription(uploadRequest)}")
@@ -117,9 +118,10 @@ class ImageLoader extends Controller with ArgoHelpers {
   }
 
   // Convenience alias
-  def loadFile(uploadedBy: Option[String], identifiers: Option[String], uploadTime: Option[String])
+  def loadFile(uploadedBy: Option[String], identifiers: Option[String], uploadTime: Option[String],
+               filename: Option[String])
               (request: AuthenticatedRequest[DigestedFile, Principal]): Future[Result] =
-    loadFile(request.body, request.user, uploadedBy, identifiers, uploadTime)
+    loadFile(request.body, request.user, uploadedBy, identifiers, uploadTime, filename)
 
 
   def uploadRequestDescription(u: UploadRequest): String = {
