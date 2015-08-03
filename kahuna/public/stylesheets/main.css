@@ -1050,8 +1050,23 @@ FIXME: what to do with touch devices
     margin-bottom: 15px;
 }
 
+.image-info:last-child .image-info__group {
+    border-bottom: none;
+}
+
 .image-info__group {
     margin-bottom: 5px;
+    border-bottom: 1px solid #999;
+    padding-bottom: 1px;
+}   
+
+.image-info__group table {
+    border-collapse: collapse;
+    width: 100%;
+}
+
+.image-info__group table tr {
+    position: relative;
 }
 
 .image-info__title {

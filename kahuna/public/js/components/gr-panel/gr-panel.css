@@ -40,6 +40,10 @@
     overflow: auto;
 }
 
+.panel__content .image-info_group {
+    border-top: 1px solid #999;
+}
+
 .panel__bottom {
     width: 100%;
 }
@@ -56,6 +60,10 @@
 .batch-label .labels .label,
 .batch-label .labels .label__add {
     display: inline-block;
+}
+
+.batch-archive {
+    border-bottom: none;
 }
 
 .batch-archive .metadata-line {
