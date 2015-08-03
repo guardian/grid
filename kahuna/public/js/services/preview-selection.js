@@ -1,4 +1,5 @@
 import angular from 'angular';
+import Rx from 'rx';
 
 import '../image/service';
 import '../edits/service';
@@ -20,6 +21,8 @@ selectionService.factory('selectionService',
         selectedLabels,
         archivedCount,
         selectedUsageRights;
+
+    const images$ = new Rx.BehaviorSubject([]);
 
     function _group () {
         var metadata = {};
@@ -146,12 +149,33 @@ selectionService.factory('selectionService',
 
     function add (image) {
         selectedImages.add(image);
+        updateStream();
         update();
     }
 
     function remove (image) {
         selectedImages.delete(image);
+        updateStream();
         update();
+    }
+
+    function updateStream() {
+        images$.onNext(Array.from(selectedImages.values()));
+    }
+
+    function zipImages(updates) {
+        const updatedImages = images$.getValue().map(image => {
+            const update = updates.find(update => update.data.id === image.data.id);
+            return update || image;
+        });
+
+        images$.onNext(updatedImages);
+    }
+
+    function watchUpdates(...updates$) {
+        updates$.forEach(update$ => {
+            update$.subscribe(zipImages);
+        });
     }
 
     return {
@@ -170,7 +194,9 @@ selectionService.factory('selectionService',
         toggleSelection: (image, select) => {
             return select ? add(image) : remove(image);
         },
-        clear: () => selectedImages.clear()
+        clear: () => selectedImages.clear(),
+        images$,
+        watchUpdates
     };
 }]);
 

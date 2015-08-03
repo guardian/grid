@@ -6,6 +6,8 @@ import '../../services/preview-selection';
 import '../../services/label';
 import '../../services/archive';
 import '../../edits/service';
+import '../../archiver/service';
+import '../../archiver/archiver';
 import '../../forms/gr-xeditable/gr-xeditable';
 
 export var grPanel = angular.module('grPanel', [
@@ -13,6 +15,8 @@ export var grPanel = angular.module('grPanel', [
     'kahuna.services.label',
     'kahuna.services.archive',
     'kahuna.edits.service',
+    'gr.archiver.service',
+    'gr.archiver',
     'grXeditable',
     'ui.bootstrap'
 ]);
@@ -28,6 +32,7 @@ grPanel.controller('GrPanel', [
     'archiveService',
     'editsService',
     'editsApi',
+    'archiverService',
     'onValChange',
     function (
         $rootScope,
@@ -40,6 +45,7 @@ grPanel.controller('GrPanel', [
         archiveService,
         editsService,
         editsApi,
+        archiverService,
         onValChange) {
 
         var ctrl = this;
@@ -58,6 +64,9 @@ grPanel.controller('GrPanel', [
                 return resource.data.map(d => d.key);
             });
         };
+
+        ctrl.archiverService = archiverService(selection.images$);
+        selection.watchUpdates(ctrl.archiverService.updates$);
 
         $scope.$watch(() => selection.getMetadata(), onValChange(newMetadata => {
             ctrl.rawMetadata = newMetadata;
