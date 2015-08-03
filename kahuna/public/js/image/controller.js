@@ -178,7 +178,8 @@ image.controller('ImageCtrl', [
 
         ctrl.delete = function() {
             // TODO: use inline confirmation as per other tools
-            const confirmed = window.confirm('Are you sure you want to delete this image from the Grid?');
+            const msg = 'Are you sure you want to delete this image from the Grid?';
+            const confirmed = window.confirm(msg);
             if (confirmed) {
                 mediaApi.delete(image).then(() => {
                     window.alert('The image will be deleted shortly');
