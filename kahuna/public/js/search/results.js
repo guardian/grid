@@ -67,10 +67,26 @@ results.controller('SearchResultsCtrl', [
         var metadataPanelName = 'gr-panel';
 
         ctrl.metadataPanelAvailable = panelService.isAvailable(metadataPanelName);
-        ctrl.toggleMetadataPanel = () => panelService.togglePanel(metadataPanelName);
+        ctrl.metadataPanelVisible = panelService.isVisible(metadataPanelName);
+        ctrl.metadataPanelLocked = panelService.isLocked(metadataPanelName);
+
+        ctrl.toggleLockMetadataPanel = () => panelService.toggleLocked(metadataPanelName);
+        ctrl.showMetadataPanelMouseOver = () => panelService.setVisible(metadataPanelName);
+        ctrl.showMetadataPanelMouseLeave = () => panelService.setInvisible(metadataPanelName);
+
         $rootScope.$on(
             'ui:panels:' + metadataPanelName + ':availability-updated',
             () => ctrl.metadataPanelAvailable = panelService.isAvailable(metadataPanelName)
+        );
+
+        $rootScope.$on(
+            'ui:panels:' + metadataPanelName + ':visibility-updated',
+            () => ctrl.metadataPanelVisible = panelService.isVisible(metadataPanelName)
+        );
+
+        $rootScope.$on(
+            'ui:panels:' + metadataPanelName + ':lock-updated',
+            () => ctrl.metadataPanelLocked = panelService.isLocked(metadataPanelName)
         );
 
         ctrl.images = [];

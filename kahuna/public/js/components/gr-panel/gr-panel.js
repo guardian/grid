@@ -57,11 +57,17 @@ grPanel.controller('GrPanel', [
             'ui:panels:' + panelName + ':visibility-updated',
             () => ctrl.isVisible = panelService.isVisible(panelName)
         );
+        ctrl.showMetadataPanelMouseOver = () => panelService.setVisible(panelName);
+        ctrl.showMetadataPanelMouseLeave = () => panelService.setInvisible(panelName);
 
         ctrl.selectedImages = selection.selectedImages;
 
         ctrl.hasMultipleValues = (val) => Array.isArray(val) && val.length > 1;
-        ctrl.clear = selection.clear;
+
+        ctrl.clear = () => {
+            selection.clear();
+            panelService.setUnavailable(panelName);
+        };
 
         ctrl.credits = function(searchText) {
             return ctrl.metadataSearch('credit', searchText);

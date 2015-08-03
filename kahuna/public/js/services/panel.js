@@ -9,9 +9,11 @@ panelService.factory('panelService', [ '$rootScope', function($rootScope) {
             this.name = options.name;
             this.initVisible = options.initVisible || false;
             this.initAvailable = options.initAvailable || false;
+            this.initLocked = options.initLocked || false;
 
-            this.hidden = this.initVisible;
+            this.visible = this.initVisible;
             this.available = this.initAvailable;
+            this.locked = this.initLocked;
         }
 
         isAvailable() {
@@ -19,11 +21,23 @@ panelService.factory('panelService', [ '$rootScope', function($rootScope) {
         }
 
         isVisible() {
-            return this.hidden;
+            return this.visible;
         }
 
-        toggleVisibility() {
-            this.hidden = !this.hidden
+        isLocked() {
+            return this.locked;
+        }
+
+        setVisible() {
+            if (!this.locked && this.available) {
+                this.visible = true;
+            }
+        }
+
+        setInvisible() {
+            if (!this.locked && this.available) {
+                this.visible = false;
+            }
         }
 
         setAvailable() {
@@ -32,6 +46,14 @@ panelService.factory('panelService', [ '$rootScope', function($rootScope) {
 
         setUnavailable() {
             this.available = false;
+        }
+
+        setLocked() {
+            this.locked = true;
+        }
+
+        setUnlocked() {
+            this.locked = false;
         }
     }
 
@@ -48,31 +70,55 @@ panelService.factory('panelService', [ '$rootScope', function($rootScope) {
         'ui:panels:' + panelName + ':' + eventName
     );
 
+    var panelAction = (panelName, action, proc) => {
+        if(panels[panelName]) {
+            proc();
+            broadcastChange(panelName, action);
+        }
+    }
+
     var isVisible = (panelName) => panels[panelName] ? panels[panelName].isVisible() : false;
     var isAvailable =  (panelName) => panels[panelName] ? panels[panelName].isAvailable() : false;
+    var isLocked =  (panelName) => panels[panelName] ? panels[panelName].isLocked() : false;
 
-    var setAvailable = (panelName) => {
-        panels[panelName].setAvailable();
-        broadcastChange(panelName, 'availability-updated');
-    }
+    var setAvailable = (panelName) =>
+        panelAction(panelName, 'availability-updated', () => panels[panelName].setAvailable());
 
-    var setUnavailable = (panelName) => {
-        panels[panelName].setUnavailable();
-        broadcastChange(panelName, 'availability-updated');
-    }
+    var setUnavailable = (panelName) =>
+        panelAction(panelName, 'availability-updated', () => panels[panelName].setUnavailable());
 
-    var togglePanel = (panelName) => {
-        panels[panelName].toggleVisibility();
-        broadcastChange(panelName, 'visibility-updated');
-    }
+    var setVisible = (panelName) =>
+        panelAction(panelName, 'visibility-updated', () => panels[panelName].setVisible());
+
+    var setInvisible = (panelName) =>
+        panelAction(panelName, 'visibility-updated', () => panels[panelName].setInvisible());
+
+    var setLocked = (panelName) =>
+        panelAction(panelName, 'lock-updated', () => panels[panelName].setLocked());
+
+    var setUnlocked = (panelName) =>
+        panelAction(panelName, 'lock-updated', () => panels[panelName].setUnlocked());
+
+    var toggleLocked = (panelName) => {
+        if (isLocked(panelName)) {
+            setUnlocked(panelName);
+        } else {
+            setLocked(panelName);
+        }
+    };
 
     return {
         addPanel,
         isVisible,
         isAvailable,
+        isLocked,
+        setLocked,
+        setUnlocked,
+        toggleLocked,
         setAvailable,
         setUnavailable,
-        togglePanel
-    }
+        setVisible,
+        setInvisible
+    };
 
 }]);
