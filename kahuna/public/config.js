@@ -26,7 +26,7 @@ System.config({
     "jcrop": "github:tapmodo/Jcrop@0.9.12",
     "jquery": "github:components/jquery@2.1.1",
     "mixpanel-js": "github:mixpanel/mixpanel-js@2.5.2",
-    "moment": "github:moment/moment@2.10.5",
+    "moment": "github:moment/moment@2.10.6",
     "pandular": "npm:pandular@0.1.5",
     "pikaday": "github:dbushell/Pikaday@1.3.3",
     "raven-js": "github:getsentry/raven-js@1.1.19",

@@ -200,7 +200,7 @@ service.factory('editsService',
             .then(() => true, () => false);
     }
 
-    function getMetadataDiff (image, metadata) {
+    function getMetadataDiff(image, metadata) {
         var diff = {};
 
         // jscs has a maximumLineLength of 100 characters, hence the line break

@@ -265,6 +265,22 @@
             </ul>
         </div>
 
+        <gr:usage-rights-editorr
+            gr:service="ctrl.usageRightsService">
+        </gr:usage-rights-editorr>
+
+        <gr:labeller
+            gr:service="ctrl.labelsService">
+        </gr:labeller>
+
+        <gr:archiver
+            gr:service="ctrl.archivedService">
+        </gr:archiver>
+
+        <gr:metadata-editor
+            gr:service="ctrl.metadataService">
+        </gr:metadata-editor>
+
         <div class="image-info__group batch-archive" ng:switch="ctrl.archivedState"
             ng:class="{'batch-archive--archiving': ctrl.archiving}">
             <div ng:switch-when="mixed" class="batch-archive--mixed">
