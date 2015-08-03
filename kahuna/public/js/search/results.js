@@ -2,6 +2,7 @@ import angular from 'angular';
 
 import '../services/preview-selection';
 import '../services/scroll-position';
+import '../services/panel';
 import '../util/async';
 import '../util/seq';
 import '../components/gu-lazy-table/gu-lazy-table';
@@ -9,6 +10,7 @@ import '../components/gu-lazy-table/gu-lazy-table';
 export var results = angular.module('kahuna.search.results', [
     'kahuna.services.selection',
     'kahuna.services.scroll-position',
+    'kahuna.services.panel',
     'util.async',
     'util.seq',
     'gu.lazyTable'
@@ -18,7 +20,6 @@ export var results = angular.module('kahuna.search.results', [
 function compact(array) {
     return array.filter(angular.isDefined);
 }
-
 
 // Global session-level state to remember the uploadTime of the first
 // result in the last search.  This allows to always paginate the same
@@ -41,6 +42,7 @@ results.controller('SearchResultsCtrl', [
     'scrollPosition',
     'mediaApi',
     'selectionService',
+    'panelService',
     'range',
     'isReloadingPreviousSearch',
     'onValChange',
@@ -55,11 +57,21 @@ results.controller('SearchResultsCtrl', [
              scrollPosition,
              mediaApi,
              selection,
+             panelService,
              range,
              isReloadingPreviousSearch,
              onValChange) {
 
         const ctrl = this;
+
+        var metadataPanelName = 'gr-panel';
+
+        ctrl.metadataPanelAvailable = panelService.isAvailable(metadataPanelName);
+        ctrl.toggleMetadataPanel = () => panelService.togglePanel(metadataPanelName);
+        $rootScope.$on(
+            'ui:panels:' + metadataPanelName + ':availability-updated',
+            () => ctrl.metadataPanelAvailable = panelService.isAvailable(metadataPanelName)
+        );
 
         ctrl.images = [];
         ctrl.newImagesCount = 0;
