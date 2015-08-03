@@ -17,29 +17,6 @@
 
         <ui-upload-jobs jobs="ctrl.latestJob"></ui-upload-jobs>
     </section>
-
-
-    <section class="section" ng:if="ctrl.myUploads.data.length > 0">
-        <h2 class="section-heading">Your past 50 uploads</h2>
-
-        <ul>
-            <li ng:repeat="result in ctrl.myUploads.data" class="upload-result">
-                <ui-image-editor image="result"></ui-image-editor>
-            </li>
-        </ul>
-
-        <p ng:controller="SessionCtrl">
-            <a class="coloured-link" ui:sref="search.results({uploadedBy: user.email})">View all your uploads.</a>
-        </p>
-    </section>
-
-    <div class="upload-yours"
-       ng:if="ctrl.myUploads.data.length === 0">
-        <p>You haven't uploaded anything yet.</p>
-        <p>Either drag 'n drop an image onto this screen or click the blue
-        upload button in the top right hand corner to get your images on
-        the Grid.</p>
-    </div>
 </div>
 
 <dnd-uploader></dnd-uploader>
