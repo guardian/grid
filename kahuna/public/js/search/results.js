@@ -74,7 +74,11 @@ results.controller('SearchResultsCtrl', [
 
         // Arbitrary limit of number of results; too many and the
         // scrollbar becomes hyper-sensitive
-        ctrl.maxResults = 5000;
+        const searchFilteredLimit = 5000;
+        // When reviewing all images, we accept a degraded scroll
+        // experience to allow seeing around one day's worth of images
+        const searchAllLimit = 20000;
+        ctrl.maxResults = $stateParams.query ? searchFilteredLimit : searchAllLimit;
 
         // If not reloading a previous search, discard any previous
         // state related to the last search
@@ -283,7 +287,7 @@ results.controller('SearchResultsCtrl', [
             }
         };
 
-        $rootScope.$on('image-updated', (e, updatedImage, oldImage) => {
+        const freeUpdateListener = $rootScope.$on('image-updated', (e, updatedImage, oldImage) => {
             var index = ctrl.images.findIndex(i => i.data.id === updatedImage.data.id);
             if (index !== -1) {
                 ctrl.images[index] = updatedImage;
@@ -295,13 +299,14 @@ results.controller('SearchResultsCtrl', [
                 }
             }
 
-            var indexAll = ctrl.imagesAll.findIndex(i => i.data.id === updatedImage.data.id);
+            var indexAll = ctrl.imagesAll.findIndex(i => i && i.data.id === updatedImage.data.id);
             if (indexAll !== -1) {
                 ctrl.imagesAll[indexAll] = updatedImage;
             }
         });
 
         $scope.$on('$destroy', function() {
+            freeUpdateListener();
             selection.clear();
         });
     }
