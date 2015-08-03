@@ -3,15 +3,6 @@
     background-color: #444;
 }
 
-.panel--expander {
-    position: absolute;
-    left: 0;
-    height: calc(100vh);
-    width: 6px;
-    background-color: grey;
-    top: 0;
-}
-
 .panel--side {
     width: 284px; /* width of gr-top-bar-actions on search page */
     height: calc(100vh - 50px);
