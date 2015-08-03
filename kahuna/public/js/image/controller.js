@@ -139,7 +139,7 @@ image.controller('ImageCtrl', [
             });
         }
 
-        $rootScope.$on('image-updated', (e, updatedImage) => {
+        const freeUpdateListener = $rootScope.$on('image-updated', (e, updatedImage) => {
             ctrl.image = updatedImage;
             ctrl.usageRights = imageService(ctrl.image).usageRights;
             ctrl.setUsageCategory(ctrl.usageCategories, ctrl.usageRights.data.category);
@@ -169,4 +169,8 @@ image.controller('ImageCtrl', [
                     return 'failed to save (press esc to cancel)';
                 });
         };
+
+        $scope.$on('$destroy', function() {
+            freeUpdateListener();
+        });
     }]);
