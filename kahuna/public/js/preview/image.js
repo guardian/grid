@@ -11,14 +11,16 @@ export var image = angular.module('kahuna.preview.image', [
 ]);
 
 image.controller('uiPreviewImageCtrl', [
+    '$scope',
     '$rootScope',
     'imageService',
     function (
+        $scope,
         $rootScope,
         imageService) {
     var ctrl = this;
 
-    $rootScope.$on('image-updated', (e, updatedImage) => {
+    const freeUpdateListener = $rootScope.$on('image-updated', (e, updatedImage) => {
         if (ctrl.image.data.id === updatedImage.data.id) {
             ctrl.states = imageService(updatedImage).states;
             ctrl.image = updatedImage;
@@ -27,6 +29,10 @@ image.controller('uiPreviewImageCtrl', [
     });
 
     ctrl.states = imageService(ctrl.image).states;
+
+    $scope.$on('$destroy', function() {
+        freeUpdateListener();
+    });
 }]);
 
 image.directive('uiPreviewImage', function() {

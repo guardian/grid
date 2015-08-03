@@ -1005,7 +1005,7 @@ FIXME: what to do with touch devices
 }
 
 .easel__canvas {
-    height: calc(100vh - 48px); /* viewport - top-bar */
+    height: calc(100vh - 50px); /* viewport - top-bar */
     vertical-align: middle;
 }
 
@@ -1028,7 +1028,7 @@ FIXME: what to do with touch devices
     box-sizing: border-box;
     float: right;
     font-size: 1.4rem;
-    height: calc(100vh - 48px); /* viewport - top-bar */
+    height: calc(100vh - 50px); /* viewport - top-bar */
     padding: 10px 10px;
     overflow: auto;
     width: 300px;
@@ -1751,10 +1751,14 @@ ui-archiver .archiver:hover {
    text-align: center;
    border: 1px solid #555;
 }
-.radio-list__circle:checked + .radio-list__label { 
+.radio-list__circle:checked + .radio-list__label {
    background-color:#666;
    border: 1px solid #777;
 }
 .radio-list__circle {
    display: none;
+}
+
+.full-width {
+    width: 100%;
 }
