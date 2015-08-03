@@ -117,6 +117,7 @@ object Mappings {
           "uploadedBy" -> nonAnalyzedString,
           "lastModified" -> dateFormat,
           "identifiers" -> dynamicObj,
+          "filename" -> nonAnalyzedString,
           "suggestMetadataCredit" -> simpleSuggester
         ),
         "dynamic_templates" -> Json.arr(Json.obj(
