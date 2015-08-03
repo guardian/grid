@@ -1,24 +1,24 @@
-<button class="archiver"
-        ng:if="!archiver.disabled"
-        ng:class="{'archiver--archived': archiver.isArchived}"
-        ng:click="archiver.toggleArchived(archived)"
-        ng:disabled="archiver.archiving">
+<div class="archiver"
+        ng:if="!ctrl.disabled"
+        ng:class="{'archiver--archived': ctrl.isArchived}">
+
     <!-- TODO: Start looking at a new loader to replace our "ing…" loader -->
-    <span ng:show="archiver.isArchived" title="unarchive">
+    <button ng:show="ctrl.isArchived" title="unarchive" ng:click="ctrl.unarchive()">
         <gr-icon>star</gr-icon>
         <span class="archiver__label">
-            <span ng:show="archiver.withText">unarchiv<span ng:show="!archiver.archiving">e</span><span ng:show="archiver.archiving">ing…</span></span>
+            <span ng:show="ctrl.withText">unarchiv<span ng:show="!ctrl.saving">e</span><span ng:show="ctrl.saving">ing…</span></span>
         </span>
-    </span>
-    <span ng:show="!archiver.isArchived" title="archive">
+    </button>
+
+    <button ng:show="!ctrl.isArchived" title="archive" ng:click="ctrl.archive()">
         <gr-icon>star_border</gr-icon>
         <span class="archiver__label">
-            <span ng:show="archiver.withText">archiv<span ng:show="!archiver.archiving">e</span><span ng:show="archiver.archiving">ing…</span></span>
+            <span ng:show="ctrl.withText">archiv<span ng:show="!ctrl.saving">e</span><span ng:show="ctrl.saving">ing…</span></span>
         </span>
-    </span>
-</button>
+    </button>
+</div>
 
 <button class="archiver archiver--archived"
-        ng:if="archiver.disabled && archiver.isArchived">
+        ng:if="ctrl.disabled && ctrl.isArchived">
     <gr-icon>star</gr-icon>
 </button>
