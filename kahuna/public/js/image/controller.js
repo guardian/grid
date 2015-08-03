@@ -181,7 +181,7 @@ image.controller('ImageCtrl', [
             const confirmed = window.confirm('Are you sure you want to delete this image from the Grid?');
             if (confirmed) {
                 mediaApi.delete(image).then(() => {
-                    window.alert('The image will be deleted shortly!');
+                    window.alert('The image will be deleted shortly');
                     // Can't stay on the page of a deleted image
                     $state.go('search');
                 });
