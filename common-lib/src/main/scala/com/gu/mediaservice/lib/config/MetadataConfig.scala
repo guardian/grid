@@ -1,11 +1,19 @@
 package com.gu.mediaservice.lib.config
 
+// TODO: Only import the semigroup syntax, but can't find out what to import
+import scalaz._
+import Scalaz._
+
 object PhotographersList {
   type Store = Map[String, String]
+  type CreditBylineMap = Map[String, List[String]]
 
-  def creditBylineMap(store: Store): Map[String, List[String]] = store
+  def creditBylineMap(store: Store): CreditBylineMap = store
       .groupBy{ case (photographer, publication) => publication }
       .map{ case (publication, photographers) => publication -> photographers.keys.toList.sortWith(_.toLowerCase < _.toLowerCase) }
+
+  def creditBylineMap(stores: List[Store]): CreditBylineMap =
+    stores.map(creditBylineMap).reduceLeft(_ |+| _)
 
   def list(store: Store) = store.keys.toList.sortWith(_.toLowerCase < _.toLowerCase)
 
