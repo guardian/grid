@@ -10,7 +10,7 @@ apiServices.factory('mediaApi',
     var session;
 
     function search(query = '', {ids, since, until, archived, valid,
-                                 free, uploadedBy, offset, length} = {}) {
+                                 free, uploadedBy, offset, length, orderBy} = {}) {
         return root.follow('search', {
           q:          query,
           ids:        ids,
@@ -21,7 +21,8 @@ apiServices.factory('mediaApi',
           archived:   archived,
           free:       free,
           offset:     offset,
-          length:     angular.isDefined(length) ? length : 50
+          length:     angular.isDefined(length) ? length : 50,
+          orderBy:    orderBy === 'oldest' ? 'uploadTime' : '-uploadTime'
         }).get();
     }
 
