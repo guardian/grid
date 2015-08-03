@@ -4,7 +4,6 @@ import 'angular-bootstrap';
 import './gr-panel.css!';
 import '../../services/preview-selection';
 import '../../services/label';
-import '../../services/archive';
 import '../../edits/service';
 import '../../archiver/service';
 import '../../archiver/archiver';
@@ -13,7 +12,6 @@ import '../../forms/gr-xeditable/gr-xeditable';
 export var grPanel = angular.module('grPanel', [
     'kahuna.services.selection',
     'kahuna.services.label',
-    'kahuna.services.archive',
     'kahuna.edits.service',
     'gr.archiver.service',
     'gr.archiver',
@@ -29,7 +27,6 @@ grPanel.controller('GrPanel', [
     'mediaApi',
     'selectionService',
     'labelService',
-    'archiveService',
     'editsService',
     'editsApi',
     'archiverService',
@@ -42,7 +39,6 @@ grPanel.controller('GrPanel', [
         mediaApi,
         selection,
         labelService,
-        archiveService,
         editsService,
         editsApi,
         archiverService,
@@ -65,8 +61,8 @@ grPanel.controller('GrPanel', [
             });
         };
 
-        ctrl.archiverService = archiverService(selection.images$);
-        selection.watchUpdates(ctrl.archiverService.updates$);
+        ctrl.archiverService = archiverService(selection.stream.images$);
+        selection.stream.watchUpdates(ctrl.archiverService.updates$);
 
         $scope.$watch(() => selection.getMetadata(), onValChange(newMetadata => {
             ctrl.rawMetadata = newMetadata;
@@ -76,7 +72,6 @@ grPanel.controller('GrPanel', [
             ctrl.usageRights = selection.getUsageRights();
             ctrl.selectedCosts = selection.getCost();
             ctrl.selectedLabels = selection.getLabels();
-            ctrl.archivedCount = selection.getArchivedCount();
 
             selection.canUserEdit().then(editable => {
                 ctrl.userCanEdit = editable;
@@ -95,20 +90,6 @@ grPanel.controller('GrPanel', [
                 ctrl.selectedCosts[0].data !== 'free' :
                 ctrl.selectedCosts.length > 1;
 
-            switch (ctrl.archivedCount) {
-                case 0: {
-                    ctrl.archivedState = 'unarchived';
-                    break;
-                }
-                case ctrl.selectedImages.size: {
-                    ctrl.archivedState = 'archived';
-                    break;
-                }
-                default: {
-                    ctrl.archivedState = 'mixed';
-                    break;
-                }
-            }
         }));
 
         ctrl.updateMetadataField = function (field, value) {
@@ -133,22 +114,5 @@ grPanel.controller('GrPanel', [
             }
         };
 
-        ctrl.archive = () => {
-            ctrl.archiving = true;
-            var imageArray = Array.from(ctrl.selectedImages);
-            archiveService.batchArchive(imageArray)
-                .then(() => {
-                    ctrl.archiving = false;
-                });
-        };
-
-        ctrl.unarchive = () => {
-            ctrl.archiving = true;
-            var imageArray = Array.from(ctrl.selectedImages);
-            archiveService.batchUnarchive(imageArray)
-                .then(() => {
-                    ctrl.archiving = false;
-                });
-        };
     }
 ]);
