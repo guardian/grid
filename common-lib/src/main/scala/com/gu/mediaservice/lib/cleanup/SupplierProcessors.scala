@@ -21,51 +21,48 @@ object SupplierProcessors {
     PaParser,
     ReutersParser,
     RexParser,
-    StaffPhotographerParser
+    PhotographerParser
   )
 
   def process(image: Image): Image =
     all.foldLeft(image) { case (im, processor) => processor(im) }
 }
 
-object StaffPhotographerParser extends ImageProcessor {
-  def apply(image: Image): Image = {
-    image.metadata.byline.map(p => (p, PhotographersList.getPublication(staffPhotographers, p))) match {
-      case Some((photographer, Some(publication))) => image.copy(
-        usageRights = StaffPhotographer(photographer, publication),
-        metadata    = image.metadata.copy(credit = Some(publication))
-      )
-      case _ => image
-    }
-  }
-}
-
-object ContractedPhotographerParser extends ImageProcessor {
-  def apply(image: Image): Image = {
-    image.metadata.byline.map(p => (p, PhotographersList.getPublication(contractedPhotographers, p))) match {
-      case Some((photographer, Some(publication))) => image.copy(
-        usageRights = ContractPhotographer(photographer, publication),
-        metadata    = image.metadata.copy(credit = Some(publication))
-      )
-      case _ => image
-    }
-  }
-}
-
-object CommissionedPhotographerParser extends ImageProcessor {
+object PhotographerParser extends ImageProcessor {
   def apply(image: Image): Image = {
     image.metadata.byline.map { byline =>
-      (byline,
+      (
+        byline,
         image.metadata.credit.map(_.toLowerCase),
         PhotographersList.getPublication(staffPhotographers, byline),
-        PhotographersList.getPublication(contractedPhotographers, byline))
-    } map {
-      case (byline: String, Some("the guardian"), None, None) => image.copy(usageRights = CommissionedPhotographer(byline, "The Guardian"))
-      case (byline: String, Some("the observer"), None, None) => image.copy(usageRights = CommissionedPhotographer(byline, "The Observer"))
-      case _ => image
-    } getOrElse image
-  }
+        PhotographersList.getPublication(contractedPhotographers, byline)
+      ) match {
+        // staff photographer
+        case (byline, credit, Some(publication), _) => image.copy(
+          usageRights = StaffPhotographer(byline, publication),
+          metadata    = image.metadata.copy(credit = Some(publication))
+        )
+
+        // contracted photographer
+        case (byline, credit, None, Some(publication)) => image.copy(
+          usageRights = ContractPhotographer(byline, publication),
+          metadata    = image.metadata.copy(credit = Some(publication))
+        )
+
+        // commissioned photographer
+        case (byline, Some("the guardian"), None, None) => image.copy(
+          usageRights = CommissionedPhotographer(byline, "The Guardian")
+        )
+        case (byline, Some("the observer"), None, None) => image.copy(
+          usageRights = CommissionedPhotographer(byline, "The Observer")
+        )
+
+        case _ => image
+      }
+    }
+  }.getOrElse(image)
 }
+
 
 object AapParser extends ImageProcessor {
   def apply(image: Image): Image = image.metadata.credit match {

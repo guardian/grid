@@ -23,7 +23,6 @@ object MetadataConfig {
     "Frank Baron"         -> "The Guardian",
     "Graeme Robertson"    -> "The Guardian",
     "Graham Turner"       -> "The Guardian",
-    "Linda Nylind"        -> "The Guardian",
     "Martin Argles"       -> "The Guardian",
     "Martin Godwin"       -> "The Guardian",
     "Mike Bowers"         -> "The Guardian",
@@ -42,5 +41,7 @@ object MetadataConfig {
     "Suki Dhanda"         -> "The Observer"
   )
 
-  val contractedPhotographers: Map[String, String] = Map()
+  val contractedPhotographers: Map[String, String] = Map(
+    "Linda Nylind" -> "The Guardian"
+  )
 }
