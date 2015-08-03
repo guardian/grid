@@ -20,7 +20,6 @@ selectionService.factory('selectionService',
     var selectedMetadataForDisplay = {};
     var selectedCosts,
         selectedLabels,
-        archivedCount,
         selectedUsageRights;
 
     const stream = imageStream();
@@ -30,7 +29,6 @@ selectionService.factory('selectionService',
         var cost = [];
         var labels = [];
         var usageRights = [];
-        var totalArchived = 0;
 
         var allFields = [];
 
@@ -59,9 +57,6 @@ selectionService.factory('selectionService',
                 }
             });
 
-            if (img.data.userMetadata.data.archived.data) {
-                totalArchived++;
-            }
         });
 
         var uniqueFields = new Set(allFields);
@@ -77,8 +72,7 @@ selectionService.factory('selectionService',
             metadata,
             cost,
             usageRights,
-            labels,
-            totalArchived
+            labels
         };
     }
 
@@ -128,7 +122,6 @@ selectionService.factory('selectionService',
         selectedUsageRights = selectedImageData.usageRights;
         selectedCosts = selectedImageData.cost;
         selectedLabels = selectedImageData.labels;
-        archivedCount = selectedImageData.totalArchived;
     }
 
     function canUserEdit () {
@@ -171,7 +164,6 @@ selectionService.factory('selectionService',
         getUsageRights: () => selectedUsageRights,
         getDisplayMetadata: () => selectedMetadataForDisplay,
         getLabels: () => selectedLabels,
-        getArchivedCount: () => archivedCount,
         isSelected: (image) => selectedImages.has(image),
         toggleSelection: (image, select) => {
             return select ? add(image) : remove(image);
