@@ -463,7 +463,7 @@ textarea.ng-invalid {
     }
 }
 
-@media screen and (max-width: 1000px) {
+@media screen and (max-width: 1030px) {
 
     .search__filters-toggle {
         display: inherit;
