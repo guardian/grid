@@ -4,6 +4,7 @@ import 'angular-bootstrap';
 import './gr-panel.css!';
 import '../../services/preview-selection';
 import '../../services/label';
+import '../../services/panel';
 import '../../services/archive';
 import '../../edits/service';
 import '../../forms/gr-xeditable/gr-xeditable';
@@ -11,6 +12,7 @@ import '../../forms/gr-xeditable/gr-xeditable';
 export var grPanel = angular.module('grPanel', [
     'kahuna.services.selection',
     'kahuna.services.label',
+    'kahuna.services.panel',
     'kahuna.services.archive',
     'kahuna.edits.service',
     'grXeditable',
@@ -25,6 +27,7 @@ grPanel.controller('GrPanel', [
     'mediaApi',
     'selectionService',
     'labelService',
+    'panelService',
     'archiveService',
     'editsService',
     'editsApi',
@@ -37,6 +40,7 @@ grPanel.controller('GrPanel', [
         mediaApi,
         selection,
         labelService,
+        panelService,
         archiveService,
         editsService,
         editsApi,
@@ -44,7 +48,16 @@ grPanel.controller('GrPanel', [
 
         var ctrl = this;
 
-        ctrl.panelHidden = true;
+        const panelName = "gr-panel";
+
+        panelService.addPanel(panelName, false);
+        ctrl.isVisible = panelService.isVisible(panelName);
+
+        $rootScope.$on(
+            'ui:panels:' + panelName + ':visibility-updated',
+            (_, panel) => ctrl.isVisible = panelService.isVisible(panelName)
+        );
+
         ctrl.selectedImages = selection.selectedImages;
 
         ctrl.hasMultipleValues = (val) => Array.isArray(val) && val.length > 1;

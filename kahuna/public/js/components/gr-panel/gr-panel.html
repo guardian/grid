@@ -1,10 +1,6 @@
 <div ng:if="ctrl.selectedImages.size > 0"
     class="panel panel--side panel--right image-details"
-    ng:class="{ 'panel--right__hidden': ctrl.panelHidden }">
-
-    <div class="panel--expander"
-        ng:click="ctrl.panelHidden = !ctrl.panelHidden">
-    </div>
+    ng:class="{ 'panel--right__hidden': !ctrl.isVisible }">
 
     <div class="panel__top">
         <h1 class="panel__title">{{ctrl.selectedImages.size}} image<span ng:if="ctrl.selectedImages.size > 1">s</span> selected</h1>
