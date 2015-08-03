@@ -55,7 +55,7 @@ grPanel.controller('GrPanel', [
 
         $rootScope.$on(
             'ui:panels:' + panelName + ':visibility-updated',
-            (_, panel) => ctrl.isVisible = panelService.isVisible(panelName)
+            () => ctrl.isVisible = panelService.isVisible(panelName)
         );
 
         ctrl.selectedImages = selection.selectedImages;
@@ -76,6 +76,12 @@ grPanel.controller('GrPanel', [
         $scope.$watch(() => selection.getMetadata(), onValChange(newMetadata => {
             ctrl.rawMetadata = newMetadata;
             ctrl.images = Array.from(ctrl.selectedImages);
+
+            if (ctrl.images.length > 0) {
+                panelService.setAvailable(panelName);
+            } else {
+                panelService.setUnavailable(panelName);
+            }
 
             ctrl.metadata = selection.getDisplayMetadata();
             ctrl.usageRights = selection.getUsageRights();
