@@ -2,6 +2,7 @@ package controllers
 
 import java.net.URI
 
+import com.gu.mediaservice.lib.config.{MetadataConfig, PhotographersList}
 import play.api.mvc.Security.AuthenticatedRequest
 
 import scala.concurrent.Future
@@ -161,7 +162,7 @@ object MediaApi extends Controller with ArgoHelpers {
   }
 
   def cleanImage(id: String) = Authenticated.async {
-    val metadataCleaners = new MetadataCleaners(StaffPhotographers.creditBylineMap)
+    val metadataCleaners = new MetadataCleaners(PhotographersList.creditBylineMap(MetadataConfig.staffPhotographers))
 
     ElasticSearch.getImageById(id) map {
       case Some(source) => {
