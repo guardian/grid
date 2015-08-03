@@ -601,9 +601,12 @@ input.search-query__input {
 .results {
     display: flex;
     flex-wrap: wrap;
+    top: 35px;
+    position: relative;
 }
 
 .results--left {
+    position: relative;
 
 }
 
@@ -731,12 +734,67 @@ input.search-query__input {
     z-index: 200;
 }
 
+/* ==========================================================================
+   Results bar
+   ========================================================================== */
 
 .results-toolbar {
     font-size: 1.4rem;
-    margin: 10px 10px 0;
+    margin: 0px 0px 0;
+    height: 35px;
+    display: flex;
+    position: fixed;
+
+    z-index: 2;
+    background-color: #333;
+    width: 100%;
+    border-bottom: 1px solid #565656;
+}
+
+.results-toolbar-item {
+    vertical-align: middle;
+    display: inline-block;
+    padding: 0 10px;
     height: 35px;
 }
+
+.results-toolbar-item:hover {
+	background-color: #666666;
+}
+
+.results-toolbar-item--left {
+    border-right: 1px solid #565656;
+    margin-right: auto;
+}
+
+.results-toolbar-item--right {
+    border-left: 1px solid #565656;
+}
+
+.results-toolbar-item--disabled {
+    color: #666;
+}
+
+.results-toolbar-item--active {
+    background-color: #444;
+}
+
+.results-toolbar-item--disabled:hover {
+    color: #666;
+    background-color: transparent;
+}
+
+/* --static is for top bar items that perform no action, only display information */
+.results-toolbar-item--static:hover {
+    background-color: transparent;
+}
+
+.sort-direction {
+    padding: 0px
+}
+
+.metadata-panel-controls {
+    line-height: 35px;}
 
 .image-results-count__new {
     font-family: inherit;
@@ -750,16 +808,7 @@ input.search-query__input {
 
 .image-results-count {
     line-height: 35px;
-    float: left;
-}
-
-.image-results-count,
-.sort-direction {
-    display: inline-block;
-}
-
-.sort-direction {
-    float: right;
+    width: 300px;
 }
 
 .image-results-more {
