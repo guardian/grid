@@ -251,7 +251,8 @@ service.factory('editsService',
 
         var changed = getMetadataDiff(image, proposedMetadata);
 
-        return update(image.data.userMetadata.data.metadata, changed, image);
+        return update(image.data.userMetadata.data.metadata, changed, image)
+            .then(() => image.get());
     }
 
     function batchUpdateMetadataField (images, field, value) {
