@@ -57,8 +57,8 @@ grPanel.controller('GrPanel', [
             'ui:panels:' + panelName + ':updated',
             () => ctrl.isVisible = panelService.isVisible(panelName)
         );
-        ctrl.showMetadataPanelMouseOver = () => panelService.setVisible(panelName);
-        ctrl.showMetadataPanelMouseLeave = () => panelService.setInvisible(panelName);
+        ctrl.metadataPanelMouseOver = () => panelService.setVisible(panelName);
+        ctrl.metadataPanelMouseLeave = () => panelService.setInvisible(panelName);
 
         ctrl.selectedImages = selection.selectedImages;
 

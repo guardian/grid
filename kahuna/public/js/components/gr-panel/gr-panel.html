@@ -1,7 +1,7 @@
 <div ng:if="ctrl.selectedImages.size > 0"
     class="panel panel--side panel--right image-details"
-    ng:mouseover="ctrl.showMetadataPanelMouseOver()"
-    ng:mouseleave="ctrl.showMetadataPanelMouseLeave()"
+    ng:mouseover="ctrl.metadataPanelMouseOver()"
+    ng:mouseleave="ctrl.metadataPanelMouseLeave()"
     ng:class="{ 'panel--right__hidden': !ctrl.isVisible }">
 
     <div class="panel__top">
