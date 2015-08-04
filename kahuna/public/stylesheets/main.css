@@ -605,6 +605,10 @@ input.search-query__input {
     position: relative;
 }
 
+.results--panel-locked {
+    width: calc(100%- 284px);
+}
+
 .results--left {
     position: relative;
 
@@ -794,7 +798,8 @@ input.search-query__input {
 }
 
 .metadata-panel-controls {
-    line-height: 35px;}
+    line-height: 35px;
+}
 
 .image-results-count__new {
     font-family: inherit;
@@ -1790,8 +1795,8 @@ ui-archiver .archiver:hover {
 
 .radio-list {
     display: flex;
-    border: 1px solid transparent;
 }
+
 .radio-list--invalid {
     border: 1px solid #ed5935;
 
