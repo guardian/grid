@@ -120,8 +120,23 @@ results.controller('SearchResultsCtrl', [
             lastSearchFirstResultTime = undefined;
         }
 
+        function initialSearch() {
+            /*
+            Maintain `lastSearchFirstResultTime` regardless of sorting order.
+
+            If we're sorting in ascending order, we need to get the upload time of the
+            last image, so we make a request for 1 image, then make a further request
+            where the offset is the total images - 1 from the initial request.
+             */
+            return angular.isUndefined(ctrl.filter.orderBy) ?
+                ctrl.searched = search({length: 1}) :
+                ctrl.searched = search({length: 1}).then((images) => {
+                    return search({length: 1, offset: images.total - 1});
+                });
+        }
+
         // TODO: avoid this initial search (two API calls to init!)
-        ctrl.searched = search({length: 1}).then(function(images) {
+        ctrl.searched = initialSearch().then(function(images) {
             ctrl.totalResults = images.total;
 
             // images will be the array of loaded images, used for display
@@ -149,7 +164,6 @@ results.controller('SearchResultsCtrl', [
         }).finally(() => {
             ctrl.loading = false;
         });
-
 
         ctrl.loadRange = function(start, end) {
             const length = end - start + 1;
@@ -248,20 +262,10 @@ results.controller('SearchResultsCtrl', [
 
             // Default explicit until/since to $stateParams
             if (angular.isUndefined(until)) {
-                if (angular.isUndefined($stateParams.orderBy)) {
-                    until = $stateParams.until || lastSearchFirstResultTime;
-                }
-                else {
-                    until = $stateParams.until;
-                }
+                until = $stateParams.until || lastSearchFirstResultTime;
             }
             if (angular.isUndefined(since)) {
-                if (angular.isDefined($stateParams.orderBy)) {
-                    since = $stateParams.since || lastSearchFirstResultTime;
-                }
-                else {
-                    since = $stateParams.since;
-                }
+                since = $stateParams.since;
             }
 
             return mediaApi.search($stateParams.query, angular.extend({
