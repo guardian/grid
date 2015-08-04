@@ -736,7 +736,7 @@ input.search-query__input {
 .results-toolbar {
     font-size: 1.4rem;
     margin: 10px 10px 0;
-    height: 35px;
+    height: 40px;
 }
 
 .image-results-count__new {
@@ -750,7 +750,7 @@ input.search-query__input {
 }
 
 .image-results-count {
-    line-height: 35px;
+    line-height: 40px;
     float: left;
 }
 
@@ -1758,20 +1758,34 @@ ui-archiver .archiver:hover {
 }
 
 .radio-list__label {
-   padding: 5px;
    flex-grow: 1;
    color: #CCC;
    background-color: #444;
    text-align: center;
-   border: 1px solid #555;
    cursor: pointer;
 }
-.radio-list__circle:checked + .radio-list__label {
-   background-color:#666;
-   border: 1px solid #777;
+
+.radio-list--selected .radio-list__label-value {
+    background-color:#666;
+    border: 1px solid #777;
+    border-top: none;
 }
+
+.radio-list--selected .radio-list__selection-state {
+    background: #00adee;
+}
+
 .radio-list__circle {
-   display: none;
+    display: none;
+}
+
+.radio-list__selection-state {
+    height: 3px;
+    background: transparent;
+}
+
+.radio-list__label-value {
+    padding: 5px 10px;
 }
 
 .full-width {
