@@ -49,13 +49,13 @@ panelService.factory('panelService', [ '$rootScope', '$timeout', function ($root
         }
 
         setLocked() {
-            if(this.visible && this.available) {
+            if (this.visible && this.available) {
                 this.locked = true;
             }
         }
 
         setUnlocked() {
-            if(this.visible && this.available) {
+            if (this.visible && this.available) {
                 this.locked = false;
             }
         }

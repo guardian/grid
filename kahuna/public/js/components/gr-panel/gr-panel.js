@@ -65,8 +65,11 @@ grPanel.controller('GrPanel', [
         ctrl.hasMultipleValues = (val) => Array.isArray(val) && val.length > 1;
 
         ctrl.clear = () => {
-            selection.clear();
+            panelService.setUnlocked(panelName, false);
+            panelService.setInvisible(panelName, false);
             panelService.setUnavailable(panelName, false);
+
+            selection.clear();
         };
 
         ctrl.credits = function(searchText) {
