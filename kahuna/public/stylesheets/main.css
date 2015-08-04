@@ -1056,10 +1056,13 @@ FIXME: what to do with touch devices
 
 .image-info__group table {
     border-collapse: collapse;
+}
+
+.image-info__group--list {
     width: 100%;
 }
 
-.image-info__group table td {
+.image-info__group--list td {
     position: relative;
 }
 
@@ -1164,6 +1167,8 @@ FIXME: what to do with touch devices
 .image-info__usage-rights {
     width: 100%;
     box-sizing: border-box;
+    font-weight: bold;
+    color: #999;
 }
 
 
@@ -1189,6 +1194,17 @@ FIXME: what to do with touch devices
     border-bottom: 1px solid #999;
 }
 
+.metadata-line__key {
+    font-weight: bold;
+    color: #999;
+}
+
+.image-info__group--list .metadata-line__key {
+    padding-right: 20px;
+    vertical-align: top;
+    text-align: left;
+}
+
 .metadata-reveal {
     color: #999;
     font-size: 1.4rem;
@@ -1208,17 +1224,6 @@ FIXME: what to do with touch devices
 
 .metadata__body {
     font-size: 1.3rem;
-}
-
-.metadata__key {
-    font-weight: bold;
-    color: #999;
-}
-
-table .metadata__key {
-    padding-right: 20px;
-    vertical-align: top;
-    text-align: left;
 }
 
 .image-crops {
