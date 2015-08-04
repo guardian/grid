@@ -16,6 +16,7 @@ var image = angular.module(
 image.controller('ImageCtrl', [
     '$rootScope',
     '$scope',
+    '$state',
     'onValChange',
     'image',
     'mediaApi',
@@ -29,6 +30,7 @@ image.controller('ImageCtrl', [
 
     function ($rootScope,
               $scope,
+              $state,
               onValChange,
               image,
               mediaApi,
@@ -130,6 +132,10 @@ image.controller('ImageCtrl', [
         }
 
         function updateAbilities(image) {
+            mediaApi.canDelete(image).then(deletable => {
+                ctrl.canBeDeleted = deletable;
+            });
+
             mediaCropper.canBeCropped(image).then(croppable => {
                 ctrl.canBeCropped = croppable;
             });
@@ -168,6 +174,19 @@ image.controller('ImageCtrl', [
                      */
                     return 'failed to save (press esc to cancel)';
                 });
+        };
+
+        ctrl.delete = function() {
+            // TODO: use inline confirmation as per other tools
+            const msg = 'Are you sure you want to delete this image from the Grid?';
+            const confirmed = window.confirm(msg);
+            if (confirmed) {
+                mediaApi.delete(image).then(() => {
+                    window.alert('The image will be deleted shortly');
+                    // Can't stay on the page of a deleted image
+                    $state.go('search');
+                });
+            }
         };
 
         $scope.$on('$destroy', function() {
