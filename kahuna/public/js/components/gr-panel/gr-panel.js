@@ -48,7 +48,7 @@ grPanel.controller('GrPanel', [
 
         var ctrl = this;
 
-        const panelName = "gr-panel";
+        const panelName = 'gr-panel';
 
         panelService.addPanel(panelName, false);
         ctrl.isVisible = panelService.isVisible(panelName);

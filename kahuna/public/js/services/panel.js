@@ -65,7 +65,7 @@ panelService.factory('panelService', [ '$rootScope', '$timeout', function ($root
 
         broadcastChange(panelName, 'availability-updated');
         broadcastChange(panelName, 'visibility-updated');
-    }
+    };
 
     var broadcastChange = (panelName, eventName) => $rootScope.$broadcast(
         'ui:panels:' + panelName + ':' + eventName
@@ -77,7 +77,7 @@ panelService.factory('panelService', [ '$rootScope', '$timeout', function ($root
                 proc();
                 broadcastChange(panelName, action);
             }
-        }
+        };
 
         if (actions[panelName]) {
             $timeout.cancel(actions[panelName]);
@@ -90,29 +90,38 @@ panelService.factory('panelService', [ '$rootScope', '$timeout', function ($root
         } else {
             performProc();
         }
-    }
+    };
 
-    var isVisible = (panelName) => panels[panelName] ? panels[panelName].isVisible() : false;
-    var isAvailable =  (panelName) => panels[panelName] ? panels[panelName].isAvailable() : false;
-    var isLocked =  (panelName) => panels[panelName] ? panels[panelName].isLocked() : false;
+    var isVisible = (panelName) =>
+        panels[panelName] ? panels[panelName].isVisible() : false;
+    var isAvailable =  (panelName) =>
+        panels[panelName] ? panels[panelName].isAvailable() : false;
+    var isLocked =  (panelName) =>
+        panels[panelName] ? panels[panelName].isLocked() : false;
 
     var setAvailable = (panelName, cancelable = true) =>
-        panelAction(panelName, 'availability-updated', () => panels[panelName].setAvailable(), cancelable);
+        panelAction(panelName, 'availability-updated', () =>
+            panels[panelName].setAvailable(), cancelable);
 
     var setUnavailable = (panelName, cancelable = true) =>
-        panelAction(panelName, 'availability-updated', () => panels[panelName].setUnavailable(), cancelable);
+        panelAction(panelName, 'availability-updated', () =>
+            panels[panelName].setUnavailable(), cancelable);
 
     var setVisible = (panelName, cancelable = true) =>
-        panelAction(panelName, 'visibility-updated', () => panels[panelName].setVisible(), cancelable);
+        panelAction(panelName, 'visibility-updated', () =>
+            panels[panelName].setVisible(), cancelable);
 
     var setInvisible = (panelName, cancelable = true) =>
-        panelAction(panelName, 'visibility-updated', () => panels[panelName].setInvisible(), cancelable);
+        panelAction(panelName, 'visibility-updated', () =>
+            panels[panelName].setInvisible(), cancelable);
 
     var setLocked = (panelName, cancelable = false) =>
-        panelAction(panelName, 'lock-updated', () => panels[panelName].setLocked(), cancelable);
+        panelAction(panelName, 'lock-updated', () =>
+            panels[panelName].setLocked(), cancelable);
 
     var setUnlocked = (panelName, cancelable = false) =>
-        panelAction(panelName, 'lock-updated', () => panels[panelName].setUnlocked(), cancelable);
+        panelAction(panelName, 'lock-updated', () =>
+            panels[panelName].setUnlocked(), cancelable);
 
     var toggleLocked = (panelName) => {
         if (isLocked(panelName)) {

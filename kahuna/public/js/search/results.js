@@ -71,13 +71,14 @@ results.controller('SearchResultsCtrl', [
         ctrl.metadataPanelLocked = panelService.isLocked(metadataPanelName);
 
         ctrl.toggleLockMetadataPanel = () => {
-            if(ctrl.metadataPanelVisible) {
+            if (ctrl.metadataPanelVisible) {
                 panelService.toggleLocked(metadataPanelName);
             } else {
                 // If panel is not visible, show it (but don't lock) when clicked
                 panelService.setVisible(metadataPanelName, false);
             }
-        }
+        };
+
         ctrl.showMetadataPanelMouseOver = () => panelService.setVisible(metadataPanelName);
         ctrl.showMetadataPanelMouseLeave = () => panelService.setInvisible(metadataPanelName);
 
