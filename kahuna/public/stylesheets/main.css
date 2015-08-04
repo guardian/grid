@@ -1197,9 +1197,6 @@ FIXME: what to do with touch devices
 .metadata-line__key {
     font-weight: bold;
     color: #999;
-}
-
-.image-info__group--list .metadata-line__key {
     padding-right: 20px;
     vertical-align: top;
     text-align: left;
