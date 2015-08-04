@@ -1066,6 +1066,29 @@ FIXME: what to do with touch devices
     position: relative;
 }
 
+.image-info__group--dl {
+  width: 100%;
+
+  display: -webkit-box;
+  display: -moz-box;
+  display: -ms-flexbox;
+  display: -webkit-flex;
+  display: flex;
+
+  -webkit-flex-flow: row wrap;
+  flex-flow: row wrap;
+  
+}
+
+.image-info__group--dl__key {
+    width: 30%;
+}
+
+.image-info__group--dl__value {
+    width: 60%;
+    position: relative;
+}
+
 .image-info__title {
     color: #ccc;
 }
