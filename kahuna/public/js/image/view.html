@@ -49,7 +49,7 @@
         </div>
 
         <div class="image-info__group">
-            <div class="image-info__wrap metadata-line drop-menu image-info__usage-rights"
+            <div class="image-info__wrap metadata-line drop-menu image-info__usage-rights metadata__key"
                  ng:init="showUsageRights = false">
                 usage rights category
                 <div class="image-info__usage-rights drop-menu__items drop-menu__items--right"
@@ -79,20 +79,20 @@
                         ng:if="ctrl.userCanEdit"
                         ng:click="titleEditForm.$show()"
                         ng:hide="titleEditForm.$visible">✎</button>
-                <div class="metadata-line">title</div>
-                <h2 class="image-info__title"
+                <div class="metadata-line metadata__key">title</div>
+                <h2 class="image-info__title metadata-line__info"
                     editable-text="ctrl.metadata.title"
                     onbeforesave="ctrl.updateMetadataField('title', $data)"
                     e:ng-class="{'image-info__editor--error': $error, 'image-info__editor--saving': titleEditForm.$waiting}"
                     e:form="titleEditForm">{{ctrl.metadata.title}}</h2>
             </div>
 
-            <div class="image-info__wrap" ng:if="ctrl.metadata.description || ctrl.userCanEdit">
+            <div class="image-info__wrap metadata-line__info" ng:if="ctrl.metadata.description || ctrl.userCanEdit">
                 <button class="image-info__edit"
                         ng:if="ctrl.userCanEdit"
                         ng:click="descriptionEditForm.$show()"
                         ng:hide="descriptionEditForm.$visible">✎</button>
-                <div class="metadata-line">description</div>
+                <div class="metadata-line metadata__key">description</div>
                 <div class="image-info__description"
                      editable-textarea="ctrl.metadata.description"
                      onbeforesave="ctrl.updateMetadataField('description', $data)"
@@ -108,7 +108,7 @@
                         ng:if="ctrl.userCanEdit"
                         ng:click="specialInstructionsEditForm.$show()"
                         ng:hide="specialInstructionsEditForm.$visible">✎</button>
-                <div class="metadata-line">special instructions</div>
+                <div class="metadata-line metadata__key">special instructions</div>
                 <div class="image-info__special-instructions"
                      editable-textarea="ctrl.metadata.specialInstructions"
                      onbeforesave="ctrl.updateMetadataField('specialInstructions', $data)"
@@ -175,7 +175,7 @@
                     </tr>
                     <tr ng:if="ctrl.metadata.subLocation || ctrl.metadata.city || ctrl.metadata.state || ctrl.metadata.country" class="metadata-line">
                             <th class="metadata__key">location</th>
-                            <td> 
+                            <td class="metadata-line__info"> 
                                 <span ng:repeat="prop in ['subLocation', 'city', 'state', 'country']" ng:if="ctrl.metadata[prop]">
                                     <span class="metadata-line__info">
                                         <a ui:sref="search.results({query: (ctrl.metadata[prop] | queryFilter:ctrl.locationFieldMap[prop])})">{{ctrl.metadata[prop]}}</a
@@ -192,7 +192,7 @@
                     </tr>
                     <tr class="metadata-line">
                         <th class="metadata__key">uploaded</th>
-                        <td class="image-info__credit">                
+                        <td class="metadata-line__info">                
                             <span class="metadata-line__info">
                                 {{ctrl.image.data.uploadTime | date:'d MMM yyyy, HH:mm'}}
                             </span>
@@ -203,13 +203,13 @@
                     </tr>
                     <tr class="metadata-line" ng:if="!ctrl.crop">
                         <th class="metadata__key">dimensions</th>
-                        <td class="image-info__credit"> 
+                        <td class="metadata-line__info"> 
                             <span class="metadata-line__info">{{ctrl.dimensions.width}} &times; {{ctrl.dimensions.height}}</span>
                         </td>     
                     </tr> 
                     <tr class="metadata-line" ng:if="ctrl.crop">
                         <th class="metadata__key">dimensions (crop)</th>
-                        <td class="image-info__credit"> 
+                        <td class="metadata-line__info"> 
                             <span class="metadata-line__info">{{ctrl.dimensions.width}} &times; {{ctrl.dimensions.height}}</span>
                         </td>     
                     </tr>
@@ -238,13 +238,15 @@
         </div>
     </div>
 
-    <dl class="image-info">
-        <dt class="image-info__heading image-info__heading--first">Labels</dt>
-        <dd>
-            <ui-labeller image="ctrl.image">
-            </ui-labeller>
-        </dd>
-    </dl>
+    <div class="image-info">
+        <dl class="image-info__group">
+            <dt class="image-info__heading image-info__heading--first">Labels</dt>
+            <dd>
+                <ui-labeller image="ctrl.image">
+                </ui-labeller>
+            </dd>
+        </dl>
+    </div>
 
 
     <div class="image-info">
