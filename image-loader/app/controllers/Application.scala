@@ -13,7 +13,7 @@ import play.api.Logger
 import org.joda.time.DateTime
 import scala.concurrent.Future
 
-import lib.{Downloader, Config, Notifications, ImageUploadNotifications}
+import lib.{Downloader, Config, Notifications}
 import lib.storage.ImageStore
 import lib.imaging.MimeTypeDetection
 
@@ -152,7 +152,6 @@ class ImageLoader extends Controller with ArgoHelpers {
       image        = imageUpload.image
     } yield {
       Notifications.publish(Json.toJson(image), "image")
-      ImageUploadNotifications.publish(Json.toJson(image), "new-image")
       // TODO: centralise where all these URLs are constructed
       Accepted(Json.obj("uri" -> s"$apiUri/images/${uploadRequest.id}")).as(ArgoMediaType)
     }

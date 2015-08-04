@@ -5,4 +5,3 @@ s3.image.bucket={{ImageBucket}}
 s3.thumb.bucket={{ThumbBucket}}
 auth.keystore.bucket={{KeyBucket}}
 sns.topic.arn={{SnsTopicArn}}
-image.upload.sns.topic.arn={{ImageUploadSnsTopicArn}}
