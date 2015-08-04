@@ -2,7 +2,7 @@ import angular from 'angular';
 
 export const panelService = angular.module('kahuna.services.panel', []);
 
-panelService.factory('panelService', [ '$rootScope', function($rootScope) {
+panelService.factory('panelService', [ '$rootScope', '$timeout', function ($rootScope, $timeout) {
 
     class UIPanel {
         constructor(options) {
@@ -58,6 +58,7 @@ panelService.factory('panelService', [ '$rootScope', function($rootScope) {
     }
 
     var panels = [];
+    var actions = [];
 
     var addPanel = (panelName, initVisible) => {
         panels[panelName] = new UIPanel({ panelName, initVisible });
@@ -70,10 +71,24 @@ panelService.factory('panelService', [ '$rootScope', function($rootScope) {
         'ui:panels:' + panelName + ':' + eventName
     );
 
-    var panelAction = (panelName, action, proc) => {
-        if(panels[panelName]) {
-            proc();
-            broadcastChange(panelName, action);
+    var panelAction = (panelName, action, proc, cancelable = true) => {
+        const performProc = () => {
+            if (panels[panelName]) {
+                proc();
+                broadcastChange(panelName, action);
+            }
+        }
+
+        if (actions[panelName]) {
+            $timeout.cancel(actions[panelName]);
+        }
+
+        if (cancelable) {
+            actions[panelName] = $timeout(() => {
+                performProc();
+            }, 400);
+        } else {
+            performProc();
         }
     }
 
@@ -94,10 +109,10 @@ panelService.factory('panelService', [ '$rootScope', function($rootScope) {
         panelAction(panelName, 'visibility-updated', () => panels[panelName].setInvisible());
 
     var setLocked = (panelName) =>
-        panelAction(panelName, 'lock-updated', () => panels[panelName].setLocked());
+        panelAction(panelName, 'lock-updated', () => panels[panelName].setLocked(), false);
 
     var setUnlocked = (panelName) =>
-        panelAction(panelName, 'lock-updated', () => panels[panelName].setUnlocked());
+        panelAction(panelName, 'lock-updated', () => panels[panelName].setUnlocked(), false);
 
     var toggleLocked = (panelName) => {
         if (isLocked(panelName)) {
