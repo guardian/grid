@@ -446,7 +446,7 @@ textarea.ng-invalid {
     }
 }
 
-@media screen and (max-width: 550px) {
+@media screen and (max-width: 580px) {
     input.search-query__input {
         width: 130px;
     }
@@ -455,8 +455,8 @@ textarea.ng-invalid {
         display: none;
     }
 
-    .search__filters-toggle__icon {
-        display: inline;
+    .search__filters-toggle__expander {
+        display: none;
     }
     .search__filters-toggle__text {
         display: none;
@@ -467,6 +467,9 @@ textarea.ng-invalid {
 
     .search__filters-toggle {
         display: inherit;
+    }
+    .search__filters-toggle__icon {
+        display: inline;
     }
     .search__filters {
         display: inherit;

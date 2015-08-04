@@ -28,9 +28,9 @@
     <button class="search__filters-toggle"
             type="button"
             ng:click="filtersShown = !filtersShown ">
-        <span ng:show="!filtersShown">▸</span>
-        <span ng:show="filtersShown">▾</span>
-        <gr-icon class="search__filters-toggle__icon">settings</gr-icon>
+        <span ng:show="!filtersShown" class="search__filters-toggle__expander">▸</span>
+        <span ng:show="filtersShown" class="search__filters-toggle__expander">▾</span>
+        <gr-icon class="search__filters-toggle__icon">filter_list</gr-icon>
         <span class="search__filters-toggle__text">search filters</span>
     </button>
 
