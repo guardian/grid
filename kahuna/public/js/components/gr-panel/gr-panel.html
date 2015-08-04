@@ -31,7 +31,7 @@
         </ul>
 
         <div class="image-info__group">
-            <div class="image-info__wrap metadata-line drop-menu image-info__usage-rights"
+            <div class="image-info__wrap metadata-line drop-menu image-info__usage-rights metadata__key"
                  ng:init="showUsageRights = false">
                 usage rights category
                 <div class="image-info__usage-rights drop-menu__items drop-menu__items--right"
@@ -61,8 +61,8 @@
                         ng:if="ctrl.userCanEdit"
                         ng:click="titleEditForm.$show()"
                         ng:hide="titleEditForm.$visible">✎</button>
-                <div class="metadata-line">title</div>
-                <div ng:class="{'image-info--multiple': ctrl.hasMultipleValues(ctrl.rawMetadata.title)}"
+                <div class="metadata-line metadata__key">title</div>
+                <div class="metadata-line__info" ng:class="{'image-info--multiple': ctrl.hasMultipleValues(ctrl.rawMetadata.title)}"
                      editable-text="ctrl.metadata.title"
                      onbeforesave="ctrl.updateMetadataField('title', $data)"
                      e:form="titleEditForm"
@@ -95,8 +95,8 @@
                         ng:if="ctrl.userCanEdit"
                         ng:click="descriptionEditForm.$show()"
                         ng:hide="descriptionEditForm.$visible">✎</button>
-                <div class="metadata-line">description</div>
-                <div ng:class="{'image-info--multiple': ctrl.hasMultipleValues(ctrl.rawMetadata.description)}"
+                <div class="metadata-line metadata__key">description</div>
+                <div class="metadata-line__info" ng:class="{'image-info--multiple': ctrl.hasMultipleValues(ctrl.rawMetadata.description)}"
                      editable-textarea="ctrl.metadata.description"
                      onbeforesave="ctrl.updateMetadataField('description', $data)"
                      e:msd-elastic
@@ -137,10 +137,10 @@
                         ng:if="ctrl.userCanEdit"
                         ng:click="specialInstructionsEditForm.$show()"
                         ng:hide="specialInstructionsEditForm.$visible">✎</button>
-                <div class="metadata-line">special instructions</div>
+                <div class="metadata-line metadata__key">special instructions</div>
 
 
-                <div ng:class="{'image-info--multiple': ctrl.hasMultipleValues(ctrl.rawMetadata.specialInstructions)}"
+                <div class="metadata-line__info" ng:class="{'image-info--multiple': ctrl.hasMultipleValues(ctrl.rawMetadata.specialInstructions)}"
                      editable-textarea="ctrl.metadata.specialInstructions"
                      onbeforesave="ctrl.updateMetadataField('specialInstructions', $data)"
                      e:msd-elastic

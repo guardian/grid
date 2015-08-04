@@ -1,5 +1,4 @@
 .panel {
-    padding: 10px;
     background-color: #444;
 }
 
@@ -18,6 +17,7 @@
 .panel__top,
 .panel__bottom {
     height: 40px;
+    padding: 10px;
 }
 
 .panel__top {
@@ -36,16 +36,13 @@
 
 .panel__content {
     clear: both;
-    height: calc(100% - 40px - 40px); /* 40px panel__top, 40px panel__bottom */
+    height: calc(100% - 60px - 60px); /* 60px panel__top, 60px panel__bottom */
     overflow: auto;
 }
 
-.panel__content .image-info_group {
-    border-top: 1px solid #999;
-}
-
-.panel__bottom {
-    width: 100%;
+.panel__content .image-info__group:first-child {
+    padding-top: 0;
+    
 }
 
 .panel__bottom .panel__close{
