@@ -60,10 +60,10 @@
                 ng:click="ctrl.toggleLockMetadataPanel()">
 
                 <span ng:if="ctrl.metadataPanelVisible && !ctrl.metadataPanelLocked">
-                    Lock meta panel
+                    Lock meta panel <gr-icon>lock_open</gr-icon>
                 </span>
                 <span ng:if="ctrl.metadataPanelVisible && ctrl.metadataPanelLocked">
-                    Unlock meta panel
+                    Unlock meta panel <gr-icon>lock</gr-icon>
                 </span>
                 <span ng:if="!ctrl.metadataPanelVisible">
                     Show meta panel
@@ -73,6 +73,7 @@
         </div>
 
         <ul class="results"
+            ng:class="{'results--panel-locked': ctrl.metadataPanelLocked }"
             gu:lazy-table="ctrl.imagesAll"
             gu:lazy-table-cell-min-width="280"
             gu:lazy-table-cell-height="292"

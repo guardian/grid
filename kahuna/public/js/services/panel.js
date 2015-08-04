@@ -71,7 +71,7 @@ panelService.factory('panelService', [ '$rootScope', '$timeout', function ($root
         'ui:panels:' + panelName + ':' + eventName
     );
 
-    var panelAction = (panelName, action, proc, cancelable = true) => {
+    var panelAction = (panelName, action, proc, cancelable) => {
         const performProc = () => {
             if (panels[panelName]) {
                 proc();
@@ -96,23 +96,23 @@ panelService.factory('panelService', [ '$rootScope', '$timeout', function ($root
     var isAvailable =  (panelName) => panels[panelName] ? panels[panelName].isAvailable() : false;
     var isLocked =  (panelName) => panels[panelName] ? panels[panelName].isLocked() : false;
 
-    var setAvailable = (panelName) =>
-        panelAction(panelName, 'availability-updated', () => panels[panelName].setAvailable());
+    var setAvailable = (panelName, cancelable = true) =>
+        panelAction(panelName, 'availability-updated', () => panels[panelName].setAvailable(), cancelable);
 
-    var setUnavailable = (panelName) =>
-        panelAction(panelName, 'availability-updated', () => panels[panelName].setUnavailable());
+    var setUnavailable = (panelName, cancelable = true) =>
+        panelAction(panelName, 'availability-updated', () => panels[panelName].setUnavailable(), cancelable);
 
-    var setVisible = (panelName) =>
-        panelAction(panelName, 'visibility-updated', () => panels[panelName].setVisible());
+    var setVisible = (panelName, cancelable = true) =>
+        panelAction(panelName, 'visibility-updated', () => panels[panelName].setVisible(), cancelable);
 
-    var setInvisible = (panelName) =>
-        panelAction(panelName, 'visibility-updated', () => panels[panelName].setInvisible());
+    var setInvisible = (panelName, cancelable = true) =>
+        panelAction(panelName, 'visibility-updated', () => panels[panelName].setInvisible(), cancelable);
 
-    var setLocked = (panelName) =>
-        panelAction(panelName, 'lock-updated', () => panels[panelName].setLocked(), false);
+    var setLocked = (panelName, cancelable = false) =>
+        panelAction(panelName, 'lock-updated', () => panels[panelName].setLocked(), cancelable);
 
-    var setUnlocked = (panelName) =>
-        panelAction(panelName, 'lock-updated', () => panels[panelName].setUnlocked(), false);
+    var setUnlocked = (panelName, cancelable = false) =>
+        panelAction(panelName, 'lock-updated', () => panels[panelName].setUnlocked(), cancelable);
 
     var toggleLocked = (panelName) => {
         if (isLocked(panelName)) {
