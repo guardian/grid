@@ -49,14 +49,6 @@ object PhotographerParser extends ImageProcessor {
           metadata    = image.metadata.copy(credit = Some(publication))
         )
 
-        // commissioned photographer
-        case (byline, Some("the guardian"), None, None) => image.copy(
-          usageRights = CommissionedPhotographer(byline, "The Guardian")
-        )
-        case (byline, Some("the observer"), None, None) => image.copy(
-          usageRights = CommissionedPhotographer(byline, "The Observer")
-        )
-
         case _ => image
       }
     }
