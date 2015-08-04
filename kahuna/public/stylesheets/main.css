@@ -441,18 +441,16 @@ textarea.ng-invalid {
 }
 
 @media screen and (max-width: 700px) {
-    input.search-query__input {
-        width: 170px
+    .search__advanced-toggle {
+        display: none;
     }
 }
 
+/* Note: order matters for cascade ;_; */
 @media screen and (max-width: 580px) {
+    /* fill width */
     input.search-query__input {
-        width: 130px;
-    }
-
-    .search__advanced-toggle {
-        display: none;
+        width: calc(100% - 90px); /* full width - grid logo - filters button */
     }
 
     .search__filters-toggle__expander {
