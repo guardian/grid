@@ -812,6 +812,7 @@ input.search-query__input {
 .metadata-panel-controls {
     line-height: 35px;
     width: 130px;
+    height: 36px;
 }
 
 .image-results-count__new {
