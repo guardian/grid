@@ -7,6 +7,7 @@
     <gr-top-bar-actions>
         <a ng:controller="SessionCtrl"
            ui:sref="search.results({uploadedBy: user.email, nonFree: true})"
+           gr:track-click="Your recent uploads button"
            class="top-bar-item"
            title="your uploads">
             <gr-icon>photo_library</gr-icon>
