@@ -1028,9 +1028,8 @@ FIXME: what to do with touch devices
 .image-details {
     box-sizing: border-box;
     float: right;
-    font-size: 1.4rem;
+    font-size: 1.3rem;
     height: calc(100vh - 50px); /* viewport - top-bar */
-    padding: 10px 10px;
     overflow: auto;
     width: 300px;
     border-left: 1px solid #565656;
@@ -1046,21 +1045,34 @@ FIXME: what to do with touch devices
     margin-right: 300px;
 }
 
-.image-info {
-    margin-bottom: 15px;
+.image-info__group {
+    padding: 10px;
+    border-bottom: 1px solid #565656;
+} 
+
+.image-info:last-child .image-info__group{
+    border-bottom: none;
+}   
+
+.image-info__group table {
+    border-collapse: collapse;
 }
 
-.image-info__group {
-    margin-bottom: 5px;
+.image-info__group--list {
+    width: 100%;
+}
+
+.image-info__group--list td {
+    position: relative;
 }
 
 .image-info__title {
-    font-weight: bold;
     color: #ccc;
 }
 
 .image-info__heading {
     color: #999;
+    font-weight: bold;
 }
 .image-info__heading--first {
     margin-top: 0;
@@ -1070,6 +1082,7 @@ FIXME: what to do with touch devices
 .image-info__special-instructions {
     /* respect newlines in text */
     white-space: pre-line;
+    color: #CCC;
 }
 
 .image-info__keyword {
@@ -1130,14 +1143,6 @@ FIXME: what to do with touch devices
     color: #999;
 }
 
-.image-info__byline .editable-wrap {
-    width: calc(100% - 20px);
-}
-
-.image-info__credit .editable-wrap {
-    width: calc(100% - 40px);
-}
-
 .image-info__wrap .editable-wrap .image-info__editor--error {
     border: 1px solid #BB1212;
     outline: none;
@@ -1162,6 +1167,8 @@ FIXME: what to do with touch devices
 .image-info__usage-rights {
     width: 100%;
     box-sizing: border-box;
+    font-weight: bold;
+    color: #999;
 }
 
 
@@ -1179,11 +1186,23 @@ FIXME: what to do with touch devices
 
 .metadata-line__info {
     color: #ccc;
+    padding-bottom: 10px;
 }
 
 .metadata-line__info a {
     color: inherit;
     border-bottom: 1px solid #999;
+}
+
+.metadata-line__key {
+    font-weight: bold;
+    color: #999;
+}
+
+.image-info__group--list .metadata-line__key {
+    padding-right: 20px;
+    vertical-align: top;
+    text-align: left;
 }
 
 .metadata-reveal {
@@ -1205,14 +1224,6 @@ FIXME: what to do with touch devices
 
 .metadata__body {
     font-size: 1.3rem;
-}
-
-.metadata__key {
-    padding-right: 20px;
-    font-weight: normal;
-    color: #999;
-    vertical-align: top;
-    text-align: left;
 }
 
 .image-crops {
