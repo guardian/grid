@@ -83,18 +83,12 @@ results.controller('SearchResultsCtrl', [
         ctrl.showMetadataPanelMouseLeave = () => panelService.setInvisible(metadataPanelName);
 
         $rootScope.$on(
-            'ui:panels:' + metadataPanelName + ':availability-updated',
-            () => ctrl.metadataPanelAvailable = panelService.isAvailable(metadataPanelName)
-        );
-
-        $rootScope.$on(
-            'ui:panels:' + metadataPanelName + ':visibility-updated',
-            () => ctrl.metadataPanelVisible = panelService.isVisible(metadataPanelName)
-        );
-
-        $rootScope.$on(
-            'ui:panels:' + metadataPanelName + ':lock-updated',
-            () => ctrl.metadataPanelLocked = panelService.isLocked(metadataPanelName)
+            'ui:panels:' + metadataPanelName + ':updated',
+            () => {
+                ctrl.metadataPanelAvailable = panelService.isAvailable(metadataPanelName);
+                ctrl.metadataPanelVisible = panelService.isVisible(metadataPanelName);
+                ctrl.metadataPanelLocked = panelService.isLocked(metadataPanelName);
+            }
         );
 
         ctrl.images = [];

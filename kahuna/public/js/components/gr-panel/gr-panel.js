@@ -54,7 +54,7 @@ grPanel.controller('GrPanel', [
         ctrl.isVisible = panelService.isVisible(panelName);
 
         $rootScope.$on(
-            'ui:panels:' + panelName + ':visibility-updated',
+            'ui:panels:' + panelName + ':updated',
             () => ctrl.isVisible = panelService.isVisible(panelName)
         );
         ctrl.showMetadataPanelMouseOver = () => panelService.setVisible(panelName);
@@ -66,7 +66,7 @@ grPanel.controller('GrPanel', [
 
         ctrl.clear = () => {
             selection.clear();
-            panelService.setUnavailable(panelName);
+            panelService.setUnavailable(panelName, false);
         };
 
         ctrl.credits = function(searchText) {
@@ -84,9 +84,9 @@ grPanel.controller('GrPanel', [
             ctrl.images = Array.from(ctrl.selectedImages);
 
             if (ctrl.images.length > 0) {
-                panelService.setAvailable(panelName);
+                panelService.setAvailable(panelName, false);
             } else {
-                panelService.setUnavailable(panelName);
+                panelService.setUnavailable(panelName, false);
             }
 
             ctrl.metadata = selection.getDisplayMetadata();
