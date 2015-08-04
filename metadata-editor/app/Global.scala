@@ -1,3 +1,4 @@
+import lib.MessageConsumer
 import play.api.libs.concurrent.Akka
 import play.api.{Application, GlobalSettings}
 import play.api.mvc.WithFilters
@@ -14,11 +15,15 @@ object Global extends WithFilters(CorsFilter, RequestLoggingFilter, new GzipFilt
 
   override def beforeStart(app: Application) {
     LogConfig.init(Config)
+    MessageConsumer.startSchedule()
   }
 
   override def onStart(app: Application) {
     EditsApi.keyStore.scheduleUpdates(Akka.system(app).scheduler)
   }
 
+  override def onStop(app: Application): Unit = {
+    MessageConsumer.actorSystem.shutdown()
+  }
 }
 
