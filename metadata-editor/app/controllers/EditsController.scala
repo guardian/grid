@@ -144,8 +144,10 @@ object EditsController extends Controller with ArgoHelpers {
 
   def getUsageRights(id: String) = Authenticated.async {
     dynamo.jsonGet(id, "usageRights").map { dynamoEntry =>
-      val usageRights = (dynamoEntry \ "usageRights").as[UsageRights]
-      respond(usageRights)
+      (dynamoEntry \ "usageRights").asOpt[UsageRights] match {
+        case Some(usageRights: UsageRights) => respond(usageRights)
+        case _ => respond(NoRights)
+      }
     }
   }
 
