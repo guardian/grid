@@ -233,7 +233,7 @@
                 full metadata
             </button>
 
-            <table ng:show="metadataExpanded" class="metadata">
+            <table ng:show="metadataExpanded" class="metadata metadata-line">
                 <tbody class="metadata__body">
                     <tr ng:repeat="(key, value) in ctrl.metadata" ng:if="ctrl.isUsefulMetadata(key)">
                         <th class="metadata-line__key">{{key}}</th>
