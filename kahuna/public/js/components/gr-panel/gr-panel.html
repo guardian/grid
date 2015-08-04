@@ -1,8 +1,8 @@
 <div ng:if="ctrl.selectedImages.size > 0"
-    class="panel panel--side panel--right image-details"
+    class="panel panel--side panel__right image-details"
     ng:mouseover="ctrl.metadataPanelMouseOver()"
     ng:mouseleave="ctrl.metadataPanelMouseLeave()"
-    ng:class="{ 'panel--right__hidden': !ctrl.isVisible }">
+    ng:class="{ 'panel__right--hidden': !ctrl.isVisible }">
 
     <div class="panel__top">
         <h1 class="panel__title">{{ctrl.selectedImages.size}} image<span ng:if="ctrl.selectedImages.size > 1">s</span> selected</h1>

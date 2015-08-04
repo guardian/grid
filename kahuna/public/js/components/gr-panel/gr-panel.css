@@ -8,7 +8,7 @@
     height: calc(100vh - 85px);
 }
 
-.panel--right {
+.panel__right {
     float: right;
     position: fixed;
     right: 0;
@@ -16,7 +16,7 @@
     z-index: 1;
 }
 
-.panel--right__hidden {
+.panel__right--hidden {
     right: -275px;
 }
 .panel__top,
