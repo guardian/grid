@@ -282,6 +282,12 @@ results.controller('SearchResultsCtrl', [
             }));
         }
 
+        ctrl.clearSelection = () => {
+            panelService.hide(metadataPanelName, false);
+            panelService.unavailable(metadataPanelName, false);
+
+            selection.clear();
+        };
 
         ctrl.selectedImages = selection.selectedImages;
 

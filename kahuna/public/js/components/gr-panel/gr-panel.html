@@ -5,14 +5,7 @@
     ng:class="{ 'panel__right--hidden': !ctrl.isVisible }">
 
     <div class="panel__top">
-        <h1 class="panel__title">{{ctrl.selectedImages.size}} image<span ng:if="ctrl.selectedImages.size > 1">s</span> selected</h1>
-        <button class="panel__close" ng:click="ctrl.clear()" title="Clear selection and close">
-            <gr-icon>close</gr-icon>
-        </button>
-    </div>
-
-    <div class="panel__content">
-        <ul class="costs" ng:if="ctrl.showCosts">
+        <ul class="costs">
             <li ng:repeat="cost in ctrl.selectedCosts | orderBy:'data'">
                 <div ng:switch="cost.data">
                     <div ng:switch-when="free"
@@ -32,7 +25,9 @@
                 </div>
             </li>
         </ul>
+    </div>
 
+    <div class="panel__content">
         <div class="image-info__group">
             <div class="image-info__wrap metadata-line drop-menu image-info__usage-rights metadata__key"
                  ng:init="showUsageRights = false">
@@ -48,7 +43,7 @@
                 </div>
 
                 <h2 class="image-info__title">
-                    {{ctrl.usageCategory}}
+                    {{ctrl.usageCategory || "No category specified"}}
                 </h2>
 
                 <button
@@ -320,9 +315,5 @@
                 </span>
             </div>
         </div>
-    </div>
-
-    <div class="panel__bottom">
-        <button class="panel__close button-shy" ng:click="ctrl.clear()">clear selection</button>
     </div>
 </div>

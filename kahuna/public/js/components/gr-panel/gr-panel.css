@@ -3,7 +3,7 @@
 }
 
 .panel--side {
-    width: 284px; /* width of gr-top-bar-actions on search page */
+    width: 290px; /* width of gr-top-bar-actions on search page */
     height: calc(100vh - 85px); /* height of top-bar and results-bar */
 }
 
@@ -17,17 +17,21 @@
 }
 
 .panel__right--hidden {
-    right: -284px;
+    right: -290px;
     transition: right 0.1s;
 }
 .panel__top,
 .panel__bottom {
-    height: 40px;
     padding: 10px;
+}
+
+.panel__bottom {
+    height: 40px;
 }
 
 .panel__top {
     font-size: 18px;
+    height: 20px;
 }
 
 .panel__title {
