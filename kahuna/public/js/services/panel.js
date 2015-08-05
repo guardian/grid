@@ -58,19 +58,19 @@ panelService.factory('panelService', [ '$rootScope', '$timeout', function ($root
         }
     }
 
-    var panels = [];
-    var actions = [];
+    let panels = [];
+    let actions = [];
 
-    var addPanel = (panelName, initVisible) => {
+    const addPanel = (panelName, initVisible) => {
         panels[panelName] = new UIPanel({ panelName, initVisible });
         broadcastChange(panelName, 'updated');
     };
 
-    var broadcastChange = (panelName, eventName) => $rootScope.$broadcast(
+    const broadcastChange = (panelName, eventName) => $rootScope.$broadcast(
         'ui:panels:' + panelName + ':' + eventName
     );
 
-    var panelAction = (panelName, proc, cancelable) => {
+    const panelAction = (panelName, proc, cancelable) => {
         const performProc = () => {
             if (panels[panelName]) {
                 proc();
@@ -91,32 +91,32 @@ panelService.factory('panelService', [ '$rootScope', '$timeout', function ($root
         }
     };
 
-    var isVisible = (panelName) =>
+    const isVisible = (panelName) =>
         panels[panelName] ? panels[panelName].isVisible() : false;
-    var isAvailable =  (panelName) =>
+    const isAvailable =  (panelName) =>
         panels[panelName] ? panels[panelName].isAvailable() : false;
-    var isLocked =  (panelName) =>
+    const isLocked =  (panelName) =>
         panels[panelName] ? panels[panelName].isLocked() : false;
 
-    var available = (panelName, cancelable = true) =>
+    const available = (panelName, cancelable = true) =>
         panelAction(panelName, () => panels[panelName].available(), cancelable);
 
-    var unavailable = (panelName, cancelable = true) =>
+    const unavailable = (panelName, cancelable = true) =>
         panelAction(panelName, () => panels[panelName].unavailable(), cancelable);
 
-    var show = (panelName, cancelable = true) =>
+    const show = (panelName, cancelable = true) =>
         panelAction(panelName, () => panels[panelName].show(), cancelable);
 
-    var hide = (panelName, cancelable = true) =>
+    const hide = (panelName, cancelable = true) =>
         panelAction(panelName, () => panels[panelName].hide(), cancelable);
 
-    var lock = (panelName, cancelable = false) =>
+    const lock = (panelName, cancelable = false) =>
         panelAction(panelName, () => panels[panelName].lock(), cancelable);
 
-    var unlock = (panelName, cancelable = false) =>
+    const unlock = (panelName, cancelable = false) =>
         panelAction(panelName, () => panels[panelName].unlock(), cancelable);
 
-    var toggleLocked = (panelName) => isLocked(panelName) ?
+    const toggleLocked = (panelName) => isLocked(panelName) ?
         unlock(panelName) : lock(panelName);
 
     return {
