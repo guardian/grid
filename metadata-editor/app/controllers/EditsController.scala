@@ -177,13 +177,15 @@ object EditsController extends Controller with ArgoHelpers {
 
 
   def publish(id: String)(metadata: JsObject): Edits = {
+    val edits = metadata.as[Edits]
     val message = Json.obj(
       "id" -> id,
-      "data" -> metadata
+      "data" -> Json.toJson(edits)
     )
 
     Notifications.publish(message, "update-image-user-metadata")
-    metadata.as[Edits]
+
+    edits
   }
 
 
