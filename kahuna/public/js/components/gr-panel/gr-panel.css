@@ -14,10 +14,12 @@
     right: 0;
     bottom: 0;
     z-index: 1;
+    transition: right 0.1s;
 }
 
 .panel__right--hidden {
-    right: -275px;
+    right: -284px;
+    transition: right 0.1s;
 }
 .panel__top,
 .panel__bottom {
