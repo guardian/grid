@@ -17,6 +17,7 @@ trait MetadataHelper {
       uploadedBy = "tester",
       lastModified = None,
       identifiers = Map(),
+      uploadInfo = UploadInfo(),
       source = Asset(URI.create("http://example.com/image.jpg"), Some(0), None, None),
       thumbnail = None,
       fileMetadata = FileMetadata(),
