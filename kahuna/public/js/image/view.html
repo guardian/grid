@@ -131,7 +131,7 @@
                 <dd class="image-info__group--dl__value metadata-line__info" ng:if="ctrl.metadata.dateTaken">{{ctrl.metadata.dateTaken | date:'d MMM yyyy, HH:mm'}}</dd>
                 
                 <dt class="image-info__byline image-info__wrap metadata-line image-info__group--dl__key metadata-line__key" ng:if="ctrl.metadata.byline || ctrl.userCanEdit">by</dt>
-                <dd class="image-info__group--dl__value metadata-line__info" ng:if="ctrl.metadata.byline || ctrl.userCanEdit">
+                <dd class="image-info__wrap image-info__group--dl__value metadata-line__info" ng:if="ctrl.metadata.byline || ctrl.userCanEdit">
                     <button class="image-info__edit"
                                     ng:if="ctrl.userCanEdit"
                                     ng:click="bylineEditForm.$show()"
@@ -153,7 +153,7 @@
                 </dd>
                 
                 <dt ng:if="ctrl.metadata.credit || ctrl.userCanEdit" class="image-info__credit image-info__wrap image-info__group--dl__key metadata-line__key">credit</dt>
-                <dd ng:if="ctrl.metadata.credit || ctrl.userCanEdit" class="image-info__group--dl__value metadata-line__info">
+                <dd ng:if="ctrl.metadata.credit || ctrl.userCanEdit" class="image-info__wrap image-info__group--dl__value metadata-line__info">
                     <button class="image-info__edit"
                         ng:if="ctrl.userCanEdit"
                         ng:click="creditEditForm.$show()"
@@ -220,14 +220,12 @@
                 full metadata
             </button>
 
-            <table ng:show="metadataExpanded" class="metadata metadata-line">
-                <tbody class="metadata__body">
-                    <tr ng:repeat="(key, value) in ctrl.metadata" ng:if="ctrl.isUsefulMetadata(key)">
-                        <th class="metadata-line__key">{{key}}</th>
-                        <td class="metadata-line__info">{{value}}</td>
-                    </tr>
-                </tbody>
-            </table>
+            <div ng:show="metadataExpanded" class="metadata metadata-line image-info__group--dl">
+                <dl ng:repeat="(key, value) in ctrl.metadata" ng:if="ctrl.isUsefulMetadata(key)" class="metadata__body image-info__group--dl">
+                    <dt class="metadata-line__key image-info__group--dl__key--full-metadata">{{key}}</dt>
+                    <dd class="metadata-line__info image-info__group--dl__value--full-metadata">{{value}}</dd>
+                </dl>
+            </div>
         </div>
     </div>
 
