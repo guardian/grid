@@ -64,13 +64,6 @@ grPanel.controller('GrPanel', [
 
         ctrl.hasMultipleValues = (val) => Array.isArray(val) && val.length > 1;
 
-        ctrl.clear = () => {
-            panelService.hide(panelName, false);
-            panelService.unavailable(panelName, false);
-
-            selection.clear();
-        };
-
         ctrl.credits = function(searchText) {
             return ctrl.metadataSearch('credit', searchText);
         };
