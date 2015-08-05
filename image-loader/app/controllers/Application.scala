@@ -45,8 +45,8 @@ class ImageLoader extends Controller with ArgoHelpers {
   val indexResponse = {
     val indexData = Map("description" -> "This is the Loader Service")
     val indexLinks = List(
-      Link("load",   s"$rootUri/images{?uploadedBy,identifiers,uploadTime}"),
-      Link("import", s"$rootUri/imports{?uri,uploadedBy,identifiers,uploadTime}")
+      Link("load",   s"$rootUri/images{?uploadedBy,identifiers,uploadTime,filename}"),
+      Link("import", s"$rootUri/imports{?uri,uploadedBy,identifiers,uploadTime,filename}")
     )
     respond(indexData, indexLinks)
   }
