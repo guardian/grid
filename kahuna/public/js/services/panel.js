@@ -7,13 +7,10 @@ panelService.factory('panelService', [ '$rootScope', '$timeout', function ($root
     class UIPanel {
         constructor(options) {
             this.name = options.name;
-            this.initVisible = options.initVisible || false;
-            this.initAvailable = options.initAvailable || false;
-            this.initLocked = options.initLocked || false;
 
-            this.visible = this.initVisible;
-            this.available = this.initAvailable;
-            this.locked = this.initLocked;
+            this.visible = options.initVisible || false;
+            this.available = options.initAvailable || false;
+            this.locked = options.initLocked || false;
         }
 
         isAvailable() {
