@@ -34,7 +34,7 @@
         </ul>
 
         <div class="image-info__group">
-            <div class="image-info__wrap metadata-line drop-menu image-info__usage-rights"
+            <div class="image-info__wrap metadata-line drop-menu image-info__usage-rights metadata__key"
                  ng:init="showUsageRights = false">
                 usage rights category
                 <div class="image-info__usage-rights drop-menu__items drop-menu__items--right"
@@ -64,8 +64,8 @@
                         ng:if="ctrl.userCanEdit"
                         ng:click="titleEditForm.$show()"
                         ng:hide="titleEditForm.$visible">✎</button>
-                <div class="metadata-line">title</div>
-                <div ng:class="{'image-info--multiple': ctrl.hasMultipleValues(ctrl.rawMetadata.title)}"
+                <div class="metadata-line metadata__key">title</div>
+                <div class="metadata-line__info" ng:class="{'image-info--multiple': ctrl.hasMultipleValues(ctrl.rawMetadata.title)}"
                      editable-text="ctrl.metadata.title"
                      onbeforesave="ctrl.updateMetadataField('title', $data)"
                      e:form="titleEditForm"
@@ -98,8 +98,8 @@
                         ng:if="ctrl.userCanEdit"
                         ng:click="descriptionEditForm.$show()"
                         ng:hide="descriptionEditForm.$visible">✎</button>
-                <div class="metadata-line">description</div>
-                <div ng:class="{'image-info--multiple': ctrl.hasMultipleValues(ctrl.rawMetadata.description)}"
+                <div class="metadata-line metadata__key">description</div>
+                <div class="metadata-line__info" ng:class="{'image-info--multiple': ctrl.hasMultipleValues(ctrl.rawMetadata.description)}"
                      editable-textarea="ctrl.metadata.description"
                      onbeforesave="ctrl.updateMetadataField('description', $data)"
                      e:msd-elastic
@@ -134,16 +134,16 @@
             </div>
         </div>
 
-        <div class="image-info__group">
-            <div class="image-info__wrap" ng:if="ctrl.rawMetadata.specialInstructions">
+        <div class="image-info__group" ng:if="ctrl.rawMetadata.specialInstructions">
+            <div class="image-info__wrap">
                 <button class="image-info__edit"
                         ng:if="ctrl.userCanEdit"
                         ng:click="specialInstructionsEditForm.$show()"
                         ng:hide="specialInstructionsEditForm.$visible">✎</button>
-                <div class="metadata-line">special instructions</div>
+                <div class="metadata-line metadata__key">special instructions</div>
 
 
-                <div ng:class="{'image-info--multiple': ctrl.hasMultipleValues(ctrl.rawMetadata.specialInstructions)}"
+                <div class="metadata-line__info" ng:class="{'image-info--multiple': ctrl.hasMultipleValues(ctrl.rawMetadata.specialInstructions)}"
                      editable-textarea="ctrl.metadata.specialInstructions"
                      onbeforesave="ctrl.updateMetadataField('specialInstructions', $data)"
                      e:msd-elastic
@@ -180,66 +180,76 @@
 
 
         <div class="image-info__group">
-            <div class="image-info__wrap metadata-line image-info__byline">
-                <button class="image-info__edit"
-                        ng:if="ctrl.userCanEdit"
-                        ng:click="bylineEditForm.$show()"
-                        ng:hide="bylineEditForm.$visible">✎</button>
-                by
-                <span ng:class="{'image-info--multiple': ctrl.hasMultipleValues(ctrl.rawMetadata.byline)}"
-                     editable-text="ctrl.metadata.byline"
-                     onbeforesave="ctrl.updateMetadataField('byline', $data)"
-                     e:form="bylineEditForm"
-                     e:ng-class="{'image-info__editor--error': $error, 'image-info__editor--saving': bylineEditForm.$waiting}">
+            <table class="image-info__group--list">
+                <tbody>
+                    <tr class="image-info__wrap metadata-line image-info__byline">
+                        <th class="metadata-line__key">by</th>
+                        <td class="image-info__byline metadata-line__info">
+                            <button class="image-info__edit"
+                                    ng:if="ctrl.userCanEdit"
+                                    ng:click="bylineEditForm.$show()"
+                                    ng:hide="bylineEditForm.$visible"
+                            >✎</button>
+                            <span ng:class="{'image-info--multiple': ctrl.hasMultipleValues(ctrl.rawMetadata.byline)}"
+                                 editable-text="ctrl.metadata.byline"
+                                 onbeforesave="ctrl.updateMetadataField('byline', $data)"
+                                 e:form="bylineEditForm"
+                                 e:ng-class="{'image-info__editor--error': $error, 'image-info__editor--saving': bylineEditForm.$waiting}">
 
-                    <span class="metadata-line__info" ng:if="ctrl.hasMultipleValues(ctrl.rawMetadata.byline) && ctrl.userCanEdit">
-                        multiple bylines (click ✎ to edit <strong>all</strong>)
-                    </span>
+                                <span class="metadata-line__info" ng:if="ctrl.hasMultipleValues(ctrl.rawMetadata.byline) && ctrl.userCanEdit">
+                                    multiple bylines (click ✎ to edit <strong>all</strong>)
+                                </span>
 
-                    <span class="metadata-line__info" ng:if="ctrl.hasMultipleValues(ctrl.rawMetadata.byline) && !ctrl.userCanEdit">
-                        multiple bylines
-                    </span>
+                                <span class="metadata-line__info" ng:if="ctrl.hasMultipleValues(ctrl.rawMetadata.byline) && !ctrl.userCanEdit">
+                                    multiple bylines
+                                </span>
 
-                    <span class="metadata-line__info" ng:if="!ctrl.hasMultipleValues(ctrl.rawMetadata.byline)">
-                        <span ng:if="ctrl.metadata.byline">
-                            <a ui:sref="search.results({query: (ctrl.metadata.byline | queryFilter:'by')})">{{ctrl.metadata.byline}}</a>
-                        </span>
+                                <span class="metadata-line__info" ng:if="!ctrl.hasMultipleValues(ctrl.rawMetadata.byline)">
+                                    <span ng:if="ctrl.metadata.byline">
+                                        <a ui:sref="search.results({query: (ctrl.metadata.byline | queryFilter:'by')})">{{ctrl.metadata.byline}}</a>
+                                    </span>
 
-                        <span ng:if="!ctrl.metadata.byline && ctrl.userCanEdit">unknown (click ✎ to add the byline)</span>
-                    </span>
-                </span>
-            </div>
+                                    <span ng:if="!ctrl.metadata.byline && ctrl.userCanEdit">unknown (click ✎ to add the byline)</span>
+                                </span>
+                            </span>
+                        </td>
+                    </tr>
+                    <tr class="metadata-line image-info__wrap metadata-line image-info__credit">
+                        <th class="metadata-line__key">credit</th>
+                        <td "image-info__credit metadata-line__info">
+                            <button class="image-info__edit"
+                                ng:if="ctrl.userCanEdit"
+                                ng:click="creditEditForm.$show()"
+                                ng:hide="creditEditForm.$visible"
+                            >✎</button>
 
-            <div class="image-info__wrap metadata-line image-info__credit">
-                <button class="image-info__edit"
-                        ng:if="ctrl.userCanEdit"
-                        ng:click="creditEditForm.$show()"
-                        ng:hide="creditEditForm.$visible">✎</button>
-                credit
-                <span ng:class="{'image-info--multiple': ctrl.hasMultipleValues(ctrl.rawMetadata.credit)}"
-                      editable-text="ctrl.metadata.credit"
-                      e:typeahead="credit for credit in ctrl.credits($viewValue) | limitTo:8"
-                      onbeforesave="ctrl.updateMetadataField('credit', $data)"
-                      e:form="creditEditForm"
-                      e:ng-class="{'image-info__editor--error': $error, 'image-info__editor--saving': creditEditForm.$waiting}">
+                            <span ng:class="{'image-info--multiple': ctrl.hasMultipleValues(ctrl.rawMetadata.credit)}"
+                                  editable-text="ctrl.metadata.credit"
+                                  e:typeahead="credit for credit in ctrl.credits($viewValue) | limitTo:8"
+                                  onbeforesave="ctrl.updateMetadataField('credit', $data)"
+                                  e:form="creditEditForm"
+                                  e:ng-class="{'image-info__editor--error': $error, 'image-info__editor--saving': creditEditForm.$waiting}">
 
-                    <span class="metadata-line__info" ng:if="ctrl.hasMultipleValues(ctrl.rawMetadata.credit) && ctrl.userCanEdit">
-                        multiple credits (click ✎ to edit <strong>all</strong>)
-                    </span>
+                                <span class="metadata-line__info" ng:if="ctrl.hasMultipleValues(ctrl.rawMetadata.credit) && ctrl.userCanEdit">
+                                    multiple credits (click ✎ to edit <strong>all</strong>)
+                                </span>
 
-                    <span class="metadata-line__info" ng:if="ctrl.hasMultipleValues(ctrl.rawMetadata.credit) && !ctrl.userCanEdit">
-                        multiple credits
-                    </span>
+                                <span class="metadata-line__info" ng:if="ctrl.hasMultipleValues(ctrl.rawMetadata.credit) && !ctrl.userCanEdit">
+                                    multiple credits
+                                </span>
 
-                    <span class="metadata-line__info" ng:if="!ctrl.hasMultipleValues(ctrl.rawMetadata.credit)">
-                        <span ng:if="ctrl.metadata.credit">
-                            <a ui:sref="search.results({query: (ctrl.metadata.credit | queryFilter:'credit')})">{{ctrl.metadata.credit}}</a>
-                        </span>
+                                <span class="metadata-line__info" ng:if="!ctrl.hasMultipleValues(ctrl.rawMetadata.credit)">
+                                    <span ng:if="ctrl.metadata.credit">
+                                        <a ui:sref="search.results({query: (ctrl.metadata.credit | queryFilter:'credit')})">{{ctrl.metadata.credit}}</a>
+                                    </span>
 
-                        <span ng:if="!ctrl.metadata.credit && ctrl.userCanEdit">unknown (click ✎ to add the credit)</span>
-                    </span>
-                </span>
-            </div>
+                                    <span ng:if="!ctrl.metadata.credit && ctrl.userCanEdit">unknown (click ✎ to add the credit)</span>
+                                </span>
+                            </span>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
         </div>
 
         <div class="image-info__group batch-label">
