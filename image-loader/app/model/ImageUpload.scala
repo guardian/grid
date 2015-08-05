@@ -85,7 +85,7 @@ case object ImageUpload {
       uploadRequest.uploadedBy,
       Some(uploadRequest.uploadTime),
       uploadRequest.identifiers,
-      uploadRequest.filename,
+      uploadRequest.uploadInfo,
       source,
       Some(thumbnail),
       fileMetadata,
