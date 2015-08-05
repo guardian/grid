@@ -114,7 +114,7 @@ class ImageLoader extends Controller with ArgoHelpers {
 
     Logger.info(s"Received ${uploadRequestDescription(uploadRequest)}")
 
-    val supportedMimeType = Config.supportedMimeTypes.contains(mimeType_)
+    val supportedMimeType = Config.supportedMimeTypes.contains(Some(mimeType_))
 
     if (supportedMimeType) storeFile(uploadRequest) else unsupportedTypeError(uploadRequest)
   }
