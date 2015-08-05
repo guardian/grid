@@ -187,8 +187,8 @@
                     </span>
                 </dd>
 
-                <dt class="image-info__group--dl__key metadata-line__key">copyright</dt>
-                <dd class="image-info__group--dl__value metadata-line__info"><a ui:sref="search.results({query: (ctrl.metadata.copyright | queryFilter:'copyright')})">{{ctrl.metadata.copyright}}</a></dd>
+                <dt ng:if="ctrl.metadata.copyright" class="image-info__group--dl__key metadata-line__key">copyright</dt>
+                <dd ng:if="ctrl.metadata.copyright" class="image-info__group--dl__value metadata-line__info"><a ui:sref="search.results({query: (ctrl.metadata.copyright | queryFilter:'copyright')})">{{ctrl.metadata.copyright}}</a></dd>
 
 
                 <dt class="image-info__group--dl__key metadata-line__key">uploaded</dt>
