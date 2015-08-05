@@ -54,7 +54,7 @@ grPanel.controller('GrPanel', [
         ctrl.isVisible = panelService.isVisible(panelName);
 
         $rootScope.$on(
-            'ui:panels:' + panelName + ':updated',
+            'ui:panels:gr-panel:updated',
             () => ctrl.isVisible = panelService.isVisible(panelName)
         );
         ctrl.metadataPanelMouseOver = () => panelService.show(panelName);
