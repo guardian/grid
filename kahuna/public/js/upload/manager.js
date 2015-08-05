@@ -49,7 +49,9 @@ upload.factory('fileUploader',
                 function($q, loaderApi) {
 
     function upload(file) {
-        return readFile(file).then(uploadFile);
+        return readFile(file).then(fileData => {
+            return uploadFile(fileData, { filename: file.name });
+        });
     }
 
     function readFile(file) {
@@ -63,8 +65,8 @@ upload.factory('fileUploader',
         return def.promise;
     }
 
-    function uploadFile(fileData) {
-        return loaderApi.load(new Uint8Array(fileData));
+    function uploadFile(fileData, uploadInfo) {
+        return loaderApi.load(new Uint8Array(fileData), uploadInfo);
     }
 
     return {
