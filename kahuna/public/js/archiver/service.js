@@ -4,7 +4,6 @@ import Rx from 'rx';
 export const archiverService = angular.module('gr.archiver.service', []);
 
 archiverService.factory('archiverService', ['$q', function($q) {
-    const updates$ = new Rx.Subject();
 
     function getArchived(image) {
         return image.data.userMetadata.data.archived;
@@ -12,6 +11,7 @@ archiverService.factory('archiverService', ['$q', function($q) {
 
     function archivedService(images$) {
         const count$ = images$.map(images => images.length);
+        const updates$ = new Rx.Subject();
 
         const archivedCount$ = images$.map(images => images.filter(image =>
             getArchived(image).data === true
@@ -26,7 +26,9 @@ archiverService.factory('archiverService', ['$q', function($q) {
                 archived !== 0 && notArchived !== 0
             );
 
-        return { archive, unarchive, updates$, count$, archivedCount$, notArchivedCount$, hasMixed$ };
+        return {
+            archive, unarchive,
+            updates$, count$, archivedCount$, notArchivedCount$, hasMixed$ };
 
         function archive() {
             return save(true);

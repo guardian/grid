@@ -1,6 +1,6 @@
 import angular from 'angular';
 
-import imageStream from '../image/streamService';
+import imageStream from '../image/stream';
 
 import '../image/service';
 import '../edits/service';
@@ -22,7 +22,7 @@ selectionService.factory('selectionService',
         selectedLabels,
         selectedUsageRights;
 
-    const stream = imageStream();
+    const stream = imageStream(selectedImages);
 
     function _group () {
         var metadata = {};
@@ -155,6 +155,7 @@ selectionService.factory('selectionService',
 
     return {
         selectedImages,
+        stream,
         add,
         remove,
         update,
@@ -168,8 +169,7 @@ selectionService.factory('selectionService',
         toggleSelection: (image, select) => {
             return select ? add(image) : remove(image);
         },
-        clear: () => selectedImages.clear(),
-        stream
+        clear: () => selectedImages.clear()
     };
 }]);
 

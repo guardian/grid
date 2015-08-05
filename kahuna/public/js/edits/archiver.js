@@ -1,7 +1,7 @@
 import angular from 'angular';
 import template from './archiver.html!text';
 
-import imageStream from '../image/streamService';
+import imageStream from '../image/stream';
 
 import '../archiver/service';
 
@@ -12,31 +12,30 @@ archiver.controller('ArchiverCtrl', ['$window', 'archiverService',
 
     var ctrl = this;
 
-    const service = archiverService(imageStream([ctrl.image]).images$);
+    const imageStream$ = imageStream([ctrl.image]).images$;
+    const service = archiverService(imageStream$);
 
     ctrl.saving = false;
-    ctrl.isArchived = ctrl.image.data.userMetadata.data.archived.data;
+    ctrl.isArchived = () => ctrl.image.data.userMetadata.data.archived.data;
 
     ctrl.archive = () => {
         ctrl.saving = true;
-        service.archive().then(() => {
-            ctrl.isArchived = true;
-        })
-        .catch(error)
-        .finally(saved);
-    }
+        service.
+            archive().
+            catch(error).
+            finally(saved);
+    };
 
     ctrl.unarchive = () => {
         ctrl.saving = true;
-        service.unarchive().then(() => {
-            ctrl.isArchived = false;
-        })
-        .catch(error)
-        .finally(saved);;
-    }
+        service.
+            unarchive().
+            catch(error).
+            finally(saved);
+    };
 
     function error() {
-        $window.alert('Failed to save the changes, please try again.')
+        $window.alert('Failed to save the changes, please try again.');
     }
 
     function saved() {
