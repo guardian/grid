@@ -52,4 +52,11 @@ object MetadataConfig {
   val contractedPhotographers: Map[String, String] = Map(
     "Linda Nylind" -> "The Guardian"
   )
+
+  val staffPhotographersMap = PhotographersList.creditBylineMap(staffPhotographers)
+  val contractPhotgraphersMap = PhotographersList.creditBylineMap(staffPhotographers)
+  val allPhotographersMap = PhotographersList.creditBylineMap(
+    List(MetadataConfig.staffPhotographers, MetadataConfig.contractedPhotographers)
+  )
+
 }
