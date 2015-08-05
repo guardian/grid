@@ -3,6 +3,7 @@ package controllers
 import java.io.File
 import java.net.URI
 
+import com.gu.mediaservice.model.UploadInfo
 import play.api.mvc.Security.AuthenticatedRequest
 import play.api.mvc._
 import play.api.libs.concurrent.Execution.Implicits._
@@ -54,7 +55,6 @@ class ImageLoader extends Controller with ArgoHelpers {
 
   def createTempFile(prefix: String) = File.createTempFile(prefix, "", new File(Config.tempDir))
 
-
   def loadImage(uploadedBy: Option[String], identifiers: Option[String], uploadTime: Option[String], filename: Option[String]) =
     AuthenticatedUpload.async(DigestBodyParser.create(createTempFile("requestBody")))(loadFile(uploadedBy, identifiers, uploadTime, filename))
 
@@ -90,6 +90,8 @@ class ImageLoader extends Controller with ArgoHelpers {
     // TODO: should error if the JSON parsing failed
     val identifiers_ = identifiers.map(Json.parse(_).as[Map[String, String]]) getOrElse Map()
 
+    val uploadInfo_ = UploadInfo(filename)
+
     // TODO: handle the error thrown by an invalid string to `DateTime`
     // only allow uploadTime to be set by AuthenticatedService
     val uploadTime_ = (user, uploadTime) match {
@@ -107,12 +109,12 @@ class ImageLoader extends Controller with ArgoHelpers {
       uploadTime = uploadTime_,
       uploadedBy = uploadedBy_,
       identifiers = identifiers_,
-      filename = filename
+      uploadInfo = uploadInfo_
     )
 
     Logger.info(s"Received ${uploadRequestDescription(uploadRequest)}")
 
-    val supportedMimeType = Config.supportedMimeTypes.exists(Some(_) == mimeType_)
+    val supportedMimeType = Config.supportedMimeTypes.contains(mimeType_)
 
     if (supportedMimeType) storeFile(uploadRequest) else unsupportedTypeError(uploadRequest)
   }
