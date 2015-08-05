@@ -13,8 +13,9 @@
 
     <div ng:if="ctrl.totalResults > 0">
 
-        <div class="results-toolbar">
-           <div class="results-toolbar-item results-toolbar-item__sort-direction results-toolbar-item--left radio-list">
+        <div class="results-toolbar"
+            ng:class="{'results-toolbar--selection-mode': ctrl.metadataPanelAvailable}">
+            <div class="results-toolbar-item results-toolbar-item__sort-direction results-toolbar-item--left radio-list">
                 <div class="radio-list__item">
                     <input type="radio"
                            id="sort-direction__desc"
