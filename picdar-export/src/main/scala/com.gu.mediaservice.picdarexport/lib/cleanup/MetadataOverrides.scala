@@ -3,13 +3,13 @@ package com.gu.mediaservice.picdarexport.lib.cleanup
 import scala.language.reflectiveCalls
 
 import com.gu.mediaservice.lib.cleanup.MetadataCleaners
-import com.gu.mediaservice.lib.config.MetadataConfig.StaffPhotographers
-import com.gu.mediaservice.model.{FileMetadata, ImageMetadata}
+import com.gu.mediaservice.lib.config.MetadataConfig
+import com.gu.mediaservice.model.ImageMetadata
 
 
 object MetadataOverrides {
 
-  val metadataCleaners = new MetadataCleaners(StaffPhotographers.creditBylineMap)
+  val metadataCleaners = new MetadataCleaners(MetadataConfig.allPhotographersMap)
 
   def getOverrides(current: ImageMetadata, picdarOverrides: ImageMetadata): Option[ImageMetadata] = {
     // Strip any Picdar-specific metadata artifacts

@@ -72,8 +72,10 @@
                                     <label
                                         ng:if="$first && !property.required"
                                         for="none-{{property.name}}-radio-list__item"
-                                        class="radio-list__label">
-                                        None
+                                        class="radio-list__label"
+                                        ng:class="{'radio-list--selected': !ctrl.model[property.name]}">
+                                        <div class="radio-list__selection-state"></div>
+                                        <div class="radio-list__label-value">None</div>
                                     </label>
 
                                     <input type="radio"
@@ -85,8 +87,10 @@
                                         ng:model="ctrl.model[property.name]" />
                                     <label
                                         for="{{o}}-{{property.name}}-radio-list__item"
-                                        class="radio-list__label">
-                                        {{ o }}
+                                        class="radio-list__label"
+                                        ng:class="{'radio-list--selected': ctrl.model[property.name] === o}">
+                                        <div class="radio-list__selection-state"></div>
+                                        <div class="radio-list__label-value">{{ o }}</div>
                                     </label>
 
                                 </div>
