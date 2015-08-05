@@ -1,6 +1,6 @@
 package com.gu.mediaservice.lib.cleanup
 
-import com.gu.mediaservice.model.{Agency, Image, StaffPhotographer, ContractPhotographer, CommissionedPhotographer}
+import com.gu.mediaservice.model.{Agency, Image, StaffPhotographer, ContractPhotographer}
 import com.gu.mediaservice.lib.config.PhotographersList
 import com.gu.mediaservice.lib.config.MetadataConfig.{staffPhotographers, contractedPhotographers}
 
@@ -102,7 +102,7 @@ object ApParser extends ImageProcessor {
 }
 
 object BarcroftParser extends ImageProcessor {
-  def apply(image: Image): Image = 
+  def apply(image: Image): Image =
     // We search the credit and the source here as Barcroft seems to use both
     if(List(image.metadata.credit, image.metadata.source).flatten.map(_.toLowerCase).exists { s =>
       List("barcroft media", "barcroft india", "barcroft usa", "barcroft cars").contains(s)
