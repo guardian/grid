@@ -134,7 +134,7 @@
                     </tr>
                     <tr class="image-info__byline image-info__wrap metadata-line" ng:if="ctrl.metadata.byline || ctrl.userCanEdit" >
                         <th class="metadata-line metadata-line__key">by</th>
-                        <td class="image-info__byline metadata-line__info">                        
+                        <td class="image-info__byline metadata-line__info">
                             <button class="image-info__edit"
                                     ng:if="ctrl.userCanEdit"
                                     ng:click="bylineEditForm.$show()"
@@ -157,7 +157,7 @@
                     </tr>
                     <tr class="image-info__credit image-info__wrap metadata-line" ng:if="ctrl.metadata.credit || ctrl.userCanEdit" class="metadata-line">
                         <th class="metadata-line__key">credit</th>
-                        <td class="image-info__credit metadata-line__info"> 
+                        <td class="image-info__credit metadata-line__info">
                             <button class="image-info__edit"
                                 ng:if="ctrl.userCanEdit"
                                 ng:click="creditEditForm.$show()"
@@ -181,7 +181,7 @@
                     </tr>
                     <tr ng:if="ctrl.metadata.subLocation || ctrl.metadata.city || ctrl.metadata.state || ctrl.metadata.country" class="metadata-line">
                             <th class="metadata-line__key">location</th>
-                            <td class="metadata-line__info"> 
+                            <td class="metadata-line__info">
                                 <span ng:repeat="prop in ['subLocation', 'city', 'state', 'country']" ng:if="ctrl.metadata[prop]">
                                     <span class="metadata-line__info">
                                         <a ui:sref="search.results({query: (ctrl.metadata[prop] | queryFilter:ctrl.locationFieldMap[prop])})">{{ctrl.metadata[prop]}}</a
@@ -192,13 +192,13 @@
                     </tr>
                     <tr ng:if="ctrl.metadata.copyright" class="metadata-line">
                         <th class="metadata-line__key">copyright</th>
-                        <td class="metadata-line__info"> 
+                        <td class="metadata-line__info">
                              <a ui:sref="search.results({query: (ctrl.metadata.copyright | queryFilter:'copyright')})">{{ctrl.metadata.copyright}}</a>
                         </td>
                     </tr>
                     <tr class="metadata-line">
                         <th class="metadata-line__key">uploaded</th>
-                        <td class="metadata-line__info">                
+                        <td class="metadata-line__info">
                             <span class="metadata-line__info">
                                 {{ctrl.image.data.uploadTime | date:'d MMM yyyy, HH:mm'}}
                             </span>
@@ -209,15 +209,15 @@
                     </tr>
                     <tr class="metadata-line" ng:if="!ctrl.crop">
                         <th class="metadata-line__key">dimensions</th>
-                        <td class="metadata-line__info"> 
+                        <td class="metadata-line__info">
                             <span class="metadata-line__info">{{ctrl.dimensions.width}} &times; {{ctrl.dimensions.height}}</span>
-                        </td>     
-                    </tr> 
+                        </td>
+                    </tr>
                     <tr class="metadata-line" ng:if="ctrl.crop">
                         <th class="metadata-line__key">dimensions (crop)</th>
-                        <td class="metadata-line__info"> 
+                        <td class="metadata-line__info">
                             <span class="metadata-line__info">{{ctrl.dimensions.width}} &times; {{ctrl.dimensions.height}}</span>
-                        </td>     
+                        </td>
                     </tr>
 
                 </tbody>
