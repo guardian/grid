@@ -14,19 +14,7 @@
     <div ng:if="ctrl.totalResults > 0">
 
         <div class="results-toolbar">
-           <div class="results-toolbar-item image-results-count results-toolbar-item--static">
-                {{ctrl.totalResults | toLocaleString}} matches
-                <span ng:if="ctrl.inSelectionMode()">
-                    ({{ctrl.selectedImages.size}} selected)
-                </span>
-                <button ng:show="ctrl.newImagesCount > 0"
-                        ng:click="ctrl.revealNewImages()"
-                        class="image-results-count__new">
-                    {{ctrl.newImagesCount | toLocaleString}} new
-                </button>
-            </div>
-
-            <div class="results-toolbar-item sort-direction results-toolbar-item--left radio-list">
+           <div class="results-toolbar-item results-toolbar-item__sort-direction results-toolbar-item--left radio-list">
                 <div class="radio-list__item">
                     <input type="radio"
                            id="sort-direction__desc"
@@ -54,9 +42,32 @@
                         <div class="radio-list__label-value">Oldest first</div>
                     </label>
                 </div>
+           </div>
+
+           <div class="results-toolbar-item image-results-count results-toolbar-item--static results-toolbar-item--left results-toolbar-item--split">
+                {{ctrl.totalResults | toLocaleString}} matches
+                <span ng:if="ctrl.inSelectionMode()">
+                    ({{ctrl.selectedImages.size}} selected)
+                </span>
+                <button ng:show="ctrl.newImagesCount > 0"
+                        ng:click="ctrl.revealNewImages()"
+                        class="image-results-count__new">
+                    {{ctrl.newImagesCount | toLocaleString}} new
+                </button>
             </div>
 
-            <a class="results-toolbar-item metadata-panel-controls results-toolbar-item--right"
+
+            <a class="results-toolbar-item results-toolbar-item--static results-toolbar-item--right results-toolbar-item__clear-selection"
+                 ng:class="{'results-toolbar-item--disabled': !ctrl.metadataPanelAvailable}"
+                 ng:click="ctrl.clearSelection()">
+                <span class="results-toolbar-item--text">clear selection</span>
+                <span class="results-toolbar-item--icon">
+                    <gr-icon>clear</gr-icon>
+                </span>
+            </a>
+
+
+            <a class="results-toolbar-item results-toolbar-item--right results-toolbar-item__metadata-panel-controls"
                 ng:class="{'results-toolbar-item--disabled': !ctrl.metadataPanelAvailable, 'results-toolbar-item--active': ctrl.metadataPanelVisible}"
                 ng:mouseover="ctrl.showMetadataPanelMouseOver()"
                 ng:mouseleave="ctrl.showMetadataPanelMouseLeave()"

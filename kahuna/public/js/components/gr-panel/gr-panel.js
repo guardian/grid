@@ -110,10 +110,6 @@ grPanel.controller('GrPanel', [
                 ctrl.usageCategory = usageCategory ? usageCategory.name : categoryCode;
             });
 
-            ctrl.showCosts = ctrl.selectedCosts.length === 1 ?
-                ctrl.selectedCosts[0].data !== 'free' :
-                ctrl.selectedCosts.length > 1;
-
             switch (ctrl.archivedCount) {
                 case 0: {
                     ctrl.archivedState = 'unarchived';
