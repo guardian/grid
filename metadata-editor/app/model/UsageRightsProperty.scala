@@ -1,9 +1,8 @@
 package model
 
-import play.api.libs.functional.syntax._
 import play.api.libs.json._
-import com.gu.mediaservice.lib.config.MetadataConfig.StaffPhotographers
-import com.gu.mediaservice.lib.config.UsageRightsConfig
+import com.gu.mediaservice.lib.config.MetadataConfig.staffPhotographers
+import com.gu.mediaservice.lib.config.{PhotographersList, UsageRightsConfig}
 import com.gu.mediaservice.model._
 
 
@@ -25,13 +24,16 @@ object UsageRightsProperty {
   type OptionsMap = Map[String, List[String]]
   type Options = List[String]
 
+  val staffPhotographerMap = PhotographersList.creditBylineMap(staffPhotographers)
+
   implicit val jsonWrites: Writes[UsageRightsProperty] = Json.writes[UsageRightsProperty]
 
   def getPropertiesForCat(u: UsageRights): List[UsageRightsProperty] =
     agencyProperties(u) ++ photographerProperties(u) ++ restrictionProperties(u)
 
   private def publicationField(required: Boolean)  =
-    UsageRightsProperty("publication", "Publication", "string", required, Some(StaffPhotographers.creditBylineMap.keys.toList.sortWith(_.toLowerCase < _.toLowerCase)))
+    UsageRightsProperty("publication", "Publication", "string", required,
+      Some(staffPhotographerMap.keys.toList.sortWith(_.toLowerCase < _.toLowerCase)))
 
   private def photographerField =
     UsageRightsProperty("photographer", "Photographer", "string", true)
@@ -56,7 +58,7 @@ object UsageRightsProperty {
   private def photographerProperties(u: UsageRights): List[UsageRightsProperty] = u match {
     case _:StaffPhotographer => List(
       publicationField(true),
-      photographerField(StaffPhotographers.creditBylineMap, "publication")
+      photographerField(staffPhotographerMap, "publication")
     )
 
     case _:CommissionedPhotographer => List(
