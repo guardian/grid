@@ -436,17 +436,35 @@ textarea.ng-invalid {
 .search__filters-toggle {
     display: none;
 }
+.search__filters-toggle__icon {
+    display: none;
+}
 
 @media screen and (max-width: 700px) {
-    input.search-query__input {
-        width: 170px
+    .search__advanced-toggle {
+        display: none;
     }
 }
 
-@media screen and (max-width: 1000px) {
+/* Note: order matters for cascade ;_; */
+@media screen and (max-width: 580px) {
+    /* fill width */
+    input.search-query__input {
+        width: calc(100% - 90px); /* full width - grid logo - filters button */
+    }
+
+    .search__filters-toggle__text {
+        display: none;
+    }
+}
+
+@media screen and (max-width: 1030px) {
 
     .search__filters-toggle {
         display: inherit;
+    }
+    .search__filters-toggle__icon {
+        display: inline;
     }
     .search__filters {
         display: inherit;
@@ -547,8 +565,9 @@ input.search-query__input {
 }
 
 
-.search__advanced-toggle {
-    margin: 0 10px;
+.search__advanced-toggle,
+.search__filters-container {
+    margin-left: 10px;
 }
 
 .search__date {
