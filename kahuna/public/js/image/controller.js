@@ -117,7 +117,7 @@ image.controller('ImageCtrl', [
         var ignoredMetadata = [
             'title', 'description', 'copyright', 'keywords', 'byline',
             'credit', 'subLocation', 'city', 'state', 'country',
-            'dateTaken'
+            'dateTaken', 'specialInstructions'
         ];
 
         function isUsefulMetadata(metadataKey) {
