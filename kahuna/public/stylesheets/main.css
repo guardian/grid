@@ -766,14 +766,18 @@ input.search-query__input {
     margin: 0px 0px 0;
     height: 35px;
     display: flex;
-    position: fixed;
+    position: absolute;
 
-    z-index: 2;
+    z-index: 1;
     background-color: #333;
     width: 100%;
     border-bottom: 1px solid #565656;
 }
 
+.results-toolbar--selection-mode {
+    position: fixed;
+    z-index: 2;
+}
 .results-toolbar-item {
     vertical-align: middle;
     border: 1px solid #565656;
