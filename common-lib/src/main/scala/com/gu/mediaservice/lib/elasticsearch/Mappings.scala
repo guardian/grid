@@ -98,6 +98,11 @@ object Mappings {
       "usageRights" -> usageRightsMapping
     )
 
+  val uploadInfo =
+    nonDynamicObj(
+      "filename" -> nonAnalyzedString
+    )
+
   val imageMapping: String =
     Json.stringify(Json.obj(
       "image" -> Json.obj(
@@ -117,6 +122,7 @@ object Mappings {
           "uploadedBy" -> nonAnalyzedString,
           "lastModified" -> dateFormat,
           "identifiers" -> dynamicObj,
+          "uploadInfo" -> uploadInfo,
           "suggestMetadataCredit" -> simpleSuggester
         ),
         "dynamic_templates" -> Json.arr(Json.obj(
