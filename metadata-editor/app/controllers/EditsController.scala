@@ -131,7 +131,7 @@ object EditsController extends Controller with ArgoHelpers {
       val metadata = (dynamoEntry \ "metadata").as[ImageMetadata]
       respond(metadata)
     } recover {
-      case NoItemFound => respond(false)
+      case NoItemFound => respond(Json.toJson(JsObject(Nil)))
     }
   }
 
