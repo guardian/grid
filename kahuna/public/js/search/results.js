@@ -75,12 +75,12 @@ results.controller('SearchResultsCtrl', [
                 panelService.toggleLocked(metadataPanelName);
             } else {
                 // If panel is not visible, show it (but don't lock) when clicked
-                panelService.setVisible(metadataPanelName, false);
+                panelService.show(metadataPanelName, false);
             }
         };
 
-        ctrl.showMetadataPanelMouseOver = () => panelService.setVisible(metadataPanelName);
-        ctrl.showMetadataPanelMouseLeave = () => panelService.setInvisible(metadataPanelName);
+        ctrl.showMetadataPanelMouseOver = () => panelService.show(metadataPanelName);
+        ctrl.showMetadataPanelMouseLeave = () => panelService.hide(metadataPanelName);
 
         $rootScope.$on(
             'ui:panels:' + metadataPanelName + ':updated',

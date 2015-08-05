@@ -57,16 +57,16 @@ grPanel.controller('GrPanel', [
             'ui:panels:' + panelName + ':updated',
             () => ctrl.isVisible = panelService.isVisible(panelName)
         );
-        ctrl.metadataPanelMouseOver = () => panelService.setVisible(panelName);
-        ctrl.metadataPanelMouseLeave = () => panelService.setInvisible(panelName);
+        ctrl.metadataPanelMouseOver = () => panelService.show(panelName);
+        ctrl.metadataPanelMouseLeave = () => panelService.hide(panelName);
 
         ctrl.selectedImages = selection.selectedImages;
 
         ctrl.hasMultipleValues = (val) => Array.isArray(val) && val.length > 1;
 
         ctrl.clear = () => {
-            panelService.setInvisible(panelName, false);
-            panelService.setUnavailable(panelName, false);
+            panelService.hide(panelName, false);
+            panelService.unavailable(panelName, false);
 
             selection.clear();
         };
@@ -86,9 +86,9 @@ grPanel.controller('GrPanel', [
             ctrl.images = Array.from(ctrl.selectedImages);
 
             if (ctrl.images.length > 0) {
-                panelService.setAvailable(panelName, false);
+                panelService.available(panelName, false);
             } else {
-                panelService.setUnavailable(panelName, false);
+                panelService.unavailable(panelName, false);
             }
 
             ctrl.metadata = selection.getDisplayMetadata();

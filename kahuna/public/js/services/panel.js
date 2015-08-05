@@ -9,50 +9,50 @@ panelService.factory('panelService', [ '$rootScope', '$timeout', function ($root
             this.name = options.name;
 
             this.visible = options.initVisible || false;
-            this.available = options.initAvailable || false;
+            this.availability = options.initAvailable || false;
             this.locked = options.initLocked || false;
         }
 
         isAvailable() {
-            return this.available;
+            return this.availability;
         }
 
         isVisible() {
-            return this.visible && this.available;
+            return this.visible && this.availability;
         }
 
         isLocked() {
-            return this.visible && this.available && this.locked;
+            return this.visible && this.availability && this.locked;
         }
 
-        setVisible() {
-            if (!this.locked && this.available) {
+        show() {
+            if (!this.locked && this.availability) {
                 this.visible = true;
             }
         }
 
-        setInvisible() {
-            if (!this.locked && this.available) {
+        hide() {
+            if (!this.locked && this.availability) {
                 this.visible = false;
             }
         }
 
-        setAvailable() {
-            this.available = true;
+        available() {
+            this.availability = true;
         }
 
-        setUnavailable() {
-            this.available = false;
+        unavailable() {
+            this.availability = false;
         }
 
-        setLocked() {
-            if (this.visible && this.available) {
+        lock() {
+            if (this.visible && this.availability) {
                 this.locked = true;
             }
         }
 
-        setUnlocked() {
-            if (this.visible && this.available) {
+        unlock() {
+            if (this.visible && this.availability) {
                 this.locked = false;
             }
         }
@@ -98,39 +98,39 @@ panelService.factory('panelService', [ '$rootScope', '$timeout', function ($root
     var isLocked =  (panelName) =>
         panels[panelName] ? panels[panelName].isLocked() : false;
 
-    var setAvailable = (panelName, cancelable = true) =>
-        panelAction(panelName, () => panels[panelName].setAvailable(), cancelable);
+    var available = (panelName, cancelable = true) =>
+        panelAction(panelName, () => panels[panelName].available(), cancelable);
 
-    var setUnavailable = (panelName, cancelable = true) =>
-        panelAction(panelName, () => panels[panelName].setUnavailable(), cancelable);
+    var unavailable = (panelName, cancelable = true) =>
+        panelAction(panelName, () => panels[panelName].unavailable(), cancelable);
 
-    var setVisible = (panelName, cancelable = true) =>
-        panelAction(panelName, () => panels[panelName].setVisible(), cancelable);
+    var show = (panelName, cancelable = true) =>
+        panelAction(panelName, () => panels[panelName].show(), cancelable);
 
-    var setInvisible = (panelName, cancelable = true) =>
-        panelAction(panelName, () => panels[panelName].setInvisible(), cancelable);
+    var hide = (panelName, cancelable = true) =>
+        panelAction(panelName, () => panels[panelName].hide(), cancelable);
 
-    var setLocked = (panelName, cancelable = false) =>
-        panelAction(panelName, () => panels[panelName].setLocked(), cancelable);
+    var lock = (panelName, cancelable = false) =>
+        panelAction(panelName, () => panels[panelName].lock(), cancelable);
 
-    var setUnlocked = (panelName, cancelable = false) =>
-        panelAction(panelName, () => panels[panelName].setUnlocked(), cancelable);
+    var unlock = (panelName, cancelable = false) =>
+        panelAction(panelName, () => panels[panelName].unlock(), cancelable);
 
     var toggleLocked = (panelName) => isLocked(panelName) ?
-        setUnlocked(panelName) : setLocked(panelName);
+        unlock(panelName) : lock(panelName);
 
     return {
         addPanel,
         isVisible,
         isAvailable,
         isLocked,
-        setLocked,
-        setUnlocked,
+        lock,
+        unlock,
         toggleLocked,
-        setAvailable,
-        setUnavailable,
-        setVisible,
-        setInvisible
+        available,
+        unavailable,
+        show,
+        hide
     };
 
 }]);
