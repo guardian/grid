@@ -3,6 +3,7 @@ package controllers
 import java.io.File
 import java.net.URI
 
+import com.gu.mediaservice.model.UploadInfo
 import play.api.mvc.Security.AuthenticatedRequest
 import play.api.mvc._
 import play.api.libs.concurrent.Execution.Implicits._
@@ -44,8 +45,8 @@ class ImageLoader extends Controller with ArgoHelpers {
   val indexResponse = {
     val indexData = Map("description" -> "This is the Loader Service")
     val indexLinks = List(
-      Link("load",   s"$rootUri/images{?uploadedBy,identifiers,uploadTime}"),
-      Link("import", s"$rootUri/imports{?uri,uploadedBy,identifiers,uploadTime}")
+      Link("load",   s"$rootUri/images{?uploadedBy,identifiers,uploadTime,filename}"),
+      Link("import", s"$rootUri/imports{?uri,uploadedBy,identifiers,uploadTime,filename}")
     )
     respond(indexData, indexLinks)
   }
@@ -54,17 +55,16 @@ class ImageLoader extends Controller with ArgoHelpers {
 
   def createTempFile(prefix: String) = File.createTempFile(prefix, "", new File(Config.tempDir))
 
+  def loadImage(uploadedBy: Option[String], identifiers: Option[String], uploadTime: Option[String], filename: Option[String]) =
+    AuthenticatedUpload.async(DigestBodyParser.create(createTempFile("requestBody")))(loadFile(uploadedBy, identifiers, uploadTime, filename))
 
-  def loadImage(uploadedBy: Option[String], identifiers: Option[String], uploadTime: Option[String]) =
-    AuthenticatedUpload.async(DigestBodyParser.create(createTempFile("requestBody")))(loadFile(uploadedBy, identifiers, uploadTime))
-
-  def importImage(uri: String, uploadedBy: Option[String], identifiers: Option[String], uploadTime: Option[String]) =
+  def importImage(uri: String, uploadedBy: Option[String], identifiers: Option[String], uploadTime: Option[String], filename: Option[String]) =
     Authenticated.async { request =>
       Try(URI.create(uri)) map { validUri =>
         val tmpFile = createTempFile("download")
 
         val result = Downloader.download(validUri, tmpFile).flatMap { digestedFile =>
-          loadFile(digestedFile, request.user, uploadedBy, identifiers, uploadTime)
+          loadFile(digestedFile, request.user, uploadedBy, identifiers, uploadTime, filename: Option[String])
         } recover {
           case NonFatal(e) => failedUriDownload
         }
@@ -77,7 +77,7 @@ class ImageLoader extends Controller with ArgoHelpers {
 
   def loadFile(digestedFile: DigestedFile, user: Principal,
                uploadedBy: Option[String], identifiers: Option[String],
-               uploadTime: Option[String]): Future[Result] = {
+               uploadTime: Option[String], filename: Option[String]): Future[Result] = {
     val DigestedFile(tempFile_, id_) = digestedFile
 
     // only allow AuthenticatedService to set with query string
@@ -89,6 +89,8 @@ class ImageLoader extends Controller with ArgoHelpers {
 
     // TODO: should error if the JSON parsing failed
     val identifiers_ = identifiers.map(Json.parse(_).as[Map[String, String]]) getOrElse Map()
+
+    val uploadInfo_ = UploadInfo(filename)
 
     // TODO: handle the error thrown by an invalid string to `DateTime`
     // only allow uploadTime to be set by AuthenticatedService
@@ -106,7 +108,8 @@ class ImageLoader extends Controller with ArgoHelpers {
       mimeType = mimeType_,
       uploadTime = uploadTime_,
       uploadedBy = uploadedBy_,
-      identifiers = identifiers_
+      identifiers = identifiers_,
+      uploadInfo = uploadInfo_
     )
 
     Logger.info(s"Received ${uploadRequestDescription(uploadRequest)}")
@@ -117,9 +120,10 @@ class ImageLoader extends Controller with ArgoHelpers {
   }
 
   // Convenience alias
-  def loadFile(uploadedBy: Option[String], identifiers: Option[String], uploadTime: Option[String])
+  def loadFile(uploadedBy: Option[String], identifiers: Option[String], uploadTime: Option[String],
+               filename: Option[String])
               (request: AuthenticatedRequest[DigestedFile, Principal]): Future[Result] =
-    loadFile(request.body, request.user, uploadedBy, identifiers, uploadTime)
+    loadFile(request.body, request.user, uploadedBy, identifiers, uploadTime, filename)
 
 
   def uploadRequestDescription(u: UploadRequest): String = {
