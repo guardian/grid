@@ -1081,11 +1081,11 @@ FIXME: what to do with touch devices
 .image-info__group {
     padding: 10px;
     border-bottom: 1px solid #565656;
-} 
+}
 
 .image-info:last-child .image-info__group{
     border-bottom: none;
-}   
+}
 
 .image-info__group table {
     border-collapse: collapse;
@@ -1200,7 +1200,6 @@ FIXME: what to do with touch devices
 .image-info__usage-rights {
     width: 100%;
     box-sizing: border-box;
-    font-weight: bold;
     color: #999;
 }
 
@@ -1744,7 +1743,9 @@ ui-archiver .archiver:hover {
 .form-label {
     display: flex;
 }
-
+.form-label__text {
+    font-weight: bold;
+}
 .form-label__error,
 .form-label__notice {
     font-size: 1.2rem;
