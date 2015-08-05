@@ -436,17 +436,35 @@ textarea.ng-invalid {
 .search__filters-toggle {
     display: none;
 }
+.search__filters-toggle__icon {
+    display: none;
+}
 
 @media screen and (max-width: 700px) {
-    input.search-query__input {
-        width: 170px
+    .search__advanced-toggle {
+        display: none;
     }
 }
 
-@media screen and (max-width: 1000px) {
+/* Note: order matters for cascade ;_; */
+@media screen and (max-width: 580px) {
+    /* fill width */
+    input.search-query__input {
+        width: calc(100% - 90px); /* full width - grid logo - filters button */
+    }
+
+    .search__filters-toggle__text {
+        display: none;
+    }
+}
+
+@media screen and (max-width: 1030px) {
 
     .search__filters-toggle {
         display: inherit;
+    }
+    .search__filters-toggle__icon {
+        display: inline;
     }
     .search__filters {
         display: inherit;
@@ -547,8 +565,9 @@ input.search-query__input {
 }
 
 
-.search__advanced-toggle {
-    margin: 0 10px;
+.search__advanced-toggle,
+.search__filters-container {
+    margin-left: 10px;
 }
 
 .search__date {
@@ -826,9 +845,15 @@ input.search-query__input {
 }
 
 .image-results-count {
-    line-height: 35px;
     width: 300px;
+    line-height: 35px;
 }
+
+.image-results-count,
+.sort-direction {
+    display: inline-block;
+}
+
 
 .image-results-more {
     margin: 40px 0;
@@ -1129,11 +1154,11 @@ FIXME: what to do with touch devices
 .image-info__group {
     padding: 10px;
     border-bottom: 1px solid #565656;
-} 
+}
 
 .image-info:last-child .image-info__group{
     border-bottom: none;
-}   
+}
 
 .image-info__group table {
     border-collapse: collapse;
@@ -1833,20 +1858,34 @@ ui-archiver .archiver:hover {
 }
 
 .radio-list__label {
-   padding: 5px;
    flex-grow: 1;
    color: #CCC;
    background-color: #444;
    text-align: center;
-   border: 1px solid #555;
    cursor: pointer;
 }
-.radio-list__circle:checked + .radio-list__label {
-   background-color:#666;
-   border: 1px solid #777;
+
+.radio-list--selected .radio-list__label-value {
+    background-color:#666;
+    border: 1px solid #777;
+    border-top: none;
 }
+
+.radio-list--selected .radio-list__selection-state {
+    background: #00adee;
+}
+
 .radio-list__circle {
-   display: none;
+    display: none;
+}
+
+.radio-list__selection-state {
+    height: 3px;
+    background: transparent;
+}
+
+.radio-list__label-value {
+    padding: 5px 10px;
 }
 
 .full-width {

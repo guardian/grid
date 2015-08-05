@@ -2,6 +2,7 @@ package controllers
 
 import java.net.URI
 
+import com.gu.mediaservice.lib.config.MetadataConfig
 import play.api.mvc.Security.AuthenticatedRequest
 
 import scala.concurrent.Future
@@ -10,7 +11,7 @@ import scala.util.Try
 import play.api.mvc._
 import play.api.libs.concurrent.Execution.Implicits._
 import play.api.libs.json._
-import org.joda.time.{DateTime, Duration}
+import org.joda.time.DateTime
 
 import uritemplate._
 import Syntax._
@@ -18,7 +19,7 @@ import Syntax._
 import scalaz.syntax.std.list._
 
 import lib.elasticsearch._
-import lib.{Notifications, Config, S3Client, ImageResponse}
+import lib.{Notifications, Config, ImageResponse}
 import lib.querysyntax.{Condition, Parser}
 
 import com.gu.mediaservice.lib.auth
@@ -27,10 +28,10 @@ import com.gu.mediaservice.lib.argo._
 import com.gu.mediaservice.lib.argo.model._
 import com.gu.mediaservice.lib.formatting.{printDateTime, parseDateFromQuery}
 import com.gu.mediaservice.lib.cleanup.{SupplierProcessors, MetadataCleaners}
-import com.gu.mediaservice.lib.config.MetadataConfig.StaffPhotographers
 import com.gu.mediaservice.lib.metadata.ImageMetadataConverter
 import com.gu.mediaservice.model._
 import com.gu.mediaservice.api.Transformers
+
 
 
 object MediaApi extends Controller with ArgoHelpers {
@@ -40,7 +41,7 @@ object MediaApi extends Controller with ArgoHelpers {
 
   val commonTransformers = new Transformers(Config.services)
 
-  import Config.{rootUri, cropperUri, loaderUri, metadataUri, kahunaUri, imgopsUri, loginUri}
+  import Config.{rootUri, cropperUri, loaderUri, metadataUri, kahunaUri, loginUri}
 
   val Authenticated = auth.Authenticated(keyStore, loginUri, Config.kahunaUri)
 
@@ -160,7 +161,8 @@ object MediaApi extends Controller with ArgoHelpers {
   }
 
   def cleanImage(id: String) = Authenticated.async {
-    val metadataCleaners = new MetadataCleaners(StaffPhotographers.creditBylineMap)
+
+    val metadataCleaners = new MetadataCleaners(MetadataConfig.allPhotographersMap)
 
     ElasticSearch.getImageById(id) map {
       case Some(source) => {

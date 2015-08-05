@@ -1,7 +1,8 @@
 package com.gu.mediaservice.lib.cleanup
 
-import com.gu.mediaservice.model.{Agency, Image, StaffPhotographer}
-import com.gu.mediaservice.lib.config.MetadataConfig.StaffPhotographers
+import com.gu.mediaservice.model.{Agency, Image, StaffPhotographer, ContractPhotographer}
+import com.gu.mediaservice.lib.config.PhotographersList
+import com.gu.mediaservice.lib.config.MetadataConfig.{staffPhotographers, contractedPhotographers}
 
 trait ImageProcessor {
   def apply(image: Image): Image
@@ -20,24 +21,40 @@ object SupplierProcessors {
     PaParser,
     ReutersParser,
     RexParser,
-    StaffPhotographerParser
+    PhotographerParser
   )
 
   def process(image: Image): Image =
     all.foldLeft(image) { case (im, processor) => processor(im) }
 }
 
-object StaffPhotographerParser extends ImageProcessor {
+object PhotographerParser extends ImageProcessor {
   def apply(image: Image): Image = {
-    image.metadata.byline.map(p => (p,StaffPhotographers.getPublication(p))) match {
-      case Some((photographer, Some(publication))) => image.copy(
-        usageRights = StaffPhotographer(photographer, publication),
-        metadata    = image.metadata.copy(credit = Some(publication))
-      )
-      case _ => image
+    image.metadata.byline.map { byline =>
+      (
+        byline,
+        image.metadata.credit.map(_.toLowerCase),
+        PhotographersList.getPublication(staffPhotographers, byline),
+        PhotographersList.getPublication(contractedPhotographers, byline)
+      ) match {
+        // staff photographer
+        case (byline, credit, Some(publication), _) => image.copy(
+          usageRights = StaffPhotographer(byline, publication),
+          metadata    = image.metadata.copy(credit = Some(publication))
+        )
+
+        // contracted photographer
+        case (byline, credit, None, Some(publication)) => image.copy(
+          usageRights = ContractPhotographer(byline, publication),
+          metadata    = image.metadata.copy(credit = Some(publication))
+        )
+
+        case _ => image
+      }
     }
-  }
+  }.getOrElse(image)
 }
+
 
 object AapParser extends ImageProcessor {
   def apply(image: Image): Image = image.metadata.credit match {
@@ -85,7 +102,7 @@ object ApParser extends ImageProcessor {
 }
 
 object BarcroftParser extends ImageProcessor {
-  def apply(image: Image): Image = 
+  def apply(image: Image): Image =
     // We search the credit and the source here as Barcroft seems to use both
     if(List(image.metadata.credit, image.metadata.source).flatten.map(_.toLowerCase).exists { s =>
       List("barcroft media", "barcroft india", "barcroft usa", "barcroft cars").contains(s)

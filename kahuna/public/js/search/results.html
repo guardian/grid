@@ -26,7 +26,6 @@
                 </button>
             </div>
 
-
             <div class="results-toolbar-item sort-direction results-toolbar-item--left radio-list">
                 <div class="radio-list__item">
                     <input type="radio"
@@ -35,8 +34,10 @@
                            name="sort-direction"
                            ng:value="undefined"
                            ng:model="ctrl.filter.orderBy">
-                    <label for="sort-direction__desc" class="radio-list__label">
-                        Newest first
+                    <label for="sort-direction__desc" class="radio-list__label"
+                           ng:class="{'radio-list--selected': ctrl.filter.orderBy === undefined}">
+                        <div class="radio-list__selection-state"></div>
+                        <div class="radio-list__label-value">Newest first</div>
                     </label>
                 </div>
 
@@ -47,8 +48,10 @@
                            name="sort-direction"
                            ng:value="'oldest'"
                            ng:model="ctrl.filter.orderBy">
-                    <label for="sort-direction__asc" class="radio-list__label">
-                        Oldest first
+                    <label for="sort-direction__asc" class="radio-list__label"
+                           ng:class="{'radio-list--selected': ctrl.filter.orderBy === 'oldest'}">
+                        <div class="radio-list__selection-state"></div>
+                        <div class="radio-list__label-value">Oldest first</div>
                     </label>
                 </div>
             </div>
