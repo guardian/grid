@@ -43,6 +43,7 @@ results.controller('SearchResultsCtrl', [
     'selectionService',
     'range',
     'isReloadingPreviousSearch',
+    'onValChange',
     function($rootScope,
              $scope,
              $state,
@@ -55,7 +56,8 @@ results.controller('SearchResultsCtrl', [
              mediaApi,
              selection,
              range,
-             isReloadingPreviousSearch) {
+             isReloadingPreviousSearch,
+             onValChange) {
 
         const ctrl = this;
 
@@ -72,6 +74,8 @@ results.controller('SearchResultsCtrl', [
         ctrl.getLastSeenVal = getLastSeenVal;
         ctrl.imageHasBeenSeen = imageHasBeenSeen;
 
+        ctrl.filter = { orderBy: $stateParams.orderBy };
+
         // Arbitrary limit of number of results; too many and the
         // scrollbar becomes hyper-sensitive
         const searchFilteredLimit = 5000;
@@ -86,8 +90,23 @@ results.controller('SearchResultsCtrl', [
             lastSearchFirstResultTime = undefined;
         }
 
+        function initialSearch() {
+            /*
+            Maintain `lastSearchFirstResultTime` regardless of sorting order.
+
+            If we're sorting in ascending order, we need to get the upload time of the
+            last image, so we make a request for 1 image, then make a further request
+            where the offset is the total images - 1 from the initial request.
+             */
+            return angular.isUndefined(ctrl.filter.orderBy) ?
+                ctrl.searched = search({length: 1}) :
+                ctrl.searched = search({length: 1}).then((images) => {
+                    return search({length: 1, offset: images.total - 1});
+                });
+        }
+
         // TODO: avoid this initial search (two API calls to init!)
-        ctrl.searched = search({length: 1}).then(function(images) {
+        ctrl.searched = initialSearch().then(function(images) {
             ctrl.totalResults = images.total;
 
             // images will be the array of loaded images, used for display
@@ -116,7 +135,6 @@ results.controller('SearchResultsCtrl', [
             ctrl.loading = false;
         });
 
-
         ctrl.loadRange = function(start, end) {
             const length = end - start + 1;
             search({offset: start, length: length}).then(images => {
@@ -135,14 +153,6 @@ results.controller('SearchResultsCtrl', [
             });
         };
 
-        // Safer than clearing the timeout in case of race conditions
-        // FIXME: nicer (reactive?) way to do this?
-        var scopeGone = false;
-        $scope.$on('$destroy', () => {
-            scopeGone = true;
-        });
-
-
         // == Vertical position ==
 
         // Logic to resume vertical position when navigating back to the same results
@@ -156,11 +166,6 @@ results.controller('SearchResultsCtrl', [
             then(() => delay(30)).
             then(() => scrollPosition.resume($stateParams)).
             then(scrollPosition.clear);
-
-        $scope.$on('$destroy', () => {
-            scrollPosition.save($stateParams);
-        });
-
 
         const pollingPeriod = 15 * 1000; // ms
 
@@ -225,7 +230,7 @@ results.controller('SearchResultsCtrl', [
         function search({until, since, offset, length} = {}) {
             // FIXME: Think of a way to not have to add a param in a million places to add it
 
-            // Default explicit unti/since to $stateParams
+            // Default explicit until/since to $stateParams
             if (angular.isUndefined(until)) {
                 until = $stateParams.until || lastSearchFirstResultTime;
             }
@@ -242,7 +247,8 @@ results.controller('SearchResultsCtrl', [
                 until:      until,
                 since:      since,
                 offset:     offset,
-                length:     length
+                length:     length,
+                orderBy:    $stateParams.orderBy
             }));
         }
 
@@ -305,9 +311,19 @@ results.controller('SearchResultsCtrl', [
             }
         });
 
-        $scope.$on('$destroy', function() {
+        $scope.$watch(() => ctrl.filter.orderBy, onValChange(newVal => {
+            $state.go('search.results', {orderBy: newVal});
+        }));
+
+        // Safer than clearing the timeout in case of race conditions
+        // FIXME: nicer (reactive?) way to do this?
+        var scopeGone = false;
+
+        $scope.$on('$destroy', () => {
+            scrollPosition.save($stateParams);
             freeUpdateListener();
             selection.clear();
+            scopeGone = true;
         });
     }
 ]);

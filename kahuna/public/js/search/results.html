@@ -13,14 +13,47 @@
 
     <div ng:if="ctrl.totalResults > 0">
 
-        <div class="image-results-count">
-            {{ctrl.totalResults | toLocaleString}} matches
-            <span ng:if="ctrl.inSelectionMode()">({{ctrl.selectedImages.size}} selected)</span>
-            <button ng:show="ctrl.newImagesCount > 0"
-                    ng:click="ctrl.revealNewImages()"
-                    class="image-results-count__new">
-                {{ctrl.newImagesCount | toLocaleString}} new
-            </button>
+        <div class="results-toolbar">
+            <div class="image-results-count">
+                {{ctrl.totalResults | toLocaleString}} matches
+                <span ng:if="ctrl.inSelectionMode()">({{ctrl.selectedImages.size}} selected)</span>
+                <button ng:show="ctrl.newImagesCount > 0"
+                        ng:click="ctrl.revealNewImages()"
+                        class="image-results-count__new">
+                    {{ctrl.newImagesCount | toLocaleString}} new
+                </button>
+            </div>
+            <div class="sort-direction">
+                <div class="radio-list">
+                    <div class="radio-list__item">
+                        <input type="radio"
+                               id="sort-direction__desc"
+                               class="radio-list__circle"
+                               name="sort-direction"
+                               ng:value="undefined"
+                               ng:model="ctrl.filter.orderBy">
+                        <label for="sort-direction__desc" class="radio-list__label"
+                               ng:class="{'radio-list--selected': ctrl.filter.orderBy === undefined}">
+                            <div class="radio-list__selection-state"></div>
+                            <div class="radio-list__label-value">Newest first</div>
+                        </label>
+                    </div>
+
+                    <div class="radio-list__item">
+                        <input type="radio"
+                               id="sort-direction__asc"
+                               class="radio-list__circle"
+                               name="sort-direction"
+                               ng:value="'oldest'"
+                               ng:model="ctrl.filter.orderBy">
+                        <label for="sort-direction__asc" class="radio-list__label"
+                               ng:class="{'radio-list--selected': ctrl.filter.orderBy === 'oldest'}">
+                            <div class="radio-list__selection-state"></div>
+                            <div class="radio-list__label-value">Oldest first</div>
+                        </label>
+                    </div>
+                </div>
+            </div>
         </div>
 
         <ul class="results"
