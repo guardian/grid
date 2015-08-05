@@ -453,9 +453,6 @@ textarea.ng-invalid {
         width: calc(100% - 90px); /* full width - grid logo - filters button */
     }
 
-    .search__filters-toggle__expander {
-        display: none;
-    }
     .search__filters-toggle__text {
         display: none;
     }
