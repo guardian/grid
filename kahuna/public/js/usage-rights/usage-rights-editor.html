@@ -97,7 +97,7 @@
                         ng:model="ctrl.model[property.name]"
                         ng:required="property.required"
                         ng:options="o for o in ctrl.getOptionsFor(property)">
-                        <option value="">None</option>
+                        <option value="" disabled>None</option>
                     </select>
 
                 </div>
