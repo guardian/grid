@@ -30,7 +30,7 @@ object UsageRightsProperty {
 
   private def publicationField(required: Boolean)  =
     UsageRightsProperty("publication", "Publication", "string", required,
-      Some(MetadataConfig.staffPhotgraphersMap.keys.toList.sortWith(_.toLowerCase < _.toLowerCase)))
+      Some(MetadataConfig.staffPhotographersMap.keys.toList.sortWith(_.toLowerCase < _.toLowerCase)))
 
   private def photographerField =
     UsageRightsProperty("photographer", "Photographer", "string", true)
