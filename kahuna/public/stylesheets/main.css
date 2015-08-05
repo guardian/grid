@@ -1102,8 +1102,6 @@ FIXME: what to do with touch devices
 .image-info__group--dl {
   width: 100%;
   display: -webkit-box;
-  display: -moz-box;
-  display: -ms-flexbox;
   display: -webkit-flex;
   display: flex;
 
@@ -1114,28 +1112,40 @@ FIXME: what to do with touch devices
 
 /*flex-basis values chosen to accommodate longest key*/
 .image-info__group--dl__key {
+    -webkit-flex-basis: 40%;
+    -webkit-box-flex-basis: 40%;
     flex-basis: 40%;
 }
 
 .image-info__group--dl__value {
+    -webkit-flex-basis: 60%;
+    -webkit-box-flex-basis: 60%;
     flex-basis: 60%;
     position: relative;
 }
 
 .image-info__group--dl__key--panel {
+    -webkit-flex-basis: 30%;
+    -webkit-box-flex-basis: 30%;
     flex-basis: 30%;
 }
 
 .image-info__group--dl__value--panel {
+    -webkit-flex-basis: 70%;
+    -webkit-box-flex-basis: 70%;
     flex-basis: 70%;
     position: relative;
 }
 
 .image-info__group--dl__key--full-metadata {
+    -webkit-flex-basis: 45%;
+    -webkit-box-flex-basis: 45%;
     flex-basis: 45%;
 }
 
 .image-info__group--dl__value--full-metadata {
+    -webkit-flex-basis: 55%;
+    -webkit-box-flex-basis: 55%;    
     flex-basis: 55%;
     position: relative;
 }
