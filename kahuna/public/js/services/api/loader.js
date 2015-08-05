@@ -13,8 +13,8 @@ apiServices.factory('loaderApi',
         return loaderRoot;
     }
 
-    function load(imageData) {
-        var options = {
+    function load(imageData, uploadInfo) {
+        const options = {
             // We could get the guessed mime-type from the File, but
             // it could be wrong, so might as well just send as data
             headers: {'Content-Type': 'application/octet-stream'},
@@ -22,7 +22,7 @@ apiServices.factory('loaderApi',
             transformRequest: []
         };
         return getLoaderRoot().
-            follow('load').post(imageData, options);
+            follow('load', uploadInfo).post(imageData, options);
     }
 
     function import_(uri, identifiersMap = {}) {
