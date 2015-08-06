@@ -62,6 +62,17 @@ trait ArgoHelpers extends Results {
     serializeAndWrap(response, errorStatus)
   }
 
+  def respondNotFound(errorMessage: String): Result = {
+    val response = ErrorReponse[Int](
+      errorKey     = "not-found",
+      errorMessage = errorMessage,
+      data         = None,
+      links        = Nil
+    )
+
+    serializeAndWrap(response, Status(404))
+  }
+
 
   private def serializeAndWrap[T](response: T, status: Status)(implicit writes: Writes[T]): Result = {
     val json = Json.toJson(response)
