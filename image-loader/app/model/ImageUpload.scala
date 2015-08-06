@@ -11,7 +11,7 @@ import lib.Config
 import com.gu.mediaservice.lib.metadata.ImageMetadataConverter
 import com.gu.mediaservice.lib.resource.FutureResources._
 import com.gu.mediaservice.lib.cleanup.{SupplierProcessors, MetadataCleaners}
-import com.gu.mediaservice.lib.config.MetadataConfig.StaffPhotographers
+import com.gu.mediaservice.lib.config.MetadataConfig
 import com.gu.mediaservice.lib.formatting._
 
 import lib.storage.ImageStore
@@ -19,8 +19,7 @@ import com.gu.mediaservice.model._
 
 case class ImageUpload(uploadRequest: UploadRequest, image: Image)
 case object ImageUpload {
-
-  val metadataCleaners = new MetadataCleaners(StaffPhotographers.creditBylineMap)
+  val metadataCleaners = new MetadataCleaners(MetadataConfig.allPhotographersMap)
 
   def fromUploadRequest(uploadRequest: UploadRequest): Future[ImageUpload] = {
 
@@ -85,6 +84,7 @@ case object ImageUpload {
       uploadRequest.uploadedBy,
       Some(uploadRequest.uploadTime),
       uploadRequest.identifiers,
+      uploadRequest.uploadInfo,
       source,
       Some(thumbnail),
       fileMetadata,

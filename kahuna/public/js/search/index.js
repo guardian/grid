@@ -45,7 +45,7 @@ search.config(['$stateProvider',
     });
 
     $stateProvider.state('search.results', {
-        url: 'search?query&ids&since&nonFree&uploadedBy&until',
+        url: 'search?query&ids&since&nonFree&uploadedBy&until&orderBy',
         // Non-URL parameters
         params: {
             // Routing-level property indicating whether the state has

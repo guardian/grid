@@ -4,6 +4,7 @@ import 'angular-bootstrap';
 import './gr-panel.css!';
 import '../../services/preview-selection';
 import '../../services/label';
+import '../../services/panel';
 import '../../edits/service';
 import '../../archiver/service';
 import '../../archiver/archiver';
@@ -12,6 +13,7 @@ import '../../forms/gr-xeditable/gr-xeditable';
 export var grPanel = angular.module('grPanel', [
     'kahuna.services.selection',
     'kahuna.services.label',
+    'kahuna.services.panel',
     'kahuna.edits.service',
     'gr.archiver.service',
     'gr.archiver',
@@ -27,6 +29,7 @@ grPanel.controller('GrPanel', [
     'mediaApi',
     'selectionService',
     'labelService',
+    'panelService',
     'editsService',
     'editsApi',
     'archiverService',
@@ -39,6 +42,7 @@ grPanel.controller('GrPanel', [
         mediaApi,
         selection,
         labelService,
+        panelService,
         editsService,
         editsApi,
         archiverService,
@@ -46,10 +50,21 @@ grPanel.controller('GrPanel', [
 
         var ctrl = this;
 
+        const panelName = 'gr-panel';
+
+        panelService.addPanel(panelName, false);
+        ctrl.isVisible = panelService.isVisible(panelName);
+
+        $rootScope.$on(
+            'ui:panels:gr-panel:updated',
+            () => ctrl.isVisible = panelService.isVisible(panelName)
+        );
+        ctrl.metadataPanelMouseOver = () => panelService.show(panelName);
+        ctrl.metadataPanelMouseLeave = () => panelService.hide(panelName);
+
         ctrl.selectedImages = selection.selectedImages;
 
         ctrl.hasMultipleValues = (val) => Array.isArray(val) && val.length > 1;
-        ctrl.clear = selection.clear;
 
         ctrl.credits = function(searchText) {
             return ctrl.metadataSearch('credit', searchText);
@@ -68,6 +83,12 @@ grPanel.controller('GrPanel', [
             ctrl.rawMetadata = newMetadata;
             ctrl.images = Array.from(ctrl.selectedImages);
 
+            if (ctrl.images.length > 0) {
+                panelService.available(panelName, false);
+            } else {
+                panelService.unavailable(panelName, false);
+            }
+
             ctrl.metadata = selection.getDisplayMetadata();
             ctrl.usageRights = selection.getUsageRights();
             ctrl.selectedCosts = selection.getCost();
@@ -85,10 +106,6 @@ grPanel.controller('GrPanel', [
                 var usageCategory = cats.find(cat => cat.value === categoryCode);
                 ctrl.usageCategory = usageCategory ? usageCategory.name : categoryCode;
             });
-
-            ctrl.showCosts = ctrl.selectedCosts.length === 1 ?
-                ctrl.selectedCosts[0].data !== 'free' :
-                ctrl.selectedCosts.length > 1;
 
         }));
 

@@ -99,7 +99,9 @@ object EditsController extends Controller with ArgoHelpers {
   def getLabels(id: String) = Authenticated.async {
     dynamo.setGet(id, "labels")
       .map(labelsCollection(id, _))
-      .map {case (uri, labels) => respondCollection(labels)}
+      .map {case (uri, labels) => respondCollection(labels)} recover {
+        case NoItemFound => respond(Array[String]())
+      }
   }
 
   def addLabels(id: String) = Authenticated.async { req =>
@@ -128,6 +130,8 @@ object EditsController extends Controller with ArgoHelpers {
     dynamo.jsonGet(id, "metadata").map { dynamoEntry =>
       val metadata = (dynamoEntry \ "metadata").as[ImageMetadata]
       respond(metadata)
+    } recover {
+      case NoItemFound => respond(Json.toJson(JsObject(Nil)))
     }
   }
 
@@ -141,11 +145,12 @@ object EditsController extends Controller with ArgoHelpers {
     )
   }
 
-
   def getUsageRights(id: String) = Authenticated.async {
     dynamo.jsonGet(id, "usageRights").map { dynamoEntry =>
       val usageRights = (dynamoEntry \ "usageRights").as[UsageRights]
       respond(usageRights)
+    } recover {
+      case NoItemFound => respondNotFound("No usage rights overrides found")
     }
   }
 

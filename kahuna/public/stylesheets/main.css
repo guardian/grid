@@ -436,17 +436,35 @@ textarea.ng-invalid {
 .search__filters-toggle {
     display: none;
 }
+.search__filters-toggle__icon {
+    display: none;
+}
 
 @media screen and (max-width: 700px) {
-    input.search-query__input {
-        width: 170px
+    .search__advanced-toggle {
+        display: none;
     }
 }
 
-@media screen and (max-width: 1000px) {
+/* Note: order matters for cascade ;_; */
+@media screen and (max-width: 580px) {
+    /* fill width */
+    input.search-query__input {
+        width: calc(100% - 90px); /* full width - grid logo - filters button */
+    }
+
+    .search__filters-toggle__text {
+        display: none;
+    }
+}
+
+@media screen and (max-width: 1030px) {
 
     .search__filters-toggle {
         display: inherit;
+    }
+    .search__filters-toggle__icon {
+        display: inline;
     }
     .search__filters {
         display: inherit;
@@ -481,7 +499,6 @@ textarea.ng-invalid {
 .search__filter--first {
     margin: 0;
 }
-
 
 .search-query {
     position: relative;
@@ -547,8 +564,9 @@ input.search-query__input {
 }
 
 
-.search__advanced-toggle {
-    margin: 0 10px;
+.search__advanced-toggle,
+.search__filters-container {
+    margin-left: 10px;
 }
 
 .search__date {
@@ -601,11 +619,17 @@ input.search-query__input {
 .results {
     display: flex;
     flex-wrap: wrap;
+    top: 35px;
+    position: relative;
+}
+
+.results--panel-locked {
+    width: calc(100%- 284px);
 }
 
 .results--left {
-    width: calc(100vw - 300px);
-    float: left;
+    position: relative;
+
 }
 
 .results-controls {
@@ -732,11 +756,105 @@ input.search-query__input {
     z-index: 200;
 }
 
+/* ==========================================================================
+   Results bar
+   ========================================================================== */
 
-.image-results-count {
+.results-toolbar {
     font-size: 1.4rem;
-    margin: 10px;
-    margin-bottom: 0;
+    margin: 0px 0px 0;
+    height: 35px;
+    display: flex;
+    position: absolute;
+
+    z-index: 1;
+    background-color: #333;
+    width: 100%;
+    border-bottom: 1px solid #565656;
+}
+
+.results-toolbar--selection-mode {
+    position: fixed;
+    z-index: 2;
+}
+.results-toolbar-item {
+    vertical-align: middle;
+    border: 1px solid #565656;
+    border-width: 0px 1px;
+    position: relative;
+    padding: 0 10px;
+    height: 35px;
+}
+
+.results-toolbar-item--text {
+    position: absolute;
+    left: 0px;
+    padding-left: 10px;
+}
+
+.results-toolbar-item--icon {
+    position: absolute;
+    right: 0px;
+    padding-right: 10px;
+}
+
+.results-toolbar-item:hover {
+	background-color: #666666;
+}
+
+.results-toolbar-item--split {
+    margin-right: auto;
+}
+
+.results-toolbar-item--left {
+    border-left: 0;
+}
+
+.results-toolbar-item--right {
+    border-right: 0;
+}
+
+.results-toolbar-item--disabled {
+    color: #666;
+}
+
+.results-toolbar-item--active {
+    background-color: #444;
+}
+
+.results-toolbar-item--disabled:hover {
+    color: #666;
+    background-color: transparent;
+}
+
+/* --static is for top bar items that perform no action, only display information */
+.results-toolbar-item--static:hover {
+    background-color: transparent;
+}
+
+.results-toolbar-item__clear-selection {
+    line-height: 35px;
+    width: 118px;}
+
+.results-toolbar-item__sort-direction {
+    padding: 0px;
+}
+
+.results-toolbar-item__metadata-panel-controls {
+    line-height: 35px;
+    width: 130px;
+    height: 36px;
+}
+
+@media screen and (max-width: 800px) {
+    .results-toolbar-item--text {
+        display: none;
+    }
+    .results-toolbar-item__metadata-panel-controls,
+    .results-toolbar-item__clear-selection
+     {
+        width: 18px
+    }
 }
 
 .image-results-count__new {
@@ -748,6 +866,17 @@ input.search-query__input {
     border-radius: 2px;
     margin-left: 5px;
 }
+
+.image-results-count {
+    border: 0;
+    line-height: 35px;
+}
+
+.image-results-count,
+.sort-direction {
+    display: inline-block;
+}
+
 
 .image-results-more {
     margin: 40px 0;
@@ -1028,9 +1157,8 @@ FIXME: what to do with touch devices
 .image-details {
     box-sizing: border-box;
     float: right;
-    font-size: 1.4rem;
+    font-size: 1.3rem;
     height: calc(100vh - 50px); /* viewport - top-bar */
-    padding: 10px 10px;
     overflow: auto;
     width: 300px;
     border-left: 1px solid #565656;
@@ -1046,21 +1174,68 @@ FIXME: what to do with touch devices
     margin-right: 300px;
 }
 
-.image-info {
-    margin-bottom: 15px;
+.image-info__group {
+    padding: 10px;
+    border-bottom: 1px solid #565656;
 }
 
-.image-info__group {
-    margin-bottom: 5px;
+.image-info:last-child .image-info__group{
+    border-bottom: none;
+}
+
+.image-info__group table {
+    border-collapse: collapse;
+}
+
+.image-info__group--list {
+    width: 100%;
+}
+
+.image-info__group--list td {
+    position: relative;
+}
+
+.image-info__group--dl {
+  width: 100%;
+  display: flex;
+  flex-flow: row wrap;
+}
+
+/*flex-basis values chosen to accommodate longest key*/
+.image-info__group--dl__key { 
+    flex-basis: 40%;
+}
+
+.image-info__group--dl__value {
+    flex-basis: 60%;
+    position: relative;
+}
+
+.image-info__group--dl__key--panel {
+    flex-basis: 30%;
+}
+
+.image-info__group--dl__value--panel {
+    flex-basis: 70%;
+    position: relative;
+}
+
+.image-info__group--dl__key--full-metadata {
+    flex-basis: 45%;
+}
+
+.image-info__group--dl__value--full-metadata {    
+    flex-basis: 55%;
+    position: relative;
 }
 
 .image-info__title {
-    font-weight: bold;
     color: #ccc;
 }
 
 .image-info__heading {
     color: #999;
+    font-weight: bold;
 }
 .image-info__heading--first {
     margin-top: 0;
@@ -1070,6 +1245,7 @@ FIXME: what to do with touch devices
 .image-info__special-instructions {
     /* respect newlines in text */
     white-space: pre-line;
+    color: #CCC;
 }
 
 .image-info__keyword {
@@ -1130,14 +1306,6 @@ FIXME: what to do with touch devices
     color: #999;
 }
 
-.image-info__byline .editable-wrap {
-    width: calc(100% - 20px);
-}
-
-.image-info__credit .editable-wrap {
-    width: calc(100% - 40px);
-}
-
 .image-info__wrap .editable-wrap .image-info__editor--error {
     border: 1px solid #BB1212;
     outline: none;
@@ -1155,15 +1323,18 @@ FIXME: what to do with touch devices
 
 /* targetting .image-info__wrap to win on specificity against default xeditable style */
 .image-info__wrap .editable-buttons {
-    display: block;
+    display: flex;
+    justify-content: flex-end;
     float: right;
+    padding-top: 2px;
 }
 
 .image-info__usage-rights {
     width: 100%;
     box-sizing: border-box;
+    font-weight: bold;
+    color: #999;
 }
-
 
 .image-info--multiple {
     font-style: italic;
@@ -1179,11 +1350,19 @@ FIXME: what to do with touch devices
 
 .metadata-line__info {
     color: #ccc;
+    padding-bottom: 10px;
 }
 
 .metadata-line__info a {
     color: inherit;
     border-bottom: 1px solid #999;
+}
+
+.metadata-line__key {
+    font-weight: bold;
+    color: #999;
+    vertical-align: top;
+    text-align: left;
 }
 
 .metadata-reveal {
@@ -1205,14 +1384,6 @@ FIXME: what to do with touch devices
 
 .metadata__body {
     font-size: 1.3rem;
-}
-
-.metadata__key {
-    padding-right: 20px;
-    font-weight: normal;
-    color: #999;
-    vertical-align: top;
-    text-align: left;
 }
 
 .image-crops {
@@ -1728,8 +1899,8 @@ ui-archiver .archiver:hover {
 
 .radio-list {
     display: flex;
-    border: 1px solid transparent;
 }
+
 .radio-list--invalid {
     border: 1px solid #ed5935;
 
@@ -1737,7 +1908,6 @@ ui-archiver .archiver:hover {
 .radio-list__item {
     flex-grow: 1;
     display:flex;
-    cursor:pointer;
 }
 
 .radio-list__item:last-child {
@@ -1745,19 +1915,34 @@ ui-archiver .archiver:hover {
 }
 
 .radio-list__label {
-   padding: 5px;
    flex-grow: 1;
    color: #CCC;
    background-color: #444;
    text-align: center;
-   border: 1px solid #555;
+   cursor: pointer;
 }
-.radio-list__circle:checked + .radio-list__label {
-   background-color:#666;
-   border: 1px solid #777;
+
+.radio-list--selected .radio-list__label-value {
+    background-color:#666;
+    border: 1px solid #777;
+    border-top: none;
 }
+
+.radio-list--selected .radio-list__selection-state {
+    background: #00adee;
+}
+
 .radio-list__circle {
-   display: none;
+    display: none;
+}
+
+.radio-list__selection-state {
+    height: 3px;
+    background: transparent;
+}
+
+.radio-list__label-value {
+    padding: 5px 10px;
 }
 
 .full-width {
