@@ -61,14 +61,14 @@ panelService.factory('panelService', [ '$rootScope', '$timeout', function ($root
     let panels = [];
     let actions = [];
 
+    const broadcastChange = (panelName, eventName) => $rootScope.$broadcast(
+        'ui:panels:' + panelName + ':' + eventName
+    );
+
     const addPanel = (panelName, initVisible) => {
         panels[panelName] = new UIPanel({ panelName, initVisible });
         broadcastChange(panelName, 'updated');
     };
-
-    const broadcastChange = (panelName, eventName) => $rootScope.$broadcast(
-        'ui:panels:' + panelName + ':' + eventName
-    );
 
     const panelAction = (panelName, proc, cancelable) => {
         const performProc = () => {
