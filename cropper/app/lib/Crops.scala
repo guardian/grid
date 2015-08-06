@@ -55,7 +55,7 @@ object Crops {
 
   def isInvalidCrop(asset: Asset, specification: CropSource): Boolean = {
     asset.dimensions.map { dimensions =>
-      val bounds = specification.bounds;
+      val bounds = specification.bounds
 
       val outOfBounds = bounds.x > dimensions.width || bounds.y > dimensions.height
       val cropTooSmall = bounds.width < 1 || bounds.height < 1
