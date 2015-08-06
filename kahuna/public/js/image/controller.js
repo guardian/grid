@@ -74,23 +74,8 @@ image.controller('ImageCtrl', [
         // initially)
         ctrl.cropKey = cropKey;
 
-        var addSpacing = function(string){
-        // If styling changes to capitalised first letters use:
-            // var firstLetter = string.charAt(0).toUpperCase();
-            // var restOfWord = string.slice(1).replace(/([A-Z]+)/g, $1 => ' ' + $1.toLowerCase());
-            // return firstLetter.concat(restOfWord);
-
-            return string.replace( /([A-Z]+)/g, $1 => ' ' + $1.toLowerCase() );
-        };
-
         // Alias for convenience in view
         ctrl.metadata = image.data.metadata;
-
-        ctrl.spacedMetadata = {};
-
-        for(var key in image.data.metadata) {
-            ctrl.spacedMetadata[addSpacing(key)] = image.data.metadata[key];
-        }
 
         // Map of metadata location field to query filter name
         ctrl.locationFieldMap = {
@@ -133,7 +118,7 @@ image.controller('ImageCtrl', [
             'title', 'description', 'copyright', 'keywords', 'byline',
             'credit', 'subLocation', 'city', 'state', 'country',
             'dateTaken', 'specialInstructions'
-        ].map( data => addSpacing(data));
+        ];
 
         function isUsefulMetadata(metadataKey) {
             return ignoredMetadata.indexOf(metadataKey) === -1;
