@@ -624,7 +624,7 @@ input.search-query__input {
 }
 
 .results--panel-locked {
-    width: calc(100%- 284px);
+    width: calc(100% - 290px);
 }
 
 .results--left {
