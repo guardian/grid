@@ -619,11 +619,17 @@ input.search-query__input {
 .results {
     display: flex;
     flex-wrap: wrap;
+    top: 35px;
+    position: relative;
+}
+
+.results--panel-locked {
+    width: calc(100%- 284px);
 }
 
 .results--left {
-    width: calc(100vw - 300px);
-    float: left;
+    position: relative;
+
 }
 
 .results-controls {
@@ -750,11 +756,105 @@ input.search-query__input {
     z-index: 200;
 }
 
+/* ==========================================================================
+   Results bar
+   ========================================================================== */
 
 .results-toolbar {
     font-size: 1.4rem;
-    margin: 10px 10px 0;
-    height: 40px;
+    margin: 0px 0px 0;
+    height: 35px;
+    display: flex;
+    position: absolute;
+
+    z-index: 1;
+    background-color: #333;
+    width: 100%;
+    border-bottom: 1px solid #565656;
+}
+
+.results-toolbar--selection-mode {
+    position: fixed;
+    z-index: 2;
+}
+.results-toolbar-item {
+    vertical-align: middle;
+    border: 1px solid #565656;
+    border-width: 0px 1px;
+    position: relative;
+    padding: 0 10px;
+    height: 35px;
+}
+
+.results-toolbar-item--text {
+    position: absolute;
+    left: 0px;
+    padding-left: 10px;
+}
+
+.results-toolbar-item--icon {
+    position: absolute;
+    right: 0px;
+    padding-right: 10px;
+}
+
+.results-toolbar-item:hover {
+	background-color: #666666;
+}
+
+.results-toolbar-item--split {
+    margin-right: auto;
+}
+
+.results-toolbar-item--left {
+    border-left: 0;
+}
+
+.results-toolbar-item--right {
+    border-right: 0;
+}
+
+.results-toolbar-item--disabled {
+    color: #666;
+}
+
+.results-toolbar-item--active {
+    background-color: #444;
+}
+
+.results-toolbar-item--disabled:hover {
+    color: #666;
+    background-color: transparent;
+}
+
+/* --static is for top bar items that perform no action, only display information */
+.results-toolbar-item--static:hover {
+    background-color: transparent;
+}
+
+.results-toolbar-item__clear-selection {
+    line-height: 35px;
+    width: 118px;}
+
+.results-toolbar-item__sort-direction {
+    padding: 0px;
+}
+
+.results-toolbar-item__metadata-panel-controls {
+    line-height: 35px;
+    width: 130px;
+    height: 36px;
+}
+
+@media screen and (max-width: 800px) {
+    .results-toolbar-item--text {
+        display: none;
+    }
+    .results-toolbar-item__metadata-panel-controls,
+    .results-toolbar-item__clear-selection
+     {
+        width: 18px
+    }
 }
 
 .image-results-count__new {
@@ -768,8 +868,8 @@ input.search-query__input {
 }
 
 .image-results-count {
-    line-height: 40px;
-    float: left;
+    border: 0;
+    line-height: 35px;
 }
 
 .image-results-count,
@@ -777,9 +877,6 @@ input.search-query__input {
     display: inline-block;
 }
 
-.sort-direction {
-    float: right;
-}
 
 .image-results-more {
     margin: 40px 0;
@@ -1080,11 +1177,11 @@ FIXME: what to do with touch devices
 .image-info__group {
     padding: 10px;
     border-bottom: 1px solid #565656;
-} 
+}
 
 .image-info:last-child .image-info__group{
     border-bottom: none;
-}   
+}
 
 .image-info__group table {
     border-collapse: collapse;
@@ -1802,8 +1899,8 @@ ui-archiver .archiver:hover {
 
 .radio-list {
     display: flex;
-    border: 1px solid transparent;
 }
+
 .radio-list--invalid {
     border: 1px solid #ed5935;
 
