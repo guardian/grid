@@ -18,6 +18,8 @@ object UsageRightsOverride {
     case _ => "The Guardian"
   })
 
+  def prImage(m: ImageMetadata) = PrImage()
+
   def contractPhotographer(m: ImageMetadata) =
     ContractPhotographer(removeCommissioned(m.copyright.get), getPublication(m.copyright.get))
   def commissionedPhotographer(m: ImageMetadata) =
@@ -28,8 +30,8 @@ object UsageRightsOverride {
   val copyrightGroupToUsageRightsMap: Map[String, (ImageMetadata) => UsageRights] =
     Map(
       "Free images" -> handout,
-      "TV / film publicity images" -> handout,
-      "TV / film publicity images 2" -> handout,
+      "TV / film publicity images" -> prImage,
+      "TV / film publicity images 2" -> prImage,
 
       "Guardian / Observer - contract staff" -> staffPhotographer,
 
