@@ -5,7 +5,10 @@
     </gr-top-bar-nav>
 
     <gr-top-bar-actions>
-        <a class="top-bar-item" ui:sref="upload" title="your recent uploads">
+        <a ui:sref="upload"
+           gr:track-click="Your recent uploads button"
+           class="top-bar-item"
+           title="your recent uploads">
             <gr-icon>photo_library</gr-icon>
             <span class="top-bar-item__label">your recent uploads</span>
         </a>
