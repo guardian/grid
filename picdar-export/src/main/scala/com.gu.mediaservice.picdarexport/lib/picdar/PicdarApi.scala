@@ -122,7 +122,7 @@ trait PicdarApi extends HttpClient with PicdarInterface with LogHelper {
 
       // Picdar field -> Media metadata key mapping
       // FIXME: Job_Description? Keywords  File_Name? Location Warnings Warning_Info
-      // FIXME: People "Picture Attributes" "Temporary Notes"
+      // FIXME: People "Picture Attributes", "Temporary Notes"
       val metadata = ImageMetadata(
         dateTaken           = None,
         description         = extractField(record, "Caption"),

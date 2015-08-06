@@ -1,10 +1,15 @@
 # Setup
-you will need to  
 
-# Creating the `.jar`
+You will need to get the Picdar properties from a friendly developer near you.
 
-    sbt
-    project picdar-export
-    assembly
+# Building
+
+You need to build the project from the root project (`/grid`)
+
+    ./picdar-export/build.sh
+
+# Running
+
+    ./run.sh <options>
 
 
