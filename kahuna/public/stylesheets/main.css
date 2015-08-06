@@ -835,7 +835,8 @@ input.search-query__input {
 
 .results-toolbar-item__clear-selection {
     line-height: 35px;
-    width: 118px;}
+    width: 118px;
+}
 
 .results-toolbar-item__sort-direction {
     padding: 0px;
