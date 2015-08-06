@@ -128,18 +128,6 @@
         </div>
 
         <div class="image-info__group">
-<<<<<<< HEAD
-            <table class="image-info__group--list">
-                <tbody>
-                    <tr class="metadata-line" ng:if="ctrl.metadata.dateTaken">
-                        <th class="metadata-line__key">taken on</th>
-                        <td class="metadata-line__info">{{ctrl.metadata.dateTaken | date:'d MMM yyyy, HH:mm'}}</td>
-                    </tr>
-                    <tr class="image-info__byline image-info__wrap metadata-line" ng:if="ctrl.metadata.byline || ctrl.userCanEdit" >
-                        <th class="metadata-line metadata-line__key">by</th>
-                        <td class="image-info__byline metadata-line__info">
-                            <button class="image-info__edit"
-=======
             <dl class="image-info__group--dl metadata-line">
                 <dt class="image-info__group--dl__key metadata-line__key" ng:if="ctrl.metadata.dateTaken">taken on</dt>
                 <dd class="image-info__group--dl__value metadata-line__info" ng:if="ctrl.metadata.dateTaken">{{ctrl.metadata.dateTaken | date:'d MMM yyyy, HH:mm'}}</dd>
@@ -147,7 +135,6 @@
                 <dt class="image-info__byline image-info__wrap metadata-line image-info__group--dl__key metadata-line__key" ng:if="ctrl.metadata.byline || ctrl.userCanEdit">by</dt>
                 <dd class="image-info__wrap image-info__group--dl__value metadata-line__info" ng:if="ctrl.metadata.byline || ctrl.userCanEdit">
                     <button class="image-info__edit"
->>>>>>> 7203ce8aad7a43482535295728b7df4dc74096d8
                                     ng:if="ctrl.userCanEdit"
                                     ng:click="bylineEditForm.$show()"
                                     ng:hide="bylineEditForm.$visible"
@@ -158,85 +145,6 @@
                                   e:ng-class="{'image-info__editor--error': $error, 'image-info__editor--saving': bylineEditForm.$waiting}"
                                   e:form="bylineEditForm">
 
-<<<<<<< HEAD
-                                <span ng:if="ctrl.metadata.byline">
-                                    <a ui:sref="search.results({query: (ctrl.metadata.byline | queryFilter:'by')})">{{ctrl.metadata.byline}}</a>
-                                </span>
-                                <span ng:if="! ctrl.metadata.byline">
-                                    unknown (click ✎ to add the byline)
-                                </span>
-                            </span>
-                        </td>
-                    </tr>
-                    <tr class="image-info__credit image-info__wrap metadata-line" ng:if="ctrl.metadata.credit || ctrl.userCanEdit" class="metadata-line">
-                        <th class="metadata-line__key">credit</th>
-                        <td class="image-info__credit metadata-line__info">
-                            <button class="image-info__edit"
-                                ng:if="ctrl.userCanEdit"
-                                ng:click="creditEditForm.$show()"
-                                ng:hide="creditEditForm.$visible">✎</button>
-
-                            <span class="metadata-line__info"
-                                  editable-text="ctrl.metadata.credit"
-                                  e:typeahead="credit for credit in ctrl.credits($viewValue) | limitTo:8"
-                                  onbeforesave="ctrl.updateMetadataField('credit', $data)"
-                                  e:ng-class="{'image-info__editor--error': $error, 'image-info__editor--saving': creditEditForm.$waiting}"
-                                  e:form="creditEditForm">
-
-                                <span ng:if="ctrl.metadata.credit">
-                                    <a ui:sref="search.results({query: (ctrl.metadata.credit | queryFilter:'credit')})">{{ctrl.metadata.credit}}</a>
-                                </span>
-                                <span ng:if="! ctrl.metadata.credit">
-                                    unknown (click ✎ to add the credit)
-                                </span>
-                            </span>
-                        </td>
-                    </tr>
-                    <tr ng:if="ctrl.metadata.subLocation || ctrl.metadata.city || ctrl.metadata.state || ctrl.metadata.country" class="metadata-line">
-                            <th class="metadata-line__key">location</th>
-                            <td class="metadata-line__info">
-                                <span ng:repeat="prop in ['subLocation', 'city', 'state', 'country']" ng:if="ctrl.metadata[prop]">
-                                    <span class="metadata-line__info">
-                                        <a ui:sref="search.results({query: (ctrl.metadata[prop] | queryFilter:ctrl.locationFieldMap[prop])})">{{ctrl.metadata[prop]}}</a
-                                        ></span><span ng:if="! $last">,</span>
-                                </span>
-                            </td>
-                        </span>
-                    </tr>
-                    <tr ng:if="ctrl.metadata.copyright" class="metadata-line">
-                        <th class="metadata-line__key">copyright</th>
-                        <td class="metadata-line__info">
-                             <a ui:sref="search.results({query: (ctrl.metadata.copyright | queryFilter:'copyright')})">{{ctrl.metadata.copyright}}</a>
-                        </td>
-                    </tr>
-                    <tr class="metadata-line">
-                        <th class="metadata-line__key">uploaded</th>
-                        <td class="metadata-line__info">
-                            <span class="metadata-line__info">
-                                {{ctrl.image.data.uploadTime | date:'d MMM yyyy, HH:mm'}}
-                            </span>
-                            <span class="metadata-line__info">
-                                (<a ui:sref="search.results({query: (ctrl.image.data.uploadedBy | queryFilter:'uploader')})">{{ctrl.image.data.uploadedBy | stripEmailDomain}}</a>)
-                            </span>
-                        </td>
-                    </tr>
-                    <tr class="metadata-line" ng:if="!ctrl.crop">
-                        <th class="metadata-line__key">dimensions</th>
-                        <td class="metadata-line__info">
-                            <span class="metadata-line__info">{{ctrl.dimensions.width}} &times; {{ctrl.dimensions.height}}</span>
-                        </td>
-                    </tr>
-                    <tr class="metadata-line" ng:if="ctrl.crop">
-                        <th class="metadata-line__key">dimensions (crop)</th>
-                        <td class="metadata-line__info">
-                            <span class="metadata-line__info">{{ctrl.dimensions.width}} &times; {{ctrl.dimensions.height}}</span>
-                        </td>
-                    </tr>
-
-                </tbody>
-            </table>
-        </div>
-=======
                         <span ng:if="ctrl.metadata.byline">
                             <a ui:sref="search.results({query: (ctrl.metadata.byline | queryFilter:'by')})">{{ctrl.metadata.byline}}</a>
                         </span>
@@ -278,7 +186,6 @@
                             <a ui:sref="search.results({query: (ctrl.metadata[prop] | queryFilter:ctrl.locationFieldMap[prop])})">{{ctrl.metadata[prop]}}</a></span><span ng:if="! $last">,</span>
                     </span>
                 </dd>
->>>>>>> 7203ce8aad7a43482535295728b7df4dc74096d8
 
                 <dt class="image-info__group--dl__key metadata-line__key">copyright</dt>
                 <dd class="image-info__group--dl__value metadata-line__info"><a ui:sref="search.results({query: (ctrl.metadata.copyright | queryFilter:'copyright')})">{{ctrl.metadata.copyright}}</a></dd>
