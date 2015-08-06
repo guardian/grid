@@ -20,16 +20,8 @@
     right: -290px;
     transition: right 0.1s;
 }
-.panel__top,
-.panel__bottom {
-    padding: 10px;
-}
-
-.panel__bottom {
-    height: 40px;
-}
-
 .panel__top {
+    padding: 10px;
     font-size: 18px;
     height: 20px;
 }
@@ -46,7 +38,7 @@
 
 .panel__content {
     clear: both;
-    height: calc(100% - 60px - 60px); /* 60px panel__top, 60px panel__bottom */
+    height: calc(100% - 40px); /* panel__top  (20px height, 20px padding) */
     overflow: auto;
 }
 
