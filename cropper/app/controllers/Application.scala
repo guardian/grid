@@ -86,6 +86,7 @@ object Application extends Controller with ArgoHelpers {
         } recover {
           case InvalidImage => respondError(BadRequest, "invalid-image", InvalidImage.getMessage)
           case MissingSecureSourceUrl => respondError(BadRequest, "no-source-image", MissingSecureSourceUrl.getMessage)
+          case InvalidCropRequest => respondError(BadRequest, "no-source-image", InvalidCropRequest.getMessage)
         }
       }
     )
