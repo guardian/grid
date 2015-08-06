@@ -31,9 +31,9 @@ object UsageRightsConfig {
     "Sports Illustrated Classic",
     "Terry O'Neill",
     "The Asahi Shimbun Premium Archive",
-    "The LIFE images collection",
-    "The LIFE picture collection Editorial",
-    "The LIFE premium collection"
+    "The LIFE Images Collection",
+    "The LIFE Picture Collection Editorial",
+    "The LIFE Premium Collection"
   )
 
   // New rights model, will supersede `freeCreditList` soon
