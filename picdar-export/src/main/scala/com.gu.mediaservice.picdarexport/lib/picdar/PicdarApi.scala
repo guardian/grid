@@ -2,7 +2,9 @@ package com.gu.mediaservice.picdarexport.lib.picdar
 
 import java.net.URI
 
-import com.gu.mediaservice.model.ImageMetadata
+import com.gu.mediaservice.lib.config.{MetadataConfig, PhotographersList}
+import com.gu.mediaservice.model._
+import com.gu.mediaservice.picdarexport.lib.cleanup.UsageRightsOverride
 import com.gu.mediaservice.picdarexport.lib.{Config, LogHelper, HttpClient}
 import com.gu.mediaservice.picdarexport.model.{AssetRef, Asset, DateRange}
 import org.joda.time.DateTime
@@ -120,7 +122,7 @@ trait PicdarApi extends HttpClient with PicdarInterface with LogHelper {
 
       // Picdar field -> Media metadata key mapping
       // FIXME: Job_Description? Keywords  File_Name? Location Warnings Warning_Info
-      // FIXME: People Picture_Attributes Temporary_Notes Copyright_Group (opt? eg Agencies - contract)
+      // FIXME: People "Picture Attributes" "Temporary Notes"
       val metadata = ImageMetadata(
         dateTaken           = None,
         description         = extractField(record, "Caption"),
@@ -140,11 +142,13 @@ trait PicdarApi extends HttpClient with PicdarInterface with LogHelper {
         country             = None
       )
 
+      val usageRights = extractField(record, "Copyright Group") flatMap (UsageRightsOverride.getUsageRights(_, metadata))
+
       // Notes: Date Loaded seems to be the same as Created on, it's not when the image was loaded into the Library...
 
       // Sometimes there is no assetFile at all! lol
       assetFileOpt map { assetFile =>
-        Future.successful(Asset(urn, assetFile, created get, modified, metadata, infoUri))
+        Future.successful(Asset(urn, assetFile, created get, modified, metadata, infoUri, usageRights))
       } getOrElse {
         Future.failed(PicdarError(s"No asset file for $urn"))
       }
