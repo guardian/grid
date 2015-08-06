@@ -5,7 +5,10 @@ object UsageRightsConfig {
   // Note: we filter exclusively on matching source, rather than combining credit=Getty and source=X
   // this is assumed to be good enough as it's unlikely other provider will use the same source.
   val payGettySourceList = List(
-    "Barcroft Media",
+    // TODO: Remove once we are on the new UsageRights model
+    // This is not excluded as we have a deal with Barcroft,
+    // and there are only a tiny amount from Getty
+    // "Barcroft Media",
     "Catwalking",
     "Contour by Getty Images",
     "Contour Style",
