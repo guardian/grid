@@ -500,7 +500,6 @@ textarea.ng-invalid {
     margin: 0;
 }
 
-
 .search-query {
     position: relative;
 }
@@ -1196,6 +1195,40 @@ FIXME: what to do with touch devices
     position: relative;
 }
 
+.image-info__group--dl {
+  width: 100%;
+  display: flex;
+  flex-flow: row wrap;
+}
+
+/*flex-basis values chosen to accommodate longest key*/
+.image-info__group--dl__key { 
+    flex-basis: 40%;
+}
+
+.image-info__group--dl__value {
+    flex-basis: 60%;
+    position: relative;
+}
+
+.image-info__group--dl__key--panel {
+    flex-basis: 30%;
+}
+
+.image-info__group--dl__value--panel {
+    flex-basis: 70%;
+    position: relative;
+}
+
+.image-info__group--dl__key--full-metadata {
+    flex-basis: 45%;
+}
+
+.image-info__group--dl__value--full-metadata {    
+    flex-basis: 55%;
+    position: relative;
+}
+
 .image-info__title {
     color: #ccc;
 }
@@ -1290,8 +1323,10 @@ FIXME: what to do with touch devices
 
 /* targetting .image-info__wrap to win on specificity against default xeditable style */
 .image-info__wrap .editable-buttons {
-    display: block;
+    display: flex;
+    justify-content: flex-end;
     float: right;
+    padding-top: 2px;
 }
 
 .image-info__usage-rights {
@@ -1300,7 +1335,6 @@ FIXME: what to do with touch devices
     font-weight: bold;
     color: #999;
 }
-
 
 .image-info--multiple {
     font-style: italic;
@@ -1327,7 +1361,6 @@ FIXME: what to do with touch devices
 .metadata-line__key {
     font-weight: bold;
     color: #999;
-    padding-right: 20px;
     vertical-align: top;
     text-align: left;
 }
