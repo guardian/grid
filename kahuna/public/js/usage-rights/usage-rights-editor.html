@@ -61,30 +61,13 @@
                             <div class="radio-list" ng:switch-when="false">
                                 <div class="radio-list__item"
                                     ng:repeat="o in property.options">
-
-                                    <input type="radio"
-                                        ng:if="$first && !property.required"
-                                        value=""
-                                        id="none-{{property.name}}-radio-list__item"
-                                        ng:checked="!ctrl.model[property.name]"
-                                        class="radio-list__circle"
-                                        name="{{property.name}}-radio-list" />
-                                    <label
-                                        ng:if="$first && !property.required"
-                                        for="none-{{property.name}}-radio-list__item"
-                                        class="radio-list__label"
-                                        ng:class="{'radio-list--selected': !ctrl.model[property.name]}">
-                                        <div class="radio-list__selection-state"></div>
-                                        <div class="radio-list__label-value">None</div>
-                                    </label>
-
                                     <input type="radio"
                                         value="{{o}}"
                                         id="{{o}}-{{property.name}}-radio-list__item"
                                         class="radio-list__circle"
                                         name="{{property.name}}-radio-list"
-                                        ng:required="property.required"
-                                        ng:model="ctrl.model[property.name]" />
+                                        ng:model="ctrl.model[property.name]"
+                                        required/>
                                     <label
                                         for="{{o}}-{{property.name}}-radio-list__item"
                                         class="radio-list__label"
@@ -114,7 +97,7 @@
                         ng:model="ctrl.model[property.name]"
                         ng:required="property.required"
                         ng:options="o for o in ctrl.getOptionsFor(property)">
-                        <option value="">None</option>
+                        <option value="" disabled>None</option>
                     </select>
 
                 </div>
