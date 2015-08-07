@@ -1167,15 +1167,11 @@ FIXME: what to do with touch devices
 }
 
 .image-details--crop {
-    box-sizing: border-box;
     float: left;
-    font-size: 1.3rem;
-    height: calc(100vh - 50px); /* viewport - top-bar */
-    overflow: auto;
-    width: 300px;
-    border-left: 1px solid #565656;
-    background-color: #444;
+    width: 130px;
+    border-right: 1px solid #565656;
 }
+
 
 .image-details:after {
     clear: both;
@@ -1183,8 +1179,10 @@ FIXME: what to do with touch devices
     display:  table;
 }
 
+/*to clear the set widths of the side panels */
 .image-holder {
     margin-right: 300px;
+    margin-left: 130px;
 }
 
 .image-info__group {
@@ -1212,6 +1210,18 @@ FIXME: what to do with touch devices
   width: 100%;
   display: flex;
   flex-flow: row wrap;
+}
+
+.image-info__group--crop {
+    vertical-align: middle;
+}
+
+.image-info__group--crop__label {
+    padding-left: 5px;
+}
+
+.image-info__group--crop:hover {
+    background-color: #666666;
 }
 
 /*flex-basis values chosen to accommodate longest key*/
@@ -1251,6 +1261,11 @@ FIXME: what to do with touch devices
     font-weight: bold;
     padding-bottom: 3px;
 }
+
+.image-info__heading--crops {
+    flex-basis: 100%;
+}
+
 .image-info__heading--first {
     margin-top: 0;
 }
@@ -1365,6 +1380,10 @@ FIXME: what to do with touch devices
 .metadata-line__info {
     color: #ccc;
     padding-bottom: 10px;
+}
+
+.metadata-line__info--crop {
+    padding-bottom: 0;
 }
 
 .metadata-line__info a {
