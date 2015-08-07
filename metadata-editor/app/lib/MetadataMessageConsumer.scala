@@ -13,7 +13,7 @@ object MetadataMessageConsumer extends MessageConsumer(
 
   override def chooseProcessor(subject: String): Option[JsValue => Future[Any]] =
     PartialFunction.condOpt(subject) {
-      case "new-image" => processNewImage
+      case "image-indexed" => processIndexedImage
     }
 
   def isStaffPhotographer(image: Image) = {
@@ -23,7 +23,7 @@ object MetadataMessageConsumer extends MessageConsumer(
     }
   }
 
-  def processNewImage(jsImage: JsValue): Future[Any] = {
+  def processIndexedImage(jsImage: JsValue): Future[Any] = {
     jsImage.asOpt[Image] match {
       case Some(image: Image) => {
         isStaffPhotographer(image) match {
