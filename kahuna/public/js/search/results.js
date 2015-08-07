@@ -151,7 +151,7 @@ results.controller('SearchResultsCtrl', [
             ctrl.imagesAll = [];
             ctrl.imagesAll.length = Math.min(images.total, ctrl.maxResults);
 
-            imagesPositions = new Map;
+            imagesPositions = new Map();
 
             checkForNewImages();
 
