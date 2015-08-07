@@ -1165,6 +1165,18 @@ FIXME: what to do with touch devices
     border-left: 1px solid #565656;
     background-color: #444;
 }
+
+.image-details--crop {
+    box-sizing: border-box;
+    float: left;
+    font-size: 1.3rem;
+    height: calc(100vh - 50px); /* viewport - top-bar */
+    overflow: auto;
+    width: 300px;
+    border-left: 1px solid #565656;
+    background-color: #444;
+}
+
 .image-details:after {
     clear: both;
     content:  " ";
