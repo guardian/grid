@@ -1,6 +1,7 @@
 .ure {
     width: 100%;
     box-sizing: border-box;
+    white-space: normal;
 }
 
 .ure__cost {
