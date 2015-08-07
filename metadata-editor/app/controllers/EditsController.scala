@@ -10,7 +10,7 @@ import com.gu.mediaservice.model._
 import scala.concurrent.Future
 
 import play.api.data._, Forms._
-import play.api.mvc.Controller
+import play.api.mvc.{Result, Controller}
 import play.api.libs.json._
 import play.api.libs.concurrent.Execution.Implicits._
 
@@ -48,6 +48,7 @@ object EditsController extends Controller with ArgoHelpers {
 
   val Authenticated = EditsApi.Authenticated
   val dynamo = new DynamoDB(Config.awsCredentials, Config.dynamoRegion, Config.editsTable)
+  def couldNotPublishMessage(id: String) = respondError(InternalServerError, "message-not-published", s"Data saved, but indexing could not take place")
 
   def entityUri(id: String, endpoint: String = ""): URI =
     URI.create(s"$rootUri/metadata/$id$endpoint")
@@ -78,14 +79,22 @@ object EditsController extends Controller with ArgoHelpers {
     }
   }
 
+  def publishThenRespond[T](id: String)(respond: (Edits) => Result)(metadata: JsObject): Result = {
+    val edits = metadata.as[Edits]
+    Notifications
+      .publish(id, edits, "update-image-user-metadata")
+      .map(respond)
+      .getOrElse(couldNotPublishMessage(id))
+  }
+
+
   def setArchived(id: String) = Authenticated.async { req =>
     booleanForm.bindFromRequest()(req).fold(
       errors   =>
         Future.successful(BadRequest(errors.errorsAsJson)),
       archived =>
         dynamo.booleanSetOrRemove(id, "archived", archived)
-          .map(publish(id))
-          .map(edits => respond(edits.archived))
+          .map(publishThenRespond(id)(edits => respond(edits.archived)))
     )
   }
 
@@ -111,18 +120,22 @@ object EditsController extends Controller with ArgoHelpers {
       labels => {
         dynamo
           .setAdd(id, "labels", labels)
-          .map(publish(id))
-          .map(edits => labelsCollection(id, edits.labels.toSet))
-          .map {case (uri, labels) => respondCollection(labels)}
+          .map(publishThenRespond(id){ edits =>
+            labelsCollection(id, edits.labels.toSet) match {
+              case (uri, labels) => respondCollection(labels)
+            }
+          })
       }
     )
   }
 
   def removeLabel(id: String, label: String) = Authenticated.async {
     dynamo.setDelete(id, "labels", decodeUriParam(label))
-      .map(publish(id))
-      .map(edits => labelsCollection(id, edits.labels.toSet))
-      .map {case (uri, labels) => respondCollection(labels, uri=Some(uri))}
+      .map(publishThenRespond(id){ edits =>
+        labelsCollection(id, edits.labels.toSet) match {
+          case (uri, labels) => respondCollection(labels, uri=Some(uri))
+        }
+      })
   }
 
 
@@ -140,8 +153,7 @@ object EditsController extends Controller with ArgoHelpers {
       errors => Future.successful(BadRequest(errors.errorsAsJson)),
       metadata =>
         dynamo.jsonAdd(id, "metadata", metadataAsMap(metadata))
-          .map(publish(id))
-          .map(edits => respond(edits.metadata))
+          .map(publishThenRespond(id)(edits => respond(edits.metadata)))
     )
   }
 
@@ -181,14 +193,10 @@ object EditsController extends Controller with ArgoHelpers {
   }
 
 
-  def publish(id: String)(metadata: JsObject): Edits = {
-    val message = Json.obj(
-      "id" -> id,
-      "data" -> metadata
-    )
+  def publish(id: String)(metadata: JsObject): Option[Edits] = {
+    val edits = metadata.as[Edits]
 
-    Notifications.publish(message, "update-image-user-metadata")
-    metadata.as[Edits]
+    Notifications.publish(id, edits, "update-image-user-metadata")
   }
 
 
@@ -255,3 +263,5 @@ object EditsController extends Controller with ArgoHelpers {
 }
 
 case class EditsValidationError(key: String, message: String) extends Throwable
+
+
