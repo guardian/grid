@@ -12,7 +12,6 @@
         <!-- We reset the model here else properties remain attached to the\
         model, even though they don't exist in the form -->
         <select
-            class="full-width"
             ng:model="ctrl.category"
             ng:disabled="ctrl.saving"
             ng:options="category as category.name for category in ctrl.categories track by category.value"
@@ -39,94 +38,113 @@
             ng:repeat="property in ctrl.category.properties"
             ng:class="{ 'form-property--last': $last }">
 
-            <div class="form-label">
-                <div class="form-label__text">{{ property.label }}</div>
-                <!-- TODO: Show errors here -->
-                <!--<div class="form-label__error">Error</div>-->
+            <!-- TODO: potentially pull restrictions out from the
+            server request and add it to all properties -->
+            <div ng:if="property.name === 'restrictions'">
+                <label>
+                    <input type="checkbox"
+                           ng:model="isRestricted"
+                           ng:checked="property.required"
+                           ng:disabled="property.required" />
+                    Restricted
+                </label>
+                <div ng:if="isRestricted || property.required">
+                    <textarea
+                        class="form-input-text"
+                        name="{{ property.name }}"
+                        placeholder="What restrictions apply to this image? e.g. 'Use in relation to the Windsor Triathlon only'"
+                        ng:model="ctrl.model[property.name]"
+                        ng:required="isRestricted || property.required"></textarea>
+                </div>
             </div>
 
-            <div ng:switch="property.type">
-
-                <div ng:switch-when="string">
-                    <input
-                        class="form-input-text"
-                        type="text"
-                        name="{{ property.name }}"
-                        ng:if="!property.options && !property.optionsMap"
-                        ng:model="ctrl.model[property.name]"
-                        ng:required="property.required" />
-
-                    <div ng:if="property.options"
-                         ng:switch="property.options.length > 3">
-                            <div class="radio-list" ng:switch-when="false">
-                                <div class="radio-list__item"
-                                    ng:repeat="o in property.options">
-
-                                    <input type="radio"
-                                        ng:if="$first && !property.required"
-                                        value=""
-                                        id="none-{{property.name}}-radio-list__item"
-                                        ng:checked="!ctrl.model[property.name]"
-                                        class="radio-list__circle"
-                                        name="{{property.name}}-radio-list" />
-                                    <label
-                                        ng:if="$first && !property.required"
-                                        for="none-{{property.name}}-radio-list__item"
-                                        class="radio-list__label"
-                                        ng:class="{'radio-list--selected': !ctrl.model[property.name]}">
-                                        <div class="radio-list__selection-state"></div>
-                                        <div class="radio-list__label-value">None</div>
-                                    </label>
-
-                                    <input type="radio"
-                                        value="{{o}}"
-                                        id="{{o}}-{{property.name}}-radio-list__item"
-                                        class="radio-list__circle"
-                                        name="{{property.name}}-radio-list"
-                                        ng:required="property.required"
-                                        ng:model="ctrl.model[property.name]" />
-                                    <label
-                                        for="{{o}}-{{property.name}}-radio-list__item"
-                                        class="radio-list__label"
-                                        ng:class="{'radio-list--selected': ctrl.model[property.name] === o}">
-                                        <div class="radio-list__selection-state"></div>
-                                        <div class="radio-list__label-value">{{ o }}</div>
-                                    </label>
-
-                                </div>
-                            </div>
-
-                            <select
-                                class="full-width"
-                                name="{{ property.name }}"
-                                ng:switch-when="true"
-                                ng:model="ctrl.model[property.name]"
-                                ng:required="property.required"
-                                ng:options="o for o in property.options">
-                                <option value="">None</option>
-                            </select>
-                    </div>
-
-                    <select
-                        class="full-width"
-                        name="{{ property.name }}"
-                        ng:if="property.optionsMap"
-                        ng:model="ctrl.model[property.name]"
-                        ng:required="property.required"
-                        ng:options="o for o in ctrl.getOptionsFor(property)">
-                        <option value="">None</option>
-                    </select>
-
+            <div ng:if="property.name !== 'restrictions'">
+                <div class="form-label">
+                    <div class="form-label__text">{{ property.label }}</div>
+                    <!-- TODO: Show errors here -->
+                    <!--<div class="form-label__error">Error</div>-->
                 </div>
 
+                <div ng:switch="property.type">
+                    <div ng:switch-when="string">
+                        <input
+                            class="form-input-text"
+                            type="text"
+                            name="{{ property.name }}"
+                            ng:if="!property.options && !property.optionsMap"
+                            ng:model="ctrl.model[property.name]"
+                            ng:required="property.required" />
 
-                <textarea
-                    class="form-input-text"
-                    name="{{ property.name }}"
-                    ng:model="ctrl.model[property.name]"
-                    ng:switch-when="text"
-                    ng:required="property.required"></textarea>
+                        <div ng:if="property.options"
+                             ng:switch="property.options.length > 3">
+                                <div class="radio-list" ng:switch-when="false">
+                                    <div class="radio-list__item"
+                                        ng:repeat="o in property.options">
 
+                                        <input type="radio"
+                                            ng:if="$first && !property.required"
+                                            value=""
+                                            id="none-{{property.name}}-radio-list__item"
+                                            ng:checked="!ctrl.model[property.name]"
+                                            class="radio-list__circle"
+                                            name="{{property.name}}-radio-list" />
+                                        <label
+                                            ng:if="$first && !property.required"
+                                            for="none-{{property.name}}-radio-list__item"
+                                            class="radio-list__label"
+                                            ng:class="{'radio-list--selected': !ctrl.model[property.name]}">
+                                            <div class="radio-list__selection-state"></div>
+                                            <div class="radio-list__label-value">None</div>
+                                        </label>
+
+                                        <input type="radio"
+                                            value="{{o}}"
+                                            id="{{o}}-{{property.name}}-radio-list__item"
+                                            class="radio-list__circle"
+                                            name="{{property.name}}-radio-list"
+                                            ng:required="property.required"
+                                            ng:model="ctrl.model[property.name]" />
+                                        <label
+                                            for="{{o}}-{{property.name}}-radio-list__item"
+                                            class="radio-list__label"
+                                            ng:class="{'radio-list--selected': ctrl.model[property.name] === o}">
+                                            <div class="radio-list__selection-state"></div>
+                                            <div class="radio-list__label-value">{{ o }}</div>
+                                        </label>
+
+                                    </div>
+                                </div>
+
+                                <select
+                                    class="full-width"
+                                    name="{{ property.name }}"
+                                    ng:switch-when="true"
+                                    ng:model="ctrl.model[property.name]"
+                                    ng:required="property.required"
+                                    ng:options="o for o in property.options">
+                                    <option value="">None</option>
+                                </select>
+                        </div>
+
+                        <select
+                            class="full-width"
+                            name="{{ property.name }}"
+                            ng:if="property.optionsMap"
+                            ng:model="ctrl.model[property.name]"
+                            ng:required="property.required"
+                            ng:options="o for o in ctrl.getOptionsFor(property)">
+                            <option value="">None</option>
+                        </select>
+                    </div>
+
+                    <textarea
+                        class="form-input-text"
+                        name="{{ property.name }}"
+                        ng:model="ctrl.model[property.name]"
+                        ng:switch-when="text"
+                        ng:required="property.required">
+                    </textarea>
+                </div>
             </div>
         </label>
     </div>
