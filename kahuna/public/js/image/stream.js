@@ -3,6 +3,8 @@ import Rx from 'rx';
 function imageStream(images_ = []) {
 
     const images = new Set(images_);
+    const images$ = new Rx.BehaviorSubject([]);
+
     updateStream();
 
 
