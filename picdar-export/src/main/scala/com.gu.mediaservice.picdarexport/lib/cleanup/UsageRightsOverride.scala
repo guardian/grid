@@ -61,7 +61,7 @@ object UsageRightsOverride {
       "Agencies - contract Reuters" -> ((m: ImageMetadata) => agency("Reuters")),
       "Agencies - contract" -> ((m: ImageMetadata) => m.copyright.map(Agency(_))),
 
-      "Readers pictures" -> ((m: ImageMetadata) => guardianWitness(m))),
+      "Readers pictures" -> ((m: ImageMetadata) => guardianWitness(m)),
       "Readers' pictures" -> ((m: ImageMetadata) => guardianWitness(m))
     )
 
