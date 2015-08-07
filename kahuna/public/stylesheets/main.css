@@ -1449,10 +1449,6 @@ FIXME: what to do with touch devices
     margin-bottom: -15px;
 }
 
-.labeller::-webkit-scrollbar {
-    display: none;
-}
-
 .label {
     background-color: #00adee;
     color: white;
