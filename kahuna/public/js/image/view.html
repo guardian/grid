@@ -32,6 +32,26 @@
     </gr-top-bar-actions>
 </gr-top-bar>
 
+
+<div class="image-details image-details--crop">
+    <div class="image-info">
+        <div class="image-info__group">
+            <dl class="image-info__group--dl">
+
+                <dt ng:if="!ctrl.crop" class="image-info__group--dl__key metadata-line__key">dimensions</dt>
+                <dd ng:if="!ctrl.crop" class="image-info__group--dl__value metadata-line__info">
+                    <span class="metadata-line__info">{{ctrl.dimensions.width}} &times; {{ctrl.dimensions.height}}</span>
+                </dd>
+
+                <dt ng:if="ctrl.crop" class="image-info__group--dl__key metadata-line__key">dimensions (crop)</dt>
+                <dd ng:if="ctrl.crop" class="image-info__group--dl__value metadata-line__info">
+                    <span class="metadata-line__info">{{ctrl.dimensions.width}} &times; {{ctrl.dimensions.height}}</span>
+                </dd>
+            </dl>
+        </div>
+    </div>
+</div>
+
 <div class="image-details">
 
     <div class="image-info">
@@ -199,16 +219,6 @@
                     <span class="metadata-line__info">
                         (<a ui:sref="search.results({query: (ctrl.image.data.uploadedBy | queryFilter:'uploader')})">{{ctrl.image.data.uploadedBy | stripEmailDomain}}</a>)
                     </span>
-                </dd>
-
-                <dt ng:if="!ctrl.crop" class="image-info__group--dl__key metadata-line__key">dimensions</dt>
-                <dd ng:if="!ctrl.crop" class="image-info__group--dl__value metadata-line__info">
-                    <span class="metadata-line__info">{{ctrl.dimensions.width}} &times; {{ctrl.dimensions.height}}</span>
-                </dd>
-
-                <dt ng:if="ctrl.crop" class="image-info__group--dl__key metadata-line__key">dimensions (crop)</dt>
-                <dd ng:if="ctrl.crop" class="image-info__group--dl__value metadata-line__info">
-                    <span class="metadata-line__info">{{ctrl.dimensions.width}} &times; {{ctrl.dimensions.height}}</span>
                 </dd>
 
             </dl>
