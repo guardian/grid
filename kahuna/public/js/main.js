@@ -290,6 +290,10 @@ kahuna.filter('stripEmailDomain', function() {
     return str => str.replace(/@.+/, '');
 });
 
+kahuna.filter('spaceWords', function() {
+    return str => str.replace( /([A-Z]+)/g, $1 => ' ' + $1.toLowerCase() );
+});
+
 
 kahuna.directive('uiDragData', function() {
     return {

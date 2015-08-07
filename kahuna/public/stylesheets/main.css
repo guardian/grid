@@ -1225,7 +1225,7 @@ FIXME: what to do with touch devices
 }
 
 /*flex-basis values chosen to accommodate longest key*/
-.image-info__group--dl__key { 
+.image-info__group--dl__key {
     flex-basis: 40%;
 }
 
@@ -1247,7 +1247,7 @@ FIXME: what to do with touch devices
     flex-basis: 45%;
 }
 
-.image-info__group--dl__value--full-metadata {    
+.image-info__group--dl__value--full-metadata {
     flex-basis: 55%;
     position: relative;
 }
@@ -1843,6 +1843,7 @@ ui-archiver .archiver:hover {
     top: calc(100% + 8px);
     z-index: 4;
     /* Drop items should win over everything */
+    white-space: nowrap;
 }
 .drop-menu__items--right {
     right: 0;
