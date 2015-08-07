@@ -144,7 +144,7 @@ object Handout {
 case class Screengrab(restrictions: Option[String] = None)
   extends UsageRights {
     val category = "screengrab"
-    val defaultCost = Some(Conditional)
+    val defaultCost = Some(Free)
     val name = "Screengrab"
     val description =
       "Stills created by us from moving footage in television broadcasts " +
