@@ -1794,6 +1794,7 @@ ui-archiver .archiver:hover {
     top: calc(100% + 8px);
     z-index: 4;
     /* Drop items should win over everything */
+    white-space: nowrap;
 }
 .drop-menu__items--right {
     right: 0;
