@@ -31,7 +31,7 @@ class CostCalculatorTest extends FunSpec with Matchers {
     }
 
     it("should not be free with a free supplier but excluded collection") {
-      val usageRights = Agency("Getty Images", Some("Anadolu"))
+      val usageRights = Agency("Getty Images", Some("Terry O'Neill"))
       val cost = CostCalculator.getCost(usageRights)
 
       cost should be (None)
