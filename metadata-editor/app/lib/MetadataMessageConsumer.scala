@@ -2,7 +2,7 @@ package lib
 
 import _root_.play.api.libs.json._
 import com.gu.mediaservice.lib.aws.MessageConsumer
-import com.gu.mediaservice.lib.config.MetadataConfig.StaffPhotographers
+import com.gu.mediaservice.lib.config.MetadataConfig.staffPhotographers
 import com.gu.mediaservice.model.Image
 
 import scala.concurrent.Future
@@ -18,7 +18,7 @@ object MetadataMessageConsumer extends MessageConsumer(
 
   def isStaffPhotographer(image: Image) = {
     image.metadata.byline match {
-      case Some(byline: String) => StaffPhotographers.store.contains(byline)
+      case Some(byline: String) => staffPhotographers.contains(byline)
       case _                    => false
     }
   }
