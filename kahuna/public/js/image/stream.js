@@ -33,13 +33,17 @@ function imageStream(images_) {
         images$.onNext(updatedImages);
     }
 
-    function watchUpdates(...updates$) {
+    function update$(...updates$) {
         updates$.forEach(update$ => {
             update$.subscribe(zipImages);
         });
     }
 
-    return { images$, add, remove, watchUpdates };
+    function getObservable() {
+        return images$;
+    }
+
+    return { getObservable, add, remove, update$ };
 }
 
 

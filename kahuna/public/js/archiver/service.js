@@ -28,7 +28,7 @@ archiverService.factory('archiverService', ['$q', function($q) {
 
         return {
             archive, unarchive,
-            updates$, count$, archivedCount$, notArchivedCount$, hasMixed$ };
+            updated$, count$, archivedCount$, notArchivedCount$, hasMixed$ };
 
         function archive() {
             return save(true);
@@ -49,6 +49,10 @@ archiverService.factory('archiverService', ['$q', function($q) {
             );
 
             return $q.all(edits).then(images => updates$.onNext(images));
+        }
+
+        function updated$(func) {
+            func(updates$);
         }
     }
 

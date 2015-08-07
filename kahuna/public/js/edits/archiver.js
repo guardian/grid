@@ -12,7 +12,7 @@ archiver.controller('ArchiverCtrl', ['$window', 'archiverService',
 
     var ctrl = this;
 
-    const imageStream$ = imageStream([ctrl.image]).images$;
+    const imageStream$ = imageStream([ctrl.image]).getObservable();
     const service = archiverService(imageStream$);
 
     ctrl.saving = false;

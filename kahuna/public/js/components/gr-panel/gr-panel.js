@@ -76,8 +76,8 @@ grPanel.controller('GrPanel', [
             });
         };
 
-        ctrl.archiverService = archiverService(selection.stream.images$);
-        selection.stream.watchUpdates(ctrl.archiverService.updates$);
+        ctrl.archiverService = archiverService(selection.stream.getObservable());
+        ctrl.archiverService.updated$(selection.stream.update$);
 
         $scope.$watch(() => selection.getMetadata(), onValChange(newMetadata => {
             ctrl.rawMetadata = newMetadata;
