@@ -6,16 +6,16 @@ import template from './archiver.html!text';
 
 export const archiver = angular.module('gr.archiver', ['rx.helpers']);
 
-archiver.controller('grArchiverCtrl', ['injectValue$', function(injectValue$) {
+archiver.controller('grArchiverCtrl', ['$scope', 'injectValue$', function($scope, injectValue$) {
 
     var ctrl = this;
 
     const { count$, archivedCount$, notArchivedCount$, hasMixed$ } = ctrl.service;
 
-    injectValue$(ctrl, 'count', count$);
-    injectValue$(ctrl, 'archivedCount', archivedCount$);
-    injectValue$(ctrl, 'notArchivedCount', notArchivedCount$);
-    injectValue$(ctrl, 'hasMixed', hasMixed$);
+    injectValue$($scope, ctrl, 'count', count$);
+    injectValue$($scope, ctrl, 'archivedCount', archivedCount$);
+    injectValue$($scope, ctrl, 'notArchivedCount', notArchivedCount$);
+    injectValue$($scope, ctrl, 'hasMixed', hasMixed$);
 
     ctrl.archive = () => {
         ctrl.archiving = true;
