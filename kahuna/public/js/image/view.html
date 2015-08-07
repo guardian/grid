@@ -8,11 +8,11 @@
     </gr-top-bar-nav>
 
     <gr-top-bar-actions>
-        <button class="top-bar-item"
-                ng:if="ctrl.canBeDeleted"
-                ng:click="ctrl.delete()">
-            <gr-icon>delete</gr-icon><span class="top-bar-item__label">delete</span>
-        </button>
+        <gr-delete-image class="top-bar-item top-bar-item--filled"
+                         ng:if="ctrl.canBeDeleted"
+                         image="ctrl.image"
+                         on-success="ctrl.onDeleteSuccess" on-error="ctrl.onDeleteError">
+        </gr-delete-image>
 
         <a class="top-bar-item" href="{{ ctrl.image.data.source | assetFile }}" download target="_blank">
             <gr-icon>file_download</gr-icon><span class="top-bar-item__label">download</span>
