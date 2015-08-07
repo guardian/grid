@@ -23,7 +23,7 @@
                             {
                                 "Effect": "Allow",
                                 "Action": ["sqs:DeleteMessage", "sqs:ReceiveMessage"],
-                                "Resource": [ { "Fn::GetAtt": ["ImageUploadQueue", "Arn"] } ]
+                                "Resource": [ { "Fn::GetAtt": ["ImageIndexedQueue", "Arn"] } ]
                             },
                             {
                                 "Effect": "Allow",
@@ -33,7 +33,7 @@
                             {
                                 "Effect": "Allow",
                                 "Action": ["sns:Publish"],
-                                "Resource": { "Ref": "ImageUploadTopic" }
+                                "Resource": { "Ref": "ImageIndexedTopic" }
                             },
                             {
                                 "Effect": "Allow",
@@ -276,27 +276,27 @@
                 "Queues": [ { "Ref": "Queue" } ]
             }
         },
-        "ImageUploadTopic": {
+        "ImageIndexedTopic": {
             "Type": "AWS::SNS::Topic",
             "Properties": {
                 "Subscription": [
                     {
-                        "Endpoint": { "Fn::GetAtt": [ "ImageUploadQueue", "Arn" ] },
+                        "Endpoint": { "Fn::GetAtt": [ "ImageIndexedQueue", "Arn" ] },
                         "Protocol": "sqs"
                     }
                 ]
             }
         },
-        "ImageUploadQueue": {
+        "ImageIndexedQueue": {
             "Type": "AWS::SQS::Queue",
             "Properties": {
             }
         },
-        "ImageUploadQueuePolicy": {
+        "ImageIndexedQueuePolicy": {
             "Type": "AWS::SQS::QueuePolicy",
             "Properties": {
                 "PolicyDocument": {
-                    "Id": "ImageUploadQueuePolicy",
+                    "Id": "ImageIndexedQueuePolicy",
                     "Statement": [
                         {
                             "Sid": "Allow-SendMessage-To-Queue-From-Topic",
@@ -305,12 +305,12 @@
                             "Action": ["sqs:SendMessage"],
                             "Resource": "*",
                             "Condition": {
-                                "ArnEquals": { "aws:SourceArn": { "Ref": "ImageUploadTopic" } }
+                                "ArnEquals": { "aws:SourceArn": { "Ref": "ImageIndexedTopic" } }
                             }
                         }
                     ]
                 },
-                "Queues": [ { "Ref": "ImageUploadQueue" } ]
+                "Queues": [ { "Ref": "ImageIndexedQueue" } ]
             }
         }
     },
@@ -348,11 +348,11 @@
         "SqsQueueUrl": {
             "Value": { "Ref" : "Queue" }
         },
-        "ImageUploadSnsTopicArn": {
-            "Value": { "Ref": "ImageUploadTopic" }
+        "ImageIndexedSnsTopicArn": {
+            "Value": { "Ref": "ImageIndexedTopic" }
         },
-        "ImageUploadSqsQueueUrl": {
-            "Value": { "Ref" : "ImageUploadQueue" }
+        "ImageIndexedSqsQueueUrl": {
+            "Value": { "Ref" : "ImageIndexedQueue" }
         }
     }
 }
