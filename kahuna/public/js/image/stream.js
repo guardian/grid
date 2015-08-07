@@ -1,14 +1,10 @@
 import Rx from 'rx';
 
-function imageStream(images_) {
+function imageStream(images_ = []) {
 
-    const images = new Set();
-    const images$ = new Rx.BehaviorSubject([]);
+    const images = new Set(images_);
+    updateStream();
 
-    if (images_) {
-        images_.forEach(image => images.add(image));
-        updateStream();
-    }
 
     function add(image) {
         images.add(image);
@@ -45,8 +41,5 @@ function imageStream(images_) {
 
     return { getObservable, add, remove, update$ };
 }
-
-
-
 
 export default imageStream;
