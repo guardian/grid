@@ -5,6 +5,13 @@
         <gr-icon>more_vert</gr-icon>
     </button>
     <ul class="drop-menu__items drop-menu__items--right" ng:if="showUserActions">
+        <li>
+            <a ui:sref="upload"
+               gr:track-click="Your recent uploads button"
+               gr:track-click-data="{'Location': 'More menu'}">
+                Your recent uploads
+            </a>
+        </li>
         <li><a href="http://goo.gl/forms/GuQyfmwrOu" target="_blank">Feedback</a></li>
         <li><a href="/logout" target="_self">Logout</a></li>
     </ul>
