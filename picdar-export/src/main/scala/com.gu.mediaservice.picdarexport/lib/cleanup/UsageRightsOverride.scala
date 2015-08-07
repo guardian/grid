@@ -5,29 +5,42 @@ import com.gu.mediaservice.model._
 
 object UsageRightsOverride {
 
+  // scared of typos
+  val theGuardian = "The Guardian"
+  val theObserver = "The Guardian"
+
   def removeCommissioned(s: String) = s.replace("(commissioned)", "").trim
-  def getPublication(s: String) = PhotographersList.getPublication(MetadataConfig.allPhotographers, s).getOrElse("The Guardian")
+  def getPublication(s: String) = PhotographersList.getPublication(MetadataConfig.allPhotographers, s).getOrElse(theGuardian)
 
-  def handout(m: ImageMetadata) = Handout()
-  def staffPhotographer(m: ImageMetadata) = StaffPhotographer(m.byline.get, m.copyright.get.toLowerCase match {
-    // we know these are the only values
-    case "the observer" => "The Observer"
-    case "guardian" => "The Guardian"
-    case "for the guardian" => "The Guardian"
-    case "the guardian" => "The Guardian"
-    case _ => "The Guardian"
-  })
+  def prImage(m: ImageMetadata) = Some(PrImage())
+  def guardianWitness(m: ImageMetadata) = Some(GuardianWitness())
+  def agency(agency: String) = Some(Agency(agency))
 
-  def prImage(m: ImageMetadata) = PrImage()
+  def handout(m: ImageMetadata) = Some(Handout())
+  def staffPhotographer(m: ImageMetadata) = (m.byline, m.copyright.map(_.toLowerCase)) match {
+    case (Some(byline), Some("the observer"))     => Some(StaffPhotographer(byline, "The Observer"))
+    case (Some(byline), Some("guardian"))         => Some(StaffPhotographer(byline, theGuardian))
+    case (Some(byline), Some("for the guardian")) => Some(StaffPhotographer(byline, theGuardian))
+    case (Some(byline), Some("the guardian"))     => Some(StaffPhotographer(byline, theGuardian))
+    case (Some(byline), _)                        => Some(StaffPhotographer(byline, theGuardian))
+    case _ => None
+  }
 
-  def contractPhotographer(m: ImageMetadata) =
-    ContractPhotographer(removeCommissioned(m.copyright.get), getPublication(m.copyright.get))
-  def commissionedPhotographer(m: ImageMetadata) =
-    CommissionedPhotographer(removeCommissioned(m.copyright.get), getPublication(m.copyright.get))
+  def contractPhotographer(m: ImageMetadata) = (m.byline, m.copyright) match {
+    case (Some(byline), _)       => Some(ContractPhotographer(byline, getPublication(byline)))
+    case (None, Some(copyright)) => Some(ContractPhotographer(copyright, getPublication(copyright)))
+    case _ => None
+  }
+
+  def commissionedPhotographer(m: ImageMetadata) =(m.byline, m.copyright) match {
+    case (Some(byline), _) => Some(CommissionedPhotographer(byline, getPublication(byline)))
+    case (None, Some(copyright)) => Some(CommissionedPhotographer(removeCommissioned(copyright), getPublication(removeCommissioned(copyright))))
+    case _ => None
+  }
 
   // TODO: What do we do with Commissioned Agencies
   // e.g. "Copyright Group" == "Agencies - commissioned"
-  val copyrightGroupToUsageRightsMap: Map[String, (ImageMetadata) => UsageRights] =
+  val copyrightGroupToUsageRightsMap: Map[String, (ImageMetadata) => Option[UsageRights]] =
     Map(
       "Free images" -> handout,
       "TV / film publicity images" -> prImage,
@@ -40,18 +53,18 @@ object UsageRightsOverride {
       "Freelance photographers - commissioned" -> commissionedPhotographer,
       "Freelance Weekend/Labs photographers - commissioned" -> commissionedPhotographer,
 
-      "Agencies - contract Rex Features" -> ((m: ImageMetadata) => Agency("Rex Features")),
-      "Agencies - contract Barcroft Media" -> ((m: ImageMetadata) => Agency("Barcroft Media")),
+      "Agencies - contract Rex Features" -> ((m: ImageMetadata) => agency("Rex Features")),
+      "Agencies - contract Barcroft Media" -> ((m: ImageMetadata) => agency("Barcroft Media")),
       // there is no consistent collections here, but it doesn't mater as they're all free to use
       // and we only exclude from the collection property
-      "Agencies - contract Getty Collections" -> ((m: ImageMetadata) => Agency("Getty Images")),
-      "Agencies - contract Reuters" -> ((m: ImageMetadata) => Agency("Reuters")),
-      "Agencies - contract" -> ((m: ImageMetadata) => Agency(m.copyright.get)),
+      "Agencies - contract Getty Collections" -> ((m: ImageMetadata) => agency("Getty Images")),
+      "Agencies - contract Reuters" -> ((m: ImageMetadata) => agency("Reuters")),
+      "Agencies - contract" -> ((m: ImageMetadata) => m.copyright.map(Agency(_))),
 
-      "Readers pictures" -> ((m: ImageMetadata) => GuardianWitness()),
-      "Readers' pictures" -> ((m: ImageMetadata) => GuardianWitness())
+      "Readers pictures" -> ((m: ImageMetadata) => guardianWitness(m))),
+      "Readers' pictures" -> ((m: ImageMetadata) => guardianWitness(m))
     )
 
   def getUsageRights(copyrightGroup: String, metadata: ImageMetadata) =
-    copyrightGroupToUsageRightsMap.get(copyrightGroup).map(func => func(metadata))
+    copyrightGroupToUsageRightsMap.get(copyrightGroup).flatMap(func => func(metadata))
 }
