@@ -37,6 +37,7 @@ results.controller('SearchResultsCtrl', [
     '$stateParams',
     '$window',
     '$timeout',
+    '$log',
     'delay',
     'onNextEvent',
     'scrollPosition',
@@ -52,6 +53,7 @@ results.controller('SearchResultsCtrl', [
              $stateParams,
              $window,
              $timeout,
+             $log,
              delay,
              onNextEvent,
              scrollPosition,
@@ -93,6 +95,9 @@ results.controller('SearchResultsCtrl', [
 
         ctrl.images = [];
         ctrl.newImagesCount = 0;
+
+        // Map to track image->position and help remove duplicates
+        let imagesPositions;
 
         // FIXME: This is being refreshed by the router.
         // Make it watch a $stateParams collection instead
@@ -146,6 +151,8 @@ results.controller('SearchResultsCtrl', [
             ctrl.imagesAll = [];
             ctrl.imagesAll.length = Math.min(images.total, ctrl.maxResults);
 
+            imagesPositions = new Map();
+
             checkForNewImages();
 
             // Keep track of time of the latest result for all
@@ -170,12 +177,24 @@ results.controller('SearchResultsCtrl', [
             search({offset: start, length: length}).then(images => {
                 // Update imagesAll with newly loaded images
                 images.data.forEach((image, index) => {
-                    // Only set images that were missing from the Array
-                    // FIXME: might be safer to override, but causes
-                    // issues with object identity in the ng:repeat
-                    if (! ctrl.imagesAll[index + start]) {
-                        ctrl.imagesAll[index + start] = image;
+                    const position = index + start;
+                    const imageId = image.data.id;
+
+                    // If image already present in results at a
+                    // different position (result set shifted due to
+                    // items being spliced in or deleted?), get rid of
+                    // item at its previous position to avoid
+                    // duplicates
+                    const existingPosition = imagesPositions.get(imageId);
+                    if (angular.isDefined(existingPosition) &&
+                        existingPosition !== position) {
+                        $log.info(`Detected duplicate image ${imageId}, ` +
+                                  `old ${existingPosition}, new ${position}`);
+                        delete ctrl.imagesAll[existingPosition];
                     }
+
+                    ctrl.imagesAll[position] = image;
+                    imagesPositions.set(imageId, position);
                 });
 
                 // images should not contain any 'holes'
