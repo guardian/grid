@@ -311,6 +311,11 @@ textarea.ng-invalid {
     background-color: transparent;
 }
 
+.top-bar-item .gr-confirm-delete {
+    border: none;
+    padding: 0 10px;
+}
+
 .user-actions {
     margin-right: -10px;
     padding: 0 5px;
@@ -342,8 +347,14 @@ textarea.ng-invalid {
 }
 
 @media screen and (max-width: 800px) {
-    .top-bar-item__label {
+    .top-bar-item__label,
+    .top-bar-item .gr-delete-image__label,
+    .top-bar-item .gr-confirm-delete__label {
         display: none;
+    }
+
+    .top-bar-item .gr-confirm-delete {
+        min-width: inherit;
     }
 }
 
@@ -1126,6 +1137,12 @@ FIXME: what to do with touch devices
     text-align: left;
 }
 
+.result-editor__delete-image {
+    display: flex;
+    justify-content: flex-end;
+    font-size: 1.4rem;
+}
+
 /* ==========================================================================
    Full Image / crop
    ========================================================================== */
@@ -1676,6 +1693,10 @@ FIXME: what to do with touch devices
     border-bottom: 1px dashed #999;
 }
 
+.upload-result .gr-confirm-delete {
+    padding: 0 10px;
+}
+
 .upload-result:hover .image-actions {
     display: block;
 }
@@ -1970,4 +1991,10 @@ ui-archiver .archiver:hover {
 
 .full-width {
     width: 100%;
+}
+
+.right {
+    display: flex;
+    flex-direction: row;
+    justify-content: flex-end;
 }
