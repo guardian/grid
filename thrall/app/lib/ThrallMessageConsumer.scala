@@ -28,7 +28,7 @@ object ThrallMessageConsumer extends MessageConsumer(
   def indexImage(image: JsValue): Future[Unit] =
     withImageId(image)(id => {
       ElasticSearch.indexImage(id, image) map {
-        _ => ImageUploadNotifications.publish(image, "image-indexed")
+        _ => ImageIndexedNotifications.publish(image, "image-indexed")
       }
     })
 
