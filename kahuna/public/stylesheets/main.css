@@ -1249,6 +1249,7 @@ FIXME: what to do with touch devices
 .image-info__heading {
     color: #999;
     font-weight: bold;
+    padding-bottom: 3px;
 }
 .image-info__heading--first {
     margin-top: 0;
@@ -1442,12 +1443,22 @@ FIXME: what to do with touch devices
     overflow: hidden;
 }
 
+.image-info__group--fixed-panel .labeller{
+    height: auto;
+}
+
 .labels {
     overflow-x: auto;
     white-space: nowrap;
 }
-.labels::-webkit-scrollbar {
-    display: none;
+
+.image-info__group--fixed-panel .labels{
+    white-space: normal;
+}
+
+.preview__info .labels{
+    overflow-y: hidden;
+    margin-bottom: -15px;
 }
 
 .label {
@@ -1499,6 +1510,13 @@ FIXME: what to do with touch devices
 .labeller__add-button {
     margin-left: 10px;
 }
+
+.image-info__group--fixed-panel .labeller__add-button{
+    height: 20px;
+    box-shadow: none;
+}
+
+
 
 .labeller__add-spin {
     animation-name: spin;
