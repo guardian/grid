@@ -1,22 +1,21 @@
 import angular from 'angular';
 
+import '../rx-helpers/rx-helpers';
+
 import template from './archiver.html!text';
 
-export const archiver = angular.module('gr.archiver', []);
+export const archiver = angular.module('gr.archiver', ['rx.helpers']);
 
-archiver.controller('grArchiverCtrl', function() {
+archiver.controller('grArchiverCtrl', ['injectValue$', function(injectValue$) {
 
     var ctrl = this;
-    ctrl.count = 0;
-    ctrl.notArchivedCount = 0;
-    ctrl.archivedCount = 0;
-    ctrl.hasMixed = false;
-    ctrl.archiving = false;
 
-    ctrl.service.count$.subscribe(i => ctrl.count = i);
-    ctrl.service.archivedCount$.subscribe(i => ctrl.archivedCount = i);
-    ctrl.service.notArchivedCount$.subscribe(i => ctrl.notArchivedCount = i);
-    ctrl.service.hasMixed$.subscribe(hasMixed => ctrl.hasMixed = hasMixed);
+    const { count$, archivedCount$, notArchivedCount$, hasMixed$ } = ctrl.service;
+
+    injectValue$(ctrl, 'count', count$);
+    injectValue$(ctrl, 'archivedCount', archivedCount$);
+    injectValue$(ctrl, 'notArchivedCount', notArchivedCount$);
+    injectValue$(ctrl, 'hasMixed', hasMixed$);
 
     ctrl.archive = () => {
         ctrl.archiving = true;
@@ -26,7 +25,7 @@ archiver.controller('grArchiverCtrl', function() {
         ctrl.archiving = true;
         ctrl.service.unarchive().then(() => ctrl.archiving = false);
     };
-});
+}]);
 
 archiver.directive('grArchiver', function() {
     return {

@@ -5,9 +5,9 @@ import 'rx-dom';
 import elementResize from 'javascript-detect-element-resize';
 let {addResizeListener, removeResizeListener} = elementResize;
 
-import './rx-helpers';
 import './gu-lazy-table-cell';
 import './gu-lazy-table-placeholder';
+import '../../rx-helpers/rx-helpers';
 import '../../util/seq';
 
 import {
