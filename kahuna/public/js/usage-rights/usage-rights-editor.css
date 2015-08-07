@@ -1,6 +1,7 @@
 .ure {
     width: 100%;
     box-sizing: border-box;
+    /* TODO: Remove this once we take it out of the dropdown */
     white-space: normal;
 }
 
