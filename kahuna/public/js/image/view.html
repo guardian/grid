@@ -21,31 +21,60 @@
         <ui-archiver class="top-bar-item top-bar-item--filled"
                      image="ctrl.image"
                      with-text="true"></ui-archiver>
-
-        <a class="top-bar-item"
-           ng:if="ctrl.canBeCropped"
-           ui:sref="crop({imageId: ctrl.image.data.id})">
-            <gr-icon>crop</gr-icon><span class="top-bar-item__label">crop</span>
-        </a>
-        <span class="top-bar-item"
-              ng:if="! ctrl.canBeCropped">cannot crop</span>
     </gr-top-bar-actions>
 </gr-top-bar>
 
 
 <div class="image-details image-details--crop">
     <div class="image-info">
-        <div class="image-info__group">
-            <dl class="image-info__group--dl">
+        <div class="image-info__group image-info__group--crop">
+            <a ng:if="ctrl.canBeCropped"
+               ui:sref="crop({imageId: ctrl.image.data.id})">
+                <gr-icon>crop</gr-icon><span class="image-info__group--crop__label">crop image</span>
+            </a>
+            <span class="image-info__group--crop__label" ng:if="! ctrl.canBeCropped">cannot crop</span>
+        </div>
 
-                <dt ng:if="!ctrl.crop" class="image-info__group--dl__key metadata-line__key">dimensions</dt>
-                <dd ng:if="!ctrl.crop" class="image-info__group--dl__value metadata-line__info">
+        <div class="image-info__group">
+            <dl>
+                <dt ng:if="!ctrl.crop" class="metadata-line__key">dimensions</dt>
+                <dd ng:if="!ctrl.crop" class="metadata-line__info metadata-line__info--crop">
                     <span class="metadata-line__info">{{ctrl.dimensions.width}} &times; {{ctrl.dimensions.height}}</span>
                 </dd>
 
-                <dt ng:if="ctrl.crop" class="image-info__group--dl__key metadata-line__key">dimensions (crop)</dt>
-                <dd ng:if="ctrl.crop" class="image-info__group--dl__value metadata-line__info">
+                <dt ng:if="ctrl.crop" class="metadata-line__key">dimensions (crop)</dt>
+                <dd ng:if="ctrl.crop" class="metadata-line__info metadata-line__info--crop">
                     <span class="metadata-line__info">{{ctrl.dimensions.width}} &times; {{ctrl.dimensions.height}}</span>
+                </dd>
+            </dl>
+        </div>
+    </div>
+
+    <div class="image-info">
+        <div class="image-info__group">
+            <dl class="image-info__group--dl" ng:if="ctrl.crops.length > 0">
+                <dt class="image-info__heading image-info__heading--crops">crops <span ng:if="ctrl.crop">(<a ui:sref="{ crop: null }">original</a>)</span></dt>
+                <dd>
+                    <ul class="image-crops">
+                        <li class="image-crop"
+                            ng:repeat="crop in ctrl.crops"
+                            ng:class="{'image-crop--selected': crop == ctrl.crop}">
+                            <a draggable="true"
+                               ng:init="extremeAssets = (crop | getExtremeAssets)"
+                               ng:click="ctrl.cropSelected(crop)"
+                               ui:sref="{crop: crop.id}"
+                               ui:drag-data="{{ctrl.image | asImageAndCropsDragData:crop}}"
+                               ui:drag-image="{{extremeAssets.smallest | assetFile}}">
+                                <img class="image-crop__image" ng:src="{{extremeAssets.smallest | assetFile}}" />
+                            </a>
+                            <div class="image-crop__aspect-ratio">
+                                {{crop.specification.aspectRatio | asAspectRatioWord}}
+                                <span ng:if="crop.specification.aspectRatio">
+                                    ({{crop.specification.aspectRatio}})
+                                </span>
+                            </div>
+                        </li>
+                    </ul>
                 </dd>
             </dl>
         </div>
@@ -251,34 +280,7 @@
         </dl>
     </div>
 
-
     <div class="image-info">
-        <dl class="image-info__group" ng:if="ctrl.crops.length > 0">
-            <dt class="image-info__heading">Crops <span ng:if="ctrl.crop">(<a ui:sref="{ crop: null }">original</a>)</span></dt>
-            <dd>
-                <ul class="image-crops">
-                    <li class="image-crop"
-                        ng:repeat="crop in ctrl.crops"
-                        ng:class="{'image-crop--selected': crop == ctrl.crop}">
-                        <a draggable="true"
-                           ng:init="extremeAssets = (crop | getExtremeAssets)"
-                           ng:click="ctrl.cropSelected(crop)"
-                           ui:sref="{crop: crop.id}"
-                           ui:drag-data="{{ctrl.image | asImageAndCropsDragData:crop}}"
-                           ui:drag-image="{{extremeAssets.smallest | assetFile}}">
-                            <img class="image-crop__image" ng:src="{{extremeAssets.smallest | assetFile}}" />
-                        </a>
-                        <div class="image-crop__aspect-ratio">
-                            {{crop.specification.aspectRatio | asAspectRatioWord}}
-                            <span ng:if="crop.specification.aspectRatio">
-                                ({{crop.specification.aspectRatio}})
-                            </span>
-                        </div>
-                    </li>
-                </ul>
-            </dd>
-        </dl>
-
         <dl class="image-info__group" ng:if="ctrl.metadata.keywords.length > 0">
             <dt class="image-info__heading">Keywords</dt>
             <dd>
