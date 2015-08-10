@@ -18,7 +18,7 @@ object UsageRightsOverride {
 
   def handout(m: ImageMetadata) = Some(Handout())
   def staffPhotographer(m: ImageMetadata) = (m.byline, m.copyright.map(_.toLowerCase)) match {
-    case (Some(byline), Some("the observer"))     => Some(StaffPhotographer(byline, "The Observer"))
+    case (Some(byline), Some("the observer"))     => Some(StaffPhotographer(byline, theObserver))
     case (Some(byline), Some("guardian"))         => Some(StaffPhotographer(byline, theGuardian))
     case (Some(byline), Some("for the guardian")) => Some(StaffPhotographer(byline, theGuardian))
     case (Some(byline), Some("the guardian"))     => Some(StaffPhotographer(byline, theGuardian))
