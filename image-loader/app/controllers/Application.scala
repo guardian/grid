@@ -127,7 +127,7 @@ class ImageLoader extends Controller with ArgoHelpers {
 
 
   def uploadRequestDescription(u: UploadRequest): String = {
-    s"id: ${u.id}, by: ${u.uploadedBy} @ ${u.uploadTime}, mimeType: ${u.mimeType getOrElse "none"}"
+    s"id: ${u.id}, by: ${u.uploadedBy} @ ${u.uploadTime}, mimeType: ${u.mimeType getOrElse "none"}, filename: ${u.uploadInfo.filename getOrElse "none"}"
   }
 
   val invalidUri        = respondError(BadRequest, "invalid-uri", s"The provided 'uri' is not valid")
