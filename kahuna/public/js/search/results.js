@@ -282,10 +282,10 @@ results.controller('SearchResultsCtrl', [
             // initial search so that we are returning an immutable / identical set, just in
             // at different offsets. An example would be search for "today", we would first search
             // for 2015-08-10T23:00:00, get the latest result and then search for that time.
+            // `until` Is only ever sent over explicitly when we are asking for new images.
             // Default explicit until/since to $stateParams
             if (angular.isUndefined(until)) {
                 until = lastSearchFirstResultTime || $stateParams.until;
-                console.log('until', until)
             }
             if (angular.isUndefined(since)) {
                 since = $stateParams.since;
