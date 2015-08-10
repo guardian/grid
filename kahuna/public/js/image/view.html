@@ -196,8 +196,12 @@
                     <span class="metadata-line__info">
                         {{ctrl.image.data.uploadTime | date:'d MMM yyyy, HH:mm'}}
                     </span>
+                </dd>
+
+                <dt class="image-info__group--dl__key metadata-line__key">uploader</dt>
+                <dd class="image-info__group--dl__value metadata-line__info">
                     <span class="metadata-line__info">
-                        (<a ui:sref="search.results({query: (ctrl.image.data.uploadedBy | queryFilter:'uploader')})">{{ctrl.image.data.uploadedBy | stripEmailDomain}}</a>)
+                        <a ui:sref="search.results({query: (ctrl.image.data.uploadedBy | queryFilter:'uploader')})">{{ctrl.image.data.uploadedBy | stripEmailDomain}}</a>
                     </span>
                 </dd>
 
