@@ -281,7 +281,16 @@ results.controller('SearchResultsCtrl', [
 
             // Default explicit until/since to $stateParams
             if (angular.isUndefined(until)) {
-                until = $stateParams.until || lastSearchFirstResultTime;
+                // if `until` is later than the last search time, we should use the latter
+                // to make sure we're not loading in a mutating / updating result list
+                const untilDate = new Date($stateParams.until);
+                const lastSearchDate = new Date(lastSearchFirstResultTime);
+
+                if (untilDate > lastSearchDate) {
+                    until = lastSearchFirstResultTime;
+                } else {
+                    until = $stateParams.until || lastSearchFirstResultTime;
+                }
             }
             if (angular.isUndefined(since)) {
                 since = $stateParams.since;
