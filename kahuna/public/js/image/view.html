@@ -201,6 +201,18 @@
                     </span>
                 </dd>
 
+                <dt ng:if="ctrl.image.data.uploadInfo.filename"
+                    class="image-info__group--dl__key metadata-line__key">
+                    filename
+                </dt>
+                <dd ng:if="ctrl.image.data.uploadInfo.filename"
+                    class="image-info__group--dl__value metadata-line__info"
+                    title="{{ctrl.image.data.uploadInfo.filename}}">
+                    <span class="metadata-line__info">
+                        {{ctrl.image.data.uploadInfo.filename}}
+                    </span>
+                </dd>
+
                 <dt ng:if="!ctrl.crop" class="image-info__group--dl__key metadata-line__key">dimensions</dt>
                 <dd ng:if="!ctrl.crop" class="image-info__group--dl__value metadata-line__info">
                     <span class="metadata-line__info">{{ctrl.dimensions.width}} &times; {{ctrl.dimensions.height}}</span>
