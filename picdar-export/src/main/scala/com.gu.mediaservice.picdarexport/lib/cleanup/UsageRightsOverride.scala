@@ -7,7 +7,7 @@ object UsageRightsOverride {
 
   // scared of typos
   val theGuardian = "The Guardian"
-  val theObserver = "The Guardian"
+  val theObserver = "The Observer"
 
   def removeCommissioned(s: String) = s.replace("(commissioned)", "").trim
   def getPublication(s: String) = PhotographersList.getPublication(MetadataConfig.allPhotographers, s).getOrElse(theGuardian)
