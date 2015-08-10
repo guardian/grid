@@ -277,11 +277,15 @@ results.controller('SearchResultsCtrl', [
         function search({until, since, offset, length} = {}) {
             // FIXME: Think of a way to not have to add a param in a million places to add it
 
+            // If we have a lastSearch time we should always respect it.
+            // The reason for this is that we should never be looking into the future, of our
+            // initial search so that we are returning an immutable / identical set, just in
+            // at different offsets. An example would be search for "today", we would first search
+            // for 2015-08-10T23:00:00, get the latest result and then search for that time.
             // Default explicit until/since to $stateParams
             if (angular.isUndefined(until)) {
-                // if we have a `lastSearchTime`, use that instead of `$stateParams` so that if the
-                // stateParams.until was in the future, we're not loading a mutating set of results.
                 until = lastSearchFirstResultTime || $stateParams.until;
+                console.log('until', until)
             }
             if (angular.isUndefined(since)) {
                 since = $stateParams.since;
