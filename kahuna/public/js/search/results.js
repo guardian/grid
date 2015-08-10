@@ -281,17 +281,13 @@ results.controller('SearchResultsCtrl', [
 
             // Default explicit until/since to $stateParams
             if (angular.isUndefined(until)) {
-                until = $stateParams.until || lastSearchFirstResultTime;
+                // if we have a `lastSearchTime`, use that instead of `$stateParams` so that if the
+                // stateParams.until was in the future, we're not loading a mutating set of results.
+                until = lastSearchFirstResultTime || $stateParams.until;
             }
             if (angular.isUndefined(since)) {
                 since = $stateParams.since;
             }
-
-            // if `until` is later than the last search time, we should use the latter
-            // to make sure we're not loading in a mutating / updating result list
-            const untilDate = new Date(until);
-            const lastSearchDate = new Date(lastSearchFirstResultTime);
-            const notFutureUntil = untilDate > lastSearchDate ? lastSearchFirstResultTime : until;
 
             return mediaApi.search($stateParams.query, angular.extend({
                 ids:        $stateParams.ids,
@@ -299,7 +295,7 @@ results.controller('SearchResultsCtrl', [
                 // The nonFree state param is the inverse of the free API param
                 free:       $stateParams.nonFree === 'true' ? undefined: true,
                 uploadedBy: $stateParams.uploadedBy,
-                until:      notFutureUntil,
+                until:      until,
                 since:      since,
                 offset:     offset,
                 length:     length,
