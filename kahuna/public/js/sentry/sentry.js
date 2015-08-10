@@ -3,20 +3,29 @@ import raven from 'raven-js';
 
 export var sentry = angular.module('sentry', []);
 
-// TODO: Add user information
-// TODO: Catch angular errors nicely
+const httpErrorProps = ['config', 'data', 'headers', 'status', 'statusText'];
+function isHttpError(obj) {
+    const objKeys = Object.keys(obj);
+    return httpErrorProps.every(key => objKeys.indexOf(key) !== -1);
+}
 
 sentry.factory('sentryEnabled', ['sentryDsn', function(sentryDsn) {
     return angular.isString(sentryDsn);
 }]);
 
-sentry.factory('sentry', [function() {
+// TODO: Alternatively could investigate angular-raven
+sentry.config(['$provide', function ($provide) {
+    $provide.decorator('$exceptionHandler', ['$delegate', function ($delegate) {
+        return function (exception, cause) {
+            $delegate(exception, cause);
 
-    function trigger(errorMessage, extra) {
-        raven.captureException(new Error(errorMessage), { extra });
-    }
-
-    return { trigger };
+            // Don't send failed HTTP requests as that's mostly just
+            // noise we already get in other logs
+            if (! isHttpError(exception)) {
+                raven.captureException(exception, cause);
+            }
+        };
+    }]);
 }]);
 
 sentry.run(['$rootScope', 'sentryEnabled', 'sentryDsn',
