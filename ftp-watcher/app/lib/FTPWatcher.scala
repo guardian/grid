@@ -1,5 +1,7 @@
 package lib
 
+import java.net.URLEncoder
+
 import scala.concurrent.duration._
 import scala.util.control.NonFatal
 
@@ -110,7 +112,8 @@ class FTPWatcher(host: String, port: Int, user: String, password: String) {
 
   def uploadImage: Channel[Task, File, FailedUpload \/ FilePath] =
     Process.constant { case File(path, bytes, uploadedBy) =>
-      val uri = Config.imageLoaderUri + "?uploadedBy=" + uploadedBy
+      val filename = URLEncoder.encode(path.split("/").last.trim, "utf-8")
+      val uri = Config.imageLoaderUri + s"?uploadedBy=$uploadedBy&filename=$filename"
       val upload = Task {
         val client = HttpClients.createDefault
         val postReq = new HttpPost(uri)
