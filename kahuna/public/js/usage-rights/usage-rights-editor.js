@@ -114,11 +114,6 @@ usageRightsEditor.controller(
     ctrl.pluraliseCategory = () => ctrl.category.name +
         (ctrl.category.name.toLowerCase().endsWith('image') ? 's' : ' images');
 
-    ctrl.restrictionsPlaceholder = () => ctrl.getCost() === 'conditional' ?
-        'e.g. Use in relation to the Windsor Triathlon only' :
-        'Adding restrictions will mark this image as restricted. ' +
-        'Leave blank if there aren\'t any.';
-
     ctrl.getOptionsFor = property => {
         const key = ctrl.category
                         .properties
