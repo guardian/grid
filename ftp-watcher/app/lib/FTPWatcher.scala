@@ -84,7 +84,8 @@ class FTPWatcher(host: String, port: Int, user: String, password: String) {
 
   private def initClient: Task[Client] =
     Task.delay(new Client).flatMap { client =>
-      client.connect(host, port) >>
+        client.setControlEncoding("utf-8") >>
+        client.connect(host, port) >>
         client.login(user, password) >>
         client.enterLocalPassiveMode >>
         client.setBinaryFileType >|

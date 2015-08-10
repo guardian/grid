@@ -32,6 +32,9 @@ final class Client {
   def setBinaryFileType: Task[Unit] =
     Task(client.setFileType(FTP.BINARY_FILE_TYPE))
 
+  def setControlEncoding(encoding: String): Task[Unit] =
+    Task(client.setControlEncoding(encoding))
+
   def listFiles(path: FilePath): Task[List[FilePath]] =
     Task { client.listFiles(path, FileFilter).toList.map(_.getName) }
 
