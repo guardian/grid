@@ -1210,6 +1210,9 @@ FIXME: what to do with touch devices
 .image-info__group--dl__value {
     flex-basis: 60%;
     position: relative;
+    /* cut long words */
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .image-info__group--dl__key--panel {
