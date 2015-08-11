@@ -221,9 +221,11 @@ results.controller('SearchResultsCtrl', [
         // FIXME: this will only add up to 50 images (search capped)
         function checkForNewImages() {
             $timeout(() => {
-                const latestTime = lastSearchFirstResultTime;
                 // Use explicit `until`, or blank it to find new images
-                search({since: latestTime, length: 0, until: $stateParams.until || null}).then(resp => {
+                const until = $stateParams.until || null;
+                const latestTime = lastSearchFirstResultTime;
+
+                search({since: latestTime, length: 0, until}).then(resp => {
                     // FIXME: minor assumption that only the latest
                     // displayed image is matching the uploadTime
                     ctrl.newImagesCount = resp.total - 1;
