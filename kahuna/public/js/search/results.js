@@ -37,6 +37,7 @@ results.controller('SearchResultsCtrl', [
     '$stateParams',
     '$window',
     '$timeout',
+    '$log',
     'delay',
     'onNextEvent',
     'scrollPosition',
@@ -52,6 +53,7 @@ results.controller('SearchResultsCtrl', [
              $stateParams,
              $window,
              $timeout,
+             $log,
              delay,
              onNextEvent,
              scrollPosition,
@@ -93,6 +95,9 @@ results.controller('SearchResultsCtrl', [
 
         ctrl.images = [];
         ctrl.newImagesCount = 0;
+
+        // Map to track image->position and help remove duplicates
+        let imagesPositions;
 
         // FIXME: This is being refreshed by the router.
         // Make it watch a $stateParams collection instead
@@ -146,6 +151,8 @@ results.controller('SearchResultsCtrl', [
             ctrl.imagesAll = [];
             ctrl.imagesAll.length = Math.min(images.total, ctrl.maxResults);
 
+            imagesPositions = new Map();
+
             checkForNewImages();
 
             // Keep track of time of the latest result for all
@@ -170,12 +177,24 @@ results.controller('SearchResultsCtrl', [
             search({offset: start, length: length}).then(images => {
                 // Update imagesAll with newly loaded images
                 images.data.forEach((image, index) => {
-                    // Only set images that were missing from the Array
-                    // FIXME: might be safer to override, but causes
-                    // issues with object identity in the ng:repeat
-                    if (! ctrl.imagesAll[index + start]) {
-                        ctrl.imagesAll[index + start] = image;
+                    const position = index + start;
+                    const imageId = image.data.id;
+
+                    // If image already present in results at a
+                    // different position (result set shifted due to
+                    // items being spliced in or deleted?), get rid of
+                    // item at its previous position to avoid
+                    // duplicates
+                    const existingPosition = imagesPositions.get(imageId);
+                    if (angular.isDefined(existingPosition) &&
+                        existingPosition !== position) {
+                        $log.info(`Detected duplicate image ${imageId}, ` +
+                                  `old ${existingPosition}, new ${position}`);
+                        delete ctrl.imagesAll[existingPosition];
                     }
+
+                    ctrl.imagesAll[position] = image;
+                    imagesPositions.set(imageId, position);
                 });
 
                 // images should not contain any 'holes'
@@ -203,10 +222,8 @@ results.controller('SearchResultsCtrl', [
         function checkForNewImages() {
             $timeout(() => {
                 const latestTime = lastSearchFirstResultTime;
-                // Blank any 'until' parameter to look for new images
-                // TODO: if a manual until was set (e.g. using date
-                // picker), don't check for new images until now
-                search({since: latestTime, length: 0, until: null}).then(resp => {
+                // Use explicit `until`, or blank it to find new images
+                search({since: latestTime, length: 0, until: $stateParams.until || null}).then(resp => {
                     // FIXME: minor assumption that only the latest
                     // displayed image is matching the uploadTime
                     ctrl.newImagesCount = resp.total - 1;
@@ -256,13 +273,26 @@ results.controller('SearchResultsCtrl', [
             return $stateParams.query || '*';
         }
 
-
         function search({until, since, offset, length} = {}) {
             // FIXME: Think of a way to not have to add a param in a million places to add it
 
-            // Default explicit until/since to $stateParams
+            /*
+             * @param `until` can have three values:
+             *
+             * - `null`      => Don't send over a date, which will default to `now()` on the server.
+             *                  Used in `checkForNewImages` with no until in `stateParams` to search
+             *                  for the new image count
+             *
+             * - `string`    => Override the use of `stateParams` or `lastSearchFirstResultTime`.
+             *                  Used in `checkForNewImages` when a `stateParams.until` is set.
+             *
+             * - `undefined` => Default. We then use the `lastSearchFirstResultTime` if available to
+             *                  make sure we aren't loading any new images into the result set and
+             *                  `checkForNewImages` deals with that. If it's the first search, we
+             *                  will use `stateParams.until` if available.
+             */
             if (angular.isUndefined(until)) {
-                until = $stateParams.until || lastSearchFirstResultTime;
+                until = lastSearchFirstResultTime || $stateParams.until;
             }
             if (angular.isUndefined(since)) {
                 since = $stateParams.since;

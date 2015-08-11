@@ -51,12 +51,12 @@
   "devDependencies": {
     "jscs": "^1.13.0",
     "jshint": "^2.5.11",
-    "jspm": "~0.16.0-beta"
+    "jspm": "0.16.0-beta.3"
   },
   "scripts": {
     "test": "npm run lint",
     "lint": "jscs public/js/ && jshint public/js --exclude public/js/dist/build.js",
-    "ci": "jspm config endpoints.github.auth `echo -n JSPM_GITHUB_AUTH_USERNAME:$JSPM_GITHUB_AUTH_TOKEN | base64`",
+    "ci": "jspm config registries.github.auth `echo -n JSPM_GITHUB_AUTH_USERNAME:$JSPM_GITHUB_AUTH_TOKEN | base64`",
     "dist": "jspm bundle js/main public/js/dist/build.js -m --inject",
     "undist": "jspm unbundle && rm -f public/js/dist/build.js*"
   },

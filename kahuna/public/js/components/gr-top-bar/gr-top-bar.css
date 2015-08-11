@@ -2,7 +2,7 @@ gr-top-bar {
     display: block;
     height: 50px; /* faking we're in the flow */
     position: relative;
-    z-index: 2;
+    z-index: 3;
 }
 
 gr-top-bar-nav {

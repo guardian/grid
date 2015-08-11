@@ -30,6 +30,7 @@ object UsageRights {
   // be good to know though.
   implicit def jsonWrites[T <: UsageRights]: Writes[T] = Writes[T] {
     case o: Agency                   => Agency.jsonWrites.writes(o)
+    case o: CommissionedAgency       => CommissionedAgency.jsonWrites.writes(o)
     case o: PrImage                  => PrImage.jsonWrites.writes(o)
     case o: Handout                  => Handout.jsonWrites.writes(o)
     case o: Screengrab               => Screengrab.jsonWrites.writes(o)
@@ -54,6 +55,7 @@ object UsageRights {
 
       (category flatMap {
         case "agency"                    => json.asOpt[Agency]
+        case "commissioned-agency"       => json.asOpt[CommissionedAgency]
         case "PR Image"                  => json.asOpt[PrImage]
         case "handout"                   => json.asOpt[Handout]
         case "screengrab"                => json.asOpt[Screengrab]
@@ -101,7 +103,7 @@ case class Agency(supplier: String, suppliersCollection: Option[String] = None, 
     val name = "Agency"
     val description =
       "Agencies such as Getty, Reuters, Press Association, etc. where " +
-      "subscription fees are paid to access and use pictures."
+      "subscription fees are paid to access and use their pictures."
   }
 object Agency {
  implicit val jsonReads: Reads[Agency] = Json.reads[Agency]
@@ -112,6 +114,25 @@ object Agency {
    (__ \ "restrictions").writeNullable[String]
  )(s => (s.category, s.supplier, s.suppliersCollection, s.restrictions))
 }
+
+
+case class CommissionedAgency(supplier: String, restrictions: Option[String] = None)
+  extends UsageRights {
+    val category = "commissioned-agency"
+    val defaultCost = Some(Free)
+    val name = "Agency - Commissioned"
+    val description =
+      "Images commissioned and paid for from agencies."
+  }
+object CommissionedAgency {
+ implicit val jsonReads: Reads[CommissionedAgency] = Json.reads[CommissionedAgency]
+ implicit val jsonWrites: Writes[CommissionedAgency] = (
+   (__ \ "category").write[String] ~
+   (__ \ "supplier").write[String] ~
+   (__ \ "restrictions").writeNullable[String]
+ )(s => (s.category, s.supplier, s.restrictions))
+}
+
 
 case class PrImage(restrictions: Option[String] = None)
   extends UsageRights {
@@ -127,6 +148,7 @@ object PrImage {
   implicit val jsonWrites: Writes[PrImage] = UsageRights.defaultWrites
 }
 
+
 case class Handout(restrictions: Option[String] = None)
   extends UsageRights {
     val category = "handout"
@@ -141,10 +163,11 @@ object Handout {
   implicit val jsonWrites: Writes[Handout] = UsageRights.defaultWrites
 }
 
+
 case class Screengrab(restrictions: Option[String] = None)
   extends UsageRights {
     val category = "screengrab"
-    val defaultCost = Some(Conditional)
+    val defaultCost = Some(Free)
     val name = "Screengrab"
     val description =
       "Stills created by us from moving footage in television broadcasts " +
@@ -226,6 +249,7 @@ object StaffPhotographer {
  )(s => (s.category, s.photographer, s.publication, s.restrictions))
 }
 
+
 case class ContractPhotographer(photographer: String, publication: String, restrictions: Option[String] = None)
   extends UsageRights {
     val category = "contract-photographer"
@@ -244,6 +268,7 @@ object ContractPhotographer {
  )(s => (s.category, s.photographer, s.publication, s.restrictions))
 }
 
+
 case class CommissionedPhotographer(photographer: String, publication: String, restrictions: Option[String] = None)
   extends UsageRights {
     val category = "commissioned-photographer"
@@ -261,6 +286,7 @@ object CommissionedPhotographer {
    (__ \ "restrictions").writeNullable[String]
  )(s => (s.category, s.photographer, s.publication, s.restrictions))
 }
+
 
 case class Pool(restrictions: Option[String] = None)
   extends UsageRights {

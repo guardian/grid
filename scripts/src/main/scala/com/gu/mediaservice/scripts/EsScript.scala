@@ -122,7 +122,7 @@ abstract class EsScript {
   // FIXME: Get from config (no can do as Config is coupled to Play)
   final val esApp   = "elasticsearch"
   final val esPort = 9300
-  final val esCluster = "media-api"
+  final val esCluster = "media-service"
 
   def log(msg: String) = System.out.println(s"[Reindexer]: $msg")
 

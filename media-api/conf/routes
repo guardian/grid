@@ -27,3 +27,6 @@ GET     /management/manifest        com.gu.mediaservice.lib.management.Managemen
 # Enable CORS
 OPTIONS /                           controllers.CorsPreflight.options(ignoredUrl = "")
 OPTIONS /*ignoredUrl                controllers.CorsPreflight.options(ignoredUrl)
+
+# Shoo robots away
+GET     /robots.txt                 controllers.Robots.disallowAll
