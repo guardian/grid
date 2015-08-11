@@ -43,18 +43,18 @@
             <div ng:if="property.name === 'restrictions'">
                 <label>
                     <input type="checkbox"
-                           ng:model="isRestricted"
+                           ng:model="ctrl.showRestrictions"
                            ng:checked="property.required"
                            ng:disabled="property.required" />
                     Restricted
                 </label>
-                <div ng:if="isRestricted || property.required">
+                <div ng:if="ctrl.showRestrictions || property.required">
                     <textarea
                         class="form-input-text"
                         name="{{ property.name }}"
                         placeholder="What restrictions apply to this image? e.g. 'Use in relation to the Windsor Triathlon only'"
                         ng:model="ctrl.model[property.name]"
-                        ng:required="isRestricted || property.required"></textarea>
+                        ng:required="ctrl.showRestrictions || property.required"></textarea>
                 </div>
             </div>
 

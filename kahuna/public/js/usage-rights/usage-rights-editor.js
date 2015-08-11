@@ -64,6 +64,7 @@ usageRightsEditor.controller(
 
 
         ctrl.model = getGroupModel(ctrl.usageRights);
+        ctrl.showRestrictions = angular.isDefined(ctrl.model.restrictions);
     };
 
     // setting our initial values
@@ -123,6 +124,12 @@ usageRightsEditor.controller(
         const val = ctrl.model[key];
         return property.optionsMap[val];
     };
+
+    $scope.$watch(() => ctrl.showRestrictions, onValChange(isRestricted => {
+        if (!isRestricted) {
+            delete ctrl.model.restrictions;
+        }
+    }));
 
     function setCategory(val) {
         ctrl.category = ctrl.categories.find(cat => cat.value === val);
