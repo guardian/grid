@@ -624,7 +624,7 @@ input.search-query__input {
 }
 
 .results--panel-locked {
-    width: calc(100%- 284px);
+    width: calc(100% - 290px);
 }
 
 .results--left {
@@ -1203,13 +1203,16 @@ FIXME: what to do with touch devices
 }
 
 /*flex-basis values chosen to accommodate longest key*/
-.image-info__group--dl__key { 
+.image-info__group--dl__key {
     flex-basis: 40%;
 }
 
 .image-info__group--dl__value {
     flex-basis: 60%;
     position: relative;
+    /* cut long words */
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .image-info__group--dl__key--panel {
@@ -1225,7 +1228,7 @@ FIXME: what to do with touch devices
     flex-basis: 45%;
 }
 
-.image-info__group--dl__value--full-metadata {    
+.image-info__group--dl__value--full-metadata {
     flex-basis: 55%;
     position: relative;
 }
@@ -1237,6 +1240,7 @@ FIXME: what to do with touch devices
 .image-info__heading {
     color: #999;
     font-weight: bold;
+    padding-bottom: 3px;
 }
 .image-info__heading--first {
     margin-top: 0;
@@ -1430,12 +1434,22 @@ FIXME: what to do with touch devices
     overflow: hidden;
 }
 
+.image-info__group--fixed-panel .labeller{
+    height: auto;
+}
+
 .labels {
     overflow-x: auto;
     white-space: nowrap;
 }
-.labels::-webkit-scrollbar {
-    display: none;
+
+.image-info__group--fixed-panel .labels{
+    white-space: normal;
+}
+
+.preview__info .labels{
+    overflow-y: hidden;
+    margin-bottom: -15px;
 }
 
 .label {
@@ -1487,6 +1501,13 @@ FIXME: what to do with touch devices
 .labeller__add-button {
     margin-left: 10px;
 }
+
+.image-info__group--fixed-panel .labeller__add-button{
+    height: 20px;
+    box-shadow: none;
+}
+
+
 
 .labeller__add-spin {
     animation-name: spin;
@@ -1794,6 +1815,7 @@ ui-archiver .archiver:hover {
     top: calc(100% + 8px);
     z-index: 4;
     /* Drop items should win over everything */
+    white-space: nowrap;
 }
 .drop-menu__items--right {
     right: 0;

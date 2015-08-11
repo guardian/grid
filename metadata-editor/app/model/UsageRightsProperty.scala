@@ -48,6 +48,8 @@ object UsageRightsProperty {
       UsageRightsProperty("supplier", "Supplier", "string", true, Some(UsageRightsConfig.freeSuppliers.sortWith(_.toLowerCase < _.toLowerCase))),
       UsageRightsProperty("suppliersCollection", "Collection", "string", false)
     )
+
+    case _:CommissionedAgency => List(UsageRightsProperty("supplier", "Supplier", "string", true))
     case _ => List()
   }
 

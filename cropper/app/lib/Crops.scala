@@ -2,12 +2,13 @@ package lib
 
 import scala.concurrent.Future
 import lib.imaging.{ExportOperations, ExportResult}
-import com.gu.mediaservice.model.{Asset, Dimensions, SourceImage, Crop, Bounds}
+import com.gu.mediaservice.model.{Asset, Dimensions, SourceImage, Crop, Bounds, CropSource}
 import java.net.{URI, URL}
 import java.io.File
 
 case object InvalidImage extends Exception("Invalid image cannot be cropped")
 case object MissingSecureSourceUrl extends Exception("Missing secureUrl from source API")
+case object InvalidCropRequest extends Exception("Crop request invalid for image dimesions")
 
 case class MasterCrop(sizing: Future[Asset], file: File, dimensions: Dimensions, aspectRatio: Float)
 
@@ -52,10 +53,24 @@ object Crops {
     else
       Config.landscapeCropSizingWidths.filter(_ <= bounds.width).map(w => Dimensions(w, math.round(w / aspectRatio)))
 
+  def isInvalidCrop(asset: Asset, specification: CropSource): Boolean = {
+    asset.dimensions.map { dimensions =>
+      val bounds = specification.bounds
+
+      val outOfBounds = bounds.x > dimensions.width || bounds.y > dimensions.height
+      val cropTooSmall = bounds.width < 1 || bounds.height < 1
+      val cropTooBig = bounds.width > dimensions.width || bounds.height > dimensions.height
+
+      outOfBounds || cropTooSmall || cropTooBig
+    } getOrElse true
+  }
+
   def export(apiImage: SourceImage, crop: Crop): Future[ExportResult] = {
     val source    = crop.specification
     val mediaType = "image/jpeg"
     val secureUrl = apiImage.source.secureUrl.getOrElse(throw MissingSecureSourceUrl)
+
+    if(isInvalidCrop(apiImage.source, source)) throw InvalidCropRequest
 
     for {
       sourceFile <- tempFileFromURL(secureUrl, "cropSource", "")

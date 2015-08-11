@@ -25,3 +25,6 @@ GET     /management/manifest              com.gu.mediaservice.lib.management.Man
 
 # Enable CORS
 OPTIONS /*url                             controllers.CorsPreflight.options(url: String)
+
+# Shoo robots away
+GET     /robots.txt                 controllers.Robots.disallowAll
