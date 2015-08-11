@@ -49,10 +49,7 @@ object UsageRightsProperty {
       UsageRightsProperty("suppliersCollection", "Collection", "string", false)
     )
 
-    case _:CommissionedAgency => List(
-      UsageRightsProperty("supplier", "Supplier", "string", true),
-      UsageRightsProperty("suppliersCollection", "Collection", "string", false)
-    )
+    case _:CommissionedAgency => List(UsageRightsProperty("supplier", "Supplier", "string", true))
     case _ => List()
   }
 
