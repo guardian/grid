@@ -222,7 +222,7 @@ results.controller('SearchResultsCtrl', [
         function checkForNewImages() {
             $timeout(() => {
                 const latestTime = lastSearchFirstResultTime;
-                // Blank any 'until' parameter to look for new images
+                // Use explicit `until`, or blank it to find new images
                 search({since: latestTime, length: 0, until: $stateParams.until || null}).then(resp => {
                     // FIXME: minor assumption that only the latest
                     // displayed image is matching the uploadTime
