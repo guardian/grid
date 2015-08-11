@@ -273,17 +273,24 @@ results.controller('SearchResultsCtrl', [
             return $stateParams.query || '*';
         }
 
-
         function search({until, since, offset, length} = {}) {
             // FIXME: Think of a way to not have to add a param in a million places to add it
 
-            // If we have a lastSearch time we should always respect it.
-            // The reason for this is that we should never be looking into the future, of our
-            // initial search so that we are returning an immutable / identical set, just in
-            // at different offsets. An example would be search for "today", we would first search
-            // for 2015-08-10T23:00:00, get the latest result and then search for that time.
-            // `until` Is only ever sent over explicitly when we are asking for new images.
-            // Default explicit until/since to $stateParams
+            /*
+             * @param `until` can have three values:
+             *
+             * - `null`      => Don't send over a date, which will default to `now()` on the server.
+             *                  Used in `checkForNewImages` with no until in `stateParams` to search
+             *                  for the new image count
+             *
+             * - `string`    => Override the use of `stateParams` or `lastSearchFirstResultTime`.
+             *                  Used in `checkForNewImages` when a `stateParams.until` is set.
+             *
+             * - `undefined` => Default. We then use the `lastSearchFirstResultTime` if available to
+             *                  make sure we aren't loading any new images into the result set and
+             *                  `checkForNewImages` deals with that. If it's the first search, we
+             *                  will use `stateParams.until` if available.
+             */
             if (angular.isUndefined(until)) {
                 until = lastSearchFirstResultTime || $stateParams.until;
             }
