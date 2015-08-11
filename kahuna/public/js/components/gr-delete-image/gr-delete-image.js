@@ -3,23 +3,22 @@ import '../gr-confirm-delete/gr-confirm-delete';
 
 export const deleteImage = angular.module('gr.deleteImage', ['gr.confirmDelete']);
 
-deleteImage.controller('grDeleteImageCtrl', ['$rootScope', '$scope', 'mediaApi',
-    function ($rootScope, $scope, mediaApi) {
-        var ctrl = this;
+deleteImage.controller('grDeleteImageCtrl', ['mediaApi', function (mediaApi) {
+    var ctrl = this;
 
-        ctrl.delete = function () {
-            mediaApi.delete(ctrl.image)
-                .then((resp) => {
-                    if (angular.isDefined(ctrl.onSuccess)) {
-                        ctrl.onSuccess(resp);
-                    }
-                })
-                .catch((err) => {
-                    if (angular.isDefined(ctrl.onError)) {
-                        ctrl.onError(err);
-                    }
-                });
-        };
+    ctrl.delete = function () {
+        mediaApi.delete(ctrl.image)
+            .then((resp) => {
+                if (angular.isDefined(ctrl.onSuccess)) {
+                    ctrl.onSuccess(resp);
+                }
+            })
+            .catch((err) => {
+                if (angular.isDefined(ctrl.onError)) {
+                    ctrl.onError(err);
+                }
+            });
+    };
 }]);
 
 deleteImage.directive('grDeleteImage', [function () {
