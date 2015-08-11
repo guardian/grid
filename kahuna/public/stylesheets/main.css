@@ -311,6 +311,11 @@ textarea.ng-invalid {
     background-color: transparent;
 }
 
+.top-bar-item .gr-confirm-delete {
+    border: none;
+    padding: 0 10px;
+}
+
 .user-actions {
     margin-right: -10px;
     padding: 0 5px;
@@ -342,8 +347,14 @@ textarea.ng-invalid {
 }
 
 @media screen and (max-width: 800px) {
-    .top-bar-item__label {
+    .top-bar-item__label,
+    .top-bar-item .gr-delete-image__label,
+    .top-bar-item .gr-confirm-delete__label {
         display: none;
+    }
+
+    .top-bar-item .gr-confirm-delete {
+        min-width: inherit;
     }
 }
 
@@ -1970,4 +1981,10 @@ ui-archiver .archiver:hover {
 
 .full-width {
     width: 100%;
+}
+
+.right {
+    display: flex;
+    flex-direction: row;
+    justify-content: flex-end;
 }
