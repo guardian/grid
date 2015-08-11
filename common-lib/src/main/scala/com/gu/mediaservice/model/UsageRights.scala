@@ -116,7 +116,7 @@ object Agency {
 }
 
 
-case class CommissionedAgency(supplier: String, suppliersCollection: Option[String] = None, restrictions: Option[String] = None)
+case class CommissionedAgency(supplier: String, restrictions: Option[String] = None)
   extends UsageRights {
     val category = "commissioned-agency"
     val defaultCost = Some(Free)
@@ -125,13 +125,12 @@ case class CommissionedAgency(supplier: String, suppliersCollection: Option[Stri
       "Images commissioned and paid for from agencies."
   }
 object CommissionedAgency {
- implicit val jsonReads: Reads[Agency] = Json.reads[Agency]
- implicit val jsonWrites: Writes[Agency] = (
+ implicit val jsonReads: Reads[CommissionedAgency] = Json.reads[CommissionedAgency]
+ implicit val jsonWrites: Writes[CommissionedAgency] = (
    (__ \ "category").write[String] ~
    (__ \ "supplier").write[String] ~
-   (__ \ "suppliersCollection").writeNullable[String] ~
    (__ \ "restrictions").writeNullable[String]
- )(s => (s.category, s.supplier, s.suppliersCollection, s.restrictions))
+ )(s => (s.category, s.supplier, s.restrictions))
 }
 
 
