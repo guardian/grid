@@ -30,6 +30,7 @@ object UsageRights {
   // be good to know though.
   implicit def jsonWrites[T <: UsageRights]: Writes[T] = Writes[T] {
     case o: Agency                   => Agency.jsonWrites.writes(o)
+    case o: CommissionedAgency       => CommissionedAgency.jsonWrites.writes(o)
     case o: PrImage                  => PrImage.jsonWrites.writes(o)
     case o: Handout                  => Handout.jsonWrites.writes(o)
     case o: Screengrab               => Screengrab.jsonWrites.writes(o)
@@ -54,6 +55,7 @@ object UsageRights {
 
       (category flatMap {
         case "agency"                    => json.asOpt[Agency]
+        case "commissioned-agency"       => json.asOpt[CommissionedAgency]
         case "PR Image"                  => json.asOpt[PrImage]
         case "handout"                   => json.asOpt[Handout]
         case "screengrab"                => json.asOpt[Screengrab]
