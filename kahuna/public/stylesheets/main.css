@@ -1137,12 +1137,6 @@ FIXME: what to do with touch devices
     text-align: left;
 }
 
-.result-editor__delete-image {
-    display: flex;
-    justify-content: flex-end;
-    font-size: 1.4rem;
-}
-
 /* ==========================================================================
    Full Image / crop
    ========================================================================== */
@@ -1691,10 +1685,6 @@ FIXME: what to do with touch devices
     margin-bottom: 10px;
     padding-bottom: 20px;
     border-bottom: 1px dashed #999;
-}
-
-.upload-result .gr-confirm-delete {
-    padding: 0 10px;
 }
 
 .upload-result:hover .image-actions {
