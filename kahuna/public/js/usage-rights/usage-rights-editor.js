@@ -42,8 +42,10 @@ usageRightsEditor.controller(
     const getGroupModel = usageRights =>
         ctrl.multipleUsageRights() ? {} : angular.extend({}, usageRights[0].data);
 
-    ctrl.resetCategory = () => ctrl.category = {};
-    ctrl.resetModel = () => ctrl.model = {};
+    ctrl.reset = () => {
+        ctrl.showRestrictions = false;
+        ctrl.model = {};
+    };
     ctrl.multipleUsageRights = () => ctrl.usageRights.length > 1;
 
     ctrl.update = function() {
@@ -124,6 +126,8 @@ usageRightsEditor.controller(
         const val = ctrl.model[key];
         return property.optionsMap[val];
     };
+
+    ctrl.isRestricted = prop => ctrl.showRestrictions || prop.required;
 
     $scope.$watch(() => ctrl.showRestrictions, onValChange(isRestricted => {
         if (!isRestricted) {
