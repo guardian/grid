@@ -4,6 +4,8 @@
     ng:mouseleave="ctrl.metadataPanelMouseLeave()"
     ng:class="{ 'panel__right--hidden': !ctrl.isVisible }">
 
+    <a href="" ng:click="ctrl.downloadAll()">Download all</a>
+
     <div class="panel__top">
         <ul class="costs">
             <li ng:repeat="cost in ctrl.selectedCosts | orderBy:'data'">

@@ -18,6 +18,8 @@
       "javascript-detect-element-resize": "github:sdecima/javascript-detect-element-resize@^0.5.3",
       "jcrop": "github:tapmodo/Jcrop@0.9.12",
       "jquery": "github:components/jquery@2.1.1",
+      "jszip": "npm:jszip@2.5.0",
+      "jszip-utils": "npm:jszip-utils@0.0.2",
       "mixpanel-js": "github:mixpanel/mixpanel-js@^2.4.2",
       "moment": "github:moment/moment@^2.9.0",
       "pandular": "npm:pandular@^0.1.5",

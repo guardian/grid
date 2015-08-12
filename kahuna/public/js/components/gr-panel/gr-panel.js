@@ -1,5 +1,7 @@
 import angular from 'angular';
 import 'angular-bootstrap';
+import JSZip from 'jszip';
+import JSZipUtils from 'jszip-utils';
 
 import './gr-panel.css!';
 import '../../services/preview-selection';
@@ -24,6 +26,7 @@ grPanel.controller('GrPanel', [
     '$scope',
     '$window',
     '$q',
+    '$http',
     'mediaApi',
     'selectionService',
     'labelService',
@@ -37,6 +40,7 @@ grPanel.controller('GrPanel', [
         $scope,
         $window,
         $q,
+        $http,
         mediaApi,
         selection,
         labelService,
@@ -158,5 +162,59 @@ grPanel.controller('GrPanel', [
                     ctrl.archiving = false;
                 });
         };
+
+        ctrl.downloadAll = function() {
+            const zip = new JSZip();
+            const imagePromises = ctrl.images.map(image => {
+                const defer = $q.defer();
+                const imageEl = document.createElement('img');
+                imageEl.setAttribute('crossOrigin', 'anonymous');
+                imageEl.src = image.data.source.secureUrl;
+
+                imageEl.addEventListener('load', () => {
+                    let dataStuff = createDataFile(imageEl, image.data.source.dimensions);
+                    zip.file(image.data.id+'.jpg', dataStuff);
+                    defer.resolve();
+                });
+
+                return defer.promise;
+            });
+
+            $q.all(imagePromises).then(() => {
+                const file = zip.generate({ type: 'uint8array' });
+                const blob = new Blob([file], { type: 'application/zip' });
+                const url = URL.createObjectURL(blob);
+
+                window.location = url;
+
+            });
+        };
+
+        function createDataFile(imageEl, { width, height }) {
+            const canvas = document.createElement('canvas');
+            canvas.width = width;
+            canvas.height = height;
+
+            const ctx = canvas.getContext("2d");
+            ctx.drawImage(imageEl, 0, 0);
+
+            return convertDataURIToBinary(canvas.toDataURL());
+        }
+
+        function convertDataURIToBinary(dataURI) {
+            var BASE64_MARKER = ';base64,';
+            var i = 0;
+            var base64Index = dataURI.indexOf(BASE64_MARKER) + BASE64_MARKER.length;
+            var base64 = dataURI.substring(base64Index);
+            var raw = window.atob(base64);
+            var rawLength = raw.length;
+            var array = new Uint8Array(new ArrayBuffer(rawLength));
+
+            for(i; i < rawLength; i++) {
+            array[i] = raw.charCodeAt(i);
+            }
+            return array;
+        }
     }
 ]);
+

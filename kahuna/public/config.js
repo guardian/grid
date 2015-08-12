@@ -25,6 +25,8 @@ System.config({
     "javascript-detect-element-resize": "github:sdecima/javascript-detect-element-resize@0.5.3",
     "jcrop": "github:tapmodo/Jcrop@0.9.12",
     "jquery": "github:components/jquery@2.1.1",
+    "jszip": "npm:jszip@2.5.0",
+    "jszip-utils": "npm:jszip-utils@0.0.2",
     "mixpanel-js": "github:mixpanel/mixpanel-js@2.5.2",
     "moment": "github:moment/moment@2.10.5",
     "pandular": "npm:pandular@0.1.5",
@@ -147,8 +149,21 @@ System.config({
     "npm:inherits@2.0.1": {
       "util": "github:jspm/nodelibs-util@0.1.0"
     },
+    "npm:jszip-utils@0.0.2": {
+      "fs": "github:jspm/nodelibs-fs@0.1.2",
+      "process": "github:jspm/nodelibs-process@0.1.1"
+    },
+    "npm:jszip@2.5.0": {
+      "buffer": "github:jspm/nodelibs-buffer@0.1.0",
+      "pako": "npm:pako@0.2.7",
+      "process": "github:jspm/nodelibs-process@0.1.1"
+    },
     "npm:os-browserify@0.1.2": {
       "os": "github:jspm/nodelibs-os@0.1.0"
+    },
+    "npm:pako@0.2.7": {
+      "buffer": "github:jspm/nodelibs-buffer@0.1.0",
+      "process": "github:jspm/nodelibs-process@0.1.1"
     },
     "npm:pandular@0.1.5": {
       "angular": "github:angular/bower-angular@1.4.3",
