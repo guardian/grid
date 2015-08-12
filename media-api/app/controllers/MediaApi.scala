@@ -46,7 +46,7 @@ object MediaApi extends Controller with ArgoHelpers {
   val Authenticated = auth.Authenticated(keyStore, loginUri, Config.kahunaUri)
 
 
-  val searchParamList = List("q", "ids", "offset", "length", "fromDate", "toDate",
+  val searchParamList = List("q", "ids", "offset", "length",
     "orderBy", "since", "until", "uploadedBy", "archived", "valid", "free",
     "hasExports", "hasIdentifier", "missingIdentifier", "hasMetadata").mkString(",")
 
@@ -227,7 +227,7 @@ object MediaApi extends Controller with ArgoHelpers {
   private def getSearchUrl(searchParams: SearchParams, updatedOffset: Int, length: Int): String = {
 
     // Enforce a toDate to exclude new images since the current request
-    val toDate = searchParams.toDate.getOrElse(DateTime.now)
+    val toDate = searchParams.until.getOrElse(DateTime.now)
 
     val paramMap = SearchParams.toStringMap(searchParams) ++ Map(
       "offset" -> updatedOffset.toString,
@@ -291,8 +291,8 @@ case class SearchParams(
   offset: Int,
   length: Int,
   orderBy: Option[String],
-  fromDate: Option[DateTime],
-  toDate: Option[DateTime],
+  since: Option[DateTime],
+  until: Option[DateTime],
   archived: Option[Boolean],
   hasExports: Option[Boolean],
   hasIdentifier: Option[String],
@@ -323,8 +323,8 @@ object SearchParams {
       request.getQueryString("offset") flatMap (s => Try(s.toInt).toOption) getOrElse 0,
       request.getQueryString("length") flatMap (s => Try(s.toInt).toOption) getOrElse 10,
       request.getQueryString("orderBy") orElse request.getQueryString("sortBy"),
-      request.getQueryString("fromDate") orElse request.getQueryString("since") flatMap parseDateFromQuery,
-      request.getQueryString("toDate") orElse request.getQueryString("until") flatMap parseDateFromQuery,
+      request.getQueryString("since") flatMap parseDateFromQuery,
+      request.getQueryString("until") flatMap parseDateFromQuery,
       request.getQueryString("archived").map(_.toBoolean),
       request.getQueryString("hasExports").map(_.toBoolean),
       request.getQueryString("hasIdentifier"),
@@ -344,8 +344,8 @@ object SearchParams {
       "ids"               -> searchParams.ids.map(_.mkString(",")),
       "offset"            -> Some(searchParams.offset.toString),
       "length"            -> Some(searchParams.length.toString),
-      "fromDate"          -> searchParams.fromDate.map(printDateTime),
-      "toDate"            -> searchParams.toDate.map(printDateTime),
+      "since"             -> searchParams.since.map(printDateTime),
+      "until"             -> searchParams.until.map(printDateTime),
       "archived"          -> searchParams.archived.map(_.toString),
       "hasExports"        -> searchParams.hasExports.map(_.toString),
       "hasIdentifier"     -> searchParams.hasIdentifier,
