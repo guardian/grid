@@ -10,12 +10,12 @@ deleteImage.controller('grDeleteImageCtrl', ['mediaApi', function (mediaApi) {
         mediaApi.delete(ctrl.image)
             .then((resp) => {
                 if (angular.isDefined(ctrl.onSuccess)) {
-                    ctrl.onSuccess(resp);
+                    ctrl.onSuccess(resp, ctrl.image);
                 }
             })
             .catch((err) => {
                 if (angular.isDefined(ctrl.onError)) {
-                    ctrl.onError(err);
+                    ctrl.onError(err, ctrl.image);
                 }
             });
     };
