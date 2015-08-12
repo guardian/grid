@@ -6,8 +6,10 @@ import com.gu.mediaservice.model._
 object UsageRightsOverride {
 
   // scared of typos
+  // TODO: centralise
   val theGuardian = "The Guardian"
   val theObserver = "The Observer"
+  val weekendMagazine = "Weekend magazine"
 
   def removeCommissioned(s: String) = s.replace("(commissioned)", "").trim
   def getPublication(s: String) = PhotographersList.getPublication(MetadataConfig.allPhotographers, s).getOrElse(theGuardian)
@@ -15,6 +17,14 @@ object UsageRightsOverride {
   def prImage(m: ImageMetadata) = Some(PrImage())
   def guardianWitness(m: ImageMetadata) = Some(GuardianWitness())
   def agency(agency: String) = Some(Agency(agency))
+
+  def commissionedAgency(m: ImageMetadata) =
+    m.copyright map(_.toLowerCase) map {
+      // I've been through all of these and they all seem to have the correct photographer
+      case "commissioned for weekend magazine" => CommissionedPhotographer(m.byline.getOrElse(weekendMagazine), weekendMagazine)
+      case "commissioned for the observer"     => CommissionedPhotographer(m.byline.getOrElse(theObserver), theObserver)
+      case copyright                           => CommissionedAgency(removeCommissioned(copyright))
+    }
 
   def handout(m: ImageMetadata) = Some(Handout())
   def staffPhotographer(m: ImageMetadata) = (m.byline, m.copyright.map(_.toLowerCase)) match {
@@ -60,6 +70,7 @@ object UsageRightsOverride {
       "Agencies - contract Getty Collections" -> ((m: ImageMetadata) => agency("Getty Images")),
       "Agencies - contract Reuters" -> ((m: ImageMetadata) => agency("Reuters")),
       "Agencies - contract" -> ((m: ImageMetadata) => m.copyright.map(Agency(_))),
+      "Agencies - commissioned" -> commissionedAgency,
 
       "Readers pictures" -> ((m: ImageMetadata) => guardianWitness(m)),
       "Readers' pictures" -> ((m: ImageMetadata) => guardianWitness(m))
