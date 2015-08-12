@@ -10,7 +10,7 @@ import org.elasticsearch.index.query.QueryBuilders.matchAllQuery
 import org.elasticsearch.index.engine.VersionConflictEngineException
 import org.elasticsearch.script.ScriptService
 import org.elasticsearch.index.query.QueryBuilders.{filteredQuery, boolQuery, matchQuery}
-import org.elasticsearch.index.query.FilterBuilders.{missingFilter, andFilter, boolFilter}
+import org.elasticsearch.index.query.FilterBuilders.{missingFilter, andFilter}
 import org.joda.time.DateTime
 import groovy.json.JsonSlurper
 import _root_.play.api.libs.json._
@@ -70,7 +70,7 @@ object ElasticSearch extends ElasticSearchClient {
       boolQuery.must(matchQuery("_id", id)),
         andFilter(
           missingOrEmptyFilter("exports"),
-          missingOrFalseFilter("userMetadata.archived"),
+          missingOrEmptyFilter("userMetadata.archived"),
           missingOrEmptyFilter(s"identifiers.$persistenceIdentifier"))
       )
 
@@ -143,9 +143,6 @@ object ElasticSearch extends ElasticSearchClient {
 
   def missingOrEmptyFilter(field: String) =
     missingFilter(field).existence(true).nullValue(true)
-
-  def missingOrFalseFilter(field: String) =
-    boolFilter().filterName(field)
 
   def asImageUpdate(image: JsValue): JsValue = {
     def removeUploadInformation: Reads[JsObject] =
