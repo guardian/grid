@@ -10,7 +10,7 @@ import org.elasticsearch.index.query.QueryBuilders.matchAllQuery
 import org.elasticsearch.index.engine.VersionConflictEngineException
 import org.elasticsearch.script.ScriptService
 import org.elasticsearch.index.query.QueryBuilders.{filteredQuery, boolQuery, matchQuery}
-import org.elasticsearch.index.query.FilterBuilders.{missingFilter, andFilter}
+import org.elasticsearch.index.query.FilterBuilders.{missingFilter, andFilter, termFilter, boolFilter}
 import org.joda.time.DateTime
 import groovy.json.JsonSlurper
 import _root_.play.api.libs.json._
@@ -70,8 +70,12 @@ object ElasticSearch extends ElasticSearchClient {
       boolQuery.must(matchQuery("_id", id)),
         andFilter(
           missingOrEmptyFilter("exports"),
-          missingOrEmptyFilter("userMetadata.archived"),
-          missingOrEmptyFilter(s"identifiers.$persistenceIdentifier"))
+          missingOrEmptyFilter(s"identifiers.$persistenceIdentifier"),
+          boolFilter.should(
+            missingOrEmptyFilter("userMetadata.archived"),
+            boolFilter.must(termFilter("userMetadata.archived", false))
+          )
+        )
       )
 
     val deleteQuery = client
