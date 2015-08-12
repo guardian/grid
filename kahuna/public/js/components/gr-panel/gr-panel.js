@@ -1,7 +1,6 @@
 import angular from 'angular';
 import 'angular-bootstrap';
 import JSZip from 'jszip';
-import JSZipUtils from 'jszip-utils';
 
 import './gr-panel.css!';
 import '../../services/preview-selection';
