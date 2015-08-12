@@ -102,20 +102,20 @@ object UsageRightsOverride {
       case "UIP Press Office" => PrImage(Some("For use in the promotion of the content only.")) // Film etc press release images
 
       // new Copyright UsageRight?
-      // case "MOD" => PrImage() // (192)
-      // case "UK MoD Crown Copyright 2015" => PrImage() // (17)
-      // case "Crown Copyright. The material may be used for current news purpo" => PrImage() // (9)
-      // case "MOD Crown Copyright 2010" => PrImage() // (12)
-      // case "MoD Pool" => PrImage() // (35)
-      // case "Crown Copyright" => PrImage() // (493)
+      case "MOD" => CrownCopyright() // (192)
+      case "UK MoD Crown Copyright 2015" => CrownCopyright() // (17)
+      case "Crown Copyright. The material may be used for current news purpo" => CrownCopyright() // (9)
+      case "MOD Crown Copyright 2010" => CrownCopyright() // (12)
+      case "MoD Pool" => CrownCopyright() // (35)
+      case "Crown Copyright" => CrownCopyright() // (493)
 
-      // case "Publicity image from English Heritage" => PrImage() // this doesn't exist
-      // case "Supplied to accompany this exhibition ONLY" => PrImage() // this doesn't exist
-      // case "Out of copyright" => PrImage() // this doesn't exist
-      // case "Press office image" => PrImage() // this doesn't exist
-      // case "Andrew Cowan/Scottish Parliament" => PrImage() // this doesn't exist
-      // case "Sergeant Rupert Frere Rlc" => PrImage() // this doesn't exist (and is strange)
-      // case "Public Domain" => PrImage() // assuming we're leaving this out (27)
+//       case "Publicity image from English Heritage" => PrImage() // this doesn't exist
+//       case "Supplied to accompany this exhibition ONLY" => PrImage() // this doesn't exist
+//       case "Out of copyright" => PrImage() // this doesn't exist
+//       case "Press office image" => PrImage() // this doesn't exist
+//       case "Andrew Cowan/Scottish Parliament" => PrImage() // this doesn't exist
+//       case "Sergeant Rupert Frere Rlc" => PrImage() // this doesn't exist (and is strange)
+//       case "Public Domain" => PrImage() // assuming we're leaving this out (27)
     }
   }
 
