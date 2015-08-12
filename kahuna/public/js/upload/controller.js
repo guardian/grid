@@ -50,7 +50,7 @@ upload.controller('UploadCtrl', [
 
         ctrl.onDeleteError = function (err) {
             if (err.body.errorKey === 'image-not-found') {
-                $state.go('search');
+                $state.go('upload', {}, {reload: true});
             } else {
                 $window.alert(err.body.errorMessage);
             }
