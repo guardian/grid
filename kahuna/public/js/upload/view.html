@@ -25,6 +25,11 @@
         <ul>
             <li ng:repeat="result in ctrl.myUploads.data" class="upload-result">
                 <ui-image-editor image="result"></ui-image-editor>
+                <gr-delete-image class="right"
+                                 ng:if="ctrl.canBeDeleted(result)"
+                                 on-success="ctrl.onDeleteSuccess"
+                                 on-error="ctrl.onDeleteError"
+                                 image="result"></gr-delete-image>
             </li>
         </ul>
 
