@@ -8,8 +8,8 @@ export var jobs = angular.module('kahuna.upload.jobs', ['kahuna.preview.image', 
 
 
 jobs.controller('UploadJobsCtrl', [
-    '$scope', '$state', '$window', 'apiPoll', 'track', 'mediaApi',
-    function($scope, $state, $window, apiPoll, track, mediaApi) {
+    '$window', 'apiPoll', 'track', 'mediaApi',
+    function($window, apiPoll, track, mediaApi) {
 
     var ctrl = this;
 
@@ -75,11 +75,7 @@ jobs.controller('UploadJobsCtrl', [
     };
 
     ctrl.onDeleteError = function (err) {
-        if (err.body.errorKey === 'image-not-found') {
-            $state.go('upload', {}, {reload: true});
-        } else {
-            $window.alert(err.body.errorMessage);
-        }
+        $window.alert(err.body.errorMessage);
     };
 }]);
 
