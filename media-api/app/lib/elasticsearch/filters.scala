@@ -22,8 +22,8 @@ object filters {
   }
 
 
-  def date(from: Option[DateTime], to: Option[DateTime]): FilterBuilder = {
-    val builder = rangeFilter("uploadTime")
+  def date(field: String, from: Option[DateTime], to: Option[DateTime]): FilterBuilder = {
+    val builder = rangeFilter(field)
     for (f <- from) builder.from(printDateTime(f))
     for (t <- to) builder.to(printDateTime(t))
     builder
