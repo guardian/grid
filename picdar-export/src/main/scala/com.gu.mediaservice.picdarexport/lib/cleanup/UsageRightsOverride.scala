@@ -52,97 +52,70 @@ object UsageRightsOverride {
     m.copyright map(_.toLowerCase) map {
       case "Magnum (commissioned)" => CommissionedAgency("Magnum")
 
-      // ASK Jo (122)
-      // case "onEdition" => PrImage()
 
+      case "onEdition" => PrImage(Some("See special instructions for restrictions.")) // (122)
+      case "onEdition - see restrictions" => PrImage(Some("See special instructions for restrictions.")) // (47)
+      // The caption doesn't always contain anything useful (1042)
+      case "See caption - free image" => PrImage(Some("See caption or contact picture desk for restrictions."))
+
+      // Think about adding an `pr-industry` property?
       case "Publicity image from PR company" => PrImage()
       case "Publicity image from music company" => PrImage()
       case "Publicity image from film company" => PrImage()
       case "Publicity image from TV company" => PrImage()
       case "Publicity image from theatre company" => PrImage()
       case "Publicity image" => PrImage()
-
-      // The caption doesn't always contain anything useful (1042)
-      case "See caption - free image" => PrImage(Some("See caption or contact picture desk for usage rights"))
-
       case "Publicity image from publisher" => PrImage()
       case "Publicity image from opera company" => PrImage()
+      case "Publicity image from architectural company" => PrImage()
+      case "Publicity image from charity" => PrImage()
+      case "Comic Relief" => PrImage()
+      case "PR image" => PrImage()
+      case "Publicity image from travel company" => PrImage()
+      case "Publicity image for travel" => PrImage()
+      case "Publicity image from BA" => PrImage()
+      // Ask Jo about restrictions
+      case "Paramount Pictures" => PrImage()
+      case "The Weinstein Company" => PrImage(Some("Free for editorial use only"))
 
-      // Ask Jo (47)
-      case "onEdition - see restrictions" => PrImage()
-
-      // ask Jo if these should have restrictions (50, 4, 34, 115)
+      // ask Jo if these should have restrictions (50, 4, 34, 115, 40, 31)
       case "NPA Pool" => Pool()
       case "WPA Pool" => Pool()
       case "Pool picture" => Pool()
       case "Rota" => Pool()
+      case "WPA Rota" => Pool()
+      case "Rota / Pool" => Pool()
 
-      // new Copyright UsageRight? (493)
-      // case "Crown Copyright" => PrImage()
 
       case "Vismedia - free for editorial use" => Handout(Some("Free for editorial use only"))
       case "ODA 2008" => Handout() // Olympic images
-
-      // new Copyright UsageRight? (12)
-      // case "MOD Crown Copyright 2010" => PrImage()
-
-      // Ask Jo about restrictions
-      case "Paramount Pictures" => PrImage()
-
-      // case "PRnewswire" => PrImage() // this doesn't exist
-
-      // new Copyright UsageRight? (35)
-      // case "MoD Pool" => PrImage()
-
-      // case "Publicity image from English Heritage" => PrImage() // this doesn't exist
-
-      // Should these have restrictions (31)
-      case "Rota / Pool" => Pool()
-
-      case "Comic Relief" => PrImage()
-      case "PR image" => PrImage()
-      // case "Supplied to accompany this exhibition ONLY" => PrImage() // this doesn't exist
-      case "Publicity image from BA" => PrImage()
-
-      // new Copyright UsageRight? (192)
-      // case "MOD" => PrImage()
-
-      // case "Out of copyright" => PrImage() // this doesn't exist
+      case "Handout" => Handout()
+      case "Greenpeace" => Handout()
 
       case "Supplied for obituary" => Obituary()
 
-      // case "Public Domain" => PrImage() // assuming we're leaving this out (27)
-      // case "Press office image" => PrImage() // this doesn't exist
-
-      case "Publicity image from architectural company" => PrImage()
-      case "Publicity image from charity" => PrImage()
-
-      // ask Jo if these should have restrictions (48)
-      case "WPA Rota" => Pool()
-
-      case "The Weinstein Company" => PrImage(Some("Free for editorial use only"))
-
-      case "Publicity image from travel company" => PrImage()
-      case "Publicity image for travel" => PrImage()
-
-      case "Greenpeace" => PrImage()
-      case "Handout" => Handout()
-
       case "JOHAN PERSSON" => CommissionedPhotographer("Johan Persson", theGuardian)
-
-      // new Copyright UsageRight? (17)
-      // case "UK MoD Crown Copyright 2015" => PrImage()
-
-
       case "Andrew Parsons for the Conservative Party" => CommissionedPhotographer("Andrew Parsons", "The Conservative Party")
-      // case "Andrew Cowan/Scottish Parliament" => PrImage() / this doesn't exist
-      case "SWNS." => CommissionedAgency("SWNS")
-      // case "Sergeant Rupert Frere Rlc" => PrImage() // this doesn't exist (and is strange)
 
-      // new Copyright UsageRight? (9)
-      case "Crown Copyright. The material may be used for current news purpo" => PrImage()
+      case "SWNS." => CommissionedAgency("SWNS")
 
       case "UIP Press Office" => PrImage(Some("For use in the promotion of the content only.")) // Film etc press release images
+
+      // new Copyright UsageRight?
+      // case "MOD" => PrImage() // (192)
+      // case "UK MoD Crown Copyright 2015" => PrImage() // (17)
+      // case "Crown Copyright. The material may be used for current news purpo" => PrImage() // (9)
+      // case "MOD Crown Copyright 2010" => PrImage() // (12)
+      // case "MoD Pool" => PrImage() // (35)
+      // case "Crown Copyright" => PrImage() // (493)
+
+      // case "Publicity image from English Heritage" => PrImage() // this doesn't exist
+      // case "Supplied to accompany this exhibition ONLY" => PrImage() // this doesn't exist
+      // case "Out of copyright" => PrImage() // this doesn't exist
+      // case "Press office image" => PrImage() // this doesn't exist
+      // case "Andrew Cowan/Scottish Parliament" => PrImage() // this doesn't exist
+      // case "Sergeant Rupert Frere Rlc" => PrImage() // this doesn't exist (and is strange)
+      // case "Public Domain" => PrImage() // assuming we're leaving this out (27)
     }
   }
 
