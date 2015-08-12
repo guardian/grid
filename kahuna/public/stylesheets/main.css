@@ -1083,6 +1083,7 @@ FIXME: what to do with touch devices
 .result-editor__img,
 .result-editor__img-link {
     display: block;
+    margin: 0 auto;
 }
 
 .result-editor__editor {
