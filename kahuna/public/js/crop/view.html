@@ -18,6 +18,11 @@
             <gr-icon>crop_portrait</gr-icon><span class="top-bar-item__label">portrait</span> ({{::ctrl.getRatioString(ctrl.portraitRatio)}})
         </label>
 
+        <label class="top-bar-item" title="video">
+            <input type="radio" ng:model="ctrl.aspect" value="{{ctrl.videoRatio}}" />
+            <gr-icon>crop_16_9</gr-icon><span class="top-bar-item__label">video</span> ({{::ctrl.getRatioString(ctrl.videoRatio)}})
+        </label>
+
         <label class="top-bar-item" title="free-form">
             <input type="radio" ng:model="ctrl.aspect" value="{{ctrl.freeRatio}}" />
             <gr-icon>crop_free</gr-icon><span class="top-bar-item__label">free-form</span>
