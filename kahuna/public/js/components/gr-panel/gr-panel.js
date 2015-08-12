@@ -165,32 +165,35 @@ grPanel.controller('GrPanel', [
 
         ctrl.downloadAll = function() {
             const zip = new JSZip();
-            const imagePromises = ctrl.images.map(image => {
-                const defer = $q.defer();
-                const imageEl = document.createElement('img');
-                imageEl.setAttribute('crossOrigin', 'anonymous');
-                imageEl.src = image.data.source.secureUrl;
+            const imagesAddedToZip = ctrl.images.map(image =>
+                getLoadedImageElement(image.data.source.secureUrl).then(imageEl => {
+                    let buffer = createBuffer(imageEl, image.data.source.dimensions);
+                    zip.file(image.data.id+'.jpg', buffer);
+                })
+            );
 
-                imageEl.addEventListener('load', () => {
-                    let dataStuff = createDataFile(imageEl, image.data.source.dimensions);
-                    zip.file(image.data.id+'.jpg', dataStuff);
-                    defer.resolve();
-                });
-
-                return defer.promise;
-            });
-
-            $q.all(imagePromises).then(() => {
+            $q.all(imagesAddedToZip).then(() => {
                 const file = zip.generate({ type: 'uint8array' });
                 const blob = new Blob([file], { type: 'application/zip' });
                 const url = URL.createObjectURL(blob);
 
                 window.location = url;
-
             });
         };
 
-        function createDataFile(imageEl, { width, height }) {
+        function getLoadedImageElement(url) {
+            const defer = $q.defer();
+            const imageEl = document.createElement('img');
+            imageEl.setAttribute('crossOrigin', 'anonymous');
+            imageEl.src = url;
+            imageEl.addEventListener('load', () => {
+                defer.resolve(imageEl);
+            });
+
+            return defer.promise;
+        }
+
+        function createBuffer(imageEl, { width, height }) {
             const canvas = document.createElement('canvas');
             canvas.width = width;
             canvas.height = height;
@@ -198,22 +201,7 @@ grPanel.controller('GrPanel', [
             const ctx = canvas.getContext("2d");
             ctx.drawImage(imageEl, 0, 0);
 
-            return convertDataURIToBinary(canvas.toDataURL());
-        }
-
-        function convertDataURIToBinary(dataURI) {
-            var BASE64_MARKER = ';base64,';
-            var i = 0;
-            var base64Index = dataURI.indexOf(BASE64_MARKER) + BASE64_MARKER.length;
-            var base64 = dataURI.substring(base64Index);
-            var raw = window.atob(base64);
-            var rawLength = raw.length;
-            var array = new Uint8Array(new ArrayBuffer(rawLength));
-
-            for(i; i < rawLength; i++) {
-            array[i] = raw.charCodeAt(i);
-            }
-            return array;
+            return ctx.getImageData(0, 0, width, height).data.buffer;
         }
     }
 ]);
