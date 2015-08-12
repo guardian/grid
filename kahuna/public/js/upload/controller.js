@@ -9,7 +9,7 @@ upload.controller('UploadCtrl', [
     function($scope, $state, $window, uploadManager, mediaApi) {
         var ctrl = this;
 
-        ctrl.deletable = new Set();
+        var deletableImages = new Set();
 
         // TODO: Show multiple jobs?
         ctrl.latestJob = uploadManager.getLatestRunningJob();
@@ -22,7 +22,7 @@ upload.controller('UploadCtrl', [
                 resource.data.forEach(image => {
                     mediaApi.canDelete(image).then(deletable => {
                         if (deletable) {
-                            ctrl.deletable.add(image);
+                            deletableImages.add(image);
                         }
                     });
                 });
@@ -32,7 +32,7 @@ upload.controller('UploadCtrl', [
         });
 
         ctrl.canBeDeleted = function (image) {
-            return ctrl.deletable.has(image);
+            return deletableImages.has(image);
         };
 
         ctrl.onDeleteSuccess = function (resp, image) {
@@ -40,7 +40,7 @@ upload.controller('UploadCtrl', [
 
             if (index > -1) {
                 ctrl.myUploads.data.splice(index, 1);
-                ctrl.deletable.delete(image);
+                deletableImages.delete(image);
             }
         };
 
