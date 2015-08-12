@@ -256,7 +256,8 @@ kahuna.filter('asAspectRatioWord', function() {
     // FIXME: Try to find one place to store these mappings
     var aspectToName = {
         '5:3': 'landscape',
-        '2:3': 'portrait'
+        '2:3': 'portrait',
+        '16:9': 'video'
     };
     var defaultName = 'freeform';
 
