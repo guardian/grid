@@ -226,6 +226,10 @@ case class Obituary(restrictions: Option[String] = None)
     val description =
       "Acquired from private sources, e.g. family members, for the purposes of " +
       "obituaries."
+
+    override val defaultRestrictions = Some(
+      "Only to be used in context with person's obituary"
+    )
   }
 object Obituary {
  implicit val jsonReads: Reads[Obituary] = Json.reads[Obituary]
