@@ -23,7 +23,7 @@ trait PicdarClient extends PicdarApi with HttpClient {
   def get(urn: String): Future[Asset] =
     for {
       mak   <- currentMak
-      asset <- fetc hAsset(mak, urn)
+      asset <- fetchAsset(mak, urn)
     } yield asset
 
   def count(dateField: String, dateRange: DateRange, query: Option[String] = None): Future[Int] =
