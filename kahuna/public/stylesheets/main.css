@@ -863,6 +863,12 @@ input.search-query__input {
     height: 36px;
 }
 
+/* TODO: remove this once eveything is in the action-bar */
+.results-count {
+    float: left;
+    padding: 0 10px;
+}
+
 @media screen and (max-width: 800px) {
     .results-toolbar-item--text {
         display: none;
@@ -1917,11 +1923,18 @@ ui-archiver .archiver:hover {
    ========================================================================== */
 .action-bar {
     line-height: 35px;
+    display: flex;
 }
 
 .action-bar__item {
     line-height: inherit;
     padding: 0 10px;
+    display: block;
+    border-left: 1px solid #565656;
+}
+
+.action-bar__item--last {
+    border-right: 1px solid #565656;
 }
 
 
