@@ -175,7 +175,7 @@
 
         <div class="image-info__group">
             <dl class="image-info__group--dl metadata-line">
-                <dt ng:if="ctrl.metadata.byline || ctrl.userCanEdit" class="image-info__wrap metadata-line image-info__byline metadata-line__key image-info__group--dl__key--panel">by</dt>
+                <dt ng:if="ctrl.metadata.byline || ctrl.userCanEdit" class="image-info__wrap metadata-line image-info__byline metadata-line__key image-info__group--dl__key--panel">By</dt>
                 <dd ng:if="ctrl.metadata.byline || ctrl.userCanEdit" class="image-info__wrap metadata-line image-info__byline metadata-line__info image-info__group--dl__value--panel">
                     <button class="image-info__edit"
                             ng:if="ctrl.userCanEdit"
@@ -242,7 +242,7 @@
         </div>
 
         <div class="image-info__group batch-label">
-            <div class="metadata-line">labels</div>
+            <div class="metadata-line">Labels</div>
             <ul class="labels">
                 <li class="label"
                     ng:repeat="label in ctrl.selectedLabels | orderBy:'data'"
