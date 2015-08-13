@@ -132,7 +132,7 @@
                 <dt class="image-info__group--dl__key metadata-line__key" ng:if="ctrl.metadata.dateTaken">Taken on</dt>
                 <dd class="image-info__group--dl__value metadata-line__info" ng:if="ctrl.metadata.dateTaken">{{ctrl.metadata.dateTaken | date:'d MMM yyyy, HH:mm'}}</dd>
 
-                <dt class="image-info__byline image-info__wrap metadata-line image-info__group--dl__key metadata-line__key" ng:if="ctrl.metadata.byline || ctrl.userCanEdit">by</dt>
+                <dt class="image-info__byline image-info__wrap metadata-line image-info__group--dl__key metadata-line__key" ng:if="ctrl.metadata.byline || ctrl.userCanEdit">By</dt>
                 <dd class="image-info__wrap image-info__group--dl__value metadata-line__info" ng:if="ctrl.metadata.byline || ctrl.userCanEdit">
                     <button class="image-info__edit"
                                     ng:if="ctrl.userCanEdit"
