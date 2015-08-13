@@ -1,12 +1,13 @@
 import angular from 'angular';
 import '../edits/image-editor';
 import '../components/gr-delete-image/gr-delete-image';
+import '../image/service';
 
-var upload = angular.module('kahuna.upload.controller', ['kahuna.edits.imageEditor']);
+var upload = angular.module('kahuna.upload.controller', ['kahuna.edits.imageEditor', 'gr.image.service']);
 
 upload.controller('UploadCtrl', [
-    '$scope', '$state', '$window', 'uploadManager', 'mediaApi',
-    function($scope, $state, $window, uploadManager, mediaApi) {
+    '$scope', '$state', '$window', 'uploadManager', 'mediaApi', 'imageService',
+    function($scope, $state, $window, uploadManager, mediaApi, imageService) {
         var ctrl = this;
 
         var deletableImages = new Set();
@@ -20,7 +21,7 @@ upload.controller('UploadCtrl', [
             mediaApi.search('', { uploadedBy }).then(resource => {
 
                 resource.data.forEach(image => {
-                    mediaApi.canDelete(image).then(deletable => {
+                    imageService(image).states.canDelete.then(deletable => {
                         if (deletable) {
                             deletableImages.add(image);
                         }
