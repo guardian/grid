@@ -74,7 +74,11 @@ object ElasticSearch extends ElasticSearchClient with SearchFilters with ImageFi
 
     val query = queryBuilder.makeQuery(params.structuredQuery)
 
-    val uploadTimeFilter = filters.date("uploadTime", params.since, params.until)
+    val uploadTimeFilter  = filters.date("uploadTime", params.since, params.until)
+    // we only inject filters if there are actual date parameters
+    val dateFilterList    = List(uploadTimeFilter).flatten.toNel
+    val dateFilter        = dateFilterList.map(dateFilters => filters.and(dateFilters.list: _*))
+
     val idsFilter        = params.ids.map(filters.ids)
     val labelFilter      = params.labels.toNel.map(filters.terms("labels", _))
     val metadataFilter   = params.hasMetadata.map(metadataField).toNel.map(filters.exists)
@@ -88,10 +92,12 @@ object ElasticSearch extends ElasticSearchClient with SearchFilters with ImageFi
 
     val costFilter       = params.free.flatMap(free => if (free) freeFilter else nonFreeFilter)
 
-    val filter = (metadataFilter.toList ++ labelFilter ++ archivedFilter ++
-                  uploadedByFilter ++ idsFilter ++ validityFilter ++ costFilter ++
-                  hasExports ++ hasIdentifier ++ missingIdentifier)
-                   .foldLeft(dateFilter)(filters.and(_, _))
+    val filterOpt = (
+      metadataFilter.toList ++ labelFilter ++ archivedFilter ++
+      uploadedByFilter ++ idsFilter ++ validityFilter ++ costFilter ++
+      hasExports ++ hasIdentifier ++ missingIdentifier ++ dateFilter
+    ).toNel.map(filter => filter.list.reduceLeft(filters.and(_, _)))
+    val filter = filterOpt getOrElse filters.matchAll
 
     val queryFiltered = new FilteredQueryBuilder(query, filter)
 
