@@ -35,11 +35,11 @@
                 <div class="image-info__usage-rights drop-menu__items drop-menu__items--right"
                      ng:show="showUsageRights">
 
-                    <gr:usage-rights-editor
+                    <gr-usage-rights-editor
                         gr:usage-rights="ctrl.usageRights"
                         gr:on-save="showUsageRights = false"
                         gr:on-cancel="showUsageRights = false">
-                    </gr:usage-rights-editor>
+                    </gr-usage-rights-editor>
                 </div>
 
                 <dd class="image-info__title">{{ctrl.usageCategory || 'None'}}</dd>
@@ -308,6 +308,10 @@
                     </button>
                 </span>
             </div>
+        </div>
+
+        <div class="image-info__group image-info__group--last">
+            <gr-downloader gr:images="ctrl.images"></gr-downloader>
         </div>
     </div>
 </div>

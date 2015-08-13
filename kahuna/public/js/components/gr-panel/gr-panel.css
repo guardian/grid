@@ -61,7 +61,10 @@
 }
 
 .batch-archive {
-    border-bottom: none;
+    float: left;
+    width: 100%;
+    box-sizing: border-box;
+    /* ^ because it has elements floating in it */
 }
 
 .batch-archive .metadata-line {

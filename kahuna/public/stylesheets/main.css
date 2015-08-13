@@ -1192,8 +1192,9 @@ FIXME: what to do with touch devices
     border-bottom: 1px solid #565656;
 }
 
-.image-info:last-child .image-info__group{
-    border-bottom: none;
+.image-info__group--last {
+    border-bottom: 0;
+    clear: both;
 }
 
 .image-info__group table {
