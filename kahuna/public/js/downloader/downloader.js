@@ -20,10 +20,12 @@ downloader.controller('DownloaderCtrl',
         $q.all(imagesAddedToZip).then(() => {
             const file = zip.generate({ type: 'uint8array' });
             const blob = new Blob([file], { type: 'application/zip' });
-            const url = URL.createObjectURL(blob);
+            const url = $window.URL.createObjectURL(blob);
 
             $window.location = url;
         });
+
+
     };
 
 }]);
@@ -37,7 +39,11 @@ downloader.directive('grDownloader', function() {
         scope: {
             images: '=grImages' // crappy two way binding
         },
-        template: `<a href="#download" ng:click="ctrl.download()">Download the files</a>`
+        template: `
+            <button type="button" ng:click="ctrl.download()">
+                <gr-icon>file_download</gr-icon>
+                Download {{ctrl.images.length}} images
+            </button>`
     };
 });
 

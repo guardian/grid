@@ -42,8 +42,6 @@
                     </gr-usage-rights-editor>
                 </div>
 
-                <gr-downloader gr:images="ctrl.images"></gr-downloader>
-
                 <dd class="image-info__title">{{ctrl.usageCategory || 'None'}}</dd>
 
                 <button
@@ -310,6 +308,10 @@
                     </button>
                 </span>
             </div>
+        </div>
+
+        <div class="image-info__group image-info__group--last">
+            <gr-downloader gr:images="ctrl.images"></gr-downloader>
         </div>
     </div>
 </div>
