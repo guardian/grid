@@ -1197,10 +1197,6 @@ FIXME: what to do with touch devices
     clear: both;
 }
 
-.image-info:last-child .image-info__group {
-    border-bottom: none;
-}
-
 .image-info__group table {
     border-collapse: collapse;
 }
