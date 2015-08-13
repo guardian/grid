@@ -1,7 +1,7 @@
 <form class="search">
     <span class="search-query">
         <input type="text"
-               placeholder="search for images…"
+               placeholder="Search for images…"
                class="search__query search-query__input"
                autofocus="autofocus"
                ng:model="searchQuery.filter.query"
@@ -29,7 +29,7 @@
             type="button"
             ng:click="filtersShown = !filtersShown ">
         <gr-icon class="search__filters-toggle__icon">filter_list</gr-icon>
-        <span class="search__filters-toggle__text">search filters</span>
+        <span class="search__filters-toggle__text">Search filters</span>
     </button>
 
     <ul class="search__filters" ng:class="filtersShown ? 'search__filters--show' : 'search__filters--hide'">
@@ -42,7 +42,7 @@
                                ng:true-value="undefined"
                                ng:false-value="true"
                                ng:checked="{{!searchQuery.filter.nonFree}}" />
-                        free to use only
+                        Free to use only
                 </label>
             </li>
 
@@ -50,7 +50,7 @@
                 <label class="search__filter">
                     <input type="checkbox"
                            ng:model="searchQuery.filter.uploadedByMe" />
-                    your uploads
+                    Your uploads
                 </label>
             </li>
 
