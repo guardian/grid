@@ -11,11 +11,15 @@ export var labeller = angular.module('kahuna.edits.labeller', [
 ]);
 
 labeller.controller('LabellerCtrl',
-                  ['$rootScope', '$scope', '$window', '$timeout', 'labelService',
-                   function($rootScope, $scope, $window, $timeout, labelService) {
+                  ['$rootScope', '$scope', '$window', '$timeout', 'labelService', 'onValChange',
+                   function($rootScope, $scope, $window, $timeout, labelService, onValChange) {
 
     var ctrl = this;
     ctrl.labels = ctrl.image.data.userMetadata.data.labels;
+
+    $scope.$watch(() => ctrl.image.data.userMetadata.data.labels, onValChange(labels => {
+        ctrl.labels = labels;
+    }));
 
     function saveFailed() {
         $window.alert('Something went wrong when saving, please try again!');
