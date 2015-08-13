@@ -4,8 +4,6 @@
     ng:mouseleave="ctrl.metadataPanelMouseLeave()"
     ng:class="{ 'panel__right--hidden': !ctrl.isVisible }">
 
-    <a href="" ng:click="ctrl.downloadAll()">Download all</a>
-
     <div class="panel__top">
         <ul class="costs">
             <li ng:repeat="cost in ctrl.selectedCosts | orderBy:'data'">
@@ -37,12 +35,14 @@
                 <div class="image-info__usage-rights drop-menu__items drop-menu__items--right"
                      ng:show="showUsageRights">
 
-                    <gr:usage-rights-editor
+                    <gr-usage-rights-editor
                         gr:usage-rights="ctrl.usageRights"
                         gr:on-save="showUsageRights = false"
                         gr:on-cancel="showUsageRights = false">
-                    </gr:usage-rights-editor>
+                    </gr-usage-rights-editor>
                 </div>
+
+                <gr-downloader gr:images="ctrl.images"></gr-downloader>
 
                 <dd class="image-info__title">{{ctrl.usageCategory || 'None'}}</dd>
 

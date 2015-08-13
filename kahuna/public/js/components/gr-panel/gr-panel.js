@@ -1,6 +1,5 @@
 import angular from 'angular';
 import 'angular-bootstrap';
-import JSZip from 'jszip';
 
 import './gr-panel.css!';
 import '../../services/preview-selection';
@@ -9,6 +8,7 @@ import '../../services/panel';
 import '../../services/archive';
 import '../../edits/service';
 import '../../forms/gr-xeditable/gr-xeditable';
+import '../../downloader/downloader';
 
 export var grPanel = angular.module('grPanel', [
     'kahuna.services.selection',
@@ -17,7 +17,8 @@ export var grPanel = angular.module('grPanel', [
     'kahuna.services.archive',
     'kahuna.edits.service',
     'grXeditable',
-    'ui.bootstrap'
+    'ui.bootstrap',
+    'gr.downloader'
 ]);
 
 grPanel.controller('GrPanel', [
@@ -161,47 +162,6 @@ grPanel.controller('GrPanel', [
                     ctrl.archiving = false;
                 });
         };
-
-        ctrl.downloadAll = function() {
-            const zip = new JSZip();
-            const imagesAddedToZip = ctrl.images.map(image =>
-                getLoadedImageElement(image.data.source.secureUrl).then(imageEl => {
-                    let buffer = createBuffer(imageEl, image.data.source.dimensions);
-                    zip.file(image.data.id+'.jpg', buffer);
-                })
-            );
-
-            $q.all(imagesAddedToZip).then(() => {
-                const file = zip.generate({ type: 'uint8array' });
-                const blob = new Blob([file], { type: 'application/zip' });
-                const url = URL.createObjectURL(blob);
-
-                window.location = url;
-            });
-        };
-
-        function getLoadedImageElement(url) {
-            const defer = $q.defer();
-            const imageEl = document.createElement('img');
-            imageEl.setAttribute('crossOrigin', 'anonymous');
-            imageEl.src = url;
-            imageEl.addEventListener('load', () => {
-                defer.resolve(imageEl);
-            });
-
-            return defer.promise;
-        }
-
-        function createBuffer(imageEl, { width, height }) {
-            const canvas = document.createElement('canvas');
-            canvas.width = width;
-            canvas.height = height;
-
-            const ctx = canvas.getContext("2d");
-            ctx.drawImage(imageEl, 0, 0);
-
-            return ctx.getImageData(0, 0, width, height).data.buffer;
-        }
     }
 ]);
 
