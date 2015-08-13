@@ -61,15 +61,11 @@
                     ng:if="ctrl.inSelectionMode()">
 
                     <div class="action-bar__item">
-                        {{ctrl.selectedImages.size}} selected
+                        <a ng:click="ctrl.clearSelection()" title="Clear selection">
+                            <gr-icon>clear</gr-icon>
+                        </a>
+                        <span class="icon-label">{{ctrl.selectedImages.size}} selected</span>
                     </div>
-
-                    <a class="action-bar__item"
-                         ng:class="{'results-toolbar-item--disabled': !ctrl.metadataPanelAvailable}"
-                         ng:click="ctrl.clearSelection()">
-                        <span class="icon-label">clear selection</span>
-                        <gr-icon>clear</gr-icon>
-                    </a>
 
                     <gr-downloader class="action-bar__item action-bar__item--last"
                         gr:images="ctrl.selectedImages"></gr-downloader>
