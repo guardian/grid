@@ -136,7 +136,7 @@ image.controller('ImageCtrl', [
         }
 
         function updateAbilities(image) {
-            mediaApi.canDelete(image).then(deletable => {
+            imageService(image).states.canDelete.then(deletable => {
                 ctrl.canBeDeleted = deletable;
             });
 

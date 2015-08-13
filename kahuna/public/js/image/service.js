@@ -38,7 +38,8 @@ imageService.factory('imageService', ['editsService', function(editsService) {
         return {
             cost: image.data.cost,
             hasCrops: hasExportsOfType(image, 'crop'),
-            isValid: image.data.valid
+            isValid: image.data.valid,
+            canDelete: image.getAction('delete').then(action => !! action)
         };
     }
 
