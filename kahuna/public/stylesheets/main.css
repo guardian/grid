@@ -824,6 +824,7 @@ input.search-query__input {
 
 .results-toolbar-item--left {
     border-left: 0;
+    padding-left: 0;
 }
 
 .results-toolbar-item--right {
