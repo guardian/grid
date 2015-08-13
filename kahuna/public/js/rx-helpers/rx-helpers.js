@@ -47,3 +47,8 @@ rxHelpers.factory('observeCollectionOnScope', ['rx', function(rx) {
         });
     };
 }]);
+
+rxHelpers.factory('injectValue$', ['subscribe$', function(subscribe$) {
+    return (scope, obj, key, observable$) =>
+        subscribe$(scope, observable$, val => obj[key] = val);
+}]);

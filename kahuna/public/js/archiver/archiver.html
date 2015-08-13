@@ -1,0 +1,42 @@
+<div ng:if="ctrl.hasMixed">
+    <div class="metadata-line">
+        <gr-icon>star_half</gr-icon>
+        <span ng:if="!ctrl.archiving">{{ctrl.archivedCount}} archived</span>
+        <span ng:if="ctrl.archiving">saving...</span>
+    </div>
+
+    <span class="batch-archive__action" ng:if="!ctrl.archiving">
+        <button class="button-shy batch-archive__archive" ng:click="ctrl.archive()">
+            <gr-icon>star</gr-icon> all
+        </button>
+        <button class="button-shy batch-archive__unarchive" ng:click="ctrl.unarchive()">
+            <gr-icon>star_border</gr-icon> none
+        </button>
+    </span>
+</div>
+
+<div class="batch-archive--all-unarchived" ng:if="ctrl.notArchivedCount === 0">
+    <div class="metadata-line">
+        <gr-icon>star</gr-icon>
+        <span ng:if="!ctrl.archiving">all archived</span>
+        <span ng:if="ctrl.archiving">saving...</span>
+    </div>
+    <span class="batch-archive__action" ng:if="!ctrl.archiving">
+        <button class="button-shy batch-archive__unarchive" ng:click="ctrl.unarchive()">
+            <gr-icon>star_border</gr-icon> unarchive all
+        </button>
+    </span>
+</div>
+
+<div class="batch-archive--all-unarchived" ng:if="ctrl.archivedCount === 0">
+    <div class="metadata-line">
+        <gr-icon>star_border</gr-icon>
+        <span ng:if="!ctrl.archiving">all unarchived</span>
+        <span ng:if="ctrl.archiving">saving...</span>
+    </div>
+    <span class="batch-archive__action" ng:if="!ctrl.archiving">
+        <button class="button-shy batch-archive__archive" ng:click="ctrl.archive()">
+            <gr-icon>star</gr-icon> archive all
+        </button>
+    </span>
+</div>

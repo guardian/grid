@@ -62,6 +62,9 @@
 
 .batch-archive {
     border-bottom: none;
+    float: left;
+    box-sizing: border-box;
+    width: 100%;
 }
 
 .batch-archive .metadata-line {

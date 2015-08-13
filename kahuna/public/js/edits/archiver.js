@@ -1,41 +1,53 @@
 import angular from 'angular';
 import template from './archiver.html!text';
-import '../services/archive';
 
-export var archiver = angular.module('kahuna.edits.archiver', [
-    'kahuna.services.archive'
-]);
+import imageStream from '../image/stream';
 
-archiver.controller('ArchiverCtrl', ['$scope', '$window', 'archiveService', 'onValChange',
-                    function($scope, $window, archiveService, onValChange) {
+import '../archiver/service';
+
+export var archiver = angular.module('kahuna.edits.archiver', ['gr.archiver.service']);
+
+archiver.controller('ArchiverCtrl', ['$window', 'archiverService',
+                    function($window, archiverService) {
 
     var ctrl = this;
 
-    ctrl.toggleArchived = toggleArchived;
-    ctrl.isArchived = ctrl.image.data.userMetadata.data.archived.data;
-    ctrl.archiving = false;
+    const imageStream$ = imageStream([ctrl.image]).getObservable();
+    const service = archiverService(imageStream$);
 
-    $scope.$watch(() => ctrl.image.data.userMetadata.data.archived.data, onValChange(newState => {
-        ctrl.isArchived = newState;
-    }));
+    ctrl.saving = false;
+    ctrl.isArchived = () => ctrl.image.data.userMetadata.data.archived.data;
 
-    function toggleArchived() {
-        ctrl.archiving = true;
+    ctrl.archive = () => {
+        ctrl.saving = true;
+        service.
+            archive().
+            catch(error).
+            finally(saved);
+    };
 
-        var promise = ctrl.isArchived ?
-            archiveService.unarchive(ctrl.image) :
-            archiveService.archive(ctrl.image);
+    ctrl.unarchive = () => {
+        ctrl.saving = true;
+        service.
+            unarchive().
+            catch(error).
+            finally(saved);
+    };
 
-        promise
-            .catch(()  => $window.alert('Failed to save the changes, please try again.'))
-            .finally(() => ctrl.archiving = false);
+    function error() {
+        $window.alert('Failed to save the changes, please try again.');
+    }
+
+    function saved() {
+        ctrl.saving = false;
     }
 }]);
 
 archiver.directive('uiArchiver', [function() {
     return {
         restrict: 'E',
-        controller: 'ArchiverCtrl as archiver',
+        controller: 'ArchiverCtrl',
+        controllerAs: 'ctrl',
         scope: {
             image: '=',
             withText: '=',
