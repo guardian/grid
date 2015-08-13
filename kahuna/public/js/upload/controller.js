@@ -3,7 +3,10 @@ import '../edits/image-editor';
 import '../components/gr-delete-image/gr-delete-image';
 import '../image/service';
 
-var upload = angular.module('kahuna.upload.controller', ['kahuna.edits.imageEditor', 'gr.image.service']);
+var upload = angular.module('kahuna.upload.controller', [
+    'kahuna.edits.imageEditor',
+    'gr.image.service'
+]);
 
 upload.controller('UploadCtrl', [
     '$scope', '$state', '$window', 'uploadManager', 'mediaApi', 'imageService',
