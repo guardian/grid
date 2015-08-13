@@ -356,6 +356,11 @@ textarea.ng-invalid {
     .top-bar-item .gr-confirm-delete {
         min-width: inherit;
     }
+
+    /* only use this class if you want it to hide */
+    .icon-label {
+        display: none;
+    }
 }
 
 /* ==========================================================================
@@ -1904,6 +1909,19 @@ ui-archiver .archiver:hover {
 
 .tracking-image {
     display: none;
+}
+
+
+/* ==========================================================================
+   Forms
+   ========================================================================== */
+.action-bar {
+    line-height: 35px;
+}
+
+.action-bar__item {
+    line-height: inherit;
+    padding: 0 10px;
 }
 
 

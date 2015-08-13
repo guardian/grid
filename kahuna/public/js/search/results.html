@@ -57,8 +57,10 @@
                 </button>
             </div>
 
-            <gr-action-bar ng:if="ctrl.inSelectionMode()">
-                <gr-downloader gr:images="ctrl.selectedImages"></gr-downloader>
+            <gr-action-bar class="action-bar"
+                ng:if="ctrl.inSelectionMode()">
+                <gr-downloader class="action-bar__item"
+                    gr:images="ctrl.selectedImages"></gr-downloader>
             </gr-action-bar>
 
 

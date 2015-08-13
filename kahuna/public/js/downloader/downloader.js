@@ -42,9 +42,9 @@ downloader.directive('grDownloader', function() {
             images: '=grImages' // crappy two way binding
         },
         template: `
-            <button type="button" ng:click="ctrl.download()">
+            <button type="button" title="Download images" ng:click="ctrl.download()">
                 <gr-icon>file_download</gr-icon>
-                Download {{ctrl.images.size}} images
+                <span class="icon-label">Download</span>
             </button>`
     };
 });
