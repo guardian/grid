@@ -12,7 +12,7 @@ downloader.controller('DownloaderCtrl',
     ctrl.download = () => {
         const zip = new JSZip();
         const imageHttp = url => $http.get(url, { responseType:'arraybuffer' });
-        const imagesAddedToZip = ctrl.images.map(image =>
+        const imagesAddedToZip = Array.from(ctrl.images.values()).map(image =>
             imageHttp(image.data.source.secureUrl)
                 .then(resp => zip.file(imageName(image), resp.data))
         );
@@ -44,7 +44,7 @@ downloader.directive('grDownloader', function() {
         template: `
             <button type="button" ng:click="ctrl.download()">
                 <gr-icon>file_download</gr-icon>
-                Download {{ctrl.images.length}} images
+                Download {{ctrl.images.size}} images
             </button>`
     };
 });

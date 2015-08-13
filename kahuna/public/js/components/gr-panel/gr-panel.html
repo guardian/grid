@@ -267,7 +267,7 @@
             </ul>
         </div>
 
-        <div class="image-info__group batch-archive" ng:switch="ctrl.archivedState"
+        <div class="image-info__group image-info__group--last batch-archive" ng:switch="ctrl.archivedState"
             ng:class="{'batch-archive--archiving': ctrl.archiving}">
             <div ng:switch-when="mixed" class="batch-archive--mixed">
                 <div class="metadata-line">
@@ -308,10 +308,6 @@
                     </button>
                 </span>
             </div>
-        </div>
-
-        <div class="image-info__group image-info__group--last">
-            <gr-downloader gr:images="ctrl.images"></gr-downloader>
         </div>
     </div>
 </div>
