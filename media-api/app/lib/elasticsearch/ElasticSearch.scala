@@ -75,8 +75,10 @@ object ElasticSearch extends ElasticSearchClient with SearchFilters with ImageFi
     val query = queryBuilder.makeQuery(params.structuredQuery)
 
     val uploadTimeFilter  = filters.date("uploadTime", params.since, params.until)
+    val lastModTimeFilter = filters.date("lastModified", params.modifiedSince, params.modifiedUntil)
+    val takenTimeFilter   = filters.date("metadata.dateTaken", params.takenSince, params.takenUntil)
     // we only inject filters if there are actual date parameters
-    val dateFilterList    = List(uploadTimeFilter).flatten.toNel
+    val dateFilterList    = List(uploadTimeFilter, lastModTimeFilter, takenTimeFilter).flatten.toNel
     val dateFilter        = dateFilterList.map(dateFilters => filters.and(dateFilters.list: _*))
 
     val idsFilter        = params.ids.map(filters.ids)

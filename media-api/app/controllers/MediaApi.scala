@@ -46,8 +46,9 @@ object MediaApi extends Controller with ArgoHelpers {
   val Authenticated = auth.Authenticated(keyStore, loginUri, Config.kahunaUri)
 
 
-  val searchParamList = List("q", "ids", "offset", "length",
-    "orderBy", "since", "until", "uploadedBy", "archived", "valid", "free",
+  val searchParamList = List("q", "ids", "offset", "length", "orderBy",
+    "since", "until", "modifiedSince", "modifiedUntil", "takenSince", "takenUntil",
+    "uploadedBy", "archived", "valid", "free",
     "hasExports", "hasIdentifier", "missingIdentifier", "hasMetadata").mkString(",")
 
   val searchLinkHref = s"$rootUri/images{?$searchParamList}"
@@ -293,6 +294,10 @@ case class SearchParams(
   orderBy: Option[String],
   since: Option[DateTime],
   until: Option[DateTime],
+  modifiedSince: Option[DateTime],
+  modifiedUntil: Option[DateTime],
+  takenSince: Option[DateTime],
+  takenUntil: Option[DateTime],
   archived: Option[Boolean],
   hasExports: Option[Boolean],
   hasIdentifier: Option[String],
@@ -325,6 +330,10 @@ object SearchParams {
       request.getQueryString("orderBy") orElse request.getQueryString("sortBy"),
       request.getQueryString("since") flatMap parseDateFromQuery,
       request.getQueryString("until") flatMap parseDateFromQuery,
+      request.getQueryString("modifiedSince") flatMap parseDateFromQuery,
+      request.getQueryString("modifiedUntil") flatMap parseDateFromQuery,
+      request.getQueryString("takenSince") flatMap parseDateFromQuery,
+      request.getQueryString("takenUntil") flatMap parseDateFromQuery,
       request.getQueryString("archived").map(_.toBoolean),
       request.getQueryString("hasExports").map(_.toBoolean),
       request.getQueryString("hasIdentifier"),
@@ -346,6 +355,10 @@ object SearchParams {
       "length"            -> Some(searchParams.length.toString),
       "since"             -> searchParams.since.map(printDateTime),
       "until"             -> searchParams.until.map(printDateTime),
+      "modifiedSince"     -> searchParams.modifiedSince.map(printDateTime),
+      "modifiedUntil"     -> searchParams.modifiedUntil.map(printDateTime),
+      "takenSince"        -> searchParams.takenSince.map(printDateTime),
+      "takenUntil"        -> searchParams.takenUntil.map(printDateTime),
       "archived"          -> searchParams.archived.map(_.toString),
       "hasExports"        -> searchParams.hasExports.map(_.toString),
       "hasIdentifier"     -> searchParams.hasIdentifier,
