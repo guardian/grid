@@ -14,7 +14,7 @@ downloader.controller('DownloaderCtrl',
         const imageHttp = url => $http.get(url, { responseType:'arraybuffer' });
         const imagesAddedToZip = ctrl.images.map(image =>
             imageHttp(image.data.source.secureUrl)
-                .then(resp => zip.file(image.data.id + '.jpg', resp.data))
+                .then(resp => zip.file(imageName(image), resp.data))
         );
 
         $q.all(imagesAddedToZip).then(() => {
@@ -24,9 +24,11 @@ downloader.controller('DownloaderCtrl',
 
             $window.location = url;
         });
-
-
     };
+
+    function imageName(image) {
+        return image.data.uploadInfo.filename || `${image.data.id}.jpg`;
+    }
 
 }]);
 
