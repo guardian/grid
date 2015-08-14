@@ -11,6 +11,7 @@ trait CommonPlayAppConfig {
 
   final val elasticsearchStack = "media-service"
   final val elasticsearchApp   = "elasticsearch"
+  final val stackName          = "media-service"
 
   final val appConfig = Play.current.configuration
 
