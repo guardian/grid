@@ -3,13 +3,18 @@ import template from './upload-jobs.html!text';
 import '../../preview/image';
 import '../../analytics/track';
 import '../../components/gr-delete-image/gr-delete-image';
+import '../../image/service';
 
-export var jobs = angular.module('kahuna.upload.jobs', ['kahuna.preview.image', 'analytics.track']);
+export var jobs = angular.module('kahuna.upload.jobs', [
+    'kahuna.preview.image',
+    'gr.image.service',
+    'analytics.track'
+]);
 
 
 jobs.controller('UploadJobsCtrl', [
-    '$window', 'apiPoll', 'track', 'mediaApi',
-    function($window, apiPoll, track, mediaApi) {
+    '$window', 'apiPoll', 'track', 'imageService',
+    function($window, apiPoll, track, imageService) {
 
     var ctrl = this;
 
@@ -34,7 +39,7 @@ jobs.controller('UploadJobsCtrl', [
                 jobItem.image = image;
                 jobItem.thumbnail = image.data.thumbnail;
 
-                mediaApi.canDelete(image).then(deletable => {
+                imageService(image).states.canDelete.then(deletable => {
                     jobItem.canBeDeleted = deletable;
                 });
 
