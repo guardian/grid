@@ -431,6 +431,8 @@ object ExportApp extends App with ExportManagerProvider with ArgumentHelpers wit
         |       +ingest <dev|test|prod> [dateLoaded] [range]
         |       +override <dev|test|prod> [dateLoaded] [range]
         |       +clear  <dev|test|prod> [dateLoaded]
+        |
+        |       +rights:fetch  <dev|test|prod> <desk|library> [dateLoaded] [range]
       """.stripMargin
     )
   }
