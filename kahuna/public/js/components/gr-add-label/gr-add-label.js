@@ -12,7 +12,7 @@ export var addLabel = angular.module('gr.addLabel', [
 addLabel.controller('GrAddLabelCtrl', ['$window', 'labelService',
     function ($window, labelService) {
         function saveFailed() {
-            $window.alert("Something went wrong when saving, please try again!");
+            $window.alert('Something went wrong when saving, please try again!');
         }
 
         let ctrl = this;
