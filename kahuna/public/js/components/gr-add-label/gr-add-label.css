@@ -1,0 +1,8 @@
+gr-add-label .button-shy {
+    box-shadow: none;
+}
+
+gr-add-label .small {
+    border: none;
+    padding: 0;
+}

@@ -1,26 +1,16 @@
-<div class="labeller" ng:if="!ctrl.disabled">
+<div class="labeller">
     <ul class="labels"
         ng:if="ctrl.labels.data.length > 0">
         <li class="label"
             ng:repeat="label in ctrl.labels.data">
+
+            <span ng:if="ctrl.disabled">{{label.data}}</span>
+
             <a class="label__link"
-               ui:sref="search.results({query: (label.data | queryLabelFilter)})">{{label.data}}</a>
-        </li>
-    </ul>
-
-    <button class="labeller__add"
-            ng:click="ctrl.addLabel()"
-            ng:disabled="ctrl.adding">
-
-        <span ng:class="{ 'labeller__add-spin': ctrl.adding }">+</span>
-    </button>
-</div>
-
-<div class="labeller" ng:if="ctrl.disabled">
-    <ul class="labels"
-        ng:if="ctrl.labels.data.length > 0">
-        <li class="label" ng:repeat="label in ctrl.labels.data">
-            {{label.data}}
+               ng:if="!ctrl.disabled"
+               ui:sref="search.results({query: (label.data | queryLabelFilter)})">
+                {{label.data}}
+            </a>
         </li>
     </ul>
 </div>
