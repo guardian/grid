@@ -249,10 +249,15 @@
 
     <div class="image-info">
         <dl class="image-info__group">
-            <dt class="image-info__heading image-info__heading--first">Labels</dt>
+            <dt class="image-info__heading image-info__heading--first">
+                <div class="flex-container">
+                    Labels
+                    <div class="flex-spacer"></div>
+                    <gr-add-label image="ctrl.image"></gr-add-label>
+                </div>
+            </dt>
             <dd class="image-info__group--fixed-panel">
-                <ui-labeller image="ctrl.image">
-                </ui-labeller>
+                <ui-labeller image="ctrl.image"></ui-labeller>
             </dd>
         </dl>
     </div>
