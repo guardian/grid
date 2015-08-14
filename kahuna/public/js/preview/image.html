@@ -42,9 +42,15 @@
     </span>
 
     <div class="preview__info" ng:if="! ctrl.hideInfo">
-        <ui-labeller-compact class="preview__labeller"
-                             image="ctrl.image"
-                             disabled="ctrl.selectionMode"></ui-labeller-compact>
+        <div class="flex-container">
+            <ui-labeller-compact class="preview__labeller"
+                                 image="ctrl.image"></ui-labeller-compact>
+            <span class="flex-spacer"></span>
+            <gr-add-label ng:if="!ctrl.selectionMode"
+                          image="ctrl.image"
+                          gr-small="true">
+            </gr-add-label>
+        </div>
 
         <!-- Ensure contents in P to maintain height -->
         <p class="preview__description">{{ctrl.image.data.metadata.description || ctrl.image.data.metadata.title || '&nbsp;'}}</p>
