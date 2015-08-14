@@ -406,6 +406,16 @@ object ExportApp extends App with ExportManagerProvider with ArgumentHelpers wit
       fetchRights(env, system)
     }
 
+    case "+rights:fetch" :: env :: system :: Nil => terminateAfter {
+      fetchRights(env, system)
+    }
+    case "+rights:fetch" :: env :: system :: date :: Nil => terminateAfter {
+      fetchRights(env, system, parseDateRange(date))
+    }
+    case "+rights:fetch" :: env :: system :: date :: rangeStr :: Nil => terminateAfter {
+      fetchRights(env, system, parseDateRange(date), parseQueryRange(rangeStr))
+    }
+
     case _ => println(
       """
         |usage: :count-loaded    <dev|test|prod> [dateLoaded]
