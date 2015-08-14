@@ -44,10 +44,12 @@
     <div class="preview__info" ng:if="! ctrl.hideInfo">
         <div class="flex-container">
             <ui-labeller-compact class="preview__labeller"
-                                 image="ctrl.image"
-                                 disabled="ctrl.selectionMode"></ui-labeller-compact>
+                                 image="ctrl.image"></ui-labeller-compact>
             <span class="flex-spacer"></span>
-            <gr-add-label image="ctrl.image" gr-small="true"></gr-add-label>
+            <gr-add-label ng:if="!ctrl.selectionMode"
+                          image="ctrl.image"
+                          gr-small="true">
+            </gr-add-label>
         </div>
 
         <!-- Ensure contents in P to maintain height -->
