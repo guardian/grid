@@ -9,13 +9,12 @@ import com.amazonaws.services.dynamodbv2.document.spec.{ScanSpec, UpdateItemSpec
 import com.amazonaws.services.dynamodbv2.document.utils.ValueMap
 import com.amazonaws.services.dynamodbv2.model.ReturnValue
 import com.gu.mediaservice.lib.aws.DynamoDB
-import com.gu.mediaservice.model.ImageMetadata
+import com.gu.mediaservice.model.{UsageRights, ImageMetadata}
 import com.gu.mediaservice.picdarexport.model.{DateRange, AssetRef}
 
 import org.joda.time.DateTime
 import org.joda.time.format.ISODateTimeFormat
-import play.api.libs.json.Json
-import play.api.libs.json.JsObject
+import play.api.libs.json.{Writes, Json, JsObject}
 import play.api.libs.concurrent.Execution.Implicits._
 
 import scala.collection.JavaConversions._
@@ -56,6 +55,8 @@ class ExportDynamoDB(credentials: AWSCredentials, region: Region, tableName: Str
     "(" + fetchFields.map(f => s"attribute_not_exists($f)").mkString(" OR ") + ")"
   val fetchedCondition =
     "(" + fetchFields.map(f => s"attribute_exists($f)").mkString(" AND ") + ")"
+
+  val noRightsCondition = "(attribute_not_exists(rights))"
 
 
   def scanUnfetched(dateRange: DateRange): Future[Seq[AssetRef]] = Future {
@@ -135,6 +136,33 @@ class ExportDynamoDB(credentials: AWSCredentials, region: Region, tableName: Str
     }.toSeq
   }
 
+  type Conditions = List[String]
+  implicit class ConditionHelper(conditions: Conditions) {
+    def withDateRange(dateRange: DateRange) = conditions ++
+      dateRange.start.map(date => s"picdarCreated >= :startDate") ++
+      dateRange.end.map(date => s"picdarCreated <= :endDate")
+  }
+
+  type ConditionValues = Map[String, String]
+  implicit class ConditionValuesHelper(conditionValues: ConditionValues) {
+    def withDateRangeValues(dateRange: DateRange) = conditionValues ++
+      dateRange.start.map(asRangeString).map(":startDate" -> _) ++
+      dateRange.end.map(asRangeString).map(":endDate" -> _)
+  }
+
+  def scanNoRights(dateRange: DateRange): Future[Seq[AssetRef]] = Future {
+    val queryConds = List(fetchedCondition, noRightsCondition).withDateRange(dateRange)
+    val values = Map[String, String]().withDateRangeValues(dateRange)
+
+    val projectionAttrs = List("picdarUrn", "picdarCreated", "picdarCreatedFull", "picdarAssetUrl")
+    val items = scan(queryConds, projectionAttrs, values)
+    items.iterator.map { item =>
+      val picdarCreated = rangeDateFormat.parseDateTime(item.getString("picdarCreated"))
+      val picdarCreatedFull = timestampDateFormat.parseDateTime(item.getString("picdarCreatedFull"))
+      AssetRef(item.getString("picdarUrn"), rangeDateFormat.parseDateTime(item.getString("picdarCreated")))
+    }.toSeq
+  }
+
   // TODO: get ImageMetadata object from Picdar?
   def record(urn: String, range: DateTime, assetUrl: URI, picdarCreated: DateTime, picdarModified: Option[DateTime], metadata: ImageMetadata) = Future {
     val now = asTimestampString(new DateTime)
@@ -179,6 +207,25 @@ class ExportDynamoDB(credentials: AWSCredentials, region: Region, tableName: Str
       withValueMap(new ValueMap().
         withBoolean(":overridden", overridden).
         withString(":overriddenModified", asTimestampString(new DateTime))).
+      withReturnValues(ReturnValue.ALL_NEW)
+
+    table.updateItem(baseUpdateSpec)
+  }
+
+  // Oh yes.
+  def rightsToMap[T](caseClassOpt: Option[T])(implicit tjs: Writes[T]) =
+    // we record empty rights if there isn't any
+    caseClassOpt.map { caseClass =>
+      Json.toJson(caseClass).as[Map[String, String]]
+    }.getOrElse(Map())
+
+  def recordRights(urn: String, range: DateTime, rights: Option[UsageRights]) = Future {
+    val baseUpdateSpec = new UpdateItemSpec().
+      withPrimaryKey(IdKey, urn, RangeKey, asRangeString(range)).
+      withUpdateExpression("SET picdarRights = :rights, picdarRightsModified = :picdarRightsModified").
+      withValueMap(new ValueMap().
+        withMap(":rights", rightsToMap(rights)).
+        withString(":picdarRightsModified", asTimestampString(new DateTime))).
       withReturnValues(ReturnValue.ALL_NEW)
 
     table.updateItem(baseUpdateSpec)
