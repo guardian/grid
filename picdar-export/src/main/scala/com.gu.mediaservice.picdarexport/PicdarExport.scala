@@ -2,7 +2,7 @@ package com.gu.mediaservice.picdarexport
 
 import java.net.URI
 
-import com.gu.mediaservice.model.ImageMetadata
+import com.gu.mediaservice.model.{UsageRights, ImageMetadata}
 import com.gu.mediaservice.picdarexport.lib.cleanup.MetadataOverrides
 import com.gu.mediaservice.picdarexport.lib.db.ExportDynamoDB
 import com.gu.mediaservice.picdarexport.lib.media._
@@ -48,6 +48,15 @@ class ExportManager(picdar: PicdarClient, loader: MediaLoader, mediaApi: MediaAp
 
   private def ingestAsset(asset: Asset) =
     ingest(asset.file, asset.urn, asset.created)
+
+  def overrideRights(mediaUriOpt: Option[URI], rightsOpt: Option[UsageRights]): Future[Boolean] = {
+    for {
+      mediaUri <- mediaUriOpt
+      rights <- rightsOpt
+      image <- mediaApi.getImage(mediaUri)
+      currentRights <- image
+    }
+  }
 }
 
 
@@ -264,6 +273,17 @@ object ExportApp extends App with ExportManagerProvider with ArgumentHelpers wit
     }
   }
 
+  def rightsOverride(env: String, dateRange: DateRange = DateRange.all, range: Option[Range] = None) = {
+    val dynamo = getDynamo(env)
+    dynamo.scanRightsFetchedNotOverridden(dateRange) flatMap { assets =>
+      val updates = takeRange(assets, range).map { asset =>
+        val mediaApi = asset.mediaUri
+        val rights = asset.picdarRights
+        getExportManager("library", env).overrideRights(mediaUri, rights)
+      }
+    }
+  }
+
 
   args.toList match {
     case ":count-loaded" :: env :: Nil => terminateAfter {
@@ -405,15 +425,15 @@ object ExportApp extends App with ExportManagerProvider with ArgumentHelpers wit
     case "+rights:fetch" :: env :: system :: Nil => terminateAfter {
       fetchRights(env, system)
     }
-
-    case "+rights:fetch" :: env :: system :: Nil => terminateAfter {
-      fetchRights(env, system)
-    }
     case "+rights:fetch" :: env :: system :: date :: Nil => terminateAfter {
       fetchRights(env, system, parseDateRange(date))
     }
     case "+rights:fetch" :: env :: system :: date :: rangeStr :: Nil => terminateAfter {
       fetchRights(env, system, parseDateRange(date), parseQueryRange(rangeStr))
+    }
+
+    case "+rights:override" :: env :: Nil => terminateAfter {
+      rightsOverride(env)
     }
 
     case _ => println(

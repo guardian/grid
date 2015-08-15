@@ -26,7 +26,8 @@ case class AssetRow(
   picdarCreatedFull: DateTime,
   picdarAssetUrl: URI,
   mediaUri: Option[URI] = None,
-  picdarMetadata: Option[ImageMetadata] = None
+  picdarMetadata: Option[ImageMetadata] = None,
+  picdarRights: Option[UsageRights] = None
 )
 
 class ExportDynamoDB(credentials: AWSCredentials, region: Region, tableName: String)
@@ -57,6 +58,7 @@ class ExportDynamoDB(credentials: AWSCredentials, region: Region, tableName: Str
     "(" + fetchFields.map(f => s"attribute_exists($f)").mkString(" AND ") + ")"
 
   val noRightsCondition = "(attribute_not_exists(rights))"
+  val hasRightsNotOverridden = List("attribute_exists(rights)", "attribute_not_exists(rightsOverridden)")
 
 
   def scanUnfetched(dateRange: DateRange): Future[Seq[AssetRef]] = Future {
@@ -160,6 +162,22 @@ class ExportDynamoDB(credentials: AWSCredentials, region: Region, tableName: Str
       val picdarCreated = rangeDateFormat.parseDateTime(item.getString("picdarCreated"))
       val picdarCreatedFull = timestampDateFormat.parseDateTime(item.getString("picdarCreatedFull"))
       AssetRef(item.getString("picdarUrn"), rangeDateFormat.parseDateTime(item.getString("picdarCreated")))
+    }.toSeq
+  }
+
+  def scanRightsFetchedNotOverridden(dateRange: DateRange): Future[Seq[AssetRow]] = Future {
+    // FIXME: query by range only?
+    val queryConds = (List(fetchedCondition) ++ hasRightsNotOverridden).withDateRange(dateRange)
+    val values = Map[String, String]().withDateRangeValues(dateRange)
+
+    val projectionAttrs = List("picdarUrn", "picdarCreated", "picdarCreatedFull", "picdarAssetUrl", "mediaUri", "picdarRights")
+    val items = scan(queryConds, projectionAttrs, values)
+    items.iterator.map { item =>
+      val picdarCreated = rangeDateFormat.parseDateTime(item.getString("picdarCreated"))
+      val picdarCreatedFull = timestampDateFormat.parseDateTime(item.getString("picdarCreatedFull"))
+      val mediaUri = Option(item.getString("mediaUri")).map(URI.create)
+      val picdarRights = Option(item.getJSON("picdarRights")).map(json => Json.parse(json).as[UsageRights])
+      AssetRow(item.getString("picdarUrn"), picdarCreated, picdarCreatedFull, URI.create(item.getString("picdarAssetUrl")), mediaUri, picdarRights = picdarRights)
     }.toSeq
   }
 
