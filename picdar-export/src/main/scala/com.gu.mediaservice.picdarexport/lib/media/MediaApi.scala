@@ -3,7 +3,7 @@ package com.gu.mediaservice.picdarexport.lib.media
 import java.net.URI
 
 import com.gu.mediaservice.lib.formatting._
-import com.gu.mediaservice.model.{FileMetadata, ImageMetadata}
+import com.gu.mediaservice.model.{UsageRights, FileMetadata, ImageMetadata}
 import play.api.libs.json._
 import play.api.libs.functional.syntax._
 
@@ -24,7 +24,8 @@ object ImageResource {
 case class Image(
   metadata: ImageMetadata,
   originalMetadata: ImageMetadata,
-  metadataOverrideUri: URI
+  metadataOverrideUri: URI,
+  rights: UsageRights
 )
 
 object Image {
