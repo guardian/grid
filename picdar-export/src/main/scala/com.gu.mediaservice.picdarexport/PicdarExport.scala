@@ -3,7 +3,7 @@ package com.gu.mediaservice.picdarexport
 import java.net.URI
 
 import com.gu.mediaservice.model.{UsageRights, ImageMetadata}
-import com.gu.mediaservice.picdarexport.lib.cleanup.MetadataOverrides
+import com.gu.mediaservice.picdarexport.lib.cleanup.{UsageRightsOverride, MetadataOverrides}
 import com.gu.mediaservice.picdarexport.lib.db.ExportDynamoDB
 import com.gu.mediaservice.picdarexport.lib.media._
 import com.gu.mediaservice.picdarexport.lib.picdar.{PicdarError, PicdarClient}
@@ -49,13 +49,21 @@ class ExportManager(picdar: PicdarClient, loader: MediaLoader, mediaApi: MediaAp
   private def ingestAsset(asset: Asset) =
     ingest(asset.file, asset.urn, asset.created)
 
-  def overrideRights(mediaUriOpt: Option[URI], rightsOpt: Option[UsageRights]): Future[Boolean] = {
+  def overrideRights(mediaUriOpt: Option[URI], picdarRightsOpt: Option[UsageRights]): Future[Boolean] = {
     for {
       mediaUri <- mediaUriOpt
-      rights <- rightsOpt
+      picdarRights <- picdarRightsOpt
       image <- mediaApi.getImage(mediaUri)
-      currentRights <- image
-    }
+      currentRights <- image.rights
+      overridesOpt <- UsageRightsOverride.getOverrides(currentRights, picdarRights)
+      overridden <- applyRightsOverridesIfAny(image, overridesOpt)
+    } yield overridden
+  }
+
+
+  def applyRightsOverridesIfAny(image: Image, rightsOpt: Option[UsageRights]): Future[Boolean] = rightsOpt match {
+    case Some(rights) => ???
+    case None => Future.successful(false)
   }
 }
 
