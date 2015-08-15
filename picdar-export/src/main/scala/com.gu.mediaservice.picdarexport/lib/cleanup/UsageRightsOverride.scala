@@ -151,4 +151,8 @@ object UsageRightsOverride {
 
   def getUsageRights(copyrightGroup: String, metadata: ImageMetadata) =
     copyrightGroupToUsageRightsMap.get(copyrightGroup).flatMap(func => func(metadata))
+
+  def getOverrides(currentRights: UsageRights, picdarRights: UsageRights) = {
+
+  }
 }
