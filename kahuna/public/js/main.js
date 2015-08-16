@@ -70,67 +70,6 @@ angular.forEach(config, function(value, key) {
 });
 
 
-
-kahuna.config(['$provide', function ($provide) {
-
-    $provide.decorator('$http', ['$delegate', '$window', '$location', '$log',
-                                 function ($http, $window, $location, $log) {
-
-        function httpCatchUnauthorized(func) {
-            // FIXME: do we want to return the chain, or just hook the handler and return orig?
-            // FIXME: iff from one of the Grid services?
-            return func().catch(error => {
-                // If missing a session, send for auth
-                if (error && error.status === 401) {
-                    $log.info('No session, send for auth');
-
-                    // FIXME: error should include a Resource with
-                    // link so we don't have to mess around with
-                    // uriTemplates here
-
-                    // FIXME: assert kahuna URL in /login handler
-                    var links = (error.data && error.data.links) || [];
-                    var loginLink = links.find(link => link.rel === 'login');
-                    var loginUriTemplate = loginLink && uriTemplates(loginLink.href);
-                    if (loginUriTemplate) {
-                        // Come back to the current URI after login flow
-                        var loginUri = loginUriTemplate.fillFromObject({redirectUri: $location.url()});
-                        // Full page redirect to the login URI
-                        $window.location.href = loginUri;
-                    } else {
-                        // Couldn't extract a login URI, die noisily
-                        throw error;
-                    }
-                } else {
-                    // Forward any other error
-                    throw error;
-                }
-            });
-        }
-
-
-        // Wrap $http
-        var wrapper = function(...args) {
-            // FIXME: or just call and .catch(handle)?
-            return httpCatchUnauthorized(() => $http(...args));
-        };
-
-        // Wrap convenience methods (e.g. $http.get(), etc)
-        // FIXME: are there other keys we should be copying straight?
-        Object.keys($http).filter(function (key) {
-            return (typeof $http[key] === 'function');
-        }).forEach(function (key) {
-            wrapper[key] = function(...args) {
-                return httpCatchUnauthorized(() => $http[key](...args));
-            };
-        });
-
-        return wrapper;
-    }]);
-}]);
-
-
-
 kahuna.config(['$locationProvider',
                function($locationProvider) {
 
@@ -143,6 +82,47 @@ kahuna.config(['$urlRouterProvider',
 
     $urlRouterProvider.otherwise('/search');
 }]);
+
+
+/* Perform an initial API request to detect 401 (not logged in) and
+ * redirect browser for authentication if necessary.
+ */
+
+// TODO: move to panda-session and/or pandular library?
+function authAndRedirect(loginUriTemplate) {
+    const loginTemplate = uriTemplates(loginUriTemplate);
+    const currentLocation = window.location.href;
+
+    // Come back to the current URI after login flow
+    const loginUri = loginTemplate.fillFromObject({redirectUri: currentLocation});
+
+    // Full page redirect to the login URI
+    window.location.href = loginUri;
+}
+
+kahuna.run(['$log', 'mediaApi', function($log, mediaApi) {
+    // Ping API at init time to ensure we're logged in
+    mediaApi.root.get().catch(error => {
+        // If missing a session, send for auth
+        if (error && error.status === 401) {
+            $log.info('No session, send for auth');
+
+            // TODO: error should include a Resource with link so we
+            // don't have to mess around with uriTemplates here
+
+            var links = (error.body && error.body.links) || [];
+            var loginLink = links.find(link => link.rel === 'login');
+            var loginUriTemplate = loginLink && loginLink.href;
+            if (loginUriTemplate) {
+                authAndRedirect(loginUriTemplate);
+            } else {
+                // Couldn't extract a login URI, die noisily
+                throw error;
+            }
+        }
+    });
+}]);
+
 
 kahuna.run(['$rootScope', 'mediaApi',
             ($rootScope, mediaApi) => {
