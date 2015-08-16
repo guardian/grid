@@ -215,6 +215,11 @@ System.config({
     "npm:ua-parser-js@0.7.3": {
       "systemjs-json": "github:systemjs/plugin-json@0.1.0"
     },
+    "npm:uri-templates@0.1.5": {
+      "path": "github:jspm/nodelibs-path@0.1.0",
+      "systemjs-json": "github:systemjs/plugin-json@0.1.0",
+      "util": "github:jspm/nodelibs-util@0.1.0"
+    },
     "npm:uri-templates@0.1.7": {
       "path": "github:jspm/nodelibs-path@0.1.0",
       "systemjs-json": "github:systemjs/plugin-json@0.1.0",
@@ -232,3 +237,4 @@ System.config({
     }
   }
 });
+
