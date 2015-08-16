@@ -4,10 +4,12 @@ import '../analytics/track';
 import template from './image.html!text';
 
 import '../image/service';
+import '../components/gr-add-label/gr-add-label';
 
 export var image = angular.module('kahuna.preview.image', [
     'gr.image.service',
-    'analytics.track'
+    'analytics.track',
+    'gr.addLabel'
 ]);
 
 image.controller('uiPreviewImageCtrl', [

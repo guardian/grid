@@ -28,7 +28,14 @@
 
         <ui-image-editor ng:if="job.image"
                          image="job.image"
-                         with-batch="ctrl.jobs.length > 1"
+                         with-batch="ctrl.jobs.length > 1">
         </ui-image-editor>
+
+        <gr-delete-image class="right"
+                         ng:if="job.canBeDeleted"
+                         image="job.image"
+                         on-success="ctrl.onDeleteSuccess"
+                         on-error="ctrl.onDeleteError">
+        </gr-delete-image>
     </li>
 </ul>
