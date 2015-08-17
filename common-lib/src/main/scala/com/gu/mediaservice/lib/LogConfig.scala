@@ -57,9 +57,9 @@ object LogConfig {
         val layout       = makeLayout(customFields)
         val appender     = makeKinesisAppender(layout,
           KinesisAppenderConfig(
-            config.string("logger.kinesis.stream"),
-            config.string("logger.kinesis.region"),
-            config.string("logger.kinesis.roleArn")
+            config.properties("logger.kinesis.stream"),
+            config.properties("logger.kinesis.region"),
+            config.properties("logger.kinesis.roleArn")
           )
         )
 
