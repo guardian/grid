@@ -1,9 +1,6 @@
 INITIAL_PROPERTIES = {
     'domain_root': '',
 
-    'ftp_host': '',
-    'ftp_user': '',
-    'ftp_password': '',
     'ftp_key': '',
 
     'mixpanel_token': '',
