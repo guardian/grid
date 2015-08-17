@@ -2,7 +2,7 @@ package com.gu.mediaservice.picdarexport.model
 
 import java.net.URI
 
-import com.gu.mediaservice.model.ImageMetadata
+import com.gu.mediaservice.model.{UsageRights, ImageMetadata}
 import org.joda.time.DateTime
 
 case class Asset(
@@ -11,7 +11,8 @@ case class Asset(
   created: DateTime,
   modified: Option[DateTime],
   metadata: ImageMetadata,
-  infoUri: Option[URI]
+  infoUri: Option[URI],
+  usageRights: Option[UsageRights]
 )
 
 

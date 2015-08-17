@@ -1,6 +1,12 @@
 {
     "AWSTemplateFormatVersion": "2010-09-09",
     "Description": "Media Service Dev",
+    "Parameters": {
+        "CorsAllowedOrigins": {
+            "Description": "Comma-separated list of CORS-allowed origins",
+            "Type": "String"
+        }
+    },
     "Resources": {
         "Group": {
             "Type": "AWS::IAM::Group",
@@ -58,7 +64,25 @@
             }
         },
         "ImageBucket": {
-            "Type": "AWS::S3::Bucket"
+            "Type": "AWS::S3::Bucket",
+            "Properties": {
+                "CorsConfiguration": {
+                    "CorsRules": [
+                        {
+                            "AllowedMethods": [
+                                "GET"
+                            ],
+                            "AllowedOrigins": [
+                                "*"
+                            ],
+                            "ExposedHeaders": [
+                                "Date"
+                            ],
+                            "MaxAge": "3600"
+                        }
+                    ]
+                }
+            }
         },
         "ImageBucketPolicy": {
             "Type": "AWS::S3::BucketPolicy",

@@ -2,7 +2,7 @@
     <gr-top-bar-nav>
         <a class="top-bar-item"
            ui:sref="search"><gr-icon>search</gr-icon>
-           <span class="top-bar-item__label">search</span></a>
+           <span class="top-bar-item__label">Search</span></a>
     </gr-top-bar-nav>
     <gr-top-bar-actions>
         <file-uploader class="top-bar-item"></file-uploader>
@@ -25,6 +25,11 @@
         <ul>
             <li ng:repeat="result in ctrl.myUploads.data" class="upload-result">
                 <ui-image-editor image="result"></ui-image-editor>
+                <gr-delete-image class="right"
+                                 ng:if="ctrl.canBeDeleted(result)"
+                                 on-success="ctrl.onDeleteSuccess"
+                                 on-error="ctrl.onDeleteError"
+                                 image="result"></gr-delete-image>
             </li>
         </ul>
 

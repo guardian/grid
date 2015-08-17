@@ -247,6 +247,36 @@ a:focus {
     -webkit-animation-timing-function: linear;
 }
 
+.spin {
+    animation-name: spin;
+    animation-duration: 500ms;
+    animation-iteration-count: infinite;
+    animation-timing-function: ease-out;
+
+    -webkit-animation-name: spin;
+    -webkit-animation-iteration-count: infinite;
+    -webkit-animation-duration: 500ms;
+    -webkit-animation-timing-function: ease-out;
+}
+
+.full-width {
+    width: 100%;
+}
+
+.right {
+    display: flex;
+    flex-direction: row;
+    justify-content: flex-end;
+}
+
+.flex-container {
+    display: flex;
+}
+
+.flex-spacer {
+    flex-grow: 1;
+}
+
 /* ==========================================================================
    Generics
    ========================================================================== */
@@ -703,9 +733,12 @@ input.search-query__input {
 .result:hover .result__select,
 .result:hover .preview__fade,
 .result:hover .image-actions,
-.result:hover .labeller__add,
 .result:hover .archiver {
     display: block;
+}
+
+.result:hover gr-add-label {
+    display: inline-block;
 }
 
 .result:hover {
@@ -949,7 +982,13 @@ input.search-query__input {
 FIXME: this is a little targeted
 FIXME: what to do with touch devices
 */
-.preview .labeller__add {
+
+.preview__labeller {
+    width: calc(100% - 20px);
+    display: inline-block;
+}
+
+.preview gr-add-label {
     display: none;
 }
 
@@ -1083,6 +1122,7 @@ FIXME: what to do with touch devices
 .result-editor__img,
 .result-editor__img-link {
     display: block;
+    margin: 0 auto;
 }
 
 .result-editor__editor {
@@ -1120,8 +1160,13 @@ FIXME: what to do with touch devices
     width: 100%;
     margin-top: 5px;
 }
+
+.result-editor__labeller-container gr-add-label {
+    font-size: 1.3rem;
+    padding-right: 10px;
+}
+
 .result-editor__label {
-    display: inline-block;
     width: 100px;
 }
 
@@ -1191,8 +1236,9 @@ FIXME: what to do with touch devices
     border-bottom: 1px solid #565656;
 }
 
-.image-info:last-child .image-info__group{
-    border-bottom: none;
+.image-info__group--last {
+    border-bottom: 0;
+    clear: both;
 }
 
 .image-info__group table {
@@ -1500,38 +1546,6 @@ FIXME: what to do with touch devices
     color: #333;
 }
 
-.labeller__placeholder {
-    color: #999;
-}
-
-.labeller__add {
-    padding: 0 5px;
-    color: #00adee;
-}
-
-.labeller__add-button {
-    margin-left: 10px;
-}
-
-.image-info__group--fixed-panel .labeller__add-button{
-    height: 20px;
-    box-shadow: none;
-}
-
-
-
-.labeller__add-spin {
-    animation-name: spin;
-	animation-duration: 500ms;
-	animation-iteration-count: infinite;
-	animation-timing-function: ease-out;
-
-    -webkit-animation-name: spin;
-    -webkit-animation-iteration-count: infinite;
-    -webkit-animation-duration: 500ms;
-    -webkit-animation-timing-function: ease-out;
-}
-
 .labeller__apply-all {
     margin-left: 10px;
     line-height: 20px;
@@ -1685,6 +1699,10 @@ FIXME: what to do with touch devices
     margin-bottom: 10px;
     padding-bottom: 20px;
     border-bottom: 1px dashed #999;
+}
+
+.upload-result .gr-confirm-delete {
+    padding: 0 10px;
 }
 
 .upload-result:hover .image-actions {
@@ -1977,14 +1995,4 @@ ui-archiver .archiver:hover {
 
 .radio-list__label-value {
     padding: 5px 10px;
-}
-
-.full-width {
-    width: 100%;
-}
-
-.right {
-    display: flex;
-    flex-direction: row;
-    justify-content: flex-end;
 }

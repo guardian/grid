@@ -41,11 +41,6 @@ apiServices.factory('mediaApi',
         return root.follow('metadata-search', { field, q }).get();
     }
 
-    // TODO: move to separate service (refactored imageService?)
-    function canDelete(image) {
-        return image.getAction('delete').then(action => !! action);
-    }
-
     function delete_(image) {
         return image.perform('delete');
     }
@@ -56,7 +51,6 @@ apiServices.factory('mediaApi',
         find,
         getSession,
         metadataSearch,
-        delete: delete_,
-        canDelete
+        delete: delete_
     };
 }]);
