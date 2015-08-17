@@ -44,7 +44,7 @@ object Dependencies {
   )
 
   val loggingDeps = Seq(
-    "com.gu" % "kinesis-logback-appender" % "1.0.0",
+    "com.gu" % "kinesis-logback-appender" % "1.0.2",
     "net.logstash.logback" % "logstash-logback-encoder" % "4.4"
   )
 
