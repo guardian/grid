@@ -366,6 +366,23 @@ results.controller('SearchResultsCtrl', [
             }
         });
 
+        const freeImageDeleteListener = $rootScope.$on('image-deleted', (e, image) => {
+            selection.remove(image);
+
+            const imageIndex = ctrl.images.findIndex(i => image.data.id === i.data.id);
+            const imageAllIndex = ctrl.imagesAll.findIndex(i => image.data.id === i.data.id);
+
+            if (imageIndex > -1) {
+                ctrl.images.splice(imageIndex, 1);
+            }
+
+            if (imageAllIndex > -1) {
+                ctrl.imagesAll.splice(imageIndex, 1);
+            }
+
+            ctrl.totalResults += -1;
+        });
+
         // Safer than clearing the timeout in case of race conditions
         // FIXME: nicer (reactive?) way to do this?
         var scopeGone = false;
@@ -373,6 +390,7 @@ results.controller('SearchResultsCtrl', [
         $scope.$on('$destroy', () => {
             scrollPosition.save($stateParams);
             freeUpdateListener();
+            freeImageDeleteListener();
             selection.clear();
             scopeGone = true;
         });
