@@ -3,12 +3,13 @@ import '../gr-confirm-delete/gr-confirm-delete';
 
 export const deleteImage = angular.module('gr.deleteImage', ['gr.confirmDelete']);
 
-deleteImage.controller('grDeleteImageCtrl', ['$q', 'mediaApi', function ($q, mediaApi) {
+deleteImage.controller('grDeleteImageCtrl', ['$rootScope', '$q', 'mediaApi', function ($rootScope, $q, mediaApi) {
     var ctrl = this;
 
-    ctrl.delete = function (image) {
+    ctrl.deleteImage = function (image) {
         return mediaApi.delete(image)
             .then((resp) => {
+                $rootScope.$emit('image-deleted', image);
                 if (angular.isDefined(ctrl.onSuccess)) {
                     ctrl.onSuccess(resp, image);
                 }
@@ -20,16 +21,15 @@ deleteImage.controller('grDeleteImageCtrl', ['$q', 'mediaApi', function ($q, med
             });
     };
 
-    ctrl.batchDelete = function () {
-        return $q.all(ctrl.images.map(image => ctrl.delete(image)));
-    }
+    ctrl.delete = function () {
+        return $q.all(ctrl.images.map(image => ctrl.deleteImage(image)))};
 }]);
 
 deleteImage.directive('grDeleteImage', [function () {
     return {
         restrict: 'E',
         template: `
-            <gr-confirm-delete class="gr-delete-image" gr-on-confirm="ctrl.batchDelete()">
+            <gr-confirm-delete class="gr-delete-image" gr-on-confirm="ctrl.delete()">
             </gr-confirm-delete>`,
         controller: 'grDeleteImageCtrl',
         controllerAs: 'ctrl',
