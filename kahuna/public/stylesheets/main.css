@@ -406,7 +406,7 @@ textarea.ng-invalid {
     left: 0;
     right: 0;
     top: 5px;
-    z-index: 2;
+    z-index: 10;
     text-align: center;
 }
 
