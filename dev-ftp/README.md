@@ -3,16 +3,9 @@
 Simple local FTP server to help test the `ftp-watcher` service in
 development.
 
-To use this development FTP server, add the following lines to your
-`/etc/gu/ftp-watcher.properties` file:
-
-```
-ftp.active=true
-ftp.host=localhost
-ftp.port=41756
-ftp.user=any
-ftp.password=any
-```
+To use this development FTP server, register an API key for your local
+server and add it to your `/etc/gu/ftp-watcher.properties` file (you
+can use the dot-properties helper script and configure its `ftp.key`).
 
 Install the necessary dependencies:
 
