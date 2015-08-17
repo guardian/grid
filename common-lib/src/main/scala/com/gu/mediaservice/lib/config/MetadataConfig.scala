@@ -53,10 +53,10 @@ object MetadataConfig {
     "Linda Nylind" -> "The Guardian"
   )
 
+  val allPhotographers = staffPhotographers ++ contractedPhotographers
+
   val staffPhotographersMap = PhotographersList.creditBylineMap(staffPhotographers)
   val contractPhotgraphersMap = PhotographersList.creditBylineMap(staffPhotographers)
-  val allPhotographersMap = PhotographersList.creditBylineMap(
-    List(MetadataConfig.staffPhotographers, MetadataConfig.contractedPhotographers)
-  )
+  val allPhotographersMap = PhotographersList.creditBylineMap(allPhotographers)
 
 }

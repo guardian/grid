@@ -4,6 +4,7 @@ import templateCompact from './labeller-compact.html!text';
 
 import '../search/query-filter';
 import '../services/label';
+import '../components/gr-add-label/gr-add-label';
 
 export var labeller = angular.module('kahuna.edits.labeller', [
     'kahuna.search.filters.query',
@@ -11,23 +12,19 @@ export var labeller = angular.module('kahuna.edits.labeller', [
 ]);
 
 labeller.controller('LabellerCtrl',
-                  ['$rootScope', '$scope', '$window', '$timeout', 'labelService',
-                   function($rootScope, $scope, $window, $timeout, labelService) {
-
+                  ['$rootScope', '$scope', '$window', '$timeout', 'labelService', 'onValChange',
+                   function($rootScope, $scope, $window, $timeout, labelService, onValChange) {
     var ctrl = this;
+
+    $scope.$watch(() => ctrl.image.data.userMetadata.data.labels, onValChange(newLabels => {
+        ctrl.labels = newLabels;
+    }));
+
     ctrl.labels = ctrl.image.data.userMetadata.data.labels;
 
     function saveFailed() {
         $window.alert('Something went wrong when saving, please try again!');
     }
-
-    ctrl.addLabel = () => {
-        // Prompt for a label and add if not empty
-        var label = ($window.prompt('Enter a label:') || '').trim();
-        if (label) {
-            ctrl.addLabels([label]);
-        }
-    };
 
     ctrl.addLabels = labels => {
         ctrl.adding = true;
@@ -42,7 +39,6 @@ labeller.controller('LabellerCtrl',
                 ctrl.adding = false;
             });
     };
-
 
     ctrl.labelsBeingRemoved = new Set();
     ctrl.removeLabel = label => {

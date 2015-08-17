@@ -21,6 +21,7 @@ crop.controller('ImageCropCtrl',
     // Standard ratios
     ctrl.landscapeRatio = 5 / 3;
     ctrl.portraitRatio = 2 / 3;
+    ctrl.videoRatio = 16 / 9;
     ctrl.freeRatio = null;
 
     const originalDimensions = image.data.source.dimensions;
@@ -59,6 +60,8 @@ crop.controller('ImageCropCtrl',
             return '5:3';
         } else if (Number(aspect) === ctrl.portraitRatio) {
             return '2:3';
+        } else if (Number(aspect) === ctrl.videoRatio) {
+            return '16:9';
         }
         // else undefined is fine
     };

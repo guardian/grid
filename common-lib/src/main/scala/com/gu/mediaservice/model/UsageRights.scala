@@ -41,6 +41,7 @@ object UsageRights {
     case o: ContractPhotographer     => ContractPhotographer.jsonWrites.writes(o)
     case o: CommissionedPhotographer => CommissionedPhotographer.jsonWrites.writes(o)
     case o: Pool                     => Pool.jsonWrites.writes(o)
+    case o: CrownCopyright           => CrownCopyright.jsonWrites.writes(o)
     case o: NoRights.type            => NoRights.jsonWrites.writes(o)
   }
 
@@ -66,6 +67,7 @@ object UsageRights {
         case "contract-photographer"     => json.asOpt[ContractPhotographer]
         case "commissioned-photographer" => json.asOpt[CommissionedPhotographer]
         case "pool"                      => json.asOpt[Pool]
+        case "crown-copyright"           => json.asOpt[CrownCopyright]
         case _                           => None
       })
       .orElse(supplier.flatMap(_ => json.asOpt[Agency]))
@@ -224,6 +226,10 @@ case class Obituary(restrictions: Option[String] = None)
     val description =
       "Acquired from private sources, e.g. family members, for the purposes of " +
       "obituaries."
+
+    override val defaultRestrictions = Some(
+      "Only to be used in context with person's obituary"
+    )
   }
 object Obituary {
  implicit val jsonReads: Reads[Obituary] = Json.reads[Obituary]
@@ -301,4 +307,19 @@ case class Pool(restrictions: Option[String] = None)
 object Pool {
  implicit val jsonReads: Reads[Pool] = Json.reads[Pool]
  implicit val jsonWrites: Writes[Pool] = UsageRights.defaultWrites
+}
+
+
+case class CrownCopyright(restrictions: Option[String] = None)
+  extends UsageRights {
+    val category = "crown-copyright"
+    val defaultCost = Some(Free)
+    val name = "Crown Copyright"
+    val description =
+      "Crown copyright covers material created by civil servants, ministers and government " +
+      "departments and agencies, including the MOD."
+  }
+object CrownCopyright {
+ implicit val jsonReads: Reads[CrownCopyright] = Json.reads[CrownCopyright]
+ implicit val jsonWrites: Writes[CrownCopyright] = UsageRights.defaultWrites
 }

@@ -4,6 +4,7 @@ import '../image/service';
 import '../edits/service';
 import '../analytics/track';
 import '../components/gr-delete-image/gr-delete-image';
+import '../components/gr-add-label/gr-add-label';
 
 var image = angular.module(
         'kahuna.image.controller',
@@ -11,7 +12,8 @@ var image = angular.module(
             'kahuna.edits.service',
             'gr.image.service',
             'analytics.track',
-            'gr.deleteImage'
+            'gr.deleteImage',
+            'gr.addLabel'
         ]
 );
 
@@ -136,7 +138,7 @@ image.controller('ImageCtrl', [
         }
 
         function updateAbilities(image) {
-            mediaApi.canDelete(image).then(deletable => {
+            imageService(image).states.canDelete.then(deletable => {
                 ctrl.canBeDeleted = deletable;
             });
 
