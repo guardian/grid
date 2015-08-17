@@ -31,7 +31,7 @@ object LogConfig {
   def makeCustomFields(config: CommonPlayAppConfig) = Json.toJson(Map(
     "stack" -> config.stackName,
     "stage" -> config.stage.toUpperCase,
-    "app"   -> config.string("app.name")
+    "app"   -> config.appName
   )).toString()
 
   def makeLayout(customFields: String) = (new LogstashLayout()) <| (_.setCustomFields(customFields))

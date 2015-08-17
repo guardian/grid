@@ -7,6 +7,8 @@ import com.amazonaws.auth.{BasicAWSCredentials, AWSCredentials}
 
 object Config extends CommonPlayAppConfig {
 
+  val appName = "ftp-watcher"
+
   val properties: Map[String, String] =
     Properties.fromPath("/etc/gu/ftp-watcher.properties") ++ sys.props
 
