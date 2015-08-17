@@ -151,7 +151,7 @@ selectionService.factory('selectionService',
             .then(deletable => {
                 var unique = new Set(deletable);
                 return unique.size === 1 && unique.has(true);
-            })
+            });
     }
 
     function add (image) {
