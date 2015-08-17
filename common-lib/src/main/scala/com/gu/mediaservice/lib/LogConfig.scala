@@ -7,20 +7,21 @@ import ch.qos.logback.core.util.Duration
 import ch.qos.logback.classic.spi.ILoggingEvent
 import ch.qos.logback.core.{FileAppender, ConsoleAppender}
 
-import net.logstash.logback.encoder.LogstashEncoder
+import net.logstash.logback.layout.LogstashLayout
 import org.slf4j.{Logger => SLFLogger, LoggerFactory}
 
 import com.gu.mediaservice.lib.config.CommonPlayAppConfig
-import com.gu.logstash.appender.kinesis.KinesisAppender
+import com.gu.logback.appender.kinesis.KinesisAppender
 
 import play.api.Logger
 import play.api.{Logger => PlayLogger, LoggerLike}
 import play.api.libs.json._
 
-object LogConfig {
+import scalaz.syntax.id._
 
-  val rootLogger = LoggerFactory.getLogger(SLFLogger.ROOT_LOGGER_NAME).asInstanceOf[LogbackLogger]
-  lazy val loggingContext = LoggerFactory.getILoggerFactory.asInstanceOf[LoggerContext]
+
+object LogConfig {
+  case class KinesisAppenderConfig(stream: String, region: String, roleArn: String)
 
   def asLogBack(l: LoggerLike): Option[LogbackLogger] = l.logger match {
     case l: LogbackLogger => Some(l)
@@ -33,41 +34,39 @@ object LogConfig {
     "app"   -> config.string("app.name")
   )).toString()
 
-  def makeEncoder(context: LoggerContext, customFields: String) = {
-    val e = new LogstashEncoder()
-    e.setContext(context)
-    e.setCustomFields(customFields)
-    e.start()
-    e
-  }
+  def makeLayout(customFields: String) = (new LogstashLayout()) <| (_.setCustomFields(customFields))
 
-  def makeKinesisAppender(context: LoggerContext, encoder: LogstashEncoder) = {
-    val a = new KinesisAppender()
-    a.setContext(context)
-    a.setEncoder(encoder)
-    // TODO: Properly configure appender from properties!
+  def makeKinesisAppender(layout: LogstashLayout, appenderConfig: KinesisAppenderConfig) = (new KinesisAppender()) <| { a =>
+    a.setLayout(layout)
+
+    a.setStreamName(appenderConfig.stream)
+    a.setRegion(appenderConfig.region)
+    a.setRoleToAssumeArn(appenderConfig.roleArn)
+
     a.start()
-    a
   }
 
-  def init(config: CommonPlayAppConfig) = {
-    if(config.stage != "DEV") {
+  def init(config: CommonPlayAppConfig) = config.stage match {
+    case "DEV" =>  PlayLogger.info("Logging disabled in DEV")
+    case _  => {
       PlayLogger.info("LogConfig initializing")
       asLogBack(PlayLogger).map { lb =>
         lb.info("Configuring Logback")
 
-        val context = lb.getLoggerContext
-
         val customFields = makeCustomFields(config)
-        val encoder = makeEncoder(context, customFields)
-        val appender = makeKinesisAppender(context, encoder)
+        val layout       = makeLayout(customFields)
+        val appender     = makeKinesisAppender(layout,
+          KinesisAppenderConfig(
+            config.string("logger.kinesis.stream"),
+            config.string("logger.kinesis.region"),
+            config.string("logger.kinesis.roleArn")
+          )
+        )
 
-        lb.addAppender(makeKinesisAppender(context))
+        lb.addAppender(appender)
 
         lb.info("Configured Logback")
       } getOrElse( Logger.info("not running using logback") )
-    } else {
-      PlayLogger.info("Logging disabled in DEV")
     }
   }
 }
