@@ -1,5 +1,6 @@
 package controllers
 
+
 import java.net.URI
 
 import lib.Config
@@ -7,6 +8,7 @@ import play.api.libs.json.Json
 import play.api.mvc.{Action, Controller}
 import com.gu.mediaservice.lib.auth.{ArgoErrorResponses, PanDomainAuthActions}
 import com.gu.mediaservice.lib.argo.ArgoHelpers
+import com.gu.mediaservice.lib.argo.model.Link
 import com.gu.mediaservice.lib.auth._
 import com.gu.pandomainauth.service.GoogleAuthException
 
@@ -14,7 +16,7 @@ import scala.concurrent.Future
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.util.{Success, Try, Failure}
 
-object Panda extends Controller
+object Application extends Controller
   with PanDomainAuthActions
   with ArgoHelpers
   with ArgoErrorResponses {
@@ -22,9 +24,20 @@ object Panda extends Controller
   override lazy val authCallbackBaseUri = Config.rootUri
   override lazy val loginUriTemplate    = Config.loginUriTemplate
 
-  import Config.domainRoot
+  import Config.{domainRoot, mediaApiUri, rootUri}
 
   val Authenticated = new PandaAuthenticated(loginUriTemplate, authCallbackBaseUri)
+
+  val indexResponse = {
+    val indexData = Map("description" -> "This is the Auth API")
+    val indexLinks = List(
+      Link("root",          mediaApiUri),
+      Link("ui:logout",     s"$rootUri/logout")
+    )
+    respond(indexData, indexLinks)
+  }
+
+  def index = Authenticated { indexResponse }
 
   def session = Authenticated { request =>
     request.user match {
