@@ -9,6 +9,7 @@ import '../../services/archive';
 import '../../edits/service';
 import '../../forms/gr-xeditable/gr-xeditable';
 import '../../downloader/downloader';
+import '../../components/gr-delete-image/gr-delete-image';
 
 export var grPanel = angular.module('grPanel', [
     'kahuna.services.selection',
@@ -18,7 +19,8 @@ export var grPanel = angular.module('grPanel', [
     'kahuna.edits.service',
     'grXeditable',
     'ui.bootstrap',
-    'gr.downloader'
+    'gr.downloader',
+    'gr.deleteImage'
 ]);
 
 grPanel.controller('GrPanel', [
@@ -92,6 +94,10 @@ grPanel.controller('GrPanel', [
 
             selection.canUserEdit().then(editable => {
                 ctrl.userCanEdit = editable;
+            });
+
+            selection.canUserDelete().then(deletable => {
+                ctrl.userCanDelete = deletable;
             });
 
             editsApi.getUsageRightsCategories().then((cats) => {

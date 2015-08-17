@@ -144,6 +144,16 @@ selectionService.factory('selectionService',
             });
     }
 
+    function canUserDelete () {
+        let images = Array.from(selectedImages);
+
+        return $q.all(images.map(i => imageService(i).states.canDelete))
+            .then(deletable => {
+                var unique = new Set(deletable);
+                return unique.size === 1 && unique.has(true);
+            })
+    }
+
     function add (image) {
         selectedImages.add(image);
         update();
@@ -160,6 +170,7 @@ selectionService.factory('selectionService',
         remove,
         update,
         canUserEdit,
+        canUserDelete,
         getCost: () => selectedCosts,
         getMetadata: () => selectedMetadata,
         getUsageRights: () => selectedUsageRights,
