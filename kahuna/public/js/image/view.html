@@ -1,10 +1,10 @@
 <gr-top-bar>
     <gr-top-bar-nav>
         <a class="top-bar-item"
-           ui:sref="search"><gr-icon>search</gr-icon><span class="top-bar-item__label">search</span></a>
+           ui:sref="search"><gr-icon>search</gr-icon><span class="top-bar-item__label">Search</span></a>
         <a class="top-bar-item"
            ng:if="ctrl.crop"
-           ui:sref="{ crop: null }"><gr-icon>crop_original</gr-icon><span class="top-bar-item__label">original</span></a>
+           ui:sref="{ crop: null }"><gr-icon>crop_original</gr-icon><span class="top-bar-item__label">Original</span></a>
     </gr-top-bar-nav>
 
     <gr-top-bar-actions>
@@ -15,7 +15,7 @@
         </gr-delete-image>
 
         <a class="top-bar-item" href="{{ ctrl.image.data.source | assetFile }}" download target="_blank">
-            <gr-icon>file_download</gr-icon><span class="top-bar-item__label">download</span>
+            <gr-icon>file_download</gr-icon><span class="top-bar-item__label">Download</span>
         </a>
 
         <ui-archiver class="top-bar-item top-bar-item--filled"
@@ -25,10 +25,10 @@
         <a class="top-bar-item"
            ng:if="ctrl.canBeCropped"
            ui:sref="crop({imageId: ctrl.image.data.id})">
-            <gr-icon>crop</gr-icon><span class="top-bar-item__label">crop</span>
+            <gr-icon>crop</gr-icon><span class="top-bar-item__label">Crop</span>
         </a>
         <span class="top-bar-item"
-              ng:if="! ctrl.canBeCropped">cannot crop</span>
+              ng:if="! ctrl.canBeCropped">Cannot crop</span>
     </gr-top-bar-actions>
 </gr-top-bar>
 
@@ -44,20 +44,20 @@
         <div ng:switch="ctrl.image.data.cost">
             <div ng:switch-when="pay"
                  class="image-notice image-info__group status cost cost--pay">
-                pay to use
+                Pay to use
             </div>
 
             <div ng:switch-when="conditional"
                  class="image-notice image-info__group cost cost--conditional"
                  title="This image can be used but only within certain restrictions">
-                <b>restricted use:</b> {{ctrl.image.data.usageRights.restrictions}}
+                <b>Restricted use:</b> {{ctrl.image.data.usageRights.restrictions}}
             </div>
         </div>
 
         <div class="image-info__group">
             <dl class="image-info__wrap metadata-line drop-menu image-info__usage-rights"
                  ng:init="showUsageRights = false">
-                <dt>usage rights category</dt>
+                <dt>Usage rights category</dt>
                 <div class="image-info__usage-rights drop-menu__items drop-menu__items--right"
                      ng:show="showUsageRights">
 
@@ -86,7 +86,7 @@
                             ng:if="ctrl.userCanEdit"
                             ng:click="titleEditForm.$show()"
                             ng:hide="titleEditForm.$visible">✎</button>
-                    <dt class="metadata-line metadata-line__key">title</dt>
+                    <dt class="metadata-line metadata-line__key">Title</dt>
                     <dd class="image-info__title metadata-line__info"
                         editable-text="ctrl.metadata.title"
                         onbeforesave="ctrl.updateMetadataField('title', $data)"
@@ -99,13 +99,13 @@
                             ng:if="ctrl.userCanEdit"
                             ng:click="descriptionEditForm.$show()"
                             ng:hide="descriptionEditForm.$visible">✎</button>
-                    <dt class="metadata-line metadata-line__key">description</dt>
+                    <dt class="metadata-line metadata-line__key">Description</dt>
                     <dd class="image-info__description"
                          editable-textarea="ctrl.metadata.description"
                          onbeforesave="ctrl.updateMetadataField('description', $data)"
                          e:msd-elastic
                          e:ng-class="{'image-info__editor--error': $error, 'image-info__editor--saving': descriptionEditForm.$waiting}"
-                         e:form="descriptionEditForm">{{ctrl.metadata.description || "unknown (click ✎ to add the description)"}}</dd>
+                         e:form="descriptionEditForm">{{ctrl.metadata.description || "Unknown (click ✎ to add the description)"}}</dd>
                 </div>
             </dl>
         </div>
@@ -116,7 +116,7 @@
                         ng:if="ctrl.userCanEdit"
                         ng:click="specialInstructionsEditForm.$show()"
                         ng:hide="specialInstructionsEditForm.$visible">✎</button>
-                <dt class="metadata-line metadata-line__key">special instructions</dt>
+                <dt class="metadata-line metadata-line__key">Special instructions</dt>
                 <dd class="image-info__special-instructions"
                      editable-textarea="ctrl.metadata.specialInstructions"
                      onbeforesave="ctrl.updateMetadataField('specialInstructions', $data)"
@@ -129,10 +129,10 @@
 
         <div class="image-info__group">
             <dl class="image-info__group--dl metadata-line">
-                <dt class="image-info__group--dl__key metadata-line__key" ng:if="ctrl.metadata.dateTaken">taken on</dt>
+                <dt class="image-info__group--dl__key metadata-line__key" ng:if="ctrl.metadata.dateTaken">Taken on</dt>
                 <dd class="image-info__group--dl__value metadata-line__info" ng:if="ctrl.metadata.dateTaken">{{ctrl.metadata.dateTaken | date:'d MMM yyyy, HH:mm'}}</dd>
 
-                <dt class="image-info__byline image-info__wrap metadata-line image-info__group--dl__key metadata-line__key" ng:if="ctrl.metadata.byline || ctrl.userCanEdit">by</dt>
+                <dt class="image-info__byline image-info__wrap metadata-line image-info__group--dl__key metadata-line__key" ng:if="ctrl.metadata.byline || ctrl.userCanEdit">By</dt>
                 <dd class="image-info__wrap image-info__group--dl__value metadata-line__info" ng:if="ctrl.metadata.byline || ctrl.userCanEdit">
                     <button class="image-info__edit"
                                     ng:if="ctrl.userCanEdit"
@@ -149,12 +149,12 @@
                             <a ui:sref="search.results({query: (ctrl.metadata.byline | queryFilter:'by')})">{{ctrl.metadata.byline}}</a>
                         </span>
                         <span ng:if="! ctrl.metadata.byline">
-                            unknown (click ✎ to add the byline)
+                            Unknown (click ✎ to add the byline)
                         </span>
                     </span>
                 </dd>
 
-                <dt ng:if="ctrl.metadata.credit || ctrl.userCanEdit" class="image-info__credit image-info__wrap image-info__group--dl__key metadata-line__key">credit</dt>
+                <dt ng:if="ctrl.metadata.credit || ctrl.userCanEdit" class="image-info__credit image-info__wrap image-info__group--dl__key metadata-line__key">Credit</dt>
                 <dd ng:if="ctrl.metadata.credit || ctrl.userCanEdit" class="image-info__wrap image-info__group--dl__value metadata-line__info">
                     <button class="image-info__edit"
                         ng:if="ctrl.userCanEdit"
@@ -173,13 +173,13 @@
                             <a ui:sref="search.results({query: (ctrl.metadata.credit | queryFilter:'credit')})">{{ctrl.metadata.credit}}</a>
                         </span>
                         <span ng:if="! ctrl.metadata.credit">
-                            unknown (click ✎ to add the credit)
+                            Unknown (click ✎ to add the credit)
                         </span>
                     </span>
                 </dd>
 
 
-                <dt ng:if="ctrl.metadata.subLocation || ctrl.metadata.city || ctrl.metadata.state || ctrl.metadata.country" class="image-info__group--dl__key metadata-line__key">location</dt>
+                <dt ng:if="ctrl.metadata.subLocation || ctrl.metadata.city || ctrl.metadata.state || ctrl.metadata.country" class="image-info__group--dl__key metadata-line__key">Location</dt>
                 <dd ng:if="ctrl.metadata.subLocation || ctrl.metadata.city || ctrl.metadata.state || ctrl.metadata.country" class="image-info__group--dl__value metadata-line__info">
                     <span ng:repeat="prop in ['subLocation', 'city', 'state', 'country']" ng:if="ctrl.metadata[prop]">
                         <span class="metadata-line__info">
@@ -187,18 +187,18 @@
                     </span>
                 </dd>
 
-                <dt ng:if="ctrl.metadata.copyright" class="image-info__group--dl__key metadata-line__key">copyright</dt>
+                <dt ng:if="ctrl.metadata.copyright" class="image-info__group--dl__key metadata-line__key">Copyright</dt>
                 <dd ng:if="ctrl.metadata.copyright" class="image-info__group--dl__value metadata-line__info"><a ui:sref="search.results({query: (ctrl.metadata.copyright | queryFilter:'copyright')})">{{ctrl.metadata.copyright}}</a></dd>
 
 
-                <dt class="image-info__group--dl__key metadata-line__key">uploaded</dt>
+                <dt class="image-info__group--dl__key metadata-line__key">Uploaded</dt>
                 <dd class="image-info__group--dl__value metadata-line__info">
                     <span class="metadata-line__info">
                         {{ctrl.image.data.uploadTime | date:'d MMM yyyy, HH:mm'}}
                     </span>
                 </dd>
 
-                <dt class="image-info__group--dl__key metadata-line__key">uploader</dt>
+                <dt class="image-info__group--dl__key metadata-line__key">Uploader</dt>
                 <dd class="image-info__group--dl__value metadata-line__info">
                     <span class="metadata-line__info">
                         <a ui:sref="search.results({query: (ctrl.image.data.uploadedBy | queryFilter:'uploader')})">{{ctrl.image.data.uploadedBy | stripEmailDomain}}</a>
@@ -207,7 +207,7 @@
 
                 <dt ng:if="ctrl.image.data.uploadInfo.filename"
                     class="image-info__group--dl__key metadata-line__key">
-                    filename
+                    Filename
                 </dt>
                 <dd ng:if="ctrl.image.data.uploadInfo.filename"
                     class="image-info__group--dl__value metadata-line__info"
@@ -217,12 +217,12 @@
                     </span>
                 </dd>
 
-                <dt ng:if="!ctrl.crop" class="image-info__group--dl__key metadata-line__key">dimensions</dt>
+                <dt ng:if="!ctrl.crop" class="image-info__group--dl__key metadata-line__key">Dimensions</dt>
                 <dd ng:if="!ctrl.crop" class="image-info__group--dl__value metadata-line__info">
                     <span class="metadata-line__info">{{ctrl.dimensions.width}} &times; {{ctrl.dimensions.height}}</span>
                 </dd>
 
-                <dt ng:if="ctrl.crop" class="image-info__group--dl__key metadata-line__key">dimensions (crop)</dt>
+                <dt ng:if="ctrl.crop" class="image-info__group--dl__key metadata-line__key">Dimensions (crop)</dt>
                 <dd ng:if="ctrl.crop" class="image-info__group--dl__value metadata-line__info">
                     <span class="metadata-line__info">{{ctrl.dimensions.width}} &times; {{ctrl.dimensions.height}}</span>
                 </dd>
@@ -265,7 +265,7 @@
 
     <div class="image-info">
         <dl class="image-info__group" ng:if="ctrl.crops.length > 0">
-            <dt class="image-info__heading">Crops <span ng:if="ctrl.crop">(<a ui:sref="{ crop: null }">original</a>)</span></dt>
+            <dt class="image-info__heading">Crops <span ng:if="ctrl.crop">(<a ui:sref="{ crop: null }">Original</a>)</span></dt>
             <dd>
                 <ul class="image-crops">
                     <li class="image-crop"
