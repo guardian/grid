@@ -107,21 +107,10 @@ object Build extends Build {
       </dependencies>
   ) ++ assemblyMergeSettings
 
-  val jodaConflicts = """org/joda/time/.*""".r
-  val jacksonConflicts = """com/fasterxml/jackson/.*""".r
-  val logbackConflicts = """ch/qos/logback/.*""".r
-  val sl4jConflicts = """org/slf4j/.*""".r
-  val apacheCommonsConflicts = """org/apache/commons/.*""".r
-
   def assemblyMergeSettings = Seq(
     mergeStrategy in assembly <<= (mergeStrategy in assembly) { (old) => {
       case f if f.startsWith("org/apache/lucene/index/") => MergeStrategy.first
       case "play/core/server/ServerWithStop.class" => MergeStrategy.first
-      case jacksonConflicts() => MergeStrategy.first
-      case logbackConflicts() => MergeStrategy.first
-      case jodaConflicts() => MergeStrategy.first
-      case sl4jConflicts() => MergeStrategy.first
-      case apacheCommonsConflicts() => MergeStrategy.first
       case "ehcache.xml" => MergeStrategy.first
       case x => old(x)
     }}
