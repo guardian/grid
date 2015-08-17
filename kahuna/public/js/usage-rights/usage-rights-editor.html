@@ -84,13 +84,13 @@
                                         <input type="radio"
                                             ng:if="$first && !property.required"
                                             value=""
-                                            id="none-{{property.name}}-radio-list__item"
+                                            id="id-{{::$id}}-none-{{property.name}}-radio-list__item"
                                             ng:checked="!ctrl.model[property.name]"
                                             class="radio-list__circle"
                                             name="{{property.name}}-radio-list" />
                                         <label
                                             ng:if="$first && !property.required"
-                                            for="none-{{property.name}}-radio-list__item"
+                                            for="id-{{::$id}}-none-{{property.name}}-radio-list__item"
                                             class="radio-list__label"
                                             ng:class="{'radio-list--selected': !ctrl.model[property.name]}">
                                             <div class="radio-list__selection-state"></div>
@@ -99,13 +99,13 @@
 
                                         <input type="radio"
                                             value="{{o}}"
-                                            id="{{o}}-{{property.name}}-radio-list__item"
+                                            id="id-{{::$id}}-{{o}}-{{property.name}}-radio-list__item"
                                             class="radio-list__circle"
                                             name="{{property.name}}-radio-list"
                                             ng:required="property.required"
                                             ng:model="ctrl.model[property.name]" />
                                         <label
-                                            for="{{o}}-{{property.name}}-radio-list__item"
+                                            for="id-{{::$id}}-{{o}}-{{property.name}}-radio-list__item"
                                             class="radio-list__label"
                                             ng:class="{'radio-list--selected': ctrl.model[property.name] === o}">
                                             <div class="radio-list__selection-state"></div>
