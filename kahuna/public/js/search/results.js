@@ -366,21 +366,21 @@ results.controller('SearchResultsCtrl', [
             }
         });
 
+        const updateImageArray = (images, image) => {
+            const index = images.findIndex(i => image.data.id === i.data.id);
+
+            if (index > -1){
+                images.splice(index, 1);
+            }
+        };
+
         const freeImageDeleteListener = $rootScope.$on('image-deleted', (e, image) => {
             selection.remove(image);
 
-            const imageIndex = ctrl.images.findIndex(i => image.data.id === i.data.id);
-            const imageAllIndex = ctrl.imagesAll.findIndex(i => image.data.id === i.data.id);
+            updateImageArray(ctrl.images, image);
+            updateImageArray(ctrl.imagesAll, image);
 
-            if (imageIndex > -1) {
-                ctrl.images.splice(imageIndex, 1);
-            }
-
-            if (imageAllIndex > -1) {
-                ctrl.imagesAll.splice(imageIndex, 1);
-            }
-
-            ctrl.totalResults += -1;
+            ctrl.totalResults--;
         });
 
         // Safer than clearing the timeout in case of race conditions
