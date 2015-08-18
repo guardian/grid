@@ -81,7 +81,7 @@
             gu:lazy-table-load-range="ctrl.loadRange($start, $end)">
 
             <li
-                ng:repeat="image in ctrl.images track by $index"
+                ng:repeat="image in ctrl.images track by image.data.id"
                 gu:lazy-table-cell="image">
 
                 <div class="result"
