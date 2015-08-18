@@ -374,13 +374,31 @@ results.controller('SearchResultsCtrl', [
             }
         };
 
-        const freeImageDeleteListener = $rootScope.$on('image-deleted', (e, image) => {
-            selection.remove(image);
+        const updatePositions = (image) => {
+            // an image has been deleted, so update the imagePositions map, by
+            // decrementing the value of all images after the one deleted.
+            var positionIndex = imagesPositions.get(image.data.id);
 
-            updateImageArray(ctrl.images, image);
-            updateImageArray(ctrl.imagesAll, image);
+            imagesPositions.delete(image.data.id);
 
-            ctrl.totalResults--;
+            imagesPositions.forEach((value, key) => {
+                if (value > positionIndex) {
+                    imagesPositions.set(key, value - 1);
+                }
+            });
+        };
+
+        const freeImageDeleteListener = $rootScope.$on('images-deleted', (e, images) => {
+            images.forEach(image => {
+                selection.remove(image);
+
+                updateImageArray(ctrl.images, image);
+                updateImageArray(ctrl.imagesAll, image);
+
+                updatePositions(image);
+
+                ctrl.totalResults--;
+            });
         });
 
         // Safer than clearing the timeout in case of race conditions

@@ -11,8 +11,7 @@
     <gr-top-bar-actions>
         <gr-delete-image class="top-bar-item top-bar-item--filled"
                          ng:if="ctrl.canBeDeleted"
-                         images="[ctrl.image]"
-                         on-success="ctrl.onDeleteSuccess" on-error="ctrl.onDeleteError">
+                         images="[ctrl.image]">
         </gr-delete-image>
 
         <a class="top-bar-item" href="{{ ctrl.image.data.source | assetFile }}" download target="_blank">
