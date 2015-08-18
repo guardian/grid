@@ -21,6 +21,7 @@ import scalaz.syntax.id._
 
 
 object LogConfig {
+
   case class KinesisAppenderConfig(stream: String, region: String, roleArn: String)
 
   def asLogBack(l: LoggerLike): Option[LogbackLogger] = l.logger match {
@@ -36,8 +37,9 @@ object LogConfig {
 
   def makeLayout(customFields: String) = (new LogstashLayout()) <| (_.setCustomFields(customFields))
 
-  def makeKinesisAppender(layout: LogstashLayout, appenderConfig: KinesisAppenderConfig) = (new KinesisAppender()) <| { a =>
+  def makeKinesisAppender(layout: LogstashLayout, context: LoggerContext, appenderConfig: KinesisAppenderConfig) = (new KinesisAppender()) <| { a =>
     a.setLayout(layout)
+    a.setContext(context)
 
     a.setStreamName(appenderConfig.stream)
     a.setRegion(appenderConfig.region)
@@ -54,8 +56,10 @@ object LogConfig {
         lb.info("Configuring Logback")
 
         val customFields = makeCustomFields(config)
+        val context      = lb.getLoggerContext
         val layout       = makeLayout(customFields)
-        val appender     = makeKinesisAppender(layout,
+
+        val appender     = makeKinesisAppender(layout, context,
           KinesisAppenderConfig(
             config.properties("logger.kinesis.stream"),
             config.properties("logger.kinesis.region"),
