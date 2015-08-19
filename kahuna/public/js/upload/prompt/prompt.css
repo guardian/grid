@@ -1,0 +1,14 @@
+file-prompt {
+    display: block;
+    background: #444;
+    padding: 10px;
+}
+
+file-prompt file-uploader {
+    display: flex;
+    justify-content: center;
+}
+
+file-prompt .message {
+    text-align: center;
+}
