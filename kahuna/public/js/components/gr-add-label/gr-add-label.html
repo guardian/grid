@@ -1,0 +1,9 @@
+<button class="button-shy"
+        ng:class="{'small': ctrl.grSmall}"
+        ng:click="ctrl.addLabel()"
+        ng:disabled="ctrl.adding">
+    <gr-icon ng:class="{'spin': ctrl.adding}">add_box</gr-icon>
+    <span ng:hide="ctrl.grSmall">
+        Add<span ng:show="ctrl.adding">ing...</span>
+    </span>
+</button>

@@ -2,12 +2,19 @@ import angular from 'angular';
 import template from './upload-jobs.html!text';
 import '../../preview/image';
 import '../../analytics/track';
+import '../../components/gr-delete-image/gr-delete-image';
+import '../../image/service';
 
-export var jobs = angular.module('kahuna.upload.jobs', ['kahuna.preview.image', 'analytics.track']);
+export var jobs = angular.module('kahuna.upload.jobs', [
+    'kahuna.preview.image',
+    'gr.image.service',
+    'analytics.track'
+]);
 
 
-jobs.controller('UploadJobsCtrl',
-                ['$scope', 'apiPoll', 'track', function($scope, apiPoll, track) {
+jobs.controller('UploadJobsCtrl', [
+    '$window', 'apiPoll', 'track', 'imageService',
+    function($window, apiPoll, track, imageService) {
 
     var ctrl = this;
 
@@ -31,6 +38,10 @@ jobs.controller('UploadJobsCtrl',
                 jobItem.status = 'uploaded';
                 jobItem.image = image;
                 jobItem.thumbnail = image.data.thumbnail;
+
+                imageService(image).states.canDelete.then(deletable => {
+                    jobItem.canBeDeleted = deletable;
+                });
 
                 // we use the filename of the image if the description is missing
                 if (!jobItem.image.data.metadata.description) {
@@ -60,6 +71,17 @@ jobs.controller('UploadJobsCtrl',
     // this needs to be a function due to the stateful `jobItem`
     ctrl.jobImages = () => ctrl.jobs.map(jobItem => jobItem.image);
 
+    ctrl.onDeleteSuccess = function (resp, image) {
+        var index = ctrl.jobs.findIndex(i => i.image.data.id === image.data.id);
+
+        if (index > -1) {
+            ctrl.jobs.splice(index, 1);
+        }
+    };
+
+    ctrl.onDeleteError = function (err) {
+        $window.alert(err.body.errorMessage);
+    };
 }]);
 
 

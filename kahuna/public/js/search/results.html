@@ -15,37 +15,7 @@
 
         <div class="results-toolbar"
             ng:class="{'results-toolbar--selection-mode': ctrl.metadataPanelAvailable}">
-            <div class="results-toolbar-item results-toolbar-item__sort-direction results-toolbar-item--left radio-list">
-                <div class="radio-list__item">
-                    <input type="radio"
-                           id="sort-direction__desc"
-                           class="radio-list__circle"
-                           name="sort-direction"
-                           ng:value="undefined"
-                           ng:model="ctrl.filter.orderBy">
-                    <label for="sort-direction__desc" class="radio-list__label"
-                           ng:class="{'radio-list--selected': ctrl.filter.orderBy === undefined}">
-                        <div class="radio-list__selection-state"></div>
-                        <div class="radio-list__label-value">Newest first</div>
-                    </label>
-                </div>
-
-                <div class="radio-list__item">
-                    <input type="radio"
-                           id="sort-direction__asc"
-                           class="radio-list__circle"
-                           name="sort-direction"
-                           ng:value="'oldest'"
-                           ng:model="ctrl.filter.orderBy">
-                    <label for="sort-direction__asc" class="radio-list__label"
-                           ng:class="{'radio-list--selected': ctrl.filter.orderBy === 'oldest'}">
-                        <div class="radio-list__selection-state"></div>
-                        <div class="radio-list__label-value">Oldest first</div>
-                    </label>
-                </div>
-           </div>
-
-           <div class="results-toolbar-item image-results-count results-toolbar-item--static results-toolbar-item--left results-toolbar-item--split">
+	    <div class="results-toolbar-item image-results-count results-toolbar-item--static results-toolbar-item--left results-toolbar-item--split">
 
                 <div class="results-count">
                     {{ctrl.totalResults | toLocaleString}} matches
@@ -56,16 +26,22 @@
                     </button>
                 </div>
 
-
                 <gr-action-bar class="action-bar"
                     ng:if="ctrl.inSelectionMode()">
 
                     <div class="action-bar__item">
-                        <a ng:click="ctrl.clearSelection()" title="Clear selection">
-                            <gr-icon>clear</gr-icon>
-                        </a>
                         <span class="icon-label">{{ctrl.selectedImages.size}} selected</span>
                     </div>
+
+                    <a class="results-toolbar-item results-toolbar-item--right results-toolbar-item__clear-selection" 
+			ng:click="ctrl.clearSelection()">
+
+                        <span class="results-toolbar-item--text">Clear selection</span>
+                        <span class="results-toolbar-item--icon">
+                            <gr-icon>clear</gr-icon>
+                        </span>
+                    </a>
+
 
                     <gr-downloader class="action-bar__item action-bar__item--last"
                         gr:images="ctrl.selectedImages"></gr-downloader>
@@ -124,10 +100,10 @@
                          ng:if="ctrl.imageHasBeenSelected(image)">
                         <input type="checkbox"
                                class="result__select__checkbox"
-                               id="{{::image.data.id}}-result__select__checkbox--select"
+                               id="id-{{::image.data.id}}-result__select__checkbox--select"
                                checked="true"
                                ng:click="ctrl.toggleSelection(image, false)"/>
-                        <label for="{{::image.data.id}}-result__select__checkbox--select"
+                        <label for="id-{{::image.data.id}}-result__select__checkbox--select"
                                class="result__select__checkbox__label">
                             <gr-icon>check_box</gr-icon>
                         </label>
@@ -135,9 +111,9 @@
                     <div class="result__select" ng:if="!ctrl.imageHasBeenSelected(image)">
                         <input type="checkbox"
                                class="result__select__checkbox"
-                               id="{{::image.data.id}}-result__select__checkbox--deselect"
+                               id="id-{{::image.data.id}}-result__select__checkbox--deselect"
                                ng:click="ctrl.toggleSelection(image, true)" />
-                        <label for="{{::image.data.id}}-result__select__checkbox--deselect"
+                        <label for="id-{{::image.data.id}}-result__select__checkbox--deselect"
                                class="result__select__checkbox__label">
                             <gr-icon>check_box</gr-icon>
                         </label>

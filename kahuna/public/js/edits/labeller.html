@@ -9,18 +9,11 @@
 
             <button class="label__remove"
                     title="Remove label"
-                    ng:click="ctrl.removeLabel(label.data)">x</button>
+                    ng:click="ctrl.removeLabel(label.data)">
+                <gr-icon>close</gr-icon>
+            </button>
         </li>
     </ul>
-
-    <div class="labeller__placeholder"
-         ng:if="ctrl.labels.data.length == 0">No labels</div>
-
-    <button class="button-shy labeller__add-button"
-          ng:click="ctrl.addLabel()"
-          ng:disabled="ctrl.adding">
-        Add<span ng:show="ctrl.adding">ing…</span>
-    </button>
 
     <span ng:if="ctrl.withBatch" class="labeller__apply-all">
         <button

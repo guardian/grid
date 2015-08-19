@@ -4,7 +4,7 @@ import scalaz.NonEmptyList
 import scalaz.syntax.foldable1._
 
 import org.joda.time.DateTime
-import org.elasticsearch.index.query.{BoolFilterBuilder, FilterBuilders, FilterBuilder}
+import org.elasticsearch.index.query.{MatchAllFilterBuilder, BoolFilterBuilder, FilterBuilders, FilterBuilder}
 
 import com.gu.mediaservice.lib.formatting.printDateTime
 
@@ -14,6 +14,7 @@ object filters {
   import FilterBuilders.{
     rangeFilter,
     termsFilter,
+    matchAllFilter,
     boolFilter,
     notFilter,
     existsFilter,
@@ -22,18 +23,23 @@ object filters {
   }
 
 
-  def date(from: Option[DateTime], to: Option[DateTime]): FilterBuilder = {
-    val builder = rangeFilter("uploadTime")
-    for (f <- from) builder.from(printDateTime(f))
-    for (t <- to) builder.to(printDateTime(t))
-    builder
-  }
+  def date(field: String, from: Option[DateTime], to: Option[DateTime]): Option[FilterBuilder] =
+    if (from.isDefined || to.isDefined) {
+      val builder = rangeFilter(field)
+      for (f <- from) builder.from(printDateTime(f))
+      for (t <- to) builder.to(printDateTime(t))
+      Some(builder)
+    } else {
+      None
+    }
 
   def term(field: String, term: String): FilterBuilder =
     termFilter(field, term)
 
   def terms(field: String, terms: NonEmptyList[String]): FilterBuilder =
     termsFilter(field, terms.list: _*)
+
+  def matchAll: MatchAllFilterBuilder = matchAllFilter()
 
   // Note: slightly leaky API, would be nice to keep our DSL abstracted
   def bool: BoolFilterBuilder = boolFilter()

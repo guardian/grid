@@ -3,7 +3,10 @@ import '../edits/image-editor';
 import '../components/gr-delete-image/gr-delete-image';
 import '../image/service';
 
-var upload = angular.module('kahuna.upload.controller', ['kahuna.edits.imageEditor', 'gr.image.service']);
+var upload = angular.module('kahuna.upload.controller', [
+    'kahuna.edits.imageEditor',
+    'gr.image.service'
+]);
 
 upload.controller('UploadCtrl', [
     '$scope', '$state', '$window', 'uploadManager', 'mediaApi', 'imageService',
@@ -47,7 +50,7 @@ upload.controller('UploadCtrl', [
 
         ctrl.onDeleteError = function (err) {
             if (err.body.errorKey === 'image-not-found') {
-                $state.go('search');
+                $state.go('upload', {}, {reload: true});
             } else {
                 $window.alert(err.body.errorMessage);
             }

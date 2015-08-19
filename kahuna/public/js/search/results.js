@@ -125,23 +125,11 @@ results.controller('SearchResultsCtrl', [
             lastSearchFirstResultTime = undefined;
         }
 
-        function initialSearch() {
-            /*
-            Maintain `lastSearchFirstResultTime` regardless of sorting order.
-
-            If we're sorting in ascending order, we need to get the upload time of the
-            last image, so we make a request for 1 image, then make a further request
-            where the offset is the total images - 1 from the initial request.
-             */
-            return angular.isUndefined(ctrl.filter.orderBy) ?
-                ctrl.searched = search({length: 1}) :
-                ctrl.searched = search({length: 1}).then((images) => {
-                    return search({length: 1, offset: images.total - 1});
-                });
-        }
+        // Initial search to find upper `until` boundary of result set
+        // (i.e. the uploadTime of the newest result in the set)
 
         // TODO: avoid this initial search (two API calls to init!)
-        ctrl.searched = initialSearch().then(function(images) {
+        ctrl.searched = search({length: 1, orderBy: 'newest'}).then(function(images) {
             ctrl.totalResults = images.total;
 
             // images will be the array of loaded images, used for display
@@ -275,7 +263,7 @@ results.controller('SearchResultsCtrl', [
             return $stateParams.query || '*';
         }
 
-        function search({until, since, offset, length} = {}) {
+        function search({until, since, offset, length, orderBy} = {}) {
             // FIXME: Think of a way to not have to add a param in a million places to add it
 
             /*
@@ -299,6 +287,9 @@ results.controller('SearchResultsCtrl', [
             if (angular.isUndefined(since)) {
                 since = $stateParams.since;
             }
+            if (angular.isUndefined(orderBy)) {
+                orderBy = $stateParams.orderBy;
+            }
 
             return mediaApi.search($stateParams.query, angular.extend({
                 ids:        $stateParams.ids,
@@ -310,7 +301,7 @@ results.controller('SearchResultsCtrl', [
                 since:      since,
                 offset:     offset,
                 length:     length,
-                orderBy:    $stateParams.orderBy
+                orderBy:    orderBy
             }));
         }
 
