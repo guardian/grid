@@ -394,6 +394,7 @@ textarea.ng-invalid {
 .page-wrapper {
     margin: 0 auto;
     max-width: 900px;
+    padding-top: 10px;
 }
 
 
