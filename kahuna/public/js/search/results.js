@@ -109,8 +109,6 @@ results.controller('SearchResultsCtrl', [
         ctrl.getLastSeenVal = getLastSeenVal;
         ctrl.imageHasBeenSeen = imageHasBeenSeen;
 
-        ctrl.filter = { orderBy: $stateParams.orderBy };
-
         // Arbitrary limit of number of results; too many and the
         // scrollbar becomes hyper-sensitive
         const searchFilteredLimit = 5000;
@@ -369,10 +367,6 @@ results.controller('SearchResultsCtrl', [
                 ctrl.imagesAll[indexAll] = updatedImage;
             }
         });
-
-        $scope.$watch(() => ctrl.filter.orderBy, onValChange(newVal => {
-            $state.go('search.results', {orderBy: newVal});
-        }));
 
         // Safer than clearing the timeout in case of race conditions
         // FIXME: nicer (reactive?) way to do this?
