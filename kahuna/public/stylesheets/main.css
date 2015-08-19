@@ -838,13 +838,13 @@ input.search-query__input {
 .results-toolbar-item--text {
     position: absolute;
     left: 0px;
-    padding-left: 10px;
+    padding-left: 30px;
 }
 
 .results-toolbar-item--icon {
     position: absolute;
-    right: 0px;
-    padding-right: 10px;
+    left: 0px;
+    padding-left: 10px;
 }
 
 .results-toolbar-item:hover {
