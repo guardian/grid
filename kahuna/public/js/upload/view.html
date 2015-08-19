@@ -4,9 +4,7 @@
            ui:sref="search"><gr-icon>search</gr-icon>
            <span class="top-bar-item__label">Search</span></a>
     </gr-top-bar-nav>
-    <gr-top-bar-actions>
-        <file-uploader class="top-bar-item"></file-uploader>
-    </gr-top-bar-actions>
+    <gr-top-bar-actions></gr-top-bar-actions>
 </gr-top-bar>
 
 <div class="page-wrapper">
@@ -18,6 +16,7 @@
         <ui-upload-jobs jobs="ctrl.latestJob"></ui-upload-jobs>
     </section>
 
+    <file-prompt ng:if="!ctrl.latestJob"></file-prompt>
 
     <section class="section" ng:if="ctrl.myUploads.data.length > 0">
         <h2 class="section-heading">Your past 50 uploads</h2>
@@ -37,14 +36,6 @@
             <a class="coloured-link" ui:sref="search.results({uploadedBy: user.email})">View all your uploads.</a>
         </p>
     </section>
-
-    <div class="upload-yours"
-       ng:if="ctrl.myUploads.data.length === 0">
-        <p>You haven't uploaded anything yet.</p>
-        <p>Either drag 'n drop an image onto this screen or click the blue
-        upload button in the top right hand corner to get your images on
-        the Grid.</p>
-    </div>
 </div>
 
 <dnd-uploader></dnd-uploader>
