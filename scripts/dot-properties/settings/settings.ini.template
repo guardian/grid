@@ -1,0 +1,15 @@
+[output]
+directory =
+
+[aws]
+stack-name =
+
+[properties]
+domain_root =
+mixpanel_token =
+cors =
+panda_domain =
+panda_aws_key =
+panda_aws_secret =
+sqs_message_min_frequency =
+ftp_key =

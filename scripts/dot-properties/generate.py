@@ -1,7 +1,6 @@
 from boto import cloudformation
 from jinja2 import Environment, FileSystemLoader
 import os
-import settings
 import logging
 
 logging.basicConfig(format='%(asctime)s %(name)s %(levelname)s %(message)s',
@@ -53,30 +52,23 @@ def _write_template_to_disk(directory, template_name, parsed_template):
     LOGGER.info('Created {file_path}'.format(file_path=property_path))
 
 
-def generate_files():
-    connection = _get_connection(settings.AWS_PROFILE_NAME, settings.AWS_REGION)
-    stack_output = _get_stack_outputs(connection, settings.STACK)
+def generate_files(aws_profile_name, aws_region, cf_stack, output_dir, props):
+    connection = _get_connection(aws_profile_name, aws_region)
+    stack_output = _get_stack_outputs(connection, cf_stack)
 
     LOGGER.info('Here is your CloudFormation Output')
     for k, v in stack_output.iteritems():
         LOGGER.info('{key} = {value}'.format(key=k, value=v))
 
     environment = _get_template_environment()
-    stack_output.update(settings.INITIAL_PROPERTIES)
+    stack_output.update(props)
 
-    if hasattr(settings, 'PROPERTIES'):
-        stack_output.update(settings.PROPERTIES)
+    LOGGER.info('Creating properties files in {directory}'.format(directory=output_dir))
 
-    LOGGER.info('Creating properties files in {directory}'.format(directory=settings.OUTPUT_DIRECTORY))
-
-    _create_directory(settings.OUTPUT_DIRECTORY)
+    _create_directory(output_dir)
 
     for template in environment.list_templates():
         parsed = environment.get_template(template).render(**stack_output)
-        _write_template_to_disk(settings.OUTPUT_DIRECTORY, template, parsed)
+        _write_template_to_disk(output_dir, template, parsed)
 
     LOGGER.info('DONE.')
-
-
-if __name__ == '__main__':
-    generate_files()
