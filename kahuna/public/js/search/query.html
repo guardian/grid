@@ -25,6 +25,7 @@
     </button>
 
     <div class="search__filters-container">
+
     <button class="search__filters-toggle"
             type="button"
             ng:click="filtersShown = !filtersShown ">
@@ -51,6 +52,17 @@
                     <input type="checkbox"
                            ng:model="searchQuery.filter.uploadedByMe" />
                     Your uploads
+                </label>
+            </li>
+
+            <li class="search__filter-item">
+                <label class="search__filter">
+                    <input type="checkbox"
+                           ng:model="searchQuery.ordering.orderBy"
+                           ng:false-value="undefined"
+                           ng:true-value="'oldest'"
+                           ng:checked="searchQuery.ordering.orderBy === 'oldest'" />
+		    Oldest first
                 </label>
             </li>
 
