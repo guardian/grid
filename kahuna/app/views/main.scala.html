@@ -42,6 +42,20 @@
       System.import("js/main").catch(function(error) {
           setTimeout(function(){ throw error; });
       });
+
+      // Install service worker (if supported)
+      if ('serviceWorker' in navigator) {
+          console.log("Registering service worker");
+          navigator.serviceWorker.register('/assets/sw/index.js', {
+              scope: '/'
+          }).then(function(reg) {
+              console.log("Service worker successfully registered");
+          }, function(err) {
+              console.warn("Service worker failed to be registered");
+          });
+      } else {
+          console.log("Service worker not supported, ignore");
+      }
     </script>
   </body>
 </html>

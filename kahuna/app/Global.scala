@@ -5,12 +5,13 @@ import play.api.{Logger, Application, GlobalSettings}
 import play.api.mvc.WithFilters
 import play.filters.gzip.GzipFilter
 
-import lib.{Config, ForceHTTPSFilter}
+import lib.{Config, ForceHTTPSFilter, AllowServiceWorkerFilter}
 
 import com.gu.mediaservice.lib.play.RequestLoggingFilter
 
 
-object Global extends WithFilters(ForceHTTPSFilter, RequestLoggingFilter, new GzipFilter) with GlobalSettings {
+
+object Global extends WithFilters(ForceHTTPSFilter, RequestLoggingFilter, new GzipFilter, AllowServiceWorkerFilter) with GlobalSettings {
 
   override def beforeStart(app: Application) {
 
