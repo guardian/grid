@@ -15,3 +15,16 @@ icon.directive('grIcon', [function() {
         }
     };
 }]);
+
+icon.directive('grIconLabel', [function () {
+    return {
+        restrict: 'E',
+        scope: {
+            grIcon: '@'
+        },
+        transclude: 'replace',
+        template: `
+            <gr-icon>{{grIcon}}</gr-icon>
+            <span class="icon-label"><ng:transclude></ng:transclude></span>`
+    };
+}]);

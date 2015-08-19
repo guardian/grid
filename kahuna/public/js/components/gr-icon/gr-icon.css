@@ -28,3 +28,9 @@ gr-icon .gr-icon { /* avoid targeting i element */
 gr-icon .gr-icon--small {
     font-size: 1.2rem;
 }
+
+@media screen and (max-width: 800px) {
+    gr-icon-label .icon-label {
+        display: none;
+    }
+}
