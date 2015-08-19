@@ -25,9 +25,7 @@ deleteImage.directive('grDeleteImage', [function () {
     return {
         restrict: 'E',
         template: `
-            <gr-confirm-delete class="gr-delete-image" gr-on-confirm="ctrl.delete()">
-                <span class="gr-delete-image__label">Delete</span>
-            </gr-confirm-delete>`,
+            <gr-confirm-delete class="gr-delete-image" gr-on-confirm="ctrl.delete()"></gr-confirm-delete>`,
         controller: 'grDeleteImageCtrl',
         controllerAs: 'ctrl',
         bindToController: true,

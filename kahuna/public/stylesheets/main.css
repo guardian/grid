@@ -377,9 +377,7 @@ textarea.ng-invalid {
 }
 
 @media screen and (max-width: 800px) {
-    .top-bar-item__label,
-    .top-bar-item .gr-delete-image__label,
-    .top-bar-item .gr-confirm-delete__label {
+    .top-bar-item__label {
         display: none;
     }
 
