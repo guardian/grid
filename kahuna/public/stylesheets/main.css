@@ -377,12 +377,6 @@ textarea.ng-invalid {
 }
 
 @media screen and (max-width: 800px) {
-    .top-bar-item__label,
-    .top-bar-item .gr-delete-image__label,
-    .top-bar-item .gr-confirm-delete__label {
-        display: none;
-    }
-
     .top-bar-item .gr-confirm-delete {
         min-width: inherit;
     }
@@ -646,12 +640,6 @@ input.search-query__input {
 .file-uploader__select-files {
     margin-top: 12px;
     padding: 5px 10px;
-}
-
-@media screen and (max-width: 800px) {
-    .file-uploader__select-files--label {
-        display: none;
-    }
 }
 
 /* ==========================================================================
@@ -1784,13 +1772,6 @@ FIXME: what to do with touch devices
 /* ==========================================================================
    Archviver
    ========================================================================== */
-
-@media screen and (max-width: 800px) {
-    .archiver__label {
-        display: none;
-    }
-}
-
 .top-bar-item .archiver {
     padding: 0 10px;
     height: 100%;
