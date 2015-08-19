@@ -54,63 +54,45 @@ pip install -r requirements.txt
 
 ### Configure
 
-You need to create the following files within the `settings` directory.
+You need to create the file `settings/settings.ini` using `settings/settings.ini.template` as a template. `settings.ini.template` looks like:
 
-NB: These files are excluded in [`.gitignore`](./.gitignore).
-
-#### settings_dev.py
-
-This file should have the following contents:
-
-```python
-PROPERTIES = {
-    'domain_root': <PRIVATE_VALUE>,
-    'mixpanel_token': <PRIVATE_VALUE>,
-    'panda_domain': <PRIVATE_VALUE>,
-    'panda_aws_key': <PRIVATE_VALUE>,
-    'panda_aws_secret': <PRIVATE_VALUE>,
-    'cors': <PRIVATE_VALUE>,
-}
-
-STACK = <CLOUD_FORMATION_NAME_OR_ID>
 ```
+[output]
+directory =
 
-Additionally, you can specify:
+[aws]
+stack-name =
 
-```python
-OUTPUT_DIRECTORY = <OUTPUT_DIRECTORY>
-AWS_PROFILE_NAME = <AWS_CLI_CONFIGURATION_PROFILE>
-AWS_REGION = <AWS_REGION>
+[properties]
+domain_root =
+mixpanel_token =
+cors =
+panda_domain =
+panda_aws_key =
+panda_aws_secret =
+sqs_message_min_frequency =
 ```
 
 Where:
-  * ```<PRIVATE_VALUE>```s can be given to you by a member of The Grid development team.
-  * ```<OUTPUT_DIRECTORY>``` is the location to write the .properties files to. Default is ```output```.
-  * ```CLOUD_FORMATION_NAME_OR_ID``` is the Name or ID of your CloudFormatuon Stack.
-  * ```<AWS_CLI_CONFIGURATION_PROFILE>``` is the name of an [AWS CLI Profile](http://docs.aws.amazon.com/cli/latest/userguide/cli-chap-getting-started.html)
-    If none is specified it is defaulted to ```media-service```.
-  * ```<AWS_REGION>``` is the region your CloudFormation is in. If none is specified it is defaulted to ```eu-west-1```.
+ * `directory` is the location to write the .properties files to. Default is `output`.
+ * `stack-name` is the Name or ID of your CloudFormation Stack.
+ * all values within the `properties` section can be given to you by a member of The Grid development team.
 
-#### env.py
+Additionally, the `aws` section can have the values:
+ * `profile-name` which is the name of an [AWS CLI Profile](http://docs.aws.amazon.com/cli/latest/userguide/cli-chap-getting-started.html) and is defaulted to `media-service`
+ * `region` which is the region your CloudFormation is in. If none is specified it is defaulted to `eu-west-1`.
 
-This file should have the following contents:
-
-```py
-FLEXI_RUN_ENV='dev'
-```
-
-This file is used to determine which settings file to use; it will take the values from `settings.py` and apply overrides from `settings_dev.py`.
 
 ### Generating .properties
 To generate the .properties files, run the command:
 
 ```sh
-python generate.py
+./main.py
 ```
 
-NB: If you've set ```OUTPUT_DIRECTORY``` to a location not writable by the current user (e.g. ```/etc/gu```),
+NB: If you've set `directory` to a location not writable by the current user (e.g. `/etc/gu`),
 you can run:
 
 ```sh
-sudo python generate.py
+sudo ./main.py
 ```
