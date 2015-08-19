@@ -12,5 +12,5 @@ prompt.directive('filePrompt', [function () {
         restrict: 'E',
         transclude: 'replace',
         template: template
-    }
+    };
 }]);
