@@ -80,7 +80,13 @@ jobs.controller('UploadJobsCtrl', [
     };
 
     ctrl.onDeleteError = function (err) {
-        $window.alert(err.body.errorMessage);
+        if (err.body && err.body.errorMessage) {
+            $window.alert(err.body.errorMessage);
+        }
+        else {
+            $window.alert('Failed to delete image.');
+        }
+
     };
 }]);
 
