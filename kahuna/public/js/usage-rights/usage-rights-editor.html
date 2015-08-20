@@ -150,19 +150,17 @@
     </div>
 
     <div class="ure__bar">
+        <button class="ure__action button-ico button-cancel" type="button" ng:click="ctrl.cancel()"
+                title="close usage rights overrides">
+            <gr-icon-label gr-icon="close">Cancel</gr-icon-label>
+        </button>
 
         <button class="ure__action button-ico button-save"
             type="submit"
             title="save usage rights overrides"
             ng:disabled="ctrl.savingDisabled() || !usageRights.$valid">
-            <gr-icon ng:if="!ctrl.saving">check</gr-icon>
+            <gr-icon-label ng:if="!ctrl.saving" gr-icon="check">Save</gr-icon-label>
             <gr-icon ng:if="ctrl.saving">timelapse</gr-icon>
         </button>
-
-        <button class="ure__action button-ico" type="button" ng:click="ctrl.cancel()"
-            title="close usage rights overrides">
-            <gr-icon>close</gr-icon>
-        </button>
-
     </div>
 </form>
