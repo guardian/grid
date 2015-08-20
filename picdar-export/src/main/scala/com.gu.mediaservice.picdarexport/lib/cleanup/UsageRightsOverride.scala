@@ -1,5 +1,7 @@
 package com.gu.mediaservice.picdarexport.lib.cleanup
 
+import play.api.Logger
+
 import com.gu.mediaservice.lib.config.{MetadataConfig, PhotographersList}
 import com.gu.mediaservice.model._
 
@@ -152,7 +154,17 @@ object UsageRightsOverride {
   def getUsageRights(copyrightGroup: String, metadata: ImageMetadata) =
     copyrightGroupToUsageRightsMap.get(copyrightGroup).flatMap(func => func(metadata))
 
-  def getOverrides(currentRights: UsageRights, picdarRights: UsageRights) = {
-
+  def getOverrides(currentRights: UsageRights, picdarRights: UsageRights): Option[UsageRights] = (currentRights, picdarRights) match {
+    // Override is the same as current, no override needed
+    case (cRights,  pRights) if cRights == pRights => None
+    // No current rights, but some overrides, let's use them
+    case (NoRights, pRights) => Some(pRights)
+    // Existing rights that differ from the override - oops.
+    // We kind of trust any ingestion logic (or manual override) more than what we fetched from Picdar.
+    // Don't override but log something is fishy
+    case (_,        pRights) => {
+      Logger.warn(s"Found mismatching current rights and overrides: $currentRights / $picdarRights")
+      None
+    }
   }
 }

@@ -49,20 +49,22 @@ class ExportManager(picdar: PicdarClient, loader: MediaLoader, mediaApi: MediaAp
   private def ingestAsset(asset: Asset) =
     ingest(asset.file, asset.urn, asset.created)
 
-  def overrideRights(mediaUriOpt: Option[URI], picdarRightsOpt: Option[UsageRights]): Future[Boolean] = {
+  def overrideRights(mediaUri: URI, picdarRights: UsageRights): Future[Boolean] = {
     for {
-      mediaUri <- mediaUriOpt
-      picdarRights <- picdarRightsOpt
-      image <- mediaApi.getImage(mediaUri)
-      currentRights <- image.rights
-      overridesOpt <- UsageRightsOverride.getOverrides(currentRights, picdarRights)
-      overridden <- applyRightsOverridesIfAny(image, overridesOpt)
+      image         <- mediaApi.getImage(mediaUri)
+      currentRights  = image.usageRights
+      overridesOpt   = UsageRightsOverride.getOverrides(currentRights, picdarRights)
+      overridden    <- applyRightsOverridesIfAny(image, overridesOpt)
     } yield overridden
   }
 
 
+  private def applyRightsOverrides(image: Image, overrides: UsageRights): Future[Unit] = {
+    mediaApi.overrideUsageRights(image.usageRightsOverrideUri, overrides)
+  }
+
   def applyRightsOverridesIfAny(image: Image, rightsOpt: Option[UsageRights]): Future[Boolean] = rightsOpt match {
-    case Some(rights) => ???
+    case Some(rights) => applyRightsOverrides(image, rights).map(_ => true)
     case None => Future.successful(false)
   }
 }
@@ -172,6 +174,8 @@ object ExportApp extends App with ExportManagerProvider with ArgumentHelpers wit
             |infoUri: ${asset.infoUri getOrElse ""}
             |metadata:
             |${asset.metadata}
+            |rights:
+            |${asset.usageRights}
         """.stripMargin
       )
     }
@@ -281,14 +285,28 @@ object ExportApp extends App with ExportManagerProvider with ArgumentHelpers wit
     }
   }
 
-  def rightsOverride(env: String, dateRange: DateRange = DateRange.all, range: Option[Range] = None) = {
+  def overrideRights(env: String, dateRange: DateRange = DateRange.all, range: Option[Range] = None) = {
     val dynamo = getDynamo(env)
     dynamo.scanRightsFetchedNotOverridden(dateRange) flatMap { assets =>
       val updates = takeRange(assets, range).map { asset =>
-        val mediaApi = asset.mediaUri
-        val rights = asset.picdarRights
-        getExportManager("library", env).overrideRights(mediaUri, rights)
+        // TODO: if no mediaUri, skip
+        // FIXME: HACKK!
+        val mediaUri = asset.mediaUri.get
+        asset.picdarRights map { rights =>
+          Logger.info(s"Overriding rights on $mediaUri to: $rights")
+          getExportManager("library", env).overrideRights(mediaUri, rights) flatMap { overridden =>
+            Logger.info(s"Overridden $mediaUri rights ($overridden)")
+            dynamo.recordRightsOverridden(asset.picdarUrn, asset.picdarCreated, overridden)
+          } recover { case e: Throwable =>
+            Logger.warn(s"Metadata override error for ${asset.picdarUrn}: $e")
+            e.printStackTrace()
+          }
+        } getOrElse {
+          Logger.info(s"No rights overrides for $mediaUri (not fetched?), skipping")
+          Future.successful(())
+        }
       }
+      Future.sequence(updates)
     }
   }
 
@@ -441,7 +459,13 @@ object ExportApp extends App with ExportManagerProvider with ArgumentHelpers wit
     }
 
     case "+rights:override" :: env :: Nil => terminateAfter {
-      rightsOverride(env)
+      overrideRights(env)
+    }
+    case "+rights:override" :: env :: date :: Nil => terminateAfter {
+      overrideRights(env, parseDateRange(date))
+    }
+    case "+rights:override" :: env :: date :: rangeStr :: Nil => terminateAfter {
+      overrideRights(env, parseDateRange(date), parseQueryRange(rangeStr))
     }
 
     case _ => println(
@@ -460,7 +484,8 @@ object ExportApp extends App with ExportManagerProvider with ArgumentHelpers wit
         |       +override <dev|test|prod> [dateLoaded] [range]
         |       +clear  <dev|test|prod> [dateLoaded]
         |
-        |       +rights:fetch  <dev|test|prod> <desk|library> [dateLoaded] [range]
+        |       +rights:fetch    <dev|test|prod> <desk|library> [dateLoaded] [range]
+        |       +rights:override <dev|test|prod> [dateLoaded] [range]
       """.stripMargin
     )
   }
