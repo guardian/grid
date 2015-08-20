@@ -1181,31 +1181,30 @@ FIXME: what to do with touch devices
     padding: 0 5px;
 }
 
-.result-editor__labeller-container {
+.result-editor__field-container {
     display: flex;
     width: 100%;
     margin-top: 5px;
 }
 
-.result-editor__labeller-container gr-add-label {
+.result-editor__field-container gr-add-label {
     font-size: 1.3rem;
     padding-right: 10px;
 }
 
-.result-editor__label {
+.result-editor__field-label {
     width: 100px;
+    flex-shrink: 0;
 }
 
 .result-editor__usage-rights-container {
     margin-bottom: 10px;
-    margin-left: 35%;
-    text-align: right;
-    width: 65%;
     font-size: 1.4rem;
+    flex-grow: 1;
 }
-.result-editor__usage-rights {
-    width: 100%;
-    text-align: left;
+.result-editor__usage-rights .ure {
+    padding: 10px;
+    background: #444;
 }
 
 /* ==========================================================================
