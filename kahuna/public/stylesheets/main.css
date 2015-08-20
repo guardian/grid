@@ -567,13 +567,16 @@ textarea.ng-invalid {
 
 /* input to win specificity war with 'input' rule ;_; */
 input.search-query__input {
-    padding-right: 20px;
+    padding-right: 25px;
 }
 
 .search-query__clear {
     position: absolute;
-    right: 10px;
-    margin: 5px 0;
+    right: 0;
+    top: 0;
+    /* Make it fill the container for larger clickable area */
+    height: 100%;
+    padding: 5px;
 }
 
 /* fade in/out */
