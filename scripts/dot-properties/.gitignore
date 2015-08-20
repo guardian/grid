@@ -1,7 +1,5 @@
 /output/
-/settings/settings_*.py
-/settings/env.py
-
+/settings/settings.ini
 
 ### Python template
 # Byte-compiled / optimized / DLL files
