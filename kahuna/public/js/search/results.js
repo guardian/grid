@@ -46,7 +46,6 @@ results.controller('SearchResultsCtrl', [
     'panelService',
     'range',
     'isReloadingPreviousSearch',
-    'onValChange',
     function($rootScope,
              $scope,
              $state,
@@ -61,8 +60,7 @@ results.controller('SearchResultsCtrl', [
              selection,
              panelService,
              range,
-             isReloadingPreviousSearch,
-             onValChange) {
+             isReloadingPreviousSearch) {
 
         const ctrl = this;
 
