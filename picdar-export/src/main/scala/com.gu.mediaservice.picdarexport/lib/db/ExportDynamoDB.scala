@@ -57,8 +57,8 @@ class ExportDynamoDB(credentials: AWSCredentials, region: Region, tableName: Str
   val fetchedCondition =
     "(" + fetchFields.map(f => s"attribute_exists($f)").mkString(" AND ") + ")"
 
-  val noRightsCondition = "(attribute_not_exists(rights))"
-  val hasRightsNotOverridden = List("attribute_exists(rights)", "attribute_not_exists(rightsOverridden)")
+  val noRightsCondition = "(attribute_not_exists(picdarRights))"
+  val hasRightsNotOverridden = List("attribute_exists(picdarRights)", "attribute_not_exists(picdarRightsOverridden)")
 
 
   def scanUnfetched(dateRange: DateRange): Future[Seq[AssetRef]] = Future {
@@ -244,6 +244,18 @@ class ExportDynamoDB(credentials: AWSCredentials, region: Region, tableName: Str
       withValueMap(new ValueMap().
         withMap(":rights", rightsToMap(rights)).
         withString(":picdarRightsModified", asTimestampString(new DateTime))).
+      withReturnValues(ReturnValue.ALL_NEW)
+
+    table.updateItem(baseUpdateSpec)
+  }
+
+  def recordRightsOverridden(urn: String, range: DateTime, overridden: Boolean) = Future {
+    val baseUpdateSpec = new UpdateItemSpec().
+      withPrimaryKey(IdKey, urn, RangeKey, asRangeString(range)).
+      withUpdateExpression("SET picdarRightsOverridden = :overridden, picdarRightsOverriddenModified = :overriddenModified").
+      withValueMap(new ValueMap().
+      withBoolean(":overridden", overridden).
+      withString(":overriddenModified", asTimestampString(new DateTime))).
       withReturnValues(ReturnValue.ALL_NEW)
 
     table.updateItem(baseUpdateSpec)
