@@ -4,8 +4,6 @@ import 'angular-xeditable';
 import submitButton from './submit.html!text';
 import cancelButton from './cancel.html!text';
 
-import './gr-xeditable.css!';
-
 export var grXeditable = angular.module('grXeditable', [
     'xeditable'
 ]);
