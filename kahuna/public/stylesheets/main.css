@@ -182,6 +182,25 @@ a:focus {
     cursor: auto;
 }
 
+.button-save:hover {
+    background-color: #008fc5;
+}
+
+.button-cancel {
+    background-color: #898989;
+}
+
+.button-cancel:hover {
+    background-color: #666666;
+}
+
+.button-save,
+.button-cancel {
+    padding: 0 5px;
+    height: 24px;
+    color: white;
+}
+
 .button--confirm-delete {
     background: red;
 }
