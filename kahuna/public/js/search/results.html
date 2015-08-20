@@ -15,86 +15,61 @@
 
         <div class="results-toolbar"
             ng:class="{'results-toolbar--selection-mode': ctrl.metadataPanelAvailable}">
-            <div class="results-toolbar-item results-toolbar-item__sort-direction results-toolbar-item--left radio-list">
-                <div class="radio-list__item">
-                    <input type="radio"
-                           id="sort-direction__desc"
-                           class="radio-list__circle"
-                           name="sort-direction"
-                           ng:value="undefined"
-                           ng:model="ctrl.filter.orderBy">
-                    <label for="sort-direction__desc" class="radio-list__label"
-                           ng:class="{'radio-list--selected': ctrl.filter.orderBy === undefined}">
-                        <div class="radio-list__selection-state"></div>
-                        <div class="radio-list__label-value">Newest first</div>
-                    </label>
-                </div>
 
-                <div class="radio-list__item">
-                    <input type="radio"
-                           id="sort-direction__asc"
-                           class="radio-list__circle"
-                           name="sort-direction"
-                           ng:value="'oldest'"
-                           ng:model="ctrl.filter.orderBy">
-                    <label for="sort-direction__asc" class="radio-list__label"
-                           ng:class="{'radio-list--selected': ctrl.filter.orderBy === 'oldest'}">
-                        <div class="radio-list__selection-state"></div>
-                        <div class="radio-list__label-value">Oldest first</div>
-                    </label>
+	        <div class="results-toolbar-item image-results-count results-toolbar-item--static results-toolbar-item--left results-toolbar-item--split">
+                <div class="results-count">
+                    {{ctrl.totalResults | toLocaleString}} matches
+                    <button ng:show="ctrl.newImagesCount > 0"
+                            ng:click="ctrl.revealNewImages()"
+                            class="image-results-count__new">
+                        {{ctrl.newImagesCount | toLocaleString}} new
+                    </button>
                 </div>
-           </div>
-
-           <div class="results-toolbar-item image-results-count results-toolbar-item--static results-toolbar-item--left results-toolbar-item--split">
-                {{ctrl.totalResults | toLocaleString}} matches
-                <span ng:if="ctrl.inSelectionMode()">
-                    ({{ctrl.selectedImages.size}} selected)
-                </span>
-                <button ng:show="ctrl.newImagesCount > 0"
-                        ng:click="ctrl.revealNewImages()"
-                        class="image-results-count__new">
-                    {{ctrl.newImagesCount | toLocaleString}} new
-                </button>
             </div>
 
+            <div class="action-bar" ng:if="ctrl.inSelectionMode()">
+                <div class="results-toolbar-item results-toolbar-item--right results-toolbar-item--static">
+                    {{ctrl.selectedImages.size}} selected
+                </div>
 
-            <a class="results-toolbar-item results-toolbar-item--right results-toolbar-item__clear-selection"
-                 ng:class="{'results-toolbar-item--disabled': !ctrl.metadataPanelAvailable}"
-                 ng:click="ctrl.clearSelection()">
-                <span class="results-toolbar-item--text">Clear selection</span>
-                <span class="results-toolbar-item--icon">
-                    <gr-icon>clear</gr-icon>
-                </span>
-            </a>
+                <a class="results-toolbar-item results-toolbar-item--right results-toolbar-item__clear-selection"
+			        ng:click="ctrl.clearSelection()">
 
-
-            <a class="results-toolbar-item results-toolbar-item--right results-toolbar-item__metadata-panel-controls"
-                ng:class="{'results-toolbar-item--disabled': !ctrl.metadataPanelAvailable, 'results-toolbar-item--active': ctrl.metadataPanelVisible}"
-                ng:mouseover="ctrl.showMetadataPanelMouseOver()"
-                ng:mouseleave="ctrl.showMetadataPanelMouseLeave()"
-                ng:click="ctrl.toggleLockMetadataPanel()">
-
-                <span ng:if="ctrl.metadataPanelVisible && !ctrl.metadataPanelLocked">
-                    <span class="results-toolbar-item--text">Lock meta panel</span>
                     <span class="results-toolbar-item--icon">
-                        <gr-icon>lock_open</gr-icon>
+                        <gr-icon>clear</gr-icon>
                     </span>
-                </span>
-                <span ng:if="ctrl.metadataPanelVisible && ctrl.metadataPanelLocked">
-                    <span class="results-toolbar-item--text">Unlock meta panel</span>
-                    <span class="results-toolbar-item--icon">
-                        <gr-icon>lock</gr-icon>
-                    </span>
-                </span>
-                <span ng:if="!ctrl.metadataPanelVisible">
-                    <span class="results-toolbar-item--text">Show meta panel</span>
-                    <span class="results-toolbar-item--icon">
-                        <gr-icon>chrome_reader_mode</gr-icon>
-                    </span>
-                </span>
+                    <span class="results-toolbar-item--text">Clear selection</span>
+                </a>
 
-            </a>
+                <gr-downloader class="results-toolbar-item results-toolbar-item--right"
+                    gr:images="ctrl.selectedImages"></gr-downloader>
 
+                <a class="results-toolbar-item results-toolbar-item--right results-toolbar-item__metadata-panel-controls"
+                    ng:class="{'results-toolbar-item--disabled': !ctrl.metadataPanelAvailable, 'results-toolbar-item--active': ctrl.metadataPanelVisible}"
+                    ng:mouseover="ctrl.showMetadataPanelMouseOver()"
+                    ng:mouseleave="ctrl.showMetadataPanelMouseLeave()"
+                    ng:click="ctrl.toggleLockMetadataPanel()">
+
+                    <span ng:if="ctrl.metadataPanelVisible && !ctrl.metadataPanelLocked">
+                        <span class="results-toolbar-item--text">Lock meta panel</span>
+                        <span class="results-toolbar-item--icon">
+                            <gr-icon>lock_open</gr-icon>
+                        </span>
+                    </span>
+                    <span ng:if="ctrl.metadataPanelVisible && ctrl.metadataPanelLocked">
+                        <span class="results-toolbar-item--text">Unlock meta panel</span>
+                        <span class="results-toolbar-item--icon">
+                            <gr-icon>lock</gr-icon>
+                        </span>
+                    </span>
+                    <span ng:if="!ctrl.metadataPanelVisible">
+                        <span class="results-toolbar-item--text">Show meta panel</span>
+                        <span class="results-toolbar-item--icon">
+                            <gr-icon>chrome_reader_mode</gr-icon>
+                        </span>
+                    </span>
+                </a>
+            </div>
         </div>
 
         <ul class="results"
