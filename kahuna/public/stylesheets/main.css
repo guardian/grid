@@ -458,7 +458,9 @@ textarea.ng-invalid {
 
 .search {
     margin-top: 12px;
-}
+    display: flex;
+    max-height: 26px;
+    line-height:12px}
 
 .search__query {
     padding: 5px 10px;
@@ -466,23 +468,27 @@ textarea.ng-invalid {
     width: 100%;
 }
 
-.search__filters {
-    display: inline-block;
+.search__modifier {
+    display: flex;
+    flex-direction: row;
+    justify-content: flex-start;
+    margin-left: 25px;
 }
 
-.search__filter-item {
-    display: inline;
+.search__modifier-item {
+    padding: 1px;
+    margin-right: 5px;
 }
 
-.search__filters-container {
+.search__modifier-container {
     position: relative;
-    display: inline-block;
+    display: flex;
 }
 
-.search__filters-toggle {
+.search__modifier-toggle {
     display: none;
 }
-.search__filters-toggle__icon {
+.search__modifier-toggle__icon {
     display: none;
 }
 
@@ -493,26 +499,26 @@ textarea.ng-invalid {
 }
 
 /* Note: order matters for cascade ;_; */
-@media screen and (max-width: 580px) {
+@media screen and (max-width: 600px) {
     /* fill width */
     input.search-query__input {
-        width: calc(100% - 90px); /* full width - grid logo - filters button */
+        width: 100%;
     }
 
-    .search__filters-toggle__text {
+    .search__modifier-toggle__text {
         display: none;
     }
 }
 
-@media screen and (max-width: 1030px) {
-
-    .search__filters-toggle {
+@media screen and (max-width: 1200px) {
+    .search__modifier-toggle {
         display: inherit;
+        margin-left: 15px
     }
-    .search__filters-toggle__icon {
+    .search__modifier-toggle__icon {
         display: inline;
     }
-    .search__filters {
+    .search__modifier {
         display: inherit;
         position: absolute;
         top: 25px;
@@ -523,11 +529,14 @@ textarea.ng-invalid {
         padding: 10px;
         box-shadow: 0 1px 5px rgba(0, 0, 0, 0.5);
     }
-    .search__filters--hide {
+    .order__option--hide,
+    .search__filter--hide {
         display: none;
     }
-    .search__filters--show {
-        display: inherit;
+    .order__option--show,
+    .search__filter--show {
+        display: block;
+        margin-left: 0px;
     }
     .search__filter-item {
         display: list-item;
@@ -536,14 +545,6 @@ textarea.ng-invalid {
     .search .search__filter {
         margin-left: 0;
     }
-}
-
-.search__filter {
-    vertical-align: middle;
-    margin-left: 10px;
-}
-.search__filter--first {
-    margin: 0;
 }
 
 .search-query {
@@ -609,10 +610,12 @@ input.search-query__input {
     box-sizing: border-box;
 }
 
-
-.search__advanced-toggle,
-.search__filters-container {
+.search__advanced-toggle {
     margin-left: 10px;
+}
+
+.search__advanced-toggle {
+    min-width: 70px;
 }
 
 .search__date {
@@ -884,7 +887,7 @@ input.search-query__input {
 
 .results-toolbar-item__clear-selection {
     line-height: 35px;
-    width: 118px;
+    width: 105px;
 }
 
 .results-toolbar-item__sort-direction {
@@ -1983,6 +1986,7 @@ ui-archiver .archiver:hover {
 
 .radio-list {
     display: flex;
+    overflow: hidden;
 }
 
 .radio-list--invalid {
