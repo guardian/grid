@@ -30,7 +30,7 @@ query.controller('SearchQueryCtrl',
     };
 
     $scope.$watch(() => ctrl.ordering.orderBy, onValChange(newVal => {
-	$state.go('search.results', {orderBy: newVal});
+        $state.go('search.results', {orderBy: newVal});
     }));
 
     ctrl.filter = {
