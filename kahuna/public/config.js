@@ -1,16 +1,14 @@
 System.config({
-  "baseURL": "/assets",
-  "defaultJSExtensions": true,
-  "transpiler": "traceur",
-  "paths": {
+  baseURL: "/assets",
+  defaultJSExtensions: true,
+  transpiler: "traceur",
+  paths: {
     "app/*": "lib/*.js",
     "github:*": "jspm_packages/github/*",
     "npm:*": "jspm_packages/npm/*"
-  }
-});
+  },
 
-System.config({
-  "map": {
+  map: {
     "angular": "github:angular/bower-angular@1.4.3",
     "angular-animate": "github:angular/bower-angular-animate@1.4.3",
     "angular-bootstrap": "github:angular-ui/bootstrap-bower@0.13.1",
@@ -37,8 +35,8 @@ System.config({
     "text": "github:systemjs/plugin-text@0.0.2",
     "theseus": "npm:theseus@0.5.0",
     "theseus-angular": "npm:theseus-angular@0.3.0",
-    "traceur": "github:jmcriffey/bower-traceur@0.0.90",
-    "traceur-runtime": "github:jmcriffey/bower-traceur-runtime@0.0.90",
+    "traceur": "github:jmcriffey/bower-traceur@0.0.91",
+    "traceur-runtime": "github:jmcriffey/bower-traceur-runtime@0.0.91",
     "ua-parser-js": "npm:ua-parser-js@0.7.3",
     "github:angular-ui/ui-router@0.2.15": {
       "angular": "github:angular/bower-angular@1.4.3"
@@ -231,4 +229,3 @@ System.config({
     }
   }
 });
-

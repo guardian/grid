@@ -12,9 +12,8 @@ confirmDelete.directive('grConfirmDelete', ['$timeout', function($timeout) {
             <button class="gr-confirm-delete" type="button"
                 ng:click="showConfirm = true"
                 ng:class="{'gr-confirm-delete--confirm': showConfirm}">
-                <gr-icon>delete</gr-icon>
-                <ng-transclude ng:if="!showConfirm"></ng-transclude>
-                <span class="gr-confirm-delete__label" ng:if="showConfirm">Confirm delete</span>
+                <gr-icon-label ng:if="!showConfirm" gr-icon="delete">Delete</gr-icon-label>
+                <gr-icon-label ng:if="showConfirm" gr-icon="delete">Confirm Delete</gr-icon-label>
             </button>`,
 
         link: function(scope, element, attrs) {

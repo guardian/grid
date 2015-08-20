@@ -1,10 +1,7 @@
 import angular from 'angular';
 import 'angular-xeditable';
 
-import submitButton from './submit.html!text';
-import cancelButton from './cancel.html!text';
-
-import './gr-xeditable.css!';
+import buttonTemplate from './gr-xeditable-buttons.html!text';
 
 export var grXeditable = angular.module('grXeditable', [
     'xeditable'
@@ -18,6 +15,10 @@ grXeditable.run(['editableOptions', 'editableThemes', function (editableOptions,
      */
     editableOptions.theme = 'default';
 
-    editableThemes['default'].submitTpl = submitButton;
-    editableThemes['default'].cancelTpl = cancelButton;
+    // override the default template for submit and cancel buttons because we re-order the buttons
+    // https://github.com/vitalets/angular-xeditable/blob/master/src/js/themes.js
+    editableThemes['default'].submitTpl = null;
+    editableThemes['default'].cancelTpl = null;
+
+    editableThemes['default'].buttonsTpl = buttonTemplate;
 }]);
