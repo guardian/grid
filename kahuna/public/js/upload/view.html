@@ -11,7 +11,11 @@
     <section class="section"
              ng:if="ctrl.latestJob">
 
-        <h2 class="section-heading">Your current uploads</h2>
+        <div class="flex-container section-heading">
+            <h2>Your current uploads</h2>
+            <span class="flex-spacer"></span>
+            <a ng:controller="SessionCtrl" class="coloured-link" ui:sref="search.results({uploadedBy: user.email})">View all your uploads</a>
+        </div>
 
         <ui-upload-jobs jobs="ctrl.latestJob"></ui-upload-jobs>
     </section>
@@ -19,7 +23,11 @@
     <file-prompt ng:if="!ctrl.latestJob"></file-prompt>
 
     <section class="section" ng:if="ctrl.myUploads.data.length > 0">
-        <h2 class="section-heading">Your past 50 uploads</h2>
+        <div class="flex-container section-heading">
+            <h2>Your past 50 uploads</h2>
+            <span class="flex-spacer"></span>
+            <a ng:controller="SessionCtrl" class="coloured-link" ui:sref="search.results({uploadedBy: user.email})">View all your uploads</a>
+        </div>
 
         <ul>
             <li ng:repeat="result in ctrl.myUploads.data" class="upload-result">
@@ -31,10 +39,6 @@
                                  image="result"></gr-delete-image>
             </li>
         </ul>
-
-        <p ng:controller="SessionCtrl">
-            <a class="coloured-link" ui:sref="search.results({uploadedBy: user.email})">View all your uploads.</a>
-        </p>
     </section>
 </div>
 
