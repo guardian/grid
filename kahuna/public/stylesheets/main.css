@@ -2006,11 +2006,12 @@ ui-archiver .archiver:hover {
 }
 
 .radio-list__label {
-   flex-grow: 1;
-   color: #CCC;
-   background-color: #444;
-   text-align: center;
-   cursor: pointer;
+    flex-grow: 1;
+    color: #CCC;
+    background-color: #444;
+    text-align: center;
+    cursor: pointer;
+    border: 1px solid #565656
 }
 
 .radio-list--selected .radio-list__label-value {
