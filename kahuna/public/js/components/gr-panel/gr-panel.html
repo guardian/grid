@@ -238,6 +238,37 @@
                         </span>
                     </span>
                 </dd>
+
+                <dt ng:if="ctrl.metadata.copyright || ctrl.userCanEdit" class="image-info__wrap metadata-line metadata-line__key image-info__group--dl__key--panel">Copyright</dt>
+                <dd ng:if="ctrl.metadata.copyright || ctrl.userCanEdit" class="image-info__wrap metadata-line metadata-line__info image-info__group--dl__value--panel">
+                    <button class="image-info__edit"
+                            ng:if="ctrl.userCanEdit"
+                            ng:click="copyrightEditForm.$show()"
+                            ng:hide="copyrightEditForm.$visible"
+                    >✎</button>
+                    <span ng:class="{'image-info--multiple': ctrl.hasMultipleValues(ctrl.rawMetadata.copyright)}"
+                         editable-text="ctrl.metadata.copyright"
+                         onbeforesave="ctrl.updateMetadataField('copyright', $data)"
+                         e:form="copyrightEditForm"
+                         e:ng-class="{'image-info__editor--error': $error, 'image-info__editor--saving': copyrightEditForm.$waiting}">
+
+                        <span class="metadata-line__info" ng:if="ctrl.hasMultipleValues(ctrl.rawMetadata.copyright) && ctrl.userCanEdit">
+                            Multiple copyrights (click ✎ to edit <strong>all</strong>)
+                        </span>
+
+                        <span class="metadata-line__info" ng:if="ctrl.hasMultipleValues(ctrl.rawMetadata.copyright) && !ctrl.userCanEdit">
+                            Multiple copyrights
+                        </span>
+
+                        <span class="metadata-line__info" ng:if="!ctrl.hasMultipleValues(ctrl.rawMetadata.copyright)">
+                            <span ng:if="ctrl.metadata.copyright">
+                                <a ui:sref="search.results({query: (ctrl.metadata.copyright | queryFilter:'by')})">{{ctrl.metadata.copyright}}</a>
+                            </span>
+
+                            <span ng:if="!ctrl.metadata.copyright && ctrl.userCanEdit">Unknown (click ✎ to add the copyright)</span>
+                        </span>
+                    </span>
+                </dd>
             </dl>
         </div>
 
