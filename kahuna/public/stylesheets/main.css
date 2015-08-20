@@ -1933,6 +1933,27 @@ ui-archiver .archiver:hover {
     display: none;
 }
 
+
+/* ==========================================================================
+   Forms
+   ========================================================================== */
+.action-bar {
+    line-height: 35px;
+    display: flex;
+}
+
+.action-bar__item {
+    line-height: inherit;
+    padding: 0 10px;
+    display: block;
+    border-left: 1px solid #565656;
+}
+
+.action-bar__item--last {
+    border-right: 1px solid #565656;
+}
+
+
 /* ==========================================================================
    Forms
    ========================================================================== */
