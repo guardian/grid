@@ -188,8 +188,28 @@
                     </span>
                 </dd>
 
-                <dt ng:if="ctrl.metadata.copyright" class="image-info__group--dl__key metadata-line__key">Copyright</dt>
-                <dd ng:if="ctrl.metadata.copyright" class="image-info__group--dl__value metadata-line__info"><a ui:sref="search.results({query: (ctrl.metadata.copyright | queryFilter:'copyright')})">{{ctrl.metadata.copyright}}</a></dd>
+
+                <dt ng:if="ctrl.metadata.copyright || ctrl.userCanEdit" class="image-info__wrap image-info__group--dl__key metadata-line__key">Copyright</dt>
+                <dd ng:if="ctrl.metadata.copyright || ctrl.userCanEdit" class="image-info__wrap image-info__group--dl__value metadata-line__info">
+                    <button class="image-info__edit"
+                                    ng:if="ctrl.userCanEdit"
+                                    ng:click="copyrightEditForm.$show()"
+                                    ng:hide="copyrightEditForm.$visible"
+                    >✎</button>
+                    <span class="image-info__copyright"
+                                  editable-text="ctrl.metadata.copyright"
+                                  onbeforesave="ctrl.updateMetadataField('copyright', $data)"
+                                  e:ng-class="{'image-info__editor--error': $error, 'image-info__editor--saving': copyrightEditForm.$waiting}"
+                                  e:form="copyrightEditForm">
+
+                        <span ng:if="ctrl.metadata.copyright">
+                            <a ui:sref="search.results({query: (ctrl.metadata.copyright | queryFilter:'by')})">{{ctrl.metadata.copyright}}</a>
+                        </span>
+                        <span ng:if="! ctrl.metadata.copyright">
+                            Unknown (click ✎ to add the copyright)
+                        </span>
+                    </span>
+                </dd>
 
 
                 <dt class="image-info__group--dl__key metadata-line__key">Uploaded</dt>
