@@ -33,8 +33,8 @@
       "ua-parser-js": "npm:ua-parser-js@0.7.3"
     },
     "devDependencies": {
-      "traceur": "github:jmcriffey/bower-traceur@0.0.90",
-      "traceur-runtime": "github:jmcriffey/bower-traceur-runtime@0.0.90"
+      "traceur": "github:jmcriffey/bower-traceur@0.0.91",
+      "traceur-runtime": "github:jmcriffey/bower-traceur-runtime@0.0.91"
     },
     "overrides": {
       "github:dbushell/Pikaday@1.3.2": {
