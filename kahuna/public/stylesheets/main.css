@@ -506,12 +506,6 @@ textarea.ng-invalid {
     display: none;
 }
 
-@media screen and (max-width: 700px) {
-    .search__advanced-toggle {
-        display: none;
-    }
-}
-
 /* Note: order matters for cascade ;_; */
 @media screen and (max-width: 600px) {
     /* fill width */
@@ -568,15 +562,28 @@ textarea.ng-invalid {
 /* input to win specificity war with 'input' rule ;_; */
 input.search-query__input {
     padding-right: 25px;
+    padding-left: 25px;
 }
 
-.search-query__clear {
+.search-query__button {
     position: absolute;
-    right: 0;
     top: 0;
     /* Make it fill the container for larger clickable area */
     height: 100%;
     padding: 5px;
+    outline: none;
+}
+
+.search-query__advanced--open {
+    color: #00adee;
+}
+
+.search-query__advanced--open gr-icon {
+    font-weight: bold;;
+}
+
+.search-query__clear {
+    right: 0;
 }
 
 /* fade in/out */
@@ -625,14 +632,6 @@ input.search-query__input {
     border: 1px solid #999;
     padding: 2px 4px;
     box-sizing: border-box;
-}
-
-.search__advanced-toggle {
-    margin-left: 10px;
-}
-
-.search__advanced-toggle {
-    min-width: 70px;
 }
 
 .search__date {

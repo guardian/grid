@@ -1,5 +1,12 @@
 <form class="search">
     <span class="search-query">
+        <button class="search-query__button search-query__advanced"
+                type="button"
+                title="{{advancedShown && 'Hide advanced search syntax' || 'Show advanced search syntax'}}"
+                ng:click="advancedShown = !advancedShown"
+                ng:class="{'search-query__advanced--open': advancedShown}">
+            <gr-icon>search</gr-icon>
+        </button>
         <input type="text"
                placeholder="Search for images…"
                class="search__query search-query__input"
@@ -8,21 +15,13 @@
                ng:model-options="{ debounce: 400 }"
                grid:focus-on="search:focus-query"
         />
-        <button class="search-query__clear clear-button"
+        <button class="search-query__button search-query__clear clear-button"
                 type="button"
                 ng:show="searchQuery.filter.query"
                 ng:click="searchQuery.resetQueryAndFocus()">
             <gr-icon>clear</gr-icon>
         </button>
     </span>
-
-    <button class="search__advanced-toggle"
-            type="button"
-            ng:click="advancedShown = !advancedShown">
-        <span ng:hide="advancedShown">▸</span>
-        <span ng:show="advancedShown">▾</span>
-        Advanced
-    </button>
 
     <div class="search__modifier-container">
         <button class="search__modifier-toggle"
