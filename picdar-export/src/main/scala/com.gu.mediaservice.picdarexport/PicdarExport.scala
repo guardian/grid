@@ -249,6 +249,21 @@ object ExportApp extends App with ExportManagerProvider with ArgumentHelpers wit
     }
   }
 
+  def fetchRights(env: String, system: String, dateRange: DateRange = DateRange.all, range: Option[Range] = None) = {
+    val dynamo = getDynamo(env)
+    dynamo.scanNoRights(dateRange) flatMap { urns =>
+      val updates = takeRange(urns, range).map { assetRef =>
+        getPicdar(system).get(assetRef.urn) flatMap { asset =>
+          Logger.info(s"Setting usage rights on image ${asset.urn} to: ${asset.usageRights.map(_.category).getOrElse("none")}")
+          dynamo.recordRights(assetRef.urn, assetRef.dateLoaded, asset.usageRights)
+        } recover { case PicdarError(message) =>
+          Logger.warn(s"Picdar error during fetch: $message")
+        }
+      }
+      Future.sequence(updates)
+    }
+  }
+
 
   args.toList match {
     case ":count-loaded" :: env :: Nil => terminateAfter {
@@ -387,6 +402,20 @@ object ExportApp extends App with ExportManagerProvider with ArgumentHelpers wit
       clear(env, parseDateRange(date))
     }
 
+    case "+rights:fetch" :: env :: system :: Nil => terminateAfter {
+      fetchRights(env, system)
+    }
+
+    case "+rights:fetch" :: env :: system :: Nil => terminateAfter {
+      fetchRights(env, system)
+    }
+    case "+rights:fetch" :: env :: system :: date :: Nil => terminateAfter {
+      fetchRights(env, system, parseDateRange(date))
+    }
+    case "+rights:fetch" :: env :: system :: date :: rangeStr :: Nil => terminateAfter {
+      fetchRights(env, system, parseDateRange(date), parseQueryRange(rangeStr))
+    }
+
     case _ => println(
       """
         |usage: :count-loaded    <dev|test|prod> [dateLoaded]
@@ -402,6 +431,8 @@ object ExportApp extends App with ExportManagerProvider with ArgumentHelpers wit
         |       +ingest <dev|test|prod> [dateLoaded] [range]
         |       +override <dev|test|prod> [dateLoaded] [range]
         |       +clear  <dev|test|prod> [dateLoaded]
+        |
+        |       +rights:fetch  <dev|test|prod> <desk|library> [dateLoaded] [range]
       """.stripMargin
     )
   }
