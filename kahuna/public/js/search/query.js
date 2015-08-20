@@ -26,7 +26,7 @@ query.controller('SearchQueryCtrl',
     var ctrl = this;
 
     ctrl.ordering = {
-	orderBy: $stateParams.orderBy
+        orderBy: $stateParams.orderBy
     };
 
     $scope.$watch(() => ctrl.ordering.orderBy, onValChange(newVal => {
