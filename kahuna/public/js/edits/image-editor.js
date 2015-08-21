@@ -13,8 +13,8 @@ export var imageEditor = angular.module('kahuna.edits.imageEditor', [
 ]);
 
 imageEditor.controller('ImageEditorCtrl',
-                       ['$scope', '$timeout', 'editsService', 'imageService',
-                        function($scope, $timeout, editsService, imageService) {
+                       ['$scope', '$timeout', 'editsService', 'editsApi', 'imageService',
+                        function($scope, $timeout, editsService, editsApi, imageService) {
 
     var ctrl = this;
 
@@ -56,6 +56,8 @@ imageEditor.controller('ImageEditorCtrl',
     function onSave() {
         return ctrl.image.get().then(newImage => {
             ctrl.image = newImage;
+            ctrl.usageRights = imageService(ctrl.image).usageRights;
+            updateUsageRightsCategory();
             ctrl.status = ctrl.image.data.valid ? 'ready' : 'invalid';
             ctrl.saving = false;
 
@@ -75,6 +77,16 @@ imageEditor.controller('ImageEditorCtrl',
 
 
     ctrl.usageRights = imageService(ctrl.image).usageRights;
+
+    function updateUsageRightsCategory() {
+        let category = ctrl.categories.find(cat => cat.value === ctrl.usageRights.data.category);
+        ctrl.usageRightsCategory = category && category.name;
+        ctrl.showUsageRights = ctrl.usageRightsCategory === undefined;
+    }
+
+    editsApi.getUsageRightsCategories()
+        .then(cats => ctrl.categories = cats)
+        .finally(() => updateUsageRightsCategory());
 }]);
 
 
