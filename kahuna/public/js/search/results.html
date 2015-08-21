@@ -44,6 +44,8 @@
                 <gr-downloader class="results-toolbar-item results-toolbar-item--right"
                     gr:images="ctrl.selectedImages"></gr-downloader>
 
+                <gr-delete-image images="ctrl.selectedImages"></gr-delete-image>
+
                 <a class="results-toolbar-item results-toolbar-item--right results-toolbar-item__metadata-panel-controls"
                     ng:class="{'results-toolbar-item--disabled': !ctrl.metadataPanelAvailable, 'results-toolbar-item--active': ctrl.metadataPanelVisible}"
                     ng:mouseover="ctrl.showMetadataPanelMouseOver()"
