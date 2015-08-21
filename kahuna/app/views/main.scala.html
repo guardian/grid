@@ -1,6 +1,5 @@
 @(mediaApiUri: String,
   watUri: Option[String],
-  mixpanelToken: Option[String],
   sentryDsn: Option[String])
 <!DOCTYPE html>
 <html>
@@ -20,9 +19,6 @@
     <link rel="sentry-dsn" href="@dsn" />
 }
     <link rel="stylesheet" href="@routes.Assets.at("stylesheets/main.css")" />
-@mixpanelToken.map { token =>
-    <meta name="mixpanel-token" content="@token" />
-}
 
     <style>
         .ng-cloak { display: none }
