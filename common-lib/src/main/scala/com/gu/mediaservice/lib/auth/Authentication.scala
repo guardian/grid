@@ -24,7 +24,8 @@ case class PandaUser(email: String, firstName: String, lastName: String, avatarU
 
 case class AuthenticatedService(name: String) extends Principal
 
-class PandaAuthenticated(loginUri_ : String, authCallbackBaseUri_ : String)
+
+class PandaAuthenticated(loginUriTemplate_ : String, authCallbackBaseUri_ : String)
     extends ActionBuilder[({ type R[A] = AuthenticatedRequest[A, Principal] })#R]
     with PanDomainAuthActions {
 
@@ -43,11 +44,11 @@ class PandaAuthenticated(loginUri_ : String, authCallbackBaseUri_ : String)
 
   object ArgoAuthAction extends AbstractApiAuthAction with ArgoErrorResponses {
     // FIXME: for some reason an initialisation order issue causes this to be null if not lazy >:-(
-    lazy val loginUri = loginUri_
+    lazy val loginUriTemplate = loginUriTemplate_
   }
 }
 
-case class AuthenticatedUpload(keyStore: KeyStore, loginUri: String, authCallbackBaseUri: String) extends AuthenticatedBase {
+case class AuthenticatedUpload(keyStore: KeyStore, loginUriTemplate: String, authCallbackBaseUri: String) extends AuthenticatedBase {
 
   override def invokeBlock[A](request: Request[A], block: RequestHandler[A]): Future[Result] = {
     val DigestedFile(tempFile, id) = request.body
@@ -59,11 +60,11 @@ case class AuthenticatedUpload(keyStore: KeyStore, loginUri: String, authCallbac
 
 }
 
-case class Authenticated(keyStore: KeyStore, loginUri: String, authCallbackBaseUri: String) extends AuthenticatedBase
+case class Authenticated(keyStore: KeyStore, loginUriTemplate: String, authCallbackBaseUri: String) extends AuthenticatedBase
 trait AuthenticatedBase extends ActionBuilder[({ type R[A] = AuthenticatedRequest[A, Principal] })#R] with ArgoErrorResponses {
 
   val keyStore: KeyStore
-  val loginUri: String
+  val loginUriTemplate: String
   val authCallbackBaseUri: String
 
   type RequestHandler[A] = AuthenticatedRequest[A, Principal] => Future[Result]
@@ -102,7 +103,7 @@ trait AuthenticatedBase extends ActionBuilder[({ type R[A] = AuthenticatedReques
 
   // Panda authentication
 
-  val pandaAuth = new PandaAuthenticated(loginUri, authCallbackBaseUri)
+  val pandaAuth = new PandaAuthenticated(loginUriTemplate, authCallbackBaseUri)
 
   def authByPanda[A](request: Request[A], block: RequestHandler[A]): Future[Result] =
     pandaAuth.invokeBlock(request, block)

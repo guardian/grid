@@ -3,6 +3,7 @@
 import angular from 'angular';
 import 'angular-ui-router';
 import 'pandular';
+import uriTemplates from 'uri-templates';
 import './services/api/media-api';
 import './services/api/media-cropper';
 import './services/api/loader';
@@ -68,6 +69,7 @@ angular.forEach(config, function(value, key) {
     kahuna.constant(key, value);
 });
 
+
 kahuna.config(['$locationProvider',
                function($locationProvider) {
 
@@ -80,6 +82,47 @@ kahuna.config(['$urlRouterProvider',
 
     $urlRouterProvider.otherwise('/search');
 }]);
+
+
+/* Perform an initial API request to detect 401 (not logged in) and
+ * redirect browser for authentication if necessary.
+ */
+
+// TODO: move to panda-session and/or pandular library?
+function authAndRedirect(loginUriTemplate) {
+    const loginTemplate = uriTemplates(loginUriTemplate);
+    const currentLocation = window.location.href;
+
+    // Come back to the current URI after login flow
+    const loginUri = loginTemplate.fillFromObject({redirectUri: currentLocation});
+
+    // Full page redirect to the login URI
+    window.location.href = loginUri;
+}
+
+kahuna.run(['$log', 'mediaApi', function($log, mediaApi) {
+    // Ping API at init time to ensure we're logged in
+    mediaApi.root.get().catch(error => {
+        // If missing a session, send for auth
+        if (error && error.status === 401) {
+            $log.info('No session, send for auth');
+
+            // TODO: error should include a Resource with link so we
+            // don't have to mess around with uriTemplates here
+
+            var links = (error.body && error.body.links) || [];
+            var loginLink = links.find(link => link.rel === 'login');
+            var loginUriTemplate = loginLink && loginLink.href;
+            if (loginUriTemplate) {
+                authAndRedirect(loginUriTemplate);
+            } else {
+                // Couldn't extract a login URI, die noisily
+                throw error;
+            }
+        }
+    });
+}]);
+
 
 kahuna.run(['$rootScope', 'mediaApi',
             ($rootScope, mediaApi) => {
