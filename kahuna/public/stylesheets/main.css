@@ -1201,6 +1201,7 @@ FIXME: what to do with touch devices
 }
 
 .result-editor__usage-rights-container {
+    margin-top: 2px;
     margin-bottom: 10px;
     font-size: 1.4rem;
     flex-grow: 1;
