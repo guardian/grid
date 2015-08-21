@@ -13,7 +13,6 @@ export var mp = angular.module('mixpanel', []);
 mp.factory('mixpanel', ['$window', function($window) {
     var ua      = new UAParser($window.navigator.userAgent);
     var browser = ua.getBrowser();
-    var initialised = false;
 
     function init(mixpanelToken, id, { firstName, lastName, email }, registerProps = {}) {
         mixpanel.init(mixpanelToken);
@@ -31,8 +30,6 @@ mp.factory('mixpanel', ['$window', function($window) {
         mixpanel.register_once(angular.extend({
             'Browser version': browser.major
         }, registerProps));
-
-        initialised = true;
     }
 
     function track(event, opts) {
@@ -45,7 +42,6 @@ mp.factory('mixpanel', ['$window', function($window) {
 
     return {
         init: init,
-        track: track,
-        isEnabled: () => initialised
+        track: track
     };
 }]);
