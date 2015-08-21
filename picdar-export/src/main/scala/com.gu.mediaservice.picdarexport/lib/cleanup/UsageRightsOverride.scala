@@ -142,6 +142,7 @@ object UsageRightsOverride {
       // and we only exclude from the collection property
       "Agencies - contract Getty Collections" -> ((m: ImageMetadata) => agency("Getty Images")),
       "Agencies - contract Reuters" -> ((m: ImageMetadata) => agency("Reuters")),
+      // TODO: validate agency name, try to map it to canonical, else error
       "Agencies - contract" -> ((m: ImageMetadata) => m.copyright.map(Agency(_))),
       "Agencies - commissioned" -> commissionedAgency,
 
