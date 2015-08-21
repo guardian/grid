@@ -116,8 +116,8 @@
             </span>
 
             <div class="result-editor__usage-rights-container">
-                <div class="flex-container" ng:hide="ctrl.showUsageRights">
-                    <span class="flex-spacer">{{ctrl.usageRightsCategory || 'None'}}</span>
+                <div ng:hide="ctrl.showUsageRights">
+                    <span>{{ctrl.usageRightsCategory || 'None'}}</span>
                     <button class="image-info__edit" ng:click="ctrl.showUsageRights = !ctrl.showUsageRights">
                         <gr-icon>edit</gr-icon>
                     </button>

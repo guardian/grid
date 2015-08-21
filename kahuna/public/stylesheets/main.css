@@ -1158,6 +1158,7 @@ FIXME: what to do with touch devices
 .result-editor__editor {
     flex-grow: 1;
     margin-left: 10px;
+    margin-bottom: 10px;
 }
 
 .result-editor__info {
@@ -1201,14 +1202,22 @@ FIXME: what to do with touch devices
 }
 
 .result-editor__usage-rights-container {
-    margin-top: 2px;
-    margin-bottom: 10px;
-    font-size: 1.4rem;
     flex-grow: 1;
 }
+
+.result-editor__usage-rights-container .image-info__edit {
+    position: relative;
+    margin-left: 10px;
+}
+
+.result-editor__field-container.image-info__wrap:hover .image-info__edit {
+    display: inline-block;
+}
+
 .result-editor__usage-rights .ure {
     padding: 10px;
     background: #444;
+    font-size: 1.4rem;
 }
 
 /* ==========================================================================
