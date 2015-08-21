@@ -1,8 +1,12 @@
 import angular from 'angular';
 
 import '../mixpanel/mixpanel';
+import '../util/async';
 
-export var track = angular.module('analytics.track', ['mixpanel']);
+export var track = angular.module('analytics.track', [
+    'mixpanel',
+    'util.async'
+]);
 
 track.factory('trackingService', ['trackEvent', function(trackEvent) {
     var queue = [];
@@ -87,20 +91,22 @@ track.factory('trackEvent', ['$location', '$window', '$document', 'mixpanel',
 
 }]);
 
-track.run(['$rootScope', '$window', 'mixpanelToken', 'mixpanel', 'trackingService',
-            function($rootScope, $window, mixpanelToken, mixpanel, trackingService) {
+track.run(['$rootScope', '$q', 'onNextEvent', 'mixpanel', 'trackingService',
+            function($rootScope, $q, onNextEvent, mixpanel, trackingService) {
 
-    // Only init and track once session loaded
-    $rootScope.$on('events:user-loaded', (_, user) => {
-        let {firstName, lastName, email} = user;
+    // Only init and track once session and config loaded
+    const userPromise = onNextEvent($rootScope, 'events:user-loaded');
+    const mixpanelTokenPromise = onNextEvent($rootScope, 'events:config-loaded').
+        then(({mixpanelToken}) => mixpanelToken);
 
-        if (mixpanel.isEnabled()) {
-            mixpanel.init(mixpanelToken, email, { firstName, lastName, email });
-        }
+    $q.all([userPromise, mixpanelTokenPromise]).
+        then(([{firstName, lastName, email}, mixpanelToken]) => {
+            if (mixpanelToken) {
+                mixpanel.init(mixpanelToken, email, {firstName, lastName, email});
+            }
 
-        trackingService.start();
-    });
-
+            trackingService.start();
+        });
 }]);
 
 track.directive('grTrackClick', ['track', function(track) {
