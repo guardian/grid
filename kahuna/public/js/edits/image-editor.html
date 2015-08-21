@@ -110,23 +110,25 @@
             ></ui-labeller>
         </div>
 
-        <div class="result-editor__field-container" ng:init="showUsageRights = false">
-            <span class="result-editor__field-label">
-                Usage rights
+        <div class="result-editor__field-container image-info__wrap">
+            <span class="result-editor__field-label flex-no-shrink">
+                Usage rights category
             </span>
 
             <div class="result-editor__usage-rights-container">
-                <button ng:click="showUsageRights = !showUsageRights">
-                    <gr-icon-label ng:hide="showUsageRights" gr-icon="keyboard_arrow_right">Edit</gr-icon-label>
-                    <gr-icon-label ng:show="showUsageRights" gr-icon="keyboard_arrow_down">Editing...</gr-icon-label>
-                </button>
+                <div class="flex-container" ng:hide="ctrl.showUsageRights">
+                    <span class="flex-spacer">{{ctrl.usageRightsCategory || 'None'}}</span>
+                    <button class="image-info__edit" ng:click="ctrl.showUsageRights = !ctrl.showUsageRights">
+                        <gr-icon>edit</gr-icon>
+                    </button>
+                </div>
 
                 <gr-usage-rights-editor
-                    ng:show="showUsageRights"
+                    ng:show="ctrl.showUsageRights"
                     class="result-editor__usage-rights"
                     gr:usage-rights="[ctrl.usageRights]"
-                    gr:on-save="showUsageRights = false"
-                    gr:on-cancel="showUsageRights = false">
+                    gr:on-save="ctrl.showUsageRights = false"
+                    gr:on-cancel="ctrl.showUsageRights = false">
                 </gr-usage-rights-editor>
             </div>
         </div>
