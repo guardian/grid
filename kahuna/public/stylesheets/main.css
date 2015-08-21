@@ -282,7 +282,7 @@ a:focus {
     width: 100%;
 }
 
-.right {
+.flex-right {
     display: flex;
     flex-direction: row;
     justify-content: flex-end;
@@ -294,6 +294,10 @@ a:focus {
 
 .flex-spacer {
     flex-grow: 1;
+}
+
+.flex-no-shrink {
+    flex-shrink: 0;
 }
 
 /* ==========================================================================
@@ -1194,7 +1198,6 @@ FIXME: what to do with touch devices
 
 .result-editor__field-label {
     width: 100px;
-    flex-shrink: 0;
 }
 
 .result-editor__usage-rights-container {
