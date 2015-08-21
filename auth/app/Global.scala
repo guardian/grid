@@ -10,7 +10,7 @@ import lib.{Config, ForceHTTPSFilter}
 import com.gu.mediaservice.lib.play.RequestLoggingFilter
 
 
-object Global extends WithFilters(ForceHTTPSFilter, RequestLoggingFilter, new GzipFilter) with GlobalSettings {
+object Global extends WithFilters(CorsFilter, RequestLoggingFilter, new GzipFilter) with GlobalSettings {
 
   override def beforeStart(app: Application) {
 
