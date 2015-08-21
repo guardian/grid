@@ -6,9 +6,8 @@ import lib.Config
 import play.api.libs.json.Json
 import play.api.mvc.{Action, Controller}
 import com.gu.mediaservice.lib.auth.{ArgoErrorResponses, PanDomainAuthActions}
-import com.gu.pandomainauth.model._
 import com.gu.mediaservice.lib.argo.ArgoHelpers
-import com.gu.pandomainauth.model.AuthenticatedUser
+import com.gu.mediaservice.lib.auth._
 import com.gu.pandomainauth.service.GoogleAuthException
 
 import scala.concurrent.Future
@@ -24,26 +23,25 @@ object Panda extends Controller
 
   import Config.domainRoot
 
-  // FIXME: how to use usual Authenticated action helper for this? separate Controller?
-  def session = Action { implicit request =>
-    extractAuth(request) match {
-      case Authenticated(AuthenticatedUser(user, _, _, _, _)) =>
+  val Authenticated = new PandaAuthenticated(loginUriTemplate, authCallbackBaseUri)
+
+  def session = Authenticated { request =>
+    request.user match {
+      case PandaUser(email, firstName, lastName, avatarUrl) =>
         respond(
           Json.obj("user" ->
             Json.obj(
-              "name"      -> s"${user.firstName} ${user.lastName}",
-              "firstName" -> user.firstName,
-              "lastName"  -> user.lastName,
-              "email"     -> user.email,
-              "avatarUrl" -> user.avatarUrl
+              "name"      -> s"$firstName $lastName",
+              "firstName" -> firstName,
+              "lastName"  -> lastName,
+              "email"     -> email,
+              "avatarUrl" -> avatarUrl
             )
           )
         )
-
-      case Expired(_) | GracePeriod(_) => expiredResult
-      case NotAuthorized(_) => notAuthorizedResult
-      case InvalidCookie(_) => invalidCookieResult
-      case NotAuthenticated => notAuthenticatedResult
+      case _ =>
+        // Should never get in here
+        respondError(BadRequest, "non-user-session", "Unexpected non-user session")
     }
   }
 
