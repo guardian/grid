@@ -9,7 +9,6 @@ object Application extends Controller {
     Ok(views.html.main(
       Config.mediaApiUri,
       Config.watUri,
-      Config.mixpanelToken,
       Config.sentryDsn))
   }
 

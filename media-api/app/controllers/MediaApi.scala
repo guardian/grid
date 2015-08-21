@@ -54,7 +54,13 @@ object MediaApi extends Controller with ArgoHelpers {
   val searchLinkHref = s"$rootUri/images{?$searchParamList}"
 
   val indexResponse = {
-    val indexData = Map("description" -> "This is the Media API")
+    val indexData = Json.obj(
+      "description" -> "This is the Media API",
+      "configuration" -> Map(
+        "mixpanelToken" -> Config.mixpanelToken
+      ).collect { case (key, Some(value)) => key -> value }
+      // ^ Flatten None away
+    )
     val indexLinks = List(
       Link("search",          searchLinkHref),
       Link("image",           s"$rootUri/images/{id}"),
