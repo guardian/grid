@@ -9,16 +9,23 @@ export var track = angular.module('analytics.track', [
 ]);
 
 track.factory('trackingService', ['trackEvent', function(trackEvent) {
-    var queue = [];
-    var initialised = false;
+    let queue = [];
+    let initialised = false;
+    let runTracking = false;
     const tracker = { action, success, failure };
 
     // queue up results before we've started
     function action(eventName, opts = {}) {
         if (initialised) {
-            trackEvent(eventName, opts);
+            triggerEvent(eventName, opts);
         } else {
-            queue.push(() => trackEvent(eventName, opts));
+            queue.push(() => triggerEvent(eventName, opts));
+        }
+    }
+
+    function triggerEvent(eventName, opts = {}) {
+        if (runTracking) {
+            trackEvent(eventName, opts);
         }
     }
 
@@ -32,7 +39,8 @@ track.factory('trackingService', ['trackEvent', function(trackEvent) {
         action(eventName, finalOpts);
     }
 
-    function start() {
+    function start(runTracking_) {
+        runTracking = runTracking_;
         queue.forEach(fn => fn());
         queue = [];
         initialised = true;
@@ -84,9 +92,7 @@ track.factory('trackEvent', ['$location', '$window', '$document', 'mixpanel',
             'Screen viewport Y': docY
         });
 
-        if (mixpanel.isEnabled()) {
-            mixpanel.track(event, finalOpts);
-        }
+        mixpanel.track(event, finalOpts);
     };
 
 }]);
@@ -101,11 +107,12 @@ track.run(['$rootScope', '$q', 'onNextEvent', 'mixpanel', 'trackingService',
 
     $q.all([userPromise, mixpanelTokenPromise]).
         then(([{firstName, lastName, email}, mixpanelToken]) => {
-            if (mixpanelToken) {
+            let mixpanelConfigured = !! mixpanelToken;
+            if (mixpanelConfigured) {
                 mixpanel.init(mixpanelToken, email, {firstName, lastName, email});
             }
 
-            trackingService.start();
+            trackingService.start(mixpanelConfigured);
         });
 }]);
 
