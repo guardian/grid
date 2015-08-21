@@ -165,7 +165,12 @@ object UsageRightsOverride {
   def getUsageRights(copyrightGroup: String, metadata: ImageMetadata) =
     copyrightGroupToUsageRightsMap.get(copyrightGroup).flatMap(func => func(metadata))
 
-  def getOverrides(currentRights: UsageRights, picdarRights: UsageRights): Option[UsageRights] = (currentRights, picdarRights) match {
+  // Picdar rights never have suppliersCollection, so strip it before comparing
+  def stripCollection(usageRights: UsageRights) = usageRights match {
+    case agency: Agency => agency.copy(suppliersCollection = None)
+    case other => other
+  }
+  def getOverrides(currentRights: UsageRights, picdarRights: UsageRights): Option[UsageRights] = (stripCollection(currentRights), picdarRights) match {
     // Override is the same as current, no override needed
     case (cRights,  pRights) if cRights == pRights => None
     // No current rights, but some overrides, let's use them
