@@ -5,7 +5,7 @@ import play.api.{Logger, Application, GlobalSettings}
 import play.api.mvc.WithFilters
 import play.filters.gzip.GzipFilter
 
-import lib.{Config, ForceHTTPSFilter}
+import lib.Config
 
 import com.gu.mediaservice.lib.play.RequestLoggingFilter
 
