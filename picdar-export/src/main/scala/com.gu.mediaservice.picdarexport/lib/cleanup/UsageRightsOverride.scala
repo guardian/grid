@@ -2,10 +2,12 @@ package com.gu.mediaservice.picdarexport.lib.cleanup
 
 import play.api.Logger
 
-import com.gu.mediaservice.lib.config.{MetadataConfig, PhotographersList}
+import com.gu.mediaservice.lib.config.{UsageRightsConfig, MetadataConfig, PhotographersList}
 import com.gu.mediaservice.model._
 
 object UsageRightsOverride {
+
+  import UsageRightsConfig.freeSuppliers
 
   // scared of typos
   // TODO: centralise
@@ -18,7 +20,16 @@ object UsageRightsOverride {
 
   def prImage(m: ImageMetadata) = Some(PrImage())
   def guardianWitness(m: ImageMetadata) = Some(GuardianWitness())
-  def agency(agency: String) = Some(Agency(agency))
+  def agency(supplier: String) = supplier match {
+    // Only create agency with valid supplier name
+    case validSup if freeSuppliers.contains(validSup) => Some(Agency(validSup))
+    case invalidSup => {
+      Logger.warn(s"Don't create agency name with invalid supplier: $invalidSup")
+      None
+    }
+  }
+
+  def normaliseAgencyName(name: String) = name
 
   def commissionedAgency(m: ImageMetadata) =
     m.copyright map(_.toLowerCase) map {
@@ -51,7 +62,7 @@ object UsageRightsOverride {
   }
 
   def freeImages(m: ImageMetadata) = {
-    m.copyright map(_.toLowerCase) map {
+    m.copyright map {
       case "Magnum (commissioned)" => CommissionedAgency("Magnum")
 
 
@@ -143,7 +154,7 @@ object UsageRightsOverride {
       "Agencies - contract Getty Collections" -> ((m: ImageMetadata) => agency("Getty Images")),
       "Agencies - contract Reuters" -> ((m: ImageMetadata) => agency("Reuters")),
       // TODO: validate agency name, try to map it to canonical, else error
-      "Agencies - contract" -> ((m: ImageMetadata) => m.copyright.map(Agency(_))),
+      "Agencies - contract" -> ((m: ImageMetadata) => m.copyright.map(normaliseAgencyName).map(Agency(_))),
       "Agencies - commissioned" -> commissionedAgency,
 
       "Readers pictures" -> ((m: ImageMetadata) => guardianWitness(m)),
