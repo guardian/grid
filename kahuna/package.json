@@ -30,7 +30,8 @@
       "text": "github:systemjs/plugin-text@^0.0.2",
       "theseus": "npm:theseus@~0.5.0",
       "theseus-angular": "npm:theseus-angular@^0.3.0",
-      "ua-parser-js": "npm:ua-parser-js@0.7.3"
+      "ua-parser-js": "npm:ua-parser-js@0.7.3",
+      "uri-templates": "npm:uri-templates@0.1.5"
     },
     "devDependencies": {
       "traceur": "github:jmcriffey/bower-traceur@0.0.91",
