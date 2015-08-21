@@ -275,7 +275,7 @@ object ExportApp extends App with ExportManagerProvider with ArgumentHelpers wit
     dynamo.scanNoRights(dateRange) flatMap { urns =>
       val updates = takeRange(urns, range).map { assetRef =>
         getPicdar(system).get(assetRef.urn) flatMap { asset =>
-          Logger.info(s"Setting usage rights on image ${asset.urn} to: ${asset.usageRights.map(_.category).getOrElse("none")}")
+          Logger.info(s"Fetching usage rights for image ${asset.urn} to: ${asset.usageRights.map(_.category).getOrElse("none")}")
           dynamo.recordRights(assetRef.urn, assetRef.dateLoaded, asset.usageRights)
         } recover { case PicdarError(message) =>
           Logger.warn(s"Picdar error during fetch: $message")
@@ -298,7 +298,7 @@ object ExportApp extends App with ExportManagerProvider with ArgumentHelpers wit
             Logger.info(s"Overridden $mediaUri rights ($overridden)")
             dynamo.recordRightsOverridden(asset.picdarUrn, asset.picdarCreated, overridden)
           } recover { case e: Throwable =>
-            Logger.warn(s"Metadata override error for ${asset.picdarUrn}: $e")
+            Logger.warn(s"Rights override error for ${asset.picdarUrn}: $e")
             e.printStackTrace()
           }
         } getOrElse {
