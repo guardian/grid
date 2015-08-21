@@ -6,6 +6,8 @@ import '../services/panel';
 import '../util/async';
 import '../util/seq';
 import '../components/gu-lazy-table/gu-lazy-table';
+import '../downloader/downloader';
+import '../components/gr-delete-image/gr-delete-image';
 
 export var results = angular.module('kahuna.search.results', [
     'kahuna.services.selection',
@@ -13,7 +15,9 @@ export var results = angular.module('kahuna.search.results', [
     'kahuna.services.panel',
     'util.async',
     'util.seq',
-    'gu.lazyTable'
+    'gu.lazyTable',
+    'gr.downloader',
+    'gr.deleteImage'
 ]);
 
 

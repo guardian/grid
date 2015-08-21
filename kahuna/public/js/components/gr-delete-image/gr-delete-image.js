@@ -18,7 +18,7 @@ deleteImage.controller('grDeleteImageCtrl', [
         ctrl.delete = function () {
             // HACK to wait for thrall to process the message so that when we
             // poll the api, it will be up to date.
-            return $q.all(ctrl.images.map(image => ctrl.deleteImage(image)))
+            return $q.all(Array.from(ctrl.images.values()).map(image => ctrl.deleteImage(image)))
                 .then(() => {
                     $timeout(() => {
                         $rootScope.$emit('images-deleted', ctrl.images);

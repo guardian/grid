@@ -60,18 +60,7 @@
     display: inline-block;
 }
 
-.batch-archive {
-    width: 100%;
-}
-
 .batch-archive__archive:hover,
 .batch-archive__unarchive:hover {
     color: white;
-}
-
-.batch-image-actions .batch-archive,
-.batch-image-actions gr-downloader,
-.batch-image-actions gr-delete-image {
-    display: block;
-    margin: 5px 0;
 }
