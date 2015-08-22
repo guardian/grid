@@ -318,7 +318,13 @@ results.controller('SearchResultsCtrl', [
 
         ctrl.imageHasBeenSelected = (image) => selection.isSelected(image);
 
-        ctrl.toggleSelection = (image, select) => selection.toggleSelection(image, select);
+        ctrl.toggleSelection = (image, select) => {
+            selection.toggleSelection(image, select);
+
+            selection.canUserDelete().then(deletable => {
+                ctrl.userCanDelete = deletable;
+            });
+        };
 
         ctrl.onImageClick = function (image, $event) {
             if (ctrl.inSelectionMode()) {
