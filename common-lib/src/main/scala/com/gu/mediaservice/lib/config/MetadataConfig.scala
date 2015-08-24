@@ -34,7 +34,6 @@ object MetadataConfig {
     "Bill Code"      -> "The Guardian",
 
     // Past
-    // TODO: Think about moving these to the Picdar ingest.
     "Dan Chung"             -> "The Guardian",
     "Denis Thorpe"          -> "The Guardian",
     "Don McPhee"            -> "The Guardian",
