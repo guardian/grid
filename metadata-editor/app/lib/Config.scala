@@ -1,11 +1,11 @@
 package lib
 
 import com.amazonaws.regions.{Regions, Region}
-import com.gu.mediaservice.lib.config.{Properties, CommonPlayAppProperties}
+import com.gu.mediaservice.lib.config.{Properties, CommonPlayAppConfig, CommonPlayAppProperties}
 import com.amazonaws.auth.{BasicAWSCredentials, AWSCredentials}
 
 
-object Config extends CommonPlayAppProperties {
+object Config extends CommonPlayAppProperties with CommonPlayAppConfig {
 
   val appName = "metadata-editor"
 

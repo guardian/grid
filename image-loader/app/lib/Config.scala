@@ -1,10 +1,10 @@
 package lib
 
 import com.amazonaws.auth.{BasicAWSCredentials, AWSCredentials}
-import com.gu.mediaservice.lib.config.{CommonPlayAppProperties, Properties}
+import com.gu.mediaservice.lib.config.{CommonPlayAppConfig, CommonPlayAppProperties, Properties}
 
 
-object Config extends CommonPlayAppProperties {
+object Config extends CommonPlayAppProperties with CommonPlayAppConfig {
 
   val appName = "image-loader"
 
