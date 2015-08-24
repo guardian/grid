@@ -28,7 +28,7 @@ upload.controller('UploadCtrl', [
                 resource.data.forEach(image => {
                     imageService(image).states.canDelete.then(deletable => {
                         if (deletable) {
-                            deletableImages.add(image);
+                            deletableImages.add(image.data.id);
                         }
                     });
                 });
@@ -38,7 +38,7 @@ upload.controller('UploadCtrl', [
         });
 
         ctrl.canBeDeleted = function (image) {
-            return deletableImages.has(image);
+            return deletableImages.has(image.data.id);
         };
 
         const freeImageDeleteListener = $rootScope.$on('images-deleted', (e, images) => {
