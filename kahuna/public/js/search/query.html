@@ -1,18 +1,19 @@
 <form class="search">
     <span class="search-query">
+        <gr-icon class="search-query__icon">search</gr-icon>
         <input type="text"
-               placeholder="search for images…"
+               placeholder="Search for images…"
                class="search__query search-query__input"
                autofocus="autofocus"
                ng:model="searchQuery.filter.query"
                ng:model-options="{ debounce: 400 }"
                grid:focus-on="search:focus-query"
         />
-        <button class="search-query__clear clear-button"
+        <button class="search-query__icon search-query__clear clear-button"
                 type="button"
                 ng:show="searchQuery.filter.query"
                 ng:click="searchQuery.resetQueryAndFocus()">
-            x
+            <gr-icon>clear</gr-icon>
         </button>
     </span>
 
@@ -21,48 +22,90 @@
             ng:click="advancedShown = !advancedShown">
         <span ng:hide="advancedShown">▸</span>
         <span ng:show="advancedShown">▾</span>
-        advanced
+        Advanced
     </button>
 
-    <div class="search__filters-container">
-    <button class="search__filters-toggle"
-            type="button"
-            ng:click="filtersShown = !filtersShown ">
-        <gr-icon class="search__filters-toggle__icon">filter_list</gr-icon>
-        <span class="search__filters-toggle__text">search filters</span>
-    </button>
+    <div class="search__modifier-container">
+        <button class="search__modifier-toggle"
+                type="button"
+                ng:click="filtersShown = !filtersShown ">
+            <gr-icon class="search__modifier-toggle__icon">filter_list</gr-icon>
+            <span class="search__modifier-toggle__text">Search filters</span>
+        </button>
 
-    <ul class="search__filters" ng:class="filtersShown ? 'search__filters--show' : 'search__filters--hide'">
-            <li class="search__filter-item">
-                <label class="search__filter search__filter--first">
-                    <!-- minor mindfuck logic as we want an optional flag
-                        when the option is off -->
-                        <input type="checkbox"
-                               ng:model="searchQuery.filter.nonFree"
-                               ng:true-value="undefined"
-                               ng:false-value="true"
-                               ng:checked="{{!searchQuery.filter.nonFree}}" />
-                        free to use only
-                </label>
+        <ul class="search__modifier search__filter" ng:class="filtersShown ? 'search__filter--show' : 'search__filter--hide'">
+            <li class="search__modifier-item">
+            <label>
+                <!-- minor mindfuck logic as we want an optional flag
+                            when the option is off -->
+                <input type="checkbox"
+                    ng:model="searchQuery.filter.nonFree"
+                    ng:true-value="undefined"
+                    ng:false-value="true"
+                    ng:checked="{{!searchQuery.filter.nonFree}}" />
+                Free to use only
+            </label>
             </li>
 
-            <li class="search__filter-item">
-                <label class="search__filter">
-                    <input type="checkbox"
-                           ng:model="searchQuery.filter.uploadedByMe" />
-                    your uploads
-                </label>
+            <li class="search__modifier-item">
+            <label>
+                <input type="checkbox"
+                    ng:model="searchQuery.filter.uploadedByMe" />
+                Your uploads
+            </label>
             </li>
 
-            <li class="search__filter-item">
-                <gu-date-range class="search__filter search__date"
-                               gu:start-date="searchQuery.filter.since"
-                               gu:end-date="searchQuery.filter.until"
-                               gu:preset-dates="searchQuery.sinceOptions"
-                               gu:first-day="1">
-                </gu-date-range>
+            <li class="search__modifier-item">
+            <gu-date-range class="search__date"
+                gu:start-date="searchQuery.filter.since"
+                gu:end-date="searchQuery.filter.until"
+                gu:preset-dates="searchQuery.sinceOptions"
+                gu:first-day="1">
+            </gu-date-range>
             </li>
         </ul>
+    </div>
+
+    <div class="search__modifier-container">
+        <button class="search__modifier-toggle"
+                type="button"
+                ng:click="orderShown = !orderShown">
+            <gr-icon class="search__modifier-toggle__icon">sort</gr-icon>
+            <span class="search__modifier-toggle__text">Sort order</span>
+        </button>
+
+        <ul class="search__modifier order__option" ng:class="orderShown ? 'order__option--show' : 'order__option--hide'">
+            <li class="search__modifier-item radio-list">
+            <div class="radio-list__item">
+                <input type="radio"
+                       id="sort-direction__desc"
+                       class="radio-list__circle"
+                       name="sort-direction"
+                       ng:value="undefined"
+                       ng:model="searchQuery.ordering.orderBy">
+                <label for="sort-direction__desc" class="radio-list__label"
+                       ng:class="{'radio-list--selected': searchQuery.ordering.orderBy === undefined}">
+                    <div class="radio-list__selection-state"></div>
+                    <div class="radio-list__label-value">Newest first</div>
+                </label>
+            </div>
+
+            <div class="radio-list__item">
+                <input type="radio"
+                       id="sort-direction__asc"
+                       class="radio-list__circle"
+                       name="sort-direction"
+                       ng:value="'oldest'"
+                       ng:model="searchQuery.ordering.orderBy">
+                <label for="sort-direction__asc" class="radio-list__label"
+                       ng:class="{'radio-list--selected': searchQuery.ordering.orderBy === 'oldest'}">
+                    <div class="radio-list__selection-state"></div>
+                    <div class="radio-list__label-value">Oldest first</div>
+                </label>
+            </div>
+            </li>
+        </ul>
+
     </div>
 </form>
 

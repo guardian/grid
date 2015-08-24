@@ -9,13 +9,12 @@ import com.amazonaws.services.dynamodbv2.document.spec.{ScanSpec, UpdateItemSpec
 import com.amazonaws.services.dynamodbv2.document.utils.ValueMap
 import com.amazonaws.services.dynamodbv2.model.ReturnValue
 import com.gu.mediaservice.lib.aws.DynamoDB
-import com.gu.mediaservice.model.ImageMetadata
+import com.gu.mediaservice.model.{UsageRights, ImageMetadata}
 import com.gu.mediaservice.picdarexport.model.{DateRange, AssetRef}
 
 import org.joda.time.DateTime
 import org.joda.time.format.ISODateTimeFormat
-import play.api.libs.json.Json
-import play.api.libs.json.JsObject
+import play.api.libs.json.{Writes, Json, JsObject}
 import play.api.libs.concurrent.Execution.Implicits._
 
 import scala.collection.JavaConversions._
@@ -27,7 +26,8 @@ case class AssetRow(
   picdarCreatedFull: DateTime,
   picdarAssetUrl: URI,
   mediaUri: Option[URI] = None,
-  picdarMetadata: Option[ImageMetadata] = None
+  picdarMetadata: Option[ImageMetadata] = None,
+  picdarRights: Option[UsageRights] = None
 )
 
 class ExportDynamoDB(credentials: AWSCredentials, region: Region, tableName: String)
@@ -56,6 +56,9 @@ class ExportDynamoDB(credentials: AWSCredentials, region: Region, tableName: Str
     "(" + fetchFields.map(f => s"attribute_not_exists($f)").mkString(" OR ") + ")"
   val fetchedCondition =
     "(" + fetchFields.map(f => s"attribute_exists($f)").mkString(" AND ") + ")"
+
+  val noRightsCondition = "(attribute_not_exists(picdarRights))"
+  val hasRightsNotOverridden = List("attribute_exists(picdarRights)", "attribute_not_exists(picdarRightsOverridden)")
 
 
   def scanUnfetched(dateRange: DateRange): Future[Seq[AssetRef]] = Future {
@@ -135,6 +138,49 @@ class ExportDynamoDB(credentials: AWSCredentials, region: Region, tableName: Str
     }.toSeq
   }
 
+  type Conditions = List[String]
+  implicit class ConditionHelper(conditions: Conditions) {
+    def withDateRange(dateRange: DateRange) = conditions ++
+      dateRange.start.map(date => s"picdarCreated >= :startDate") ++
+      dateRange.end.map(date => s"picdarCreated <= :endDate")
+  }
+
+  type ConditionValues = Map[String, String]
+  implicit class ConditionValuesHelper(conditionValues: ConditionValues) {
+    def withDateRangeValues(dateRange: DateRange) = conditionValues ++
+      dateRange.start.map(asRangeString).map(":startDate" -> _) ++
+      dateRange.end.map(asRangeString).map(":endDate" -> _)
+  }
+
+  def scanNoRights(dateRange: DateRange): Future[Seq[AssetRef]] = Future {
+    val queryConds = List(fetchedCondition, noRightsCondition).withDateRange(dateRange)
+    val values = Map[String, String]().withDateRangeValues(dateRange)
+
+    val projectionAttrs = List("picdarUrn", "picdarCreated", "picdarCreatedFull", "picdarAssetUrl")
+    val items = scan(queryConds, projectionAttrs, values)
+    items.iterator.map { item =>
+      val picdarCreated = rangeDateFormat.parseDateTime(item.getString("picdarCreated"))
+      val picdarCreatedFull = timestampDateFormat.parseDateTime(item.getString("picdarCreatedFull"))
+      AssetRef(item.getString("picdarUrn"), rangeDateFormat.parseDateTime(item.getString("picdarCreated")))
+    }.toSeq
+  }
+
+  def scanRightsFetchedNotOverridden(dateRange: DateRange): Future[Seq[AssetRow]] = Future {
+    // FIXME: query by range only?
+    val queryConds = (List(fetchedCondition) ++ hasRightsNotOverridden).withDateRange(dateRange)
+    val values = Map[String, String]().withDateRangeValues(dateRange)
+
+    val projectionAttrs = List("picdarUrn", "picdarCreated", "picdarCreatedFull", "picdarAssetUrl", "mediaUri", "picdarRights")
+    val items = scan(queryConds, projectionAttrs, values)
+    items.iterator.map { item =>
+      val picdarCreated = rangeDateFormat.parseDateTime(item.getString("picdarCreated"))
+      val picdarCreatedFull = timestampDateFormat.parseDateTime(item.getString("picdarCreatedFull"))
+      val mediaUri = Option(item.getString("mediaUri")).map(URI.create)
+      val picdarRights = Option(item.getJSON("picdarRights")).map(json => Json.parse(json).as[UsageRights])
+      AssetRow(item.getString("picdarUrn"), picdarCreated, picdarCreatedFull, URI.create(item.getString("picdarAssetUrl")), mediaUri, picdarRights = picdarRights)
+    }.toSeq
+  }
+
   // TODO: get ImageMetadata object from Picdar?
   def record(urn: String, range: DateTime, assetUrl: URI, picdarCreated: DateTime, picdarModified: Option[DateTime], metadata: ImageMetadata) = Future {
     val now = asTimestampString(new DateTime)
@@ -179,6 +225,37 @@ class ExportDynamoDB(credentials: AWSCredentials, region: Region, tableName: Str
       withValueMap(new ValueMap().
         withBoolean(":overridden", overridden).
         withString(":overriddenModified", asTimestampString(new DateTime))).
+      withReturnValues(ReturnValue.ALL_NEW)
+
+    table.updateItem(baseUpdateSpec)
+  }
+
+  // Oh yes.
+  def rightsToMap[T](caseClassOpt: Option[T])(implicit tjs: Writes[T]) =
+    // we record empty rights if there isn't any
+    caseClassOpt.map { caseClass =>
+      Json.toJson(caseClass).as[Map[String, String]]
+    }.getOrElse(Map())
+
+  def recordRights(urn: String, range: DateTime, rights: Option[UsageRights]) = Future {
+    val baseUpdateSpec = new UpdateItemSpec().
+      withPrimaryKey(IdKey, urn, RangeKey, asRangeString(range)).
+      withUpdateExpression("SET picdarRights = :rights, picdarRightsModified = :picdarRightsModified").
+      withValueMap(new ValueMap().
+        withMap(":rights", rightsToMap(rights)).
+        withString(":picdarRightsModified", asTimestampString(new DateTime))).
+      withReturnValues(ReturnValue.ALL_NEW)
+
+    table.updateItem(baseUpdateSpec)
+  }
+
+  def recordRightsOverridden(urn: String, range: DateTime, overridden: Boolean) = Future {
+    val baseUpdateSpec = new UpdateItemSpec().
+      withPrimaryKey(IdKey, urn, RangeKey, asRangeString(range)).
+      withUpdateExpression("SET picdarRightsOverridden = :overridden, picdarRightsOverriddenModified = :overriddenModified").
+      withValueMap(new ValueMap().
+      withBoolean(":overridden", overridden).
+      withString(":overriddenModified", asTimestampString(new DateTime))).
       withReturnValues(ReturnValue.ALL_NEW)
 
     table.updateItem(baseUpdateSpec)

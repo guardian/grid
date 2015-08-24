@@ -2,10 +2,11 @@ package com.gu.mediaservice.picdarexport.lib.media
 
 import java.net.URI
 
-import com.gu.mediaservice.lib.formatting._
-import com.gu.mediaservice.model.{FileMetadata, ImageMetadata}
+import com.gu.mediaservice.model.{UsageRights, ImageMetadata}
 import play.api.libs.json._
 import play.api.libs.functional.syntax._
+
+import com.gu.mediaservice.lib.argo.model.EntityReponse
 
 import com.gu.mediaservice.picdarexport.lib.{Config, LogHelper}
 import com.gu.mediaservice.picdarexport.lib.ExecutionContexts.mediaApi
@@ -23,8 +24,9 @@ object ImageResource {
 
 case class Image(
   metadata: ImageMetadata,
-  originalMetadata: ImageMetadata,
-  metadataOverrideUri: URI
+  metadataOverrideUri: URI,
+  usageRights: UsageRights,
+  usageRightsOverrideUri: URI
 )
 
 object Image {
@@ -33,8 +35,9 @@ object Image {
 
   implicit val ImageReads: Reads[Image] =
     ((__ \ "metadata").read[ImageMetadata] ~
-      (__ \ "originalMetadata").read[ImageMetadata] ~
-      (__ \ "userMetadata" \ "data" \ "metadata" \ "uri").read[URI]
+      (__ \ "userMetadata" \ "data" \ "metadata" \ "uri").read[URI] ~
+      (__ \ "usageRights").read[UsageRights] ~
+      (__ \ "userMetadata" \ "data" \ "usageRights" \ "uri").read[URI]
     )(Image.apply _)
 }
 
@@ -85,6 +88,28 @@ trait MediaApi extends LogHelper {
         // TODO: technically only for TEST
         option(HttpOptions.allowUnsafeSSL).
         postData(metadataStringNoKeywords).
+        method("put").
+        asString
+
+      if (! response.is2xx) {
+        throw MetadataOverrideError(response.body)
+      }
+    }
+  }
+
+  def overrideUsageRights(usageRightsOverrideUri: URI, usageRights: UsageRights): Future[Unit] = Future {
+    logDuration("MediaApi.overrideUsageRights") {
+      val usageRightsString = Json.stringify(Json.toJson(EntityReponse(data = usageRights)))
+      val response = Http(usageRightsOverrideUri.toString).
+        header("X-Gu-Media-Key", mediaApiKey).
+        timeout(mediaApiConnTimeout, mediaApiReadTimeout).
+        // Disable gzip as library doesn't seem to correctly decode response, and
+        // it's tiny anyway
+        compress(false).
+        header("Content-Type", "application/json").
+        // TODO: technically only for TEST
+        option(HttpOptions.allowUnsafeSSL).
+        postData(usageRightsString).
         method("put").
         asString
 

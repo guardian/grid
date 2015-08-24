@@ -17,13 +17,14 @@ object Build extends Build {
       version      := "0.1",
       resolvers ++= Seq(
         "Typesafe Repository" at "http://repo.typesafe.com/typesafe/releases/",
-        "scalaz-stream" at "http://dl.bintray.com/pchiusano/maven"),
+        "scalaz-stream" at "http://dl.bintray.com/pchiusano/maven",
+        Resolver.sonatypeRepo("releases")),
       scalacOptions ++= Seq("-feature", "-deprecation", "-language:higherKinds", "-Xfatal-warnings")
     ) ++
     net.virtualvoid.sbt.graph.Plugin.graphSettings
 
   val lib = project("common-lib")
-    .libraryDependencies(awsDeps ++ elasticsearchDeps ++
+    .libraryDependencies(loggingDeps ++ awsDeps ++ elasticsearchDeps ++
       playDeps ++ playWsDeps ++ scalazDeps ++ commonsIODeps ++ akkaAgentDeps ++
       pandaDeps)
     .testDependencies(scalaCheckDeps ++ scalaTestDeps)

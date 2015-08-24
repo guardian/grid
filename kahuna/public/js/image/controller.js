@@ -3,13 +3,17 @@ import angular from 'angular';
 import '../image/service';
 import '../edits/service';
 import '../analytics/track';
+import '../components/gr-delete-image/gr-delete-image';
+import '../components/gr-add-label/gr-add-label';
 
 var image = angular.module(
         'kahuna.image.controller',
         [
             'kahuna.edits.service',
             'gr.image.service',
-            'analytics.track'
+            'analytics.track',
+            'gr.deleteImage',
+            'gr.addLabel'
         ]
 );
 
@@ -17,6 +21,7 @@ image.controller('ImageCtrl', [
     '$rootScope',
     '$scope',
     '$state',
+    '$window',
     'onValChange',
     'image',
     'mediaApi',
@@ -31,6 +36,7 @@ image.controller('ImageCtrl', [
     function ($rootScope,
               $scope,
               $state,
+              $window,
               onValChange,
               image,
               mediaApi,
@@ -132,7 +138,7 @@ image.controller('ImageCtrl', [
         }
 
         function updateAbilities(image) {
-            mediaApi.canDelete(image).then(deletable => {
+            imageService(image).states.canDelete.then(deletable => {
                 ctrl.canBeDeleted = deletable;
             });
 
@@ -176,16 +182,15 @@ image.controller('ImageCtrl', [
                 });
         };
 
-        ctrl.delete = function() {
-            // TODO: use inline confirmation as per other tools
-            const msg = 'Are you sure you want to delete this image from the Grid?';
-            const confirmed = window.confirm(msg);
-            if (confirmed) {
-                mediaApi.delete(image).then(() => {
-                    window.alert('The image will be deleted shortly');
-                    // Can't stay on the page of a deleted image
-                    $state.go('search');
-                });
+        ctrl.onDeleteSuccess = function () {
+            $state.go('search');
+        };
+
+        ctrl.onDeleteError = function (err) {
+            if (err.body.errorKey === 'image-not-found') {
+                $state.go('search');
+            } else {
+                $window.alert(err.body.errorMessage);
             }
         };
 

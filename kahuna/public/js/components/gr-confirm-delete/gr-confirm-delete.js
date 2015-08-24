@@ -1,4 +1,5 @@
 import angular from 'angular';
+import './gr-confirm-delete.css!';
 
 export const confirmDelete = angular.module('gr.confirmDelete', []);
 
@@ -6,10 +7,13 @@ confirmDelete.directive('grConfirmDelete', ['$timeout', function($timeout) {
 
     return {
         restrict: 'E',
+        transclude: true,
         template: `
-            <button class="button-ico" type="button" ng:click="showConfirm = true">
-                <span class="confirm" ng:if="showConfirm">Sure?</span>
-                <gr-icon>undo</gr-icon>
+            <button class="gr-confirm-delete" type="button"
+                ng:click="showConfirm = true"
+                ng:class="{'gr-confirm-delete--confirm': showConfirm}">
+                <gr-icon-label ng:if="!showConfirm" gr-icon="delete">Delete</gr-icon-label>
+                <gr-icon-label ng:if="showConfirm" gr-icon="delete">Confirm Delete</gr-icon-label>
             </button>`,
 
         link: function(scope, element, attrs) {

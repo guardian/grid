@@ -1,20 +1,31 @@
 import angular from 'angular';
 
 import '../mixpanel/mixpanel';
+import '../util/async';
 
-export var track = angular.module('analytics.track', ['mixpanel']);
+export var track = angular.module('analytics.track', [
+    'mixpanel',
+    'util.async'
+]);
 
 track.factory('trackingService', ['trackEvent', function(trackEvent) {
-    var queue = [];
-    var initialised = false;
+    let queue = [];
+    let initialised = false;
+    let runTracking = false;
     const tracker = { action, success, failure };
 
     // queue up results before we've started
     function action(eventName, opts = {}) {
         if (initialised) {
-            trackEvent(eventName, opts);
+            triggerEvent(eventName, opts);
         } else {
-            queue.push(() => trackEvent(eventName, opts));
+            queue.push(() => triggerEvent(eventName, opts));
+        }
+    }
+
+    function triggerEvent(eventName, opts = {}) {
+        if (runTracking) {
+            trackEvent(eventName, opts);
         }
     }
 
@@ -28,7 +39,8 @@ track.factory('trackingService', ['trackEvent', function(trackEvent) {
         action(eventName, finalOpts);
     }
 
-    function start() {
+    function start(runTracking_) {
+        runTracking = runTracking_;
         queue.forEach(fn => fn());
         queue = [];
         initialised = true;
@@ -80,27 +92,28 @@ track.factory('trackEvent', ['$location', '$window', '$document', 'mixpanel',
             'Screen viewport Y': docY
         });
 
-        if (mixpanel.isEnabled()) {
-            mixpanel.track(event, finalOpts);
-        }
+        mixpanel.track(event, finalOpts);
     };
 
 }]);
 
-track.run(['$rootScope', '$window', 'mixpanelToken', 'mixpanel', 'trackingService',
-            function($rootScope, $window, mixpanelToken, mixpanel, trackingService) {
+track.run(['$rootScope', '$q', 'onNextEvent', 'mixpanel', 'trackingService',
+            function($rootScope, $q, onNextEvent, mixpanel, trackingService) {
 
-    // Only init and track once session loaded
-    $rootScope.$on('events:user-loaded', (_, user) => {
-        let {firstName, lastName, email} = user;
+    // Only init and track once session and config loaded
+    const userPromise = onNextEvent($rootScope, 'events:user-loaded');
+    const mixpanelTokenPromise = onNextEvent($rootScope, 'events:config-loaded').
+        then(({mixpanelToken}) => mixpanelToken);
 
-        if (mixpanel.isEnabled()) {
-            mixpanel.init(mixpanelToken, email, { firstName, lastName, email });
-        }
+    $q.all([userPromise, mixpanelTokenPromise]).
+        then(([{firstName, lastName, email}, mixpanelToken]) => {
+            let mixpanelConfigured = !! mixpanelToken;
+            if (mixpanelConfigured) {
+                mixpanel.init(mixpanelToken, email, {firstName, lastName, email});
+            }
 
-        trackingService.start();
-    });
-
+            trackingService.start(mixpanelConfigured);
+        });
 }]);
 
 track.directive('grTrackClick', ['track', function(track) {

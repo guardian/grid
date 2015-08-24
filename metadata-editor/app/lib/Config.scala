@@ -7,6 +7,8 @@ import com.amazonaws.auth.{BasicAWSCredentials, AWSCredentials}
 
 object Config extends CommonPlayAppProperties {
 
+  val appName = "metadata-editor"
+
   val properties = Properties.fromPath("/etc/gu/metadata-editor.properties")
 
   val awsCredentials: AWSCredentials =
@@ -22,7 +24,7 @@ object Config extends CommonPlayAppProperties {
 
   val rootUri = services.metadataBaseUri
   val kahunaUri = services.kahunaBaseUri
-  val loginUri = services.loginUri
+  val loginUriTemplate = services.loginUriTemplate
 
   val corsAllAllowedOrigins = List(services.kahunaBaseUri)
 }

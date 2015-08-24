@@ -34,12 +34,12 @@ object Application extends ImageLoader
 
 class ImageLoader extends Controller with ArgoHelpers {
 
-  import Config.{rootUri, loginUri}
+  import Config.{rootUri, loginUriTemplate}
 
   val keyStore = new KeyStore(Config.keyStoreBucket, Config.awsCredentials)
 
-  val Authenticated = auth.Authenticated(keyStore, loginUri, rootUri)
-  val AuthenticatedUpload = auth.AuthenticatedUpload(keyStore, loginUri, rootUri)
+  val Authenticated = auth.Authenticated(keyStore, loginUriTemplate, rootUri)
+  val AuthenticatedUpload = auth.AuthenticatedUpload(keyStore, loginUriTemplate, rootUri)
 
 
   val indexResponse = {
@@ -127,7 +127,7 @@ class ImageLoader extends Controller with ArgoHelpers {
 
 
   def uploadRequestDescription(u: UploadRequest): String = {
-    s"id: ${u.id}, by: ${u.uploadedBy} @ ${u.uploadTime}, mimeType: ${u.mimeType getOrElse "none"}"
+    s"id: ${u.id}, by: ${u.uploadedBy} @ ${u.uploadTime}, mimeType: ${u.mimeType getOrElse "none"}, filename: ${u.uploadInfo.filename getOrElse "none"}"
   }
 
   val invalidUri        = respondError(BadRequest, "invalid-uri", s"The provided 'uri' is not valid")
