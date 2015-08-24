@@ -7,6 +7,8 @@ import com.amazonaws.auth.{BasicAWSCredentials, AWSCredentials}
 
 object Config extends CommonPlayAppProperties {
 
+  val appName = "cropper"
+
   val properties = Properties.fromPath("/etc/gu/cropper.properties")
 
   val awsCredentials: AWSCredentials =

@@ -10,6 +10,8 @@ import com.gu.mediaservice.lib.config.{Properties, CommonPlayAppConfig, CommonPl
 
 object Config extends CommonPlayAppConfig with CommonPlayAppProperties {
 
+  val appName = "media-api"
+
   val properties = Properties.fromPath("/etc/gu/media-api.properties")
 
   val awsCredentials: AWSCredentials =

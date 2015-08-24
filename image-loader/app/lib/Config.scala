@@ -6,6 +6,8 @@ import com.gu.mediaservice.lib.config.{CommonPlayAppProperties, Properties}
 
 object Config extends CommonPlayAppProperties {
 
+  val appName = "image-loader"
+
   val properties = Properties.fromPath("/etc/gu/image-loader.properties")
 
   val awsCredentials: AWSCredentials =
