@@ -909,6 +909,12 @@ input.search-query__input {
     height: 36px;
 }
 
+/* TODO: remove this once eveything is in the action-bar */
+.results-count {
+    float: left;
+    padding: 0 10px;
+}
+
 .image-results-count__new {
     font-family: inherit;
     background-color: #00adee;
