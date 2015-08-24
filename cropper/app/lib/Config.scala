@@ -1,11 +1,11 @@
 package lib
 
-import com.gu.mediaservice.lib.config.{Properties, CommonPlayAppProperties}
+import com.gu.mediaservice.lib.config.{Properties, CommonPlayAppProperties, CommonPlayAppConfig}
 import java.io.File
 import com.amazonaws.auth.{BasicAWSCredentials, AWSCredentials}
 
 
-object Config extends CommonPlayAppProperties {
+object Config extends CommonPlayAppProperties with CommonPlayAppConfig {
 
   val appName = "cropper"
 
