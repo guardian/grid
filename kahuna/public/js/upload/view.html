@@ -34,7 +34,9 @@
                 <ui-image-editor image="result"></ui-image-editor>
                 <gr-delete-image class="flex-right"
                                  ng:if="ctrl.canBeDeleted(result)"
-                                 images="[result]"></gr-delete-image>
+                                 on-success="ctrl.onDeleteSuccess"
+                                 on-error="ctrl.onDeleteError"
+                                 image="result"></gr-delete-image>
             </li>
         </ul>
     </section>
