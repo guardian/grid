@@ -14,7 +14,7 @@
         <div class="flex-container section-heading">
             <h2>Your current uploads</h2>
             <span class="flex-spacer"></span>
-            <a ng:controller="SessionCtrl" class="coloured-link" ui:sref="search.results({uploadedBy: user.email})">View all your uploads</a>
+            <a ng:controller="SessionCtrl" class="coloured-link" ui:sref="search.results({uploadedBy: user.email, nonFree: true})">View all your uploads</a>
         </div>
 
         <ui-upload-jobs jobs="ctrl.latestJob"></ui-upload-jobs>
@@ -26,7 +26,7 @@
         <div class="flex-container section-heading">
             <h2>Your past 50 uploads</h2>
             <span class="flex-spacer"></span>
-            <a ng:controller="SessionCtrl" class="coloured-link" ui:sref="search.results({uploadedBy: user.email})">View all your uploads</a>
+            <a ng:controller="SessionCtrl" class="coloured-link" ui:sref="search.results({uploadedBy: user.email, nonFree: true})">View all your uploads</a>
         </div>
 
         <ul>
