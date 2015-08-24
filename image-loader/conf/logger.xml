@@ -21,6 +21,9 @@
         </encoder>
     </appender>
 
+    <logger name="play" level="INFO" />
+    <logger name="application" level="DEBUG" />
+
     <root level="ERROR">
         <appender-ref ref="CONSOLE"/>
         <appender-ref ref="LOGFILE"/>

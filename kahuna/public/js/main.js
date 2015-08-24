@@ -3,6 +3,7 @@
 import angular from 'angular';
 import 'angular-ui-router';
 import 'pandular';
+import uriTemplates from 'uri-templates';
 import './services/api/media-api';
 import './services/api/media-cropper';
 import './services/api/loader';
@@ -25,13 +26,11 @@ import './components/gr-icon/gr-icon';
 
 // TODO: move to an async config to remove deps on play
 var apiLink = document.querySelector('link[rel="media-api-uri"]');
-var mixpanelTokenMeta = document.querySelector('meta[name="mixpanel-token"]');
 var sentryDsnLink = document.querySelector('link[rel="sentry-dsn"]');
 var assetsRootLink = document.querySelector('link[rel="assets"]');
 
 var config = {
     mediaApiUri: apiLink.getAttribute('href'),
-    mixpanelToken: mixpanelTokenMeta && mixpanelTokenMeta.getAttribute('content'),
     sentryDsn: sentryDsnLink && sentryDsnLink.getAttribute('href'),
     assetsRoot: assetsRootLink && assetsRootLink.getAttribute('href'),
 
@@ -68,6 +67,7 @@ angular.forEach(config, function(value, key) {
     kahuna.constant(key, value);
 });
 
+
 kahuna.config(['$locationProvider',
                function($locationProvider) {
 
@@ -80,6 +80,65 @@ kahuna.config(['$urlRouterProvider',
 
     $urlRouterProvider.otherwise('/search');
 }]);
+
+
+/* Perform an initial API request to detect 401 (not logged in) and
+ * redirect browser for authentication if necessary.
+ */
+
+// TODO: move to panda-session and/or pandular library?
+function authAndRedirect(loginUriTemplate) {
+    const loginTemplate = uriTemplates(loginUriTemplate);
+    const currentLocation = window.location.href;
+
+    // Come back to the current URI after login flow
+    const loginUri = loginTemplate.fillFromObject({redirectUri: currentLocation});
+
+    // Full page redirect to the login URI
+    window.location.href = loginUri;
+}
+
+kahuna.run(['$log', '$rootScope', 'mediaApi', function($log, $rootScope, mediaApi) {
+    // TODO: don't mix these two concerns. This is done here to avoid
+    // doing redundant API calls to the same endpoint. Could be
+    // abstracted into a service that unifies parallel calls to the root.
+    mediaApi.root.get()
+        // Emit configuration
+        .then(index => {
+            if (index.data) {
+                $rootScope.$emit('events:config-loaded', index.data.configuration);
+            }
+        })
+        // Ping API at init time to ensure we're logged in
+        .catch(error => {
+            // If missing a session, send for auth
+            if (error && error.status === 401) {
+                $log.info('No session, send for auth');
+
+                // TODO: error should include a Resource with link so we
+                // don't have to mess around with uriTemplates here
+
+                var links = (error.body && error.body.links) || [];
+                var loginLink = links.find(link => link.rel === 'login');
+                var loginUriTemplate = loginLink && loginLink.href;
+                if (loginUriTemplate) {
+                    authAndRedirect(loginUriTemplate);
+                } else {
+                    // Couldn't extract a login URI, die noisily
+                    throw error;
+                }
+            }
+        });
+}]);
+
+kahuna.run(['$rootScope', 'mediaApi', function($rootScope, mediaApi) {
+    // Ping API at init time to ensure we're logged in
+    mediaApi.root.get()
+        .then(index => {
+            $rootScope.$emit('events:config-loaded', index.data.configuration);
+        });
+}]);
+
 
 kahuna.run(['$rootScope', 'mediaApi',
             ($rootScope, mediaApi) => {

@@ -5,7 +5,7 @@ import play.api.{Logger, Application, GlobalSettings}
 import play.api.mvc.WithFilters
 import play.filters.gzip.GzipFilter
 
-import lib.{Config, ForceHTTPSFilter}
+import lib.{LogConfig, Config, ForceHTTPSFilter}
 
 import com.gu.mediaservice.lib.play.RequestLoggingFilter
 
@@ -13,6 +13,7 @@ import com.gu.mediaservice.lib.play.RequestLoggingFilter
 object Global extends WithFilters(ForceHTTPSFilter, RequestLoggingFilter, new GzipFilter) with GlobalSettings {
 
   override def beforeStart(app: Application) {
+    LogConfig.init(Config)
 
     val allAppConfig: Seq[(String, ConfigValue)] =
       Config.appConfig.underlying.entrySet.asScala.toSeq.map(entry => (entry.getKey, entry.getValue))

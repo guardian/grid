@@ -282,7 +282,7 @@ a:focus {
     width: 100%;
 }
 
-.right {
+.flex-right {
     display: flex;
     flex-direction: row;
     justify-content: flex-end;
@@ -294,6 +294,10 @@ a:focus {
 
 .flex-spacer {
     flex-grow: 1;
+}
+
+.flex-no-shrink {
+    flex-shrink: 0;
 }
 
 /* ==========================================================================
@@ -568,15 +572,20 @@ textarea.ng-invalid {
 /* input to win specificity war with 'input' rule ;_; */
 input.search-query__input {
     padding-right: 25px;
+    padding-left: 25px;
 }
 
-.search-query__clear {
+.search-query__icon {
     position: absolute;
-    right: 0;
     top: 0;
     /* Make it fill the container for larger clickable area */
     height: 100%;
     padding: 5px;
+    outline: none;
+}
+
+.search-query__clear {
+    right: 0;
 }
 
 /* fade in/out */
@@ -596,6 +605,10 @@ input.search-query__input {
 .clear-button {
     font-family: Arial, sans-serif;
     font-weight: bold;
+}
+
+.clear-button:hover {
+    color: white;
 }
 
 .advanced-search-help {
@@ -629,9 +642,6 @@ input.search-query__input {
 
 .search__advanced-toggle {
     margin-left: 10px;
-}
-
-.search__advanced-toggle {
     min-width: 70px;
 }
 
@@ -842,27 +852,20 @@ input.search-query__input {
 }
 .results-toolbar-item {
     vertical-align: middle;
-    border: 1px solid #565656;
     border-width: 0px 1px;
+    border-color: #565656;
+    border-style: solid;
     position: relative;
-    padding: 0 10px;
     height: 35px;
-}
-
-.results-toolbar-item--text {
-    position: absolute;
-    left: 0px;
-    padding-left: 30px;
-}
-
-.results-toolbar-item--icon {
-    position: absolute;
-    left: 0px;
-    padding-left: 10px;
 }
 
 .results-toolbar-item:hover {
 	background-color: #666666;
+}
+
+.results-toolbar-item--static,
+.results-toolbar-item gr-icon-label {
+    padding: 0 10px;
 }
 
 .results-toolbar-item--split {
@@ -907,7 +910,6 @@ input.search-query__input {
 
 .results-toolbar-item__metadata-panel-controls {
     line-height: 35px;
-    width: 130px;
     height: 36px;
 }
 
@@ -915,17 +917,6 @@ input.search-query__input {
 .results-count {
     float: left;
     padding: 0 10px;
-}
-
-@media screen and (max-width: 800px) {
-    .results-toolbar-item--text {
-        display: none;
-    }
-    .results-toolbar-item__metadata-panel-controls,
-    .results-toolbar-item__clear-selection
-     {
-        width: 18px
-    }
 }
 
 .image-results-count__new {
@@ -1154,6 +1145,7 @@ FIXME: what to do with touch devices
 .result-editor__editor {
     flex-grow: 1;
     margin-left: 10px;
+    margin-bottom: 10px;
 }
 
 .result-editor__info {
@@ -1181,31 +1173,38 @@ FIXME: what to do with touch devices
     padding: 0 5px;
 }
 
-.result-editor__labeller-container {
+.result-editor__field-container {
     display: flex;
     width: 100%;
     margin-top: 5px;
 }
 
-.result-editor__labeller-container gr-add-label {
+.result-editor__field-container gr-add-label {
     font-size: 1.3rem;
     padding-right: 10px;
 }
 
-.result-editor__label {
+.result-editor__field-label {
     width: 100px;
 }
 
 .result-editor__usage-rights-container {
-    margin-bottom: 10px;
-    margin-left: 35%;
-    text-align: right;
-    width: 65%;
-    font-size: 1.4rem;
+    flex-grow: 1;
 }
-.result-editor__usage-rights {
-    width: 100%;
-    text-align: left;
+
+.result-editor__usage-rights-container .image-info__edit {
+    position: relative;
+    margin-left: 10px;
+}
+
+.result-editor__field-container.image-info__wrap:hover .image-info__edit {
+    display: inline-block;
+}
+
+.result-editor__usage-rights .ure {
+    padding: 10px;
+    background: #444;
+    font-size: 1.4rem;
 }
 
 /* ==========================================================================
@@ -2007,11 +2006,12 @@ ui-archiver .archiver:hover {
 }
 
 .radio-list__label {
-   flex-grow: 1;
-   color: #CCC;
-   background-color: #444;
-   text-align: center;
-   cursor: pointer;
+    flex-grow: 1;
+    color: #CCC;
+    background-color: #444;
+    text-align: center;
+    cursor: pointer;
+    border: 1px solid #565656
 }
 
 .radio-list--selected .radio-list__label-value {

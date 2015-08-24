@@ -2,4 +2,3 @@ domain.root={{domain_root}}
 aws.id={{AwsId}}
 aws.secret={{AwsSecret}}
 auth.keystore.bucket={{KeyBucket}}
-mixpanel.token={{mixpanel_token}}

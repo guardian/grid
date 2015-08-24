@@ -1,11 +1,13 @@
 package lib
 
-import com.gu.mediaservice.lib.config.{Properties, CommonPlayAppProperties}
+import com.gu.mediaservice.lib.config.{Properties, CommonPlayAppProperties, CommonPlayAppConfig}
 import java.io.File
 import com.amazonaws.auth.{BasicAWSCredentials, AWSCredentials}
 
 
-object Config extends CommonPlayAppProperties {
+object Config extends CommonPlayAppProperties with CommonPlayAppConfig {
+
+  val appName = "cropper"
 
   val properties = Properties.fromPath("/etc/gu/cropper.properties")
 
@@ -26,7 +28,7 @@ object Config extends CommonPlayAppProperties {
 
   val rootUri = services.cropperBaseUri
   val kahunaUri = services.kahunaBaseUri
-  val loginUri = services.loginUri
+  val loginUriTemplate = services.loginUriTemplate
 
   val corsAllAllowedOrigins = List(services.kahunaBaseUri)
 

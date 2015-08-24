@@ -34,12 +34,12 @@ object Application extends ImageLoader
 
 class ImageLoader extends Controller with ArgoHelpers {
 
-  import Config.{rootUri, loginUri}
+  import Config.{rootUri, loginUriTemplate}
 
   val keyStore = new KeyStore(Config.keyStoreBucket, Config.awsCredentials)
 
-  val Authenticated = auth.Authenticated(keyStore, loginUri, rootUri)
-  val AuthenticatedUpload = auth.AuthenticatedUpload(keyStore, loginUri, rootUri)
+  val Authenticated = auth.Authenticated(keyStore, loginUriTemplate, rootUri)
+  val AuthenticatedUpload = auth.AuthenticatedUpload(keyStore, loginUriTemplate, rootUri)
 
 
   val indexResponse = {

@@ -10,6 +10,8 @@ import com.gu.mediaservice.lib.config.{Properties, CommonPlayAppConfig, CommonPl
 
 object Config extends CommonPlayAppConfig with CommonPlayAppProperties {
 
+  val appName = "media-api"
+
   val properties = Properties.fromPath("/etc/gu/media-api.properties")
 
   val awsCredentials: AWSCredentials =
@@ -37,6 +39,8 @@ object Config extends CommonPlayAppConfig with CommonPlayAppProperties {
 
   val configBucket: String = properties("s3.config.bucket")
 
+  val mixpanelToken: Option[String] = properties.get("mixpanel.token").filterNot(_.isEmpty)
+
   // Note: had to make these lazy to avoid init order problems ;_;
 
   lazy val rootUri: String = services.apiBaseUri
@@ -45,7 +49,7 @@ object Config extends CommonPlayAppConfig with CommonPlayAppProperties {
   lazy val loaderUri: String = services.loaderBaseUri
   lazy val metadataUri: String = services.metadataBaseUri
   lazy val imgopsUri: String = services.imgopsBaseUri
-  lazy val loginUri: String = services.loginUri
+  lazy val loginUriTemplate: String = services.loginUriTemplate
 
   private lazy val corsAllowedOrigins = properties.getOrElse("cors.allowed.origins", "").split(",").toList
   lazy val corsAllAllowedOrigins: List[String] =
