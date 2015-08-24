@@ -2,7 +2,7 @@
     <gr-top-bar-nav>
         <a class="top-bar-item"
            ui:sref="image({ imageId: ctrl.image.data.id })">
-            <gr-icon>cancel</gr-icon><span class="top-bar-item__label">cancel</span></a>
+            <gr-icon>cancel</gr-icon><span class="top-bar-item__label">Cancel</span></a>
     </gr-top-bar-nav>
 
     <gr-top-bar-actions>
@@ -10,23 +10,28 @@
 
         <label class="top-bar-item" title="landscape">
             <input type="radio" ng:model="ctrl.aspect" value="{{ctrl.landscapeRatio}}"/>
-            <gr-icon>crop_landscape</gr-icon><span class="top-bar-item__label">landscape</span> ({{::ctrl.getRatioString(ctrl.landscapeRatio)}})
+            <gr-icon>crop_landscape</gr-icon><span class="top-bar-item__label">Landscape</span> ({{::ctrl.getRatioString(ctrl.landscapeRatio)}})
         </label>
 
         <label class="top-bar-item" title="portrait">
             <input type="radio" ng:model="ctrl.aspect" value="{{ctrl.portraitRatio}}" />
-            <gr-icon>crop_portrait</gr-icon><span class="top-bar-item__label">portrait</span> ({{::ctrl.getRatioString(ctrl.portraitRatio)}})
+            <gr-icon>crop_portrait</gr-icon><span class="top-bar-item__label">Portrait</span> ({{::ctrl.getRatioString(ctrl.portraitRatio)}})
+        </label>
+
+        <label class="top-bar-item" title="video">
+            <input type="radio" ng:model="ctrl.aspect" value="{{ctrl.videoRatio}}" />
+            <gr-icon>crop_16_9</gr-icon><span class="top-bar-item__label">Video</span> ({{::ctrl.getRatioString(ctrl.videoRatio)}})
         </label>
 
         <label class="top-bar-item" title="free-form">
             <input type="radio" ng:model="ctrl.aspect" value="{{ctrl.freeRatio}}" />
-            <gr-icon>crop_free</gr-icon><span class="top-bar-item__label">free-form</span>
+            <gr-icon>crop_free</gr-icon><span class="top-bar-item__label">Free-form</span>
         </label>
 
         <div class="top-bar-item top-bar-item--full" ng:switch="ctrl.image.data.cost">
             <div ng:switch-when="pay"
                  class="cost cost--pay">
-                pay to use
+                Pay to use
             </div>
 
             <div ng:switch-when="conditional"
@@ -35,7 +40,7 @@
                 <!-- As `conditional` can only be set with usageRights, let's
                      just assume it's here. We might need to revisit this. -->
                 <gr-icon>flag</gr-icon>
-                <span class="top-bar-item__label">restricted use</span>
+                <span class="top-bar-item__label">Restricted use</span>
                 <gr-icon>help</gr-icon>
             </div>
         </div>
@@ -45,7 +50,7 @@
                     type="button"
                     ng:click="ctrl.crop()"
                     ng:disabled="ctrl.cropping">
-                <gr-icon>crop</gr-icon><span class="top-bar-item__label">crop<span ng:show="ctrl.cropping">ping…</span></span>
+                <gr-icon>crop</gr-icon><span class="top-bar-item__label">Crop<span ng:show="ctrl.cropping">ping…</span></span>
             </button>
         </div>
     </gr-top-bar-actions>

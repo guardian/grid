@@ -67,6 +67,7 @@ jobs.controller('RequiredMetadataEditorCtrl',
         return {
             byline: originalMetadata.byline,
             credit: originalMetadata.credit,
+            copyright: originalMetadata.copyright,
             description: originalMetadata.description
         };
     }

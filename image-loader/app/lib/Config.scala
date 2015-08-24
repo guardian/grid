@@ -6,6 +6,8 @@ import com.gu.mediaservice.lib.config.{CommonPlayAppProperties, Properties}
 
 object Config extends CommonPlayAppProperties {
 
+  val appName = "image-loader"
+
   val properties = Properties.fromPath("/etc/gu/image-loader.properties")
 
   val awsCredentials: AWSCredentials =
@@ -27,7 +29,7 @@ object Config extends CommonPlayAppProperties {
 
   val rootUri = services.loaderBaseUri
   val apiUri = services.apiBaseUri
-  val loginUri = services.loginUri
+  val loginUriTemplate = services.loginUriTemplate
 
   lazy val corsAllAllowedOrigins: List[String] = List(services.kahunaBaseUri)
 

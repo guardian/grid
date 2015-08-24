@@ -43,6 +43,10 @@ object Dependencies {
     "org.parboiled" %% "parboiled" % "2.1.0"
   )
 
+  val loggingDeps = Seq(
+    "com.gu" % "kinesis-logback-appender" % "1.0.5",
+    "net.logstash.logback" % "logstash-logback-encoder" % "4.4"
+  )
 
   val commonsNetDeps = Seq(
     "commons-net" % "commons-net" % "3.3",

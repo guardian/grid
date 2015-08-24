@@ -14,10 +14,10 @@ import lib.Config
 
 object EditsApi extends Controller with ArgoHelpers {
 
-  import Config.{rootUri, loginUri, kahunaUri, keyStoreBucket, awsCredentials}
+  import Config.{rootUri, loginUriTemplate, kahunaUri, keyStoreBucket, awsCredentials}
 
   val keyStore = new KeyStore(keyStoreBucket, awsCredentials)
-  val Authenticated = auth.Authenticated(keyStore, loginUri, kahunaUri)
+  val Authenticated = auth.Authenticated(keyStore, loginUriTemplate, kahunaUri)
 
     // TODO: add links to the different responses esp. to the reference image
   val indexResponse = {
@@ -43,7 +43,7 @@ object EditsApi extends Controller with ArgoHelpers {
     val usageRightsData =
       List(PrImage(), Handout(), Screengrab(), SocialMedia(), Obituary(), Pool(),
            StaffPhotographer("?", "?"), ContractPhotographer("?", "?"), CommissionedPhotographer("?", "?"),
-           Agency("?")).sortWith(_.name.toLowerCase < _.name.toLowerCase)
+           Agency("?"), CommissionedAgency("?"), CrownCopyright()).sortWith(_.name.toLowerCase < _.name.toLowerCase)
         .map(CategoryResponse.fromUsageRights)
 
     respond(usageRightsData)

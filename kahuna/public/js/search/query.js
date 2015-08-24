@@ -24,6 +24,15 @@ query.controller('SearchQueryCtrl',
                  function($scope, $state, $stateParams, onValChange , mediaApi, track) {
 
     var ctrl = this;
+
+    ctrl.ordering = {
+        orderBy: $stateParams.orderBy
+    };
+
+    $scope.$watch(() => ctrl.ordering.orderBy, onValChange(newVal => {
+        $state.go('search.results', {orderBy: newVal});
+    }));
+
     ctrl.filter = {
         uploadedByMe: false
     };

@@ -91,7 +91,7 @@ async.factory('onNextEvent', ['$q', function($q) {
 
     function onNextEvent(scope, event) {
         const defer = $q.defer();
-        const unregister = scope.$on(event, defer.resolve);
+        const unregister = scope.$on(event, (_, arg) => defer.resolve(arg));
         return defer.promise.finally(unregister);
     }
 

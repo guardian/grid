@@ -4,10 +4,10 @@ import com.gu.mediaservice.lib.argo.ArgoHelpers
 import com.gu.mediaservice.lib.argo.model.Link
 
 trait ArgoErrorResponses extends ArgoHelpers {
-  def loginUri: String
+  def loginUriTemplate: String
 
   val loginLinks = List(
-    Link("login", loginUri)
+    Link("login", loginUriTemplate)
   )
 
   // Panda errors

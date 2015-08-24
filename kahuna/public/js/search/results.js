@@ -46,7 +46,6 @@ results.controller('SearchResultsCtrl', [
     'panelService',
     'range',
     'isReloadingPreviousSearch',
-    'onValChange',
     function($rootScope,
              $scope,
              $state,
@@ -61,8 +60,7 @@ results.controller('SearchResultsCtrl', [
              selection,
              panelService,
              range,
-             isReloadingPreviousSearch,
-             onValChange) {
+             isReloadingPreviousSearch) {
 
         const ctrl = this;
 
@@ -109,8 +107,6 @@ results.controller('SearchResultsCtrl', [
         ctrl.getLastSeenVal = getLastSeenVal;
         ctrl.imageHasBeenSeen = imageHasBeenSeen;
 
-        ctrl.filter = { orderBy: $stateParams.orderBy };
-
         // Arbitrary limit of number of results; too many and the
         // scrollbar becomes hyper-sensitive
         const searchFilteredLimit = 5000;
@@ -125,23 +121,11 @@ results.controller('SearchResultsCtrl', [
             lastSearchFirstResultTime = undefined;
         }
 
-        function initialSearch() {
-            /*
-            Maintain `lastSearchFirstResultTime` regardless of sorting order.
-
-            If we're sorting in ascending order, we need to get the upload time of the
-            last image, so we make a request for 1 image, then make a further request
-            where the offset is the total images - 1 from the initial request.
-             */
-            return angular.isUndefined(ctrl.filter.orderBy) ?
-                ctrl.searched = search({length: 1}) :
-                ctrl.searched = search({length: 1}).then((images) => {
-                    return search({length: 1, offset: images.total - 1});
-                });
-        }
+        // Initial search to find upper `until` boundary of result set
+        // (i.e. the uploadTime of the newest result in the set)
 
         // TODO: avoid this initial search (two API calls to init!)
-        ctrl.searched = initialSearch().then(function(images) {
+        ctrl.searched = search({length: 1, orderBy: 'newest'}).then(function(images) {
             ctrl.totalResults = images.total;
 
             // images will be the array of loaded images, used for display
@@ -221,11 +205,11 @@ results.controller('SearchResultsCtrl', [
         // FIXME: this will only add up to 50 images (search capped)
         function checkForNewImages() {
             $timeout(() => {
+                // Use explicit `until`, or blank it to find new images
+                const until = $stateParams.until || null;
                 const latestTime = lastSearchFirstResultTime;
-                // Blank any 'until' parameter to look for new images
-                // TODO: if a manual until was set (e.g. using date
-                // picker), don't check for new images until now
-                search({since: latestTime, length: 0, until: null}).then(resp => {
+
+                search({since: latestTime, length: 0, until}).then(resp => {
                     // FIXME: minor assumption that only the latest
                     // displayed image is matching the uploadTime
                     ctrl.newImagesCount = resp.total - 1;
@@ -275,16 +259,32 @@ results.controller('SearchResultsCtrl', [
             return $stateParams.query || '*';
         }
 
-
-        function search({until, since, offset, length} = {}) {
+        function search({until, since, offset, length, orderBy} = {}) {
             // FIXME: Think of a way to not have to add a param in a million places to add it
 
-            // Default explicit until/since to $stateParams
+            /*
+             * @param `until` can have three values:
+             *
+             * - `null`      => Don't send over a date, which will default to `now()` on the server.
+             *                  Used in `checkForNewImages` with no until in `stateParams` to search
+             *                  for the new image count
+             *
+             * - `string`    => Override the use of `stateParams` or `lastSearchFirstResultTime`.
+             *                  Used in `checkForNewImages` when a `stateParams.until` is set.
+             *
+             * - `undefined` => Default. We then use the `lastSearchFirstResultTime` if available to
+             *                  make sure we aren't loading any new images into the result set and
+             *                  `checkForNewImages` deals with that. If it's the first search, we
+             *                  will use `stateParams.until` if available.
+             */
             if (angular.isUndefined(until)) {
-                until = $stateParams.until || lastSearchFirstResultTime;
+                until = lastSearchFirstResultTime || $stateParams.until;
             }
             if (angular.isUndefined(since)) {
                 since = $stateParams.since;
+            }
+            if (angular.isUndefined(orderBy)) {
+                orderBy = $stateParams.orderBy;
             }
 
             return mediaApi.search($stateParams.query, angular.extend({
@@ -297,7 +297,7 @@ results.controller('SearchResultsCtrl', [
                 since:      since,
                 offset:     offset,
                 length:     length,
-                orderBy:    $stateParams.orderBy
+                orderBy:    orderBy
             }));
         }
 
@@ -365,10 +365,6 @@ results.controller('SearchResultsCtrl', [
                 ctrl.imagesAll[indexAll] = updatedImage;
             }
         });
-
-        $scope.$watch(() => ctrl.filter.orderBy, onValChange(newVal => {
-            $state.go('search.results', {orderBy: newVal});
-        }));
 
         // Safer than clearing the timeout in case of race conditions
         // FIXME: nicer (reactive?) way to do this?

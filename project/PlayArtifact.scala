@@ -48,11 +48,9 @@ object PlayArtifact extends Plugin {
 
     mergeStrategy in assembly <<= (mergeStrategy in assembly) { current =>
     {
-      // Previous default MergeStrategy was first
-
-      // Take ours, i.e. MergeStrategy.last...
-      case "logger.xml" => MergeStrategy.last
-      case "version.txt" => MergeStrategy.last
+      // Take ours, i.e. MergeStrategy.first...
+      case "logger.xml" => MergeStrategy.first
+      case "version.txt" => MergeStrategy.first
 
       // Merge play.plugins because we need them all
       case "play.plugins" => MergeStrategy.filterDistinctLines

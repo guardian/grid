@@ -93,7 +93,7 @@ class PermissionStore(bucket: String, credentials: AWSCredentials) extends BaseS
 
         PermissionType.values.toList.map(permission => {
           properties.get(permission.toString) match {
-            case Some(value) => (permission, value.split(",").toList)
+            case Some(value) => (permission, value.split(",").toList.map(_.toLowerCase))
             case None => (permission, List())
           }
         }).toMap

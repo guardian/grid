@@ -7,6 +7,8 @@ import com.amazonaws.auth.{BasicAWSCredentials, AWSCredentials}
 
 object Config extends CommonPlayAppProperties {
 
+  val appName = "cropper"
+
   val properties = Properties.fromPath("/etc/gu/cropper.properties")
 
   val awsCredentials: AWSCredentials =
@@ -26,7 +28,7 @@ object Config extends CommonPlayAppProperties {
 
   val rootUri = services.cropperBaseUri
   val kahunaUri = services.kahunaBaseUri
-  val loginUri = services.loginUri
+  val loginUriTemplate = services.loginUriTemplate
 
   val corsAllAllowedOrigins = List(services.kahunaBaseUri)
 
