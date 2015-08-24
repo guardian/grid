@@ -8,7 +8,6 @@ import '../../services/panel';
 import '../../services/archive';
 import '../../edits/service';
 import '../../forms/gr-xeditable/gr-xeditable';
-import '../../downloader/downloader';
 
 export var grPanel = angular.module('grPanel', [
     'kahuna.services.selection',
@@ -17,8 +16,7 @@ export var grPanel = angular.module('grPanel', [
     'kahuna.services.archive',
     'kahuna.edits.service',
     'grXeditable',
-    'ui.bootstrap',
-    'gr.downloader'
+    'ui.bootstrap'
 ]);
 
 grPanel.controller('GrPanel', [
