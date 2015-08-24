@@ -22,25 +22,72 @@ object PhotographersList {
 
 object MetadataConfig {
   val staffPhotographers = Map(
+    // Current
+    "Alicia Canter"  -> "The Guardian",
+    "Bill Code"      -> "The Guardian",
+    "David Sillitoe" -> "The Guardian",
+    "Graham Turner"  -> "The Guardian",
+    "James Mann"     -> "The Guardian",
+    "Jill Mead"      -> "The Guardian",
+    "Rachel Vere"    -> "The Guardian",
+    "Roger Tooth"    -> "The Guardian",
+    "Sean Smith"     -> "The Guardian",
+
+    // Past
+    "Catherine Shaw"        -> "The Guardian",
+    "Dan Chung"             -> "The Guardian",
+    "Denis Thorpe"          -> "The Guardian",
+    "Don McPhee"            -> "The Guardian",
+    "E Hamilton West"       -> "The Guardian",
+    "Emma Baddeley"         -> "The Guardian",
+    "Frank Baron"           -> "The Guardian",
+    "Frank Martin"          -> "The Guardian",
+    "Garry Weaser"          -> "The Guardian",
+    "Graham Finlayson"      -> "The Guardian",
+    "Harriet St Johnston"   -> "The Guardian",
+    "James Michelson"       -> "The Guardian",
+    "John Reardon"          -> "The Guardian",
+    "Lorna Roach"           -> "The Guardian",
+    "Marcus Mays"           -> "The Guardian",
+    "Martin Argles"         -> "The Guardian",
+    "Millie Burton"         -> "The Guardian",
+    "Peter Johns"           -> "The Guardian",
+    "Rachel Vere"           -> "The Guardian",
+    "Richard Blake"         -> "The Guardian",
+    "Robert Smithies"       -> "The Guardian",
+    "Sean Gibson"           -> "The Guardian",
+    "Ted West"              -> "The Guardian",
+    "Tom Stuttard"          -> "The Guardian",
+    "Tricia De Courcy Ling" -> "The Guardian",
+    "Walter Doughty"        -> "The Guardian",
+
+    "David Newell Smith"    -> "The Observer",
+    "Tony McGrath"          -> "The Observer"
+  )
+
+  val contractedPhotographers: Map[String, String] = Map(
+    "Antonio Zazueta"     -> "The Guardian",
+    "Christian Sinibaldi" -> "The Guardian",
     "Christopher Thomond" -> "The Guardian",
-    "Sean Smith"          -> "The Guardian",
     "David Levene"        -> "The Guardian",
-    "David Sillitoe"      -> "The Guardian",
-    "Eamonn Mccabe"       -> "The Guardian",
-    "Felicity Cloake"     -> "The Guardian",
-    "Frank Baron"         -> "The Guardian",
+    "Eamonn McCabe"       -> "The Guardian",
+    "Felix Clay"          -> "The Guardian",
     "Graeme Robertson"    -> "The Guardian",
-    "Graham Turner"       -> "The Guardian",
-    "Martin Argles"       -> "The Guardian",
+    "Jane Bown"           -> "The Guardian",
+    "Johanna Parkin"      -> "The Guardian",
+    "Jonathan Lovekin"    -> "The Guardian",
+    "Katherine Rose"      -> "The Guardian",
+    "Linda Nylind"        -> "The Guardian",
+    "Louise Hagger"       -> "The Guardian",
     "Martin Godwin"       -> "The Guardian",
     "Mike Bowers"         -> "The Guardian",
     "Murdo Macleod"       -> "The Guardian",
     "Sarah Lee"           -> "The Guardian",
     "Tom Jenkins"         -> "The Guardian",
     "Tristram Kenton"     -> "The Guardian",
+
     "Andy Hall"           -> "The Observer",
     "Antonio Olmos"       -> "The Observer",
-    "Catherine Shaw"      -> "The Observer",
     "Gary Calton"         -> "The Observer",
     "Karen Robinson"      -> "The Observer",
     "Katherine Anne Rose" -> "The Observer",
@@ -49,14 +96,10 @@ object MetadataConfig {
     "Suki Dhanda"         -> "The Observer"
   )
 
-  val contractedPhotographers: Map[String, String] = Map(
-    "Linda Nylind" -> "The Guardian"
-  )
-
   val allPhotographers = staffPhotographers ++ contractedPhotographers
 
   val staffPhotographersMap = PhotographersList.creditBylineMap(staffPhotographers)
-  val contractPhotgraphersMap = PhotographersList.creditBylineMap(staffPhotographers)
+  val contractPhotographersMap = PhotographersList.creditBylineMap(staffPhotographers)
   val allPhotographersMap = PhotographersList.creditBylineMap(allPhotographers)
 
 }
