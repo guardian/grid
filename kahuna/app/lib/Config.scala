@@ -5,6 +5,8 @@ import com.amazonaws.auth.{BasicAWSCredentials, AWSCredentials}
 
 object Config extends CommonPlayAppConfig with CommonPlayAppProperties {
 
+  val appName = "kahuna"
+
   val properties = Properties.fromPath("/etc/gu/kahuna.properties")
 
   val rootUri: String = services.kahunaBaseUri

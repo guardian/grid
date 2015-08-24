@@ -7,6 +7,8 @@ import com.amazonaws.auth.{BasicAWSCredentials, AWSCredentials}
 
 object Config extends CommonPlayAppProperties {
 
+  val appName = "metadata-editor"
+
   val properties = Properties.fromPath("/etc/gu/metadata-editor.properties")
 
   val awsCredentials: AWSCredentials =
