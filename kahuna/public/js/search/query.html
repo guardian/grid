@@ -1,5 +1,6 @@
 <form class="search">
     <span class="search-query">
+        <gr-icon class="search-query__icon">search</gr-icon>
         <input type="text"
                placeholder="Search for images…"
                class="search__query search-query__input"
@@ -8,11 +9,12 @@
                ng:model-options="{ debounce: 400 }"
                grid:focus-on="search:focus-query"
         />
-        <button class="search-query__clear clear-button"
+        <button class="search-query__icon search-query__clear clear-button"
                 type="button"
+                title="Clear query"
                 ng:show="searchQuery.filter.query"
                 ng:click="searchQuery.resetQueryAndFocus()">
-            <gr-icon>clear</gr-icon>
+            <gr-icon>cancel</gr-icon>
         </button>
     </span>
 

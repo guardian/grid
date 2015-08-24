@@ -14,7 +14,7 @@
         <div class="flex-container section-heading">
             <h2>Your current uploads</h2>
             <span class="flex-spacer"></span>
-            <a ng:controller="SessionCtrl" class="coloured-link" ui:sref="search.results({uploadedBy: user.email})">View all your uploads</a>
+            <a ng:controller="SessionCtrl" class="coloured-link" ui:sref="search.results({uploadedBy: user.email, nonFree: true})">View all your uploads</a>
         </div>
 
         <ui-upload-jobs jobs="ctrl.latestJob"></ui-upload-jobs>
@@ -26,17 +26,15 @@
         <div class="flex-container section-heading">
             <h2>Your past 50 uploads</h2>
             <span class="flex-spacer"></span>
-            <a ng:controller="SessionCtrl" class="coloured-link" ui:sref="search.results({uploadedBy: user.email})">View all your uploads</a>
+            <a ng:controller="SessionCtrl" class="coloured-link" ui:sref="search.results({uploadedBy: user.email, nonFree: true})">View all your uploads</a>
         </div>
 
         <ul>
             <li ng:repeat="result in ctrl.myUploads.data" class="upload-result">
                 <ui-image-editor image="result"></ui-image-editor>
-                <gr-delete-image class="right"
+                <gr-delete-image class="flex-right"
                                  ng:if="ctrl.canBeDeleted(result)"
-                                 on-success="ctrl.onDeleteSuccess"
-                                 on-error="ctrl.onDeleteError"
-                                 image="result"></gr-delete-image>
+                                 images="[result]"></gr-delete-image>
             </li>
         </ul>
     </section>

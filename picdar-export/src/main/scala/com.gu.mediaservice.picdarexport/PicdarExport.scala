@@ -2,8 +2,8 @@ package com.gu.mediaservice.picdarexport
 
 import java.net.URI
 
-import com.gu.mediaservice.model.ImageMetadata
-import com.gu.mediaservice.picdarexport.lib.cleanup.MetadataOverrides
+import com.gu.mediaservice.model.{UsageRights, ImageMetadata}
+import com.gu.mediaservice.picdarexport.lib.cleanup.{UsageRightsOverride, MetadataOverrides}
 import com.gu.mediaservice.picdarexport.lib.db.ExportDynamoDB
 import com.gu.mediaservice.picdarexport.lib.media._
 import com.gu.mediaservice.picdarexport.lib.picdar.{PicdarError, PicdarClient}
@@ -48,6 +48,25 @@ class ExportManager(picdar: PicdarClient, loader: MediaLoader, mediaApi: MediaAp
 
   private def ingestAsset(asset: Asset) =
     ingest(asset.file, asset.urn, asset.created)
+
+  def overrideRights(mediaUri: URI, picdarRights: UsageRights): Future[Boolean] = {
+    for {
+      image         <- mediaApi.getImage(mediaUri)
+      currentRights  = image.usageRights
+      overridesOpt   = UsageRightsOverride.getOverrides(currentRights, picdarRights)
+      overridden    <- applyRightsOverridesIfAny(image, overridesOpt)
+    } yield overridden
+  }
+
+
+  private def applyRightsOverrides(image: Image, overrides: UsageRights): Future[Unit] = {
+    mediaApi.overrideUsageRights(image.usageRightsOverrideUri, overrides)
+  }
+
+  def applyRightsOverridesIfAny(image: Image, rightsOpt: Option[UsageRights]): Future[Boolean] = rightsOpt match {
+    case Some(rights) => applyRightsOverrides(image, rights).map(_ => true)
+    case None => Future.successful(false)
+  }
 }
 
 
@@ -155,6 +174,8 @@ object ExportApp extends App with ExportManagerProvider with ArgumentHelpers wit
             |infoUri: ${asset.infoUri getOrElse ""}
             |metadata:
             |${asset.metadata}
+            |rights:
+            |${asset.usageRights}
         """.stripMargin
       )
     }
@@ -254,10 +275,35 @@ object ExportApp extends App with ExportManagerProvider with ArgumentHelpers wit
     dynamo.scanNoRights(dateRange) flatMap { urns =>
       val updates = takeRange(urns, range).map { assetRef =>
         getPicdar(system).get(assetRef.urn) flatMap { asset =>
-          Logger.info(s"Setting usage rights on image ${asset.urn} to: ${asset.usageRights.map(_.category).getOrElse("none")}")
+          Logger.info(s"Fetching usage rights for image ${asset.urn} to: ${asset.usageRights.map(_.category).getOrElse("none")}")
           dynamo.recordRights(assetRef.urn, assetRef.dateLoaded, asset.usageRights)
         } recover { case PicdarError(message) =>
           Logger.warn(s"Picdar error during fetch: $message")
+        }
+      }
+      Future.sequence(updates)
+    }
+  }
+
+  def overrideRights(env: String, dateRange: DateRange = DateRange.all, range: Option[Range] = None) = {
+    val dynamo = getDynamo(env)
+    dynamo.scanRightsFetchedNotOverridden(dateRange) flatMap { assets =>
+      val updates = takeRange(assets, range).map { asset =>
+        // TODO: if no mediaUri, skip
+        // FIXME: HACKK!
+        val mediaUri = asset.mediaUri.get
+        asset.picdarRights map { rights =>
+          Logger.info(s"Overriding rights on $mediaUri to: $rights")
+          getExportManager("library", env).overrideRights(mediaUri, rights) flatMap { overridden =>
+            Logger.info(s"Overridden $mediaUri rights ($overridden)")
+            dynamo.recordRightsOverridden(asset.picdarUrn, asset.picdarCreated, overridden)
+          } recover { case e: Throwable =>
+            Logger.warn(s"Rights override error for ${asset.picdarUrn}: $e")
+            e.printStackTrace()
+          }
+        } getOrElse {
+          Logger.info(s"No rights overrides for $mediaUri (not fetched?), skipping")
+          Future.successful(())
         }
       }
       Future.sequence(updates)
@@ -405,15 +451,21 @@ object ExportApp extends App with ExportManagerProvider with ArgumentHelpers wit
     case "+rights:fetch" :: env :: system :: Nil => terminateAfter {
       fetchRights(env, system)
     }
-
-    case "+rights:fetch" :: env :: system :: Nil => terminateAfter {
-      fetchRights(env, system)
-    }
     case "+rights:fetch" :: env :: system :: date :: Nil => terminateAfter {
       fetchRights(env, system, parseDateRange(date))
     }
     case "+rights:fetch" :: env :: system :: date :: rangeStr :: Nil => terminateAfter {
       fetchRights(env, system, parseDateRange(date), parseQueryRange(rangeStr))
+    }
+
+    case "+rights:override" :: env :: Nil => terminateAfter {
+      overrideRights(env)
+    }
+    case "+rights:override" :: env :: date :: Nil => terminateAfter {
+      overrideRights(env, parseDateRange(date))
+    }
+    case "+rights:override" :: env :: date :: rangeStr :: Nil => terminateAfter {
+      overrideRights(env, parseDateRange(date), parseQueryRange(rangeStr))
     }
 
     case _ => println(
@@ -432,7 +484,8 @@ object ExportApp extends App with ExportManagerProvider with ArgumentHelpers wit
         |       +override <dev|test|prod> [dateLoaded] [range]
         |       +clear  <dev|test|prod> [dateLoaded]
         |
-        |       +rights:fetch  <dev|test|prod> <desk|library> [dateLoaded] [range]
+        |       +rights:fetch    <dev|test|prod> <desk|library> [dateLoaded] [range]
+        |       +rights:override <dev|test|prod> [dateLoaded] [range]
       """.stripMargin
     )
   }

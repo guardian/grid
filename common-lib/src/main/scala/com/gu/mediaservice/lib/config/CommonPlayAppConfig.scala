@@ -7,10 +7,14 @@ import play.api.Play
 
 trait CommonPlayAppConfig {
 
-  final val awsEndpoint = "ec2.eu-west-1.amazonaws.com"
+  val appName: String
 
+  val properties: Map[String, String]
+
+  final val awsEndpoint = "ec2.eu-west-1.amazonaws.com"
   final val elasticsearchStack = "media-service"
   final val elasticsearchApp   = "elasticsearch"
+  final val stackName          = "media-service"
 
   final val appConfig = Play.current.configuration
 

@@ -97,28 +97,8 @@
             with-batch="ctrl.withBatch"
         ></ui-required-metadata-editor>
 
-        <div class="result-editor__usage-rights-container drop-menu"
-             ng:init="showUsageRights = false">
-            <button ng:click="showUsageRights = !showUsageRights">
-                <span ng:hide="showUsageRights">▸</span>
-                <span ng:show="showUsageRights">▾</span>
-                Usage rights
-            </button>
-
-            <div class="result-editor__usage-rights drop-menu__items drop-menu__items--right"
-                 ng:show="showUsageRights">
-
-                <gr:usage-rights-editor
-                    gr:usage-rights="[ctrl.usageRights]"
-                    gr:on-save="showUsageRights = false"
-                    gr:on-cancel="showUsageRights = false">
-                </gr:usage-rights-editor>
-
-            </div>
-        </div>
-
-        <div class="result-editor__labeller-container">
-            <span class="result-editor__label flex-container">
+        <div class="result-editor__field-container">
+            <span class="result-editor__field-label flex-container">
                 Labels
                 <span class="flex-spacer"></span>
                 <gr-add-label image="ctrl.image" gr-small="true"></gr-add-label>
@@ -128,6 +108,29 @@
                 image="ctrl.image"
                 with-batch="ctrl.withBatch"
             ></ui-labeller>
+        </div>
+
+        <div class="result-editor__field-container image-info__wrap">
+            <span class="result-editor__field-label flex-no-shrink">
+                Usage rights
+            </span>
+
+            <div class="result-editor__usage-rights-container">
+                <div ng:hide="ctrl.showUsageRights">
+                    <span>{{ctrl.usageRightsCategory || 'None'}}</span>
+                    <button class="image-info__edit" ng:click="ctrl.showUsageRights = !ctrl.showUsageRights">
+                        <gr-icon>edit</gr-icon>
+                    </button>
+                </div>
+
+                <gr-usage-rights-editor
+                    ng:show="ctrl.showUsageRights"
+                    class="result-editor__usage-rights"
+                    gr:usage-rights="[ctrl.usageRights]"
+                    gr:on-save="ctrl.showUsageRights = false"
+                    gr:on-cancel="ctrl.showUsageRights = false">
+                </gr-usage-rights-editor>
+            </div>
         </div>
 
     </div>
