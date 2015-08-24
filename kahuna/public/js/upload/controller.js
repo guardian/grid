@@ -11,8 +11,8 @@ var upload = angular.module('kahuna.upload.controller', [
 ]);
 
 upload.controller('UploadCtrl', [
-    '$scope', '$state', '$window', 'uploadManager', 'mediaApi', 'imageService',
-    function($scope, $state, $window, uploadManager, mediaApi, imageService) {
+    '$rootScope', '$scope', '$state', '$window', 'uploadManager', 'mediaApi', 'imageService',
+    function($rootScope, $scope, $state, $window, uploadManager, mediaApi, imageService) {
         var ctrl = this;
 
         var deletableImages = new Set();
@@ -41,21 +41,28 @@ upload.controller('UploadCtrl', [
             return deletableImages.has(image);
         };
 
-        ctrl.onDeleteSuccess = function (resp, image) {
-            var index = ctrl.myUploads.data.findIndex(i => i.data.id === image.data.id);
+        const freeImageDeleteListener = $rootScope.$on('images-deleted', (e, images) => {
+            images.forEach(image => {
+                var index = ctrl.myUploads.data.findIndex(i => i.data.id === image.data.id);
 
-            if (index > -1) {
-                ctrl.myUploads.data.splice(index, 1);
-                deletableImages.delete(image);
-            }
-        };
+                if (index > -1) {
+                    ctrl.myUploads.data.splice(index, 1);
+                    deletableImages.delete(image);
+                }
+            });
+        });
 
-        ctrl.onDeleteError = function (err) {
-            if (err.body.errorKey === 'image-not-found') {
-                $state.go('upload', {}, {reload: true});
-            } else {
+        const freeImageDeleteFailListener = $rootScope.$on('image-delete-failure', (err, image) => {
+            if (err.body && err.body.errorMessage) {
                 $window.alert(err.body.errorMessage);
+            } else {
+                $window.alert(`Failed to delete image ${image.data.id}`);
             }
-        };
+        });
+
+        $scope.$on('$destroy', function() {
+            freeImageDeleteListener();
+            freeImageDeleteFailListener();
+        });
     }
 ]);
