@@ -1525,9 +1525,8 @@ FIXME: what to do with touch devices
 }
 
 .image-crop {
-    border: solid 5px transparent;
+    border-bottom: solid 10px transparent;
     max-width: 140px;
-    margin-right: 5px;
     box-sizing: border-box;
 }
 .image-crop--selected,
