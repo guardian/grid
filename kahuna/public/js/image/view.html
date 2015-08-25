@@ -54,9 +54,32 @@
 
     <div class="image-info" ng:if="ctrl.crops.length > 0">
         <div class="image-info__group">
+            <dl>
+                <dt class="image-info__heading">Original</dt>
+                    <dd class="image-info__heading--crops">
+                        <ul class="image-crops">
+                            <li class="image-crop"
+                                ng:class="{'image-crop--selected': !ctrl.crop}">
+                                <a draggable="true"
+                                    ui:sref="{ crop: null }">
+                                    <img class="image-crop__image" ng:src="{{ ctrl.image.data.thumbnail | assetFile }}" />
+                                </a>
+                                <div class="image-crop__aspect-ratio">
+                                    <ul>
+                                        <li>{{ctrl.image.data.source.dimensions.width}} &times; {{ctrl.image.data.source.dimensions.height}}</li>
+                                    </ul>
+                                </div>
+                            </li>
+                        </ul>
+                    </dd>
+                </dt>
+            </dl>
+        </div>
+
+        <div class="image-info__group">
             <dl class="image-info__group--dl">
-                <dt class="image-info__heading image-info__heading--crops">Crops <span ng:if="ctrl.crop">(<a ui:sref="{ crop: null }">Original</a>)</span></dt>
-                <dd>
+                <dt class="image-info__heading">Crops</dt>
+                <dd class="image-info__heading--crops">
                     <ul class="image-crops">
                         <li class="image-crop"
                             ng:repeat="crop in ctrl.crops"

@@ -1364,6 +1364,7 @@ FIXME: what to do with touch devices
 
 .image-info__heading--crops {
     flex-basis: 100%;
+    max-width: 100%;
 }
 
 .image-info__heading--first {
@@ -1525,14 +1526,14 @@ FIXME: what to do with touch devices
 }
 
 .image-crop {
-    border-bottom: solid 10px transparent;
-    max-width: 140px;
+    margin-bottom: 10px;
+    max-width: 100%;
     box-sizing: border-box;
 }
 .image-crop--selected,
 .result--selected,
 .result--selected:hover {
-    border-color: #00adee;
+    border-bottom: solid 5px #00adee;
 }
 
 .result--selected .preview {
@@ -1541,7 +1542,8 @@ FIXME: what to do with touch devices
 
 .image-crop__image {
     display: block;
-    width: 100%;
+    max-width: 100%;
+    max-height: 180px;
 }
 
 .image-crop__aspect-ratio {
