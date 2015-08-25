@@ -193,7 +193,10 @@ object UsageRightsOverride {
     )
 
   def getUsageRights(copyrightGroup: String, metadata: ImageMetadata) =
-    copyrightGroupToUsageRightsMap.get(copyrightGroup).flatMap(func => func(metadata))
+    copyrightGroupToUsageRightsMap.get(copyrightGroup).flatMap(func => func(metadata)) orElse {
+      Logger.info(s"Ignoring unmatched copyright group: $copyrightGroup")
+      None
+    }
 
   // Picdar rights never have suppliersCollection, so strip it before comparing
   def stripCollection(usageRights: UsageRights) = usageRights match {
