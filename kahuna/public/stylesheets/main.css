@@ -1294,6 +1294,8 @@ FIXME: what to do with touch devices
     line-height: 45px;
     box-sizing: border-box;
     font-size: 1.4rem;
+    color: white;
+    background-color: magenta;
 }
 
 .image-info__crop-item__button:hover {
