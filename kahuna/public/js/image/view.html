@@ -3,9 +3,6 @@
         <a class="top-bar-item" ui:sref="search">
             <gr-icon-label gr-icon="search">Search</gr-icon-label>
         </a>
-        <a class="top-bar-item" ng:if="ctrl.crop" ui:sref="{ crop: null }">
-            <gr-icon-label gr-icon="crop_original">Original</gr-icon-label>
-        </a>
     </gr-top-bar-nav>
 
     <gr-top-bar-actions>
@@ -28,14 +25,12 @@
 
 <div class="image-details image-details--crop">
     <div class="image-info">
-        <div class="image-info__group image-info__group--crop">
-            <a class="image-info__group--crop__label"
-                ng:if="ctrl.canBeCropped"
-                ui:sref="crop({imageId: ctrl.image.data.id})">
-               <gr-icon-label gr-icon="crop">Crop image</gr-icon-label>
-            </a>
-            <span class="image-info__group--crop__label" ng:if="! ctrl.canBeCropped">Cannot crop</span>
-        </div>
+        <a class="image-info__button"
+            ng:if="ctrl.canBeCropped"
+            ui:sref="crop({imageId: ctrl.image.data.id})">
+           <gr-icon-label gr-icon="crop">Crop image</gr-icon-label>
+        </a>
+        <span ng:if="! ctrl.canBeCropped">Cannot crop</span>
 
         <div class="image-info__group">
             <dl>
