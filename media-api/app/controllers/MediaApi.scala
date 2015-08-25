@@ -143,6 +143,7 @@ object MediaApi extends Controller with ArgoHelpers {
 
   val ImageCannotBeDeleted = respondError(MethodNotAllowed, "cannot-delete", "Cannot delete persisted images")
   val ImageDeleteForbidden = respondError(Forbidden, "delete-not-allowed", "No permission to delete this image")
+  val ImageEditForbidden   = respondError(Forbidden, "edit-not-allowed", "No permission to edit this image")
 
   def deleteImage(id: String) = Authenticated.async { request =>
     ElasticSearch.getImageById(id) flatMap {
@@ -167,38 +168,46 @@ object MediaApi extends Controller with ArgoHelpers {
     }
   }
 
-  def cleanImage(id: String) = Authenticated.async {
 
-    val metadataCleaners = new MetadataCleaners(MetadataConfig.allPhotographersMap)
+  val metadataCleaners = new MetadataCleaners(MetadataConfig.allPhotographersMap)
 
-    ElasticSearch.getImageById(id) map {
+  def reindexImage(id: String) = Authenticated.async { request =>
+    ElasticSearch.getImageById(id) flatMap {
       case Some(source) => {
-        val image = source.as[Image]
+        // TODO: apply rights to edits API too
+        // TODO: helper to abstract boilerplate
+        canUserWriteMetadata(request, source) map { canWrite =>
+          if (canWrite) {
+            val image = source.as[Image]
 
-        val imageMetadata = ImageMetadataConverter.fromFileMetadata(image.fileMetadata)
-        val cleanMetadata = metadataCleaners.clean(imageMetadata)
-        val imageCleanMetadata = image.copy(metadata = cleanMetadata, originalMetadata = cleanMetadata)
-        val processedImage = SupplierProcessors.process(imageCleanMetadata)
+            val imageMetadata = ImageMetadataConverter.fromFileMetadata(image.fileMetadata)
+            val cleanMetadata = metadataCleaners.clean(imageMetadata)
+            val imageCleanMetadata = image.copy(metadata = cleanMetadata, originalMetadata = cleanMetadata)
+            val processedImage = SupplierProcessors.process(imageCleanMetadata)
 
-        // FIXME: dirty hack to sync the originalUsageRights and originalMetadata as well
-        val finalImage = processedImage.copy(
-          originalMetadata    = processedImage.metadata,
-          originalUsageRights = processedImage.usageRights
-        )
+            // FIXME: dirty hack to sync the originalUsageRights and originalMetadata as well
+            val finalImage = processedImage.copy(
+              originalMetadata    = processedImage.metadata,
+              originalUsageRights = processedImage.usageRights
+            )
 
-        val notification = Json.toJson(finalImage)
-        Notifications.publish(notification, "update-image")
+            val notification = Json.toJson(finalImage)
+            Notifications.publish(notification, "update-image")
 
-        Ok(Json.obj(
-          "id" -> id,
-          "changed" -> JsBoolean(image != finalImage),
-          "data" -> Json.obj(
-            "oldImage" -> image,
-            "updatedImage" -> finalImage
-          )
-        ))
+            Ok(Json.obj(
+              "id" -> id,
+              "changed" -> JsBoolean(image != finalImage),
+              "data" -> Json.obj(
+                "oldImage" -> image,
+                "updatedImage" -> finalImage
+              )
+            ))
+          } else {
+            ImageEditForbidden
+          }
+        }
       }
-      case None => NotFound.as(ArgoMediaType)
+      case None => Future.successful(ImageNotFound)
     }
   }
 

@@ -68,7 +68,7 @@ object ImageResponse {
 
     val links = imageLinks(id, secureUrl, withWritePermission, valid)
 
-    val actions = imageActions(id, isPersisted, withDeletePermission)
+    val actions = imageActions(id, isPersisted, withWritePermission, withDeletePermission)
 
     (data, links, actions)
   }
@@ -88,11 +88,16 @@ object ImageResponse {
     if (valid) (cropLink :: baseLinks) else baseLinks
   }
 
-  def imageActions(id: String, isPersisted: Boolean, withDeletePermission: Boolean) = {
+  def imageActions(id: String, isPersisted: Boolean, withWritePermission: Boolean, withDeletePermission: Boolean) = {
     val imageUri = URI.create(s"${Config.rootUri}/images/$id")
+    val reindexUri = URI.create(s"${Config.rootUri}/images/$id/reindex")
     val deleteAction = Action("delete", imageUri, "DELETE")
+    val reindexAction = Action("reindex", reindexUri, "POST")
 
-    if (! isPersisted && withDeletePermission) List(deleteAction) else Nil
+    List(
+      if (! isPersisted && withDeletePermission) List(deleteAction) else Nil,
+      if (withWritePermission) List(reindexAction) else Nil
+    ).flatten
   }
 
   def addUsageCost(source: JsValue): Reads[JsObject] = {
