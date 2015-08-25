@@ -321,7 +321,8 @@ case class SearchParams(
   free: Option[Boolean],
   uploadedBy: Option[String],
   labels: List[String],
-  hasMetadata: List[String]
+  hasMetadata: List[String],
+  costModelDiff: Boolean
 )
 
 object SearchParams {
@@ -357,7 +358,8 @@ object SearchParams {
       request.getQueryString("free").map(_.toBoolean),
       request.getQueryString("uploadedBy"),
       commaSep("labels"),
-      commaSep("hasMetadata")
+      commaSep("hasMetadata"),
+      request.getQueryString("costModelDiff").nonEmpty
     )
   }
 
@@ -382,7 +384,8 @@ object SearchParams {
       "free"              -> searchParams.free.map(_.toString),
       "uploadedBy"        -> searchParams.uploadedBy,
       "labels"            -> listToCommas(searchParams.labels),
-      "hasMetadata"       -> listToCommas(searchParams.hasMetadata)
+      "hasMetadata"       -> listToCommas(searchParams.hasMetadata),
+      "costModelDiff"     -> Some(searchParams.costModelDiff.toString())
     ).foldLeft(Map[String, String]()) {
       case (acc, (key, Some(value))) => acc + (key -> value)
       case (acc, (_,   None))        => acc
