@@ -32,23 +32,9 @@
         </a>
 
         <span ng:if="! ctrl.canBeCropped" class="image-info__crop-item"><gr-icon-label gr-icon="crop">Cannot crop</gr-icon-label></span>
-
-        <div class="image-info__group">
-            <dl>
-                <dt ng:if="!ctrl.crop" class="metadata-line__key">Dimensions</dt>
-                <dd ng:if="!ctrl.crop" class="metadata-line__info metadata-line__info--crop">
-                    <span class="metadata-line__info">{{ctrl.dimensions.width}} &times; {{ctrl.dimensions.height}}</span>
-                </dd>
-
-                <dt ng:if="ctrl.crop" class="metadata-line__key">Dimensions (crop)</dt>
-                <dd ng:if="ctrl.crop" class="metadata-line__info metadata-line__info--crop">
-                    <span class="metadata-line__info">{{ctrl.dimensions.width}} &times; {{ctrl.dimensions.height}}</span>
-                </dd>
-            </dl>
-        </div>
     </div>
 
-    <div class="image-info" ng:if="ctrl.crops.length > 0">
+    <div class="image-info">
         <div class="image-info__group">
             <dl>
                 <dt class="image-info__heading">Original</dt>
