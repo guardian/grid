@@ -175,12 +175,14 @@ object UsageRightsOverride {
       "Freelance photographers - commissioned" -> commissionedPhotographer,
       "Freelance Weekend/Labs photographers - commissioned" -> commissionedPhotographer,
 
-      "Agencies - contract Rex Features" -> ((m: ImageMetadata) => agency("Rex Features")),
+      "Agencies - contract AP Collections" -> ((m: ImageMetadata) => agency("AP")),
       "Agencies - contract Barcroft Media" -> ((m: ImageMetadata) => agency("Barcroft Media")),
+      "Agencies - contract Corbis"         -> ((m: ImageMetadata) => agency("Corbis")),
       // there is no consistent collections here, but it doesn't mater as they're all free to use
       // and we only exclude from the collection property
       "Agencies - contract Getty Collections" -> ((m: ImageMetadata) => agency("Getty Images")),
       "Agencies - contract Reuters" -> ((m: ImageMetadata) => agency("Reuters")),
+      "Agencies - contract Rex Features" -> ((m: ImageMetadata) => agency("Rex Features")),
       "Agencies - contract" -> ((m: ImageMetadata) => m.copyright.map(normaliseAgencyName).map(Agency(_))),
       "Agencies - commissioned" -> commissionedAgency,
 
