@@ -1285,6 +1285,18 @@ FIXME: what to do with touch devices
     margin-left: 130px;
 }
 
+.image-info__button {
+    display: inline-block;
+    border-bottom: 1px solid #565656;
+    width: 100%;
+    padding: 10px;
+}
+
+.image-info__button:hover {
+    background-color: #666666;
+}
+
+
 .image-info__group {
     padding: 10px;
     border-bottom: 1px solid #565656;
@@ -1311,18 +1323,6 @@ FIXME: what to do with touch devices
   width: 100%;
   display: flex;
   flex-flow: row wrap;
-}
-
-.image-info__group--crop {
-    vertical-align: middle;
-}
-
-.image-info__group--crop__label {
-    padding-left: 5px;
-}
-
-.image-info__group--crop:hover {
-    background-color: #666666;
 }
 
 /*flex-basis values chosen to accommodate longest key*/
