@@ -46,7 +46,8 @@
                                     ui:sref="{ crop: null }">
                                     <img class="image-crop__image" ng:src="{{ ctrl.image.data.thumbnail | assetFile }}" />
                                 </a>
-                                <div class="image-crop__aspect-ratio">
+                                <div class="image-crop__aspect-ratio"
+                                    ng:class="{'image-crop__aspect-ratio--selected': !ctrl.crop}">
                                     <ul>
                                         <li>{{ctrl.image.data.source.dimensions.width}} &times; {{ctrl.image.data.source.dimensions.height}}</li>
                                     </ul>
@@ -58,7 +59,7 @@
             </dl>
         </div>
 
-        <div class="image-info__group">
+        <div class="image-info__group" ng:if="ctrl.crops.length > 0">
             <dl class="image-info__group--dl">
                 <dt class="image-info__heading">Crops</dt>
                 <dd class="image-info__heading--crops">
@@ -74,7 +75,8 @@
                                ui:drag-image="{{extremeAssets.smallest | assetFile}}">
                                 <img class="image-crop__image" ng:src="{{extremeAssets.smallest | assetFile}}" />
                             </a>
-                            <div class="image-crop__aspect-ratio">
+                            <div class="image-crop__aspect-ratio"
+                                ng:class="{'image-crop__aspect-ratio--selected': crop == ctrl.crop}">
                                 <ul>
                                     <li>
                                         {{crop.specification.aspectRatio | asAspectRatioWord}}

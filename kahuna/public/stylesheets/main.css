@@ -1534,12 +1534,13 @@ FIXME: what to do with touch devices
     margin-bottom: 10px;
     min-width: 100%;
     box-sizing: border-box;
+    background-color: #565656;
 }
+
 .image-crop--selected,
 .result--selected,
 .result--selected:hover {
     border-bottom: solid 5px #00adee;
-    background-color: #565656;
 }
 
 .result--selected .preview {
@@ -1556,6 +1557,10 @@ FIXME: what to do with touch devices
     background: #333;
     padding: 2px;
     font-size: 1.2rem;
+}
+
+.image-crop__aspect-ratio--selected {
+    color: #FFFFFF;
 }
 
 
