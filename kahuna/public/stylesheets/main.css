@@ -718,7 +718,7 @@ input.search-query__input {
     border: 5px solid transparent;
     box-sizing: border-box;
     margin: 5px;
-    background-color: #39393;
+    background-color: #393939;
 }
 .result--seen {
     opacity: .5;

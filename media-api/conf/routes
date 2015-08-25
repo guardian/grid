@@ -12,7 +12,7 @@ GET     /images/edits/:field        controllers.MediaApi.editsSearch(field: Stri
 # Images
 GET     /images/:id                 controllers.MediaApi.getImage(id: String)
 GET     /images/:id/fileMetadata    controllers.MediaApi.getImageFileMetadata(id: String)
-POST    /images/:id/reindex         controllers.MediaApi.cleanImage(id: String)
+POST    /images/:id/reindex         controllers.MediaApi.reindexImage(id: String)
 DELETE  /images/:id                 controllers.MediaApi.deleteImage(id: String)
 
 GET     /images                     controllers.MediaApi.imageSearch
