@@ -19,6 +19,8 @@ GET     /metadata/:id/usage-rights        controllers.EditsController.getUsageRi
 PUT     /metadata/:id/usage-rights        controllers.EditsController.setUsageRights(id: String)
 DELETE  /metadata/:id/usage-rights        controllers.EditsController.deleteUsageRights(id: String)
 
+POST    /metadata/:id/ur-to-md            controllers.EditsController.applyMetadataFromUsageRights(id: String)
+
 # Management
 GET     /management/healthcheck           com.gu.mediaservice.lib.management.Management.healthCheck
 GET     /management/manifest              com.gu.mediaservice.lib.management.Management.manifest
