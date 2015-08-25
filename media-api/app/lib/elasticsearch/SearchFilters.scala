@@ -24,7 +24,7 @@ trait SearchFilters extends ImageFields {
   val creditFilter  = freeCreditList.toNel.map(cs => filters.terms(metadataField("credit"), cs))
   val sourceFilter  = freeSourceList.toNel.map(cs => filters.terms(metadataField("source"), cs))
   val freeWhitelist = filterOrFilter(creditFilter, sourceFilter)
-  
+
   val sourceExclFilter = payGettySourceList.toNel.map(cs => filters.terms(metadataField("source"), cs))
   val freeCreditFilter = (freeWhitelist, sourceExclFilter) match {
     case (Some(whitelist), Some(sourceExcl)) => Some(filters.bool.must(whitelist).mustNot(sourceExcl))
