@@ -189,7 +189,10 @@ object UsageRightsOverride {
       "Readers pictures" -> ((m: ImageMetadata) => guardianWitness(m)),
       "Readers' pictures" -> ((m: ImageMetadata) => guardianWitness(m)),
 
-      "Free images - contract" -> freeImages
+      "Free images - contract" -> freeImages,
+
+      // Pay-for = No usage rights
+      "Agencies - fee" -> ((_: ImageMetadata) => None)
     )
 
   def getUsageRights(copyrightGroup: String, metadata: ImageMetadata) =
