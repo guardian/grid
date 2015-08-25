@@ -28,6 +28,7 @@ object ElasticSearch extends ElasticSearchClient {
   import Config.persistenceIdentifier
   import com.gu.mediaservice.lib.formatting._
 
+  val imagesAlias = Config.imagesAlias
   val host = Config.elasticsearchHost
   val port = Config.int("es.port")
   val cluster = Config("es.cluster")
