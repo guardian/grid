@@ -61,8 +61,11 @@ trait SearchFilters extends ImageFields {
   val freeFilter = filterOrFilter(freeMetadataFilter, freeUsageRightsFilter)
   val nonFreeFilter = freeFilter.map(filters.not)
 
-  val newFreeFilter = filterOrFilter(freeMetadataFilter, freeUsageRightsFilter)
+  val newFreeFilter = filterOrFilter(freeSupplierFilter, freeUsageRightsFilter)
   val newNonFreeFilter = newFreeFilter.map(filters.not)
+
+  val freeDiffFilter = filterAndFilter(freeFilter, newNonFreeFilter)
+  val nonFreeDiffFilter = filterAndFilter(newNonFreeFilter, newFreeFilter)
 
   // FIXME: There must be a better way (._.). Potentially making cost a lookup
   // again?
@@ -82,6 +85,11 @@ trait SearchFilters extends ImageFields {
   def filterOrFilter(filter: Option[FilterBuilder], orFilter: Option[FilterBuilder]): Option[FilterBuilder] = (filter, orFilter) match {
     case (Some(someFilter), Some(orSomeFilter)) => Some(filters.or(someFilter, orSomeFilter))
     case (filterOpt,    orFilterOpt)    => filterOpt orElse orFilterOpt
+  }
+
+  def filterAndFilter(filter: Option[FilterBuilder], andFilter: Option[FilterBuilder]): Option[FilterBuilder] = (filter, andFilter) match {
+    case (Some(someFilter), Some(andSomeFilter)) => Some(filters.and(someFilter, andSomeFilter))
+    case (filterOpt,    andFilterOpt)    => filterOpt orElse andFilterOpt
   }
 
 }
