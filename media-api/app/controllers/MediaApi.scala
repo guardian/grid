@@ -313,7 +313,7 @@ case class SearchParams(
   uploadedBy: Option[String],
   labels: List[String],
   hasMetadata: List[String],
-  newCostModel: Option[Boolean]
+  newCostModel: Boolean
 )
 
 object SearchParams {
@@ -350,7 +350,7 @@ object SearchParams {
       request.getQueryString("uploadedBy"),
       commaSep("labels"),
       commaSep("hasMetadata"),
-      request.getQueryString("newCostModel").map(_.toBoolean)
+      request.getQueryString("newCostModel").nonEmpty
     )
   }
 
