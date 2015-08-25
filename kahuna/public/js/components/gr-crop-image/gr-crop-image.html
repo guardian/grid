@@ -1,0 +1,7 @@
+<a ng:if="ctrl.canBeCropped" ui:sref="crop({imageId: ctrl.image.data.id})">
+    <gr-icon-label gr-icon="crop">Crop</gr-icon-label>
+</a>
+
+<span ng:if="! ctrl.canBeCropped">
+    <gr-icon-label gr-icon="warning">Cannot crop</gr-icon-label>
+</span>
