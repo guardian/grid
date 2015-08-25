@@ -312,7 +312,8 @@ case class SearchParams(
   free: Option[Boolean],
   uploadedBy: Option[String],
   labels: List[String],
-  hasMetadata: List[String]
+  hasMetadata: List[String],
+  newCostModel: Option[Boolean]
 )
 
 object SearchParams {
@@ -348,7 +349,8 @@ object SearchParams {
       request.getQueryString("free").map(_.toBoolean),
       request.getQueryString("uploadedBy"),
       commaSep("labels"),
-      commaSep("hasMetadata")
+      commaSep("hasMetadata"),
+      request.getQueryString("newCostModel").map(_.toBoolean)
     )
   }
 
