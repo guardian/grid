@@ -1285,14 +1285,15 @@ FIXME: what to do with touch devices
     margin-left: 130px;
 }
 
-.image-info__button {
+.image-info__crop-item {
     display: inline-block;
     border-bottom: 1px solid #565656;
     width: 100%;
     padding: 10px;
+    box-sizing: border-box;
 }
 
-.image-info__button:hover {
+.image-info__crop-item__button:hover {
     background-color: #666666;
 }
 
@@ -1531,13 +1532,14 @@ FIXME: what to do with touch devices
 
 .image-crop {
     margin-bottom: 10px;
-    max-width: 100%;
+    min-width: 100%;
     box-sizing: border-box;
 }
 .image-crop--selected,
 .result--selected,
 .result--selected:hover {
     border-bottom: solid 5px #00adee;
+    background-color: #565656;
 }
 
 .result--selected .preview {
@@ -1547,7 +1549,7 @@ FIXME: what to do with touch devices
 .image-crop__image {
     display: block;
     max-width: 100%;
-    max-height: 180px;
+    max-height: 64px;
 }
 
 .image-crop__aspect-ratio {
