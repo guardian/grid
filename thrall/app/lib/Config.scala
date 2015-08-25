@@ -23,6 +23,8 @@ object Config extends CommonPlayAppConfig {
 
   val imageBucket: String = properties("s3.image.bucket")
 
+  val imagesAlias = properties("es.index.alias")
+
   val thumbnailBucket: String = properties("s3.thumb.bucket")
 
   val elasticsearchHost: String =
