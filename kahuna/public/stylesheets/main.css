@@ -917,7 +917,7 @@ input.search-query__input {
 
 .results-toolbar-item__metadata-panel-controls {
     line-height: 35px;
-    width: 130px;
+    width: 129.5px;
     height: 36px;
 }
 
@@ -1289,8 +1289,11 @@ FIXME: what to do with touch devices
     display: inline-block;
     border-bottom: 1px solid #565656;
     width: 100%;
-    padding: 10px;
+    height: 50px;
+    padding: 0 10px;
+    line-height: 45px;
     box-sizing: border-box;
+    font-size: 1.4rem;
 }
 
 .image-info__crop-item__button:hover {
@@ -1306,6 +1309,10 @@ FIXME: what to do with touch devices
 .image-info__group--last {
     border-bottom: 0;
     clear: both;
+}
+
+.image-info__group--crops {
+    padding: 10px;
 }
 
 .image-info__group table {
