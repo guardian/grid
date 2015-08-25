@@ -607,6 +607,10 @@ input.search-query__input {
     font-weight: bold;
 }
 
+.clear-button:hover {
+    color: white;
+}
+
 .advanced-search-help {
     top: 49px;
     padding-right: 50px;

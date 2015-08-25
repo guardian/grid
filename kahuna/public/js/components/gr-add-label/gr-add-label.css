@@ -1,5 +1,5 @@
-gr-add-label .button-shy {
-    box-shadow: none;
+gr-add-label:hover {
+    color: white;
 }
 
 gr-add-label .small {
