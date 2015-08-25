@@ -5,17 +5,18 @@ import '../edits/service';
 import '../analytics/track';
 import '../components/gr-delete-image/gr-delete-image';
 import '../components/gr-add-label/gr-add-label';
+import '../downloader/downloader';
+import '../components/gr-crop-image/gr-crop-image';
 
-var image = angular.module(
-        'kahuna.image.controller',
-        [
-            'kahuna.edits.service',
-            'gr.image.service',
-            'analytics.track',
-            'gr.deleteImage',
-            'gr.addLabel'
-        ]
-);
+var image = angular.module('kahuna.image.controller', [
+    'kahuna.edits.service',
+    'gr.image.service',
+    'analytics.track',
+    'gr.deleteImage',
+    'gr.addLabel',
+    'gr.downloader',
+    'gr.cropImage'
+]);
 
 image.controller('ImageCtrl', [
     '$rootScope',
@@ -140,10 +141,6 @@ image.controller('ImageCtrl', [
         function updateAbilities(image) {
             imageService(image).states.canDelete.then(deletable => {
                 ctrl.canBeDeleted = deletable;
-            });
-
-            mediaCropper.canBeCropped(image).then(croppable => {
-                ctrl.canBeCropped = croppable;
             });
 
             editsService.canUserEdit(image).then(editable => {
