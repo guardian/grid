@@ -75,6 +75,7 @@ object MessageConsumer {
       case "delete-image"               => deleteImage
       case "update-image"               => indexImage
       case "update-image-exports"       => updateImageExports
+      case "delete-image-exports"       => deleteImageExports
       case "update-image-user-metadata" => updateImageUserMetadata
       case "heartbeat"                  => heartbeat
     }
@@ -101,6 +102,9 @@ object MessageConsumer {
 
   def updateImageExports(exports: JsValue): Future[UpdateResponse] =
     withImageId(exports)(id => ElasticSearch.updateImageExports(id, exports \ "data"))
+
+  def deleteImageExports(exports: JsValue): Future[UpdateResponse] =
+    withImageId(exports)(id => ElasticSearch.deleteImageExports(id))
 
   def updateImageUserMetadata(metadata: JsValue): Future[UpdateResponse] =
     withImageId(metadata)(id => ElasticSearch.applyImageMetadataOverride(id, metadata \ "data"))
