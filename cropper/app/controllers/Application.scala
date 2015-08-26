@@ -1,11 +1,9 @@
 package controllers
 
-import java.net.{URI, URL}
-
 import scala.concurrent.Future
 
 import _root_.play.api.data._, Forms._
-import _root_.play.api.mvc.{Action, Controller}
+import _root_.play.api.mvc.Controller
 import _root_.play.api.libs.json._
 import _root_.play.api.libs.concurrent.Execution.Implicits._
 import _root_.play.api.libs.ws.WS
@@ -13,7 +11,7 @@ import _root_.play.api.Logger
 import _root_.play.api.Play.current
 
 import com.gu.mediaservice.lib.auth
-import com.gu.mediaservice.lib.auth.{AuthenticatedService, PandaUser, KeyStore}
+import com.gu.mediaservice.lib.auth.{PermissionStore, AuthenticatedService, PandaUser, KeyStore}
 import com.gu.mediaservice.lib.argo.ArgoHelpers
 import com.gu.mediaservice.lib.argo.model.Link
 import com.gu.mediaservice.model.{Crop, SourceImage, CropSource, Bounds}
@@ -22,7 +20,7 @@ import org.joda.time.DateTime
 
 import lib.imaging.ExportResult
 
-import lib._, Files._
+import lib._
 
 
 object Application extends Controller with ArgoHelpers {
@@ -30,6 +28,7 @@ object Application extends Controller with ArgoHelpers {
   import Config.{rootUri, loginUriTemplate, kahunaUri}
 
   val keyStore = new KeyStore(Config.keyStoreBucket, Config.awsCredentials)
+  val permissionStore = new PermissionStore(Config.configBucket, Config.awsCredentials)
   val Authenticated = auth.Authenticated(keyStore, loginUriTemplate, kahunaUri)
 
   val mediaApiKey = keyStore.findKey("cropper").getOrElse(throw new Error("Missing cropper API key in key bucket"))
