@@ -330,6 +330,7 @@ object SearchParams {
   def commasToList(s: String): List[String] = s.trim.split(',').toList
   def listToCommas(list: List[String]): Option[String] = list.toNel.map(_.list.mkString(","))
 
+  // TODO: return descriptive 400 error if invalid
   def parseIntFromQuery(s: String): Option[Int] = Try(s.toInt).toOption
   def parseBooleanFromQuery(s: String): Option[Boolean] = Try(s.toBoolean).toOption
 
