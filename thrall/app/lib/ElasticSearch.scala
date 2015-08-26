@@ -120,7 +120,8 @@ object ElasticSearch extends ElasticSearchClient {
         "lastModified" -> asGroovy(JsString(currentIsoDateString))
       ).asJava)
       .setScript(
-          deleteExportsScript,
+          deleteExportsScript +
+          updateLastModifiedScript,
         scriptType)
       .executeAndLog(s"removing exports from image $id")
       .incrementOnFailure(failedExportsUpdates) { case e: VersionConflictEngineException => true }
