@@ -60,6 +60,26 @@
     display: inline-block;
 }
 
+.batch-archive {
+    float: left;
+    width: 100%;
+    box-sizing: border-box;
+    /* ^ because it has elements floating in it */
+}
+
+.batch-archive .metadata-line {
+    float: left;
+}
+
+.batch-archive__action {
+    float: right;
+}
+
+.batch-archive--all-archived .metadata-line,
+.batch-archive--mixed .metadata-line .material-icons {
+    color: #ccc;
+}
+
 .batch-archive__archive:hover,
 .batch-archive__unarchive:hover {
     color: white;
