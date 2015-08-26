@@ -33,7 +33,7 @@ object CropStore extends S3ImageStorage(Config.imgPublishingCredentials) {
       case (key, value)       => key -> value
     }.mapValues(_.toString)
 
-    storeImage(Config.imgPublishingBucket, filename, file, Some(mimeType), filteredMetadata) map { s3Object=>
+    storeImage(Config.imgPublishingBucket, filename, file, Some(mimeType), filteredMetadata) map { s3Object =>
       Asset(
         translateImgHost(s3Object.uri),
         Some(s3Object.size),
@@ -89,6 +89,10 @@ object CropStore extends S3ImageStorage(Config.imgPublishingCredentials) {
         }
       }.collect { case (cid, s) => s }.toList
     }
+  }
+
+  def deleteCrops(id: String) = {
+    deleteFolder(Config.imgPublishingBucket, id)
   }
 
   // FIXME: this doesn't really belong here
