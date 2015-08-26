@@ -7,3 +7,4 @@ publishing.image.host={{ImageOriginWebsite}}
 publishing.aws.id={{AwsId}}
 publishing.aws.secret={{AwsSecret}}
 sns.topic.arn={{SnsTopicArn}}
+s3.config.bucket={{ConfigBucket}}
