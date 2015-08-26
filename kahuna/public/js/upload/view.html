@@ -22,14 +22,20 @@
 
     <file-prompt class="section" ng:if="!ctrl.latestJob"></file-prompt>
 
-    <section class="section" ng:if="ctrl.myUploads.data.length > 0">
+    <section class="section">
         <div class="flex-container section-heading">
             <h2>Your past 50 uploads</h2>
             <span class="flex-spacer"></span>
             <a ng:controller="SessionCtrl" class="coloured-link" ui:sref="search.results({uploadedBy: user.email, nonFree: true})">View all your uploads</a>
         </div>
 
-        <ul>
+        <p ng:if="! ctrl.myUploads">
+            Loading...
+        </p>
+        <p ng:if="ctrl.myUploads.data.length == 0">
+            You haven’t uploaded anything.
+        </p>
+        <ul ng:if="ctrl.myUploads.data.length > 0">
             <li ng:repeat="result in ctrl.myUploads.data" class="upload-result">
                 <ui-image-editor image="result"></ui-image-editor>
                 <gr-delete-image class="flex-right"
