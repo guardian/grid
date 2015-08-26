@@ -109,6 +109,12 @@ object Application extends Controller with ArgoHelpers {
     }
   }
 
+  def deleteCrops(id: String) = Authenticated.async { httpRequest =>
+    Crops.deleteCrops(id).map { _ => println("deleted"); Ok("Deleted!") } recover {
+      case _ => println("not deleted"); BadRequest("Not Deleted!")
+    }
+  }
+
   def fetchSourceFromApi(uri: String): Future[SourceImage] =
     for (resp <- WS.url(uri).withHeaders("X-Gu-Media-Key" -> mediaApiKey).get)
     yield {

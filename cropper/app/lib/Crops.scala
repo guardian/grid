@@ -48,6 +48,8 @@ object Crops {
     })
   }
 
+  def deleteCrops(id: String) = { CropStore.deleteCrops(id) }
+
   def dimensionsFromConfig(bounds: Bounds, aspectRatio: Float): List[Dimensions] = if (bounds.isPortrait)
       Config.portraitCropSizingHeights.filter(_ <= bounds.height).map(h => Dimensions(math.round(h * aspectRatio), h))
     else
