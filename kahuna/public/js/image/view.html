@@ -11,7 +11,8 @@
     <gr-top-bar-actions>
         <gr-delete-image class="top-bar-item top-bar-item--filled"
                          ng:if="ctrl.canBeDeleted"
-                         images="[ctrl.image]">
+                         image="ctrl.image"
+                         on-success="ctrl.onDeleteSuccess" on-error="ctrl.onDeleteError">
         </gr-delete-image>
 
         <a class="top-bar-item" href="{{ ctrl.image.data.source | assetFile }}" download target="_blank">
@@ -49,20 +50,18 @@
         </div>
 
         <div class="image-info__group">
-            <dl class="image-info__wrap metadata-line drop-menu image-info__usage-rights"
+            <dl class="image-info__wrap metadata-line image-info__usage-rights"
                  ng:init="showUsageRights = false">
-                <dt>Usage rights category</dt>
-                <div class="image-info__usage-rights drop-menu__items drop-menu__items--right"
-                     ng:show="showUsageRights">
+                <dt class="metadata-line__key">Usage rights category</dt>
 
-                    <gr:usage-rights-editor
-                        gr:usage-rights="[ctrl.usageRights]"
-                        gr:on-save="showUsageRights = false"
-                        gr:on-cancel="showUsageRights = false">
-                    </gr:usage-rights-editor>
-                </div>
+                <gr-usage-rights-editor
+                    ng:show="showUsageRights"
+                    gr:usage-rights="[ctrl.usageRights]"
+                    gr:on-save="showUsageRights = false"
+                    gr:on-cancel="showUsageRights = false">
+                </gr-usage-rights-editor>
 
-                <dd class="image-info__title">
+                <dd class="image-info__title" ng:hide="showUsageRights">
                     {{ctrl.usageCategory || 'None'}}
                 </dd>
 
