@@ -114,6 +114,17 @@ object ElasticSearch extends ElasticSearchClient {
       .executeAndLog(s"updating exports on image $id")
       .incrementOnFailure(failedExportsUpdates) { case e: VersionConflictEngineException => true }
 
+  def deleteImageExports(id: String)(implicit ex: ExecutionContext): Future[UpdateResponse] =
+    prepareImageUpdate(id)
+      .setScriptParams(Map(
+        "lastModified" -> asGroovy(JsString(currentIsoDateString))
+      ).asJava)
+      .setScript(
+          deleteExportsScript,
+        scriptType)
+      .executeAndLog(s"removing exports from image $id")
+      .incrementOnFailure(failedExportsUpdates) { case e: VersionConflictEngineException => true }
+
   def applyImageMetadataOverride(id: String, metadata: JsValue)(implicit ex: ExecutionContext): Future[UpdateResponse] =
     prepareImageUpdate(id)
       .setScriptParams(Map(
@@ -172,6 +183,9 @@ object ElasticSearch extends ElasticSearchClient {
        |   ctx._source.exports += exports;
        | }
     """.stripMargin
+
+  private val deleteExportsScript =
+    "ctx._source.remove('exports')".stripMargin
 
   // Script that refreshes the "metadata" object by recomputing it
   // from the original metadata and the overrides
