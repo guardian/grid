@@ -186,9 +186,8 @@ lazyTable.controller('GuLazyTableCtrl', ['range', function(range) {
     function createGetItemPosition$({items$, cellWidth$, cellHeight$, columns$,
                                      preloadedRows$, viewportTop$, viewportBottom$}) {
         return (item) => {
-            // first() because it's static and should never change
             // share() because it's an expensive operation
-            const index$  = items$.map(items => items.indexOf(item)).first().share();
+            const index$  = items$.map(items => items.indexOf(item)).share();
             const getPos$ = createGetCellPosition$({
                 cellWidth$, cellHeight$, columns$,
                 preloadedRows$, viewportTop$, viewportBottom$
