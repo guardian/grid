@@ -14,6 +14,8 @@ object Config extends CommonPlayAppProperties with CommonPlayAppConfig {
   val awsCredentials: AWSCredentials =
     new BasicAWSCredentials(properties("aws.id"), properties("aws.secret"))
 
+  val configBucket: String = properties("s3.config.bucket")
+
   val imgPublishingBucket = properties("publishing.image.bucket")
   val imgPublishingCredentials: AWSCredentials =
     new BasicAWSCredentials(properties("publishing.aws.id"), properties("publishing.aws.secret"))
