@@ -1416,11 +1416,9 @@ FIXME: what to do with touch devices
     padding-top: 2px;
 }
 
-.image-info__usage-rights {
-    width: 100%;
-    box-sizing: border-box;
-    font-weight: bold;
-    color: #999;
+.image-info__usage-rights .ure {
+    background: #333;
+    padding: 10px;
 }
 
 .image-info--multiple {
