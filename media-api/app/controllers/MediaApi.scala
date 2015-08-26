@@ -389,7 +389,7 @@ object SearchParams {
       "uploadedBy"        -> searchParams.uploadedBy,
       "labels"            -> listToCommas(searchParams.labels),
       "hasMetadata"       -> listToCommas(searchParams.hasMetadata),
-      "costModelDiff"     -> Some(searchParams.costModelDiff.toString())
+      "costModelDiff"     -> Some(searchParams.costModelDiff.toString)
     ).foldLeft(Map[String, String]()) {
       case (acc, (key, Some(value))) => acc + (key -> value)
       case (acc, (_,   None))        => acc
