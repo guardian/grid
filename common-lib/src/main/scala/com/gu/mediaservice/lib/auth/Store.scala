@@ -67,6 +67,7 @@ object PermissionType extends Enumeration {
   type PermissionType = Value
   val EditMetadata = Value("editMetadata")
   val DeleteImage  = Value("deleteImage")
+  val DeleteCrops  = Value("deleteCrops")
 }
 
 class PermissionStore(bucket: String, credentials: AWSCredentials) extends BaseStore[PermissionType, List[String]](bucket, credentials) {

@@ -1,5 +1,7 @@
 package controllers
 
+import com.gu.mediaservice.lib.auth.PermissionType.PermissionType
+
 import scala.concurrent.Future
 
 import _root_.play.api.data._, Forms._
@@ -11,7 +13,7 @@ import _root_.play.api.Logger
 import _root_.play.api.Play.current
 
 import com.gu.mediaservice.lib.auth
-import com.gu.mediaservice.lib.auth.{PermissionStore, AuthenticatedService, PandaUser, KeyStore}
+import com.gu.mediaservice.lib.auth._
 import com.gu.mediaservice.lib.argo.ArgoHelpers
 import com.gu.mediaservice.lib.argo.model.Link
 import com.gu.mediaservice.model.{Crop, SourceImage, CropSource, Bounds}
@@ -21,6 +23,9 @@ import org.joda.time.DateTime
 import lib.imaging.ExportResult
 
 import lib._
+
+import scalaz.{Validation, ValidationNel}
+import scalaz.syntax.validation._
 
 
 object Application extends Controller with ArgoHelpers {
@@ -108,14 +113,41 @@ object Application extends Controller with ArgoHelpers {
     }
   }
 
-  def deleteCrops(id: String) = Authenticated.async { httpRequest =>
-    // TODO: Perimssions!
-    Crops.deleteCrops(id).map { _ =>
-      Notifications.publish(Json.obj("id" -> id), "delete-image-exports")
-      Ok("Deleted!")
-    } recover {
-      case _ => BadRequest("Not Deleted!")
+  case object PermissionDeniedError {
+    val key = "permission-denied"
+  }
+  def userCan(user: Principal, permission: PermissionType.PermissionType): Future[Validation[PermissionDeniedError.type, Principal]] = {
+    user match {
+      case u: PandaUser => {
+        permissionStore.hasPermission(permission, u.email.toLowerCase) map { hasPermission =>
+          if (hasPermission) {
+            u.success
+          }
+          else {
+            PermissionDeniedError.fail
+          }
+        }
+      }
+      // think about only allowing certain services i.e. on `service.name`?
+      case service: AuthenticatedService => Future.successful(service.success)
+      case _ => Future.successful(PermissionDeniedError.fail)
     }
+  }
+
+  def deleteCrops(id: String) = Authenticated.async { httpRequest =>
+    userCan(httpRequest.user, PermissionType.DeleteCrops).flatMap(valid => {
+      valid.fold(
+        error => Future.successful(respondError(Forbidden, error.key, "You cannot delete crops")),
+        user  => {
+          Crops.deleteCrops(id).map { _ =>
+            Notifications.publish(Json.obj("id" -> id), "delete-image-exports")
+            Accepted
+          } recover {
+            case _ => respondError(BadRequest, "deletion-error", "Could not delete crops")
+          }
+        }
+      )
+    })
   }
 
   def fetchSourceFromApi(uri: String): Future[SourceImage] =
