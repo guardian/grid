@@ -330,6 +330,9 @@ object SearchParams {
   def commasToList(s: String): List[String] = s.trim.split(',').toList
   def listToCommas(list: List[String]): Option[String] = list.toNel.map(_.list.mkString(","))
 
+  def parseIntFromQuery(s: String): Option[Int] = Try(s.toInt).toOption
+  def parseBooleanFromQuery(s: String): Option[Boolean] = Try(s.toBoolean).toOption
+
   def apply(request: Request[Any]): SearchParams = {
 
     def commaSep(key: String): List[String] = request.getQueryString(key).toList.flatMap(commasToList)
@@ -341,25 +344,25 @@ object SearchParams {
       query,
       structuredQuery,
       request.getQueryString("ids").map(_.split(",").toList),
-      request.getQueryString("offset") flatMap (s => Try(s.toInt).toOption) getOrElse 0,
-      request.getQueryString("length") flatMap (s => Try(s.toInt).toOption) getOrElse 10,
-      request.getQueryString("orderBy") orElse request.getQueryString("sortBy"),
+      request.getQueryString("offset") flatMap parseIntFromQuery getOrElse 0,
+      request.getQueryString("length") flatMap parseIntFromQuery getOrElse 10,
+      request.getQueryString("orderBy"),
       request.getQueryString("since") flatMap parseDateFromQuery,
       request.getQueryString("until") flatMap parseDateFromQuery,
       request.getQueryString("modifiedSince") flatMap parseDateFromQuery,
       request.getQueryString("modifiedUntil") flatMap parseDateFromQuery,
       request.getQueryString("takenSince") flatMap parseDateFromQuery,
       request.getQueryString("takenUntil") flatMap parseDateFromQuery,
-      request.getQueryString("archived").map(_.toBoolean),
-      request.getQueryString("hasExports").map(_.toBoolean),
+      request.getQueryString("archived") flatMap parseBooleanFromQuery,
+      request.getQueryString("hasExports") flatMap parseBooleanFromQuery,
       request.getQueryString("hasIdentifier"),
       request.getQueryString("missingIdentifier"),
-      request.getQueryString("valid").map(_.toBoolean),
-      request.getQueryString("free").map(_.toBoolean),
+      request.getQueryString("valid") flatMap parseBooleanFromQuery,
+      request.getQueryString("free") flatMap parseBooleanFromQuery,
       request.getQueryString("uploadedBy"),
       commaSep("labels"),
       commaSep("hasMetadata"),
-      request.getQueryString("costModelDiff").nonEmpty
+      request.getQueryString("costModelDiff") flatMap (s => Try(s.toBoolean).toOption) getOrElse false
     )
   }
 
