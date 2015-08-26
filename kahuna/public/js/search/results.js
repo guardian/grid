@@ -6,8 +6,6 @@ import '../services/panel';
 import '../util/async';
 import '../util/seq';
 import '../components/gu-lazy-table/gu-lazy-table';
-import '../downloader/downloader';
-import '../components/gr-delete-image/gr-delete-image';
 
 export var results = angular.module('kahuna.search.results', [
     'kahuna.services.selection',
@@ -15,9 +13,7 @@ export var results = angular.module('kahuna.search.results', [
     'kahuna.services.panel',
     'util.async',
     'util.seq',
-    'gu.lazyTable',
-    'gr.downloader',
-    'gr.deleteImage'
+    'gu.lazyTable'
 ]);
 
 
@@ -318,13 +314,7 @@ results.controller('SearchResultsCtrl', [
 
         ctrl.imageHasBeenSelected = (image) => selection.isSelected(image);
 
-        ctrl.toggleSelection = (image, select) => {
-            selection.toggleSelection(image, select);
-
-            selection.canUserDelete().then(deletable => {
-                ctrl.userCanDelete = deletable;
-            });
-        };
+        ctrl.toggleSelection = (image, select) => selection.toggleSelection(image, select);
 
         ctrl.onImageClick = function (image, $event) {
             if (ctrl.inSelectionMode()) {
@@ -376,41 +366,6 @@ results.controller('SearchResultsCtrl', [
             }
         });
 
-        const updateImageArray = (images, image) => {
-            const index = images.findIndex(i => image.data.id === i.data.id);
-
-            if (index > -1){
-                images.splice(index, 1);
-            }
-        };
-
-        const updatePositions = (image) => {
-            // an image has been deleted, so update the imagePositions map, by
-            // decrementing the value of all images after the one deleted.
-            var positionIndex = imagesPositions.get(image.data.id);
-
-            imagesPositions.delete(image.data.id);
-
-            imagesPositions.forEach((value, key) => {
-                if (value > positionIndex) {
-                    imagesPositions.set(key, value - 1);
-                }
-            });
-        };
-
-        const freeImageDeleteListener = $rootScope.$on('images-deleted', (e, images) => {
-            images.forEach(image => {
-                selection.remove(image);
-
-                updateImageArray(ctrl.images, image);
-                updateImageArray(ctrl.imagesAll, image);
-
-                updatePositions(image);
-
-                ctrl.totalResults--;
-            });
-        });
-
         // Safer than clearing the timeout in case of race conditions
         // FIXME: nicer (reactive?) way to do this?
         var scopeGone = false;
@@ -418,7 +373,6 @@ results.controller('SearchResultsCtrl', [
         $scope.$on('$destroy', () => {
             scrollPosition.save($stateParams);
             freeUpdateListener();
-            freeImageDeleteListener();
             selection.clear();
             scopeGone = true;
         });

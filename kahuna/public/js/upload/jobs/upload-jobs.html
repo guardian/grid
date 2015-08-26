@@ -33,7 +33,9 @@
 
         <gr-delete-image class="flex-right"
                          ng:if="job.canBeDeleted"
-                         images="[job.image]">
+                         image="job.image"
+                         on-success="ctrl.onDeleteSuccess"
+                         on-error="ctrl.onDeleteError">
         </gr-delete-image>
     </li>
 </ul>
