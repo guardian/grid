@@ -110,8 +110,12 @@ object Application extends Controller with ArgoHelpers {
   }
 
   def deleteCrops(id: String) = Authenticated.async { httpRequest =>
-    Crops.deleteCrops(id).map { _ => println("deleted"); Ok("Deleted!") } recover {
-      case _ => println("not deleted"); BadRequest("Not Deleted!")
+    // TODO: Perimssions!
+    Crops.deleteCrops(id).map { _ =>
+      Notifications.publish(Json.obj("id" -> id), "delete-image-exports")
+      Ok("Deleted!")
+    } recover {
+      case _ => BadRequest("Not Deleted!")
     }
   }
 
