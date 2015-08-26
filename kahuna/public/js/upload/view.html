@@ -20,7 +20,7 @@
         <ui-upload-jobs jobs="ctrl.latestJob"></ui-upload-jobs>
     </section>
 
-    <file-prompt ng:if="!ctrl.latestJob"></file-prompt>
+    <file-prompt class="section" ng:if="!ctrl.latestJob"></file-prompt>
 
     <section class="section" ng:if="ctrl.myUploads.data.length > 0">
         <div class="flex-container section-heading">
