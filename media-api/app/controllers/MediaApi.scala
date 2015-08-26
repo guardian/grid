@@ -363,7 +363,7 @@ object SearchParams {
       request.getQueryString("uploadedBy"),
       commaSep("labels"),
       commaSep("hasMetadata"),
-      request.getQueryString("costModelDiff") flatMap (s => Try(s.toBoolean).toOption) getOrElse false
+      request.getQueryString("costModelDiff") flatMap parseBooleanFromQuery getOrElse false
     )
   }
 
