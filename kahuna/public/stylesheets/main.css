@@ -671,15 +671,11 @@ input.search-query__input {
 
 .crop-item {
     display: inline-block;
-    border-bottom: 1px solid #565656;
     width: 100%;
-    height: 50px;
     padding: 0 10px;
     line-height: 45px;
     box-sizing: border-box;
     font-size: 1.4rem;
-    color: white;
-    background-color: magenta;
 }
 
 .crop-item:hover {
@@ -1295,6 +1291,10 @@ FIXME: what to do with touch devices
 
 .image-info__group--crops {
     padding: 10px;
+}
+
+.image-info__group--original {
+    border-top: 1px solid #565656;
 }
 
 .image-info__group table {
