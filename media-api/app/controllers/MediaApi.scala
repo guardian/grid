@@ -19,7 +19,7 @@ import Syntax._
 import scalaz.syntax.std.list._
 
 import lib.elasticsearch._
-import lib.{Notifications, Config, ImageResponse}
+import lib.{Permissions, Notifications, Config, ImageResponse}
 import lib.querysyntax.{Condition, Parser}
 
 import com.gu.mediaservice.lib.auth
@@ -109,18 +109,20 @@ object MediaApi extends Controller with ArgoHelpers {
     isUploaderOrHasPermission(request, source, PermissionType.DeleteImage)
   }
 
-
   def getImage(id: String) = Authenticated.async { request =>
     val include = getIncludedFromParams(request)
 
     ElasticSearch.getImageById(id) flatMap {
       case Some(source) => {
+        // TODO: move write and delete permission to lib
         val withWritePermission = canUserWriteMetadata(request, source)
         val withDeletePermission = canUserDeleteImage(request, source)
+        val withDeleteCropsPermission = Permissions.canUserDeleteCrops(request.user)
 
-        Future.sequence(List(withWritePermission, withDeletePermission)).map {
-          case List(writePermission, deletePermission) =>
-            val (imageData, imageLinks, imageActions) = ImageResponse.create(id, source, writePermission, deletePermission, include)
+        Future.sequence(List(withWritePermission, withDeletePermission, withDeleteCropsPermission)).map {
+          case List(writePermission, deletePermission, deleteCropPermission) =>
+            val (imageData, imageLinks, imageActions) =
+              ImageResponse.create(id, source, writePermission, deletePermission, deleteCropPermission, include)
             respond(imageData, imageLinks, imageActions)
         }
       }
@@ -216,12 +218,15 @@ object MediaApi extends Controller with ArgoHelpers {
     val include = getIncludedFromParams(request)
 
     def hitToImageEntity(elasticId: ElasticSearch.Id, source: JsValue): Future[EmbeddedEntity[JsValue]] = {
+      // TODO: move write and delete permission to lib
       val withWritePermission = canUserWriteMetadata(request, source)
       val withDeletePermission = canUserDeleteImage(request, source)
+      val withDeleteCropsPermission = Permissions.canUserDeleteCrops(request.user)
 
-      Future.sequence(List(withWritePermission, withDeletePermission)).map {
-        case List(writePermission, deletePermission) =>
-          val (imageData, imageLinks, imageActions) = ImageResponse.create(elasticId, source, writePermission, deletePermission, include)
+      Future.sequence(List(withWritePermission, withDeletePermission, withDeleteCropsPermission)).map {
+        case List(writePermission, deletePermission, deleteCropsPermission) =>
+          val (imageData, imageLinks, imageActions) =
+            ImageResponse.create(elasticId, source, writePermission, deletePermission, deleteCropsPermission, include)
           val id = (imageData \ "id").as[String]
           val imageUri = URI.create(s"$rootUri/images/$id")
           EmbeddedEntity(uri = imageUri, data = Some(imageData), imageLinks, imageActions)
