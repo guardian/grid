@@ -1,5 +1,7 @@
 package controllers
 
+import com.gu.mediaservice.lib.auth.PermissionType
+
 import scala.concurrent.Future
 
 import _root_.play.api.data._, Forms._
@@ -11,7 +13,7 @@ import _root_.play.api.Logger
 import _root_.play.api.Play.current
 
 import com.gu.mediaservice.lib.auth
-import com.gu.mediaservice.lib.auth.{PermissionStore, AuthenticatedService, PandaUser, KeyStore}
+import com.gu.mediaservice.lib.auth._
 import com.gu.mediaservice.lib.argo.ArgoHelpers
 import com.gu.mediaservice.lib.argo.model.Link
 import com.gu.mediaservice.model.{Crop, SourceImage, CropSource, Bounds}
@@ -26,6 +28,7 @@ import lib._
 object Application extends Controller with ArgoHelpers {
 
   import Config.{rootUri, loginUriTemplate, kahunaUri}
+  import Permissions.validateUserWithPermissions
 
   val keyStore = new KeyStore(Config.keyStoreBucket, Config.awsCredentials)
   val Authenticated = auth.Authenticated(keyStore, loginUriTemplate, kahunaUri)
@@ -104,6 +107,19 @@ object Application extends Controller with ArgoHelpers {
       ) ++ (links getOrElse Json.obj())
 
       Ok(entity).as(ArgoMediaType)
+    }
+  }
+
+  def deleteCrops(id: String) = Authenticated.async { httpRequest =>
+    validateUserWithPermissions(httpRequest.user, PermissionType.DeleteCrops) flatMap { user =>
+      Crops.deleteCrops(id).map { _ =>
+        Notifications.publish(Json.obj("id" -> id), "delete-image-exports")
+        Accepted
+      } recover {
+        case _ => respondError(BadRequest, "deletion-error", "Could not delete crops")
+      }
+    } recover {
+      case PermissionDeniedError => respondError(Unauthorized, "permission-denied", "You cannot delete crops")
     }
   }
 
