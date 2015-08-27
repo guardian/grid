@@ -669,6 +669,23 @@ input.search-query__input {
     margin-top: 12px;
 }
 
+.crop-item {
+    display: inline-block;
+    border-bottom: 1px solid #565656;
+    width: 100%;
+    height: 50px;
+    padding: 0 10px;
+    line-height: 45px;
+    box-sizing: border-box;
+    font-size: 1.4rem;
+    color: white;
+    background-color: magenta;
+}
+
+.crop-item:hover {
+    background-color: #666666;
+}
+
 /* ==========================================================================
    File uploader
    ========================================================================== */
@@ -917,7 +934,7 @@ input.search-query__input {
 
 .results-toolbar-item__metadata-panel-controls {
     line-height: 35px;
-    width: 129.5px;
+    width: 128.5px;
     height: 36px;
 }
 
@@ -1284,24 +1301,6 @@ FIXME: what to do with touch devices
     margin-right: 300px;
     margin-left: 130px;
 }
-
-.image-info__crop-item {
-    display: inline-block;
-    border-bottom: 1px solid #565656;
-    width: 100%;
-    height: 50px;
-    padding: 0 10px;
-    line-height: 45px;
-    box-sizing: border-box;
-    font-size: 1.4rem;
-    color: white;
-    background-color: magenta;
-}
-
-.image-info__crop-item__button:hover {
-    background-color: #666666;
-}
-
 
 .image-info__group {
     padding: 10px;
