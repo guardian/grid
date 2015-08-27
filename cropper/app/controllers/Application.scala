@@ -111,7 +111,7 @@ object Application extends Controller with ArgoHelpers {
   }
 
   def deleteCrops(id: String) = Authenticated.async { httpRequest =>
-    validateUserWithPermissions(httpRequest.user, PermissionType.DeleteCrops) map { user =>
+    validateUserWithPermissions(httpRequest.user, PermissionType.DeleteCrops) flatMap { user =>
       Crops.deleteCrops(id).map { _ =>
         Notifications.publish(Json.obj("id" -> id), "delete-image-exports")
         Accepted
@@ -119,8 +119,8 @@ object Application extends Controller with ArgoHelpers {
         case _ => respondError(BadRequest, "deletion-error", "Could not delete crops")
       }
     } recover {
-      case PermissionDeniedError => Future.successful(respondError(Unauthorized, "permission-denied", "You cannot delete crops"))
-    } flatMap (a => a) // <- flattening the futures for the response
+      case PermissionDeniedError => respondError(Unauthorized, "permission-denied", "You cannot delete crops")
+    }
   }
 
   def fetchSourceFromApi(uri: String): Future[SourceImage] =
