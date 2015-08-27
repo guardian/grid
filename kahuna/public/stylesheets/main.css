@@ -1267,6 +1267,9 @@ FIXME: what to do with touch devices
     border-right: 1px solid #565656;
 }
 
+.image-details__delete-crops {
+    border-top: 1px solid #565656;
+}
 
 .image-details:after {
     clear: both;
