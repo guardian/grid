@@ -1,6 +1,6 @@
 import angular from 'angular';
 import JSZip from 'jszip';
-
+import './downloader.css!';
 export const downloader = angular.module('gr.downloader', []);
 
 downloader.controller('DownloaderCtrl',
@@ -44,11 +44,11 @@ downloader.directive('grDownloader', function() {
             images: '=grImages' // crappy two way binding
         },
         template: `
-            <button ng:if="ctrl.images.size > 1"
+            <button class="download" ng:if="ctrl.images.size > 1"
                 type="button" title="Download images" ng:click="ctrl.download()">
                 <gr-icon-label gr-icon="file_download">Download</gr-icon-label>
             </button>
-            <a ng:if="ctrl.images.size == 1"
+            <a class="download" ng:if="ctrl.images.size == 1"
                 href="{{ ctrl.getFirstImageSource() | assetFile }}" download target="_blank">
                 <gr-icon-label gr-icon="file_download">Download</gr-icon-label>
             </a>`
