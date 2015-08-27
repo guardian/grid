@@ -1,6 +1,5 @@
 package controllers
 
-import java.net.URI
 import scala.concurrent.Future
 
 import _root_.play.api.data._, Forms._
@@ -95,13 +94,10 @@ object Application extends Controller with ArgoHelpers {
   def getCrops(id: String) = Authenticated.async { httpRequest =>
 
   CropStore.listCrops(id) map (_.toList) map { crops =>
-      val deleteCropsAction = Action("delete-crops", URI.create(s"$rootUri/$id/crops"), "DELETE")
-
       val links = (for {
         crop <- crops.headOption
         link = Link("image", crop.specification.uri)
       } yield List(link)) getOrElse List()
-
 
       respond(crops, links)
     }
