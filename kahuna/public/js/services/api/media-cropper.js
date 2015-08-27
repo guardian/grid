@@ -26,8 +26,16 @@ apiServices.factory('mediaCropper',
 
     function canBeCropped(image) {
         // Images can only be cropped if there is a link to the crops
+        // TODO: this should be an Action
         return image.getLink('crops').
             then(() => true, () => false);
+    }
+
+    function canDeleteCrops(image) {
+        // return a function that performs the action
+        const actionName = 'delete-crops';
+        return image.getAction(actionName).
+            then(action => () => image.perform(actionName));
     }
 
     function getCropsFor(image) {
@@ -37,6 +45,7 @@ apiServices.factory('mediaCropper',
     return {
         createCrop,
         canBeCropped,
-        getCropsFor
+        getCropsFor,
+        canDeleteCrops
     };
 }]);
