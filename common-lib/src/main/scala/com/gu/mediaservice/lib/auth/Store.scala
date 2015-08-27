@@ -75,7 +75,7 @@ class PermissionStore(bucket: String, credentials: AWSCredentials) extends BaseS
     store.future().map {
       list => {
         list.get(permission) match {
-          case Some(userList) => userList.contains(userEmail)
+          case Some(userList) => userList.contains(userEmail.toLowerCase)
           case None => false
         }
       }
