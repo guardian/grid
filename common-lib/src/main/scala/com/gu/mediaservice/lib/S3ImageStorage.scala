@@ -7,7 +7,8 @@ import com.amazonaws.auth.AWSCredentials
 import com.gu.mediaservice.lib.aws.S3
 import org.slf4j.LoggerFactory
 
-
+// TODO: If deleteObject fails - we should be catching the errors here
+// to avoid them bubbling to the application
 class S3ImageStorage(credentials: AWSCredentials) extends S3(credentials) with ImageStorage {
   private val log = LoggerFactory.getLogger(getClass)
 
@@ -20,8 +21,6 @@ class S3ImageStorage(credentials: AWSCredentials) extends S3(credentials) with I
   }
 
   def deleteFolder(bucket: String, id: String) = Future {
-    // TODO: If deleteObject fails - we should be catching the errors here
-    // to avoid them bubbling to the application
 		val files = client.listObjects(bucket, id).getObjectSummaries.asScala
 		files.foreach(file => client.deleteObject(bucket, file.getKey))
 		log.info(s"Deleting images in folder $id from bucket $bucket")
