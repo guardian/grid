@@ -296,10 +296,9 @@
             </ul>
         </div>
 
-        <div class="image-info__group image-info__group--last batch-archive" ng:switch="ctrl.archivedState"
-            ng:class="{'batch-archive--archiving': ctrl.archiving}">
-            <div ng:switch-when="mixed" class="batch-archive--mixed">
-                <div class="metadata-line">
+        <div class="image-info__group image-info__group--last batch-archive" ng:switch="ctrl.archivedState" ng:class="{'batch-archive--archiving': ctrl.archiving}">
+            <div ng:switch-when="mixed" class="flex-container batch-archive--mixed">
+                <div class="metadata-line flex-spacer">
                     <gr-icon>star_half</gr-icon>
                     <span ng:if="!ctrl.archiving">{{ctrl.archivedCount}} archived</span>
                     <span ng:if="ctrl.archiving">Saving…</span>
@@ -313,8 +312,9 @@
                     </button>
                 </span>
             </div>
-            <div ng:switch-when="archived" class="batch-archive--all-archived">
-                <div class="metadata-line">
+
+            <div ng:switch-when="archived" class="flex-container batch-archive--all-archived">
+                <div class="metadata-line flex-spacer">
                     <gr-icon>star</gr-icon>
                     <span ng:if="!ctrl.archiving">All archived</span>
                     <span ng:if="ctrl.archiving">Saving…</span>
@@ -325,8 +325,9 @@
                     </button>
                 </span>
             </div>
-            <div ng:switch-when="unarchived" class="batch-archive--all-unarchived">
-                <div class="metadata-line">
+
+            <div ng:switch-when="unarchived" class="flex-container batch-archive--all-unarchived">
+                <div class="metadata-line flex-spacer">
                     <gr-icon>star_border</gr-icon>
                     <span ng:if="!ctrl.archiving">All unarchived</span>
                     <span ng:if="ctrl.archiving">Saving…</span>
