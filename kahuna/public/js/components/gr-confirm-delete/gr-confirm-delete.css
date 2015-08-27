@@ -1,9 +1,7 @@
 .gr-confirm-delete {
     box-sizing: border-box;
-    min-width: 120px;
     height: 100%;
     line-height: inherit;
-    border: 1px solid #888;
 }
 
 .gr-confirm-delete:hover {
