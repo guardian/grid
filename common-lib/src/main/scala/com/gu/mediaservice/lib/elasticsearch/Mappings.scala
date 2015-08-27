@@ -10,7 +10,7 @@ object Mappings {
   val nonAnalyzedString = Json.obj("type" -> "string", "index" -> "not_analyzed")
   val nonIndexedString  = Json.obj("type" -> "string", "index" -> "no")
 
-  val snowballAnalysedString = Json.obj("type" -> "string", "analyzer" -> "snowball")
+  val sStemmerAnalysedString = Json.obj("type" -> "string", "analyzer" -> "english_s_stemmer")
   val standardAnalysedString = Json.obj("type" -> "string", "analyzer" -> "standard")
 
   val simpleSuggester = Json.obj(
@@ -52,10 +52,10 @@ object Mappings {
 
   val metadataMapping = nonDynamicObj(
     "dateTaken" -> dateFormat,
-    "description" -> snowballAnalysedString,
+    "description" -> sStemmerAnalysedString,
     "byline" -> standardAnalysedString,
     "bylineTitle" -> standardAnalysedString,
-    "title" -> snowballAnalysedString,
+    "title" -> sStemmerAnalysedString,
     "credit" -> nonAnalyzedString,
     "creditUri" -> nonAnalyzedString,
     "copyright" -> standardAnalysedString,
