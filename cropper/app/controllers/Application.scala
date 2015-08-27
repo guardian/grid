@@ -27,7 +27,7 @@ import lib._
 object Application extends Controller with ArgoHelpers {
 
   import Config.{rootUri, loginUriTemplate, kahunaUri}
-  import CropperPermissions.validateUserCanDeleteCrops
+  import CropperPermissions.{validateUserCanDeleteCrops, canUserDeleteCrops}
 
   val keyStore = new KeyStore(Config.keyStoreBucket, Config.awsCredentials)
   val Authenticated = auth.Authenticated(keyStore, loginUriTemplate, kahunaUri)
@@ -93,22 +93,18 @@ object Application extends Controller with ArgoHelpers {
   }
 
   def getCrops(id: String) = Authenticated.async { httpRequest =>
-    CropStore.listCrops(id) map (_.toList) flatMap { crops =>
+
+  CropStore.listCrops(id) map (_.toList) flatMap { crops =>
+      val deleteCropsAction = Action("delete-crops", URI.create(s"$rootUri/$id/crops"), "DELETE")
 
       val links = (for {
         crop <- crops.headOption
         link = Link("image", crop.specification.uri)
       } yield List(link)) getOrElse List()
 
-      val canDeleteCrops = for {
-        _ <- validateUserCanDeleteCrops(httpRequest.user)
-        deleteCrops = Action("delete-crops", URI.create(s"$rootUri/$id/crops"), "DELETE")
-      } yield if (crops.nonEmpty) List(deleteCrops) else List()
-
-      canDeleteCrops map {
-        case deleteCropAction => respond(crops, links, deleteCropAction)
-      } recover {
-        case _ => respond(crops, links)
+      canUserDeleteCrops(httpRequest.user) map {
+        case true  => respond(crops, links, List(deleteCropsAction))
+        case false =>  respond(crops, links)
       }
     }
   }

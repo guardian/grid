@@ -14,25 +14,29 @@ object Permissions {
 
   def validateUserWithPermissions(user: Principal, permission: PermissionType.PermissionType)
                                  (implicit ec: ExecutionContext): Future[Principal] =
+    getPermissionValForUser(permission, user) flatMap {
+      case true  => Future.successful(user)
+      case false => failFuture
+    }
+
+  def getPermissionValForUser(permission: PermissionType.PermissionType, user: Principal): Future[Boolean] = {
     user match {
       case u: PandaUser => {
-        permissionStore.hasPermission(permission, u.email) flatMap { hasPermission =>
-          if (hasPermission) {
-            Future.successful(u)
-          } else {
-            failFuture
-          }
-        }
+        permissionStore.hasPermission(permission, u.email)
       }
       // think about only allowing certain services i.e. on `service.name`?
-      case service: AuthenticatedService => Future.successful(service)
-      case _ => failFuture
+      case service: AuthenticatedService => Future.successful(true)
+      case _ => Future.successful(false)
     }
+  }
 }
 
 // Creating as a seperate object as I want to move ^
 // to common to use across projects
 object CropperPermissions {
-  def validateUserCanDeleteCrops(user: Principal)(implicit ec: ExecutionContext) =
+  def validateUserCanDeleteCrops(user: Principal)(implicit ex: ExecutionContext) =
     validateUserWithPermissions(user, PermissionType.DeleteCrops)
+
+  def canUserDeleteCrops(user: Principal)(implicit ex: ExecutionContext) =
+    getPermissionValForUser(PermissionType.DeleteCrops, user)
 }
