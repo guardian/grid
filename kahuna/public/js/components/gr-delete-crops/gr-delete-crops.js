@@ -6,21 +6,18 @@ export const deleteCrops = angular.module('gr.deleteCrops', [
     'gr.confirmDelete'
 ]);
 
-deleteCrops.controller('grDeleteCropsCtrl', [
-    '$scope', 'mediaCropper', 'onValChange',
-    function ($scope, mediaCropper, onValChange) {
+deleteCrops.controller('grDeleteCropsCtrl', ['mediaCropper',
+    function (mediaCropper) {
         let ctrl = this;
 
         ctrl.active = false;
 
-        mediaCropper.canDeleteCrops(ctrl.image).then(action => {
+        mediaCropper.canDeleteCrops(ctrl.image).then(deleteCrops => {
             activate();
-            ctrl.delete = action;
+            ctrl.delete = () => {
+                deleteCrops().then(ctrl.onDelete);
+            };
         }, deactivate);
-
-
-
-
 
         function activate() {
             ctrl.active = true;
@@ -39,10 +36,12 @@ deleteCrops.directive('grDeleteCrops', [function () {
         controllerAs: 'ctrl',
         bindToController: true,
         scope: {
-            image: '=grImage'
+            image: '=grImage',
+            onDelete: '&grOnDelete'
         },
         template: `
             <gr-confirm-delete
+                gr:label="Delete crops"
                 gr:on-confirm="ctrl.delete()">
             </gr-confirm-delete>
         `

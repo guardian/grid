@@ -97,6 +97,8 @@ image.controller('ImageCtrl', [
         ctrl.isUsefulMetadata = isUsefulMetadata;
         ctrl.cropSelected = cropSelected;
 
+        ctrl.getCrops = getCrops;
+
         // TODO: move this to a more sensible place.
         function getCropDimensions() {
             return {
@@ -109,17 +111,22 @@ image.controller('ImageCtrl', [
             return ctrl.image.data.source.dimensions;
         }
 
-        mediaCropper.getCropsFor(image).then(crops => {
-            ctrl.crops = crops;
-            ctrl.crop = crops.find(crop => crop.id === cropKey);
-        }).finally(() => {
-            ctrl.dimensions = angular.isDefined(ctrl.crop) ?
-                getCropDimensions() : getImageDimensions();
+        function getCrops() {
+            mediaCropper.getCropsFor(image).then(crops => {
+                ctrl.crops = crops;
+                ctrl.crop = crops.find(crop => crop.id === cropKey);
+            }).finally(() => {
+                ctrl.dimensions = angular.isDefined(ctrl.crop) ?
+                    getCropDimensions() : getImageDimensions();
 
-            if (angular.isDefined(ctrl.crop)) {
-                ctrl.originalDimensions = getImageDimensions();
-            }
-        });
+                if (angular.isDefined(ctrl.crop)) {
+                    ctrl.originalDimensions = getImageDimensions();
+                }
+            });
+        }
+        getCrops();
+
+
 
         updateAbilities(image);
 
