@@ -9,7 +9,9 @@ object PermissionDeniedError extends Throwable("Permission denied")
 object Permissions {
   val permissionStore = new PermissionStore(Config.configBucket, Config.awsCredentials)
 
-  def validateUserWithPermissions(user: Principal, permission: PermissionType.PermissionType)(implicit ec: ExecutionContext): Future[Principal] = {
+  def validateUserWithPermissions(user: Principal, permission: PermissionType.PermissionType)
+                                 (implicit ec: ExecutionContext): Future[Principal] = {
+
     val failFuture = Future.failed(PermissionDeniedError)
 
     user match {
