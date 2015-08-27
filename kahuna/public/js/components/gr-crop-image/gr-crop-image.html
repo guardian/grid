@@ -1,9 +1,10 @@
-<a class="image-info__crop-item image-info__crop-item__button"
-            ng:if="ctrl.canBeCropped"
-            ui:sref="crop({imageId: ctrl.image.data.id})">
+<a ng:if="ctrl.canBeCropped"
+	class="crop-item crop-item__button" 
+	ui:sref="crop({imageId: ctrl.image.data.id})">
     <gr-icon-label gr-icon="crop">Crop image</gr-icon-label>
 </a>
 
-<span ng:if="! ctrl.canBeCropped" class="image-info__crop-item">
+<span ng:if="! ctrl.canBeCropped"
+	class="crop-item">
 	<gr-icon-label gr-icon="crop">Cannot crop</gr-icon-label>
 </span>
