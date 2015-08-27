@@ -186,7 +186,7 @@ object ElasticSearch extends ElasticSearchClient {
     """.stripMargin
 
   private val deleteExportsScript =
-    "ctx._source.remove('exports')".stripMargin
+    "ctx._source.remove('exports');".stripMargin
 
   // Script that refreshes the "metadata" object by recomputing it
   // from the original metadata and the overrides
