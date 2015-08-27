@@ -1350,10 +1350,18 @@ FIXME: what to do with touch devices
     color: #ccc;
 }
 
+.image-info__file-size {
+    color: #ccc;
+    font-size: 1.2rem;
+    font-weight: normal;
+}
+
 .image-info__heading {
     color: #999;
     font-weight: bold;
     padding-bottom: 3px;
+    display: flex;
+    justify-content: space-between;
 }
 
 .image-info__heading--crops {
