@@ -31,6 +31,7 @@
     <div class="image-info">
         <gr-crop-image image="ctrl.image"></gr-crop-image>
         <gr-delete-crops
+            class="image-details__delete-crops"
             gr:image="ctrl.image"
             gr:on-delete="ctrl.getCrops()"></gr-delete-crops>
         <div class="image-info__group image-info__group--original">

@@ -1,6 +1,7 @@
 import angular from 'angular';
 
 import '../gr-confirm-delete/gr-confirm-delete';
+import './gr-delete-crops.css!';
 
 export const deleteCrops = angular.module('gr.deleteCrops', [
     'gr.confirmDelete'
@@ -41,6 +42,7 @@ deleteCrops.directive('grDeleteCrops', [function () {
         },
         template: `
             <gr-confirm-delete
+                class="delete-crops"
                 gr:label="Delete crops"
                 gr:on-confirm="ctrl.delete()">
             </gr-confirm-delete>
