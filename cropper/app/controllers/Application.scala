@@ -1,9 +1,5 @@
 package controllers
 
-import java.net.URI
-
-import play.api.http.HttpVerbs
-
 import scala.concurrent.Future
 
 import _root_.play.api.data._, Forms._
@@ -17,7 +13,7 @@ import _root_.play.api.Play.current
 import com.gu.mediaservice.lib.auth
 import com.gu.mediaservice.lib.auth._
 import com.gu.mediaservice.lib.argo.ArgoHelpers
-import com.gu.mediaservice.lib.argo.model.{Action, Link}
+import com.gu.mediaservice.lib.argo.model.Link
 import com.gu.mediaservice.model.{Crop, SourceImage, CropSource, Bounds}
 
 import org.joda.time.DateTime
@@ -30,7 +26,7 @@ import lib._
 object Application extends Controller with ArgoHelpers {
 
   import Config.{rootUri, loginUriTemplate, kahunaUri}
-  import CropperPermissions.validateUserCanDeleteCrops
+  import Permissions.validateUserCanDeleteCrops
 
   val keyStore = new KeyStore(Config.keyStoreBucket, Config.awsCredentials)
   val Authenticated = auth.Authenticated(keyStore, loginUriTemplate, kahunaUri)
@@ -96,28 +92,19 @@ object Application extends Controller with ArgoHelpers {
   }
 
   def getCrops(id: String) = Authenticated.async { httpRequest =>
-    CropStore.listCrops(id) map (_.toList) flatMap { crops =>
 
+  CropStore.listCrops(id) map (_.toList) map { crops =>
       val links = (for {
         crop <- crops.headOption
         link = Link("image", crop.specification.uri)
       } yield List(link)) getOrElse List()
 
-      val canDeleteCrops = for {
-        _ <- validateUserCanDeleteCrops(httpRequest.user)
-        deleteCrops = Action("delete-crops", new URI(s"$rootUri/$id/crops"), "DELETE")
-      } yield if (crops.nonEmpty) List(deleteCrops) else List()
-
-      canDeleteCrops map {
-        case deleteCropAction => respond(crops, links, deleteCropAction)
-      } recover {
-        case _ => respond(crops, links)
-      }
+      respond(crops, links)
     }
   }
 
   def deleteCrops(id: String) = Authenticated.async { httpRequest =>
-    validateUserCanDeleteCrops(httpRequest.user) map { user =>
+    validateUserCanDeleteCrops(httpRequest.user) flatMap { user =>
       Crops.deleteCrops(id).map { _ =>
         Notifications.publish(Json.obj("id" -> id), "delete-image-exports")
         Accepted
@@ -125,8 +112,8 @@ object Application extends Controller with ArgoHelpers {
         case _ => respondError(BadRequest, "deletion-error", "Could not delete crops")
       }
     } recover {
-      case PermissionDeniedError => Future.successful(respondError(Unauthorized, "permission-denied", "You cannot delete crops"))
-    } flatMap (a => a) // <- flattening the futures for the response
+      case PermissionDeniedError => respondError(Unauthorized, "permission-denied", "You cannot delete crops")
+    }
   }
 
   def fetchSourceFromApi(uri: String): Future[SourceImage] =
