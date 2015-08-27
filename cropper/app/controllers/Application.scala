@@ -103,13 +103,13 @@ object Application extends Controller with ArgoHelpers {
         link = Link("image", crop.specification.uri)
       } yield List(link)) getOrElse List()
 
-      val canDeleteCropsAction = for {
+      val canDeleteCrops = for {
         _ <- validateUserCanDeleteCrops(httpRequest.user)
         deleteCrops = Action("delete-crops", new URI(s"$rootUri/$id/crops"), "DELETE")
-      } yield List(deleteCrops)
+      } yield if (crops.nonEmpty) List(deleteCrops) else List()
 
-      canDeleteCropsAction map {
-        case actions => respond(crops, links, actions)
+      canDeleteCrops map {
+        case deleteCropAction => respond(crops, links, deleteCropAction)
       } recover {
         case _ => respond(crops, links)
       }
