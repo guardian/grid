@@ -1,6 +1,6 @@
 package controllers
 
-import com.gu.mediaservice.lib.auth.PermissionType.PermissionType
+import com.gu.mediaservice.lib.auth.PermissionType
 
 import scala.concurrent.Future
 
