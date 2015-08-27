@@ -53,6 +53,7 @@ trait ElasticSearchClient {
     client.admin.indices
       .prepareCreate(index)
       .addMapping(imageType, Mappings.imageMapping)
+      .setSettings(IndexSettings.imageSettings)
       .execute.actionGet
   }
 

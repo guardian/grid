@@ -2,6 +2,7 @@ package lib.elasticsearch
 
 import lib.usagerights.{DeprecatedConfig => UsageRightsDepConfig}
 import com.gu.mediaservice.lib.config.UsageRightsConfig
+import org.elasticsearch.index.query.FilterBuilder
 
 import scalaz.syntax.std.list._
 
@@ -22,10 +23,8 @@ trait SearchFilters extends ImageFields {
   // to a canonical representation in the future
   val creditFilter  = freeCreditList.toNel.map(cs => filters.terms(metadataField("credit"), cs))
   val sourceFilter  = freeSourceList.toNel.map(cs => filters.terms(metadataField("source"), cs))
-  val freeWhitelist = (creditFilter, sourceFilter) match {
-    case (Some(credit), Some(source)) => Some(filters.or(credit, source))
-    case (creditOpt,    sourceOpt)    => creditOpt orElse sourceOpt
-  }
+  val freeWhitelist = filterOrFilter(creditFilter, sourceFilter)
+
   val sourceExclFilter = payGettySourceList.toNel.map(cs => filters.terms(metadataField("source"), cs))
   val freeCreditFilter = (freeWhitelist, sourceExclFilter) match {
     case (Some(whitelist), Some(sourceExcl)) => Some(filters.bool.must(whitelist).mustNot(sourceExcl))
@@ -49,31 +48,24 @@ trait SearchFilters extends ImageFields {
   val suppliersWithExclusionsFilter = suppliersWithExclusionsFilters.toList.toNel.map(filters.or)
 
   val suppliersNoExclusionsFilter = suppliersNoExclusions.toNel.map(filters.terms(usageRightsField("supplier"), _))
-  val freeSupplierFilter = (suppliersWithExclusionsFilter, suppliersNoExclusionsFilter) match {
-    case (Some(withExclusions), Some(noExclusions)) => Some(filters.or(withExclusions, noExclusions))
-    case (withExclusionsOpt,    noExclusionsOpt)    => withExclusionsOpt orElse noExclusionsOpt
-  }
-
+  val freeSupplierFilter = filterOrFilter(suppliersWithExclusionsFilter, suppliersNoExclusionsFilter)
 
   // Merge legacy and new way of matching free images (matching either is enough)
-  val freeMetadataFilter = (freeCreditFilter, freeSupplierFilter) match {
-    case (Some(freeCredit), Some(freeSupplier)) => Some(filters.or(freeCredit, freeSupplier))
-    case (freeCreditOpt,    freeSupplierOpt)    => freeCreditOpt orElse freeSupplierOpt
-  }
-
+  val freeMetadataFilter = filterOrFilter(freeCreditFilter, freeSupplierFilter)
 
   // We're showing `Conditional` here too as we're considering them potentially
   // free. We could look into sending over the search query as a cost filter
   // that could take a comma separated list e.g. `cost=free,conditional`.
   val freeUsageRightsFilter = freeToUseCategories.toNel.map(filters.terms(usageRightsField("category"), _))
 
-  val freeFilter = (freeMetadataFilter, freeUsageRightsFilter) match {
-    case (Some(freeMetadata), Some(freeUsageRights)) => Some(filters.or(freeMetadata, freeUsageRights))
-    case (freeMetadataOpt,    freeUsageRightsOpt)    => freeMetadataOpt orElse freeUsageRightsOpt
-  }
-
-
+  val freeFilter = filterOrFilter(freeMetadataFilter, freeUsageRightsFilter)
   val nonFreeFilter = freeFilter.map(filters.not)
+
+  val newFreeFilter = filterOrFilter(freeSupplierFilter, freeUsageRightsFilter)
+  val newNonFreeFilter = newFreeFilter.map(filters.not)
+
+  val freeDiffFilter = filterAndFilter(freeFilter, newNonFreeFilter)
+  val nonFreeDiffFilter = filterAndFilter(newNonFreeFilter, newFreeFilter)
 
   // FIXME: There must be a better way (._.). Potentially making cost a lookup
   // again?
@@ -89,5 +81,15 @@ trait SearchFilters extends ImageFields {
     "commissioned-photographer",
     "pool"
   )
+
+  def filterOrFilter(filter: Option[FilterBuilder], orFilter: Option[FilterBuilder]): Option[FilterBuilder] = (filter, orFilter) match {
+    case (Some(someFilter), Some(orSomeFilter)) => Some(filters.or(someFilter, orSomeFilter))
+    case (filterOpt,    orFilterOpt)    => filterOpt orElse orFilterOpt
+  }
+
+  def filterAndFilter(filter: Option[FilterBuilder], andFilter: Option[FilterBuilder]): Option[FilterBuilder] = (filter, andFilter) match {
+    case (Some(someFilter), Some(andSomeFilter)) => Some(filters.and(someFilter, andSomeFilter))
+    case (filterOpt,    andFilterOpt)    => filterOpt orElse andFilterOpt
+  }
 
 }
