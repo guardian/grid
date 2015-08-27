@@ -17,7 +17,7 @@ exports.handler = function(event, context) {
     // Object key may have spaces or unicode non-ASCII characters.
     var srcKey = decodeURIComponent(event.Records[0].s3.object.key.replace(/\+/g, " "));
 
-    // Download the image from S3, transform, and upload to a different S3 bucket.
+    // Download the image from S3 and upload it to image loader
     async.waterfall([
         function download(next) {
             // Download the image from S3 into a buffer.
