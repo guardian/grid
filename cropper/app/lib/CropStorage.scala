@@ -2,9 +2,8 @@ package lib
 
 import java.io.File
 import java.net.{URI,URL}
-import java.util.concurrent.Executors
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.Future
 
 import com.gu.mediaservice.lib.S3ImageStorage
 import com.gu.mediaservice.model.{Dimensions, Asset, Crop, CropSource, Bounds}
