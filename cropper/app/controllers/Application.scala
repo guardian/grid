@@ -24,13 +24,11 @@ import lib.imaging.ExportResult
 
 import lib._
 
-import scalaz.{Validation, ValidationNel}
-import scalaz.syntax.validation._
-
 
 object Application extends Controller with ArgoHelpers {
 
   import Config.{rootUri, loginUriTemplate, kahunaUri}
+  import Permissions.validateUserWithPermissions
 
   val keyStore = new KeyStore(Config.keyStoreBucket, Config.awsCredentials)
   val permissionStore = new PermissionStore(Config.configBucket, Config.awsCredentials)
@@ -113,41 +111,17 @@ object Application extends Controller with ArgoHelpers {
     }
   }
 
-  case object PermissionDeniedError {
-    val key = "permission-denied"
-  }
-  def userCan(user: Principal, permission: PermissionType.PermissionType): Future[Validation[PermissionDeniedError.type, Principal]] = {
-    user match {
-      case u: PandaUser => {
-        permissionStore.hasPermission(permission, u.email.toLowerCase) map { hasPermission =>
-          if (hasPermission) {
-            u.success
-          }
-          else {
-            PermissionDeniedError.fail
-          }
-        }
-      }
-      // think about only allowing certain services i.e. on `service.name`?
-      case service: AuthenticatedService => Future.successful(service.success)
-      case _ => Future.successful(PermissionDeniedError.fail)
-    }
-  }
-
   def deleteCrops(id: String) = Authenticated.async { httpRequest =>
-    userCan(httpRequest.user, PermissionType.DeleteCrops).flatMap(valid => {
-      valid.fold(
-        error => Future.successful(respondError(Forbidden, error.key, "You cannot delete crops")),
-        user  => {
-          Crops.deleteCrops(id).map { _ =>
-            Notifications.publish(Json.obj("id" -> id), "delete-image-exports")
-            Accepted
-          } recover {
-            case _ => respondError(BadRequest, "deletion-error", "Could not delete crops")
-          }
-        }
-      )
-    })
+    validateUserWithPermissions(httpRequest.user, PermissionType.DeleteCrops) map { user =>
+      Crops.deleteCrops(id).map { _ =>
+        Notifications.publish(Json.obj("id" -> id), "delete-image-exports")
+        Accepted
+      } recover {
+        case _ => respondError(BadRequest, "deletion-error", "Could not delete crops")
+      }
+    } recover {
+      case PermissionDeniedError => Future.successful(respondError(Unauthorized, "permission-denied", "You cannot delete crops"))
+    } flatMap (a => a) // <- flattening the futures for the response
   }
 
   def fetchSourceFromApi(uri: String): Future[SourceImage] =
