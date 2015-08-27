@@ -32,7 +32,8 @@ object ImageResponse {
   }
 
   def create(id: String, esSource: JsValue, withWritePermission: Boolean,
-             withDeletePermission: Boolean, included: List[String] = List()):
+             withDeletePermission: Boolean, withDeleteCropPermissions: Boolean,
+             included: List[String] = List()):
             (JsValue, List[Link], List[Action]) = {
     val (image: Image, source: JsValue) = Try {
       val image = esSource.as[Image]
@@ -68,7 +69,7 @@ object ImageResponse {
 
     val links = imageLinks(id, secureUrl, withWritePermission, valid)
 
-    val actions = imageActions(id, isPersisted, withWritePermission, withDeletePermission)
+    val actions = imageActions(id, isPersisted, withWritePermission, withDeletePermission, withDeleteCropPermissions)
 
     (data, links, actions)
   }
@@ -88,16 +89,22 @@ object ImageResponse {
     if (valid) (cropLink :: baseLinks) else baseLinks
   }
 
-  def imageActions(id: String, isPersisted: Boolean, withWritePermission: Boolean, withDeletePermission: Boolean) = {
+  def imageActions(id: String, isPersisted: Boolean, withWritePermission: Boolean,
+                   withDeletePermission: Boolean, withDeleteCropsPermission: Boolean) = {
+
     val imageUri = URI.create(s"${Config.rootUri}/images/$id")
     val reindexUri = URI.create(s"${Config.rootUri}/images/$id/reindex")
+    val canDelete = ! isPersisted && withDeletePermission
+
     val deleteAction = Action("delete", imageUri, "DELETE")
     val reindexAction = Action("reindex", reindexUri, "POST")
+    val deleteCropsAction = Action("delete-crops", URI.create(s"${Config.cropperUri}/$id/crops"), "DELETE")
 
     List(
-      if (! isPersisted && withDeletePermission) List(deleteAction) else Nil,
-      if (withWritePermission) List(reindexAction) else Nil
-    ).flatten
+      deleteAction       -> canDelete,
+      reindexAction      -> withWritePermission,
+      deleteCropsAction  -> withDeleteCropsPermission
+    ).filter{ case (action, active) => active } map { case (action, active) => action }
   }
 
   def addUsageCost(source: JsValue): Reads[JsObject] = {
