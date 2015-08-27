@@ -59,6 +59,7 @@ object ImageResponse {
     val valid = ImageExtras.isValid(source \ "metadata")
 
     val isPersisted = imageIsPersisted(image)
+    val withDeleteCrops = withDeleteCropPermissions && image.exports.nonEmpty
 
     val data = source.transform(addSecureSourceUrl(secureUrl))
       .flatMap(_.transform(wrapUserMetadata(id)))
@@ -69,7 +70,7 @@ object ImageResponse {
 
     val links = imageLinks(id, secureUrl, withWritePermission, valid)
 
-    val actions = imageActions(id, isPersisted, withWritePermission, withDeletePermission, withDeleteCropPermissions)
+    val actions = imageActions(id, isPersisted, withWritePermission, withDeletePermission, withDeleteCrops)
 
     (data, links, actions)
   }
@@ -90,7 +91,7 @@ object ImageResponse {
   }
 
   def imageActions(id: String, isPersisted: Boolean, withWritePermission: Boolean,
-                   withDeletePermission: Boolean, withDeleteCropsPermission: Boolean) = {
+                   withDeletePermission: Boolean, withDeleteCrops: Boolean) = {
 
     val imageUri = URI.create(s"${Config.rootUri}/images/$id")
     val reindexUri = URI.create(s"${Config.rootUri}/images/$id/reindex")
@@ -103,7 +104,7 @@ object ImageResponse {
     List(
       deleteAction       -> canDelete,
       reindexAction      -> withWritePermission,
-      deleteCropsAction  -> withDeleteCropsPermission
+      deleteCropsAction  -> withDeleteCrops
     ).filter{ case (action, active) => active } map { case (action, active) => action }
   }
 
