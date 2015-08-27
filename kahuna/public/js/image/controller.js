@@ -179,19 +179,21 @@ image.controller('ImageCtrl', [
                 });
         };
 
-        ctrl.onDeleteSuccess = function () {
+        const freeImageDeleteListener = $rootScope.$on('images-deleted', () => {
             $state.go('search');
-        };
+        });
 
-        ctrl.onDeleteError = function (err) {
-            if (err.body.errorKey === 'image-not-found') {
-                $state.go('search');
-            } else {
+        const freeImageDeleteFailListener = $rootScope.$on('image-delete-failure', (err, image) => {
+            if (err.body && err.body.errorMessage) {
                 $window.alert(err.body.errorMessage);
+            } else {
+                $window.alert(`Failed to delete image ${image.data.id}`);
             }
-        };
+        });
 
         $scope.$on('$destroy', function() {
             freeUpdateListener();
+            freeImageDeleteListener();
+            freeImageDeleteFailListener();
         });
     }]);
