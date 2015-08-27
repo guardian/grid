@@ -98,7 +98,7 @@ object ImageResponse {
 
     val deleteAction = Action("delete", imageUri, "DELETE")
     val reindexAction = Action("reindex", reindexUri, "POST")
-    val deleteCropsAction = Action("delete-crops", URI.create(s"${Config.cropperUri}/$id/crops"), "DELETE")
+    val deleteCropsAction = Action("delete-crops", URI.create(s"${Config.cropperUri}/crops/$id"), "DELETE")
 
     List(
       deleteAction       -> canDelete,
