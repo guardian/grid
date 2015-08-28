@@ -9,4 +9,7 @@ object Permissions extends PermissionsHandler {
 
   def validateUserCanDeleteCrops(user: Principal)(implicit ex: ExecutionContext) =
     validateUserWithPermissions(user, PermissionType.DeleteCrops)
+
+  def canUserDeleteCrops(user: Principal)(implicit ex: ExecutionContext) =
+    getPermissionValForUser(PermissionType.DeleteCrops, user)
 }
