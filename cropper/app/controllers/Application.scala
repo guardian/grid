@@ -1,5 +1,7 @@
 package controllers
 
+import java.net.URI
+
 import scala.concurrent.Future
 
 import _root_.play.api.data._, Forms._
@@ -13,7 +15,7 @@ import _root_.play.api.Play.current
 import com.gu.mediaservice.lib.auth
 import com.gu.mediaservice.lib.auth._
 import com.gu.mediaservice.lib.argo.ArgoHelpers
-import com.gu.mediaservice.lib.argo.model.Link
+import com.gu.mediaservice.lib.argo.model.{Action, Link}
 import com.gu.mediaservice.model.{Crop, SourceImage, CropSource, Bounds}
 
 import org.joda.time.DateTime
@@ -93,13 +95,19 @@ object Application extends Controller with ArgoHelpers {
 
   def getCrops(id: String) = Authenticated.async { httpRequest =>
 
-  CropStore.listCrops(id) map (_.toList) map { crops =>
+  CropStore.listCrops(id) map (_.toList) flatMap { crops =>
+      val deleteCropsAction =
+        Action("delete-crops", URI.create(s"${Config.rootUri}/crops/$id"), "DELETE")
+
       val links = (for {
         crop <- crops.headOption
         link = Link("image", crop.specification.uri)
       } yield List(link)) getOrElse List()
 
-      respond(crops, links)
+      Permissions.canUserDeleteCrops(httpRequest.user) map {
+        case true if crops.nonEmpty => respond(crops, links, List(deleteCropsAction))
+        case _ => respond(crops, links)
+      }
     }
   }
 
