@@ -36,7 +36,7 @@
             gr:on-delete="ctrl.onCropsDeleted()"></gr-delete-crops>
         <div class="image-info__group image-info__group--original">
             <dl>
-                <dt class="image-info__heading">Original</dt>
+                <dt class="image-info__heading">Original <span class="image-info__file-size"> {{ctrl.image.data.source.size | asFileSize}}</span></dt>
                     <dd class="image-info__heading--crops">
                         <ul class="image-crops">
                             <li class="image-crop"
