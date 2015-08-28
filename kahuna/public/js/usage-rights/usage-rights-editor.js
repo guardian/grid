@@ -18,6 +18,12 @@ usageRightsEditor.controller(
 
     var ctrl = this;
 
+    ctrl.saving = false;
+    ctrl.saved = false;
+    ctrl.categories = [];
+    ctrl.originalCats = [];
+    ctrl.model = angular.extend({}, ctrl.usageRights.data);
+
     const multiRights = { name: 'Multiple categories', value: '' };
     const noRights = { name: 'None', value: '' };
     const catsWithNoRights = () => [noRights].concat(ctrl.originalCats);
@@ -80,12 +86,6 @@ usageRightsEditor.controller(
         ctrl.update();
     }));
 
-    ctrl.saving = false;
-    ctrl.saved = false;
-    ctrl.categories = [];
-    ctrl.model = angular.extend({}, ctrl.usageRights.data);
-
-
     // TODO: What error would we like to show here?
     // TODO: How do we make this more synchronous? You can only resolve on the
     // routeProvider, which is actually bound to the UploadCtrl in this instance
@@ -100,22 +100,13 @@ usageRightsEditor.controller(
         }
     };
 
-    ctrl.remove = remove;
-
     ctrl.cancel = () => ctrl.onCancel();
-
-    ctrl.isDisabled = () => ctrl.saving;
-
-    ctrl.isNotEmpty = () => !angular.equals(ctrl.model, {});
 
     // stop saving on no/multi rights
     ctrl.savingDisabled = () => {
         return ctrl.saving ||
             angular.equals(ctrl.category, noRights) || angular.equals(ctrl.category, multiRights);
     };
-
-    ctrl.pluraliseCategory = () => ctrl.category.name +
-        (ctrl.category.name.toLowerCase().endsWith('image') ? 's' : ' images');
 
     ctrl.getOptionsFor = property => {
         const key = ctrl.category
