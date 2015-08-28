@@ -59,7 +59,8 @@
     "test": "npm run lint",
     "lint": "jscs public/js/ && jshint public/js --exclude public/js/dist/build.js",
     "dist": "jspm bundle js/main public/js/dist/build.js -m --inject",
-    "undist": "jspm unbundle && rm -f public/js/dist/build.js*"
+    "undist": "jspm unbundle && rm -f public/js/dist/build.js*",
+    "postinstall": "jspm install"
   },
   "repository": {
     "type": "git",
