@@ -669,6 +669,19 @@ input.search-query__input {
     margin-top: 12px;
 }
 
+.crop-item {
+    display: inline-block;
+    width: 100%;
+    padding: 0 10px;
+    line-height: 45px;
+    box-sizing: border-box;
+    font-size: 1.4rem;
+}
+
+.crop-item:hover {
+    background-color: #666666;
+}
+
 /* ==========================================================================
    File uploader
    ========================================================================== */
@@ -1246,14 +1259,24 @@ FIXME: what to do with touch devices
     border-left: 1px solid #565656;
     background-color: #444;
 }
+
+.image-details--crop {
+    float: left;
+    width: 130px;
+    border-right: 1px solid #565656;
+}
+
+
 .image-details:after {
     clear: both;
     content:  " ";
     display:  table;
 }
 
+/*to clear the set widths of the side panels */
 .image-holder {
     margin-right: 300px;
+    margin-left: 130px;
 }
 
 .image-info__group {
@@ -1264,6 +1287,14 @@ FIXME: what to do with touch devices
 .image-info__group--last {
     border-bottom: 0;
     clear: both;
+}
+
+.image-info__group--crops {
+    padding: 10px;
+}
+
+.image-info__group--original {
+    border-top: 1px solid #565656;
 }
 
 .image-info__group table {
@@ -1319,11 +1350,25 @@ FIXME: what to do with touch devices
     color: #ccc;
 }
 
+.image-info__file-size {
+    color: #ccc;
+    font-size: 1.2rem;
+    font-weight: normal;
+}
+
 .image-info__heading {
     color: #999;
     font-weight: bold;
     padding-bottom: 3px;
+    display: flex;
+    justify-content: space-between;
 }
+
+.image-info__heading--crops {
+    flex-basis: 100%;
+    max-width: 100%;
+}
+
 .image-info__heading--first {
     margin-top: 0;
 }
@@ -1438,6 +1483,10 @@ FIXME: what to do with touch devices
     padding-bottom: 10px;
 }
 
+.metadata-line__info--crop {
+    padding-bottom: 0;
+}
+
 .metadata-line__info a {
     color: inherit;
     border-bottom: 1px solid #999;
@@ -1477,15 +1526,20 @@ FIXME: what to do with touch devices
 }
 
 .image-crop {
-    border: solid 5px transparent;
-    max-width: 140px;
-    margin-right: 5px;
+    margin-bottom: 10px;
+    min-width: 100%;
     box-sizing: border-box;
+    background-color: #333;
 }
-.image-crop--selected,
+
+
 .result--selected,
 .result--selected:hover {
     border-color: #00adee;
+}
+
+.image-crop--selected {
+    border: solid 2px #00adee;
 }
 
 .result--selected .preview {
@@ -1494,13 +1548,19 @@ FIXME: what to do with touch devices
 
 .image-crop__image {
     display: block;
-    width: 100%;
+    max-width: 100%;
+    max-height: 64px;
 }
 
 .image-crop__aspect-ratio {
     background: #333;
     padding: 2px;
     font-size: 1.2rem;
+    border-top: 1px solid #565656;
+}
+
+.image-crop__aspect-ratio--selected {
+    color: #FFFFFF;
 }
 
 
