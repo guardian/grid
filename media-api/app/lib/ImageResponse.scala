@@ -32,8 +32,7 @@ object ImageResponse {
   }
 
   def create(id: String, esSource: JsValue, withWritePermission: Boolean,
-             withDeletePermission: Boolean, withDeleteCropPermissions: Boolean,
-             included: List[String] = List()):
+             withDeletePermission: Boolean, included: List[String] = List()):
             (JsValue, List[Link], List[Action]) = {
     val (image: Image, source: JsValue) = Try {
       val image = esSource.as[Image]
@@ -59,7 +58,6 @@ object ImageResponse {
     val valid = ImageExtras.isValid(source \ "metadata")
 
     val isPersisted = imageIsPersisted(image)
-    val withDeleteCrops = withDeleteCropPermissions && image.exports.nonEmpty
 
     val data = source.transform(addSecureSourceUrl(secureUrl))
       .flatMap(_.transform(wrapUserMetadata(id)))
@@ -70,7 +68,7 @@ object ImageResponse {
 
     val links = imageLinks(id, secureUrl, withWritePermission, valid)
 
-    val actions = imageActions(id, isPersisted, withWritePermission, withDeletePermission, withDeleteCrops)
+    val actions = imageActions(id, isPersisted, withWritePermission, withDeletePermission)
 
     (data, links, actions)
   }
@@ -91,7 +89,7 @@ object ImageResponse {
   }
 
   def imageActions(id: String, isPersisted: Boolean, withWritePermission: Boolean,
-                   withDeletePermission: Boolean, withDeleteCrops: Boolean) = {
+                   withDeletePermission: Boolean) = {
 
     val imageUri = URI.create(s"${Config.rootUri}/images/$id")
     val reindexUri = URI.create(s"${Config.rootUri}/images/$id/reindex")
@@ -99,13 +97,13 @@ object ImageResponse {
 
     val deleteAction = Action("delete", imageUri, "DELETE")
     val reindexAction = Action("reindex", reindexUri, "POST")
-    val deleteCropsAction = Action("delete-crops", URI.create(s"${Config.cropperUri}/crops/$id"), "DELETE")
 
     List(
       deleteAction       -> canDelete,
-      reindexAction      -> withWritePermission,
-      deleteCropsAction  -> withDeleteCrops
-    ).filter{ case (action, active) => active } map { case (action, active) => action }
+      reindexAction      -> withWritePermission
+    )
+    .filter{ case (action, active) => active }
+    .map   { case (action, active) => action }
   }
 
   def addUsageCost(source: JsValue): Reads[JsObject] = {
