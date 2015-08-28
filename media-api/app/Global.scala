@@ -6,7 +6,7 @@ import play.api.{Application, GlobalSettings}
 import play.api.mvc.WithFilters
 import play.filters.gzip.GzipFilter
 
-import lib.{Permissions, LogConfig, Config}
+import lib.{LogConfig, Config}
 
 import com.gu.mediaservice.lib.play.RequestLoggingFilter
 
@@ -22,7 +22,6 @@ object Global extends WithFilters(CorsFilter, RequestLoggingFilter, new GzipFilt
   override def onStart(app: Application) {
     MediaApi.keyStore.scheduleUpdates(Akka.system(app).scheduler)
     MediaApi.permissionStore.scheduleUpdates(Akka.system(app).scheduler)
-    Permissions.permissionStore.scheduleUpdates(Akka.system(app).scheduler)
   }
 
 }
