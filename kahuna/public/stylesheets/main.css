@@ -1532,9 +1532,13 @@ FIXME: what to do with touch devices
     background-color: #333;
 }
 
-.image-crop--selected,
+
 .result--selected,
 .result--selected:hover {
+    border-color: #00adee;
+}
+
+.image-crop--selected {
     border: solid 2px #00adee;
 }
 
