@@ -114,7 +114,6 @@ object MediaApi extends Controller with ArgoHelpers {
 
     ElasticSearch.getImageById(id) flatMap {
       case Some(source) => {
-        // TODO: move write and delete permission to lib
         val withWritePermission = canUserWriteMetadata(request, source)
         val withDeletePermission = canUserDeleteImage(request, source)
 
@@ -217,7 +216,6 @@ object MediaApi extends Controller with ArgoHelpers {
     val include = getIncludedFromParams(request)
 
     def hitToImageEntity(elasticId: ElasticSearch.Id, source: JsValue): Future[EmbeddedEntity[JsValue]] = {
-      // TODO: move write and delete permission to lib
       val withWritePermission = canUserWriteMetadata(request, source)
       val withDeletePermission = canUserDeleteImage(request, source)
 
