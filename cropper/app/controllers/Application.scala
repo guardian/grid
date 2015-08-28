@@ -28,7 +28,7 @@ import lib._
 object Application extends Controller with ArgoHelpers {
 
   import Config.{rootUri, loginUriTemplate, kahunaUri}
-  import Permissions.validateUserCanDeleteCrops
+  import Permissions.{validateUserCanDeleteCrops, canUserDeleteCrops}
 
   val keyStore = new KeyStore(Config.keyStoreBucket, Config.awsCredentials)
   val Authenticated = auth.Authenticated(keyStore, loginUriTemplate, kahunaUri)
@@ -104,7 +104,7 @@ object Application extends Controller with ArgoHelpers {
         link = Link("image", crop.specification.uri)
       } yield List(link)) getOrElse List()
 
-      Permissions.canUserDeleteCrops(httpRequest.user) map {
+      canUserDeleteCrops(httpRequest.user) map {
         case true if crops.nonEmpty => respond(crops, links, List(deleteCropsAction))
         case _ => respond(crops, links)
       }
