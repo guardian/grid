@@ -49,7 +49,8 @@ object MediaApi extends Controller with ArgoHelpers {
   val searchParamList = List("q", "ids", "offset", "length", "orderBy",
     "since", "until", "modifiedSince", "modifiedUntil", "takenSince", "takenUntil",
     "uploadedBy", "archived", "valid", "free",
-    "hasExports", "hasIdentifier", "missingIdentifier", "hasMetadata").mkString(",")
+    "hasExports", "hasIdentifier", "missingIdentifier", "hasMetadata",
+    "costModelDiff").mkString(",")
 
   val searchLinkHref = s"$rootUri/images{?$searchParamList}"
 
