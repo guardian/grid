@@ -1265,10 +1265,13 @@ FIXME: what to do with touch devices
     float: left;
     width: 130px;
     border-right: 1px solid #565656;
+    position: relative;
 }
 
 .image-details__delete-crops {
-    border-top: 1px solid #565656;
+    position: absolute;
+    bottom: 0;
+    width: 100%;
 }
 
 .image-details:after {

@@ -98,6 +98,8 @@ image.controller('ImageCtrl', [
         ctrl.cropSelected = cropSelected;
 
         ctrl.onCropsDeleted = () => {
+            // a bit nasty - but it updates the state of the page better than trying to do that in
+            // the client.
             $state.go('image', {imageId: ctrl.image.data.id, crop: undefined}, {reload: true});
         };
 
