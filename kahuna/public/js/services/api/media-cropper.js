@@ -34,12 +34,12 @@ apiServices.factory('mediaCropper',
     function canDeleteCrops(image) {
         // return a function that performs the action
         const actionName = 'delete-crops';
-        return image.getAction(actionName).
-            then(action => {
+        return image.follow('crops').get().then(crops =>
+            crops.getAction(actionName).then(action => {
                 if (action) {
-                    return () => image.perform(actionName)
+                    return () => crops.perform(actionName)
                 }
-            });
+            }));
     }
 
     function getCropsFor(image) {

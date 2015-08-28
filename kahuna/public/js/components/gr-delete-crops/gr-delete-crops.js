@@ -7,17 +7,26 @@ export const deleteCrops = angular.module('gr.deleteCrops', [
     'gr.confirmDelete'
 ]);
 
-deleteCrops.controller('grDeleteCropsCtrl', ['mediaCropper',
-    function (mediaCropper) {
+deleteCrops.controller('grDeleteCropsCtrl', ['$window', 'mediaCropper',
+    function ($window, mediaCropper) {
         let ctrl = this;
 
         ctrl.active = false;
 
         mediaCropper.canDeleteCrops(ctrl.image).then(deleteCrops => {
+            const deleteConfirmText = 'DELETE';
             if (deleteCrops) {
                 activate();
                 ctrl.delete = () => {
-                    deleteCrops().then(ctrl.onDelete);
+                    const superSure = $window.prompt(
+                        'If ANY of these crops are used on the site, or on any other pubic ' +
+                        'platform, they will break if you choose to delete them. \n\n'+
+                        'Type DELETE into the box below if you are 100% sure these images are not '+
+                        'used anywhere and you will never need them ever again.');
+
+                    if (superSure === deleteConfirmText) {
+                        deleteCrops().then(ctrl.onDelete);
+                    }
                 };
             }
         });
