@@ -14,18 +14,16 @@ deleteCrops.controller('grDeleteCropsCtrl', ['mediaCropper',
         ctrl.active = false;
 
         mediaCropper.canDeleteCrops(ctrl.image).then(deleteCrops => {
-            activate();
-            ctrl.delete = () => {
-                deleteCrops().then(ctrl.onDelete);
-            };
-        }, deactivate);
+            if (deleteCrops) {
+                activate();
+                ctrl.delete = () => {
+                    deleteCrops().then(ctrl.onDelete);
+                };
+            }
+        });
 
         function activate() {
             ctrl.active = true;
-        }
-
-        function deactivate() {
-            ctrl.active = false;
         }
     }
 ]);
@@ -43,6 +41,7 @@ deleteCrops.directive('grDeleteCrops', [function () {
         template: `
             <gr-confirm-delete
                 class="delete-crops"
+                ng:if="ctrl.active"
                 gr:label="Delete crops"
                 gr:on-confirm="ctrl.delete()">
             </gr-confirm-delete>
