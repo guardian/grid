@@ -30,10 +30,6 @@
 <div class="image-details image-details--crop">
     <div class="image-info">
         <gr-crop-image image="ctrl.image"></gr-crop-image>
-        <gr-delete-crops
-            class="image-details__delete-crops"
-            gr:image="ctrl.image"
-            gr:on-delete="ctrl.onCropsDeleted()"></gr-delete-crops>
         <div class="image-info__group image-info__group--original">
             <dl>
                 <dt class="image-info__heading">Original <span class="image-info__file-size"> {{ctrl.image.data.source.size | asFileSize}}</span></dt>
@@ -90,6 +86,11 @@
             </dl>
         </div>
     </div>
+
+    <gr-delete-crops
+            class="image-details__delete-crops"
+            gr:image="ctrl.image"
+            gr:on-delete="ctrl.onCropsDeleted()"></gr-delete-crops>
 </div>
 
 <div class="image-details">
