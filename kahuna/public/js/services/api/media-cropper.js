@@ -35,7 +35,11 @@ apiServices.factory('mediaCropper',
         // return a function that performs the action
         const actionName = 'delete-crops';
         return image.getAction(actionName).
-            then(action => () => image.perform(actionName));
+            then(action => {
+                if (action) {
+                    return () => image.perform(actionName)
+                }
+            });
     }
 
     function getCropsFor(image) {
