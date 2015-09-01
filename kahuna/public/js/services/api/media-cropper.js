@@ -37,7 +37,7 @@ apiServices.factory('mediaCropper',
         return image.follow('crops').get().then(crops =>
             crops.getAction(actionName).then(action => {
                 if (action) {
-                    return () => crops.perform(actionName)
+                    return () => crops.perform(actionName);
                 }
             }));
     }
