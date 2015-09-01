@@ -194,13 +194,6 @@ class SupplierProcessorsTest extends FunSpec with Matchers with MetadataHelper {
       processedImage.usageRights should be(Agency("Getty Images"))
       processedImage.metadata.credit should be(Some("AFP/Getty Images"))
     }
-
-    it("should not match pay-for Getty sources") {
-      val image = createImageFromMetadata("credit" -> "Getty Images", "source" -> "Catwalking")
-      val processedImage = applyProcessors(image)
-      processedImage.usageRights should be(NoRights)
-      processedImage.metadata.credit should be(Some("Getty Images"))
-    }
   }
 
 
