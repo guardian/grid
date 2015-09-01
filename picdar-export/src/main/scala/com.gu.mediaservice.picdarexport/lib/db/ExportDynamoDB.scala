@@ -57,6 +57,8 @@ class ExportDynamoDB(credentials: AWSCredentials, region: Region, tableName: Str
   val fetchedCondition =
     "(" + fetchFields.map(f => s"attribute_exists($f)").mkString(" AND ") + ")"
 
+  val ingestedCondition = "attribute_exists(mediaUri)"
+
   val noRightsCondition = "(attribute_not_exists(picdarRights))"
   val hasRightsNotOverridden = List("attribute_exists(picdarRights)", "attribute_not_exists(picdarRightsOverridden)")
 
@@ -99,7 +101,7 @@ class ExportDynamoDB(credentials: AWSCredentials, region: Region, tableName: Str
 
   def scanIngestedNotOverridden(dateRange: DateRange): Future[Seq[AssetRow]] = Future {
     // FIXME: query by range only?
-    val queryConds = List(fetchedCondition, "attribute_exists(mediaUri)", "attribute_not_exists(overridden)") ++
+    val queryConds = List(fetchedCondition, ingestedCondition, "attribute_not_exists(overridden)") ++
       dateRange.start.map(date => s"picdarCreated >= :startDate") ++
       dateRange.end.map(date => s"picdarCreated <= :endDate")
 
@@ -120,7 +122,7 @@ class ExportDynamoDB(credentials: AWSCredentials, region: Region, tableName: Str
 
   def scanOverridden(dateRange: DateRange): Future[Seq[AssetRow]] = Future {
     // FIXME: query by range only?
-    val queryConds = List(fetchedCondition, "attribute_exists(mediaUri)", "attribute_exists(overridden)") ++
+    val queryConds = List(fetchedCondition, ingestedCondition, "attribute_exists(overridden)") ++
       dateRange.start.map(date => s"picdarCreated >= :startDate") ++
       dateRange.end.map(date => s"picdarCreated <= :endDate")
 
@@ -167,7 +169,7 @@ class ExportDynamoDB(credentials: AWSCredentials, region: Region, tableName: Str
 
   def scanRightsFetchedNotOverridden(dateRange: DateRange): Future[Seq[AssetRow]] = Future {
     // FIXME: query by range only?
-    val queryConds = (List(fetchedCondition) ++ hasRightsNotOverridden).withDateRange(dateRange)
+    val queryConds = (List(fetchedCondition, ingestedCondition) ++ hasRightsNotOverridden).withDateRange(dateRange)
     val values = Map[String, String]().withDateRangeValues(dateRange)
 
     val projectionAttrs = List("picdarUrn", "picdarCreated", "picdarCreatedFull", "picdarAssetUrl", "mediaUri", "picdarRights")
