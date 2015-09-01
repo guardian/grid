@@ -1,5 +1,4 @@
-<div class="preview image-actions-container"
-     title="{{ctrl.image.data.metadata.description || ctrl.image.data.metadata.title}}">
+<div class="preview image-actions-container">
 
     <ul class="image-actions" ng:if="! ctrl.selectionMode">
         <li>
@@ -54,8 +53,11 @@
             </gr-add-label>
         </div>
 
-        <!-- Ensure contents in P to maintain height -->
-        <p class="preview__description">{{ctrl.image.data.metadata.description || ctrl.image.data.metadata.title || '&nbsp;'}}</p>
+        <p class="preview__description"
+           title="{{ctrl.image.data.metadata.description || ctrl.image.data.metadata.title}}">
+            <!-- Ensure contents in P to maintain height -->
+            {{ctrl.image.data.metadata.description || ctrl.image.data.metadata.title || '&nbsp;'}}
+        </p>
     </div>
 
     <div class="preview__bottom-bar bottom-bar">
