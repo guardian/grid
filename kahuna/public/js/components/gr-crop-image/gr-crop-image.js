@@ -30,7 +30,8 @@ cropImage.directive('grCropImage', [function () {
         controllerAs: 'ctrl',
         bindToController: true,
         scope: {
-            image: '='
+            image: '=',
+            trackingLocation: '@'
         },
         template: template
     };

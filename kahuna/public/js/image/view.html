@@ -22,14 +22,16 @@
                      image="ctrl.image"
                      with-text="true"></ui-archiver>
 
-        <gr-crop-image class="top-bar-item" image="ctrl.image"></gr-crop-image>
+        <gr-crop-image class="top-bar-item" image="ctrl.image" tracking-location="Top bar">
+        </gr-crop-image>
     </gr-top-bar-actions>
 </gr-top-bar>
 
 
 <div class="image-details image-details--crop">
     <div class="image-info">
-        <gr-crop-image image="ctrl.image"></gr-crop-image>
+        <gr-crop-image image="ctrl.image" tracking-location="Crop panel">
+        </gr-crop-image>
         <div class="image-info__group image-info__group--original">
             <dl>
                 <dt class="image-info__heading">Original <span class="image-info__file-size"> {{ctrl.image.data.source.size | asFileSize}}</span></dt>
