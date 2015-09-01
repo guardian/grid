@@ -923,6 +923,7 @@ input.search-query__input {
 
 .results-toolbar-item__metadata-panel-controls {
     line-height: 35px;
+    width: 129.5px;
     height: 36px;
 }
 
@@ -1264,8 +1265,14 @@ FIXME: what to do with touch devices
     float: left;
     width: 130px;
     border-right: 1px solid #565656;
+    position: relative;
 }
 
+.image-details__delete-crops {
+    position: absolute;
+    bottom: 0;
+    width: 100%;
+}
 
 .image-details:after {
     clear: both;
