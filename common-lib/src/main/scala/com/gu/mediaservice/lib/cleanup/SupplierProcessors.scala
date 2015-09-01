@@ -141,22 +141,12 @@ object GettyXmpParser extends ImageProcessor {
 }
 
 object GettyCreditParser extends ImageProcessor {
-  import UsageRightsConfig.payGettySourceList
-
-  def apply(image: Image): Image = {
-    val isPayForGettySource = image.metadata.source.exists(payGettySourceList.contains)
-    val gettyCredits = List("getty images", "afp/getty images")
-    val isGettyCredit = image.metadata.credit.map(_.toLowerCase).exists(gettyCredits.contains)
-
-    if (isGettyCredit && !isPayForGettySource) {
-      image.copy(
-         usageRights = Agency("Getty Images", suppliersCollection = image.metadata.source)
-       )
-    } else {
-      image
-    }
+  def apply(image: Image): Image = image.metadata.credit.map(_.toLowerCase) match {
+    case Some("getty images") | Some("afp/getty images") => image.copy(
+       usageRights = Agency("Getty Images", suppliersCollection = image.metadata.source)
+    )
+    case _ => image
   }
-
 }
 
 object PaParser extends ImageProcessor {
