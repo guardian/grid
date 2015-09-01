@@ -1,7 +1,7 @@
 package com.gu.mediaservice.lib.cleanup
 
 import com.gu.mediaservice.model.{Agency, Image, StaffPhotographer, ContractPhotographer}
-import com.gu.mediaservice.lib.config.PhotographersList
+import com.gu.mediaservice.lib.config.{UsageRightsConfig, PhotographersList}
 import com.gu.mediaservice.lib.config.MetadataConfig.{staffPhotographers, contractedPhotographers}
 
 trait ImageProcessor {
@@ -17,7 +17,8 @@ object SupplierProcessors {
     BarcroftParser,
     CorbisParser,
     EpaParser,
-    GettyParser,
+    GettyXmpParser,
+    GettyCreditParser,
     PaParser,
     ReutersParser,
     RexParser,
@@ -140,13 +141,22 @@ object GettyXmpParser extends ImageProcessor {
 }
 
 object GettyCreditParser extends ImageProcessor {
-  def apply(image: Image): Image = image.metadata.credit.map(_.toLowerCase) match {
-    case Some("getty images") | Some("afp/getty images") => image.copy(
-      usageRights = Agency("Getty Images", suppliersCollection = image.metadata.source)
-    )
+  import UsageRightsConfig.payGettySourceList
 
-    case _ => image
+  def apply(image: Image): Image = {
+    val isPayForGettySource = image.metadata.source.exists(payGettySourceList.contains)
+    val gettyCredits = List("getty images", "afp/getty images")
+    val isGettyCredit = image.metadata.credit.map(_.toLowerCase).exists(gettyCredits.contains)
+
+    if (isGettyCredit && !isPayForGettySource) {
+      image.copy(
+         usageRights = Agency("Getty Images", suppliersCollection = image.metadata.source)
+       )
+    } else {
+      image
+    }
   }
+
 }
 
 object PaParser extends ImageProcessor {
