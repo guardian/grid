@@ -95,7 +95,7 @@ object ElasticSearch extends ElasticSearchClient with SearchFilters with ImageFi
 
     val costFilter       =
       if (params.costModelDiff) params.free.flatMap(free => if (free) freeDiffFilter else nonFreeDiffFilter)
-      else                      params.free.flatMap(free => if (free) freeFilter else nonFreeFilter)
+      else                      params.free.flatMap(free => if (free) freeFilterOrGuardianCredits else nonFreeFilterWithoutGuardianCredits)
 
     val filterOpt = (
       metadataFilter.toList ++ labelFilter ++ archivedFilter ++

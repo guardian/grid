@@ -2,6 +2,12 @@ package lib.usagerights
 
 
 object DeprecatedConfig {
+  val guardianCredits = List(
+    // FIXME: we've actually settled on "The Guardian" as canonical source.
+    // There's now a MetadataCleaner to transform all to The Guardian canonical name.
+    // We need to migrate all indexed content with "Guardian" to "The Guardian" before we can
+    // retire Guardian from whitelist here.
+    "Guardian", "The Guardian", "The Observer")
 
   // TODO: Review these with RCS et al
   val freeCreditList = List(
@@ -46,12 +52,7 @@ object DeprecatedConfig {
     "Getty Images",
     "AFP/Getty Images",
     "Bloomberg via Getty Images",
-    "Fairfax Media via Getty Images",
-    // FIXME: we've actually settled on "The Guardian" as canonical source.
-    // There's now a MetadataCleaner to transform all to The Guardian canonical name.
-    // We need to migrate all indexed content with "Guardian" to "The Guardian" before we can
-    // retire Guardian from whitelist here.
-    "Guardian", "The Guardian", "The Observer")
+    "Fairfax Media via Getty Images") ++ guardianCredits
 
   val freeSourceList = List(
     "Corbis",
