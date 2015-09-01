@@ -7,6 +7,7 @@ import '../components/gr-delete-image/gr-delete-image';
 import '../components/gr-add-label/gr-add-label';
 import '../downloader/downloader';
 import '../components/gr-crop-image/gr-crop-image';
+import '../components/gr-delete-crops/gr-delete-crops';
 
 var image = angular.module('kahuna.image.controller', [
     'kahuna.edits.service',
@@ -15,7 +16,8 @@ var image = angular.module('kahuna.image.controller', [
     'gr.deleteImage',
     'gr.addLabel',
     'gr.downloader',
-    'gr.cropImage'
+    'gr.cropImage',
+    'gr.deleteCrops'
 ]);
 
 image.controller('ImageCtrl', [
@@ -94,6 +96,12 @@ image.controller('ImageCtrl', [
 
         ctrl.isUsefulMetadata = isUsefulMetadata;
         ctrl.cropSelected = cropSelected;
+
+        ctrl.onCropsDeleted = () => {
+            // a bit nasty - but it updates the state of the page better than trying to do that in
+            // the client.
+            $state.go('image', {imageId: ctrl.image.data.id, crop: undefined}, {reload: true});
+        };
 
         // TODO: move this to a more sensible place.
         function getCropDimensions() {
