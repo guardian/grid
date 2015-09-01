@@ -127,7 +127,7 @@ object EpaParser extends ImageProcessor {
   }
 }
 
-object GettyParser extends ImageProcessor {
+object GettyXmpParser extends ImageProcessor {
   def apply(image: Image): Image = image.fileMetadata.getty.isEmpty match {
     // Only images supplied by Getty have getty fileMetadata
     case false => image.copy(
@@ -136,6 +136,16 @@ object GettyParser extends ImageProcessor {
       metadata    = image.metadata.copy(credit = Some(image.metadata.credit.getOrElse("Getty Images")))
     )
     case true => image
+  }
+}
+
+object GettyCreditParser extends ImageProcessor {
+  def apply(image: Image): Image = image.metadata.credit.map(_.toLowerCase) match {
+    case Some("getty images") | Some("afp/getty images") => image.copy(
+      usageRights = Agency("Getty Images", suppliersCollection = image.metadata.source)
+    )
+
+    case _ => image
   }
 }
 
