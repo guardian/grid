@@ -1,7 +1,7 @@
 package com.gu.mediaservice.lib.cleanup
 
 import com.gu.mediaservice.model.{Agency, Image, StaffPhotographer, ContractPhotographer}
-import com.gu.mediaservice.lib.config.{UsageRightsConfig, PhotographersList}
+import com.gu.mediaservice.lib.config.PhotographersList
 import com.gu.mediaservice.lib.config.MetadataConfig.{staffPhotographers, contractedPhotographers}
 
 trait ImageProcessor {
