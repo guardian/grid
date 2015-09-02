@@ -1007,6 +1007,7 @@ input.search-query__input {
     text-overflow: ellipsis;
     white-space: nowrap;
     margin: 0;
+    cursor: context-menu;
 }
 
 /*
