@@ -13,7 +13,6 @@ object DeprecatedConfig {
     "AP POOL",
     "Action Images",
     "Alamy",
-    "Alamy Stock Photo",
     "Allsport",
     "Allstar Picture Library",
     "Associated Press",
