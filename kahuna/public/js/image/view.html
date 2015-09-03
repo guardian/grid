@@ -123,7 +123,7 @@
                 <dt class="metadata-line__key">Usage rights category</dt>
 
                 <gr-usage-rights-editor
-                    ng:show="showUsageRights"
+                    ng:if="showUsageRights"
                     gr:usage-rights="[ctrl.usageRights]"
                     gr:on-save="showUsageRights = false"
                     gr:on-cancel="showUsageRights = false">
