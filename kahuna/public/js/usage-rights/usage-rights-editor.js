@@ -144,15 +144,6 @@ usageRightsEditor.controller(
         }, {});
     }
 
-    function remove() {
-        ctrl.error = null;
-        ctrl.saving = true;
-        $q.all(ctrl.usageRights.map((usageRights) => {
-            return usageRights.remove();
-        })).catch(uiError).
-            finally(() => ctrl.saving = false);
-    }
-
     function save(data) {
         ctrl.error = null;
         ctrl.saving = true;
