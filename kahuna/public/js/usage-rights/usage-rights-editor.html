@@ -12,6 +12,7 @@
         <!-- We reset the model here else properties remain attached to the\
         model, even though they don't exist in the form -->
         <select
+            class="full-width"
             ng:model="ctrl.category"
             ng:disabled="ctrl.saving"
             ng:options="category as category.name for category in ctrl.categories track by category.value"
