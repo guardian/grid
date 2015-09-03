@@ -81,6 +81,9 @@ object AlamyParser extends ImageProcessor {
     case Some("Alamy") => image.copy(
       usageRights = Agency("Alamy")
     )
+    case Some("Alamy Stock Photo") => image.copy(
+      usageRights = Agency("Alamy")
+    )
     case _ => image
   }
 }
