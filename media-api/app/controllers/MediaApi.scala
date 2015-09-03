@@ -49,7 +49,8 @@ object MediaApi extends Controller with ArgoHelpers {
   val searchParamList = List("q", "ids", "offset", "length", "orderBy",
     "since", "until", "modifiedSince", "modifiedUntil", "takenSince", "takenUntil",
     "uploadedBy", "archived", "valid", "free",
-    "hasExports", "hasIdentifier", "missingIdentifier", "hasMetadata").mkString(",")
+    "hasExports", "hasIdentifier", "missingIdentifier", "hasMetadata",
+    "costModelDiff").mkString(",")
 
   val searchLinkHref = s"$rootUri/images{?$searchParamList}"
 
@@ -109,7 +110,6 @@ object MediaApi extends Controller with ArgoHelpers {
     isUploaderOrHasPermission(request, source, PermissionType.DeleteImage)
   }
 
-
   def getImage(id: String) = Authenticated.async { request =>
     val include = getIncludedFromParams(request)
 
@@ -120,7 +120,8 @@ object MediaApi extends Controller with ArgoHelpers {
 
         Future.sequence(List(withWritePermission, withDeletePermission)).map {
           case List(writePermission, deletePermission) =>
-            val (imageData, imageLinks, imageActions) = ImageResponse.create(id, source, writePermission, deletePermission, include)
+            val (imageData, imageLinks, imageActions) =
+              ImageResponse.create(id, source, writePermission, deletePermission, include)
             respond(imageData, imageLinks, imageActions)
         }
       }
@@ -221,7 +222,8 @@ object MediaApi extends Controller with ArgoHelpers {
 
       Future.sequence(List(withWritePermission, withDeletePermission)).map {
         case List(writePermission, deletePermission) =>
-          val (imageData, imageLinks, imageActions) = ImageResponse.create(elasticId, source, writePermission, deletePermission, include)
+          val (imageData, imageLinks, imageActions) =
+            ImageResponse.create(elasticId, source, writePermission, deletePermission, include)
           val id = (imageData \ "id").as[String]
           val imageUri = URI.create(s"$rootUri/images/$id")
           EmbeddedEntity(uri = imageUri, data = Some(imageData), imageLinks, imageActions)
