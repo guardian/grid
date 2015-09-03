@@ -1179,6 +1179,8 @@ FIXME: what to do with touch devices
     margin-left: 1px;
     font-size: 1.4rem;
     padding-top: 10px;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .result-editor__info-item--first {
