@@ -73,10 +73,6 @@
                 class="result-editor__archiver"
                 image="ctrl.image"
             ></ui-archiver>
-
-            <div class="result-editor__meta-data">
-                <span>{{ctrl.image.data.uploadInfo.filename}}</span>
-            </div>
         </div>
         <span class="result-editor__save-status-container">
             <span class="result-editor__save-status"
@@ -134,6 +130,10 @@
                     gr:on-cancel="ctrl.showUsageRights = false">
                 </gr-usage-rights-editor>
             </div>
+        </div>
+        <div class="result-editor__field-container" ng:if="ctrl.image.data.uploadInfo.filename">
+            <div class="result-editor__field-label">File name</div>
+            <div>{{ctrl.image.data.uploadInfo.filename}}</div>
         </div>
 
     </div>

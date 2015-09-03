@@ -1164,23 +1164,12 @@ FIXME: what to do with touch devices
 
 .result-editor__info {
     display: flex;
-    flex-wrap: wrap;
 }
 
 .result-editor__info-item {
     flex: 1;
     margin-left: 1px;
     font-size: 1.4rem;
-}
-
-.result-editor__meta-data {
-    flex: 1;
-    flex-basis: 100%;
-    margin-left: 1px;
-    font-size: 1.4rem;
-    padding-top: 10px;
-    overflow: hidden;
-    text-overflow: ellipsis;
 }
 
 .result-editor__info-item--first {
