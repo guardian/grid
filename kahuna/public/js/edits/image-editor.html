@@ -127,7 +127,7 @@
                 </div>
 
                 <gr-usage-rights-editor
-                    ng:show="ctrl.showUsageRights"
+                    ng:if="ctrl.showUsageRights"
                     class="result-editor__usage-rights"
                     gr:usage-rights="[ctrl.usageRights]"
                     gr:on-save="ctrl.showUsageRights = false"

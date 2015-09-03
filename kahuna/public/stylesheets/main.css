@@ -1551,7 +1551,6 @@ FIXME: what to do with touch devices
     background-color: #333;
 }
 
-
 .result--selected,
 .result--selected:hover {
     border-color: #00adee;
@@ -1575,7 +1574,6 @@ FIXME: what to do with touch devices
     background: #333;
     padding: 2px;
     font-size: 1.2rem;
-    border-top: 1px solid #565656;
 }
 
 .image-crop__aspect-ratio--selected {
