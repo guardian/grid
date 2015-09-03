@@ -73,8 +73,11 @@
                 class="result-editor__archiver"
                 image="ctrl.image"
             ></ui-archiver>
-        </div>
 
+            <div class="result-editor__meta-data">
+                <span>{{ctrl.image.data.uploadInfo.filename}}</span>
+            </div>
+        </div>
         <span class="result-editor__save-status-container">
             <span class="result-editor__save-status"
                   ng:show="ctrl.saving">Saving… <span class="saving">⧖</span>

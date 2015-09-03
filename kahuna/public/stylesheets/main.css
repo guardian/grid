@@ -1164,6 +1164,7 @@ FIXME: what to do with touch devices
 
 .result-editor__info {
     display: flex;
+    flex-wrap: wrap;
 }
 
 .result-editor__info-item {
@@ -1171,6 +1172,15 @@ FIXME: what to do with touch devices
     margin-left: 1px;
     font-size: 1.4rem;
 }
+
+.result-editor__meta-data {
+    flex: 1;
+    flex-basis: 100%;
+    margin-left: 1px;
+    font-size: 1.4rem;
+    padding-top: 10px;
+}
+
 .result-editor__info-item--first {
     margin-left: 0;
 }
