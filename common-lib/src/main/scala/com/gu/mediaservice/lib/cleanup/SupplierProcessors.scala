@@ -46,7 +46,7 @@ object PhotographerParser extends ImageProcessor {
 
         // contracted photographer
         case (byline, credit, None, Some(publication)) => image.copy(
-          usageRights = ContractPhotographer(byline, publication),
+          usageRights = ContractPhotographer(byline, Some(publication)),
           metadata    = image.metadata.copy(credit = Some(publication))
         )
 
