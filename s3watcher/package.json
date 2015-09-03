@@ -5,8 +5,9 @@
   "main": "S3Watcher.js",
   "dependencies": {
     "async": "~1.4.2",
-    "fs": "0.0.2",
-    "request": "~2.61.0"
+    "request": "~2.61.0",
+    "rx": "^3.1.2",
+    "rx-node": "^1.0.1"
   },
   "devDependencies": {},
   "scripts": {
