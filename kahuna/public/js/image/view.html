@@ -22,14 +22,16 @@
                      image="ctrl.image"
                      with-text="true"></ui-archiver>
 
-        <gr-crop-image class="top-bar-item" image="ctrl.image"></gr-crop-image>
+        <gr-crop-image class="top-bar-item" image="ctrl.image" tracking-location="Top bar">
+        </gr-crop-image>
     </gr-top-bar-actions>
 </gr-top-bar>
 
 
 <div class="image-details image-details--crop">
     <div class="image-info">
-        <gr-crop-image image="ctrl.image"></gr-crop-image>  
+        <gr-crop-image image="ctrl.image" tracking-location="Crop panel">
+        </gr-crop-image>
         <div class="image-info__group image-info__group--original">
             <dl>
                 <dt class="image-info__heading">Original <span class="image-info__file-size"> {{ctrl.image.data.source.size | asFileSize}}</span></dt>
@@ -86,6 +88,11 @@
             </dl>
         </div>
     </div>
+
+    <gr-delete-crops
+            class="image-details__delete-crops"
+            gr:image="ctrl.image"
+            gr:on-delete="ctrl.onCropsDeleted()"></gr-delete-crops>
 </div>
 
 <div class="image-details">
@@ -116,7 +123,7 @@
                 <dt class="metadata-line__key">Usage rights category</dt>
 
                 <gr-usage-rights-editor
-                    ng:show="showUsageRights"
+                    ng:if="showUsageRights"
                     gr:usage-rights="[ctrl.usageRights]"
                     gr:on-save="showUsageRights = false"
                     gr:on-cancel="showUsageRights = false">
@@ -312,12 +319,9 @@
 
     <div class="image-info">
         <dl class="image-info__group">
-            <dt class="image-info__heading image-info__heading--first">
-                <div class="flex-container">
-                    Labels
-                    <div class="flex-spacer"></div>
-                    <gr-add-label image="ctrl.image"></gr-add-label>
-                </div>
+            <dt class="image-info__heading image-info__heading--first flex-container">
+                <span class="flex-spacer">Labels</span>
+                <gr-add-label image="ctrl.image"></gr-add-label>
             </dt>
             <dd class="image-info__group--fixed-panel">
                 <ui-labeller image="ctrl.image"></ui-labeller>

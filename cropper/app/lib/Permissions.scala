@@ -1,29 +1,15 @@
 package lib
 
-import scala.concurrent.{ExecutionContext, Future}
-import com.gu.mediaservice.lib.auth._
+import com.gu.mediaservice.lib.auth.{PermissionType, Principal, PermissionsHandler, PermissionStore}
 
+import scala.concurrent.ExecutionContext
 
-object PermissionDeniedError extends Throwable("Permission denied")
-
-object Permissions {
-  val failFuture = Future.failed(PermissionDeniedError)
+object Permissions extends PermissionsHandler {
   val permissionStore = new PermissionStore(Config.configBucket, Config.awsCredentials)
 
-  def validateUserWithPermissions(user: Principal, permission: PermissionType.PermissionType)
-                                 (implicit ec: ExecutionContext): Future[Principal] =
-    user match {
-      case u: PandaUser => {
-        permissionStore.hasPermission(permission, u.email) flatMap { hasPermission =>
-          if (hasPermission) {
-            Future.successful(u)
-          } else {
-            failFuture
-          }
-        }
-      }
-      // think about only allowing certain services i.e. on `service.name`?
-      case service: AuthenticatedService => Future.successful(service)
-      case _ => failFuture
-    }
+  def validateUserCanDeleteCrops(user: Principal)(implicit ex: ExecutionContext) =
+    validateUserWithPermissions(user, PermissionType.DeleteCrops)
+
+  def canUserDeleteCrops(user: Principal)(implicit ex: ExecutionContext) =
+    getPermissionValForUser(PermissionType.DeleteCrops, user)
 }
