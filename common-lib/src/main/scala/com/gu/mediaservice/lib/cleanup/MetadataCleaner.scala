@@ -16,7 +16,8 @@ class MetadataCleaners(creditBylineMap: Map[String, List[String]]) {
     CleanRubbishLocation,
     StripCopyrightPrefix,
     UseCanonicalGuardianCredit,
-    ExtractGuardianCreditFromByline
+    ExtractGuardianCreditFromByline,
+    StripFromNullUnicodeChar
   ) ++ attrCreditFromBylineCleaners ++ List(
     StripBylineFromCredit,
     CountryCode,
