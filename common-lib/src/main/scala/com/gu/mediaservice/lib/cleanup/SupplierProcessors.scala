@@ -141,8 +141,10 @@ object GettyXmpParser extends ImageProcessor {
 }
 
 object GettyCreditParser extends ImageProcessor {
-  def apply(image: Image): Image = image.metadata.credit.map(_.toLowerCase) match {
-    case Some("getty images") | Some("afp/getty images") => image.copy(
+  val gettyCredits = List("getty images", "afp/getty images", "bloomberg via getty images")
+
+  def apply(image: Image): Image = image.metadata.credit.map(c => gettyCredits.contains(c.toLowerCase)) match {
+    case Some(true) => image.copy(
        usageRights = Agency("Getty Images", suppliersCollection = image.metadata.source)
     )
     case _ => image
