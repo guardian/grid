@@ -256,7 +256,7 @@ object StaffPhotographer {
 }
 
 
-case class ContractPhotographer(photographer: String, publication: String, restrictions: Option[String] = None)
+case class ContractPhotographer(photographer: String, publication: Option[String] = None, restrictions: Option[String] = None)
   extends UsageRights {
     val category = "contract-photographer"
     val defaultCost = Some(Free)
@@ -269,13 +269,13 @@ object ContractPhotographer {
  implicit val jsonWrites: Writes[ContractPhotographer] = (
    (__ \ "category").write[String] ~
    (__ \ "photographer").write[String] ~
-   (__ \ "publication").write[String] ~
+   (__ \ "publication").writeNullable[String] ~
    (__ \ "restrictions").writeNullable[String]
  )(s => (s.category, s.photographer, s.publication, s.restrictions))
 }
 
 
-case class CommissionedPhotographer(photographer: String, publication: String, restrictions: Option[String] = None)
+case class CommissionedPhotographer(photographer: String, publication: Option[String] = None, restrictions: Option[String] = None)
   extends UsageRights {
     val category = "commissioned-photographer"
     val defaultCost = Some(Free)
@@ -288,7 +288,7 @@ object CommissionedPhotographer {
  implicit val jsonWrites: Writes[CommissionedPhotographer] = (
    (__ \ "category").write[String] ~
    (__ \ "photographer").write[String] ~
-   (__ \ "publication").write[String] ~
+   (__ \ "publication").writeNullable[String] ~
    (__ \ "restrictions").writeNullable[String]
  )(s => (s.category, s.photographer, s.publication, s.restrictions))
 }
