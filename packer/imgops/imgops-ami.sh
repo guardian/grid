@@ -8,8 +8,7 @@ function new_section {
 
 set -e
 
-new_section "Remove Java"
-apt-get -y remove openjdk-8-jdk openjdk-8-jre java-common
+# TODO: remove Java?
 
 new_section "Moving config files into place"
 mv /tmp/imgops_logrotate /etc/logrotate.d/imgops

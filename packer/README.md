@@ -10,7 +10,8 @@ Once you have made the changes to
 [provisioning.json](./media-service/provisioning.json) you will need
 to run:
 
-    packer build ./packer/media-service/provisioning.json
+    cd packer/media-service  # or imgops
+    packer build provisioning.json
 
 You will then be told something like:
 
