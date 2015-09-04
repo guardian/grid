@@ -1171,6 +1171,7 @@ FIXME: what to do with touch devices
     margin-left: 1px;
     font-size: 1.4rem;
 }
+
 .result-editor__info-item--first {
     margin-left: 0;
 }
@@ -1190,7 +1191,7 @@ FIXME: what to do with touch devices
 .result-editor__field-container {
     display: flex;
     width: 100%;
-    margin-top: 5px;
+    margin-bottom: 5px;
 }
 
 .result-editor__field-container gr-add-label {
@@ -1427,6 +1428,8 @@ FIXME: what to do with touch devices
     color: white;
     background-color: #222;
     border: 1px solid white;
+    margin-top: -1px;
+    margin-bottom: -1px;
 }
 
 .image-info__wrap .editable-wrap,

@@ -74,7 +74,6 @@
                 image="ctrl.image"
             ></ui-archiver>
         </div>
-
         <span class="result-editor__save-status-container">
             <span class="result-editor__save-status"
                   ng:show="ctrl.saving">Saving… <span class="saving">⧖</span>
@@ -88,28 +87,6 @@
     </div>
 
     <div class="result-editor__editor">
-        <ui-required-metadata-editor
-            class="result-editor__metadata-editor"
-            resource="ctrl.image.data.userMetadata.data.metadata"
-            metadata="ctrl.image.data.metadata"
-            save-when-changed-from="ctrl.image.data.originalMetadata || ctrl.image.data.metadata"
-            image="ctrl.image"
-            with-batch="ctrl.withBatch"
-        ></ui-required-metadata-editor>
-
-        <div class="result-editor__field-container">
-            <span class="result-editor__field-label flex-container">
-                Labels
-                <span class="flex-spacer"></span>
-                <gr-add-label image="ctrl.image" gr-small="true"></gr-add-label>
-            </span>
-            <ui-labeller
-                class="result-editor__labeller"
-                image="ctrl.image"
-                with-batch="ctrl.withBatch"
-            ></ui-labeller>
-        </div>
-
         <div class="result-editor__field-container image-info__wrap">
             <span class="result-editor__field-label flex-no-shrink">
                 Usage rights
@@ -131,6 +108,31 @@
                     gr:on-cancel="ctrl.showUsageRights = false">
                 </gr-usage-rights-editor>
             </div>
+        </div>
+        <ui-required-metadata-editor
+            class="result-editor__metadata-editor"
+            resource="ctrl.image.data.userMetadata.data.metadata"
+            metadata="ctrl.image.data.metadata"
+            save-when-changed-from="ctrl.image.data.originalMetadata || ctrl.image.data.metadata"
+            image="ctrl.image"
+            with-batch="ctrl.withBatch"
+        ></ui-required-metadata-editor>
+
+        <div class="result-editor__field-container">
+            <span class="result-editor__field-label flex-container">
+                Labels
+                <span class="flex-spacer"></span>
+                <gr-add-label image="ctrl.image" gr-small="true"></gr-add-label>
+            </span>
+            <ui-labeller
+                class="result-editor__labeller"
+                image="ctrl.image"
+                with-batch="ctrl.withBatch"
+            ></ui-labeller>
+        </div>
+        <div class="result-editor__field-container" ng:if="ctrl.image.data.uploadInfo.filename">
+            <div class="result-editor__field-label">File name</div>
+            <div>{{ctrl.image.data.uploadInfo.filename}}</div>
         </div>
 
     </div>
