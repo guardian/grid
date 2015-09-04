@@ -1,27 +1,26 @@
 package lib
 
-import java.util.concurrent.atomic.{AtomicReference, AtomicLong}
+import java.util.concurrent.Executors
+import java.util.concurrent.atomic.AtomicReference
 
+import _root_.play.api.libs.functional.syntax._
+import _root_.play.api.libs.json._
+import akka.actor.ActorSystem
 import com.amazonaws.services.cloudwatch.model.Dimension
+import com.amazonaws.services.sqs.AmazonSQSClient
+import com.amazonaws.services.sqs.model.{DeleteMessageRequest, Message => SQSMessage, ReceiveMessageRequest}
+import com.gu.mediaservice.lib.json.PlayJsonHelpers._
 import org.elasticsearch.action.deletebyquery.DeleteByQueryResponse
+import org.elasticsearch.action.update.UpdateResponse
 import org.joda.time.DateTime
 import org.joda.time.format.ISODateTimeFormat
+import play.api.Logger
 
 import scala.annotation.tailrec
 import scala.collection.JavaConverters._
-import scala.concurrent.{Future, ExecutionContext}
 import scala.concurrent.duration._
-
-import com.amazonaws.services.sqs.AmazonSQSClient
-import com.amazonaws.services.sqs.model.{Message => SQSMessage, DeleteMessageRequest, ReceiveMessageRequest}
-import org.elasticsearch.action.update.UpdateResponse
-import _root_.play.api.libs.json._
-import _root_.play.api.libs.functional.syntax._
-import akka.actor.ActorSystem
+import scala.concurrent.{ExecutionContext, Future}
 import scalaz.syntax.id._
-
-import com.gu.mediaservice.lib.json.PlayJsonHelpers._
-import java.util.concurrent.Executors
 
 
 object MessageConsumer {
@@ -81,7 +80,7 @@ object MessageConsumer {
     }
 
   def heartbeat(msg: JsValue) = Future {
-    None
+    Logger.info("received heartbeat")
   }
 
   def deleteOnSuccess(msg: SQSMessage)(f: Future[Any]): Unit =
