@@ -360,3 +360,7 @@ action.disable_delete_all_indices: true
 
 ################## ES Cloudwatch config ##################
 metrics.cloudwatch.namespace: "@@STAGE/Elasticsearch"
+
+################## Dynamic scripting ##################
+script.inline: on
+script.indexed: on
