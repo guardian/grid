@@ -11,18 +11,38 @@ export var addLabel = angular.module('gr.addLabel', [
 
 addLabel.controller('GrAddLabelCtrl', ['$window', 'labelService',
     function ($window, labelService) {
+
+
         function saveFailed() {
             $window.alert('Something went wrong when saving, please try again!');
         }
 
         let ctrl = this;
 
-        ctrl.addLabel = () => {
-            let label = ($window.prompt('Enter a label:') || '').trim();
-            if (label) {
+        ctrl.label = "";
+
+        ctrl.emAddLabel = function (){
+            let label = ctrl.label.trim();
+            if(label) {
                 ctrl.addLabels([label]);
+                ctrl.label="";
+                ctrl.addLabel = false;
             }
         };
+
+        ctrl.cancel = function () {
+            ctrl.label="";
+            ctrl.addLabel = false;
+        };
+
+        //ctrl.addLabel = () => {
+        //    let label = ($window.prompt('Enter a label:') || '').trim();
+        //    if (label) {
+        //        ctrl.addLabels([label]);
+        //    }
+        //};
+
+        ctrl.addLabel = false;
 
         ctrl.addLabels = labels => {
             ctrl.adding = true;
