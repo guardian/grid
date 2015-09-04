@@ -59,7 +59,7 @@ object PhotographerParser extends ImageProcessor {
 
 object AapParser extends ImageProcessor {
   def apply(image: Image): Image = image.metadata.credit match {
-    case Some("AAPIMAGE") | Some("AAP IMAGE") => image.copy(
+    case Some("AAPIMAGE") | Some("AAP IMAGE") | Some("AAP") => image.copy(
       usageRights = Agency("AAP"),
       metadata    = image.metadata.copy(credit = Some("AAP"))
     )
