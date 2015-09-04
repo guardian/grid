@@ -46,6 +46,8 @@ grPanel.controller('GrPanel', [
 
         var ctrl = this;
 
+        ctrl.showUsageRights = false;
+
         const panelName = 'gr-panel';
 
         panelService.addPanel(panelName, false);

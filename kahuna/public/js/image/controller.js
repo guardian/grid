@@ -53,6 +53,8 @@ image.controller('ImageCtrl', [
 
         var ctrl = this;
 
+        ctrl.showUsageRights = false;
+
         ctrl.credits = function(searchText) {
             return ctrl.metadataSearch('credit', searchText);
         };
