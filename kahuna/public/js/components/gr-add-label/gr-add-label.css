@@ -1,3 +1,7 @@
+gr-add-label{
+    display: flex;
+}
+
 gr-add-label:hover {
     color: white;
 }
@@ -5,4 +9,16 @@ gr-add-label:hover {
 gr-add-label .small {
     border: none;
     padding: 0;
+}
+
+gr-add-label form {
+    display: flex;
+}
+
+.gr-add-label__buttons {
+    display: flex;
+}
+
+.gr-add-label__buttons button{
+    margin-left: 5px;
 }

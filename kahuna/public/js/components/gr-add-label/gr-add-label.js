@@ -19,28 +19,21 @@ addLabel.controller('GrAddLabelCtrl', ['$window', 'labelService',
 
         let ctrl = this;
 
-        ctrl.label = "";
+        ctrl.newLabel = "";
 
         ctrl.emAddLabel = function (){
-            let label = ctrl.label.trim();
+            let label = ctrl.newLabel.trim();
             if(label) {
                 ctrl.addLabels([label]);
-                ctrl.label="";
+                ctrl.newLabel="";
                 ctrl.addLabel = false;
             }
         };
 
         ctrl.cancel = function () {
-            ctrl.label="";
+            ctrl.newLabel="";
             ctrl.addLabel = false;
         };
-
-        //ctrl.addLabel = () => {
-        //    let label = ($window.prompt('Enter a label:') || '').trim();
-        //    if (label) {
-        //        ctrl.addLabels([label]);
-        //    }
-        //};
 
         ctrl.addLabel = false;
 

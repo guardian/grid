@@ -122,13 +122,15 @@
             <span class="result-editor__field-label flex-container">
                 Labels
                 <span class="flex-spacer"></span>
-                <gr-add-label image="ctrl.image" gr-small="true"></gr-add-label>
             </span>
-            <ui-labeller
-                class="result-editor__labeller"
-                image="ctrl.image"
-                with-batch="ctrl.withBatch"
-            ></ui-labeller>
+            <div>
+                <gr-add-label image="ctrl.image" gr-small="false"></gr-add-label>
+                <ui-labeller
+                    class="result-editor__labeller"
+                    image="ctrl.image"
+                    with-batch="ctrl.withBatch"
+                ></ui-labeller>
+            </div>
         </div>
         <div class="result-editor__field-container" ng:if="ctrl.image.data.uploadInfo.filename">
             <div class="result-editor__field-label">File name</div>
