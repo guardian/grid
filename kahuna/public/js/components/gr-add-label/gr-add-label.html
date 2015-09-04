@@ -1,19 +1,3 @@
-<form ng:if="ctrl.addLabel" ng:submit="ctrl.emAddLabel()">
-    <input type='text' ng-model="ctrl.label"></input>
-    <span class="editable-buttons">
-        <button class="button-save" type="submit">
-            <gr-icon-label class="ng-isolate-scope" gr-icon="check">
-                <gr-icon><i class="gr-icon" ng:class="{'gr-icon--small': grSmall}"><span class="ng-binding ng-scope">check</span></i></gr-icon>
-                <span class="icon-label"><span class="ng-scope">Save</span></span></gr-icon-label>
-        </button>
-        <button class="button-cancel" type="button" ng:click="ctrl.cancel()">
-            <gr-icon-label class="ng-isolate-scope" gr-icon="close">
-                <gr-icon><i class="gr-icon" ng:class="{'gr-icon--small': grSmall}"><span class="ng-binding ng-scope">close</span></i></gr-icon>
-            <span class="icon-label"><span class="ng-scope">Cancel</span></span></gr-icon-label>
-        </button>
-    </span>
-</form>
-
 <button ng:class="{'small': ctrl.grSmall}"
         ng:click="ctrl.addLabel = true"
         ng:disabled="ctrl.adding"
@@ -24,3 +8,14 @@
             Add<span ng:show="ctrl.adding">ing...</span>
         </span>
 </button>
+<form ng:if="ctrl.addLabel" ng:submit="ctrl.emAddLabel()">
+    <input type='text' ng-model="ctrl.newLabel"></input>
+    <span class="gr-add-label__buttons">
+        <button class="button-cancel" type="button" ng:click="ctrl.cancel()">
+            <gr-icon-label gr-icon="close"><span ng:hide="ctrl.grSmall">Close</span></gr-icon-label>
+        </button>
+        <button class="button-save" type="submit">
+            <gr-icon-label gr-icon="check"><span ng:hide="ctrl.grSmall">Save</span></gr-icon-label>
+        </button>
+    </span>
+</form>
