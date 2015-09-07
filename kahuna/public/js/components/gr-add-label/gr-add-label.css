@@ -1,5 +1,10 @@
 gr-add-label{
     display: flex;
+    height: 30px;
+}
+
+gr-add-label form input {
+    padding-right: 0;
 }
 
 gr-add-label:hover {
