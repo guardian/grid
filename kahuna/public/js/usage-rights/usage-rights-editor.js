@@ -77,8 +77,24 @@ usageRightsEditor.controller(
 
     // setting our initial values
     editsApi.getUsageRightsCategories().then(cats => {
-        ctrl.categories = cats;
-        ctrl.originalCats = cats;
+        const categoriesCopy = angular.copy(cats);
+
+        categoriesCopy.forEach(cat => {
+            cat.properties.forEach((property, i) => {
+                let propertyOptions = property.required ? [] : [{key: 'None', value: null}];
+
+                if (property.options) {
+                    property.options.forEach(option => {
+                        propertyOptions.push({key: option, value: option});
+                    });
+
+                    cat.properties[i].options = propertyOptions;
+                }
+            });
+        });
+
+        ctrl.categories = categoriesCopy;
+        ctrl.originalCats = categoriesCopy;
         ctrl.update();
     });
 
