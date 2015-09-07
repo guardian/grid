@@ -47,3 +47,11 @@ rxUtil.factory('observeCollectionOnScope', ['rx', function(rx) {
         });
     };
 }]);
+
+rxUtil.factory('inject$', ['subscribe$', function(subscribe$) {
+    return function inject$(scope, observable$, context, name) {
+        subscribe$(scope, observable$, (value) => {
+            context[name] = value;
+        });
+    };
+}]);
