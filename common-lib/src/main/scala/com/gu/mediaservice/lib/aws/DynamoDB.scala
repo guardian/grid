@@ -204,7 +204,7 @@ class DynamoDB(credentials: AWSCredentials, region: Region, tableName: String) {
     val expression  = "SET " + value
       .map { case (k, v) => {
         valueMap.withString(s":$k", v)
-        s"""$parentKey.$k=:$k""".stripMargin
+        s"$parentKey.$k=:$k"
       }}.toList.mkString(", ")
 
     (expression, valueMap)
