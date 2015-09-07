@@ -74,7 +74,10 @@ object ElasticSearch extends ElasticSearchClient {
           missingOrEmptyFilter(s"identifiers.$persistenceIdentifier"),
           boolFilter.should(
             missingOrEmptyFilter("userMetadata.archived"),
-            boolFilter.must(termFilter("userMetadata.archived", false))
+            boolFilter.must(termFilter("userMetadata.archived", false)),
+            boolFilter.mustNot(termFilter("usageRights.category", "staff-photographer")),
+            boolFilter.mustNot(termFilter("usageRights.category", "contract-photographer")),
+            boolFilter.mustNot(termFilter("usageRights.category", "commissioned-photographer"))
           )
         )
       )
