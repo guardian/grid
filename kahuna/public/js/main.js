@@ -151,16 +151,34 @@ kahuna.run(['$rootScope', 'mediaApi',
 
 // Intercept 401s and emit an event
 kahuna.config(['$httpProvider', function($httpProvider) {
-    $httpProvider.interceptors.push('httpUnauthorisedInterceptor');
+    $httpProvider.interceptors.push('httpErrorInterceptor');
 }]);
 
-kahuna.factory('httpUnauthorisedInterceptor',
+kahuna.factory('httpErrorInterceptor',
                ['$q', '$rootScope', 'httpErrors',
                 function($q, $rootScope, httpErrors) {
     return {
         responseError: function(response) {
-            if (response.status === httpErrors.unauthorised.errorCode) {
-                $rootScope.$emit('events:error:unauthorised');
+            switch (response.status) {
+                case 0: {
+                    $rootScope.$emit('events:error:unknown');
+                    break;
+                }
+                case httpErrors.unauthorised.errorCode: {
+                    $rootScope.$emit('events:error:unauthorised');
+                    break;
+                }
+                case httpErrors.internalServerError.errorCode: {
+                    $rootScope.$emit('events:error:server');
+                    break;
+                }
+                case httpErrors.internalServerError.serviceUnavailableError: {
+                    $rootScope.$emit('events:error:server');
+                    break;
+                }
+                default: {
+                    break;
+                }
             }
             return $q.reject(response);
         }
@@ -173,6 +191,8 @@ kahuna.run(['$rootScope', 'globalErrors',
 
     $rootScope.$on('events:error:unauthorised', () => globalErrors.trigger('unauthorised'));
     $rootScope.$on('pandular:re-establishment:fail', () => globalErrors.trigger('authFailed'));
+    $rootScope.$on('events:error:server', () => globalErrors.trigger('server'));
+    $rootScope.$on('events:error:unknown', () => globalErrors.trigger('unknown'));
 }]);
 
 // tracking errors
