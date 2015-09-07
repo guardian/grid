@@ -6,6 +6,7 @@ import 'angular-bootstrap';
 import './gr-panel.css!';
 import '../../services/archive';
 import '../../services/image-accessor';
+import '../../services/image-list';
 import '../../services/label';
 import '../../services/panel';
 import '../../edits/service';
@@ -15,6 +16,7 @@ import '../../util/rx';
 export var grPanel = angular.module('grPanel', [
     'kahuna.services.archive',
     'kahuna.services.image-accessor',
+    'kahuna.services.image-list',
     'kahuna.services.label',
     'kahuna.services.panel',
     'kahuna.edits.service',
@@ -32,6 +34,7 @@ grPanel.controller('GrPanel', [
     'subscribe$',
     'mediaApi',
     'imageAccessor',
+    'imageList',
     'selection',
     'selectedImages$',
     'labelService',
@@ -49,6 +52,7 @@ grPanel.controller('GrPanel', [
         subscribe$,
         mediaApi,
         imageAccessor,
+        imageList,
         selection,
         selectedImages$,
         labelService,
@@ -78,34 +82,17 @@ grPanel.controller('GrPanel', [
         inject$($scope, selectedImages$, ctrl, 'selectedImages');
 
 
-        // TODO: share selectedImages.toList()
+        const selectedImagesList$ = selectedImages$.
+              map(selectedImages => selectedImages.toList());
 
-        function countOccurrences(collection) {
-            // TODO: use immutable map
-            return collection.reduce((counts, item) => {
-                const currentCount = counts.get(item) || 0;
-                counts.set(item, currentCount + 1);
-                return counts;
-            }, new Map());
-        }
 
-        function occurrencesToTuple(counts) {
-            return Array.from(counts.entries()).map(([data, count]) => {
-                return {data, count};
-            });
-        }
-
-        const selectedCosts$ = selectedImages$.map(selectedImages => {
-            const costs = selectedImages.toList().map(imageAccessor.readCost);
-            const valueCounts = countOccurrences(costs);
-            return occurrencesToTuple(valueCounts);
-        });
+        const selectedCosts$ = selectedImagesList$.
+              map(imageList.getCost).
+              map(imageList.getOccurrences);
         inject$($scope, selectedCosts$, ctrl, 'selectedCosts');
 
 
-        const archivedCount$ = selectedImages$.map(selectedImages => {
-            return selectedImages.toList().filter(imageAccessor.isArchived).size;
-        });
+        const archivedCount$ = selectedImagesList$.map(imageList.archivedCount);
         const archivedState$ = Rx.Observable.combineLatest(
             archivedCount$,
             selection.count$,
@@ -120,21 +107,15 @@ grPanel.controller('GrPanel', [
         inject$($scope, archivedCount$, ctrl, 'archivedCount');
         inject$($scope, archivedState$, ctrl, 'archivedState');
 
-
-        const selectedLabels$ = selectedImages$.map(selectedImages => {
-            const labels = selectedImages.toList().
-                  flatMap(imageAccessor.readLabels).
-                  map(label => label.data);
-            const valueCounts = countOccurrences(labels);
-            return occurrencesToTuple(valueCounts);
-        });
+        const selectedLabels$ = selectedImagesList$.
+              map(imageList.getLabels).
+              map(imageList.getOccurrences);
         inject$($scope, selectedLabels$, ctrl, 'selectedLabels');
 
-
-        const selectedUsageRights$ = selectedImages$.map(selectedImages => {
+        const selectedUsageRights$ = selectedImagesList$.map(selectedImagesList => {
             // FIXME: wrap into slightly weird shape expected by usage
             // rights editor component
-            return selectedImages.toList().map(image => {
+            return selectedImagesList.map(image => {
                 return {
                     image: image,
                     data: imageAccessor.readUsageRights(image)
@@ -164,60 +145,36 @@ grPanel.controller('GrPanel', [
         inject$($scope, selectedUsageCategory$,    ctrl, 'usageCategory');
 
 
-        function pairsAsObject(pairs) {
-            return pairs.reduce((acc, [key, value]) => {
-                acc[key] = value;
-                return acc;
-            }, {});
-        }
         // FIXME: distinct?
-        const selectedMetadata$ = selectedImages$.map(selectedImages => {
-            const metadata = new Map();
-            const imagesMetadata = selectedImages.toList().map(imageAccessor.readMetadata);
-            const metadataKeys = imagesMetadata.flatMap(Object.keys);
-            imagesMetadata.forEach(meta => {
-                metadataKeys.forEach(key => {
-                    const values = metadata.get(key) || new Set();
-                    values.add(meta[key]);
-                    metadata.set(key, values);
-                });
-            });
-            return metadata;
-        });
+        const selectedMetadata$ = selectedImagesList$.
+              map(imageList.getMetadata).
+              map(imageList.getSetOfProperties);
         const rawMetadata$ = selectedMetadata$.map(selectedMetadata => {
-            const metadataMixedPairs = Array.from(selectedMetadata.entries()).map(([key, values]) => {
+            return selectedMetadata.map((values, key) => {
                 switch(values.size) {
-                case 0:  return [key, undefined];
-                case 1:  return [key, Array.from(values)[0]];
-                default: return [key, Array.from(values)];
+                case 0:  return undefined;
+                case 1:  return Array.from(values);
+                default: return Array.from(values);
                 }
-            });
-            const metadataMixedObject = pairsAsObject(metadataMixedPairs);
-
-            return metadataMixedObject;
+            }).toObject();
         });
         const displayMetadata$ = selectedMetadata$.map(selectedMetadata => {
-            const metadataMixedPairs = Array.from(selectedMetadata.entries()).map(([key, values]) => {
+            return selectedMetadata.map((values, key) => {
                 switch(values.size) {
-                case 1:  return [key, Array.from(values)[0]];
-                default: return [key, undefined];
+                case 1:  return Array.from(values)[0];
+                default: return undefined;
                 }
-            });
-            const metadataMixedObject = pairsAsObject(metadataMixedPairs);
-
-            return metadataMixedObject;
+            }).toObject();
         });
         inject$($scope, rawMetadata$, ctrl, 'rawMetadata');
         inject$($scope, displayMetadata$, ctrl, 'metadata');
 
 
-        // TODO: move to helper?
-        const selectionIsEditable$ = selectedImages$.flatMap(selectedImages => {
-            const allEditablePromise = $q.
-                all(selectedImages.map(editsService.canUserEdit).toArray()).
-                then(allEditable => allEditable.every(v => v === true));
-            return Rx.Observable.fromPromise(allEditablePromise);
-        })
+        const selectionIsEditable$ = selectedImagesList$.
+              map(list => list.map(editsService.canUserEdit).toArray()).
+              map($q.all).
+              flatMap(Rx.Observable.fromPromise).
+              map(allEditable => allEditable.every(v => v === true));
         inject$($scope, selectionIsEditable$, ctrl, 'userCanEdit');
 
 
