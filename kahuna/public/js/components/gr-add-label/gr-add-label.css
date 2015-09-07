@@ -1,10 +1,9 @@
 gr-add-label{
     display: flex;
-    height: 30px;
+    height: 25px;
 }
 
 gr-add-label form input {
-    margin-bottom: 5px;
     width: 150px;
 }
 
