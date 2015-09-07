@@ -189,7 +189,7 @@ object EditsController extends Controller with ArgoHelpers {
       val usageRights = (dynamoEntry \ "usageRights").asOpt[UsageRights]
       val metadataOpt = usageRights.flatMap(metadataFromUsageRights)
       metadataOpt.map { metadata =>
-        dynamo.jsonAdd(id, "metadata", metadataAsMap(metadata))
+        dynamo.jsonPatch(id, "metadata", metadataAsMap(metadata))
           .map(publish(id))
           .map(edits => respond(edits.metadata))
       }
