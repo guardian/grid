@@ -5,8 +5,11 @@ import '../../services/label';
 import './gr-add-label.css!';
 import template from './gr-add-label.html!text';
 
+import '../../directives/gr-auto-focus';
+
 export var addLabel = angular.module('gr.addLabel', [
-    'kahuna.services.label'
+    'kahuna.services.label',
+    'gr.autoFocus'
 ]);
 
 addLabel.controller('GrAddLabelCtrl', ['$window', 'labelService',
