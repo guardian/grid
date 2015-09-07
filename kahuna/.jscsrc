@@ -2,7 +2,16 @@
 //    "disallowMultipleVarDecl": "exceptUndefined",
 //    "requireMultipleVarDecl": true,
     "esnext": true,
-    "requireCurlyBraces": true,
+    "requireCurlyBraces": [
+        "if",
+        "else",
+        "for",
+        "while",
+        "do",
+        "try",
+        "catch"
+        // Not needed for case and default
+    ],
     "requireLineFeedAtFileEnd": true,
     "requireSemicolons": true,
     "requireSpaceBeforeBinaryOperators": true,
