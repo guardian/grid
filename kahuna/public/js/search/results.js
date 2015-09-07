@@ -1,19 +1,20 @@
 import angular from 'angular';
+import Rx from 'rx';
 
-import '../services/preview-selection';
 import '../services/scroll-position';
 import '../services/panel';
 import '../util/async';
+import '../util/rx';
 import '../util/seq';
 import '../components/gu-lazy-table/gu-lazy-table';
 import '../downloader/downloader';
 import '../components/gr-delete-image/gr-delete-image';
 
 export var results = angular.module('kahuna.search.results', [
-    'kahuna.services.selection',
     'kahuna.services.scroll-position',
     'kahuna.services.panel',
     'util.async',
+    'util.rx',
     'util.seq',
     'gu.lazyTable',
     'gr.downloader',
@@ -42,11 +43,15 @@ results.controller('SearchResultsCtrl', [
     '$window',
     '$timeout',
     '$log',
+    '$q',
+    'inject$',
     'delay',
     'onNextEvent',
     'scrollPosition',
     'mediaApi',
-    'selectionService',
+    'selection',
+    'selectedImages$',
+    'results',
     'panelService',
     'range',
     'isReloadingPreviousSearch',
@@ -57,11 +62,15 @@ results.controller('SearchResultsCtrl', [
              $window,
              $timeout,
              $log,
+             $q,
+             inject$,
              delay,
              onNextEvent,
              scrollPosition,
              mediaApi,
              selection,
+             selectedImages$,
+             results,
              panelService,
              range,
              isReloadingPreviousSearch) {
@@ -136,8 +145,14 @@ results.controller('SearchResultsCtrl', [
             ctrl.images = [];
 
             // imagesAll will be a sparse array of all the results
+            const totalLength = Math.min(images.total, ctrl.maxResults);
             ctrl.imagesAll = [];
             ctrl.imagesAll.length = Math.min(images.total, ctrl.maxResults);
+
+            // TODO: ultimately we want to manage the state in the
+            // results stream exclusively
+            results.clear();
+            results.resize(totalLength);
 
             imagesPositions = new Map();
 
@@ -179,10 +194,14 @@ results.controller('SearchResultsCtrl', [
                         $log.info(`Detected duplicate image ${imageId}, ` +
                                   `old ${existingPosition}, new ${position}`);
                         delete ctrl.imagesAll[existingPosition];
+
+                        results.set(existingPosition, undefined);
                     }
 
                     ctrl.imagesAll[position] = image;
                     imagesPositions.set(imageId, position);
+
+                    results.set(position, image);
                 });
 
                 // images should not contain any 'holes'
@@ -312,33 +331,47 @@ results.controller('SearchResultsCtrl', [
             selection.clear();
         };
 
-        ctrl.selectedImages = selection.selectedImages;
+        const inSelectionMode$ = selection.isEmpty$.map(isEmpty => ! isEmpty);
+        inject$($scope, inSelectionMode$, ctrl, 'inSelectionMode');
+        inject$($scope, selection.count$, ctrl, 'selectionCount');
+        inject$($scope, selection.items$, ctrl, 'selectedItems');
 
-        ctrl.inSelectionMode = () => ctrl.selectedImages.size > 0;
 
-        ctrl.imageHasBeenSelected = (image) => selection.isSelected(image);
+        function canBeDeleted(image) {
+            return image.getAction('delete').then(angular.isDefined);
+        }
+        // TODO: move to helper?
+        const selectionIsDeletable$ = selectedImages$.flatMap(selectedImages => {
+            const allDeletablePromise = $q.
+                all(selectedImages.map(canBeDeleted).toArray()).
+                then(allDeletable => allDeletable.every(v => v === true));
+            return Rx.Observable.fromPromise(allDeletablePromise);
+        });
 
-        ctrl.toggleSelection = (image, select) => {
-            selection.toggleSelection(image, select);
+        inject$($scope, selectedImages$,       ctrl, 'selectedImages');
+        inject$($scope, selectionIsDeletable$, ctrl, 'selectionIsDeletable');
 
-            selection.canUserDelete().then(deletable => {
-                ctrl.userCanDelete = deletable;
-            });
-        };
+        // TODO: avoid expensive watch expressions and let stream push
+        // selected status to each image instead?
+        ctrl.imageHasBeenSelected = (image) => ctrl.selectedItems.has(image.uri);
+
+        const toggleSelection = (image) => selection.toggle(image.uri);
+        ctrl.select           = (image) => selection.add(image.uri);
+        ctrl.deselect         = (image) => selection.remove(image.uri);
 
         ctrl.onImageClick = function (image, $event) {
-            if (ctrl.inSelectionMode()) {
+            if (ctrl.inSelectionMode) {
+                // TODO: prevent text selection?
                 if ($event.shiftKey) {
-                    var selectedArray = Array.from(ctrl.selectedImages);
-                    var lastSelected = selectedArray[selectedArray.length - 1];
-                    var lastSelectedIndex = ctrl.images.findIndex(i => {
-                        return i.data.id === lastSelected.data.id;
+                    var lastSelectedUri = ctrl.selectedItems.last();
+                    var lastSelectedIndex = ctrl.images.findIndex(image => {
+                        return image.uri === lastSelectedUri;
                     });
 
                     var imageIndex = ctrl.images.indexOf(image);
 
                     if (imageIndex === lastSelectedIndex) {
-                        ctrl.toggleSelection(image, !ctrl.imageHasBeenSelected(image));
+                        toggleSelection(image);
                         return;
                     }
 
@@ -349,11 +382,11 @@ results.controller('SearchResultsCtrl', [
                         imageIndex : lastSelectedIndex;
 
                     for (let i of range(start, end)) {
-                        ctrl.toggleSelection(ctrl.images[i], true);
+                        ctrl.select(ctrl.images[i]);
                     }
                 }
                 else {
-                    ctrl.toggleSelection(image, !ctrl.imageHasBeenSelected(image));
+                    toggleSelection(image);
                 }
             }
         };
@@ -362,17 +395,16 @@ results.controller('SearchResultsCtrl', [
             var index = ctrl.images.findIndex(i => i.data.id === updatedImage.data.id);
             if (index !== -1) {
                 ctrl.images[index] = updatedImage;
-
-                // FIXME: does this really belong here?
-                if (ctrl.selectedImages.has(oldImage)) {
-                    selection.remove(oldImage);
-                    selection.add(updatedImage);
-                }
             }
 
             var indexAll = ctrl.imagesAll.findIndex(i => i && i.data.id === updatedImage.data.id);
             if (indexAll !== -1) {
                 ctrl.imagesAll[indexAll] = updatedImage;
+
+                // TODO: should not be needed here, the results list
+                // should listen to these events and update itself
+                // outside of any controller.
+                results.set(indexAll, updatedImage);
             }
         });
 
@@ -400,7 +432,13 @@ results.controller('SearchResultsCtrl', [
 
         const freeImageDeleteListener = $rootScope.$on('images-deleted', (e, images) => {
             images.forEach(image => {
-                selection.remove(image);
+                // TODO: should not be needed here, the selection and
+                // results should listen to these events and update
+                // itself outside of any controller
+                ctrl.deselect(image);
+
+                const indexAll = ctrl.imagesAll.findIndex(i => image.data.id === i.data.id);
+                results.remove(indexAll);
 
                 updateImageArray(ctrl.images, image);
                 updateImageArray(ctrl.imagesAll, image);
@@ -419,7 +457,6 @@ results.controller('SearchResultsCtrl', [
             scrollPosition.save($stateParams);
             freeUpdateListener();
             freeImageDeleteListener();
-            selection.clear();
             scopeGone = true;
         });
     }
