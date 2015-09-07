@@ -18,7 +18,7 @@ then
 
     ./downloads/elasticsearch/bin/plugin -install elasticsearch/elasticsearch-cloud-aws/2.7.1
     ./downloads/elasticsearch/bin/plugin -install mobz/elasticsearch-head
-    ./downloads/elasticsearch/bin/plugin -install com.gu/elasticsearch-cloudwatch/1.0
+    ./downloads/elasticsearch/bin/plugin -install com.gu/elasticsearch-cloudwatch/1.1
     ./downloads/elasticsearch/bin/plugin -install karmi/elasticsearch-paramedic
 
     cp ../elasticsearch.yml downloads/elasticsearch/config
