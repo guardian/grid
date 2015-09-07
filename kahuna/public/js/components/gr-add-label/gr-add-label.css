@@ -5,6 +5,7 @@ gr-add-label{
 
 gr-add-label form input {
     margin-bottom: 5px;
+    width: 150px;
 }
 
 gr-add-label:hover {
