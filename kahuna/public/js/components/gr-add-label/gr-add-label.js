@@ -25,9 +25,10 @@ addLabel.controller('GrAddLabelCtrl', ['$window', 'labelService',
         ctrl.active = false;
 
         ctrl.addLabel = function (){
-            let label = ctrl.newLabel.trim();
-            if(label) {
-                ctrl.addLabels([label]);
+            let labelList = ctrl.newLabel.split(",").map(e => e.trim());
+
+            if(labelList) {
+                ctrl.addLabels(labelList);
                 ctrl.newLabel="";
                 ctrl.active = false;
             }
