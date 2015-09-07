@@ -4,21 +4,21 @@ import 'rx-angular';
 
 /** Extend rx-angular for easier integration.
  */
-export var rxHelpers = angular.module('rx.helpers', [
+export var rxUtil = angular.module('util.rx', [
     'rx'
 ]);
 
 
 // TODO: contribute these back to rx-angular?
 
-rxHelpers.factory('observe$', ['observeOnScope', function(observeOnScope) {
+rxUtil.factory('observe$', ['observeOnScope', function(observeOnScope) {
     return function observe$(scope, watchExpression, objectEquality) {
         return observeOnScope(scope, watchExpression, objectEquality).
             map(({newValue}) => newValue);
     };
 }]);
 
-rxHelpers.factory('observeCollection$',
+rxUtil.factory('observeCollection$',
                   ['observeCollectionOnScope',
                    function(observeCollectionOnScope) {
     return function observeCollection$(scope, watchExpression) {
@@ -27,14 +27,14 @@ rxHelpers.factory('observeCollection$',
     };
 }]);
 
-rxHelpers.factory('subscribe$', [function() {
+rxUtil.factory('subscribe$', [function() {
     return function subscribe$(scope, observable$, ...observer) {
         const subscription = observable$.subscribe(...observer);
         scope.$on('$destroy', () => subscription.dispose());
     };
 }]);
 
-rxHelpers.factory('observeCollectionOnScope', ['rx', function(rx) {
+rxUtil.factory('observeCollectionOnScope', ['rx', function(rx) {
     return function(scope, watchExpression) {
         return rx.Observable.create(function (observer) {
             // Create function to handle old and new Value
