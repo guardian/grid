@@ -1,9 +1,12 @@
 import angular from 'angular';
 import 'angular-ui-router-extras';
+import Rx from 'rx';
 
 import './query';
 import './results';
 import '../preview/image';
+import '../lib/data-structure/list-factory';
+import '../lib/data-structure/ordered-set-factory';
 import '../components/gr-top-bar/gr-top-bar';
 import '../components/gr-panel/gr-panel';
 
@@ -17,6 +20,8 @@ export var search = angular.module('kahuna.search', [
     'kahuna.search.query',
     'kahuna.search.results',
     'kahuna.preview.image',
+    'data-structure.list-factory',
+    'data-structure.ordered-set-factory',
     'gr.topBar',
     'grPanel'
 ]);
@@ -68,6 +73,31 @@ search.config(['$stateProvider',
                 // *don't pollute the $stateParams
                 delete $stateParams.isDeepStateRedirect;
                 return isDeepStateRedirect;
+            }],
+            selection: ['orderedSetFactory', function(orderedSetFactory) {
+                return orderedSetFactory();
+            }],
+            // equivalent of `ctrl.imagesAll`
+            results: ['listFactory', function(listFactory) {
+                return listFactory();
+            }],
+            // equivalent of `ctrl.images`
+            compactResults$: ['results', function(results) {
+                return results.items$.
+                    map(items => items.filter(angular.identity)).
+                    share();
+            }],
+            // set of selected images resources
+            selectedImages$: ['selection', 'compactResults$', function(selection, compactResults$) {
+                return Rx.Observable.combineLatest(
+                    selection.items$,
+                    compactResults$,
+                    (selectedItems, resultsImages) => {
+                        return selectedItems.map(imageUri => {
+                            return resultsImages.find(image => image.uri === imageUri);
+                        });
+                    }
+                ).distinctUntilChanged().share();
             }]
         },
         views: {
