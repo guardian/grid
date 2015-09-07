@@ -1,5 +1,6 @@
 import angular from 'angular';
 import Rx from 'rx';
+import Immutable from 'immutable';
 import {OrderedSet} from 'immutable';
 
 const orderedSetFactory = angular.module('data-structure.ordered-set-factory', [
@@ -13,7 +14,7 @@ orderedSetFactory.value('orderedSetFactory', function() {
     const items$ = operations$.
         startWith(clear()).
         scan(OrderedSet(), (set, op) => op(set)).
-        distinctUntilChanged().
+        distinctUntilChanged(angular.identity, Immutable.is).
         // share across subscriptions, replay for future subscribers
         shareReplay(1);
 
