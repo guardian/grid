@@ -19,7 +19,7 @@ GET     /metadata/:id/usage-rights                  controllers.EditsController.
 PUT     /metadata/:id/usage-rights                  controllers.EditsController.setUsageRights(id: String)
 DELETE  /metadata/:id/usage-rights                  controllers.EditsController.deleteUsageRights(id: String)
 
-POST    /metadata/:id/usage-rights-to-metadata      controllers.EditsController.applyMetadataFromUsageRights(id: String)
+POST    /metadata/:id/set-usage-rights-to-metadata  controllers.EditsController.applyMetadataFromUsageRights(id: String)
 
 # Management
 GET     /management/healthcheck                     com.gu.mediaservice.lib.management.Management.healthCheck
