@@ -1196,6 +1196,7 @@ FIXME: what to do with touch devices
 .result-editor__field-container gr-add-label {
     font-size: 1.3rem;
     padding-right: 10px;
+    padding-bottom: 5px;
 }
 
 .result-editor__field-label {
