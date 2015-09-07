@@ -4,7 +4,7 @@ gr-add-label{
 }
 
 gr-add-label form input {
-    padding-right: 0;
+    margin-bottom: 5px;
 }
 
 gr-add-label:hover {
