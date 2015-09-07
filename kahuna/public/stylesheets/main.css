@@ -294,7 +294,6 @@ a:focus {
 
 .flex-spacer {
     flex-grow: 1;
-    padding-right: 5px;
 }
 
 .flex-no-shrink {
@@ -1579,7 +1578,6 @@ FIXME: what to do with touch devices
     font-size: 1.3rem;
     display: flex;
     overflow: hidden;
-    margin-top: 5px;
 }
 
 .image-info__group--fixed-panel .labeller{
