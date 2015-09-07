@@ -12,13 +12,11 @@ imageList.factory('imageList', ['imageAccessor', function(imageAccessor) {
         return collection.reduce((counts, item) => {
             const currentCount = counts.get(item) || 0;
             return counts.set(item, currentCount + 1);
-        }, Map());
+        }, new Map());
     }
 
-    function occurrencesToTuple(counts) {
-        return Array.from(counts.entries()).map(([data, count]) => {
-            return {data, count};
-        });
+    function occurrencesToTuple(countsMap) {
+        return countsMap.map((count, data) => ({data, count})).toArray();
     }
 
     // TODO: a lot of these are boilerplate around imageAccessor, can
@@ -53,9 +51,9 @@ imageList.factory('imageList', ['imageAccessor', function(imageAccessor) {
         return keys.reduce((propertySets, key) => {
             const valueSet = objects.reduce((values, obj) => {
                 return values.add(obj[key]);
-            }, Set());
+            }, new Set());
             return propertySets.set(key, valueSet);
-        }, Map());
+        }, new Map());
     }
 
     return {
