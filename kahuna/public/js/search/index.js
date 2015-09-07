@@ -112,7 +112,14 @@ search.config(['$stateProvider',
             panel: {
                 template: panelTemplate,
                 controller: 'GrPanel',
-                controllerAs: 'ctrl'
+                controllerAs: 'ctrl',
+                resolve: {
+                    selectedImagesList$: ['selectedImages$', function(selectedImages$) {
+                        return selectedImages$.
+                            map(selectedImages => selectedImages.toList()).
+                            shareReplay(1);
+                    }]
+                }
             }
         }
     });

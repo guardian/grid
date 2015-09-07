@@ -36,7 +36,7 @@ grPanel.controller('GrPanel', [
     'imageAccessor',
     'imageList',
     'selection',
-    'selectedImages$',
+    'selectedImagesList$',
     'labelService',
     'panelService',
     'archiveService',
@@ -54,7 +54,7 @@ grPanel.controller('GrPanel', [
         imageAccessor,
         imageList,
         selection,
-        selectedImages$,
+        selectedImagesList$,
         labelService,
         panelService,
         archiveService,
@@ -79,11 +79,7 @@ grPanel.controller('GrPanel', [
         ctrl.metadataPanelMouseLeave = () => panelService.hide(panelName);
 
 
-        inject$($scope, selectedImages$, ctrl, 'selectedImages');
-
-
-        const selectedImagesList$ = selectedImages$.
-              map(selectedImages => selectedImages.toList());
+        inject$($scope, selectedImagesList$, ctrl, 'selectedImages');
 
 
         const selectedCosts$ = selectedImagesList$.
