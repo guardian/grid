@@ -29,6 +29,10 @@ imageAccessor.factory('imageAccessor', function() {
         return image.data.metadata;
     }
 
+    function readUsageRights(image) {
+        return image.data.usageRights;
+    }
+
     function isArchived(image) {
         const userMetadata = extractUserMetadata(image);
         return userMetadata.data.archived.data;
@@ -38,6 +42,7 @@ imageAccessor.factory('imageAccessor', function() {
         readCost,
         readLabels,
         readMetadata,
+        readUsageRights,
         isArchived
     };
 });
