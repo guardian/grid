@@ -391,7 +391,7 @@ results.controller('SearchResultsCtrl', [
             }
         };
 
-        const freeUpdateListener = $rootScope.$on('image-updated', (e, updatedImage, oldImage) => {
+        const freeUpdateListener = $rootScope.$on('image-updated', (e, updatedImage) => {
             var index = ctrl.images.findIndex(i => i.data.id === updatedImage.data.id);
             if (index !== -1) {
                 ctrl.images[index] = updatedImage;

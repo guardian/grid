@@ -13,7 +13,7 @@ orderedSetFactory.value('orderedSetFactory', function() {
     const operations$ = new Rx.Subject();
     const items$ = operations$.
         startWith(clear()).
-        scan(OrderedSet(), (set, op) => op(set)).
+        scan(new OrderedSet(), (set, op) => op(set)).
         distinctUntilChanged(angular.identity, Immutable.is).
         // share across subscriptions, replay for future subscribers
         shareReplay(1);

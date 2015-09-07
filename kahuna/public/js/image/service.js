@@ -4,7 +4,7 @@ import '../edits/service';
 
 export const imageService = angular.module('gr.image.service', ['kahuna.edits.service']);
 
-imageService.factory('imageService', ['editsService', function(editsService) {
+imageService.factory('imageService', [function() {
     function forImage(image) {
         return {
             usageRights: usageRights(image),

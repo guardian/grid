@@ -13,7 +13,7 @@ listFactory.value('listFactory', function() {
     const operations$ = new Rx.Subject();
     const items$ = operations$.
         startWith(clear()).
-        scan(List(), (list, op) => op(list)).
+        scan(new List(), (list, op) => op(list)).
         distinctUntilChanged(angular.identity, Immutable.is).
         // share across subscriptions, replay for future subscribers
         shareReplay(1);

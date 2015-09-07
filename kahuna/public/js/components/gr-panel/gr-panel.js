@@ -1,6 +1,5 @@
 import angular from 'angular';
 import Rx from 'rx';
-import Immutable from 'immutable';
 import 'angular-bootstrap';
 
 import './gr-panel.css!';
@@ -42,7 +41,6 @@ grPanel.controller('GrPanel', [
     'archiveService',
     'editsService',
     'editsApi',
-    'onValChange',
     function (
         $rootScope,
         $scope,
@@ -59,8 +57,7 @@ grPanel.controller('GrPanel', [
         panelService,
         archiveService,
         editsService,
-        editsApi,
-        onValChange) {
+        editsApi) {
 
         var ctrl = this;
 
@@ -146,8 +143,8 @@ grPanel.controller('GrPanel', [
               map(imageList.getMetadata).
               map(imageList.getSetOfProperties);
         const rawMetadata$ = selectedMetadata$.map(selectedMetadata => {
-            return selectedMetadata.map((values, key) => {
-                switch(values.size) {
+            return selectedMetadata.map((values) => {
+                switch (values.size) {
                 case 0:  return undefined;
                 case 1:  return Array.from(values);
                 default: return Array.from(values);
@@ -155,8 +152,8 @@ grPanel.controller('GrPanel', [
             }).toObject();
         });
         const displayMetadata$ = selectedMetadata$.map(selectedMetadata => {
-            return selectedMetadata.map((values, key) => {
-                switch(values.size) {
+            return selectedMetadata.map((values) => {
+                switch (values.size) {
                 case 1:  return Array.from(values)[0];
                 default: return undefined;
                 }
