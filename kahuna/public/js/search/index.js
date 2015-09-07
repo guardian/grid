@@ -1,6 +1,7 @@
 import angular from 'angular';
 import 'angular-ui-router-extras';
 import Rx from 'rx';
+import Immutable from 'immutable';
 
 import './query';
 import './results';
@@ -85,7 +86,7 @@ search.config(['$stateProvider',
             compactResults$: ['results', function(results) {
                 return results.items$.
                     map(items => items.filter(angular.identity)).
-                    share();
+                    shareReplay(1);
             }],
             // set of selected images resources
             selectedImages$: ['selection', 'compactResults$', function(selection, compactResults$) {
@@ -97,7 +98,9 @@ search.config(['$stateProvider',
                             return resultsImages.find(image => image.uri === imageUri);
                         });
                     }
-                ).distinctUntilChanged().share();
+                ).
+                    distinctUntilChanged(angular.identity, Immutable.is).
+                    shareReplay(1);
             }]
         },
         views: {

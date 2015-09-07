@@ -1,5 +1,6 @@
 import angular from 'angular';
 import Rx from 'rx';
+import Immutable from 'immutable';
 import {List} from 'immutable';
 
 const listFactory = angular.module('data-structure.list-factory', [
@@ -13,7 +14,7 @@ listFactory.value('listFactory', function() {
     const items$ = operations$.
         startWith(clear()).
         scan(List(), (list, op) => op(list)).
-        distinctUntilChanged().
+        distinctUntilChanged(angular.identity, Immutable.is).
         // share across subscriptions, replay for future subscribers
         shareReplay(1);
 
