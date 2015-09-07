@@ -142,6 +142,23 @@ object EditsController extends Controller with ArgoHelpers {
     )
   }
 
+  def setMetadataFromUsageRights(id: String) = Authenticated.async { req =>
+    dynamo.jsonGet(id, "usageRights").flatMap { dynamoEntry =>
+
+      val usageRights = (dynamoEntry \ "usageRights").asOpt[UsageRights]
+      val metadataOpt = usageRights.flatMap(metadataFromUsageRights)
+      metadataOpt.map { metadata =>
+        dynamo.jsonPatch(id, "metadata", metadataAsMap(metadata))
+          .map(publish(id))
+          .map(edits => respond(edits.metadata))
+      }
+      .getOrElse(Future.failed(EditsValidationError("no-matching-metadata-found", "Couldn't find any matching metadata")))
+    } recover {
+      case NoItemFound => respondError(NotFound, "item-not-found", "Could not find image")
+      case e: EditsValidationError => respondError(BadRequest, e.key, e.message)
+    }
+  }
+
   def getUsageRights(id: String) = Authenticated.async {
     dynamo.jsonGet(id, "usageRights").map { dynamoEntry =>
       val usageRights = (dynamoEntry \ "usageRights").as[UsageRights]
@@ -172,35 +189,6 @@ object EditsController extends Controller with ArgoHelpers {
     (labelsUri, labels.map(EditsResponse.setUnitEntity(id, "labels", _)).toSeq)
   }
 
-  def metadataFromUsageRights(usageRights: UsageRights): Option[ImageMetadata] = {
-    val toImageMetadata: PartialFunction[UsageRights, ImageMetadata] = (ur: UsageRights) => ur match {
-      case u: StaffPhotographer        => ImageMetadata(byline = Some(u.photographer), credit = Some(u.publication))
-      case u: ContractPhotographer     => ImageMetadata(byline = Some(u.photographer), credit = u.publication)
-      case u: CommissionedPhotographer => ImageMetadata(byline = Some(u.photographer), credit = u.publication)
-    }
-
-    // if we don't match, return None
-    toImageMetadata.lift(usageRights)
-  }
-
-  def applyMetadataFromUsageRights(id: String) = Authenticated.async { req =>
-    dynamo.jsonGet(id, "usageRights").flatMap { dynamoEntry =>
-
-      val usageRights = (dynamoEntry \ "usageRights").asOpt[UsageRights]
-      val metadataOpt = usageRights.flatMap(metadataFromUsageRights)
-      metadataOpt.map { metadata =>
-        dynamo.jsonPatch(id, "metadata", metadataAsMap(metadata))
-          .map(publish(id))
-          .map(edits => respond(edits.metadata))
-      }
-      .getOrElse(Future.failed(EditsValidationError("no-matching-metadata-found", "Couldn't find any matching metadata")))
-    } recover {
-      case NoItemFound => respondError(NotFound, "item-not-found", "Could not find image")
-      case e: EditsValidationError => respondError(BadRequest, e.key, e.message)
-    }
-  }
-
-
   def publish(id: String)(metadata: JsObject): Edits = {
     val edits = metadata.as[Edits]
     val message = Json.obj(
@@ -213,6 +201,16 @@ object EditsController extends Controller with ArgoHelpers {
     edits
   }
 
+  def metadataFromUsageRights(usageRights: UsageRights): Option[ImageMetadata] = {
+    val toImageMetadata: PartialFunction[UsageRights, ImageMetadata] = (ur: UsageRights) => ur match {
+      case u: StaffPhotographer        => ImageMetadata(byline = Some(u.photographer), credit = Some(u.publication))
+      case u: ContractPhotographer     => ImageMetadata(byline = Some(u.photographer), credit = u.publication)
+      case u: CommissionedPhotographer => ImageMetadata(byline = Some(u.photographer), credit = u.publication)
+    }
+
+    // if we don't match, return None
+    toImageMetadata.lift(usageRights)
+  }
 
   // This get's the form error based on out data structure that we send over i.e.
   // { "data": {data} }
