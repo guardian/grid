@@ -132,10 +132,14 @@ grPanel.controller('GrPanel', [
 
 
         const selectedUsageRights$ = selectedImages$.map(selectedImages => {
-            return selectedImages.toList().
-                map(imageAccessor.readUsageRights).
-                // FIXME: wrap into shape expected by usage rights editor component
-                map(usageRights => ({data: usageRights}));
+            // FIXME: wrap into slightly weird shape expected by usage
+            // rights editor component
+            return selectedImages.toList().map(image => {
+                return {
+                    image: image,
+                    data: imageAccessor.readUsageRights(image)
+                };
+            });
         });
         const selectedUsageRightsArray$ = selectedUsageRights$.map(selectedUsageRights => {
             return selectedUsageRights.toArray();
