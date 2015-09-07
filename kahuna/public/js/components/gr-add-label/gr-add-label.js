@@ -18,8 +18,6 @@ addLabel.controller('GrAddLabelCtrl', ['$window', 'labelService',
         }
 
         let ctrl = this;
-        //
-        //ctrl.newLabel = "";
 
         ctrl.active = false;
 

@@ -51,7 +51,8 @@
             <gr-add-label ng:if="!ctrl.selectionMode"
                           image="ctrl.image"
                           gr-small="true"
-                          active="ctrl.inputtingLabel">
+                          active="ctrl.inputtingLabel"
+                ng:class="{'gr-add-label--inactive': !ctrl.inputtingLabel}">
             </gr-add-label>
         </div>
 

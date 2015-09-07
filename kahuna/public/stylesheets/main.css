@@ -780,7 +780,7 @@ input.search-query__input {
     display: block;
 }
 
-.result:hover gr-add-label {
+.result:hover .gr-add-label--inactive {
     display: inline-block;
 }
 
@@ -1016,11 +1016,11 @@ FIXME: what to do with touch devices
 */
 
 .preview__labeller {
-    width: calc(100% - 20px);
+    width: calc(100% - 25px);
     display: inline-block;
 }
 
-.preview gr-add-label {
+.preview .gr-add-label--inactive {
     display: none;
 }
 
