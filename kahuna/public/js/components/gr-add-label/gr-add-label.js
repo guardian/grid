@@ -18,24 +18,24 @@ addLabel.controller('GrAddLabelCtrl', ['$window', 'labelService',
         }
 
         let ctrl = this;
+        //
+        //ctrl.newLabel = "";
 
-        ctrl.newLabel = "";
+        ctrl.active = false;
 
-        ctrl.emAddLabel = function (){
+        ctrl.addLabel = function (){
             let label = ctrl.newLabel.trim();
             if(label) {
                 ctrl.addLabels([label]);
                 ctrl.newLabel="";
-                ctrl.addLabel = false;
+                ctrl.active = false;
             }
         };
 
         ctrl.cancel = function () {
             ctrl.newLabel="";
-            ctrl.addLabel = false;
+            ctrl.active = false;
         };
-
-        ctrl.addLabel = false;
 
         ctrl.addLabels = labels => {
             ctrl.adding = true;
@@ -57,7 +57,8 @@ addLabel.directive('grAddLabel', [function () {
         restrict: 'E',
         scope: {
             image: '=',
-            grSmall: '=?'
+            grSmall: '=?',
+            active: '='
         },
         controller: 'GrAddLabelCtrl',
         controllerAs: 'ctrl',

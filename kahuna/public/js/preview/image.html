@@ -44,12 +44,14 @@
         <div class="flex-container">
             <ui-labeller-compact class="preview__labeller"
                                  image="ctrl.image"
-                                 disabled="ctrl.selectionMode">
+                                 disabled="ctrl.selectionMode"
+                                 ng:if="!ctrl.inputtingLabel">
             </ui-labeller-compact>
             <span class="flex-spacer"></span>
             <gr-add-label ng:if="!ctrl.selectionMode"
                           image="ctrl.image"
-                          gr-small="true">
+                          gr-small="true"
+                          active="ctrl.inputtingLabel">
             </gr-add-label>
         </div>
 
