@@ -9,7 +9,8 @@
         "while",
         "do",
         "try",
-        "catch"
+        "catch",
+        "finally"
         // Not needed for case and default
     ],
     "requireLineFeedAtFileEnd": true,
