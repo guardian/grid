@@ -37,7 +37,7 @@ object PhotographersList {
       case (name: String, pub: String) => ContractPhotographer(name, Some(pub))
     })
   }
- }
+}
 
 object MetadataConfig {
 
