@@ -146,7 +146,7 @@ grPanel.controller('GrPanel', [
             return selectedMetadata.map((values) => {
                 switch (values.size) {
                 case 0:  return undefined;
-                case 1:  return Array.from(values);
+                case 1:  return values.first();
                 default: return Array.from(values);
                 }
             }).toObject();
@@ -154,7 +154,7 @@ grPanel.controller('GrPanel', [
         const displayMetadata$ = selectedMetadata$.map(selectedMetadata => {
             return selectedMetadata.map((values) => {
                 switch (values.size) {
-                case 1:  return Array.from(values)[0];
+                case 1:  return values.first();
                 default: return undefined;
                 }
             }).toObject();
