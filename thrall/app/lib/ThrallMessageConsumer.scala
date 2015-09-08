@@ -26,12 +26,8 @@ object ThrallMessageConsumer extends MessageConsumer(
     None
   }
 
-  def indexImage(image: JsValue): Future[Unit] =
-    withImageId(image)(id => {
-      ElasticSearch.indexImage(id, image) map {
-        _ => DynamoNotifications.publish(image, "image-indexed")
-      }
-    })
+  def indexImage(image: JsValue): Future[UpdateResponse] =
+    withImageId(image)(id => ElasticSearch.indexImage(id, image))
 
   def updateImageExports(exports: JsValue): Future[UpdateResponse] =
     withImageId(exports)(id => ElasticSearch.updateImageExports(id, exports \ "data"))
@@ -50,6 +46,7 @@ object ThrallMessageConsumer extends MessageConsumer(
         case r: DeleteByQueryResponse => {
           ImageStore.deleteOriginal(id)
           ImageStore.deleteThumbnail(id)
+          DynamoNotifications.publish(Json.obj("id" -> id), "image-deleted")
           EsResponse(s"Image deleted: $id")
         }
       } recoverWith {
@@ -57,12 +54,6 @@ object ThrallMessageConsumer extends MessageConsumer(
           Future.successful(EsResponse(s"Image cannot be deleted: $id"))
         }
       }
-    }
-
-  def withImageId[A](image: JsValue)(f: String => A): A =
-    image \ "id" match {
-      case JsString(id) => f(id)
-      case _            => sys.error(s"No id field present in message body: $image")
     }
 }
 
