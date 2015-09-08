@@ -39,7 +39,6 @@ jobs.controller('RequiredMetadataEditorCtrl',
             then(resource => {
                 ctrl.resource = resource;
             }).
-            catch(() => $window.alert('Failed to save the changes, please try again.')).
             finally(() => ctrl.saving = false);
     };
 
