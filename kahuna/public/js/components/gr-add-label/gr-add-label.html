@@ -8,13 +8,13 @@
             Add<span ng:show="ctrl.adding">ing...</span>
         </span>
 </button>
-<form ng:if="ctrl.active" ng:submit="ctrl.addLabel()" >
-    <input type='text' ng:model="ctrl.newLabel" gr:auto-focus placeholder="label1, label2, label3..." ng:blur="ctrl.cancel()"></input>
-    <span class="gr-add-label__buttons">
-        <button class="button-cancel" type="button" ng:click="ctrl.cancel()" title="Close">
+<form class="gr-add-label__form" ng:if="ctrl.active" ng:submit="ctrl.addLabel()" >
+    <input type='text' ng:model="ctrl.newLabel" gr:auto-focus placeholder="label1, label2, label3…" ng:blur="ctrl.cancel()"></input>
+    <span class="gr-add-label__form__buttons">
+        <button class="gr-add-label__form__buttons__button-cancel button-cancel" type="button" ng:click="ctrl.cancel()" title="Close">
             <gr-icon-label gr-icon="close"><span ng:hide="ctrl.grSmall">Cancel</span></gr-icon-label>
         </button>
-        <button class="button-save" type="submit" title="Save new label" ng:mousedown="ctrl.addLabel()">
+        <button class="gr-add-label__form__buttons__button-save button-save" type="submit" title="Save new label" ng:mousedown="ctrl.addLabel()">
             <gr-icon-label gr-icon="check"><span ng:hide="ctrl.grSmall">Save</span></gr-icon-label>
         </button>
     </span>
