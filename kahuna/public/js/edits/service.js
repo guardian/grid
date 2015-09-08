@@ -45,21 +45,6 @@ service.factory('editsService',
     }
 
     /**
-     * Makes sure the image's edit is empty ({} || [])
-     * @param edit {Resource}
-     * @param image {Resource}
-     * @returns {Promise.<Resource>|reject} return the now empty edit
-     */
-    function isEmpty(edit, image) {
-        // find that matching resource
-        return findMatchingEditInImage(edit, image).then(matchingEdit =>
-            angular.equals(matchingEdit.data, {}) ||
-            angular.equals(matchingEdit.data, []) ||
-            angular.isUndefined(matchingEdit.data) ?
-                { matchingEdit, image } : $q.reject('data not matching'));
-    }
-
-    /**
      *
      * @param image {Resource} image to observe for synchronisation
      * @param check {Function} a function that takes the new image as an argument
@@ -163,23 +148,6 @@ service.factory('editsService',
 
         return existingRequestPool.promise;
     }
-
-    function remove(resource, originalImage) {
-        runWatcher(resource, 'update-start');
-
-        return resource.delete().then(() =>
-            getSynced(originalImage, newImage => isEmpty(resource, newImage)).
-            then(({ emptyEdit, image }) => {
-
-                runWatcher(resource, 'update-end');
-
-                $rootScope.$emit('image-updated', image, originalImage);
-
-                return emptyEdit;
-            }).
-            catch(() => runWatcher(resource, 'update-error')));
-    }
-
 
 
     // Event handling
@@ -304,7 +272,7 @@ service.factory('editsService',
     }
 
     return {
-        update, add, on, remove, canUserEdit,
+        update, add, on, canUserEdit,
         updateMetadataField, batchUpdateMetadataField
     };
 
