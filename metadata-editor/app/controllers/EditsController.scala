@@ -83,15 +83,14 @@ object EditsController extends Controller with ArgoHelpers {
       errors   =>
         Future.successful(BadRequest(errors.errorsAsJson)),
       archived =>
-        dynamo.booleanSetOrRemove(id, "archived", archived)
-          .map(publish(id))
+        DynamoEdits.setArchived(id, archived)
           .map(edits => respond(edits.archived))
     )
   }
 
   def unsetArchived(id: String) = Authenticated.async {
     dynamo.removeKey(id, "archived")
-      .map(publish(id))
+      .map(DynamoEdits.publish(id))
       .map(_ => respond(false))
   }
 
@@ -111,7 +110,7 @@ object EditsController extends Controller with ArgoHelpers {
       labels => {
         dynamo
           .setAdd(id, "labels", labels)
-          .map(publish(id))
+          .map(DynamoEdits.publish(id))
           .map(edits => labelsCollection(id, edits.labels.toSet))
           .map {case (uri, labels) => respondCollection(labels)}
       }
@@ -120,7 +119,7 @@ object EditsController extends Controller with ArgoHelpers {
 
   def removeLabel(id: String, label: String) = Authenticated.async {
     dynamo.setDelete(id, "labels", decodeUriParam(label))
-      .map(publish(id))
+      .map(DynamoEdits.publish(id))
       .map(edits => labelsCollection(id, edits.labels.toSet))
       .map {case (uri, labels) => respondCollection(labels, uri=Some(uri))}
   }
@@ -140,7 +139,7 @@ object EditsController extends Controller with ArgoHelpers {
       errors => Future.successful(BadRequest(errors.errorsAsJson)),
       metadata =>
         dynamo.jsonAdd(id, "metadata", metadataAsMap(metadata))
-          .map(publish(id))
+          .map(DynamoEdits.publish(id))
           .map(edits => respond(edits.metadata))
     )
   }
@@ -157,13 +156,13 @@ object EditsController extends Controller with ArgoHelpers {
   def setUsageRights(id: String) = Authenticated.async(parse.json) { req =>
     (req.body \ "data").asOpt[UsageRights].map(usageRight => {
       dynamo.jsonAdd(id, "usageRights", caseClassToMap(usageRight))
-        .map(publish(id))
+        .map(DynamoEdits.publish(id))
         .map(edits => respond(usageRight))
     }).getOrElse(Future.successful(respondError(BadRequest, "invalid-form-data", "Invalid form data")))
   }
 
   def deleteUsageRights(id: String) = Authenticated.async { req =>
-    dynamo.removeKey(id, "usageRights").map(publish(id)).map(edits => Accepted)
+    dynamo.removeKey(id, "usageRights").map(DynamoEdits.publish(id)).map(edits => Accepted)
   }
 
   def bindFromRequest[T](json: JsValue)(implicit fjs: Reads[T]): ValidationNel[EditsValidationError, T] =
@@ -179,20 +178,6 @@ object EditsController extends Controller with ArgoHelpers {
     val labelsUri = EditsResponse.entityUri(id, "/labels")
     (labelsUri, labels.map(EditsResponse.setUnitEntity(id, "labels", _)).toSeq)
   }
-
-
-  def publish(id: String)(metadata: JsObject): Edits = {
-    val edits = metadata.as[Edits]
-    val message = Json.obj(
-      "id" -> id,
-      "data" -> Json.toJson(edits)
-    )
-
-    Notifications.publish(message, "update-image-user-metadata")
-
-    edits
-  }
-
 
   // This get's the form error based on out data structure that we send over i.e.
   // { "data": {data} }

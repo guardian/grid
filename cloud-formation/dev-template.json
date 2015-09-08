@@ -28,8 +28,18 @@
                             },
                             {
                                 "Effect": "Allow",
+                                "Action": ["sqs:DeleteMessage", "sqs:ReceiveMessage"],
+                                "Resource": [ { "Fn::GetAtt": ["ImageIndexedQueue", "Arn"] } ]
+                            },
+                            {
+                                "Effect": "Allow",
                                 "Action": ["sns:Publish"],
                                 "Resource": { "Ref": "Topic" }
+                            },
+                            {
+                                "Effect": "Allow",
+                                "Action": ["sns:Publish"],
+                                "Resource": { "Ref": "ImageIndexedTopic" }
                             },
                             {
                                 "Effect": "Allow",
@@ -271,6 +281,43 @@
                 },
                 "Queues": [ { "Ref": "Queue" } ]
             }
+        },
+        "ImageIndexedTopic": {
+            "Type": "AWS::SNS::Topic",
+            "Properties": {
+                "Subscription": [
+                    {
+                        "Endpoint": { "Fn::GetAtt": [ "ImageIndexedQueue", "Arn" ] },
+                        "Protocol": "sqs"
+                    }
+                ]
+            }
+        },
+        "ImageIndexedQueue": {
+            "Type": "AWS::SQS::Queue",
+            "Properties": {
+            }
+        },
+        "ImageIndexedQueuePolicy": {
+            "Type": "AWS::SQS::QueuePolicy",
+            "Properties": {
+                "PolicyDocument": {
+                    "Id": "ImageIndexedQueuePolicy",
+                    "Statement": [
+                        {
+                            "Sid": "Allow-SendMessage-To-Queue-From-Topic",
+                            "Effect": "Allow",
+                            "Principal": { "AWS": "*" },
+                            "Action": ["sqs:SendMessage"],
+                            "Resource": "*",
+                            "Condition": {
+                                "ArnEquals": { "aws:SourceArn": { "Ref": "ImageIndexedTopic" } }
+                            }
+                        }
+                    ]
+                },
+                "Queues": [ { "Ref": "ImageIndexedQueue" } ]
+            }
         }
     },
     "Outputs": {
@@ -306,6 +353,12 @@
         },
         "SqsQueueUrl": {
             "Value": { "Ref" : "Queue" }
+        },
+        "ImageIndexedSnsTopicArn": {
+            "Value": { "Ref": "ImageIndexedTopic" }
+        },
+        "ImageIndexedSqsQueueUrl": {
+            "Value": { "Ref" : "ImageIndexedQueue" }
         }
     }
 }
