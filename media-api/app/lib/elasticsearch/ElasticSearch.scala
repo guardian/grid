@@ -98,32 +98,14 @@ object ElasticSearch extends ElasticSearchClient with SearchFilters with ImageFi
       else                      params.free.flatMap(free => if (free) freeFilter else nonFreeFilter)
 
 
-    val persistedFilter = params.persisted map {
-      case true => {
-        filters or (
-          filters.bool.must(filters.existsOrMissing("exports", true)),
-          filters.exists(NonEmptyList(identifierField(Config.persistenceIdentifier))),
-          filters.bool.must(filters.term(editsField("archived"), true)),
-          filters.bool.must(filters.term(usageRightsField("category"), "staff-photographer")),
-          filters.bool.must(filters.term(usageRightsField("category"), "contract-photographer")),
-          filters.bool.must(filters.term(usageRightsField("category"), "commissioned-photographer"))
-        )
-      }
-      case false => {
-        filters and (
-            filters.bool.must(filters.existsOrMissing("exports", false)),
-            filters.missing(NonEmptyList(identifierField(Config.persistenceIdentifier))),
-            filters.existsOrMissing(editsField("archived"), false),
-            filters.bool.mustNot(filters.term(usageRightsField("category"), "staff-photographer")),
-            filters.bool.mustNot(filters.term(usageRightsField("category"), "contract-photographer")),
-            filters.bool.mustNot(filters.term(usageRightsField("category"), "commissioned-photographer"))
-        )
-      }
+    val persistFilter = params.persisted map {
+      case true   => persistedFilter
+      case false  => nonPersistedFilter
     }
 
 
     val filterOpt = (
-      metadataFilter.toList ++ persistedFilter ++ labelFilter ++ archivedFilter ++
+      metadataFilter.toList ++ persistFilter ++ labelFilter ++ archivedFilter ++
       uploadedByFilter ++ idsFilter ++ validityFilter ++ costFilter ++
       hasExports ++ hasIdentifier ++ missingIdentifier ++ dateFilter
     ).toNel.map(filter => filter.list.reduceLeft(filters.and(_, _)))
