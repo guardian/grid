@@ -26,7 +26,7 @@ object ImageResponse {
 
   def isPhotographerCategory[T <: UsageRights](usageRights: T) =
     usageRights match {
-      case _:StaffPhotographer | _:ContractPhotographer | _:CommissionedPhotographer => true
+      case _:Photographer => true
       case _ => false
     }
 
