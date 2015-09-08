@@ -3,7 +3,9 @@ package lib.querysyntax
 import org.joda.time.DateTime
 import org.parboiled2._
 
-class QuerySyntax(val input: ParserInput) extends Parser {
+import lib.elasticsearch.ImageFields
+
+class QuerySyntax(val input: ParserInput) extends Parser with ImageFields {
   def Query = rule { Expression ~ EOI }
 
   def Expression = rule { zeroOrMore(Term) separatedBy Whitespace }
@@ -39,15 +41,17 @@ class QuerySyntax(val input: ParserInput) extends Parser {
     "label"
   }
 
-  def resolveNamedField(name: String): Field = name match {
-    case "uploader"            => SingleField("uploadedBy")
-    case "in"                  => MultipleField(List("location", "city", "state", "country"))
-    case "by" | "photographer" => SingleField("byline")
-    case "location"            => SingleField("subLocation")
-    case "label"               => SingleField("labels")
-    case "keyword"             => SingleField("keywords")
-    case "collection"          => SingleField("suppliersCollection")
-    case fieldName             => SingleField(fieldName)
+  def resolveNamedField(name: String): Field = (name match {
+    case "uploader"            => "uploadedBy"
+    case "label"               => "labels"
+    case "collection"          => "suppliersCollection"
+    case "location"            => "subLocation"
+    case "by" | "photographer" => "byline"
+    case "keyword"             => "keywords"
+    case fieldName             => fieldName
+  }) match {
+    case "in" => MultipleField(List("location", "city", "state", "country").map(getFieldPath))
+    case field => SingleField(getFieldPath(field))
   }
 
 
