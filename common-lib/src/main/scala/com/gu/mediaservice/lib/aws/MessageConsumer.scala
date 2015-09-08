@@ -83,6 +83,11 @@ abstract class MessageConsumer(queueUrl: String, awsEndpoint: String, awsCredent
   private def deleteMessage(message: SQSMessage): Unit =
     client.deleteMessage(new DeleteMessageRequest(queueUrl, message.getReceiptHandle))
 
+  def withImageId[A](image: JsValue)(f: String => A): A =
+    image \ "id" match {
+      case JsString(id) => f(id)
+      case _            => sys.error(s"No id field present in message body: $image")
+    }
 }
 
 case class SNSMessage(

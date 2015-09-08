@@ -1,7 +1,6 @@
 
+import lib.{Config, ElasticSearch, LogConfig, ThrallMessageConsumer}
 import play.api.{Application, GlobalSettings}
-import lib.{ElasticSearch, ThrallMessageConsumer}
-import lib.{ElasticSearch, MessageConsumer, Config, LogConfig}
 
 
 object Global extends GlobalSettings {
