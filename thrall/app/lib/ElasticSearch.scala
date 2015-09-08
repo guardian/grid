@@ -1,29 +1,27 @@
 package lib
 
-import scala.concurrent.{ExecutionContext, Future}
-import scala.collection.convert.decorateAll._
-import org.elasticsearch.client.UpdateByQueryClientWrapper
-import org.elasticsearch.action.update.{UpdateResponse, UpdateRequestBuilder}
-import org.elasticsearch.action.deletebyquery.DeleteByQueryResponse
-import org.elasticsearch.action.updatebyquery.UpdateByQueryResponse
-import org.elasticsearch.index.query.QueryBuilders.matchAllQuery
-import org.elasticsearch.index.engine.VersionConflictEngineException
-import org.elasticsearch.script.ScriptService
-import org.elasticsearch.index.query.QueryBuilders.{filteredQuery, boolQuery, matchQuery}
-import org.elasticsearch.index.query.FilterBuilders.{missingFilter, andFilter, termFilter, boolFilter}
-import org.joda.time.DateTime
-import groovy.json.JsonSlurper
 import _root_.play.api.libs.json._
-
-import com.gu.mediaservice.lib.elasticsearch.ElasticSearchClient
+import com.gu.mediaservice.lib.elasticsearch.{ImageFields, ElasticSearchClient}
 import com.gu.mediaservice.syntax._
+import groovy.json.JsonSlurper
+import lib.ThrallMetrics._
+import org.elasticsearch.action.deletebyquery.DeleteByQueryResponse
+import org.elasticsearch.action.update.{UpdateRequestBuilder, UpdateResponse}
+import org.elasticsearch.action.updatebyquery.UpdateByQueryResponse
+import org.elasticsearch.client.UpdateByQueryClientWrapper
+import org.elasticsearch.index.engine.VersionConflictEngineException
+import org.elasticsearch.index.query.FilterBuilders.{andFilter, boolFilter, missingFilter, termFilter}
+import org.elasticsearch.index.query.QueryBuilders.{boolQuery, filteredQuery, matchAllQuery, matchQuery}
+import org.elasticsearch.script.ScriptService
+import org.joda.time.DateTime
 
-import ThrallMetrics._
+import scala.collection.convert.decorateAll._
+import scala.concurrent.{ExecutionContext, Future}
 
 
 object ImageNotDeletable extends Throwable("Image cannot be deleted")
 
-object ElasticSearch extends ElasticSearchClient {
+object ElasticSearch extends ElasticSearchClient with ImageFields {
 
   import Config.persistenceIdentifier
   import com.gu.mediaservice.lib.formatting._
@@ -73,11 +71,11 @@ object ElasticSearch extends ElasticSearchClient {
           missingOrEmptyFilter("exports"),
           missingOrEmptyFilter(s"identifiers.$persistenceIdentifier"),
           boolFilter.should(
-            missingOrEmptyFilter("userMetadata.archived"),
-            boolFilter.must(termFilter("userMetadata.archived", false)),
-            boolFilter.mustNot(termFilter("usageRights.category", "staff-photographer")),
-            boolFilter.mustNot(termFilter("usageRights.category", "contract-photographer")),
-            boolFilter.mustNot(termFilter("usageRights.category", "commissioned-photographer"))
+            missingOrEmptyFilter(editsField("archived")),
+            boolFilter.must(termFilter(editsField("archived"), false)),
+            boolFilter.mustNot(termFilter(usageRightsField("category"), "staff-photographer")),
+            boolFilter.mustNot(termFilter(usageRightsField("category"), "contract-photographer")),
+            boolFilter.mustNot(termFilter(usageRightsField("category"), "commissioned-photographer"))
           )
         )
       )
