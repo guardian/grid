@@ -2,7 +2,7 @@ package lib.elasticsearch
 
 import java.util.regex.Pattern
 
-import org.elasticsearch.index.query.FilteredQueryBuilder
+import org.elasticsearch.index.query.{FilterBuilder, FilteredQueryBuilder}
 import org.elasticsearch.search.aggregations.bucket.terms.StringTerms
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -91,14 +91,39 @@ object ElasticSearch extends ElasticSearchClient with SearchFilters with ImageFi
     val missingIdentifier= params.missingIdentifier.map(idName => filters.missing(NonEmptyList(identifierField(idName))))
     val uploadedByFilter = params.uploadedBy.map(uploadedBy => filters.terms("uploadedBy", NonEmptyList(uploadedBy)))
 
-    val validityFilter   = params.valid.flatMap(valid => if(valid) validFilter else invalidFilter)
+    val validityFilter: Option[FilterBuilder] = params.valid.flatMap(valid => if(valid) validFilter else invalidFilter)
 
     val costFilter       =
       if (params.costModelDiff) params.free.flatMap(free => if (free) freeDiffFilter else nonFreeDiffFilter)
       else                      params.free.flatMap(free => if (free) freeFilter else nonFreeFilter)
 
+
+    val persistedFilter = params.persisted map {
+      case true => {
+        filters or (
+          filters.bool.must(filters.existsOrMissing("exports", true)),
+          filters.exists(NonEmptyList(identifierField(Config.persistenceIdentifier))),
+          filters.bool.must(filters.term(editsField("archived"), true)),
+          filters.bool.must(filters.term(usageRightsField("category"), "staff-photographer")),
+          filters.bool.must(filters.term(usageRightsField("category"), "contract-photographer")),
+          filters.bool.must(filters.term(usageRightsField("category"), "commissioned-photographer"))
+        )
+      }
+      case false => {
+        filters and (
+            filters.bool.must(filters.existsOrMissing("exports", false)),
+            filters.missing(NonEmptyList(identifierField(Config.persistenceIdentifier))),
+            filters.existsOrMissing(editsField("archived"), false),
+            filters.bool.mustNot(filters.term(usageRightsField("category"), "staff-photographer")),
+            filters.bool.mustNot(filters.term(usageRightsField("category"), "contract-photographer")),
+            filters.bool.mustNot(filters.term(usageRightsField("category"), "commissioned-photographer"))
+        )
+      }
+    }
+
+
     val filterOpt = (
-      metadataFilter.toList ++ labelFilter ++ archivedFilter ++
+      metadataFilter.toList ++ persistedFilter ++ labelFilter ++ archivedFilter ++
       uploadedByFilter ++ idsFilter ++ validityFilter ++ costFilter ++
       hasExports ++ hasIdentifier ++ missingIdentifier ++ dateFilter
     ).toNel.map(filter => filter.list.reduceLeft(filters.and(_, _)))
