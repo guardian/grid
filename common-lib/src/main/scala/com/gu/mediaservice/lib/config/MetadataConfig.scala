@@ -26,15 +26,13 @@ object PhotographersList {
   def getPublication(store: Store, name: String): Option[String] = store.get(name)
 
   def caseInsensitiveLookup(store: Store, lookup: String) =
-    store.map { case (name, pub) =>
-      name.toLowerCase -> (name, pub)
-    }.get(lookup.toLowerCase)
+    store.find{case (name, pub) => name.toLowerCase == lookup.toLowerCase}
 
   def getPhotographer(photographer: String): Option[Photographer] = {
     caseInsensitiveLookup(staffPhotographers, photographer).map {
-      case (name: String, pub: String) => StaffPhotographer(name, pub)
+      case (name, pub) => StaffPhotographer(name, pub)
     }.orElse(caseInsensitiveLookup(contractedPhotographers, photographer).map {
-      case (name: String, pub: String) => ContractPhotographer(name, Some(pub))
+      case (name, pub) => ContractPhotographer(name, Some(pub))
     })
   }
 }
