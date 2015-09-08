@@ -147,7 +147,7 @@ results.controller('SearchResultsCtrl', [
             // imagesAll will be a sparse array of all the results
             const totalLength = Math.min(images.total, ctrl.maxResults);
             ctrl.imagesAll = [];
-            ctrl.imagesAll.length = Math.min(images.total, ctrl.maxResults);
+            ctrl.imagesAll.length = totalLength;
 
             // TODO: ultimately we want to manage the state in the
             // results stream exclusively
