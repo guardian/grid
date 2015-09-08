@@ -23,7 +23,7 @@
                             {
                                 "Effect": "Allow",
                                 "Action": ["sqs:DeleteMessage", "sqs:ReceiveMessage"],
-                                "Resource": [ { "Fn::GetAtt": ["ImageIndexedQueue", "Arn"] } ]
+                                "Resource": [ { "Fn::GetAtt": ["DynamoQueue", "Arn"] } ]
                             },
                             {
                                 "Effect": "Allow",
@@ -33,7 +33,7 @@
                             {
                                 "Effect": "Allow",
                                 "Action": ["sns:Publish"],
-                                "Resource": { "Ref": "ImageIndexedTopic" }
+                                "Resource": { "Ref": "DynamoTopic" }
                             },
                             {
                                 "Effect": "Allow",
@@ -276,27 +276,27 @@
                 "Queues": [ { "Ref": "Queue" } ]
             }
         },
-        "ImageIndexedTopic": {
+        "DynamoTopic": {
             "Type": "AWS::SNS::Topic",
             "Properties": {
                 "Subscription": [
                     {
-                        "Endpoint": { "Fn::GetAtt": [ "ImageIndexedQueue", "Arn" ] },
+                        "Endpoint": { "Fn::GetAtt": [ "DynamoQueue", "Arn" ] },
                         "Protocol": "sqs"
                     }
                 ]
             }
         },
-        "ImageIndexedQueue": {
+        "DynamoQueue": {
             "Type": "AWS::SQS::Queue",
             "Properties": {
             }
         },
-        "ImageIndexedQueuePolicy": {
+        "DynamoQueuePolicy": {
             "Type": "AWS::SQS::QueuePolicy",
             "Properties": {
                 "PolicyDocument": {
-                    "Id": "ImageIndexedQueuePolicy",
+                    "Id": "DynamoQueuePolicy",
                     "Statement": [
                         {
                             "Sid": "Allow-SendMessage-To-Queue-From-Topic",
@@ -305,12 +305,12 @@
                             "Action": ["sqs:SendMessage"],
                             "Resource": "*",
                             "Condition": {
-                                "ArnEquals": { "aws:SourceArn": { "Ref": "ImageIndexedTopic" } }
+                                "ArnEquals": { "aws:SourceArn": { "Ref": "DynamoTopic" } }
                             }
                         }
                     ]
                 },
-                "Queues": [ { "Ref": "ImageIndexedQueue" } ]
+                "Queues": [ { "Ref": "DynamoQueue" } ]
             }
         }
     },
@@ -348,11 +348,11 @@
         "SqsQueueUrl": {
             "Value": { "Ref" : "Queue" }
         },
-        "ImageIndexedSnsTopicArn": {
-            "Value": { "Ref": "ImageIndexedTopic" }
+        "DynamoSnsTopicArn": {
+            "Value": { "Ref": "DynamoTopic" }
         },
-        "ImageIndexedSqsQueueUrl": {
-            "Value": { "Ref" : "ImageIndexedQueue" }
+        "DynamoSqsQueueUrl": {
+            "Value": { "Ref" : "DynamoQueue" }
         }
     }
 }

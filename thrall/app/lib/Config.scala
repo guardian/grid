@@ -42,5 +42,5 @@ object Config extends CommonPlayAppConfig {
 
   val healthyMessageRate = properties("sqs.message.min.frequency").toInt
 
-  val imageIndexedTopicArn: String = properties("image.indexed.sns.topic.arn")
+  val dynamoTopicArn: String = properties("dynamo.sns.topic.arn")
 }
