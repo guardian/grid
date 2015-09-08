@@ -35,11 +35,11 @@ object PhotographerParser extends ImageProcessor {
       PhotographersList.getPhotographer(byline).map{
         case p: StaffPhotographer => image.copy(
           usageRights = p,
-          metadata    = image.metadata.copy(credit = Some(p.publication))
+          metadata    = image.metadata.copy(credit = Some(p.publication), byline = Some(p.photographer))
         )
         case p: ContractPhotographer => image.copy(
           usageRights = p,
-          metadata    = image.metadata.copy(credit = p.publication)
+          metadata    = image.metadata.copy(credit = p.publication, byline = Some(p.photographer))
         )
         case _ => image
       }
