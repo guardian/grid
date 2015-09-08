@@ -6,6 +6,7 @@ import com.gu.mediaservice.lib.config.UsageRightsConfig
 import org.elasticsearch.index.query.FilterBuilder
 
 import scalaz.syntax.std.list._
+import scalaz.NonEmptyList
 
 import lib.Config
 
@@ -81,6 +82,24 @@ trait SearchFilters extends ImageFields {
     "contract-photographer",
     "commissioned-photographer",
     "pool"
+  )
+
+  val persistedFilter = filters or (
+    filters.bool.must(filters.existsOrMissing("exports", true)),
+    filters.exists(NonEmptyList(identifierField(Config.persistenceIdentifier))),
+    filters.bool.must(filters.term(editsField("archived"), true)),
+    filters.bool.must(filters.term(usageRightsField("category"), "staff-photographer")),
+    filters.bool.must(filters.term(usageRightsField("category"), "contract-photographer")),
+    filters.bool.must(filters.term(usageRightsField("category"), "commissioned-photographer"))
+  )
+
+  val nonPersistedFilter = filters and (
+    filters.bool.must(filters.existsOrMissing("exports", false)),
+    filters.missing(NonEmptyList(identifierField(Config.persistenceIdentifier))),
+    filters.existsOrMissing(editsField("archived"), false),
+    filters.bool.mustNot(filters.term(usageRightsField("category"), "staff-photographer")),
+    filters.bool.mustNot(filters.term(usageRightsField("category"), "contract-photographer")),
+    filters.bool.mustNot(filters.term(usageRightsField("category"), "commissioned-photographer"))
   )
 
   def filterOrFilter(filter: Option[FilterBuilder], orFilter: Option[FilterBuilder]): Option[FilterBuilder] = (filter, orFilter) match {
