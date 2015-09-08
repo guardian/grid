@@ -20,7 +20,7 @@ import scalaz.NonEmptyList
 
 
 import com.gu.mediaservice.syntax._
-import com.gu.mediaservice.lib.elasticsearch.ElasticSearchClient
+import com.gu.mediaservice.lib.elasticsearch.{ImageFields, ElasticSearchClient}
 import controllers.{AggregateSearchParams, SearchParams}
 import lib.{MediaApiMetrics, Config}
 
