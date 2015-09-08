@@ -3,10 +3,6 @@ gr-add-label{
     height: 25px;
 }
 
-gr-add-label form input {
-    width: 150px;
-}
-
 gr-add-label:hover {
     color: white;
 }
@@ -18,6 +14,10 @@ gr-add-label .small {
 
 .gr-add-label__form {
     display: flex;
+}
+
+.gr-add-label__form__input {
+    width: 150px;
 }
 
 .gr-add-label__form__buttons {

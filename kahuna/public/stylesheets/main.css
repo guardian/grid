@@ -1014,6 +1014,7 @@ FIXME: what to do with touch devices
 */
 
 .preview__labeller {
+    /*25px is the add label button plus some padding*/
     width: calc(100% - 25px);
     display: inline-block;
 }
