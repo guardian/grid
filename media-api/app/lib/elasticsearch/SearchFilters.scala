@@ -96,7 +96,10 @@ trait SearchFilters extends ImageFields {
   val nonPersistedFilter = filters and (
     filters.bool.must(filters.existsOrMissing("exports", false)),
     filters.missing(NonEmptyList(identifierField(Config.persistenceIdentifier))),
-    filters.existsOrMissing(editsField("archived"), false),
+    filters or (
+      filters.missing(NonEmptyList(editsField("archived"))),
+      filters.bool.must(filters.boolTerm(editsField("archived"), false))
+    ),
     filters.bool.mustNot(filters.term(usageRightsField("category"), "staff-photographer")),
     filters.bool.mustNot(filters.term(usageRightsField("category"), "contract-photographer")),
     filters.bool.mustNot(filters.term(usageRightsField("category"), "commissioned-photographer"))
