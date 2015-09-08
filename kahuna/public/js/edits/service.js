@@ -1,4 +1,5 @@
 import angular from 'angular';
+import Rx from 'rx';
 
 import '../services/api/edits-api';
 import '../services/api/media-api';
@@ -94,6 +95,63 @@ service.factory('editsService',
             catch(() => runWatcher(resource, 'update-error'));
     }
 
+
+    function firstAsPromise(stream$) {
+        const defer = $q.defer();
+        const unsubscribe = stream$.subscribe(defer.resolve, defer.reject);
+        defer.promise.finally(unsubscribe);
+        return defer.promise;
+    }
+
+    // A pool a requests. Its promise will be resolved with the last
+    // request added to the pool.
+    function createRequestPool() {
+        const requestsPromises = new Rx.Subject();
+        const latestCompleted = requestsPromises.flatMapLatest(Rx.Observable.fromPromise);
+
+        return {
+            registerPromise: (promise) => requestsPromises.onNext(promise),
+            promise: firstAsPromise(latestCompleted)
+        };
+    }
+
+    function withWatcher(resource, promise) {
+        runWatcher(resource, 'update-start');
+        return promise.
+            then(val => {
+                runWatcher(resource, 'update-end');
+                return val;
+            }).
+            catch(e => {
+                runWatcher(resource, 'update-error');
+                return $q.reject(e);
+            });
+    }
+
+    // Map of Resource to request pool, storing all currently active
+    // update requests for a given Resource
+    const updateRequestPools = new Map();
+
+    function registerUpdateRequest(resource, originalImage) {
+        const requestPool = createRequestPool();
+        const promise = withWatcher(resource, requestPool.promise).
+              then(({ edit, image }) => {
+                  $rootScope.$emit('image-updated', image, originalImage);
+                  return edit;
+              });
+
+        const newRequest = {
+            registerPromise: requestPool.registerPromise,
+            promise
+        };
+
+        // Register request pool, free once done
+        updateRequestPools.set(resource, newRequest);
+        promise.finally(() => updateRequestPools.delete(resource));
+
+        return newRequest;
+    }
+
     /**
      * @param resource {Resource} resource to update
      * @param data {*} PUTs `data` and replaces old data
@@ -101,23 +159,15 @@ service.factory('editsService',
      * @returns {Promise.<Resource>} completed when information is synced
      */
     function update(resource, data, originalImage) {
-        runWatcher(resource, 'update-start');
+        const newRequest = resource.put({ data }).
+              then(edit => getSynced(originalImage, newImage => matches(edit, newImage)));
 
-        return resource.put({ data }).then(edit =>
-            getSynced(originalImage, newImage => matches(edit, newImage))).
-            then(({ edit, image }) => {
+        const existingRequestPool = updateRequestPools.get(resource) ||
+            registerUpdateRequest(resource, originalImage);
 
-                runWatcher(resource, 'update-end');
+        existingRequestPool.registerPromise(newRequest);
 
-                $rootScope.$emit('image-updated', image, originalImage);
-
-                return edit;
-            }).
-            catch(e => {
-                runWatcher(resource, 'update-error');
-                return $q.reject(e);
-            });
-
+        return existingRequestPool.promise;
     }
 
     function remove(resource, originalImage) {
