@@ -77,6 +77,10 @@ object UsageRights {
     }
 }
 
+trait Photographer extends UsageRights {
+  val photographer: String
+}
+
 // We have a custom writes and reads for NoRights as it is represented by `{}`
 // in the DB layer.
 case object NoRights
@@ -238,7 +242,7 @@ object Obituary {
 
 
 case class StaffPhotographer(photographer: String, publication: String, restrictions: Option[String] = None)
-  extends UsageRights {
+  extends Photographer {
     val category = "staff-photographer"
     val defaultCost = Some(Free)
     val name = "Photographer - Staff"
@@ -257,7 +261,7 @@ object StaffPhotographer {
 
 
 case class ContractPhotographer(photographer: String, publication: Option[String] = None, restrictions: Option[String] = None)
-  extends UsageRights {
+  extends Photographer {
     val category = "contract-photographer"
     val defaultCost = Some(Free)
     val name = "Photographer - Contract"
@@ -276,7 +280,7 @@ object ContractPhotographer {
 
 
 case class CommissionedPhotographer(photographer: String, publication: Option[String] = None, restrictions: Option[String] = None)
-  extends UsageRights {
+  extends Photographer {
     val category = "commissioned-photographer"
     val defaultCost = Some(Free)
     val name = "Photographer - Commissioned"

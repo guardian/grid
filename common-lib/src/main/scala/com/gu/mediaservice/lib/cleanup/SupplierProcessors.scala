@@ -31,31 +31,21 @@ object SupplierProcessors {
 
 object PhotographerParser extends ImageProcessor {
   def apply(image: Image): Image = {
-    image.metadata.byline.map { byline =>
-      (
-        byline,
-        image.metadata.credit.map(_.toLowerCase),
-        PhotographersList.getPublication(staffPhotographers, byline),
-        PhotographersList.getPublication(contractedPhotographers, byline)
-      ) match {
-        // staff photographer
-        case (byline, credit, Some(publication), _) => image.copy(
-          usageRights = StaffPhotographer(byline, publication),
-          metadata    = image.metadata.copy(credit = Some(publication))
+    image.metadata.byline.flatMap { byline =>
+      PhotographersList.getPhotographer(byline).map{
+        case p: StaffPhotographer => image.copy(
+          usageRights = p,
+          metadata    = image.metadata.copy(credit = Some(p.publication), byline = Some(p.photographer))
         )
-
-        // contracted photographer
-        case (byline, credit, None, Some(publication)) => image.copy(
-          usageRights = ContractPhotographer(byline, Some(publication)),
-          metadata    = image.metadata.copy(credit = Some(publication))
+        case p: ContractPhotographer => image.copy(
+          usageRights = p,
+          metadata    = image.metadata.copy(credit = p.publication, byline = Some(p.photographer))
         )
-
         case _ => image
       }
     }
   }.getOrElse(image)
 }
-
 
 object AapParser extends ImageProcessor {
   def apply(image: Image): Image = image.metadata.credit match {
