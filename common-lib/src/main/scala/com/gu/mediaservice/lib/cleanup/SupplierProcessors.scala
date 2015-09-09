@@ -13,6 +13,7 @@ object SupplierProcessors {
     AapParser,
     ActionImagesParser,
     AlamyParser,
+    AllStarParser,
     ApParser,
     BarcroftParser,
     CorbisParser,
@@ -75,6 +76,15 @@ object AlamyParser extends ImageProcessor {
   }
 }
 
+object AllStarParser extends ImageProcessor {
+  def apply(image: Image): Image = image.metadata.credit match {
+    case Some("Allstar Picture Library") => image.copy(
+      usageRights = Agency("Allstar Picture Library")
+    )
+    case _ => image
+  }
+}
+
 object ApParser extends ImageProcessor {
   val InvisionFor = "^invision for (.+)".r
   val PersonInvisionAp = "(.+)\\s*/invision/ap$".r
@@ -131,7 +141,7 @@ object GettyXmpParser extends ImageProcessor {
 }
 
 object GettyCreditParser extends ImageProcessor {
-  val gettyCredits = List("getty images", "afp/getty images", "bloomberg via getty images")
+  val gettyCredits = List("afp", "afp/getty images", "bloomberg via getty images", "getty images")
 
   def apply(image: Image): Image = image.metadata.credit.map(c => gettyCredits.contains(c.toLowerCase)) match {
     case Some(true) => image.copy(

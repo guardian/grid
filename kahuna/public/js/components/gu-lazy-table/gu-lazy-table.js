@@ -5,9 +5,9 @@ import 'rx-dom';
 import elementResize from 'javascript-detect-element-resize';
 let {addResizeListener, removeResizeListener} = elementResize;
 
-import './rx-helpers';
 import './gu-lazy-table-cell';
 import './gu-lazy-table-placeholder';
+import '../../util/rx';
 import '../../util/seq';
 
 import {
@@ -20,7 +20,7 @@ import {
 export var lazyTable = angular.module('gu.lazyTable', [
     'gu.lazyTableCell',
     'gu.lazyTablePlaceholder',
-    'rx.helpers',
+    'util.rx',
     'util.seq'
 ]);
 
