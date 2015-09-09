@@ -13,6 +13,7 @@ object SupplierProcessors {
     AapParser,
     ActionImagesParser,
     AlamyParser,
+    AllStarParser,
     ApParser,
     BarcroftParser,
     CorbisParser,
@@ -70,6 +71,16 @@ object AlamyParser extends ImageProcessor {
   def apply(image: Image): Image = image.metadata.credit match {
     case Some("Alamy") | Some("Alamy Stock Photo") => image.copy(
       usageRights = Agency("Alamy")
+    )
+    case _ => image
+  }
+}
+
+object AllStarParser extends ImageProcessor {
+  def apply(image: Image): Image = image.metadata.credit match {
+    case Some("Allstar Picture Library") => image.copy(
+      usageRights = Agency("Alamy"),
+      metadata = image.metadata.copy(credit = Some("Allstar Picture Library"))
     )
     case _ => image
   }
