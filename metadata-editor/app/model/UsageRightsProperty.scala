@@ -23,29 +23,48 @@ object UsageRightsProperty {
   type OptionsMap = Map[String, List[String]]
   type Options = List[String]
 
+  import MetadataConfig.staffPhotographersMap
+  import UsageRightsConfig.freeSuppliers
+
   implicit val jsonWrites: Writes[UsageRightsProperty] = Json.writes[UsageRightsProperty]
+
+  def sortList(list: List[String]) = list.sortWith(_.toLowerCase < _.toLowerCase)
 
   def getPropertiesForCat(u: UsageRights): List[UsageRightsProperty] =
     agencyProperties(u) ++ photographerProperties(u) ++ restrictionProperties(u)
 
   private def publicationField(required: Boolean)  =
-    UsageRightsProperty("publication", "Publication", "string", required,
-      Some(MetadataConfig.staffPhotographersMap.keys.toList.sortWith(_.toLowerCase < _.toLowerCase)))
+    UsageRightsProperty(
+      "publication",
+      "Publication",
+      "string",
+      required,
+      Some(sortList(staffPhotographersMap.keys.toList)))
 
   private def photographerField =
     UsageRightsProperty("photographer", "Photographer", "string", true)
 
   private def photographerField(photographers: OptionsMap, key: String) =
-    UsageRightsProperty("photographer", "Photographer", "string", true, optionsMap = Some(photographers), optionsMapKey = Some(key))
+    UsageRightsProperty(
+      "photographer",
+      "Photographer",
+      "string",
+      true,
+      optionsMap = Some(photographers),
+      optionsMapKey = Some(key))
 
   private def restrictionProperties(u: UsageRights): List[UsageRightsProperty] = u match {
     case _:NoRights.type => List()
-    case _ => List(UsageRightsProperty("restrictions", "Restrictions", "text", u.defaultCost.contains(Conditional)))
+    case _ => List(UsageRightsProperty(
+      "restrictions",
+      "Restrictions",
+      "text",
+      u.defaultCost.contains(Conditional)))
   }
 
   private def agencyProperties(u: UsageRights): List[UsageRightsProperty] = u match {
     case _:Agency => List(
-      UsageRightsProperty("supplier", "Supplier", "string", true, Some(UsageRightsConfig.freeSuppliers.sortWith(_.toLowerCase < _.toLowerCase))),
+      UsageRightsProperty("supplier", "Supplier", "string", true, Some(sortList(freeSuppliers))),
       UsageRightsProperty("suppliersCollection", "Collection", "string", false)
     )
 
@@ -57,7 +76,7 @@ object UsageRightsProperty {
   private def photographerProperties(u: UsageRights): List[UsageRightsProperty] = u match {
     case _:StaffPhotographer => List(
       publicationField(true),
-      photographerField(MetadataConfig.staffPhotographersMap, "publication")
+      photographerField(staffPhotographersMap, "publication")
     )
 
     case _:CommissionedPhotographer => List(

@@ -110,15 +110,21 @@
                                 </select>
                         </div>
 
-                        <select
-                            class="full-width"
-                            name="{{ property.name }}"
-                            ng:if="property.optionsMap"
-                            ng:model="ctrl.model[property.name]"
-                            ng:required="property.required"
-                            ng:options="o for o in ctrl.getOptionsFor(property)">
-                            <option value="">None</option>
-                        </select>
+                        <div ng:if="property.optionsMap && ctrl.getOptionsFor(property)">
+                            <gr-datalist
+                                class="full-width"
+                                gr:list-data="ctrl.getOptionsFor(property)">
+
+                                <input
+                                    type="text"
+                                    name="{{ property.name }}"
+                                    class="full-width"
+                                    gr:datalist-input
+                                    ng:model="ctrl.model[property.name]"
+                                    ng:required="property.required">
+                                </input>
+                            </gr-datalist>
+                        </div>
                     </div>
 
                     <textarea
