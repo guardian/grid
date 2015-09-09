@@ -22,7 +22,7 @@ class QuerySyntax(val input: ParserInput) extends Parser with ImageFields {
   }
 
   def ScopedMatch = rule { MatchField ~ ':' ~ MatchValue }
-  def HashMatch = rule { '#' ~ MatchValue ~> (label => Match(SingleField("labels"), label)) }
+  def HashMatch = rule { '#' ~ MatchValue ~> (label => Match(SingleField(getFieldPath("labels")), label)) }
 
   def MatchField = rule { capture(AllowedFieldName) ~> resolveNamedField _ }
 
@@ -67,7 +67,7 @@ class QuerySyntax(val input: ParserInput) extends Parser with ImageFields {
   // TODO: also comparisons
   def DateMatch = rule { MatchDateField ~ ':' ~ MatchDateValue }
 
-  def AtMatch = rule { '@' ~ MatchDateValue ~> (range => Match(SingleField("uploadTime"), range)) }
+  def AtMatch = rule { '@' ~ MatchDateValue ~> (range => Match(SingleField(getFieldPath("uploadTime")), range)) }
 
   def MatchDateField = rule { capture(AllowedDateFieldName) ~> resolveDateField _ }
 
