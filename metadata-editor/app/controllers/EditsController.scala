@@ -5,21 +5,17 @@ import java.net.URI
 import java.net.URLDecoder.decode
 
 import com.gu.mediaservice.lib.argo.ArgoHelpers
+import com.gu.mediaservice.lib.argo.model._
+import com.gu.mediaservice.lib.aws.{DynamoDB, NoItemFound}
 import com.gu.mediaservice.model._
+import lib._
+import play.api.data.Forms._
+import play.api.data._
+import play.api.libs.concurrent.Execution.Implicits._
+import play.api.libs.json._
+import play.api.mvc.Controller
 
 import scala.concurrent.Future
-
-import play.api.data._, Forms._
-import play.api.mvc.Controller
-import play.api.libs.json._
-import play.api.libs.concurrent.Execution.Implicits._
-
-import com.gu.mediaservice.lib.aws.{NoItemFound, DynamoDB}
-import lib._
-
-import com.gu.mediaservice.lib.argo._
-import com.gu.mediaservice.lib.argo.model._
-
 import scalaz.ValidationNel
 import scalaz.syntax.validation._
 
@@ -113,7 +109,9 @@ object EditsController extends Controller with ArgoHelpers {
           .setAdd(id, "labels", labels)
           .map(publish(id))
           .map(edits => labelsCollection(id, edits.labels.toSet))
-          .map {case (uri, labels) => respondCollection(labels)}
+          .map {case (uri, labels) => respondCollection(labels)} recover {
+          case _ => BadRequest
+        }
       }
     )
   }
