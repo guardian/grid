@@ -131,15 +131,21 @@ usageRightsEditor.controller(
                         .name;
 
         const val = ctrl.model[key];
-        return property.optionsMap[val];
+        return property.optionsMap[val] || [];
     };
 
     ctrl.isOtherValue = property => {
-        const missingVal =
-            !ctrl.getOptionsFor(property)
-                .find(option => option === ctrl.model[property.name]);
+        if (!ctrl.model[property.name]) {
+            // if we haven't set a value, it won't be in the list of available values,
+            // but this isn't considered "other", it's "not set".
+            return false;
+        } else {
+            const missingVal =
+                !ctrl.getOptionsFor(property)
+                    .find(option => option === ctrl.model[property.name]);
 
-        return missingVal;
+            return missingVal;
+        }
     };
 
     ctrl.isRestricted = prop => ctrl.showRestrictions || prop.required;
