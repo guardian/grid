@@ -1,6 +1,6 @@
 package lib.querysyntax
 
-import lib.elasticsearch.ImageFields
+import com.gu.mediaservice.lib.elasticsearch.ImageFields
 import org.scalatest.{FunSpec, Matchers, BeforeAndAfter}
 import org.joda.time.DateTime
 import org.joda.time.DateTimeUtils
