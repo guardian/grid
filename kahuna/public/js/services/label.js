@@ -15,7 +15,10 @@ labelService.factory('labelService',
     }
 
     function labelsEquals(labelsA, labelsB) {
-        return angular.equals(readLabelsName(labelsA), readLabelsName(labelsB));
+        return angular.equals(
+            readLabelsName(labelsA).sort(),
+            readLabelsName(labelsB).sort()
+        );
     }
 
     function untilLabelsEqual(image, expectedLabels) {
