@@ -61,9 +61,9 @@ object UsageRightsOverride {
   def commissionedAgency(m: ImageMetadata) =
     m.copyright map(_.toLowerCase) map {
       // I've been through all of these and they all seem to have the correct photographer
-      case "commissioned for the guardian"     => CommissionedPhotographer(m.byline.getOrElse(theGuardian), theGuardian)
-      case "commissioned for weekend magazine" => CommissionedPhotographer(m.byline.getOrElse(weekendMagazine), weekendMagazine)
-      case "commissioned for the observer"     => CommissionedPhotographer(m.byline.getOrElse(theObserver), theObserver)
+      case "commissioned for the guardian"     => CommissionedPhotographer(m.byline.getOrElse(theGuardian), Some(theGuardian))
+      case "commissioned for weekend magazine" => CommissionedPhotographer(m.byline.getOrElse(weekendMagazine), Some(weekendMagazine))
+      case "commissioned for the observer"     => CommissionedPhotographer(m.byline.getOrElse(theObserver), Some(theObserver))
       case copyright                           => CommissionedAgency(extractPhotographer(copyright))
     }
 
@@ -78,14 +78,14 @@ object UsageRightsOverride {
   }
 
   def contractPhotographer(m: ImageMetadata) = (m.byline, m.copyright) match {
-    case (Some(byline), _)       => Some(ContractPhotographer(extractPhotographer(byline),    getPublication(byline)))
-    case (None, Some(copyright)) => Some(ContractPhotographer(extractPhotographer(copyright), getPublication(copyright)))
+    case (Some(byline), _)       => Some(ContractPhotographer(extractPhotographer(byline),    Some(getPublication(byline))))
+    case (None, Some(copyright)) => Some(ContractPhotographer(extractPhotographer(copyright), Some(getPublication(copyright))))
     case _ => None
   }
 
   def commissionedPhotographer(m: ImageMetadata) = (m.byline, m.copyright) match {
-    case (Some(byline), _)       => Some(CommissionedPhotographer(extractPhotographer(byline),    getPublication(byline)))
-    case (None, Some(copyright)) => Some(CommissionedPhotographer(extractPhotographer(copyright), getPublication(copyright)))
+    case (Some(byline), _)       => Some(CommissionedPhotographer(extractPhotographer(byline),    Some(getPublication(byline))))
+    case (None, Some(copyright)) => Some(CommissionedPhotographer(extractPhotographer(copyright), Some(getPublication(copyright))))
     case _ => None
   }
 
@@ -135,8 +135,8 @@ object UsageRightsOverride {
 
       case "Supplied for obituary" => Obituary()
 
-      case "JOHAN PERSSON" => CommissionedPhotographer("Johan Persson", theGuardian)
-      case "Andrew Parsons for the Conservative Party" => CommissionedPhotographer("Andrew Parsons", "The Conservative Party")
+      case "JOHAN PERSSON" => CommissionedPhotographer("Johan Persson", Some(theGuardian))
+      case "Andrew Parsons for the Conservative Party" => CommissionedPhotographer("Andrew Parsons", Some("The Conservative Party"))
 
       case "SWNS." => CommissionedAgency("SWNS")
 
