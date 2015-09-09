@@ -6,12 +6,13 @@ import '../util/eq';
 export var datalist = angular.module('kahuna.forms.datalist', ['util.eq']);
 
 
-datalist.directive('grDatalist', [function() {
+datalist.directive('grDatalist', ['$q', function($q) {
     return {
         restrict: 'E',
         transclude: true,
         scope: {
-            search: '&grSearch'
+            search: '&grSearch',
+            listData: '=grListData'
         },
         template: template,
         controllerAs: 'ctrl',
@@ -24,6 +25,11 @@ datalist.directive('grDatalist', [function() {
             ctrl.moveIndex = movement =>
                 selectedIndex = (selectedIndex + movement + ctrl.results.length) %
                                 ctrl.results.length;
+
+            // define a simple text search if we've been supplied the data
+            if (ctrl.listData) {
+                ctrl.search = simpleSearch(ctrl.listData);
+            }
 
             ctrl.isSelected = key => key === selectedIndex;
 
@@ -40,6 +46,10 @@ datalist.directive('grDatalist', [function() {
                 selectedIndex = 0;
                 ctrl.results = [];
             };
+
+            function simpleSearch(data) {
+                return ({q}) => Promise.resolve(data.filter(d => d.startsWith(q)));
+            }
         }],
         bindToController: true
     };
@@ -67,11 +77,13 @@ datalist.directive('grDatalistInput',
                 esc:   deactivate
             };
 
+            input.attr({ autocomplete: 'off' });
             input.on('keyup', event => {
                 const func = keyFuncs[keys[event.which]];
 
                 if (func && parentCtrl.active) {
                     event.preventDefault();
+                    event.stopPropagation();
                     scope.$apply(func);
                 } else {
                     searchAndActivate();

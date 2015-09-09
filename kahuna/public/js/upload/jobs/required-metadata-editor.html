@@ -50,7 +50,7 @@
         <div class="job-info--editor__field">
             <div class="job-info--editor__label">Credit</div>
 
-            <gr:datalist
+            <gr-datalist
                 class="job-info--editor__input"
                 gr:search="ctrl.metadataSearch('credit', q)">
 
@@ -61,7 +61,7 @@
                     ng:model="ctrl.metadata.credit"
                     ng:change="ctrl.save()"
                     ng:model-options="{ updateOn: 'gr:datalist:update blur' }" />
-            </gr:datalist>
+            </gr-datalist>
 
             <button
                 class="job-editor__apply-to-all"
