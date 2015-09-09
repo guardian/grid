@@ -43,6 +43,15 @@ jobs.controller('UploadJobsCtrl', [
                     jobItem.canBeDeleted = deletable;
                 });
 
+                // TODO: we shouldn't have to do this ;_;
+                // If the image is updated (e.g. label added,
+                // archived, etc), refresh the copy we hold
+                $rootScope.$on('image-updated', (e, updatedImage) => {
+                    if (updatedImage.data.id === image.data.id) {
+                        jobItem.image = updatedImage;
+                    }
+                });
+
                 // we use the filename of the image if the description is missing
                 if (!jobItem.image.data.metadata.description) {
                     const newDescription = jobItem.name
