@@ -84,7 +84,7 @@ trait SearchFilters extends ImageFields {
     "pool"
   )
 
-  val persistedFilter = filters or (
+  val persistedFilter = filters.or(
     filters.bool.must(filters.existsOrMissing("exports", true)),
     filters.exists(NonEmptyList(identifierField(Config.persistenceIdentifier))),
     filters.bool.must(filters.boolTerm(editsField("archived"), true)),
@@ -93,17 +93,7 @@ trait SearchFilters extends ImageFields {
     filters.bool.must(filters.term(usageRightsField("category"), "commissioned-photographer"))
   )
 
-  val nonPersistedFilter = filters and (
-    filters.bool.must(filters.existsOrMissing("exports", false)),
-    filters.missing(NonEmptyList(identifierField(Config.persistenceIdentifier))),
-    filters or (
-      filters.missing(NonEmptyList(editsField("archived"))),
-      filters.bool.must(filters.boolTerm(editsField("archived"), false))
-    ),
-    filters.bool.mustNot(filters.term(usageRightsField("category"), "staff-photographer")),
-    filters.bool.mustNot(filters.term(usageRightsField("category"), "contract-photographer")),
-    filters.bool.mustNot(filters.term(usageRightsField("category"), "commissioned-photographer"))
-  )
+  val nonPersistedFilter = filters.not(persistedFilter)
 
   def filterOrFilter(filter: Option[FilterBuilder], orFilter: Option[FilterBuilder]): Option[FilterBuilder] = (filter, orFilter) match {
     case (Some(someFilter), Some(orSomeFilter)) => Some(filters.or(someFilter, orSomeFilter))
