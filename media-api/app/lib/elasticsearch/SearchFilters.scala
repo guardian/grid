@@ -79,6 +79,7 @@ trait SearchFilters extends ImageFields {
     "staff-photographer",
     "contract-photographer",
     "commissioned-photographer",
+    "commissioned-agency",
     "pool"
   )
 
