@@ -23,7 +23,7 @@
                             {
                                 "Effect": "Allow",
                                 "Action": ["sqs:DeleteMessage", "sqs:ReceiveMessage"],
-                                "Resource": [ { "Fn::GetAtt": ["DynamoQueue", "Arn"] } ]
+                                "Resource": [ { "Fn::GetAtt": ["IndexedImageMetadataQueue", "Arn"] } ]
                             },
                             {
                                 "Effect": "Allow",
@@ -33,7 +33,7 @@
                             {
                                 "Effect": "Allow",
                                 "Action": ["sns:Publish"],
-                                "Resource": { "Ref": "DynamoTopic" }
+                                "Resource": { "Ref": "IndexedImageTopic" }
                             },
                             {
                                 "Effect": "Allow",
@@ -276,27 +276,27 @@
                 "Queues": [ { "Ref": "Queue" } ]
             }
         },
-        "DynamoTopic": {
+        "IndexedImageTopic": {
             "Type": "AWS::SNS::Topic",
             "Properties": {
                 "Subscription": [
                     {
-                        "Endpoint": { "Fn::GetAtt": [ "DynamoQueue", "Arn" ] },
+                        "Endpoint": { "Fn::GetAtt": [ "IndexedImageMetadataQueue", "Arn" ] },
                         "Protocol": "sqs"
                     }
                 ]
             }
         },
-        "DynamoQueue": {
+        "IndexedImageMetadataQueue": {
             "Type": "AWS::SQS::Queue",
             "Properties": {
             }
         },
-        "DynamoQueuePolicy": {
+        "IndexedImageMetadataQueuePolicy": {
             "Type": "AWS::SQS::QueuePolicy",
             "Properties": {
                 "PolicyDocument": {
-                    "Id": "DynamoQueuePolicy",
+                    "Id": "IndexedImageMetadataQueuePolicy",
                     "Statement": [
                         {
                             "Sid": "Allow-SendMessage-To-Queue-From-Topic",
@@ -305,12 +305,12 @@
                             "Action": ["sqs:SendMessage"],
                             "Resource": "*",
                             "Condition": {
-                                "ArnEquals": { "aws:SourceArn": { "Ref": "DynamoTopic" } }
+                                "ArnEquals": { "aws:SourceArn": { "Ref": "IndexedImageTopic" } }
                             }
                         }
                     ]
                 },
-                "Queues": [ { "Ref": "DynamoQueue" } ]
+                "Queues": [ { "Ref": "IndexedImageMetadataQueue" } ]
             }
         }
     },
@@ -348,11 +348,11 @@
         "SqsQueueUrl": {
             "Value": { "Ref" : "Queue" }
         },
-        "DynamoSnsTopicArn": {
-            "Value": { "Ref": "DynamoTopic" }
+        "IndexedImageTopicArn": {
+            "Value": { "Ref": "IndexedImageTopic" }
         },
-        "DynamoSqsQueueUrl": {
-            "Value": { "Ref" : "DynamoQueue" }
+        "IndexedImageMetadataQueueUrl": {
+            "Value": { "Ref" : "IndexedImageMetadataQueue" }
         }
     }
 }

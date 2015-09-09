@@ -6,4 +6,4 @@ sqs.queue.url={{SqsQueueUrl}}
 sqs.message.min.frequency={{sqs_message_min_frequency}}
 persistence.identifier=picdarUrn
 es.index.alias=imagesAlias
-dynamo.sns.topic.arn={{DynamoSnsTopicArn}}
+indexed.image.sns.topic.arn={{IndexedImageTopicArn}}
