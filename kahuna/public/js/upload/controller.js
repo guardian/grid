@@ -34,6 +34,17 @@ upload.controller('UploadCtrl', [
                 });
 
                 ctrl.myUploads = resource;
+
+                // TODO: we shouldn't have to do this ;_;
+                // If an image is updated (e.g. label added,
+                // archived, etc), refresh the copy we hold
+                $rootScope.$on('image-updated', (e, updatedImage) => {
+                    const updatedIndex = ctrl.myUploads.data.findIndex(image => image.data.id === updatedImage.data.id);
+                    if (updatedIndex !== -1) {
+                        ctrl.myUploads.data[updatedIndex] = updatedImage;
+                    }
+                });
+
             });
         });
 
