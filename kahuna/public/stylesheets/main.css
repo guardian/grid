@@ -1014,9 +1014,10 @@ FIXME: what to do with touch devices
 */
 
 .preview__labeller {
-    /*25px is the add label button plus some padding*/
-    width: calc(100% - 25px);
-    display: inline-block;
+    /*25px - auto height of div on hover, stops shifting when off hover */
+    height: 25px;
+    white-space: nowrap;
+    overflow: hidden;
 }
 
 .preview .gr-add-label--inactive {
@@ -1583,28 +1584,7 @@ FIXME: what to do with touch devices
    Labeller
    ========================================================================== */
 .labeller {
-    height: 25px;
     font-size: 1.3rem;
-    display: flex;
-    overflow: hidden;
-}
-
-.image-info__group--fixed-panel .labeller{
-    height: auto;
-}
-
-.labels {
-    overflow-x: auto;
-    white-space: nowrap;
-}
-
-.image-info__group--fixed-panel .labels{
-    white-space: normal;
-}
-
-.preview__info .labels{
-    overflow-y: hidden;
-    margin-bottom: -15px;
 }
 
 .label {
@@ -1615,6 +1595,7 @@ FIXME: what to do with touch devices
     border-radius: 2px;
     margin: 0 5px 5px 0;
 }
+
 .label--removing {
     background-color: #99ddff;
 }
