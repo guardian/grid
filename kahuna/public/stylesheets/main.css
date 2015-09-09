@@ -779,7 +779,7 @@ input.search-query__input {
     display: block;
 }
 
-.result:hover gr-add-label {
+.result:hover .gr-add-label--inactive {
     display: inline-block;
 }
 
@@ -1014,11 +1014,13 @@ FIXME: what to do with touch devices
 */
 
 .preview__labeller {
-    width: calc(100% - 20px);
-    display: inline-block;
+    /*25px - auto height of div on hover, stops shifting when off hover */
+    height: 25px;
+    white-space: nowrap;
+    overflow: hidden;
 }
 
-.preview gr-add-label {
+.preview .gr-add-label--inactive {
     display: none;
 }
 
@@ -1158,7 +1160,6 @@ FIXME: what to do with touch devices
 .result-editor__editor {
     flex-grow: 1;
     margin-left: 10px;
-    margin-bottom: 10px;
 }
 
 .result-editor__info {
@@ -1193,9 +1194,18 @@ FIXME: what to do with touch devices
     margin-bottom: 5px;
 }
 
+.result-editor__field-container__labels {
+    display: flex;
+}
+
+.result-editor__field-container__labels--hidden {
+    display: inline;
+}
+
 .result-editor__field-container gr-add-label {
     font-size: 1.3rem;
     padding-right: 10px;
+    padding-bottom: 5px;
 }
 
 .result-editor__field-label {
@@ -1570,33 +1580,11 @@ FIXME: what to do with touch devices
     color: #FFFFFF;
 }
 
-
 /* ==========================================================================
    Labeller
    ========================================================================== */
 .labeller {
-    height: 25px;
     font-size: 1.3rem;
-    display: flex;
-    overflow: hidden;
-}
-
-.image-info__group--fixed-panel .labeller{
-    height: auto;
-}
-
-.labels {
-    overflow-x: auto;
-    white-space: nowrap;
-}
-
-.image-info__group--fixed-panel .labels{
-    white-space: normal;
-}
-
-.preview__info .labels{
-    overflow-y: hidden;
-    margin-bottom: -15px;
 }
 
 .label {
@@ -1607,6 +1595,7 @@ FIXME: what to do with touch devices
     border-radius: 2px;
     margin: 0 5px 5px 0;
 }
+
 .label--removing {
     background-color: #99ddff;
 }
