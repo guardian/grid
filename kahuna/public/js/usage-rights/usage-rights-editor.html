@@ -112,7 +112,8 @@
 
                         <div class="flex-container"
                              ng:if="property.optionsMap"
-                             ng:init="otherValue = false">
+                             ng:init="otherValue = ctrl.isOther(property)">
+
                             <select
                                 class="full-width"
                                 name="{{ property.name }}"
@@ -122,6 +123,7 @@
                                 ng:if="!otherValue">
                                 <option value="">None</option>
                             </select>
+
                             <input type="text"
                                 class="full-width"
                                 ng:model="ctrl.model[property.name]"
