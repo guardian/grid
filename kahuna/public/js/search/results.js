@@ -438,7 +438,7 @@ results.controller('SearchResultsCtrl', [
                 ctrl.deselect(image);
 
                 const indexAll = ctrl.imagesAll.findIndex(i => image.data.id === i.data.id);
-                results.remove(indexAll);
+                results.removeAt(indexAll);
 
                 updateImageArray(ctrl.images, image);
                 updateImageArray(ctrl.imagesAll, image);
