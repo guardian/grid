@@ -110,15 +110,29 @@
                                 </select>
                         </div>
 
-                        <select
-                            class="full-width"
-                            name="{{ property.name }}"
-                            ng:if="property.optionsMap"
-                            ng:model="ctrl.model[property.name]"
-                            ng:required="property.required"
-                            ng:options="o for o in ctrl.getOptionsFor(property)">
-                            <option value="">None</option>
-                        </select>
+                        <div class="flex-container"
+                             ng:if="property.optionsMap"
+                             ng:init="otherValue = false">
+                            <select
+                                class="full-width"
+                                name="{{ property.name }}"
+                                ng:model="ctrl.model[property.name]"
+                                ng:required="property.required"
+                                ng:options="o for o in ctrl.getOptionsFor(property)"
+                                ng:if="!otherValue">
+                                <option value="">None</option>
+                            </select>
+                            <input type="text"
+                                class="full-width"
+                                ng:model="ctrl.model[property.name]"
+                                ng:required="property.required"
+                                ng:if="otherValue" />
+
+                            <label class="flex-no-shrink">
+                                <input type="checkbox" ng:model="otherValue" />
+                                Other
+                            </label>
+                        </div>
                     </div>
 
                     <textarea
