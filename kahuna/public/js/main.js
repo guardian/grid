@@ -161,6 +161,11 @@ kahuna.factory('httpErrorInterceptor',
         responseError: function(response) {
             switch (response.status) {
                 case 0: {
+                    /*
+                    Status is 0 when the headers of the response does not
+                    include the correct cors. This happens when the request
+                    fails and we don't explicitly return an error code.
+                     */
                     $rootScope.$emit('events:error:unknown');
                     break;
                 }
