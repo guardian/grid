@@ -4,6 +4,7 @@ package controllers
 import java.net.URI
 import java.net.URLDecoder.decode
 
+import com.amazonaws.AmazonServiceException
 import com.gu.mediaservice.lib.argo.ArgoHelpers
 import com.gu.mediaservice.lib.argo.model._
 import com.gu.mediaservice.lib.aws.{DynamoDB, NoItemFound}
@@ -110,7 +111,7 @@ object EditsController extends Controller with ArgoHelpers {
           .map(publish(id))
           .map(edits => labelsCollection(id, edits.labels.toSet))
           .map {case (uri, labels) => respondCollection(labels)} recover {
-          case _ => BadRequest
+          case _: AmazonServiceException => BadRequest
         }
       }
     )
