@@ -134,6 +134,14 @@ usageRightsEditor.controller(
         return property.optionsMap[val];
     };
 
+    ctrl.isOther = property => {
+        const missingVal =
+            !ctrl.getOptionsFor(property)
+                .find(option => option === ctrl.model[property.name]);
+
+        return missingVal;
+    };
+
     ctrl.isRestricted = prop => ctrl.showRestrictions || prop.required;
 
     $scope.$watch(() => ctrl.showRestrictions, onValChange(isRestricted => {
