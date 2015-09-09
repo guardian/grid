@@ -42,6 +42,7 @@ object UsageRights {
     case o: CommissionedPhotographer => CommissionedPhotographer.jsonWrites.writes(o)
     case o: Pool                     => Pool.jsonWrites.writes(o)
     case o: CrownCopyright           => CrownCopyright.jsonWrites.writes(o)
+    case o: CommissionedIllustration => CommissionedIllustration.jsonWrites.writes(o)
     case o: NoRights.type            => NoRights.jsonWrites.writes(o)
   }
 
@@ -68,6 +69,7 @@ object UsageRights {
         case "commissioned-photographer" => json.asOpt[CommissionedPhotographer]
         case "pool"                      => json.asOpt[Pool]
         case "crown-copyright"           => json.asOpt[CrownCopyright]
+        case "commissioned-illustration" => json.asOpt[CommissionedIllustration]
         case _                           => None
       })
       .orElse(supplier.flatMap(_ => json.asOpt[Agency]))
@@ -326,4 +328,17 @@ case class CrownCopyright(restrictions: Option[String] = None)
 object CrownCopyright {
  implicit val jsonReads: Reads[CrownCopyright] = Json.reads[CrownCopyright]
  implicit val jsonWrites: Writes[CrownCopyright] = UsageRights.defaultWrites
+}
+
+case class CommissionedIllustration(restrictions: Option[String] = None)
+  extends UsageRights {
+    val category = "commissioned"
+    val defaultCost = Some(Free)
+    val name = "Illustration - commissioned"
+    val description =
+      "Illustrations commissioned and payed for."
+  }
+object CommissionedIllustration {
+ implicit val jsonReads: Reads[CommissionedIllustration] = Json.reads[CommissionedIllustration]
+ implicit val jsonWrites: Writes[CommissionedIllustration] = UsageRights.defaultWrites
 }
