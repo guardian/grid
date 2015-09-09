@@ -41,6 +41,7 @@ object UsageRightsConfig {
     "AAP",
     "Action Images",
     "Alamy",
+    "Allstar Picture Library",
     "AP",
     "Barcroft Media",
     "Corbis",
