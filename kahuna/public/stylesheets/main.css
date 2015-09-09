@@ -1585,6 +1585,7 @@ FIXME: what to do with touch devices
    ========================================================================== */
 .labeller {
     font-size: 1.3rem;
+    display: flex;
 }
 
 .label {
