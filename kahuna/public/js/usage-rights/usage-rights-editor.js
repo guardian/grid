@@ -164,7 +164,10 @@ usageRightsEditor.controller(
         ctrl.error = null;
         ctrl.saving = true;
         $q.all(ctrl.usageRights.map((usageRights) => {
-            return usageRights.save(data);
+            const image = usageRights.image;
+            const resource = image.data.userMetadata.data.usageRights;
+            return editsService.update(resource, data, image).
+                then(resource => resource.data);
         })).catch(uiError).
             finally(() => updateSuccess(data));
     }
