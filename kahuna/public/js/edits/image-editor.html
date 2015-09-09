@@ -119,14 +119,12 @@
         ></ui-required-metadata-editor>
 
         <div class="result-editor__field-container">
-            <span class="result-editor__field-label flex-container">
+            <span class="result-editor__field-label flex-container flex-no-shrink">
                 Labels
-                <span class="flex-spacer"></span>
             </span>
-            <div>
-                <gr-add-label image="ctrl.image"></gr-add-label>
+            <div class="result-editor__field-container__labels" ng:class="{'result-editor__field-container__labels--hidden' : ctrl.inputtingLabel}">
+                <gr-add-label image="ctrl.image" active="ctrl.inputtingLabel"></gr-add-label>
                 <ui-labeller
-                    class="result-editor__labeller"
                     image="ctrl.image"
                     with-batch="ctrl.withBatch"
                 ></ui-labeller>

@@ -1193,6 +1193,14 @@ FIXME: what to do with touch devices
     margin-bottom: 5px;
 }
 
+.result-editor__field-container__labels {
+    display: flex;
+}
+
+.result-editor__field-container__labels--hidden {
+    display: inline;
+}
+
 .result-editor__field-container gr-add-label {
     font-size: 1.3rem;
     padding-right: 10px;
