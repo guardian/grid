@@ -114,6 +114,8 @@ object MetadataConfig {
     "Suki Dhanda"         -> "The Observer"
   )
 
+  val commissionedIllustrators = List("Winshluss", "Robert Crumb", "Steve Bell")
+
   val allPhotographers = staffPhotographers ++ contractedPhotographers
 
   val staffPhotographersMap = PhotographersList.creditBylineMap(staffPhotographers)
