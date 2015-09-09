@@ -3,7 +3,7 @@ package lib.querysyntax
 import org.joda.time.DateTime
 import org.parboiled2._
 
-import lib.elasticsearch.ImageFields
+import com.gu.mediaservice.lib.elasticsearch.ImageFields
 
 class QuerySyntax(val input: ParserInput) extends Parser with ImageFields {
   def Query = rule { Expression ~ EOI }
