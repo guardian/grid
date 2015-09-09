@@ -79,7 +79,7 @@ object AlamyParser extends ImageProcessor {
 object AllStarParser extends ImageProcessor {
   def apply(image: Image): Image = image.metadata.credit match {
     case Some("Allstar Picture Library") => image.copy(
-      usageRights = Agency("Alamy"),
+      usageRights = Agency("Allstar Picture Library"),
       metadata = image.metadata.copy(credit = Some("Allstar Picture Library"))
     )
     case _ => image
