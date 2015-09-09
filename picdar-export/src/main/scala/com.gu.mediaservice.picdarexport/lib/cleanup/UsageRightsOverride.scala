@@ -47,16 +47,29 @@ object UsageRightsOverride {
 
   def prImage(m: ImageMetadata) = Some(PrImage())
   def guardianWitness(m: ImageMetadata) = Some(GuardianWitness())
-  def agency(supplier: String) = supplier match {
+  def agency(supplier: String, suppliersCollection: Option[String] = None) = supplier match {
     // Only create agency with valid supplier name
-    case validSup if freeSuppliers.contains(validSup) => Some(Agency(validSup))
+    case validSup if freeSuppliers.contains(validSup) => Some(Agency(validSup, suppliersCollection))
     case invalidSup => {
       Logger.warn(s"Don't create agency name with invalid supplier: $invalidSup")
       None
     }
   }
 
-  def normaliseAgencyName(name: String) = name
+  def guessAgency(copyright: String): Option[Agency] = copyright match {
+    case "REUTERS"                  => agency("Reuters")
+    case "THE RONALD GRANT ARCHIVE" | "RONALD GRANT"
+                                    => agency("Ronald Grant Archive")
+    case "PA Archive/Press Association Images"
+                                    => agency("PA")
+    case "AFP"                      => agency("Getty Images", Some("AFP"))
+    case "FilmMagic"                => agency("Getty Images", Some("FilmMagic"))
+    case "BFI"                      => agency("Getty Images", Some("BFI"))
+    case "WireImage"                => agency("Getty Images", Some("WireImage"))
+    case "Hulton Getty"             => agency("Getty Images", Some("Hulton"))
+    // TODO: Allsport (only in 2000?)? ANSA?
+    case _                          => None
+  }
 
   def commissionedAgency(m: ImageMetadata) =
     m.copyright map(_.toLowerCase) map {
@@ -183,7 +196,7 @@ object UsageRightsOverride {
       "Agencies - contract Getty Collections" -> ((m: ImageMetadata) => agency("Getty Images")),
       "Agencies - contract Reuters" -> ((m: ImageMetadata) => agency("Reuters")),
       "Agencies - contract Rex Features" -> ((m: ImageMetadata) => agency("Rex Features")),
-      "Agencies - contract" -> ((m: ImageMetadata) => m.copyright.map(normaliseAgencyName).map(Agency(_))),
+      "Agencies - contract" -> ((m: ImageMetadata) => m.copyright.flatMap(copyright => guessAgency(copyright).orElse(agency(copyright))),
       "Agencies - commissioned" -> commissionedAgency,
 
       "Readers pictures" -> ((m: ImageMetadata) => guardianWitness(m)),
