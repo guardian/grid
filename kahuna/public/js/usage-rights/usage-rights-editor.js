@@ -134,7 +134,7 @@ usageRightsEditor.controller(
         return property.optionsMap[val];
     };
 
-    ctrl.isOther = property => {
+    ctrl.isOtherValue = property => {
         const missingVal =
             !ctrl.getOptionsFor(property)
                 .find(option => option === ctrl.model[property.name]);
