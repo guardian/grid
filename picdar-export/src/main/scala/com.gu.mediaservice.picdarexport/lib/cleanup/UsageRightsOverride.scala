@@ -196,7 +196,7 @@ object UsageRightsOverride {
       "Agencies - contract Getty Collections" -> ((m: ImageMetadata) => agency("Getty Images")),
       "Agencies - contract Reuters" -> ((m: ImageMetadata) => agency("Reuters")),
       "Agencies - contract Rex Features" -> ((m: ImageMetadata) => agency("Rex Features")),
-      "Agencies - contract" -> ((m: ImageMetadata) => m.copyright.flatMap(copyright => guessAgency(copyright).orElse(agency(copyright))),
+      "Agencies - contract" -> ((m: ImageMetadata) => m.copyright.flatMap(copyright => guessAgency(copyright).orElse(agency(copyright)))),
       "Agencies - commissioned" -> commissionedAgency,
 
       "Readers pictures" -> ((m: ImageMetadata) => guardianWitness(m)),
