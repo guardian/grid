@@ -15,42 +15,40 @@ export var addLabel = angular.module('gr.addLabel', [
 addLabel.controller('GrAddLabelCtrl', ['$window', 'labelService',
     function ($window, labelService) {
 
-
-        function saveFailed() {
-            $window.alert('Something went wrong when saving, please try again!');
-        }
-
         let ctrl = this;
 
         ctrl.active = false;
 
-        ctrl.addLabel = function (){
+        ctrl.save = () => {
             let labelList = ctrl.newLabel.split(',').map(e => e.trim());
 
             if (labelList) {
-                ctrl.addLabels(labelList);
-                ctrl.newLabel = '';
-                ctrl.active = false;
+                save(labelList);
             }
         };
 
-        ctrl.cancel = function () {
-            ctrl.newLabel = '';
-            ctrl.active = false;
-        };
+        ctrl.cancel = reset;
 
-        ctrl.addLabels = labels => {
+        function save(labels) {
             ctrl.adding = true;
 
             labelService.add(ctrl.image, labels)
                 .then(image => {
                     ctrl.image = image;
+                    reset();
                 })
                 .catch(saveFailed)
-                .finally(() => {
-                    ctrl.adding = false;
-                });
-        };
+                .finally(() => ctrl.adding = false);
+        }
+
+        function saveFailed() {
+            $window.alert('Something went wrong when saving, please try again!');
+        }
+
+        function reset() {
+            ctrl.newLabel = '';
+            ctrl.active = false;
+        }
     }
 ]);
 
