@@ -22,6 +22,7 @@ jobs.controller('RequiredMetadataEditorCtrl',
     ctrl.disabled = () => Boolean(ctrl.saving || ctrl.externallyDisabled);
     ctrl.metadata = metadataFromOriginal(ctrl.originalMetadata);
     ctrl.saveOnTime = 750; // ms
+    ctrl.copyrightWasInitiallyThere = !!ctrl.metadata.copyright;
 
     ctrl.save = function() {
         ctrl.saving = true;
@@ -30,7 +31,7 @@ jobs.controller('RequiredMetadataEditorCtrl',
         var cleanMetadata = {};
         Object.keys(ctrl.metadata).forEach(key => {
             if (ctrl.metadata[key] !== ctrl.saveWhenChangedFrom[key]) {
-                cleanMetadata[key] = ctrl.metadata[key];
+                cleanMetadata[key] = ctrl.metadata[key] || '';
             }
         });
 
