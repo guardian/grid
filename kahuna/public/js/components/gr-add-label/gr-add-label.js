@@ -39,7 +39,7 @@ addLabel.controller('GrAddLabelCtrl', ['$window', 'labelService',
                 })
                 .catch(saveFailed)
                 .finally(() => ctrl.adding = false);
-        };
+        }
 
         function saveFailed() {
             $window.alert('Something went wrong when saving, please try again!');
