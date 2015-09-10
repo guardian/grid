@@ -36,6 +36,9 @@ object filters {
   def term(field: String, term: String): FilterBuilder =
     termFilter(field, term)
 
+  def boolTerm(field: String, value: Boolean): FilterBuilder =
+    termFilter(field, value)
+
   def terms(field: String, terms: NonEmptyList[String]): FilterBuilder =
     termsFilter(field, terms.list: _*)
 
