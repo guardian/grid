@@ -13,6 +13,7 @@ object SupplierProcessors {
     AapParser,
     ActionImagesParser,
     AlamyParser,
+    AllStarParser,
     ApParser,
     BarcroftParser,
     CorbisParser,
@@ -31,31 +32,21 @@ object SupplierProcessors {
 
 object PhotographerParser extends ImageProcessor {
   def apply(image: Image): Image = {
-    image.metadata.byline.map { byline =>
-      (
-        byline,
-        image.metadata.credit.map(_.toLowerCase),
-        PhotographersList.getPublication(staffPhotographers, byline),
-        PhotographersList.getPublication(contractedPhotographers, byline)
-      ) match {
-        // staff photographer
-        case (byline, credit, Some(publication), _) => image.copy(
-          usageRights = StaffPhotographer(byline, publication),
-          metadata    = image.metadata.copy(credit = Some(publication))
+    image.metadata.byline.flatMap { byline =>
+      PhotographersList.getPhotographer(byline).map{
+        case p: StaffPhotographer => image.copy(
+          usageRights = p,
+          metadata    = image.metadata.copy(credit = Some(p.publication), byline = Some(p.photographer))
         )
-
-        // contracted photographer
-        case (byline, credit, None, Some(publication)) => image.copy(
-          usageRights = ContractPhotographer(byline, Some(publication)),
-          metadata    = image.metadata.copy(credit = Some(publication))
+        case p: ContractPhotographer => image.copy(
+          usageRights = p,
+          metadata    = image.metadata.copy(credit = p.publication, byline = Some(p.photographer))
         )
-
         case _ => image
       }
     }
   }.getOrElse(image)
 }
-
 
 object AapParser extends ImageProcessor {
   def apply(image: Image): Image = image.metadata.credit match {
@@ -80,6 +71,15 @@ object AlamyParser extends ImageProcessor {
   def apply(image: Image): Image = image.metadata.credit match {
     case Some("Alamy") | Some("Alamy Stock Photo") => image.copy(
       usageRights = Agency("Alamy")
+    )
+    case _ => image
+  }
+}
+
+object AllStarParser extends ImageProcessor {
+  def apply(image: Image): Image = image.metadata.credit match {
+    case Some("Allstar Picture Library") => image.copy(
+      usageRights = Agency("Allstar Picture Library")
     )
     case _ => image
   }
@@ -141,7 +141,7 @@ object GettyXmpParser extends ImageProcessor {
 }
 
 object GettyCreditParser extends ImageProcessor {
-  val gettyCredits = List("getty images", "afp/getty images", "bloomberg via getty images")
+  val gettyCredits = List("afp", "afp/getty images", "bloomberg via getty images", "getty images")
 
   def apply(image: Image): Image = image.metadata.credit.map(c => gettyCredits.contains(c.toLowerCase)) match {
     case Some(true) => image.copy(

@@ -47,23 +47,36 @@ object UsageRightsOverride {
 
   def prImage(m: ImageMetadata) = Some(PrImage())
   def guardianWitness(m: ImageMetadata) = Some(GuardianWitness())
-  def agency(supplier: String) = supplier match {
+  def agency(supplier: String, suppliersCollection: Option[String] = None) = supplier match {
     // Only create agency with valid supplier name
-    case validSup if freeSuppliers.contains(validSup) => Some(Agency(validSup))
+    case validSup if freeSuppliers.contains(validSup) => Some(Agency(validSup, suppliersCollection))
     case invalidSup => {
       Logger.warn(s"Don't create agency name with invalid supplier: $invalidSup")
       None
     }
   }
 
-  def normaliseAgencyName(name: String) = name
+  def guessAgency(copyright: String): Option[Agency] = copyright match {
+    case "REUTERS"                  => agency("Reuters")
+    case "THE RONALD GRANT ARCHIVE" | "RONALD GRANT"
+                                    => agency("Ronald Grant Archive")
+    case "PA Archive/Press Association Images"
+                                    => agency("PA")
+    case "AFP"                      => agency("Getty Images", Some("AFP"))
+    case "FilmMagic"                => agency("Getty Images", Some("FilmMagic"))
+    case "BFI"                      => agency("Getty Images", Some("BFI"))
+    case "WireImage"                => agency("Getty Images", Some("WireImage"))
+    case "Hulton Getty"             => agency("Getty Images", Some("Hulton"))
+    // TODO: Allsport (only in 2000?)? ANSA?
+    case _                          => None
+  }
 
   def commissionedAgency(m: ImageMetadata) =
     m.copyright map(_.toLowerCase) map {
       // I've been through all of these and they all seem to have the correct photographer
-      case "commissioned for the guardian"     => CommissionedPhotographer(m.byline.getOrElse(theGuardian), theGuardian)
-      case "commissioned for weekend magazine" => CommissionedPhotographer(m.byline.getOrElse(weekendMagazine), weekendMagazine)
-      case "commissioned for the observer"     => CommissionedPhotographer(m.byline.getOrElse(theObserver), theObserver)
+      case "commissioned for the guardian"     => CommissionedPhotographer(m.byline.getOrElse(theGuardian), Some(theGuardian))
+      case "commissioned for weekend magazine" => CommissionedPhotographer(m.byline.getOrElse(weekendMagazine), Some(weekendMagazine))
+      case "commissioned for the observer"     => CommissionedPhotographer(m.byline.getOrElse(theObserver), Some(theObserver))
       case copyright                           => CommissionedAgency(extractPhotographer(copyright))
     }
 
@@ -78,14 +91,14 @@ object UsageRightsOverride {
   }
 
   def contractPhotographer(m: ImageMetadata) = (m.byline, m.copyright) match {
-    case (Some(byline), _)       => Some(ContractPhotographer(extractPhotographer(byline),    getPublication(byline)))
-    case (None, Some(copyright)) => Some(ContractPhotographer(extractPhotographer(copyright), getPublication(copyright)))
+    case (Some(byline), _)       => Some(ContractPhotographer(extractPhotographer(byline),    Some(getPublication(byline))))
+    case (None, Some(copyright)) => Some(ContractPhotographer(extractPhotographer(copyright), Some(getPublication(copyright))))
     case _ => None
   }
 
   def commissionedPhotographer(m: ImageMetadata) = (m.byline, m.copyright) match {
-    case (Some(byline), _)       => Some(CommissionedPhotographer(extractPhotographer(byline),    getPublication(byline)))
-    case (None, Some(copyright)) => Some(CommissionedPhotographer(extractPhotographer(copyright), getPublication(copyright)))
+    case (Some(byline), _)       => Some(CommissionedPhotographer(extractPhotographer(byline),    Some(getPublication(byline))))
+    case (None, Some(copyright)) => Some(CommissionedPhotographer(extractPhotographer(copyright), Some(getPublication(copyright))))
     case _ => None
   }
 
@@ -135,8 +148,8 @@ object UsageRightsOverride {
 
       case "Supplied for obituary" => Obituary()
 
-      case "JOHAN PERSSON" => CommissionedPhotographer("Johan Persson", theGuardian)
-      case "Andrew Parsons for the Conservative Party" => CommissionedPhotographer("Andrew Parsons", "The Conservative Party")
+      case "JOHAN PERSSON" => CommissionedPhotographer("Johan Persson", Some(theGuardian))
+      case "Andrew Parsons for the Conservative Party" => CommissionedPhotographer("Andrew Parsons", Some("The Conservative Party"))
 
       case "SWNS." => CommissionedAgency("SWNS")
 
@@ -183,7 +196,7 @@ object UsageRightsOverride {
       "Agencies - contract Getty Collections" -> ((m: ImageMetadata) => agency("Getty Images")),
       "Agencies - contract Reuters" -> ((m: ImageMetadata) => agency("Reuters")),
       "Agencies - contract Rex Features" -> ((m: ImageMetadata) => agency("Rex Features")),
-      "Agencies - contract" -> ((m: ImageMetadata) => m.copyright.map(normaliseAgencyName).map(Agency(_))),
+      "Agencies - contract" -> ((m: ImageMetadata) => m.copyright.flatMap(copyright => guessAgency(copyright).orElse(agency(copyright)))),
       "Agencies - commissioned" -> commissionedAgency,
 
       "Readers pictures" -> ((m: ImageMetadata) => guardianWitness(m)),

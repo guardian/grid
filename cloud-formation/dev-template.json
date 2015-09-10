@@ -1,12 +1,6 @@
 {
     "AWSTemplateFormatVersion": "2010-09-09",
     "Description": "Media Service Dev",
-    "Parameters": {
-        "CorsAllowedOrigins": {
-            "Description": "Comma-separated list of CORS-allowed origins",
-            "Type": "String"
-        }
-    },
     "Resources": {
         "Group": {
             "Type": "AWS::IAM::Group",
