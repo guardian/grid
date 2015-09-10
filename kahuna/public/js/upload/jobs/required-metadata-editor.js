@@ -30,7 +30,7 @@ jobs.controller('RequiredMetadataEditorCtrl',
         var cleanMetadata = {};
         Object.keys(ctrl.metadata).forEach(key => {
             if (ctrl.metadata[key] !== ctrl.saveWhenChangedFrom[key]) {
-                cleanMetadata[key] = ctrl.metadata[key];
+                cleanMetadata[key] = ctrl.metadata[key] || '';
             }
         });
 
