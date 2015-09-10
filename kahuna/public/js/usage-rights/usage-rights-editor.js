@@ -77,8 +77,24 @@ usageRightsEditor.controller(
 
     // setting our initial values
     editsApi.getUsageRightsCategories().then(cats => {
-        ctrl.categories = cats;
-        ctrl.originalCats = cats;
+        const categoriesCopy = angular.copy(cats);
+
+        categoriesCopy.forEach(cat => {
+            cat.properties.forEach((property, i) => {
+                let propertyOptions = property.required ? [] : [{key: 'None', value: null}];
+
+                if (property.options) {
+                    property.options.forEach(option => {
+                        propertyOptions.push({key: option, value: option});
+                    });
+
+                    cat.properties[i].options = propertyOptions;
+                }
+            });
+        });
+
+        ctrl.categories = categoriesCopy;
+        ctrl.originalCats = categoriesCopy;
         ctrl.update();
     });
 
@@ -115,7 +131,21 @@ usageRightsEditor.controller(
                         .name;
 
         const val = ctrl.model[key];
-        return property.optionsMap[val];
+        return property.optionsMap[val] || [];
+    };
+
+    ctrl.isOtherValue = property => {
+        if (!ctrl.model[property.name]) {
+            // if we haven't set a value, it won't be in the list of available values,
+            // but this isn't considered "other", it's "not set".
+            return false;
+        } else {
+            const missingVal =
+                !ctrl.getOptionsFor(property)
+                    .find(option => option === ctrl.model[property.name]);
+
+            return missingVal;
+        }
     };
 
     ctrl.isRestricted = prop => ctrl.showRestrictions || prop.required;
@@ -148,7 +178,10 @@ usageRightsEditor.controller(
         ctrl.error = null;
         ctrl.saving = true;
         $q.all(ctrl.usageRights.map((usageRights) => {
-            return usageRights.save(data);
+            const image = usageRights.image;
+            const resource = image.data.userMetadata.data.usageRights;
+            return editsService.update(resource, data, image).
+                then(resource => resource.data);
         })).catch(uiError).
             finally(() => updateSuccess(data));
     }

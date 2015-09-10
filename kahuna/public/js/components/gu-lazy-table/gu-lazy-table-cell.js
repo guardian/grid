@@ -1,9 +1,9 @@
 import angular from 'angular';
 
-import './rx-helpers';
+import '../../util/rx';
 
 export var lazyTableCell = angular.module('gu.lazyTableCell', [
-    'rx.helpers'
+    'util.rx'
 ]);
 
 lazyTableCell.directive('guLazyTableCell',

@@ -5,7 +5,7 @@ logger:
   action: DEBUG
 
   # aws
-  com.amazonaws: DEBUG
+  com.amazonaws: WARN
 
   # gateway
   gateway: DEBUG

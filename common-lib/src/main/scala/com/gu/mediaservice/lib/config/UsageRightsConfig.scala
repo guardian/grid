@@ -41,6 +41,7 @@ object UsageRightsConfig {
     "AAP",
     "Action Images",
     "Alamy",
+    "Allstar Picture Library",
     "AP",
     "Barcroft Media",
     "Corbis",
@@ -48,7 +49,8 @@ object UsageRightsConfig {
     "Getty Images",
     "PA",
     "Reuters",
-    "Rex Features"
+    "Rex Features",
+    "Ronald Grant Archive"
   )
 
   val suppliersCollectionExcl = Map(

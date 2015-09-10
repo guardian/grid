@@ -1,10 +1,15 @@
 package lib.querysyntax
 
+import com.gu.mediaservice.lib.elasticsearch.ImageFields
 import org.scalatest.{FunSpec, Matchers, BeforeAndAfter}
 import org.joda.time.DateTime
 import org.joda.time.DateTimeUtils
 
-class ParserTest extends FunSpec with Matchers with BeforeAndAfter {
+class ParserTest extends FunSpec with Matchers with BeforeAndAfter with ImageFields {
+  val creditField     = SingleField(getFieldPath("credit"))
+  val bylineField     = SingleField(getFieldPath("byline"))
+  val labelsField     = SingleField(getFieldPath("labels"))
+  val uploadTimeField = SingleField(getFieldPath("uploadTime"))
 
   describe("text") {
     it("should match single terms") {
@@ -60,20 +65,20 @@ class ParserTest extends FunSpec with Matchers with BeforeAndAfter {
     }
 
     it("should match faceted terms") {
-      Parser.run("credit:cats") should be (List(Match(SingleField("credit"), Words("cats"))))
+      Parser.run("credit:cats") should be (List(Match(creditField, Words("cats"))))
     }
 
     it("should match multiple faceted terms on the same facet") {
       Parser.run("label:cats label:dogs") should be (List(
-        Match(SingleField("labels"), Words("cats")),
-        Match(SingleField("labels"), Words("dogs"))
+        Match(labelsField, Words("cats")),
+        Match(labelsField, Words("dogs"))
       ))
     }
 
     it("should match multiple faceted terms on different facets") {
       Parser.run("credit:cats label:dogs") should be (List(
-        Match(SingleField("credit"), Words("cats")),
-        Match(SingleField("labels"), Words("dogs"))
+        Match(creditField, Words("cats")),
+        Match(labelsField, Words("dogs"))
       ))
     }
   }
@@ -96,7 +101,7 @@ class ParserTest extends FunSpec with Matchers with BeforeAndAfter {
 
       it("should match year") {
         Parser.run("date:2014") should be (List(
-          Match(SingleField("uploadTime"),
+          Match(uploadTimeField,
             DateRange(
               new DateTime("2014-01-01T00:00:00.000Z"),
               new DateTime("2014-12-31T23:59:59.999Z")
@@ -107,7 +112,7 @@ class ParserTest extends FunSpec with Matchers with BeforeAndAfter {
 
       it("should match month, quoted") {
         Parser.run("""date:"january 2014"""") should be (List(
-          Match(SingleField("uploadTime"),
+          Match(uploadTimeField,
             DateRange(
               new DateTime("2014-01-01T00:00:00.000Z"),
               new DateTime("2014-01-31T23:59:59.999Z")
@@ -118,7 +123,7 @@ class ParserTest extends FunSpec with Matchers with BeforeAndAfter {
 
       it("should match month, with dot") {
         Parser.run("date:january.2014") should be (List(
-          Match(SingleField("uploadTime"),
+          Match(uploadTimeField,
             DateRange(
               new DateTime("2014-01-01T00:00:00.000Z"),
               new DateTime("2014-01-31T23:59:59.999Z")
@@ -129,7 +134,7 @@ class ParserTest extends FunSpec with Matchers with BeforeAndAfter {
 
       it("should match human date, quoted") {
         Parser.run("""date:"1 january 2014"""") should be (List(
-          Match(SingleField("uploadTime"),
+          Match(uploadTimeField,
             DateRange(
               new DateTime("2014-01-01T00:00:00.000Z"),
               new DateTime("2014-01-01T23:59:59.999Z")
@@ -140,7 +145,7 @@ class ParserTest extends FunSpec with Matchers with BeforeAndAfter {
 
       it("should match human date, with dot") {
         Parser.run("date:1.january.2014") should be (List(
-          Match(SingleField("uploadTime"),
+          Match(uploadTimeField,
             DateRange(
               new DateTime("2014-01-01T00:00:00.000Z"),
               new DateTime("2014-01-01T23:59:59.999Z")
@@ -151,7 +156,7 @@ class ParserTest extends FunSpec with Matchers with BeforeAndAfter {
 
       it("should match human date, with dot and capitals") {
         Parser.run("date:1.January.2014") should be (List(
-          Match(SingleField("uploadTime"),
+          Match(uploadTimeField,
             DateRange(
               new DateTime("2014-01-01T00:00:00.000Z"),
               new DateTime("2014-01-01T23:59:59.999Z")
@@ -162,7 +167,7 @@ class ParserTest extends FunSpec with Matchers with BeforeAndAfter {
 
       it("should match date with slashes") {
         Parser.run("date:1/1/2014") should be (List(
-          Match(SingleField("uploadTime"),
+          Match(uploadTimeField,
             DateRange(
               new DateTime("2014-01-01T00:00:00.000Z"),
               new DateTime("2014-01-01T23:59:59.999Z")
@@ -173,7 +178,7 @@ class ParserTest extends FunSpec with Matchers with BeforeAndAfter {
 
       it("should match date with slashes and zero-padding") {
         Parser.run("date:01/01/2014") should be (List(
-          Match(SingleField("uploadTime"),
+          Match(uploadTimeField,
             DateRange(
               new DateTime("2014-01-01T00:00:00.000Z"),
               new DateTime("2014-01-01T23:59:59.999Z")
@@ -184,7 +189,7 @@ class ParserTest extends FunSpec with Matchers with BeforeAndAfter {
 
       it("should match date") {
         Parser.run("date:2014-01-01") should be (List(
-          Match(SingleField("uploadTime"),
+          Match(uploadTimeField,
             DateRange(
               new DateTime("2014-01-01T00:00:00.000Z"),
               new DateTime("2014-01-01T23:59:59.999Z")
@@ -211,7 +216,7 @@ class ParserTest extends FunSpec with Matchers with BeforeAndAfter {
 
       it("should match today") {
         Parser.run("date:today") should be (List(
-          Match(SingleField("uploadTime"),
+          Match(uploadTimeField,
             DateRange(
               new DateTime("2000-01-02T00:00:00.000Z"),
               new DateTime("2000-01-02T23:59:59.999Z")
@@ -222,7 +227,7 @@ class ParserTest extends FunSpec with Matchers with BeforeAndAfter {
 
       it("should match yesterday") {
         Parser.run("date:yesterday") should be (List(
-          Match(SingleField("uploadTime"),
+          Match(uploadTimeField,
             DateRange(
               new DateTime("2000-01-01T00:00:00.000Z"),
               new DateTime("2000-01-01T23:59:59.999Z")
@@ -245,7 +250,7 @@ class ParserTest extends FunSpec with Matchers with BeforeAndAfter {
 
     //   it("should match date range with --") {
     //     Parser.run("date:2012--2014") should be (List(
-    //       Match(SingleField("uploadTime"),
+    //       Match(uploadTimeField,
     //         DateRange(
     //           new DateTime("2012-01-01T00:00:00.000Z"),
     //           new DateTime("2014-12-31T23:59:59.999Z")
@@ -256,7 +261,7 @@ class ParserTest extends FunSpec with Matchers with BeforeAndAfter {
 
     //   it("should match date range with 'to'") {
     //     Parser.run("date:2012.to.2014") should be (List(
-    //       Match(SingleField("uploadTime"),
+    //       Match(uploadTimeField,
     //         DateRange(
     //           new DateTime("2012-01-01T00:00:00.000Z"),
     //           new DateTime("2014-12-31T23:59:59.999Z")
@@ -279,7 +284,7 @@ class ParserTest extends FunSpec with Matchers with BeforeAndAfter {
 
       it("should match '@' shortcut") {
         Parser.run("@2014-01-01") should be (List(
-          Match(SingleField("uploadTime"),
+          Match(uploadTimeField,
             DateRange(
               new DateTime("2014-01-01T00:00:00.000Z"),
               new DateTime("2014-01-01T23:59:59.999Z")
@@ -290,7 +295,7 @@ class ParserTest extends FunSpec with Matchers with BeforeAndAfter {
 
       it("should match uploaded facet term") {
         Parser.run("uploaded:2014-01-01") should be (List(
-          Match(SingleField("uploadTime"),
+          Match(uploadTimeField,
             DateRange(
               new DateTime("2014-01-01T00:00:00.000Z"),
               new DateTime("2014-01-01T23:59:59.999Z")
@@ -342,15 +347,15 @@ class ParserTest extends FunSpec with Matchers with BeforeAndAfter {
   describe("aliases") {
 
     it("should match aliases to a single canonical field") {
-      Parser.run("by:cats") should be (List(Match(SingleField("byline"), Words("cats"))))
+      Parser.run("by:cats") should be (List(Match(bylineField, Words("cats"))))
     }
 
     it("should match aliases to multiple fields") {
-      Parser.run("in:berlin") should be (List(Match(MultipleField(List("location", "city", "state", "country")), Words("berlin"))))
+      Parser.run("in:berlin") should be (List(Match(MultipleField(List("location", "city", "state", "country").map(getFieldPath)), Words("berlin"))))
     }
 
     it("should match #terms as labels") {
-      Parser.run("#cats") should be (List(Match(SingleField("labels"), Words("cats"))))
+      Parser.run("#cats") should be (List(Match(labelsField, Words("cats"))))
     }
 
   }
@@ -360,14 +365,14 @@ class ParserTest extends FunSpec with Matchers with BeforeAndAfter {
 
     it("should combination of terms (negated faceted word, word)") {
       Parser.run("""-credit:cats dogs""") should be (List(
-        Negation(Match(SingleField("credit"), Words("cats"))),
+        Negation(Match(creditField, Words("cats"))),
         Match(AnyField, Words("dogs"))
       ))
     }
 
     it("should combination of terms (negated faceted phrase, word)") {
       Parser.run("""-credit:"cats dogs" unicorns""") should be (List(
-        Negation(Match(SingleField("credit"), Phrase("cats dogs"))),
+        Negation(Match(creditField, Phrase("cats dogs"))),
         Match(AnyField, Words("unicorns"))
       ))
     }
@@ -375,14 +380,14 @@ class ParserTest extends FunSpec with Matchers with BeforeAndAfter {
     it("should combination of terms (multiple words, label)") {
       Parser.run("""cats dogs #unicorns""") should be (List(
         Match(AnyField, Words("cats dogs")),
-        Match(SingleField("labels"), Words("unicorns"))
+        Match(labelsField, Words("unicorns"))
       ))
     }
 
     it("should combination of terms (multiple words, label interleaved)") {
       Parser.run("""cats #unicorns dogs""") should be (List(
         Match(AnyField, Words("cats")),
-        Match(SingleField("labels"), Words("unicorns")),
+        Match(labelsField, Words("unicorns")),
         Match(AnyField, Words("dogs"))
       ))
     }
