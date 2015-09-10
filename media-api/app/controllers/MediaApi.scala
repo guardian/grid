@@ -50,7 +50,7 @@ object MediaApi extends Controller with ArgoHelpers {
     "since", "until", "modifiedSince", "modifiedUntil", "takenSince", "takenUntil",
     "uploadedBy", "archived", "valid", "free",
     "hasExports", "hasIdentifier", "missingIdentifier", "hasMetadata",
-    "costModelDiff").mkString(",")
+    "costModelDiff", "persisted").mkString(",")
 
   val searchLinkHref = s"$rootUri/images{?$searchParamList}"
 
@@ -324,7 +324,8 @@ case class SearchParams(
   uploadedBy: Option[String],
   labels: List[String],
   hasMetadata: List[String],
-  costModelDiff: Boolean
+  costModelDiff: Boolean,
+  persisted: Option[Boolean]
 )
 
 object SearchParams {
@@ -365,7 +366,8 @@ object SearchParams {
       request.getQueryString("uploadedBy"),
       commaSep("labels"),
       commaSep("hasMetadata"),
-      request.getQueryString("costModelDiff") flatMap parseBooleanFromQuery getOrElse false
+      request.getQueryString("costModelDiff") flatMap parseBooleanFromQuery getOrElse false,
+      request.getQueryString("persisted") flatMap parseBooleanFromQuery
     )
   }
 
@@ -391,7 +393,8 @@ object SearchParams {
       "uploadedBy"        -> searchParams.uploadedBy,
       "labels"            -> listToCommas(searchParams.labels),
       "hasMetadata"       -> listToCommas(searchParams.hasMetadata),
-      "costModelDiff"     -> Some(searchParams.costModelDiff.toString)
+      "costModelDiff"     -> Some(searchParams.costModelDiff.toString),
+      "persisted"         -> searchParams.persisted.map(_.toString)
     ).foldLeft(Map[String, String]()) {
       case (acc, (key, Some(value))) => acc + (key -> value)
       case (acc, (_,   None))        => acc

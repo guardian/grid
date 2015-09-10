@@ -19,8 +19,11 @@ deleteCrops.controller('grDeleteCropsCtrl', ['$window', 'mediaCropper',
                 activate();
                 ctrl.delete = () => {
                     const superSure = $window.prompt(
+                        'This should be used in regards to images requiring legal deletion only.' +
+                        '\n\n' +
                         'If ANY of these crops are used on the site, or on any other public ' +
-                        'platform, they will break if you choose to delete them. \n\n' +
+                        'platform, they will break if you choose to delete them.' +
+                        '\n\n' +
                         'Type DELETE into the box below if you are 100% sure these images are ' +
                         'not used anywhere and you will never need them ever again.');
 

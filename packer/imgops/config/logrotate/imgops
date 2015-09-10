@@ -1,0 +1,11 @@
+/var/log/nginx/*.log {
+    daily
+    rotate 50
+    size 50M
+    copytruncate
+    compress
+    delaycompress
+    missingok
+    notifempty
+    create 644 media-service media-service
+}

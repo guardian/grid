@@ -11,7 +11,7 @@ cluster.name: media-service
 # Node names are generated dynamically on startup, so you're relieved
 # from configuring them manually. You can tie this node to a specific name:
 #
-# node.name: "Franz Kafka"
+node.name: ${HOSTNAME}
 
 # Every node can be configured to allow or deny being eligible as the master,
 # and to allow or deny to store the data.
@@ -360,3 +360,7 @@ action.disable_delete_all_indices: true
 
 ################## ES Cloudwatch config ##################
 metrics.cloudwatch.namespace: "@@STAGE/Elasticsearch"
+
+################## Dynamic scripting ##################
+script.inline: on
+script.indexed: on

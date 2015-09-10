@@ -31,8 +31,15 @@ class SupplierProcessorsTest extends FunSpec with Matchers with MetadataHelper {
     it("should match ContractPhotographer byline") {
       val image = createImageFromMetadata("byline" -> "Linda Nylind")
       val processedImage = applyProcessors(image)
-      processedImage.usageRights should be(ContractPhotographer("Linda Nylind", "The Guardian"))
+      processedImage.usageRights should be(ContractPhotographer("Linda Nylind", Option("The Guardian")))
       processedImage.metadata.credit should be(Some("The Guardian"))
+    }
+
+    it ("should correct casing of photographer") {
+      val image = createImageFromMetadata("byline" -> "Murdo MacLeod")
+      val processedImage = applyProcessors(image)
+      processedImage.usageRights should be(ContractPhotographer("Murdo Macleod", Option("The Guardian")))
+      processedImage.metadata.byline should be(Some("Murdo Macleod"))
     }
   }
 
@@ -69,6 +76,15 @@ class SupplierProcessorsTest extends FunSpec with Matchers with MetadataHelper {
       val processedImage = applyProcessors(image)
       processedImage.usageRights should be (Agency("Alamy"))
       processedImage.metadata.credit should be(Some("Alamy Stock Photo"))
+    }
+  }
+
+  describe("Allstar") {
+    it("should match 'Allstar Picture Library' credit") {
+      val image = createImageFromMetadata("credit" -> "Allstar Picture Library")
+      val processedImage = applyProcessors(image)
+      processedImage.usageRights should be (Agency("Allstar Picture Library"))
+      processedImage.metadata.credit should be(Some("Allstar Picture Library"))
     }
   }
 
@@ -200,6 +216,13 @@ class SupplierProcessorsTest extends FunSpec with Matchers with MetadataHelper {
       val processedImage = applyProcessors(image)
       processedImage.usageRights should be(Agency("Getty Images"))
       processedImage.metadata.credit should be(Some("AFP/Getty Images"))
+    }
+
+    it("should match 'Bloomberg via Getty Images' credit") {
+      val image = createImageFromMetadata("credit" -> "Bloomberg via Getty Images", "source" -> "Bloomberg")
+      val processedImage = applyProcessors(image)
+      processedImage.usageRights should be(Agency("Getty Images", Some("Bloomberg")))
+      processedImage.metadata.credit should be(Some("Bloomberg via Getty Images"))
     }
   }
 
