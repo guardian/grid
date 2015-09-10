@@ -114,7 +114,19 @@ object MetadataConfig {
     "Suki Dhanda"         -> "The Observer"
   )
 
-  val contractIllustrators = List("Winshluss", "Robert Crumb", "Steve Bell")
+  val contractIllustrators = List(
+    "Robert G Fresson",
+    "Bill Bragg",
+    "Sebastien Thibault",
+    "Eva Bee",
+    "Nate Kitch",
+    "Joe Magee",
+    "Jasper Rietman",
+    "Matt Kenyon",
+    "Andreij Krauze",
+    "Ellie Foreman-Peck",
+    "Ben Jennings"
+  )
 
   val allPhotographers = staffPhotographers ++ contractedPhotographers
 
