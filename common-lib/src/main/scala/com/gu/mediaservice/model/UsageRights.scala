@@ -42,6 +42,8 @@ object UsageRights {
     case o: CommissionedPhotographer => CommissionedPhotographer.jsonWrites.writes(o)
     case o: Pool                     => Pool.jsonWrites.writes(o)
     case o: CrownCopyright           => CrownCopyright.jsonWrites.writes(o)
+    case o: ContractIllustrator      => ContractIllustrator.jsonWrites.writes(o)
+    case o: CommissionedIllustrator  => CommissionedIllustrator.jsonWrites.writes(o)
     case o: NoRights.type            => NoRights.jsonWrites.writes(o)
   }
 
@@ -68,6 +70,8 @@ object UsageRights {
         case "commissioned-photographer" => json.asOpt[CommissionedPhotographer]
         case "pool"                      => json.asOpt[Pool]
         case "crown-copyright"           => json.asOpt[CrownCopyright]
+        case "contract-illustrator"      => json.asOpt[ContractIllustrator]
+        case "commissioned-illustrator"  => json.asOpt[CommissionedIllustrator]
         case _                           => None
       })
       .orElse(supplier.flatMap(_ => json.asOpt[Agency]))
@@ -326,4 +330,30 @@ case class CrownCopyright(restrictions: Option[String] = None)
 object CrownCopyright {
  implicit val jsonReads: Reads[CrownCopyright] = Json.reads[CrownCopyright]
  implicit val jsonWrites: Writes[CrownCopyright] = UsageRights.defaultWrites
+}
+
+case class ContractIllustrator(creator: String, restrictions: Option[String] = None)
+  extends UsageRights {
+    val category = "contract-illustrator"
+    val defaultCost = Some(Free)
+    val name = "Illustrator - Contract"
+    val description =
+      "Illustrations by illustrators on contract."
+  }
+object ContractIllustrator {
+ implicit val jsonReads: Reads[ContractIllustrator] = Json.reads[ContractIllustrator]
+ implicit val jsonWrites: Writes[ContractIllustrator] = UsageRights.defaultWrites
+}
+
+case class CommissionedIllustrator(creator: String, restrictions: Option[String] = None)
+  extends UsageRights {
+    val category = "commissioned-illustrator"
+    val defaultCost = Some(Free)
+    val name = "Illustration - Commissioned"
+    val description =
+      "Illustrations commissioned and payed for."
+  }
+object CommissionedIllustrator {
+ implicit val jsonReads: Reads[CommissionedIllustrator] = Json.reads[CommissionedIllustrator]
+ implicit val jsonWrites: Writes[CommissionedIllustrator] = UsageRights.defaultWrites
 }
