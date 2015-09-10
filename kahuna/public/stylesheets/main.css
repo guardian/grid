@@ -1585,6 +1585,7 @@ FIXME: what to do with touch devices
    ========================================================================== */
 .labeller {
     font-size: 1.3rem;
+    display: flex;
 }
 
 .label {
@@ -1628,6 +1629,11 @@ FIXME: what to do with touch devices
 .labeller__apply-all {
     margin-left: 10px;
     line-height: 20px;
+    font-size: 1.6rem;
+}
+
+.labeller__apply-all:hover {
+    color: #FFF;
 }
 
 
@@ -1757,8 +1763,12 @@ FIXME: what to do with touch devices
     top: 1px;
     z-index: 1;
     padding: 0 5px;
-    background: #444;
 }
+
+.job-editor__apply-to-all:hover {
+    color: #FFF;
+}
+
 
 .metadata-applicator {
     font-size: 1.4rem;
