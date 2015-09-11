@@ -79,6 +79,7 @@ recentUploads.directive('recentUploads', [function() {
     return {
         restrict: 'E',
         controller: 'RecentUploadsCtrl',
+        scope: {}, // ensure isolated scope
         controllerAs: 'ctrl',
         bindToController: true,
         template: template
