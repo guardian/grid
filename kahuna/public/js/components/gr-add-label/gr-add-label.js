@@ -13,12 +13,8 @@ export var addLabel = angular.module('gr.addLabel', [
 ]);
 
 addLabel.controller('GrAddLabelCtrl', [
-    '$scope',
-    '$window',
-    'labelService',
-    function ($scope,
-              $window,
-              labelService) {
+    '$scope', '$window', 'labelService',
+    function ($scope, $window, labelService) {
 
         let ctrl = this;
 
@@ -38,12 +34,13 @@ addLabel.controller('GrAddLabelCtrl', [
         function save(label, imageArray) {
             ctrl.adding = true;
 
-            labelService.batchAdd(imageArray, label).then(image => {
-                        ctrl.image = image;
-                        reset();
-                    })
-                    .catch(saveFailed)
-                    .finally(() => ctrl.adding = false);
+            labelService.batchAdd(imageArray, label)
+                .then(image => {
+                    ctrl.image = image;
+                    reset();
+                })
+                .catch(saveFailed)
+                .finally(() => ctrl.adding = false);
 
         }
 
