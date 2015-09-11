@@ -200,7 +200,9 @@ usageRightsEditor.controller(
     }
 
     function uiError(error) {
-        ctrl.error = error.body.errorMessage;
+        // ♫ Very superstitious ♫
+        ctrl.error = error && error.body && error.body.errorMessage ||
+            'Unexpected error';
     }
 }]);
 
