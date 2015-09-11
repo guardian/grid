@@ -194,10 +194,12 @@ image.controller('ImageCtrl', [
         });
 
         const freeImageDeleteFailListener = $rootScope.$on('image-delete-failure', (err, image) => {
-            if (err.body && err.body.errorMessage) {
+            if (err && err.body && err.body.errorMessage) {
                 $window.alert(err.body.errorMessage);
             } else {
-                $window.alert(`Failed to delete image ${image.data.id}`);
+                // Possibly not receiving a proper image object sometimes?
+                const imageId = image && image.data && image.data.id || 'Unknown ID';
+                $window.alert(`Failed to delete image ${imageId}`);
             }
         });
 
