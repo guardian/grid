@@ -36,7 +36,7 @@ query.controller('SearchQueryCtrl',
     // Boring - stops slashes being encoded in input - might be fixed with:
     // https://github.com/angular-ui/ui-router/issues/1759
     $scope.$watch(() => ctrl.filter.query, onValChange(newVal => {
-        ctrl.filter.query = decodeURIComponent(newVal);
+        ctrl.filter.query = angular.isDefined(newVal) ? decodeURIComponent(newVal) : '';
     }));
 
     ctrl.filter = {
