@@ -33,6 +33,12 @@ query.controller('SearchQueryCtrl',
         $state.go('search.results', {orderBy: newVal});
     }));
 
+    // Boring - stops slashes being encoded in input - might be fixed with:
+    // https://github.com/angular-ui/ui-router/issues/1759
+    $scope.$watch(() => ctrl.filter.query, onValChange(newVal => {
+        ctrl.filter.query = decodeURIComponent(newVal);
+    }));
+
     ctrl.filter = {
         uploadedByMe: false
     };
