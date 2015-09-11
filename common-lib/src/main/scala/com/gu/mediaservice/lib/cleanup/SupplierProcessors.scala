@@ -147,7 +147,6 @@ object GettyXmpParser extends ImageProcessor with GettyProcessor {
 object GettyCreditParser extends ImageProcessor with GettyProcessor {
   val gettyCredits = List("afp")
 
-  //
   val IncludesGetty = ".*Getty Images.*".r
   // Take a leap of faith as the credit may be truncated if too long...
   val ViaGetty = ".+ via Getty(?: .*)?".r
