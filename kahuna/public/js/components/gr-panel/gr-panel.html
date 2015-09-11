@@ -269,8 +269,15 @@
             </dl>
         </div>
 
-        <div class="image-info__group batch-label">
-            <div class="metadata-line">Labels</div>
+        <div class="image-info__group">
+            <div class="image-info__heading">
+                <span>Labels</span>
+                <gr-add-label ng:blur="ctrl.cancel"
+                              image="ctrl.image"
+                              gr-small="true"
+                              selected="ctrl.selectedImages">
+                </gr-add-label>
+            </div>
             <ul class="labels">
                 <li class="label"
                     ng:repeat="label in ctrl.selectedLabels | orderBy:'data'"
@@ -285,11 +292,6 @@
                             title="Remove label from all"
                             ng:click="ctrl.removeLabel(label.data)">
                         <gr-icon>close</gr-icon>
-                    </button>
-                </li>
-                <li class="label__add">
-                    <button class="button-shy" title="Add Label" ng:click="ctrl.newLabel()">
-                        Add
                     </button>
                 </li>
             </ul>
