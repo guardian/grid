@@ -13,8 +13,8 @@ export var addLabel = angular.module('gr.addLabel', [
 ]);
 
 addLabel.controller('GrAddLabelCtrl', [
-    '$scope', '$window', 'labelService',
-    function ($scope, $window, labelService) {
+    '$window', 'labelService',
+    function ($window, labelService) {
 
         let ctrl = this;
 
