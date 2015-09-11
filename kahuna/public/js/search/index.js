@@ -27,11 +27,28 @@ export var search = angular.module('kahuna.search', [
     'grPanel'
 ]);
 
+const slashReplacement = "%2F";
+
+/*
+HACK - Fixes the problem of searching for / getting encoded and replaced with %2F in the url AND the input field.
+TODO remove once https://github.com/angular-ui/ui-router/pull/2071 gets merged.
+*/
+const slashUrlMatcher = {
+    encode: (val) => val != null ? val.toString().replace(/\//g, slashReplacement) : val,
+    decode: (val) => val != null ? val.toString().replace(/%2F/g, "/") : val,
+    is: (val) => {
+        return val == null || !angular.isDefined(val) || (angular.isString(val) && val.indexOf(slashReplacement) === -1);
+    },
+    pattern: /[^/]*/
+};
+
 // TODO: add a resolver here so that if we error (e.g. 401) we don't keep trying
 // to render - similar to the image controller see:
 // https://github.com/guardian/media-service/pull/478
-search.config(['$stateProvider',
-               function($stateProvider) {
+search.config(['$stateProvider', '$urlMatcherFactoryProvider',
+               function($stateProvider, $urlMatcherFactoryProvider) {
+
+   $urlMatcherFactoryProvider.type('slashUrlMatcher', slashUrlMatcher);
 
     $stateProvider.state('search', {
         // FIXME [1]: This state should be abstract, but then we can't navigate to
@@ -51,7 +68,7 @@ search.config(['$stateProvider',
     });
 
     $stateProvider.state('search.results', {
-        url: 'search?query&ids&since&nonFree&uploadedBy&until&orderBy',
+        url: 'search?{query:slashUrlMatcher}&ids&since&nonFree&uploadedBy&until&orderBy',
         // Non-URL parameters
         params: {
             // Routing-level property indicating whether the state has
