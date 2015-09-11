@@ -1,28 +1,32 @@
 <ul>
     <li ng:repeat="job in ctrl.jobs | orderBy: 'name'"  class="upload-result">
-
-        <div ng:if="!job.image"
-             class="job-uploading">
-
-            <div class="job-preview preview">
-                <img ng:src="{{job.dataUrl}}" class="preview__image" />
-
-                <div class="preview__bottom-bar bottom-bar">
-                    <div class="bottom-bar__meta">
-                        {{job.name}}, {{job.size | asFileSize}}
-                    </div>
-
-                    <div class="bottom-bar__actions"></div>
-                </div>
+        <div ng:if="!job.image" class="result-editor"
+             ng:class="{'upload--invalid': job.status === 'upload error'}">
+            <div class="result-editor__result">
+                <img class="result-editor__img"
+                     ng:src="{{job.dataUrl}}"
+                     gr:image-fade-on-load />
             </div>
-            <div class="job-status status"
-                 ng:class="{
-                     'status--invalid': job.status === 'upload error',
-                     'status--valid':   job.status === 'uploaded'
-                 }">
 
-                 {{job.status}}
-                 <span ng:if="job.status === 'upload error'">({{job.error}})</span>
+            <div class="result-editor__editor">
+                <div class="result-editor__field-container">
+                    <div class="result-editor__field-label">File name</div>
+                    <div>{{job.name}}</div>
+                </div>
+                <div class="result-editor__field-container">
+                    <div class="result-editor__field-label">File size</div>
+                    <div>{{job.size | asFileSize}}</div>
+                </div>
+                <div class="result-editor__field-container">
+                    <div class="result-editor__field-label">Status</div>
+                    <div ng:switch="job.status">
+                        <span ng:switch-when="upload error">
+                            Upload error
+                            <p>{{job.error}}</p>
+                        </span>
+                        <span ng:switch-default>{{job.status}}</span>
+                    </div>
+                </div>
             </div>
         </div>
 
