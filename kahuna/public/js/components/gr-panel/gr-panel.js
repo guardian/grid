@@ -208,14 +208,6 @@ grPanel.controller('GrPanel', [
             labelService.batchRemove(imageArray, label);
         };
 
-        ctrl.newLabel = function () {
-            var label = ($window.prompt('Enter a label:') || '').trim();
-
-            if (label) {
-                ctrl.addLabel(label);
-            }
-        };
-
         ctrl.archive = () => {
             ctrl.archiving = true;
             var imageArray = Array.from(ctrl.selectedImages);
