@@ -21,7 +21,7 @@ object Config extends CommonPlayAppProperties with CommonPlayAppConfig {
   val editsTable = properties("dynamo.table.edits")
 
   val topicArn = properties("sns.topic.arn")
-  val queueUrl = properties("sqs.queue.url")
+  val queueUrl = properties("indexed.images.sqs.queue.url")
 
   val rootUri = services.metadataBaseUri
   val kahunaUri = services.kahunaBaseUri
