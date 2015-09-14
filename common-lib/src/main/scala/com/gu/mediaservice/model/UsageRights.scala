@@ -55,7 +55,7 @@ object UsageRights {
       // image as some images have been indexed without a category.
       // TODO: Fix with reindex
       val supplier = (json \ "supplier").asOpt[String]
-      println(category)
+
       (category flatMap {
         case "agency"                    => json.asOpt[Agency]
         case "commissioned-agency"       => json.asOpt[CommissionedAgency]
