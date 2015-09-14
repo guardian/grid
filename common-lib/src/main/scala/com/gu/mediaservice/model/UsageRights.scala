@@ -165,7 +165,7 @@ case class Handout(restrictions: Option[String] = None)
     val defaultCost = Some(Free)
     val name = "Handout"
     val description =
-      "Provided free of use for press purposes e.g. police images for new " +
+      "Provided free to use for press purposes e.g. police images for new " +
       "stories, family shots in biographical pieces, etc."
   }
 object Handout {
@@ -249,7 +249,7 @@ case class StaffPhotographer(photographer: String, publication: String, restrict
   extends Photographer {
     val category = "staff-photographer"
     val defaultCost = Some(Free)
-    val name = "Photographer - Staff"
+    val name = "Photographer - staff"
     val description =
       "From photographers who are or were members of staff."
   }
@@ -268,7 +268,7 @@ case class ContractPhotographer(photographer: String, publication: Option[String
   extends Photographer {
     val category = "contract-photographer"
     val defaultCost = Some(Free)
-    val name = "Photographer - Contract"
+    val name = "Photographer - contract"
     val description =
       "From freelance photographers on fixed-term contracts."
   }
@@ -287,7 +287,7 @@ case class CommissionedPhotographer(photographer: String, publication: Option[St
   extends Photographer {
     val category = "commissioned-photographer"
     val defaultCost = Some(Free)
-    val name = "Photographer - Commissioned"
+    val name = "Photographer - commissioned"
     val description =
       "Commissioned for assignments on an ad hoc basis."
   }
@@ -308,7 +308,7 @@ case class Pool(restrictions: Option[String] = None)
     val defaultCost = Some(Conditional)
     val name = "Pool"
     val description =
-      "Issued during major national events that are free to use and" +
+      "Issued during major national events that are free to use and " +
       "shared amongst news media organisations during that event. " +
       "Rights revert to the copyright holder when the pool is terminated."
   }
@@ -322,7 +322,7 @@ case class CrownCopyright(restrictions: Option[String] = None)
   extends UsageRights {
     val category = "crown-copyright"
     val defaultCost = Some(Free)
-    val name = "Crown Copyright"
+    val name = "Crown copyright"
     val description =
       "Crown copyright covers material created by civil servants, ministers and government " +
       "departments and agencies, including the MOD."
@@ -336,7 +336,7 @@ case class ContractIllustrator(creator: String, restrictions: Option[String] = N
   extends UsageRights {
     val category = "contract-illustrator"
     val defaultCost = Some(Free)
-    val name = "Illustrator - Contract"
+    val name = "Illustrator - contract"
     val description =
       "Illustrations by illustrators on contract."
   }
@@ -349,7 +349,7 @@ case class CommissionedIllustrator(creator: String, restrictions: Option[String]
   extends UsageRights {
     val category = "commissioned-illustrator"
     val defaultCost = Some(Free)
-    val name = "Illustration - Commissioned"
+    val name = "Illustration - commissioned"
     val description =
       "Illustrations commissioned and payed for."
   }
