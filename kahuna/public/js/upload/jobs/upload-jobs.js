@@ -80,6 +80,14 @@ jobs.controller('UploadJobsCtrl', [
     // this needs to be a function due to the stateful `jobItem`
     ctrl.jobImages = () => ctrl.jobs.map(jobItem => jobItem.image);
 
+    ctrl.removeJob = (job) => {
+        const index = ctrl.jobs.findIndex(j => j.name === job.name);
+
+        if (index > -1) {
+            ctrl.jobs.splice(index, 1);
+        }
+    };
+
     const freeImageDeleteListener = $rootScope.$on('images-deleted', (e, images) => {
         images.forEach(image => {
             var index = ctrl.jobs.findIndex(i => i.image.data.id === image.data.id);
