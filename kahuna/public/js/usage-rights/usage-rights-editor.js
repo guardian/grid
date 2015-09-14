@@ -148,7 +148,8 @@ usageRightsEditor.controller(
         }
     };
 
-    ctrl.isRestricted = prop => ctrl.showRestrictions || prop.required;
+    ctrl.isRestricted = prop =>
+        ctrl.showRestrictions || ctrl.category.defaultRestrictions || prop.required;
 
     $scope.$watch(() => ctrl.showRestrictions, onValChange(isRestricted => {
         if (!isRestricted) {
