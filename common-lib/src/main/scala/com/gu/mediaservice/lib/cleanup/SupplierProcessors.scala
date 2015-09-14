@@ -145,7 +145,7 @@ object GettyXmpParser extends ImageProcessor with GettyProcessor {
 }
 
 object GettyCreditParser extends ImageProcessor with GettyProcessor {
-  val gettyCredits = List("afp")
+  val gettyCredits = List("AFP", "FilmMagic", "WireImage", "Hulton")
 
   val IncludesGetty = ".*Getty Images.*".r
   // Take a leap of faith as the credit may be truncated if too long...
@@ -153,24 +153,34 @@ object GettyCreditParser extends ImageProcessor with GettyProcessor {
   val SlashGetty = ".+/Getty(?: .*)?".r
 
   def apply(image: Image): Image = image.metadata.credit match {
-    case Some(credit) if gettyCredits.contains(credit.toLowerCase) => image.copy(
-       usageRights = gettyAgencyWithCollection(image.metadata.source)
-    )
     case Some(IncludesGetty()) | Some(ViaGetty()) | Some(SlashGetty()) => image.copy(
        usageRights = gettyAgencyWithCollection(image.metadata.source)
     )
+    case Some(credit) => knownGettyCredits(image, credit)
     case _ => image
   }
+
+  def knownGettyCredits(image: Image, credit: String): Image =
+    gettyCredits.find(_.toLowerCase == credit.toLowerCase) match {
+      case collection @ Some(_) => image.copy(
+        usageRights = gettyAgencyWithCollection(collection)
+      )
+      case _ => image
+    }
 }
 
 object PaParser extends ImageProcessor {
-  def apply(image: Image): Image = image.metadata.credit.map(_.toLowerCase) match {
-    case Some("pa") => image.copy(
-      usageRights = Agency("PA")
-    )
+  val paCredits = List(
+    "PA",
+    "PA WIRE",
+    "PA Archive/Press Association Ima",
+    "PA Archive/Press Association Images",
+    "Press Association Images"
+  ).map(_.toLowerCase)
 
-    case Some("pa wire") =>image.copy(
-      metadata = image.metadata.copy(credit = Some("PA WIRE")),
+  def apply(image: Image): Image = image.metadata.credit match {
+    case Some(credit) if paCredits.contains(credit.toLowerCase) => image.copy(
+      metadata = image.metadata.copy(credit = Some("PA")),
       usageRights = Agency("PA")
     )
 
