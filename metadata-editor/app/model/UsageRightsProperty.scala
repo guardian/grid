@@ -31,7 +31,7 @@ object UsageRightsProperty {
   def sortList(l: List[String]) = l.sortWith(_.toLowerCase < _.toLowerCase)
 
   val props: List[(UsageRights) => List[UsageRightsProperty]] =
-    List(agencyProperties, photographerProperties, restrictionProperties, illustrationProperties)
+    List(agencyProperties, photographerProperties, illustrationProperties, restrictionProperties)
 
   def getPropertiesForCat(u: UsageRights): List[UsageRightsProperty] = props.flatMap(f => f(u))
 

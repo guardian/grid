@@ -56,7 +56,7 @@
 }
 
 .batch-label .labels .label,
-.batch-label .labels .label__add {
+.batch-label .labels {
     display: inline-block;
 }
 

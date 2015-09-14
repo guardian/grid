@@ -110,7 +110,7 @@ case class Agency(supplier: String, suppliersCollection: Option[String] = None, 
   extends UsageRights {
     val category = "agency"
     val defaultCost = None
-    val name = "Agency"
+    val name = "Agency - subscription"
     val description =
       "Agencies such as Getty, Reuters, Press Association, etc. where " +
       "subscription fees are paid to access and use their pictures."
@@ -130,7 +130,7 @@ case class CommissionedAgency(supplier: String, restrictions: Option[String] = N
   extends UsageRights {
     val category = "commissioned-agency"
     val defaultCost = Some(Free)
-    val name = "Agency - Commissioned"
+    val name = "Agency - commissioned"
     val description =
       "Images commissioned and paid for from agencies."
   }
@@ -342,18 +342,26 @@ case class ContractIllustrator(creator: String, restrictions: Option[String] = N
   }
 object ContractIllustrator {
  implicit val jsonReads: Reads[ContractIllustrator] = Json.reads[ContractIllustrator]
- implicit val jsonWrites: Writes[ContractIllustrator] = UsageRights.defaultWrites
+ implicit val jsonWrites: Writes[ContractIllustrator] = (
+   (__ \ "category").write[String] ~
+   (__ \ "creator").write[String] ~
+   (__ \ "restrictions").writeNullable[String]
+ )(i => (i.category, i.creator, i.restrictions))
 }
 
 case class CommissionedIllustrator(creator: String, restrictions: Option[String] = None)
   extends UsageRights {
     val category = "commissioned-illustrator"
     val defaultCost = Some(Free)
-    val name = "Illustration - commissioned"
+    val name = "Illustrator - commissioned"
     val description =
       "Illustrations commissioned and payed for."
   }
 object CommissionedIllustrator {
  implicit val jsonReads: Reads[CommissionedIllustrator] = Json.reads[CommissionedIllustrator]
- implicit val jsonWrites: Writes[CommissionedIllustrator] = UsageRights.defaultWrites
+ implicit val jsonWrites: Writes[CommissionedIllustrator] = (
+   (__ \ "category").write[String] ~
+   (__ \ "creator").write[String] ~
+   (__ \ "restrictions").writeNullable[String]
+ )(i => (i.category, i.creator, i.restrictions))
 }
