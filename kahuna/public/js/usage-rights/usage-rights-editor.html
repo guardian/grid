@@ -49,13 +49,24 @@
                            ng:disabled="property.required" />
                     Restricted
                 </label>
-                <div ng:if="ctrl.isRestricted(property)">
+
+                <div ng:if="ctrl.isRestricted(property)"
+                     ng:switch="ctrl.category.defaultRestrictions === undefined">
+                    <!-- We don't allow you to set the restrictions if there are defaults.
+                    This might not be the behaviour we want in the future, but works for now. -->
                     <textarea
                         class="form-input-text"
                         name="{{ property.name }}"
                         placeholder="What restrictions apply to this image? e.g. 'Use in relation to the Windsor Triathlon only'"
+                        ng:switch-when="true"
                         ng:model="ctrl.model[property.name]"
                         ng:required="ctrl.isRestricted(property)"></textarea>
+
+                    <textarea
+                        class="form-input-text"
+                        disabled="disabled"
+                        ng:switch-default>{{ctrl.category.defaultRestrictions}}</textarea>
+
                 </div>
             </div>
 
