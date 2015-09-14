@@ -34,9 +34,10 @@ addLabel.controller('GrAddLabelCtrl', [
         function save(label, imageArray) {
             ctrl.adding = true;
 
+
             labelService.batchAdd(imageArray, label)
-                .then(image => {
-                    ctrl.images = image;
+                .then(images => {
+                    ctrl.images = images;
                     reset();
                 })
                 .catch(saveFailed)
