@@ -170,13 +170,17 @@ object GettyCreditParser extends ImageProcessor with GettyProcessor {
 }
 
 object PaParser extends ImageProcessor {
-  def apply(image: Image): Image = image.metadata.credit.map(_.toLowerCase) match {
-    case Some("pa") => image.copy(
-      usageRights = Agency("PA")
-    )
+  val paCredits = List(
+    "PA",
+    "PA WIRE",
+    "PA Archive/Press Association Ima",
+    "PA Archive/Press Association Images",
+    "Press Association Images"
+  ).map(_.toLowerCase)
 
-    case Some("pa wire") =>image.copy(
-      metadata = image.metadata.copy(credit = Some("PA WIRE")),
+  def apply(image: Image): Image = image.metadata.credit match {
+    case Some(credit) if paCredits.contains(credit.toLowerCase) => image.copy(
+      metadata = image.metadata.copy(credit = Some("PA")),
       usageRights = Agency("PA")
     )
 
