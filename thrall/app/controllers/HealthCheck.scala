@@ -2,7 +2,7 @@ package controllers
 
 import play.api.mvc.{Result, Action, Controller}
 import play.api.libs.concurrent.Execution.Implicits._
-import lib.{Config, MessageConsumer, ElasticSearch}
+import lib.{Config, ThrallMessageConsumer, ElasticSearch}
 import com.gu.mediaservice.syntax._
 
 object HealthCheck extends Controller {
@@ -17,12 +17,12 @@ object HealthCheck extends Controller {
   def elasticHealth = {
     ElasticSearch.client.prepareSearch().setSize(0)
       .executeAndLog("Health check")
-      .filter(_ => ! MessageConsumer.actorSystem.isTerminated)
+      .filter(_ => ! ThrallMessageConsumer.actorSystem.isTerminated)
       .map(_ => Ok("ES is healthy"))
   }
 
   def sqsHealth = {
-    val timeLastMessage = MessageConsumer.timeMessageLastProcessed.get
+    val timeLastMessage = ThrallMessageConsumer.timeMessageLastProcessed.get
 
     if (timeLastMessage.plusMinutes(Config.healthyMessageRate).isBeforeNow)
       ServiceUnavailable(s"Not received a message since $timeLastMessage")
