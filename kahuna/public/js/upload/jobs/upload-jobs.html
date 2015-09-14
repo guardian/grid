@@ -4,28 +4,31 @@
         <div ng:if="!job.image"
              class="job-uploading">
 
-            <div class="job-preview preview">
-                <img ng:src="{{job.dataUrl}}" class="preview__image" />
+            <div class="result-editor__result">
+                <div>
+                    <img ng:src="{{job.dataUrl}}" class="preview__image" />
 
-                <div class="preview__bottom-bar bottom-bar">
-                    <div class="bottom-bar__meta">
-                        {{job.name}}, {{job.size | asFileSize}}
+                    <div class="preview__bottom-bar bottom-bar">
+                        <div class="bottom-bar__meta">
+                            {{job.name}}, {{job.size | asFileSize}}
+                        </div>
+
+                        <div class="bottom-bar__actions"></div>
                     </div>
+                </div>
+                <div class="job-status status"
+                     ng:class="{
+                         'status--invalid': job.status === 'upload error',
+                         'status--valid':   job.status === 'uploaded'
+                     }">
 
-                    <div class="bottom-bar__actions"></div>
+                     {{job.status}}
+                     <span ng:if="job.status === 'upload error'">({{job.error}})</span>
                 </div>
             </div>
-            <div class="job-status status"
-                 ng:class="{
-                     'status--invalid': job.status === 'upload error',
-                     'status--valid':   job.status === 'uploaded'
-                 }">
 
-                 {{job.status}}
-                 <span ng:if="job.status === 'upload error'">({{job.error}})</span>
-            </div>
-
-            <gr-confirm-delete ng:if="job.status === 'upload error'"
+            <gr-confirm-delete class="flex-right"
+                               ng:if="job.status === 'upload error'"
                                gr:on-confirm="ctrl.removeJob(job)">
             </gr-confirm-delete>
         </div>
