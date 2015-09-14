@@ -22,7 +22,7 @@ addLabel.controller('GrAddLabelCtrl', [
 
         ctrl.save = () => {
             let labelList = ctrl.newLabel.split(',').map(e => e.trim());
-            let imageArray = ctrl.selected ? Array.from(ctrl.selected) : [ctrl.image];
+            let imageArray = Array.from(ctrl.images);
 
             if (labelList) {
                 save(labelList, imageArray);
@@ -36,7 +36,7 @@ addLabel.controller('GrAddLabelCtrl', [
 
             labelService.batchAdd(imageArray, label)
                 .then(image => {
-                    ctrl.image = image;
+                    ctrl.images = image;
                     reset();
                 })
                 .catch(saveFailed)
@@ -59,10 +59,9 @@ addLabel.directive('grAddLabel', [function () {
     return {
         restrict: 'E',
         scope: {
-            image: '=',
             grSmall: '=?',
             active: '=',
-            selected: '='
+            images: '='
         },
         controller: 'GrAddLabelCtrl',
         controllerAs: 'ctrl',
