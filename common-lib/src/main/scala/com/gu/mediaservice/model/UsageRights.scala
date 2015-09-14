@@ -55,7 +55,7 @@ object UsageRights {
       // image as some images have been indexed without a category.
       // TODO: Fix with reindex
       val supplier = (json \ "supplier").asOpt[String]
-
+      println(category)
       (category flatMap {
         case "agency"                    => json.asOpt[Agency]
         case "commissioned-agency"       => json.asOpt[CommissionedAgency]
@@ -342,7 +342,11 @@ case class ContractIllustrator(creator: String, restrictions: Option[String] = N
   }
 object ContractIllustrator {
  implicit val jsonReads: Reads[ContractIllustrator] = Json.reads[ContractIllustrator]
- implicit val jsonWrites: Writes[ContractIllustrator] = UsageRights.defaultWrites
+ implicit val jsonWrites: Writes[ContractIllustrator] = (
+   (__ \ "category").write[String] ~
+   (__ \ "creator").write[String] ~
+   (__ \ "restrictions").writeNullable[String]
+ )(i => (i.category, i.creator, i.restrictions))
 }
 
 case class CommissionedIllustrator(creator: String, restrictions: Option[String] = None)
@@ -355,5 +359,9 @@ case class CommissionedIllustrator(creator: String, restrictions: Option[String]
   }
 object CommissionedIllustrator {
  implicit val jsonReads: Reads[CommissionedIllustrator] = Json.reads[CommissionedIllustrator]
- implicit val jsonWrites: Writes[CommissionedIllustrator] = UsageRights.defaultWrites
+ implicit val jsonWrites: Writes[CommissionedIllustrator] = (
+   (__ \ "category").write[String] ~
+   (__ \ "creator").write[String] ~
+   (__ \ "restrictions").writeNullable[String]
+ )(i => (i.category, i.creator, i.restrictions))
 }
