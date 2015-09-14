@@ -1155,6 +1155,7 @@ FIXME: what to do with touch devices
 .result-editor__img-link {
     display: block;
     margin: 0 auto;
+    width: 100%;
 }
 
 .result-editor__editor {
@@ -1752,7 +1753,6 @@ FIXME: what to do with touch devices
 }
 
 .job-uploading {
-    width: 200px;
     margin-bottom: 20px;
 }
 
@@ -1796,6 +1796,10 @@ FIXME: what to do with touch devices
 
 .upload-result:hover .image-actions {
     display: block;
+}
+
+.upload--invalid {
+    color: red;
 }
 
 
