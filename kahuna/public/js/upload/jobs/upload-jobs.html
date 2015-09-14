@@ -24,6 +24,10 @@
                  {{job.status}}
                  <span ng:if="job.status === 'upload error'">({{job.error}})</span>
             </div>
+
+            <gr-confirm-delete ng:if="job.status === 'upload error'"
+                               gr:on-confirm="ctrl.removeJob(job)">
+            </gr-confirm-delete>
         </div>
 
         <ui-image-editor ng:if="job.image"
