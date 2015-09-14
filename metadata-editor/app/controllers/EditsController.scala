@@ -16,7 +16,7 @@ import com.amazonaws.AmazonServiceException
 
 import com.gu.mediaservice.lib.argo.ArgoHelpers
 import com.gu.mediaservice.lib.argo.model._
-import com.gu.mediaservice.lib.aws.{DynamoDB, NoItemFound}
+import com.gu.mediaservice.lib.aws.NoItemFound
 import com.gu.mediaservice.model._
 import lib._
 
@@ -41,12 +41,11 @@ import lib._
 //   }
 // }
 
-object EditsController extends Controller with ArgoHelpers {
+object EditsController extends Controller with ArgoHelpers with DynamoEdits {
 
   import Config.rootUri
 
   val Authenticated = EditsApi.Authenticated
-  val dynamo = new DynamoDB(Config.awsCredentials, Config.dynamoRegion, Config.editsTable)
 
   def entityUri(id: String, endpoint: String = ""): URI =
     URI.create(s"$rootUri/metadata/$id$endpoint")
@@ -99,8 +98,8 @@ object EditsController extends Controller with ArgoHelpers {
     dynamo.setGet(id, "labels")
       .map(labelsCollection(id, _))
       .map {case (uri, labels) => respondCollection(labels)} recover {
-        case NoItemFound => respond(Array[String]())
-      }
+      case NoItemFound => respond(Array[String]())
+    }
   }
 
   def addLabels(id: String) = Authenticated.async { req =>
@@ -224,8 +223,8 @@ object EditsController extends Controller with ArgoHelpers {
     }
     // only use the head error as they are going to be the same
     val message = form.errors.headOption
-                      .map(_.message + s", given data: ${printData(form.data)}")
-                      .getOrElse(s"Unknown error, given data: ${printData(form.data)}")
+      .map(_.message + s", given data: ${printData(form.data)}")
+      .getOrElse(s"Unknown error, given data: ${printData(form.data)}")
     message
   }
 
@@ -261,19 +260,19 @@ object EditsController extends Controller with ArgoHelpers {
   def trueOptional[T](mapping: Mapping[T]) = TrueOptionalMapping(mapping)
 
   val booleanForm: Form[Boolean] = Form(
-     single("data" -> boolean)
-       .transform[Boolean]({ case (value)        => value },
-                           { case value: Boolean => value })
+    single("data" -> boolean)
+      .transform[Boolean]({ case (value)        => value },
+    { case value: Boolean => value })
   )
 
   val stringForm: Form[String] = Form(
-     single("data" -> text)
-       .transform[String]({ case (value)       => value },
-                          { case value: String => value })
+    single("data" -> text)
+      .transform[String]({ case (value)       => value },
+    { case value: String => value })
   )
 
   val listForm: Form[List[String]] = Form(
-     single[List[String]]("data" -> list(nonEmptyText))
+    single[List[String]]("data" -> list(nonEmptyText))
   )
 
 }

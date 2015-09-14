@@ -14,8 +14,10 @@ export var addLabel = angular.module('gr.addLabel', [
     'kahuna.forms.datalist'
 ]);
 
-addLabel.controller('GrAddLabelCtrl', ['$window', 'labelService', 'mediaApi',
-    function ($window, labelService, mediaApi) {
+addLabel.controller('GrAddLabelCtrl', [
+    '$window', 'labelService', 'mediaApi',
+    function ($window, labelService,  mediaApi) {
+
 
         let ctrl = this;
 
@@ -23,24 +25,27 @@ addLabel.controller('GrAddLabelCtrl', ['$window', 'labelService', 'mediaApi',
 
         ctrl.save = () => {
             let labelList = ctrl.newLabel.split(',').map(e => e.trim());
+            let imageArray = Array.from(ctrl.images);
 
             if (labelList) {
-                save(labelList);
+                save(labelList, imageArray);
             }
         };
 
         ctrl.cancel = reset;
 
-        function save(labels) {
+        function save(label, imageArray) {
             ctrl.adding = true;
 
-            labelService.add(ctrl.image, labels)
-                .then(image => {
-                    ctrl.image = image;
+
+            labelService.batchAdd(imageArray, label)
+                .then(images => {
+                    ctrl.images = images;
                     reset();
                 })
                 .catch(saveFailed)
                 .finally(() => ctrl.adding = false);
+
         }
 
         function saveFailed() {
@@ -64,9 +69,9 @@ addLabel.directive('grAddLabel', [function () {
     return {
         restrict: 'E',
         scope: {
-            image: '=',
             grSmall: '=?',
-            active: '='
+            active: '=',
+            images: '='
         },
         controller: 'GrAddLabelCtrl',
         controllerAs: 'ctrl',

@@ -41,4 +41,6 @@ object Config extends CommonPlayAppConfig {
   val persistenceIdentifier = properties("persistence.identifier")
 
   val healthyMessageRate = properties("sqs.message.min.frequency").toInt
+
+  val dynamoTopicArn: String = properties("indexed.image.sns.topic.arn")
 }
