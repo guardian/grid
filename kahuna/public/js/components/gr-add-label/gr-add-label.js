@@ -1,6 +1,7 @@
 import angular from 'angular';
 
 import '../../services/label';
+import '../../forms/datalist';
 
 import './gr-add-label.css!';
 import template from './gr-add-label.html!text';
@@ -9,11 +10,12 @@ import '../../directives/gr-auto-focus';
 
 export var addLabel = angular.module('gr.addLabel', [
     'kahuna.services.label',
-    'gr.autoFocus'
+    'gr.autoFocus',
+    'kahuna.forms.datalist'
 ]);
 
-addLabel.controller('GrAddLabelCtrl', ['$window', 'labelService',
-    function ($window, labelService) {
+addLabel.controller('GrAddLabelCtrl', ['$window', 'labelService', 'mediaApi',
+    function ($window, labelService, mediaApi) {
 
         let ctrl = this;
 
@@ -49,6 +51,12 @@ addLabel.controller('GrAddLabelCtrl', ['$window', 'labelService',
             ctrl.newLabel = '';
             ctrl.active = false;
         }
+
+        ctrl.labelSearch = (field, q) => {
+            return mediaApi.labelSearch(field,  { q }).then(resource => {
+                return resource.data.map(d => d.key);
+            });
+        };
     }
 ]);
 

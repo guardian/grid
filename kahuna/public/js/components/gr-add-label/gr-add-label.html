@@ -9,17 +9,24 @@
         Add<span ng:show="ctrl.adding">ing...</span>
     </span>
 </button>
-<form
-    class="gr-add-label__form"
-    ng:if="ctrl.active"
-    ng:submit="ctrl.save()">
-    <input
-        class="gr-add-label__form__input show-no-error"
-        type='text' ng:model="ctrl.newLabel"
-        placeholder="label1, label2, label3…"
-        required
-        gr:auto-focus
-        ng:disabled="ctrl.adding" />
+<form class="gr-add-label__form"
+        ng:if="ctrl.active"
+        ng:submit="ctrl.save()">
+    <gr:datalist
+        class="job-info--editor__input"
+        gr:search="ctrl.labelSearch('label', q)">
+
+        <input type="text"
+               class="gr-add-label__form__input show-no-error"
+               placeholder="label1, label2, label3…"
+               gr:datalist-input
+               gr:auto-focus
+               required
+               ng:model="ctrl.newLabel"
+               ng:change="ctrl.save()"
+               ng:disabled="ctrl.adding"
+               ng:model-options="{ updateOn: 'gr:datalist:update blur' }" />
+    </gr:datalist>
 
     <span class="gr-add-label__form__buttons">
         <button class="gr-add-label__form__buttons__button-cancel button-cancel" type="button" ng:click="ctrl.cancel()" title="Close">
