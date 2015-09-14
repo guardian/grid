@@ -253,6 +253,37 @@ class SupplierProcessorsTest extends FunSpec with Matchers with MetadataHelper {
       processedImage.usageRights should be(Agency("Getty Images", Some("Getty Images Europe")))
       processedImage.metadata.credit should be(Some("Getty Images for Apple"))
     }
+
+    it("should match 'AFP' credit") {
+      val image = createImageFromMetadata("credit" -> "AFP")
+      val processedImage = applyProcessors(image)
+      processedImage.usageRights should be(Agency("Getty Images", Some("AFP")))
+      processedImage.metadata.credit should be(Some("AFP"))
+    }
+    it("should match 'afp' credit") {
+      val image = createImageFromMetadata("credit" -> "afp")
+      val processedImage = applyProcessors(image)
+      processedImage.usageRights should be(Agency("Getty Images", Some("AFP")))
+      processedImage.metadata.credit should be(Some("afp"))
+    }
+    it("should match 'FilmMagic' credit") {
+      val image = createImageFromMetadata("credit" -> "FilmMagic")
+      val processedImage = applyProcessors(image)
+      processedImage.usageRights should be(Agency("Getty Images", Some("FilmMagic")))
+      processedImage.metadata.credit should be(Some("FilmMagic"))
+    }
+    it("should match 'WireImage' credit") {
+      val image = createImageFromMetadata("credit" -> "WireImage")
+      val processedImage = applyProcessors(image)
+      processedImage.usageRights should be(Agency("Getty Images", Some("WireImage")))
+      processedImage.metadata.credit should be(Some("WireImage"))
+    }
+    it("should match 'Hulton' credit") {
+      val image = createImageFromMetadata("credit" -> "Hulton")
+      val processedImage = applyProcessors(image)
+      processedImage.usageRights should be(Agency("Getty Images", Some("Hulton")))
+      processedImage.metadata.credit should be(Some("Hulton"))
+    }
   }
 
 

@@ -145,7 +145,7 @@ object GettyXmpParser extends ImageProcessor with GettyProcessor {
 }
 
 object GettyCreditParser extends ImageProcessor with GettyProcessor {
-  val gettyCredits = List("afp")
+  val gettyCredits = List("AFP", "FilmMagic", "WireImage", "Hulton")
 
   val IncludesGetty = ".*Getty Images.*".r
   // Take a leap of faith as the credit may be truncated if too long...
@@ -153,14 +153,20 @@ object GettyCreditParser extends ImageProcessor with GettyProcessor {
   val SlashGetty = ".+/Getty(?: .*)?".r
 
   def apply(image: Image): Image = image.metadata.credit match {
-    case Some(credit) if gettyCredits.contains(credit.toLowerCase) => image.copy(
-       usageRights = gettyAgencyWithCollection(image.metadata.source)
-    )
     case Some(IncludesGetty()) | Some(ViaGetty()) | Some(SlashGetty()) => image.copy(
        usageRights = gettyAgencyWithCollection(image.metadata.source)
     )
+    case Some(credit) => knownGettyCredits(image, credit)
     case _ => image
   }
+
+  def knownGettyCredits(image: Image, credit: String): Image =
+    gettyCredits.find(_.toLowerCase == credit.toLowerCase) match {
+      case collection @ Some(_) => image.copy(
+        usageRights = gettyAgencyWithCollection(collection)
+      )
+      case _ => image
+    }
 }
 
 object PaParser extends ImageProcessor {
