@@ -4,7 +4,7 @@ import com.amazonaws.auth.AWSCredentials
 import com.amazonaws.regions.Region
 import com.amazonaws.services.dynamodbv2.AmazonDynamoDBClient
 import com.amazonaws.services.dynamodbv2.document.{DynamoDB => AwsDynamoDB, UpdateItemOutcome, Table, Item}
-import com.amazonaws.services.dynamodbv2.document.spec.{GetItemSpec, UpdateItemSpec}
+import com.amazonaws.services.dynamodbv2.document.spec.{DeleteItemSpec, GetItemSpec, UpdateItemSpec}
 import com.amazonaws.services.dynamodbv2.document.utils.ValueMap
 import com.amazonaws.services.dynamodbv2.model.ReturnValue
 import play.api.libs.json._
@@ -57,6 +57,8 @@ class DynamoDB(credentials: AWSCredentials, region: Region, tableName: String) {
       s"REMOVE $key"
     )
 
+  def deleteItem(id: String) =
+    table.deleteItem(new DeleteItemSpec().withPrimaryKey(IdKey, id))
 
   def booleanGet(id: String, key: String)
                 (implicit ex: ExecutionContext): Future[Option[Boolean]] =
