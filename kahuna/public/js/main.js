@@ -125,7 +125,7 @@ kahuna.run(['$log', '$rootScope', 'mediaApi', function($log, $rootScope, mediaAp
                     authAndRedirect(loginUriTemplate);
                 } else {
                     // Couldn't extract a login URI, die noisily
-                    throw error;
+                    throw new Error('Failed to redirect to auth, no login URI found');
                 }
             }
         });

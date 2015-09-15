@@ -12,7 +12,8 @@ export var addLabel = angular.module('gr.addLabel', [
     'gr.autoFocus'
 ]);
 
-addLabel.controller('GrAddLabelCtrl', ['$window', 'labelService',
+addLabel.controller('GrAddLabelCtrl', [
+    '$window', 'labelService',
     function ($window, labelService) {
 
         let ctrl = this;
@@ -21,24 +22,27 @@ addLabel.controller('GrAddLabelCtrl', ['$window', 'labelService',
 
         ctrl.save = () => {
             let labelList = ctrl.newLabel.split(',').map(e => e.trim());
+            let imageArray = Array.from(ctrl.images);
 
             if (labelList) {
-                save(labelList);
+                save(labelList, imageArray);
             }
         };
 
         ctrl.cancel = reset;
 
-        function save(labels) {
+        function save(label, imageArray) {
             ctrl.adding = true;
 
-            labelService.add(ctrl.image, labels)
-                .then(image => {
-                    ctrl.image = image;
+
+            labelService.batchAdd(imageArray, label)
+                .then(images => {
+                    ctrl.images = images;
                     reset();
                 })
                 .catch(saveFailed)
                 .finally(() => ctrl.adding = false);
+
         }
 
         function saveFailed() {
@@ -56,9 +60,9 @@ addLabel.directive('grAddLabel', [function () {
     return {
         restrict: 'E',
         scope: {
-            image: '=',
             grSmall: '=?',
-            active: '='
+            active: '=',
+            images: '='
         },
         controller: 'GrAddLabelCtrl',
         controllerAs: 'ctrl',

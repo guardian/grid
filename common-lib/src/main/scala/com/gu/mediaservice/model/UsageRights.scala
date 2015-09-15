@@ -110,7 +110,7 @@ case class Agency(supplier: String, suppliersCollection: Option[String] = None, 
   extends UsageRights {
     val category = "agency"
     val defaultCost = None
-    val name = "Agency"
+    val name = "Agency - subscription"
     val description =
       "Agencies such as Getty, Reuters, Press Association, etc. where " +
       "subscription fees are paid to access and use their pictures."
@@ -130,7 +130,7 @@ case class CommissionedAgency(supplier: String, restrictions: Option[String] = N
   extends UsageRights {
     val category = "commissioned-agency"
     val defaultCost = Some(Free)
-    val name = "Agency - Commissioned"
+    val name = "Agency - commissioned"
     val description =
       "Images commissioned and paid for from agencies."
   }
@@ -165,7 +165,7 @@ case class Handout(restrictions: Option[String] = None)
     val defaultCost = Some(Free)
     val name = "Handout"
     val description =
-      "Provided free of use for press purposes e.g. police images for new " +
+      "Provided free to use for press purposes e.g. police images for new " +
       "stories, family shots in biographical pieces, etc."
   }
 object Handout {
@@ -249,7 +249,7 @@ case class StaffPhotographer(photographer: String, publication: String, restrict
   extends Photographer {
     val category = "staff-photographer"
     val defaultCost = Some(Free)
-    val name = "Photographer - Staff"
+    val name = "Photographer - staff"
     val description =
       "From photographers who are or were members of staff."
   }
@@ -268,7 +268,7 @@ case class ContractPhotographer(photographer: String, publication: Option[String
   extends Photographer {
     val category = "contract-photographer"
     val defaultCost = Some(Free)
-    val name = "Photographer - Contract"
+    val name = "Photographer - contract"
     val description =
       "From freelance photographers on fixed-term contracts."
   }
@@ -287,7 +287,7 @@ case class CommissionedPhotographer(photographer: String, publication: Option[St
   extends Photographer {
     val category = "commissioned-photographer"
     val defaultCost = Some(Free)
-    val name = "Photographer - Commissioned"
+    val name = "Photographer - commissioned"
     val description =
       "Commissioned for assignments on an ad hoc basis."
   }
@@ -308,7 +308,7 @@ case class Pool(restrictions: Option[String] = None)
     val defaultCost = Some(Conditional)
     val name = "Pool"
     val description =
-      "Issued during major national events that are free to use and" +
+      "Issued during major national events that are free to use and " +
       "shared amongst news media organisations during that event. " +
       "Rights revert to the copyright holder when the pool is terminated."
   }
@@ -322,7 +322,7 @@ case class CrownCopyright(restrictions: Option[String] = None)
   extends UsageRights {
     val category = "crown-copyright"
     val defaultCost = Some(Free)
-    val name = "Crown Copyright"
+    val name = "Crown copyright"
     val description =
       "Crown copyright covers material created by civil servants, ministers and government " +
       "departments and agencies, including the MOD."
@@ -336,24 +336,32 @@ case class ContractIllustrator(creator: String, restrictions: Option[String] = N
   extends UsageRights {
     val category = "contract-illustrator"
     val defaultCost = Some(Free)
-    val name = "Illustrator - Contract"
+    val name = "Illustrator - contract"
     val description =
       "Illustrations by illustrators on contract."
   }
 object ContractIllustrator {
  implicit val jsonReads: Reads[ContractIllustrator] = Json.reads[ContractIllustrator]
- implicit val jsonWrites: Writes[ContractIllustrator] = UsageRights.defaultWrites
+ implicit val jsonWrites: Writes[ContractIllustrator] = (
+   (__ \ "category").write[String] ~
+   (__ \ "creator").write[String] ~
+   (__ \ "restrictions").writeNullable[String]
+ )(i => (i.category, i.creator, i.restrictions))
 }
 
 case class CommissionedIllustrator(creator: String, restrictions: Option[String] = None)
   extends UsageRights {
     val category = "commissioned-illustrator"
     val defaultCost = Some(Free)
-    val name = "Illustration - Commissioned"
+    val name = "Illustrator - commissioned"
     val description =
       "Illustrations commissioned and payed for."
   }
 object CommissionedIllustrator {
  implicit val jsonReads: Reads[CommissionedIllustrator] = Json.reads[CommissionedIllustrator]
- implicit val jsonWrites: Writes[CommissionedIllustrator] = UsageRights.defaultWrites
+ implicit val jsonWrites: Writes[CommissionedIllustrator] = (
+   (__ \ "category").write[String] ~
+   (__ \ "creator").write[String] ~
+   (__ \ "restrictions").writeNullable[String]
+ )(i => (i.category, i.creator, i.restrictions))
 }
