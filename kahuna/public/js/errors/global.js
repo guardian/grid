@@ -44,6 +44,7 @@ global.controller('GlobalErrorsCtrl',
     // handy as these can happen anywhere
     ctrl.getCurrentLocation = () => $location.url();
 
+    ctrl.dismiss = (error) => globalErrors.destroy(error);
 }]);
 
 
