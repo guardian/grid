@@ -150,6 +150,7 @@ object EditsController extends Controller with ArgoHelpers with DynamoEdits {
 
       val usageRights = (dynamoEntry \ "usageRights").asOpt[UsageRights]
       val metadataOpt = usageRights.flatMap(metadataFromUsageRights)
+      println(metadataOpt)
       metadataOpt.map { metadata =>
         dynamo.jsonPatch(id, "metadata", metadataAsMap(metadata))
           .map(publish(id))
@@ -158,7 +159,7 @@ object EditsController extends Controller with ArgoHelpers with DynamoEdits {
       .getOrElse(Future.failed(EditsValidationError("no-matching-metadata-found", "Couldn't find any matching metadata")))
     } recover {
       case NoItemFound => respondError(NotFound, "item-not-found", "Could not find image")
-      case e: EditsValidationError => respondError(BadRequest, e.key, e.message)
+      case e: EditsValidationError => respondError(NotFound, e.key, e.message)
     }
   }
 
