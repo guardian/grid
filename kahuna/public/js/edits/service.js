@@ -159,20 +159,6 @@ service.factory('editsService',
         existingRequestPool.registerPromise(newRequest);
 
         return existingRequestPool.promise;
-
-        const lastmodified = new Date(image.data.lastModified);
-        return image.data.userMetadata.data.metadata.perform('set-from-usage-rights').then(() => {
-            apiPoll(() => {
-                return image.get().then(newImage => {
-                    const newLastMod = new Date(newImage.data.lastModified);
-                    if (newLastMod > lastmodified) {
-                        return Promise.resolve(newImage);
-                    } else {
-                        return Promise.reject('no modified yet');
-                    }
-                });
-            });
-        });
     }
 
     // Event handling
