@@ -106,8 +106,8 @@ object ImageResponse {
     val reindexAction = Action("reindex", reindexUri, "POST")
 
     List(
-      deleteAction       -> canDelete,
-      reindexAction      -> withWritePermission
+      deleteAction                     -> canDelete,
+      reindexAction                    -> withWritePermission
     )
     .filter{ case (action, active) => active }
     .map   { case (action, active) => action }

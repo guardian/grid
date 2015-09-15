@@ -5,18 +5,17 @@ import java.net.{URLEncoder, URI}
 import play.api.libs.json._
 import play.api.libs.functional.syntax._
 
-import com.gu.mediaservice.lib.argo.model.EmbeddedEntity
+import com.gu.mediaservice.lib.argo.model.{Action, EmbeddedEntity}
 import com.gu.mediaservice.model._
 
 
 object EditsResponse {
+  import Config.services.metadataBaseUri
 
   type ArchivedEntity = EmbeddedEntity[Boolean]
   type SetEntity = EmbeddedEntity[Seq[EmbeddedEntity[String]]]
   type MetadataEntity = EmbeddedEntity[ImageMetadata]
   type UsageRightsEntity = EmbeddedEntity[UsageRights]
-
-  val metadataBaseUri = Config.services.metadataBaseUri
 
   // the types are in the arguments because of a whining scala compiler
   def editsResponseWrites(id: String): Writes[Edits] = (
@@ -30,7 +29,11 @@ object EditsResponse {
     EmbeddedEntity(entityUri(id, "/archived"), Some(a))
 
   def metadataEntity(id: String, m: ImageMetadata): Option[MetadataEntity] =
-    Edits.noneIfEmptyMetadata(m).map(i => EmbeddedEntity(entityUri(id, "/metadata"), Some(i)))
+    Edits.noneIfEmptyMetadata(m).map(i =>
+      EmbeddedEntity(entityUri(id, "/metadata"), Some(i), actions = List(
+        Action("set-from-usage-rights", entityUri(id, "/metadata/set-from-usage-rights"), "POST")
+      ))
+    )
 
   def usageRightsEntity(id: String, u: Option[UsageRights]): Option[UsageRightsEntity] =
     u.map(i => EmbeddedEntity(entityUri(id, "/usage-rights"), Some(i)))
