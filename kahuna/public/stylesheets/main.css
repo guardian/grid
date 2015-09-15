@@ -438,6 +438,15 @@ textarea.ng-invalid {
     border-radius: 5px;
 }
 
+.global-error__close {
+    padding-left: 10px;
+    cursor: pointer;
+}
+
+.global-error__close:hover {
+    color: white;
+}
+
 .error {
     background: darkred;
     color: white;
