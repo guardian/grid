@@ -30,7 +30,7 @@ upload.factory('uploadManager',
 
         // once all `jobItems` in a job are complete, remove it
         // TODO: potentially move these to a `completeJobs` `Set`
-        $q.all(promises).then(() => jobs.delete(job));
+        $q.all(promises).finally(() => jobs.delete(job));
     }
 
     function getLatestRunningJob() {

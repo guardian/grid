@@ -44,7 +44,7 @@ object EditsApi extends Controller with ArgoHelpers {
       List(PrImage(), Handout(), Screengrab(), SocialMedia(), Obituary(), Pool(),
            StaffPhotographer("?", "?"), ContractPhotographer("?"), CommissionedPhotographer("?"),
            Agency("?"), CommissionedAgency("?"), CrownCopyright(),
-           ContractIllustrator("?"), CommissionedIllustrator("?"))
+           ContractIllustrator("?"), CommissionedIllustrator("?"), GuardianWitness())
            .sortWith(_.name.toLowerCase < _.name.toLowerCase)
         .map(CategoryResponse.fromUsageRights)
 
@@ -59,6 +59,7 @@ case class CategoryResponse(
   name: String,
   cost: String,
   description: String,
+  defaultRestrictions: Option[String],
   properties: List[UsageRightsProperty] = List()
 )
 object CategoryResponse {
@@ -66,11 +67,12 @@ object CategoryResponse {
   // with the JSON parsing stuff
   def fromUsageRights(u: UsageRights): CategoryResponse =
     CategoryResponse(
-      value        = u.category,
-      name         = u.name,
-      cost         = u.defaultCost.getOrElse(Pay).toString,
-      description  = u.description,
-      properties   = UsageRightsProperty.getPropertiesForCat(u)
+      value               = u.category,
+      name                = u.name,
+      cost                = u.defaultCost.getOrElse(Pay).toString,
+      description         = u.description,
+      defaultRestrictions = u.defaultRestrictions,
+      properties          = UsageRightsProperty.getPropertiesForCat(u)
     )
 
   implicit val categoryResponseWrites: Writes[CategoryResponse] = Json.writes[CategoryResponse]

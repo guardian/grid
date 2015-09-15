@@ -1,7 +1,7 @@
 package lib
 
 import _root_.play.api.libs.json._
-import com.gu.mediaservice.lib.elasticsearch.{ImageFields, ElasticSearchClient}
+import com.gu.mediaservice.lib.elasticsearch.{ElasticSearchClient, ImageFields}
 import com.gu.mediaservice.syntax._
 import groovy.json.JsonSlurper
 import lib.ThrallMetrics._
@@ -23,7 +23,6 @@ object ImageNotDeletable extends Throwable("Image cannot be deleted")
 
 object ElasticSearch extends ElasticSearchClient with ImageFields {
 
-  import Config.persistenceIdentifier
   import com.gu.mediaservice.lib.formatting._
 
   val imagesAlias = Config.imagesAlias
@@ -67,18 +66,15 @@ object ElasticSearch extends ElasticSearchClient with ImageFields {
 
     val q = filteredQuery(
       boolQuery.must(matchQuery("_id", id)),
-        andFilter(
-          missingOrEmptyFilter("exports"),
-          missingOrEmptyFilter(s"identifiers.$persistenceIdentifier"),
-          boolFilter.should(
-            missingOrEmptyFilter(editsField("archived")),
-            boolFilter.must(termFilter(editsField("archived"), false)),
-            boolFilter.mustNot(termFilter(usageRightsField("category"), "staff-photographer")),
-            boolFilter.mustNot(termFilter(usageRightsField("category"), "contract-photographer")),
-            boolFilter.mustNot(termFilter(usageRightsField("category"), "commissioned-photographer"))
-          )
-        )
+      andFilter(
+        missingOrEmptyFilter("exports"),
+        missingOrEmptyFilter(identifierField(Config.persistenceIdentifier)),
+        boolFilter.mustNot(termFilter(editsField("archived"), true)),
+        boolFilter.mustNot(termFilter(usageRightsField("category"), "staff-photographer")),
+        boolFilter.mustNot(termFilter(usageRightsField("category"), "contract-photographer")),
+        boolFilter.mustNot(termFilter(usageRightsField("category"), "commissioned-photographer"))
       )
+    )
 
     val deleteQuery = client
       .prepareDeleteByQuery(imagesAlias)
