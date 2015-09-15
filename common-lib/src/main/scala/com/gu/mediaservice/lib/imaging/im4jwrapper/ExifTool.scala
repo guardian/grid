@@ -1,7 +1,6 @@
-package lib.imaging.im4jwrapper
+package com.gu.mediaservice.lib.imaging.im4jwrapper
 
 import java.util.concurrent.Executors
-import lib.Config
 
 import java.io.File
 import scala.concurrent.{Future, ExecutionContext}
