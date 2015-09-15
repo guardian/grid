@@ -2,20 +2,24 @@ package lib.imaging
 
 import java.io._
 
+import com.gu.mediaservice.lib.Files
+
 import scala.concurrent.Future
 
 import play.api.libs.concurrent.Execution.Implicits._
 
-import com.gu.mediaservice.model.{Dimensions, ImageMetadata, Asset, Bounds, CropSource}
+import com.gu.mediaservice.model.{Dimensions, ImageMetadata, Asset, Bounds}
+import com.gu.mediaservice.lib.imaging.im4jwrapper.{ImageMagick, ExifTool}
 
-import lib.Files._
+import lib.Config
+import Files._
 
 
 case class ExportResult(id: String, masterCrop: Asset, othersizings: List[Asset])
 
 object ExportOperations {
-  import lib.imaging.im4jwrapper.ImageMagick._
-  import lib.imaging.im4jwrapper.ExifTool._
+  import ImageMagick._
+  import ExifTool._
 
   lazy val imageProfileLocation = s"${play.api.Play.current.path}/srgb.icc"
 
@@ -30,7 +34,7 @@ object ExportOperations {
 
   def cropImage(sourceFile: File, bounds: Bounds, qual: Double = 100d): Future[File] = {
     for {
-      outputFile <- createTempFile(s"crop-", ".jpg")
+      outputFile <- createTempFile(s"crop-", ".jpg", Config.tempDir)
       cropSource  = addImage(sourceFile)
       qualified   = quality(cropSource)(qual)
       converted   = profile(qualified)(imageProfileLocation)
@@ -52,7 +56,7 @@ object ExportOperations {
 
   def resizeImage(sourceFile: File, dimensions: Dimensions, qual: Double = 100d): Future[File] = {
     for {
-      outputFile  <- createTempFile(s"resize-", ".jpg")
+      outputFile  <- createTempFile(s"resize-", ".jpg", Config.tempDir)
       resizeSource = addImage(sourceFile)
       qualified    = quality(resizeSource)(qual)
       resized      = scale(qualified)(dimensions)
