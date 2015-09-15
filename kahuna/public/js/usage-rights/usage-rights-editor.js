@@ -182,9 +182,15 @@ usageRightsEditor.controller(
             const image = usageRights.image;
             const resource = image.data.userMetadata.data.usageRights;
             return editsService.update(resource, data, image).
-                then(resource => resource.data);
+                then(resource => resource.data).
+                then(() => updateMetadataFromUsageRights(image));
+
         })).catch(uiError).
             finally(() => updateSuccess(data));
+    }
+
+    function updateMetadataFromUsageRights(image) {
+        return editsService.perform(image.data.userMetadata.data.metadata, 'set-from-usage-rights', image);
     }
 
     function updateSuccess(data) {

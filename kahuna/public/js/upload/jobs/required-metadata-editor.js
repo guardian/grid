@@ -20,9 +20,12 @@ jobs.controller('RequiredMetadataEditorCtrl',
 
     ctrl.saving = false;
     ctrl.disabled = () => Boolean(ctrl.saving || ctrl.externallyDisabled);
-    ctrl.metadata = metadataFromOriginal(ctrl.originalMetadata);
     ctrl.saveOnTime = 750; // ms
-    ctrl.copyrightWasInitiallyThere = !!ctrl.metadata.copyright;
+    ctrl.copyrightWasInitiallyThere = !!ctrl.originalMetadata.copyright;
+
+    $scope.$watch(() => ctrl.originalMetadata, newMetadata => {
+        ctrl.metadata = metadataFromOriginal(newMetadata);
+    });
 
     ctrl.save = function() {
         ctrl.saving = true;
