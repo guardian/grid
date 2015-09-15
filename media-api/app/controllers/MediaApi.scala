@@ -68,7 +68,7 @@ object MediaApi extends Controller with ArgoHelpers {
       // FIXME: credit is the only field availble for now as it's the only on
       // that we are indexing as a completion suggestion
       Link("metadata-search", s"$rootUri/suggest/metadata/{field}{?q}"),
-      Link("label-search",   s"$rootUri/images/edits/{field}{?q}"),
+      Link("label-search",    s"$rootUri/images/edits/label{?q}"),
       Link("cropper",         cropperUri),
       Link("loader",          loaderUri),
       Link("edits",           metadataUri),

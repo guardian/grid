@@ -57,8 +57,8 @@ addLabel.controller('GrAddLabelCtrl', [
             ctrl.active = false;
         }
 
-        ctrl.labelSearch = (field, q) => {
-            return mediaApi.labelSearch(field,  { q }).then(resource => {
+        ctrl.labelSearch = (q) => {
+            return mediaApi.labelSearch({ q }).then(resource => {
                 return resource.data.map(d => d.key);
             });
         };
