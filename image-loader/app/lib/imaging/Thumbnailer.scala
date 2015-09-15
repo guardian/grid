@@ -1,33 +1,33 @@
 package lib.imaging
 
 import java.io.File
-import java.util.concurrent.Executors
-import scala.concurrent.{ExecutionContext, Future}
 
 import lib.Config
-import org.im4java.core.{IMOperation, ConvertCmd}
+
+import com.gu.mediaservice.lib.Files._
+import com.gu.mediaservice.lib.imaging.im4jwrapper.ImageMagick._
+
+import scala.concurrent.Future
 
 
 object Thumbnailer {
 
-  private implicit val ctx: ExecutionContext =
-    ExecutionContext.fromExecutor(Executors.newFixedThreadPool(Config.imagickThreadPoolSize))
+  import scala.concurrent.ExecutionContext.Implicits.global
 
-  def createThumbnail(width: Int, filename: String): Future[File] = Future {
-    val tempFile = createTempFile
+  lazy val imageProfileLocation = s"${play.api.Play.current.path}/srgb.icc"
 
-    val convertCmd = new ConvertCmd
-    val imOp = new IMOperation
-    imOp.addImage(filename)
-    imOp.thumbnail(width)
-    imOp.colorspace("RGB")
-    imOp.addImage(tempFile.toString)
-    convertCmd.run(imOp)
-
-    tempFile
+  def createThumbnail(sourceFile: File, width: Int, qual: Double = 100d): Future[File] = {
+    for {
+      outputFile <- createTempFile(s"thumb-", ".jpg", Config.tempDir)
+      cropSource  = addImage(sourceFile)
+      qualified   = quality(cropSource)(qual)
+      converted   = profile(qualified)(imageProfileLocation)
+      stripped    = stripMeta(converted)
+      profiled    = profile(stripped)(imageProfileLocation)
+      resized     = thumbnail(profiled)(width)
+      addOutput   = addDestImage(resized)(outputFile)
+      _          <- runConvertCmd(addOutput)
+    } yield outputFile
   }
-
-  private def createTempFile: File =
-    File.createTempFile("thumbnail", "", new File(Config.tempDir))
 
 }

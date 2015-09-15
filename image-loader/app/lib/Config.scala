@@ -1,5 +1,7 @@
 package lib
 
+import java.io.File
+
 import com.amazonaws.auth.{BasicAWSCredentials, AWSCredentials}
 import com.gu.mediaservice.lib.config.{CommonPlayAppConfig, CommonPlayAppProperties, Properties}
 
@@ -21,9 +23,10 @@ object Config extends CommonPlayAppProperties with CommonPlayAppConfig {
 
   val keyStoreBucket: String = properties("auth.keystore.bucket")
 
-  val tempDir: String = properties.getOrElse("upload.tmp.dir", "/tmp")
+  val tempDir: File = new File(properties.getOrElse("upload.tmp.dir", "/tmp"))
 
   val thumbWidth: Int = 256
+  val thumbQuality: Double = 90d // out of 100
 
   val imagickThreadPoolSize = 4
 
