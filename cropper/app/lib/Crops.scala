@@ -1,5 +1,7 @@
 package lib
 
+import com.gu.mediaservice.lib.Files
+
 import scala.concurrent.Future
 import lib.imaging.{ExportOperations, ExportResult}
 import com.gu.mediaservice.model.{Asset, Dimensions, SourceImage, Crop, Bounds, CropSource}
@@ -75,7 +77,7 @@ object Crops {
     if(isInvalidCrop(apiImage.source, source)) throw InvalidCropRequest
 
     for {
-      sourceFile <- tempFileFromURL(secureUrl, "cropSource", "")
+      sourceFile <- tempFileFromURL(secureUrl, "cropSource", "", Config.tempDir)
       masterCrop <- createMasterCrop(apiImage, sourceFile, crop, mediaType)
 
       outputDims = dimensionsFromConfig(source.bounds, masterCrop.aspectRatio) :+ masterCrop.dimensions

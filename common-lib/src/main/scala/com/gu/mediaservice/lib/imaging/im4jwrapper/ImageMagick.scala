@@ -1,7 +1,6 @@
-package lib.imaging.im4jwrapper
+package com.gu.mediaservice.lib.imaging.im4jwrapper
 
 import java.util.concurrent.Executors
-import lib.Config
 
 import java.io.File
 import scala.concurrent.{Future, ExecutionContext}
@@ -21,6 +20,7 @@ object ImageMagick {
   def addDestImage(op: IMOperation)(dest: File) = op <| (_.addImage(dest.getAbsolutePath))
   def crop(op: IMOperation)(b: Bounds): IMOperation = op <| (_.crop(b.width, b.height, b.x, b.y))
   def profile(op: IMOperation)(profileFileLocation: String): IMOperation = op <| (_.profile(profileFileLocation))
+  def thumbnail(op: IMOperation)(width: Int): IMOperation = op <| (_.thumbnail(width))
   def scale(op: IMOperation)(dimensions: Dimensions): IMOperation = op <| (_.scale(dimensions.width, dimensions.height))
   def runConvertCmd(op: IMOperation): Future[Unit] = Future((new ConvertCmd).run(op))
 }
