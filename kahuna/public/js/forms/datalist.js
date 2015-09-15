@@ -63,9 +63,17 @@ datalist.directive('grDatalistInput',
             const keyFuncs = {
                 up:    () => parentCtrl.moveIndex(-1),
                 down:  () => parentCtrl.moveIndex(+1),
-                enter: () => parentCtrl.setValueFromSelectedIndex(),
                 esc:   deactivate
             };
+
+            // Enter is on keydown to prevent the submit event being
+            // propagated up.
+            input.on('keydown', event => {
+                if (keys[event.which] === 'enter' && parentCtrl.active) {
+                    event.preventDefault();
+                    scope.$apply(parentCtrl.setValueFromSelectedIndex);
+                }
+            });
 
             input.on('keyup', event => {
                 const func = keyFuncs[keys[event.which]];
@@ -78,7 +86,6 @@ datalist.directive('grDatalistInput',
                 }
             });
 
-            input.on('focus', searchAndActivate);
             input.on('click', searchAndActivate);
 
             // This is done to make the results disappear when you select
