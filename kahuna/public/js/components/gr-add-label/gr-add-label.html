@@ -12,9 +12,9 @@
 <form class="gr-add-label__form"
         ng:if="ctrl.active"
         ng:submit="ctrl.save()">
-    <gr:datalist
+    <gr-datalist
         class="job-info--editor__input"
-        gr:search="ctrl.labelSearch('label', q)">
+        gr:search="ctrl.labelSearch(q)">
 
         <input type="text"
                class="gr-add-label__form__input show-no-error"
@@ -23,10 +23,8 @@
                gr:auto-focus
                required
                ng:model="ctrl.newLabel"
-               ng:change="ctrl.save()"
-               ng:disabled="ctrl.adding"
-               ng:model-options="{ updateOn: 'gr:datalist:update blur' }" />
-    </gr:datalist>
+               ng:disabled="ctrl.adding" />
+    </gr-datalist>
 
     <span class="gr-add-label__form__buttons">
         <button class="gr-add-label__form__buttons__button-cancel button-cancel" type="button" ng:click="ctrl.cancel()" title="Close">
