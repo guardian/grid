@@ -149,6 +149,31 @@ service.factory('editsService',
         return existingRequestPool.promise;
     }
 
+    function perform(resource, action, originalImage) {
+        const newRequest = resource.perform(action).
+              then(action => resource.get().then(edit => getSynced(originalImage, newImage => matches(edit, newImage))));
+
+        const existingRequestPool = updateRequestPools.get(resource) ||
+            registerUpdateRequest(resource, originalImage);
+
+        existingRequestPool.registerPromise(newRequest);
+
+        return existingRequestPool.promise;
+
+        const lastmodified = new Date(image.data.lastModified);
+        return image.data.userMetadata.data.metadata.perform('set-from-usage-rights').then(() => {
+            apiPoll(() => {
+                return image.get().then(newImage => {
+                    const newLastMod = new Date(newImage.data.lastModified);
+                    if (newLastMod > lastmodified) {
+                        return Promise.resolve(newImage);
+                    } else {
+                        return Promise.reject('no modified yet');
+                    }
+                });
+            });
+        });
+    }
 
     // Event handling
     // TODO: Use proper names from http://en.wikipedia.org/wiki/Watcher_%28comics%29
@@ -272,7 +297,7 @@ service.factory('editsService',
     }
 
     return {
-        update, add, on, canUserEdit,
+        update, add, on, canUserEdit, perform,
         updateMetadataField, batchUpdateMetadataField
     };
 
