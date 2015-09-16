@@ -78,6 +78,7 @@ object MetadataConfig {
   // them correctly.
   // TODO: Think about removin these once Picdar is dead.
   val internalStaffPhotographers = List(
+    "E Hamilton West"       -> "The Guardian",
     "Emma Baddeley"         -> "The Guardian",
     "Harriet St Johnston"   -> "The Guardian",
     "James Michelson"       -> "The Guardian",
@@ -85,8 +86,7 @@ object MetadataConfig {
     "Marcus Mays"           -> "The Guardian",
     "Millie Burton"         -> "The Guardian",
     "Rachel Vere"           -> "The Guardian",
-    "Richard Blake"         -> "The Guardian",
-    "Ted West"              -> "The Guardian"
+    "Richard Blake"         -> "The Guardian"
   )
 
   val staffPhotographers = externalStaffPhotographers ++ internalStaffPhotographers
