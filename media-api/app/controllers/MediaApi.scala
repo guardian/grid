@@ -151,7 +151,7 @@ object MediaApi extends Controller with ArgoHelpers {
       case Some(source) =>
         val image = source.as[Image]
 
-        val isPersisted = ImageResponse.imageIsPersisted(image)
+        val (isPersisted, _) = ImageResponse.imagePersistenceState(image)
         if (isPersisted) {
           Future.successful(ImageCannotBeDeleted)
         } else {
