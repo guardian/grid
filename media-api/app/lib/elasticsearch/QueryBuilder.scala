@@ -14,7 +14,7 @@ class QueryBuilder(matchFields: Seq[String]) {
 
   def makeMultiQuery(value: Value, fields: Seq[String]) = value match {
     // Force AND operator else it will only require *any* of the words, not *all*
-    case Words(string) => multiMatchQuery(string, fields: _*).operator(MatchQueryBuilder.Operator.AND)
+    case Words(string) => multiMatchQuery(string, fields: _*).operator(MatchQueryBuilder.Operator.AND).`type`(MultiMatchQueryBuilder.Type.CROSS_FIELDS)
     case Phrase(string) => multiMatchPhraseQuery(string, fields)
     // That's OK, we only do date queries on a single field at a time
     case DateRange(start, end) => throw InvalidQuery("Cannot do multiQuery on date range")
