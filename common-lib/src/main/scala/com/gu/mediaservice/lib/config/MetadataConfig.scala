@@ -4,9 +4,15 @@ package com.gu.mediaservice.lib.config
 import scalaz._
 import Scalaz._
 
+
+
+import com.gu.mediaservice.model.{StaffPhotographer, ContractPhotographer, Photographer}
+
 object PhotographersList {
   type Store = Map[String, String]
   type CreditBylineMap = Map[String, List[String]]
+
+  import MetadataConfig.{ staffPhotographers, contractedPhotographers }
 
   def creditBylineMap(store: Store): CreditBylineMap = store
       .groupBy{ case (photographer, publication) => publication }
@@ -18,10 +24,22 @@ object PhotographersList {
   def list(store: Store) = store.keys.toList.sortWith(_.toLowerCase < _.toLowerCase)
 
   def getPublication(store: Store, name: String): Option[String] = store.get(name)
+
+  def caseInsensitiveLookup(store: Store, lookup: String) =
+    store.find{case (name, pub) => name.toLowerCase == lookup.toLowerCase}
+
+  def getPhotographer(photographer: String): Option[Photographer] = {
+    caseInsensitiveLookup(staffPhotographers, photographer).map {
+      case (name, pub) => StaffPhotographer(name, pub)
+    }.orElse(caseInsensitiveLookup(contractedPhotographers, photographer).map {
+      case (name, pub) => ContractPhotographer(name, Some(pub))
+    })
+  }
 }
 
 object MetadataConfig {
-  val staffPhotographers = Map(
+
+  val staffPhotographers: Map[String, String] = Map(
     // Current
     "Alicia Canter"  -> "The Guardian",
     "Bill Code"      -> "The Guardian",
@@ -94,6 +112,20 @@ object MetadataConfig {
     "Richard Saker"       -> "The Observer",
     "Sophia Evans"        -> "The Observer",
     "Suki Dhanda"         -> "The Observer"
+  )
+
+  val contractIllustrators = List(
+    "Robert G Fresson",
+    "Bill Bragg",
+    "Sebastien Thibault",
+    "Eva Bee",
+    "Nate Kitch",
+    "Joe Magee",
+    "Jasper Rietman",
+    "Matt Kenyon",
+    "Andreij Krauze",
+    "Ellie Foreman-Peck",
+    "Ben Jennings"
   )
 
   val allPhotographers = staffPhotographers ++ contractedPhotographers

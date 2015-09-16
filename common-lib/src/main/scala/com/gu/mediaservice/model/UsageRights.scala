@@ -42,6 +42,8 @@ object UsageRights {
     case o: CommissionedPhotographer => CommissionedPhotographer.jsonWrites.writes(o)
     case o: Pool                     => Pool.jsonWrites.writes(o)
     case o: CrownCopyright           => CrownCopyright.jsonWrites.writes(o)
+    case o: ContractIllustrator      => ContractIllustrator.jsonWrites.writes(o)
+    case o: CommissionedIllustrator  => CommissionedIllustrator.jsonWrites.writes(o)
     case o: NoRights.type            => NoRights.jsonWrites.writes(o)
   }
 
@@ -68,6 +70,8 @@ object UsageRights {
         case "commissioned-photographer" => json.asOpt[CommissionedPhotographer]
         case "pool"                      => json.asOpt[Pool]
         case "crown-copyright"           => json.asOpt[CrownCopyright]
+        case "contract-illustrator"      => json.asOpt[ContractIllustrator]
+        case "commissioned-illustrator"  => json.asOpt[CommissionedIllustrator]
         case _                           => None
       })
       .orElse(supplier.flatMap(_ => json.asOpt[Agency]))
@@ -75,6 +79,10 @@ object UsageRights {
       .map(JsSuccess(_))
       .getOrElse(JsError(s"No such usage rights category: ${category.getOrElse("None")}"))
     }
+}
+
+trait Photographer extends UsageRights {
+  val photographer: String
 }
 
 // We have a custom writes and reads for NoRights as it is represented by `{}`
@@ -102,7 +110,7 @@ case class Agency(supplier: String, suppliersCollection: Option[String] = None, 
   extends UsageRights {
     val category = "agency"
     val defaultCost = None
-    val name = "Agency"
+    val name = "Agency - subscription"
     val description =
       "Agencies such as Getty, Reuters, Press Association, etc. where " +
       "subscription fees are paid to access and use their pictures."
@@ -122,7 +130,7 @@ case class CommissionedAgency(supplier: String, restrictions: Option[String] = N
   extends UsageRights {
     val category = "commissioned-agency"
     val defaultCost = Some(Free)
-    val name = "Agency - Commissioned"
+    val name = "Agency - commissioned"
     val description =
       "Images commissioned and paid for from agencies."
   }
@@ -157,7 +165,7 @@ case class Handout(restrictions: Option[String] = None)
     val defaultCost = Some(Free)
     val name = "Handout"
     val description =
-      "Provided free of use for press purposes e.g. police images for new " +
+      "Provided free to use for press purposes e.g. police images for new " +
       "stories, family shots in biographical pieces, etc."
   }
 object Handout {
@@ -238,10 +246,10 @@ object Obituary {
 
 
 case class StaffPhotographer(photographer: String, publication: String, restrictions: Option[String] = None)
-  extends UsageRights {
+  extends Photographer {
     val category = "staff-photographer"
     val defaultCost = Some(Free)
-    val name = "Photographer - Staff"
+    val name = "Photographer - staff"
     val description =
       "From photographers who are or were members of staff."
   }
@@ -256,11 +264,11 @@ object StaffPhotographer {
 }
 
 
-case class ContractPhotographer(photographer: String, publication: String, restrictions: Option[String] = None)
-  extends UsageRights {
+case class ContractPhotographer(photographer: String, publication: Option[String] = None, restrictions: Option[String] = None)
+  extends Photographer {
     val category = "contract-photographer"
     val defaultCost = Some(Free)
-    val name = "Photographer - Contract"
+    val name = "Photographer - contract"
     val description =
       "From freelance photographers on fixed-term contracts."
   }
@@ -269,17 +277,17 @@ object ContractPhotographer {
  implicit val jsonWrites: Writes[ContractPhotographer] = (
    (__ \ "category").write[String] ~
    (__ \ "photographer").write[String] ~
-   (__ \ "publication").write[String] ~
+   (__ \ "publication").writeNullable[String] ~
    (__ \ "restrictions").writeNullable[String]
  )(s => (s.category, s.photographer, s.publication, s.restrictions))
 }
 
 
-case class CommissionedPhotographer(photographer: String, publication: String, restrictions: Option[String] = None)
-  extends UsageRights {
+case class CommissionedPhotographer(photographer: String, publication: Option[String] = None, restrictions: Option[String] = None)
+  extends Photographer {
     val category = "commissioned-photographer"
     val defaultCost = Some(Free)
-    val name = "Photographer - Commissioned"
+    val name = "Photographer - commissioned"
     val description =
       "Commissioned for assignments on an ad hoc basis."
   }
@@ -288,7 +296,7 @@ object CommissionedPhotographer {
  implicit val jsonWrites: Writes[CommissionedPhotographer] = (
    (__ \ "category").write[String] ~
    (__ \ "photographer").write[String] ~
-   (__ \ "publication").write[String] ~
+   (__ \ "publication").writeNullable[String] ~
    (__ \ "restrictions").writeNullable[String]
  )(s => (s.category, s.photographer, s.publication, s.restrictions))
 }
@@ -300,7 +308,7 @@ case class Pool(restrictions: Option[String] = None)
     val defaultCost = Some(Conditional)
     val name = "Pool"
     val description =
-      "Issued during major national events that are free to use and" +
+      "Issued during major national events that are free to use and " +
       "shared amongst news media organisations during that event. " +
       "Rights revert to the copyright holder when the pool is terminated."
   }
@@ -314,7 +322,7 @@ case class CrownCopyright(restrictions: Option[String] = None)
   extends UsageRights {
     val category = "crown-copyright"
     val defaultCost = Some(Free)
-    val name = "Crown Copyright"
+    val name = "Crown copyright"
     val description =
       "Crown copyright covers material created by civil servants, ministers and government " +
       "departments and agencies, including the MOD."
@@ -322,4 +330,38 @@ case class CrownCopyright(restrictions: Option[String] = None)
 object CrownCopyright {
  implicit val jsonReads: Reads[CrownCopyright] = Json.reads[CrownCopyright]
  implicit val jsonWrites: Writes[CrownCopyright] = UsageRights.defaultWrites
+}
+
+case class ContractIllustrator(creator: String, restrictions: Option[String] = None)
+  extends UsageRights {
+    val category = "contract-illustrator"
+    val defaultCost = Some(Free)
+    val name = "Illustrator - contract"
+    val description =
+      "Illustrations by illustrators on contract."
+  }
+object ContractIllustrator {
+ implicit val jsonReads: Reads[ContractIllustrator] = Json.reads[ContractIllustrator]
+ implicit val jsonWrites: Writes[ContractIllustrator] = (
+   (__ \ "category").write[String] ~
+   (__ \ "creator").write[String] ~
+   (__ \ "restrictions").writeNullable[String]
+ )(i => (i.category, i.creator, i.restrictions))
+}
+
+case class CommissionedIllustrator(creator: String, restrictions: Option[String] = None)
+  extends UsageRights {
+    val category = "commissioned-illustrator"
+    val defaultCost = Some(Free)
+    val name = "Illustrator - commissioned"
+    val description =
+      "Illustrations commissioned and payed for."
+  }
+object CommissionedIllustrator {
+ implicit val jsonReads: Reads[CommissionedIllustrator] = Json.reads[CommissionedIllustrator]
+ implicit val jsonWrites: Writes[CommissionedIllustrator] = (
+   (__ \ "category").write[String] ~
+   (__ \ "creator").write[String] ~
+   (__ \ "restrictions").writeNullable[String]
+ )(i => (i.category, i.creator, i.restrictions))
 }

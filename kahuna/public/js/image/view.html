@@ -11,8 +11,7 @@
     <gr-top-bar-actions>
         <gr-delete-image class="top-bar-item top-bar-item--filled"
                          ng:if="ctrl.canBeDeleted"
-                         image="ctrl.image"
-                         on-success="ctrl.onDeleteSuccess" on-error="ctrl.onDeleteError">
+                         images="[ctrl.image]">
         </gr-delete-image>
 
         <a class="top-bar-item" href="{{ ctrl.image.data.source | assetFile }}" download target="_blank">
@@ -23,9 +22,78 @@
                      image="ctrl.image"
                      with-text="true"></ui-archiver>
 
-        <gr-crop-image class="top-bar-item" image="ctrl.image"></gr-crop-image>
+        <gr-crop-image class="top-bar-item" image="ctrl.image" tracking-location="Top bar">
+        </gr-crop-image>
     </gr-top-bar-actions>
 </gr-top-bar>
+
+
+<div class="image-details image-details--crop">
+    <div class="image-info">
+        <gr-crop-image image="ctrl.image" tracking-location="Crop panel">
+        </gr-crop-image>
+        <div class="image-info__group image-info__group--original">
+            <dl>
+                <dt class="image-info__heading">Original <span class="image-info__file-size"> {{ctrl.image.data.source.size | asFileSize}}</span></dt>
+                    <dd class="image-info__heading--crops">
+                        <ul class="image-crops">
+                            <li class="image-crop"
+                                ng:class="{'image-crop--selected': !ctrl.crop}">
+                                <a draggable="true"
+                                    ui:sref="{ crop: null }">
+                                    <img class="image-crop__image" ng:src="{{ ctrl.image.data.thumbnail | assetFile }}" />
+                                    <div class="image-crop__aspect-ratio"
+                                        ng:class="{'image-crop__aspect-ratio--selected': !ctrl.crop}">
+                                        <ul>
+                                            <li>{{ctrl.image.data.source.dimensions.width}} &times; {{ctrl.image.data.source.dimensions.height}}</li>
+                                        </ul>
+                                    </div>
+                                </a>
+                            </li>
+                        </ul>
+                    </dd>
+                </dt>
+            </dl>
+        </div>
+
+        <div class="image-info__group--crops" ng:if="ctrl.crops.length > 0">
+            <dl class="image-info__group--dl">
+                <dt class="image-info__heading">Crops</dt>
+                <dd class="image-info__heading--crops">
+                    <ul class="image-crops">
+                        <li class="image-crop"
+                            ng:repeat="crop in ctrl.crops"
+                            ng:class="{'image-crop--selected': crop == ctrl.crop}">
+                            <a draggable="true"
+                               ng:init="extremeAssets = (crop | getExtremeAssets)"
+                               ng:click="ctrl.cropSelected(crop)"
+                               ui:sref="{crop: crop.id}"
+                               ui:drag-data="{{ctrl.image | asImageAndCropsDragData:crop}}"
+                               ui:drag-image="{{extremeAssets.smallest | assetFile}}">
+                                <img class="image-crop__image" ng:src="{{extremeAssets.smallest | assetFile}}" />
+                                <div class="image-crop__aspect-ratio"
+                                    ng:class="{'image-crop__aspect-ratio--selected': crop == ctrl.crop}">
+                                    <ul>
+                                        <li>
+                                            {{crop.specification.aspectRatio | asAspectRatioWord}}
+                                            <span ng:if="crop.specification.aspectRatio">({{crop.specification.aspectRatio}})</span>
+                                        </li>
+                                        <li>{{crop.specification.bounds.width}} &times; {{crop.specification.bounds.height}}</li>
+                                    </ul>
+                                </div>
+                            </a>
+                        </li>
+                    </ul>
+                </dd>
+            </dl>
+        </div>
+    </div>
+
+    <gr-delete-crops
+            class="image-details__delete-crops"
+            gr:image="ctrl.image"
+            gr:on-delete="ctrl.onCropsDeleted()"></gr-delete-crops>
+</div>
 
 <div class="image-details">
 
@@ -50,26 +118,23 @@
         </div>
 
         <div class="image-info__group">
-            <dl class="image-info__wrap metadata-line drop-menu image-info__usage-rights"
-                 ng:init="showUsageRights = false">
-                <dt>Usage rights category</dt>
-                <div class="image-info__usage-rights drop-menu__items drop-menu__items--right"
-                     ng:show="showUsageRights">
+            <dl class="image-info__wrap metadata-line image-info__usage-rights">
+                <dt class="metadata-line__key">Usage rights category</dt>
 
-                    <gr:usage-rights-editor
-                        gr:usage-rights="[ctrl.usageRights]"
-                        gr:on-save="showUsageRights = false"
-                        gr:on-cancel="showUsageRights = false">
-                    </gr:usage-rights-editor>
-                </div>
+                <gr-usage-rights-editor
+                    ng:if="ctrl.showUsageRights"
+                    gr:usage-rights="[ctrl.usageRights]"
+                    gr:on-save="ctrl.showUsageRights = false"
+                    gr:on-cancel="ctrl.showUsageRights = false">
+                </gr-usage-rights-editor>
 
-                <dd class="image-info__title">
+                <dd class="image-info__title" ng:if="! ctrl.showUsageRights">
                     {{ctrl.usageCategory || 'None'}}
                 </dd>
 
                 <button
-                    ng:click="showUsageRights = !showUsageRights"
-                    ng:hide="!ctrl.userCanEdit || showUsageRights"
+                    ng:click="ctrl.showUsageRights = true"
+                    ng:hide="!ctrl.userCanEdit || ctrl.showUsageRights"
                     class="image-info__edit">✎</button>
             </dl>
         </div>
@@ -231,17 +296,6 @@
                         {{ctrl.image.data.uploadInfo.filename}}
                     </span>
                 </dd>
-
-                <dt ng:if="!ctrl.crop" class="image-info__group--dl__key metadata-line__key">Dimensions</dt>
-                <dd ng:if="!ctrl.crop" class="image-info__group--dl__value metadata-line__info">
-                    <span class="metadata-line__info">{{ctrl.dimensions.width}} &times; {{ctrl.dimensions.height}}</span>
-                </dd>
-
-                <dt ng:if="ctrl.crop" class="image-info__group--dl__key metadata-line__key">Dimensions (crop)</dt>
-                <dd ng:if="ctrl.crop" class="image-info__group--dl__value metadata-line__info">
-                    <span class="metadata-line__info">{{ctrl.dimensions.width}} &times; {{ctrl.dimensions.height}}</span>
-                </dd>
-
             </dl>
         </div>
         <!-- FIXME: iff has useful metadata -->
@@ -264,12 +318,9 @@
 
     <div class="image-info">
         <dl class="image-info__group">
-            <dt class="image-info__heading image-info__heading--first">
-                <div class="flex-container">
-                    Labels
-                    <div class="flex-spacer"></div>
-                    <gr-add-label image="ctrl.image"></gr-add-label>
-                </div>
+            <dt class="image-info__heading image-info__heading--first flex-container">
+                <span class="flex-spacer">Labels</span>
+                <gr-add-label gr-small="true" images="[ctrl.image]" ng:blur="ctrl.cancel"></gr-add-label>
             </dt>
             <dd class="image-info__group--fixed-panel">
                 <ui-labeller image="ctrl.image"></ui-labeller>
@@ -277,34 +328,7 @@
         </dl>
     </div>
 
-
     <div class="image-info">
-        <dl class="image-info__group" ng:if="ctrl.crops.length > 0">
-            <dt class="image-info__heading">Crops <span ng:if="ctrl.crop">(<a ui:sref="{ crop: null }">Original</a>)</span></dt>
-            <dd>
-                <ul class="image-crops">
-                    <li class="image-crop"
-                        ng:repeat="crop in ctrl.crops"
-                        ng:class="{'image-crop--selected': crop == ctrl.crop}">
-                        <a draggable="true"
-                           ng:init="extremeAssets = (crop | getExtremeAssets)"
-                           ng:click="ctrl.cropSelected(crop)"
-                           ui:sref="{crop: crop.id}"
-                           ui:drag-data="{{ctrl.image | asImageAndCropsDragData:crop}}"
-                           ui:drag-image="{{extremeAssets.smallest | assetFile}}">
-                            <img class="image-crop__image" ng:src="{{extremeAssets.smallest | assetFile}}" />
-                        </a>
-                        <div class="image-crop__aspect-ratio">
-                            {{crop.specification.aspectRatio | asAspectRatioWord}}
-                            <span ng:if="crop.specification.aspectRatio">
-                                ({{crop.specification.aspectRatio}})
-                            </span>
-                        </div>
-                    </li>
-                </ul>
-            </dd>
-        </dl>
-
         <dl class="image-info__group" ng:if="ctrl.metadata.keywords.length > 0">
             <dt class="image-info__heading">Keywords</dt>
             <dd>

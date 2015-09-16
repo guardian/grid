@@ -18,6 +18,12 @@ usageRightsEditor.controller(
 
     var ctrl = this;
 
+    ctrl.saving = false;
+    ctrl.saved = false;
+    ctrl.categories = [];
+    ctrl.originalCats = [];
+    ctrl.model = angular.extend({}, ctrl.usageRights.data);
+
     const multiRights = { name: 'Multiple categories', value: '' };
     const noRights = { name: 'None', value: '' };
     const catsWithNoRights = () => [noRights].concat(ctrl.originalCats);
@@ -71,20 +77,30 @@ usageRightsEditor.controller(
 
     // setting our initial values
     editsApi.getUsageRightsCategories().then(cats => {
-        ctrl.categories = cats;
-        ctrl.originalCats = cats;
+        const categoriesCopy = angular.copy(cats);
+
+        categoriesCopy.forEach(cat => {
+            cat.properties.forEach((property, i) => {
+                let propertyOptions = property.required ? [] : [{key: 'None', value: null}];
+
+                if (property.options) {
+                    property.options.forEach(option => {
+                        propertyOptions.push({key: option, value: option});
+                    });
+
+                    cat.properties[i].options = propertyOptions;
+                }
+            });
+        });
+
+        ctrl.categories = categoriesCopy;
+        ctrl.originalCats = categoriesCopy;
         ctrl.update();
     });
 
     $scope.$watchCollection(() => ctrl.usageRights, onValChange(() => {
         ctrl.update();
     }));
-
-    ctrl.saving = false;
-    ctrl.saved = false;
-    ctrl.categories = [];
-    ctrl.model = angular.extend({}, ctrl.usageRights.data);
-
 
     // TODO: What error would we like to show here?
     // TODO: How do we make this more synchronous? You can only resolve on the
@@ -100,22 +116,13 @@ usageRightsEditor.controller(
         }
     };
 
-    ctrl.remove = remove;
-
     ctrl.cancel = () => ctrl.onCancel();
-
-    ctrl.isDisabled = () => ctrl.saving;
-
-    ctrl.isNotEmpty = () => !angular.equals(ctrl.model, {});
 
     // stop saving on no/multi rights
     ctrl.savingDisabled = () => {
         return ctrl.saving ||
             angular.equals(ctrl.category, noRights) || angular.equals(ctrl.category, multiRights);
     };
-
-    ctrl.pluraliseCategory = () => ctrl.category.name +
-        (ctrl.category.name.toLowerCase().endsWith('image') ? 's' : ' images');
 
     ctrl.getOptionsFor = property => {
         const key = ctrl.category
@@ -124,10 +131,25 @@ usageRightsEditor.controller(
                         .name;
 
         const val = ctrl.model[key];
-        return property.optionsMap[val];
+        return property.optionsMap[val] || [];
     };
 
-    ctrl.isRestricted = prop => ctrl.showRestrictions || prop.required;
+    ctrl.isOtherValue = property => {
+        if (!ctrl.model[property.name]) {
+            // if we haven't set a value, it won't be in the list of available values,
+            // but this isn't considered "other", it's "not set".
+            return false;
+        } else {
+            const missingVal =
+                !ctrl.getOptionsFor(property)
+                    .find(option => option === ctrl.model[property.name]);
+
+            return missingVal;
+        }
+    };
+
+    ctrl.isRestricted = prop =>
+        ctrl.showRestrictions || ctrl.category.defaultRestrictions || prop.required;
 
     $scope.$watch(() => ctrl.showRestrictions, onValChange(isRestricted => {
         if (!isRestricted) {
@@ -153,20 +175,14 @@ usageRightsEditor.controller(
         }, {});
     }
 
-    function remove() {
-        ctrl.error = null;
-        ctrl.saving = true;
-        $q.all(ctrl.usageRights.map((usageRights) => {
-            return usageRights.remove();
-        })).catch(uiError).
-            finally(() => ctrl.saving = false);
-    }
-
     function save(data) {
         ctrl.error = null;
         ctrl.saving = true;
         $q.all(ctrl.usageRights.map((usageRights) => {
-            return usageRights.save(data);
+            const image = usageRights.image;
+            const resource = image.data.userMetadata.data.usageRights;
+            return editsService.update(resource, data, image).
+                then(resource => resource.data);
         })).catch(uiError).
             finally(() => updateSuccess(data));
     }
@@ -185,7 +201,9 @@ usageRightsEditor.controller(
     }
 
     function uiError(error) {
-        ctrl.error = error.body.errorMessage;
+        // ♫ Very superstitious ♫
+        ctrl.error = error && error.body && error.body.errorMessage ||
+            'Unexpected error';
     }
 }]);
 

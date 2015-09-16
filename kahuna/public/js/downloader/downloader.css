@@ -1,0 +1,8 @@
+gr-downloader:hover {
+    color: white;
+}
+
+gr-downloader .download {
+    display: block;
+    height: 100%;
+}

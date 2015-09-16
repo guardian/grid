@@ -20,6 +20,7 @@ System.config({
     "clean-css": "npm:clean-css@3.3.6",
     "css": "github:systemjs/plugin-css@0.1.13",
     "github:tapmodo/Jcrop": "github:tapmodo/Jcrop@0.9.12",
+    "immutable": "npm:immutable@3.7.5",
     "javascript-detect-element-resize": "github:sdecima/javascript-detect-element-resize@0.5.3",
     "jcrop": "github:tapmodo/Jcrop@0.9.12",
     "jquery": "github:components/jquery@2.1.1",
@@ -33,7 +34,7 @@ System.config({
     "rx-angular": "npm:rx-angular@0.0.14",
     "rx-dom": "npm:rx-dom@6.0.0",
     "text": "github:systemjs/plugin-text@0.0.2",
-    "theseus": "npm:theseus@0.5.0",
+    "theseus": "npm:theseus@0.5.1",
     "theseus-angular": "npm:theseus-angular@0.3.0",
     "traceur": "github:jmcriffey/bower-traceur@0.0.91",
     "traceur-runtime": "github:jmcriffey/bower-traceur-runtime@0.0.91",
@@ -208,6 +209,9 @@ System.config({
       "theseus": "npm:theseus@0.5.0"
     },
     "npm:theseus@0.5.0": {
+      "uri-templates": "npm:uri-templates@0.1.7"
+    },
+    "npm:theseus@0.5.1": {
       "uri-templates": "npm:uri-templates@0.1.7"
     },
     "npm:ua-parser-js@0.7.3": {

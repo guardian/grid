@@ -5,7 +5,7 @@
 </div>
 
 <div ng:if="! ctrl.loading"
-    ng:class="{'results--left': ctrl.inSelectionMode()}">
+    ng:class="{'results--left': ctrl.inSelectionMode}">
     <div ng:if="ctrl.totalResults == 0"
          class="image-no-results">
         No matches, sorry!
@@ -27,22 +27,23 @@
                 </div>
             </div>
 
-            <div class="action-bar" ng:if="ctrl.inSelectionMode()">
+            <div class="action-bar" ng:if="ctrl.inSelectionMode">
                 <div class="results-toolbar-item results-toolbar-item--right results-toolbar-item--static">
-                    {{ctrl.selectedImages.size}} selected
+                    {{ctrl.selectionCount}} selected
                 </div>
 
-                <a class="results-toolbar-item results-toolbar-item--right results-toolbar-item__clear-selection"
+                <a class="results-toolbar-item results-toolbar-item--right"
 			        ng:click="ctrl.clearSelection()">
-
-                    <span class="results-toolbar-item--icon">
-                        <gr-icon>clear</gr-icon>
-                    </span>
-                    <span class="results-toolbar-item--text">Clear selection</span>
+                    <gr-icon-label gr-icon="clear">Clear selection</gr-icon-label>
                 </a>
 
                 <gr-downloader class="results-toolbar-item results-toolbar-item--right"
                     gr:images="ctrl.selectedImages"></gr-downloader>
+
+                <gr-delete-image class="results-toolbar-item results-toolbar-item--right"
+                                 images="ctrl.selectedImages"
+                                 ng:if="ctrl.selectionIsDeletable">
+                </gr-delete-image>
 
                 <a class="results-toolbar-item results-toolbar-item--right results-toolbar-item__metadata-panel-controls"
                     ng:class="{'results-toolbar-item--disabled': !ctrl.metadataPanelAvailable, 'results-toolbar-item--active': ctrl.metadataPanelVisible}"
@@ -51,22 +52,13 @@
                     ng:click="ctrl.toggleLockMetadataPanel()">
 
                     <span ng:if="ctrl.metadataPanelVisible && !ctrl.metadataPanelLocked">
-                        <span class="results-toolbar-item--text">Lock meta panel</span>
-                        <span class="results-toolbar-item--icon">
-                            <gr-icon>lock_open</gr-icon>
-                        </span>
+                        <gr-icon-label gr-icon="lock_open">Lock meta panel</gr-icon-label>
                     </span>
                     <span ng:if="ctrl.metadataPanelVisible && ctrl.metadataPanelLocked">
-                        <span class="results-toolbar-item--text">Unlock meta panel</span>
-                        <span class="results-toolbar-item--icon">
-                            <gr-icon>lock</gr-icon>
-                        </span>
+                        <gr-icon-label gr-icon="lock">Unlock meta panel</gr-icon-label>
                     </span>
                     <span ng:if="!ctrl.metadataPanelVisible">
-                        <span class="results-toolbar-item--text">Show meta panel</span>
-                        <span class="results-toolbar-item--icon">
-                            <gr-icon>chrome_reader_mode</gr-icon>
-                        </span>
+                        <gr-icon-label gr-icon="chrome_reader_mode">Show meta panel</gr-icon-label>
                     </span>
                 </a>
             </div>
@@ -80,13 +72,12 @@
             gu:lazy-table-preloaded-rows="4"
             gu:lazy-table-load-range="ctrl.loadRange($start, $end)">
 
-            <li
-                ng:repeat="image in ctrl.images track by image.data.id"
+            <li ng:repeat="image in ctrl.images track by image.data.id"
                 gu:lazy-table-cell="image">
 
                 <div class="result"
                      ng:class="{ 'result--seen': ctrl.imageHasBeenSeen(image),
-                               'result--selected': ctrl.imageHasBeenSelected(image)}">
+                                 'result--selected': ctrl.imageHasBeenSelected(image)}">
 
                     <!-- <HACK> -->
                     <!-- We don't want to add a property on `image` to determine the state of the checkbox, so render two individual inputs. -->
@@ -97,7 +88,7 @@
                                class="result__select__checkbox"
                                id="id-{{::image.data.id}}-result__select__checkbox--select"
                                checked="true"
-                               ng:click="ctrl.toggleSelection(image, false)"/>
+                               ng:click="ctrl.deselect(image)"/>
                         <label for="id-{{::image.data.id}}-result__select__checkbox--select"
                                class="result__select__checkbox__label">
                             <gr-icon>check_box</gr-icon>
@@ -107,7 +98,7 @@
                         <input type="checkbox"
                                class="result__select__checkbox"
                                id="id-{{::image.data.id}}-result__select__checkbox--deselect"
-                               ng:click="ctrl.toggleSelection(image, true)" />
+                               ng:click="ctrl.select(image)" />
                         <label for="id-{{::image.data.id}}-result__select__checkbox--deselect"
                                class="result__select__checkbox__label">
                             <gr-icon>check_box</gr-icon>
@@ -115,8 +106,8 @@
                     </div>
 
                     <ui-preview-image image="image"
-                                      selection-mode="ctrl.inSelectionMode()"
-                                      ng:class="{'preview__quick-select': ctrl.inSelectionMode()}"
+                                      selection-mode="ctrl.inSelectionMode"
+                                      ng:class="{'preview__quick-select': ctrl.inSelectionMode}"
                                       ng:click="ctrl.onImageClick(image, $event)">
                         <button class="mark-as-seen image-action"
                                 title="Mark all images until this point as seen"

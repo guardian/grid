@@ -13,8 +13,8 @@ export var jobs = angular.module('kahuna.upload.jobs', [
 
 
 jobs.controller('UploadJobsCtrl', [
-    '$window', 'apiPoll', 'track', 'imageService',
-    function($window, apiPoll, track, imageService) {
+    '$rootScope', '$scope', '$window', 'apiPoll', 'track', 'imageService',
+    function($rootScope, $scope, $window, apiPoll, track, imageService) {
 
     var ctrl = this;
 
@@ -41,6 +41,15 @@ jobs.controller('UploadJobsCtrl', [
 
                 imageService(image).states.canDelete.then(deletable => {
                     jobItem.canBeDeleted = deletable;
+                });
+
+                // TODO: we shouldn't have to do this ;_;
+                // If the image is updated (e.g. label added,
+                // archived, etc), refresh the copy we hold
+                $rootScope.$on('image-updated', (e, updatedImage) => {
+                    if (updatedImage.data.id === image.data.id) {
+                        jobItem.image = updatedImage;
+                    }
                 });
 
                 // we use the filename of the image if the description is missing
@@ -71,23 +80,36 @@ jobs.controller('UploadJobsCtrl', [
     // this needs to be a function due to the stateful `jobItem`
     ctrl.jobImages = () => ctrl.jobs.map(jobItem => jobItem.image);
 
-    ctrl.onDeleteSuccess = function (resp, image) {
-        var index = ctrl.jobs.findIndex(i => i.image.data.id === image.data.id);
+    ctrl.removeJob = (job) => {
+        const index = ctrl.jobs.findIndex(j => j.name === job.name);
 
         if (index > -1) {
             ctrl.jobs.splice(index, 1);
         }
     };
 
-    ctrl.onDeleteError = function (err) {
+    const freeImageDeleteListener = $rootScope.$on('images-deleted', (e, images) => {
+        images.forEach(image => {
+            var index = ctrl.jobs.findIndex(i => i.image.data.id === image.data.id);
+
+            if (index > -1) {
+                ctrl.jobs.splice(index, 1);
+            }
+        });
+    });
+
+    const freeImageDeleteFailListener = $rootScope.$on('image-delete-failure', (err, image) => {
         if (err.body && err.body.errorMessage) {
             $window.alert(err.body.errorMessage);
+        } else {
+            $window.alert(`Failed to delete image ${image.data.id}`);
         }
-        else {
-            $window.alert('Failed to delete image.');
-        }
+    });
 
-    };
+    $scope.$on('$destroy', function() {
+        freeImageDeleteListener();
+        freeImageDeleteFailListener();
+    });
 }]);
 
 

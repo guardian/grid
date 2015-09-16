@@ -9,7 +9,7 @@
 
 <div class="page-wrapper">
     <section class="section"
-             ng:if="ctrl.latestJob">
+             ng:if="ctrl.latestJob && ctrl.latestJob.length > 0">
 
         <div class="flex-container section-heading">
             <h2>Your current uploads</h2>
@@ -20,23 +20,27 @@
         <ui-upload-jobs jobs="ctrl.latestJob"></ui-upload-jobs>
     </section>
 
-    <file-prompt ng:if="!ctrl.latestJob"></file-prompt>
+    <file-prompt class="section" ng:if="!ctrl.latestJob || ctrl.latestJob.length === 0"></file-prompt>
 
-    <section class="section" ng:if="ctrl.myUploads.data.length > 0">
+    <section class="section">
         <div class="flex-container section-heading">
             <h2>Your past 50 uploads</h2>
             <span class="flex-spacer"></span>
             <a ng:controller="SessionCtrl" class="coloured-link" ui:sref="search.results({uploadedBy: user.email, nonFree: true})">View all your uploads</a>
         </div>
 
-        <ul>
-            <li ng:repeat="result in ctrl.myUploads.data" class="upload-result">
+        <p ng:if="! ctrl.myUploads">
+            Loading…
+        </p>
+        <p ng:if="ctrl.myUploads.data.length == 0">
+            You haven’t uploaded anything yet.
+        </p>
+        <ul ng:if="ctrl.myUploads.data.length > 0">
+            <li ng:repeat="result in ctrl.myUploads.data track by result.data.id" class="upload-result">
                 <ui-image-editor image="result"></ui-image-editor>
                 <gr-delete-image class="flex-right"
                                  ng:if="ctrl.canBeDeleted(result)"
-                                 on-success="ctrl.onDeleteSuccess"
-                                 on-error="ctrl.onDeleteError"
-                                 image="result"></gr-delete-image>
+                                 images="[result]"></gr-delete-image>
             </li>
         </ul>
     </section>

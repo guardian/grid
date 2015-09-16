@@ -1,30 +1,31 @@
-GET     /                                 controllers.EditsApi.index
-GET     /usage-rights/categories          controllers.EditsApi.getUsageRights()
+GET     /                                           controllers.EditsApi.index
+GET     /usage-rights/categories                    controllers.EditsApi.getUsageRights()
 
 # Image
-GET     /metadata/:id                     controllers.EditsController.getAllMetadata(id: String)
+GET     /metadata/:id                                   controllers.EditsController.getAllMetadata(id: String)
 
-GET     /metadata/:id/archived            controllers.EditsController.getArchived(id: String)
-PUT     /metadata/:id/archived            controllers.EditsController.setArchived(id: String)
-DELETE  /metadata/:id/archived            controllers.EditsController.unsetArchived(id: String)
+GET     /metadata/:id/archived                          controllers.EditsController.getArchived(id: String)
+PUT     /metadata/:id/archived                          controllers.EditsController.setArchived(id: String)
+DELETE  /metadata/:id/archived                          controllers.EditsController.unsetArchived(id: String)
 
-GET     /metadata/:id/labels              controllers.EditsController.getLabels(id: String)
-POST    /metadata/:id/labels              controllers.EditsController.addLabels(id: String)
-DELETE  /metadata/:id/labels/*label       controllers.EditsController.removeLabel(id: String, label: String)
+GET     /metadata/:id/labels                            controllers.EditsController.getLabels(id: String)
+POST    /metadata/:id/labels                            controllers.EditsController.addLabels(id: String)
+DELETE  /metadata/:id/labels/*label                     controllers.EditsController.removeLabel(id: String, label: String)
 
-GET     /metadata/:id/metadata            controllers.EditsController.getMetadata(id: String)
-PUT     /metadata/:id/metadata            controllers.EditsController.setMetadata(id: String)
+GET     /metadata/:id/metadata                          controllers.EditsController.getMetadata(id: String)
+PUT     /metadata/:id/metadata                          controllers.EditsController.setMetadata(id: String)
+POST    /metadata/:id/metadata/set-from-usage-rights    controllers.EditsController.setMetadataFromUsageRights(id: String)
 
-GET     /metadata/:id/usage-rights        controllers.EditsController.getUsageRights(id: String)
-PUT     /metadata/:id/usage-rights        controllers.EditsController.setUsageRights(id: String)
-DELETE  /metadata/:id/usage-rights        controllers.EditsController.deleteUsageRights(id: String)
+GET     /metadata/:id/usage-rights                      controllers.EditsController.getUsageRights(id: String)
+PUT     /metadata/:id/usage-rights                      controllers.EditsController.setUsageRights(id: String)
+DELETE  /metadata/:id/usage-rights                      controllers.EditsController.deleteUsageRights(id: String)
 
 # Management
-GET     /management/healthcheck           com.gu.mediaservice.lib.management.Management.healthCheck
-GET     /management/manifest              com.gu.mediaservice.lib.management.Management.manifest
+GET     /management/healthcheck                         com.gu.mediaservice.lib.management.Management.healthCheck
+GET     /management/manifest                            com.gu.mediaservice.lib.management.Management.manifest
 
 # Enable CORS
-OPTIONS /*url                             controllers.CorsPreflight.options(url: String)
+OPTIONS /*url                                           controllers.CorsPreflight.options(url: String)
 
 # Shoo robots away
-GET     /robots.txt                 controllers.Robots.disallowAll
+GET     /robots.txt                                     controllers.Robots.disallowAll

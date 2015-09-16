@@ -2,13 +2,27 @@ import angular from 'angular';
 
 var archiveService = angular.module('kahuna.services.archive', []);
 
-archiveService.factory('archiveService', ['$rootScope', '$q', function ($rootScope, $q) {
+archiveService.factory('archiveService',
+                       ['$rootScope', '$q', 'apiPoll', 'imageAccessor',
+                        function ($rootScope, $q, apiPoll, imageAccessor) {
+
+    function untilArchivedEqual(image, expectedArchived) {
+        return image.get().then(apiImage => {
+            const apiArchived = imageAccessor.isArchived(apiImage);
+            if (apiArchived === expectedArchived) {
+                return apiImage;
+            } else {
+                return $q.reject();
+            }
+        });
+    }
+
     function put (image, archived) {
         return image.data.userMetadata.data.archived
             .put({ data: archived })
-            .then(resource => {
-                image.data.userMetadata.data.archived = resource;
-                $rootScope.$emit('image-updated', image, image);
+            .then(newArchived => apiPoll(() => untilArchivedEqual(image, newArchived.data)))
+            .then(newImage => {
+                $rootScope.$emit('image-updated', newImage, image);
             });
     }
 
@@ -23,7 +37,7 @@ archiveService.factory('archiveService', ['$rootScope', '$q', function ($rootSco
     function batchArchive (images) {
         return $q.all(images.map(image => {
             // only make a PUT request to images that are not archived
-            if (!image.data.userMetadata.data.archived.data) {
+            if (! imageAccessor.isArchived(image)) {
                 return archive(image);
             }
         }));
@@ -32,7 +46,7 @@ archiveService.factory('archiveService', ['$rootScope', '$q', function ($rootSco
     function batchUnarchive (images) {
         return $q.all(images.map(image => {
             // only make a PUT request to images that are archived
-            if (image.data.userMetadata.data.archived.data) {
+            if (imageAccessor.isArchived(image)) {
                 return unarchive(image);
             }
         }));

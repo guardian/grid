@@ -67,6 +67,7 @@ object PermissionType extends Enumeration {
   type PermissionType = Value
   val EditMetadata = Value("editMetadata")
   val DeleteImage  = Value("deleteImage")
+  val DeleteCrops  = Value("deleteCrops")
 }
 
 class PermissionStore(bucket: String, credentials: AWSCredentials) extends BaseStore[PermissionType, List[String]](bucket, credentials) {
@@ -74,7 +75,7 @@ class PermissionStore(bucket: String, credentials: AWSCredentials) extends BaseS
     store.future().map {
       list => {
         list.get(permission) match {
-          case Some(userList) => userList.contains(userEmail)
+          case Some(userList) => userList.contains(userEmail.toLowerCase)
           case None => false
         }
       }

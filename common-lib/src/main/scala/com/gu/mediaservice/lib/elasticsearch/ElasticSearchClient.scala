@@ -14,9 +14,9 @@ trait ElasticSearchClient {
   def host: String
   def port: Int
   def cluster: String
+  def imagesAlias: String
 
   protected val imagesIndexPrefix = "images"
-  protected val imagesAlias = "imagesAlias"
   protected val imageType = "image"
 
   val initialImagesIndex = "images"
@@ -53,6 +53,7 @@ trait ElasticSearchClient {
     client.admin.indices
       .prepareCreate(index)
       .addMapping(imageType, Mappings.imageMapping)
+      .setSettings(IndexSettings.imageSettings)
       .execute.actionGet
   }
 

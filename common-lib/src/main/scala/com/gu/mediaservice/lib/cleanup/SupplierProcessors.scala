@@ -2,7 +2,6 @@ package com.gu.mediaservice.lib.cleanup
 
 import com.gu.mediaservice.model.{Agency, Image, StaffPhotographer, ContractPhotographer}
 import com.gu.mediaservice.lib.config.PhotographersList
-import com.gu.mediaservice.lib.config.MetadataConfig.{staffPhotographers, contractedPhotographers}
 
 trait ImageProcessor {
   def apply(image: Image): Image
@@ -13,11 +12,13 @@ object SupplierProcessors {
     AapParser,
     ActionImagesParser,
     AlamyParser,
+    AllStarParser,
     ApParser,
     BarcroftParser,
     CorbisParser,
     EpaParser,
-    GettyParser,
+    GettyXmpParser,
+    GettyCreditParser,
     PaParser,
     ReutersParser,
     RexParser,
@@ -30,35 +31,25 @@ object SupplierProcessors {
 
 object PhotographerParser extends ImageProcessor {
   def apply(image: Image): Image = {
-    image.metadata.byline.map { byline =>
-      (
-        byline,
-        image.metadata.credit.map(_.toLowerCase),
-        PhotographersList.getPublication(staffPhotographers, byline),
-        PhotographersList.getPublication(contractedPhotographers, byline)
-      ) match {
-        // staff photographer
-        case (byline, credit, Some(publication), _) => image.copy(
-          usageRights = StaffPhotographer(byline, publication),
-          metadata    = image.metadata.copy(credit = Some(publication))
+    image.metadata.byline.flatMap { byline =>
+      PhotographersList.getPhotographer(byline).map{
+        case p: StaffPhotographer => image.copy(
+          usageRights = p,
+          metadata    = image.metadata.copy(credit = Some(p.publication), byline = Some(p.photographer))
         )
-
-        // contracted photographer
-        case (byline, credit, None, Some(publication)) => image.copy(
-          usageRights = ContractPhotographer(byline, publication),
-          metadata    = image.metadata.copy(credit = Some(publication))
+        case p: ContractPhotographer => image.copy(
+          usageRights = p,
+          metadata    = image.metadata.copy(credit = p.publication, byline = Some(p.photographer))
         )
-
         case _ => image
       }
     }
   }.getOrElse(image)
 }
 
-
 object AapParser extends ImageProcessor {
   def apply(image: Image): Image = image.metadata.credit match {
-    case Some("AAPIMAGE") | Some("AAP IMAGE") => image.copy(
+    case Some("AAPIMAGE") | Some("AAP IMAGE") | Some("AAP") => image.copy(
       usageRights = Agency("AAP"),
       metadata    = image.metadata.copy(credit = Some("AAP"))
     )
@@ -77,8 +68,17 @@ object ActionImagesParser extends ImageProcessor {
 
 object AlamyParser extends ImageProcessor {
   def apply(image: Image): Image = image.metadata.credit match {
-    case Some("Alamy") => image.copy(
+    case Some("Alamy") | Some("Alamy Stock Photo") => image.copy(
       usageRights = Agency("Alamy")
+    )
+    case _ => image
+  }
+}
+
+object AllStarParser extends ImageProcessor {
+  def apply(image: Image): Image = image.metadata.credit match {
+    case Some("Allstar Picture Library") => image.copy(
+      usageRights = Agency("Allstar Picture Library")
     )
     case _ => image
   }
@@ -127,11 +127,16 @@ object EpaParser extends ImageProcessor {
   }
 }
 
-object GettyParser extends ImageProcessor {
+trait GettyProcessor {
+  def gettyAgencyWithCollection(suppliersCollection: Option[String]) =
+    Agency("Getty Images", suppliersCollection = suppliersCollection)
+}
+
+object GettyXmpParser extends ImageProcessor with GettyProcessor {
   def apply(image: Image): Image = image.fileMetadata.getty.isEmpty match {
     // Only images supplied by Getty have getty fileMetadata
     case false => image.copy(
-      usageRights = Agency("Getty Images", suppliersCollection = image.metadata.source),
+      usageRights = gettyAgencyWithCollection(image.metadata.source),
       // Set a default "credit" for when Getty is too lazy to provide one
       metadata    = image.metadata.copy(credit = Some(image.metadata.credit.getOrElse("Getty Images")))
     )
@@ -139,14 +144,43 @@ object GettyParser extends ImageProcessor {
   }
 }
 
-object PaParser extends ImageProcessor {
-  def apply(image: Image): Image = image.metadata.credit.map(_.toLowerCase) match {
-    case Some("pa") => image.copy(
-      usageRights = Agency("PA")
-    )
+object GettyCreditParser extends ImageProcessor with GettyProcessor {
+  val gettyCredits = List("AFP", "FilmMagic", "WireImage", "Hulton")
 
-    case Some("pa wire") =>image.copy(
-      metadata = image.metadata.copy(credit = Some("PA WIRE")),
+  val IncludesGetty = ".*Getty Images.*".r
+  // Take a leap of faith as the credit may be truncated if too long...
+  val ViaGetty = ".+ via Getty(?: .*)?".r
+  val SlashGetty = ".+/Getty(?: .*)?".r
+
+  def apply(image: Image): Image = image.metadata.credit match {
+    case Some(IncludesGetty()) | Some(ViaGetty()) | Some(SlashGetty()) => image.copy(
+       usageRights = gettyAgencyWithCollection(image.metadata.source)
+    )
+    case Some(credit) => knownGettyCredits(image, credit)
+    case _ => image
+  }
+
+  def knownGettyCredits(image: Image, credit: String): Image =
+    gettyCredits.find(_.toLowerCase == credit.toLowerCase) match {
+      case collection @ Some(_) => image.copy(
+        usageRights = gettyAgencyWithCollection(collection)
+      )
+      case _ => image
+    }
+}
+
+object PaParser extends ImageProcessor {
+  val paCredits = List(
+    "PA",
+    "PA WIRE",
+    "PA Archive/Press Association Ima",
+    "PA Archive/Press Association Images",
+    "Press Association Images"
+  ).map(_.toLowerCase)
+
+  def apply(image: Image): Image = image.metadata.credit match {
+    case Some(credit) if paCredits.contains(credit.toLowerCase) => image.copy(
+      metadata = image.metadata.copy(credit = Some("PA")),
       usageRights = Agency("PA")
     )
 

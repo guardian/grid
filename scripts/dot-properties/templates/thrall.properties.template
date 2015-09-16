@@ -5,3 +5,5 @@ s3.thumb.bucket={{ThumbBucket}}
 sqs.queue.url={{SqsQueueUrl}}
 sqs.message.min.frequency={{sqs_message_min_frequency}}
 persistence.identifier=picdarUrn
+es.index.alias=imagesAlias
+indexed.image.sns.topic.arn={{IndexedImageTopicArn}}

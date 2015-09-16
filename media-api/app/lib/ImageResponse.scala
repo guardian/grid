@@ -24,11 +24,18 @@ object ImageResponse {
 
   def fileMetaDataUri(id: String) = URI.create(s"${Config.rootUri}/images/$id/fileMetadata")
 
+  def isPhotographerCategory[T <: UsageRights](usageRights: T) =
+    usageRights match {
+      case _:Photographer => true
+      case _ => false
+    }
+
   // TODO: move this as a method of Image (fiddly due to dep on Config)
   def imageIsPersisted(image: Image) = {
     image.identifiers.contains(Config.persistenceIdentifier) ||
       image.exports.nonEmpty ||
-      image.userMetadata.exists(_.archived)
+      image.userMetadata.exists(_.archived) ||
+      isPhotographerCategory(image.usageRights)
   }
 
   def create(id: String, esSource: JsValue, withWritePermission: Boolean,
@@ -88,16 +95,22 @@ object ImageResponse {
     if (valid) (cropLink :: baseLinks) else baseLinks
   }
 
-  def imageActions(id: String, isPersisted: Boolean, withWritePermission: Boolean, withDeletePermission: Boolean) = {
+  def imageActions(id: String, isPersisted: Boolean, withWritePermission: Boolean,
+                   withDeletePermission: Boolean) = {
+
     val imageUri = URI.create(s"${Config.rootUri}/images/$id")
     val reindexUri = URI.create(s"${Config.rootUri}/images/$id/reindex")
+    val canDelete = ! isPersisted && withDeletePermission
+
     val deleteAction = Action("delete", imageUri, "DELETE")
     val reindexAction = Action("reindex", reindexUri, "POST")
 
     List(
-      if (! isPersisted && withDeletePermission) List(deleteAction) else Nil,
-      if (withWritePermission) List(reindexAction) else Nil
-    ).flatten
+      deleteAction       -> canDelete,
+      reindexAction      -> withWritePermission
+    )
+    .filter{ case (action, active) => active }
+    .map   { case (action, active) => action }
   }
 
   def addUsageCost(source: JsValue): Reads[JsObject] = {
