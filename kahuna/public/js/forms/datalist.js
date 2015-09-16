@@ -52,8 +52,28 @@ datalist.directive('grDatalistInput',
     return {
         restrict: 'A',
         require:['^grDatalist', '?ngModel'],
+        link: function(scope, element, attrs, [parentCtrl, ngModel]) {
+            const valueSelectorFn = attrs.grDatalistInputSelector;
+            const valueUpdaterFn  = attrs.grDatalistInputUpdater;
 
-        link: function(scope, element, _/*attrs*/, [parentCtrl, ngModel]) {
+            function valueSelector(value) {
+                if (valueSelectorFn) {
+                    return scope.$eval(valueSelectorFn, {$value: value});
+                } else {
+                    return value;
+                }
+            }
+            function valueUpdater(currentValue, selectedValue) {
+                if (valueUpdaterFn) {
+                    return scope.$eval(valueUpdaterFn, {
+                        $currentValue: currentValue,
+                        $selectedValue: selectedValue
+                    });
+                } else {
+                    return selectedValue;
+                }
+            }
+
             // This feels like it should be set to this directive, but it is
             // needed in the template so we set it here.
             parentCtrl.active = false;
@@ -97,7 +117,8 @@ datalist.directive('grDatalistInput',
             input.on('blur', () => $timeout(deactivate, 150));
 
             scope.$watch(() => parentCtrl.value, onValChange(newVal => {
-                ngModel.$setViewValue(newVal, 'gr:datalist:update');
+                const updatedValue = valueUpdater(input.val(), newVal);
+                ngModel.$setViewValue(updatedValue, 'gr:datalist:update');
                 ngModel.$commitViewValue();
                 ngModel.$render();
 
@@ -105,11 +126,11 @@ datalist.directive('grDatalistInput',
             }));
 
             function searchAndActivate() {
-                parentCtrl.searchFor(input.val()).then(activate);
+                parentCtrl.searchFor(valueSelector(input.val())).then(activate);
             }
 
             function activate(results) {
-                const isOnlyResult = results.length === 1 && input.val() === results[0];
+                const isOnlyResult = results.length === 1 && valueSelector(input.val()) === results[0];
                 const noResults = results.length === 0 || isOnlyResult;
 
                 parentCtrl.active = !noResults;

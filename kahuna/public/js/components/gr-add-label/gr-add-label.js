@@ -15,8 +15,8 @@ export var addLabel = angular.module('gr.addLabel', [
 ]);
 
 addLabel.controller('GrAddLabelCtrl', [
-    '$window', 'labelService', 'mediaApi',
-    function ($window, labelService,  mediaApi) {
+    '$window', '$q', 'labelService', 'mediaApi',
+    function ($window, $q, labelService,  mediaApi) {
 
 
         let ctrl = this;
@@ -50,17 +50,37 @@ addLabel.controller('GrAddLabelCtrl', [
 
         function saveFailed() {
             $window.alert('Something went wrong when saving, please try again!');
+            ctrl.active = true;
         }
 
         function reset() {
             ctrl.newLabel = '';
+            ctrl.active = false;
         }
 
         ctrl.labelSearch = (q) => {
-            return mediaApi.labelSearch({ q }).then(resource => {
-                return resource.data.map(d => d.key);
-            });
+            //let usesComma = q.indexOf(',') > -1;
+            //q = usesComma ? q.slice(q.lastIndexOf(',') + 1).trim() : q;
+            if (! q) {
+                return $q.resolve([]);
+            } else {
+                return mediaApi.labelSearch({q}).then(resource => {
+                    return resource.data.map(d => d.key);
+                });
+            }
         };
+
+        ctrl.labelAppend = (currentVal, selectedVal) => {
+            const beforeLastComma = currentVal.split(/, ?/).slice(0, -1);
+            const fullText = beforeLastComma.concat(selectedVal);
+            return fullText.join(', ');
+        };
+
+        ctrl.selectLastLabel = (value) => {
+            const afterComma = value.split(',').slice(-1)[0].trim();
+            return afterComma;
+        }
+
     }
 ]);
 
