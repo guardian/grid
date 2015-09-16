@@ -36,7 +36,7 @@ addLabel.controller('GrAddLabelCtrl', [
 
         function save(label, imageArray) {
             ctrl.adding = true;
-
+            ctrl.active = false;
 
             labelService.batchAdd(imageArray, label)
                 .then(images => {
@@ -54,7 +54,6 @@ addLabel.controller('GrAddLabelCtrl', [
 
         function reset() {
             ctrl.newLabel = '';
-            ctrl.active = false;
         }
 
         ctrl.labelSearch = (q) => {
