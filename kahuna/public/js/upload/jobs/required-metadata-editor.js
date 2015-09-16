@@ -23,6 +23,8 @@ jobs.controller('RequiredMetadataEditorCtrl',
     ctrl.saveOnTime = 750; // ms
     ctrl.copyrightWasInitiallyThere = !!ctrl.originalMetadata.copyright;
 
+    // HACK: We watch the `originalMetadata` and re-set the `ctrl.metadata` as it can be mutated
+    // in other parts of the system and we need to reflect that (◞‸◟；)
     $scope.$watch(() => ctrl.originalMetadata, newMetadata => {
         ctrl.metadata = metadataFromOriginal(newMetadata);
     });
