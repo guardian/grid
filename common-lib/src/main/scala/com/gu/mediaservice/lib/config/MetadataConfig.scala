@@ -52,7 +52,6 @@ object MetadataConfig {
     "Sean Smith"     -> "The Guardian",
 
     // Past
-    "Catherine Shaw"        -> "The Guardian",
     "Dan Chung"             -> "The Guardian",
     "Denis Thorpe"          -> "The Guardian",
     "Don McPhee"            -> "The Guardian",
@@ -64,7 +63,6 @@ object MetadataConfig {
     "Graham Finlayson"      -> "The Guardian",
     "Harriet St Johnston"   -> "The Guardian",
     "James Michelson"       -> "The Guardian",
-    "John Reardon"          -> "The Guardian",
     "Lorna Roach"           -> "The Guardian",
     "Marcus Mays"           -> "The Guardian",
     "Martin Argles"         -> "The Guardian",
@@ -73,14 +71,16 @@ object MetadataConfig {
     "Rachel Vere"           -> "The Guardian",
     "Richard Blake"         -> "The Guardian",
     "Robert Smithies"       -> "The Guardian",
-    "Sean Gibson"           -> "The Guardian",
     "Ted West"              -> "The Guardian",
     "Tom Stuttard"          -> "The Guardian",
     "Tricia De Courcy Ling" -> "The Guardian",
     "Walter Doughty"        -> "The Guardian",
 
     "David Newell Smith"    -> "The Observer",
-    "Tony McGrath"          -> "The Observer"
+    "Tony McGrath"          -> "The Observer",
+    "Catherine Shaw"        -> "The Observer",
+    "John Reardon"          -> "The Observer",
+    "Sean Gibson"           -> "The Observer"
   )
 
   val contractedPhotographers: Map[String, String] = Map(
