@@ -49,7 +49,8 @@ object MediaApi extends Controller with ArgoHelpers {
   val searchParamList = List("q", "ids", "offset", "length", "orderBy",
     "since", "until", "modifiedSince", "modifiedUntil", "takenSince", "takenUntil",
     "uploadedBy", "archived", "valid", "free",
-    "hasExports", "hasIdentifier", "missingIdentifier", "hasMetadata").mkString(",")
+    "hasExports", "hasIdentifier", "missingIdentifier", "hasMetadata",
+    "costModelDiff", "persisted").mkString(",")
 
   val searchLinkHref = s"$rootUri/images{?$searchParamList}"
 
@@ -109,7 +110,6 @@ object MediaApi extends Controller with ArgoHelpers {
     isUploaderOrHasPermission(request, source, PermissionType.DeleteImage)
   }
 
-
   def getImage(id: String) = Authenticated.async { request =>
     val include = getIncludedFromParams(request)
 
@@ -120,7 +120,8 @@ object MediaApi extends Controller with ArgoHelpers {
 
         Future.sequence(List(withWritePermission, withDeletePermission)).map {
           case List(writePermission, deletePermission) =>
-            val (imageData, imageLinks, imageActions) = ImageResponse.create(id, source, writePermission, deletePermission, include)
+            val (imageData, imageLinks, imageActions) =
+              ImageResponse.create(id, source, writePermission, deletePermission, include)
             respond(imageData, imageLinks, imageActions)
         }
       }
@@ -221,7 +222,8 @@ object MediaApi extends Controller with ArgoHelpers {
 
       Future.sequence(List(withWritePermission, withDeletePermission)).map {
         case List(writePermission, deletePermission) =>
-          val (imageData, imageLinks, imageActions) = ImageResponse.create(elasticId, source, writePermission, deletePermission, include)
+          val (imageData, imageLinks, imageActions) =
+            ImageResponse.create(elasticId, source, writePermission, deletePermission, include)
           val id = (imageData \ "id").as[String]
           val imageUri = URI.create(s"$rootUri/images/$id")
           EmbeddedEntity(uri = imageUri, data = Some(imageData), imageLinks, imageActions)
@@ -322,13 +324,18 @@ case class SearchParams(
   uploadedBy: Option[String],
   labels: List[String],
   hasMetadata: List[String],
-  costModelDiff: Boolean
+  costModelDiff: Boolean,
+  persisted: Option[Boolean]
 )
 
 object SearchParams {
 
   def commasToList(s: String): List[String] = s.trim.split(',').toList
   def listToCommas(list: List[String]): Option[String] = list.toNel.map(_.list.mkString(","))
+
+  // TODO: return descriptive 400 error if invalid
+  def parseIntFromQuery(s: String): Option[Int] = Try(s.toInt).toOption
+  def parseBooleanFromQuery(s: String): Option[Boolean] = Try(s.toBoolean).toOption
 
   def apply(request: Request[Any]): SearchParams = {
 
@@ -341,25 +348,26 @@ object SearchParams {
       query,
       structuredQuery,
       request.getQueryString("ids").map(_.split(",").toList),
-      request.getQueryString("offset") flatMap (s => Try(s.toInt).toOption) getOrElse 0,
-      request.getQueryString("length") flatMap (s => Try(s.toInt).toOption) getOrElse 10,
-      request.getQueryString("orderBy") orElse request.getQueryString("sortBy"),
+      request.getQueryString("offset") flatMap parseIntFromQuery getOrElse 0,
+      request.getQueryString("length") flatMap parseIntFromQuery getOrElse 10,
+      request.getQueryString("orderBy"),
       request.getQueryString("since") flatMap parseDateFromQuery,
       request.getQueryString("until") flatMap parseDateFromQuery,
       request.getQueryString("modifiedSince") flatMap parseDateFromQuery,
       request.getQueryString("modifiedUntil") flatMap parseDateFromQuery,
       request.getQueryString("takenSince") flatMap parseDateFromQuery,
       request.getQueryString("takenUntil") flatMap parseDateFromQuery,
-      request.getQueryString("archived").map(_.toBoolean),
-      request.getQueryString("hasExports").map(_.toBoolean),
+      request.getQueryString("archived") flatMap parseBooleanFromQuery,
+      request.getQueryString("hasExports") flatMap parseBooleanFromQuery,
       request.getQueryString("hasIdentifier"),
       request.getQueryString("missingIdentifier"),
-      request.getQueryString("valid").map(_.toBoolean),
-      request.getQueryString("free").map(_.toBoolean),
+      request.getQueryString("valid") flatMap parseBooleanFromQuery,
+      request.getQueryString("free") flatMap parseBooleanFromQuery,
       request.getQueryString("uploadedBy"),
       commaSep("labels"),
       commaSep("hasMetadata"),
-      request.getQueryString("costModelDiff").nonEmpty
+      request.getQueryString("costModelDiff") flatMap parseBooleanFromQuery getOrElse false,
+      request.getQueryString("persisted") flatMap parseBooleanFromQuery
     )
   }
 
@@ -385,7 +393,8 @@ object SearchParams {
       "uploadedBy"        -> searchParams.uploadedBy,
       "labels"            -> listToCommas(searchParams.labels),
       "hasMetadata"       -> listToCommas(searchParams.hasMetadata),
-      "costModelDiff"     -> Some(searchParams.costModelDiff.toString())
+      "costModelDiff"     -> Some(searchParams.costModelDiff.toString),
+      "persisted"         -> searchParams.persisted.map(_.toString)
     ).foldLeft(Map[String, String]()) {
       case (acc, (key, Some(value))) => acc + (key -> value)
       case (acc, (_,   None))        => acc

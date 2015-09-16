@@ -1,9 +1,38 @@
 <button ng:class="{'small': ctrl.grSmall}"
-        ng:click="ctrl.addLabel()"
+        ng:click="ctrl.active = true"
         ng:disabled="ctrl.adding"
+        ng:if="!ctrl.active"
         title="Add label">
+
     <gr-icon ng:class="{'spin': ctrl.adding}">add_box</gr-icon>
     <span ng:hide="ctrl.grSmall">
         Add<span ng:show="ctrl.adding">ing...</span>
     </span>
 </button>
+<form
+    class="gr-add-label__form"
+    ng:if="ctrl.active"
+    ng:submit="ctrl.save()">
+    <input
+        class="gr-add-label__form__input show-no-error"
+        type='text' ng:model="ctrl.newLabel"
+        placeholder="label1, label2, label3…"
+        required
+        gr:auto-focus
+        ng:disabled="ctrl.adding" />
+
+    <span class="gr-add-label__form__buttons">
+        <button class="gr-add-label__form__buttons__button-cancel button-cancel" type="button" ng:click="ctrl.cancel()" title="Close">
+            <gr-icon-label gr-icon="close"><span ng:hide="ctrl.grSmall">Cancel</span></gr-icon-label>
+        </button>
+        <button
+            class="gr-add-label__form__buttons__button-save button-save"
+            type="submit"
+            title="Save new label"
+            ng:disabled="ctrl.adding">
+            <gr-icon-label gr-icon="check">
+                <span ng:hide="ctrl.grSmall">Save</span>
+            </gr-icon-label>
+        </button>
+    </span>
+</form>

@@ -14,5 +14,13 @@ httpErrors.constant('httpErrors', {
     authFailed: {
         errorCode: 419,
         errorMessage: 'Authentication re-establishment failed'
+    },
+    internalServerError: {
+        errorCode: 500,
+        errorMessage: 'Server error'
+    },
+    serviceUnavailableError: {
+        errorCode: 503,
+        errorMessage: 'Server error'
     }
 });

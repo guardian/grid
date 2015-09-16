@@ -4,24 +4,23 @@ package controllers
 import java.net.URI
 import java.net.URLDecoder.decode
 
-import com.gu.mediaservice.lib.argo.ArgoHelpers
-import com.gu.mediaservice.model._
-
 import scala.concurrent.Future
 
-import play.api.data._, Forms._
-import play.api.mvc.Controller
-import play.api.libs.json._
+import play.api.data.Forms._
+import play.api.data._
 import play.api.libs.concurrent.Execution.Implicits._
+import play.api.libs.json._
+import play.api.mvc.Controller
 
-import com.gu.mediaservice.lib.aws.{NoItemFound, DynamoDB}
+import com.amazonaws.AmazonServiceException
+
+import com.gu.mediaservice.lib.argo.ArgoHelpers
+import com.gu.mediaservice.lib.argo.model._
+import com.gu.mediaservice.lib.aws.NoItemFound
+import com.gu.mediaservice.model._
 import lib._
 
-import com.gu.mediaservice.lib.argo._
-import com.gu.mediaservice.lib.argo.model._
 
-import scalaz.ValidationNel
-import scalaz.syntax.validation._
 
 
 // FIXME: the argoHelpers are all returning `Ok`s (200)
@@ -42,12 +41,11 @@ import scalaz.syntax.validation._
 //   }
 // }
 
-object EditsController extends Controller with ArgoHelpers {
+object EditsController extends Controller with ArgoHelpers with DynamoEdits {
 
   import Config.rootUri
 
   val Authenticated = EditsApi.Authenticated
-  val dynamo = new DynamoDB(Config.awsCredentials, Config.dynamoRegion, Config.editsTable)
 
   def entityUri(id: String, endpoint: String = ""): URI =
     URI.create(s"$rootUri/metadata/$id$endpoint")
@@ -100,8 +98,8 @@ object EditsController extends Controller with ArgoHelpers {
     dynamo.setGet(id, "labels")
       .map(labelsCollection(id, _))
       .map {case (uri, labels) => respondCollection(labels)} recover {
-        case NoItemFound => respond(Array[String]())
-      }
+      case NoItemFound => respond(Array[String]())
+    }
   }
 
   def addLabels(id: String) = Authenticated.async { req =>
@@ -113,7 +111,9 @@ object EditsController extends Controller with ArgoHelpers {
           .setAdd(id, "labels", labels)
           .map(publish(id))
           .map(edits => labelsCollection(id, edits.labels.toSet))
-          .map {case (uri, labels) => respondCollection(labels)}
+          .map {case (uri, labels) => respondCollection(labels)} recover {
+          case _: AmazonServiceException => BadRequest
+        }
       }
     )
   }
@@ -145,6 +145,23 @@ object EditsController extends Controller with ArgoHelpers {
     )
   }
 
+  def setMetadataFromUsageRights(id: String) = Authenticated.async { req =>
+    dynamo.jsonGet(id, "usageRights").flatMap { dynamoEntry =>
+
+      val usageRights = (dynamoEntry \ "usageRights").asOpt[UsageRights]
+      val metadataOpt = usageRights.flatMap(metadataFromUsageRights)
+      metadataOpt.map { metadata =>
+        dynamo.jsonPatch(id, "metadata", metadataAsMap(metadata))
+          .map(publish(id))
+          .map(edits => respond(edits.metadata))
+      }
+      .getOrElse(Future.failed(EditsValidationError("no-matching-metadata-found", "Couldn't find any matching metadata")))
+    } recover {
+      case NoItemFound => respondError(NotFound, "item-not-found", "Could not find image")
+      case e: EditsValidationError => respondError(BadRequest, e.key, e.message)
+    }
+  }
+
   def getUsageRights(id: String) = Authenticated.async {
     dynamo.jsonGet(id, "usageRights").map { dynamoEntry =>
       val usageRights = (dynamoEntry \ "usageRights").as[UsageRights]
@@ -166,11 +183,6 @@ object EditsController extends Controller with ArgoHelpers {
     dynamo.removeKey(id, "usageRights").map(publish(id)).map(edits => Accepted)
   }
 
-  def bindFromRequest[T](json: JsValue)(implicit fjs: Reads[T]): ValidationNel[EditsValidationError, T] =
-    (json \ "data").asOpt[T]
-      .map(_.successNel)
-      .getOrElse(EditsValidationError("unrecognised-form-data", "Unrecognised form data").failNel)
-
   // TODO: Move this to the dynamo lib
   def caseClassToMap[T](caseClass: T)(implicit tjs: Writes[T]): Map[String, String] =
     Json.toJson[T](caseClass).as[JsObject].as[Map[String, String]]
@@ -179,7 +191,6 @@ object EditsController extends Controller with ArgoHelpers {
     val labelsUri = EditsResponse.entityUri(id, "/labels")
     (labelsUri, labels.map(EditsResponse.setUnitEntity(id, "labels", _)).toSeq)
   }
-
 
   def publish(id: String)(metadata: JsObject): Edits = {
     val edits = metadata.as[Edits]
@@ -193,6 +204,16 @@ object EditsController extends Controller with ArgoHelpers {
     edits
   }
 
+  def metadataFromUsageRights(usageRights: UsageRights): Option[ImageMetadata] = {
+    val toImageMetadata: PartialFunction[UsageRights, ImageMetadata] = (ur: UsageRights) => ur match {
+      case u: StaffPhotographer        => ImageMetadata(byline = Some(u.photographer), credit = Some(u.publication))
+      case u: ContractPhotographer     => ImageMetadata(byline = Some(u.photographer), credit = u.publication)
+      case u: CommissionedPhotographer => ImageMetadata(byline = Some(u.photographer), credit = u.publication)
+    }
+
+    // if we don't match, return None
+    toImageMetadata.lift(usageRights)
+  }
 
   // This get's the form error based on out data structure that we send over i.e.
   // { "data": {data} }
@@ -202,8 +223,8 @@ object EditsController extends Controller with ArgoHelpers {
     }
     // only use the head error as they are going to be the same
     val message = form.errors.headOption
-                      .map(_.message + s", given data: ${printData(form.data)}")
-                      .getOrElse(s"Unknown error, given data: ${printData(form.data)}")
+      .map(_.message + s", given data: ${printData(form.data)}")
+      .getOrElse(s"Unknown error, given data: ${printData(form.data)}")
     message
   }
 
@@ -239,19 +260,19 @@ object EditsController extends Controller with ArgoHelpers {
   def trueOptional[T](mapping: Mapping[T]) = TrueOptionalMapping(mapping)
 
   val booleanForm: Form[Boolean] = Form(
-     single("data" -> boolean)
-       .transform[Boolean]({ case (value)        => value },
-                           { case value: Boolean => value })
+    single("data" -> boolean)
+      .transform[Boolean]({ case (value)        => value },
+    { case value: Boolean => value })
   )
 
   val stringForm: Form[String] = Form(
-     single("data" -> text)
-       .transform[String]({ case (value)       => value },
-                          { case value: String => value })
+    single("data" -> text)
+      .transform[String]({ case (value)       => value },
+    { case value: String => value })
   )
 
   val listForm: Form[List[String]] = Form(
-     single[List[String]]("data" -> list(nonEmptyText))
+    single[List[String]]("data" -> list(nonEmptyText))
   )
 
 }

@@ -1,0 +1,25 @@
+{
+    "description": "AMIs with nginx/image for the imgops service",
+
+    "builders": [{
+        "type": "amazon-ebs",
+        "region": "eu-west-1",
+        "source_ami": "ami-68e8ba1f",
+        "instance_type": "t2.micro",
+        "ssh_username": "ubuntu",
+        "ami_name": "imgops_ebs-storage-cfn_{{timestamp}}",
+        "name": "imgops_ebd-storage-cfn_{{timestamp}}"
+    }],
+
+    "provisioners": [
+    {
+        "type": "file",
+        "source": "config/logrotate/imgops",
+        "destination": "/tmp/imgops_logrotate"
+    },
+    {
+        "type": "shell",
+        "script": "imgops-ami.sh",
+        "execute_command": "{{ .Vars }} sudo -E bash -x '{{ .Path }}'"
+    }]
+}

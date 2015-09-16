@@ -5,9 +5,9 @@ import 'rx-dom';
 import elementResize from 'javascript-detect-element-resize';
 let {addResizeListener, removeResizeListener} = elementResize;
 
-import './rx-helpers';
 import './gu-lazy-table-cell';
 import './gu-lazy-table-placeholder';
+import '../../util/rx';
 import '../../util/seq';
 
 import {
@@ -20,7 +20,7 @@ import {
 export var lazyTable = angular.module('gu.lazyTable', [
     'gu.lazyTableCell',
     'gu.lazyTablePlaceholder',
-    'rx.helpers',
+    'util.rx',
     'util.seq'
 ]);
 
@@ -186,9 +186,10 @@ lazyTable.controller('GuLazyTableCtrl', ['range', function(range) {
     function createGetItemPosition$({items$, cellWidth$, cellHeight$, columns$,
                                      preloadedRows$, viewportTop$, viewportBottom$}) {
         return (item) => {
-            // first() because it's static and should never change
             // share() because it's an expensive operation
-            const index$  = items$.map(items => items.indexOf(item)).first().share();
+            const index$  = items$.map(items => items.indexOf(item)).
+                distinctUntilChanged().
+                share();
             const getPos$ = createGetCellPosition$({
                 cellWidth$, cellHeight$, columns$,
                 preloadedRows$, viewportTop$, viewportBottom$

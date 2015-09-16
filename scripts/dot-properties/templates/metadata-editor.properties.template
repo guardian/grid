@@ -4,3 +4,4 @@ aws.secret={{AwsSecret}}
 auth.keystore.bucket={{KeyBucket}}
 sns.topic.arn={{SnsTopicArn}}
 dynamo.table.edits={{EditsDynamoTable}}
+indexed.images.sqs.queue.url={{IndexedImageMetadataQueueUrl}}

@@ -2,18 +2,46 @@ import angular from 'angular';
 
 var labelService = angular.module('kahuna.services.label', []);
 
-labelService.factory('labelService', ['$rootScope', '$q', function ($rootScope, $q) {
-    function remove (image, label) {
-        var existingLabels = image.data.userMetadata.data.labels.data;
-        var labelIndex = existingLabels.findIndex(lbl => lbl.data === label);
+labelService.factory('labelService',
+                     ['$rootScope', '$q', 'apiPoll', 'imageAccessor',
+                      function ($rootScope, $q, apiPoll, imageAccessor) {
 
+    function readLabelName(label) {
+        return label.data;
+    }
+
+    function readLabelsName(labels) {
+        return labels.map(readLabelName);
+    }
+
+    function labelsEquals(labelsA, labelsB) {
+        return angular.equals(
+            readLabelsName(labelsA).sort(),
+            readLabelsName(labelsB).sort()
+        );
+    }
+
+    function untilLabelsEqual(image, expectedLabels) {
+        return image.get().then(apiImage => {
+            const apiLabels = imageAccessor.readLabels(apiImage);
+            if (labelsEquals(apiLabels, expectedLabels)) {
+                return apiImage;
+            } else {
+                return $q.reject();
+            }
+        });
+    }
+
+    function remove (image, label) {
+        var existingLabels = imageAccessor.readLabels(image);
+        var labelIndex = existingLabels.findIndex(lbl => lbl.data === label);
         if (labelIndex !== -1) {
             return existingLabels[labelIndex]
                 .delete()
-                .then(newLabels => {
-                    image.data.userMetadata.data.labels = newLabels;
-                    $rootScope.$emit('image-updated', image, image);
-                    return image;
+                .then(newLabels => apiPoll(() => untilLabelsEqual(image, newLabels.data)))
+                .then(newImage => {
+                    $rootScope.$emit('image-updated', newImage, image);
+                    return newImage;
                 });
         }
     }
@@ -23,9 +51,9 @@ labelService.factory('labelService', ['$rootScope', '$q', function ($rootScope, 
 
         return image.data.userMetadata.data.labels
             .post({data: labels})
-            .then(newLabels => {
-                image.data.userMetadata.data.labels = newLabels;
-                $rootScope.$emit('image-updated', image, image);
+            .then(newLabels => apiPoll(() => untilLabelsEqual(image, newLabels.data)))
+            .then(newImage => {
+                $rootScope.$emit('image-updated', newImage, image);
                 return image;
             });
     }

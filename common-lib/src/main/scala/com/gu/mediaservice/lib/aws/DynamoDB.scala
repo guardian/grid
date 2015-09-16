@@ -4,7 +4,7 @@ import com.amazonaws.auth.AWSCredentials
 import com.amazonaws.regions.Region
 import com.amazonaws.services.dynamodbv2.AmazonDynamoDBClient
 import com.amazonaws.services.dynamodbv2.document.{DynamoDB => AwsDynamoDB, UpdateItemOutcome, Table, Item}
-import com.amazonaws.services.dynamodbv2.document.spec.{GetItemSpec, UpdateItemSpec}
+import com.amazonaws.services.dynamodbv2.document.spec.{DeleteItemSpec, GetItemSpec, UpdateItemSpec}
 import com.amazonaws.services.dynamodbv2.document.utils.ValueMap
 import com.amazonaws.services.dynamodbv2.model.ReturnValue
 import play.api.libs.json._
@@ -57,6 +57,8 @@ class DynamoDB(credentials: AWSCredentials, region: Region, tableName: String) {
       s"REMOVE $key"
     )
 
+  def deleteItem(id: String) =
+    table.deleteItem(new DeleteItemSpec().withPrimaryKey(IdKey, id))
 
   def booleanGet(id: String, key: String)
                 (implicit ex: ExecutionContext): Future[Option[Boolean]] =
@@ -128,6 +130,14 @@ class DynamoDB(credentials: AWSCredentials, region: Region, tableName: String) {
         new ValueMap().withMap(":value", valueMapWithNullForEmptyString(value))
     )
 
+  def jsonPatch(id: String, key: String, value: Map[String, String])
+               (implicit ex: ExecutionContext): Future[JsObject] = {
+
+    val (expression, valueMap) = partialMapUpdate(key, value)
+
+    update(id, expression, valueMap)
+  }
+
   def setDelete(id: String, key: String, value: String)
                (implicit ex: ExecutionContext): Future[JsObject] =
     update(
@@ -143,6 +153,7 @@ class DynamoDB(credentials: AWSCredentials, region: Region, tableName: String) {
 
   def update(id: String, expression: String, valueMap: Option[ValueMap] = None)
             (implicit ex: ExecutionContext): Future[JsObject] = Future {
+
     val baseUpdateSpec = new UpdateItemSpec().
       withPrimaryKey(IdKey, id).
       withUpdateExpression(expression).
@@ -184,6 +195,21 @@ class DynamoDB(credentials: AWSCredentials, region: Region, tableName: String) {
          .foreach { case(k, v) => valueMap.withString(k, v) }
 
     valueMap
+  }
+
+  // As AttributeExpressions are deprecated, Amazon recommends using `UpdateExpression`s
+  // This is essentially a script builder.
+  // http://docs.aws.amazon.com/amazondynamodb/latest/APIReference/API_UpdateItem.html#DDB-UpdateItem-request-UpdateExpression
+  def partialMapUpdate(parentKey: String, value: Map[String, String]) = {
+    val valueMap = new ValueMap()
+    // add the value to the map and then return the update expression
+    val expression  = "SET " + value
+      .map { case (k, v) => {
+        valueMap.withString(s":$k", v)
+        s"$parentKey.$k=:$k"
+      }}.toList.mkString(", ")
+
+    (expression, valueMap)
   }
 
 }

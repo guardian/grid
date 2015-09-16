@@ -1,14 +1,14 @@
 import angular from 'angular';
 
-import './rx-helpers';
+import '../../util/rx';
 
 export var lazyTableCell = angular.module('gu.lazyTableCell', [
-    'rx.helpers'
+    'util.rx'
 ]);
 
 lazyTableCell.directive('guLazyTableCell',
-                        ['subscribe$',
-                         function(subscribe$) {
+                        ['subscribe$', 'observe$',
+                         function(subscribe$, observe$) {
     return {
         restrict: 'A',
         require: '^guLazyTable',
@@ -17,8 +17,8 @@ lazyTableCell.directive('guLazyTableCell',
         transclude: true,
         template: '<ng-transclude ng:if="guLazyTableCellVisible"></ng-transclude>',
         link: function(scope, element, attrs, ctrl) {
-            const item = scope.$eval(attrs.guLazyTableCell);
-            const position$ = ctrl.getItemPosition$(item);
+            const item$ = observe$(scope, attrs.guLazyTableCell);
+            const position$ = item$.flatMapLatest(ctrl.getItemPosition$);
             subscribe$(scope, position$,
                        ({top, left, width, height, display}) => {
                 // use applyAsync rather than rx.safeApply to batch

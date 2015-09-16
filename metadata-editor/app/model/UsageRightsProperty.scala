@@ -23,14 +23,21 @@ object UsageRightsProperty {
   type OptionsMap = Map[String, List[String]]
   type Options = List[String]
 
+  import MetadataConfig.{staffPhotographersMap, contractIllustrators}
+  import UsageRightsConfig.freeSuppliers
+
   implicit val jsonWrites: Writes[UsageRightsProperty] = Json.writes[UsageRightsProperty]
 
-  def getPropertiesForCat(u: UsageRights): List[UsageRightsProperty] =
-    agencyProperties(u) ++ photographerProperties(u) ++ restrictionProperties(u)
+  def sortList(l: List[String]) = l.sortWith(_.toLowerCase < _.toLowerCase)
+
+  val props: List[(UsageRights) => List[UsageRightsProperty]] =
+    List(agencyProperties, photographerProperties, illustrationProperties, restrictionProperties)
+
+  def getPropertiesForCat(u: UsageRights): List[UsageRightsProperty] = props.flatMap(f => f(u))
 
   private def publicationField(required: Boolean)  =
     UsageRightsProperty("publication", "Publication", "string", required,
-      Some(MetadataConfig.staffPhotographersMap.keys.toList.sortWith(_.toLowerCase < _.toLowerCase)))
+      Some(sortList(staffPhotographersMap.keys.toList)))
 
   private def photographerField =
     UsageRightsProperty("photographer", "Photographer", "string", true)
@@ -43,9 +50,9 @@ object UsageRightsProperty {
     case _ => List(UsageRightsProperty("restrictions", "Restrictions", "text", u.defaultCost.contains(Conditional)))
   }
 
-  private def agencyProperties(u: UsageRights): List[UsageRightsProperty] = u match {
+  private def agencyProperties(u: UsageRights) = u match {
     case _:Agency => List(
-      UsageRightsProperty("supplier", "Supplier", "string", true, Some(UsageRightsConfig.freeSuppliers.sortWith(_.toLowerCase < _.toLowerCase))),
+      UsageRightsProperty("supplier", "Supplier", "string", true, Some(sortList(freeSuppliers))),
       UsageRightsProperty("suppliersCollection", "Collection", "string", false)
     )
 
@@ -54,10 +61,10 @@ object UsageRightsProperty {
   }
 
 
-  private def photographerProperties(u: UsageRights): List[UsageRightsProperty] = u match {
+  private def photographerProperties(u: UsageRights) = u match {
     case _:StaffPhotographer => List(
       publicationField(true),
-      photographerField(MetadataConfig.staffPhotographersMap, "publication")
+      photographerField(staffPhotographersMap, "publication")
     )
 
     case _:CommissionedPhotographer => List(
@@ -70,6 +77,14 @@ object UsageRightsProperty {
       photographerField
     )
 
+    case _ => List()
+  }
+
+  private def illustrationProperties(u: UsageRights) = u match {
+    case _:ContractIllustrator     => List(
+      UsageRightsProperty("creator", "Illustrator", "string", true, Some(sortList(contractIllustrators))))
+    case _:CommissionedIllustrator => List(
+      UsageRightsProperty("creator", "Illustrator", "string", true))
     case _ => List()
   }
 }

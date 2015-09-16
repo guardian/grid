@@ -7,6 +7,7 @@ import '../components/gr-delete-image/gr-delete-image';
 import '../components/gr-add-label/gr-add-label';
 import '../downloader/downloader';
 import '../components/gr-crop-image/gr-crop-image';
+import '../components/gr-delete-crops/gr-delete-crops';
 
 var image = angular.module('kahuna.image.controller', [
     'kahuna.edits.service',
@@ -15,7 +16,8 @@ var image = angular.module('kahuna.image.controller', [
     'gr.deleteImage',
     'gr.addLabel',
     'gr.downloader',
-    'gr.cropImage'
+    'gr.cropImage',
+    'gr.deleteCrops'
 ]);
 
 image.controller('ImageCtrl', [
@@ -50,6 +52,8 @@ image.controller('ImageCtrl', [
               track) {
 
         var ctrl = this;
+
+        ctrl.showUsageRights = false;
 
         ctrl.credits = function(searchText) {
             return ctrl.metadataSearch('credit', searchText);
@@ -94,6 +98,12 @@ image.controller('ImageCtrl', [
 
         ctrl.isUsefulMetadata = isUsefulMetadata;
         ctrl.cropSelected = cropSelected;
+
+        ctrl.onCropsDeleted = () => {
+            // a bit nasty - but it updates the state of the page better than trying to do that in
+            // the client.
+            $state.go('image', {imageId: ctrl.image.data.id, crop: undefined}, {reload: true});
+        };
 
         // TODO: move this to a more sensible place.
         function getCropDimensions() {
@@ -179,19 +189,23 @@ image.controller('ImageCtrl', [
                 });
         };
 
-        ctrl.onDeleteSuccess = function () {
+        const freeImageDeleteListener = $rootScope.$on('images-deleted', () => {
             $state.go('search');
-        };
+        });
 
-        ctrl.onDeleteError = function (err) {
-            if (err.body.errorKey === 'image-not-found') {
-                $state.go('search');
-            } else {
+        const freeImageDeleteFailListener = $rootScope.$on('image-delete-failure', (err, image) => {
+            if (err && err.body && err.body.errorMessage) {
                 $window.alert(err.body.errorMessage);
+            } else {
+                // Possibly not receiving a proper image object sometimes?
+                const imageId = image && image.data && image.data.id || 'Unknown ID';
+                $window.alert(`Failed to delete image ${imageId}`);
             }
-        };
+        });
 
         $scope.$on('$destroy', function() {
             freeUpdateListener();
+            freeImageDeleteListener();
+            freeImageDeleteFailListener();
         });
     }]);

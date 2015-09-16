@@ -2,7 +2,7 @@ package lib.elasticsearch
 
 import java.util.regex.Pattern
 
-import org.elasticsearch.index.query.FilteredQueryBuilder
+import org.elasticsearch.index.query.{FilterBuilder, FilteredQueryBuilder}
 import org.elasticsearch.search.aggregations.bucket.terms.StringTerms
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -20,7 +20,7 @@ import scalaz.NonEmptyList
 
 
 import com.gu.mediaservice.syntax._
-import com.gu.mediaservice.lib.elasticsearch.ElasticSearchClient
+import com.gu.mediaservice.lib.elasticsearch.{ImageFields, ElasticSearchClient}
 import controllers.{AggregateSearchParams, SearchParams}
 import lib.{MediaApiMetrics, Config}
 
@@ -51,6 +51,7 @@ case class BucketResult(key: String, count: Long)
 object ElasticSearch extends ElasticSearchClient with SearchFilters with ImageFields {
 
   import MediaApiMetrics._
+  val imagesAlias = "imagesAlias"
 
   lazy val host = Config.elasticsearchHost
   lazy val port = Config.int("es.port")
@@ -90,14 +91,21 @@ object ElasticSearch extends ElasticSearchClient with SearchFilters with ImageFi
     val missingIdentifier= params.missingIdentifier.map(idName => filters.missing(NonEmptyList(identifierField(idName))))
     val uploadedByFilter = params.uploadedBy.map(uploadedBy => filters.terms("uploadedBy", NonEmptyList(uploadedBy)))
 
-    val validityFilter   = params.valid.flatMap(valid => if(valid) validFilter else invalidFilter)
+    val validityFilter: Option[FilterBuilder] = params.valid.flatMap(valid => if(valid) validFilter else invalidFilter)
 
     val costFilter       =
       if (params.costModelDiff) params.free.flatMap(free => if (free) freeDiffFilter else nonFreeDiffFilter)
       else                      params.free.flatMap(free => if (free) freeFilter else nonFreeFilter)
 
+
+    val persistFilter = params.persisted map {
+      case true   => persistedFilter
+      case false  => nonPersistedFilter
+    }
+
+
     val filterOpt = (
-      metadataFilter.toList ++ labelFilter ++ archivedFilter ++
+      metadataFilter.toList ++ persistFilter ++ labelFilter ++ archivedFilter ++
       uploadedByFilter ++ idsFilter ++ validityFilter ++ costFilter ++
       hasExports ++ hasIdentifier ++ missingIdentifier ++ dateFilter
     ).toNel.map(filter => filter.list.reduceLeft(filters.and(_, _)))

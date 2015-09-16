@@ -1,12 +1,6 @@
 {
     "AWSTemplateFormatVersion": "2010-09-09",
     "Description": "Media Service Dev",
-    "Parameters": {
-        "CorsAllowedOrigins": {
-            "Description": "Comma-separated list of CORS-allowed origins",
-            "Type": "String"
-        }
-    },
     "Resources": {
         "Group": {
             "Type": "AWS::IAM::Group",
@@ -28,8 +22,18 @@
                             },
                             {
                                 "Effect": "Allow",
+                                "Action": ["sqs:DeleteMessage", "sqs:ReceiveMessage"],
+                                "Resource": [ { "Fn::GetAtt": ["IndexedImageMetadataQueue", "Arn"] } ]
+                            },
+                            {
+                                "Effect": "Allow",
                                 "Action": ["sns:Publish"],
                                 "Resource": { "Ref": "Topic" }
+                            },
+                            {
+                                "Effect": "Allow",
+                                "Action": ["sns:Publish"],
+                                "Resource": { "Ref": "IndexedImageTopic" }
                             },
                             {
                                 "Effect": "Allow",
@@ -271,6 +275,43 @@
                 },
                 "Queues": [ { "Ref": "Queue" } ]
             }
+        },
+        "IndexedImageTopic": {
+            "Type": "AWS::SNS::Topic",
+            "Properties": {
+                "Subscription": [
+                    {
+                        "Endpoint": { "Fn::GetAtt": [ "IndexedImageMetadataQueue", "Arn" ] },
+                        "Protocol": "sqs"
+                    }
+                ]
+            }
+        },
+        "IndexedImageMetadataQueue": {
+            "Type": "AWS::SQS::Queue",
+            "Properties": {
+            }
+        },
+        "IndexedImageMetadataQueuePolicy": {
+            "Type": "AWS::SQS::QueuePolicy",
+            "Properties": {
+                "PolicyDocument": {
+                    "Id": "IndexedImageMetadataQueuePolicy",
+                    "Statement": [
+                        {
+                            "Sid": "Allow-SendMessage-To-Queue-From-Topic",
+                            "Effect": "Allow",
+                            "Principal": { "AWS": "*" },
+                            "Action": ["sqs:SendMessage"],
+                            "Resource": "*",
+                            "Condition": {
+                                "ArnEquals": { "aws:SourceArn": { "Ref": "IndexedImageTopic" } }
+                            }
+                        }
+                    ]
+                },
+                "Queues": [ { "Ref": "IndexedImageMetadataQueue" } ]
+            }
         }
     },
     "Outputs": {
@@ -306,6 +347,12 @@
         },
         "SqsQueueUrl": {
             "Value": { "Ref" : "Queue" }
+        },
+        "IndexedImageTopicArn": {
+            "Value": { "Ref": "IndexedImageTopic" }
+        },
+        "IndexedImageMetadataQueueUrl": {
+            "Value": { "Ref" : "IndexedImageMetadataQueue" }
         }
     }
 }

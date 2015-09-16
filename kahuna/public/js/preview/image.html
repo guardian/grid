@@ -1,5 +1,4 @@
-<div class="preview image-actions-container"
-     title="{{ctrl.image.data.metadata.description || ctrl.image.data.metadata.title}}">
+<div class="preview image-actions-container">
 
     <ul class="image-actions" ng:if="! ctrl.selectionMode">
         <li>
@@ -45,17 +44,24 @@
         <div class="flex-container">
             <ui-labeller-compact class="preview__labeller"
                                  image="ctrl.image"
-                                 disabled="ctrl.selectionMode">
+                                 disabled="ctrl.selectionMode"
+                                 ng:if="!ctrl.inputtingLabel">
             </ui-labeller-compact>
             <span class="flex-spacer"></span>
-            <gr-add-label ng:if="!ctrl.selectionMode"
-                          image="ctrl.image"
-                          gr-small="true">
+            <gr-add-label class="gr-add-label"
+                          ng:if="!ctrl.selectionMode"
+                          images="[ctrl.image]"
+                          gr-small="true"
+                          active="ctrl.inputtingLabel"
+                          ng:class="{'gr-add-label--inactive': !ctrl.inputtingLabel}">
             </gr-add-label>
         </div>
 
-        <!-- Ensure contents in P to maintain height -->
-        <p class="preview__description">{{ctrl.image.data.metadata.description || ctrl.image.data.metadata.title || '&nbsp;'}}</p>
+        <p class="preview__description"
+           title="{{ctrl.image.data.metadata.description || ctrl.image.data.metadata.title}}">
+            <!-- Ensure contents in P to maintain height -->
+            {{ctrl.image.data.metadata.description || ctrl.image.data.metadata.title || '&nbsp;'}}
+        </p>
     </div>
 
     <div class="preview__bottom-bar bottom-bar">

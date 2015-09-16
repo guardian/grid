@@ -438,6 +438,15 @@ textarea.ng-invalid {
     border-radius: 5px;
 }
 
+.global-error__close {
+    padding-left: 10px;
+    cursor: pointer;
+}
+
+.global-error__close:hover {
+    color: white;
+}
+
 .error {
     background: darkred;
     color: white;
@@ -669,6 +678,19 @@ input.search-query__input {
     margin-top: 12px;
 }
 
+.crop-item {
+    display: inline-block;
+    width: 100%;
+    padding: 0 10px;
+    line-height: 45px;
+    box-sizing: border-box;
+    font-size: 1.4rem;
+}
+
+.crop-item:hover {
+    background-color: #666666;
+}
+
 /* ==========================================================================
    File uploader
    ========================================================================== */
@@ -766,7 +788,7 @@ input.search-query__input {
     display: block;
 }
 
-.result:hover gr-add-label {
+.result:hover .gr-add-label--inactive {
     display: inline-block;
 }
 
@@ -852,27 +874,20 @@ input.search-query__input {
 }
 .results-toolbar-item {
     vertical-align: middle;
-    border: 1px solid #565656;
     border-width: 0px 1px;
+    border-color: #565656;
+    border-style: solid;
     position: relative;
-    padding: 0 10px;
     height: 35px;
-}
-
-.results-toolbar-item--text {
-    position: absolute;
-    left: 0px;
-    padding-left: 30px;
-}
-
-.results-toolbar-item--icon {
-    position: absolute;
-    left: 0px;
-    padding-left: 10px;
 }
 
 .results-toolbar-item:hover {
 	background-color: #666666;
+}
+
+.results-toolbar-item--static,
+.results-toolbar-item gr-icon-label {
+    padding: 0 10px;
 }
 
 .results-toolbar-item--split {
@@ -917,7 +932,6 @@ input.search-query__input {
 
 .results-toolbar-item__metadata-panel-controls {
     line-height: 35px;
-    width: 130px;
     height: 36px;
 }
 
@@ -925,17 +939,6 @@ input.search-query__input {
 .results-count {
     float: left;
     padding: 0 10px;
-}
-
-@media screen and (max-width: 800px) {
-    .results-toolbar-item--text {
-        display: none;
-    }
-    .results-toolbar-item__metadata-panel-controls,
-    .results-toolbar-item__clear-selection
-     {
-        width: 18px
-    }
 }
 
 .image-results-count__new {
@@ -1020,11 +1023,13 @@ FIXME: what to do with touch devices
 */
 
 .preview__labeller {
-    width: calc(100% - 20px);
-    display: inline-block;
+    /*25px - auto height of div on hover, stops shifting when off hover */
+    height: 25px;
+    white-space: nowrap;
+    overflow: hidden;
 }
 
-.preview gr-add-label {
+.preview .gr-add-label--inactive {
     display: none;
 }
 
@@ -1164,7 +1169,6 @@ FIXME: what to do with touch devices
 .result-editor__editor {
     flex-grow: 1;
     margin-left: 10px;
-    margin-bottom: 10px;
 }
 
 .result-editor__info {
@@ -1176,6 +1180,7 @@ FIXME: what to do with touch devices
     margin-left: 1px;
     font-size: 1.4rem;
 }
+
 .result-editor__info-item--first {
     margin-left: 0;
 }
@@ -1195,12 +1200,21 @@ FIXME: what to do with touch devices
 .result-editor__field-container {
     display: flex;
     width: 100%;
-    margin-top: 5px;
+    margin-bottom: 5px;
+}
+
+.result-editor__field-container__labels {
+    display: flex;
+}
+
+.result-editor__field-container__labels--hidden {
+    display: inline;
 }
 
 .result-editor__field-container gr-add-label {
     font-size: 1.3rem;
     padding-right: 10px;
+    padding-bottom: 5px;
 }
 
 .result-editor__field-label {
@@ -1265,14 +1279,30 @@ FIXME: what to do with touch devices
     border-left: 1px solid #565656;
     background-color: #444;
 }
+
+.image-details--crop {
+    float: left;
+    width: 130px;
+    border-right: 1px solid #565656;
+    position: relative;
+}
+
+.image-details__delete-crops {
+    position: absolute;
+    bottom: 0;
+    width: 100%;
+}
+
 .image-details:after {
     clear: both;
     content:  " ";
     display:  table;
 }
 
+/*to clear the set widths of the side panels */
 .image-holder {
     margin-right: 300px;
+    margin-left: 130px;
 }
 
 .image-info__group {
@@ -1283,6 +1313,14 @@ FIXME: what to do with touch devices
 .image-info__group--last {
     border-bottom: 0;
     clear: both;
+}
+
+.image-info__group--crops {
+    padding: 10px;
+}
+
+.image-info__group--original {
+    border-top: 1px solid #565656;
 }
 
 .image-info__group table {
@@ -1338,11 +1376,25 @@ FIXME: what to do with touch devices
     color: #ccc;
 }
 
+.image-info__file-size {
+    color: #ccc;
+    font-size: 1.2rem;
+    font-weight: normal;
+}
+
 .image-info__heading {
     color: #999;
     font-weight: bold;
     padding-bottom: 3px;
+    display: flex;
+    justify-content: space-between;
 }
+
+.image-info__heading--crops {
+    flex-basis: 100%;
+    max-width: 100%;
+}
+
 .image-info__heading--first {
     margin-top: 0;
 }
@@ -1394,6 +1446,8 @@ FIXME: what to do with touch devices
     color: white;
     background-color: #222;
     border: 1px solid white;
+    margin-top: -1px;
+    margin-bottom: -1px;
 }
 
 .image-info__wrap .editable-wrap,
@@ -1435,11 +1489,9 @@ FIXME: what to do with touch devices
     padding-top: 2px;
 }
 
-.image-info__usage-rights {
-    width: 100%;
-    box-sizing: border-box;
-    font-weight: bold;
-    color: #999;
+.image-info__usage-rights .ure {
+    background: #333;
+    padding: 10px;
 }
 
 .image-info--multiple {
@@ -1457,6 +1509,10 @@ FIXME: what to do with touch devices
 .metadata-line__info {
     color: #ccc;
     padding-bottom: 10px;
+}
+
+.metadata-line__info--crop {
+    padding-bottom: 0;
 }
 
 .metadata-line__info a {
@@ -1498,15 +1554,19 @@ FIXME: what to do with touch devices
 }
 
 .image-crop {
-    border: solid 5px transparent;
-    max-width: 140px;
-    margin-right: 5px;
+    margin-bottom: 10px;
+    min-width: 100%;
     box-sizing: border-box;
+    background-color: #333;
 }
-.image-crop--selected,
+
 .result--selected,
 .result--selected:hover {
     border-color: #00adee;
+}
+
+.image-crop--selected {
+    border: solid 2px #00adee;
 }
 
 .result--selected .preview {
@@ -1515,7 +1575,8 @@ FIXME: what to do with touch devices
 
 .image-crop__image {
     display: block;
-    width: 100%;
+    max-width: 100%;
+    max-height: 64px;
 }
 
 .image-crop__aspect-ratio {
@@ -1524,33 +1585,16 @@ FIXME: what to do with touch devices
     font-size: 1.2rem;
 }
 
+.image-crop__aspect-ratio--selected {
+    color: #FFFFFF;
+}
 
 /* ==========================================================================
    Labeller
    ========================================================================== */
 .labeller {
-    height: 25px;
     font-size: 1.3rem;
     display: flex;
-    overflow: hidden;
-}
-
-.image-info__group--fixed-panel .labeller{
-    height: auto;
-}
-
-.labels {
-    overflow-x: auto;
-    white-space: nowrap;
-}
-
-.image-info__group--fixed-panel .labels{
-    white-space: normal;
-}
-
-.preview__info .labels{
-    overflow-y: hidden;
-    margin-bottom: -15px;
 }
 
 .label {
@@ -1561,6 +1605,7 @@ FIXME: what to do with touch devices
     border-radius: 2px;
     margin: 0 5px 5px 0;
 }
+
 .label--removing {
     background-color: #99ddff;
 }
@@ -1593,6 +1638,11 @@ FIXME: what to do with touch devices
 .labeller__apply-all {
     margin-left: 10px;
     line-height: 20px;
+    font-size: 1.6rem;
+}
+
+.labeller__apply-all:hover {
+    color: #FFF;
 }
 
 
@@ -1711,7 +1761,6 @@ FIXME: what to do with touch devices
 }
 
 .job-uploading {
-    width: 200px;
     margin-bottom: 20px;
 }
 
@@ -1722,8 +1771,12 @@ FIXME: what to do with touch devices
     top: 1px;
     z-index: 1;
     padding: 0 5px;
-    background: #444;
 }
+
+.job-editor__apply-to-all:hover {
+    color: #FFF;
+}
+
 
 .metadata-applicator {
     font-size: 1.4rem;
@@ -1739,10 +1792,10 @@ FIXME: what to do with touch devices
     text-decoration: underline;
 }
 
-.upload-result {
-    margin-bottom: 10px;
-    padding-bottom: 20px;
-    border-bottom: 1px dashed #999;
+.upload-result + .upload-result {
+    margin-top: 10px;
+    padding-top: 20px;
+    border-top: 1px dashed #999;
 }
 
 .upload-result .gr-confirm-delete {
