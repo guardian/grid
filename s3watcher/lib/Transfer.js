@@ -4,6 +4,10 @@ const Upload       = require('./Upload');
 
 module.exports = {
     init: function(s3Event, config){
+        // TODO: Pipe download stream into upload stream
+        // Currently the whole file is loaded into memory before
+        // being uploaded to the image loader.
+        //
         const operation = function() {
             console.log("Downloading from ingest bucket.");
 
