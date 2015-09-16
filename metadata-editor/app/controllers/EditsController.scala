@@ -43,12 +43,10 @@ import lib._
 
 object EditsController extends Controller with ArgoHelpers with DynamoEdits {
 
-  import Config.rootUri
+
+  import EditsResponse.{editsResponseWrites, metadataUri, labelsUri, setUnitEntity}
 
   val Authenticated = EditsApi.Authenticated
-
-  def entityUri(id: String, endpoint: String = ""): URI =
-    URI.create(s"$rootUri/metadata/$id$endpoint")
 
   def decodeUriParam(param: String): String = decode(param, "UTF-8")
 
@@ -59,12 +57,12 @@ object EditsController extends Controller with ArgoHelpers with DynamoEdits {
 
       // We have to do the to JSON here as we are using a custom JSON writes.
       // TODO: have the argo helpers allow you to do this
-      respond(Json.toJson(edits)(EditsResponse.editsResponseWrites(id)))
+      respond(Json.toJson(edits)(editsResponseWrites(id)))
 
     } recover {
       // Empty object as no metadata edits recorded
       case NoItemFound =>
-        respond(Json.toJson(Edits.getEmpty)(EditsResponse.editsResponseWrites(id)))
+        respond(Json.toJson(Edits.getEmpty)(editsResponseWrites(id)))
     }
   }
 
@@ -153,7 +151,7 @@ object EditsController extends Controller with ArgoHelpers with DynamoEdits {
       metadataOpt.map { metadata =>
         dynamo.jsonPatch(id, "metadata", metadataAsMap(metadata))
           .map(publish(id))
-          .map(edits => respond(edits.metadata))
+          .map(edits => respond(edits.metadata, uri = Some(metadataUri(id))))
       }
       .getOrElse(Future.failed(EditsValidationError("no-matching-metadata-found", "Couldn't find any matching metadata")))
     } recover {
@@ -188,8 +186,7 @@ object EditsController extends Controller with ArgoHelpers with DynamoEdits {
     Json.toJson[T](caseClass).as[JsObject].as[Map[String, String]]
 
   def labelsCollection(id: String, labels: Set[String]): (URI, Seq[EmbeddedEntity[String]]) = {
-    val labelsUri = EditsResponse.entityUri(id, "/labels")
-    (labelsUri, labels.map(EditsResponse.setUnitEntity(id, "labels", _)).toSeq)
+    (labelsUri(id), labels.map(setUnitEntity(id, "labels", _)).toSeq)
   }
 
   def publish(id: String)(metadata: JsObject): Edits = {

@@ -151,7 +151,7 @@ service.factory('editsService',
 
     function perform(resource, action, originalImage) {
         const newRequest = resource.perform(action).
-              then(action => resource.get().then(edit => getSynced(originalImage, newImage => matches(edit, newImage))));
+              then(edit => getSynced(originalImage, newImage => matches(edit, newImage)));
 
         const existingRequestPool = updateRequestPools.get(resource) ||
             registerUpdateRequest(resource, originalImage);
