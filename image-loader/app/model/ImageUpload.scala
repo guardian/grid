@@ -27,7 +27,7 @@ case object ImageUpload {
 
     // These futures are started outside the for-comprehension, otherwise they will not run in parallel
     val sourceStoreFuture      = storeSource(uploadRequest)
-    val thumbFuture            = Thumbnailer.createThumbnail(Config.thumbWidth, uploadedFile.toString)
+    val thumbFuture            = Thumbnailer.createThumbnail(uploadedFile, Config.thumbWidth, Config.thumbQuality)
     val sourceDimensionsFuture = FileMetadataReader.dimensions(uploadedFile)
     val fileMetadataFuture     = FileMetadataReader.fromIPTCHeaders(uploadedFile)
 

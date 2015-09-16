@@ -36,8 +36,6 @@ object Config extends CommonPlayAppProperties with CommonPlayAppConfig {
 
   val tempDir: File = new File(properties.getOrElse("crop.output.tmp.dir", "/tmp"))
 
-  val imagingThreadPoolSize = 4
-
   val landscapeCropSizingWidths = List(2000, 1000, 500, 140)
   val portraitCropSizingHeights = List(2000, 1000, 500)
 }

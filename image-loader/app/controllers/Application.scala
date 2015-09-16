@@ -53,7 +53,7 @@ class ImageLoader extends Controller with ArgoHelpers {
 
   def index = Authenticated { indexResponse }
 
-  def createTempFile(prefix: String) = File.createTempFile(prefix, "", new File(Config.tempDir))
+  def createTempFile(prefix: String) = File.createTempFile(prefix, "", Config.tempDir)
 
   def loadImage(uploadedBy: Option[String], identifiers: Option[String], uploadTime: Option[String], filename: Option[String]) =
     AuthenticatedUpload.async(DigestBodyParser.create(createTempFile("requestBody")))(loadFile(uploadedBy, identifiers, uploadTime, filename))
