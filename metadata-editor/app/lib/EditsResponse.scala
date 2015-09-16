@@ -21,19 +21,20 @@ object EditsResponse {
   def editsResponseWrites(id: String): Writes[Edits] = (
       (__ \ "archived").write[ArchivedEntity].contramap(archivedEntity(id, _: Boolean)) ~
       (__ \ "labels").write[SetEntity].contramap(setEntity(id, "labels", _: List[String])) ~
-      (__ \ "metadata").writeNullable[MetadataEntity].contramap(metadataEntity(id, _: ImageMetadata)) ~
+      (__ \ "metadata").writeNullable[MetadataEntity].contramap(notEmptyMetadataEntity(id, _: ImageMetadata)) ~
       (__ \ "usageRights").writeNullable[UsageRightsEntity].contramap(usageRightsEntity(id, _: Option[UsageRights]))
     )(unlift(Edits.unapply))
 
   def archivedEntity(id: String, a: Boolean): ArchivedEntity =
     EmbeddedEntity(entityUri(id, "/archived"), Some(a))
 
-  def metadataEntity(id: String, m: ImageMetadata): Option[MetadataEntity] =
-    Edits.noneIfEmptyMetadata(m).map(i =>
-      EmbeddedEntity(entityUri(id, "/metadata"), Some(i), actions = List(
-        Action("set-from-usage-rights", entityUri(id, "/metadata/set-from-usage-rights"), "POST")
-      ))
-    )
+  def notEmptyMetadataEntity(id: String, m: ImageMetadata): Option[MetadataEntity] =
+    Edits.noneIfEmptyMetadata(m).map(i => metadataEntity(id, i))
+
+  def metadataEntity(id: String, m: ImageMetadata): MetadataEntity =
+    EmbeddedEntity(entityUri(id, "/metadata"), Some(m), actions = List(
+      Action("set-from-usage-rights", entityUri(id, "/metadata/set-from-usage-rights"), "POST")
+    ))
 
   def usageRightsEntity(id: String, u: Option[UsageRights]): Option[UsageRightsEntity] =
     u.map(i => EmbeddedEntity(entityUri(id, "/usage-rights"), Some(i)))
@@ -44,6 +45,10 @@ object EditsResponse {
   def setUnitEntity(id: String, setName: String, name: String): EmbeddedEntity[String] =
     EmbeddedEntity(entityUri(id, s"/$setName/${URLEncoder.encode(name, "UTF-8")}"), Some(name))
 
-  def entityUri(id: String, endpoint: String = ""): URI =
+  private def entityUri(id: String, endpoint: String = ""): URI =
     URI.create(s"$metadataBaseUri/metadata/$id$endpoint")
+
+  def labelsUri(id: String) = entityUri(id, "/labels")
+
+  def metadataUri(id: String) = entityUri(id, "/metadata")
 }
