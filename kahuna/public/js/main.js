@@ -304,8 +304,10 @@ kahuna.filter('asImageDragData', function() {
         var uri = image && image.uri;
         if (uri) {
             const kahunaUri = syncGetLinkUri(image, 'ui:image');
+            // Resources don't serialise well yet..
+            const imageObj = { data: image.data, uri };
             return {
-                'application/vnd.mediaservice.image+json': JSON.stringify({ data: image.data, uri }),
+                'application/vnd.mediaservice.image+json': JSON.stringify(imageObj),
                 'application/vnd.mediaservice.kahuna.uri': kahunaUri,
                 'text/plain':    uri,
                 'text/uri-list': uri
