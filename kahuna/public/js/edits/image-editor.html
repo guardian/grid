@@ -93,7 +93,7 @@
             </span>
 
             <div class="result-editor__usage-rights-container">
-                <div ng:hide="ctrl.showUsageRights">
+                <div ng:hide="ctrl.showUsageRights" class="result-editor__field-value">
                     <span>{{ctrl.usageRightsCategory || 'None'}}</span>
                     <button class="image-info__edit" ng:click="ctrl.showUsageRights = !ctrl.showUsageRights">
                         <gr-icon>edit</gr-icon>
@@ -132,7 +132,7 @@
         </div>
         <div class="result-editor__field-container" ng:if="ctrl.image.data.uploadInfo.filename">
             <div class="result-editor__field-label">File name</div>
-            <div>{{ctrl.image.data.uploadInfo.filename}}</div>
+            <div class="result-editor__field-value">{{ctrl.image.data.uploadInfo.filename}}</div>
         </div>
 
     </div>
