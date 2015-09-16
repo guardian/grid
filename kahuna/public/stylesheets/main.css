@@ -1221,6 +1221,11 @@ FIXME: what to do with touch devices
     width: 100px;
 }
 
+.result-editor__field-value {
+    font-size: 1.4rem;
+    line-height: 24px;
+}
+
 .result-editor__usage-rights-container {
     flex-grow: 1;
 }
