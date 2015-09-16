@@ -55,7 +55,6 @@ object MetadataConfig {
     "Dan Chung"             -> "The Guardian",
     "Denis Thorpe"          -> "The Guardian",
     "Don McPhee"            -> "The Guardian",
-    "E Hamilton West"       -> "The Guardian",
     "Frank Baron"           -> "The Guardian",
     "Frank Martin"          -> "The Guardian",
     "Garry Weaser"          -> "The Guardian",
