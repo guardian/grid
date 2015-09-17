@@ -44,6 +44,9 @@ trait SearchFilters extends ImageFields {
   val freeFilter = filterOrFilter(freeSupplierFilter, freeUsageRightsFilter)
   val nonFreeFilter = freeFilter.map(filters.not)
 
+  // HACK: We are matching on "The Guardian" / "The Observer" credits here as there is a substantial
+  // amount of images that match that to be free, and there is too wide a net to cast to try and get
+  // them categorised correctly.
   val guardianCreditFilter = guardianCredits.toNel.map(cs => filters.terms(metadataField("credit"), cs))
   val freeFilterOrGuardianCredits = filterOrFilter(freeFilter, guardianCreditFilter)
   val nonFreeFilterWithoutGuardianCredits = filterOrFilter(freeFilter, guardianCreditFilter)
