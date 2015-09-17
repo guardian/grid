@@ -41,6 +41,10 @@ apiServices.factory('mediaApi',
         return root.follow('metadata-search', { field, q }).get();
     }
 
+     function labelSearch({ q }) {
+         return root.follow('label-search', { q }).get();
+     }
+
     function delete_(image) {
         return image.perform('delete');
     }
@@ -51,6 +55,7 @@ apiServices.factory('mediaApi',
         find,
         getSession,
         metadataSearch,
+        labelSearch,
         delete: delete_
     };
 }]);

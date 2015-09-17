@@ -12,9 +12,10 @@ trait ArgoHelpers extends Results {
   val ArgoMediaType = "application/vnd.argo+json"
 
   // FIXME: DSL to append links and actions?
-  def respond[T](data: T, links: List[Link] = Nil, actions: List[Action] = Nil)
+  def respond[T](data: T, links: List[Link] = Nil, actions: List[Action] = Nil, uri: Option[URI] = None)
                 (implicit writes: Writes[T]): Result = {
     val response = EntityReponse(
+      uri     = uri,
       data    = data,
       links   = links,
       actions = actions
@@ -23,7 +24,8 @@ trait ArgoHelpers extends Results {
     serializeAndWrap(response, Ok)
   }
 
-  def respondCollection[T](data: Seq[T], offset: Option[Long] = None, total: Option[Long] = None, links: List[Link] = Nil, uri: Option[URI] = None)
+  def respondCollection[T](data: Seq[T], offset: Option[Long] = None, total: Option[Long] = None,
+                           links: List[Link] = Nil, uri: Option[URI] = None)
                           (implicit writes: Writes[T]): Result = {
     val response = CollectionReponse(
       uri    = uri,

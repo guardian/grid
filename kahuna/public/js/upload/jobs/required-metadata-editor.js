@@ -20,9 +20,14 @@ jobs.controller('RequiredMetadataEditorCtrl',
 
     ctrl.saving = false;
     ctrl.disabled = () => Boolean(ctrl.saving || ctrl.externallyDisabled);
-    ctrl.metadata = metadataFromOriginal(ctrl.originalMetadata);
     ctrl.saveOnTime = 750; // ms
-    ctrl.copyrightWasInitiallyThere = !!ctrl.metadata.copyright;
+    ctrl.copyrightWasInitiallyThere = !!ctrl.originalMetadata.copyright;
+
+    // HACK: We watch the `originalMetadata` and re-set the `ctrl.metadata` as it can be mutated
+    // in other parts of the system and we need to reflect that (◞‸◟；)
+    $scope.$watch(() => ctrl.originalMetadata, newMetadata => {
+        ctrl.metadata = metadataFromOriginal(newMetadata);
+    });
 
     ctrl.save = function() {
         ctrl.saving = true;
@@ -44,6 +49,7 @@ jobs.controller('RequiredMetadataEditorCtrl',
     };
 
     ctrl.metadataSearch = (field, q) => {
+
         return mediaApi.metadataSearch(field,  { q }).then(resource => {
             return resource.data.map(d => d.key);
         });
