@@ -1,5 +1,8 @@
-<gr-icon ng:if="! ctrl.states.canArchive">account_balance</gr-icon>
+<gr-icon-label ng:if="! ctrl.states.canArchive" gr-icon="account_balance">
+    <span ng:show="ctrl.withText">Persisted</span>
+</gr-icon-label>
 
 <ui-archiver ng:if="ctrl.states.canArchive"
              image="ctrl.image"
-             disabled="ctrl.disabled"></ui-archiver>
+             disabled="ctrl.disabled"
+             with-text="ctrl.withText"></ui-archiver>
