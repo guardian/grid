@@ -44,7 +44,8 @@ module.directive('grImagePersistStatus', [function () {
         template: template,
         scope: {
             image: '=',
-            disabled: '='
+            disabled: '=',
+            withText: '='
         }
     };
 }]);

@@ -8,6 +8,7 @@ import '../components/gr-add-label/gr-add-label';
 import '../downloader/downloader';
 import '../components/gr-crop-image/gr-crop-image';
 import '../components/gr-delete-crops/gr-delete-crops';
+import '../components/gr-image-persist-status/gr-image-persist-status';
 
 var image = angular.module('kahuna.image.controller', [
     'kahuna.edits.service',
@@ -17,7 +18,8 @@ var image = angular.module('kahuna.image.controller', [
     'gr.addLabel',
     'gr.downloader',
     'gr.cropImage',
-    'gr.deleteCrops'
+    'gr.deleteCrops',
+    'gr.imagePersistStatus'
 ]);
 
 image.controller('ImageCtrl', [
