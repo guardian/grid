@@ -64,7 +64,7 @@ class ImageLoader extends Controller with ArgoHelpers {
         val tmpFile = createTempFile("download")
 
         val result = Downloader.download(validUri, tmpFile).flatMap { digestedFile =>
-          loadFile(digestedFile, request.user, uploadedBy, identifiers, uploadTime, filename: Option[String])
+          loadFile(digestedFile, request.user, uploadedBy, identifiers, uploadTime, filename)
         } recover {
           case NonFatal(e) => failedUriDownload
         }
@@ -90,7 +90,7 @@ class ImageLoader extends Controller with ArgoHelpers {
     // TODO: should error if the JSON parsing failed
     val identifiers_ = identifiers.map(Json.parse(_).as[Map[String, String]]) getOrElse Map()
 
-    val uploadInfo_ = UploadInfo(filename)
+    val uploadInfo_ = UploadInfo(filename.flatMap(_.trim.nonEmptyOpt))
 
     // TODO: handle the error thrown by an invalid string to `DateTime`
     // only allow uploadTime to be set by AuthenticatedService
@@ -165,5 +165,11 @@ class ImageLoader extends Controller with ArgoHelpers {
         respondError(BadRequest, "upload-error", e.getMessage)
       }
     }
+  }
+
+
+  // Find this a better home if used more widely
+  implicit class NonEmpty(s: String) {
+    def nonEmptyOpt: Option[String] = if (s.isEmpty) None else Some(s)
   }
 }
