@@ -48,7 +48,9 @@ module.exports = {
                 if(response.statusCode == 202){
                     observer.onNext(response);
                 } else {
-                    observer.onError("Failed to upload.");
+                    const failMessage =
+                        "Failed upload with code: " + response.statusCode;
+                    observer.onError(failMessage);
                 }
            });
            uploadRequest.on("error", observer.onError.bind(observer));
