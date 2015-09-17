@@ -58,16 +58,16 @@ module.exports = {
             context.fail(err);
         };
 
-        const done = function() {
+        const succeed = function() {
             console.log("Operation successful.");
-            context.done();
+            context.succeed();
         };
 
         return {
             s3Event: s3Event,
             config: config,
             fail: fail,
-            done: done
+            succeed: succeed
         };
     }
 }

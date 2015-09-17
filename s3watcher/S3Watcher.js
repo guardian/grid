@@ -20,7 +20,7 @@ exports.handler = function(event, context) {
             });
         }).flatMap(t.success);
     }).subscribe(
-        lambda.done,
+        lambda.success,
         lambda.fail
     );
 
