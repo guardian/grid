@@ -41,12 +41,13 @@ object EditsApi extends Controller with ArgoHelpers {
     // FIXME: Creating new instances? Rubbish ಠ_ಠ. I can't think of a way
     // to access the `val`s of the classes though without instantiating them.
     val usageRightsData =
-      List(PrImage(), Handout(), Screengrab(), SocialMedia(), Obituary(), Pool(),
-           StaffPhotographer("?", "?"), ContractPhotographer("?"), CommissionedPhotographer("?"),
-           Agency("?"), CommissionedAgency("?"), CrownCopyright(),
-           ContractIllustrator("?"), CommissionedIllustrator("?"), GuardianWitness())
-           .sortWith(_.name.toLowerCase < _.name.toLowerCase)
-        .map(CategoryResponse.fromUsageRights)
+      List(
+        Handout(), PrImage(), Screengrab(), SocialMedia(),
+        Agency("?"), CommissionedAgency("?"),
+        StaffPhotographer("?", "?"), ContractPhotographer("?"), CommissionedPhotographer("?"),
+        GuardianWitness(), Pool(), CrownCopyright(), Obituary(),
+        ContractIllustrator("?"), CommissionedIllustrator("?")
+      ).map(CategoryResponse.fromUsageRights)
 
     respond(usageRightsData)
   }
