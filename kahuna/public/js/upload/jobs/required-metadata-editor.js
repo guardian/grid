@@ -49,6 +49,7 @@ jobs.controller('RequiredMetadataEditorCtrl',
     };
 
     ctrl.metadataSearch = (field, q) => {
+
         return mediaApi.metadataSearch(field,  { q }).then(resource => {
             return resource.data.map(d => d.key);
         });
