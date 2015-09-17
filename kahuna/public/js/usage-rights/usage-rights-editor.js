@@ -182,19 +182,9 @@ usageRightsEditor.controller(
             const image = usageRights.image;
             const resource = image.data.userMetadata.data.usageRights;
             return editsService.update(resource, data, image).
-                then(resource => resource.data).
-                // HACK: This should probably live somewhere else, but it's the least intrusive
-                // here. This updates the metadata based on the usage rights to stop users having
-                // to enter content twice.
-                then(() => updateMetadataFromUsageRights(image));
-
+                then(resource => resource.data);
         })).catch(uiError).
             finally(() => updateSuccess(data));
-    }
-
-    function updateMetadataFromUsageRights(image) {
-        return editsService.
-               updateMetadataFromUsageRights(image.data.userMetadata.data.metadata, image);
     }
 
     function updateSuccess(data) {
