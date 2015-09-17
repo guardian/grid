@@ -40,8 +40,8 @@ object ImageResponse {
       case _ => false
     }
 
-  def imagePersistenceState(image: Image): (Boolean, List[String]) = {
-    val reasons: ListBuffer[String] = ListBuffer[String]()
+  def imagePersistenceReasons(image: Image): List[String] = {
+    val reasons = ListBuffer[String]()
 
     if (hasPersistenceIdentifier(image))
       reasons += "persistence-identifier"
@@ -55,7 +55,7 @@ object ImageResponse {
     if (isPhotographerCategory(image.usageRights))
       reasons += "photographer-category"
 
-    (reasons.nonEmpty, reasons.toList)
+    reasons.toList
   }
 
   def create(id: String, esSource: JsValue, withWritePermission: Boolean,
@@ -84,7 +84,8 @@ object ImageResponse {
 
     val valid = ImageExtras.isValid(source \ "metadata")
 
-    val (isPersisted, persistenceReasons) = imagePersistenceState(image)
+    val persistenceReasons = imagePersistenceReasons(image)
+    val isPersisted = persistenceReasons.nonEmpty
 
     val data = source.transform(addSecureSourceUrl(secureUrl))
       .flatMap(_.transform(wrapUserMetadata(id)))
@@ -155,7 +156,7 @@ object ImageResponse {
   def addPersistedState(isPersisted: Boolean, persistenceReasons: List[String]): Reads[JsObject] =
     __.json.update(__.read[JsObject]).map(_ ++ Json.obj(
       "persisted" -> Json.obj(
-        "data" -> isPersisted,
+        "value" -> isPersisted,
         "reasons" -> persistenceReasons)))
 
   // FIXME: tidier way to replace a key in a JsObject?
