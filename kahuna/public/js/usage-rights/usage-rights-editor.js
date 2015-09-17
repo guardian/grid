@@ -193,7 +193,8 @@ usageRightsEditor.controller(
     }
 
     function updateMetadataFromUsageRights(image) {
-        return editsService.perform(image.data.userMetadata.data.metadata, 'set-from-usage-rights', image);
+        return editsService.
+               updateMetadataFromUsageRights(image.data.userMetadata.data.metadata, image);
     }
 
     function updateSuccess(data) {
