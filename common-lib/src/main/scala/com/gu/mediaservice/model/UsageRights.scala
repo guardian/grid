@@ -117,8 +117,9 @@ case class Chargeable(restrictions: Option[String] = None)
     val defaultCost = Some(Pay)
     val name = "Chargeable supplied / on spec"
     val description =
-      "Pre-existing pictures and illustrations supplied on an ad hoc basis by freelance " +
-      "photographers and artists, and non-subscription agencies."
+      "Images acquired by or supplied to GNM that do not fit other categories in the Grid and " +
+      "therefore fees will be payable per use. Unless negotiated otherwise, fees should be based on " +
+      "standard published GNM rates for stock and speculative images."
   }
 object Chargeable {
  implicit val jsonReads: Reads[Chargeable] = Json.reads[Chargeable]
@@ -131,8 +132,8 @@ case class Agency(supplier: String, suppliersCollection: Option[String] = None, 
     val defaultCost = None
     val name = "Agency - subscription"
     val description =
-      "Agencies such as Getty, Reuters, Press Association, etc. where " +
-      "subscription fees are paid to access and use their pictures."
+      "Agencies such as Getty, Reuters, Press Association, etc. where subscription fees are paid " +
+      "to access and use pictures."
   }
 object Agency {
  implicit val jsonReads: Reads[Agency] = Json.reads[Agency]
@@ -151,7 +152,7 @@ case class CommissionedAgency(supplier: String, restrictions: Option[String] = N
     val defaultCost = Some(Free)
     val name = "Agency - commissioned"
     val description =
-      "Images commissioned and paid for from agencies."
+      "Images commissioned from agencies on an ad hoc basis."
   }
 object CommissionedAgency {
  implicit val jsonReads: Reads[CommissionedAgency] = Json.reads[CommissionedAgency]
@@ -169,7 +170,8 @@ case class PrImage(restrictions: Option[String] = None)
     val defaultCost = Some(Free)
     val name = "PR Image"
     val description =
-      "Used for publicity and promotional purposes such as exhibitions, auctions, etc."
+      "Images supplied for publicity purposes such as exhibitions, auctions, launches, " +
+      "charities, etc."
   }
 
 object PrImage {
@@ -184,7 +186,7 @@ case class Handout(restrictions: Option[String] = None)
     val defaultCost = Some(Free)
     val name = "Handout"
     val description =
-      "Provided free to use for press purposes e.g. police images for new " +
+      "Images supplied on general release to all media e.g. images provided by police for new " +
       "stories, family shots in biographical pieces, etc."
   }
 object Handout {
@@ -199,8 +201,8 @@ case class Screengrab(restrictions: Option[String] = None)
     val defaultCost = Some(Free)
     val name = "Screengrab"
     val description =
-      "Stills created by us from moving footage in television broadcasts " +
-      "usually in relation to breaking news stories."
+      "Stills created by GNM from moving footage in television broadcasts usually in relation to " +
+      "breaking news stories."
   }
 object Screengrab {
  implicit val jsonReads: Reads[Screengrab] = Json.reads[Screengrab]
@@ -212,10 +214,9 @@ case class GuardianWitness(restrictions: Option[String] = None)
   extends UsageRights {
     val category = "guardian-witness"
     val defaultCost = Some(Conditional)
-    val name = "Guardian Witness"
+    val name = "GuardianWitness"
     val description =
-      "Provided by readers in response to callouts and assignments on " +
-      "GuardianWitness."
+      "Images provided by readers in response to callouts and assignments on GuardianWitness."
 
     override val defaultRestrictions = Some(
       "Contact the GuardianWitness desk before use (witness.editorial@theguardian.com)!"
@@ -233,11 +234,11 @@ case class SocialMedia(restrictions: Option[String] = None)
     val defaultCost = Some(Conditional)
     val name = "Social Media"
     val description =
-      "Taken from public websites and social media to support " +
-      "breaking news where no other image is available from usual sources. " +
-      "Permission should be sought from the copyright holder, but in " +
-      "extreme circumstances an image may be used with the approval of " +
-      "a senior editor."
+      "Images grabbed from social media to support breaking news where no other image is available " +
+      "from usual sources."
+
+   override val caution =
+    Some("Approval needed from senior editor if permission from owner cannot be acquired")
   }
 object SocialMedia {
  implicit val jsonReads: Reads[SocialMedia] = Json.reads[SocialMedia]
@@ -251,8 +252,7 @@ case class Obituary(restrictions: Option[String] = None)
     val defaultCost = Some(Conditional)
     val name = "Obituary"
     val description =
-      "Acquired from private sources, e.g. family members, for the purposes of " +
-      "obituaries."
+      "Images acquired from private sources, e.g. family members, for the purposes of obituaries."
 
     override val defaultRestrictions = Some(
       "Only to be used in context with person's obituary"
@@ -270,7 +270,7 @@ case class StaffPhotographer(photographer: String, publication: String, restrict
     val defaultCost = Some(Free)
     val name = "Photographer - staff"
     val description =
-      "From photographers who are or were members of staff."
+      "Images from photographers who are or were members of staff."
   }
 object StaffPhotographer {
  implicit val jsonReads: Reads[StaffPhotographer] = Json.reads[StaffPhotographer]
@@ -289,7 +289,7 @@ case class ContractPhotographer(photographer: String, publication: Option[String
     val defaultCost = Some(Free)
     val name = "Photographer - contract"
     val description =
-      "From freelance photographers on fixed-term contracts."
+      "Images from freelance photographers on fixed-term contracts."
   }
 object ContractPhotographer {
  implicit val jsonReads: Reads[ContractPhotographer] = Json.reads[ContractPhotographer]
@@ -308,7 +308,7 @@ case class CommissionedPhotographer(photographer: String, publication: Option[St
     val defaultCost = Some(Free)
     val name = "Photographer - commissioned"
     val description =
-      "Commissioned for assignments on an ad hoc basis."
+      "Images commissioned from freelance photographers on an ad hoc basis."
   }
 object CommissionedPhotographer {
  implicit val jsonReads: Reads[CommissionedPhotographer] = Json.reads[CommissionedPhotographer]
@@ -327,9 +327,8 @@ case class Pool(restrictions: Option[String] = None)
     val defaultCost = Some(Conditional)
     val name = "Pool"
     val description =
-      "Issued during major national events that are free to use and " +
-      "shared amongst news media organisations during that event. " +
-      "Rights revert to the copyright holder when the pool is terminated."
+      "Images issued during major national events that are free to use and shared amongst news " +
+      "media organisations. Rights revert to the copyright holder when the pool is terminated."
   }
 object Pool {
  implicit val jsonReads: Reads[Pool] = Json.reads[Pool]
@@ -343,8 +342,8 @@ case class CrownCopyright(restrictions: Option[String] = None)
     val defaultCost = Some(Free)
     val name = "Crown copyright"
     val description =
-      "Crown copyright covers material created by civil servants, ministers and government " +
-      "departments and agencies, including the MOD."
+      "Crown copyright covers material created by Government. Material may be used subject to " +
+      "acknowledgement."
   }
 object CrownCopyright {
  implicit val jsonReads: Reads[CrownCopyright] = Json.reads[CrownCopyright]
@@ -357,7 +356,7 @@ case class ContractIllustrator(creator: String, restrictions: Option[String] = N
     val defaultCost = Some(Free)
     val name = "Illustrator - contract"
     val description =
-      "Illustrations by illustrators on contract."
+      "Illustrations from freelance illustrators on fixed-term contracts."
   }
 object ContractIllustrator {
  implicit val jsonReads: Reads[ContractIllustrator] = Json.reads[ContractIllustrator]
@@ -374,7 +373,7 @@ case class CommissionedIllustrator(creator: String, restrictions: Option[String]
     val defaultCost = Some(Free)
     val name = "Illustrator - commissioned"
     val description =
-      "Illustrations commissioned and payed for."
+      "Illustrations commissioned from freelance illustrators on an ad hoc basis."
   }
 object CommissionedIllustrator {
  implicit val jsonReads: Reads[CommissionedIllustrator] = Json.reads[CommissionedIllustrator]
