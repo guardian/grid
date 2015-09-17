@@ -59,8 +59,6 @@ addLabel.controller('GrAddLabelCtrl', [
         }
 
         ctrl.labelSearch = (q) => {
-            //let usesComma = q.indexOf(',') > -1;
-            //q = usesComma ? q.slice(q.lastIndexOf(',') + 1).trim() : q;
             if (! q) {
                 return $q.resolve([]);
             } else {
@@ -79,7 +77,7 @@ addLabel.controller('GrAddLabelCtrl', [
         ctrl.selectLastLabel = (value) => {
             const afterComma = value.split(',').slice(-1)[0].trim();
             return afterComma;
-        }
+        };
 
     }
 ]);
