@@ -30,6 +30,7 @@ object UsageRights {
   // TODO: I haven't figured out why Json.toJson[T](o) doesn't work here, it'd
   // be good to know though.
   implicit def jsonWrites[T <: UsageRights]: Writes[T] = Writes[T] {
+    case o: Chargeable               => Chargeable.jsonWrites.writes(o)
     case o: Agency                   => Agency.jsonWrites.writes(o)
     case o: CommissionedAgency       => CommissionedAgency.jsonWrites.writes(o)
     case o: PrImage                  => PrImage.jsonWrites.writes(o)
@@ -59,6 +60,7 @@ object UsageRights {
       val supplier = (json \ "supplier").asOpt[String]
 
       (category flatMap {
+        case "chargeable"                => json.asOpt[Chargeable]
         case "agency"                    => json.asOpt[Agency]
         case "commissioned-agency"       => json.asOpt[CommissionedAgency]
         case "PR Image"                  => json.asOpt[PrImage]
@@ -108,6 +110,20 @@ case object NoRights
     implicit val jsonWrites: Writes[NoRights.type] = Writes[NoRights.type](_ => jsonVal)
   }
 
+
+case class Chargeable(restrictions: Option[String] = None)
+  extends UsageRights {
+    val category = "chargeable"
+    val defaultCost = Some(Pay)
+    val name = "Chargeable supplied / on spec"
+    val description =
+      "Pre-existing pictures and illustrations supplied on an ad hoc basis by freelance " +
+      "photographers and artists, and non-subscription agencies."
+  }
+object Chargeable {
+ implicit val jsonReads: Reads[Chargeable] = Json.reads[Chargeable]
+ implicit val jsonWrites: Writes[Chargeable] = UsageRights.defaultWrites
+}
 
 case class Agency(supplier: String, suppliersCollection: Option[String] = None, restrictions: Option[String] = None)
   extends UsageRights {

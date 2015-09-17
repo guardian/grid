@@ -41,7 +41,7 @@ object EditsApi extends Controller with ArgoHelpers {
     val usageRightsData =
       List(
         Handout(), PrImage(), Screengrab(), SocialMedia(),
-        Agency("?"), CommissionedAgency("?"),
+        Agency("?"), CommissionedAgency("?"), Chargeable(),
         StaffPhotographer("?", "?"), ContractPhotographer("?"), CommissionedPhotographer("?"),
         CreativeCommons(), GuardianWitness(), Pool(), CrownCopyright(), Obituary(),
         ContractIllustrator("?"), CommissionedIllustrator("?")
