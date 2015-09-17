@@ -130,7 +130,7 @@ object MetadataConfig {
     "Joe Magee",
     "Jasper Rietman",
     "Matt Kenyon",
-    "Andreij Krauze",
+    "Andrzej Krauze",
     "Ellie Foreman-Peck",
     "Ben Jennings"
   )
