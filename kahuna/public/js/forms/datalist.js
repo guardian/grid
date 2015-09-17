@@ -130,7 +130,8 @@ datalist.directive('grDatalistInput',
             }
 
             function activate(results) {
-                const isOnlyResult = results.length === 1 && valueSelector(input.val()) === results[0];
+                const inputMatchesFirstResult = valueSelector(input.val()) === results[0];
+                const isOnlyResult = results.length === 1 && inputMatchesFirstResult;
                 const noResults = results.length === 0 || isOnlyResult;
 
                 parentCtrl.active = !noResults;
