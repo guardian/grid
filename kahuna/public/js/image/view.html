@@ -70,6 +70,7 @@
                                ui:sref="{crop: crop.id}"
                                ui:drag-data="{{ctrl.image | asImageAndCropsDragData:crop}}"
                                ui:drag-image="{{extremeAssets.smallest | assetFile}}">
+                                <span class="image-crop__creator" title="Cropped by {{crop.author}} at {{crop.date | date:'medium'}}">{{crop.author | getInitials}}</span>
                                 <img class="image-crop__image" ng:src="{{extremeAssets.smallest | assetFile}}" />
                                 <div class="image-crop__aspect-ratio"
                                     ng:class="{'image-crop__aspect-ratio--selected': crop == ctrl.crop}">

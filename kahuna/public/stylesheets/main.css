@@ -1568,6 +1568,10 @@ FIXME: what to do with touch devices
     background-color: #333;
 }
 
+.image-crop:hover .image-crop__creator{
+    display: inline;
+}
+
 .result--selected,
 .result--selected:hover {
     border-color: #00adee;
@@ -1579,6 +1583,24 @@ FIXME: what to do with touch devices
 
 .result--selected .preview {
     background-color: #4c4c4c;
+}
+
+.image-crop__creator {
+    position: absolute;
+    display: none;
+    margin: 1px;
+    padding: 2px;
+    border-radius: 50%;
+    background-color: #6E6E6E;
+    opacity: 0.5;
+    width: 22px;
+    height: 22px;
+    line-height: 22px;
+    text-align: center;
+}
+
+.image-crop__creator:hover {
+    opacity: 1;
 }
 
 .image-crop__image {
