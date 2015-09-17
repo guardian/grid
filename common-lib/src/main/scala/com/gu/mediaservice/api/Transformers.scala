@@ -1,8 +1,10 @@
 package com.gu.mediaservice.api
 
-import java.net.URLEncoder
+import java.net.{URI, URLEncoder}
 
+import com.gu.mediaservice.lib.argo.model.{EmbeddedEntity, Action}
 import com.gu.mediaservice.lib.config.Services
+import com.gu.mediaservice.model.{Edits, ImageMetadata}
 import play.api.libs.json._
 
 class Transformers(services: Services) {
@@ -46,6 +48,18 @@ class Transformers(services: Services) {
       )
     }
 
+  def entityUri(id: String, endpoint: String = ""): URI =
+    URI.create(s"$metadataBaseUri/metadata/$id$endpoint")
+
+  type MetadataEntity = EmbeddedEntity[ImageMetadata]
+
+  def metadataEntity(id: String, m: ImageMetadata): Option[MetadataEntity] =
+    Edits.noneIfEmptyMetadata(m).map(i =>
+      EmbeddedEntity(entityUri(id, "/metadata"), Some(i), actions = List(
+        Action("set-metadata-from-usage-rights", entityUri(id, "/metadata/set-from-usage-rights"), "POST")
+      ))
+    )
+
   def wrapMetadata(id: String): Reads[JsObject] =
     __.read[JsObject].map { metadata =>
       Json.obj(
@@ -55,7 +69,9 @@ class Transformers(services: Services) {
         // always returns Array(). This is just making sure that bug is replicated
         // so we can do equalities to see if the services are synced. This will
         // be rectified when we use Argo here.
-        "data" -> (metadata ++ Json.obj("keywords" -> Json.arr()))
+        "data" -> (metadata ++ Json.obj("keywords" -> Json.arr())),
+        "actions" -> List(Action("set-from-usage-rights",
+          URI.create(s"$metadataBaseUri/metadata/$id/metadata/set-from-usage-rights"), "POST"))
       )
     }
 

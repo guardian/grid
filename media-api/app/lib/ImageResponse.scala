@@ -3,6 +3,7 @@ package lib
 import lib.usagerights.CostCalculator
 
 import java.net.URI
+import scala.collection.mutable.ListBuffer
 import scala.util.{Try, Failure}
 import org.joda.time.{DateTime, Duration}
 
@@ -24,18 +25,37 @@ object ImageResponse {
 
   def fileMetaDataUri(id: String) = URI.create(s"${Config.rootUri}/images/$id/fileMetadata")
 
+  def hasPersistenceIdentifier(image: Image) =
+    image.identifiers.contains(Config.persistenceIdentifier)
+
+  def hasExports(image: Image) =
+    image.exports.nonEmpty
+
+  def isArchived(image: Image) =
+    image.userMetadata.exists(_.archived)
+
   def isPhotographerCategory[T <: UsageRights](usageRights: T) =
     usageRights match {
       case _:Photographer => true
       case _ => false
     }
 
-  // TODO: move this as a method of Image (fiddly due to dep on Config)
-  def imageIsPersisted(image: Image) = {
-    image.identifiers.contains(Config.persistenceIdentifier) ||
-      image.exports.nonEmpty ||
-      image.userMetadata.exists(_.archived) ||
-      isPhotographerCategory(image.usageRights)
+  def imagePersistenceReasons(image: Image): List[String] = {
+    val reasons = ListBuffer[String]()
+
+    if (hasPersistenceIdentifier(image))
+      reasons += "persistence-identifier"
+
+    if (hasExports(image))
+      reasons += "exports"
+
+    if (isArchived(image))
+      reasons += "archived"
+
+    if (isPhotographerCategory(image.usageRights))
+      reasons += "photographer-category"
+
+    reasons.toList
   }
 
   def create(id: String, esSource: JsValue, withWritePermission: Boolean,
@@ -64,14 +84,15 @@ object ImageResponse {
 
     val valid = ImageExtras.isValid(source \ "metadata")
 
-    val isPersisted = imageIsPersisted(image)
+    val persistenceReasons = imagePersistenceReasons(image)
+    val isPersisted = persistenceReasons.nonEmpty
 
     val data = source.transform(addSecureSourceUrl(secureUrl))
       .flatMap(_.transform(wrapUserMetadata(id)))
       .flatMap(_.transform(addSecureThumbUrl(secureThumbUrl)))
       .flatMap(_.transform(addValidity(valid)))
       .flatMap(_.transform(addUsageCost(source)))
-      .flatMap(_.transform(addPersistedState(isPersisted))).get
+      .flatMap(_.transform(addPersistedState(isPersisted, persistenceReasons))).get
 
     val links = imageLinks(id, secureUrl, withWritePermission, valid)
 
@@ -106,8 +127,8 @@ object ImageResponse {
     val reindexAction = Action("reindex", reindexUri, "POST")
 
     List(
-      deleteAction       -> canDelete,
-      reindexAction      -> withWritePermission
+      deleteAction                     -> canDelete,
+      reindexAction                    -> withWritePermission
     )
     .filter{ case (action, active) => active }
     .map   { case (action, active) => action }
@@ -132,8 +153,11 @@ object ImageResponse {
     __.json.update(__.read[JsObject].map(_ ++ Json.obj("cost" -> cost.toString)))
   }
 
-  def addPersistedState(isPersisted: Boolean): Reads[JsObject] =
-    __.json.update(__.read[JsObject]).map(_ ++ Json.obj("persisted" -> isPersisted))
+  def addPersistedState(isPersisted: Boolean, persistenceReasons: List[String]): Reads[JsObject] =
+    __.json.update(__.read[JsObject]).map(_ ++ Json.obj(
+      "persisted" -> Json.obj(
+        "value" -> isPersisted,
+        "reasons" -> persistenceReasons)))
 
   // FIXME: tidier way to replace a key in a JsObject?
   def wrapUserMetadata(id: String): Reads[JsObject] =
