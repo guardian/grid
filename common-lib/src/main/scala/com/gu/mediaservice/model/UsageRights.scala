@@ -8,9 +8,10 @@ sealed trait UsageRights {
   val name: String
   val description: String
   val restrictions: Option[String]
-  val defaultRestrictions: Option[String] = None
-
   val defaultCost: Option[Cost]
+
+  val defaultRestrictions: Option[String] = None
+  val caution: Option[String] = None
 }
 object UsageRights {
   val defaultWrites: Writes[UsageRights] = (
@@ -44,6 +45,7 @@ object UsageRights {
     case o: CrownCopyright           => CrownCopyright.jsonWrites.writes(o)
     case o: ContractIllustrator      => ContractIllustrator.jsonWrites.writes(o)
     case o: CommissionedIllustrator  => CommissionedIllustrator.jsonWrites.writes(o)
+    case o: CreativeCommons          => CreativeCommons.jsonWrites.writes(o)
     case o: NoRights.type            => NoRights.jsonWrites.writes(o)
   }
 
@@ -72,6 +74,7 @@ object UsageRights {
         case "crown-copyright"           => json.asOpt[CrownCopyright]
         case "contract-illustrator"      => json.asOpt[ContractIllustrator]
         case "commissioned-illustrator"  => json.asOpt[CommissionedIllustrator]
+        case "creative-commons"          => json.asOpt[CreativeCommons]
         case _                           => None
       })
       .orElse(supplier.flatMap(_ => json.asOpt[Agency]))
@@ -364,4 +367,20 @@ object CommissionedIllustrator {
    (__ \ "creator").write[String] ~
    (__ \ "restrictions").writeNullable[String]
  )(i => (i.category, i.creator, i.restrictions))
+}
+
+case class CreativeCommons(restrictions: Option[String] = None)
+  extends UsageRights {
+    val category = "creative-commons"
+    val defaultCost = Some(Free)
+    val name = "Creative Commons"
+    val description =
+      "Images made available by rights holders on open licence terms that grant third parties " +
+      "permission to use and share copyright material for free."
+
+    override val caution = Some("This only applies to COMMERCIAL creative commons licences.")
+  }
+object CreativeCommons {
+ implicit val jsonReads: Reads[CreativeCommons] = Json.reads[CreativeCommons]
+ implicit val jsonWrites: Writes[CreativeCommons] = UsageRights.defaultWrites
 }
