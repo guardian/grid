@@ -4,7 +4,7 @@ import template from './image-editor.html!text';
 import './service';
 import '../image/service';
 import '../usage-rights/usage-rights-editor';
-import '../components/gr-image-persist-status/gr-image-persist-status'
+import '../components/gr-image-persist-status/gr-image-persist-status';
 
 
 export var imageEditor = angular.module('kahuna.edits.imageEditor', [

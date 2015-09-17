@@ -31,7 +31,8 @@ imageService.factory('imageService', [function() {
             isValid: image.data.valid,
             canDelete: image.getAction('delete').then(action => !! action),
             canArchive: image.data.persisted.value === false ||
-                (image.data.persisted.reasons.length === 1 && image.data.persisted.reasons[0] === "archived"),
+                (image.data.persisted.reasons.length === 1 &&
+                image.data.persisted.reasons[0] === 'archived'),
             persistedReasons: image.data.persisted.reasons.join(', ')
         };
     }
