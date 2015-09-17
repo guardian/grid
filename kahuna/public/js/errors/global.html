@@ -26,6 +26,10 @@
     <div class="global-error warning" ng:message="unknown">
         An unknown error has occurred.
         If the problem persists please <a href="mailto:thegrid.dev@theguardian.com" class="coloured-link">email the Grid team</a>.
+
+        <gr-icon class="global-error__close"
+                 title="Close"
+                 ng:click="ctrl.dismiss('unknown')">close</gr-icon>
     </div>
 
     <div class="global-error error" ng:message="server">

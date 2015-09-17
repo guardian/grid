@@ -1,0 +1,18 @@
+{
+  "name": "s3watcher",
+  "version": "0.0.0",
+  "description": "",
+  "main": "S3Watcher.js",
+  "dependencies": {
+    "async": "~1.4.2",
+    "request": "~2.61.0",
+    "rx": "^3.1.2",
+    "rx-node": "^1.0.1"
+  },
+  "devDependencies": {},
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "Apache-2.0"
+}

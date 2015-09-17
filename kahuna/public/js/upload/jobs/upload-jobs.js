@@ -56,7 +56,7 @@ jobs.controller('UploadJobsCtrl', [
                 if (!jobItem.image.data.metadata.description) {
                     const newDescription = jobItem.name
                         .substr(0, jobItem.name.lastIndexOf('.'))
-                        .replace('_', ' ');
+                        .replace(/_/g, ' ');
 
                     jobItem.image.data.metadata.description = newDescription;
                 }
