@@ -149,8 +149,10 @@ service.factory('editsService',
         return existingRequestPool.promise;
     }
 
-    function perform(resource, action, originalImage) {
-        const newRequest = resource.perform(action).
+    // HACK: This is a very specific action that we use the `updateRequestPool` ast this action
+    // actually updates the metadata as a sideeffect.
+    function updateMetadataFromUsageRights(resource, originalImage) {
+        const newRequest = resource.perform('set-from-usage-rights').
               then(edit => getSynced(originalImage, newImage => matches(edit, newImage)));
 
         const existingRequestPool = updateRequestPools.get(resource) ||
@@ -283,7 +285,7 @@ service.factory('editsService',
     }
 
     return {
-        update, add, on, canUserEdit, perform,
+        update, add, on, canUserEdit, updateMetadataFromUsageRights,
         updateMetadataField, batchUpdateMetadataField
     };
 
