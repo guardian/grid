@@ -149,6 +149,19 @@ service.factory('editsService',
         return existingRequestPool.promise;
     }
 
+    // HACK: This is a very specific action that we use the `updateRequestPool` ast this action
+    // actually updates the metadata as a sideeffect.
+    function updateMetadataFromUsageRights(resource, originalImage) {
+        const newRequest = resource.perform('set-from-usage-rights').
+              then(edit => getSynced(originalImage, newImage => matches(edit, newImage)));
+
+        const existingRequestPool = updateRequestPools.get(resource) ||
+            registerUpdateRequest(resource, originalImage);
+
+        existingRequestPool.registerPromise(newRequest);
+
+        return existingRequestPool.promise;
+    }
 
     // Event handling
     // TODO: Use proper names from http://en.wikipedia.org/wiki/Watcher_%28comics%29
@@ -272,7 +285,7 @@ service.factory('editsService',
     }
 
     return {
-        update, add, on, canUserEdit,
+        update, add, on, canUserEdit, updateMetadataFromUsageRights,
         updateMetadataField, batchUpdateMetadataField
     };
 
