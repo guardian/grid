@@ -25,14 +25,15 @@ imageService.factory('imageService', [function() {
     }
 
     function getStates(image) {
+        const persistReasons = image.data.persisted.reasons;
+
         return {
             cost: image.data.cost,
             hasCrops: hasExportsOfType(image, 'crop'),
             isValid: image.data.valid,
             canDelete: image.getAction('delete').then(action => !! action),
             canArchive: image.data.persisted.value === false ||
-                (image.data.persisted.reasons.length === 1 &&
-                image.data.persisted.reasons[0] === 'archived'),
+                (persistReasons.length === 1 && persistReasons[0] === 'archived'),
             persistedReasons: image.data.persisted.reasons.join(', ')
         };
     }
