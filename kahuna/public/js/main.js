@@ -377,7 +377,7 @@ kahuna.filter('stripEmailDomain', function() {
 });
 
 kahuna.filter('getInitials', function() {
-    return str => str.replace(/@.+/, '').split('.').map(e => e.charAt(0).toUpperCase()).join('');
+    return str => str && str.replace(/@.+/, '').split('.').map(e => e.charAt(0).toUpperCase()).join('');
 });
 
 kahuna.filter('spaceWords', function() {
