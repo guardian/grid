@@ -1603,11 +1603,9 @@ FIXME: what to do with touch devices
 }
 
 .label {
-    background-color: #00adee;
     color: white;
-    display: inline-block;
-    padding: 0 5px;
-    border-radius: 2px;
+    display: inline-flex;
+    justify-content: space-between;
     margin: 0 5px 5px 0;
 }
 
@@ -1624,6 +1622,24 @@ FIXME: what to do with touch devices
 .label__link,
 .label__remove {
     color: white;
+    background-color: #00adee;
+    padding: 0 5px;
+}
+
+.label__link:hover,
+.label__remove:hover {
+    color: #00adee;
+    background-color: white;
+}
+
+.label__link {
+    border-top-left-radius: 2px;
+    border-bottom-left-radius: 2px;
+}
+
+.label__remove {
+    border-top-right-radius: 2px;
+    border-bottom-right-radius: 2px;
 }
 
 .label button:hover gr-icon {
