@@ -114,8 +114,8 @@ case class Chargeable(restrictions: Option[String] = None)
     val defaultCost = Some(Pay)
     val name = "Chargeable supplied / on spec"
     val description =
-      "Agencies such as Getty, Reuters, Press Association, etc. where " +
-      "subscription fees are paid to access and use their pictures."
+      "Pre-existing pictures and illustrations supplied on an ad hoc basis by freelance " +
+      "photographers and artists, and non-subscription agencies."
   }
 object Chargeable {
  implicit val jsonReads: Reads[Chargeable] = Json.reads[Chargeable]
