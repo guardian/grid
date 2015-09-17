@@ -235,8 +235,10 @@ case class SocialMedia(restrictions: Option[String] = None)
     val name = "Social Media"
     val description =
       "Images grabbed from social media to support breaking news where no other image is available " +
-      "from usual sources. APPROVAL NEEDED FROM SENIOR EDITOR IF PERMISSION FROM OWNER CANNOT BE " +
-      "ACQUIRED."
+      "from usual sources."
+
+   override val caution =
+    Some("Approval needed from senior editor if permission from ownercannot be aqcuired")
   }
 object SocialMedia {
  implicit val jsonReads: Reads[SocialMedia] = Json.reads[SocialMedia]
