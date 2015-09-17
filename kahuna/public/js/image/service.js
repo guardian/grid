@@ -30,9 +30,9 @@ imageService.factory('imageService', [function() {
             hasCrops: hasExportsOfType(image, 'crop'),
             isValid: image.data.valid,
             canDelete: image.getAction('delete').then(action => !! action),
-            isPersisted: image.data.persisted.value,
             canArchive: image.data.persisted.value === false ||
-                (image.data.persisted.reasons.length === 1 && image.data.persisted.reasons[0] === "archived")
+                (image.data.persisted.reasons.length === 1 && image.data.persisted.reasons[0] === "archived"),
+            persistedReasons: image.data.persisted.reasons.join(', ')
         };
     }
 
