@@ -459,6 +459,9 @@ textarea.ng-invalid {
     padding: 20px 40px;
     text-align: center;
 }
+.warning--small {
+    padding: 5px 10px;
+}
 
 .full-error {
     margin-top: 3rem;
