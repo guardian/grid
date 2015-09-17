@@ -79,11 +79,9 @@
             </span>
         </div>
         <div class="bottom-bar__actions">
-
-            <ui-archiver
-                class="bottom-bar__action"
-                image="ctrl.image"
-                disabled="ctrl.selectionMode"></ui-archiver>
+            <gr-image-persist-status class="bottom-bar__action"
+                                     image="ctrl.image"
+                                     disabled="ctrl.selectionMode"></gr-image-persist-status>
 
             <div class="preview__cost bottom-bar__action"
                  ng:if="ctrl.states.cost !== 'free'"
