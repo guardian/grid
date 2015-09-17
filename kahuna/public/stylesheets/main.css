@@ -438,6 +438,15 @@ textarea.ng-invalid {
     border-radius: 5px;
 }
 
+.global-error__close {
+    padding-left: 10px;
+    cursor: pointer;
+}
+
+.global-error__close:hover {
+    color: white;
+}
+
 .error {
     background: darkred;
     color: white;
@@ -1210,6 +1219,11 @@ FIXME: what to do with touch devices
 
 .result-editor__field-label {
     width: 100px;
+}
+
+.result-editor__field-value {
+    font-size: 1.4rem;
+    line-height: 24px;
 }
 
 .result-editor__usage-rights-container {

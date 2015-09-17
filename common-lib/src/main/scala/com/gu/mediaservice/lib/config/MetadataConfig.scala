@@ -39,7 +39,7 @@ object PhotographersList {
 
 object MetadataConfig {
 
-  val staffPhotographers: Map[String, String] = Map(
+  val externalStaffPhotographers: Map[String, String] = Map(
     // Current
     "Alicia Canter"  -> "The Guardian",
     "Bill Code"      -> "The Guardian",
@@ -52,36 +52,43 @@ object MetadataConfig {
     "Sean Smith"     -> "The Guardian",
 
     // Past
-    "Catherine Shaw"        -> "The Guardian",
     "Dan Chung"             -> "The Guardian",
     "Denis Thorpe"          -> "The Guardian",
     "Don McPhee"            -> "The Guardian",
-    "E Hamilton West"       -> "The Guardian",
-    "Emma Baddeley"         -> "The Guardian",
     "Frank Baron"           -> "The Guardian",
     "Frank Martin"          -> "The Guardian",
     "Garry Weaser"          -> "The Guardian",
     "Graham Finlayson"      -> "The Guardian",
-    "Harriet St Johnston"   -> "The Guardian",
-    "James Michelson"       -> "The Guardian",
-    "John Reardon"          -> "The Guardian",
-    "Lorna Roach"           -> "The Guardian",
-    "Marcus Mays"           -> "The Guardian",
     "Martin Argles"         -> "The Guardian",
-    "Millie Burton"         -> "The Guardian",
     "Peter Johns"           -> "The Guardian",
-    "Rachel Vere"           -> "The Guardian",
-    "Richard Blake"         -> "The Guardian",
     "Robert Smithies"       -> "The Guardian",
-    "Sean Gibson"           -> "The Guardian",
-    "Ted West"              -> "The Guardian",
     "Tom Stuttard"          -> "The Guardian",
     "Tricia De Courcy Ling" -> "The Guardian",
     "Walter Doughty"        -> "The Guardian",
-
     "David Newell Smith"    -> "The Observer",
-    "Tony McGrath"          -> "The Observer"
+    "Tony McGrath"          -> "The Observer",
+    "Catherine Shaw"        -> "The Observer",
+    "John Reardon"          -> "The Observer",
+    "Sean Gibson"           -> "The Observer"
   )
+
+  // these are people who aren't photographers by trade, but have taken photographs for us.
+  // This is mainly used so when we ingest photos from Picdar, we make sure we categorise
+  // them correctly.
+  // TODO: Think about removin these once Picdar is dead.
+  val internalStaffPhotographers = List(
+    "E Hamilton West"       -> "The Guardian",
+    "Emma Baddeley"         -> "The Guardian",
+    "Harriet St Johnston"   -> "The Guardian",
+    "James Michelson"       -> "The Guardian",
+    "Lorna Roach"           -> "The Guardian",
+    "Marcus Mays"           -> "The Guardian",
+    "Millie Burton"         -> "The Guardian",
+    "Rachel Vere"           -> "The Guardian",
+    "Richard Blake"         -> "The Guardian"
+  )
+
+  val staffPhotographers = externalStaffPhotographers ++ internalStaffPhotographers
 
   val contractedPhotographers: Map[String, String] = Map(
     "Antonio Zazueta"     -> "The Guardian",
@@ -123,13 +130,14 @@ object MetadataConfig {
     "Joe Magee",
     "Jasper Rietman",
     "Matt Kenyon",
-    "Andreij Krauze",
+    "Andrzej Krauze",
     "Ellie Foreman-Peck",
     "Ben Jennings"
   )
 
   val allPhotographers = staffPhotographers ++ contractedPhotographers
 
+  val externalPhotographersMap = PhotographersList.creditBylineMap(externalStaffPhotographers)
   val staffPhotographersMap = PhotographersList.creditBylineMap(staffPhotographers)
   val contractPhotographersMap = PhotographersList.creditBylineMap(staffPhotographers)
   val allPhotographersMap = PhotographersList.creditBylineMap(allPhotographers)
