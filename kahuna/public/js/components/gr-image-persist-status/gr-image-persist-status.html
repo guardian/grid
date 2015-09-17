@@ -1,4 +1,5 @@
-<gr-icon-label ng:if="! ctrl.states.canArchive" gr-icon="account_balance">
+<gr-icon-label ng:if="! ctrl.states.canArchive" gr-icon="account_balance"
+    title="Persisted because: {{ctrl.states.persistedReasons}}">
     <span ng:show="ctrl.withText">Persisted</span>
 </gr-icon-label>
 
