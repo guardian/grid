@@ -214,9 +214,9 @@ case class GuardianWitness(restrictions: Option[String] = None)
   extends UsageRights {
     val category = "guardian-witness"
     val defaultCost = Some(Conditional)
-    val name = "Guardian Witness"
+    val name = "GuardianWitness"
     val description =
-      "Images provided by readers in response to callouts and assignments on Guardian Witness."
+      "Images provided by readers in response to callouts and assignments on GuardianWitness."
 
     override val defaultRestrictions = Some(
       "Contact the GuardianWitness desk before use (witness.editorial@theguardian.com)!"
@@ -238,7 +238,7 @@ case class SocialMedia(restrictions: Option[String] = None)
       "from usual sources."
 
    override val caution =
-    Some("Approval needed from senior editor if permission from ownercannot be aqcuired")
+    Some("Approval needed from senior editor if permission from owner cannot be acquired")
   }
 object SocialMedia {
  implicit val jsonReads: Reads[SocialMedia] = Json.reads[SocialMedia]
