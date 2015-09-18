@@ -22,9 +22,9 @@ usageRightsEditor.controller(
     function($q, $scope, $window, $timeout, editsService, editsApi, onValChange, inject$) {
 
     var ctrl = this;
-    const multiCat = { name: 'Multiple categories', value: null };
+    const multiCat = { name: 'Multiple categories', value: 'multi-cat' };
 
-    const usageRights$ = new Rx.Subject([]);
+    const usageRights$ = new Rx.BehaviorSubject([]);
     $scope.$watch(() => ctrl.usageRights, usageRightsList => {
         // poor mans stream updating
         usageRights$.onNext(usageRightsList);
@@ -77,6 +77,29 @@ usageRightsEditor.controller(
             return [{key: 'None', value: null}].concat(options);
         }
     };
+
+    ctrl.save = () => {
+        // we save as `{}` if category isn't defined.
+        const data = ctrl.category.value ?
+            angular.extend({}, ctrl.model, { category: ctrl.category.value }) : {};
+        save(data)
+    };
+
+    ctrl.reset = () => {
+        ctrl.model = {};
+    };
+
+
+
+    function save(data) {
+        $q.all(ctrl.usageRights.map((usageRights) => {
+            const image = usageRights.image;
+            const resource = image.data.userMetadata.data.usageRights;
+            return editsService.update(resource, data, image).
+                then(resource => resource.data);
+        })).catch(uiError).
+            finally(() => updateSuccess(data));
+    }
 
     function getUniqueCats(usageRights) {
         return unique(usageRights.map(ur => ur.data.category));
@@ -247,17 +270,17 @@ usageRightsEditor.controller(
         }
     }
 
-    function save(data) {
-        ctrl.error = null;
-        ctrl.saving = true;
-        $q.all(ctrl.usageRights.map((usageRights) => {
-            const image = usageRights.image;
-            const resource = image.data.userMetadata.data.usageRights;
-            return editsService.update(resource, data, image).
-                then(resource => resource.data);
-        })).catch(uiError).
-            finally(() => updateSuccess(data));
-    }
+    //function save(data) {
+    //    ctrl.error = null;
+    //    ctrl.saving = true;
+    //    $q.all(ctrl.usageRights.map((usageRights) => {
+    //        const image = usageRights.image;
+    //        const resource = image.data.userMetadata.data.usageRights;
+    //        return editsService.update(resource, data, image).
+    //            then(resource => resource.data);
+    //    })).catch(uiError).
+    //        finally(() => updateSuccess(data));
+    //}
 
     function updateSuccess(data) {
         ctrl.model = data;
