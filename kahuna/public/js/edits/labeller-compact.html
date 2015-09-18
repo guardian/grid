@@ -6,7 +6,7 @@
 
             <span ng:if="ctrl.disabled">{{label.data}}</span>
 
-            <a class="label__link"
+            <a class="label__link label__link--compact"
                ng:if="!ctrl.disabled"
                ui:sref="search.results({query: (label.data | queryLabelFilter)})">
                 {{label.data}}
