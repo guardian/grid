@@ -7,7 +7,7 @@
         ng:if="ctrl.multipleImages()">
         multiple usage rights
     </div>
-    
+
     <label class="ure__category">
         <!-- We reset the model here else properties remain attached to the\
         model, even though they don't exist in the form -->
@@ -92,10 +92,11 @@
                             ng:required="property.required" />
 
                         <div ng:if="property.options"
-                             ng:switch="property.options.length > 3">
+                             ng:switch="property.options.length > 3"
+                             ng:init="options = ctrl.getOptsFor(property)">
                                 <div class="radio-list" ng:switch-when="false">
                                     <div class="radio-list__item"
-                                        ng:repeat="o in property.options">
+                                         ng:repeat="o in options">
 
                                         <input type="radio"
                                             ng:value="o.value"
@@ -121,7 +122,7 @@
                                     ng:switch-when="true"
                                     ng:model="ctrl.model[property.name]"
                                     ng:required="property.required"
-                                    ng:options="o.value as o.key for o in property.options">
+                                    ng:options="o.value as o.key for o in options">
                                 </select>
                         </div>
 
