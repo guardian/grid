@@ -54,6 +54,17 @@ usageRightsEditor.controller(
     inject$($scope, displayCategories$, ctrl, 'categories');
     inject$($scope, category$, ctrl, 'category');
 
+
+    ctrl.getOptsFor = property => {
+        const options = property.options.map(option => ({ key: option, value: option }));
+        console.log(options)
+        if (property.required) {
+            return options;
+        } else {
+            return [{key: 'None', value: null}].concat(options);
+        }
+    };
+
     function getUniqueCats(usageRights) {
         return unique(usageRights.map(ur => ur.data.category));
     }
