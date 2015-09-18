@@ -2,6 +2,7 @@ package lib.usagerights
 
 
 object DeprecatedConfig {
+  val guardianCredits = List("The Guardian", "The Observer")
 
   // TODO: Review these with RCS et al
   val freeCreditList = List(
@@ -46,8 +47,7 @@ object DeprecatedConfig {
     "Getty Images",
     "AFP/Getty Images",
     "Bloomberg via Getty Images",
-    "Fairfax Media via Getty Images",
-    "The Guardian", "The Observer")
+    "Fairfax Media via Getty Images") ++ guardianCredits
 
   val freeSourceList = List(
     "Corbis",
