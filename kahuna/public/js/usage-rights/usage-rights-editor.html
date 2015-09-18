@@ -20,6 +20,10 @@
         </select>
     </label>
 
+    <div class="ure__caution warning warning--small" ng:if="ctrl.category.caution">
+        {{ctrl.category.caution}}
+    </div>
+
     <div class="ure__description">
         {{ctrl.category.description}}
     </div>

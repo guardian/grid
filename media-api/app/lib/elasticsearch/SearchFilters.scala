@@ -90,7 +90,8 @@ trait SearchFilters extends ImageFields {
     "contract-photographer",
     "commissioned-photographer",
     "commissioned-agency",
-    "pool"
+    "pool",
+    "creative-commons"
   )
 
   val persistedFilter = filters.or(
