@@ -61,6 +61,7 @@ usageRightsEditor.controller(
         }, {});
     });
 
+    // TODO: This needs to be live to model changes too.
     const savingDisabled$ = category$.map(cat => cat === multiCat);
 
     inject$($scope, displayCategories$, ctrl, 'categories');
