@@ -51,13 +51,26 @@ usageRightsEditor.controller(
         }
     });
 
+    const model$ = usageRights$.map(urs => {
+        const multiModel = reduceObjectsToArrays(urs.map(ur => ur.data));
+        return Object.keys(multiModel).reduce((model, key) => {
+            if (unique(multiModel[key]).length === 1) {
+                model[key] = multiModel[key][0];
+            }
+            return model;
+        }, {});
+    });
+
+
+    model$.subscribe((model)=>{console.log(model)});
+
     inject$($scope, displayCategories$, ctrl, 'categories');
     inject$($scope, category$, ctrl, 'category');
+    inject$($scope, model$, ctrl, 'model');
 
 
-    ctrl.getOptsFor = property => {
+    ctrl.getOptionsFor = property => {
         const options = property.options.map(option => ({ key: option, value: option }));
-        console.log(options)
         if (property.required) {
             return options;
         } else {
@@ -73,6 +86,28 @@ usageRightsEditor.controller(
         return arr.reduce((prev, curr) =>
             prev.indexOf(curr) !== -1 ? prev : prev.concat([curr]), []);
     }
+
+    // takes an array of objects and turns it into an object with an array of unique values
+    // e.g. [{ a: 1, b: 2 }, { a: 2, b: 2, c: 3 }] => { a: [1,2], b: [2], c: [3] }
+    function reduceObjectsToArrays(objects) {
+        // find a list of available keys
+        const keys = unique(objects.reduce((keys, obj) => {
+            return Object.keys(obj).concat(keys);
+        }, []));
+
+        const objOfArrays = objects.reduce((objOfArrays, obj) => {
+            keys.forEach(key => {
+                const val = [obj[key]];
+                objOfArrays[key] = objOfArrays[key] ? objOfArrays[key].concat(val) : val;
+            });
+
+            return objOfArrays;
+        }, {});
+
+        return objOfArrays;
+    }
+
+
 
     return;
 
@@ -119,7 +154,6 @@ usageRightsEditor.controller(
         } else {
             setStandardCats();
         }
-
 
         ctrl.model = getGroupModel(ctrl.usageRights);
         ctrl.showRestrictions = angular.isDefined(ctrl.model.restrictions);
