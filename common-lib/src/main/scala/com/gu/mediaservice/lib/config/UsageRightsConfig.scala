@@ -56,20 +56,4 @@ object UsageRightsConfig {
   val suppliersCollectionExcl = Map(
     "Getty Images" -> payGettySourceList
   )
-
-  // FIXME: There must be a better way (._.).
-  // Potentially making cost a lookup again?
-  val freeToUseCategories: List[String] = List(
-    "PR Image",
-    "handout",
-    "screengrab",
-    "guardian-witness",
-    "social-media",
-    "obituary",
-    "staff-photographer",
-    "contract-photographer",
-    "commissioned-photographer",
-    "pool"
-  )
-
 }
