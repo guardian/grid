@@ -47,6 +47,9 @@ object Build extends Build {
   val editorService = playProject("metadata-editor")
     .libraryDependencies(awsDeps ++ playWsDeps)
 
+  val usageService = playProject("usage")
+    .libraryDependencies(awsDeps ++ playWsDeps)
+
   val imageLoader = playProject("image-loader")
     .libraryDependencies(awsDeps ++ imagingDeps)
     .testDependencies(scalaTestDeps)
