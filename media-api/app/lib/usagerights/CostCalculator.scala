@@ -5,8 +5,7 @@ import com.gu.mediaservice.model._
 
 
 object CostCalculator {
-  import DeprecatedConfig.{freeCreditList, freeSourceList}
-  import UsageRightsConfig.{freeSuppliers, payGettySourceList, suppliersCollectionExcl}
+  import UsageRightsConfig.{freeSuppliers, suppliersCollectionExcl}
 
   def getCost(supplier: String, collection: Option[String]): Option[Cost] = {
       val free = isFreeSupplier(supplier) && ! collection.exists(isExcludedColl(supplier, _))
@@ -30,13 +29,4 @@ object CostCalculator {
 
   private def isExcludedColl(supplier: String, supplierColl: String) =
     suppliersCollectionExcl.get(supplier).exists(_.contains(supplierColl))
-
-  // This function is just used until we have deprecated the old model completely
-  def getCost(usageRights: UsageRights,
-              credit: Option[String], source: Option[String],
-              supplier: Option[String]): Cost = {
-
-    getCost(usageRights)
-      .getOrElse(Pay)
-  }
 }
