@@ -16,9 +16,43 @@ trait SearchFilters extends ImageFields {
   val validFilter   = Config.requiredMetadata.map(metadataField).toNel.map(filters.exists)
   val invalidFilter = Config.requiredMetadata.map(metadataField).toNel.map(filters.anyMissing)
 
-  // NOTE: cost matching using credit/source soon to be deprecated
+  // New Cost Model
+  import UsageRightsConfig.{ suppliersCollectionExcl, freeSuppliers, payGettySourceList,
+                             freeToUseCategories }
+  import UsageRightsDepConfig.guardianCredits
 
-  import UsageRightsConfig.{ suppliersCollectionExcl, freeSuppliers, payGettySourceList }
+  val (suppliersWithExclusions, suppliersNoExclusions) = freeSuppliers.partition(suppliersCollectionExcl.contains)
+  val suppliersWithExclusionsFilters = for {
+    supplier            <- suppliersWithExclusions
+    excludedCollections <- suppliersCollectionExcl.get(supplier).flatMap(_.toNel)
+  } yield {
+    filters.bool.must(
+      filters.term(usageRightsField("supplier"), supplier)
+    ).mustNot(
+      filters.terms(usageRightsField("suppliersCollection"), excludedCollections)
+    )
+  }
+  val suppliersWithExclusionsFilter = suppliersWithExclusionsFilters.toList.toNel.map(filters.or)
+  val suppliersNoExclusionsFilter = suppliersNoExclusions.toNel.map(filters.terms(usageRightsField("supplier"), _))
+  val freeSupplierFilter = filterOrFilter(suppliersWithExclusionsFilter, suppliersNoExclusionsFilter)
+
+  // We're showing `Conditional` here too as we're considering them potentially
+  // free. We could look into sending over the search query as a cost filter
+  // that could take a comma separated list e.g. `cost=free,conditional`.
+  val freeUsageRightsFilter = freeToUseCategories.toNel.map(filters.terms(usageRightsField("category"), _))
+
+  val freeFilter = filterOrFilter(freeSupplierFilter, freeUsageRightsFilter)
+  val nonFreeFilter = freeFilter.map(filters.not)
+
+  // HACK: We are matching on "The Guardian" / "The Observer" credits here as there is a substantial
+  // amount of images that match that to be free, and there is too wide a net to cast to try and get
+  // them categorised correctly.
+  val guardianCreditFilter = guardianCredits.toNel.map(cs => filters.terms(metadataField("credit"), cs))
+  val freeFilterOrGuardianCredits = filterOrFilter(freeFilter, guardianCreditFilter)
+  val nonFreeFilterWithoutGuardianCredits = filterOrFilter(freeFilter, guardianCreditFilter)
+
+
+  // Old cost model
   import UsageRightsDepConfig.{ freeCreditList, freeSourceList }
 
   // Warning: this requires the capitalisation to be exact; we may want to sanitise the credits
@@ -33,41 +67,15 @@ trait SearchFilters extends ImageFields {
     case (whitelistOpt,    sourceExclOpt)    => whitelistOpt orElse sourceExclOpt
   }
 
-
-  // NOTE: cost matching using supplier/suppliersCollection soon to take over credit/source
-
-  val (suppliersWithExclusions, suppliersNoExclusions) = freeSuppliers.partition(suppliersCollectionExcl.contains)
-  val suppliersWithExclusionsFilters = for {
-    supplier            <- suppliersWithExclusions
-    excludedCollections <- suppliersCollectionExcl.get(supplier).flatMap(_.toNel)
-  } yield {
-      filters.bool.must(
-        filters.term(usageRightsField("supplier"), supplier)
-      ).mustNot(
-        filters.terms(usageRightsField("suppliersCollection"), excludedCollections)
-      )
-    }
-  val suppliersWithExclusionsFilter = suppliersWithExclusionsFilters.toList.toNel.map(filters.or)
-
-  val suppliersNoExclusionsFilter = suppliersNoExclusions.toNel.map(filters.terms(usageRightsField("supplier"), _))
-  val freeSupplierFilter = filterOrFilter(suppliersWithExclusionsFilter, suppliersNoExclusionsFilter)
-
   // Merge legacy and new way of matching free images (matching either is enough)
   val freeMetadataFilter = filterOrFilter(freeCreditFilter, freeSupplierFilter)
 
-  // We're showing `Conditional` here too as we're considering them potentially
-  // free. We could look into sending over the search query as a cost filter
-  // that could take a comma separated list e.g. `cost=free,conditional`.
-  val freeUsageRightsFilter = freeToUseCategories.toNel.map(filters.terms(usageRightsField("category"), _))
+  val depFreeFilter = filterOrFilter(freeMetadataFilter, freeUsageRightsFilter)
+  val depNonFreeFilter = freeFilter.map(filters.not)
 
-  val freeFilter = filterOrFilter(freeMetadataFilter, freeUsageRightsFilter)
-  val nonFreeFilter = freeFilter.map(filters.not)
-
-  val newFreeFilter = filterOrFilter(freeSupplierFilter, freeUsageRightsFilter)
-  val newNonFreeFilter = newFreeFilter.map(filters.not)
-
-  val freeDiffFilter = filterAndFilter(freeFilter, newNonFreeFilter)
-  val nonFreeDiffFilter = filterAndFilter(newNonFreeFilter, newFreeFilter)
+  // Filters used to compare old & new cost models
+  val freeDiffFilter = filterAndFilter(freeFilter, depNonFreeFilter)
+  val nonFreeDiffFilter = filterAndFilter(nonFreeFilter, depFreeFilter)
 
   // FIXME: There must be a better way (._.). Potentially making cost a lookup
   // again?
