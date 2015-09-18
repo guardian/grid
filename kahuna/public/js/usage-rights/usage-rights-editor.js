@@ -22,7 +22,7 @@ usageRightsEditor.controller(
     function($q, $scope, $window, $timeout, editsService, editsApi, onValChange, inject$) {
 
     var ctrl = this;
-    const multiCat = { name: 'Multiple categories' };
+    const multiCat = { name: 'Multiple categories', value: null };
 
     const usageRights$ = new Rx.Subject([]);
     $scope.$watch(() => ctrl.usageRights, usageRightsList => {
@@ -32,20 +32,30 @@ usageRightsEditor.controller(
 
     const categories$ = Rx.Observable.fromPromise(editsApi.getUsageRightsCategories());
 
-    const displayCategories$ = usageRights$.combineLatest(categories$, (ur, cats) => {
-        const onlyUnique = isOnlyUnique(ur.map(u => u.data.category));
-        if (onlyUnique) {
+    const displayCategories$ = usageRights$.combineLatest(categories$, (urs, cats) => {
+        const uniqueCats = getUniqueCats(urs);
+        if (uniqueCats.length === 1) {
             return cats;
         } else {
             return [multiCat].concat(cats);
         }
     });
 
+    const category$ = usageRights$.combineLatest(categories$, (urs, cats) => {
+        const uniqueCats = getUniqueCats(urs);
+        if (uniqueCats.length === 1) {
+            const uniqeCat = uniqueCats[0] || '';
+            return cats.find(cat => cat.value === uniqeCat);
+        } else {
+            return multiCat;
+        }
+    });
+
     inject$($scope, displayCategories$, ctrl, 'categories');
+    inject$($scope, category$, ctrl, 'category');
 
-
-    function isOnlyUnique(arr) {
-        return unique(arr).length === 1;
+    function getUniqueCats(usageRights) {
+        return unique(usageRights.map(ur => ur.data.category));
     }
 
     function unique(arr) {
@@ -63,7 +73,7 @@ usageRightsEditor.controller(
     ctrl.originalCats = [];
     ctrl.model = angular.extend({}, ctrl.usageRights.data);
 
-    //const multiRights = { name: 'Multiple categories', value: '', description: '' };
+    const multiRights = { name: 'Multiple categories', value: '', description: '' };
     const catsWithMultiRights = () => [multiRights].concat(ctrl.originalCats);
     const setStandardCats = () => ctrl.categories = ctrl.originalCats;
     const setMultiRightsCats = () => {
