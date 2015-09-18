@@ -5,21 +5,28 @@
         title="Add label">
 
     <gr-icon ng:class="{'spin': ctrl.adding}">add_box</gr-icon>
-    <span ng:hide="ctrl.grSmall">
-        Add<span ng:show="ctrl.adding">ing...</span>
+    <span>
+       <span ng:show="ctrl.adding">Adding...</span>
     </span>
 </button>
-<form
-    class="gr-add-label__form"
-    ng:if="ctrl.active"
-    ng:submit="ctrl.save()">
-    <input
-        class="gr-add-label__form__input show-no-error"
-        type='text' ng:model="ctrl.newLabel"
-        placeholder="label1, label2, label3…"
-        required
-        gr:auto-focus
-        ng:disabled="ctrl.adding" />
+<form class="gr-add-label__form"
+        ng:if="ctrl.active"
+        ng:submit="ctrl.save()">
+    <gr-datalist
+        class="job-info--editor__input"
+        gr:search="ctrl.labelSearch(q)">
+
+        <input type="text"
+               class="gr-add-label__form__input show-no-error"
+               placeholder="label1, label2, label3…"
+               gr:datalist-input
+               gr:datalist-input-selector="ctrl.selectLastLabel($value)"
+               gr:datalist-input-updater="ctrl.labelAppend($currentValue, $selectedValue)"
+               gr:auto-focus
+               required
+               ng:model="ctrl.newLabel"
+               ng:disabled="ctrl.adding" />
+    </gr-datalist>
 
     <span class="gr-add-label__form__buttons">
         <button class="gr-add-label__form__buttons__button-cancel button-cancel" type="button" ng:click="ctrl.cancel()" title="Close">
