@@ -61,12 +61,12 @@ usageRightsEditor.controller(
         }, {});
     });
 
-
-    model$.subscribe((model)=>{console.log(model)});
+    const savingDisabled$ = category$.map(cat => cat === multiCat);
 
     inject$($scope, displayCategories$, ctrl, 'categories');
     inject$($scope, category$, ctrl, 'category');
     inject$($scope, model$, ctrl, 'model');
+    inject$($scope, savingDisabled$, ctrl, 'savingDisabled');
 
 
     ctrl.getOptionsFor = property => {
@@ -88,6 +88,7 @@ usageRightsEditor.controller(
     ctrl.reset = () => {
         ctrl.model = {};
     };
+
 
 
 
