@@ -170,8 +170,8 @@ case class PrImage(restrictions: Option[String] = None)
     val defaultCost = Some(Free)
     val name = "PR Image"
     val description =
-      "Images supplied for publicity purposes such as exhibitions, auctions, launches, " +
-      "charities, etc."
+      "Images supplied for publicity purposes such as press launches, charity events, travel, " +
+      "promotional images, etc."
   }
 
 object PrImage {
