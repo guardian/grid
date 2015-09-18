@@ -145,9 +145,7 @@ object ImageResponse {
 
     val cost = CostCalculator.getCost(
       usageRights,
-      (source \ "metadata" \ "credit").as[Option[String]],
-      (source \ "metadata" \ "source").as[Option[String]],
-      (source \ "usageRights" \ "supplier").asOpt[String]
+      (source \ "metadata" \ "credit").asOpt[String]
     )
 
     __.json.update(__.read[JsObject].map(_ ++ Json.obj("cost" -> cost.toString)))
