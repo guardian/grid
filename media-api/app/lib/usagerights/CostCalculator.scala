@@ -31,32 +31,12 @@ object CostCalculator {
   private def isExcludedColl(supplier: String, supplierColl: String) =
     suppliersCollectionExcl.get(supplier).exists(_.contains(supplierColl))
 
-
-  // Deprecated
-  private def deprecatedGetCost(credit: Option[String], source: Option[String],
-                                supplier: Option[String]): Option[Cost] = {
-
-    val freeCredit      = credit.exists(isFreeCredit)
-    val freeSource      = source.exists(isFreeSource)
-    val payingSource    = source.exists(isPaySource)
-
-    val freeCreditOrSource = (freeCredit || freeSource) && ! payingSource
-
-    if (freeCreditOrSource) Some(Free) else None
-  }
-
-  private def isFreeCredit(credit: String) = freeCreditList.contains(credit)
-  private def isFreeSource(source: String) = freeSourceList.contains(source)
-  private def isPaySource(source: String)  = payGettySourceList.contains(source)
-
-
   // This function is just used until we have deprecated the old model completely
   def getCost(usageRights: UsageRights,
               credit: Option[String], source: Option[String],
               supplier: Option[String]): Cost = {
 
     getCost(usageRights)
-      .orElse(deprecatedGetCost(credit, source, supplier))
       .getOrElse(Pay)
   }
 }
