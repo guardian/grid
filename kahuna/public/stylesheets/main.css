@@ -1648,7 +1648,6 @@ FIXME: what to do with touch devices
 .label__remove {
     color: white;
     background-color: #00adee;
-    padding: 0 5px;
 }
 
 .label__link:hover,
@@ -1660,6 +1659,11 @@ FIXME: what to do with touch devices
 .label__link {
     border-top-left-radius: 2px;
     border-bottom-left-radius: 2px;
+    padding: 0 5px;
+}
+
+.label__link--compact {
+    border-radius: 2px;
 }
 
 .label__remove {
