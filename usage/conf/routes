@@ -1,0 +1,8 @@
+GET     /                                               controllers.UsageApi.index
+
+# Management
+GET     /management/healthcheck                         com.gu.mediaservice.lib.management.Management.healthCheck
+GET     /management/manifest                            com.gu.mediaservice.lib.management.Management.manifest
+
+# Shoo robots away
+GET     /robots.txt                                     controllers.Robots.disallowAll
