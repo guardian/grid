@@ -122,17 +122,24 @@ object MetadataConfig {
   )
 
   val contractIllustrators = List(
-    "Robert G Fresson",
-    "Bill Bragg",
-    "Sebastien Thibault",
-    "Eva Bee",
-    "Nate Kitch",
-    "Joe Magee",
-    "Jasper Rietman",
-    "Matt Kenyon",
+    "Ben Lamb",
     "Andrzej Krauze",
-    "Ellie Foreman-Peck",
-    "Ben Jennings"
+    "C&J Riddell Ltd",
+    "Chris Ware",
+    "David Foldvari",
+    "David Simonds",
+    "David Squires",
+    "First Dog on the Moon Institute",
+    "Harry Venning",
+    "Ian Tovey",
+    "Kipper Williams",
+    "Martin Rowson",
+    "Matt Kenyon",
+    "Matthew Blease",
+    "Nicola Jennings",
+    "Rosalind Asquith",
+    "Steve Bell",
+    "Steven Appleby"
   )
 
   val allPhotographers = staffPhotographers ++ contractedPhotographers
