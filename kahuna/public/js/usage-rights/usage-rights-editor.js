@@ -6,15 +6,54 @@ import './usage-rights-editor.css!';
 
 import '../components/gr-confirm-delete/gr-confirm-delete.js';
 
+
+import Rx from 'rx';
+import '../util/rx';
+
 export var usageRightsEditor = angular.module('kahuna.edits.usageRightsEditor', [
     'monospaced.elastic',
-    'gr.confirmDelete'
+    'gr.confirmDelete',
+    'util.rx'
 ]);
 
 usageRightsEditor.controller(
     'UsageRightsEditorCtrl',
-    ['$q', '$scope', '$window', '$timeout', 'editsService', 'editsApi', 'onValChange',
-    function($q, $scope, $window, $timeout, editsService, editsApi, onValChange) {
+    ['$q', '$scope', '$window', '$timeout', 'editsService', 'editsApi', 'onValChange', 'inject$',
+    function($q, $scope, $window, $timeout, editsService, editsApi, onValChange, inject$) {
+
+    var ctrl = this;
+    const multiCat = { name: 'Multiple categories' };
+
+    const usageRights$ = new Rx.Subject([]);
+    $scope.$watch(() => ctrl.usageRights, usageRightsList => {
+        // poor mans stream updating
+        usageRights$.onNext(usageRightsList);
+    });
+
+    const categories$ = Rx.Observable.fromPromise(editsApi.getUsageRightsCategories());
+
+    const displayCategories$ = usageRights$.combineLatest(categories$, (ur, cats) => {
+        const onlyUnique = isOnlyUnique(ur.map(u => u.data.category));
+        if (onlyUnique) {
+            return cats;
+        } else {
+            return [multiCat].concat(cats);
+        }
+    });
+
+    inject$($scope, displayCategories$, ctrl, 'categories');
+
+
+    function isOnlyUnique(arr) {
+        return unique(arr).length === 1;
+    }
+
+    function unique(arr) {
+        return arr.reduce((prev, curr) =>
+            prev.indexOf(curr) !== -1 ? prev : prev.concat([curr]), []);
+    }
+
+    return;
 
     var ctrl = this;
 
@@ -24,15 +63,9 @@ usageRightsEditor.controller(
     ctrl.originalCats = [];
     ctrl.model = angular.extend({}, ctrl.usageRights.data);
 
-    const multiRights = { name: 'Multiple categories', value: '' };
-    const noRights = { name: 'None', value: '' };
-    const catsWithNoRights = () => [noRights].concat(ctrl.originalCats);
+    //const multiRights = { name: 'Multiple categories', value: '', description: '' };
     const catsWithMultiRights = () => [multiRights].concat(ctrl.originalCats);
     const setStandardCats = () => ctrl.categories = ctrl.originalCats;
-    const setNoRightsCats = () => {
-        ctrl.categories = catsWithNoRights();
-        ctrl.category = noRights;
-    };
     const setMultiRightsCats = () => {
         ctrl.categories = catsWithMultiRights();
         ctrl.category = multiRights;
@@ -59,13 +92,9 @@ usageRightsEditor.controller(
 
         // If we have multi or no rights we need to add the option to
         // the drop down and select it to give the user feedback as to
-        // what's going on (can't use terner).
-        if (!ctrl.category) {
-            if (ctrl.usageRights.length > 1) {
-                setMultiRightsCats();
-            } else {
-                setNoRightsCats();
-            }
+        // what's going on.
+        if (!ctrl.category && ctrl.usageRights.length > 1) {
+            setMultiRightsCats();
         } else {
             setStandardCats();
         }
@@ -107,21 +136,15 @@ usageRightsEditor.controller(
     // routeProvider, which is actually bound to the UploadCtrl in this instance
     // SEE: https://github.com/angular/angular.js/issues/2095
     ctrl.save = () => {
-        // FIXME [1]: We do this as images that didn't have usagerights in the first place will have
-        // the no rights option, this is to make sure we don't override but rather delete.
         const data = modelToData(ctrl.model);
-
-        if (data.category) {
-            save(data);
-        }
+        save(data);
     };
 
     ctrl.cancel = () => ctrl.onCancel();
 
     // stop saving on no/multi rights
     ctrl.savingDisabled = () => {
-        return ctrl.saving ||
-            angular.equals(ctrl.category, noRights) || angular.equals(ctrl.category, multiRights);
+        return ctrl.saving || angular.equals(ctrl.category, multiRights);
     };
 
     ctrl.getOptionsFor = property => {
@@ -162,17 +185,11 @@ usageRightsEditor.controller(
     }
 
     function modelToData(model) {
-        const modelWithCat = angular.extend({},
-            model, { category: ctrl.category && ctrl.category.value });
-
-        return Object.keys(modelWithCat).reduce((clean, key) => {
-            // remove everything !thing including ""
-            if (modelWithCat[key]) {
-                clean[key] = modelWithCat[key];
-            }
-
-            return clean;
-        }, {});
+        if (ctrl.category.value === '') {
+            return {};
+        } else {
+            return angular.extend({}, model, { category: ctrl.category && ctrl.category.value });
+        }
     }
 
     function save(data) {

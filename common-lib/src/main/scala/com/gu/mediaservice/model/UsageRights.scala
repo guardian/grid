@@ -99,8 +99,7 @@ case object NoRights
     val restrictions = None
     val name = "No Rights"
     val description =
-      "Remove any rights that have been applied to this image. It will appear as " +
-      "pay to use."
+      "Images with no rights. These will appear as pay to use."
 
     lazy val jsonVal = Json.obj()
 
