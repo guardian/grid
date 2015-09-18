@@ -93,7 +93,7 @@
 
                         <div ng:if="property.options"
                              ng:switch="property.options.length > 3"
-                             ng:init="options = ctrl.getOptsFor(property)">
+                             ng:init="options = ctrl.getOptionsFor(property)">
                                 <div class="radio-list" ng:switch-when="false">
                                     <div class="radio-list__item"
                                          ng:repeat="o in options">
@@ -135,7 +135,7 @@
                                 name="{{ property.name }}"
                                 ng:model="ctrl.model[property.name]"
                                 ng:required="property.required"
-                                ng:options="o for o in ctrl.getOptionsFor(property)"
+                                ng:options="o for o in ctrl.getOptionsMapFor(property)"
                                 ng:if="!otherValue">
                                 <option value="">None</option>
                             </select>
