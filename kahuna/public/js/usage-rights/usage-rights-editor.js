@@ -42,8 +42,8 @@ usageRightsEditor.controller(
     });
 
     // I haven't combined these as it seems unnecessary as we only need to change to `multiCat`
-    // when the list of usageRights is updated.
-    const categoryChange$ = observe$($scope, () => ctrl.category);
+    // when the list of usageRights is updated. We also only emit on category existing.
+    const categoryChange$ = observe$($scope, () => ctrl.category).filter(cat => !!cat);
     const category$ = usageRights$.combineLatest(categories$, (urs, cats) => {
         const uniqueCats = getUniqueCats(urs);
         if (uniqueCats.length === 1) {
@@ -65,13 +65,40 @@ usageRightsEditor.controller(
     });
 
     const savingDisabled$ = category$.combineLatest(categoryChange$, cat => cat === multiCat);
+    const forceRestrictions$ = model$.combineLatest(categoryChange$, (model, cat) => {
+        const defaultRestrictions =
+            cat.properties.find(prop => prop.name === 'defaultRestrictions');
+        const restrictedProp =
+            cat.properties.find(prop => prop.name === 'restrictions');
+
+        return defaultRestrictions || (restrictedProp && restrictedProp.required);
+    });
+
+    const showRestrictionsChange$ = observe$($scope, () => ctrl.showRestrictions);
+    const showRestrictions$ = showRestrictionsChange$.combineLatest(
+        forceRestrictions$, model$, (forceRestrictions, showRestrictions, model) => {
+
+        if (forceRestrictions) {
+            return true;
+        }
+        // if we haven't set this yet - let's set it on whether we have restrictions, from there on
+        // we will use the checkbox model. This is to make sure we show restrictions if they are
+        // set, but allow the user to turn them off iff they are not required.
+        else if (angular.isUndefined(showRestrictions)) {
+            return angular.isDefined(model.restrictions);
+        } else {
+            return showRestrictions;
+        }
+    });
 
     inject$($scope, displayCategories$, ctrl, 'categories');
     inject$($scope, category$, ctrl, 'category');
     inject$($scope, model$, ctrl, 'model');
     inject$($scope, savingDisabled$, ctrl, 'savingDisabled');
+    inject$($scope, forceRestrictions$, ctrl, 'forceRestrictions');
+    inject$($scope, showRestrictions$, ctrl, 'showRestrictions');
 
-    // TODO: Some of these, especially `isRestricted` could be streams
+    // TODO: Some of these could be streams
     ctrl.saving = false;
     ctrl.getOptionsFor = property => {
         const options = property.options.map(option => ({ key: option, value: option }));
@@ -95,10 +122,8 @@ usageRightsEditor.controller(
 
     ctrl.reset = () => {
         ctrl.model = {};
+        ctrl.showRestrictions = undefined;
     };
-
-    ctrl.isRestricted = prop =>
-        ctrl.showRestrictions || ctrl.category.defaultRestrictions || prop.required;
 
     function save(data) {
         return $q.all(ctrl.usageRights.map(usageRights => {
