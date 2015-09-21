@@ -126,7 +126,7 @@ usageRightsEditor.controller(
 
         save(data).
         catch(uiError).
-        finally(() => ctrl.saving = false);
+        finally(saveComplete);
     };
 
     ctrl.reset = () => {
@@ -143,6 +143,11 @@ usageRightsEditor.controller(
             return editsService.update(resource, data, image).
                 then(resource => resource.data);
         }));
+    }
+
+    function saveComplete() {
+        ctrl.onSave();
+        ctrl.saving = false
     }
 
     function getUniqueCats(usageRights) {
