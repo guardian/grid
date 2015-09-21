@@ -3,7 +3,7 @@ package lib.elasticsearch
 import java.util.regex.Pattern
 
 import org.elasticsearch.index.query.{FilterBuilder, FilteredQueryBuilder}
-import org.elasticsearch.search.aggregations.bucket.terms.StringTerms
+import org.elasticsearch.search.aggregations.bucket.terms.{InternalTerms, StringTerms}
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.collection.JavaConversions._
@@ -149,7 +149,7 @@ object ElasticSearch extends ElasticSearchClient with SearchFilters with ImageFi
       .executeAndLog("metadata aggregate search")
       .toMetric(searchQueries, List(searchTypeDimension("aggregate")))(_.getTookInMillis)
       .map{ response =>
-        val buckets = response.getAggregations.getAsMap.get(name).asInstanceOf[StringTerms].getBuckets
+        val buckets = response.getAggregations.getAsMap.get(name).asInstanceOf[InternalTerms].getBuckets
         val results = buckets.toList map (s => BucketResult(s.getKey, s.getDocCount))
 
         AggregateSearchResults(results, buckets.size)
