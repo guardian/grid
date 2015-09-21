@@ -24,11 +24,8 @@ usageRightsEditor.controller(
     var ctrl = this;
     const multiCat = { name: 'Multiple categories', value: 'multi-cat', properties: [] };
 
-    const usageRights$ = new Rx.BehaviorSubject([]);
-    $scope.$watch(() => ctrl.usageRights, usageRightsList => {
-        // poor mans stream updating
-        usageRights$.onNext(usageRightsList);
-    });
+    // @return Stream.<Array.<UsageRights>>
+    const usageRights$ = observe$($scope, () => ctrl.usageRights).startWith([]);
 
     // @return Stream.<Array.<Category>>
     const categories$ = Rx.Observable.fromPromise(editsApi.getUsageRightsCategories());
