@@ -154,7 +154,7 @@ usageRightsEditor.controller(
 
     function unique(arr) {
         return arr.reduce((prev, curr) =>
-            prev.indexOf(curr) !== -1 ? prev : prev.concat([curr]), []);
+            prev.indexOf(curr) !== -1 ? prev : prev.concat(curr), []);
     }
 
     // takes an array of objects and turns it into an object with an array of unique values
