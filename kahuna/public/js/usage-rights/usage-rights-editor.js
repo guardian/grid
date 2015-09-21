@@ -77,18 +77,15 @@ usageRightsEditor.controller(
         return defaultRestrictions || (restrictedProp && restrictedProp.required);
     });
 
-    const showRestrictionsChange$ = observe$($scope, () => ctrl.showRestrictions);
-    const showRestrictions$ = showRestrictionsChange$.combineLatest(
-        forceRestrictions$, model$, (forceRestrictions, showRestrictions, model) => {
+    const userSetShowRestrictions$ = observe$($scope, () => ctrl.showRestrictions);
+    const modelHasRestrictions$ = model$.map(model => angular.isDefined(model.restrictions));
+    const shouldShowRestrictions$ = userSetShowRestrictions$.merge(modelHasRestrictions$);
+
+    const showRestrictions$ = forceRestrictions$.combineLatest(shouldShowRestrictions$,
+        (forceRestrictions, showRestrictions) => {
 
         if (forceRestrictions) {
             return true;
-        }
-        // if we haven't set this yet - let's set it on whether we have restrictions, from there on
-        // we will use the checkbox model. This is to make sure we show restrictions if they are
-        // set, but allow the user to turn them off iff they are not required.
-        else if (angular.isUndefined(showRestrictions)) {
-            return angular.isDefined(model.restrictions);
         } else {
             return showRestrictions;
         }
