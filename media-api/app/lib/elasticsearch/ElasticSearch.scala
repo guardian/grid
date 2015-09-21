@@ -139,7 +139,7 @@ object ElasticSearch extends ElasticSearchClient with SearchFilters with ImageFi
     val aggregate = AggregationBuilders
       .terms(name)
       .field(field)
-      .include(q.getOrElse("") + ".*", Pattern.CASE_INSENSITIVE)
+      .include(Pattern.quote(q.getOrElse("")) + ".*", Pattern.CASE_INSENSITIVE)
 
     val search = prepareImagesSearch.addAggregation(aggregate)
 
