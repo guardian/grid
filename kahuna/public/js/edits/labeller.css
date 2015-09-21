@@ -1,6 +1,8 @@
-/* ==========================================================================
-   Labeller
-   ========================================================================== */
+ui-labeller,
+ui-labeller-compact {
+    display: block;
+}
+
 .labeller {
     font-size: 1.3rem;
     display: flex;
@@ -17,13 +19,18 @@
     background-color: #99ddff;
 }
 
-.label--partial,
-.label--partial gr-icon {
+/*
+label--partial is part of gr-panel.
+TODO refactor gr-panel to use common labeller component
+*/
+.label--partial .label__value,
+.label--partial .label__add,
+.label--partial .label__remove {
     background-color: white;
     color: #00adee;
 }
 
-.label__link,
+.label__value,
 .label__remove {
     color: white;
     background-color: #00adee;
@@ -35,13 +42,21 @@
     background-color: white;
 }
 
-.label__link {
+.label__add,
+.label__value {
     border-top-left-radius: 2px;
     border-bottom-left-radius: 2px;
+}
+
+.label--partial .label__value {
+    border-radius: 0px;
+}
+
+.label__value {
     padding: 0 5px;
 }
 
-.label__link--compact {
+.label__value--compact {
     border-radius: 2px;
 }
 
