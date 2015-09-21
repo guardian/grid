@@ -19,6 +19,10 @@ ui-labeller-compact {
     background-color: #99ddff;
 }
 
+/*
+label--partial is part of gr-panel.
+TODO refactor gr-panel to use common labeller component
+*/
 .label--partial .label__value,
 .label--partial .label__add,
 .label--partial .label__remove {
