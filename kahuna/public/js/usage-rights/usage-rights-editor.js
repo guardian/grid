@@ -140,6 +140,8 @@ usageRightsEditor.controller(
         ctrl.showRestrictions = undefined;
     };
 
+    ctrl.cancel = () => ctrl.onCancel();
+
     function save(data) {
         return $q.all(ctrl.usageRights.map(usageRights => {
             const image = usageRights.image;
