@@ -282,11 +282,12 @@
                     ng:repeat="label in ctrl.selectedLabels | orderBy:'data'"
                     ng:class="{'label--partial': label.count < ctrl.selectedImages.size}">
                     <button ng:if="label.count < ctrl.selectedImages.size"
+                            class="label__add"
                             title="Apply label to all"
                             ng:click="ctrl.addLabel(label.data)">
                         <gr-icon>library_add</gr-icon>
                     </button>
-                    {{label.data}}
+                    <span class="label__value">{{label.data}}</span>
                     <button class="label__remove"
                             title="Remove label from all"
                             ng:click="ctrl.removeLabel(label.data)">
