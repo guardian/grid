@@ -30,8 +30,10 @@ usageRightsEditor.controller(
         usageRights$.onNext(usageRightsList);
     });
 
+    // @return Stream.<Array.<Category>>
     const categories$ = Rx.Observable.fromPromise(editsApi.getUsageRightsCategories());
 
+    // @return Stream.<Array.<Category>>
     const displayCategories$ = usageRights$.combineLatest(categories$, (urs, cats) => {
         const uniqueCats = getUniqueCats(urs);
         if (uniqueCats.length === 1) {
@@ -41,6 +43,7 @@ usageRightsEditor.controller(
         }
     });
 
+    // @return Stream.<Category>
     const categoryFromUsageRights$ = usageRights$.combineLatest(categories$, (urs, cats) => {
         const uniqueCats = getUniqueCats(urs);
         if (uniqueCats.length === 1) {
@@ -50,8 +53,12 @@ usageRightsEditor.controller(
             return multiCat;
         }
     });
+
+    // @return Stream.<Category>
     const categoryChange$ = observe$($scope, () => ctrl.category).filter(cat => !!cat);
-    const category$ = categoryFromUsageRights$.merge(categoryChange$);
+
+    // @return Stream.<Category>
+    const category$ = categoryFromUsageRights$.merge(categoryChange$).distinctUntilChanged();
 
     const model$ = usageRights$.map(urs => {
         const multiModel = reduceObjectsToArrays(urs.map(ur => ur.data));
@@ -106,6 +113,15 @@ usageRightsEditor.controller(
         } else {
             return [{key: 'None', value: null}].concat(options);
         }
+    };
+    ctrl.getOptionsMapFor = property => {
+        const key = ctrl.category
+                        .properties
+                        .find(prop => prop.name === property.optionsMapKey)
+                        .name;
+
+        const val = ctrl.model[key];
+        return property.optionsMap[val] || [];
     };
 
     ctrl.save = () => {
