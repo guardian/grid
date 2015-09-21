@@ -22,7 +22,7 @@ usageRightsEditor.controller(
     function($q, $scope, inject$, observe$, editsService, editsApi) {
 
     var ctrl = this;
-    const multiCat = { name: 'Multiple categories', value: 'multi-cat' };
+    const multiCat = { name: 'Multiple categories', value: 'multi-cat', properties: [] };
 
     const usageRights$ = new Rx.BehaviorSubject([]);
     $scope.$watch(() => ctrl.usageRights, usageRightsList => {
