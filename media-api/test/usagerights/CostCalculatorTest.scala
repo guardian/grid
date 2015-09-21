@@ -46,12 +46,20 @@ class CostCalculatorTest extends FunSpec with Matchers {
       cost should be (Free)
     }
 
+    it ("should be Conditional if it is 'The Guardian' credit with restrictions") {
+      val usageRights = SocialMedia(Some("This here be restricted"))
+      val credit = Some("The Guardian")
+      val cost = CostCalculator.getCost(usageRights, credit)
+
+      cost should be (Conditional)
+    }
+
     it("should work out 'The Guardian' credit to be free, but not other suppliers") {
       val theGuardian = Some("The Guardian")
       val getty = Some("Getty Image")
 
-      val theGuardianCost = CostCalculator.getCost(theGuardian)
-      val gettyCost = CostCalculator.getCost(getty)
+      val theGuardianCost = CostCalculator.getCost(theGuardian, None)
+      val gettyCost = CostCalculator.getCost(getty, None)
 
       theGuardianCost should be (Some(Free))
       gettyCost should be (None)

@@ -11,8 +11,11 @@ object CostCalculator {
   val defaultCost = Pay
 
   // HACK: This is until we decide what to do with Guardian credits
-  def getCost(credit: Option[String]): Option[Cost] =
-    if (credit.exists(guardianCredits.contains)) Some(Free) else None
+  // We've also added the restrictions here as that needs to override `Free`
+  // but I didn't want to pollute the "pure" cost calculations
+  def getCost(credit: Option[String], restrictions: Option[String]): Option[Cost] =
+    if (restrictions.nonEmpty) Some(Conditional)
+    else if (credit.exists(guardianCredits.contains)) Some(Free) else None
 
   def getCost(supplier: String, collection: Option[String]): Option[Cost] = {
       val free = isFreeSupplier(supplier) && ! collection.exists(isExcludedColl(supplier, _))
@@ -33,7 +36,7 @@ object CostCalculator {
   }
 
   def getCost(usageRights: UsageRights, credit: Option[String]): Cost = {
-    getCost(credit)
+    getCost(credit, usageRights.restrictions)
       .orElse(getCost(usageRights))
       .getOrElse(defaultCost)
   }
