@@ -18,8 +18,8 @@ export var usageRightsEditor = angular.module('kahuna.edits.usageRightsEditor', 
 
 usageRightsEditor.controller(
     'UsageRightsEditorCtrl',
-    ['$q', '$scope', '$window', '$timeout', 'editsService', 'editsApi', 'onValChange', 'inject$',
-    function($q, $scope, $window, $timeout, editsService, editsApi, onValChange, inject$) {
+    ['$q', '$scope', '$window', '$timeout', 'editsService', 'editsApi', 'onValChange', 'inject$', 'observe$',
+    function($q, $scope, $window, $timeout, editsService, editsApi, onValChange, inject$, observe$) {
 
     var ctrl = this;
     const multiCat = { name: 'Multiple categories', value: 'multi-cat' };
@@ -41,6 +41,9 @@ usageRightsEditor.controller(
         }
     });
 
+    // I haven't combined these as it seems unnecessary as we only need to change to `multiCat`
+    // when the list of usageRights is updated.
+    const categoryChange$ = observe$($scope, () => ctrl.category, (a,b,c,d) => { console.log(a,b,c,d) });
     const category$ = usageRights$.combineLatest(categories$, (urs, cats) => {
         const uniqueCats = getUniqueCats(urs);
         if (uniqueCats.length === 1) {
@@ -62,7 +65,7 @@ usageRightsEditor.controller(
     });
 
     // TODO: This needs to be live to model changes too.
-    const savingDisabled$ = category$.map(cat => cat === multiCat);
+    const savingDisabled$ = category$.combineLatest(categoryChange$, cat => cat === multiCat);
 
     inject$($scope, displayCategories$, ctrl, 'categories');
     inject$($scope, category$, ctrl, 'category');
