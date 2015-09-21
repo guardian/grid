@@ -147,7 +147,7 @@ usageRightsEditor.controller(
 
     function saveComplete() {
         ctrl.onSave();
-        ctrl.saving = false
+        ctrl.saving = false;
     }
 
     function getUniqueCats(usageRights) {
