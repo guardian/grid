@@ -18,8 +18,8 @@ export var usageRightsEditor = angular.module('kahuna.edits.usageRightsEditor', 
 
 usageRightsEditor.controller(
     'UsageRightsEditorCtrl',
-    ['$q', '$scope', '$window', '$timeout', 'editsService', 'editsApi', 'onValChange', 'inject$', 'observe$',
-    function($q, $scope, $window, $timeout, editsService, editsApi, onValChange, inject$, observe$) {
+    ['$q', '$scope', 'inject$', 'observe$', 'editsService', 'editsApi',
+    function($q, $scope, inject$, observe$, editsService, editsApi) {
 
     var ctrl = this;
     const multiCat = { name: 'Multiple categories', value: 'multi-cat' };
@@ -43,7 +43,7 @@ usageRightsEditor.controller(
 
     // I haven't combined these as it seems unnecessary as we only need to change to `multiCat`
     // when the list of usageRights is updated.
-    const categoryChange$ = observe$($scope, () => ctrl.category, (a,b,c,d) => { console.log(a,b,c,d) });
+    const categoryChange$ = observe$($scope, () => ctrl.category);
     const category$ = usageRights$.combineLatest(categories$, (urs, cats) => {
         const uniqueCats = getUniqueCats(urs);
         if (uniqueCats.length === 1) {
