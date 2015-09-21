@@ -1,12 +1,14 @@
 package lib
 
-import com.gu.mediaservice.lib.Files
+import java.io.File
+
+import com.gu.mediaservice.lib.metadata.FileMetadataHelper
 
 import scala.concurrent.Future
-import lib.imaging.{ExportOperations, ExportResult}
+
 import com.gu.mediaservice.model.{Asset, Dimensions, SourceImage, Crop, Bounds, CropSource}
-import java.net.{URI, URL}
-import java.io.File
+import com.gu.mediaservice.lib.Files
+import com.gu.mediaservice.lib.imaging.{ImageOperations, ExportResult}
 
 case object InvalidImage extends Exception("Invalid image cannot be cropped")
 case object MissingSecureSourceUrl extends Exception("Missing secureUrl from source API")
@@ -22,13 +24,14 @@ object Crops {
     s"${source.id}/${Crop.getCropId(bounds)}/${if(isMaster) "master/" else ""}$outputWidth.jpg"
   }
 
-  def createMasterCrop(apiImage: SourceImage, sourceFile: File, crop: Crop, mediaType: String): Future[MasterCrop] = {
+  def createMasterCrop(apiImage: SourceImage, sourceFile: File, crop: Crop, mediaType: String, colourModel: Option[String]): Future[MasterCrop] = {
     val source   = crop.specification
     val metadata = apiImage.metadata
+    val iccColourSpace = FileMetadataHelper.normalisedIccColourSpace(apiImage.fileMetadata)
 
     for {
-      strip <- ExportOperations.cropImage(sourceFile, source.bounds, 100d)
-      file  <- ExportOperations.appendMetadata(strip, metadata)
+      strip <- ImageOperations.cropImage(sourceFile, source.bounds, 100d, Config.tempDir, iccColourSpace, colourModel)
+      file  <- ImageOperations.appendMetadata(strip, metadata)
 
       dimensions = Dimensions(source.bounds.width, source.bounds.height)
       filename   = outputFilename(apiImage, source.bounds, dimensions.width, true)
@@ -42,7 +45,7 @@ object Crops {
     Future.sequence[Asset, List](dimensionList.map { dimensions =>
       val filename = outputFilename(apiImage, crop.specification.bounds, dimensions.width)
       for {
-        file    <- ExportOperations.resizeImage(sourceFile, dimensions, 75d)
+        file    <- ImageOperations.resizeImage(sourceFile, dimensions, 75d, Config.tempDir)
         sizing  <- CropStore.storeCropSizing(file, filename, mediaType, crop, dimensions)
         _       <- delete(file)
       }
@@ -77,8 +80,9 @@ object Crops {
     if(isInvalidCrop(apiImage.source, source)) throw InvalidCropRequest
 
     for {
-      sourceFile <- tempFileFromURL(secureUrl, "cropSource", "", Config.tempDir)
-      masterCrop <- createMasterCrop(apiImage, sourceFile, crop, mediaType)
+      sourceFile  <- tempFileFromURL(secureUrl, "cropSource", "", Config.tempDir)
+      colourModel <- ImageOperations.identifyColourModel(sourceFile, mediaType)
+      masterCrop  <- createMasterCrop(apiImage, sourceFile, crop, mediaType, colourModel)
 
       outputDims = dimensionsFromConfig(source.bounds, masterCrop.aspectRatio) :+ masterCrop.dimensions
 
