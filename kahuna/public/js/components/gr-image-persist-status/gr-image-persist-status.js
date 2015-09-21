@@ -31,7 +31,7 @@ module.controller('GrImagePersistStatusCtrl', [
             }
         });
 
-        $scope.$on('$destroy', () => freeUpdateListener());
+        $scope.$on('$destroy', freeUpdateListener);
     }
 ]);
 
@@ -43,7 +43,7 @@ module.directive('grImagePersistStatus', [function () {
         bindToController: true,
         template: template,
         scope: {
-            image: '=',
+            image: '=grImage',
             disabled: '=',
             withText: '='
         }
