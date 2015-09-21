@@ -67,7 +67,7 @@ usageRightsEditor.controller(
         }, {});
     });
 
-    const savingDisabled$ = category$.combineLatest(category$, cat => cat === multiCat);
+    const savingDisabled$ = category$.map(cat => cat === multiCat);
     const forceRestrictions$ = model$.combineLatest(category$, (model, cat) => {
         const defaultRestrictions =
             cat.properties.find(prop => prop.name === 'defaultRestrictions');
