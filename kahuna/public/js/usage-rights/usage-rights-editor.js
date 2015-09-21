@@ -156,6 +156,7 @@ usageRightsEditor.controller(
 
     // takes an array of objects and turns it into an object with an array of unique values
     // e.g. [{ a: 1, b: 2 }, { a: 2, b: 2, c: 3 }] => { a: [1,2], b: [2], c: [3] }
+    // TODO: Use the nicer, immutable `imageList.getSetOfProperties`
     function reduceObjectsToArrays(objects) {
         // find a list of available keys
         const keys = unique(objects.reduce((keys, obj) => {
