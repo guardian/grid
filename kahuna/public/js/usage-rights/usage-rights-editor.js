@@ -41,10 +41,7 @@ usageRightsEditor.controller(
         }
     });
 
-    // I haven't combined these as it seems unnecessary as we only need to change to `multiCat`
-    // when the list of usageRights is updated. We also only emit on category existing.
-    const categoryChange$ = observe$($scope, () => ctrl.category).filter(cat => !!cat);
-    const category$ = usageRights$.combineLatest(categories$, (urs, cats) => {
+    const categoryFromUsageRights$ = usageRights$.combineLatest(categories$, (urs, cats) => {
         const uniqueCats = getUniqueCats(urs);
         if (uniqueCats.length === 1) {
             const uniqeCat = uniqueCats[0] || '';
@@ -53,6 +50,8 @@ usageRightsEditor.controller(
             return multiCat;
         }
     });
+    const categoryChange$ = observe$($scope, () => ctrl.category).filter(cat => !!cat);
+    const category$ = categoryFromUsageRights$.merge(categoryChange$);
 
     const model$ = usageRights$.map(urs => {
         const multiModel = reduceObjectsToArrays(urs.map(ur => ur.data));
@@ -64,8 +63,8 @@ usageRightsEditor.controller(
         }, {});
     });
 
-    const savingDisabled$ = category$.combineLatest(categoryChange$, cat => cat === multiCat);
-    const forceRestrictions$ = model$.combineLatest(categoryChange$, (model, cat) => {
+    const savingDisabled$ = category$.combineLatest(category$, cat => cat === multiCat);
+    const forceRestrictions$ = model$.combineLatest(category$, (model, cat) => {
         const defaultRestrictions =
             cat.properties.find(prop => prop.name === 'defaultRestrictions');
         const restrictedProp =
