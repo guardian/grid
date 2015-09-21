@@ -1,35 +1,39 @@
-package lib.imaging
+package com.gu.mediaservice.lib.imaging
 
 import java.io._
 
-import com.gu.mediaservice.lib.Files
-
-import scala.concurrent.Future
-
+import com.gu.mediaservice.lib.Files._
+import com.gu.mediaservice.lib.imaging.im4jwrapper.{ExifTool, ImageMagick}
+import com.gu.mediaservice.model.{Asset, Bounds, Dimensions, ImageMetadata}
 import play.api.libs.concurrent.Execution.Implicits._
 
-import com.gu.mediaservice.model.{Dimensions, ImageMetadata, Asset, Bounds}
-import com.gu.mediaservice.lib.imaging.im4jwrapper.{ImageMagick, ExifTool}
-
-import lib.Config
-import Files._
+import scala.concurrent.Future
 
 
 case class ExportResult(id: String, masterCrop: Asset, othersizings: List[Asset])
 
-object ExportOperations {
-  import ImageMagick._
+object ImageOperations {
   import ExifTool._
+  import ImageMagick._
 
   lazy val imageProfileLocation = s"${play.api.Play.current.path}/srgb.icc"
 
-  def tagFilter(metadata: ImageMetadata) = {
+  private def tagFilter(metadata: ImageMetadata) = {
     Map[String, Option[String]](
       "Copyright" -> metadata.copyright,
       "CopyrightNotice" -> metadata.copyrightNotice,
       "Credit" -> metadata.credit,
       "OriginalTransmissionReference" -> metadata.suppliersReference
     ).collect { case (key, Some(value)) => (key, value) }
+  }
+
+  def identifyColourModel(sourceFile: File, mimeType: String): Future[Option[String]] = {
+    for {
+      _           <- Future.successful()
+      source       = addImage(sourceFile)
+      formatter    = format(source)("%[JPEG-Colorspace-Name]")
+      colourModel <- runIdentifyCmd(formatter).map(_.headOption)
+    } yield colourModel
   }
 
   def cropImage(sourceFile: File, bounds: Bounds, qual: Double = 100d): Future[File] = {
