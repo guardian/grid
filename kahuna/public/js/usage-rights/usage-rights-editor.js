@@ -71,7 +71,7 @@ usageRightsEditor.controller(
     inject$($scope, model$, ctrl, 'model');
     inject$($scope, savingDisabled$, ctrl, 'savingDisabled');
 
-
+    // TODO: Some of these, especially `isRestricted` could be streams
     ctrl.getOptionsFor = property => {
         const options = property.options.map(option => ({ key: option, value: option }));
         if (property.required) {
@@ -92,8 +92,8 @@ usageRightsEditor.controller(
         ctrl.model = {};
     };
 
-
-
+    ctrl.isRestricted = prop =>
+        ctrl.showRestrictions || ctrl.category.defaultRestrictions || prop.required;
 
     function save(data) {
         $q.all(ctrl.usageRights.map((usageRights) => {
