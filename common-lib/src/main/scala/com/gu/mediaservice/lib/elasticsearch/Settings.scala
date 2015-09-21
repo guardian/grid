@@ -9,6 +9,7 @@ object IndexSettings {
     "tokenizer" -> "standard",
     "filter" -> Json.arr(
       "lowercase",
+      "asciifolding",
       "english_possessive_stemmer",
       "gu_stopwords",
       "s_stemmer"
