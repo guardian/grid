@@ -17,28 +17,27 @@ datalist.directive('grDatalist', [function() {
         controllerAs: 'ctrl',
         controller: [function() {
             var ctrl = this;
-
-            ctrl.selectedIndex = 0;
+            var selectedIndex = 0;
 
             ctrl.results = [];
 
             ctrl.moveIndex = movement =>
-                ctrl.selectedIndex = (ctrl.selectedIndex + movement + ctrl.results.length) %
+                selectedIndex = (selectedIndex + movement + ctrl.results.length) %
                                 ctrl.results.length;
 
-            ctrl.isSelected = key => key === ctrl.selectedIndex;
+            ctrl.isSelected = key => key === selectedIndex;
 
             ctrl.searchFor = q =>
-                ctrl.search({ q }).then(results => ctrl.results = results);
+                ctrl.search({ q }).then(results => ctrl.results = results).then(selectedIndex = 0);
 
             ctrl.setValueTo = value => ctrl.value = value;
 
             ctrl.setValueFromSelectedIndex = () => {
-                ctrl.value = ctrl.results[ctrl.selectedIndex];
+                ctrl.value = ctrl.results[selectedIndex];
             };
 
             ctrl.reset = () => {
-                ctrl.selectedIndex = 0;
+                selectedIndex = 0;
                 ctrl.results = [];
             };
         }],
@@ -104,7 +103,6 @@ datalist.directive('grDatalistInput',
                     scope.$apply(func);
                 } else if (keys[event.which] !== 'enter') {
                     searchAndActivate();
-                    parentCtrl.selectedIndex = 0;
                 }
             });
 
