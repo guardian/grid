@@ -143,7 +143,7 @@ object EditsController extends Controller with ArgoHelpers with DynamoEdits {
   }
 
   def setMetadataFromUsageRights(id: String) = Authenticated.async { req =>
-    dynamo. get(id) flatMap { dynamoEntry =>
+    dynamo.get(id) flatMap { dynamoEntry =>
       val edits = dynamoEntry.as[Edits]
       val originalMetadata = edits.metadata
       val metadataOpt = edits.usageRights.flatMap(metadataFromUsageRights)
