@@ -1,6 +1,5 @@
 package com.gu.mediaservice.lib.elasticsearch
 
-import play.api.libs.json.Json.JsValueWrapper
 import play.api.libs.json.Json
 
 object IndexSettings {
@@ -9,8 +8,10 @@ object IndexSettings {
     "type" -> "custom",
     "tokenizer" -> "standard",
     "filter" -> Json.arr(
-      "gu_stopwords",
       "lowercase",
+      "asciifolding",
+      "english_possessive_stemmer",
+      "gu_stopwords",
       "s_stemmer"
     )
   )
@@ -23,6 +24,10 @@ object IndexSettings {
     "gu_stopwords" -> Json.obj(
       "type" -> "stop",
       "stopwords" -> "_english_"
+    ),
+    "english_possessive_stemmer" -> Json.obj(
+      "type" -> "stemmer",
+      "language" -> "possessive_english"
     )
   )
 
