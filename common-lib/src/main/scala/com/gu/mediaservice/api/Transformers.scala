@@ -1,7 +1,8 @@
 package com.gu.mediaservice.api
 
-import java.net.URLEncoder
+import java.net.{URI, URLEncoder}
 
+import com.gu.mediaservice.lib.argo.model.Action
 import com.gu.mediaservice.lib.config.Services
 import play.api.libs.json._
 
@@ -55,7 +56,10 @@ class Transformers(services: Services) {
         // always returns Array(). This is just making sure that bug is replicated
         // so we can do equalities to see if the services are synced. This will
         // be rectified when we use Argo here.
-        "data" -> (metadata ++ Json.obj("keywords" -> Json.arr()))
+        "data" -> (metadata ++ Json.obj("keywords" -> Json.arr())),
+        "actions" -> List(
+          Action("set-from-usage-rights", URI.create(
+            s"$metadataBaseUri/metadata/$id/metadata/set-from-usage-rights"), "POST"))
       )
     }
 
