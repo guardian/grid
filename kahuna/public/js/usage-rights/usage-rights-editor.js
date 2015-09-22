@@ -65,7 +65,7 @@ usageRightsEditor.controller(
         const usageRightsData = (urs.map(ur => ur.data));
 
         // Get a Map(property, Set(values));
-        const objs = imageList.getSetOfProperties(List(usageRightsData));
+        const objs = imageList.getSetOfProperties(new List(usageRightsData));
 
         // Return an object with the value, iif there is 1 value
         return objs.filter(obj => obj.size === 1).map(obj => obj.first()).toJS();
