@@ -11,7 +11,7 @@
             ng:model="ctrl.category"
             ng:disabled="ctrl.saving"
             ng:options="category as category.name for category in ctrl.categories track by category.value"
-            ng:change="ctrl.reset()">
+            ng:change="ctrl.changeCategory()">
         </select>
     </label>
 
