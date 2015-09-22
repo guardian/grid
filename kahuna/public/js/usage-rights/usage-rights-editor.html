@@ -3,11 +3,6 @@
       name="usageRights"
       ng:submit="usageRights.$valid && ctrl.save()">
 
-    <div class="ure__multi"
-        ng:if="ctrl.multipleImages()">
-        multiple usage rights
-    </div>
-
     <label class="ure__category">
         <!-- We reset the model here else properties remain attached to the\
         model, even though they don't exist in the form -->
@@ -30,7 +25,7 @@
 
     <div class="ure__properties" ng:if="ctrl.category">
         <div class="ure__multiple-rights-warning"
-            ng:if="ctrl.multipleUsageRights()">
+            ng:if="ctrl.usageRights.length > 1">
             Multiple usage rights
             <gr-icon
                 title="Some specific information about the usage rights of these images might be missing below and will be overridden.">
