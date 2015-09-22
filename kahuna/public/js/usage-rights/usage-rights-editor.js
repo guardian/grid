@@ -29,7 +29,7 @@ usageRightsEditor.controller(
     const multiCat = { name: 'Multiple categories', value: 'multi-cat', properties: [] };
 
     // @return Stream.<Array.<UsageRights>>
-    const usageRights$ = observe$($scope, () => ctrl.usageRights).startWith([]);
+    const usageRights$ = observe$($scope, () => ctrl.usageRights);
 
     // @return Stream.<Array.<Category>>
     const categories$ = Rx.Observable.fromPromise(editsApi.getUsageRightsCategories());
@@ -45,6 +45,8 @@ usageRightsEditor.controller(
     });
 
     // @return Stream.<Category>
+    // FIXME: This is not longer the canonical category as we aren't taking the user interaction
+    // into account so this goes stale.  
     const category$ = usageRights$.combineLatest(categories$, (urs, cats) => {
         const uniqueCats = getUniqueCats(urs);
         if (uniqueCats.length === 1) {
