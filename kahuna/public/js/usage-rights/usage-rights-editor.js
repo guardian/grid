@@ -46,7 +46,7 @@ usageRightsEditor.controller(
 
     // @return Stream.<Category>
     // FIXME: This is not longer the canonical category as we aren't taking the user interaction
-    // into account so this goes stale.  
+    // into account so this goes stale.
     const category$ = usageRights$.combineLatest(categories$, (urs, cats) => {
         const uniqueCats = getUniqueCats(urs);
         if (uniqueCats.length === 1) {
@@ -58,7 +58,7 @@ usageRightsEditor.controller(
     });
 
     // @return Stream.<Category>
-    // HACK: The filter here is because we're getting some `undefined`s come through from somewhere?
+    // The filter is used here to stop the initial setting of `undefined` being published.
     const categoryFromUserChange$ = observe$($scope, () => ctrl.category).filter(cat => !!cat);
 
     // @return Stream.<Category>
