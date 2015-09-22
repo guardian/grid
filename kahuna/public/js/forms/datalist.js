@@ -101,7 +101,7 @@ datalist.directive('grDatalistInput',
                 if (func && parentCtrl.active) {
                     event.preventDefault();
                     scope.$apply(func);
-                } else {
+                } else if (keys[event.which] !== 'enter') {
                     searchAndActivate();
                 }
             });
