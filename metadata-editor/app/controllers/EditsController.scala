@@ -46,6 +46,7 @@ object EditsController extends Controller with ArgoHelpers with DynamoEdits {
   val Authenticated = EditsApi.Authenticated
 
   import EditsResponse.{labelsUri, metadataUri}
+  import UsageRightsMetadataMapper.usageRightsToMetadata
 
   def decodeUriParam(param: String): String = decode(param, "UTF-8")
 
@@ -146,7 +147,7 @@ object EditsController extends Controller with ArgoHelpers with DynamoEdits {
     dynamo.get(id) flatMap { dynamoEntry =>
       val edits = dynamoEntry.as[Edits]
       val originalMetadata = edits.metadata
-      val metadataOpt = edits.usageRights.flatMap(metadataFromUsageRights)
+      val metadataOpt = edits.usageRights.flatMap(usageRightsToMetadata)
 
       metadataOpt.map { metadata =>
         // This merge is based on the fact that we know we will override byline and credit.
@@ -210,17 +211,6 @@ object EditsController extends Controller with ArgoHelpers with DynamoEdits {
     Notifications.publish(message, "update-image-user-metadata")
 
     edits
-  }
-
-  def metadataFromUsageRights(usageRights: UsageRights): Option[ImageMetadata] = {
-    val toImageMetadata: PartialFunction[UsageRights, ImageMetadata] = (ur: UsageRights) => ur match {
-      case u: StaffPhotographer        => ImageMetadata(byline = Some(u.photographer), credit = Some(u.publication))
-      case u: ContractPhotographer     => ImageMetadata(byline = Some(u.photographer), credit = u.publication)
-      case u: CommissionedPhotographer => ImageMetadata(byline = Some(u.photographer), credit = u.publication)
-    }
-
-    // if we don't match, return None
-    toImageMetadata.lift(usageRights)
   }
 
   // This get's the form error based on out data structure that we send over i.e.
