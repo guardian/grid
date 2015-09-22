@@ -17,8 +17,7 @@ trait SearchFilters extends ImageFields {
   val invalidFilter = Config.requiredMetadata.map(metadataField).toNel.map(filters.anyMissing)
 
   // New Cost Model
-  import UsageRightsConfig.{ suppliersCollectionExcl, freeSuppliers, payGettySourceList,
-                             freeToUseCategories }
+  import UsageRightsConfig.{ suppliersCollectionExcl, freeSuppliers, payGettySourceList }
   import UsageRightsDepConfig.guardianCredits
 
   val (suppliersWithExclusions, suppliersNoExclusions) = freeSuppliers.partition(suppliersCollectionExcl.contains)
@@ -80,18 +79,24 @@ trait SearchFilters extends ImageFields {
   // FIXME: There must be a better way (._.). Potentially making cost a lookup
   // again?
   lazy val freeToUseCategories: List[String] = List(
-    "PR Image",
-    "handout",
-    "screengrab",
+    "creative-commons",
+    "crown-copyright",
     "guardian-witness",
-    "social-media",
+    "handout",
     "obituary",
+    "pool",
+    "PR Image",
+    "screengrab",
+    "social-media",
+
+    "commissioned-agency",
+
     "staff-photographer",
     "contract-photographer",
     "commissioned-photographer",
-    "commissioned-agency",
-    "pool",
-    "creative-commons"
+    
+    "contract-illustrator",
+    "commissioned-illustrator"
   )
 
   val persistedFilter = filters.or(
