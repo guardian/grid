@@ -104,6 +104,7 @@ datalist.directive('grDatalistInput',
                     scope.$apply(func);
                 } else if (keys[event.which] !== 'enter') {
                     searchAndActivate();
+                    parentCtrl.selectedIndex = 0;
                 }
             });
 
@@ -136,10 +137,6 @@ datalist.directive('grDatalistInput',
                 const noResults = results.length === 0 || isOnlyResult;
 
                 parentCtrl.active = !noResults;
-
-                if (parentCtrl.selectedIndex >= parentCtrl.results.length) {
-                    parentCtrl.selectedIndex = parentCtrl.results.length -1;
-                }
 
             }
 
