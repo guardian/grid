@@ -4,19 +4,19 @@
         ng:click="archiver.toggleArchived(archived)"
         ng:disabled="archiver.archiving">
     <!-- TODO: Start looking at a new loader to replace our "ing…" loader -->
-    <span ng:show="archiver.isArchived" title="Remove from archive">
+    <span ng:show="archiver.isArchived" title="Remove from library">
         <gr-icon-label gr-icon="lock_outline">
             <span ng:show="archiver.withText">
-                <span ng:show="!archiver.archiving">Kept in archive</span>
-                <span ng:show="archiver.archiving">Removing from archive</span>
+                <span ng:show="!archiver.archiving">Kept in library</span>
+                <span ng:show="archiver.archiving">Removing from library</span>
             </span>
         </gr-icon-label>
     </span>
-    <span ng:show="!archiver.isArchived" title="Add to archive">
+    <span ng:show="!archiver.isArchived" title="Add to library">
         <gr-icon-label gr-icon="lock_open">
             <span ng:show="archiver.withText">
-                <span ng:show="!archiver.archiving">Add to archive</span>
-                <span ng:show="archiver.archiving">Adding to archive</span>
+                <span ng:show="!archiver.archiving">Add to library</span>
+                <span ng:show="archiver.archiving">Adding to library</span>
             </span>
         </gr-icon-label>
     </span>
