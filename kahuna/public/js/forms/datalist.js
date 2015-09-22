@@ -17,15 +17,16 @@ datalist.directive('grDatalist', [function() {
         controllerAs: 'ctrl',
         controller: [function() {
             var ctrl = this;
-            var selectedIndex = 0;
+
+            ctrl.selectedIndex = 0;
 
             ctrl.results = [];
 
             ctrl.moveIndex = movement =>
-                selectedIndex = (selectedIndex + movement + ctrl.results.length) %
+                ctrl.selectedIndex = (ctrl.selectedIndex + movement + ctrl.results.length) %
                                 ctrl.results.length;
 
-            ctrl.isSelected = key => key === selectedIndex;
+            ctrl.isSelected = key => key === ctrl.selectedIndex;
 
             ctrl.searchFor = q =>
                 ctrl.search({ q }).then(results => ctrl.results = results);
@@ -33,11 +34,11 @@ datalist.directive('grDatalist', [function() {
             ctrl.setValueTo = value => ctrl.value = value;
 
             ctrl.setValueFromSelectedIndex = () => {
-                ctrl.value = ctrl.results[selectedIndex];
+                ctrl.value = ctrl.results[ctrl.selectedIndex];
             };
 
             ctrl.reset = () => {
-                selectedIndex = 0;
+                ctrl.selectedIndex = 0;
                 ctrl.results = [];
             };
         }],
@@ -135,6 +136,11 @@ datalist.directive('grDatalistInput',
                 const noResults = results.length === 0 || isOnlyResult;
 
                 parentCtrl.active = !noResults;
+
+                if (parentCtrl.selectedIndex >= parentCtrl.results.length) {
+                    parentCtrl.selectedIndex = parentCtrl.results.length -1;
+                }
+
             }
 
             function deactivate() {
