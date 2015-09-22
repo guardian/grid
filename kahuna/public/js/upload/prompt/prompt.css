@@ -5,8 +5,12 @@ file-prompt {
 }
 
 file-prompt file-uploader {
-    display: flex;
-    justify-content: center;
+    display: inline-block;
+    padding: 0 5px;
+}
+
+file-prompt file-uploader .file-uploader__select-files {
+    margin-top: 0;
 }
 
 file-prompt .message {
