@@ -1,31 +1,35 @@
 import angular from 'angular';
 import 'angular-elastic';
 
+import Rx from 'rx';
+import '../util/rx';
+
+import {List} from 'immutable';
+
+import '../services/image-list';
+
 import template from './usage-rights-editor.html!text';
 import './usage-rights-editor.css!';
 
 import '../components/gr-confirm-delete/gr-confirm-delete.js';
 
-
-import Rx from 'rx';
-import '../util/rx';
-
 export var usageRightsEditor = angular.module('kahuna.edits.usageRightsEditor', [
     'monospaced.elastic',
     'gr.confirmDelete',
-    'util.rx'
+    'util.rx',
+    'kahuna.services.image-list'
 ]);
 
 usageRightsEditor.controller(
     'UsageRightsEditorCtrl',
-    ['$q', '$scope', 'inject$', 'observe$', 'editsService', 'editsApi',
-    function($q, $scope, inject$, observe$, editsService, editsApi) {
+    ['$q', '$scope', 'inject$', 'observe$', 'editsService', 'editsApi', 'imageList',
+    function($q, $scope, inject$, observe$, editsService, editsApi, imageList) {
 
     var ctrl = this;
     const multiCat = { name: 'Multiple categories', value: 'multi-cat', properties: [] };
 
     // @return Stream.<Array.<UsageRights>>
-    const usageRights$ = observe$($scope, () => ctrl.usageRights).startWith([]);
+    const usageRights$ = observe$($scope, () => ctrl.usageRights);
 
     // @return Stream.<Array.<Category>>
     const categories$ = Rx.Observable.fromPromise(editsApi.getUsageRightsCategories());
@@ -41,7 +45,9 @@ usageRightsEditor.controller(
     });
 
     // @return Stream.<Category>
-    const categoryFromUsageRights$ = usageRights$.combineLatest(categories$, (urs, cats) => {
+    // FIXME: This is not longer the canonical category as we aren't taking the user interaction
+    // into account so this goes stale.
+    const category$ = usageRights$.combineLatest(categories$, (urs, cats) => {
         const uniqueCats = getUniqueCats(urs);
         if (uniqueCats.length === 1) {
             const uniqeCat = uniqueCats[0] || '';
@@ -52,23 +58,28 @@ usageRightsEditor.controller(
     });
 
     // @return Stream.<Category>
-    const categoryChange$ = observe$($scope, () => ctrl.category).filter(cat => !!cat);
+    // The filter is used here to stop the initial setting of `undefined` being published.
+    const categoryFromUserChange$ = observe$($scope, () => ctrl.category).filter(cat => !!cat);
 
     // @return Stream.<Category>
-    const category$ = categoryFromUsageRights$.merge(categoryChange$).distinctUntilChanged();
+    const categoryWithUserChange$ =
+        category$.merge(categoryFromUserChange$).distinctUntilChanged();
 
     const model$ = usageRights$.map(urs => {
-        const multiModel = reduceObjectsToArrays(urs.map(ur => ur.data));
-        return Object.keys(multiModel).reduce((model, key) => {
-            if (unique(multiModel[key]).length === 1) {
-                model[key] = multiModel[key][0];
-            }
-            return model;
-        }, {});
+        const usageRightsData = (urs.map(ur => ur.data));
+
+        // Get a Map(property, Set(values));
+        const objs = imageList.getSetOfProperties(new List(usageRightsData));
+
+        // Return an object with the value, iif there is 1 value
+        return objs.filter(obj => obj.size === 1).map(obj => obj.first()).toJS();
     });
 
-    const savingDisabled$ = category$.map(cat => cat === multiCat);
-    const forceRestrictions$ = model$.combineLatest(category$, (model, cat) => {
+    // Stream.<Boolean>
+    const savingDisabled$ = categoryWithUserChange$.map(cat => cat === multiCat);
+
+    // Stream.<Boolean>
+    const forceRestrictions$ = model$.combineLatest(categoryWithUserChange$, (model, cat) => {
         const defaultRestrictions =
             cat.properties.find(prop => prop.name === 'defaultRestrictions');
         const restrictedProp =
@@ -77,11 +88,11 @@ usageRightsEditor.controller(
         return defaultRestrictions || (restrictedProp && restrictedProp.required);
     });
 
-    const userSetShowRestrictions$ = observe$($scope, () => ctrl.showRestrictions);
+    // Stream.<Boolean>
     const modelHasRestrictions$ = model$.map(model => angular.isDefined(model.restrictions));
-    const shouldShowRestrictions$ = userSetShowRestrictions$.merge(modelHasRestrictions$);
 
-    const showRestrictions$ = forceRestrictions$.combineLatest(shouldShowRestrictions$,
+    // Stream.<Boolean>
+    const showRestrictions$ = forceRestrictions$.combineLatest(modelHasRestrictions$,
         (forceRestrictions, showRestrictions) => {
 
         if (forceRestrictions) {
@@ -126,7 +137,7 @@ usageRightsEditor.controller(
 
         save(data).
         catch(uiError).
-        finally(() => ctrl.saving = false);
+        finally(saveComplete);
     };
 
     ctrl.reset = () => {
@@ -145,6 +156,11 @@ usageRightsEditor.controller(
         }));
     }
 
+    function saveComplete() {
+        ctrl.onSave();
+        ctrl.saving = false;
+    }
+
     function getUniqueCats(usageRights) {
         return unique(usageRights.map(ur => ur.data.category));
     }
@@ -152,27 +168,6 @@ usageRightsEditor.controller(
     function unique(arr) {
         return arr.reduce((prev, curr) =>
             prev.indexOf(curr) !== -1 ? prev : prev.concat(curr), []);
-    }
-
-    // takes an array of objects and turns it into an object with an array of unique values
-    // e.g. [{ a: 1, b: 2 }, { a: 2, b: 2, c: 3 }] => { a: [1,2], b: [2], c: [3] }
-    // TODO: Use the nicer, immutable `imageList.getSetOfProperties`
-    function reduceObjectsToArrays(objects) {
-        // find a list of available keys
-        const keys = unique(objects.reduce((keys, obj) => {
-            return Object.keys(obj).concat(keys);
-        }, []));
-
-        const objOfArrays = objects.reduce((objOfArrays, obj) => {
-            keys.forEach(key => {
-                const val = [obj[key]];
-                objOfArrays[key] = objOfArrays[key] ? objOfArrays[key].concat(val) : val;
-            });
-
-            return objOfArrays;
-        }, {});
-
-        return objOfArrays;
     }
 
     function uiError(error) {
