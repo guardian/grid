@@ -56,6 +56,7 @@ usageRightsEditor.controller(
     });
 
     // @return Stream.<Category>
+    // HACK: The filter here is because we're getting some `undefined`s come through from somewhere?
     const categoryFromUserChange$ = observe$($scope, () => ctrl.category).filter(cat => !!cat);
 
     // @return Stream.<Category>
