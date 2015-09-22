@@ -55,6 +55,7 @@ datalist.directive('grDatalistInput',
         link: function(scope, element, attrs, [parentCtrl, ngModel]) {
             const valueSelectorFn = attrs.grDatalistInputSelector;
             const valueUpdaterFn  = attrs.grDatalistInputUpdater;
+            const onCancel = attrs.grDatalistInputOnCancel;
 
             function valueSelector(value) {
                 if (valueSelectorFn) {
@@ -101,8 +102,10 @@ datalist.directive('grDatalistInput',
                 if (func && parentCtrl.active) {
                     event.preventDefault();
                     scope.$apply(func);
-                } else if (keys[event.which] !== 'enter') {
+                } else if (keys[event.which] !== 'enter' && keys[event.which] !== 'esc') {
                     searchAndActivate();
+                } else if (keys[event.which] === 'esc' && !parentCtrl.active) {
+                    scope.$apply(onCancel);
                 }
             });
 
