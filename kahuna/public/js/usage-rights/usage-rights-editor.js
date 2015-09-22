@@ -45,7 +45,7 @@ usageRightsEditor.controller(
     });
 
     // @return Stream.<Category>
-    const categoryFromUsageRights$ = usageRights$.combineLatest(categories$, (urs, cats) => {
+    const category$ = usageRights$.combineLatest(categories$, (urs, cats) => {
         const uniqueCats = getUniqueCats(urs);
         if (uniqueCats.length === 1) {
             const uniqeCat = uniqueCats[0] || '';
@@ -56,10 +56,11 @@ usageRightsEditor.controller(
     });
 
     // @return Stream.<Category>
-    const categoryChange$ = observe$($scope, () => ctrl.category).filter(cat => !!cat);
+    const categoryFromUserChange$ = observe$($scope, () => ctrl.category).filter(cat => !!cat);
 
     // @return Stream.<Category>
-    const category$ = categoryFromUsageRights$.merge(categoryChange$).distinctUntilChanged();
+    const categoryWithUserChange$ =
+        category$.merge(categoryFromUserChange$).distinctUntilChanged();
 
     const model$ = usageRights$.map(urs => {
         const usageRightsData = (urs.map(ur => ur.data));
@@ -72,10 +73,10 @@ usageRightsEditor.controller(
     });
 
     // Stream.<Boolean>
-    const savingDisabled$ = category$.map(cat => cat === multiCat);
+    const savingDisabled$ = categoryWithUserChange$.map(cat => cat === multiCat);
 
     // Stream.<Boolean>
-    const forceRestrictions$ = model$.combineLatest(category$, (model, cat) => {
+    const forceRestrictions$ = model$.combineLatest(categoryWithUserChange$, (model, cat) => {
         const defaultRestrictions =
             cat.properties.find(prop => prop.name === 'defaultRestrictions');
         const restrictedProp =
@@ -85,16 +86,10 @@ usageRightsEditor.controller(
     });
 
     // Stream.<Boolean>
-    const userSetShowRestrictions$ = observe$($scope, () => ctrl.showRestrictions);
-
-    // Stream.<Boolean>
     const modelHasRestrictions$ = model$.map(model => angular.isDefined(model.restrictions));
 
     // Stream.<Boolean>
-    const shouldShowRestrictions$ = userSetShowRestrictions$.merge(modelHasRestrictions$);
-
-    // Stream.<Boolean>
-    const showRestrictions$ = forceRestrictions$.combineLatest(shouldShowRestrictions$,
+    const showRestrictions$ = forceRestrictions$.combineLatest(modelHasRestrictions$,
         (forceRestrictions, showRestrictions) => {
 
         if (forceRestrictions) {
