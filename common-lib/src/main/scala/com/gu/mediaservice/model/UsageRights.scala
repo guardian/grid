@@ -383,7 +383,7 @@ object CommissionedIllustrator {
  )(i => (i.category, i.creator, i.restrictions))
 }
 
-case class CreativeCommons(restrictions: Option[String] = None)
+case class CreativeCommons(licence: String, source: String, creator: String, restrictions: Option[String] = None)
   extends UsageRights {
     val category = "creative-commons"
     val defaultCost = Some(Free)
@@ -396,5 +396,11 @@ case class CreativeCommons(restrictions: Option[String] = None)
   }
 object CreativeCommons {
  implicit val jsonReads: Reads[CreativeCommons] = Json.reads[CreativeCommons]
- implicit val jsonWrites: Writes[CreativeCommons] = UsageRights.defaultWrites
+ implicit val jsonWrites: Writes[CreativeCommons] = (
+   (__ \ "category").write[String] ~
+   (__ \ "licence").write[String] ~
+   (__ \ "source").write[String] ~
+   (__ \ "creator").write[String] ~
+   (__ \ "restrictions").writeNullable[String]
+ )(i => (i.category, i.licence, i.source, i.creator, i.restrictions))
 }
