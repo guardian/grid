@@ -1086,7 +1086,7 @@ FIXME: what to do with touch devices
     display: block;
 }
 
-.bottom-bar__actions ui-archiver {
+.bottom-bar__actions gr-image-persist-status {
     float: left;
 }
 
@@ -1853,7 +1853,7 @@ FIXME: what to do with touch devices
 /* ==========================================================================
    Archviver
    ========================================================================== */
-.top-bar-item .archiver {
+.top-bar-item gr-image-persist-status {
     padding: 0 10px;
     height: 100%;
 }
