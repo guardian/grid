@@ -28,7 +28,7 @@ datalist.directive('grDatalist', [function() {
             ctrl.isSelected = key => key === selectedIndex;
 
             ctrl.searchFor = q =>
-                ctrl.search({ q }).then(results => ctrl.results = results);
+                ctrl.search({ q }).then(results => ctrl.results = results).then(selectedIndex = 0);
 
             ctrl.setValueTo = value => ctrl.value = value;
 
@@ -138,6 +138,7 @@ datalist.directive('grDatalistInput',
                 const noResults = results.length === 0 || isOnlyResult;
 
                 parentCtrl.active = !noResults;
+
             }
 
             function deactivate() {
