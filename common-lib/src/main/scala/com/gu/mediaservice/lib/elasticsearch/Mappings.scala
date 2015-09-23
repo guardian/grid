@@ -77,7 +77,9 @@ object Mappings {
     "suppliersCollection" -> nonAnalyzedString,
     "photographer" -> standardAnalysedString,
     "publication" -> nonAnalyzedString,
-    "creator" -> nonAnalyzedString
+    "creator" -> nonAnalyzedString,
+    "licence" -> nonAnalyzedString,
+    "source" -> nonAnalyzedString
   )
 
   val exportsMapping =
