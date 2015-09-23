@@ -25,7 +25,18 @@ imageService.factory('imageService', [function() {
     }
 
     function getStates(image) {
-        const persistReasons = image.data.persisted.reasons;
+        const persistReasons = image.data.persisted.reasons.map(reason => {
+            switch (reason) {
+                case 'exports':
+                    return 'cropped';
+                case 'persistence-identifier':
+                    return 'from Picdar';
+                case 'photographer-category':
+                    return 'categorised as photographer';
+                default:
+                    return reason;
+            }
+        });
 
         return {
             cost: image.data.cost,
@@ -34,7 +45,7 @@ imageService.factory('imageService', [function() {
             canDelete: image.getAction('delete').then(action => !! action),
             canArchive: image.data.persisted.value === false ||
                 (persistReasons.length === 1 && persistReasons[0] === 'archived'),
-            persistedReasons: image.data.persisted.reasons.join(', ')
+            persistedReasons: persistReasons.join('; ')
         };
     }
 
