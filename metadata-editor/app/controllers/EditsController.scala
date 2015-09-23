@@ -150,6 +150,7 @@ object EditsController extends Controller with ArgoHelpers with DynamoEdits {
       val metadataOpt = edits.usageRights.flatMap(usageRightsToMetadata)
 
       metadataOpt map { metadata =>
+        println(metadata)
         val mergedMetadata = originalMetadata.copy(
           byline = metadata.byline orElse originalMetadata.byline,
           credit = metadata.credit orElse originalMetadata.credit
@@ -160,7 +161,7 @@ object EditsController extends Controller with ArgoHelpers with DynamoEdits {
           .map(edits => respond(edits.metadata, uri = Some(metadataUri(id))))
       } getOrElse {
         // just return the unmodified
-        Future.successful(respond(edits.metadata, uri = Some(metadataUri(id))
+        Future.successful(respond(edits.metadata, uri = Some(metadataUri(id))))
       }
     } recover {
       case NoItemFound => respondError(NotFound, "item-not-found", "Could not find image")
