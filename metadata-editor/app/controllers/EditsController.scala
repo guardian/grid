@@ -149,7 +149,7 @@ object EditsController extends Controller with ArgoHelpers with DynamoEdits {
       val originalMetadata = edits.metadata
       val metadataOpt = edits.usageRights.flatMap(usageRightsToMetadata)
 
-      metadataOpt.map { metadata =>
+      metadataOpt map { metadata =>
         val mergedMetadata = originalMetadata.copy(
           byline = metadata.byline orElse originalMetadata.byline,
           credit = metadata.credit orElse originalMetadata.credit
@@ -158,11 +158,12 @@ object EditsController extends Controller with ArgoHelpers with DynamoEdits {
         dynamo.jsonAdd(id, "metadata", metadataAsMap(mergedMetadata))
           .map(publish(id))
           .map(edits => respond(edits.metadata, uri = Some(metadataUri(id))))
+      } getOrElse {
+        // just return the unmodified
+        Future.successful(respond(edits.metadata, uri = Some(metadataUri(id))
       }
-      .getOrElse(Future.failed(EditsValidationError("no-matching-metadata-found", "Couldn't find any matching metadata")))
     } recover {
       case NoItemFound => respondError(NotFound, "item-not-found", "Could not find image")
-      case e: EditsValidationError => respondError(NotFound, e.key, e.message)
     }
   }
 
