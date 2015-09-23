@@ -150,17 +150,10 @@ object EditsController extends Controller with ArgoHelpers with DynamoEdits {
       val metadataOpt = edits.usageRights.flatMap(usageRightsToMetadata)
 
       metadataOpt.map { metadata =>
-        // This merge is based on the fact that we know we will override byline and credit.
-        // TODO: Be more intelligent about this
-        val mergedMetadata = (metadata.credit, metadata.byline) match {
-          case (Some(_), Some(_)) =>
-            originalMetadata.copy(credit = metadata.credit, byline = metadata.byline)
-          case (Some(_), None) =>
-            originalMetadata.copy(credit = metadata.credit)
-          case (None, Some(_)) =>
-            originalMetadata.copy(byline = metadata.byline)
-          case _ => originalMetadata
-        }
+        val mergedMetadata = originalMetadata.copy(
+          byline = metadata.byline orElse originalMetadata.byline,
+          credit = metadata.credit orElse originalMetadata.credit
+        )
 
         dynamo.jsonAdd(id, "metadata", metadataAsMap(mergedMetadata))
           .map(publish(id))
