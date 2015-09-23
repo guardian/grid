@@ -154,6 +154,15 @@ service.factory('editsService',
     function updateMetadataFromUsageRights(originalImage) {
         const resource = originalImage.data.userMetadata.data.metadata;
         const newRequest = resource.perform('set-from-usage-rights').
+              catch(e => {
+                // if this is a 404 - it means we didn't find metadata to set it to,
+                // so keep moving if it is.
+                if (e.status !== 404) {
+                    throw e;
+                } else {
+                    return resource;
+                }
+              }).
               then(edit => getSynced(originalImage, newImage => matches(edit, newImage)));
 
         const existingRequestPool = updateRequestPools.get(resource) ||
