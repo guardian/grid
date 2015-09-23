@@ -65,10 +65,14 @@ object UsageRightsOverride {
          "PA Archive/Press Association Ima" | "Press Association Images"
                                     => agency("PA")
     case "AFP" | "AFP/Getty Images" => agency("Getty Images", Some("AFP"))
+    case "Allsport"                 => agency("Getty Images", Some("Allsport"))
     case "FilmMagic"                => agency("Getty Images", Some("FilmMagic"))
     case "BFI"                      => agency("Getty Images", Some("BFI"))
     case "WireImage"                => agency("Getty Images", Some("WireImage"))
     case "Hulton Getty"             => agency("Getty Images", Some("Hulton"))
+    case "Allstar"                  => agency("Allstar Picture Library")
+    case "Sportsphoto Ltd." | "Sportsphoto Ltd./Allstar"
+                                    => agency("Allstar Picture Library", Some("Sportsphoto Ltd."))
     // TODO: Allsport (only in 2000?)? ANSA?
     case _                          => None
   }
