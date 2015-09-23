@@ -383,7 +383,8 @@ object CommissionedIllustrator {
  )(i => (i.category, i.creator, i.restrictions))
 }
 
-case class CreativeCommons(licence: String, source: String, creator: String, restrictions: Option[String] = None)
+case class CreativeCommons(licence: String, source: String, creator: String, contentLink: String,
+                           restrictions: Option[String] = None)
   extends UsageRights {
     val category = "creative-commons"
     val defaultCost = Some(Free)
@@ -401,6 +402,7 @@ object CreativeCommons {
    (__ \ "licence").write[String] ~
    (__ \ "source").write[String] ~
    (__ \ "creator").write[String] ~
+   (__ \ "contentLink").write[String] ~
    (__ \ "restrictions").writeNullable[String]
- )(i => (i.category, i.licence, i.source, i.creator, i.restrictions))
+ )(i => (i.category, i.licence, i.source, i.creator, i.contentLink, i.restrictions))
 }
