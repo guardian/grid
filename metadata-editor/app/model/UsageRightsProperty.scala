@@ -92,7 +92,8 @@ object UsageRightsProperty {
     case _:CreativeCommons => List(
       UsageRightsProperty("licence", "Licence", "string", true, Some(creativeCommonsLicense)),
       UsageRightsProperty("source", "Source", "string", true),
-      UsageRightsProperty("creator", "Owner", "string", true)
+      UsageRightsProperty("creator", "Owner", "string", true),
+      UsageRightsProperty("contentLink", "Link to content", "string", true)
     )
 
     case _ => List()
