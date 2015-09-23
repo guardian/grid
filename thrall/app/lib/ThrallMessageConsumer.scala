@@ -7,6 +7,7 @@ import org.elasticsearch.action.update.UpdateResponse
 
 import scala.concurrent.Future
 import play.api.libs.concurrent.Execution.Implicits._
+import play.api.Logger
 
 object ThrallMessageConsumer extends MessageConsumer(
   Config.queueUrl, Config.awsEndpoint, Config.awsCredentials, ThrallMetrics.processingLatency) {
@@ -58,4 +59,7 @@ object ThrallMessageConsumer extends MessageConsumer(
 }
 
 // TODO: improve and use this (for logging especially) else where.
-case class EsResponse(message: String)
+case class EsResponse(message: String) {
+  Logger.info(message)
+}
+
