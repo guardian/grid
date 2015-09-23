@@ -13,8 +13,8 @@ export var imageEditor = angular.module('kahuna.edits.imageEditor', [
 ]);
 
 imageEditor.controller('ImageEditorCtrl',
-                       ['$scope', '$timeout', 'editsService', 'editsApi', 'imageService',
-                        function($scope, $timeout, editsService, editsApi, imageService) {
+                       ['$rootScope', '$scope', '$timeout', 'editsService', 'editsApi', 'imageService',
+                        function($rootScope, $scope, $timeout, editsService, editsApi, imageService) {
 
     var ctrl = this;
 
@@ -87,6 +87,21 @@ imageEditor.controller('ImageEditorCtrl',
     editsApi.getUsageRightsCategories()
         .then(cats => ctrl.categories = cats)
         .finally(() => updateUsageRightsCategory());
+
+    // TODO: Find a way to broadcast more selectively
+    const batchApplyUsageRightsEvent = 'events:batch-apply:usage-rights';
+
+    ctrl.batchApplyUsageRights = () =>
+        $rootScope.$broadcast(batchApplyUsageRightsEvent, {
+            data: ctrl.usageRights.data });
+
+    if (Boolean(ctrl.withBatch)) {
+        $scope.$on(batchApplyUsageRightsEvent, (e, { data }) => {
+            const image = ctrl.image;
+            const resource = image.data.userMetadata.data.usageRights;
+            editsService.update(resource, data, image)
+        });
+    }
 }]);
 
 

@@ -98,6 +98,13 @@
                     <button class="image-info__edit" ng:click="ctrl.showUsageRights = !ctrl.showUsageRights">
                         <gr-icon>edit</gr-icon>
                     </button>
+                    <button
+                        class="job-editor__apply-to-all"
+                        title="Apply these usage rights to all"
+                        type="button"
+                        ng:if="ctrl.withBatch"
+                        ng:click="ctrl.batchApplyUsageRights()"
+                        >⇔</button>
                 </div>
 
                 <gr-usage-rights-editor
