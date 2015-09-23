@@ -2,12 +2,18 @@
         ng:if="!archiver.disabled"
         ng:class="{'archiver--archived': archiver.isArchived}"
         ng:click="archiver.toggleArchived(archived)"
-        ng:disabled="archiver.archiving">
+        ng:disabled="archiver.archiving"
+        ng:mouseenter="hover = true"
+        ng:mouseleave="hover = false"
+        ng:init="hover = false">
     <!-- TODO: Start looking at a new loader to replace our "ing…" loader -->
     <span ng:show="archiver.isArchived" title="Remove from library">
         <gr-icon-label gr-icon="lock_outline">
             <span ng:show="archiver.withText">
-                <span ng:show="!archiver.archiving">Kept in library</span>
+                <span ng:show="!archiver.archiving">
+                    <span ng:show="! hover">Kept in library</span>
+                    <span ng:show="hover">Remove from library?</span>
+                </span>
                 <span ng:show="archiver.archiving">Removing from library</span>
             </span>
         </gr-icon-label>
