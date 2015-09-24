@@ -57,8 +57,8 @@ object ImageOperations {
       // If no colour model detected, we can't do anything anyway so just hope all is well
       case (_,   None) => base
       // If mismatching, strip any (incorrect) ICC profile and inject a profile matching the model
-      // Note: ICC identified as "icm" here
-      case (_,   Some(model)) => profile(stripProfile(base)("icm"))(profileLocation(model))
+      // Note: Strip both ICC and ICM (Windows variant?) to be safe
+      case (_,   Some(model)) => profile(stripProfile(base)("icm,icc"))(profileLocation(model))
     }
   }
 
