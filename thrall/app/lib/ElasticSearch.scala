@@ -1,11 +1,11 @@
 package lib
 
-import _root_.play.api.libs.json._
+import play.api.libs.json._
+import play.api.Logger
 import com.gu.mediaservice.lib.elasticsearch.{ElasticSearchClient, ImageFields}
 import com.gu.mediaservice.syntax._
 import groovy.json.JsonSlurper
 import lib.ThrallMetrics._
-import org.elasticsearch.action.deletebyquery.DeleteByQueryResponse
 import org.elasticsearch.action.update.{UpdateRequestBuilder, UpdateResponse}
 import org.elasticsearch.action.updatebyquery.UpdateByQueryResponse
 import org.elasticsearch.client.UpdateByQueryClientWrapper
@@ -19,7 +19,8 @@ import scala.collection.convert.decorateAll._
 import scala.concurrent.{ExecutionContext, Future}
 
 
-object ImageNotDeletable extends Throwable("Image cannot be deleted")
+case class ImageNotDeletableResponse(id: String) extends Throwable("Image cannot be deleted")
+case class ImageDeletedResponse(id: String)
 
 object ElasticSearch extends ElasticSearchClient with ImageFields {
 
@@ -62,40 +63,56 @@ object ElasticSearch extends ElasticSearchClient with ImageFields {
       .executeAndLog(s"Indexing image $id")
       .incrementOnSuccess(indexedImages)}
 
-  def deleteImage(id: String)(implicit ex: ExecutionContext): Future[DeleteByQueryResponse] = {
-
-    val q = filteredQuery(
-      boolQuery.must(matchQuery("_id", id)),
-      andFilter(
-        missingOrEmptyFilter("exports"),
-        missingOrEmptyFilter(identifierField(Config.persistenceIdentifier)),
-        boolFilter.mustNot(termFilter(editsField("archived"), true)),
-        boolFilter.mustNot(termFilter(usageRightsField("category"), "staff-photographer")),
-        boolFilter.mustNot(termFilter(usageRightsField("category"), "contract-photographer")),
-        boolFilter.mustNot(termFilter(usageRightsField("category"), "commissioned-photographer"))
-      )
+  def deleteFilterQuery(id: String) = filteredQuery(
+    boolQuery.must(matchQuery("_id", id)),
+    andFilter(
+      missingOrEmptyFilter("exports"),
+      missingOrEmptyFilter(identifierField(Config.persistenceIdentifier)),
+      boolFilter.mustNot(termFilter(editsField("archived"), true)),
+      boolFilter.mustNot(termFilter(usageRightsField("category"), "staff-photographer")),
+      boolFilter.mustNot(termFilter(usageRightsField("category"), "contract-photographer")),
+      boolFilter.mustNot(termFilter(usageRightsField("category"), "commissioned-photographer"))
     )
+  )
 
-    val deleteQuery = client
+  private def deleteImageQuery(id: String) =
+    // we could use a `prepareDelete(imagesAlias, imageType, id), but we should
+    // never really expose the ability to delete without applying our rules first
+    client
       .prepareDeleteByQuery(imagesAlias)
       .setTypes(imageType)
-      .setQuery(q)
+      .setQuery(deleteFilterQuery(id))
+      .executeAndLog(s"Attempting to delete image $id")
 
-    // search for the image first, and then only delete and succeed
-    // this is because the delete query does not respond with anything useful
+  def deleteImage(id: String)
+                       (implicit ex: ExecutionContext):
+                        Future[Either[ImageDeletedResponse, ImageNotDeletableResponse]] = {
+
+    // We search for the image first as the `prepareDelete` doesn't return whether
+    // it has delete anything or not. We need this info further up the chain to know
+    // whether to delete the physical images or not.
     // TODO: is there a more efficient way to do this?
     client
       .prepareCount()
-      .setQuery(q)
+      .setQuery(deleteFilterQuery(id))
       .executeAndLog(s"Searching for image to delete: $id")
       .flatMap { countQuery =>
         val deleteFuture = countQuery.getCount match {
-          case 1 => deleteQuery.executeAndLog(s"Deleting image $id")
-          case _ => Future.failed(ImageNotDeletable)
+          case 1 => deleteImageQuery(id)
+          case _ => Future.failed(ImageNotDeletableResponse(id))
         }
         deleteFuture
           .incrementOnSuccess(deletedImages)
-          .incrementOnFailure(failedDeletedImages) { case ImageNotDeletable => true }
+          .incrementOnFailure(failedDeletedImages) { case _:ImageNotDeletableResponse => true }
+
+        deleteFuture map { deleteResponse =>
+          Left(ImageDeletedResponse(id))
+        } recoverWith {
+          case r:ImageNotDeletableResponse => {
+            Logger.info(s"Could not delete image $id")
+            Future.successful(Right(r))
+          }
+        }
       }
   }
 
