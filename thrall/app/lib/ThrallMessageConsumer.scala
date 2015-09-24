@@ -39,21 +39,14 @@ object ThrallMessageConsumer extends MessageConsumer(
   def updateImageUserMetadata(metadata: JsValue): Future[UpdateResponse] =
     withImageId(metadata)(id => ElasticSearch.applyImageMetadataOverride(id, metadata \ "data"))
 
-  def deleteImage(image: JsValue): Future[EsResponse] =
+  def deleteImage(image: JsValue): Future[Option[ImageDeletedResponse]] =
     withImageId(image) { id =>
-      // if we cannot delete the image as it's "protected", succeed and delete
-      // the message anyway.
-      ElasticSearch.deleteImage(id).map {
-        case r: DeleteByQueryResponse => {
+      ElasticSearch.deleteImage(id).map { deleteResponseOpt =>
+        deleteResponseOpt.map { deletedResponse =>
           ImageStore.deleteOriginal(id)
           ImageStore.deleteThumbnail(id)
           DynamoNotifications.publish(Json.obj("id" -> id), "image-deleted")
-          EsResponse(s"Image deleted: $id")
-        }
-      } recoverWith {
-        case ImageNotDeletable => {
-          Logger.info(s"Could not delete image $id")
-          Future.successful(EsResponse(s"Image cannot be deleted: $id"))
+          deletedResponse
         }
       }
     }
