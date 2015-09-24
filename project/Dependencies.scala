@@ -23,11 +23,21 @@ object Dependencies {
 
   val elasticsearchDeps = Seq("org.elasticsearch" % "elasticsearch" % elasticsearchVersion)
 
-  val awsDeps = Seq("com.amazonaws" % "aws-java-sdk" % "1.9.24")
+  val awsDeps = Seq(
+    ("com.amazonaws" % "aws-java-sdk" % "1.9.24")
+  )
 
   val pandaDeps = Seq(
     ("com.gu" %% "pan-domain-auth-core" % "0.2.7") exclude ("xpp3", "xpp3") exclude("com.google.guava", "guava-jdk5"),
     ("com.gu" %% "pan-domain-auth-play" % "0.2.7")
+  )
+
+  val guDeps = Seq(
+    "com.gu" %% "content-api-client" % "7.1"
+  )
+
+  val reactiveXDeps = Seq(
+    "io.reactivex" %% "rxscala" % "0.25.0"
   )
 
   val scalazDeps = Seq(

@@ -48,7 +48,7 @@ object Build extends Build {
     .libraryDependencies(awsDeps ++ playWsDeps)
 
   val usageService = playProject("usage")
-    .libraryDependencies(awsDeps ++ playWsDeps)
+    .libraryDependencies(awsDeps ++ playWsDeps ++ reactiveXDeps ++ guDeps)
 
   val imageLoader = playProject("image-loader")
     .libraryDependencies(awsDeps ++ imagingDeps)
