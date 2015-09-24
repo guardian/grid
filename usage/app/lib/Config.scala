@@ -20,6 +20,6 @@ object Config extends CommonPlayAppProperties with CommonPlayAppConfig {
   val kahunaUri = services.kahunaBaseUri
   val loginUriTemplate = services.loginUriTemplate
 
-  val pollerTable = "media-service-DEV-ContentPoller"
+  val pollerTable = properties("dynamo.tablename.pollTable")
   val dynamoRegion: Region = Region.getRegion(Regions.EU_WEST_1)
 }
