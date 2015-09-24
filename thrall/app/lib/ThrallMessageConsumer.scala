@@ -4,6 +4,7 @@ import _root_.play.api.libs.json._
 import com.gu.mediaservice.lib.aws.MessageConsumer
 import org.elasticsearch.action.deletebyquery.DeleteByQueryResponse
 import org.elasticsearch.action.update.UpdateResponse
+import play.api.Logger
 
 import scala.concurrent.Future
 import play.api.libs.concurrent.Execution.Implicits._
@@ -51,6 +52,7 @@ object ThrallMessageConsumer extends MessageConsumer(
         }
       } recoverWith {
         case ImageNotDeletable => {
+          Logger.info(s"Could not delete image $id")
           Future.successful(EsResponse(s"Image cannot be deleted: $id"))
         }
       }
