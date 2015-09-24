@@ -23,7 +23,7 @@ object UsageRightsProperty {
   type OptionsMap = Map[String, List[String]]
   type Options = List[String]
 
-  import MetadataConfig.{externalPhotographersMap, contractIllustrators}
+  import MetadataConfig.{externalPhotographersMap, contractIllustrators, creativeCommonsLicense}
   import UsageRightsConfig.freeSuppliers
 
   implicit val jsonWrites: Writes[UsageRightsProperty] = Json.writes[UsageRightsProperty]
@@ -31,7 +31,7 @@ object UsageRightsProperty {
   def sortList(l: List[String]) = l.sortWith(_.toLowerCase < _.toLowerCase)
 
   val props: List[(UsageRights) => List[UsageRightsProperty]] =
-    List(agencyProperties, photographerProperties, illustrationProperties, restrictionProperties)
+    List(agencyProperties, creativeCommonsProperties, photographerProperties, illustrationProperties, restrictionProperties)
 
   def getPropertiesForCat(u: UsageRights): List[UsageRightsProperty] = props.flatMap(f => f(u))
 
@@ -85,6 +85,17 @@ object UsageRightsProperty {
       UsageRightsProperty("creator", "Illustrator", "string", true, Some(sortList(contractIllustrators))))
     case _:CommissionedIllustrator => List(
       UsageRightsProperty("creator", "Illustrator", "string", true))
+    case _ => List()
+  }
+
+  private def creativeCommonsProperties(u: UsageRights) = u match {
+    case _:CreativeCommons => List(
+      UsageRightsProperty("licence", "Licence", "string", true, Some(creativeCommonsLicense)),
+      UsageRightsProperty("source", "Source", "string", true),
+      UsageRightsProperty("creator", "Owner", "string", true),
+      UsageRightsProperty("contentLink", "Link to content", "string", true)
+    )
+
     case _ => List()
   }
 }

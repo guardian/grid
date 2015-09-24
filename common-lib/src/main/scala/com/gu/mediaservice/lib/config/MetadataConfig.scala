@@ -149,4 +149,8 @@ object MetadataConfig {
   val contractPhotographersMap = PhotographersList.creditBylineMap(staffPhotographers)
   val allPhotographersMap = PhotographersList.creditBylineMap(allPhotographers)
 
+  val creativeCommonsLicense = List(
+    "CC BY-4.0", "CC BY-SA-4.0", "CC BY-ND-4.0"
+  )
+
 }
