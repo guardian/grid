@@ -70,10 +70,14 @@ object UsageRightsOverride {
     case "BFI"                      => agency("Getty Images", Some("BFI"))
     case "WireImage"                => agency("Getty Images", Some("WireImage"))
     case "Hulton Getty"             => agency("Getty Images", Some("Hulton"))
+    case "Tim Graham/Getty Images"  => agency("Getty Images", Some("Tim Graham"))
     case "Allstar"                  => agency("Allstar Picture Library")
-    case "Sportsphoto Ltd." | "Sportsphoto Ltd./Allstar"
+    case "Sportsphoto Ltd." | "Sportsphoto Ltd./Allstar" |
+         "SPORTSPHOTO LTD" | "ALLSTAR/SPORTSPHOTO"
                                     => agency("Allstar Picture Library", Some("Sportsphoto Ltd."))
-    // TODO: Allsport (only in 2000?)? ANSA?
+    case "Allstar/Cinetext" | "Cine Text / Allstar"
+                                    => agency("Allstar Picture Library", Some("Cinetext"))
+    // TODO: Keystone, ANSA, dpa - may come from different agency feeds
     case _                          => None
   }
 
