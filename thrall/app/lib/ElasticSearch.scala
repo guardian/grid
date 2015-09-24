@@ -86,7 +86,7 @@ object ElasticSearch extends ElasticSearchClient with ImageFields {
 
   def deleteImage(id: String)
                        (implicit ex: ExecutionContext):
-                        Future[Either[ImageDeletedResponse, ImageNotDeletableResponse]] = {
+                        Future[Either[ImageNotDeletableResponse, ImageDeletedResponse]] = {
 
     // We search for the image first as the `prepareDelete` doesn't return whether
     // it has delete anything or not. We need this info further up the chain to know
@@ -106,11 +106,11 @@ object ElasticSearch extends ElasticSearchClient with ImageFields {
           .incrementOnFailure(failedDeletedImages) { case _:ImageNotDeletableResponse => true }
 
         deleteFuture map { deleteResponse =>
-          Left(ImageDeletedResponse(id))
+          Right(ImageDeletedResponse(id))
         } recoverWith {
           case r:ImageNotDeletableResponse => {
             Logger.info(s"Could not delete image $id")
-            Future.successful(Right(r))
+            Future.successful(Left(r))
           }
         }
       }

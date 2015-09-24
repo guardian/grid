@@ -40,10 +40,10 @@ object ThrallMessageConsumer extends MessageConsumer(
     withImageId(metadata)(id => ElasticSearch.applyImageMetadataOverride(id, metadata \ "data"))
 
   // The Unit, Unit is due to the two sied effects
-  def deleteImage(image: JsValue): Future[Either[ImageDeletedResponse, ImageNotDeletableResponse]] =
+  def deleteImage(image: JsValue): Future[Either[ImageNotDeletableResponse, ImageDeletedResponse]] =
     withImageId(image) { id =>
       ElasticSearch.deleteImage(id).map { deleteResponse =>
-        deleteResponse.left.map { imageDeletedResponse =>
+        deleteResponse.right.map { imageDeletedResponse =>
           ImageStore.deleteOriginal(id)
           ImageStore.deleteThumbnail(id)
           DynamoNotifications.publish(Json.obj("id" -> id), "image-deleted")
