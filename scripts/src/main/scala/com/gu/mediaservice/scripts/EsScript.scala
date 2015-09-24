@@ -72,11 +72,15 @@ object Reindex extends EsScript {
         def reindexScroll(scroll: SearchResponse, done: Long = 0) {
           val total = scroll.getHits.totalHits
           val doing = done + scrollSize
+
+          // roughly accurate as we're using done, which is relative to scrollSize, rather than the actual number of docs in the new index
+          val percentage = (done.toFloat / total) * 100
+
           val hits = scroll.getHits.hits
 
-          if (hits.length > 0) {
+          if (hits.nonEmpty) {
             // TODO: Abstract out logging
-            System.out.println(s"Reindexing $doing of $total")
+            System.out.println(s"Reindexing $doing of $total ($percentage%)")
 
             val bulk = client.prepareBulk
 
