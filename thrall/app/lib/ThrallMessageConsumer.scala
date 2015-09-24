@@ -39,7 +39,6 @@ object ThrallMessageConsumer extends MessageConsumer(
   def updateImageUserMetadata(metadata: JsValue): Future[UpdateResponse] =
     withImageId(metadata)(id => ElasticSearch.applyImageMetadataOverride(id, metadata \ "data"))
 
-  // The Unit, Unit is due to the two sied effects
   def deleteImage(image: JsValue): Future[Either[ImageNotDeletableResponse, ImageDeletedResponse]] =
     withImageId(image) { id =>
       ElasticSearch.deleteImage(id).map { deleteResponse =>
