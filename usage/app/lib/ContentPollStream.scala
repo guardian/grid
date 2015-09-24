@@ -26,7 +26,6 @@ object MergedContentStream {
 object LiveContentPollStream extends ContentPollStream {
   val capi = LiveContentApi
   val observable = rawObservable.map(LiveContentItem(_))
-
 }
 
 object PreviewContentPollStream extends ContentPollStream {
