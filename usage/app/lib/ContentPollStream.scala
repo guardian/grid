@@ -6,6 +6,7 @@ import scala.concurrent.duration._
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
 
+import com.gu.contentapi.client.GuardianContentClient
 import com.gu.contentapi.client.model.SearchResponse
 import com.gu.contentapi.client.model.v1.Content
 
@@ -16,20 +17,47 @@ import org.joda.time.DateTime
 import play.api.libs.json._
 
 
-object ContentPollStream {
+object MergedContentStream {
+  val observable: Observable[ContentContainer] =
+    LiveContentPollStream.observable.merge(
+      PreviewContentPollStream.observable)
+}
+
+object LiveContentPollStream extends ContentPollStream {
+  val capi = LiveContentApi
+  val observable = rawObservable.map(LiveContentItem(_))
+
+}
+
+object PreviewContentPollStream extends ContentPollStream {
+  val capi = PreviewContentApi
+  val observable = rawObservable.map(PreviewContentItem(_))
+}
+
+trait ContentContainer {
+  val content: Content
+}
+
+case class LiveContentItem(content: Content) extends ContentContainer
+case class PreviewContentItem(content: Content) extends ContentContainer
+
+trait ContentPollStream {
+
+  val observable: Observable[ContentContainer]
+  val capi: GuardianContentClient
 
   val dynamo = new DynamoDB(Config.awsCredentials, Config.dynamoRegion, Config.pollerTable)
 
   def splitResponse(response: SearchResponse) = Observable.from(response.results)
 
   def getContent: Observable[SearchResponse] = {
-    val latestByLatestModified = ContentApi.search
+    val latestByLatestModified = capi.search
       .showTags("all")
       .orderBy("newest").useDate("last-modified")
       .showElements("all")
       .pageSize(100)
 
-    Observable.from[SearchResponse](ContentApi.getResponse(latestByLatestModified))
+    Observable.from[SearchResponse](capi.getResponse(latestByLatestModified))
   }
 
 
@@ -71,11 +99,10 @@ object ContentPollStream {
       }})
   }
 
-  val pollInterval   = Duration(5, SECONDS)
-  val pollObservable =  Observable.interval(pollInterval)
+  val pollInterval  = Duration(5, SECONDS)
+  val rawObservable =  Observable.interval(pollInterval)
     .flatMap(_ => getContent)
     .flatMap(splitResponse)
     .flatMap(checkDynamo)
-    .map((contentItem: Content) => println(contentItem.id))
 
 }
