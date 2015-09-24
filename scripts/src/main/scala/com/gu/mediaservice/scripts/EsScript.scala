@@ -91,6 +91,8 @@ object Reindex extends EsScript {
           }
         }
 
+        Thread.sleep(1000)
+
         reindexScroll(query.execute.actionGet)
 
         // TODO: deleteIndex when we are confident
