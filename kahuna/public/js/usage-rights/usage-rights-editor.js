@@ -136,8 +136,8 @@ usageRightsEditor.controller(
             angular.extend({}, ctrl.model, { category: ctrl.category.value }) : {};
 
         save(data).
-        catch(uiError).
-        finally(saveComplete);
+            catch(uiError).
+            finally(saveComplete);
     };
 
     ctrl.reset = () => {
@@ -152,7 +152,8 @@ usageRightsEditor.controller(
             const image = usageRights.image;
             const resource = image.data.userMetadata.data.usageRights;
             return editsService.update(resource, data, image).
-                then(resource => resource.data);
+                then(resource => resource.data).
+                then(() => setMetadataFromUsageRights(image));
         }));
     }
 
@@ -174,6 +175,13 @@ usageRightsEditor.controller(
         // ♫ Very superstitious ♫
         ctrl.error = error && error.body && error.body.errorMessage ||
             'Unexpected error';
+    }
+
+    // HACK: This should probably live somewhere else, but it's the least intrusive
+    // here. This updates the metadata based on the usage rights to stop users having
+    // to enter content twice.
+    function setMetadataFromUsageRights(image) {
+        return editsService.updateMetadataFromUsageRights(image);
     }
 }]);
 
