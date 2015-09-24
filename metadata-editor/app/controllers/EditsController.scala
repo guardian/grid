@@ -43,12 +43,10 @@ import lib._
 
 object EditsController extends Controller with ArgoHelpers with DynamoEdits {
 
-  import Config.rootUri
-
   val Authenticated = EditsApi.Authenticated
 
-  def entityUri(id: String, endpoint: String = ""): URI =
-    URI.create(s"$rootUri/metadata/$id$endpoint")
+  import EditsResponse.{labelsUri, metadataUri}
+  import UsageRightsMetadataMapper.usageRightsToMetadata
 
   def decodeUriParam(param: String): String = decode(param, "UTF-8")
 
@@ -146,19 +144,27 @@ object EditsController extends Controller with ArgoHelpers with DynamoEdits {
   }
 
   def setMetadataFromUsageRights(id: String) = Authenticated.async { req =>
-    dynamo.jsonGet(id, "usageRights").flatMap { dynamoEntry =>
+    dynamo.get(id) flatMap { dynamoEntry =>
+      val edits = dynamoEntry.as[Edits]
+      val originalMetadata = edits.metadata
+      val metadataOpt = edits.usageRights.flatMap(usageRightsToMetadata)
 
-      val usageRights = (dynamoEntry \ "usageRights").asOpt[UsageRights]
-      val metadataOpt = usageRights.flatMap(metadataFromUsageRights)
-      metadataOpt.map { metadata =>
-        dynamo.jsonPatch(id, "metadata", metadataAsMap(metadata))
+      metadataOpt map { metadata =>
+        println(metadata)
+        val mergedMetadata = originalMetadata.copy(
+          byline = metadata.byline orElse originalMetadata.byline,
+          credit = metadata.credit orElse originalMetadata.credit
+        )
+
+        dynamo.jsonAdd(id, "metadata", metadataAsMap(mergedMetadata))
           .map(publish(id))
-          .map(edits => respond(edits.metadata))
+          .map(edits => respond(edits.metadata, uri = Some(metadataUri(id))))
+      } getOrElse {
+        // just return the unmodified
+        Future.successful(respond(edits.metadata, uri = Some(metadataUri(id))))
       }
-      .getOrElse(Future.failed(EditsValidationError("no-matching-metadata-found", "Couldn't find any matching metadata")))
     } recover {
       case NoItemFound => respondError(NotFound, "item-not-found", "Could not find image")
-      case e: EditsValidationError => respondError(BadRequest, e.key, e.message)
     }
   }
 
@@ -187,10 +193,8 @@ object EditsController extends Controller with ArgoHelpers with DynamoEdits {
   def caseClassToMap[T](caseClass: T)(implicit tjs: Writes[T]): Map[String, String] =
     Json.toJson[T](caseClass).as[JsObject].as[Map[String, String]]
 
-  def labelsCollection(id: String, labels: Set[String]): (URI, Seq[EmbeddedEntity[String]]) = {
-    val labelsUri = EditsResponse.entityUri(id, "/labels")
-    (labelsUri, labels.map(EditsResponse.setUnitEntity(id, "labels", _)).toSeq)
-  }
+  def labelsCollection(id: String, labels: Set[String]): (URI, Seq[EmbeddedEntity[String]]) =
+    (labelsUri(id), labels.map(EditsResponse.setUnitEntity(id, "labels", _)).toSeq)
 
   def publish(id: String)(metadata: JsObject): Edits = {
     val edits = metadata.as[Edits]
@@ -202,17 +206,6 @@ object EditsController extends Controller with ArgoHelpers with DynamoEdits {
     Notifications.publish(message, "update-image-user-metadata")
 
     edits
-  }
-
-  def metadataFromUsageRights(usageRights: UsageRights): Option[ImageMetadata] = {
-    val toImageMetadata: PartialFunction[UsageRights, ImageMetadata] = (ur: UsageRights) => ur match {
-      case u: StaffPhotographer        => ImageMetadata(byline = Some(u.photographer), credit = Some(u.publication))
-      case u: ContractPhotographer     => ImageMetadata(byline = Some(u.photographer), credit = u.publication)
-      case u: CommissionedPhotographer => ImageMetadata(byline = Some(u.photographer), credit = u.publication)
-    }
-
-    // if we don't match, return None
-    toImageMetadata.lift(usageRights)
   }
 
   // This get's the form error based on out data structure that we send over i.e.
@@ -261,13 +254,13 @@ object EditsController extends Controller with ArgoHelpers with DynamoEdits {
 
   val booleanForm: Form[Boolean] = Form(
     single("data" -> boolean)
-      .transform[Boolean]({ case (value)        => value },
+      .transform[Boolean]({ case (value) => value },
     { case value: Boolean => value })
   )
 
   val stringForm: Form[String] = Form(
     single("data" -> text)
-      .transform[String]({ case (value)       => value },
+      .transform[String]({ case (value) => value },
     { case value: String => value })
   )
 
