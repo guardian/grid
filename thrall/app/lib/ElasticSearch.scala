@@ -19,7 +19,7 @@ import scala.collection.convert.decorateAll._
 import scala.concurrent.{ExecutionContext, Future}
 
 
-case class ImageNotDeletableResponse(id: String) extends Throwable("Image cannot be deleted")
+object ImageNotDeletableResponse extends Throwable("Image cannot be deleted")
 case class ImageDeletedResponse(id: String)
 
 object ElasticSearch extends ElasticSearchClient with ImageFields {
@@ -86,7 +86,7 @@ object ElasticSearch extends ElasticSearchClient with ImageFields {
 
   def deleteImage(id: String)
                        (implicit ex: ExecutionContext):
-                        Future[Either[ImageNotDeletableResponse, ImageDeletedResponse]] = {
+                        Future[Option[ImageDeletedResponse]] = {
 
     // We search for the image first as the `prepareDelete` doesn't return whether
     // it has delete anything or not. We need this info further up the chain to know
@@ -99,18 +99,18 @@ object ElasticSearch extends ElasticSearchClient with ImageFields {
       .flatMap { countQuery =>
         val deleteFuture = countQuery.getCount match {
           case 1 => deleteImageQueryResponse(id)
-          case _ => Future.failed(ImageNotDeletableResponse(id))
+          case _ => Future.failed(ImageNotDeletableResponse)
         }
         deleteFuture
           .incrementOnSuccess(deletedImages)
-          .incrementOnFailure(failedDeletedImages) { case _:ImageNotDeletableResponse => true }
+          .incrementOnFailure(failedDeletedImages) { case ImageNotDeletableResponse => true }
 
         deleteFuture map { deleteResponse =>
-          Right(ImageDeletedResponse(id))
+          Some(ImageDeletedResponse(id))
         } recoverWith {
-          case r:ImageNotDeletableResponse => {
+          case ImageNotDeletableResponse => {
             Logger.info(s"Could not delete image $id")
-            Future.successful(Left(r))
+            Future.successful(None)
           }
         }
       }

@@ -39,14 +39,14 @@ object ThrallMessageConsumer extends MessageConsumer(
   def updateImageUserMetadata(metadata: JsValue): Future[UpdateResponse] =
     withImageId(metadata)(id => ElasticSearch.applyImageMetadataOverride(id, metadata \ "data"))
 
-  def deleteImage(image: JsValue): Future[Either[ImageNotDeletableResponse, ImageDeletedResponse]] =
+  def deleteImage(image: JsValue): Future[Option[ImageDeletedResponse]] =
     withImageId(image) { id =>
-      ElasticSearch.deleteImage(id).map { deleteResponse =>
-        deleteResponse.right.map { imageDeletedResponse =>
+      ElasticSearch.deleteImage(id).map { deleteResponseOpt =>
+        deleteResponseOpt.map { deletedResponse =>
           ImageStore.deleteOriginal(id)
           ImageStore.deleteThumbnail(id)
           DynamoNotifications.publish(Json.obj("id" -> id), "image-deleted")
-          imageDeletedResponse
+          deletedResponse
         }
       }
     }
