@@ -63,7 +63,7 @@ object ElasticSearch extends ElasticSearchClient with ImageFields {
       .executeAndLog(s"Indexing image $id")
       .incrementOnSuccess(indexedImages)}
 
-  def deleteFilterQuery(id: String) = filteredQuery(
+  def deleteImageFilter(id: String) = filteredQuery(
     boolQuery.must(matchQuery("_id", id)),
     andFilter(
       missingOrEmptyFilter("exports"),
@@ -75,13 +75,13 @@ object ElasticSearch extends ElasticSearchClient with ImageFields {
     )
   )
 
-  private def deleteImageQuery(id: String) =
+  private def deleteImageQueryResponse(id: String) =
     // we could use a `prepareDelete(imagesAlias, imageType, id), but we should
     // never really expose the ability to delete without applying our rules first
     client
       .prepareDeleteByQuery(imagesAlias)
       .setTypes(imageType)
-      .setQuery(deleteFilterQuery(id))
+      .setQuery(deleteImageFilter(id))
       .executeAndLog(s"Attempting to delete image $id")
 
   def deleteImage(id: String)
@@ -94,11 +94,11 @@ object ElasticSearch extends ElasticSearchClient with ImageFields {
     // TODO: is there a more efficient way to do this?
     client
       .prepareCount()
-      .setQuery(deleteFilterQuery(id))
+      .setQuery(deleteImageFilter(id))
       .executeAndLog(s"Searching for image to delete: $id")
       .flatMap { countQuery =>
         val deleteFuture = countQuery.getCount match {
-          case 1 => deleteImageQuery(id)
+          case 1 => deleteImageQueryResponse(id)
           case _ => Future.failed(ImageNotDeletableResponse(id))
         }
         deleteFuture
