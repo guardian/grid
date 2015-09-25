@@ -97,4 +97,19 @@ object ImageOperations {
     }
     yield outputFile
   }
+
+  def createThumbnail(sourceFile: File, width: Int, qual: Double = 100d, tempDir: File, iccColourSpace: Option[String], colourModel: Option[String]): Future[File] = {
+    for {
+      outputFile <- createTempFile(s"thumb-", ".jpg", tempDir)
+      cropSource  = addImage(sourceFile)
+      qualified   = quality(cropSource)(qual)
+      corrected   = correctColour(qualified)(iccColourSpace, colourModel)
+      converted   = applyOutputProfile(corrected)
+      stripped    = stripMeta(converted)
+      profiled    = applyOutputProfile(stripped)
+      resized     = thumbnail(profiled)(width)
+      addOutput   = addDestImage(resized)(outputFile)
+      _          <- runConvertCmd(addOutput)
+    } yield outputFile
+  }
 }

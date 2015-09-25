@@ -5,13 +5,14 @@ import java.io.File
 import play.api.libs.concurrent.Execution.Implicits._
 import scala.concurrent.Future
 
-import lib.imaging.{FileMetadataReader, Thumbnailer}
+import lib.imaging.FileMetadataReader
 import lib.Config
 
-import com.gu.mediaservice.lib.metadata.ImageMetadataConverter
+import com.gu.mediaservice.lib.metadata.{FileMetadataHelper, ImageMetadataConverter}
 import com.gu.mediaservice.lib.resource.FutureResources._
 import com.gu.mediaservice.lib.cleanup.{SupplierProcessors, MetadataCleaners}
 import com.gu.mediaservice.lib.config.MetadataConfig
+import com.gu.mediaservice.lib.imaging.ImageOperations
 import com.gu.mediaservice.lib.formatting._
 
 import lib.storage.ImageStore
@@ -21,15 +22,25 @@ case class ImageUpload(uploadRequest: UploadRequest, image: Image)
 case object ImageUpload {
   val metadataCleaners = new MetadataCleaners(MetadataConfig.allPhotographersMap)
 
+  import Config.{thumbWidth, thumbQuality, tempDir}
+
   def fromUploadRequest(uploadRequest: UploadRequest): Future[ImageUpload] = {
 
     val uploadedFile = uploadRequest.tempFile
 
     // These futures are started outside the for-comprehension, otherwise they will not run in parallel
     val sourceStoreFuture      = storeSource(uploadRequest)
-    val thumbFuture            = Thumbnailer.createThumbnail(Config.thumbWidth, uploadedFile.toString)
+    // FIXME: pass mimeType
+    val colourModelFuture      = ImageOperations.identifyColourModel(uploadedFile, "image/jpeg")
     val sourceDimensionsFuture = FileMetadataReader.dimensions(uploadedFile)
     val fileMetadataFuture     = FileMetadataReader.fromIPTCHeaders(uploadedFile)
+
+    val thumbFuture            = for {
+      fileMetadata   <- fileMetadataFuture
+      colourModel    <- colourModelFuture
+      iccColourSpace  = FileMetadataHelper.normalisedIccColourSpace(fileMetadata)
+      thumb          <- ImageOperations.createThumbnail(uploadedFile, thumbWidth, thumbQuality, tempDir, iccColourSpace, colourModel)
+    } yield thumb
 
     bracket(thumbFuture)(_.delete) { thumb =>
       // Run the operations in parallel
