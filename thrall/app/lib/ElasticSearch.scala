@@ -85,7 +85,7 @@ object ElasticSearch extends ElasticSearchClient with ImageFields {
     // this is because the delete query does not respond with anything useful
     // TODO: is there a more efficient way to do this?
     client
-      .prepareCount()
+      .prepareCount(imagesAlias)
       .setQuery(q)
       .executeAndLog(s"Searching for image to delete: $id")
       .flatMap { countQuery =>
