@@ -53,14 +53,16 @@ case object ImageUpload {
         sourceDimensions <- sourceDimensionsFuture
         thumbDimensions  <- thumbDimensionsFuture
         fileMetadata     <- fileMetadataFuture
+        colourModel      <- colourModelFuture
+        fullFileMetadata  = fileMetadata.copy(colourModel = colourModel)
 
-        metadata      = ImageMetadataConverter.fromFileMetadata(fileMetadata)
+        metadata      = ImageMetadataConverter.fromFileMetadata(fullFileMetadata)
         cleanMetadata = metadataCleaners.clean(metadata)
 
         sourceAsset = Asset.fromS3Object(s3Source, sourceDimensions)
         thumbAsset  = Asset.fromS3Object(s3Thumb,  thumbDimensions)
 
-        baseImage      = createImage(uploadRequest, sourceAsset, thumbAsset, fileMetadata, cleanMetadata)
+        baseImage      = createImage(uploadRequest, sourceAsset, thumbAsset, fullFileMetadata, cleanMetadata)
         processedImage = SupplierProcessors.process(baseImage)
 
         // FIXME: dirty hack to sync the originalUsageRights as well

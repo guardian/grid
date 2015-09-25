@@ -10,7 +10,8 @@ case class FileMetadata(
   exifSub: Map[String, String]   = Map(),
   xmp: Map[String, String]       = Map(),
   icc: Map[String, String]       = Map(),
-  getty: Map[String, String]     = Map()
+  getty: Map[String, String]     = Map(),
+  colourModel: Option[String]    = None
 )
 
 object FileMetadata {
@@ -22,7 +23,8 @@ object FileMetadata {
     (__ \ "exifSub").read[Map[String,String]] ~
     (__ \ "xmp").read[Map[String,String]] ~
     (__ \ "icc").readNullable[Map[String,String]].map(_ getOrElse Map()) ~
-    (__ \ "getty").readNullable[Map[String,String]].map(_ getOrElse Map())
+    (__ \ "getty").readNullable[Map[String,String]].map(_ getOrElse Map()) ~
+    (__ \ "colourModel").readNullable[String]
   )(FileMetadata.apply _)
 
   implicit val FileMetadataWrites: Writes[FileMetadata] = Json.writes[FileMetadata]
