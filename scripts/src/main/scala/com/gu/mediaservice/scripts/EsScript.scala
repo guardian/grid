@@ -67,7 +67,7 @@ object Reindex extends EsScript {
           .setScroll(scrollTime)
           .setQuery(matchAllQuery)
           .setSize(scrollSize)
-          .addSort("uploadedBy", SortOrder.ASC)
+          .addSort("uploadTime", SortOrder.ASC)
 
         def reindexScroll(scroll: SearchResponse, done: Long = 0) {
           val total = scroll.getHits.totalHits
