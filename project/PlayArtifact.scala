@@ -30,14 +30,14 @@ object PlayArtifact extends Plugin {
           assembly -> s"packages/$packageName/${assembly.getName}"
         )
 
-        val cropper = Seq(
+        val iccProfileAssets = Seq(
           base / "cmyk.icc"      -> s"packages/$packageName/cmyk.icc",
           base / "grayscale.icc" -> s"packages/$packageName/grayscale.icc",
           base / "srgb.icc"      -> s"packages/$packageName/srgb.icc"
         )
 
        name match {
-         case "cropper" => common ++ cropper
+         case "cropper" | "image-loader" => common ++ iccProfileAssets
          case default => common
        }
       }
