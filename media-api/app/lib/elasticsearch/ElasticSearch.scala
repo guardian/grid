@@ -2,8 +2,9 @@ package lib.elasticsearch
 
 import java.util.regex.Pattern
 
-import org.elasticsearch.index.query.{FilterBuilder, FilteredQueryBuilder}
-import org.elasticsearch.search.aggregations.bucket.terms.InternalTerms
+import org.elasticsearch.index.query.{MatchAllQueryBuilder, FilterBuilder, FilteredQueryBuilder}
+import org.elasticsearch.search.aggregations.bucket.terms.{Terms, InternalTerms}
+import org.elasticsearch.search.sort.SortOrder
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.collection.JavaConversions._
@@ -125,6 +126,31 @@ object ElasticSearch extends ElasticSearchClient with SearchFilters with ImageFi
       .map { results =>
         val hitsTuples = results.hits.toList flatMap (h => h.sourceOpt map (h.id -> _))
         SearchResults(hitsTuples, results.getTotalHits)
+      }
+  }
+
+  def siblingLabelsSearch(siblingLabel: String)(implicit ex: ExecutionContext): Future[AggregateSearchResults] = {
+    val name = "siblingLabels"
+    val aggregate = AggregationBuilders
+      .terms(name)
+      .field(editsField("labels"))
+      .exclude(siblingLabel)
+
+    val filter = filters.term("labels", siblingLabel)
+
+    val search = prepareImagesSearch
+      .setQuery(new FilteredQueryBuilder(new MatchAllQueryBuilder(), filter))
+      .addAggregation(aggregate)
+
+    search
+      .setSearchType(SearchType.COUNT)
+      .executeAndLog("sibling labels aggregate search")
+      .toMetric(searchQueries, List(searchTypeDimension("aggregate")))(_.getTookInMillis)
+      .map{ response =>
+        val buckets = response.getAggregations.getAsMap.get(name).asInstanceOf[InternalTerms].getBuckets
+        val results = buckets.toList map (s => BucketResult(s.getKey, s.getDocCount))
+
+        AggregateSearchResults(results, buckets.size)
       }
   }
 
