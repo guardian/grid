@@ -22,7 +22,7 @@ object EditsResponse {
       (__ \ "archived").write[ArchivedEntity].contramap(archivedEntity(id, _: Boolean)) ~
       (__ \ "labels").write[SetEntity].contramap(setEntity(id, "labels", _: List[String])) ~
       (__ \ "metadata").writeNullable[MetadataEntity].contramap(notEmptyMetadataEntity(id, _: ImageMetadata)) ~
-      (__ \ "usageRights").writeNullable[UsageRightsEntity].contramap(usageRightsEntity(id, _: Option[UsageRights]))
+      (__ \ "usageRights").write[UsageRightsEntity].contramap(usageRightsEntity(id, _: Option[UsageRights]))
     )(unlift(Edits.unapply))
 
   def archivedEntity(id: String, a: Boolean): ArchivedEntity =
@@ -36,8 +36,9 @@ object EditsResponse {
       Action("set-from-usage-rights", entityUri(id, "/metadata/set-from-usage-rights"), "POST")
     ))
 
-  def usageRightsEntity(id: String, u: Option[UsageRights]): Option[UsageRightsEntity] =
+  def usageRightsEntity(id: String, u: Option[UsageRights]): UsageRightsEntity =
     u.map(i => EmbeddedEntity(entityUri(id, "/usage-rights"), Some(i)))
+     .getOrElse(EmbeddedEntity(entityUri(id, "/usage-rights"), None))
 
   def setEntity(id: String, setName: String, labels: List[String]): SetEntity =
     EmbeddedEntity(entityUri(id, s"/$setName"), Some(labels.map(setUnitEntity(id, setName, _))))
