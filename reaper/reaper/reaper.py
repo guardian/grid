@@ -29,7 +29,8 @@ def _perform_get(media_api, api_key, until, length):
 
     url = '{0}/images?{1}'.format(media_api, urllib.urlencode(query_params))
 
-    return requests.get(url, headers=headers).json()
+    # verify=False to forcefully ignore SSL verification in DEV, which will fail due to cert using custom CA.
+    return requests.get(url, headers=headers, verify=False).json()
 
 
 def _extract_uris(api_response):
@@ -42,7 +43,8 @@ def _perform_delete(uris, api_key, dry_run):
     for uri in uris:
         LOGGER.info('DELETE {}'.format(uri))
         if not dry_run:
-            requests.delete(uri, headers=headers)
+            # verify=False to forcefully ignore SSL verification in DEV, which will fail due to cert using custom CA.
+            requests.delete(uri, headers=headers, verify=False)
 
 
 def reap(media_api, api_key, until='20.days', length=100, dry_run=False):
