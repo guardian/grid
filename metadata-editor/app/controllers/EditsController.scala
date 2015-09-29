@@ -57,7 +57,7 @@ object EditsController extends Controller with ArgoHelpers with DynamoEdits with
 
       // We have to do the to JSON here as we are using a custom JSON writes.
       // TODO: have the argo helpers allow you to do this
-      respond(Json.toJson(edits)(EditsResponse.editsResponseWrites(id)))
+      respond(Json.toJson(edits)(editsEntity(id)))
 
     } recover {
       // Empty object as no metadata edits recorded
@@ -194,7 +194,7 @@ object EditsController extends Controller with ArgoHelpers with DynamoEdits with
     Json.toJson[T](caseClass).as[JsObject].as[Map[String, String]]
 
   def labelsCollection(id: String, labels: Set[String]): (URI, Seq[EmbeddedEntity[String]]) =
-    (labelsUri(id), labels.map(EditsResponse.setUnitEntity(id, "labels", _)).toSeq)
+    (labelsUri(id), labels.map(setUnitEntity(id, "labels", _)).toSeq)
 
   def publish(id: String)(metadata: JsObject): Edits = {
     val edits = metadata.as[Edits]
