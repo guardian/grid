@@ -3,24 +3,26 @@ import template from './preset-labeller.html!text';
 import './preset-labeller.css!';
 
 import '../../search/query-filter';
+import '../../services/preset-label';
 
 export var presetLabeller = angular.module('kahuna.upload.prompt.presetLabeller', [
-    'kahuna.search.filters.query'
+    'kahuna.search.filters.query',
+    'kahuna.services.presetLabel'
 ]);
 
 presetLabeller.controller('PresetLabellerCtrl',
-                  ['$rootScope', '$scope', '$window', '$timeout', 'onValChange',
-                   function($rootScope, $scope, $window, $timeout, onValChange) {
+                  ['$rootScope', '$scope', '$window', '$timeout', 'onValChange', 'presetLabelService',
+                   function($rootScope, $scope, $window, $timeout, onValChange, presetLabelService) {
 
    var ctrl = this;
 
-   ctrl.presetLabels = JSON.parse($window.localStorage.getItem('preset labels'));
+   ctrl.presetLabels = presetLabelService.get();
 
    ctrl.removePresetLabel = labelToRemove => {
         let updatedPresetLabelList = ctrl.presetLabels.filter( label => label !== labelToRemove);
         ctrl.presetLabels = updatedPresetLabelList;
 
-        $window.localStorage.setItem('preset labels', JSON.stringify(updatedPresetLabelList));
+        presetLabelService.set(updatedPresetLabelList);
     }
 
     function saveFailed() {

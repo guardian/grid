@@ -5,21 +5,23 @@ import '../../analytics/track';
 import '../../components/gr-delete-image/gr-delete-image';
 import '../../image/service';
 import '../../services/label';
+import '../../services/preset-label';
 
 export var jobs = angular.module('kahuna.upload.jobs', [
     'kahuna.preview.image',
     'gr.image.service',
     'analytics.track',
     'kahuna.services.label',
+    'kahuna.services.presetLabel'
 ]);
 
 
 jobs.controller('UploadJobsCtrl', [
-    '$rootScope', '$scope', '$window', 'apiPoll', 'track', 'imageService', 'labelService',
-    function($rootScope, $scope, $window, apiPoll, track, imageService, labelService) {
+    '$rootScope', '$scope', '$window', 'apiPoll', 'track', 'imageService', 'labelService', 'presetLabelService',
+    function($rootScope, $scope, $window, apiPoll, track, imageService, labelService, presetLabelService) {
 
     var ctrl = this;
-    let presetLabels = JSON.parse($window.localStorage.getItem('preset labels'));
+    let presetLabels = presetLabelService.get();
 
     // State machine-esque async transitions
     const eventName = 'Image upload';
