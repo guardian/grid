@@ -1607,6 +1607,7 @@ FIXME: what to do with touch devices
     display: block;
     max-width: 100%;
     max-height: 64px;
+    margin: 0 auto;
 }
 
 .image-crop__aspect-ratio {
