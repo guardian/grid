@@ -15,7 +15,6 @@ addPresetLabel.controller('GrAddPresetLabelCtrl', [
     '$window', 'presetLabelService',
     function ($window, presetLabelService) {
 
-
         let ctrl = this;
 
         ctrl.active = false;
@@ -34,30 +33,24 @@ addPresetLabel.controller('GrAddPresetLabelCtrl', [
             ctrl.adding = true;
             ctrl.active = false;
 
-            let presetLabels = presetLabelService.get();
+            let presetLabels = presetLabelService.getLabels();
 
             //currently only adds first label
             if (presetLabels.indexOf(label[0]) === -1) {
                 let updatedPresetLabels = presetLabels.concat(label);
 
-                presetLabelService.set(updatedPresetLabels);
-                reset();
+                presetLabelService.setLabels(updatedPresetLabels);
             }
 
+            reset();
             ctrl.adding = false;
 
-        }
-
-        function saveFailed() {
-            $window.alert('Something went wrong when saving, please try again!');
-            ctrl.active = true;
         }
 
         function reset() {
             ctrl.newLabel = '';
             ctrl.active = false;
         }
-
 
     }
 ]);
