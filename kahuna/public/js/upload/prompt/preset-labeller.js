@@ -11,8 +11,8 @@ export var presetLabeller = angular.module('kahuna.upload.prompt.presetLabeller'
 ]);
 
 presetLabeller.controller('PresetLabellerCtrl',
-                  ['$rootScope', '$window', '$timeout', 'presetLabelService',
-                   function($rootScope, $window, $timeout, presetLabelService) {
+                  ['$rootScope', '$window', 'presetLabelService',
+                   function($rootScope, $window, presetLabelService) {
 
    var ctrl = this;
 

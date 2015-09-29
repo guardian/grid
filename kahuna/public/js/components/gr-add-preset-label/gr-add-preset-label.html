@@ -2,14 +2,14 @@
         ng:click="ctrl.active = true"
         ng:disabled="ctrl.adding"
         ng:if="!ctrl.active"
-        title="Add preset label">
+        title="Add a new label">
 
     <gr-icon ng:class="{'spin': ctrl.adding}">add_box</gr-icon>
     <span>
        <span ng:show="ctrl.adding">Adding...</span>
     </span>
 </button>
-<form class="gr-add-label__form"
+<form class="gr-add-preset-label__form"
       ng:if="ctrl.active"
       ng:submit="ctrl.save()">
 
@@ -21,12 +21,12 @@
                ng:model="ctrl.newLabel"
                ng:disabled="ctrl.adding" />
 
-    <span class="gr-add-label__form__buttons">
-        <button class="gr-add-label__form__buttons__button-cancel button-cancel" type="button" ng:click="ctrl.cancel()" title="Close">
+    <span class="gr-add-preset-label__form__buttons">
+        <button class="gr-add-preset-label__form__buttons__button-cancel button-cancel" type="button" ng:click="ctrl.cancel()" title="Close">
             <gr-icon-label gr-icon="close"><span ng:hide="ctrl.grSmall">Cancel</span></gr-icon-label>
         </button>
         <button
-            class="gr-add-label__form__buttons__button-save button-save"
+            class="gr-add-preset-label__form__buttons__button-save button-save"
             type="submit"
             title="Save new label"
             ng:disabled="ctrl.adding">
