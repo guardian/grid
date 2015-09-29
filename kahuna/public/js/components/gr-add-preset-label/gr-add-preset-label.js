@@ -1,20 +1,19 @@
 import angular from 'angular';
 
-import '../../forms/datalist';
-
 import './gr-add-preset-label.css!';
 import template from './gr-add-preset-label.html!text';
 
 import '../../directives/gr-auto-focus';
+import '../../services/preset-label';
 
 export var addPresetLabel = angular.module('gr.addPresetLabel', [
     'gr.autoFocus',
-    'kahuna.forms.datalist'
+    'kahuna.services.presetLabel'
 ]);
 
 addPresetLabel.controller('GrAddPresetLabelCtrl', [
-    '$window', '$q', 'labelService', 'mediaApi',
-    function ($window, $q, labelService,  mediaApi) {
+    '$window', 'presetLabelService',
+    function ($window, presetLabelService) {
 
 
         let ctrl = this;
@@ -22,10 +21,10 @@ addPresetLabel.controller('GrAddPresetLabelCtrl', [
         ctrl.active = false;
 
         ctrl.save = () => {
-            let presetLabelList = ctrl.newLabel.split(',').map(e => e.trim());
+            let newPresetLabelList = ctrl.newLabel.split(',').map(e => e.trim());
 
-            if (presetLabelList) {
-                save(presetLabelList);
+            if (newPresetLabelList) {
+                save(newPresetLabelList);
             }
         };
 
@@ -35,14 +34,13 @@ addPresetLabel.controller('GrAddPresetLabelCtrl', [
             ctrl.adding = true;
             ctrl.active = false;
 
-            let presetLabels = JSON.parse($window.localStorage.getItem('preset labels'));
+            let presetLabels = presetLabelService.get();
 
             //currently only adds first label
             if (presetLabels.indexOf(label[0]) === -1) {
                 let updatedPresetLabels = presetLabels.concat(label);
-                ctrl.
 
-                $window.localStorage.setItem('preset labels', JSON.stringify(updatedPresetLabels));
+                presetLabelService.set(updatedPresetLabels);
                 reset();
             }
 
