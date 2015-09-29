@@ -57,12 +57,12 @@ object EditsController extends Controller with ArgoHelpers with DynamoEdits with
 
       // We have to do the to JSON here as we are using a custom JSON writes.
       // TODO: have the argo helpers allow you to do this
-      respond(Json.toJson(edits)(editsEntity(id)))
+      respond(edits)(editsEntity(id))
 
     } recover {
       // Empty object as no metadata edits recorded
       case NoItemFound =>
-        respond(Json.toJson(Edits.getEmpty)(editsEntity(id)))
+        respond(Edits.getEmpty)(editsEntity(id))
     }
   }
 
