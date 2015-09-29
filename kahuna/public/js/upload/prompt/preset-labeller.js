@@ -16,21 +16,17 @@ presetLabeller.controller('PresetLabellerCtrl',
 
    var ctrl = this;
 
-   ctrl.presetLabels = presetLabelService.get();
+   ctrl.presetLabels = presetLabelService.getLabels();
 
-   $rootScope.$on('events:preset-labels:updated', () => ctrl.presetLabels = presetLabelService.get());
+   $rootScope.$on('events:preset-labels:updated',
+            () => ctrl.presetLabels = presetLabelService.getLabels());
 
    ctrl.removePresetLabel = labelToRemove => {
         let updatedPresetLabelList = ctrl.presetLabels.filter( label => label !== labelToRemove);
         ctrl.presetLabels = updatedPresetLabelList;
 
-        presetLabelService.set(updatedPresetLabelList);
-    }
-
-    function saveFailed() {
-        $window.alert('Something went wrong when saving, please try again!');
-    }
-
+        presetLabelService.setLabels(updatedPresetLabelList);
+    };
 
 }]);
 

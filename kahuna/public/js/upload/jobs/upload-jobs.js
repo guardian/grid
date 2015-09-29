@@ -17,8 +17,23 @@ export var jobs = angular.module('kahuna.upload.jobs', [
 
 
 jobs.controller('UploadJobsCtrl', [
-    '$rootScope', '$scope', '$window', 'apiPoll', 'track', 'imageService', 'labelService', 'presetLabelService',
-    function($rootScope, $scope, $window, apiPoll, track, imageService, labelService, presetLabelService) {
+    '$rootScope',
+    '$scope',
+    '$window',
+    'apiPoll',
+    'track',
+    'imageService',
+    'labelService',
+    'presetLabelService',
+
+    function($rootScope,
+            $scope,
+            $window,
+            apiPoll,
+            track,
+            imageService,
+            labelService,
+            presetLabelService) {
 
     var ctrl = this;
     let presetLabels = presetLabelService.get();

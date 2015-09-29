@@ -7,18 +7,18 @@ presetLabelService.factory('presetLabelService',
 
     const presetLabelsKey = 'preset labels';
 
-    function get() {
+    function getLabels() {
         return JSON.parse($window.localStorage.getItem(presetLabelsKey));
     }
 
-    function set(presetLabelList) {
+    function setLabels(presetLabelList) {
         $window.localStorage.setItem(presetLabelsKey, JSON.stringify(presetLabelList));
         return $rootScope.$emit('events:preset-labels:updated');
     }
 
     return {
-        get,
-        set
+        getLabels,
+        setLabels
     };
 
 }]);
