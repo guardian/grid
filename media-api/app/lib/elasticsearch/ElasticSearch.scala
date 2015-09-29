@@ -150,7 +150,6 @@ object ElasticSearch extends ElasticSearchClient with SearchFilters with ImageFi
       .map{ response =>
         val buckets = response.getAggregations.getAsMap.get(name).asInstanceOf[InternalTerms].getBuckets
         val results = buckets.toList map (s => BucketResult(s.getKey, s.getDocCount))
-        println(response)
 
         AggregateSearchResults(results, buckets.size)
       }
