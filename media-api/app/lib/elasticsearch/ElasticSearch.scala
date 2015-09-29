@@ -147,9 +147,10 @@ object ElasticSearch extends ElasticSearchClient with SearchFilters with ImageFi
 
     val filter = filters.term("labels", siblingLabel)
 
-    val search = prepareImagesSearch
-      .setQuery(new FilteredQueryBuilder(new MatchAllQueryBuilder(), filter))
-      .addAggregation(aggregate)
+    val search =
+      prepareImagesSearch
+        .setQuery(new FilteredQueryBuilder(new MatchAllQueryBuilder(), filter))
+        .addAggregation(aggregate)
 
     search
       .setSearchType(SearchType.COUNT)
@@ -180,7 +181,7 @@ object ElasticSearch extends ElasticSearchClient with SearchFilters with ImageFi
 
     search
       .setSearchType(SearchType.COUNT)
-      .executeAndLog("metadata aggregate search")
+      .executeAndLog(s"$name aggregate search")
       .toMetric(searchQueries, List(searchTypeDimension("aggregate")))(_.getTookInMillis)
       .map{ response =>
         val buckets = response.getAggregations.getAsMap.get(name).asInstanceOf[InternalTerms].getBuckets
