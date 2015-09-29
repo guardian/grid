@@ -230,7 +230,9 @@ object MediaApi extends Controller with ArgoHelpers {
 
     val searchParams = SearchParams(request)
 
-    val firstLabel = searchParams.structuredQuery.map {
+    // We search if we have a label in the search, take the first one and then look up it's
+    // siblings s that we can return them as "related labels"
+    val firstLabelOpt = searchParams.structuredQuery.map {
       // TODO: Use ImageFields for guard
       case Match(field: SingleField, value: Words) if field.name == "userMetadata.labels" => value.string
     }.headOption
@@ -240,7 +242,7 @@ object MediaApi extends Controller with ArgoHelpers {
       imageEntities <- Future.sequence(hits map (hitToImageEntity _).tupled)
       prevLink = getPrevLink(searchParams)
       nextLink = getNextLink(searchParams, totalCount)
-      relatedLabels = firstLabel.map(getRelatedLabels)
+      relatedLabels = firstLabelOpt.map(getRelatedLabelsLink)
       links = List(prevLink, nextLink, relatedLabels).flatten
     } yield respondCollection(imageEntities, Some(searchParams.offset), Some(totalCount), links)
   }
@@ -285,7 +287,7 @@ object MediaApi extends Controller with ArgoHelpers {
     }
   }
 
-  private def getRelatedLabels(label: String) =
+  private def getRelatedLabelsLink(label: String) =
     Link("related-labels", s"$rootUri/suggest/edits/labels/$label/sibling-labels")
 
   def suggestMetadataCredit(q: Option[String], size: Option[Int]) = Authenticated.async { request =>
