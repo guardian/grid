@@ -94,6 +94,11 @@ datalist.directive('grDatalistInput',
                     event.preventDefault();
                     scope.$apply(parentCtrl.setValueFromSelectedIndex);
                 }
+                //to prevent the caret moving to the start/end of the input box
+                if (parentCtrl.active &&
+                    ( keys[event.which] === 'up' || keys[event.which] === 'down' ) ) {
+                    event.preventDefault();
+                }
             });
 
             input.on('keyup', event => {
