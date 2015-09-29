@@ -8,24 +8,22 @@
 </gr-top-bar>
 
 <div class="page-wrapper">
+    <file-prompt class="section"></file-prompt>
+
     <section class="section"
              ng:if="ctrl.latestJob && ctrl.latestJob.length > 0">
 
-        <div class="flex-container section-heading">
-            <h2>Your current uploads</h2>
-            <span class="flex-spacer"></span>
+        <div class="flex-container section-heading current-uploads">
+            <h2 class="flex-spacer">Your current uploads</h2>
             <a ng:controller="SessionCtrl" class="coloured-link" ui:sref="search.results({uploadedBy: user.email, nonFree: true})">View all your uploads</a>
         </div>
 
         <ui-upload-jobs jobs="ctrl.latestJob"></ui-upload-jobs>
     </section>
 
-    <file-prompt class="section" ng:if="!ctrl.latestJob || ctrl.latestJob.length === 0"></file-prompt>
-
     <section class="section">
         <div class="flex-container section-heading">
-            <h2>Your past 50 uploads</h2>
-            <span class="flex-spacer"></span>
+            <h2 class="flex-spacer">Your past 50 uploads</h2>
             <a ng:controller="SessionCtrl" class="coloured-link" ui:sref="search.results({uploadedBy: user.email, nonFree: true})">View all your uploads</a>
         </div>
 
