@@ -20,7 +20,7 @@ import scalaz.syntax.std.list._
 
 import lib.elasticsearch._
 import lib.{Notifications, Config, ImageResponse}
-import lib.querysyntax.{Condition, Parser}
+import lib.querysyntax._
 
 import com.gu.mediaservice.lib.auth
 import com.gu.mediaservice.lib.auth._
@@ -229,12 +229,19 @@ object MediaApi extends Controller with ArgoHelpers {
     }
 
     val searchParams = SearchParams(request)
+
+    val firstLabel = searchParams.structuredQuery.map {
+      // TODO: Use ImageFields for guard
+      case Match(field: SingleField, value: Words) if field.name == "userMetadata.labels" => value.string
+    }.headOption
+
     for {
       SearchResults(hits, totalCount) <- ElasticSearch.search(searchParams)
       imageEntities <- Future.sequence(hits map (hitToImageEntity _).tupled)
       prevLink = getPrevLink(searchParams)
       nextLink = getNextLink(searchParams, totalCount)
-      links = List(prevLink, nextLink).flatten
+      relatedLabels = firstLabel.map(getRelatedLabels)
+      links = List(prevLink, nextLink, relatedLabels).flatten
     } yield respondCollection(imageEntities, Some(searchParams.offset), Some(totalCount), links)
   }
 
@@ -277,6 +284,9 @@ object MediaApi extends Controller with ArgoHelpers {
       None
     }
   }
+
+  private def getRelatedLabels(label: String) =
+    Link("related-labels", s"$rootUri/suggest/edits/labels/$label/sibling-labels")
 
   def suggestMetadataCredit(q: Option[String], size: Option[Int]) = Authenticated.async { request =>
     ElasticSearch
