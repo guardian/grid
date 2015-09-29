@@ -288,6 +288,10 @@ object MediaApi extends Controller with ArgoHelpers {
       .map(c => respondCollection(c.results))
   }
 
+  def suggestLabelSiblings(label: String) = Authenticated.async { request =>
+    ElasticSearch.labelSiblingsSearch(label) map aggregateResponse
+  }
+
   // TODO: work with analysed fields
   // TODO: recover with HTTP error if invalid field
   def metadataSearch(field: String, q: Option[String]) = Authenticated.async { request =>
