@@ -4,14 +4,13 @@ import java.util.regex.Pattern
 
 import org.elasticsearch.index.query.{MatchAllQueryBuilder, FilterBuilder, FilteredQueryBuilder}
 import org.elasticsearch.search.aggregations.bucket.terms.{Terms, InternalTerms}
-import org.elasticsearch.search.sort.SortOrder
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.collection.JavaConversions._
 
 import play.api.libs.json._
 import org.elasticsearch.action.get.GetRequestBuilder
-import org.elasticsearch.action.search.{SearchType, SearchRequestBuilder}
+import org.elasticsearch.action.search.{SearchResponse, SearchType, SearchRequestBuilder}
 import org.elasticsearch.search.aggregations.AggregationBuilders
 import org.elasticsearch.search.suggest.completion.{CompletionSuggestion, CompletionSuggestionBuilder}
 
@@ -134,10 +133,15 @@ object ElasticSearch extends ElasticSearchClient with SearchFilters with ImageFi
     val lastModifiedField = "lastModified"
     val labelsField = editsField("labels")
 
+    // We sort by the maximum lastModified
+    // TODO: We could add a lastModified to the labels resource and then sort by that
     val sortByDateAggr =
       AggregationBuilders.
         max(lastModifiedField).
         field(lastModifiedField)
+
+    // Only aggregate records which have the "top level" label that we're looking for
+    val filter = filters.term(labelsField, siblingLabel)
 
     val aggregate =
       AggregationBuilders
@@ -147,23 +151,16 @@ object ElasticSearch extends ElasticSearchClient with SearchFilters with ImageFi
         .order(Terms.Order.aggregation(lastModifiedField, false))
         .subAggregation(sortByDateAggr)
 
-    val filter = filters.term(labelsField, siblingLabel)
-
     val search =
       prepareImagesSearch
-        .setQuery(new FilteredQueryBuilder(new MatchAllQueryBuilder(), filter))
+        .setQuery(matchAllQueryWithFilter(filter))
         .addAggregation(aggregate)
 
     search
       .setSearchType(SearchType.COUNT)
       .executeAndLog("sibling labels aggregate search")
       .toMetric(searchQueries, List(searchTypeDimension("aggregate")))(_.getTookInMillis)
-      .map{ response =>
-        val buckets = response.getAggregations.getAsMap.get(name).asInstanceOf[InternalTerms].getBuckets
-        val results = buckets.toList map (s => BucketResult(s.getKey, s.getDocCount))
-
-        AggregateSearchResults(results, buckets.size)
-      }
+      .map(searchResultToAggregateResponse(_, name))
   }
 
   def metadataSearch(params: AggregateSearchParams)(implicit ex: ExecutionContext): Future[AggregateSearchResults] =
@@ -185,12 +182,7 @@ object ElasticSearch extends ElasticSearchClient with SearchFilters with ImageFi
       .setSearchType(SearchType.COUNT)
       .executeAndLog(s"$name aggregate search")
       .toMetric(searchQueries, List(searchTypeDimension("aggregate")))(_.getTookInMillis)
-      .map{ response =>
-        val buckets = response.getAggregations.getAsMap.get(name).asInstanceOf[InternalTerms].getBuckets
-        val results = buckets.toList map (s => BucketResult(s.getKey, s.getDocCount))
-
-        AggregateSearchResults(results, buckets.size)
-      }
+      .map(searchResultToAggregateResponse(_, name))
   }
 
   def completionSuggestion(name: String, q: String, size: Int)(implicit ex: ExecutionContext): Future[CompletionSuggestionResults] = {
@@ -215,7 +207,17 @@ object ElasticSearch extends ElasticSearchClient with SearchFilters with ImageFi
       }
   }
 
+  def matchAllQueryWithFilter(filter: FilterBuilder) =
+    new FilteredQueryBuilder(new MatchAllQueryBuilder(), filter)
+
   def completionSuggestionBuilder(name: String) = new CompletionSuggestionBuilder(name)
+
+  def searchResultToAggregateResponse(response: SearchResponse, aggregateName: String) = {
+    val buckets = response.getAggregations.getAsMap.get(aggregateName).asInstanceOf[InternalTerms].getBuckets
+    val results = buckets.toList map (s => BucketResult(s.getKey, s.getDocCount))
+
+    AggregateSearchResults(results, buckets.size)
+  }
 
   def imageExists(id: String)(implicit ex: ExecutionContext): Future[Boolean] =
     prepareGet(id).setFields().executeAndLog(s"check if image $id exists") map (_.isExists)
