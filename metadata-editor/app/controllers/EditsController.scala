@@ -52,18 +52,12 @@ object EditsController extends Controller with ArgoHelpers with DynamoEdits with
 
   // TODO: Think about calling this `overrides` or something that isn't metadata
   def getAllMetadata(id: String) = Authenticated.async {
+    val emptyResponse = respond(Edits.getEmpty)(editsEntity(id))
     dynamo.get(id) map { dynamoEntry =>
-      val edits = dynamoEntry.as[Edits]
-
-      // We have to do the to JSON here as we are using a custom JSON writes.
-      // TODO: have the argo helpers allow you to do this
-      respond(edits)(editsEntity(id))
-
-    } recover {
-      // Empty object as no metadata edits recorded
-      case NoItemFound =>
-        respond(Edits.getEmpty)(editsEntity(id))
-    }
+      dynamoEntry.asOpt[Edits]
+        .map(respond(_)(editsEntity(id)))
+        .getOrElse(emptyResponse)
+    } recover { case NoItemFound => emptyResponse }
   }
 
   def getArchived(id: String) = Authenticated.async {
