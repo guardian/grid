@@ -3,7 +3,7 @@ import angular from 'angular';
 var presetLabelService = angular.module('kahuna.services.presetLabel', []);
 
 presetLabelService.factory('presetLabelService',
-                            ['$window', function ($window) {
+                            ['$window', '$rootScope', function ($window, $rootScope) {
 
     const presetLabelsKey = 'preset labels';
 
@@ -12,7 +12,8 @@ presetLabelService.factory('presetLabelService',
     }
 
     function set(presetLabelList) {
-        return $window.localStorage.setItem(presetLabelsKey, JSON.stringify(presetLabelList));
+        $window.localStorage.setItem(presetLabelsKey, JSON.stringify(presetLabelList));
+        return $rootScope.$emit('events:preset-labels:updated');
     }
 
     return {

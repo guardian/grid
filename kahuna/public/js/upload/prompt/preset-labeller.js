@@ -11,12 +11,14 @@ export var presetLabeller = angular.module('kahuna.upload.prompt.presetLabeller'
 ]);
 
 presetLabeller.controller('PresetLabellerCtrl',
-                  ['$rootScope', '$scope', '$window', '$timeout', 'onValChange', 'presetLabelService',
-                   function($rootScope, $scope, $window, $timeout, onValChange, presetLabelService) {
+                  ['$rootScope', '$window', '$timeout', 'presetLabelService',
+                   function($rootScope, $window, $timeout, presetLabelService) {
 
    var ctrl = this;
 
    ctrl.presetLabels = presetLabelService.get();
+
+   $rootScope.$on('events:preset-labels:updated', () => ctrl.presetLabels = presetLabelService.get());
 
    ctrl.removePresetLabel = labelToRemove => {
         let updatedPresetLabelList = ctrl.presetLabels.filter( label => label !== labelToRemove);
