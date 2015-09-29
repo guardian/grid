@@ -41,12 +41,12 @@ import lib._
 //   }
 // }
 
-object EditsController extends Controller with ArgoHelpers with DynamoEdits {
+object EditsController extends Controller with ArgoHelpers with DynamoEdits with EditsResponse {
+
+  import UsageRightsMetadataMapper.usageRightsToMetadata
 
   val Authenticated = EditsApi.Authenticated
-
-  import EditsResponse.{labelsUri, metadataUri}
-  import UsageRightsMetadataMapper.usageRightsToMetadata
+  val metadataBaseUri = Config.services.metadataBaseUri
 
   def decodeUriParam(param: String): String = decode(param, "UTF-8")
 
@@ -62,7 +62,7 @@ object EditsController extends Controller with ArgoHelpers with DynamoEdits {
     } recover {
       // Empty object as no metadata edits recorded
       case NoItemFound =>
-        respond(Json.toJson(Edits.getEmpty)(EditsResponse.editsResponseWrites(id)))
+        respond(Json.toJson(Edits.getEmpty)(editsEntity(id)))
     }
   }
 
