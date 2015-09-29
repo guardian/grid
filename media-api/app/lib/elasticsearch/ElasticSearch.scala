@@ -3,14 +3,14 @@ package lib.elasticsearch
 import java.util.regex.Pattern
 
 import org.elasticsearch.index.query.{FilterBuilder, FilteredQueryBuilder}
-import org.elasticsearch.search.aggregations.bucket.terms.{InternalTerms, StringTerms}
+import org.elasticsearch.search.aggregations.bucket.terms.InternalTerms
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.collection.JavaConversions._
 
 import play.api.libs.json._
 import org.elasticsearch.action.get.GetRequestBuilder
-import org.elasticsearch.action.search.SearchRequestBuilder
+import org.elasticsearch.action.search.{SearchType, SearchRequestBuilder}
 import org.elasticsearch.search.aggregations.AggregationBuilders
 import org.elasticsearch.search.suggest.completion.{CompletionSuggestion, CompletionSuggestionBuilder}
 
@@ -144,8 +144,7 @@ object ElasticSearch extends ElasticSearchClient with SearchFilters with ImageFi
     val search = prepareImagesSearch.addAggregation(aggregate)
 
     search
-      .setFrom(0)
-      .setSize(0)
+      .setSearchType(SearchType.COUNT)
       .executeAndLog("metadata aggregate search")
       .toMetric(searchQueries, List(searchTypeDimension("aggregate")))(_.getTookInMillis)
       .map{ response =>

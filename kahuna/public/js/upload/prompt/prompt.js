@@ -14,6 +14,7 @@ prompt.directive('filePrompt', [function () {
     return {
         restrict: 'E',
         transclude: 'replace',
+        scope: {}, // ensure isolated scope
         template: template
     };
 }]);
