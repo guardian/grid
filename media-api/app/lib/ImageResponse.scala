@@ -13,13 +13,12 @@ import play.api.libs.functional.syntax._
 
 import com.gu.mediaservice.model._
 import com.gu.mediaservice.lib.argo.model._
-import com.gu.mediaservice.api.Transformers
+
 
 
 object ImageResponse extends EditsResponse {
   implicit val dateTimeFormat = DateFormat
 
-  val commonTransformers = new Transformers(Config.services)
   val metadataBaseUri = Config.services.metadataBaseUri
 
   type FileMetadataEntity = EmbeddedEntity[FileMetadata]
