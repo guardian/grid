@@ -131,10 +131,19 @@ object ElasticSearch extends ElasticSearchClient with SearchFilters with ImageFi
 
   def siblingLabelsSearch(siblingLabel: String)(implicit ex: ExecutionContext): Future[AggregateSearchResults] = {
     val name = "siblingLabels"
-    val aggregate = AggregationBuilders
-      .terms(name)
-      .field(editsField("labels"))
-      .exclude(siblingLabel)
+    val lastModifiedField = "lastModified"
+    val sortByDateAggr =
+      AggregationBuilders.
+        max(lastModifiedField).
+        field(lastModifiedField)
+
+    val aggregate =
+      AggregationBuilders
+        .terms(name)
+        .field(editsField("labels"))
+        .exclude(siblingLabel)
+        .order(Terms.Order.aggregation(lastModifiedField, false))
+        .subAggregation(sortByDateAggr)
 
     val filter = filters.term("labels", siblingLabel)
 
