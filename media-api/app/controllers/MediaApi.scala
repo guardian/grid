@@ -238,7 +238,7 @@ object MediaApi extends Controller with ArgoHelpers {
       case _ => None
     }
 
-    val (mainLabel, excludeLabels) = labels match {
+    val (mainLabel, selectedLabels) = labels match {
       case Nil => (None, Nil)
       case label :: Nil => (Some(label), Nil)
       case label :: extraLabels => (Some(label), extraLabels)
@@ -249,7 +249,7 @@ object MediaApi extends Controller with ArgoHelpers {
       imageEntities <- Future.sequence(hits map (hitToImageEntity _).tupled)
       prevLink = getPrevLink(searchParams)
       nextLink = getNextLink(searchParams, totalCount)
-      relatedLabels = mainLabel.map(getRelatedLabelsLink(_, excludeLabels))
+      relatedLabels = mainLabel.map(getRelatedLabelsLink(_, selectedLabels))
       links = List(prevLink, nextLink, relatedLabels).flatten
     } yield respondCollection(imageEntities, Some(searchParams.offset), Some(totalCount), links)
   }
@@ -294,11 +294,11 @@ object MediaApi extends Controller with ArgoHelpers {
     }
   }
 
-  private def getRelatedLabelsLink(mainLabel: String, excludeLabels: List[String] = Nil) = {
-    val uriTemplate = URITemplate(s"$rootUri/suggest/edits/labels/{label}/sibling-labels{?excludeLabels}")
+  private def getRelatedLabelsLink(mainLabel: String, selectedLabels: List[String] = Nil) = {
+    val uriTemplate = URITemplate(s"$rootUri/suggest/edits/labels/{label}/sibling-labels{?selectedLabels}")
     val paramMap = Map(
       "label" -> Some(mainLabel),
-      "excludeLabels" -> Some(excludeLabels.mkString(",")).filter(_.trim.nonEmpty)
+      "selectedLabels" -> Some(selectedLabels.mkString(",")).filter(_.trim.nonEmpty)
     )
     val paramVars = paramMap.map { case (key, value) => key := value }.toSeq
     val uri = uriTemplate expand (paramVars: _*)
@@ -312,15 +312,25 @@ object MediaApi extends Controller with ArgoHelpers {
       .map(c => respondCollection(c.results))
   }
 
-  def suggestLabelSiblings(label: String, excludeLabels: Option[String]) = Authenticated.async { request =>
-    val excludeLabels_ = excludeLabels.map(_.split(",").toList.map(_.trim)).getOrElse(Nil)
-    ElasticSearch.labelSiblingsSearch(label, excludeLabels_) map { agg =>
+  def suggestLabelSiblings(label: String, selectedLabels: Option[String]) = Authenticated.async { request =>
+    val selectedLabels_ = selectedLabels.map(_.split(",").toList.map(_.trim)).getOrElse(Nil)
 
-      respond(LabelSiblingsResponse(label, agg.results.map(_.key).toList))
+    ElasticSearch.labelSiblingsSearch(label) map { agg =>
+      val labels = agg.results.map { label =>
+        val selected = selectedLabels_.contains(label.key)
+        LabelSibling(label.key, selected)
+      }
+      respond(LabelSiblingsResponse(label, labels.toList))
     }
   }
 
-  case class LabelSiblingsResponse(label: String, siblings: List[String])
+  case class LabelSibling(label: String, selected: Boolean)
+  object LabelSibling {
+    implicit def jsonWrites: Writes[LabelSibling] = Json.writes[LabelSibling]
+    implicit def jsonReads: Reads[LabelSibling] =  Json.reads[LabelSibling]
+  }
+
+  case class LabelSiblingsResponse(label: String, siblings: List[LabelSibling])
   object LabelSiblingsResponse {
     implicit def jsonWrites: Writes[LabelSiblingsResponse] = Json.writes[LabelSiblingsResponse]
     implicit def jsonReads: Reads[LabelSiblingsResponse] =  Json.reads[LabelSiblingsResponse]

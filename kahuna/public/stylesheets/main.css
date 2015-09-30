@@ -951,6 +951,10 @@ input.search-query__input {
 .related-labels__label {
     margin-left: 10px;
 }
+.related-labels__label-text--selected {
+    box-sizing: border-box;
+    border-bottom: 2px solid #00adee;
+}
 
 .image-results-count__new {
     font-family: inherit;
