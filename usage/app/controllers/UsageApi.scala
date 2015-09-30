@@ -26,6 +26,6 @@ object UsageApi extends Controller with ArgoHelpers {
     )
     respond(indexData, indexLinks)
   }
-
   def index = Authenticated { indexResponse }
+
 }
