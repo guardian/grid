@@ -139,7 +139,6 @@ results.controller('SearchResultsCtrl', [
 
         // TODO: avoid this initial search (two API calls to init!)
         ctrl.searched = search({length: 1, orderBy: 'newest'}).then(function(images) {
-            console.log('searching')
             ctrl.totalResults = images.total;
 
             // images will be the array of loaded images, used for display
@@ -172,9 +171,26 @@ results.controller('SearchResultsCtrl', [
             if (latestTime && ! isReloadingPreviousSearch) {
                 lastSearchFirstResultTime = latestTime;
             }
+
+            return images;
         }).finally(() => {
             ctrl.loading = false;
         });
+
+        const relatedLabels$ = Rx.Observable.fromPromise(ctrl.searched).flatMap(images => {
+            return Rx.Observable.fromPromise(images.follow('related-labels').get())
+        }).map(labels => labels.data.map(label => label.key)).startWith([]);
+        inject$($scope, relatedLabels$, ctrl, 'relatedLabels');
+        ctrl.addLabelToSearch = label => {
+            // TODO: potentially make it:
+            // "#culture milan fashion show" => "#culture #${label} milan fashion show"
+            const oldQ = $stateParams.query;
+            const query = `${oldQ} #${label}`;
+            const newStateParams = angular.extend({}, $stateParams, { query });
+            $state.transitionTo($state.current, newStateParams, {
+                reload: true, inherit: false, notify: true
+            });
+        };
 
         ctrl.loadRange = function(start, end) {
             const length = end - start + 1;

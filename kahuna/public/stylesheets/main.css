@@ -314,6 +314,10 @@ a:focus {
     border-bottom: 1px solid #999;
 }
 
+.text-small {
+    font-size: 13px;
+}
+
 
 /* ==========================================================================
    Angular
@@ -942,6 +946,17 @@ input.search-query__input {
 .results-count {
     float: left;
     padding: 0 10px;
+}
+
+.results__related-labels {
+    background-bottom: 1px solid #666;
+}
+
+.related-labels {
+
+}
+.related-labels__label {
+    margin-left: 10px;
 }
 
 .image-results-count__new {
