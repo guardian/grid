@@ -949,11 +949,15 @@ input.search-query__input {
 }
 
 .related-labels__label {
-    margin-left: 10px;
+    margin-left: 2px;
+}
+.related-labels__label-text {
+    padding: 2px 5px 4px;
+    box-sizing: border-box;
 }
 .related-labels__label-text--selected {
-    box-sizing: border-box;
-    border-bottom: 2px solid #00adee;
+    border-top: 2px solid #00adee;
+    background-color: #444;
 }
 
 .image-results-count__new {
