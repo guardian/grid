@@ -139,6 +139,7 @@ results.controller('SearchResultsCtrl', [
 
         // TODO: avoid this initial search (two API calls to init!)
         ctrl.searched = search({length: 1, orderBy: 'newest'}).then(function(images) {
+            console.log('searching')
             ctrl.totalResults = images.total;
 
             // images will be the array of loaded images, used for display
