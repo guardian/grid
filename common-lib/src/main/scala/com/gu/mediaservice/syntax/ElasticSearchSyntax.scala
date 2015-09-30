@@ -1,10 +1,13 @@
 package com.gu.mediaservice
 package syntax
 
+import java.util.regex.Pattern
+
 import scala.concurrent.{ExecutionContext, Future}
 
 import org.elasticsearch.action.{ActionResponse, ActionRequest, ActionRequestBuilder, ListenableActionFuture}
 import org.elasticsearch.action.get.GetResponse
+import org.elasticsearch.search.aggregations.bucket.terms.TermsBuilder
 
 import play.api.libs.json.{JsValue, Json}
 import com.gu.mediaservice.lib.elasticsearch.FutureConversions
@@ -39,6 +42,14 @@ trait ElasticSearchSyntax {
 
   final implicit class SearchHitSyntax(self: SearchHit) {
     def sourceOpt: Option[JsValue] = Option(self.getSourceAsString) map Json.parse
+  }
+
+  final implicit class TermsBuilderSyntax(self: TermsBuilder) {
+    // Annoyingly you can't exclude by array in the JAVA API
+    // although you can in the REST client
+    def excludeList(list: List[String]) = {
+      self.exclude(list.map(Pattern.quote).mkString("|"))
+    }
   }
 
 }

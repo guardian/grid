@@ -232,18 +232,24 @@ object MediaApi extends Controller with ArgoHelpers {
 
     // We search if we have a label in the search, take the first one and then look up it's
     // siblings s that we can return them as "related labels"
-    val firstLabelOpt = searchParams.structuredQuery.flatMap {
+    val labels = searchParams.structuredQuery.flatMap {
       // TODO: Use ImageFields for guard
       case Match(field: SingleField, value:Words) if field.name == "userMetadata.labels" => Some(value.string)
       case _ => None
-    }.headOption
+    }
+
+    val (mainLabel, excludeLabels) = labels match {
+      case Nil => (None, None)
+      case label :: Nil => (Some(label), None)
+      case label :: extraLabels => (Some(label), Some(extraLabels))
+    }
 
     for {
       SearchResults(hits, totalCount) <- ElasticSearch.search(searchParams)
       imageEntities <- Future.sequence(hits map (hitToImageEntity _).tupled)
       prevLink = getPrevLink(searchParams)
       nextLink = getNextLink(searchParams, totalCount)
-      relatedLabels = firstLabelOpt.map(getRelatedLabelsLink)
+      relatedLabels = getRelatedLabelsLink(mainLabel, excludeLabels)
       links = List(prevLink, nextLink, relatedLabels).flatten
     } yield respondCollection(imageEntities, Some(searchParams.offset), Some(totalCount), links)
   }
@@ -288,8 +294,15 @@ object MediaApi extends Controller with ArgoHelpers {
     }
   }
 
-  private def getRelatedLabelsLink(label: String) =
-    Link("related-labels", s"$rootUri/suggest/edits/labels/$label/sibling-labels")
+  private def getRelatedLabelsLink(mainLabel: Option[String], excludeLabels: Option[List[String]] = None) =
+    mainLabel.map { label =>
+      val excludeLabelsQs = excludeLabels match {
+        case Some(list) if list.nonEmpty => s"""?excludeLabels=${list.mkString(",")}"""
+        case _ => ""
+      }
+      val relatedLabelsUri = s"$rootUri/suggest/edits/labels/$label/sibling-labels" + excludeLabelsQs
+      Link("related-labels", relatedLabelsUri)
+    }
 
   def suggestMetadataCredit(q: Option[String], size: Option[Int]) = Authenticated.async { request =>
     ElasticSearch
@@ -297,8 +310,9 @@ object MediaApi extends Controller with ArgoHelpers {
       .map(c => respondCollection(c.results))
   }
 
-  def suggestLabelSiblings(label: String) = Authenticated.async { request =>
-    ElasticSearch.labelSiblingsSearch(label) map aggregateResponse
+  def suggestLabelSiblings(label: String, excludeLabels: Option[String]) = Authenticated.async { request =>
+    val excludeLabels_ = excludeLabels.map(_.split(",").toList.map(_.trim)).getOrElse(Nil)
+    ElasticSearch.labelSiblingsSearch(label, excludeLabels_) map aggregateResponse
   }
 
   // TODO: work with analysed fields
