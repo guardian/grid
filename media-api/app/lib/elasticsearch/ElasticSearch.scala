@@ -128,7 +128,7 @@ object ElasticSearch extends ElasticSearchClient with SearchFilters with ImageFi
       }
   }
 
-  def labelSiblingsSearch(label: String)(implicit ex: ExecutionContext): Future[AggregateSearchResults] = {
+  def labelSiblingsSearch(label: String, excludeLabels: List[String] = Nil)(implicit ex: ExecutionContext): Future[AggregateSearchResults] = {
     val name = "labelSiblings"
     val lastModifiedField = "lastModified"
     val labelsField = editsField("labels")
@@ -143,11 +143,13 @@ object ElasticSearch extends ElasticSearchClient with SearchFilters with ImageFi
     // Only aggregate records which have the "top level" label that we're looking for
     val filter = filters.term(labelsField, label)
 
+    println(excludeLabels)
+
     val aggregate =
       AggregationBuilders
         .terms(name)
         .field(labelsField)
-        .exclude(label)
+        .excludeList(label :: excludeLabels)
         .order(Terms.Order.aggregation(lastModifiedField, false))
         .subAggregation(sortByDateAggr)
 
