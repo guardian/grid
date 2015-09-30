@@ -239,9 +239,9 @@ object MediaApi extends Controller with ArgoHelpers {
     }
 
     val (mainLabel, excludeLabels) = labels match {
-      case Nil => (None, None)
-      case label :: Nil => (Some(label), None)
-      case label :: extraLabels => (Some(label), Some(extraLabels))
+      case Nil => (None, Nil)
+      case label :: Nil => (Some(label), Nil)
+      case label :: extraLabels => (Some(label), extraLabels)
     }
 
     for {
@@ -294,10 +294,10 @@ object MediaApi extends Controller with ArgoHelpers {
     }
   }
 
-  private def getRelatedLabelsLink(mainLabel: Option[String], excludeLabels: Option[List[String]] = None) =
+  private def getRelatedLabelsLink(mainLabel: Option[String], excludeLabels: List[String] = Nil) =
     mainLabel.map { label =>
       val excludeLabelsQs = excludeLabels match {
-        case Some(list) if list.nonEmpty => s"""?excludeLabels=${list.mkString(",")}"""
+        case list if list.nonEmpty => s"""?excludeLabels=${list.mkString(",")}"""
         case _ => ""
       }
       val relatedLabelsUri = s"$rootUri/suggest/edits/labels/$label/sibling-labels" + excludeLabelsQs

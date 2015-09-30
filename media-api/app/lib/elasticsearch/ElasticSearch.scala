@@ -143,8 +143,6 @@ object ElasticSearch extends ElasticSearchClient with SearchFilters with ImageFi
     // Only aggregate records which have the "top level" label that we're looking for
     val filter = filters.term(labelsField, label)
 
-    println(excludeLabels)
-
     val aggregate =
       AggregationBuilders
         .terms(name)
