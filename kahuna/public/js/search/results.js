@@ -177,10 +177,18 @@ results.controller('SearchResultsCtrl', [
             ctrl.loading = false;
         });
 
-        const relatedLabels$ = Rx.Observable.fromPromise(ctrl.searched).flatMap(images => {
+        const relatedLabelsPromise$ = Rx.Observable.fromPromise(ctrl.searched).flatMap(images => {
             return Rx.Observable.fromPromise(images.follow('related-labels').get())
-        }).map(labels => labels.data.map(label => label.key)).startWith([]);
+        });
+
+        const relatedLabels$ = relatedLabelsPromise$.map(labels =>
+            labels.data.siblings).startWith([]);
+
+        const parentLabel$ = relatedLabelsPromise$.map(labels => labels.data.label);
+
         inject$($scope, relatedLabels$, ctrl, 'relatedLabels');
+        inject$($scope, parentLabel$, ctrl, 'parentLabel');
+
         ctrl.addLabelToSearch = label => {
             // TODO: potentially make it:
             // "#culture milan fashion show" => "#culture #${label} milan fashion show"

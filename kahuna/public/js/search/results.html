@@ -27,7 +27,7 @@
 
                 <div class="results__related-labels related-labels flex-container text-small"
                      ng:if="ctrl.relatedLabels.length !== 0">
-                    <div class="related-labels__title">Related labels:</div>
+                    <div class="related-labels__title">Related to {{ctrl.parentLabel}}:</div>
                     <ul class="flex-container">
                         <li class="related-labels__label" ng:repeat="relatedLabel in ctrl.relatedLabels">
                             <button ng:click="ctrl.addLabelToSearch(relatedLabel)">{{relatedLabel}}</button>

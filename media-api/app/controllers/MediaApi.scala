@@ -314,7 +314,16 @@ object MediaApi extends Controller with ArgoHelpers {
 
   def suggestLabelSiblings(label: String, excludeLabels: Option[String]) = Authenticated.async { request =>
     val excludeLabels_ = excludeLabels.map(_.split(",").toList.map(_.trim)).getOrElse(Nil)
-    ElasticSearch.labelSiblingsSearch(label, excludeLabels_) map aggregateResponse
+    ElasticSearch.labelSiblingsSearch(label, excludeLabels_) map { agg =>
+
+      respond(LabelSiblingsResponse(label, agg.results.map(_.key).toList))
+    }
+  }
+
+  case class LabelSiblingsResponse(label: String, siblings: List[String])
+  object LabelSiblingsResponse {
+    implicit def jsonWrites: Writes[LabelSiblingsResponse] = Json.writes[LabelSiblingsResponse]
+    implicit def jsonReads: Reads[LabelSiblingsResponse] =  Json.reads[LabelSiblingsResponse]
   }
 
   // TODO: work with analysed fields
