@@ -10,7 +10,7 @@ object Mappings {
   val nonAnalyzedString = Json.obj("type" -> "string", "index" -> "not_analyzed")
   val nonIndexedString  = Json.obj("type" -> "string", "index" -> "no")
 
-  val sStemmerAnalysedString = Json.obj("type" -> "string", "analyzer" -> "english_s_stemmer")
+  val sStemmerAnalysedString = Json.obj("type" -> "string", "analyzer" -> IndexSettings.guAnalyzer)
   val standardAnalysedString = Json.obj("type" -> "string", "analyzer" -> "standard")
 
   val simpleSuggester = Json.obj(

@@ -3,6 +3,8 @@ package com.gu.mediaservice.lib.elasticsearch
 import play.api.libs.json.Json
 
 object IndexSettings {
+  // TODO rename `english_s_stemmer` as its an analyzer not a stemmer - would require a reindex.
+  val guAnalyzer = "english_s_stemmer"
 
   val englishSStemmer = Json.obj(
     "type" -> "custom",
@@ -32,7 +34,7 @@ object IndexSettings {
   )
 
   val analyzer = Json.obj(
-    "english_s_stemmer" -> englishSStemmer
+    guAnalyzer -> englishSStemmer
   )
 
   val analysis = Json.obj(
