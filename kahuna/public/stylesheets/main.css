@@ -948,10 +948,6 @@ input.search-query__input {
     padding: 0 10px;
 }
 
-.results__related-labels {
-    background-bottom: 1px solid #666;
-}
-
 .related-labels__label {
     margin-left: 10px;
 }
