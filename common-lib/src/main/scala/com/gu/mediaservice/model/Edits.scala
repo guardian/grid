@@ -53,15 +53,12 @@ trait EditsResponse {
   def editsEntity(id: String): Writes[Edits] = (
       (__ \ "archived").write[ArchivedEntity].contramap(archivedEntity(id, _: Boolean)) ~
       (__ \ "labels").write[SetEntity].contramap(setEntity(id, "labels", _: List[String])) ~
-      (__ \ "metadata").writeNullable[MetadataEntity].contramap(notEmptyMetadataEntity(id, _: ImageMetadata)) ~
+      (__ \ "metadata").write[MetadataEntity].contramap(metadataEntity(id, _: ImageMetadata)) ~
       (__ \ "usageRights").write[UsageRightsEntity].contramap(usageRightsEntity(id, _: Option[UsageRights]))
     )(unlift(Edits.unapply))
 
   def archivedEntity(id: String, a: Boolean): ArchivedEntity =
     EmbeddedEntity(entityUri(id, "/archived"), Some(a))
-
-  def notEmptyMetadataEntity(id: String, m: ImageMetadata): Option[MetadataEntity] =
-    Edits.noneIfEmptyMetadata(m).map(i => metadataEntity(id, i))
 
   def metadataEntity(id: String, m: ImageMetadata): MetadataEntity =
     EmbeddedEntity(entityUri(id, "/metadata"), Some(m), actions = List(
