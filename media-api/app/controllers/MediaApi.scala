@@ -232,9 +232,10 @@ object MediaApi extends Controller with ArgoHelpers {
 
     // We search if we have a label in the search, take the first one and then look up it's
     // siblings s that we can return them as "related labels"
-    val firstLabelOpt = searchParams.structuredQuery.map {
+    val firstLabelOpt = searchParams.structuredQuery.flatMap {
       // TODO: Use ImageFields for guard
-      case Match(field: SingleField, value: Words) if field.name == "userMetadata.labels" => value.string
+      case Match(field: SingleField, value:Words) if field.name == "userMetadata.labels" => Some(value.string)
+      case _ => None
     }.headOption
 
     for {
