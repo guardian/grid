@@ -249,7 +249,7 @@ object MediaApi extends Controller with ArgoHelpers {
       imageEntities <- Future.sequence(hits map (hitToImageEntity _).tupled)
       prevLink = getPrevLink(searchParams)
       nextLink = getNextLink(searchParams, totalCount)
-      relatedLabels = getRelatedLabelsLink(mainLabel, excludeLabels)
+      relatedLabels = mainLabel.map(getRelatedLabelsLink(_, excludeLabels))
       links = List(prevLink, nextLink, relatedLabels).flatten
     } yield respondCollection(imageEntities, Some(searchParams.offset), Some(totalCount), links)
   }
@@ -294,15 +294,17 @@ object MediaApi extends Controller with ArgoHelpers {
     }
   }
 
-  private def getRelatedLabelsLink(mainLabel: Option[String], excludeLabels: List[String] = Nil) =
-    mainLabel.map { label =>
-      val excludeLabelsQs = excludeLabels match {
-        case list if list.nonEmpty => s"""?excludeLabels=${list.mkString(",")}"""
-        case _ => ""
-      }
-      val relatedLabelsUri = s"$rootUri/suggest/edits/labels/$label/sibling-labels" + excludeLabelsQs
-      Link("related-labels", relatedLabelsUri)
-    }
+  private def getRelatedLabelsLink(mainLabel: String, excludeLabels: List[String] = Nil) = {
+    val uriTemplate = URITemplate(s"$rootUri/suggest/edits/labels/{label}/sibling-labels{?excludeLabels}")
+    val paramMap = Map(
+      "label" -> Some(mainLabel),
+      "excludeLabels" -> Some(excludeLabels.mkString(",")).filter(_.trim.nonEmpty)
+    )
+    val paramVars = paramMap.map { case (key, value) => key := value }.toSeq
+    val uri = uriTemplate expand (paramVars: _*)
+
+    Link("related-labels", uri)
+  }
 
   def suggestMetadataCredit(q: Option[String], size: Option[Int]) = Authenticated.async { request =>
     ElasticSearch
