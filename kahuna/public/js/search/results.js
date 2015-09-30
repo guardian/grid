@@ -177,9 +177,9 @@ results.controller('SearchResultsCtrl', [
             ctrl.loading = false;
         });
 
-        const relatedLabelsPromise$ = Rx.Observable.fromPromise(ctrl.searched).flatMap(images => {
-            return Rx.Observable.fromPromise(images.follow('related-labels').get())
-        });
+        const relatedLabelsPromise$ = Rx.Observable.fromPromise(ctrl.searched).flatMap(images =>
+            Rx.Observable.fromPromise(images.follow('related-labels').get())
+        );
 
         const relatedLabels$ = relatedLabelsPromise$.map(labels =>
             labels.data.siblings).startWith([]);
