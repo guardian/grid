@@ -19,8 +19,12 @@ import play.api.libs.json._
 
 object MergedContentStream {
   val observable: Observable[ContentContainer] =
-    LiveContentPollStream.observable.merge(
-      PreviewContentPollStream.observable)
+    PreviewContentPollStream.observable
+
+    //LiveContentPollStream.observable
+
+    //LiveContentPollStream.observable.merge(
+    //  PreviewContentPollStream.observable)
 }
 
 object LiveContentPollStream extends ContentPollStream {
@@ -56,9 +60,17 @@ trait ContentPollStream {
       .showElements("all")
       .pageSize(100)
 
-    Observable.from[SearchResponse](capi.getResponse(latestByLatestModified))
-  }
+    val search = capi.getResponse(latestByLatestModified)
+    val observable = Observable.from[SearchResponse](search)
 
+    observable.onErrorResumeNext(e => {
+      // log error
+      println("------------------------------")
+      println(e)
+
+      Observable.timer(pollInterval).flatMap(_ => getContent)
+    })
+  }
 
   def getItemObservable(contentItem: Content): Observable[Content] = {
     Observable.from[JsObject](dynamo.get(contentItem.id))
@@ -75,7 +87,6 @@ trait ContentPollStream {
       .flatMap(_.lastModified)
       .map(capiDateTime => DateTime.parse(capiDateTime.dateTime.toString))
       .getOrElse(new DateTime())
-
 
   def setDynamoRow(contentItem: Content): Future[JsObject] = {
     dynamo.stringSet(
