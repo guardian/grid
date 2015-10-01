@@ -13,11 +13,11 @@ import dispatch.Http
 
 
 object PreviewContentApi extends ContentApiRequestBuilder {
-  override val targetUrl = Config.properties("capi.preview.url")
+  override val targetUrl = Config.capiPreviewUrl
 
   val realm = new RealmBuilder()
-    .setPrincipal(Config.properties("capi.preview.user"))
-    .setPassword(Config.properties("capi.preview.password"))
+    .setPrincipal(Config.capiPreviewUser)
+    .setPassword(Config.capiPreviewPassword)
     .setUsePreemptiveAuth(true)
     .setScheme(AuthScheme.BASIC)
     .build();
@@ -28,10 +28,10 @@ object PreviewContentApi extends ContentApiRequestBuilder {
 }
 
 object LiveContentApi extends ContentApiRequestBuilder {
-  override val targetUrl = Config.properties("capi.live.url")
+  override val targetUrl = Config.capiLiveUrl
 }
 
-class ContentApiRequestBuilder extends GuardianContentClient(apiKey = Config.properties("capi.apiKey")) {
+class ContentApiRequestBuilder extends GuardianContentClient(apiKey = Config.capiApiKey) {
   val userAgent = "content-api-scala-client/"+CapiBuildInfo.version
 
   val builder = new Builder()

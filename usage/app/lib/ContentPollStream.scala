@@ -16,24 +16,24 @@ import org.joda.time.DateTime
 
 import play.api.libs.json._
 
+import org.slf4j.LoggerFactory
+
 
 object MergedContentStream {
   val observable: Observable[ContentContainer] =
-    PreviewContentPollStream.observable
-
-    //LiveContentPollStream.observable
-
-    //LiveContentPollStream.observable.merge(
-    //  PreviewContentPollStream.observable)
+    LiveContentPollStream.observable.merge(
+      PreviewContentPollStream.observable)
 }
 
 object LiveContentPollStream extends ContentPollStream {
   val capi = LiveContentApi
+  val dynamo = new DynamoDB(Config.awsCredentials, Config.dynamoRegion, Config.livePollTable)
   val observable = rawObservable.map(LiveContentItem(_))
 }
 
 object PreviewContentPollStream extends ContentPollStream {
   val capi = PreviewContentApi
+  val dynamo = new DynamoDB(Config.awsCredentials, Config.dynamoRegion, Config.previewPollTable)
   val observable = rawObservable.map(PreviewContentItem(_))
 }
 
@@ -45,11 +45,13 @@ case class LiveContentItem(content: Content) extends ContentContainer
 case class PreviewContentItem(content: Content) extends ContentContainer
 
 trait ContentPollStream {
+  private val log = LoggerFactory.getLogger(getClass)
+
+  val pollIntervalInSeconds = Config.capiPollIntervalInSeconds
 
   val observable: Observable[ContentContainer]
   val capi: GuardianContentClient
-
-  val dynamo = new DynamoDB(Config.awsCredentials, Config.dynamoRegion, Config.pollerTable)
+  val dynamo: DynamoDB
 
   def splitResponse(response: SearchResponse) = Observable.from(response.results)
 
@@ -64,10 +66,8 @@ trait ContentPollStream {
     val observable = Observable.from[SearchResponse](search)
 
     observable.onErrorResumeNext(e => {
-      // log error
-      println("------------------------------")
-      println(e)
-
+      // Log error and resume with new stream
+      log.error("Error parsing SearchResponse from result.", e)
       Observable.timer(pollInterval).flatMap(_ => getContent)
     })
   }
@@ -109,7 +109,7 @@ trait ContentPollStream {
       }})
   }
 
-  val pollInterval  = Duration(5, SECONDS)
+  val pollInterval  = Duration(pollIntervalInSeconds, SECONDS)
   val rawObservable =  Observable.interval(pollInterval)
     .flatMap(_ => getContent)
     .flatMap(splitResponse)
