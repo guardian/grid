@@ -324,7 +324,7 @@ object MediaApi extends Controller with ArgoHelpers {
     }
   }
 
-  case class LabelSibling(label: String, selected: Boolean)
+  case class LabelSibling(name: String, selected: Boolean)
   object LabelSibling {
     implicit def jsonWrites: Writes[LabelSibling] = Json.writes[LabelSibling]
     implicit def jsonReads: Reads[LabelSibling] =  Json.reads[LabelSibling]
