@@ -28,21 +28,22 @@ object MergedContentStream {
 object LiveContentPollStream extends ContentPollStream {
   val capi = LiveContentApi
   val dynamo = new DynamoDB(Config.awsCredentials, Config.dynamoRegion, Config.livePollTable)
-  val observable = rawObservable.map(LiveContentItem(_))
+  val observable = rawObservable.map(c => LiveContentItem(c, extractLastModified(c)))
 }
 
 object PreviewContentPollStream extends ContentPollStream {
   val capi = PreviewContentApi
   val dynamo = new DynamoDB(Config.awsCredentials, Config.dynamoRegion, Config.previewPollTable)
-  val observable = rawObservable.map(PreviewContentItem(_))
+  val observable = rawObservable.map(c => PreviewContentItem(c, extractLastModified(c)))
 }
 
 trait ContentContainer {
   val content: Content
+  val lastModified: DateTime
 }
 
-case class LiveContentItem(content: Content) extends ContentContainer
-case class PreviewContentItem(content: Content) extends ContentContainer
+case class LiveContentItem(content: Content, lastModified: DateTime) extends ContentContainer
+case class PreviewContentItem(content: Content, lastModified: DateTime) extends ContentContainer
 
 trait ContentPollStream {
   private val log = LoggerFactory.getLogger(getClass)
@@ -60,6 +61,7 @@ trait ContentPollStream {
       .showTags("all")
       .orderBy("newest").useDate("last-modified")
       .showElements("all")
+      .showFields("all")
       .pageSize(100)
 
     val search = capi.getResponse(latestByLatestModified)
@@ -79,13 +81,15 @@ trait ContentPollStream {
         val currentLastModified = extractLastModified(contentItem)
 
         dbLastModified.isBefore(currentLastModified)
+      }).flatMap(_ => {
+        Observable.from(setDynamoRow(contentItem))
       }).map(_ => contentItem)
   }
 
   def extractLastModified(contentItem: Content): DateTime =
     contentItem.fields
       .flatMap(_.lastModified)
-      .map(capiDateTime => DateTime.parse(capiDateTime.dateTime.toString))
+      .map(capiDateTime => new DateTime(capiDateTime.dateTime))
       .getOrElse(new DateTime())
 
   def setDynamoRow(contentItem: Content): Future[JsObject] = {
