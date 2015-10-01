@@ -32,7 +32,7 @@
                         <li class="related-labels__label" ng:repeat="relatedLabel in ctrl.relatedLabels">
                             <button ng:click="ctrl.toggleLabelToSearch(relatedLabel)"
                                     ng:class="{ 'related-labels__label-text--selected': relatedLabel.selected }"
-                                    class="related-labels__label-text">{{relatedLabel.label}}</button>
+                                    class="related-labels__label-text">{{relatedLabel.name}}</button>
 
                         </li>
                     </ul>
