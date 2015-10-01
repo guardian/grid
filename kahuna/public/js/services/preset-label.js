@@ -13,7 +13,6 @@ presetLabelService.factory('presetLabelService',
 
     function setLabels(presetLabelList) {
         $window.localStorage.setItem(presetLabelsKey, JSON.stringify(presetLabelList));
-        return $rootScope.$emit('events:preset-labels:updated');
     }
 
     return {

@@ -2,12 +2,10 @@ import angular from 'angular';
 
 import './prompt.css!';
 import template from './prompt.html!text';
-import '../../components/gr-add-preset-label/gr-add-preset-label';
-import './preset-labeller';
+import '../../components/gr-preset-labels/gr-preset-labels';
 
 export let prompt = angular.module('kahuna.upload.prompt', [
-    'gr.addPresetLabel',
-    'kahuna.upload.prompt.presetLabeller'
+    'gr.presetLabels',
 ]);
 
 prompt.directive('filePrompt', [function () {

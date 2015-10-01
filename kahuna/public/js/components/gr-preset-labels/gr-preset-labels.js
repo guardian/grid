@@ -1,23 +1,25 @@
 import angular from 'angular';
 
-import './gr-add-preset-label.css!';
-import template from './gr-add-preset-label.html!text';
+import './gr-preset-labels.css!';
+import template from './gr-preset-labels.html!text';
 
 import '../../directives/gr-auto-focus';
 import '../../services/preset-label';
 
-export var addPresetLabel = angular.module('gr.addPresetLabel', [
+export var presetLabels = angular.module('gr.presetLabels', [
     'gr.autoFocus',
     'kahuna.services.presetLabel'
 ]);
 
-addPresetLabel.controller('GrAddPresetLabelCtrl', [
+presetLabels.controller('GrPresetLabelsCtrl', [
     '$window', 'presetLabelService',
     function ($window, presetLabelService) {
 
         let ctrl = this;
 
         ctrl.active = false;
+
+        ctrl.presetLabels = presetLabelService.getLabels();
 
         ctrl.save = () => {
             let newPresetLabelList = ctrl.newLabel.split(',').map(e => e.trim());
@@ -28,6 +30,13 @@ addPresetLabel.controller('GrAddPresetLabelCtrl', [
         };
 
         ctrl.cancel = reset;
+
+       ctrl.removePresetLabel = labelToRemove => {
+            let updatedPresetLabelList = ctrl.presetLabels.filter( label => label !== labelToRemove);
+            ctrl.presetLabels = updatedPresetLabelList;
+
+            presetLabelService.setLabels(updatedPresetLabelList);
+        };
 
         function save(label) {
             ctrl.adding = true;
@@ -40,6 +49,8 @@ addPresetLabel.controller('GrAddPresetLabelCtrl', [
                 let updatedPresetLabels = presetLabels.concat(label);
 
                 presetLabelService.setLabels(updatedPresetLabels);
+                ctrl.presetLabels = updatedPresetLabels;
+
             }
 
             reset();
@@ -55,13 +66,10 @@ addPresetLabel.controller('GrAddPresetLabelCtrl', [
     }
 ]);
 
-addPresetLabel.directive('grAddPresetLabel', [function () {
+presetLabels.directive('grPresetLabels', [function () {
     return {
         restrict: 'E',
-        scope: {
-            active: '='
-        },
-        controller: 'GrAddPresetLabelCtrl',
+        controller: 'GrPresetLabelsCtrl',
         controllerAs: 'ctrl',
         bindToController: true,
         template: template
