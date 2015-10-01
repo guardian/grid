@@ -13,13 +13,13 @@ import play.api.libs.functional.syntax._
 
 import com.gu.mediaservice.model._
 import com.gu.mediaservice.lib.argo.model._
-import com.gu.mediaservice.api.Transformers
 
 
-object ImageResponse {
+
+object ImageResponse extends EditsResponse {
   implicit val dateTimeFormat = DateFormat
 
-  val commonTransformers = new Transformers(Config.services)
+  val metadataBaseUri = Config.services.metadataBaseUri
 
   type FileMetadataEntity = EmbeddedEntity[FileMetadata]
 
@@ -160,9 +160,11 @@ object ImageResponse {
   // FIXME: tidier way to replace a key in a JsObject?
   def wrapUserMetadata(id: String): Reads[JsObject] =
     __.read[JsObject].map { root =>
-      val userMetadata = commonTransformers.objectOrEmpty(root \ "userMetadata")
-      val wrappedUserMetadata = userMetadata.transform(commonTransformers.wrapAllMetadata(id)).get
-      root ++ Json.obj("userMetadata" -> wrappedUserMetadata)
+      val editsJson = (root \ "userMetadata").asOpt[Edits].map { edits =>
+        Json.toJson(editsEmbeddedEntity(id, edits))
+      }.getOrElse(Json.obj())
+
+      root ++ Json.obj("userMetadata" -> editsJson)
     }
 
   def addSecureSourceUrl(url: String): Reads[JsObject] =

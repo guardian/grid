@@ -30,16 +30,12 @@ import com.gu.mediaservice.lib.formatting.{printDateTime, parseDateFromQuery}
 import com.gu.mediaservice.lib.cleanup.{SupplierProcessors, MetadataCleaners}
 import com.gu.mediaservice.lib.metadata.ImageMetadataConverter
 import com.gu.mediaservice.model._
-import com.gu.mediaservice.api.Transformers
-
 
 
 object MediaApi extends Controller with ArgoHelpers {
 
   val keyStore = new KeyStore(Config.keyStoreBucket, Config.awsCredentials)
   val permissionStore = new PermissionStore(Config.configBucket, Config.awsCredentials)
-
-  val commonTransformers = new Transformers(Config.services)
 
   import Config.{rootUri, cropperUri, loaderUri, metadataUri, kahunaUri, loginUriTemplate}
 
@@ -286,6 +282,10 @@ object MediaApi extends Controller with ArgoHelpers {
     ElasticSearch
       .completionSuggestion("suggestMetadataCredit", q.getOrElse(""), size.getOrElse(10))
       .map(c => respondCollection(c.results))
+  }
+
+  def suggestLabelSiblings(label: String) = Authenticated.async { request =>
+    ElasticSearch.labelSiblingsSearch(label) map aggregateResponse
   }
 
   // TODO: work with analysed fields
