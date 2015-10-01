@@ -192,8 +192,8 @@ results.controller('SearchResultsCtrl', [
         ctrl.toggleLabelToSearch = label => {
             // TODO: Move this to a searchQueryService
             const oldQ = $stateParams.query.trim();
-            const query =
-                (label.selected ? oldQ.replace(`#${label.name}`, '') : `${oldQ} #${label.name}`).trim();
+            const query = (label.selected ? oldQ.replace(`#${label.name}`, '')
+                          : `${oldQ} #${label.name}`).trim();
             const newStateParams = angular.extend({}, $stateParams, { query });
             $state.transitionTo($state.current, newStateParams, {
                 reload: true, inherit: false, notify: true
