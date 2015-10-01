@@ -190,8 +190,7 @@ results.controller('SearchResultsCtrl', [
         inject$($scope, parentLabel$, ctrl, 'parentLabel');
 
         ctrl.toggleLabelToSearch = label => {
-            // TODO: potentially make it:
-            // "#culture milan fashion show" => "#culture #${label} milan fashion show"
+            // TODO: Move this to a searchQueryService
             const oldQ = $stateParams.query.trim();
             const query =
                 (label.selected ? oldQ.replace(`#${label}`, '') : `${oldQ} #${label}`).trim();
