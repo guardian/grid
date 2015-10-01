@@ -30,9 +30,10 @@
                     <div class="related-labels__title">Related to {{ctrl.parentLabel}}:</div>
                     <ul class="flex-container">
                         <li class="related-labels__label" ng:repeat="relatedLabel in ctrl.relatedLabels">
-                            <button ng:click="ctrl.toggleLabelToSearch(relatedLabel.label, relatedLabel.selected)"
+                            <button ng:click="ctrl.toggleLabelToSearch(relatedLabel)"
                                     ng:class="{ 'related-labels__label-text--selected': relatedLabel.selected }"
                                     class="related-labels__label-text">{{relatedLabel.label}}</button>
+
                         </li>
                     </ul>
                 </div>
