@@ -189,11 +189,12 @@ results.controller('SearchResultsCtrl', [
         inject$($scope, relatedLabels$, ctrl, 'relatedLabels');
         inject$($scope, parentLabel$, ctrl, 'parentLabel');
 
-        ctrl.toggleLabelToSearch = (label, remove) => {
+        ctrl.toggleLabelToSearch = label => {
             // TODO: potentially make it:
             // "#culture milan fashion show" => "#culture #${label} milan fashion show"
-            const oldQ = $stateParams.query;
-            const query = remove ? oldQ.replace(`#${label}`, '') : `${oldQ} #${label}`;
+            const oldQ = $stateParams.query.trim();
+            const query =
+                (label.selected ? oldQ.replace(`#${label}`, '') : `${oldQ} #${label}`).trim();
             const newStateParams = angular.extend({}, $stateParams, { query });
             $state.transitionTo($state.current, newStateParams, {
                 reload: true, inherit: false, notify: true
