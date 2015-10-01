@@ -1,16 +1,25 @@
-ui-preset-labeller {
-    display: flex;
-    padding-left: 10px;
+.add-preset-label{
+    display: inline-flex;
+    padding: 5px;
+}
+
+.add-preset-label:hover {
+    color: white;
+}
+
+.add-preset-label__button {
+    margin-left: 5px;
+    font-size: 1.3rem;
 }
 
 .preset-labeller {
+    display: inline-flex;
     font-size: 1.3rem;
-    display: flex;}
+    margin-left: 5px;
+}
 
 .preset-label {
-    color: white;
     display: inline-flex;
-    justify-content: space-between;
     margin: 0 5px 5px 0;
 }
 
@@ -27,26 +36,13 @@ ui-preset-labeller {
     background-color: white;
 }
 
-.preset-label__add,
 .preset-label__value {
     border-top-left-radius: 2px;
     border-bottom-left-radius: 2px;
-}
-
-.preset-label__value {
     padding: 0 5px;
 }
 
 .preset-label__remove {
     border-top-right-radius: 2px;
     border-bottom-right-radius: 2px;
-}
-
-.preset-label button:hover gr-icon {
-    color: #333;
-}
-
-.preset-label button:active gr-icon {
-    background-color: #008fc5;
-    color: #333;
 }
