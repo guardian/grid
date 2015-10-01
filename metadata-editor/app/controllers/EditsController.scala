@@ -41,29 +41,23 @@ import lib._
 //   }
 // }
 
-object EditsController extends Controller with ArgoHelpers with DynamoEdits {
+object EditsController extends Controller with ArgoHelpers with DynamoEdits with EditsResponse {
+
+  import UsageRightsMetadataMapper.usageRightsToMetadata
 
   val Authenticated = EditsApi.Authenticated
-
-  import EditsResponse.{labelsUri, metadataUri}
-  import UsageRightsMetadataMapper.usageRightsToMetadata
+  val metadataBaseUri = Config.services.metadataBaseUri
 
   def decodeUriParam(param: String): String = decode(param, "UTF-8")
 
   // TODO: Think about calling this `overrides` or something that isn't metadata
   def getAllMetadata(id: String) = Authenticated.async {
+    val emptyResponse = respond(Edits.getEmpty)(editsEntity(id))
     dynamo.get(id) map { dynamoEntry =>
-      val edits = dynamoEntry.as[Edits]
-
-      // We have to do the to JSON here as we are using a custom JSON writes.
-      // TODO: have the argo helpers allow you to do this
-      respond(Json.toJson(edits)(EditsResponse.editsResponseWrites(id)))
-
-    } recover {
-      // Empty object as no metadata edits recorded
-      case NoItemFound =>
-        respond(Json.toJson(Edits.getEmpty)(EditsResponse.editsResponseWrites(id)))
-    }
+      dynamoEntry.asOpt[Edits]
+        .map(respond(_)(editsEntity(id)))
+        .getOrElse(emptyResponse)
+    } recover { case NoItemFound => emptyResponse }
   }
 
   def getArchived(id: String) = Authenticated.async {
@@ -194,7 +188,7 @@ object EditsController extends Controller with ArgoHelpers with DynamoEdits {
     Json.toJson[T](caseClass).as[JsObject].as[Map[String, String]]
 
   def labelsCollection(id: String, labels: Set[String]): (URI, Seq[EmbeddedEntity[String]]) =
-    (labelsUri(id), labels.map(EditsResponse.setUnitEntity(id, "labels", _)).toSeq)
+    (labelsUri(id), labels.map(setUnitEntity(id, "labels", _)).toSeq)
 
   def publish(id: String)(metadata: JsObject): Edits = {
     val edits = metadata.as[Edits]
