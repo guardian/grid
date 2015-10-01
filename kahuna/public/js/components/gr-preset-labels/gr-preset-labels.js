@@ -31,27 +31,25 @@ presetLabels.controller('GrPresetLabelsCtrl', [
 
         ctrl.cancel = reset;
 
-       ctrl.removePresetLabel = labelToRemove => {
-            let updatedPresetLabelList = ctrl.presetLabels.filter( label => label !== labelToRemove);
-            ctrl.presetLabels = updatedPresetLabelList;
+        ctrl.removePresetLabel = labelToRemove => {
+            let updatedPresetList = ctrl.presetLabels.filter( label => label !== labelToRemove);
+            ctrl.presetLabels = updatedPresetList;
 
-            presetLabelService.setLabels(updatedPresetLabelList);
+            presetLabelService.setLabels(updatedPresetList);
         };
 
-        function save(label) {
+        function save(labels) {
             ctrl.adding = true;
             ctrl.active = false;
 
             let presetLabels = presetLabelService.getLabels();
 
-            //currently only adds first label
-            if (presetLabels.indexOf(label[0]) === -1) {
-                let updatedPresetLabels = presetLabels.concat(label);
+            let newLabels = labels.filter( label => presetLabels.indexOf(label) === -1);
 
-                presetLabelService.setLabels(updatedPresetLabels);
-                ctrl.presetLabels = updatedPresetLabels;
+            let updatedPresetLabels = presetLabels.concat(newLabels);
 
-            }
+            presetLabelService.setLabels(updatedPresetLabels);
+            ctrl.presetLabels = presetLabelService.getLabels();
 
             reset();
             ctrl.adding = false;

@@ -3,7 +3,7 @@ import angular from 'angular';
 var presetLabelService = angular.module('kahuna.services.presetLabel', []);
 
 presetLabelService.factory('presetLabelService',
-                            ['$window', '$rootScope', function ($window, $rootScope) {
+                            ['$window', function ($window) {
 
     const presetLabelsKey = 'preset labels';
 
