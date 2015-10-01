@@ -13,7 +13,7 @@ import com.gu.mediaservice.lib.play.RequestLoggingFilter
 object Global extends WithFilters(RequestLoggingFilter, new GzipFilter) with GlobalSettings {
 
   // TODO: We shouldn't need to lazy val this ideally
-  lazy val usageStream = UsageStream.observable.subscribe(_ => {})
+  lazy val usageStream = UsageStream.observable.subscribe(println(_))
 
   override def beforeStart(app: Application): Unit = {
     LogConfig.init(Config)
