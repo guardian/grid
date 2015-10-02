@@ -33,6 +33,8 @@
                     <li class="related-labels__label" ng:repeat="relatedLabel in ctrl.relatedLabels">
                         <button ng:click="ctrl.toggleLabelToSearch(relatedLabel)"
                                 ng:class="{ 'related-labels__label-text--selected': relatedLabel.selected }"
+                                gr:track-click="Related label select"
+                                gr:track-click-data="{'Label': relatedLabel.name}"
                                 class="related-labels__label-text">{{relatedLabel.name}}</button>
 
                     </li>
