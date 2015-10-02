@@ -60,24 +60,24 @@ object UsageRights {
       val supplier = (json \ "supplier").asOpt[String]
 
       (category flatMap {
-        case "chargeable"                => json.asOpt[Chargeable]
-        case "agency"                    => json.asOpt[Agency]
-        case "commissioned-agency"       => json.asOpt[CommissionedAgency]
-        case "PR Image"                  => json.asOpt[PrImage]
-        case "handout"                   => json.asOpt[Handout]
-        case "screengrab"                => json.asOpt[Screengrab]
-        case "guardian-witness"          => json.asOpt[GuardianWitness]
-        case "social-media"              => json.asOpt[SocialMedia]
-        case "obituary"                  => json.asOpt[Obituary]
-        case "staff-photographer"        => json.asOpt[StaffPhotographer]
-        case "contract-photographer"     => json.asOpt[ContractPhotographer]
-        case "commissioned-photographer" => json.asOpt[CommissionedPhotographer]
-        case "pool"                      => json.asOpt[Pool]
-        case "crown-copyright"           => json.asOpt[CrownCopyright]
-        case "contract-illustrator"      => json.asOpt[ContractIllustrator]
-        case "commissioned-illustrator"  => json.asOpt[CommissionedIllustrator]
-        case "creative-commons"          => json.asOpt[CreativeCommons]
-        case _                           => None
+        case "chargeable"                       => json.asOpt[Chargeable]
+        case "agency"                           => json.asOpt[Agency]
+        case "commissioned-agency"              => json.asOpt[CommissionedAgency]
+        case "PR Image"                         => json.asOpt[PrImage]
+        case "handout"                          => json.asOpt[Handout]
+        case "screengrab"                       => json.asOpt[Screengrab]
+        case "guardian-witness"                 => json.asOpt[GuardianWitness]
+        case "social-media"                     => json.asOpt[SocialMedia]
+        case "obituary"                         => json.asOpt[Obituary]
+        case StaffPhotographer.category         => json.asOpt[StaffPhotographer]
+        case ContractPhotographer.category      => json.asOpt[ContractPhotographer]
+        case CommissionedPhotographer.category  => json.asOpt[CommissionedPhotographer]
+        case "pool"                             => json.asOpt[Pool]
+        case "crown-copyright"                  => json.asOpt[CrownCopyright]
+        case "contract-illustrator"             => json.asOpt[ContractIllustrator]
+        case "commissioned-illustrator"         => json.asOpt[CommissionedIllustrator]
+        case "creative-commons"                 => json.asOpt[CreativeCommons]
+        case _                                  => None
       })
       .orElse(supplier.flatMap(_ => json.asOpt[Agency]))
       .orElse(json.asOpt[NoRights.type])
@@ -265,13 +265,17 @@ object Obituary {
 
 case class StaffPhotographer(photographer: String, publication: String, restrictions: Option[String] = None)
   extends Photographer {
-    val category = "staff-photographer"
+    val category = StaffPhotographer.category
     val defaultCost = Some(Free)
     val name = "Photographer - staff"
     val description =
       "Images from photographers who are or were members of staff."
-  }
+}
+
+
 object StaffPhotographer {
+  val category = "staff-photographer"
+
  implicit val jsonReads: Reads[StaffPhotographer] = Json.reads[StaffPhotographer]
  implicit val jsonWrites: Writes[StaffPhotographer] = (
    (__ \ "category").write[String] ~
@@ -284,15 +288,17 @@ object StaffPhotographer {
 
 case class ContractPhotographer(photographer: String, publication: Option[String] = None, restrictions: Option[String] = None)
   extends Photographer {
-    val category = "contract-photographer"
+  val category = ContractPhotographer.category
     val defaultCost = Some(Free)
     val name = "Photographer - contract"
     val description =
       "Images from freelance photographers on fixed-term contracts."
   }
 object ContractPhotographer {
- implicit val jsonReads: Reads[ContractPhotographer] = Json.reads[ContractPhotographer]
- implicit val jsonWrites: Writes[ContractPhotographer] = (
+  val category = "contract-photographer"
+
+  implicit val jsonReads: Reads[ContractPhotographer] = Json.reads[ContractPhotographer]
+  implicit val jsonWrites: Writes[ContractPhotographer] = (
    (__ \ "category").write[String] ~
    (__ \ "photographer").write[String] ~
    (__ \ "publication").writeNullable[String] ~
@@ -303,15 +309,16 @@ object ContractPhotographer {
 
 case class CommissionedPhotographer(photographer: String, publication: Option[String] = None, restrictions: Option[String] = None)
   extends Photographer {
-    val category = "commissioned-photographer"
+    val category = CommissionedPhotographer.category
     val defaultCost = Some(Free)
     val name = "Photographer - commissioned"
     val description =
       "Images commissioned from freelance photographers on an ad hoc basis."
   }
 object CommissionedPhotographer {
- implicit val jsonReads: Reads[CommissionedPhotographer] = Json.reads[CommissionedPhotographer]
- implicit val jsonWrites: Writes[CommissionedPhotographer] = (
+  val category = "commissioned-photographer"
+  implicit val jsonReads: Reads[CommissionedPhotographer] = Json.reads[CommissionedPhotographer]
+  implicit val jsonWrites: Writes[CommissionedPhotographer] = (
    (__ \ "category").write[String] ~
    (__ \ "photographer").write[String] ~
    (__ \ "publication").writeNullable[String] ~
