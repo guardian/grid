@@ -1,6 +1,7 @@
 package lib.elasticsearch
 
 import com.gu.mediaservice.lib.elasticsearch.ImageFields
+import com.gu.mediaservice.model.{CommissionedPhotographer, ContractPhotographer, StaffPhotographer}
 import lib.usagerights.{DeprecatedConfig => UsageRightsDepConfig}
 import com.gu.mediaservice.lib.config.UsageRightsConfig
 import org.elasticsearch.index.query.FilterBuilder
@@ -91,10 +92,10 @@ trait SearchFilters extends ImageFields {
 
     "commissioned-agency",
 
-    "staff-photographer",
-    "contract-photographer",
-    "commissioned-photographer",
-    
+    StaffPhotographer.category,
+    ContractPhotographer.category,
+    CommissionedPhotographer.category,
+
     "contract-illustrator",
     "commissioned-illustrator"
   )
@@ -103,9 +104,9 @@ trait SearchFilters extends ImageFields {
     filters.bool.must(filters.existsOrMissing("exports", true)),
     filters.exists(NonEmptyList(identifierField(Config.persistenceIdentifier))),
     filters.bool.must(filters.boolTerm(editsField("archived"), true)),
-    filters.bool.must(filters.term(usageRightsField("category"), "staff-photographer")),
-    filters.bool.must(filters.term(usageRightsField("category"), "contract-photographer")),
-    filters.bool.must(filters.term(usageRightsField("category"), "commissioned-photographer"))
+    filters.bool.must(filters.term(usageRightsField("category"), StaffPhotographer.category)),
+    filters.bool.must(filters.term(usageRightsField("category"), ContractPhotographer.category)),
+    filters.bool.must(filters.term(usageRightsField("category"), CommissionedPhotographer.category))
   )
 
   val nonPersistedFilter = filters.not(persistedFilter)
