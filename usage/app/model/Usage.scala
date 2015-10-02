@@ -14,13 +14,13 @@ case class PubishedUsageStatus(timestamp: DateTime) extends UsageStatus
 case class MediaUsage(
   usageId: String,
   grouping: String,
-  image: Element
+  element: Element
 ) {
   override def equals(obj: Any): Boolean = obj match {
     case mediaUsage: MediaUsage => {
       usageId == mediaUsage.usageId &&
       grouping == mediaUsage.grouping &&
-      image.id == mediaUsage.image.id
+      element.id == mediaUsage.element.id
     }
     case _ => false
   }
