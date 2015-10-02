@@ -5,20 +5,20 @@ var presetLabelService = angular.module('kahuna.services.presetLabel', []);
 presetLabelService.factory('presetLabelService',
                             ['$window', function ($window) {
 
-    const presetLabelsKey = 'preset labels';
+    const presetLabelsKey = 'preset-labels';
 
     function getLabels() {
         return JSON.parse($window.localStorage.getItem(presetLabelsKey));
     }
 
     function addLabels(newLabels) {
-        let labels = new Set(getLabels());
-        newLabels.map( newLabel => labels.add(newLabel) );
+        const labels = new Set(getLabels());
+        newLabels.forEach( label => labels.add(label) );
         setLabels(labels);
     }
 
     function removeLabel(label) {
-        let labels = new Set(getLabels());
+        const labels = new Set(getLabels());
         labels.delete(label);
         setLabels(labels);
     }
