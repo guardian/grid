@@ -1,3 +1,11 @@
 <div class="message">
     Either drag 'n drop images onto this screen or click <file-uploader></file-uploader> to get your images on the Grid.
 </div>
+
+<div class="preset-labels">
+    <p class="preset-labels__heading">Apply
+        <span ng:if="ctrl.presetLabels.length === 0 && !ctrl.active">label e.g. Observer </span>
+    </p>
+    <gr-preset-labels></gr-preset-labels>
+    <p class="preset-labels__heading">to all uploads</p>
+</div>
