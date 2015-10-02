@@ -314,6 +314,10 @@ a:focus {
     border-bottom: 1px solid #999;
 }
 
+.text-small {
+    font-size: 13px;
+}
+
 
 /* ==========================================================================
    Angular
@@ -942,6 +946,18 @@ input.search-query__input {
 .results-count {
     float: left;
     padding: 0 10px;
+}
+
+.related-labels__label {
+    margin-left: 2px;
+}
+.related-labels__label-text {
+    padding: 2px 5px 4px;
+    box-sizing: border-box;
+}
+.related-labels__label-text--selected {
+    border-top: 2px solid #00adee;
+    background-color: #444;
 }
 
 .image-results-count__new {

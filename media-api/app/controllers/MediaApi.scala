@@ -20,7 +20,7 @@ import scalaz.syntax.std.list._
 
 import lib.elasticsearch._
 import lib.{Notifications, Config, ImageResponse}
-import lib.querysyntax.{Condition, Parser}
+import lib.querysyntax._
 
 import com.gu.mediaservice.lib.auth
 import com.gu.mediaservice.lib.auth._
@@ -229,12 +229,28 @@ object MediaApi extends Controller with ArgoHelpers {
     }
 
     val searchParams = SearchParams(request)
+
+    // We search if we have a label in the search, take the first one and then look up it's
+    // siblings s that we can return them as "related labels"
+    val labels = searchParams.structuredQuery.flatMap {
+      // TODO: Use ImageFields for guard
+      case Match(field: SingleField, value:Words) if field.name == "userMetadata.labels" => Some(value.string)
+      case _ => None
+    }
+
+    val (mainLabel, selectedLabels) = labels match {
+      case Nil => (None, Nil)
+      case label :: Nil => (Some(label), Nil)
+      case label :: extraLabels => (Some(label), extraLabels)
+    }
+
     for {
       SearchResults(hits, totalCount) <- ElasticSearch.search(searchParams)
       imageEntities <- Future.sequence(hits map (hitToImageEntity _).tupled)
       prevLink = getPrevLink(searchParams)
       nextLink = getNextLink(searchParams, totalCount)
-      links = List(prevLink, nextLink).flatten
+      relatedLabels = mainLabel.map(getRelatedLabelsLink(_, selectedLabels))
+      links = List(prevLink, nextLink, relatedLabels).flatten
     } yield respondCollection(imageEntities, Some(searchParams.offset), Some(totalCount), links)
   }
 
@@ -278,14 +294,46 @@ object MediaApi extends Controller with ArgoHelpers {
     }
   }
 
+  private def getRelatedLabelsLink(mainLabel: String, selectedLabels: List[String] = Nil) = {
+    val uriTemplate = URITemplate(s"$rootUri/suggest/edits/labels/{label}/sibling-labels{?selectedLabels}")
+    val paramMap = Map(
+      "label" -> Some(mainLabel),
+      "selectedLabels" -> Some(selectedLabels.mkString(",")).filter(_.trim.nonEmpty)
+    )
+    val paramVars = paramMap.map { case (key, value) => key := value }.toSeq
+    val uri = uriTemplate expand (paramVars: _*)
+
+    Link("related-labels", uri)
+  }
+
   def suggestMetadataCredit(q: Option[String], size: Option[Int]) = Authenticated.async { request =>
     ElasticSearch
       .completionSuggestion("suggestMetadataCredit", q.getOrElse(""), size.getOrElse(10))
       .map(c => respondCollection(c.results))
   }
 
-  def suggestLabelSiblings(label: String) = Authenticated.async { request =>
-    ElasticSearch.labelSiblingsSearch(label) map aggregateResponse
+  def suggestLabelSiblings(label: String, selectedLabels: Option[String]) = Authenticated.async { request =>
+    val selectedLabels_ = selectedLabels.map(_.split(",").toList.map(_.trim)).getOrElse(Nil)
+
+    ElasticSearch.labelSiblingsSearch(label) map { agg =>
+      val labels = agg.results.map { label =>
+        val selected = selectedLabels_.contains(label.key)
+        LabelSibling(label.key, selected)
+      }
+      respond(LabelSiblingsResponse(label, labels.toList))
+    }
+  }
+
+  case class LabelSibling(name: String, selected: Boolean)
+  object LabelSibling {
+    implicit def jsonWrites: Writes[LabelSibling] = Json.writes[LabelSibling]
+    implicit def jsonReads: Reads[LabelSibling] =  Json.reads[LabelSibling]
+  }
+
+  case class LabelSiblingsResponse(label: String, siblings: List[LabelSibling])
+  object LabelSiblingsResponse {
+    implicit def jsonWrites: Writes[LabelSiblingsResponse] = Json.writes[LabelSiblingsResponse]
+    implicit def jsonReads: Reads[LabelSiblingsResponse] =  Json.reads[LabelSiblingsResponse]
   }
 
   // TODO: work with analysed fields
