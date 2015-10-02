@@ -1,6 +1,5 @@
 package lib
 
-import com.amazonaws.regions.{Regions, Region}
 import com.gu.mediaservice.lib.config.{Properties, CommonPlayAppConfig, CommonPlayAppProperties}
 import com.amazonaws.auth.{BasicAWSCredentials, AWSCredentials}
 
@@ -16,7 +15,7 @@ object Config extends CommonPlayAppProperties with CommonPlayAppConfig {
 
   val keyStoreBucket = properties("auth.keystore.bucket")
 
-  val rootUri = services.metadataBaseUri
-  val kahunaUri = services.kahunaBaseUri
-  val loginUriTemplate = services.loginUriTemplate
+  lazy val rootUri = services.metadataBaseUri
+  lazy val kahunaUri = services.kahunaBaseUri
+  lazy val loginUriTemplate = services.loginUriTemplate
 }
