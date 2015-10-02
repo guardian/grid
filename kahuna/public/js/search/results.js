@@ -178,7 +178,11 @@ results.controller('SearchResultsCtrl', [
         });
 
         const relatedLabelsPromise$ = Rx.Observable.fromPromise(ctrl.searched).flatMap(images =>
-            Rx.Observable.fromPromise(images.follow('related-labels').get())
+            Rx.Observable
+                .fromPromise(images.follow('related-labels').get())
+                .catch(err => err.message === 'No link found for rel: related-labels' ?
+                    Rx.Observable.empty() : Rx.Observable.throw(err)
+                )
         );
 
         const relatedLabels$ = relatedLabelsPromise$.map(labels =>
