@@ -1,6 +1,7 @@
 package lib.elasticsearch
 
 import com.gu.mediaservice.lib.elasticsearch.ImageFields
+import com.gu.mediaservice.model._
 import lib.usagerights.{DeprecatedConfig => UsageRightsDepConfig}
 import com.gu.mediaservice.lib.config.UsageRightsConfig
 import org.elasticsearch.index.query.FilterBuilder
@@ -79,33 +80,30 @@ trait SearchFilters extends ImageFields {
   // FIXME: There must be a better way (._.). Potentially making cost a lookup
   // again?
   lazy val freeToUseCategories: List[String] = List(
-    "creative-commons",
-    "crown-copyright",
-    "guardian-witness",
-    "handout",
-    "obituary",
-    "pool",
-    "PR Image",
-    "screengrab",
-    "social-media",
-
-    "commissioned-agency",
-
-    "staff-photographer",
-    "contract-photographer",
-    "commissioned-photographer",
-    
-    "contract-illustrator",
-    "commissioned-illustrator"
+    CreativeCommons.category,
+    CrownCopyright.category,
+    GuardianWitness.category,
+    Handout.category,
+    Obituary.category,
+    Pool.category,
+    PrImage.category,
+    Screengrab.category,
+    SocialMedia.category,
+    CommissionedAgency.category,
+    StaffPhotographer.category,
+    ContractPhotographer.category,
+    CommissionedPhotographer.category,
+    ContractIllustrator.category,
+    CommissionedIllustrator.category
   )
 
   val persistedFilter = filters.or(
     filters.bool.must(filters.existsOrMissing("exports", true)),
     filters.exists(NonEmptyList(identifierField(Config.persistenceIdentifier))),
     filters.bool.must(filters.boolTerm(editsField("archived"), true)),
-    filters.bool.must(filters.term(usageRightsField("category"), "staff-photographer")),
-    filters.bool.must(filters.term(usageRightsField("category"), "contract-photographer")),
-    filters.bool.must(filters.term(usageRightsField("category"), "commissioned-photographer"))
+    filters.bool.must(filters.term(usageRightsField("category"), StaffPhotographer.category)),
+    filters.bool.must(filters.term(usageRightsField("category"), ContractPhotographer.category)),
+    filters.bool.must(filters.term(usageRightsField("category"), CommissionedPhotographer.category))
   )
 
   val nonPersistedFilter = filters.not(persistedFilter)
