@@ -4,7 +4,8 @@ package model
 case class UsageRecord(
   usageId: String,
   grouping: String,
-  imageId: String
+  imageId: String,
+  usageType: String
 )
 
 object UsageRecord {
@@ -12,6 +13,7 @@ object UsageRecord {
     UsageRecord(
       mediaUsage.usageId,
       mediaUsage.grouping,
-      mediaUsage.image.id
+      mediaUsage.image.id,
+      "web"
     )
 }
