@@ -22,9 +22,7 @@
             title="Add a new label">
 
         <gr-icon ng:class="{'spin': ctrl.adding}">add_box</gr-icon>
-        <span>
-           <span ng:show="ctrl.adding">Adding...</span>
-        </span>
+        <span ng:show="ctrl.adding">Adding...</span>
     </button>
     <form class="flex-container"
           ng:if="ctrl.active"

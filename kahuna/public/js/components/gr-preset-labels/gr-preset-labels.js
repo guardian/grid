@@ -43,14 +43,13 @@ presetLabels.controller('GrPresetLabelsCtrl', [
             presetLabelService.addLabels(labels);
             ctrl.presetLabels = presetLabelService.getLabels();
 
-            reset();
             ctrl.adding = false;
-
+            ctrl.newLabel = '';
         }
 
         function reset() {
-            ctrl.newLabel = '';
             ctrl.active = false;
+            ctrl.newLabel = '';
         }
 
     }
