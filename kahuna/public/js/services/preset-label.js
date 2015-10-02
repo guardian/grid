@@ -8,7 +8,7 @@ presetLabelService.factory('presetLabelService',
     const presetLabelsKey = 'preset-labels';
 
     function getLabels() {
-        return JSON.parse($window.localStorage.getItem(presetLabelsKey));
+        return JSON.parse($window.localStorage.getItem(presetLabelsKey)) || [];
     }
 
     function addLabels(newLabels) {
