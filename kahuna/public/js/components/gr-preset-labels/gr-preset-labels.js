@@ -22,7 +22,7 @@ presetLabels.controller('GrPresetLabelsCtrl', [
         ctrl.presetLabels = presetLabelService.getLabels();
 
         ctrl.save = () => {
-            let newPresetLabelList = ctrl.newLabel.split(',').map(e => e.trim());
+            const newPresetLabelList = ctrl.newLabel.split(',').map(e => e.trim());
 
             if (newPresetLabelList) {
                 save(newPresetLabelList);
@@ -32,23 +32,15 @@ presetLabels.controller('GrPresetLabelsCtrl', [
         ctrl.cancel = reset;
 
         ctrl.removePresetLabel = labelToRemove => {
-            let updatedPresetList = ctrl.presetLabels.filter( label => label !== labelToRemove);
-            ctrl.presetLabels = updatedPresetList;
-
-            presetLabelService.setLabels(updatedPresetList);
+            presetLabelService.removeLabel(labelToRemove);
+            ctrl.presetLabels = presetLabelService.getLabels();
         };
 
         function save(labels) {
             ctrl.adding = true;
             ctrl.active = false;
 
-            let presetLabels = presetLabelService.getLabels();
-
-            let newLabels = labels.filter( label => presetLabels.indexOf(label) === -1);
-
-            let updatedPresetLabels = presetLabels.concat(newLabels);
-
-            presetLabelService.setLabels(updatedPresetLabels);
+            presetLabelService.addLabels(labels);
             ctrl.presetLabels = presetLabelService.getLabels();
 
             reset();

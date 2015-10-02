@@ -11,13 +11,27 @@ presetLabelService.factory('presetLabelService',
         return JSON.parse($window.localStorage.getItem(presetLabelsKey));
     }
 
-    function setLabels(presetLabelList) {
-        $window.localStorage.setItem(presetLabelsKey, JSON.stringify(presetLabelList));
+    function addLabels(newLabels) {
+        let labels = new Set(getLabels());
+        newLabels.map( newLabel => labels.add(newLabel) );
+        setLabels(labels);
+    }
+
+    function removeLabel(label) {
+        let labels = new Set(getLabels());
+        labels.delete(label);
+        setLabels(labels);
+    }
+
+    function setLabels(updatedLabels) {
+        const labels = Array.from(updatedLabels);
+        $window.localStorage.setItem(presetLabelsKey, JSON.stringify(labels) );
     }
 
     return {
         getLabels,
-        setLabels
+        addLabels,
+        removeLabel
     };
 
 }]);
