@@ -19,7 +19,7 @@ presetLabels.controller('GrPresetLabelsCtrl', [
 
         ctrl.active = false;
 
-        ctrl.presetLabels = presetLabelService.getLabels();
+        ctrl.presetLabels = presetLabelService.getLabels() || [];
 
         ctrl.save = () => {
             const newPresetLabelList = ctrl.newLabel.split(',').map(e => e.trim());
