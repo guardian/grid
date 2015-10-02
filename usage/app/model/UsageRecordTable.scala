@@ -30,8 +30,10 @@ object UsageRecordTable extends DynamoDB(
 
   def update(usageRecord: UsageRecord): Observable[JsObject] = Observable.from(Future {
     val expression = sanitiseMultilineString(
-      s"""SET image_id = :image_id,
-             |usage_type = :usage_type"""
+      s"""SET media_id = :media_id,
+             |usage_type = :usage_type,
+             |media_type = :media_type,
+             |usage_status = :usage_status"""
     )
 
     val baseUpdateSpec = new UpdateItemSpec()
@@ -45,8 +47,10 @@ object UsageRecordTable extends DynamoDB(
       .withReturnValues(ReturnValue.ALL_NEW)
 
     val valueMap = (new ValueMap()) <| (vMap => {
-      vMap.withString(":image_id", usageRecord.imageId)
+      vMap.withString(":media_id", usageRecord.mediaId)
       vMap.withString(":usage_type", usageRecord.usageType)
+      vMap.withString(":media_type", usageRecord.mediaType)
+      vMap.withString(":usage_status", usageRecord.status)
     })
 
     val updateSpec = baseUpdateSpec.withValueMap(valueMap)
