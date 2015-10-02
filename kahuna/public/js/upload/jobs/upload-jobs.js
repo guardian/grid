@@ -4,19 +4,39 @@ import '../../preview/image';
 import '../../analytics/track';
 import '../../components/gr-delete-image/gr-delete-image';
 import '../../image/service';
+import '../../services/label';
+import '../../services/preset-label';
 
 export var jobs = angular.module('kahuna.upload.jobs', [
     'kahuna.preview.image',
     'gr.image.service',
-    'analytics.track'
+    'analytics.track',
+    'kahuna.services.label',
+    'kahuna.services.presetLabel'
 ]);
 
 
 jobs.controller('UploadJobsCtrl', [
-    '$rootScope', '$scope', '$window', 'apiPoll', 'track', 'imageService',
-    function($rootScope, $scope, $window, apiPoll, track, imageService) {
+    '$rootScope',
+    '$scope',
+    '$window',
+    'apiPoll',
+    'track',
+    'imageService',
+    'labelService',
+    'presetLabelService',
+
+    function($rootScope,
+            $scope,
+            $window,
+            apiPoll,
+            track,
+            imageService,
+            labelService,
+            presetLabelService) {
 
     var ctrl = this;
+    const presetLabels = presetLabelService.getLabels();
 
     // State machine-esque async transitions
     const eventName = 'Image upload';
@@ -59,6 +79,10 @@ jobs.controller('UploadJobsCtrl', [
                         .replace(/_/g, ' ');
 
                     jobItem.image.data.metadata.description = newDescription;
+                }
+
+                if (presetLabels) {
+                    labelService.add(image, presetLabels);
                 }
 
                 timedTrack.success(eventName);
