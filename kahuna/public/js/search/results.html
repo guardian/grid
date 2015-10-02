@@ -12,7 +12,6 @@
     </div>
 
     <div ng:if="ctrl.totalResults > 0">
-
         <div class="results-toolbar"
             ng:class="{'results-toolbar--selection-mode': ctrl.metadataPanelAvailable}">
 
@@ -24,6 +23,19 @@
                             class="image-results-count__new">
                         {{ctrl.newImagesCount | toLocaleString}} new
                     </button>
+                </div>
+
+                <div class="results__related-labels related-labels flex-container text-small"
+                     ng:if="ctrl.relatedLabels.length !== 0">
+                    <div class="related-labels__title">Related to {{ctrl.parentLabel}}:</div>
+                    <ul class="flex-container">
+                        <li class="related-labels__label" ng:repeat="relatedLabel in ctrl.relatedLabels">
+                            <button ng:click="ctrl.toggleLabelToSearch(relatedLabel)"
+                                    ng:class="{ 'related-labels__label-text--selected': relatedLabel.selected }"
+                                    class="related-labels__label-text">{{relatedLabel.name}}</button>
+
+                        </li>
+                    </ul>
                 </div>
             </div>
 

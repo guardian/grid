@@ -46,6 +46,9 @@ System.config({
     "github:angular/bower-angular-animate@1.4.3": {
       "angular": "github:angular/bower-angular@1.4.3"
     },
+    "github:christopherthielen/ui-router-extras@0.0.14": {
+      "angular": "github:angular/bower-angular@1.4.3"
+    },
     "github:dbushell/Pikaday@1.3.3": {
       "css": "github:systemjs/plugin-css@0.1.13"
     },
