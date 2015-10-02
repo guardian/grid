@@ -36,7 +36,7 @@ jobs.controller('UploadJobsCtrl', [
             presetLabelService) {
 
     var ctrl = this;
-    let presetLabels = presetLabelService.getLabels();
+    const presetLabels = presetLabelService.getLabels();
 
     // State machine-esque async transitions
     const eventName = 'Image upload';
