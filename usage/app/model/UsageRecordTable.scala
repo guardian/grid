@@ -9,6 +9,8 @@ import com.amazonaws.services.dynamodbv2.document.spec.UpdateItemSpec
 import com.amazonaws.services.dynamodbv2.model.ReturnValue
 import com.amazonaws.services.dynamodbv2.document.utils.ValueMap
 
+import scalaz.syntax.id._
+
 import play.api.libs.json._
 
 import rx.lang.scala.Observable
@@ -28,7 +30,8 @@ object UsageRecordTable extends DynamoDB(
 
   def update(usageRecord: UsageRecord): Observable[JsObject] = Observable.from(Future {
     val expression = sanitiseMultilineString(
-      s"""SET image_id = :image_id"""
+      s"""SET image_id = :image_id,
+             |usage_type = :usage_type"""
     )
 
     val baseUpdateSpec = new UpdateItemSpec()
@@ -41,8 +44,10 @@ object UsageRecordTable extends DynamoDB(
       .withUpdateExpression(expression)
       .withReturnValues(ReturnValue.ALL_NEW)
 
-    val valueMap = new ValueMap()
-    valueMap.withString(":image_id", usageRecord.imageId)
+    val valueMap = (new ValueMap()) <| (vMap => {
+      vMap.withString(":image_id", usageRecord.imageId)
+      vMap.withString(":usage_type", usageRecord.usageType)
+    })
 
     val updateSpec = baseUpdateSpec.withValueMap(valueMap)
     table.updateItem(updateSpec)

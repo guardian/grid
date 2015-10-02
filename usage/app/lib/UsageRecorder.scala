@@ -1,6 +1,5 @@
 package lib
 
-import com.gu.mediaservice.lib.aws.DynamoDB
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.{ExecutionContext, Future}
