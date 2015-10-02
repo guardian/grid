@@ -879,13 +879,20 @@ input.search-query__input {
     position: fixed;
     z-index: 2;
 }
+
+.results-toolbar__right {
+    margin-left: auto;
+    line-height: 35px;
+}
+
 .results-toolbar-item {
     vertical-align: middle;
-    border-width: 0px 1px;
+    border-width: 0 1px;
     border-color: #565656;
     border-style: solid;
     position: relative;
     height: 35px;
+    white-space: nowrap;
 }
 
 .results-toolbar-item:hover {
@@ -903,7 +910,6 @@ input.search-query__input {
 
 .results-toolbar-item--left {
     border-left: 0;
-    padding-left: 0;
 }
 
 .results-toolbar-item--right {
@@ -942,15 +948,19 @@ input.search-query__input {
     height: 36px;
 }
 
-/* TODO: remove this once eveything is in the action-bar */
-.results-count {
-    float: left;
-    padding: 0 10px;
+.related-labels {
+    line-height: 35px;
+    overflow: auto;
+}
+
+.related-labels__labels {
+    overflow: auto;
 }
 
 .related-labels__label {
     margin-left: 2px;
 }
+
 .related-labels__label-text {
     padding: 2px 5px 4px;
     box-sizing: border-box;
@@ -971,7 +981,7 @@ input.search-query__input {
 }
 
 .image-results-count {
-    border: 0;
+    border-left: 0;
     line-height: 35px;
 }
 
@@ -1998,25 +2008,6 @@ ui-archiver .archiver:hover {
     display: none;
 }
 
-
-/* ==========================================================================
-   Forms
-   ========================================================================== */
-.action-bar {
-    line-height: 35px;
-    display: flex;
-}
-
-.action-bar__item {
-    line-height: inherit;
-    padding: 0 10px;
-    display: block;
-    border-left: 1px solid #565656;
-}
-
-.action-bar__item--last {
-    border-right: 1px solid #565656;
-}
 
 
 /* ==========================================================================
