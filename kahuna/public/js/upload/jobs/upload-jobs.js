@@ -69,7 +69,12 @@ jobs.controller('UploadJobsCtrl', [
                 timedTrack.failure(eventName, { 'Failed on': 'index' });
             });
         }, error => {
-            const message = error.body && error.body.errorMessage || 'unknown';
+            const reason = error.body && error.body.errorKey;
+
+            const message = reason === 'unsupported-type' ?
+                'The Grid only supports JPG images. Please convert the image and try again.' :
+                error.body && error.body.errorMessage || 'unknown';
+
             jobItem.status = 'upload error';
             jobItem.error = message;
 
