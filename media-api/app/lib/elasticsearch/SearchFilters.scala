@@ -1,7 +1,7 @@
 package lib.elasticsearch
 
 import com.gu.mediaservice.lib.elasticsearch.ImageFields
-import com.gu.mediaservice.model.{CommissionedPhotographer, ContractPhotographer, StaffPhotographer}
+import com.gu.mediaservice.model._
 import lib.usagerights.{DeprecatedConfig => UsageRightsDepConfig}
 import com.gu.mediaservice.lib.config.UsageRightsConfig
 import org.elasticsearch.index.query.FilterBuilder
@@ -80,24 +80,21 @@ trait SearchFilters extends ImageFields {
   // FIXME: There must be a better way (._.). Potentially making cost a lookup
   // again?
   lazy val freeToUseCategories: List[String] = List(
-    "creative-commons",
-    "crown-copyright",
-    "guardian-witness",
-    "handout",
-    "obituary",
-    "pool",
-    "PR Image",
-    "screengrab",
-    "social-media",
-
-    "commissioned-agency",
-
+    CreativeCommons.category,
+    CrownCopyright.category,
+    GuardianWitness.category,
+    Handout.category,
+    Obituary.category,
+    Pool.category,
+    PrImage.category,
+    Screengrab.category,
+    SocialMedia.category,
+    CommissionedAgency.category,
     StaffPhotographer.category,
     ContractPhotographer.category,
     CommissionedPhotographer.category,
-
-    "contract-illustrator",
-    "commissioned-illustrator"
+    ContractIllustrator.category,
+    CommissionedIllustrator.category
   )
 
   val persistedFilter = filters.or(
