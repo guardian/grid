@@ -904,10 +904,6 @@ input.search-query__input {
     padding: 0 10px;
 }
 
-.results-toolbar-item--split {
-    margin-right: auto;
-}
-
 .results-toolbar-item--left {
     border-left: 0;
 }
