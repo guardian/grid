@@ -96,10 +96,9 @@ object ImageResponse extends EditsResponse {
 
     val links = imageLinks(id, secureUrl, withWritePermission, valid)
 
-    val isDeletableOnPersistence = persistenceReasons.isEmpty ||
-      persistenceReasons.length == 1 && persistenceReasons.contains("photographer-category")
+    val noExports = persistenceReasons.isEmpty || !persistenceReasons.contains("exports")
 
-    val isDeletable = isDeletableOnPersistence && withDeletePermission
+    val isDeletable = noExports && withDeletePermission
 
     val actions = imageActions(id, isDeletable, withWritePermission)
 
