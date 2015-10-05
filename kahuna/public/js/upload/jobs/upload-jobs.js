@@ -85,7 +85,7 @@ jobs.controller('UploadJobsCtrl', [
                     labelService.add(image, presetLabels);
                 }
 
-                timedTrack.success(eventName, { 'labels' : presetLabels.length} );
+                timedTrack.success(eventName, { 'Labels' : presetLabels.length} );
             }, error => {
                 jobItem.status = 'upload error';
                 jobItem.error = error.message;
