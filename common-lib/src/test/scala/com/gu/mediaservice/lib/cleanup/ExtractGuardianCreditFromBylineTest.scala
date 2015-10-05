@@ -61,9 +61,9 @@ class ExtractGuardianCreditFromBylineTest extends FunSpec with Matchers with Met
   }
 
   it("should not extract a truncated non-Guardian credit from a 'for the Garden' byline") {
-    val metadata = createImageMetadata("byline" -> "Christopher Thomond for the Garden")
+    val metadata = createImageMetadata("byline" -> "Christopher Thom for the Garden")
     val mappedMetadata = ExtractGuardianCreditFromByline.clean(metadata)
-    mappedMetadata.byline should be (Some("Christopher Thomond for the Garden"))
+    mappedMetadata.byline should be (Some("Christopher Thom for the Garden"))
     mappedMetadata.credit should be (None)
   }
 
