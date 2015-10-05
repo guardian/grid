@@ -15,7 +15,7 @@ object ExtractGuardianCreditFromByline extends MetadataCleaner {
       val orgName = org.toLowerCase.capitalize
       metadata.copy(byline = Some(byline), credit = Some(s"The $orgName"))
     }
-    // Catch truncated bylines (EXIF allows 32 chars only)
+    // Catch truncated bylines (IPTC allows 32 chars only)
     case Some(field @ BylineForTheTrunc(byline, GuardianPrefix())) if field.length == 31 => {
       metadata.copy(byline = Some(byline), credit = Some(s"The Guardian"))
     }
