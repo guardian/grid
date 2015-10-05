@@ -2,7 +2,6 @@ package lib
 
 import _root_.play.api.libs.json._
 import com.gu.mediaservice.lib.elasticsearch.{ElasticSearchClient, ImageFields}
-import com.gu.mediaservice.model.{CommissionedPhotographer, ContractPhotographer, StaffPhotographer}
 import com.gu.mediaservice.syntax._
 import groovy.json.JsonSlurper
 import lib.ThrallMetrics._
@@ -70,10 +69,7 @@ object ElasticSearch extends ElasticSearchClient with ImageFields {
       andFilter(
         missingOrEmptyFilter("exports"),
         missingOrEmptyFilter(identifierField(Config.persistenceIdentifier)),
-        boolFilter.mustNot(termFilter(editsField("archived"), true)),
-        boolFilter.mustNot(termFilter(usageRightsField("category"), StaffPhotographer.category)),
-        boolFilter.mustNot(termFilter(usageRightsField("category"), ContractPhotographer.category)),
-        boolFilter.mustNot(termFilter(usageRightsField("category"), CommissionedPhotographer.category))
+        boolFilter.mustNot(termFilter(editsField("archived"), true))
       )
     )
 
