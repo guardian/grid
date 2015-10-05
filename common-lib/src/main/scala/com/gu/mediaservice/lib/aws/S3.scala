@@ -43,9 +43,8 @@ class S3(credentials: AWSCredentials) {
       mimeType.foreach(metadata.setContentType)
       cacheControl.foreach(metadata.setCacheControl)
       metadata.setUserMetadata(meta.asJava)
-      metadata.setContentLength(file.length)
 
-      val req = new PutObjectRequest(bucket, id, new FileInputStream(file), metadata)
+      val req = new PutObjectRequest(bucket, id, file).withMetadata(metadata)
       client.putObject(req)
 
       S3Object(
