@@ -28,6 +28,6 @@ object ExtractGuardianCreditFromByline extends MetadataCleaner {
 
 case class Prefix(full: String) {
   def unapplySeq(s: String): Boolean = {
-    full.toLowerCase.startsWith(s.toLowerCase) && s.length >= 1
+    full.toLowerCase.startsWith(s.toLowerCase)
   }
 }
