@@ -15,7 +15,8 @@ case class UsageRightsProperty(
   required: Boolean,
   options: Option[List[String]] = None,
   optionsMap: Option[Map[String, List[String]]] = None,
-  optionsMapKey: Option[String] = None
+  optionsMapKey: Option[String] = None,
+  examples: Option[String] = None
 )
 
 
@@ -31,7 +32,8 @@ object UsageRightsProperty {
   def sortList(l: List[String]) = l.sortWith(_.toLowerCase < _.toLowerCase)
 
   val props: List[(UsageRights) => List[UsageRightsProperty]] =
-    List(agencyProperties, creativeCommonsProperties, photographerProperties, illustrationProperties, restrictionProperties)
+    List(agencyProperties, creativeCommonsProperties, photographerProperties,
+         illustrationProperties, compositeProperties, restrictionProperties)
 
   def getPropertiesForCat(u: UsageRights): List[UsageRightsProperty] = props.flatMap(f => f(u))
 
@@ -96,6 +98,11 @@ object UsageRightsProperty {
       UsageRightsProperty("contentLink", "Link to content", "string", true)
     )
 
+    case _ => List()
+  }
+
+  private def compositeProperties(u: UsageRights) = u match {
+    case _:Composite => List(UsageRightsProperty("suppliers", "Suppliers", "string", true, examples = Some("REX/Getty Images/Corbis, Corbis/Reuters")))
     case _ => List()
   }
 }

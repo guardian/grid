@@ -44,7 +44,7 @@ object EditsApi extends Controller with ArgoHelpers {
         Agency("?"), CommissionedAgency("?"), Chargeable(),
         StaffPhotographer("?", "?"), ContractPhotographer("?"), CommissionedPhotographer("?"),
         CreativeCommons("?", "?", "?", "?"), GuardianWitness(), Pool(), CrownCopyright(), Obituary(),
-        ContractIllustrator("?"), CommissionedIllustrator("?")
+        ContractIllustrator("?"), CommissionedIllustrator("?"), Composite("?")
       ).map(CategoryResponse.fromUsageRights)
 
     respond(usageRightsData)
