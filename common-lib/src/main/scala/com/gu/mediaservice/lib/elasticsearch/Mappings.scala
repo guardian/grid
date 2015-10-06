@@ -80,7 +80,8 @@ object Mappings {
     "creator" -> nonAnalyzedString,
     "licence" -> nonAnalyzedString,
     "source" -> nonAnalyzedString,
-    "contentLink" -> nonAnalyzedString
+    "contentLink" -> nonAnalyzedString,
+    "suppliers" -> standardAnalysedString
   )
 
   val exportsMapping =
