@@ -452,7 +452,7 @@ object CreativeCommons {
 
 case class Composite(suppliers: String, restrictions: Option[String] = None)
   extends UsageRights {
-  val category = CreativeCommons.category
+  val category = Composite.category
   val defaultCost = Some(Free)
   val name = "Composite"
   val description =
