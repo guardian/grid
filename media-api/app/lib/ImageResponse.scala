@@ -143,10 +143,7 @@ object ImageResponse extends EditsResponse {
       (source \ "userMetadata" \ "usageRights").asOpt[JsObject]
     ).flatten.foldLeft(Json.obj())(_ ++ _).as[UsageRights]
 
-    val cost = CostCalculator.getCost(
-      usageRights,
-      (source \ "metadata" \ "credit").asOpt[String]
-    )
+    val cost = CostCalculator.getCost(usageRights)
 
     __.json.update(__.read[JsObject].map(_ ++ Json.obj("cost" -> cost.toString)))
   }
