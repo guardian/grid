@@ -19,7 +19,6 @@ trait SearchFilters extends ImageFields {
 
   // New Cost Model
   import UsageRightsConfig.{ suppliersCollectionExcl, freeSuppliers, payGettySourceList }
-  import UsageRightsDepConfig.guardianCredits
 
   val (suppliersWithExclusions, suppliersNoExclusions) = freeSuppliers.partition(suppliersCollectionExcl.contains)
   val suppliersWithExclusionsFilters = for {
@@ -43,39 +42,6 @@ trait SearchFilters extends ImageFields {
 
   val freeFilter = filterOrFilter(freeSupplierFilter, freeUsageRightsFilter)
   val nonFreeFilter = freeFilter.map(filters.not)
-
-  // HACK: We are matching on "The Guardian" / "The Observer" credits here as there is a substantial
-  // amount of images that match that to be free, and there is too wide a net to cast to try and get
-  // them categorised correctly.
-  val guardianCreditFilter = guardianCredits.toNel.map(cs => filters.terms(metadataField("credit"), cs))
-  val freeFilterOrGuardianCredits = filterOrFilter(freeFilter, guardianCreditFilter)
-  val nonFreeFilterWithoutGuardianCredits = filterOrFilter(freeFilter, guardianCreditFilter)
-
-
-  // Old cost model
-  import UsageRightsDepConfig.{ freeCreditList, freeSourceList }
-
-  // Warning: this requires the capitalisation to be exact; we may want to sanitise the credits
-  // to a canonical representation in the future
-  val creditFilter  = freeCreditList.toNel.map(cs => filters.terms(metadataField("credit"), cs))
-  val sourceFilter  = freeSourceList.toNel.map(cs => filters.terms(metadataField("source"), cs))
-  val freeWhitelist = filterOrFilter(creditFilter, sourceFilter)
-
-  val sourceExclFilter = payGettySourceList.toNel.map(cs => filters.terms(metadataField("source"), cs))
-  val freeCreditFilter = (freeWhitelist, sourceExclFilter) match {
-    case (Some(whitelist), Some(sourceExcl)) => Some(filters.bool.must(whitelist).mustNot(sourceExcl))
-    case (whitelistOpt,    sourceExclOpt)    => whitelistOpt orElse sourceExclOpt
-  }
-
-  // Merge legacy and new way of matching free images (matching either is enough)
-  val freeMetadataFilter = filterOrFilter(freeCreditFilter, freeSupplierFilter)
-
-  val depFreeFilter = filterOrFilter(freeMetadataFilter, freeUsageRightsFilter)
-  val depNonFreeFilter = freeFilter.map(filters.not)
-
-  // Filters used to compare old & new cost models
-  val freeDiffFilter = filterAndFilter(freeFilter, depNonFreeFilter)
-  val nonFreeDiffFilter = filterAndFilter(nonFreeFilter, depFreeFilter)
 
   // FIXME: There must be a better way (._.). Potentially making cost a lookup
   // again?
