@@ -456,7 +456,7 @@ case class Composite(suppliers: String, restrictions: Option[String] = None)
   val defaultCost = Some(Free)
   val name = "Composite"
   val description =
-    "An image created from multiple images within our usage rights."
+    "Any restricted images within the composite must be identified."
 
   override val caution = Some("All images should be free to use, or restrictions applied")
 }
