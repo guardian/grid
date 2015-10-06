@@ -15,8 +15,10 @@ object UsageRecorder {
   def recordUpdates(usageGroup: UsageGroup) = {
     UsageRecordTable.getUsageGroup(usageGroup.grouping).map(dbUsageGroup => {
       println(dbUsageGroup)
-
       println("------------------------------------------")
+      println(usageGroup)
+      println("******************************************")
+      println(dbUsageGroup == usageGroup)
       usageGroup.usages.map(UsageRecordTable.update(_))
     })
   }

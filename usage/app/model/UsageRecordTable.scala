@@ -38,7 +38,10 @@ object UsageRecordTable extends DynamoDB(
       val keyAttribute = new KeyAttribute("grouping", grouping)
       val queryResult = table.query(keyAttribute)
 
-      val usages = queryResult.asScala.map(MediaUsage.build(_)).toSet
+      val usages = queryResult.asScala
+        .map(MediaUsage.build(_))
+        .filter(_.grouping == grouping)
+        .toSet
 
       UsageGroup(usages, grouping, PendingUsageStatus(new DateTime()))
     })
