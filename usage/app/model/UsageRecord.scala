@@ -22,9 +22,6 @@ object UsageRecord {
       mediaUsage.element.id,
       "web",  // TODO: these shouldn't be hardcoded here
       "image",
-      usageStatus match {
-        case _:PendingUsageStatus => "pending"
-        case _:PubishedUsageStatus => "published"
-      }
+      usageStatus.toString
     )
 }

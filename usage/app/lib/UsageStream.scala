@@ -19,9 +19,9 @@ object UsageStream {
     createUsages(content, status).map(usages => UsageGroup(usages.toSet, content.id, status))
 
   def createUsages(content: Content, status: UsageStatus) = extractImages(content)
-    .map(_.zipWithIndex.map{ case (imageElement, index) => {
-      createUsage(createUsageId(imageElement.id, index), content.id, imageElement)
-    }})
+    .map(_.zipWithIndex.map{ case (element, index) =>
+      MediaUsage.build(element, status, index, content.id)
+    })
 
   def createStatus(container: ContentContainer) = container match {
     case PreviewContentItem(_,_) => PendingUsageStatus(container.lastModified)
