@@ -48,6 +48,7 @@ object UsageRights {
     case o: ContractIllustrator      => ContractIllustrator.jsonWrites.writes(o)
     case o: CommissionedIllustrator  => CommissionedIllustrator.jsonWrites.writes(o)
     case o: CreativeCommons          => CreativeCommons.jsonWrites.writes(o)
+    case o: Composite                => Composite.jsonWrites.writes(o)
     case o: NoRights.type            => NoRights.jsonWrites.writes(o)
   }
 
@@ -78,6 +79,7 @@ object UsageRights {
         case ContractIllustrator.category       => json.asOpt[ContractIllustrator]
         case CommissionedIllustrator.category   => json.asOpt[CommissionedIllustrator]
         case CreativeCommons.category           => json.asOpt[CreativeCommons]
+        case Composite.category                 => json.asOpt[Composite]
         case _                                  => None
       })
         .orElse(supplier.flatMap(_ => json.asOpt[Agency]))
@@ -380,6 +382,7 @@ object CrownCopyright {
   implicit val jsonWrites: Writes[CrownCopyright] = UsageRights.defaultWrites
 }
 
+
 case class ContractIllustrator(creator: String, restrictions: Option[String] = None)
   extends UsageRights {
   val category = ContractIllustrator.category
@@ -399,6 +402,7 @@ object ContractIllustrator {
     )(i => (i.category, i.creator, i.restrictions))
 }
 
+
 case class CommissionedIllustrator(creator: String, restrictions: Option[String] = None)
   extends UsageRights {
   val category = CommissionedIllustrator.category
@@ -417,6 +421,7 @@ object CommissionedIllustrator {
       (__ \ "restrictions").writeNullable[String]
     )(i => (i.category, i.creator, i.restrictions))
 }
+
 
 case class CreativeCommons(licence: String, source: String, creator: String, contentLink: String,
                            restrictions: Option[String] = None)
@@ -442,4 +447,26 @@ object CreativeCommons {
       (__ \ "contentLink").write[String] ~
       (__ \ "restrictions").writeNullable[String]
     )(i => (i.category, i.licence, i.source, i.creator, i.contentLink, i.restrictions))
+}
+
+
+case class Composite(suppliers: String, restrictions: Option[String] = None)
+  extends UsageRights {
+  val category = Composite.category
+  val defaultCost = Some(Free)
+  val name = "Composite"
+  val description =
+    "Any restricted images within the composite must be identified."
+
+  override val caution = Some("All images should be free to use, or restrictions applied")
+}
+
+object Composite {
+  val category = "composite"
+  implicit val jsonReads: Reads[Composite] = Json.reads[Composite]
+  implicit val jsonWrites: Writes[Composite] = (
+    (__ \ "category").write[String] ~
+      (__ \ "suppliers").write[String] ~
+      (__ \ "restrictions").writeNullable[String]
+    )(i => (i.category, i.suppliers, i.restrictions))
 }
