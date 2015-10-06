@@ -96,7 +96,9 @@ object ImageResponse extends EditsResponse {
 
     val links = imageLinks(id, secureUrl, withWritePermission, valid)
 
-    val actions = imageActions(id, isPersisted, withWritePermission, withDeletePermission)
+    val isDeletable = !persistenceReasons.contains("exports") && withDeletePermission
+
+    val actions = imageActions(id, isDeletable, withWritePermission)
 
     (data, links, actions)
   }
@@ -116,18 +118,16 @@ object ImageResponse extends EditsResponse {
     if (valid) (cropLink :: baseLinks) else baseLinks
   }
 
-  def imageActions(id: String, isPersisted: Boolean, withWritePermission: Boolean,
-                   withDeletePermission: Boolean) = {
+  def imageActions(id: String, isDeletable: Boolean, withWritePermission: Boolean) = {
 
     val imageUri = URI.create(s"${Config.rootUri}/images/$id")
     val reindexUri = URI.create(s"${Config.rootUri}/images/$id/reindex")
-    val canDelete = ! isPersisted && withDeletePermission
 
     val deleteAction = Action("delete", imageUri, "DELETE")
     val reindexAction = Action("reindex", reindexUri, "POST")
 
     List(
-      deleteAction       -> canDelete,
+      deleteAction       -> isDeletable,
       reindexAction      -> withWritePermission
     )
     .filter{ case (action, active) => active }

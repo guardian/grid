@@ -2,7 +2,6 @@ package lib
 
 import _root_.play.api.libs.json._
 import com.gu.mediaservice.lib.elasticsearch.{ElasticSearchClient, ImageFields}
-import com.gu.mediaservice.model.{CommissionedPhotographer, ContractPhotographer, StaffPhotographer}
 import com.gu.mediaservice.syntax._
 import groovy.json.JsonSlurper
 import lib.ThrallMetrics._
@@ -11,7 +10,7 @@ import org.elasticsearch.action.update.{UpdateRequestBuilder, UpdateResponse}
 import org.elasticsearch.action.updatebyquery.UpdateByQueryResponse
 import org.elasticsearch.client.UpdateByQueryClientWrapper
 import org.elasticsearch.index.engine.VersionConflictEngineException
-import org.elasticsearch.index.query.FilterBuilders.{andFilter, boolFilter, missingFilter, termFilter}
+import org.elasticsearch.index.query.FilterBuilders.{andFilter, missingFilter}
 import org.elasticsearch.index.query.QueryBuilders.{boolQuery, filteredQuery, matchAllQuery, matchQuery}
 import org.elasticsearch.script.ScriptService
 import org.joda.time.DateTime
@@ -67,14 +66,7 @@ object ElasticSearch extends ElasticSearchClient with ImageFields {
 
     val q = filteredQuery(
       boolQuery.must(matchQuery("_id", id)),
-      andFilter(
-        missingOrEmptyFilter("exports"),
-        missingOrEmptyFilter(identifierField(Config.persistenceIdentifier)),
-        boolFilter.mustNot(termFilter(editsField("archived"), true)),
-        boolFilter.mustNot(termFilter(usageRightsField("category"), StaffPhotographer.category)),
-        boolFilter.mustNot(termFilter(usageRightsField("category"), ContractPhotographer.category)),
-        boolFilter.mustNot(termFilter(usageRightsField("category"), CommissionedPhotographer.category))
-      )
+      andFilter(missingOrEmptyFilter("exports"))
     )
 
     val deleteQuery = client
