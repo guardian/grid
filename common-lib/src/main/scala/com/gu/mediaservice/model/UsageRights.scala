@@ -463,8 +463,6 @@ case class Composite(suppliers: String, restrictions: Option[String] = None)
 
 object Composite {
   val category = "composite"
-  val name = "Composite"
-
   implicit val jsonReads: Reads[Composite] = Json.reads[Composite]
   implicit val jsonWrites: Writes[Composite] = (
     (__ \ "category").write[String] ~
