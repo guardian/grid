@@ -12,12 +12,25 @@ case class MediaUsage(
   grouping: String,
   usageDetails: UsageDetails
 ) {
+  // Used when we want to check if an existing object has been modified
+  def ===(obj: Any): Boolean = obj match {
+    case mediaUsage: MediaUsage => {
+      usageId == mediaUsage.usageId &&
+      grouping == mediaUsage.grouping &&
+      usageDetails == mediaUsage.usageDetails
+    }
+    case _ => false
+  }
+
+  // Used in set comparison of UsageGroups
   override def equals(obj: Any): Boolean = obj match {
     case mediaUsage: MediaUsage => {
       usageId == mediaUsage.usageId &&
       grouping == mediaUsage.grouping &&
       usageDetails.id == mediaUsage.usageDetails.id
-    }
+    } // TODO: This will work for checking if new items have been added and
+      // removed but NOT if existing records have been updated (underlying image data)
+      // can we override === to check?
     case _ => false
   }
 }

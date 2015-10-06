@@ -7,7 +7,16 @@ case class UsageGroup(
   usages: Set[MediaUsage],
   grouping: String,
   status: UsageStatus
-)
+) {
+  override def equals(obj: Any): Boolean = obj match {
+    case usageGroup: UsageGroup => {
+      grouping == usageGroup.grouping &&
+      status.toString == usageGroup.status.toString &&
+      usages == usageGroup.usages
+    }
+    case _ => false
+  }
+}
 
 object UsageGroup {
   def build(content: Content, status: UsageStatus) =
