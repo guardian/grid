@@ -12,9 +12,14 @@ import model._
 object UsageRecorder {
   val usageStream = UsageStream.observable
 
-  def recordUpdates(usageGroup: UsageGroup) =
-    UsageRecord.fromUsageGroup(usageGroup).map(UsageRecordTable.update(_))
+  def recordUpdates(usageGroup: UsageGroup) = {
+    UsageRecordTable.getUsageGroup(usageGroup.grouping).map(dbUsageGroup => {
+      println(dbUsageGroup)
 
-  val observable = usageStream.flatMap(usageGroup =>
-    Observable.from(recordUpdates(usageGroup)).flatten)
+      println("------------------------------------------")
+      usageGroup.usages.map(UsageRecordTable.update(_))
+    })
+  }
+
+  val observable = usageStream.flatMap(recordUpdates(_))
 }
