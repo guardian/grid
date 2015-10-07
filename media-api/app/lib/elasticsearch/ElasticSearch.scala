@@ -82,27 +82,23 @@ object ElasticSearch extends ElasticSearchClient with SearchFilters with ImageFi
     val dateFilterList    = List(uploadTimeFilter, lastModTimeFilter, takenTimeFilter).flatten.toNel
     val dateFilter        = dateFilterList.map(dateFilters => filters.and(dateFilters.list: _*))
 
-    val idsFilter        = params.ids.map(filters.ids)
-    val labelFilter      = params.labels.toNel.map(filters.terms("labels", _))
-    val metadataFilter   = params.hasMetadata.map(metadataField).toNel.map(filters.exists)
-    val archivedFilter   = params.archived.map(filters.existsOrMissing(editsField("archived"), _))
-    val hasExports       = params.hasExports.map(filters.existsOrMissing("exports", _))
-    val hasIdentifier    = params.hasIdentifier.map(idName => filters.exists(NonEmptyList(identifierField(idName))))
-    val missingIdentifier= params.missingIdentifier.map(idName => filters.missing(NonEmptyList(identifierField(idName))))
-    val uploadedByFilter = params.uploadedBy.map(uploadedBy => filters.terms("uploadedBy", NonEmptyList(uploadedBy)))
+    val idsFilter         = params.ids.map(filters.ids)
+    val labelFilter       = params.labels.toNel.map(filters.terms("labels", _))
+    val metadataFilter    = params.hasMetadata.map(metadataField).toNel.map(filters.exists)
+    val archivedFilter    = params.archived.map(filters.existsOrMissing(editsField("archived"), _))
+    val hasExports        = params.hasExports.map(filters.existsOrMissing("exports", _))
+    val hasIdentifier     = params.hasIdentifier.map(idName => filters.exists(NonEmptyList(identifierField(idName))))
+    val missingIdentifier = params.missingIdentifier.map(idName => filters.missing(NonEmptyList(identifierField(idName))))
+    val uploadedByFilter  = params.uploadedBy.map(uploadedBy => filters.terms("uploadedBy", NonEmptyList(uploadedBy)))
+
+    val costFilter        =  params.free.flatMap(free => if (free) freeFilter else nonFreeFilter)
 
     val validityFilter: Option[FilterBuilder] = params.valid.flatMap(valid => if(valid) validFilter else invalidFilter)
-
-    val costFilter       =
-      if (params.costModelDiff) params.free.flatMap(free => if (free) freeDiffFilter else nonFreeDiffFilter)
-      else                      params.free.flatMap(free => if (free) freeFilterOrGuardianCredits else nonFreeFilterWithoutGuardianCredits)
-
 
     val persistFilter = params.persisted map {
       case true   => persistedFilter
       case false  => nonPersistedFilter
     }
-
 
     val filterOpt = (
       metadataFilter.toList ++ persistFilter ++ labelFilter ++ archivedFilter ++
