@@ -86,6 +86,9 @@ button {
     font-size: 1.4rem;
 }
 
+/* TODO: Remove generic styling, this should be a class,
+         as we need to override it to use text elements
+         anywhere else */
 input[type="text"],
 textarea {
     background-color: #444;
@@ -947,6 +950,15 @@ input.search-query__input {
 .related-labels {
     line-height: 35px;
     overflow: auto;
+}
+
+input.related-labels__parent {
+    border: 0;
+    background: transparent;
+    border-bottom: 1px solid #999;
+    box-sizing: border-box;
+    padding: 2px 5px;
+    width: 100px;
 }
 
 .related-labels__labels {
