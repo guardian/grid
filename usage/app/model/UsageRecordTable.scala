@@ -6,7 +6,7 @@ import com.amazonaws.regions.Region
 import com.amazonaws.services.dynamodbv2.document.spec.UpdateItemSpec
 import com.amazonaws.services.dynamodbv2.model.ReturnValue
 import com.amazonaws.services.dynamodbv2.document.utils.ValueMap
-import com.amazonaws.services.dynamodbv2.document.KeyAttribute
+import com.amazonaws.services.dynamodbv2.document.{KeyAttribute, DeleteItemOutcome}
 import scalaz.syntax.id._
 
 import play.api.libs.json._
@@ -50,11 +50,16 @@ object UsageRecordTable extends DynamoDB(
       UsageGroup(usages, grouping, usageGroup.status, new DateTime)
     })
 
+  def delete(hashKey: String, rangeKey: String): Observable[JsObject] = Observable.from(Future {
+    table.deleteItem(hashKeyName, hashKey, rangeKeyName, rangeKey)
+  }).map(asJsObject)
+
   def update(mediaUsage: MediaUsage): Observable[JsObject] = Observable.from(Future {
     val expression = sanitiseMultilineString(
       s"""SET media_id = :media_id,
              |usage_type = :usage_type,
              |media_type = :media_type,
+             |last_modified = :last_modified,
              |usage_status = :usage_status"""
     )
 
@@ -73,6 +78,7 @@ object UsageRecordTable extends DynamoDB(
       vMap.withString(":usage_type", mediaUsage.usageType)
       vMap.withString(":media_type", mediaUsage.mediaType)
       vMap.withString(":usage_status", mediaUsage.status.toString)
+      vMap.withLong(":last_modified", mediaUsage.lastModified.getMillis)
     })
 
     val updateSpec = baseUpdateSpec.withValueMap(valueMap)

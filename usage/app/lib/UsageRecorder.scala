@@ -4,6 +4,8 @@ package lib
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.{ExecutionContext, Future}
 
+import play.api.libs.json._
+
 import rx.lang.scala.Observable
 
 import model._
@@ -14,12 +16,14 @@ object UsageRecorder {
 
   def recordUpdates(usageGroup: UsageGroup) = {
     UsageRecordTable.matchUsageGroup(usageGroup).map(dbUsageGroup => {
-      println(dbUsageGroup)
-      println("------------------------------------------")
-      println(usageGroup)
-      println("******************************************")
-      println(dbUsageGroup == usageGroup)
-      usageGroup.usages.map(UsageRecordTable.update(_))
+
+      val deletes = (dbUsageGroup.usages -- usageGroup.usages).map(mediaUsage => {
+        UsageRecordTable.delete(mediaUsage.grouping, mediaUsage.usageId)
+      })
+
+      val updates = usageGroup.usages.map(UsageRecordTable.update(_))
+
+      Observable.from(deletes ++ updates).flatten
     })
   }
 

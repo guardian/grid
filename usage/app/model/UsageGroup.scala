@@ -10,26 +10,21 @@ case class UsageGroup(
   grouping: String,
   status: UsageStatus,
   lastModified: DateTime
-) {
-  override def equals(obj: Any): Boolean = obj match {
-    case usageGroup: UsageGroup => {
-      grouping == usageGroup.grouping &&
-      status.toString == usageGroup.status.toString &&
-      usages == usageGroup.usages
-    }
-    case _ => false
-  }
-}
-
+)
 object UsageGroup {
   def build(content: Content, status: UsageStatus, lastModified: DateTime) =
-    createUsages(content, status, lastModified).map(usages => {
-      UsageGroup(usages.toSet, content.id, status, lastModified)
-    })
+    // At the moment we only care about composer usages
+    content.fields.map(_.internalComposerCode).flatMap(_.map(composerCode => {
+      val contentId = s"composer/${composerCode}"
 
-  def createUsages(content: Content, status: UsageStatus, lastModified: DateTime) = extractImages(content)
+      createUsages(contentId, content, status, lastModified).map(usages => {
+        UsageGroup(usages.toSet, contentId, status, lastModified)
+      })
+    }))
+
+  def createUsages(contentId: String, content: Content, status: UsageStatus, lastModified: DateTime) = extractImages(content)
     .map(_.zipWithIndex.map{ case (element, index) =>
-      MediaUsage.build(element, status, index, content.id, lastModified)
+      MediaUsage.build(element, status, index, contentId, lastModified)
     })
 
   def extractImages(content: Content) = content.elements.map(elements => {
