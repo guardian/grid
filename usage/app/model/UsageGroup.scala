@@ -2,11 +2,14 @@ package model
 
 import com.gu.contentapi.client.model.v1.{Content, ElementType, Element}
 
+import org.joda.time.DateTime
+
 
 case class UsageGroup(
   usages: Set[MediaUsage],
   grouping: String,
-  status: UsageStatus
+  status: UsageStatus,
+  lastModified: DateTime
 ) {
   override def equals(obj: Any): Boolean = obj match {
     case usageGroup: UsageGroup => {
@@ -19,12 +22,14 @@ case class UsageGroup(
 }
 
 object UsageGroup {
-  def build(content: Content, status: UsageStatus) =
-    createUsages(content, status).map(usages => UsageGroup(usages.toSet, content.id, status))
+  def build(content: Content, status: UsageStatus, lastModified: DateTime) =
+    createUsages(content, status, lastModified).map(usages => {
+      UsageGroup(usages.toSet, content.id, status, lastModified)
+    })
 
-  def createUsages(content: Content, status: UsageStatus) = extractImages(content)
+  def createUsages(content: Content, status: UsageStatus, lastModified: DateTime) = extractImages(content)
     .map(_.zipWithIndex.map{ case (element, index) =>
-      MediaUsage.build(element, status, index, content.id)
+      MediaUsage.build(element, status, index, content.id, lastModified)
     })
 
   def extractImages(content: Content) = content.elements.map(elements => {

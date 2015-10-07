@@ -44,10 +44,10 @@ object UsageRecordTable extends DynamoDB(
       val usages = queryResult.asScala
         .map(MediaUsage.build(_))
         .filter(usage => {
-          s"${usage.usageDetails.status}" == status
+          s"${usage.status}" == status
         }).toSet
 
-      UsageGroup(usages, grouping, usageGroup.status) //PendingUsageStatus(new DateTime()))
+      UsageGroup(usages, grouping, usageGroup.status, new DateTime)
     })
 
   def update(mediaUsage: MediaUsage): Observable[JsObject] = Observable.from(Future {
@@ -69,10 +69,10 @@ object UsageRecordTable extends DynamoDB(
       .withReturnValues(ReturnValue.ALL_NEW)
 
     val valueMap = (new ValueMap()) <| (vMap => {
-      vMap.withString(":media_id", mediaUsage.usageDetails.id)
-      vMap.withString(":usage_type", mediaUsage.usageDetails.usageType)
-      vMap.withString(":media_type", mediaUsage.usageDetails.mediaType)
-      vMap.withString(":usage_status", mediaUsage.usageDetails.status.toString)
+      vMap.withString(":media_id", mediaUsage.mediaId)
+      vMap.withString(":usage_type", mediaUsage.usageType)
+      vMap.withString(":media_type", mediaUsage.mediaType)
+      vMap.withString(":usage_status", mediaUsage.status.toString)
     })
 
     val updateSpec = baseUpdateSpec.withValueMap(valueMap)
