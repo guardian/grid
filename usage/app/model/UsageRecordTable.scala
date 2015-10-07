@@ -33,17 +33,21 @@ object UsageRecordTable extends DynamoDB(
 
   def sanitiseMultilineString(s: String) = s.stripMargin.replaceAll("\n", " ")
 
-  def getUsageGroup(grouping: String): Observable[UsageGroup] =
+  def matchUsageGroup(usageGroup: UsageGroup): Observable[UsageGroup] =
     Observable.from(Future {
+      val status = s"${usageGroup.status}"
+      val grouping = usageGroup.grouping
+
       val keyAttribute = new KeyAttribute("grouping", grouping)
       val queryResult = table.query(keyAttribute)
 
       val usages = queryResult.asScala
         .map(MediaUsage.build(_))
-        .filter(_.grouping == grouping)
-        .toSet
+        .filter(usage => {
+          s"${usage.usageDetails.status}" == status
+        }).toSet
 
-      UsageGroup(usages, grouping, PendingUsageStatus(new DateTime()))
+      UsageGroup(usages, grouping, usageGroup.status) //PendingUsageStatus(new DateTime()))
     })
 
   def update(mediaUsage: MediaUsage): Observable[JsObject] = Observable.from(Future {

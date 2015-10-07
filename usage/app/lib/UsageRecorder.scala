@@ -13,7 +13,7 @@ object UsageRecorder {
   val usageStream = UsageStream.observable
 
   def recordUpdates(usageGroup: UsageGroup) = {
-    UsageRecordTable.getUsageGroup(usageGroup.grouping).map(dbUsageGroup => {
+    UsageRecordTable.matchUsageGroup(usageGroup).map(dbUsageGroup => {
       println(dbUsageGroup)
       println("------------------------------------------")
       println(usageGroup)
