@@ -9,9 +9,15 @@ import model._
 object UsageStream {
   val contentStream = MergedContentStream.observable
 
-  val observable = contentStream.flatMap((container: ContentContainer) =>
-    Observable.from(
-      UsageGroup.build(container.content, createStatus(container), container.lastModified)))
+  val observable = contentStream.flatMap((container: ContentContainer) => {
+    val usageGroupOption = UsageGroup
+      .build(container.content, createStatus(container), container.lastModified)
+
+    usageGroupOption match {
+      case Some(usageGroup) => Observable.from(usageGroup)
+      case _ => Observable.empty
+    }
+  })
 
   def createStatus(container: ContentContainer) = container match {
     case PreviewContentItem(_,_) => PendingUsageStatus()

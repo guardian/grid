@@ -3,7 +3,7 @@ package com.gu.mediaservice.lib.aws
 import com.amazonaws.auth.AWSCredentials
 import com.amazonaws.regions.Region
 import com.amazonaws.services.dynamodbv2.AmazonDynamoDBClient
-import com.amazonaws.services.dynamodbv2.document.{DynamoDB => AwsDynamoDB, UpdateItemOutcome, Table, Item}
+import com.amazonaws.services.dynamodbv2.document.{DynamoDB => AwsDynamoDB, DeleteItemOutcome, UpdateItemOutcome, Table, Item}
 import com.amazonaws.services.dynamodbv2.document.spec.{DeleteItemSpec, GetItemSpec, UpdateItemSpec}
 import com.amazonaws.services.dynamodbv2.document.utils.ValueMap
 import com.amazonaws.services.dynamodbv2.model.ReturnValue
@@ -172,6 +172,8 @@ class DynamoDB(credentials: AWSCredentials, region: Region, tableName: String) {
   def asJsObject(outcome: UpdateItemOutcome): JsObject =
     asJsObject(outcome.getItem)
 
+  def asJsObject(outcome: DeleteItemOutcome): JsObject =
+    asJsObject(outcome.getItem)
 
   // FIXME: Dynamo accepts `null`, but not `""`. This is a well documented issue
   // around the community. This guard keeps the introduction of `null` fairly

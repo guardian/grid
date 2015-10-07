@@ -20,11 +20,8 @@ case class MediaUsage(
   override def equals(obj: Any): Boolean = obj match {
     case mediaUsage: MediaUsage => {
       usageId == mediaUsage.usageId &&
-      grouping == mediaUsage.grouping &&
-      mediaId == mediaUsage.mediaId
-    } // TODO: This will work for checking if new items have been added and
-      // removed but NOT if existing records have been updated (underlying image data)
-      // can we override === to check?
+      grouping == mediaUsage.grouping
+    } // TODO: This will work for checking if new items have been added/removed
     case _ => false
   }
 }
@@ -41,7 +38,7 @@ object MediaUsage {
         case "pending" => PendingUsageStatus()
         case "published" => PubishedUsageStatus()
       },
-      new DateTime()
+      new DateTime(item.getLong("last_modified"))
     )
 
   def build(media: Element, status: UsageStatus, index: Int, grouping: String, lastModified: DateTime) =
