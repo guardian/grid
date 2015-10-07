@@ -256,7 +256,7 @@
                                   e:form="copyrightEditForm">
 
                         <span ng:if="ctrl.metadata.copyright">
-                            <a ui:sref="search.results({query: (ctrl.metadata.copyright | queryFilter:'by')})">{{ctrl.metadata.copyright}}</a>
+                            <a ui:sref="search.results({query: (ctrl.metadata.copyright | queryFilter:'copyright')})">{{ctrl.metadata.copyright}}</a>
                         </span>
                         <span ng:if="! ctrl.metadata.copyright">
                             Unknown (click ✎ to add the copyright)
