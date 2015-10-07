@@ -96,7 +96,6 @@ object MetadataConfig {
     "Christopher Thomond" -> "The Guardian",
     "David Levene"        -> "The Guardian",
     "Eamonn McCabe"       -> "The Guardian",
-    "Felix Clay"          -> "The Guardian",
     "Graeme Robertson"    -> "The Guardian",
     "Jane Bown"           -> "The Guardian",
     "Johanna Parkin"      -> "The Guardian",
