@@ -1,3 +1,4 @@
 elasticsearch
 elasticsearch.tar.gz
 data
+reindex/*.json

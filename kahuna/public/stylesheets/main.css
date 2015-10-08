@@ -314,6 +314,10 @@ a:focus {
     border-bottom: 1px solid #999;
 }
 
+.text-small {
+    font-size: 13px;
+}
+
 
 /* ==========================================================================
    Angular
@@ -875,13 +879,20 @@ input.search-query__input {
     position: fixed;
     z-index: 2;
 }
+
+.results-toolbar__right {
+    margin-left: auto;
+    line-height: 35px;
+}
+
 .results-toolbar-item {
     vertical-align: middle;
-    border-width: 0px 1px;
+    border-width: 0 1px;
     border-color: #565656;
     border-style: solid;
     position: relative;
     height: 35px;
+    white-space: nowrap;
 }
 
 .results-toolbar-item:hover {
@@ -893,13 +904,8 @@ input.search-query__input {
     padding: 0 10px;
 }
 
-.results-toolbar-item--split {
-    margin-right: auto;
-}
-
 .results-toolbar-item--left {
     border-left: 0;
-    padding-left: 0;
 }
 
 .results-toolbar-item--right {
@@ -938,10 +944,26 @@ input.search-query__input {
     height: 36px;
 }
 
-/* TODO: remove this once eveything is in the action-bar */
-.results-count {
-    float: left;
-    padding: 0 10px;
+.related-labels {
+    line-height: 35px;
+    overflow: auto;
+}
+
+.related-labels__labels {
+    overflow: auto;
+}
+
+.related-labels__label {
+    margin-left: 2px;
+}
+
+.related-labels__label-text {
+    padding: 2px 5px 4px;
+    box-sizing: border-box;
+}
+.related-labels__label-text--selected {
+    border-top: 2px solid #00adee;
+    background-color: #444;
 }
 
 .image-results-count__new {
@@ -955,7 +977,7 @@ input.search-query__input {
 }
 
 .image-results-count {
-    border: 0;
+    border-left: 0;
     line-height: 35px;
 }
 
@@ -1086,7 +1108,7 @@ FIXME: what to do with touch devices
     display: block;
 }
 
-.bottom-bar__actions ui-archiver {
+.bottom-bar__actions gr-image-persist-status {
     float: left;
 }
 
@@ -1607,6 +1629,7 @@ FIXME: what to do with touch devices
     display: block;
     max-width: 100%;
     max-height: 64px;
+    margin: 0 auto;
 }
 
 .image-crop__aspect-ratio {
@@ -1618,83 +1641,6 @@ FIXME: what to do with touch devices
 .image-crop__aspect-ratio--selected {
     color: #FFFFFF;
 }
-
-/* ==========================================================================
-   Labeller
-   ========================================================================== */
-.labeller {
-    font-size: 1.3rem;
-    display: flex;
-}
-
-.label {
-    color: white;
-    display: inline-flex;
-    justify-content: space-between;
-    margin: 0 5px 5px 0;
-}
-
-.label--removing {
-    background-color: #99ddff;
-}
-
-.label--partial,
-.label--partial gr-icon {
-    background-color: white;
-    color: #00adee;
-}
-
-.label__link,
-.label__remove {
-    color: white;
-    background-color: #00adee;
-}
-
-.label__link:hover,
-.label__remove:hover {
-    color: #00adee;
-    background-color: white;
-}
-
-.label__link {
-    border-top-left-radius: 2px;
-    border-bottom-left-radius: 2px;
-    padding: 0 5px;
-}
-
-.label__link--compact {
-    border-radius: 2px;
-}
-
-.label__remove {
-    border-top-right-radius: 2px;
-    border-bottom-right-radius: 2px;
-}
-
-.label button:hover gr-icon {
-    color: #333;
-}
-
-.label button:active gr-icon {
-    background-color: #008fc5;
-    color: #333;
-}
-
-.label--partial button:active gr-icon {
-    background-color: #CFCFCF;
-    color: #333;
-}
-
-.labeller__apply-all {
-    margin-left: 10px;
-    line-height: 20px;
-    font-size: 1.6rem;
-}
-
-.labeller__apply-all:hover {
-    color: #FFF;
-}
-
 
 /* ==========================================================================
    Uploads
@@ -1930,7 +1876,7 @@ FIXME: what to do with touch devices
 /* ==========================================================================
    Archviver
    ========================================================================== */
-.top-bar-item .archiver {
+.top-bar-item gr-image-persist-status {
     padding: 0 10px;
     height: 100%;
 }
@@ -2058,25 +2004,6 @@ ui-archiver .archiver:hover {
     display: none;
 }
 
-
-/* ==========================================================================
-   Forms
-   ========================================================================== */
-.action-bar {
-    line-height: 35px;
-    display: flex;
-}
-
-.action-bar__item {
-    line-height: inherit;
-    padding: 0 10px;
-    display: block;
-    border-left: 1px solid #565656;
-}
-
-.action-bar__item--last {
-    border-right: 1px solid #565656;
-}
 
 
 /* ==========================================================================

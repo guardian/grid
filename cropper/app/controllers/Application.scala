@@ -16,11 +16,10 @@ import com.gu.mediaservice.lib.auth
 import com.gu.mediaservice.lib.auth._
 import com.gu.mediaservice.lib.argo.ArgoHelpers
 import com.gu.mediaservice.lib.argo.model.{Action, Link}
+import com.gu.mediaservice.lib.imaging.ExportResult
 import com.gu.mediaservice.model.{Crop, SourceImage, CropSource, Bounds}
 
 import org.joda.time.DateTime
-
-import lib.imaging.ExportResult
 
 import lib._
 
@@ -124,10 +123,14 @@ object Application extends Controller with ArgoHelpers {
     }
   }
 
-  def fetchSourceFromApi(uri: String): Future[SourceImage] =
-    for (resp <- WS.url(uri).withHeaders("X-Gu-Media-Key" -> mediaApiKey).get)
+  def fetchSourceFromApi(uri: String): Future[SourceImage] = {
+    val imageRequest = WS.url(uri).
+      withHeaders("X-Gu-Media-Key" -> mediaApiKey).
+      withQueryString("include" -> "fileMetadata")
+    for (resp <- imageRequest.get)
     yield {
       if (resp.status != 200) Logger.warn(s"HTTP status ${resp.status} ${resp.statusText} from $uri")
       resp.json.as[SourceImage]
     }
+  }
 }

@@ -25,11 +25,27 @@ imageService.factory('imageService', [function() {
     }
 
     function getStates(image) {
+        const persistReasons = image.data.persisted.reasons.map(reason => {
+            switch (reason) {
+                case 'exports':
+                    return 'cropped';
+                case 'persistence-identifier':
+                    return 'from Picdar';
+                case 'photographer-category':
+                    return 'categorised as photographer';
+                default:
+                    return reason;
+            }
+        });
+
         return {
             cost: image.data.cost,
             hasCrops: hasExportsOfType(image, 'crop'),
             isValid: image.data.valid,
-            canDelete: image.getAction('delete').then(action => !! action)
+            canDelete: image.getAction('delete').then(action => !! action),
+            canArchive: image.data.persisted.value === false ||
+                (persistReasons.length === 1 && persistReasons[0] === 'archived'),
+            persistedReasons: persistReasons.join('; ')
         };
     }
 

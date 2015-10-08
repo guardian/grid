@@ -3,9 +3,6 @@
         <a class="top-bar-item" ui:sref="search">
             <gr-icon-label gr-icon="search">Search</gr-icon-label>
         </a>
-        <a class="top-bar-item" ng:if="ctrl.crop" ui:sref="{ crop: null }">
-            <gr-icon-label gr-icon="crop_original">Original</gr-icon-label>
-        </a>
     </gr-top-bar-nav>
 
     <gr-top-bar-actions>
@@ -18,9 +15,9 @@
             <gr-icon-label gr-icon="file_download">Download</gr-icon-label>
         </a>
 
-        <ui-archiver class="top-bar-item top-bar-item--filled"
-                     image="ctrl.image"
-                     with-text="true"></ui-archiver>
+        <gr-image-persist-status class="top-bar-item"
+                                 with-text="true"
+                                 gr-image="ctrl.image"></gr-image-persist-status>
 
         <gr-crop-image class="top-bar-item" image="ctrl.image" tracking-location="Top bar">
         </gr-crop-image>
@@ -36,21 +33,17 @@
             <dl>
                 <dt class="image-info__heading">Original <span class="image-info__file-size"> {{ctrl.image.data.source.size | asFileSize}}</span></dt>
                     <dd class="image-info__heading--crops">
-                        <ul class="image-crops">
-                            <li class="image-crop"
-                                ng:class="{'image-crop--selected': !ctrl.crop}">
-                                <a draggable="true"
-                                    ui:sref="{ crop: null }">
-                                    <img class="image-crop__image" ng:src="{{ ctrl.image.data.thumbnail | assetFile }}" />
-                                    <div class="image-crop__aspect-ratio"
-                                        ng:class="{'image-crop__aspect-ratio--selected': !ctrl.crop}">
-                                        <ul>
-                                            <li>{{ctrl.image.data.source.dimensions.width}} &times; {{ctrl.image.data.source.dimensions.height}}</li>
-                                        </ul>
-                                    </div>
-                                </a>
-                            </li>
-                        </ul>
+                        <div class="image-crop"
+                             ng:class="{'image-crop--selected': !ctrl.crop}">
+                            <a draggable="true"
+                                ui:sref="{ crop: null }">
+                                <img class="image-crop__image" ng:src="{{ ctrl.image.data.thumbnail | assetFile }}" />
+                                <div class="image-crop__aspect-ratio"
+                                    ng:class="{'image-crop__aspect-ratio--selected': !ctrl.crop}">
+                                    {{ctrl.image.data.source.dimensions.width}} &times; {{ctrl.image.data.source.dimensions.height}}
+                                </div>
+                            </a>
+                        </div>
                     </dd>
                 </dt>
             </dl>

@@ -1,19 +1,20 @@
-package lib
+package com.gu.mediaservice.lib
 
-import java.io.{FileOutputStream, File}
-import java.nio.channels.Channels
+import java.io.{File, FileOutputStream}
 import java.net.URL
-import scala.concurrent.{Future, ExecutionContext}
+import java.nio.channels.Channels
 import java.util.concurrent.Executors
+
+import scala.concurrent.{ExecutionContext, Future}
 
 
 object Files {
 
   private implicit val ctx = ExecutionContext.fromExecutor(Executors.newCachedThreadPool)
 
-  def createTempFile(prefix: String, suffix: String): Future[File] =
+  def createTempFile(prefix: String, suffix: String, tempDir: File): Future[File] =
     Future {
-      File.createTempFile(prefix, suffix, Config.tempDir)
+      File.createTempFile(prefix, suffix, tempDir)
     }
 
   def transferFromURL(from: URL, to: File): Future[Unit] =
@@ -23,9 +24,9 @@ object Files {
       output.getChannel.transferFrom(channel, 0, java.lang.Long.MAX_VALUE)
     }
 
-  def tempFileFromURL(from: URL, prefix: String, suffix: String): Future[File] =
+  def tempFileFromURL(from: URL, prefix: String, suffix: String, tempDir: File): Future[File] =
     for {
-      tempFile <- createTempFile(prefix, suffix)
+      tempFile <- createTempFile(prefix, suffix, tempDir: File)
       _ <- transferFromURL(from, tempFile)
     }
     yield tempFile

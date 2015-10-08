@@ -20,7 +20,7 @@ import scalaz.syntax.std.list._
 
 import lib.elasticsearch._
 import lib.{Notifications, Config, ImageResponse}
-import lib.querysyntax.{Condition, Parser}
+import lib.querysyntax._
 
 import com.gu.mediaservice.lib.auth
 import com.gu.mediaservice.lib.auth._
@@ -30,16 +30,12 @@ import com.gu.mediaservice.lib.formatting.{printDateTime, parseDateFromQuery}
 import com.gu.mediaservice.lib.cleanup.{SupplierProcessors, MetadataCleaners}
 import com.gu.mediaservice.lib.metadata.ImageMetadataConverter
 import com.gu.mediaservice.model._
-import com.gu.mediaservice.api.Transformers
-
 
 
 object MediaApi extends Controller with ArgoHelpers {
 
   val keyStore = new KeyStore(Config.keyStoreBucket, Config.awsCredentials)
   val permissionStore = new PermissionStore(Config.configBucket, Config.awsCredentials)
-
-  val commonTransformers = new Transformers(Config.services)
 
   import Config.{rootUri, cropperUri, loaderUri, metadataUri, kahunaUri, loginUriTemplate}
 
@@ -50,7 +46,7 @@ object MediaApi extends Controller with ArgoHelpers {
     "since", "until", "modifiedSince", "modifiedUntil", "takenSince", "takenUntil",
     "uploadedBy", "archived", "valid", "free",
     "hasExports", "hasIdentifier", "missingIdentifier", "hasMetadata",
-    "costModelDiff", "persisted").mkString(",")
+    "persisted").mkString(",")
 
   val searchLinkHref = s"$rootUri/images{?$searchParamList}"
 
@@ -152,9 +148,9 @@ object MediaApi extends Controller with ArgoHelpers {
       case Some(source) =>
         val image = source.as[Image]
 
-        val isPersisted = ImageResponse.imagePersistenceReasons(image).nonEmpty
+        val hasExports = ImageResponse.imagePersistenceReasons(image).contains("exports")
 
-        if (isPersisted) {
+        if (hasExports) {
           Future.successful(ImageCannotBeDeleted)
         } else {
           canUserDeleteImage(request, source) map { canDelete =>
@@ -233,12 +229,28 @@ object MediaApi extends Controller with ArgoHelpers {
     }
 
     val searchParams = SearchParams(request)
+
+    // We search if we have a label in the search, take the first one and then look up it's
+    // siblings s that we can return them as "related labels"
+    val labels = searchParams.structuredQuery.flatMap {
+      // TODO: Use ImageFields for guard
+      case Match(field: SingleField, value:Words) if field.name == "userMetadata.labels" => Some(value.string)
+      case _ => None
+    }
+
+    val (mainLabel, selectedLabels) = labels match {
+      case Nil => (None, Nil)
+      case label :: Nil => (Some(label), Nil)
+      case label :: extraLabels => (Some(label), extraLabels)
+    }
+
     for {
       SearchResults(hits, totalCount) <- ElasticSearch.search(searchParams)
       imageEntities <- Future.sequence(hits map (hitToImageEntity _).tupled)
       prevLink = getPrevLink(searchParams)
       nextLink = getNextLink(searchParams, totalCount)
-      links = List(prevLink, nextLink).flatten
+      relatedLabels = mainLabel.map(getRelatedLabelsLink(_, selectedLabels))
+      links = List(prevLink, nextLink, relatedLabels).flatten
     } yield respondCollection(imageEntities, Some(searchParams.offset), Some(totalCount), links)
   }
 
@@ -282,10 +294,46 @@ object MediaApi extends Controller with ArgoHelpers {
     }
   }
 
+  private def getRelatedLabelsLink(mainLabel: String, selectedLabels: List[String] = Nil) = {
+    val uriTemplate = URITemplate(s"$rootUri/suggest/edits/labels/{label}/sibling-labels{?selectedLabels}")
+    val paramMap = Map(
+      "label" -> Some(mainLabel),
+      "selectedLabels" -> Some(selectedLabels.mkString(",")).filter(_.trim.nonEmpty)
+    )
+    val paramVars = paramMap.map { case (key, value) => key := value }.toSeq
+    val uri = uriTemplate expand (paramVars: _*)
+
+    Link("related-labels", uri)
+  }
+
   def suggestMetadataCredit(q: Option[String], size: Option[Int]) = Authenticated.async { request =>
     ElasticSearch
       .completionSuggestion("suggestMetadataCredit", q.getOrElse(""), size.getOrElse(10))
       .map(c => respondCollection(c.results))
+  }
+
+  def suggestLabelSiblings(label: String, selectedLabels: Option[String]) = Authenticated.async { request =>
+    val selectedLabels_ = selectedLabels.map(_.split(",").toList.map(_.trim)).getOrElse(Nil)
+
+    ElasticSearch.labelSiblingsSearch(label) map { agg =>
+      val labels = agg.results.map { label =>
+        val selected = selectedLabels_.contains(label.key)
+        LabelSibling(label.key, selected)
+      }
+      respond(LabelSiblingsResponse(label, labels.toList))
+    }
+  }
+
+  case class LabelSibling(name: String, selected: Boolean)
+  object LabelSibling {
+    implicit def jsonWrites: Writes[LabelSibling] = Json.writes[LabelSibling]
+    implicit def jsonReads: Reads[LabelSibling] =  Json.reads[LabelSibling]
+  }
+
+  case class LabelSiblingsResponse(label: String, siblings: List[LabelSibling])
+  object LabelSiblingsResponse {
+    implicit def jsonWrites: Writes[LabelSiblingsResponse] = Json.writes[LabelSiblingsResponse]
+    implicit def jsonReads: Reads[LabelSiblingsResponse] =  Json.reads[LabelSiblingsResponse]
   }
 
   // TODO: work with analysed fields
@@ -326,7 +374,6 @@ case class SearchParams(
   uploadedBy: Option[String],
   labels: List[String],
   hasMetadata: List[String],
-  costModelDiff: Boolean,
   persisted: Option[Boolean]
 )
 
@@ -368,7 +415,6 @@ object SearchParams {
       request.getQueryString("uploadedBy"),
       commaSep("labels"),
       commaSep("hasMetadata"),
-      request.getQueryString("costModelDiff") flatMap parseBooleanFromQuery getOrElse false,
       request.getQueryString("persisted") flatMap parseBooleanFromQuery
     )
   }
@@ -395,7 +441,6 @@ object SearchParams {
       "uploadedBy"        -> searchParams.uploadedBy,
       "labels"            -> listToCommas(searchParams.labels),
       "hasMetadata"       -> listToCommas(searchParams.hasMetadata),
-      "costModelDiff"     -> Some(searchParams.costModelDiff.toString),
       "persisted"         -> searchParams.persisted.map(_.toString)
     ).foldLeft(Map[String, String]()) {
       case (acc, (key, Some(value))) => acc + (key -> value)

@@ -5,7 +5,7 @@
             ng:repeat="label in ctrl.labels.data"
             ng:class="{'label--removing': ctrl.labelsBeingRemoved.has(label)}">
             <a ui:sref="search.results({query: (label.data | queryLabelFilter)})"
-               class="label__link">{{label.data}}</a>
+               class="label__value label__link">{{label.data}}</a>
 
             <button class="label__remove"
                     title="Remove label"
@@ -17,7 +17,7 @@
 
     <span ng:if="ctrl.withBatch" class="labeller__apply-all">
         <button
-            title="Apply these labels to all"
+            title="Apply these labels to all your current uploads"
             ng:if="!ctrl.confirmDelete"
             ng:click="ctrl.batchApplyLabels()"
         >⇔</button>

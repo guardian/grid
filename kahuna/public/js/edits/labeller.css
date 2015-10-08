@@ -1,0 +1,90 @@
+ui-labeller,
+ui-labeller-compact {
+    display: block;
+}
+
+.labeller {
+    font-size: 1.3rem;
+    display: flex;
+}
+
+.label {
+    color: white;
+    display: inline-flex;
+    justify-content: space-between;
+    margin: 0 5px 5px 0;
+}
+
+.label--removing {
+    background-color: #99ddff;
+}
+
+/*
+label--partial is part of gr-panel.
+TODO refactor gr-panel to use common labeller component
+*/
+.label--partial .label__value,
+.label--partial .label__add,
+.label--partial .label__remove {
+    background-color: white;
+    color: #00adee;
+}
+
+.label__value,
+.label__remove {
+    color: white;
+    background-color: #00adee;
+}
+
+.label__link:hover,
+.label__remove:hover {
+    color: #00adee;
+    background-color: white;
+}
+
+.label__add,
+.label__value {
+    border-top-left-radius: 2px;
+    border-bottom-left-radius: 2px;
+}
+
+.label--partial .label__value {
+    border-radius: 0px;
+}
+
+.label__value {
+    padding: 0 5px;
+}
+
+.label__value--compact {
+    border-radius: 2px;
+}
+
+.label__remove {
+    border-top-right-radius: 2px;
+    border-bottom-right-radius: 2px;
+}
+
+.label button:hover gr-icon {
+    color: #333;
+}
+
+.label button:active gr-icon {
+    background-color: #008fc5;
+    color: #333;
+}
+
+.label--partial button:active gr-icon {
+    background-color: #CFCFCF;
+    color: #333;
+}
+
+.labeller__apply-all {
+    margin-left: 10px;
+    line-height: 20px;
+    font-size: 1.6rem;
+}
+
+.labeller__apply-all:hover {
+    color: #FFF;
+}
