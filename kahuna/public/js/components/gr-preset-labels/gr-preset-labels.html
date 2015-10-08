@@ -28,13 +28,19 @@
           ng:if="ctrl.active"
           ng:submit="ctrl.save()">
 
-            <input type="text"
-                   class="show-no-error"
-                   placeholder="e.g. Observer"
-                   gr:auto-focus
-                   required
-                   ng:model="ctrl.newLabel"
-                   ng:disabled="ctrl.adding" />
+        <gr-datalist class="related-labels__datalist"
+                     gr:search="ctrl.suggestedLabelsSearch(q)">
+          <input type="text"
+               class="show-no-error"
+               placeholder="e.g. observer"
+               required
+               gr:auto-focus
+               gr:datalist-input
+               ng:model-options="{ updateOn: 'gr:datalist:update' }"
+               ng:change="ctrl.save()"
+               ng:model="ctrl.newLabel"
+               ng:disabled="ctrl.adding" />
+        </gr-datalist>
 
         <span class="flex-container">
             <button class="add-preset-label__button button-cancel" type="button" ng:click="ctrl.cancel()" title="Close">
