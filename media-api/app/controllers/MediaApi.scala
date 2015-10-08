@@ -249,8 +249,9 @@ object MediaApi extends Controller with ArgoHelpers {
       imageEntities <- Future.sequence(hits map (hitToImageEntity _).tupled)
       prevLink = getPrevLink(searchParams)
       nextLink = getNextLink(searchParams, totalCount)
-      relatedLabels = mainLabel.map(getRelatedLabelsLink(_, selectedLabels))
-      links = List(prevLink, nextLink, relatedLabels).flatten
+      relatedLabelsLink = mainLabel.map(getRelatedLabelsLink(_, selectedLabels))
+      suggestedLabelsLink = Some(getSuggestedLabelsLink)
+      links = List(prevLink, nextLink, relatedLabelsLink, suggestedLabelsLink).flatten
     } yield respondCollection(imageEntities, Some(searchParams.offset), Some(totalCount), links)
   }
 
@@ -306,10 +307,31 @@ object MediaApi extends Controller with ArgoHelpers {
     Link("related-labels", uri)
   }
 
+  private val getSuggestedLabelsLink =
+    Link("suggested-labels", s"$rootUri/suggest/edits/labels{?q}")
+
   def suggestMetadataCredit(q: Option[String], size: Option[Int]) = Authenticated.async { request =>
     ElasticSearch
       .completionSuggestion("suggestMetadataCredit", q.getOrElse(""), size.getOrElse(10))
       .map(c => respondCollection(c.results))
+  }
+
+  def suggestLabels(q: Option[String]) = Authenticated {
+    val pseudoFamousLabels = List(
+      "obsbizcash", "obscomment", "obsfestivals", "obsfocus", "obsforeignnews", "obsgalleries",
+      "obshomenews", "obsmastheads", "obssports", "obssuppliments",
+
+      "g2arts", "g2columns", "g2coverfeaures", "g2fashion", "g2features", "g2food", "g2health",
+      "g2lifestyle", "g2shortcuts", "g2tv", "g2women",
+
+      "pp", "lr", "cities", "travel", "saturdayreview"
+    )
+
+    val labels = q.map { q =>
+      pseudoFamousLabels.filter(_.startsWith(q))
+    }.getOrElse(pseudoFamousLabels)
+
+    respondCollection(labels)
   }
 
   def suggestLabelSiblings(label: String, selectedLabels: Option[String]) = Authenticated.async { request =>
