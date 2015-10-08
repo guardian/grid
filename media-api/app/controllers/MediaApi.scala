@@ -50,7 +50,7 @@ object MediaApi extends Controller with ArgoHelpers {
 
   val searchLinkHref = s"$rootUri/images{?$searchParamList}"
 
-  private val getSuggestedLabelsLink =
+  private val suggestedLabelsLink =
     Link("suggested-labels", s"$rootUri/suggest/edits/labels{?q}")
 
   val indexResponse = {
@@ -73,7 +73,7 @@ object MediaApi extends Controller with ArgoHelpers {
       Link("edits",           metadataUri),
       Link("session",         s"$kahunaUri/session"),
       Link("witness-report",  s"https://n0ticeapis.com/2/report/{id}"),
-      getSuggestedLabelsLink
+      suggestedLabelsLink
     )
     respond(indexData, indexLinks)
   }
@@ -254,8 +254,7 @@ object MediaApi extends Controller with ArgoHelpers {
       prevLink = getPrevLink(searchParams)
       nextLink = getNextLink(searchParams, totalCount)
       relatedLabelsLink = mainLabel.map(getRelatedLabelsLink(_, selectedLabels))
-      suggestedLabelsLink = Some(getSuggestedLabelsLink)
-      links = List(prevLink, nextLink, relatedLabelsLink, suggestedLabelsLink).flatten
+      links = suggestedLabelsLink :: List(prevLink, nextLink, relatedLabelsLink).flatten
     } yield respondCollection(imageEntities, Some(searchParams.offset), Some(totalCount), links)
   }
 
