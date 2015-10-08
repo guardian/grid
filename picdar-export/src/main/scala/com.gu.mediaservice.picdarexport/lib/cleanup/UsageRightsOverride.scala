@@ -173,13 +173,15 @@ object UsageRightsOverride {
       case "MoD Pool" => CrownCopyright() // (35)
       case "Crown Copyright" => CrownCopyright() // (493)
 
+      case "Hillsborough Inquests" => Handout()
+
 //       case "Publicity image from English Heritage" => PrImage() // this doesn't exist
 //       case "Supplied to accompany this exhibition ONLY" => PrImage() // this doesn't exist
 //       case "Out of copyright" => PrImage() // this doesn't exist
 //       case "Press office image" => PrImage() // this doesn't exist
 //       case "Andrew Cowan/Scottish Parliament" => PrImage() // this doesn't exist
 //       case "Sergeant Rupert Frere Rlc" => PrImage() // this doesn't exist (and is strange)
-//       case "Public Domain" => PrImage() // assuming we're leaving this out (27)
+      case "Public Domain" => PrImage() // assuming we're leaving this out (27)
     }
   }
 
