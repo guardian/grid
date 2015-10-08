@@ -16,9 +16,9 @@ object Config extends CommonPlayAppProperties with CommonPlayAppConfig {
 
   val keyStoreBucket = properties("auth.keystore.bucket")
 
-  val rootUri = services.metadataBaseUri
-  val kahunaUri = services.kahunaBaseUri
-  val loginUriTemplate = services.loginUriTemplate
+  lazy val rootUri = services.metadataBaseUri
+  lazy val kahunaUri = services.kahunaBaseUri
+  lazy val loginUriTemplate = services.loginUriTemplate
 
   val capiPollIntervalInSeconds = properties("capi.pollIntervalInSeconds").toLong
   val capiLiveUrl = properties("capi.live.url")

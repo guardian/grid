@@ -30,8 +30,17 @@ object UsageRecordTable extends DynamoDB(
 
   val hashKeyName = "grouping"
   val rangeKeyName = "usage_id"
+  val imageIndexName = "media_id"
 
   def sanitiseMultilineString(s: String) = s.stripMargin.replaceAll("\n", " ")
+
+  def queryByImageId(id: String): Future[Set[MediaUsage]] = Future {
+    val imageIndex = table.getIndex(imageIndexName)
+    val keyAttribute = new KeyAttribute("media_id", id)
+    val queryResult = imageIndex.query(keyAttribute)
+
+    queryResult.asScala.map(MediaUsage.build(_)).toSet[MediaUsage]
+  }
 
   def matchUsageGroup(usageGroup: UsageGroup): Observable[UsageGroup] =
     Observable.from(Future {

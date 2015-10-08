@@ -3,6 +3,7 @@ package model
 import com.amazonaws.services.dynamodbv2.document.Item
 import com.gu.contentapi.client.model.v1.Element
 import org.joda.time.DateTime
+import play.api.libs.json._
 
 import lib.MD5
 
@@ -27,6 +28,8 @@ case class MediaUsage(
 }
 
 object MediaUsage {
+  implicit val jsonWrites: Writes[MediaUsage] = Json.writes[MediaUsage]
+
   def build(item: Item) =
     MediaUsage(
       item.getString("usage_id"),
