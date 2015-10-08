@@ -50,6 +50,9 @@ object MediaApi extends Controller with ArgoHelpers {
 
   val searchLinkHref = s"$rootUri/images{?$searchParamList}"
 
+  private val suggestedLabelsLink =
+    Link("suggested-labels", s"$rootUri/suggest/edits/labels{?q}")
+
   val indexResponse = {
     val indexData = Json.obj(
       "description" -> "This is the Media API",
@@ -69,7 +72,8 @@ object MediaApi extends Controller with ArgoHelpers {
       Link("loader",          loaderUri),
       Link("edits",           metadataUri),
       Link("session",         s"$kahunaUri/session"),
-      Link("witness-report",  s"https://n0ticeapis.com/2/report/{id}")
+      Link("witness-report",  s"https://n0ticeapis.com/2/report/{id}"),
+      suggestedLabelsLink
     )
     respond(indexData, indexLinks)
   }
@@ -250,8 +254,7 @@ object MediaApi extends Controller with ArgoHelpers {
       prevLink = getPrevLink(searchParams)
       nextLink = getNextLink(searchParams, totalCount)
       relatedLabelsLink = mainLabel.map(getRelatedLabelsLink(_, selectedLabels))
-      suggestedLabelsLink = Some(getSuggestedLabelsLink)
-      links = List(prevLink, nextLink, relatedLabelsLink, suggestedLabelsLink).flatten
+      links = suggestedLabelsLink :: List(prevLink, nextLink, relatedLabelsLink).flatten
     } yield respondCollection(imageEntities, Some(searchParams.offset), Some(totalCount), links)
   }
 
@@ -307,9 +310,6 @@ object MediaApi extends Controller with ArgoHelpers {
     Link("related-labels", uri)
   }
 
-  private val getSuggestedLabelsLink =
-    Link("suggested-labels", s"$rootUri/suggest/edits/labels{?q}")
-
   def suggestMetadataCredit(q: Option[String], size: Option[Int]) = Authenticated.async { request =>
     ElasticSearch
       .completionSuggestion("suggestMetadataCredit", q.getOrElse(""), size.getOrElse(10))
@@ -319,7 +319,7 @@ object MediaApi extends Controller with ArgoHelpers {
   def suggestLabels(q: Option[String]) = Authenticated {
     val pseudoFamousLabels = List(
       "obsbizcash", "obscomment", "obsfestivals", "obsfocus", "obsforeignnews", "obsgalleries",
-      "obshomenews", "obsmastheads", "obssports", "obssuppliments",
+      "obshomenews", "obsmastheads", "obssports", "obssupplements",
 
       "g2arts", "g2columns", "g2coverfeaures", "g2fashion", "g2features", "g2food", "g2health",
       "g2lifestyle", "g2shortcuts", "g2tv", "g2women",
