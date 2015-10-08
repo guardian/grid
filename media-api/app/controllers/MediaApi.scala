@@ -50,6 +50,9 @@ object MediaApi extends Controller with ArgoHelpers {
 
   val searchLinkHref = s"$rootUri/images{?$searchParamList}"
 
+  private val getSuggestedLabelsLink =
+    Link("suggested-labels", s"$rootUri/suggest/edits/labels{?q}")
+
   val indexResponse = {
     val indexData = Json.obj(
       "description" -> "This is the Media API",
@@ -69,7 +72,8 @@ object MediaApi extends Controller with ArgoHelpers {
       Link("loader",          loaderUri),
       Link("edits",           metadataUri),
       Link("session",         s"$kahunaUri/session"),
-      Link("witness-report",  s"https://n0ticeapis.com/2/report/{id}")
+      Link("witness-report",  s"https://n0ticeapis.com/2/report/{id}"),
+      getSuggestedLabelsLink
     )
     respond(indexData, indexLinks)
   }
@@ -306,9 +310,6 @@ object MediaApi extends Controller with ArgoHelpers {
 
     Link("related-labels", uri)
   }
-
-  private val getSuggestedLabelsLink =
-    Link("suggested-labels", s"$rootUri/suggest/edits/labels{?q}")
 
   def suggestMetadataCredit(q: Option[String], size: Option[Int]) = Authenticated.async { request =>
     ElasticSearch
