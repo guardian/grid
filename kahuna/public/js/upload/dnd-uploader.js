@@ -24,7 +24,7 @@ dndUploader.controller('DndUploaderCtrl',
     ctrl.uploadFiles = uploadFiles;
     ctrl.importWitnessImage = importWitnessImage;
     ctrl.isWitnessUri = witnessApi.isWitnessUri;
-    ctrl.loadAndUpdateUriImage = loadAndUpdateUriImage;
+    ctrl.loadUriImage = loadUriImage;
 
     function uploadFiles(files) {
         // Queue up files for upload and go to the upload state to
@@ -56,7 +56,7 @@ dndUploader.controller('DndUploaderCtrl',
         });
     }
 
-   function loadAndUpdateUriImage(fileUri) {
+   function loadUriImage(fileUri) {
         return loaderApi.import(fileUri).then(mediaResp =>
             // Wait until image indexed
             apiPoll(() => mediaResp.get()).
@@ -181,7 +181,7 @@ dndUploader.directive('dndUploader', ['$window', 'delay', 'safeApply', 'track',
                     track.action(trackEvent, dropAction('Witness'));
                 } else if (uri) {
                     ctrl.importing = true;
-                    ctrl.loadAndUpdateUriImage(uri)
+                    ctrl.loadUriImage(uri)
                         .catch(error => {
                             if (error.body && error.body.errorMessage) {
                                 $window.alert(error.body.errorMessage);
