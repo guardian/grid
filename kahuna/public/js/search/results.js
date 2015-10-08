@@ -177,6 +177,7 @@ results.controller('SearchResultsCtrl', [
             ctrl.loading = false;
         });
 
+        // related labels
         const relatedLabelsPromise$ = Rx.Observable.fromPromise(ctrl.searched).flatMap(images =>
             Rx.Observable
                 .fromPromise(images.follow('related-labels').get())
@@ -203,6 +204,18 @@ results.controller('SearchResultsCtrl', [
                 reload: true, inherit: false, notify: true
             });
         };
+
+        ctrl.setParentLabel = () => {
+            if (ctrl.parentLabel) {
+                $state.transitionTo($state.current, { query: `#${ctrl.parentLabel}` }, {
+                    reload: true, inherit: false, notify: true
+                });
+            }
+        };
+        ctrl.suggestedLabelSearch = q =>
+            ctrl.searched.then(images =>
+                images.follow('suggested-labels').get({q}).then(labels => labels.data)
+            ).catch(() => []);
 
         ctrl.loadRange = function(start, end) {
             const length = end - start + 1;

@@ -86,6 +86,9 @@ button {
     font-size: 1.4rem;
 }
 
+/* TODO: Remove generic styling, this should be a class,
+         as we need to override it to use text elements
+         anywhere else */
 input[type="text"],
 textarea {
     background-color: #444;
@@ -298,6 +301,10 @@ a:focus {
 
 .flex-no-shrink {
     flex-shrink: 0;
+}
+
+.inline-block {
+    display: inline-block;
 }
 
 /* ==========================================================================
@@ -946,7 +953,24 @@ input.search-query__input {
 
 .related-labels {
     line-height: 35px;
+}
+.related-labels--with-labels {
+    /* This is to allow scrolling of labels, but show the
+    autocomplete dropdown */
     overflow: auto;
+}
+
+.related-labels__datalist {
+    line-height: 1;
+}
+
+input.related-labels__parent {
+    border: 0;
+    background: transparent;
+    border-bottom: 1px solid #999;
+    box-sizing: border-box;
+    padding: 2px 5px;
+    width: 150px;
 }
 
 .related-labels__labels {
