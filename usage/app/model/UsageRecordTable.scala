@@ -69,6 +69,7 @@ object UsageRecordTable extends DynamoDB(
              |usage_type = :usage_type,
              |media_type = :media_type,
              |last_modified = :last_modified,
+             |data_map = :data_map,
              |usage_status = :usage_status"""
     )
 
@@ -87,6 +88,7 @@ object UsageRecordTable extends DynamoDB(
       vMap.withString(":usage_type", mediaUsage.usageType)
       vMap.withString(":media_type", mediaUsage.mediaType)
       vMap.withString(":usage_status", mediaUsage.status.toString)
+      vMap.withMap(":data_map", mediaUsage.data.asJava)
       vMap.withLong(":last_modified", mediaUsage.lastModified.getMillis)
     })
 

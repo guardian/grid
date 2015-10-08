@@ -13,21 +13,20 @@ case class UsageGroup(
 )
 object UsageGroup {
   def build(content: Content, status: UsageStatus, lastModified: DateTime) =
-    // At the moment we only care about composer usages
-    content.fields.map(_.internalComposerCode).flatMap(_.map(composerCode => {
-      val contentId = s"composer/${composerCode}"
-
-      createUsages(contentId, content, status, lastModified).map(usages => {
-        UsageGroup(usages.toSet, contentId, status, lastModified)
+    ContentWrapper.build(content, status, lastModified).map(contentWrapper => {
+      createUsages(contentWrapper).map(usages => {
+        UsageGroup(usages.toSet, contentWrapper.id, status, lastModified)
       })
-    }))
+    })
 
-  def createUsages(contentId: String, content: Content, status: UsageStatus, lastModified: DateTime) = extractImages(content)
-    .map(_.zipWithIndex.map{ case (element, index) =>
-      MediaUsage.build(element, status, index, contentId, lastModified)
+  def createUsages(contentWrapper: ContentWrapper) =
+    extractImages(contentWrapper.content).map(_.zipWithIndex.map{ case (element, index) =>
+      MediaUsage.build(ElementWrapper(index, element), contentWrapper)
     })
 
   def extractImages(content: Content) = content.elements.map(elements => {
     elements.filter(_.`type` == ElementType.Image)
   })
 }
+
+case class ElementWrapper(index: Int, media: Element)
