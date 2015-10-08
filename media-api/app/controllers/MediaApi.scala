@@ -321,7 +321,7 @@ object MediaApi extends Controller with ArgoHelpers {
       "obsbizcash", "obscomment", "obsfestivals", "obsfocus", "obsforeignnews", "obsgalleries",
       "obshomenews", "obsmastheads", "obssports", "obssupplements",
 
-      "g2arts", "g2columns", "g2coverfeaures", "g2fashion", "g2features", "g2food", "g2health",
+      "g2arts", "g2columns", "g2coverfeatures", "g2fashion", "g2features", "g2food", "g2health",
       "g2lifestyle", "g2shortcuts", "g2tv", "g2women",
 
       "pp", "lr", "cities", "travel", "saturdayreview"
