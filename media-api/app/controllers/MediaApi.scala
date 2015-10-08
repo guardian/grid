@@ -308,7 +308,7 @@ object MediaApi extends Controller with ArgoHelpers {
   }
 
   private val getSuggestedLabelsLink =
-    Link("suggested-labels", s"$rootUri/suggest/edits/labels")
+    Link("suggested-labels", s"$rootUri/suggest/edits/labels{?q}")
 
   def suggestMetadataCredit(q: Option[String], size: Option[Int]) = Authenticated.async { request =>
     ElasticSearch
