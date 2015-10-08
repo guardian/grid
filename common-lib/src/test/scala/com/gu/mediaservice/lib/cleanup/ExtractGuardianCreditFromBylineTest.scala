@@ -46,4 +46,25 @@ class ExtractGuardianCreditFromBylineTest extends FunSpec with Matchers with Met
     mappedMetadata.credit should be (Some("The Observer"))
   }
 
+  it("should extract a truncated Guardian credit from a 'for the Gua' byline") {
+    val metadata = createImageMetadata("byline" -> "Christopher Thomond for the Gua")
+    val mappedMetadata = ExtractGuardianCreditFromByline.clean(metadata)
+    mappedMetadata.byline should be (Some("Christopher Thomond"))
+    mappedMetadata.credit should be (Some("The Guardian"))
+  }
+
+  it("should extract a truncated Observer credit from a 'for the O' byline") {
+    val metadata = createImageMetadata("byline" -> "Christopher Thomondxx for the O")
+    val mappedMetadata = ExtractGuardianCreditFromByline.clean(metadata)
+    mappedMetadata.byline should be (Some("Christopher Thomondxx"))
+    mappedMetadata.credit should be (Some("The Observer"))
+  }
+
+  it("should not extract a truncated non-Guardian credit from a 'for the Garden' byline") {
+    val metadata = createImageMetadata("byline" -> "Christopher Thom for the Garden")
+    val mappedMetadata = ExtractGuardianCreditFromByline.clean(metadata)
+    mappedMetadata.byline should be (Some("Christopher Thom for the Garden"))
+    mappedMetadata.credit should be (None)
+  }
+
 }

@@ -81,6 +81,7 @@
                             class="form-input-text"
                             type="text"
                             name="{{ property.name }}"
+                            placeholder="e.g. {{ property.examples }}"
                             ng:if="!property.options && !property.optionsMap"
                             ng:model="ctrl.model[property.name]"
                             ng:required="property.required" />
@@ -93,10 +94,11 @@
                                          ng:repeat="o in options">
 
                                         <input type="radio"
-                                            ng:value="o.value"
                                             id="id-{{::$id}}-{{o.key}}-{{property.name}}-radio-list__item"
                                             class="radio-list__circle"
                                             name="{{property.name}}-radio-list"
+                                            placeholder="e.g. {{ property.examples }}"
+                                            ng:value="o.value"
                                             ng:required="property.required"
                                             ng:model="ctrl.model[property.name]" />
                                         <label
@@ -136,6 +138,7 @@
 
                             <input type="text"
                                 class="full-width"
+                                placeholder="e.g. {{ property.examples }}"
                                 ng:model="ctrl.model[property.name]"
                                 ng:required="property.required"
                                 ng:if="otherValue" />
@@ -150,6 +153,7 @@
                     <textarea
                         class="form-input-text"
                         name="{{ property.name }}"
+                        placeholder="e.g. {{ property.examples }}"
                         ng:model="ctrl.model[property.name]"
                         ng:switch-when="text"
                         ng:required="property.required">

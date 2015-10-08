@@ -11,6 +11,7 @@ object UsageRightsMetadataMapper {
       case u: CommissionedPhotographer => ImageMetadata(byline = Some(u.photographer), credit = u.publication)
       case u: ContractIllustrator      => ImageMetadata(credit = Some(u.creator))
       case u: CommissionedIllustrator  => ImageMetadata(credit = Some(u.creator))
+      case u: Composite                => ImageMetadata(byline = Some(u.suppliers), credit = Some(u.suppliers))
     }
 
     // if we don't match, return None

@@ -1,15 +1,32 @@
 [output]
+; Directory to write files to (defaults to ./output). Generated files need to be put in /etc/gu/
 directory =
 
 [aws]
+; Cloudformation stackname. Hint aws cloudformation list-stacks | grep "media-service-"
 stack-name =
 
 [properties]
+; Domain root of your site, e.g. media.foobar.co.uk
 domain_root =
+
+; Token used to access mixpanel. See https://mixpanel.com/help/questions/articles/where-can-i-find-my-project-token
 mixpanel_token =
+
+; Comma separated list of CORS domains.
 cors =
+
+; Configuration for pan domain authentication. See https://github.com/guardian/pan-domain-authentication
 panda_domain =
+
+; Configuration for pan domain authentication. See https://github.com/guardian/pan-domain-authentication
 panda_aws_key =
+
+; Configuration for pan domain authentication. See https://github.com/guardian/pan-domain-authentication
 panda_aws_secret =
+
+; The minimum number of messages to retrieve from SQS to be deemed healthy. We set this to 5.
 sqs_message_min_frequency =
+
+; An API key that has access to the media-api, used to run a local ftp server.
 ftp_key =

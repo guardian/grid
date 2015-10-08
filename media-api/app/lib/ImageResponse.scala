@@ -13,13 +13,13 @@ import play.api.libs.functional.syntax._
 
 import com.gu.mediaservice.model._
 import com.gu.mediaservice.lib.argo.model._
-import com.gu.mediaservice.api.Transformers
 
 
-object ImageResponse {
+
+object ImageResponse extends EditsResponse {
   implicit val dateTimeFormat = DateFormat
 
-  val commonTransformers = new Transformers(Config.services)
+  val metadataBaseUri = Config.services.metadataBaseUri
 
   type FileMetadataEntity = EmbeddedEntity[FileMetadata]
 
@@ -96,7 +96,9 @@ object ImageResponse {
 
     val links = imageLinks(id, secureUrl, withWritePermission, valid)
 
-    val actions = imageActions(id, isPersisted, withWritePermission, withDeletePermission)
+    val isDeletable = !persistenceReasons.contains("exports") && withDeletePermission
+
+    val actions = imageActions(id, isDeletable, withWritePermission)
 
     (data, links, actions)
   }
@@ -116,18 +118,16 @@ object ImageResponse {
     if (valid) (cropLink :: baseLinks) else baseLinks
   }
 
-  def imageActions(id: String, isPersisted: Boolean, withWritePermission: Boolean,
-                   withDeletePermission: Boolean) = {
+  def imageActions(id: String, isDeletable: Boolean, withWritePermission: Boolean) = {
 
     val imageUri = URI.create(s"${Config.rootUri}/images/$id")
     val reindexUri = URI.create(s"${Config.rootUri}/images/$id/reindex")
-    val canDelete = ! isPersisted && withDeletePermission
 
     val deleteAction = Action("delete", imageUri, "DELETE")
     val reindexAction = Action("reindex", reindexUri, "POST")
 
     List(
-      deleteAction       -> canDelete,
+      deleteAction       -> isDeletable,
       reindexAction      -> withWritePermission
     )
     .filter{ case (action, active) => active }
@@ -143,10 +143,7 @@ object ImageResponse {
       (source \ "userMetadata" \ "usageRights").asOpt[JsObject]
     ).flatten.foldLeft(Json.obj())(_ ++ _).as[UsageRights]
 
-    val cost = CostCalculator.getCost(
-      usageRights,
-      (source \ "metadata" \ "credit").asOpt[String]
-    )
+    val cost = CostCalculator.getCost(usageRights)
 
     __.json.update(__.read[JsObject].map(_ ++ Json.obj("cost" -> cost.toString)))
   }
@@ -160,9 +157,11 @@ object ImageResponse {
   // FIXME: tidier way to replace a key in a JsObject?
   def wrapUserMetadata(id: String): Reads[JsObject] =
     __.read[JsObject].map { root =>
-      val userMetadata = commonTransformers.objectOrEmpty(root \ "userMetadata")
-      val wrappedUserMetadata = userMetadata.transform(commonTransformers.wrapAllMetadata(id)).get
-      root ++ Json.obj("userMetadata" -> wrappedUserMetadata)
+      val editsJson = (root \ "userMetadata").asOpt[Edits].map { edits =>
+        Json.toJson(editsEmbeddedEntity(id, edits))
+      }.getOrElse(Json.obj())
+
+      root ++ Json.obj("userMetadata" -> editsJson)
     }
 
   def addSecureSourceUrl(url: String): Reads[JsObject] =

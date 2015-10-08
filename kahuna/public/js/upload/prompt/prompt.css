@@ -5,10 +5,26 @@ file-prompt {
 }
 
 file-prompt file-uploader {
-    display: flex;
-    justify-content: center;
+    display: inline-block;
+    padding: 0 5px;
+}
+
+file-prompt file-uploader .file-uploader__select-files {
+    margin-top: 0;
 }
 
 file-prompt .message {
     text-align: center;
+}
+
+file-prompt .preset-labels {
+    display: flex;
+    justify-content: center;
+    align-items: baseline;
+    padding-top: 10px;
+}
+
+file-prompt .preset-labels__heading {
+    color: #999;
+    font-size: 0.8em;
 }
