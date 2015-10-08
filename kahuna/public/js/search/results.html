@@ -32,7 +32,9 @@
                     Related to:
                     <span ng:switch="ctrl.relatedLabels.length === 0">
                         <form class="inline-block" ng:switch-when="true" ng:submit="ctrl.setParentLabel()">
-                            <gr-datalist class="related-labels__datalist" gr:search="ctrl.labelSearch(q)">
+                            <gr-datalist
+                                    class="related-labels__datalist"
+                                gr:search="ctrl.suggestedLabelSearch(q)">
                                 <!-- TODO: autogrow this element -->
                                 <input class="related-labels__parent" type="text"
                                        placeholder="e.g. observer"
