@@ -1,11 +1,12 @@
 package model
 
 import com.amazonaws.services.dynamodbv2.document.Item
-import com.gu.contentapi.client.model.v1.Element
+import com.gu.contentapi.client.model.v1.{Content, Element}
 import org.joda.time.DateTime
 import play.api.libs.json._
 
-import lib.MD5
+import scala.collection.JavaConversions._
+import scala.collection.JavaConverters._
 
 
 case class MediaUsage(
@@ -15,6 +16,7 @@ case class MediaUsage(
   usageType: String,
   mediaType: String,
   status: UsageStatus,
+  data: Map[String, String],
   lastModified: DateTime
 ) {
   // Used in set comparison of UsageGroups
@@ -41,22 +43,25 @@ object MediaUsage {
         case "pending" => PendingUsageStatus()
         case "published" => PubishedUsageStatus()
       },
+      Option(item.getMap[String]("data_map"))
+        .getOrElse(new java.util.HashMap[String, String]()).toMap,
       new DateTime(item.getLong("last_modified"))
     )
 
-  def build(media: Element, status: UsageStatus, index: Int, grouping: String, lastModified: DateTime) =
-    MediaUsage(
-      createUsageId(media.id, status, index),
-      grouping,
-      media.id,
-      "web",
-      "image",
-      status,
-      lastModified
-    )
+  def build(elementWrapper: ElementWrapper, contentWrapper: ContentWrapper) = {
+    val usageId = UsageId.build(elementWrapper, contentWrapper)
+    val contentDetails = ContentDetails.build(contentWrapper.content)
 
-  // The purpose of this hash is to obfuscate the usage_id
-  def createUsageId(mediaId: String, status: UsageStatus, index: Int) =
-    MD5.hash(s"${mediaId}_${index}_${status}")
+    MediaUsage(
+      usageId.toString,
+      contentWrapper.id,
+      elementWrapper.media.id,
+      "web",
+      elementWrapper.media.`type`.toString,
+      contentWrapper.status,
+      contentDetails.toMap,
+      contentWrapper.lastModified
+    )
+  }
 
 }
