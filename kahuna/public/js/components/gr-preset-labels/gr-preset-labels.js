@@ -5,7 +5,6 @@ import template from './gr-preset-labels.html!text';
 
 import '../../directives/gr-auto-focus';
 import '../../services/preset-label';
-import '../../services/api/media-api';
 
 export var presetLabels = angular.module('gr.presetLabels', [
     'gr.autoFocus',
@@ -13,8 +12,8 @@ export var presetLabels = angular.module('gr.presetLabels', [
 ]);
 
 presetLabels.controller('GrPresetLabelsCtrl', [
-    '$window', 'presetLabelService', 'mediaApi',
-    function ($window, presetLabelService, mediaApi) {
+    '$window', 'presetLabelService',
+    function ($window, presetLabelService) {
 
         let ctrl = this;
 
@@ -36,8 +35,6 @@ presetLabels.controller('GrPresetLabelsCtrl', [
             presetLabelService.removeLabel(labelToRemove);
             ctrl.presetLabels = presetLabelService.getLabels();
         };
-
-        ctrl.suggestedLabelsSearch = q => mediaApi.labelsSuggest({q}).then(labels => labels.data);
 
         function save(labels) {
             ctrl.adding = true;
