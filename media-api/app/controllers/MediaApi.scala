@@ -316,7 +316,7 @@ object MediaApi extends Controller with ArgoHelpers {
       .map(c => respondCollection(c.results))
   }
 
-  def suggestLabels() = Authenticated {
+  def suggestLabels(q: Option[String]) = Authenticated {
     val pseudoFamousLabels = List(
       "pp", "lr", "cities",
 
@@ -327,7 +327,11 @@ object MediaApi extends Controller with ArgoHelpers {
       "obshomenews", "obsmastheads", "obssports", "obssuppliments"
     )
 
-    respondCollection(pseudoFamousLabels)
+    val labels = q.map { q =>
+      pseudoFamousLabels.filter(_.startsWith(q))
+    }.getOrElse(pseudoFamousLabels)
+
+    respondCollection(labels)
   }
 
   def suggestLabelSiblings(label: String, selectedLabels: Option[String]) = Authenticated.async { request =>

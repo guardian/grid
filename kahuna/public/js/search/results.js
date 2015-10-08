@@ -194,19 +194,6 @@ results.controller('SearchResultsCtrl', [
         inject$($scope, relatedLabels$, ctrl, 'relatedLabels');
         inject$($scope, parentLabel$, ctrl, 'parentLabel');
 
-        // suggested labels
-        const suggestedLabelsPromise$ = Rx.Observable.fromPromise(ctrl.searched).flatMap(images =>
-            Rx.Observable
-                .fromPromise(images.follow('suggested-labels').get())
-                .catch(err => err.message === 'No link found for rel: suggested-labels' ?
-                    Rx.Observable.empty() : Rx.Observable.throw(err)
-                )
-        );
-        const suggestedLabels$ = suggestedLabelsPromise$.map(labels => labels.data).startWith([]);
-
-        inject$($scope, suggestedLabels$, ctrl, 'suggestedLabels');
-
-
         ctrl.toggleLabelToSearch = label => {
             // TODO: Move this to a searchQueryService
             const oldQ = $stateParams.query.trim();
@@ -225,10 +212,10 @@ results.controller('SearchResultsCtrl', [
                 });
             }
         };
-        ctrl.labelSearch = q =>
-            mediaApi.labelSearch({q}).then(resource => {
-                return resource.data.map(d => d.key);
-            });
+        ctrl.suggestedLabelSearch = q =>
+            ctrl.searched.then(images =>
+                images.follow('suggested-labels').get({q}).then(labels => labels.data)
+            ).catch(() => []);
 
         ctrl.loadRange = function(start, end) {
             const length = end - start + 1;
