@@ -1,6 +1,7 @@
 package lib.elasticsearch
 
 import com.gu.mediaservice.lib.elasticsearch.ImageFields
+import com.gu.mediaservice.model._
 import lib.usagerights.{DeprecatedConfig => UsageRightsDepConfig}
 import com.gu.mediaservice.lib.config.UsageRightsConfig
 import org.elasticsearch.index.query.FilterBuilder
@@ -17,9 +18,7 @@ trait SearchFilters extends ImageFields {
   val invalidFilter = Config.requiredMetadata.map(metadataField).toNel.map(filters.anyMissing)
 
   // New Cost Model
-  import UsageRightsConfig.{ suppliersCollectionExcl, freeSuppliers, payGettySourceList,
-                             freeToUseCategories }
-  import UsageRightsDepConfig.guardianCredits
+  import UsageRightsConfig.{ suppliersCollectionExcl, freeSuppliers, payGettySourceList }
 
   val (suppliersWithExclusions, suppliersNoExclusions) = freeSuppliers.partition(suppliersCollectionExcl.contains)
   val suppliersWithExclusionsFilters = for {
@@ -44,63 +43,33 @@ trait SearchFilters extends ImageFields {
   val freeFilter = filterOrFilter(freeSupplierFilter, freeUsageRightsFilter)
   val nonFreeFilter = freeFilter.map(filters.not)
 
-  // HACK: We are matching on "The Guardian" / "The Observer" credits here as there is a substantial
-  // amount of images that match that to be free, and there is too wide a net to cast to try and get
-  // them categorised correctly.
-  val guardianCreditFilter = guardianCredits.toNel.map(cs => filters.terms(metadataField("credit"), cs))
-  val freeFilterOrGuardianCredits = filterOrFilter(freeFilter, guardianCreditFilter)
-  val nonFreeFilterWithoutGuardianCredits = filterOrFilter(freeFilter, guardianCreditFilter)
-
-
-  // Old cost model
-  import UsageRightsDepConfig.{ freeCreditList, freeSourceList }
-
-  // Warning: this requires the capitalisation to be exact; we may want to sanitise the credits
-  // to a canonical representation in the future
-  val creditFilter  = freeCreditList.toNel.map(cs => filters.terms(metadataField("credit"), cs))
-  val sourceFilter  = freeSourceList.toNel.map(cs => filters.terms(metadataField("source"), cs))
-  val freeWhitelist = filterOrFilter(creditFilter, sourceFilter)
-
-  val sourceExclFilter = payGettySourceList.toNel.map(cs => filters.terms(metadataField("source"), cs))
-  val freeCreditFilter = (freeWhitelist, sourceExclFilter) match {
-    case (Some(whitelist), Some(sourceExcl)) => Some(filters.bool.must(whitelist).mustNot(sourceExcl))
-    case (whitelistOpt,    sourceExclOpt)    => whitelistOpt orElse sourceExclOpt
-  }
-
-  // Merge legacy and new way of matching free images (matching either is enough)
-  val freeMetadataFilter = filterOrFilter(freeCreditFilter, freeSupplierFilter)
-
-  val depFreeFilter = filterOrFilter(freeMetadataFilter, freeUsageRightsFilter)
-  val depNonFreeFilter = freeFilter.map(filters.not)
-
-  // Filters used to compare old & new cost models
-  val freeDiffFilter = filterAndFilter(freeFilter, depNonFreeFilter)
-  val nonFreeDiffFilter = filterAndFilter(nonFreeFilter, depFreeFilter)
-
   // FIXME: There must be a better way (._.). Potentially making cost a lookup
   // again?
   lazy val freeToUseCategories: List[String] = List(
-    "PR Image",
-    "handout",
-    "screengrab",
-    "guardian-witness",
-    "social-media",
-    "obituary",
-    "staff-photographer",
-    "contract-photographer",
-    "commissioned-photographer",
-    "commissioned-agency",
-    "pool",
-    "creative-commons"
+    CreativeCommons.category,
+    CrownCopyright.category,
+    GuardianWitness.category,
+    Handout.category,
+    Obituary.category,
+    Pool.category,
+    PrImage.category,
+    Screengrab.category,
+    SocialMedia.category,
+    CommissionedAgency.category,
+    StaffPhotographer.category,
+    ContractPhotographer.category,
+    CommissionedPhotographer.category,
+    ContractIllustrator.category,
+    CommissionedIllustrator.category
   )
 
   val persistedFilter = filters.or(
     filters.bool.must(filters.existsOrMissing("exports", true)),
     filters.exists(NonEmptyList(identifierField(Config.persistenceIdentifier))),
     filters.bool.must(filters.boolTerm(editsField("archived"), true)),
-    filters.bool.must(filters.term(usageRightsField("category"), "staff-photographer")),
-    filters.bool.must(filters.term(usageRightsField("category"), "contract-photographer")),
-    filters.bool.must(filters.term(usageRightsField("category"), "commissioned-photographer"))
+    filters.bool.must(filters.term(usageRightsField("category"), StaffPhotographer.category)),
+    filters.bool.must(filters.term(usageRightsField("category"), ContractPhotographer.category)),
+    filters.bool.must(filters.term(usageRightsField("category"), CommissionedPhotographer.category))
   )
 
   val nonPersistedFilter = filters.not(persistedFilter)

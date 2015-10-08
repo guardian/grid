@@ -28,7 +28,7 @@ datalist.directive('grDatalist', [function() {
             ctrl.isSelected = key => key === selectedIndex;
 
             ctrl.searchFor = q =>
-                ctrl.search({ q }).then(results => ctrl.results = results);
+                ctrl.search({ q }).then(results => ctrl.results = results).then(selectedIndex = 0);
 
             ctrl.setValueTo = value => ctrl.value = value;
 
@@ -55,6 +55,7 @@ datalist.directive('grDatalistInput',
         link: function(scope, element, attrs, [parentCtrl, ngModel]) {
             const valueSelectorFn = attrs.grDatalistInputSelector;
             const valueUpdaterFn  = attrs.grDatalistInputUpdater;
+            const onCancel = attrs.grDatalistInputOnCancel;
 
             function valueSelector(value) {
                 if (valueSelectorFn) {
@@ -93,6 +94,11 @@ datalist.directive('grDatalistInput',
                     event.preventDefault();
                     scope.$apply(parentCtrl.setValueFromSelectedIndex);
                 }
+                //to prevent the caret moving to the start/end of the input box
+                if (parentCtrl.active &&
+                    ( keys[event.which] === 'up' || keys[event.which] === 'down' ) ) {
+                    event.preventDefault();
+                }
             });
 
             input.on('keyup', event => {
@@ -101,8 +107,10 @@ datalist.directive('grDatalistInput',
                 if (func && parentCtrl.active) {
                     event.preventDefault();
                     scope.$apply(func);
-                } else {
+                } else if (keys[event.which] !== 'enter' && keys[event.which] !== 'esc') {
                     searchAndActivate();
+                } else if (keys[event.which] === 'esc' && !parentCtrl.active) {
+                    scope.$apply(onCancel);
                 }
             });
 
@@ -135,6 +143,7 @@ datalist.directive('grDatalistInput',
                 const noResults = results.length === 0 || isOnlyResult;
 
                 parentCtrl.active = !noResults;
+
             }
 
             function deactivate() {

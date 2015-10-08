@@ -96,7 +96,6 @@ object MetadataConfig {
     "Christopher Thomond" -> "The Guardian",
     "David Levene"        -> "The Guardian",
     "Eamonn McCabe"       -> "The Guardian",
-    "Felix Clay"          -> "The Guardian",
     "Graeme Robertson"    -> "The Guardian",
     "Jane Bown"           -> "The Guardian",
     "Johanna Parkin"      -> "The Guardian",
@@ -122,17 +121,24 @@ object MetadataConfig {
   )
 
   val contractIllustrators = List(
-    "Robert G Fresson",
-    "Bill Bragg",
-    "Sebastien Thibault",
-    "Eva Bee",
-    "Nate Kitch",
-    "Joe Magee",
-    "Jasper Rietman",
-    "Matt Kenyon",
+    "Ben Lamb",
     "Andrzej Krauze",
-    "Ellie Foreman-Peck",
-    "Ben Jennings"
+    "C&J Riddell Ltd",
+    "Chris Ware",
+    "David Foldvari",
+    "David Simonds",
+    "David Squires",
+    "First Dog on the Moon Institute",
+    "Harry Venning",
+    "Ian Tovey",
+    "Kipper Williams",
+    "Martin Rowson",
+    "Matt Kenyon",
+    "Matthew Blease",
+    "Nicola Jennings",
+    "Rosalind Asquith",
+    "Steve Bell",
+    "Steven Appleby"
   )
 
   val allPhotographers = staffPhotographers ++ contractedPhotographers
@@ -141,5 +147,9 @@ object MetadataConfig {
   val staffPhotographersMap = PhotographersList.creditBylineMap(staffPhotographers)
   val contractPhotographersMap = PhotographersList.creditBylineMap(staffPhotographers)
   val allPhotographersMap = PhotographersList.creditBylineMap(allPhotographers)
+
+  val creativeCommonsLicense = List(
+    "CC BY-4.0", "CC BY-SA-4.0", "CC BY-ND-4.0"
+  )
 
 }

@@ -69,10 +69,8 @@
                 </span>
             </div>
 
-            <ui-archiver
-                class="result-editor__archiver"
-                image="ctrl.image"
-            ></ui-archiver>
+            <gr-image-persist-status class="result-editor__archiver"
+                                     gr-image="ctrl.image"></gr-image-persist-status>
         </div>
         <span class="result-editor__save-status-container">
             <span class="result-editor__save-status"
@@ -98,6 +96,13 @@
                     <button class="image-info__edit" ng:click="ctrl.showUsageRights = !ctrl.showUsageRights">
                         <gr-icon>edit</gr-icon>
                     </button>
+                    <button
+                        class="job-editor__apply-to-all"
+                        title="Apply these usage rights to all your current uploads"
+                        type="button"
+                        ng:if="ctrl.withBatch"
+                        ng:click="ctrl.batchApplyUsageRights()"
+                        >⇔</button>
                 </div>
 
                 <gr-usage-rights-editor

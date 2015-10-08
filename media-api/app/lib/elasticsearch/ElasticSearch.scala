@@ -2,15 +2,15 @@ package lib.elasticsearch
 
 import java.util.regex.Pattern
 
-import org.elasticsearch.index.query.{FilterBuilder, FilteredQueryBuilder}
-import org.elasticsearch.search.aggregations.bucket.terms.StringTerms
+import org.elasticsearch.index.query.{MatchAllQueryBuilder, FilterBuilder, FilteredQueryBuilder}
+import org.elasticsearch.search.aggregations.bucket.terms.{Terms, InternalTerms}
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.collection.JavaConversions._
 
 import play.api.libs.json._
 import org.elasticsearch.action.get.GetRequestBuilder
-import org.elasticsearch.action.search.SearchRequestBuilder
+import org.elasticsearch.action.search.{SearchResponse, SearchType, SearchRequestBuilder}
 import org.elasticsearch.search.aggregations.AggregationBuilders
 import org.elasticsearch.search.suggest.completion.{CompletionSuggestion, CompletionSuggestionBuilder}
 
@@ -82,27 +82,23 @@ object ElasticSearch extends ElasticSearchClient with SearchFilters with ImageFi
     val dateFilterList    = List(uploadTimeFilter, lastModTimeFilter, takenTimeFilter).flatten.toNel
     val dateFilter        = dateFilterList.map(dateFilters => filters.and(dateFilters.list: _*))
 
-    val idsFilter        = params.ids.map(filters.ids)
-    val labelFilter      = params.labels.toNel.map(filters.terms("labels", _))
-    val metadataFilter   = params.hasMetadata.map(metadataField).toNel.map(filters.exists)
-    val archivedFilter   = params.archived.map(filters.existsOrMissing(editsField("archived"), _))
-    val hasExports       = params.hasExports.map(filters.existsOrMissing("exports", _))
-    val hasIdentifier    = params.hasIdentifier.map(idName => filters.exists(NonEmptyList(identifierField(idName))))
-    val missingIdentifier= params.missingIdentifier.map(idName => filters.missing(NonEmptyList(identifierField(idName))))
-    val uploadedByFilter = params.uploadedBy.map(uploadedBy => filters.terms("uploadedBy", NonEmptyList(uploadedBy)))
+    val idsFilter         = params.ids.map(filters.ids)
+    val labelFilter       = params.labels.toNel.map(filters.terms("labels", _))
+    val metadataFilter    = params.hasMetadata.map(metadataField).toNel.map(filters.exists)
+    val archivedFilter    = params.archived.map(filters.existsOrMissing(editsField("archived"), _))
+    val hasExports        = params.hasExports.map(filters.existsOrMissing("exports", _))
+    val hasIdentifier     = params.hasIdentifier.map(idName => filters.exists(NonEmptyList(identifierField(idName))))
+    val missingIdentifier = params.missingIdentifier.map(idName => filters.missing(NonEmptyList(identifierField(idName))))
+    val uploadedByFilter  = params.uploadedBy.map(uploadedBy => filters.terms("uploadedBy", NonEmptyList(uploadedBy)))
+
+    val costFilter        =  params.free.flatMap(free => if (free) freeFilter else nonFreeFilter)
 
     val validityFilter: Option[FilterBuilder] = params.valid.flatMap(valid => if(valid) validFilter else invalidFilter)
-
-    val costFilter       =
-      if (params.costModelDiff) params.free.flatMap(free => if (free) freeDiffFilter else nonFreeDiffFilter)
-      else                      params.free.flatMap(free => if (free) freeFilterOrGuardianCredits else nonFreeFilterWithoutGuardianCredits)
-
 
     val persistFilter = params.persisted map {
       case true   => persistedFilter
       case false  => nonPersistedFilter
     }
-
 
     val filterOpt = (
       metadataFilter.toList ++ persistFilter ++ labelFilter ++ archivedFilter ++
@@ -128,6 +124,41 @@ object ElasticSearch extends ElasticSearchClient with SearchFilters with ImageFi
       }
   }
 
+  def labelSiblingsSearch(label: String, excludeLabels: List[String] = Nil)(implicit ex: ExecutionContext): Future[AggregateSearchResults] = {
+    val name = "labelSiblings"
+    val lastModifiedField = "lastModified"
+    val labelsField = editsField("labels")
+
+    // We sort by the maximum lastModified
+    // TODO: We could add a lastModified to the labels resource and then sort by that
+    val sortByDateAggr =
+      AggregationBuilders.
+        max(lastModifiedField).
+        field(lastModifiedField)
+
+    // Only aggregate records which have the "top level" label that we're looking for
+    val filter = filters.term(labelsField, label)
+
+    val aggregate =
+      AggregationBuilders
+        .terms(name)
+        .field(labelsField)
+        .excludeList(label :: excludeLabels)
+        .order(Terms.Order.aggregation(lastModifiedField, false))
+        .subAggregation(sortByDateAggr)
+
+    val search =
+      prepareImagesSearch
+        .setQuery(matchAllQueryWithFilter(filter))
+        .addAggregation(aggregate)
+
+    search
+      .setSearchType(SearchType.COUNT)
+      .executeAndLog("sibling labels aggregate search")
+      .toMetric(searchQueries, List(searchTypeDimension("aggregate")))(_.getTookInMillis)
+      .map(searchResultToAggregateResponse(_, name))
+  }
+
   def metadataSearch(params: AggregateSearchParams)(implicit ex: ExecutionContext): Future[AggregateSearchResults] =
     aggregateSearch("metadata", metadataField(params.field), params.q)
 
@@ -139,21 +170,15 @@ object ElasticSearch extends ElasticSearchClient with SearchFilters with ImageFi
     val aggregate = AggregationBuilders
       .terms(name)
       .field(field)
-      .include(q.getOrElse("") + ".*", Pattern.CASE_INSENSITIVE)
+      .include(Pattern.quote(q.getOrElse("")) + ".*", Pattern.CASE_INSENSITIVE)
 
     val search = prepareImagesSearch.addAggregation(aggregate)
 
     search
-      .setFrom(0)
-      .setSize(0)
-      .executeAndLog("metadata aggregate search")
+      .setSearchType(SearchType.COUNT)
+      .executeAndLog(s"$name aggregate search")
       .toMetric(searchQueries, List(searchTypeDimension("aggregate")))(_.getTookInMillis)
-      .map{ response =>
-        val buckets = response.getAggregations.getAsMap.get(name).asInstanceOf[StringTerms].getBuckets
-        val results = buckets.toList map (s => BucketResult(s.getKey, s.getDocCount))
-
-        AggregateSearchResults(results, buckets.size)
-      }
+      .map(searchResultToAggregateResponse(_, name))
   }
 
   def completionSuggestion(name: String, q: String, size: Int)(implicit ex: ExecutionContext): Future[CompletionSuggestionResults] = {
@@ -178,7 +203,17 @@ object ElasticSearch extends ElasticSearchClient with SearchFilters with ImageFi
       }
   }
 
+  def matchAllQueryWithFilter(filter: FilterBuilder) =
+    new FilteredQueryBuilder(new MatchAllQueryBuilder(), filter)
+
   def completionSuggestionBuilder(name: String) = new CompletionSuggestionBuilder(name)
+
+  def searchResultToAggregateResponse(response: SearchResponse, aggregateName: String) = {
+    val buckets = response.getAggregations.getAsMap.get(aggregateName).asInstanceOf[InternalTerms].getBuckets
+    val results = buckets.toList map (s => BucketResult(s.getKey, s.getDocCount))
+
+    AggregateSearchResults(results, buckets.size)
+  }
 
   def imageExists(id: String)(implicit ex: ExecutionContext): Future[Boolean] =
     prepareGet(id).setFields().executeAndLog(s"check if image $id exists") map (_.isExists)

@@ -1,10 +1,10 @@
 import angular from 'angular';
 import template from './labeller.html!text';
 import templateCompact from './labeller-compact.html!text';
+import './labeller.css!';
 
 import '../search/query-filter';
 import '../services/label';
-import '../components/gr-add-label/gr-add-label';
 
 export var labeller = angular.module('kahuna.edits.labeller', [
     'kahuna.search.filters.query',

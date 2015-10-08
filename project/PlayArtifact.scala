@@ -31,7 +31,9 @@ object PlayArtifact extends Plugin {
         )
 
         val cropper = Seq(
-          base / "srgb.icc" -> s"packages/$packageName/srgb.icc"
+          base / "cmyk.icc"      -> s"packages/$packageName/cmyk.icc",
+          base / "grayscale.icc" -> s"packages/$packageName/grayscale.icc",
+          base / "srgb.icc"      -> s"packages/$packageName/srgb.icc"
         )
 
        name match {

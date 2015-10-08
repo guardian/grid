@@ -130,14 +130,6 @@ class DynamoDB(credentials: AWSCredentials, region: Region, tableName: String) {
         new ValueMap().withMap(":value", valueMapWithNullForEmptyString(value))
     )
 
-  def jsonPatch(id: String, key: String, value: Map[String, String])
-               (implicit ex: ExecutionContext): Future[JsObject] = {
-
-    val (expression, valueMap) = partialMapUpdate(key, value)
-
-    update(id, expression, valueMap)
-  }
-
   def setDelete(id: String, key: String, value: String)
                (implicit ex: ExecutionContext): Future[JsObject] =
     update(
@@ -197,21 +189,6 @@ class DynamoDB(credentials: AWSCredentials, region: Region, tableName: String) {
          .foreach { case(k, v) => valueMap.withString(k, v) }
 
     valueMap
-  }
-
-  // As AttributeExpressions are deprecated, Amazon recommends using `UpdateExpression`s
-  // This is essentially a script builder.
-  // http://docs.aws.amazon.com/amazondynamodb/latest/APIReference/API_UpdateItem.html#DDB-UpdateItem-request-UpdateExpression
-  def partialMapUpdate(parentKey: String, value: Map[String, String]) = {
-    val valueMap = new ValueMap()
-    // add the value to the map and then return the update expression
-    val expression  = "SET " + value
-      .map { case (k, v) => {
-        valueMap.withString(s":$k", v)
-        s"$parentKey.$k=:$k"
-      }}.toList.mkString(", ")
-
-    (expression, valueMap)
   }
 
 }

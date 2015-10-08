@@ -10,7 +10,7 @@ import org.elasticsearch.action.update.{UpdateRequestBuilder, UpdateResponse}
 import org.elasticsearch.action.updatebyquery.UpdateByQueryResponse
 import org.elasticsearch.client.UpdateByQueryClientWrapper
 import org.elasticsearch.index.engine.VersionConflictEngineException
-import org.elasticsearch.index.query.FilterBuilders.{andFilter, boolFilter, missingFilter, termFilter}
+import org.elasticsearch.index.query.FilterBuilders.{andFilter, missingFilter}
 import org.elasticsearch.index.query.QueryBuilders.{boolQuery, filteredQuery, matchAllQuery, matchQuery}
 import org.elasticsearch.script.ScriptService
 import org.joda.time.DateTime
@@ -66,14 +66,7 @@ object ElasticSearch extends ElasticSearchClient with ImageFields {
 
     val q = filteredQuery(
       boolQuery.must(matchQuery("_id", id)),
-      andFilter(
-        missingOrEmptyFilter("exports"),
-        missingOrEmptyFilter(identifierField(Config.persistenceIdentifier)),
-        boolFilter.mustNot(termFilter(editsField("archived"), true)),
-        boolFilter.mustNot(termFilter(usageRightsField("category"), "staff-photographer")),
-        boolFilter.mustNot(termFilter(usageRightsField("category"), "contract-photographer")),
-        boolFilter.mustNot(termFilter(usageRightsField("category"), "commissioned-photographer"))
-      )
+      andFilter(missingOrEmptyFilter("exports"))
     )
 
     val deleteQuery = client
@@ -85,7 +78,7 @@ object ElasticSearch extends ElasticSearchClient with ImageFields {
     // this is because the delete query does not respond with anything useful
     // TODO: is there a more efficient way to do this?
     client
-      .prepareCount()
+      .prepareCount(imagesAlias)
       .setQuery(q)
       .executeAndLog(s"Searching for image to delete: $id")
       .flatMap { countQuery =>
