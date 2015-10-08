@@ -319,7 +319,7 @@ object MediaApi extends Controller with ArgoHelpers {
   def suggestLabels(q: Option[String]) = Authenticated {
     val pseudoFamousLabels = List(
       "obsbizcash", "obscomment", "obsfestivals", "obsfocus", "obsforeignnews", "obsgalleries",
-      "obshomenews", "obsmastheads", "obssports", "obssuppliments",
+      "obshomenews", "obsmastheads", "obssports", "obssupplements",
 
       "g2arts", "g2columns", "g2coverfeaures", "g2fashion", "g2features", "g2food", "g2health",
       "g2lifestyle", "g2shortcuts", "g2tv", "g2women",
