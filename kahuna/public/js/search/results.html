@@ -26,13 +26,24 @@
             </div>
 
             <div class="results-toolbar-item results-toolbar-item--static results-toolbar-item--left
-                        results__related-labels related-labels flex-container text-small">
+                        results__related-labels related-labels flex-container text-small"
+                        ng:class="{'related-labels--with-labels': ctrl.relatedLabels.length !== 0}">
                 <div class="related-labels__title">
-                    Related to
-                    <form ng:submit="ctrl.setParentLabel()" style="display: inline-block">
-                        <!-- TODO: autogrow this element -->
-                        <input class="related-labels__parent" type="text" ng:model="ctrl.parentLabel" />
-                    </form>:
+                    Related to:
+                    <span ng:switch="ctrl.relatedLabels.length === 0">
+                        <form class="inline-block" ng:switch-when="true" ng:submit="ctrl.setParentLabel()">
+                            <gr-datalist class="related-labels__datalist" gr:search="ctrl.labelSearch(q)">
+                                <!-- TODO: autogrow this element -->
+                                <input class="related-labels__parent" type="text"
+                                       placeholder="e.g. culture"
+                                       ng:model="ctrl.parentLabel"
+                                       ng:model-options="{ updateOn: 'gr:datalist:update' }"
+                                       ng:change="ctrl.setParentLabel()"
+                                       gr:datalist-input />
+                            </gr-datalist>
+                        </form>
+                        <span ng:switch-default>{{ctrl.parentLabel}}</span>
+                    </span>
                 </div>
                 <ul class="flex-container related-labels__labels">
                     <li class="related-labels__label" ng:repeat="relatedLabel in ctrl.relatedLabels">
