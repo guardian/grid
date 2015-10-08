@@ -24,6 +24,7 @@ dndUploader.controller('DndUploaderCtrl',
     ctrl.uploadFiles = uploadFiles;
     ctrl.importWitnessImage = importWitnessImage;
     ctrl.isWitnessUri = witnessApi.isWitnessUri;
+    ctrl.loadAndUpdateUriImage = loadAndUpdateUriImage;
 
     function uploadFiles(files) {
         // Queue up files for upload and go to the upload state to
@@ -53,6 +54,14 @@ dndUploader.controller('DndUploaderCtrl',
             return Promise.all([metadataUpdate, rightsUpdate]).
                 then(() => fullImage.data.id);
         });
+    }
+
+   function loadAndUpdateUriImage(fileUri) {
+        return loaderApi.import(fileUri).then(mediaResp =>
+            // Wait until image indexed
+            apiPoll(() => mediaResp.get()).
+                then(() => $state.go('upload', {}, { reload: true }))
+        );
     }
 
     function importWitnessImage(uri) {
@@ -170,9 +179,22 @@ dndUploader.directive('dndUploader', ['$window', 'delay', 'safeApply', 'track',
                         ctrl.importing = false;
                     });
                     track.action(trackEvent, dropAction('Witness'));
-                } else {
+                } else if (uri) {
+                    ctrl.importing = true;
+                    ctrl.loadAndUpdateUriImage(uri)
+                        .catch(error => {
+                            if (error.body && error.body.errorMessage) {
+                                $window.alert(error.body.errorMessage);
+                            } else {
+                                $window.alert('An error occurred while importing the ' +
+                                'image, please try again');
+                            }
+                        })
+                        .finally(() => ctrl.importing = false);
+                }
+                else {
                     $window.alert('You must drop valid files or ' +
-                                  'GuardianWitness URLs to upload them');
+                        'URLs to upload them');
 
                     track.action(trackEvent, dropAction('Invalid'));
                 }
