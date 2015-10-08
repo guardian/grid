@@ -76,12 +76,49 @@ object AlamyParser extends ImageProcessor {
 }
 
 object AllStarParser extends ImageProcessor {
+  val SlashAllstar = """(.+)/Allstar""".r
+  val AllstarSlash = """Allstar/(.+)""".r
+
   def apply(image: Image): Image = image.metadata.credit match {
-    case Some("Allstar Picture Library") => image.copy(
-      usageRights = Agency("Allstar Picture Library")
-    )
+    case Some("Allstar Picture Library") => withAllstarRights(image)(None)
+    case Some(SlashAllstar(prefix))      => withAllstarRights(image)(Some(prefix))
+    case Some(AllstarSlash(suffix))      => withAllstarRights(image)(Some(suffix))
     case _ => image
   }
+
+  def withAllstarRights(image: Image) =
+    (asAllstarAgency(image, _: Option[String])) andThen
+      stripAllstarFromByline andThen
+      stripDuplicateByline
+
+  def asAllstarAgency(image: Image, suppliersCollection: Option[String]) = image.copy(
+    usageRights = Agency("Allstar Picture Library", suppliersCollection)
+  )
+
+  def stripAllstarFromByline(image: Image) = image.copy(
+    metadata = image.metadata.copy(byline = image.metadata.byline.map(stripAllstarSuffix))
+  )
+
+  def stripAllstarSuffix(byline: String): String = byline match {
+    case SlashAllstar(name) => name
+    case _ => byline
+  }
+
+  // If suppliersCollection same as byline, remove byline but its byline casing for suppliersCollection and credit,
+  // as they otherwise tend to be in ugly uppercase
+  def stripDuplicateByline(image: Image) = (image.usageRights, image.metadata.byline) match {
+    case (agency @ Agency(supplier, Some(supplColl), _), Some(byline)) if supplColl.toLowerCase == byline.toLowerCase => {
+      image.copy(
+        usageRights = agency.copy(suppliersCollection = image.metadata.byline),
+        metadata = image.metadata.copy(
+          credit = image.metadata.credit.map(credit => credit.replace(supplColl, byline)),
+          byline = None
+        )
+      )
+    }
+    case _ => image
+  }
+
 }
 
 object ApParser extends ImageProcessor {
