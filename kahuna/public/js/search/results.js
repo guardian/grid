@@ -225,6 +225,10 @@ results.controller('SearchResultsCtrl', [
                 });
             }
         };
+        ctrl.labelSearch = q =>
+            mediaApi.labelSearch({q}).then(resource => {
+                return resource.data.map(d => d.key);
+            });
 
         ctrl.loadRange = function(start, end) {
             const length = end - start + 1;

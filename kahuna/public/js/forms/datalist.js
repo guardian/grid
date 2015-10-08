@@ -134,6 +134,7 @@ datalist.directive('grDatalistInput',
             }));
 
             function searchAndActivate() {
+                console.log('here')
                 parentCtrl.searchFor(valueSelector(input.val())).then(activate);
             }
 
