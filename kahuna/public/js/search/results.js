@@ -171,9 +171,51 @@ results.controller('SearchResultsCtrl', [
             if (latestTime && ! isReloadingPreviousSearch) {
                 lastSearchFirstResultTime = latestTime;
             }
+
+            return images;
         }).finally(() => {
             ctrl.loading = false;
         });
+
+        // related labels
+        const relatedLabelsPromise$ = Rx.Observable.fromPromise(ctrl.searched).flatMap(images =>
+            Rx.Observable
+                .fromPromise(images.follow('related-labels').get())
+                .catch(err => err.message === 'No link found for rel: related-labels' ?
+                    Rx.Observable.empty() : Rx.Observable.throw(err)
+                )
+        );
+
+        const relatedLabels$ = relatedLabelsPromise$.map(labels =>
+            labels.data.siblings).startWith([]);
+
+        const parentLabel$ = relatedLabelsPromise$.map(labels => labels.data.label);
+
+        inject$($scope, relatedLabels$, ctrl, 'relatedLabels');
+        inject$($scope, parentLabel$, ctrl, 'parentLabel');
+
+        ctrl.toggleLabelToSearch = label => {
+            // TODO: Move this to a searchQueryService
+            const oldQ = $stateParams.query.trim();
+            const query = (label.selected ? oldQ.replace(`#${label.name}`, '')
+                          : `${oldQ} #${label.name}`).trim();
+            const newStateParams = angular.extend({}, $stateParams, { query });
+            $state.transitionTo($state.current, newStateParams, {
+                reload: true, inherit: false, notify: true
+            });
+        };
+
+        ctrl.setParentLabel = () => {
+            if (ctrl.parentLabel) {
+                $state.transitionTo($state.current, { query: `#${ctrl.parentLabel}` }, {
+                    reload: true, inherit: false, notify: true
+                });
+            }
+        };
+        ctrl.suggestedLabelSearch = q =>
+            ctrl.searched.then(images =>
+                images.follow('suggested-labels').get({q}).then(labels => labels.data)
+            ).catch(() => []);
 
         ctrl.loadRange = function(start, end) {
             const length = end - start + 1;
