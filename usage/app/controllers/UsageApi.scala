@@ -1,26 +1,20 @@
 package controllers
 
-import play.api.libs.json._
-import play.api.mvc.Controller
-
 import com.gu.mediaservice.lib.argo.ArgoHelpers
-import com.gu.mediaservice.lib.aws.NoItemFound
 import com.gu.mediaservice.lib.argo.model.Link
 import com.gu.mediaservice.lib.auth
 import com.gu.mediaservice.lib.auth.KeyStore
-import com.gu.mediaservice.model._
-
-import scala.concurrent.ExecutionContext.Implicits.global
-
+import com.gu.mediaservice.lib.aws.NoItemFound
 import lib.Config
 import model._
+import play.api.mvc.Controller
 
-import scala.util.Random
+import scala.concurrent.ExecutionContext.Implicits.global
 
 
 object UsageApi extends Controller with ArgoHelpers {
 
-  import Config.{rootUri, loginUriTemplate, kahunaUri, keyStoreBucket, awsCredentials}
+  import Config.{awsCredentials, kahunaUri, keyStoreBucket, loginUriTemplate, rootUri}
 
   val keyStore = new KeyStore(keyStoreBucket, awsCredentials)
   val Authenticated = auth.Authenticated(keyStore, loginUriTemplate, kahunaUri)
@@ -38,7 +32,7 @@ object UsageApi extends Controller with ArgoHelpers {
     val usagesFuture = UsageTable.queryByImageId(mediaId)
 
     usagesFuture.map( usages => {
-      respondCollection(usages.toList)
+      respondCollection(usages.map(UsageResponse.build).toList)
     }).recover {
       case NoItemFound => respond(false)
     }

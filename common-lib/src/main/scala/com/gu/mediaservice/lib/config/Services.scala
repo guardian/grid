@@ -13,6 +13,7 @@ class Services(domainRoot: String, ssl: Boolean) {
   val cropperHost: String  = s"cropper.$domainRoot"
   val metadataHost: String = s"$appName-metadata.$parentDomain"
   val imgopsHost: String = s"$appName-imgops.$parentDomain"
+  val usageHost: String = s"$appName-usage.$parentDomain"
 
 
   val kahunaBaseUri   = baseUri(kahunaHost)
@@ -21,6 +22,8 @@ class Services(domainRoot: String, ssl: Boolean) {
   val cropperBaseUri  = baseUri(cropperHost)
   val metadataBaseUri = baseUri(metadataHost)
   val imgopsBaseUri  = baseUri(imgopsHost)
+  val usageBaseUri  = baseUri(usageHost)
+
 
   val loginUriTemplate = s"$kahunaBaseUri/login{?redirectUri}"
 
