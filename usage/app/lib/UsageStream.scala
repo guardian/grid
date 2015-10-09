@@ -21,6 +21,6 @@ object UsageStream {
 
   def createStatus(container: ContentContainer) = container match {
     case PreviewContentItem(_,_) => PendingUsageStatus()
-    case LiveContentItem(_,_) => PubishedUsageStatus()
+    case LiveContentItem(_,_) => PublishedUsageStatus()
   }
 }

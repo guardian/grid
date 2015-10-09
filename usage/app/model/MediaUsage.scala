@@ -41,7 +41,7 @@ object MediaUsage {
       item.getString("media_type"),
       item.getString("usage_status") match {
         case "pending" => PendingUsageStatus()
-        case "published" => PubishedUsageStatus()
+        case "published" => PublishedUsageStatus()
       },
       Option(item.getMap[String]("data_map"))
         .getOrElse(new java.util.HashMap[String, String]()).toMap,
