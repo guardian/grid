@@ -15,15 +15,13 @@ object UsageRecorder {
   val usageStream = UsageStream.observable
 
   def recordUpdates(usageGroup: UsageGroup) = {
-    UsageRecordTable.matchUsageGroup(usageGroup).map(dbUsageGroup => {
+    UsageTable.matchUsageGroup(usageGroup).map(dbUsageGroup => {
 
-      val deletes = (dbUsageGroup.usages -- usageGroup.usages).map(mediaUsage => {
-        UsageRecordTable.delete(mediaUsage.grouping, mediaUsage.usageId)
-      })
+      val deletes = (dbUsageGroup.usages -- usageGroup.usages).map(UsageTable.delete(_))
+      val creates = (usageGroup.usages -- dbUsageGroup.usages).map(UsageTable.create(_))
+      val updates = (usageGroup.usages & dbUsageGroup.usages).map(UsageTable.update(_))
 
-      val updates = usageGroup.usages.map(UsageRecordTable.update(_))
-
-      Observable.from(deletes ++ updates).flatten
+      Observable.from(deletes ++ updates ++ creates).flatten
     })
   }
 

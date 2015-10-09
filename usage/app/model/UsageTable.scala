@@ -3,9 +3,9 @@ package model
 import com.gu.mediaservice.lib.aws.DynamoDB
 import com.amazonaws.auth.AWSCredentials
 import com.amazonaws.regions.Region
+
 import com.amazonaws.services.dynamodbv2.document.spec.UpdateItemSpec
 import com.amazonaws.services.dynamodbv2.model.ReturnValue
-import com.amazonaws.services.dynamodbv2.document.utils.ValueMap
 import com.amazonaws.services.dynamodbv2.document.{KeyAttribute, DeleteItemOutcome}
 import scalaz.syntax.id._
 
@@ -13,6 +13,8 @@ import play.api.libs.json._
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.{ExecutionContext, Future}
+
+import scala.collection.JavaConversions._
 import scala.collection.JavaConverters._
 
 import org.joda.time.DateTime
@@ -22,7 +24,7 @@ import rx.lang.scala.Observable
 import lib.Config
 
 
-object UsageRecordTable extends DynamoDB(
+object UsageTable extends DynamoDB(
     Config.awsCredentials,
     Config.dynamoRegion,
     Config.usageRecordTable
@@ -31,8 +33,6 @@ object UsageRecordTable extends DynamoDB(
   val hashKeyName = "grouping"
   val rangeKeyName = "usage_id"
   val imageIndexName = "media_id"
-
-  def sanitiseMultilineString(s: String) = s.stripMargin.replaceAll("\n", " ")
 
   def queryByImageId(id: String): Future[Set[MediaUsage]] = Future {
     val imageIndex = table.getIndex(imageIndexName)
@@ -46,7 +46,6 @@ object UsageRecordTable extends DynamoDB(
     Observable.from(Future {
       val status = s"${usageGroup.status}"
       val grouping = usageGroup.grouping
-
       val keyAttribute = new KeyAttribute("grouping", grouping)
       val queryResult = table.query(keyAttribute)
 
@@ -59,40 +58,30 @@ object UsageRecordTable extends DynamoDB(
       UsageGroup(usages, grouping, usageGroup.status, new DateTime)
     })
 
-  def delete(hashKey: String, rangeKey: String): Observable[JsObject] = Observable.from(Future {
+  def create(mediaUsage: MediaUsage): Observable[JsObject] =
+    updateFromRecord(UsageRecord.buildCreateRecord(mediaUsage))
+
+  def update(mediaUsage: MediaUsage): Observable[JsObject] =
+    updateFromRecord(UsageRecord.buildUpdateRecord(mediaUsage))
+
+  def delete(mediaUsage: MediaUsage): Observable[JsObject] = Observable.from(Future {
+    val hashKey = mediaUsage.grouping
+    val rangeKey = mediaUsage.usageId
+
     table.deleteItem(hashKeyName, hashKey, rangeKeyName, rangeKey)
   }).map(asJsObject)
 
-  def update(mediaUsage: MediaUsage): Observable[JsObject] = Observable.from(Future {
-    val expression = sanitiseMultilineString(
-      s"""SET media_id = :media_id,
-             |usage_type = :usage_type,
-             |media_type = :media_type,
-             |last_modified = :last_modified,
-             |data_map = :data_map,
-             |usage_status = :usage_status"""
-    )
-
-    val baseUpdateSpec = new UpdateItemSpec()
+  def updateFromRecord(record: UsageRecord): Observable[JsObject] = Observable.from(Future {
+     val updateSpec = new UpdateItemSpec()
       .withPrimaryKey(
         hashKeyName,
-        mediaUsage.grouping,
+        record.hashKey,
         rangeKeyName,
-        mediaUsage.usageId
+        record.rangeKey
       )
-      .withUpdateExpression(expression)
+      .withExpressionSpec(record.toXSpec)
       .withReturnValues(ReturnValue.ALL_NEW)
 
-    val valueMap = (new ValueMap()) <| (vMap => {
-      vMap.withString(":media_id", mediaUsage.mediaId)
-      vMap.withString(":usage_type", mediaUsage.usageType)
-      vMap.withString(":media_type", mediaUsage.mediaType)
-      vMap.withString(":usage_status", mediaUsage.status.toString)
-      vMap.withMap(":data_map", mediaUsage.data.asJava)
-      vMap.withLong(":last_modified", mediaUsage.lastModified.getMillis)
-    })
-
-    val updateSpec = baseUpdateSpec.withValueMap(valueMap)
     table.updateItem(updateSpec)
 
   }).map(asJsObject)

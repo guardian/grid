@@ -17,7 +17,9 @@ case class MediaUsage(
   mediaType: String,
   status: UsageStatus,
   data: Map[String, String],
-  lastModified: DateTime
+  lastModified: DateTime,
+  dateAdded: Option[DateTime] = None,
+  dateRemoved: Option[DateTime] = None
 ) {
   // Used in set comparison of UsageGroups
   override def equals(obj: Any): Boolean = obj match {
@@ -45,7 +47,8 @@ object MediaUsage {
       },
       Option(item.getMap[String]("data_map"))
         .getOrElse(new java.util.HashMap[String, String]()).toMap,
-      new DateTime(item.getLong("last_modified"))
+      new DateTime(item.getLong("last_modified")),
+      Option(item.getLong("date_added")).map(new DateTime(_))
     )
 
   def build(elementWrapper: ElementWrapper, contentWrapper: ContentWrapper) = {
