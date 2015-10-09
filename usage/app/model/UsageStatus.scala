@@ -6,7 +6,7 @@ import play.api.libs.json._
 trait UsageStatus {
   override def toString = this match {
     case _:PendingUsageStatus => "pending"
-    case _:PubishedUsageStatus => "published"
+    case _:PublishedUsageStatus => "published"
   }
 }
 
@@ -19,4 +19,4 @@ object UsageStatus {
 }
 
 case class PendingUsageStatus() extends UsageStatus
-case class PubishedUsageStatus() extends UsageStatus
+case class PublishedUsageStatus() extends UsageStatus
