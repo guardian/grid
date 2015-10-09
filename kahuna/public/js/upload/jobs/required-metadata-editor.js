@@ -14,7 +14,9 @@ export var jobs = angular.module('kahuna.upload.jobs.requiredMetadataEditor', [
 
 jobs.controller('RequiredMetadataEditorCtrl',
                 ['$rootScope', '$scope', '$window', 'mediaApi', 'editsService',
-                 function($rootScope, $scope, $window, mediaApi, editsService) {
+                 'onValChange',
+                 function($rootScope, $scope, $window, mediaApi, editsService,
+                          onValChange) {
 
     var ctrl = this;
 
@@ -44,11 +46,16 @@ jobs.controller('RequiredMetadataEditorCtrl',
     };
 
     ctrl.metadataSearch = (field, q) => {
-
         return mediaApi.metadataSearch(field,  { q }).then(resource => {
             return resource.data.map(d => d.key);
         });
     };
+
+    // As we make a copy of this, we need to watch it
+    // in case the metadata changes from above.
+    $scope.$watch(() => ctrl.originalMetadata, onValChange(metadata => {
+        ctrl.metadata = metadataFromOriginal(metadata);
+    }));
 
     // TODO: Find a way to broadcast more selectively
     const batchApplyMetadataEvent = 'events:batch-apply:metadata';
