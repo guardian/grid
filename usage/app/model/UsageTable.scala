@@ -64,14 +64,11 @@ object UsageTable extends DynamoDB(
   def update(mediaUsage: MediaUsage): Observable[JsObject] =
     updateFromRecord(UsageRecord.buildUpdateRecord(mediaUsage))
 
-  def delete(mediaUsage: MediaUsage): Observable[JsObject] = Observable.from(Future {
-    val hashKey = mediaUsage.grouping
-    val rangeKey = mediaUsage.usageId
-
-    table.deleteItem(hashKeyName, hashKey, rangeKeyName, rangeKey)
-  }).map(asJsObject)
+  def delete(mediaUsage: MediaUsage): Observable[JsObject] =
+    updateFromRecord(UsageRecord.buildDeleteRecord(mediaUsage))
 
   def updateFromRecord(record: UsageRecord): Observable[JsObject] = Observable.from(Future {
+
      val updateSpec = new UpdateItemSpec()
       .withPrimaryKey(
         hashKeyName,
