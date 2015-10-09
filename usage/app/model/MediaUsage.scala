@@ -5,6 +5,7 @@ import com.gu.contentapi.client.model.v1.{Content, Element}
 import org.joda.time.DateTime
 import play.api.libs.json._
 
+import scala.util.Try
 import scala.collection.JavaConversions._
 import scala.collection.JavaConverters._
 
@@ -48,7 +49,8 @@ object MediaUsage {
       Option(item.getMap[String]("data_map"))
         .getOrElse(new java.util.HashMap[String, String]()).toMap,
       new DateTime(item.getLong("last_modified")),
-      Option(item.getLong("date_added")).map(new DateTime(_))
+      Try { item.getLong("date_added") }.toOption.map(new DateTime(_)),
+      Try { item.getLong("date_removed") }.toOption.map(new DateTime(_))
     )
 
   def build(elementWrapper: ElementWrapper, contentWrapper: ContentWrapper) = {

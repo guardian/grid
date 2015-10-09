@@ -25,7 +25,6 @@ class DynamoDB(credentials: AWSCredentials, region: Region, tableName: String) {
 
   val IdKey = "id"
 
-
   def get(id: String)
          (implicit ex: ExecutionContext): Future[JsObject] = Future {
     table.getItem(
