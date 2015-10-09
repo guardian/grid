@@ -9,6 +9,7 @@ import '../util/seq';
 import '../components/gu-lazy-table/gu-lazy-table';
 import '../downloader/downloader';
 import '../components/gr-delete-image/gr-delete-image';
+import '../search-query/service';
 
 export var results = angular.module('kahuna.search.results', [
     'kahuna.services.scroll-position',
@@ -18,7 +19,8 @@ export var results = angular.module('kahuna.search.results', [
     'util.seq',
     'gu.lazyTable',
     'gr.downloader',
-    'gr.deleteImage'
+    'gr.deleteImage',
+    'gr.searchQuery.service'
 ]);
 
 
@@ -55,6 +57,7 @@ results.controller('SearchResultsCtrl', [
     'panelService',
     'range',
     'isReloadingPreviousSearch',
+    'searchQueryService',
     function($rootScope,
              $scope,
              $state,
@@ -73,7 +76,8 @@ results.controller('SearchResultsCtrl', [
              results,
              panelService,
              range,
-             isReloadingPreviousSearch) {
+             isReloadingPreviousSearch,
+             searchQueryService) {
 
         const ctrl = this;
 
@@ -195,14 +199,11 @@ results.controller('SearchResultsCtrl', [
         inject$($scope, parentLabel$, ctrl, 'parentLabel');
 
         ctrl.toggleLabelToSearch = label => {
-            // TODO: Move this to a searchQueryService
-            const oldQ = $stateParams.query.trim();
-            const query = (label.selected ? oldQ.replace(`#${label.name}`, '')
-                          : `${oldQ} #${label.name}`).trim();
-            const newStateParams = angular.extend({}, $stateParams, { query });
-            $state.transitionTo($state.current, newStateParams, {
-                reload: true, inherit: false, notify: true
-            });
+            if (label.selected) {
+                searchQueryService.removeLabel(label.name);
+            } else {
+                searchQueryService.addLabel(label.name);
+            }
         };
 
         ctrl.setParentLabel = () => {

@@ -11,17 +11,22 @@ import template from './query.html!text';
 
 import '../analytics/track';
 
+import '../search-query/service';
+import '../util/rx';
+
 export var query = angular.module('kahuna.search.query', [
     // Note: temporarily disabled for performance reasons, see above
     // 'ngAnimate',
     'util.eq',
     'gu-dateRange',
-    'analytics.track'
+    'analytics.track',
+    'gr.searchQuery.service',
+    'util.rx'
 ]);
 
 query.controller('SearchQueryCtrl',
-                 ['$scope', '$state', '$stateParams', 'onValChange', 'mediaApi', 'track',
-                 function($scope, $state, $stateParams, onValChange , mediaApi, track) {
+                 ['$scope', '$state', '$stateParams', 'onValChange', 'mediaApi', 'track', 'searchQueryService', 'observe$',
+                 function($scope, $state, $stateParams, onValChange , mediaApi, track, searchQueryService, observe$) {
 
     var ctrl = this;
 
@@ -61,6 +66,18 @@ query.controller('SearchQueryCtrl',
 
     Object.keys($stateParams)
           .forEach(setAndWatchParam);
+
+    ctrl.changeQuery = () =>
+        searchQueryService.set(ctrl.filter.query);
+
+    // FIXME: This is here to stop circular injection of the model.
+    // Avoiding: queryChange => set() => emit() => queryChange()
+    searchQueryService.q$.subscribe(q => {
+        if (q !== ctrl.filter.query) {
+            ctrl.filter.query = q;
+        }
+    });
+    searchQueryService.set(ctrl.filter.query);
 
     // pass undefined to the state on empty to remove the QueryString
     function valOrUndefined(str) { return str || undefined; }

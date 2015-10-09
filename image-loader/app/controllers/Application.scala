@@ -81,7 +81,7 @@ class ImageLoader extends Controller with ArgoHelpers {
     val DigestedFile(tempFile_, id_) = digestedFile
 
     // only allow AuthenticatedService to set with query string
-    val uploadedBy_ = (user, uploadedBy) match {
+    val uploadawedBy_ = (user, uploadedBy) match {
       case (user: AuthenticatedService, Some(by)) => by
       case (user: PandaUser, _) => user.email
       case (user, _) => user.name
