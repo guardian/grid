@@ -35,7 +35,7 @@ object UsageApi extends Controller with ArgoHelpers {
   def index = Authenticated { indexResponse }
 
   def forMedia(mediaId: String) = Authenticated.async {
-    val usagesFuture = UsageRecordTable.queryByImageId(mediaId)
+    val usagesFuture = UsageTable.queryByImageId(mediaId)
 
     usagesFuture.map( usages => {
       respondCollection(usages.toList)
