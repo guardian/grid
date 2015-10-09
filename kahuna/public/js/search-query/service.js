@@ -18,15 +18,11 @@ searchQueryService.factory('searchQueryService', ['observe$', function(observe$)
     }
 
     function addLabel(label) {
-        query$.onNext(state => {
-            return `${state.trim()} #${label}`;
-        });
+        query$.onNext(q => hasLabel(q, label) ? q : `${q} #${label}`);
     }
 
     function removeLabel(label) {
-        query$.onNext(state => {
-            return state.replace(`#${label}`, '').trim();
-        });
+        query$.onNext(q => q.replace(`#${label}`, ''));
     }
 
     function set(q) {
