@@ -50,10 +50,8 @@ jobs.controller('RequiredMetadataEditorCtrl',
 
     // As we make a copy of this, we need to watch it
     // in case the metadata changes from above.
-    $scope.$watch(() => ctrl.originalMetadata, metadata => {
-        console.log(metadata)
-        ctrl.metadata = metadataFromOriginal(metadata)
-    });
+    $scope.$watch(() => ctrl.originalMetadata, metadata =>
+        ctrl.metadata = metadataFromOriginal(metadata));
 
     // TODO: Find a way to broadcast more selectively
     const batchApplyMetadataEvent = 'events:batch-apply:metadata';
