@@ -51,7 +51,7 @@ object Application extends Controller with ArgoHelpers {
                        { case CropSource(source, Bounds(x, y, w, h), r) => (source, x, y, w, h, r) })
   )
 
-  def crop = Authenticated.async { httpRequest =>
+  def export = Authenticated.async { httpRequest =>
 
     val author: Option[String] = httpRequest.user match {
       case user: AuthenticatedService => Some(user.name)
