@@ -62,7 +62,8 @@ object UsageRightsOverride {
                                     => agency("Ronald Grant Archive")
     case "Associated Press"         => agency("AP")
     case "PA Archive/Press Association Images" | "PA WIRE" |
-         "PA Archive/Press Association Ima" | "Press Association Images"
+         "PA Archive/Press Association Ima" | "Press Association Images" |
+         "PA Archive/PA Photos"
                                     => agency("PA")
     case "AFP" | "AFP/Getty Images" => agency("Getty Images", Some("AFP"))
     case "Allsport"                 => agency("Getty Images", Some("Allsport"))
