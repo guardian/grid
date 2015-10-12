@@ -8,7 +8,10 @@ searchQueryService.factory('searchQueryService', [function() {
     const query$ = new Rx.Subject();
 
     // TODO: When we update rx, we need to swap the seed / acc around
-    const q$ = query$.scan('', (state, fn) => fn(state).trim());
+    const q$ = query$.
+        scan('', (state, fn) => fn(state).trim()).
+        distinctUntilChanged().
+        shareReplay(1);
 
     function hasLabel(q, label) {
         // TODO: It'd be nice to build this up from an API
