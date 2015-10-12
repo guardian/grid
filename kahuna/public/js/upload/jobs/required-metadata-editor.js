@@ -21,7 +21,9 @@ jobs.controller('RequiredMetadataEditorCtrl',
     ctrl.saving = false;
     ctrl.disabled = () => Boolean(ctrl.saving || ctrl.externallyDisabled);
     ctrl.saveOnTime = 750; // ms
-    ctrl.copyrightWasInitiallyThere = !!ctrl.metadata.copyright;
+    // We do this check to ensure the copyright field doesn't disappear
+    // if we set it to "".
+    ctrl.copyrightWasInitiallyThere = !!ctrl.originalMetadata.copyright;
 
     ctrl.save = function() {
         ctrl.saving = true;
