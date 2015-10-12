@@ -24,7 +24,7 @@ object Asset {
   }
 
   implicit val assetReads: Reads[Asset] =
-    ((__ \ "file").read[String].map(URI.create(_)) ~
+    ((__ \ "file").read[String].map(URI.create) ~
       (__ \ "size").readNullable[Long] ~
       (__ \ "mimeType").readNullable[String] ~
       (__ \ "dimensions").readNullable[Dimensions] ~
