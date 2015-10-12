@@ -21,8 +21,8 @@ object Crops {
   import scala.concurrent.ExecutionContext.Implicits.global
   import Files._
 
-  def outputFilename(source: SourceImage, bounds: Bounds, outputWidth: Int, isMaster: Boolean = false): String = {
-    s"${source.id}/${Crop.getCropId(bounds)}/${if(isMaster) "master/" else ""}$outputWidth.jpg"
+  def outputFilename(source: SourceImage, bounds: Bounds, outputWidth: Int, exportType: String, isMaster: Boolean = false): String = {
+    s"${source.id}/${Crop.getCropId(bounds)}/$exportType/${if(isMaster) "master/" else ""}$outputWidth.jpg"
   }
 
   def createMasterCrop(apiImage: SourceImage, sourceFile: File, crop: Crop, mediaType: String, colourModel: Option[String]): Future[MasterCrop] = {
@@ -35,7 +35,8 @@ object Crops {
       file  <- ImageOperations.appendMetadata(strip, metadata)
 
       dimensions = Dimensions(source.bounds.width, source.bounds.height)
-      filename   = outputFilename(apiImage, source.bounds, dimensions.width, true)
+      exportType  = crop.specification.`type`.name
+      filename   = outputFilename(apiImage, source.bounds, dimensions.width, exportType, true)
       sizing     = CropStore.storeCropSizing(file, filename, mediaType, crop, dimensions)
       aspect     = source.bounds.width.toFloat / source.bounds.height
     }
@@ -45,10 +46,11 @@ object Crops {
   def createCrops(sourceFile: File, dimensionList: List[Dimensions], apiImage: SourceImage, crop: Crop, mediaType: String): Future[List[Asset]] = {
     Future.sequence[Asset, List](dimensionList.map { dimensions =>
       for {
-        file    <- ImageOperations.resizeImage(sourceFile, dimensions, 75d, Config.tempDir)
-        filename = outputFilename(apiImage, crop.specification.bounds, dimensions.width)
-        sizing  <- CropStore.storeCropSizing(file, filename, mediaType, crop, dimensions)
-        _       <- delete(file)
+        file       <- ImageOperations.resizeImage(sourceFile, dimensions, 75d, Config.tempDir)
+        exportType  = crop.specification.`type`.name
+        filename    = outputFilename(apiImage, crop.specification.bounds, dimensions.width, exportType)
+        sizing     <- CropStore.storeCropSizing(file, filename, mediaType, crop, dimensions)
+        _          <- delete(file)
       }
       yield sizing
     })
