@@ -26,9 +26,9 @@ export var query = angular.module('kahuna.search.query', [
 
 query.controller('SearchQueryCtrl',
                  ['$scope', '$state', '$stateParams', 'onValChange', 'mediaApi', 'track',
-                  'searchQueryService',
+                  'searchQueryService', 'inject$',
                  function($scope, $state, $stateParams, onValChange , mediaApi, track,
-                          searchQueryService) {
+                          searchQueryService, inject$) {
 
     var ctrl = this;
 
@@ -74,9 +74,8 @@ query.controller('SearchQueryCtrl',
 
     // FIXME: This is here to stop circular injection of the model.
     // Avoiding: queryChange => set() => emit() => queryChange()
-    searchQueryService.q$.filter(q =>
-        q !== ctrl.filter.query
-    ).subscribe(q => ctrl.filter.query = q);
+    const changedQuery$ = searchQueryService.q$.filter(q => q !== ctrl.filter.query);
+    inject$($scope, changedQuery$, ctrl.filter, 'query');
     searchQueryService.set(ctrl.filter.query);
 
     // pass undefined to the state on empty to remove the QueryString

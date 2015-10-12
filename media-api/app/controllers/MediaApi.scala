@@ -300,7 +300,7 @@ object MediaApi extends Controller with ArgoHelpers {
     }
 
     mainLabel.map { label =>
-      val uriTemplate = URITemplate(s"$rootUri/suggest/edits/labels/$label/related{?selectedLabels,q}")
+      val uriTemplate = URITemplate(s"$rootUri/suggest/edits/labels/$label/sibling-labels{?selectedLabels,q}")
       val paramMap = Map(
         "selectedLabels" -> Some(selectedLabels.mkString(",")).filter(_.trim.nonEmpty),
         "q" -> searchParams.query
