@@ -14,15 +14,12 @@ export var jobs = angular.module('kahuna.upload.jobs.requiredMetadataEditor', [
 
 jobs.controller('RequiredMetadataEditorCtrl',
                 ['$rootScope', '$scope', '$window', 'mediaApi', 'editsService',
-                 'onValChange',
-                 function($rootScope, $scope, $window, mediaApi, editsService,
-                          onValChange) {
+                 function($rootScope, $scope, $window, mediaApi, editsService) {
 
     var ctrl = this;
 
     ctrl.saving = false;
     ctrl.disabled = () => Boolean(ctrl.saving || ctrl.externallyDisabled);
-    ctrl.metadata = metadataFromOriginal(ctrl.originalMetadata);
     ctrl.saveOnTime = 750; // ms
     ctrl.copyrightWasInitiallyThere = !!ctrl.metadata.copyright;
 
@@ -53,9 +50,10 @@ jobs.controller('RequiredMetadataEditorCtrl',
 
     // As we make a copy of this, we need to watch it
     // in case the metadata changes from above.
-    $scope.$watch(() => ctrl.originalMetadata, onValChange(metadata => {
-        ctrl.metadata = metadataFromOriginal(metadata);
-    }));
+    $scope.$watch(() => ctrl.originalMetadata, metadata => {
+        console.log(metadata)
+        ctrl.metadata = metadataFromOriginal(metadata)
+    });
 
     // TODO: Find a way to broadcast more selectively
     const batchApplyMetadataEvent = 'events:batch-apply:metadata';
