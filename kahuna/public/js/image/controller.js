@@ -164,7 +164,6 @@ image.controller('ImageCtrl', [
             ctrl.image = updatedImage;
             ctrl.usageRights = imageService(ctrl.image).usageRights;
             ctrl.metadata = updatedImage.data.metadata;
-            console.log(ctrl.metadata)
             ctrl.setUsageCategory(ctrl.usageCategories, ctrl.usageRights.data.category);
         });
 
