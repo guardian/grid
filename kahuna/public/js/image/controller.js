@@ -163,6 +163,7 @@ image.controller('ImageCtrl', [
         const freeUpdateListener = $rootScope.$on('image-updated', (e, updatedImage) => {
             ctrl.image = updatedImage;
             ctrl.usageRights = imageService(ctrl.image).usageRights;
+            ctrl.metadata = updatedImage.data.metadata;
             ctrl.setUsageCategory(ctrl.usageCategories, ctrl.usageRights.data.category);
         });
 
