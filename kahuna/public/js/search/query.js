@@ -25,8 +25,10 @@ export var query = angular.module('kahuna.search.query', [
 ]);
 
 query.controller('SearchQueryCtrl',
-                 ['$scope', '$state', '$stateParams', 'onValChange', 'mediaApi', 'track', 'searchQueryService', 'observe$',
-                 function($scope, $state, $stateParams, onValChange , mediaApi, track, searchQueryService, observe$) {
+                 ['$scope', '$state', '$stateParams', 'onValChange', 'mediaApi', 'track',
+                  'searchQueryService',
+                 function($scope, $state, $stateParams, onValChange , mediaApi, track,
+                          searchQueryService) {
 
     var ctrl = this;
 
@@ -74,10 +76,7 @@ query.controller('SearchQueryCtrl',
     // Avoiding: queryChange => set() => emit() => queryChange()
     searchQueryService.q$.filter(q =>
         q !== ctrl.filter.query
-    ).subscribe(q => {
-        ctrl.filter.query = q;
-        console.log(q);
-    });
+    ).subscribe(q => ctrl.filter.query = q);
     searchQueryService.set(ctrl.filter.query);
 
     // pass undefined to the state on empty to remove the QueryString

@@ -4,7 +4,7 @@ import '../util/rx';
 
 export const searchQueryService = angular.module('gr.searchQuery.service', ['util.rx']);
 
-searchQueryService.factory('searchQueryService', ['observe$', function(observe$) {
+searchQueryService.factory('searchQueryService', [function() {
     const query$ = new Rx.Subject();
 
     // TODO: When we update rx, we need to swap the seed / acc around
@@ -28,5 +28,5 @@ searchQueryService.factory('searchQueryService', ['observe$', function(observe$)
         query$.onNext(() => q || '');
     }
 
-    return { addLabel, removeLabel, set, q$ };
+    return { q$, addLabel, removeLabel, 'set': set };
 }]);
