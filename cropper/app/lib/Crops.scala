@@ -89,7 +89,7 @@ object Crops {
       sizes      <- createCrops(masterCrop.file, outputDims, apiImage, crop, mediaType)
       masterSize <- masterCrop.sizing
 
-      _ <- Future.sequence(List(masterCrop.file,sourceFile).map(delete(_)))
+      _ <- Future.sequence(List(masterCrop.file,sourceFile).map(delete))
     }
     yield ExportResult(apiImage.id, masterSize, sizes)
   }
