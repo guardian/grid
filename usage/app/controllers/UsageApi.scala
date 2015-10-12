@@ -31,9 +31,7 @@ object UsageApi extends Controller with ArgoHelpers {
   def forMedia(mediaId: String) = Authenticated.async {
     val usagesFuture = UsageTable.queryByImageId(mediaId)
 
-    usagesFuture.map( usages => {
-      respondCollection(usages.map(UsageResponse.build).toList)
-    }).recover {
+    usagesFuture.map[play.api.mvc.Result](UsageResponse.buildCollection).recover {
       case NoItemFound => respond(false)
     }
   }
