@@ -240,7 +240,7 @@ object MediaApi extends Controller with ArgoHelpers {
       prevLink = getPrevLink(searchParams)
       nextLink = getNextLink(searchParams, totalCount)
       relatedLabelsLink = getRelatedLabelsLink(searchParams)
-      links = suggestedLabelsLink :: relatedLabelsLink :: List(prevLink, nextLink).flatten
+      links = suggestedLabelsLink :: List(prevLink, nextLink, relatedLabelsLink).flatten
     } yield respondCollection(imageEntities, Some(searchParams.offset), Some(totalCount), links)
   }
 
@@ -299,16 +299,16 @@ object MediaApi extends Controller with ArgoHelpers {
       case label :: extraLabels => (Some(label), extraLabels)
     }
 
-    val uriTemplate = URITemplate(s"$rootUri/suggest/edits/labels/related{?mainLabel,selectedLabels,q}")
-    val paramMap = Map(
-      "mainLabel" -> mainLabel,
-      "selectedLabels" -> Some(selectedLabels.mkString(",")).filter(_.trim.nonEmpty),
-      "q" -> searchParams.query
-    )
-    val paramVars = paramMap.map { case (key, value) => key := value }.toSeq
-    val uri = uriTemplate expand (paramVars: _*)
-
-    Link("related-labels", uri)
+    mainLabel.map { label =>
+      val uriTemplate = URITemplate(s"$rootUri/suggest/edits/labels/$label/related{?selectedLabels,q}")
+      val paramMap = Map(
+        "selectedLabels" -> Some(selectedLabels.mkString(",")).filter(_.trim.nonEmpty),
+        "q" -> searchParams.query
+      )
+      val paramVars = paramMap.map { case (key, value) => key := value }.toSeq
+      val uri = uriTemplate expand (paramVars: _*)
+      Link("related-labels", uri)
+    }
   }
 
   def suggestMetadataCredit(q: Option[String], size: Option[Int]) = Authenticated.async { request =>
