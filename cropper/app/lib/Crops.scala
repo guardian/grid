@@ -11,6 +11,7 @@ import com.gu.mediaservice.lib.Files
 import com.gu.mediaservice.lib.imaging.{ImageOperations, ExportResult}
 
 case object InvalidImage extends Exception("Invalid image cannot be cropped")
+case object MissingMimeType extends Exception("Missing mimeType from source API")
 case object MissingSecureSourceUrl extends Exception("Missing secureUrl from source API")
 case object InvalidCropRequest extends Exception("Crop request invalid for image dimensions")
 
@@ -74,7 +75,7 @@ object Crops {
 
   def export(apiImage: SourceImage, crop: Crop): Future[ExportResult] = {
     val source    = crop.specification
-    val mediaType = "image/jpeg"
+    val mediaType = apiImage.source.mimeType.getOrElse(throw MissingMimeType)
     val secureUrl = apiImage.source.secureUrl.getOrElse(throw MissingSecureSourceUrl)
 
     if(isInvalidCrop(apiImage.source, source)) throw InvalidCropRequest
