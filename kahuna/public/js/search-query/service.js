@@ -12,7 +12,7 @@ searchQueryService.factory('searchQueryService', [function() {
 
     function hasLabel(q, label) {
         // TODO: It'd be nice to build this up from an API
-        const r = new RegExp(`[#|label\:]${label}\\b`);
+        const r = new RegExp(`(#|label\:)${label}\\b`);
         return r.test(q);
     }
 
