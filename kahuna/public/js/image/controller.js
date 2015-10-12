@@ -168,7 +168,7 @@ image.controller('ImageCtrl', [
         });
 
         ctrl.updateMetadataField = function (field, value) {
-            return editsService.updateMetadataField(image, field, value)
+            return editsService.updateMetadataField(ctrl.image, field, value)
                 .then((updatedImage) => {
                     if (updatedImage) {
                         ctrl.image = updatedImage;
