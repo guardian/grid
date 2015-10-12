@@ -239,6 +239,7 @@ object MediaApi extends Controller with ArgoHelpers {
     val labels = searchParams.structuredQuery.flatMap {
       // TODO: Use ImageFields for guard
       case Match(field: SingleField, value:Words) if field.name == "userMetadata.labels" => Some(value.string)
+      case Match(field: SingleField, value:Phrase) if field.name == "userMetadata.labels" => Some(value.string)
       case _ => None
     }
 
