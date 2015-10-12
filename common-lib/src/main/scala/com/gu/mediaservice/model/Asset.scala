@@ -5,7 +5,9 @@ import play.api.libs.json._
 import play.api.libs.functional.syntax._
 import com.gu.mediaservice.lib.aws.S3Object
 
+// FIXME: size, mimeType and dimensions not optional (must backfill first)
 case class Asset(file: URI, size: Option[Long], mimeType: Option[String], dimensions: Option[Dimensions], secureUrl: Option[URL] = None)
+
 object Asset {
 
   def fromS3Object(s3Object: S3Object, dims: Option[Dimensions]): Asset = {
@@ -22,7 +24,7 @@ object Asset {
   }
 
   implicit val assetReads: Reads[Asset] =
-    ((__ \ "file").read[String].map(URI.create(_)) ~
+    ((__ \ "file").read[String].map(URI.create) ~
       (__ \ "size").readNullable[Long] ~
       (__ \ "mimeType").readNullable[String] ~
       (__ \ "dimensions").readNullable[Dimensions] ~
