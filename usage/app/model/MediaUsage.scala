@@ -15,45 +15,6 @@ import play.api.libs.functional.syntax._
 import java.net.URI
 
 
-case class MediaSource (
-  uri: Option[String],
-  name: Option[String]
-)
-
-object MediaSource {
-  def build (usage: MediaUsage): MediaSource = {
-    MediaSource(usage.data.get("webUrl"), usage.data.get("webTitle"))
-  }
-
-  implicit val writes: Writes[MediaSource] = Json.writes[MediaSource]
-}
-
-case class UsageResponse(
-  mediaId: String,
-  source: MediaSource,
-  usageType: String,
-  mediaType: String,
-  dateAdded: Option[DateTime],
-  dateRemoved: Option[DateTime],
-  lastModified: DateTime
-)
-
-object UsageResponse {
-  def build (usage: MediaUsage): UsageResponse = {
-    UsageResponse(
-      usage.mediaId,
-      MediaSource.build(usage),
-      usage.usageType,
-      usage.mediaType,
-      usage.dateAdded,
-      usage.dateRemoved,
-      usage.lastModified
-    )
-  }
-  implicit val dateTimeFormat = DateFormat
-  implicit val writes: Writes[UsageResponse] = Json.writes[UsageResponse]
-}
-
 case class MediaUsage(
   usageId: String,
   grouping: String,
