@@ -208,9 +208,7 @@ results.controller('SearchResultsCtrl', [
 
         ctrl.setParentLabel = () => {
             if (ctrl.parentLabel) {
-                $state.transitionTo($state.current, { query: `#${ctrl.parentLabel}` }, {
-                    reload: true, inherit: false, notify: true
-                });
+                searchQueryService.addLabel(ctrl.parentLabel);
             }
         };
         ctrl.suggestedLabelSearch = q =>

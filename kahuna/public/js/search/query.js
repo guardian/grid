@@ -72,10 +72,11 @@ query.controller('SearchQueryCtrl',
 
     // FIXME: This is here to stop circular injection of the model.
     // Avoiding: queryChange => set() => emit() => queryChange()
-    searchQueryService.q$.subscribe(q => {
-        if (q !== ctrl.filter.query) {
-            ctrl.filter.query = q;
-        }
+    searchQueryService.q$.filter(q =>
+        q !== ctrl.filter.query
+    ).subscribe(q => {
+        ctrl.filter.query = q;
+        console.log(q);
     });
     searchQueryService.set(ctrl.filter.query);
 
