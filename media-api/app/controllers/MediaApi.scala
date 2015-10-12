@@ -286,7 +286,7 @@ object MediaApi extends Controller with ArgoHelpers {
 
   private def getRelatedLabelsLink(searchParams: SearchParams) = {
     // We search if we have a label in the search, take the first one and then look up it's
-    // siblings s that we can return them as "related labels"
+    // siblings so that we can return them as "related labels"
     val labels = searchParams.structuredQuery.flatMap {
       // TODO: Use ImageFields for guard
       case Match(field: SingleField, value:Words) if field.name == "userMetadata.labels" => Some(value.string)
