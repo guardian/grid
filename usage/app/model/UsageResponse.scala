@@ -24,16 +24,24 @@ object UsageResponse extends ArgoHelpers {
         .filter(_.status match {
           case _: PublishedUsageStatus => true
           case _ => false
-        }).headOption
+        })
+        .headOption
 
-        if (publishedUsage.isEmpty) {
+      val mergedUsages = if (publishedUsage.isEmpty) {
           groupedUsages.headOption
         } else {
           publishedUsage
         }
-    }}
 
-    respondCollection(flatUsages.map(UsageResponse.build).toList)
+      mergedUsages.filter(usage => (for {
+        added <- usage.dateAdded
+        removed <- usage.dateRemoved
+      } yield added.isAfter(removed)).getOrElse(true))
+
+    }}.toList
+
+    respondCollections[UsageResponse](
+      data = flatUsages.map(UsageResponse.build).groupBy(_.status.toString))
   }
 
   def build (usage: MediaUsage): UsageResponse = {
