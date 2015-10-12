@@ -20,7 +20,6 @@ jobs.controller('RequiredMetadataEditorCtrl',
 
     ctrl.saving = false;
     ctrl.disabled = () => Boolean(ctrl.saving || ctrl.externallyDisabled);
-    ctrl.metadata = metadataFromOriginal(ctrl.originalMetadata);
     ctrl.saveOnTime = 750; // ms
     ctrl.copyrightWasInitiallyThere = !!ctrl.metadata.copyright;
 
@@ -44,11 +43,15 @@ jobs.controller('RequiredMetadataEditorCtrl',
     };
 
     ctrl.metadataSearch = (field, q) => {
-
         return mediaApi.metadataSearch(field,  { q }).then(resource => {
             return resource.data.map(d => d.key);
         });
     };
+
+    // As we make a copy of this, we need to watch it
+    // in case the metadata changes from above.
+    $scope.$watch(() => ctrl.originalMetadata, metadata =>
+        ctrl.metadata = metadataFromOriginal(metadata));
 
     // TODO: Find a way to broadcast more selectively
     const batchApplyMetadataEvent = 'events:batch-apply:metadata';
