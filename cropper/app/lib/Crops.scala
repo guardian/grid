@@ -6,7 +6,7 @@ import com.gu.mediaservice.lib.metadata.FileMetadataHelper
 
 import scala.concurrent.Future
 
-import com.gu.mediaservice.model.{Asset, Dimensions, SourceImage, Crop, Bounds, CropSource}
+import com.gu.mediaservice.model._
 import com.gu.mediaservice.lib.Files
 import com.gu.mediaservice.lib.imaging.{ImageOperations, ExportResult}
 
@@ -63,25 +63,19 @@ object Crops {
     else
       Config.landscapeCropSizingWidths.filter(_ <= bounds.width).map(w => Dimensions(w, math.round(w / aspectRatio)))
 
-  def isWithinImage(asset: Asset, specification: CropSource): Boolean = {
-    val bounds = specification.bounds
+  def isWithinImage(bounds: Bounds, dimensions: Dimensions): Boolean = {
+    val positiveCoords       = List(bounds.x,     bounds.y     ).forall(_ >= 0)
+    val strictlyPositiveSize = List(bounds.width, bounds.height).forall(_  > 0)
+    val withinBounds = (bounds.x + bounds.width  <= dimensions.width ) &&
+                       (bounds.y + bounds.height <= dimensions.height)
 
-    asset.dimensions.exists { dimensions =>
-      val positiveCoords       = List(bounds.x,     bounds.y     ).forall(_ >= 0)
-      val strictlyPositiveSize = List(bounds.width, bounds.height).forall(_  > 0)
-      val withinBounds = (bounds.x + bounds.width  <= dimensions.width ) &&
-                         (bounds.y + bounds.height <= dimensions.height)
-
-      positiveCoords && strictlyPositiveSize && withinBounds
-    }
+    positiveCoords && strictlyPositiveSize && withinBounds
   }
 
   def export(apiImage: SourceImage, crop: Crop): Future[ExportResult] = {
     val source    = crop.specification
     val mediaType = apiImage.source.mimeType.getOrElse(throw MissingMimeType)
     val secureUrl = apiImage.source.secureUrl.getOrElse(throw MissingSecureSourceUrl)
-
-    if (! isWithinImage(apiImage.source, source)) throw InvalidCropRequest
 
     for {
       sourceFile  <- tempFileFromURL(secureUrl, "cropSource", "", Config.tempDir)
