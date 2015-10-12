@@ -12,7 +12,7 @@ import com.gu.mediaservice.lib.imaging.{ImageOperations, ExportResult}
 
 case object InvalidImage extends Exception("Invalid image cannot be cropped")
 case object MissingSecureSourceUrl extends Exception("Missing secureUrl from source API")
-case object InvalidCropRequest extends Exception("Crop request invalid for image dimesions")
+case object InvalidCropRequest extends Exception("Crop request invalid for image dimensions")
 
 case class MasterCrop(sizing: Future[Asset], file: File, dimensions: Dimensions, aspectRatio: Float)
 
