@@ -43,9 +43,9 @@ object Crops {
 
   def createCrops(sourceFile: File, dimensionList: List[Dimensions], apiImage: SourceImage, crop: Crop, mediaType: String): Future[List[Asset]] = {
     Future.sequence[Asset, List](dimensionList.map { dimensions =>
-      val filename = outputFilename(apiImage, crop.specification.bounds, dimensions.width)
       for {
         file    <- ImageOperations.resizeImage(sourceFile, dimensions, 75d, Config.tempDir)
+        filename = outputFilename(apiImage, crop.specification.bounds, dimensions.width)
         sizing  <- CropStore.storeCropSizing(file, filename, mediaType, crop, dimensions)
         _       <- delete(file)
       }
