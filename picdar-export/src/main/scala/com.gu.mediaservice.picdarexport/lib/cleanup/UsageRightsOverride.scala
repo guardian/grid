@@ -67,11 +67,13 @@ object UsageRightsOverride {
                                     => agency("PA")
     case "AFP" | "AFP/Getty Images" => agency("Getty Images", Some("AFP"))
     case "Allsport"                 => agency("Getty Images", Some("Allsport"))
-    case "FilmMagic"                => agency("Getty Images", Some("FilmMagic"))
+    case "FilmMagic" | "FilmMagic.com"
+                                    => agency("Getty Images", Some("FilmMagic"))
     case "BFI"                      => agency("Getty Images", Some("BFI"))
     case "WireImage"                => agency("Getty Images", Some("WireImage"))
     case "Hulton Getty"             => agency("Getty Images", Some("Hulton"))
     case "Tim Graham/Getty Images"  => agency("Getty Images", Some("Tim Graham"))
+    case "Man Utd via Getty Images" => agency("Getty Images", Some("Man Utd"))
     case "Allstar"                  => agency("Allstar Picture Library")
     case "Sportsphoto Ltd." | "Sportsphoto Ltd./Allstar" |
          "SPORTSPHOTO LTD" | "ALLSTAR/SPORTSPHOTO"
