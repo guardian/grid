@@ -1,0 +1,12 @@
+<div ng:switch="image.data.cost">
+    <div ng:switch-when="pay"
+         class="image-notice image-info__group status cost cost--pay">
+        Pay to use
+    </div>
+
+    <div ng:switch-when="conditional"
+         class="image-notice image-info__group cost cost--conditional"
+         title="This image can be used but only within certain restrictions">
+        <b>Restricted use:</b> {{image.data.usageRights.restrictions}}
+    </div>
+</div>
