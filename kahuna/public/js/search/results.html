@@ -29,7 +29,7 @@
                         results__related-labels related-labels flex-container text-small"
                         ng:class="{'related-labels--with-labels': ctrl.relatedLabels.length !== 0}">
                 <div class="related-labels__title">
-                    Related to:
+                    Related to
                     <span ng:switch="ctrl.relatedLabels.length === 0">
                         <form class="inline-block" ng:switch-when="true" ng:submit="ctrl.setParentLabel()">
                             <gr-datalist
@@ -44,7 +44,7 @@
                                        gr:datalist-input />
                             </gr-datalist>
                         </form>
-                        <span ng:switch-default>{{ctrl.parentLabel}}</span>
+                        <span ng:switch-default>{{ctrl.parentLabel}}:</span>
                     </span>
                 </div>
                 <ul class="flex-container related-labels__labels">
