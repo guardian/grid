@@ -55,7 +55,7 @@ results.controller('SearchResultsCtrl', [
     'panelService',
     'range',
     'isReloadingPreviousSearch',
-    'searchQueryService',
+    'searchQuery',
     function($rootScope,
              $scope,
              $state,
@@ -75,7 +75,7 @@ results.controller('SearchResultsCtrl', [
              panelService,
              range,
              isReloadingPreviousSearch,
-             searchQueryService) {
+             searchQuery) {
 
         const ctrl = this;
 
@@ -198,15 +198,15 @@ results.controller('SearchResultsCtrl', [
 
         ctrl.toggleLabelToSearch = label => {
             if (label.selected) {
-                searchQueryService.removeLabel(label.name);
+                searchQuery.removeLabel(label.name);
             } else {
-                searchQueryService.addLabel(label.name);
+                searchQuery.addLabel(label.name);
             }
         };
 
         ctrl.setParentLabel = () => {
             if (ctrl.parentLabel) {
-                searchQueryService.addLabel(ctrl.parentLabel);
+                searchQuery.addLabel(ctrl.parentLabel);
             }
         };
         ctrl.suggestedLabelSearch = q =>

@@ -54,7 +54,7 @@ search.config(['$stateProvider',
             }]
         },
         resolve: {
-            searchQueryService: ['$stateParams', 'searchQueryService', function($stateParams, searchQueryService) {
+            searchQuery: ['$stateParams', 'searchQueryService', function($stateParams, searchQueryService) {
                 return searchQueryService($stateParams.query);
             }]
         }
