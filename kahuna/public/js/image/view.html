@@ -94,18 +94,7 @@
     <div class="image-info">
         <gr-metadata-validity gr-image="ctrl.image"></gr-metadata-validity>
 
-        <div ng:switch="ctrl.image.data.cost">
-            <div ng:switch-when="pay"
-                 class="image-notice image-info__group status cost cost--pay">
-                Pay to use
-            </div>
-
-            <div ng:switch-when="conditional"
-                 class="image-notice image-info__group cost cost--conditional"
-                 title="This image can be used but only within certain restrictions">
-                <b>Restricted use:</b> {{ctrl.image.data.usageRights.restrictions}}
-            </div>
-        </div>
+        <gr-image-cost-message gr-image="ctrl.image"></gr-image-cost-message>
 
         <div class="image-info__group">
             <dl class="image-info__wrap metadata-line image-info__usage-rights">
