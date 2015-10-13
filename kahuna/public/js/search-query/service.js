@@ -13,18 +13,21 @@ searchQueryService.factory('searchQueryService', [function() {
         distinctUntilChanged().
         shareReplay(1);
 
+    // TODO: It'd be nice to build this up from an API
+    const hasSpace    = s     => /\s/g.test(s);
+    const labelMatch  = label => new RegExp(`(label:|#)("|')?${label}(("|')|\\b)`, 'g');
+    const createLabel = label => hasSpace(label) ? `#"${label}"` : `#${label}`;
+
     function hasLabel(q, label) {
-        // TODO: It'd be nice to build this up from an API
-        const r = new RegExp(`(#|label\:)${label}\\b`);
-        return r.test(q);
+        return labelMatch(label).test(q);
     }
 
     function addLabel(label) {
-        query$.onNext(q => hasLabel(q, label) ? q : `${q} #${label}`);
+        query$.onNext(q => hasLabel(q, label) ? q : `${q} ${createLabel(label)}`);
     }
 
     function removeLabel(label) {
-        query$.onNext(q => q.replace(`#${label}`, ''));
+        query$.onNext(q => q.replace(labelMatch(label), ''));
     }
 
     function set(q) {
