@@ -125,7 +125,8 @@ object ElasticSearch extends ElasticSearchClient with SearchFilters with ImageFi
       }
   }
 
-  def labelSiblingsSearch(structuredQuery: List[Condition], excludeLabels: List[String] = Nil)(implicit ex: ExecutionContext): Future[AggregateSearchResults] = {
+  def labelSiblingsSearch(structuredQuery: List[Condition], excludeLabels: List[String] = Nil, size: Int = 20)
+                         (implicit ex: ExecutionContext): Future[AggregateSearchResults] = {
     val name = "labelSiblings"
     val lastModifiedField = "lastModified"
     val labelsField = editsField("labels")
@@ -144,6 +145,7 @@ object ElasticSearch extends ElasticSearchClient with SearchFilters with ImageFi
         .field(labelsField)
         .excludeList(excludeLabels)
         .order(Terms.Order.aggregation(lastModifiedField, false))
+        .size(size)
         .subAggregation(sortByDateAggr)
 
     val search =
