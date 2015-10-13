@@ -211,7 +211,8 @@ results.controller('SearchResultsCtrl', [
         ctrl.setParentLabel = () => {
             if (ctrl.parentLabel) {
                 const parentLabel = queryLabelFilterFilter(ctrl.parentLabel);
-                $state.transitionTo($state.current, { query: `${parentLabel}` }, {
+                const newQ = `${$stateParams.query.trim()} ${parentLabel}`;
+                $state.transitionTo($state.current, { query: newQ }, {
                     reload: true, inherit: false, notify: true
                 });
             }

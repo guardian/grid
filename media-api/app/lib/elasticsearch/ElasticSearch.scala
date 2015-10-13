@@ -2,6 +2,7 @@ package lib.elasticsearch
 
 import java.util.regex.Pattern
 
+import lib.querysyntax.Condition
 import org.elasticsearch.index.query.{MatchAllQueryBuilder, FilterBuilder, FilteredQueryBuilder}
 import org.elasticsearch.search.aggregations.bucket.terms.{Terms, InternalTerms}
 
@@ -124,10 +125,11 @@ object ElasticSearch extends ElasticSearchClient with SearchFilters with ImageFi
       }
   }
 
-  def labelSiblingsSearch(label: String, excludeLabels: List[String] = Nil)(implicit ex: ExecutionContext): Future[AggregateSearchResults] = {
+  def labelSiblingsSearch(structuredQuery: List[Condition], excludeLabels: List[String] = Nil)(implicit ex: ExecutionContext): Future[AggregateSearchResults] = {
     val name = "labelSiblings"
     val lastModifiedField = "lastModified"
     val labelsField = editsField("labels")
+    val query = queryBuilder.makeQuery(structuredQuery)
 
     // We sort by the maximum lastModified
     // TODO: We could add a lastModified to the labels resource and then sort by that
@@ -136,20 +138,17 @@ object ElasticSearch extends ElasticSearchClient with SearchFilters with ImageFi
         max(lastModifiedField).
         field(lastModifiedField)
 
-    // Only aggregate records which have the "top level" label that we're looking for
-    val filter = filters.term(labelsField, label)
-
     val aggregate =
       AggregationBuilders
         .terms(name)
         .field(labelsField)
-        .excludeList(label :: excludeLabels)
+        .excludeList(excludeLabels)
         .order(Terms.Order.aggregation(lastModifiedField, false))
         .subAggregation(sortByDateAggr)
 
     val search =
       prepareImagesSearch
-        .setQuery(matchAllQueryWithFilter(filter))
+        .setQuery(query)
         .addAggregation(aggregate)
 
     search
