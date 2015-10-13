@@ -211,7 +211,9 @@ results.controller('SearchResultsCtrl', [
         ctrl.setParentLabel = () => {
             if (ctrl.parentLabel) {
                 const parentLabel = queryLabelFilterFilter(ctrl.parentLabel);
-                const newQ = `${$stateParams.query.trim()} ${parentLabel}`;
+                // this can be undefined...
+                const q = ($stateParams.query || '').trim();
+                const newQ = `${q} ${parentLabel}`;
                 $state.transitionTo($state.current, { query: newQ }, {
                     reload: true, inherit: false, notify: true
                 });
