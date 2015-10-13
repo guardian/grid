@@ -11,17 +11,22 @@ import template from './query.html!text';
 
 import '../analytics/track';
 
+import '../util/rx';
+
 export var query = angular.module('kahuna.search.query', [
     // Note: temporarily disabled for performance reasons, see above
     // 'ngAnimate',
     'util.eq',
     'gu-dateRange',
-    'analytics.track'
+    'analytics.track',
+    'util.rx'
 ]);
 
 query.controller('SearchQueryCtrl',
-                 ['$scope', '$state', '$stateParams', 'onValChange', 'mediaApi', 'track',
-                 function($scope, $state, $stateParams, onValChange , mediaApi, track) {
+                 ['$scope', '$state', '$stateParams', 'onValChange', 'mediaApi', 'track', 'inject$',
+                  'searchQuery',
+                 function($scope, $state, $stateParams, onValChange , mediaApi, track, inject$,
+                          searchQuery) {
 
     var ctrl = this;
 
@@ -62,6 +67,10 @@ query.controller('SearchQueryCtrl',
     Object.keys($stateParams)
           .forEach(setAndWatchParam);
 
+    // FIXME: This is here to stop circular injection of the model.
+    // Avoiding: queryChange => set() => emit() => queryChange()
+    inject$($scope, searchQuery.q$, ctrl.filter, 'query');
+
     // pass undefined to the state on empty to remove the QueryString
     function valOrUndefined(str) { return str || undefined; }
 
@@ -96,14 +105,6 @@ query.controller('SearchQueryCtrl',
         ctrl.filter.query = '';
         $scope.$broadcast('search:focus-query');
     }
-}]);
-
-query.directive('searchQuery', [function() {
-    return {
-        restrict: 'E',
-        controller: 'SearchQueryCtrl as searchQuery',
-        template: template
-    };
 }]);
 
 query.directive('gridFocusOn', function() {

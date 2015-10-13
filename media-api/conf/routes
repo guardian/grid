@@ -10,25 +10,25 @@ GET     /images/metadata/:field                       controllers.MediaApi.metad
 GET     /images/edits/:field                          controllers.MediaApi.editsSearch(field: String, q: Option[String])
 
 # Images
-GET     /images/:id                                   controllers.MediaApi.getImage(id: String)
-GET     /images/:id/fileMetadata                      controllers.MediaApi.getImageFileMetadata(id: String)
-POST    /images/:id/reindex                           controllers.MediaApi.reindexImage(id: String)
-DELETE  /images/:id                                   controllers.MediaApi.deleteImage(id: String)
+GET     /images/:id                                      controllers.MediaApi.getImage(id: String)
+GET     /images/:id/fileMetadata                         controllers.MediaApi.getImageFileMetadata(id: String)
+POST    /images/:id/reindex                              controllers.MediaApi.reindexImage(id: String)
+DELETE  /images/:id                                      controllers.MediaApi.deleteImage(id: String)
 
-GET     /images                                       controllers.MediaApi.imageSearch
+GET     /images                                          controllers.MediaApi.imageSearch
 
 # completion
-GET     /suggest/metadata/credit                      controllers.MediaApi.suggestMetadataCredit(q: Option[String], size: Option[Int])
-GET     /suggest/edits/labels/:label/sibling-labels   controllers.MediaApi.suggestLabelSiblings(label: String, selectedLabels: Option[String])
-GET     /suggest/edits/labels                         controllers.MediaApi.suggestLabels(q: Option[String])
+GET     /suggest/metadata/credit                         controllers.MediaApi.suggestMetadataCredit(q: Option[String], size: Option[Int])
+GET     /suggest/edits/labels/:mainLabel/sibling-labels  controllers.MediaApi.suggestLabelSiblings(mainLabel: String, q: Option[String], selectedLabels: Option[String])
+GET     /suggest/edits/labels                            controllers.MediaApi.suggestLabels(q: Option[String])
 
 # Management
-GET     /management/healthcheck                       controllers.HealthCheck.healthCheck
-GET     /management/manifest                          com.gu.mediaservice.lib.management.Management.manifest
+GET     /management/healthcheck                          controllers.HealthCheck.healthCheck
+GET     /management/manifest                             com.gu.mediaservice.lib.management.Management.manifest
 
 # Enable CORS
-OPTIONS /                                             controllers.CorsPreflight.options(ignoredUrl = "")
-OPTIONS /*ignoredUrl                                  controllers.CorsPreflight.options(ignoredUrl)
+OPTIONS /                                                controllers.CorsPreflight.options(ignoredUrl = "")
+OPTIONS /*ignoredUrl                                     controllers.CorsPreflight.options(ignoredUrl)
 
 # Shoo robots away
-GET     /robots.txt                                   controllers.Robots.disallowAll
+GET     /robots.txt                                      controllers.Robots.disallowAll

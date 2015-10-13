@@ -10,10 +10,12 @@ import '../lib/data-structure/list-factory';
 import '../lib/data-structure/ordered-set-factory';
 import '../components/gr-top-bar/gr-top-bar';
 import '../components/gr-panel/gr-panel';
+import '../search-query/service';
 
+import searchQueryTemplate   from './query.html!text';
 import searchTemplate        from './view.html!text';
 import searchResultsTemplate from './results.html!text';
-import panelTemplate        from '../components/gr-panel/gr-panel.html!text';
+import panelTemplate         from '../components/gr-panel/gr-panel.html!text';
 
 
 export var search = angular.module('kahuna.search', [
@@ -23,6 +25,7 @@ export var search = angular.module('kahuna.search', [
     'kahuna.preview.image',
     'data-structure.list-factory',
     'data-structure.ordered-set-factory',
+    'gr.searchQuery.service',
     'gr.topBar',
     'grPanel'
 ]);
@@ -36,7 +39,9 @@ search.config(['$stateProvider',
     $stateProvider.state('search', {
         // FIXME [1]: This state should be abstract, but then we can't navigate to
         // it, which we need to do to access it's deeper / remembered chile state
-        url: '/',
+        // FIXME: We now share the `query` param between the `query` and results view.
+        // I'm not sure if this is exactly what we want.
+        url: '/?query',
         template: searchTemplate,
         deepStateRedirect: {
             // Inject a transient $stateParams for the results state
@@ -47,11 +52,16 @@ search.config(['$stateProvider',
                 });
                 return {state: $dsr$.redirect.state, params};
             }]
+        },
+        resolve: {
+            searchQuery: ['$stateParams', 'searchQueryService', function($stateParams, searchQueryService) {
+                return searchQueryService($stateParams.query);
+            }]
         }
     });
 
     $stateProvider.state('search.results', {
-        url: 'search?query&ids&since&nonFree&uploadedBy&until&orderBy',
+        url: 'search?ids&since&nonFree&uploadedBy&until&orderBy',
         // Non-URL parameters
         params: {
             // Routing-level property indicating whether the state has
@@ -104,6 +114,11 @@ search.config(['$stateProvider',
             }]
         },
         views: {
+            query: {
+                template: searchQueryTemplate,
+                controller: 'SearchQueryCtrl',
+                controllerAs: 'searchQuery'
+            },
             results: {
                 template: searchResultsTemplate,
                 controller: 'SearchResultsCtrl',

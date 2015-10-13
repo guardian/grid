@@ -55,7 +55,7 @@ results.controller('SearchResultsCtrl', [
     'panelService',
     'range',
     'isReloadingPreviousSearch',
-    'queryLabelFilterFilter',
+    'searchQuery',
     function($rootScope,
              $scope,
              $state,
@@ -75,7 +75,7 @@ results.controller('SearchResultsCtrl', [
              panelService,
              range,
              isReloadingPreviousSearch,
-             queryLabelFilterFilter) {
+             searchQuery) {
 
         const ctrl = this;
 
@@ -197,23 +197,16 @@ results.controller('SearchResultsCtrl', [
         inject$($scope, parentLabel$, ctrl, 'parentLabel');
 
         ctrl.toggleLabelToSearch = label => {
-            // TODO: Move this to a searchQueryService
-            const oldQ = $stateParams.query.trim();
-            const searchableLabel = queryLabelFilterFilter(label.name);
-            const query = (label.selected ? oldQ.replace(`${searchableLabel}`, '')
-                          : `${oldQ} ${searchableLabel}`).trim();
-            const newStateParams = angular.extend({}, $stateParams, { query });
-            $state.transitionTo($state.current, newStateParams, {
-                reload: true, inherit: false, notify: true
-            });
+            if (label.selected) {
+                searchQuery.removeLabel(label.name);
+            } else {
+                searchQuery.addLabel(label.name);
+            }
         };
 
         ctrl.setParentLabel = () => {
             if (ctrl.parentLabel) {
-                const parentLabel = queryLabelFilterFilter(ctrl.parentLabel);
-                $state.transitionTo($state.current, { query: `${parentLabel}` }, {
-                    reload: true, inherit: false, notify: true
-                });
+                searchQuery.addLabel(ctrl.parentLabel);
             }
         };
         ctrl.suggestedLabelSearch = q =>
