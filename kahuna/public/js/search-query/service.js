@@ -6,10 +6,14 @@ export const searchQueryService = angular.module('gr.searchQuery.service', ['uti
 
 searchQueryService.factory('searchQueryService', [function() {
     // TODO: When we update rx, we need to swap the seed / acc around
-    const q$ = (query$, startWith = '') => query$.
-        scan(startWith, (state, fn) => fn(state).trim()).
-        distinctUntilChanged().
-        shareReplay(1);
+    // FIXME: We use startWith and set the start value as we want to emit
+    // the first value, but strangely that doesn't get saved into the state
+    const q$ = (query$, startWith = '') =>
+        query$.
+            scan(startWith, (state, fn) => fn(state).trim()).
+            distinctUntilChanged().
+            shareReplay(1).
+            startWith(startWith);
 
     // TODO: It'd be nice to build this up from an API
     const hasSpace    = s     => /\s/g.test(s);

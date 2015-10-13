@@ -75,18 +75,21 @@ query.controller('SearchQueryCtrl',
     function valOrUndefined(str) { return str || undefined; }
 
     function setAndWatchParam(key) {
-        ctrl.filter[key] = $stateParams[key];
+        // query is handled by Rx
+        if (key !== 'query') {
+            ctrl.filter[key] = $stateParams[key];
 
-        $scope.$watch(() => $stateParams[key], onValChange(newVal => {
-            // FIXME: broken for 'your uploads'
-            // FIXME: + they triggers filter $watch and $state.go (breaks history)
-            ctrl.filter[key] = valOrUndefined(newVal);
+            $scope.$watch(() => $stateParams[key], onValChange(newVal => {
+                // FIXME: broken for 'your uploads'
+                // FIXME: + they triggers filter $watch and $state.go (breaks history)
+                ctrl.filter[key] = valOrUndefined(newVal);
 
-            // don't track changes to `query` as it would trigger on every keypress
-            if (key !== 'query') {
-                track.success('Query change', { field: key, value: newVal });
-            }
-        }));
+                // don't track changes to `query` as it would trigger on every keypress
+                if (key !== 'query') {
+                    track.success('Query change', { field: key, value: newVal });
+                }
+            }));
+        }
     }
 
     $scope.$watchCollection(() => ctrl.filter, onValChange(filter => {
