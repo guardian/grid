@@ -4,6 +4,7 @@ import java.net.URI
 
 import com.gu.mediaservice.lib.config.MetadataConfig
 import play.api.mvc.Security.AuthenticatedRequest
+import play.utils.UriEncoding
 
 import scala.concurrent.Future
 import scala.util.Try
@@ -301,7 +302,9 @@ object MediaApi extends Controller with ArgoHelpers {
     }
 
     mainLabel.map { label =>
-      val uriTemplate = URITemplate(s"$rootUri/suggest/edits/labels/$label/sibling-labels{?selectedLabels,q}")
+      // FIXME: This is to stop a search for plain `"` breaking the whole lot.
+      val encodedLabel = UriEncoding.encodePathSegment(label, "UTF-8")
+      val uriTemplate = URITemplate(s"$rootUri/suggest/edits/labels/${encodedLabel}/sibling-labels{?selectedLabels,q}")
       val paramMap = Map(
         "selectedLabels" -> Some(selectedLabels.mkString(",")).filter(_.trim.nonEmpty),
         "q" -> searchParams.query
