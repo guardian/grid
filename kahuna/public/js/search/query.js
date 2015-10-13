@@ -76,6 +76,7 @@ query.controller('SearchQueryCtrl',
 
     function setAndWatchParam(key) {
         // query is handled by Rx
+        // we also don't track changes to `query` as it would trigger on every keypress
         if (key !== 'query') {
             ctrl.filter[key] = $stateParams[key];
 
@@ -84,10 +85,7 @@ query.controller('SearchQueryCtrl',
                 // FIXME: + they triggers filter $watch and $state.go (breaks history)
                 ctrl.filter[key] = valOrUndefined(newVal);
 
-                // don't track changes to `query` as it would trigger on every keypress
-                if (key !== 'query') {
-                    track.success('Query change', { field: key, value: newVal });
-                }
+                track.success('Query change', { field: key, value: newVal });
             }));
         }
     }
