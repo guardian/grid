@@ -9,7 +9,6 @@ import '../util/seq';
 import '../components/gu-lazy-table/gu-lazy-table';
 import '../downloader/downloader';
 import '../components/gr-delete-image/gr-delete-image';
-import '../search-query/service';
 
 export var results = angular.module('kahuna.search.results', [
     'kahuna.services.scroll-position',
@@ -19,8 +18,7 @@ export var results = angular.module('kahuna.search.results', [
     'util.seq',
     'gu.lazyTable',
     'gr.downloader',
-    'gr.deleteImage',
-    'gr.searchQuery.service'
+    'gr.deleteImage'
 ]);
 
 

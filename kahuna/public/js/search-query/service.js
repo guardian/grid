@@ -5,11 +5,9 @@ import '../util/rx';
 export const searchQueryService = angular.module('gr.searchQuery.service', ['util.rx']);
 
 searchQueryService.factory('searchQueryService', [function() {
-    const query$ = new Rx.Subject();
-
     // TODO: When we update rx, we need to swap the seed / acc around
-    const q$ = query$.
-        scan('', (state, fn) => fn(state).trim()).
+    const q$ = (query$, startWith) => query$.
+        scan(startWith || '', (state, fn) => fn(state).trim()).
         distinctUntilChanged().
         shareReplay(1);
 
@@ -22,17 +20,28 @@ searchQueryService.factory('searchQueryService', [function() {
         return labelMatch(label).test(q);
     }
 
-    function addLabel(label) {
-        query$.onNext(q => hasLabel(q, label) ? q : `${q} ${createLabel(label)}`);
+    function addLabel(query$) {
+        return label =>
+            query$.onNext(q => hasLabel(q, label) ? q : `${q} ${createLabel(label)}`);
     }
 
-    function removeLabel(label) {
-        query$.onNext(q => q.replace(labelMatch(label), ''));
+    function removeLabel(query$) {
+        return label => query$.onNext(q => q.replace(labelMatch(label), ''));
     }
 
-    function set(q) {
-        query$.onNext(() => q || '');
+    function setQuery(query$) {
+        return q => query$.onNext(() => q || '');
     }
 
-    return { q$, addLabel, removeLabel, 'set': set };
+    return q => {
+        const query$ = new Rx.Subject();
+        const service = {
+            q$:          q$(query$, q),
+            addLabel:    addLabel(query$),
+            removeLabel: removeLabel(query$),
+            setQuery:    setQuery(query$)
+        };
+
+        return service;
+    };
 }]);

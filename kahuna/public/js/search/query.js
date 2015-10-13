@@ -11,7 +11,6 @@ import template from './query.html!text';
 
 import '../analytics/track';
 
-import '../search-query/service';
 import '../util/rx';
 
 export var query = angular.module('kahuna.search.query', [
@@ -20,15 +19,14 @@ export var query = angular.module('kahuna.search.query', [
     'util.eq',
     'gu-dateRange',
     'analytics.track',
-    'gr.searchQuery.service',
     'util.rx'
 ]);
 
 query.controller('SearchQueryCtrl',
-                 ['$scope', '$state', '$stateParams', 'onValChange', 'mediaApi', 'track',
-                  'searchQueryService', 'inject$',
-                 function($scope, $state, $stateParams, onValChange , mediaApi, track,
-                          searchQueryService, inject$) {
+                 ['$scope', '$state', '$stateParams', 'onValChange', 'mediaApi', 'track', 'inject$',
+                  'searchQueryService',
+                 function($scope, $state, $stateParams, onValChange , mediaApi, track, inject$,
+                          searchQueryService) {
 
     var ctrl = this;
 
@@ -69,14 +67,10 @@ query.controller('SearchQueryCtrl',
     Object.keys($stateParams)
           .forEach(setAndWatchParam);
 
-    ctrl.changeQuery = () =>
-        searchQueryService.set(ctrl.filter.query);
-
     // FIXME: This is here to stop circular injection of the model.
     // Avoiding: queryChange => set() => emit() => queryChange()
     const changedQuery$ = searchQueryService.q$.filter(q => q !== ctrl.filter.query);
     inject$($scope, changedQuery$, ctrl.filter, 'query');
-    searchQueryService.set(ctrl.filter.query);
 
     // pass undefined to the state on empty to remove the QueryString
     function valOrUndefined(str) { return str || undefined; }
@@ -112,14 +106,6 @@ query.controller('SearchQueryCtrl',
         ctrl.filter.query = '';
         $scope.$broadcast('search:focus-query');
     }
-}]);
-
-query.directive('searchQuery', [function() {
-    return {
-        restrict: 'E',
-        controller: 'SearchQueryCtrl as searchQuery',
-        template: template
-    };
 }]);
 
 query.directive('gridFocusOn', function() {
