@@ -6,8 +6,8 @@ export const searchQueryService = angular.module('gr.searchQuery.service', ['uti
 
 searchQueryService.factory('searchQueryService', [function() {
     // TODO: When we update rx, we need to swap the seed / acc around
-    const q$ = (query$, startWith) => query$.
-        scan(startWith || '', (state, fn) => fn(state).trim()).
+    const q$ = (query$, startWith = '') => query$.
+        scan(startWith, (state, fn) => fn(state).trim()).
         distinctUntilChanged().
         shareReplay(1);
 
