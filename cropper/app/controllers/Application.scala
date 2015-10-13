@@ -34,8 +34,6 @@ object Application extends Controller with ArgoHelpers {
 
   val mediaApiKey = keyStore.findKey("cropper").getOrElse(throw new Error("Missing cropper API key in key bucket"))
 
-  val parseExportRequest = parse.json(ExportRequest.readExportRequest)
-
 
   val indexResponse = {
     val indexData = Map("description" -> "This is the Cropper Service")
@@ -47,7 +45,7 @@ object Application extends Controller with ArgoHelpers {
 
   def index = Authenticated { indexResponse }
 
-  def export = Authenticated.async(parseExportRequest) { httpRequest =>
+  def export = Authenticated.async(parse.json[ExportRequest]) { httpRequest =>
     val exportRequest = httpRequest.body
     val user = httpRequest.user
 
