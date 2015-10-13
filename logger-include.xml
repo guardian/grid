@@ -1,0 +1,20 @@
+<included>
+    <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>%date [%thread] %-5level GUUID=%X{GUUID} %logger{36}:%L - %msg%n%xException{15}</pattern>
+        </encoder>
+    </appender>
+
+    <logger name="play" level="INFO" />
+
+    <logger name="application" level="DEBUG" />
+
+    <logger name="com.amazonaws">
+        <level value="ERROR" />
+    </logger>
+
+    <root level="DEBUG">
+        <appender-ref ref="CONSOLE"/>
+    </root>
+</included>
+
