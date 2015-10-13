@@ -22,7 +22,7 @@ object UsageRecorder {
   // Subscription should not be evaluated until required
   lazy val subscription = UsageRecorder.observable.subscribe(
     (usage: JsObject) => {
-      Logger.info(s"UsageRecorder processed update: ${usage}")
+      Logger.debug(s"UsageRecorder processed update: ${usage}")
       UsageMetrics.usageUpdates.increment()
     },
     (error: Throwable) => {
