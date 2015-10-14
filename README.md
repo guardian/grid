@@ -32,9 +32,8 @@ You will need to install:
 * sbt
 * JDK 8
 * Nginx
-* [GraphicsMagick](http://www.graphicsmagick.org/) or [ImageMagick](http://www.imagemagick.org/) (we use
-GraphicsMagick on the servers).
-`sudo apt-get install graphics` or `brew install imagemagick`.
+* [GraphicsMagick](http://www.graphicsmagick.org/)
+`sudo apt-get install graphicsmagick` or `brew install graphicsmagick`.
 
 ### Nginx
 
