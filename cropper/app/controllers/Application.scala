@@ -3,6 +3,7 @@ package controllers
 import java.net.URI
 
 import scala.concurrent.Future
+import scala.util.control.NonFatal
 
 import _root_.play.api.mvc.Controller
 import _root_.play.api.libs.json._
@@ -23,6 +24,10 @@ import org.joda.time.DateTime
 import lib._
 import model._
 
+
+case object InvalidSource extends Exception("Invalid source URI, not a media API URI")
+case object ImageNotFound extends Exception("No such image found")
+case object ApiRequestFailed extends Exception("Failed to fetch the source")
 
 object Application extends Controller with ArgoHelpers {
 
@@ -45,23 +50,29 @@ object Application extends Controller with ArgoHelpers {
 
   def index = Authenticated { indexResponse }
 
-  def export = Authenticated.async(parse.json[ExportRequest]) { httpRequest =>
-    val exportRequest = httpRequest.body
-    val user = httpRequest.user
+  def export = Authenticated.async(parse.json) { httpRequest =>
+    httpRequest.body.validate[ExportRequest] map { exportRequest =>
+      val user = httpRequest.user
 
-    executeRequest(exportRequest, user).map { case (imageId, export) =>
-      val cropJson = Json.toJson(export).as[JsObject]
-      val exports  = Json.obj(
-        "id" -> imageId,
-        "data" -> Json.arr(cropJson)
-      )
+      executeRequest(exportRequest, user).map { case (imageId, export) =>
+        val cropJson = Json.toJson(export).as[JsObject]
+        val exports = Json.obj(
+          "id" -> imageId,
+          "data" -> Json.arr(cropJson)
+        )
 
-      Notifications.publish(exports, "update-image-exports")
-      Ok(cropJson).as(ArgoMediaType)
-    } recover {
-      case InvalidImage => respondError(BadRequest, "invalid-image", InvalidImage.getMessage)
-      case MissingSecureSourceUrl => respondError(BadRequest, "no-source-image", MissingSecureSourceUrl.getMessage)
-      case InvalidCropRequest => respondError(BadRequest, "invalid-crop", InvalidCropRequest.getMessage)
+        Notifications.publish(exports, "update-image-exports")
+        Ok(cropJson).as(ArgoMediaType)
+      } recover {
+        case InvalidSource => respondError(BadRequest, "invalid-source", InvalidSource.getMessage)
+        case ImageNotFound => respondError(BadRequest, "image-not-found", ImageNotFound.getMessage)
+        case InvalidImage => respondError(BadRequest, "invalid-image", InvalidImage.getMessage)
+        case MissingSecureSourceUrl => respondError(BadRequest, "no-source-image", MissingSecureSourceUrl.getMessage)
+        case InvalidCropRequest => respondError(BadRequest, "invalid-crop", InvalidCropRequest.getMessage)
+        case ApiRequestFailed => respondError(BadGateway, "api-failed", ApiRequestFailed.getMessage)
+      }
+    } recoverTotal {
+      case e => Future.successful(respondError(BadRequest, "bad-request", e.errors.head._2.head.message))
     }
   }
 
@@ -96,9 +107,9 @@ object Application extends Controller with ArgoHelpers {
     }
   }
 
-
   def executeRequest(exportRequest: ExportRequest, user: Principal): Future[(String, Crop)] =
     for {
+      _          <- verify(isMediaApiUri(exportRequest.uri), InvalidSource)
       apiImage   <- fetchSourceFromApi(exportRequest.uri)
       _          <- verify(apiImage.valid, InvalidImage)
       // Image should always have dimensions, but we want to safely extract the Option
@@ -119,14 +130,29 @@ object Application extends Controller with ArgoHelpers {
     case u: PandaUser => Some(u.email)
   }
 
+  // TODO: lame, parse into URI object and compare host instead
+  def isMediaApiUri(uri: String): Boolean = uri.startsWith(Config.apiUri)
+
   def fetchSourceFromApi(uri: String): Future[SourceImage] = {
     val imageRequest = WS.url(uri).
       withHeaders("X-Gu-Media-Key" -> mediaApiKey).
-      withQueryString("include" -> "fileMetadata")
-    for (resp <- imageRequest.get)
+      withQueryString("include" -> "fileMetadata").
+      get().
+      recoverWith {
+        case NonFatal(e) =>
+          Logger.warn(s"HTTP request to fetch source failed: $e")
+          Future.failed(ApiRequestFailed)
+      }
+    for (resp <- imageRequest)
     yield {
-      if (resp.status != 200) Logger.warn(s"HTTP status ${resp.status} ${resp.statusText} from $uri")
-      resp.json.as[SourceImage]
+      if (resp.status == 404) {
+        throw ImageNotFound
+      } else if (resp.status != 200) {
+        Logger.warn(s"HTTP status ${resp.status} ${resp.statusText} from $uri")
+        throw ApiRequestFailed
+      } else {
+        resp.json.as[SourceImage]
+      }
     }
   }
 
