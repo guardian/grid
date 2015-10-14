@@ -21,6 +21,15 @@ upload.factory('uploadManager',
             resourcePromise: request
         };
     }
+    function createUriJobItem(fileUri) {
+        var request = fileUploader.loadUriImage(fileUri);
+
+        return {
+            name: fileUri,
+            dataUrl: fileUri,
+            resourcePromise: request
+        };
+    }
 
     function upload(files) {
         var job = files.map(createJobItem);
@@ -33,12 +42,25 @@ upload.factory('uploadManager',
         $q.all(promises).finally(() => jobs.delete(job));
     }
 
+    function uploadUri(uri) {
+        var jobItem = createUriJobItem(uri);
+        var promise = jobItem.resourcePromise;
+        var job = [jobItem];
+
+        jobs.add(job);
+
+        // once all `jobItems` in a job are complete, remove it
+        // TODO: potentially move these to a `completeJobs` `Set`
+        promise.finally(() => jobs.delete(job));
+    }
+
     function getLatestRunningJob() {
         return jobs.values().next().value;
     }
 
     return {
         upload,
+        uploadUri,
         getLatestRunningJob
     };
 }]);
@@ -69,7 +91,12 @@ upload.factory('fileUploader',
         return loaderApi.load(new Uint8Array(fileData), uploadInfo);
     }
 
+    function loadUriImage(fileUri) {
+        return loaderApi.import(fileUri);
+    }
+
     return {
-        upload
+        upload,
+        loadUriImage
     };
 }]);

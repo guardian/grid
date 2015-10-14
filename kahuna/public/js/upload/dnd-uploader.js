@@ -57,11 +57,8 @@ dndUploader.controller('DndUploaderCtrl',
     }
 
    function loadUriImage(fileUri) {
-        return loaderApi.import(fileUri).then(mediaResp =>
-            // Wait until image indexed
-            apiPoll(() => mediaResp.get()).
-                then(() => $state.go('upload', {}, { reload: true }))
-        );
+        uploadManager.uploadUri(fileUri);
+        $state.go('upload', {}, { reload: true });
     }
 
     function importWitnessImage(uri) {
@@ -180,17 +177,7 @@ dndUploader.directive('dndUploader', ['$window', 'delay', 'safeApply', 'track',
                     });
                     track.action(trackEvent, dropAction('Witness'));
                 } else if (uri) {
-                    ctrl.importing = true;
-                    ctrl.loadUriImage(uri)
-                        .catch(error => {
-                            if (error.body && error.body.errorMessage) {
-                                $window.alert(error.body.errorMessage);
-                            } else {
-                                $window.alert('An error occurred while importing the ' +
-                                'image, please try again');
-                            }
-                        })
-                        .finally(() => ctrl.importing = false);
+                    ctrl.loadUriImage(uri);
                 }
                 else {
                     $window.alert('You must drop valid files or ' +
