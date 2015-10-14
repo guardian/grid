@@ -17,7 +17,7 @@ object UsageStream {
       case Some(usageGroup) => Observable.from(usageGroup)
       case _ => Observable.empty
     }
-  })
+  }).retry
 
   def createStatus(container: ContentContainer) = container match {
     case PreviewContentItem(_,_) => PendingUsageStatus()

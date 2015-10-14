@@ -15,8 +15,7 @@ import com.gu.mediaservice.lib.aws.{DynamoDB, NoItemFound}
 import org.joda.time.DateTime
 
 import play.api.libs.json._
-
-import org.slf4j.LoggerFactory
+import play.api.Logger
 
 
 object MergedContentStream {
@@ -28,13 +27,13 @@ object MergedContentStream {
 object LiveContentPollStream extends ContentPollStream {
   val capi = LiveContentApi
   val dynamo = new DynamoDB(Config.awsCredentials, Config.dynamoRegion, Config.livePollTable)
-  val observable = rawObservable.map(c => LiveContentItem(c, extractLastModified(c)))
+  val observable = rawObservable.map(c => LiveContentItem(c, extractLastModified(c))).retry
 }
 
 object PreviewContentPollStream extends ContentPollStream {
   val capi = PreviewContentApi
   val dynamo = new DynamoDB(Config.awsCredentials, Config.dynamoRegion, Config.previewPollTable)
-  val observable = rawObservable.map(c => PreviewContentItem(c, extractLastModified(c)))
+  val observable = rawObservable.map(c => PreviewContentItem(c, extractLastModified(c))).retry
 }
 
 trait ContentContainer {
@@ -46,8 +45,6 @@ case class LiveContentItem(content: Content, lastModified: DateTime) extends Con
 case class PreviewContentItem(content: Content, lastModified: DateTime) extends ContentContainer
 
 trait ContentPollStream {
-  private val log = LoggerFactory.getLogger(getClass)
-
   val pollIntervalInSeconds = Config.capiPollIntervalInSeconds
 
   val observable: Observable[ContentContainer]
@@ -65,8 +62,15 @@ trait ContentPollStream {
       .pageSize(100)
 
     val search = capi.getResponse(latestByLatestModified)
+    val observable = Observable.from[SearchResponse](search)
 
-    Observable.from[SearchResponse](search)
+    observable.onErrorResumeNext(e => {
+      // Log error and resume with new stream
+      Logger.error("Error parsing SearchResponse from result.", e)
+      UsageMetrics.incrementErrors
+
+      Observable.timer(pollInterval).flatMap(_ => getContent)
+    })
   }
 
   def getItemObservable(contentItem: Content): Observable[Content] = {

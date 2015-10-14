@@ -17,18 +17,17 @@ import model._
 
 object UsageRecorder {
   val usageStream = UsageStream.observable
-  val observable = usageStream.flatMap(recordUpdates).onErrorReturn(error => {
-      Logger.error("UsageRecorder stream encountered an error", error)
-      UsageMetrics.incrementErrors
-
-      JsObject(Seq(("error" -> JsString(error.getMessage))))
-  })
+  val observable = usageStream.flatMap(recordUpdates).retry
 
   // Subscription should not be evaluated until required
   lazy val subscription = UsageRecorder.observable.subscribe(
     (usage: JsObject) => {
       Logger.debug(s"UsageRecorder processed update: ${usage}")
       UsageMetrics.incrementUpdated
+    },
+    (error: Throwable) => {
+      Logger.error("UsageRecorder stream encountered an error", error)
+      UsageMetrics.incrementErrors
     }
   )
 
