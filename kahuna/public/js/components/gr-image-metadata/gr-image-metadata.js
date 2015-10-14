@@ -40,6 +40,11 @@ module.controller('grImageMetadataCtrl', [
 
         ctrl.isUsefulMetadata = isUsefulMetadata;
 
+        ctrl.hasLocationInformation = ctrl.metadata.subLocation ||
+            ctrl.metadata.city ||
+            ctrl.metadata.state ||
+            ctrl.metadata.country;
+
         // Map of metadata location field to query filter name
         ctrl.locationFieldMap = {
             'subLocation': 'location',
