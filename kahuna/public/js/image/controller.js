@@ -9,6 +9,8 @@ import '../downloader/downloader';
 import '../components/gr-crop-image/gr-crop-image';
 import '../components/gr-delete-crops/gr-delete-crops';
 import '../components/gr-image-persist-status/gr-image-persist-status';
+import '../components/gr-metadata-validity/gr-metadata-validity';
+import '../components/gr-image-cost-message/gr-image-cost-message';
 
 var image = angular.module('kahuna.image.controller', [
     'kahuna.edits.service',
@@ -19,7 +21,9 @@ var image = angular.module('kahuna.image.controller', [
     'gr.downloader',
     'gr.cropImage',
     'gr.deleteCrops',
-    'gr.imagePersistStatus'
+    'gr.imagePersistStatus',
+    'gr.metadataValidity',
+    'gr.imageCostMessage'
 ]);
 
 image.controller('ImageCtrl', [
@@ -168,7 +172,7 @@ image.controller('ImageCtrl', [
         });
 
         ctrl.updateMetadataField = function (field, value) {
-            return editsService.updateMetadataField(image, field, value)
+            return editsService.updateMetadataField(ctrl.image, field, value)
                 .then((updatedImage) => {
                     if (updatedImage) {
                         ctrl.image = updatedImage;

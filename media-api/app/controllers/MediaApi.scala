@@ -4,6 +4,7 @@ import java.net.URI
 
 import com.gu.mediaservice.lib.config.MetadataConfig
 import play.api.mvc.Security.AuthenticatedRequest
+import play.utils.UriEncoding
 
 import scala.concurrent.Future
 import scala.util.Try
@@ -234,26 +235,12 @@ object MediaApi extends Controller with ArgoHelpers {
 
     val searchParams = SearchParams(request)
 
-    // We search if we have a label in the search, take the first one and then look up it's
-    // siblings s that we can return them as "related labels"
-    val labels = searchParams.structuredQuery.flatMap {
-      // TODO: Use ImageFields for guard
-      case Match(field: SingleField, value:Words) if field.name == "userMetadata.labels" => Some(value.string)
-      case _ => None
-    }
-
-    val (mainLabel, selectedLabels) = labels match {
-      case Nil => (None, Nil)
-      case label :: Nil => (Some(label), Nil)
-      case label :: extraLabels => (Some(label), extraLabels)
-    }
-
     for {
       SearchResults(hits, totalCount) <- ElasticSearch.search(searchParams)
       imageEntities <- Future.sequence(hits map (hitToImageEntity _).tupled)
       prevLink = getPrevLink(searchParams)
       nextLink = getNextLink(searchParams, totalCount)
-      relatedLabelsLink = mainLabel.map(getRelatedLabelsLink(_, selectedLabels))
+      relatedLabelsLink = getRelatedLabelsLink(searchParams)
       links = suggestedLabelsLink :: List(prevLink, nextLink, relatedLabelsLink).flatten
     } yield respondCollection(imageEntities, Some(searchParams.offset), Some(totalCount), links)
   }
@@ -298,16 +285,34 @@ object MediaApi extends Controller with ArgoHelpers {
     }
   }
 
-  private def getRelatedLabelsLink(mainLabel: String, selectedLabels: List[String] = Nil) = {
-    val uriTemplate = URITemplate(s"$rootUri/suggest/edits/labels/{label}/sibling-labels{?selectedLabels}")
-    val paramMap = Map(
-      "label" -> Some(mainLabel),
-      "selectedLabels" -> Some(selectedLabels.mkString(",")).filter(_.trim.nonEmpty)
-    )
-    val paramVars = paramMap.map { case (key, value) => key := value }.toSeq
-    val uri = uriTemplate expand (paramVars: _*)
+  private def getRelatedLabelsLink(searchParams: SearchParams) = {
+    // We search if we have a label in the search, take the first one and then look up it's
+    // siblings so that we can return them as "related labels"
+    val labels = searchParams.structuredQuery.flatMap {
+      // TODO: Use ImageFields for guard
+      case Match(field: SingleField, value:Words) if field.name == "userMetadata.labels" => Some(value.string)
+      case Match(field: SingleField, value:Phrase) if field.name == "userMetadata.labels" => Some(value.string)
+      case _ => None
+    }
 
-    Link("related-labels", uri)
+    val (mainLabel, selectedLabels) = labels match {
+      case Nil => (None, Nil)
+      case label :: Nil => (Some(label), Nil)
+      case label :: extraLabels => (Some(label), extraLabels)
+    }
+
+    mainLabel.map { label =>
+      // FIXME: This is to stop a search for plain `"` breaking the whole lot.
+      val encodedLabel = UriEncoding.encodePathSegment(label, "UTF-8")
+      val uriTemplate = URITemplate(s"$rootUri/suggest/edits/labels/${encodedLabel}/sibling-labels{?selectedLabels,q}")
+      val paramMap = Map(
+        "selectedLabels" -> Some(selectedLabels.mkString(",")).filter(_.trim.nonEmpty),
+        "q" -> searchParams.query
+      )
+      val paramVars = paramMap.map { case (key, value) => key := value }.toSeq
+      val uri = uriTemplate expand (paramVars: _*)
+      Link("related-labels", uri)
+    }
   }
 
   def suggestMetadataCredit(q: Option[String], size: Option[Int]) = Authenticated.async { request =>
@@ -334,10 +339,11 @@ object MediaApi extends Controller with ArgoHelpers {
     respondCollection(labels)
   }
 
-  def suggestLabelSiblings(label: String, selectedLabels: Option[String]) = Authenticated.async { request =>
+  def suggestLabelSiblings(label: String, q: Option[String], selectedLabels: Option[String]) = Authenticated.async { request =>
     val selectedLabels_ = selectedLabels.map(_.split(",").toList.map(_.trim)).getOrElse(Nil)
+    val structuredQuery = q.map(Parser.run) getOrElse List()
 
-    ElasticSearch.labelSiblingsSearch(label) map { agg =>
+    ElasticSearch.labelSiblingsSearch(structuredQuery, excludeLabels = List(label)) map { agg =>
       val labels = agg.results.map { label =>
         val selected = selectedLabels_.contains(label.key)
         LabelSibling(label.key, selected)
