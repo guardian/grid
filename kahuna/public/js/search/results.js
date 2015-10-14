@@ -1,5 +1,6 @@
 import angular from 'angular';
 import Rx from 'rx';
+import * as querySyntax from '../search-query/query-syntax';
 
 import '../services/scroll-position';
 import '../services/panel';
@@ -55,7 +56,6 @@ results.controller('SearchResultsCtrl', [
     'panelService',
     'range',
     'isReloadingPreviousSearch',
-    'queryLabelFilterFilter',
     function($rootScope,
              $scope,
              $state,
@@ -74,8 +74,7 @@ results.controller('SearchResultsCtrl', [
              results,
              panelService,
              range,
-             isReloadingPreviousSearch,
-             queryLabelFilterFilter) {
+             isReloadingPreviousSearch) {
 
         const ctrl = this;
 
@@ -196,29 +195,32 @@ results.controller('SearchResultsCtrl', [
         inject$($scope, relatedLabels$, ctrl, 'relatedLabels');
         inject$($scope, parentLabel$, ctrl, 'parentLabel');
 
-        ctrl.toggleLabelToSearch = label => {
-            // TODO: Move this to a searchQueryService
-            const oldQ = $stateParams.query.trim();
-            const searchableLabel = queryLabelFilterFilter(label.name);
-            const query = (label.selected ? oldQ.replace(`${searchableLabel}`, '')
-                          : `${oldQ} ${searchableLabel}`).trim();
-            const newStateParams = angular.extend({}, $stateParams, { query });
-            $state.transitionTo($state.current, newStateParams, {
-                reload: true, inherit: false, notify: true
-            });
+        ctrl.switchSuggestedLabelTo = label => {
+            const q = $stateParams.query;
+            const removedLabelsQ = querySyntax.removeLabels(q, ctrl.relatedLabels);
+            const query = querySyntax.addLabel(removedLabelsQ, label.name);
+            setQuery(query);
+        };
+
+        ctrl.removeSuggestedLabel = label => {
+            const query = querySyntax.removeLabel($stateParams.query, label.name);
+            setQuery(query);
         };
 
         ctrl.setParentLabel = () => {
             if (ctrl.parentLabel) {
-                const parentLabel = queryLabelFilterFilter(ctrl.parentLabel);
-                // this can be undefined...
-                const q = ($stateParams.query || '').trim();
-                const newQ = `${q} ${parentLabel}`;
-                $state.transitionTo($state.current, { query: newQ }, {
-                    reload: true, inherit: false, notify: true
-                });
+                const query = querySyntax.addLabel($stateParams.query || '', ctrl.parentLabel);
+                setQuery(query);
             }
         };
+
+        function setQuery(query) {
+            const newStateParams = angular.extend({}, $stateParams, { query });
+            $state.transitionTo($state.current, newStateParams, {
+                reload: true, inherit: false, notify: true
+            });
+        }
+
         ctrl.suggestedLabelSearch = q =>
             ctrl.searched.then(images =>
                 images.follow('suggested-labels').get({q}).then(labels => labels.data)

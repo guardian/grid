@@ -49,12 +49,22 @@
                 </div>
                 <ul class="flex-container related-labels__labels">
                     <li class="related-labels__label" ng:repeat="relatedLabel in ctrl.relatedLabels">
-                        <button ng:click="ctrl.toggleLabelToSearch(relatedLabel)"
-                                ng:class="{ 'related-labels__label-text--selected': relatedLabel.selected }"
-                                gr:track-click="Related label select"
-                                gr:track-click-data="{'Label': relatedLabel.name}"
-                                class="related-labels__label-text">{{relatedLabel.name}}</button>
-
+                        <div ng:switch="relatedLabel.selected">
+                            <button class="related-labels__label-text related-labels__label-text--selected"
+                                    ng:switch-when="true"
+                                    ng:click="ctrl.removeSuggestedLabel(relatedLabel)"
+                                    gr:track-click="Related label remove"
+                                    gr:track-click-data="{'Label': relatedLabel.name}">
+                                    {{relatedLabel.name}}
+                            </button>
+                            <button class="related-labels__label-text"
+                                    ng:switch-when="false"
+                                    ng:click="ctrl.switchSuggestedLabelTo(relatedLabel)"
+                                    gr:track-click="Related label select"
+                                    gr:track-click-data="{'Label': relatedLabel.name}">
+                                    {{relatedLabel.name}}
+                            </button>
+                        </div>
                     </li>
                 </ul>
             </div>
