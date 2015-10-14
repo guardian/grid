@@ -27,13 +27,13 @@ object MergedContentStream {
 object LiveContentPollStream extends ContentPollStream {
   val capi = LiveContentApi
   val dynamo = new DynamoDB(Config.awsCredentials, Config.dynamoRegion, Config.livePollTable)
-  val observable = rawObservable.map(c => LiveContentItem(c, extractLastModified(c))).retry
+  val observable = rawObservable.map(c => LiveContentItem(c, extractLastModified(c)))
 }
 
 object PreviewContentPollStream extends ContentPollStream {
   val capi = PreviewContentApi
   val dynamo = new DynamoDB(Config.awsCredentials, Config.dynamoRegion, Config.previewPollTable)
-  val observable = rawObservable.map(c => PreviewContentItem(c, extractLastModified(c))).retry
+  val observable = rawObservable.map(c => PreviewContentItem(c, extractLastModified(c)))
 }
 
 trait ContentContainer {
