@@ -11,7 +11,7 @@ import model._
 object UsageStream {
   val contentStream = MergedContentStream.observable
 
-  val rawObservable = contentStream.flatMap((container: ContentContainer) => {
+  val observable = contentStream.flatMap((container: ContentContainer) => {
     val usageGroupOption = UsageGroup
       .build(container.content, createStatus(container), container.lastModified)
 
@@ -20,14 +20,6 @@ object UsageStream {
       case _ => Observable.empty
     }
   })
-
-  val observable = rawObservable.onErrorResumeNext(error => {
-      Logger.error("UsageStream encountered an error", error)
-      UsageMetrics.incrementErrors
-
-      rawObservable
-  })
-
 
   def createStatus(container: ContentContainer) = container match {
     case PreviewContentItem(_,_) => PendingUsageStatus()
