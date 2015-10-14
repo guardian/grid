@@ -24,6 +24,7 @@ dndUploader.controller('DndUploaderCtrl',
     ctrl.uploadFiles = uploadFiles;
     ctrl.importWitnessImage = importWitnessImage;
     ctrl.isWitnessUri = witnessApi.isWitnessUri;
+    ctrl.loadUriImage = loadUriImage;
 
     function uploadFiles(files) {
         // Queue up files for upload and go to the upload state to
@@ -53,6 +54,11 @@ dndUploader.controller('DndUploaderCtrl',
             return Promise.all([metadataUpdate, rightsUpdate]).
                 then(() => fullImage.data.id);
         });
+    }
+
+   function loadUriImage(fileUri) {
+        uploadManager.uploadUri(fileUri);
+        $state.go('upload', {}, { reload: true });
     }
 
     function importWitnessImage(uri) {
@@ -170,9 +176,12 @@ dndUploader.directive('dndUploader', ['$window', 'delay', 'safeApply', 'track',
                         ctrl.importing = false;
                     });
                     track.action(trackEvent, dropAction('Witness'));
-                } else {
+                } else if (uri) {
+                    ctrl.loadUriImage(uri);
+                }
+                else {
                     $window.alert('You must drop valid files or ' +
-                                  'GuardianWitness URLs to upload them');
+                        'URLs to upload them');
 
                     track.action(trackEvent, dropAction('Invalid'));
                 }

@@ -94,7 +94,7 @@ object Application extends Controller with ArgoHelpers {
 
   def getCrops(id: String) = Authenticated.async { httpRequest =>
 
-  CropStore.listCrops(id) map (_.toList) flatMap { crops =>
+    CropStore.listCrops(id) map (_.toList) flatMap { crops =>
       val deleteCropsAction =
         Action("delete-crops", URI.create(s"${Config.rootUri}/crops/$id"), "DELETE")
 
