@@ -23,11 +23,11 @@ object UsageRecorder {
   lazy val subscription = UsageRecorder.observable.subscribe(
     (usage: JsObject) => {
       Logger.debug(s"UsageRecorder processed update: ${usage}")
-      UsageMetrics.usageUpdates.increment()
+      UsageMetrics.incrementUpdated
     },
     (error: Throwable) => {
       Logger.error("UsageRecorder stream encountered an error", error)
-      UsageMetrics.usageUpdateErrors.increment()
+      UsageMetrics.incrementErrors
     },
     () => Logger.info("Shutting down usage recorder stream.")
   )
