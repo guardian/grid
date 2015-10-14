@@ -94,6 +94,11 @@ image.controller('ImageCtrl', [
         // Alias for convenience in view
         ctrl.metadata = image.data.metadata;
 
+        ctrl.hasLocationInformation = ctrl.metadata.subLocation ||
+            ctrl.metadata.city ||
+            ctrl.metadata.state ||
+            ctrl.metadata.country;
+
         // Map of metadata location field to query filter name
         ctrl.locationFieldMap = {
             'subLocation': 'location',
