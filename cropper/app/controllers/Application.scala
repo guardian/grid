@@ -72,7 +72,13 @@ object Application extends Controller with ArgoHelpers {
         case ApiRequestFailed => respondError(BadGateway, "api-failed", ApiRequestFailed.getMessage)
       }
     } recoverTotal {
-      case e => Future.successful(respondError(BadRequest, "bad-request", e.errors.head._2.head.message))
+      case e =>
+        val validationErrors = for {
+          (_, errors)  <- e.errors
+          errorDetails <- errors
+        } yield errorDetails.message
+        val errorMessage = validationErrors.headOption getOrElse "Invalid export request"
+        Future.successful(respondError(BadRequest, "bad-request", errorMessage))
     }
   }
 
