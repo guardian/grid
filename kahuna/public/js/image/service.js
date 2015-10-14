@@ -28,6 +28,8 @@ imageService.factory('imageService', [function() {
                     return 'from Picdar';
                 case 'photographer-category':
                     return 'categorised as photographer';
+                case 'illustrator-category':
+                    return 'categorised as illustrator';
                 default:
                     return reason;
             }

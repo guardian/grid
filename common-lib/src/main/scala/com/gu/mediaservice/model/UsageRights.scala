@@ -93,6 +93,8 @@ trait Photographer extends UsageRights {
   val photographer: String
 }
 
+trait Illustrator extends UsageRights
+
 // We have a custom writes and reads for NoRights as it is represented by `{}`
 // in the DB layer.
 case object NoRights
@@ -384,7 +386,7 @@ object CrownCopyright {
 
 
 case class ContractIllustrator(creator: String, restrictions: Option[String] = None)
-  extends UsageRights {
+  extends Illustrator {
   val category = ContractIllustrator.category
   val defaultCost = Some(Free)
   val name = "Illustrator - contract"
@@ -404,7 +406,7 @@ object ContractIllustrator {
 
 
 case class CommissionedIllustrator(creator: String, restrictions: Option[String] = None)
-  extends UsageRights {
+  extends Illustrator {
   val category = CommissionedIllustrator.category
   val defaultCost = Some(Free)
   val name = "Illustrator - commissioned"
