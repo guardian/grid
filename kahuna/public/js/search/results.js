@@ -56,7 +56,6 @@ results.controller('SearchResultsCtrl', [
     'panelService',
     'range',
     'isReloadingPreviousSearch',
-    'queryLabelFilterFilter',
     function($rootScope,
              $scope,
              $state,
@@ -75,8 +74,7 @@ results.controller('SearchResultsCtrl', [
              results,
              panelService,
              range,
-             isReloadingPreviousSearch,
-             queryLabelFilterFilter) {
+             isReloadingPreviousSearch) {
 
         const ctrl = this;
 
