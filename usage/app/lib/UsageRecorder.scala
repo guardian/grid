@@ -10,7 +10,7 @@ import scala.collection.JavaConverters._
 
 import play.api.libs.json._
 
-import rx.lang.scala.Observable
+import rx.lang.scala.{Observable, Subscriber}
 
 import model._
 
@@ -25,16 +25,12 @@ object UsageRecorder {
     true
   })
 
-  // Subscription should not be evaluated until required
-  lazy val subscription = UsageRecorder.observable.subscribe(
-    (usage: JsObject) => {
+  val subscriber = Subscriber((usage: JsObject) => {
       Logger.debug(s"UsageRecorder processed update: ${usage}")
       UsageMetrics.incrementUpdated
-    }
-  )
+  })
 
-  def subscribe = subscription // Helper method to eval subscription
-  def unsubscribe = subscription.unsubscribe
+  def subscribe = UsageRecorder.observable.subscribe(subscriber)
 
   def recordUpdates(usageGroup: UsageGroup) = {
     UsageTable.matchUsageGroup(usageGroup).flatMap(dbUsageGroup => {
