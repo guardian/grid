@@ -62,5 +62,5 @@ image.directive('grStopPropagation', function() {
         link: function(scope, element, attrs) {
             element.on(attrs.grStopPropagation, e => e.stopPropagation());
         }
-    }
+    };
 });
