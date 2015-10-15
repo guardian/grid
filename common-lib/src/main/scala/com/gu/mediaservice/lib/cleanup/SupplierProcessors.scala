@@ -245,11 +245,14 @@ object ReutersParser extends ImageProcessor {
 }
 
 object RexParser extends ImageProcessor {
-  def apply(image: Image): Image = image.metadata.source match {
+  val rexAgency = Agency("Rex Features")
+  val SlashRex = ".+/ Rex Features".r
+
+
+  def apply(image: Image): Image = (image.metadata.source, image.metadata.credit) match {
     // TODO: cleanup byline/credit
-    case Some("Rex Features") => image.copy(
-      usageRights = Agency("Rex Features")
-    )
+    case (Some("Rex Features"), _) => image.copy(usageRights = rexAgency)
+    case (_, Some(SlashRex()))     => image.copy(usageRights = rexAgency)
     case _ => image
   }
 }
