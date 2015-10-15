@@ -19,7 +19,4 @@ object Global extends WithFilters(RequestLoggingFilter, new GzipFilter) with Glo
     UsageRecorder.subscribe
   }
 
-  override def onStop(app: Application) {
-    UsageRecorder.unsubscribe
-  }
 }
