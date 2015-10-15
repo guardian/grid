@@ -55,3 +55,12 @@ image.directive('uiPreviewImage', function() {
         bindToController: true
     };
 });
+
+image.directive('grStopPropagation', function() {
+    return {
+        restrict: 'A',
+        link: function(scope, element, attrs) {
+            element.on(attrs.grStopPropagation, e => e.stopPropagation());
+        }
+    }
+});
