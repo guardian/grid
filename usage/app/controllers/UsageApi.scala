@@ -8,6 +8,7 @@ import com.gu.mediaservice.lib.aws.NoItemFound
 import lib.Config
 import model._
 
+import play.api.Logger
 import play.api.mvc.Controller
 import play.api.mvc.Results._
 
@@ -34,6 +35,8 @@ object UsageApi extends Controller with ArgoHelpers {
     val usagesFuture = UsageTable.queryByImageId(mediaId)
 
     usagesFuture.map[play.api.mvc.Result](UsageResponse.buildCollectionResponse).recover { case error: Exception => {
+      Logger.error("UsageApi returned an error.", error)
+
       respondError(InternalServerError, "image-usage-retrieve-failed", error.getMessage())
     }}
   }
