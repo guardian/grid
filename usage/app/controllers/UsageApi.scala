@@ -7,7 +7,9 @@ import com.gu.mediaservice.lib.auth.KeyStore
 import com.gu.mediaservice.lib.aws.NoItemFound
 import lib.Config
 import model._
+
 import play.api.mvc.Controller
+import play.api.mvc.Results._
 
 import scala.concurrent.ExecutionContext.Implicits.global
 
@@ -31,8 +33,8 @@ object UsageApi extends Controller with ArgoHelpers {
   def forMedia(mediaId: String) = Authenticated.async {
     val usagesFuture = UsageTable.queryByImageId(mediaId)
 
-    usagesFuture.map[play.api.mvc.Result](UsageResponse.buildCollection).recover {
-      case NoItemFound => respond(false)
-    }
+    usagesFuture.map[play.api.mvc.Result](UsageResponse.buildCollectionResponse).recover { case error: Exception => {
+      respondError(InternalServerError, "image-usage-retrieve-failed", error.getMessage())
+    }}
   }
 }

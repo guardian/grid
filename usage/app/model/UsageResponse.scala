@@ -18,7 +18,7 @@ case class UsageResponse(
 )
 
 object UsageResponse extends ArgoHelpers {
-  def buildCollection(usages: Set[MediaUsage]) = {
+  def respondUsageCollection(usages: Set[MediaUsage]) = {
     val flatUsages = usages.groupBy(_.grouping).flatMap { case (grouping, groupedUsages) => {
       val publishedUsage = groupedUsages
         .filter(_.status match {
@@ -42,6 +42,12 @@ object UsageResponse extends ArgoHelpers {
 
     respondCollections[UsageResponse](
       data = flatUsages.map(UsageResponse.build).groupBy(_.status.toString))
+  }
+
+  def buildCollectionResponse(usages: Set[MediaUsage]) = if(usages.isEmpty) {
+    respondNotFound("No usages found.")
+  } else {
+    respondUsageCollection(usages)
   }
 
   def build (usage: MediaUsage): UsageResponse = {
