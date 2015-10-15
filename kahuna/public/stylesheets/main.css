@@ -1243,7 +1243,7 @@ FIXME: what to do with touch devices
 }
 
 .result-editor__archiver {
-    background: black;
+    background: #393939;
     padding: 0 5px;
 }
 
@@ -1918,7 +1918,12 @@ ui-archiver {
     color: #ccc;
 }
 
-ui-archiver .archiver:hover {
+ui-archiver .archiver--unarchived {
+    color: #737373;
+}
+
+ui-archiver .archiver:hover,
+ui-archiver .archiver--unarchived:hover {
     color: white;
 }
 
