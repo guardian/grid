@@ -21,9 +21,14 @@ dndUploader.controller('DndUploaderCtrl',
                             apiPoll, witnessApi) {
 
     var ctrl = this;
+    //hack to prevent grid thumbnails being re-added to the grid for now
+    //TODO make generic - have API tell kahuna S3 buckets' domain
+    const gridThumbnailPattern = /https:\/\/media-service([0-9-a-z]+)thumbbucket([0-9-a-z]+)/;
+
     ctrl.uploadFiles = uploadFiles;
     ctrl.importWitnessImage = importWitnessImage;
     ctrl.isWitnessUri = witnessApi.isWitnessUri;
+    ctrl.isNotGridThumbnail = (uri)  => !gridThumbnailPattern.test(uri);
     ctrl.loadUriImage = loadUriImage;
 
     function uploadFiles(files) {
@@ -57,11 +62,8 @@ dndUploader.controller('DndUploaderCtrl',
     }
 
    function loadUriImage(fileUri) {
-        return loaderApi.import(fileUri).then(mediaResp =>
-            // Wait until image indexed
-            apiPoll(() => mediaResp.get()).
-                then(() => $state.go('upload', {}, { reload: true }))
-        );
+        uploadManager.uploadUri(fileUri);
+        $state.go('upload', {}, { reload: true });
     }
 
     function importWitnessImage(uri) {
@@ -179,18 +181,8 @@ dndUploader.directive('dndUploader', ['$window', 'delay', 'safeApply', 'track',
                         ctrl.importing = false;
                     });
                     track.action(trackEvent, dropAction('Witness'));
-                } else if (uri) {
-                    ctrl.importing = true;
-                    ctrl.loadUriImage(uri)
-                        .catch(error => {
-                            if (error.body && error.body.errorMessage) {
-                                $window.alert(error.body.errorMessage);
-                            } else {
-                                $window.alert('An error occurred while importing the ' +
-                                'image, please try again');
-                            }
-                        })
-                        .finally(() => ctrl.importing = false);
+                } else if (ctrl.isNotGridThumbnail(uri)) {
+                    ctrl.loadUriImage(uri);
                 }
                 else {
                     $window.alert('You must drop valid files or ' +

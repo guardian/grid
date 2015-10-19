@@ -19,11 +19,6 @@ imageService.factory('imageService', [function() {
         };
     }
 
-    function hasExportsOfType(image, type) {
-        return image.data.exports &&
-                image.data.exports.some(ex => ex.type === type);
-    }
-
     function getStates(image) {
         const persistReasons = image.data.persisted.reasons.map(reason => {
             switch (reason) {
@@ -33,6 +28,8 @@ imageService.factory('imageService', [function() {
                     return 'from Picdar';
                 case 'photographer-category':
                     return 'categorised as photographer';
+                case 'illustrator-category':
+                    return 'categorised as illustrator';
                 default:
                     return reason;
             }
@@ -40,7 +37,7 @@ imageService.factory('imageService', [function() {
 
         return {
             cost: image.data.cost,
-            hasCrops: hasExportsOfType(image, 'crop'),
+            hasCrops: image.data.exports && image.data.exports.length > 0,
             isValid: image.data.valid,
             canDelete: image.getAction('delete').then(action => !! action),
             canArchive: image.data.persisted.value === false ||

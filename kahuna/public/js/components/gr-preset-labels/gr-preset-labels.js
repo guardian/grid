@@ -64,6 +64,7 @@ presetLabels.directive('grPresetLabels', [function () {
         controller: 'GrPresetLabelsCtrl',
         controllerAs: 'ctrl',
         bindToController: true,
-        template: template
+        template: template,
+        scope: {}
     };
 }]);
