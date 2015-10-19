@@ -21,6 +21,8 @@ dndUploader.controller('DndUploaderCtrl',
                             apiPoll, witnessApi) {
 
     var ctrl = this;
+    //hack to prevent grid thumbnails being re-added to the grid for now
+    //TODO make generic - have API tell kahuna S3 buckets' domain
     const gridThumbnailPattern = /https:\/\/media-service([0-9-a-z]+)thumbbucket([0-9-a-z]+)/;
 
     ctrl.uploadFiles = uploadFiles;
