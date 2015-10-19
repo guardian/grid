@@ -40,6 +40,12 @@ object ImageResponse extends EditsResponse {
       case _ => false
     }
 
+  def isIllustratorCategory[T <: UsageRights](usageRights: T) =
+    usageRights match {
+      case _:Illustrator => true
+      case _ => false
+    }
+
   def imagePersistenceReasons(image: Image): List[String] = {
     val reasons = ListBuffer[String]()
 
@@ -54,6 +60,9 @@ object ImageResponse extends EditsResponse {
 
     if (isPhotographerCategory(image.usageRights))
       reasons += "photographer-category"
+
+    if (isIllustratorCategory(image.usageRights))
+      reasons += "illustrator-category"
 
     reasons.toList
   }

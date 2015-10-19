@@ -957,7 +957,7 @@ input.search-query__input {
 .related-labels--with-labels {
     /* This is to allow scrolling of labels, but show the
     autocomplete dropdown */
-    overflow: auto;
+    overflow-x: auto;
 }
 
 .related-labels__datalist {
@@ -974,7 +974,8 @@ input.related-labels__parent {
 }
 
 .related-labels__labels {
-    overflow: auto;
+    overflow-x: auto;
+    overflow-y: hidden;
 }
 
 .related-labels__label {
@@ -1242,7 +1243,7 @@ FIXME: what to do with touch devices
 }
 
 .result-editor__archiver {
-    background: black;
+    background: #393939;
     padding: 0 5px;
 }
 
@@ -1917,7 +1918,12 @@ ui-archiver {
     color: #ccc;
 }
 
-ui-archiver .archiver:hover {
+ui-archiver .archiver--unarchived {
+    color: #737373;
+}
+
+ui-archiver .archiver:hover,
+ui-archiver .archiver--unarchived:hover {
     color: white;
 }
 
