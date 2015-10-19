@@ -5,6 +5,7 @@ import play.api.libs.functional.syntax._
 
 
 case class SourceImage(id: String, source: Asset, valid: Boolean, metadata: ImageMetadata, fileMetadata: FileMetadata)
+
 object SourceImage {
   implicit val sourceImageReads: Reads[SourceImage] =
     ((__ \ "data" \ "id").read[String] ~
@@ -14,4 +15,3 @@ object SourceImage {
       (__ \ "data" \ "fileMetadata" \ "data").read[FileMetadata]
       )(SourceImage.apply _)
 }
-

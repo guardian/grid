@@ -10,7 +10,7 @@ case class Export(
   id: Option[String],
   author: Option[String],
   date: Option[DateTime],
-  specification: CropSource,
+  specification: CropSpec,
   master: Option[Asset],
   assets: List[Asset]
 )
@@ -32,7 +32,7 @@ object Export {
     (__ \ "id").writeNullable[String] ~
     (__ \ "author").writeNullable[String] ~
     (__ \ "date").writeNullable[String].contramap(printOptDateTime) ~
-    (__ \ "specification").write[CropSource] ~
+    (__ \ "specification").write[CropSpec] ~
     (__ \ "master").writeNullable[Asset] ~
     (__ \ "assets").write[List[Asset]]
   )(unlift(Export.unapply))
