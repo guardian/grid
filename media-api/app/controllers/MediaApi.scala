@@ -329,7 +329,7 @@ object MediaApi extends Controller with ArgoHelpers {
       "g2arts", "g2columns", "g2coverfeatures", "g2fashion", "g2features", "g2food", "g2health",
       "g2lifestyle", "g2shortcuts", "g2tv", "g2women",
 
-      "filmandmusic", "pp", "lr", "cities", "travel", "saturdayreview"
+      "cities", "family", "filmandmusic", "lr", "pp", "saturdayreview", "travel"
     )
 
     val labels = q.map { q =>
