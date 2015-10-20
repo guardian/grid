@@ -39,6 +39,9 @@ object ExportRequest {
 
   def toCropSpec(cropRequest: ExportRequest, dimensions: Dimensions): CropSpec = cropRequest match {
     case FullExportRequest(uri)          => CropSpec(uri, boundsFill(dimensions), None, FullExport)
+    // Map "crop" that covers the whole image to a "full" export
+    case CropRequest(uri, bounds, ratio) if bounds == boundsFill(dimensions)
+                                         => CropSpec(uri, boundsFill(dimensions), ratio, FullExport)
     case CropRequest(uri, bounds, ratio) => CropSpec(uri, bounds, ratio, CropExport)
   }
 
