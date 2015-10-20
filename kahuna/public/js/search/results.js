@@ -78,7 +78,7 @@ results.controller('SearchResultsCtrl', [
 
         const ctrl = this;
 
-        var metadataPanelName = 'gr-panel';
+        const metadataPanelName = 'gr-panel';
 
         ctrl.metadataPanelAvailable = panelService.isAvailable(metadataPanelName);
         ctrl.metadataPanelVisible = panelService.isVisible(metadataPanelName);
@@ -97,7 +97,7 @@ results.controller('SearchResultsCtrl', [
         ctrl.showMetadataPanelMouseLeave = () => panelService.hide(metadataPanelName);
 
         $rootScope.$on(
-            'ui:panels:' + metadataPanelName + ':updated',
+            `ui:panels:${metadataPanelName}:updated`,
             () => {
                 ctrl.metadataPanelAvailable = panelService.isAvailable(metadataPanelName);
                 ctrl.metadataPanelVisible = panelService.isVisible(metadataPanelName);
@@ -376,9 +376,6 @@ results.controller('SearchResultsCtrl', [
         }
 
         ctrl.clearSelection = () => {
-            panelService.hide(metadataPanelName, false);
-            panelService.unavailable(metadataPanelName, false);
-
             selection.clear();
         };
 

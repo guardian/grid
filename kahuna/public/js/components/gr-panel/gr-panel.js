@@ -59,22 +59,25 @@ grPanel.controller('GrPanel', [
         editsService,
         editsApi) {
 
-        var ctrl = this;
+        const ctrl = this;
+        const panelName = 'gr-panel';
 
         ctrl.showUsageRights = false;
 
-        const panelName = 'gr-panel';
-
         panelService.addPanel(panelName, false);
+        panelService.available(panelName, false);
         ctrl.isVisible = panelService.isVisible(panelName);
 
         $rootScope.$on(
-            'ui:panels:gr-panel:updated',
+            `ui:panels:${panelName}:updated`,
             () => ctrl.isVisible = panelService.isVisible(panelName)
         );
         ctrl.metadataPanelMouseOver = () => panelService.show(panelName);
         ctrl.metadataPanelMouseLeave = () => panelService.hide(panelName);
-
+        ctrl.metadataPanelHide = () => {
+            panelService.unlock(panelName);
+            panelService.hide(panelName);
+        };
 
         inject$($scope, selectedImagesList$, ctrl, 'selectedImages');
 
@@ -169,16 +172,6 @@ grPanel.controller('GrPanel', [
               flatMap(Rx.Observable.fromPromise).
               map(allEditable => allEditable.every(v => v === true));
         inject$($scope, selectionIsEditable$, ctrl, 'userCanEdit');
-
-
-        subscribe$($scope, selection.isEmpty$, isEmpty => {
-            if (isEmpty) {
-                panelService.unavailable(panelName, false);
-            } else {
-                panelService.available(panelName, false);
-            }
-        });
-
 
         ctrl.hasMultipleValues = (val) => Array.isArray(val) && val.length > 1;
 
