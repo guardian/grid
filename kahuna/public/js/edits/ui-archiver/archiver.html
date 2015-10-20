@@ -7,22 +7,22 @@
         ng:mouseleave="hover = false"
         ng:init="hover = false">
     <!-- TODO: Start looking at a new loader to replace our "ing…" loader -->
-    <span ng:show="ctrl.isArchived" title="Remove from library">
+    <span ng:show="ctrl.isArchived" title="Remove from Library">
         <gr-icon-label gr-icon="lock_outline">
             <span ng:show="ctrl.withText">
                 <span ng:show="! ctrl.archiving">
-                    <span ng:show="! hover">Kept in library</span>
-                    <span ng:show="hover">Remove from library?</span>
+                    <span ng:show="! hover">Kept in Library</span>
+                    <span ng:show="hover">Remove from Library?</span>
                 </span>
-                <span ng:show="ctrl.archiving">Removing from library</span>
+                <span ng:show="ctrl.archiving">Removing from Library</span>
             </span>
         </gr-icon-label>
     </span>
-    <span ng:show="! ctrl.isArchived" title="Add to library">
+    <span ng:show="! ctrl.isArchived" title="Add to Library">
         <gr-icon-label gr-icon="lock_open">
             <span ng:show="ctrl.withText">
-                <span ng:show="! ctrl.archiving">Add to library</span>
-                <span ng:show="ctrl.archiving">Adding to library</span>
+                <span ng:show="! ctrl.archiving">Add to Library</span>
+                <span ng:show="ctrl.archiving">Adding to Library</span>
             </span>
         </gr-icon-label>
     </span>
