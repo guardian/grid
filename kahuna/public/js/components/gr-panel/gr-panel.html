@@ -301,7 +301,7 @@
             <div ng:switch-when="mixed" class="flex-container batch-archive--mixed">
                 <div class="metadata-line flex-spacer">
                     <gr-icon>star_half</gr-icon>
-                    <span ng:if="!ctrl.archiving">{{ctrl.archivedCount}} archived</span>
+                    <span ng:if="!ctrl.archiving">{{ctrl.archivedCount}} kept in Library</span>
                     <span ng:if="ctrl.archiving">Saving…</span>
                 </div>
                 <span class="batch-archive__action" ng:if="!ctrl.archiving">
@@ -317,12 +317,12 @@
             <div ng:switch-when="archived" class="flex-container batch-archive--all-archived">
                 <div class="metadata-line flex-spacer">
                     <gr-icon>star</gr-icon>
-                    <span ng:if="!ctrl.archiving">All archived</span>
+                    <span ng:if="!ctrl.archiving">All kept in Library</span>
                     <span ng:if="ctrl.archiving">Saving…</span>
                 </div>
                 <span class="batch-archive__action" ng:if="!ctrl.archiving">
                     <button class="button-shy batch-archive__unarchive" ng:click="ctrl.unarchive()">
-                        <gr-icon>star_border</gr-icon> Unarchive all
+                        <gr-icon>star_border</gr-icon> Remove all from Library
                     </button>
                 </span>
             </div>
@@ -330,12 +330,12 @@
             <div ng:switch-when="unarchived" class="flex-container batch-archive--all-unarchived">
                 <div class="metadata-line flex-spacer">
                     <gr-icon>star_border</gr-icon>
-                    <span ng:if="!ctrl.archiving">All unarchived</span>
+                    <span ng:if="!ctrl.archiving">None kept in Library</span>
                     <span ng:if="ctrl.archiving">Saving…</span>
                 </div>
                 <span class="batch-archive__action" ng:if="!ctrl.archiving">
                     <button class="button-shy batch-archive__archive" ng:click="ctrl.archive()">
-                        <gr-icon>star</gr-icon> Archive all
+                        <gr-icon>star</gr-icon> Keep all in Library
                     </button>
                 </span>
             </div>
