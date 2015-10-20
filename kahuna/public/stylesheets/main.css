@@ -779,6 +779,10 @@ input.search-query__input {
     z-index: 1;
 }
 
+.result__select--allow-shift-click {
+    pointer-events: none;
+}
+
 .result__select__checkbox__label {
     position: absolute;
     top: 0;
