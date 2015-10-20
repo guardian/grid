@@ -407,8 +407,16 @@ results.controller('SearchResultsCtrl', [
         ctrl.imageHasBeenSelected = (image) => ctrl.selectedItems.has(image.uri);
 
         const toggleSelection = (image) => selection.toggle(image.uri);
-        ctrl.select           = (image) => selection.add(image.uri);
-        ctrl.deselect         = (image) => selection.remove(image.uri);
+
+        ctrl.select = (image) => {
+            selection.add(image.uri);
+            $window.getSelection().empty();
+        };
+
+        ctrl.deselect = (image) => {
+            selection.remove(image.uri);
+            $window.getSelection().empty();
+        };
 
         ctrl.onImageClick = function (image, $event) {
             if (ctrl.inSelectionMode) {
@@ -437,6 +445,7 @@ results.controller('SearchResultsCtrl', [
                     }
                 }
                 else {
+                    $window.getSelection().empty();
                     toggleSelection(image);
                 }
             }
