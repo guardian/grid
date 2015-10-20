@@ -3,14 +3,14 @@
      ng:mouseleave="ctrl.metadataPanelMouseLeave()"
      ng:class="{ 'panel__right--hidden': !ctrl.isVisible }">
 
-    <button class="panel__close-panel"
-            ng:click="ctrl.metadataPanelHide()">
-        <gr-icon>close</gr-icon>
-    </button>
-
     <div class="panel__empty-message"
         ng:if="ctrl.selectedImages.size === 0">
         No images selected
+
+        <button class="panel__close-panel"
+                ng:click="ctrl.metadataPanelHide()">
+            <gr-icon>close</gr-icon>
+        </button>
     </div>
 
     <div ng:if="ctrl.selectedImages.size > 0">
