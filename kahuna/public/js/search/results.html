@@ -125,7 +125,8 @@
                     <!-- We don't want to add a property on `image` to determine the state of the checkbox, so render two individual inputs. -->
                     <!-- </HACK> -->
                     <div class="result__select result__select--selected"
-                         ng:if="ctrl.imageHasBeenSelected(image)">
+                         ng:if="ctrl.imageHasBeenSelected(image)"
+                         ng:class="{ 'result__select--allow-shift-click': ctrl.inSelectionMode}">
                         <input type="checkbox"
                                class="result__select__checkbox"
                                id="id-{{::image.data.id}}-result__select__checkbox--select"
@@ -136,7 +137,9 @@
                             <gr-icon>check_box</gr-icon>
                         </label>
                     </div>
-                    <div class="result__select" ng:if="!ctrl.imageHasBeenSelected(image)">
+                    <div class="result__select"
+                         ng:if="!ctrl.imageHasBeenSelected(image)"
+                         ng:class="{ 'result__select--allow-shift-click': ctrl.inSelectionMode}">
                         <input type="checkbox"
                                class="result__select__checkbox"
                                id="id-{{::image.data.id}}-result__select__checkbox--deselect"
