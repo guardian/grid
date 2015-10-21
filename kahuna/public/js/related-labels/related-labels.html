@@ -18,6 +18,7 @@
                 <ul class="related-labels__labels">
                     <li class="related-labels__label" ng:repeat="relatedLabel in ctrl.relatedLabels">
                         <button class="related-labels__label-text"
+                                ng:click="ctrl.switchCollection(relatedLabel)"
                                 gr:track-click="Related label remove"
                                 gr:track-click-data="{'Label': relatedLabel}">
                                 {{relatedLabel}}

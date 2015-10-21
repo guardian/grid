@@ -1,6 +1,5 @@
 import angular from 'angular';
 import Rx from 'rx';
-import * as querySyntax from '../search-query/query-syntax';
 
 import '../services/scroll-position';
 import '../services/panel';
@@ -177,54 +176,6 @@ results.controller('SearchResultsCtrl', [
         }).finally(() => {
             ctrl.loading = false;
         });
-
-        // related labels
-        const relatedLabelsPromise$ = Rx.Observable.fromPromise(ctrl.searched).flatMap(images =>
-            Rx.Observable
-                .fromPromise(images.follow('related-labels').get())
-                .catch(err => err.message === 'No link found for rel: related-labels' ?
-                    Rx.Observable.empty() : Rx.Observable.throw(err)
-                )
-        );
-
-        const relatedLabels$ = relatedLabelsPromise$.map(labels =>
-            labels.data.siblings).startWith([]);
-
-        const parentLabel$ = relatedLabelsPromise$.map(labels => labels.data.label);
-
-        inject$($scope, relatedLabels$, ctrl, 'relatedLabels');
-        inject$($scope, parentLabel$, ctrl, 'parentLabel');
-
-        ctrl.switchSuggestedLabelTo = label => {
-            const q = $stateParams.query;
-            const removedLabelsQ = querySyntax.removeLabels(q, ctrl.relatedLabels);
-            const query = querySyntax.addLabel(removedLabelsQ, label.name);
-            setQuery(query);
-        };
-
-        ctrl.removeSuggestedLabel = label => {
-            const query = querySyntax.removeLabel($stateParams.query, label.name);
-            setQuery(query);
-        };
-
-        ctrl.setParentLabel = () => {
-            if (ctrl.parentLabel) {
-                const query = querySyntax.addLabel($stateParams.query || '', ctrl.parentLabel);
-                setQuery(query);
-            }
-        };
-
-        function setQuery(query) {
-            const newStateParams = angular.extend({}, $stateParams, { query });
-            $state.transitionTo($state.current, newStateParams, {
-                reload: true, inherit: false, notify: true
-            });
-        }
-
-        ctrl.suggestedLabelSearch = q =>
-            ctrl.searched.then(images =>
-                images.follow('suggested-labels').get({q}).then(labels => labels.data)
-            ).catch(() => []);
 
         ctrl.loadRange = function(start, end) {
             const length = end - start + 1;
