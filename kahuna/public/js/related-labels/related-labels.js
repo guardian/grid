@@ -1,5 +1,4 @@
 import angular from 'angular';
-import Rx from 'rx';
 
 import template from './related-labels.html!text';
 import './related-labels.css!';
@@ -34,5 +33,5 @@ relatedLabels.directive('grRelatedLabels', [function() {
         controllerAs: 'ctrl',
         bindToController: true,
         template: template
-    }
+    };
 }]);
