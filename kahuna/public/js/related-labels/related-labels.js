@@ -19,9 +19,9 @@ relatedLabels.controller('GrRelatedLabelsCtrl', ['mediaApi', function(mediaApi) 
                         return label.key.replace(`${ctrl.collection}/`, '');
                     });
                 });
-                return labels;
-            }).
-            then(labels => labels.data);
+                // return this to the search query
+                return labels.data;
+            });
 
 
 }]);
