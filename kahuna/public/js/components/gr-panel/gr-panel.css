@@ -46,9 +46,15 @@
     padding-top: 0;
 }
 
-.panel__bottom .panel__close{
+.panel__bottom .panel__close {
     width: 100%;
     height: 100%;
+}
+
+.panel__close-panel {
+    position: absolute;
+    top: 15px;
+    right: 10px;
 }
 
 .batch-label .labels {
@@ -63,4 +69,8 @@
 .batch-archive__archive:hover,
 .batch-archive__unarchive:hover {
     color: white;
+}
+
+.panel__collections {
+    font-size: 1.4rem;
 }

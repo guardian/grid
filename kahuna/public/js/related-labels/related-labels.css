@@ -1,0 +1,29 @@
+.related-labels__form-label {
+    margin-right: 10px;
+}
+
+.related-labels__form-input {
+    width: 100%;
+    box-sizing: border-box;
+    border: 0;
+    border-bottom: 1px solid #999;
+}
+
+.related-labels__labels {
+    margin-top: 10px;
+    list-style: square inside;
+}
+
+.related-labels__label {
+    margin-left: 2px;
+}
+
+.related-labels__label-text {
+    padding: 2px 5px 4px;
+    box-sizing: border-box;
+}
+
+.related-labels__label-text--selected {
+    border-top: 2px solid #00adee;
+    background-color: #444;
+}

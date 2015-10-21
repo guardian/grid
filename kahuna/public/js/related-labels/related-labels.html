@@ -1,0 +1,31 @@
+<div class="related-labels">
+    <div class="related-labels__title">
+        <form ng:submit="ctrl.setCollection()" class="flex-container">
+            <label class="related-labels__form-label" for="collection-name">Collection:</label>
+            <div class="flex-spacer">
+                <gr-datalist class="related-labels__datalist flex-spacer datalist--dark"
+                             gr:search="ctrl.suggestedLabelSearch(q)">
+                    <!-- TODO: autogrow this element -->
+                    <input class="related-labels__form-input" type="text"
+                           placeholder="e.g. g2features"
+                           id="collection-name"
+                           ng:model="ctrl.collection"
+                           ng:model-options="{ updateOn: 'gr:datalist:update' }"
+                           ng:change="ctrl.suggestedLabelSearch(ctrl.collection)"
+                           gr:datalist-input />
+                </gr-datalist>
+
+                <ul class="related-labels__labels">
+                    <li class="related-labels__label" ng:repeat="relatedLabel in ctrl.relatedLabels">
+                        <button class="related-labels__label-text"
+                                ng:click="ctrl.switchCollection(relatedLabel)"
+                                gr:track-click="Related label remove"
+                                gr:track-click-data="{'Label': relatedLabel}">
+                                {{relatedLabel}}
+                        </button>
+                    </li>
+                </ul>
+            </div>
+        </form>
+    </div>
+</div>

@@ -315,6 +315,17 @@ object MediaApi extends Controller with ArgoHelpers {
     }
   }
 
+  private def getRelatedLabelsLink(label: String) = {
+    val encodedLabel = UriEncoding.encodePathSegment(label, "UTF-8")
+    val uriTemplate = URITemplate(s"$rootUri/suggest/edits/labels/${encodedLabel}/sibling-labels{?selectedLabels,q}")
+    val paramMap = Map(
+      "q" -> s"#${label}"
+    )
+    val paramVars = paramMap.map { case (key, value) => key := value }.toSeq
+    val uri = uriTemplate expand (paramVars: _*)
+    Link("related-labels", uri)
+  }
+
   def suggestMetadataCredit(q: Option[String], size: Option[Int]) = Authenticated.async { request =>
     ElasticSearch
       .completionSuggestion("suggestMetadataCredit", q.getOrElse(""), size.getOrElse(10))
@@ -323,11 +334,11 @@ object MediaApi extends Controller with ArgoHelpers {
 
   def suggestLabels(q: Option[String]) = Authenticated {
     val pseudoFamousLabels = List(
-      "obsbizcash", "obscomment", "obsfocus", "obsforeignnews",
-      "obshomenews", "obsmastheads", "obssports", "obssupplements",
+      "obs/bizcash", "obs/comment", "obs/focus", "obs/foreignnews",
+      "obs/homenews", "obs/mastheads", "obs/sports", "obs/supplements",
 
-      "g2arts", "g2columns", "g2coverfeatures", "g2fashion", "g2features", "g2food", "g2health",
-      "g2lifestyle", "g2shortcuts", "g2tv", "g2women",
+      "g2/arts", "g2/columns", "g2/coverfeatures", "g2/fashion", "g2/features", "g2/food", "g2/health",
+      "g2/lifestyle", "g2/shortcuts", "g2/tv", "g2/women",
 
       "cities", "family", "filmandmusic", "lr", "pp", "saturdayreview", "travel"
     )
@@ -336,20 +347,18 @@ object MediaApi extends Controller with ArgoHelpers {
       pseudoFamousLabels.filter(_.startsWith(q))
     }.getOrElse(pseudoFamousLabels)
 
-    respondCollection(labels)
+    val linkList = q.flatMap { label =>
+      if (pseudoFamousLabels.contains(label)) Some(getRelatedLabelsLink(label)) else None
+    }.map(List(_)).getOrElse(Nil)
+
+    respondCollection(labels, links = linkList)
   }
 
   def suggestLabelSiblings(label: String, q: Option[String], selectedLabels: Option[String]) = Authenticated.async { request =>
     val selectedLabels_ = selectedLabels.map(_.split(",").toList.map(_.trim)).getOrElse(Nil)
     val structuredQuery = q.map(Parser.run) getOrElse List()
 
-    ElasticSearch.labelSiblingsSearch(structuredQuery, excludeLabels = List(label)) map { agg =>
-      val labels = agg.results.map { label =>
-        val selected = selectedLabels_.contains(label.key)
-        LabelSibling(label.key, selected)
-      }
-      respond(LabelSiblingsResponse(label, labels.toList))
-    }
+    ElasticSearch.editsSearch(AggregateSearchParams("labels", Some(label))) map aggregateResponse
   }
 
   case class LabelSibling(name: String, selected: Boolean)
