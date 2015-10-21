@@ -33,7 +33,10 @@
         </div>
 
         <div ng:if="!showMetadata">
-            <gr-related-labels></gr-related-labels>
+            <div class="panel__top">
+                <gr-related-labels class="panel__collections">
+                </gr-related-labels>
+            </div>
         </div>
 
         <div ng:if="showMetadata">

@@ -70,3 +70,7 @@
 .batch-archive__unarchive:hover {
     color: white;
 }
+
+.panel__collections {
+    font-size: 1.4rem;
+}

@@ -951,46 +951,6 @@ input.search-query__input {
     height: 36px;
 }
 
-.related-labels {
-    line-height: 35px;
-}
-.related-labels--with-labels {
-    /* This is to allow scrolling of labels, but show the
-    autocomplete dropdown */
-    overflow-x: auto;
-}
-
-.related-labels__datalist {
-    line-height: 1;
-}
-
-input.related-labels__parent {
-    border: 0;
-    background: transparent;
-    border-bottom: 1px solid #999;
-    box-sizing: border-box;
-    padding: 2px 5px;
-    width: 150px;
-}
-
-.related-labels__labels {
-    overflow-x: auto;
-    overflow-y: hidden;
-}
-
-.related-labels__label {
-    margin-left: 2px;
-}
-
-.related-labels__label-text {
-    padding: 2px 5px 4px;
-    box-sizing: border-box;
-}
-.related-labels__label-text--selected {
-    border-top: 2px solid #00adee;
-    background-color: #444;
-}
-
 .image-results-count__new {
     font-family: inherit;
     background-color: #00adee;
@@ -1998,6 +1958,10 @@ ui-archiver .archiver--unarchived:hover {
 .datalist {
     position: relative;
     width: 100%;
+}
+
+.datalist--dark .datalist__options {
+    background: #333;
 }
 
 .datalist__options {
