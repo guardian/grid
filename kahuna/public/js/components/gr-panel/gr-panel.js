@@ -9,6 +9,7 @@ import '../../services/image-list';
 import '../../services/label';
 import '../../services/panel';
 import '../../edits/service';
+import '../../related-labels/related-labels';
 import '../../forms/gr-xeditable/gr-xeditable';
 import '../../util/rx';
 
@@ -19,6 +20,7 @@ export var grPanel = angular.module('grPanel', [
     'kahuna.services.label',
     'kahuna.services.panel',
     'kahuna.edits.service',
+    'gr.relatedLabels',
     'grXeditable',
     'ui.bootstrap',
     'util.rx'

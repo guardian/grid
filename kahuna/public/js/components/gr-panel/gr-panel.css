@@ -46,13 +46,9 @@
     padding-top: 0;
 }
 
-.panel__bottom .panel__close{
+.panel__bottom .panel__close {
     width: 100%;
     height: 100%;
-}
-
-.panel__empty-message {
-    padding: 10px;
 }
 
 .panel__close-panel {
