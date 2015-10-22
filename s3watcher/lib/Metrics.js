@@ -8,17 +8,19 @@ module.exports = {
             "Value" : uploadResult.uploadedBy
         }]
 
+        const timestamp = new Date;
+
         return {
             MetricData: [{
                 MetricName: metricName,
                 Dimensions: dimensions,
-                Timestamp: new Date,
+                Timestamp: timestamp,
                 Unit: "Count",
                 Value: 1
             },
             {
                 MetricName: metricName,
-                Timestamp: new Date,
+                Timestamp: timestamp,
                 Unit: "Count",
                 Value: 1
             }],
