@@ -322,14 +322,20 @@ object MediaApi extends Controller with ArgoHelpers {
   }
 
   def suggestLabels(q: Option[String]) = Authenticated {
+    
     val pseudoFamousLabels = List(
-      "obsbizcash", "obscomment", "obsfocus", "obsforeignnews",
-      "obshomenews", "obsmastheads", "obssports", "obssupplements",
+      "cities", "family", "filmandmusic", "lr", "pp", "saturdayreview", "travel",
+
+      "culturearts", "culturebooks", "culturefilm", "culturestage", "culutremusic",
 
       "g2arts", "g2columns", "g2coverfeatures", "g2fashion", "g2features", "g2food", "g2health",
       "g2lifestyle", "g2shortcuts", "g2tv", "g2women",
 
-      "cities", "family", "filmandmusic", "lr", "pp", "saturdayreview", "travel"
+      "obsbizcash", "obscomment", "obsfocus", "obsfoodfeat", "obsfoodother", "obsfoodrecipes",
+      "obsfoodsupp", "obsforeign", "obshome", "obsmagfash", "obsmagfeat", "obsmaglife",
+      "obsrevagenda", "obsrevbooks", "obsrevcritics", "obsrevdiscover", "obsrevfeat",
+      "obsrevmusic", "obsrevtv", "obssports", "obssupps", "obstechbright", "obstechfeat",
+      "obstechplay"
     )
 
     val labels = q.map { q =>
