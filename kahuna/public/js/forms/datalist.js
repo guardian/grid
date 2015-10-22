@@ -25,6 +25,8 @@ datalist.directive('grDatalist', [function() {
                 selectedIndex = (selectedIndex + movement + ctrl.results.length) %
                                 ctrl.results.length;
 
+            ctrl.setIndex = key => selectedIndex = key;
+
             ctrl.isSelected = key => key === selectedIndex;
 
             ctrl.searchFor = q =>
