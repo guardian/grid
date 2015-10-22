@@ -18,7 +18,7 @@ trait SearchFilters extends ImageFields {
   val invalidFilter = Config.requiredMetadata.map(metadataField).toNel.map(filters.anyMissing)
 
   // New Cost Model
-  import UsageRightsConfig.{ suppliersCollectionExcl, freeSuppliers, payGettySourceList }
+  import UsageRightsConfig.{ suppliersCollectionExcl, freeSuppliers }
 
   val (suppliersWithExclusions, suppliersNoExclusions) = freeSuppliers.partition(suppliersCollectionExcl.contains)
   val suppliersWithExclusionsFilters = for {
