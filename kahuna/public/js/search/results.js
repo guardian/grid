@@ -410,12 +410,12 @@ results.controller('SearchResultsCtrl', [
 
         ctrl.select = (image) => {
             selection.add(image.uri);
-            $window.getSelection().empty();
+            $window.getSelection().removeAllRanges();
         };
 
         ctrl.deselect = (image) => {
             selection.remove(image.uri);
-            $window.getSelection().empty();
+            $window.getSelection().removeAllRanges();
         };
 
         ctrl.onImageClick = function (image, $event) {
@@ -445,7 +445,7 @@ results.controller('SearchResultsCtrl', [
                     }
                 }
                 else {
-                    $window.getSelection().empty();
+                    $window.getSelection().removeAllRanges();
                     toggleSelection(image);
                 }
             }
