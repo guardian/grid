@@ -138,7 +138,7 @@
                     </div>
                     <div class="result__select"
                          ng:if="!ctrl.imageHasBeenSelected(image)"
-                         ng:class="{ 'result__select--allow-shift-click': ctrl.inSelectionMode}">
+                         ng:class="{ 'result__select--no-pointer-events': ctrl.inSelectionMode}">
                         <input type="checkbox"
                                class="result__select__checkbox"
                                id="id-{{::image.data.id}}-result__select__checkbox--deselect"

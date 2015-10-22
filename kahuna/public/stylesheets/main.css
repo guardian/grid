@@ -779,7 +779,7 @@ input.search-query__input {
     z-index: 1;
 }
 
-.result__select--allow-shift-click {
+.result__select--no-pointer-events {
     pointer-events: none;
 }
 
