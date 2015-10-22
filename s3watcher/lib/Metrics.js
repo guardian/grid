@@ -3,16 +3,21 @@ module.exports = {
         const metricName = uploadResult.succeeded ?
             "UploadedImages" : "FailedUploads";
 
-        const dimensions = uploadResult.succeeded ?
-            [{
-                "Name" : "UploadedBy",
-                "Value" : uploadResult.uploadedBy
-            }] : [];
+        const dimensions = [{
+            "Name" : "UploadedBy",
+            "Value" : uploadResult.uploadedBy
+        }]
 
         return {
             MetricData: [{
                 MetricName: metricName,
                 Dimensions: dimensions,
+                Timestamp: new Date,
+                Unit: "Count",
+                Value: 1
+            },
+            {
+                MetricName: metricName,
                 Timestamp: new Date,
                 Unit: "Count",
                 Value: 1
