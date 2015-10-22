@@ -4,6 +4,7 @@
         <div class="datalist__option"
              ng:repeat="(key, result) in ctrl.results"
              ng:click="ctrl.setValueTo(result)"
+             ng:mouseover="ctrl.setIndex(key)"
              ng:class="{ 'datalist__option--selected': ctrl.isSelected(key) }">
              {{result}}
         </div>
