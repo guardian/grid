@@ -260,8 +260,6 @@ object MediaApi extends Controller with ArgoHelpers {
     )
   }
 
-  List("1", "2").mkString(",")
-
   val searchTemplate = URITemplate(searchLinkHref)
 
   private def getSearchUrl(searchParams: SearchParams, updatedOffset: Int, length: Int): String = {
