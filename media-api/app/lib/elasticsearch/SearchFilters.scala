@@ -60,7 +60,8 @@ trait SearchFilters extends ImageFields {
     ContractPhotographer.category,
     CommissionedPhotographer.category,
     ContractIllustrator.category,
-    CommissionedIllustrator.category
+    CommissionedIllustrator.category,
+    Composite.category
   )
 
   val persistedFilter = filters.or(
