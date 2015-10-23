@@ -252,7 +252,7 @@ object MediaApi extends Controller with ArgoHelpers {
 
     SearchParams.validate(searchParams).fold(
       // TODO: respondErrorCollection?
-      errors => Future.successful(respondError(UnprocessableEntity, InvalidUrlParams.errorKey,
+      errors => Future.successful(respondError(UnprocessableEntity, InvalidUriParams.errorKey,
         // Annoyingly `NonEmptyList` and `IList` don't have `mkString`
         errors.map(_.message).list.reduce(_+ ", " +_), List(searchLink))
       ),
@@ -428,9 +428,9 @@ case class SearchParams(
   persisted: Option[Boolean]
 )
 
-case class InvalidUrlParams(message: String) extends Throwable
-object InvalidUrlParams {
-  val errorKey = "invalid-url-parameters"
+case class InvalidUriParams(message: String) extends Throwable
+object InvalidUriParams {
+  val errorKey = "invalid-uri-parameters"
 }
 
 object SearchParams {
@@ -503,8 +503,8 @@ object SearchParams {
       case (acc, (_,   None))        => acc
     }
 
-    type SearchParamValidation = Validation[InvalidUrlParams, SearchParams]
-    type SearchParamValidations = ValidationNel[InvalidUrlParams, SearchParams]
+    type SearchParamValidation = Validation[InvalidUriParams, SearchParams]
+    type SearchParamValidations = ValidationNel[InvalidUriParams, SearchParams]
 
     def validate(searchParams: SearchParams): SearchParamValidations = {
       // we just need to return the first `searchParams` as we don't need to manipulate them
@@ -513,11 +513,11 @@ object SearchParams {
     }
 
     def validateOffset(searchParams: SearchParams): SearchParamValidation = {
-      if (searchParams.offset < 0) InvalidUrlParams("offset cannot be less than 0").failure else searchParams.success
+      if (searchParams.offset < 0) InvalidUriParams("offset cannot be less than 0").failure else searchParams.success
     }
 
     def validateLength(searchParams: SearchParams): SearchParamValidation = {
-      if (searchParams.length > 200) InvalidUrlParams("length cannot exceed 200").failure else searchParams.success
+      if (searchParams.length > 200) InvalidUriParams("length cannot exceed 200").failure else searchParams.success
     }
 
 }
