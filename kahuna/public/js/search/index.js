@@ -11,9 +11,12 @@ import '../lib/data-structure/ordered-set-factory';
 import '../components/gr-top-bar/gr-top-bar';
 import '../components/gr-panel/gr-panel';
 
+import '../image/controller';
+
 import searchTemplate        from './view.html!text';
 import searchResultsTemplate from './results.html!text';
-import panelTemplate        from '../components/gr-panel/gr-panel.html!text';
+import panelTemplate         from '../components/gr-panel/gr-panel.html!text';
+import imageTemplate         from './view.html!text';
 
 
 export var search = angular.module('kahuna.search', [
@@ -21,6 +24,7 @@ export var search = angular.module('kahuna.search', [
     'kahuna.search.query',
     'kahuna.search.results',
     'kahuna.preview.image',
+    'kahuna.image.controller',
     'data-structure.list-factory',
     'data-structure.ordered-set-factory',
     'gr.topBar',
@@ -36,30 +40,15 @@ search.config(['$stateProvider',
     $stateProvider.state('search', {
         // FIXME [1]: This state should be abstract, but then we can't navigate to
         // it, which we need to do to access it's deeper / remembered chile state
-        url: '/',
+        url: '/?query&ids&since&nonFree&uploadedBy&until&orderBy',
         template: searchTemplate,
-        deepStateRedirect: {
-            // Inject a transient $stateParams for the results state
-            // below to pick up and expose
-            fn: ['$dsr$', function($dsr$) {
-                const params = angular.extend({}, $dsr$.redirect.params, {
-                    isDeepStateRedirect: true
-                });
-                return {state: $dsr$.redirect.state, params};
-            }]
+        resolve: {
+            images
         }
     });
 
     $stateProvider.state('search.results', {
-        url: 'search?query&ids&since&nonFree&uploadedBy&until&orderBy',
-        // Non-URL parameters
-        params: {
-            // Routing-level property indicating whether the state has
-            // been loaded as part of a deep-state redirect. Note that
-            // this param gets cleared below so it should never reach
-            // controllers
-            isDeepStateRedirect: {value: false, type: 'bool'}
-        },
+        url: 'search',
         data: {
             title: function(params) {
                 return params.query ? params.query : 'search';
@@ -119,6 +108,33 @@ search.config(['$stateProvider',
                             map(selectedImages => selectedImages.toList()).
                             shareReplay(1);
                     }]
+                }
+            }
+        }
+    }).
+    state('search.image', {
+        url: 'image/:imageId',
+        views: {
+            image: {
+                template: imageTemplate,
+                controller: 'ImageCtrl',
+                controllerAs: 'ctrl',
+                resolve: {
+                    imageId: ['$stateParams', $stateParams => $stateParams.imageId],
+                    cropKey: ['$stateParams', $stateParams => $stateParams.crop],
+                    image:   ['$state', '$q', 'mediaApi', 'imageId',
+                            ($state, $q, mediaApi, imageId) => {
+
+                        return mediaApi.find(imageId).catch(error => {
+                            if (error && error.status === 404) {
+                                $state.go('image-error', {message: 'Image not found'});
+                            } else {
+                                return $q.reject(error);
+                            }
+                        });
+                    }],
+
+                    optimisedImageUri: ['image', 'imgops', (image, imgops) => imgops.getUri(image)]
                 }
             }
         }
