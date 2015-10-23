@@ -33,7 +33,8 @@ object UsageRightsConfig {
     "The Asahi Shimbun Premium Archive",
     "The LIFE Images Collection",
     "The LIFE Picture Collection Editorial",
-    "The LIFE Premium Collection"
+    "The LIFE Premium Collection",
+    "NEWSPIX"
   )
 
   // New rights model, will supersede `freeCreditList` soon
