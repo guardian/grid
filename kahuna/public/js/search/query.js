@@ -23,7 +23,7 @@ query.controller('SearchQueryCtrl',
                  ['$scope', '$state', '$stateParams', 'onValChange', 'mediaApi', 'track',
                  function($scope, $state, $stateParams, onValChange , mediaApi, track) {
 
-    var ctrl = this;
+    let ctrl = this;
 
     ctrl.ordering = {
         orderBy: $stateParams.orderBy
@@ -31,12 +31,6 @@ query.controller('SearchQueryCtrl',
 
     $scope.$watch(() => ctrl.ordering.orderBy, onValChange(newVal => {
         $state.go('search.results', {orderBy: newVal});
-    }));
-
-    // Boring - stops slashes being encoded in input - might be fixed with:
-    // https://github.com/angular-ui/ui-router/issues/1759
-    $scope.$watch(() => ctrl.filter.query, onValChange(newVal => {
-        ctrl.filter.query = angular.isDefined(newVal) ? decodeURIComponent(newVal) : '';
     }));
 
     ctrl.filter = {
@@ -66,7 +60,9 @@ query.controller('SearchQueryCtrl',
     function valOrUndefined(str) { return str || undefined; }
 
     function setAndWatchParam(key) {
-        ctrl.filter[key] = $stateParams[key];
+        // Boring - URL parameters are not decoded when taken out of the params.
+        // Might be fixed with: https://github.com/angular-ui/ui-router/issues/1759
+        ctrl.filter[key] = decodeURIComponent($stateParams[key]);
 
         $scope.$watch(() => $stateParams[key], onValChange(newVal => {
             // FIXME: broken for 'your uploads'
