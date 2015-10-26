@@ -18,7 +18,7 @@ import model._
 
 object UsageRecorder {
   val usageStream = UsageStream.observable
-  val windowDuration = 30.second
+  val windowDuration = 1.second
 
   val observable = usageStream.flatMap(recordUpdates).retry((_, error) => {
     Logger.error("UsageRecorder encountered an error.", error)
