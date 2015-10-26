@@ -18,7 +18,6 @@ import model._
 
 object UsageRecorder {
   val usageStream = UsageStream.observable
-  val windowDuration = 5.second
   val windowSize = 5
 
   val observable = usageStream.flatMap(recordUpdates).retry((_, error) => {
@@ -34,7 +33,7 @@ object UsageRecorder {
   })
 
   def subscribe = UsageRecorder.observable
-    .tumbling(windowDuration, windowSize)
+    .tumbling(windowSize)
     .flatten
     .subscribe(subscriber)
 
