@@ -30,7 +30,7 @@ object UsageRecorder {
       UsageMetrics.incrementUpdated
   })
 
-  def subscribe = UsageRecorder.observable.subscribe(subscriber)
+  def subscribe = UsageRecorder.observable.tumbling(5).flatten.subscribe(subscriber)
 
   def recordUpdates(usageGroup: UsageGroup) = {
     UsageTable.matchUsageGroup(usageGroup).flatMap(dbUsageGroup => {
