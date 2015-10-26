@@ -62,15 +62,8 @@ trait ContentPollStream {
       .pageSize(100)
 
     val search = capi.getResponse(latestByLatestModified)
-    val observable = Observable.from[SearchResponse](search)
 
-    observable.onErrorResumeNext(e => {
-      // Log error and resume with new stream
-      Logger.error("Error parsing SearchResponse from result.", e)
-      UsageMetrics.incrementErrors
-
-      Observable.timer(pollInterval).flatMap(_ => getContent)
-    })
+    Observable.from[SearchResponse](search)
   }
 
   def getItemObservable(contentItem: Content): Observable[Content] = {
