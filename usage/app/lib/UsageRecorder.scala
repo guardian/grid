@@ -18,7 +18,8 @@ import model._
 
 object UsageRecorder {
   val usageStream = UsageStream.observable
-  val windowDuration = 1.second
+  val windowDuration = 5.second
+  val windowSize = 5
 
   val observable = usageStream.flatMap(recordUpdates).retry((_, error) => {
     Logger.error("UsageRecorder encountered an error.", error)
@@ -32,11 +33,10 @@ object UsageRecorder {
       UsageMetrics.incrementUpdated
   })
 
-  val tumblingObservable = observable.tumbling(windowDuration)
-  lazy val subscription = tumblingObservable.flatten.subscribe(subscriber)
-
-  def subscribe = subscription
-  def unsubscribe = subscription.unsubscribe
+  def subscribe = UsageRecorder.observable
+    .tumbling(windowDuration, windowSize)
+    .flatten
+    .subscribe(subscriber)
 
   def recordUpdates(usageGroup: UsageGroup) = {
     UsageTable.matchUsageGroup(usageGroup).flatMap(dbUsageGroup => {
