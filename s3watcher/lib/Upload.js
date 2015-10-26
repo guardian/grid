@@ -7,7 +7,7 @@ module.exports = {
          const headers = {
             'Content-Length': s3Event.size,
             'Content-Type': 'application/octet-stream',
-            'X-Gu-Media-Key': config.stage == "PROD" ? "xxx" : config.apiKey
+            'X-Gu-Media-Key': config.apiKey
         };
 
          const buildUploadedBy = function(path){
