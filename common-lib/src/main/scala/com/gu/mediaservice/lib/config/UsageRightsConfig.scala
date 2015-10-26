@@ -32,6 +32,8 @@ object UsageRightsConfig {
     "Terry O'Neill",
     "The Asahi Shimbun Premium Archive",
     "The LIFE Images Collection",
+    // On the Getty list this is called "The LIFE picture collection Editorial"
+    // whereas in their metadata they use the below
     "The LIFE Picture Collection",
     "The LIFE Premium Collection"
   )
