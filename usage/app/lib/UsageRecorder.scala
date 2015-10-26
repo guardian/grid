@@ -4,6 +4,7 @@ import play.api.Logger
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.duration._
 
 import scala.collection.JavaConversions._
 import scala.collection.JavaConverters._
@@ -17,8 +18,9 @@ import model._
 
 object UsageRecorder {
   val usageStream = UsageStream.observable
+  val windowDuration = 30.second
 
-  val observable = usageStream.flatMap(recordUpdates).retry((int:Int , error: Throwable) => {
+  val observable = usageStream.flatMap(recordUpdates).retry((_, error) => {
     Logger.error("UsageRecorder encountered an error.", error)
     UsageMetrics.incrementErrors
 
@@ -30,7 +32,11 @@ object UsageRecorder {
       UsageMetrics.incrementUpdated
   })
 
-  def subscribe = UsageRecorder.observable.tumbling(5).flatten.subscribe(subscriber)
+  val tumblingObservable = observable.tumbling(windowDuration)
+  lazy val subscription = tumblingObservable.flatten.subscribe(subscriber)
+
+  def subscribe = subscription
+  def unsubscribe = subscription.unsubscribe
 
   def recordUpdates(usageGroup: UsageGroup) = {
     UsageTable.matchUsageGroup(usageGroup).flatMap(dbUsageGroup => {
