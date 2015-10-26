@@ -54,8 +54,6 @@ module.exports = {
         const uploadRequest = request.post(options);
 
         return Rx.Observable.create(function(observer){
-            // check mime type, if not jpeg notify CW, stop!
-
             uploadRequest.on("response", function(response){
                 observer.onNext(uploadResult(response));
             });
