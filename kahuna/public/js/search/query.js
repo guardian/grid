@@ -23,7 +23,7 @@ query.controller('SearchQueryCtrl',
                  ['$scope', '$state', '$stateParams', 'onValChange', 'mediaApi', 'track',
                  function($scope, $state, $stateParams, onValChange , mediaApi, track) {
 
-    let ctrl = this;
+    const ctrl = this;
 
     ctrl.ordering = {
         orderBy: $stateParams.orderBy
