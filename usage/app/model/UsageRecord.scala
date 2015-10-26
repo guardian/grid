@@ -24,12 +24,12 @@ case class UsageRecord(
   def toXSpec = {
     (new ExpressionSpecBuilder() <| (xspec => {
       List(
-        mediaId.map(S("media_id").set(_)),
-        usageType.map(S("usage_type").set(_)),
-        mediaType.map(S("media_type").set(_)),
+        mediaId.filter(_.nonEmpty).map(S("media_id").set(_)),
+        usageType.filter(_.nonEmpty).map(S("usage_type").set(_)),
+        mediaType.filter(_.nonEmpty).map(S("media_type").set(_)),
         lastModified.map(lastMod => N("last_modified").set(lastMod.getMillis)),
-        usageStatus.map(S("usage_status").set(_)),
-        dataMap.map(dataMap => M("data_map").set(dataMap)),
+        usageStatus.filter(_.nonEmpty).map(S("usage_status").set(_)),
+        dataMap.map(dataMap => M("data_map").set(dataMap.filter(_.toString.nonEmpty))),
         dateAdded.map(dateAdd => N("date_added").set(dateAdd.getMillis)),
         dateRemoved.map(dateRem => N("date_removed").set(dateRem.getMillis))
       ).flatten.foreach(xspec.addUpdate(_))
