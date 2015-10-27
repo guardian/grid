@@ -1,7 +1,7 @@
 import angular from 'angular';
 
 import '../../image/service';
-import '../../edits/archiver';
+import '../../edits/ui-archiver/archiver';
 
 import template from './gr-image-persist-status.html!text';
 import './gr-image-persist-status.css!';
