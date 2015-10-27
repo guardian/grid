@@ -19,7 +19,6 @@ case class ResetException() extends Exception
 
 object UsageRecorder {
   val usageStream = UsageStream.observable
-  val windowSize = 5
   val resetInterval = 30.seconds
 
   // Due to a difficult to track down memory leak we 'reset' (unsubscribe/resubscribe)
