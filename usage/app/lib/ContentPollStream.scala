@@ -20,8 +20,10 @@ import play.api.Logger
 
 object MergedContentStream {
   val observable: Observable[ContentContainer] =
-    LiveContentPollStream.observable.merge(
-      PreviewContentPollStream.observable)
+    LiveContentPollStream.observable
+      .merge(PreviewContentPollStream.observable)
+      .publish
+      .refCount // Ensures that only one poller is created no matter how many subscribers
 }
 
 object LiveContentPollStream extends ContentPollStream {
@@ -110,5 +112,4 @@ trait ContentPollStream {
     .flatMap(_ => getContent)
     .flatMap(splitResponse)
     .flatMap(checkDynamo)
-
 }

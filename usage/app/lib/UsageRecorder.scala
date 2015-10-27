@@ -15,14 +15,29 @@ import rx.lang.scala.{Observable, Subscriber}
 
 import model._
 
+case class ResetException() extends Exception
 
 object UsageRecorder {
   val usageStream = UsageStream.observable
   val windowSize = 5
+  val resetInterval = 30.seconds
 
-  val observable = usageStream.flatMap(recordUpdates).retry((_, error) => {
-    Logger.error("UsageRecorder encountered an error.", error)
-    UsageMetrics.incrementErrors
+  // Due to a difficult to track down memory leak we 'reset' (unsubscribe/resubscribe)
+  // This seems to make references in upstream observables available for GC
+  val resetStreamObservable = Observable.interval(resetInterval).flatMap(_ => {
+    Observable.error(new ResetException())
+  })
+
+  val rawObservable = usageStream.merge(resetStreamObservable).flatMap(recordUpdates)
+
+  val observable = rawObservable.retry((_, error) => {
+    error match {
+      case _:ResetException => // Do nothing
+      case _ => {
+        Logger.error("UsageRecorder encountered an error.", error)
+        UsageMetrics.incrementErrors
+      }
+    }
 
     true
   })
@@ -32,10 +47,7 @@ object UsageRecorder {
       UsageMetrics.incrementUpdated
   })
 
-  def subscribe = UsageRecorder.observable
-    .tumbling(windowSize)
-    .flatten
-    .subscribe(subscriber)
+  def subscribe = UsageRecorder.observable.subscribe(subscriber)
 
   def recordUpdates(usageGroup: UsageGroup) = {
     UsageTable.matchUsageGroup(usageGroup).flatMap(dbUsageGroup => {
