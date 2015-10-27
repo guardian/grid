@@ -2147,6 +2147,10 @@
         max-height: 500px;
     }
 
+    .preview__image {
+        max-height: 250px;
+    }
+
     .label__value, .image-info__keyword {
         margin-right: 4px !important;
     }
