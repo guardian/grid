@@ -2137,7 +2137,12 @@
         border: none !important;
     }
 
-    button, gr-top-bar, .image-details--crop, gr-add-label, .image-info__group--full-metadata {
+    button,
+    gr-top-bar,
+    gr-add-label,
+    .image-details--crop,
+    .image-info__group--full-metadata,
+    .related-labels__title {
         display: none !important;
     }
 
@@ -2147,8 +2152,9 @@
         max-height: 500px;
     }
 
-    .preview__image {
-        max-height: 250px;
+    .preview {
+        max-height: 200px;
+        max-width: 200px;
     }
 
     .label__value, .image-info__keyword {
