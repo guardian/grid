@@ -77,6 +77,7 @@ results.controller('SearchResultsCtrl', [
              isReloadingPreviousSearch) {
 
         const ctrl = this;
+        console.log('IMGAESDSDS!!')
 
         var metadataPanelName = 'gr-panel';
 

@@ -16,7 +16,7 @@ import '../image/controller';
 import searchTemplate        from './view.html!text';
 import searchResultsTemplate from './results.html!text';
 import panelTemplate         from '../components/gr-panel/gr-panel.html!text';
-import imageTemplate         from './view.html!text';
+import imageTemplate         from '../image/view.html!text';
 
 
 export var search = angular.module('kahuna.search', [
@@ -41,10 +41,7 @@ search.config(['$stateProvider',
         // FIXME [1]: This state should be abstract, but then we can't navigate to
         // it, which we need to do to access it's deeper / remembered chile state
         url: '/?query&ids&since&nonFree&uploadedBy&until&orderBy',
-        template: searchTemplate,
-        resolve: {
-            images
-        }
+        template: searchTemplate
     });
 
     $stateProvider.state('search.results', {
@@ -112,8 +109,8 @@ search.config(['$stateProvider',
             }
         }
     }).
-    state('search.image', {
-        url: 'image/:imageId',
+    state('search.results.image', {
+        url: '/image/:imageId',
         views: {
             image: {
                 template: imageTemplate,
@@ -124,7 +121,6 @@ search.config(['$stateProvider',
                     cropKey: ['$stateParams', $stateParams => $stateParams.crop],
                     image:   ['$state', '$q', 'mediaApi', 'imageId',
                             ($state, $q, mediaApi, imageId) => {
-
                         return mediaApi.find(imageId).catch(error => {
                             if (error && error.status === 404) {
                                 $state.go('image-error', {message: 'Image not found'});

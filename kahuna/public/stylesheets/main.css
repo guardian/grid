@@ -2119,3 +2119,14 @@ ui-archiver .archiver--unarchived:hover {
 .radio-list__label-value {
     padding: 5px 10px;
 }
+
+.image-result {
+    position: fixed;
+    top: 0;
+    left: 0;
+    background: #333;
+    display: block;
+    width: 100vw;
+    height: 100vh;
+    z-index: 200;
+}
