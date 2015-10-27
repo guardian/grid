@@ -11,7 +11,7 @@ export var archiver = angular.module('kahuna.edits.archiver', [
 archiver.controller('ArchiverCtrl', ['$scope', '$window', 'archiveService', 'onValChange',
                     function($scope, $window, archiveService, onValChange) {
 
-    let ctrl = this;
+    const ctrl = this;
 
     ctrl.toggleArchived = toggleArchived;
     ctrl.isArchived = ctrl.image.data.userMetadata.data.archived.data;
