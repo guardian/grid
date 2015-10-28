@@ -2099,20 +2099,14 @@ FIXME: what to do with touch devices
 }
 
 
-
 @media print {
 
-    * {
-        color: black !important;
-        text-decoration: none !important;
-        font-size: 14px !important;
-        transform: none !important;
-        margin: 0 !important;
-        padding: 0 !important;
-        height: auto !important;
-        width: auto !important;
-        border: none !important;
-    }
+    /* ==========================================================================
+       Image page
+    ========================================================================== */
+
+    /*!important is used to overwrite the component stylesheet (labeller.css) loaded after*/
+    /*main.css*/
 
     button,
     gr-top-bar,
@@ -2123,27 +2117,39 @@ FIXME: what to do with touch devices
         display: none !important;
     }
 
+    .metadata-line__info,
+    .image-info__title,
+    .image-info__description,
+    .image-info__special-instructions,
+    .label__value,
+    .image-info__keyword {
+        color: black !important;
+    }
+
     .easel__image {
         float: left;
         max-width: 100%;
         max-height: 450px;
+        transform: none;
     }
 
-    .preview {
-        max-width: 200px;
-    }
-
-    .preview__image {
-        max-height: 150px;
+    .image-details {
+        height: auto;
+        width: auto;
     }
 
     .image-info__description {
-        max-height: 85px !important;
+        max-height: 85px;
         overflow: hidden;
     }
 
-    .label__value, .image-info__keyword {
-        margin-right: 4px !important;
+    .image-info__group, .metadata-line__info, .image-holder {
+        padding: 0;
+        margin: 0;
+    }
+
+    .image-info__group, .metadata-line__info a {
+        border: none;
     }
 
     .image-info__group--dl__key {
@@ -2154,6 +2160,17 @@ FIXME: what to do with touch devices
         flex-basis: 80%;
     }
 
-}
+    /* ==========================================================================
+       Results page
+    ========================================================================== */
 
+    .preview {
+        max-width: 200px;
+    }
+
+    .preview__image {
+        max-height: 150px;
+    }
+
+}
 
