@@ -10,10 +10,9 @@ case class Export(
   id: Option[String],
   author: Option[String],
   date: Option[DateTime],
-  specification: CropSource,
+  specification: CropSpec,
   master: Option[Asset],
-  assets: List[Asset],
-  exportType: String
+  assets: List[Asset]
 )
 
 object Export {
@@ -26,18 +25,16 @@ object Export {
       crop.date,
       crop.specification,
       crop.master,
-      crop.assets,
-      "crop"
+      crop.assets
   )
 
   implicit val exportWrites: Writes[Export] = (
     (__ \ "id").writeNullable[String] ~
     (__ \ "author").writeNullable[String] ~
     (__ \ "date").writeNullable[String].contramap(printOptDateTime) ~
-    (__ \ "specification").write[CropSource] ~
+    (__ \ "specification").write[CropSpec] ~
     (__ \ "master").writeNullable[Asset] ~
-    (__ \ "assets").write[List[Asset]] ~
-    (__ \ "type").write[String]
+    (__ \ "assets").write[List[Asset]]
   )(unlift(Export.unapply))
 
 }

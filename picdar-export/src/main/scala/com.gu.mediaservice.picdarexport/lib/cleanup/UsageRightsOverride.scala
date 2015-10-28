@@ -62,15 +62,18 @@ object UsageRightsOverride {
                                     => agency("Ronald Grant Archive")
     case "Associated Press"         => agency("AP")
     case "PA Archive/Press Association Images" | "PA WIRE" |
-         "PA Archive/Press Association Ima" | "Press Association Images"
+         "PA Archive/Press Association Ima" | "Press Association Images" |
+         "PA Archive/PA Photos"
                                     => agency("PA")
     case "AFP" | "AFP/Getty Images" => agency("Getty Images", Some("AFP"))
     case "Allsport"                 => agency("Getty Images", Some("Allsport"))
-    case "FilmMagic"                => agency("Getty Images", Some("FilmMagic"))
+    case "FilmMagic" | "FilmMagic.com"
+                                    => agency("Getty Images", Some("FilmMagic"))
     case "BFI"                      => agency("Getty Images", Some("BFI"))
     case "WireImage"                => agency("Getty Images", Some("WireImage"))
     case "Hulton Getty"             => agency("Getty Images", Some("Hulton"))
     case "Tim Graham/Getty Images"  => agency("Getty Images", Some("Tim Graham"))
+    case "Man Utd via Getty Images" => agency("Getty Images", Some("Man Utd"))
     case "Allstar"                  => agency("Allstar Picture Library")
     case "Sportsphoto Ltd." | "Sportsphoto Ltd./Allstar" |
          "SPORTSPHOTO LTD" | "ALLSTAR/SPORTSPHOTO"
@@ -138,6 +141,7 @@ object UsageRightsOverride {
       case "Publicity image from travel company" => PrImage()
       case "Publicity image for travel" => PrImage()
       case "Publicity image from BA" => PrImage()
+      case "Press office image" => PrImage()
       // Ask Jo about restrictions
       case "Paramount Pictures" => PrImage()
       case "The Weinstein Company" => PrImage(Some("Free for editorial use only"))
@@ -173,13 +177,15 @@ object UsageRightsOverride {
       case "MoD Pool" => CrownCopyright() // (35)
       case "Crown Copyright" => CrownCopyright() // (493)
 
+      case "Hillsborough Inquests" => Handout()
+
 //       case "Publicity image from English Heritage" => PrImage() // this doesn't exist
 //       case "Supplied to accompany this exhibition ONLY" => PrImage() // this doesn't exist
 //       case "Out of copyright" => PrImage() // this doesn't exist
 //       case "Press office image" => PrImage() // this doesn't exist
 //       case "Andrew Cowan/Scottish Parliament" => PrImage() // this doesn't exist
 //       case "Sergeant Rupert Frere Rlc" => PrImage() // this doesn't exist (and is strange)
-//       case "Public Domain" => PrImage() // assuming we're leaving this out (27)
+      case "Public Domain" => PrImage() // assuming we're leaving this out (27)
     }
   }
 

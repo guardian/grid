@@ -20,7 +20,7 @@ queryFilters.filter('queryLabelFilter', function() {
     return (value) => {
         let cleanValue = stripQuotes(value);
         if (containsSpace(cleanValue)) {
-            return `label:"${cleanValue}"`;
+            return `#"${cleanValue}"`;
         } else {
             return `#${cleanValue}`;
         }

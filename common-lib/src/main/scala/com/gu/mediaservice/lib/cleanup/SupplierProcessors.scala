@@ -76,12 +76,49 @@ object AlamyParser extends ImageProcessor {
 }
 
 object AllStarParser extends ImageProcessor {
+  val SlashAllstar = """(.+)/Allstar""".r
+  val AllstarSlash = """Allstar/(.+)""".r
+
   def apply(image: Image): Image = image.metadata.credit match {
-    case Some("Allstar Picture Library") => image.copy(
-      usageRights = Agency("Allstar Picture Library")
-    )
+    case Some("Allstar Picture Library") => withAllstarRights(image)(None)
+    case Some(SlashAllstar(prefix))      => withAllstarRights(image)(Some(prefix))
+    case Some(AllstarSlash(suffix))      => withAllstarRights(image)(Some(suffix))
     case _ => image
   }
+
+  def withAllstarRights(image: Image) =
+    (asAllstarAgency(image, _: Option[String])) andThen
+      stripAllstarFromByline andThen
+      stripDuplicateByline
+
+  def asAllstarAgency(image: Image, suppliersCollection: Option[String]) = image.copy(
+    usageRights = Agency("Allstar Picture Library", suppliersCollection)
+  )
+
+  def stripAllstarFromByline(image: Image) = image.copy(
+    metadata = image.metadata.copy(byline = image.metadata.byline.map(stripAllstarSuffix))
+  )
+
+  def stripAllstarSuffix(byline: String): String = byline match {
+    case SlashAllstar(name) => name
+    case _ => byline
+  }
+
+  // If suppliersCollection same as byline, remove byline but its byline casing for suppliersCollection and credit,
+  // as they otherwise tend to be in ugly uppercase
+  def stripDuplicateByline(image: Image) = (image.usageRights, image.metadata.byline) match {
+    case (agency @ Agency(supplier, Some(supplColl), _), Some(byline)) if supplColl.toLowerCase == byline.toLowerCase => {
+      image.copy(
+        usageRights = agency.copy(suppliersCollection = image.metadata.byline),
+        metadata = image.metadata.copy(
+          credit = image.metadata.credit.map(credit => credit.replace(supplColl, byline)),
+          byline = None
+        )
+      )
+    }
+    case _ => image
+  }
+
 }
 
 object ApParser extends ImageProcessor {
@@ -133,14 +170,19 @@ trait GettyProcessor {
 }
 
 object GettyXmpParser extends ImageProcessor with GettyProcessor {
-  def apply(image: Image): Image = image.fileMetadata.getty.isEmpty match {
+  val excludeFrom = List("newspix international")
+
+  // Some people send over Getty XMP data, but are not affiliated with Getty
+  def excludedCredit(credit: Option[String]) = credit.map(_.toLowerCase).exists(excludeFrom.contains)
+
+  def apply(image: Image): Image = (excludedCredit(image.metadata.credit), image.fileMetadata.getty.isEmpty) match {
     // Only images supplied by Getty have getty fileMetadata
-    case false => image.copy(
+    case (false, false) => image.copy(
       usageRights = gettyAgencyWithCollection(image.metadata.source),
       // Set a default "credit" for when Getty is too lazy to provide one
       metadata    = image.metadata.copy(credit = Some(image.metadata.credit.getOrElse("Getty Images")))
     )
-    case true => image
+    case _ => image
   }
 }
 
@@ -173,6 +215,9 @@ object PaParser extends ImageProcessor {
   val paCredits = List(
     "PA",
     "PA WIRE",
+    "PA Wire/PA Photos",
+    "PA Wire/Press Association Images",
+    "PA Archive/PA Photos",
     "PA Archive/Press Association Ima",
     "PA Archive/Press Association Images",
     "Press Association Images"
@@ -205,11 +250,14 @@ object ReutersParser extends ImageProcessor {
 }
 
 object RexParser extends ImageProcessor {
-  def apply(image: Image): Image = image.metadata.source match {
+  val rexAgency = Agency("Rex Features")
+  val SlashRex = ".+/ Rex Features".r
+
+
+  def apply(image: Image): Image = (image.metadata.source, image.metadata.credit) match {
     // TODO: cleanup byline/credit
-    case Some("Rex Features") => image.copy(
-      usageRights = Agency("Rex Features")
-    )
+    case (Some("Rex Features"), _) => image.copy(usageRights = rexAgency)
+    case (_, Some(SlashRex()))     => image.copy(usageRights = rexAgency)
     case _ => image
   }
 }

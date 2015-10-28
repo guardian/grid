@@ -86,6 +86,34 @@ class SupplierProcessorsTest extends FunSpec with Matchers with MetadataHelper {
       processedImage.usageRights should be (Agency("Allstar Picture Library"))
       processedImage.metadata.credit should be(Some("Allstar Picture Library"))
     }
+
+    it("should match 'Sportsphoto Ltd./Allstar' credit") {
+      val image = createImageFromMetadata("credit" -> "Sportsphoto Ltd./Allstar")
+      val processedImage = applyProcessors(image)
+      processedImage.usageRights should be (Agency("Allstar Picture Library", Some("Sportsphoto Ltd.")))
+      processedImage.metadata.credit should be(Some("Sportsphoto Ltd./Allstar"))
+    }
+
+    it("should match 'Allstar/UNIVERSAL' credit") {
+      val image = createImageFromMetadata("credit" -> "Allstar/UNIVERSAL")
+      val processedImage = applyProcessors(image)
+      processedImage.usageRights should be (Agency("Allstar Picture Library", Some("UNIVERSAL")))
+      processedImage.metadata.credit should be(Some("Allstar/UNIVERSAL"))
+    }
+
+    it("should strip redundant byline but use it as canonical casing for credit") {
+      val image = createImageFromMetadata("credit" -> "Allstar/UNIVERSAL PICTURES", "byline" -> "Universal Pictures")
+      val processedImage = applyProcessors(image)
+      processedImage.usageRights should be (Agency("Allstar Picture Library", Some("Universal Pictures")))
+      processedImage.metadata.credit should be(Some("Allstar/Universal Pictures"))
+      processedImage.metadata.byline should be(None)
+    }
+
+    it("should strip '___/Allstar' suffix from byline") {
+      val image = createImageFromMetadata("credit" -> "Sportsphoto Ltd./Allstar", "byline" -> "David Gadd/Allstar")
+      val processedImage = applyProcessors(image)
+      processedImage.metadata.byline should be(Some("David Gadd"))
+    }
   }
 
 
@@ -195,6 +223,13 @@ class SupplierProcessorsTest extends FunSpec with Matchers with MetadataHelper {
       processedImage.usageRights should be(Agency("Getty Images", Some("AFP")))
       processedImage.metadata.credit should be(Some("AFP/Getty"))
       processedImage.metadata.source should be(Some("AFP"))
+    }
+
+    it("should exclude images that have Getty metadata that aren't from Getty") {
+      val image = createImageFromMetadata("credit" -> "NEWSPIX INTERNATIONAL")
+      val notGettyImage = image.copy(fileMetadata = FileMetadata(getty = Map("Composition" -> "Headshot")))
+      val processedImage = applyProcessors(notGettyImage)
+      processedImage.usageRights should be(NoRights)
     }
 
     it("should use 'Getty Images' as credit if missing from the file metadata") {
@@ -356,6 +391,13 @@ class SupplierProcessorsTest extends FunSpec with Matchers with MetadataHelper {
       }
       processedImage.metadata.credit should be(Some("Tim Ireland/REX Shutterstock"))
       processedImage.metadata.source should be(Some("Rex Features"))
+    }
+
+    it("should match '*/ Rex Features' credit") {
+      val image = createImageFromMetadata("credit" -> "Bleddyn Butcher / Rex Features")
+      val processedImage = applyProcessors(image)
+
+      processedImage.usageRights should be (Agency("Rex Features"))
     }
   }
 

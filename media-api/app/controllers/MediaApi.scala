@@ -4,6 +4,7 @@ import java.net.URI
 
 import com.gu.mediaservice.lib.config.MetadataConfig
 import play.api.mvc.Security.AuthenticatedRequest
+import play.utils.UriEncoding
 
 import scala.concurrent.Future
 import scala.util.Try
@@ -16,11 +17,15 @@ import org.joda.time.DateTime
 import uritemplate._
 import Syntax._
 
+import scalaz.{Validation, ValidationNel}
 import scalaz.syntax.std.list._
+import scalaz.syntax.validation._
+import scalaz.syntax.applicative._
+
 
 import lib.elasticsearch._
 import lib.{Notifications, Config, ImageResponse}
-import lib.querysyntax.{Condition, Parser}
+import lib.querysyntax._
 
 import com.gu.mediaservice.lib.auth
 import com.gu.mediaservice.lib.auth._
@@ -30,16 +35,12 @@ import com.gu.mediaservice.lib.formatting.{printDateTime, parseDateFromQuery}
 import com.gu.mediaservice.lib.cleanup.{SupplierProcessors, MetadataCleaners}
 import com.gu.mediaservice.lib.metadata.ImageMetadataConverter
 import com.gu.mediaservice.model._
-import com.gu.mediaservice.api.Transformers
-
 
 
 object MediaApi extends Controller with ArgoHelpers {
 
   val keyStore = new KeyStore(Config.keyStoreBucket, Config.awsCredentials)
   val permissionStore = new PermissionStore(Config.configBucket, Config.awsCredentials)
-
-  val commonTransformers = new Transformers(Config.services)
 
   import Config.{rootUri, cropperUri, loaderUri, metadataUri, kahunaUri, loginUriTemplate}
 
@@ -50,9 +51,14 @@ object MediaApi extends Controller with ArgoHelpers {
     "since", "until", "modifiedSince", "modifiedUntil", "takenSince", "takenUntil",
     "uploadedBy", "archived", "valid", "free",
     "hasExports", "hasIdentifier", "missingIdentifier", "hasMetadata",
-    "costModelDiff", "persisted").mkString(",")
+    "persisted").mkString(",")
 
   val searchLinkHref = s"$rootUri/images{?$searchParamList}"
+
+  private val suggestedLabelsLink =
+    Link("suggested-labels", s"$rootUri/suggest/edits/labels{?q}")
+
+  private val searchLink = Link("search", searchLinkHref)
 
   val indexResponse = {
     val indexData = Json.obj(
@@ -63,7 +69,7 @@ object MediaApi extends Controller with ArgoHelpers {
       // ^ Flatten None away
     )
     val indexLinks = List(
-      Link("search",          searchLinkHref),
+      searchLink,
       Link("image",           s"$rootUri/images/{id}"),
       // FIXME: credit is the only field availble for now as it's the only on
       // that we are indexing as a completion suggestion
@@ -73,7 +79,8 @@ object MediaApi extends Controller with ArgoHelpers {
       Link("loader",          loaderUri),
       Link("edits",           metadataUri),
       Link("session",         s"$kahunaUri/session"),
-      Link("witness-report",  s"https://n0ticeapis.com/2/report/{id}")
+      Link("witness-report",  s"https://n0ticeapis.com/2/report/{id}"),
+      suggestedLabelsLink
     )
     respond(indexData, indexLinks)
   }
@@ -152,9 +159,9 @@ object MediaApi extends Controller with ArgoHelpers {
       case Some(source) =>
         val image = source.as[Image]
 
-        val isPersisted = ImageResponse.imagePersistenceReasons(image).nonEmpty
+        val hasExports = ImageResponse.imagePersistenceReasons(image).contains("exports")
 
-        if (isPersisted) {
+        if (hasExports) {
           Future.successful(ImageCannotBeDeleted)
         } else {
           canUserDeleteImage(request, source) map { canDelete =>
@@ -232,14 +239,25 @@ object MediaApi extends Controller with ArgoHelpers {
       }
     }
 
-    val searchParams = SearchParams(request)
-    for {
+    def respondSuccess(searchParams: SearchParams) = for {
       SearchResults(hits, totalCount) <- ElasticSearch.search(searchParams)
       imageEntities <- Future.sequence(hits map (hitToImageEntity _).tupled)
       prevLink = getPrevLink(searchParams)
       nextLink = getNextLink(searchParams, totalCount)
-      links = List(prevLink, nextLink).flatten
+      relatedLabelsLink = getRelatedLabelsLink(searchParams)
+      links = suggestedLabelsLink :: List(prevLink, nextLink, relatedLabelsLink).flatten
     } yield respondCollection(imageEntities, Some(searchParams.offset), Some(totalCount), links)
+
+    val searchParams = SearchParams(request)
+
+    SearchParams.validate(searchParams).fold(
+      // TODO: respondErrorCollection?
+      errors => Future.successful(respondError(UnprocessableEntity, InvalidUriParams.errorKey,
+        // Annoyingly `NonEmptyList` and `IList` don't have `mkString`
+        errors.map(_.message).list.reduce(_+ ", " +_), List(searchLink))
+      ),
+      params => respondSuccess(params)
+    )
   }
 
   val searchTemplate = URITemplate(searchLinkHref)
@@ -282,10 +300,89 @@ object MediaApi extends Controller with ArgoHelpers {
     }
   }
 
+  private def getRelatedLabelsLink(searchParams: SearchParams) = {
+    // We search if we have a label in the search, take the first one and then look up it's
+    // siblings so that we can return them as "related labels"
+    val labels = searchParams.structuredQuery.flatMap {
+      // TODO: Use ImageFields for guard
+      case Match(field: SingleField, value:Words) if field.name == "userMetadata.labels" => Some(value.string)
+      case Match(field: SingleField, value:Phrase) if field.name == "userMetadata.labels" => Some(value.string)
+      case _ => None
+    }
+
+    val (mainLabel, selectedLabels) = labels match {
+      case Nil => (None, Nil)
+      case label :: Nil => (Some(label), Nil)
+      case label :: extraLabels => (Some(label), extraLabels)
+    }
+
+    mainLabel.map { label =>
+      // FIXME: This is to stop a search for plain `"` breaking the whole lot.
+      val encodedLabel = UriEncoding.encodePathSegment(label, "UTF-8")
+      val uriTemplate = URITemplate(s"$rootUri/suggest/edits/labels/${encodedLabel}/sibling-labels{?selectedLabels,q}")
+      val paramMap = Map(
+        "selectedLabels" -> Some(selectedLabels.mkString(",")).filter(_.trim.nonEmpty),
+        "q" -> searchParams.query
+      )
+      val paramVars = paramMap.map { case (key, value) => key := value }.toSeq
+      val uri = uriTemplate expand (paramVars: _*)
+      Link("related-labels", uri)
+    }
+  }
+
   def suggestMetadataCredit(q: Option[String], size: Option[Int]) = Authenticated.async { request =>
     ElasticSearch
       .completionSuggestion("suggestMetadataCredit", q.getOrElse(""), size.getOrElse(10))
       .map(c => respondCollection(c.results))
+  }
+
+  def suggestLabels(q: Option[String]) = Authenticated {
+
+    val pseudoFamousLabels = List(
+      "cities", "family", "filmandmusic", "lr", "pp", "saturdayreview", "travel",
+
+      "culturearts", "culturebooks", "culturefilm", "culturestage", "culutremusic",
+
+      "g2arts", "g2columns", "g2coverfeatures", "g2fashion", "g2features", "g2food", "g2health",
+      "g2lifestyle", "g2shortcuts", "g2tv", "g2women",
+
+      "obsbizcash", "obscomment", "obsfocus", "obsfoodfeat", "obsfoodother", "obsfoodrecipes",
+      "obsfoodsupp", "obsforeign", "obshome", "obsmagfash", "obsmagfeat", "obsmaglife",
+      "obsrevagenda", "obsrevbooks", "obsrevcritics", "obsrevdiscover", "obsrevfeat",
+      "obsrevmusic", "obsrevtv", "obssports", "obssupps", "obstechbright", "obstechfeat",
+      "obstechplay"
+    )
+
+    val labels = q.map { q =>
+      pseudoFamousLabels.filter(_.startsWith(q))
+    }.getOrElse(pseudoFamousLabels)
+
+    respondCollection(labels)
+  }
+
+  def suggestLabelSiblings(label: String, q: Option[String], selectedLabels: Option[String]) = Authenticated.async { request =>
+    val selectedLabels_ = selectedLabels.map(_.split(",").toList.map(_.trim)).getOrElse(Nil)
+    val structuredQuery = q.map(Parser.run) getOrElse List()
+
+    ElasticSearch.labelSiblingsSearch(structuredQuery, excludeLabels = List(label)) map { agg =>
+      val labels = agg.results.map { label =>
+        val selected = selectedLabels_.contains(label.key)
+        LabelSibling(label.key, selected)
+      }
+      respond(LabelSiblingsResponse(label, labels.toList))
+    }
+  }
+
+  case class LabelSibling(name: String, selected: Boolean)
+  object LabelSibling {
+    implicit def jsonWrites: Writes[LabelSibling] = Json.writes[LabelSibling]
+    implicit def jsonReads: Reads[LabelSibling] =  Json.reads[LabelSibling]
+  }
+
+  case class LabelSiblingsResponse(label: String, siblings: List[LabelSibling])
+  object LabelSiblingsResponse {
+    implicit def jsonWrites: Writes[LabelSiblingsResponse] = Json.writes[LabelSiblingsResponse]
+    implicit def jsonReads: Reads[LabelSiblingsResponse] =  Json.reads[LabelSiblingsResponse]
   }
 
   // TODO: work with analysed fields
@@ -326,9 +423,13 @@ case class SearchParams(
   uploadedBy: Option[String],
   labels: List[String],
   hasMetadata: List[String],
-  costModelDiff: Boolean,
   persisted: Option[Boolean]
 )
+
+case class InvalidUriParams(message: String) extends Throwable
+object InvalidUriParams {
+  val errorKey = "invalid-uri-parameters"
+}
 
 object SearchParams {
 
@@ -368,7 +469,6 @@ object SearchParams {
       request.getQueryString("uploadedBy"),
       commaSep("labels"),
       commaSep("hasMetadata"),
-      request.getQueryString("costModelDiff") flatMap parseBooleanFromQuery getOrElse false,
       request.getQueryString("persisted") flatMap parseBooleanFromQuery
     )
   }
@@ -395,11 +495,27 @@ object SearchParams {
       "uploadedBy"        -> searchParams.uploadedBy,
       "labels"            -> listToCommas(searchParams.labels),
       "hasMetadata"       -> listToCommas(searchParams.hasMetadata),
-      "costModelDiff"     -> Some(searchParams.costModelDiff.toString),
       "persisted"         -> searchParams.persisted.map(_.toString)
     ).foldLeft(Map[String, String]()) {
       case (acc, (key, Some(value))) => acc + (key -> value)
       case (acc, (_,   None))        => acc
+    }
+
+    type SearchParamValidation = Validation[InvalidUriParams, SearchParams]
+    type SearchParamValidations = ValidationNel[InvalidUriParams, SearchParams]
+
+    def validate(searchParams: SearchParams): SearchParamValidations = {
+      // we just need to return the first `searchParams` as we don't need to manipulate them
+      // TODO: try reduce these
+      (validateLength(searchParams).toValidationNel |@| validateOffset(searchParams).toValidationNel)((s1, s2) => s1)
+    }
+
+    def validateOffset(searchParams: SearchParams): SearchParamValidation = {
+      if (searchParams.offset < 0) InvalidUriParams("offset cannot be less than 0").failure else searchParams.success
+    }
+
+    def validateLength(searchParams: SearchParams): SearchParamValidation = {
+      if (searchParams.length > 200) InvalidUriParams("length cannot exceed 200").failure else searchParams.success
     }
 
 }

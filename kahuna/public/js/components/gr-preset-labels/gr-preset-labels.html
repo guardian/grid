@@ -1,0 +1,60 @@
+<div class="preset-labeller">
+    <ul class="preset-labels"
+        ng:if="ctrl.presetLabels.length > 0">
+        <li class="preset-label"
+            ng:repeat="label in ctrl.presetLabels">
+            <a ui:sref="search.results({query: (label | queryLabelFilter)})"
+               class="preset-label__value preset-label__link">{{label}}</a>
+
+            <button class="preset-label__remove"
+                    title="Remove label"
+                    ng:click="ctrl.removePresetLabel(label)">
+                <gr-icon>close</gr-icon>
+            </button>
+        </li>
+    </ul>
+</div>
+
+<div class="add-preset-label">
+    <button ng:click="ctrl.active = true"
+            ng:disabled="ctrl.adding"
+            ng:if="!ctrl.active"
+            title="Add a new label">
+
+        <gr-icon ng:class="{'spin': ctrl.adding}">add_box</gr-icon>
+        <span ng:show="ctrl.adding">Adding...</span>
+    </button>
+    <form class="flex-container"
+          ng:if="ctrl.active"
+          ng:submit="ctrl.save()">
+
+        <gr-datalist class="related-labels__datalist"
+                     gr:search="ctrl.suggestedLabelsSearch(q)">
+          <input type="text"
+               class="show-no-error"
+               placeholder="e.g. observer"
+               required
+               gr:auto-focus
+               gr:datalist-input
+               ng:model-options="{ updateOn: 'gr:datalist:update' }"
+               ng:change="ctrl.save()"
+               ng:model="ctrl.newLabel"
+               ng:disabled="ctrl.adding" />
+        </gr-datalist>
+
+        <span class="flex-container">
+            <button class="add-preset-label__button button-cancel" type="button" ng:click="ctrl.cancel()" title="Close">
+                <gr-icon-label gr-icon="close"><span ng:hide="ctrl.grSmall">Cancel</span></gr-icon-label>
+            </button>
+            <button
+                class="add-preset-label__button button-save"
+                type="submit"
+                title="Save new label"
+                ng:disabled="ctrl.adding">
+                <gr-icon-label gr-icon="check">
+                    <span ng:hide="ctrl.grSmall">Save</span>
+                </gr-icon-label>
+            </button>
+        </span>
+    </form>
+</div>

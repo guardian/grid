@@ -3,6 +3,7 @@ ftp.host=localhost
 ftp.port=41756
 ftp.user=any
 ftp.password=any
-
 loader.uri=https://loader.{{domain_root}}/images
 auth.key.ftpwatcher={{ftp_key}}
+metrics.aws.id={{AwsId}}
+metrics.aws.secret={{AwsSecret}}

@@ -28,11 +28,21 @@ module.exports = {
              headers: headers,
              params: {
                  filename: s3Event.filename,
-                 uploadedBy: uploadedBy
+                 uploadedBy: uploadedBy,
+                 stage: config.stage
              }
          };
     },
     postData: function(upload, data) {
+        function uploadResult(response) {
+            return {
+                statusCode: response.statusCode,
+                succeeded: response.statusCode == 202,
+                uploadedBy: upload.params.uploadedBy,
+                stage: upload.params.stage
+            }
+        }
+
         const url = upload.url + upload.path;
         const options = {
             url: url,
@@ -45,15 +55,9 @@ module.exports = {
 
         return Rx.Observable.create(function(observer){
             uploadRequest.on("response", function(response){
-                if(response.statusCode == 202){
-                    observer.onNext(response);
-                } else {
-                    const failMessage =
-                        "Failed upload with code: " + response.statusCode;
-                    observer.onError(failMessage);
-                }
-           });
-           uploadRequest.on("error", observer.onError.bind(observer));
+                observer.onNext(uploadResult(response));
+            });
+            uploadRequest.on("error", observer.onError.bind(observer));
         });
     }
 }

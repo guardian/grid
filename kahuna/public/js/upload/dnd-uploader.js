@@ -21,9 +21,15 @@ dndUploader.controller('DndUploaderCtrl',
                             apiPoll, witnessApi) {
 
     var ctrl = this;
+    //hack to prevent grid thumbnails being re-added to the grid for now
+    //TODO make generic - have API tell kahuna S3 buckets' domain
+    const gridThumbnailPattern = /https:\/\/media-service([0-9-a-z]+)thumbbucket([0-9-a-z]+)/;
+
     ctrl.uploadFiles = uploadFiles;
     ctrl.importWitnessImage = importWitnessImage;
     ctrl.isWitnessUri = witnessApi.isWitnessUri;
+    ctrl.isNotGridThumbnail = (uri)  => !gridThumbnailPattern.test(uri);
+    ctrl.loadUriImage = loadUriImage;
 
     function uploadFiles(files) {
         // Queue up files for upload and go to the upload state to
@@ -53,6 +59,11 @@ dndUploader.controller('DndUploaderCtrl',
             return Promise.all([metadataUpdate, rightsUpdate]).
                 then(() => fullImage.data.id);
         });
+    }
+
+   function loadUriImage(fileUri) {
+        uploadManager.uploadUri(fileUri);
+        $state.go('upload', {}, { reload: true });
     }
 
     function importWitnessImage(uri) {
@@ -170,9 +181,12 @@ dndUploader.directive('dndUploader', ['$window', 'delay', 'safeApply', 'track',
                         ctrl.importing = false;
                     });
                     track.action(trackEvent, dropAction('Witness'));
-                } else {
+                } else if (ctrl.isNotGridThumbnail(uri)) {
+                    ctrl.loadUriImage(uri);
+                }
+                else {
                     $window.alert('You must drop valid files or ' +
-                                  'GuardianWitness URLs to upload them');
+                        'URLs to upload them');
 
                     track.action(trackEvent, dropAction('Invalid'));
                 }

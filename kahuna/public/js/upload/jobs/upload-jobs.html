@@ -10,7 +10,7 @@
 
                     <div class="preview__bottom-bar bottom-bar">
                         <div class="bottom-bar__meta">
-                            {{job.name}}, {{job.size | asFileSize}}
+                            {{job.name}}<span ng:if="job.size">, {{job.size | asFileSize}}</span>
                         </div>
 
                         <div class="bottom-bar__actions"></div>
