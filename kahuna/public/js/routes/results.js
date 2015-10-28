@@ -1,46 +1,29 @@
 import angular from 'angular';
-import 'angular-ui-router-extras';
 import Rx from 'rx';
 import Immutable from 'immutable';
 
-import './query';
-import './results';
+import '../search/results';
+import searchResultsTemplate from '../search/results.html!text';
+import panelTemplate         from '../components/gr-panel/gr-panel.html!text';
+
+// TODO: do better things with these deps
 import '../preview/image';
 import '../lib/data-structure/list-factory';
 import '../lib/data-structure/ordered-set-factory';
-import '../components/gr-top-bar/gr-top-bar';
 import '../components/gr-panel/gr-panel';
 
-import searchTemplate        from './view.html!text';
-import searchResultsTemplate from './results.html!text';
-import panelTemplate         from '../components/gr-panel/gr-panel.html!text';
-
-export var search = angular.module('kahuna.search', [
-    'ct.ui.router.extras.dsr',
-    'kahuna.search.query',
+export const resultsRouter = angular.module('gr.routes.results', [
     'kahuna.search.results',
     'kahuna.preview.image',
     'kahuna.image.controller',
-    'kahuna.crop.controller',
     'data-structure.list-factory',
     'data-structure.ordered-set-factory',
-    'gr.topBar',
     'grPanel'
 ]);
 
-// TODO: add a resolver here so that if we error (e.g. 401) we don't keep trying
-// to render - similar to the image controller see:
-// https://github.com/guardian/media-service/pull/478
-search.config(['$stateProvider',
-               function($stateProvider) {
+resultsRouter.config(['$stateProvider', function($stateProvider) {
 
-    $stateProvider.state('search', {
-        abstract: true,
-        url: '/?query&ids&since&nonFree&uploadedBy&until&orderBy',
-        template: searchTemplate
-    });
-
-    $stateProvider.state('search.results', {
+        $stateProvider.state('search.results', {
         url: 'search',
         data: {
             title: function(params) {
@@ -103,17 +86,6 @@ search.config(['$stateProvider',
                     }]
                 }
             }
-        }
-    });
-}]);
-
-// FIXME: This is here if you go to another state directly e.g. `'/images/id'`
-// and then navigate to search. As it has no remembered `deepStateRedirect`,
-// we just land on `/`. See [1].
-search.run(['$rootScope', '$state', function($rootScope, $state) {
-    $rootScope.$on('$stateChangeSuccess', (_, toState) => {
-        if (toState.name === 'search') {
-            $state.go('search.results', null, {reload: true});
         }
     });
 }]);
