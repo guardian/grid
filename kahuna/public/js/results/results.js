@@ -48,7 +48,6 @@ results.controller('SearchResultsCtrl', [
     'inject$',
     'delay',
     'onNextEvent',
-    'scrollPosition',
     'mediaApi',
     'selection',
     'selectedImages$',
@@ -67,7 +66,6 @@ results.controller('SearchResultsCtrl', [
              inject$,
              delay,
              onNextEvent,
-             scrollPosition,
              mediaApi,
              selection,
              selectedImages$,
@@ -259,20 +257,6 @@ results.controller('SearchResultsCtrl', [
                 ctrl.images = compact(ctrl.imagesAll);
             });
         };
-
-        // == Vertical position ==
-
-        // Logic to resume vertical position when navigating back to the same results
-
-        onNextEvent($scope, 'gu-lazy-table:height-changed').
-            // Attempt to resume the top position ASAP, so as to limit
-            // visible jump
-            then(() => scrollPosition.resume($stateParams)).
-            // When navigating back, resuming the position immediately
-            // doesn't work, so we try again after a little while
-            then(() => delay(30)).
-            then(() => scrollPosition.resume($stateParams)).
-            then(scrollPosition.clear);
 
         const pollingPeriod = 15 * 1000; // ms
 
