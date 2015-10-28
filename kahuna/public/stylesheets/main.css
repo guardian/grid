@@ -2164,8 +2164,8 @@ FIXME: what to do with touch devices
        Results page
     ========================================================================== */
 
-    .preview {
-        max-width: 200px;
+    .result-placeholder {
+        border: none;
     }
 
     .preview__image {
