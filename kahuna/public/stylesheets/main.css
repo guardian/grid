@@ -2120,7 +2120,7 @@ ui-archiver .archiver--unarchived:hover {
     padding: 5px 10px;
 }
 
-.image-result {
+.overlay {
     position: fixed;
     top: 0;
     left: 0;

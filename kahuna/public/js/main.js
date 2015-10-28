@@ -10,8 +10,6 @@ import './services/api/loader';
 import './services/api/edits-api';
 import './directives/ui-crop-box';
 import './directives/gr-image-fade-on-load';
-import './crop/index';
-import './image/index';
 import './upload/index';
 import './search/index';
 import './edits/index';
@@ -23,6 +21,9 @@ import './common/index';
 import './errors/http';
 import './errors/global';
 import './components/gr-icon/gr-icon';
+
+// routes
+import './routes/image';
 
 // TODO: move to an async config to remove deps on play
 var apiLink = document.querySelector('link[rel="media-api-uri"]');
@@ -45,8 +46,6 @@ var kahuna = angular.module('kahuna', [
     'util.digest',
     'analytics.track',
     'sentry',
-    'kahuna.crop',
-    'kahuna.image',
     'kahuna.upload',
     'kahuna.search',
     'kahuna.edits',
@@ -55,6 +54,9 @@ var kahuna = angular.module('kahuna', [
     'kahuna.common',
     'kahuna.errors.http',
     'kahuna.errors.global',
+
+    // routes
+    'gr.routes.image',
 
     // directives used throughout
     'gr.imageFadeOnLoad',

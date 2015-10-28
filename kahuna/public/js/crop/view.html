@@ -1,81 +1,83 @@
-<gr-top-bar>
-    <gr-top-bar-nav>
-        <a class="top-bar-item"
-           ui:sref="image({ imageId: ctrl.image.data.id })">
-            <gr-icon>cancel</gr-icon><span class="top-bar-item__label">Cancel</span></a>
-    </gr-top-bar-nav>
+<div class="overlay coppman">
+    <gr-top-bar>
+        <gr-top-bar-nav>
+            <a class="top-bar-item"
+               ui:sref="search.results.image.info({ imageId: ctrl.image.data.id })">
+                <gr-icon>cancel</gr-icon><span class="top-bar-item__label">Cancel</span></a>
+        </gr-top-bar-nav>
 
-    <gr-top-bar-actions>
-        <div class="top-bar-item top-bar-item--static">{{ ctrl.cropWidth() }} &times; {{ ctrl.cropHeight() }}</div>
+        <gr-top-bar-actions>
+            <div class="top-bar-item top-bar-item--static">{{ ctrl.cropWidth() }} &times; {{ ctrl.cropHeight() }}</div>
 
-        <label class="top-bar-item" title="landscape">
-            <input type="radio" ng:model="ctrl.aspect" value="{{ctrl.landscapeRatio}}"/>
-            <gr-icon>crop_landscape</gr-icon><span class="top-bar-item__label">Landscape</span> ({{::ctrl.getRatioString(ctrl.landscapeRatio)}})
-        </label>
+            <label class="top-bar-item" title="landscape">
+                <input type="radio" ng:model="ctrl.aspect" value="{{ctrl.landscapeRatio}}"/>
+                <gr-icon>crop_landscape</gr-icon><span class="top-bar-item__label">Landscape</span> ({{::ctrl.getRatioString(ctrl.landscapeRatio)}})
+            </label>
 
-        <label class="top-bar-item" title="portrait">
-            <input type="radio" ng:model="ctrl.aspect" value="{{ctrl.portraitRatio}}" />
-            <gr-icon>crop_portrait</gr-icon><span class="top-bar-item__label">Portrait</span> ({{::ctrl.getRatioString(ctrl.portraitRatio)}})
-        </label>
+            <label class="top-bar-item" title="portrait">
+                <input type="radio" ng:model="ctrl.aspect" value="{{ctrl.portraitRatio}}" />
+                <gr-icon>crop_portrait</gr-icon><span class="top-bar-item__label">Portrait</span> ({{::ctrl.getRatioString(ctrl.portraitRatio)}})
+            </label>
 
-        <label class="top-bar-item" title="video">
-            <input type="radio" ng:model="ctrl.aspect" value="{{ctrl.videoRatio}}" />
-            <gr-icon>crop_16_9</gr-icon><span class="top-bar-item__label">Video</span> ({{::ctrl.getRatioString(ctrl.videoRatio)}})
-        </label>
+            <label class="top-bar-item" title="video">
+                <input type="radio" ng:model="ctrl.aspect" value="{{ctrl.videoRatio}}" />
+                <gr-icon>crop_16_9</gr-icon><span class="top-bar-item__label">Video</span> ({{::ctrl.getRatioString(ctrl.videoRatio)}})
+            </label>
 
-        <label class="top-bar-item" title="free-form">
-            <input type="radio" ng:model="ctrl.aspect" value="{{ctrl.freeRatio}}" />
-            <gr-icon>crop_free</gr-icon><span class="top-bar-item__label">Free-form</span>
-        </label>
+            <label class="top-bar-item" title="free-form">
+                <input type="radio" ng:model="ctrl.aspect" value="{{ctrl.freeRatio}}" />
+                <gr-icon>crop_free</gr-icon><span class="top-bar-item__label">Free-form</span>
+            </label>
 
-        <div class="top-bar-item top-bar-item--full" ng:switch="ctrl.image.data.cost">
-            <div ng:switch-when="pay"
-                 class="cost cost--pay">
-                Pay to use
+            <div class="top-bar-item top-bar-item--full" ng:switch="ctrl.image.data.cost">
+                <div ng:switch-when="pay"
+                     class="cost cost--pay">
+                    Pay to use
+                </div>
+
+                <div ng:switch-when="conditional"
+                     class="cost cost--conditional"
+                     title="restricted use: {{ctrl.image.data.usageRights.restrictions}}">
+                    <!-- As `conditional` can only be set with usageRights, let's
+                         just assume it's here. We might need to revisit this. -->
+                    <gr-icon>flag</gr-icon>
+                    <span class="top-bar-item__label">Restricted use</span>
+                    <gr-icon>help</gr-icon>
+                </div>
             </div>
 
-            <div ng:switch-when="conditional"
-                 class="cost cost--conditional"
-                 title="restricted use: {{ctrl.image.data.usageRights.restrictions}}">
-                <!-- As `conditional` can only be set with usageRights, let's
-                     just assume it's here. We might need to revisit this. -->
-                <gr-icon>flag</gr-icon>
-                <span class="top-bar-item__label">Restricted use</span>
-                <gr-icon>help</gr-icon>
+            <div class="top-bar-item">
+                <button class="button crop__action"
+                        type="button"
+                        ng:click="ctrl.crop()"
+                        ng:disabled="ctrl.cropping">
+                    <gr-icon>crop</gr-icon><span class="top-bar-item__label">Crop<span ng:show="ctrl.cropping">ping…</span></span>
+                </button>
             </div>
+        </gr-top-bar-actions>
+    </gr-top-bar>
+
+    <div class="warning" ng:if="ctrl.cropSizeWarning()">
+        This crop is very small and will result in a low-quality image.
+        Please try to use a larger crop.
+    </div>
+
+    <div class="easel">
+        <div class="easel__canvas">
+            <img class="easel__image"
+                 ng:src="{{ctrl.optimisedImageUri}}"
+                 ui:crop-box="ctrl.coords"
+                 ui:crop-box-original-width="ctrl.originalWidth"
+                 ui:crop-box-original-height="ctrl.originalHeight"
+                 ui:crop-box-aspect="ctrl.aspect"
+                 ui:crop-box-background-opacity="0.3"
+
+                 grid:track-image="ctrl.image"
+                 grid:track-image-location="original-cropping"
+                 grid:track-image-loadtime
+
+                 gr:image-fade-on-load
+            />
         </div>
-
-        <div class="top-bar-item">
-            <button class="button crop__action"
-                    type="button"
-                    ng:click="ctrl.crop()"
-                    ng:disabled="ctrl.cropping">
-                <gr-icon>crop</gr-icon><span class="top-bar-item__label">Crop<span ng:show="ctrl.cropping">ping…</span></span>
-            </button>
-        </div>
-    </gr-top-bar-actions>
-</gr-top-bar>
-
-<div class="warning" ng:if="ctrl.cropSizeWarning()">
-    This crop is very small and will result in a low-quality image.
-    Please try to use a larger crop.
-</div>
-
-<div class="easel">
-    <div class="easel__canvas">
-        <img class="easel__image"
-             ng:src="{{ctrl.optimisedImageUri}}"
-             ui:crop-box="ctrl.coords"
-             ui:crop-box-original-width="ctrl.originalWidth"
-             ui:crop-box-original-height="ctrl.originalHeight"
-             ui:crop-box-aspect="ctrl.aspect"
-             ui:crop-box-background-opacity="0.3"
-
-             grid:track-image="ctrl.image"
-             grid:track-image-location="original-cropping"
-             grid:track-image-loadtime
-
-             gr:image-fade-on-load
-        />
     </div>
 </div>
