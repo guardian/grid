@@ -2,6 +2,8 @@ import angular from 'angular';
 import Rx from 'rx';
 import 'angular-bootstrap';
 
+import panelTemplate from '../gr-panel/gr-panel.html!text';
+
 import './gr-panel.css!';
 import '../../services/archive';
 import '../../services/image-accessor';
@@ -12,7 +14,7 @@ import '../../edits/service';
 import '../../forms/gr-xeditable/gr-xeditable';
 import '../../util/rx';
 
-export var grPanel = angular.module('grPanel', [
+export const grPanel = angular.module('grPanel', [
     'kahuna.services.archive',
     'kahuna.services.image-accessor',
     'kahuna.services.image-list',
@@ -24,7 +26,7 @@ export var grPanel = angular.module('grPanel', [
     'util.rx'
 ]);
 
-grPanel.controller('GrPanel', [
+grPanel.controller('GrPanelCtrl', [
     '$rootScope',
     '$scope',
     '$window',
@@ -227,3 +229,13 @@ grPanel.controller('GrPanel', [
         };
     }
 ]);
+
+grPanel.directive('grPanel', function() {
+    return {
+        restrict: 'E',
+        controller: 'GrPanelCtrl',
+        controllerAs: 'ctrl',
+        bindToController: true,
+        template: panelTemplate
+    }
+});

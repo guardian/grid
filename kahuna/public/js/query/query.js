@@ -9,6 +9,7 @@ import '../util/eq';
 import '../components/gu-date-range/gu-date-range';
 import template from './query.html!text';
 
+import './query-filter';
 import '../analytics/track';
 
 export var query = angular.module('kahuna.search.query', [

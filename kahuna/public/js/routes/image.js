@@ -12,7 +12,7 @@ import '../crop/controller';
 // TODO: Figure out how we deal with these dependencies
 // They should probably be deps of the controllers
 import '../components/gr-top-bar/gr-top-bar';
-import '../search/query-filter';
+import '../query/query-filter';
 import '../imgops/service';
 import '../forms/gr-xeditable/gr-xeditable';
 

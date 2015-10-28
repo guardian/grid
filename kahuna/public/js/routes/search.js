@@ -1,6 +1,6 @@
 import angular from 'angular';
 
-import '../search/query';
+import '../query/query';
 import searchTemplate from '../search/view.html!text';
 
 // TODO: do better things with these deps

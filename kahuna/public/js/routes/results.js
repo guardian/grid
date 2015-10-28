@@ -2,8 +2,8 @@ import angular from 'angular';
 import Rx from 'rx';
 import Immutable from 'immutable';
 
-import '../search/results';
-import searchResultsTemplate from '../search/results.html!text';
+import '../results/results';
+import searchResultsTemplate from '../results/results.html!text';
 import panelTemplate         from '../components/gr-panel/gr-panel.html!text';
 
 // TODO: do better things with these deps
@@ -23,7 +23,7 @@ export const resultsRouter = angular.module('gr.routes.results', [
 
 resultsRouter.config(['$stateProvider', function($stateProvider) {
 
-        $stateProvider.state('search.results', {
+    $stateProvider.state('search.results', {
         url: 'search',
         data: {
             title: function(params) {
@@ -76,7 +76,7 @@ resultsRouter.config(['$stateProvider', function($stateProvider) {
             },
             panel: {
                 template: panelTemplate,
-                controller: 'GrPanel',
+                controller: 'GrPanelCtrl',
                 controllerAs: 'ctrl',
                 resolve: {
                     selectedImagesList$: ['selectedImages$', function(selectedImages$) {
