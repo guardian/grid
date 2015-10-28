@@ -381,6 +381,10 @@ textarea.ng-invalid {
     padding: 0 10px;
 }
 
+.top-bar-item ui-archiver .archiver {
+    color: #ccc;
+}
+
 .user-actions {
     margin-right: -10px;
     padding: 0 5px;
@@ -798,6 +802,10 @@ input.search-query__input {
 
 .result__select--selected .result__select__checkbox__label gr-icon {
     color: #00adee;
+}
+
+.result ui-archiver .archiver--unarchived {
+    display: none;
 }
 
 .result:hover .result__select,
@@ -1901,37 +1909,6 @@ FIXME: what to do with touch devices
     90% { border-width: 10px; }
     100% { border-width: 0; }
 }
-
-
-/* ==========================================================================
-   Archviver
-   ========================================================================== */
-.top-bar-item gr-image-persist-status {
-    padding: 0 10px;
-    height: 100%;
-}
-
-.preview .archiver {
-    display: none;
-}
-
-.preview .archiver--archived {
-    display: block;
-}
-
-ui-archiver {
-    color: #ccc;
-}
-
-ui-archiver .archiver--unarchived {
-    color: #737373;
-}
-
-ui-archiver .archiver:hover,
-ui-archiver .archiver--unarchived:hover {
-    color: white;
-}
-
 
 /* ==========================================================================
    Drop menu e.g top level navigation
