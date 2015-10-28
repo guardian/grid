@@ -1352,6 +1352,7 @@ FIXME: what to do with touch devices
     float: left;
     width: 130px;
     border-right: 1px solid #565656;
+    border-left: none;
     position: relative;
 }
 
@@ -1381,14 +1382,6 @@ FIXME: what to do with touch devices
 .image-info__group--last {
     border-bottom: 0;
     clear: both;
-}
-
-.image-info__group--crops {
-    padding: 10px;
-}
-
-.image-info__group--original {
-    border-top: 1px solid #565656;
 }
 
 .image-info__group table {
@@ -1679,6 +1672,86 @@ FIXME: what to do with touch devices
 .image-crop__aspect-ratio--selected {
     color: #FFFFFF;
 }
+
+/* ==========================================================================
+   Labeller
+   ========================================================================== */
+.labeller {
+    font-size: 1.3rem;
+    display: flex;
+}
+
+.label {
+    background-color: #00adee;
+    /*color: white;*/
+    display: inline-block;
+    /*padding: 0 5px;*/
+    border-radius: 2px;
+    margin: 0 5px 5px 0;
+}
+
+.label--removing {
+    background-color: #99ddff;
+}
+
+.label--partial,
+.label--partial gr-icon {
+    background-color: white;
+    color: #00adee;
+}
+
+
+.label__link {
+    padding: 2px 5px;
+}
+.label__link,
+.label__remove {
+    color: white;
+    background-color: #00adee;
+    border-radius: 2px;
+    /*padding: 0 5px;*/
+}
+
+.label__link:hover,
+.label__remove:hover {
+    color: #00adee;
+    background-color: white;
+}
+
+.label__link:hover {
+    border-top-right-radius: 0;
+    border-bottom-right-radius: 0;
+}
+
+.label__remove:hover {
+    border-top-left-radius: 0;
+    border-bottom-left-radius: 0;
+}
+
+.label button:hover gr-icon {
+    color: #333;
+}
+
+.label button:active gr-icon {
+    background-color: #008fc5;
+    color: #333;
+}
+
+.label--partial button:active gr-icon {
+    background-color: #CFCFCF;
+    color: #333;
+}
+
+.labeller__apply-all {
+    margin-left: 10px;
+    line-height: 20px;
+    font-size: 1.6rem;
+}
+
+.labeller__apply-all:hover {
+    color: #FFF;
+}
+
 
 /* ==========================================================================
    Uploads
@@ -2131,14 +2204,15 @@ FIXME: what to do with touch devices
         max-width: 100%;
         max-height: 450px;
         transform: none;
+        position: static;
     }
 
-    .image-details {
+    .image-canvas, .image-details {
         height: auto;
         width: auto;
     }
 
-    .image-info__description {
+    .image-info__description, .image-info__keyword {
         max-height: 85px;
         overflow: hidden;
     }
