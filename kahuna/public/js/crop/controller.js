@@ -4,13 +4,14 @@ var crop = angular.module('kahuna.crop.controller', []);
 
 crop.controller('ImageCropCtrl',
                 ['$scope', '$rootScope', '$stateParams', '$state',
-                 '$filter', 'mediaApi', 'mediaCropper',
+                 '$filter', '$document', 'mediaApi', 'mediaCropper',
                  'image', 'optimisedImageUri',
                  function($scope, $rootScope, $stateParams, $state,
-                          $filter, mediaApi, mediaCropper,
+                          $filter, $document, mediaApi, mediaCropper,
                           image, optimisedImageUri) {
 
     const ctrl = this;
+    const body = $document[0].body;
 
     var imageId = $stateParams.imageId;
     ctrl.image = image;
@@ -66,7 +67,14 @@ crop.controller('ImageCropCtrl',
         // else undefined is fine
     };
 
-    ctrl.crop = function() {
+     ctrl.callCrop = function() {
+         //prevents return keypress on the crop button posting crop twice
+         if (!ctrl.cropping) {
+             crop();
+         }
+     };
+
+    const crop = () => {
         // TODO: show crop
         var coords = {
             x: Math.round(ctrl.coords.x1),
@@ -94,5 +102,33 @@ crop.controller('ImageCropCtrl',
             ctrl.cropping = false;
         });
     };
+
+     function cropReturnKeyShortcut(event) {
+         // check if ENTER key
+         if (event.which === 13) {
+             ctrl.callCrop();
+         }
+     }
+
+     //TODO find a nicer way to handle keyboard shortcuts
+     body.addEventListener('keypress', cropReturnKeyShortcut);
+
+     $scope.$on('$destroy', function(){
+         body.removeEventListener('keypress', cropReturnKeyShortcut);
+     });
+
+     function cropReturnKeyShortcut(event) {
+         // check if ENTER key
+         if (event.which === 13) {
+             ctrl.callCrop();
+         }
+     }
+
+     //TODO find a nicer way to handle keyboard shortcuts
+     body.addEventListener('keypress', cropReturnKeyShortcut);
+
+     $scope.$on('$destroy', function(){
+         body.removeEventListener('keypress', cropReturnKeyShortcut);
+     });
 
 }]);
