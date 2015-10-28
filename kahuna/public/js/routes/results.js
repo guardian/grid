@@ -72,7 +72,10 @@ resultsRouter.config(['$stateProvider', function($stateProvider) {
             results: {
                 template: searchResultsTemplate,
                 controller: 'SearchResultsCtrl',
-                controllerAs: 'ctrl'
+                controllerAs: 'ctrl',
+                data: {
+
+                }
             },
             panel: {
                 template: panelTemplate,

@@ -733,10 +733,6 @@ input.search-query__input {
     position: relative;
 }
 
-.results--active {
-    background:hotpink;
-}
-
 .results--panel-locked {
     width: calc(100% - 290px);
 }
@@ -2110,4 +2106,8 @@ FIXME: what to do with touch devices
     width: 100vw;
     height: 100vh;
     z-index: 200;
+}
+
+.no-scroll {
+    overflow: hidden;
 }

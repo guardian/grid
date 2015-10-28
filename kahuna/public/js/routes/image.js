@@ -52,6 +52,10 @@ imageRoute.config(['$stateProvider', function($stateProvider) {
     }).
     state('search.results.image.info', {
         url: '',
+        data: {
+            title: () => 'image',
+            isOverlay: true
+        },
         views: {
             imageInfo: {
                 template: imageTemplate,
@@ -62,6 +66,10 @@ imageRoute.config(['$stateProvider', function($stateProvider) {
     }).
     state('search.results.image.crop', {
         url: '/crop',
+        data: {
+            title: () => 'crop',
+            isOverlay: true
+        },
         views: {
             crop: {
                 template: cropTemplate,

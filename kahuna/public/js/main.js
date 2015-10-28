@@ -439,6 +439,25 @@ kahuna.directive('uiTitle', ['$rootScope', function($rootScope) {
     };
 }]);
 
+// FIXME: Not 100% sure this is the best way to get at this
+kahuna.directive('grWhenOverlayMode', ['$rootScope', function($rootScope) {
+    return {
+        restrict: 'A',
+        link: function(scope, element, attrs) {
+            const el = element[0];
+            $rootScope.$on('$stateChangeStart', (event, toState) => {
+                const isOverlayMode = toState.data && toState.data.isOverlay;
+                const className = attrs.grWhenOverlayMode;
+                if (isOverlayMode) {
+                    el.classList.add(className);
+                } else {
+                    el.classList.remove(className);
+                }
+            });
+        }
+    };
+}]);
+
 /**
  * using uiLocalStoreVal to set a key to the same value will remove that key from localStorage
  * this allows toggling values on/off
