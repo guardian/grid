@@ -2133,7 +2133,7 @@ FIXME: what to do with touch devices
         transform: none;
     }
 
-    .image-details {
+    .image-canvas, .image-details {
         height: auto;
         width: auto;
     }
