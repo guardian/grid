@@ -2,7 +2,6 @@ import angular from 'angular';
 import Rx from 'rx';
 import * as querySyntax from '../search-query/query-syntax';
 
-import '../services/scroll-position';
 import '../services/panel';
 import '../util/async';
 import '../util/rx';
@@ -12,7 +11,6 @@ import '../downloader/downloader';
 import '../components/gr-delete-image/gr-delete-image';
 
 export var results = angular.module('kahuna.search.results', [
-    'kahuna.services.scroll-position',
     'kahuna.services.panel',
     'util.async',
     'util.rx',

@@ -733,6 +733,10 @@ input.search-query__input {
     position: relative;
 }
 
+.results--active {
+    background:hotpink;
+}
+
 .results--panel-locked {
     width: calc(100% - 290px);
 }

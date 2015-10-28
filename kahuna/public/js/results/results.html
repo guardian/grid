@@ -5,7 +5,8 @@
 </div>
 
 <div ng:if="! ctrl.loading"
-    ng:class="{'results--left': ctrl.inSelectionMode}">
+     ng:class="{'results--left': ctrl.inSelectionMode}"
+     ui:sref-active="results--active">
     <div ng:if="ctrl.totalResults == 0"
          class="image-no-results">
         No matches, sorry!
