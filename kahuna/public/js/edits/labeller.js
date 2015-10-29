@@ -3,7 +3,7 @@ import template from './labeller.html!text';
 import templateCompact from './labeller-compact.html!text';
 import './labeller.css!';
 
-import '../search/query-filter';
+import '../query/query-filter';
 import '../services/label';
 
 export var labeller = angular.module('kahuna.edits.labeller', [

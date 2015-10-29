@@ -5,7 +5,7 @@
 </div>
 
 <div ng:if="! ctrl.loading"
-    ng:class="{'results--left': ctrl.inSelectionMode}">
+     ng:class="{'results--left': ctrl.inSelectionMode}">
     <div ng:if="ctrl.totalResults == 0"
          class="image-no-results">
         No matches, sorry!
@@ -107,7 +107,7 @@
         </div>
 
         <ul class="results"
-            ng:class="{'results--panel-locked': ctrl.metadataPanelLocked }"
+            ng:class="{'results--panel-locked': ctrl.metadataPanelLocked}"
             gu:lazy-table="ctrl.imagesAll"
             gu:lazy-table-cell-min-width="280"
             gu:lazy-table-cell-height="292"
@@ -171,3 +171,4 @@
         </div>
     </div>
 </div>
+<ui-view></ui-view>

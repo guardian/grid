@@ -9,6 +9,7 @@ import '../util/eq';
 import '../components/gu-date-range/gu-date-range';
 import template from './query.html!text';
 
+import './query-filter';
 import '../analytics/track';
 
 export var query = angular.module('kahuna.search.query', [
@@ -23,7 +24,7 @@ query.controller('SearchQueryCtrl',
                  ['$scope', '$state', '$stateParams', 'onValChange', 'mediaApi', 'track',
                  function($scope, $state, $stateParams, onValChange , mediaApi, track) {
 
-    var ctrl = this;
+    const ctrl = this;
 
     ctrl.ordering = {
         orderBy: $stateParams.orderBy

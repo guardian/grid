@@ -1,7 +1,9 @@
+<div class="overlay">
+
 <gr-top-bar>
     <gr-top-bar-nav>
         <a class="top-bar-item"
-           ui:sref="image({ imageId: ctrl.image.data.id })">
+           ui:sref="search.results.image.info({ imageId: ctrl.image.data.id })">
             <gr-icon>cancel</gr-icon><span class="top-bar-item__label">Cancel</span></a>
     </gr-top-bar-nav>
 
@@ -78,4 +80,6 @@
              gr:image-fade-on-load
         />
     </div>
+</div>
+
 </div>

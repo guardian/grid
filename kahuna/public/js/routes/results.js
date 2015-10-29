@@ -1,65 +1,30 @@
 import angular from 'angular';
-import 'angular-ui-router-extras';
 import Rx from 'rx';
 import Immutable from 'immutable';
 
-import './query';
-import './results';
+import '../results/results';
+import searchResultsTemplate from '../results/results.html!text';
+import panelTemplate         from '../components/gr-panel/gr-panel.html!text';
+
+// TODO: do better things with these deps
 import '../preview/image';
 import '../lib/data-structure/list-factory';
 import '../lib/data-structure/ordered-set-factory';
-import '../components/gr-top-bar/gr-top-bar';
 import '../components/gr-panel/gr-panel';
 
-import searchTemplate        from './view.html!text';
-import searchResultsTemplate from './results.html!text';
-import panelTemplate        from '../components/gr-panel/gr-panel.html!text';
-
-
-export var search = angular.module('kahuna.search', [
-    'ct.ui.router.extras.dsr',
-    'kahuna.search.query',
+export const resultsRouter = angular.module('gr.routes.results', [
     'kahuna.search.results',
     'kahuna.preview.image',
+    'kahuna.image.controller',
     'data-structure.list-factory',
     'data-structure.ordered-set-factory',
-    'gr.topBar',
     'grPanel'
 ]);
 
-// TODO: add a resolver here so that if we error (e.g. 401) we don't keep trying
-// to render - similar to the image controller see:
-// https://github.com/guardian/media-service/pull/478
-search.config(['$stateProvider',
-               function($stateProvider) {
-
-    $stateProvider.state('search', {
-        // FIXME [1]: This state should be abstract, but then we can't navigate to
-        // it, which we need to do to access it's deeper / remembered chile state
-        url: '/',
-        template: searchTemplate,
-        deepStateRedirect: {
-            // Inject a transient $stateParams for the results state
-            // below to pick up and expose
-            fn: ['$dsr$', function($dsr$) {
-                const params = angular.extend({}, $dsr$.redirect.params, {
-                    isDeepStateRedirect: true
-                });
-                return {state: $dsr$.redirect.state, params};
-            }]
-        }
-    });
+resultsRouter.config(['$stateProvider', function($stateProvider) {
 
     $stateProvider.state('search.results', {
-        url: 'search?query&ids&since&nonFree&uploadedBy&until&orderBy',
-        // Non-URL parameters
-        params: {
-            // Routing-level property indicating whether the state has
-            // been loaded as part of a deep-state redirect. Note that
-            // this param gets cleared below so it should never reach
-            // controllers
-            isDeepStateRedirect: {value: false, type: 'bool'}
-        },
+        url: 'search',
         data: {
             title: function(params) {
                 return params.query ? params.query : 'search';
@@ -107,11 +72,14 @@ search.config(['$stateProvider',
             results: {
                 template: searchResultsTemplate,
                 controller: 'SearchResultsCtrl',
-                controllerAs: 'ctrl'
+                controllerAs: 'ctrl',
+                data: {
+
+                }
             },
             panel: {
                 template: panelTemplate,
-                controller: 'GrPanel',
+                controller: 'GrPanelCtrl',
                 controllerAs: 'ctrl',
                 resolve: {
                     selectedImagesList$: ['selectedImages$', function(selectedImages$) {
@@ -121,17 +89,6 @@ search.config(['$stateProvider',
                     }]
                 }
             }
-        }
-    });
-}]);
-
-// FIXME: This is here if you go to another state directly e.g. `'/images/id'`
-// and then navigate to search. As it has no remembered `deepStateRedirect`,
-// we just land on `/`. See [1].
-search.run(['$rootScope', '$state', function($rootScope, $state) {
-    $rootScope.$on('$stateChangeSuccess', (_, toState) => {
-        if (toState.name === 'search') {
-            $state.go('search.results', null, {reload: true});
         }
     });
 }]);

@@ -32,3 +32,5 @@ GET     /robots.txt                 controllers.Robots.disallowAll
 GET     /jspm_packages/github/tapmodo/Jcrop@0.9.12/css/Jcrop.gif controllers.Application.hackJcropGif(ignored="")
 GET     /images/jspm_packages/github/tapmodo/Jcrop@0.9.12/css/Jcrop.gif controllers.Application.hackJcropGif(ignored="")
 GET     /images/$id<[0-9a-z]+>/jspm_packages/github/tapmodo/Jcrop@0.9.12/css/Jcrop.gif controllers.Application.hackJcropGif(id)
+
+GET     /search/image/*path controllers.Application.index(path)

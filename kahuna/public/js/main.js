@@ -10,10 +10,7 @@ import './services/api/loader';
 import './services/api/edits-api';
 import './directives/ui-crop-box';
 import './directives/gr-image-fade-on-load';
-import './crop/index';
-import './image/index';
 import './upload/index';
-import './search/index';
 import './edits/index';
 import './util/async';
 import './util/digest';
@@ -23,6 +20,9 @@ import './common/index';
 import './errors/http';
 import './errors/global';
 import './components/gr-icon/gr-icon';
+
+// routes
+import './routes/index';
 
 // TODO: move to an async config to remove deps on play
 var apiLink = document.querySelector('link[rel="media-api-uri"]');
@@ -45,16 +45,16 @@ var kahuna = angular.module('kahuna', [
     'util.digest',
     'analytics.track',
     'sentry',
-    'kahuna.crop',
-    'kahuna.image',
     'kahuna.upload',
-    'kahuna.search',
     'kahuna.edits',
     'kahuna.services.api',
     'kahuna.directives',
     'kahuna.common',
     'kahuna.errors.http',
     'kahuna.errors.global',
+
+    // routes
+    'gr.routes',
 
     // directives used throughout
     'gr.imageFadeOnLoad',
@@ -434,6 +434,25 @@ kahuna.directive('uiTitle', ['$rootScope', function($rootScope) {
                           ' | ' + attrs.uiTitleSuffix;
 
                   element.text(title);
+            });
+        }
+    };
+}]);
+
+// FIXME: Not 100% sure this is the best way to get at this
+kahuna.directive('grWhenOverlayMode', ['$rootScope', function($rootScope) {
+    return {
+        restrict: 'A',
+        link: function(scope, element, attrs) {
+            const el = element[0];
+            $rootScope.$on('$stateChangeStart', (event, toState) => {
+                const isOverlayMode = toState.data && toState.data.isOverlay;
+                const className = attrs.grWhenOverlayMode;
+                if (isOverlayMode) {
+                    el.classList.add(className);
+                } else {
+                    el.classList.remove(className);
+                }
             });
         }
     };

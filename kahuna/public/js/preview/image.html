@@ -3,9 +3,8 @@
     <ul class="image-actions">
         <li>
             <a class="image-action image-action--first"
-               target="_blank"
                title="Pop out"
-               ng:href="/images/{{::ctrl.image.data.id}}"
+               ui:sref="search.results.image.info({imageId: ctrl.image.data.id})"
                gr:stop-propagation="click"
                gr:track-click="Popout button">
                 <gr-icon>open_in_new</gr-icon>
@@ -26,7 +25,7 @@
     </ul>
 
     <a ng:if="! ctrl.selectionMode" class="preview__link"
-       ui:sref="image({imageId: ctrl.image.data.id})"
+       ui:sref="search.results.image.info({imageId: ctrl.image.data.id})"
        ui:drag-data="{{ctrl.image | asImageDragData}}">
        <div class="preview__fade"></div>
        <img class="preview__image"
