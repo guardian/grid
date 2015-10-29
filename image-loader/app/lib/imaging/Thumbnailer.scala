@@ -15,8 +15,9 @@ object Thumbnailer {
 
   def createThumbnail(width: Int, filename: String): Future[File] = Future {
     val tempFile = createTempFile
+    val useGraphicsMagick = true
 
-    val convertCmd = new ConvertCmd
+    val convertCmd = new ConvertCmd(useGraphicsMagick)
     val imOp = new IMOperation
     imOp.addImage(filename)
     imOp.thumbnail(width)

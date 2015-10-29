@@ -1,3 +1,4 @@
+
 /* ==========================================================================
    Common
    ========================================================================== */
@@ -363,7 +364,7 @@ textarea.ng-invalid {
 }
 
 .top-bar-item:hover {
-	background-color: #666666;
+    background-color: #666666;
 }
 
 .top-bar-item--filled {
@@ -378,6 +379,10 @@ textarea.ng-invalid {
 .top-bar-item .gr-confirm-delete {
     border: none;
     padding: 0 10px;
+}
+
+.top-bar-item ui-archiver .archiver {
+    color: #ccc;
 }
 
 .user-actions {
@@ -779,6 +784,10 @@ input.search-query__input {
     z-index: 1;
 }
 
+.result__select--allow-shift-click {
+    pointer-events: none;
+}
+
 .result__select__checkbox__label {
     position: absolute;
     top: 0;
@@ -793,6 +802,10 @@ input.search-query__input {
 
 .result__select--selected .result__select__checkbox__label gr-icon {
     color: #00adee;
+}
+
+.result ui-archiver .archiver--unarchived {
+    display: none;
 }
 
 .result:hover .result__select,
@@ -903,7 +916,7 @@ input.search-query__input {
 }
 
 .results-toolbar-item:hover {
-	background-color: #666666;
+    background-color: #666666;
 }
 
 .results-toolbar-item--static,
@@ -1243,7 +1256,7 @@ FIXME: what to do with touch devices
 }
 
 .result-editor__archiver {
-    background: black;
+    background: #393939;
     padding: 0 5px;
 }
 
@@ -1897,32 +1910,6 @@ FIXME: what to do with touch devices
     100% { border-width: 0; }
 }
 
-
-/* ==========================================================================
-   Archviver
-   ========================================================================== */
-.top-bar-item gr-image-persist-status {
-    padding: 0 10px;
-    height: 100%;
-}
-
-.preview .archiver {
-    display: none;
-}
-
-.preview .archiver--archived {
-    display: block;
-}
-
-ui-archiver {
-    color: #ccc;
-}
-
-ui-archiver .archiver:hover {
-    color: white;
-}
-
-
 /* ==========================================================================
    Drop menu e.g top level navigation
    ========================================================================== */
@@ -2110,3 +2097,80 @@ ui-archiver .archiver:hover {
 .radio-list__label-value {
     padding: 5px 10px;
 }
+
+
+@media print {
+
+    /* ==========================================================================
+       Image page
+    ========================================================================== */
+
+    /*!important is used to overwrite the component stylesheet (labeller.css) loaded after*/
+    /*main.css*/
+
+    button,
+    gr-top-bar,
+    gr-add-label,
+    .image-details--crop,
+    .image-info__group--full-metadata,
+    .related-labels__title {
+        display: none !important;
+    }
+
+    .metadata-line__info,
+    .image-info__title,
+    .image-info__description,
+    .image-info__special-instructions,
+    .label__value,
+    .image-info__keyword {
+        color: black !important;
+    }
+
+    .easel__image {
+        float: left;
+        max-width: 100%;
+        max-height: 450px;
+        transform: none;
+    }
+
+    .image-details {
+        height: auto;
+        width: auto;
+    }
+
+    .image-info__description {
+        max-height: 85px;
+        overflow: hidden;
+    }
+
+    .image-info__group, .metadata-line__info, .image-holder {
+        padding: 0;
+        margin: 0;
+    }
+
+    .image-info__group, .metadata-line__info a {
+        border: none;
+    }
+
+    .image-info__group--dl__key {
+        flex-basis: 20%;
+    }
+
+    .image-info__group--dl__value {
+        flex-basis: 80%;
+    }
+
+    /* ==========================================================================
+       Results page
+    ========================================================================== */
+
+    .result-placeholder {
+        border: none;
+    }
+
+    .preview__image {
+        max-height: 150px;
+    }
+
+}
+

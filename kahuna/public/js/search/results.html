@@ -136,7 +136,9 @@
                             <gr-icon>check_box</gr-icon>
                         </label>
                     </div>
-                    <div class="result__select" ng:if="!ctrl.imageHasBeenSelected(image)">
+                    <div class="result__select"
+                         ng:if="!ctrl.imageHasBeenSelected(image)"
+                         ng:class="{ 'result__select--allow-shift-click': ctrl.inSelectionMode}">
                         <input type="checkbox"
                                class="result__select__checkbox"
                                id="id-{{::image.data.id}}-result__select__checkbox--deselect"

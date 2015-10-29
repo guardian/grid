@@ -21,9 +21,14 @@ dndUploader.controller('DndUploaderCtrl',
                             apiPoll, witnessApi) {
 
     var ctrl = this;
+    //hack to prevent grid thumbnails being re-added to the grid for now
+    //TODO make generic - have API tell kahuna S3 buckets' domain
+    const gridThumbnailPattern = /https:\/\/media-service([0-9-a-z]+)thumbbucket([0-9-a-z]+)/;
+
     ctrl.uploadFiles = uploadFiles;
     ctrl.importWitnessImage = importWitnessImage;
     ctrl.isWitnessUri = witnessApi.isWitnessUri;
+    ctrl.isNotGridThumbnail = (uri)  => !gridThumbnailPattern.test(uri);
     ctrl.loadUriImage = loadUriImage;
 
     function uploadFiles(files) {
@@ -176,7 +181,7 @@ dndUploader.directive('dndUploader', ['$window', 'delay', 'safeApply', 'track',
                         ctrl.importing = false;
                     });
                     track.action(trackEvent, dropAction('Witness'));
-                } else if (uri) {
+                } else if (ctrl.isNotGridThumbnail(uri)) {
                     ctrl.loadUriImage(uri);
                 }
                 else {
