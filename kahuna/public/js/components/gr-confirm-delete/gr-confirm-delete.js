@@ -13,7 +13,7 @@ confirmDelete.directive('grConfirmDelete', ['$timeout', function($timeout) {
                 ng:click="showConfirm = true"
                 ng:class="{'gr-confirm-delete--confirm': showConfirm}">
                 <gr-icon-label ng:if="!showConfirm" gr-icon="delete">{{label}}</gr-icon-label>
-                <gr-icon-label ng:if="showConfirm" gr-icon="delete">Confirm Delete</gr-icon-label>
+                <gr-icon-label ng:if="showConfirm" gr-icon="delete">Confirm delete</gr-icon-label>
             </button>`,
 
         link: function(scope, element, attrs) {

@@ -170,14 +170,19 @@ trait GettyProcessor {
 }
 
 object GettyXmpParser extends ImageProcessor with GettyProcessor {
-  def apply(image: Image): Image = image.fileMetadata.getty.isEmpty match {
+  val excludeFrom = List("newspix international")
+
+  // Some people send over Getty XMP data, but are not affiliated with Getty
+  def excludedCredit(credit: Option[String]) = credit.map(_.toLowerCase).exists(excludeFrom.contains)
+
+  def apply(image: Image): Image = (excludedCredit(image.metadata.credit), image.fileMetadata.getty.isEmpty) match {
     // Only images supplied by Getty have getty fileMetadata
-    case false => image.copy(
+    case (false, false) => image.copy(
       usageRights = gettyAgencyWithCollection(image.metadata.source),
       // Set a default "credit" for when Getty is too lazy to provide one
       metadata    = image.metadata.copy(credit = Some(image.metadata.credit.getOrElse("Getty Images")))
     )
-    case true => image
+    case _ => image
   }
 }
 
@@ -245,11 +250,14 @@ object ReutersParser extends ImageProcessor {
 }
 
 object RexParser extends ImageProcessor {
-  def apply(image: Image): Image = image.metadata.source match {
+  val rexAgency = Agency("Rex Features")
+  val SlashRex = ".+/ Rex Features".r
+
+
+  def apply(image: Image): Image = (image.metadata.source, image.metadata.credit) match {
     // TODO: cleanup byline/credit
-    case Some("Rex Features") => image.copy(
-      usageRights = Agency("Rex Features")
-    )
+    case (Some("Rex Features"), _) => image.copy(usageRights = rexAgency)
+    case (_, Some(SlashRex()))     => image.copy(usageRights = rexAgency)
     case _ => image
   }
 }

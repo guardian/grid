@@ -1,4 +1,6 @@
 const S3Helper     = require('./S3Helper');
+const CWHelper     = require('./CWHelper');
+const Metrics      = require('./Metrics');
 const Upload       = require('./Upload');
 
 
@@ -20,54 +22,49 @@ module.exports = {
 
         const upload = Upload.buildUpload(config, s3Event);
 
-        function log(state) {
-            const states = {
-                "download": {
-                    message: "Downloading from ingest bucket.",
-                    state: s3Object
-                },
-                "upload": {
-                    message: "Uploading to image-loader.",
-                    state: upload
-                },
-                "delete": {
-                    message: "Deleting from ingest bucket.",
-                    state: s3Object
-                },
-                "copy": {
-                    message: "Copying to fail bucket.",
-                    state: s3CopyObject
-                }
+        function log(key, state) {
+            const messages = {
+                "download": "Downloading from ingest bucket.",
+                "upload": "Uploading to image-loader.",
+                "delete": "Deleting from ingest bucket.",
+                "copy": "Copying to fail bucket.",
+                "record": "Recording result to Cloudwatch",
+                "failed": "Upload failed."
             };
 
-            const stateMessage = states[state].message;
-            const stateObject  = states[state].state;
+            const stateMessage = messages[key] || "An error has occured";
 
-            console.log(stateMessage, stateObject);
+            console.log(stateMessage, state);
         }
 
         // TODO: Use stream API
         const operation = function() {
-            log("download");
+            log("download", s3Object);
 
             return S3Helper.getS3Object(s3Object).flatMap(function(data){
-                log("upload");
+                log("upload", upload);
 
                 return Upload.postData(upload, data.Body)
-            }).retry(3);
+            }).retry(5).flatMap(function(uploadResult){
+                log("record", uploadResult)
+
+                return CWHelper.putMetricData(
+                        Metrics.create(uploadResult));
+            });
         };
 
         const success = function(result) {
-            log("delete");
+            log("delete", s3Object);
 
             return S3Helper.deleteS3Object(s3Object);
         };
 
-        const fail = function() {
-            log("copy");
+        const fail = function(e) {
+            log("failed", e)
 
+            log("copy", s3CopyObject);
             return S3Helper.copyS3Object(s3CopyObject).flatMap(function(){
-                log("delete");
+                log("delete", s3Object);
 
                 return S3Helper.deleteS3Object(s3Object);
             });

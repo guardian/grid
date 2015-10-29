@@ -17,7 +17,11 @@ import org.joda.time.DateTime
 import uritemplate._
 import Syntax._
 
+import scalaz.{Validation, ValidationNel}
 import scalaz.syntax.std.list._
+import scalaz.syntax.validation._
+import scalaz.syntax.applicative._
+
 
 import lib.elasticsearch._
 import lib.{Notifications, Config, ImageResponse}
@@ -54,6 +58,8 @@ object MediaApi extends Controller with ArgoHelpers {
   private val suggestedLabelsLink =
     Link("suggested-labels", s"$rootUri/suggest/edits/labels{?q}")
 
+  private val searchLink = Link("search", searchLinkHref)
+
   val indexResponse = {
     val indexData = Json.obj(
       "description" -> "This is the Media API",
@@ -63,7 +69,7 @@ object MediaApi extends Controller with ArgoHelpers {
       // ^ Flatten None away
     )
     val indexLinks = List(
-      Link("search",          searchLinkHref),
+      searchLink,
       Link("image",           s"$rootUri/images/{id}"),
       // FIXME: credit is the only field availble for now as it's the only on
       // that we are indexing as a completion suggestion
@@ -233,9 +239,7 @@ object MediaApi extends Controller with ArgoHelpers {
       }
     }
 
-    val searchParams = SearchParams(request)
-
-    for {
+    def respondSuccess(searchParams: SearchParams) = for {
       SearchResults(hits, totalCount) <- ElasticSearch.search(searchParams)
       imageEntities <- Future.sequence(hits map (hitToImageEntity _).tupled)
       prevLink = getPrevLink(searchParams)
@@ -243,6 +247,17 @@ object MediaApi extends Controller with ArgoHelpers {
       relatedLabelsLink = getRelatedLabelsLink(searchParams)
       links = suggestedLabelsLink :: List(prevLink, nextLink, relatedLabelsLink).flatten
     } yield respondCollection(imageEntities, Some(searchParams.offset), Some(totalCount), links)
+
+    val searchParams = SearchParams(request)
+
+    SearchParams.validate(searchParams).fold(
+      // TODO: respondErrorCollection?
+      errors => Future.successful(respondError(UnprocessableEntity, InvalidUriParams.errorKey,
+        // Annoyingly `NonEmptyList` and `IList` don't have `mkString`
+        errors.map(_.message).list.reduce(_+ ", " +_), List(searchLink))
+      ),
+      params => respondSuccess(params)
+    )
   }
 
   val searchTemplate = URITemplate(searchLinkHref)
@@ -322,14 +337,20 @@ object MediaApi extends Controller with ArgoHelpers {
   }
 
   def suggestLabels(q: Option[String]) = Authenticated {
+
     val pseudoFamousLabels = List(
-      "obsbizcash", "obscomment", "obsfestivals", "obsfocus", "obsforeignnews", "obsgalleries",
-      "obshomenews", "obsmastheads", "obssports", "obssupplements",
+      "cities", "family", "filmandmusic", "lr", "pp", "saturdayreview", "travel",
+
+      "culturearts", "culturebooks", "culturefilm", "culturestage", "culutremusic",
 
       "g2arts", "g2columns", "g2coverfeatures", "g2fashion", "g2features", "g2food", "g2health",
       "g2lifestyle", "g2shortcuts", "g2tv", "g2women",
 
-      "filmandmusic", "pp", "lr", "cities", "travel", "saturdayreview"
+      "obsbizcash", "obscomment", "obsfocus", "obsfoodfeat", "obsfoodother", "obsfoodrecipes",
+      "obsfoodsupp", "obsforeign", "obshome", "obsmagfash", "obsmagfeat", "obsmaglife",
+      "obsrevagenda", "obsrevbooks", "obsrevcritics", "obsrevdiscover", "obsrevfeat",
+      "obsrevmusic", "obsrevtv", "obssports", "obssupps", "obstechbright", "obstechfeat",
+      "obstechplay"
     )
 
     val labels = q.map { q =>
@@ -405,6 +426,11 @@ case class SearchParams(
   persisted: Option[Boolean]
 )
 
+case class InvalidUriParams(message: String) extends Throwable
+object InvalidUriParams {
+  val errorKey = "invalid-uri-parameters"
+}
+
 object SearchParams {
 
   def commasToList(s: String): List[String] = s.trim.split(',').toList
@@ -473,6 +499,23 @@ object SearchParams {
     ).foldLeft(Map[String, String]()) {
       case (acc, (key, Some(value))) => acc + (key -> value)
       case (acc, (_,   None))        => acc
+    }
+
+    type SearchParamValidation = Validation[InvalidUriParams, SearchParams]
+    type SearchParamValidations = ValidationNel[InvalidUriParams, SearchParams]
+
+    def validate(searchParams: SearchParams): SearchParamValidations = {
+      // we just need to return the first `searchParams` as we don't need to manipulate them
+      // TODO: try reduce these
+      (validateLength(searchParams).toValidationNel |@| validateOffset(searchParams).toValidationNel)((s1, s2) => s1)
+    }
+
+    def validateOffset(searchParams: SearchParams): SearchParamValidation = {
+      if (searchParams.offset < 0) InvalidUriParams("offset cannot be less than 0").failure else searchParams.success
+    }
+
+    def validateLength(searchParams: SearchParams): SearchParamValidation = {
+      if (searchParams.length > 200) InvalidUriParams("length cannot exceed 200").failure else searchParams.success
     }
 
 }

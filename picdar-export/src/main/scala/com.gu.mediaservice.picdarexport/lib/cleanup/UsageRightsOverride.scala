@@ -141,6 +141,7 @@ object UsageRightsOverride {
       case "Publicity image from travel company" => PrImage()
       case "Publicity image for travel" => PrImage()
       case "Publicity image from BA" => PrImage()
+      case "Press office image" => PrImage()
       // Ask Jo about restrictions
       case "Paramount Pictures" => PrImage()
       case "The Weinstein Company" => PrImage(Some("Free for editorial use only"))

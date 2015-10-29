@@ -172,8 +172,8 @@
 
         <div class="image-info__group">
             <dl class="image-info__group--dl metadata-line">
-                <dt ng:if="ctrl.metadata.byline || ctrl.userCanEdit" class="image-info__wrap metadata-line image-info__byline metadata-line__key image-info__group--dl__key--panel">By</dt>
-                <dd ng:if="ctrl.metadata.byline || ctrl.userCanEdit" class="image-info__wrap metadata-line image-info__byline metadata-line__info image-info__group--dl__value--panel">
+                <dt ng:if="ctrl.rawMetadata.byline || ctrl.userCanEdit" class="image-info__wrap metadata-line image-info__byline metadata-line__key image-info__group--dl__key--panel">By</dt>
+                <dd ng:if="ctrl.rawMetadata.byline || ctrl.userCanEdit" class="image-info__wrap metadata-line image-info__byline metadata-line__info image-info__group--dl__value--panel">
                     <button class="image-info__edit"
                             ng:if="ctrl.userCanEdit"
                             ng:click="bylineEditForm.$show()"
@@ -236,8 +236,8 @@
                     </span>
                 </dd>
 
-                <dt ng:if="ctrl.metadata.copyright || ctrl.userCanEdit" class="image-info__wrap metadata-line metadata-line__key image-info__group--dl__key--panel">Copyright</dt>
-                <dd ng:if="ctrl.metadata.copyright || ctrl.userCanEdit" class="image-info__wrap metadata-line metadata-line__info image-info__group--dl__value--panel">
+                <dt ng:if="ctrl.rawMetadata.copyright || ctrl.userCanEdit" class="image-info__wrap metadata-line metadata-line__key image-info__group--dl__key--panel">Copyright</dt>
+                <dd ng:if="ctrl.rawMetadata.copyright || ctrl.userCanEdit" class="image-info__wrap metadata-line metadata-line__info image-info__group--dl__value--panel">
                     <button class="image-info__edit"
                             ng:if="ctrl.userCanEdit"
                             ng:click="copyrightEditForm.$show()"
@@ -300,42 +300,42 @@
         <div class="image-info__group image-info__group--last batch-archive" ng:switch="ctrl.archivedState" ng:class="{'batch-archive--archiving': ctrl.archiving}">
             <div ng:switch-when="mixed" class="flex-container batch-archive--mixed">
                 <div class="metadata-line flex-spacer">
-                    <gr-icon>star_half</gr-icon>
-                    <span ng:if="!ctrl.archiving">{{ctrl.archivedCount}} archived</span>
+                    <gr-icon>lock_open</gr-icon>
+                    <span ng:if="!ctrl.archiving">{{ctrl.archivedCount}} kept in Library</span>
                     <span ng:if="ctrl.archiving">Saving…</span>
                 </div>
                 <span class="batch-archive__action" ng:if="!ctrl.archiving">
                     <button class="button-shy batch-archive__archive" ng:click="ctrl.archive()">
-                        <gr-icon>star</gr-icon> all
+                        <gr-icon>lock</gr-icon> all
                     </button>
                     <button class="button-shy batch-archive__unarchive" ng:click="ctrl.unarchive()">
-                        <gr-icon>star_border</gr-icon> none
+                        <gr-icon>lock_open</gr-icon> none
                     </button>
                 </span>
             </div>
 
             <div ng:switch-when="archived" class="flex-container batch-archive--all-archived">
                 <div class="metadata-line flex-spacer">
-                    <gr-icon>star</gr-icon>
-                    <span ng:if="!ctrl.archiving">All archived</span>
+                    <gr-icon>lock</gr-icon>
+                    <span ng:if="!ctrl.archiving">All kept in Library</span>
                     <span ng:if="ctrl.archiving">Saving…</span>
                 </div>
                 <span class="batch-archive__action" ng:if="!ctrl.archiving">
                     <button class="button-shy batch-archive__unarchive" ng:click="ctrl.unarchive()">
-                        <gr-icon>star_border</gr-icon> Unarchive all
+                        <gr-icon>lock_open</gr-icon> Remove all
                     </button>
                 </span>
             </div>
 
             <div ng:switch-when="unarchived" class="flex-container batch-archive--all-unarchived">
                 <div class="metadata-line flex-spacer">
-                    <gr-icon>star_border</gr-icon>
-                    <span ng:if="!ctrl.archiving">All unarchived</span>
+                    <gr-icon>lock_open</gr-icon>
+                    <span ng:if="!ctrl.archiving">None kept in Library</span>
                     <span ng:if="ctrl.archiving">Saving…</span>
                 </div>
                 <span class="batch-archive__action" ng:if="!ctrl.archiving">
                     <button class="button-shy batch-archive__archive" ng:click="ctrl.archive()">
-                        <gr-icon>star</gr-icon> Archive all
+                        <gr-icon>lock</gr-icon> Keep all in Library
                     </button>
                 </span>
             </div>
