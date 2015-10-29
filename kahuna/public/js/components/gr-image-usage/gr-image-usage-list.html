@@ -1,0 +1,14 @@
+<div class="image-info__group">
+    <span class="flex-container gr-image-usage__field_title">
+        {{ctrl.type}} ({{ctrl.usages.length}})
+    </span>
+
+    <ul ng-repeat="data in ctrl.usages.data">
+        <li>
+            <a ng-href="{{data.source.uri}}" target="_blank">
+                <gr-icon-label gr-icon="open_in_new">{{data.source.name}}</gr-icon-label>
+                <span class="date-added">({{ctrl.formatTimestamp(data.dateAdded)}})</span>
+            </a>
+        </li>
+    </ul>
+</div>

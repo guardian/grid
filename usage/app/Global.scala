@@ -8,7 +8,7 @@ import com.gu.mediaservice.lib.play.RequestLoggingFilter
 import controllers.UsageApi
 import lib._
 
-object Global extends WithFilters(RequestLoggingFilter, new GzipFilter) with GlobalSettings {
+object Global extends WithFilters(CorsFilter, RequestLoggingFilter, new GzipFilter) with GlobalSettings {
 
   override def beforeStart(app: Application): Unit = {
     LogConfig.init(Config)
