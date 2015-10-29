@@ -496,7 +496,6 @@ results.controller('SearchResultsCtrl', [
         var scopeGone = false;
 
         $scope.$on('$destroy', () => {
-            scrollPosition.save($stateParams);
             freeUpdateListener();
             freeImageDeleteListener();
             scopeGone = true;

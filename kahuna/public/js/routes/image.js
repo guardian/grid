@@ -1,7 +1,4 @@
-// TODO: Split this between image / crop
-
 import angular from 'angular';
-import 'angular-ui-router-extras';
 
 import imageTemplate from '../image/view.html!text';
 import cropTemplate  from '../crop/view.html!text';
@@ -28,7 +25,7 @@ export const imageRoute = angular.module('gr.routes.image', [
 imageRoute.config(['$stateProvider', function($stateProvider) {
     $stateProvider.state('search.results.image', {
         abstract: true,
-        url: '/image/:imageId',
+        url: 'images/:imageId',
         template: `
             <ui-view name="imageInfo"></ui-view>
             <ui-view name="crop"></ui-view>

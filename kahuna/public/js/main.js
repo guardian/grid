@@ -68,20 +68,6 @@ angular.forEach(config, function(value, key) {
 });
 
 
-kahuna.config(['$locationProvider',
-               function($locationProvider) {
-
-    // Use real URLs (with History API) instead of hashbangs
-    $locationProvider.html5Mode({enabled: true, requireBase: false});
-}]);
-
-kahuna.config(['$urlRouterProvider',
-               function($urlRouterProvider) {
-
-    $urlRouterProvider.otherwise('/search');
-}]);
-
-
 /* Perform an initial API request to detect 401 (not logged in) and
  * redirect browser for authentication if necessary.
  */
