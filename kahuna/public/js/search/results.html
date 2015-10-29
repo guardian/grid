@@ -20,7 +20,8 @@
                 {{ctrl.totalResults | toLocaleString}} matches
                 <button ng:show="ctrl.newImagesCount > 0"
                         ng:click="ctrl.revealNewImages()"
-                        class="image-results-count__new">
+                        class="image-results-count__new"
+                        title="{{ctrl.newImagesCount}} new images as of {{ctrl.lastestTimeMoment}}">
                     {{ctrl.newImagesCount | toLocaleString}} new
                 </button>
             </div>
