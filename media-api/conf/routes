@@ -6,8 +6,8 @@
 GET     /                                             controllers.MediaApi.index
 
 # Image metadata
-GET     /images/metadata/:field                       controllers.MediaApi.metadataSearch(field: String, q: Option[String])
-GET     /images/edits/:field                          controllers.MediaApi.editsSearch(field: String, q: Option[String])
+GET     /images/metadata/:field                       controllers.SuggestionController.metadataSearch(field: String)
+GET     /images/edits/:field                          controllers.SuggestionController.editsSearch(field: String)
 
 # Images
 GET     /images/:id                                   controllers.MediaApi.getImage(id: String)
@@ -18,9 +18,9 @@ DELETE  /images/:id                                   controllers.MediaApi.delet
 GET     /images                                       controllers.MediaApi.imageSearch
 
 # completion
-GET     /suggest/metadata/credit                      controllers.MediaApi.suggestMetadataCredit(q: Option[String], size: Option[Int])
-GET     /suggest/edits/labels/:label/sibling-labels   controllers.MediaApi.suggestLabelSiblings(label: String, q: Option[String], selectedLabels: Option[String])
-GET     /suggest/edits/labels                         controllers.MediaApi.suggestLabels(q: Option[String])
+GET     /suggest/metadata/credit                      controllers.SuggestionController.suggestMetadataCredit(q: Option[String], size: Option[Int])
+GET     /suggest/edits/labels/:label/sibling-labels   controllers.SuggestionController.suggestLabelSiblings(label: String, q: Option[String], selectedLabels: Option[String])
+GET     /suggest/edits/labels                         controllers.SuggestionController.suggestLabels(q: Option[String])
 
 # Management
 GET     /management/healthcheck                       controllers.HealthCheck.healthCheck
