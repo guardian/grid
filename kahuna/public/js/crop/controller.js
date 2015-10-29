@@ -103,7 +103,7 @@ crop.controller('ImageCropCtrl',
          }
      }
 
-     //TODO find a nicer way of handle keyboard shortcuts
+     //TODO find a nicer way to handle keyboard shortcuts
      body.addEventListener('keypress', cropReturnKeyShortcut);
 
      $scope.$on('$destroy', function(){
