@@ -67,7 +67,16 @@ crop.controller('ImageCropCtrl',
         // else undefined is fine
     };
 
-    ctrl.crop = function() {
+     ctrl.callCrop = function() {
+         //prevents return keypress on the crop button posting crop twice
+         if (ctrl.cropping === false) {
+             crop();
+         } else {
+             return;
+         }
+     };
+
+    crop = () => {
         // TODO: show crop
         var coords = {
             x: Math.round(ctrl.coords.x1),
@@ -94,12 +103,12 @@ crop.controller('ImageCropCtrl',
         }).finally(() => {
             ctrl.cropping = false;
         });
-    };
+    }
 
      function cropReturnKeyShortcut(event) {
          // check if ENTER key
          if (event.which === 13) {
-             ctrl.crop();
+             ctrl.callCrop();
          }
      }
 
