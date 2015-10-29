@@ -15,4 +15,8 @@
         <appender-ref ref="CONSOLE"/>
     </root>
 
+    <logger name="com.amazonaws">
+        <level value="ERROR" />
+    </logger>
+
 </configuration>
