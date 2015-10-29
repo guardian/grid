@@ -103,7 +103,7 @@ crop.controller('ImageCropCtrl',
         }).finally(() => {
             ctrl.cropping = false;
         });
-    }
+    };
 
      function cropReturnKeyShortcut(event) {
          // check if ENTER key
