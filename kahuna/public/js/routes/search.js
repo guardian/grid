@@ -9,12 +9,14 @@ import '../results/results';
 import searchTemplate        from '../search/view.html!text';
 import searchResultsTemplate from '../results/results.html!text';
 import panelTemplate         from '../components/gr-panel/gr-panel.html!text';
+import searchQueryTemplate   from '../query/query.html!text';
 
 // TODO: do better things with these deps
 // TODO: do better things with these deps
 import '../preview/image';
 import '../lib/data-structure/list-factory';
 import '../lib/data-structure/ordered-set-factory';
+import '../lib/data-structure/map-factory';
 import '../components/gr-panel/gr-panel';
 import '../components/gr-top-bar/gr-top-bar';
 
@@ -25,6 +27,7 @@ export const searchRouter = angular.module('gr.routes.search', [
     'kahuna.image.controller',
     'data-structure.list-factory',
     'data-structure.ordered-set-factory',
+    'data-structure.mapFactory',
     'grPanel',
     'gr.topBar'
 ]);
@@ -75,12 +78,65 @@ searchRouter.config(['$stateProvider', function($stateProvider) {
                 ).
                 distinctUntilChanged(angular.identity, Immutable.is).
                 shareReplay(1);
+            }],
+            searchParams: ['$state', '$stateParams', 'mapFactory', function($state, $stateParams, mapFactory) {
+                // TODO: Think about restricting these to:
+                // ["ids", "archived", "nonFree", "uploadedBy", "until", "since", "offset",
+                //  "length", "orderBy", "query"]
+                const params = mapFactory();
+
+                // As we want to have the side effect or a URL change happen irrespective of whether
+                // we have subscription, we setup a `do` and create a hot observable to do so.
+                const stateChange$ = params.map$.do(params => {
+                    $state.go('search.results', params.toJS(), { notify: false });
+                }).publish();
+                stateChange$.connect();
+
+                return params;
+            }],
+            search: ['searchParams', 'mediaApi', function(searchParams, mediaApi) {
+                // TODO: only resolve if the initial search has happened.
+
+                // Arbitrary limit of number of results; too many and the
+                // scrollbar becomes hyper-sensitive
+                const searchFilteredLimit = 5000;
+                // When reviewing all images, we accept a degraded scroll
+                // experience to allow seeing around one day's worth of images
+                const searchAllLimit = 20000;
+
+                // this is the initial search to get the count and newest image added data
+                // TODO: ^ Why do we need two calls
+                const search$ = (params) => {
+                    return Rx.Observable.fromPromise(
+                        mediaApi.search(params.get('query'), params.delete('query').toJS()));
+                };
+                const initResult$ = searchParams.map$.concatMap(params => {
+                    const initParams = params.set('length', 1).set('sort', 'newest');
+                    return search$(initParams);
+                });
+                const total$ = initResult$.map(images => images.total);
+                const searchUntil$ = initResult$.map(images =>
+                    images.data[0] && images.data[0].data.uploadTime
+                );
+                const results$ = searchParams.map$.combineLatest(searchUntil$, (params, until) =>
+                    params.set('until', until)
+                ).concatMap(params => search$(params));
+
+                return {
+                    total$,
+                    results$
+                };
             }]
         }
     }).
     state('search.results', {
         url: '',
         views: {
+            query: {
+                template: searchQueryTemplate,
+                controller: 'SearchQueryCtrl',
+                controllerAs: 'searchQuery'
+            },
             results: {
                 template: searchResultsTemplate,
                 controller: 'SearchResultsCtrl',

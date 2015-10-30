@@ -37,6 +37,7 @@ image.controller('ImageCtrl', [
     'cropKey',
     'mediaCropper',
     'imageService',
+    'compactResults$',
 
     function ($rootScope,
               $scope,
@@ -48,9 +49,14 @@ image.controller('ImageCtrl', [
               optimisedImageUri,
               cropKey,
               mediaCropper,
-              imageService) {
+              imageService,
+              compactResults$) {
 
-        var ctrl = this;
+        const ctrl = this;
+
+        compactResults$.subscribe(items => {
+            console.log(items)
+        });
 
         ctrl.image = image;
         ctrl.optimisedImageUri = optimisedImageUri;

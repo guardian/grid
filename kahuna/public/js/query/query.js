@@ -5,24 +5,32 @@ import angular from 'angular';
 // animations locally, we should turn it back on here.
 // import 'angular-animate';
 import moment from 'moment';
-import '../util/eq';
-import '../components/gu-date-range/gu-date-range';
 import template from './query.html!text';
 
+import '../util/eq';
+import '../util/rx';
 import './query-filter';
 import '../analytics/track';
+import '../components/gu-date-range/gu-date-range';
+
+import Rx from 'rx';
+import Immutable from 'immutable';
+import {Map} from 'immutable';
 
 export var query = angular.module('kahuna.search.query', [
     // Note: temporarily disabled for performance reasons, see above
     // 'ngAnimate',
     'util.eq',
+    'util.rx',
     'gu-dateRange',
     'analytics.track'
 ]);
 
 query.controller('SearchQueryCtrl',
                  ['$scope', '$state', '$stateParams', 'onValChange', 'mediaApi', 'track',
-                 function($scope, $state, $stateParams, onValChange , mediaApi, track) {
+                 'observeCollection$', 'searchParams',
+                 function($scope, $state, $stateParams, onValChange , mediaApi, track,
+                          observeCollection$, searchParams) {
 
     const ctrl = this;
 
@@ -83,7 +91,7 @@ query.controller('SearchQueryCtrl',
 
     $scope.$watchCollection(() => ctrl.filter, onValChange(filter => {
         filter.uploadedBy = filter.uploadedByMe ? ctrl.user.email : undefined;
-        $state.go('search.results', filter);
+        //$state.go('search.results', filter);
     }));
 
     // we can't user dynamic values in the ng:true-value see:
@@ -93,18 +101,14 @@ query.controller('SearchQueryCtrl',
         ctrl.filter.uploadedByMe = ctrl.uploadedBy === ctrl.user.email;
     });
 
+    // TODO: Make the query control use the `searchParams` as a read too.
+    const filter$ = observeCollection$($scope, () => ctrl.filter);
+    filter$.subscribe(filter => searchParams.setTo(filter));
+
     function resetQueryAndFocus() {
         ctrl.filter.query = '';
         $scope.$broadcast('search:focus-query');
     }
-}]);
-
-query.directive('searchQuery', [function() {
-    return {
-        restrict: 'E',
-        controller: 'SearchQueryCtrl as searchQuery',
-        template: template
-    };
 }]);
 
 query.directive('gridFocusOn', function() {

@@ -44,6 +44,7 @@ results.controller('SearchResultsCtrl', [
     '$log',
     '$q',
     'inject$',
+    'subscribe$',
     'delay',
     'onNextEvent',
     'mediaApi',
@@ -53,6 +54,7 @@ results.controller('SearchResultsCtrl', [
     'panelService',
     'range',
     'isReloadingPreviousSearch',
+    'search',
     function($rootScope,
              $scope,
              $state,
@@ -62,6 +64,7 @@ results.controller('SearchResultsCtrl', [
              $log,
              $q,
              inject$,
+             subscribe$,
              delay,
              onNextEvent,
              mediaApi,
@@ -70,7 +73,8 @@ results.controller('SearchResultsCtrl', [
              results,
              panelService,
              range,
-             isReloadingPreviousSearch) {
+             isReloadingPreviousSearch,
+             Search) {
 
         const ctrl = this;
 
@@ -104,9 +108,6 @@ results.controller('SearchResultsCtrl', [
         ctrl.images = [];
         ctrl.newImagesCount = 0;
 
-        // Map to track image->position and help remove duplicates
-        let imagesPositions;
-
         // FIXME: This is being refreshed by the router.
         // Make it watch a $stateParams collection instead
         // See:   https://github.com/guardian/media-service/pull/64#discussion-diff-17351746L116
@@ -131,51 +132,25 @@ results.controller('SearchResultsCtrl', [
             lastSearchFirstResultTime = undefined;
         }
 
-        // Initial search to find upper `until` boundary of result set
-        // (i.e. the uploadTime of the newest result in the set)
+        // Map to track image->position and help remove duplicates
+        const imagesPositions = new Map();
 
-        // TODO: avoid this initial search (two API calls to init!)
-        ctrl.searched = search({length: 1, orderBy: 'newest'}).then(function(images) {
-            ctrl.totalResults = images.total;
-
-            // images will be the array of loaded images, used for display
-            ctrl.images = [];
-
-            // imagesAll will be a sparse array of all the results
-            const totalLength = Math.min(images.total, ctrl.maxResults);
-            ctrl.imagesAll = [];
-            ctrl.imagesAll.length = totalLength;
-
-            // TODO: ultimately we want to manage the state in the
-            // results stream exclusively
-            results.clear();
-            results.resize(totalLength);
-
-            imagesPositions = new Map();
-
-            checkForNewImages();
-
-            // Keep track of time of the latest result for all
-            // subsequent searches (so we always query the same set of
-            // results), unless we're reloading a previous search in
-            // which case we reuse the previous time too
-
-            // FIXME: the resolution of uploadTime is seconds, which could
-            // not be enough to avoid multiple images sharing an
-            // uploadTime and issues with duplicate results in the
-            // queried set
-            const latestTime = images.data[0] && images.data[0].data.uploadTime;
-            if (latestTime && ! isReloadingPreviousSearch) {
-                lastSearchFirstResultTime = latestTime;
-            }
-
-            return images;
-        }).finally(() => {
-            ctrl.loading = false;
-        });
+        const sparseArray = len => {
+            const a = [];
+            a.length = len;
+            return a;
+        };
+        // the startWith is here as there is a race condistion where the loadRange can complete
+        // before the initial search.
+        // TODO: we don't actually wait for the initial search to resolve in the router.
+        const imagesAll$ = Search.total$.map(sparseArray).startWith([]);
+        const loading$ = Search.total$.map(() => false);
+        inject$($scope, Search.total$, ctrl, 'totalResults');
+        inject$($scope, imagesAll$, ctrl, 'imagesAll');
+        inject$($scope, loading$, ctrl, 'loading');
 
         // related labels
-        const relatedLabelsPromise$ = Rx.Observable.fromPromise(ctrl.searched).flatMap(images =>
+        const relatedLabelsPromise$ = Search.results$.flatMap(images =>
             Rx.Observable
                 .fromPromise(images.follow('related-labels').get())
                 .catch(err => err.message === 'No link found for rel: related-labels' ?
@@ -217,10 +192,11 @@ results.controller('SearchResultsCtrl', [
             });
         }
 
-        ctrl.suggestedLabelSearch = q =>
-            ctrl.searched.then(images =>
-                images.follow('suggested-labels').get({q}).then(labels => labels.data)
-            ).catch(() => []);
+        // TODO: reinstate this
+        //ctrl.suggestedLabelSearch = q =>
+        //    ctrl.searched.then(images =>
+        //        images.follow('suggested-labels').get({q}).then(labels => labels.data)
+        //    ).catch(() => []);
 
         ctrl.loadRange = function(start, end) {
             const length = end - start + 1;
@@ -241,7 +217,6 @@ results.controller('SearchResultsCtrl', [
                         $log.info(`Detected duplicate image ${imageId}, ` +
                                   `old ${existingPosition}, new ${position}`);
                         delete ctrl.imagesAll[existingPosition];
-
                         results.set(existingPosition, undefined);
                     }
 
