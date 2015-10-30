@@ -10,7 +10,7 @@ import '../components/gr-image-metadata/gr-image-metadata';
 import '../components/gr-image-persist-status/gr-image-persist-status';
 import '../components/gr-metadata-validity/gr-metadata-validity';
 import '../components/gr-image-cost-message/gr-image-cost-message';
-import '../components/gr-use-original/gr-use-original';
+import '../components/gr-export-original-image/gr-export-original-image';
 
 var image = angular.module('kahuna.image.controller', [
     'kahuna.edits.service',
@@ -24,7 +24,7 @@ var image = angular.module('kahuna.image.controller', [
     'gr.imageMetadata',
     'gr.metadataValidity',
     'gr.imageCostMessage',
-    'gr.useOriginal'
+    'gr.exportOriginalImage'
 ]);
 
 image.controller('ImageCtrl', [
@@ -56,6 +56,8 @@ image.controller('ImageCtrl', [
 
         ctrl.image = image;
         ctrl.optimisedImageUri = optimisedImageUri;
+
+        ctrl.showButton = false;
 
         // TODO: we should be able to rely on ctrl.crop.id instead once
         // all existing crops are migrated to have an id (they didn't
@@ -97,6 +99,9 @@ image.controller('ImageCtrl', [
             if (angular.isDefined(ctrl.crop)) {
                 ctrl.originalDimensions = getImageDimensions();
             }
+
+            //stops the button appearing as crops load
+            ctrl.showButton = ctrl.fullCrop ? !ctrl.fullCrop : true;
         });
 
         function cropSelected(crop) {

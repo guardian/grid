@@ -46,20 +46,21 @@
                 </dt>
             </dl>
         </div>
-        <gr-use-original ng:if="!ctrl.fullCrop" image="ctrl.image">
-        </gr-use-original>
+        <gr-export-original-image ng:if="ctrl.showButton" image="ctrl.image"></gr-export-original-image>
         <div ng:if="ctrl.fullCrop" class="image-info__group">
             <dt class="image-info__heading">Full crop<span class="image-info__file-size"> {{ctrl.image.data.source.size | asFileSize}}</span></dt>
             <dd>
                 <div class="image-crop"
-                     ng:class="{'image-crop--selected': ctrl.fullCrop == ctrl.crop}">
+                     ng:init="crop = ctrl.fullCrop"
+                     ng:class="{'image-crop--selected': crop == ctrl.crop}">
                     <a draggable="true"
                        ui:sref="{ crop: ctrl.fullCrop.id }"
-                       ng:init="extremeAssets = (ctrl.fullCrop | getExtremeAssets)">
+      ng:init="extremeAssets = (crop | getExtremeAssets)">
+                        <span class="image-crop__creator" title="Cropped by {{crop.author}} at {{crop.date | date:'medium'}}">{{crop.author | getInitials}}</span>
                         <img class="image-crop__image" ng:src="{{ extremeAssets.smallest | assetFile }}" />
                         <div class="image-crop__aspect-ratio"
                              ng:class="{'image-crop__aspect-ratio--selected': !ctrl.crop}">
-                            {{ctrl.fullCrop.specification.bounds.width}} &times; {{ctrl.fullCrop.specification.bounds.height}}
+                            {{crop.specification.bounds.width}} &times; {{crop.specification.bounds.height}}
                         </div>
                     </a>
                 </div>
