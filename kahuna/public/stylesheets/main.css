@@ -2131,6 +2131,7 @@ FIXME: what to do with touch devices
         max-width: 100%;
         max-height: 450px;
         transform: none;
+        position: static;
     }
 
     .image-canvas, .image-details {
@@ -2138,7 +2139,7 @@ FIXME: what to do with touch devices
         width: auto;
     }
 
-    .image-info__description {
+    dd {
         max-height: 85px;
         overflow: hidden;
     }
