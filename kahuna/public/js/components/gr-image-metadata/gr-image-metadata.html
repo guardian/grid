@@ -71,7 +71,7 @@
 
     <div class="image-info__group">
         <dl class="image-info__group--dl metadata-line">
-            <dt class="image-info__group--dl__key metadata-line__key" ng:if="ctrl.metadata.dateTaken">Taken on</dt>
+            <dt class="image-info__group--dl__key metadata-line__key image-info__wrap" ng:if="ctrl.metadata.dateTaken">Taken on</dt>
             <dd class="image-info__group--dl__value metadata-line__info" ng:if="ctrl.metadata.dateTaken">{{ctrl.metadata.dateTaken | date:'d MMM yyyy, HH:mm'}}</dd>
 
             <dt class="image-info__byline image-info__wrap metadata-line image-info__group--dl__key metadata-line__key" ng:if="ctrl.metadata.byline || ctrl.userCanEdit">By</dt>
@@ -121,7 +121,7 @@
             </dd>
 
 
-            <dt ng:if="ctrl.hasLocationInformation" class="image-info__group--dl__key metadata-line__key">Location</dt>
+            <dt ng:if="ctrl.hasLocationInformation" class="image-info__group--dl__key metadata-line__key image-info__wrap">Location</dt>
             <dd ng:if="ctrl.hasLocationInformation" class="image-info__group--dl__value metadata-line__info">
                         <span ng:repeat="prop in ['subLocation', 'city', 'state', 'country']" ng:if="ctrl.metadata[prop]">
                             <span class="metadata-line__info">
@@ -153,14 +153,14 @@
             </dd>
 
 
-            <dt class="image-info__group--dl__key metadata-line__key">Uploaded</dt>
+            <dt class="image-info__group--dl__key metadata-line__key image-info__wrap">Uploaded</dt>
             <dd class="image-info__group--dl__value metadata-line__info">
                         <span class="metadata-line__info">
                             {{ctrl.image.data.uploadTime | date:'d MMM yyyy, HH:mm'}}
                         </span>
             </dd>
 
-            <dt class="image-info__group--dl__key metadata-line__key">Uploader</dt>
+            <dt class="image-info__group--dl__key metadata-line__key image-info__wrap">Uploader</dt>
             <dd class="image-info__group--dl__value metadata-line__info">
                         <span class="metadata-line__info">
                             <a ui:sref="search.results({query: (ctrl.image.data.uploadedBy | queryFilter:'uploader')})">{{ctrl.image.data.uploadedBy | stripEmailDomain}}</a>
@@ -168,7 +168,7 @@
             </dd>
 
             <dt ng:if="ctrl.image.data.uploadInfo.filename"
-                class="image-info__group--dl__key metadata-line__key">
+                class="image-info__group--dl__key metadata-line__key image-info__wrap">
                 Filename
             </dt>
             <dd ng:if="ctrl.image.data.uploadInfo.filename"
@@ -181,7 +181,7 @@
         </dl>
     </div>
     <!-- FIXME: iff has useful metadata -->
-    <div class="image-info__group">
+    <div class="image-info__group image-info__group--full-metadata">
         <button class="metadata-reveal"
                 ng:click="metadataExpanded = !metadataExpanded">
             <span ng:hide="metadataExpanded">▸ Show</span>
@@ -199,20 +199,20 @@
 </div>
 
 <div class="image-info">
-    <dl class="image-info__group">
+    <dl class="image-info__group image-info__wrap">
         <dt class="image-info__heading image-info__heading--first flex-container">
             <span class="flex-spacer">Labels</span>
             <gr-add-label gr-small="true" images="[ctrl.image]" ng:blur="ctrl.cancel"></gr-add-label>
         </dt>
-        <dd class="image-info__group--fixed-panel">
+        <dd class="image-info__group--fixed-panel image-info__wrap">
             <ui-labeller image="ctrl.image"></ui-labeller>
         </dd>
     </dl>
 </div>
 
 <div class="image-info">
-    <dl class="image-info__group" ng:if="ctrl.metadata.keywords.length > 0">
-        <dt class="image-info__heading">Keywords</dt>
+    <dl class="image-info__group image-info__wrap" ng:if="ctrl.metadata.keywords.length > 0">
+        <dt class="image-info__heading image-info__wrap">Keywords</dt>
         <dd>
             <ul>
                 <li class="image-info__keyword"

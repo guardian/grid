@@ -1,6 +1,8 @@
 import angular from 'angular';
 import template from './archiver.html!text';
-import '../services/archive';
+import './archiver.css!';
+
+import '../../services/archive';
 
 export var archiver = angular.module('kahuna.edits.archiver', [
     'kahuna.services.archive'
@@ -9,7 +11,7 @@ export var archiver = angular.module('kahuna.edits.archiver', [
 archiver.controller('ArchiverCtrl', ['$scope', '$window', 'archiveService', 'onValChange',
                     function($scope, $window, archiveService, onValChange) {
 
-    var ctrl = this;
+    const ctrl = this;
 
     ctrl.toggleArchived = toggleArchived;
     ctrl.isArchived = ctrl.image.data.userMetadata.data.archived.data;
@@ -35,7 +37,8 @@ archiver.controller('ArchiverCtrl', ['$scope', '$window', 'archiveService', 'onV
 archiver.directive('uiArchiver', [function() {
     return {
         restrict: 'E',
-        controller: 'ArchiverCtrl as archiver',
+        controller: 'ArchiverCtrl',
+        controllerAs: 'ctrl',
         scope: {
             image: '=',
             withText: '=',
