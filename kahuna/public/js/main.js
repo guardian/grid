@@ -362,6 +362,14 @@ kahuna.filter('asFileSize', function() {
     };
 });
 
+kahuna.filter('crops', function() {
+    return crop => {
+        if (crop.specification.type !== "full") {
+            return crop
+        }
+    }
+});
+
 kahuna.filter('toLocaleString', function() {
     return number => number.toLocaleString();
 });

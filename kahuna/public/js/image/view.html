@@ -1,124 +1,81 @@
 <gr-top-bar>
     <gr-top-bar-nav>
-        <a class="top-bar-item" ui:sref="search" title="Back to search">
-            <gr-icon-label gr-icon="search">Search</gr-icon-label>
-        </a>
+        <a class="top-bar-item"
+           ui:sref="image({ imageId: ctrl.image.data.id })">
+            <gr-icon>cancel</gr-icon><span class="top-bar-item__label">Cancel</span></a>
     </gr-top-bar-nav>
 
     <gr-top-bar-actions>
-        <gr-delete-image class="top-bar-item top-bar-item--filled"
-                         ng:if="ctrl.canBeDeleted"
-                         images="[ctrl.image]">
-        </gr-delete-image>
+        <div class="top-bar-item top-bar-item--static">{{ ctrl.cropWidth() }} &times; {{ ctrl.cropHeight() }}</div>
 
-        <a class="top-bar-item" href="{{ ctrl.image.data.source | assetFile }}" download target="_blank">
-            <gr-icon-label gr-icon="file_download">Download</gr-icon-label>
-        </a>
+        <label class="top-bar-item" title="landscape">
+            <input type="radio" ng:model="ctrl.aspect" value="{{ctrl.landscapeRatio}}"/>
+            <gr-icon>crop_landscape</gr-icon><span class="top-bar-item__label">Landscape</span> ({{::ctrl.getRatioString(ctrl.landscapeRatio)}})
+        </label>
 
-        <gr-image-persist-status class="top-bar-item"
-                                 with-text="true"
-                                 gr-image="ctrl.image"></gr-image-persist-status>
+        <label class="top-bar-item" title="portrait">
+            <input type="radio" ng:model="ctrl.aspect" value="{{ctrl.portraitRatio}}" />
+            <gr-icon>crop_portrait</gr-icon><span class="top-bar-item__label">Portrait</span> ({{::ctrl.getRatioString(ctrl.portraitRatio)}})
+        </label>
 
-        <gr-crop-image class="top-bar-item" image="ctrl.image" tracking-location="Top bar">
-        </gr-crop-image>
+        <label class="top-bar-item" title="video">
+            <input type="radio" ng:model="ctrl.aspect" value="{{ctrl.videoRatio}}" />
+            <gr-icon>crop_16_9</gr-icon><span class="top-bar-item__label">Video</span> ({{::ctrl.getRatioString(ctrl.videoRatio)}})
+        </label>
+
+        <label class="top-bar-item" title="free-form">
+            <input type="radio" ng:model="ctrl.aspect" value="{{ctrl.freeRatio}}" />
+            <gr-icon>crop_free</gr-icon><span class="top-bar-item__label">Free-form</span>
+        </label>
+
+        <div class="top-bar-item top-bar-item--full" ng:switch="ctrl.image.data.cost">
+            <div ng:switch-when="pay"
+                 class="cost cost--pay">
+                Pay to use
+            </div>
+
+            <div ng:switch-when="conditional"
+                 class="cost cost--conditional"
+                 title="restricted use: {{ctrl.image.data.usageRights.restrictions}}">
+                <!-- As `conditional` can only be set with usageRights, let's
+                     just assume it's here. We might need to revisit this. -->
+                <gr-icon>flag</gr-icon>
+                <span class="top-bar-item__label">Restricted use</span>
+                <gr-icon>help</gr-icon>
+            </div>
+        </div>
+
+        <div class="top-bar-item">
+            <button class="button crop__action"
+                    type="button"
+                    ng:click="ctrl.callCrop()"
+                    ng:disabled="ctrl.cropping">
+                <gr-icon>crop</gr-icon><span class="top-bar-item__label">Crop<span ng:show="ctrl.cropping">ping…</span></span>
+            </button>
+        </div>
     </gr-top-bar-actions>
 </gr-top-bar>
 
-
-<div class="image-details image-details--crop">
-    <div class="image-info">
-        <gr-crop-image image="ctrl.image" tracking-location="Crop panel">
-        </gr-crop-image>
-        <div class="image-info__group image-info__group--original">
-            <dl>
-                <dt class="image-info__heading">Original <span class="image-info__file-size"> {{ctrl.image.data.source.size | asFileSize}}</span></dt>
-                    <dd class="image-info__heading--crops">
-                        <div class="image-crop"
-                             ng:class="{'image-crop--selected': !ctrl.crop}">
-                            <a draggable="true"
-                                ui:sref="{ crop: null }">
-                                <img class="image-crop__image" ng:src="{{ ctrl.image.data.thumbnail | assetFile }}" />
-                                <div class="image-crop__aspect-ratio"
-                                    ng:class="{'image-crop__aspect-ratio--selected': !ctrl.crop}">
-                                    {{ctrl.image.data.source.dimensions.width}} &times; {{ctrl.image.data.source.dimensions.height}}
-                                </div>
-                            </a>
-                        </div>
-                    </dd>
-                </dt>
-            </dl>
-        </div>
-
-        <div class="image-info__group--crops" ng:if="ctrl.crops.length > 0">
-            <dl class="image-info__group--dl">
-                <dt class="image-info__heading">Crops</dt>
-                <dd class="image-info__heading--crops">
-                    <ul class="image-crops">
-                        <li class="image-crop"
-                            ng:repeat="crop in ctrl.crops"
-                            ng:class="{'image-crop--selected': crop == ctrl.crop}">
-                            <a draggable="true"
-                               ng:init="extremeAssets = (crop | getExtremeAssets)"
-                               ng:click="ctrl.cropSelected(crop)"
-                               ui:sref="{crop: crop.id}"
-                               ui:drag-data="{{ctrl.image | asImageAndCropsDragData:crop}}"
-                               ui:drag-image="{{extremeAssets.smallest | assetFile}}">
-                                <span class="image-crop__creator" title="Cropped by {{crop.author}} at {{crop.date | date:'medium'}}">{{crop.author | getInitials}}</span>
-                                <img class="image-crop__image" ng:src="{{extremeAssets.smallest | assetFile}}" />
-                                <div class="image-crop__aspect-ratio"
-                                    ng:class="{'image-crop__aspect-ratio--selected': crop == ctrl.crop}">
-                                    <ul>
-                                        <li>
-                                            {{crop.specification.aspectRatio | asAspectRatioWord}}
-                                            <span ng:if="crop.specification.aspectRatio">({{crop.specification.aspectRatio}})</span>
-                                        </li>
-                                        <li>{{crop.specification.bounds.width}} &times; {{crop.specification.bounds.height}}</li>
-                                    </ul>
-                                </div>
-                            </a>
-                        </li>
-                    </ul>
-                </dd>
-            </dl>
-        </div>
-    </div>
-
-    <gr-delete-crops
-            class="image-details__delete-crops"
-            gr:image="ctrl.image"
-            gr:on-delete="ctrl.onCropsDeleted()"></gr-delete-crops>
+<div class="warning" ng:if="ctrl.cropSizeWarning()">
+    This crop is very small and will result in a low-quality image.
+    Please try to use a larger crop.
 </div>
 
-<div class="image-details">
-    <gr-metadata-validity gr-image="ctrl.image"></gr-metadata-validity>
-    <gr-image-cost-message gr-image="ctrl.image"></gr-image-cost-message>
-    <gr-image-metadata gr-image="ctrl.image"></gr-image-metadata>
-</div>
+<div class="easel">
+    <div class="easel__canvas">
+        <img class="easel__image"
+             ng:src="{{ctrl.optimisedImageUri}}"
+             ui:crop-box="ctrl.coords"
+             ui:crop-box-original-width="ctrl.originalWidth"
+             ui:crop-box-original-height="ctrl.originalHeight"
+             ui:crop-box-aspect="ctrl.aspect"
+             ui:crop-box-background-opacity="0.3"
 
-<div class="image-holder">
-    <div class="easel">
-        <div class="easel__canvas" ng:if="!ctrl.crop">
-            <img class="easel__image"
-                 ng:src="{{ctrl.optimisedImageUri}}"
-                 grid:track-image="ctrl.image"
-                 grid:track-image-location="original"
-                 grid:track-image-loadtime
-                 gr:image-fade-on-load
-                 ui:drag-data="{{ctrl.image | asImageDragData}}" />
-        </div>
+             grid:track-image="ctrl.image"
+             grid:track-image-location="original-cropping"
+             grid:track-image-loadtime
 
-
-        <!-- TODO: As this loads async, add a loader -->
-        <div class="easel__canvas" ng:if="ctrl.crop">
-            <a draggable="true"
-               class="easel__image-container"
-               ng:init="extremeAssets = (ctrl.crop | getExtremeAssets)"
-               ui:sref="{crop: ctrl.cropKey}"
-               ui:drag-data="{{ctrl.image | asImageAndCropsDragData:ctrl.crop}}"
-               ui:drag-image="{{extremeAssets.smallest | assetFile}}">
-                <!-- TODO: Add tracking to crop -->
-                <img class="easel__image" ng:src="{{extremeAssets.largest | assetFile}}" />
-            </a>
-        </div>
+             gr:image-fade-on-load
+        />
     </div>
 </div>
