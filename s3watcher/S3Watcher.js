@@ -13,11 +13,8 @@ exports.handler = function(event, context) {
     });
 
     transfer.flatMap(function(t){
-        return t.operation().catch(function(){
-            return t.fail().flatMap(function(){
-                return Rx.Observable.throw(
-                    new Error("Failed gracefully"));
-            });
+        return t.operation().catch(function(e){
+            return t.fail(e);
         }).flatMap(t.success);
     }).subscribe(
         lambda.success,

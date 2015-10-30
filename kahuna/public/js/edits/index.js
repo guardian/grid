@@ -1,6 +1,6 @@
 import angular from 'angular';
 
-import './archiver';
+import './ui-archiver/archiver';
 import './labeller';
 
 export var edits = angular.module('kahuna.edits', [
