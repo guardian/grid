@@ -38,8 +38,8 @@ search.config(['$stateProvider', '$urlMatcherFactoryProvider',
     // see: https://github.com/angular-ui/ui-router/issues/1119#issuecomment-64696060
     // TODO: Fix this
     $urlMatcherFactoryProvider.type('Slashed', {
-        encode: val => val || '',
-        decode: val => val || '',
+        encode: val => angular.isDefined(val) ? val : undefined,
+        decode: val => angular.isDefined(val) ? val : undefined,
         // We want to always match this type. If we match on slash, it won't update
         // the `stateParams`.
         is: () => true
