@@ -102,10 +102,6 @@ query.directive('searchQuery', [function() {
     };
 }]);
 
-query.filter('grUriDecode', function() {
-    return s => decodeURIComponent(s);
-});
-
 query.directive('gridFocusOn', function() {
    return function(scope, elem, attr) {
       scope.$on(attr.gridFocusOn, () => {
