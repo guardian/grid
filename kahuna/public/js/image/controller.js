@@ -10,6 +10,7 @@ import '../components/gr-image-metadata/gr-image-metadata';
 import '../components/gr-image-persist-status/gr-image-persist-status';
 import '../components/gr-metadata-validity/gr-metadata-validity';
 import '../components/gr-image-cost-message/gr-image-cost-message';
+import '../components/gr-use-original/gr-use-original';
 
 var image = angular.module('kahuna.image.controller', [
     'kahuna.edits.service',
@@ -22,7 +23,8 @@ var image = angular.module('kahuna.image.controller', [
     'gr.imagePersistStatus',
     'gr.imageMetadata',
     'gr.metadataValidity',
-    'gr.imageCostMessage'
+    'gr.imageCostMessage',
+    'gr.useOriginal'
 ]);
 
 image.controller('ImageCtrl', [
@@ -87,6 +89,7 @@ image.controller('ImageCtrl', [
         mediaCropper.getCropsFor(image).then(crops => {
             ctrl.crops = crops;
             ctrl.crop = crops.find(crop => crop.id === cropKey);
+            ctrl.fullCrop = crops.find(crop => crop.specification.type === "full");
         }).finally(() => {
             ctrl.dimensions = angular.isDefined(ctrl.crop) ?
                 getCropDimensions() : getImageDimensions();

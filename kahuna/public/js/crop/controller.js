@@ -67,16 +67,14 @@ crop.controller('ImageCropCtrl',
         // else undefined is fine
     };
 
-     ctrl.callCrop = function() {
+     ctrl.callCrop = () => {
          //prevents return keypress on the crop button posting crop twice
          if (!ctrl.cropping) {
              crop();
-         } else {
-             return;
          }
      };
 
-    const crop = () => {
+     function crop() {
         // TODO: show crop
         var coords = {
             x: Math.round(ctrl.coords.x1),
@@ -103,7 +101,21 @@ crop.controller('ImageCropCtrl',
         }).finally(() => {
             ctrl.cropping = false;
         });
-    };
+    }
+
+     function cropReturnKeyShortcut(event) {
+         // check if ENTER key
+         if (event.which === 13) {
+             ctrl.callCrop();
+         }
+     }
+
+     //TODO find a nicer way to handle keyboard shortcuts
+     body.addEventListener('keypress', cropReturnKeyShortcut);
+
+     $scope.$on('$destroy', function(){
+         body.removeEventListener('keypress', cropReturnKeyShortcut);
+     });
 
      function cropReturnKeyShortcut(event) {
          // check if ENTER key

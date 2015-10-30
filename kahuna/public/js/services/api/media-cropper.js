@@ -25,6 +25,13 @@ apiServices.factory('mediaCropper',
         });
     }
 
+    function createFullCrop(image) {
+        return getCropperRoot().follow('crop').post({
+            type: 'full',
+            source: image.uri
+        })
+    }
+
     function canBeCropped(image) {
         // Images can only be cropped if there is a link to the crops
         // TODO: this should be an Action
@@ -49,6 +56,7 @@ apiServices.factory('mediaCropper',
 
     return {
         createCrop,
+        createFullCrop,
         canBeCropped,
         getCropsFor,
         canDeleteCrops

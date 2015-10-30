@@ -27,9 +27,7 @@
 
 <div class="image-details image-details--crop">
     <div class="image-info">
-        <gr-crop-image image="ctrl.image" tracking-location="Crop panel">
-        </gr-crop-image>
-        <div class="image-info__group image-info__group--original">
+        <div class="image-info__group">
             <dl>
                 <dt class="image-info__heading">Original <span class="image-info__file-size"> {{ctrl.image.data.source.size | asFileSize}}</span></dt>
                     <dd class="image-info__heading--crops">
@@ -48,14 +46,32 @@
                 </dt>
             </dl>
         </div>
-
-        <div class="image-info__group--crops" ng:if="ctrl.crops.length > 0">
+        <gr-use-original ng:if="!ctrl.fullCrop" image="ctrl.image">
+        </gr-use-original>
+        <div ng:if="ctrl.fullCrop" class="image-info__group">
+            <dt class="image-info__heading">Full crop<span class="image-info__file-size"> {{ctrl.image.data.source.size | asFileSize}}</span></dt>
+            <dd>
+                <div class="image-crop"
+                     ng:class="{'image-crop--selected': ctrl.fullCrop == ctrl.crop}">
+                    <a draggable="true"
+                       ui:sref="{ crop: ctrl.fullCrop.id }"
+                       ng:init="extremeAssets = (ctrl.fullCrop | getExtremeAssets)">
+                        <img class="image-crop__image" ng:src="{{ extremeAssets.smallest | assetFile }}" />
+                        <div class="image-crop__aspect-ratio"
+                             ng:class="{'image-crop__aspect-ratio--selected': !ctrl.crop}">
+                            {{ctrl.fullCrop.specification.bounds.width}} &times; {{ctrl.fullCrop.specification.bounds.height}}
+                        </div>
+                    </a>
+                </div>
+            </dd>
+        </div>
+        <div class="image-info__group" ng:if="ctrl.crops.length > 0">
             <dl class="image-info__group--dl">
                 <dt class="image-info__heading">Crops</dt>
                 <dd class="image-info__heading--crops">
                     <ul class="image-crops">
                         <li class="image-crop"
-                            ng:repeat="crop in ctrl.crops"
+                            ng:repeat="crop in ctrl.crops | filter: { $: '!full' }"
                             ng:class="{'image-crop--selected': crop == ctrl.crop}">
                             <a draggable="true"
                                ng:init="extremeAssets = (crop | getExtremeAssets)"

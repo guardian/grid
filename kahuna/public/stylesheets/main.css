@@ -1352,6 +1352,7 @@ FIXME: what to do with touch devices
     float: left;
     width: 130px;
     border-right: 1px solid #565656;
+    border-left: none;
     position: relative;
 }
 
@@ -1381,14 +1382,6 @@ FIXME: what to do with touch devices
 .image-info__group--last {
     border-bottom: 0;
     clear: both;
-}
-
-.image-info__group--crops {
-    padding: 10px;
-}
-
-.image-info__group--original {
-    border-top: 1px solid #565656;
 }
 
 .image-info__group table {
