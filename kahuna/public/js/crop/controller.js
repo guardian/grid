@@ -69,14 +69,14 @@ crop.controller('ImageCropCtrl',
 
      ctrl.callCrop = function() {
          //prevents return keypress on the crop button posting crop twice
-         if (ctrl.cropping === false) {
+         if (!ctrl.cropping) {
              crop();
          } else {
              return;
          }
      };
 
-    crop = () => {
+    const crop = () => {
         // TODO: show crop
         var coords = {
             x: Math.round(ctrl.coords.x1),
