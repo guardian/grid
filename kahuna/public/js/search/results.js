@@ -227,6 +227,18 @@ results.controller('SearchResultsCtrl', [
                 images.follow('suggested-labels').get({q}).then(labels => labels.data)
             ).catch(() => []);
 
+        ctrl.setParentLabel = () => {
+            if (ctrl.parentLabel) {
+                $state.transitionTo($state.current, { query: `#${ctrl.parentLabel}` }, {
+                    reload: true, inherit: false, notify: true
+                });
+            }
+        };
+        ctrl.suggestedLabelSearch = q =>
+            ctrl.searched.then(images =>
+                images.follow('suggested-labels').get({q}).then(labels => labels.data)
+            ).catch(() => []);
+
         ctrl.loadRange = function(start, end) {
             const length = end - start + 1;
             search({offset: start, length: length}).then(images => {

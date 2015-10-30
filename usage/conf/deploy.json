@@ -1,0 +1,24 @@
+{
+    "defaultStacks": ["media-service"],
+    "packages": {
+        "usage": {
+            "type": "autoscaling",
+            "data": {
+                "port": 9000,
+                "bucket": "media-service-dist",
+                "publicReadAcl": false
+            }
+        }
+    },
+    "recipes": {
+        "default": {
+            "depends": ["artifactUploadOnly", "deployOnly"]
+        },
+        "deployOnly": {
+            "actionsBeforeApp": ["usage.deploy"]
+        },
+        "artifactUploadOnly": {
+            "actionsBeforeApp": ["usage.uploadArtifacts"]
+        }
+    }
+}
