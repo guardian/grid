@@ -17,7 +17,10 @@ object Global extends WithFilters(CorsFilter, RequestLoggingFilter, new GzipFilt
   override def onStart(app: Application) {
     UsageApi.keyStore.scheduleUpdates(Akka.system(app).scheduler)
 
-    val subscription = UsageRecorder.subscribe
+    // There is typically no DEV capi to poll so don't start
+    if(Config.stage != "DEV") {
+      val subscription = UsageRecorder.subscribe
+    }
   }
 
 }
