@@ -312,6 +312,185 @@
                 },
                 "Queues": [ { "Ref": "IndexedImageMetadataQueue" } ]
             }
+        },
+        "UsageRecordTable": {
+            "Type": "AWS::DynamoDB::Table",
+            "Properties": {
+                "AttributeDefinitions": [
+                    {
+                        "AttributeName": "usage_id",
+                        "AttributeType": "S"
+                    },
+                    {
+                        "AttributeName": "grouping",
+                        "AttributeType": "S"
+                    },
+                    {
+                        "AttributeName": "media_id",
+                        "AttributeType": "S"
+                    }
+                ],
+                "KeySchema": [
+                    {
+                        "AttributeName": "grouping",
+                        "KeyType": "HASH"
+                    },
+                    {
+                        "AttributeName": "usage_id",
+                        "KeyType": "RANGE"
+                    }
+                ],
+                "GlobalSecondaryIndexes" : [
+                    {
+                        "IndexName" : "media_id",
+                        "KeySchema": [
+                            {
+                                "AttributeName": "media_id",
+                                "KeyType": "HASH"
+                            }
+                        ],
+                        "Projection": {
+                            "ProjectionType": "ALL"
+                        },
+                        "ProvisionedThroughput": {
+                            "ReadCapacityUnits" : "1",
+                            "WriteCapacityUnits" : "4"
+                        }
+                    }
+                ],
+                "ProvisionedThroughput": {
+                    "ReadCapacityUnits" : "1",
+                    "WriteCapacityUnits" : "4"
+                }
+            }
+        },
+        "UsageRecordTablePolicy": {
+            "Type": "AWS::IAM::Policy",
+            "Properties": {
+                "PolicyName": "UsageRecordTablePolicy",
+                "PolicyDocument": {
+                    "Id": "UsageRecordTablePolicy",
+                    "Statement": [ {
+                        "Effect": "Allow",
+                        "Action": [ "dynamodb:*" ],
+                        "Resource": [
+                            { "Fn::Join" : [ "", [
+                                "arn:aws:dynamodb:",
+                                { "Ref" : "AWS::Region" },
+                                ":",
+                                { "Ref" : "AWS::AccountId" },
+                                ":table/",
+                                { "Ref" : "UsageRecordTable" }
+                            ] ] }
+                        ]},
+                        {
+                            "Effect": "Allow",
+                            "Action": [ "dynamodb:*" ],
+                            "Resource": [
+                                { "Fn::Join" : [ "", [
+                                    "arn:aws:dynamodb:",
+                                    { "Ref" : "AWS::Region" },
+                                    ":",
+                                    { "Ref" : "AWS::AccountId" },
+                                    ":table/",
+                                    { "Ref" : "UsageRecordTable" },
+                                    "/index/media_id"
+                                ] ] }
+                            ]
+                        }]
+                },
+                "Users": [ { "Ref": "User" } ]
+            }
+        },
+        "LiveContentPollTable": {
+            "Type": "AWS::DynamoDB::Table",
+            "Properties": {
+                "AttributeDefinitions": [
+                    {
+                        "AttributeName": "id",
+                        "AttributeType": "S"
+                    }
+                ],
+                "KeySchema": [
+                    {
+                        "AttributeName": "id",
+                        "KeyType": "HASH"
+                    }
+                ],
+                "ProvisionedThroughput": {
+                    "ReadCapacityUnits" : "20",
+                    "WriteCapacityUnits" : "1"
+                }
+            }
+        },
+        "LiveContentPollTablePolicy": {
+            "Type": "AWS::IAM::Policy",
+            "Properties": {
+                "PolicyName": "LiveContentPollTablePolicy",
+                "PolicyDocument": {
+                    "Id": "LiveContentPollTablePolicy",
+                    "Statement": [ {
+                        "Effect": "Allow",
+                        "Action": [ "dynamodb:*" ],
+                        "Resource": [
+                            { "Fn::Join" : [ "", [
+                                "arn:aws:dynamodb:",
+                                { "Ref" : "AWS::Region" },
+                                ":",
+                                { "Ref" : "AWS::AccountId" },
+                                ":table/",
+                                { "Ref" : "LiveContentPollTable" }
+                            ] ] }
+                        ]
+                    } ]
+                },
+                "Users": [ { "Ref": "User" } ]
+            }
+        },
+        "PreviewContentPollTable": {
+            "Type": "AWS::DynamoDB::Table",
+            "Properties": {
+                "AttributeDefinitions": [
+                    {
+                        "AttributeName": "id",
+                        "AttributeType": "S"
+                    }
+                ],
+                "KeySchema": [
+                    {
+                        "AttributeName": "id",
+                        "KeyType": "HASH"
+                    }
+                ],
+                "ProvisionedThroughput": {
+                    "ReadCapacityUnits" : "20",
+                    "WriteCapacityUnits" : "1"
+                }
+            }
+        },
+        "PreviewContentPollTablePolicy": {
+            "Type": "AWS::IAM::Policy",
+            "Properties": {
+                "PolicyName": "PreviewContentPollTablePolicy",
+                "PolicyDocument": {
+                    "Id": "PreviewContentPollTablePolicy",
+                    "Statement": [ {
+                        "Effect": "Allow",
+                        "Action": [ "dynamodb:*" ],
+                        "Resource": [
+                            { "Fn::Join" : [ "", [
+                                "arn:aws:dynamodb:",
+                                { "Ref" : "AWS::Region" },
+                                ":",
+                                { "Ref" : "AWS::AccountId" },
+                                ":table/",
+                                { "Ref" : "PreviewContentPollTable" }
+                            ] ] }
+                        ]
+                    } ]
+                },
+                "Users": [ { "Ref": "User" } ]
+            }
         }
     },
     "Outputs": {
@@ -353,6 +532,15 @@
         },
         "IndexedImageMetadataQueueUrl": {
             "Value": { "Ref" : "IndexedImageMetadataQueue" }
+        },
+        "UsageRecordTable": {
+            "Value": { "Ref": "UsageRecordTable" }
+        },
+        "LiveContentPollTable": {
+            "Value": { "Ref": "LiveContentPollTable" }
+        },
+        "PreviewContentPollTable": {
+            "Value": { "Ref": "PreviewContentPollTable" }
         }
     }
 }
