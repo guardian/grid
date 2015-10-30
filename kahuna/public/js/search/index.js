@@ -24,14 +24,26 @@ export var search = angular.module('kahuna.search', [
     'data-structure.list-factory',
     'data-structure.ordered-set-factory',
     'gr.topBar',
-    'grPanel'
+    'grPanel',
+    'ui.router'
 ]);
 
 // TODO: add a resolver here so that if we error (e.g. 401) we don't keep trying
 // to render - similar to the image controller see:
 // https://github.com/guardian/media-service/pull/478
-search.config(['$stateProvider',
-               function($stateProvider) {
+search.config(['$stateProvider', '$urlMatcherFactoryProvider',
+               function($stateProvider, $urlMatcherFactoryProvider) {
+
+    // Query params slashes are encoded that mess up our seach query when we search for e.g. `24/7`.
+    // see: https://github.com/angular-ui/ui-router/issues/1119#issuecomment-64696060
+    // TODO: Fix this
+    $urlMatcherFactoryProvider.type('Slashed', {
+        encode: val => angular.isDefined(val) ? val : undefined,
+        decode: val => angular.isDefined(val) ? val : undefined,
+        // We want to always match this type. If we match on slash, it won't update
+        // the `stateParams`.
+        is: () => true
+    });
 
     $stateProvider.state('search', {
         // FIXME [1]: This state should be abstract, but then we can't navigate to
@@ -51,7 +63,7 @@ search.config(['$stateProvider',
     });
 
     $stateProvider.state('search.results', {
-        url: 'search?query&ids&since&nonFree&uploadedBy&until&orderBy',
+        url: 'search?{query:Slashed}&ids&since&nonFree&uploadedBy&until&orderBy',
         // Non-URL parameters
         params: {
             // Routing-level property indicating whether the state has
