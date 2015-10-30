@@ -1,6 +1,7 @@
 import angular from 'angular';
 import Rx from 'rx';
 import * as querySyntax from '../search-query/query-syntax';
+import moment from 'moment';
 
 import '../services/scroll-position';
 import '../services/panel';
@@ -299,6 +300,7 @@ results.controller('SearchResultsCtrl', [
                     // FIXME: minor assumption that only the latest
                     // displayed image is matching the uploadTime
                     ctrl.newImagesCount = resp.total - 1;
+                    ctrl.lastestTimeMoment = moment(latestTime).from(moment());
 
                     if (! scopeGone) {
                         checkForNewImages();

@@ -22,8 +22,7 @@ object MergedContentStream {
   val observable: Observable[ContentContainer] =
     LiveContentPollStream.observable
       .merge(PreviewContentPollStream.observable)
-      .publish
-      .refCount // Ensures that only one poller is created no matter how many subscribers
+      .share // Ensures that only one poller is created no matter how many subscribers
 }
 
 object LiveContentPollStream extends ContentPollStream {
