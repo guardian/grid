@@ -1,12 +1,12 @@
-.gr-image-usage__field_title {
+gr-image-usage-list {
+    display: block;
+}
+
+gr-image-usage-list .gr-image-usage__field_title {
     font-weight: bold;
     color: #999;
     vertical-align: top;
     text-align: left;
-}
-
-gr-image-usage-list {
-    display: block;
 }
 
 gr-image-usage-list .date-added {
