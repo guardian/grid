@@ -79,7 +79,8 @@ searchRouter.config(['$stateProvider', function($stateProvider) {
                 distinctUntilChanged(angular.identity, Immutable.is).
                 shareReplay(1);
             }],
-            searchParams: ['$state', '$stateParams', 'mapFactory', function($state, $stateParams, mapFactory) {
+            searchParams: ['$state', '$stateParams', 'mapFactory',
+                           function($state, $stateParams, mapFactory) {
                 // TODO: Think about restricting these to:
                 // ["ids", "archived", "nonFree", "uploadedBy", "until", "since", "offset",
                 //  "length", "orderBy", "query"]
@@ -94,7 +95,8 @@ searchRouter.config(['$stateProvider', function($stateProvider) {
 
                 return params;
             }],
-            search: ['searchParams', 'mediaApi', function(searchParams, mediaApi) {
+            search: ['searchParams', 'results', 'mediaApi',
+                     function(searchParams, results, mediaApi) {
                 // TODO: only resolve if the initial search has happened.
 
                 // Arbitrary limit of number of results; too many and the
@@ -122,9 +124,23 @@ searchRouter.config(['$stateProvider', function($stateProvider) {
                     params.set('until', until)
                 ).concatMap(params => search$(params));
 
+                // Move to another resolver
+                const sparseArray = len => {
+                    const a = [];
+                    a.length = len;
+                    return a;
+                };
+                const resultOps = new Rx.Subject();
+                const imagesAll$ = results.items$.scan();
+
                 return {
                     total$,
-                    results$
+                    results$,
+                    imagesAll$,
+                    loadRange: (start, end) => {
+                        const length = end - start + 1;
+
+                    }
                 };
             }]
         }

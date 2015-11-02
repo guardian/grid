@@ -30,12 +30,17 @@ mapFactory.value('mapFactory', function() {
         return (map) => map.clear();
     }
 
+    function merge(mapLike) {
+        return (map) => map.merge(mapLike);
+    }
+
     return {
         // State
         map$,
 
         // Operations
         setTo(map) { queueOperation(setTo(map)); },
+        merge(map) { queueOperation(merge(map)); },
         clear()    { queueOperation(clear());    }
     };
 });

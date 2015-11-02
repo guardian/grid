@@ -135,18 +135,12 @@ results.controller('SearchResultsCtrl', [
         // Map to track image->position and help remove duplicates
         const imagesPositions = new Map();
 
-        const sparseArray = len => {
-            const a = [];
-            a.length = len;
-            return a;
-        };
         // the startWith is here as there is a race condistion where the loadRange can complete
         // before the initial search.
         // TODO: we don't actually wait for the initial search to resolve in the router.
-        const imagesAll$ = Search.total$.map(sparseArray).startWith([]);
         const loading$ = Search.total$.map(() => false);
         inject$($scope, Search.total$, ctrl, 'totalResults');
-        inject$($scope, imagesAll$, ctrl, 'imagesAll');
+        inject$($scope, Search.imagesAll$, ctrl, 'imagesAll');
         inject$($scope, loading$, ctrl, 'loading');
 
         // related labels
@@ -198,38 +192,40 @@ results.controller('SearchResultsCtrl', [
         //        images.follow('suggested-labels').get({q}).then(labels => labels.data)
         //    ).catch(() => []);
 
-        ctrl.loadRange = function(start, end) {
-            const length = end - start + 1;
-            search({offset: start, length: length}).then(images => {
-                // Update imagesAll with newly loaded images
-                images.data.forEach((image, index) => {
-                    const position = index + start;
-                    const imageId = image.data.id;
+        ctrl.loadRange = (start, end) => { Search.loadRange(start, end); };
 
-                    // If image already present in results at a
-                    // different position (result set shifted due to
-                    // items being spliced in or deleted?), get rid of
-                    // item at its previous position to avoid
-                    // duplicates
-                    const existingPosition = imagesPositions.get(imageId);
-                    if (angular.isDefined(existingPosition) &&
-                        existingPosition !== position) {
-                        $log.info(`Detected duplicate image ${imageId}, ` +
-                                  `old ${existingPosition}, new ${position}`);
-                        delete ctrl.imagesAll[existingPosition];
-                        results.set(existingPosition, undefined);
-                    }
-
-                    ctrl.imagesAll[position] = image;
-                    imagesPositions.set(imageId, position);
-
-                    results.set(position, image);
-                });
-
-                // images should not contain any 'holes'
-                ctrl.images = compact(ctrl.imagesAll);
-            });
-        };
+        //ctrl.loadRange = function(start, end) {
+        //    const length = end - start + 1;
+        //    search({offset: start, length: length}).then(images => {
+        //        // Update imagesAll with newly loaded images
+        //        images.data.forEach((image, index) => {
+        //            const position = index + start;
+        //            const imageId = image.data.id;
+        //
+        //            // If image already present in results at a
+        //            // different position (result set shifted due to
+        //            // items being spliced in or deleted?), get rid of
+        //            // item at its previous position to avoid
+        //            // duplicates
+        //            const existingPosition = imagesPositions.get(imageId);
+        //            if (angular.isDefined(existingPosition) &&
+        //                existingPosition !== position) {
+        //                $log.info(`Detected duplicate image ${imageId}, ` +
+        //                          `old ${existingPosition}, new ${position}`);
+        //                delete ctrl.imagesAll[existingPosition];
+        //                results.set(existingPosition, undefined);
+        //            }
+        //
+        //            ctrl.imagesAll[position] = image;
+        //            imagesPositions.set(imageId, position);
+        //
+        //            results.set(position, image);
+        //        });
+        //
+        //        // images should not contain any 'holes'
+        //        ctrl.images = compact(ctrl.imagesAll);
+        //    });
+        //};
 
         const pollingPeriod = 15 * 1000; // ms
 
