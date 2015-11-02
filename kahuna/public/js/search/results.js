@@ -1,6 +1,7 @@
 import angular from 'angular';
 import Rx from 'rx';
 import * as querySyntax from '../search-query/query-syntax';
+import moment from 'moment';
 
 import '../services/scroll-position';
 import '../services/panel';
@@ -226,6 +227,18 @@ results.controller('SearchResultsCtrl', [
                 images.follow('suggested-labels').get({q}).then(labels => labels.data)
             ).catch(() => []);
 
+        ctrl.setParentLabel = () => {
+            if (ctrl.parentLabel) {
+                $state.transitionTo($state.current, { query: `#${ctrl.parentLabel}` }, {
+                    reload: true, inherit: false, notify: true
+                });
+            }
+        };
+        ctrl.suggestedLabelSearch = q =>
+            ctrl.searched.then(images =>
+                images.follow('suggested-labels').get({q}).then(labels => labels.data)
+            ).catch(() => []);
+
         ctrl.loadRange = function(start, end) {
             const length = end - start + 1;
             search({offset: start, length: length}).then(images => {
@@ -287,6 +300,7 @@ results.controller('SearchResultsCtrl', [
                     // FIXME: minor assumption that only the latest
                     // displayed image is matching the uploadTime
                     ctrl.newImagesCount = resp.total - 1;
+                    ctrl.lastestTimeMoment = moment(latestTime).from(moment());
 
                     if (! scopeGone) {
                         checkForNewImages();
@@ -404,8 +418,16 @@ results.controller('SearchResultsCtrl', [
         ctrl.imageHasBeenSelected = (image) => ctrl.selectedItems.has(image.uri);
 
         const toggleSelection = (image) => selection.toggle(image.uri);
-        ctrl.select           = (image) => selection.add(image.uri);
-        ctrl.deselect         = (image) => selection.remove(image.uri);
+
+        ctrl.select = (image) => {
+            selection.add(image.uri);
+            $window.getSelection().removeAllRanges();
+        };
+
+        ctrl.deselect = (image) => {
+            selection.remove(image.uri);
+            $window.getSelection().removeAllRanges();
+        };
 
         ctrl.onImageClick = function (image, $event) {
             if (ctrl.inSelectionMode) {
@@ -434,6 +456,7 @@ results.controller('SearchResultsCtrl', [
                     }
                 }
                 else {
+                    $window.getSelection().removeAllRanges();
                     toggleSelection(image);
                 }
             }

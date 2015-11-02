@@ -1,0 +1,17 @@
+ui-archiver {
+    display: block;
+    color: #ccc;
+}
+
+ui-archiver .archiver {
+    display: block;
+    height: inherit;
+}
+
+ui-archiver .archiver:hover {
+    color: white;
+}
+
+ui-archiver .archiver--unarchived {
+    color: #737373;
+}

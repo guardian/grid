@@ -225,6 +225,13 @@ class SupplierProcessorsTest extends FunSpec with Matchers with MetadataHelper {
       processedImage.metadata.source should be(Some("AFP"))
     }
 
+    it("should exclude images that have Getty metadata that aren't from Getty") {
+      val image = createImageFromMetadata("credit" -> "NEWSPIX INTERNATIONAL")
+      val notGettyImage = image.copy(fileMetadata = FileMetadata(getty = Map("Composition" -> "Headshot")))
+      val processedImage = applyProcessors(notGettyImage)
+      processedImage.usageRights should be(NoRights)
+    }
+
     it("should use 'Getty Images' as credit if missing from the file metadata") {
       val image = createImageFromMetadata()
       val gettyImage = image.copy(fileMetadata = FileMetadata(getty = Map("Original Filename" -> "lol.jpg")))
