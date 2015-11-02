@@ -3,7 +3,7 @@ package sbt.plugins
 import sbt._
 import sbt.Keys._
 import com.typesafe.sbt.SbtNativePackager._
-import com.typesafe.sbt.packager.Keys.dist
+import com.typesafe.sbt.packager.Keys._
 
 object PlayArtifact extends Plugin {
 
@@ -17,6 +17,9 @@ object PlayArtifact extends Plugin {
 
   val playArtifactDistSettings = Seq(
     name in Universal := name.value,
+
+    // don't nest everything within APP-VERSION directory
+    topLevelDirectory := None,
 
     // don't package docs
     sources in (Compile,doc) := Seq.empty,
