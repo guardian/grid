@@ -10,6 +10,8 @@ import lib._
 
 object Global extends WithFilters(CorsFilter, RequestLoggingFilter, new GzipFilter) with GlobalSettings {
 
+  lazy val subscription = UsageRecorder.subscribe
+
   override def beforeStart(app: Application): Unit = {
     LogConfig.init(Config)
   }
@@ -17,10 +19,12 @@ object Global extends WithFilters(CorsFilter, RequestLoggingFilter, new GzipFilt
   override def onStart(app: Application) {
     UsageApi.keyStore.scheduleUpdates(Akka.system(app).scheduler)
 
-    // There is typically no DEV capi to poll so don't start
-    if(Config.stage != "DEV") {
-      val subscription = UsageRecorder.subscribe
-    }
+    // Eval subscription to start stream
+    subscription
+  }
+
+  override def onStop(app: Application) {
+    subscription.unsubscribe
   }
 
 }
