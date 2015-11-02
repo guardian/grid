@@ -16,3 +16,20 @@ gr-image-usage-list .date-added {
 gr-image-usage-list .gr-image-usage__record {
     margin-bottom: 10px;
 }
+
+gr-image-usage-list .source-list__icon svg {
+    width: 12px;
+    height: 12px;
+    padding: 0 2px;
+}
+
+gr-image-usage-list .source-list__icon svg path {
+    fill: #999;
+}
+
+gr-image-usage-list .source-list {
+    display: inline-flex;
+    margin-left: 5px;
+    position: relative;
+    top: 3px;
+}
