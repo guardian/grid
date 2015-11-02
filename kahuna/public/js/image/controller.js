@@ -10,6 +10,7 @@ import '../components/gr-image-metadata/gr-image-metadata';
 import '../components/gr-image-persist-status/gr-image-persist-status';
 import '../components/gr-metadata-validity/gr-metadata-validity';
 import '../components/gr-image-cost-message/gr-image-cost-message';
+import '../components/gr-image-usage/gr-image-usage';
 
 var image = angular.module('kahuna.image.controller', [
     'kahuna.edits.service',
@@ -22,7 +23,8 @@ var image = angular.module('kahuna.image.controller', [
     'gr.imagePersistStatus',
     'gr.imageMetadata',
     'gr.metadataValidity',
-    'gr.imageCostMessage'
+    'gr.imageCostMessage',
+    'gr.imageUsage'
 ]);
 
 image.controller('ImageCtrl', [
@@ -62,7 +64,7 @@ image.controller('ImageCtrl', [
 
         ctrl.cropSelected = cropSelected;
 
-        imageService(image).states.canDelete.then(deletable => {
+        imageService(ctrl.image).states.canDelete.then(deletable => {
             ctrl.canBeDeleted = deletable;
         });
 
