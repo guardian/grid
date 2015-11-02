@@ -15,7 +15,7 @@ exportOriginalImage.controller('grExportOriginalImageCtrl', [
             if (!ctrl.cropping) {
                 crop();
             }
-        }
+        };
 
         function crop() {
             ctrl.cropping = true;
@@ -33,7 +33,7 @@ exportOriginalImage.controller('grExportOriginalImageCtrl', [
                 });
             }).finally(() => {
                 ctrl.cropping = false;
-            })
+            });
         }
     }
 ]);
