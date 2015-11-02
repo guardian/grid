@@ -6,8 +6,8 @@
 GET     /                                             controllers.MediaApi.index
 
 # Image metadata
-GET     /images/metadata/:field                       controllers.SuggestionController.metadataSearch(field: String)
-GET     /images/edits/:field                          controllers.SuggestionController.editsSearch(field: String)
+GET     /images/metadata/:field                       controllers.SuggestionController.metadataSearch(field: String, q: Option[String])
+GET     /images/edits/:field                          controllers.SuggestionController.editsSearch(field: String, q: Option[String])
 
 # Images
 GET     /images/:id                                   controllers.MediaApi.getImage(id: String)

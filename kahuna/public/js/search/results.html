@@ -20,7 +20,8 @@
                 {{ctrl.totalResults | toLocaleString}} matches
                 <button ng:show="ctrl.newImagesCount > 0"
                         ng:click="ctrl.revealNewImages()"
-                        class="image-results-count__new">
+                        class="image-results-count__new"
+                        title="{{ctrl.newImagesCount}} new images as of {{ctrl.lastestTimeMoment}}">
                     {{ctrl.newImagesCount | toLocaleString}} new
                 </button>
             </div>
@@ -138,7 +139,7 @@
                     </div>
                     <div class="result__select"
                          ng:if="!ctrl.imageHasBeenSelected(image)"
-                         ng:class="{ 'result__select--allow-shift-click': ctrl.inSelectionMode}">
+                         ng:class="{ 'result__select--no-pointer-events': ctrl.inSelectionMode}">
                         <input type="checkbox"
                                class="result__select__checkbox"
                                id="id-{{::image.data.id}}-result__select__checkbox--deselect"

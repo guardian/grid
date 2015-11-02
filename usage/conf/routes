@@ -1,5 +1,7 @@
 GET     /                                               controllers.UsageApi.index
 
+GET     /usages/media/:mediaId                          controllers.UsageApi.forMedia(mediaId: String)
+
 # Management
 GET     /management/healthcheck                         com.gu.mediaservice.lib.management.Management.healthCheck
 GET     /management/manifest                            com.gu.mediaservice.lib.management.Management.manifest

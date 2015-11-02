@@ -10,9 +10,9 @@ import com.gu.mediaservice.lib.argo.WriteHelpers
 
 case class CollectionReponse[T](
   uri: Option[URI] = None,
-  offset: Option[Long],
+  offset: Option[Long] = None,
   length: Option[Long],
-  total: Option[Long],
+  total: Option[Long] = None,
   data: Seq[T],
   links: List[Link] = List()
 )

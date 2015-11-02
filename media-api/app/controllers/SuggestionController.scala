@@ -24,7 +24,7 @@ object SuggestionController extends Controller with ArgoHelpers {
   def suggestLabels(q: Option[String]) = Authenticated {
 
     val pseudoFamousLabels = List(
-      "cities", "family", "filmandmusic", "lr", "pp", "saturdayreview", "travel",
+      "cities", "family", "filmandmusic", "lr", "pp", "saturdayreview", "trv",
 
       "culturearts", "culturebooks", "culturefilm", "culturestage", "culutremusic",
 
@@ -61,12 +61,12 @@ object SuggestionController extends Controller with ArgoHelpers {
   // TODO: work with analysed fields
   // TODO: recover with HTTP error if invalid field
   // TODO: Add validation, especially if you use length
-  def metadataSearch(field: String) = Authenticated.async { request =>
-    ElasticSearch.metadataSearch(AggregateSearchParams(field, request)) map aggregateResponse
+  def metadataSearch(field: String, q: Option[String]) = Authenticated.async { request =>
+    ElasticSearch.metadataSearch(AggregateSearchParams(field, q)) map aggregateResponse
   }
 
-  def editsSearch(field: String) = Authenticated.async { request =>
-    ElasticSearch.editsSearch(AggregateSearchParams(field, request)) map aggregateResponse
+  def editsSearch(field: String, q: Option[String]) = Authenticated.async { request =>
+    ElasticSearch.editsSearch(AggregateSearchParams(field, q)) map aggregateResponse
   }
 
   // TODO: Add some useful links
