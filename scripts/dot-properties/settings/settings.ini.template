@@ -1,7 +1,3 @@
-[output]
-; Directory to write files to (defaults to ./output). Generated files need to be put in /etc/gu/
-directory =
-
 [aws]
 ; Cloudformation stackname. Hint aws cloudformation list-stacks | grep "media-service-"
 stack-name =
