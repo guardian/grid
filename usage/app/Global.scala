@@ -3,12 +3,10 @@ import play.api.{Application, GlobalSettings}
 import play.api.mvc.WithFilters
 import play.filters.gzip.GzipFilter
 
-import lib.{LogConfig, Config}
-
-import controllers.UsageApi
-
 import com.gu.mediaservice.lib.play.RequestLoggingFilter
 
+import controllers.UsageApi
+import lib._
 
 object Global extends WithFilters(RequestLoggingFilter, new GzipFilter) with GlobalSettings {
 
@@ -18,5 +16,8 @@ object Global extends WithFilters(RequestLoggingFilter, new GzipFilter) with Glo
 
   override def onStart(app: Application) {
     UsageApi.keyStore.scheduleUpdates(Akka.system(app).scheduler)
+
+    val subscription = UsageRecorder.subscribe
   }
+
 }

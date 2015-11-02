@@ -65,8 +65,11 @@ case object ImageUpload {
         baseImage      = createImage(uploadRequest, sourceAsset, thumbAsset, fullFileMetadata, cleanMetadata)
         processedImage = SupplierProcessors.process(baseImage)
 
-        // FIXME: dirty hack to sync the originalUsageRights as well
-        finalImage     = processedImage.copy(originalUsageRights = processedImage.usageRights)
+        // FIXME: dirty hack to sync the originalUsageRights and originalMetadata as well
+        finalImage     = processedImage.copy(
+          originalMetadata    = processedImage.metadata,
+          originalUsageRights = processedImage.usageRights
+        )
       }
       yield ImageUpload(uploadRequest, finalImage)
     }

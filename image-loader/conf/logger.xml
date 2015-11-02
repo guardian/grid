@@ -29,4 +29,8 @@
         <appender-ref ref="LOGFILE"/>
     </root>
 
+    <logger name="com.amazonaws">
+        <level value="ERROR" />
+    </logger>
+
 </configuration>

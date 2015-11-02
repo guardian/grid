@@ -1,0 +1,13 @@
+domain.root={{domain_root}}
+aws.id={{AwsId}}
+aws.secret={{AwsSecret}}
+auth.keystore.bucket={{KeyBucket}}
+capi.pollIntervalInSeconds={{capi_poll}}
+capi.live.url={{capi_live_url}}
+capi.preview.url={{capi_preview_url}}
+capi.preview.user={{capi_preview_user}}
+capi.preview.password={{capi_preview_password}}
+capi.apiKey={{capi_key}}
+dynamo.tablename.livePollTable={{LiveContentPollTable}}
+dynamo.tablename.previewPollTable={{PreviewContentPollTable}}
+dynamo.tablename.usageRecordTable={{UsageRecordTable}}

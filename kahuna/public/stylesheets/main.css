@@ -1,3 +1,4 @@
+
 /* ==========================================================================
    Common
    ========================================================================== */
@@ -363,7 +364,7 @@ textarea.ng-invalid {
 }
 
 .top-bar-item:hover {
-	background-color: #666666;
+    background-color: #666666;
 }
 
 .top-bar-item--filled {
@@ -783,7 +784,7 @@ input.search-query__input {
     z-index: 1;
 }
 
-.result__select--allow-shift-click {
+.result__select--no-pointer-events {
     pointer-events: none;
 }
 
@@ -915,7 +916,7 @@ input.search-query__input {
 }
 
 .results-toolbar-item:hover {
-	background-color: #666666;
+    background-color: #666666;
 }
 
 .results-toolbar-item--static,
@@ -2096,3 +2097,81 @@ FIXME: what to do with touch devices
 .radio-list__label-value {
     padding: 5px 10px;
 }
+
+
+@media print {
+
+    /* ==========================================================================
+       Image page
+    ========================================================================== */
+
+    /*!important is used to overwrite the component stylesheet (labeller.css) loaded after*/
+    /*main.css*/
+
+    button,
+    gr-top-bar,
+    gr-add-label,
+    .image-details--crop,
+    .image-info__group--full-metadata,
+    .related-labels__title {
+        display: none !important;
+    }
+
+    .metadata-line__info,
+    .image-info__title,
+    .image-info__description,
+    .image-info__special-instructions,
+    .label__value,
+    .image-info__keyword {
+        color: black !important;
+    }
+
+    .easel__image {
+        float: left;
+        max-width: 100%;
+        max-height: 450px;
+        transform: none;
+        position: static;
+    }
+
+    .image-canvas, .image-details {
+        height: auto;
+        width: auto;
+    }
+
+    .image-info__description, .image-info__keyword {
+        max-height: 85px;
+        overflow: hidden;
+    }
+
+    .image-info__group, .metadata-line__info, .image-holder {
+        padding: 0;
+        margin: 0;
+    }
+
+    .image-info__group, .metadata-line__info a {
+        border: none;
+    }
+
+    .image-info__group--dl__key {
+        flex-basis: 20%;
+    }
+
+    .image-info__group--dl__value {
+        flex-basis: 80%;
+    }
+
+    /* ==========================================================================
+       Results page
+    ========================================================================== */
+
+    .result-placeholder {
+        border: none;
+    }
+
+    .preview__image {
+        max-height: 150px;
+    }
+
+}
+
