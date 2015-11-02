@@ -39,13 +39,10 @@ import com.gu.mediaservice.model._
 
 object MediaApi extends Controller with ArgoHelpers {
 
-  val keyStore = new KeyStore(Config.keyStoreBucket, Config.awsCredentials)
-  val permissionStore = new PermissionStore(Config.configBucket, Config.awsCredentials)
-
   import Config.{rootUri, cropperUri, loaderUri, metadataUri, kahunaUri, loginUriTemplate}
 
-  val Authenticated = auth.Authenticated(keyStore, loginUriTemplate, Config.kahunaUri)
-
+  val Authenticated = Authed.action
+  val permissionStore = Authed.permissionStore
 
   val searchParamList = List("q", "ids", "offset", "length", "orderBy",
     "since", "until", "modifiedSince", "modifiedUntil", "takenSince", "takenUntil",

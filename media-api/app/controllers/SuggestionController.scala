@@ -5,10 +5,7 @@ import play.api.libs.json.{Reads, Json, Writes}
 import play.api.mvc.{AnyContent, Request, Controller}
 
 import com.gu.mediaservice.lib.argo.ArgoHelpers
-import com.gu.mediaservice.lib.auth
-import com.gu.mediaservice.lib.auth.{PermissionStore, KeyStore}
 
-import lib.Config
 import lib.elasticsearch.{AggregateSearchResults, ElasticSearch}
 import lib.querysyntax.Parser
 
@@ -16,12 +13,7 @@ import scala.util.Try
 
 object SuggestionController extends Controller with ArgoHelpers {
 
-  val keyStore = new KeyStore(Config.keyStoreBucket, Config.awsCredentials)
-  val permissionStore = new PermissionStore(Config.configBucket, Config.awsCredentials)
-
-  import Config.loginUriTemplate
-
-  val Authenticated = auth.Authenticated(keyStore, loginUriTemplate, Config.kahunaUri)
+  val Authenticated = Authed.action
 
   def suggestMetadataCredit(q: Option[String], size: Option[Int]) = Authenticated.async { request =>
     ElasticSearch
