@@ -7,7 +7,7 @@
         <li class="gr-image-usage__record" ng-repeat="data in ctrl.usages.data">
             {{data.title}}
             <div class="more-info">
-                <span class="date-added">{{ctrl.formatTimestamp(data.dateAdded)}}</span>
+                <span class="date-added">{{::ctrl.formatTimestamp(data.dateAdded)}}</span>
                 <ul class="source-list">
                     <li ng-repeat="(source, source_data) in data.source">
                         <a href="{{source_data.uri}}" title="Open in {{source}}" target="_blank">
