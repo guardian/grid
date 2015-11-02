@@ -8,7 +8,7 @@ import './gr-image-usage.css!';
 export let module = angular.module('gr.imageUsage', []);
 
 module.controller('grImageUsageCtrl', ['mediaUsage', function (mediaUsage) {
-    let ctrl = this;
+    const ctrl = this;
 
     mediaUsage.getUsage(ctrl.image).then(data => {
         ctrl.usage = data;
@@ -33,7 +33,6 @@ module.directive('grImageUsage', [function() {
         controller: 'grImageUsageCtrl',
         controllerAs: 'ctrl',
         bindToController: true,
-        transclude: true,
         scope: {
             image: '=grImage'
         }
@@ -41,7 +40,7 @@ module.directive('grImageUsage', [function() {
 }]);
 
 module.controller('grImageUsageListCtrl', [function () {
-    let ctrl = this;
+    const ctrl = this;
 
     ctrl.formatTimestamp = (timestamp) => {
         return moment(timestamp).fromNow();
