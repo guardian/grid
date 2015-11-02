@@ -120,8 +120,8 @@
             </label>
         </div>
 
-        <gr-image-metadata gr-image="ctrl.image" ng:show="showMetadata"></gr-image-metadata>
-        <gr-image-usage gr-image="ctrl.image" ng:show="! showMetadata"></gr-image-usage>
+        <gr-image-metadata gr-image="ctrl.image" ng:if="showMetadata"></gr-image-metadata>
+        <gr-image-usage gr-image="ctrl.image" ng:if="! showMetadata"></gr-image-usage>
     </div>
 </div>
 
