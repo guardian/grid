@@ -8,6 +8,7 @@ import com.gu.mediaservice.lib.argo.ArgoHelpers
 
 case class UsageResponse(
   mediaId: String,
+  title: String,
   source: Map[String,MediaSource],
   usageType: String,
   mediaType: String,
@@ -53,6 +54,7 @@ object UsageResponse extends ArgoHelpers {
   def build (usage: MediaUsage): UsageResponse = {
     UsageResponse(
       usage.mediaId,
+      usage.data.get("webTitle").getOrElse("No title specified."),
       MediaSource.build(usage),
       usage.usageType,
       usage.mediaType,
