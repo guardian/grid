@@ -11,6 +11,12 @@ trait UsageStatus {
 }
 
 object UsageStatus {
+  implicit val reads: Reads[UsageStatus] = (
+    (JsPath \ "usageStatus").read[String].map(_ match {
+      case "pending" => PendingUsageStatus()
+      case "published" => PublishedUsageStatus()
+    }))
+
   implicit val writer = new Writes[UsageStatus] {
     def writes(usageStatus: UsageStatus): JsValue = {
       Json.obj("usageStatus" -> usageStatus.toString)

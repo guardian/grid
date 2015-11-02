@@ -1,6 +1,7 @@
 GET     /                                               controllers.UsageApi.index
 
 GET     /usages/media/:mediaId                          controllers.UsageApi.forMedia(mediaId: String)
+POST    /usages/print                                   controllers.UsageApi.setPrintUsages
 
 # Management
 GET     /management/healthcheck                         com.gu.mediaservice.lib.management.Management.healthCheck

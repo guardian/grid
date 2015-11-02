@@ -39,5 +39,13 @@ object UsageApi extends Controller with ArgoHelpers {
 
       respondError(InternalServerError, "image-usage-retrieve-failed", error.getMessage())
     }}
+
+  }
+
+  import scala.concurrent.Future
+
+  def setPrintUsages = Authenticated.async { req => Future {
+      respond("ok")
+    }
   }
 }
