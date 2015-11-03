@@ -27,9 +27,13 @@ object Config extends CommonPlayAppProperties with CommonPlayAppConfig {
   val capiPreviewUser = properties("capi.preview.user")
   val capiPreviewPassword = properties("capi.preview.password")
 
+  val composerBaseUrl = properties("composer.baseUrl")
+
   val livePollTable = properties("dynamo.tablename.livePollTable")
   val previewPollTable = properties("dynamo.tablename.previewPollTable")
   val usageRecordTable = properties("dynamo.tablename.usageRecordTable")
 
   val dynamoRegion: Region = Region.getRegion(Regions.EU_WEST_1)
+
+  val corsAllAllowedOrigins = List(services.kahunaBaseUri)
 }

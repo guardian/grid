@@ -1,0 +1,53 @@
+gr-image-usage-list {
+    display: block;
+}
+
+gr-image-usage-list .gr-image-usage__field_title {
+    font-weight: bold;
+    color: #999;
+    vertical-align: top;
+    text-align: left;
+}
+
+gr-image-usage-list .date-added {
+    font-size: 11px;
+}
+
+gr-image-usage-list .gr-image-usage__record {
+    margin-bottom: 10px;
+}
+
+gr-image-usage-list .source-list__icon svg {
+    padding: 0 2px;
+}
+
+gr-image-usage-list gr-frontend-icon svg {
+    width: 13px;
+    height: 13px;
+}
+
+gr-image-usage-list gr-composer-icon svg {
+    width: 12px;
+    height: 12px;
+}
+
+gr-image-usage-list .source-list__icon svg path {
+    fill: #999;
+}
+
+gr-image-usage-list .source-list__icon:hover svg path {
+    fill: white;
+}
+
+gr-image-usage-list .source-list {
+    display: inline-flex;
+    margin-left: 5px;
+    position: relative;
+    top: 3px;
+}
+
+gr-image-usage-list .more-info {
+    /* push more-info closer to the headline */
+    position: relative;
+    top: -2px;
+}

@@ -29,7 +29,7 @@ apiServices.factory('mediaCropper',
         return getCropperRoot().follow('crop').post({
             type: 'full',
             source: image.uri
-        })
+        });
     }
 
     function canBeCropped(image) {

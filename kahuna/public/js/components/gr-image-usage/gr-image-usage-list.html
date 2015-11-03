@@ -1,0 +1,22 @@
+<div class="image-info__group">
+    <span class="flex-container gr-image-usage__field_title">
+        {{ctrl.type}} ({{ctrl.usages.length}})
+    </span>
+
+    <ul>
+        <li class="gr-image-usage__record" ng-repeat="data in ctrl.usages.data">
+            {{data.title}}
+            <div class="more-info">
+                <span class="date-added">{{::ctrl.formatTimestamp(data.dateAdded)}}</span>
+                <ul class="source-list">
+                    <li ng-repeat="(source, source_data) in data.source">
+                        <a href="{{source_data.uri}}" title="Open in {{source}}" target="_blank">
+                            <gr-frontend-icon class="source-list__icon" ng:if="source === 'frontend'"></gr-frontend-icon>
+                            <gr-composer-icon class="source-list__icon" ng:if="source === 'composer'"></gr-composer-icon>
+                        </a>
+                    </li>
+                </ul>
+            </div>
+        </li>
+    </ul>
+</div>
