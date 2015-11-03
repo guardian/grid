@@ -67,43 +67,41 @@ crop.controller('ImageCropCtrl',
         // else undefined is fine
     };
 
+     function crop() {
+         // TODO: show crop
+         var coords = {
+             x: Math.round(ctrl.coords.x1),
+             y: Math.round(ctrl.coords.y1),
+             width:  ctrl.cropWidth(),
+             height: ctrl.cropHeight()
+         };
+
+         var ratio = ctrl.getRatioString(ctrl.aspect);
+
+         ctrl.cropping = true;
+
+         mediaCropper.createCrop(ctrl.image, coords, ratio).then(crop => {
+             // Global notification of action
+             $rootScope.$emit('events:crop-created', {
+                 image: ctrl.image,
+                 crop: crop
+             });
+
+             $state.go('image', {
+                 imageId: imageId,
+                 crop: crop.data.id
+             });
+         }).finally(() => {
+             ctrl.cropping = false;
+         });
+     };
+
      ctrl.callCrop = function() {
          //prevents return keypress on the crop button posting crop twice
          if (!ctrl.cropping) {
              crop();
-         } else {
-             return;
          }
      };
-
-    const crop = () => {
-        // TODO: show crop
-        var coords = {
-            x: Math.round(ctrl.coords.x1),
-            y: Math.round(ctrl.coords.y1),
-            width:  ctrl.cropWidth(),
-            height: ctrl.cropHeight()
-        };
-
-        var ratio = ctrl.getRatioString(ctrl.aspect);
-
-        ctrl.cropping = true;
-
-        mediaCropper.createCrop(ctrl.image, coords, ratio).then(crop => {
-            // Global notification of action
-            $rootScope.$emit('events:crop-created', {
-                image: ctrl.image,
-                crop: crop
-            });
-
-            $state.go('image', {
-                imageId: imageId,
-                crop: crop.data.id
-            });
-        }).finally(() => {
-            ctrl.cropping = false;
-        });
-    };
 
      function cropReturnKeyShortcut(event) {
          // check if ENTER key
@@ -118,5 +116,4 @@ crop.controller('ImageCropCtrl',
      $scope.$on('$destroy', function(){
          body.removeEventListener('keypress', cropReturnKeyShortcut);
      });
-
 }]);
