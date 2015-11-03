@@ -1,6 +1,7 @@
 package model
 
 import org.joda.time.DateTime
+import com.gu.mediaservice.model.DateFormat
 import play.api.libs.json._
 
 case class PrintUsageRequest(printUsageRecords: List[PrintUsageRecord])
@@ -16,6 +17,7 @@ case class PrintUsageRecord(
   usageStatus: UsageStatus
 )
 object PrintUsageRecord {
+  implicit val dateTimeFormat = DateFormat
   implicit val reads: Reads[PrintUsageRecord] = Json.reads[PrintUsageRecord]
 }
 case class PrintUsageDetails(
@@ -31,6 +33,7 @@ case class PrintUsageDetails(
   sectionCode: String
 )
 object PrintUsageDetails {
+  implicit val dateTimeFormat = DateFormat
   implicit val reads: Reads[PrintUsageDetails] = Json.reads[PrintUsageDetails]
 }
 case class PrintImageSize(

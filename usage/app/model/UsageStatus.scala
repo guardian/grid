@@ -12,7 +12,7 @@ trait UsageStatus {
 
 object UsageStatus {
   implicit val reads: Reads[UsageStatus] = (
-    (JsPath \ "usageStatus").read[String].map(_ match {
+    (JsPath).read[String].map(_ match {
       case "pending" => PendingUsageStatus()
       case "published" => PublishedUsageStatus()
     }))

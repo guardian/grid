@@ -43,9 +43,18 @@ object UsageApi extends Controller with ArgoHelpers {
   }
 
   import scala.concurrent.Future
+  import play.api.mvc.BodyParsers
+  import play.api.libs.json.JsError
 
-  def setPrintUsages = Authenticated.async { req => Future {
-      respond("ok")
+  def setPrintUsages = Authenticated.async(BodyParsers.parse.json) { request => Future {
+      val printUsageRequestResult = request.body.validate[PrintUsageRequest]
+      printUsageRequestResult.fold(
+        e => respondError(BadRequest, "print-usage-request-parse-failed", JsError.toFlatJson(e).toString),
+        printUsageRequest => {
+          println(printUsageRequestResult)
+          respond("ok")
+        }
+      )
     }
   }
 }
