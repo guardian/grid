@@ -1,11 +1,12 @@
-<div class="image-info__group">
-    <button class="button"
-            type="button"
-            ng:click="ctrl.callCrop()"
-            ng:disabled="ctrl.cropping">
-        <gr-icon>crop</gr-icon>
-        <span class="top-bar-item__label">
-            Creat<span ng:show="!ctrl.cropping">e</span><span ng:show="ctrl.cropping">ing</span> crop of full image<span ng:show="ctrl.cropping">…</span>
-        </span>
-    </button>
+<div ng:click="showUserActions = !showUserActions">
+    <span ng:hide="showUserActions">▸</span>
+    <span ng:show="showUserActions">▾</span>
+
+    <ul class="drop-menu__items drop-menu__items--right" ng:if="showUserActions">
+        <li ng:click="ctrl.callCrop()">
+            Crop the full image
+        </li>
+
+    </ul>
 </div>
+

@@ -2,9 +2,8 @@ package sbt.plugins
 
 import sbt._
 import sbt.Keys._
-import sbtassembly.Plugin._
-import sbtassembly.Plugin.AssemblyKeys._
-import com.typesafe.sbt.packager
+import com.typesafe.sbt.SbtNativePackager._
+import com.typesafe.sbt.packager.Keys._
 
 object PlayArtifact extends Plugin {
 
@@ -16,79 +15,48 @@ object PlayArtifact extends Plugin {
 
   val magentaPackageName = SettingKey[String]("magenta-package-name", "Name of the magenta package")
 
-  lazy val playArtifactDistSettings = assemblySettings ++ Seq(
-    mainClass in assembly := Some("play.core.server.NettyServer"),
-    jarName in assembly := "app.jar",
+  val playArtifactDistSettings = Seq(
+    name in Universal := name.value,
 
-    // package config for Magenta and Upstart
-    playArtifactResources <<= (assembly, baseDirectory, name, magentaPackageName) map {
-      (assembly, base, name, packageName) => {
-        val common = Seq(
-          base / "conf" / "deploy.json" -> "deploy.json",
-          base / "conf" / "start.sh" -> s"packages/$packageName/start.sh",
-          base / "conf" / (name + ".conf") -> s"packages/$packageName/$name.conf",
-          assembly -> s"packages/$packageName/${assembly.getName}"
-        )
+    // don't nest everything within APP-VERSION directory
+    topLevelDirectory := None,
 
-        val iccProfileAssets = Seq(
-          base / "cmyk.icc"      -> s"packages/$packageName/cmyk.icc",
-          base / "grayscale.icc" -> s"packages/$packageName/grayscale.icc",
-          base / "srgb.icc"      -> s"packages/$packageName/srgb.icc"
-        )
+    // don't package docs
+    sources in (Compile,doc) := Seq.empty,
+    publishArtifact in (Compile, packageDoc) := false,
 
-       name match {
-         case "cropper" | "image-loader" => common ++ iccProfileAssets
-         case default => common
-       }
-      }
-    },
+    playArtifactResources := (Seq(
+      // upstart config file
+      baseDirectory.value / "conf" / (magentaPackageName.value + ".conf") ->
+        (s"packages/${magentaPackageName.value}/${magentaPackageName.value}.conf"),
+
+      baseDirectory.value / "conf" / "start.sh" -> s"packages/${magentaPackageName.value}/start.sh",
+
+      // the ZIP
+      dist.value -> s"packages/${magentaPackageName.value}/app.zip",
+
+      // and the riff raff deploy instructions
+      baseDirectory.value / "conf" / "deploy.json" -> "deploy.json"
+    ) ++ (name.value match {
+      case "cropper" | "image-loader" =>
+        Seq("cmyk.icc", "grayscale.icc", "srgb.icc").map { file =>
+          baseDirectory.value / file -> s"packages/${magentaPackageName.value}/$file"
+        }
+      case _ => Seq()
+    })),
 
     playArtifactFile := "artifacts.zip",
-    playArtifact <<= buildDeployArtifact,
-    packager.Keys.dist <<= buildDeployArtifact tag Tags.Disk,
-    assembly <<= assembly.tag(Tags.Disk),
-
-    mergeStrategy in assembly <<= (mergeStrategy in assembly) { current =>
-    {
-      // Take ours, i.e. MergeStrategy.first...
-      case "logger.xml" => MergeStrategy.first
-      case "version.txt" => MergeStrategy.first
-
-      // Merge play.plugins because we need them all
-      case "play.plugins" => MergeStrategy.filterDistinctLines
-
-      // Try to be helpful...
-      case "overview.html" => MergeStrategy.first
-      case "NOTICE" => MergeStrategy.first
-      case "LICENSE" => MergeStrategy.first
-      case meta if meta.startsWith("META-INF/") => MergeStrategy.first
-
-      case other => current(other)
-    }
-    },
-
-    excludedFiles in assembly := { (bases: Seq[File]) =>
-      bases flatMap { base => (base / "META-INF" * "*").get } collect {
-        case f if f.getName.toLowerCase == "license" => f
-        case f if f.getName.toLowerCase == "manifest.mf" => f
-        case f if f.getName.endsWith(".SF") => f
-        case f if f.getName.endsWith(".DSA") => f
-        case f if f.getName.endsWith(".RSA") => f
-      }
-    }
-  )
-
-  private def buildDeployArtifact = (streams, target, playArtifactResources, playArtifactFile, magentaPackageName) map {
-    (s, target, resources, artifactFileName, magentaPackageName) =>
-      val distFile = target / artifactFileName
-      s.log.info("Disting " + distFile)
+    playArtifact := {
+      val distFile = target.value / playArtifactFile.value
+      streams.value.log.info("Disting " + distFile)
 
       if (distFile.exists()) {
         distFile.delete()
       }
-      IO.zip(resources, distFile)
+      IO.zip(playArtifactResources.value, distFile)
 
-      s.log.info("Done disting.")
+      streams.value.log.info("Done disting.")
       distFile
-  }
+    }
+  )
 }

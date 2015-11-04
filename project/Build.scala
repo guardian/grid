@@ -1,10 +1,13 @@
 import sbt._
 import sbt.Keys._
 import play.Play.autoImport._
+import com.typesafe.sbt.SbtNativePackager.autoImport._
 import plugins.PlayArtifact._
+import Dependencies._
+
+// Note: assembly now just used for helper and legacy apps
 import sbtassembly.Plugin.{AssemblyKeys, MergeStrategy}
 import AssemblyKeys._
-import Dependencies._
 
 
 object Build extends Build {
@@ -34,7 +37,6 @@ object Build extends Build {
 
   val kahuna = playProject("kahuna")
     .libraryDependencies(playWsDeps)
-    .settings(includeAssetsSettings: _*)
 
   val mediaApi = playProject("media-api")
     .libraryDependencies(elasticsearchDeps ++ awsDeps ++
@@ -79,13 +81,13 @@ object Build extends Build {
     .settings(sbtassembly.Plugin.assemblySettings: _*)
     .settings(playArtifactSettings: _*)
     .settings(fiddlyExtraAssemblySettingsForExport: _*)
-    .settings(assemblyMergeSettings: _*)
 
   def fiddlyExtraAssemblySettingsForExport = Seq(
     mergeStrategy in assembly <<= (mergeStrategy in assembly) { (old) => {
       case "version.txt" => MergeStrategy.first
       case "play.plugins" => MergeStrategy.first
       case "logback.xml" => MergeStrategy.first
+      case "play/core/server/ServerWithStop.class" => MergeStrategy.first
       case x => old(x)
     }}
   )
@@ -109,19 +111,5 @@ object Build extends Build {
         <exclude org="org.springframework"/>
         <exclude org="org.scala-tools.sbt"/>
       </dependencies>
-  ) ++ assemblyMergeSettings
-
-  def assemblyMergeSettings = Seq(
-    mergeStrategy in assembly <<= (mergeStrategy in assembly) { (old) => {
-      case f if f.startsWith("org/apache/lucene/index/") => MergeStrategy.first
-      case "play/core/server/ServerWithStop.class" => MergeStrategy.first
-      case "ehcache.xml" => MergeStrategy.first
-      case x => old(x)
-    }}
-  )
-
-  // Ensure the static assets Play packages separately are included in the Assembly JAR
-  def includeAssetsSettings = Seq(
-    fullClasspath in assembly += Attributed.blank(PlayKeys.playPackageAssets.value)
   )
 }

@@ -19,8 +19,9 @@
                                  with-text="true"
                                  gr-image="ctrl.image"></gr-image-persist-status>
 
-        <gr-crop-image class="top-bar-item" image="ctrl.image" tracking-location="Top bar">
+        <gr-crop-image class="top-bar-item top-bar-item--left-half" image="ctrl.image" tracking-location="Top bar">
         </gr-crop-image>
+        <gr-export-original-image class="top-bar-item top-bar-item--right-half" image="ctrl.image"></gr-export-original-image>
     </gr-top-bar-actions>
 </gr-top-bar>
 
@@ -46,7 +47,6 @@
                 </dt>
             </dl>
         </div>
-        <gr-export-original-image ng:if="ctrl.showButton" image="ctrl.image"></gr-export-original-image>
         <div ng:if="ctrl.fullCrop" class="image-info__group">
             <dt class="image-info__heading">Full crop</dt>
             <dd>
