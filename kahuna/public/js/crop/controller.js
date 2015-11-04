@@ -4,13 +4,14 @@ var crop = angular.module('kahuna.crop.controller', []);
 
 crop.controller('ImageCropCtrl',
                 ['$scope', '$rootScope', '$stateParams', '$state',
-                 '$filter', 'mediaApi', 'mediaCropper',
+                 '$filter', '$document', 'mediaApi', 'mediaCropper',
                  'image', 'optimisedImageUri',
                  function($scope, $rootScope, $stateParams, $state,
-                          $filter, mediaApi, mediaCropper,
+                          $filter, $document, mediaApi, mediaCropper,
                           image, optimisedImageUri) {
 
     const ctrl = this;
+    const body = $document[0].body;
 
     var imageId = $stateParams.imageId;
     ctrl.image = image;
@@ -66,33 +67,53 @@ crop.controller('ImageCropCtrl',
         // else undefined is fine
     };
 
-    ctrl.crop = function() {
-        // TODO: show crop
-        var coords = {
-            x: Math.round(ctrl.coords.x1),
-            y: Math.round(ctrl.coords.y1),
-            width:  ctrl.cropWidth(),
-            height: ctrl.cropHeight()
-        };
+     function crop() {
+         // TODO: show crop
+         var coords = {
+             x: Math.round(ctrl.coords.x1),
+             y: Math.round(ctrl.coords.y1),
+             width:  ctrl.cropWidth(),
+             height: ctrl.cropHeight()
+         };
 
-        var ratio = ctrl.getRatioString(ctrl.aspect);
+         var ratio = ctrl.getRatioString(ctrl.aspect);
 
-        ctrl.cropping = true;
+         ctrl.cropping = true;
 
-        mediaCropper.createCrop(ctrl.image, coords, ratio).then(crop => {
-            // Global notification of action
-            $rootScope.$emit('events:crop-created', {
-                image: ctrl.image,
-                crop: crop
-            });
+         mediaCropper.createCrop(ctrl.image, coords, ratio).then(crop => {
+             // Global notification of action
+             $rootScope.$emit('events:crop-created', {
+                 image: ctrl.image,
+                 crop: crop
+             });
 
-            $state.go('image', {
-                imageId: imageId,
-                crop: crop.data.id
-            });
-        }).finally(() => {
-            ctrl.cropping = false;
-        });
-    };
+             $state.go('image', {
+                 imageId: imageId,
+                 crop: crop.data.id
+             });
+         }).finally(() => {
+             ctrl.cropping = false;
+         });
+     }
 
+     ctrl.callCrop = function() {
+         //prevents return keypress on the crop button posting crop twice
+         if (!ctrl.cropping) {
+             crop();
+         }
+     };
+
+     function cropReturnKeyShortcut(event) {
+         // check if ENTER key
+         if (event.which === 13) {
+             ctrl.callCrop();
+         }
+     }
+
+     //TODO find a nicer way to handle keyboard shortcuts
+     body.addEventListener('keypress', cropReturnKeyShortcut);
+
+     $scope.$on('$destroy', function(){
+         body.removeEventListener('keypress', cropReturnKeyShortcut);
+     });
 }]);
