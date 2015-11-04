@@ -3,7 +3,8 @@
 from ConfigParser import ConfigParser
 from generate import generate_files
 
-CONFIG_FILE = 'settings/settings.ini'
+CONFIG_FILE = '/etc/gu/grid-settings.ini'
+OUTPUT_DIR = '/etc/gu'
 
 def _default_option(config, section, option, default=None):
     return config.get(section, option) \
@@ -21,11 +22,9 @@ def main():
     if not cf_stack:
         raise Exception('No stack found in {}'.format(CONFIG_FILE))
 
-    output_dir = _default_option(config, 'output', 'directory', 'output')
-
     properties = config._sections['properties']
 
-    generate_files(aws_profile_name, aws_region, cf_stack, output_dir, properties)
+    generate_files(aws_profile_name, aws_region, cf_stack, OUTPUT_DIR, properties)
 
 if __name__ == '__main__':
     main()

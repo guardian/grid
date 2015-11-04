@@ -8,7 +8,8 @@ import com.gu.mediaservice.lib.argo.ArgoHelpers
 
 case class UsageResponse(
   mediaId: String,
-  source: MediaSource,
+  title: String,
+  source: Map[String,MediaSource],
   usageType: String,
   mediaType: String,
   status: String,
@@ -53,6 +54,7 @@ object UsageResponse extends ArgoHelpers {
   def build (usage: MediaUsage): UsageResponse = {
     UsageResponse(
       usage.mediaId,
+      usage.data.get("webTitle").getOrElse("No title specified."),
       MediaSource.build(usage),
       usage.usageType,
       usage.mediaType,
@@ -68,14 +70,15 @@ object UsageResponse extends ArgoHelpers {
 
 case class MediaSource (
   uri: Option[String],
-  name: Option[String]
+  name: Option[String] = None
 )
 
 object MediaSource {
-  def build (usage: MediaUsage): MediaSource = MediaSource(
-    usage.data.get("webUrl").map(_.toString),
-    usage.data.get("webTitle").map(_.toString)
-  )
+  def build (usage: MediaUsage): Map[String, MediaSource] = {
+    Map("frontend" -> MediaSource(usage.data.get("webUrl"), usage.data.get("webTitle"))) ++
+      usage.data.get("composerUrl")
+        .map(composerUrl => "composer" -> MediaSource(Some(composerUrl)))
+  }
 
   implicit val writes: Writes[MediaSource] = Json.writes[MediaSource]
 }

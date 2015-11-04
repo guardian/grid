@@ -92,7 +92,37 @@
 <div class="image-details">
     <gr-metadata-validity gr-image="ctrl.image"></gr-metadata-validity>
     <gr-image-cost-message gr-image="ctrl.image"></gr-image-cost-message>
-    <gr-image-metadata gr-image="ctrl.image"></gr-image-metadata>
+
+    <div ng:init="showMetadata = true">
+        <div class="radio-list">
+            <input type="radio"
+                   id="foo"
+                   class="radio-list__circle"
+                   name="foo"/>
+            <label for="foo"
+                   class="radio-list__label"
+                   ng:class="{'radio-list--selected': showMetadata}"
+                   ng:click="showMetadata = true">
+                <div class="radio-list__selection-state"></div>
+                <div class="radio-list__label-value">Metadata</div>
+            </label>
+
+            <input type="radio"
+                   id="bar"
+                   class="radio-list__circle"
+                   name="bar"/>
+            <label for="bar"
+                   class="radio-list__label"
+                   ng:class="{'radio-list--selected': ! showMetadata}"
+                   ng:click="showMetadata = false">
+                <div class="radio-list__selection-state"></div>
+                <div class="radio-list__label-value">Usage</div>
+            </label>
+        </div>
+
+        <gr-image-metadata gr-image="ctrl.image" ng:if="showMetadata"></gr-image-metadata>
+        <gr-image-usage gr-image="ctrl.image" ng:if="! showMetadata"></gr-image-usage>
+    </div>
 </div>
 
 <div class="image-holder">

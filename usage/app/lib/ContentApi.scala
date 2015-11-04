@@ -20,7 +20,7 @@ object PreviewContentApi extends ContentApiRequestBuilder {
     .setPassword(Config.capiPreviewPassword)
     .setUsePreemptiveAuth(true)
     .setScheme(AuthScheme.BASIC)
-    .build();
+    .build()
 
   val previewBuilder = builder.setRealm(realm)
 

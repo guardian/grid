@@ -8,6 +8,7 @@ import moment from 'moment';
 import '../util/eq';
 import '../components/gu-date-range/gu-date-range';
 import template from './query.html!text';
+import './syntax/syntax';
 
 import '../analytics/track';
 
@@ -16,6 +17,7 @@ export var query = angular.module('kahuna.search.query', [
     // 'ngAnimate',
     'util.eq',
     'gu-dateRange',
+    'grSyntax',
     'analytics.track'
 ]);
 
@@ -59,7 +61,7 @@ query.controller('SearchQueryCtrl',
     // URL parameters are not decoded when taken out of the params.
     // Might be fixed with: https://github.com/angular-ui/ui-router/issues/1759
     // Pass undefined to the state on empty to remove the QueryString
-    function valOrUndefined(str) { return str ? decodeURIComponent(str) : undefined; }
+    function valOrUndefined(str) { return str ? str : undefined; }
 
     function setAndWatchParam(key) {
         ctrl.filter[key] = valOrUndefined($stateParams[key]);
