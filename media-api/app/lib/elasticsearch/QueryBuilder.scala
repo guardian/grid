@@ -2,7 +2,7 @@ package lib.elasticsearch
 
 import com.gu.mediaservice.lib.elasticsearch.IndexSettings
 import lib.querysyntax._
-import org.elasticsearch.index.query.{BoolQueryBuilder, MatchQueryBuilder, MultiMatchQueryBuilder}
+import org.elasticsearch.index.query.{BaseQueryBuilder, BoolQueryBuilder, MatchQueryBuilder, MultiMatchQueryBuilder}
 import org.elasticsearch.index.query.QueryBuilders._
 
 
@@ -23,7 +23,7 @@ class QueryBuilder(matchFields: Seq[String]) {
   def multiMatchPhraseQuery(value: String, fields: Seq[String]) =
     new MultiMatchQueryBuilder(value, fields: _*).`type`(MultiMatchQueryBuilder.Type.PHRASE)
 
-  def makeMultiQuery(value: Value, fields: Seq[String]) = value match {
+  def makeMultiQuery(value: Value, fields: Seq[String]): BaseQueryBuilder = value match {
     // We only want to search the fields that are indexed with the `guAnalyser` with itself.
     case Words(string) => boolQuery().
       should(buildMultiMatchQuery(string, fields diff guAnalyzedFields)).
