@@ -989,7 +989,26 @@ input.related-labels__parent {
 .related-labels__labels {
     overflow-x: auto;
     overflow-y: hidden;
+    /* space below scrollbar */
+    margin-bottom: 3px;
 }
+
+/* style scrollbar to take less space */
+.related-labels__labels::-webkit-scrollbar-track {
+	border-radius: 10px;
+	background-color: #555;
+}
+
+.related-labels__labels::-webkit-scrollbar {
+    height: 5px;
+	background-color: #555;
+}
+
+.related-labels__labels::-webkit-scrollbar-thumb {
+	border-radius: 10px;
+	background-color: #888;
+}
+
 
 .related-labels__label {
     margin-left: 2px;
