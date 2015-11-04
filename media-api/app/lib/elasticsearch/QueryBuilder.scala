@@ -24,6 +24,7 @@ class QueryBuilder(matchFields: Seq[String]) {
     new MultiMatchQueryBuilder(value, fields: _*).`type`(MultiMatchQueryBuilder.Type.PHRASE)
 
   def makeMultiQuery(value: Value, fields: Seq[String]) = value match {
+    // We only want to search the fields that are indexed with the `guAnalyser` with itself.
     case Words(string) => boolQuery().
       should(buildMultiMatchQuery(string, fields diff guAnalyzedFields)).
       should(buildMultiMatchQueryAnalyzed(string, guAnalyzedFields))
