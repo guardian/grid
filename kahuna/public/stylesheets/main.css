@@ -363,12 +363,12 @@ textarea.ng-invalid {
     margin-left: 0;
 }
 
-.top-bar-item--right-half {
-    border-left: none;
+.top-bar-item--split-button-left {
+    border-right: none;
 }
 
-.top-bar-item--left-half {
-    border-right: none;
+.top-bar-item--split-button-right {
+    border-left: 1px solid rgba(102, 102, 102, 0.2);
 }
 
 .top-bar-item:hover {
@@ -1963,12 +1963,20 @@ FIXME: what to do with touch devices
     z-index: 4;
     /* Drop items should win over everything */
     white-space: nowrap;
+    line-height: normal;
+    right: 40px;
 }
+
 .drop-menu__items--right {
     right: 0;
 }
+
 .drop-menu__items--nopad {
     top: 100%;
+}
+
+.drop-menu__items--action {
+    background-color: grey;
 }
 
 
