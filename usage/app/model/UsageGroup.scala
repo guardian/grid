@@ -21,9 +21,11 @@ object UsageGroup {
 
   def build(printUsageRecords: List[PrintUsageRecord]) =
     printUsageRecords.map(printUsageRecord => {
+      val usageId = UsageId.build(printUsageRecord)
+
       UsageGroup(
-        Set(MediaUsage.build(printUsageRecord)),
-        UsageId.build(printUsageRecord).toString,
+        Set(MediaUsage.build(printUsageRecord, usageId)),
+        usageId.toString,
         printUsageRecord.usageStatus,
         printUsageRecord.dateAdded
       )

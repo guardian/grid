@@ -22,7 +22,7 @@ case class MediaUsage(
   usageType: String,
   mediaType: String,
   status: UsageStatus,
-  data: Map[String, Any],
+  data: Map[String, String],
   lastModified: DateTime,
   dateAdded: Option[DateTime] = None,
   dateRemoved: Option[DateTime] = None
@@ -72,9 +72,9 @@ object MediaUsage {
     )
   }
 
-  def build(printUsage: PrintUsageRecord) = MediaUsage(
-    UsageId.build(printUsage),
-    printUsage.containerId,
+  def build(printUsage: PrintUsageRecord, usageId: UsageId) = MediaUsage(
+    usageId,
+    usageId.toString,
     printUsage.mediaId,
     "print",
     "Image",

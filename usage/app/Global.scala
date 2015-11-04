@@ -17,7 +17,7 @@ object Global extends WithFilters(RequestLoggingFilter, new GzipFilter) with Glo
   override def onStart(app: Application) {
     UsageApi.keyStore.scheduleUpdates(Akka.system(app).scheduler)
 
-//    val subscription = UsageRecorder.subscribe
+    val subscription = UsageRecorder.subscribe
   }
 
 }

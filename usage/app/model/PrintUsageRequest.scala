@@ -40,10 +40,10 @@ case class PrintUsageDetails(
     "publicationCode" -> publicationCode,
     "layoutId" -> layoutId,
     "edition" -> edition,
-    "size" -> size.toMap,
+    "size" -> size,
     "orderedBy" -> orderedBy,
     "sectionCode" -> sectionCode
-  )
+  ).map {case (key, value) => (key, value.toString)}
 }
 object PrintUsageDetails {
   implicit val dateTimeFormat = DateFormat
@@ -53,10 +53,7 @@ case class PrintImageSize(
   x: Int,
   y: Int
 ) {
-  def toMap = Map(
-    "x" -> x,
-    "y" -> y
-  )
+  override def toString = s"$x,$y"
 }
 object PrintImageSize {
   implicit val reads: Reads[PrintImageSize] = Json.reads[PrintImageSize]

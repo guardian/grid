@@ -61,20 +61,11 @@ object UsageTable extends DynamoDB(
   def create(mediaUsage: MediaUsage): Observable[JsObject] =
     updateFromRecord(UsageRecord.buildCreateRecord(mediaUsage))
 
-  def create(printUsage: PrintUsageRecord): Observable[JsObject] =
-    updateFromRecord(UsageRecord.buildCreateRecord(MediaUsage.build(printUsage)))
-
   def update(mediaUsage: MediaUsage): Observable[JsObject] =
     updateFromRecord(UsageRecord.buildUpdateRecord(mediaUsage))
 
-  def update(printUsage: PrintUsageRecord): Observable[JsObject] =
-    updateFromRecord(UsageRecord.buildUpdateRecord(MediaUsage.build(printUsage)))
-
   def delete(mediaUsage: MediaUsage): Observable[JsObject] =
     updateFromRecord(UsageRecord.buildDeleteRecord(mediaUsage))
-
-  def delete(printUsage: PrintUsageRecord): Observable[JsObject] =
-    updateFromRecord(UsageRecord.buildDeleteRecord(MediaUsage.build(printUsage)))
 
   def updateFromRecord(record: UsageRecord): Observable[JsObject] = Observable.from(Future {
 

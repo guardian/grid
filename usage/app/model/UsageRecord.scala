@@ -17,7 +17,7 @@ case class UsageRecord(
   mediaType: Option[String] = None,
   lastModified: Option[DateTime] = None,
   usageStatus: Option[String] = None,
-  dataMap: Option[Map[String, Any]] = None,
+  dataMap: Option[Map[String, String]] = None,
   dateAdded: Option[DateTime] = None,
   dateRemoved: Option[DateTime] = None
 ) {
@@ -30,7 +30,7 @@ case class UsageRecord(
         lastModified.map(lastMod => N("last_modified").set(lastMod.getMillis)),
         usageStatus.filter(_.nonEmpty).map(S("usage_status").set(_)),
         dataMap.map(dataMap => M("data_map").set(
-          dataMap.filter({ case (k,v) => k.nonEmpty && v.toString.nonEmpty })
+          dataMap.filter({ case (k,v) => k.nonEmpty && v.nonEmpty})
         )),
         dateAdded.map(dateAdd => N("date_added").set(dateAdd.getMillis)),
         dateRemoved.map(dateRem => N("date_removed").set(dateRem.getMillis))
