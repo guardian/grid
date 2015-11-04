@@ -54,7 +54,7 @@ object UsageResponse extends ArgoHelpers {
       case "web" => UsageResponse(
         usage.mediaId,
         usage.data.getOrElse("webTitle", "No title specified."),
-        MediaSource.build(usage),
+        MediaSource.buildForWeb(usage),
         usage.usageType,
         usage.mediaType,
         usage.status.toString,
@@ -72,7 +72,7 @@ object UsageResponse extends ArgoHelpers {
         UsageResponse(
           usage.mediaId,
           title.flatten.mkString(", "),
-          MediaSource.build(usage),
+          MediaSource.buildForPrint(usage),
           usage.usageType,
           usage.mediaType,
           usage.status.toString,
@@ -103,10 +103,14 @@ case class MediaSource (
 )
 
 object MediaSource {
-  def build (usage: MediaUsage): Map[String, MediaSource] = {
+  def buildForWeb (usage: MediaUsage): Map[String, MediaSource] = {
     Map("frontend" -> MediaSource(usage.data.get("webUrl"), usage.data.get("webTitle"))) ++
       usage.data.get("composerUrl")
         .map(composerUrl => "composer" -> MediaSource(Some(composerUrl)))
+  }
+
+  def buildForPrint (usage: MediaUsage): Map[String, MediaSource] = {
+    Map("indesign" -> MediaSource(usage.data.get("containerId"), usage.data.get("storyName")))
   }
 
   implicit val writes: Writes[MediaSource] = Json.writes[MediaSource]
