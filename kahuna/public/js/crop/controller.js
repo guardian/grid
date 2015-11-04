@@ -94,7 +94,7 @@ crop.controller('ImageCropCtrl',
          }).finally(() => {
              ctrl.cropping = false;
          });
-     };
+     }
 
      ctrl.callCrop = function() {
          //prevents return keypress on the crop button posting crop twice
