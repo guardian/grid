@@ -26,8 +26,8 @@ class QueryBuilder(matchFields: Seq[String]) {
   def makeMultiQuery(value: Value, fields: Seq[String]): BaseQueryBuilder = value match {
     // We only want to search the fields that are indexed with the `guAnalyser` with itself.
     case Words(string) => boolQuery().
-      should(buildMultiMatchQuery(string, fields diff guAnalyzedFields)).
-      should(buildMultiMatchQueryAnalyzed(string, guAnalyzedFields))
+      should(buildMultiMatchQuery(string, fields)).
+      should(buildMultiMatchQueryAnalyzed(string, fields))
     case Phrase(string) => multiMatchPhraseQuery(string, fields)
     // That's OK, we only do date queries on a single field at a time
     case DateRange(start, end) => throw InvalidQuery("Cannot do multiQuery on date range")
