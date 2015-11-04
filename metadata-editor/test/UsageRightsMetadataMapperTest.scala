@@ -39,6 +39,12 @@ class UsageRightsMetadataMapperTest extends FunSpec with Matchers {
         Some(ImageMetadata(credit = Some("Roger Rabit")))
     }
 
+    it ("should convert Composites") {
+      val ur = Composite("REX/Getty Images")
+      usageRightsToMetadata(ur) should be
+        Some(ImageMetadata(credit = Some("REX/Getty Images")))
+    }
+
     it ("should not convert Agencies") {
       val ur = Agency("Rex Features")
       usageRightsToMetadata(ur) should be(None)
