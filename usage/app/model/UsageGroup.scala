@@ -24,6 +24,10 @@ object UsageGroup {
       MediaUsage.build(ElementWrapper(index, element), contentWrapper)
     })
 
+  def createUsages(printUsageRecord: PrintUsageRecord) = {
+    MediaUsage.build(printUsageRecord)
+  }
+
   def extractImages(content: Content) = content.elements.map(elements => {
     elements.filter(_.`type` == ElementType.Image)
   })

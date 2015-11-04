@@ -39,7 +39,7 @@ object UsageTable extends DynamoDB(
     val keyAttribute = new KeyAttribute("media_id", id)
     val queryResult = imageIndex.query(keyAttribute)
 
-    queryResult.asScala.map(MediaUsage.build(_)).toSet[MediaUsage]
+    queryResult.asScala.map(MediaUsage.build).toSet[MediaUsage]
   }
 
   def matchUsageGroup(usageGroup: UsageGroup): Observable[UsageGroup] =
@@ -50,7 +50,7 @@ object UsageTable extends DynamoDB(
       val queryResult = table.query(keyAttribute)
 
       val usages = queryResult.asScala
-        .map(MediaUsage.build(_))
+        .map(MediaUsage.build)
         .filter(usage => {
           s"${usage.status}" == status
         }).toSet
@@ -61,11 +61,20 @@ object UsageTable extends DynamoDB(
   def create(mediaUsage: MediaUsage): Observable[JsObject] =
     updateFromRecord(UsageRecord.buildCreateRecord(mediaUsage))
 
+  def create(printUsage: PrintUsageRecord): Observable[JsObject] =
+    updateFromRecord(UsageRecord.buildCreateRecord(MediaUsage.build(printUsage)))
+
   def update(mediaUsage: MediaUsage): Observable[JsObject] =
     updateFromRecord(UsageRecord.buildUpdateRecord(mediaUsage))
 
+  def update(printUsage: PrintUsageRecord): Observable[JsObject] =
+    updateFromRecord(UsageRecord.buildUpdateRecord(MediaUsage.build(printUsage)))
+
   def delete(mediaUsage: MediaUsage): Observable[JsObject] =
     updateFromRecord(UsageRecord.buildDeleteRecord(mediaUsage))
+
+  def delete(printUsage: PrintUsageRecord): Observable[JsObject] =
+    updateFromRecord(UsageRecord.buildDeleteRecord(MediaUsage.build(printUsage)))
 
   def updateFromRecord(record: UsageRecord): Observable[JsObject] = Observable.from(Future {
 

@@ -52,6 +52,10 @@ object UsageApi extends Controller with ArgoHelpers {
         e => respondError(BadRequest, "print-usage-request-parse-failed", JsError.toFlatJson(e).toString),
         printUsageRequest => {
           println(printUsageRequestResult)
+
+          UsageGroup.createUsages(printUsageRequest)
+
+
           respond("ok")
         }
       )

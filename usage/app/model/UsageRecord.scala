@@ -17,7 +17,7 @@ case class UsageRecord(
   mediaType: Option[String] = None,
   lastModified: Option[DateTime] = None,
   usageStatus: Option[String] = None,
-  dataMap: Option[Map[String, String]] = None,
+  dataMap: Option[Map[String, Any]] = None,
   dateAdded: Option[DateTime] = None,
   dateRemoved: Option[DateTime] = None
 ) {

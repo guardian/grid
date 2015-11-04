@@ -31,7 +31,20 @@ case class PrintUsageDetails(
   size: PrintImageSize,
   orderedBy: String,
   sectionCode: String
-)
+) {
+  def toMap = Map(
+    "sectionName" -> sectionName,
+    "issueDate" -> issueDate,
+    "pageNumber" -> pageNumber,
+    "storyName" -> storyName,
+    "publicationCode" -> publicationCode,
+    "layoutId" -> layoutId,
+    "edition" -> edition,
+    "size" -> PrintImageSize.toMap,
+    "orderedBy" -> orderedBy,
+    "sectionCode" -> sectionCode
+  )
+}
 object PrintUsageDetails {
   implicit val dateTimeFormat = DateFormat
   implicit val reads: Reads[PrintUsageDetails] = Json.reads[PrintUsageDetails]
@@ -39,7 +52,12 @@ object PrintUsageDetails {
 case class PrintImageSize(
   x: Int,
   y: Int
-)
+) {
+  def toMap = Map(
+    "x" -> x,
+    "y" -> y
+  )
+}
 object PrintImageSize {
   implicit val reads: Reads[PrintImageSize] = Json.reads[PrintImageSize]
 }
