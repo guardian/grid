@@ -72,9 +72,10 @@ case class MediaSource (
 )
 
 object MediaSource {
-  def build (usage: MediaUsage): MediaSource = {
-    MediaSource(usage.data.get("webUrl"), usage.data.get("webTitle"))
-  }
+  def build (usage: MediaUsage): MediaSource = MediaSource(
+    usage.data.get("webUrl").map(_.toString),
+    usage.data.get("webTitle").map(_.toString)
+  )
 
   implicit val writes: Writes[MediaSource] = Json.writes[MediaSource]
 }

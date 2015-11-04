@@ -16,7 +16,7 @@ import java.net.URI
 
 
 case class MediaUsage(
-  usageId: String,
+  usageId: UsageId,
   grouping: String,
   mediaId: String,
   usageType: String,
@@ -40,7 +40,7 @@ case class MediaUsage(
 object MediaUsage {
   def build(item: Item) =
     MediaUsage(
-      item.getString("usage_id"),
+      UsageId(item.getString("usage_id")),
       item.getString("grouping"),
       item.getString("media_id"),
       item.getString("usage_type"),
@@ -61,7 +61,7 @@ object MediaUsage {
     val contentDetails = ContentDetails.build(contentWrapper.content)
 
     MediaUsage(
-      usageId.toString,
+      usageId,
       contentWrapper.id,
       elementWrapper.media.id,
       "web",
@@ -70,16 +70,15 @@ object MediaUsage {
       contentDetails.toMap,
       contentWrapper.lastModified
     )
-
   }
 
   def build(printUsage: PrintUsageRecord) = MediaUsage(
-    printUsage.mediaId,
+    UsageId.build(printUsage),
     printUsage.containerId,
     printUsage.mediaId,
     "print",
     "Image",
-    new PublishedUsageStatus,
+    printUsage.usageStatus,
     printUsage.printUsageDetails.toMap,
     printUsage.dateAdded
   )

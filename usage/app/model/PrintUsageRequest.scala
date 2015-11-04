@@ -40,7 +40,7 @@ case class PrintUsageDetails(
     "publicationCode" -> publicationCode,
     "layoutId" -> layoutId,
     "edition" -> edition,
-    "size" -> PrintImageSize.toMap,
+    "size" -> size.toMap,
     "orderedBy" -> orderedBy,
     "sectionCode" -> sectionCode
   )

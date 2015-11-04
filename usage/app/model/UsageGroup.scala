@@ -19,14 +19,20 @@ object UsageGroup {
       })
     })
 
+  def build(printUsageRecords: List[PrintUsageRecord]) =
+    printUsageRecords.map(printUsageRecord => {
+      UsageGroup(
+        Set(MediaUsage.build(printUsageRecord)),
+        UsageId.build(printUsageRecord).toString,
+        printUsageRecord.usageStatus,
+        printUsageRecord.dateAdded
+      )
+    })
+
   def createUsages(contentWrapper: ContentWrapper) =
     extractImages(contentWrapper.content).map(_.zipWithIndex.map{ case (element, index) =>
       MediaUsage.build(ElementWrapper(index, element), contentWrapper)
     })
-
-  def createUsages(printUsageRecord: PrintUsageRecord) = {
-    MediaUsage.build(printUsageRecord)
-  }
 
   def extractImages(content: Content) = content.elements.map(elements => {
     elements.filter(_.`type` == ElementType.Image)
