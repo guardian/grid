@@ -36,7 +36,7 @@ object UsageApi extends Controller with ArgoHelpers {
   def forMedia(mediaId: String) = Authenticated.async {
     val usagesFuture = UsageTable.queryByImageId(mediaId)
 
-    usagesFuture.map[play.api.mvc.Result](UsageResponse.buildCollectionResponse).recover { case error: Exception => {
+    usagesFuture.map[play.api.mvc.Result](UsageResponseCollection.build).recover { case error: Exception => {
       Logger.error("UsageApi returned an error.", error)
 
       respondError(InternalServerError, "image-usage-retrieve-failed", error.getMessage())
