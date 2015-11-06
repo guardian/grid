@@ -96,10 +96,10 @@
     <div ng:init="showMetadata = true">
         <div class="radio-list">
             <input type="radio"
-                   id="foo"
+                   id="show-metadata"
                    class="radio-list__circle"
-                   name="foo"/>
-            <label for="foo"
+                   name="show-metadata"/>
+            <label for="show-metadata"
                    class="radio-list__label"
                    ng:class="{'radio-list--selected': showMetadata}"
                    ng:click="showMetadata = true">
@@ -108,10 +108,10 @@
             </label>
 
             <input type="radio"
-                   id="bar"
+                   id="show-usage"
                    class="radio-list__circle"
-                   name="bar"/>
-            <label for="bar"
+                   name="show-usage"/>
+            <label for="show-usage"
                    class="radio-list__label"
                    ng:class="{'radio-list--selected': ! showMetadata}"
                    ng:click="showMetadata = false">
