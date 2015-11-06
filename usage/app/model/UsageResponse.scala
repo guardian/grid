@@ -34,10 +34,7 @@ object UsageResponse extends ArgoHelpers {
           publishedUsage
         }
 
-      mergedUsages.filter(usage => (for {
-        added <- usage.dateAdded
-        removed <- usage.dateRemoved
-      } yield added.isAfter(removed)).getOrElse(true))
+      mergedUsages.filter(_.isRemoved)
 
     }}.toList
 

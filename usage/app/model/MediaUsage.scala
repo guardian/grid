@@ -27,7 +27,10 @@ case class MediaUsage(
   dateAdded: Option[DateTime] = None,
   dateRemoved: Option[DateTime] = None
 ) {
-  def isRemoved = dateRemoved.isEmpty
+  def isRemoved = (for {
+    added <- dateAdded
+    removed <- dateRemoved
+  } yield added.isAfter(removed)).getOrElse(true)
 
   // Used in set comparison of UsageGroups
   override def equals(obj: Any): Boolean = obj match {
