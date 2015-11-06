@@ -761,9 +761,6 @@ input.search-query__input {
     margin: 5px;
     background-color: #393939;
 }
-.result--seen {
-    opacity: .5;
-}
 
 .result-placeholder {
     position: relative;
