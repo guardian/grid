@@ -54,7 +54,7 @@ pip install -r requirements.txt
 
 ### Configure
 
-You need to create the file `settings/settings.ini` using [`settings/settings.ini.template`](./settings/settings.ini.template) as a template.
+You need to create the file `/etc/gu/grid-settings.ini` using [`settings/settings.ini.template`](./settings/settings.ini.template) as a template.
 
 Additionally, the `aws` section can have the values:
  * `profile-name` which is the name of an [AWS CLI Profile](http://docs.aws.amazon.com/cli/latest/userguide/cli-chap-getting-started.html) and is defaulted to `media-service`
@@ -65,12 +65,7 @@ Additionally, the `aws` section can have the values:
 To generate the .properties files, run the command:
 
 ```sh
-./main.py
-```
-
-NB: If you've set `directory` to a location not writable by the current user (e.g. `/etc/gu`),
-you can run:
-
-```sh
 sudo ./main.py
 ```
+
+NB: `sudo` is needed as we write to `/etc/gu/`.

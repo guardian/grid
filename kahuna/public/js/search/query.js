@@ -8,6 +8,7 @@ import moment from 'moment';
 import '../util/eq';
 import '../components/gu-date-range/gu-date-range';
 import template from './query.html!text';
+import './syntax/syntax';
 
 import '../analytics/track';
 
@@ -16,6 +17,7 @@ export var query = angular.module('kahuna.search.query', [
     // 'ngAnimate',
     'util.eq',
     'gu-dateRange',
+    'grSyntax',
     'analytics.track'
 ]);
 

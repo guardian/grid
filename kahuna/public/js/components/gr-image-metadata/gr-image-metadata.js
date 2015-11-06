@@ -37,6 +37,7 @@ module.controller('grImageMetadataCtrl', [
 
         // Alias for convenience in view
         ctrl.metadata = ctrl.image.data.metadata;
+        ctrl.identifiers = ctrl.image.data.identifiers;
 
         ctrl.isUsefulMetadata = isUsefulMetadata;
 
