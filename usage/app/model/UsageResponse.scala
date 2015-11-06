@@ -9,7 +9,7 @@ import com.gu.mediaservice.lib.argo.ArgoHelpers
 case class UsageResponse(
   mediaId: String,
   title: String,
-  source: Map[String, MediaSource],
+  source: Map[String, UsageSource],
   usageType: String,
   mediaType: String,
   status: String,
@@ -22,11 +22,18 @@ object UsageResponse extends ArgoHelpers {
 
   implicit val writes: Writes[UsageResponse] = Json.writes[UsageResponse]
 
-  def buildWeb(usage: MediaUsage): UsageResponse = {
+  def build(usage: MediaUsage): UsageResponse = {
+    usage.usageType match {
+      case "web" => buildWeb(usage)
+      case "print" => buildPrint(usage)
+    }
+  }
+
+  private def buildWeb(usage: MediaUsage): UsageResponse = {
     UsageResponse(
       usage.mediaId,
       usage.data.getOrElse("webTitle", "No title specified."),
-      MediaSource.build(usage),
+      UsageSource.build(usage),
       usage.usageType,
       usage.mediaType,
       usage.status.toString,
@@ -36,7 +43,7 @@ object UsageResponse extends ArgoHelpers {
     )
   }
 
-  def buildPrint(usage: MediaUsage): UsageResponse = {
+  private def buildPrint(usage: MediaUsage): UsageResponse = {
     val usageTitle = List(
       usage.data.get("issueDate").map(date => new DateTime(date).toString("YYYY-MM-dd")),
       usage.data.get("pageNumber").map(page => s"Page $page"),
@@ -46,7 +53,7 @@ object UsageResponse extends ArgoHelpers {
     UsageResponse(
       usage.mediaId,
       usageTitle,
-      MediaSource.build(usage),
+      UsageSource.build(usage),
       usage.usageType,
       usage.mediaType,
       usage.status.toString,
@@ -54,12 +61,5 @@ object UsageResponse extends ArgoHelpers {
       usage.dateRemoved,
       usage.lastModified
     )
-  }
-
-  def build(usage: MediaUsage): UsageResponse = {
-    usage.usageType match {
-      case "web" => buildWeb(usage)
-      case "print" => buildPrint(usage)
-    }
   }
 }
