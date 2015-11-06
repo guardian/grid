@@ -30,7 +30,7 @@ case class UsageRecord(
         lastModified.map(lastMod => N("last_modified").set(lastMod.getMillis)),
         usageStatus.filter(_.nonEmpty).map(S("usage_status").set(_)),
         dataMap.map(dataMap => M("data_map").set(
-          dataMap.filter({ case (k,v) => k.nonEmpty && v.nonEmpty })
+          dataMap.filter({ case (k,v) => k.nonEmpty && v.nonEmpty})
         )),
         dateAdded.map(dateAdd => N("date_added").set(dateAdd.getMillis)),
         dateRemoved.map(dateRem => N("date_removed").set(dateRem.getMillis))
@@ -42,13 +42,13 @@ case class UsageRecord(
 object UsageRecord {
   def buildDeleteRecord(mediaUsage: MediaUsage) = UsageRecord(
     hashKey = mediaUsage.grouping,
-    rangeKey = mediaUsage.usageId,
+    rangeKey = mediaUsage.usageId.toString,
     dateRemoved = Some(mediaUsage.lastModified)
   )
 
   def buildUpdateRecord(mediaUsage: MediaUsage) = UsageRecord(
     mediaUsage.grouping,
-    mediaUsage.usageId,
+    mediaUsage.usageId.toString,
     Some(mediaUsage.mediaId),
     Some(mediaUsage.usageType),
     Some(mediaUsage.mediaType),
@@ -59,7 +59,7 @@ object UsageRecord {
 
   def buildCreateRecord(mediaUsage: MediaUsage) = UsageRecord(
     mediaUsage.grouping,
-    mediaUsage.usageId,
+    mediaUsage.usageId.toString,
     Some(mediaUsage.mediaId),
     Some(mediaUsage.usageType),
     Some(mediaUsage.mediaType),
