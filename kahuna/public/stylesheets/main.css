@@ -2007,6 +2007,8 @@ FIXME: what to do with touch devices
     padding: 10px;
     font-size: 1.2rem;
     box-sizing: border-box;
+    max-height: 400px;
+    overflow-y: scroll;
 }
 
 .datalist__input {
