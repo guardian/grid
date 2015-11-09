@@ -65,13 +65,13 @@
                 </div>
             </dd>
         </div>
-        <div class="image-info__group" ng:if="ctrl.crops.length > 1 || (ctrl.crops.length === 1 && !ctrl.fullCrop)">
+        <div class="image-info__group" ng:if="ctrl.filteredCrops.length > 0">
             <dl class="image-info__group--dl">
                 <dt class="image-info__heading">Crops</dt>
                 <dd class="image-info__heading--crops">
                     <ul class="image-crops">
                         <li class="image-crop"
-                            ng:repeat="crop in ctrl.crops | filter: { $: '!full' }"
+                            ng:repeat="crop in ctrl.filteredCrops"
                             ng:class="{'image-crop--selected': crop == ctrl.crop}">
                             <a draggable="true"
                                ng:init="extremeAssets = (crop | getExtremeAssets)"

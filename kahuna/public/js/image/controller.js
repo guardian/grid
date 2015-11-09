@@ -92,6 +92,7 @@ image.controller('ImageCtrl', [
             ctrl.crops = crops;
             ctrl.crop = crops.find(crop => crop.id === cropKey);
             ctrl.fullCrop = crops.find(crop => crop.specification.type === 'full');
+            ctrl.filteredCrops = crops.filter(crop => crop.specification.type === 'crop');
         }).finally(() => {
             ctrl.dimensions = angular.isDefined(ctrl.crop) ?
                 getCropDimensions() : getImageDimensions();
