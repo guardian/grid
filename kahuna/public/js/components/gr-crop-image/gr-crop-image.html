@@ -1,12 +1,15 @@
-<a ng:if="ctrl.canBeCropped"
-	class="crop-item crop-item__button"
-	ui:sref="crop({imageId: ctrl.image.data.id})"
-    gr:track-click="Crop image button"
-    gr:track-click-data="{'Location': ctrl.trackingLocation}">
-    <gr-icon-label gr-icon="crop">Crop image</gr-icon-label>
-</a>
+<span ng:if="ctrl.canBeCropped">
+    <a class="inner-clickable clickable side-padded"
+        ui:sref="crop({imageId: ctrl.image.data.id})"
+        gr:track-click="Crop image button"
+        gr:track-click-data="{'Location': ctrl.trackingLocation}">
+        <gr-icon-label gr-icon="crop">Crop image</gr-icon-label>
+    </a>
+
+    <gr-export-original-image ng:if="!ctrl.fullCrop" image="ctrl.image"></gr-export-original-image>
+</span>
 
 <span ng:if="! ctrl.canBeCropped"
-	class="crop-item">
+	class="crop-item side-padded">
 	<gr-icon-label gr-icon="crop">Cannot crop</gr-icon-label>
 </span>

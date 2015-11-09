@@ -116,5 +116,4 @@ crop.controller('ImageCropCtrl',
      $scope.$on('$destroy', function(){
          body.removeEventListener('keypress', cropReturnKeyShortcut);
      });
-
 }]);

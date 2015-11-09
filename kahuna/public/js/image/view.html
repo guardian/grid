@@ -1,17 +1,17 @@
 <gr-top-bar>
     <gr-top-bar-nav>
-        <a class="top-bar-item" ui:sref="search" title="Back to search">
+        <a class="top-bar-item side-padded clickable" ui:sref="search" title="Back to search">
             <gr-icon-label gr-icon="search">Search</gr-icon-label>
         </a>
     </gr-top-bar-nav>
 
     <gr-top-bar-actions>
-        <gr-delete-image class="top-bar-item top-bar-item--filled"
+        <gr-delete-image class="top-bar-item clickable"
                          ng:if="ctrl.canBeDeleted"
                          images="[ctrl.image]">
         </gr-delete-image>
 
-        <a class="top-bar-item" href="{{ ctrl.image.data.source | assetFile }}" download target="_blank">
+        <a class="top-bar-item side-padded clickable" href="{{ ctrl.image.data.source | assetFile }}" download target="_blank">
             <gr-icon-label gr-icon="file_download">Download</gr-icon-label>
         </a>
 
@@ -19,9 +19,8 @@
                                  with-text="true"
                                  gr-image="ctrl.image"></gr-image-persist-status>
 
-        <gr-crop-image class="top-bar-item top-bar-item--split-button-left" image="ctrl.image" tracking-location="Top bar">
+        <gr-crop-image class="top-bar-item" image="ctrl.image" full-crop="ctrl.fullCrop" tracking-location="Top bar">
         </gr-crop-image>
-        <gr-export-original-image class="top-bar-item top-bar-item--split-button-right" image="ctrl.image"></gr-export-original-image>
     </gr-top-bar-actions>
 </gr-top-bar>
 
