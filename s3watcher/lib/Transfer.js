@@ -37,6 +37,23 @@ module.exports = {
             console.log(stateMessage, state);
         }
 
+       const success = function(result) {
+            log("delete", s3Object);
+
+            return S3Helper.deleteS3Object(s3Object);
+        };
+
+        const failGraceful = function(e) {
+            log("failed", e)
+
+            log("copy", s3CopyObject);
+            return S3Helper.copyS3Object(s3CopyObject).flatMap(function(){
+                log("delete", s3Object);
+
+                return S3Helper.deleteS3Object(s3Object);
+            });
+        };
+
         // TODO: Use stream API
         const operation = function() {
             log("download", s3Object);
@@ -49,31 +66,18 @@ module.exports = {
                 log("record", uploadResult)
 
                 return CWHelper.putMetricData(
-                        Metrics.create(uploadResult));
-            });
-        };
+                    Metrics.create(uploadResult)).map(
+                        function(){ return uploadResult; });
 
-        const success = function(result) {
-            log("delete", s3Object);
-
-            return S3Helper.deleteS3Object(s3Object);
-        };
-
-        const fail = function(e) {
-            log("failed", e)
-
-            log("copy", s3CopyObject);
-            return S3Helper.copyS3Object(s3CopyObject).flatMap(function(){
-                log("delete", s3Object);
-
-                return S3Helper.deleteS3Object(s3Object);
+            }).flatMap(function(uploadResult){
+                return uploadResult.succeeded ? success() : failGraceful()
             });
         };
 
         return {
             operation: operation,
             success: success,
-            fail: fail
+            fail: failGraceful
         };
     }
 }
