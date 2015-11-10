@@ -19,7 +19,7 @@
                                  with-text="true"
                                  gr-image="ctrl.image"></gr-image-persist-status>
 
-        <gr-crop-image class="top-bar-item" image="ctrl.image" full-crop="ctrl.fullCrop" tracking-location="Top bar">
+        <gr-crop-image class="top-bar-item" image="ctrl.image" has-full-crop="ctrl.hasFullCrop" tracking-location="Top bar">
         </gr-crop-image>
     </gr-top-bar-actions>
 </gr-top-bar>
@@ -46,7 +46,7 @@
                 </dt>
             </dl>
         </div>
-        <div ng:if="ctrl.fullCrop" class="image-info__group">
+        <div ng:if="ctrl.hasFullCrop" class="image-info__group">
             <dt class="image-info__heading">Full frame</dt>
             <dd>
                 <div class="image-crop"
@@ -65,13 +65,13 @@
                 </div>
             </dd>
         </div>
-        <div class="image-info__group" ng:if="ctrl.filteredCrops.length > 0">
+        <div class="image-info__group" ng:if="ctrl.hasCrops">
             <dl class="image-info__group--dl">
                 <dt class="image-info__heading">Crops</dt>
                 <dd class="image-info__heading--crops">
                     <ul class="image-crops">
                         <li class="image-crop"
-                            ng:repeat="crop in ctrl.filteredCrops"
+                            ng:repeat="crop in ctrl.crops"
                             ng:class="{'image-crop--selected': crop == ctrl.crop}">
                             <a draggable="true"
                                ng:init="extremeAssets = (crop | getExtremeAssets)"

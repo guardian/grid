@@ -8,7 +8,7 @@ exportOriginalImage.controller('grExportOriginalImageCtrl', [
     '$scope', '$rootScope', '$state', '$stateParams', 'mediaCropper',
     function($scope, $rootScope, $state, $stateParams, mediaCropper) {
         let ctrl = this;
-        var imageId = $stateParams.imageId;
+        const imageId = $stateParams.imageId;
 
         ctrl.callCrop = function() {
             //prevents return key on the crop button posting crop twice

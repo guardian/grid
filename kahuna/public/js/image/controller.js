@@ -54,7 +54,7 @@ image.controller('ImageCtrl', [
               mediaCropper,
               imageService) {
 
-        var ctrl = this;
+        let ctrl = this;
 
         ctrl.image = image;
         ctrl.optimisedImageUri = optimisedImageUri;
@@ -89,10 +89,12 @@ image.controller('ImageCtrl', [
         }
 
         mediaCropper.getCropsFor(image).then(crops => {
-            ctrl.crops = crops;
             ctrl.crop = crops.find(crop => crop.id === cropKey);
             ctrl.fullCrop = crops.find(crop => crop.specification.type === 'full');
-            ctrl.filteredCrops = crops.filter(crop => crop.specification.type === 'crop');
+            ctrl.crops = crops.filter(crop => crop.specification.type === 'crop');
+            //boolean version for use in template
+            ctrl.hasFullCrop = angular.isDefined(ctrl.fullCrop);
+            ctrl.hasCrops = ctrl.crops.length > 0;
         }).finally(() => {
             ctrl.dimensions = angular.isDefined(ctrl.crop) ?
                 getCropDimensions() : getImageDimensions();

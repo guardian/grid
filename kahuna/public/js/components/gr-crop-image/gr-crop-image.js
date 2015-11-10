@@ -32,7 +32,7 @@ cropImage.directive('grCropImage', [function () {
         scope: {
             image: '=',
             trackingLocation: '@',
-            fullCrop: '='
+            hasFullCrop: '='
         },
         template: template
     };

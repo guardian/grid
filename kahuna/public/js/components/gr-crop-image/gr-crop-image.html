@@ -5,11 +5,15 @@
         gr:track-click-data="{'Location': ctrl.trackingLocation}">
         <gr-icon-label gr-icon="crop">Crop image</gr-icon-label>
     </a>
-
-    <gr-export-original-image ng:if="!ctrl.fullCrop" image="ctrl.image"></gr-export-original-image>
+    <a ng:if="!ctrl.hasFullCrop" class="drop-menu clickable inner-clickable side-padded button-right-side" ng:click="showUserActions = !showUserActions">
+        <span>▾</span>
+        <gr-export-original-image class="drop-menu__items drop-menu__items--nopad" ng:if="showUserActions" image="ctrl.image"></gr-export-original-image>
+    </a>
 </span>
 
 <span ng:if="! ctrl.canBeCropped"
 	class="crop-item side-padded">
 	<gr-icon-label gr-icon="crop">Cannot crop</gr-icon-label>
 </span>
+
+

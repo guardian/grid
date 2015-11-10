@@ -1,14 +1,4 @@
-<a class="drop-menu inner-clickable clickable side-padded button-right-side" ng:click="showUserActions = !showUserActions">
-    <span>▾</span>
-</a>
-
-<div ng:if="showUserActions"
-     class="drop-menu__items drop-menu__items--nopad"
-     ng:class="{ 'drop-menu__items--action' : ctrl.cropping }"
-     ng:click="ctrl.callCrop()">
-    <ul>
-        <li><a>
-            <gr-icon-label ng:class="{ 'spin' : ctrl.cropping }" gr-icon="crop"></gr-icon-label> Creat<span ng:hide="ctrl.cropping">e</span><span ng:if="ctrl.cropping">ing</span> full frame<span ng:if="ctrl.cropping">…</span>
-        </li></a>
-    </ul>
+<div ng:class="{ 'drop-menu__items--action' : ctrl.cropping }"
+     ng:click="ctrl.callCrop(); $event.stopPropagation();">
+        <gr-icon-label gr-icon="crop"></gr-icon-label> Creat<span ng:hide="ctrl.cropping">e</span><span ng:if="ctrl.cropping">ing</span> full frame<span ng:if="ctrl.cropping">…</span>
 </div>

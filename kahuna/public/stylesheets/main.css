@@ -315,6 +315,7 @@ a:focus {
 .clickable:hover {
     background-color: #666666;
     color: white;
+    cursor: pointer;
 }
 
 .inner-clickable {
@@ -1940,7 +1941,7 @@ FIXME: what to do with touch devices
     /* Drop items should win over everything */
     white-space: nowrap;
     line-height: normal;
-    right: 40px;
+    right: 0;
 }
 
 .drop-menu__items--right {
@@ -2019,8 +2020,6 @@ FIXME: what to do with touch devices
 .tracking-image {
     display: none;
 }
-
-
 
 /* ==========================================================================
    Forms
