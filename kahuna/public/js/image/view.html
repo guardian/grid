@@ -54,7 +54,7 @@
                      ng:class="{'image-crop--selected': crop == ctrl.crop}">
                     <a draggable="true"
                        ui:sref="{ crop: ctrl.fullCrop.id }"
-      ng:init="extremeAssets = (crop | getExtremeAssets)">
+                       ng:init="extremeAssets = (crop | getExtremeAssets)">
                         <span class="image-crop__creator" title="Cropped by {{crop.author}} at {{crop.date | date:'medium'}}">{{crop.author | getInitials}}</span>
                         <img class="image-crop__image" ng:src="{{ extremeAssets.smallest | assetFile }}" />
                         <div class="image-crop__aspect-ratio"
