@@ -13,9 +13,7 @@ exports.handler = function(event, context) {
     });
 
     transfer.flatMap(function(t){
-        return t.operation().catch(function(e){
-            return t.fail(e);
-        }).flatMap(t.success);
+        return t.operation();
     }).subscribe(
         lambda.success,
         lambda.fail

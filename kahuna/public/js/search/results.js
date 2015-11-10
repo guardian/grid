@@ -79,7 +79,7 @@ results.controller('SearchResultsCtrl', [
 
         const ctrl = this;
 
-        var metadataPanelName = 'gr-panel';
+        const metadataPanelName = 'gr-panel';
 
         ctrl.metadataPanelAvailable = panelService.isAvailable(metadataPanelName);
         ctrl.metadataPanelVisible = panelService.isVisible(metadataPanelName);
@@ -98,7 +98,7 @@ results.controller('SearchResultsCtrl', [
         ctrl.showMetadataPanelMouseLeave = () => panelService.hide(metadataPanelName);
 
         $rootScope.$on(
-            'ui:panels:' + metadataPanelName + ':updated',
+            `ui:panels:${metadataPanelName}:updated`,
             () => {
                 ctrl.metadataPanelAvailable = panelService.isAvailable(metadataPanelName);
                 ctrl.metadataPanelVisible = panelService.isVisible(metadataPanelName);
@@ -118,9 +118,6 @@ results.controller('SearchResultsCtrl', [
         ctrl.loading = true;
 
         ctrl.revealNewImages = revealNewImages;
-
-        ctrl.getLastSeenVal = getLastSeenVal;
-        ctrl.imageHasBeenSeen = imageHasBeenSeen;
 
         // Arbitrary limit of number of results; too many and the
         // scrollbar becomes hyper-sensitive
@@ -318,35 +315,6 @@ results.controller('SearchResultsCtrl', [
             });
         }
 
-
-        var seenSince;
-        const lastSeenKey = 'search.seenFrom';
-
-        function getLastSeenVal(image) {
-            const key = getQueryKey();
-            var val = {};
-            val[key] = image.data.uploadTime;
-
-            return val;
-        }
-
-        function imageHasBeenSeen(image) {
-            return image.data.uploadTime <= seenSince;
-        }
-
-        $scope.$watch(() => $window.localStorage.getItem(lastSeenKey), function() {
-            seenSince = getSeenSince();
-        });
-
-        // TODO: Move this into localstore service
-        function getSeenSince() {
-           return JSON.parse($window.localStorage.getItem(lastSeenKey) || '{}')[getQueryKey()];
-        }
-
-        function getQueryKey() {
-            return $stateParams.query || '*';
-        }
-
         function search({until, since, offset, length, orderBy} = {}) {
             // FIXME: Think of a way to not have to add a param in a million places to add it
 
@@ -390,9 +358,6 @@ results.controller('SearchResultsCtrl', [
         }
 
         ctrl.clearSelection = () => {
-            panelService.hide(metadataPanelName, false);
-            panelService.unavailable(metadataPanelName, false);
-
             selection.clear();
         };
 

@@ -19,6 +19,18 @@ object UsageGroup {
       })
     })
 
+  def build(printUsageRecords: List[PrintUsageRecord]) =
+    printUsageRecords.map(printUsageRecord => {
+      val usageId = UsageId.build(printUsageRecord)
+
+      UsageGroup(
+        Set(MediaUsage.build(printUsageRecord, usageId)),
+        usageId.toString,
+        printUsageRecord.usageStatus,
+        printUsageRecord.dateAdded
+      )
+    })
+
   def createUsages(contentWrapper: ContentWrapper) =
     extractImages(contentWrapper.content).map(_.zipWithIndex.map{ case (element, index) =>
       MediaUsage.build(ElementWrapper(index, element), contentWrapper)
