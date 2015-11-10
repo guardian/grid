@@ -2,6 +2,7 @@ package controllers
 
 import java.net.URI
 
+import model.Collection
 import com.gu.mediaservice.lib.config.MetadataConfig
 import play.api.mvc.Security.AuthenticatedRequest
 import play.utils.UriEncoding
@@ -27,7 +28,6 @@ import lib.elasticsearch._
 import lib.{Notifications, Config, ImageResponse}
 import lib.querysyntax._
 
-import com.gu.mediaservice.lib.auth
 import com.gu.mediaservice.lib.auth._
 import com.gu.mediaservice.lib.argo._
 import com.gu.mediaservice.lib.argo.model._
@@ -326,6 +326,32 @@ object MediaApi extends Controller with ArgoHelpers {
       Link("related-labels", uri)
     }
   }
+
+  val collectionsFilePath =
+    play.Play.application().getFile("app/controllers/collections.txt").getPath
+
+  def getCollections = Authenticated.async { req =>
+    val tree = Collection.buildTree("root", getCollectionsFromFile.map(_.split("/").toList))
+    Future.successful(respond(tree))
+  }
+
+  def addCollection(collection: String) = Authenticated.async { req =>
+    Future.successful(respondCollection(getCollectionsFromFile))
+  }
+
+  def getCollectionsFromFile = {
+    scala.io.Source.fromFile(collectionsFilePath).getLines.toList
+  }
+
+  import scala.language.reflectiveCalls
+  def using[A <: {def close(): Unit}, B](resource: A)(f: A => B): B =
+    try f(resource) finally resource.close()
+
+  def writeToFile(path: String, data: String): Unit =
+    using(new java.io.FileWriter(path))(_.write(data))
+
+  def appendToFile(path: String, data: String): Unit =
+    using(new java.io.PrintWriter(new java.io.FileWriter(path, true)))(_.println(data))
 }
 
 
@@ -432,7 +458,7 @@ object SearchParams {
     type SearchParamValidation = Validation[InvalidUriParams, SearchParams]
     type SearchParamValidations = ValidationNel[InvalidUriParams, SearchParams]
     val maxSize = 200
-    
+
     def validate(searchParams: SearchParams): SearchParamValidations = {
       // we just need to return the first `searchParams` as we don't need to manipulate them
       // TODO: try reduce these
@@ -448,3 +474,4 @@ object SearchParams {
     }
 
 }
+
