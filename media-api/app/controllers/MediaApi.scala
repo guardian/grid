@@ -335,13 +335,22 @@ object MediaApi extends Controller with ArgoHelpers {
     Future.successful(respond(tree))
   }
 
-  def addCollection(collection: String) = Authenticated.async { req =>
-    Future.successful(respondCollection(getCollectionsFromFile))
+  def addCollection = Authenticated.async(parse.json) { req =>
+    (req.body \ "data").asOpt[String].map { collectionName =>
+      val collections = (collectionName :: getCollectionsFromFile).distinct
+      writeToCollectionsFile(collections)
+      Future.successful(respondCollection(collections))
+    }.getOrElse(
+      Future.successful(respondError(BadRequest, "bad-collection-data", "You can't add that collection"))
+    )
   }
 
   def getCollectionsFromFile = {
     scala.io.Source.fromFile(collectionsFilePath).getLines.toList
   }
+
+  def writeToCollectionsFile(collections: List[String]) =
+    writeToFile(collectionsFilePath, collections.mkString("\n"))
 
   import scala.language.reflectiveCalls
   def using[A <: {def close(): Unit}, B](resource: A)(f: A => B): B =

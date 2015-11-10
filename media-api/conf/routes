@@ -22,7 +22,7 @@ GET     /suggest/metadata/credit                      controllers.SuggestionCont
 GET     /suggest/edits/labels/:label/sibling-labels   controllers.SuggestionController.suggestLabelSiblings(label: String, q: Option[String], selectedLabels: Option[String])
 GET     /suggest/edits/labels                         controllers.SuggestionController.suggestLabels(q: Option[String])
 GET     /collections                                  controllers.MediaApi.getCollections
-GET    /collection                                    controllers.MediaApi.addCollection(collection: String)
+POST    /collections                                  controllers.MediaApi.addCollection
 
 # Management
 GET     /management/healthcheck                       controllers.HealthCheck.healthCheck
