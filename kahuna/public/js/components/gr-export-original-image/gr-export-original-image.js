@@ -46,7 +46,8 @@ exportOriginalImage.directive('grExportOriginalImage', [function() {
         bindToController: true,
         scope: {
             image: '=',
-            trackingLocation: '@'
+            trackingLocation: '@',
+            cropping: '='
         },
         template: template
     };

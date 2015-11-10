@@ -7,7 +7,7 @@
     </a>
     <a ng:if="!ctrl.hasFullCrop" class="drop-menu clickable inner-clickable side-padded button-right-side" ng:click="showUserActions = !showUserActions">
         <span>▾</span>
-        <gr-export-original-image class="drop-menu__items drop-menu__items--nopad" ng:if="showUserActions" image="ctrl.image"></gr-export-original-image>
+        <gr-export-original-image class="drop-menu__items drop-menu__items--nopad" image="ctrl.image" cropping="ctrl.cropping" ng:class="{ 'drop-menu__items--action' : ctrl.cropping }"></gr-export-original-image>
     </a>
 </span>
 
