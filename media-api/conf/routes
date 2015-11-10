@@ -23,6 +23,7 @@ GET     /suggest/edits/labels/:label/sibling-labels   controllers.SuggestionCont
 GET     /suggest/edits/labels                         controllers.SuggestionController.suggestLabels(q: Option[String])
 GET     /collections                                  controllers.MediaApi.getCollections
 POST    /collections                                  controllers.MediaApi.addCollection
+DELETE  /collections/*collection                      controllers.MediaApi.removeCollection(collection: String)
 
 # Management
 GET     /management/healthcheck                       controllers.HealthCheck.healthCheck

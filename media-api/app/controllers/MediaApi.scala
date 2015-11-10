@@ -345,6 +345,12 @@ object MediaApi extends Controller with ArgoHelpers {
     )
   }
 
+  def removeCollection(collection: String) = Authenticated.async { req =>
+    val collections = getCollectionsFromFile diff List(collection)
+    writeToCollectionsFile(collections)
+    Future.successful(respondCollection(collections))
+  }
+
   def getCollectionsFromFile = {
     scala.io.Source.fromFile(collectionsFilePath).getLines.toList
   }
