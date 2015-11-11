@@ -20,6 +20,9 @@ case class UsageResponse(
 object UsageResponse extends ArgoHelpers {
   import com.gu.mediaservice.lib.IntUtils._
 
+  implicit val dateTimeWrites: Writes[DateTime] = new Writes[DateTime] {
+    def writes(d: DateTime) = DateFormat.writes(d)
+  }
   implicit val writes: Writes[UsageResponse] = Json.writes[UsageResponse]
 
   def build(usage: MediaUsage): UsageResponse = {
