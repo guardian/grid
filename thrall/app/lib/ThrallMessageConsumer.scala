@@ -20,7 +20,7 @@ object ThrallMessageConsumer extends MessageConsumer(
       case "delete-image-exports"       => deleteImageExports
       case "update-image-exports"       => updateImageExports
       case "update-image-user-metadata" => updateImageUserMetadata
-      case "update-image-usage"         => updateImageUsage
+      case "update-image-usage"         => updateImageUsages
       case "heartbeat"                  => heartbeat
     }
 
@@ -28,9 +28,8 @@ object ThrallMessageConsumer extends MessageConsumer(
     None
   }
 
-  def updateImageUsage(image: JsValue) = Future {
-    println(image)
-  }
+  def updateImageUsages(usages: JsValue) =
+    withImageId(usages)(id => ElasticSearch.updateImageUsages(id, usages \ "data"))
 
   def indexImage(image: JsValue): Future[UpdateResponse] =
     withImageId(image)(id => ElasticSearch.indexImage(id, image))

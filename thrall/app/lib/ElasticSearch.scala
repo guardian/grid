@@ -92,6 +92,10 @@ object ElasticSearch extends ElasticSearchClient with ImageFields {
       }
   }
 
+  def updateImageUsages(id: String, usages: JsValue)(implicit ex: ExecutionContext) = Future {
+    println(id)
+  }
+
   def updateImageExports(id: String, exports: JsValue)(implicit ex: ExecutionContext): Future[UpdateResponse] =
     prepareImageUpdate(id)
       .setScriptParams(Map(
