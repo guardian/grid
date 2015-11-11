@@ -8,7 +8,7 @@ module.exports = {
     publish: function (usages, id) {
         const message = JSON.stringify({
             id: id,
-            usages: usages
+            data: usages.data
         });
 
         return SNSHelper.publish({

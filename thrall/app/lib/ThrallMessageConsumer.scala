@@ -28,8 +28,11 @@ object ThrallMessageConsumer extends MessageConsumer(
     None
   }
 
-  def updateImageUsages(usages: JsValue) =
+  def updateImageUsages(usages: JsValue) = {
+    println(usages)
+
     withImageId(usages)(id => ElasticSearch.updateImageUsages(id, usages \ "data"))
+  }
 
   def indexImage(image: JsValue): Future[UpdateResponse] =
     withImageId(image)(id => ElasticSearch.indexImage(id, image))

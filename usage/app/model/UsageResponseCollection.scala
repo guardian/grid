@@ -21,8 +21,7 @@ object UsageResponseCollection extends ArgoHelpers {
 
     }}.toList
 
-    respondCollections[UsageResponse](
-      data = flatUsages.map(UsageResponse.build).groupBy(_.status.toString))
+    respondCollection[UsageResponse](data = flatUsages.map(UsageResponse.build))
   }
 
   def build(usages: Set[MediaUsage]) = if(usages.isEmpty) {
