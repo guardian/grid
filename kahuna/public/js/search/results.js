@@ -119,6 +119,9 @@ results.controller('SearchResultsCtrl', [
 
         ctrl.revealNewImages = revealNewImages;
 
+        ctrl.getLastSeenVal = getLastSeenVal;
+        ctrl.imageHasBeenSeen = imageHasBeenSeen;
+
         // Arbitrary limit of number of results; too many and the
         // scrollbar becomes hyper-sensitive
         const searchFilteredLimit = 5000;
@@ -313,6 +316,35 @@ results.controller('SearchResultsCtrl', [
             $state.transitionTo($state.current, $stateParams, {
                 reload: true, inherit: false, notify: true
             });
+        }
+
+
+        var seenSince;
+        const lastSeenKey = 'search.seenFrom';
+
+        function getLastSeenVal(image) {
+            const key = getQueryKey();
+            var val = {};
+            val[key] = image.data.uploadTime;
+
+            return val;
+        }
+
+        function imageHasBeenSeen(image) {
+            return image.data.uploadTime <= seenSince;
+        }
+
+        $scope.$watch(() => $window.localStorage.getItem(lastSeenKey), function() {
+            seenSince = getSeenSince();
+        });
+
+        // TODO: Move this into localstore service
+        function getSeenSince() {
+           return JSON.parse($window.localStorage.getItem(lastSeenKey) || '{}')[getQueryKey()];
+        }
+
+        function getQueryKey() {
+            return $stateParams.query || '*';
         }
 
         function search({until, since, offset, length, orderBy} = {}) {
