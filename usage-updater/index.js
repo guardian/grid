@@ -1,8 +1,7 @@
 const Rx = require('rx');
 const Notifications = require('./lib/Notifications');
-
-const Lambda       = require('./lib/Lambda');
-const UsageRequest = require('./lib/UsageRequest');
+const Lambda        = require('./lib/Lambda');
+const UsageRequest  = require('./lib/UsageRequest');
 
 
 exports.handler = function(event, context) {
@@ -10,9 +9,8 @@ exports.handler = function(event, context) {
     const lambda = Lambda.init(event, context);
 
     const update = lambda.event.flatMap(function(mediaUsage){
-        return UsageRequest.get(lambda.config, mediaUsage).map(function(response){
-            console.log(response);
-            Notifications.publish(response);
+        return UsageRequest.get(lambda.config, mediaUsage).flatMap(function(response){
+            return Notifications.publish(response.usages.data);
         });
     });
 
