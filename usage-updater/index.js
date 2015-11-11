@@ -10,7 +10,7 @@ exports.handler = function(event, context) {
 
     const update = lambda.event.flatMap(function(mediaUsage){
         return UsageRequest.get(lambda.config, mediaUsage).flatMap(function(response){
-            return Notifications.publish(response.usages.data);
+            return Notifications.publish(response.usages.data, mediaUsage.mediaId);
         });
     });
 
