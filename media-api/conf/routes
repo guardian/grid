@@ -21,9 +21,11 @@ GET     /images                                       controllers.MediaApi.image
 GET     /suggest/metadata/credit                      controllers.SuggestionController.suggestMetadataCredit(q: Option[String], size: Option[Int])
 GET     /suggest/edits/labels/:label/sibling-labels   controllers.SuggestionController.suggestLabelSiblings(label: String, q: Option[String], selectedLabels: Option[String])
 GET     /suggest/edits/labels                         controllers.SuggestionController.suggestLabels(q: Option[String])
-GET     /collections                                  controllers.MediaApi.getCollections
-POST    /collections                                  controllers.MediaApi.addCollection
-DELETE  /collections/*collection                      controllers.MediaApi.removeCollection(collection: String)
+
+# Collections
+GET     /collections                                  controllers.CollectionsController.getCollections
+#POST    /collections                                  controllers.CollectionsController.addCollection
+#DELETE  /collections/*collection                      controllers.MediaApi.removeCollection(collection: String)
 
 # Management
 GET     /management/healthcheck                       controllers.HealthCheck.healthCheck

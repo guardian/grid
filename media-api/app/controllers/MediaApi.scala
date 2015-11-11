@@ -2,7 +2,6 @@ package controllers
 
 import java.net.URI
 
-import model.Collection
 import com.gu.mediaservice.lib.config.MetadataConfig
 import play.api.mvc.Security.AuthenticatedRequest
 import play.utils.UriEncoding
@@ -39,7 +38,7 @@ import com.gu.mediaservice.model._
 
 object MediaApi extends Controller with ArgoHelpers {
 
-  import Config.{rootUri, cropperUri, loaderUri, metadataUri, kahunaUri, loginUriTemplate}
+  import Config.{rootUri, cropperUri, loaderUri, metadataUri, kahunaUri}
 
   val Authenticated = Authed.action
   val permissionStore = Authed.permissionStore
@@ -326,47 +325,6 @@ object MediaApi extends Controller with ArgoHelpers {
       Link("related-labels", uri)
     }
   }
-
-  val collectionsFilePath =
-    play.Play.application().getFile("app/controllers/collections.txt").getPath
-
-  def getCollections = Authenticated.async { req =>
-    val tree = Collection.buildTree("root", getCollectionsFromFile.map(_.split("/").toList))
-    Future.successful(respond(tree))
-  }
-
-  def addCollection = Authenticated.async(parse.json) { req =>
-    (req.body \ "data").asOpt[String].map { collectionName =>
-      val collections = (collectionName :: getCollectionsFromFile).distinct
-      writeToCollectionsFile(collections)
-      Future.successful(respondCollection(collections))
-    }.getOrElse(
-      Future.successful(respondError(BadRequest, "bad-collection-data", "You can't add that collection"))
-    )
-  }
-
-  def removeCollection(collection: String) = Authenticated.async { req =>
-    val collections = getCollectionsFromFile diff List(collection)
-    writeToCollectionsFile(collections)
-    Future.successful(respondCollection(collections))
-  }
-
-  def getCollectionsFromFile = {
-    scala.io.Source.fromFile(collectionsFilePath).getLines.toList
-  }
-
-  def writeToCollectionsFile(collections: List[String]) =
-    writeToFile(collectionsFilePath, collections.mkString("\n"))
-
-  import scala.language.reflectiveCalls
-  def using[A <: {def close(): Unit}, B](resource: A)(f: A => B): B =
-    try f(resource) finally resource.close()
-
-  def writeToFile(path: String, data: String): Unit =
-    using(new java.io.FileWriter(path))(_.write(data))
-
-  def appendToFile(path: String, data: String): Unit =
-    using(new java.io.PrintWriter(new java.io.FileWriter(path, true)))(_.println(data))
 }
 
 

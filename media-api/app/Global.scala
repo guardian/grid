@@ -1,4 +1,4 @@
-import controllers.{Authed, MediaApi}
+import controllers.{CollectionsController, Authed}
 import lib.elasticsearch.ElasticSearch
 import play.api.libs.concurrent.Akka
 import play.api.{Application, GlobalSettings}
@@ -21,6 +21,7 @@ object Global extends WithFilters(CorsFilter, RequestLoggingFilter, new GzipFilt
   override def onStart(app: Application) {
     Authed.keyStore.scheduleUpdates(Akka.system(app).scheduler)
     Authed.permissionStore.scheduleUpdates(Akka.system(app).scheduler)
+    CollectionsController.collectionsStore.scheduleUpdates(Akka.system(app).scheduler)
   }
 
 }
