@@ -1,11 +1,21 @@
 const Rx = require('rx');
 
+const Lambda       = require('./lib/Lambda');
+const UsageRequest = require('./lib/UsageRequest');
+
 
 exports.handler = function(event, context) {
     //console.log('Received event:', JSON.stringify(event, null, 2));
-    event.Records.forEach(function(record) {
+    const lambda = Lambda.init(event, context);
 
-        console.log(record.dynamodb.NewImage.media_id.S);
+    const update = lambda.event.flatMap(function(mediaUsage){
+        return UsageRequest.get(lambda.config, mediaUsage).map(function(response){
+            console.log(response);
+        });
     });
-    context.succeed("Successfully processed " + event.Records.length + " records.");
+
+    update.subscribe(
+        lambda.success,
+        lambda.fail
+    );
 };
