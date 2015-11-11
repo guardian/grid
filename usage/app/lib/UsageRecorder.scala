@@ -49,6 +49,8 @@ object UsageRecorder {
   def subscribe = UsageRecorder.observable.subscribe(subscriber)
 
   def recordUpdates(usageGroup: UsageGroup) = {
+    UsageNotifications.publishFromUsageGroup(usageGroup)
+
     UsageTable.matchUsageGroup(usageGroup).flatMap(dbUsageGroup => {
 
       val deletes = (dbUsageGroup.usages -- usageGroup.usages).map(UsageTable.delete)

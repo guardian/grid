@@ -33,6 +33,8 @@ object Config extends CommonPlayAppProperties with CommonPlayAppConfig {
   val previewPollTable = properties("dynamo.tablename.previewPollTable")
   val usageRecordTable = properties("dynamo.tablename.usageRecordTable")
 
+  val topicArn = properties("sns.topic.arn")
+
   val dynamoRegion: Region = Region.getRegion(Regions.EU_WEST_1)
 
   val corsAllAllowedOrigins = List(services.kahunaBaseUri)
