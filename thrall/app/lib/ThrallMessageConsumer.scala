@@ -21,10 +21,15 @@ object ThrallMessageConsumer extends MessageConsumer(
       case "delete-image-exports"       => deleteImageExports
       case "update-image-user-metadata" => updateImageUserMetadata
       case "heartbeat"                  => heartbeat
+      case "usage-update"               => usageUpdate
     }
 
   def heartbeat(msg: JsValue) = Future {
     None
+  }
+
+  def usageUpdate(image: JsValue) = Future {
+    println(image)
   }
 
   def indexImage(image: JsValue): Future[UpdateResponse] =
