@@ -6,13 +6,15 @@ const SNSHelper = require('./SNSHelper');
 
 module.exports = {
     publish: function (usages, id) {
+        const message = JSON.stringify({
+            id: id,
+            usages: usages
+        });
+
         return SNSHelper.publish({
             TopicArn: Config.topicArn,
             Subject: Config.messageSubject,
-            Message: JSON.stringify({
-                id: id,
-                usages: usages
-            })
+            Message: message
         });
     }
 };

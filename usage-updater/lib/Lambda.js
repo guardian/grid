@@ -11,6 +11,7 @@ module.exports = {
                 const baseUrl = Config.usageBaseUri;
 
                 return {
+                    "id" : mediaId,
                     "uri" : baseUrl + mediaId
                 }
             }));
