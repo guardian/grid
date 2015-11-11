@@ -92,9 +92,19 @@ object ElasticSearch extends ElasticSearchClient with ImageFields {
       }
   }
 
-  def updateImageUsages(id: String, usages: JsValue)(implicit ex: ExecutionContext) = Future {
-    println(id)
-  }
+  def updateImageUsages(id: String, usages: JsValue)(implicit ex: ExecutionContext): Future[UpdateResponse] =
+    prepareImageUpdate(id)
+      .setScriptParams(Map(
+        "usages" -> asGroovy(usages),
+        "lastModified" -> asGroovy(JsString(currentIsoDateString))
+      ).asJava)
+      .setScript(
+          addUsagesScript +
+          updateLastModifiedScript,
+        scriptType)
+      .executeAndLog(s"updating usages on image $id")
+      .incrementOnFailure(failedUsagesUpdates) { case e: VersionConflictEngineException => true }
+
 
   def updateImageExports(id: String, exports: JsValue)(implicit ex: ExecutionContext): Future[UpdateResponse] =
     prepareImageUpdate(id)
@@ -169,6 +179,15 @@ object ElasticSearch extends ElasticSearchClient with ImageFields {
     """
       | suggestMetadataCredit = [ input: [ ctx._source.metadata.credit] ];
       | ctx._source.suggestMetadataCredit = suggestMetadataCredit;
+    """.stripMargin
+
+  // Create the exports key or add to it
+  private val addUsagesScript =
+    """| if (ctx._source.usages == null) {
+       |   ctx._source.usages = usages;
+       | } else {
+       |   ctx._source.usages += usages;
+       | }
     """.stripMargin
 
   // Create the exports key or add to it
