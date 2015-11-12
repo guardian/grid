@@ -25,7 +25,7 @@ GET     /suggest/edits/labels                         controllers.SuggestionCont
 # Collections
 GET     /collections                                  controllers.CollectionsController.getCollections
 POST    /collections                                  controllers.CollectionsController.addCollection
-#DELETE  /collections/*collection                      controllers.MediaApi.removeCollection(collection: String)
+DELETE  /collections/*collection                      controllers.CollectionsController.removeCollection(collection: String)
 
 # Management
 GET     /management/healthcheck                       controllers.HealthCheck.healthCheck

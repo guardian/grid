@@ -22,6 +22,9 @@ object CollectionsController extends Controller with ArgoHelpers {
   val Authenticated = Authed.action
   val collectionsStore = new JsonStore(configBucket, awsCredentials, "collections.json")
 
+  // TODO: Choose a better delimiter or potentially expect an array from the server
+  private def stringToPath(s: String): List[String] = s.split("/").toList
+
   def getCollections = Authenticated.async { req =>
     collectionsStore.getData map { json =>
       val collectionList = json.asOpt[List[Collection]]
@@ -35,8 +38,6 @@ object CollectionsController extends Controller with ArgoHelpers {
     }
   }
 
-
-
   def addCollection = Authenticated.async(parse.json) { req =>
     (req.body \ "data").asOpt[String].map { collectionName =>
       collectionsStore.getData map { json =>
@@ -46,8 +47,7 @@ object CollectionsController extends Controller with ArgoHelpers {
           case _ => "anonymous"
         }
 
-        // TODO: Choose a better delimiter or potentially expect an array from the server
-        val path = collectionName.split("/").toList
+        val path = stringToPath(collectionName)
         val collectionList = json.asOpt[List[Collection]]
         val newCollection = Collection(path, Paradata(who, DateTime.now))
         val newCollectionList = collectionList.map(cols => newCollection :: cols.filter(col => col.path != path))
@@ -59,28 +59,20 @@ object CollectionsController extends Controller with ArgoHelpers {
       }
     } getOrElse Future.successful(respondError(BadRequest, "bad-json", "Bad bad json"))
   }
-//
-//  def removeCollection(collection: String) = Authenticated.async { req =>
-//    val collections = getCollectionsFromFile diff List(collection)
-//    writeToCollectionsFile(collections)
-//    Future.successful(respondCollection(collections))
-//  }
-//
-//  def getCollectionsFromFile = {
-//    scala.io.Source.fromFile(collectionsFilePath).getLines.toList
-//  }
-//
-//  def writeToCollectionsFile(collections: List[String]) =
-//    writeToFile(collectionsFilePath, collections.mkString("\n"))
-//
-//  import scala.language.reflectiveCalls
-//  def using[A <: {def close(): Unit}, B](resource: A)(f: A => B): B =
-//    try f(resource) finally resource.close()
-//
-//  def writeToFile(path: String, data: String): Unit =
-//    using(new java.io.FileWriter(path))(_.write(data))
-//
-//  def appendToFile(path: String, data: String): Unit =
-//    using(new java.io.PrintWriter(new java.io.FileWriter(path, true)))(_.println(data))
 
+  def removeCollection(collection: String) = Authenticated.async { req =>
+
+    collectionsStore.getData map { json =>
+
+      val path = stringToPath(collection)
+      val collectionList = json.asOpt[List[Collection]].map(_.filter(col => col.path != path))
+
+      println(collectionList)
+
+      collectionList.map { collections =>
+        collectionsStore.putData(Json.toJson(collections))
+        Accepted
+      } getOrElse respondError(BadRequest, "bad-json", "Bad bad json")
+    }
+  }
 }
