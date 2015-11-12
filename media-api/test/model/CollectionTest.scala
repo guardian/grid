@@ -1,22 +1,20 @@
 package model
 
-import org.joda.time.DateTime
 import org.scalatest.{Matchers, FunSpec, OptionValues}
 
-class CollectionTest extends FunSpec with Matchers with OptionValues {
-  val paradata = Paradata("bang@crash@guardian.co.uk", DateTime.now)
-  val identifyBy = (collection: Collection) => collection.path
+class NodeTest extends FunSpec with Matchers with OptionValues {
+  val identifyBy = (list: List[String]) => list
   val collections = List(
-    Collection(List("g2", "features"), paradata),
-    Collection(List("g2", "food"), paradata),
-    Collection(List("g2", "health"), paradata),
-    Collection(List("g2", "lifestyle"), paradata),
-    Collection(List("obs"), paradata),
-    Collection(List("obs", "lifestyle"), paradata),
-    Collection(List("obs", "comment"), paradata),
-    Collection(List("obs", "focus"), paradata),
-    Collection(List("obs", "foodfeat"), paradata),
-    Collection(List("obs", "foodfeat", "shnitzel"), paradata)
+    List("g2", "features"),
+    List("g2", "food"),
+    List("g2", "health"),
+    List("g2", "lifestyle"),
+    List("obs"),
+    List("obs", "lifestyle"),
+    List("obs", "comment"),
+    List("obs", "focus"),
+    List("obs", "foodfeat"),
+    List("obs", "foodfeat", "shnitzel")
   )
 
   describe("Node") {
