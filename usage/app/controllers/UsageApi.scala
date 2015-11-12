@@ -7,7 +7,8 @@ import com.gu.mediaservice.lib.argo.model.Link
 import com.gu.mediaservice.lib.auth
 import com.gu.mediaservice.lib.auth.KeyStore
 import com.gu.mediaservice.lib.aws.NoItemFound
-import lib.{Config, UsageRecorder}
+
+import lib._
 import model._
 
 import play.api.Logger
@@ -36,7 +37,7 @@ object UsageApi extends Controller with ArgoHelpers {
   def forMedia(mediaId: String) = Authenticated.async {
     val usagesFuture = UsageTable.queryByImageId(mediaId)
 
-    usagesFuture.map[play.api.mvc.Result](UsageResponseCollection.build).recover { case error: Exception => {
+    usagesFuture.map[play.api.mvc.Result](UsageResponse.build).recover { case error: Exception => {
       Logger.error("UsageApi returned an error.", error)
 
       respondError(InternalServerError, "image-usage-retrieve-failed", error.getMessage())

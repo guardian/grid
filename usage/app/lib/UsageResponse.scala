@@ -1,9 +1,10 @@
 package model
 
 import com.gu.mediaservice.lib.argo.ArgoHelpers
+import com.gu.mediaservice.model.Usage
+import lib.UsageBuilder
 
-
-object UsageResponseCollection extends ArgoHelpers {
+object UsageResponse extends ArgoHelpers {
   def respondUsageCollection(usages: Set[MediaUsage]) = {
     val flatUsages = usages.groupBy(_.grouping).flatMap { case (grouping, groupedUsages) => {
       val publishedUsage = groupedUsages.find(_.status match {
@@ -21,7 +22,7 @@ object UsageResponseCollection extends ArgoHelpers {
 
     }}.toList
 
-    respondCollection[UsageResponse](data = flatUsages.map(UsageResponse.build))
+    respondCollection[Usage](data = flatUsages.map(UsageBuilder.build))
   }
 
   def build(usages: Set[MediaUsage]) = if(usages.isEmpty) {

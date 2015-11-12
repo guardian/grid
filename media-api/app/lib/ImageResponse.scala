@@ -15,7 +15,6 @@ import com.gu.mediaservice.model._
 import com.gu.mediaservice.lib.argo.model._
 
 
-
 object ImageResponse extends EditsResponse {
   implicit val dateTimeFormat = DateFormat
 

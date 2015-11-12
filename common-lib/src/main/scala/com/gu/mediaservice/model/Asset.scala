@@ -5,6 +5,7 @@ import play.api.libs.json._
 import play.api.libs.functional.syntax._
 import com.gu.mediaservice.lib.aws.S3Object
 
+
 // FIXME: size, mimeType and dimensions not optional (must backfill first)
 case class Asset(file: URI, size: Option[Long], mimeType: Option[String], dimensions: Option[Dimensions], secureUrl: Option[URL] = None)
 
