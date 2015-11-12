@@ -165,6 +165,19 @@ grPanel.controller('GrPanel', [
         inject$($scope, rawMetadata$, ctrl, 'rawMetadata');
         inject$($scope, displayMetadata$, ctrl, 'metadata');
 
+        const extraInfo$ = selectedImagesList$.
+              map(imageList.getExtraInfo).
+              map(imageList.getSetOfProperties).
+              map(extraInfo => extraInfo.map((values) => {
+                  switch (values.size) {
+                  case 0:  return undefined;
+                  case 1:  return values.first();
+                  default: return Array.from(values);
+                  }
+              }).toObject()
+        );
+
+        inject$($scope, extraInfo$, ctrl, 'extraInfo');
 
         const selectionIsEditable$ = selectedImagesList$.
               map(list => list.map(editsService.canUserEdit).toArray()).
