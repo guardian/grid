@@ -108,21 +108,23 @@ object Mappings {
       "filename" -> nonAnalyzedString
     )
 
-  val usageSource = nonDynamicObj(
-    "source"  -> nonAnalyzedString,
-    "uri"     -> nonAnalyzedString,
-    "name"    -> sStemmerAnalysedString
-  )
-  
-  val usage = nonDynamicObj(
-    "title"         -> sStemmerAnalysedString,
-    "source"        -> usageSource,
-    "usageType"     -> nonAnalyzedString,
-    "mediaType"     -> nonAnalyzedString,
-    "status"        -> nonAnalyzedString,
-    "dateAdded"     -> dateFormat,
-    "lastModified"  -> dateFormat
-  )
+  val usageSource =
+    nonDynamicObj(
+      "usageType" -> nonAnalyzedString,
+      "uri"  -> nonAnalyzedString,
+      "name" -> sStemmerAnalysedString
+    )
+
+  val usagesMapping =
+    nonDynamicObj(
+      "title"         -> sStemmerAnalysedString,
+      "source"        -> usageSource,
+      "usageType"     -> nonAnalyzedString,
+      "mediaType"     -> nonAnalyzedString,
+      "status"        -> nonAnalyzedString,
+      "dateAdded"     -> dateFormat,
+      "lastModified"  -> dateFormat
+    )
 
   val imageMapping: String =
     Json.stringify(Json.obj(
@@ -145,7 +147,7 @@ object Mappings {
           "identifiers" -> dynamicObj,
           "uploadInfo" -> uploadInfo,
           "suggestMetadataCredit" -> simpleSuggester,
-          "usage" -> usage
+          "usages" -> usagesMapping
         ),
         "dynamic_templates" -> Json.arr(Json.obj(
           "stored_json_object_template" -> Json.obj(

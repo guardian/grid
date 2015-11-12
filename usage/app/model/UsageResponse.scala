@@ -7,9 +7,8 @@ import com.gu.mediaservice.lib.argo.ArgoHelpers
 
 
 case class UsageResponse(
-  mediaId: String,
   title: String,
-  source: Map[String, UsageSource],
+  source: List[UsageSource],
   usageType: String,
   mediaType: String,
   status: String,
@@ -34,7 +33,6 @@ object UsageResponse extends ArgoHelpers {
 
   private def buildWeb(usage: MediaUsage): UsageResponse = {
     UsageResponse(
-      usage.mediaId,
       usage.data.getOrElse("webTitle", "No title specified."),
       UsageSource.build(usage),
       usage.usageType,
@@ -54,7 +52,6 @@ object UsageResponse extends ArgoHelpers {
     ).flatten.mkString(", ")
 
     UsageResponse(
-      usage.mediaId,
       usageTitle,
       UsageSource.build(usage),
       usage.usageType,
