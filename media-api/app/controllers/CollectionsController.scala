@@ -1,18 +1,21 @@
 package controllers
 
-import com.gu.mediaservice.lib.argo.ArgoHelpers
-import com.gu.mediaservice.lib.auth.{AuthenticatedService, PandaUser}
-import com.gu.mediaservice.lib.data.JsonStore
+
 import org.joda.time.DateTime
 import play.api.libs.concurrent.Execution.Implicits._
-import model.{Paradata, Node, Collection}
 import play.api.libs.json.Json
-
-import play.api.mvc.Controller
-
-import lib.Config
-
+import play.api.mvc.{AnyContent, Controller}
+import play.api.mvc.Security.AuthenticatedRequest
 import scala.concurrent.Future
+
+import com.gu.mediaservice.lib.argo.ArgoHelpers
+import com.gu.mediaservice.lib.auth.{Principal, AuthenticatedService, PandaUser}
+import com.gu.mediaservice.lib.data.JsonStore
+
+import model.{Paradata, Node, Collection}
+import lib.Config
+import lib.collections.CollectionsManager
+
 
 
 object CollectionsController extends Controller with ArgoHelpers {
@@ -21,9 +24,6 @@ object CollectionsController extends Controller with ArgoHelpers {
 
   val Authenticated = Authed.action
   val collectionsStore = new JsonStore(configBucket, awsCredentials, "collections.json")
-
-  // TODO: Choose a better delimiter or potentially expect an array from the server
-  private def stringToPath(s: String): List[String] = s.split("/").toList
 
   def getCollections = Authenticated.async { req =>
     collectionsStore.getData map { json =>
@@ -38,36 +38,46 @@ object CollectionsController extends Controller with ArgoHelpers {
     }
   }
 
-  def addCollection = Authenticated.async(parse.json) { req =>
-    (req.body \ "data").asOpt[String].map { collectionName =>
-      collectionsStore.getData map { json =>
-        val who = req.user match {
-          case PandaUser(email, _, _, _) => email
-          case AuthenticatedService(name) => name
-          case _ => "anonymous"
-        }
-
-        val path = stringToPath(collectionName)
-        val collectionList = json.asOpt[List[Collection]]
-        val newCollection = Collection(path, Paradata(who, DateTime.now))
-        val newCollectionList = collectionList.map(cols => newCollection :: cols.filter(col => col.path != path))
-
-        newCollectionList.map { collections =>
-          collectionsStore.putData(Json.toJson(collections))
-          respond(newCollection)
-        } getOrElse respondError(BadRequest, "bad-json", "Bad bad json")
+  def addCollectionFromJson = Authenticated.async(parse.json) { req =>
+    (req.body \ "data").asOpt[List[String]].map { path =>
+      addCollection(path, getUserFromReq(req)) map { collections =>
+        respond(collections)
       }
     } getOrElse Future.successful(respondError(BadRequest, "bad-json", "Bad bad json"))
   }
 
-  def removeCollection(collection: String) = Authenticated.async { req =>
+  def addCollectionFromString(collection: String) = Authenticated.async { req =>
+    addCollection(CollectionsManager.stringToPath(collection), getUserFromReq(req)) map { collections =>
+      respond(collections)
+    } recover {
+      case _ => respondError(BadRequest, "bad-json", "Bad bad json")
+    }
+  }
 
+  private def addCollection(path: List[String], who: String) = {
     collectionsStore.getData map { json =>
+      val collectionList = json.asOpt[List[Collection]]
+      val newCollection = Collection(path, Paradata(who, DateTime.now))
+      val newCollectionList = collectionList.map(cols => newCollection :: cols.filter(col => col.path != path))
 
-      val path = stringToPath(collection)
+      newCollectionList.map { collections =>
+        collectionsStore.putData(Json.toJson(collections))
+        collections
+      }.getOrElse(Nil)
+    }
+  }
+
+  private def getUserFromReq(req: AuthenticatedRequest[_, Principal]) = req.user match {
+    case PandaUser(email, _, _, _) => email
+    case AuthenticatedService(name) => name
+    // We should never get here
+    case _ => "anonymous"
+  }
+
+  def removeCollection(collection: String) = Authenticated.async { req =>
+    collectionsStore.getData map { json =>
+      val path = CollectionsManager.stringToPath(collection)
       val collectionList = json.asOpt[List[Collection]].map(_.filter(col => col.path != path))
-
-      println(collectionList)
 
       collectionList.map { collections =>
         collectionsStore.putData(Json.toJson(collections))
