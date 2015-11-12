@@ -28,9 +28,10 @@ object Node {
 
     def loop(input: List[(Path, T)]): List[Node[T]] = {
       input
-        .filter(_._1.nonEmpty).groupBy(_._1.head)
+        .filter  { case (path, data) => path.nonEmpty }
+        .groupBy { case (path, data) => path.head }
         .map { case (parentName, grouped) =>
-          val nextGroup = grouped.map{ case (path, t) => (path.tail, t) }
+          val nextGroup = grouped.map{ case (path, data) => (path.tail, data) }
           // TODO: There is a bug here that if we don't have data (it's an assumed path)
           // we inherit the child's data.
           val dataOpt = grouped.headOption.map{case (path, data) => data }
