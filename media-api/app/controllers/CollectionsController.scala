@@ -57,8 +57,8 @@ object CollectionsController extends Controller with ArgoHelpers {
   private def addCollection(path: List[String], who: String) = {
     collectionsStore.getData map { json =>
       val collectionList = json.asOpt[List[Collection]]
-      val newCollection = Collection(path, Paradata(who, DateTime.now))
-      val newCollectionList = collectionList.map(cols => newCollection :: cols.filter(col => col.path != path))
+      val collection = Collection(path, Paradata(who, DateTime.now))
+      val newCollectionList = collectionList.map(CollectionsManager.add(collection, _))
 
       newCollectionList.map { collections =>
         collectionsStore.putData(Json.toJson(collections))
@@ -77,7 +77,7 @@ object CollectionsController extends Controller with ArgoHelpers {
   def removeCollection(collection: String) = Authenticated.async { req =>
     collectionsStore.getData map { json =>
       val path = CollectionsManager.stringToPath(collection)
-      val collectionList = json.asOpt[List[Collection]].map(_.filter(col => col.path != path))
+      val collectionList = json.asOpt[List[Collection]].map(CollectionsManager.remove(path, _))
 
       collectionList.map { collections =>
         collectionsStore.putData(Json.toJson(collections))
