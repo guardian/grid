@@ -8,6 +8,7 @@ imageService.factory('imageService', [function() {
     function forImage(image) {
         return {
             usageRights: usageRights(image),
+            usages: usages(image),
             states: getStates(image)
         };
     }
@@ -16,6 +17,13 @@ imageService.factory('imageService', [function() {
         return {
             image: image,
             data: image.data.usageRights
+        };
+    }
+
+    function usages(image) {
+        return {
+            image: image,
+            data: image.data.usages
         };
     }
 

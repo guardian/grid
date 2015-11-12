@@ -5,25 +5,37 @@ import template from './gr-image-usage.html!text';
 import usageTemplate from './gr-image-usage-list.html!text';
 import './gr-image-usage.css!';
 
-export let module = angular.module('gr.imageUsage', []);
+import '../../image/service';
 
-module.controller('grImageUsageCtrl', ['mediaUsage', function (mediaUsage) {
-    const ctrl = this;
+export let module = angular.module('gr.imageUsage', [
+    'gr.image.service',
+]);
 
-    mediaUsage.getUsage(ctrl.image).then(data => {
-        ctrl.usage = data;
-    });
+module.controller('grImageUsageCtrl', [
+    'mediaUsage',
+    'imageService',
 
-    ctrl.usageTypeToName = (usageType) => {
-        switch (usageType) {
-            case 'pending':
-                return 'Pending publication';
-            case 'published':
-                return 'Published';
-            default:
-                return usageType;
-        }
-    };
+    function (mediaUsage, imageService) {
+
+        const ctrl = this;
+
+        // TODO: New usages from media-api.
+        ctrl.usages = imageService(ctrl.image).usages;
+
+        mediaUsage.getUsage(ctrl.image).then(data => {
+            ctrl.usage = data;
+        });
+
+        ctrl.usageTypeToName = (usageType) => {
+            switch (usageType) {
+                case 'pending':
+                    return 'Pending publication';
+                case 'published':
+                    return 'Published';
+                default:
+                    return usageType;
+            }
+        };
 }]);
 
 module.directive('grImageUsage', [function() {
