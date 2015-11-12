@@ -183,12 +183,7 @@ object ElasticSearch extends ElasticSearchClient with ImageFields {
 
   // Create the exports key or add to it
   private val addUsagesScript =
-    """| if (ctx._source.usages == null) {
-       |   ctx._source.usages = usages;
-       | } else {
-       |   ctx._source.usages += usages;
-       | }
-    """.stripMargin
+    "ctx._source.usages = usages;"
 
   // Create the exports key or add to it
   private val addExportsScript =

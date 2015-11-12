@@ -17,7 +17,6 @@ object UsageBuilder {
 
   private def buildWeb(usage: MediaUsage): Usage = {
     Usage(
-      usage.data.getOrElse("webTitle", "No title specified."),
       buildUsageSource(usage),
       usage.usageType,
       usage.mediaType,
@@ -29,14 +28,7 @@ object UsageBuilder {
   }
 
   private def buildPrint(usage: MediaUsage): Usage = {
-    val usageTitle = List(
-      usage.data.get("issueDate").map(date => new DateTime(date).toString("YYYY-MM-dd")),
-      usage.data.get("pageNumber").map(page => s"Page $page"),
-      usage.data.get("edition").map(edition => s"${edition.toInt.toOrdinal} edition")
-    ).flatten.mkString(", ")
-
     Usage(
-      usageTitle,
       buildUsageSource(usage),
       usage.usageType,
       usage.mediaType,

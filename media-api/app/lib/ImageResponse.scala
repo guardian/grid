@@ -206,7 +206,8 @@ object ImageResponse extends EditsResponse {
     (__ \ "usageRights").write[UsageRights] ~
     (__ \ "originalUsageRights").write[UsageRights] ~
     (__ \ "exports").write[List[Export]]
-      .contramap((crops: List[Crop]) => crops.map(Export.fromCrop(_:Crop)))
+      .contramap((crops: List[Crop]) => crops.map(Export.fromCrop(_:Crop))) ~
+    (__ \ "usages").write[List[Usage]]
 
   )(unlift(Image.unapply))
 

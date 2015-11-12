@@ -20,7 +20,8 @@ case class Image(
   originalMetadata:    ImageMetadata,
   usageRights:         UsageRights,
   originalUsageRights: UsageRights,
-  exports:             List[Crop]
+  exports:             List[Crop],
+  usages:              List[Usage]
 )
 
 object Image {
@@ -45,7 +46,8 @@ object Image {
       (__ \ "originalMetadata").readNullable[ImageMetadata].map(_ getOrElse ImageMetadata()) ~
       (__ \ "usageRights").readNullable[UsageRights].map(_ getOrElse NoRights) ~
       (__ \ "originalUsageRights").readNullable[UsageRights].map(_ getOrElse NoRights) ~
-      (__ \ "exports").readNullable[List[Crop]].map(_ getOrElse List())
+      (__ \ "exports").readNullable[List[Crop]].map(_ getOrElse List()) ~
+      (__ \ "usages").readNullable[List[Usage]].map(_ getOrElse List())
     )(Image.apply _)
 
   implicit val ImageWrites: Writes[Image] = (
@@ -63,7 +65,8 @@ object Image {
       (__ \ "originalMetadata").write[ImageMetadata] ~
       (__ \ "usageRights").write[UsageRights] ~
       (__ \ "originalUsageRights").write[UsageRights] ~
-      (__ \ "exports").write[List[Crop]]
+      (__ \ "exports").write[List[Crop]] ~
+      (__ \ "usages").write[List[Usage]]
     )(unlift(Image.unapply))
 
 }
