@@ -24,7 +24,7 @@ GET     /suggest/edits/labels                         controllers.SuggestionCont
 
 # Collections
 GET     /collections                                  controllers.CollectionsController.getCollections
-#POST    /collections                                  controllers.CollectionsController.addCollection
+POST    /collections                                  controllers.CollectionsController.addCollection
 #DELETE  /collections/*collection                      controllers.MediaApi.removeCollection(collection: String)
 
 # Management

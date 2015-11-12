@@ -1,13 +1,18 @@
 package controllers
 
 import com.gu.mediaservice.lib.argo.ArgoHelpers
+import com.gu.mediaservice.lib.auth.{AuthenticatedService, PandaUser}
 import com.gu.mediaservice.lib.data.JsonStore
+import org.joda.time.DateTime
 import play.api.libs.concurrent.Execution.Implicits._
-import model.{Node, Collection}
+import model.{Paradata, Node, Collection}
+import play.api.libs.json.Json
 
 import play.api.mvc.Controller
 
 import lib.Config
+
+import scala.concurrent.Future
 
 
 object CollectionsController extends Controller with ArgoHelpers {
@@ -15,7 +20,7 @@ object CollectionsController extends Controller with ArgoHelpers {
   import Config.{configBucket, awsCredentials}
 
   val Authenticated = Authed.action
-  val collectionsStore = new JsonStore(configBucket, awsCredentials)
+  val collectionsStore = new JsonStore(configBucket, awsCredentials, "collections.json")
 
   def getCollections = Authenticated.async { req =>
     collectionsStore.getData map { json =>
@@ -30,18 +35,30 @@ object CollectionsController extends Controller with ArgoHelpers {
     }
   }
 
-//  def addCollection = Authenticated.async(parse.json) { req =>
-//    (req.body \ "data").asOpt[String].map { collectionName =>
-//      collectionsStore.getData flatMap { list =>
-//        val collections = (collectionName :: list).distinct
-//        collectionsStore.putData(collections).map { list =>
-//          respondCollection(list)
-//        }
-//      }
-//    }.getOrElse(
-//      Future.successful(respondError(BadRequest, "bad-collection-data", "You can't add that collection"))
-//    )
-//  }
+
+
+  def addCollection = Authenticated.async(parse.json) { req =>
+    (req.body \ "data").asOpt[String].map { collectionName =>
+      collectionsStore.getData map { json =>
+        val who = req.user match {
+          case PandaUser(email, _, _, _) => email
+          case AuthenticatedService(name) => name
+          case _ => "anonymous"
+        }
+
+        // TODO: Choose a better delimiter or potentially expect an array from the server
+        val path = collectionName.split("/").toList
+        val collectionList = json.asOpt[List[Collection]]
+        val newCollection = Collection(path, Paradata(who, DateTime.now))
+        val newCollectionList = collectionList.map(cols => newCollection :: cols.filter(col => col.path != path))
+
+        newCollectionList.map { collections =>
+          collectionsStore.putData(Json.toJson(collections))
+          respond(newCollection)
+        } getOrElse respondError(BadRequest, "bad-json", "Bad bad json")
+      }
+    } getOrElse Future.successful(respondError(BadRequest, "bad-json", "Bad bad json"))
+  }
 //
 //  def removeCollection(collection: String) = Authenticated.async { req =>
 //    val collections = getCollectionsFromFile diff List(collection)
