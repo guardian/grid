@@ -1,69 +1,50 @@
 package controllers
 
-
 import org.joda.time.DateTime
 import play.api.libs.concurrent.Execution.Implicits._
-import play.api.libs.json.Json
-import play.api.mvc.{AnyContent, Controller}
+import play.api.libs.json.JsValue
+import play.api.mvc.Controller
 import play.api.mvc.Security.AuthenticatedRequest
 import scala.concurrent.Future
 
 import com.gu.mediaservice.lib.argo.ArgoHelpers
 import com.gu.mediaservice.lib.auth.{Principal, AuthenticatedService, PandaUser}
-import com.gu.mediaservice.lib.data.JsonStore
 
-import model.{Paradata, Node, Collection}
-import lib.Config
-import lib.collections.CollectionsManager
-
+import model.{Node, Paradata, Collection}
+import lib.collections.{CollectionsStore, CollectionsManager}
 
 
 object CollectionsController extends Controller with ArgoHelpers {
 
-  import Config.{configBucket, awsCredentials}
-
   val Authenticated = Authed.action
-  val collectionsStore = new JsonStore(configBucket, awsCredentials, "collections.json")
+
+  def collectionNotFound(path: String) =
+    respondError(NotFound, "collection-not-found", s"Could not find collection: ${path}")
+
+  def invalidJson(json: JsValue) =
+    respondError(BadRequest, "invalid-json", s"Could not parse json: ${json.toString}")
 
   def getCollections = Authenticated.async { req =>
-    collectionsStore.getData map { json =>
-      val collectionList = json.asOpt[List[Collection]]
-
-      collectionList map { list =>
-        val tree = Node.buildTree[Collection]("root", list,
-          (collection) => collection.path)
-        respond(tree)
-      } getOrElse respondError(BadRequest, "bad-json", "Bad bad json")
-
+    CollectionsStore.getAll map { collections =>
+      val tree = Node.buildTree[Collection]("root", collections, (collection) => collection.path)
+      respond(tree)
     }
   }
 
   def addCollectionFromJson = Authenticated.async(parse.json) { req =>
     (req.body \ "data").asOpt[List[String]].map { path =>
-      addCollection(path, getUserFromReq(req)) map { collections =>
-        respond(collections)
-      }
-    } getOrElse Future.successful(respondError(BadRequest, "bad-json", "Bad bad json"))
+      addCollection(path, getUserFromReq(req))
+    } getOrElse Future.successful(invalidJson(req.body))
   }
 
   def addCollectionFromString(collection: String) = Authenticated.async { req =>
-    addCollection(CollectionsManager.stringToPath(collection), getUserFromReq(req)) map { collections =>
-      respond(collections)
-    } recover {
-      case _ => respondError(BadRequest, "bad-json", "Bad bad json")
-    }
+    addCollection(CollectionsManager.stringToPath(collection), getUserFromReq(req))
   }
 
   private def addCollection(path: List[String], who: String) = {
-    collectionsStore.getData map { json =>
-      val collectionList = json.asOpt[List[Collection]]
-      val collection = Collection(path, Paradata(who, DateTime.now))
-      val newCollectionList = collectionList.map(CollectionsManager.add(collection, _))
-
-      newCollectionList.map { collections =>
-        collectionsStore.putData(Json.toJson(collections))
-        collections
-      }.getOrElse(Nil)
+    val collection = Collection(path, Paradata(who, DateTime.now))
+    CollectionsStore.add(collection).map { collection =>
+      respond(collection)
     }
   }
 
@@ -74,15 +55,9 @@ object CollectionsController extends Controller with ArgoHelpers {
     case _ => "anonymous"
   }
 
-  def removeCollection(collection: String) = Authenticated.async { req =>
-    collectionsStore.getData map { json =>
-      val path = CollectionsManager.stringToPath(collection)
-      val collectionList = json.asOpt[List[Collection]].map(CollectionsManager.remove(path, _))
-
-      collectionList.map { collections =>
-        collectionsStore.putData(Json.toJson(collections))
-        Accepted
-      } getOrElse respondError(BadRequest, "bad-json", "Bad bad json")
+  def removeCollection(collectionPath: String) = Authenticated.async { req =>
+    CollectionsStore.remove(collectionPath) map { collectionOpt =>
+      collectionOpt.map(respond(_)).getOrElse(collectionNotFound(collectionPath))
     }
   }
 }

@@ -1,5 +1,8 @@
 package lib.collections
 
+import java.net.URI
+import com.gu.mediaservice.lib.argo.model.EmbeddedEntity
+
 import model.Collection
 
 object CollectionsManager {
@@ -13,4 +16,10 @@ object CollectionsManager {
 
   def remove(path: List[String], collections: List[Collection]): List[Collection] =
     collections.filter(col => col.path != path)
+
+  def find(path: List[String], collections: List[Collection]): Option[Collection] =
+    collections.find(col => col.path == path)
+
+  def entityUri(c: Collection) = URI.create(s"/collections/${CollectionsManager.pathToString(c.path)}")
+  def entity(c: Collection) = EmbeddedEntity(entityUri(c), Some(c))
 }
