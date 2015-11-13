@@ -541,6 +541,9 @@
         "ConfigBucket": {
             "Value": { "Ref": "ConfigBucket" }
         },
+        "DataStoreBucket": {
+            "Value": { "Ref": "DataStoreBucket" }
+        },
         "EditsDynamoTable": {
             "Value": { "Ref": "EditsDynamoTable" }
         },
