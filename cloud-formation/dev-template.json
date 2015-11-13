@@ -216,6 +216,29 @@
             }
         },
 
+        "DataStoreBucket": {
+            "Type": "AWS::S3::Bucket"
+        },
+        "DataStoreBucketPolicy": {
+            "Type": "AWS::S3::BucketPolicy",
+            "Properties": {
+                "PolicyDocument": {
+                    "Id": "DataStoreBucketPolicy",
+                    "Statement": [
+                        {
+                            "Action": [ "s3:GetObject", "s3:PutObject" ],
+                            "Effect": "Allow",
+                            "Resource": { "Fn::Join": [ "",
+                                [ "arn:aws:s3:::", { "Ref": "DataStoreBucket" } , "/*" ] ]
+                            },
+                            "Principal": { "AWS": { "Fn::GetAtt": [ "User", "Arn" ] } }
+                        }
+                    ]
+                },
+                "Bucket": { "Ref": "DataStoreBucket" }
+            }
+        },
+
         "EditsDynamoTable": {
             "Type": "AWS::DynamoDB::Table",
             "Properties": {
