@@ -4,16 +4,16 @@
     </span>
 
     <ul>
-        <li class="gr-image-usage__record" ng-repeat="data in ctrl.usages.data">
-            {{data.title}}
+        <li class="gr-image-usage__record" ng-repeat="usage in ctrl.usages">
+            {{usage.title}}
             <div class="more-info">
-                <span class="date-added">{{::ctrl.formatTimestamp(data.dateAdded)}}</span>
+                <span class="date-added">{{::ctrl.formatTimestamp(usage.dateAdded)}}</span>
                 <ul class="source-list">
-                    <li ng-repeat="(source, source_data) in data.source">
-                        <a href="{{source_data.uri}}" title="Open in {{source}}" target="_blank">
-                            <gr-frontend-icon class="source-list__icon" ng:if="source === 'frontend'"></gr-frontend-icon>
-                            <gr-composer-icon class="source-list__icon" ng:if="source === 'composer'"></gr-composer-icon>
-                            <gr-icon ng:if="source === 'indesign'">local_library</gr-icon>
+                    <li ng-repeat="source in usage.source">
+                        <a href="{{source.uri}}" title="Open in {{source.usageType}}" target="_blank">
+                            <gr-frontend-icon class="source-list__icon" ng:if="source.usageType === 'frontend'"></gr-frontend-icon>
+                            <gr-composer-icon class="source-list__icon" ng:if="source.usageType === 'composer'"></gr-composer-icon>
+                            <gr-icon ng:if="source.usageType === 'indesign'">local_library</gr-icon>
                         </a>
                     </li>
                 </ul>

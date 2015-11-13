@@ -3,7 +3,6 @@
 </div>
 
 <div ng:show="ctrl.usage.pending || ctrl.usage.published">
-
     <div ng-repeat="(type, usages) in ctrl.usage">
         <gr-image-usage-list type="ctrl.usageTypeToName(type)" usages="usages"></gr-image-usage-list>
     </div>

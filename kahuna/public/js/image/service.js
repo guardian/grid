@@ -1,4 +1,6 @@
 import angular from 'angular';
+import Immutable from 'immutable';
+import {List} from 'immutable';
 
 import '../edits/service';
 
@@ -21,9 +23,15 @@ imageService.factory('imageService', [function() {
     }
 
     function usages(image) {
+        const usagesList = Immutable.fromJS(image.data.usages).map(usage => {
+            return usage.set("title", "My Title");
+        });
+
+        const groupedUsage = usagesList.groupBy(usage => usage.get("status"));
+
         return {
             image: image,
-            data: image.data.usages
+            data: groupedUsage.toJS()
         };
     }
 

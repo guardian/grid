@@ -12,19 +12,13 @@ export let module = angular.module('gr.imageUsage', [
 ]);
 
 module.controller('grImageUsageCtrl', [
-    'mediaUsage',
     'imageService',
 
-    function (mediaUsage, imageService) {
+    function (imageService) {
 
         const ctrl = this;
 
-        // TODO: New usages from media-api.
-        ctrl.usages = imageService(ctrl.image).usages;
-
-        mediaUsage.getUsage(ctrl.image).then(data => {
-            ctrl.usage = data;
-        });
+        ctrl.usage = imageService(ctrl.image).usages.data;
 
         ctrl.usageTypeToName = (usageType) => {
             switch (usageType) {
