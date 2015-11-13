@@ -1,6 +1,6 @@
 package lib.collections
 
-import com.gu.mediaservice.lib.data.JsonStore
+import com.gu.mediaservice.lib.store.JsonStore
 import lib.Config
 import model.Collection
 import play.api.libs.json.{JsValue, Json}
