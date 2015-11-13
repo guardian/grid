@@ -3,7 +3,6 @@ aws.id={{AwsId}}
 aws.secret={{AwsSecret}}
 s3.image.bucket={{ImageBucket}}
 s3.thumb.bucket={{ThumbBucket}}
-s3.collections.bucket={{CollectionsBucket}}
 auth.keystore.bucket={{KeyBucket}}
 sns.topic.arn={{SnsTopicArn}}
 cors.allowed.origins={{cors}}
