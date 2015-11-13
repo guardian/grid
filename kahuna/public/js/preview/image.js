@@ -33,6 +33,7 @@ image.controller('uiPreviewImageCtrl', [
     });
 
     ctrl.states = imageService(ctrl.image).states;
+    ctrl.usages = imageService(ctrl.image).usages;
 
     $scope.$on('$destroy', function() {
         freeUpdateListener();

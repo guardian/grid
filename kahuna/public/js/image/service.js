@@ -24,7 +24,7 @@ imageService.factory('imageService', [function() {
 
     function usages(image) {
         function usageTitle(usage) {
-            const sourceType = usage.get("usageType") == "print" ? "indesign" : "frontend"
+            const sourceType = usage.get("usageType") == "print" ? "indesign" : "frontend";
 
             const build = (usage, sourceType) => {
                 const source = usage.get("source").find(u => u.get("usageType") == sourceType)
@@ -34,15 +34,15 @@ imageService.factory('imageService', [function() {
             return build(usage, sourceType);
         }
 
-        const usagesList = Immutable.fromJS(image.data.usages).map(usage => {
-            return usage.set("title", usageTitle(usage));
-        });
-
-        const groupedUsage = usagesList.groupBy(usage => usage.get("status"));
+        const usagesList = Immutable.fromJS(image.data.usages).map(u => u.set("title", usageTitle(u)));
+        const groupedByState = usagesList.groupBy(u => u.get("status"));
+        const filterByUsageType = (usageType) => usagesList.filter(u => u.get("usageType") == usageType)
 
         return {
-            image: image,
-            data: groupedUsage.toJS()
+            usages: usagesList.toJS(),
+            groupedByState: groupedByState.toJS(),
+            hasPrintUsages: !filterByUsageType("print").isEmpty(),
+            hasWebUsages: !filterByUsageType("web").isEmpty()
         };
     }
 

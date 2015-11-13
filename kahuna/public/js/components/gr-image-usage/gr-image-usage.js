@@ -18,7 +18,7 @@ module.controller('grImageUsageCtrl', [
 
         const ctrl = this;
 
-        ctrl.usage = imageService(ctrl.image).usages.data;
+        ctrl.usage = imageService(ctrl.image).usages.groupedByState;
 
         ctrl.usageTypeToName = (usageType) => {
             switch (usageType) {
