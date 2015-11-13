@@ -29,6 +29,12 @@ imageAccessor.factory('imageAccessor', function() {
         return image.data.metadata;
     }
 
+    function readExtraInfo(image) {
+        return {
+            filename: image.data.uploadInfo && image.data.uploadInfo.filename
+        };
+    }
+
     function readUsageRights(image) {
         return image.data.usageRights;
     }
@@ -42,6 +48,7 @@ imageAccessor.factory('imageAccessor', function() {
         readCost,
         readLabels,
         readMetadata,
+        readExtraInfo,
         readUsageRights,
         isArchived
     };

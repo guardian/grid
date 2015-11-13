@@ -308,9 +308,25 @@ a:focus {
     display: inline-block;
 }
 
-/* ==========================================================================
-   Generics
-   ========================================================================== */
+.side-padded {
+    padding: 0 10px;
+}
+
+.clickable:hover {
+    background-color: #666666;
+    color: white;
+    cursor: pointer;
+}
+
+.inner-clickable {
+    height: 100%;
+    display: inline-block;
+}
+
+.button-right-side {
+    padding-left: 5px;
+    margin-left: -4px
+}
 
 .section {
     margin-bottom: 25px;
@@ -351,34 +367,16 @@ textarea.ng-invalid {
     vertical-align: middle;
     line-height: 50px;
     display: inline-block;
-    padding: 0 10px;
-    border-left: 1px solid #565656;
-    border-right: 1px solid #565656;
+    border-left: 2px solid #565656;
     height: 50px;
 }
-.top-bar-item--full {
-    padding: 0;
-}
+
 .top-bar-item:first-child {
     margin-left: 0;
 }
 
-.top-bar-item:hover {
-    background-color: #666666;
-}
-
-.top-bar-item--filled {
-    padding: 0;
-}
-
-/* --static is for top bar items that perform no action, only display information */
-.top-bar-item--static:hover {
-    background-color: transparent;
-}
-
-.top-bar-item .gr-confirm-delete {
-    border: none;
-    padding: 0 10px;
+.top-bar-item:last-child {
+    border-right: 2px solid #565656;
 }
 
 .top-bar-item ui-archiver .archiver {
@@ -695,19 +693,6 @@ input.search-query__input {
 
 .crop__action {
     margin-top: 12px;
-}
-
-.crop-item {
-    display: inline-block;
-    width: 100%;
-    padding: 0 10px;
-    line-height: 45px;
-    box-sizing: border-box;
-    font-size: 1.4rem;
-}
-
-.crop-item:hover {
-    background-color: #666666;
 }
 
 /* ==========================================================================
@@ -1371,6 +1356,7 @@ FIXME: what to do with touch devices
     float: left;
     width: 130px;
     border-right: 1px solid #565656;
+    border-left: none;
     position: relative;
 }
 
@@ -1400,14 +1386,6 @@ FIXME: what to do with touch devices
 .image-info__group--last {
     border-bottom: 0;
     clear: both;
-}
-
-.image-info__group--crops {
-    padding: 10px;
-}
-
-.image-info__group--original {
-    border-top: 1px solid #565656;
 }
 
 .image-info__group table {
@@ -1962,12 +1940,20 @@ FIXME: what to do with touch devices
     z-index: 4;
     /* Drop items should win over everything */
     white-space: nowrap;
+    line-height: normal;
+    right: 0;
 }
+
 .drop-menu__items--right {
     right: 0;
 }
+
 .drop-menu__items--nopad {
     top: 100%;
+}
+
+.drop-menu__items--action {
+    background-color: grey;
 }
 
 
@@ -2010,6 +1996,8 @@ FIXME: what to do with touch devices
     padding: 10px;
     font-size: 1.2rem;
     box-sizing: border-box;
+    max-height: 400px;
+    overflow-y: scroll;
 }
 
 .datalist__input {
@@ -2034,8 +2022,6 @@ FIXME: what to do with touch devices
 .tracking-image {
     display: none;
 }
-
-
 
 /* ==========================================================================
    Forms
@@ -2132,8 +2118,13 @@ FIXME: what to do with touch devices
     gr-add-label,
     .image-details--crop,
     .image-info__group--full-metadata,
-    .related-labels__title {
+    .related-labels__title,
+    .radio-list {
         display: none !important;
+    }
+
+    .image-details {
+        border: none;
     }
 
     .metadata-line__info,
@@ -2159,7 +2150,7 @@ FIXME: what to do with touch devices
     }
 
     .image-info__description, .image-info__keyword {
-        max-height: 85px;
+        max-height: 80px;
         overflow: hidden;
     }
 
@@ -2183,6 +2174,10 @@ FIXME: what to do with touch devices
     /* ==========================================================================
        Results page
     ========================================================================== */
+
+    .results-toolbar {
+        display: none;
+    }
 
     .result-placeholder {
         border: none;

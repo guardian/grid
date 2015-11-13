@@ -39,7 +39,7 @@ object UsageTable extends DynamoDB(
     val keyAttribute = new KeyAttribute("media_id", id)
     val queryResult = imageIndex.query(keyAttribute)
 
-    queryResult.asScala.map(MediaUsage.build(_)).toSet[MediaUsage]
+    queryResult.asScala.map(MediaUsage.build).toSet[MediaUsage]
   }
 
   def matchUsageGroup(usageGroup: UsageGroup): Observable[UsageGroup] =
@@ -50,7 +50,7 @@ object UsageTable extends DynamoDB(
       val queryResult = table.query(keyAttribute)
 
       val usages = queryResult.asScala
-        .map(MediaUsage.build(_))
+        .map(MediaUsage.build)
         .filter(usage => {
           s"${usage.status}" == status
         }).toSet

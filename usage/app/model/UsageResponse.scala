@@ -9,7 +9,7 @@ import com.gu.mediaservice.lib.argo.ArgoHelpers
 case class UsageResponse(
   mediaId: String,
   title: String,
-  source: Map[String,MediaSource],
+  source: Map[String, UsageSource],
   usageType: String,
   mediaType: String,
   status: String,
@@ -17,45 +17,23 @@ case class UsageResponse(
   dateRemoved: Option[DateTime],
   lastModified: DateTime
 )
-
 object UsageResponse extends ArgoHelpers {
-  def respondUsageCollection(usages: Set[MediaUsage]) = {
-    val flatUsages = usages.groupBy(_.grouping).flatMap { case (grouping, groupedUsages) => {
-      val publishedUsage = groupedUsages
-        .filter(_.status match {
-          case _: PublishedUsageStatus => true
-          case _ => false
-        })
-        .headOption
+  import com.gu.mediaservice.lib.IntUtils._
 
-      val mergedUsages = if (publishedUsage.isEmpty) {
-          groupedUsages.headOption
-        } else {
-          publishedUsage
-        }
+  implicit val writes: Writes[UsageResponse] = Json.writes[UsageResponse]
 
-      mergedUsages.filter(usage => (for {
-        added <- usage.dateAdded
-        removed <- usage.dateRemoved
-      } yield added.isAfter(removed)).getOrElse(true))
-
-    }}.toList
-
-    respondCollections[UsageResponse](
-      data = flatUsages.map(UsageResponse.build).groupBy(_.status.toString))
+  def build(usage: MediaUsage): UsageResponse = {
+    usage.usageType match {
+      case "web" => buildWeb(usage)
+      case "print" => buildPrint(usage)
+    }
   }
 
-  def buildCollectionResponse(usages: Set[MediaUsage]) = if(usages.isEmpty) {
-    respondNotFound("No usages found.")
-  } else {
-    respondUsageCollection(usages)
-  }
-
-  def build (usage: MediaUsage): UsageResponse = {
+  private def buildWeb(usage: MediaUsage): UsageResponse = {
     UsageResponse(
       usage.mediaId,
-      usage.data.get("webTitle").getOrElse("No title specified."),
-      MediaSource.build(usage),
+      usage.data.getOrElse("webTitle", "No title specified."),
+      UsageSource.build(usage),
       usage.usageType,
       usage.mediaType,
       usage.status.toString,
@@ -64,23 +42,24 @@ object UsageResponse extends ArgoHelpers {
       usage.lastModified
     )
   }
-  implicit val dateTimeFormat = DateFormat
-  implicit val writes: Writes[UsageResponse] = Json.writes[UsageResponse]
-}
 
-case class MediaSource (
-  uri: Option[String],
-  name: Option[String] = None
-)
+  private def buildPrint(usage: MediaUsage): UsageResponse = {
+    val usageTitle = List(
+      usage.data.get("issueDate").map(date => new DateTime(date).toString("YYYY-MM-dd")),
+      usage.data.get("pageNumber").map(page => s"Page $page"),
+      usage.data.get("edition").map(edition => s"${edition.toInt.toOrdinal} edition")
+    ).flatten.mkString(", ")
 
-object MediaSource {
-  def build (usage: MediaUsage): Map[String, MediaSource] = {
-    Map("frontend" -> MediaSource(usage.data.get("webUrl"), usage.data.get("webTitle"))) ++
-      usage.data.get("composerUrl")
-        .map(composerUrl => "composer" -> MediaSource(Some(composerUrl)))
+    UsageResponse(
+      usage.mediaId,
+      usageTitle,
+      UsageSource.build(usage),
+      usage.usageType,
+      usage.mediaType,
+      usage.status.toString,
+      usage.dateAdded,
+      usage.dateRemoved,
+      usage.lastModified
+    )
   }
-
-  implicit val writes: Writes[MediaSource] = Json.writes[MediaSource]
 }
-
-

@@ -10,6 +10,7 @@ import '../components/gr-image-metadata/gr-image-metadata';
 import '../components/gr-image-persist-status/gr-image-persist-status';
 import '../components/gr-metadata-validity/gr-metadata-validity';
 import '../components/gr-image-cost-message/gr-image-cost-message';
+import '../components/gr-export-original-image/gr-export-original-image';
 import '../components/gr-image-usage/gr-image-usage';
 
 var image = angular.module('kahuna.image.controller', [
@@ -24,6 +25,7 @@ var image = angular.module('kahuna.image.controller', [
     'gr.imageMetadata',
     'gr.metadataValidity',
     'gr.imageCostMessage',
+    'gr.exportOriginalImage',
     'gr.imageUsage'
 ]);
 
@@ -52,7 +54,7 @@ image.controller('ImageCtrl', [
               mediaCropper,
               imageService) {
 
-        var ctrl = this;
+        let ctrl = this;
 
         ctrl.image = image;
         ctrl.optimisedImageUri = optimisedImageUri;
@@ -87,8 +89,12 @@ image.controller('ImageCtrl', [
         }
 
         mediaCropper.getCropsFor(image).then(crops => {
-            ctrl.crops = crops;
             ctrl.crop = crops.find(crop => crop.id === cropKey);
+            ctrl.fullCrop = crops.find(crop => crop.specification.type === 'full');
+            ctrl.crops = crops.filter(crop => crop.specification.type === 'crop');
+            //boolean version for use in template
+            ctrl.hasFullCrop = angular.isDefined(ctrl.fullCrop);
+            ctrl.hasCrops = ctrl.crops.length > 0;
         }).finally(() => {
             ctrl.dimensions = angular.isDefined(ctrl.crop) ?
                 getCropDimensions() : getImageDimensions();

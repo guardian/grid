@@ -26,7 +26,7 @@ object UsageRightsProperty {
   type OptionsMap = Map[String, List[String]]
   type Options = List[String]
 
-  import MetadataConfig.{contractedPhotographers, externalPhotographersMap, contractIllustrators, creativeCommonsLicense}
+  import MetadataConfig.{contractPhotographersMap, externalPhotographersMap, contractIllustrators, creativeCommonsLicense}
   import UsageRightsConfig.freeSuppliers
 
   implicit val jsonWrites: Writes[UsageRightsProperty] = Json.writes[UsageRightsProperty]
@@ -77,12 +77,9 @@ object UsageRightsProperty {
       publicationField(true),
       photographerField(externalPhotographersMap, "publication")
     )
-    case _:ContractPhotographer =>
-    List(
-      publicationField(false),
-      photographerField(
-        Random.shuffle(contractedPhotographers)
-              .take(2).map{case (photographer, _) => photographer}.mkString(", "))
+    case _:ContractPhotographer => List(
+      publicationField(true),
+      photographerField(contractPhotographersMap, "publication")
     )
     case _:CommissionedPhotographer => List(
       publicationField(false),

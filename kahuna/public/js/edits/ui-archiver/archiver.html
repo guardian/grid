@@ -1,6 +1,6 @@
-<button class="archiver"
+<button class="archiver inner-clickable"
         ng:if="! ctrl.disabled"
-        ng:class="{'archiver--archived': ctrl.isArchived, 'archiver--unarchived': ! ctrl.isArchived}"
+        ng:class="{'archiver--archived': ctrl.isArchived, 'archiver--unarchived': ! ctrl.isArchived, 'side-padded': ctrl.withText, 'clickable':ctrl.withText }"
         ng:click="ctrl.toggleArchived(archived)"
         ng:disabled="ctrl.archiving"
         ng:mouseenter="hover = true"

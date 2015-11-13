@@ -20,5 +20,3 @@ object ContentWrapper {
     content.fields.flatMap(_.internalComposerCode).map(composerId => s"composer/${composerId}")
   }
 }
-
-

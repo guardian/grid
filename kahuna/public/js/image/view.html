@@ -1,17 +1,17 @@
 <gr-top-bar>
     <gr-top-bar-nav>
-        <a class="top-bar-item" ui:sref="search" title="Back to search">
+        <a class="top-bar-item side-padded clickable" ui:sref="search" title="Back to search">
             <gr-icon-label gr-icon="search">Search</gr-icon-label>
         </a>
     </gr-top-bar-nav>
 
     <gr-top-bar-actions>
-        <gr-delete-image class="top-bar-item top-bar-item--filled"
+        <gr-delete-image class="top-bar-item clickable"
                          ng:if="ctrl.canBeDeleted"
                          images="[ctrl.image]">
         </gr-delete-image>
 
-        <a class="top-bar-item" href="{{ ctrl.image.data.source | assetFile }}" download target="_blank">
+        <a class="top-bar-item side-padded clickable" href="{{ ctrl.image.data.source | assetFile }}" download target="_blank">
             <gr-icon-label gr-icon="file_download">Download</gr-icon-label>
         </a>
 
@@ -19,7 +19,7 @@
                                  with-text="true"
                                  gr-image="ctrl.image"></gr-image-persist-status>
 
-        <gr-crop-image class="top-bar-item" image="ctrl.image" tracking-location="Top bar">
+        <gr-crop-image class="top-bar-item" image="ctrl.image" has-full-crop="ctrl.hasFullCrop" tracking-location="Top bar">
         </gr-crop-image>
     </gr-top-bar-actions>
 </gr-top-bar>
@@ -27,9 +27,7 @@
 
 <div class="image-details image-details--crop">
     <div class="image-info">
-        <gr-crop-image image="ctrl.image" tracking-location="Crop panel">
-        </gr-crop-image>
-        <div class="image-info__group image-info__group--original">
+        <div class="image-info__group">
             <dl>
                 <dt class="image-info__heading">Original <span class="image-info__file-size"> {{ctrl.image.data.source.size | asFileSize}}</span></dt>
                     <dd class="image-info__heading--crops">
@@ -48,8 +46,26 @@
                 </dt>
             </dl>
         </div>
-
-        <div class="image-info__group--crops" ng:if="ctrl.crops.length > 0">
+        <div ng:if="ctrl.hasFullCrop" class="image-info__group">
+            <dt class="image-info__heading">Full frame</dt>
+            <dd>
+                <div class="image-crop"
+                     ng:init="crop = ctrl.fullCrop"
+                     ng:class="{'image-crop--selected': crop == ctrl.crop}">
+                    <a draggable="true"
+                       ui:sref="{ crop: ctrl.fullCrop.id }"
+                       ng:init="extremeAssets = (crop | getExtremeAssets)">
+                        <span class="image-crop__creator" title="Cropped by {{crop.author}} at {{crop.date | date:'medium'}}">{{crop.author | getInitials}}</span>
+                        <img class="image-crop__image" ng:src="{{ extremeAssets.smallest | assetFile }}" />
+                        <div class="image-crop__aspect-ratio"
+                             ng:class="{'image-crop__aspect-ratio--selected': !ctrl.crop}">
+                            {{crop.specification.bounds.width}} &times; {{crop.specification.bounds.height}}
+                        </div>
+                    </a>
+                </div>
+            </dd>
+        </div>
+        <div class="image-info__group" ng:if="ctrl.hasCrops">
             <dl class="image-info__group--dl">
                 <dt class="image-info__heading">Crops</dt>
                 <dd class="image-info__heading--crops">
@@ -96,10 +112,10 @@
     <div ng:init="showMetadata = true">
         <div class="radio-list">
             <input type="radio"
-                   id="foo"
+                   id="show-metadata"
                    class="radio-list__circle"
-                   name="foo"/>
-            <label for="foo"
+                   name="show-metadata"/>
+            <label for="show-metadata"
                    class="radio-list__label"
                    ng:class="{'radio-list--selected': showMetadata}"
                    ng:click="showMetadata = true">
@@ -108,10 +124,10 @@
             </label>
 
             <input type="radio"
-                   id="bar"
+                   id="show-usage"
                    class="radio-list__circle"
-                   name="bar"/>
-            <label for="bar"
+                   name="show-usage"/>
+            <label for="show-usage"
                    class="radio-list__label"
                    ng:class="{'radio-list--selected': ! showMetadata}"
                    ng:click="showMetadata = false">

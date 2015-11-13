@@ -216,6 +216,29 @@
             }
         },
 
+        "CollectionsBucket": {
+            "Type": "AWS::S3::Bucket"
+        },
+        "CollectionsBucketPolicy": {
+            "Type": "AWS::S3::BucketPolicy",
+            "Properties": {
+                "PolicyDocument": {
+                    "Id": "CollectionsBucketPolicy",
+                    "Statement": [
+                        {
+                            "Action": [ "s3:GetObject", "s3:PutObject" ],
+                            "Effect": "Allow",
+                            "Resource": { "Fn::Join": [ "",
+                                [ "arn:aws:s3:::", { "Ref": "CollectionsBucket" } , "/*" ] ]
+                            },
+                            "Principal": { "AWS": { "Fn::GetAtt": [ "User", "Arn" ] } }
+                        }
+                    ]
+                },
+                "Bucket": { "Ref": "CollectionsBucket" }
+            }
+        },
+
         "EditsDynamoTable": {
             "Type": "AWS::DynamoDB::Table",
             "Properties": {
@@ -517,6 +540,9 @@
         },
         "ConfigBucket": {
             "Value": { "Ref": "ConfigBucket" }
+        },
+        "CollectionsBucket": {
+            "Value": { "Ref": "CollectionsBucket" }
         },
         "EditsDynamoTable": {
             "Value": { "Ref": "EditsDynamoTable" }

@@ -276,9 +276,15 @@
                             </span>
                         </span>
                     </dd>
+
+                    <dt ng:if="ctrl.extraInfo.filename" class="image-info__wrap metadata-line metadata-line__key image-info__group--dl__key--panel">Filename</dt>
+                    <dd ng:if="ctrl.extraInfo.filename" class="image-info__wrap metadata-line metadata-line__info image-info__group--dl__value--panel">
+                        <span ng:if="ctrl.hasMultipleValues(ctrl.extraInfo.filename)">Multiple filenames</span>
+                        <span ng:if="!ctrl.hasMultipleValues(ctrl.extraInfo.filename)">{{ctrl.extraInfo.filename}}</span>
+                    </dd>
                 </dl>
             </div>
-            
+
             <div class="image-info__group">
                 <div class="image-info__heading">
                     <span>Labels</span>

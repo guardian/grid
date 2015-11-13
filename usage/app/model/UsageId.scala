@@ -7,15 +7,18 @@ case class UsageId(id: String) {
   override def toString = id
 }
 object UsageId {
-  // The purpose of this hash is to obfuscate the usage_id
-  def createUsageId(mediaId: String, status: UsageStatus, index: Int) =
-    MD5.hash(s"${mediaId}_${index}_${status}")
+  def buildId(parts: List[Option[Any]]) =
+    UsageId(MD5.hash(parts.flatten.map(_.toString).mkString("_")))
 
-  def build(elementWrapper: ElementWrapper, contentWrapper: ContentWrapper): UsageId = {
-     UsageId(createUsageId(
-      elementWrapper.media.id,
-      contentWrapper.status,
-      elementWrapper.index
-    ))
-  }
+  def build(printUsageRecord: PrintUsageRecord) = buildId(List(
+    Some(printUsageRecord.mediaId),
+    Some(printUsageRecord.usageId),
+    Some(printUsageRecord.usageStatus)
+  ))
+
+ def build(elementWrapper: ElementWrapper, contentWrapper: ContentWrapper) = buildId(List(
+    Some(elementWrapper.media.id),
+    Some(elementWrapper.index),
+    Some(contentWrapper.status)
+  ))
 }
