@@ -22,12 +22,6 @@ GET     /suggest/metadata/credit                      controllers.SuggestionCont
 GET     /suggest/edits/labels/:label/sibling-labels   controllers.SuggestionController.suggestLabelSiblings(label: String, q: Option[String], selectedLabels: Option[String])
 GET     /suggest/edits/labels                         controllers.SuggestionController.suggestLabels(q: Option[String])
 
-# Collections
-GET     /collections                                  controllers.CollectionsController.getCollections
-POST    /collections                                  controllers.CollectionsController.addCollectionFromJson
-PUT     /collections/*collection                      controllers.CollectionsController.addCollectionFromString(collection: String)
-DELETE  /collections/*collection                      controllers.CollectionsController.removeCollection(collection: String)
-
 # Management
 GET     /management/healthcheck                       controllers.HealthCheck.healthCheck
 GET     /management/manifest                          com.gu.mediaservice.lib.management.Management.manifest

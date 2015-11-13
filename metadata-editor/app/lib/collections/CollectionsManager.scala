@@ -1,8 +1,8 @@
 package lib.collections
 
 import java.net.URI
-import com.gu.mediaservice.lib.argo.model.EmbeddedEntity
 
+import com.gu.mediaservice.lib.argo.model.EmbeddedEntity
 import model.Collection
 
 object CollectionsManager {

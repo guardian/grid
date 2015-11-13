@@ -1,20 +1,16 @@
 package lib.collections
 
-
-import scala.concurrent.ExecutionContext.Implicits.global
-import play.api.libs.json.{JsValue, Json}
-
 import com.gu.mediaservice.lib.data.JsonStore
-
 import lib.Config
 import model.Collection
+import play.api.libs.json.{JsValue, Json}
 
-
+import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
 
 object CollectionsStore {
-  import Config.{configBucket, awsCredentials}
-  val collectionsStore = new JsonStore(configBucket, awsCredentials, "collections.json")
+  import Config.{awsCredentials, collectionsBucket}
+  val collectionsStore = new JsonStore(collectionsBucket, awsCredentials, "collections.json")
 
   def getAll: Future[List[Collection]] = collectionsStore.getData flatMap { json =>
     json.asOpt[List[Collection]].map(Future.successful) getOrElse Future.failed(InvalidCollectionJson(json))

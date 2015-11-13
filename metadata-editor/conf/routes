@@ -4,21 +4,31 @@ GET     /usage-rights/categories                    controllers.EditsApi.getUsag
 # Image
 GET     /metadata/:id                                   controllers.EditsController.getAllMetadata(id: String)
 
+# Archived (Library)
 GET     /metadata/:id/archived                          controllers.EditsController.getArchived(id: String)
 PUT     /metadata/:id/archived                          controllers.EditsController.setArchived(id: String)
 DELETE  /metadata/:id/archived                          controllers.EditsController.unsetArchived(id: String)
 
+# Labels
 GET     /metadata/:id/labels                            controllers.EditsController.getLabels(id: String)
 POST    /metadata/:id/labels                            controllers.EditsController.addLabels(id: String)
 DELETE  /metadata/:id/labels/*label                     controllers.EditsController.removeLabel(id: String, label: String)
 
+# Metadata
 GET     /metadata/:id/metadata                          controllers.EditsController.getMetadata(id: String)
 PUT     /metadata/:id/metadata                          controllers.EditsController.setMetadata(id: String)
 POST    /metadata/:id/metadata/set-from-usage-rights    controllers.EditsController.setMetadataFromUsageRights(id: String)
 
+# Usage Rights
 GET     /metadata/:id/usage-rights                      controllers.EditsController.getUsageRights(id: String)
 PUT     /metadata/:id/usage-rights                      controllers.EditsController.setUsageRights(id: String)
 DELETE  /metadata/:id/usage-rights                      controllers.EditsController.deleteUsageRights(id: String)
+
+# Collections
+GET     /collections                                    controllers.CollectionsController.getCollections
+POST    /collections                                    controllers.CollectionsController.addCollectionFromJson
+PUT     /collections/*collection                        controllers.CollectionsController.addCollectionFromString(collection: String)
+DELETE  /collections/*collection                        controllers.CollectionsController.removeCollection(collection: String)
 
 # Management
 GET     /management/healthcheck                         com.gu.mediaservice.lib.management.Management.healthCheck

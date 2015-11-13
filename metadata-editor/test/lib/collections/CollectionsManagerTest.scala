@@ -1,8 +1,6 @@
 package lib.collections
 
-import model.{Paradata, Collection}
-import org.joda.time.DateTime
-import org.scalatest.{Matchers, FunSpec}
+import org.scalatest.{FunSpec, Matchers}
 
 class CollectionsManagerTest extends FunSpec with Matchers {
 

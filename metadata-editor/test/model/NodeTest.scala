@@ -1,6 +1,6 @@
 package model
 
-import org.scalatest.{Matchers, FunSpec, OptionValues}
+import org.scalatest.{FunSpec, Matchers, OptionValues}
 
 class NodeTest extends FunSpec with Matchers with OptionValues {
   val identifyBy = (list: List[String]) => list

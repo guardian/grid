@@ -1,22 +1,25 @@
 package controllers
 
 import org.joda.time.DateTime
-import play.api.libs.concurrent.Execution.Implicits._
+
 import play.api.libs.json.JsValue
 import play.api.mvc.Controller
 import play.api.mvc.Security.AuthenticatedRequest
+
+import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
 
 import com.gu.mediaservice.lib.argo.ArgoHelpers
-import com.gu.mediaservice.lib.auth.{Principal, AuthenticatedService, PandaUser}
+import com.gu.mediaservice.lib.auth.{AuthenticatedService, PandaUser, Principal}
 
-import model.{Node, Paradata, Collection}
-import lib.collections.{CollectionsStore, CollectionsManager}
+import lib.collections.{CollectionsManager, CollectionsStore}
+import model.{Paradata, Collection, Node}
 
 
 object CollectionsController extends Controller with ArgoHelpers {
 
   val Authenticated = Authed.action
+
 
   def collectionNotFound(path: String) =
     respondError(NotFound, "collection-not-found", s"Could not find collection: ${path}")
