@@ -108,22 +108,22 @@ object Mappings {
       "filename" -> nonAnalyzedString
     )
 
-  val usageSource =
+  val usageReference =
     nonDynamicObj(
-      "usageType" -> nonAnalyzedString,
+      "referenceType" -> nonAnalyzedString,
       "uri"  -> nonAnalyzedString,
       "name" -> sStemmerAnalysedString
     )
 
   val usagesMapping =
     nonDynamicObj(
-      "title"         -> sStemmerAnalysedString,
-      "source"        -> usageSource,
-      "usageType"     -> nonAnalyzedString,
-      "mediaType"     -> nonAnalyzedString,
-      "status"        -> nonAnalyzedString,
-      "dateAdded"     -> dateFormat,
-      "lastModified"  -> dateFormat
+      "title"        -> sStemmerAnalysedString,
+      "references"   -> usageReference,
+      "usageType"    -> nonAnalyzedString,
+      "mediaType"    -> nonAnalyzedString,
+      "status"       -> nonAnalyzedString,
+      "dateAdded"    -> dateFormat,
+      "lastModified" -> dateFormat
     )
 
   val imageMapping: String =

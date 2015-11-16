@@ -5,7 +5,7 @@ import org.joda.time.DateTime
 
 
 case class Usage(
-  source: List[UsageSource],
+  references: List[UsageReference],
   usageType: String,
   mediaType: String,
   status: String,
@@ -26,12 +26,12 @@ object Usage {
   implicit val reads: Reads[Usage] = Json.reads[Usage]
 }
 
-case class UsageSource(
-  usageType: String,
+case class UsageReference(
+  referenceType: String,
   uri: Option[String] = None,
   name: Option[String] = None
 )
-object UsageSource {
-  implicit val writes: Writes[UsageSource] = Json.writes[UsageSource]
-  implicit val reads: Reads[UsageSource] = Json.reads[UsageSource]
+object UsageReference {
+  implicit val writes: Writes[UsageReference] = Json.writes[UsageReference]
+  implicit val reads: Reads[UsageReference] = Json.reads[UsageReference]
 }

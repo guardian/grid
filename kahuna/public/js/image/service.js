@@ -24,14 +24,14 @@ imageService.factory('imageService', [function() {
 
     function usages(image) {
         function usageTitle(usage) {
-            const sourceType = usage.get("usageType") == "print" ? "indesign" : "frontend";
+            const referenceType = usage.get("usageType") == "print" ? "indesign" : "frontend";
 
-            const build = (usage, sourceType) => {
-                const source = usage.get("source").find(u => u.get("usageType") == sourceType)
-                return source ? source.get("name") : "No title found."
+            const build = (usage, referenceType) => {
+                const reference = usage.get("references").find(u => u.get("referenceType") == referenceType)
+                return reference ? reference.get("name") : "No title found."
             }
 
-            return build(usage, sourceType);
+            return build(usage, referenceType);
         }
 
         const usagesList = Immutable.fromJS(image.data.usages).map(u => u.set("title", usageTitle(u)));
