@@ -530,5 +530,18 @@ results.controller('SearchResultsCtrl', [
             freeImageDeleteListener();
             scopeGone = true;
         });
+
+        const themeStylesheet = angular.element('link[title="white"]');
+
+        ctrl.changeColourSchemeTo = themeStylesheet[0].disabled ? "White" : "Black";
+
+        ctrl.switchTheme = function(newColourScheme){
+            const turnOnBlackColourScheme = newColourScheme == "White" ? false : true;
+
+            //disabled false activates the white colour scheme
+            themeStylesheet.prop('disabled', turnOnBlackColourScheme);
+
+            ctrl.changeColourSchemeTo = newColourScheme == "White" ? "Black" : "White"
+        }
     }
 ]);

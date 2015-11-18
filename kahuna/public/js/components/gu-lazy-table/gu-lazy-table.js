@@ -213,7 +213,7 @@ lazyTable.directive('guLazyTable', ['$window', 'observe$',
         template: `
 <ul>
   <li ng:repeat="placeholderIndex in $placeholders"
-      class="result-placeholder"
+      class="result-placeholder colour-scheme--white"
       gu:lazy-table-placeholder="placeholderIndex"></li>
 </ul>
 <ng-transclude></ng-transclude>
