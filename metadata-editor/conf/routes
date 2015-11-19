@@ -20,6 +20,10 @@ GET     /metadata/:id/usage-rights                      controllers.EditsControl
 PUT     /metadata/:id/usage-rights                      controllers.EditsController.setUsageRights(id: String)
 DELETE  /metadata/:id/usage-rights                      controllers.EditsController.deleteUsageRights(id: String)
 
+GET     /metadata/:id/collections                       controllers.EditsController.getUsageRights(id: String)
+PUT     /metadata/:id/collections                       controllers.EditsController.setUsageRights(id: String)
+DELETE  /metadata/:id/collections                       controllers.EditsController.deleteUsageRights(id: String)
+
 # Management
 GET     /management/healthcheck                         com.gu.mediaservice.lib.management.Management.healthCheck
 GET     /management/manifest                            com.gu.mediaservice.lib.management.Management.manifest

@@ -9,9 +9,10 @@ import play.api.libs.functional.syntax._
 
 case class Edits(
   archived: Boolean = false,
-  labels: List[String] = List(),
+  labels: List[String] = Nil,
   metadata: ImageMetadata,
-  usageRights: Option[UsageRights] = None
+  usageRights: Option[UsageRights] = None,
+  collections: List[Collection] = Nil
 )
 
 object Edits {
@@ -21,14 +22,16 @@ object Edits {
     (__ \ "archived").readNullable[Boolean].map(_ getOrElse false) ~
     (__ \ "labels").readNullable[List[String]].map(_ getOrElse Nil) ~
     (__ \ "metadata").readNullable[ImageMetadata].map(_ getOrElse emptyMetadata) ~
-    (__ \ "usageRights").readNullable[UsageRights]
+    (__ \ "usageRights").readNullable[UsageRights] ~
+    (__ \ "collections").readNullable[List[Collection]].map(_ getOrElse Nil)
   )(Edits.apply _)
 
   implicit val EditsWrites: Writes[Edits] = (
     (__ \ "archived").write[Boolean] ~
     (__ \ "labels").write[List[String]] ~
     (__ \ "metadata").writeNullable[ImageMetadata].contramap(noneIfEmptyMetadata) ~
-    (__ \ "usageRights").writeNullable[UsageRights]
+    (__ \ "usageRights").writeNullable[UsageRights] ~
+    (__ \ "collections").write[List[Collection]]
   )(unlift(Edits.unapply))
 
   def getEmpty = Edits(metadata = emptyMetadata)
@@ -54,7 +57,8 @@ trait EditsResponse {
       (__ \ "archived").write[ArchivedEntity].contramap(archivedEntity(id, _: Boolean)) ~
       (__ \ "labels").write[SetEntity].contramap(setEntity(id, "labels", _: List[String])) ~
       (__ \ "metadata").write[MetadataEntity].contramap(metadataEntity(id, _: ImageMetadata)) ~
-      (__ \ "usageRights").write[UsageRightsEntity].contramap(usageRightsEntity(id, _: Option[UsageRights]))
+      (__ \ "usageRights").write[UsageRightsEntity].contramap(usageRightsEntity(id, _: Option[UsageRights])) ~
+      (__ \ "collections").write[SetEntity].contramap(collectionsEntity(id, _: List[Collection]))
     )(unlift(Edits.unapply))
 
   def archivedEntity(id: String, a: Boolean): ArchivedEntity =
@@ -69,8 +73,12 @@ trait EditsResponse {
     u.map(i => EmbeddedEntity(entityUri(id, "/usage-rights"), Some(i)))
      .getOrElse(EmbeddedEntity(entityUri(id, "/usage-rights"), None))
 
-  def setEntity(id: String, setName: String, labels: List[String]): SetEntity =
-    EmbeddedEntity(entityUri(id, s"/$setName"), Some(labels.map(setUnitEntity(id, setName, _))))
+  def collectionsEntity(id: String, collections: List[Collection]) = {
+    setEntity(id, "collections", collections.map(_.pathId))
+  }
+
+  def setEntity(id: String, setName: String, set: List[String]): SetEntity =
+    EmbeddedEntity(entityUri(id, s"/$setName"), Some(set.map(setUnitEntity(id, setName, _))))
 
   def setUnitEntity(id: String, setName: String, name: String): EmbeddedEntity[String] =
     EmbeddedEntity(entityUri(id, s"/$setName/${URLEncoder.encode(name, "UTF-8")}"), Some(name))
