@@ -10,7 +10,8 @@ object Mappings {
   val nonAnalyzedString = Json.obj("type" -> "string", "index" -> "not_analyzed")
   val nonIndexedString  = Json.obj("type" -> "string", "index" -> "no")
 
-  val sStemmerAnalysedString = Json.obj("type" -> "string", "analyzer" -> IndexSettings.guAnalyzer)
+  val sStemmerAnalysedString = Json.obj("type" -> "string", "analyzer" -> IndexSettings.enslishSStemmerAnalyzerName)
+  val hierarchyAnalysedString = Json.obj("type" -> "string", "analyzer" -> IndexSettings.hierarchyAnalyserName)
   val standardAnalysedString = Json.obj("type" -> "string", "analyzer" -> "standard")
 
   val simpleSuggester = Json.obj(
@@ -103,10 +104,22 @@ object Mappings {
       "usageRights" -> usageRightsMapping
     )
 
-  val uploadInfo =
+  val uploadInfoMapping =
     nonDynamicObj(
       "filename" -> nonAnalyzedString
     )
+
+  val actionDataMapping = nonDynamicObj(
+    "author" -> nonAnalyzedString,
+    "date" -> dateFormat
+  )
+
+  val collectionMapping = nonDynamicObj(
+    "path" -> hierarchyAnalysedString,
+    "pathId" -> nonAnalyzedString,
+    "pathList" -> nonAnalysedList("collectionPath"),
+    "actionData" -> actionDataMapping
+  )
 
   val imageMapping: String =
     Json.stringify(Json.obj(
@@ -127,7 +140,8 @@ object Mappings {
           "uploadedBy" -> nonAnalyzedString,
           "lastModified" -> dateFormat,
           "identifiers" -> dynamicObj,
-          "uploadInfo" -> uploadInfo,
+          "uploadInfo" -> uploadInfoMapping,
+          "collections" -> collectionMapping,
           "suggestMetadataCredit" -> simpleSuggester
         ),
         "dynamic_templates" -> Json.arr(Json.obj(

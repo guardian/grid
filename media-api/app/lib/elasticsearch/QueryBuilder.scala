@@ -18,7 +18,7 @@ class QueryBuilder(matchFields: Seq[String]) {
     case Words(string) => multiMatchQuery(string, fields: _*)
                           .operator(MatchQueryBuilder.Operator.AND)
                           .`type`(MultiMatchQueryBuilder.Type.CROSS_FIELDS)
-                          .analyzer(IndexSettings.guAnalyzer)
+                          .analyzer(IndexSettings.enslishSStemmerAnalyzerName)
     case Phrase(string) => multiMatchPhraseQuery(string, fields)
     // That's OK, we only do date queries on a single field at a time
     case DateRange(start, end) => throw InvalidQuery("Cannot do multiQuery on date range")
