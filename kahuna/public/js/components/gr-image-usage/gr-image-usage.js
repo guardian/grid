@@ -7,7 +7,7 @@ import './gr-image-usage.css!';
 
 import '../../image/service';
 
-export let module = angular.module('gr.imageUsage', [
+export const module = angular.module('gr.imageUsage', [
     'gr.image.service',
 ]);
 
