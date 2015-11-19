@@ -119,7 +119,7 @@ object Mappings {
   val collectionMapping = withIndexName("collection", nonDynamicObj(
     "path" -> nonAnalysedList("collectionPath"),
     "pathId" -> nonAnalyzedString,
-    "pathListHierarchy" -> hierarchyAnalysedString,
+    "pathHierarchy" -> hierarchyAnalysedString,
     "actionData" -> actionDataMapping
   ))
 
