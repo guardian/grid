@@ -48,6 +48,7 @@ trait EditsResponse {
   type SetEntity = EmbeddedEntity[Seq[EmbeddedEntity[String]]]
   type MetadataEntity = EmbeddedEntity[ImageMetadata]
   type UsageRightsEntity = EmbeddedEntity[UsageRights]
+  type CollectionsEntity = EmbeddedEntity[List[EmbeddedEntity[Collection]]]
 
   def editsEmbeddedEntity(id: String, edits: Edits) =
     EmbeddedEntity(entityUri(id), Some(Json.toJson(edits)(editsEntity(id))))
@@ -58,7 +59,7 @@ trait EditsResponse {
       (__ \ "labels").write[SetEntity].contramap(setEntity(id, "labels", _: List[String])) ~
       (__ \ "metadata").write[MetadataEntity].contramap(metadataEntity(id, _: ImageMetadata)) ~
       (__ \ "usageRights").write[UsageRightsEntity].contramap(usageRightsEntity(id, _: Option[UsageRights])) ~
-      (__ \ "collections").write[SetEntity].contramap(collectionsEntity(id, _: List[Collection]))
+      (__ \ "collections").write[CollectionsEntity].contramap(collectionsEntity(id, _: List[Collection]))
     )(unlift(Edits.unapply))
 
   def archivedEntity(id: String, a: Boolean): ArchivedEntity =
@@ -74,14 +75,17 @@ trait EditsResponse {
      .getOrElse(EmbeddedEntity(entityUri(id, "/usage-rights"), None))
 
   def collectionsEntity(id: String, collections: List[Collection]) = {
-    setEntity(id, "collections", collections.map(_.pathId))
+    val collectionEntities: List[EmbeddedEntity[Collection]] = collections.map { collection =>
+      EmbeddedEntity(entityUri(id, s"/collections/${collection.pathId}"), Some(collection))
+    }
+    EmbeddedEntity(entityUri(id, "/collections"), Some(collectionEntities))
   }
 
   def setEntity(id: String, setName: String, set: List[String]): SetEntity =
     EmbeddedEntity(entityUri(id, s"/$setName"), Some(set.map(setUnitEntity(id, setName, _))))
 
   def setUnitEntity(id: String, setName: String, name: String): EmbeddedEntity[String] =
-    EmbeddedEntity(entityUri(id, s"/$setName/${URLEncoder.encode(name, "UTF-8")}"), Some(name))
+    EmbeddedEntity(entityUri(id, s"/$setName/$name"), Some(name))
 
   private def entityUri(id: String, endpoint: String = ""): URI =
     URI.create(s"$metadataBaseUri/metadata/$id$endpoint")
