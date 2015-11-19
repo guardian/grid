@@ -2,7 +2,7 @@
 package com.gu.mediaservice.lib.elasticsearch
 
 import play.api.libs.json.Json.JsValueWrapper
-import play.api.libs.json.Json
+import play.api.libs.json.{JsObject, Json}
 
 
 object Mappings {
@@ -29,6 +29,8 @@ object Mappings {
   def nonDynamicObj(obj: (String, JsValueWrapper)*) = Json.obj("type" -> "object", "dynamic" -> "strict", "properties" -> Json.obj(obj:_*))
 
   def nonAnalysedList(indexName: String) = Json.obj("type" -> "string", "index" -> "not_analyzed", "index_name" -> indexName)
+
+  def withIndexName(indexName: String,  obj: JsObject) = Json.obj("index_Name" -> indexName) ++ obj
 
   val identifiersMapping =
     nonDynamicObj(
@@ -114,12 +116,12 @@ object Mappings {
     "date" -> dateFormat
   )
 
-  val collectionMapping = nonDynamicObj(
-    "path" -> hierarchyAnalysedString,
+  val collectionMapping = withIndexName("collection", nonDynamicObj(
+    "path" -> nonAnalysedList("collectionPath"),
     "pathId" -> nonAnalyzedString,
-    "pathList" -> nonAnalysedList("collectionPath"),
+    "pathListHierarchy" -> hierarchyAnalysedString,
     "actionData" -> actionDataMapping
-  )
+  ))
 
   val imageMapping: String =
     Json.stringify(Json.obj(
