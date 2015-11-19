@@ -145,7 +145,7 @@ object MetadataConfig {
 
   val externalPhotographersMap = PhotographersList.creditBylineMap(externalStaffPhotographers)
   val staffPhotographersMap = PhotographersList.creditBylineMap(staffPhotographers)
-  val contractPhotographersMap = PhotographersList.creditBylineMap(staffPhotographers)
+  val contractPhotographersMap = PhotographersList.creditBylineMap(contractedPhotographers)
   val allPhotographersMap = PhotographersList.creditBylineMap(allPhotographers)
 
   val creativeCommonsLicense = List(

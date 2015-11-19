@@ -167,7 +167,7 @@ System.config({
     },
     "npm:pandular@0.1.5": {
       "angular": "github:angular/bower-angular@1.4.3",
-      "panda-session": "npm:panda-session@0.1.5"
+      "panda-session": "npm:panda-session@0.1.6"
     },
     "npm:path-browserify@0.0.0": {
       "process": "github:jspm/nodelibs-process@0.1.1"

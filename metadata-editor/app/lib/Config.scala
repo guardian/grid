@@ -17,6 +17,7 @@ object Config extends CommonPlayAppProperties with CommonPlayAppConfig {
   val dynamoRegion: Region = Region.getRegion(Regions.EU_WEST_1)
 
   val keyStoreBucket = properties("auth.keystore.bucket")
+  val collectionsBucket: String = properties("s3.collections.bucket")
 
   val editsTable = properties("dynamo.table.edits")
 
