@@ -74,10 +74,11 @@ trait EditsResponse {
     u.map(i => EmbeddedEntity(entityUri(id, "/usage-rights"), Some(i)))
      .getOrElse(EmbeddedEntity(entityUri(id, "/usage-rights"), None))
 
+  def collectionEntity(id: String, collection: Collection) =
+    EmbeddedEntity(entityUri(id, s"/collections/${collection.pathId}"), Some(collection))
+
   def collectionsEntity(id: String, collections: List[Collection]) = {
-    val collectionEntities: List[EmbeddedEntity[Collection]] = collections.map { collection =>
-      EmbeddedEntity(entityUri(id, s"/collections/${collection.pathId}"), Some(collection))
-    }
+    val collectionEntities: List[EmbeddedEntity[Collection]] = collections map (collectionEntity(id, _))
     EmbeddedEntity(entityUri(id, "/collections"), Some(collectionEntities))
   }
 
