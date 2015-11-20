@@ -21,7 +21,7 @@ PUT     /metadata/:id/usage-rights                      controllers.EditsControl
 DELETE  /metadata/:id/usage-rights                      controllers.EditsController.deleteUsageRights(id: String)
 
 GET     /metadata/:id/collections                       controllers.EditsController.getUsageRights(id: String)
-PUT     /metadata/:id/collections                       controllers.EditsController.setUsageRights(id: String)
+POST    /metadata/:id/collections                       controllers.EditsController.addCollection(id: String)
 DELETE  /metadata/:id/collections                       controllers.EditsController.deleteUsageRights(id: String)
 
 # Management

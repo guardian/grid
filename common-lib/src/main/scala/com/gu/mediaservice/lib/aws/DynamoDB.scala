@@ -3,7 +3,7 @@ package com.gu.mediaservice.lib.aws
 import com.amazonaws.auth.AWSCredentials
 import com.amazonaws.regions.Region
 import com.amazonaws.services.dynamodbv2.AmazonDynamoDBClient
-import com.amazonaws.services.dynamodbv2.document.{DynamoDB => AwsDynamoDB, DeleteItemOutcome, UpdateItemOutcome, Table, Item}
+import com.amazonaws.services.dynamodbv2.document.{DynamoDB => AwsDynamoDB, _}
 import com.amazonaws.services.dynamodbv2.document.spec.{DeleteItemSpec, GetItemSpec, UpdateItemSpec}
 import com.amazonaws.services.dynamodbv2.document.utils.ValueMap
 import com.amazonaws.services.dynamodbv2.model.ReturnValue
@@ -115,6 +115,14 @@ class DynamoDB(credentials: AWSCredentials, region: Region, tableName: String) {
       new ValueMap().withStringSet(":value", value:_*)
     )
 
+  def setDelete(id: String, key: String, value: String)
+               (implicit ex: ExecutionContext): Future[JsObject] =
+    update(
+      id,
+      s"DELETE $key :value",
+      new ValueMap().withStringSet(":value", value)
+    )
+
 
   def jsonGet(id: String, key: String)
              (implicit ex: ExecutionContext): Future[JsValue] =
@@ -129,14 +137,17 @@ class DynamoDB(credentials: AWSCredentials, region: Region, tableName: String) {
         new ValueMap().withMap(":value", valueMapWithNullForEmptyString(value))
     )
 
-  def setDelete(id: String, key: String, value: String)
-               (implicit ex: ExecutionContext): Future[JsObject] =
-    update(
-      id,
-      s"DELETE $key :value",
-      new ValueMap().withStringSet(":value", value)
-    )
+  def setObjAdd[T](id: String, listName: String, value: T)
+                  (implicit ex: ExecutionContext, tjs: Writes[T]): Future[JsObject] = {
+    val json = Json.toJson(value).as[JsObject]
+    val valueMap = DynamoDB.jsonToValueMap(json)
+    val e = s"SET $listName = list_append($listName, :value)"
 
+    update(
+      id, e,
+      new ValueMap().withList(":value", valueMap)
+    )
+  }
 
   def update(id: String, expression: String, valueMap: ValueMap)
             (implicit ex: ExecutionContext): Future[JsObject] =
@@ -190,4 +201,27 @@ class DynamoDB(credentials: AWSCredentials, region: Region, tableName: String) {
     valueMap
   }
 
+}
+
+object DynamoDB {
+  def jsonToValueMap(json: JsObject, valueMap: ValueMap = new ValueMap()): ValueMap = {
+    json.value map { case (key, value) =>
+      value match {
+        case v: JsString  => valueMap.withString(key, v.value)
+        case v: JsBoolean => valueMap.withBoolean(key, v.value)
+        case v: JsNumber  => valueMap.withNumber(key, v.value)
+        case v: JsObject  => valueMap.withMap(key, jsonToValueMap(v, valueMap))
+
+        // TODO: Lists of different Types? JsArray is not type safe (because json lists aren't)
+        // so this leaves us in a bit of a pickle when converting them. So for now we only support
+        // List[String]
+        case v: JsArray   => valueMap.withList(key, v.value.map {
+          case i: JsString => i.value
+          case i: JsValue => i.toString
+        }: _*)
+        case _ => valueMap
+      }
+    }
+    valueMap
+  }
 }
