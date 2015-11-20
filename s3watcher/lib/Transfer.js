@@ -1,3 +1,5 @@
+const Rx = require('rx');
+
 const S3Helper     = require('./S3Helper');
 const CWHelper     = require('./CWHelper');
 const Metrics      = require('./Metrics');
@@ -58,20 +60,25 @@ module.exports = {
         const operation = function() {
             log("download", s3Object);
 
-            return S3Helper.getS3Object(s3Object).flatMap(function(data){
-                log("upload", upload);
+            return S3Helper.headS3Object(s3Object).catch(function(err) {
+                // If not found we are redundant, stop!
+                return (err && err.code === 'Forbidden') ? Rx.Observable.empty() : Rx.Observable.throw(err);
+            }).flatMap(function(_) {
+                return S3Helper.getS3Object(s3Object).flatMap(function(data){
+                    log("upload", upload);
 
-                return Upload.postData(upload, data.Body)
-            }).retry(5).flatMap(function(uploadResult){
-                log("record", uploadResult)
+                    return Upload.postData(upload, data.Body)
+                }).retry(5).flatMap(function(uploadResult){
+                    log("record", uploadResult)
 
-                return CWHelper.putMetricData(
-                    Metrics.create(uploadResult)).map(
-                        function(){ return uploadResult; });
+                    return CWHelper.putMetricData(
+                        Metrics.create(uploadResult)).map(
+                            function(){ return uploadResult; });
 
-            }).flatMap(function(uploadResult){
-                return uploadResult.succeeded ? success() : failGraceful()
-            });
+                }).flatMap(function(uploadResult){
+                    return uploadResult.succeeded ? success() : failGraceful()
+                });
+            })
         };
 
         return {

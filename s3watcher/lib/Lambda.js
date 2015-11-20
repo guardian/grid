@@ -55,6 +55,7 @@ module.exports = {
         });
 
         const fail = function(err) {
+            console.log("Failed!", s3Event, err);
             context.fail(err);
         };
 
