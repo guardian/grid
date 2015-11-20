@@ -101,8 +101,13 @@ object ElasticSearch extends ElasticSearchClient with SearchFilters with ImageFi
       case false  => nonPersistedFilter
     }
 
+    val usagesFilter = params.hasUsage map {
+      case true   => usageFilter
+      case false  => noUsageFilter
+    }
+
     val filterOpt = (
-      metadataFilter.toList ++ persistFilter ++ labelFilter ++ archivedFilter ++
+      metadataFilter.toList ++ usagesFilter ++ persistFilter ++ labelFilter ++ archivedFilter ++
       uploadedByFilter ++ idsFilter ++ validityFilter ++ costFilter ++
       hasExports ++ hasIdentifier ++ missingIdentifier ++ dateFilter
     ).toNel.map(filter => filter.list.reduceLeft(filters.and(_, _)))
