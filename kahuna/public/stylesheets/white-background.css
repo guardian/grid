@@ -1,0 +1,14 @@
+.result.colour-scheme--white,
+.result-placelaceholder.colour-scheme--white,
+.result--selected .preview.colour-scheme--white,
+gr-add-label.colour-scheme--white .gr-add-label__form__input,
+.easel__canvas.colour-scheme--white {
+    background: white;
+}
+
+.preview__description.colour-scheme--white,
+.preview.colour-scheme--white .archiver.colour-scheme--white:hover,
+.gr-add-label.colour-scheme--white:hover,
+.gr-add-label__form__input.colour-scheme--white {
+    color: black;
+}

@@ -143,7 +143,7 @@
 
 <div class="image-holder">
     <div class="easel">
-        <div class="easel__canvas" ng:if="!ctrl.crop">
+        <div class="easel__canvas colour-scheme--white" ng:if="!ctrl.crop">
             <img class="easel__image"
                  ng:src="{{ctrl.optimisedImageUri}}"
                  grid:track-image="ctrl.image"
@@ -155,7 +155,7 @@
 
 
         <!-- TODO: As this loads async, add a loader -->
-        <div class="easel__canvas" ng:if="ctrl.crop">
+        <div class="easel__canvas colour-scheme--white" ng:if="ctrl.crop">
             <a draggable="true"
                class="easel__image-container"
                ng:init="extremeAssets = (ctrl.crop | getExtremeAssets)"

@@ -1,4 +1,4 @@
-<div class="preview image-actions-container">
+<div class="preview colour-scheme--white image-actions-container">
 
     <ul class="image-actions">
         <li>
@@ -49,7 +49,7 @@
                                  ng:if="!ctrl.inputtingLabel">
             </ui-labeller-compact>
             <span class="flex-spacer"></span>
-            <gr-add-label class="gr-add-label"
+            <gr-add-label class="gr-add-label colour-scheme--white"
                           ng:if="!ctrl.selectionMode"
                           images="[ctrl.image]"
                           gr-small="true"
@@ -58,7 +58,7 @@
             </gr-add-label>
         </div>
 
-        <p class="preview__description"
+        <p class="preview__description colour-scheme--white"
            title="{{ctrl.image.data.metadata.description || ctrl.image.data.metadata.title}}">
             <!-- Ensure contents in P to maintain height -->
             {{ctrl.image.data.metadata.description || ctrl.image.data.metadata.title || '&nbsp;'}}
