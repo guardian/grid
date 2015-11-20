@@ -48,7 +48,7 @@ object MediaApi extends Controller with ArgoHelpers {
     "since", "until", "modifiedSince", "modifiedUntil", "takenSince", "takenUntil",
     "uploadedBy", "archived", "valid", "free",
     "hasExports", "hasIdentifier", "missingIdentifier", "hasMetadata",
-    "persisted", "hasUsage").mkString(",")
+    "persisted", "hasUsages").mkString(",")
 
   val searchLinkHref = s"$rootUri/images{?$searchParamList}"
 
@@ -352,7 +352,7 @@ case class SearchParams(
   labels: List[String],
   hasMetadata: List[String],
   persisted: Option[Boolean],
-  hasUsage: Option[Boolean]
+  hasUsages: Option[Boolean]
 )
 
 case class InvalidUriParams(message: String) extends Throwable
@@ -399,7 +399,7 @@ object SearchParams {
       commaSep("labels"),
       commaSep("hasMetadata"),
       request.getQueryString("persisted") flatMap parseBooleanFromQuery,
-      request.getQueryString("hasUsage") flatMap parseBooleanFromQuery
+      request.getQueryString("hasUsages") flatMap parseBooleanFromQuery
     )
   }
 
@@ -426,7 +426,7 @@ object SearchParams {
       "labels"            -> listToCommas(searchParams.labels),
       "hasMetadata"       -> listToCommas(searchParams.hasMetadata),
       "persisted"         -> searchParams.persisted.map(_.toString),
-      "hasUsage"          -> searchParams.hasUsage.map(_.toString)
+      "hasUsages"         -> searchParams.hasUsages.map(_.toString)
     ).foldLeft(Map[String, String]()) {
       case (acc, (key, Some(value))) => acc + (key -> value)
       case (acc, (_,   None))        => acc
