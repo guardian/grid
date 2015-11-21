@@ -77,6 +77,9 @@ trait SearchFilters extends ImageFields {
 
   val nonPersistedFilter = filters.not(persistedFilter)
 
+  val hasUsagesFilter = filters.exists(NonEmptyList("usages"))
+  val noUsageFilter = filters.not(hasUsagesFilter)
+
   def filterOrFilter(filter: Option[FilterBuilder], orFilter: Option[FilterBuilder]): Option[FilterBuilder] = (filter, orFilter) match {
     case (Some(someFilter), Some(orSomeFilter)) => Some(filters.or(someFilter, orSomeFilter))
     case (filterOpt,    orFilterOpt)    => filterOpt orElse orFilterOpt

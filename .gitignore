@@ -1,4 +1,8 @@
-s3watcher/node_modules
+S3Watcher/node_modules
+usage-updater/node_modules
+usage-updater/.env
+usage-updater/event.json
+usage-updater/lib/Config.js
 target
 logs
 dist

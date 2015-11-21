@@ -78,6 +78,23 @@
 
                 <gr-icon gr-small>crop</gr-icon>
             </span>
+
+            <span class="bottom-bar__meta-item preview__has-print-usages"
+                  title="this image has print usages"
+                  ng:if="ctrl.usages.hasPrintUsages">
+
+                <gr-icon gr-small>local_library</gr-icon>
+            </span>
+
+            <span class="bottom-bar__meta-item preview__has-web-usages"
+                  title="this image has web usages"
+                  ng:if="ctrl.usages.hasWebUsages">
+
+                <gr-icon gr-small>web</gr-icon>
+            </span>
+
+
+
         </div>
         <div class="bottom-bar__actions">
             <gr-image-persist-status class="bottom-bar__action"

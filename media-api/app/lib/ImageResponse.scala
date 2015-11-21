@@ -15,7 +15,6 @@ import com.gu.mediaservice.model._
 import com.gu.mediaservice.lib.argo.model._
 
 
-
 object ImageResponse extends EditsResponse {
   implicit val dateTimeFormat = DateFormat
 
@@ -207,7 +206,8 @@ object ImageResponse extends EditsResponse {
     (__ \ "usageRights").write[UsageRights] ~
     (__ \ "originalUsageRights").write[UsageRights] ~
     (__ \ "exports").write[List[Export]]
-      .contramap((crops: List[Crop]) => crops.map(Export.fromCrop(_:Crop)))
+      .contramap((crops: List[Crop]) => crops.map(Export.fromCrop(_:Crop))) ~
+    (__ \ "usages").write[List[Usage]]
 
   )(unlift(Image.unapply))
 

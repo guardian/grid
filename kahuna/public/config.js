@@ -1,14 +1,16 @@
 System.config({
-  baseURL: "/assets",
-  defaultJSExtensions: true,
-  transpiler: "traceur",
-  paths: {
+  "baseURL": "/assets",
+  "defaultJSExtensions": true,
+  "transpiler": "traceur",
+  "paths": {
     "app/*": "lib/*.js",
     "github:*": "jspm_packages/github/*",
     "npm:*": "jspm_packages/npm/*"
-  },
+  }
+});
 
-  map: {
+System.config({
+  "map": {
     "angular": "github:angular/bower-angular@1.4.3",
     "angular-animate": "github:angular/bower-angular-animate@1.4.3",
     "angular-bootstrap": "github:angular-ui/bootstrap-bower@0.13.1",
@@ -242,3 +244,4 @@ System.config({
     }
   }
 });
+

@@ -31,15 +31,15 @@ gr-image-usage-list gr-composer-icon svg {
     height: 12px;
 }
 
-gr-image-usage-list .source-list__icon svg path {
+gr-image-usage-list .reference-list__icon svg path {
     fill: #999;
 }
 
-gr-image-usage-list .source-list__icon:hover svg path {
+gr-image-usage-list .reference-list__icon:hover svg path {
     fill: white;
 }
 
-gr-image-usage-list .source-list {
+gr-image-usage-list .reference-list {
     display: inline-flex;
     margin-left: 5px;
     position: relative;
