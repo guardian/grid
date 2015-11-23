@@ -13,26 +13,27 @@ import scala.concurrent.Future
 class JsonStore(bucket: String, credentials: AWSCredentials, storeName: String)
       extends BaseStore[String, JsValue](bucket, credentials) {
 
-  val listName = "list"
+  val storeFileName = s"$storeName.json"
 
-  def getData: Future[JsValue] =
+  def getData: Future[JsValue] = {
     store.future().map { json =>
-      json.getOrElse(listName, Json.obj())
+      json.getOrElse(storeName, Json.obj())
     }
+  }
 
   def update() = {
-    store.sendOff(_ => updateList())
+    store.sendOff(_ => getJson)
   }
 
   def putData(data: JsValue) = {
     // TODO: Find out how to return putObject as a promise as we are just assuming success now
-    s3.client.putObject(bucket, storeName, tmpJsonFile(data.toString))
+    s3.client.putObject(bucket, storeFileName, tmpJsonFile(data.toString))
     update()
     data
   }
 
   private def tmpJsonFile(content: String): File = {
-    val tmp = File.createTempFile(storeName, ".tmp")
+    val tmp = File.createTempFile(storeFileName, ".tmp")
     val bw = new BufferedWriter(new FileWriter(tmp))
     tmp.deleteOnExit()
     bw.write(content)
@@ -40,12 +41,11 @@ class JsonStore(bucket: String, credentials: AWSCredentials, storeName: String)
     tmp
   }
 
-  private def updateList(): Map[String, JsValue] = {
-    val list = getS3Object(storeName) match {
+  private def getJson: Map[String, JsValue] = {
+    val json = getS3Object(storeFileName) match {
       case Some(content) => Json.parse(content)
       case None          => Json.obj()
     }
-
-    Map(listName -> list)
+    Map(storeName -> json)
   }
 }
