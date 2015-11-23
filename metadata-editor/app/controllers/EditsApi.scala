@@ -1,5 +1,6 @@
 package controllers
 
+import com.gu.mediaservice.lib.elasticsearch.IndexSettings
 import model.UsageRightsProperty
 import play.api.libs.json._
 import play.api.mvc.Controller
