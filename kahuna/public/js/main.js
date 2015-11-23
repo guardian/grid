@@ -2,6 +2,7 @@
 
 import angular from 'angular';
 import 'angular-ui-router';
+import 'angular-loading-bar';
 import 'pandular';
 import uriTemplates from 'uri-templates';
 import './services/api/media-api';
@@ -59,7 +60,8 @@ var kahuna = angular.module('kahuna', [
 
     // directives used throughout
     'gr.imageFadeOnLoad',
-    'grIcon'
+    'grIcon',
+    'angular-loading-bar'
 ]);
 
 
@@ -82,6 +84,9 @@ kahuna.config(['$urlRouterProvider',
     $urlRouterProvider.otherwise('/search');
 }]);
 
+kahuna.config(['cfpLoadingBarProvider', function (cfpLoadingBarProvider) {
+    cfpLoadingBarProvider.includeSpinner = false;
+}]);
 
 /* Perform an initial API request to detect 401 (not logged in) and
  * redirect browser for authentication if necessary.
