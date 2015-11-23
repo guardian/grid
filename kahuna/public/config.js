@@ -17,6 +17,7 @@ System.config({
     "angular-ui-router": "github:angular-ui/ui-router@0.2.15",
     "angular-ui-router-extras": "github:christopherthielen/ui-router-extras@0.0.14",
     "angular-xeditable": "github:vitalets/angular-xeditable@0.1.9",
+    "angular-loading-bar": "github:chieffancypants/angular-loading-bar@0.8.0",
     "clean-css": "npm:clean-css@3.3.6",
     "css": "github:systemjs/plugin-css@0.1.13",
     "github:tapmodo/Jcrop": "github:tapmodo/Jcrop@0.9.12",
@@ -45,6 +46,10 @@ System.config({
     },
     "github:angular/bower-angular-animate@1.4.3": {
       "angular": "github:angular/bower-angular@1.4.3"
+    },
+    "github:chieffancypants/angular-loading-bar@0.8.0": {
+      "angular": "github:angular/bower-angular@1.4.3",
+      "css": "github:systemjs/plugin-css@0.1.13"
     },
     "github:christopherthielen/ui-router-extras@0.0.14": {
       "angular": "github:angular/bower-angular@1.4.3"
