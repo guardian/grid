@@ -80,10 +80,13 @@ results.controller('SearchResultsCtrl', [
         const ctrl = this;
 
         const metadataPanelName = 'gr-panel';
+        const collectionsPanelName = 'gr-collections-panel';
 
         ctrl.metadataPanelAvailable = panelService.isAvailable(metadataPanelName);
         ctrl.metadataPanelVisible = panelService.isVisible(metadataPanelName);
         ctrl.metadataPanelLocked = panelService.isLocked(metadataPanelName);
+
+        ctrl.collectionsPanelVisible = panelService.isVisible(collectionsPanelName);
 
         ctrl.toggleLockMetadataPanel = () => {
             if (ctrl.metadataPanelVisible) {
@@ -92,6 +95,12 @@ results.controller('SearchResultsCtrl', [
                 // If panel is not visible, show it (but don't lock) when clicked
                 panelService.show(metadataPanelName, false);
             }
+        };
+
+        ctrl.toggleCollectionsPanel = () => {
+            ctrl.collectionsPanelVisible ? panelService.hide(collectionsPanelName) :
+                panelService.show(collectionsPanelName);
+
         };
 
         ctrl.showMetadataPanelMouseOver = () => panelService.show(metadataPanelName);
@@ -103,6 +112,13 @@ results.controller('SearchResultsCtrl', [
                 ctrl.metadataPanelAvailable = panelService.isAvailable(metadataPanelName);
                 ctrl.metadataPanelVisible = panelService.isVisible(metadataPanelName);
                 ctrl.metadataPanelLocked = panelService.isLocked(metadataPanelName);
+            }
+        );
+
+        $rootScope.$on(
+            `ui:panels:${collectionsPanelName}:updated`,
+            () => {
+                ctrl.collectionsPanelVisible = panelService.isVisible(collectionsPanelName);
             }
         );
 

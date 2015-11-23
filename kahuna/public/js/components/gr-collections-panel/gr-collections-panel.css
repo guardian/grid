@@ -1,0 +1,24 @@
+.panel__left {
+    float: left;
+    position: fixed;
+    bottom: 0;
+    z-index: 1;
+    transition: left 0.1s;
+}
+
+.panel__left--hidden {
+    left: -290px;
+    transition: left 0.1s;
+}
+
+.nodes {
+    padding-left: 10px;
+}
+
+.tree-node {
+    padding-left: 10px;
+}
+
+.tree-node__arrow {
+    margin-left: -10px;
+}

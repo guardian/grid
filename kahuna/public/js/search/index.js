@@ -10,10 +10,12 @@ import '../lib/data-structure/list-factory';
 import '../lib/data-structure/ordered-set-factory';
 import '../components/gr-top-bar/gr-top-bar';
 import '../components/gr-panel/gr-panel';
+import '../components/gr-collections-panel/gr-collections-panel';
 
 import searchTemplate        from './view.html!text';
 import searchResultsTemplate from './results.html!text';
 import panelTemplate        from '../components/gr-panel/gr-panel.html!text';
+import collectionsPanelTemplate from '../components/gr-collections-panel/gr-collections-panel.html!text';
 
 
 export var search = angular.module('kahuna.search', [
@@ -25,6 +27,7 @@ export var search = angular.module('kahuna.search', [
     'data-structure.ordered-set-factory',
     'gr.topBar',
     'grPanel',
+    'grCollectionsPanel',
     'ui.router'
 ]);
 
@@ -132,6 +135,11 @@ search.config(['$stateProvider', '$urlMatcherFactoryProvider',
                             shareReplay(1);
                     }]
                 }
+            },
+            collectionPanel: {
+                template: collectionsPanelTemplate,
+                controller: 'GrCollectionsPanelCtrl',
+                controllerAs: 'ctrl'
             }
         }
     });
