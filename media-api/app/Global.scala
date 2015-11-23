@@ -1,4 +1,4 @@
-import controllers.{Authed, MediaApi}
+import controllers.Authed
 import lib.elasticsearch.ElasticSearch
 import play.api.libs.concurrent.Akka
 import play.api.{Application, GlobalSettings}

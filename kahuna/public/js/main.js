@@ -24,6 +24,7 @@ import './common/index';
 import './errors/http';
 import './errors/global';
 import './components/gr-icon/gr-icon';
+import './collections/service';
 
 // TODO: move to an async config to remove deps on play
 var apiLink = document.querySelector('link[rel="media-api-uri"]');
@@ -56,6 +57,7 @@ var kahuna = angular.module('kahuna', [
     'kahuna.common',
     'kahuna.errors.http',
     'kahuna.errors.global',
+    'gr.collections.service',
 
     // directives used throughout
     'gr.imageFadeOnLoad',

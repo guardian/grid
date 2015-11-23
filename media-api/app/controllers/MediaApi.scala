@@ -27,7 +27,6 @@ import lib.elasticsearch._
 import lib.{Notifications, Config, ImageResponse}
 import lib.querysyntax._
 
-import com.gu.mediaservice.lib.auth
 import com.gu.mediaservice.lib.auth._
 import com.gu.mediaservice.lib.argo._
 import com.gu.mediaservice.lib.argo.model._
@@ -39,7 +38,7 @@ import com.gu.mediaservice.model._
 
 object MediaApi extends Controller with ArgoHelpers {
 
-  import Config.{rootUri, cropperUri, loaderUri, metadataUri, kahunaUri, loginUriTemplate}
+  import Config.{rootUri, cropperUri, loaderUri, metadataUri, kahunaUri}
 
   val Authenticated = Authed.action
   val permissionStore = Authed.permissionStore
@@ -448,3 +447,4 @@ object SearchParams {
     }
 
 }
+

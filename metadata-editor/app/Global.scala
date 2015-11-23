@@ -1,14 +1,14 @@
-import lib.MetadataMessageConsumer
 import play.api.libs.concurrent.Akka
 import play.api.{Application, GlobalSettings}
 import play.api.mvc.WithFilters
 import play.filters.gzip.GzipFilter
 
-import lib.{LogConfig, Config}
-
-import controllers.EditsApi
-
 import com.gu.mediaservice.lib.play.RequestLoggingFilter
+
+import lib.{LogConfig, Config}
+import lib.MetadataMessageConsumer
+import lib.collections.CollectionsStore
+import controllers.Authed
 
 
 object Global extends WithFilters(CorsFilter, RequestLoggingFilter, new GzipFilter) with GlobalSettings {
@@ -19,7 +19,8 @@ object Global extends WithFilters(CorsFilter, RequestLoggingFilter, new GzipFilt
   }
 
   override def onStart(app: Application) {
-    EditsApi.keyStore.scheduleUpdates(Akka.system(app).scheduler)
+    Authed.keyStore.scheduleUpdates(Akka.system(app).scheduler)
+    CollectionsStore.collectionsStore.scheduleUpdates(Akka.system(app).scheduler)
   }
 
   override def onStop(app: Application): Unit = {

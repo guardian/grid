@@ -1,5 +1,6 @@
 package com.gu.mediaservice.lib.auth
 
+
 import com.gu.mediaservice.lib.auth.PermissionType.PermissionType
 import com.gu.mediaservice.lib.config.Properties
 import org.slf4j.LoggerFactory
@@ -17,6 +18,7 @@ import com.gu.mediaservice.lib.aws.S3
 import com.amazonaws.auth.AWSCredentials
 import org.apache.commons.io.IOUtils
 import com.amazonaws.AmazonServiceException
+
 
 abstract class BaseStore[TStoreKey, TStoreVal](bucket: String, credentials: AWSCredentials) {
   val s3 = new S3(credentials)

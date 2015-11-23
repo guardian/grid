@@ -209,7 +209,7 @@
                     "Id": "ConfigBucketPolicy",
                     "Statement": [
                         {
-                            "Action": [ "s3:GetObject" ],
+                            "Action": [ "s3:GetObject", "s3:PutObject" ],
                             "Effect": "Allow",
                             "Resource": { "Fn::Join": [ "",
                                 [ "arn:aws:s3:::", { "Ref": "ConfigBucket" } , "/*" ] ]
