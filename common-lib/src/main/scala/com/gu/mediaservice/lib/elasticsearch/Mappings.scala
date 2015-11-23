@@ -98,19 +98,6 @@ object Mappings {
       "assets" -> assetMapping
     )
 
-  val userMetadataMapping =
-    nonDynamicObj(
-      "archived"    -> boolean,
-      "labels"      -> nonAnalysedList("label"),
-      "metadata"    -> metadataMapping,
-      "usageRights" -> usageRightsMapping
-    )
-
-  val uploadInfoMapping =
-    nonDynamicObj(
-      "filename" -> nonAnalyzedString
-    )
-
   val actionDataMapping = nonDynamicObj(
     "author" -> nonAnalyzedString,
     "date" -> dateFormat
@@ -122,6 +109,20 @@ object Mappings {
     "pathHierarchy" -> hierarchyAnalysedString,
     "actionData" -> actionDataMapping
   ))
+
+  val userMetadataMapping =
+    nonDynamicObj(
+      "archived"    -> boolean,
+      "labels"      -> nonAnalysedList("label"),
+      "metadata"    -> metadataMapping,
+      "usageRights" -> usageRightsMapping,
+      "collections" -> collectionMapping
+    )
+
+  val uploadInfoMapping =
+    nonDynamicObj(
+      "filename" -> nonAnalyzedString
+    )
 
   val imageMapping: String =
     Json.stringify(Json.obj(
