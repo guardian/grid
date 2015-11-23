@@ -3,6 +3,7 @@ package com.gu.mediaservice.model
 import java.net.{URI, URLEncoder}
 
 import com.gu.mediaservice.lib.argo.model.{Action, EmbeddedEntity}
+import com.gu.mediaservice.lib.collections.CollectionsManager
 import play.api.libs.json._
 import play.api.libs.functional.syntax._
 
@@ -31,7 +32,7 @@ object Edits {
     (__ \ "labels").write[List[String]] ~
     (__ \ "metadata").writeNullable[ImageMetadata].contramap(noneIfEmptyMetadata) ~
     (__ \ "usageRights").writeNullable[UsageRights] ~
-    (__ \ "collections").write[List[Collection]]
+    (__ \ "collections").write[List[Collection]].contramap(CollectionsManager.onlyLatest)
   )(unlift(Edits.unapply))
 
   def getEmpty = Edits(metadata = emptyMetadata)
@@ -78,7 +79,7 @@ trait EditsResponse {
     EmbeddedEntity(entityUri(id, s"/collections/${collection.pathId}"), Some(collection))
 
   def collectionsEntity(id: String, collections: List[Collection]) = {
-    EmbeddedEntity(entityUri(id, "/collections"), Some(collections map (collectionEntity(id, _))))
+    EmbeddedEntity(entityUri(id, "/collections"), Some(CollectionsManager.onlyLatest(collections) map (collectionEntity(id, _))))
   }
 
   def setEntity(id: String, setName: String, set: List[String]): SetEntity =
