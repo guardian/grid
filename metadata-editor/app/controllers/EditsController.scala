@@ -168,10 +168,18 @@ object EditsController extends Controller with ArgoHelpers with DynamoEdits with
     dynamo.removeKey(id, "usageRights").map(publish(id)).map(edits => Accepted)
   }
 
+  def getCollection(id: String) = Authenticated.async(parse.json) { req =>
+    dynamo.listGet[String](id, "collection").map { dynamoEntry =>
+      respond(dynamoEntry)
+    } recover {
+      case NoItemFound => respondNotFound("No usage rights overrides found")
+    }
+  }
+
   def addCollection(id: String) = Authenticated.async(parse.json) { req =>
     (req.body \ "data").asOpt[List[String]].map { path =>
       val collection = Collection(path, ActionData(getUserFromReq(req), DateTime.now()))
-      dynamo.setObjAdd(id, "collections", collection)
+      dynamo.listAdd(id, "collections", collection)
         .map(publish(id))
         .map(edits => respond(collection))
     } getOrElse Future.successful(respondError(BadRequest, "invalid-form-data", "Invalid form data"))
