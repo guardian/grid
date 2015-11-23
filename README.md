@@ -88,10 +88,10 @@ Setup your awscli with a new profile `aws configure --profile media-service`.
 echo 'export AWS_DEFAULT_PROFILE=media-service' >> $HOME/.profile
 ```
 
-To create your stack run [create-dev-stack.sh](cloud-formation/create-dev-stack.sh):
+To create your stack run [create-dev-stack.sh](cloud-formation/scripts/create-dev-stack.sh):
 
 ```sh
-cd cloud-formation
+cd cloud-formation/scripts
 ./create-dev-stack.sh
 ```
 
