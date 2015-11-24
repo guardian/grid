@@ -1489,6 +1489,9 @@ FIXME: what to do with touch devices
 .image-info__wrap {
     position: relative;
     vertical-align: top;
+    /* cut long words */
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .image-info__wrap:hover .image-info__edit {
