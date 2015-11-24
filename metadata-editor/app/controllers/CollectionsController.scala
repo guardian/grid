@@ -55,6 +55,7 @@ object CollectionsController extends Controller with ArgoHelpers {
         (entity) => entity.data.map(a => a.path).getOrElse(Nil))
 
       respond(tree, actions = List(addCollectionAction))
+      respondCollection(collections)
     }
   }
 

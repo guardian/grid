@@ -14,11 +14,13 @@ object CollectionsManager {
   def stringToPath(s: String) = s.split(delimiter).map(decodePathBit).toList
   def pathToString(path: List[String]) = path.map(encodePathBit).mkString(delimiter)
 
+  def sortBy(c: Collection) = c.pathId
+
   def add(collection: Collection, collections: List[Collection]): List[Collection] =
-    collection :: collections.filter(col => col.path != collection.path)
+    (collection :: collections.filter(col => col.path != collection.path)).sortBy(sortBy)
 
   def remove(path: List[String], collections: List[Collection]): List[Collection] =
-    collections.filter(col => col.path != path)
+    collections.filter(col => col.path != path).sortBy(sortBy)
 
   def find(path: List[String], collections: List[Collection]): Option[Collection] =
     collections.find(col => col.path == path)
