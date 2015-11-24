@@ -1,6 +1,6 @@
 [aws]
-; Cloudformation stackname. Hint aws cloudformation list-stacks | grep "media-service-"
-stack-name =
+; awscli profile name, defaulted to media-service Hint cat ~/.aws/credentials
+profile_name = media-service
 
 [properties]
 ; Domain root of your site, e.g. media.foobar.co.uk
