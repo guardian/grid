@@ -3,7 +3,7 @@ package com.gu.mediaservice.model
 import com.gu.mediaservice.lib.collections.CollectionsManager
 import org.scalatest.{FunSpec, Matchers}
 
-class CollectionManagerTest extends FunSpec with Matchers {
+class CollectionsManagerTest extends FunSpec with Matchers {
 
   describe("CollectionManager") {
 
