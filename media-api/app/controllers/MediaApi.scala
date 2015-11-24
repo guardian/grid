@@ -432,7 +432,7 @@ object SearchParams {
     type SearchParamValidation = Validation[InvalidUriParams, SearchParams]
     type SearchParamValidations = ValidationNel[InvalidUriParams, SearchParams]
     val maxSize = 200
-    
+
     def validate(searchParams: SearchParams): SearchParamValidations = {
       // we just need to return the first `searchParams` as we don't need to manipulate them
       // TODO: try reduce these

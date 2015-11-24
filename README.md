@@ -78,14 +78,22 @@ Start Elasticsearch from the `elasticsearch` directory:
 
 ### Create CloudFormation Stack
 
-First you need to create some dev credentials and resources in AWS.
+First you need to create some dev credentials in AWS - ask your friendly system administrator.
 
-Log into the AWS Console (ask your friendly system administrator for a
-link and credentials) and change to the EU (Ireland) availability zone.
+Setup your awscli with a new profile `aws configure --profile media-service`.
 
-Go to the CloudFormation console and add a new stack, call it
-`media-service-DEV-{your-username}`, upload the template file from
-`cloud-formation/dev-template.json` and create the stack.
+**Pro-tip**: Set `AWS_DEFAULT_PROFILE` to avoid using the `--profile` flag with the awscli in the future.
+
+```sh
+echo 'export AWS_DEFAULT_PROFILE=media-service' >> $HOME/.profile
+```
+
+To create your stack run [create-dev-stack.sh](cloud-formation/scripts/create-dev-stack.sh):
+
+```sh
+cd cloud-formation/scripts
+./create-dev-stack.sh
+```
 
 ### .properties files
 
