@@ -18,7 +18,9 @@
     "id-class-ignore-regex": false,
     "id-class-no-ad": false,
     "id-class-style": false,
-    "id-no-dup": true,
+// we have to allow id duplicates as some ids are AngularJS expressions
+//    "id-no-dup": true,
+    "id-no-dup": false,
     "img-req-alt": true,
     "img-req-src": false,
     "indent-style": "spaces",
