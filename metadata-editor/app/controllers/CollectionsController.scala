@@ -17,7 +17,6 @@ import scala.concurrent.Future
 
 import com.gu.mediaservice.lib.argo.ArgoHelpers
 import com.gu.mediaservice.lib.auth.{AuthenticatedService, PandaUser, Principal}
-import com.gu.mediaservice.lib.collections.CollectionsManager
 import com.gu.mediaservice.model.{ActionData, Collection}
 
 import store.CollectionsStore
@@ -26,9 +25,14 @@ case class InvalidPrinciple(message: String) extends Throwable
 
 object CollectionsController extends Controller with ArgoHelpers {
 
-  val Authenticated = ControllerHelper.Authenticated
   import lib.Config.rootUri
+  val Authenticated = ControllerHelper.Authenticated
 
+  val addCollectionAction = Action("create", URI.create(s"$rootUri/collections"), "POST")
+
+  def collectionUri(c: Collection) = URI.create(s"$rootUri/collections/${c.pathId}")
+
+  def deleteCollectionAction(c: Collection) = Action("delete", collectionUri(c), "DELETE")
 
   def collectionNotFound(path: String) =
     respondError(NotFound, "collection-not-found", s"Could not find collection: $path")
@@ -39,15 +43,18 @@ object CollectionsController extends Controller with ArgoHelpers {
   def getCollections = Authenticated.async { req =>
     CollectionsStore.getAll map { collections =>
       val collectionEntities = collections.map { collection =>
-        val uri = URI.create(s"$rootUri/collections/${collection.pathId}")
-        EmbeddedEntity(uri, Some(collection), actions = List(Action("delete", uri, "DELETE")))
+        EmbeddedEntity(
+          collectionUri(collection),
+          Some(collection),
+          actions = List(deleteCollectionAction(collection))
+        )
       }
 
       val tree = Node.buildTree[EmbeddedEntity[Collection]]("root",
         collectionEntities,
         (entity) => entity.data.map(a => a.path).getOrElse(Nil))
 
-      respond(tree)
+      respond(tree, actions = List(addCollectionAction))
     }
   }
 
@@ -55,10 +62,6 @@ object CollectionsController extends Controller with ArgoHelpers {
     (req.body \ "data").asOpt[List[String]].map { path =>
       addCollection(path, getUserFromReq(req))
     } getOrElse Future.successful(invalidJson(req.body))
-  }
-
-  def addCollectionFromString(collection: String) = Authenticated.async { req =>
-    addCollection(CollectionsManager.stringToPath(collection), getUserFromReq(req))
   }
 
   def removeCollection(collectionPath: String) = Authenticated.async { req =>
@@ -81,6 +84,8 @@ object CollectionsController extends Controller with ArgoHelpers {
     case user => throw new InvalidPrinciple(s"Invalid user ${user.name}")
   }
 
+  // We have to do this as Play's serialisation doesn't work all that well.
+  // Especially around types with subtypes, so we have to be very explicit here.
   implicit def collectionEntityWrites: Writes[Node[EmbeddedEntity[Collection]]] = (
     (__ \ "name").write[String] ~
     (__ \ "children").lazyWrite(Writes.seq[Node[EmbeddedEntity[Collection]]](collectionEntityWrites)) ~

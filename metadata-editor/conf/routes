@@ -23,7 +23,6 @@ DELETE  /metadata/:id/usage-rights                      controllers.EditsControl
 # Collections
 GET     /collections                                    controllers.CollectionsController.getCollections
 POST    /collections                                    controllers.CollectionsController.addCollectionFromJson
-PUT     /collections/*collection                        controllers.CollectionsController.addCollectionFromString(collection: String)
 DELETE  /collections/*collection                        controllers.CollectionsController.removeCollection(collection: String)
 
 # Management
