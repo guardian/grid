@@ -1,10 +1,14 @@
 package controllers
 
+import java.net.URI
+
+import com.gu.mediaservice.lib.argo.model.{EmbeddedEntity, Action}
 import lib.ControllerHelper
 import model.Node
 import org.joda.time.DateTime
 
-import play.api.libs.json.JsValue
+import play.api.libs.functional.syntax._
+import play.api.libs.json._
 import play.api.mvc.Controller
 import play.api.mvc.Security.AuthenticatedRequest
 
@@ -18,10 +22,12 @@ import com.gu.mediaservice.model.{ActionData, Collection}
 
 import store.CollectionsStore
 
+case class InvalidPrinciple(message: String) extends Throwable
 
 object CollectionsController extends Controller with ArgoHelpers {
 
   val Authenticated = ControllerHelper.Authenticated
+  import lib.Config.rootUri
 
 
   def collectionNotFound(path: String) =
@@ -32,7 +38,15 @@ object CollectionsController extends Controller with ArgoHelpers {
 
   def getCollections = Authenticated.async { req =>
     CollectionsStore.getAll map { collections =>
-      val tree = Node.buildTree[Collection]("root", collections, (collection) => collection.path)
+      val collectionEntities = collections.map { collection =>
+        val uri = URI.create(s"$rootUri/collections/${collection.pathId}")
+        EmbeddedEntity(uri, Some(collection), actions = List(Action("delete", uri, "DELETE")))
+      }
+
+      val tree = Node.buildTree[EmbeddedEntity[Collection]]("root",
+        collectionEntities,
+        (entity) => entity.data.map(a => a.path).getOrElse(Nil))
+
       respond(tree)
     }
   }
@@ -47,6 +61,12 @@ object CollectionsController extends Controller with ArgoHelpers {
     addCollection(CollectionsManager.stringToPath(collection), getUserFromReq(req))
   }
 
+  def removeCollection(collectionPath: String) = Authenticated.async { req =>
+    CollectionsStore.remove(collectionPath) map { collectionOpt =>
+      collectionOpt.map(respond(_)).getOrElse(collectionNotFound(collectionPath))
+    }
+  }
+
   private def addCollection(path: List[String], who: String) = {
     val collection = Collection(path, ActionData(who, DateTime.now))
     CollectionsStore.add(collection).map { collection =>
@@ -58,12 +78,15 @@ object CollectionsController extends Controller with ArgoHelpers {
     case PandaUser(email, _, _, _) => email
     case AuthenticatedService(name) => name
     // We should never get here
-    case _ => "anonymous"
+    case user => throw new InvalidPrinciple(s"Invalid user ${user.name}")
   }
 
-  def removeCollection(collectionPath: String) = Authenticated.async { req =>
-    CollectionsStore.remove(collectionPath) map { collectionOpt =>
-      collectionOpt.map(respond(_)).getOrElse(collectionNotFound(collectionPath))
-    }
-  }
+  implicit def collectionEntityWrites: Writes[Node[EmbeddedEntity[Collection]]] = (
+    (__ \ "name").write[String] ~
+    (__ \ "children").lazyWrite(Writes.seq[Node[EmbeddedEntity[Collection]]](collectionEntityWrites)) ~
+    (__ \ "content").writeNullable[EmbeddedEntity[Collection]]
+  )(node => (node.name, node.children, node.content))
 }
+
+
+
