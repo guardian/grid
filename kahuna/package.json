@@ -52,13 +52,14 @@
     }
   },
   "devDependencies": {
+    "htmllint-cli": "0.0.4",
     "jscs": "^1.13.0",
     "jshint": "^2.5.11",
     "jspm": "~0.16.0"
   },
   "scripts": {
     "test": "npm run lint",
-    "lint": "jscs public/js/ && jshint public/js --exclude public/js/dist/build.js",
+    "lint": "jscs public/js/ && jshint public/js --exclude public/js/dist/build.js && htmllint public/js/**/*.html",
     "dist": "jspm bundle js/main public/js/dist/build.js -m --inject --no-mangle",
     "undist": "jspm unbundle && rm -f public/js/dist/build.js*",
     "postinstall": "jspm install"
