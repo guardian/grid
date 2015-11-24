@@ -49,7 +49,6 @@ object CollectionsController extends Controller with ArgoHelpers {
 
   private def addCollection(path: List[String], who: String) = {
     val collection = Collection(path, ActionData(who, DateTime.now))
-    println(collection)
     CollectionsStore.add(collection).map { collection =>
       respond(collection)
     }
