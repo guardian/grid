@@ -20,7 +20,7 @@ object CollectionsManager {
     (collection :: collections.filter(col => col.path != collection.path)).sortBy(sortBy)
 
   def remove(path: List[String], collections: List[Collection]): List[Collection] =
-    collections.filter(col => col.path != path).sortBy(sortBy)
+    collections.filter(col => col.path != path)
 
   def find(path: List[String], collections: List[Collection]): Option[Collection] =
     collections.find(col => col.path == path)
