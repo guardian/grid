@@ -1,6 +1,8 @@
 import angular from 'angular';
 
 import '../../services/panel';
+import '../../services/api/collections-api';
+
 import './gr-collections-panel.css!';
 
 export var grCollectionsPanel = angular.module('grCollectionsPanel', [
@@ -9,7 +11,8 @@ export var grCollectionsPanel = angular.module('grCollectionsPanel', [
 grCollectionsPanel.controller('GrCollectionsPanelCtrl', [
     'panelService',
     '$rootScope',
-    function (panelService, $rootScope) {
+    'collections',
+    function (panelService, $rootScope, collections) {
 
     const ctrl = this;
     const panelName = 'gr-collections-panel';
@@ -26,67 +29,11 @@ grCollectionsPanel.controller('GrCollectionsPanelCtrl', [
         }
     );
 
-    ctrl.collections = {
-        "name": "root",
-        "children": [
-            {
-                "name": "g2",
-                "children": [
-                    {
-                        "name": "arts",
-                        "children": []
-                    },
-                    {
-                        "name": "fashion",
-                        "children": [
-                            {
-                                "name": "fish",
-                                "children": [
-                                    {
-                                        "name": "one fish",
-                                        "children": []
-                                    },
-                                    {
-                                        "name": "two fish",
-                                        "children": []
-                                    },
-                                    {
-                                        "name": "red fish",
-                                        "children": []
-                                    },
-                                    {
-                                        "name": "blue fish",
-                                        "children": []
-                                    }
-                                ]
-                            },
-                            {
-                                "name": "cats in tiny hats",
-                                "children": []
-                            },
-                            {
-                                "name": "more hats",
-                                "children": []
-                            }
-                        ]
-                    }
-                ]
-            },
-            {
-                "name": "obs",
-                "children": [],
-                "data": {
-                    "path": [
-                        "obs"
-                    ],
-                    "paradata": {
-                        "who": "beans.queens@guardian.co.uk",
-                        "when": "2015-12-11T00:00:00.000+0000"
-                    }
-                }
-            }
-        ]
-    }
+
+        collections.getCollections().then(data => {
+            ctrl.collections = data;
+        });
+
 }]);
 
 grCollectionsPanel.controller('GrNodeCtrl', [
