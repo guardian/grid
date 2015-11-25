@@ -34,6 +34,9 @@ You will need to install:
 * Nginx
 * [GraphicsMagick](http://www.graphicsmagick.org/)
 `sudo apt-get install graphicsmagick` or `brew install graphicsmagick`.
+* [awscli](https://aws.amazon.com/cli/)
+* [jq](https://stedolan.github.io/jq/)
+* pwgen
 
 ### Nginx
 
