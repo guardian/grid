@@ -99,7 +99,7 @@ object ElasticSearch extends ElasticSearchClient with ImageFields {
         "lastModified" -> asGroovy(JsString(currentIsoDateString))
       ).asJava)
       .setScript(
-          addUsagesScript +
+          replaceUsagesScript +
           updateLastModifiedScript,
         scriptType)
       .executeAndLog(s"updating usages on image $id")
@@ -182,7 +182,7 @@ object ElasticSearch extends ElasticSearchClient with ImageFields {
     """.stripMargin
 
   // Create the exports key or add to it
-  private val addUsagesScript =
+  private val replaceUsagesScript =
     "ctx._source.usages = usages;"
 
   // Create the exports key or add to it
