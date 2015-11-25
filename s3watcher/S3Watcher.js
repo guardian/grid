@@ -14,7 +14,7 @@ exports.handler = function(event, context) {
 
     const duplicateTransfer = function(err) {
         const failState = err && (err.code === 'NotFound' || err.code === 'NoSuchKey');
-        const failComplete = Rx.Observable.from(["No source file."]);
+        const failComplete = Rx.Observable.return("No source file.");
 
         return failState ? failComplete : Rx.Observable.throw(err);
     };
