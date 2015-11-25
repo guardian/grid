@@ -128,7 +128,7 @@ case object NoRights
 }
 
 
-case class Chargeable(restrictions: Option[String] = None) extends UsageRights {
+final case class Chargeable(restrictions: Option[String] = None) extends UsageRights {
   val defaultCost = Chargeable.defaultCost
 }
 object Chargeable extends UsageRightsSpec {
@@ -161,7 +161,7 @@ object Agency extends UsageRightsSpec {
 }
 
 
-case class CommissionedAgency(supplier: String, restrictions: Option[String] = None) extends UsageRights {
+final case class CommissionedAgency(supplier: String, restrictions: Option[String] = None) extends UsageRights {
   val defaultCost = CommissionedAgency.defaultCost
 }
 object CommissionedAgency extends UsageRightsSpec {
@@ -176,7 +176,7 @@ object CommissionedAgency extends UsageRightsSpec {
 }
 
 
-case class PrImage(restrictions: Option[String] = None) extends UsageRights {
+final case class PrImage(restrictions: Option[String] = None) extends UsageRights {
   val defaultCost = PrImage.defaultCost
 }
 object PrImage extends UsageRightsSpec {
@@ -192,7 +192,7 @@ object PrImage extends UsageRightsSpec {
 }
 
 
-case class Handout(restrictions: Option[String] = None) extends UsageRights {
+final case class Handout(restrictions: Option[String] = None) extends UsageRights {
   val defaultCost = Handout.defaultCost
 }
 object Handout extends UsageRightsSpec {
@@ -208,7 +208,7 @@ object Handout extends UsageRightsSpec {
 }
 
 
-case class Screengrab(restrictions: Option[String] = None) extends UsageRights {
+final case class Screengrab(restrictions: Option[String] = None) extends UsageRights {
   val defaultCost = Screengrab.defaultCost
 }
 object Screengrab extends UsageRightsSpec {
@@ -224,7 +224,7 @@ object Screengrab extends UsageRightsSpec {
 }
 
 
-case class GuardianWitness(restrictions: Option[String] = None) extends UsageRights {
+final case class GuardianWitness(restrictions: Option[String] = None) extends UsageRights {
   val defaultCost = GuardianWitness.defaultCost
 }
 object GuardianWitness extends UsageRightsSpec {
@@ -243,7 +243,7 @@ object GuardianWitness extends UsageRightsSpec {
 }
 
 
-case class SocialMedia(restrictions: Option[String] = None) extends UsageRights {
+final case class SocialMedia(restrictions: Option[String] = None) extends UsageRights {
   val defaultCost = SocialMedia.defaultCost
 }
 object SocialMedia extends UsageRightsSpec {
@@ -262,7 +262,7 @@ object SocialMedia extends UsageRightsSpec {
 }
 
 
-case class Obituary(restrictions: Option[String] = None) extends UsageRights {
+final case class Obituary(restrictions: Option[String] = None) extends UsageRights {
   val defaultCost = Obituary.defaultCost
 }
 object Obituary extends UsageRightsSpec {
@@ -280,7 +280,7 @@ object Obituary extends UsageRightsSpec {
 }
 
 
-case class StaffPhotographer(photographer: String, publication: String,
+final case class StaffPhotographer(photographer: String, publication: String,
                              restrictions: Option[String] = None) extends Photographer {
   val defaultCost = StaffPhotographer.defaultCost
 }
@@ -296,7 +296,7 @@ object StaffPhotographer extends UsageRightsSpec {
 }
 
 
-case class ContractPhotographer(photographer: String, publication: Option[String] = None,
+final case class ContractPhotographer(photographer: String, publication: Option[String] = None,
                                 restrictions: Option[String] = None) extends Photographer {
   val defaultCost = ContractPhotographer.defaultCost
 }
@@ -312,7 +312,7 @@ object ContractPhotographer extends UsageRightsSpec {
 }
 
 
-case class CommissionedPhotographer(photographer: String, publication: Option[String] = None,
+final case class CommissionedPhotographer(photographer: String, publication: Option[String] = None,
                                     restrictions: Option[String] = None) extends Photographer {
   val defaultCost = CommissionedPhotographer.defaultCost
 }
@@ -328,7 +328,7 @@ object CommissionedPhotographer extends UsageRightsSpec {
 }
 
 
-case class Pool(restrictions: Option[String] = None) extends UsageRights {
+final case class Pool(restrictions: Option[String] = None) extends UsageRights {
   val defaultCost = Pool.defaultCost
 }
 object Pool extends UsageRightsSpec {
@@ -344,7 +344,7 @@ object Pool extends UsageRightsSpec {
 }
 
 
-case class CrownCopyright(restrictions: Option[String] = None) extends UsageRights {
+final case class CrownCopyright(restrictions: Option[String] = None) extends UsageRights {
   val defaultCost = CrownCopyright.defaultCost
 }
 object CrownCopyright extends UsageRightsSpec {
@@ -360,7 +360,7 @@ object CrownCopyright extends UsageRightsSpec {
 }
 
 
-case class ContractIllustrator(creator: String, restrictions: Option[String] = None)
+final case class ContractIllustrator(creator: String, restrictions: Option[String] = None)
   extends Illustrator {
   val defaultCost = ContractIllustrator.defaultCost
 }
@@ -376,7 +376,7 @@ object ContractIllustrator extends UsageRightsSpec {
 }
 
 
-case class CommissionedIllustrator(creator: String, restrictions: Option[String] = None)
+final case class CommissionedIllustrator(creator: String, restrictions: Option[String] = None)
   extends Illustrator {
   val defaultCost = CommissionedIllustrator.defaultCost
 }
@@ -392,7 +392,7 @@ object CommissionedIllustrator extends UsageRightsSpec {
 }
 
 
-case class CreativeCommons(licence: String, source: String, creator: String, contentLink: String,
+final case class CreativeCommons(licence: String, source: String, creator: String, contentLink: String,
                            restrictions: Option[String] = None) extends UsageRights {
   val defaultCost = CreativeCommons.defaultCost
 }
@@ -411,7 +411,7 @@ object CreativeCommons extends UsageRightsSpec {
 }
 
 
-case class Composite(suppliers: String, restrictions: Option[String] = None) extends UsageRights {
+final case class Composite(suppliers: String, restrictions: Option[String] = None) extends UsageRights {
   val defaultCost = Composite.defaultCost
 }
 object Composite extends UsageRightsSpec {
