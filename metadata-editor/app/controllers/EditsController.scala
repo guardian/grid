@@ -169,7 +169,6 @@ object EditsController extends Controller with ArgoHelpers with DynamoEdits with
   }
 
   def setUsageRights(id: String) = Authenticated.async(parse.json) { req =>
-    println(req.body)
     (req.body \ "data").asOpt[UsageRights].map(usageRight => {
       dynamo.jsonAdd(id, "usageRights", caseClassToMap(usageRight))
         .map(publish(id))
