@@ -8,7 +8,7 @@ import './gr-image-usage.css!';
 import '../../image/service';
 
 export const module = angular.module('gr.imageUsage', [
-    'gr.image.service',
+    'gr.image.service'
 ]);
 
 module.controller('grImageUsageCtrl', [

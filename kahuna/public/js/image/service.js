@@ -1,6 +1,5 @@
 import angular from 'angular';
 import Immutable from 'immutable';
-import {List} from 'immutable';
 
 import '../edits/service';
 
@@ -27,16 +26,22 @@ imageService.factory('imageService', [function() {
             const referenceType = usage.get('usageType') == 'print' ? 'indesign' : 'frontend';
 
             const build = (usage, referenceType) => {
-                const reference = usage.get('references').find(u => u.get('referenceType') == referenceType)
-                return reference ? reference.get('name') : 'No title found.'
-            }
+                const reference = usage.get('references').find(u =>
+                    u.get('referenceType') == referenceType);
+
+                return reference ? reference.get('name') : 'No title found.';
+            };
 
             return build(usage, referenceType);
         }
 
-        const usagesList = Immutable.fromJS(image.data.usages).map(u => u.set('title', usageTitle(u)));
+        const usagesList = Immutable.fromJS(image.data.usages).map(u =>
+            u.set('title', usageTitle(u)));
+
         const groupedByState = usagesList.groupBy(u => u.get('status'));
-        const filterByUsageType = (usageType) => usagesList.filter(u => u.get('usageType') == usageType)
+
+        const filterByUsageType = (usageType) =>
+            usagesList.filter(u => u.get('usageType') == usageType);
 
         return {
             usages: usagesList.toJS(),
