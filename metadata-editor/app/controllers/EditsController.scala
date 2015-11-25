@@ -21,8 +21,6 @@ import com.gu.mediaservice.model._
 import lib._
 
 
-
-
 // FIXME: the argoHelpers are all returning `Ok`s (200)
 // Some of these responses should be `Accepted` (202)
 // TODO: Look at adding actions e.g. to collections / sets where we could `PUT`
@@ -144,7 +142,6 @@ object EditsController extends Controller with ArgoHelpers with DynamoEdits with
       val metadataOpt = edits.usageRights.flatMap(usageRightsToMetadata)
 
       metadataOpt map { metadata =>
-        println(metadata)
         val mergedMetadata = originalMetadata.copy(
           byline = metadata.byline orElse originalMetadata.byline,
           credit = metadata.credit orElse originalMetadata.credit
@@ -172,6 +169,7 @@ object EditsController extends Controller with ArgoHelpers with DynamoEdits with
   }
 
   def setUsageRights(id: String) = Authenticated.async(parse.json) { req =>
+    println(req.body)
     (req.body \ "data").asOpt[UsageRights].map(usageRight => {
       dynamo.jsonAdd(id, "usageRights", caseClassToMap(usageRight))
         .map(publish(id))
