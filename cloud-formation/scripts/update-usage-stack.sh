@@ -11,4 +11,4 @@ aws cloudformation update-stack \
     --capabilities CAPABILITY_IAM \
     --template-url $TEMPLATE_URL \
     --stack-name $STACK_NAME \
-    --parameters ParameterKey=ArtifactBucket,ParemeterValue=$BUCKET ParameterKey=User,ParameterValue=$STACK_USER ParameterKey=ThrallQueueArn,ParameterValue=$STACK_QUEUE_ARN
+    --parameters ParameterKey=ArtifactBucket,ParameterValue=$BUCKET ParameterKey=User,ParameterValue=$STACK_USER ParameterKey=ThrallQueueArn,ParameterValue=$STACK_QUEUE_ARN
