@@ -30,7 +30,7 @@ object EditsController extends Controller with ArgoHelpers with DynamoEdits with
 
   import UsageRightsMetadataMapper.usageRightsToMetadata
 
-  val Authenticated = Authed.action
+  val Authenticated = ControllerHelper.Authenticated
   val metadataBaseUri = Config.services.metadataBaseUri
 
   def decodeUriParam(param: String): String = decode(param, "UTF-8")

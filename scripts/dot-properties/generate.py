@@ -1,4 +1,4 @@
-from boto import cloudformation
+import boto3
 from jinja2 import Environment, FileSystemLoader
 import os
 import logging
@@ -9,27 +9,45 @@ logging.basicConfig(format='%(asctime)s %(name)s %(levelname)s %(message)s',
 LOGGER = logging.getLogger('generate')
 
 
-def _get_connection(profile_name, region_name):
-    LOGGER.info('Connecting to AWS using Profile: {profile} in Region {region}'.format(profile=profile_name,
-                                                                                       region=region_name))
-    return cloudformation.connect_to_region(region_name=region_name, profile_name=profile_name)
+def _boto_session(aws_profile_name):
+    LOGGER.info('Using AWS profile {}'.format(aws_profile_name))
+    boto3.setup_default_session(profile_name=aws_profile_name)
 
 
-def _get_stack_outputs(connection, stack_name_or_id):
-    stack = connection.describe_stacks(stack_name_or_id=stack_name_or_id)
+def _get_stack_name():
+    user = boto3.resource('iam').CurrentUser()
+    stack_name = 'media-service-DEV-{}'.format(user.user_name)
+    LOGGER.info('Using stack {}'.format(stack_name))
+    return stack_name
 
-    if stack:
-        LOGGER.info('Stack found: {stack}'.format(stack=stack_name_or_id))
-        outputs = {o.key: o.value for o in stack[0].outputs}
+
+def _get_client():
+    return boto3.client('cloudformation')
+
+
+def _get_stack_outputs():
+    stack_name = _get_stack_name()
+    cf_client = _get_client()
+    stack = cf_client.describe_stacks(StackName=stack_name)
+
+    outputs = {}
+
+    LOGGER.info('Here is your CloudFormation Stack output')
+
+    for output in stack['Stacks'][0]['Outputs']:
+        key = output['OutputKey']
+        value = output['OutputValue']
 
         # Cropper service doesn't expect a protocol to be included,
         # remove the http:// string from the ImageOriginWebsite item.
-        outputs['ImageOriginWebsite'] = outputs['ImageOriginWebsite'].replace('http://', '')
+        if key == 'ImageOriginWebsite':
+            value = value.replace('http://', '')
 
-        return outputs
-    else:
-        LOGGER.warn('Stack not found: {stack}'.format(stack=stack_name_or_id))
-        return None
+        LOGGER.info('{key} = {value}'.format(key=key, value=value))
+
+        outputs[key] = value
+
+    return outputs
 
 
 def _get_template_environment():
@@ -52,13 +70,9 @@ def _write_template_to_disk(directory, template_name, parsed_template):
     LOGGER.info('Created {file_path}'.format(file_path=property_path))
 
 
-def generate_files(aws_profile_name, aws_region, cf_stack, output_dir, props):
-    connection = _get_connection(aws_profile_name, aws_region)
-    stack_output = _get_stack_outputs(connection, cf_stack)
-
-    LOGGER.info('Here is your CloudFormation Output')
-    for k, v in stack_output.iteritems():
-        LOGGER.info('{key} = {value}'.format(key=k, value=v))
+def generate_files(aws_profile_name, output_dir, props):
+    _boto_session(aws_profile_name)
+    stack_output = _get_stack_outputs()
 
     environment = _get_template_environment()
     stack_output.update(props)

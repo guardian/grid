@@ -35,7 +35,9 @@
                              ng:class="{'image-crop--selected': !ctrl.crop}">
                             <a draggable="true"
                                 ui:sref="{ crop: null }">
-                                <img class="image-crop__image" ng:src="{{ ctrl.image.data.thumbnail | assetFile }}" />
+                                <img class="image-crop__image"
+                                     alt="original image thumbnail"
+                                     ng:src="{{ ctrl.image.data.thumbnail | assetFile }}" />
                                 <div class="image-crop__aspect-ratio"
                                     ng:class="{'image-crop__aspect-ratio--selected': !ctrl.crop}">
                                     {{ctrl.image.data.source.dimensions.width}} &times; {{ctrl.image.data.source.dimensions.height}}
@@ -56,7 +58,9 @@
                        ui:sref="{ crop: ctrl.fullCrop.id }"
                        ng:init="extremeAssets = (crop | getExtremeAssets)">
                         <span class="image-crop__creator" title="Cropped by {{crop.author}} at {{crop.date | date:'medium'}}">{{crop.author | getInitials}}</span>
-                        <img class="image-crop__image" ng:src="{{ extremeAssets.smallest | assetFile }}" />
+                        <img class="image-crop__image"
+                             alt="full frame image thumbnail"
+                             ng:src="{{ extremeAssets.smallest | assetFile }}" />
                         <div class="image-crop__aspect-ratio"
                              ng:class="{'image-crop__aspect-ratio--selected': !ctrl.crop}">
                             {{crop.specification.bounds.width}} &times; {{crop.specification.bounds.height}}
@@ -80,7 +84,9 @@
                                ui:drag-data="{{ctrl.image | asImageAndCropsDragData:crop}}"
                                ui:drag-image="{{extremeAssets.smallest | assetFile}}">
                                 <span class="image-crop__creator" title="Cropped by {{crop.author}} at {{crop.date | date:'medium'}}">{{crop.author | getInitials}}</span>
-                                <img class="image-crop__image" ng:src="{{extremeAssets.smallest | assetFile}}" />
+                                <img class="image-crop__image"
+                                     alt="cropped image thumbnail"
+                                     ng:src="{{extremeAssets.smallest | assetFile}}" />
                                 <div class="image-crop__aspect-ratio"
                                     ng:class="{'image-crop__aspect-ratio--selected': crop == ctrl.crop}">
                                     <ul>
@@ -145,6 +151,7 @@
     <div class="easel">
         <div class="easel__canvas" ng:if="!ctrl.crop">
             <img class="easel__image"
+                 alt="preview of original image"
                  ng:src="{{ctrl.optimisedImageUri}}"
                  grid:track-image="ctrl.image"
                  grid:track-image-location="original"
@@ -163,7 +170,10 @@
                ui:drag-data="{{ctrl.image | asImageAndCropsDragData:ctrl.crop}}"
                ui:drag-image="{{extremeAssets.smallest | assetFile}}">
                 <!-- TODO: Add tracking to crop -->
-                <img class="easel__image" ng:src="{{extremeAssets.largest | assetFile}}" />
+                <img class="easel__image"
+                     alt="cropped image"
+                     ng:src="{{extremeAssets.largest | assetFile}}"
+                />
             </a>
         </div>
     </div>

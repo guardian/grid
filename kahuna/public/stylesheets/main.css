@@ -152,6 +152,8 @@ a:focus {
     outline: 2px solid rgba(255, 255, 255, 0.5);
     outline-offset: -3px;
 }
+
+button[disabled],
 .button[disabled] {
     background-color: #999;
     box-shadow: 0 2px #666;
@@ -1489,6 +1491,9 @@ FIXME: what to do with touch devices
 .image-info__wrap {
     position: relative;
     vertical-align: top;
+    /* cut long words */
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .image-info__wrap:hover .image-info__edit {

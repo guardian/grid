@@ -1,6 +1,5 @@
 package controllers
 
-import com.gu.mediaservice.lib.elasticsearch.IndexSettings
 import model.UsageRightsProperty
 import play.api.libs.json._
 import play.api.mvc.Controller
@@ -9,13 +8,12 @@ import com.gu.mediaservice.lib.argo.ArgoHelpers
 import com.gu.mediaservice.lib.argo.model.Link
 import com.gu.mediaservice.model._
 
-import lib.{Authed, Config}
+import lib.{ControllerHelper, Config}
 
 object EditsApi extends Controller with ArgoHelpers {
 
   import Config.rootUri
-
-  val Authenticated = Authed.action
+  val Authenticated = ControllerHelper.Authenticated
 
     // TODO: add links to the different responses esp. to the reference image
   val indexResponse = {
