@@ -44,7 +44,7 @@ module.exports = {
         };
 
         const failGraceful = function(e) {
-            log("failed", e)
+            log("failed", e);
 
             log("copy", s3CopyObject);
             return S3Helper.copyS3Object(s3CopyObject).flatMap(function(){
