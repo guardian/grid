@@ -34,6 +34,10 @@ You will need to install:
 * Nginx
 * [GraphicsMagick](http://www.graphicsmagick.org/)
 `sudo apt-get install graphicsmagick` or `brew install graphicsmagick`.
+* [awscli](https://aws.amazon.com/cli/)
+* [jq](https://stedolan.github.io/jq/)
+
+If you're using OSX, you'll also need md5 `brew install md5`.
 
 ### Nginx
 
@@ -189,18 +193,6 @@ The user interface should be up at
 
 
 ### Run Cropper
-
-Add an API key for cropper to your key bucket:
-
-```
-# Create key file
-$ CROPPER_KEY=cropper-`head -c 1024 /dev/urandom | md5sum | awk '{ print $1 }'`
-$ echo Cropper > $CROPPER_KEY
-
-# Upload to S3
-# note: see `aws --profile media s3 ls | grep keybucket` output to find your bucket name
-$ aws s3 cp $CROPPER_KEY s3://...YOUR_BUCKET_NAME.../
-```
 
 From the project root, run via sbt:
 
