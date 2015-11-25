@@ -4,11 +4,13 @@ import '../analytics/track';
 import template from './image.html!text';
 
 import '../image/service';
+import '../services/image/usages';
 import '../components/gr-add-label/gr-add-label';
 import '../components/gr-image-persist-status/gr-image-persist-status';
 
 export var image = angular.module('kahuna.preview.image', [
     'gr.image.service',
+    'gr.image-usages.service',
     'analytics.track',
     'gr.addLabel',
     'gr.imagePersistStatus'
@@ -18,10 +20,11 @@ image.controller('uiPreviewImageCtrl', [
     '$scope',
     '$rootScope',
     'imageService',
+    'imageUsagesService',
     function (
         $scope,
         $rootScope,
-        imageService) {
+        imageUsagesService) {
     var ctrl = this;
 
     const freeUpdateListener = $rootScope.$on('image-updated', (e, updatedImage) => {
@@ -33,7 +36,7 @@ image.controller('uiPreviewImageCtrl', [
     });
 
     ctrl.states = imageService(ctrl.image).states;
-    ctrl.usages = imageService(ctrl.image).usages;
+    ctrl.usages = imageUsagesService(ctrl.image);
 
     $scope.$on('$destroy', function() {
         freeUpdateListener();

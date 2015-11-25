@@ -5,20 +5,20 @@ import template from './gr-image-usage.html!text';
 import usageTemplate from './gr-image-usage-list.html!text';
 import './gr-image-usage.css!';
 
-import '../../image/service';
+import '../../services/image/usages';
 
 export const module = angular.module('gr.imageUsage', [
-    'gr.image.service'
+    'gr.image-usages.service'
 ]);
 
 module.controller('grImageUsageCtrl', [
-    'imageService',
+    'imageUsagesService',
 
-    function (imageService) {
+    function (imageUsagesService) {
 
         const ctrl = this;
 
-        ctrl.usage = imageService(ctrl.image).usages.groupedByState;
+        ctrl.usage = imageUsagesService(ctrl.image).groupedByState;
 
         ctrl.usageTypeToName = (usageType) => {
             switch (usageType) {
