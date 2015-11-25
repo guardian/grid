@@ -33,7 +33,7 @@
             </gr-icon>
         </div>
 
-        <label
+        <div
             class="form-property"
             ng:repeat="property in ctrl.category.properties"
             ng:class="{ 'form-property--last': $last }">
@@ -68,16 +68,18 @@
                 </div>
             </div>
 
-            <div ng:if="property.name !== 'restrictions'">
-                <div class="form-label">
+            <div ng:if="property.name !== 'restrictions'"
+                 ng:init="fieldUniqueId = $id">
+                <label class="form-label" for="ure-field-{{::fieldUniqueId}}">
                     <div class="form-label__text">{{ property.label }}</div>
                     <!-- TODO: Show errors here -->
                     <!--<div class="form-label__error">Error</div>-->
-                </div>
+                </label>
 
                 <div ng:switch="property.type">
                     <div ng:switch-when="string">
                         <input
+                            id="ure-field-{{::fieldUniqueId}}"
                             class="form-input-text"
                             type="text"
                             name="{{ property.name }}"
@@ -114,6 +116,7 @@
 
                                 <select
                                     class="full-width"
+                                    id="ure-field-{{::fieldUniqueId}}"
                                     name="{{ property.name }}"
                                     ng:switch-when="true"
                                     ng:model="ctrl.model[property.name]"
@@ -128,6 +131,7 @@
 
                             <select
                                 class="full-width"
+                                id="ure-field-{{::fieldUniqueId}}"
                                 name="{{ property.name }}"
                                 ng:model="ctrl.model[property.name]"
                                 ng:required="property.required"
@@ -138,6 +142,7 @@
 
                             <input type="text"
                                 class="full-width"
+                                id="ure-field-{{::fieldUniqueId}}"
                                 placeholder="e.g. {{ property.examples }}"
                                 ng:model="ctrl.model[property.name]"
                                 ng:required="property.required"
@@ -152,6 +157,7 @@
 
                     <textarea
                         class="form-input-text"
+                        id="ure-field-{{::fieldUniqueId}}"
                         name="{{ property.name }}"
                         placeholder="e.g. {{ property.examples }}"
                         ng:model="ctrl.model[property.name]"
@@ -160,7 +166,7 @@
                     </textarea>
                 </div>
             </div>
-        </label>
+        </div>
     </div>
     <div class="ure__bar">
         <button class="ure__action button-ico button-cancel" type="button" ng:click="ctrl.cancel()"

@@ -30,6 +30,7 @@
        ui:drag-data="{{ctrl.image | asImageDragData}}">
        <div class="preview__fade"></div>
        <img class="preview__image"
+            alt="{{::ctrl.image.data.metadata.description}}"
             ng:src="{{::ctrl.image.data.thumbnail | assetFile}}"
             gr:image-fade-on-load />
     </a>
@@ -37,6 +38,7 @@
     <span ng:if="ctrl.selectionMode" class="preview__no-link">
         <div class="preview__fade"></div>
         <img class="preview__image"
+             alt="{{::ctrl.image.data.metadata.description}}"
              ng:src="{{::ctrl.image.data.thumbnail | assetFile}}"
              gr:image-fade-on-load />
     </span>

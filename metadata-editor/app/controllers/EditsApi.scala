@@ -6,18 +6,15 @@ import play.api.mvc.Controller
 
 import com.gu.mediaservice.lib.argo.ArgoHelpers
 import com.gu.mediaservice.lib.argo.model.Link
-import com.gu.mediaservice.lib.auth
-import com.gu.mediaservice.lib.auth.KeyStore
 import com.gu.mediaservice.model._
 
-import lib.Config
+import lib.{ControllerHelper, Config}
 
 object EditsApi extends Controller with ArgoHelpers {
 
-  import Config.{rootUri, loginUriTemplate, kahunaUri, keyStoreBucket, awsCredentials}
+  import Config.rootUri
 
-  val keyStore = new KeyStore(keyStoreBucket, awsCredentials)
-  val Authenticated = auth.Authenticated(keyStore, loginUriTemplate, kahunaUri)
+  val Authenticated = ControllerHelper.Authenticated
 
     // TODO: add links to the different responses esp. to the reference image
   val indexResponse = {

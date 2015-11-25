@@ -1,6 +1,8 @@
 import angular from 'angular';
 import JSZip from 'jszip';
 import './downloader.css!';
+import template from './downloader.html!text';
+
 export const downloader = angular.module('gr.downloader', []);
 
 downloader.controller('DownloaderCtrl',
@@ -10,6 +12,8 @@ downloader.controller('DownloaderCtrl',
     let ctrl = this;
 
     ctrl.download = () => {
+        ctrl.downloading = true;
+
         const zip = new JSZip();
         const imageHttp = url => $http.get(url, { responseType:'arraybuffer' });
         const imagesAddedToZip = Array.from(ctrl.images.values()).map(image =>
@@ -23,6 +27,8 @@ downloader.controller('DownloaderCtrl',
             const url = $window.URL.createObjectURL(blob);
 
             $window.location = url;
+        }).finally(() => {
+            ctrl.downloading = false;
         });
     };
 
@@ -43,15 +49,7 @@ downloader.directive('grDownloader', function() {
         scope: {
             images: '=grImages' // crappy two way binding
         },
-        template: `
-            <button class="download" ng:if="ctrl.images.size > 1"
-                type="button" title="Download images" ng:click="ctrl.download()">
-                <gr-icon-label gr-icon="file_download">Download</gr-icon-label>
-            </button>
-            <a class="download" ng:if="ctrl.images.size == 1"
-                href="{{ ctrl.getFirstImageSource() | assetFile }}" download target="_blank">
-                <gr-icon-label gr-icon="file_download">Download</gr-icon-label>
-            </a>`
+        template: template
     };
 });
 

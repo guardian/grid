@@ -2,10 +2,22 @@ package com.gu.mediaservice.model
 
 import org.joda.time.DateTime
 import play.api.libs.json._
+import play.api.libs.functional.syntax._
 
-case class Collection(path: List[String], actionData: ActionData)
+import com.gu.mediaservice.lib.collections.CollectionsManager
+
+case class Collection(path: List[String], actionData: ActionData) {
+  val pathId = CollectionsManager.pathToString(path)
+}
 object Collection {
-  implicit def formats: Format[Collection] = Json.format[Collection]
+  val reads: Reads[Collection] = Json.reads[Collection]
+  val writes: Writes[Collection] = (
+    (__ \ "pathId").write[String] ~
+    (__ \ "path").write[List[String]] ~
+    (__ \ "actionData").write[ActionData]
+  ){ col: Collection => (col.pathId, col.path, col.actionData) }
+
+  implicit val formats: Format[Collection] = Format(reads, writes)
 }
 
 // Following the crop structure

@@ -2,7 +2,7 @@
 package com.gu.mediaservice.lib.elasticsearch
 
 import play.api.libs.json.Json.JsValueWrapper
-import play.api.libs.json.Json
+import play.api.libs.json.{JsObject, Json}
 
 
 object Mappings {
@@ -10,7 +10,8 @@ object Mappings {
   val nonAnalyzedString = Json.obj("type" -> "string", "index" -> "not_analyzed")
   val nonIndexedString  = Json.obj("type" -> "string", "index" -> "no")
 
-  val sStemmerAnalysedString = Json.obj("type" -> "string", "analyzer" -> IndexSettings.guAnalyzer)
+  val sStemmerAnalysedString = Json.obj("type" -> "string", "analyzer" -> IndexSettings.enslishSStemmerAnalyzerName)
+  val hierarchyAnalysedString = Json.obj("type" -> "string", "analyzer" -> IndexSettings.hierarchyAnalyserName)
   val standardAnalysedString = Json.obj("type" -> "string", "analyzer" -> "standard")
 
   val simpleSuggester = Json.obj(
@@ -28,6 +29,8 @@ object Mappings {
   def nonDynamicObj(obj: (String, JsValueWrapper)*) = Json.obj("type" -> "object", "dynamic" -> "strict", "properties" -> Json.obj(obj:_*))
 
   def nonAnalysedList(indexName: String) = Json.obj("type" -> "string", "index" -> "not_analyzed", "index_name" -> indexName)
+
+  def withIndexName(indexName: String,  obj: JsObject) = Json.obj("index_Name" -> indexName) ++ obj
 
   val identifiersMapping =
     nonDynamicObj(
@@ -95,15 +98,28 @@ object Mappings {
       "assets" -> assetMapping
     )
 
+  val actionDataMapping = nonDynamicObj(
+    "author" -> nonAnalyzedString,
+    "date" -> dateFormat
+  )
+
+  val collectionMapping = withIndexName("collection", nonDynamicObj(
+    "path" -> nonAnalysedList("collectionPath"),
+    "pathId" -> nonAnalyzedString,
+    "pathHierarchy" -> hierarchyAnalysedString,
+    "actionData" -> actionDataMapping
+  ))
+
   val userMetadataMapping =
     nonDynamicObj(
       "archived"    -> boolean,
       "labels"      -> nonAnalysedList("label"),
       "metadata"    -> metadataMapping,
-      "usageRights" -> usageRightsMapping
+      "usageRights" -> usageRightsMapping,
+      "collections" -> collectionMapping
     )
 
-  val uploadInfo =
+  val uploadInfoMapping =
     nonDynamicObj(
       "filename" -> nonAnalyzedString
     )
@@ -146,6 +162,7 @@ object Mappings {
           "lastModified" -> dateFormat,
           "identifiers" -> dynamicObj,
           "uploadInfo" -> uploadInfo,
+          "collections" -> collectionMapping,
           "suggestMetadataCredit" -> simpleSuggester,
           "usages" -> usagesMapping
         ),
