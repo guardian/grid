@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-source ./stack-name.sh
+source ./stack-name.sh usage
 
 TABLE=`aws cloudformation list-stack-resources --stack-name $STACK_NAME | jq '.StackResourceSummaries[] | select(.LogicalResourceId == "UsageRecordTable") | .PhysicalResourceId' | tr -d '"'`
 
@@ -32,3 +32,5 @@ aws lambda create-event-source-mapping \
     --starting-position "LATEST" \
     --event-source-arn $TABLE_STREAM_ARN \
     --function-name $LAMBDA
+
+rm usage-updater-lambda-policy.json
