@@ -1,5 +1,16 @@
 package controllers
 
+import java.net.URI
+
+import play.api.libs.json.JsError
+import play.api.Logger
+import play.api.mvc.Results._
+import play.api.mvc.{Controller, BodyParsers}
+
+import scala.concurrent.ExecutionContext.Implicits.global
+import scala.concurrent.Future
+import scala.util.Try
+
 import rx.lang.scala.Observable
 
 import com.gu.mediaservice.lib.argo.ArgoHelpers
@@ -10,12 +21,6 @@ import com.gu.mediaservice.lib.aws.NoItemFound
 
 import lib._
 import model._
-
-import play.api.Logger
-import play.api.mvc.Controller
-import play.api.mvc.Results._
-
-import scala.concurrent.ExecutionContext.Implicits.global
 
 
 object UsageApi extends Controller with ArgoHelpers {
@@ -37,17 +42,17 @@ object UsageApi extends Controller with ArgoHelpers {
   def forMedia(mediaId: String) = Authenticated.async {
     val usagesFuture = UsageTable.queryByImageId(mediaId)
 
-    usagesFuture.map[play.api.mvc.Result](UsageResponse.build).recover { case error: Exception => {
+    usagesFuture.map[play.api.mvc.Result]((usages: Set[MediaUsage]) => {
+      val uri = Try { new URI(s"${Config.usageUri}/usages/media/${mediaId}") }.toOption
+
+      UsageResponse.build(usages, uri)
+    }).recover { case error: Exception => {
       Logger.error("UsageApi returned an error.", error)
 
       respondError(InternalServerError, "image-usage-retrieve-failed", error.getMessage())
     }}
 
   }
-
-  import scala.concurrent.Future
-  import play.api.mvc.BodyParsers
-  import play.api.libs.json.JsError
 
   def setPrintUsages = Authenticated.async(BodyParsers.parse.json) { request => {
       val printUsageRequestResult = request.body.validate[PrintUsageRequest]

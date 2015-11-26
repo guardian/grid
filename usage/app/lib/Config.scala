@@ -18,6 +18,7 @@ object Config extends CommonPlayAppProperties with CommonPlayAppConfig {
 
   lazy val rootUri = services.metadataBaseUri
   lazy val kahunaUri = services.kahunaBaseUri
+  lazy val usageUri = services.usageBaseUri
   lazy val loginUriTemplate = services.loginUriTemplate
 
   val capiPollIntervalInSeconds = properties("capi.pollIntervalInSeconds").toLong
