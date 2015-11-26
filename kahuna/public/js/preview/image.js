@@ -24,6 +24,7 @@ image.controller('uiPreviewImageCtrl', [
     function (
         $scope,
         $rootScope,
+        imageService,
         imageUsagesService) {
     var ctrl = this;
 
