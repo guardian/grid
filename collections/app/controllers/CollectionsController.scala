@@ -86,7 +86,7 @@ object CollectionsController extends Controller with ArgoHelpers {
 
   def removeCollection(collectionPath: String) = Authenticated.async { req =>
     CollectionsStore.remove(collectionPath) map { collectionOpt =>
-      collectionOpt.map(respond(_)).getOrElse(collectionNotFound(collectionPath))
+      collectionOpt.map(_ => Accepted).getOrElse(NotFound)
     }
   }
 
