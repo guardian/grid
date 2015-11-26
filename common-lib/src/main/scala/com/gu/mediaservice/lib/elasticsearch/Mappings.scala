@@ -115,8 +115,7 @@ object Mappings {
       "archived"    -> boolean,
       "labels"      -> nonAnalysedList("label"),
       "metadata"    -> metadataMapping,
-      "usageRights" -> usageRightsMapping,
-      "collections" -> collectionMapping
+      "usageRights" -> usageRightsMapping
     )
 
   val uploadInfoMapping =
@@ -161,10 +160,9 @@ object Mappings {
           "uploadedBy" -> nonAnalyzedString,
           "lastModified" -> dateFormat,
           "identifiers" -> dynamicObj,
-          "uploadInfo" -> uploadInfo,
+          "uploadInfo" -> uploadInfoMapping,
           "collections" -> collectionMapping,
-          "suggestMetadataCredit" -> simpleSuggester,
-          "usages" -> usagesMapping
+          "suggestMetadataCredit" -> simpleSuggester
         ),
         "dynamic_templates" -> Json.arr(Json.obj(
           "stored_json_object_template" -> Json.obj(
