@@ -11,10 +11,9 @@ fi
 source ./stack-name.sh $SUB_STACK
 source ./get-or-create-artifact-bucket.sh
 
-REGION=`aws configure get region`
-TEMPLATE_KEY="$BUCKET/cloudformation/DEV/$STACK_NAME.template"
+TEMPLATE_KEY="cloudformation/DEV/$STACK_NAME.template"
 
-echo "Uploading template to s3://$TEMPLATE_KEY"
-aws s3 cp $TEMPLATE_FILE "s3://$TEMPLATE_KEY"
+echo "Uploading template to s3://$BUCKET/$TEMPLATE_KEY"
+aws s3 cp $TEMPLATE_FILE "s3://$BUCKET/$TEMPLATE_KEY"
 
-export TEMPLATE_URL="https://s3-$REGION.amazonaws.com/$TEMPLATE_KEY"
+export TEMPLATE_URL="https://$BUCKET.s3.amazonaws.com/$TEMPLATE_KEY"
