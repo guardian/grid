@@ -4,6 +4,7 @@ import java.io.File
 import java.net.URI
 
 import com.gu.mediaservice.model.UploadInfo
+import model.UploadRequest
 import play.api.mvc.Security.AuthenticatedRequest
 import play.api.mvc._
 import play.api.libs.concurrent.Execution.Implicits._
