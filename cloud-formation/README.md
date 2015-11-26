@@ -4,10 +4,29 @@ The [template](./dev-template.json) outlines the AWS resources needed to develop
 
 ## Creating Stack
 
-Annoyingly, in order to create a lambda function within a Cloud Formation template whose code is in S3, the code artifact has to pre-exist within a S3 bucket.
-This also means this S3 bucket cannot be included as a resource in the Cloud Formation stack and must be created beforehand.
+As the usage-api is tightly coupled to the Guardian, there are two stacks to run in DEV:
+- [core](./dev-template.json)
+- [usage](./usage-template.json)
+
+To create a stack, use the corresponding script in the [`scripts`](./scripts/) directory.
+
+Once you have created the core stack, you'll need to create a permissions file:
+
+```sh
+./initialise-permissions.sh
+```
+
+## Updating Stack
+
+To update a stack, use the corresponding script in the [`scripts`](./scripts/) directory.
+
+
+## A note on the usage stack
 
 The [Usage Updater lambda](../usage-updater) has a dependency on an SNS Topic which is created by the template.
+
+Annoyingly, in order to create a lambda function within a Cloud Formation template whose code is in S3, the code artifact has to pre-exist within a S3 bucket.
+This also means this S3 bucket cannot be included as a resource in the Cloud Formation stack and must be created beforehand.
 
 Therefore, the steps to create a stack are:
  - Create S3 bucket
@@ -16,12 +35,6 @@ Therefore, the steps to create a stack are:
  - Upload a configured version of the Usage Updater lambda (see below).
 
 Thankfully, there are [scripts](./scripts/) to help!
-
-
-## Updating Stack
-
-Run [update-dev-stack.sh](./scripts/update-dev-stack.sh).
-
 
 ## Configuring Usage Updater lambda
 
