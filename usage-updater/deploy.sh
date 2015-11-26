@@ -1,4 +1,4 @@
-#/bin/bash
+#!/bin/bash
 
 STAGE=$1
 
