@@ -10,10 +10,10 @@ As the usage-api is tightly coupled to the Guardian, there are two stacks to run
 
 To create a stack, use the corresponding script in the [`scripts`](./scripts/) directory.
 
-Once you have created the core stack, you'll need to create a permissions file:
+Once you have created the core stack, you'll need to initialise the contents of your buckets:
 
 ```sh
-./initialise-permissions.sh
+./post-dev-stack-creation.sh
 ```
 
 ## Updating Stack
