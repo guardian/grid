@@ -17,8 +17,6 @@ import lib.{Downloader, Config, Notifications}
 import lib.storage.ImageStore
 import lib.imaging.MimeTypeDetection
 
-import model.{UploadRequest, ImageUpload}
-
 import com.gu.mediaservice.lib.play.DigestBodyParser
 import com.gu.mediaservice.lib.play.DigestedFile
 import com.gu.mediaservice.lib.auth

@@ -13,8 +13,6 @@ import play.api.libs.json._
 
 import rx.lang.scala.{Observable, Subscriber}
 
-import model._
-
 case class ResetException() extends Exception
 
 object UsageRecorder {

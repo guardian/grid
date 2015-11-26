@@ -14,3 +14,5 @@ mappings:
     port: 9008
   - prefix: media-usage
     port: 9009
+  - prefix: media-collections
+    port: 9010
