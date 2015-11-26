@@ -11,6 +11,15 @@ object CollectionsManager {
   def decodePathBit(s: String) = decode(s, enc)
   def encodePathBit(s: String) = encode(s, enc)
 
+  def onlyLatest(collections: List[Collection]): List[Collection] = {
+    collections filter { collection =>
+      // if there isn't a collection with the same path created after itself.
+      !collections.exists { col => {
+        col.path == collection.path && col.actionData.date.isAfter(collection.actionData.date)
+      }}
+    }
+  }
+
   def stringToPath(s: String) = s.split(delimiter).map(decodePathBit).toList
   def pathToString(path: List[String]) = path.map(encodePathBit).mkString(delimiter)
 

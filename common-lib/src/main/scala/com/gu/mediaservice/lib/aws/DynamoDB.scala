@@ -1,15 +1,18 @@
 package com.gu.mediaservice.lib.aws
 
+import com.amazonaws.AmazonServiceException
 import com.amazonaws.auth.AWSCredentials
 import com.amazonaws.regions.Region
+import com.amazonaws.services.config.model.ValidationException
 import com.amazonaws.services.dynamodbv2.AmazonDynamoDBClient
-import com.amazonaws.services.dynamodbv2.document.{DynamoDB => AwsDynamoDB, DeleteItemOutcome, UpdateItemOutcome, Table, Item}
+import com.amazonaws.services.dynamodbv2.document.{DynamoDB => AwsDynamoDB, _}
 import com.amazonaws.services.dynamodbv2.document.spec.{DeleteItemSpec, GetItemSpec, UpdateItemSpec}
 import com.amazonaws.services.dynamodbv2.document.utils.ValueMap
 import com.amazonaws.services.dynamodbv2.model.ReturnValue
 import play.api.libs.json._
 
 import scala.concurrent.{ExecutionContext, Future}
+import scala.util.{Success, Failure, Try}
 import scalaz.syntax.id._
 import scala.collection.JavaConverters._
 
@@ -115,6 +118,14 @@ class DynamoDB(credentials: AWSCredentials, region: Region, tableName: String) {
       new ValueMap().withStringSet(":value", value:_*)
     )
 
+  def setDelete(id: String, key: String, value: String)
+               (implicit ex: ExecutionContext): Future[JsObject] =
+    update(
+      id,
+      s"DELETE $key :value",
+      new ValueMap().withStringSet(":value", value)
+    )
+
 
   def jsonGet(id: String, key: String)
              (implicit ex: ExecutionContext): Future[JsValue] =
@@ -129,14 +140,41 @@ class DynamoDB(credentials: AWSCredentials, region: Region, tableName: String) {
         new ValueMap().withMap(":value", valueMapWithNullForEmptyString(value))
     )
 
-  def setDelete(id: String, key: String, value: String)
-               (implicit ex: ExecutionContext): Future[JsObject] =
-    update(
-      id,
-      s"DELETE $key :value",
-      new ValueMap().withStringSet(":value", value)
-    )
+  def listGet[T](id: String, key: String)
+                  (implicit ex: ExecutionContext): Future[List[T]] = {
 
+    get(id, key) map { item => Option(item.getList[T](key)) match {
+        case Some(list) => list.asScala.toList
+        case None      => Nil
+      }
+    }
+  }
+
+  def listAdd[T](id: String, key: String, value: T)
+                  (implicit ex: ExecutionContext, tjs: Writes[T]): Future[JsObject] = {
+    val json = Json.toJson(value).as[JsObject]
+    val valueMap = DynamoDB.jsonToValueMap(json)
+
+    def append =
+      update(
+        id, s"SET $key = list_append($key, :value)",
+        new ValueMap().withList(":value", valueMap)
+      )
+
+    def create =
+      update(
+        id, s"SET $key = :value",
+        new ValueMap().withList(":value", valueMap)
+      )
+
+    // DynamoDB doesn't seem to have a way of saying create the list if it doesn't exist then
+    // append to it. So what we're saying here is:
+    // Append to the list => if it doesn't exist => create it with the initial value.
+    append recoverWith {
+      case err: AmazonServiceException => create
+      case err => throw err
+    }
+  }
 
   def update(id: String, expression: String, valueMap: ValueMap)
             (implicit ex: ExecutionContext): Future[JsObject] =
@@ -190,4 +228,28 @@ class DynamoDB(credentials: AWSCredentials, region: Region, tableName: String) {
     valueMap
   }
 
+}
+
+object DynamoDB {
+  def jsonToValueMap(json: JsObject): ValueMap = {
+    val valueMap = new ValueMap()
+    json.value map { case (key, value) =>
+      value match {
+        case v: JsString  => valueMap.withString(key, v.value)
+        case v: JsBoolean => valueMap.withBoolean(key, v.value)
+        case v: JsNumber  => valueMap.withNumber(key, v.value)
+        case v: JsObject  => valueMap.withMap(key, jsonToValueMap(v))
+
+        // TODO: Lists of different Types? JsArray is not type safe (because json lists aren't)
+        // so this leaves us in a bit of a pickle when converting them. So for now we only support
+        // List[String]
+        case v: JsArray   => valueMap.withList(key, v.value.map {
+          case i: JsString => i.value
+          case i: JsValue => i.toString
+        }: _*)
+        case _ => valueMap
+      }
+    }
+    valueMap
+  }
 }

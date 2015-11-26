@@ -13,7 +13,6 @@ import lib.{ControllerHelper, Config}
 object EditsApi extends Controller with ArgoHelpers {
 
   import Config.rootUri
-
   val Authenticated = ControllerHelper.Authenticated
 
     // TODO: add links to the different responses esp. to the reference image

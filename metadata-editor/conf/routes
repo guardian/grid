@@ -20,10 +20,14 @@ GET     /metadata/:id/usage-rights                      controllers.EditsControl
 PUT     /metadata/:id/usage-rights                      controllers.EditsController.setUsageRights(id: String)
 DELETE  /metadata/:id/usage-rights                      controllers.EditsController.deleteUsageRights(id: String)
 
+GET     /metadata/:id/collections                       controllers.EditsController.getCollection(id: String)
+POST    /metadata/:id/collections                       controllers.EditsController.addCollection(id: String)
+
 # Collections
 GET     /collections                                    controllers.CollectionsController.getCollections
 POST    /collections                                    controllers.CollectionsController.addCollectionFromJson
 DELETE  /collections/*collection                        controllers.CollectionsController.removeCollection(collection: String)
+
 
 # Management
 GET     /management/healthcheck                         com.gu.mediaservice.lib.management.Management.healthCheck

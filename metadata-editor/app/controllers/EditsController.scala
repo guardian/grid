@@ -4,6 +4,10 @@ package controllers
 import java.net.URI
 import java.net.URLDecoder.decode
 
+import com.gu.mediaservice.lib.auth.{AuthenticatedService, PandaUser, Principal}
+import org.joda.time.DateTime
+import play.api.mvc.Security.AuthenticatedRequest
+
 import scala.concurrent.Future
 
 import play.api.data.Forms._
@@ -21,26 +25,7 @@ import com.gu.mediaservice.model._
 import lib._
 
 
-
-
 // FIXME: the argoHelpers are all returning `Ok`s (200)
-// Some of these responses should be `Accepted` (202)
-// TODO: Look at adding actions e.g. to collections / sets where we could `PUT`
-// a singular collection item e.g.
-// {
-//   "labels": {
-//     "uri": "...",
-//     "data": [],
-//     "actions": [
-//       {
-//         "method": "PUT",
-//         "rel": "create",
-//         "href": "../metadata/{id}/labels/{label}"
-//       }
-//     ]
-//   }
-// }
-
 object EditsController extends Controller with ArgoHelpers with DynamoEdits with EditsResponse {
 
   import UsageRightsMetadataMapper.usageRightsToMetadata
@@ -181,6 +166,30 @@ object EditsController extends Controller with ArgoHelpers with DynamoEdits with
 
   def deleteUsageRights(id: String) = Authenticated.async { req =>
     dynamo.removeKey(id, "usageRights").map(publish(id)).map(edits => Accepted)
+  }
+
+  def getCollection(id: String) = Authenticated.async(parse.json) { req =>
+    dynamo.listGet[String](id, "collection").map { dynamoEntry =>
+      respond(dynamoEntry)
+    } recover {
+      case NoItemFound => respondNotFound("No usage rights overrides found")
+    }
+  }
+
+  def addCollection(id: String) = Authenticated.async(parse.json) { req =>
+    (req.body \ "data").asOpt[List[String]].map { path =>
+      val collection = Collection(path, ActionData(getUserFromReq(req), DateTime.now()))
+      dynamo.listAdd(id, "collections", collection)
+        .map(publish(id))
+        .map(edits => respond(collection))
+    } getOrElse Future.successful(respondError(BadRequest, "invalid-form-data", "Invalid form data"))
+  }
+
+  private def getUserFromReq(req: AuthenticatedRequest[_, Principal]) = req.user match {
+    case PandaUser(email, _, _, _)  => email
+    case AuthenticatedService(name) => name
+    // We should never get here
+    case _ => "anonymous"
   }
 
   // TODO: Move this to the dynamo lib
