@@ -161,7 +161,6 @@ object Mappings {
           "lastModified" -> dateFormat,
           "identifiers" -> dynamicObj,
           "uploadInfo" -> uploadInfoMapping,
-          "collections" -> collectionMapping,
           "suggestMetadataCredit" -> simpleSuggester
         ),
         "dynamic_templates" -> Json.arr(Json.obj(
