@@ -1,5 +1,6 @@
 package controllers
 
+import model._
 import rx.lang.scala.Observable
 
 import com.gu.mediaservice.lib.argo.ArgoHelpers

@@ -22,6 +22,7 @@ import com.gu.mediaservice.model._
 import org.joda.time.DateTime
 
 import lib._
+import model._
 
 
 case object InvalidSource extends Exception("Invalid source URI, not a media API URI")
