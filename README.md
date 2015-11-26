@@ -1,6 +1,8 @@
 Grid
 ====
 
+[![Join the chat at https://gitter.im/guardian/grid](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/guardian/grid?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
+
 **Grid** is [the Guardian](http://www.theguardian.com/)’s new **image
 management system**, which provides a **universal** and **fast**
 experience accessing media that is **organised** and using it in an
