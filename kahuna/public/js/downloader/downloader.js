@@ -5,6 +5,21 @@ import template from './downloader.html!text';
 
 export const downloader = angular.module('gr.downloader', []);
 
+// blob URLs have a max size of 500MB - https://github.com/eligrey/FileSaver.js/#supported-browsers
+const max_blob_size = 500 * 1024 * 1024;
+
+const bytesToSize = (bytes) => {
+    const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
+    if (bytes === 0) {
+        return 'n/a';
+    }
+    const i = parseInt(Math.floor(Math.log(bytes) / Math.log(1024)));
+
+    return i === 0 ?
+        `${bytes} ${sizes[i]}` :
+        `${(bytes / Math.pow(1024, i)).toFixed(1)} ${sizes[i]}`;
+};
+
 downloader.controller('DownloaderCtrl',
                      ['$window', '$q', '$http',
                      function Controller($window, $q, $http) {
@@ -24,9 +39,24 @@ downloader.controller('DownloaderCtrl',
         $q.all(imagesAddedToZip).then(() => {
             const file = zip.generate({ type: 'uint8array' });
             const blob = new Blob([file], { type: 'application/zip' });
-            const url = $window.URL.createObjectURL(blob);
 
-            $window.location = url;
+            if (blob.size <= max_blob_size) {
+                const url = $window.URL.createObjectURL(blob);
+                $window.location = url;
+            }
+            else {
+                const max_size = bytesToSize(max_blob_size);
+                const blob_size = bytesToSize(blob.size);
+
+                // the things we do for a happy linter...
+                const message = [
+                    'Download is too big!',
+                    `Max file size: ${max_size}. Your download: ${blob_size}.`,
+                    'Consider downloading smaller batches.'
+                ].join('\n');
+
+                $window.alert(message);
+            }
         }).finally(() => {
             ctrl.downloading = false;
         });
