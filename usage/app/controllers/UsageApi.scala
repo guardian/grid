@@ -7,6 +7,8 @@ import play.api.Logger
 import play.api.mvc.Results._
 import play.api.mvc.{Controller, BodyParsers}
 
+import play.utils.UriEncoding
+
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
 import scala.util.Try
@@ -25,7 +27,7 @@ import model._
 
 object UsageApi extends Controller with ArgoHelpers {
 
-  import Config.{awsCredentials, kahunaUri, keyStoreBucket, loginUriTemplate, rootUri}
+  import Config._
 
   val keyStore = new KeyStore(keyStoreBucket, awsCredentials)
   val Authenticated = auth.Authenticated(keyStore, loginUriTemplate, kahunaUri)
@@ -33,19 +35,43 @@ object UsageApi extends Controller with ArgoHelpers {
   val indexResponse = {
     val indexData = Map("description" -> "This is the Usage Recording service")
     val indexLinks = List(
-      Link("usage", s"$rootUri/usage/media/{id}")
+      Link("media-usage", s"$usageUri/usage/media/{id}")
     )
     respond(indexData, indexLinks)
   }
   def index = Authenticated { indexResponse }
+
+  def forUsage(usageId: String) = Authenticated.async {
+    val usageFuture = UsageTable.queryByUsageId(usageId)
+
+    usageFuture.map[play.api.mvc.Result]((usage: Option[MediaUsage]) => {
+      // We need to encode part of the URI as it can have forward slashes in
+      val encodedUsageId = UriEncoding.encodePathSegment(usageId, "UTF-8")
+      val uri = Try { new URI(s"${Config.usageUri}/usages/${encodedUsageId}") }.toOption
+      val links = usage.map(u => List(
+        Link("media", s"$apiUri/images/${u.mediaId}"),
+        Link("media-usage", s"$usageUri/usages/media/${u.mediaId}")
+      )) getOrElse List()
+
+      UsageResponse.buildUsage(usage, uri, links)
+    }).recover { case error: Exception => {
+      Logger.error("UsageApi returned an error.", error)
+
+      respondError(InternalServerError, "usage-retrieve-failed", error.getMessage())
+    }}
+
+  }
 
   def forMedia(mediaId: String) = Authenticated.async {
     val usagesFuture = UsageTable.queryByImageId(mediaId)
 
     usagesFuture.map[play.api.mvc.Result]((usages: Set[MediaUsage]) => {
       val uri = Try { new URI(s"${Config.usageUri}/usages/media/${mediaId}") }.toOption
+      val links = List(
+        Link("media", s"$apiUri/images/${mediaId}")
+      )
 
-      UsageResponse.build(usages, uri)
+      UsageResponse.buildUsages(usages, uri, links)
     }).recover { case error: Exception => {
       Logger.error("UsageApi returned an error.", error)
 

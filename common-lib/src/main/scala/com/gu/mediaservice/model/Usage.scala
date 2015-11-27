@@ -6,7 +6,7 @@ import org.joda.time.DateTime
 
 case class Usage(
   references: List[UsageReference],
-  usageType: String,
+  `type`: String,
   mediaType: String,
   status: String,
   dateAdded: Option[DateTime],
@@ -27,7 +27,7 @@ object Usage {
 }
 
 case class UsageReference(
-  referenceType: String,
+  `type`: String,
   uri: Option[String] = None,
   name: Option[String] = None
 )

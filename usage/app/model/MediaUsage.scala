@@ -71,7 +71,7 @@ object MediaUsage {
       contentWrapper.id,
       elementWrapper.media.id,
       "web",
-      elementWrapper.media.`type`.toString,
+      elementWrapper.media.`type`.toString.toLowerCase,
       contentWrapper.status,
       contentDetails.toMap,
       contentWrapper.lastModified
@@ -83,7 +83,7 @@ object MediaUsage {
     usageId.toString,
     printUsage.mediaId,
     "print",
-    "Image",
+    "image",
     printUsage.usageStatus,
     printUsage.printUsageDetails.toMap,
     printUsage.dateAdded

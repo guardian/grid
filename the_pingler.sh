@@ -9,7 +9,7 @@ FTP_WATCHER="http://localhost:9004/"
 KAHUNA="http://localhost:9005/management/healthcheck"
 CROPPER="http://localhost:9006/management/healthcheck"
 METADATA="http://localhost:9007/management/healthcheck"
-USAGE="https://localhost:9009/"
+USAGE="http://localhost:9009/management/healthcheck"
 
 lu="$IMAGE_LOADER $CROPPER $METADATA $THRALL $FTP_WATCHER $KAHUNA $API $USAGE"
 
@@ -20,7 +20,7 @@ while true; do
     echo "\033[1;95mPingling!\033[m\n"
     for URL in $lu
     do
-        STATUS=`curl --fail -s -w "%{http_code} %{url_effective}\\n" $URL  -o /dev/null`
+        STATUS=`curl --fail -s -w "%{http_code} %{url_effective}\\n" $URL -o /dev/null`
 
         if [ "$?" -eq "0" ]
         then
