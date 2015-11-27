@@ -10,7 +10,7 @@ object UsageBuilder {
 
   def build(usage: MediaUsage): Usage = {
     usage.usageType match {
-      case "web" => buildWeb(usage)
+      case "digital" => buildWeb(usage)
       case "print" => buildPrint(usage)
     }
   }
@@ -53,7 +53,7 @@ object UsageBuilder {
 
   private def buildUsageReference(usage: MediaUsage): List[UsageReference] = {
     usage.usageType match {
-      case "web" => buildWebUsageReference(usage)
+      case "digital" => buildWebUsageReference(usage)
       case "print" => buildPrintUsageReference(usage)
     }
   }

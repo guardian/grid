@@ -14,7 +14,7 @@ import rx.lang.scala.{Observable, Subscriber}
 object UsageNotifier extends SNS(Config.awsCredentials, Config.topicArn) {
   def forMedia(mediaId: String): Observable[JsObject] = {
     val notification = UsageTable.queryByImageId(mediaId).map((usages: Set[MediaUsage]) => {
-      val usageJson = Json.toJson(usages.map(UsageBuilder.build)).as[JsObject]
+      val usageJson = Json.toJson(usages.map(UsageBuilder.build)).as[JsArray]
 
       val jsonUsages = Json.obj(
         "id" -> mediaId,
