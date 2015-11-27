@@ -218,6 +218,18 @@ The user interface should be up at
 [http://localhost:9007/](http://localhost:9007/).
 
 
+### Run Collections
+
+From the project root, run via sbt:
+
+        $ sbt
+        > project collections
+        > run 9010
+
+The user interface should be up at
+[http://localhost:9010/](http://localhost:9010/).
+
+
 ### [Run ImgOps](imgops/README.md)
 
 

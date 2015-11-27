@@ -10,6 +10,7 @@ KAHUNA="http://localhost:9005/management/healthcheck"
 CROPPER="http://localhost:9006/management/healthcheck"
 METADATA="http://localhost:9007/management/healthcheck"
 USAGE="https://localhost:9009/"
+COLLECTIONS="https://localhost:9010/"
 
 lu="$IMAGE_LOADER $CROPPER $METADATA $THRALL $FTP_WATCHER $KAHUNA $API $USAGE"
 

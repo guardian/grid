@@ -2,7 +2,7 @@ package controllers
 
 import java.net.URI
 
-import com.gu.mediaservice.lib.argo.model.{EmbeddedEntity, Action}
+import com.gu.mediaservice.lib.argo.model.{Link, EmbeddedEntity, Action}
 import lib.ControllerHelper
 import model.Node
 import org.joda.time.DateTime
@@ -23,12 +23,29 @@ import store.CollectionsStore
 
 case class InvalidPrinciple(message: String) extends Throwable
 
+case class AppIndex(name: String, description: String, config: Map[String, String] = Map(),
+                    links: List[Link] = Nil, actions: List[Action] = Nil)
+object AppIndex {
+  implicit def jsonWrites: Writes[AppIndex] = Json.writes[AppIndex]
+}
+
 object CollectionsController extends Controller with ArgoHelpers {
 
   import lib.Config.rootUri
   val Authenticated = ControllerHelper.Authenticated
 
-  val addCollectionAction = Action("create", URI.create(s"$rootUri/collections"), "POST")
+  def uri(u: String) = URI.create(u)
+
+  val collectionsUri = uri(s"$rootUri/collections")
+  val addCollectionAction = Action("create", collectionsUri, "POST")
+  val collectionsLink = Link("list", collectionsUri.toString)
+  val links = List(collectionsLink)
+  val actions = List(addCollectionAction)
+  val appIndex = AppIndex("media-collections", "The one stop shop for collections", links = links, actions = actions)
+
+  def index = Authenticated { req =>
+    respond(appIndex)
+  }
 
   def collectionUri(c: Collection) = URI.create(s"$rootUri/collections/${c.pathId}")
 
@@ -61,15 +78,15 @@ object CollectionsController extends Controller with ArgoHelpers {
   def addCollectionFromJson = Authenticated.async(parse.json) { req =>
     (req.body \ "data").asOpt[List[String]].map { path =>
       val collection = Collection(path, ActionData(getUserFromReq(req), DateTime.now))
-      CollectionsStore.add(collection).map { newCollection =>
-        respond(newCollection)
+      CollectionsStore.add(collection).map { collection =>
+        respond(Node(collection.path.last, Nil, Some(collection)))
       }
     } getOrElse Future.successful(invalidJson(req.body))
   }
 
   def removeCollection(collectionPath: String) = Authenticated.async { req =>
     CollectionsStore.remove(collectionPath) map { collectionOpt =>
-      collectionOpt.map(respond(_)).getOrElse(collectionNotFound(collectionPath))
+      collectionOpt.map(_ => Accepted).getOrElse(NotFound)
     }
   }
 

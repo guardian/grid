@@ -1,5 +1,6 @@
 package controllers
 
+import model._
 import rx.lang.scala.Observable
 
 import com.gu.mediaservice.lib.argo.ArgoHelpers
@@ -8,7 +9,6 @@ import com.gu.mediaservice.lib.auth
 import com.gu.mediaservice.lib.auth.KeyStore
 import com.gu.mediaservice.lib.aws.NoItemFound
 import lib.{Config, UsageRecorder}
-import model._
 
 import play.api.Logger
 import play.api.mvc.Controller

@@ -7,7 +7,6 @@ import com.gu.contentapi.client.model.v1.{Content, ElementType, Element}
 
 import model._
 
-
 object UsageStream {
   val contentStream = MergedContentStream.observable
 
