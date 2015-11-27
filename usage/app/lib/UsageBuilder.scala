@@ -3,7 +3,7 @@ package lib
 import org.joda.time.DateTime
 import com.gu.mediaservice.model.{Usage, UsageReference}
 
-import model.MediaUsage
+import model.{MediaUsage, UsageTableFullKey}
 
 object UsageBuilder {
   import com.gu.mediaservice.lib.IntUtils._
@@ -17,26 +17,38 @@ object UsageBuilder {
 
   private def buildWeb(usage: MediaUsage): Usage = {
     Usage(
+      buildId(usage),
+      usage.grouping,
       buildUsageReference(usage),
       usage.usageType,
+      usage.mediaId,
       usage.mediaType,
       usage.status.toString,
       usage.dateAdded,
       usage.dateRemoved,
-      usage.lastModified
+      usage.lastModified,
+      usage.isRemoved
     )
   }
 
   private def buildPrint(usage: MediaUsage): Usage = {
     Usage(
+      buildId(usage),
+      usage.grouping,
       buildUsageReference(usage),
       usage.usageType,
+      usage.mediaId,
       usage.mediaType,
       usage.status.toString,
       usage.dateAdded,
       usage.dateRemoved,
-      usage.lastModified
+      usage.lastModified,
+      usage.isRemoved
     )
+  }
+
+  private def buildId(usage: MediaUsage): String = {
+    UsageTableFullKey.build(usage).toString
   }
 
   private def buildUsageReference(usage: MediaUsage): List[UsageReference] = {

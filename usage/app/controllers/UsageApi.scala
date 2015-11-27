@@ -20,6 +20,7 @@ import com.gu.mediaservice.lib.argo.model.Link
 import com.gu.mediaservice.lib.auth
 import com.gu.mediaservice.lib.auth.KeyStore
 import com.gu.mediaservice.lib.aws.NoItemFound
+import com.gu.mediaservice.lib.UsageResponder
 
 import lib._
 import model._
@@ -29,6 +30,7 @@ object UsageApi extends Controller with ArgoHelpers {
 
   import Config._
 
+  val usageResponder = new UsageResponder(Config.services)
   val keyStore = new KeyStore(keyStoreBucket, awsCredentials)
   val Authenticated = auth.Authenticated(keyStore, loginUriTemplate, kahunaUri)
 
@@ -45,18 +47,9 @@ object UsageApi extends Controller with ArgoHelpers {
     val usageFuture = UsageTable.queryByUsageId(usageId)
 
     usageFuture.map[play.api.mvc.Result]((usage: Option[MediaUsage]) => {
-      // We need to encode part of the URI as it can have forward slashes in
-      val encodedUsageId = UriEncoding.encodePathSegment(usageId, "UTF-8")
-      val uri = Try { new URI(s"${Config.usageUri}/usages/${encodedUsageId}") }.toOption
-      val links = usage.map(u => List(
-        Link("media", s"$apiUri/images/${u.mediaId}"),
-        Link("media-usage", s"$usageUri/usages/media/${u.mediaId}")
-      )) getOrElse List()
-
-      UsageResponse.buildUsage(usage, uri, links)
+      usageResponder.forUsage(usage.map(UsageBuilder.build))
     }).recover { case error: Exception => {
       Logger.error("UsageApi returned an error.", error)
-
       respondError(InternalServerError, "usage-retrieve-failed", error.getMessage())
     }}
 
@@ -66,15 +59,9 @@ object UsageApi extends Controller with ArgoHelpers {
     val usagesFuture = UsageTable.queryByImageId(mediaId)
 
     usagesFuture.map[play.api.mvc.Result]((usages: Set[MediaUsage]) => {
-      val uri = Try { new URI(s"${Config.usageUri}/usages/media/${mediaId}") }.toOption
-      val links = List(
-        Link("media", s"$apiUri/images/${mediaId}")
-      )
-
-      UsageResponse.buildUsages(usages, uri, links)
+      usageResponder.forMediaUsages(usages.toList.map(UsageBuilder.build))
     }).recover { case error: Exception => {
       Logger.error("UsageApi returned an error.", error)
-
       respondError(InternalServerError, "image-usage-retrieve-failed", error.getMessage())
     }}
 

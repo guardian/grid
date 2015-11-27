@@ -25,9 +25,18 @@ import rx.lang.scala.Observable
 
 import lib.Config
 
-case class UsageTableFullKey(hashKey: String, rangeKey: String)
+case class UsageTableFullKey(hashKey: String, rangeKey: String) {
+  override def toString = List(
+    hashKey,
+    rangeKey
+  ).mkString(UsageTableFullKey.keyDelimiter)
+}
 object UsageTableFullKey {
   val keyDelimiter = "_"
+
+  def build(mediaUsage: MediaUsage): UsageTableFullKey = {
+    UsageTableFullKey(mediaUsage.grouping, mediaUsage.usageId.toString)
+  }
 
   def build(combinedKey: String): Option[UsageTableFullKey] = {
     val pair = combinedKey.split(keyDelimiter)
