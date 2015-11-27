@@ -243,7 +243,11 @@ From the project root
 
         $ foreman start
 
+If you'd like to run a single appplication name (or have your logs in different consoles):
 
+        $ foreman run APPLICATION_NAME
+
+you can see the different application names in the Procfile
 
 ## Troubleshooting
 
