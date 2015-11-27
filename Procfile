@@ -1,3 +1,4 @@
+elasticsearch: cd elasticsearch; ./dev-start.sh
 media-api: sbt "project media-api" "run 9001"
 thrall: sbt "project thrall" "run 9002"
 image-loader: sbt "project image-loader" "run 9003"
