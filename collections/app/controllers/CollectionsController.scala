@@ -78,8 +78,8 @@ object CollectionsController extends Controller with ArgoHelpers {
   def addCollectionFromJson = Authenticated.async(parse.json) { req =>
     (req.body \ "data").asOpt[List[String]].map { path =>
       val collection = Collection(path, ActionData(getUserFromReq(req), DateTime.now))
-      CollectionsStore.add(collection).map { newCollection =>
-        respond(newCollection)
+      CollectionsStore.add(collection).map { collection =>
+        respond(Node(collection.path.last, Nil, Some(collection)))
       }
     } getOrElse Future.successful(invalidJson(req.body))
   }
