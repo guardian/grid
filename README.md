@@ -232,6 +232,18 @@ The user interface should be up at
 
 ### [Run ImgOps](imgops/README.md)
 
+### Running with [Foreman](https://github.com/ddollar/foreman)
+This runs all the applications from a single command
+
+Install foreman: 
+
+        $ gem install foreman
+
+From the project root 
+
+        $ foreman start
+
+
 
 ## Troubleshooting
 
