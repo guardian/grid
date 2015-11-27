@@ -9,11 +9,12 @@ export const downloader = angular.module('gr.downloader', []);
 const maxBlobSize = 500 * 1024 * 1024;
 
 const bytesToSize = (bytes) => {
-    const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
     if (bytes === 0) {
-        return 'n/a';
+        return '0 Bytes';
     }
-    const i = parseInt(Math.floor(Math.log(bytes) / Math.log(1024)));
+
+    const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(1024));
 
     return i === 0 ?
         `${bytes} ${sizes[i]}` :
