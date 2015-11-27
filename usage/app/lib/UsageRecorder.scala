@@ -54,8 +54,9 @@ object UsageRecorder {
       val deletes = (dbUsageGroup.usages -- usageGroup.usages).map(UsageTable.delete)
       val creates = (usageGroup.usages -- dbUsageGroup.usages).map(UsageTable.create)
       val updates = (usageGroup.usages & dbUsageGroup.usages).map(UsageTable.update)
+      val notices = usageGroup.usages.map(_.mediaId).map(UsageNotifier.forMedia)
 
-      Observable.from(deletes ++ updates ++ creates).flatten[JsObject]
+      Observable.from(deletes ++ updates ++ creates ++ notices).flatten[JsObject]
     })
   }
 }

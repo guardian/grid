@@ -29,6 +29,7 @@ object Config extends CommonPlayAppProperties with CommonPlayAppConfig {
   val capiPreviewUser = properties("capi.preview.user")
   val capiPreviewPassword = properties("capi.preview.password")
 
+  val topicArn = properties("sns.topic.arn")
   val composerBaseUrl = properties("composer.baseUrl")
 
   val livePollTable = properties("dynamo.tablename.livePollTable")
