@@ -14,7 +14,7 @@ object Config extends CommonPlayAppProperties with CommonPlayAppConfig {
   val awsCredentials: AWSCredentials =
     new BasicAWSCredentials(properties("aws.id"), properties("aws.secret"))
 
-  val dynamoRegion: Region = Region.getRegion(Regions.EU_WEST_1)
+  val dynamoRegion: Region = Region.getRegion(Regions.valueOf(properties("aws.region")))
 
   val keyStoreBucket = properties("auth.keystore.bucket")
   val collectionsBucket: String = properties("s3.collections.bucket")
