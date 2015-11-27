@@ -70,7 +70,7 @@ object MediaUsage {
       usageId,
       contentWrapper.id,
       elementWrapper.media.id,
-      "web",
+      "digital",
       elementWrapper.media.`type`.toString.toLowerCase,
       contentWrapper.status,
       contentDetails.toMap,
