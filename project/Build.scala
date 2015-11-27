@@ -58,7 +58,7 @@ object Build extends Build {
     .testDependencies(scalaTestDeps)
 
   val collections = playProject("collections")
-    .libraryDependencies(awsDeps ++ playWsDeps)
+    .libraryDependencies(awsDeps)
     .testDependencies(scalaTestDeps)
 
   val ftpWatcher = playProject("ftp-watcher")
