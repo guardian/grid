@@ -7,6 +7,7 @@ import scala.collection.mutable.ListBuffer
 import scala.util.{Try, Failure}
 import org.joda.time.{DateTime, Duration}
 
+import play.utils.UriEncoding
 import play.api.Logger
 import play.api.libs.json._
 import play.api.libs.functional.syntax._
@@ -21,8 +22,14 @@ object ImageResponse extends EditsResponse {
   val metadataBaseUri = Config.services.metadataBaseUri
 
   type FileMetadataEntity = EmbeddedEntity[FileMetadata]
+  type UsageEntity = EmbeddedEntity[Usage]
+  type UsagesEntity = EmbeddedEntity[List[UsageEntity]]
 
   def fileMetaDataUri(id: String) = URI.create(s"${Config.rootUri}/images/$id/fileMetadata")
+  def usagesUri(id: String) = URI.create(s"${Config.usageUri}/usages/media/$id")
+  def usageUri(id: String) = {
+    URI.create(s"${Config.usageUri}/usages/${UriEncoding.encodePathSegment(id, "UTF-8")}")
+  }
 
   def hasPersistenceIdentifier(image: Image) =
     image.identifiers.contains(Config.persistenceIdentifier)
@@ -207,9 +214,15 @@ object ImageResponse extends EditsResponse {
     (__ \ "originalUsageRights").write[UsageRights] ~
     (__ \ "exports").write[List[Export]]
       .contramap((crops: List[Crop]) => crops.map(Export.fromCrop(_:Crop))) ~
-    (__ \ "usages").write[List[Usage]]
+    (__ \ "usages").write[UsagesEntity]
+      .contramap(usagesEntity(id, _: List[Usage]))
 
   )(unlift(Image.unapply))
+
+  def usagesEntity(id: String, usages: List[Usage]) =
+    EmbeddedEntity[List[UsageEntity]](usagesUri(id), Some(usages.map(usageEntity)))
+
+  def usageEntity(usage: Usage) = EmbeddedEntity[Usage](usageUri(usage.id), Some(usage))
 
   def fileMetadataEntity(id: String, expandFileMetaData: Boolean, fileMetadata: FileMetadata) = {
     val displayableMetadata = if(expandFileMetaData) Some(fileMetadata) else None
