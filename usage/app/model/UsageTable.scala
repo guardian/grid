@@ -71,8 +71,30 @@ object UsageTable extends DynamoDB(
     val keyAttribute = new KeyAttribute(imageIndexName, id)
     val queryResult = imageIndex.query(keyAttribute)
 
-    queryResult.asScala.map(MediaUsage.build).toSet[MediaUsage]
+    val fullSet = queryResult.asScala.map(MediaUsage.build).toSet[MediaUsage]
+
+    hidePendingIfPublished(
+      hidePendingIfRemoved(fullSet))
   }
+
+  def hidePendingIfRemoved(usages: Set[MediaUsage]): Set[MediaUsage] = usages.filterNot((mediaUsage: MediaUsage) => {
+    mediaUsage.status.isInstanceOf[PendingUsageStatus] && mediaUsage.isRemoved
+  })
+
+  def hidePendingIfPublished(usages: Set[MediaUsage]): Set[MediaUsage] = usages.groupBy(_.grouping).flatMap {
+    case (grouping, groupedUsages) => {
+        val publishedUsage = groupedUsages.find(_.status match {
+          case _: PublishedUsageStatus => true
+          case _ => false
+        })
+
+        if (publishedUsage.isEmpty) {
+            groupedUsages.headOption
+        } else {
+            publishedUsage
+        }
+      }
+  }.toSet
 
   def matchUsageGroup(usageGroup: UsageGroup): Observable[UsageGroup] =
     Observable.from(Future {

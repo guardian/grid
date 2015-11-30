@@ -24,49 +24,33 @@ class UsageResponder(services: Services) extends ArgoHelpers {
     )
   }
 
-  def forUsage(usageOption: Option[Usage]) = {
+  def forUsage(usageOption: Option[Usage], mediaId: String) = {
     usageOption.foldLeft(
       respondNotFound("No usages found.")
     )((_, usage: Usage) => {
       val encodedUsageId = UriEncoding.encodePathSegment(usage.id, "UTF-8")
       val uri = usageUri(usage.id)
       val links = List(
-        Link("media", s"${services.apiBaseUri}/images/${usage.mediaId}"),
-        Link("media-usage", s"${services.usageBaseUri}/usages/media/${usage.mediaId}")
+        Link("media", s"${services.apiBaseUri}/images/${mediaId}"),
+        Link("media-usage", s"${services.usageBaseUri}/usages/media/${mediaId}")
       )
 
       respond[Usage](data = usage, uri = uri, links = links)
     })
   }
 
-  def forMediaUsages(usages: List[Usage]) = usages match {
+  def forMediaUsages(usages: List[Usage], mediaId: String) = usages match {
     case Nil => respondNotFound("No usages found.")
     case usage :: _ => {
-      val mediaId = usage.mediaId
-
       val uri = Try { new URI(s"${services.usageBaseUri}/usages/media/${mediaId}") }.toOption
       val links = List(
         Link("media", s"${services.apiBaseUri}/images/${mediaId}")
       )
 
-      val flatUsages = usages.groupBy(_.grouping).flatMap { case (grouping, groupedUsages) => {
-        val publishedUsage = groupedUsages.find(_.status match {
-          case "published" => true
-          case _ => false
-        })
-
-        if (publishedUsage.isEmpty) {
-            groupedUsages.headOption
-        } else {
-            publishedUsage
-        }
-
-      }}
-
       respondCollection[EntityReponse[Usage]](
         uri = uri,
         links = links,
-        data = flatUsages.toList.map(wrapUsage)
+        data = usages.map(wrapUsage)
       )
     }
   }

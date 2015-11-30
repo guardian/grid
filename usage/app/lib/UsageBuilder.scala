@@ -3,7 +3,8 @@ package lib
 import org.joda.time.DateTime
 import com.gu.mediaservice.model.{Usage, UsageReference}
 
-import model.{MediaUsage, UsageTableFullKey}
+import model.{PublishedUsageStatus, MediaUsage, UsageTableFullKey}
+
 
 object UsageBuilder {
   import com.gu.mediaservice.lib.IntUtils._
@@ -15,35 +16,34 @@ object UsageBuilder {
     }
   }
 
+  private def buildStatusString(usage: MediaUsage) = if (usage.status match {
+    case _: PublishedUsageStatus => usage.isRemoved
+    case _ => false
+  }) "removed" else usage.status.toString
+
   private def buildWeb(usage: MediaUsage): Usage = {
     Usage(
       buildId(usage),
-      usage.grouping,
       buildUsageReference(usage),
       usage.usageType,
-      usage.mediaId,
       usage.mediaType,
-      usage.status.toString,
+      buildStatusString(usage),
       usage.dateAdded,
       usage.dateRemoved,
-      usage.lastModified,
-      usage.isRemoved
+      usage.lastModified
     )
   }
 
   private def buildPrint(usage: MediaUsage): Usage = {
     Usage(
       buildId(usage),
-      usage.grouping,
       buildUsageReference(usage),
       usage.usageType,
-      usage.mediaId,
       usage.mediaType,
-      usage.status.toString,
+      buildStatusString(usage),
       usage.dateAdded,
       usage.dateRemoved,
-      usage.lastModified,
-      usage.isRemoved
+      usage.lastModified
     )
   }
 

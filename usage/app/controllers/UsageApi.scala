@@ -46,8 +46,11 @@ object UsageApi extends Controller with ArgoHelpers {
   def forUsage(usageId: String) = Authenticated.async {
     val usageFuture = UsageTable.queryByUsageId(usageId)
 
-    usageFuture.map[play.api.mvc.Result]((usage: Option[MediaUsage]) => {
-      usageResponder.forUsage(usage.map(UsageBuilder.build))
+    usageFuture.map[play.api.mvc.Result]((mediaUsage: Option[MediaUsage]) => {
+      usageResponder.forUsage(
+        mediaUsage.map(UsageBuilder.build),
+        mediaUsage.map(_.mediaId).getOrElse("not-found")
+      )
     }).recover { case error: Exception => {
       Logger.error("UsageApi returned an error.", error)
       respondError(InternalServerError, "usage-retrieve-failed", error.getMessage())
@@ -59,7 +62,7 @@ object UsageApi extends Controller with ArgoHelpers {
     val usagesFuture = UsageTable.queryByImageId(mediaId)
 
     usagesFuture.map[play.api.mvc.Result]((usages: Set[MediaUsage]) => {
-      usageResponder.forMediaUsages(usages.toList.map(UsageBuilder.build))
+      usageResponder.forMediaUsages(usages.toList.map(UsageBuilder.build), mediaId)
     }).recover { case error: Exception => {
       Logger.error("UsageApi returned an error.", error)
       respondError(InternalServerError, "image-usage-retrieve-failed", error.getMessage())

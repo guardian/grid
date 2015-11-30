@@ -12,7 +12,7 @@ import play.api.libs.concurrent.Execution.Implicits._
 object ThrallMessageConsumer extends MessageConsumer(
   Config.queueUrl, Config.awsEndpoint, Config.awsCredentials, ThrallMetrics.processingLatency) {
 
-  override def chooseProcessor(subject: String): Option[JsValue => Future[Any]] =
+  override def chooseProcessor(subject: String): Option[JsValue => Future[Any]] = {
     PartialFunction.condOpt(subject) {
       case "image"                      => indexImage
       case "delete-image"               => deleteImage
@@ -20,9 +20,10 @@ object ThrallMessageConsumer extends MessageConsumer(
       case "delete-image-exports"       => deleteImageExports
       case "update-image-exports"       => updateImageExports
       case "update-image-user-metadata" => updateImageUserMetadata
-      case "update-image-usage"         => updateImageUsages
+      case "update-image-usages"        => updateImageUsages
       case "heartbeat"                  => heartbeat
     }
+  }
 
   def heartbeat(msg: JsValue) = Future {
     None

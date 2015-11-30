@@ -125,20 +125,23 @@ object Mappings {
 
   val usageReference =
     nonDynamicObj(
-      "referenceType" -> nonAnalyzedString,
+      "type" -> nonAnalyzedString,
       "uri"  -> nonAnalyzedString,
       "name" -> sStemmerAnalysedString
     )
 
   val usagesMapping =
     nonDynamicObj(
+      "id"           -> nonAnalyzedString,
       "title"        -> sStemmerAnalysedString,
       "references"   -> usageReference,
-      "usageType"    -> nonAnalyzedString,
-      "mediaType"    -> nonAnalyzedString,
+      "platform"     -> nonAnalyzedString,
+      "media"        -> nonAnalyzedString,
       "status"       -> nonAnalyzedString,
       "dateAdded"    -> dateFormat,
-      "lastModified" -> dateFormat
+      "dateRemoved"  -> dateFormat,
+      "lastModified" -> dateFormat,
+      "isRemoved"    -> boolean
     )
 
   val imageMapping: String =
@@ -161,7 +164,8 @@ object Mappings {
           "lastModified" -> dateFormat,
           "identifiers" -> dynamicObj,
           "uploadInfo" -> uploadInfoMapping,
-          "suggestMetadataCredit" -> simpleSuggester
+          "suggestMetadataCredit" -> simpleSuggester,
+          "usages" -> usagesMapping
         ),
         "dynamic_templates" -> Json.arr(Json.obj(
           "stored_json_object_template" -> Json.obj(

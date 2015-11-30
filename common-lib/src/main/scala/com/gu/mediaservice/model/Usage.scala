@@ -6,16 +6,13 @@ import org.joda.time.DateTime
 
 case class Usage(
   id: String,
-  grouping: String,
   references: List[UsageReference],
-  `type`: String,
-  mediaId: String,
-  mediaType: String,
+  platform: String,
+  media: String,
   status: String,
   dateAdded: Option[DateTime],
   dateRemoved: Option[DateTime],
-  lastModified: DateTime,
-  isRemoved: Boolean
+  lastModified: DateTime
 )
 object Usage {
   implicit val dateTimeWrites: Writes[DateTime] = new Writes[DateTime] {

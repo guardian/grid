@@ -105,7 +105,6 @@ object ElasticSearch extends ElasticSearchClient with ImageFields {
       .executeAndLog(s"updating usages on image $id")
       .incrementOnFailure(failedUsagesUpdates) { case e: VersionConflictEngineException => true }
 
-
   def updateImageExports(id: String, exports: JsValue)(implicit ex: ExecutionContext): Future[UpdateResponse] =
     prepareImageUpdate(id)
       .setScriptParams(Map(
