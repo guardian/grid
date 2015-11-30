@@ -1,5 +1,9 @@
 GET     /                                               controllers.CollectionsController.index
 
+# Image collections
+GET     /images/:imageId                                controllers.ImageCollectionsController.getCollections(imageId: String)
+POST    /images/:imageId                                controllers.ImageCollectionsController.addCollection(imageId: String)
+
 # Collections
 GET     /collections                                    controllers.CollectionsController.getCollections
 POST    /collections                                    controllers.CollectionsController.addCollectionFromJson

@@ -10,18 +10,14 @@ import org.joda.time.DateTime
 import play.api.libs.functional.syntax._
 import play.api.libs.json._
 import play.api.mvc.Controller
-import play.api.mvc.Security.AuthenticatedRequest
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
 
 import com.gu.mediaservice.lib.argo.ArgoHelpers
-import com.gu.mediaservice.lib.auth.{AuthenticatedService, PandaUser, Principal}
 import com.gu.mediaservice.model.{ActionData, Collection}
 
 import store.CollectionsStore
-
-case class InvalidPrinciple(message: String) extends Throwable
 
 case class AppIndex(name: String, description: String, config: Map[String, String] = Map(),
                     links: List[Link] = Nil, actions: List[Action] = Nil)
@@ -32,6 +28,8 @@ object AppIndex {
 object CollectionsController extends Controller with ArgoHelpers {
 
   import lib.Config.rootUri
+  import ControllerHelper.getUserFromReq
+
   val Authenticated = ControllerHelper.Authenticated
 
   def uri(u: String) = URI.create(u)
@@ -88,13 +86,6 @@ object CollectionsController extends Controller with ArgoHelpers {
     CollectionsStore.remove(collectionPath) map { collectionOpt =>
       collectionOpt.map(_ => Accepted).getOrElse(NotFound)
     }
-  }
-
-  private def getUserFromReq(req: AuthenticatedRequest[_, Principal]) = req.user match {
-    case PandaUser(email, _, _, _) => email
-    case AuthenticatedService(name) => name
-    // We should never get here
-    case user => throw new InvalidPrinciple(s"Invalid user ${user.name}")
   }
 
   // We have to do this as Play's serialisation doesn't work all that well.
