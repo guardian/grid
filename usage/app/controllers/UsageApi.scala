@@ -16,11 +16,11 @@ import scala.util.Try
 import rx.lang.scala.Observable
 
 import com.gu.mediaservice.lib.argo.ArgoHelpers
-import com.gu.mediaservice.lib.argo.model.Link
+import com.gu.mediaservice.lib.argo.model.{Link, EntityReponse}
 import com.gu.mediaservice.lib.auth
 import com.gu.mediaservice.lib.auth.KeyStore
 import com.gu.mediaservice.lib.aws.NoItemFound
-import com.gu.mediaservice.lib.UsageResponder
+import com.gu.mediaservice.model.Usage
 
 import lib._
 import model._
@@ -30,14 +30,25 @@ object UsageApi extends Controller with ArgoHelpers {
 
   import Config._
 
-  val usageResponder = new UsageResponder(Config.services)
   val keyStore = new KeyStore(keyStoreBucket, awsCredentials)
   val Authenticated = auth.Authenticated(keyStore, loginUriTemplate, kahunaUri)
+
+  private def wrapUsage(usage: Usage): EntityReponse[Usage] = {
+    EntityReponse(
+      uri = usageUri(usage.id),
+      data = usage
+    )
+  }
+
+  private def usageUri(usageId: String): Option[URI] = {
+    val encodedUsageId = UriEncoding.encodePathSegment(usageId, "UTF-8")
+    Try { new URI(s"${Config.usageUri}/usages/${encodedUsageId}") }.toOption
+  }
 
   val indexResponse = {
     val indexData = Map("description" -> "This is the Usage Recording service")
     val indexLinks = List(
-      Link("media-usage", s"$usageUri/usage/media/{id}")
+      Link("media-usage", s"${Config.usageUri}/usage/media/{id}")
     )
     respond(indexData, indexLinks)
   }
@@ -46,11 +57,21 @@ object UsageApi extends Controller with ArgoHelpers {
   def forUsage(usageId: String) = Authenticated.async {
     val usageFuture = UsageTable.queryByUsageId(usageId)
 
-    usageFuture.map[play.api.mvc.Result]((mediaUsage: Option[MediaUsage]) => {
-      usageResponder.forUsage(
-        mediaUsage.map(UsageBuilder.build),
-        mediaUsage.map(_.mediaId).getOrElse("not-found")
-      )
+    usageFuture.map[play.api.mvc.Result]((mediaUsageOption: Option[MediaUsage]) => {
+      mediaUsageOption.foldLeft(
+        respondNotFound("No usages found.")
+      )((_, mediaUsage: MediaUsage) => {
+        val usage = UsageBuilder.build(mediaUsage)
+        val mediaId = mediaUsage.mediaId
+
+        val uri = usageUri(usage.id)
+        val links = List(
+          Link("media", s"${services.apiBaseUri}/images/${mediaId}"),
+          Link("media-usage", s"${services.usageBaseUri}/usages/media/${mediaId}")
+        )
+
+        respond[Usage](data = usage, uri = uri, links = links)
+      })
     }).recover { case error: Exception => {
       Logger.error("UsageApi returned an error.", error)
       respondError(InternalServerError, "usage-retrieve-failed", error.getMessage())
@@ -61,8 +82,24 @@ object UsageApi extends Controller with ArgoHelpers {
   def forMedia(mediaId: String) = Authenticated.async {
     val usagesFuture = UsageTable.queryByImageId(mediaId)
 
-    usagesFuture.map[play.api.mvc.Result]((usages: Set[MediaUsage]) => {
-      usageResponder.forMediaUsages(usages.toList.map(UsageBuilder.build), mediaId)
+    usagesFuture.map[play.api.mvc.Result]((mediaUsages: Set[MediaUsage]) => {
+      val usages = mediaUsages.toList.map(UsageBuilder.build)
+
+      usages match {
+        case Nil => respondNotFound("No usages found.")
+        case usage :: _ => {
+          val uri = Try { new URI(s"${services.usageBaseUri}/usages/media/${mediaId}") }.toOption
+          val links = List(
+            Link("media", s"${services.apiBaseUri}/images/${mediaId}")
+          )
+
+          respondCollection[EntityReponse[Usage]](
+            uri = uri,
+            links = links,
+            data = usages.map(wrapUsage)
+          )
+        }
+      }
     }).recover { case error: Exception => {
       Logger.error("UsageApi returned an error.", error)
       respondError(InternalServerError, "image-usage-retrieve-failed", error.getMessage())
