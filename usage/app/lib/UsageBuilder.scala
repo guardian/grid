@@ -9,43 +9,21 @@ import model.{PublishedUsageStatus, MediaUsage, UsageTableFullKey}
 object UsageBuilder {
   import com.gu.mediaservice.lib.IntUtils._
 
-  def build(usage: MediaUsage): Usage = {
-    usage.usageType match {
-      case "digital" => buildWeb(usage)
-      case "print" => buildPrint(usage)
-    }
-  }
+  def build(usage: MediaUsage) = Usage(
+    buildId(usage),
+    buildUsageReference(usage),
+    usage.usageType,
+    usage.mediaType,
+    buildStatusString(usage),
+    usage.dateAdded,
+    usage.dateRemoved,
+    usage.lastModified
+  )
 
   private def buildStatusString(usage: MediaUsage) = if (usage.status match {
     case _: PublishedUsageStatus => usage.isRemoved
     case _ => false
   }) "removed" else usage.status.toString
-
-  private def buildWeb(usage: MediaUsage): Usage = {
-    Usage(
-      buildId(usage),
-      buildUsageReference(usage),
-      usage.usageType,
-      usage.mediaType,
-      buildStatusString(usage),
-      usage.dateAdded,
-      usage.dateRemoved,
-      usage.lastModified
-    )
-  }
-
-  private def buildPrint(usage: MediaUsage): Usage = {
-    Usage(
-      buildId(usage),
-      buildUsageReference(usage),
-      usage.usageType,
-      usage.mediaType,
-      buildStatusString(usage),
-      usage.dateAdded,
-      usage.dateRemoved,
-      usage.lastModified
-    )
-  }
 
   private def buildId(usage: MediaUsage): String = {
     UsageTableFullKey.build(usage).toString
