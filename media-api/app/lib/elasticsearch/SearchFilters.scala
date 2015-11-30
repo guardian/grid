@@ -72,7 +72,8 @@ trait SearchFilters extends ImageFields {
     filters.bool.must(filters.term(usageRightsField("category"), ContractPhotographer.category)),
     filters.bool.must(filters.term(usageRightsField("category"), CommissionedPhotographer.category)),
     filters.bool.must(filters.term(usageRightsField("category"), ContractIllustrator.category)),
-    filters.bool.must(filters.term(usageRightsField("category"), CommissionedIllustrator.category))
+    filters.bool.must(filters.term(usageRightsField("category"), CommissionedIllustrator.category)),
+    filters.bool.must(filters.term(usageRightsField("category"), CommissionedAgency.category))
   )
 
   val nonPersistedFilter = filters.not(persistedFilter)

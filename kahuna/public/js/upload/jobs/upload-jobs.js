@@ -4,6 +4,7 @@ import '../../preview/image';
 import '../../analytics/track';
 import '../../components/gr-delete-image/gr-delete-image';
 import '../../image/service';
+import '../../edits/service';
 import '../../services/label';
 import '../../services/preset-label';
 
@@ -12,7 +13,8 @@ export var jobs = angular.module('kahuna.upload.jobs', [
     'gr.image.service',
     'analytics.track',
     'kahuna.services.label',
-    'kahuna.services.presetLabel'
+    'kahuna.services.presetLabel',
+    'kahuna.edits.service'
 ]);
 
 
@@ -25,6 +27,7 @@ jobs.controller('UploadJobsCtrl', [
     'imageService',
     'labelService',
     'presetLabelService',
+    'editsService',
 
     function($rootScope,
             $scope,
@@ -33,7 +36,8 @@ jobs.controller('UploadJobsCtrl', [
             track,
             imageService,
             labelService,
-            presetLabelService) {
+            presetLabelService,
+            editsService) {
 
     var ctrl = this;
     const presetLabels = presetLabelService.getLabels();
@@ -78,7 +82,7 @@ jobs.controller('UploadJobsCtrl', [
                         .substr(0, jobItem.name.lastIndexOf('.'))
                         .replace(/_/g, ' ');
 
-                    jobItem.image.data.metadata.description = newDescription;
+                    editsService.updateMetadataField(jobItem.image, 'description', newDescription);
                 }
 
                 if (presetLabels) {

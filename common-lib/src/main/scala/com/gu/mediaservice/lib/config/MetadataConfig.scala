@@ -92,7 +92,6 @@ object MetadataConfig {
 
   val contractedPhotographers: Map[String, String] = Map(
     "Antonio Zazueta"     -> "The Guardian",
-    "Christian Sinibaldi" -> "The Guardian",
     "Christopher Thomond" -> "The Guardian",
     "David Levene"        -> "The Guardian",
     "Eamonn McCabe"       -> "The Guardian",

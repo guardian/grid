@@ -2,16 +2,18 @@ package controllers
 
 import java.net.URI
 
-import play.api.libs.json.JsError
-import play.api.Logger
-import play.api.mvc.Results._
-import play.api.mvc.{Controller, BodyParsers}
-
-import play.utils.UriEncoding
-
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
 import scala.util.Try
+
+import play.api.libs.json.JsError
+import play.api.Logger
+import play.api.Logger
+import play.api.mvc.Controller
+import play.api.mvc.Results._
+import play.api.mvc.Results._
+import play.api.mvc.{Controller, BodyParsers}
+import play.utils.UriEncoding
 
 import rx.lang.scala.Observable
 

@@ -52,6 +52,12 @@ object ImageResponse extends EditsResponse {
       case _ => false
     }
 
+  def isAgencyCommissionedCategory[T <: UsageRights](usageRights: T) =
+    usageRights match {
+      case _: CommissionedAgency => true
+      case _ => false
+    }
+
   def imagePersistenceReasons(image: Image): List[String] = {
     val reasons = ListBuffer[String]()
 
@@ -69,6 +75,9 @@ object ImageResponse extends EditsResponse {
 
     if (isIllustratorCategory(image.usageRights))
       reasons += "illustrator-category"
+
+    if(isAgencyCommissionedCategory(image.usageRights))
+      reasons += CommissionedAgency.category
 
     reasons.toList
   }

@@ -218,8 +218,36 @@ The user interface should be up at
 [http://localhost:9007/](http://localhost:9007/).
 
 
+### Run Collections
+
+From the project root, run via sbt:
+
+        $ sbt
+        > project collections
+        > run 9010
+
+The user interface should be up at
+[http://localhost:9010/](http://localhost:9010/).
+
+
 ### [Run ImgOps](imgops/README.md)
 
+### Running with [Foreman](https://github.com/ddollar/foreman)
+This runs all the applications from a single command
+
+Install foreman: 
+
+        $ gem install foreman
+
+From the project root 
+
+        $ foreman start
+
+If you'd like to run a single appplication name (or have your logs in different consoles):
+
+        $ foreman run APPLICATION_NAME
+
+you can see the different application names in the Procfile
 
 ## Troubleshooting
 
