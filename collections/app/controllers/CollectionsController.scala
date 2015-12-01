@@ -3,6 +3,7 @@ package controllers
 import java.net.URI
 
 import com.gu.mediaservice.lib.argo.model.{Link, EmbeddedEntity, Action}
+import com.gu.mediaservice.lib.collections.CollectionsManager
 import lib.ControllerHelper
 import model.Node
 import org.joda.time.DateTime
@@ -77,8 +78,12 @@ object CollectionsController extends Controller with ArgoHelpers {
     }
   }
 
-  def addCollectionFromJson = Authenticated.async(parse.json) { req =>
-    (req.body \ "data").asOpt[List[String]].map { path =>
+  // Basically default parameters, which Play doesn't support
+  def addChildToRoot = addChildTo(None)
+  def addChildToCollection(collectionPathId: String) = addChildTo(Some(collectionPathId))
+  def addChildTo(collectionPathId: Option[String]) = Authenticated.async(parse.json) { req =>
+    (req.body \ "data").asOpt[String].map { child =>
+      val path = child :: collectionPathId.map(CollectionsManager.stringToPath).getOrElse(Nil)
       val collection = Collection(path, ActionData(getUserFromReq(req), DateTime.now))
       CollectionsStore.add(collection).map { collection =>
         respond(Node(collection.path.last, Nil, collection.pathId, Some(collection)))
