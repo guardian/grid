@@ -36,12 +36,16 @@ object CollectionsController extends Controller with ArgoHelpers {
 
   def uri(u: String) = URI.create(u)
   val collectionUri = uri(s"$rootUri/collections")
-  def collectionUri(s: String = "") = uri(s"$rootUri/collections$s")
+  def collectionUri(s: String = "") = {
+    val post = if(s.nonEmpty) s"/$s" else s
+    uri(s"$rootUri/collections$post")
+  }
 
   val appIndex = AppIndex("media-collections", "The one stop shop for collections",
                   links = List(Link("collections", collectionUri.toString)))
+
   def addChildAction(pathId: String = ""): Option[Action] = Some(Action("add-child", collectionUri(pathId), "POST"))
-  def addChildAction(n: Node[Collection]): Option[Action] = addChildAction(s"/${n.pathId}")
+  def addChildAction(n: Node[Collection]): Option[Action] = addChildAction(n.pathId)
   def removeNodeAction(n: Node[Collection]) = if (n.children.nonEmpty) None else Some(
     Action("remove", collectionUri(n.pathId), "DELETE")
   )
