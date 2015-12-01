@@ -30,9 +30,7 @@ def _get_stack_outputs():
     cf_client = _get_client()
     stack = cf_client.describe_stacks(StackName=stack_name)
 
-    outputs = {
-        'region': boto3.DEFAULT_SESSION._session.get_config_variable('region')
-    }
+    outputs = {}
 
     LOGGER.info('Here is your CloudFormation Stack output')
 

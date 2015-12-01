@@ -1,7 +1,6 @@
 domain.root={{domain_root}}
 aws.id={{AwsId}}
 aws.secret={{AwsSecret}}
-aws.region={{region}}
 auth.keystore.bucket={{KeyBucket}}
 capi.pollIntervalInSeconds={{capi_poll}}
 capi.live.url={{capi_live_url}}
