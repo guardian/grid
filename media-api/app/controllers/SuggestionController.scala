@@ -24,7 +24,7 @@ object SuggestionController extends Controller with ArgoHelpers {
   def suggestLabels(q: Option[String]) = Authenticated {
 
     val pseudoFamousLabels = List(
-      "cities", "family", "filmandmusic", "longread", "pp", "satrev", "trv",
+      "cities", "family", "filmandmusic", "longread", "money", "pp", "satrev", "trv",
 
       "culturearts", "culturebooks", "culturefilm", "culturestage", "culturemusic",
 
