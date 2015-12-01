@@ -1,4 +1,8 @@
 import angular from 'angular';
+
+import Rx from 'rx';
+import '../util/rx';
+
 import '../analytics/track';
 
 import template from './image.html!text';
@@ -13,16 +17,19 @@ export var image = angular.module('kahuna.preview.image', [
     'gr.image-usages.service',
     'analytics.track',
     'gr.addLabel',
-    'gr.imagePersistStatus'
+    'gr.imagePersistStatus',
+    'util.rx'
 ]);
 
 image.controller('uiPreviewImageCtrl', [
     '$scope',
+    'inject$',
     '$rootScope',
     'imageService',
     'imageUsagesService',
     function (
         $scope,
+        inject$,
         $rootScope,
         imageService,
         imageUsagesService) {
@@ -37,11 +44,13 @@ image.controller('uiPreviewImageCtrl', [
     });
 
     ctrl.states = imageService(ctrl.image).states;
-    ctrl.usages = imageUsagesService(ctrl.image);
+    const usages$ = imageUsagesService(ctrl.image);
 
     $scope.$on('$destroy', function() {
         freeUpdateListener();
     });
+
+    inject$($scope, usages$, ctrl, 'usages');
 }]);
 
 image.directive('uiPreviewImage', function() {

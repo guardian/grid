@@ -1,6 +1,9 @@
 import angular from 'angular';
 import moment from 'moment';
 
+import Rx from 'rx';
+import '../../util/rx';
+
 import template from './gr-image-usage.html!text';
 import usageTemplate from './gr-image-usage-list.html!text';
 import './gr-image-usage.css!';
@@ -8,17 +11,21 @@ import './gr-image-usage.css!';
 import '../../services/image/usages';
 
 export const module = angular.module('gr.imageUsage', [
-    'gr.image-usages.service'
+    'gr.image-usages.service',
+    'util.rx'
 ]);
 
 module.controller('grImageUsageCtrl', [
+    '$scope',
+    'inject$',
     'imageUsagesService',
 
-    function (imageUsagesService) {
+    function ($scope, inject$, imageUsagesService) {
 
         const ctrl = this;
 
-        ctrl.usage = imageUsagesService(ctrl.image).groupedByState;
+        const usages$ = imageUsagesService(ctrl.image).map((usages) =>
+            usages.groupedByState);
 
         ctrl.usageTypeToName = (usageType) => {
             switch (usageType) {
@@ -30,6 +37,8 @@ module.controller('grImageUsageCtrl', [
                     return usageType;
             }
         };
+
+        inject$($scope, usages$, ctrl, 'usages');
 }]);
 
 module.directive('grImageUsage', [function() {

@@ -1,17 +1,20 @@
 import angular from 'angular';
 import Immutable from 'immutable';
 
+import Rx from 'rx';
+
 export const imageUsagesService = angular.module('gr.image-usages.service', ['kahuna.edits.service']);
 
 imageUsagesService.factory('imageUsagesService', [function() {
 
-    function forImage(image) {
+    function forImage(imageResource) {
         function usageTitle(usage) {
-            const referenceType = usage.get('usageType') == 'print' ? 'indesign' : 'frontend';
+            const referenceType =
+                usage.get('platform') == 'print' ? 'indesign' : 'frontend';
 
             const build = (usage, referenceType) => {
                 const reference = usage.get('references').find(u =>
-                    u.get('referenceType') == referenceType);
+                    u.get('type') == referenceType);
 
                 return reference ? reference.get('name') : 'No title found.';
             };
@@ -19,20 +22,40 @@ imageUsagesService.factory('imageUsagesService', [function() {
             return build(usage, referenceType);
         }
 
-        const usagesList = Immutable.fromJS(image.data.usages).map(u =>
-            u.set('title', usageTitle(u)));
+        const image$ = Rx.Observable.fromPromise(imageResource.getData());
+        const usages$ = image$
+            .flatMap((image) =>
+                Rx.Observable.fromPromise(image.usages.getData()))
+            .flatMap((usages) => usages.map(usage => usage.getData()))
+            .flatMap(Rx.Observable.fromPromise)
+            .toArray()
+            .map((usages) => {
 
-        const groupedByState = usagesList.groupBy(u => u.get('status'));
+                const usagesList =
+                    Immutable.fromJS(usages).map(usage =>
+                        usage.set('title', usageTitle(usage)));
 
-        const filterByUsageType = (usageType) =>
-            usagesList.filter(u => u.get('usageType') == usageType);
+                const groupedByState = usagesList.groupBy(usage =>
+                    usage.get('status'));
 
-        return {
-            usages: usagesList.toJS(),
-            groupedByState: groupedByState.toJS(),
-            hasPrintUsages: !filterByUsageType('print').isEmpty(),
-            hasWebUsages: !filterByUsageType('web').isEmpty()
-        };
+                const filterByPlatform = (platform) =>
+                    usagesList.filter(usage =>
+                        usage.get('platform') == platform);
+
+                return {
+                    usages: usagesList.toJS(),
+                    groupedByState: groupedByState.toJS(),
+                    hasPrintUsages: !filterByPlatform('print').isEmpty(),
+                    hasWebUsages: !filterByPlatform('digital').isEmpty()
+                };
+
+            });
+
+        // TODO: For debugging ... remove me!!
+        usages$.subscribe((result) => console.log(result));
+
+        return usages$
+
     }
 
     return image => forImage(image);
