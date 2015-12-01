@@ -10,7 +10,17 @@ apiServices.factory('collections', ['mediaApi', function (mediaApi) {
         return collections;
     }
 
+    function removeCollection(collection) {
+        return collection.perform('delete');
+    }
+
+    function addCollection(newCollectionPath) {
+        return mediaApi.root.follow('collections').post({data: newCollectionPath});
+    }
+
     return {
-        getCollections
+        getCollections,
+        removeCollection,
+        addCollection
     };
 }]);

@@ -11,14 +11,30 @@
     transition: left 0.1s;
 }
 
-.nodes {
-    padding-left: 10px;
-}
-
+/*to indent the children collections and also background-color the whole column width*/
 .tree-node {
-    padding-left: 10px;
+    box-sizing: border-box;
+    padding-left: 210px;
+    margin-left: -190px;
 }
 
 .tree-node__arrow {
-    margin-left: -10px;
+    margin-left: -18px;
+}
+
+.tree-node--leaf:hover {
+    background-color: #404040;
+}
+
+.tree-node--leaf:hover .node__edits {
+    display: block;
+}
+
+.node__edits {
+    float: right;
+    display: none;
+}
+
+.node__edits:hover {
+    color: white;
 }

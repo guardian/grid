@@ -62,7 +62,7 @@ object CollectionsController extends Controller with ArgoHelpers {
     (req.body \ "data").asOpt[List[String]].map { path =>
       val collection = Collection(path, ActionData(getUserFromReq(req), DateTime.now))
       CollectionsStore.add(collection).map { newCollection =>
-        respond(newCollection)
+        respond(Node(newCollection.path.last, Nil, Some(newCollection)))
       }
     } getOrElse Future.successful(invalidJson(req.body))
   }

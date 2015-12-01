@@ -2,6 +2,7 @@ import angular from 'angular';
 
 import '../../services/panel';
 import '../../services/api/collections-api';
+import '../../directives/gr-auto-focus';
 
 import './gr-collections-panel.css!';
 
@@ -29,22 +30,36 @@ grCollectionsPanel.controller('GrCollectionsPanelCtrl', [
         }
     );
 
-
-        collections.getCollections().then(data => {
-            ctrl.collections = data;
-        });
+    collections.getCollections().then(data => {
+        ctrl.collections = data;
+    });
 
 }]);
 
-grCollectionsPanel.controller('GrNodeCtrl', [
-    function() {
+grCollectionsPanel.controller('GrNodesCtrl', ['$scope', 'collections',
+    function($scope, collections) {
 
         const ctrl = this;
 
-        ctrl.hideChildren = false;
+        ctrl.hasChildren = false;
 
-        ctrl.toggleChildren = () => {
-            ctrl.hideChildren = !ctrl.hideChildren;
+        ctrl.remove = node => {
+            collections.removeCollection(node.content)
+                .then(() => {
+                    const cleanNodes = ctrl.nodes.filter(elem => elem.name !== node.name);
+                    ctrl.nodes = cleanNodes;
+                });
+        };
+
+        ctrl.addChild = node => {
+            const newCollectionPath = node.content.data.path.concat([ctrl.newCollection]);
+
+            collections.addCollection(newCollectionPath)
+                .then(newCollectionResource => {
+                    node.children = [newCollectionResource].concat(node.children);
+                });
+
+            ctrl.newCollection = '';
         };
 
     }
@@ -59,12 +74,8 @@ grCollectionsPanel.directive('grNode', ['$parse', '$compile', function($parse, $
         template: `<div class="node"></div>`,
         link: function(scope, element, attrs) {
             const node = $parse(attrs.grNode)(scope);
-            if (node.children.length > 0) {
                 element.append(`<gr-nodes gr:nodes="node.children"></gr-nodes>`);
                 $compile(element.contents())(scope);
-            } else {
-                element.remove();
-            }
         }
     };
 
@@ -78,15 +89,48 @@ grCollectionsPanel.directive('grNodes', function() {
         },
         template: `<ul class="nodes">
             <li ng:repeat="node in ctrl.nodes"
-                class="tree-node">
-                <span class="tree-node__arrow clickable"
-                ng:if="node.children.length > 0"
-                ng:click="ctrl.toggleChildren()">▸</span>
-                <a ui:sref="search.results({query: (node.name)})">{{node.name}}</a>
-                <gr-node ng:hide="ctrl.hideChildren" gr:node="node"></gr-node>
+                class="tree-node"
+                ng:class="{'tree-node--leaf' : node.children.length === 0}">
+                <div class="tree-node__content">
+                    <button type="button"
+                        class="tree-node__arrow clickable"
+                        ng:click="hideChildren = !hideChildren"
+                        ng:show="node.children.length > 0">
+                        <span ng:show="hideChildren">▸</span>
+                        <span ng:hide="hideChildren">▾</span>
+
+                    </button>
+                    <a ui:sref="search.results({query: (node.name)})">{{node.name}}</a>
+
+                    <div class="node__edits">
+                        <button ng:if="node.children.length === 0"
+                            class="inner-clickable"
+                            type="button"
+                            ng:click="ctrl.remove(node)">
+                            <gr-icon-label gr-icon="delete"></gr-icon-label>
+                        </button>
+                    </div>
+
+                    <gr-icon ng:click="active = !active" class="clickable">add_box</gr-icon>
+
+                    <form ng:show="active" ng:submit="ctrl.addChild(node); active = !active; displayChildren = true">
+                        <input type="text"
+                            required
+                            ng:model="ctrl.newCollection"/>
+                        <button type="submit">
+                            <gr-icon-label gr-icon="check"></gr-icon-label>
+                        </button>
+                        <button type="button" ng:click="active = false; ctrl.newCollection=''" title="Close">
+                            <gr-icon-label gr-icon="close"></gr-icon-label>
+                        </button>
+                    </form>
+                </div>
+
+                <gr-node ng:hide="hideChildren" gr:node="node"></gr-node>
+
             </li>
         </ul>`,
-        controller: 'GrNodeCtrl',
+        controller: 'GrNodesCtrl',
         controllerAs: 'ctrl',
         bindToController: true
     }
