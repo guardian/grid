@@ -139,12 +139,13 @@ class DynamoDB(credentials: AWSCredentials, region: Region, tableName: String) {
     )
 
   def listGet[T](id: String, key: String)
-                (implicit ex: ExecutionContext): Future[List[T]] = {
+                (implicit ex: ExecutionContext, reads: Reads[T]): Future[List[T]] = {
 
-    get(id, key) map { item => Option(item.getList[T](key)) match {
-      case Some(list) => list.asScala.toList
-      case None      => Nil
-    }
+    get(id, key) map { item =>
+      Option(item.toJSON) match {
+        case Some(json) => (Json.parse(json) \ key).as[List[T]]
+        case None      => Nil
+      }
     }
   }
 

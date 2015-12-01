@@ -7,9 +7,10 @@ import org.joda.time.DateTime
 import play.api.libs.json.{Json, JsObject}
 import play.api.mvc.Controller
 
+import com.gu.mediaservice.lib.collections.CollectionsManager
 import com.gu.mediaservice.lib.aws.{NoItemFound, DynamoDB}
-import com.gu.mediaservice.model.{ActionData, Collection}
 import com.gu.mediaservice.lib.argo.ArgoHelpers
+import com.gu.mediaservice.model.{ActionData, Collection}
 
 import lib.{Config, ControllerHelper}
 
@@ -17,13 +18,14 @@ import lib.{Config, ControllerHelper}
 object ImageCollectionsController extends Controller with ArgoHelpers {
 
   import ControllerHelper.getUserFromReq
+  import CollectionsManager.onlyLatest
 
   val Authenticated = ControllerHelper.Authenticated
   val dynamo = new DynamoDB(Config.awsCredentials, Config.dynamoRegion, Config.imageCollectionsTable)
 
   def getCollections(id: String) = Authenticated.async { req =>
-    dynamo.listGet[String](id, "collection").map { dynamoEntry =>
-      respond(dynamoEntry)
+    dynamo.listGet[Collection](id, "collections").map { dynamoEntry =>
+      respond(onlyLatest(dynamoEntry))
     } recover {
       case NoItemFound => respondNotFound("No usage rights overrides found")
     }
