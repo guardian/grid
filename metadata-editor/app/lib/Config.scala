@@ -1,6 +1,6 @@
 package lib
 
-import com.amazonaws.regions.{Regions, Region}
+import com.amazonaws.regions.{RegionUtils, Region}
 import com.gu.mediaservice.lib.config.{Properties, CommonPlayAppConfig, CommonPlayAppProperties}
 import com.amazonaws.auth.{BasicAWSCredentials, AWSCredentials}
 
@@ -14,7 +14,7 @@ object Config extends CommonPlayAppProperties with CommonPlayAppConfig {
   val awsCredentials: AWSCredentials =
     new BasicAWSCredentials(properties("aws.id"), properties("aws.secret"))
 
-  val dynamoRegion: Region = Region.getRegion(Regions.EU_WEST_1)
+  val dynamoRegion: Region = RegionUtils.getRegion(properties("aws.region"))
 
   val keyStoreBucket = properties("auth.keystore.bucket")
   val collectionsBucket: String = properties("s3.collections.bucket")
