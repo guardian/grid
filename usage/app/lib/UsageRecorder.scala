@@ -48,15 +48,21 @@ object UsageRecorder {
 
   def subscribe = UsageRecorder.observable.subscribe(subscriber)
 
+  def buildNotifications(usages: Set[MediaUsage]) = {
+    Observable.from(usages.map(_.mediaId).toList.distinct.map(UsageNotifier.forMedia))
+  }
+
   def recordUpdates(usageGroup: UsageGroup) = {
     UsageTable.matchUsageGroup(usageGroup).flatMap(dbUsageGroup => {
 
       val deletes = (dbUsageGroup.usages -- usageGroup.usages).map(UsageTable.delete)
       val creates = (usageGroup.usages -- dbUsageGroup.usages).map(UsageTable.create)
       val updates = (usageGroup.usages & dbUsageGroup.usages).map(UsageTable.update)
-      val notices = usageGroup.usages.map(_.mediaId).map(UsageNotifier.forMedia)
 
-      Observable.from(deletes ++ updates ++ creates ++ notices).flatten[JsObject]
+      val actions = Observable.from(deletes ++ updates ++ creates)
+      val notices = buildNotifications(usageGroup.usages ++ dbUsageGroup.usages)
+
+      (actions ++ notices).flatten[JsObject]
     })
   }
 }

@@ -30,14 +30,14 @@ case class MediaUsage(
   def isRemoved = (for {
     added <- dateAdded
     removed <- dateRemoved
-  } yield added.isBefore(removed)).getOrElse(false)
+  } yield !removed.isBefore(added)).getOrElse(false)
 
   // Used in set comparison of UsageGroups
   override def equals(obj: Any): Boolean = obj match {
     case mediaUsage: MediaUsage => {
       usageId == mediaUsage.usageId &&
       grouping == mediaUsage.grouping &&
-      dateRemoved == mediaUsage.dateRemoved
+      dateRemoved.isEmpty
     } // TODO: This will work for checking if new items have been added/removed
     case _ => false
   }

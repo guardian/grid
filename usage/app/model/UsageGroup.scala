@@ -12,6 +12,7 @@ case class UsageGroup(
   lastModified: DateTime
 )
 object UsageGroup {
+
   def build(content: Content, status: UsageStatus, lastModified: DateTime) =
     ContentWrapper.build(content, status, lastModified).map(contentWrapper => {
       createUsages(contentWrapper).map(usages => {

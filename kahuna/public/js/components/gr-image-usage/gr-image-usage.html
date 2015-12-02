@@ -2,12 +2,12 @@
     <p><strong>Warning:</strong> This feature is in development and may provide inaccurate information.</p>
 </div>
 
-<div ng:show="ctrl.usages.pending || ctrl.usages.published">
+<div ng:show="ctrl.usages.pending || ctrl.usages.published || ctrl.usages.removed">
     <div ng-repeat="(type, usages) in ctrl.usages">
         <gr-image-usage-list type="ctrl.usageTypeToName(type)" usages="usages"></gr-image-usage-list>
     </div>
 </div>
 
-<div ng:hide="ctrl.usages.pending || ctrl.usages.published" class="image-info__group">
+<div ng:hide="ctrl.usages.pending || ctrl.usages.published || ctrl.usages.removed" class="image-info__group">
     None
 </div>

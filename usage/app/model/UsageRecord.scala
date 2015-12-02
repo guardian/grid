@@ -19,7 +19,7 @@ case class UsageRecord(
   usageStatus: Option[String] = None,
   dataMap: Option[Map[String, String]] = None,
   dateAdded: Option[DateTime] = None,
-  dateRemoved: Option[DateTime] = None
+  dateRemoved: Either[String, Option[DateTime]] = Right(None)
 ) {
   def toXSpec = {
     (new ExpressionSpecBuilder() <| (xspec => {
@@ -33,7 +33,10 @@ case class UsageRecord(
           dataMap.filter({ case (k,v) => k.nonEmpty && v.nonEmpty})
         )),
         dateAdded.map(dateAdd => N("date_added").set(dateAdd.getMillis)),
-        dateRemoved.map(dateRem => N("date_removed").set(dateRem.getMillis))
+        dateRemoved.fold(
+          _ => Some(N("date_removed").remove),
+          dateRem => dateRem.map(date => N("date_removed").set(date.getMillis))
+        )
       ).flatten.foreach(xspec.addUpdate(_))
     })).buildForUpdate
   }
@@ -43,7 +46,7 @@ object UsageRecord {
   def buildDeleteRecord(mediaUsage: MediaUsage) = UsageRecord(
     hashKey = mediaUsage.grouping,
     rangeKey = mediaUsage.usageId.toString,
-    dateRemoved = Some(mediaUsage.lastModified)
+    dateRemoved = Right(Some(mediaUsage.lastModified))
   )
 
   def buildUpdateRecord(mediaUsage: MediaUsage) = UsageRecord(
@@ -66,6 +69,7 @@ object UsageRecord {
     Some(mediaUsage.lastModified),
     Some(mediaUsage.status.toString),
     Some(mediaUsage.data),
-    Some(mediaUsage.lastModified)
+    Some(mediaUsage.lastModified),
+    Left("clear")
   )
 }

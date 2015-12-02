@@ -29,6 +29,8 @@ module.controller('grImageUsageCtrl', [
 
         ctrl.usageTypeToName = (usageType) => {
             switch (usageType) {
+                case 'removed':
+                    return 'Taken down';
                 case 'pending':
                     return 'Pending publication';
                 case 'published':

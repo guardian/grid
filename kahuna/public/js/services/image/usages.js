@@ -16,7 +16,7 @@ imageUsagesService.factory('imageUsagesService', [function() {
                 const reference = usage.get('references').find(u =>
                     u.get('type') == referenceType);
 
-                return reference ? reference.get('name') : 'No title found.';
+                return reference.get('name') ? reference.get('name') : 'No title found.';
             };
 
             return build(usage, referenceType);
@@ -50,9 +50,6 @@ imageUsagesService.factory('imageUsagesService', [function() {
                 };
 
             });
-
-        // TODO: For debugging ... remove me!!
-        usages$.subscribe((result) => console.log(result));
 
         return usages$
 
