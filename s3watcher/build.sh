@@ -2,14 +2,15 @@
 
 set -e
 
-get_function_name() {
-    echo $(aws cloudformation list-stack-resources --stack-name $1 \
-        | jq ".StackResourceSummaries[] | select(.LogicalResourceId == \"S3WatcherLamdbaFunction\") | .PhysicalResourceId" \
-        | tr -d '"')
-}
+if [ -z $TEST_FUNC_NAME ]; then
+    echo 'TEST_FUNC_NAME is unset';
+    exit 1
+fi
 
-TEST_FUNC_NAME=$(get_function_name media-service-TEST)
-PROD_FUNC_NAME=$(get_function_name media-service-PROD)
+if [ -z $PROD_FUNC_NAME ]; then
+    echo 'PROD_FUNC_NAME is unset';
+    exit 1
+fi
 
 cd lambda
 npm install
