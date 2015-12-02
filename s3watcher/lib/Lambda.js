@@ -18,7 +18,7 @@ module.exports = {
 
             const filenameFromKey = function(key) {
                 return path[(path.length - 1)];
-            }
+            };
             const srcFilename = filenameFromKey(srcKey);
 
             return {
@@ -71,4 +71,4 @@ module.exports = {
             success: success
         };
     }
-}
+};
