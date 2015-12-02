@@ -87,9 +87,9 @@
     </div>
 
     <div class="result-editor__editor">
-        <div class="result-editor__field-container image-info__wrap">
-            <span class="result-editor__field-label flex-no-shrink">
-                Usage rights
+        <div class="result-editor__field-container image-info__wrap flex-center">
+            <span class="result-editor__field-label flex-no-shrink text-small">
+                Rights & restrictions
             </span>
 
             <div class="result-editor__usage-rights-container">
@@ -100,7 +100,7 @@
                     </button>
                     <button
                         class="job-editor__apply-to-all"
-                        title="Apply these usage rights to all your current uploads"
+                        title="Apply these rights & restrictions to all your current uploads"
                         type="button"
                         ng:if="ctrl.withBatch"
                         ng:click="ctrl.batchApplyUsageRights()"
@@ -125,8 +125,8 @@
             with-batch="ctrl.withBatch"
         ></ui-required-metadata-editor>
 
-        <div class="result-editor__field-container">
-            <span class="result-editor__field-label flex-container flex-no-shrink">
+        <div class="result-editor__field-container flex-container flex-center">
+            <span class="result-editor__field-label  flex-no-shrink text-small">
                 Labels
             </span>
             <div class="result-editor__field-container__labels" ng:class="{'result-editor__field-container__labels--hidden' : ctrl.inputtingLabel}">
@@ -138,7 +138,7 @@
             </div>
         </div>
         <div class="result-editor__field-container" ng:if="ctrl.image.data.uploadInfo.filename">
-            <div class="result-editor__field-label">File name</div>
+            <div class="result-editor__field-label text-small">File name</div>
             <div class="result-editor__field-value">{{ctrl.image.data.uploadInfo.filename}}</div>
         </div>
 
