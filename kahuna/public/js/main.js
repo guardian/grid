@@ -41,6 +41,8 @@ var config = {
     vndMimeTypes: new Map([
         ['gridImageData', 'application/vnd.mediaservice.image+json'],
         ['kahunaUri',     'application/vnd.mediaservice.kahuna.uri'],
+        // These two are internal hacks to help us identify when we're dragging internal assets
+        // They should definitely not be relied on externally.
         ['isGridLink',    'application/vnd.mediaservice.kahuna.link'],
         ['isGridImage' ,  'application/vnd.mediaservice.kahuna.image']
     ])
@@ -490,6 +492,8 @@ kahuna.directive('uiLocalstore', ['$window', function($window) {
     };
 }]);
 
+// These two are internal hacks to help us identify when we're dragging internal assets
+// They should definitely not be relied on externally.
 kahuna.directive('img', ['vndMimeTypes', function(vndMimeTypes) {
     return {
         restrict: 'E',
@@ -500,7 +504,6 @@ kahuna.directive('img', ['vndMimeTypes', function(vndMimeTypes) {
         }
     };
 }]);
-
 kahuna.directive('a', ['vndMimeTypes', function(vndMimeTypes) {
     return {
         restrict: 'E',
