@@ -1,5 +1,7 @@
 #!/bin/bash
 
+set -e
+
 get_function_name() {
     echo $(aws cloudformation list-stack-resources --stack-name $1 \
         | jq ".StackResourceSummaries[] | select(.LogicalResourceId == \"S3WatcherLamdbaFunction\") | .PhysicalResourceId" \
