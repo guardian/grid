@@ -22,7 +22,7 @@ mkdir -p target/packages/lambda
 mv lambda/S3Watcher.zip target/packages/lambda/lambda.zip
 
 cat deploy.json \
-    | jq ".packages.lambda.functions.TEST.name |= \"$TEST_FUNC_NAME\" | .packages.lambda.functions.PROD.name |= \"$PROD_FUNC_NAME\"" \
+    | jq ".packages.lambda.data.functions.TEST.name |= \"$TEST_FUNC_NAME\" | .packages.lambda.data.functions.PROD.name |= \"$PROD_FUNC_NAME\"" \
     > target/deploy.json
 
 cd target
