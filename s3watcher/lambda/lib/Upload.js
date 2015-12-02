@@ -11,7 +11,7 @@ module.exports = {
         };
 
          const buildUploadedBy = function(path){
-             if(path.length > 1) {
+             if (path.length > 1) {
                  return path[0];
              } else {
                  throw new Error("File uploaded to root folder.");
@@ -40,7 +40,7 @@ module.exports = {
                 succeeded: response.statusCode == 202,
                 uploadedBy: upload.params.uploadedBy,
                 stage: upload.params.stage
-            }
+            };
         }
 
         const url = upload.url + upload.path;
@@ -60,4 +60,4 @@ module.exports = {
             uploadRequest.on("error", observer.onError.bind(observer));
         });
     }
-}
+};

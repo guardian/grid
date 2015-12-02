@@ -33,16 +33,7 @@ object EditsApi extends Controller with ArgoHelpers {
   def index = Authenticated { indexResponse }
 
   val usageRightsResponse = {
-    // FIXME: Creating new instances? Rubbish ಠ_ಠ. I can't think of a way
-    // to access the `val`s of the classes though without instantiating them.
-    val usageRightsData =
-      List(
-        NoRights, Handout(), PrImage(), Screengrab(), SocialMedia(),
-        Agency("?"), CommissionedAgency("?"), Chargeable(),
-        StaffPhotographer("?", "?"), ContractPhotographer("?"), CommissionedPhotographer("?"),
-        CreativeCommons("?", "?", "?", "?"), GuardianWitness(), Pool(), CrownCopyright(), Obituary(),
-        ContractIllustrator("?"), CommissionedIllustrator("?"), Composite("?")
-      ).map(CategoryResponse.fromUsageRights)
+    val usageRightsData = UsageRights.all.map(CategoryResponse.fromUsageRights)
 
     respond(usageRightsData)
   }
@@ -62,7 +53,7 @@ case class CategoryResponse(
 object CategoryResponse {
   // I'd like to have an override of the `apply`, but who knows how you do that
   // with the JSON parsing stuff
-  def fromUsageRights(u: UsageRights): CategoryResponse =
+  def fromUsageRights(u: UsageRightsSpec): CategoryResponse =
     CategoryResponse(
       value               = u.category,
       name                = u.name,
@@ -70,7 +61,7 @@ object CategoryResponse {
       description         = u.description,
       defaultRestrictions = u.defaultRestrictions,
       caution             = u.caution,
-      properties          = UsageRightsProperty.getPropertiesForCat(u)
+      properties          = UsageRightsProperty.getPropertiesForSpec(u)
     )
 
   implicit val categoryResponseWrites: Writes[CategoryResponse] = Json.writes[CategoryResponse]

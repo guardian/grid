@@ -5,5 +5,5 @@ const cw = new AWS.CloudWatch();
 
 
 module.exports = {
-    putMetricData: Rx.Observable.fromNodeCallback(cw.putMetricData, cw),
-}
+    putMetricData: Rx.Observable.fromNodeCallback(cw.putMetricData, cw)
+};
