@@ -2,7 +2,8 @@ GET     /                                               controllers.CollectionsC
 
 # Collections
 GET     /collections                                    controllers.CollectionsController.getCollections
-POST    /collections                                    controllers.CollectionsController.addCollectionFromJson
+POST    /collections                                    controllers.CollectionsController.addChildToRoot
+POST    /collections/*collection                        controllers.CollectionsController.addChildToCollection(collection: String)
 DELETE  /collections/*collection                        controllers.CollectionsController.removeCollection(collection: String)
 
 # Management
