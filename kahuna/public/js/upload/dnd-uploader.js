@@ -98,10 +98,8 @@ dndUploader.controller('DndUploaderCtrl',
  * This behaviour is pretty well observed:
  * https://code.google.com/p/chromium/issues/detail?id=131325
  */
-dndUploader.directive('dndUploader', ['$window', 'delay', 'safeApply', 'track',
-                       function($window, delay, safeApply, track) {
-
-    const gridImageMimeType = 'application/vnd.mediaservice.image+json';
+dndUploader.directive('dndUploader', ['$window', 'delay', 'safeApply', 'track', 'vndMimeTypes',
+                       function($window, delay, safeApply, track, vndMimeTypes) {
 
     return {
         restrict: 'E',
@@ -129,13 +127,17 @@ dndUploader.directive('dndUploader', ['$window', 'delay', 'safeApply', 'track',
             scope.$on('$destroy', clean);
 
             const hasType = (types, key) => types.indexOf(key) !== -1;
+            function hasGridMimetype(types) {
+                const mimeTypes = Array.from(vndMimeTypes.values());
+                return types.some(t => mimeTypes.indexOf(t) !== -1);
+            }
             function isGridFriendly(event) {
                 // we search through the types array as we don't have the `files`
                 // or `data` (uris etc) ondragenter, only drop.
                 const types       = Array.from(event.originalEvent.dataTransfer.types);
                 const isUri       = hasType(types, 'text/uri-list');
                 const hasFiles    = hasType(types, 'Files');
-                const isGridImage = hasType(types, gridImageMimeType);
+                const isGridImage = hasGridMimetype(types);
 
                 const isFriendly = (hasFiles || isUri) && !isGridImage;
 
