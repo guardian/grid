@@ -1,7 +1,7 @@
 <form class="job-editor" name="jobEditor" ng:submit="ctrl.save()" novalidate>
     <div class="job-editor__inputs">
-        <label class="job-info--editor__field">
-            <div class="job-info--editor__label">Description</div>
+        <label class="job-info--editor__field flex-center">
+            <div class="job-info--editor__label job-info--editor__label flex-center text-small">Description</div>
             <textarea
                 name="description"
                 placeholder="e.g. {{funnyDescription}}…"
@@ -24,9 +24,9 @@
             >⇔</button>
         </label>
 
-        <label class="job-info--editor__field">
+        <label class="job-info--editor__field flex-center">
             <!-- TODO: autocomplete on byline when API responds correctly with results -->
-            <div class="job-info--editor__label">Byline</div>
+            <div class="job-info--editor__label text-small text-small">Byline</div>
             <input
                 type="text"
                 name="byline"
@@ -47,8 +47,8 @@
             >⇔</button>
 
         </label>
-        <div class="job-info--editor__field">
-            <div class="job-info--editor__label">Credit</div>
+        <div class="job-info--editor__field flex-center">
+            <div class="job-info--editor__label text-small">Credit</div>
 
             <gr-datalist
                 class="job-info--editor__input"
@@ -71,8 +71,8 @@
                 ng:click="ctrl.batchApplyMetadata('credit')"
             >⇔</button>
         </div>
-        <label ng:if="ctrl.copyrightWasInitiallyThere" class="job-info--editor__field">
-            <div class="job-info--editor__label">Copyright</div>
+        <label ng:if="ctrl.copyrightWasInitiallyThere" class="job-info--editor__field flex-center">
+            <div class="job-info--editor__label text-small">Copyright</div>
             <input
                 type="text"
                 name="copyright"

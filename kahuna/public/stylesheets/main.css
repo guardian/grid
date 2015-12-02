@@ -310,6 +310,10 @@ button[disabled],
     display: inline-block;
 }
 
+.flex-center {
+    align-items: center;
+}
+
 .side-padded {
     padding: 0 10px;
 }
@@ -1287,7 +1291,7 @@ FIXME: what to do with touch devices
 }
 
 .result-editor__field-label {
-    width: 100px;
+    width: 130px;
 }
 
 .result-editor__field-value {
@@ -1727,7 +1731,7 @@ FIXME: what to do with touch devices
     position: relative;
 }
 .job-info--editor__label {
-    width: 100px;
+    width: 130px;
     vertical-align: top;
 }
 .job-info--editor__input {
