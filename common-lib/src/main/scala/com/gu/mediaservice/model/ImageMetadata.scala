@@ -59,7 +59,7 @@ object ImageMetadata {
       (__ \ "suppliersReference").writeNullable[String] ~
       (__ \ "source").writeNullable[String] ~
       (__ \ "specialInstructions").writeNullable[String] ~
-      (__ \ "keywords").write[List[String]] ~
+      (__ \ "keywords").writeNullable[List[String]].contramap((l: List[String]) => if (l.isEmpty) None else Some(l)) ~
       (__ \ "subLocation").writeNullable[String] ~
       (__ \ "city").writeNullable[String] ~
       (__ \ "state").writeNullable[String] ~
