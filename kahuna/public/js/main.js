@@ -36,7 +36,16 @@ var config = {
     assetsRoot: assetsRootLink && assetsRootLink.getAttribute('href'),
 
     // Static config
-    'pandular.reAuthUri': '/login'
+    'pandular.reAuthUri': '/login',
+
+    vndMimeTypes: new Map([
+        ['gridImageData', 'application/vnd.mediaservice.image+json'],
+        ['kahunaUri',     'application/vnd.mediaservice.kahuna.uri'],
+        // These two are internal hacks to help us identify when we're dragging internal assets
+        // They should definitely not be relied on externally.
+        ['isGridLink',    'application/vnd.mediaservice.kahuna.link'],
+        ['isGridImage' ,  'application/vnd.mediaservice.kahuna.image']
+    ])
 };
 
 var kahuna = angular.module('kahuna', [
@@ -292,7 +301,7 @@ kahuna.filter('getExtremeAssets', function() {
 });
 
 // Take an image and return a drag data map of mime-type -> value
-kahuna.filter('asImageDragData', function() {
+kahuna.filter('asImageDragData', ['vndMimeTypes', function(vndMimeTypes) {
     // Annoyingly cannot use Resource#getLink because it returns a
     // Promise and Angular filters are synchronous :-(
     function syncGetLinkUri(resource, rel) {
@@ -308,14 +317,14 @@ kahuna.filter('asImageDragData', function() {
             // Resources don't serialise well yet..
             const imageObj = { data: image.data, uri };
             return {
-                'application/vnd.mediaservice.image+json': JSON.stringify(imageObj),
-                'application/vnd.mediaservice.kahuna.uri': kahunaUri,
+                [vndMimeTypes.get('gridImageData')]: JSON.stringify(imageObj),
+                [vndMimeTypes.get('kahunaUri')]: kahunaUri,
                 'text/plain':    uri,
                 'text/uri-list': uri
             };
         }
     };
-});
+}]);
 
 // Take an image and return a drag data map of mime-type -> value
 kahuna.filter('asCropsDragData', function() {
@@ -483,6 +492,28 @@ kahuna.directive('uiLocalstore', ['$window', function($window) {
     };
 }]);
 
+// These two are internal hacks to help us identify when we're dragging internal assets
+// They should definitely not be relied on externally.
+kahuna.directive('img', ['vndMimeTypes', function(vndMimeTypes) {
+    return {
+        restrict: 'E',
+        link: function(scope, element) {
+            element.bind('dragstart', event => {
+                event.originalEvent.dataTransfer.setData(vndMimeTypes.get('isGridLink'), 'true');
+            });
+        }
+    };
+}]);
+kahuna.directive('a', ['vndMimeTypes', function(vndMimeTypes) {
+    return {
+        restrict: 'E',
+        link: function(scope, element) {
+            element.bind('dragstart', event => {
+                event.originalEvent.dataTransfer.setData(vndMimeTypes.get('isGridImage'), 'true');
+            });
+        }
+    };
+}]);
 
 kahuna.directive('uiWindowResized', ['$window', function ($window) {
     return {

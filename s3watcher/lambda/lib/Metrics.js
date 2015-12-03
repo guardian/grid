@@ -6,7 +6,7 @@ module.exports = {
         const dimensions = [{
             "Name" : "UploadedBy",
             "Value" : uploadResult.uploadedBy
-        }]
+        }];
 
         const timestamp = new Date;
 
@@ -27,4 +27,4 @@ module.exports = {
             Namespace: uploadResult.stage + "/S3watcher"
         };
     }
-}
+};

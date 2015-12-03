@@ -1,7 +1,25 @@
 import angular from 'angular';
 import JSZip from 'jszip';
 import './downloader.css!';
+import template from './downloader.html!text';
+
 export const downloader = angular.module('gr.downloader', []);
+
+// blob URLs have a max size of 500MB - https://github.com/eligrey/FileSaver.js/#supported-browsers
+const maxBlobSize = 500 * 1024 * 1024;
+
+const bytesToSize = (bytes) => {
+    if (bytes === 0) {
+        return '0 Bytes';
+    }
+
+    const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(1024));
+
+    return i === 0 ?
+        `${bytes} ${sizes[i]}` :
+        `${(bytes / Math.pow(1024, i)).toFixed(1)} ${sizes[i]}`;
+};
 
 downloader.controller('DownloaderCtrl',
                      ['$window', '$q', '$http',
@@ -10,6 +28,8 @@ downloader.controller('DownloaderCtrl',
     let ctrl = this;
 
     ctrl.download = () => {
+        ctrl.downloading = true;
+
         const zip = new JSZip();
         const imageHttp = url => $http.get(url, { responseType:'arraybuffer' });
         const imagesAddedToZip = Array.from(ctrl.images.values()).map(image =>
@@ -20,9 +40,26 @@ downloader.controller('DownloaderCtrl',
         $q.all(imagesAddedToZip).then(() => {
             const file = zip.generate({ type: 'uint8array' });
             const blob = new Blob([file], { type: 'application/zip' });
-            const url = $window.URL.createObjectURL(blob);
 
-            $window.location = url;
+            if (blob.size <= maxBlobSize) {
+                const url = $window.URL.createObjectURL(blob);
+                $window.location = url;
+            }
+            else {
+                const maxSize = bytesToSize(maxBlobSize);
+                const blobSize = bytesToSize(blob.size);
+
+                // the things we do for a happy linter...
+                const message = [
+                    'Download is too big!',
+                    `Max file size: ${maxSize}. Your download: ${blobSize}.`,
+                    'Consider downloading smaller batches.'
+                ].join('\n');
+
+                $window.alert(message);
+            }
+        }).finally(() => {
+            ctrl.downloading = false;
         });
     };
 
@@ -43,15 +80,7 @@ downloader.directive('grDownloader', function() {
         scope: {
             images: '=grImages' // crappy two way binding
         },
-        template: `
-            <button class="download" ng:if="ctrl.images.size > 1"
-                type="button" title="Download images" ng:click="ctrl.download()">
-                <gr-icon-label gr-icon="file_download">Download</gr-icon-label>
-            </button>
-            <a class="download" ng:if="ctrl.images.size == 1"
-                href="{{ ctrl.getFirstImageSource() | assetFile }}" download target="_blank">
-                <gr-icon-label gr-icon="file_download">Download</gr-icon-label>
-            </a>`
+        template: template
     };
 });
 

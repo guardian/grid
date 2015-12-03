@@ -4,7 +4,6 @@ import org.scalatest.{FunSpec, Matchers}
 import play.api.libs.json._
 
 
-
 case class TestImage(name: String, usageRights: UsageRights)
 object TestImage {
   implicit val jsonReads: Reads[TestImage] = Json.reads[TestImage]
@@ -19,13 +18,15 @@ class UsageRightsTest extends FunSpec with Matchers {
   it ("should serialise to JSON correctly") {
     val supplier = "Getty Images"
     val suppliersCollection = "AFP"
-    val usageRights = Agency(supplier, Some(suppliersCollection))
+    val restrictions = Some("Don't use this")
+    val usageRights: UsageRights = Agency(supplier, Some(suppliersCollection), restrictions = restrictions)
 
     val json = Json.toJson(usageRights)
 
-    (json \ "category").as[String] should be (usageRights.category)
+    (json \ "category").as[String] should be (Agency.category)
     (json \ "supplier").as[String] should be (supplier)
     (json \ "suppliersCollection").as[String] should be (suppliersCollection)
+    (json \ "restrictions").as[Option[String]] should be (restrictions)
   }
 
   it ("should deserialise from JSON correctly") {
@@ -44,7 +45,6 @@ class UsageRightsTest extends FunSpec with Matchers {
 
     val usageRights = json.as[UsageRights]
 
-    usageRights.category should be (category)
     usageRights should be (Agency(supplier, Some(suppliersCollection)))
   }
 
@@ -76,7 +76,7 @@ class UsageRightsTest extends FunSpec with Matchers {
       invalidJson.as[UsageRights]
     }
 
-    jsError.errors.headOption.map { case (path, errors) =>
+    jsError.errors.headOption.foreach { case (path, errors) =>
       errors.head.message should be (s"No such usage rights category: $invalidCategory")
     }
   }

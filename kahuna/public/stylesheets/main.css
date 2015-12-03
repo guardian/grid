@@ -152,6 +152,8 @@ a:focus {
     outline: 2px solid rgba(255, 255, 255, 0.5);
     outline-offset: -3px;
 }
+
+button[disabled],
 .button[disabled] {
     background-color: #999;
     box-shadow: 0 2px #666;
@@ -306,6 +308,10 @@ a:focus {
 
 .inline-block {
     display: inline-block;
+}
+
+.flex-center {
+    align-items: center;
 }
 
 .side-padded {
@@ -1285,7 +1291,7 @@ FIXME: what to do with touch devices
 }
 
 .result-editor__field-label {
-    width: 100px;
+    width: 130px;
 }
 
 .result-editor__field-value {
@@ -1725,7 +1731,7 @@ FIXME: what to do with touch devices
     position: relative;
 }
 .job-info--editor__label {
-    width: 100px;
+    width: 130px;
     vertical-align: top;
 }
 .job-info--editor__input {

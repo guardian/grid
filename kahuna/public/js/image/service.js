@@ -30,6 +30,8 @@ imageService.factory('imageService', [function() {
                     return 'categorised as photographer';
                 case 'illustrator-category':
                     return 'categorised as illustrator';
+                case 'commissioned-agency':
+                    return 'categorised as agency commissioned';
                 default:
                     return reason;
             }

@@ -1,12 +1,11 @@
 #!/usr/bin/env bash
 
-source ./stack-name.sh
+source ./utils.sh
+source ./stack-name.sh usage
 
-TABLE=`aws cloudformation list-stack-resources --stack-name $STACK_NAME | jq '.StackResourceSummaries[] | select(.LogicalResourceId == "UsageRecordTable") | .PhysicalResourceId' | tr -d '"'`
-
-ROLE=`aws cloudformation list-stack-resources --stack-name $STACK_NAME | jq '.StackResourceSummaries[] | select(.LogicalResourceId == "UsageUpdaterRole") | .PhysicalResourceId' | tr -d '"'`
-
-LAMBDA=`aws cloudformation list-stack-resources --stack-name $STACK_NAME | jq '.StackResourceSummaries[] | select(.LogicalResourceId == "UsageUpdaterFunction") | .PhysicalResourceId' | tr -d '"'`
+TABLE=`get_stack_resource_physical_id $STACK_NAME UsageRecordTable`
+ROLE=`get_stack_resource_physical_id $STACK_NAME UsageUpdaterRole`
+LAMBDA=`get_stack_resource_physical_id $STACK_NAME UsageUpdaterFunction`
 
 aws dynamodb update-table \
     --stream-specification StreamEnabled=true,StreamViewType=NEW_IMAGE \
@@ -14,9 +13,9 @@ aws dynamodb update-table \
 
 TABLE_STREAM_ARN=`aws dynamodb describe-table --table-name ${TABLE} | jq ".Table.LatestStreamArn" | tr -d '"'`
 
-POLICY_ID=`pwgen -1 --no-capitalize 20`
+POLICY_ID=`lower_case_random_string`
 
-POLICY_NAME="dynamo-stream-`pwgen -1 --no-capitalize 20`"
+POLICY_NAME="dynamo-stream-`lower_case_random_string`"
 
 JQ_FN="jq '.Statement[].Sid |= \"$POLICY_ID\" | .Statement[].Resource |= [\"$TABLE_STREAM_ARN\"]'"
 
@@ -32,3 +31,5 @@ aws lambda create-event-source-mapping \
     --starting-position "LATEST" \
     --event-source-arn $TABLE_STREAM_ARN \
     --function-name $LAMBDA
+
+rm usage-updater-lambda-policy.json
