@@ -26,10 +26,15 @@ apiServices.factory('collections', ['mediaApi', function (mediaApi) {
         });
     }
 
+    function isDeletable(node) {
+        return node.getAction('remove').then(d => angular.isDefined(d));
+    }
+
     return {
         getCollections,
         removeCollection,
         addCollection,
-        addChildTo
+        addChildTo,
+        isDeletable
     };
 }]);

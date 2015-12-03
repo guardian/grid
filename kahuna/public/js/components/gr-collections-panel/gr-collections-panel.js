@@ -70,8 +70,10 @@ grCollectionsPanel.controller('GrNodesCtrl', ['$scope', 'collections',
 grCollectionsPanel.controller('GrNodeCtrl', ['collections', function(collections) {
 
     const ctrl = this;
-
+    ctrl.deletable = false;
     ctrl.addChild = childName => collections.addChildTo(ctrl.node, childName);
+    collections.isDeletable(ctrl.node).then(d => ctrl.deletable = d);
+
 }]);
 
 
@@ -108,9 +110,11 @@ grCollectionsPanel.directive('grNode', ['$parse', '$compile', function($parse, $
 
                     <div class="node__edits">
                         <button class="inner-clickable" type="button"
+                            ng:if="ctrl.deletable"
                             ng:click="ctrl.remove(node)">
                             <gr-icon-label gr-icon="delete"></gr-icon-label>
                         </button>
+
                         <gr-icon ng:click="active = !active" class="clickable">add_box</gr-icon>
                     </div>
                 </div>
