@@ -24,8 +24,7 @@ import store.CollectionsStore
 
 case class InvalidPrinciple(message: String) extends Throwable
 
-case class AppIndex(name: String, description: String, config: Map[String, String] = Map(),
-                    links: List[Link] = Nil, actions: List[Action] = Nil)
+case class AppIndex(name: String, description: String, config: Map[String, String] = Map())
 object AppIndex {
   implicit def jsonWrites: Writes[AppIndex] = Json.writes[AppIndex]
 }
@@ -42,8 +41,8 @@ object CollectionsController extends Controller with ArgoHelpers {
     uri(s"$rootUri/collections$post")
   }
 
-  val appIndex = AppIndex("media-collections", "The one stop shop for collections",
-                  links = List(Link("collections", collectionUri.toString)))
+  val appIndex = AppIndex("media-collections", "The one stop shop for collections")
+  val indexLinks = List(Link("collections", collectionUri.toString))
 
   def addChildAction(pathId: String = ""): Option[Action] = Some(Action("add-child", collectionUri(pathId), "POST"))
   def addChildAction(n: Node[Collection]): Option[Action] = addChildAction(n.pathId)
@@ -52,7 +51,7 @@ object CollectionsController extends Controller with ArgoHelpers {
   )
 
   def index = Authenticated { req =>
-    respond(appIndex)
+    respond(appIndex, links = indexLinks)
   }
 
   def collectionNotFound(path: String) =

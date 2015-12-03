@@ -30,9 +30,9 @@ grCollectionsPanel.controller('GrCollectionsPanelCtrl', [
         }
     );
 
-    collections.getCollections().then(data => {
-        ctrl.collections = data;
-    });
+    collections.getCollections().then(collections => {
+        ctrl.collections = collections.data.children;
+    }, e => console.log(e));
 
 }]);
 
@@ -74,8 +74,8 @@ grCollectionsPanel.directive('grNode', ['$parse', '$compile', function($parse, $
         template: `<div class="node"></div>`,
         link: function(scope, element, attrs) {
             const node = $parse(attrs.grNode)(scope);
-                element.append(`<gr-nodes gr:nodes="node.children"></gr-nodes>`);
-                $compile(element.contents())(scope);
+            element.append(`<gr-nodes gr:nodes="node.data.children"></gr-nodes>`);
+            $compile(element.contents())(scope);
         }
     };
 
@@ -90,20 +90,20 @@ grCollectionsPanel.directive('grNodes', function() {
         template: `<ul class="nodes">
             <li ng:repeat="node in ctrl.nodes"
                 class="tree-node"
-                ng:class="{'tree-node--leaf' : node.children.length === 0}">
+                ng:class="{'tree-node--leaf' : node.data.children.length === 0}">
                 <div class="tree-node__content">
                     <button type="button"
                         class="tree-node__arrow clickable"
                         ng:click="hideChildren = !hideChildren"
-                        ng:show="node.children.length > 0">
+                        ng:show="node.data.children.length > 0">
                         <span ng:show="hideChildren">▸</span>
                         <span ng:hide="hideChildren">▾</span>
 
                     </button>
-                    <a ui:sref="search.results({query: (node.name)})">{{node.name}}</a>
+                    <a ui:sref="search.results({query: (node.data.name)})">{{node.data.name}}</a>
 
                     <div class="node__edits">
-                        <button ng:if="node.children.length === 0"
+                        <button ng:if="node.data.children.length === 0"
                             class="inner-clickable"
                             type="button"
                             ng:click="ctrl.remove(node)">

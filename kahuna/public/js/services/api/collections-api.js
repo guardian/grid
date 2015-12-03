@@ -1,11 +1,12 @@
 import apiServices from '../api';
 
 apiServices.factory('collections', ['mediaApi', function (mediaApi) {
-    var collections;
+    let collections;
 
     function getCollections() {
         if(! collections) {
-            collections = mediaApi.root.follow('collections').getData();
+            collections = mediaApi.root.follow('collections').get().
+                then(collectionsService => collectionsService.follow('collections').get());
         }
         return collections;
     }
