@@ -13,7 +13,6 @@ object Node {
   def buildTree[T](rootName: String, input: List[T], getPath: T => Path, getPathId: T => String): Node[T] = {
     val zipped = (input.map(getPath), input.map(getPathId), input).zipped.toList
 
-
     def loop(input: List[(Path, String, T)]): List[Node[T]] = {
       input
         // TODO: We could NonEmptyLists here
@@ -31,6 +30,9 @@ object Node {
           Node[T](parentName, loop(nextGroup), nextId, contentOpt)
         }
         .toList
+        // TODO: move this out to a generic Node.sort def
+        .sortBy(_.pathId).sortBy(_.children.isEmpty)
+
     }
 
     Node[T](rootName, loop(zipped), rootName)

@@ -71,8 +71,6 @@ object CollectionsController extends Controller with ArgoHelpers {
         (collection) => collection.path,
         (collection) => collection.pathId)
 
-      val t = Json.toJson(tree)(asArgo)
-
       respond(Json.toJson(tree)(asArgo), actions = List(addChildAction()).flatten)
     }
   }

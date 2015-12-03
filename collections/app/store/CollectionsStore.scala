@@ -15,13 +15,14 @@ object CollectionsStore {
   val store = new JsonStore(collectionsBucket, awsCredentials, "collections")
 
   def getAll: Future[List[Collection]] = store.getData flatMap { json =>
-    json.asOpt[List[Collection]].map(Future.successful) getOrElse Future.failed(InvalidCollectionJson(json))
+    json.asOpt[List[Collection]].map(_.sortBy(_.pathId)).map(Future.successful).
+      getOrElse(Future.failed(InvalidCollectionJson(json)))
   }
 
   def add(collection: Collection): Future[Collection] = {
     store.getData flatMap { json =>
       val collectionList = json.asOpt[List[Collection]]
-      val newCollectionList = collectionList.map(CollectionsManager.add(collection, _))
+      val newCollectionList = collectionList.map(CollectionsManager.add(collection, _).sortBy(_.pathId))
 
       newCollectionList.map { collections =>
         store.putData(Json.toJson(collections))
