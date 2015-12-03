@@ -39,6 +39,7 @@ apiServices.factory('collections', ['mediaApi', function (mediaApi) {
         removeCollection,
         addCollection,
         addChildTo,
-        isDeletable
+        isDeletable,
+        remove
     };
 }]);
