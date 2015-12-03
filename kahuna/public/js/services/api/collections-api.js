@@ -1,6 +1,7 @@
 import apiServices from '../api';
 
 apiServices.factory('collections', ['mediaApi', function (mediaApi) {
+    // TODO: Rx?
     let collections;
 
     function getCollections() {
@@ -21,13 +22,16 @@ apiServices.factory('collections', ['mediaApi', function (mediaApi) {
 
     function addChildTo(node, childName) {
         node.perform('add-child', {body: {data: childName}}).then(childResource => {
-            // TODO: Rx?
             node.data.children = [childResource].concat(node.data.children);
         });
     }
 
     function isDeletable(node) {
         return node.getAction('remove').then(d => angular.isDefined(d));
+    }
+
+    function remove(node) {
+        return node.perform('remove');
     }
 
     return {

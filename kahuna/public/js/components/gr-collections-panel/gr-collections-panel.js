@@ -36,42 +36,12 @@ grCollectionsPanel.controller('GrCollectionsPanelCtrl', [
 
 }]);
 
-grCollectionsPanel.controller('GrNodesCtrl', ['$scope', 'collections',
-    function($scope, collections) {
-
-        const ctrl = this;
-
-        ctrl.hasChildren = false;
-
-
-        // TODO: Move this to a NodeCtrl
-        ctrl.remove = node => {
-            collections.removeCollection(node.content)
-                .then(() => {
-                    const cleanNodes = ctrl.nodes.filter(elem => elem.name !== node.name);
-                    ctrl.nodes = cleanNodes;
-                });
-        };
-
-        ctrl.addChild = node => {
-            const newCollectionPath = node.content.data.path.concat([ctrl.newCollection]);
-
-            collections.addCollection(newCollectionPath)
-                .then(newCollectionResource => {
-                    node.children = [newCollectionResource].concat(node.children);
-                });
-
-            ctrl.newCollection = '';
-        };
-
-    }
-]);
-
 grCollectionsPanel.controller('GrNodeCtrl', ['collections', function(collections) {
 
     const ctrl = this;
     ctrl.deletable = false;
     ctrl.addChild = childName => collections.addChildTo(ctrl.node, childName);
+    ctrl.remove = node => collections.remove(ctrl.node);
     collections.isDeletable(ctrl.node).then(d => ctrl.deletable = d);
 
 }]);
@@ -154,15 +124,9 @@ grCollectionsPanel.directive('grNodes', function() {
             nodes: '=grNodes'
         },
         template: `<ul class="nodes">
-            <li class="tree-node"
-                ng:repeat="node in ctrl.nodes">
-
+            <li class="tree-node" ng:repeat="node in nodes">
                 <gr-node gr:node="node"></gr-node>
-
             </li>
-        </ul>`,
-        controller: 'GrNodesCtrl',
-        controllerAs: 'ctrl',
-        bindToController: true
+        </ul>`
     }
 });
