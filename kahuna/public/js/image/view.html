@@ -11,9 +11,25 @@
                          images="[ctrl.image]">
         </gr-delete-image>
 
-        <a class="top-bar-item side-padded clickable" href="{{ ctrl.image.data.source | assetFile }}" download target="_blank">
-            <gr-icon-label gr-icon="file_download">Download</gr-icon-label>
-        </a>
+        <span class="top-bar-item">
+            <a ng:href="{{ ctrl.image.data.source | assetFile }}"
+               class="side-padded clickable inner-clickable"
+               download
+               target="_blank">
+                <gr-icon-label gr-icon="file_download">Download</gr-icon-label>
+            </a>
+            <button class="drop-menu clickable inner-clickable side-padded button-right-side"
+                    ng:click="showExpandedDownload = !showExpandedDownload">
+                <span>▾</span>
+                <a ng:if="showExpandedDownload"
+                   ng:href="{{ ctrl.lowResImageUri }}"
+                   class="drop-menu__items drop-menu__items--nopad"
+                   download
+                   target="_blank">
+                    <gr-icon-label gr-icon="file_download">Download low-res</gr-icon-label>
+                </a>
+            </button>
+        </span>
 
         <gr-image-persist-status class="top-bar-item"
                                  with-text="true"
