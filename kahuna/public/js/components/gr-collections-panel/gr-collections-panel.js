@@ -67,10 +67,11 @@ grCollectionsPanel.controller('GrNodesCtrl', ['$scope', 'collections',
     }
 ]);
 
-grCollectionsPanel.controller('GrNodeCtrl', [function() {
+grCollectionsPanel.controller('GrNodeCtrl', ['collections', function(collections) {
 
     const ctrl = this;
 
+    ctrl.addChild = childName => collections.addChildTo(ctrl.node, childName);
 }]);
 
 
@@ -93,34 +94,31 @@ grCollectionsPanel.directive('grNode', ['$parse', '$compile', function($parse, $
         template: `
         <div class="node" ng:init="node = ctrl.node">
             <div class="tree-node__content">
-                <button type="button"
-                    class="tree-node__arrow clickable"
-                    ng:click="hideChildren = !hideChildren"
-                    ng:show="node.data.children.length > 0">
-                    <span ng:show="hideChildren">▸</span>
-                    <span ng:hide="hideChildren">▾</span>
-                </button>
+                <div class="node__parent flex-container" gr:add-to-collection>
 
-                <div class="node__name"
-                     gr:add-to-collection>
-                    <a ui:sref="search.results({query: (node.data.name)})">{{node.data.name}}</a>
-                </div>
-
-                <div class="node__edits">
-                    <button ng:if="node.data.children.length === 0"
-                        class="inner-clickable"
-                        type="button"
-                        ng:click="ctrl.remove(node)">
-                        <gr-icon-label gr-icon="delete"></gr-icon-label>
+                    <button type="button"
+                        class="tree-node__arrow clickable"
+                        ng:click="hideChildren = !hideChildren"
+                        ng:show="node.data.children.length > 0">
+                        <span ng:show="hideChildren">▸</span>
+                        <span ng:hide="hideChildren">▾</span>
                     </button>
+
+                    <a class="flex-spacer" ui:sref="search.results({query: (node.data.name)})">{{node.data.name}}</a>
+
+                    <div class="node__edits">
+                        <button class="inner-clickable" type="button"
+                            ng:click="ctrl.remove(node)">
+                            <gr-icon-label gr-icon="delete"></gr-icon-label>
+                        </button>
+                        <gr-icon ng:click="active = !active" class="clickable">add_box</gr-icon>
+                    </div>
                 </div>
 
-                <gr-icon ng:click="active = !active" class="clickable">add_box</gr-icon>
 
-                <form ng:show="active" ng:submit="ctrl.addChild(node); active = !active; displayChildren = true">
-                    <input type="text"
-                        required
-                        ng:model="ctrl.newCollection"/>
+
+                <form ng:show="active" ng:submit="ctrl.addChild(childName); active = !active; displayChildren = true">
+                    <input type="text" required ng:model="childName"/>
                     <button type="submit">
                         <gr-icon-label gr-icon="check"></gr-icon-label>
                     </button>
@@ -136,7 +134,7 @@ grCollectionsPanel.directive('grNode', ['$parse', '$compile', function($parse, $
         bindToController: true,
         link: function(scope, element, attrs, ctrl) {
             if (ctrl.node.data.children.length > 1) {
-                $compile(`<gr-nodes gr:nodes="ctrl.node.data.children"></gr-nodes>`)(scope, cloned => {
+                $compile(`<gr-nodes ng:if="!hideChildren" gr:nodes="ctrl.node.data.children"></gr-nodes>`)(scope, cloned => {
                     element.append(cloned);
                 });
             }
@@ -153,8 +151,7 @@ grCollectionsPanel.directive('grNodes', function() {
         },
         template: `<ul class="nodes">
             <li class="tree-node"
-                ng:repeat="node in ctrl.nodes"
-                ng:class="{'tree-node--leaf' : node.data.children.length === 0}">
+                ng:repeat="node in ctrl.nodes">
 
                 <gr-node gr:node="node"></gr-node>
 

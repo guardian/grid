@@ -82,7 +82,7 @@ object CollectionsController extends Controller with ArgoHelpers {
   def addChildToCollection(collectionPathId: String) = addChildTo(Some(collectionPathId))
   def addChildTo(collectionPathId: Option[String]) = Authenticated.async(parse.json) { req =>
     (req.body \ "data").asOpt[String].map { child =>
-      val path = child :: collectionPathId.map(CollectionsManager.stringToPath).getOrElse(Nil)
+      val path = collectionPathId.map(CollectionsManager.stringToPath).getOrElse(Nil) :+ child
       val collection = Collection(path, ActionData(getUserFromReq(req), DateTime.now))
       CollectionsStore.add(collection).map { collection =>
         respond(Node(collection.path.last, Nil, collection.pathId, Some(collection)))

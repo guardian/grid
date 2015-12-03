@@ -19,9 +19,17 @@ apiServices.factory('collections', ['mediaApi', function (mediaApi) {
         return mediaApi.root.follow('collections').post({data: newCollectionPath});
     }
 
+    function addChildTo(node, childName) {
+        node.perform('add-child', {body: {data: childName}}).then(childResource => {
+            // TODO: Rx?
+            node.data.children = [childResource].concat(node.data.children);
+        });
+    }
+
     return {
         getCollections,
         removeCollection,
-        addCollection
+        addCollection,
+        addChildTo
     };
 }]);

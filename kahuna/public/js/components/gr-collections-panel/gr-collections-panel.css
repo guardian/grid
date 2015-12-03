@@ -22,16 +22,15 @@
     margin-left: -18px;
 }
 
-.tree-node--leaf:hover {
+.node__parent:hover {
     background-color: #404040;
 }
 
-.tree-node--leaf:hover .node__edits {
+.node__parent:hover > .node__edits {
     display: block;
 }
 
 .node__edits {
-    float: right;
     display: none;
 }
 
