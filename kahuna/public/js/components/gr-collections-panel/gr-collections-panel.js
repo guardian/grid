@@ -72,10 +72,11 @@ grCollectionsPanel.directive('grNode', ['$parse', '$compile', function($parse, $
 
                     <button type="button"
                         class="tree-node__arrow clickable"
-                        ng:click="hideChildren = !hideChildren"
+                        ng:click="showChildren = !showChildren"
                         ng:show="node.data.children.length > 0">
-                        <span ng:show="hideChildren">▸</span>
-                        <span ng:hide="hideChildren">▾</span>
+
+                        <gr-icon ng:show="showChildren">expand_more</gr-icon>
+                        <gr-icon ng:hide="showChildren">chevron_right</gr-icon>
                     </button>
 
                     <a class="flex-spacer" ui:sref="search.results({query: (node.data.name)})">{{node.data.name}}</a>
@@ -110,7 +111,7 @@ grCollectionsPanel.directive('grNode', ['$parse', '$compile', function($parse, $
         bindToController: true,
         link: function(scope, element, attrs, ctrl) {
             if (ctrl.node.data.children.length > 1) {
-                $compile(`<gr-nodes ng:if="!hideChildren" gr:nodes="ctrl.node.data.children"></gr-nodes>`)(scope, cloned => {
+                $compile(`<gr-nodes ng:if="showChildren" gr:nodes="ctrl.node.data.children"></gr-nodes>`)(scope, cloned => {
                     element.append(cloned);
                 });
             }
