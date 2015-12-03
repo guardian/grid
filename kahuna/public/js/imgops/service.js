@@ -12,7 +12,7 @@ imgops.factory('imgops', ['$window', function($window) {
     function getFullScreenUri(image) {
         const { width: w, height: h } = $window.screen;
         return getOptimisedUri(image, { w, h, q: quality });
-    };
+    }
 
     function getLowResUri(image) {
         return getOptimisedUri(image, {
@@ -20,7 +20,7 @@ imgops.factory('imgops', ['$window', function($window) {
             h: lowResMaxHeight,
             q: quality
         });
-    };
+    }
 
     function getOptimisedUri(image, options) {
         return image.follow('optimised', options).getUri().catch(() => {
