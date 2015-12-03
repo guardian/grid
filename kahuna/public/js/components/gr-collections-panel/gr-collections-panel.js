@@ -41,8 +41,9 @@ grCollectionsPanel.controller('GrNodeCtrl', ['collections', function(collections
     const ctrl = this;
     ctrl.deletable = false;
     ctrl.addChild = childName => collections.addChildTo(ctrl.node, childName);
-    ctrl.remove = node => collections.remove(ctrl.node);
     collections.isDeletable(ctrl.node).then(d => ctrl.deletable = d);
+
+    ctrl.remove = () => collections.removeFromList(ctrl.node, ctrl.nodeList);
 
 }]);
 
@@ -61,7 +62,8 @@ grCollectionsPanel.directive('grNode', ['$parse', '$compile', function($parse, $
     return {
         restrict: 'E',
         scope: {
-            node: '=grNode'
+            node: '=grNode',
+            nodeList: '=grNodeList'
         },
         template: `
         <div class="node" ng:init="node = ctrl.node">
@@ -81,7 +83,7 @@ grCollectionsPanel.directive('grNode', ['$parse', '$compile', function($parse, $
                     <div class="node__edits">
                         <button class="inner-clickable" type="button"
                             ng:if="ctrl.deletable"
-                            ng:click="ctrl.remove(node)">
+                            ng:click="ctrl.remove()">
                             <gr-icon-label gr-icon="delete"></gr-icon-label>
                         </button>
 
@@ -125,7 +127,7 @@ grCollectionsPanel.directive('grNodes', function() {
         },
         template: `<ul class="nodes">
             <li class="tree-node" ng:repeat="node in nodes">
-                <gr-node gr:node="node"></gr-node>
+                <gr-node gr:node="node" gr:node-list="nodes"></gr-node>
             </li>
         </ul>`
     }

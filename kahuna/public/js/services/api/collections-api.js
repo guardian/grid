@@ -30,8 +30,12 @@ apiServices.factory('collections', ['mediaApi', function (mediaApi) {
         return node.getAction('remove').then(d => angular.isDefined(d));
     }
 
-    function remove(node) {
-        return node.perform('remove');
+    function removeFromList(child, list) {
+        return child.perform('remove').then(() => {
+            // Mutating the array p_q
+            const i = list.indexOf(child);
+            list.splice(i, 1);
+        });
     }
 
     return {
@@ -40,6 +44,6 @@ apiServices.factory('collections', ['mediaApi', function (mediaApi) {
         addCollection,
         addChildTo,
         isDeletable,
-        remove
+        removeFromList
     };
 }]);

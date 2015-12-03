@@ -83,7 +83,8 @@ object CollectionsController extends Controller with ArgoHelpers {
       val path = collectionPathId.map(CollectionsManager.stringToPath).getOrElse(Nil) :+ child
       val collection = Collection(path, ActionData(getUserFromReq(req), DateTime.now))
       CollectionsStore.add(collection).map { collection =>
-        respond(Node(collection.path.last, Nil, collection.pathId, Some(collection)))
+        val node = Node(collection.path.last, Nil, collection.pathId, Some(collection))
+        respond(node, actions = getActions(node))
       }
     } getOrElse Future.successful(invalidJson(req.body))
   }
