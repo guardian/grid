@@ -140,11 +140,12 @@ search.config(['$stateProvider', '$urlMatcherFactoryProvider',
                              function($scope, $window, vndMimeTypes, selectedImages$) {
 
                     const windowDrag$ = Rx.DOM.fromEvent($window, 'dragstart');
-                    const dragData$ = windowDrag$.withLatestFrom(selectedImages$, (event, imageList) => {
-                        const images = imageList.map(i => i.data);
-                        const dt = event.dataTransfer;
-                        return {images, dt};
-                    });
+                    const dragData$ = windowDrag$.
+                        withLatestFrom(selectedImages$, (event, imageList) => {
+                            const images = imageList.map(i => i.data);
+                            const dt = event.dataTransfer;
+                            return {images, dt};
+                        });
 
                     const sub = dragData$.subscribe(({ images, dt }) => {
                         if (images.size > 0) {
