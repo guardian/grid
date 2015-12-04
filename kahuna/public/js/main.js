@@ -39,12 +39,13 @@ var config = {
     'pandular.reAuthUri': '/login',
 
     vndMimeTypes: new Map([
-        ['gridImageData', 'application/vnd.mediaservice.image+json'],
-        ['kahunaUri',     'application/vnd.mediaservice.kahuna.uri'],
+        ['gridImageData',  'application/vnd.mediaservice.image+json'],
+        ['gridImagesData', 'application/vnd.mediaservice.images+json'],
+        ['kahunaUri',      'application/vnd.mediaservice.kahuna.uri'],
         // These two are internal hacks to help us identify when we're dragging internal assets
         // They should definitely not be relied on externally.
-        ['isGridLink',    'application/vnd.mediaservice.kahuna.link'],
-        ['isGridImage' ,  'application/vnd.mediaservice.kahuna.image']
+        ['isGridLink',     'application/vnd.mediaservice.kahuna.link'],
+        ['isGridImage' ,   'application/vnd.mediaservice.kahuna.image']
     ])
 };
 
