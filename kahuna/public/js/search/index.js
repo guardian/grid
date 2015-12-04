@@ -140,14 +140,16 @@ search.config(['$stateProvider', '$urlMatcherFactoryProvider',
                              function($scope, $window, vndMimeTypes, selectedImages$) {
 
                     const windowDrag$ = Rx.DOM.fromEvent($window, 'dragstart');
-                    const dragData$ = selectedImages$.combineLatest(windowDrag$, (images, event) => {
-                        const data = JSON.stringify(images.map(i => i.data));
+                    const dragData$ = windowDrag$.withLatestFrom(selectedImages$, (event, imageList) => {
+                        const images = imageList.map(i => i.data);
                         const dt = event.dataTransfer;
-                        return {data, dt};
+                        return {images, dt};
                     });
 
-                    const sub = dragData$.subscribe(({ data, dt }) => {
-                        dt.setData(vndMimeTypes.get('gridImagesData'), data);
+                    const sub = dragData$.subscribe(({ images, dt }) => {
+                        if (images.size > 0) {
+                            dt.setData(vndMimeTypes.get('gridImagesData'), JSON.stringify(images));
+                        }
                     });
 
                     $scope.$on('$destroy', () => sub.dispose());
