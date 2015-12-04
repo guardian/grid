@@ -141,8 +141,6 @@ search.config(['$stateProvider', '$urlMatcherFactoryProvider',
 
                     const windowDrag$ = Rx.DOM.fromEvent($window, 'dragstart');
                     const dragData$ = selectedImages$.combineLatest(windowDrag$, (images, event) => {
-
-
                         const data = JSON.stringify(images.map(i => i.data));
                         const dt = event.dataTransfer;
                         return {data, dt};
@@ -151,7 +149,7 @@ search.config(['$stateProvider', '$urlMatcherFactoryProvider',
                     const sub = dragData$.subscribe(({ data, dt }) => {
                         dt.setData(vndMimeTypes.get('gridImagesData'), data);
                     });
-                                 
+
                     $scope.$on('$destroy', () => sub.dispose());
                 }]
             }
