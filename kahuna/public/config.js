@@ -34,7 +34,7 @@ System.config({
     "rx-angular": "npm:rx-angular@0.0.14",
     "rx-dom": "npm:rx-dom@6.0.0",
     "text": "github:systemjs/plugin-text@0.0.2",
-    "theseus": "npm:theseus@0.5.1",
+    "theseus": "npm:theseus@0.5.2",
     "theseus-angular": "npm:theseus-angular@0.3.0",
     "traceur": "github:jmcriffey/bower-traceur@0.0.92",
     "traceur-runtime": "github:jmcriffey/bower-traceur-runtime@0.0.92",
@@ -209,23 +209,15 @@ System.config({
       "angular": "github:angular/bower-angular@1.4.3",
       "any-http-angular": "npm:any-http-angular@0.1.0",
       "any-promise-angular": "npm:any-promise-angular@0.1.1",
-      "theseus": "npm:theseus@0.5.0"
+      "theseus": "npm:theseus@0.5.2"
     },
-    "npm:theseus@0.5.0": {
-      "uri-templates": "npm:uri-templates@0.1.7"
-    },
-    "npm:theseus@0.5.1": {
-      "uri-templates": "npm:uri-templates@0.1.7"
+    "npm:theseus@0.5.2": {
+      "uri-templates": "npm:uri-templates@0.1.5"
     },
     "npm:ua-parser-js@0.7.3": {
       "systemjs-json": "github:systemjs/plugin-json@0.1.0"
     },
     "npm:uri-templates@0.1.5": {
-      "path": "github:jspm/nodelibs-path@0.1.0",
-      "systemjs-json": "github:systemjs/plugin-json@0.1.0",
-      "util": "github:jspm/nodelibs-util@0.1.0"
-    },
-    "npm:uri-templates@0.1.7": {
       "path": "github:jspm/nodelibs-path@0.1.0",
       "systemjs-json": "github:systemjs/plugin-json@0.1.0",
       "util": "github:jspm/nodelibs-util@0.1.0"
