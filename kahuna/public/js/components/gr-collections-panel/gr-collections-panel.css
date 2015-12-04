@@ -34,6 +34,10 @@ gr-nodes, gr-node {
     background: #333;
 }
 
+.node__info.dragOver {
+    background-color: magenta;
+}
+
 .node__name {
     padding: 10px;
 }

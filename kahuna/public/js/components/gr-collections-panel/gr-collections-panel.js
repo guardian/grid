@@ -54,6 +54,14 @@ grCollectionsPanel.directive('grAddToCollection', [function() {
             element.on('drop', ev => {
                 // Do drop
             });
+
+            element.on('dragover', ev => {
+                ev.currentTarget.classList.add("dragOver");
+            });
+
+            element.on('dragleave', ev => {
+                ev.currentTarget.classList.remove("dragOver");
+            });
         }
     }
 }]);
@@ -67,7 +75,7 @@ grCollectionsPanel.directive('grNode', ['$parse', '$compile', function($parse, $
         },
         template: `
         <div ng:init="node = ctrl.node; showChildren = true;">
-            <div class="node__info flex-container">
+            <div class="node__info flex-container" gr:add-to-collection>
                 <div class="node__marker"></div>
 
                 <div class="node__spacer" ng:if="node.data.children.length === 0">
