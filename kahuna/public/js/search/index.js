@@ -149,7 +149,19 @@ search.config(['$stateProvider', '$urlMatcherFactoryProvider',
 
                     const sub = dragData$.subscribe(({ images, dt }) => {
                         if (images.size > 0) {
+                            //creates an element to use as the drag icon
+                            const dragImage = document.createElement('div');
+                                  dragImage.classList.add("dragIcon");
+
+                            const imageCount = document.createElement('span');
+                                  imageCount.classList.add("dragCount");
+
+                                  imageCount.innerHTML = images.count();
+                            dragImage.appendChild(imageCount);
+                            document.body.appendChild(dragImage);
+
                             dt.setData(vndMimeTypes.get('gridImagesData'), JSON.stringify(images));
+                            dt.setDragImage(dragImage, 0, 0);
                         }
                     });
 
