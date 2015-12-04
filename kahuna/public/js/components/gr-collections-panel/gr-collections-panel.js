@@ -77,7 +77,7 @@ grCollectionsPanel.directive('grNode', ['$parse', '$compile', function($parse, $
                 <button type="button"
                     class="node__toggler clickable"
                     ng:click="showChildren = !showChildren"
-                    ng:if="node.data.children.length > 0">
+                    ng:show="node.data.children.length > 0">
 
                     <gr-icon ng:show="showChildren">expand_more</gr-icon>
                     <gr-icon ng:hide="showChildren">chevron_right</gr-icon>
