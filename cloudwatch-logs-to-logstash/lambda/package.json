@@ -1,0 +1,19 @@
+{
+  "name": "cloudwatch-logs-to-logstash",
+  "version": "1.0.0",
+  "description": "Pushing cloudwatch logs generated from lambdas into logstash",
+  "main": "index.js",
+  "scripts": {
+    "test": "npm run lint",
+    "lint": "jscs index.js"
+  },
+  "author": "",
+  "license": "Apache-2.0",
+  "dependencies": {
+    "zlibjs": "^0.2.0"
+  },
+  "devDependencies": {
+    "node-lambda": "^0.7.1",
+    "jscs": "^1.13.0"
+  }
+}
