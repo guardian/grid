@@ -2,6 +2,7 @@ package model
 
 import com.gu.contentapi.client.model.v1.{Content, ElementType, Element}
 
+import lib.MD5
 import org.joda.time.DateTime
 
 
@@ -12,6 +13,16 @@ case class UsageGroup(
   lastModified: DateTime
 )
 object UsageGroup {
+
+  def buildId(contentWrapper: ContentWrapper) = contentWrapper.id
+  def buildId(printUsage: PrintUsageRecord) = s"print/${MD5.hash(List(
+    Some(printUsage.mediaId),
+    Some(printUsage.printUsageDetails.pageNumber),
+    Some(printUsage.printUsageDetails.edition),
+    Some(printUsage.printUsageDetails.layoutId),
+    Some(printUsage.printUsageDetails.sectionCode),
+    Some(printUsage.printUsageDetails.issueDate)
+  ).flatten.map(_.toString).mkString("_"))}"
 
   def build(content: Content, status: UsageStatus, lastModified: DateTime) =
     ContentWrapper.build(content, status, lastModified).map(contentWrapper => {

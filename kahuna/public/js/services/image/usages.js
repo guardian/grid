@@ -5,6 +5,7 @@ import Rx from 'rx';
 
 export const imageUsagesService = angular.module('gr.image-usages.service', ['kahuna.edits.service']);
 
+
 imageUsagesService.factory('imageUsagesService', [function() {
 
     function forImage(imageResource) {

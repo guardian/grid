@@ -118,8 +118,9 @@ object UsageApi extends Controller with ArgoHelpers {
         printUsageRequest => {
 
           val usageGroups = UsageGroup.build(printUsageRequest.printUsageRecords)
-          val dbUpdate = Observable.from(usageGroups.map(UsageRecorder.recordUpdates)).flatten
-            .toBlocking.toFuture
+
+          val dbUpdate = Observable.from(usageGroups.map(UsageRecorder.recordUpdates))
+            .flatten.toArray.take(1).toBlocking.toFuture
 
             dbUpdate.map[play.api.mvc.Result](_ => respond("ok")).recover { case error: Exception => {
               Logger.error("UsageApi returned an error.", error)

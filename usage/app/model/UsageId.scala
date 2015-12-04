@@ -12,7 +12,12 @@ object UsageId {
 
   def build(printUsageRecord: PrintUsageRecord) = buildId(List(
     Some(printUsageRecord.mediaId),
-    Some(printUsageRecord.usageId),
+    Some(printUsageRecord.printUsageDetails.pageNumber),
+    Some(printUsageRecord.printUsageDetails.edition),
+    Some(printUsageRecord.printUsageDetails.layoutId),
+    Some(printUsageRecord.printUsageDetails.issueDate),
+    Some(printUsageRecord.printUsageDetails.sectionCode),
+    Some(printUsageRecord.printUsageDetails.size),
     Some(printUsageRecord.usageStatus)
   ))
 

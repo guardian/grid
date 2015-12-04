@@ -68,7 +68,7 @@ object MediaUsage {
 
     MediaUsage(
       usageId,
-      contentWrapper.id,
+      UsageGroup.buildId(contentWrapper),
       elementWrapper.media.id,
       "digital",
       elementWrapper.media.`type`.toString.toLowerCase,
@@ -80,7 +80,7 @@ object MediaUsage {
 
   def build(printUsage: PrintUsageRecord, usageId: UsageId) = MediaUsage(
     usageId,
-    usageId.toString,
+    UsageGroup.buildId(printUsage),
     printUsage.mediaId,
     "print",
     "image",
