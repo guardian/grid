@@ -1652,10 +1652,7 @@ FIXME: what to do with touch devices
 }
 
 .image-crop__creator {
-    position: absolute;
     display: none;
-    margin: 1px;
-    padding: 2px;
     border-radius: 50%;
     background-color: #6E6E6E;
     opacity: 0.5;
@@ -1676,13 +1673,17 @@ FIXME: what to do with touch devices
     margin: 0 auto;
 }
 
-.image-crop__aspect-ratio {
+.image-crop__info {
     background: #333;
     padding: 2px;
     font-size: 1.2rem;
 }
 
-.image-crop__aspect-ratio--selected {
+.image-crop__more-info {
+    line-height: 22px;
+}
+
+.image-crop__info--selected {
     color: #FFFFFF;
 }
 
