@@ -132,6 +132,21 @@ search.config(['$stateProvider', '$urlMatcherFactoryProvider',
                             shareReplay(1);
                     }]
                 }
+            },
+            multiDrag: {
+                template: `<div class="multidrag"></div>`,
+                controller: ['$window', 'vndMimeTypes', 'selectedImages$', function($window, vndMimeTypes, selectedImages$) {
+                    const $w = angular.element($window);
+                    var images = [];
+                    selectedImages$.subscribe(is => images = is.toJSON());
+
+                    $w.on('dragstart', e => {
+                        const dt = e.originalEvent.dataTransfer;
+                        const imageData = images.map(i => i.data);
+
+                        dt.setData(vndMimeTypes.get('gridImagesData'), JSON.stringify(imageData));
+                    });
+                }]
             }
         }
     });
