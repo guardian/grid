@@ -1,3 +1,7 @@
+gr-nodes, gr-node {
+    display: block;
+}
+
 .panel__left {
     float: left;
     position: fixed;
@@ -11,29 +15,57 @@
     transition: left 0.1s;
 }
 
-/*to indent the children collections and also background-color the whole column width*/
-.tree-node {
+.tree {
     box-sizing: border-box;
     padding-left: 210px;
     margin-left: -190px;
 }
-
-.tree-node__arrow {
-    margin-left: -18px;
+.tree--top {
+    padding-left: 0;
+    margin-left: 0;
+    position: relative;
 }
 
-.node__parent:hover {
-    background-color: #404040;
+.node {
+
 }
 
-.node__parent:hover > .node__edits {
+.node__info:hover {
+    background: #333;
+}
+
+.node__name {
+    padding: 10px;
+}
+
+.node__spacer {
+
+}
+
+.node__toggler, .node__spacer {
+    padding-left: 10px;
+    padding-right: 10px;
+}
+
+.node__marker {
+    position: absolute;
+    background: hotpink;
+    width: 3px;
+    height: 44px;
+    left: 0;
+    display: none;
+}
+.node__info:hover .node__marker {
     display: block;
 }
 
-.node__edits {
+.node__action {
     display: none;
 }
+.node__info:hover .node__action {
+    display: block;
+}
 
-.node__edits:hover {
-    color: white;
+.node__children {
+
 }

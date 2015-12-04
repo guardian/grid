@@ -21,8 +21,8 @@ apiServices.factory('collections', ['mediaApi', function (mediaApi) {
     }
 
     function addChildTo(node, childName) {
-        node.perform('add-child', {body: {data: childName}}).then(childResource => {
-            node.data.children = [childResource].concat(node.data.children);
+        return node.perform('add-child', {body: {data: childName}}).then(childResource => {
+            return node.data.children = [childResource].concat(node.data.children);
         });
     }
 
