@@ -1,6 +1,7 @@
 import angular from 'angular';
 import 'angular-ui-router-extras';
 import Rx from 'rx';
+import 'rx-dom';
 import Immutable from 'immutable';
 
 import './query';
@@ -135,17 +136,23 @@ search.config(['$stateProvider', '$urlMatcherFactoryProvider',
             },
             multiDrag: {
                 template: `<div class="multidrag"></div>`,
-                controller: ['$window', 'vndMimeTypes', 'selectedImages$', function($window, vndMimeTypes, selectedImages$) {
-                    const $w = angular.element($window);
-                    var images = [];
-                    selectedImages$.subscribe(is => images = is.toJSON());
+                controller: ['$scope', '$window', 'vndMimeTypes', 'selectedImages$',
+                             function($scope, $window, vndMimeTypes, selectedImages$) {
 
-                    $w.on('dragstart', e => {
-                        const dt = e.originalEvent.dataTransfer;
-                        const imageData = images.map(i => i.data);
+                    const windowDrag$ = Rx.DOM.fromEvent($window, 'dragstart');
+                    const dragData$ = selectedImages$.combineLatest(windowDrag$, (images, event) => {
 
-                        dt.setData(vndMimeTypes.get('gridImagesData'), JSON.stringify(imageData));
+
+                        const data = JSON.stringify(images.map(i => i.data));
+                        const dt = event.dataTransfer;
+                        return {data, dt};
                     });
+
+                    const sub = dragData$.subscribe(({ data, dt }) => {
+                        dt.setData(vndMimeTypes.get('gridImagesData'), data);
+                    });
+                                 
+                    $scope.$on('$destroy', () => sub.dispose());
                 }]
             }
         }
