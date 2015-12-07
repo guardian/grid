@@ -1,0 +1,48 @@
+<div ng:init="node = ctrl.node; showChildren = true;">
+    <div class="node__info flex-container" gr:add-to-collection>
+        <div class="node__marker"></div>
+
+        <div class="node__spacer" ng:if="node.data.children.length === 0">
+            <gr-icon></gr-icon>
+        </div>
+
+        <button type="button"
+                class="node__toggler clickable"
+                ng:click="showChildren = !showChildren"
+                ng:show="node.data.children.length > 0">
+
+            <gr-icon ng:show="showChildren">expand_more</gr-icon>
+            <gr-icon ng:hide="showChildren">chevron_right</gr-icon>
+        </button>
+
+        <a class="node__name flex-spacer"
+           ui:sref="search.results({query: (node.data.name)})">
+            {{node.data.name}}
+        </a>
+
+
+        <button class="node__action inner-clickable" type="button"
+                ng:if="ctrl.deletable"
+                ng:click="ctrl.remove()">
+            <gr-icon-label gr-icon="delete"></gr-icon-label>
+        </button>
+
+        <button class="node__action inner-clickable"
+                type="button"
+                ng:click="active = !active">
+            <gr-icon>add_box</gr-icon>
+        </button>
+    </div>
+
+    <form ng:show="active" ng:submit="ctrl.addChild(childName).then(clearForm);">
+        <input type="text" required ng:model="childName" />
+        <button type="submit">
+            <gr-icon-label gr-icon="check"></gr-icon-label>
+        </button>
+        <button type="button" ng:click="clearForm()" title="Close">
+            <gr-icon-label gr-icon="close"></gr-icon-label>
+        </button>
+    </form>
+
+    <div class="node__children"></div>
+</div>

@@ -5,6 +5,7 @@ import '../../services/api/collections-api';
 import '../../directives/gr-auto-focus';
 
 import './gr-collections-panel.css!';
+import nodeTemplate from './gr-collections-panel-node.html!text';
 
 export var grCollectionsPanel = angular.module('grCollectionsPanel', [
     'kahuna.services.panel']);
