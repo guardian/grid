@@ -4,4 +4,4 @@ aws.secret={{AwsSecret}}
 auth.keystore.bucket={{KeyBucket}}
 s3.collections.bucket={{CollectionsBucket}}
 dynamo.table.imageCollections={{ImageCollectionsDynamoTable}}
-
+sns.topic.arn={{SnsTopicArn}}

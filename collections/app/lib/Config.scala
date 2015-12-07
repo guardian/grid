@@ -20,7 +20,7 @@ object Config extends CommonPlayAppProperties with CommonPlayAppConfig {
 
   val collectionsBucket: String = properties("s3.collections.bucket")
   val imageCollectionsTable = properties("dynamo.table.imageCollections")
-
+  val topicArn = properties("sns.topic.arn")
 
   val rootUri = services.collectionsBaseUri
   val kahunaUri = services.kahunaBaseUri
