@@ -83,8 +83,8 @@ case class Usage(
   dateAdded: Option[DateTime],
   dateRemoved: Option[DateTime],
   lastModified: DateTime,
-  printUsageDetails: Option[PrintUsageMetadata] = None,
-  digitalUsageDetails: Option[DigitalUsageMetadata] = None
+  printUsageMetadata: Option[PrintUsageMetadata] = None,
+  digitalUsageMetadata: Option[DigitalUsageMetadata] = None
 )
 object Usage {
   implicit val dateTimeWrites: Writes[DateTime] = new Writes[DateTime] {

@@ -130,6 +130,34 @@ object Mappings {
       "name" -> sStemmerAnalysedString
     )
 
+  val printUsageSize =
+    nonDynamicObj(
+      "x" -> integer,
+      "y" -> integer
+    )
+
+  val printUsageMetadata =
+    nonDynamicObj(
+      "sectionName" -> nonAnalyzedString,
+      "issueDate" -> dateFormat,
+      "pageNumber" -> integer,
+      "storyName" -> nonAnalyzedString,
+      "publicationCode" -> nonAnalyzedString,
+      "layoutId" -> integer,
+      "edition" -> integer,
+      "size" -> printUsageSize,
+      "orderedBy" -> nonAnalyzedString,
+      "sectionCode" -> nonAnalyzedString
+    )
+
+  val digitalUsageMetadata =
+    nonDynamicObj(
+      "webTitle" -> nonAnalyzedString,
+      "webUrl" -> nonAnalyzedString,
+      "sectionId" -> nonAnalyzedString,
+      "composerUrl" -> nonAnalyzedString
+    )
+
   val usagesMapping =
     nonDynamicObj(
       "id"           -> nonAnalyzedString,
@@ -141,7 +169,8 @@ object Mappings {
       "dateAdded"    -> dateFormat,
       "dateRemoved"  -> dateFormat,
       "lastModified" -> dateFormat,
-      "isRemoved"    -> boolean
+      "printUsageMetadata" -> printUsageMetadata,
+      "digitalUsageMetadata" -> digitalUsageMetadata
     )
 
   val imageMapping: String =
