@@ -52,7 +52,8 @@ grCollectionsPanel.directive('grAddToCollection', [function() {
     return {
         link: function(scope, element) {
             element.on('drop', ev => {
-                // Do drop
+                // TODO add the image(s) to collection
+                ev.currentTarget.classList.remove("drag-over");
             });
 
             element.on('dragover', ev => {
