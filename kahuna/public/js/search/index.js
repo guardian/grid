@@ -156,10 +156,10 @@ search.config(['$stateProvider', '$urlMatcherFactoryProvider',
 
                             //creates an element to use as the drag icon
                             const dragImage = doc.createElement('div');
-                                  dragImage.classList.add("drag-icon");
+                                  dragImage.classList.add('drag-icon');
 
                             const imageCount = doc.createElement('span');
-                                  imageCount.classList.add("drag-count");
+                                  imageCount.classList.add('drag-count');
                                   imageCount.innerHTML = images.count();
 
                             dragImage.appendChild(imageCount);
