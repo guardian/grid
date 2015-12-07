@@ -56,11 +56,11 @@ grCollectionsPanel.directive('grAddToCollection', [function() {
             });
 
             element.on('dragover', ev => {
-                ev.currentTarget.classList.add("dragOver");
+                ev.currentTarget.classList.add("drag-over");
             });
 
             element.on('dragleave', ev => {
-                ev.currentTarget.classList.remove("dragOver");
+                ev.currentTarget.classList.remove("drag-over");
             });
         }
     }
