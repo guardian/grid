@@ -1,6 +1,6 @@
 package lib
 
-import com.amazonaws.regions.{Regions, Region}
+import com.amazonaws.regions.{RegionUtils, Region}
 import com.gu.mediaservice.lib.config.{Properties, CommonPlayAppConfig, CommonPlayAppProperties}
 import com.amazonaws.auth.{BasicAWSCredentials, AWSCredentials}
 
@@ -33,7 +33,7 @@ object Config extends CommonPlayAppProperties with CommonPlayAppConfig {
   val previewPollTable = properties("dynamo.tablename.previewPollTable")
   val usageRecordTable = properties("dynamo.tablename.usageRecordTable")
 
-  val dynamoRegion: Region = Region.getRegion(Regions.EU_WEST_1)
+  val dynamoRegion: Region = RegionUtils.getRegion(properties("aws.region"))
 
   val corsAllAllowedOrigins = List(services.kahunaBaseUri)
 }

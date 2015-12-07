@@ -141,13 +141,17 @@ object ImageResponse extends EditsResponse {
 
     val imageUri = URI.create(s"${Config.rootUri}/images/$id")
     val reindexUri = URI.create(s"${Config.rootUri}/images/$id/reindex")
+    val addCollectionUri = URI.create(s"${Config.collectionsUri}/images/$id")
 
     val deleteAction = Action("delete", imageUri, "DELETE")
     val reindexAction = Action("reindex", reindexUri, "POST")
 
+    val addCollectionAction = Action("add-collection", addCollectionUri, "POST")
+
     List(
-      deleteAction       -> isDeletable,
-      reindexAction      -> withWritePermission
+      deleteAction        -> isDeletable,
+      reindexAction       -> withWritePermission,
+      addCollectionAction -> true
     )
     .filter{ case (action, active) => active }
     .map   { case (action, active) => action }

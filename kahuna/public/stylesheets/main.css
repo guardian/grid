@@ -310,6 +310,10 @@ button[disabled],
     display: inline-block;
 }
 
+.flex-center {
+    align-items: center;
+}
+
 .side-padded {
     padding: 0 10px;
 }
@@ -1287,7 +1291,7 @@ FIXME: what to do with touch devices
 }
 
 .result-editor__field-label {
-    width: 100px;
+    width: 130px;
 }
 
 .result-editor__field-value {
@@ -1648,10 +1652,7 @@ FIXME: what to do with touch devices
 }
 
 .image-crop__creator {
-    position: absolute;
     display: none;
-    margin: 1px;
-    padding: 2px;
     border-radius: 50%;
     background-color: #6E6E6E;
     opacity: 0.5;
@@ -1672,13 +1673,17 @@ FIXME: what to do with touch devices
     margin: 0 auto;
 }
 
-.image-crop__aspect-ratio {
+.image-crop__info {
     background: #333;
     padding: 2px;
     font-size: 1.2rem;
 }
 
-.image-crop__aspect-ratio--selected {
+.image-crop__more-info {
+    line-height: 22px;
+}
+
+.image-crop__info--selected {
     color: #FFFFFF;
 }
 
@@ -1727,7 +1732,7 @@ FIXME: what to do with touch devices
     position: relative;
 }
 .job-info--editor__label {
-    width: 100px;
+    width: 130px;
     vertical-align: top;
 }
 .job-info--editor__input {
@@ -2108,6 +2113,26 @@ FIXME: what to do with touch devices
     padding: 5px 10px;
 }
 
+.drag-icon {
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 50px;
+    height: 50px;
+    background-color: #CCCCCC;
+}
+
+.drag-count {
+    position: absolute;
+    top: -10px;
+    right: -10px;
+    border-radius: 50%;
+    background-color: #666666;
+    width: 22px;
+    height: 22px;
+    line-height: 22px;
+    text-align: center;
+}
 
 @media print {
 

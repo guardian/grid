@@ -1,0 +1,23 @@
+{
+    "defaultStacks": ["media-service"],
+    "packages": {
+        "lambda": {
+            "type": "aws-lambda",
+            "data": {
+                "functions": {
+                    "TEST": {
+                        "name": "@TEST_ARN"
+                    },
+                    "PROD": {
+                        "name": "@PROD_ARN"
+                    }
+                }
+            }
+        }
+    },
+    "recipes": {
+        "default": {
+            "actions": ["lambda.updateLambda"]
+        }
+    }
+}

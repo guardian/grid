@@ -61,16 +61,16 @@ module.exports = {
             return S3Helper.getS3Object(s3Object).flatMap(function(data){
                 log("upload", upload);
 
-                return Upload.postData(upload, data.Body)
+                return Upload.postData(upload, data.Body);
             }).retry(5).flatMap(function(uploadResult){
-                log("record", uploadResult)
+                log("record", uploadResult);
 
                 return CWHelper.putMetricData(
                     Metrics.create(uploadResult)).map(
                         function(){ return uploadResult; });
 
             }).flatMap(function(uploadResult){
-                return uploadResult.succeeded ? success() : failGraceful()
+                return uploadResult.succeeded ? success() : failGraceful();
             });
         };
 
@@ -80,4 +80,4 @@ module.exports = {
             fail: failGraceful
         };
     }
-}
+};

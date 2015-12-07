@@ -3,6 +3,7 @@ package controllers
 import java.net.URI
 
 import com.gu.mediaservice.lib.argo.model.{Link, EmbeddedEntity, Action}
+import com.gu.mediaservice.lib.collections.CollectionsManager
 import lib.ControllerHelper
 import model.Node
 import org.joda.time.DateTime
@@ -33,21 +34,24 @@ object CollectionsController extends Controller with ArgoHelpers {
   val Authenticated = ControllerHelper.Authenticated
 
   def uri(u: String) = URI.create(u)
+  val collectionUri = uri(s"$rootUri/collections")
+  def collectionUri(s: String = "") = {
+    val post = if(s.nonEmpty) s"/$s" else s
+    uri(s"$rootUri/collections$post")
+  }
 
-  val collectionsUri = uri(s"$rootUri/collections")
-  val addCollectionAction = Action("create", collectionsUri, "POST")
-  val collectionsLink = Link("list", collectionsUri.toString)
-  val links = List(collectionsLink)
-  val actions = List(addCollectionAction)
-  val appIndex = AppIndex("media-collections", "The one stop shop for collections", links = links, actions = actions)
+  val appIndex = AppIndex("media-collections", "The one stop shop for collections",
+                  links = List(Link("collections", collectionUri.toString)))
+
+  def addChildAction(pathId: String = ""): Option[Action] = Some(Action("add-child", collectionUri(pathId), "POST"))
+  def addChildAction(n: Node[Collection]): Option[Action] = addChildAction(n.pathId)
+  def removeNodeAction(n: Node[Collection]) = if (n.children.nonEmpty) None else Some(
+    Action("remove", collectionUri(n.pathId), "DELETE")
+  )
 
   def index = Authenticated { req =>
     respond(appIndex)
   }
-
-  def collectionUri(c: Collection) = URI.create(s"$rootUri/collections/${c.pathId}")
-
-  def deleteCollectionAction(c: Collection) = Action("delete", collectionUri(c), "DELETE")
 
   def collectionNotFound(path: String) =
     respondError(NotFound, "collection-not-found", s"Could not find collection: $path")
@@ -55,29 +59,32 @@ object CollectionsController extends Controller with ArgoHelpers {
   def invalidJson(json: JsValue) =
     respondError(BadRequest, "invalid-json", s"Could not parse json: ${json.toString}")
 
+  def getActions(n: Node[Collection]): List[Action] = {
+    List(addChildAction(n), removeNodeAction(n)).flatten
+  }
+
   def getCollections = Authenticated.async { req =>
     CollectionsStore.getAll map { collections =>
-      val collectionEntities = collections.map { collection =>
-        EmbeddedEntity(
-          collectionUri(collection),
-          Some(collection),
-          actions = List(deleteCollectionAction(collection))
-        )
-      }
+      val tree = Node.buildTree[Collection]("root",
+        collections,
+        (collection) => collection.path,
+        (collection) => collection.pathId)
 
-      val tree = Node.buildTree[EmbeddedEntity[Collection]]("root",
-        collectionEntities,
-        (entity) => entity.data.map(a => a.path).getOrElse(Nil))
+      val t = Json.toJson(tree)(asArgo)
 
-      respond(tree, actions = List(addCollectionAction))
+      respond(Json.toJson(tree)(asArgo), actions = List(addChildAction()).flatten)
     }
   }
 
-  def addCollectionFromJson = Authenticated.async(parse.json) { req =>
-    (req.body \ "data").asOpt[List[String]].map { path =>
+  // Basically default parameters, which Play doesn't support
+  def addChildToRoot = addChildTo(None)
+  def addChildToCollection(collectionPathId: String) = addChildTo(Some(collectionPathId))
+  def addChildTo(collectionPathId: Option[String]) = Authenticated.async(parse.json) { req =>
+    (req.body \ "data").asOpt[String].map { child =>
+      val path = child :: collectionPathId.map(CollectionsManager.stringToPath).getOrElse(Nil)
       val collection = Collection(path, ActionData(getUserFromReq(req), DateTime.now))
       CollectionsStore.add(collection).map { collection =>
-        respond(Node(collection.path.last, Nil, Some(collection)))
+        respond(Node(collection.path.last, Nil, collection.pathId, Some(collection)))
       }
     } getOrElse Future.successful(invalidJson(req.body))
   }
@@ -95,6 +102,21 @@ object CollectionsController extends Controller with ArgoHelpers {
     (__ \ "children").lazyWrite(Writes.seq[Node[EmbeddedEntity[Collection]]](collectionEntityWrites)) ~
     (__ \ "content").writeNullable[EmbeddedEntity[Collection]]
   )(node => (node.name, node.children, node.content))
+
+  type CollectionsEntity = Seq[EmbeddedEntity[Node[Collection]]]
+  implicit def asArgo: Writes[Node[Collection]] = (
+    (__ \ "name").write[String] ~
+      (__ \ "children").lazyWrite[CollectionsEntity](Writes[CollectionsEntity]
+          // This is so we don't have to rewrite the Write[Seq[T]]
+          (seq => Json.toJson(seq))).contramap(collectionsEntity) ~
+      (__ \ "content").writeNullable[Collection]
+    )(node => (node.name, node.children, node.content))
+
+
+  def collectionsEntity(nodes: List[Node[Collection]]): CollectionsEntity = {
+    nodes.map(n => EmbeddedEntity(collectionUri(n.pathId), Some(n), actions = getActions(n)))
+  }
+
 }
 
 
