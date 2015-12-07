@@ -39,31 +39,31 @@ module.exports = {
     },
 
     logDownload: function (stage, state) {
-        log(state, messages.DOWNLOAD, state);
+        log(stage, messages.DOWNLOAD, state);
     },
 
     logUpload: function (stage, state) {
-        log(state, messages.UPLOAD, state);
+        log(stage, messages.UPLOAD, state);
     },
 
     logDelete: function (stage, state) {
-        log(state, messages.DELETE, state);
+        log(stage, messages.DELETE, state);
     },
 
     logCopyToFailBucket: function (stage, state) {
-        log(state, messages.COPY_TO_FAIL, state);
+        log(stage, messages.COPY_TO_FAIL, state);
     },
 
     logRecordToCloudWatch: function (stage, state) {
-        log(state, messages.RECORD, state);
+        log(stage, messages.RECORD, state);
     },
 
     logUploadFail: function (stage, state) {
-        log(state, messages.UPLOAD_FAIL, state);
+        log(stage, messages.UPLOAD_FAIL, state);
     },
 
     logLambdaSuccess: function (stage, state) {
-        log(state, messages.LAMBDA_SUCCESS, state);
+        log(stage, messages.LAMBDA_SUCCESS, state);
     },
 
     logLambdaError: function (stage, state, err) {
