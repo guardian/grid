@@ -47,9 +47,8 @@ object ImageCollectionsController extends Controller with ArgoHelpers {
       "id" -> id,
       "data" -> Json.toJson(collections)
     )
-//
-//    Notifications.publish(message, "update-image-user-metadata")
 
+    // TODO: Add this to ElasticSearch
     collections
   }
 }
