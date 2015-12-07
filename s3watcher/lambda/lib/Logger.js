@@ -15,8 +15,9 @@ const level = {
     ERROR: "ERROR"
 };
 
-const baseMessage = function (message, level, state) {
+const baseMessage = function (stage, message, level, state) {
     return {
+        stage: stage,
         stack: "media-service",
         app: "s3-watcher",
         timestamp: new Date().toISOString(),
@@ -29,12 +30,12 @@ const baseMessage = function (message, level, state) {
 module.exports = {
     messages: messages,
 
-    log: function (messageKey, state) {
-        console.log(baseMessage(messageKey, level.INFO, state));
+    log: function (stage, messageKey, state) {
+        console.log(baseMessage(stage, messageKey, level.INFO, state));
     },
 
-    error: function (state, err) {
-        const msg = baseMessage(messages.LAMBDA_ERROR, level.ERROR, state);
+    error: function (stage, state, err) {
+        const msg = baseMessage(stage, messages.LAMBDA_ERROR, level.ERROR, state);
         msg['error'] = err;
         console.log(msg);
     }

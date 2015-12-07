@@ -55,12 +55,12 @@ module.exports = {
         });
 
         const fail = function(err) {
-            Logger.error(s3Event, err);
+            Logger.error(config.stage, s3Event, err);
             context.fail(err);
         };
 
         const success = function() {
-            Logger.log(Logger.messages.LAMBDA_SUCCESS, s3Event);
+            Logger.log(config.stage, Logger.messages.LAMBDA_SUCCESS, s3Event);
             context.succeed(s3Event);
         };
 
