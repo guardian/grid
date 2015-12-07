@@ -1,11 +1,13 @@
 package com.gu.mediaservice.scripts
 
+import org.elasticsearch.action.admin.indices.close.CloseIndexRequest
+import org.elasticsearch.action.admin.indices.open.OpenIndexRequest
 import org.elasticsearch.action.search.SearchResponse
 import org.elasticsearch.search.sort.SortOrder
 import org.elasticsearch.index.query.QueryBuilders.matchAllQuery
 import org.elasticsearch.common.unit.TimeValue
 
-import com.gu.mediaservice.lib.elasticsearch.{Mappings, ElasticSearchClient}
+import com.gu.mediaservice.lib.elasticsearch.{IndexSettings, Mappings, ElasticSearchClient}
 
 object MoveIndex extends EsScript {
   def run(esHost: String, extraArgs: List[String]) {
@@ -135,6 +137,39 @@ object UpdateMapping extends EsScript {
     }
 
     EsClient.updateMappings
+  }
+
+  def usageError: Nothing = {
+    System.err.println("Usage: UpdateMapping <ES_HOST>")
+    sys.exit(1)
+  }
+}
+
+object UpdateSettings extends EsScript {
+
+  def run(esHost: String, extraArgs: List[String]) {
+    // TODO: add the ability to update a section of the mapping
+    object EsClient extends ElasticSearchClient {
+      val imagesAlias = "imagesAlias"
+      val port = esPort
+      val host = esHost
+      val cluster = esCluster
+
+      def updateSettings {
+        val indices = client.admin.indices
+        indices.close(new CloseIndexRequest(imagesAlias))
+
+        indices
+          .prepareUpdateSettings(imagesAlias)
+          .setSettings(IndexSettings.imageSettings)
+          .execute.actionGet
+
+        indices.open(new OpenIndexRequest(imagesAlias))
+        client.close
+      }
+    }
+
+    EsClient.updateSettings
   }
 
   def usageError: Nothing = {
