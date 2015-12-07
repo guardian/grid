@@ -64,7 +64,7 @@ query.controller('SearchQueryCtrl',
     // URL parameters are not decoded when taken out of the params.
     // Might be fixed with: https://github.com/angular-ui/ui-router/issues/1759
     // Pass undefined to the state on empty to remove the QueryString
-    function valOrUndefined(str) { return str ? str : undefined; }
+    function valOrUndefined(str) { return str ? str.replace(/%E2%80%8B/ig, "%20") : undefined; }
 
     function setAndWatchParam(key) {
         ctrl.filter[key] = valOrUndefined($stateParams[key]);
