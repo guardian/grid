@@ -8,6 +8,7 @@ object Main extends App {
     case "Reindex"          :: as => Reindex(as)
     case "MoveIndex"        :: as => MoveIndex(as)
     case "UpdateMapping"    :: as => UpdateMapping(as)
+    case "UpdateSettings"    :: as => UpdateSettings(as)
     case a :: _ => sys.error(s"Unrecognised command: $a")
     case Nil    => sys.error("Usage: <Command> <args ...>")
   }
