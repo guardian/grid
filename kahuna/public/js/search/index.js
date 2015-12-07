@@ -16,7 +16,8 @@ import '../components/gr-collections-panel/gr-collections-panel';
 import searchTemplate        from './view.html!text';
 import searchResultsTemplate from './results.html!text';
 import panelTemplate        from '../components/gr-panel/gr-panel.html!text';
-import collectionsPanelTemplate from '../components/gr-collections-panel/gr-collections-panel.html!text';
+import collectionsPanelTemplate from
+    '../components/gr-collections-panel/gr-collections-panel.html!text';
 
 
 export var search = angular.module('kahuna.search', [
