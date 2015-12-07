@@ -2113,7 +2113,7 @@ FIXME: what to do with touch devices
     padding: 5px 10px;
 }
 
-.dragIcon {
+.drag-icon {
     position: absolute;
     top: 0;
     right: 0;
@@ -2122,7 +2122,7 @@ FIXME: what to do with touch devices
     background-color: #CCCCCC;
 }
 
-.dragCount {
+.drag-count {
     position: absolute;
     top: -10px;
     right: -10px;
