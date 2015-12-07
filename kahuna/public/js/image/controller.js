@@ -38,6 +38,7 @@ image.controller('ImageCtrl', [
     'image',
     'mediaApi',
     'optimisedImageUri',
+    'lowResImageUri',
     'cropKey',
     'mediaCropper',
     'imageService',
@@ -50,6 +51,7 @@ image.controller('ImageCtrl', [
               image,
               mediaApi,
               optimisedImageUri,
+              lowResImageUri,
               cropKey,
               mediaCropper,
               imageService) {
@@ -58,6 +60,7 @@ image.controller('ImageCtrl', [
 
         ctrl.image = image;
         ctrl.optimisedImageUri = optimisedImageUri;
+        ctrl.lowResImageUri = lowResImageUri;
 
         // TODO: we should be able to rely on ctrl.crop.id instead once
         // all existing crops are migrated to have an id (they didn't

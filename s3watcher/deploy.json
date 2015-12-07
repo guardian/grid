@@ -3,12 +3,14 @@
     "packages": {
         "lambda": {
             "type": "aws-lambda",
-            "functions": {
-                "TEST": {
-                    "name": "@TEST_ARN"
-                },
-                "PROD": {
-                    "name": "@PROD_ARN"
+            "data": {
+                "functions": {
+                    "TEST": {
+                        "name": "@TEST_ARN"
+                    },
+                    "PROD": {
+                        "name": "@PROD_ARN"
+                    }
                 }
             }
         }
