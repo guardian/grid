@@ -17,7 +17,9 @@ object UsageBuilder {
     buildStatusString(usage),
     usage.dateAdded,
     usage.dateRemoved,
-    usage.lastModified
+    usage.lastModified,
+    usage.printUsageMetadata,
+    usage.digitalUsageMetadata
   )
 
   private def buildStatusString(usage: MediaUsage) = if (usage.status match {
@@ -36,16 +38,24 @@ object UsageBuilder {
     }
   }
 
-  private def buildPrintUsageReference(usage: MediaUsage) = List(
-    UsageReference("indesign", usage.data.get("containerId"),
-      Option(List(
-        usage.data.get("issueDate").map(date => new DateTime(date).toString("YYYY-MM-dd")),
-        usage.data.get("pageNumber").map(page => s"Page $page"),
-        usage.data.get("edition").map(edition => s"${edition.toInt.toOrdinal} edition")
-      ).flatten.mkString(", ")).filter(_.trim.nonEmpty)))
+  private def buildPrintUsageReference(usage: MediaUsage):List[UsageReference] =
+    usage.printUsageMetadata.map(metadata => {
+      val title = List(
+        (new DateTime(metadata.issueDate)).toString("YYYY-MM-dd"),
+        s"Page ${metadata.pageNumber}",
+        s"${metadata.edition.toInt.toOrdinal} edition"
+      ).mkString(", ")
 
-  private def buildWebUsageReference(usage: MediaUsage) = List(
-    UsageReference("frontend", usage.data.get("webUrl"), usage.data.get("webTitle"))) ++
-    usage.data.get("composerUrl").map(composerUrl => UsageReference("composer", Some(composerUrl)))
+      List(UsageReference("indesign", None, Some(title)))
+
+    }).getOrElse(List[UsageReference]())
+
+  private def buildWebUsageReference(usage: MediaUsage) =
+    usage.digitalUsageMetadata.map(metadata => {
+      List(
+        UsageReference("frontend", Some(metadata.webUrl), Some(metadata.webTitle))
+      ) ++ metadata.composerUrl.map(url => UsageReference("composer", Some(url)))
+
+    }).getOrElse(List[UsageReference]())
 
 }

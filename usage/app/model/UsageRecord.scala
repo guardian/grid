@@ -4,6 +4,8 @@ import com.amazonaws.services.dynamodbv2.xspec.ExpressionSpecBuilder
 import com.amazonaws.services.dynamodbv2.xspec.ExpressionSpecBuilder.{S, N, M}
 import scalaz.syntax.id._
 
+import com.gu.mediaservice.model.{PrintUsageMetadata, DigitalUsageMetadata}
+
 import scala.collection.JavaConversions._
 
 import org.joda.time.DateTime
@@ -17,7 +19,8 @@ case class UsageRecord(
   mediaType: Option[String] = None,
   lastModified: Option[DateTime] = None,
   usageStatus: Option[String] = None,
-  dataMap: Option[Map[String, String]] = None,
+  printUsageMetadata: Option[PrintUsageMetadata] = None,
+  digitalUsageMetadata: Option[DigitalUsageMetadata] = None,
   dateAdded: Option[DateTime] = None,
   dateRemoved: Either[String, Option[DateTime]] = Right(None)
 ) {
@@ -29,9 +32,8 @@ case class UsageRecord(
         mediaType.filter(_.nonEmpty).map(S("media_type").set(_)),
         lastModified.map(lastMod => N("last_modified").set(lastMod.getMillis)),
         usageStatus.filter(_.nonEmpty).map(S("usage_status").set(_)),
-        dataMap.map(dataMap => M("data_map").set(
-          dataMap.filter({ case (k,v) => k.nonEmpty && v.nonEmpty})
-        )),
+        printUsageMetadata.map(_.toMap).map(M("print_metadata").set(_)),
+        digitalUsageMetadata.map(_.toMap).map(M("digital_metadata").set(_)),
         dateAdded.map(dateAdd => N("date_added").set(dateAdd.getMillis)),
         dateRemoved.fold(
           _ => Some(N("date_removed").remove),
@@ -57,7 +59,8 @@ object UsageRecord {
     Some(mediaUsage.mediaType),
     Some(mediaUsage.lastModified),
     Some(mediaUsage.status.toString),
-    Some(mediaUsage.data)
+    mediaUsage.printUsageMetadata,
+    mediaUsage.digitalUsageMetadata
   )
 
   def buildCreateRecord(mediaUsage: MediaUsage) = UsageRecord(
@@ -68,7 +71,8 @@ object UsageRecord {
     Some(mediaUsage.mediaType),
     Some(mediaUsage.lastModified),
     Some(mediaUsage.status.toString),
-    Some(mediaUsage.data),
+    mediaUsage.printUsageMetadata,
+    mediaUsage.digitalUsageMetadata,
     Some(mediaUsage.lastModified),
     Left("clear")
   )
