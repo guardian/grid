@@ -27,14 +27,46 @@ const baseMessage = function (stage, message, level, state) {
     };
 };
 
+const log = function (stage, message, state) {
+    console.log(baseMessage(stage, message, level.INFO, state));
+};
+
 module.exports = {
     messages: messages,
 
     log: function (stage, messageKey, state) {
-        console.log(baseMessage(stage, messageKey, level.INFO, state));
+        log(stage, messageKey, state)
     },
 
-    error: function (stage, state, err) {
+    logDownload: function (stage, state) {
+        log(state, messages.DOWNLOAD, state);
+    },
+
+    logUpload: function (stage, state) {
+        log(state, messages.UPLOAD, state);
+    },
+
+    logDelete: function (stage, state) {
+        log(state, messages.DELETE, state);
+    },
+
+    logCopyToFailBucket: function (stage, state) {
+        log(state, messages.COPY_TO_FAIL, state);
+    },
+
+    logRecordToCloudWatch: function (stage, state) {
+        log(state, messages.RECORD, state);
+    },
+
+    logUploadFail: function (stage, state) {
+        log(state, messages.UPLOAD_FAIL, state);
+    },
+
+    logLambdaSuccess: function (stage, state) {
+        log(state, messages.LAMBDA_SUCCESS, state);
+    },
+
+    logLambdaError: function (stage, state, err) {
         const msg = baseMessage(stage, messages.LAMBDA_ERROR, level.ERROR, state);
         msg['error'] = err;
         console.log(msg);

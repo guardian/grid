@@ -23,17 +23,17 @@ module.exports = {
         const upload = Upload.buildUpload(config, s3Event);
 
        const success = function(result) {
-            Logger.log(config.stage, Logger.messages.DELETE, s3Object);
+            Logger.logDelete(config.stage, s3Object);
 
             return S3Helper.deleteS3Object(s3Object);
         };
 
         const failGraceful = function(e) {
-            Logger.log(config.stage, Logger.messages.UPLOAD_FAIL, e);
-            Logger.log(config.stage, Logger.messages.COPY_TO_FAIL, s3CopyObject);
+            Logger.logUploadFail(config.stage, e);
+            Logger.logCopyToFailBucket(config.stage, s3CopyObject);
 
             return S3Helper.copyS3Object(s3CopyObject).flatMap(function(){
-                Logger.log(config.stage, Logger.messages.DELETE, s3Object);
+                Logger.logDelete(config.stage, s3Object);
 
                 return S3Helper.deleteS3Object(s3Object);
             });
@@ -41,10 +41,10 @@ module.exports = {
 
         // TODO: Use stream API
         const operation = function() {
-            Logger.log(config.stage, Logger.messages.DOWNLOAD, s3Object);
+            Logger.logDownload(config.stage, s3Object);
 
             return S3Helper.getS3Object(s3Object).flatMap(function(data){
-                Logger.log(config.stage, Logger.messages.UPLOAD, {
+                Logger.logUpload(config.stage, {
                     size: upload.size,
                     filename: upload.params.filename,
                     uploadedBy: upload.params.uploadedBy,
@@ -53,7 +53,7 @@ module.exports = {
 
                 return Upload.postData(upload, data.Body);
             }).retry(5).flatMap(function(uploadResult){
-                Logger.log(config.stage, Logger.messages.RECORD, uploadResult);
+                Logger.logRecordToCloudWatch(config.stage, uploadResult);
 
                 return CWHelper.putMetricData(
                     Metrics.create(uploadResult)).map(
