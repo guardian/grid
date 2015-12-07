@@ -136,8 +136,10 @@ search.config(['$stateProvider', '$urlMatcherFactoryProvider',
             },
             multiDrag: {
                 template: `<div class="multidrag"></div>`,
-                controller: ['$scope', '$window', 'vndMimeTypes', 'selectedImages$',
-                             function($scope, $window, vndMimeTypes, selectedImages$) {
+                controller: ['$scope', '$window', '$document', '$element', 'vndMimeTypes',
+                             'selectedImages$',
+                             function($scope, $window, $document, $element, vndMimeTypes,
+                                      selectedImages$) {
 
                     const windowDrag$ = Rx.DOM.fromEvent($window, 'dragstart');
                     const dragData$ = windowDrag$.
@@ -149,7 +151,22 @@ search.config(['$stateProvider', '$urlMatcherFactoryProvider',
 
                     const sub = dragData$.subscribe(({ images, dt }) => {
                         if (images.size > 0) {
+                            const doc = $document[0];
+                            const el = $element[0];
+
+                            //creates an element to use as the drag icon
+                            const dragImage = doc.createElement('div');
+                                  dragImage.classList.add("drag-icon");
+
+                            const imageCount = doc.createElement('span');
+                                  imageCount.classList.add("drag-count");
+                                  imageCount.innerHTML = images.count();
+
+                            dragImage.appendChild(imageCount);
+                            el.appendChild(dragImage);
+
                             dt.setData(vndMimeTypes.get('gridImagesData'), JSON.stringify(images));
+                            dt.setDragImage(dragImage, 0, 0);
                         }
                     });
 
