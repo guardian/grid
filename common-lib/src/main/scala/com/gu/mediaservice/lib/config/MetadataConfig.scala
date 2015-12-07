@@ -47,6 +47,7 @@ object MetadataConfig {
     "Graham Turner"  -> "The Guardian",
     "James Mann"     -> "The Guardian",
     "Jill Mead"      -> "The Guardian",
+    "Jonny Weeks"    -> "The Guardian",
     "Rachel Vere"    -> "The Guardian",
     "Roger Tooth"    -> "The Guardian",
     "Sean Smith"     -> "The Guardian",
