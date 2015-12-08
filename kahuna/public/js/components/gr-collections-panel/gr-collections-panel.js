@@ -55,19 +55,20 @@ grCollectionsPanel.controller('GrNodeCtrl', ['collections', function(collections
 
 
 grCollectionsPanel.directive('grAddToCollection', [function() {
+    const dragClassName = 'node__info--drag-over';
     return {
         link: function(scope, element) {
             element.on('drop', ev => {
                 // TODO add the image(s) to collection
-                ev.currentTarget.classList.remove('drag-over');
+                ev.currentTarget.classList.remove(dragClassName);
             });
 
             element.on('dragover', ev => {
-                ev.currentTarget.classList.add('drag-over');
+                ev.currentTarget.classList.add(dragClassName);
             });
 
             element.on('dragleave', ev => {
-                ev.currentTarget.classList.remove('drag-over');
+                ev.currentTarget.classList.remove(dragClassName);
             });
         }
     };

@@ -29,11 +29,12 @@ gr-nodes, gr-node {
     padding-left: 10px;
 }
 
-.node__info.drag-over .node__name {
+.node__info.drag-over {
     background-color: #333;
 }
 
-.node__info:hover .node__marker {
+.node__info:hover .node__marker,
+.node__info--drag-over .node__marker {
     display: block;
 }
 
@@ -55,16 +56,13 @@ gr-nodes, gr-node {
     margin-left: -200px;
     box-sizing: border-box;
 }
-.node__info:hover {
+.node__info:hover,
+.node__info--drag-over {
     background-color: #333;
 }
 
 .node__name {
     padding: 10px;
-}
-
-.node__name.drag-over {
-    background-color: #666666;
 }
 
 .node__toggler,
