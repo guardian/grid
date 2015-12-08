@@ -10,11 +10,11 @@
                 <span class="date-added">{{::ctrl.formatTimestamp(usage.dateAdded)}}</span>
                 <ul class="reference-list">
                     <li ng-repeat="reference in usage.references">
-                        <a href="{{reference.uri}}" title="Open in {{reference.type}}" target="_blank">
+                        <a ng:if="reference.uri" href="{{reference.uri}}" title="Open in {{reference.type}}" target="_blank">
                             <gr-frontend-icon class="reference-list__icon" ng:if="reference.type === 'frontend'"></gr-frontend-icon>
                             <gr-composer-icon class="reference-list__icon" ng:if="reference.type === 'composer'"></gr-composer-icon>
-                            <gr-icon ng:if="reference.type === 'indesign'">local_library</gr-icon>
                         </a>
+                        <gr-icon ng:if="reference.type === 'indesign'" class="reference-list__icon">local_library</gr-icon>
                     </li>
                 </ul>
             </div>
