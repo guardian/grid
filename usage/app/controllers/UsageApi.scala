@@ -18,7 +18,7 @@ import play.utils.UriEncoding
 import rx.lang.scala.Observable
 
 import com.gu.mediaservice.lib.argo.ArgoHelpers
-import com.gu.mediaservice.lib.argo.model.{Link, EntityReponse}
+import com.gu.mediaservice.lib.argo.model.{Action, Link, EntityReponse}
 import com.gu.mediaservice.lib.auth
 import com.gu.mediaservice.lib.auth.KeyStore
 import com.gu.mediaservice.lib.aws.NoItemFound
@@ -50,9 +50,16 @@ object UsageApi extends Controller with ArgoHelpers {
   val indexResponse = {
     val indexData = Map("description" -> "This is the Usage Recording service")
     val indexLinks = List(
-      Link("media-usage", s"${Config.usageUri}/usage/media/{id}")
+      Link("usages-by-media", s"${Config.usageUri}/usages/media/{id}"),
+      Link("usages-by-id", s"${Config.usageUri}/usages/{id}")
     )
-    respond(indexData, indexLinks)
+
+    val printPostUri = new URI(s"${Config.usageUri}/usages/print")
+    val actions = List(
+      Action("print-usage", printPostUri, "POST")
+    )
+
+    respond(indexData, indexLinks, actions)
   }
   def index = Authenticated { indexResponse }
 
