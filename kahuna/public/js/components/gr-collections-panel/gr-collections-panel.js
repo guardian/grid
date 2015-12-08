@@ -20,6 +20,7 @@ grCollectionsPanel.controller('GrCollectionsPanelCtrl', [
     const panelName = 'gr-collections-panel';
 
     ctrl.isVisible = false;
+    ctrl.error = false;
 
     panelService.addPanel(panelName, false);
     panelService.available(panelName, true);
@@ -33,7 +34,11 @@ grCollectionsPanel.controller('GrCollectionsPanelCtrl', [
 
     collections.getCollections().then(collections => {
         ctrl.collections = collections.data.children;
-    });
+    }, () => {
+        // TODO: More informative error handling
+        // TODO: Stop error propagating to global error handler
+        ctrl.error = true;
+    }).catch(() => ctrl.error = true);
 
 }]);
 

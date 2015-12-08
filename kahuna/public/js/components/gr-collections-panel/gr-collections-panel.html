@@ -1,6 +1,10 @@
 <div class="panel panel__left panel--side"
      ng:class="{ 'panel__left--hidden': !ctrl.isVisible }">
     <div class="panel__content">
+        <div class="error" ng:if="ctrl.error">
+            There was an error loading the collections.
+            Please try again later.
+        </div>
         <gr-nodes class="tree tree--top" gr:nodes="ctrl.collections"></gr-nodes>
     </div>
 </div>
