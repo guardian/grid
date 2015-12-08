@@ -15,6 +15,7 @@ gr-image-usage-list .date-added {
 
 gr-image-usage-list .gr-image-usage__record {
     margin-bottom: 10px;
+    width: 90%;
 }
 
 gr-image-usage-list .source-list__icon svg {

@@ -5,7 +5,11 @@
 
     <ul>
         <li class="gr-image-usage__record" ng-repeat="usage in ctrl.usages">
+            <gr-icon ng:if="usage.platform === 'print'" class="usage-list__icon">local_library</gr-icon>
+            <gr-icon ng:if="usage.platform === 'digital'" class="usage-list__icon">phonelink</gr-icon>
+
             {{usage.title}}
+
             <div class="more-info">
                 <span class="date-added">{{::ctrl.formatTimestamp(usage.dateAdded)}}</span>
                 <ul class="reference-list">
@@ -14,7 +18,6 @@
                             <gr-frontend-icon class="reference-list__icon" ng:if="reference.type === 'frontend'"></gr-frontend-icon>
                             <gr-composer-icon class="reference-list__icon" ng:if="reference.type === 'composer'"></gr-composer-icon>
                         </a>
-                        <gr-icon ng:if="reference.type === 'indesign'" class="reference-list__icon">local_library</gr-icon>
                     </li>
                 </ul>
             </div>

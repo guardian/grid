@@ -17,7 +17,7 @@ imageUsagesService.factory('imageUsagesService', [function() {
                 const reference = usage.get('references').find(u =>
                     u.get('type') == referenceType);
 
-                return reference.get('name') ? reference.get('name') : 'No title found.';
+                return (reference && reference.get('name')) ? reference.get('name') : 'No title found.';
             };
 
             return build(usage, referenceType);
@@ -47,7 +47,7 @@ imageUsagesService.factory('imageUsagesService', [function() {
                     usages: usagesList.toJS(),
                     groupedByState: groupedByState.toJS(),
                     hasPrintUsages: !filterByPlatform('print').isEmpty(),
-                    hasWebUsages: !filterByPlatform('digital').isEmpty()
+                    hasDigitalUsages: !filterByPlatform('digital').isEmpty()
                 };
 
             });
