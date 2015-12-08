@@ -50,22 +50,25 @@ gr-nodes, gr-node {
     display: none;
 }
 
-.node__name {
-    padding: 10px;
+.node__info {
     padding-left: 210px;
     margin-left: -200px;
     box-sizing: border-box;
 }
-
-.node__name:hover {
+.node__info:hover {
     background-color: #333;
+}
+
+.node__name {
+    padding: 10px;
 }
 
 .node__name.drag-over {
     background-color: #666666;
 }
 
-.node__toggler, .node__spacer {
+.node__toggler,
+.node__spacer {
     padding-left: 10px;
     padding-right: 10px;
     z-index: 100;
