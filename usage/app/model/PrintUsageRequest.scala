@@ -11,7 +11,7 @@ object PrintUsageRequest {
 case class PrintUsageRecord(
   dateAdded: DateTime,
   mediaId: String,
-  printUsageDetails: PrintUsageMetadata,
+  printUsageMetadata: PrintUsageMetadata,
   containerId: String,
   usageId: String,
   usageStatus: UsageStatus

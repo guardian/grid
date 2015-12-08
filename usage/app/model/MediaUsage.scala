@@ -92,7 +92,7 @@ object MediaUsage {
     "print",
     "image",
     printUsage.usageStatus,
-    Some(printUsage.printUsageDetails),
+    Some(printUsage.printUsageMetadata),
     None,
     printUsage.dateAdded
   )

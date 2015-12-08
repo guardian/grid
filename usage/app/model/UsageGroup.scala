@@ -17,11 +17,11 @@ object UsageGroup {
   def buildId(contentWrapper: ContentWrapper) = contentWrapper.id
   def buildId(printUsage: PrintUsageRecord) = s"print/${MD5.hash(List(
     Some(printUsage.mediaId),
-    Some(printUsage.printUsageDetails.pageNumber),
-    Some(printUsage.printUsageDetails.edition),
-    Some(printUsage.printUsageDetails.layoutId),
-    Some(printUsage.printUsageDetails.sectionCode),
-    Some(printUsage.printUsageDetails.issueDate)
+    Some(printUsage.printUsageMetadata.pageNumber),
+    Some(printUsage.printUsageMetadata.edition),
+    Some(printUsage.printUsageMetadata.layoutId),
+    Some(printUsage.printUsageMetadata.sectionCode),
+    Some(printUsage.printUsageMetadata.issueDate)
   ).flatten.map(_.toString).mkString("_"))}"
 
   def build(content: Content, status: UsageStatus, lastModified: DateTime) =
