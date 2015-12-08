@@ -21,13 +21,13 @@
         </a>
 
 
-        <button class="node__action inner-clickable" type="button"
+        <button class="node__action clickable" type="button"
                 ng:if="ctrl.deletable"
                 ng:click="ctrl.remove()">
             <gr-icon-label gr-icon="delete"></gr-icon-label>
         </button>
 
-        <button class="node__action inner-clickable"
+        <button class="node__action clickable"
                 type="button"
                 ng:click="active = !active">
             <gr-icon>add_box</gr-icon>

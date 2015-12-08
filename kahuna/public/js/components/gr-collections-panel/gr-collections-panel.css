@@ -68,12 +68,10 @@ gr-nodes, gr-node {
 }
 
 .node__toggler,
-.node__spacer {
+.node__spacer,
+.node__action {
     padding-left: 10px;
     padding-right: 10px;
     z-index: 100;
 }
 
-.node__toggler:hover + .node__name {
-    background-color: #333;
-}
