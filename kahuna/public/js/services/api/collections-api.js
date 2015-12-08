@@ -23,6 +23,8 @@ apiServices.factory('collections', ['mediaApi', function (mediaApi) {
 
     function addChildTo(node, childName) {
         return node.perform('add-child', {body: {data: childName}}).then(childResource => {
+            // NOTE: The child will always be prepended, but the default view for the tree
+            // is alphabetical, so this will change after reload.
             const updatedChildren = node.data.children = [childResource].concat(node.data.children);
             return updatedChildren;
         });
