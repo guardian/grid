@@ -13,12 +13,10 @@
 
     <div ng:if="ctrl.totalResults > 0">
         <div class="results-toolbar"
-            ng:class="{'results-toolbar--selection-mode': ctrl.metadataPanelAvailable}">
+             ng:class="{'results-toolbar--selection-mode': ctrl.metadataPanelAvailable}">
 
-            <div ng-show="false"
-                class="results-toolbar-item
-                results-toolbar-item--left
-                clickable"
+            <div class="results-toolbar-item results-toolbar-item--left clickable"
+                 id="toggle-collections-button"
                  ng:click="ctrl.toggleCollectionsPanel()">
                 <gr-icon-label ng:if="!ctrl.collectionsPanelVisible"
                                class="inner-clickable"

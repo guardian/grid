@@ -2,6 +2,12 @@ gr-nodes, gr-node {
     display: block;
 }
 
+#toggle-collections-button {
+    /* This is so we can target it with a JS as
+       angular uses !important with ng:show */
+    display: none;
+}
+
 .panel__left {
     float: left;
     position: fixed;
