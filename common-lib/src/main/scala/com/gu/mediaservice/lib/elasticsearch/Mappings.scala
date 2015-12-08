@@ -32,6 +32,8 @@ object Mappings {
 
   def withIndexName(indexName: String,  obj: JsObject) = Json.obj("index_Name" -> indexName) ++ obj
 
+  def copyTo(fieldName: String) = Json.obj("copy_to" -> fieldName)
+
   val identifiersMapping =
     nonDynamicObj(
       // TODO: extract these to a configuration setting
@@ -105,7 +107,7 @@ object Mappings {
 
   val collectionMapping = withIndexName("collection", nonDynamicObj(
     "path" -> nonAnalysedList("collectionPath"),
-    "pathId" -> nonAnalyzedString,
+    "pathId" -> (nonAnalyzedString ++ copyTo("pathHierarchy")),
     "pathHierarchy" -> hierarchyAnalysedString,
     "actionData" -> actionDataMapping
   ))
