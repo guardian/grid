@@ -81,9 +81,12 @@ grCollectionsPanel.directive('grNode', ['$parse', '$compile', function($parse, $
         bindToController: true,
         link: function(scope, element, attrs, ctrl) {
             if (ctrl.node.data.children.length > 0) {
+                // We compile the template on the fly here as angular doesn't deal
+                // well with recursive templates.
                 $compile(`<gr-nodes class="tree"
-                ng:show="showChildren"
-                gr:nodes="ctrl.node.data.children"></gr-nodes>`)(scope, cloned => {
+                    ng:show="showChildren"
+                    gr:nodes="ctrl.node.data.children"></gr-nodes>
+                `)(scope, cloned => {
                     element.find('.node__children').append(cloned);
                 });
             }
