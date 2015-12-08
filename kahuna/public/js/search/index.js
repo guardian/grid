@@ -116,12 +116,6 @@ search.config(['$stateProvider', '$urlMatcherFactoryProvider',
                     distinctUntilChanged(angular.identity, Immutable.is).
                     shareReplay(1);
             }],
-            query: ['$stateParams', function($stateParams) {
-                return decodeURIComponent(
-                    encodeURIComponent($stateParams.query).replace(/%E2%80%8B/ig, ''))
-            }],
-
-
         },
         views: {
             results: {
