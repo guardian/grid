@@ -15,36 +15,24 @@ gr-nodes, gr-node {
     transition: left 0.1s;
 }
 
-.tree {
-    box-sizing: border-box;
-    padding-left: 210px;
-    margin-left: -190px;
-}
-.tree--top {
-    padding-left: 0;
-    margin-left: 0;
-    position: relative;
+.node__action {
+    display: none;
 }
 
-.node {
-
-}
-
-.node__info:hover {
-    background: #333;
-}
-
-.node__name {
-    padding: 10px;
-}
-
-.node__spacer {
-
-}
-
-.node__toggler, .node__spacer {
+.node__children {
     padding-left: 10px;
-    padding-right: 10px;
+}
+
+.node__info.drag-over .node__name {
+    background-color: #333;
+}
+
+.node__info:hover .node__marker {
+    display: block;
+}
+
+.node__info:hover .node__action {
+    display: block;
 }
 
 .node__marker {
@@ -55,17 +43,28 @@ gr-nodes, gr-node {
     left: 0;
     display: none;
 }
-.node__info:hover .node__marker {
-    display: block;
+
+.node__name {
+    padding: 10px;
+    padding-left: 210px;
+    margin-left: -200px;
+    box-sizing: border-box;
 }
 
-.node__action {
-    display: none;
-}
-.node__info:hover .node__action {
-    display: block;
+.node__name:hover {
+    background-color: #333;
 }
 
-.node__children {
+.node__name.drag-over {
+    background-color: #666666;
+}
 
+.node__toggler, .node__spacer {
+    padding-left: 10px;
+    padding-right: 10px;
+    z-index: 100;
+}
+
+.node__toggler:hover + .node__name {
+    background-color: #333;
 }

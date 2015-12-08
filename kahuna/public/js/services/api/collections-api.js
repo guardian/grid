@@ -1,3 +1,4 @@
+import angular from 'angular';
 import apiServices from '../api';
 
 apiServices.factory('collections', ['mediaApi', function (mediaApi) {
@@ -5,7 +6,7 @@ apiServices.factory('collections', ['mediaApi', function (mediaApi) {
     let collections;
 
     function getCollections() {
-        if(! collections) {
+        if (! collections) {
             collections = mediaApi.root.follow('collections').get().
                 then(collectionsService => collectionsService.follow('collections').get());
         }
@@ -22,7 +23,8 @@ apiServices.factory('collections', ['mediaApi', function (mediaApi) {
 
     function addChildTo(node, childName) {
         return node.perform('add-child', {body: {data: childName}}).then(childResource => {
-            return node.data.children = [childResource].concat(node.data.children);
+            const updatedChildren = node.data.children = [childResource].concat(node.data.children);
+            return updatedChildren;
         });
     }
 

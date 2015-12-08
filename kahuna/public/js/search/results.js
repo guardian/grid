@@ -98,9 +98,11 @@ results.controller('SearchResultsCtrl', [
         };
 
         ctrl.toggleCollectionsPanel = () => {
-            ctrl.collectionsPanelVisible ? panelService.hide(collectionsPanelName) :
+            if (ctrl.collectionsPanelVisible) {
+                panelService.hide(collectionsPanelName);
+            } else {
                 panelService.show(collectionsPanelName);
-
+            }
         };
 
         ctrl.showMetadataPanelMouseOver = () => panelService.show(metadataPanelName);

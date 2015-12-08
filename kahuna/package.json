@@ -29,8 +29,8 @@
       "rx-angular": "npm:rx-angular@^0.0.14",
       "rx-dom": "npm:rx-dom@^6.0.0",
       "text": "github:systemjs/plugin-text@^0.0.2",
-      "theseus": "npm:theseus@0.5.1",
-      "theseus-angular": "npm:theseus-angular@^0.3.0",
+      "theseus": "npm:theseus@0.5.2",
+      "theseus-angular": "npm:theseus-angular@^0.3.1",
       "ua-parser-js": "npm:ua-parser-js@0.7.3",
       "uri-templates": "npm:uri-templates@0.1.5"
     },
