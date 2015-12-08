@@ -36,16 +36,14 @@ object ImageCollectionsController extends Controller with ArgoHelpers {
       val collection = Collection(path, ActionData(getUserFromReq(req), DateTime.now()))
       dynamo.listAdd(id, "collections", collection)
         .map(publish(id))
-        .map(edits => respond(collection))
+        .map(cols => respond(collection))
     } getOrElse Future.successful(respondError(BadRequest, "invalid-form-data", "Invalid form data"))
   }
 
-  def publish(id: String)(json: JsObject): List[Collection] = {
-
-    val collections = (json \ "collections").as[List[Collection]]
+  def publish(id: String)(collections: List[Collection]): List[Collection] = {
     val message = Json.obj(
       "id" -> id,
-      "data" -> Json.toJson(collections)
+      "data" -> Json.toJson(onlyLatest(collections))
     )
 
     // TODO: Add this to ElasticSearch

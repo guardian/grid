@@ -150,7 +150,9 @@ class DynamoDB(credentials: AWSCredentials, region: Region, tableName: String) {
   }
 
   def listAdd[T](id: String, key: String, value: T)
-                (implicit ex: ExecutionContext, tjs: Writes[T]): Future[JsObject] = {
+                (implicit ex: ExecutionContext, tjs: Writes[T], rjs: Reads[T]): Future[List[T]] = {
+
+    // TODO: Deal with the case that we don't have JSON serialisers, for now we just fail.
     val json = Json.toJson(value).as[JsObject]
     val valueMap = DynamoDB.jsonToValueMap(json)
 
@@ -169,8 +171,8 @@ class DynamoDB(credentials: AWSCredentials, region: Region, tableName: String) {
     // DynamoDB doesn't seem to have a way of saying create the list if it doesn't exist then
     // append to it. So what we're saying here is:
     // Append to the list => if it doesn't exist => create it with the initial value.
-    append recoverWith {
-      case err: AmazonServiceException => create
+    append.map(j => (j \ key).as[List[T]]) recoverWith {
+      case err: AmazonServiceException => create.map(j => (j \ key).as[List[T]])
       case err => throw err
     }
   }
