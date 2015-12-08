@@ -131,6 +131,19 @@ object ElasticSearch extends ElasticSearchClient with ImageFields {
       .executeAndLog(s"updating user metadata on image $id")
       .incrementOnFailure(failedMetadataUpdates) { case e: VersionConflictEngineException => true }
 
+  def setImageCollection(id: String, collections: JsValue)(implicit ex: ExecutionContext): Future[UpdateResponse] =
+    prepareImageUpdate(id)
+      .setScriptParams(Map(
+        "collections" -> asGroovy(collections),
+        "lastModified" -> asGroovy(JsString(currentIsoDateString))
+      ).asJava)
+      .setScript(
+        "ctx._source.collections = collections;" +
+          updateLastModifiedScript,
+        scriptType)
+      .executeAndLog(s"updating collections on image $id")
+      .incrementOnFailure(failedCollectionsUpdates) { case e: VersionConflictEngineException => true }
+
   def prepareImageUpdate(id: String): UpdateRequestBuilder =
     client.prepareUpdate(imagesAlias, imageType, id)
       .setScriptLang("groovy")
