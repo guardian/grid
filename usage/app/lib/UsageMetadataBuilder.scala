@@ -33,6 +33,7 @@ object UsageMetadataBuilder {
         metadataMap.apply("pageNumber").asInstanceOf[java.math.BigDecimal].intValue,
         metadataMap.apply("storyName").asInstanceOf[String],
         metadataMap.apply("publicationCode").asInstanceOf[String],
+        metadataMap.apply("publicationName").asInstanceOf[String],
         metadataMap.apply("layoutId").asInstanceOf[java.math.BigDecimal].intValue,
         metadataMap.apply("edition").asInstanceOf[java.math.BigDecimal].intValue,
         metadataMap.get("size")

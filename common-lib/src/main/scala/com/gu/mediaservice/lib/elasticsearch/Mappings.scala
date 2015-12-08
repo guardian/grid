@@ -143,6 +143,7 @@ object Mappings {
       "pageNumber" -> integer,
       "storyName" -> nonAnalyzedString,
       "publicationCode" -> nonAnalyzedString,
+      "publicationName" -> nonAnalyzedString,
       "layoutId" -> integer,
       "edition" -> integer,
       "size" -> printUsageSize,

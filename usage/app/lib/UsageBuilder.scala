@@ -42,8 +42,9 @@ object UsageBuilder {
     usage.printUsageMetadata.map(metadata => {
       val title = List(
         (new DateTime(metadata.issueDate)).toString("YYYY-MM-dd"),
-        s"Page ${metadata.pageNumber}",
-        s"${metadata.edition.toInt.toOrdinal} edition"
+        metadata.publicationName,
+        metadata.sectionName,
+        s"Page ${metadata.pageNumber}"
       ).mkString(", ")
 
       List(UsageReference("indesign", None, Some(title)))
