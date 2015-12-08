@@ -35,28 +35,15 @@ export var search = angular.module('kahuna.search', [
 search.config(['$stateProvider', '$urlMatcherFactoryProvider',
                function($stateProvider, $urlMatcherFactoryProvider) {
 
-    // TODO: Fix this
-    $urlMatcherFactoryProvider.type('Query', {}, () => {
-        var queryFilters = {
-            // Query params slashes are encoded that mess up our seach query when we search for
-            // e.g. `24/7`.
-            // see: https://github.com/angular-ui/ui-router/issues/1119#issuecomment-64696060
-            defined: val => angular.isDefined(val) ? val : undefined,
-            // The string replacement is for removing the invisible "zero-width-space" UTF-8
-            // causing queries to fail: https://en.wikipedia.org/wiki/Zero-width_space
-            removeUtf8SpecialChars: val => val.replace(/%E2%80%8B/ig, '%20')
-        };
-        queryFilters.call = (val) => {
-            return queryFilters.removeUtf8SpecialChars(
-                queryFilters.defined(val));
-        };
-        return {
-            encode: val => queryFilters.call(val),
-            decode: val => queryFilters.call(val),
-            // We want to always match this type. If we match on slash, it won't update
-            // the `stateParams`.
-            is: () => true
-        };
+    const zeroWidthSpace = '\u200B';
+    function removeUtf8SpecialChars(val) {
+        return val && val.replace(zeroWidthSpace, '');
+    }
+
+    $urlMatcherFactoryProvider.type('Query', {
+        encode: val => removeUtf8SpecialChars(val),
+        decode: val => removeUtf8SpecialChars(val),
+        is: val => val && (val.indexOf(zeroWidthSpace) === -1)
     });
 
     $stateProvider.state('search', {
@@ -127,7 +114,13 @@ search.config(['$stateProvider', '$urlMatcherFactoryProvider',
                 ).
                     distinctUntilChanged(angular.identity, Immutable.is).
                     shareReplay(1);
-            }]
+            }],
+            query: ['$stateParams', function($stateParams) {
+                return decodeURIComponent(
+                    encodeURIComponent($stateParams.query).replace(/%E2%80%8B/ig, ''))
+            }],
+
+
         },
         views: {
             results: {
