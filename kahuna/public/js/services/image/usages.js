@@ -8,50 +8,51 @@ export const imageUsagesService = angular.module('gr.image-usages.service', ['ka
 
 imageUsagesService.factory('imageUsagesService', [function() {
 
-    function forImage(imageResource) {
-        function usageTitle(usage) {
-            const referenceType =
-                usage.get('platform') == 'print' ? 'indesign' : 'frontend';
+    return {
+        getUsages: (imageResource) => {
 
-            const reference = usage.get('references').find(u =>
-                    u.get('type') == referenceType);
+            function usageTitle(usage) {
+                const referenceType =
+                    usage.get('platform') == 'print' ? 'indesign' : 'frontend';
 
-            return (reference && reference.get('name')) ?
-                reference.get('name') : 'No title found.';
-        }
+                const reference = usage.get('references').find(u =>
+                        u.get('type') == referenceType);
 
-        const image$ = Rx.Observable.fromPromise(imageResource.getData());
-        const usages$ = image$
-            .flatMap((image) =>
-                Rx.Observable.fromPromise(image.usages.getData()))
-            .flatMap((usages) => usages.map(usage => usage.getData()))
-            .flatMap(Rx.Observable.fromPromise)
-            .toArray()
-            .map((usages) => {
+                return (reference && reference.get('name')) ?
+                    reference.get('name') : 'No title found.';
+            }
 
-                const usagesList =
+            const image$ = Rx.Observable.fromPromise(imageResource.getData());
+
+            const usages$ = image$
+                .flatMap((image) =>
+                    Rx.Observable.fromPromise(image.usages.getData()))
+                .flatMap((usages) => usages.map(usage => usage.getData()))
+                .flatMap(Rx.Observable.fromPromise)
+                .toArray()
+                .map((usages) =>
                     Immutable.fromJS(usages).map(usage =>
-                        usage.set('title', usageTitle(usage)));
+                        usage.set('title', usageTitle(usage))));
 
-                const groupedByState = usagesList.groupBy(usage =>
-                    usage.get('status'));
+            const filterByPlatform = (platform) => usages$.map((usagesList) =>
+                usagesList.filter(usage => usage.get('platform') == platform));
 
-                const filterByPlatform = (platform) =>
-                    usagesList.filter(usage =>
-                        usage.get('platform') == platform);
+            const hasPlatformUsages = (platform) =>
+                filterByPlatform(platform).every((group) => !group.isEmpty());
 
-                return {
-                    usages: usagesList.toJS(),
-                    groupedByState: groupedByState.toJS(),
-                    hasPrintUsages: !filterByPlatform('print').isEmpty(),
-                    hasDigitalUsages: !filterByPlatform('digital').isEmpty()
-                };
+            const groupedByState$ = usages$
+                .map((usagesList) => usagesList.groupBy(usage => usage.get('status')));
 
-            });
+            const hasPrintUsages$ = hasPlatformUsages('print');
+            const hasDigitalUsages$ = hasPlatformUsages('digital');
 
-        return usages$
+            return {
+                usages$,
+                groupedByState$,
+                hasPrintUsages$,
+                hasDigitalUsages$
+            };
+        }
+    };
 
-    }
-
-    return image => forImage(image);
 }]);

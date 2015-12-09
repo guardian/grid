@@ -44,13 +44,19 @@ image.controller('uiPreviewImageCtrl', [
     });
 
     ctrl.states = imageService(ctrl.image).states;
-    const usages$ = imageUsagesService(ctrl.image);
+
+    const hasPrintUsages$ =
+        imageUsagesService.getUsages(ctrl.image).hasPrintUsages$
+
+    const hasDigitalUsages$ =
+        imageUsagesService.getUsages(ctrl.image).hasDigitalUsages$
 
     $scope.$on('$destroy', function() {
         freeUpdateListener();
     });
 
-    inject$($scope, usages$, ctrl, 'usages');
+    inject$($scope, hasPrintUsages$, ctrl, 'hasPrintUsages');
+    inject$($scope, hasDigitalUsages$, ctrl, 'hasDigitalUsages');
 }]);
 
 image.directive('uiPreviewImage', function() {
