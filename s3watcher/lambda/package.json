@@ -4,13 +4,13 @@
   "description": "",
   "main": "S3Watcher.js",
   "dependencies": {
-    "aws-sdk": "^2.2.21",
     "async": "~1.4.2",
     "request": "~2.61.0",
     "rx": "^3.1.2",
     "rx-node": "^1.0.1"
   },
   "devDependencies": {
+    "aws-sdk": "^2.2.21",
     "jscs": "^1.13.0",
     "node-lambda": "^0.7.1"
   },
