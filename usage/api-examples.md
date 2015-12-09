@@ -58,7 +58,8 @@
     "references": [
       {
         "type": "frontend",
-        "uri": "http://www.example.com/global/56587d29e4b0fe4d55bb97d5"
+        "uri": "http://www.example.com/global/56587d29e4b0fe4d55bb97d5",
+        "name": "Some Headline"
       },
       {
         "type": "composer",
