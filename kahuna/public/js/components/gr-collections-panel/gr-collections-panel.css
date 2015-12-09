@@ -1,0 +1,75 @@
+gr-nodes, gr-node {
+    display: block;
+}
+
+#toggle-collections-button {
+    /* This is so we can target it with a JS as
+       angular uses !important with ng:show */
+    display: none;
+}
+
+.panel__left {
+    float: left;
+    position: fixed;
+    bottom: 0;
+    z-index: 1;
+    transition: left 0.1s;
+}
+
+.panel__left--hidden {
+    left: -290px;
+    transition: left 0.1s;
+}
+
+.node__action {
+    display: none;
+}
+
+.node__children {
+    padding-left: 10px;
+}
+
+.node__info.drag-over {
+    background-color: #333;
+}
+
+.node__info:hover .node__marker,
+.node__info--drag-over .node__marker {
+    display: block;
+}
+
+.node__info:hover .node__action {
+    display: block;
+}
+
+.node__marker {
+    position: absolute;
+    background: #00adee;
+    width: 3px;
+    height: 44px;
+    left: 0;
+    display: none;
+}
+
+.node__info {
+    padding-left: 210px;
+    margin-left: -200px;
+    box-sizing: border-box;
+}
+.node__info:hover,
+.node__info--drag-over {
+    background-color: #333;
+}
+
+.node__name {
+    padding: 10px;
+}
+
+.node__toggler,
+.node__spacer,
+.node__action {
+    padding-left: 10px;
+    padding-right: 10px;
+    z-index: 2;
+}
+
