@@ -2,6 +2,7 @@ import angular from 'angular';
 
 import '../../services/panel';
 import '../../services/api/collections-api';
+import '../../services/api/media-api';
 import '../../directives/gr-auto-focus';
 
 import './gr-collections-panel.css!';
@@ -53,13 +54,42 @@ grCollectionsPanel.controller('GrNodeCtrl', ['collections', function(collections
 
 }]);
 
+grCollectionsPanel.controller('GrAddToCollectionCtrl', ['mediaApi', 'collections', function(mediaApi, collections) {
+    const ctrl = this;
 
-grCollectionsPanel.directive('grAddToCollection', [function() {
+    ctrl.addImagesToCollection = imagesJson => {
+        const imageIds = imagesJson.map(imageJson => imageJson.id);
+        const promises = imageIds.map(id => mediaApi.find(id).then(image =>
+            image.perform('add-collection', {body: {data: ctrl.collectionPath}})));
+
+        Promise.all(promises).then(results => {
+            // TODO: Complete!
+        });
+    }
+}]);
+
+grCollectionsPanel.directive('grAddToCollection', ['vndMimeTypes', function(vndMimeTypes) {
     const dragClassName = 'node__info--drag-over';
     return {
-        link: function(scope, element) {
-            element.on('drop', ev => {
-                // TODO add the image(s) to collection
+        controller: 'GrAddToCollectionCtrl',
+        controllerAs: 'ctrl',
+        bindToController: true,
+        scope: {
+            collectionPath: '=grAddToCollection'
+        },
+        link: function(scope, element, _, ctrl) {
+            element.on('drop', jqEv => {
+                const ev = jqEv.originalEvent;
+                const gridImagesData = ev.dataTransfer.getData(vndMimeTypes.get('gridImagesData'));
+                const gridImageData = ev.dataTransfer.getData(vndMimeTypes.get('gridImageData'));
+
+                if (gridImagesData !== '' && gridImageData !== '') {
+                    // TODO: potentially add some UI feedback on adding to collection
+                    const imagesData = gridImagesData !== "" ?
+                        JSON.parse(gridImagesData) : [JSON.parse(gridImageData)];
+
+                    ctrl.addImagesToCollection(imagesData);
+                }
                 ev.currentTarget.classList.remove(dragClassName);
             });
 
