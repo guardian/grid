@@ -35,7 +35,7 @@ module.exports = {
     messages: messages,
 
     log: function (stage, messageKey, state) {
-        log(stage, messageKey, state)
+        log(stage, messageKey, state);
     },
 
     logDownload: function (stage, state) {
