@@ -35,16 +35,16 @@ export var search = angular.module('kahuna.search', [
 search.config(['$stateProvider', '$urlMatcherFactoryProvider',
                function($stateProvider, $urlMatcherFactoryProvider) {
 
-    const zeroWidthSpace = '\u200B';
+    const zeroWidthSpace = /[\u200B]/g;
     function removeUtf8SpecialChars(val) {
-        return val && val.replace(zeroWidthSpace, '');
+        return angular.isDefined(val) && val.replace(zeroWidthSpace, '');
     }
 
     $urlMatcherFactoryProvider.type('Query', {
         encode: val => removeUtf8SpecialChars(val),
         decode: val => removeUtf8SpecialChars(val),
         //call decode value that includes zero-width-space character
-        is: val => angular.isDefined(val) && (val.indexOf(zeroWidthSpace) === -1)
+        is: val => angular.isDefined(val) && !zeroWidthSpace.test(val)
     });
 
     $stateProvider.state('search', {
@@ -115,7 +115,7 @@ search.config(['$stateProvider', '$urlMatcherFactoryProvider',
                 ).
                     distinctUntilChanged(angular.identity, Immutable.is).
                     shareReplay(1);
-            }],
+            }]
         },
         views: {
             results: {
