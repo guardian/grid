@@ -39,15 +39,16 @@ export var search = angular.module('kahuna.search', [
 search.config(['$stateProvider', '$urlMatcherFactoryProvider',
                function($stateProvider, $urlMatcherFactoryProvider) {
 
-    // Query params slashes are encoded that mess up our seach query when we search for e.g. `24/7`.
-    // see: https://github.com/angular-ui/ui-router/issues/1119#issuecomment-64696060
-    // TODO: Fix this
-    $urlMatcherFactoryProvider.type('Slashed', {
-        encode: val => angular.isDefined(val) ? val : undefined,
-        decode: val => angular.isDefined(val) ? val : undefined,
-        // We want to always match this type. If we match on slash, it won't update
-        // the `stateParams`.
-        is: () => true
+    const zeroWidthSpace = /[\u200B]/g;
+    function removeUtf8SpecialChars(val) {
+        return angular.isDefined(val) && val.replace(zeroWidthSpace, '');
+    }
+
+    $urlMatcherFactoryProvider.type('Query', {
+        encode: val => removeUtf8SpecialChars(val),
+        decode: val => removeUtf8SpecialChars(val),
+        //call decode value that includes zero-width-space character
+        is: val => angular.isDefined(val) && !zeroWidthSpace.test(val)
     });
 
     $stateProvider.state('search', {
@@ -68,7 +69,7 @@ search.config(['$stateProvider', '$urlMatcherFactoryProvider',
     });
 
     $stateProvider.state('search.results', {
-        url: 'search?{query:Slashed}&ids&since&nonFree&uploadedBy&until&orderBy',
+        url: 'search?{query:Query}&ids&since&nonFree&uploadedBy&until&orderBy',
         // Non-URL parameters
         params: {
             // Routing-level property indicating whether the state has
