@@ -24,7 +24,7 @@ module.exports = {
 
         const upload = Upload.buildUpload(config, s3Event);
 
-       const success = function(result) {
+        const success = function(result) {
             Logger.logDelete(config.stage, s3Object);
 
             return S3Helper.deleteS3Object(s3Object);
