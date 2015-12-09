@@ -44,7 +44,7 @@ object UsageApi extends Controller with ArgoHelpers {
 
   private def usageUri(usageId: String): Option[URI] = {
     val encodedUsageId = UriEncoding.encodePathSegment(usageId, "UTF-8")
-    Try { new URI(s"${Config.usageUri}/usages/${encodedUsageId}") }.toOption
+    Try { URI.create(s"${Config.usageUri}/usages/${encodedUsageId}") }.toOption
   }
 
   val indexResponse = {
