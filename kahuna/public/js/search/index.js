@@ -44,7 +44,7 @@ search.config(['$stateProvider', '$urlMatcherFactoryProvider',
         encode: val => removeUtf8SpecialChars(val),
         decode: val => removeUtf8SpecialChars(val),
         //call decode value that includes zero-width-space character
-        is: val => val && (val.indexOf(zeroWidthSpace) === -1)
+        is: val => angular.isDefined(val) && (val.indexOf(zeroWidthSpace) === -1)
     });
 
     $stateProvider.state('search', {
