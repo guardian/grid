@@ -1,5 +1,4 @@
 import angular from 'angular';
-import Immutable from 'immutable';
 
 import '../edits/service';
 
