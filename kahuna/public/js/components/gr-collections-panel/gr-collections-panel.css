@@ -70,6 +70,6 @@ gr-nodes, gr-node {
 .node__action {
     padding-left: 10px;
     padding-right: 10px;
-    z-index: 100;
+    z-index: 2;
 }
 
