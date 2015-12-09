@@ -13,14 +13,11 @@ imageUsagesService.factory('imageUsagesService', [function() {
             const referenceType =
                 usage.get('platform') == 'print' ? 'indesign' : 'frontend';
 
-            const build = (usage, referenceType) => {
-                const reference = usage.get('references').find(u =>
+            const reference = usage.get('references').find(u =>
                     u.get('type') == referenceType);
 
-                return (reference && reference.get('name')) ? reference.get('name') : 'No title found.';
-            };
-
-            return build(usage, referenceType);
+            return (reference && reference.get('name')) ?
+                reference.get('name') : 'No title found.';
         }
 
         const image$ = Rx.Observable.fromPromise(imageResource.getData());
