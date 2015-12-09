@@ -22,6 +22,8 @@ case class UsageRecord(
   printUsageMetadata: Option[PrintUsageMetadata] = None,
   digitalUsageMetadata: Option[DigitalUsageMetadata] = None,
   dateAdded: Option[DateTime] = None,
+  // Either is used here to represent 3 possible states:
+  // remove-date, add-date and no-date
   dateRemoved: Either[String, Option[DateTime]] = Right(None)
 ) {
   def toXSpec = {
