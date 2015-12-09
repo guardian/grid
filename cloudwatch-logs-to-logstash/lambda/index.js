@@ -1,13 +1,5 @@
-const AWS = require('aws-sdk');
+const Logstash = require('./Logstash');
 const zlib = require('zlib');
-
-const config = require('./config.json');
-
-if (config.stage === 'DEV') {
-    AWS.config.credentials = new AWS.SharedIniFileCredentials({profile: 'media-service'});
-}
-
-const sts = new AWS.STS();
 
 exports.handler = function(event, context) {
     const payload = new Buffer(event.awslogs.data, 'base64');
@@ -42,37 +34,7 @@ exports.handler = function(event, context) {
             if (records.length === 0) {
                 context.succeed('Nothing to send to Kinesis');
             } else {
-                const roleRequest = sts.assumeRole({
-                    RoleArn: config.roleArn,
-                    RoleSessionName: 'cloudwatch-logs-to-logstash'
-                });
-
-                roleRequest.send(function (err, data) {
-                    if (err) {
-                        context.fail(err);
-                    } else {
-                        const kinesis = new AWS.Kinesis({
-                            accessKeyId: data.Credentials.AccessKeyId,
-                            secretAccessKey: data.Credentials.SecretAccessKey,
-                            sessionToken: data.Credentials.SessionToken
-                        });
-
-                        const putRecordsRequest = kinesis.putRecords({
-                            Records: records,
-                            StreamName: config.streamName
-                        });
-
-                        console.log('Putting ' + records.length + ' records to Kinesis');
-
-                        putRecordsRequest.send(function (err, data) {
-                            if (err) {
-                                context.fail(err);
-                            } else {
-                                context.succeed('Successfully processed ' + result.logEvents.length + ' log events.');
-                            }
-                        });
-                    }
-                });
+                Logstash.putRecords(context, records);
             }
         }
     });

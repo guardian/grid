@@ -15,6 +15,8 @@ fi
 cd lambda
 npm install
 
+npm test
+
 # TODO get or create config.json
 
 zip -r lambda.zip *
