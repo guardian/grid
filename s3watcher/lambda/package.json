@@ -17,7 +17,7 @@
   },
   "scripts": {
     "test": "npm run lint",
-    "local": "node-lambda run -h S3Watcher.handler -j test/event.json",
+    "local": "node-lambda run -h S3Watcher.handler -j event.json",
     "lint": "jscs S3Watcher.js lib"
   },
   "author": "",
