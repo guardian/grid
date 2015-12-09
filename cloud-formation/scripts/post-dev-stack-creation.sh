@@ -3,6 +3,8 @@
 source ./utils.sh
 source ./stack-name.sh
 
+export AWS_PROFILE=media-service
+
 CROPPER_KEY=cropper-`lower_case_random_string`
 CONFIG_BUCKET=`get_stack_resource_physical_id $STACK_NAME ConfigBucket`
 KEY_BUCKET=`get_stack_resource_physical_id $STACK_NAME KeyBucket`

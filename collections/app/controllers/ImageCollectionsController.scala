@@ -19,15 +19,16 @@ object ImageCollectionsController extends Controller with ArgoHelpers {
 
   import ControllerHelper.getUserFromReq
   import CollectionsManager.onlyLatest
+  import Config.{awsCredentials, dynamoRegion, imageCollectionsTable}
 
   val Authenticated = ControllerHelper.Authenticated
-  val dynamo = new DynamoDB(Config.awsCredentials, Config.dynamoRegion, Config.imageCollectionsTable)
+  val dynamo = new DynamoDB(awsCredentials, dynamoRegion, imageCollectionsTable)
 
   def getCollections(id: String) = Authenticated.async { req =>
     dynamo.listGet[Collection](id, "collections").map { dynamoEntry =>
       respond(onlyLatest(dynamoEntry))
     } recover {
-      case NoItemFound => respondNotFound("No usage rights overrides found")
+      case NoItemFound => respondNotFound("No collections found")
     }
   }
 

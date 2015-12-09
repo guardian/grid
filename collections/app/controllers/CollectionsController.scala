@@ -20,8 +20,10 @@ import com.gu.mediaservice.model.{ActionData, Collection}
 
 import store.CollectionsStore
 
-case class AppIndex(name: String, description: String, config: Map[String, String] = Map(),
-                    links: List[Link] = Nil, actions: List[Action] = Nil)
+
+case class InvalidPrinciple(message: String) extends Throwable
+case class AppIndex(name: String, description: String, config: Map[String, String] = Map())
+
 object AppIndex {
   implicit def jsonWrites: Writes[AppIndex] = Json.writes[AppIndex]
 }
@@ -40,8 +42,8 @@ object CollectionsController extends Controller with ArgoHelpers {
     uri(s"$rootUri/collections$post")
   }
 
-  val appIndex = AppIndex("media-collections", "The one stop shop for collections",
-                  links = List(Link("collections", collectionUri.toString)))
+  val appIndex = AppIndex("media-collections", "The one stop shop for collections")
+  val indexLinks = List(Link("collections", collectionUri.toString))
 
   def addChildAction(pathId: String = ""): Option[Action] = Some(Action("add-child", collectionUri(pathId), "POST"))
   def addChildAction(n: Node[Collection]): Option[Action] = addChildAction(n.pathId)
@@ -50,7 +52,7 @@ object CollectionsController extends Controller with ArgoHelpers {
   )
 
   def index = Authenticated { req =>
-    respond(appIndex)
+    respond(appIndex, links = indexLinks)
   }
 
   def collectionNotFound(path: String) =
@@ -70,8 +72,6 @@ object CollectionsController extends Controller with ArgoHelpers {
         (collection) => collection.path,
         (collection) => collection.pathId)
 
-      val t = Json.toJson(tree)(asArgo)
-
       respond(Json.toJson(tree)(asArgo), actions = List(addChildAction()).flatten)
     }
   }
@@ -81,10 +81,11 @@ object CollectionsController extends Controller with ArgoHelpers {
   def addChildToCollection(collectionPathId: String) = addChildTo(Some(collectionPathId))
   def addChildTo(collectionPathId: Option[String]) = Authenticated.async(parse.json) { req =>
     (req.body \ "data").asOpt[String].map { child =>
-      val path = child :: collectionPathId.map(CollectionsManager.stringToPath).getOrElse(Nil)
+      val path = collectionPathId.map(CollectionsManager.stringToPath).getOrElse(Nil) :+ child
       val collection = Collection(path, ActionData(getUserFromReq(req), DateTime.now))
       CollectionsStore.add(collection).map { collection =>
-        respond(Node(collection.path.last, Nil, collection.pathId, Some(collection)))
+        val node = Node(collection.path.last, Nil, collection.pathId, Some(collection))
+        respond(node, actions = getActions(node))
       }
     } getOrElse Future.successful(invalidJson(req.body))
   }
