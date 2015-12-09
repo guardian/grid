@@ -6,6 +6,7 @@ const props = properties.load('s3watcher');
 const s3IngestBucket = props['s3.ingest.bucket'];
 
 const config = {
+    region:      props['aws.region'],
     baseUrl:     props['loader.uri'],
     apiKey:      props['auth.key.s3watcher'],
     failBucket:  props['s3.fail.bucket'],

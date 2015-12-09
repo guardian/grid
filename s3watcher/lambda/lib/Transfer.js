@@ -7,6 +7,8 @@ const Logger       = require('./Logger');
 module.exports = {
     init: function(s3Event, config){
 
+        const cloudwatch = new CWHelper({region: config.region});
+
         const objectKey = s3Event.bucket + "/" +  s3Event.key;
 
         const s3Object = {
@@ -55,7 +57,7 @@ module.exports = {
             }).retry(5).flatMap(function(uploadResult){
                 Logger.logRecordToCloudWatch(config.stage, uploadResult);
 
-                return CWHelper.putMetricData(
+                return cloudwatch.putMetricData(
                     Metrics.create(uploadResult)).map(
                         function(){ return uploadResult; });
 
