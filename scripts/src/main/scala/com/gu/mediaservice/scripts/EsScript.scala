@@ -173,7 +173,7 @@ object UpdateSettings extends EsScript {
   }
 
   def usageError: Nothing = {
-    System.err.println("Usage: UpdateMapping <ES_HOST>")
+    System.err.println("Usage: UpdateSettings <ES_HOST>")
     sys.exit(1)
   }
 }
