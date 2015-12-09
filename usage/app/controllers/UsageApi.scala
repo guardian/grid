@@ -54,7 +54,7 @@ object UsageApi extends Controller with ArgoHelpers {
       Link("usages-by-id", s"${Config.usageUri}/usages/{id}")
     )
 
-    val printPostUri = new URI(s"${Config.usageUri}/usages/print")
+    val printPostUri = URI.create(s"${Config.usageUri}/usages/print")
     val actions = List(
       Action("print-usage", printPostUri, "POST")
     )
@@ -97,7 +97,7 @@ object UsageApi extends Controller with ArgoHelpers {
       usages match {
         case Nil => respondNotFound("No usages found.")
         case usage :: _ => {
-          val uri = Try { new URI(s"${services.usageBaseUri}/usages/media/${mediaId}") }.toOption
+          val uri = Try { URI.create(s"${services.usageBaseUri}/usages/media/${mediaId}") }.toOption
           val links = List(
             Link("media", s"${services.apiBaseUri}/images/${mediaId}")
           )
