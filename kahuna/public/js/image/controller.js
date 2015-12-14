@@ -64,9 +64,7 @@ image.controller('ImageCtrl', [
         hotkeys.bindTo($scope).add({
             combo: 'c',
             description: 'Crop image',
-            callback: function() {
-                $state.go('crop', {imageId: ctrl.image.data.id});
-            }
+            callback: () => $state.go('crop', {imageId: ctrl.image.data.id})
         });
 
         ctrl.image = image;
