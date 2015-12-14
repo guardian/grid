@@ -1,7 +1,6 @@
 import angular from 'angular';
 import moment from 'moment';
 
-import Rx from 'rx';
 import '../../util/rx';
 
 import template from './gr-image-usage.html!text';

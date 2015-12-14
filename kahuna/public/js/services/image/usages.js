@@ -3,7 +3,9 @@ import Immutable from 'immutable';
 
 import Rx from 'rx';
 
-export const imageUsagesService = angular.module('gr.image-usages.service', ['kahuna.edits.service']);
+export const imageUsagesService = angular.module('gr.image-usages.service', [
+        'kahuna.edits.service'
+]);
 
 
 imageUsagesService.factory('imageUsagesService', [function() {

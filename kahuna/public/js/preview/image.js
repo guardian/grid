@@ -1,6 +1,5 @@
 import angular from 'angular';
 
-import Rx from 'rx';
 import '../util/rx';
 
 import '../analytics/track';
@@ -46,10 +45,10 @@ image.controller('uiPreviewImageCtrl', [
     ctrl.states = imageService(ctrl.image).states;
 
     const hasPrintUsages$ =
-        imageUsagesService.getUsages(ctrl.image).hasPrintUsages$
+        imageUsagesService.getUsages(ctrl.image).hasPrintUsages$;
 
     const hasDigitalUsages$ =
-        imageUsagesService.getUsages(ctrl.image).hasDigitalUsages$
+        imageUsagesService.getUsages(ctrl.image).hasDigitalUsages$;
 
     $scope.$on('$destroy', function() {
         freeUpdateListener();
