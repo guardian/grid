@@ -903,6 +903,7 @@ input.search-query__input {
     border-style: solid;
     position: relative;
     height: 35px;
+    line-height: 35px;
     white-space: nowrap;
 }
 
@@ -942,7 +943,6 @@ input.search-query__input {
 }
 
 .results-toolbar-item__clear-selection {
-    line-height: 35px;
     width: 105px;
 }
 
@@ -951,13 +951,9 @@ input.search-query__input {
 }
 
 .results-toolbar-item__metadata-panel-controls {
-    line-height: 35px;
     height: 36px;
 }
 
-.related-labels {
-    line-height: 35px;
-}
 .related-labels--with-labels {
     /* This is to allow scrolling of labels, but show the
     autocomplete dropdown */

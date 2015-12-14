@@ -24,4 +24,12 @@ object CollectionsManager {
 
   def find(path: List[String], collections: List[Collection]): Option[Collection] =
     collections.find(col => col.path == path)
+
+  def onlyLatest(collections: List[Collection]): List[Collection] =
+    collections filter { collection =>
+      // if there isn't a collection with the same path created after itself.
+      !collections.exists { col => {
+        col.path == collection.path && col.actionData.date.isAfter(collection.actionData.date)
+      }}
+    }
 }
