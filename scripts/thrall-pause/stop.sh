@@ -1,10 +1,11 @@
 #!/usr/bin/env bash
 
-ASG=$(../get-asg.sh "$@")
+ASG=$(../get-asg.sh "$@" "ThrallAuto")
 
 if [ $? -eq 1 ]
 then
     echo $ASG
+    echo "Usage ./stop.sh <TEST|PROD>"
     exit 1
 fi
 
