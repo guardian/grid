@@ -22,3 +22,9 @@ Cloud Watch Logs to Logstash expects a Cloud Watch Logs log-line to look like:
 Where `state` can be of any shape. For example, [S3Watcher](../s3watcher/lambda/lib/Logger.js).
 
 Cloud Watch Logs to Logstash will then take this message and push it onto the Kinesis stream in the ELK stack, which in turn pushes it into Logstash.
+
+
+## Deploying
+This Lambda has not been added to CI/CD due to the slight complexity of getting secrets into the Lambda.
+
+To deploy, run `./deploy.sh` then update the Lambda function code.
