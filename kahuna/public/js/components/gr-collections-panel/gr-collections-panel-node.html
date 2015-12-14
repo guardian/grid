@@ -20,6 +20,7 @@
         <a class="node__name flex-spacer"
            ui:sref="search.results({query: (node.data.name)})">
             {{node.data.name}}
+            <gr-icon ng:if="ctrl.saved">tick</gr-icon>
         </a>
 
 

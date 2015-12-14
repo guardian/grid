@@ -54,8 +54,12 @@ grCollectionsPanel.controller('GrNodeCtrl', ['collections', function(collections
 
 }]);
 
-grCollectionsPanel.controller('GrAddToCollectionCtrl', ['mediaApi', 'collections', function(mediaApi, collections) {
+grCollectionsPanel.controller('GrAddToCollectionCtrl',
+    ['$timeout', 'mediaApi', function($timeout, mediaApi) {
+
     const ctrl = this;
+
+    ctrl.saved = false;
 
     ctrl.addImagesToCollection = imagesJson => {
         const imageIds = imagesJson.map(imageJson => imageJson.id);
@@ -63,7 +67,9 @@ grCollectionsPanel.controller('GrAddToCollectionCtrl', ['mediaApi', 'collections
             image.perform('add-collection', {body: {data: ctrl.collectionPath}})));
 
         Promise.all(promises).then(results => {
-            // TODO: Complete!
+            // this is a little ;_;, but I can't think of a way to make the template deal with this
+            ctrl.saved = true;
+            $timeout(() => ctrl.saved = false);
         });
     }
 }]);
