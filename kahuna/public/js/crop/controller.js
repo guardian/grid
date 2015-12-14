@@ -18,7 +18,7 @@ crop.controller('ImageCropCtrl',
 
      hotkeys.bindTo($scope).add({
          combo: 'esc',
-         description: 'Crop image',
+         description: 'Cancel crop and return to image',
          callback: function() {
              $state.go('image', {imageId: ctrl.image.data.id});
          }
