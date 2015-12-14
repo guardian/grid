@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 
-ASG=$(../get-asg.sh "$@" "ThrallAuto")
+SCRIPT_DIR=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
+ASG=$($SCRIPT_DIR/../get-asg.sh "$@" "ThrallAuto")
 
 if [ $? -eq 1 ]
 then

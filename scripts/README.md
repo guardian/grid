@@ -20,3 +20,25 @@ mappings (you cannot just add things willy nilly).
 
     $ sbt
     > scripts/run UpdateMapping <ES_HOST>
+
+
+### UpdateSettings
+When you need to close the index to update the settings i.e. when you have to add / reconfigure
+analysers - this is the command you can use.
+
+This is a multi-step process:
+* It is very important that you [pause thrall's ingestion first]() by running:
+    ```
+    $ /thrall-pause/stop.sh
+    $ ./stop.sh <ENV>
+    ```
+
+* Update the settings
+    ```
+    > scripts/run UpdateSettings <ENV>
+    ```
+
+* Unpause thrall
+    ```
+    $ /thrall-pause/start.sh
+    ```
