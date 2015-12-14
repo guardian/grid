@@ -1,19 +1,29 @@
 import angular from 'angular';
+import 'angular-hotkeys';
 
 var crop = angular.module('kahuna.crop.controller', []);
 
 crop.controller('ImageCropCtrl',
                 ['$scope', '$rootScope', '$stateParams', '$state',
                  '$filter', '$document', 'mediaApi', 'mediaCropper',
-                 'image', 'optimisedImageUri',
+                 'image', 'optimisedImageUri', 'hotkeys',
                  function($scope, $rootScope, $stateParams, $state,
                           $filter, $document, mediaApi, mediaCropper,
-                          image, optimisedImageUri) {
+                          image, optimisedImageUri, hotkeys) {
 
     const ctrl = this;
     const body = $document[0].body;
 
-    var imageId = $stateParams.imageId;
+    const imageId = $stateParams.imageId;
+
+     hotkeys.bindTo($scope).add({
+         combo: 'esc',
+         description: 'Crop image',
+         callback: function() {
+             $state.go('image', {imageId: ctrl.image.data.id});
+         }
+    });
+
     ctrl.image = image;
     ctrl.optimisedImageUri = optimisedImageUri;
 

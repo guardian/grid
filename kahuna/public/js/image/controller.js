@@ -1,4 +1,5 @@
 import angular from 'angular';
+import 'angular-hotkeys';
 
 import '../image/service';
 import '../components/gr-delete-image/gr-delete-image';
@@ -42,6 +43,7 @@ image.controller('ImageCtrl', [
     'cropKey',
     'mediaCropper',
     'imageService',
+    'hotkeys',
 
     function ($rootScope,
               $scope,
@@ -54,9 +56,18 @@ image.controller('ImageCtrl', [
               lowResImageUri,
               cropKey,
               mediaCropper,
-              imageService) {
+              imageService,
+              hotkeys) {
 
         let ctrl = this;
+
+        hotkeys.bindTo($scope).add({
+            combo: 'k',
+            description: 'Crop image',
+            callback: function() {
+                $state.go('crop', {imageId: ctrl.image.data.id});
+            }
+        });
 
         ctrl.image = image;
         ctrl.optimisedImageUri = optimisedImageUri;

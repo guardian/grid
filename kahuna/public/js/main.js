@@ -69,7 +69,8 @@ var kahuna = angular.module('kahuna', [
 
     // directives used throughout
     'gr.imageFadeOnLoad',
-    'grIcon'
+    'grIcon',
+    'cfp.hotkeys'
 ]);
 
 
