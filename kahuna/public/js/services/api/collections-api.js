@@ -42,12 +42,20 @@ apiServices.factory('collections', ['mediaApi', function (mediaApi) {
         });
     }
 
+    function addImagesToCollection(imageIds, collectionPath) {
+        const promises = imageIds.map(id => mediaApi.find(id).then(
+                image => image.perform('add-collection', {body: {data: collectionPath}})));
+
+        return Promise.all(promises);
+    }
+
     return {
         getCollections,
         removeCollection,
         addCollection,
         addChildTo,
         isDeletable,
-        removeFromList
+        removeFromList,
+        addImagesToCollection
     };
 }]);

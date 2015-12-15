@@ -55,16 +55,13 @@ grCollectionsPanel.controller('GrNodeCtrl', ['collections', function(collections
 }]);
 
 grCollectionsPanel.controller('GrAddToCollectionCtrl',
-    ['mediaApi', '$scope', function(mediaApi, $scope) {
+    ['collections', function(collections) {
 
     const ctrl = this;
 
     ctrl.addImagesToCollection = imagesJson => {
         const imageIds = imagesJson.map(imageJson => imageJson.id);
-        const promises = imageIds.map(id => mediaApi.find(id).then(image =>
-            image.perform('add-collection', {body: {data: ctrl.collectionPath}})));
-
-        return Promise.all(promises);
+        return collections.addImagesToCollection(imageIds, ctrl.collectionPath);
     };
 }]);
 
