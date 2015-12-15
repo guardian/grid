@@ -14,6 +14,9 @@ fi
 
 cd lambda
 npm install
+
+npm test
+
 zip -r S3Watcher.zip *
 cd ..
 

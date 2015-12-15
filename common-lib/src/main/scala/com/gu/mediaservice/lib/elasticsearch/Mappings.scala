@@ -32,6 +32,9 @@ object Mappings {
 
   def withIndexName(indexName: String,  obj: JsObject) = Json.obj("index_Name" -> indexName) ++ obj
 
+  // See: https://www.elastic.co/guide/en/elasticsearch/reference/1.6/mapping-core-types.html#copy-to
+  // This copy the value to another field, generally with another
+  // analyser to be searched in different ways.
   def copyTo(fieldName: String) = Json.obj("copy_to" -> fieldName)
 
   val identifiersMapping =
