@@ -55,7 +55,7 @@ grCollectionsPanel.controller('GrNodeCtrl', ['collections', function(collections
 }]);
 
 grCollectionsPanel.controller('GrAddToCollectionCtrl',
-    ['$timeout', 'mediaApi', function($timeout, mediaApi) {
+    ['mediaApi', '$scope', function(mediaApi, $scope) {
 
     const ctrl = this;
 
@@ -66,17 +66,17 @@ grCollectionsPanel.controller('GrAddToCollectionCtrl',
         const promises = imageIds.map(id => mediaApi.find(id).then(image =>
             image.perform('add-collection', {body: {data: ctrl.collectionPath}})));
 
-        Promise.all(promises).then(results => {
-            // this is a little ;_;, but I can't think of a way to make the template deal with this
-            ctrl.saved = true;
-            $timeout(() => ctrl.saved = false);
-        });
-    }
+        return Promise.all(promises);
+    };
 }]);
 
-grCollectionsPanel.directive('grAddToCollection', ['vndMimeTypes', function(vndMimeTypes) {
+grCollectionsPanel.directive('grAddToCollection',
+        ['$timeout', 'vndMimeTypes',
+        function($timeout, vndMimeTypes) {
+
     const dragClassName = 'node__info--drag-over';
     return {
+        restrict: 'A',
         controller: 'GrAddToCollectionCtrl',
         controllerAs: 'ctrl',
         bindToController: true,
@@ -86,6 +86,7 @@ grCollectionsPanel.directive('grAddToCollection', ['vndMimeTypes', function(vndM
         link: function(scope, element, _, ctrl) {
             element.on('drop', jqEv => {
                 const ev = jqEv.originalEvent;
+                const el = element[0];
                 const gridImagesData = ev.dataTransfer.getData(vndMimeTypes.get('gridImagesData'));
                 const gridImageData = ev.dataTransfer.getData(vndMimeTypes.get('gridImageData'));
 
@@ -94,7 +95,14 @@ grCollectionsPanel.directive('grAddToCollection', ['vndMimeTypes', function(vndM
                     const imagesData = gridImagesData !== "" ?
                         JSON.parse(gridImagesData) : [JSON.parse(gridImageData)];
 
-                    ctrl.addImagesToCollection(imagesData);
+                    ctrl.addImagesToCollection(imagesData).then(() => {
+                        // TODO: Find a way to do this with variables, the scope here seems to be
+                        // messing with it.
+                        el.classList.add('fade-action--complete');
+                        $timeout(() => {
+                            el.classList.remove('fade-action--complete');
+                        }, 500);
+                    });
                 }
                 ev.currentTarget.classList.remove(dragClassName);
             });

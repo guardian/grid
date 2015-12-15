@@ -73,3 +73,11 @@ gr-nodes, gr-node {
     z-index: 2;
 }
 
+/* Annoyingly I can't find a way to do this with variables */
+.fade-action {
+    -webkit-transition: background-color .25s linear;
+    transition: background-color .25s linear;
+}
+.fade-action--complete {
+    background: #00adee;
+}

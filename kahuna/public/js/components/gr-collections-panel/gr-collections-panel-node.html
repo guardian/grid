@@ -1,7 +1,8 @@
 <div ng:init="node = ctrl.node;">
-    <div class="node__info flex-container"
+    <div class="node__info flex-container fade-action"
          ng:init="showChildren = true"
          gr:add-to-collection="node.data.content.path">
+
         <div class="node__marker"></div>
 
         <div class="node__spacer" ng:if="node.data.children.length === 0">
@@ -20,9 +21,7 @@
         <a class="node__name flex-spacer"
            ui:sref="search.results({query: (node.data.name)})">
             {{node.data.name}}
-            <gr-icon ng:if="ctrl.saved">tick</gr-icon>
         </a>
-
 
         <button class="node__action clickable" type="button"
                 ng:if="ctrl.deletable"
