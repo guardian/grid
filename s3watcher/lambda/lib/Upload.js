@@ -41,7 +41,8 @@ module.exports = {
             };
         }
 
-        upload.params.uri = imageUri
+        // FIXME: refactor so as to avoid having to mutate params like this
+        upload.params.uri = imageUri;
 
         const url = upload.url + upload.path;
         const options = {
