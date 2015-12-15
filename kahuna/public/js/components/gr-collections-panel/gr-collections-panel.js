@@ -59,8 +59,6 @@ grCollectionsPanel.controller('GrAddToCollectionCtrl',
 
     const ctrl = this;
 
-    ctrl.saved = false;
-
     ctrl.addImagesToCollection = imagesJson => {
         const imageIds = imagesJson.map(imageJson => imageJson.id);
         const promises = imageIds.map(id => mediaApi.find(id).then(image =>
