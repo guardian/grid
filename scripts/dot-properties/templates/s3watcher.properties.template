@@ -1,0 +1,5 @@
+aws.region={{region}}
+loader.uri=https://loader.{{domain_root}}
+auth.key.s3watcher={{s3watcher_key}}
+s3.ingest.bucket={{S3WatcherIngestBucket}}
+s3.fail.bucket={{S3WatcherFailBucket}}
