@@ -21,13 +21,61 @@ object UsageRecorder {
   val usageStream = UsageStream.observable
   val resetInterval = 30.seconds
 
+  val subscriber = Subscriber(recordNotification)
+  def subscribe = UsageRecorder.observable.subscribe(subscriber)
+
   // Due to a difficult to track down memory leak we 'reset' (unsubscribe/resubscribe)
   // This seems to make references in upstream observables available for GC
   val resetStreamObservable = Observable.interval(resetInterval).flatMap(_ => {
     Observable.error(new ResetException())
   })
 
-  val rawObservable = usageStream.merge(resetStreamObservable).flatMap(recordUpdates)
+  def recordNotification(notice: JsObject) = {
+    Logger.debug(s"Usage notication sent: $notice")
+
+    notice
+  }
+
+  def recordUpdate(update: JsObject) = {
+    Logger.debug(s"Usage update processed: $update")
+    UsageMetrics.incrementUpdated
+
+    update
+  }
+
+  def buildNotifications(usages: Set[MediaUsage]) = {
+    Observable.from(usages.map(_.mediaId).toList.distinct.map(UsageNotifier.forMedia))
+  }
+
+  val dbMatchStream = usageStream.flatMap(matchDb)
+
+  case class MatchedUsageGroup(usageGroup: UsageGroup, dbUsageGroup: UsageGroup)
+  case class MatchedUsageUpdate(updates: Seq[JsObject], matchUsageGroup: MatchedUsageGroup)
+
+  def matchDb(usageGroup: UsageGroup) = UsageTable.matchUsageGroup(usageGroup)
+    .map(MatchedUsageGroup(usageGroup, _))
+
+  val dbUpdateStream = dbMatchStream.flatMap(matchUsageGroup => {
+    val dbUsageGroup = matchUsageGroup.dbUsageGroup
+    val usageGroup   = matchUsageGroup.usageGroup
+
+    val deletes = (dbUsageGroup.usages -- usageGroup.usages).map(UsageTable.delete)
+    val creates = (usageGroup.usages -- dbUsageGroup.usages).map(UsageTable.create)
+    val updates = (usageGroup.usages & dbUsageGroup.usages).map(UsageTable.update)
+
+    Observable.from(deletes ++ updates ++ creates).flatten[JsObject]
+      .map(recordUpdate)
+      .toSeq.map(MatchedUsageUpdate(_, matchUsageGroup))
+  })
+
+  val notificationStream = dbUpdateStream.flatMap(matchedUsageUpdates => {
+    val usageGroup = matchedUsageUpdates.matchUsageGroup.usageGroup
+    val dbUsageGroup = matchedUsageUpdates.matchUsageGroup.dbUsageGroup
+
+    buildNotifications(usageGroup.usages ++ dbUsageGroup.usages)
+  })
+
+  val rawObservable = notificationStream.merge(resetStreamObservable).flatten[JsObject]
 
   val observable = rawObservable.retry((_, error) => {
     error match {
@@ -40,29 +88,4 @@ object UsageRecorder {
 
     true
   })
-
-  val subscriber = Subscriber((usage: JsObject) => {
-      Logger.debug(s"UsageRecorder processed update: $usage")
-      UsageMetrics.incrementUpdated
-  })
-
-  def subscribe = UsageRecorder.observable.subscribe(subscriber)
-
-  def buildNotifications(usages: Set[MediaUsage]) = {
-    Observable.from(usages.map(_.mediaId).toList.distinct.map(UsageNotifier.forMedia))
-  }
-
-  def recordUpdates(usageGroup: UsageGroup) = {
-    UsageTable.matchUsageGroup(usageGroup).flatMap(dbUsageGroup => {
-
-      val deletes = (dbUsageGroup.usages -- usageGroup.usages).map(UsageTable.delete)
-      val creates = (usageGroup.usages -- dbUsageGroup.usages).map(UsageTable.create)
-      val updates = (usageGroup.usages & dbUsageGroup.usages).map(UsageTable.update)
-
-      val actions = Observable.from(deletes ++ updates ++ creates)
-      val notices = buildNotifications(usageGroup.usages ++ dbUsageGroup.usages)
-
-      (actions ++ notices).flatten[JsObject]
-    })
-  }
 }
