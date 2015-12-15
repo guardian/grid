@@ -43,7 +43,7 @@ object ExportRequest {
       CropSpec(
         uri,
         boundsFill(dimensions),
-        AspectRatio.calculate(dimensions.width, dimensions.height).flatMap(_.friendly),
+        AspectRatio.calculate(dimensions.width, dimensions.height).map(_.friendly),
         FullExport
       )
     // Map "crop" that covers the whole image to a "full" export
