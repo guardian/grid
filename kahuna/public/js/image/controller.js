@@ -27,7 +27,8 @@ var image = angular.module('kahuna.image.controller', [
     'gr.metadataValidity',
     'gr.imageCostMessage',
     'gr.exportOriginalImage',
-    'gr.imageUsage'
+    'gr.imageUsage',
+    'cfp.hotkeys'
 ]);
 
 image.controller('ImageCtrl', [

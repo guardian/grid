@@ -1,7 +1,7 @@
 import angular from 'angular';
 import 'angular-hotkeys';
 
-var crop = angular.module('kahuna.crop.controller', []);
+var crop = angular.module('kahuna.crop.controller', ['cfp.hotkeys']);
 
 crop.controller('ImageCropCtrl',
                 ['$scope', '$rootScope', '$stateParams', '$state',
