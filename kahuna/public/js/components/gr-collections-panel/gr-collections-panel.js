@@ -74,7 +74,9 @@ grCollectionsPanel.directive('grAddToCollection',
         ['$timeout', 'vndMimeTypes',
         function($timeout, vndMimeTypes) {
 
-    const dragClassName = 'node__info--drag-over';
+    const dragClass = 'node__info--drag-over';
+    const fadeActionCompleteClass = 'fade-action--complete'
+
     return {
         restrict: 'A',
         controller: 'GrAddToCollectionCtrl',
@@ -86,7 +88,6 @@ grCollectionsPanel.directive('grAddToCollection',
         link: function(scope, element, _, ctrl) {
             element.on('drop', jqEv => {
                 const ev = jqEv.originalEvent;
-                const el = element[0];
                 const gridImagesData = ev.dataTransfer.getData(vndMimeTypes.get('gridImagesData'));
                 const gridImageData = ev.dataTransfer.getData(vndMimeTypes.get('gridImageData'));
 
@@ -98,21 +99,21 @@ grCollectionsPanel.directive('grAddToCollection',
                     ctrl.addImagesToCollection(imagesData).then(() => {
                         // TODO: Find a way to do this with variables, the scope here seems to be
                         // messing with it.
-                        el.classList.add('fade-action--complete');
+                        element.addClass(fadeActionCompleteClass);
                         $timeout(() => {
-                            el.classList.remove('fade-action--complete');
+                            element.removeClass(fadeActionCompleteClass);
                         }, 500);
                     });
                 }
-                ev.currentTarget.classList.remove(dragClassName);
+                element.removeClass(dragClass);
             });
 
             element.on('dragover', ev => {
-                ev.currentTarget.classList.add(dragClassName);
+                element.addClass(dragClass);
             });
 
             element.on('dragleave', ev => {
-                ev.currentTarget.classList.remove(dragClassName);
+                element.removeClass(dragClass);
             });
         }
     };
