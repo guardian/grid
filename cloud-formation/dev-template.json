@@ -230,6 +230,51 @@
             }
         },
 
+        "S3WatcherIngestBucket": {
+            "Type" : "AWS::S3::Bucket"
+        },
+        "S3WatcherIngestBucketPolicy": {
+            "Type": "AWS::S3::BucketPolicy",
+            "Properties": {
+                "PolicyDocument": {
+                    "Id": "S3WatcherIngestBucketPolicy",
+                    "Statement": [
+                        {
+                            "Action": [ "s3:*" ],
+                            "Effect": "Allow",
+                            "Resource": { "Fn::Join": [ "",
+                                [ "arn:aws:s3:::", { "Ref": "S3WatcherIngestBucket" } , "/*" ] ]
+                            },
+                            "Principal": { "AWS": { "Fn::GetAtt": [ "User", "Arn" ] } }
+                        }
+                    ]
+                },
+                "Bucket": { "Ref": "S3WatcherIngestBucket" }
+            }
+        },
+        "S3WatcherFailBucket": {
+            "Type" : "AWS::S3::Bucket"
+        },
+        "S3WatcherFailBucketPolicy": {
+            "Type": "AWS::S3::BucketPolicy",
+            "Properties": {
+                "PolicyDocument": {
+                    "Id": "S3WatcherFailBucketPolicy",
+                    "Statement": [
+                        {
+                            "Action": [ "s3:PutObject" ],
+                            "Effect": "Allow",
+                            "Resource": { "Fn::Join": [ "",
+                                [ "arn:aws:s3:::", { "Ref": "S3WatcherFailBucket" } , "/*" ] ]
+                            },
+                            "Principal": { "AWS": { "Fn::GetAtt": [ "User", "Arn" ] } }
+                        }
+                    ]
+                },
+                "Bucket": { "Ref": "S3WatcherFailBucket" }
+            }
+        },
+
         "CollectionsBucket": {
             "Type": "AWS::S3::Bucket"
         },
@@ -556,6 +601,12 @@
         },
         "CollectionsBucket": {
             "Value": { "Ref": "CollectionsBucket" }
+        },
+        "S3WatcherIngestBucket": {
+            "Value": { "Ref": "S3WatcherIngestBucket" }
+        },
+        "S3WatcherFailBucket": {
+            "Value": { "Ref": "S3WatcherFailBucket" }
         },
         "EditsDynamoTable": {
             "Value": { "Ref": "EditsDynamoTable" }
