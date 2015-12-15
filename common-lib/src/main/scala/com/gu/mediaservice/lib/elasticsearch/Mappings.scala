@@ -32,6 +32,11 @@ object Mappings {
 
   def withIndexName(indexName: String,  obj: JsObject) = Json.obj("index_Name" -> indexName) ++ obj
 
+  // See: https://www.elastic.co/guide/en/elasticsearch/reference/1.6/mapping-core-types.html#copy-to
+  // This copy the value to another field, generally with another
+  // analyser to be searched in different ways.
+  def copyTo(fieldName: String) = Json.obj("copy_to" -> fieldName)
+
   val identifiersMapping =
     nonDynamicObj(
       // TODO: extract these to a configuration setting
@@ -105,7 +110,7 @@ object Mappings {
 
   val collectionMapping = withIndexName("collection", nonDynamicObj(
     "path" -> nonAnalysedList("collectionPath"),
-    "pathId" -> nonAnalyzedString,
+    "pathId" -> (nonAnalyzedString ++ copyTo("collections.pathHierarchy")),
     "pathHierarchy" -> hierarchyAnalysedString,
     "actionData" -> actionDataMapping
   ))
@@ -143,6 +148,7 @@ object Mappings {
           "lastModified" -> dateFormat,
           "identifiers" -> dynamicObj,
           "uploadInfo" -> uploadInfoMapping,
+          "collections" -> collectionMapping,
           "suggestMetadataCredit" -> simpleSuggester
         ),
         "dynamic_templates" -> Json.arr(Json.obj(
