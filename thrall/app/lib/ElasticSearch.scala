@@ -141,7 +141,7 @@ object ElasticSearch extends ElasticSearchClient with ImageFields {
         "ctx._source.collections = collections;" +
           updateLastModifiedScript,
         scriptType)
-      .executeAndLog(s"updating collections on image $id")
+      .executeAndLog(s"setting collections on image $id")
       .incrementOnFailure(failedCollectionsUpdates) { case e: VersionConflictEngineException => true }
 
   def prepareImageUpdate(id: String): UpdateRequestBuilder =
