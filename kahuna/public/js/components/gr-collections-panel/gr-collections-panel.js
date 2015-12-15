@@ -75,7 +75,7 @@ grCollectionsPanel.directive('grAddToCollection',
         function($timeout, vndMimeTypes) {
 
     const dragClass = 'node__info--drag-over';
-    const fadeActionCompleteClass = 'fade-action--complete'
+    const fadeActionCompleteClass = 'fade-action--complete';
 
     return {
         restrict: 'A',
