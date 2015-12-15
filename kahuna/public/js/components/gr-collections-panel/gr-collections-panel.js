@@ -54,7 +54,7 @@ grCollectionsPanel.controller('GrNodeCtrl', ['collections', function(collections
 
 }]);
 
-grCollectionsPanel.directive('grAddToCollection',
+grCollectionsPanel.directive('grDropIntoCollection',
         ['$timeout', '$parse', 'vndMimeTypes', 'collections',
         function($timeout, $parse, vndMimeTypes, collections) {
 
@@ -64,7 +64,7 @@ grCollectionsPanel.directive('grAddToCollection',
     return {
         restrict: 'A',
         link: function(scope, element, attrs) {
-            const collectionPath = $parse(attrs.grAddToCollection)(scope);
+            const collectionPath = $parse(attrs.grDropIntoCollection)(scope);
 
             element.on('drop', jqEv => {
                 const ev = jqEv.originalEvent;
