@@ -54,33 +54,18 @@ grCollectionsPanel.controller('GrNodeCtrl', ['collections', function(collections
 
 }]);
 
-grCollectionsPanel.controller('GrAddToCollectionCtrl',
-    ['collections', function(collections) {
-
-    const ctrl = this;
-
-    ctrl.addImagesToCollection = imagesJson => {
-        const imageIds = imagesJson.map(imageJson => imageJson.id);
-        return collections.addImagesToCollection(imageIds, ctrl.collectionPath);
-    };
-}]);
-
 grCollectionsPanel.directive('grAddToCollection',
-        ['$timeout', 'vndMimeTypes',
-        function($timeout, vndMimeTypes) {
+        ['$timeout', '$parse', 'vndMimeTypes', 'collections',
+        function($timeout, $parse, vndMimeTypes, collections) {
 
     const dragClass = 'node__info--drag-over';
     const fadeActionCompleteClass = 'fade-action--complete';
 
     return {
         restrict: 'A',
-        controller: 'GrAddToCollectionCtrl',
-        controllerAs: 'ctrl',
-        bindToController: true,
-        scope: {
-            collectionPath: '=grAddToCollection'
-        },
-        link: function(scope, element, _, ctrl) {
+        link: function(scope, element, attrs) {
+            const collectionPath = $parse(attrs.grAddToCollection)(scope);
+
             element.on('drop', jqEv => {
                 const ev = jqEv.originalEvent;
                 const gridImagesData = ev.dataTransfer.getData(vndMimeTypes.get('gridImagesData'));
@@ -91,7 +76,8 @@ grCollectionsPanel.directive('grAddToCollection',
                     const imagesData = gridImagesData !== "" ?
                         JSON.parse(gridImagesData) : [JSON.parse(gridImageData)];
 
-                    ctrl.addImagesToCollection(imagesData).then(() => {
+                    const imageIds = imagesData.map(imageJson => imageJson.id);
+                    collections.addImagesToCollection(imageIds, collectionPath).then(() => {
                         // TODO: Find a way to do this with variables, the scope here seems to be
                         // messing with it.
                         element.addClass(fadeActionCompleteClass);
