@@ -1,5 +1,6 @@
 package model
 
+import lib.AspectRatio
 import play.api.libs.functional.syntax._
 import play.api.libs.json._
 import play.api.libs.json.Reads._
@@ -38,7 +39,13 @@ object ExportRequest {
   def boundsFill(dimensions: Dimensions): Bounds = Bounds(0, 0, dimensions.width, dimensions.height)
 
   def toCropSpec(cropRequest: ExportRequest, dimensions: Dimensions): CropSpec = cropRequest match {
-    case FullExportRequest(uri)          => CropSpec(uri, boundsFill(dimensions), None, FullExport)
+    case FullExportRequest(uri)          =>
+      CropSpec(
+        uri,
+        boundsFill(dimensions),
+        AspectRatio.calculate(dimensions.width, dimensions.height).flatMap(_.friendly),
+        FullExport
+      )
     // Map "crop" that covers the whole image to a "full" export
     case CropRequest(uri, bounds, ratio) if bounds == boundsFill(dimensions)
                                          => CropSpec(uri, boundsFill(dimensions), ratio, FullExport)
