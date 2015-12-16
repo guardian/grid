@@ -42,12 +42,27 @@ apiServices.factory('collections', ['mediaApi', function (mediaApi) {
         });
     }
 
+    /*
+     * @param Array<string> imageIds
+     * @param Array<string> collectionPath
+     */
+    function addImagesToCollection(imageIds, collectionPath) {
+        // TODO: This isn't the most efficient way of doing this, but because we get the image data
+        // from the drop data, this was the easiest way to do it without turning the JSON string
+        // into a Resource object.
+        const promises = imageIds.map(id => mediaApi.find(id).then(
+                image => image.perform('add-collection', {body: {data: collectionPath}})));
+
+        return Promise.all(promises);
+    }
+
     return {
         getCollections,
         removeCollection,
         addCollection,
         addChildTo,
         isDeletable,
-        removeFromList
+        removeFromList,
+        addImagesToCollection
     };
 }]);
