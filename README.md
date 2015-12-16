@@ -38,6 +38,7 @@ You will need to install:
 `sudo apt-get install graphicsmagick` or `brew install graphicsmagick`.
 * [awscli](https://aws.amazon.com/cli/)
 * [jq](https://stedolan.github.io/jq/)
+* [exiftool](http://www.sno.phy.queensu.ca/~phil/exiftool/)
 
 If you're using OSX, you'll also need md5 `brew install md5`.
 
@@ -276,7 +277,7 @@ $ sudo keytool -import \
 
 where `internalrootca` is the name you want to give the certificate in
 your keystore, `rootcafile.cer` is the certificate file you want to
-install, and `/path/to/global/jre/lib/security/cacerts` the location
+install (look for "dev-nginx/ssl/GNM-root-cert.pem"), and `/path/to/global/jre/lib/security/cacerts` the location
 of the `cacerts` file for the JRE you're using.
 
 On Mac OS X, it may be something like

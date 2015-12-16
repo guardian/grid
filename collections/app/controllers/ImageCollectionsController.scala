@@ -12,7 +12,7 @@ import com.gu.mediaservice.lib.aws.{NoItemFound, DynamoDB}
 import com.gu.mediaservice.lib.argo.ArgoHelpers
 import com.gu.mediaservice.model.{ActionData, Collection}
 
-import lib.{Config, ControllerHelper}
+import lib.{Notifications, Config, ControllerHelper}
 
 
 object ImageCollectionsController extends Controller with ArgoHelpers {
@@ -47,7 +47,7 @@ object ImageCollectionsController extends Controller with ArgoHelpers {
       "data" -> Json.toJson(onlyLatest(collections))
     )
 
-    // TODO: Add this to ElasticSearch
+    Notifications.publish(message, "set-image-collections")
     collections
   }
 }

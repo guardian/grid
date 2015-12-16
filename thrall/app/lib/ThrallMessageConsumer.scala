@@ -21,6 +21,7 @@ object ThrallMessageConsumer extends MessageConsumer(
       case "update-image-exports"       => updateImageExports
       case "update-image-user-metadata" => updateImageUserMetadata
       case "update-image-usages"        => updateImageUsages
+      case "set-image-collections"      => setImageCollections
       case "heartbeat"                  => heartbeat
     }
   }
@@ -43,6 +44,9 @@ object ThrallMessageConsumer extends MessageConsumer(
 
   def updateImageUserMetadata(metadata: JsValue): Future[UpdateResponse] =
     withImageId(metadata)(id => ElasticSearch.applyImageMetadataOverride(id, metadata \ "data"))
+
+  def setImageCollections(collections: JsValue): Future[UpdateResponse] =
+    withImageId(collections)(id => ElasticSearch.setImageCollection(id, collections \ "data"))
 
   def deleteImage(image: JsValue): Future[EsResponse] =
     withImageId(image) { id =>
