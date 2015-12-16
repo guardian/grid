@@ -70,7 +70,11 @@ object UsageRecorder {
     buildNotifications(usageGroup.usages ++ dbUsageGroup.usages).flatten[UsageNotice]
   })
 
-  val notifiedStream = notificationStream.map(UsageNotifier.send)
+  val distinctNotificationStream = notificationStream.groupBy(_.mediaId).flatMap {
+    case (_, s) => s.distinctUntilChanged
+  }
+
+  val notifiedStream = distinctNotificationStream.map(UsageNotifier.send)
 
   val rawObservable = notifiedStream.merge(resetStreamObservable)
 

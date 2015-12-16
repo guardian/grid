@@ -16,6 +16,21 @@ case class UsageNotice(mediaId: String, usageJson: JsArray) {
     "id" -> mediaId,
     "data" -> usageJson
   )
+
+  override def equals(o: Any) = o match {
+    case that: UsageNotice => that.hashCode == this.hashCode
+    case _ => false
+  }
+
+  override def hashCode =  {
+    val result = Json.toJson(
+      usageJson.as[List[JsObject]]
+        .map(_ - "lastModified")
+        .map(_ - "dateAdded")
+      ).as[JsArray].toString
+
+    result.hashCode
+  }
 }
 
 object UsageNotice {
