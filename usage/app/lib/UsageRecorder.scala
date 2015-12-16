@@ -23,7 +23,7 @@ object UsageRecorder {
   val usageStream   = UsageStream.observable.merge(usageSubject)
   val resetInterval = 30.seconds
 
-  val subscriber = Subscriber(recordNotification)
+  val subscriber = Subscriber((_:Any) => Logger.debug(s"Sent Usage Notification"))
   def subscribe  = UsageRecorder.observable.subscribe(subscriber)
 
   // Due to a difficult to track down memory leak we 'reset' (unsubscribe/resubscribe)
@@ -32,12 +32,6 @@ object UsageRecorder {
     Observable.error(new ResetException())
   })
 
-  def recordNotification(notice: JsObject) = {
-    Logger.debug(s"Usage notication sent: $notice")
-
-    notice
-  }
-
   def recordUpdate(update: JsObject) = {
     Logger.debug(s"Usage update processed: $update")
     UsageMetrics.incrementUpdated
@@ -45,9 +39,8 @@ object UsageRecorder {
     update
   }
 
-  def buildNotifications(usages: Set[MediaUsage]) = {
-    Observable.from(usages.map(_.mediaId).toList.distinct.map(UsageNotifier.forMedia))
-  }
+  def buildNotifications(usages: Set[MediaUsage]) = Observable.from(
+    usages.map(_.mediaId).toList.distinct.map(UsageNotice.build))
 
   val dbMatchStream = usageStream.flatMap(matchDb)
 
@@ -74,10 +67,12 @@ object UsageRecorder {
     val usageGroup = matchedUsageUpdates.matchUsageGroup.usageGroup
     val dbUsageGroup = matchedUsageUpdates.matchUsageGroup.dbUsageGroup
 
-    buildNotifications(usageGroup.usages ++ dbUsageGroup.usages)
+    buildNotifications(usageGroup.usages ++ dbUsageGroup.usages).flatten[UsageNotice]
   })
 
-  val rawObservable = notificationStream.merge(resetStreamObservable).flatten[JsObject]
+  val notifiedStream = notificationStream.map(UsageNotifier.send)
+
+  val rawObservable = notifiedStream.merge(resetStreamObservable)
 
   val observable = rawObservable.retry((_, error) => {
     error match {

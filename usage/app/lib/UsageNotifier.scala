@@ -6,26 +6,26 @@ import com.gu.mediaservice.model.Usage
 
 import model.{UsageTable, MediaUsage}
 
+import scala.concurrent.Future
 import scala.concurrent.ExecutionContext.Implicits.global
 
 import rx.lang.scala.{Observable, Subscriber}
 
+case class UsageNotice(mediaId: String, usageJson: JsArray) {
+  def toJson = Json.obj(
+    "id" -> mediaId,
+    "data" -> usageJson
+  )
+}
+
+object UsageNotice {
+  def build(mediaId: String) = Observable.from(
+    UsageTable.queryByImageId(mediaId).map((usages: Set[MediaUsage]) => {
+      val usageJson = Json.toJson(usages.map(UsageBuilder.build)).as[JsArray]
+      UsageNotice(mediaId, usageJson)
+    }))
+}
 
 object UsageNotifier extends SNS(Config.awsCredentials, Config.topicArn) {
-  def forMedia(mediaId: String): Observable[JsObject] = {
-    val notification = UsageTable.queryByImageId(mediaId).map((usages: Set[MediaUsage]) => {
-      val usageJson = Json.toJson(usages.map(UsageBuilder.build)).as[JsArray]
-
-      val jsonUsages = Json.obj(
-        "id" -> mediaId,
-        "data" -> usageJson
-      )
-
-      publish(jsonUsages, "update-image-usages")
-
-      jsonUsages
-    })
-
-    Observable.from(notification)
-  }
+  def send(usageNotice: UsageNotice) = publish(usageNotice.toJson, "update-image-usages")
 }

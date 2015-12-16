@@ -113,7 +113,6 @@ object UsageApi extends Controller with ArgoHelpers {
       Logger.error("UsageApi returned an error.", error)
       respondError(InternalServerError, "image-usage-retrieve-failed", error.getMessage())
     }}
-
   }
 
   def setPrintUsages = Authenticated(BodyParsers.parse.json) { request => {
