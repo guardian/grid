@@ -39,9 +39,6 @@ object UsageRecorder {
     update
   }
 
-  def buildNotifications(usages: Set[MediaUsage]) = Observable.from(
-    usages.map(_.mediaId).toList.distinct.map(UsageNotice.build))
-
   val dbMatchStream = usageStream.flatMap(matchDb)
 
   case class MatchedUsageGroup(usageGroup: UsageGroup, dbUsageGroup: UsageGroup)
@@ -64,6 +61,9 @@ object UsageRecorder {
   })
 
   val notificationStream = dbUpdateStream.flatMap(matchedUsageUpdates => {
+    def buildNotifications(usages: Set[MediaUsage]) = Observable.from(
+      usages.map(_.mediaId).toList.distinct.map(UsageNotice.build))
+
     val usageGroup = matchedUsageUpdates.matchUsageGroup.usageGroup
     val dbUsageGroup = matchedUsageUpdates.matchUsageGroup.dbUsageGroup
 
