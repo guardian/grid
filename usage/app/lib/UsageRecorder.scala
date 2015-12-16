@@ -12,17 +12,19 @@ import scala.collection.JavaConverters._
 import play.api.libs.json._
 
 import rx.lang.scala.{Observable, Subscriber}
+import rx.lang.scala.subjects.PublishSubject
 
 import model._
 
 case class ResetException() extends Exception
 
 object UsageRecorder {
-  val usageStream = UsageStream.observable
+  val usageSubject  = PublishSubject[UsageGroup]()
+  val usageStream   = UsageStream.observable.merge(usageSubject)
   val resetInterval = 30.seconds
 
   val subscriber = Subscriber(recordNotification)
-  def subscribe = UsageRecorder.observable.subscribe(subscriber)
+  def subscribe  = UsageRecorder.observable.subscribe(subscriber)
 
   // Due to a difficult to track down memory leak we 'reset' (unsubscribe/resubscribe)
   // This seems to make references in upstream observables available for GC

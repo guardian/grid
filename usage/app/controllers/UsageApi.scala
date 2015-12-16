@@ -116,24 +116,17 @@ object UsageApi extends Controller with ArgoHelpers {
 
   }
 
-  def setPrintUsages = Authenticated.async(BodyParsers.parse.json) { request => {
+  def setPrintUsages = Authenticated(BodyParsers.parse.json) { request => {
       val printUsageRequestResult = request.body.validate[PrintUsageRequest]
       printUsageRequestResult.fold(
-        e => Future {
+        e => {
           respondError(BadRequest, "print-usage-request-parse-failed", JsError.toFlatJson(e).toString)
         },
         printUsageRequest => {
-
           val usageGroups = UsageGroup.build(printUsageRequest.printUsageRecords)
+          usageGroups.map(UsageRecorder.usageSubject.onNext)
 
-          val dbUpdate = Observable.from(usageGroups.map(UsageRecorder.recordUpdates))
-            .flatten.toArray.take(1).toBlocking.toFuture
-
-            dbUpdate.map[play.api.mvc.Result](_ => respond("ok")).recover { case error: Exception => {
-              Logger.error("UsageApi returned an error.", error)
-
-              respondError(InternalServerError, "image-usage-post-failed", error.getMessage())
-            }}
+          Accepted
         }
       )
     }

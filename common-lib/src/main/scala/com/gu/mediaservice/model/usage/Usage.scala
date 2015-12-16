@@ -28,5 +28,3 @@ object Usage {
   implicit val writes: Writes[Usage] = Json.writes[Usage]
   implicit val reads: Reads[Usage] = Json.reads[Usage]
 }
-
-
