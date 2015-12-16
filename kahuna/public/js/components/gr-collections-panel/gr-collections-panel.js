@@ -58,43 +58,48 @@ grCollectionsPanel.directive('grDropIntoCollection',
         ['$timeout', '$parse', 'vndMimeTypes', 'collections',
         function($timeout, $parse, vndMimeTypes, collections) {
 
-    const dragClass = 'node__info--drag-over';
-    const fadeActionCompleteClass = 'fade-action--complete';
+    const className = 'collection-drop';
+    const classDrag = 'collection-drop--drag-over';
+    const classComplete = 'collection-drop--complete';
+    const classSaving = 'collection-drop--saving';
 
     return {
         restrict: 'A',
         link: function(scope, element, attrs) {
             const collectionPath = $parse(attrs.grDropIntoCollection)(scope);
+            element.addClass(className);
 
             element.on('drop', jqEv => {
-                const ev = jqEv.originalEvent;
-                const gridImagesData = ev.dataTransfer.getData(vndMimeTypes.get('gridImagesData'));
-                const gridImageData = ev.dataTransfer.getData(vndMimeTypes.get('gridImageData'));
+                const dt = jqEv.originalEvent.dataTransfer;
+                const gridImagesData = dt.getData(vndMimeTypes.get('gridImagesData'));
+                const gridImageData = dt.getData(vndMimeTypes.get('gridImageData'));
 
                 if (gridImagesData !== '' && gridImageData !== '') {
                     // TODO: potentially add some UI feedback on adding to collection
-                    const imagesData = gridImagesData !== "" ?
+                    const imagesData = gridImagesData !== '' ?
                         JSON.parse(gridImagesData) : [JSON.parse(gridImageData)];
 
                     const imageIds = imagesData.map(imageJson => imageJson.id);
+
+                    // TODO: Find a better way of dealing with this state than classnames
+                    element.addClass(classSaving);
                     collections.addImagesToCollection(imageIds, collectionPath).then(() => {
-                        // TODO: Find a way to do this with variables, the scope here seems to be
-                        // messing with it.
-                        element.addClass(fadeActionCompleteClass);
+                        element.removeClass(classSaving);
+                        element.addClass(classComplete);
                         $timeout(() => {
-                            element.removeClass(fadeActionCompleteClass);
+                            element.removeClass(classComplete);
                         }, 500);
                     });
                 }
-                element.removeClass(dragClass);
+                element.removeClass(classDrag);
             });
 
-            element.on('dragover', ev => {
-                element.addClass(dragClass);
+            element.on('dragover', () => {
+                element.addClass(classDrag);
             });
 
-            element.on('dragleave', ev => {
-                element.removeClass(dragClass);
+            element.on('dragleave', () => {
+                element.removeClass(classDrag);
             });
         }
     };
