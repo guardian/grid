@@ -24,6 +24,35 @@ crop.controller('ImageCropCtrl',
             combo: 'enter',
             description: 'Create crop',
             callback: () => ctrl.callCrop()
+        })
+        .add({
+            combo: 'l',
+            description: 'Start landscape crop',
+            callback: () => {
+                ctrl.aspect = ctrl.landscapeRatio;
+            }
+        })
+        .add({
+            combo: 'p',
+            description: 'Start portrait crop',
+            callback: () => {
+                ctrl.aspect = ctrl.portraitRatio;
+            }
+        })
+        .add({
+            combo: 'v',
+            description: 'Start video crop',
+            callback: () => {
+                ctrl.aspect = ctrl.videoRatio;
+            }
+        })
+        .add({
+            combo: 'f',
+            description: 'Start free-form crop',
+            callback: () => {
+                // freeRatio's 'null' gets converted to empty string somehow, meh
+                ctrl.aspect = '';
+            }
         });
 
     ctrl.image = image;
