@@ -41,3 +41,10 @@
 .panelled-content {
     flex-grow: 1;
 }
+
+
+/* Stupid hack as we haven't decoupled the search toolbar and search results */
+.search-panels .panel {
+    display: block;
+    margin-top: 36px;
+}

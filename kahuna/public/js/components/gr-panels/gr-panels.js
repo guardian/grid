@@ -19,6 +19,8 @@ panels.directive('grPanel', ['$timeout', function($timeout) {
     function setFullHeight(element) {
         const offset = element.position().top;
         const height = `calc(100vh - ${offset}px)`;
+
+        console.log(offset);
         element.css({ height });
     }
 
