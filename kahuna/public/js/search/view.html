@@ -16,8 +16,24 @@
     </gr-top-bar-actions>
 </gr-top-bar>
 
-<ui-view name="results"></ui-view>
-<ui-view name="panel"></ui-view>
-<ui-view name="collectionPanel"></ui-view>
+
+<gr-panels>
+    <gr-panel gr:left="true">
+        <ui-view name="collectionPanel"></ui-view>
+    </gr-panel>
+    <gr-panel-content>
+        <ui-view name="results"></ui-view>
+    </gr-panel-content>
+    <gr-panel gr:right="true">
+        <ui-view name="panel"></ui-view>
+    </gr-panel>
+</gr-panels>
+
+<!--div class="panel-container">
+    <ui-view class="panel panel--side" name="collectionPanel"></ui-view>
+    <ui-view class="panelled-content" name="results"></ui-view>
+    <ui-view class="panel panel--side" name="panel"></ui-view>
+</div-->
+
 <ui-view name="multiDrag"></ui-view>
 <dnd-uploader></dnd-uploader>

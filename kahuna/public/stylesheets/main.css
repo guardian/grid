@@ -889,6 +889,7 @@ input.search-query__input {
 .results-toolbar--selection-mode {
     position: fixed;
     z-index: 2;
+    left: 0;
 }
 
 .results-toolbar__right {
@@ -1346,11 +1347,9 @@ FIXME: what to do with touch devices
 
 .image-details {
     box-sizing: border-box;
-    float: right;
     font-size: 1.3rem;
     height: calc(100vh - 50px); /* viewport - top-bar */
     overflow: auto;
-    width: 300px;
     border-left: 1px solid #565656;
     background-color: #444;
 }

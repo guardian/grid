@@ -13,6 +13,8 @@ import '../components/gr-top-bar/gr-top-bar';
 import '../components/gr-panel/gr-panel';
 import '../components/gr-collections-panel/gr-collections-panel';
 
+import '../components/gr-panels/gr-panels';
+
 import searchTemplate        from './view.html!text';
 import searchResultsTemplate from './results.html!text';
 import panelTemplate        from '../components/gr-panel/gr-panel.html!text';
@@ -28,6 +30,7 @@ export var search = angular.module('kahuna.search', [
     'data-structure.list-factory',
     'data-structure.ordered-set-factory',
     'gr.topBar',
+    'gr.panels',
     'grPanel',
     'grCollectionsPanel',
     'ui.router'
