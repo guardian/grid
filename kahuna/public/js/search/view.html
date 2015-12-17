@@ -18,8 +18,8 @@
 
 
 <gr-panels class="search-panels"
-           ng:init="showCollections = true; showInfo = true;">
-    <gr-panel gr:name="gr-collections-panel" gr:left="true" gr:hidden="showCollections">
+           ng:init="hideCollections = true; hideInfo = true;">
+    <gr-panel gr:name="gr-collections-panel" gr:left="true" gr:hidden="hideCollections">
         <ui-view name="collectionPanel"></ui-view>
     </gr-panel>
 
@@ -27,7 +27,7 @@
         <ui-view name="results"></ui-view>
     </gr-panel-content>
 
-    <gr-panel gr:name="gr-info-panel" gr:right="true" gr:hidden="showInfo">
+    <gr-panel gr:name="gr-info-panel" gr:right="true" gr:hidden="hideInfo">
         <ui-view name="infoPanel"></ui-view>
     </gr-panel>
 </gr-panels>

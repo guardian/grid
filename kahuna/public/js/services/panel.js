@@ -4,10 +4,10 @@ import Rx from 'rx';
 
 export const panelService = angular.module('kahuna.services.panel', []);
 
-panelService.factory('panelService', [ '$rootScope', '$timeout', function () {
-    const panels = new Map();
+panelService.factory('panelService', ['$timeout', function ($timeout) {
+    const panels$ = new Rx.ReplaySubject();
 
-    function newPanel(panelName, { hidden = false, locked = false }) {
+    function newPanel({ hidden = false, locked = false }) {
         const hiddenState$ = new Rx.Subject();
         const lockedState$ = new Rx.Subject();
 
@@ -28,7 +28,7 @@ panelService.factory('panelService', [ '$rootScope', '$timeout', function () {
         const setHidden = hidden => change(hiddenState$, () => hidden);
         const setLocked = locked => change(lockedState$, () => locked);
 
-        const panel = {
+        return {
             hidden$,
             locked$,
             toggleHidden,
@@ -36,45 +36,21 @@ panelService.factory('panelService', [ '$rootScope', '$timeout', function () {
             setHidden,
             setLocked
         };
+    }
 
-        panels.set(panelName, panel);
+    function createPanel(panelName, { hidden = false, locked = false } = {}) {
+        const panel = newPanel({hidden, locked});
+        panels$.onNext({ name: panelName, panel });
         return panel;
     }
 
-
-    // Between these two methods we make sure we never return `null`.
-    // If we ask for a panel that doesn't exist - we create it. If it is created
-    // after that, we just set the given values.
-    // Another solution would be to have them in a promise. e.g.
-    // `getPanel(panelName).then(panel => { /* blah */ }), but what would the fail be?`
-    function createPanel(panelName, { hidden = false, locked = false } = {}) {
-        if (panels.get(panelName)) {
-            const panel = panels.get(panelName);
-
-            console.log('creating from old', hidden, locked, panelName)
-
-            panel.setHidden(hidden);
-            panel.setLocked(locked);
-
-            return panels.get(panelName);
-        } else {
-            return newPanel(panelName, {hidden, locked});
-        }
-    }
-
-    function getPanel(panelName) {
-        const panel = panels.get(panelName);
-        if (panel) {
-            return panel;
-        } else {
-            console.log('getting from new', panelName)
-            return newPanel(panelName, {});
-        }
+    function getPanel$(panelName) {
+        return panels$.find(p => p.name === panelName).map(p => p.panel);
     }
 
     return {
         createPanel,
-        getPanel
+        getPanel$
     };
 
 }]);

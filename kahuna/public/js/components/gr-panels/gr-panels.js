@@ -42,9 +42,6 @@ panels.directive('grPanel', ['$timeout', 'inject$', 'panelService',
                 'gr-panel--right': right,
                 'gr-panel--hidden': hidden,
                 'gr-panel--locked': locked }">
-                {{hidden}}
-                <button class="gr-panel__hide" ng:click="hidden = !hidden"><gr-icon>close</gr-icon></button>
-                <button class="gr-panel__lock" ng:click="locked = !locked"><gr-icon>lock</gr-icon></button>
                 <div class="gr-panel__content">
                     <ng:transclude></ng:transclude>
                 </div>

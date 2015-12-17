@@ -11,6 +11,7 @@ import '../util/seq';
 import '../components/gu-lazy-table/gu-lazy-table';
 import '../downloader/downloader';
 import '../components/gr-delete-image/gr-delete-image';
+import '../components/gr-panel-button/gr-panel-button';
 
 export var results = angular.module('kahuna.search.results', [
     'kahuna.services.scroll-position',
@@ -20,7 +21,8 @@ export var results = angular.module('kahuna.search.results', [
     'util.seq',
     'gu.lazyTable',
     'gr.downloader',
-    'gr.deleteImage'
+    'gr.deleteImage',
+    'gr.panelButton'
 ]);
 
 
@@ -83,19 +85,7 @@ results.controller('SearchResultsCtrl', [
         const collectionsPanelName = 'gr-collections-panel';
 
         // Panel control
-        const metadataPanel = panelService.getPanel(metadataPanelName);
-
-        // Panel view
-        ctrl.hideInfoPanel = () => metadataPanel.setHidden(true);
-        ctrl.showInfoPanel = () => metadataPanel.setHidden(false);
-        ctrl.lockInfoPanel = () => metadataPanel.setLocked(true);
-        ctrl.unlockInfoPanel = () => metadataPanel.setLocked(false);
-
-        ctrl.metadataPanel = {};
-        // TODO: Could we have a helper to watch multiple streams?
-        inject$($scope, metadataPanel.hidden$, ctrl.metadataPanel, 'hidden');
-        inject$($scope, metadataPanel.locked$, ctrl.metadataPanel, 'locked');
-
+        ctrl.metadataPanel = panelService.getPanel$(metadataPanelName);
 
         ctrl.images = [];
         ctrl.newImagesCount = 0;
