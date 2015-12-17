@@ -8,8 +8,8 @@ panels.directive('grPanels', [function() {
         restrict: 'E',
         replace: true,
         transclude: true,
-        template: `<div class="panels">
-            <div class="panels-content" ng:transclude></div>
+        template: `<div class="gr-panels">
+            <div class="gr-panels-content" ng:transclude></div>
         </div>`
     };
 }]);
@@ -20,7 +20,6 @@ panels.directive('grPanel', ['$timeout', function($timeout) {
         const offset = element.position().top;
         const height = `calc(100vh - ${offset}px)`;
 
-        console.log(offset);
         element.css({ height });
     }
 
@@ -34,14 +33,14 @@ panels.directive('grPanel', ['$timeout', function($timeout) {
             hidden: '=?grHidden'
         },
         template:
-            `<div class="panel" ng:class="{
-                'panel--left': left,
-                'panel--right': right,
-                'panel--hidden': hidden,
-                'panel--locked': locked }">
-                <button class="panel__hide" ng:click="hidden = !hidden"><gr-icon>close</gr-icon></button>
-                <button class="panel__lock" ng:click="locked = !locked"><gr-icon>lock</gr-icon></button>
-                <div class="panel__content">
+            `<div class="gr-panel" ng:class="{
+                'gr-panel--left': left,
+                'gr-panel--right': right,
+                'gr-panel--hidden': hidden,
+                'gr-panel--locked': locked }">
+                <button class="gr-panel__hide" ng:click="hidden = !hidden"><gr-icon>close</gr-icon></button>
+                <button class="gr-panel__lock" ng:click="locked = !locked"><gr-icon>lock</gr-icon></button>
+                <div class="gr-panel__content">
                     <ng:transclude></ng:transclude>
                 </div>
             </div>`,
@@ -58,6 +57,6 @@ panels.directive('grPanelContent', [function() {
         restrict: 'E',
         replace: true,
         transclude: true,
-        template: `<div class="panelled-content"><ng:transclude></ng:transclude></div>`
+        template: `<div class="gr-panelled-content"><ng:transclude></ng:transclude></div>`
     };
 }]);

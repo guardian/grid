@@ -1,13 +1,12 @@
-.panels {
+/* We're using a prefix here as we don't want to conflict with the other panels */
+.gr-panels {}
 
-}
-
-.panels-content {
+.gr-panels-content {
     display: flex;
     position: relative;
 }
 
-.panel {
+.gr-panel {
     box-sizing: border-box;
     background: #444;
     z-index: 3;
@@ -17,34 +16,36 @@
     width: 290px;
 }
 
-.panel--left {
+.gr-panel--left {
     left: 0;
 }
 
-.panel--right {
+.gr-panel--right {
     right: 0;
 }
 
-.panel--hidden {
+.gr-panel--hidden {
     width: 0;
     overflow-x: hidden;
 }
 
-.panel--locked {
+.gr-panel--locked {
     position: relative;
 }
 
-.panel__content {
+.gr-panel__content {
     width: 290px;
 }
 
-.panelled-content {
+.gr-panelled-content {
     flex-grow: 1;
 }
 
 
 /* Stupid hack as we haven't decoupled the search toolbar and search results */
-.search-panels .panel {
+.search-panels .gr-panel {
     display: block;
     margin-top: 36px;
 }
+
+/*

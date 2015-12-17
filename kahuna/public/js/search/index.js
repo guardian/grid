@@ -130,7 +130,7 @@ search.config(['$stateProvider', '$urlMatcherFactoryProvider',
                 controller: 'SearchResultsCtrl',
                 controllerAs: 'ctrl'
             },
-            panel: {
+            infoPanel: {
                 template: panelTemplate,
                 controller: 'GrPanel',
                 controllerAs: 'ctrl',
