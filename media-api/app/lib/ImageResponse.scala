@@ -228,14 +228,18 @@ object ImageResponse extends EditsResponse {
     (__ \ "exports").write[List[Export]]
       .contramap((crops: List[Crop]) => crops.map(Export.fromCrop(_:Crop))) ~
     (__ \ "usages").write[UsagesEntity]
-      .contramap(usagesEntity(id, _: List[Usage]))
-
+      .contramap(usagesEntity(id, _: List[Usage])) ~
+    (__ \ "collections").write[List[EmbeddedEntity[Collection]]]
+      .contramap((collections: List[Collection]) => collections.map(c => collectionsEntity(id, c)))
   )(unlift(Image.unapply))
 
   def usagesEntity(id: String, usages: List[Usage]) =
     EmbeddedEntity[List[UsageEntity]](usagesUri(id), Some(usages.map(usageEntity)))
 
   def usageEntity(usage: Usage) = EmbeddedEntity[Usage](usageUri(usage.id), Some(usage))
+
+  def collectionsEntity(id: String, c: Collection): EmbeddedEntity[Collection] =
+      Collection.asImageEntity(Config.collectionsUri, id, c)
 
   def fileMetadataEntity(id: String, expandFileMetaData: Boolean, fileMetadata: FileMetadata) = {
     val displayableMetadata = if(expandFileMetaData) Some(fileMetadata) else None

@@ -1,4 +1,5 @@
 import angular from 'angular';
+import 'angular-hotkeys';
 
 import '../image/service';
 import '../components/gr-delete-image/gr-delete-image';
@@ -26,7 +27,8 @@ var image = angular.module('kahuna.image.controller', [
     'gr.metadataValidity',
     'gr.imageCostMessage',
     'gr.exportOriginalImage',
-    'gr.imageUsage'
+    'gr.imageUsage',
+    'cfp.hotkeys'
 ]);
 
 image.controller('ImageCtrl', [
@@ -42,6 +44,7 @@ image.controller('ImageCtrl', [
     'cropKey',
     'mediaCropper',
     'imageService',
+    'hotkeys',
 
     function ($rootScope,
               $scope,
@@ -54,9 +57,16 @@ image.controller('ImageCtrl', [
               lowResImageUri,
               cropKey,
               mediaCropper,
-              imageService) {
+              imageService,
+              hotkeys) {
 
         let ctrl = this;
+
+        hotkeys.bindTo($scope).add({
+            combo: 'c',
+            description: 'Crop image',
+            callback: () => $state.go('crop', {imageId: ctrl.image.data.id})
+        });
 
         ctrl.image = image;
         ctrl.optimisedImageUri = optimisedImageUri;

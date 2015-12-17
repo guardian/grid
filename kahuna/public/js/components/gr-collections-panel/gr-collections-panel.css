@@ -29,12 +29,8 @@ gr-nodes, gr-node {
     padding-left: 10px;
 }
 
-.node__info.drag-over {
-    background-color: #333;
-}
-
 .node__info:hover .node__marker,
-.node__info--drag-over .node__marker {
+.collection-drop--drag-over .node__marker {
     display: block;
 }
 
@@ -57,7 +53,7 @@ gr-nodes, gr-node {
     box-sizing: border-box;
 }
 .node__info:hover,
-.node__info--drag-over {
+.collection-drop--drag-over {
     background-color: #333;
 }
 
@@ -73,3 +69,14 @@ gr-nodes, gr-node {
     z-index: 2;
 }
 
+/* Annoyingly I can't find a way to do this with variables */
+.collection-drop {
+    -webkit-transition: background-color .25s linear;
+    transition: background-color .25s linear;
+}
+.collection-drop--saving {
+    opacity: 0.5;
+}
+.collection-drop--complete {
+    background: #00adee !important;
+}

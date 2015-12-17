@@ -2,6 +2,7 @@ import angular from 'angular';
 
 import '../../services/panel';
 import '../../services/api/collections-api';
+import '../../services/api/media-api';
 import '../../directives/gr-auto-focus';
 
 import './gr-collections-panel.css!';
@@ -53,22 +54,52 @@ grCollectionsPanel.controller('GrNodeCtrl', ['collections', function(collections
 
 }]);
 
+grCollectionsPanel.directive('grDropIntoCollection',
+        ['$timeout', '$parse', 'vndMimeTypes', 'collections',
+        function($timeout, $parse, vndMimeTypes, collections) {
 
-grCollectionsPanel.directive('grAddToCollection', [function() {
-    const dragClassName = 'node__info--drag-over';
+    const className = 'collection-drop';
+    const classDrag = 'collection-drop--drag-over';
+    const classComplete = 'collection-drop--complete';
+    const classSaving = 'collection-drop--saving';
+
     return {
-        link: function(scope, element) {
-            element.on('drop', ev => {
-                // TODO add the image(s) to collection
-                ev.currentTarget.classList.remove(dragClassName);
+        restrict: 'A',
+        link: function(scope, element, attrs) {
+            const collectionPath = $parse(attrs.grDropIntoCollection)(scope);
+            element.addClass(className);
+
+            element.on('drop', jqEv => {
+                const dt = jqEv.originalEvent.dataTransfer;
+                const gridImagesData = dt.getData(vndMimeTypes.get('gridImagesData'));
+                const gridImageData = dt.getData(vndMimeTypes.get('gridImageData'));
+
+                if (gridImagesData !== '' && gridImageData !== '') {
+                    // TODO: potentially add some UI feedback on adding to collection
+                    const imagesData = gridImagesData !== '' ?
+                        JSON.parse(gridImagesData) : [JSON.parse(gridImageData)];
+
+                    const imageIds = imagesData.map(imageJson => imageJson.id);
+
+                    // TODO: Find a better way of dealing with this state than classnames
+                    element.addClass(classSaving);
+                    collections.addImagesToCollection(imageIds, collectionPath).then(() => {
+                        element.removeClass(classSaving);
+                        element.addClass(classComplete);
+                        $timeout(() => {
+                            element.removeClass(classComplete);
+                        }, 500);
+                    });
+                }
+                element.removeClass(classDrag);
             });
 
-            element.on('dragover', ev => {
-                ev.currentTarget.classList.add(dragClassName);
+            element.on('dragover', () => {
+                element.addClass(classDrag);
             });
 
-            element.on('dragleave', ev => {
-                ev.currentTarget.classList.remove(dragClassName);
+            element.on('dragleave', () => {
+                element.removeClass(classDrag);
             });
         }
     };

@@ -1,19 +1,31 @@
 import angular from 'angular';
+import 'angular-hotkeys';
 
-var crop = angular.module('kahuna.crop.controller', []);
+var crop = angular.module('kahuna.crop.controller', ['cfp.hotkeys']);
 
 crop.controller('ImageCropCtrl',
                 ['$scope', '$rootScope', '$stateParams', '$state',
                  '$filter', '$document', 'mediaApi', 'mediaCropper',
-                 'image', 'optimisedImageUri',
+                 'image', 'optimisedImageUri', 'hotkeys',
                  function($scope, $rootScope, $stateParams, $state,
                           $filter, $document, mediaApi, mediaCropper,
-                          image, optimisedImageUri) {
+                          image, optimisedImageUri, hotkeys) {
 
     const ctrl = this;
-    const body = $document[0].body;
+    const imageId = $stateParams.imageId;
 
-    var imageId = $stateParams.imageId;
+    hotkeys.bindTo($scope)
+        .add({
+            combo: 'esc',
+            description: 'Cancel crop and return to image',
+            callback: () => $state.go('image', {imageId: ctrl.image.data.id})
+        })
+        .add({
+            combo: 'enter',
+            description: 'Create crop',
+            callback: () => ctrl.callCrop()
+        });
+
     ctrl.image = image;
     ctrl.optimisedImageUri = optimisedImageUri;
 
@@ -102,18 +114,4 @@ crop.controller('ImageCropCtrl',
              crop();
          }
      };
-
-     function cropReturnKeyShortcut(event) {
-         // check if ENTER key
-         if (event.which === 13) {
-             ctrl.callCrop();
-         }
-     }
-
-     //TODO find a nicer way to handle keyboard shortcuts
-     body.addEventListener('keypress', cropReturnKeyShortcut);
-
-     $scope.$on('$destroy', function(){
-         body.removeEventListener('keypress', cropReturnKeyShortcut);
-     });
 }]);
