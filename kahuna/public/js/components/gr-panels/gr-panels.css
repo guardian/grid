@@ -12,7 +12,6 @@
     z-index: 3;
     transition: width 1s;
     position: fixed;
-    overflow: scroll;
     width: 290px;
 }
 
@@ -35,6 +34,9 @@
 
 .gr-panel__content {
     width: 290px;
+    position: fixed;
+    background: #444;
+    overflow: scroll;
 }
 
 .gr-panelled-content {
