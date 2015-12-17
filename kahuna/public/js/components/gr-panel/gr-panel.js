@@ -64,10 +64,6 @@ grPanel.controller('GrPanel', [
 
         ctrl.showUsageRights = false;
 
-        panelService.addPanel(panelName, false);
-        panelService.available(panelName, false);
-        ctrl.isVisible = panelService.isVisible(panelName);
-
         $rootScope.$on(
             `ui:panels:${panelName}:updated`,
             () => ctrl.isVisible = panelService.isVisible(panelName)

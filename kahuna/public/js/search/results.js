@@ -79,50 +79,23 @@ results.controller('SearchResultsCtrl', [
 
         const ctrl = this;
 
-        const metadataPanelName = 'gr-panel';
+        const metadataPanelName = 'gr-info-panel';
         const collectionsPanelName = 'gr-collections-panel';
 
-        ctrl.metadataPanelAvailable = panelService.isAvailable(metadataPanelName);
-        ctrl.metadataPanelVisible = panelService.isVisible(metadataPanelName);
-        ctrl.metadataPanelLocked = panelService.isLocked(metadataPanelName);
+        // Panel control
+        const metadataPanel = panelService.getPanel(metadataPanelName);
 
-        ctrl.collectionsPanelVisible = panelService.isVisible(collectionsPanelName);
+        // Panel view
+        ctrl.hideInfoPanel = () => metadataPanel.setHidden(true);
+        ctrl.showInfoPanel = () => metadataPanel.setHidden(false);
+        ctrl.lockInfoPanel = () => metadataPanel.setLocked(true);
+        ctrl.unlockInfoPanel = () => metadataPanel.setLocked(false);
 
-        ctrl.toggleLockMetadataPanel = () => {
-            if (ctrl.metadataPanelVisible) {
-                panelService.toggleLocked(metadataPanelName);
-            } else {
-                // If panel is not visible, show it (but don't lock) when clicked
-                panelService.show(metadataPanelName, false);
-            }
-        };
+        ctrl.metadataPanel = {};
+        // TODO: Could we have a helper to watch multiple streams?
+        inject$($scope, metadataPanel.hidden$, ctrl.metadataPanel, 'hidden');
+        inject$($scope, metadataPanel.locked$, ctrl.metadataPanel, 'locked');
 
-        ctrl.toggleCollectionsPanel = () => {
-            if (ctrl.collectionsPanelVisible) {
-                panelService.hide(collectionsPanelName);
-            } else {
-                panelService.show(collectionsPanelName);
-            }
-        };
-
-        ctrl.showMetadataPanelMouseOver = () => panelService.show(metadataPanelName);
-        ctrl.showMetadataPanelMouseLeave = () => panelService.hide(metadataPanelName);
-
-        $rootScope.$on(
-            `ui:panels:${metadataPanelName}:updated`,
-            () => {
-                ctrl.metadataPanelAvailable = panelService.isAvailable(metadataPanelName);
-                ctrl.metadataPanelVisible = panelService.isVisible(metadataPanelName);
-                ctrl.metadataPanelLocked = panelService.isLocked(metadataPanelName);
-            }
-        );
-
-        $rootScope.$on(
-            `ui:panels:${collectionsPanelName}:updated`,
-            () => {
-                ctrl.collectionsPanelVisible = panelService.isVisible(collectionsPanelName);
-            }
-        );
 
         ctrl.images = [];
         ctrl.newImagesCount = 0;

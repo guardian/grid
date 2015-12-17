@@ -104,19 +104,22 @@
                                  ng:if="ctrl.selectionIsDeletable && ctrl.selectionCount > 0">
                 </gr-delete-image>
 
-                <a class="results-toolbar-item results-toolbar-item--right results-toolbar-item__metadata-panel-controls"
-                    ng:class="{'results-toolbar-item--disabled': !ctrl.metadataPanelAvailable, 'results-toolbar-item--active': ctrl.metadataPanelVisible}"
-                    ng:mouseover="ctrl.showMetadataPanelMouseOver()"
-                    ng:mouseleave="ctrl.showMetadataPanelMouseLeave()"
-                    ng:click="ctrl.toggleLockMetadataPanel()">
-                    <span ng:if="ctrl.metadataPanelVisible && !ctrl.metadataPanelLocked">
+
+                <a class="results-toolbar-item results-toolbar-item--right results-toolbar-item__metadata-panel-controls">
+                    <span ng:if="!ctrl.metadataPanel.hidden && !ctrl.metadataPanel.locked" ng:click="ctrl.lockInfoPanel()">
                         <gr-icon-label gr-icon="lock_open">Lock info panel</gr-icon-label>
                     </span>
-                    <span ng:if="ctrl.metadataPanelVisible && ctrl.metadataPanelLocked">
+
+                    <span ng:if="ctrl.metadataPanel.locked" ng:click="ctrl.unlockInfoPanel()">
                         <gr-icon-label gr-icon="lock">Unlock info panel</gr-icon-label>
                     </span>
-                    <span ng:if="!ctrl.metadataPanelVisible">
+
+                    <span ng:if="ctrl.metadataPanel.hidden" ng:click="ctrl.showInfoPanel()">
                         <gr-icon-label gr-icon="chrome_reader_mode">Show info panel</gr-icon-label>
+                    </span>
+
+                    <span ng:if="!ctrl.metadataPanel.hidden" ng:click="ctrl.hideInfoPanel()">
+                        <gr-icon-label gr-icon="chrome_reader_mode">Hide info panel</gr-icon-label>
                     </span>
                 </a>
             </div>

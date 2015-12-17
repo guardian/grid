@@ -1,136 +1,80 @@
 import angular from 'angular';
+import Rx from 'rx';
+
 
 export const panelService = angular.module('kahuna.services.panel', []);
 
-panelService.factory('panelService', [ '$rootScope', '$timeout', function ($rootScope, $timeout) {
+panelService.factory('panelService', [ '$rootScope', '$timeout', function () {
+    const panels = new Map();
 
-    class UIPanel {
-        constructor(options) {
-            this.name = options.name;
+    function newPanel(panelName, { hidden = false, locked = false }) {
+        const hiddenState$ = new Rx.Subject();
+        const lockedState$ = new Rx.Subject();
 
-            this.visible = options.initVisible || false;
-            this.availability = options.initAvailable || false;
-            this.locked = options.initLocked || false;
-        }
+        const change = (obs$, func) => obs$.onNext(func);
 
-        isAvailable() {
-            return this.availability;
-        }
+        const hidden$ = hiddenState$.startWith(() => hidden)
+            .scan(() => hidden, (hidden, op) => op(hidden))
+            .distinctUntilChanged()
+            .shareReplay(1);
 
-        isVisible() {
-            return this.visible && this.availability;
-        }
+        const locked$ = lockedState$.startWith(() => locked)
+            .scan(() => locked, (locked, op) => op(locked))
+            .distinctUntilChanged()
+            .shareReplay(1);
 
-        isLocked() {
-            return this.visible && this.availability && this.locked;
-        }
+        const toggleHidden = () => change(hiddenState$, hidden => !hidden);
+        const toggleLocked = () => change(lockedState$, locked => !locked);
+        const setHidden = hidden => change(hiddenState$, () => hidden);
+        const setLocked = locked => change(lockedState$, () => locked);
 
-        show() {
-            if (!this.locked && this.availability) {
-                this.visible = true;
-            }
-        }
+        const panel = {
+            hidden$,
+            locked$,
+            toggleHidden,
+            toggleLocked,
+            setHidden,
+            setLocked
+        };
 
-        hide() {
-            if (!this.locked && this.availability) {
-                this.visible = false;
-            }
-        }
+        panels.set(panelName, panel);
+        return panel;
+    }
 
-        available() {
-            this.availability = true;
-        }
 
-        unavailable() {
-            this.availability = false;
-        }
+    // Between these two methods we make sure we never return `null`.
+    // If we ask for a panel that doesn't exist - we create it. If it is created
+    // after that, we just set the given values.
+    // Another solution would be to have them in a promise. e.g.
+    // `getPanel(panelName).then(panel => { /* blah */ }), but what would the fail be?`
+    function createPanel(panelName, { hidden = false, locked = false } = {}) {
+        if (panels.get(panelName)) {
+            const panel = panels.get(panelName);
 
-        lock() {
-            if (this.visible && this.availability) {
-                this.locked = true;
-            }
-        }
+            console.log('creating from old', hidden, locked, panelName)
 
-        unlock() {
-            if (this.visible && this.availability) {
-                this.locked = false;
-            }
+            panel.setHidden(hidden);
+            panel.setLocked(locked);
+
+            return panels.get(panelName);
+        } else {
+            return newPanel(panelName, {hidden, locked});
         }
     }
 
-    let panels = [];
-    let actions = [];
-
-    const broadcastChange = (panelName, eventName) => $rootScope.$broadcast(
-        'ui:panels:' + panelName + ':' + eventName
-    );
-
-    const addPanel = (panelName, initVisible) => {
-        panels[panelName] = new UIPanel({ panelName, initVisible });
-        broadcastChange(panelName, 'updated');
-    };
-
-    const panelAction = (panelName, proc, cancelable) => {
-        const performProc = () => {
-            if (panels[panelName]) {
-                proc();
-                broadcastChange(panelName, 'updated');
-            }
-        };
-
-        if (actions[panelName]) {
-            $timeout.cancel(actions[panelName]);
-        }
-
-        if (cancelable) {
-            actions[panelName] = $timeout(() => {
-                performProc();
-            }, 400);
+    function getPanel(panelName) {
+        const panel = panels.get(panelName);
+        if (panel) {
+            return panel;
         } else {
-            performProc();
+            console.log('getting from new', panelName)
+            return newPanel(panelName, {});
         }
-    };
-
-    const isVisible = (panelName) =>
-        panels[panelName] ? panels[panelName].isVisible() : false;
-    const isAvailable =  (panelName) =>
-        panels[panelName] ? panels[panelName].isAvailable() : false;
-    const isLocked =  (panelName) =>
-        panels[panelName] ? panels[panelName].isLocked() : false;
-
-    const available = (panelName, cancelable = true) =>
-        panelAction(panelName, () => panels[panelName].available(), cancelable);
-
-    const unavailable = (panelName, cancelable = true) =>
-        panelAction(panelName, () => panels[panelName].unavailable(), cancelable);
-
-    const show = (panelName, cancelable = true) =>
-        panelAction(panelName, () => panels[panelName].show(), cancelable);
-
-    const hide = (panelName, cancelable = true) =>
-        panelAction(panelName, () => panels[panelName].hide(), cancelable);
-
-    const lock = (panelName, cancelable = false) =>
-        panelAction(panelName, () => panels[panelName].lock(), cancelable);
-
-    const unlock = (panelName, cancelable = false) =>
-        panelAction(panelName, () => panels[panelName].unlock(), cancelable);
-
-    const toggleLocked = (panelName) => isLocked(panelName) ?
-        unlock(panelName) : lock(panelName);
+    }
 
     return {
-        addPanel,
-        isVisible,
-        isAvailable,
-        isLocked,
-        lock,
-        unlock,
-        toggleLocked,
-        available,
-        unavailable,
-        show,
-        hide
+        createPanel,
+        getPanel
     };
 
 }]);

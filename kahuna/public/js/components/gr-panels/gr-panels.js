@@ -1,7 +1,9 @@
 import angular from 'angular';
 import './gr-panels.css!';
+import '../../services/panel';
+import '../../util/rx';
 
-export const panels = angular.module('gr.panels', []);
+export const panels = angular.module('gr.panels', ['kahuna.services.panel', 'util.rx']);
 
 panels.directive('grPanels', [function() {
     return {
@@ -14,7 +16,8 @@ panels.directive('grPanels', [function() {
     };
 }]);
 
-panels.directive('grPanel', ['$timeout', function($timeout) {
+panels.directive('grPanel', ['$timeout', 'inject$', 'panelService',
+                             function($timeout, inject$, panelService) {
 
     function setFullHeight(element) {
         const offset = element.position().top;
@@ -28,6 +31,7 @@ panels.directive('grPanel', ['$timeout', function($timeout) {
         replace: true,
         transclude: true,
         scope: {
+            name: '@grName',
             left: '=?grLeft',
             right: '=?grRight',
             hidden: '=?grHidden'
@@ -38,16 +42,23 @@ panels.directive('grPanel', ['$timeout', function($timeout) {
                 'gr-panel--right': right,
                 'gr-panel--hidden': hidden,
                 'gr-panel--locked': locked }">
+                {{hidden}}
                 <button class="gr-panel__hide" ng:click="hidden = !hidden"><gr-icon>close</gr-icon></button>
                 <button class="gr-panel__lock" ng:click="locked = !locked"><gr-icon>lock</gr-icon></button>
                 <div class="gr-panel__content">
                     <ng:transclude></ng:transclude>
                 </div>
             </div>`,
-        link: function(_, element) {
+        link: function(scope, element) {
             // This is done to make sure we trigger on the template being rendered,
-            // if we don't we get the semirendered template offset
+            // if we don't we get the semi-rendered template offset
             $timeout(() => setFullHeight(element), 0);
+
+            // register panel to be controlled outside of scope
+            const panel = panelService.createPanel(scope.name, scope);
+
+            inject$(scope, panel.hidden$, scope, 'hidden');
+            inject$(scope, panel.locked$, scope, 'locked');
         }
     };
 }]);
