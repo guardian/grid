@@ -1,0 +1,46 @@
+.panels {
+
+}
+
+.panels-content {
+    display: flex;
+    position: relative;
+}
+
+.panel {
+    width: 290px;
+    box-sizing: border-box;
+    z-index: 3;
+    background: #444;
+    transition: width 1s;
+    position: fixed;
+}
+
+.panel--left {
+    left: 0;
+}
+
+.panel--right {
+    right: 0;
+}
+
+.panel--hidden {
+    width: 0;
+    overflow-x: hidden;
+}
+
+.panel--locked {
+    position: relative;
+}
+
+.panel__content {
+    background: #444;
+    height: 100vh;
+    position: fixed;
+    width: 290px;
+    overflow: scroll;
+}
+
+.panelled-content {
+    flex-grow: 1;
+}
