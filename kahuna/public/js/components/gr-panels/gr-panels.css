@@ -8,13 +8,13 @@
 }
 
 .panel {
-    width: 290px;
     box-sizing: border-box;
-    z-index: 3;
     background: #444;
+    z-index: 3;
     transition: width 1s;
     position: fixed;
     overflow: scroll;
+    width: 290px;
 }
 
 .panel--left {
@@ -35,7 +35,6 @@
 }
 
 .panel__content {
-    background: #444;
     width: 290px;
 }
 

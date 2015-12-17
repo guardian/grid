@@ -28,7 +28,8 @@ panels.directive('grPanel', ['$timeout', function($timeout) {
         transclude: true,
         scope: {
             left: '=?grLeft',
-            right: '=?grRight'
+            right: '=?grRight',
+            hidden: '=?grHidden'
         },
         template:
             `<div class="panel" ng:class="{
