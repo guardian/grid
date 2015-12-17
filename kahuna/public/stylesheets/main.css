@@ -1348,7 +1348,7 @@ FIXME: what to do with touch devices
 .image-details {
     box-sizing: border-box;
     font-size: 1.3rem;
-    height: calc(100vh - 50px); /* viewport - top-bar */
+    /*height: calc(100vh - 50px); !* viewport - top-bar *!*/
     overflow: auto;
     border-left: 1px solid #565656;
     background-color: #444;

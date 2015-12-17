@@ -14,6 +14,7 @@
     background: #444;
     transition: width 1s;
     position: fixed;
+    overflow: scroll;
 }
 
 .panel--left {
@@ -35,10 +36,7 @@
 
 .panel__content {
     background: #444;
-    height: 100vh;
-    position: fixed;
     width: 290px;
-    overflow: scroll;
 }
 
 .panelled-content {

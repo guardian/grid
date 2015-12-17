@@ -14,7 +14,14 @@ panels.directive('grPanels', [function() {
     };
 }]);
 
-panels.directive('grPanel', [function() {
+panels.directive('grPanel', ['$timeout', function($timeout) {
+
+    function setFullHeight(element) {
+        const offset = element.position().top;
+        const height = `calc(100vh - ${offset}px)`;
+        element.css({ height });
+    }
+
     return {
         restrict: 'E',
         replace: true,
@@ -34,7 +41,12 @@ panels.directive('grPanel', [function() {
                 <div class="panel__content">
                     <ng:transclude></ng:transclude>
                 </div>
-            </div>`
+            </div>`,
+        link: function(_, element) {
+            // This is done to make sure we trigger on the template being rendered,
+            // if we don't we get the semirendered template offset
+            $timeout(() => setFullHeight(element), 0);
+        }
     };
 }]);
 
