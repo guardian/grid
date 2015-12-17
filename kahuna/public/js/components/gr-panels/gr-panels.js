@@ -1,4 +1,7 @@
 import angular from 'angular';
+import Rx from 'rx';
+import 'rx-dom';
+
 import './gr-panels.css!';
 import '../../services/panel';
 import '../../util/rx';
@@ -17,8 +20,8 @@ panels.directive('grPanels', [function() {
     };
 }]);
 
-panels.directive('grPanel', ['$timeout', 'inject$', 'panelService',
-                             function($timeout, inject$, panelService) {
+panels.directive('grPanel', ['$timeout', '$window', 'inject$', 'subscribe$', 'panelService',
+                             function($timeout, $window, inject$, subscribe$, panelService) {
 
     function setFullHeight(element) {
         const offset = element.position().top;
@@ -60,6 +63,22 @@ panels.directive('grPanel', ['$timeout', 'inject$', 'panelService',
 
             inject$(scope, panel.hidden$, scope, 'hidden');
             inject$(scope, panel.locked$, scope, 'locked');
+
+            const winScroll$ = Rx.DOM.fromEvent($window, 'scroll').debounce(200);
+
+            // If we are window scrolling whilst visible and unlocked
+            const scrollWhileVisAndUnlocked$ = winScroll$.
+                withLatestFrom(
+                    panel.hidden$,
+                    panel.locked$,
+                    (ev, hidden, locked) => ({ev, hidden, locked})).
+                filter(({ev, hidden, locked}) => !(hidden || locked)).
+                map(({ev}) => ev);
+
+            // Then hide the panel
+            subscribe$(scope, scrollWhileVisAndUnlocked$, () => {
+                panel.setHidden(true);
+            });
         }
     };
 }]);
