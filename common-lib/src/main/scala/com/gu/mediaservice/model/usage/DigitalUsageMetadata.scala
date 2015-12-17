@@ -10,9 +10,11 @@ case class DigitalUsageMetadata(
   sectionId: String,
   composerUrl: Option[String] = None
 ) {
+  val placeholderWebTitle = "No title given"
+  val dynamoSafeWebTitle = if (webTitle.isEmpty) placeholderWebTitle else webTitle
 
   def toMap = Map(
-    "webTitle" -> webTitle,
+    "webTitle" -> dynamoSafeWebTitle,
     "webUrl" -> webUrl,
     "sectionId" -> sectionId
   ) ++ composerUrl.map("composerUrl" -> _)
