@@ -81,12 +81,6 @@
     padding: 10px;
 }
 
-.panel__close-panel {
-    position: absolute;
-    top: 15px;
-    right: 10px;
-}
-
 .batch-label .labels {
     white-space: normal;
 }

@@ -2,6 +2,10 @@
         ng:if="!ctrl.hidden && !ctrl.locked" ng:click="ctrl.lockPanel()">
     <gr-icon-label gr-icon="lock_open">Lock panel</gr-icon-label>
 </button>
+<button class="button-ico-square separator-left inner-clickable" type="button"
+        ng:if="!ctrl.hidden && !ctrl.locked" ng:click="ctrl.unlockPanel();ctrl.hidePanel();">
+    <gr-icon>chevron_right</gr-icon>
+</button>
 
 <button class="inner-clickable" type="button"
         ng:if="ctrl.locked" ng:click="ctrl.unlockPanel()">

@@ -178,6 +178,10 @@ button[disabled],
 .button-ico {
     padding: 4px;
 }
+.button-ico-square {
+    width: 36px;
+    height: 36px;
+}
 
 .button-save {
     background: #00adee;
@@ -346,6 +350,10 @@ button[disabled],
 
 .text-small {
     font-size: 13px;
+}
+
+.separator-left {
+    border-left: 1px solid #565656;
 }
 
 
