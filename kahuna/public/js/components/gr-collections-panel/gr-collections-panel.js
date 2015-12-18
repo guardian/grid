@@ -15,7 +15,7 @@ grCollectionsPanel.controller('GrCollectionsPanelCtrl', [
     'panelService',
     '$rootScope',
     'collections',
-    function (panelService, $rootScope, collections, userPrefs) {
+    function (panelService, $rootScope, collections) {
 
     const ctrl = this;
     //const panelName = 'gr-collections-panel';
