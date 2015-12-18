@@ -4,6 +4,7 @@ import com.amazonaws.regions.{RegionUtils, Region}
 import com.gu.mediaservice.lib.config.{Properties, CommonPlayAppConfig, CommonPlayAppProperties}
 import com.amazonaws.auth.{BasicAWSCredentials, AWSCredentials}
 
+import scala.util.Try
 
 object Config extends CommonPlayAppProperties with CommonPlayAppConfig {
 
@@ -22,12 +23,15 @@ object Config extends CommonPlayAppProperties with CommonPlayAppConfig {
   lazy val apiUri = services.apiBaseUri
   lazy val loginUriTemplate = services.loginUriTemplate
 
+  val defaultPageSize = 100
+
   val capiPollIntervalInSeconds = properties("capi.pollIntervalInSeconds").toLong
   val capiLiveUrl = properties("capi.live.url")
   val capiApiKey = properties("capi.apiKey")
   val capiPreviewUrl = properties("capi.preview.url")
   val capiPreviewUser = properties("capi.preview.user")
   val capiPreviewPassword = properties("capi.preview.password")
+  val capiPageSize = Try(properties("capi.page.size").toInt).getOrElse[Int](defaultPageSize)
 
   val topicArn = properties("sns.topic.arn")
   val composerBaseUrl = properties("composer.baseUrl")
