@@ -4,8 +4,10 @@ import Rx from 'rx';
 
 export const panelService = angular.module('kahuna.services.panel', []);
 
-panelService.factory('panelService', ['$timeout', function ($timeout) {
-    const panels$ = new Rx.ReplaySubject();
+panelService.factory('panelService', [function () {
+    // We use a stream here to avoid getting panels that haven;t been emitted yet.
+    // It seemed better than a promise as there would be no failed state to the promise.
+    const panels$ = new Rx.ReplaySubject().distinct();
 
     function newPanel({ hidden = false, locked = false }) {
         const hiddenState$ = new Rx.Subject();
