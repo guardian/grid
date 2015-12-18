@@ -1,0 +1,14 @@
+<button class="inner-clickable" type="button"
+        ng:if="!ctrl.hidden && !ctrl.locked" ng:click="ctrl.lockPanel()">
+    <gr-icon-label gr-icon="lock_open">Lock panel</gr-icon-label>
+</button>
+
+<button class="inner-clickable" type="button"
+        ng:if="ctrl.locked" ng:click="ctrl.unlockPanel()">
+    <gr-icon-label gr-icon="lock">Unlock panel</gr-icon-label>
+</button>
+
+<button class="inner-clickable" type="button"
+        ng:if="ctrl.hidden" ng:click="ctrl.showPanel()">
+    <gr-icon-label gr-icon="chrome_reader_mode">Show panel</gr-icon-label>
+</button>
