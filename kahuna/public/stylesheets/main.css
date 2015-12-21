@@ -737,15 +737,6 @@ input.search-query__input {
     position: relative;
 }
 
-.results--panel-locked {
-    width: calc(100% - 290px);
-}
-
-.results--left {
-    position: relative;
-
-}
-
 .results-controls {
     background: white;
     padding: 10px;

@@ -64,7 +64,7 @@ panels.directive('grPanel', ['$timeout', '$window', 'inject$', 'subscribe$', 'pa
             inject$(scope, panel.hidden$, scope, 'hidden');
             inject$(scope, panel.locked$, scope, 'locked');
 
-            const winScroll$ = Rx.DOM.fromEvent($window, 'scroll').debounce(200);
+            const winScroll$ = Rx.DOM.fromEvent($window, 'scroll');
 
             // If we are window scrolling whilst visible and unlocked
             const scrollWhileVisAndUnlocked$ = winScroll$.
@@ -77,7 +77,7 @@ panels.directive('grPanel', ['$timeout', '$window', 'inject$', 'subscribe$', 'pa
 
             // Then hide the panel
             subscribe$(scope, scrollWhileVisAndUnlocked$, () => {
-                panel.setHidden(true);
+                scope.$apply(() => panel.setHidden(true));
             });
         }
     };
