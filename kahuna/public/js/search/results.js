@@ -56,7 +56,7 @@ results.controller('SearchResultsCtrl', [
     'selection',
     'selectedImages$',
     'results',
-    'panelService',
+    'panels',
     'range',
     'isReloadingPreviousSearch',
     function($rootScope,
@@ -75,18 +75,15 @@ results.controller('SearchResultsCtrl', [
              selection,
              selectedImages$,
              results,
-             panelService,
+             panels,
              range,
              isReloadingPreviousSearch) {
 
         const ctrl = this;
 
-        const metadataPanelName = 'gr-info-panel';
-        const collectionsPanelName = 'gr-collections-panel';
-
         // Panel control
-        ctrl.metadataPanel    = panelService.getPanel$(metadataPanelName);
-        ctrl.collectionsPanel = panelService.getPanel$(collectionsPanelName);
+        ctrl.metadataPanel    = panels.metadataPanel;
+        ctrl.collectionsPanel = panels.collectionsPanel;
 
         ctrl.images = [];
         ctrl.newImagesCount = 0;

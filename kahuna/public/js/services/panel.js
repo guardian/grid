@@ -5,11 +5,6 @@ import Rx from 'rx';
 export const panelService = angular.module('kahuna.services.panel', []);
 
 panelService.factory('panelService', [function () {
-    // We use a stream here to avoid getting panels that haven;t been emitted yet.
-    // It seemed better than a promise as there would be no failed state to the promise.
-    const panelsSub$ = new Rx.ReplaySubject();
-    const panels$ = panelsSub$.distinct();
-
     function newPanel({ hidden = false, locked = false }) {
         const hiddenState$ = new Rx.Subject();
         const lockedState$ = new Rx.Subject();
@@ -41,19 +36,12 @@ panelService.factory('panelService', [function () {
         };
     }
 
-    function createPanel(panelName, { hidden = false, locked = false } = {}) {
-        const panel = newPanel({hidden, locked});
-        panelsSub$.onNext({ name: panelName, panel });
-        return panel;
-    }
-
-    function getPanel$(panelName) {
-        return panels$.find(p => p.name === panelName).map(p => p.panel);
+    function createPanel({ hidden = false, locked = false } = {}) {
+        return newPanel({hidden, locked});
     }
 
     return {
-        createPanel,
-        getPanel$
+        createPanel
     };
 
 }]);

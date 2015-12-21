@@ -16,10 +16,8 @@
     </gr-top-bar-actions>
 </gr-top-bar>
 
-
-<gr-panels class="search-panels"
-           ng:init="hideCollections = true; hideInfo = true;">
-    <gr-panel gr:name="gr-collections-panel" gr:left="true" gr:hidden="hideCollections">
+<gr-panels class="search-panels">
+    <gr-panel gr:left="true" gr:panel="ctrl.collectionsPanel">
         <ui-view name="collectionPanel"></ui-view>
     </gr-panel>
 
@@ -27,7 +25,7 @@
         <ui-view name="results"></ui-view>
     </gr-panel-content>
 
-    <gr-panel gr:name="gr-info-panel" gr:right="true" gr:hidden="hideInfo">
+    <gr-panel gr:right="true" gr:panel="ctrl.metadataPanel">
         <ui-view name="infoPanel"></ui-view>
     </gr-panel>
 </gr-panels>

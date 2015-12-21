@@ -68,6 +68,20 @@ search.config(['$stateProvider', '$urlMatcherFactoryProvider',
                 });
                 return {state: $dsr$.redirect.state, params};
             }]
+        },
+        controllerAs: 'ctrl',
+        controller: ['panels', function(panels) {
+            const ctrl = this;
+            ctrl.collectionsPanel = panels.collectionsPanel;
+            ctrl.metadataPanel = panels.metadataPanel;
+        }],
+        resolve: {
+            panels: ['panelService', function(panelService) {
+               const collectionsPanel = panelService.createPanel({ hidden: true });
+               const metadataPanel = panelService.createPanel({ locked: true });
+
+               return { collectionsPanel, metadataPanel };
+           }]
         }
     });
 
