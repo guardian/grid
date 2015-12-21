@@ -50,6 +50,16 @@
             ]
           }
         }
+      },
+      "github:quantumui/titip@397fd324d5b5cc98ee332f876a100a70f69b273e": {
+        "main": "dist/css/titip.css!",
+        "shim": {
+          "titip": {
+            "deps": [
+              "css"
+            ]
+          }
+        }
       }
     }
   },
