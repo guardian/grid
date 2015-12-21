@@ -85,7 +85,8 @@ results.controller('SearchResultsCtrl', [
         const collectionsPanelName = 'gr-collections-panel';
 
         // Panel control
-        ctrl.metadataPanel = panelService.getPanel$(metadataPanelName);
+        ctrl.metadataPanel    = panelService.getPanel$(metadataPanelName);
+        ctrl.collectionsPanel = panelService.getPanel$(collectionsPanelName);
 
         ctrl.images = [];
         ctrl.newImagesCount = 0;

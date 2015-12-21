@@ -27,7 +27,8 @@ panelButton.directive('grPanelButton', [function() {
         controller: 'GrPanelButton',
         controllerAs: 'ctrl',
         scope: {
-            panel$: '=grPanel'
+            panel$: '=grPanel',
+            position: '@grPosition'
         }
     }
 }]);

@@ -10,7 +10,7 @@
     box-sizing: border-box;
     background: #444;
     z-index: 3;
-    transition: width 1s;
+    transition: width 0.2s;
     position: fixed;
     width: 290px;
 }
