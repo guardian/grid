@@ -356,6 +356,10 @@ button[disabled],
     border-left: 1px solid #565656;
 }
 
+.separator-right {
+    border-right: 1px solid #565656;
+}
+
 
 /* ==========================================================================
    Angular
