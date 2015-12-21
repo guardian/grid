@@ -60,7 +60,7 @@ panels.directive('grPanel', ['$timeout', '$window', 'inject$', 'subscribe$', 'pa
             const winResize$ = Rx.DOM.fromEvent($window, 'resize');
             // This is done to make sure we trigger on the template being rendered,
             // if we don't we get the semi-rendered template offset
-            $timeout(() => setElementHeight, 0);
+            $timeout(setElementHeight, 0);
 
             // register panel to be controlled outside of scope
             const panel = panelService.createPanel(scope.name, scope);
