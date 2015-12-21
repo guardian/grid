@@ -10,26 +10,12 @@
     box-sizing: border-box;
     background: #444;
     z-index: 3;
-    transition: width 0.2s;
     position: fixed;
-    width: 290px;
-}
-
-.gr-panel--left {
-    left: 0;
-}
-
-.gr-panel--right {
-    right: 0;
-}
-
-.gr-panel--hidden {
-    width: 0;
-    overflow-x: hidden;
 }
 
 .gr-panel--locked {
     position: relative;
+    width: 290px;
 }
 
 .gr-panel__content {
@@ -37,6 +23,19 @@
     position: fixed;
     background: #444;
     overflow: scroll;
+    width: 290px;
+    transition: width 0.2s;
+}
+.gr-panel__content--hidden {
+    width: 0;
+    overflow-x: hidden;
+}
+.gr-panel__content--left {
+    left: 0;
+}
+
+.gr-panel__content--right {
+    right: 0;
 }
 
 .gr-panelled-content {

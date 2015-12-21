@@ -41,11 +41,14 @@ panels.directive('grPanel', ['$timeout', '$window', 'inject$', 'subscribe$', 'pa
         },
         template:
             `<div class="gr-panel" ng:class="{
-                'gr-panel--left': left,
-                'gr-panel--right': right,
-                'gr-panel--hidden': hidden,
                 'gr-panel--locked': locked }">
-                <div class="gr-panel__content" gr:panel-height>
+                <div class="gr-panel__content"
+                     ng:class="{
+                        'gr-panel__content--hidden':hidden,
+                        'gr-panel__content--left': left,
+                        'gr-panel__content--right': right
+                     }"
+                     gr:panel-height>
                     <ng:transclude></ng:transclude>
                 </div>
             </div>`,
