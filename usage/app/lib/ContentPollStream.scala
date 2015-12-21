@@ -60,7 +60,7 @@ trait ContentPollStream {
       .orderBy("newest").useDate("last-modified")
       .showElements("all")
       .showFields("all")
-      .pageSize(100)
+      .pageSize(Config.capiPageSize)
 
     val search = capi.getResponse(latestByLatestModified)
 

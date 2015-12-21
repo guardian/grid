@@ -33,6 +33,7 @@ class QueryBuilder(matchFields: Seq[String]) {
       case Phrase(value) => matchPhraseQuery(field, value)
       case DateRange(start, end) => rangeQuery(field).from(start.toString()).to(end.toString())
     }
+    case HierarchyField(field, value) => termQuery(field, value)
   }
 
   def makeQuery(conditions: List[Condition]) = conditions match {

@@ -16,13 +16,14 @@ class QuerySyntax(val input: ParserInput) extends Parser with ImageFields {
 
 
   def Filter = rule {
-    ScopedMatch ~> Match | HashMatch |
+    ScopedMatch ~> Match | HashMatch | CollectionRule |
     DateMatch ~> Match | AtMatch |
     AnyMatch
   }
 
   def ScopedMatch = rule { MatchField ~ ':' ~ MatchValue }
-  def HashMatch = rule { '#' ~ MatchValue ~> (label => Match(SingleField(getFieldPath("labels")), label)) }
+  def HashMatch = rule      { '#' ~ MatchValue      ~> (label      => Match(SingleField(getFieldPath("labels")), label)) }
+  def CollectionRule = rule { '~' ~ ExactMatchValue ~> (collection => Match(HierarchyField(getFieldPath("pathHierarchy"), collection.string), collection)) }
 
   def MatchField = rule { capture(AllowedFieldName) ~> resolveNamedField _ }
 
@@ -57,6 +58,7 @@ class QuerySyntax(val input: ParserInput) extends Parser with ImageFields {
 
   def AnyMatch = rule { MatchValue ~> (v => Match(AnyField, v)) }
 
+  def ExactMatchValue = rule { QuotedString ~> Phrase | String ~> Phrase }
 
   // Note: order matters, check for quoted string first
   def MatchValue = rule { QuotedString ~> Phrase | String ~> Words }
