@@ -21,7 +21,12 @@ exports.handler = function(event, context) {
                         .replace(/(')/gm, '"')
                         .replace(/(\n)/gm, '');
 
+
+                    //`rawMessage` is a string that looks like
+                    //{message: "Downloading from ingest bucket", state: {Bucket "foo-bar"}}
+                    //As the keys in are not quoted, eval is the simplest way to convert to JSON.
                     eval('const message = ' + rawMessage);
+
                     console.log(message);
 
                     records.push({
