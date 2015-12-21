@@ -18,6 +18,7 @@ import org.joda.time.DateTime
 import scala.collection.convert.decorateAll._
 import scala.concurrent.{ExecutionContext, Future}
 
+import play.api.Logger
 
 object ImageNotDeletable extends Throwable("Image cannot be deleted")
 
@@ -92,9 +93,11 @@ object ElasticSearch extends ElasticSearchClient with ImageFields {
       }
   }
 
-  def updateImageUsages(id: String, usages: JsValue)(implicit ex: ExecutionContext): Future[UpdateResponse] =
-    prepareImageUpdate(id)
-      .setScriptParams(Map(
+  case class GracefulFail(msg: String)
+
+  def updateImageUsages(id: String, usages: JsValue)(implicit ex: ExecutionContext): Future[Any] =
+    prepareUpdateIfImageExists(id).map(requestBuilder => {
+      requestBuilder.setScriptParams(Map(
         "usages" -> asGroovy(usages),
         "lastModified" -> asGroovy(JsString(currentIsoDateString))
       ).asJava)
@@ -104,6 +107,12 @@ object ElasticSearch extends ElasticSearchClient with ImageFields {
         scriptType)
       .executeAndLog(s"updating usages on image $id")
       .incrementOnFailure(failedUsagesUpdates) { case e: VersionConflictEngineException => true }
+    }).getOrElse(Future {
+      val fail = GracefulFail("Usage update failed, no document to update.")
+      Logger.info(fail.msg)
+
+      fail
+    })
 
   def updateImageExports(id: String, exports: JsValue)(implicit ex: ExecutionContext): Future[UpdateResponse] =
     prepareImageUpdate(id)
@@ -156,6 +165,10 @@ object ElasticSearch extends ElasticSearchClient with ImageFields {
         scriptType)
       .executeAndLog(s"setting collections on image $id")
       .incrementOnFailure(failedCollectionsUpdates) { case e: VersionConflictEngineException => true }
+
+  def prepareUpdateIfImageExists(id: String): Option[UpdateRequestBuilder] =
+    if(client.prepareGet(imagesAlias, imageType, id)
+      .execute().actionGet().isExists()) Some(prepareImageUpdate(id)) else None
 
   def prepareImageUpdate(id: String): UpdateRequestBuilder =
     client.prepareUpdate(imagesAlias, imageType, id)
