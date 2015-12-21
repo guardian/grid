@@ -51,20 +51,22 @@ panels.directive('grPanel', ['$timeout', '$window', 'inject$', 'subscribe$', 'pa
                 </div>
             </div>`,
         link: function(scope, element) {
-            // This is done to make sure we trigger on the template being rendered,
-            // if we don't we get the semi-rendered template offset
-            $timeout(() => {
+            function setElementHeight() {
                 setFullHeight(element);
                 scope.panelHeight = element.height();
-            }, 0);
+            }
+
+            const winScroll$ = Rx.DOM.fromEvent($window, 'scroll');
+            const winResize$ = Rx.DOM.fromEvent($window, 'resize');
+            // This is done to make sure we trigger on the template being rendered,
+            // if we don't we get the semi-rendered template offset
+            $timeout(() => setElementHeight, 0);
 
             // register panel to be controlled outside of scope
             const panel = panelService.createPanel(scope.name, scope);
 
             inject$(scope, panel.hidden$, scope, 'hidden');
             inject$(scope, panel.locked$, scope, 'locked');
-
-            const winScroll$ = Rx.DOM.fromEvent($window, 'scroll');
 
             // If we are window scrolling whilst visible and unlocked
             const scrollWhileVisAndUnlocked$ = winScroll$.
@@ -79,6 +81,9 @@ panels.directive('grPanel', ['$timeout', '$window', 'inject$', 'subscribe$', 'pa
             subscribe$(scope, scrollWhileVisAndUnlocked$, () => {
                 scope.$apply(() => panel.setHidden(true));
             });
+
+            // Reset the panel heights
+            subscribe$(scope, winResize$.debounce(500), setElementHeight);
         }
     };
 }]);
