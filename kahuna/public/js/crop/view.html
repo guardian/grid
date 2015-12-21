@@ -8,22 +8,22 @@
     <gr-top-bar-actions>
         <div class="top-bar-item side-padded">{{ ctrl.cropWidth() }} &times; {{ ctrl.cropHeight() }}</div>
 
-        <label class="top-bar-item clickable side-padded" title="landscape">
+        <label class="top-bar-item clickable side-padded titip-default titip-bottom" data-title="landscape [l]">
             <input type="radio" ng:model="ctrl.aspect" value="{{ctrl.landscapeRatio}}"/>
             <gr-icon>crop_landscape</gr-icon><span class="top-bar-item__label">Landscape</span> ({{::ctrl.getRatioString(ctrl.landscapeRatio)}})
         </label>
 
-        <label class="top-bar-item clickable side-padded" title="portrait">
+        <label class="top-bar-item clickable side-padded titip-default titip-bottom" data-title="portrait [p]">
             <input type="radio" ng:model="ctrl.aspect" value="{{ctrl.portraitRatio}}" />
             <gr-icon>crop_portrait</gr-icon><span class="top-bar-item__label">Portrait</span> ({{::ctrl.getRatioString(ctrl.portraitRatio)}})
         </label>
 
-        <label class="top-bar-item clickable side-padded" title="video">
+        <label class="top-bar-item clickable side-padded titip-default titip-bottom" data-title="video [v]">
             <input type="radio" ng:model="ctrl.aspect" value="{{ctrl.videoRatio}}" />
             <gr-icon>crop_16_9</gr-icon><span class="top-bar-item__label">Video</span> ({{::ctrl.getRatioString(ctrl.videoRatio)}})
         </label>
 
-        <label class="top-bar-item clickable side-padded" title="free-form">
+        <label class="top-bar-item clickable side-padded titip-default titip-bottom" data-title="free-form [f]">
             <input type="radio" ng:model="ctrl.aspect" value="{{ctrl.freeRatio}}" />
             <gr-icon>crop_free</gr-icon><span class="top-bar-item__label">Free-form</span>
         </label>
@@ -46,10 +46,11 @@
         </div>
 
         <div class="top-bar-item side-padded">
-            <button class="button crop__action"
+            <button class="button crop__action titip-default titip-bottom"
                     type="button"
                     ng:click="ctrl.callCrop()"
-                    ng:disabled="ctrl.cropping">
+                    ng:disabled="ctrl.cropping"
+                    data-title="Crop [enter]">
                 <gr-icon>crop</gr-icon><span class="top-bar-item__label">Crop<span ng:show="ctrl.cropping">ping…</span></span>
             </button>
         </div>
