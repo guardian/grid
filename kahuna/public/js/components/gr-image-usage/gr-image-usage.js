@@ -1,29 +1,46 @@
 import angular from 'angular';
 import moment from 'moment';
 
+import '../../util/rx';
+
 import template from './gr-image-usage.html!text';
 import usageTemplate from './gr-image-usage-list.html!text';
 import './gr-image-usage.css!';
 
-export let module = angular.module('gr.imageUsage', []);
+import '../../services/image/usages';
 
-module.controller('grImageUsageCtrl', ['mediaUsage', function (mediaUsage) {
-    const ctrl = this;
+export const module = angular.module('gr.imageUsage', [
+    'gr.image-usages.service',
+    'util.rx'
+]);
 
-    mediaUsage.getUsage(ctrl.image).then(data => {
-        ctrl.usage = data;
-    });
+module.controller('grImageUsageCtrl', [
+    '$scope',
+    'inject$',
+    'imageUsagesService',
 
-    ctrl.usageTypeToName = (usageType) => {
-        switch (usageType) {
-            case 'pending':
-                return 'Pending publication';
-            case 'published':
-                return 'Published';
-            default:
-                return usageType;
-        }
-    };
+    function ($scope, inject$, imageUsagesService) {
+
+        const ctrl = this;
+
+        const usages$ = imageUsagesService
+            .getUsages(ctrl.image)
+            .groupedByState$.map((u) => u.toJS());
+
+        ctrl.usageTypeToName = (usageType) => {
+            switch (usageType) {
+                case 'removed':
+                    return 'Taken down';
+                case 'pending':
+                    return 'Pending publication';
+                case 'published':
+                    return 'Published';
+                default:
+                    return usageType;
+            }
+        };
+
+        inject$($scope, usages$, ctrl, 'usages');
 }]);
 
 module.directive('grImageUsage', [function() {

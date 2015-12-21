@@ -128,6 +128,57 @@ object Mappings {
       "filename" -> nonAnalyzedString
     )
 
+  val usageReference =
+    nonDynamicObj(
+      "type" -> nonAnalyzedString,
+      "uri"  -> nonAnalyzedString,
+      "name" -> sStemmerAnalysedString
+    )
+
+  val printUsageSize =
+    nonDynamicObj(
+      "x" -> integer,
+      "y" -> integer
+    )
+
+  val printUsageMetadata =
+    nonDynamicObj(
+      "sectionName" -> nonAnalyzedString,
+      "issueDate" -> dateFormat,
+      "pageNumber" -> integer,
+      "storyName" -> nonAnalyzedString,
+      "publicationCode" -> nonAnalyzedString,
+      "publicationName" -> nonAnalyzedString,
+      "layoutId" -> integer,
+      "edition" -> integer,
+      "size" -> printUsageSize,
+      "orderedBy" -> nonAnalyzedString,
+      "sectionCode" -> nonAnalyzedString
+    )
+
+  val digitalUsageMetadata =
+    nonDynamicObj(
+      "webTitle" -> nonAnalyzedString,
+      "webUrl" -> nonAnalyzedString,
+      "sectionId" -> nonAnalyzedString,
+      "composerUrl" -> nonAnalyzedString
+    )
+
+  val usagesMapping =
+    nonDynamicObj(
+      "id"           -> nonAnalyzedString,
+      "title"        -> sStemmerAnalysedString,
+      "references"   -> usageReference,
+      "platform"     -> nonAnalyzedString,
+      "media"        -> nonAnalyzedString,
+      "status"       -> nonAnalyzedString,
+      "dateAdded"    -> dateFormat,
+      "dateRemoved"  -> dateFormat,
+      "lastModified" -> dateFormat,
+      "printUsageMetadata" -> printUsageMetadata,
+      "digitalUsageMetadata" -> digitalUsageMetadata
+    )
+
   val imageMapping: String =
     Json.stringify(Json.obj(
       "image" -> Json.obj(
@@ -148,6 +199,8 @@ object Mappings {
           "lastModified" -> dateFormat,
           "identifiers" -> dynamicObj,
           "uploadInfo" -> uploadInfoMapping,
+          "suggestMetadataCredit" -> simpleSuggester,
+          "usages" -> usagesMapping,
           "collections" -> collectionMapping,
           "suggestMetadataCredit" -> simpleSuggester
         ),

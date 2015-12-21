@@ -96,6 +96,7 @@ case object ImageUpload {
       metadata,
       usageRights,
       usageRights,
+      List(),
       List()
     )
   }
