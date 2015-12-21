@@ -22,8 +22,7 @@ case class ImageMetadata(
   subLocation:         Option[String]   = None,
   city:                Option[String]   = None,
   state:               Option[String]   = None,
-  country:             Option[String]   = None,
-  altAnalyzer:         Option[String]   = None
+  country:             Option[String]   = None
 )
 
 object ImageMetadata {
@@ -44,8 +43,7 @@ object ImageMetadata {
       (__ \ "subLocation").readNullable[String] ~
       (__ \ "city").readNullable[String] ~
       (__ \ "state").readNullable[String] ~
-      (__ \ "country").readNullable[String] ~
-      (__ \ "altAnalyzer").readNullable[String]
+      (__ \ "country").readNullable[String]
     )(ImageMetadata.apply _)
 
   implicit val IptcMetadataWrites: Writes[ImageMetadata] = (
@@ -65,8 +63,7 @@ object ImageMetadata {
       (__ \ "subLocation").writeNullable[String] ~
       (__ \ "city").writeNullable[String] ~
       (__ \ "state").writeNullable[String] ~
-      (__ \ "country").writeNullable[String] ~
-      (__ \ "altAnalyzer").writeNullable[String]
+      (__ \ "country").writeNullable[String]
     )(unlift(ImageMetadata.unapply))
 
 }

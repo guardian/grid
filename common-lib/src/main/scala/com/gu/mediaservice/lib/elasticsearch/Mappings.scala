@@ -60,11 +60,11 @@ object Mappings {
 
   val metadataMapping = nonDynamicObj(
     "dateTaken" -> dateFormat,
-    "description" -> sStemmerAnalysedString,
-    "byline" -> standardAnalysedString,
+    "description" -> (sStemmerAnalysedString ++ copyTo("metadata.sStemmerCatchAll")),
+    "byline" -> (standardAnalysedString ++ copyTo("metadata.sStemmerCatchAll")),
     "bylineTitle" -> standardAnalysedString,
     "title" -> sStemmerAnalysedString,
-    "credit" ->  (nonAnalyzedString ++ copyTo("metadata.altAnalyzer")),
+    "credit" ->  nonAnalyzedString,
     "creditUri" -> nonAnalyzedString,
     "copyright" -> standardAnalysedString,
     "copyrightNotice" -> standardAnalysedString,
@@ -76,7 +76,7 @@ object Mappings {
     "city" -> standardAnalysedString,
     "state" -> standardAnalysedString,
     "country" -> standardAnalysedString,
-    "altAnalyzer" -> sStemmerAnalysedString
+    "sStemmerCatchAll" -> sStemmerAnalysedString
   )
 
   val usageRightsMapping = nonDynamicObj(
@@ -134,7 +134,6 @@ object Mappings {
       "image" -> Json.obj(
         "dynamic" -> "strict",
         "properties" -> Json.obj(
-          "altAnalyzer" -> standardAnalysedString,
           "id" -> nonAnalyzedString,
           "metadata" -> metadataMapping,
           "originalMetadata" -> metadataMapping,

@@ -19,8 +19,7 @@ trait ImageFields {
     "subLocation",
     "city",
     "state",
-    "country",
-    "altAnalyzer"
+    "country"
   )
 
   val usageRightsFields = List(
