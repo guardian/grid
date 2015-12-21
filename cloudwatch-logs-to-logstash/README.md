@@ -23,6 +23,10 @@ Where `state` can be of any shape. For example, [S3Watcher](../s3watcher/lambda/
 
 Cloud Watch Logs to Logstash will then take this message and push it onto the Kinesis stream in the ELK stack, which in turn pushes it into Logstash.
 
+## Developing
+This lambda puts messages to a Kinesis stream. When run from within the AWS environment, the Lambda gets credentials from an execution role.
+In DEV, we can use our local credentials from `~/.aws/credentials` by setting the value `stage` to `DEV` in `lambda/config.json`;
+
 
 ## Deploying
 This Lambda has not been added to CI/CD due to the slight complexity of getting secrets into the Lambda.
