@@ -28,7 +28,7 @@ mv lambda/lambda.zip target/packages/lambda/lambda.zip
 cd target
 
 echo 'Adding config file to lambda artifact'
-cat ../config.json \
+cat ../config-template.json \
     | jq ".roleArn |= \"$ROLE_ARN\" | .streamName |= \"$STREAM_NAME\"" \
     > config.json
 

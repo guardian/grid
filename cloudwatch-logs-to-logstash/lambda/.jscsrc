@@ -1,6 +1,4 @@
 {
-//    "disallowMultipleVarDecl": "exceptUndefined",
-//    "requireMultipleVarDecl": true,
     "esnext": true,
     "requireCurlyBraces": [
         "if",
