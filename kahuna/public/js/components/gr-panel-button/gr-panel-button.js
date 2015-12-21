@@ -8,10 +8,13 @@ panelButton.controller('GrPanelButton', ['$scope', 'inject$', 'subscribe$', func
     const ctrl = this;
     const panel = ctrl.panel;
 
-    ctrl.hidePanel   = () => panel.setHidden(true);
     ctrl.showPanel   = () => panel.setHidden(false);
     ctrl.lockPanel   = () => panel.setLocked(true);
     ctrl.unlockPanel = () => panel.setLocked(false);
+    ctrl.hidePanel   = () => {
+        panel.setLocked(false);
+        panel.setHidden(true);
+    };
 
     // TODO: Could we have a helper to watch multiple streams?
     inject$($scope, panel.hidden$, ctrl, 'hidden');

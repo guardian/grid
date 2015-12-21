@@ -301,6 +301,9 @@ button[disabled],
 .flex-container {
     display: flex;
 }
+.flex-container--rtl {
+    flex-direction: row-reverse;
+}
 
 .flex-spacer {
     flex-grow: 1;
@@ -358,6 +361,10 @@ button[disabled],
 
 .separator-right {
     border-right: 1px solid #565656;
+}
+
+.fill-height {
+    height: 100%;
 }
 
 
