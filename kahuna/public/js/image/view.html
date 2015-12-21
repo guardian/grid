@@ -158,12 +158,19 @@
                    id="show-usage"
                    class="radio-list__circle"
                    name="show-usage"/>
+
             <label for="show-usage"
                    class="radio-list__label"
-                   ng:class="{'radio-list--selected': ! showMetadata}"
-                   ng:click="showMetadata = false">
+                   ng:class="
+                   {
+                    'radio-list--disabled': ctrl.usagesCount < 1,
+                    'radio-list--selected': ! showMetadata
+                   }"
+                   ng:click="(ctrl.usagesCount < 1) || (showMetadata = false)">
                 <div class="radio-list__selection-state"></div>
-                <div class="radio-list__label-value">Usage</div>
+                <div class="radio-list__label-value">
+                    Usages ({{ctrl.usagesCount}})
+                </div>
             </label>
         </div>
 
