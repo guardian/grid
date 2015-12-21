@@ -65,7 +65,7 @@ object ElasticSearch extends ElasticSearchClient with SearchFilters with ImageFi
 
   val matchFields: Seq[String] = Seq("id") ++
     Seq("description", "title", "byline", "source", "credit", "keywords",
-      "subLocation", "city", "state", "country", "suppliersReference").map(metadataField) ++
+      "subLocation", "city", "state", "country", "suppliersReference", "altAnalyzer").map(metadataField) ++
     Seq("labels").map(editsField) ++
     Config.queriableIdentifiers.map(identifierField)
 

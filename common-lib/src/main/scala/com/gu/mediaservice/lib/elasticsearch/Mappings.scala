@@ -64,7 +64,7 @@ object Mappings {
     "byline" -> standardAnalysedString,
     "bylineTitle" -> standardAnalysedString,
     "title" -> sStemmerAnalysedString,
-    "credit" -> nonAnalyzedString,
+    "credit" ->  (nonAnalyzedString ++ copyTo("metadata.altAnalyzer")),
     "creditUri" -> nonAnalyzedString,
     "copyright" -> standardAnalysedString,
     "copyrightNotice" -> standardAnalysedString,
@@ -75,7 +75,8 @@ object Mappings {
     "subLocation" -> standardAnalysedString,
     "city" -> standardAnalysedString,
     "state" -> standardAnalysedString,
-    "country" -> standardAnalysedString
+    "country" -> standardAnalysedString,
+    "altAnalyzer" -> sStemmerAnalysedString
   )
 
   val usageRightsMapping = nonDynamicObj(
@@ -133,6 +134,7 @@ object Mappings {
       "image" -> Json.obj(
         "dynamic" -> "strict",
         "properties" -> Json.obj(
+          "altAnalyzer" -> standardAnalysedString,
           "id" -> nonAnalyzedString,
           "metadata" -> metadataMapping,
           "originalMetadata" -> metadataMapping,
