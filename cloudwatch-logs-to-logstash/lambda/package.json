@@ -13,7 +13,8 @@
     "zlibjs": "^0.2.0"
   },
   "devDependencies": {
-    "node-lambda": "^0.7.1",
-    "jscs": "^1.13.0"
+    "aws-sdk": "^2.2.25",
+    "jscs": "^1.13.0",
+    "node-lambda": "^0.7.1"
   }
 }
