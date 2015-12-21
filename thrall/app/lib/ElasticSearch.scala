@@ -93,8 +93,6 @@ object ElasticSearch extends ElasticSearchClient with ImageFields {
       }
   }
 
-  case class GracefulFail(msg: String)
-
   def updateImageUsages(id: String, usages: JsValue)(implicit ex: ExecutionContext): Future[Any] =
     prepareUpdateIfImageExists(id).map(requestBuilder => {
       requestBuilder.setScriptParams(Map(
@@ -108,10 +106,7 @@ object ElasticSearch extends ElasticSearchClient with ImageFields {
       .executeAndLog(s"updating usages on image $id")
       .incrementOnFailure(failedUsagesUpdates) { case e: VersionConflictEngineException => true }
     }).getOrElse(Future {
-      val fail = GracefulFail("Usage update failed, no document to update.")
-      Logger.info(fail.msg)
-
-      fail
+      Logger.info("Usage update failed, no document to update.")
     })
 
   def updateImageExports(id: String, exports: JsValue)(implicit ex: ExecutionContext): Future[UpdateResponse] =
