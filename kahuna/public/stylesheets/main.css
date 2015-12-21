@@ -1376,6 +1376,7 @@ FIXME: what to do with touch devices
     border-right: 1px solid #565656;
     border-left: none;
     position: relative;
+    height: calc(100vh - 50px); /* viewport - top-bar */
 }
 
 .image-details__delete-crops {
