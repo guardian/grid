@@ -933,6 +933,10 @@ input.search-query__input {
     color: #666;
 }
 
+.results-toolbar-item--no-hover:hover {
+    background: #333;
+}
+
 .results-toolbar-item--active {
     background-color: #444;
 }
@@ -953,10 +957,6 @@ input.search-query__input {
 
 .results-toolbar-item__sort-direction {
     padding: 0px;
-}
-
-.results-toolbar-item__metadata-panel-controls {
-    height: 36px;
 }
 
 .related-labels--with-labels {
