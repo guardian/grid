@@ -16,15 +16,17 @@ exports.handler = function(event, context) {
             logs.forEach(function(log) {
                 const messageParts = log.message.split('\t');
 
+                // filter log lines from standard lambda execution
+                // log lines that include a timestamp have been explicitly generated with a call to console.log()
                 if (! isNaN(Date.parse(messageParts[0]))) {
                     const rawMessage = messageParts[messageParts.length - 1]
                         .replace(/(')/gm, '"')
                         .replace(/(\n)/gm, '');
 
 
-                    //`rawMessage` is a string that looks like
-                    //{message: "Downloading from ingest bucket", state: {Bucket "foo-bar"}}
-                    //As the keys in are not quoted, eval is the simplest way to convert to JSON.
+                    // `rawMessage` is a string that looks like
+                    // {message: "Downloading from ingest bucket", state: {Bucket "foo-bar"}}
+                    // As the keys in are not quoted, eval is the simplest way to convert to JSON.
                     eval('const message = ' + rawMessage);
 
                     console.log(message);
