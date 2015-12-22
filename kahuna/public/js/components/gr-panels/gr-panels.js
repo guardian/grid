@@ -95,7 +95,7 @@ panels.directive('grPanelHeight', ['onValChange', function(onValChange) {
                 element.height(height);
             }));
         }
-    }
+    };
 }]);
 
 panels.directive('grPanelContent', [function() {

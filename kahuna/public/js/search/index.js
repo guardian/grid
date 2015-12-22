@@ -77,8 +77,8 @@ search.config(['$stateProvider', '$urlMatcherFactoryProvider',
         }],
         resolve: {
             panels: ['panelService', function(panelService) {
-               const collectionsPanel = panelService.createPanel({ hidden: true });
-               const metadataPanel = panelService.createPanel({ hidden: true });
+               const collectionsPanel = panelService.createPanel(true);
+               const metadataPanel = panelService.createPanel(true);
 
                return { collectionsPanel, metadataPanel };
            }]

@@ -33,5 +33,5 @@ panelButton.directive('grPanelButton', [function() {
             position: '@grPosition',
             name: '@grName'
         }
-    }
+    };
 }]);

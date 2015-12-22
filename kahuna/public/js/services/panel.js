@@ -5,7 +5,7 @@ import Rx from 'rx';
 export const panelService = angular.module('kahuna.services.panel', []);
 
 panelService.factory('panelService', [function () {
-    function newPanel({ hidden = false, locked = false }) {
+    function newPanel(hidden = false, locked = false) {
         const hiddenState$ = new Rx.Subject();
         const lockedState$ = new Rx.Subject();
 
@@ -36,8 +36,8 @@ panelService.factory('panelService', [function () {
         };
     }
 
-    function createPanel({ hidden = false, locked = false } = {}) {
-        return newPanel({hidden, locked});
+    function createPanel(hidden = false, locked = false) {
+        return newPanel(hidden, locked);
     }
 
     return {
