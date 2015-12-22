@@ -10,7 +10,10 @@
             <div class="flex-spacer">Collections</div>
             <label><input type="checkbox" ng:model="editing" />Edit</label>
         </div>
-        <gr-nodes class="tree tree--top" gr:nodes="ctrl.collections" gr:editing="editing">
+        <gr-nodes class="tree tree--top"
+                  gr:nodes="ctrl.collections"
+                  gr:editing="editing"
+                  gr:selected-images="ctrl.selectedImages$">
         </gr-nodes>
     </div>
 </div>
