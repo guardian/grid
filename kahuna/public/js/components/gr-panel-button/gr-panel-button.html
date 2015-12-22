@@ -1,6 +1,7 @@
 <div class="fill-height flex-container" ng:class="{ 'flex-container--rtl': ctrl.position == 'right' }">
     <button class="inner-clickable clickable" type="button"
-            ng:if="!ctrl.hidden" ng:click="ctrl.hidePanel()">
+            ng:if="!ctrl.hidden" ng:click="ctrl.hidePanel()"
+            ng:class="{'bg-light': !ctrl.hidden}">
         <gr-icon-label gr-icon="{{ctrl.icon}}">Hide {{ctrl.name}} panel</gr-icon-label>
     </button>
 
