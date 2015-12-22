@@ -5,7 +5,7 @@ gr-nodes, gr-node {
 #toggle-collections-button {
     /* This is so we can target it with a JS as
        angular uses !important with ng:show */
-    display: none;
+    /*display: none;*/
 }
 
 .node__action {

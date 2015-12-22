@@ -14,13 +14,15 @@
         </button>
     </div>
 
-    <button class="inner-clickable clickable" type="button"
+    <button class="button-ico-square clickable" type="button"
+            gr:tooltip="Hide {{ctrl.name}} panel"
             ng:if="!ctrl.hidden" ng:click="ctrl.hidePanel()">
-        <gr-icon-label gr-icon="{{ctrl.icon}}">Hide {{ctrl.name}} panel</gr-icon-label>
+        <gr-icon>{{ctrl.icon}}</gr-icon>
     </button>
 
-    <button class="inner-clickable clickable" type="button"
+    <button class="button-ico-square clickable" type="button"
+            gr:tooltip="Hide {{ctrl.name}} panel"
             ng:if="ctrl.hidden" ng:click="ctrl.showPanel()">
-        <gr-icon-label gr-icon="{{ctrl.icon}}">Show {{ctrl.name}} panel</gr-icon-label>
+        <gr-icon>{{ctrl.icon}}</gr-icon>
     </button>
 </div>

@@ -1,5 +1,6 @@
 import angular from 'angular';
 import template from './gr-panel-button.html!text';
+import templateSmall from './gr-panel-button-small.html!text';
 import '../../util/rx';
 
 export const panelButton = angular.module('gr.panelButton', ['util.rx']);
@@ -31,7 +32,24 @@ panelButton.directive('grPanelButton', [function() {
         scope: {
             panel: '=grPanel',
             position: '@grPosition',
-            name: '@grName'
+            name: '@grName',
+            icon: '@grIcon'
+        }
+    };
+}]);
+
+panelButton.directive('grPanelButtonSmall', [function() {
+    return {
+        restrict: 'E',
+        template: templateSmall,
+        bindToController: true,
+        controller: 'GrPanelButton',
+        controllerAs: 'ctrl',
+        scope: {
+            panel: '=grPanel',
+            position: '@grPosition',
+            name: '@grName',
+            icon: '@grIcon'
         }
     };
 }]);
