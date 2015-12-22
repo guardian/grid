@@ -23,6 +23,7 @@ import './common/index';
 import './errors/http';
 import './errors/global';
 import './components/gr-icon/gr-icon';
+import 'titip';
 
 // TODO: move to an async config to remove deps on play
 var apiLink = document.querySelector('link[rel="media-api-uri"]');

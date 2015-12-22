@@ -37,6 +37,7 @@ System.config({
     "text": "github:systemjs/plugin-text@0.0.2",
     "theseus": "npm:theseus@0.5.2",
     "theseus-angular": "npm:theseus-angular@0.3.1",
+    "titip": "github:guardian/titip@1.0.0",
     "traceur": "github:jmcriffey/bower-traceur@0.0.92",
     "traceur-runtime": "github:jmcriffey/bower-traceur-runtime@0.0.92",
     "ua-parser-js": "npm:ua-parser-js@0.7.3",
