@@ -103,7 +103,7 @@ object ElasticSearch extends ElasticSearchClient with ImageFields {
           updateLastModifiedScript,
         scriptType)
       .executeAndLog(s"updating usages on image $id")
-      .recover { case e: DocumentMissingException => {}}
+      .recover { case e: DocumentMissingException => Unit }
       .incrementOnFailure(failedUsagesUpdates) { case e: VersionConflictEngineException => true }
 
   def updateImageExports(id: String, exports: JsValue)(implicit ex: ExecutionContext): Future[UpdateResponse] =
