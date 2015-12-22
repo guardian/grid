@@ -4,7 +4,7 @@ import '../../util/rx';
 
 export const panelButton = angular.module('gr.panelButton', ['util.rx']);
 
-panelButton.controller('GrPanelButton', ['$scope', 'inject$', 'subscribe$', function($scope, inject$, subscribe$) {
+panelButton.controller('GrPanelButton', ['$scope', 'inject$', function($scope, inject$) {
     const ctrl = this;
     const panel = ctrl.panel;
 
