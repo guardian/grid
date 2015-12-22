@@ -173,7 +173,7 @@
                    gr:track-click-data="{ tab: 'Usage' }">
                 <div class="radio-list__selection-state"></div>
                 <div class="radio-list__label-value">
-                    Usages ({{ctrl.usagesCount || "None"}})
+                    Usages ({{ctrl.usagesCount == 0 ? "None" : ctrl.usagesCount}})
                 </div>
             </label>
         </div>
