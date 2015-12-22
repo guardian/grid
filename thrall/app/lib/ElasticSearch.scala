@@ -9,7 +9,7 @@ import org.elasticsearch.action.deletebyquery.DeleteByQueryResponse
 import org.elasticsearch.action.update.{UpdateRequestBuilder, UpdateResponse}
 import org.elasticsearch.action.updatebyquery.UpdateByQueryResponse
 import org.elasticsearch.client.UpdateByQueryClientWrapper
-import org.elasticsearch.index.engine.VersionConflictEngineException
+import org.elasticsearch.index.engine.{VersionConflictEngineException, DocumentMissingException}
 import org.elasticsearch.index.query.FilterBuilders.{andFilter, missingFilter}
 import org.elasticsearch.index.query.QueryBuilders.{boolQuery, filteredQuery, matchAllQuery, matchQuery}
 import org.elasticsearch.script.ScriptService
@@ -92,7 +92,7 @@ object ElasticSearch extends ElasticSearchClient with ImageFields {
       }
   }
 
-  def updateImageUsages(id: String, usages: JsValue)(implicit ex: ExecutionContext): Future[UpdateResponse] =
+  def updateImageUsages(id: String, usages: JsValue)(implicit ex: ExecutionContext): Future[Any] =
     prepareImageUpdate(id)
       .setScriptParams(Map(
         "usages" -> asGroovy(usages),
@@ -103,6 +103,7 @@ object ElasticSearch extends ElasticSearchClient with ImageFields {
           updateLastModifiedScript,
         scriptType)
       .executeAndLog(s"updating usages on image $id")
+      .recover { case e: DocumentMissingException => Unit }
       .incrementOnFailure(failedUsagesUpdates) { case e: VersionConflictEngineException => true }
 
   def updateImageExports(id: String, exports: JsValue)(implicit ex: ExecutionContext): Future[UpdateResponse] =
