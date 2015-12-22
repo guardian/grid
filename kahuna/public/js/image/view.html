@@ -149,7 +149,9 @@
             <label for="show-metadata"
                    class="radio-list__label"
                    ng:class="{'radio-list--selected': showMetadata}"
-                   ng:click="showMetadata = true">
+                   ng:click="showMetadata = true"
+                   gr:track-click="Image panel tab"
+                   gr:track-click-data="{ tab: 'Metadata' }">
                 <div class="radio-list__selection-state"></div>
                 <div class="radio-list__label-value">Metadata</div>
             </label>
@@ -166,10 +168,12 @@
                     'radio-list--disabled': ctrl.usagesCount < 1,
                     'radio-list--selected': ! showMetadata
                    }"
-                   ng:click="(ctrl.usagesCount < 1) || (showMetadata = false)">
+                   ng:click="(ctrl.usagesCount < 1) || (showMetadata = false)"
+                   gr:track-click="Image panel tab"
+                   gr:track-click-data="{ tab: 'Usage' }">
                 <div class="radio-list__selection-state"></div>
                 <div class="radio-list__label-value">
-                    Usages ({{ctrl.usagesCount}})
+                    Usages ({{ctrl.usagesCount || "None"}})
                 </div>
             </label>
         </div>
