@@ -20,8 +20,8 @@ panels.directive('grPanels', [function() {
     };
 }]);
 
-panels.directive('grPanel', ['$timeout', '$window', 'inject$', 'subscribe$', 'panelService',
-                             function($timeout, $window, inject$, subscribe$, panelService) {
+panels.directive('grPanel', ['$timeout', '$window', 'inject$', 'subscribe$',
+                             function($timeout, $window, inject$, subscribe$) {
 
     function setFullHeight(element) {
         const offset = element.position().top;

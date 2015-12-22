@@ -19,9 +19,6 @@ grCollectionsPanel.controller('GrCollectionsPanelCtrl', [
 
     const ctrl = this;
 
-    // TODO: re-add the panel button using new panel service
-    const panelName = 'gr-collections-panel';
-
     ctrl.isVisible = false;
     ctrl.error = false;
 
