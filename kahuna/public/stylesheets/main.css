@@ -367,6 +367,11 @@ button[disabled],
     height: 100%;
 }
 
+.bg-light {
+    background-color: #444;
+    color: white;
+}
+
 
 /* ==========================================================================
    Angular
