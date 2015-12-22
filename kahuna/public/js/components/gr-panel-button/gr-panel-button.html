@@ -1,21 +1,7 @@
 <div class="fill-height flex-container" ng:class="{ 'flex-container--rtl': ctrl.position == 'right' }">
-    <div ng:class="{
-        'separator-left': ctrl.position  === 'right',
-        'separator-right': ctrl.position === 'left' }">
-        <button class="button-ico-square clickable" type="button"
-                ng:if="!ctrl.hidden && !ctrl.locked"
-                ng:click="ctrl.lockPanel()">
-            <gr-icon>lock_open</gr-icon>
-        </button>
-        <button class="button-ico-square clickable" type="button"
-                ng:if="!ctrl.hidden && ctrl.locked"
-                ng:click="ctrl.unlockPanel()">
-            <gr-icon>lock</gr-icon>
-        </button>
-    </div>
-
     <button class="inner-clickable clickable" type="button"
-            ng:if="!ctrl.hidden" ng:click="ctrl.hidePanel()">
+            ng:if="!ctrl.hidden" ng:click="ctrl.hidePanel()"
+            ng:class="{'bg-light': !ctrl.hidden}">
         <gr-icon-label gr-icon="chrome_reader_mode">Hide {{ctrl.name}} panel</gr-icon-label>
     </button>
 
@@ -23,4 +9,22 @@
             ng:if="ctrl.hidden" ng:click="ctrl.showPanel()">
         <gr-icon-label gr-icon="chrome_reader_mode">Show {{ctrl.name}} panel</gr-icon-label>
     </button>
+
+    <div ng:if="!ctrl.hidden"
+         ng:class="{
+            'separator-left': ctrl.position  === 'left',
+            'separator-right': ctrl.position === 'right'
+         }">
+        <button class="button-ico-square clickable" type="button"
+                ng:if="!ctrl.locked"
+                ng:click="ctrl.lockPanel()">
+            <gr-icon>lock_open</gr-icon>
+        </button>
+        <button class="button-ico-square clickable" type="button"
+                ng:if="ctrl.locked"
+                ng:click="ctrl.unlockPanel()"
+                ng:class="{'bg-light': ctrl.locked}">
+            <gr-icon>lock</gr-icon>
+        </button>
+    </div>
 </div>
