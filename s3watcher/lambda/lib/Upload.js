@@ -56,6 +56,7 @@ module.exports = {
         return Rx.Observable.create(function(observer){
             uploadRequest.on("response", function(response){
                 observer.onNext(uploadResult(response));
+                observer.onCompleted();
             });
             uploadRequest.on("error", observer.onError.bind(observer));
         });
