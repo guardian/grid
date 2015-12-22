@@ -21,16 +21,9 @@ case class ResetException() extends Exception
 object UsageRecorder {
   val usageSubject  = PublishSubject[UsageGroup]()
   val usageStream   = UsageStream.observable.merge(usageSubject)
-  val resetInterval = 30.seconds
 
   val subscriber = Subscriber((_:Any) => Logger.debug(s"Sent Usage Notification"))
   def subscribe  = UsageRecorder.observable.subscribe(subscriber)
-
-  // Due to a difficult to track down memory leak we 'reset' (unsubscribe/resubscribe)
-  // This seems to make references in upstream observables available for GC
-  val resetStreamObservable = Observable.interval(resetInterval).flatMap(_ => {
-    Observable.error(new ResetException())
-  })
 
   def recordUpdate(update: JsObject) = {
     Logger.debug(s"Usage update processed: $update")
@@ -76,17 +69,10 @@ object UsageRecorder {
 
   val notifiedStream = distinctNotificationStream.map(UsageNotifier.send)
 
-  val rawObservable = notifiedStream.merge(resetStreamObservable)
-
-  val observable = rawObservable.retry((_, error) => {
-    error match {
-      case _:ResetException => // Do nothing
-      case _ => {
-        Logger.error("UsageRecorder encountered an error.", error)
-        UsageMetrics.incrementErrors
-      }
-    }
+  val observable = notifiedStream.retry((_, error) => {
+    Logger.error("UsageRecorder encountered an error.", error)
+    UsageMetrics.incrementErrors
 
     true
-  })
+  }).tumbling(30.second)
 }
