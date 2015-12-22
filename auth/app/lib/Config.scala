@@ -5,6 +5,8 @@ import com.amazonaws.auth.{BasicAWSCredentials, AWSCredentials}
 
 object Config extends CommonPlayAppConfig with CommonPlayAppProperties {
 
+  val appName = "auth"
+
   val properties = Properties.fromPath("/etc/gu/auth.properties")
 
   val loginUriTemplate: String = services.loginUriTemplate
