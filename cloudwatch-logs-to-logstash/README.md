@@ -28,7 +28,7 @@ This lambda puts messages to a Kinesis stream. When run from within the AWS envi
 In DEV, we can use our local credentials from `~/.aws/credentials` by setting the value `stage` to `DEV` in `lambda/config.json`;
 
 
-## Deploying
+## Build/Deploy
 This Lambda has not been added to CI/CD due to the slight complexity of getting secrets into the Lambda.
 
-To deploy, run `./deploy.sh` then update the Lambda function code.
+We build the lambda locally using `./build.sh` then update the lambda function code.
