@@ -4,6 +4,13 @@
             There was an error loading the collections.
             Please try again later.
         </div>
-        <gr-nodes class="tree tree--top" gr:nodes="ctrl.collections"></gr-nodes>
+        <!-- TODO: we'll probably move this out to another template once we have something more
+        final -->
+        <div class="flex-container collections-panel-heading text-small">
+            <div class="flex-spacer">Collections</div>
+            <label><input type="checkbox" ng:model="editing" />Edit</label>
+        </div>
+        <gr-nodes class="tree tree--top" gr:nodes="ctrl.collections" gr:editing="editing">
+        </gr-nodes>
     </div>
 </div>

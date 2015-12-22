@@ -99,16 +99,18 @@ grCollectionsPanel.directive('grNode', ['$parse', '$compile', function($parse, $
         restrict: 'E',
         scope: {
             node: '=grNode',
-            nodeList: '=grNodeList'
+            nodeList: '=grNodeList',
+            editing: '=grEditing'
         },
         template: nodeTemplate,
         controller: 'GrNodeCtrl',
         controllerAs: 'ctrl',
         bindToController: true,
-        link: function(scope, element, attrs, ctrl) {
+        link: function(scope, element) {
             // We compile the template on the fly here as angular doesn't deal
             // well with recursive templates.
             $compile(`<gr-nodes class="tree"
+                gr:editing="ctrl.editing"
                 ng:show="showChildren"
                 gr:nodes="ctrl.node.data.children"
                 ng:if="ctrl.node.data.children.length > 0"></gr-nodes>
@@ -129,11 +131,12 @@ grCollectionsPanel.directive('grNodes', function() {
     return {
         restrict: 'E',
         scope: {
-            nodes: '=grNodes'
+            nodes: '=grNodes',
+            editing: '=grEditing'
         },
         template: `<ul>
             <li ng:repeat="node in nodes">
-                <gr-node class="node" gr:node="node" gr:node-list="nodes"></gr-node>
+                <gr-node class="node" gr:node="node" gr:node-list="nodes" gr:editing="editing"></gr-node>
             </li>
         </ul>`
     };

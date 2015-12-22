@@ -67,6 +67,11 @@ gr-nodes, gr-node {
     text-align: right;
 }
 
+.collections-panel-heading {
+    padding: 5px 10px;
+    border-bottom: 1px solid #565656;
+}
+
 /* Annoyingly I can't find a way to do this with variables */
 .collection-drop {
     -webkit-transition: background-color .25s linear;
