@@ -34,8 +34,8 @@
                 <button ng:show="ctrl.newImagesCount > 0"
                         ng:click="ctrl.revealNewImages()"
                         class="image-results-count__new"
-                        gr-title="{{ctrl.newImagesCount}} new images as of {{ctrl.lastestTimeMoment}}"
-                        gr-title-position="right">
+                        gr-tooltip="{{ctrl.newImagesCount}} new images as of {{ctrl.lastestTimeMoment}}"
+                        gr-tooltip-position="right">
                     {{ctrl.newImagesCount | toLocaleString}} new
                 </button>
             </div>
