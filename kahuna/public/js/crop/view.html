@@ -1,29 +1,30 @@
 <gr-top-bar>
     <gr-top-bar-nav>
         <a class="top-bar-item clickable side-padded"
-           ui:sref="image({ imageId: ctrl.image.data.id })">
+           ui:sref="image({ imageId: ctrl.image.data.id })"
+           gr-tooltip="cancel [esc]">
             <gr-icon>cancel</gr-icon><span class="top-bar-item__label">Cancel</span></a>
     </gr-top-bar-nav>
 
     <gr-top-bar-actions>
         <div class="top-bar-item side-padded">{{ ctrl.cropWidth() }} &times; {{ ctrl.cropHeight() }}</div>
 
-        <label class="top-bar-item clickable side-padded titip-default titip-bottom" data-title="landscape [L]">
+        <label class="top-bar-item clickable side-padded" gr-tooltip="landscape [L]">
             <input type="radio" ng:model="ctrl.aspect" value="{{ctrl.landscapeRatio}}"/>
             <gr-icon>crop_landscape</gr-icon><span class="top-bar-item__label">Landscape</span> ({{::ctrl.getRatioString(ctrl.landscapeRatio)}})
         </label>
 
-        <label class="top-bar-item clickable side-padded titip-default titip-bottom" data-title="portrait [P]">
+        <label class="top-bar-item clickable side-padded" gr-tooltip="portrait [P]">
             <input type="radio" ng:model="ctrl.aspect" value="{{ctrl.portraitRatio}}" />
             <gr-icon>crop_portrait</gr-icon><span class="top-bar-item__label">Portrait</span> ({{::ctrl.getRatioString(ctrl.portraitRatio)}})
         </label>
 
-        <label class="top-bar-item clickable side-padded titip-default titip-bottom" data-title="video [V]">
+        <label class="top-bar-item clickable side-padded" gr-tooltip="video [V]">
             <input type="radio" ng:model="ctrl.aspect" value="{{ctrl.videoRatio}}" />
             <gr-icon>crop_16_9</gr-icon><span class="top-bar-item__label">Video</span> ({{::ctrl.getRatioString(ctrl.videoRatio)}})
         </label>
 
-        <label class="top-bar-item clickable side-padded titip-default titip-bottom" data-title="free-form [F]">
+        <label class="top-bar-item clickable side-padded" gr-tooltip="free-form [F]">
             <input type="radio" ng:model="ctrl.aspect" value="{{ctrl.freeRatio}}" />
             <gr-icon>crop_free</gr-icon><span class="top-bar-item__label">Free-form</span>
         </label>
@@ -46,11 +47,11 @@
         </div>
 
         <div class="top-bar-item side-padded">
-            <button class="button crop__action titip-default titip-bottom"
+            <button class="button crop__action"
                     type="button"
                     ng:click="ctrl.callCrop()"
                     ng:disabled="ctrl.cropping"
-                    data-title="Crop [enter]">
+                    gr-tooltip="Crop [enter]">
                 <gr-icon>crop</gr-icon><span class="top-bar-item__label">Crop<span ng:show="ctrl.cropping">ping…</span></span>
             </button>
         </div>
