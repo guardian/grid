@@ -13,3 +13,4 @@ dynamo.tablename.livePollTable={{LiveContentPollTable}}
 dynamo.tablename.previewPollTable={{PreviewContentPollTable}}
 dynamo.tablename.usageRecordTable={{UsageRecordTable}}
 composer.baseUrl={{composer_url}}
+sns.topic.arn={{SnsTopicArn}}

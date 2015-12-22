@@ -1,10 +1,9 @@
 const messages = {
-    DOWNLOAD: "Downloading from ingest bucket.",
-    UPLOAD: "Uploading to image-loader.",
+    IMPORT: "Importing via image-loader.",
     DELETE: "Deleting from ingest bucket.",
     COPY_TO_FAIL: "Copying to fail bucket.",
     RECORD: "Recording result to Cloud Watch",
-    UPLOAD_FAIL: "Upload failed.",
+    IMPORT_FAIL: "Import failed.",
 
     LAMBDA_ERROR: "Lambda failure",
     LAMBDA_SUCCESS: "Finished successfully."
@@ -38,12 +37,8 @@ module.exports = {
         log(stage, messageKey, state);
     },
 
-    logDownload: function (stage, state) {
-        log(stage, messages.DOWNLOAD, state);
-    },
-
-    logUpload: function (stage, state) {
-        log(stage, messages.UPLOAD, state);
+    logImport: function (stage, state) {
+        log(stage, messages.IMPORT, state);
     },
 
     logDelete: function (stage, state) {
@@ -58,8 +53,8 @@ module.exports = {
         log(stage, messages.RECORD, state);
     },
 
-    logUploadFail: function (stage, state) {
-        log(stage, messages.UPLOAD_FAIL, state);
+    logImportFail: function (stage, state) {
+        log(stage, messages.IMPORT_FAIL, state);
     },
 
     logLambdaSuccess: function (stage, state) {

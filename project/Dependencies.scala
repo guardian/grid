@@ -33,7 +33,7 @@ object Dependencies {
   )
 
   val guDeps = Seq(
-    "com.gu" %% "content-api-client" % "7.1"
+    "com.gu" %% "content-api-client" % "7.11"
   )
 
   val reactiveXDeps = Seq(

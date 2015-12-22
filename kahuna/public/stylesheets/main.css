@@ -1139,9 +1139,16 @@ FIXME: what to do with touch devices
     flex: 1;
     padding-left: 10px;
 }
+.bottom-bar__meta .preview__upload-time {
+    margin-right: 5px;
+}
 .bottom-bar__meta-item {
     font-size: 1.2rem;
-    margin-left: 5px;
+}
+.bottom-bar__meta-item gr-icon{
+    color: #999;
+    position: relative;
+    top: -3px;
 }
 .bottom-bar__actions {
     color: #aaa;

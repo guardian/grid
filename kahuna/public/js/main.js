@@ -8,7 +8,6 @@ import './services/api/media-api';
 import './services/api/media-cropper';
 import './services/api/loader';
 import './services/api/edits-api';
-import './services/api/media-usage';
 import './directives/ui-crop-box';
 import './directives/gr-image-fade-on-load';
 import './crop/index';

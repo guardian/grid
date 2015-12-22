@@ -9,7 +9,7 @@ import org.elasticsearch.action.deletebyquery.DeleteByQueryResponse
 import org.elasticsearch.action.update.{UpdateRequestBuilder, UpdateResponse}
 import org.elasticsearch.action.updatebyquery.UpdateByQueryResponse
 import org.elasticsearch.client.UpdateByQueryClientWrapper
-import org.elasticsearch.index.engine.VersionConflictEngineException
+import org.elasticsearch.index.engine.{VersionConflictEngineException, DocumentMissingException}
 import org.elasticsearch.index.query.FilterBuilders.{andFilter, missingFilter}
 import org.elasticsearch.index.query.QueryBuilders.{boolQuery, filteredQuery, matchAllQuery, matchQuery}
 import org.elasticsearch.script.ScriptService
@@ -91,6 +91,20 @@ object ElasticSearch extends ElasticSearchClient with ImageFields {
           .incrementOnFailure(failedDeletedImages) { case ImageNotDeletable => true }
       }
   }
+
+  def updateImageUsages(id: String, usages: JsValue)(implicit ex: ExecutionContext): Future[Any] =
+    prepareImageUpdate(id)
+      .setScriptParams(Map(
+        "usages" -> asGroovy(usages),
+        "lastModified" -> asGroovy(JsString(currentIsoDateString))
+      ).asJava)
+      .setScript(
+          replaceUsagesScript +
+          updateLastModifiedScript,
+        scriptType)
+      .executeAndLog(s"updating usages on image $id")
+      .recover { case e: DocumentMissingException => Unit }
+      .incrementOnFailure(failedUsagesUpdates) { case e: VersionConflictEngineException => true }
 
   def updateImageExports(id: String, exports: JsValue)(implicit ex: ExecutionContext): Future[UpdateResponse] =
     prepareImageUpdate(id)
@@ -179,6 +193,10 @@ object ElasticSearch extends ElasticSearchClient with ImageFields {
       | suggestMetadataCredit = [ input: [ ctx._source.metadata.credit] ];
       | ctx._source.suggestMetadataCredit = suggestMetadataCredit;
     """.stripMargin
+
+  // Create the exports key or add to it
+  private val replaceUsagesScript =
+    "ctx._source.usages = usages;"
 
   // Create the exports key or add to it
   private val addExportsScript =
