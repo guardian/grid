@@ -11,23 +11,20 @@
                     "PROD": {
                         "name": "@PROD_ARN"
                     }
-                },
-                "bucket": "media-service-dist"
+                }
+            }
+        },
+        "s3-watcher": {
+            "type": "aws-s3",
+            "data": {
+                "bucket": "media-service-dist",
+                "cacheControl": "public, max-age=60"
             }
         }
     },
     "recipes": {
         "default": {
-            "depends": [
-                "artifactUploadOnly",
-                "updateLambda"
-            ]
-        },
-        "artifactUploadOnly": {
-            "actions": ["lambda.uploadArtifacts"]
-        },
-        "updateLambda": {
-            "actions": ["lambda.updateLambda"]
+            "actions": [ "s3-watcher.uploadStaticFiles", "lambda.updateLambda" ]
         }
     }
 }
