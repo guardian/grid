@@ -1,5 +1,6 @@
 import angular from 'angular';
 import 'angular-ui-router-extras';
+import 'angular-hotkeys';
 import Rx from 'rx';
 import 'rx-dom';
 import Immutable from 'immutable';
@@ -33,7 +34,8 @@ export var search = angular.module('kahuna.search', [
     'gr.panels',
     'grPanel',
     'grCollectionsPanel',
-    'ui.router'
+    'ui.router',
+    'cfp.hotkeys'
 ]);
 
 // TODO: add a resolver here so that if we error (e.g. 401) we don't keep trying
@@ -70,17 +72,31 @@ search.config(['$stateProvider', '$urlMatcherFactoryProvider',
             }]
         },
         controllerAs: 'ctrl',
-        controller: ['panels', function(panels) {
+        controller: ['$scope', 'panels', 'shortcutKeys', 'hotkeys',
+                     function($scope, panels, shortcutKeys, hotkeys) {
+
             const ctrl = this;
             ctrl.collectionsPanel = panels.collectionsPanel;
             ctrl.metadataPanel = panels.metadataPanel;
+
+            hotkeys.bindTo($scope).add({
+                combo: shortcutKeys.get('metadataPanel'),
+                description: 'Toggle metadata panel',
+                callback: panels.metadataPanel.toggleHidden
+            });
         }],
         resolve: {
+            shortcutKeys: [function() {
+                // keep the shortcut keys here to stop overriding
+                console.log(new Map([['metadataPanel', 'm']]));
+                return new Map([['metadataPanel', 'm']]);
+            }],
             panels: ['panelService', function(panelService) {
-               const collectionsPanel = panelService.createPanel(true);
-               const metadataPanel = panelService.createPanel(true);
 
-               return { collectionsPanel, metadataPanel };
+                const collectionsPanel = panelService.createPanel(true);
+                const metadataPanel = panelService.createPanel(true);
+
+                return { collectionsPanel, metadataPanel };
            }]
         }
     });

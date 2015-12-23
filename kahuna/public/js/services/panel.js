@@ -21,6 +21,7 @@ panelService.factory('panelService', [function () {
             .distinctUntilChanged()
             .shareReplay(1);
 
+        // TODO: What do we do if someone sets hidden = true / locked = true?
         const toggleHidden = () => change(hiddenState$, hidden => !hidden);
         const toggleLocked = () => change(lockedState$, locked => !locked);
         const setHidden = hidden => change(hiddenState$, () => hidden);

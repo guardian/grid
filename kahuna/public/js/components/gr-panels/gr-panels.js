@@ -58,7 +58,6 @@ panels.directive('grPanel', ['$timeout', '$window', 'inject$', 'subscribe$',
                 scope.panelHeight = element.height();
             }
             const panel = scope.panel;
-            const winScroll$ = Rx.DOM.fromEvent($window, 'scroll');
             const winResize$ = Rx.DOM.fromEvent($window, 'resize');
             // This is done to make sure we trigger on the template being rendered,
             // if we don't we get the semi-rendered template offset
@@ -66,20 +65,6 @@ panels.directive('grPanel', ['$timeout', '$window', 'inject$', 'subscribe$',
 
             inject$(scope, panel.hidden$, scope, 'hidden');
             inject$(scope, panel.locked$, scope, 'locked');
-
-            // If we are window scrolling whilst visible and unlocked
-            const scrollWhileVisAndUnlocked$ = winScroll$.
-                withLatestFrom(
-                    panel.hidden$,
-                    panel.locked$,
-                    (ev, hidden, locked) => ({ev, hidden, locked})).
-                filter(({ev, hidden, locked}) => !(hidden || locked)).
-                map(({ev}) => ev);
-
-            // Then hide the panel
-            subscribe$(scope, scrollWhileVisAndUnlocked$, () => {
-                scope.$apply(() => panel.setHidden(true));
-            });
 
             // Reset the panel heights
             subscribe$(scope, winResize$.debounce(500), setElementHeight);
