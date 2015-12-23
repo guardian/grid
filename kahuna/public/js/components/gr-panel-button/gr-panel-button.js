@@ -16,9 +16,7 @@ panelButton.controller('GrPanelButton', ['$scope', 'inject$', function($scope, i
         panel.setHidden(true);
     };
 
-    // TODO: Could we have a helper to watch multiple streams?
-    inject$($scope, panel.hidden$, ctrl, 'hidden');
-    inject$($scope, panel.locked$, ctrl, 'locked');
+    inject$($scope, panel.state$, ctrl, 'state');
 }]);
 
 panelButton.directive('grPanelButton', [function() {

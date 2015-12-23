@@ -41,10 +41,11 @@ panels.directive('grPanel', ['$timeout', '$window', 'inject$', 'subscribe$',
         },
         template:
             `<div class="gr-panel" ng:class="{
-                'gr-panel--locked': locked }">
+                'gr-panel--locked': state.locked }">
+                {{ctrl.state}}
                 <div class="gr-panel__content"
                      ng:class="{
-                        'gr-panel__content--hidden':hidden,
+                        'gr-panel__content--hidden': state.hidden,
                         'gr-panel__content--left': left,
                         'gr-panel__content--right': right
                      }"
@@ -63,8 +64,7 @@ panels.directive('grPanel', ['$timeout', '$window', 'inject$', 'subscribe$',
             // if we don't we get the semi-rendered template offset
             $timeout(setElementHeight, 0);
 
-            inject$(scope, panel.hidden$, scope, 'hidden');
-            inject$(scope, panel.locked$, scope, 'locked');
+            inject$(scope, panel.state$, scope, 'state');
 
             // Reset the panel heights
             subscribe$(scope, winResize$.debounce(500), setElementHeight);
