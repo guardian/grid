@@ -1,6 +1,5 @@
 import angular from 'angular';
 import apiServices from '../api';
-import Rx from 'rx';
 
 apiServices.factory('collections', ['mediaApi', function (mediaApi) {
     // TODO: Rx?
