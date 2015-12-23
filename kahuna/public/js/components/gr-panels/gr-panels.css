@@ -22,7 +22,7 @@
     width: 290px;
     position: fixed;
     background: #444;
-    overflow: scroll;
+    overflow: auto;
     width: 290px;
     transition: width 0.2s;
 }
