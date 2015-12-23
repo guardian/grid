@@ -13,7 +13,7 @@ module.directive('grTooltip', ['onValChange', function (onValChange) {
                 .addClass(`titip-default`)
                 .addClass(`titip-${position}`);
 
-            const autoUpdates = angular.isDefined(attrs.grTooltipUpdates) || false;
+            const autoUpdates = angular.isDefined(attrs.grTooltipUpdates);
 
             if (autoUpdates) {
                 $scope.$watch(() => attrs.grTooltip, onValChange(newTooltip => {
