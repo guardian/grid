@@ -11,12 +11,22 @@
                     "PROD": {
                         "name": "@PROD_ARN"
                     }
-                }
+                },
+                "bucket": "media-service-dist"
             }
         }
     },
     "recipes": {
         "default": {
+            "depends": [
+                "artifactUploadOnly",
+                "updateLambda"
+            ]
+        },
+        "artifactUploadOnly": {
+            "actions": ["lambda.uploadArtifacts"]
+        },
+        "updateLambda": {
             "actions": ["lambda.updateLambda"]
         }
     }
