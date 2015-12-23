@@ -5,8 +5,6 @@ const Rx = require('rx');
 module.exports = {
     buildUpload: function(config, s3Event) {
          const headers = {
-            'Content-Length': s3Event.size,
-            'Content-Type': 'application/octet-stream',
             'X-Gu-Media-Key': config.apiKey
         };
 
@@ -20,10 +18,10 @@ module.exports = {
 
          const uploadedBy = buildUploadedBy(s3Event.path);
 
-         return  {
+         return {
              key: config.apiKey,
              url: config.baseUrl,
-             path: "/images",
+             path: "/imports",
              size: s3Event.size,
              headers: headers,
              params: {
@@ -33,7 +31,7 @@ module.exports = {
              }
          };
     },
-    postData: function(upload, data) {
+    postUri: function(upload, imageUri) {
         function uploadResult(response) {
             return {
                 statusCode: response.statusCode,
@@ -43,11 +41,13 @@ module.exports = {
             };
         }
 
+        // FIXME: refactor so as to avoid having to mutate params like this
+        upload.params.uri = imageUri;
+
         const url = upload.url + upload.path;
         const options = {
             url: url,
             headers: upload.headers,
-            body: data,
             qs: upload.params
         };
 
@@ -56,6 +56,7 @@ module.exports = {
         return Rx.Observable.create(function(observer){
             uploadRequest.on("response", function(response){
                 observer.onNext(uploadResult(response));
+                observer.onCompleted();
             });
             uploadRequest.on("error", observer.onError.bind(observer));
         });

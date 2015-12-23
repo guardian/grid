@@ -2091,20 +2091,16 @@ FIXME: what to do with touch devices
     display: flex;
     overflow: hidden;
 }
-
 .radio-list--invalid {
     border: 1px solid #ed5935;
-
 }
 .radio-list__item {
     flex-grow: 1;
     display:flex;
 }
-
 .radio-list__item:last-child {
     border-right: 1px;
 }
-
 .radio-list__label {
     flex-grow: 1;
     color: #CCC;
@@ -2122,6 +2118,10 @@ FIXME: what to do with touch devices
 
 .radio-list--selected .radio-list__selection-state {
     background: #00adee;
+}
+
+.radio-list--disabled .radio-list__label-value {
+    color: #777;
 }
 
 .radio-list__circle {

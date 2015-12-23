@@ -1,0 +1,5 @@
+lambda/.env
+lambda/deploy.env
+lambda/event.json
+lambda/config.json
+target

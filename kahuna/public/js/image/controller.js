@@ -1,6 +1,8 @@
 import angular from 'angular';
 import 'angular-hotkeys';
 
+import '../util/rx';
+import '../services/image/usages';
 import '../image/service';
 import '../components/gr-delete-image/gr-delete-image';
 import '../components/gr-add-label/gr-add-label';
@@ -28,7 +30,9 @@ var image = angular.module('kahuna.image.controller', [
     'gr.imageCostMessage',
     'gr.exportOriginalImage',
     'gr.imageUsage',
-    'cfp.hotkeys'
+    'gr.image-usages.service',
+    'cfp.hotkeys',
+    'util.rx'
 ]);
 
 image.controller('ImageCtrl', [
@@ -36,6 +40,7 @@ image.controller('ImageCtrl', [
     '$scope',
     '$state',
     '$window',
+    'inject$',
     'onValChange',
     'image',
     'mediaApi',
@@ -44,12 +49,14 @@ image.controller('ImageCtrl', [
     'cropKey',
     'mediaCropper',
     'imageService',
+    'imageUsagesService',
     'hotkeys',
 
     function ($rootScope,
               $scope,
               $state,
               $window,
+              inject$,
               onValChange,
               image,
               mediaApi,
@@ -58,6 +65,7 @@ image.controller('ImageCtrl', [
               cropKey,
               mediaCropper,
               imageService,
+              imageUsagesService,
               hotkeys) {
 
         let ctrl = this;
@@ -71,6 +79,11 @@ image.controller('ImageCtrl', [
         ctrl.image = image;
         ctrl.optimisedImageUri = optimisedImageUri;
         ctrl.lowResImageUri = lowResImageUri;
+
+        const usages = imageUsagesService.getUsages(ctrl.image);
+        const usagesCount$ = usages.count$;
+
+        inject$($scope, usagesCount$, ctrl, 'usagesCount');
 
         // TODO: we should be able to rely on ctrl.crop.id instead once
         // all existing crops are migrated to have an id (they didn't
@@ -137,6 +150,7 @@ image.controller('ImageCtrl', [
                 $window.alert(`Failed to delete image ${imageId}`);
             }
         });
+
 
         $scope.$on('$destroy', function() {
             freeImageDeleteListener();
