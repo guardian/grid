@@ -66,7 +66,7 @@ panels.directive('grPanel', ['$timeout', '$window', 'inject$', 'subscribe$',
             inject$(scope, panel.state$, scope, 'state');
 
             // Reset the panel heights
-            subscribe$(scope, winResize$.debounce(500), setElementHeight);
+            subscribe$(scope, winResize$.debounce(100), setElementHeight);
 
             // If we are window scrolling whilst visible and unlocked
             const scrollWhileVisAndUnlocked$ = winScroll$.withLatestFrom(panel.state$,
