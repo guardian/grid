@@ -2,7 +2,8 @@ gr-top-bar {
     display: block;
     height: 50px; /* faking we're in the flow */
     position: relative;
-    z-index: 30;
+    /* We do this as it should always be over `results-toolbar` */
+    z-index: 31;
 }
 
 gr-top-bar-nav {
