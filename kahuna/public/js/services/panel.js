@@ -13,7 +13,7 @@ panelService.factory('panelService', [function () {
             (angular.isDefined(n.locked) ? n.locked: o.locked);
         const hidden = n.locked === true ? false :
             (angular.isDefined(n.hidden) ? n.hidden : o.hidden);
-        
+
         return {locked, hidden};
     }
 
