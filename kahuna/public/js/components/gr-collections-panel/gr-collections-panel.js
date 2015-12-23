@@ -84,7 +84,7 @@ grCollectionsPanel.directive('grNode', ['$parse', '$compile', function($parse, $
         link: function(scope, element) {
             // We compile the template on the fly here as angular doesn't deal
             // well with recursive templates.
-            $compile(`<gr-nodes class="tree"
+            $compile(`<gr-nodes
                 gr:selected-images="ctrl.selectedImages$"
                 gr:editing="ctrl.editing"
                 ng:show="showChildren"

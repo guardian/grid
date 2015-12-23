@@ -16,8 +16,7 @@
                 <span ng:show="editing">Finished editing</span>
             </button>
         </div>
-        <gr-nodes class="tree tree--top"
-                  gr:nodes="ctrl.collections"
+        <gr-nodes gr:nodes="ctrl.collections"
                   gr:editing="editing"
                   gr:selected-images="ctrl.selectedImages$">
         </gr-nodes>

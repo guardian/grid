@@ -1,11 +1,8 @@
-gr-nodes, gr-node {
+gr-nodes, gr-node,
+.node__info:hover .node__marker,
+.node__info:hover .node__action,
+.collection-drop--drag-over .node__marker {
     display: block;
-}
-
-#toggle-collections-button {
-    /* This is so we can target it with a JS as
-       angular uses !important with ng:show */
-    /*display: none;*/
 }
 
 .node__action {
@@ -14,15 +11,6 @@ gr-nodes, gr-node {
 
 .node__children {
     padding-left: 10px;
-}
-
-.node__info:hover .node__marker,
-.collection-drop--drag-over .node__marker {
-    display: block;
-}
-
-.node__info:hover .node__action {
-    display: block;
 }
 
 .node__marker {
@@ -80,6 +68,6 @@ gr-nodes, gr-node {
 .collection-drop--saving {
     opacity: 0.5;
 }
-.collection-drop--complete {
-    background: #00adee !important;
+.node__info.collection-drop--complete {
+    background: #00adee;
 }
