@@ -88,11 +88,9 @@ search.config(['$stateProvider', '$urlMatcherFactoryProvider',
         resolve: {
             shortcutKeys: [function() {
                 // keep the shortcut keys here to stop overriding
-                console.log(new Map([['metadataPanel', 'm']]));
                 return new Map([['metadataPanel', 'm']]);
             }],
             panels: ['panelService', function(panelService) {
-
                 const collectionsPanel = panelService.createPanel(true);
                 const metadataPanel = panelService.createPanel(true);
 
