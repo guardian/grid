@@ -5,30 +5,41 @@ import Rx from 'rx';
 export const panelService = angular.module('kahuna.services.panel', []);
 
 panelService.factory('panelService', [function () {
+    function mergeState(o, n) {
+        // This is to avoid us getting into the state of (hidden && locked)
+        // TODO: Error on a client asking for that state, given that we don't expose a method
+        // to do that it's okay.
+        const locked = n.hidden === true ? false :
+            (angular.isDefined(n.locked) ? n.locked: o.locked);
+        const hidden = n.locked === true ? false :
+            (angular.isDefined(n.hidden) ? n.hidden : o.hidden);
+
+        return {locked, hidden};
+    }
+
     function newPanel(hidden = false, locked = false) {
-        const hiddenState$ = new Rx.Subject();
-        const lockedState$ = new Rx.Subject();
+        const startOp = () => ({hidden, locked});
+        const stateSub$ = new Rx.Subject();
 
         const change = (obs$, func) => obs$.onNext(func);
 
-        const hidden$ = hiddenState$.startWith(() => hidden)
-            .scan(() => hidden, (hidden, op) => op(hidden))
+        const state$ = stateSub$.startWith(startOp)
+            .scan(startOp, (state, op) => op(state))
             .distinctUntilChanged()
             .shareReplay(1);
 
-        const locked$ = lockedState$.startWith(() => locked)
-            .scan(() => locked, (locked, op) => op(locked))
-            .distinctUntilChanged()
-            .shareReplay(1);
+        const setHidden = hidden => change(stateSub$, state => mergeState(state, {hidden}));
+        const setLocked = locked =>
+            change(stateSub$, state => mergeState(state, {locked}));
 
-        const toggleHidden = () => change(hiddenState$, hidden => !hidden);
-        const toggleLocked = () => change(lockedState$, locked => !locked);
-        const setHidden = hidden => change(hiddenState$, () => hidden);
-        const setLocked = locked => change(lockedState$, () => locked);
+        const toggleHidden = () => change(stateSub$, state  =>
+            mergeState(state, {hidden:!state.hidden}));
+
+        const toggleLocked = () => change(stateSub$, state  =>
+            mergeState(state, {locked:!state.locked}));
 
         return {
-            hidden$,
-            locked$,
+            state$,
             toggleHidden,
             toggleLocked,
             setHidden,

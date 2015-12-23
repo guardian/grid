@@ -41,10 +41,11 @@ panels.directive('grPanel', ['$timeout', '$window', 'inject$', 'subscribe$',
         },
         template:
             `<div class="gr-panel" ng:class="{
-                'gr-panel--locked': locked }">
+                'gr-panel--locked': state.locked }">
+                {{ctrl.state}}
                 <div class="gr-panel__content"
                      ng:class="{
-                        'gr-panel__content--hidden':hidden,
+                        'gr-panel__content--hidden': state.hidden,
                         'gr-panel__content--left': left,
                         'gr-panel__content--right': right
                      }"
@@ -58,28 +59,12 @@ panels.directive('grPanel', ['$timeout', '$window', 'inject$', 'subscribe$',
                 scope.panelHeight = element.height();
             }
             const panel = scope.panel;
-            const winScroll$ = Rx.DOM.fromEvent($window, 'scroll');
             const winResize$ = Rx.DOM.fromEvent($window, 'resize');
             // This is done to make sure we trigger on the template being rendered,
             // if we don't we get the semi-rendered template offset
             $timeout(setElementHeight, 0);
 
-            inject$(scope, panel.hidden$, scope, 'hidden');
-            inject$(scope, panel.locked$, scope, 'locked');
-
-            // If we are window scrolling whilst visible and unlocked
-            const scrollWhileVisAndUnlocked$ = winScroll$.
-                withLatestFrom(
-                    panel.hidden$,
-                    panel.locked$,
-                    (ev, hidden, locked) => ({ev, hidden, locked})).
-                filter(({ev, hidden, locked}) => !(hidden || locked)).
-                map(({ev}) => ev);
-
-            // Then hide the panel
-            subscribe$(scope, scrollWhileVisAndUnlocked$, () => {
-                scope.$apply(() => panel.setHidden(true));
-            });
+            inject$(scope, panel.state$, scope, 'state');
 
             // Reset the panel heights
             subscribe$(scope, winResize$.debounce(500), setElementHeight);
