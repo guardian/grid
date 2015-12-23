@@ -40,9 +40,7 @@ panels.directive('grPanel', ['$timeout', '$window', 'inject$', 'subscribe$',
             right: '=?grRight'
         },
         template:
-            `<div class="gr-panel" ng:class="{
-                'gr-panel--locked': state.locked }">
-                {{ctrl.state}}
+            `<div class="gr-panel" ng:class="{'gr-panel--locked': state.locked}">
                 <div class="gr-panel__content"
                      ng:class="{
                         'gr-panel__content--hidden': state.hidden,
@@ -59,6 +57,7 @@ panels.directive('grPanel', ['$timeout', '$window', 'inject$', 'subscribe$',
                 scope.panelHeight = element.height();
             }
             const panel = scope.panel;
+            const winScroll$ = Rx.DOM.fromEvent($window, 'scroll');
             const winResize$ = Rx.DOM.fromEvent($window, 'resize');
             // This is done to make sure we trigger on the template being rendered,
             // if we don't we get the semi-rendered template offset
@@ -68,6 +67,16 @@ panels.directive('grPanel', ['$timeout', '$window', 'inject$', 'subscribe$',
 
             // Reset the panel heights
             subscribe$(scope, winResize$.debounce(500), setElementHeight);
+
+            // If we are window scrolling whilst visible and unlocked
+            const scrollWhileVisAndUnlocked$ = winScroll$.withLatestFrom(panel.state$,
+                (ev, state) => !(state.locked || state.hidden)
+            ).filter(shouldHide => shouldHide);
+
+            // Then hide the panel
+            subscribe$(scope, scrollWhileVisAndUnlocked$, () => {
+                scope.$apply(() => panel.setHidden(true));
+            });
         }
     };
 }]);
