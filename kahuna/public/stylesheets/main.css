@@ -1079,6 +1079,15 @@ input.related-labels__parent {
     margin: 5px 0;
 }
 
+.preview__info__collection {
+    border-radius: 50%;
+    background-color: #6E6E6E;
+    width: 22px;
+    height: 22px;
+    line-height: 22px;
+    text-align: center;
+}
+
 .preview__description {
     overflow: hidden;
     text-overflow: ellipsis;
