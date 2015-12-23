@@ -1,14 +1,20 @@
-<div class="panel">
+<div class="panel"
+     ng:init="editing = false">
     <div class="panel__content">
         <div class="error" ng:if="ctrl.error">
             There was an error loading the collections.
             Please try again later.
         </div>
+
         <!-- TODO: we'll probably move this out to another template once we have something more
         final -->
         <div class="flex-container collections-panel-heading text-small">
             <div class="flex-spacer">Collections</div>
-            <label><input type="checkbox" ng:model="editing" />Edit</label>
+            <button ng:click="editing = !editing">
+                <gr-icon>edit</gr-icon>
+                <span ng:hide="editing">Edit</span>
+                <span ng:show="editing">Finished editing</span>
+            </button>
         </div>
         <gr-nodes class="tree tree--top"
                   gr:nodes="ctrl.collections"

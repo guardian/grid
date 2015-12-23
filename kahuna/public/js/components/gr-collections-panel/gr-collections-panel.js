@@ -41,6 +41,7 @@ grCollectionsPanel.controller('GrNodeCtrl',
 
     const ctrl = this;
     ctrl.saving = false;
+    ctrl.editing = false;
     ctrl.deletable = false;
     ctrl.addChild = childName => collections.addChildTo(ctrl.node, childName);
     collections.isDeletable(ctrl.node).then(d => ctrl.deletable = d);

@@ -1522,7 +1522,8 @@ FIXME: what to do with touch devices
     display: block
 }
 
-.image-info__edit {
+.image-info__edit,
+.edit-button {
     display: none;
     position: absolute;
     top: 0;
@@ -1533,8 +1534,13 @@ FIXME: what to do with touch devices
     color: #222;
     background-color: white;
 }
+.edit-button {
+    display: block;
+    position: relative;
+}
 
-.image-info__edit:hover {
+.image-info__edit:hover,
+.edit-button:hover {
     color: white;
     background-color: #222;
     border: 1px solid white;
