@@ -8,6 +8,7 @@ object Application extends Controller {
   def index(ignored: String) = Action { req =>
     Ok(views.html.main(
       Config.mediaApiUri,
+      s"${Config.authUri}/login",
       Config.watUri,
       Config.sentryDsn))
   }

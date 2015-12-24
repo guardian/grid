@@ -10,6 +10,7 @@ object Config extends CommonPlayAppConfig with CommonPlayAppProperties {
   val properties = Properties.fromPath("/etc/gu/kahuna.properties")
 
   val mediaApiUri: String = services.apiBaseUri
+  val authUri: String = services.authBaseUri
 
   val sentryDsn: Option[String] = properties.get("sentry.dsn").filterNot(_.isEmpty)
   val watUri: Option[String] = properties.get("wat.uri").filterNot(_.isEmpty)
