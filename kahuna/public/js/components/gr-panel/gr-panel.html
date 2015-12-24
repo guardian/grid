@@ -61,7 +61,7 @@
 
         <div class="image-info__group">
             <dl>
-                <div class="image-info__wrap" ng:if="ctrl.rawMetadata.title">
+                <div class="image-info__wrap overflow-hidden" ng:if="ctrl.rawMetadata.title">
                     <button class="image-info__edit"
                             ng:if="ctrl.userCanEdit"
                             ng:click="titleEditForm.$show()"
@@ -95,7 +95,7 @@
                     </div>
                 </div>
 
-                <div class="image-info__wrap">
+                <div class="image-info__wrap overflow-hidden">
                     <button class="image-info__edit"
                             ng:if="ctrl.userCanEdit"
                             ng:click="descriptionEditForm.$show()"
@@ -138,7 +138,7 @@
         </div>
 
         <div class="image-info__group" ng:if="ctrl.rawMetadata.specialInstructions">
-            <dl class="image-info__wrap">
+            <dl class="image-info__wrap overflow-hidden">
                 <button class="image-info__edit"
                         ng:if="ctrl.userCanEdit"
                         ng:click="specialInstructionsEditForm.$show()"
@@ -184,7 +184,7 @@
         <div class="image-info__group">
             <dl class="image-info__group--dl metadata-line">
                 <dt ng:if="ctrl.rawMetadata.byline || ctrl.userCanEdit" class="image-info__wrap metadata-line image-info__byline metadata-line__key image-info__group--dl__key--panel">By</dt>
-                <dd ng:if="ctrl.rawMetadata.byline || ctrl.userCanEdit" class="image-info__wrap metadata-line image-info__byline metadata-line__info image-info__group--dl__value--panel">
+                <dd ng:if="ctrl.rawMetadata.byline || ctrl.userCanEdit" class="image-info__wrap overflow-hidden metadata-line image-info__byline metadata-line__info image-info__group--dl__value--panel">
                     <button class="image-info__edit"
                             ng:if="ctrl.userCanEdit"
                             ng:click="bylineEditForm.$show()"
@@ -215,7 +215,7 @@
                 </dd>
 
                 <dt class="metadata-line image-info__wrap image-info__credit metadata-line__key image-info__group--dl__key--panel">Credit</dt>
-                <dd class="image-info__wrap metadata-line image-info__credit metadata-line__info image-info__group--dl__value--panel">
+                <dd class="image-info__wrap overflow-hidden metadata-line image-info__credit metadata-line__info image-info__group--dl__value--panel">
                     <button class="image-info__edit"
                             ng:if="ctrl.userCanEdit"
                             ng:click="creditEditForm.$show()"
@@ -248,7 +248,7 @@
                 </dd>
 
                 <dt ng:if="ctrl.rawMetadata.copyright || ctrl.userCanEdit" class="image-info__wrap metadata-line metadata-line__key image-info__group--dl__key--panel">Copyright</dt>
-                <dd ng:if="ctrl.rawMetadata.copyright || ctrl.userCanEdit" class="image-info__wrap metadata-line metadata-line__info image-info__group--dl__value--panel">
+                <dd ng:if="ctrl.rawMetadata.copyright || ctrl.userCanEdit" class="image-info__wrap overflow-hidden metadata-line metadata-line__info image-info__group--dl__value--panel">
                     <button class="image-info__edit"
                             ng:if="ctrl.userCanEdit"
                             ng:click="copyrightEditForm.$show()"
@@ -279,7 +279,7 @@
                 </dd>
 
                 <dt ng:if="ctrl.extraInfo.filename" class="image-info__wrap metadata-line metadata-line__key image-info__group--dl__key--panel">Filename</dt>
-                <dd ng:if="ctrl.extraInfo.filename" class="image-info__wrap metadata-line metadata-line__info image-info__group--dl__value--panel">
+                <dd ng:if="ctrl.extraInfo.filename" class="image-info__wrap overflow-hidden metadata-line metadata-line__info image-info__group--dl__value--panel">
                     <span ng:if="ctrl.hasMultipleValues(ctrl.extraInfo.filename)">Multiple filenames</span>
                     <span ng:if="!ctrl.hasMultipleValues(ctrl.extraInfo.filename)">{{ctrl.extraInfo.filename}}</span>
                 </dd>
