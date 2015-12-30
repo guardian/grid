@@ -17,12 +17,17 @@ npm install
 
 npm test
 
-zip -r S3Watcher.zip *
+zip -r s3-watcher.zip *
 cd ..
 
 [ -d target ] && rm -rf target
 mkdir -p target/packages/lambda
-mv lambda/S3Watcher.zip target/packages/lambda/lambda.zip
+mkdir -p target/packages/s3-watcher
+
+cp lambda/s3-watcher.zip target/packages/lambda/lambda.zip
+cp lambda/s3-watcher.zip target/packages/s3-watcher/s3-watcher.zip
+
+rm lambda/s3-watcher.zip
 
 cat deploy.json \
     | jq ".packages.lambda.data.functions.TEST.name |= \"$TEST_FUNC_NAME\" | .packages.lambda.data.functions.PROD.name |= \"$PROD_FUNC_NAME\"" \
