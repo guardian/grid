@@ -1,0 +1,78 @@
+elastic:
+  build: .
+  dockerfile: Dockerfile-elastic
+  container_name: elasticsearch
+  ports:
+    - "9200:9200"
+    - "9300:9300"
+  volumes:
+    - "../elasticsearch/config:/usr/share/elasticsearch/config"
+  restart: unless-stopped
+media-api:
+  environment:
+    APP: media-api
+  extends:
+    file: grid-core.yml
+    service: sbt
+  links:
+    - elastic
+  ports:
+    - "9001:9000"
+thrall:
+  environment:
+    APP: thrall
+  extends:
+    file: grid-core.yml
+    service: sbt
+  links:
+    - elastic
+  ports:
+    - "9002:9000"
+image-loader:
+  environment:
+    APP: image-loader
+  extends:
+    file: grid-core.yml
+    service: sbt-imaging
+  ports:
+    - "9003:9000"
+kahuna:
+  environment:
+    APP: kahuna
+  extends:
+    file: grid-core.yml
+    service: sbt
+  ports:
+    - "9005:9000"
+cropper:
+  environment:
+    APP: cropper
+  extends:
+    file: grid-core.yml
+    service: sbt-imaging
+  ports:
+    - "9006:9000"
+metadata-editor:
+  environment:
+    APP: metadata-editor
+  extends:
+    file: grid-core.yml
+    service: sbt
+  ports:
+    - "9007:9000"
+usage:
+  environment:
+    APP: usage
+  extends:
+    file: grid-core.yml
+    service: sbt
+  ports:
+    - "9009:9000"
+collections:
+  environment:
+    APP: collections
+  extends:
+    file: grid-core.yml
+    service: sbt
+  ports:
+    - "9010:9000"
