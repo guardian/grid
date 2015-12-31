@@ -23,7 +23,7 @@
 
     <div class="image-info__group">
         <dl>
-            <div class="image-info__wrap" ng:if="ctrl.metadata.title">
+            <div class="image-info__wrap overflow-hidden" ng:if="ctrl.metadata.title">
                 <button class="image-info__edit"
                         ng:if="ctrl.userCanEdit"
                         ng:click="titleEditForm.$show()"
@@ -36,7 +36,7 @@
                     e:form="titleEditForm">{{ctrl.metadata.title}}</dd>
             </div>
 
-            <div class="image-info__wrap metadata-line__info" ng:if="ctrl.metadata.description || ctrl.userCanEdit">
+            <div class="image-info__wrap metadata-line__info overflow-hidden" ng:if="ctrl.metadata.description || ctrl.userCanEdit">
                 <button class="image-info__edit"
                         ng:if="ctrl.userCanEdit"
                         ng:click="descriptionEditForm.$show()"
@@ -53,7 +53,7 @@
     </div>
 
     <div class="image-info__group" ng:if="ctrl.metadata.specialInstructions">
-        <dl class="image-info__wrap">
+        <dl class="image-info__wrap overflow-hidden">
             <button class="image-info__edit"
                     ng:if="ctrl.userCanEdit"
                     ng:click="specialInstructionsEditForm.$show()"
@@ -75,96 +75,95 @@
             <dd class="image-info__group--dl__value metadata-line__info" ng:if="ctrl.metadata.dateTaken">{{ctrl.metadata.dateTaken | date:'d MMM yyyy, HH:mm'}}</dd>
 
             <dt class="image-info__byline image-info__wrap metadata-line image-info__group--dl__key metadata-line__key" ng:if="ctrl.metadata.byline || ctrl.userCanEdit">By</dt>
-            <dd class="image-info__wrap image-info__group--dl__value metadata-line__info" ng:if="ctrl.metadata.byline || ctrl.userCanEdit">
+            <dd class="image-info__wrap overflow-hidden image-info__group--dl__value metadata-line__info" ng:if="ctrl.metadata.byline || ctrl.userCanEdit">
                 <button class="image-info__edit"
                         ng:if="ctrl.userCanEdit"
                         ng:click="bylineEditForm.$show()"
-                        ng:hide="bylineEditForm.$visible"
-                    >✎</button>
-                        <span class="image-info__byline"
-                              editable-text="ctrl.metadata.byline"
-                              onbeforesave="ctrl.updateMetadataField('byline', $data)"
-                              e:ng-class="{'image-info__editor--error': $error, 'image-info__editor--saving': bylineEditForm.$waiting}"
-                              e:form="bylineEditForm">
+                        ng:hide="bylineEditForm.$visible">✎</button>
+                <span class="image-info__byline"
+                      editable-text="ctrl.metadata.byline"
+                      onbeforesave="ctrl.updateMetadataField('byline', $data)"
+                      e:ng-class="{'image-info__editor--error': $error, 'image-info__editor--saving': bylineEditForm.$waiting}"
+                      e:form="bylineEditForm">
 
-                            <span ng:if="ctrl.metadata.byline">
-                                <a ui:sref="search.results({query: (ctrl.metadata.byline | queryFilter:'by')})">{{ctrl.metadata.byline}}</a>
-                            </span>
-                            <span ng:if="! ctrl.metadata.byline">
-                                Unknown (click ✎ to add)
-                            </span>
-                        </span>
+                    <span ng:if="ctrl.metadata.byline">
+                        <a ui:sref="search.results({query: (ctrl.metadata.byline | queryFilter:'by')})">{{ctrl.metadata.byline}}</a>
+                    </span>
+                    <span ng:if="! ctrl.metadata.byline">
+                        Unknown (click ✎ to add)
+                    </span>
+                </span>
             </dd>
 
             <dt ng:if="ctrl.metadata.credit || ctrl.userCanEdit" class="image-info__credit image-info__wrap image-info__group--dl__key metadata-line__key">Credit</dt>
-            <dd ng:if="ctrl.metadata.credit || ctrl.userCanEdit" class="image-info__wrap image-info__group--dl__value metadata-line__info">
+            <dd ng:if="ctrl.metadata.credit || ctrl.userCanEdit" class="image-info__wrap overflow-hidden image-info__group--dl__value metadata-line__info">
                 <button class="image-info__edit"
                         ng:if="ctrl.userCanEdit"
                         ng:click="creditEditForm.$show()"
-                        ng:hide="creditEditForm.$visible"
-                    >✎</button>
+                        ng:hide="creditEditForm.$visible">✎</button>
 
-                        <span class="metadata-line__info"
-                              editable-text="ctrl.metadata.credit"
-                              e:typeahead="credit for credit in ctrl.credits($viewValue) | limitTo:8"
-                              onbeforesave="ctrl.updateMetadataField('credit', $data)"
-                              e:ng-class="{'image-info__editor--error': $error, 'image-info__editor--saving': creditEditForm.$waiting}"
-                              e:form="creditEditForm">
+                <span class="metadata-line__info"
+                      editable-text="ctrl.metadata.credit"
+                      e:typeahead="credit for credit in ctrl.credits($viewValue) | limitTo:8"
+                      onbeforesave="ctrl.updateMetadataField('credit', $data)"
+                      e:ng-class="{'image-info__editor--error': $error, 'image-info__editor--saving': creditEditForm.$waiting}"
+                      e:form="creditEditForm">
 
-                            <span ng:if="ctrl.metadata.credit">
-                                <a ui:sref="search.results({query: (ctrl.metadata.credit | queryFilter:'credit')})">{{ctrl.metadata.credit}}</a>
-                            </span>
-                            <span ng:if="! ctrl.metadata.credit">
-                                Unknown (click ✎ to add)
-                            </span>
-                        </span>
+                    <span ng:if="ctrl.metadata.credit">
+                        <a ui:sref="search.results({query: (ctrl.metadata.credit | queryFilter:'credit')})">{{ctrl.metadata.credit}}</a>
+                    </span>
+                    <span ng:if="! ctrl.metadata.credit">
+                        Unknown (click ✎ to add)
+                    </span>
+                </span>
             </dd>
 
 
             <dt ng:if="ctrl.hasLocationInformation" class="image-info__group--dl__key metadata-line__key image-info__wrap">Location</dt>
             <dd ng:if="ctrl.hasLocationInformation" class="image-info__group--dl__value metadata-line__info">
-                        <span ng:repeat="prop in ['subLocation', 'city', 'state', 'country']" ng:if="ctrl.metadata[prop]">
-                            <span class="metadata-line__info">
-                                <a ui:sref="search.results({query: (ctrl.metadata[prop] | queryFilter:ctrl.locationFieldMap[prop])})">{{ctrl.metadata[prop]}}</a></span><span ng:if="! $last">,</span>
-                        </span>
+                <span ng:repeat="prop in ['subLocation', 'city', 'state', 'country']" ng:if="ctrl.metadata[prop]">
+                    <span class="metadata-line__info">
+                        <a ui:sref="search.results({query: (ctrl.metadata[prop] | queryFilter:ctrl.locationFieldMap[prop])})">{{ctrl.metadata[prop]}}</a>
+                    </span>
+                    <span ng:if="! $last">,</span>
+                </span>
             </dd>
 
 
             <dt ng:if="ctrl.metadata.copyright || ctrl.userCanEdit" class="image-info__wrap image-info__group--dl__key metadata-line__key">Copyright</dt>
-            <dd ng:if="ctrl.metadata.copyright || ctrl.userCanEdit" class="image-info__wrap image-info__group--dl__value metadata-line__info">
+            <dd ng:if="ctrl.metadata.copyright || ctrl.userCanEdit" class="image-info__wrap overflow-hidden image-info__group--dl__value metadata-line__info">
                 <button class="image-info__edit"
                         ng:if="ctrl.userCanEdit"
                         ng:click="copyrightEditForm.$show()"
-                        ng:hide="copyrightEditForm.$visible"
-                    >✎</button>
-                        <span class="image-info__copyright"
-                              editable-text="ctrl.metadata.copyright"
-                              onbeforesave="ctrl.updateMetadataField('copyright', $data)"
-                              e:ng-class="{'image-info__editor--error': $error, 'image-info__editor--saving': copyrightEditForm.$waiting}"
-                              e:form="copyrightEditForm">
+                        ng:hide="copyrightEditForm.$visible">✎</button>
+                <span class="image-info__copyright"
+                      editable-text="ctrl.metadata.copyright"
+                      onbeforesave="ctrl.updateMetadataField('copyright', $data)"
+                      e:ng-class="{'image-info__editor--error': $error, 'image-info__editor--saving': copyrightEditForm.$waiting}"
+                      e:form="copyrightEditForm">
 
-                            <span ng:if="ctrl.metadata.copyright">
-                                <a ui:sref="search.results({query: (ctrl.metadata.copyright | queryFilter:'copyright')})">{{ctrl.metadata.copyright}}</a>
-                            </span>
-                            <span ng:if="! ctrl.metadata.copyright">
-                                Unknown (click ✎ to add)
-                            </span>
-                        </span>
+                    <span ng:if="ctrl.metadata.copyright">
+                        <a ui:sref="search.results({query: (ctrl.metadata.copyright | queryFilter:'copyright')})">{{ctrl.metadata.copyright}}</a>
+                    </span>
+                    <span ng:if="! ctrl.metadata.copyright">
+                        Unknown (click ✎ to add)
+                    </span>
+                </span>
             </dd>
 
 
             <dt class="image-info__group--dl__key metadata-line__key image-info__wrap">Uploaded</dt>
             <dd class="image-info__group--dl__value metadata-line__info">
-                        <span class="metadata-line__info">
-                            {{ctrl.image.data.uploadTime | date:'d MMM yyyy, HH:mm'}}
-                        </span>
+                <span class="metadata-line__info">
+                    {{ctrl.image.data.uploadTime | date:'d MMM yyyy, HH:mm'}}
+                </span>
             </dd>
 
             <dt class="image-info__group--dl__key metadata-line__key image-info__wrap">Uploader</dt>
             <dd class="image-info__group--dl__value metadata-line__info">
-                        <span class="metadata-line__info">
-                            <a ui:sref="search.results({query: (ctrl.image.data.uploadedBy | queryFilter:'uploader')})">{{ctrl.image.data.uploadedBy | stripEmailDomain}}</a>
-                        </span>
+                <span class="metadata-line__info">
+                    <a ui:sref="search.results({query: (ctrl.image.data.uploadedBy | queryFilter:'uploader')})">{{ctrl.image.data.uploadedBy | stripEmailDomain}}</a>
+                </span>
             </dd>
 
             <dt ng:if="ctrl.image.data.uploadInfo.filename"
