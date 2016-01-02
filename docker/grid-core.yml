@@ -1,10 +1,6 @@
 sbt:
   build: .
   dockerfile: Dockerfile-core
-  volumes:
-    - "$HOME/.ivy2:/root/.ivy2"
-    - "../:/home/code"
-    - "$HOME/.gu:/etc/gu:ro"
   restart: unless-stopped
   entrypoint: /entrypoint.sh
 sbt-imaging:

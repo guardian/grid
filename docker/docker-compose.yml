@@ -1,3 +1,9 @@
+data:
+  image: java:openjdk-8-jdk
+  volumes:
+    - "$HOME/.ivy2:/root/.ivy2"
+    - "../:/home/code"
+    - "$HOME/.gu:/etc/gu:ro"
 elastic:
   build: .
   dockerfile: Dockerfile-elastic
@@ -18,6 +24,8 @@ media-api:
     - elastic
   ports:
     - "9001:9000"
+  volumes_from:
+    - data
 thrall:
   environment:
     APP: thrall
@@ -28,6 +36,8 @@ thrall:
     - elastic
   ports:
     - "9002:9000"
+  volumes_from:
+    - data
 image-loader:
   environment:
     APP: image-loader
@@ -36,6 +46,8 @@ image-loader:
     service: sbt-imaging
   ports:
     - "9003:9000"
+  volumes_from:
+    - data
 kahuna:
   environment:
     APP: kahuna
@@ -44,6 +56,8 @@ kahuna:
     service: sbt
   ports:
     - "9005:9000"
+  volumes_from:
+    - data
 cropper:
   environment:
     APP: cropper
@@ -52,6 +66,8 @@ cropper:
     service: sbt-imaging
   ports:
     - "9006:9000"
+  volumes_from:
+    - data
 metadata-editor:
   environment:
     APP: metadata-editor
@@ -60,6 +76,8 @@ metadata-editor:
     service: sbt
   ports:
     - "9007:9000"
+  volumes_from:
+    - data
 usage:
   environment:
     APP: usage
@@ -68,6 +86,8 @@ usage:
     service: sbt
   ports:
     - "9009:9000"
+  volumes_from:
+    - data
 collections:
   environment:
     APP: collections
@@ -76,3 +96,5 @@ collections:
     service: sbt
   ports:
     - "9010:9000"
+  volumes_from:
+    - data
