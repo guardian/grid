@@ -1,19 +1,24 @@
 # Docker
 
+
 ## Requirements
 - Docker (duh!)
+- Docker Compose
 
-## Known Limitations
-- Memory! By default, on OSX, the docker VM has 2GB of memory - you'll need to increase it
 
+## Usage
 ```sh
-cat ~/.docker/machine/machines/default/config.json \
-  | jq '.Driver.Memory' |= 6144 \
-  > ~/.docker/machine/machines/default/config.json
-
-for i in {9001..9010}; do
- VBoxManage modifyvm "default" --natpf1 "tcp-port$i,tcp,127.0.0.1,$i,,$i";
-done
+docker-compose up -d
 ```
 
-- Disk size available to elasticsearch for data?
+To look at the logs for a specific service:
+
+```sh
+docker-compose logs <service>
+```
+
+## Known Limitations on OSX
+- Memory! By default, on OSX, the docker VM has 2GB of memory - you'll need to increase it.
+- Ports! You need to forward the service ports from the Docker daemon VM to the host.
+
+These can both be done by running [`./osx-setup.sh`](./osx-setup.sh).
