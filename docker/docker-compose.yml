@@ -3,6 +3,8 @@ data:
   volumes:
     - "$HOME/.ivy2:/root/.ivy2"
     - "../:/home/code"
+
+# TODO generate the properties files in the entrypoint directive?
     - "$HOME/.gu:/etc/gu:ro"
 elastic:
   build: .
