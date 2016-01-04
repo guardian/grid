@@ -6,6 +6,7 @@ import '../../services/panel';
 import '../../services/api/collections-api';
 import '../../services/api/media-api';
 import '../../directives/gr-auto-focus';
+import '../../util/eq';
 
 import './gr-collections-panel.css!';
 import {getCollection} from '../../search-query/query-syntax';
@@ -13,7 +14,8 @@ import nodeTemplate from './gr-collections-panel-node.html!text';
 
 export var grCollectionsPanel = angular.module('grCollectionsPanel', [
     'kahuna.services.panel',
-    'util.rx'
+    'util.rx',
+    'util.eq'
 ]);
 
 grCollectionsPanel.controller('GrCollectionsPanelCtrl', [
@@ -36,14 +38,44 @@ grCollectionsPanel.controller('GrCollectionsPanelCtrl', [
     ctrl.selectedImages$ = selectedImages$;
 }]);
 
+grCollectionsPanel.factory('collectionsTreeState', ['$window', function($window) {
+    const localStorageKey = 'collectionsTreeState';
+    const defaultShowState = true;
+
+    function getStateFromStorage() {
+        const jsonStr = $window.localStorage.getItem(localStorageKey) || '{}';
+        return JSON.parse(jsonStr);
+    }
+
+
+    function setState(pathId, show) {
+        const newState = angular.extend({}, getStateFromStorage(), {[pathId]: show});
+        $window.localStorage.setItem(localStorageKey, JSON.stringify(newState));
+    }
+
+    function getState(pathId) {
+        const state = getStateFromStorage();
+        return angular.isDefined(state[pathId]) ? state[pathId] : defaultShowState;
+    }
+
+    return {
+        setState,
+        getState
+    }
+
+}]);
+
 grCollectionsPanel.controller('GrNodeCtrl',
-    ['$scope', 'collections', 'subscribe$', 'inject$',
-    function($scope, collections, subscribe$, inject$) {
+    ['$scope', 'collections', 'subscribe$', 'inject$', 'onValChange', 'collectionsTreeState',
+    function($scope, collections, subscribe$, inject$, onValChange, collectionsTreeState) {
 
     const ctrl = this;
+    const pathId = ctrl.node.data.content.pathId;
+
     ctrl.saving = false;
     ctrl.editing = false;
     ctrl.deletable = false;
+    ctrl.showChildren = collectionsTreeState.getState(pathId);
     ctrl.addChild = childName => collections.addChildTo(ctrl.node, childName);
     collections.isDeletable(ctrl.node).then(d => ctrl.deletable = d);
 
@@ -68,6 +100,9 @@ grCollectionsPanel.controller('GrNodeCtrl',
 
     inject$($scope, hasImagesSelected$, ctrl, 'hasImagesSelected');
 
+    $scope.$watch('ctrl.showChildren', onValChange(show => {
+        collectionsTreeState.setState(pathId, show);
+    }));
 
 }]);
 
@@ -90,7 +125,7 @@ grCollectionsPanel.directive('grNode', ['$parse', '$compile', function($parse, $
             $compile(`<gr-nodes
                 gr:selected-images="ctrl.selectedImages$"
                 gr:editing="ctrl.editing"
-                ng:show="showChildren"
+                ng:show="ctrl.showChildren"
                 gr:nodes="ctrl.node.data.children"
                 ng:if="ctrl.node.data.children.length > 0"></gr-nodes>
             `)(scope, cloned => {
