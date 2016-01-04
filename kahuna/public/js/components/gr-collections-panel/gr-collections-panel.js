@@ -61,7 +61,7 @@ grCollectionsPanel.factory('collectionsTreeState', ['$window', function($window)
     return {
         setState,
         getState
-    }
+    };
 
 }]);
 
