@@ -92,6 +92,11 @@
                                  ng:if="ctrl.selectionIsDeletable && ctrl.selectionCount > 0">
                 </gr-delete-image>
 
+                <gr-archiver class="results-toolbar-item results-toolbar-item--right"
+                             gr:images="ctrl.selectedImages"
+                             ng:if="ctrl.selectionCount > 0">
+                </gr-archiver>
+
                 <gr-panel-button
                     class="results-toolbar-item results-toolbar-item--no-hover results-toolbar-item--right"
                     gr:panel="ctrl.metadataPanel"
