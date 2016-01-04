@@ -11,6 +11,7 @@ import '../util/seq';
 import '../components/gu-lazy-table/gu-lazy-table';
 import '../downloader/downloader';
 import '../components/gr-delete-image/gr-delete-image';
+import '../components/gr-panel-button/gr-panel-button';
 
 export var results = angular.module('kahuna.search.results', [
     'kahuna.services.scroll-position',
@@ -20,7 +21,8 @@ export var results = angular.module('kahuna.search.results', [
     'util.seq',
     'gu.lazyTable',
     'gr.downloader',
-    'gr.deleteImage'
+    'gr.deleteImage',
+    'gr.panelButton'
 ]);
 
 
@@ -54,7 +56,7 @@ results.controller('SearchResultsCtrl', [
     'selection',
     'selectedImages$',
     'results',
-    'panelService',
+    'panels',
     'range',
     'isReloadingPreviousSearch',
     function($rootScope,
@@ -73,56 +75,15 @@ results.controller('SearchResultsCtrl', [
              selection,
              selectedImages$,
              results,
-             panelService,
+             panels,
              range,
              isReloadingPreviousSearch) {
 
         const ctrl = this;
 
-        const metadataPanelName = 'gr-panel';
-        const collectionsPanelName = 'gr-collections-panel';
-
-        ctrl.metadataPanelAvailable = panelService.isAvailable(metadataPanelName);
-        ctrl.metadataPanelVisible = panelService.isVisible(metadataPanelName);
-        ctrl.metadataPanelLocked = panelService.isLocked(metadataPanelName);
-
-        ctrl.collectionsPanelVisible = panelService.isVisible(collectionsPanelName);
-
-        ctrl.toggleLockMetadataPanel = () => {
-            if (ctrl.metadataPanelVisible) {
-                panelService.toggleLocked(metadataPanelName);
-            } else {
-                // If panel is not visible, show it (but don't lock) when clicked
-                panelService.show(metadataPanelName, false);
-            }
-        };
-
-        ctrl.toggleCollectionsPanel = () => {
-            if (ctrl.collectionsPanelVisible) {
-                panelService.hide(collectionsPanelName);
-            } else {
-                panelService.show(collectionsPanelName);
-            }
-        };
-
-        ctrl.showMetadataPanelMouseOver = () => panelService.show(metadataPanelName);
-        ctrl.showMetadataPanelMouseLeave = () => panelService.hide(metadataPanelName);
-
-        $rootScope.$on(
-            `ui:panels:${metadataPanelName}:updated`,
-            () => {
-                ctrl.metadataPanelAvailable = panelService.isAvailable(metadataPanelName);
-                ctrl.metadataPanelVisible = panelService.isVisible(metadataPanelName);
-                ctrl.metadataPanelLocked = panelService.isLocked(metadataPanelName);
-            }
-        );
-
-        $rootScope.$on(
-            `ui:panels:${collectionsPanelName}:updated`,
-            () => {
-                ctrl.collectionsPanelVisible = panelService.isVisible(collectionsPanelName);
-            }
-        );
+        // Panel control
+        ctrl.metadataPanel    = panels.metadataPanel;
+        ctrl.collectionsPanel = panels.collectionsPanel;
 
         ctrl.images = [];
         ctrl.newImagesCount = 0;

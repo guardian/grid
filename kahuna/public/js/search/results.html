@@ -4,29 +4,15 @@
     Fetching images…
 </div>
 
-<div ng:if="! ctrl.loading"
-    ng:class="{'results--left': ctrl.inSelectionMode}">
-    <div ng:if="ctrl.totalResults == 0"
-         class="image-no-results">
-        No matches, sorry!
-    </div>
-
-    <div ng:if="ctrl.totalResults > 0">
-        <div class="results-toolbar"
-             ng:class="{'results-toolbar--selection-mode': ctrl.metadataPanelAvailable}">
-
-            <button class="results-toolbar-item results-toolbar-item--left clickable"
-                 id="toggle-collections-button"
-                 ng:click="ctrl.toggleCollectionsPanel()">
-                <gr-icon-label ng:if="!ctrl.collectionsPanelVisible"
-                               class="inner-clickable"
-                               gr-icon="folder">Show collections
-                </gr-icon-label>
-                <gr-icon-label ng:if="ctrl.collectionsPanelVisible"
-                               class="inner-clickable"
-                               gr-icon="folder">Hide collections
-                </gr-icon-label>
-            </button>
+<div ng:if="! ctrl.loading">
+    <div>
+        <div class="results-toolbar">
+            <gr-panel-button class="results-toolbar-item results-toolbar-item--left results-toolbar-item--no-hover"
+                             id="toggle-collections-button"
+                             gr:panel="ctrl.collectionsPanel"
+                             gr:position="left"
+                             gr:name="collections">
+            </gr-panel-button>
 
             <div class="results-toolbar-item results-toolbar-item--static
                         image-results-count">
@@ -106,26 +92,16 @@
                                  ng:if="ctrl.selectionIsDeletable && ctrl.selectionCount > 0">
                 </gr-delete-image>
 
-                <a class="results-toolbar-item results-toolbar-item--right results-toolbar-item__metadata-panel-controls"
-                    ng:class="{'results-toolbar-item--disabled': !ctrl.metadataPanelAvailable, 'results-toolbar-item--active': ctrl.metadataPanelVisible}"
-                    ng:mouseover="ctrl.showMetadataPanelMouseOver()"
-                    ng:mouseleave="ctrl.showMetadataPanelMouseLeave()"
-                    ng:click="ctrl.toggleLockMetadataPanel()">
-                    <span ng:if="ctrl.metadataPanelVisible && !ctrl.metadataPanelLocked">
-                        <gr-icon-label gr-icon="lock_open">Lock info panel</gr-icon-label>
-                    </span>
-                    <span ng:if="ctrl.metadataPanelVisible && ctrl.metadataPanelLocked">
-                        <gr-icon-label gr-icon="lock">Unlock info panel</gr-icon-label>
-                    </span>
-                    <span ng:if="!ctrl.metadataPanelVisible">
-                        <gr-icon-label gr-icon="chrome_reader_mode">Show info panel</gr-icon-label>
-                    </span>
-                </a>
+                <gr-panel-button
+                    class="results-toolbar-item results-toolbar-item--no-hover results-toolbar-item--right"
+                    gr:panel="ctrl.metadataPanel"
+                    gr:position="right"
+                    gr:name="info">
+                </gr-panel-button>
             </div>
         </div>
 
         <ul class="results"
-            ng:class="{'results--panel-locked': ctrl.metadataPanelLocked }"
             gu:lazy-table="ctrl.imagesAll"
             gu:lazy-table-cell-min-width="280"
             gu:lazy-table-cell-height="292"
@@ -186,6 +162,11 @@
              class="image-results-more">
             <div class="image-results-more__heading">Too many results to display</div>
             <div class="image-results-more__instructions">Please refine your search to limit the number of results</div>
+        </div>
+
+        <div ng:if="ctrl.totalResults == 0"
+             class="image-no-results">
+            No matches, sorry!
         </div>
     </div>
 </div>

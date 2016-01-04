@@ -1,5 +1,6 @@
 import angular from 'angular';
 import 'angular-ui-router-extras';
+import 'angular-hotkeys';
 import Rx from 'rx';
 import 'rx-dom';
 import Immutable from 'immutable';
@@ -12,6 +13,8 @@ import '../lib/data-structure/ordered-set-factory';
 import '../components/gr-top-bar/gr-top-bar';
 import '../components/gr-panel/gr-panel';
 import '../components/gr-collections-panel/gr-collections-panel';
+
+import '../components/gr-panels/gr-panels';
 
 import searchTemplate        from './view.html!text';
 import searchResultsTemplate from './results.html!text';
@@ -28,9 +31,11 @@ export var search = angular.module('kahuna.search', [
     'data-structure.list-factory',
     'data-structure.ordered-set-factory',
     'gr.topBar',
+    'gr.panels',
     'grPanel',
     'grCollectionsPanel',
-    'ui.router'
+    'ui.router',
+    'cfp.hotkeys'
 ]);
 
 // TODO: add a resolver here so that if we error (e.g. 401) we don't keep trying
@@ -65,6 +70,32 @@ search.config(['$stateProvider', '$urlMatcherFactoryProvider',
                 });
                 return {state: $dsr$.redirect.state, params};
             }]
+        },
+        controllerAs: 'ctrl',
+        controller: ['$scope', 'panels', 'shortcutKeys', 'hotkeys',
+                     function($scope, panels, shortcutKeys, hotkeys) {
+
+            const ctrl = this;
+            ctrl.collectionsPanel = panels.collectionsPanel;
+            ctrl.metadataPanel = panels.metadataPanel;
+
+            hotkeys.bindTo($scope).add({
+                combo: shortcutKeys.get('metadataPanel'),
+                description: 'Toggle metadata panel',
+                callback: panels.metadataPanel.toggleHidden
+            });
+        }],
+        resolve: {
+            shortcutKeys: [function() {
+                // keep the shortcut keys here to stop overriding
+                return new Map([['metadataPanel', 'm']]);
+            }],
+            panels: ['panelService', function(panelService) {
+                const collectionsPanel = panelService.createPanel(true);
+                const metadataPanel = panelService.createPanel(true);
+
+                return { collectionsPanel, metadataPanel };
+           }]
         }
     });
 
@@ -127,7 +158,7 @@ search.config(['$stateProvider', '$urlMatcherFactoryProvider',
                 controller: 'SearchResultsCtrl',
                 controllerAs: 'ctrl'
             },
-            panel: {
+            infoPanel: {
                 template: panelTemplate,
                 controller: 'GrPanel',
                 controllerAs: 'ctrl',

@@ -1,136 +1,58 @@
 import angular from 'angular';
+import Rx from 'rx';
+
 
 export const panelService = angular.module('kahuna.services.panel', []);
 
-panelService.factory('panelService', [ '$rootScope', '$timeout', function ($rootScope, $timeout) {
+panelService.factory('panelService', [function () {
+    function mergeState(o, n) {
+        // This is to avoid us getting into the state of (hidden && locked)
+        // TODO: Error on a client asking for that state, given that we don't expose a method
+        // to do that it's okay.
+        const locked = n.hidden === true ? false :
+            (angular.isDefined(n.locked) ? n.locked: o.locked);
+        const hidden = n.locked === true ? false :
+            (angular.isDefined(n.hidden) ? n.hidden : o.hidden);
 
-    class UIPanel {
-        constructor(options) {
-            this.name = options.name;
-
-            this.visible = options.initVisible || false;
-            this.availability = options.initAvailable || false;
-            this.locked = options.initLocked || false;
-        }
-
-        isAvailable() {
-            return this.availability;
-        }
-
-        isVisible() {
-            return this.visible && this.availability;
-        }
-
-        isLocked() {
-            return this.visible && this.availability && this.locked;
-        }
-
-        show() {
-            if (!this.locked && this.availability) {
-                this.visible = true;
-            }
-        }
-
-        hide() {
-            if (!this.locked && this.availability) {
-                this.visible = false;
-            }
-        }
-
-        available() {
-            this.availability = true;
-        }
-
-        unavailable() {
-            this.availability = false;
-        }
-
-        lock() {
-            if (this.visible && this.availability) {
-                this.locked = true;
-            }
-        }
-
-        unlock() {
-            if (this.visible && this.availability) {
-                this.locked = false;
-            }
-        }
+        return {locked, hidden};
     }
 
-    let panels = [];
-    let actions = [];
+    function newPanel(hidden = false, locked = false) {
+        const startOp = () => ({hidden, locked});
+        const stateSub$ = new Rx.Subject();
 
-    const broadcastChange = (panelName, eventName) => $rootScope.$broadcast(
-        'ui:panels:' + panelName + ':' + eventName
-    );
+        const change = (obs$, func) => obs$.onNext(func);
 
-    const addPanel = (panelName, initVisible) => {
-        panels[panelName] = new UIPanel({ panelName, initVisible });
-        broadcastChange(panelName, 'updated');
-    };
+        const state$ = stateSub$.startWith(startOp)
+            .scan(startOp, (state, op) => op(state))
+            .distinctUntilChanged()
+            .shareReplay(1);
 
-    const panelAction = (panelName, proc, cancelable) => {
-        const performProc = () => {
-            if (panels[panelName]) {
-                proc();
-                broadcastChange(panelName, 'updated');
-            }
+        const setHidden = hidden => change(stateSub$, state => mergeState(state, {hidden}));
+        const setLocked = locked =>
+            change(stateSub$, state => mergeState(state, {locked}));
+
+        const toggleHidden = () => change(stateSub$, state  =>
+            mergeState(state, {hidden:!state.hidden}));
+
+        const toggleLocked = () => change(stateSub$, state  =>
+            mergeState(state, {locked:!state.locked}));
+
+        return {
+            state$,
+            toggleHidden,
+            toggleLocked,
+            setHidden,
+            setLocked
         };
+    }
 
-        if (actions[panelName]) {
-            $timeout.cancel(actions[panelName]);
-        }
-
-        if (cancelable) {
-            actions[panelName] = $timeout(() => {
-                performProc();
-            }, 400);
-        } else {
-            performProc();
-        }
-    };
-
-    const isVisible = (panelName) =>
-        panels[panelName] ? panels[panelName].isVisible() : false;
-    const isAvailable =  (panelName) =>
-        panels[panelName] ? panels[panelName].isAvailable() : false;
-    const isLocked =  (panelName) =>
-        panels[panelName] ? panels[panelName].isLocked() : false;
-
-    const available = (panelName, cancelable = true) =>
-        panelAction(panelName, () => panels[panelName].available(), cancelable);
-
-    const unavailable = (panelName, cancelable = true) =>
-        panelAction(panelName, () => panels[panelName].unavailable(), cancelable);
-
-    const show = (panelName, cancelable = true) =>
-        panelAction(panelName, () => panels[panelName].show(), cancelable);
-
-    const hide = (panelName, cancelable = true) =>
-        panelAction(panelName, () => panels[panelName].hide(), cancelable);
-
-    const lock = (panelName, cancelable = false) =>
-        panelAction(panelName, () => panels[panelName].lock(), cancelable);
-
-    const unlock = (panelName, cancelable = false) =>
-        panelAction(panelName, () => panels[panelName].unlock(), cancelable);
-
-    const toggleLocked = (panelName) => isLocked(panelName) ?
-        unlock(panelName) : lock(panelName);
+    function createPanel(hidden = false, locked = false) {
+        return newPanel(hidden, locked);
+    }
 
     return {
-        addPanel,
-        isVisible,
-        isAvailable,
-        isLocked,
-        lock,
-        unlock,
-        toggleLocked,
-        available,
-        unavailable,
-        show,
-        hide
+        createPanel
     };
 
 }]);

@@ -37,7 +37,6 @@ grPanel.controller('GrPanel', [
     'selection',
     'selectedImagesList$',
     'labelService',
-    'panelService',
     'archiveService',
     'editsService',
     'editsApi',
@@ -54,33 +53,15 @@ grPanel.controller('GrPanel', [
         selection,
         selectedImagesList$,
         labelService,
-        panelService,
         archiveService,
         editsService,
         editsApi) {
 
         const ctrl = this;
-        const panelName = 'gr-panel';
 
         ctrl.showUsageRights = false;
 
-        panelService.addPanel(panelName, false);
-        panelService.available(panelName, false);
-        ctrl.isVisible = panelService.isVisible(panelName);
-
-        $rootScope.$on(
-            `ui:panels:${panelName}:updated`,
-            () => ctrl.isVisible = panelService.isVisible(panelName)
-        );
-        ctrl.metadataPanelMouseOver = () => panelService.show(panelName);
-        ctrl.metadataPanelMouseLeave = () => panelService.hide(panelName);
-        ctrl.metadataPanelHide = () => {
-            panelService.unlock(panelName);
-            panelService.hide(panelName);
-        };
-
         inject$($scope, selectedImagesList$, ctrl, 'selectedImages');
-
 
         const selectedCosts$ = selectedImagesList$.
               map(imageList.getCost).

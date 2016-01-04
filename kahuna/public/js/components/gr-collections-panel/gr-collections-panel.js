@@ -18,20 +18,9 @@ grCollectionsPanel.controller('GrCollectionsPanelCtrl', [
     function (panelService, $rootScope, collections) {
 
     const ctrl = this;
-    const panelName = 'gr-collections-panel';
 
     ctrl.isVisible = false;
     ctrl.error = false;
-
-    panelService.addPanel(panelName, false);
-    panelService.available(panelName, true);
-
-    $rootScope.$on(
-        `ui:panels:${panelName}:updated`,
-        () => {
-            ctrl.isVisible = panelService.isVisible(panelName);
-        }
-    );
 
     collections.getCollections().then(collections => {
         ctrl.collections = collections.data.children;

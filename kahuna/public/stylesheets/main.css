@@ -1,3 +1,16 @@
+/* ==========================================================================
+   Notes
+   ==========================================================================
+
+z-index
+=======
+1  = everything
+10 = things to be just above everything
+20 = user controls i.e. panels
+30 = the top layer i.e. top-bar.
+40 = overlay layer i.e. modals, dnd overlay.
+
+========================================================================== */
 
 /* ==========================================================================
    Common
@@ -178,6 +191,10 @@ button[disabled],
 .button-ico {
     padding: 4px;
 }
+.button-ico-square {
+    width: 36px;
+    height: 36px;
+}
 
 .button-save {
     background: #00adee;
@@ -297,6 +314,9 @@ button[disabled],
 .flex-container {
     display: flex;
 }
+.flex-container--rtl {
+    flex-direction: row-reverse;
+}
 
 .flex-spacer {
     flex-grow: 1;
@@ -346,6 +366,23 @@ button[disabled],
 
 .text-small {
     font-size: 13px;
+}
+
+.separator-left {
+    border-left: 1px solid #565656;
+}
+
+.separator-right {
+    border-right: 1px solid #565656;
+}
+
+.fill-height {
+    height: 100%;
+}
+
+.bg-light {
+    background-color: #444;
+    color: white;
 }
 
 
@@ -449,7 +486,7 @@ textarea.ng-invalid {
     left: 0;
     right: 0;
     top: 5px;
-    z-index: 10;
+    z-index: 40;
     text-align: center;
 }
 
@@ -725,15 +762,6 @@ input.search-query__input {
     position: relative;
 }
 
-.results--panel-locked {
-    width: calc(100% - 290px);
-}
-
-.results--left {
-    position: relative;
-
-}
-
 .results-controls {
     background: white;
     padding: 10px;
@@ -875,20 +903,15 @@ input.search-query__input {
 
 .results-toolbar {
     font-size: 1.4rem;
-    margin: 0px 0px 0;
+    margin: 0 0 0;
     height: 35px;
     display: flex;
-    position: absolute;
-
-    z-index: 1;
     background-color: #333;
     width: 100%;
     border-bottom: 1px solid #565656;
-}
-
-.results-toolbar--selection-mode {
     position: fixed;
-    z-index: 2;
+    z-index: 30;
+    left: 0;
 }
 
 .results-toolbar__right {
@@ -928,6 +951,10 @@ input.search-query__input {
     color: #666;
 }
 
+.results-toolbar-item--no-hover:hover {
+    background: #333;
+}
+
 .results-toolbar-item--active {
     background-color: #444;
 }
@@ -948,10 +975,6 @@ input.search-query__input {
 
 .results-toolbar-item__sort-direction {
     padding: 0px;
-}
-
-.results-toolbar-item__metadata-panel-controls {
-    height: 36px;
 }
 
 .related-labels--with-labels {
@@ -1353,13 +1376,16 @@ FIXME: what to do with touch devices
 
 .image-details {
     box-sizing: border-box;
-    float: right;
     font-size: 1.3rem;
-    height: calc(100vh - 50px); /* viewport - top-bar */
     overflow: auto;
+    background-color: #444;
+}
+/* HACK: This is here until we start using the panelled-content here */
+.image-details--full-image {
+    float: right;
+    height: calc(100vh - 50px); /* viewport - top-bar */
     width: 300px;
     border-left: 1px solid #565656;
-    background-color: #444;
 }
 
 .image-details--crop {
@@ -1368,6 +1394,7 @@ FIXME: what to do with touch devices
     border-right: 1px solid #565656;
     border-left: none;
     position: relative;
+    height: calc(100vh - 50px); /* viewport - top-bar */
 }
 
 .image-details__delete-crops {
@@ -1884,7 +1911,7 @@ FIXME: what to do with touch devices
     position: fixed;
     top: 0;
     left: 0;
-    z-index: 3;
+    z-index: 40;
     text-align: center;
 }
 
