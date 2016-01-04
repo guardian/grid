@@ -23,6 +23,9 @@ module.controller('grArchiverCtrl', [
 
         const ctrl = this;
 
+        ctrl.archivedState = 'unarchived';
+        ctrl.archiving = false;
+
         $scope.$watchCollection(getImageArray, (images) => {
             const allArchived = images.every(imageAccessor.isArchived);
             ctrl.archivedState = allArchived ? 'archived' : 'unarchived';
