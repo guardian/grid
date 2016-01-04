@@ -64,16 +64,20 @@ trait SearchFilters extends ImageFields {
     Composite.category
   )
 
+  val persistedCategories = NonEmptyList(
+    StaffPhotographer.category,
+    ContractPhotographer.category,
+    CommissionedPhotographer.category,
+    ContractIllustrator.category,
+    CommissionedIllustrator.category,
+    CommissionedAgency.category
+  )
+
   val persistedFilter = filters.or(
     filters.bool.must(filters.existsOrMissing("exports", true)),
     filters.exists(NonEmptyList(identifierField(Config.persistenceIdentifier))),
     filters.bool.must(filters.boolTerm(editsField("archived"), true)),
-    filters.bool.must(filters.term(usageRightsField("category"), StaffPhotographer.category)),
-    filters.bool.must(filters.term(usageRightsField("category"), ContractPhotographer.category)),
-    filters.bool.must(filters.term(usageRightsField("category"), CommissionedPhotographer.category)),
-    filters.bool.must(filters.term(usageRightsField("category"), ContractIllustrator.category)),
-    filters.bool.must(filters.term(usageRightsField("category"), CommissionedIllustrator.category)),
-    filters.bool.must(filters.term(usageRightsField("category"), CommissionedAgency.category))
+    filters.bool.must(filters.terms(usageRightsField("category"), persistedCategories))
   )
 
   val nonPersistedFilter = filters.not(persistedFilter)

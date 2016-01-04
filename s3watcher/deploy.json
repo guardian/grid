@@ -13,11 +13,19 @@
                     }
                 }
             }
+        },
+        "s3-watcher": {
+            "type": "aws-s3",
+            "data": {
+                "bucket": "media-service-dist",
+                "cacheControl": "public, max-age=60",
+                "publicReadAcl": false
+            }
         }
     },
     "recipes": {
         "default": {
-            "actions": ["lambda.updateLambda"]
+            "actions": [ "s3-watcher.uploadStaticFiles", "lambda.updateLambda" ]
         }
     }
 }

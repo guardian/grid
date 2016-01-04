@@ -9,8 +9,8 @@ object UsageRightsMetadataMapper {
       case u: StaffPhotographer        => ImageMetadata(byline = Some(u.photographer), credit = Some(u.publication))
       case u: ContractPhotographer     => ImageMetadata(byline = Some(u.photographer), credit = u.publication)
       case u: CommissionedPhotographer => ImageMetadata(byline = Some(u.photographer), credit = u.publication)
-      case u: ContractIllustrator      => ImageMetadata(credit = Some(u.creator))
-      case u: CommissionedIllustrator  => ImageMetadata(credit = Some(u.creator))
+      case u: ContractIllustrator      => ImageMetadata(byline = Some(u.creator),      credit = Some(u.creator))
+      case u: CommissionedIllustrator  => ImageMetadata(byline = Some(u.creator),      credit = Some(u.creator))
       case u: Composite                => ImageMetadata(credit = Some(u.suppliers))
     }
 
