@@ -9,8 +9,8 @@ import '../util/async';
 import '../util/rx';
 import '../util/seq';
 import '../components/gu-lazy-table/gu-lazy-table';
-import '../downloader/downloader';
 import '../components/gr-delete-image/gr-delete-image';
+import '../components/gr-downloader/gr-downloader';
 import '../components/gr-panel-button/gr-panel-button';
 
 export var results = angular.module('kahuna.search.results', [
