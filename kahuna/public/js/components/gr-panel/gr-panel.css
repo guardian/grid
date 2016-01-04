@@ -89,8 +89,3 @@
 .batch-label .labels {
     display: inline-block;
 }
-
-.batch-archive__archive:hover,
-.batch-archive__unarchive:hover {
-    color: white;
-}
