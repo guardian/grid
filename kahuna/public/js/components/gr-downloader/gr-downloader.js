@@ -1,7 +1,7 @@
 import angular from 'angular';
 import JSZip from 'jszip';
-import './downloader.css!';
-import template from './downloader.html!text';
+import './gr-downloader.css!';
+import template from './gr-downloader.html!text';
 
 export const downloader = angular.module('gr.downloader', []);
 
