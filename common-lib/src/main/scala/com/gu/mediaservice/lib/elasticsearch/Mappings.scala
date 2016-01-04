@@ -64,18 +64,18 @@ object Mappings {
     "byline" -> (standardAnalysedString ++ copyTo("metadata.englishAnalysedCatchAll")),
     "bylineTitle" -> standardAnalysedString,
     "title" -> sStemmerAnalysedString,
-    "credit" ->  nonAnalyzedString,
+    "credit" ->  (nonAnalyzedString ++ copyTo("metadata.englishAnalysedCatchAll")),
     "creditUri" -> nonAnalyzedString,
     "copyright" -> standardAnalysedString,
     "copyrightNotice" -> standardAnalysedString,
-    "suppliersReference" -> standardAnalysedString,
-    "source" -> nonAnalyzedString,
+    "suppliersReference" -> (standardAnalysedString ++ copyTo("metadata.englishAnalysedCatchAll")),
+    "source" -> (nonAnalyzedString ++ copyTo("metadata.englishAnalysedCatchAll")),
     "specialInstructions" -> nonAnalyzedString,
-    "keywords" -> nonAnalysedList("keyword"),
-    "subLocation" -> standardAnalysedString,
-    "city" -> standardAnalysedString,
-    "state" -> standardAnalysedString,
-    "country" -> standardAnalysedString,
+    "keywords" -> (nonAnalysedList("keyword") ++ copyTo("metadata.englishAnalysedCatchAll")),
+    "subLocation" -> (standardAnalysedString ++ copyTo("metadata.englishAnalysedCatchAll")),
+    "city" -> (standardAnalysedString ++ copyTo("metadata.englishAnalysedCatchAll")),
+    "state" -> (standardAnalysedString ++ copyTo("metadata.englishAnalysedCatchAll")),
+    "country" -> (standardAnalysedString ++ copyTo("metadata.englishAnalysedCatchAll")),
     "englishAnalysedCatchAll" -> sStemmerAnalysedString
   )
 
@@ -119,7 +119,7 @@ object Mappings {
   val userMetadataMapping =
     nonDynamicObj(
       "archived"    -> boolean,
-      "labels"      -> nonAnalysedList("label"),
+      "labels"      -> (nonAnalysedList("label") ++ copyTo("metadata.englishAnalysedCatchAll")),
       "metadata"    -> metadataMapping,
       "usageRights" -> usageRightsMapping
     )
