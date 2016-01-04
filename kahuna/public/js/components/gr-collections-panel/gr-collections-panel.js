@@ -8,6 +8,7 @@ import '../../services/api/media-api';
 import '../../directives/gr-auto-focus';
 
 import './gr-collections-panel.css!';
+import {getCollection} from '../../search-query/query-syntax';
 import nodeTemplate from './gr-collections-panel-node.html!text';
 
 export var grCollectionsPanel = angular.module('grCollectionsPanel', [
@@ -47,6 +48,8 @@ grCollectionsPanel.controller('GrNodeCtrl',
     collections.isDeletable(ctrl.node).then(d => ctrl.deletable = d);
 
     ctrl.remove = () => collections.removeFromList(ctrl.node, ctrl.nodeList);
+
+    ctrl.getCollectionQuery = path => getCollection(path);
 
     // TODO: move this somewhere sensible, we probably don't want an observable for each node.
     const add$ = new Rx.Subject();

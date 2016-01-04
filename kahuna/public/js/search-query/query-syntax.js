@@ -1,6 +1,7 @@
-const hasSpace    = s     => /\s/g.test(s);
-const labelMatch  = label => new RegExp(`(label:|#)("|')?${label}(("|')|\\b)`, 'g');
-const createLabel = label => hasSpace(label) ? `#"${label}"` : `#${label}`;
+const hasSpace         = s     => /\s/g.test(s);
+const labelMatch       = label => new RegExp(`(label:|#)("|')?${label}(("|')|\\b)`, 'g');
+const createLabel      = label => hasSpace(label) ? `#"${label}"` : `#${label}`;
+const createCollection = path  => hasSpace(path) ? `~"${path}"` : `~${path}`;
 
 function hasLabel(q, label) {
     return labelMatch(label).test(q);
@@ -16,4 +17,8 @@ export function removeLabel(q, label) {
 
 export function removeLabels(q, labels) {
     return labels.reduce((q, curr) => removeLabel(q, curr.name), q);
+}
+
+export function getCollection(path) {
+    return createCollection(path);
 }
