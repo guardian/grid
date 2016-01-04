@@ -16,7 +16,7 @@ module.factory('keyboardShortcut', ['hotkeys', 'track', function (hotkeys, track
                 add: function (args) {
                     const hotKeyDefinition = angular.extend({}, args, {
                         callback: function () {
-                            track.success('Keyboard shortcut', { shortcut: args.description});
+                            track.success('Keyboard shortcut', { shortcut: args.description });
                             args.callback();
                         }
                     });
