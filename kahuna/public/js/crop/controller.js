@@ -1,15 +1,16 @@
 import angular from 'angular';
 import 'angular-hotkeys';
+import '../analytics/track';
 
-var crop = angular.module('kahuna.crop.controller', ['cfp.hotkeys']);
+var crop = angular.module('kahuna.crop.controller', ['cfp.hotkeys', 'analytics.track']);
 
 crop.controller('ImageCropCtrl',
                 ['$scope', '$rootScope', '$stateParams', '$state',
                  '$filter', '$document', 'mediaApi', 'mediaCropper',
-                 'image', 'optimisedImageUri', 'hotkeys',
+                 'image', 'optimisedImageUri', 'hotkeys', 'track',
                  function($scope, $rootScope, $stateParams, $state,
                           $filter, $document, mediaApi, mediaCropper,
-                          image, optimisedImageUri, hotkeys) {
+                          image, optimisedImageUri, hotkeys, track) {
 
     const ctrl = this;
     const imageId = $stateParams.imageId;
@@ -18,17 +19,24 @@ crop.controller('ImageCropCtrl',
         .add({
             combo: 'esc',
             description: 'Cancel crop and return to image',
-            callback: () => $state.go('image', {imageId: ctrl.image.data.id})
+            callback: () => {
+                track.success('Keyboard shortcut', { shortcut: 'Cancel crop' });
+                $state.go('image', {imageId: ctrl.image.data.id});
+            }
         })
         .add({
             combo: 'enter',
             description: 'Create crop',
-            callback: () => ctrl.callCrop()
+            callback: () => {
+                track.success('Keyboard shortcut', { shortcut: 'Create crop' });
+                ctrl.callCrop();
+            }
         })
         .add({
             combo: 'l',
             description: 'Start landscape crop',
             callback: () => {
+                track.success('Keyboard shortcut', { shortcut: 'Start landscape crop' });
                 ctrl.aspect = ctrl.landscapeRatio;
             }
         })
@@ -36,6 +44,7 @@ crop.controller('ImageCropCtrl',
             combo: 'p',
             description: 'Start portrait crop',
             callback: () => {
+                track.success('Keyboard shortcut', { shortcut: 'Start portrait crop' });
                 ctrl.aspect = ctrl.portraitRatio;
             }
         })
@@ -43,6 +52,7 @@ crop.controller('ImageCropCtrl',
             combo: 'v',
             description: 'Start video crop',
             callback: () => {
+                track.success('Keyboard shortcut', { shortcut: 'Start video crop' });
                 ctrl.aspect = ctrl.videoRatio;
             }
         })
@@ -50,6 +60,7 @@ crop.controller('ImageCropCtrl',
             combo: 'f',
             description: 'Start free-form crop',
             callback: () => {
+                track.success('Keyboard shortcut', { shortcut: 'Start free-form crop' });
                 // freeRatio's 'null' gets converted to empty string somehow, meh
                 ctrl.aspect = '';
             }
