@@ -23,15 +23,14 @@ module.controller('grArchiverCtrl', [
 
         const ctrl = this;
 
-        $scope.$watchCollection(() => ctrl.images.toJS(), (images) => {
+        $scope.$watchCollection(getImageArray, (images) => {
             const allArchived = images.every(imageAccessor.isArchived);
             ctrl.archivedState = allArchived ? 'archived' : 'unarchived';
         });
 
         ctrl.archive = () => {
             ctrl.archiving = true;
-            var imageArray = Array.from(ctrl.images);
-            archiveService.batchArchive(imageArray)
+            archiveService.batchArchive(getImageArray())
                 .then(() => {
                     ctrl.archiving = false;
                 });
@@ -39,12 +38,16 @@ module.controller('grArchiverCtrl', [
 
         ctrl.unarchive = () => {
             ctrl.archiving = true;
-            var imageArray = Array.from(ctrl.images);
-            archiveService.batchUnarchive(imageArray)
+            archiveService.batchUnarchive(getImageArray())
                 .then(() => {
                     ctrl.archiving = false;
                 });
         };
+
+        function getImageArray() {
+            // Convert from Immutable Set to JS Array
+            return Array.from(ctrl.images);
+        }
     }
 ]);
 
