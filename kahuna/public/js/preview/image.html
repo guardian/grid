@@ -46,13 +46,6 @@
 
     <div class="preview__info" ng:if="! ctrl.hideInfo">
         <div class="flex-container">
-            <span class="preview__info__collection"
-                ng-repeat="collection in ctrl.image.data.collections"
-                gr:tooltip="{{collection.data.path.join(' ▸ ')}}">
-                <a ui:sref="search.results({query: '~'+collection.data.pathId})">
-                    {{collection.data.path[0].slice(0,3)}}
-                </a>
-            </span>
             <ui-labeller-compact class="preview__labeller"
                                  image="ctrl.image"
                                  disabled="ctrl.selectionMode"
