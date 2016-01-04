@@ -34,7 +34,7 @@ module.controller('grArchiverCtrl', [
         ctrl.archive = () => {
             ctrl.archiving = true;
             archiveService.batchArchive(getImageArray())
-                .then(() => {
+                .finally(() => {
                     ctrl.archiving = false;
                 });
         };
@@ -42,7 +42,7 @@ module.controller('grArchiverCtrl', [
         ctrl.unarchive = () => {
             ctrl.archiving = true;
             archiveService.batchUnarchive(getImageArray())
-                .then(() => {
+                .finally(() => {
                     ctrl.archiving = false;
                 });
         };
