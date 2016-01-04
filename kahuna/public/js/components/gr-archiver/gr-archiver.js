@@ -15,9 +15,11 @@ export const module = angular.module('gr.archiver', [
 
 module.controller('grArchiverCtrl', [
     '$scope',
+    '$window',
     'archiveService',
     'imageAccessor',
     function ($scope,
+              $window,
               archiveService,
               imageAccessor) {
 
@@ -34,6 +36,9 @@ module.controller('grArchiverCtrl', [
         ctrl.archive = () => {
             ctrl.archiving = true;
             archiveService.batchArchive(getImageArray())
+                .catch(() => {
+                    $window.alert('Failed to keep in Library, please try again.');
+                })
                 .finally(() => {
                     ctrl.archiving = false;
                 });
@@ -42,6 +47,9 @@ module.controller('grArchiverCtrl', [
         ctrl.unarchive = () => {
             ctrl.archiving = true;
             archiveService.batchUnarchive(getImageArray())
+                .catch(() => {
+                    $window.alert('Failed to remove from Library, please try again.');
+                })
                 .finally(() => {
                     ctrl.archiving = false;
                 });
