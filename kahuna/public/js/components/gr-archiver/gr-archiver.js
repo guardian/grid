@@ -1,5 +1,4 @@
 import angular from 'angular';
-import Rx from 'rx';
 
 import './gr-archiver.css!';
 import template from './gr-archiver.html!text';
