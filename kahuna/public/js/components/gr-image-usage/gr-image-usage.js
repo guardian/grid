@@ -23,9 +23,10 @@ module.controller('grImageUsageCtrl', [
 
         const ctrl = this;
 
-        const usages$ = imageUsagesService
-            .getUsages(ctrl.image)
-            .groupedByState$.map((u) => u.toJS());
+        const usages = imageUsagesService.getUsages(ctrl.image);
+
+        const usages$ = usages.groupedByState$.map((u) => u.toJS());
+        const usagesCount$ = usages.count$;
 
         ctrl.usageTypeToName = (usageType) => {
             switch (usageType) {
@@ -41,6 +42,7 @@ module.controller('grImageUsageCtrl', [
         };
 
         inject$($scope, usages$, ctrl, 'usages');
+        inject$($scope, usagesCount$, ctrl, 'usagesCount');
 }]);
 
 module.directive('grImageUsage', [function() {

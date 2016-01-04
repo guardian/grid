@@ -31,7 +31,7 @@ module.exports = {
         };
 
         const failGraceful = function(e) {
-            Logger.logUploadFail(config.stage, e);
+            Logger.logImportFail(config.stage, e);
             Logger.logCopyToFailBucket(config.stage, s3CopyObject);
 
             return S3Helper.copyS3Object(s3CopyObject).flatMap(function(){
@@ -43,27 +43,27 @@ module.exports = {
 
         // TODO: Use stream API
         const operation = function() {
-            Logger.logDownload(config.stage, s3Object);
+            Logger.logImport(config.stage, s3Object);
 
-            return S3Helper.getS3Object(s3Object).flatMap(function(data){
-                Logger.logUpload(config.stage, {
-                    size: upload.size,
-                    filename: upload.params.filename,
-                    uploadedBy: upload.params.uploadedBy,
-                    stage: upload.params.stage
-                });
-
-                return Upload.postData(upload, data.Body);
-            }).retry(5).flatMap(function(uploadResult){
-                Logger.logRecordToCloudWatch(config.stage, uploadResult);
-
-                return cloudwatch.putMetricData(
-                    Metrics.create(uploadResult)).map(
-                        function(){ return uploadResult; });
-
-            }).flatMap(function(uploadResult){
-                return uploadResult.succeeded ? success() : failGraceful();
+            const urlExpiryInSeconds = config.s3UrlExpiry;
+            const signedUrl = S3Helper.getSignedUrl('getObject', {
+                Bucket: s3Object.Bucket,
+                Key: s3Object.Key,
+                Expires: urlExpiryInSeconds
             });
+
+            return Upload.
+                postUri(upload, signedUrl).
+                retry(5).
+                flatMap(function(uploadResult){
+                    Logger.logRecordToCloudWatch(config.stage, uploadResult);
+
+                    return cloudwatch.putMetricData(
+                        Metrics.create(uploadResult)).map(uploadResult);
+
+                }).flatMap(function(uploadResult){
+                    return uploadResult.succeeded ? success() : failGraceful();
+                });
         };
 
         return {

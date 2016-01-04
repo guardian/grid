@@ -47,12 +47,14 @@ imageUsagesService.factory('imageUsagesService', [function() {
 
             const hasPrintUsages$ = hasPlatformUsages('print');
             const hasDigitalUsages$ = hasPlatformUsages('digital');
+            const count$ = usages$.map((usages) => usages.size);
 
             return {
                 usages$,
                 groupedByState$,
                 hasPrintUsages$,
-                hasDigitalUsages$
+                hasDigitalUsages$,
+                count$
             };
         }
     };
