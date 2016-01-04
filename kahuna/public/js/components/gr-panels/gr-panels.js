@@ -76,8 +76,6 @@ panels.directive('grPanel', ['$timeout', '$window', 'inject$', 'subscribe$',
                     (ev, state) => !(state.locked || state.hidden)
                 ).filter(shouldHide => shouldHide);
 
-            scrollWhileVisAndUnlocked$.subscribe(a => console.log(a));
-
             // Then hide the panel
             subscribe$(scope, scrollWhileVisAndUnlocked$, () => {
                 scope.$apply(() => panel.setHidden(true));
