@@ -154,6 +154,9 @@ results.controller('SearchResultsCtrl', [
             }
 
             return images;
+        }).catch(error => {
+            ctrl.loadingError = error;
+            return $q.reject(error);
         }).finally(() => {
             ctrl.loading = false;
         });
