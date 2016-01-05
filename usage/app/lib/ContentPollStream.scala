@@ -1,19 +1,18 @@
 package lib
 
-import rx.lang.scala.Observable
-import scala.concurrent.duration._
+import _root_.rx.lang.scala.Observable
+import _root_.rx.lang.scala.schedulers.ExecutionContextScheduler
 
+import rx.SingleThreadedScheduler
+
+import scala.concurrent.duration._
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
-
-import rx.lang.scala.schedulers.ExecutionContextScheduler
 
 import com.gu.contentapi.client.GuardianContentClient
 import com.gu.contentapi.client.model.SearchResponse
 import com.gu.contentapi.client.model.v1.Content
-
 import com.gu.mediaservice.lib.aws.{DynamoDB, NoItemFound}
-import com.gu.mediaservice.lib.rx.SingleThreadedScheduler
 
 import org.joda.time.DateTime
 
@@ -117,22 +116,24 @@ trait ContentPollStream {
   val pollInterval  = Duration(pollIntervalInSeconds, SECONDS)
   case class PollAttempt(lastFail: Throwable, i: Int)
 
+  // This causes an exponential backoff when retrying CAPI so that we
+  // don't end up stressing the API if there is a problem
   lazy val retryingPollObservable = Observable.interval(pollInterval)
     .flatMap(_ => getContent).retryWhen(
       _.zipWith(Observable.from(1 to maxRetries))((e: Throwable, i: Int) => PollAttempt(e,i))
-      .flatMap(attempt => {
-        val isLastAttempt = attempt.i >= maxRetries
-        val waitSeconds = pow((attempt.i),2).second
+        .flatMap { case PollAttempt(lastFail, i)  => {
+        val isLastAttempt = i >= maxRetries
+        val waitSeconds = pow(i,2).second
 
-        val logString = s"Request to CAPI failed (attempt ${attempt.i} of ${maxRetries})!\n"
-        val retryMessage = s"${attempt.lastFail.getMessage}\nTrying again in ${waitSeconds}"
+        val logString = s"Request to CAPI failed (attempt ${i} of ${maxRetries})!\n"
+        val retryMessage = s"${lastFail.getMessage}\nTrying again in ${waitSeconds}"
         val fullMessage = if(isLastAttempt) logString else logString + retryMessage
 
         Logger.info(fullMessage)
 
-        if (isLastAttempt) throw attempt.lastFail
+        if (isLastAttempt) throw lastFail
         Observable.timer(waitSeconds)
-      })
+      }}
     )
 
   lazy val rawObservable = retryingPollObservable

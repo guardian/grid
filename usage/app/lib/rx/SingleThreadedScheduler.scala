@@ -1,4 +1,4 @@
-package com.gu.mediaservice.lib.rx
+package lib.rx
 
 import rx.lang.scala.schedulers.ExecutionContextScheduler
 import java.util.concurrent.Executors
