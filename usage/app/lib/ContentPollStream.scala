@@ -1,15 +1,17 @@
 package lib
 
-import rx.lang.scala.Observable
-import scala.concurrent.duration._
+import _root_.rx.lang.scala.Observable
+import _root_.rx.lang.scala.schedulers.ExecutionContextScheduler
 
+import rx.SingleThreadedScheduler
+
+import scala.concurrent.duration._
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
 
 import com.gu.contentapi.client.GuardianContentClient
 import com.gu.contentapi.client.model.SearchResponse
 import com.gu.contentapi.client.model.v1.Content
-
 import com.gu.mediaservice.lib.aws.{DynamoDB, NoItemFound}
 
 import org.joda.time.DateTime
@@ -25,13 +27,13 @@ object MergedContentStream {
       .share // Ensures that only one poller is created no matter how many subscribers
 }
 
-object LiveContentPollStream extends ContentPollStream {
+object LiveContentPollStream extends ContentPollStream with SingleThreadedScheduler {
   val capi = LiveContentApi
   val dynamo = new DynamoDB(Config.awsCredentials, Config.dynamoRegion, Config.livePollTable)
   val observable = rawObservable.map(c => LiveContentItem(c, extractLastModified(c)))
 }
 
-object PreviewContentPollStream extends ContentPollStream {
+object PreviewContentPollStream extends ContentPollStream with SingleThreadedScheduler {
   val capi = PreviewContentApi
   val dynamo = new DynamoDB(Config.awsCredentials, Config.dynamoRegion, Config.previewPollTable)
   val observable = rawObservable.map(c => PreviewContentItem(c, extractLastModified(c)))
@@ -46,11 +48,16 @@ case class LiveContentItem(content: Content, lastModified: DateTime) extends Con
 case class PreviewContentItem(content: Content, lastModified: DateTime) extends ContentContainer
 
 trait ContentPollStream {
+  import scala.concurrent.duration._
+  import scala.math._
+
   val pollIntervalInSeconds = Config.capiPollIntervalInSeconds
+  val maxRetries = Config.capiMaxRetries
 
   val observable: Observable[ContentContainer]
   val capi: GuardianContentClient
   val dynamo: DynamoDB
+  val scheduler: ExecutionContextScheduler
 
   def splitResponse(response: SearchResponse) = Observable.from(response.results)
 
@@ -107,8 +114,30 @@ trait ContentPollStream {
   }
 
   val pollInterval  = Duration(pollIntervalInSeconds, SECONDS)
-  val rawObservable =  Observable.interval(pollInterval)
-    .flatMap(_ => getContent)
+  case class PollAttempt(lastFail: Throwable, i: Int)
+
+  // This causes an exponential backoff when retrying CAPI so that we
+  // don't end up stressing the API if there is a problem
+  lazy val retryingPollObservable = Observable.interval(pollInterval)
+    .flatMap(_ => getContent).retryWhen(
+      _.zipWith(Observable.from(1 to maxRetries))((e: Throwable, i: Int) => PollAttempt(e,i))
+        .flatMap { case PollAttempt(lastFail, i)  => {
+        val isLastAttempt = i >= maxRetries
+        val waitSeconds = pow(i,2).second
+
+        val logString = s"Request to CAPI failed (attempt ${i} of ${maxRetries})!\n"
+        val retryMessage = s"${lastFail.getMessage}\nTrying again in ${waitSeconds}"
+        val fullMessage = if(isLastAttempt) logString else logString + retryMessage
+
+        Logger.info(fullMessage)
+
+        if (isLastAttempt) throw lastFail
+        Observable.timer(waitSeconds)
+      }}
+    )
+
+  lazy val rawObservable = retryingPollObservable
+    .observeOn(scheduler)
     .flatMap(splitResponse)
     .flatMap(checkDynamo)
 }
