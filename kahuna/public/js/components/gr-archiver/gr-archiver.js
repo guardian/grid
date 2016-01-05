@@ -36,7 +36,7 @@ module.controller('grArchiverCtrl', [
             ctrl.archiving = true;
             archiveService.batchArchive(getImageArray())
                 .catch(() => {
-                    $window.alert('Failed to keep in Library, please try again.');
+                    $window.alert('Failed to add to Library, please try again.');
                 })
                 .finally(() => {
                     ctrl.archiving = false;
