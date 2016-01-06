@@ -25,8 +25,8 @@ object ImageCollectionsController extends Controller with ArgoHelpers {
   val dynamo = new DynamoDB(awsCredentials, dynamoRegion, imageCollectionsTable)
 
   def getCollections(id: String) = Authenticated.async { req =>
-    dynamo.listGet[Collection](id, "collections").map { dynamoEntry =>
-      respond(onlyLatest(dynamoEntry))
+    dynamo.listGet[Collection](id, "collections").map { collections =>
+      respond(onlyLatest(collections))
     } recover {
       case NoItemFound => respondNotFound("No collections found")
     }
@@ -39,6 +39,20 @@ object ImageCollectionsController extends Controller with ArgoHelpers {
         .map(publish(id))
         .map(cols => respond(collection))
     } getOrElse Future.successful(respondError(BadRequest, "invalid-form-data", "Invalid form data"))
+  }
+
+
+  def removeCollection(id: String, collectionString: String) = Authenticated.async { req =>
+    val path  = CollectionsManager.stringToPath(collectionString)
+    dynamo.listGet[Collection](id, "collections") flatMap { collections =>
+      CollectionsManager.findIndex(path, collections) map { index =>
+        dynamo.listRemoveIndex(id, "collections", index) map { collections =>
+          respond(collections)
+        }
+      } getOrElse Future.successful(respondNotFound(s"Collection $collectionString not found"))
+    } recover {
+      case NoItemFound => respondNotFound("No collections found")
+    }
   }
 
   def publish(id: String)(collections: List[Collection]): List[Collection] = {

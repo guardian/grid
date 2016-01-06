@@ -6,7 +6,7 @@ import com.amazonaws.regions.Region
 import com.amazonaws.services.dynamodbv2.AmazonDynamoDBClient
 import com.amazonaws.services.dynamodbv2.document.{DynamoDB => AwsDynamoDB, DeleteItemOutcome, UpdateItemOutcome, Table, Item}
 import com.amazonaws.services.dynamodbv2.document.spec.{DeleteItemSpec, GetItemSpec, UpdateItemSpec}
-import com.amazonaws.services.dynamodbv2.document.utils.ValueMap
+import com.amazonaws.services.dynamodbv2.document.utils.{ValueList, ValueMap}
 import com.amazonaws.services.dynamodbv2.model.ReturnValue
 import play.api.libs.json._
 
@@ -176,6 +176,12 @@ class DynamoDB(credentials: AWSCredentials, region: Region, tableName: String) {
       case err => throw err
     }
   }
+
+  def listRemoveIndex(id: String, key: String, index: Int)(implicit ex: ExecutionContext): Future[JsObject] =
+    update(
+      id, s"REMOVE $key[$index]"
+    )
+
 
 
   def update(id: String, expression: String, valueMap: ValueMap)

@@ -25,6 +25,12 @@ object CollectionsManager {
   def find(path: List[String], collections: List[Collection]): Option[Collection] =
     collections.find(col => col.path == path)
 
+  def findIndex(path: List[String], collections: List[Collection]): Option[Int] =
+    collections.indexWhere(_.path == path) match {
+      case -1    => None
+      case index => Some(index)
+    }
+
   def onlyLatest(collections: List[Collection]): List[Collection] =
     collections filter { collection =>
       // if there isn't a collection with the same path created after itself.
