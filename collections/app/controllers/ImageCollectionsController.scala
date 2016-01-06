@@ -46,9 +46,9 @@ object ImageCollectionsController extends Controller with ArgoHelpers {
     val path  = CollectionsManager.stringToPath(collectionString)
     dynamo.listGet[Collection](id, "collections") flatMap { collections =>
       CollectionsManager.findIndex(path, collections) map { index =>
-        dynamo.listRemoveIndex(id, "collections", index) map { collections =>
-          respond(collections)
-        }
+        dynamo.listRemoveIndex[Collection](id, "collections", index)
+          .map(publish(id))
+          .map(cols => respond(cols))
       } getOrElse Future.successful(respondNotFound(s"Collection $collectionString not found"))
     } recover {
       case NoItemFound => respondNotFound("No collections found")
