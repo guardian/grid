@@ -5,7 +5,7 @@
             class="inner-clickable batch-archive__button"
             ng:click="ctrl.unarchive()"
             ng:disabled="ctrl.archiving">
-        <gr-icon-label gr-icon="lock_open">
+        <gr-icon-label gr-icon="lock_outline">
             <span ng:if="!ctrl.archiving">Remove from Library</span>
             <span ng:if="ctrl.archiving">Removing from Library…</span>
         </gr-icon-label>
@@ -16,7 +16,7 @@
             class="inner-clickable batch-archive__button"
             ng:click="ctrl.archive()"
             ng:disabled="ctrl.archiving">
-        <gr-icon-label gr-icon="lock">
+        <gr-icon-label gr-icon="lock_open">
             <span ng:if="!ctrl.archiving">Add to Library</span>
             <span ng:if="ctrl.archiving">Adding to Library…</span>
         </gr-icon-label>
