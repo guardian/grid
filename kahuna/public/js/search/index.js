@@ -1,6 +1,5 @@
 import angular from 'angular';
 import 'angular-ui-router-extras';
-import 'angular-hotkeys';
 import Rx from 'rx';
 import 'rx-dom';
 import Immutable from 'immutable';
@@ -13,6 +12,7 @@ import '../lib/data-structure/ordered-set-factory';
 import '../components/gr-top-bar/gr-top-bar';
 import '../components/gr-panel/gr-panel';
 import '../components/gr-collections-panel/gr-collections-panel';
+import '../components/gr-keyboard-shortcut/gr-keyboard-shortcut';
 
 import '../components/gr-panels/gr-panels';
 
@@ -32,10 +32,10 @@ export var search = angular.module('kahuna.search', [
     'data-structure.ordered-set-factory',
     'gr.topBar',
     'gr.panels',
+    'gr.keyboardShortcut',
     'grPanel',
     'grCollectionsPanel',
-    'ui.router',
-    'cfp.hotkeys'
+    'ui.router'
 ]);
 
 // TODO: add a resolver here so that if we error (e.g. 401) we don't keep trying
@@ -72,14 +72,14 @@ search.config(['$stateProvider', '$urlMatcherFactoryProvider',
             }]
         },
         controllerAs: 'ctrl',
-        controller: ['$scope', 'panels', 'shortcutKeys', 'hotkeys',
-                     function($scope, panels, shortcutKeys, hotkeys) {
+        controller: ['$scope', 'panels', 'shortcutKeys', 'hotkeys', 'keyboardShortcut',
+                     function($scope, panels, shortcutKeys, keyboardShortcut) {
 
             const ctrl = this;
             ctrl.collectionsPanel = panels.collectionsPanel;
             ctrl.metadataPanel = panels.metadataPanel;
 
-            hotkeys.bindTo($scope).add({
+            keyboardShortcut.bindTo($scope).add({
                 combo: shortcutKeys.get('metadataPanel'),
                 description: 'Toggle metadata panel',
                 callback: panels.metadataPanel.toggleHidden
