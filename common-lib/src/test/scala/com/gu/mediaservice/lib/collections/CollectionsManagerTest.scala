@@ -43,5 +43,20 @@ class CollectionsManagerTest extends FunSpec with Matchers {
 
     }
 
+    it ("should find the index of a collection in a list") {
+      val actionData = ActionData("me@you.com", DateTime.now())
+      val collections = List(
+        Collection(List("g2"), actionData),
+        Collection(List("g2", "art"), actionData),
+        Collection(List("g2", "art", "paintings"), actionData)
+      )
+
+      val index = CollectionsManager.findIndex(List("g2", "art"), collections)
+      val noIndex = CollectionsManager.findIndex(List("not", "there"), collections)
+
+      index shouldBe Some(1)
+      noIndex shouldBe None
+    }
+
   }
 }
