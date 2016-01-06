@@ -28,10 +28,10 @@ export function getCollection(path) {
 }
 
 export function getCollectionsFromQuery(q) {
-    const query = q || "";
-    const collections =  querySplit(query) ? querySplit(query)
+    const collections =  querySplit(q) ? querySplit(q)
         .filter(bit => bit.charAt(0) === '~')
-        .map(path => path.replace(/('|"|~)/g, '').split('/')) : "";
+        .map(path => path.replace(/('|"|~)/g, '').split('/'))
+        : '';
 
     return collections;
 }

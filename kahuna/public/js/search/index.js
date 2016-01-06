@@ -153,9 +153,8 @@ search.config(['$stateProvider', '$urlMatcherFactoryProvider',
                     shareReplay(1);
             }],
             selectedCollections: ['$stateParams', function($stateParams) {
-                const query = $stateParams.query || "";
+                const query = $stateParams.query || '';
                 const collections  = getCollectionsFromQuery(query);
-                console.log(collections);
                 return collections;
             }]
         },
