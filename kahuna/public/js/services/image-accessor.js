@@ -39,6 +39,14 @@ imageAccessor.factory('imageAccessor', function() {
         return image.data.usageRights;
     }
 
+    function readPersistedReasons(image) {
+        return image.data.persisted.reasons;
+    }
+
+    function isPersisted(image) {
+        return image.data.persisted.value;
+    }
+
     function isArchived(image) {
         const userMetadata = extractUserMetadata(image);
         return userMetadata.data.archived.data;
@@ -50,6 +58,8 @@ imageAccessor.factory('imageAccessor', function() {
         readMetadata,
         readExtraInfo,
         readUsageRights,
+        readPersistedReasons,
+        isPersisted,
         isArchived
     };
 });

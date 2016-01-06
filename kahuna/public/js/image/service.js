@@ -1,10 +1,12 @@
 import angular from 'angular';
 
-import '../edits/service';
+import '../services/image-logic';
 
-export const imageService = angular.module('gr.image.service', ['kahuna.edits.service']);
+export const imageService = angular.module('gr.image.service', [
+    'kahuna.services.image-logic'
+]);
 
-imageService.factory('imageService', [function() {
+imageService.factory('imageService', ['imageLogic', function(imageLogic) {
     function forImage(image) {
         return {
             usageRights: usageRights(image),
@@ -41,9 +43,8 @@ imageService.factory('imageService', [function() {
             cost: image.data.cost,
             hasCrops: image.data.exports && image.data.exports.length > 0,
             isValid: image.data.valid,
-            canDelete: image.getAction('delete').then(action => !! action),
-            canArchive: image.data.persisted.value === false ||
-                (persistReasons.length === 1 && persistReasons[0] === 'archived'),
+            canDelete: imageLogic.canBeDeleted(image),
+            canArchive: imageLogic.canBeArchived(image),
             persistedReasons: persistReasons.join('; ')
         };
     }
