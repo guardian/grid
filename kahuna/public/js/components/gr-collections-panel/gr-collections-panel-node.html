@@ -1,4 +1,4 @@
-<div ng:init="node = ctrl.node;">
+<div ng:init="node = ctrl.node">
     <div class="node__info flex-container"
          ng:init="showChildren = true"
          gr:drop-into-collection="node.data.content.path">
@@ -25,8 +25,7 @@
 
 
         <button class="node__action clickable" type="button"
-                ng:if="ctrl.deletable"
-                ng:show="ctrl.editing"
+                ng:if="ctrl.deletable && ctrl.editing"
                 ng:click="ctrl.remove()"
                 gr:tooltip="Delete this collection">
             <gr-icon-label gr-icon="delete"></gr-icon-label>
@@ -34,7 +33,7 @@
 
         <button class="node__action clickable"
                 type="button"
-                ng:show="ctrl.editing"
+                ng:if="ctrl.editing"
                 ng:click="active = !active"
                 gr:tooltip="Add a new sub-collection">
             <gr-icon>add_box</gr-icon>
