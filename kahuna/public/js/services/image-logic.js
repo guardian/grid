@@ -21,9 +21,30 @@ imageLogic.factory('imageLogic', ['imageAccessor', function(imageAccessor) {
             (persistReasons.length === 1 && persistReasons[0] === 'archived');
     }
 
+    function getPersistenceExplanation(image) {
+        const persistReasons = imageAccessor.readPersistedReasons(image);
+        return persistReasons.map(reason => {
+            switch (reason) {
+            case 'exports':
+                return 'cropped';
+            case 'persistence-identifier':
+                return 'from Picdar';
+            case 'photographer-category':
+                return 'categorised as photographer';
+            case 'illustrator-category':
+                return 'categorised as illustrator';
+            case 'commissioned-agency':
+                return 'categorised as agency commissioned';
+            default:
+                return reason;
+            }
+        });
+    }
+
     return {
         canBeDeleted,
-        canBeArchived
+        canBeArchived,
+        getPersistenceExplanation
     };
 }]);
 

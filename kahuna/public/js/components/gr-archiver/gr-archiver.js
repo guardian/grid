@@ -1,4 +1,5 @@
 import angular from 'angular';
+import {Set} from 'immutable';
 
 import './gr-archiver.css!';
 import template from './gr-archiver.html!text';
@@ -35,6 +36,9 @@ module.controller('grArchiverCtrl', [
             const allPersisted = images.every(imageAccessor.isPersisted);
             ctrl.archivedState = noneCanBeArchived ? 'kept' :
                 allPersisted ? 'archived' : 'unarchived';
+
+            const explTokens = listAllPersistenceExplanations(images);
+            ctrl.archivedExplanation = humanUnion(explTokens);
         });
 
         ctrl.archive = () => {
@@ -62,6 +66,21 @@ module.controller('grArchiverCtrl', [
         function getImageArray() {
             // Convert from Immutable Set to JS Array
             return Array.from(ctrl.images);
+        }
+
+        function listAllPersistenceExplanations(images) {
+            return images.
+                map(imageLogic.getPersistenceExplanation).
+                map(items => new Set(items)).
+                reduce((all, items) => all.union(items)).
+                toArray();
+        }
+
+        // Takes an array and generates a '1, 2, 3 or 4' string
+        function humanUnion(list) {
+            const allButLastTwo = list.slice(0, -2);
+            const lastTwo = list.slice(-2).join(' or ');
+            return allButLastTwo.concat(lastTwo).join(', ');
         }
     }
 ]);
