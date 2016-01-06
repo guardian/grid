@@ -43,7 +43,7 @@ object ThrallMessageConsumer extends MessageConsumer(
     withImageId(exports)(id => ElasticSearch.deleteImageExports(id))
 
   def updateImageUserMetadata(metadata: JsValue): Future[UpdateResponse] =
-    withImageId(metadata)(id => ElasticSearch.applyImageMetadataOverride(id, metadata \ "data"))
+    withImageId(metadata)(id => ElasticSearch.applyImageMetadataOverride(id, metadata))
 
   def setImageCollections(collections: JsValue): Future[UpdateResponse] =
     withImageId(collections)(id => ElasticSearch.setImageCollection(id, collections \ "data"))
