@@ -140,13 +140,12 @@ object ElasticSearch extends ElasticSearchClient with ImageFields {
         "lastModified" -> asGroovy(lastModified)
       ).asJava)
       .setScript(
-      """""
-        | if (ctx._source.lastModified > lastModified) {} else {
-        |   ctx._source.userMetadata = userMetadata;"
-        | }
-      """"".stripMargin +
-          refreshEditsScript +
-          updateLastModifiedScript,
+      s"""| if (ctx._source.lastModified && ctx._source.lastModified > lastModified) {} else {
+           |   ctx._source.userMetadata = userMetadata;
+           |   ${updateLastModifiedScript}
+           | }
+      """.stripMargin +
+          refreshEditsScript,
         scriptType)
       .executeAndLog(s"updating user metadata on image $id")
       .incrementOnFailure(failedMetadataUpdates) { case e: VersionConflictEngineException => true }
