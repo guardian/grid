@@ -1,5 +1,13 @@
 <div class="batch-archive"
      ng:switch="ctrl.archivedState">
+    <span ng:switch-when="kept"
+          type="button"
+          class="inner-clickable batch-archive__button">
+        <gr-icon-label gr-icon="lock">
+            Kept in Library
+        </gr-icon-label>
+    </span>
+
     <button ng:switch-when="archived"
             type="button"
             class="inner-clickable batch-archive__button"

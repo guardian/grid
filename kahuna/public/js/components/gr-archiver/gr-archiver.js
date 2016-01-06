@@ -9,7 +9,8 @@ import '../../services/image-accessor';
 
 export const module = angular.module('gr.archiver', [
     'kahuna.services.archive',
-    'kahuna.services.image-accessor'
+    'kahuna.services.image-accessor',
+    'kahuna.services.image-logic'
 ]);
 
 module.controller('grArchiverCtrl', [
@@ -17,10 +18,12 @@ module.controller('grArchiverCtrl', [
     '$window',
     'archiveService',
     'imageAccessor',
+    'imageLogic',
     function ($scope,
               $window,
               archiveService,
-              imageAccessor) {
+              imageAccessor,
+              imageLogic) {
 
         const ctrl = this;
 
@@ -28,8 +31,10 @@ module.controller('grArchiverCtrl', [
         ctrl.archiving = false;
 
         $scope.$watchCollection(getImageArray, (images) => {
-            const allArchived = images.every(imageAccessor.isArchived);
-            ctrl.archivedState = allArchived ? 'archived' : 'unarchived';
+            const noneCanBeArchived = ! images.some(imageLogic.canBeArchived);
+            const allPersisted = images.every(imageAccessor.isPersisted);
+            ctrl.archivedState = noneCanBeArchived ? 'kept' :
+                allPersisted ? 'archived' : 'unarchived';
         });
 
         ctrl.archive = () => {
