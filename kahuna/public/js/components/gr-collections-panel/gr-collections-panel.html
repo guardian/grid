@@ -8,7 +8,7 @@
 
         <!-- TODO: we'll probably move this out to another template once we have something more
         final -->
-        <div class="flex-container collections-panel-heading text-small">
+        <div class="flex-container collections-panel-heading text-small" ng:if="! ctrl.error">
             <div class="flex-spacer">Collections</div>
             <button ng:click="editing = !editing">
                 <gr-icon>edit</gr-icon>
