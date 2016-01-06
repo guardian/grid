@@ -1,4 +1,4 @@
-<div ng:init="node = ctrl.node;">
+<div ng:init="node = ctrl.node">
     <div class="node__info flex-container"
          ng:init="showChildren = true"
          gr:drop-into-collection="node.data.content.path">
@@ -19,31 +19,47 @@
         </button>
 
         <a class="node__name flex-spacer"
-           ui:sref="search.results({query: (node.data.name)})">
+           ui:sref="search.results({query: ctrl.getCollectionQuery(node.data.content.pathId)})">
             {{node.data.name}}
         </a>
 
+
         <button class="node__action clickable" type="button"
-                ng:if="ctrl.deletable"
-                ng:click="ctrl.remove()">
+                ng:if="ctrl.deletable && ctrl.editing"
+                ng:click="ctrl.remove()"
+                gr:tooltip="Delete this collection">
             <gr-icon-label gr-icon="delete"></gr-icon-label>
         </button>
 
         <button class="node__action clickable"
                 type="button"
-                ng:click="active = !active">
+                ng:if="ctrl.editing"
+                ng:click="active = !active"
+                gr:tooltip="Add a new sub-collection">
             <gr-icon>add_box</gr-icon>
         </button>
+
+        <button class="node__action clickable"
+                ng:if="!ctrl.editing && ctrl.hasImagesSelected && !ctrl.saving"
+                ng:click="ctrl.addImagesToCollection()"
+                gr:tooltip="Add selected images to this collection">
+            <gr-icon>add_to_photos</gr-icon>
+        </button>
+        <span ng:if="ctrl.saving">Saving…</span>
     </div>
 
-    <form ng:show="active" ng:submit="ctrl.addChild(childName).then(clearForm);">
-        <input type="text" required ng:model="childName" />
-        <button type="submit">
-            <gr-icon-label gr-icon="check"></gr-icon-label>
-        </button>
-        <button type="button" ng:click="clearForm()" title="Close">
-            <gr-icon-label gr-icon="close"></gr-icon-label>
-        </button>
+    <form class="node__add-child" ng:show="active" ng:submit="ctrl.addChild(childName).then(clearForm);">
+        <input class="node__add-child-input" type="text" required ng:model="childName"
+               placeholder="e.g. summer2015…" />
+
+        <div class="node__add-child-buttons">
+            <button type="submit" class="button-save" title="Save">
+                <gr-icon-label gr-icon="check"></gr-icon-label>
+            </button>
+            <button type="button" class="button-cancel" ng:click="clearForm()" title="Cancel">
+                <gr-icon-label gr-icon="close"></gr-icon-label>
+            </button>
+        </div>
     </form>
 
     <div class="node__children"></div>
