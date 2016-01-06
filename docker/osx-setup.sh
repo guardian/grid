@@ -15,10 +15,6 @@ echo 'Done'
 
 VBoxManage modifyvm "default" --memory $MEMORY
 
-echo 'Forwarding service ports to localhost...'
-for i in {9001..9010}; do
- VBoxManage modifyvm "default" --natpf1 "tcp-port-$i,tcp,127.0.0.1,$i,,$i";
-done
-echo 'Done'
-
 docker-machine start default
+
+# TODO add to /etc/hosts

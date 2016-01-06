@@ -3,13 +3,26 @@ data:
   volumes:
     - "$HOME/.ivy2:/root/.ivy2"
     - "../:/home/code"
-
-# TODO generate the properties files in the entrypoint directive?
     - "$HOME/.gu:/etc/gu:ro"
-elastic:
+nginx:
+  image: nginx:latest
+  links:
+    - elasticsearch
+    - media-api
+    - thrall
+  ports:
+    - "80:80"
+    - "443:443"
+  volumes:
+    - "./nginx/nginx.conf:/etc/nginx/nginx.conf:ro"
+    - "./nginx/sites-enabled:/etc/nginx/sites-enabled:ro"
+elasticsearch:
   build: .
   dockerfile: Dockerfile-elastic
   container_name: elasticsearch
+  expose:
+    - "9200"
+    - "9300"
   ports:
     - "9200:9200"
     - "9300:9300"
@@ -23,9 +36,7 @@ media-api:
     file: grid-core.yml
     service: sbt
   links:
-    - elastic
-  ports:
-    - "9001:9000"
+    - elasticsearch
   volumes_from:
     - data
 thrall:
@@ -35,9 +46,7 @@ thrall:
     file: grid-core.yml
     service: sbt
   links:
-    - elastic
-  ports:
-    - "9002:9000"
+    - elasticsearch
   volumes_from:
     - data
 image-loader:
@@ -46,8 +55,6 @@ image-loader:
   extends:
     file: grid-core.yml
     service: sbt-imaging
-  ports:
-    - "9003:9000"
   volumes_from:
     - data
 kahuna:
@@ -56,8 +63,6 @@ kahuna:
   extends:
     file: grid-core.yml
     service: sbt
-  ports:
-    - "9005:9000"
   volumes_from:
     - data
 cropper:
@@ -66,8 +71,6 @@ cropper:
   extends:
     file: grid-core.yml
     service: sbt-imaging
-  ports:
-    - "9006:9000"
   volumes_from:
     - data
 metadata-editor:
@@ -76,8 +79,6 @@ metadata-editor:
   extends:
     file: grid-core.yml
     service: sbt
-  ports:
-    - "9007:9000"
   volumes_from:
     - data
 usage:
@@ -86,8 +87,6 @@ usage:
   extends:
     file: grid-core.yml
     service: sbt
-  ports:
-    - "9009:9000"
   volumes_from:
     - data
 collections:
@@ -96,7 +95,5 @@ collections:
   extends:
     file: grid-core.yml
     service: sbt
-  ports:
-    - "9010:9000"
   volumes_from:
     - data
