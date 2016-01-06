@@ -34,7 +34,7 @@
         <button class="node__action clickable"
                 type="button"
                 ng:if="ctrl.editing"
-                ng:click="active = !active"
+                ng:click="$parent.active = !$parent.active"
                 gr:tooltip="Add a new sub-collection">
             <gr-icon>add_box</gr-icon>
         </button>
@@ -48,7 +48,7 @@
         <span ng:if="ctrl.saving">Saving…</span>
     </div>
 
-    <form class="node__add-child" ng:show="active" ng:submit="ctrl.addChild(childName).then(clearForm);">
+    <form class="node__add-child" ng:if="active" ng:submit="ctrl.addChild(childName).then(clearForm);">
         <input class="node__add-child-input" type="text" required ng:model="childName"
                placeholder="e.g. summer2015…" />
 
