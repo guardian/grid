@@ -7,19 +7,6 @@ import com.gu.mediaservice.model.{ActionData, Collection}
 
 class CollectionsManagerTest extends FunSpec with Matchers {
 
-  val dupedCollectionList = {
-    val date = DateTime.now()
-    val laterDate = date.minusDays(5)
-    val evenLaterDate = laterDate.minusDays(5)
-
-    val collection1 = Collection(List("g2"), ActionData("me@you.com", date))
-    val collection2 = Collection(List("g2"), ActionData("you@me.com", laterDate))
-    val collection3 = Collection(List("g2"), ActionData("them@they.com", evenLaterDate))
-
-    List(collection2, collection1, collection3)
-
-  }
-
   describe("CollectionManager") {
 
     it ("should convert path to string with /") {
