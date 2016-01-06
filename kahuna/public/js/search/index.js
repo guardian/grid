@@ -3,6 +3,7 @@ import 'angular-ui-router-extras';
 import Rx from 'rx';
 import 'rx-dom';
 import Immutable from 'immutable';
+import {getCollectionsFromQuery} from '../search-query/query-syntax';
 
 import './query';
 import './results';
@@ -150,6 +151,12 @@ search.config(['$stateProvider', '$urlMatcherFactoryProvider',
                 ).
                     distinctUntilChanged(angular.identity, Immutable.is).
                     shareReplay(1);
+            }],
+            selectedCollections: ['$stateParams', function($stateParams) {
+                const query = $stateParams.query || "";
+                const collections  = getCollectionsFromQuery(query);
+                console.log(collections);
+                return collections;
             }]
         },
         views: {
