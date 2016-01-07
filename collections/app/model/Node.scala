@@ -11,18 +11,21 @@ object Node {
   type Path = List[String]
 
   def buildTree[T](rootName: String, input: List[T], getPath: T => Path): Node[T] = {
-    val zipped = (input.map(getPath), input).zipped.toList
+    val zipped = (input.map(getPath), input, input.map(getPath)).zipped.toList
 
-    def loop(input: List[(Path, T)]): List[Node[T]] = {
+    def loop(input: List[(Path, T, Path)]): List[Node[T]] = {
       input
         // TODO: We could NonEmptyLists here
-        .filter  { case (path, _) => path.nonEmpty }
-        .groupBy { case (path, _) => path.head }
+        .filter  { case (path, _, _) => path.nonEmpty }
+        .groupBy { case (path, _, _) => path.head }
         .map { case (parentName, grouped) =>
-          val nextGroup = grouped.map { case (path, content) => (path.tail, content) }
+          val nextGroup = grouped.map { case (path, content, fPath) => (path.tail, content, fPath) }
           // TODO: Fix this hack
-          val nextPath = grouped.headOption.map { case (path, _) => path } getOrElse Nil
-          val contentOpt = grouped.headOption flatMap { case (path, content) =>
+          val nextPath = grouped.headOption map { case (path, _, fPath) =>
+            if (path.size == 1) fPath else fPath.dropRight(1)
+          } getOrElse Nil
+          
+          val contentOpt = grouped.headOption flatMap { case (path, content, _) =>
             // only attach the content if we actually have it, and it's not inherited
             // from the child nodes
             if (path.size == 1) Some(content) else None

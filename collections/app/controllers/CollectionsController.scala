@@ -4,6 +4,8 @@ import java.net.URI
 
 import com.gu.mediaservice.lib.argo.model.{Link, EmbeddedEntity, Action}
 import com.gu.mediaservice.lib.collections.CollectionsManager
+import com.gu.mediaservice.lib.net.URI.decode
+
 import lib.ControllerHelper
 import model.Node
 import org.joda.time.DateTime
@@ -95,7 +97,7 @@ object CollectionsController extends Controller with ArgoHelpers {
   }
 
   def removeCollection(collectionPath: String) = Authenticated.async { req =>
-    CollectionsStore.remove(collectionPath) map { collectionOpt =>
+    CollectionsStore.remove(decode(collectionPath)) map { collectionOpt =>
       collectionOpt.map(_ => Accepted).getOrElse(NotFound)
     }
   }
