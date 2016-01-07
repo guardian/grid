@@ -237,10 +237,8 @@ class DynamoDB(credentials: AWSCredentials, region: Region, tableName: String) {
     jsonWithNullAsEmptyString(Json.parse(item.toJSON)).as[JsObject] - IdKey
   }
 
-  def asJsObject(outcome: PutItemOutcome): JsObject = {
-    println(outcome.getItem)
+  def asJsObject(outcome: PutItemOutcome): JsObject =
     asJsObject(outcome.getItem)
-  }
 
   def asJsObject(outcome: UpdateItemOutcome): JsObject =
     asJsObject(outcome.getItem)
