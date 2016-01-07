@@ -4,7 +4,7 @@ import java.net.URI
 
 import com.gu.mediaservice.model.{UsageRights, ImageMetadata}
 import com.gu.mediaservice.picdarexport.lib.cleanup.{UsageRightsOverride, MetadataOverrides}
-import com.gu.mediaservice.picdarexport.lib.db.ExportDynamoDB
+import com.gu.mediaservice.picdarexport.lib.db._
 import com.gu.mediaservice.picdarexport.lib.media._
 import com.gu.mediaservice.picdarexport.lib.picdar.{PicdarError, PicdarClient}
 import com.gu.mediaservice.picdarexport.lib.{Config, MediaConfig}
@@ -105,8 +105,12 @@ trait ExportManagerProvider {
   def getExportManager(picdarSystem: String, mediaEnv: String) =
     new ExportManager(getPicdar(picdarSystem), getLoader(mediaEnv), getMediaApi(mediaEnv))
 
-  def getDynamo(env: String) = {
+  def getExportDynamo(env: String) = {
     new ExportDynamoDB(Config.awsCredentials(env), Config.dynamoRegion, Config.picdarExportTable(env))
+  }
+
+  def getUsageDynamo(env: String) = {
+    new UsageDynamoDB(Config.awsCredentials(env), Config.dynamoRegion, Config.picdarUsageTable(env))
   }
 
 }
@@ -188,7 +192,7 @@ object ExportApp extends App with ExportManagerProvider with ArgumentHelpers wit
   }
 
   def stats(env: String, dateRange: DateRange = DateRange.all): Future[Unit] = {
-    val dynamo = getDynamo(env)
+    val dynamo = getExportDynamo(env)
     for {
       loaded     <- dynamo.scanUnfetched(dateRange)
       _           = println(s"${loaded.size} loaded entries to fetch")
@@ -204,7 +208,7 @@ object ExportApp extends App with ExportManagerProvider with ArgumentHelpers wit
 
   def load(env: String, system: String, dateField: String, dateRange: DateRange = DateRange.all,
            range: Option[Range] = None, query: Option[String] = None) = {
-    val dynamo = getDynamo(env)
+    val dynamo = getExportDynamo(env)
     getPicdar(system).query(dateField, dateRange, range, query) flatMap { assetRefs =>
       val saves = assetRefs.map { assetRef =>
         dynamo.insert(assetRef.urn, assetRef.dateLoaded)
@@ -214,7 +218,7 @@ object ExportApp extends App with ExportManagerProvider with ArgumentHelpers wit
   }
 
   def fetch(env: String, system: String, dateRange: DateRange = DateRange.all, range: Option[Range] = None) = {
-    val dynamo = getDynamo(env)
+    val dynamo = getExportDynamo(env)
     dynamo.scanUnfetched(dateRange) flatMap { urns =>
       val updates = takeRange(urns, range).map { assetRef =>
         getPicdar(system).get(assetRef.urn) flatMap { asset =>
@@ -228,7 +232,7 @@ object ExportApp extends App with ExportManagerProvider with ArgumentHelpers wit
   }
 
   def ingest(env: String, dateRange: DateRange = DateRange.all, range: Option[Range] = None) = {
-    val dynamo = getDynamo(env)
+    val dynamo = getExportDynamo(env)
     dynamo.scanFetchedNotIngested(dateRange) flatMap { assets =>
       val updates = takeRange(assets, range).map { asset =>
         getExportManager("library", env).ingest(asset.picdarAssetUrl, asset.picdarUrn, asset.picdarCreatedFull) flatMap { mediaUri =>
@@ -244,7 +248,7 @@ object ExportApp extends App with ExportManagerProvider with ArgumentHelpers wit
   }
 
   def doOverride(env: String, dateRange: DateRange = DateRange.all, range: Option[Range] = None) = {
-    val dynamo = getDynamo(env)
+    val dynamo = getExportDynamo(env)
     dynamo.scanIngestedNotOverridden(dateRange) flatMap { assets =>
       val updates = takeRange(assets, range).map { asset =>
         // TODO: if no mediaUri, skip
@@ -264,18 +268,18 @@ object ExportApp extends App with ExportManagerProvider with ArgumentHelpers wit
   }
 
   def clear(env: String, dateRange: DateRange = DateRange.all) = {
-    val dynamo = getDynamo(env)
+    val dynamo = getExportDynamo(env)
     dynamo.delete(dateRange) map { rows =>
       println(s"Cleared ${rows.size} entries")
     }
   }
 
   def fetchRights(env: String, system: String, dateRange: DateRange = DateRange.all, range: Option[Range] = None) = {
-    val dynamo = getDynamo(env)
+    val dynamo = getExportDynamo(env)
     dynamo.scanNoRights(dateRange) flatMap { urns =>
       val updates = takeRange(urns, range).map { assetRef =>
         getPicdar(system).get(assetRef.urn) flatMap { asset =>
-          Logger.info(s"Fetching usage rights for image ${asset.urn} to: ${asset.usageRights.map(_.category).getOrElse("none")}")
+          Logger.info(s"Fetching usage rights for image ${asset.urn}")
           dynamo.recordRights(assetRef.urn, assetRef.dateLoaded, asset.usageRights)
         } recover { case PicdarError(message) =>
           Logger.warn(s"Picdar error during fetch: $message")
@@ -285,8 +289,24 @@ object ExportApp extends App with ExportManagerProvider with ArgumentHelpers wit
     }
   }
 
+  def fetchUsage(env: String, system: String, dateRange: DateRange = DateRange.all, range: Option[Range] = None) = {
+    Future { Unit }
+    //val dynamo = getExportDynamo(env)
+    //dynamo.scanNoRights(dateRange) flatMap { urns =>
+    //  val updates = takeRange(urns, range).map { assetRef =>
+    //    getPicdar(system).get(assetRef.urn) flatMap { asset =>
+    //      Logger.info(s"Fetching usage rights for image ${asset.urn}")
+    //      dynamo.recordRights(assetRef.urn, assetRef.dateLoaded, asset.usageRights)
+    //    } recover { case PicdarError(message) =>
+    //      Logger.warn(s"Picdar error during fetch: $message")
+    //    }
+    //  }
+    //  Future.sequence(updates)
+    //}
+  }
+
   def overrideRights(env: String, dateRange: DateRange = DateRange.all, range: Option[Range] = None) = {
-    val dynamo = getDynamo(env)
+    val dynamo = getExportDynamo(env)
     dynamo.scanRightsFetchedNotOverridden(dateRange) flatMap { assets =>
       val updates = takeRange(assets, range).map { asset =>
         // TODO: if no mediaUri, skip
@@ -313,14 +333,14 @@ object ExportApp extends App with ExportManagerProvider with ArgumentHelpers wit
 
   args.toList match {
     case ":count-loaded" :: env :: Nil => terminateAfter {
-      val dynamo = getDynamo(env)
+      val dynamo = getExportDynamo(env)
       dynamo.scanUnfetched(DateRange.all) map (urns => urns.size) map { count =>
         println(s"$count matching entries")
         count
       }
     }
     case ":count-loaded" :: env :: date :: Nil => terminateAfter {
-      val dynamo = getDynamo(env)
+      val dynamo = getExportDynamo(env)
       val dateRange = parseDateRange(date)
       for {
         loaded     <- dynamo.scanUnfetched(dateRange)
@@ -335,14 +355,14 @@ object ExportApp extends App with ExportManagerProvider with ArgumentHelpers wit
     }
 
     case ":count-fetched" :: env :: Nil => terminateAfter {
-      val dynamo = getDynamo(env)
+      val dynamo = getExportDynamo(env)
       dynamo.scanFetchedNotIngested(DateRange.all) map (urns => urns.size) map { count =>
         println(s"$count matching entries")
         count
       }
     }
     case ":count-fetched" :: env :: date :: Nil => terminateAfter {
-      val dynamo = getDynamo(env)
+      val dynamo = getExportDynamo(env)
       dynamo.scanFetchedNotIngested(parseDateRange(date)) map (urns => urns.size) map { count =>
         println(s"$count matching entries")
         count
@@ -350,14 +370,14 @@ object ExportApp extends App with ExportManagerProvider with ArgumentHelpers wit
     }
 
     case ":count-ingested" :: env :: Nil => terminateAfter {
-      val dynamo = getDynamo(env)
+      val dynamo = getExportDynamo(env)
       dynamo.scanIngestedNotOverridden(DateRange.all) map (urns => urns.size) map { count =>
         println(s"$count matching entries")
         count
       }
     }
     case ":count-ingested" :: env :: date :: Nil => terminateAfter {
-      val dynamo = getDynamo(env)
+      val dynamo = getExportDynamo(env)
       dynamo.scanIngestedNotOverridden(parseDateRange(date)) map (urns => urns.size) map { count =>
         println(s"$count matching entries")
         count
@@ -365,14 +385,14 @@ object ExportApp extends App with ExportManagerProvider with ArgumentHelpers wit
     }
 
     case ":count-overridden" :: env :: Nil => terminateAfter {
-      val dynamo = getDynamo(env)
+      val dynamo = getExportDynamo(env)
       dynamo.scanOverridden(DateRange.all) map (urns => urns.size) map { count =>
         println(s"$count matching entries")
         count
       }
     }
     case ":count-overridden" :: env :: date :: Nil => terminateAfter {
-      val dynamo = getDynamo(env)
+      val dynamo = getExportDynamo(env)
       dynamo.scanOverridden(parseDateRange(date)) map (urns => urns.size) map { count =>
         println(s"$count matching entries")
         count
@@ -468,6 +488,16 @@ object ExportApp extends App with ExportManagerProvider with ArgumentHelpers wit
       overrideRights(env, parseDateRange(date), parseQueryRange(rangeStr))
     }
 
+    case "+usage:fetch" :: env :: system :: Nil => terminateAfter {
+      fetchUsage(env, system)
+    }
+    case "+usage:fetch" :: env :: system :: date :: Nil => terminateAfter {
+      fetchUsage(env, system, parseDateRange(date))
+    }
+    case "+usage:fetch" :: env :: system :: date :: rangeStr :: Nil => terminateAfter {
+      fetchUsage(env, system, parseDateRange(date), parseQueryRange(rangeStr))
+    }
+
     case _ => println(
       """
         |usage: :count-loaded    <dev|test|prod> [dateLoaded]
@@ -475,17 +505,19 @@ object ExportApp extends App with ExportManagerProvider with ArgumentHelpers wit
         |       :count-ingested  <dev|test|prod> [dateLoaded]
         |       :count-overriden <dev|test|prod> [dateLoaded]
         |
-        |       :show   <desk|library> <picdarUrl>
-        |       :query  <desk|library> <created|modified|taken> <date> [query]
-        |       :stats  <dev|test|prod> [dateLoaded]
-        |       +load   <dev|test|prod> <desk|library> <created|modified|taken> <date> [range] [query]
-        |       +fetch  <dev|test|prod> <desk|library> [dateLoaded] [range]
-        |       +ingest <dev|test|prod> [dateLoaded] [range]
+        |       :show     <desk|library>  <picdarUrl>
+        |       :query    <desk|library>  <created|modified|taken> <date> [query]
+        |       +load     <dev|test|prod> <desk|library> <created|modified|taken> <date> [range] [query]
+        |       +fetch    <dev|test|prod> <desk|library> [dateLoaded] [range]
+        |       +ingest   <dev|test|prod> [dateLoaded] [range]
         |       +override <dev|test|prod> [dateLoaded] [range]
-        |       +clear  <dev|test|prod> [dateLoaded]
+        |       +clear    <dev|test|prod> [dateLoaded]
+        |       :stats    <dev|test|prod> [dateLoaded]
         |
         |       +rights:fetch    <dev|test|prod> <desk|library> [dateLoaded] [range]
         |       +rights:override <dev|test|prod> [dateLoaded] [range]
+        |
+        |       +usage:fetch     <dev|test|prod> <desk|library> [dateLoaded] [range]
       """.stripMargin
     )
   }

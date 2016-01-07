@@ -12,10 +12,10 @@ object Config {
   def awsAccessId(env: String)       = properties(s"aws.$env.id")
   def awsAccessSecret(env: String)   = properties(s"aws.$env.secret")
   def picdarExportTable(env: String) = properties(s"aws.$env.picdarexport.table")
+  def picdarUsageTable(env: String)  = properties(s"aws.$env.picdarexport.table")
 
   def awsCredentials(env: String) = new BasicAWSCredentials(awsAccessId(env), awsAccessSecret(env))
   val dynamoRegion = Region.getRegion(Regions.EU_WEST_1)
-
 
   val picdarDeskUrl      = properties("picdar.desk.url")
   val picdarDeskUsername = properties("picdar.desk.username")
