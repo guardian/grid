@@ -1,6 +1,8 @@
 Grid
 ====
 
+[![Join the chat at https://gitter.im/guardian/grid](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/guardian/grid?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
+
 **Grid** is [the Guardian](http://www.theguardian.com/)’s new **image
 management system**, which provides a **universal** and **fast**
 experience accessing media that is **organised** and using it in an
@@ -34,6 +36,11 @@ You will need to install:
 * Nginx
 * [GraphicsMagick](http://www.graphicsmagick.org/)
 `sudo apt-get install graphicsmagick` or `brew install graphicsmagick`.
+* [awscli](https://aws.amazon.com/cli/)
+* [jq](https://stedolan.github.io/jq/)
+* [exiftool](http://www.sno.phy.queensu.ca/~phil/exiftool/)
+
+If you're using OSX, you'll also need md5 `brew install md5`.
 
 ### Nginx
 
@@ -78,14 +85,22 @@ Start Elasticsearch from the `elasticsearch` directory:
 
 ### Create CloudFormation Stack
 
-First you need to create some dev credentials and resources in AWS.
+First you need to create some dev credentials in AWS - ask your friendly system administrator.
 
-Log into the AWS Console (ask your friendly system administrator for a
-link and credentials) and change to the EU (Ireland) availability zone.
+Setup your awscli with a new profile `aws configure --profile media-service`.
 
-Go to the CloudFormation console and add a new stack, call it
-`media-service-DEV-{your-username}`, upload the template file from
-`cloud-formation/dev-template.json` and create the stack.
+**Pro-tip**: Set `AWS_DEFAULT_PROFILE` to avoid using the `--profile` flag with the awscli in the future.
+
+```sh
+echo 'export AWS_DEFAULT_PROFILE=media-service' >> $HOME/.profile
+```
+
+To create your stack run [create-dev-stack.sh](cloud-formation/scripts/create-dev-stack.sh):
+
+```sh
+cd cloud-formation/scripts
+./create-dev-stack.sh
+```
 
 ### .properties files
 
@@ -182,18 +197,6 @@ The user interface should be up at
 
 ### Run Cropper
 
-Add an API key for cropper to your key bucket:
-
-```
-# Create key file
-$ CROPPER_KEY=cropper-`head -c 1024 /dev/urandom | md5sum | awk '{ print $1 }'`
-$ echo Cropper > $CROPPER_KEY
-
-# Upload to S3
-# note: see `aws --profile media s3 ls | grep keybucket` output to find your bucket name
-$ aws s3 cp $CROPPER_KEY s3://...YOUR_BUCKET_NAME.../
-```
-
 From the project root, run via sbt:
 
         $ sbt
@@ -216,8 +219,36 @@ The user interface should be up at
 [http://localhost:9007/](http://localhost:9007/).
 
 
+### Run Collections
+
+From the project root, run via sbt:
+
+        $ sbt
+        > project collections
+        > run 9010
+
+The user interface should be up at
+[http://localhost:9010/](http://localhost:9010/).
+
+
 ### [Run ImgOps](imgops/README.md)
 
+### Running with [Foreman](https://github.com/ddollar/foreman)
+This runs all the applications from a single command
+
+Install foreman: 
+
+        $ gem install foreman
+
+From the project root 
+
+        $ foreman start
+
+If you'd like to run a single appplication name (or have your logs in different consoles):
+
+        $ foreman run APPLICATION_NAME
+
+you can see the different application names in the Procfile
 
 ## Troubleshooting
 
@@ -246,7 +277,7 @@ $ sudo keytool -import \
 
 where `internalrootca` is the name you want to give the certificate in
 your keystore, `rootcafile.cer` is the certificate file you want to
-install, and `/path/to/global/jre/lib/security/cacerts` the location
+install (look for "dev-nginx/ssl/GNM-root-cert.pem"), and `/path/to/global/jre/lib/security/cacerts` the location
 of the `cacerts` file for the JRE you're using.
 
 On Mac OS X, it may be something like

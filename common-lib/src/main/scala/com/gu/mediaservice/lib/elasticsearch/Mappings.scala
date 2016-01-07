@@ -2,7 +2,7 @@
 package com.gu.mediaservice.lib.elasticsearch
 
 import play.api.libs.json.Json.JsValueWrapper
-import play.api.libs.json.Json
+import play.api.libs.json.{JsObject, Json}
 
 
 object Mappings {
@@ -10,7 +10,8 @@ object Mappings {
   val nonAnalyzedString = Json.obj("type" -> "string", "index" -> "not_analyzed")
   val nonIndexedString  = Json.obj("type" -> "string", "index" -> "no")
 
-  val sStemmerAnalysedString = Json.obj("type" -> "string", "analyzer" -> IndexSettings.guAnalyzer)
+  val sStemmerAnalysedString = Json.obj("type" -> "string", "analyzer" -> IndexSettings.enslishSStemmerAnalyzerName)
+  val hierarchyAnalysedString = Json.obj("type" -> "string", "analyzer" -> IndexSettings.hierarchyAnalyserName)
   val standardAnalysedString = Json.obj("type" -> "string", "analyzer" -> "standard")
 
   val simpleSuggester = Json.obj(
@@ -28,6 +29,13 @@ object Mappings {
   def nonDynamicObj(obj: (String, JsValueWrapper)*) = Json.obj("type" -> "object", "dynamic" -> "strict", "properties" -> Json.obj(obj:_*))
 
   def nonAnalysedList(indexName: String) = Json.obj("type" -> "string", "index" -> "not_analyzed", "index_name" -> indexName)
+
+  def withIndexName(indexName: String,  obj: JsObject) = Json.obj("index_Name" -> indexName) ++ obj
+
+  // See: https://www.elastic.co/guide/en/elasticsearch/reference/1.6/mapping-core-types.html#copy-to
+  // This copy the value to another field, generally with another
+  // analyser to be searched in different ways.
+  def copyTo(fieldName: String) = Json.obj("copy_to" -> fieldName)
 
   val identifiersMapping =
     nonDynamicObj(
@@ -95,6 +103,18 @@ object Mappings {
       "assets" -> assetMapping
     )
 
+  val actionDataMapping = nonDynamicObj(
+    "author" -> nonAnalyzedString,
+    "date" -> dateFormat
+  )
+
+  val collectionMapping = withIndexName("collection", nonDynamicObj(
+    "path" -> nonAnalysedList("collectionPath"),
+    "pathId" -> (nonAnalyzedString ++ copyTo("collections.pathHierarchy")),
+    "pathHierarchy" -> hierarchyAnalysedString,
+    "actionData" -> actionDataMapping
+  ))
+
   val userMetadataMapping =
     nonDynamicObj(
       "archived"    -> boolean,
@@ -103,9 +123,60 @@ object Mappings {
       "usageRights" -> usageRightsMapping
     )
 
-  val uploadInfo =
+  val uploadInfoMapping =
     nonDynamicObj(
       "filename" -> nonAnalyzedString
+    )
+
+  val usageReference =
+    nonDynamicObj(
+      "type" -> nonAnalyzedString,
+      "uri"  -> nonAnalyzedString,
+      "name" -> sStemmerAnalysedString
+    )
+
+  val printUsageSize =
+    nonDynamicObj(
+      "x" -> integer,
+      "y" -> integer
+    )
+
+  val printUsageMetadata =
+    nonDynamicObj(
+      "sectionName" -> nonAnalyzedString,
+      "issueDate" -> dateFormat,
+      "pageNumber" -> integer,
+      "storyName" -> nonAnalyzedString,
+      "publicationCode" -> nonAnalyzedString,
+      "publicationName" -> nonAnalyzedString,
+      "layoutId" -> integer,
+      "edition" -> integer,
+      "size" -> printUsageSize,
+      "orderedBy" -> nonAnalyzedString,
+      "sectionCode" -> nonAnalyzedString
+    )
+
+  val digitalUsageMetadata =
+    nonDynamicObj(
+      "webTitle" -> nonAnalyzedString,
+      "webUrl" -> nonAnalyzedString,
+      "sectionId" -> nonAnalyzedString,
+      "composerUrl" -> nonAnalyzedString
+    )
+
+  val usagesMapping =
+    nonDynamicObj(
+      "id"           -> nonAnalyzedString,
+      "title"        -> sStemmerAnalysedString,
+      "references"   -> usageReference,
+      "platform"     -> nonAnalyzedString,
+      "media"        -> nonAnalyzedString,
+      "status"       -> nonAnalyzedString,
+      "dateAdded"    -> dateFormat,
+      "dateRemoved"  -> dateFormat,
+      "lastModified" -> dateFormat,
+      "printUsageMetadata" -> printUsageMetadata,
+      "digitalUsageMetadata" -> digitalUsageMetadata
     )
 
   val imageMapping: String =
@@ -121,13 +192,17 @@ object Mappings {
           "source" -> assetMapping,
           "thumbnail" -> assetMapping,
           "userMetadata" -> userMetadataMapping,
+          "userMetadataLastModified" -> dateFormat,
           "fileMetadata" -> dynamicObj,
           "exports" -> exportsMapping,
           "uploadTime" -> dateFormat,
           "uploadedBy" -> nonAnalyzedString,
           "lastModified" -> dateFormat,
           "identifiers" -> dynamicObj,
-          "uploadInfo" -> uploadInfo,
+          "uploadInfo" -> uploadInfoMapping,
+          "suggestMetadataCredit" -> simpleSuggester,
+          "usages" -> usagesMapping,
+          "collections" -> collectionMapping,
           "suggestMetadataCredit" -> simpleSuggester
         ),
         "dynamic_templates" -> Json.arr(Json.obj(

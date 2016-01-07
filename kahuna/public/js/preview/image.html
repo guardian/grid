@@ -30,6 +30,7 @@
        ui:drag-data="{{ctrl.image | asImageDragData}}">
        <div class="preview__fade"></div>
        <img class="preview__image"
+            alt="{{::ctrl.image.data.metadata.description}}"
             ng:src="{{::ctrl.image.data.thumbnail | assetFile}}"
             gr:image-fade-on-load />
     </a>
@@ -37,7 +38,9 @@
     <span ng:if="ctrl.selectionMode" class="preview__no-link">
         <div class="preview__fade"></div>
         <img class="preview__image"
+             alt="{{::ctrl.image.data.metadata.description}}"
              ng:src="{{::ctrl.image.data.thumbnail | assetFile}}"
+             ui:drag-data="{{ctrl.image | asImageDragData}}"
              gr:image-fade-on-load />
     </span>
 
@@ -78,6 +81,23 @@
 
                 <gr-icon gr-small>crop</gr-icon>
             </span>
+
+            <span class="bottom-bar__meta-item preview__has-print-usages"
+                  title="This image has print used in Print Content."
+                  ng:if="ctrl.hasPrintUsages">
+
+                <gr-icon gr-small>local_library</gr-icon>
+            </span>
+
+            <span class="bottom-bar__meta-item preview__has-web-usages"
+                  title="This image has been used in Digital Content."
+                  ng:if="ctrl.hasDigitalUsages">
+
+                <gr-icon gr-small>phonelink</gr-icon>
+            </span>
+
+
+
         </div>
         <div class="bottom-bar__actions">
             <gr-image-persist-status class="bottom-bar__action"

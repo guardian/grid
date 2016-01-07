@@ -1,12 +1,17 @@
-# CloudFormation scripts
+# Cloud Formation
 
-These scripts require the [AWS CloudFormation Command Line Tools][1].
+The [template](./dev-template.json) outlines the AWS resources needed to develop on the Grid.
 
- [1]: http://aws.amazon.com/developertools/2555753788650372
+## Creating Stack
 
-## Troubleshooting
+To create a stack, use the corresponding script in the [`scripts`](./scripts/) directory.
 
-*An app server fails the ELB health check*
+Once you have created the stack, you'll need to initialise the contents of your buckets:
 
- * Check that the app server's security group allows ingress from the load
- balancer's security group
+```sh
+./post-dev-stack-creation.sh
+```
+
+## Updating Stack
+
+To update a stack, use the corresponding script in the [`scripts`](./scripts/) directory.

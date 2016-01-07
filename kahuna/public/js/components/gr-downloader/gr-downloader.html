@@ -1,0 +1,16 @@
+<button class="download"
+        type="button"
+        title="Download images"
+        ng:disabled="ctrl.downloading"
+        ng:if="ctrl.images.size > 1"
+        ng:click="ctrl.download()">
+    <gr-icon-label gr-icon="file_download">
+        Download<span ng:show="ctrl.downloading">ing</span>
+    </gr-icon-label>
+</button>
+
+<a class="download"
+   ng:if="ctrl.images.size == 1"
+   href="{{ ctrl.getFirstImageSource() | assetFile }}" download target="_blank">
+    <gr-icon-label gr-icon="file_download">Download</gr-icon-label>
+</a>

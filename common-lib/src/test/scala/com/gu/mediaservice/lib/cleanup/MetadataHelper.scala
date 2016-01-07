@@ -25,6 +25,7 @@ trait MetadataHelper {
       originalMetadata = metadataMap,
       usageRights = usageRights,
       originalUsageRights = usageRights,
+      usages = List(),
       exports = List()
     )
   }

@@ -48,6 +48,20 @@
                                         { "Ref" : "EditsDynamoTable" }
                                     ] ] }
                                 ]
+                            },
+                            {
+                                "Effect": "Allow",
+                                "Action": [ "dynamodb:*" ],
+                                "Resource": [
+                                    { "Fn::Join" : [ "", [
+                                        "arn:aws:dynamodb:",
+                                        { "Ref" : "AWS::Region" },
+                                        ":",
+                                        { "Ref" : "AWS::AccountId" },
+                                        ":table/",
+                                        { "Ref" : "ImageCollectionsDynamoTable" }
+                                    ] ] }
+                                ]
                             }
                         ]
                     }
@@ -216,7 +230,97 @@
             }
         },
 
+        "S3WatcherIngestBucket": {
+            "Type" : "AWS::S3::Bucket"
+        },
+        "S3WatcherIngestBucketPolicy": {
+            "Type": "AWS::S3::BucketPolicy",
+            "Properties": {
+                "PolicyDocument": {
+                    "Id": "S3WatcherIngestBucketPolicy",
+                    "Statement": [
+                        {
+                            "Action": [ "s3:*" ],
+                            "Effect": "Allow",
+                            "Resource": { "Fn::Join": [ "",
+                                [ "arn:aws:s3:::", { "Ref": "S3WatcherIngestBucket" } , "/*" ] ]
+                            },
+                            "Principal": { "AWS": { "Fn::GetAtt": [ "User", "Arn" ] } }
+                        }
+                    ]
+                },
+                "Bucket": { "Ref": "S3WatcherIngestBucket" }
+            }
+        },
+        "S3WatcherFailBucket": {
+            "Type" : "AWS::S3::Bucket"
+        },
+        "S3WatcherFailBucketPolicy": {
+            "Type": "AWS::S3::BucketPolicy",
+            "Properties": {
+                "PolicyDocument": {
+                    "Id": "S3WatcherFailBucketPolicy",
+                    "Statement": [
+                        {
+                            "Action": [ "s3:PutObject" ],
+                            "Effect": "Allow",
+                            "Resource": { "Fn::Join": [ "",
+                                [ "arn:aws:s3:::", { "Ref": "S3WatcherFailBucket" } , "/*" ] ]
+                            },
+                            "Principal": { "AWS": { "Fn::GetAtt": [ "User", "Arn" ] } }
+                        }
+                    ]
+                },
+                "Bucket": { "Ref": "S3WatcherFailBucket" }
+            }
+        },
+
+        "CollectionsBucket": {
+            "Type": "AWS::S3::Bucket"
+        },
+        "CollectionsBucketPolicy": {
+            "Type": "AWS::S3::BucketPolicy",
+            "Properties": {
+                "PolicyDocument": {
+                    "Id": "CollectionsBucketPolicy",
+                    "Statement": [
+                        {
+                            "Action": [ "s3:GetObject", "s3:PutObject" ],
+                            "Effect": "Allow",
+                            "Resource": { "Fn::Join": [ "",
+                                [ "arn:aws:s3:::", { "Ref": "CollectionsBucket" } , "/*" ] ]
+                            },
+                            "Principal": { "AWS": { "Fn::GetAtt": [ "User", "Arn" ] } }
+                        }
+                    ]
+                },
+                "Bucket": { "Ref": "CollectionsBucket" }
+            }
+        },
+
         "EditsDynamoTable": {
+            "Type": "AWS::DynamoDB::Table",
+            "Properties": {
+                "AttributeDefinitions": [
+                    {
+                        "AttributeName": "id",
+                        "AttributeType": "S"
+                    }
+                ],
+                "KeySchema": [
+                    {
+                        "AttributeName": "id",
+                        "KeyType": "HASH"
+                    }
+                ],
+                "ProvisionedThroughput": {
+                    "ReadCapacityUnits" : "10",
+                    "WriteCapacityUnits" : "5"
+                }
+            }
+        },
+
+        "ImageCollectionsDynamoTable": {
             "Type": "AWS::DynamoDB::Table",
             "Properties": {
                 "AttributeDefinitions": [
@@ -313,57 +417,48 @@
                 "Queues": [ { "Ref": "IndexedImageMetadataQueue" } ]
             }
         },
+
         "UsageRecordTable": {
             "Type": "AWS::DynamoDB::Table",
             "Properties": {
-                "AttributeDefinitions": [
-                    {
-                        "AttributeName": "usage_id",
-                        "AttributeType": "S"
-                    },
-                    {
-                        "AttributeName": "grouping",
-                        "AttributeType": "S"
-                    },
-                    {
+                "AttributeDefinitions": [ {
+                    "AttributeName": "usage_id",
+                    "AttributeType": "S"
+                }, {
+                    "AttributeName": "grouping",
+                    "AttributeType": "S"
+                }, {
+                    "AttributeName": "media_id",
+                    "AttributeType": "S"
+                } ],
+                "KeySchema": [ {
+                    "AttributeName": "grouping",
+                    "KeyType": "HASH"
+                }, {
+                    "AttributeName": "usage_id",
+                    "KeyType": "RANGE"
+                } ],
+                "GlobalSecondaryIndexes": [ {
+                    "IndexName": "media_id",
+                    "KeySchema": [ {
                         "AttributeName": "media_id",
-                        "AttributeType": "S"
-                    }
-                ],
-                "KeySchema": [
-                    {
-                        "AttributeName": "grouping",
                         "KeyType": "HASH"
+                    } ],
+                    "Projection": {
+                        "ProjectionType": "ALL"
                     },
-                    {
-                        "AttributeName": "usage_id",
-                        "KeyType": "RANGE"
-                    }
-                ],
-                "GlobalSecondaryIndexes" : [
-                    {
-                        "IndexName" : "media_id",
-                        "KeySchema": [
-                            {
-                                "AttributeName": "media_id",
-                                "KeyType": "HASH"
-                            }
-                        ],
-                        "Projection": {
-                            "ProjectionType": "ALL"
-                        },
-                        "ProvisionedThroughput": {
-                            "ReadCapacityUnits" : "1",
-                            "WriteCapacityUnits" : "4"
-                        }
-                    }
+                    "ProvisionedThroughput": {
+                        "ReadCapacityUnits": "1",
+                        "WriteCapacityUnits": "4"
+                    } }
                 ],
                 "ProvisionedThroughput": {
-                    "ReadCapacityUnits" : "1",
-                    "WriteCapacityUnits" : "4"
+                    "ReadCapacityUnits": "1",
+                    "WriteCapacityUnits": "4"
                 }
             }
         },
+
         "UsageRecordTablePolicy": {
             "Type": "AWS::IAM::Policy",
             "Properties": {
@@ -373,56 +468,50 @@
                     "Statement": [ {
                         "Effect": "Allow",
                         "Action": [ "dynamodb:*" ],
-                        "Resource": [
-                            { "Fn::Join" : [ "", [
-                                "arn:aws:dynamodb:",
-                                { "Ref" : "AWS::Region" },
-                                ":",
-                                { "Ref" : "AWS::AccountId" },
-                                ":table/",
-                                { "Ref" : "UsageRecordTable" }
-                            ] ] }
-                        ]},
-                        {
-                            "Effect": "Allow",
-                            "Action": [ "dynamodb:*" ],
-                            "Resource": [
-                                { "Fn::Join" : [ "", [
-                                    "arn:aws:dynamodb:",
-                                    { "Ref" : "AWS::Region" },
-                                    ":",
-                                    { "Ref" : "AWS::AccountId" },
-                                    ":table/",
-                                    { "Ref" : "UsageRecordTable" },
-                                    "/index/media_id"
-                                ] ] }
-                            ]
-                        }]
+                        "Resource": [ {
+                            "Fn::Join": [ ":", [ "arn:aws:dynamodb",
+                                { "Ref": "AWS::Region" },
+                                { "Ref": "AWS::AccountId" },
+                                { "Fn::Join": ["/", ["table", { "Ref": "UsageRecordTable" }]]}
+                            ] ]
+                        } ]
+                    }, {
+                        "Effect": "Allow",
+                        "Action": [ "dynamodb:*" ],
+                        "Resource": [ {
+                            "Fn::Join": [ ":", [ "arn:aws:dynamodb",
+                                { "Ref": "AWS::Region" },
+                                { "Ref": "AWS::AccountId" },
+                                { "Fn::Join": ["/", [ "table",
+                                    { "Ref": "UsageRecordTable" },
+                                    "index", "media_id" ] ]
+                                }
+                            ] ]
+                        } ]
+                    } ]
                 },
                 "Users": [ { "Ref": "User" } ]
             }
         },
+
         "LiveContentPollTable": {
             "Type": "AWS::DynamoDB::Table",
             "Properties": {
-                "AttributeDefinitions": [
-                    {
-                        "AttributeName": "id",
-                        "AttributeType": "S"
-                    }
-                ],
-                "KeySchema": [
-                    {
-                        "AttributeName": "id",
-                        "KeyType": "HASH"
-                    }
-                ],
+                "AttributeDefinitions": [ {
+                    "AttributeName": "id",
+                    "AttributeType": "S"
+                } ],
+                "KeySchema": [ {
+                    "AttributeName": "id",
+                    "KeyType": "HASH"
+                } ],
                 "ProvisionedThroughput": {
-                    "ReadCapacityUnits" : "20",
-                    "WriteCapacityUnits" : "1"
+                    "ReadCapacityUnits": "20",
+                    "WriteCapacityUnits": "1"
                 }
             }
         },
+
         "LiveContentPollTablePolicy": {
             "Type": "AWS::IAM::Policy",
             "Properties": {
@@ -432,42 +521,37 @@
                     "Statement": [ {
                         "Effect": "Allow",
                         "Action": [ "dynamodb:*" ],
-                        "Resource": [
-                            { "Fn::Join" : [ "", [
-                                "arn:aws:dynamodb:",
-                                { "Ref" : "AWS::Region" },
-                                ":",
-                                { "Ref" : "AWS::AccountId" },
-                                ":table/",
-                                { "Ref" : "LiveContentPollTable" }
-                            ] ] }
-                        ]
+                        "Resource": [ {
+                            "Fn::Join": [ ":", [ "arn:aws:dynamodb",
+                                { "Ref": "AWS::Region" },
+                                { "Ref": "AWS::AccountId" },
+                                { "Fn::Join": ["/", ["table", { "Ref": "LiveContentPollTable" }]]}
+                            ] ]
+                        } ]
                     } ]
                 },
                 "Users": [ { "Ref": "User" } ]
             }
         },
+
         "PreviewContentPollTable": {
             "Type": "AWS::DynamoDB::Table",
             "Properties": {
-                "AttributeDefinitions": [
-                    {
-                        "AttributeName": "id",
-                        "AttributeType": "S"
-                    }
-                ],
-                "KeySchema": [
-                    {
-                        "AttributeName": "id",
-                        "KeyType": "HASH"
-                    }
-                ],
+                "AttributeDefinitions": [ {
+                    "AttributeName": "id",
+                    "AttributeType": "S"
+                } ],
+                "KeySchema": [ {
+                    "AttributeName": "id",
+                    "KeyType": "HASH"
+                } ],
                 "ProvisionedThroughput": {
-                    "ReadCapacityUnits" : "20",
-                    "WriteCapacityUnits" : "1"
+                    "ReadCapacityUnits": "20",
+                    "WriteCapacityUnits": "1"
                 }
             }
         },
+
         "PreviewContentPollTablePolicy": {
             "Type": "AWS::IAM::Policy",
             "Properties": {
@@ -477,16 +561,13 @@
                     "Statement": [ {
                         "Effect": "Allow",
                         "Action": [ "dynamodb:*" ],
-                        "Resource": [
-                            { "Fn::Join" : [ "", [
-                                "arn:aws:dynamodb:",
-                                { "Ref" : "AWS::Region" },
-                                ":",
-                                { "Ref" : "AWS::AccountId" },
-                                ":table/",
-                                { "Ref" : "PreviewContentPollTable" }
-                            ] ] }
-                        ]
+                        "Resource": [ {
+                            "Fn::Join": [ ":", [ "arn:aws:dynamodb",
+                                { "Ref": "AWS::Region" },
+                                { "Ref": "AWS::AccountId" },
+                                { "Fn::Join": ["/", ["table", { "Ref": "PreviewContentPollTable" }]]}
+                            ] ]
+                        } ]
                     } ]
                 },
                 "Users": [ { "Ref": "User" } ]
@@ -518,8 +599,20 @@
         "ConfigBucket": {
             "Value": { "Ref": "ConfigBucket" }
         },
+        "CollectionsBucket": {
+            "Value": { "Ref": "CollectionsBucket" }
+        },
+        "S3WatcherIngestBucket": {
+            "Value": { "Ref": "S3WatcherIngestBucket" }
+        },
+        "S3WatcherFailBucket": {
+            "Value": { "Ref": "S3WatcherFailBucket" }
+        },
         "EditsDynamoTable": {
             "Value": { "Ref": "EditsDynamoTable" }
+        },
+        "ImageCollectionsDynamoTable": {
+            "Value": { "Ref": "ImageCollectionsDynamoTable" }
         },
         "SnsTopicArn": {
             "Value": { "Ref": "Topic" }

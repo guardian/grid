@@ -1,27 +1,37 @@
 import angular from 'angular';
+
+import '../util/rx';
+
 import '../analytics/track';
 
 import template from './image.html!text';
 
 import '../image/service';
+import '../services/image/usages';
 import '../components/gr-add-label/gr-add-label';
 import '../components/gr-image-persist-status/gr-image-persist-status';
 
 export var image = angular.module('kahuna.preview.image', [
     'gr.image.service',
+    'gr.image-usages.service',
     'analytics.track',
     'gr.addLabel',
-    'gr.imagePersistStatus'
+    'gr.imagePersistStatus',
+    'util.rx'
 ]);
 
 image.controller('uiPreviewImageCtrl', [
     '$scope',
+    'inject$',
     '$rootScope',
     'imageService',
+    'imageUsagesService',
     function (
         $scope,
+        inject$,
         $rootScope,
-        imageService) {
+        imageService,
+        imageUsagesService) {
     var ctrl = this;
 
     const freeUpdateListener = $rootScope.$on('image-updated', (e, updatedImage) => {
@@ -34,9 +44,18 @@ image.controller('uiPreviewImageCtrl', [
 
     ctrl.states = imageService(ctrl.image).states;
 
+    const hasPrintUsages$ =
+        imageUsagesService.getUsages(ctrl.image).hasPrintUsages$;
+
+    const hasDigitalUsages$ =
+        imageUsagesService.getUsages(ctrl.image).hasDigitalUsages$;
+
     $scope.$on('$destroy', function() {
         freeUpdateListener();
     });
+
+    inject$($scope, hasPrintUsages$, ctrl, 'hasPrintUsages');
+    inject$($scope, hasDigitalUsages$, ctrl, 'hasDigitalUsages');
 }]);
 
 image.directive('uiPreviewImage', function() {

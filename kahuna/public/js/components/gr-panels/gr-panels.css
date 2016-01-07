@@ -1,0 +1,50 @@
+/* We're using a prefix here as we don't want to conflict with the other panels */
+.gr-panels {}
+
+.gr-panels-content {
+    display: flex;
+    position: relative;
+}
+
+.gr-panel {
+    box-sizing: border-box;
+    background: #444;
+    z-index: 3;
+    position: fixed;
+}
+
+.gr-panel--locked {
+    position: relative;
+    width: 290px;
+}
+
+.gr-panel__content {
+    width: 290px;
+    position: fixed;
+    background: #444;
+    overflow: auto;
+    width: 290px;
+    transition: width 0.2s;
+}
+.gr-panel__content--hidden {
+    width: 0;
+    overflow: hidden;
+}
+.gr-panel__content--left {
+    left: 0;
+}
+
+.gr-panel__content--right {
+    right: 0;
+}
+
+.gr-panelled-content {
+    flex-grow: 1;
+}
+
+
+/* Stupid hack as we haven't decoupled the search toolbar and search results */
+.search-panels .gr-panel {
+    display: block;
+    margin-top: 36px;
+}

@@ -1,6 +1,7 @@
 import angular from 'angular';
 import 'angular-ui-router-extras';
 import Rx from 'rx';
+import 'rx-dom';
 import Immutable from 'immutable';
 
 import './query';
@@ -10,10 +11,16 @@ import '../lib/data-structure/list-factory';
 import '../lib/data-structure/ordered-set-factory';
 import '../components/gr-top-bar/gr-top-bar';
 import '../components/gr-panel/gr-panel';
+import '../components/gr-collections-panel/gr-collections-panel';
+import '../components/gr-keyboard-shortcut/gr-keyboard-shortcut';
+
+import '../components/gr-panels/gr-panels';
 
 import searchTemplate        from './view.html!text';
 import searchResultsTemplate from './results.html!text';
 import panelTemplate        from '../components/gr-panel/gr-panel.html!text';
+import collectionsPanelTemplate from
+    '../components/gr-collections-panel/gr-collections-panel.html!text';
 
 
 export var search = angular.module('kahuna.search', [
@@ -24,7 +31,10 @@ export var search = angular.module('kahuna.search', [
     'data-structure.list-factory',
     'data-structure.ordered-set-factory',
     'gr.topBar',
+    'gr.panels',
+    'gr.keyboardShortcut',
     'grPanel',
+    'grCollectionsPanel',
     'ui.router'
 ]);
 
@@ -34,15 +44,16 @@ export var search = angular.module('kahuna.search', [
 search.config(['$stateProvider', '$urlMatcherFactoryProvider',
                function($stateProvider, $urlMatcherFactoryProvider) {
 
-    // Query params slashes are encoded that mess up our seach query when we search for e.g. `24/7`.
-    // see: https://github.com/angular-ui/ui-router/issues/1119#issuecomment-64696060
-    // TODO: Fix this
-    $urlMatcherFactoryProvider.type('Slashed', {
-        encode: val => angular.isDefined(val) ? val : undefined,
-        decode: val => angular.isDefined(val) ? val : undefined,
-        // We want to always match this type. If we match on slash, it won't update
-        // the `stateParams`.
-        is: () => true
+    const zeroWidthSpace = /[\u200B]/g;
+    function removeUtf8SpecialChars(val) {
+        return angular.isDefined(val) && val.replace(zeroWidthSpace, '');
+    }
+
+    $urlMatcherFactoryProvider.type('Query', {
+        encode: val => removeUtf8SpecialChars(val),
+        decode: val => removeUtf8SpecialChars(val),
+        //call decode value that includes zero-width-space character
+        is: val => angular.isDefined(val) && !zeroWidthSpace.test(val)
     });
 
     $stateProvider.state('search', {
@@ -59,11 +70,37 @@ search.config(['$stateProvider', '$urlMatcherFactoryProvider',
                 });
                 return {state: $dsr$.redirect.state, params};
             }]
+        },
+        controllerAs: 'ctrl',
+        controller: ['$scope', 'panels', 'shortcutKeys', 'hotkeys', 'keyboardShortcut',
+                     function($scope, panels, shortcutKeys, keyboardShortcut) {
+
+            const ctrl = this;
+            ctrl.collectionsPanel = panels.collectionsPanel;
+            ctrl.metadataPanel = panels.metadataPanel;
+
+            keyboardShortcut.bindTo($scope).add({
+                combo: shortcutKeys.get('metadataPanel'),
+                description: 'Toggle metadata panel',
+                callback: panels.metadataPanel.toggleHidden
+            });
+        }],
+        resolve: {
+            shortcutKeys: [function() {
+                // keep the shortcut keys here to stop overriding
+                return new Map([['metadataPanel', 'm']]);
+            }],
+            panels: ['panelService', function(panelService) {
+                const collectionsPanel = panelService.createPanel(true);
+                const metadataPanel = panelService.createPanel(true);
+
+                return { collectionsPanel, metadataPanel };
+           }]
         }
     });
 
     $stateProvider.state('search.results', {
-        url: 'search?{query:Slashed}&ids&since&nonFree&uploadedBy&until&orderBy',
+        url: 'search?{query:Query}&ids&since&nonFree&uploadedBy&until&orderBy',
         // Non-URL parameters
         params: {
             // Routing-level property indicating whether the state has
@@ -121,7 +158,7 @@ search.config(['$stateProvider', '$urlMatcherFactoryProvider',
                 controller: 'SearchResultsCtrl',
                 controllerAs: 'ctrl'
             },
-            panel: {
+            infoPanel: {
                 template: panelTemplate,
                 controller: 'GrPanel',
                 controllerAs: 'ctrl',
@@ -132,6 +169,50 @@ search.config(['$stateProvider', '$urlMatcherFactoryProvider',
                             shareReplay(1);
                     }]
                 }
+            },
+            collectionPanel: {
+                template: collectionsPanelTemplate,
+                controller: 'GrCollectionsPanelCtrl',
+                controllerAs: 'ctrl'
+            },
+            multiDrag: {
+                template: `<div class="multidrag"></div>`,
+                controller: ['$scope', '$window', '$document', '$element', 'vndMimeTypes',
+                             'selectedImages$',
+                             function($scope, $window, $document, $element, vndMimeTypes,
+                                      selectedImages$) {
+
+                    const windowDrag$ = Rx.DOM.fromEvent($window, 'dragstart');
+                    const dragData$ = windowDrag$.
+                        withLatestFrom(selectedImages$, (event, imageList) => {
+                            const images = imageList.map(i => i.data);
+                            const dt = event.dataTransfer;
+                            return {images, dt};
+                        });
+
+                    const sub = dragData$.subscribe(({ images, dt }) => {
+                        if (images.size > 0) {
+                            const doc = $document[0];
+                            const el = $element[0];
+
+                            //creates an element to use as the drag icon
+                            const dragImage = doc.createElement('div');
+                                  dragImage.classList.add('drag-icon');
+
+                            const imageCount = doc.createElement('span');
+                                  imageCount.classList.add('drag-count');
+                                  imageCount.innerHTML = images.count();
+
+                            dragImage.appendChild(imageCount);
+                            el.appendChild(dragImage);
+
+                            dt.setData(vndMimeTypes.get('gridImagesData'), JSON.stringify(images));
+                            dt.setDragImage(dragImage, 0, 0);
+                        }
+                    });
+
+                    $scope.$on('$destroy', () => sub.dispose());
+                }]
             }
         }
     });

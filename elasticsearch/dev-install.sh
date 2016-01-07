@@ -26,7 +26,7 @@ then
     sed -i -e 's,cluster.routing.allocation.awareness.attributes: aws_availability_zone,,g' elasticsearch/config/elasticsearch.yml
     cd elasticsearch
     ./bin/plugin -install mobz/elasticsearch-head
-    ./bin/plugin -install elasticsearch/elasticsearch-cloud-aws/2.3.0
+    ./bin/plugin -install elasticsearch/elasticsearch-cloud-aws/2.7.1
     ./bin/plugin -install karmi/elasticsearch-paramedic
     echo "Done"
     echo "Start it with $ELASTICSEARCH_DIR/dev-start.sh"

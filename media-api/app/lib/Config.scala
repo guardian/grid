@@ -24,7 +24,7 @@ object Config extends CommonPlayAppConfig with CommonPlayAppProperties {
 
   val elasticsearchHost: String =
     if (stage == "DEV")
-      string("es.host")
+      properties.getOrElse("es.host", "localhost")
     else
       findElasticsearchHost(ec2Client, Map(
         "Stage" -> Seq(stage),
@@ -51,6 +51,7 @@ object Config extends CommonPlayAppConfig with CommonPlayAppProperties {
   lazy val imgopsUri: String = services.imgopsBaseUri
   lazy val usageUri: String = services.usageBaseUri
   lazy val loginUriTemplate: String = services.loginUriTemplate
+  lazy val collectionsUri: String = services.collectionsBaseUri
 
   private lazy val corsAllowedOrigins = properties.getOrElse("cors.allowed.origins", "").split(",").toList
   lazy val corsAllAllowedOrigins: List[String] =

@@ -8,7 +8,9 @@ import com.gu.mediaservice.lib.play.RequestLoggingFilter
 import controllers.UsageApi
 import lib._
 
-object Global extends WithFilters(RequestLoggingFilter, new GzipFilter) with GlobalSettings {
+object Global extends WithFilters(CorsFilter, RequestLoggingFilter, new GzipFilter) with GlobalSettings {
+
+  lazy val subscription = UsageRecorder.subscribe
 
   override def beforeStart(app: Application): Unit = {
     LogConfig.init(Config)
@@ -17,7 +19,12 @@ object Global extends WithFilters(RequestLoggingFilter, new GzipFilter) with Glo
   override def onStart(app: Application) {
     UsageApi.keyStore.scheduleUpdates(Akka.system(app).scheduler)
 
-    val subscription = UsageRecorder.subscribe
+    // Eval subscription to start stream
+    subscription
+  }
+
+  override def onStop(app: Application) {
+    subscription.unsubscribe
   }
 
 }

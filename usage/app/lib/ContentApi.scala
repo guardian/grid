@@ -20,7 +20,7 @@ object PreviewContentApi extends ContentApiRequestBuilder {
     .setPassword(Config.capiPreviewPassword)
     .setUsePreemptiveAuth(true)
     .setScheme(AuthScheme.BASIC)
-    .build();
+    .build()
 
   val previewBuilder = builder.setRealm(realm)
 
@@ -32,7 +32,7 @@ object LiveContentApi extends ContentApiRequestBuilder {
 }
 
 class ContentApiRequestBuilder extends GuardianContentClient(apiKey = Config.capiApiKey) {
-  val userAgent = "content-api-scala-client/"+CapiBuildInfo.version
+  override val userAgent = "content-api-scala-client/"+CapiBuildInfo.version
 
   val builder = new Builder()
     .setAllowPoolingConnections(true)

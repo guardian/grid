@@ -29,8 +29,22 @@ imageAccessor.factory('imageAccessor', function() {
         return image.data.metadata;
     }
 
+    function readExtraInfo(image) {
+        return {
+            filename: image.data.uploadInfo && image.data.uploadInfo.filename
+        };
+    }
+
     function readUsageRights(image) {
         return image.data.usageRights;
+    }
+
+    function readPersistedReasons(image) {
+        return image.data.persisted.reasons;
+    }
+
+    function isPersisted(image) {
+        return image.data.persisted.value;
     }
 
     function isArchived(image) {
@@ -42,7 +56,10 @@ imageAccessor.factory('imageAccessor', function() {
         readCost,
         readLabels,
         readMetadata,
+        readExtraInfo,
         readUsageRights,
+        readPersistedReasons,
+        isPersisted,
         isArchived
     };
 });

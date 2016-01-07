@@ -28,6 +28,12 @@ NB: From the virtualenvwrapper docs:
 
 > You will want to add the command to `source /usr/local/bin/virtualenvwrapper.sh` to your shell startup file, changing the path to virtualenvwrapper.sh depending on where it was installed by pip.
 
+So:
+
+```sh
+echo "source /usr/local/bin/virtualenvwrapper.sh" >> ~/.profile
+```
+
 ## Usage
 
 ### Install requirements
@@ -54,23 +60,29 @@ pip install -r requirements.txt
 
 ### Configure
 
-You need to create the file `settings/settings.ini` using [`settings/settings.ini.template`](./settings/settings.ini.template) as a template.
+You need to create the file `/etc/gu/grid-settings.ini` using [`settings/settings.ini.template`](./settings/settings.ini.template) as a template.
 
-Additionally, the `aws` section can have the values:
- * `profile-name` which is the name of an [AWS CLI Profile](http://docs.aws.amazon.com/cli/latest/userguide/cli-chap-getting-started.html) and is defaulted to `media-service`
- * `region` which is the region your CloudFormation is in. If none is specified it is defaulted to `eu-west-1`.
+Note that this script uses the [boto3](http://boto3.readthedocs.org/en/latest/index.html) library.
+boto3 uses the [same authentication as the aws-cli](http://boto3.readthedocs.org/en/latest/guide/configuration.html#guide-configuration).
+
+We expect you to have a `media-service` profile setup with the awscli:
+
+```sh
+aws configure --profile media-service
+```
+
+Note: As stated in the boto3 documentation, you must specify a region:
+
+> you **must** have AWS credentials and a region set in order to make requests.
+
+You can specify an alternative aws profile for this script to use by setting the `profile_name` value in `/etc/gu/grid-settings.ini` under the `aws` section.
 
 
 ### Generating .properties
 To generate the .properties files, run the command:
 
 ```sh
-./main.py
-```
-
-NB: If you've set `directory` to a location not writable by the current user (e.g. `/etc/gu`),
-you can run:
-
-```sh
 sudo ./main.py
 ```
+
+Note: `sudo` is needed as we write to `/etc/gu/`.

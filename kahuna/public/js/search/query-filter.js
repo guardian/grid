@@ -3,11 +3,11 @@ import angular from 'angular';
 export var queryFilters = angular.module('kahuna.search.filters.query', []);
 
 var containsSpace = s => / /.test(s);
-var stripQuotes = s => s.replace(/["']/g, '');
+var stripDoubleQuotes = s => s.replace(/"/g, '');
 
 queryFilters.filter('queryFilter', function() {
     return (value, field) => {
-        let cleanValue = stripQuotes(value);
+        const cleanValue = stripDoubleQuotes(value);
         if (containsSpace(cleanValue)) {
             return `${field}:"${cleanValue}"`;
         } else {
@@ -18,7 +18,7 @@ queryFilters.filter('queryFilter', function() {
 
 queryFilters.filter('queryLabelFilter', function() {
     return (value) => {
-        let cleanValue = stripQuotes(value);
+        const cleanValue = stripDoubleQuotes(value);
         if (containsSpace(cleanValue)) {
             return `#"${cleanValue}"`;
         } else {

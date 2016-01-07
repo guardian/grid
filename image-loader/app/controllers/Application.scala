@@ -4,6 +4,7 @@ import java.io.File
 import java.net.URI
 
 import com.gu.mediaservice.model.UploadInfo
+import model.{ImageUpload, UploadRequest}
 import play.api.mvc.Security.AuthenticatedRequest
 import play.api.mvc._
 import play.api.libs.concurrent.Execution.Implicits._
@@ -16,8 +17,6 @@ import scala.concurrent.Future
 import lib.{Downloader, Config, Notifications}
 import lib.storage.ImageStore
 import lib.imaging.MimeTypeDetection
-
-import model.{UploadRequest, ImageUpload}
 
 import com.gu.mediaservice.lib.play.DigestBodyParser
 import com.gu.mediaservice.lib.play.DigestedFile

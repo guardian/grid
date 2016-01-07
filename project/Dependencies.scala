@@ -28,12 +28,12 @@ object Dependencies {
   )
 
   val pandaDeps = Seq(
-    ("com.gu" %% "pan-domain-auth-core" % "0.2.7") exclude ("xpp3", "xpp3") exclude("com.google.guava", "guava-jdk5"),
-    ("com.gu" %% "pan-domain-auth-play" % "0.2.7")
+    ("com.gu" %% "pan-domain-auth-core" % "0.2.10") exclude ("xpp3", "xpp3") exclude("com.google.guava", "guava-jdk5"),
+    ("com.gu" %% "pan-domain-auth-play" % "0.2.10")
   )
 
   val guDeps = Seq(
-    "com.gu" %% "content-api-client" % "7.1"
+    "com.gu" %% "content-api-client" % "7.11"
   )
 
   val reactiveXDeps = Seq(

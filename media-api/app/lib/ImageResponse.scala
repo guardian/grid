@@ -7,6 +7,7 @@ import scala.collection.mutable.ListBuffer
 import scala.util.{Try, Failure}
 import org.joda.time.{DateTime, Duration}
 
+import play.utils.UriEncoding
 import play.api.Logger
 import play.api.libs.json._
 import play.api.libs.functional.syntax._
@@ -15,15 +16,20 @@ import com.gu.mediaservice.model._
 import com.gu.mediaservice.lib.argo.model._
 
 
-
 object ImageResponse extends EditsResponse {
   implicit val dateTimeFormat = DateFormat
 
   val metadataBaseUri = Config.services.metadataBaseUri
 
   type FileMetadataEntity = EmbeddedEntity[FileMetadata]
+  type UsageEntity = EmbeddedEntity[Usage]
+  type UsagesEntity = EmbeddedEntity[List[UsageEntity]]
 
   def fileMetaDataUri(id: String) = URI.create(s"${Config.rootUri}/images/$id/fileMetadata")
+  def usagesUri(id: String) = URI.create(s"${Config.usageUri}/usages/media/$id")
+  def usageUri(id: String) = {
+    URI.create(s"${Config.usageUri}/usages/${UriEncoding.encodePathSegment(id, "UTF-8")}")
+  }
 
   def hasPersistenceIdentifier(image: Image) =
     image.identifiers.contains(Config.persistenceIdentifier)
@@ -46,6 +52,12 @@ object ImageResponse extends EditsResponse {
       case _ => false
     }
 
+  def isAgencyCommissionedCategory[T <: UsageRights](usageRights: T) =
+    usageRights match {
+      case _: CommissionedAgency => true
+      case _ => false
+    }
+
   def imagePersistenceReasons(image: Image): List[String] = {
     val reasons = ListBuffer[String]()
 
@@ -63,6 +75,9 @@ object ImageResponse extends EditsResponse {
 
     if (isIllustratorCategory(image.usageRights))
       reasons += "illustrator-category"
+
+    if(isAgencyCommissionedCategory(image.usageRights))
+      reasons += CommissionedAgency.category
 
     reasons.toList
   }
@@ -117,7 +132,7 @@ object ImageResponse extends EditsResponse {
     val editLink = Link("edits", s"${Config.metadataUri}/metadata/$id")
     val optimisedLink = Link("optimised", makeImgopsUri(new URI(secureUrl)))
     val imageLink = Link("ui:image",  s"${Config.kahunaUri}/images/$id")
-    val usageLink = Link("usage", s"${Config.usageUri}/usage/media/$id")
+    val usageLink = Link("usages", s"${Config.usageUri}/usages/media/$id")
 
     val baseLinks = if (withWritePermission) {
       List(editLink, optimisedLink, imageLink, usageLink)
@@ -132,13 +147,17 @@ object ImageResponse extends EditsResponse {
 
     val imageUri = URI.create(s"${Config.rootUri}/images/$id")
     val reindexUri = URI.create(s"${Config.rootUri}/images/$id/reindex")
+    val addCollectionUri = URI.create(s"${Config.collectionsUri}/images/$id")
 
     val deleteAction = Action("delete", imageUri, "DELETE")
     val reindexAction = Action("reindex", reindexUri, "POST")
 
+    val addCollectionAction = Action("add-collection", addCollectionUri, "POST")
+
     List(
-      deleteAction       -> isDeletable,
-      reindexAction      -> withWritePermission
+      deleteAction        -> isDeletable,
+      reindexAction       -> withWritePermission,
+      addCollectionAction -> true
     )
     .filter{ case (action, active) => active }
     .map   { case (action, active) => action }
@@ -207,9 +226,20 @@ object ImageResponse extends EditsResponse {
     (__ \ "usageRights").write[UsageRights] ~
     (__ \ "originalUsageRights").write[UsageRights] ~
     (__ \ "exports").write[List[Export]]
-      .contramap((crops: List[Crop]) => crops.map(Export.fromCrop(_:Crop)))
-
+      .contramap((crops: List[Crop]) => crops.map(Export.fromCrop(_:Crop))) ~
+    (__ \ "usages").write[UsagesEntity]
+      .contramap(usagesEntity(id, _: List[Usage])) ~
+    (__ \ "collections").write[List[EmbeddedEntity[Collection]]]
+      .contramap((collections: List[Collection]) => collections.map(c => collectionsEntity(id, c)))
   )(unlift(Image.unapply))
+
+  def usagesEntity(id: String, usages: List[Usage]) =
+    EmbeddedEntity[List[UsageEntity]](usagesUri(id), Some(usages.map(usageEntity)))
+
+  def usageEntity(usage: Usage) = EmbeddedEntity[Usage](usageUri(usage.id), Some(usage))
+
+  def collectionsEntity(id: String, c: Collection): EmbeddedEntity[Collection] =
+      Collection.asImageEntity(Config.collectionsUri, id, c)
 
   def fileMetadataEntity(id: String, expandFileMetaData: Boolean, fileMetadata: FileMetadata) = {
     val displayableMetadata = if(expandFileMetaData) Some(fileMetadata) else None

@@ -98,10 +98,8 @@ dndUploader.controller('DndUploaderCtrl',
  * This behaviour is pretty well observed:
  * https://code.google.com/p/chromium/issues/detail?id=131325
  */
-dndUploader.directive('dndUploader', ['$window', 'delay', 'safeApply', 'track',
-                       function($window, delay, safeApply, track) {
-
-    const gridImageMimeType = 'application/vnd.mediaservice.image+json';
+dndUploader.directive('dndUploader', ['$window', 'delay', 'safeApply', 'track', 'vndMimeTypes',
+                       function($window, delay, safeApply, track, vndMimeTypes) {
 
     return {
         restrict: 'E',
@@ -128,21 +126,32 @@ dndUploader.directive('dndUploader', ['$window', 'delay', 'safeApply', 'track',
 
             scope.$on('$destroy', clean);
 
-            function isDraggingFromGrid(event) {
-                const dataTransfer = event.originalEvent.dataTransfer;
-                // Convert as FF uses DOMStringList and Chrome an Array
-                const types = Array.from(dataTransfer.types);
-                return types.indexOf(gridImageMimeType) !== -1;
+            const hasType = (types, key) => types.indexOf(key) !== -1;
+            function hasGridMimetype(types) {
+                const mimeTypes = Array.from(vndMimeTypes.values());
+                return types.some(t => mimeTypes.indexOf(t) !== -1);
+            }
+            function isGridFriendly(event) {
+                // we search through the types array as we don't have the `files`
+                // or `data` (uris etc) ondragenter, only drop.
+                const types       = Array.from(event.originalEvent.dataTransfer.types);
+                const isUri       = hasType(types, 'text/uri-list');
+                const hasFiles    = hasType(types, 'Files');
+                const isGridImage = hasGridMimetype(types);
+
+                const isFriendly = (hasFiles || isUri) && !isGridImage;
+
+                return isFriendly;
             }
 
             function over(event) {
-                dragging = ! isDraggingFromGrid(event);
+                dragging = isGridFriendly(event);
                 // The dragover `preventDefault` is to allow for dropping
                 event.preventDefault();
             }
 
             function enter(event) {
-                if (! isDraggingFromGrid(event)) {
+                if (isGridFriendly(event)) {
                     dragging = true;
                     activate();
                     track.action(trackEvent, trackAction('Drag enter'));
@@ -165,7 +174,7 @@ dndUploader.directive('dndUploader', ['$window', 'delay', 'safeApply', 'track',
 
                 event.preventDefault();
 
-                if (! isDraggingFromGrid(event)) {
+                if (isGridFriendly(event)) {
                     performDropAction(files, uri);
                 }
                 scope.$apply(deactivate);

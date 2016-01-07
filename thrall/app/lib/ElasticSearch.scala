@@ -9,7 +9,7 @@ import org.elasticsearch.action.deletebyquery.DeleteByQueryResponse
 import org.elasticsearch.action.update.{UpdateRequestBuilder, UpdateResponse}
 import org.elasticsearch.action.updatebyquery.UpdateByQueryResponse
 import org.elasticsearch.client.UpdateByQueryClientWrapper
-import org.elasticsearch.index.engine.VersionConflictEngineException
+import org.elasticsearch.index.engine.{VersionConflictEngineException, DocumentMissingException}
 import org.elasticsearch.index.query.FilterBuilders.{andFilter, missingFilter}
 import org.elasticsearch.index.query.QueryBuilders.{boolQuery, filteredQuery, matchAllQuery, matchQuery}
 import org.elasticsearch.script.ScriptService
@@ -92,6 +92,20 @@ object ElasticSearch extends ElasticSearchClient with ImageFields {
       }
   }
 
+  def updateImageUsages(id: String, usages: JsValue)(implicit ex: ExecutionContext): Future[Any] =
+    prepareImageUpdate(id)
+      .setScriptParams(Map(
+        "usages" -> asGroovy(usages),
+        "lastModified" -> asGroovy(JsString(currentIsoDateString))
+      ).asJava)
+      .setScript(
+          replaceUsagesScript +
+          updateLastModifiedScript,
+        scriptType)
+      .executeAndLog(s"updating usages on image $id")
+      .recover { case e: DocumentMissingException => Unit }
+      .incrementOnFailure(failedUsagesUpdates) { case e: VersionConflictEngineException => true }
+
   def updateImageExports(id: String, exports: JsValue)(implicit ex: ExecutionContext): Future[UpdateResponse] =
     prepareImageUpdate(id)
       .setScriptParams(Map(
@@ -117,19 +131,37 @@ object ElasticSearch extends ElasticSearchClient with ImageFields {
       .executeAndLog(s"removing exports from image $id")
       .incrementOnFailure(failedExportsUpdates) { case e: VersionConflictEngineException => true }
 
-  def applyImageMetadataOverride(id: String, metadata: JsValue)(implicit ex: ExecutionContext): Future[UpdateResponse] =
+  def applyImageMetadataOverride(id: String, metadata: JsValue, lastModified: JsValue)(implicit ex: ExecutionContext): Future[UpdateResponse] = {
     prepareImageUpdate(id)
       .setScriptParams(Map(
         "userMetadata" -> asGroovy(metadata),
-        "lastModified" -> asGroovy(JsString(currentIsoDateString))
+        "lastModified" -> asGroovy(lastModified)
       ).asJava)
       .setScript(
-        "ctx._source.userMetadata = userMetadata;" +
-          refreshEditsScript +
-          updateLastModifiedScript,
+        s""" | if (!(ctx._source.userMetadataLastModified && ctx._source.userMetadataLastModified > lastModified)) {
+            |   ctx._source.userMetadata = userMetadata;
+            |   ctx._source.userMetadataLastModified = lastModified;
+            |   $updateLastModifiedScript
+            | }
+      """.stripMargin +
+          refreshEditsScript,
         scriptType)
       .executeAndLog(s"updating user metadata on image $id")
       .incrementOnFailure(failedMetadataUpdates) { case e: VersionConflictEngineException => true }
+  }
+
+  def setImageCollection(id: String, collections: JsValue)(implicit ex: ExecutionContext): Future[UpdateResponse] =
+    prepareImageUpdate(id)
+      .setScriptParams(Map(
+        "collections" -> asGroovy(collections),
+        "lastModified" -> asGroovy(JsString(currentIsoDateString))
+      ).asJava)
+      .setScript(
+        "ctx._source.collections = collections;" +
+          updateLastModifiedScript,
+        scriptType)
+      .executeAndLog(s"setting collections on image $id")
+      .incrementOnFailure(failedCollectionsUpdates) { case e: VersionConflictEngineException => true }
 
   def prepareImageUpdate(id: String): UpdateRequestBuilder =
     client.prepareUpdate(imagesAlias, imageType, id)
@@ -166,6 +198,10 @@ object ElasticSearch extends ElasticSearchClient with ImageFields {
       | suggestMetadataCredit = [ input: [ ctx._source.metadata.credit] ];
       | ctx._source.suggestMetadataCredit = suggestMetadataCredit;
     """.stripMargin
+
+  // Create the exports key or add to it
+  private val replaceUsagesScript =
+    "ctx._source.usages = usages;"
 
   // Create the exports key or add to it
   private val addExportsScript =

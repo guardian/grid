@@ -1,6 +1,9 @@
 import angular from 'angular';
 import './gr-icon.css!';
 
+import frontendIcon from './frontend.html!text';
+import composerIcon from './composer.html!text';
+
 export var icon = angular.module('grIcon', []);
 
 icon.directive('grIcon', [function() {
@@ -26,5 +29,21 @@ icon.directive('grIconLabel', [function () {
         template: `
             <gr-icon>{{grIcon}}</gr-icon>
             <span class="icon-label"><ng:transclude></ng:transclude></span>`
+    };
+}]);
+
+icon.directive('grFrontendIcon', [function () {
+    return {
+        restrict: 'E',
+        transclude: 'replace',
+        template: frontendIcon
+    };
+}]);
+
+icon.directive('grComposerIcon', [function () {
+    return {
+        restrict: 'E',
+        transclude: 'replace',
+        template: composerIcon
     };
 }]);

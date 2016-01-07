@@ -9,7 +9,7 @@ confirmDelete.directive('grConfirmDelete', ['$timeout', function($timeout) {
         restrict: 'E',
         transclude: true,
         template: `
-            <button class="gr-confirm-delete" type="button"
+            <button class="gr-confirm-delete inner-clickable side-padded" type="button"
                 ng:click="showConfirm = true"
                 ng:class="{'gr-confirm-delete--confirm': showConfirm}">
                 <gr-icon-label ng:if="!showConfirm" gr-icon="delete">{{label}}</gr-icon-label>

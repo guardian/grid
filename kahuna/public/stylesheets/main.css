@@ -1,3 +1,16 @@
+/* ==========================================================================
+   Notes
+   ==========================================================================
+
+z-index
+=======
+1  = everything
+10 = things to be just above everything
+20 = user controls i.e. panels
+30 = the top layer i.e. top-bar.
+40 = overlay layer i.e. modals, dnd overlay.
+
+========================================================================== */
 
 /* ==========================================================================
    Common
@@ -152,6 +165,8 @@ a:focus {
     outline: 2px solid rgba(255, 255, 255, 0.5);
     outline-offset: -3px;
 }
+
+button[disabled],
 .button[disabled] {
     background-color: #999;
     box-shadow: 0 2px #666;
@@ -175,6 +190,10 @@ a:focus {
 }
 .button-ico {
     padding: 4px;
+}
+.button-ico-square {
+    width: 36px;
+    height: 36px;
 }
 
 .button-save {
@@ -295,6 +314,9 @@ a:focus {
 .flex-container {
     display: flex;
 }
+.flex-container--rtl {
+    flex-direction: row-reverse;
+}
 
 .flex-spacer {
     flex-grow: 1;
@@ -308,9 +330,29 @@ a:focus {
     display: inline-block;
 }
 
-/* ==========================================================================
-   Generics
-   ========================================================================== */
+.flex-center {
+    align-items: center;
+}
+
+.side-padded {
+    padding: 0 10px;
+}
+
+.clickable:hover {
+    background-color: #666666;
+    color: white;
+    cursor: pointer;
+}
+
+.inner-clickable {
+    height: 100%;
+    display: inline-block;
+}
+
+.button-right-side {
+    padding-left: 5px;
+    margin-left: -4px
+}
 
 .section {
     margin-bottom: 25px;
@@ -324,6 +366,23 @@ a:focus {
 
 .text-small {
     font-size: 13px;
+}
+
+.separator-left {
+    border-left: 1px solid #565656;
+}
+
+.separator-right {
+    border-right: 1px solid #565656;
+}
+
+.fill-height {
+    height: 100%;
+}
+
+.bg-light {
+    background-color: #444;
+    color: white;
 }
 
 
@@ -351,34 +410,16 @@ textarea.ng-invalid {
     vertical-align: middle;
     line-height: 50px;
     display: inline-block;
-    padding: 0 10px;
-    border-left: 1px solid #565656;
-    border-right: 1px solid #565656;
+    border-left: 2px solid #565656;
     height: 50px;
 }
-.top-bar-item--full {
-    padding: 0;
-}
+
 .top-bar-item:first-child {
     margin-left: 0;
 }
 
-.top-bar-item:hover {
-    background-color: #666666;
-}
-
-.top-bar-item--filled {
-    padding: 0;
-}
-
-/* --static is for top bar items that perform no action, only display information */
-.top-bar-item--static:hover {
-    background-color: transparent;
-}
-
-.top-bar-item .gr-confirm-delete {
-    border: none;
-    padding: 0 10px;
+.top-bar-item:last-child {
+    border-right: 2px solid #565656;
 }
 
 .top-bar-item ui-archiver .archiver {
@@ -445,7 +486,7 @@ textarea.ng-invalid {
     left: 0;
     right: 0;
     top: 5px;
-    z-index: 10;
+    z-index: 40;
     text-align: center;
 }
 
@@ -467,6 +508,10 @@ textarea.ng-invalid {
     background: darkred;
     color: white;
     padding: 20px 40px;
+}
+.error--small {
+    padding: 5px 10px;
+    font-size: 13px;
 }
 
 .warning {
@@ -697,19 +742,6 @@ input.search-query__input {
     margin-top: 12px;
 }
 
-.crop-item {
-    display: inline-block;
-    width: 100%;
-    padding: 0 10px;
-    line-height: 45px;
-    box-sizing: border-box;
-    font-size: 1.4rem;
-}
-
-.crop-item:hover {
-    background-color: #666666;
-}
-
 /* ==========================================================================
    File uploader
    ========================================================================== */
@@ -732,15 +764,6 @@ input.search-query__input {
     flex-wrap: wrap;
     top: 35px;
     position: relative;
-}
-
-.results--panel-locked {
-    width: calc(100% - 290px);
-}
-
-.results--left {
-    position: relative;
-
 }
 
 .results-controls {
@@ -884,20 +907,15 @@ input.search-query__input {
 
 .results-toolbar {
     font-size: 1.4rem;
-    margin: 0px 0px 0;
+    margin: 0 0 0;
     height: 35px;
     display: flex;
-    position: absolute;
-
-    z-index: 1;
     background-color: #333;
     width: 100%;
     border-bottom: 1px solid #565656;
-}
-
-.results-toolbar--selection-mode {
     position: fixed;
-    z-index: 2;
+    z-index: 30;
+    left: 0;
 }
 
 .results-toolbar__right {
@@ -912,6 +930,7 @@ input.search-query__input {
     border-style: solid;
     position: relative;
     height: 35px;
+    line-height: 35px;
     white-space: nowrap;
 }
 
@@ -936,6 +955,10 @@ input.search-query__input {
     color: #666;
 }
 
+.results-toolbar-item--no-hover:hover {
+    background: #333;
+}
+
 .results-toolbar-item--active {
     background-color: #444;
 }
@@ -951,7 +974,6 @@ input.search-query__input {
 }
 
 .results-toolbar-item__clear-selection {
-    line-height: 35px;
     width: 105px;
 }
 
@@ -959,14 +981,6 @@ input.search-query__input {
     padding: 0px;
 }
 
-.results-toolbar-item__metadata-panel-controls {
-    line-height: 35px;
-    height: 36px;
-}
-
-.related-labels {
-    line-height: 35px;
-}
 .related-labels--with-labels {
     /* This is to allow scrolling of labels, but show the
     autocomplete dropdown */
@@ -989,7 +1003,26 @@ input.related-labels__parent {
 .related-labels__labels {
     overflow-x: auto;
     overflow-y: hidden;
+    /* space below scrollbar */
+    margin-bottom: 3px;
 }
+
+/* style scrollbar to take less space */
+.related-labels__labels::-webkit-scrollbar-track {
+	border-radius: 10px;
+	background-color: #555;
+}
+
+.related-labels__labels::-webkit-scrollbar {
+    height: 5px;
+	background-color: #555;
+}
+
+.related-labels__labels::-webkit-scrollbar-thumb {
+	border-radius: 10px;
+	background-color: #888;
+}
+
 
 .related-labels__label {
     margin-left: 2px;
@@ -1133,9 +1166,16 @@ FIXME: what to do with touch devices
     flex: 1;
     padding-left: 10px;
 }
+.bottom-bar__meta .preview__upload-time {
+    margin-right: 5px;
+}
 .bottom-bar__meta-item {
     font-size: 1.2rem;
-    margin-left: 5px;
+}
+.bottom-bar__meta-item gr-icon{
+    color: #999;
+    position: relative;
+    top: -3px;
 }
 .bottom-bar__actions {
     color: #aaa;
@@ -1281,7 +1321,8 @@ FIXME: what to do with touch devices
 }
 
 .result-editor__field-label {
-    width: 100px;
+    width: 130px;
+    line-height: 24px;
 }
 
 .result-editor__field-value {
@@ -1339,20 +1380,25 @@ FIXME: what to do with touch devices
 
 .image-details {
     box-sizing: border-box;
-    float: right;
     font-size: 1.3rem;
-    height: calc(100vh - 50px); /* viewport - top-bar */
     overflow: auto;
+    background-color: #444;
+}
+/* HACK: This is here until we start using the panelled-content here */
+.image-details--full-image {
+    float: right;
+    height: calc(100vh - 50px); /* viewport - top-bar */
     width: 300px;
     border-left: 1px solid #565656;
-    background-color: #444;
 }
 
 .image-details--crop {
     float: left;
     width: 130px;
     border-right: 1px solid #565656;
+    border-left: none;
     position: relative;
+    height: calc(100vh - 50px); /* viewport - top-bar */
 }
 
 .image-details__delete-crops {
@@ -1381,14 +1427,6 @@ FIXME: what to do with touch devices
 .image-info__group--last {
     border-bottom: 0;
     clear: both;
-}
-
-.image-info__group--crops {
-    padding: 10px;
-}
-
-.image-info__group--original {
-    border-top: 1px solid #565656;
 }
 
 .image-info__group table {
@@ -1492,13 +1530,17 @@ FIXME: what to do with touch devices
 .image-info__wrap {
     position: relative;
     vertical-align: top;
+    /* cut long words */
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .image-info__wrap:hover .image-info__edit {
     display: block
 }
 
-.image-info__edit {
+.image-info__edit,
+.edit-button {
     display: none;
     position: absolute;
     top: 0;
@@ -1509,8 +1551,13 @@ FIXME: what to do with touch devices
     color: #222;
     background-color: white;
 }
+.edit-button {
+    display: block;
+    position: relative;
+}
 
-.image-info__edit:hover {
+.image-info__edit:hover,
+.edit-button:hover {
     color: white;
     background-color: #222;
     border: 1px solid white;
@@ -1646,10 +1693,7 @@ FIXME: what to do with touch devices
 }
 
 .image-crop__creator {
-    position: absolute;
     display: none;
-    margin: 1px;
-    padding: 2px;
     border-radius: 50%;
     background-color: #6E6E6E;
     opacity: 0.5;
@@ -1670,13 +1714,17 @@ FIXME: what to do with touch devices
     margin: 0 auto;
 }
 
-.image-crop__aspect-ratio {
+.image-crop__info {
     background: #333;
     padding: 2px;
     font-size: 1.2rem;
 }
 
-.image-crop__aspect-ratio--selected {
+.image-crop__more-info {
+    line-height: 22px;
+}
+
+.image-crop__info--selected {
     color: #FFFFFF;
 }
 
@@ -1725,7 +1773,7 @@ FIXME: what to do with touch devices
     position: relative;
 }
 .job-info--editor__label {
-    width: 100px;
+    width: 130px;
     vertical-align: top;
 }
 .job-info--editor__input {
@@ -1873,7 +1921,7 @@ FIXME: what to do with touch devices
     position: fixed;
     top: 0;
     left: 0;
-    z-index: 3;
+    z-index: 40;
     text-align: center;
 }
 
@@ -1943,12 +1991,20 @@ FIXME: what to do with touch devices
     z-index: 4;
     /* Drop items should win over everything */
     white-space: nowrap;
+    line-height: normal;
+    right: 0;
 }
+
 .drop-menu__items--right {
     right: 0;
 }
+
 .drop-menu__items--nopad {
     top: 100%;
+}
+
+.drop-menu__items--action {
+    background-color: grey;
 }
 
 
@@ -1991,6 +2047,8 @@ FIXME: what to do with touch devices
     padding: 10px;
     font-size: 1.2rem;
     box-sizing: border-box;
+    max-height: 400px;
+    overflow-y: scroll;
 }
 
 .datalist__input {
@@ -2015,8 +2073,6 @@ FIXME: what to do with touch devices
 .tracking-image {
     display: none;
 }
-
-
 
 /* ==========================================================================
    Forms
@@ -2052,20 +2108,16 @@ FIXME: what to do with touch devices
     display: flex;
     overflow: hidden;
 }
-
 .radio-list--invalid {
     border: 1px solid #ed5935;
-
 }
 .radio-list__item {
     flex-grow: 1;
     display:flex;
 }
-
 .radio-list__item:last-child {
     border-right: 1px;
 }
-
 .radio-list__label {
     flex-grow: 1;
     color: #CCC;
@@ -2085,6 +2137,10 @@ FIXME: what to do with touch devices
     background: #00adee;
 }
 
+.radio-list--disabled .radio-list__label-value {
+    color: #777;
+}
+
 .radio-list__circle {
     display: none;
 }
@@ -2098,6 +2154,26 @@ FIXME: what to do with touch devices
     padding: 5px 10px;
 }
 
+.drag-icon {
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 50px;
+    height: 50px;
+    background-color: #CCCCCC;
+}
+
+.drag-count {
+    position: absolute;
+    top: -10px;
+    right: -10px;
+    border-radius: 50%;
+    background-color: #666666;
+    width: 22px;
+    height: 22px;
+    line-height: 22px;
+    text-align: center;
+}
 
 @media print {
 
@@ -2113,8 +2189,13 @@ FIXME: what to do with touch devices
     gr-add-label,
     .image-details--crop,
     .image-info__group--full-metadata,
-    .related-labels__title {
+    .related-labels__title,
+    .radio-list {
         display: none !important;
+    }
+
+    .image-details {
+        border: none;
     }
 
     .metadata-line__info,
@@ -2140,7 +2221,7 @@ FIXME: what to do with touch devices
     }
 
     .image-info__description, .image-info__keyword {
-        max-height: 85px;
+        max-height: 80px;
         overflow: hidden;
     }
 
@@ -2164,6 +2245,10 @@ FIXME: what to do with touch devices
     /* ==========================================================================
        Results page
     ========================================================================== */
+
+    .results-toolbar {
+        display: none;
+    }
 
     .result-placeholder {
         border: none;

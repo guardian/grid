@@ -29,7 +29,7 @@ object Config extends CommonPlayAppConfig {
 
   val elasticsearchHost: String =
     if (stage == "DEV")
-      string("es.host")
+      properties.getOrElse("es.host", "localhost")
     else
       findElasticsearchHost(ec2Client, Map(
         "Stage" -> Seq(stage),

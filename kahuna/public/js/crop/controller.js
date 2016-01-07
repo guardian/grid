@@ -1,18 +1,61 @@
 import angular from 'angular';
 
-var crop = angular.module('kahuna.crop.controller', []);
+import '../components/gr-keyboard-shortcut/gr-keyboard-shortcut';
+
+var crop = angular.module('kahuna.crop.controller', ['gr.keyboardShortcut']);
 
 crop.controller('ImageCropCtrl',
                 ['$scope', '$rootScope', '$stateParams', '$state',
-                 '$filter', 'mediaApi', 'mediaCropper',
-                 'image', 'optimisedImageUri',
+                 '$filter', '$document', 'mediaApi', 'mediaCropper',
+                 'image', 'optimisedImageUri', 'keyboardShortcut',
                  function($scope, $rootScope, $stateParams, $state,
-                          $filter, mediaApi, mediaCropper,
-                          image, optimisedImageUri) {
+                          $filter, $document, mediaApi, mediaCropper,
+                          image, optimisedImageUri, keyboardShortcut) {
 
     const ctrl = this;
+    const imageId = $stateParams.imageId;
 
-    var imageId = $stateParams.imageId;
+    keyboardShortcut.bindTo($scope)
+        .add({
+            combo: 'esc',
+            description: 'Cancel crop and return to image',
+            callback: () => $state.go('image', {imageId: ctrl.image.data.id})
+        })
+        .add({
+            combo: 'enter',
+            description: 'Create crop',
+            callback: () => ctrl.callCrop()
+        })
+        .add({
+            combo: 'l',
+            description: 'Start landscape crop',
+            callback: () => {
+                ctrl.aspect = ctrl.landscapeRatio;
+            }
+        })
+        .add({
+            combo: 'p',
+            description: 'Start portrait crop',
+            callback: () => {
+                ctrl.aspect = ctrl.portraitRatio;
+            }
+        })
+        .add({
+            combo: 'v',
+            description: 'Start video crop',
+            callback: () => {
+                ctrl.aspect = ctrl.videoRatio;
+            }
+        })
+        .add({
+            combo: 'f',
+            description: 'Start free-form crop',
+            callback: () => {
+                // freeRatio's 'null' gets converted to empty string somehow, meh
+                ctrl.aspect = '';
+            }
+        });
+
     ctrl.image = image;
     ctrl.optimisedImageUri = optimisedImageUri;
 
@@ -66,33 +109,39 @@ crop.controller('ImageCropCtrl',
         // else undefined is fine
     };
 
-    ctrl.crop = function() {
-        // TODO: show crop
-        var coords = {
-            x: Math.round(ctrl.coords.x1),
-            y: Math.round(ctrl.coords.y1),
-            width:  ctrl.cropWidth(),
-            height: ctrl.cropHeight()
-        };
+     function crop() {
+         // TODO: show crop
+         var coords = {
+             x: Math.round(ctrl.coords.x1),
+             y: Math.round(ctrl.coords.y1),
+             width:  ctrl.cropWidth(),
+             height: ctrl.cropHeight()
+         };
 
-        var ratio = ctrl.getRatioString(ctrl.aspect);
+         var ratio = ctrl.getRatioString(ctrl.aspect);
 
-        ctrl.cropping = true;
+         ctrl.cropping = true;
 
-        mediaCropper.createCrop(ctrl.image, coords, ratio).then(crop => {
-            // Global notification of action
-            $rootScope.$emit('events:crop-created', {
-                image: ctrl.image,
-                crop: crop
-            });
+         mediaCropper.createCrop(ctrl.image, coords, ratio).then(crop => {
+             // Global notification of action
+             $rootScope.$emit('events:crop-created', {
+                 image: ctrl.image,
+                 crop: crop
+             });
 
-            $state.go('image', {
-                imageId: imageId,
-                crop: crop.data.id
-            });
-        }).finally(() => {
-            ctrl.cropping = false;
-        });
-    };
+             $state.go('image', {
+                 imageId: imageId,
+                 crop: crop.data.id
+             });
+         }).finally(() => {
+             ctrl.cropping = false;
+         });
+     }
 
+     ctrl.callCrop = function() {
+         //prevents return keypress on the crop button posting crop twice
+         if (!ctrl.cropping) {
+             crop();
+         }
+     };
 }]);

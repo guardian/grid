@@ -4,6 +4,9 @@ package controllers
 import java.net.URI
 import java.net.URLDecoder.decode
 
+import com.gu.mediaservice.lib.formatting._
+import org.joda.time.DateTime
+
 import scala.concurrent.Future
 
 import play.api.data.Forms._
@@ -19,8 +22,6 @@ import com.gu.mediaservice.lib.argo.model._
 import com.gu.mediaservice.lib.aws.NoItemFound
 import com.gu.mediaservice.model._
 import lib._
-
-
 
 
 // FIXME: the argoHelpers are all returning `Ok`s (200)
@@ -45,7 +46,7 @@ object EditsController extends Controller with ArgoHelpers with DynamoEdits with
 
   import UsageRightsMetadataMapper.usageRightsToMetadata
 
-  val Authenticated = EditsApi.Authenticated
+  val Authenticated = ControllerHelper.Authenticated
   val metadataBaseUri = Config.services.metadataBaseUri
 
   def decodeUriParam(param: String): String = decode(param, "UTF-8")
@@ -144,7 +145,6 @@ object EditsController extends Controller with ArgoHelpers with DynamoEdits with
       val metadataOpt = edits.usageRights.flatMap(usageRightsToMetadata)
 
       metadataOpt map { metadata =>
-        println(metadata)
         val mergedMetadata = originalMetadata.copy(
           byline = metadata.byline orElse originalMetadata.byline,
           credit = metadata.credit orElse originalMetadata.credit
@@ -194,7 +194,8 @@ object EditsController extends Controller with ArgoHelpers with DynamoEdits with
     val edits = metadata.as[Edits]
     val message = Json.obj(
       "id" -> id,
-      "data" -> Json.toJson(edits)
+      "data" -> Json.toJson(edits),
+      "lastModified" -> printDateTime(new DateTime())
     )
 
     Notifications.publish(message, "update-image-user-metadata")

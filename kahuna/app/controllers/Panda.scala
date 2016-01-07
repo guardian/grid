@@ -11,6 +11,7 @@ import com.gu.mediaservice.lib.auth._
 import com.gu.pandomainauth.service.GoogleAuthException
 
 import scala.concurrent.Future
+import scala.concurrent.ExecutionContext.Implicits.global
 import scala.util.{Success, Try, Failure}
 
 object Panda extends Controller
@@ -68,13 +69,11 @@ object Panda extends Controller
   def oauthCallback = Action.async { implicit request =>
     // We use the `Try` here as the `GoogleAuthException` are thrown before we
     // get to the asynchronicity of the `Future` it returns.
-    Try(processGoogleCallback) match {
-      case Success(result) => result
-      case Failure(error) => Future.successful(error match {
-        // This is when session session args are missing
-        case e: GoogleAuthException =>
-          respondError(BadRequest, "missing-session-parameters", e.getMessage, loginLinks)
-      })
+    // We then have to flatten the Future[Future[T]]. Fiddly...
+    Future.fromTry(Try(processGoogleCallback)).flatMap(successF => successF).recover {
+      // This is when session session args are missing
+      case e: GoogleAuthException =>
+        respondError(BadRequest, "google-auth-exception", e.getMessage, loginLinks)
     }
   }
 

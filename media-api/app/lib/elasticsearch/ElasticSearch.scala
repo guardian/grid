@@ -125,7 +125,7 @@ object ElasticSearch extends ElasticSearchClient with SearchFilters with ImageFi
       }
   }
 
-  def labelSiblingsSearch(structuredQuery: List[Condition], excludeLabels: List[String] = Nil, size: Int = 20)
+  def labelSiblingsSearch(structuredQuery: List[Condition], excludeLabels: List[String] = Nil, size: Int = 30)
                          (implicit ex: ExecutionContext): Future[AggregateSearchResults] = {
     val name = "labelSiblings"
     val lastModifiedField = "lastModified"
@@ -161,17 +161,17 @@ object ElasticSearch extends ElasticSearchClient with SearchFilters with ImageFi
   }
 
   def metadataSearch(params: AggregateSearchParams)(implicit ex: ExecutionContext): Future[AggregateSearchResults] =
-    aggregateSearch("metadata", metadataField(params.field), params.q)
+    aggregateSearch("metadata", metadataField(params.field), params)
 
   def editsSearch(params: AggregateSearchParams)(implicit ex: ExecutionContext): Future[AggregateSearchResults] =
-    aggregateSearch("edits", editsField(params.field), params.q)
+    aggregateSearch("edits", editsField(params.field), params)
 
-  def aggregateSearch(name: String, field: String, q: Option[String])
+  def aggregateSearch(name: String, field: String, params: AggregateSearchParams)
                      (implicit ex: ExecutionContext): Future[AggregateSearchResults] = {
     val aggregate = AggregationBuilders
       .terms(name)
       .field(field)
-      .include(Pattern.quote(q.getOrElse("")) + ".*", Pattern.CASE_INSENSITIVE)
+      .include(Pattern.quote(params.q.getOrElse("")) + ".*", Pattern.CASE_INSENSITIVE)
 
     val search = prepareImagesSearch.addAggregation(aggregate)
 

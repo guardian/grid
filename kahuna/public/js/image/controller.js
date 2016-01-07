@@ -1,15 +1,21 @@
 import angular from 'angular';
 
+import '../util/rx';
+import '../services/image/usages';
 import '../image/service';
 import '../components/gr-delete-image/gr-delete-image';
 import '../components/gr-add-label/gr-add-label';
-import '../downloader/downloader';
 import '../components/gr-crop-image/gr-crop-image';
 import '../components/gr-delete-crops/gr-delete-crops';
+import '../components/gr-downloader/gr-downloader';
 import '../components/gr-image-metadata/gr-image-metadata';
 import '../components/gr-image-persist-status/gr-image-persist-status';
 import '../components/gr-metadata-validity/gr-metadata-validity';
 import '../components/gr-image-cost-message/gr-image-cost-message';
+import '../components/gr-export-original-image/gr-export-original-image';
+import '../components/gr-image-usage/gr-image-usage';
+
+import '../components/gr-keyboard-shortcut/gr-keyboard-shortcut';
 
 var image = angular.module('kahuna.image.controller', [
     'kahuna.edits.service',
@@ -22,7 +28,12 @@ var image = angular.module('kahuna.image.controller', [
     'gr.imagePersistStatus',
     'gr.imageMetadata',
     'gr.metadataValidity',
-    'gr.imageCostMessage'
+    'gr.imageCostMessage',
+    'gr.exportOriginalImage',
+    'gr.imageUsage',
+    'gr.image-usages.service',
+    'util.rx',
+    'gr.keyboardShortcut'
 ]);
 
 image.controller('ImageCtrl', [
@@ -30,30 +41,50 @@ image.controller('ImageCtrl', [
     '$scope',
     '$state',
     '$window',
+    'inject$',
     'onValChange',
     'image',
     'mediaApi',
     'optimisedImageUri',
+    'lowResImageUri',
     'cropKey',
     'mediaCropper',
     'imageService',
+    'imageUsagesService',
+    'keyboardShortcut',
 
     function ($rootScope,
               $scope,
               $state,
               $window,
+              inject$,
               onValChange,
               image,
               mediaApi,
               optimisedImageUri,
+              lowResImageUri,
               cropKey,
               mediaCropper,
-              imageService) {
+              imageService,
+              imageUsagesService,
+              keyboardShortcut) {
 
-        var ctrl = this;
+        let ctrl = this;
+
+        keyboardShortcut.bindTo($scope).add({
+            combo: 'c',
+            description: 'Crop image',
+            callback: () => $state.go('crop', {imageId: ctrl.image.data.id})
+        });
 
         ctrl.image = image;
         ctrl.optimisedImageUri = optimisedImageUri;
+        ctrl.lowResImageUri = lowResImageUri;
+
+        const usages = imageUsagesService.getUsages(ctrl.image);
+        const usagesCount$ = usages.count$;
+
+        inject$($scope, usagesCount$, ctrl, 'usagesCount');
 
         // TODO: we should be able to rely on ctrl.crop.id instead once
         // all existing crops are migrated to have an id (they didn't
@@ -62,7 +93,7 @@ image.controller('ImageCtrl', [
 
         ctrl.cropSelected = cropSelected;
 
-        imageService(image).states.canDelete.then(deletable => {
+        imageService(ctrl.image).states.canDelete.then(deletable => {
             ctrl.canBeDeleted = deletable;
         });
 
@@ -85,8 +116,12 @@ image.controller('ImageCtrl', [
         }
 
         mediaCropper.getCropsFor(image).then(crops => {
-            ctrl.crops = crops;
             ctrl.crop = crops.find(crop => crop.id === cropKey);
+            ctrl.fullCrop = crops.find(crop => crop.specification.type === 'full');
+            ctrl.crops = crops.filter(crop => crop.specification.type === 'crop');
+            //boolean version for use in template
+            ctrl.hasFullCrop = angular.isDefined(ctrl.fullCrop);
+            ctrl.hasCrops = ctrl.crops.length > 0;
         }).finally(() => {
             ctrl.dimensions = angular.isDefined(ctrl.crop) ?
                 getCropDimensions() : getImageDimensions();
@@ -116,6 +151,7 @@ image.controller('ImageCtrl', [
                 $window.alert(`Failed to delete image ${imageId}`);
             }
         });
+
 
         $scope.$on('$destroy', function() {
             freeImageDeleteListener();

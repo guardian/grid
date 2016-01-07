@@ -1,0 +1,31 @@
+{
+    "defaultStacks": ["media-service"],
+    "packages": {
+        "lambda": {
+            "type": "aws-lambda",
+            "data": {
+                "functions": {
+                    "TEST": {
+                        "name": "@TEST_ARN"
+                    },
+                    "PROD": {
+                        "name": "@PROD_ARN"
+                    }
+                }
+            }
+        },
+        "s3-watcher": {
+            "type": "aws-s3",
+            "data": {
+                "bucket": "media-service-dist",
+                "cacheControl": "public, max-age=60",
+                "publicReadAcl": false
+            }
+        }
+    },
+    "recipes": {
+        "default": {
+            "actions": [ "s3-watcher.uploadStaticFiles", "lambda.updateLambda" ]
+        }
+    }
+}

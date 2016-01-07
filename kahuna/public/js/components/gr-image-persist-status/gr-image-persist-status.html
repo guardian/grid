@@ -1,5 +1,8 @@
-<gr-icon-label ng:if="! ctrl.states.canArchive" gr-icon="lock"
-    title="Kept in Library because image is: {{ctrl.states.persistedReasons}}.">
+<gr-icon-label ng:if="! ctrl.states.canArchive"
+               gr-icon="lock"
+               class="gr-image-persist-status__kept-label"
+               ng:class="{ 'side-padded': ctrl.withText }"
+               title="Kept in Library because image is: {{ctrl.states.persistedReasons}}.">
     <span ng:show="ctrl.withText">Kept in Library</span>
 </gr-icon-label>
 

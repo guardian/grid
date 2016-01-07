@@ -42,7 +42,10 @@ image.config(['$stateProvider',
                 });
             }],
 
-            optimisedImageUri: ['image', 'imgops', (image, imgops) => imgops.getUri(image)]
+            optimisedImageUri: ['image', 'imgops',
+                                (image, imgops) => imgops.getFullScreenUri(image)],
+            lowResImageUri: ['image', 'imgops',
+                             (image, imgops) => imgops.getLowResUri(image)]
         }
     });
 

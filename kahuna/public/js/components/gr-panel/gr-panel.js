@@ -13,7 +13,6 @@ import '../../forms/gr-xeditable/gr-xeditable';
 import '../../util/rx';
 
 export var grPanel = angular.module('grPanel', [
-    'kahuna.services.archive',
     'kahuna.services.image-accessor',
     'kahuna.services.image-list',
     'kahuna.services.label',
@@ -34,11 +33,8 @@ grPanel.controller('GrPanel', [
     'mediaApi',
     'imageAccessor',
     'imageList',
-    'selection',
     'selectedImagesList$',
     'labelService',
-    'panelService',
-    'archiveService',
     'editsService',
     'editsApi',
     function (
@@ -51,54 +47,22 @@ grPanel.controller('GrPanel', [
         mediaApi,
         imageAccessor,
         imageList,
-        selection,
         selectedImagesList$,
         labelService,
-        panelService,
-        archiveService,
         editsService,
         editsApi) {
 
-        var ctrl = this;
+        const ctrl = this;
 
         ctrl.showUsageRights = false;
 
-        const panelName = 'gr-panel';
-
-        panelService.addPanel(panelName, false);
-        ctrl.isVisible = panelService.isVisible(panelName);
-
-        $rootScope.$on(
-            'ui:panels:gr-panel:updated',
-            () => ctrl.isVisible = panelService.isVisible(panelName)
-        );
-        ctrl.metadataPanelMouseOver = () => panelService.show(panelName);
-        ctrl.metadataPanelMouseLeave = () => panelService.hide(panelName);
-
-
         inject$($scope, selectedImagesList$, ctrl, 'selectedImages');
-
 
         const selectedCosts$ = selectedImagesList$.
               map(imageList.getCost).
               map(imageList.getOccurrences);
         inject$($scope, selectedCosts$, ctrl, 'selectedCosts');
 
-
-        const archivedCount$ = selectedImagesList$.map(imageList.archivedCount);
-        const archivedState$ = Rx.Observable.combineLatest(
-            archivedCount$,
-            selection.count$,
-            (archivedCount, selectedCount) => {
-                switch (archivedCount) {
-                case 0:              return 'unarchived';
-                case selectedCount:  return 'archived';
-                default:             return 'mixed';
-                }
-            }
-        );
-        inject$($scope, archivedCount$, ctrl, 'archivedCount');
-        inject$($scope, archivedState$, ctrl, 'archivedState');
 
         const selectedLabels$ = selectedImagesList$.
               map(imageList.getLabels).
@@ -162,6 +126,19 @@ grPanel.controller('GrPanel', [
         inject$($scope, rawMetadata$, ctrl, 'rawMetadata');
         inject$($scope, displayMetadata$, ctrl, 'metadata');
 
+        const extraInfo$ = selectedImagesList$.
+              map(imageList.getExtraInfo).
+              map(imageList.getSetOfProperties).
+              map(extraInfo => extraInfo.map((values) => {
+                  switch (values.size) {
+                  case 0:  return undefined;
+                  case 1:  return values.first();
+                  default: return Array.from(values);
+                  }
+              }).toObject()
+        );
+
+        inject$($scope, extraInfo$, ctrl, 'extraInfo');
 
         const selectionIsEditable$ = selectedImagesList$.
               map(list => list.map(editsService.canUserEdit).toArray()).
@@ -169,16 +146,6 @@ grPanel.controller('GrPanel', [
               flatMap(Rx.Observable.fromPromise).
               map(allEditable => allEditable.every(v => v === true));
         inject$($scope, selectionIsEditable$, ctrl, 'userCanEdit');
-
-
-        subscribe$($scope, selection.isEmpty$, isEmpty => {
-            if (isEmpty) {
-                panelService.unavailable(panelName, false);
-            } else {
-                panelService.available(panelName, false);
-            }
-        });
-
 
         ctrl.hasMultipleValues = (val) => Array.isArray(val) && val.length > 1;
 
@@ -206,24 +173,6 @@ grPanel.controller('GrPanel', [
         ctrl.removeLabel = function (label) {
             var imageArray = Array.from(ctrl.selectedImages);
             labelService.batchRemove(imageArray, label);
-        };
-
-        ctrl.archive = () => {
-            ctrl.archiving = true;
-            var imageArray = Array.from(ctrl.selectedImages);
-            archiveService.batchArchive(imageArray)
-                .then(() => {
-                    ctrl.archiving = false;
-                });
-        };
-
-        ctrl.unarchive = () => {
-            ctrl.archiving = true;
-            var imageArray = Array.from(ctrl.selectedImages);
-            archiveService.batchUnarchive(imageArray)
-                .then(() => {
-                    ctrl.archiving = false;
-                });
         };
     }
 ]);

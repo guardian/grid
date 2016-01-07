@@ -41,6 +41,10 @@ imageList.factory('imageList', ['imageAccessor', function(imageAccessor) {
         return images.map(imageAccessor.readMetadata);
     }
 
+    function getExtraInfo(images) {
+        return images.map(imageAccessor.readExtraInfo);
+    }
+
     function getOccurrences(items) {
         const valueCounts = countOccurrences(items);
         return occurrencesToTuple(valueCounts);
@@ -61,6 +65,7 @@ imageList.factory('imageList', ['imageAccessor', function(imageAccessor) {
         getCost,
         getLabels,
         getMetadata,
+        getExtraInfo,
         getOccurrences,
         getSetOfProperties
     };

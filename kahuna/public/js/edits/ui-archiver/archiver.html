@@ -1,20 +1,14 @@
-<button class="archiver"
+<button class="archiver inner-clickable"
         ng:if="! ctrl.disabled"
-        ng:class="{'archiver--archived': ctrl.isArchived, 'archiver--unarchived': ! ctrl.isArchived}"
+        ng:class="{'archiver--archived': ctrl.isArchived, 'archiver--unarchived': ! ctrl.isArchived, 'side-padded': ctrl.withText, 'clickable':ctrl.withText }"
         ng:click="ctrl.toggleArchived(archived)"
-        ng:disabled="ctrl.archiving"
-        ng:mouseenter="hover = true"
-        ng:mouseleave="hover = false"
-        ng:init="hover = false">
+        ng:disabled="ctrl.archiving">
     <!-- TODO: Start looking at a new loader to replace our "ing…" loader -->
     <span ng:show="ctrl.isArchived" title="Remove from Library">
         <gr-icon-label gr-icon="lock_outline">
             <span ng:show="ctrl.withText">
-                <span ng:show="! ctrl.archiving">
-                    <span ng:show="! hover">Kept in Library</span>
-                    <span ng:show="hover">Remove from Library</span>
-                </span>
-                <span ng:show="ctrl.archiving">Removing from Library</span>
+                <span ng:show="! ctrl.archiving">Remove from Library</span>
+                <span ng:show="ctrl.archiving">Removing from Library…</span>
             </span>
         </gr-icon-label>
     </span>
@@ -22,7 +16,7 @@
         <gr-icon-label gr-icon="lock_open">
             <span ng:show="ctrl.withText">
                 <span ng:show="! ctrl.archiving">Add to Library</span>
-                <span ng:show="ctrl.archiving">Adding to Library</span>
+                <span ng:show="ctrl.archiving">Adding to Library…</span>
             </span>
         </gr-icon-label>
     </span>

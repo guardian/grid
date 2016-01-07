@@ -1,0 +1,19 @@
+
+.batch-archive__button {
+    line-height: inherit;
+}
+
+.batch-archive__button:hover {
+    color: white;
+}
+
+.batch-archive__button--disabled,
+.batch-archive__button--disabled:hover {
+    color: #666;
+    cursor: default;
+}
+/* Hack: overlay the normal background color as the parent that has a
+   hover highlight isn't aware of the internal disabled state :-/ */
+.batch-archive__button--disabled:hover {
+    background-color: #333;
+}

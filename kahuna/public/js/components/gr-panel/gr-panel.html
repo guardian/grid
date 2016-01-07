@@ -1,10 +1,12 @@
-<div ng:if="ctrl.selectedImages.size > 0"
-    class="panel panel--side panel__right image-details"
-    ng:mouseover="ctrl.metadataPanelMouseOver()"
-    ng:mouseleave="ctrl.metadataPanelMouseLeave()"
-    ng:class="{ 'panel__right--hidden': !ctrl.isVisible }">
+<div class="image-details panel">
 
-    <div class="panel__top">
+    <div class="panel__empty-message"
+        ng:if="ctrl.selectedImages.size === 0">
+        No images selected
+    </div>
+
+    <div ng:if="ctrl.selectedImages.size > 0"
+         class="panel__top">
         <ul class="costs">
             <li ng:repeat="cost in ctrl.selectedCosts | orderBy:'data'">
                 <div ng:switch="cost.data">
@@ -27,10 +29,10 @@
         </ul>
     </div>
 
-    <div class="panel__content">
+    <div ng:if="ctrl.selectedImages.size > 0">
         <div class="image-info__group">
             <dl class="image-info__wrap metadata-line image-info__usage-rights">
-                <dt class="metadata-line__key">Usage rights category</dt>
+                <dt class="metadata-line__key">Rights & restrictions</dt>
                 <gr-usage-rights-editor
                     ng:if="ctrl.showUsageRights"
                     gr:usage-rights="ctrl.usageRights"
@@ -99,24 +101,24 @@
 
                         <div ng:if="ctrl.userCanEdit">
                             <dd class="image-info__description"
-                                  ng:if="ctrl.hasMultipleValues(ctrl.rawMetadata.description)"
+                                ng:if="ctrl.hasMultipleValues(ctrl.rawMetadata.description)"
                                 >Multiple descriptions (click ✎ to edit <strong>all</strong>)
                             </dd>
 
                             <dd class="image-info__description"
-                                  ng:if="!ctrl.hasMultipleValues(ctrl.rawMetadata.description)"
+                                ng:if="!ctrl.hasMultipleValues(ctrl.rawMetadata.description)"
                                 >{{ctrl.metadata.description || "Unknown (click ✎ to add the description)"}}
                             </dd>
                         </div>
 
                         <div ng:if="!ctrl.userCanEdit">
                             <dd class="image-info__description"
-                                  ng:if="ctrl.hasMultipleValues(ctrl.rawMetadata.description)"
+                                ng:if="ctrl.hasMultipleValues(ctrl.rawMetadata.description)"
                                 >Multiple descriptions
                             </dd>
 
                             <dd class="image-info__description"
-                                  ng:if="!ctrl.hasMultipleValues(ctrl.rawMetadata.description)"
+                                ng:if="!ctrl.hasMultipleValues(ctrl.rawMetadata.description)"
                                 >{{ctrl.metadata.description || "unknown"}}
                             </dd>
                         </div>
@@ -141,28 +143,28 @@
                      e:msd-elastic
                      e:form="specialInstructionsEditForm"
                      e:ng-class="{'image-info__editor--error': $error,
-                                  'image-info__editor--saving': specialInstructionsEditForm.$waiting}">
+                                 'image-info__editor--saving': specialInstructionsEditForm.$waiting}">
 
                     <div ng:if="ctrl.userCanEdit">
                         <dd ng:if="ctrl.hasMultipleValues(ctrl.rawMetadata.specialInstructions)"
-                              class="image-info__special-instructions"
+                            class="image-info__special-instructions"
                             >Multiple special instructions (click ✎ to edit <strong>all</strong>)
                         </dd>
 
                         <dd ng:if="!ctrl.hasMultipleValues(ctrl.rawMetadata.specialInstructions)"
-                              class="image-info__special-instructions"
+                            class="image-info__special-instructions"
                             >{{ctrl.metadata.specialInstructions}}
                         </dd>
                     </div>
 
                     <div ng:if="!ctrl.userCanEdit">
                         <dd ng:if="ctrl.hasMultipleValues(ctrl.rawMetadata.specialInstructions)"
-                              class="image-info__special-instructions"
+                            class="image-info__special-instructions"
                             >Multiple special instructions
                         </dd>
 
                         <dd ng:if="!ctrl.hasMultipleValues(ctrl.rawMetadata.specialInstructions)"
-                              class="image-info__special-instructions"
+                            class="image-info__special-instructions"
                             >{{ctrl.metadata.specialInstructions}}
                         </dd>
                     </div>
@@ -178,12 +180,12 @@
                             ng:if="ctrl.userCanEdit"
                             ng:click="bylineEditForm.$show()"
                             ng:hide="bylineEditForm.$visible"
-                    >✎</button>
+                            >✎</button>
                     <span ng:class="{'image-info--multiple': ctrl.hasMultipleValues(ctrl.rawMetadata.byline)}"
-                         editable-text="ctrl.metadata.byline"
-                         onbeforesave="ctrl.updateMetadataField('byline', $data)"
-                         e:form="bylineEditForm"
-                         e:ng-class="{'image-info__editor--error': $error, 'image-info__editor--saving': bylineEditForm.$waiting}">
+                          editable-text="ctrl.metadata.byline"
+                          onbeforesave="ctrl.updateMetadataField('byline', $data)"
+                          e:form="bylineEditForm"
+                          e:ng-class="{'image-info__editor--error': $error, 'image-info__editor--saving': bylineEditForm.$waiting}">
 
                         <span class="metadata-line__info" ng:if="ctrl.hasMultipleValues(ctrl.rawMetadata.byline) && ctrl.userCanEdit">
                             Multiple bylines (click ✎ to edit <strong>all</strong>)
@@ -206,10 +208,10 @@
                 <dt class="metadata-line image-info__wrap image-info__credit metadata-line__key image-info__group--dl__key--panel">Credit</dt>
                 <dd class="image-info__wrap metadata-line image-info__credit metadata-line__info image-info__group--dl__value--panel">
                     <button class="image-info__edit"
-                        ng:if="ctrl.userCanEdit"
-                        ng:click="creditEditForm.$show()"
-                        ng:hide="creditEditForm.$visible"
-                    >✎</button>
+                            ng:if="ctrl.userCanEdit"
+                            ng:click="creditEditForm.$show()"
+                            ng:hide="creditEditForm.$visible"
+                            >✎</button>
 
                     <span ng:class="{'image-info--multiple': ctrl.hasMultipleValues(ctrl.rawMetadata.credit)}"
                           editable-text="ctrl.metadata.credit"
@@ -242,12 +244,12 @@
                             ng:if="ctrl.userCanEdit"
                             ng:click="copyrightEditForm.$show()"
                             ng:hide="copyrightEditForm.$visible"
-                    >✎</button>
+                            >✎</button>
                     <span ng:class="{'image-info--multiple': ctrl.hasMultipleValues(ctrl.rawMetadata.copyright)}"
-                         editable-text="ctrl.metadata.copyright"
-                         onbeforesave="ctrl.updateMetadataField('copyright', $data)"
-                         e:form="copyrightEditForm"
-                         e:ng-class="{'image-info__editor--error': $error, 'image-info__editor--saving': copyrightEditForm.$waiting}">
+                          editable-text="ctrl.metadata.copyright"
+                          onbeforesave="ctrl.updateMetadataField('copyright', $data)"
+                          e:form="copyrightEditForm"
+                          e:ng-class="{'image-info__editor--error': $error, 'image-info__editor--saving': copyrightEditForm.$waiting}">
 
                         <span class="metadata-line__info" ng:if="ctrl.hasMultipleValues(ctrl.rawMetadata.copyright) && ctrl.userCanEdit">
                             Multiple copyrights (click ✎ to edit <strong>all</strong>)
@@ -265,6 +267,12 @@
                             <span ng:if="!ctrl.metadata.copyright && ctrl.userCanEdit">Unknown (click ✎ to add the copyright)</span>
                         </span>
                     </span>
+                </dd>
+
+                <dt ng:if="ctrl.extraInfo.filename" class="image-info__wrap metadata-line metadata-line__key image-info__group--dl__key--panel">Filename</dt>
+                <dd ng:if="ctrl.extraInfo.filename" class="image-info__wrap metadata-line metadata-line__info image-info__group--dl__value--panel">
+                    <span ng:if="ctrl.hasMultipleValues(ctrl.extraInfo.filename)">Multiple filenames</span>
+                    <span ng:if="!ctrl.hasMultipleValues(ctrl.extraInfo.filename)">{{ctrl.extraInfo.filename}}</span>
                 </dd>
             </dl>
         </div>
@@ -295,50 +303,6 @@
                     </button>
                 </li>
             </ul>
-        </div>
-
-        <div class="image-info__group image-info__group--last batch-archive" ng:switch="ctrl.archivedState" ng:class="{'batch-archive--archiving': ctrl.archiving}">
-            <div ng:switch-when="mixed" class="flex-container batch-archive--mixed">
-                <div class="metadata-line flex-spacer">
-                    <gr-icon>lock_open</gr-icon>
-                    <span ng:if="!ctrl.archiving">{{ctrl.archivedCount}} kept in Library</span>
-                    <span ng:if="ctrl.archiving">Saving…</span>
-                </div>
-                <span class="batch-archive__action" ng:if="!ctrl.archiving">
-                    <button class="button-shy batch-archive__archive" ng:click="ctrl.archive()">
-                        <gr-icon>lock</gr-icon> all
-                    </button>
-                    <button class="button-shy batch-archive__unarchive" ng:click="ctrl.unarchive()">
-                        <gr-icon>lock_open</gr-icon> none
-                    </button>
-                </span>
-            </div>
-
-            <div ng:switch-when="archived" class="flex-container batch-archive--all-archived">
-                <div class="metadata-line flex-spacer">
-                    <gr-icon>lock</gr-icon>
-                    <span ng:if="!ctrl.archiving">All kept in Library</span>
-                    <span ng:if="ctrl.archiving">Saving…</span>
-                </div>
-                <span class="batch-archive__action" ng:if="!ctrl.archiving">
-                    <button class="button-shy batch-archive__unarchive" ng:click="ctrl.unarchive()">
-                        <gr-icon>lock_open</gr-icon> Remove all
-                    </button>
-                </span>
-            </div>
-
-            <div ng:switch-when="unarchived" class="flex-container batch-archive--all-unarchived">
-                <div class="metadata-line flex-spacer">
-                    <gr-icon>lock_open</gr-icon>
-                    <span ng:if="!ctrl.archiving">None kept in Library</span>
-                    <span ng:if="ctrl.archiving">Saving…</span>
-                </div>
-                <span class="batch-archive__action" ng:if="!ctrl.archiving">
-                    <button class="button-shy batch-archive__archive" ng:click="ctrl.archive()">
-                        <gr-icon>lock</gr-icon> Keep all in Library
-                    </button>
-                </span>
-            </div>
         </div>
     </div>
 </div>

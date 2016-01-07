@@ -1,9 +1,10 @@
-.gr-confirm-delete {
-    box-sizing: border-box;
-    height: 100%;
-    line-height: inherit;
+gr-confirm-delete {
+    width: inherit;
 }
 
+.gr-confirm-delete {
+    line-height: inherit;
+}
 .gr-confirm-delete:hover {
     color: white;
     background-color: #666666;

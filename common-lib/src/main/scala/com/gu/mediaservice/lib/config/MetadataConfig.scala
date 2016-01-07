@@ -92,7 +92,6 @@ object MetadataConfig {
 
   val contractedPhotographers: Map[String, String] = Map(
     "Antonio Zazueta"     -> "The Guardian",
-    "Christian Sinibaldi" -> "The Guardian",
     "Christopher Thomond" -> "The Guardian",
     "David Levene"        -> "The Guardian",
     "Eamonn McCabe"       -> "The Guardian",
@@ -123,12 +122,12 @@ object MetadataConfig {
   val contractIllustrators = List(
     "Ben Lamb",
     "Andrzej Krauze",
-    "C&J Riddell Ltd",
+    "Chris Riddell",
     "Chris Ware",
     "David Foldvari",
     "David Simonds",
     "David Squires",
-    "First Dog on the Moon Institute",
+    "First Dog on the Moon",
     "Harry Venning",
     "Ian Tovey",
     "Kipper Williams",
@@ -145,7 +144,7 @@ object MetadataConfig {
 
   val externalPhotographersMap = PhotographersList.creditBylineMap(externalStaffPhotographers)
   val staffPhotographersMap = PhotographersList.creditBylineMap(staffPhotographers)
-  val contractPhotographersMap = PhotographersList.creditBylineMap(staffPhotographers)
+  val contractPhotographersMap = PhotographersList.creditBylineMap(contractedPhotographers)
   val allPhotographersMap = PhotographersList.creditBylineMap(allPhotographers)
 
   val creativeCommonsLicense = List(

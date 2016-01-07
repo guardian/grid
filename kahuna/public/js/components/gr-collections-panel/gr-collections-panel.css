@@ -1,0 +1,73 @@
+gr-nodes, gr-node,
+.node__info:hover .node__marker,
+.node__info:hover .node__action,
+.collection-drop--drag-over .node__marker {
+    display: block;
+}
+
+.node__action {
+    display: none;
+}
+
+.node__children {
+    padding-left: 10px;
+}
+
+.node__marker {
+    position: absolute;
+    background: #00adee;
+    width: 3px;
+    height: 34px;
+    left: 0;
+    display: none;
+}
+
+.node__info {
+    padding-left: 210px;
+    margin-left: -200px;
+    box-sizing: border-box;
+}
+.node__info:hover,
+.collection-drop--drag-over {
+    background-color: #333;
+}
+
+.node__name {
+    padding: 5px;
+}
+
+.node__toggler,
+.node__spacer,
+.node__action {
+    padding-left: 5px;
+    padding-right: 5px;
+    z-index: 2;
+}
+
+.node__add-child {
+    margin-left: 50px;
+    margin-right: 10px;
+}
+.node__add-child-input {
+    width: 100%;
+}
+.node__add-child-buttons {
+    text-align: right;
+}
+
+.collections-panel-heading {
+    padding: 5px 10px;
+    border-bottom: 1px solid #565656;
+}
+
+/* Annoyingly I can't find a way to do this with variables */
+.collection-drop {
+    -webkit-transition: background-color .25s linear;
+    transition: background-color .25s linear;
+}
+.collection-drop--saving {
+    opacity: 0.5;
+}
+.node__info.collection-drop--complete {
+    background: #00adee;
+}
