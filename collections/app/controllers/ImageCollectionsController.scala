@@ -4,7 +4,7 @@ import scala.concurrent.Future
 import scala.concurrent.ExecutionContext.Implicits.global
 
 import org.joda.time.DateTime
-import play.api.libs.json.{Json, JsObject}
+import play.api.libs.json.Json
 import play.api.mvc.Controller
 
 import com.gu.mediaservice.lib.collections.CollectionsManager
