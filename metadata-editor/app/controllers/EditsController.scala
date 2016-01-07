@@ -195,7 +195,7 @@ object EditsController extends Controller with ArgoHelpers with DynamoEdits with
     val message = Json.obj(
       "id" -> id,
       "data" -> Json.toJson(edits),
-      "userMetadataLastModified" -> printDateTime(new DateTime())
+      "lastModified" -> printDateTime(new DateTime())
     )
 
     Notifications.publish(message, "update-image-user-metadata")

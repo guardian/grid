@@ -131,19 +131,18 @@ object ElasticSearch extends ElasticSearchClient with ImageFields {
       .executeAndLog(s"removing exports from image $id")
       .incrementOnFailure(failedExportsUpdates) { case e: VersionConflictEngineException => true }
 
-  def applyImageMetadataOverride(id: String, metadata: JsValue, userMetadataLastModified: JsValue)(implicit ex: ExecutionContext): Future[UpdateResponse] = {
+  def applyImageMetadataOverride(id: String, metadata: JsValue, lastModified: JsValue)(implicit ex: ExecutionContext): Future[UpdateResponse] = {
     prepareImageUpdate(id)
       .setScriptParams(Map(
         "userMetadata" -> asGroovy(metadata),
-        "userMetadataLastModified" -> asGroovy(userMetadataLastModified),
-        "lastModified" -> asGroovy(JsString(currentIsoDateString))
+        "lastModified" -> asGroovy(lastModified)
       ).asJava)
       .setScript(
-      s""" | if (!(ctx._source.userMetadata.lastModified && ctx._source.userMetadata.lastModified > userMetadataLastModified)) {
-           |   ctx._source.userMetadata = userMetadata;
-           |   ctx._source.userMetadata.lastModified = userMetadataLastModified;
-           |   $updateLastModifiedScript
-           | }
+        s""" | if (!(ctx._source.userMetadata.lastModified && ctx._source.userMetadata.lastModified > lastModified)) {
+            |   ctx._source.userMetadata = userMetadata;
+            |   ctx._source.userMetadata.lastModified = lastModified;
+            |   $updateLastModifiedScript
+            | }
       """.stripMargin +
           refreshEditsScript,
         scriptType)
