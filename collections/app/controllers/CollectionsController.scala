@@ -32,7 +32,7 @@ object CollectionsController extends Controller with ArgoHelpers {
 
   import lib.Config.rootUri
   import ControllerHelper.getUserFromReq
-  import CollectionsManager.{pathToUri, uriToPath, stringToPath}
+  import CollectionsManager.{pathToUri, uriToPath, isValidPathBit}
 
   val Authenticated = ControllerHelper.Authenticated
 
@@ -80,12 +80,16 @@ object CollectionsController extends Controller with ArgoHelpers {
   def addChildToRoot = addChildTo(None)
   def addChildToCollection(collectionPathId: String) = addChildTo(Some(collectionPathId))
   def addChildTo(collectionPathId: Option[String]) = Authenticated.async(parse.json) { req =>
-    (req.body \ "data").asOpt[String].map { child =>
-      val path = collectionPathId.map(uriToPath).getOrElse(Nil) :+ child
-      val collection = Collection(path, ActionData(getUserFromReq(req), DateTime.now))
-      CollectionsStore.add(collection).map { collection =>
-        val node = Node(collection.path.last, Nil, collection.path, Some(collection))
-        respond(node, actions = getActions(node))
+    (req.body \ "data").asOpt[String] map { child =>
+      if (isValidPathBit(child)) {
+        val path = collectionPathId.map(uriToPath).getOrElse(Nil) :+ child
+        val collection = Collection(path, ActionData(getUserFromReq(req), DateTime.now))
+        CollectionsStore.add(collection).map { collection =>
+          val node = Node(collection.path.last, Nil, collection.path, Some(collection))
+          respond(node, actions = getActions(node))
+        }
+      } else {
+        Future.successful(respondError(BadRequest, "invalid-input", "You cannot have slashes in your path name"))
       }
     } getOrElse Future.successful(invalidJson(req.body))
   }

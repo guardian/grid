@@ -35,4 +35,7 @@ object CollectionsManager {
         col.path == collection.path && col.actionData.date.isAfter(collection.actionData.date)
       }}
     }
+
+  // We could use `ValidationNel`s here, but that's overkill
+  def isValidPathBit(s: String) = if (s.contains(delimiter)) false else true
 }
