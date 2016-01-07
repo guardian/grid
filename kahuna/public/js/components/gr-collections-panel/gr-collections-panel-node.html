@@ -48,9 +48,11 @@
         <span ng:if="ctrl.saving">Saving…</span>
     </div>
 
-    <form class="node__add-child" ng:if="active" ng:submit="ctrl.addChild(childName).then(clearForm);">
+    <form class="node__add-child" ng:if="active" ng:submit="ctrl.addChild(childName);">
         <input class="node__add-child-input" type="text" required ng:model="childName"
                placeholder="e.g. summer2015…" />
+
+        <div class="error error--small" ng:if="ctrl.formError">{{ctrl.formError}}</div>
 
         <div class="node__add-child-buttons">
             <button type="submit" class="button-save" title="Save">
@@ -60,6 +62,7 @@
                 <gr-icon-label gr-icon="close"></gr-icon-label>
             </button>
         </div>
+
     </form>
 
     <div class="node__children"></div>

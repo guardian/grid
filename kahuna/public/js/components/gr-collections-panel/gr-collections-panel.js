@@ -43,7 +43,12 @@ grCollectionsPanel.controller('GrNodeCtrl',
     const ctrl = this;
     ctrl.saving = false;
     ctrl.deletable = false;
-    ctrl.addChild = childName => collections.addChildTo(ctrl.node, childName);
+    ctrl.formError = null;
+    ctrl.addChild = childName =>
+        collections.addChildTo(ctrl.node, childName).
+            then($scope.clearForm).
+            catch(e => ctrl.formError = e.body && e.body.errorMessage);
+
     collections.isDeletable(ctrl.node).then(d => ctrl.deletable = d);
 
     ctrl.remove = () => collections.removeFromList(ctrl.node, ctrl.nodeList);
