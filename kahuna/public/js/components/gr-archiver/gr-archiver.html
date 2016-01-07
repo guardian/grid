@@ -1,11 +1,19 @@
 <div class="batch-archive"
      ng:switch="ctrl.archivedState">
+    <span ng:switch-when="kept"
+          class="inner-clickable batch-archive__button batch-archive__button--disabled"
+          gr:tooltip="Kept in Library because all selected images have been {{ctrl.archivedExplanation}}.">
+        <gr-icon-label gr-icon="lock">
+            Kept in Library
+        </gr-icon-label>
+    </span>
+
     <button ng:switch-when="archived"
             type="button"
             class="inner-clickable batch-archive__button"
             ng:click="ctrl.unarchive()"
             ng:disabled="ctrl.archiving">
-        <gr-icon-label gr-icon="lock_open">
+        <gr-icon-label gr-icon="lock_outline">
             <span ng:if="!ctrl.archiving">Remove from Library</span>
             <span ng:if="ctrl.archiving">Removing from Library…</span>
         </gr-icon-label>
@@ -16,7 +24,7 @@
             class="inner-clickable batch-archive__button"
             ng:click="ctrl.archive()"
             ng:disabled="ctrl.archiving">
-        <gr-icon-label gr-icon="lock">
+        <gr-icon-label gr-icon="lock_open">
             <span ng:if="!ctrl.archiving">Add to Library</span>
             <span ng:if="ctrl.archiving">Adding to Library…</span>
         </gr-icon-label>

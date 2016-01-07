@@ -2,6 +2,11 @@ gr-image-persist-status {
     display: block;
 }
 
+.gr-image-persist-status__kept-label {
+    color: #666;
+    cursor: default;
+}
+
 gr-image-persist-status ui-archiver {
     display: inline-block;
     height: inherit;
