@@ -120,7 +120,8 @@ object Mappings {
       "archived"    -> boolean,
       "labels"      -> nonAnalysedList("label"),
       "metadata"    -> metadataMapping,
-      "usageRights" -> usageRightsMapping
+      "usageRights" -> usageRightsMapping,
+      "lastModified" -> dateFormat
     )
 
   val uploadInfoMapping =
