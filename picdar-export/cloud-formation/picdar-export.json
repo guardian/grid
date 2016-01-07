@@ -29,6 +29,14 @@
                                     { "Ref" : "AWS::AccountId" },
                                     ":table/",
                                     { "Ref" : "PicdarExportDynamoTable" }
+                                ] ] },
+                                { "Fn::Join" : [ "", [
+                                    "arn:aws:dynamodb:",
+                                    { "Ref" : "AWS::Region" },
+                                    ":",
+                                    { "Ref" : "AWS::AccountId" },
+                                    ":table/",
+                                    { "Ref" : "PicdarUsageDynamoTable" }
                                 ] ] }
                             ]
                         } ]
@@ -48,6 +56,7 @@
                 }]
             }
         },
+
         "PicdarExportUser": {
             "Type": "AWS::IAM::User",
             "Properties": {
@@ -59,6 +68,36 @@
             "Type": "AWS::IAM::AccessKey",
             "Properties": {
                 "UserName": { "Ref": "PicdarExportUser" }
+            }
+        },
+
+        "PicdarUsageDynamoTable": {
+            "Type": "AWS::DynamoDB::Table",
+            "Properties": {
+                "AttributeDefinitions": [
+                    {
+                        "AttributeName": "picdarUrn",
+                        "AttributeType": "S"
+                    },
+                    {
+                        "AttributeName": "usageId",
+                        "AttributeType": "S"
+                    }
+                ],
+                "KeySchema": [
+                    {
+                        "AttributeName": "picdarUrn",
+                        "KeyType": "HASH"
+                    },
+                    {
+                        "AttributeName": "usageId",
+                        "KeyType": "RANGE"
+                    }
+                ],
+                "ProvisionedThroughput": {
+                    "ReadCapacityUnits" : "30",
+                    "WriteCapacityUnits" : "30"
+                }
             }
         },
 
