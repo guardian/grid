@@ -28,21 +28,11 @@ object CollectionsStore {
     case e => println(e.getMessage); throw CollectionsStoreError(e)
   }
 
-  def remove(collectionPath: String): Future[Option[Collection]] = {
-    store.getData flatMap { json =>
-      val path = CollectionsManager.stringToPath(collectionPath)
-      val collectionList = json.asOpt[List[Collection]]
-
-      collectionList map { collections =>
-        val newCollectionsList = CollectionsManager.remove(path, collections)
-        val oldCollection = CollectionsManager.find(path, collections)
-
-        store.putData(Json.toJson(newCollectionsList))
-        Future.successful(oldCollection)
-      } getOrElse Future.failed(InvalidCollectionJson(json))
-    } recover {
-      case e => throw CollectionsStoreError(e)
-    }
+  def remove(collectionPath: List[String]): Future[Unit] = {
+    val path = CollectionsManager.pathToString(collectionPath)
+    dynamo.deleteItem(path)
+  } recover {
+    case e => throw CollectionsStoreError(e)
   }
 }
 

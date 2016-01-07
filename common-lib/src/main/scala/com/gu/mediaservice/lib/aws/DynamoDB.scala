@@ -7,9 +7,10 @@ import com.amazonaws.services.dynamodbv2.AmazonDynamoDBClient
 import com.amazonaws.services.dynamodbv2.document.{DynamoDB => AwsDynamoDB, _}
 import com.amazonaws.services.dynamodbv2.document.spec.{PutItemSpec, DeleteItemSpec, GetItemSpec, UpdateItemSpec}
 import com.amazonaws.services.dynamodbv2.document.utils.ValueMap
-import com.amazonaws.services.dynamodbv2.model.{ScanRequest, ReturnValue}
+import com.amazonaws.services.dynamodbv2.model.ReturnValue
 import play.api.libs.json._
 import scala.collection.JavaConversions._
+import scala.concurrent.ExecutionContext.Implicits.global
 
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -59,8 +60,9 @@ class DynamoDB(credentials: AWSCredentials, region: Region, tableName: String) {
       s"REMOVE $key"
     )
 
-  def deleteItem(id: String) =
+  def deleteItem(id: String): Future[Unit] = Future {
     table.deleteItem(new DeleteItemSpec().withPrimaryKey(IdKey, id))
+  } map (spec => ())
 
   def booleanGet(id: String, key: String)
                 (implicit ex: ExecutionContext): Future[Option[Boolean]] =
@@ -196,6 +198,17 @@ class DynamoDB(credentials: AWSCredentials, region: Region, tableName: String) {
     // all we care about is whether it completed.
   } map (outcome => value)
 
+  def objDelete[T](id: String, key:String, value: T)
+               (implicit ex: ExecutionContext, wjs: Writes[T], rjs: Reads[T]): Future[T] = Future {
+
+    val item = new Item().withPrimaryKey(IdKey, id).withJSON(key, Json.toJson(value).toString)
+
+    val spec = new PutItemSpec().withItem(item).withReturnValues(ReturnValue.ALL_OLD)
+    table.putItem(spec)
+    // As PutItem only return the null if the item didn't exist, or the old item if it did,
+    // all we care about is whether it completed.
+  } map (outcome => value)
+
   def scan()(implicit ex: ExecutionContext) = Future {
     table.scan().iterator.toList
   } map (_.map(asJsObject))
@@ -228,7 +241,6 @@ class DynamoDB(credentials: AWSCredentials, region: Region, tableName: String) {
     println(outcome.getItem)
     asJsObject(outcome.getItem)
   }
-
 
   def asJsObject(outcome: UpdateItemOutcome): JsObject =
     asJsObject(outcome.getItem)
