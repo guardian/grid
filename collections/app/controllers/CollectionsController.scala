@@ -4,8 +4,10 @@ import java.net.URI
 
 import com.gu.mediaservice.lib.argo.model.{Link, EmbeddedEntity, Action}
 import com.gu.mediaservice.lib.collections.CollectionsManager
-import lib.ControllerHelper
-import model.Node
+import com.gu.mediaservice.lib.argo.ArgoHelpers
+import com.gu.mediaservice.model.{ActionData, Collection}
+import com.gu.mediaservice.lib.net.URI.encode
+
 import org.joda.time.DateTime
 
 import play.api.libs.functional.syntax._
@@ -15,9 +17,8 @@ import play.api.mvc.Controller
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
 
-import com.gu.mediaservice.lib.argo.ArgoHelpers
-import com.gu.mediaservice.model.{ActionData, Collection}
-
+import lib.ControllerHelper
+import model.Node
 import store.CollectionsStore
 
 
@@ -32,6 +33,7 @@ object CollectionsController extends Controller with ArgoHelpers {
 
   import lib.Config.rootUri
   import ControllerHelper.getUserFromReq
+  import CollectionsManager.{stringToPath, pathIdToUri, uriToPath}
 
   val Authenticated = ControllerHelper.Authenticated
 
@@ -39,7 +41,7 @@ object CollectionsController extends Controller with ArgoHelpers {
   val collectionUri = uri(s"$rootUri/collections")
   def collectionUri(s: String = "") = {
     val post = if(s.nonEmpty) s"/$s" else s
-    uri(s"$rootUri/collections$post")
+    uri(s"$rootUri/collections${pathIdToUri(post)}")
   }
 
   val appIndex = AppIndex("media-collections", "The one stop shop for collections")
@@ -81,7 +83,7 @@ object CollectionsController extends Controller with ArgoHelpers {
   def addChildToCollection(collectionPathId: String) = addChildTo(Some(collectionPathId))
   def addChildTo(collectionPathId: Option[String]) = Authenticated.async(parse.json) { req =>
     (req.body \ "data").asOpt[String].map { child =>
-      val path = collectionPathId.map(CollectionsManager.stringToPath).getOrElse(Nil) :+ child
+      val path = collectionPathId.map(stringToPath).getOrElse(Nil) ++ uriToPath(child)
       val collection = Collection(path, ActionData(getUserFromReq(req), DateTime.now))
       CollectionsStore.add(collection).map { collection =>
         val node = Node(collection.path.last, Nil, collection.pathId, Some(collection))
@@ -90,7 +92,8 @@ object CollectionsController extends Controller with ArgoHelpers {
     } getOrElse Future.successful(invalidJson(req.body))
   }
 
-  def removeCollection(collectionPath: String) = Authenticated.async { req =>
+  def removeCollection(collectionUri: String) = Authenticated.async { req =>
+    val collectionPath = uriToPath(collectionUri)
     CollectionsStore.remove(collectionPath) map { collectionOpt =>
       collectionOpt.map(_ => Accepted).getOrElse(NotFound)
     }
