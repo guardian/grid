@@ -4,7 +4,7 @@ import com.amazonaws.AmazonServiceException
 import com.amazonaws.auth.AWSCredentials
 import com.amazonaws.regions.Region
 import com.amazonaws.services.dynamodbv2.AmazonDynamoDBClient
-import com.amazonaws.services.dynamodbv2.document.{DynamoDB => AwsDynamoDB, _}
+import com.amazonaws.services.dynamodbv2.document.{DynamoDB => AwsDynamoDB, DeleteItemOutcome, UpdateItemOutcome, Table, Item}
 import com.amazonaws.services.dynamodbv2.document.spec.{DeleteItemSpec, GetItemSpec, UpdateItemSpec}
 import com.amazonaws.services.dynamodbv2.document.utils.ValueMap
 import com.amazonaws.services.dynamodbv2.model.ReturnValue
@@ -183,14 +183,6 @@ class DynamoDB(credentials: AWSCredentials, region: Region, tableName: String) {
       id, s"REMOVE $key[$index]"
     ) map(j => (j \ key).as[List[T]])
 
-  def objAdd[T](id: String, key:String, value: T)
-               (implicit ex: ExecutionContext, wjs: Writes[T], rjs: Reads[T]): Future[T] = Future {
-
-    val item = new Item().withPrimaryKey(IdKey, id).withJSON(key, Json.toJson(value).toString)
-    table.putItem(item)
-  } map asJsObject map (j => (j \ key).as[T])
-
-
   def update(id: String, expression: String, valueMap: ValueMap)
             (implicit ex: ExecutionContext): Future[JsObject] =
     update(id, expression, Some(valueMap))
@@ -214,9 +206,6 @@ class DynamoDB(credentials: AWSCredentials, region: Region, tableName: String) {
   def asJsObject(item: Item): JsObject = {
     jsonWithNullAsEmptyString(Json.parse(item.toJSON)).as[JsObject] - IdKey
   }
-
-  def asJsObject(outcome: PutItemOutcome): JsObject =
-    asJsObject(outcome.getItem)
 
   def asJsObject(outcome: UpdateItemOutcome): JsObject =
     asJsObject(outcome.getItem)
