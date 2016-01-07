@@ -52,7 +52,7 @@
         <input class="node__add-child-input" type="text" required ng:model="childName"
                placeholder="e.g. summer2015…" />
 
-        <div class="error error--small" ng:if="ctrl.formError">{{ctrl.formError}}</div>
+        <div class="error error--small" ng:if="formError">{{formError}}</div>
 
         <div class="node__add-child-buttons">
             <button type="submit" class="button-save" title="Save">
