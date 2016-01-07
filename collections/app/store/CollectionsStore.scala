@@ -2,9 +2,8 @@ package store
 
 import com.gu.mediaservice.lib.aws.DynamoDB
 import com.gu.mediaservice.lib.collections.CollectionsManager
-import com.gu.mediaservice.lib.store.JsonStore
 import com.gu.mediaservice.model.Collection
-import play.api.libs.json.{JsValue, Json}
+import play.api.libs.json.JsValue
 
 import lib.Config
 
@@ -12,20 +11,19 @@ import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
 
 object CollectionsStore {
-  import Config.{awsCredentials, collectionsBucket, collectionsTable, dynamoRegion}
-  val store = new JsonStore(collectionsBucket, awsCredentials, "collections")
+  import Config.{awsCredentials, collectionsTable, dynamoRegion}
   val dynamo = new DynamoDB(awsCredentials, dynamoRegion, collectionsTable)
 
-  def getAll: Future[List[Collection]] = store.getData flatMap { json =>
-    dynamo.scan map { jsonList =>
-      jsonList.flatMap(json => (json \ "collection").asOpt[Collection])
-    }
+  def getAll: Future[List[Collection]] = dynamo.scan map { jsonList =>
+    jsonList.flatMap(json => (json \ "collection").asOpt[Collection])
+  } recover {
+    case e => throw CollectionsStoreError(e)
   }
 
   def add(collection: Collection): Future[Collection] = {
     dynamo.objPut(collection.pathId, "collection", collection) map (c => c)
   } recover {
-    case e => println(e.getMessage); throw CollectionsStoreError(e)
+    case e => throw CollectionsStoreError(e)
   }
 
   def remove(collectionPath: List[String]): Future[Unit] = {
