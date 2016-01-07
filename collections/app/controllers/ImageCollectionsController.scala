@@ -43,7 +43,7 @@ object ImageCollectionsController extends Controller with ArgoHelpers {
 
 
   def removeCollection(id: String, collectionString: String) = Authenticated.async { req =>
-    val path  = CollectionsManager.stringToPath(collectionString)
+    val path = CollectionsManager.uriToPath(collectionString)
     // We do a get to be able to find the index of the current collection, then remove it.
     // Given that we're using Dynamo Lists this seemed like a decent way to do it.
     // Dynamo Lists, like other lists do respect order.

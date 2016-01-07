@@ -9,20 +9,34 @@ class CollectionsManagerTest extends FunSpec with Matchers {
 
   describe("CollectionManager") {
 
-    it ("should convert path to string with /") {
-      CollectionsManager.pathToString(List("g2", "art", "film")) shouldBe "g2/art/film"
+    describe("serialisation") {
+      it ("should convert path to string with /") {
+        CollectionsManager.pathToString(List("g2", "art", "film")) shouldBe "g2/art/film"
+      }
+
+      it ("should convert a string to a path") {
+        CollectionsManager.stringToPath("g2/art/film") shouldBe List("g2", "art", "film")
+      }
+
+      it ("should convert a URI to a path") {
+        CollectionsManager.uriToPath("g2/art/rhythm+blues") shouldBe List("g2", "art", "rhythm blues")
+      }
+
+      it ("should convert a path to a URI") {
+        CollectionsManager.pathToUri(List("g2", "art", "rhythm&blues")) shouldBe "g2/art/rhythm%26blues"
+      }
     }
 
-    it ("should URL encode / in path bit in a string") {
-      CollectionsManager.pathToString(List("g2", "art", "24/7")) shouldBe "g2/art/24%2F7"
-    }
+    describe("validation") {
 
-    it ("should convert a string to a path") {
-      CollectionsManager.stringToPath("g2/art/film") shouldBe List("g2", "art", "film")
-    }
+      it ("should allow strings") {
+        CollectionsManager.isValidPathBit("{something&nothing}") shouldBe true
+      }
 
-    it ("should convert a URL encoded string to a valid path") {
-      CollectionsManager.stringToPath("g2/art/24%2F7") shouldBe List("g2", "art", "24/7")
+      it ("should not allow /") {
+        CollectionsManager.isValidPathBit("this/that") shouldBe false
+      }
+
     }
 
     it ("should only show the latest collection with same ID") {

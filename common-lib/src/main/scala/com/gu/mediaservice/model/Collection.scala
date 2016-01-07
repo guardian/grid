@@ -23,7 +23,7 @@ object Collection {
   implicit val formats: Format[Collection] = Format(reads, writes)
 
   def imageUri(rootUri: String, imageId: String, c: Collection) =
-    URI.create(s"$rootUri/images/$imageId/${c.pathId}")
+    URI.create(s"$rootUri/images/$imageId/${CollectionsManager.pathToUri(c.path)}")
 
   def asImageEntity(rootUri: String, imageId: String, c: Collection) = {
     // TODO: Currently the GET for this URI does nothing
