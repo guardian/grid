@@ -33,8 +33,9 @@ object CollectionsStore {
     case e => throw CollectionsStoreError(e)
   }
 
-  def remove(path: List[String]): Future[Option[Collection]] = {
+  def remove(collectionPath: String): Future[Option[Collection]] = {
     store.getData flatMap { json =>
+      val path = CollectionsManager.stringToPath(collectionPath)
       val collectionList = json.asOpt[List[Collection]]
 
       collectionList map { collections =>

@@ -1,16 +1,18 @@
 package com.gu.mediaservice.lib.collections
 
-import com.gu.mediaservice.lib.net.URI.{encode, decode}
+import java.net.URLDecoder.decode
+import java.net.URLEncoder.encode
+
 import com.gu.mediaservice.model.Collection
 
 object CollectionsManager {
   val delimiter = "/"
+  val enc = "UTF-8"
+  def decodePathBit(s: String) = decode(s, enc)
+  def encodePathBit(s: String) = encode(s, enc)
 
-  def stringToPath(s: String) = s.split(delimiter).toList
-  def pathToString(path: List[String]) = path.mkString(delimiter)
-  def pathToUri(path: List[String]) = path.map(encode).mkString(delimiter)
-  def pathIdToUri(pathId: String) = pathToUri(stringToPath(pathId))
-  def uriToPath(uri: String) = stringToPath(uri).map(decode)
+  def stringToPath(s: String) = s.split(delimiter).map(decodePathBit).toList
+  def pathToString(path: List[String]) = path.map(encodePathBit).mkString(delimiter)
 
   def sortBy(c: Collection) = c.pathId
 
