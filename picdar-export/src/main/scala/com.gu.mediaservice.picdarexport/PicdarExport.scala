@@ -289,20 +289,14 @@ object ExportApp extends App with ExportManagerProvider with ArgumentHelpers wit
     }
   }
 
-  def fetchUsage(env: String, system: String, dateRange: DateRange = DateRange.all, range: Option[Range] = None) = {
-    Future { Unit }
-    //val dynamo = getExportDynamo(env)
-    //dynamo.scanNoRights(dateRange) flatMap { urns =>
-    //  val updates = takeRange(urns, range).map { assetRef =>
-    //    getPicdar(system).get(assetRef.urn) flatMap { asset =>
-    //      Logger.info(s"Fetching usage rights for image ${asset.urn}")
-    //      dynamo.recordRights(assetRef.urn, assetRef.dateLoaded, asset.usageRights)
-    //    } recover { case PicdarError(message) =>
-    //      Logger.warn(s"Picdar error during fetch: $message")
-    //    }
-    //  }
-    //  Future.sequence(updates)
-    //}
+  import com.gu.mediaservice.picdarexport.lib.usage._
+  def fetchUsage(env: String, dateRange: DateRange = DateRange.all, range: Option[Range] = None) = {
+    val dynamo = getUsageDynamo(env)
+    Future {
+      val o = PicdarUsageRecordFactory.create(ResponseParser.stub)
+
+      o.map(println)
+    }
   }
 
   def overrideRights(env: String, dateRange: DateRange = DateRange.all, range: Option[Range] = None) = {
@@ -488,14 +482,14 @@ object ExportApp extends App with ExportManagerProvider with ArgumentHelpers wit
       overrideRights(env, parseDateRange(date), parseQueryRange(rangeStr))
     }
 
-    case "+usage:fetch" :: env :: system :: Nil => terminateAfter {
-      fetchUsage(env, system)
+    case "+usage:fetch" :: env :: Nil => terminateAfter {
+      fetchUsage(env)
     }
-    case "+usage:fetch" :: env :: system :: date :: Nil => terminateAfter {
-      fetchUsage(env, system, parseDateRange(date))
+    case "+usage:fetch" :: env :: date :: Nil => terminateAfter {
+      fetchUsage(env, parseDateRange(date))
     }
-    case "+usage:fetch" :: env :: system :: date :: rangeStr :: Nil => terminateAfter {
-      fetchUsage(env, system, parseDateRange(date), parseQueryRange(rangeStr))
+    case "+usage:fetch" :: env :: date :: rangeStr :: Nil => terminateAfter {
+      fetchUsage(env, parseDateRange(date), parseQueryRange(rangeStr))
     }
 
     case _ => println(
@@ -517,7 +511,7 @@ object ExportApp extends App with ExportManagerProvider with ArgumentHelpers wit
         |       +rights:fetch    <dev|test|prod> <desk|library> [dateLoaded] [range]
         |       +rights:override <dev|test|prod> [dateLoaded] [range]
         |
-        |       +usage:fetch     <dev|test|prod> <desk|library> [dateLoaded] [range]
+        |       +usage:fetch     <dev|test|prod> [dateLoaded] [range]
       """.stripMargin
     )
   }
