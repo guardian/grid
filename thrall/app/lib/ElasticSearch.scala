@@ -138,9 +138,9 @@ object ElasticSearch extends ElasticSearchClient with ImageFields {
         "lastModified" -> asGroovy(lastModified)
       ).asJava)
       .setScript(
-        s""" | if (!(ctx._source.userMetadata.lastModified && ctx._source.userMetadata.lastModified > lastModified)) {
+        s""" | if (!(ctx._source.userMetadataLastModified && ctx._source.userMetadataLastModified > lastModified)) {
             |   ctx._source.userMetadata = userMetadata;
-            |   ctx._source.userMetadata.lastModified = lastModified;
+            |   ctx._source.userMetadataLastModified = lastModified;
             |   $updateLastModifiedScript
             | }
       """.stripMargin +
