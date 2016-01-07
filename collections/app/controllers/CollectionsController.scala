@@ -20,7 +20,7 @@ import scala.concurrent.Future
 import com.gu.mediaservice.lib.argo.ArgoHelpers
 import com.gu.mediaservice.model.{ActionData, Collection}
 
-import store.CollectionsStore
+import store.{CollectionNotFound, CollectionsStore}
 
 
 case class InvalidPrinciple(message: String) extends Throwable
@@ -58,7 +58,7 @@ object CollectionsController extends Controller with ArgoHelpers {
     respond(appIndex, links = indexLinks)
   }
 
-  def collectionNotFound(path: String) =
+  def collectionNotFound(path: List[String]) =
     respondError(NotFound, "collection-not-found", s"Could not find collection: $path")
 
   def invalidJson(json: JsValue) =
@@ -97,8 +97,10 @@ object CollectionsController extends Controller with ArgoHelpers {
   }
 
   def removeCollection(collectionPath: String) = Authenticated.async { req =>
-    CollectionsStore.remove(decode(collectionPath)) map { collectionOpt =>
-      collectionOpt.map(_ => Accepted).getOrElse(NotFound)
+    CollectionsStore.remove(decode(collectionPath)) map { collections =>
+      Accepted
+    } recover {
+      case e: CollectionNotFound => collectionNotFound(e.path)
     }
   }
 
