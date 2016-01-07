@@ -4,6 +4,7 @@ aws.secret={{AwsSecret}}
 aws.region={{region}}
 auth.keystore.bucket={{KeyBucket}}
 s3.collections.bucket={{CollectionsBucket}}
+dynamo.table.collections={{CollectionsDynamoTable}}
 dynamo.table.imageCollections={{ImageCollectionsDynamoTable}}
 sns.topic.arn={{SnsTopicArn}}
 
