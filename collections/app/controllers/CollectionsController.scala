@@ -32,23 +32,24 @@ object CollectionsController extends Controller with ArgoHelpers {
 
   import lib.Config.rootUri
   import ControllerHelper.getUserFromReq
+  import CollectionsManager.{pathToUri, uriToPath, stringToPath}
 
   val Authenticated = ControllerHelper.Authenticated
 
   def uri(u: String) = URI.create(u)
   val collectionUri = uri(s"$rootUri/collections")
-  def collectionUri(s: String = "") = {
-    val post = if(s.nonEmpty) s"/$s" else s
-    uri(s"$rootUri/collections$post")
+  def collectionUri(p: List[String] = Nil) = {
+    val path = if(p.nonEmpty) s"/${pathToUri(p)}" else ""
+    uri(s"$rootUri/collections$path")
   }
 
   val appIndex = AppIndex("media-collections", "The one stop shop for collections")
   val indexLinks = List(Link("collections", collectionUri.toString))
 
-  def addChildAction(pathId: String = ""): Option[Action] = Some(Action("add-child", collectionUri(pathId), "POST"))
-  def addChildAction(n: Node[Collection]): Option[Action] = addChildAction(n.pathId)
+  def addChildAction(pathId: List[String] = Nil): Option[Action] = Some(Action("add-child", collectionUri(pathId), "POST"))
+  def addChildAction(n: Node[Collection]): Option[Action] = addChildAction(n.path)
   def removeNodeAction(n: Node[Collection]) = if (n.children.nonEmpty) None else Some(
-    Action("remove", collectionUri(n.pathId), "DELETE")
+    Action("remove", collectionUri(n.path), "DELETE")
   )
 
   def index = Authenticated { req =>
@@ -69,8 +70,7 @@ object CollectionsController extends Controller with ArgoHelpers {
     CollectionsStore.getAll map { collections =>
       val tree = Node.buildTree[Collection]("root",
         collections,
-        (collection) => collection.path,
-        (collection) => collection.pathId)
+        (collection) => collection.path)
 
       respond(Json.toJson(tree)(asArgo), actions = List(addChildAction()).flatten)
     }
@@ -81,10 +81,10 @@ object CollectionsController extends Controller with ArgoHelpers {
   def addChildToCollection(collectionPathId: String) = addChildTo(Some(collectionPathId))
   def addChildTo(collectionPathId: Option[String]) = Authenticated.async(parse.json) { req =>
     (req.body \ "data").asOpt[String].map { child =>
-      val path = collectionPathId.map(CollectionsManager.stringToPath).getOrElse(Nil) :+ child
+      val path = collectionPathId.map(uriToPath).getOrElse(Nil) :+ child
       val collection = Collection(path, ActionData(getUserFromReq(req), DateTime.now))
       CollectionsStore.add(collection).map { collection =>
-        val node = Node(collection.path.last, Nil, collection.pathId, Some(collection))
+        val node = Node(collection.path.last, Nil, collection.path, Some(collection))
         respond(node, actions = getActions(node))
       }
     } getOrElse Future.successful(invalidJson(req.body))
@@ -115,7 +115,7 @@ object CollectionsController extends Controller with ArgoHelpers {
 
 
   def collectionsEntity(nodes: List[Node[Collection]]): CollectionsEntity = {
-    nodes.map(n => EmbeddedEntity(collectionUri(n.pathId), Some(n), actions = getActions(n)))
+    nodes.map(n => EmbeddedEntity(collectionUri(n.path), Some(n), actions = getActions(n)))
   }
 
 }
