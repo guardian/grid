@@ -192,9 +192,9 @@ class DynamoDB(credentials: AWSCredentials, region: Region, tableName: String) {
 
     val item = new Item().withPrimaryKey(IdKey, id).withJSON(key, Json.toJson(value).toString)
 
-    val spec = new PutItemSpec().withItem(item).withReturnValues(ReturnValue.ALL_OLD)
+    val spec = new PutItemSpec().withItem(item)
     table.putItem(spec)
-    // As PutItem only return the null if the item didn't exist, or the old item if it did,
+    // As PutItem only returns `null` if the item didn't exist, or the old item if it did,
     // all we care about is whether it completed.
   } map (outcome => value)
 
