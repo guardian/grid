@@ -39,14 +39,24 @@ class CollectionsManagerTest extends FunSpec with Matchers {
 
     }
 
+    describe("create") {
+
+      it("should lowercase path on creation") {
+        val col = Collection.create(List("G2", "ArT", "CasECrazY"), ActionData("me@you.com", DateTime.now))
+        col.path shouldEqual List("g2", "art", "casecrazy")
+        col.pathId shouldEqual "g2/art/casecrazy"
+      }
+
+    }
+
     it ("should only show the latest collection with same ID") {
       val date = DateTime.now()
       val laterDate = date.minusDays(5)
       val evenLaterDate = laterDate.minusDays(5)
 
-      val collection1 = Collection(List("g2"), ActionData("me@you.com", date))
-      val collection2 = Collection(List("g2"), ActionData("you@me.com", laterDate))
-      val collection3 = Collection(List("g2"), ActionData("them@they.com", evenLaterDate))
+      val collection1 = Collection.create(List("g2"), ActionData("me@you.com", date))
+      val collection2 = Collection.create(List("g2"), ActionData("you@me.com", laterDate))
+      val collection3 = Collection.create(List("g2"), ActionData("them@they.com", evenLaterDate))
 
       val duped = List(collection2, collection1, collection3)
 
@@ -60,9 +70,9 @@ class CollectionsManagerTest extends FunSpec with Matchers {
     it ("should find the index of a collection in a list") {
       val actionData = ActionData("me@you.com", DateTime.now())
       val collections = List(
-        Collection(List("g2"), actionData),
-        Collection(List("g2", "art"), actionData),
-        Collection(List("g2", "art", "paintings"), actionData)
+        Collection.create(List("g2"), actionData),
+        Collection.create(List("g2", "art"), actionData),
+        Collection.create(List("g2", "art", "paintings"), actionData)
       )
 
       val index = CollectionsManager.findIndex(List("g2", "art"), collections)

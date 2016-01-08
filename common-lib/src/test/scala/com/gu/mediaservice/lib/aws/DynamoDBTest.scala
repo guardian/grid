@@ -52,7 +52,7 @@ class DynamoDBTest extends FunSpec with Matchers {
     }
 
     it ("should convert a Collection to ValueMap") {
-      val collection = Collection(List("g2", "art", "batik"), ActionData("mighty.mouse@guardian.co.uk", DateTime.now))
+      val collection = Collection.create(List("g2", "art", "batik"), ActionData("mighty.mouse@guardian.co.uk", DateTime.now))
       val json = Json.toJson(collection).as[JsObject]
       val valueMap = DynamoDB.jsonToValueMap(json)
 
