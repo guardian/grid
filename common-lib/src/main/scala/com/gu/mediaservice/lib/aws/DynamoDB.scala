@@ -198,17 +198,6 @@ class DynamoDB(credentials: AWSCredentials, region: Region, tableName: String) {
     // all we care about is whether it completed.
   } map (outcome => value)
 
-  def objDelete[T](id: String, key:String, value: T)
-               (implicit ex: ExecutionContext, wjs: Writes[T], rjs: Reads[T]): Future[T] = Future {
-
-    val item = new Item().withPrimaryKey(IdKey, id).withJSON(key, Json.toJson(value).toString)
-
-    val spec = new PutItemSpec().withItem(item).withReturnValues(ReturnValue.ALL_OLD)
-    table.putItem(spec)
-    // As PutItem only return the null if the item didn't exist, or the old item if it did,
-    // all we care about is whether it completed.
-  } map (outcome => value)
-
   def scan()(implicit ex: ExecutionContext) = Future {
     table.scan().iterator.toList
   } map (_.map(asJsObject))
