@@ -4,7 +4,6 @@ import java.net.URI
 
 import com.gu.mediaservice.lib.argo.model.{Link, EmbeddedEntity, Action}
 import com.gu.mediaservice.lib.collections.CollectionsManager
-import com.gu.mediaservice.lib.net.URI.decode
 
 import lib.ControllerHelper
 import model.Node
@@ -20,7 +19,7 @@ import scala.concurrent.Future
 import com.gu.mediaservice.lib.argo.ArgoHelpers
 import com.gu.mediaservice.model.{ActionData, Collection}
 
-import store.CollectionsStore
+import store.{CollectionsStoreError, CollectionsStore}
 
 
 case class InvalidPrinciple(message: String) extends Throwable
@@ -64,6 +63,9 @@ object CollectionsController extends Controller with ArgoHelpers {
   def invalidJson(json: JsValue) =
     respondError(BadRequest, "invalid-json", s"Could not parse json: ${json.toString}")
 
+  def storeError(message: String) =
+    respondError(InternalServerError, "collection-store-error", message)
+
   def getActions(n: Node[Collection]): List[Action] = {
     List(addChildAction(n), removeNodeAction(n)).flatten
   }
@@ -75,6 +77,8 @@ object CollectionsController extends Controller with ArgoHelpers {
         (collection) => collection.path)
 
       respond(Json.toJson(tree)(asArgo), actions = List(addChildAction()).flatten)
+    } recover {
+      case e: CollectionsStoreError => storeError(e.message)
     }
   }
 
@@ -89,6 +93,8 @@ object CollectionsController extends Controller with ArgoHelpers {
         CollectionsStore.add(collection).map { collection =>
           val node = Node(collection.path.last, Nil, collection.path, Some(collection))
           respond(node, actions = getActions(node))
+        } recover {
+          case e: CollectionsStoreError => storeError(e.message)
         }
       } else {
         Future.successful(respondError(BadRequest, "invalid-input", "You cannot have slashes in your path name"))
@@ -97,8 +103,10 @@ object CollectionsController extends Controller with ArgoHelpers {
   }
 
   def removeCollection(collectionPath: String) = Authenticated.async { req =>
-    CollectionsStore.remove(decode(collectionPath)) map { collectionOpt =>
-      collectionOpt.map(_ => Accepted).getOrElse(NotFound)
+    CollectionsStore.remove(CollectionsManager.uriToPath(collectionPath)) map { unit =>
+      Accepted
+    } recover {
+      case e: CollectionsStoreError => InternalServerError
     }
   }
 
