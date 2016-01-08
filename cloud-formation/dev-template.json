@@ -59,6 +59,20 @@
                                         ":",
                                         { "Ref" : "AWS::AccountId" },
                                         ":table/",
+                                        { "Ref" : "CollectionsDynamoTable" }
+                                    ] ] }
+                                ]
+                            },
+                            {
+                                "Effect": "Allow",
+                                "Action": [ "dynamodb:*" ],
+                                "Resource": [
+                                    { "Fn::Join" : [ "", [
+                                        "arn:aws:dynamodb:",
+                                        { "Ref" : "AWS::Region" },
+                                        ":",
+                                        { "Ref" : "AWS::AccountId" },
+                                        ":table/",
                                         { "Ref" : "ImageCollectionsDynamoTable" }
                                     ] ] }
                                 ]
@@ -315,6 +329,28 @@
                 ],
                 "ProvisionedThroughput": {
                     "ReadCapacityUnits" : "10",
+                    "WriteCapacityUnits" : "5"
+                }
+            }
+        },
+
+        "CollectionsDynamoTable": {
+            "Type": "AWS::DynamoDB::Table",
+            "Properties": {
+                "AttributeDefinitions": [
+                    {
+                        "AttributeName": "id",
+                        "AttributeType": "S"
+                    }
+                ],
+                "KeySchema": [
+                    {
+                        "AttributeName": "id",
+                        "KeyType": "HASH"
+                    }
+                ],
+                "ProvisionedThroughput": {
+                    "ReadCapacityUnits" : "5",
                     "WriteCapacityUnits" : "5"
                 }
             }
@@ -610,6 +646,9 @@
         },
         "EditsDynamoTable": {
             "Value": { "Ref": "EditsDynamoTable" }
+        },
+        "CollectionsDynamoTable": {
+            "Value": { "Ref": "CollectionsDynamoTable" }
         },
         "ImageCollectionsDynamoTable": {
             "Value": { "Ref": "ImageCollectionsDynamoTable" }

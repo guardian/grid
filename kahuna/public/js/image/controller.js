@@ -1,5 +1,4 @@
 import angular from 'angular';
-import 'angular-hotkeys';
 
 import '../util/rx';
 import '../services/image/usages';
@@ -16,6 +15,8 @@ import '../components/gr-image-cost-message/gr-image-cost-message';
 import '../components/gr-export-original-image/gr-export-original-image';
 import '../components/gr-image-usage/gr-image-usage';
 
+import '../components/gr-keyboard-shortcut/gr-keyboard-shortcut';
+
 var image = angular.module('kahuna.image.controller', [
     'kahuna.edits.service',
     'gr.image.service',
@@ -31,8 +32,8 @@ var image = angular.module('kahuna.image.controller', [
     'gr.exportOriginalImage',
     'gr.imageUsage',
     'gr.image-usages.service',
-    'cfp.hotkeys',
-    'util.rx'
+    'util.rx',
+    'gr.keyboardShortcut'
 ]);
 
 image.controller('ImageCtrl', [
@@ -50,7 +51,7 @@ image.controller('ImageCtrl', [
     'mediaCropper',
     'imageService',
     'imageUsagesService',
-    'hotkeys',
+    'keyboardShortcut',
 
     function ($rootScope,
               $scope,
@@ -66,11 +67,11 @@ image.controller('ImageCtrl', [
               mediaCropper,
               imageService,
               imageUsagesService,
-              hotkeys) {
+              keyboardShortcut) {
 
         let ctrl = this;
 
-        hotkeys.bindTo($scope).add({
+        keyboardShortcut.bindTo($scope).add({
             combo: 'c',
             description: 'Crop image',
             callback: () => $state.go('crop', {imageId: ctrl.image.data.id})

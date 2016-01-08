@@ -9,7 +9,7 @@ import model.{UsageTable, MediaUsage}
 import scala.concurrent.Future
 import scala.concurrent.ExecutionContext.Implicits.global
 
-import rx.lang.scala.{Observable, Subscriber}
+import _root_.rx.lang.scala.{Observable, Subscriber}
 
 case class UsageNotice(mediaId: String, usageJson: JsArray) {
   def toJson = Json.obj(

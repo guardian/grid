@@ -509,6 +509,10 @@ textarea.ng-invalid {
     color: white;
     padding: 20px 40px;
 }
+.error--small {
+    padding: 5px 10px;
+    font-size: 13px;
+}
 
 .warning {
     background: #ffbc01;

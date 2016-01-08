@@ -28,7 +28,7 @@
 }
 .gr-panel__content--hidden {
     width: 0;
-    overflow-x: hidden;
+    overflow: hidden;
 }
 .gr-panel__content--left {
     left: 0;

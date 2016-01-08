@@ -19,6 +19,7 @@ object Config extends CommonPlayAppProperties with CommonPlayAppConfig {
   val keyStoreBucket = properties("auth.keystore.bucket")
 
   val collectionsBucket: String = properties("s3.collections.bucket")
+  val collectionsTable = properties("dynamo.table.collections")
   val imageCollectionsTable = properties("dynamo.table.imageCollections")
   val topicArn = properties("sns.topic.arn")
 

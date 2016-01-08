@@ -192,6 +192,7 @@ object Mappings {
           "source" -> assetMapping,
           "thumbnail" -> assetMapping,
           "userMetadata" -> userMetadataMapping,
+          "userMetadataLastModified" -> dateFormat,
           "fileMetadata" -> dynamicObj,
           "exports" -> exportsMapping,
           "uploadTime" -> dateFormat,

@@ -1,20 +1,21 @@
 import angular from 'angular';
-import 'angular-hotkeys';
 
-var crop = angular.module('kahuna.crop.controller', ['cfp.hotkeys']);
+import '../components/gr-keyboard-shortcut/gr-keyboard-shortcut';
+
+var crop = angular.module('kahuna.crop.controller', ['gr.keyboardShortcut']);
 
 crop.controller('ImageCropCtrl',
                 ['$scope', '$rootScope', '$stateParams', '$state',
                  '$filter', '$document', 'mediaApi', 'mediaCropper',
-                 'image', 'optimisedImageUri', 'hotkeys',
+                 'image', 'optimisedImageUri', 'keyboardShortcut',
                  function($scope, $rootScope, $stateParams, $state,
                           $filter, $document, mediaApi, mediaCropper,
-                          image, optimisedImageUri, hotkeys) {
+                          image, optimisedImageUri, keyboardShortcut) {
 
     const ctrl = this;
     const imageId = $stateParams.imageId;
 
-    hotkeys.bindTo($scope)
+    keyboardShortcut.bindTo($scope)
         .add({
             combo: 'esc',
             description: 'Cancel crop and return to image',

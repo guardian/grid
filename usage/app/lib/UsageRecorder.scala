@@ -11,8 +11,8 @@ import scala.collection.JavaConverters._
 
 import play.api.libs.json._
 
-import rx.lang.scala.{Observable, Subscriber}
-import rx.lang.scala.subjects.PublishSubject
+import _root_.rx.lang.scala.{Observable, Subscriber}
+import _root_.rx.lang.scala.subjects.PublishSubject
 
 import model._
 

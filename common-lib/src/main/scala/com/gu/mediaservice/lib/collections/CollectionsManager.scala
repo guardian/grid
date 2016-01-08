@@ -1,18 +1,15 @@
 package com.gu.mediaservice.lib.collections
 
-import java.net.URLDecoder.decode
-import java.net.URLEncoder.encode
-
+import com.gu.mediaservice.lib.net.URI.{encode, decode}
 import com.gu.mediaservice.model.Collection
 
 object CollectionsManager {
   val delimiter = "/"
-  val enc = "UTF-8"
-  def decodePathBit(s: String) = decode(s, enc)
-  def encodePathBit(s: String) = encode(s, enc)
 
-  def stringToPath(s: String) = s.split(delimiter).map(decodePathBit).toList
-  def pathToString(path: List[String]) = path.map(encodePathBit).mkString(delimiter)
+  def stringToPath(s: String) = s.split(delimiter).toList
+  def pathToString(path: List[String]) = path.mkString(delimiter)
+  def pathToUri(path: List[String]) = pathToString(path.map(encode))
+  def uriToPath(uri: String) = stringToPath(decode(uri))
 
   def sortBy(c: Collection) = c.pathId
 
@@ -25,6 +22,12 @@ object CollectionsManager {
   def find(path: List[String], collections: List[Collection]): Option[Collection] =
     collections.find(col => col.path == path)
 
+  def findIndex(path: List[String], collections: List[Collection]): Option[Int] =
+    collections.indexWhere(_.path == path) match {
+      case -1    => None
+      case index => Some(index)
+    }
+
   def onlyLatest(collections: List[Collection]): List[Collection] =
     collections filter { collection =>
       // if there isn't a collection with the same path created after itself.
@@ -32,4 +35,7 @@ object CollectionsManager {
         col.path == collection.path && col.actionData.date.isAfter(collection.actionData.date)
       }}
     }
+
+  // We could use `ValidationNel`s here, but that's overkill
+  def isValidPathBit(s: String) = if (s.contains(delimiter)) false else true
 }
