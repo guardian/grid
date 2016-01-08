@@ -41,7 +41,7 @@ object PicdarUsageRecordFactory {
           publicationName = extractOrThrow("publicationtext"),
           page = extractOrThrow("page").toInt,
           sectionName = extractOrThrow("sectiontext"),
-          edition = extractOrThrow("editiontext").toInt,
+          edition = element.get("editiontext").foldLeft(1)((_, e) => { e.toInt }),
           status = extractOrThrow("status"),
           notes = element.get("notes")
         )
@@ -54,9 +54,6 @@ object PicdarUsageRecordFactory {
 }
 
 object ResponseParser {
-  // load from file temporarily
-  val stub = scala.io.Source.fromFile("/home/rkenny/output.picdar").mkString
-
   private def clean(attr: String) = attr.trim.stripPrefix("\"").stripSuffix("\"")
   private val splitLine = """^\s*(.*?)\s*=\s(\S[\s\S]*?)""".r
 

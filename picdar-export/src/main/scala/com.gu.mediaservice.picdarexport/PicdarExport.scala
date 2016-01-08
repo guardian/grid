@@ -289,13 +289,29 @@ object ExportApp extends App with ExportManagerProvider with ArgumentHelpers wit
     }
   }
 
-  import com.gu.mediaservice.picdarexport.lib.usage._
-  def fetchUsage(env: String, dateRange: DateRange = DateRange.all, range: Option[Range] = None) = {
-    val dynamo = getUsageDynamo(env)
-    Future {
-      val o = PicdarUsageRecordFactory.create(ResponseParser.stub)
+  import com.gu.mediaservice.picdarexport.lib.usage.PicdarUsageRecordFactory
+  import com.gu.mediaservice.picdarexport.lib.picdar.UsageApi
+  import com.gu.mediaservice.lib.aws.NoItemFound
+  import scala.util.{Failure, Success}
 
-      o.map(println)
+  def fetchUsage(env: String, dateField: String, dateRange: DateRange = DateRange.all,
+           range: Option[Range] = None, query: Option[String] = None) = {
+
+    val dynamo = getUsageDynamo(env)
+
+    getPicdar("library").query(dateField, dateRange, range, query).flatMap { assetRefs =>
+      val updates = assetRefs.map(assetRef => {
+        dynamo.exists(assetRef.urn).map(_ match {
+          case false => {
+            val o = UsageApi.get(assetRef.urn)
+
+            println(s"must update $assetRef with $o")
+          }
+          case _ => Unit
+        })
+      })
+
+      Future.sequence(updates)
     }
   }
 
@@ -482,15 +498,16 @@ object ExportApp extends App with ExportManagerProvider with ArgumentHelpers wit
       overrideRights(env, parseDateRange(date), parseQueryRange(rangeStr))
     }
 
-    case "+usage:fetch" :: env :: Nil => terminateAfter {
-      fetchUsage(env)
+    case "+usage:fetch" :: env :: dateField :: date :: Nil => terminateAfter {
+      fetchUsage(env, dateField, parseDateRange(date))
     }
-    case "+usage:fetch" :: env :: date :: Nil => terminateAfter {
-      fetchUsage(env, parseDateRange(date))
+    case "+usage:fetch" :: env :: dateField :: date :: rangeStr :: Nil => terminateAfter {
+      fetchUsage(env, dateField, parseDateRange(date), parseQueryRange(rangeStr))
     }
-    case "+usage:fetch" :: env :: date :: rangeStr :: Nil => terminateAfter {
-      fetchUsage(env, parseDateRange(date), parseQueryRange(rangeStr))
+    case "+usage:fetch" :: env :: dateField :: date :: rangeStr :: query :: Nil => terminateAfter {
+      fetchUsage(env, dateField, parseDateRange(date), parseQueryRange(rangeStr), Some(query))
     }
+
 
     case _ => println(
       """
@@ -511,7 +528,7 @@ object ExportApp extends App with ExportManagerProvider with ArgumentHelpers wit
         |       +rights:fetch    <dev|test|prod> <desk|library> [dateLoaded] [range]
         |       +rights:override <dev|test|prod> [dateLoaded] [range]
         |
-        |       +usage:fetch     <dev|test|prod> [dateLoaded] [range]
+        |       +usage:fetch     <dev|test|prod> <created|modified|taken> <date> [range] [query]
       """.stripMargin
     )
   }

@@ -78,22 +78,12 @@
                     {
                         "AttributeName": "picdarUrn",
                         "AttributeType": "S"
-                    },
-                    {
-                        "AttributeName": "usageId",
-                        "AttributeType": "S"
-                    }
-                ],
+                    }                ],
                 "KeySchema": [
                     {
                         "AttributeName": "picdarUrn",
                         "KeyType": "HASH"
-                    },
-                    {
-                        "AttributeName": "usageId",
-                        "KeyType": "RANGE"
-                    }
-                ],
+                    }                ],
                 "ProvisionedThroughput": {
                     "ReadCapacityUnits" : "30",
                     "WriteCapacityUnits" : "30"
