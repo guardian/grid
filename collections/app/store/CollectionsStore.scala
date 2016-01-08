@@ -1,9 +1,9 @@
 package store
 
+import com.gu.mediaservice.lib.aws.DynamoDB
 import com.gu.mediaservice.lib.collections.CollectionsManager
-import com.gu.mediaservice.lib.store.JsonStore
 import com.gu.mediaservice.model.Collection
-import play.api.libs.json.{JsValue, Json}
+import play.api.libs.json.JsValue
 
 import lib.Config
 
@@ -11,43 +11,26 @@ import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
 
 object CollectionsStore {
-  import Config.{awsCredentials, collectionsBucket}
-  val store = new JsonStore(collectionsBucket, awsCredentials, "collections")
+  import Config.{awsCredentials, collectionsTable, dynamoRegion}
+  val dynamo = new DynamoDB(awsCredentials, dynamoRegion, collectionsTable)
 
-  def getAll: Future[List[Collection]] = store.getData flatMap { json =>
-    json.asOpt[List[Collection]].map(_.sortBy(_.pathId)).map(Future.successful).
-      getOrElse(Future.failed(InvalidCollectionJson(json)))
-  }
-
-  def add(collection: Collection): Future[Collection] = {
-    store.getData flatMap { json =>
-      val collectionList = json.asOpt[List[Collection]]
-      val newCollectionList = collectionList.map(CollectionsManager.add(collection, _).sortBy(_.pathId))
-
-      newCollectionList.map { collections =>
-        store.putData(Json.toJson(collections))
-        Future.successful(collection)
-      } getOrElse Future.failed(InvalidCollectionJson(json))
-    }
+  def getAll: Future[List[Collection]] = dynamo.scan map { jsonList =>
+    jsonList.flatMap(json => (json \ "collection").asOpt[Collection])
   } recover {
     case e => throw CollectionsStoreError(e)
   }
 
-  def remove(collectionPath: String): Future[Option[Collection]] = {
-    store.getData flatMap { json =>
-      val path = CollectionsManager.stringToPath(collectionPath)
-      val collectionList = json.asOpt[List[Collection]]
+  def add(collection: Collection): Future[Collection] = {
+    dynamo.objPut(collection.pathId, "collection", collection)
+  } recover {
+    case e => throw CollectionsStoreError(e)
+  }
 
-      collectionList map { collections =>
-        val newCollectionsList = CollectionsManager.remove(path, collections)
-        val oldCollection = CollectionsManager.find(path, collections)
-
-        store.putData(Json.toJson(newCollectionsList))
-        Future.successful(oldCollection)
-      } getOrElse Future.failed(InvalidCollectionJson(json))
-    } recover {
-      case e => throw CollectionsStoreError(e)
-    }
+  def remove(collectionPath: List[String]): Future[Unit] = {
+    val path = CollectionsManager.pathToString(collectionPath)
+    dynamo.deleteItem(path)
+  } recover {
+    case e => throw CollectionsStoreError(e)
   }
 }
 

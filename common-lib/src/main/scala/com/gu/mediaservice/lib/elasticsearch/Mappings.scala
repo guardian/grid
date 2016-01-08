@@ -112,6 +112,7 @@ object Mappings {
     "path" -> nonAnalysedList("collectionPath"),
     "pathId" -> (nonAnalyzedString ++ copyTo("collections.pathHierarchy")),
     "pathHierarchy" -> hierarchyAnalysedString,
+    "description" -> nonAnalyzedString,
     "actionData" -> actionDataMapping
   ))
 

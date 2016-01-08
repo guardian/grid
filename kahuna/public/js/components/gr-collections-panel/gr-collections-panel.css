@@ -29,7 +29,12 @@ gr-nodes, gr-node,
 }
 .node__info:hover,
 .collection-drop-drag-over {
+    background-color: #666;
+}
+
+.node__info--selected {
     background-color: #333;
+    color: white;
 }
 
 .node__name {
