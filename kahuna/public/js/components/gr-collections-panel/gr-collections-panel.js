@@ -138,7 +138,7 @@ grCollectionsPanel.directive('grDropIntoCollection',
     ['$timeout', '$parse', 'vndMimeTypes', 'collections',
     function($timeout, $parse, vndMimeTypes, collections) {
 
-    const classOver = 'collection-drop-drag-over';
+    const dragOverClass = 'collection-drop-drag-over';
 
     return {
         restrict: 'A',
@@ -160,15 +160,15 @@ grCollectionsPanel.directive('grDropIntoCollection',
                         scope.dropIntoCollectionSaving = false;
                     });
                 }
-                element.removeClass(classOver);
+                element.removeClass(dragOverClass);
             });
 
             element.on('dragover', () => {
-                element.addClass(classOver);
+                element.addClass(dragOverClass);
             });
 
             element.on('dragleave', () => {
-                element.removeClass(classOver);
+                element.removeClass(dragOverClass);
             });
         }
     };
