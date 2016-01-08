@@ -7,7 +7,7 @@ object CollectionsManager {
   val delimiter = "/"
 
   def stringToPath(s: String) = s.split(delimiter).toList
-  def pathToString(path: List[String]) = path.mkString(delimiter)
+  def pathToString(path: List[String]) = path.mkString(delimiter).toLowerCase
   def pathToUri(path: List[String]) = pathToString(path.map(encode))
   def uriToPath(uri: String) = stringToPath(decode(uri))
 

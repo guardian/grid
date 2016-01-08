@@ -85,7 +85,7 @@ object CollectionsController extends Controller with ArgoHelpers {
     (req.body \ "data").asOpt[String] map { child =>
       if (isValidPathBit(child)) {
         val path = collectionPathId.map(uriToPath).getOrElse(Nil) :+ child
-        val collection = Collection(path, ActionData(getUserFromReq(req), DateTime.now))
+        val collection = Collection.build(path, ActionData(getUserFromReq(req), DateTime.now))
         CollectionsStore.add(collection).map { collection =>
           val node = Node(collection.path.last, Nil, collection.path, Some(collection))
           respond(node, actions = getActions(node))
