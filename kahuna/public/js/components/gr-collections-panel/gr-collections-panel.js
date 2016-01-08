@@ -138,10 +138,7 @@ grCollectionsPanel.directive('grDropIntoCollection',
     ['$timeout', '$parse', 'vndMimeTypes', 'collections',
     function($timeout, $parse, vndMimeTypes, collections) {
 
-    const className = 'collection-drop';
-    const classDrag = 'collection-drop--drag-over';
-    const classComplete = 'collection-drop--complete';
-    const classSaving = 'collection-drop--saving';
+    const classOver = 'collection-drop-drag-over';
 
     return {
         restrict: 'A',
@@ -164,15 +161,15 @@ grCollectionsPanel.directive('grDropIntoCollection',
                         scope.dropIntoCollectionSaving = false;
                     });
                 }
-                element.removeClass(classDrag);
+                element.removeClass(classOver);
             });
 
             element.on('dragover', () => {
-                element.addClass(classDrag);
+                element.addClass(classOver);
             });
 
             element.on('dragleave', () => {
-                element.removeClass(classDrag);
+                element.removeClass(classOver);
             });
         }
     };
