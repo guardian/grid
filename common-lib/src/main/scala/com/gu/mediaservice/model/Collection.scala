@@ -38,7 +38,7 @@ object Collection {
   }
 
   // We use this to ensure we are creating valid `Collection`s
-  def create(path: List[String], actionData: ActionData) = {
+  def build(path: List[String], actionData: ActionData) = {
     val lowerPath = path.map(_.toLowerCase)
     // HACK: path should be an NonEmptyList, till then, this'll do
     val description = path.lastOption.getOrElse("")
