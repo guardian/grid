@@ -34,7 +34,7 @@ grCollectionsPanel.controller('GrCollectionsPanelCtrl', [
     }).catch(() => ctrl.error = true);
 
     ctrl.selectedImages$ = selectedImages$;
-    ctrl.selectedCollections = selectedCollections || [];
+    ctrl.selectedCollections = selectedCollections;
 }]);
 
 grCollectionsPanel.controller('GrNodeCtrl',
