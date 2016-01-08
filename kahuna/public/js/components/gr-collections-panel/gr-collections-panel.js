@@ -19,8 +19,8 @@ export var grCollectionsPanel = angular.module('grCollectionsPanel', [
 ]);
 
 grCollectionsPanel.controller('GrCollectionsPanelCtrl', [
-    'collections', 'selectedImages$',
-    function (collections, selectedImages$) {
+    'collections', 'selectedImages$', 'selectedCollections',
+    function (collections, selectedImages$, selectedCollections) {
 
     const ctrl = this;
 
@@ -36,6 +36,7 @@ grCollectionsPanel.controller('GrCollectionsPanelCtrl', [
     }).catch(() => ctrl.error = true);
 
     ctrl.selectedImages$ = selectedImages$;
+    ctrl.selectedCollections = selectedCollections;
 }]);
 
 grCollectionsPanel.factory('collectionsTreeState', ['$window', function($window) {
@@ -110,6 +111,10 @@ grCollectionsPanel.controller('GrNodeCtrl',
         collectionsTreeState.setState(pathId, show);
     }));
 
+    ctrl.isSelected = ctrl.selectedCollections.some(col => {
+        return angular.equals(col, ctrl.node.data.content.path);
+    });
+
 }]);
 
 grCollectionsPanel.directive('grNode', ['$parse', '$compile', function($parse, $compile) {
@@ -119,7 +124,8 @@ grCollectionsPanel.directive('grNode', ['$parse', '$compile', function($parse, $
             node: '=grNode',
             nodeList: '=grNodeList',
             editing: '=grEditing',
-            selectedImages$: '=grSelectedImages'
+            selectedImages$: '=grSelectedImages',
+            selectedCollections: '=grSelectedCollections'
         },
         template: nodeTemplate,
         controller: 'GrNodeCtrl',
@@ -130,6 +136,7 @@ grCollectionsPanel.directive('grNode', ['$parse', '$compile', function($parse, $
             // well with recursive templates.
             $compile(`<gr-nodes
                 gr:selected-images="ctrl.selectedImages$"
+                gr:selected-collections="ctrl.selectedCollections"
                 gr:editing="ctrl.editing"
                 ng:show="ctrl.showChildren"
                 gr:nodes="ctrl.node.data.children"
@@ -154,13 +161,15 @@ grCollectionsPanel.directive('grNodes', function() {
         scope: {
             nodes: '=grNodes',
             editing: '=grEditing',
-            selectedImages$: '=grSelectedImages'
+            selectedImages$: '=grSelectedImages',
+            selectedCollections: '=grSelectedCollections'
         },
         template: `<ul>
             <li ng:repeat="node in nodes">
                 <gr-node
                     class="node"
                     gr:selected-images="selectedImages$"
+                    gr:selected-collections="selectedCollections"
                     gr:node="node"
                     gr:node-list="nodes"
                     gr:editing="editing"></gr-node>

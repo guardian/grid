@@ -7,6 +7,10 @@ function hasLabel(q, label) {
     return labelMatch(label).test(q);
 }
 
+function querySplit(q) {
+    return q.match(/((~|#)?'.*?'|(~|#)?".*?"|\S+)/g);
+}
+
 export function addLabel(q, label) {
     return hasLabel(q, label) ? q : `${(q || '').trim()} ${createLabel(label)}`;
 }
@@ -21,4 +25,14 @@ export function removeLabels(q, labels) {
 
 export function getCollection(path) {
     return createCollection(path);
+}
+
+export function getCollectionsFromQuery(q) {
+    const query = querySplit(q);
+    const collections =  query ? query
+        .filter(bit => bit.charAt(0) === '~')
+        .map(path => path.replace(/('|"|~)/g, '').split('/'))
+        : [];
+
+    return collections;
 }
