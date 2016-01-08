@@ -154,7 +154,7 @@ grCollectionsPanel.directive('grDropIntoCollection',
                 const gridImagesData = dt.getData(vndMimeTypes.get('gridImagesData'));
                 const gridImageData = dt.getData(vndMimeTypes.get('gridImageData'));
 
-                if (gridImagesData !== '' && gridImageData !== '') {
+                if (gridImagesData !== '' || gridImageData !== '') {
                     // TODO: potentially add some UI feedback on adding to collection
                     const imagesData = gridImagesData !== '' ?
                         JSON.parse(gridImagesData) : [JSON.parse(gridImageData)];
