@@ -144,7 +144,6 @@ grCollectionsPanel.directive('grDropIntoCollection',
         restrict: 'A',
         link: function(scope, element, attrs) {
             const collectionPath = $parse(attrs.grDropIntoCollection)(scope);
-            element.addClass(className);
 
             element.on('drop', jqEv => {
                 const dt = jqEv.originalEvent.dataTransfer;
