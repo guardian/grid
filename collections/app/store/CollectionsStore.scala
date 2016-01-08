@@ -21,7 +21,7 @@ object CollectionsStore {
   }
 
   def add(collection: Collection): Future[Collection] = {
-    dynamo.objPut(collection.pathId, "collection", collection) map (c => c)
+    dynamo.objPut(collection.pathId, "collection", collection)
   } recover {
     case e => throw CollectionsStoreError(e)
   }
