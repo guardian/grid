@@ -147,48 +147,37 @@ grCollectionsPanel.directive('grDropIntoCollection',
     ['$timeout', '$parse', 'vndMimeTypes', 'collections',
     function($timeout, $parse, vndMimeTypes, collections) {
 
-    const className = 'collection-drop';
-    const classDrag = 'collection-drop--drag-over';
-    const classComplete = 'collection-drop--complete';
-    const classSaving = 'collection-drop--saving';
+    const dragOverClass = 'collection-drop-drag-over';
 
     return {
         restrict: 'A',
         link: function(scope, element, attrs) {
             const collectionPath = $parse(attrs.grDropIntoCollection)(scope);
-            element.addClass(className);
 
             element.on('drop', jqEv => {
                 const dt = jqEv.originalEvent.dataTransfer;
                 const gridImagesData = dt.getData(vndMimeTypes.get('gridImagesData'));
                 const gridImageData = dt.getData(vndMimeTypes.get('gridImageData'));
 
-                if (gridImagesData !== '' && gridImageData !== '') {
-                    // TODO: potentially add some UI feedback on adding to collection
+                if (gridImagesData !== '' || gridImageData !== '') {
                     const imagesData = gridImagesData !== '' ?
                         JSON.parse(gridImagesData) : [JSON.parse(gridImageData)];
 
-                    const imageIds = imagesData.map(imageJson => imageJson.id);
-
-                    // TODO: Find a better way of dealing with this state than classnames
-                    element.addClass(classSaving);
+                    const imageIds = imagesData.map(imageJson => imageJson.data.id);
+                    scope.dropIntoCollectionSaving = true;
                     collections.addImageIdsToCollection(imageIds, collectionPath).then(() => {
-                        element.removeClass(classSaving);
-                        element.addClass(classComplete);
-                        $timeout(() => {
-                            element.removeClass(classComplete);
-                        }, 500);
+                        scope.dropIntoCollectionSaving = false;
                     });
                 }
-                element.removeClass(classDrag);
+                element.removeClass(dragOverClass);
             });
 
             element.on('dragover', () => {
-                element.addClass(classDrag);
+                element.addClass(dragOverClass);
             });
 
             element.on('dragleave', () => {
-                element.removeClass(classDrag);
+                element.removeClass(dragOverClass);
             });
         }
     };
