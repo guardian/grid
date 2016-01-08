@@ -39,7 +39,7 @@ object PlayArtifact extends Plugin {
       baseDirectory.value / "conf" / "deploy.json" -> "deploy.json"
     ) ++ (name.value match {
       case "cropper" | "image-loader" =>
-        Seq("cmyk.icc", "grayscale.icc", "srgb.icc").map { file =>
+        Seq("cmyk.icc", "grayscale.icc", "srgb.icc", "facebook-TINYsRGB_c2.icc").map { file =>
           baseDirectory.value / file -> s"packages/${magentaPackageName.value}/$file"
         }
       case _ => Seq()
