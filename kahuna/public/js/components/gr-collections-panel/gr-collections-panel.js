@@ -39,23 +39,23 @@ grCollectionsPanel.controller('GrCollectionsPanelCtrl', [
 }]);
 
 grCollectionsPanel.factory('collectionsTreeState', ['$window', function($window) {
-    const localStorageKey = 'collectionsTreeState';
-    const defaultShowState = true;
-
-    function getStateFromStorage() {
-        const jsonStr = $window.localStorage.getItem(localStorageKey) || '{}';
-        return JSON.parse(jsonStr);
-    }
+    // TODO: Add garbage collection to state.
+    const localStorageKey = 'collectionsTreeOpen';
+    const jsonStr = $window.localStorage.getItem(localStorageKey) || '[]';
+    const jsonArr = JSON.parse(jsonStr);
+    // A little bit of security incase this was set weirdly before.
+    // The var is use so we don't have to read from localStorage the whole time.
+    var stateCache = Array.isArray(jsonArr) ? new Set(jsonArr) : new Set();
 
 
     function setState(pathId, show) {
-        const newState = angular.extend({}, getStateFromStorage(), {[pathId]: show});
-        $window.localStorage.setItem(localStorageKey, JSON.stringify(newState));
+        const newState = show ? stateCache.add(pathId) : stateCache.delete(pathId);
+        $window.localStorage.setItem(localStorageKey, JSON.stringify(Array.from(newState)));
+        stateCache = newState;
     }
 
     function getState(pathId) {
-        const state = getStateFromStorage();
-        return angular.isDefined(state[pathId]) ? state[pathId] : defaultShowState;
+        return stateCache.has(pathId);
     }
 
     return {
@@ -74,8 +74,8 @@ grCollectionsPanel.controller('GrNodeCtrl',
 
     ctrl.saving = false;
     ctrl.deletable = false;
-
     ctrl.showChildren = collectionsTreeState.getState(pathId);
+
     ctrl.formError = null;
     ctrl.addChild = childName => {
         return collections.addChildTo(ctrl.node, childName).
