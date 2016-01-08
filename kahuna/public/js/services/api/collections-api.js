@@ -64,6 +64,10 @@ apiServices.factory('collections', ['mediaApi', function (mediaApi) {
         return Promise.all(promises);
     }
 
+    function removeImageFromCollection(collection) {
+        collection.perform('remove');
+    }
+
     return {
         getCollections,
         removeCollection,
@@ -72,6 +76,7 @@ apiServices.factory('collections', ['mediaApi', function (mediaApi) {
         isDeletable,
         removeFromList,
         addImageIdsToCollection,
-        addImagesToCollection
+        addImagesToCollection,
+        removeImageFromCollection
     };
 }]);

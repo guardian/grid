@@ -20,6 +20,7 @@ module.controller('grImageMetadataCtrl', [
     'editsService',
     'mediaApi',
     'editsApi',
+    'collections',
     'track',
 
     function ($rootScope,
@@ -28,6 +29,7 @@ module.controller('grImageMetadataCtrl', [
               editsService,
               mediaApi,
               editsApi,
+              collections,
               track) {
 
         let ctrl = this;
@@ -123,6 +125,10 @@ module.controller('grImageMetadataCtrl', [
                      */
                     return 'failed to save (press esc to cancel)';
                 });
+        };
+
+        ctrl.removeImageFromCollection = function (collection) {
+            return collections.removeImageFromCollection(collection);
         };
 
         $scope.$on('$destroy', function() {
