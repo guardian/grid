@@ -92,15 +92,18 @@ object ElasticSearch extends ElasticSearchClient with ImageFields {
       }
   }
 
-  def updateImageUsages(id: String, usages: JsValue)(implicit ex: ExecutionContext): Future[Any] =
+  def updateImageUsages(id: String, usages: JsValue, lastModified: JsValue)(implicit ex: ExecutionContext): Future[Any] =
     prepareImageUpdate(id)
       .setScriptParams(Map(
         "usages" -> asGroovy(usages),
         "lastModified" -> asGroovy(JsString(currentIsoDateString))
       ).asJava)
       .setScript(
-          replaceUsagesScript +
-          updateLastModifiedScript,
+        s""" | if (!(ctx._source.usagesLastModified && ctx._source.usagesLastModified > lastModified)) {
+            |   $replaceUsagesScript
+            |   $updateLastModifiedScript
+            | }
+        """.stripMargin,
         scriptType)
       .executeAndLog(s"updating usages on image $id")
       .recover { case e: DocumentMissingException => Unit }
@@ -201,7 +204,10 @@ object ElasticSearch extends ElasticSearchClient with ImageFields {
 
   // Create the exports key or add to it
   private val replaceUsagesScript =
-    "ctx._source.usages = usages;"
+    """
+       | ctx._source.usages = usages;
+       | ctx._source.usagesLastModified = lastModified;
+    """
 
   // Create the exports key or add to it
   private val addExportsScript =

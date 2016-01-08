@@ -31,7 +31,7 @@ object ThrallMessageConsumer extends MessageConsumer(
   }
 
   def updateImageUsages(usages: JsValue) =
-    withImageId(usages)(id => ElasticSearch.updateImageUsages(id, usages \ "data"))
+    withImageId(usages)(id => ElasticSearch.updateImageUsages(id, usages \ "data", usages \ "lastModified"))
 
   def indexImage(image: JsValue): Future[UpdateResponse] =
     withImageId(image)(id => ElasticSearch.indexImage(id, image))

@@ -202,6 +202,7 @@ object Mappings {
           "uploadInfo" -> uploadInfoMapping,
           "suggestMetadataCredit" -> simpleSuggester,
           "usages" -> usagesMapping,
+          "usagesLastModified" -> dateFormat,
           "collections" -> collectionMapping,
           "suggestMetadataCredit" -> simpleSuggester
         ),
