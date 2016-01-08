@@ -155,20 +155,13 @@ grCollectionsPanel.directive('grDropIntoCollection',
                 const gridImageData = dt.getData(vndMimeTypes.get('gridImageData'));
 
                 if (gridImagesData !== '' || gridImageData !== '') {
-                    // TODO: potentially add some UI feedback on adding to collection
                     const imagesData = gridImagesData !== '' ?
                         JSON.parse(gridImagesData) : [JSON.parse(gridImageData)];
 
-                    const imageIds = imagesData.map(imageJson => imageJson.id);
-
-                    // TODO: Find a better way of dealing with this state than classnames
-                    element.addClass(classSaving);
+                    const imageIds = imagesData.map(imageJson => imageJson.data.id);
+                    scope.dropIntoCollectionSaving = true;
                     collections.addImageIdsToCollection(imageIds, collectionPath).then(() => {
-                        element.removeClass(classSaving);
-                        element.addClass(classComplete);
-                        $timeout(() => {
-                            element.removeClass(classComplete);
-                        }, 500);
+                        scope.dropIntoCollectionSaving = false;
                     });
                 }
                 element.removeClass(classDrag);

@@ -184,8 +184,8 @@ search.config(['$stateProvider', '$urlMatcherFactoryProvider',
 
                     const windowDrag$ = Rx.DOM.fromEvent($window, 'dragstart');
                     const dragData$ = windowDrag$.
-                        withLatestFrom(selectedImages$, (event, imageList) => {
-                            const images = imageList.map(i => i.data);
+                        withLatestFrom(selectedImages$, (event, imagesList) => {
+                            const images = imagesList.toJS();
                             const dt = event.dataTransfer;
                             return {images, dt};
                         });
