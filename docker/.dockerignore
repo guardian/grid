@@ -1,2 +1,5 @@
-README.md
-osx-setup.sh
+.idea
+.git
+
+target
+logs

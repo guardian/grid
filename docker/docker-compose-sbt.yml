@@ -1,0 +1,9 @@
+sbt:
+  build: .
+  dockerfile: Dockerfile-sbt
+  restart: unless-stopped
+  volumes:
+    - "./entrypoints:/entrypoints"
+  entrypoint: /entrypoints/sbt.sh
+  expose:
+    - "9000"

@@ -1,21 +1,41 @@
-data:
-  image: java:openjdk-8-jdk
+configs:
+  image: python:2.7
   volumes:
-    - "$HOME/.ivy2:/root/.ivy2"
-    - "../:/home/code"
-    - "$HOME/.gu:/etc/gu:ro"
+    - "./entrypoints:/entrypoints"
+    - "./configs/generators:/configs/generators"
+    - "$HOME/.aws/:/configs/.aws:ro"
+    - "$HOME/.gu/grid/:/configs/.gu/grid"
+    - "/configs"
+  environment:
+    HOME: /configs
+  entrypoint: /entrypoints/configs.sh
 nginx:
   image: nginx:latest
   links:
     - elasticsearch
     - media-api
     - thrall
+    - image-loader
+    - kahuna
+    - cropper
+    - metadata-editor
+    - usage
+    - collections
   ports:
     - "80:80"
     - "443:443"
   volumes:
-    - "./nginx/nginx.conf:/etc/nginx/nginx.conf:ro"
-    - "./nginx/sites-enabled:/etc/nginx/sites-enabled:ro"
+    - "./entrypoints:/entrypoints"
+    - "./configs/nginx.conf:/etc/nginx/nginx.conf"
+  volumes_from:
+    - configs
+  entrypoint: /entrypoints/nginx.sh
+data:
+  image: python:2.7
+  volumes:
+    - "../:/code"
+    - "$HOME/.ivy2:/root/.ivy2"
+    - "$HOME/.sbt:/root/.sbt"
 elasticsearch:
   build: .
   dockerfile: Dockerfile-elastic
@@ -27,73 +47,81 @@ elasticsearch:
     - "9200:9200"
     - "9300:9300"
   volumes:
-    - "../elasticsearch/config:/usr/share/elasticsearch/config"
+    - "./configs/elasticsearch:/usr/share/elasticsearch/config"
   restart: unless-stopped
 media-api:
   environment:
     APP: media-api
   extends:
-    file: grid-core.yml
+    file: docker-compose-sbt.yml
     service: sbt
   links:
     - elasticsearch
   volumes_from:
+    - configs
     - data
 thrall:
   environment:
     APP: thrall
   extends:
-    file: grid-core.yml
+    file: docker-compose-sbt.yml
     service: sbt
   links:
     - elasticsearch
   volumes_from:
+    - configs
     - data
 image-loader:
   environment:
     APP: image-loader
   extends:
-    file: grid-core.yml
-    service: sbt-imaging
+    file: docker-compose-sbt.yml
+    service: sbt
   volumes_from:
+    - configs
     - data
 kahuna:
   environment:
     APP: kahuna
   extends:
-    file: grid-core.yml
+    file: docker-compose-sbt.yml
     service: sbt
   volumes_from:
+    - configs
     - data
 cropper:
   environment:
     APP: cropper
   extends:
-    file: grid-core.yml
-    service: sbt-imaging
+    file: docker-compose-sbt.yml
+    service: sbt
   volumes_from:
+    - configs
     - data
 metadata-editor:
   environment:
     APP: metadata-editor
   extends:
-    file: grid-core.yml
+    file: docker-compose-sbt.yml
     service: sbt
   volumes_from:
+    - configs
     - data
 usage:
   environment:
     APP: usage
   extends:
-    file: grid-core.yml
+    file: docker-compose-sbt.yml
     service: sbt
   volumes_from:
+    - configs
     - data
 collections:
   environment:
     APP: collections
   extends:
-    file: grid-core.yml
+    file: docker-compose-sbt.yml
     service: sbt
   volumes_from:
+    - configs
     - data

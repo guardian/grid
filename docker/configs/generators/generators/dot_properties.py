@@ -1,12 +1,14 @@
 import boto3
-from jinja2 import Environment, FileSystemLoader
 import os
 import logging
+from . import *
 
 logging.basicConfig(format='%(asctime)s %(name)s %(levelname)s %(message)s',
                     level=logging.INFO)
 
 LOGGER = logging.getLogger('generate')
+
+OUTPUT_DIR = '/configs/etc/gu'
 
 
 def _boto_session(aws_profile_name):
@@ -52,16 +54,6 @@ def _get_stack_outputs():
     return outputs
 
 
-def _get_template_environment():
-    return Environment(loader=FileSystemLoader('templates'))
-
-
-def _create_directory(directory):
-    if not os.path.exists(directory):
-        LOGGER.info('Creating directory {directory}'.format(directory=directory))
-        os.makedirs(directory)
-
-
 def _write_template_to_disk(directory, template_name, parsed_template):
     property_file = os.path.splitext(template_name)[0]
     property_path = os.path.join(directory, property_file)
@@ -72,19 +64,29 @@ def _write_template_to_disk(directory, template_name, parsed_template):
     LOGGER.info('Created {file_path}'.format(file_path=property_path))
 
 
-def generate_files(aws_profile_name, output_dir, props):
+def generate_files(aws_profile_name, config_properties):
     _boto_session(aws_profile_name)
     stack_output = _get_stack_outputs()
+    [stack_output.update(prop) for prop in config_properties]
 
-    environment = _get_template_environment()
-    stack_output.update(props)
+    stack_output['domain_root'] = 'media.{}'.format(stack_output['domain_root'])
 
-    LOGGER.info('Creating properties files in {directory}'.format(directory=output_dir))
+    environment = get_template_environment('dot-properties')
 
-    _create_directory(output_dir)
+    LOGGER.info('Creating properties files in {directory}'.format(directory=OUTPUT_DIR))
+
+    create_directory(OUTPUT_DIR)
 
     for template in environment.list_templates():
         parsed = environment.get_template(template).render(**stack_output)
-        _write_template_to_disk(output_dir, template, parsed)
+        _write_template_to_disk(OUTPUT_DIR, template, parsed)
 
     LOGGER.info('DONE.')
+
+
+def generate():
+    config = get_config()
+    generate_files(config.get('aws_profile'), config.get('properties'))
+
+if __name__ == '__main__':
+    generate()

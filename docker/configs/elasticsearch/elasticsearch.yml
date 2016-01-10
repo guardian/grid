@@ -1,0 +1,34 @@
+cluster.name: media-service
+
+action.auto_create_index: false
+action.disable_delete_all_indices: true
+
+bootstrap.mlockall: true
+
+client.transport.sniff: false
+
+discovery.zen.ping.multicast.enabled: false
+discovery.zen.minimum_master_nodes: 1
+discovery.type: zen
+
+gateway.recover_after_nodes: 1
+gateway.recover_after_time: 5s
+gateway.expected_nodes: 1
+
+index.number_of_shards: 5
+index.number_of_replicas: 0
+
+index.search.slowlog.threshold.query.warn: 10s
+index.search.slowlog.threshold.query.info: 5s
+index.search.slowlog.threshold.query.debug: 2s
+index.search.slowlog.threshold.query.trace: 500ms
+
+index.search.slowlog.threshold.fetch.warn: 1s
+index.search.slowlog.threshold.fetch.info: 800ms
+index.search.slowlog.threshold.fetch.debug: 500ms
+index.search.slowlog.threshold.fetch.trace: 200ms
+
+index.indexing.slowlog.threshold.index.warn: 10s
+index.indexing.slowlog.threshold.index.info: 5s
+index.indexing.slowlog.threshold.index.debug: 2s
+index.indexing.slowlog.threshold.index.trace: 500ms
