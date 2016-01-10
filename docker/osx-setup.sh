@@ -16,5 +16,3 @@ echo 'Done'
 VBoxManage modifyvm "default" --memory $MEMORY
 
 docker-machine start default
-
-# TODO add to /etc/hosts
