@@ -34,8 +34,6 @@ data:
   image: python:2.7
   volumes:
     - "../:/code"
-    - "$HOME/.ivy2:/root/.ivy2"
-    - "$HOME/.sbt:/root/.sbt"
 elasticsearch:
   build: .
   dockerfile: Dockerfile-elastic
