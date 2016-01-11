@@ -12,8 +12,14 @@ object UsageApi {
   import com.gu.mediaservice.picdarexport.lib.Config.picdarUsageApiUrl
 
   def get(urn: String): Future[List[PicdarUsageRecord]] = Future {
-    val respBody = Http(s"$picdarUsageApiUrl").param("xurn",urn).asString.body
+    val response = Http(s"$picdarUsageApiUrl").param("xurn",urn).asString
+    val responseString = response.body.trim
 
-    PicdarUsageRecordFactory.create(respBody)
+    val responseBody = responseString.isEmpty match {
+      case true => None
+      case false => Some(responseString)
+    }
+
+    responseBody.map(PicdarUsageRecordFactory.create).getOrElse(List())
   }
 }
