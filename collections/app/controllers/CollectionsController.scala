@@ -70,21 +70,13 @@ object CollectionsController extends Controller with ArgoHelpers {
     List(addChildAction(n), removeNodeAction(n)).flatten
   }
 
-  def listCollections = Authenticated.async { req =>
-    CollectionsStore.getAll map { collections =>
-      respond(collections.sortBy(_.pathId))
-    }
-  }
-
   def getCollections = Authenticated.async { req =>
     CollectionsStore.getAll map { collections =>
       val tree = Node.fromList[Collection](
         collections,
         (collection) => collection.path)
 
-//      respond(Json.toJson(tree)(asArgo), actions = List(addChildAction()).flatten)
-
-      respond(tree)
+      respond(Json.toJson(tree)(asArgo), actions = List(addChildAction()).flatten)
     } recover {
       case e: CollectionsStoreError => storeError(e.message)
     }
@@ -98,6 +90,7 @@ object CollectionsController extends Controller with ArgoHelpers {
       if (isValidPathBit(child)) {
         val path = collectionPathId.map(uriToPath).getOrElse(Nil) :+ child
         val collection = Collection.build(path, ActionData(getUserFromReq(req), DateTime.now))
+
         CollectionsStore.add(collection).map { collection =>
           val node = Node(collection.path.last, Nil, collection.path, Some(collection))
           respond(node, actions = getActions(node))
