@@ -106,14 +106,14 @@ object ImageOperations {
     for {
       outputFile <- createTempFile(s"thumb-", ".jpg", tempDir)
       cropSource  = addImage(sourceFile)
-      qualified   = quality(cropSource)(qual)
-      corrected   = correctColour(qualified)(iccColourSpace, colourModel)
+      thumbnailed = thumbnail(cropSource)(width)
+      corrected   = correctColour(thumbnailed)(iccColourSpace, colourModel)
       converted   = applyOutputProfile(corrected, optimised = true)
       stripped    = stripMeta(converted)
       profiled    = applyOutputProfile(stripped, optimised = true)
-      thumbnailed = thumbnail(profiled)(width)
-      unsharpened = unsharp(thumbnailed)(thumbUnsharpRadius, thumbUnsharpSigma, thumbUnsharpAmount)
-      addOutput   = addDestImage(thumbnailed)(outputFile)
+      unsharpened = unsharp(profiled)(thumbUnsharpRadius, thumbUnsharpSigma, thumbUnsharpAmount)
+      qualified   = quality(unsharpened)(qual)
+      addOutput   = addDestImage(qualified)(outputFile)
       _          <- runConvertCmd(addOutput)
     } yield outputFile
   }
