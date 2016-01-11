@@ -3,7 +3,7 @@ package com.gu.mediaservice.model
 import play.api.libs.json._
 
 sealed trait UsageRights {
-  // These two properties are use to infer cost
+  // These two properties are used to infer cost
   // TODO: Remove these as they have nothing to do with the model really
   val restrictions: Option[String]
   val defaultCost: Option[Cost]
@@ -208,7 +208,9 @@ object Handout extends UsageRightsSpec {
 }
 
 
-final case class Screengrab(restrictions: Option[String] = None) extends UsageRights {
+// TODO: `source` should not be an Option, but because we added it later, we would need to backfill
+// the data
+final case class Screengrab(source: Option[String], restrictions: Option[String] = None) extends UsageRights {
   val defaultCost = Screengrab.defaultCost
 }
 object Screengrab extends UsageRightsSpec {
