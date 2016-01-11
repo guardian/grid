@@ -17,8 +17,8 @@ export var grCollectionsPanel = angular.module('grCollectionsPanel', [
 ]);
 
 grCollectionsPanel.controller('GrCollectionsPanelCtrl', [
-    'collections', 'selectedImages$',
-    function (collections, selectedImages$) {
+    'collections', 'selectedImages$', 'selectedCollections',
+    function (collections, selectedImages$, selectedCollections) {
 
     const ctrl = this;
 
@@ -34,6 +34,7 @@ grCollectionsPanel.controller('GrCollectionsPanelCtrl', [
     }).catch(() => ctrl.error = true);
 
     ctrl.selectedImages$ = selectedImages$;
+    ctrl.selectedCollections = selectedCollections;
 }]);
 
 grCollectionsPanel.controller('GrNodeCtrl',
@@ -75,6 +76,10 @@ grCollectionsPanel.controller('GrNodeCtrl',
     inject$($scope, hasImagesSelected$, ctrl, 'hasImagesSelected');
 
 
+    ctrl.isSelected = ctrl.selectedCollections.some(col => {
+        return angular.equals(col, ctrl.node.data.content.path);
+    });
+
 }]);
 
 grCollectionsPanel.directive('grNode', ['$parse', '$compile', function($parse, $compile) {
@@ -84,7 +89,8 @@ grCollectionsPanel.directive('grNode', ['$parse', '$compile', function($parse, $
             node: '=grNode',
             nodeList: '=grNodeList',
             editing: '=grEditing',
-            selectedImages$: '=grSelectedImages'
+            selectedImages$: '=grSelectedImages',
+            selectedCollections: '=grSelectedCollections'
         },
         template: nodeTemplate,
         controller: 'GrNodeCtrl',
@@ -95,6 +101,7 @@ grCollectionsPanel.directive('grNode', ['$parse', '$compile', function($parse, $
             // well with recursive templates.
             $compile(`<gr-nodes
                 gr:selected-images="ctrl.selectedImages$"
+                gr:selected-collections="ctrl.selectedCollections"
                 gr:editing="ctrl.editing"
                 ng:show="showChildren"
                 gr:nodes="ctrl.node.data.children"
@@ -119,13 +126,15 @@ grCollectionsPanel.directive('grNodes', function() {
         scope: {
             nodes: '=grNodes',
             editing: '=grEditing',
-            selectedImages$: '=grSelectedImages'
+            selectedImages$: '=grSelectedImages',
+            selectedCollections: '=grSelectedCollections'
         },
         template: `<ul>
             <li ng:repeat="node in nodes">
                 <gr-node
                     class="node"
                     gr:selected-images="selectedImages$"
+                    gr:selected-collections="selectedCollections"
                     gr:node="node"
                     gr:node-list="nodes"
                     gr:editing="editing"></gr-node>
@@ -138,48 +147,37 @@ grCollectionsPanel.directive('grDropIntoCollection',
     ['$timeout', '$parse', 'vndMimeTypes', 'collections',
     function($timeout, $parse, vndMimeTypes, collections) {
 
-    const className = 'collection-drop';
-    const classDrag = 'collection-drop--drag-over';
-    const classComplete = 'collection-drop--complete';
-    const classSaving = 'collection-drop--saving';
+    const dragOverClass = 'collection-drop-drag-over';
 
     return {
         restrict: 'A',
         link: function(scope, element, attrs) {
             const collectionPath = $parse(attrs.grDropIntoCollection)(scope);
-            element.addClass(className);
 
             element.on('drop', jqEv => {
                 const dt = jqEv.originalEvent.dataTransfer;
                 const gridImagesData = dt.getData(vndMimeTypes.get('gridImagesData'));
                 const gridImageData = dt.getData(vndMimeTypes.get('gridImageData'));
 
-                if (gridImagesData !== '' && gridImageData !== '') {
-                    // TODO: potentially add some UI feedback on adding to collection
+                if (gridImagesData !== '' || gridImageData !== '') {
                     const imagesData = gridImagesData !== '' ?
                         JSON.parse(gridImagesData) : [JSON.parse(gridImageData)];
 
-                    const imageIds = imagesData.map(imageJson => imageJson.id);
-
-                    // TODO: Find a better way of dealing with this state than classnames
-                    element.addClass(classSaving);
+                    const imageIds = imagesData.map(imageJson => imageJson.data.id);
+                    scope.dropIntoCollectionSaving = true;
                     collections.addImageIdsToCollection(imageIds, collectionPath).then(() => {
-                        element.removeClass(classSaving);
-                        element.addClass(classComplete);
-                        $timeout(() => {
-                            element.removeClass(classComplete);
-                        }, 500);
+                        scope.dropIntoCollectionSaving = false;
                     });
                 }
-                element.removeClass(classDrag);
+                element.removeClass(dragOverClass);
             });
 
             element.on('dragover', () => {
-                element.addClass(classDrag);
+                element.addClass(dragOverClass);
             });
 
             element.on('dragleave', () => {
-                element.removeClass(classDrag);
+                element.removeClass(dragOverClass);
             });
         }
     };
