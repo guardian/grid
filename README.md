@@ -233,7 +233,7 @@ The user interface should be up at
 
 ### [Run ImgOps](imgops/README.md)
 
-### Running with [GridRunner](https://github.com/NickPapacostas/grid_runner/)
+### Running with [GridRunner](https://github.com/guardian/grid_runner/)
 Grid Runner helps manage grid microservices
 
 Install grid_runner: 
