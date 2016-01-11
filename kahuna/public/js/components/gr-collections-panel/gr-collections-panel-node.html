@@ -19,7 +19,7 @@
 
         <a class="node__name flex-spacer"
            ui:sref="search.results({query: ctrl.getCollectionQuery(node.data.content.pathId)})">
-            {{node.data.name}}
+            {{node.data.content.description}}
         </a>
 
 
@@ -38,13 +38,15 @@
             <gr-icon>add_box</gr-icon>
         </button>
 
+        <div class="text-small flex-container flex-center"
+             ng:if="ctrl.saving || dropIntoCollectionSaving">Adding…</div>
+
         <button class="node__action clickable"
                 ng:if="!ctrl.editing && ctrl.hasImagesSelected && !ctrl.saving"
                 ng:click="ctrl.addImagesToCollection()"
                 gr:tooltip="Add selected images to this collection">
             <gr-icon>add_to_photos</gr-icon>
         </button>
-        <span ng:if="ctrl.saving">Saving…</span>
     </div>
 
     <form class="node__add-child" ng:if="active" ng:submit="ctrl.addChild(childName);">
