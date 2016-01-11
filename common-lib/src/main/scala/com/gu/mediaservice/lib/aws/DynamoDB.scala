@@ -159,7 +159,6 @@ class DynamoDB(credentials: AWSCredentials, region: Region, tableName: String) {
     // TODO: Deal with the case that we don't have JSON serialisers, for now we just fail.
     val json = Json.toJson(value).as[JsObject]
     val valueMap = DynamoDB.jsonToValueMap(json)
-
     def append =
       update(
         id, s"SET $key = list_append($key, :value)",
