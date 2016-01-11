@@ -6,3 +6,5 @@ pip install -r requirements.txt
 
 python -m generators.dot_properties
 python -m generators.nginx
+
+cp -r /root/.gu/grid/ssl /configs/nginx/ssl

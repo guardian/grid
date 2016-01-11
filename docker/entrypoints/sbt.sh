@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-ln -sf /configs/etc/gu /etc/gu
+cp -r /configs/etc/gu /etc/gu
 
 cd /code
 

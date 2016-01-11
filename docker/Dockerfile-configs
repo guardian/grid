@@ -1,0 +1,12 @@
+FROM python:2.7
+
+RUN mkdir /home/grid
+RUN mkdir /configs
+
+# AWS credentials exist in `$HOME/.aws`. `$HOME` for `root` user is not mountable, so create a new user.
+RUN useradd grid
+RUN chown -R grid /home/grid
+RUN chown -R grid /configs
+
+USER grid
+RUN virtualenv $HOME/venv
