@@ -52,6 +52,18 @@ imageAccessor.factory('imageAccessor', function() {
         return userMetadata.data.archived.data;
     }
 
+    function readCollections(image) {
+        return image.data.collections;
+    }
+
+    function getCollectionsIds(image) {
+        const collections = readCollections(image);
+        const collectionsIds = [];
+        collections.forEach(e => collectionsIds.push(e.data.pathId));
+
+        return collectionsIds;
+    }
+
     return {
         readCost,
         readLabels,
@@ -60,7 +72,9 @@ imageAccessor.factory('imageAccessor', function() {
         readUsageRights,
         readPersistedReasons,
         isPersisted,
-        isArchived
+        isArchived,
+        readCollections,
+        getCollectionsIds
     };
 });
 
