@@ -26,7 +26,7 @@ object Config extends CommonPlayAppProperties with CommonPlayAppConfig {
   val tempDir: File = new File(properties.getOrElse("upload.tmp.dir", "/tmp"))
 
   val thumbWidth: Int = 256
-  val thumbQuality: Double = 75d // out of 100
+  val thumbQuality: Double = 85d // out of 100
 
   val imagickThreadPoolSize = 4
 
