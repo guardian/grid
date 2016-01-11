@@ -211,8 +211,10 @@
                 {{collection.data.path.join(' ▸ ')}}
             </a>
             <span class="flex-spacer"></span>
+            <span ng:if="ctrl.removingCollection === collection">Removing…</span>
             <button class="clickable" type="button"
                     ng:click="ctrl.removeImageFromCollection(collection)"
+                    ng:hide="ctrl.removingCollection === collection"
                     gr:tooltip="Remove image from this collection"
                     gr:tooltip-position="top-left">
                 <gr-icon-label gr-icon="clear"></gr-icon-label>

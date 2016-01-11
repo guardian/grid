@@ -128,7 +128,9 @@ module.controller('grImageMetadataCtrl', [
         };
 
         ctrl.removeImageFromCollection = function (collection) {
-            collections.removeImageFromCollection(collection, ctrl.image);
+            ctrl.removingCollection = collection;
+            collections.removeImageFromCollection(collection, ctrl.image)
+            .then(() => ctrl.removingCollection = false);
         };
 
         $scope.$on('$destroy', function() {
