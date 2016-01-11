@@ -43,10 +43,17 @@ grCollectionsPanel.factory('collectionsTreeState', ['$window', function($window)
     // TODO: Add garbage collection to state.
     const localStorageKey = 'collectionsTreeOpen';
     const jsonStr = $window.localStorage.getItem(localStorageKey) || '[]';
-    const jsonArr = JSON.parse(jsonStr);
-    // A little bit of security incase this was set weirdly before.
-    // The var is use so we don't have to read from localStorage the whole time.
-    const stateCache = Array.isArray(jsonArr) ? new Set(jsonArr) : new Set();
+
+    // A little bit of superstition in case this was set weirdly before.
+    try {
+        const jsonArr = JSON.parse(jsonStr);
+        if (!Array.isArray(jsonArr)) {
+            throw new Error(`Invalid ${localStorageKey} json: ${jsonArray}`);
+        }
+    } catch(e) {
+        const jsonArr = [];
+    }
+    const stateCache = new Set(jsonArr);
 
 
     function setState(pathId, show) {
