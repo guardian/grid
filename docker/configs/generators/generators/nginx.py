@@ -2,17 +2,11 @@ import os
 from . import *
 
 OUTPUT_DIR = '/configs/nginx/sites-enabled'
-MAPPINGS_PATH = os.path.join(RESOURCE_PATH, 'nginx-mappings.yml')
-
-
-def _get_domain():
-    properties = get_config().get('properties')
-    return [x.values()[0] for x in properties if 'domain_root' in x.keys()][0]
 
 
 def _get_mappings():
-    domain = _get_domain()
-    mappings = load_yaml(MAPPINGS_PATH).get('mappings')
+    domain = get_domain()
+    mappings = get_mappings()
 
     for mapping in mappings:
         mapping['domain'] = domain

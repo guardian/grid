@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # memory in MB to grant docker machine
 MEMORY=8192

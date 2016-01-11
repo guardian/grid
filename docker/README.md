@@ -19,9 +19,16 @@ docker-compose logs <service>
 
 ## Known Limitations on OSX
 ### Memory
-By default, on OSX, the docker VM has 2GB of memory - you'll most likely want to increase it.
+Docker runs on a VM on OSX. By default, this VM is allocated 2GB of memory and you'll likely want to increase it.
 
-This can be done by running [`./osx-setup.sh`](./osx-setup.sh).
+You can do this using [`adjust-memory.sh`](./osx/adjust-memory.sh)
+
+
+### DNS
+You also need to edit you hosts file on OSX to route the DNS names to the IP address of the Docker VM.
+
+Add the output of [`hosts.sh`](./osx/hosts.sh) to `/etc/hosts`.
+
 
 ### Shared folders
 By default, Docker on OSX mounts `$HOME` as a shared folder between OSX and the Docker VM.
@@ -29,14 +36,5 @@ This shared folder uses the `vboxsf` driver which is slow! To get around this, u
 
 ```sh
 cd /path/to/grid/docker
-dockerdocker-osx-dev --machine-name default
-```
-
-### DNS
-You'll need to add the service addresses to `/etc/hosts` on OSX to ensure they resolve to the VM e.g:
-
-```sh
-# contents of /etc/hosts
-
-192.168.99.100 api.media.foobar.co.uk
+docker-osx-dev --machine-name $DOCKER_MACHINE_NAME
 ```
