@@ -45,13 +45,14 @@ grCollectionsPanel.factory('collectionsTreeState', ['$window', function($window)
     const jsonStr = $window.localStorage.getItem(localStorageKey) || '[]';
 
     // A little bit of superstition in case this was set weirdly before.
+    let jsonArr = [];
     try {
-        const jsonArr = JSON.parse(jsonStr);
+        let jsonArr = JSON.parse(jsonStr);
         if (!Array.isArray(jsonArr)) {
             throw new Error(`Invalid ${localStorageKey} json: ${jsonArray}`);
         }
     } catch(e) {
-        const jsonArr = [];
+        // Use default
     }
     const stateCache = new Set(jsonArr);
 
