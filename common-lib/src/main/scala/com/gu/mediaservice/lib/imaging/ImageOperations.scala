@@ -112,8 +112,8 @@ object ImageOperations {
       converted   = applyOutputProfile(corrected, optimised = true)
       stripped    = stripMeta(converted)
       profiled    = applyOutputProfile(stripped, optimised = true)
-      resized     = resize(profiled)(width)
-      unsharpened = unsharp(resized)(thumbUnsharpRadius, thumbUnsharpSigma, thumbUnsharpAmount, thumbUnsharpThreshold)
+      thumbnailed = thumbnail(profiled)(width)
+      unsharpened = unsharp(thumbnailed)(thumbUnsharpRadius, thumbUnsharpSigma, thumbUnsharpAmount, thumbUnsharpThreshold)
       addOutput   = addDestImage(unsharpened)(outputFile)
       _          <- runConvertCmd(addOutput)
     } yield outputFile
