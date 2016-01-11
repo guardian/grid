@@ -46,13 +46,16 @@ grCollectionsPanel.factory('collectionsTreeState', ['$window', function($window)
     const jsonArr = JSON.parse(jsonStr);
     // A little bit of security incase this was set weirdly before.
     // The var is use so we don't have to read from localStorage the whole time.
-    var stateCache = Array.isArray(jsonArr) ? new Set(jsonArr) : new Set();
+    const stateCache = Array.isArray(jsonArr) ? new Set(jsonArr) : new Set();
 
 
     function setState(pathId, show) {
-        const newState = show ? stateCache.add(pathId) : stateCache.delete(pathId);
+        if(show) {
+            stateCache.add(pathId);
+        } else {
+            stateCache.delete(pathId);
+        }
         $window.localStorage.setItem(localStorageKey, JSON.stringify(Array.from(newState)));
-        stateCache = newState;
     }
 
     function getState(pathId) {
