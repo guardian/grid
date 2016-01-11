@@ -62,7 +62,7 @@ grCollectionsPanel.factory('collectionsTreeState', ['$window', function($window)
         } else {
             stateCache.delete(pathId);
         }
-        $window.localStorage.setItem(localStorageKey, JSON.stringify(Array.from(newState)));
+        $window.localStorage.setItem(localStorageKey, JSON.stringify(Array.from(stateCache)));
     }
 
     function getState(pathId) {
