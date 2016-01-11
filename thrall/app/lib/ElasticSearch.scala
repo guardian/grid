@@ -96,7 +96,7 @@ object ElasticSearch extends ElasticSearchClient with ImageFields {
     prepareImageUpdate(id)
       .setScriptParams(Map(
         "usages" -> asGroovy(usages),
-        "lastModified" -> asGroovy(JsString(currentIsoDateString))
+        "lastModified" -> asGroovy(lastModified)
       ).asJava)
       .setScript(
         s""" | if (!(ctx._source.usagesLastModified && ctx._source.usagesLastModified > lastModified)) {
