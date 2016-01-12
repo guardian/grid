@@ -2,8 +2,12 @@ package com.gu.mediaservice.picdarexport.model
 
 import java.net.URI
 
+import com.amazonaws.services.dynamodbv2.document.Item
 import com.gu.mediaservice.model.{UsageRights, ImageMetadata}
+import org.joda.time.format.DateTimeFormat
 import org.joda.time.DateTime
+import org.joda.time.Days
+
 
 case class Asset(
   urn: String,
@@ -17,9 +21,26 @@ case class Asset(
 
 
 case class AssetRef(urn: String, dateLoaded: DateTime)
+object AssetRef {
+  val dateFormat =  DateTimeFormat.forPattern("yyyy-MM-dd")
 
-case class DateRange(start: Option[DateTime], end: Option[DateTime])
+  def apply(item: Item): AssetRef =
+    AssetRef(
+      item.getString("picdarUrn"),
+      dateFormat.parseDateTime(item.getString("picdarCreated"))
+    )
+}
 
+
+case class DateRange(start: Option[DateTime], end: Option[DateTime]) {
+  val startDay = start.getOrElse(DateRange.defaultStartDate)
+  val endDay = end.getOrElse(DateRange.defaultEndDate)
+  val numDays = Days.daysBetween(startDay, endDay).getDays();
+  val dateList = (0 to numDays).map(startDay.plusDays)
+}
 object DateRange {
+  val defaultStartDate = AssetRef.dateFormat.parseDateTime("2010-01-01")
+  val defaultEndDate   = DateTime.now()
+
   val all = DateRange(None, None)
 }

@@ -5,7 +5,8 @@ import scalaj.http._
 import play.api.libs.concurrent.Execution.Implicits._
 import scala.concurrent.Future
 
-import com.gu.mediaservice.picdarexport.lib.usage.{PicdarUsageRecordFactory, PicdarUsageRecord}
+import com.gu.mediaservice.picdarexport.lib.usage.PicdarUsageRecordFactory
+import com.gu.mediaservice.picdarexport.model.PicdarUsageRecord
 
 
 object UsageApi {

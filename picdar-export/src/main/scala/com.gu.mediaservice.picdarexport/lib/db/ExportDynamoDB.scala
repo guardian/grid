@@ -20,6 +20,7 @@ import play.api.libs.concurrent.Execution.Implicits._
 import scala.collection.JavaConversions._
 import scala.concurrent.Future
 
+
 case class AssetRow(
   picdarUrn: String,
   picdarCreated: DateTime,
@@ -32,6 +33,8 @@ case class AssetRow(
 
 class ExportDynamoDB(credentials: AWSCredentials, region: Region, tableName: String)
   extends DynamoDB(credentials, region, tableName) {
+
+  val picdarCreatedIndex = "picdarCreated-index"
 
   override val IdKey = "picdarUrn"
   val RangeKey = "picdarCreated"
@@ -154,6 +157,53 @@ class ExportDynamoDB(credentials: AWSCredentials, region: Region, tableName: Str
       dateRange.end.map(asRangeString).map(":endDate" -> _)
   }
 
+  import com.amazonaws.services.dynamodbv2.document.spec.GetItemSpec
+  import com.amazonaws.services.dynamodbv2.document.KeyAttribute
+  import com.amazonaws.services.dynamodbv2.document.Item
+  import org.joda.time.format.DateTimeFormat
+  import org.joda.time.Days
+  import scala.collection.JavaConverters._
+
+  def getRow(ref: AssetRef) = Future {
+    table.getItem(
+      new GetItemSpec().
+      withPrimaryKey(
+        IdKey, ref.urn,
+        RangeKey, AssetRef.dateFormat.print(ref.dateLoaded)
+      )
+    )
+  }
+
+  def getUrnsForDateRange(dateRange: DateRange) = Future {
+    val imageIndex = table.getIndex(picdarCreatedIndex)
+
+    val items = for {
+      date  <- dateRange.dateList
+
+      dateString = AssetRef.dateFormat.print(date)
+      key = new KeyAttribute(RangeKey, dateString)
+      query = imageIndex.query(key).pages.asScala
+
+      pages <- query
+      items <- pages
+    } yield items
+
+    items.map(AssetRef(_))
+  }
+
+  def getUrnsForNotFilledFields(dateRange: DateRange, attrName: String): Future[Seq[AssetRef]] = {
+    getUrnsForDateRange(dateRange).flatMap(assetRefs => {
+      Future.traverse(assetRefs) {
+        case ref: AssetRef => getRow(ref)
+      }.map(_.filter(_.get(attrName) match {
+        case a: Any => false
+        case _ => true
+      }).map(AssetRef(_)))
+    })
+  }
+
+  def getNoUsage(dateRange: DateRange) = getUrnsForNotFilledFields(dateRange, "picdarUsage")
+
   def scanNoRights(dateRange: DateRange): Future[Seq[AssetRef]] = Future {
     val queryConds = List(fetchedCondition, noRightsCondition).withDateRange(dateRange)
     val values = Map[String, String]().withDateRangeValues(dateRange)
@@ -238,6 +288,32 @@ class ExportDynamoDB(credentials: AWSCredentials, region: Region, tableName: Str
     caseClassOpt.map { caseClass =>
       Json.toJson(caseClass).as[Map[String, String]]
     }.getOrElse(Map())
+
+  import com.gu.mediaservice.picdarexport.model.PicdarUsageRecord
+  import com.amazonaws.services.dynamodbv2.xspec.ExpressionSpecBuilder
+  import com.amazonaws.services.dynamodbv2.xspec.ExpressionSpecBuilder.{S, N, M}
+  import scalaz.syntax.id._
+  import lib.MD5
+
+  def recordUsage(urn: String, range: DateTime, usages: List[PicdarUsageRecord]) = Future {
+    val data = Json.stringify(Json.toJson(usages))
+    val checksum = MD5.hash(data)
+
+    val spec = (new ExpressionSpecBuilder() <| (xspec => {
+      List(
+        S("picdarUsage").set(data),
+        S("picdarUsageChecksum").set(checksum)
+      ).foreach(xspec.addUpdate(_))
+
+    })).buildForUpdate
+
+    val baseUpdateSpec = new UpdateItemSpec()
+      .withPrimaryKey(IdKey, urn, RangeKey, asRangeString(range))
+      .withExpressionSpec(spec)
+      .withReturnValues(ReturnValue.ALL_NEW)
+
+    table.updateItem(baseUpdateSpec)
+  }
 
   def recordRights(urn: String, range: DateTime, rights: Option[UsageRights]) = Future {
     val baseUpdateSpec = new UpdateItemSpec().
