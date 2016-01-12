@@ -74,9 +74,7 @@ apiServices.factory('collections',
     }
 
     function getCollectionsIds(imageCollections) {
-        const collectionsIds = [];
-        imageCollections.data.forEach(e => collectionsIds.push(e.pathId));
-        return collectionsIds;
+        return imageCollections.data.map(col => col.pathId);
     }
 
     function untilCollectionsEqual(image, expectedCollections) {

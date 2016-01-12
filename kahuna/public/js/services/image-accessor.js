@@ -58,10 +58,7 @@ imageAccessor.factory('imageAccessor', function() {
 
     function getCollectionsIds(image) {
         const collections = readCollections(image);
-        const collectionsIds = [];
-        collections.forEach(e => collectionsIds.push(e.data.pathId));
-
-        return collectionsIds;
+        return collections.map(col => col.pathId);
     }
 
     return {
