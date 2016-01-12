@@ -185,18 +185,19 @@ class ExportDynamoDB(credentials: AWSCredentials, region: Region, tableName: Str
     items.map(AssetRef(_))
   }
 
-  def getUrnsForNotFilledFields(dateRange: DateRange, attrName: String): Future[Seq[AssetRef]] = {
+  def getUrnsForNotFilledFields(dateRange: DateRange, attrs: Set[String]): Future[Seq[AssetRef]] = {
     getUrnsForDateRange(dateRange).flatMap(assetRefs => {
       Future.traverse(assetRefs) {
         case ref: AssetRef => getRow(ref)
-      }.map(_.filter(_.get(attrName) match {
-        case a: Any => false
-        case _ => true
-      }).map(AssetRef(_)))
+      }.map(
+        _.filter(row => {
+          !(attrs.subsetOf(row.attributes.map(_.getKey).toSet))
+        })
+        .map(AssetRef(_)))
     })
   }
 
-  def getNoUsage(dateRange: DateRange) = getUrnsForNotFilledFields(dateRange, "picdarUsage")
+  def getNoUsage(dateRange: DateRange) = getUrnsForNotFilledFields(dateRange, Set("picdarUsage"))
 
   def scanNoRights(dateRange: DateRange): Future[Seq[AssetRef]] = Future {
     val queryConds = List(fetchedCondition, noRightsCondition).withDateRange(dateRange)
