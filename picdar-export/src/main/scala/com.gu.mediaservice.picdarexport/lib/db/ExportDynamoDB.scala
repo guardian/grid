@@ -4,8 +4,8 @@ import java.net.URI
 
 import com.amazonaws.auth.AWSCredentials
 import com.amazonaws.regions.Region
-import com.amazonaws.services.dynamodbv2.document.{ScanOutcome, ItemCollection}
-import com.amazonaws.services.dynamodbv2.document.spec.{ScanSpec, UpdateItemSpec}
+import com.amazonaws.services.dynamodbv2.document.{KeyAttribute, ScanOutcome, ItemCollection}
+import com.amazonaws.services.dynamodbv2.document.spec.{GetItemSpec, ScanSpec, UpdateItemSpec}
 import com.amazonaws.services.dynamodbv2.document.utils.ValueMap
 import com.amazonaws.services.dynamodbv2.model.ReturnValue
 import com.gu.mediaservice.lib.aws.DynamoDB
@@ -17,6 +17,7 @@ import org.joda.time.format.ISODateTimeFormat
 import play.api.libs.json.{Writes, Json, JsObject}
 import play.api.libs.concurrent.Execution.Implicits._
 
+import scala.collection.JavaConverters._
 import scala.collection.JavaConversions._
 import scala.concurrent.Future
 
@@ -156,13 +157,6 @@ class ExportDynamoDB(credentials: AWSCredentials, region: Region, tableName: Str
       dateRange.start.map(asRangeString).map(":startDate" -> _) ++
       dateRange.end.map(asRangeString).map(":endDate" -> _)
   }
-
-  import com.amazonaws.services.dynamodbv2.document.spec.GetItemSpec
-  import com.amazonaws.services.dynamodbv2.document.KeyAttribute
-  import com.amazonaws.services.dynamodbv2.document.Item
-  import org.joda.time.format.DateTimeFormat
-  import org.joda.time.Days
-  import scala.collection.JavaConverters._
 
   def getRow(ref: AssetRef) = Future {
     table.getItem(

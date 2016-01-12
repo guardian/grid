@@ -283,8 +283,6 @@ object ExportApp extends App with ExportManagerProvider with ArgumentHelpers wit
     }
   }
 
-  import com.gu.mediaservice.picdarexport.lib.usage.PicdarUsageRecordFactory
-  import com.gu.mediaservice.picdarexport.model.PicdarUsageRecord
   import com.gu.mediaservice.picdarexport.lib.picdar.UsageApi
 
   def fetchUsage(env: String, dateRange: DateRange = DateRange.all, range: Option[Range] = None) = {
