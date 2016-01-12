@@ -1,7 +1,7 @@
 <div ng:init="node = ctrl.node">
     <div class="node__info flex-container"
          ng:class="{'node__info--selected' : ctrl.isSelected}"
-         gr:drop-into-collection="node.data.content.path">
+         gr:drop-into-collection="node.data.fullPath">
         <div class="node__marker"></div>
 
         <div class="node__spacer" ng:if="node.data.children.length === 0">
@@ -18,8 +18,8 @@
         </button>
 
         <a class="node__name flex-spacer"
-           ui:sref="search.results({query: ctrl.getCollectionQuery(node.data.content.pathId)})">
-            {{node.data.content.description}}
+           ui:sref="search.results({query: ctrl.getCollectionQuery(node.data.data.pathId)})">
+            {{node.data.data.description}}
         </a>
 
 

@@ -110,7 +110,7 @@ grCollectionsPanel.controller('GrNodeCtrl',
     const hasImagesSelected$ = ctrl.selectedImages$.map(i => i.size > 0);
     ctrl.addImagesToCollection = () => {
         ctrl.saving = true;
-        add$.onNext(ctrl.node.data.content.path);
+        add$.onNext(ctrl.node.data.fullPath);
     };
 
     subscribe$($scope, pathWithImages$, ({path, images}) => {
@@ -124,7 +124,7 @@ grCollectionsPanel.controller('GrNodeCtrl',
     }));
 
     ctrl.isSelected = ctrl.selectedCollections.some(col => {
-        return angular.equals(col, ctrl.node.data.content.path);
+        return angular.equals(col, ctrl.node.data.fullPath);
     });
 
 }]);
