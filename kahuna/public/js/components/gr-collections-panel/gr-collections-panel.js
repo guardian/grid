@@ -18,27 +18,6 @@ export var grCollectionsPanel = angular.module('grCollectionsPanel', [
     'util.eq'
 ]);
 
-grCollectionsPanel.controller('GrCollectionsPanelCtrl', [
-    'collections', 'selectedImages$', 'selectedCollections',
-    function (collections, selectedImages$, selectedCollections) {
-
-    const ctrl = this;
-
-    ctrl.isVisible = false;
-    ctrl.error = false;
-
-    collections.getCollections().then(collections => {
-        ctrl.collections = collections.data.children;
-    }, () => {
-        // TODO: More informative error handling
-        // TODO: Stop error propagating to global error handler
-        ctrl.error = true;
-    }).catch(() => ctrl.error = true);
-
-    ctrl.selectedImages$ = selectedImages$;
-    ctrl.selectedCollections = selectedCollections;
-}]);
-
 grCollectionsPanel.factory('collectionsTreeState', ['$window', function($window) {
     // TODO: Add garbage collection to state.
     const localStorageKey = 'collectionsTreeOpen';
@@ -47,7 +26,7 @@ grCollectionsPanel.factory('collectionsTreeState', ['$window', function($window)
     // A little bit of superstition in case this was set weirdly before.
     let jsonArr = [];
     try {
-        let jsonArr = JSON.parse(jsonStr);
+        jsonArr = JSON.parse(jsonStr);
         if (!Array.isArray(jsonArr)) {
             throw new Error(`Invalid ${localStorageKey} json: ${jsonArray}`);
         }
@@ -75,6 +54,27 @@ grCollectionsPanel.factory('collectionsTreeState', ['$window', function($window)
         getState
     };
 
+}]);,
+
+grCollectionsPanel.controller('GrCollectionsPanelCtrl', [
+    'collections', 'selectedImages$', 'selectedCollections',
+    function (collections, selectedImages$, selectedCollections) {
+
+    const ctrl = this;
+
+    ctrl.isVisible = false;
+    ctrl.error = false;
+
+    collections.getCollections().then(collections => {
+        ctrl.collections = collections.data.children;
+    }, () => {
+        // TODO: More informative error handling
+        // TODO: Stop error propagating to global error handler
+        ctrl.error = true;
+    }).catch(() => ctrl.error = true);
+
+    ctrl.selectedImages$ = selectedImages$;
+    ctrl.selectedCollections = selectedCollections;
 }]);
 
 grCollectionsPanel.controller('GrNodeCtrl',
