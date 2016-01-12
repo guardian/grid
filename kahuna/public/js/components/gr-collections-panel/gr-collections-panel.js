@@ -31,14 +31,14 @@ grCollectionsPanel.factory('collectionsTreeState', ['$window', function($window)
             jsonArr = [];
             $window.localStorage.setItem(localStorageKey, '[]');
         }
-    } catch(e) {
+    } catch (_) {
         // On JSON.parse fail - use default
     }
     const stateCache = new Set(jsonArr);
 
 
     function setState(pathId, show) {
-        if(show) {
+        if (show) {
             stateCache.add(pathId);
         } else {
             stateCache.delete(pathId);
