@@ -1,7 +1,6 @@
 <div ng:init="node = ctrl.node">
     <div class="node__info flex-container"
          ng:class="{'node__info--selected' : ctrl.isSelected}"
-         ng:init="showChildren = true"
          gr:drop-into-collection="node.data.fullPath">
         <div class="node__marker"></div>
 
@@ -11,11 +10,11 @@
 
         <button type="button"
                 class="node__toggler clickable"
-                ng:click="showChildren = !showChildren"
+                ng:click="ctrl.showChildren = !ctrl.showChildren"
                 ng:show="node.data.children.length > 0">
 
-            <gr-icon ng:show="showChildren">expand_more</gr-icon>
-            <gr-icon ng:hide="showChildren">chevron_right</gr-icon>
+            <gr-icon ng:show="ctrl.showChildren">expand_more</gr-icon>
+            <gr-icon ng:hide="ctrl.showChildren">chevron_right</gr-icon>
         </button>
 
         <a class="node__name flex-spacer"

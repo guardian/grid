@@ -6,6 +6,7 @@ import '../../services/panel';
 import '../../services/api/collections-api';
 import '../../services/api/media-api';
 import '../../directives/gr-auto-focus';
+import '../../util/eq';
 
 import './gr-collections-panel.css!';
 import {getCollection} from '../../search-query/query-syntax';
@@ -13,8 +14,48 @@ import nodeTemplate from './gr-collections-panel-node.html!text';
 
 export var grCollectionsPanel = angular.module('grCollectionsPanel', [
     'kahuna.services.panel',
-    'util.rx'
+    'util.rx',
+    'util.eq'
 ]);
+
+grCollectionsPanel.factory('collectionsTreeState', ['$window', function($window) {
+    // TODO: Add garbage collection to state.
+    const localStorageKey = 'collectionsTreeOpen';
+    const jsonStr = $window.localStorage.getItem(localStorageKey) || '[]';
+
+    // A little bit of superstition in case this was set weirdly before.
+    let jsonArr = [];
+    try {
+        jsonArr = JSON.parse(jsonStr);
+        if (!Array.isArray(jsonArr)) {
+            jsonArr = [];
+            $window.localStorage.setItem(localStorageKey, '[]');
+        }
+    } catch(e) {
+        // On JSON.parse fail - use default
+    }
+    const stateCache = new Set(jsonArr);
+
+
+    function setState(pathId, show) {
+        if(show) {
+            stateCache.add(pathId);
+        } else {
+            stateCache.delete(pathId);
+        }
+        $window.localStorage.setItem(localStorageKey, JSON.stringify(Array.from(stateCache)));
+    }
+
+    function getState(pathId) {
+        return stateCache.has(pathId);
+    }
+
+    return {
+        setState,
+        getState
+    };
+
+}]);
 
 grCollectionsPanel.controller('GrCollectionsPanelCtrl', [
     'collections', 'selectedImages$', 'selectedCollections',
@@ -38,19 +79,22 @@ grCollectionsPanel.controller('GrCollectionsPanelCtrl', [
 }]);
 
 grCollectionsPanel.controller('GrNodeCtrl',
-    ['$scope', 'collections', 'subscribe$', 'inject$',
-    function($scope, collections, subscribe$, inject$) {
+    ['$scope', 'collections', 'subscribe$', 'inject$', 'onValChange', 'collectionsTreeState',
+    function($scope, collections, subscribe$, inject$, onValChange, collectionsTreeState) {
 
     const ctrl = this;
+    const pathId = ctrl.node.data.data.pathId;
+
     ctrl.saving = false;
     ctrl.deletable = false;
+    ctrl.showChildren = collectionsTreeState.getState(pathId);
+
     ctrl.formError = null;
     ctrl.addChild = childName => {
         return collections.addChildTo(ctrl.node, childName).
                  then($scope.clearForm).
                  catch(e => $scope.formError = e.body && e.body.errorMessage);
     };
-
 
     collections.isDeletable(ctrl.node).then(d => ctrl.deletable = d);
 
@@ -74,6 +118,10 @@ grCollectionsPanel.controller('GrNodeCtrl',
     });
 
     inject$($scope, hasImagesSelected$, ctrl, 'hasImagesSelected');
+
+    $scope.$watch('ctrl.showChildren', onValChange(show => {
+        collectionsTreeState.setState(pathId, show);
+    }));
 
     ctrl.isSelected = ctrl.selectedCollections.some(col => {
         return angular.equals(col, ctrl.node.data.fullPath);
@@ -102,7 +150,7 @@ grCollectionsPanel.directive('grNode', ['$parse', '$compile', function($parse, $
                 gr:selected-images="ctrl.selectedImages$"
                 gr:selected-collections="ctrl.selectedCollections"
                 gr:editing="ctrl.editing"
-                ng:show="showChildren"
+                ng:show="ctrl.showChildren"
                 gr:nodes="ctrl.node.data.children"
                 ng:if="ctrl.node.data.children.length > 0"></gr-nodes>
             `)(scope, cloned => {
