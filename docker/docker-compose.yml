@@ -36,9 +36,11 @@ nginx:
 
 # Shared volume container
 data:
-  image: python:2.7
+  image: java:8
   volumes:
     - "../:/code"
+    - "/root/.ivy2"
+    - "/root/.sbt"
 
 elasticsearch:
   build: .
