@@ -1,3 +1,4 @@
+# Base container for sbt services. In a seperate file so that a container doesn't get created for it by default.
 sbt:
   build: .
   dockerfile: Dockerfile-sbt

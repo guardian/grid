@@ -1,3 +1,4 @@
+# Auto generates the properties files for all services and the nginx config
 configs:
   build: .
   dockerfile: Dockerfile-configs
@@ -9,6 +10,8 @@ configs:
     - "/configs"
   entrypoint: /entrypoints/configs.sh
   user: grid
+
+# Proxy server for all services
 nginx:
   image: nginx:latest
   links:
@@ -30,10 +33,13 @@ nginx:
   volumes_from:
     - configs
   entrypoint: /entrypoints/nginx.sh
+
+# Shared volume container
 data:
   image: python:2.7
   volumes:
     - "../:/code"
+
 elasticsearch:
   build: .
   dockerfile: Dockerfile-elastic
@@ -47,6 +53,8 @@ elasticsearch:
   volumes:
     - "./configs/elasticsearch:/usr/share/elasticsearch/config"
   restart: unless-stopped
+
+# Grid service containers
 media-api:
   environment:
     APP: media-api
