@@ -55,7 +55,7 @@ grCollectionsPanel.factory('collectionsTreeState', ['$window', function($window)
         getState
     };
 
-}]);,
+}]);
 
 grCollectionsPanel.controller('GrCollectionsPanelCtrl', [
     'collections', 'selectedImages$', 'selectedCollections',
@@ -83,7 +83,7 @@ grCollectionsPanel.controller('GrNodeCtrl',
     function($scope, collections, subscribe$, inject$, onValChange, collectionsTreeState) {
 
     const ctrl = this;
-    const pathId = ctrl.node.data.content.pathId;
+    const pathId = ctrl.node.data.data.pathId;
 
     ctrl.saving = false;
     ctrl.deletable = false;
