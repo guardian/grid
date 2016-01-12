@@ -229,7 +229,12 @@ object ExportApp extends App with ExportManagerProvider with ArgumentHelpers wit
     val dynamo = getDynamo(env)
     dynamo.scanFetchedNotIngested(dateRange) flatMap { assets =>
       val updates = takeRange(assets, range).map { asset =>
-        getExportManager("library", env).ingest(asset.picdarAssetUrl, asset.picdarUrn, asset.picdarCreatedFull) flatMap { mediaUri =>
+        // .get on options here will induce intentional failure if not available
+        getExportManager("library", env).ingest(
+          asset.picdarAssetUrl.get,
+          asset.picdarUrn,
+          asset.picdarCreatedFull.get
+        ) flatMap { mediaUri =>
           Logger.info(s"Ingested ${asset.picdarUrn} to $mediaUri")
           dynamo.recordIngested(asset.picdarUrn, asset.picdarCreated, mediaUri)
         } recover { case e: Throwable =>
@@ -292,6 +297,20 @@ object ExportApp extends App with ExportManagerProvider with ArgumentHelpers wit
       val updates = takeRange(urns, range).map { assetRef =>
         UsageApi.get(assetRef.urn).flatMap { usages =>
           dynamo.recordUsage(assetRef.urn, assetRef.dateLoaded, usages)
+        }
+      }
+      Future.sequence(updates)
+    }
+  }
+
+  def sendUsage(env: String, dateRange: DateRange = DateRange.all, range: Option[Range] = None) = {
+    val dynamo = getDynamo(env)
+
+    dynamo.getUsageNotRecorded(dateRange) flatMap { urns =>
+      val updates = takeRange(urns, range).map { assetRow =>
+        Future {
+          // This will be None until ingested!
+          println(assetRow.mediaUri)
         }
       }
       Future.sequence(updates)
@@ -491,6 +510,16 @@ object ExportApp extends App with ExportManagerProvider with ArgumentHelpers wit
       fetchUsage(env, parseDateRange(date), parseQueryRange(rangeStr))
     }
 
+    case "+usage:send" :: env :: Nil => terminateAfter {
+      sendUsage(env)
+    }
+    case "+usage:send" :: env :: date :: Nil => terminateAfter {
+      sendUsage(env, parseDateRange(date))
+    }
+    case "+usage:send" :: env :: date :: rangeStr :: Nil => terminateAfter {
+      sendUsage(env, parseDateRange(date), parseQueryRange(rangeStr))
+    }
+
     case _ => println(
       """
         |usage: :count-loaded    <dev|test|prod> [dateLoaded]
@@ -511,6 +540,7 @@ object ExportApp extends App with ExportManagerProvider with ArgumentHelpers wit
         |       +rights:override <dev|test|prod> [dateLoaded] [range]
         |
         |       +usage:fetch     <dev|test|prod> [dateLoaded] [range]
+        |       +usage:send      <dev|test|prod> [dateLoaded] [range]
       """.stripMargin
     )
   }
