@@ -102,19 +102,18 @@ object ImageOperations {
   val thumbUnsharpRadius = 0.5d
   val thumbUnsharpSigma = 0.5d
   val thumbUnsharpAmount = 0.8d
-  val thumbUnsharpThreshold = 0.02d
   def createThumbnail(sourceFile: File, width: Int, qual: Double = 100d, tempDir: File, iccColourSpace: Option[String], colourModel: Option[String]): Future[File] = {
     for {
       outputFile <- createTempFile(s"thumb-", ".jpg", tempDir)
       cropSource  = addImage(sourceFile)
-      qualified   = quality(cropSource)(qual)
-      corrected   = correctColour(qualified)(iccColourSpace, colourModel)
+      thumbnailed = thumbnail(cropSource)(width)
+      corrected   = correctColour(thumbnailed)(iccColourSpace, colourModel)
       converted   = applyOutputProfile(corrected, optimised = true)
       stripped    = stripMeta(converted)
       profiled    = applyOutputProfile(stripped, optimised = true)
-      resized     = resize(profiled)(width)
-      unsharpened = unsharp(resized)(thumbUnsharpRadius, thumbUnsharpSigma, thumbUnsharpAmount, thumbUnsharpThreshold)
-      addOutput   = addDestImage(unsharpened)(outputFile)
+      unsharpened = unsharp(profiled)(thumbUnsharpRadius, thumbUnsharpSigma, thumbUnsharpAmount)
+      qualified   = quality(unsharpened)(qual)
+      addOutput   = addDestImage(qualified)(outputFile)
       _          <- runConvertCmd(addOutput)
     } yield outputFile
   }

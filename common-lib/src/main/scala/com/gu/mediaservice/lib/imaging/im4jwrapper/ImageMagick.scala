@@ -20,7 +20,7 @@ object ImageMagick {
 
   def addImage(source: File) = (new IMOperation()) <| { op => { op.addImage(source.getAbsolutePath) }}
   def quality(op: IMOperation)(qual: Double) = op <| (_.quality(qual))
-  def unsharp(op: IMOperation)(radius: Double, sigma: Double, amount: Double, threshold: Double) = op <| (_.unsharp(radius, sigma, amount, threshold))
+  def unsharp(op: IMOperation)(radius: Double, sigma: Double, amount: Double) = op <| (_.unsharp(radius, sigma, amount))
   def stripMeta(op: IMOperation) = op <| (_.strip())
   def stripProfile(op: IMOperation)(profile: String) = op <| (_.p_profile(profile))
   def addDestImage(op: IMOperation)(dest: File) = op <| (_.addImage(dest.getAbsolutePath))
