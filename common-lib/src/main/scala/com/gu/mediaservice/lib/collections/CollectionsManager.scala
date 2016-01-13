@@ -1,7 +1,11 @@
 package com.gu.mediaservice.lib.collections
 
+import java.awt.Color
+
 import com.gu.mediaservice.lib.net.URI.{encode, decode}
 import com.gu.mediaservice.model.Collection
+
+import scala.util.Try
 
 object CollectionsManager {
   val delimiter = "/"
@@ -38,4 +42,15 @@ object CollectionsManager {
 
   // We could use `ValidationNel`s here, but that's overkill
   def isValidPathBit(s: String) = if (s.contains(delimiter)) false else true
+
+  // TODO: Find something that works off a palette, this is terrible.
+  def stringToCssRgb(s: String): String = {
+    val hash = s.hashCode
+    val r = (hash & 0xFF0000) >> 16
+    val g = (hash & 0x00FF00) >> 8
+    val b = hash & 0x0000FF
+    s"rgb($r, $g, $b)"
+  }
+
+  def getCssColour(path: List[String]): String = path.headOption.map(stringToCssRgb).getOrElse("#cccccc")
 }

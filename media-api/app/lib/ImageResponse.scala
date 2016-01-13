@@ -229,7 +229,7 @@ object ImageResponse extends EditsResponse {
       .contramap((crops: List[Crop]) => crops.map(Export.fromCrop(_:Crop))) ~
     (__ \ "usages").write[UsagesEntity]
       .contramap(usagesEntity(id, _: List[Usage])) ~
-    (__ \ "collections").write[List[EmbeddedEntity[Collection]]]
+    (__ \ "collections").write[List[EmbeddedEntity[JsValue]]]
       .contramap((collections: List[Collection]) => collections.map(c => collectionsEntity(id, c)))
   )(unlift(Image.unapply))
 
@@ -238,7 +238,7 @@ object ImageResponse extends EditsResponse {
 
   def usageEntity(usage: Usage) = EmbeddedEntity[Usage](usageUri(usage.id), Some(usage))
 
-  def collectionsEntity(id: String, c: Collection): EmbeddedEntity[Collection] =
+  def collectionsEntity(id: String, c: Collection): EmbeddedEntity[JsValue] =
       Collection.asImageEntity(Config.collectionsUri, id, c)
 
   def fileMetadataEntity(id: String, expandFileMetaData: Boolean, fileMetadata: FileMetadata) = {

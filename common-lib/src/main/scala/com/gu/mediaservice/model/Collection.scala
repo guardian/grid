@@ -24,15 +24,32 @@ object Collection {
     (__ \ "actionData").write[ActionData]
   ){ col: Collection => (col.path, col.pathId, col.description, col.actionData) }
 
+  // We use this only for when we respond so that aren't storing cssColour in our data
+  val responseWrites: Writes[Collection] = (
+    (__ \ "path").write[List[String]] ~
+    (__ \ "pathId").write[String] ~
+    (__ \ "description").write[String] ~
+    (__ \ "cssColour").write[String] ~
+    (__ \ "actionData").write[ActionData]
+  ){ col: Collection => (
+    col.path,
+    col.pathId,
+    col.description,
+    CollectionsManager.getCssColour(col.path),
+    col.actionData)
+  }
+
   implicit val formats: Format[Collection] = Format(reads, writes)
 
   def imageUri(rootUri: String, imageId: String, c: Collection) =
     URI.create(s"$rootUri/images/$imageId/${CollectionsManager.pathToUri(c.path)}")
 
-  def asImageEntity(rootUri: String, imageId: String, c: Collection) = {
+  // We send back a JsValue as we need to use a different Collection writer
+  def asImageEntity(rootUri: String, imageId: String, c: Collection): EmbeddedEntity[JsValue] = {
     // TODO: Currently the GET for this URI does nothing
     val uri = imageUri(rootUri, imageId, c)
-    EmbeddedEntity(uri, Some(c), actions = List(
+    val json = Some(Json.toJson(c)(responseWrites))
+    EmbeddedEntity(uri, json, actions = List(
       Action("remove", uri, "DELETE")
     ))
   }
