@@ -3,11 +3,8 @@ import os
 import logging
 from . import *
 
-logging.basicConfig(format='%(asctime)s %(name)s %(levelname)s %(message)s',
-                    level=logging.INFO)
-
-LOGGER = logging.getLogger('generate')
-
+LOGGER_NAME = os.path.splitext(os.path.basename(__file__))[0]
+LOGGER = logging.getLogger(LOGGER_NAME)
 OUTPUT_DIR = '/configs/etc/gu'
 
 

@@ -1,6 +1,9 @@
 import os
 import yaml
 from jinja2 import Environment, FileSystemLoader
+import logging
+
+logging.basicConfig(format='%(asctime)s %(name)s %(levelname)s %(message)s', level=logging.INFO)
 
 CONFIG_FILE = os.path.join(os.environ['HOME'], '.gu', 'grid', 'grid-settings.yml')
 RESOURCE_PATH = os.path.join(os.path.dirname(__file__), 'resources')

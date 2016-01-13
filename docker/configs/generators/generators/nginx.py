@@ -1,6 +1,9 @@
 import os
 from . import *
+import logging
 
+LOGGER_NAME = os.path.splitext(os.path.basename(__file__))[0]
+LOGGER = logging.getLogger(LOGGER_NAME)
 OUTPUT_DIR = '/configs/nginx/sites-enabled'
 
 
@@ -26,9 +29,12 @@ def generate():
     for mapping in mappings:
         rendered = template.render(**mapping)
         output_path = os.path.join(OUTPUT_DIR, '{}.conf'.format(mapping.get('container')))
+        LOGGER.info('creating {}'.format(output_path))
 
         with open(output_path, 'wb') as f:
             f.write(rendered)
 
 if __name__ == '__main__':
+    LOGGER.info('Start')
     generate()
+    LOGGER.info('End')
