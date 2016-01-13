@@ -22,6 +22,8 @@ object Node {
           // use the T at this level or an empty node to hold children
           Node(currentSlug, loop(children, thisFullPath), thisFullPath, thisLevel.headOption)
         }
+        .sortBy(_.fullPath.head)
+        .sortBy(_.children.isEmpty)
     }
     Node[T]("root", loop(list, Nil), Nil, None)
   }
