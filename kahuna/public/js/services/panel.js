@@ -52,8 +52,9 @@ panelService.factory('panelService', ['storage', function (storage) {
         return newPanel(hidden, locked);
     }
 
+    // This is decoupled from the actual panels as we need the scope, which can be different in
+    // different contexts. You also might not want to have the state saved.
     function setAndSaveState($scope, name, panel) {
-        // TODO: Should we apply this to all panels?
         const storeName = `${name}PanelState`;
         const state = storage.getItem(storeName) || {locked: false, hidden: true};
         const sub = panel.state$.subscribe(state => storage.setItem(storeName, state));

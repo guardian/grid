@@ -10,7 +10,6 @@ import './results';
 import '../preview/image';
 import '../lib/data-structure/list-factory';
 import '../lib/data-structure/ordered-set-factory';
-import '../util/storage';
 import '../components/gr-top-bar/gr-top-bar';
 import '../components/gr-panel/gr-panel';
 import '../components/gr-collections-panel/gr-collections-panel';
@@ -37,8 +36,7 @@ export var search = angular.module('kahuna.search', [
     'gr.keyboardShortcut',
     'grPanel',
     'grCollectionsPanel',
-    'ui.router',
-    'util.storage'
+    'ui.router'
 ]);
 
 // TODO: add a resolver here so that if we error (e.g. 401) we don't keep trying
