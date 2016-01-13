@@ -1,24 +1,8 @@
-gr-nodes, gr-node {
+gr-nodes, gr-node,
+.node__info:hover .node__marker,
+.node__info:hover .node__action,
+.collection-drop--drag-over .node__marker {
     display: block;
-}
-
-#toggle-collections-button {
-    /* This is so we can target it with a JS as
-       angular uses !important with ng:show */
-    display: none;
-}
-
-.panel__left {
-    float: left;
-    position: fixed;
-    bottom: 0;
-    z-index: 1;
-    transition: left 0.1s;
-}
-
-.panel__left--hidden {
-    left: -290px;
-    transition: left 0.1s;
 }
 
 .node__action {
@@ -29,20 +13,11 @@ gr-nodes, gr-node {
     padding-left: 10px;
 }
 
-.node__info:hover .node__marker,
-.collection-drop--drag-over .node__marker {
-    display: block;
-}
-
-.node__info:hover .node__action {
-    display: block;
-}
-
 .node__marker {
     position: absolute;
     background: #00adee;
     width: 3px;
-    height: 44px;
+    height: 34px;
     left: 0;
     display: none;
 }
@@ -53,30 +28,39 @@ gr-nodes, gr-node {
     box-sizing: border-box;
 }
 .node__info:hover,
-.collection-drop--drag-over {
+.collection-drop-drag-over {
+    background-color: #666;
+}
+
+.node__info--selected {
     background-color: #333;
+    color: white;
 }
 
 .node__name {
-    padding: 10px;
+    padding: 5px;
 }
 
 .node__toggler,
 .node__spacer,
 .node__action {
-    padding-left: 10px;
-    padding-right: 10px;
+    padding-left: 5px;
+    padding-right: 5px;
     z-index: 2;
 }
 
-/* Annoyingly I can't find a way to do this with variables */
-.collection-drop {
-    -webkit-transition: background-color .25s linear;
-    transition: background-color .25s linear;
+.node__add-child {
+    margin-left: 50px;
+    margin-right: 10px;
 }
-.collection-drop--saving {
-    opacity: 0.5;
+.node__add-child-input {
+    width: 100%;
 }
-.collection-drop--complete {
-    background: #00adee !important;
+.node__add-child-buttons {
+    text-align: right;
+}
+
+.collections-panel-heading {
+    padding: 5px 10px;
+    border-bottom: 1px solid #565656;
 }

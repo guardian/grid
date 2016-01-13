@@ -2,7 +2,7 @@ package lib
 
 import play.api.Logger
 
-import rx.lang.scala.Observable
+import _root_.rx.lang.scala.Observable
 import com.gu.contentapi.client.model.v1.{Content, ElementType, Element}
 
 import model._

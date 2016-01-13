@@ -3,6 +3,7 @@ import 'angular-ui-router-extras';
 import Rx from 'rx';
 import 'rx-dom';
 import Immutable from 'immutable';
+import {getCollectionsFromQuery} from '../search-query/query-syntax';
 
 import './query';
 import './results';
@@ -12,6 +13,9 @@ import '../lib/data-structure/ordered-set-factory';
 import '../components/gr-top-bar/gr-top-bar';
 import '../components/gr-panel/gr-panel';
 import '../components/gr-collections-panel/gr-collections-panel';
+import '../components/gr-keyboard-shortcut/gr-keyboard-shortcut';
+
+import '../components/gr-panels/gr-panels';
 
 import searchTemplate        from './view.html!text';
 import searchResultsTemplate from './results.html!text';
@@ -28,6 +32,8 @@ export var search = angular.module('kahuna.search', [
     'data-structure.list-factory',
     'data-structure.ordered-set-factory',
     'gr.topBar',
+    'gr.panels',
+    'gr.keyboardShortcut',
     'grPanel',
     'grCollectionsPanel',
     'ui.router'
@@ -65,6 +71,32 @@ search.config(['$stateProvider', '$urlMatcherFactoryProvider',
                 });
                 return {state: $dsr$.redirect.state, params};
             }]
+        },
+        controllerAs: 'ctrl',
+        controller: ['$scope', 'panels', 'shortcutKeys', 'hotkeys', 'keyboardShortcut',
+                     function($scope, panels, shortcutKeys, keyboardShortcut) {
+
+            const ctrl = this;
+            ctrl.collectionsPanel = panels.collectionsPanel;
+            ctrl.metadataPanel = panels.metadataPanel;
+
+            keyboardShortcut.bindTo($scope).add({
+                combo: shortcutKeys.get('metadataPanel'),
+                description: 'Toggle metadata panel',
+                callback: panels.metadataPanel.toggleHidden
+            });
+        }],
+        resolve: {
+            shortcutKeys: [function() {
+                // keep the shortcut keys here to stop overriding
+                return new Map([['metadataPanel', 'm']]);
+            }],
+            panels: ['panelService', function(panelService) {
+                const collectionsPanel = panelService.createPanel(true);
+                const metadataPanel = panelService.createPanel(true);
+
+                return { collectionsPanel, metadataPanel };
+           }]
         }
     });
 
@@ -119,6 +151,11 @@ search.config(['$stateProvider', '$urlMatcherFactoryProvider',
                 ).
                     distinctUntilChanged(angular.identity, Immutable.is).
                     shareReplay(1);
+            }],
+            selectedCollections: ['$stateParams', function($stateParams) {
+                const query = $stateParams.query || '';
+                const collections  = getCollectionsFromQuery(query);
+                return collections;
             }]
         },
         views: {
@@ -127,7 +164,7 @@ search.config(['$stateProvider', '$urlMatcherFactoryProvider',
                 controller: 'SearchResultsCtrl',
                 controllerAs: 'ctrl'
             },
-            panel: {
+            infoPanel: {
                 template: panelTemplate,
                 controller: 'GrPanel',
                 controllerAs: 'ctrl',
@@ -153,8 +190,8 @@ search.config(['$stateProvider', '$urlMatcherFactoryProvider',
 
                     const windowDrag$ = Rx.DOM.fromEvent($window, 'dragstart');
                     const dragData$ = windowDrag$.
-                        withLatestFrom(selectedImages$, (event, imageList) => {
-                            const images = imageList.map(i => i.data);
+                        withLatestFrom(selectedImages$, (event, imagesList) => {
+                            const images = imagesList.toJS();
                             const dt = event.dataTransfer;
                             return {images, dt};
                         });

@@ -3,6 +3,7 @@ GET     /                                               controllers.CollectionsC
 # Image collections
 GET     /images/:imageId                                controllers.ImageCollectionsController.getCollections(imageId: String)
 POST    /images/:imageId                                controllers.ImageCollectionsController.addCollection(imageId: String)
+DELETE  /images/:imageId/*collection                    controllers.ImageCollectionsController.removeCollection(imageId: String, collection: String)
 
 # Collections
 GET     /collections                                    controllers.CollectionsController.getCollections

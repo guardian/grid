@@ -1,10 +1,26 @@
-<div class="panel panel__left panel--side"
-     ng:class="{ 'panel__left--hidden': !ctrl.isVisible }">
+<div class="panel"
+     ng:init="editing = false">
     <div class="panel__content">
         <div class="error" ng:if="ctrl.error">
             There was an error loading the collections.
             Please try again later.
         </div>
-        <gr-nodes class="tree tree--top" gr:nodes="ctrl.collections"></gr-nodes>
+
+        <!-- TODO: we'll probably move this out to another template once we have something more
+        final -->
+        <!-- We use $parent.editing here as ng:if creates it's own child scope -->
+        <div class="flex-container collections-panel-heading text-small" ng:if="! ctrl.error">
+            <div class="flex-spacer">Collections</div>
+            <button ng:click="$parent.editing = !$parent.editing">
+                <gr-icon>edit</gr-icon>
+                <span ng:hide="$parent.editing">Edit</span>
+                <span ng:show="$parent.editing">Finished editing</span>
+            </button>
+        </div>
+        <gr-nodes gr:nodes="ctrl.collections"
+                  gr:editing="editing"
+                  gr:selected-images="ctrl.selectedImages$"
+                  gr:selected-collections="ctrl.selectedCollections">
+        </gr-nodes>
     </div>
 </div>
