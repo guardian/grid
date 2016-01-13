@@ -130,7 +130,7 @@ module.controller('grImageMetadataCtrl', [
         ctrl.removeImageFromCollection = function (collection) {
             ctrl.removingCollection = collection;
             collections.removeImageFromCollection(collection, ctrl.image)
-            .then(() => ctrl.removingCollection = false);
+                .then(() => ctrl.removingCollection = false);
         };
 
         $scope.$on('$destroy', function() {
