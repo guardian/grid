@@ -26,9 +26,6 @@ object Collection {
 
   implicit val formats: Format[Collection] = Format(reads, writes)
 
-  def imageUri(rootUri: String, imageId: String, c: Collection) =
-    URI.create(s"$rootUri/images/$imageId/${CollectionsManager.pathToUri(c.path)}")
-
   // We use this to ensure we are creating valid `Collection`s
   def build(path: List[String], actionData: ActionData) = {
     val lowerPath = path.map(_.toLowerCase)

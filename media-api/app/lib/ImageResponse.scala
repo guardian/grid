@@ -230,41 +230,45 @@ object ImageResponse extends EditsResponse {
       .contramap((crops: List[Crop]) => crops.map(Export.fromCrop(_:Crop))) ~
     (__ \ "usages").write[UsagesEntity]
       .contramap(usagesEntity(id, _: List[Usage])) ~
-    (__ \ "collections").write[List[EmbeddedEntity[JsValue]]]
-      .contramap((collections: List[Collection]) => collections.map(c => collectionsEntity(id, c)))
-  )(unlift(Image.unapply))
+    (__ \ "collections").write[List[EmbeddedEntity[Collection]]]
+      .contramap((collections: List[Collection]) => collections.map(c => collectionsEntity(id, c))) ~
+    (__ \ "collectionGroups").write[List[CollectionGroup]]
+  ){i: Image =>
+    (i.id, i.uploadTime, i.uploadedBy, i.lastModified, i.identifiers, i.uploadInfo, i.source,
+      i.thumbnail, i.fileMetadata, i.userMetadata, i.metadata, i.originalMetadata, i.usageRights,
+      i.originalUsageRights, i.exports, i.usages, i.collections, collectionGroups(i.collections))
+  }
+
+  def collectionGroups(cs: List[Collection]): List[CollectionGroup] =
+    cs.filter(_.path.nonEmpty).groupBy(_.path.head).toList map { case (basename, collections) =>
+      CollectionGroup(basename, CollectionsManager.getCssColour(List(basename)), collections)
+    }
 
   def usagesEntity(id: String, usages: List[Usage]) =
     EmbeddedEntity[List[UsageEntity]](usagesUri(id), Some(usages.map(usageEntity)))
 
   def usageEntity(usage: Usage) = EmbeddedEntity[Usage](usageUri(usage.id), Some(usage))
 
-  def collectionsEntity(id: String, c: Collection): EmbeddedEntity[JsValue] =
+  def collectionsEntity(id: String, c: Collection): EmbeddedEntity[Collection] =
       collectionEntity(Config.collectionsUri, id, c)
 
-  // We send back a JsValue as we need to use a different Collection writer
-  def collectionEntity(rootUri: String, imageId: String, c: Collection): EmbeddedEntity[JsValue] = {
+  def collectionEntity(rootUri: String, imageId: String, c: Collection) = {
     // TODO: Currently the GET for this URI does nothing
-    val uri = Collection.imageUri(rootUri, imageId, c)
-    val json = Some(Json.toJson(c)(collectionWrites))
-    EmbeddedEntity(uri, json, actions = List(
+    val uri = URI.create(s"$rootUri/images/$imageId/${CollectionsManager.pathToUri(c.path)}")
+    EmbeddedEntity(uri, Some(c), actions = List(
       Action("remove", uri, "DELETE")
     ))
   }
-
-  val collectionWrites: Writes[Collection] = (
-    (__ \ "path").write[List[String]] ~
-      (__ \ "pathId").write[String] ~
-      (__ \ "description").write[String] ~
-      (__ \ "cssColour").write[String] ~
-      (__ \ "actionData").write[ActionData]
-    ){col: Collection => (
-      col.path, col.pathId, col.description, CollectionsManager.getCssColour(col.path), col.actionData)}
-
 
   def fileMetadataEntity(id: String, expandFileMetaData: Boolean, fileMetadata: FileMetadata) = {
     val displayableMetadata = if(expandFileMetaData) Some(fileMetadata) else None
 
     EmbeddedEntity[FileMetadata](fileMetaDataUri(id), displayableMetadata)
   }
+}
+
+// This is used to render collections grouped by their top level path bit e.g. observer.
+case class CollectionGroup(basename: String, cssColour: String, collections: List[Collection])
+object CollectionGroup {
+  implicit def writes: Writes[CollectionGroup] = Json.writes[CollectionGroup]
 }
