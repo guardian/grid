@@ -90,6 +90,9 @@ results.controller('SearchResultsCtrl', [
         ctrl.images = [];
         ctrl.newImagesCount = 0;
 
+        // TODO: Remove this once we're happy with the collections panel
+        ctrl.showCollectionsPanel = $window.localStorage.getItem('showCollectionsPanel') === 'true';
+
         // Map to track image->position and help remove duplicates
         let imagesPositions;
 

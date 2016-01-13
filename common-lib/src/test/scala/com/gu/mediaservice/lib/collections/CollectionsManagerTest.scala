@@ -9,20 +9,44 @@ class CollectionsManagerTest extends FunSpec with Matchers {
 
   describe("CollectionManager") {
 
-    it ("should convert path to string with /") {
-      CollectionsManager.pathToString(List("g2", "art", "film")) shouldBe "g2/art/film"
+    describe("serialisation") {
+      it ("should convert path to string with /") {
+        CollectionsManager.pathToString(List("g2", "art", "film")) shouldBe "g2/art/film"
+      }
+
+      it ("should convert a string to a path") {
+        CollectionsManager.stringToPath("g2/art/film") shouldBe List("g2", "art", "film")
+      }
+
+      it ("should convert a URI to a path") {
+        CollectionsManager.uriToPath("g2/art/rhythm+blues") shouldBe List("g2", "art", "rhythm blues")
+      }
+
+      it ("should convert a path to a URI") {
+        CollectionsManager.pathToUri(List("g2", "art", "rhythm&blues")) shouldBe "g2/art/rhythm%26blues"
+      }
     }
 
-    it ("should URL encode / in path bit in a string") {
-      CollectionsManager.pathToString(List("g2", "art", "24/7")) shouldBe "g2/art/24%2F7"
+    describe("validation") {
+
+      it ("should allow strings") {
+        CollectionsManager.isValidPathBit("{something&nothing}") shouldBe true
+      }
+
+      it ("should not allow /") {
+        CollectionsManager.isValidPathBit("this/that") shouldBe false
+      }
+
     }
 
-    it ("should convert a string to a path") {
-      CollectionsManager.stringToPath("g2/art/film") shouldBe List("g2", "art", "film")
-    }
+    describe("create") {
 
-    it ("should convert a URL encoded string to a valid path") {
-      CollectionsManager.stringToPath("g2/art/24%2F7") shouldBe List("g2", "art", "24/7")
+      it("should lowercase path on creation") {
+        val col = Collection.build(List("G2", "ArT", "CasECrazY"), ActionData("me@you.com", DateTime.now))
+        col.path shouldEqual List("g2", "art", "casecrazy")
+        col.pathId shouldEqual "g2/art/casecrazy"
+      }
+
     }
 
     it ("should only show the latest collection with same ID") {
@@ -30,9 +54,9 @@ class CollectionsManagerTest extends FunSpec with Matchers {
       val laterDate = date.minusDays(5)
       val evenLaterDate = laterDate.minusDays(5)
 
-      val collection1 = Collection(List("g2"), ActionData("me@you.com", date))
-      val collection2 = Collection(List("g2"), ActionData("you@me.com", laterDate))
-      val collection3 = Collection(List("g2"), ActionData("them@they.com", evenLaterDate))
+      val collection1 = Collection.build(List("g2"), ActionData("me@you.com", date))
+      val collection2 = Collection.build(List("g2"), ActionData("you@me.com", laterDate))
+      val collection3 = Collection.build(List("g2"), ActionData("them@they.com", evenLaterDate))
 
       val duped = List(collection2, collection1, collection3)
 
@@ -46,9 +70,9 @@ class CollectionsManagerTest extends FunSpec with Matchers {
     it ("should find the index of a collection in a list") {
       val actionData = ActionData("me@you.com", DateTime.now())
       val collections = List(
-        Collection(List("g2"), actionData),
-        Collection(List("g2", "art"), actionData),
-        Collection(List("g2", "art", "paintings"), actionData)
+        Collection.build(List("g2"), actionData),
+        Collection.build(List("g2", "art"), actionData),
+        Collection.build(List("g2", "art", "paintings"), actionData)
       )
 
       val index = CollectionsManager.findIndex(List("g2", "art"), collections)

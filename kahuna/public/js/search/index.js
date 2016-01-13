@@ -3,6 +3,7 @@ import 'angular-ui-router-extras';
 import Rx from 'rx';
 import 'rx-dom';
 import Immutable from 'immutable';
+import {getCollectionsFromQuery} from '../search-query/query-syntax';
 
 import './query';
 import './results';
@@ -150,6 +151,11 @@ search.config(['$stateProvider', '$urlMatcherFactoryProvider',
                 ).
                     distinctUntilChanged(angular.identity, Immutable.is).
                     shareReplay(1);
+            }],
+            selectedCollections: ['$stateParams', function($stateParams) {
+                const query = $stateParams.query || '';
+                const collections  = getCollectionsFromQuery(query);
+                return collections;
             }]
         },
         views: {
@@ -184,8 +190,8 @@ search.config(['$stateProvider', '$urlMatcherFactoryProvider',
 
                     const windowDrag$ = Rx.DOM.fromEvent($window, 'dragstart');
                     const dragData$ = windowDrag$.
-                        withLatestFrom(selectedImages$, (event, imageList) => {
-                            const images = imageList.map(i => i.data);
+                        withLatestFrom(selectedImages$, (event, imagesList) => {
+                            const images = imagesList.toJS();
                             const dt = event.dataTransfer;
                             return {images, dt};
                         });

@@ -17,7 +17,7 @@
 </gr-top-bar>
 
 <gr-panels class="search-panels">
-    <gr-panel gr:left="true" gr:panel="ctrl.collectionsPanel">
+    <gr-panel gr:left="true" gr:panel="ctrl.collectionsPanel" gr:icon="collections">
         <ui-view name="collectionPanel"></ui-view>
     </gr-panel>
 
@@ -25,7 +25,7 @@
         <ui-view name="results"></ui-view>
     </gr-panel-content>
 
-    <gr-panel gr:right="true" gr:panel="ctrl.metadataPanel">
+    <gr-panel gr:right="true" gr:panel="ctrl.metadataPanel" gr:icon="collections">
         <ui-view name="infoPanel"></ui-view>
     </gr-panel>
 </gr-panels>

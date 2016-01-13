@@ -38,8 +38,8 @@ System.config({
     "theseus": "npm:theseus@0.5.2",
     "theseus-angular": "npm:theseus-angular@0.3.1",
     "titip": "github:guardian/titip@1.0.0",
-    "traceur": "github:jmcriffey/bower-traceur@0.0.92",
-    "traceur-runtime": "github:jmcriffey/bower-traceur-runtime@0.0.92",
+    "traceur": "github:jmcriffey/bower-traceur@0.0.93",
+    "traceur-runtime": "github:jmcriffey/bower-traceur-runtime@0.0.93",
     "ua-parser-js": "npm:ua-parser-js@0.7.3",
     "uri-templates": "npm:uri-templates@0.1.5",
     "github:angular-ui/ui-router@0.2.15": {

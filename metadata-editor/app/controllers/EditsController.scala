@@ -4,6 +4,9 @@ package controllers
 import java.net.URI
 import java.net.URLDecoder.decode
 
+import com.gu.mediaservice.lib.formatting._
+import org.joda.time.DateTime
+
 import scala.concurrent.Future
 
 import play.api.data.Forms._
@@ -191,7 +194,8 @@ object EditsController extends Controller with ArgoHelpers with DynamoEdits with
     val edits = metadata.as[Edits]
     val message = Json.obj(
       "id" -> id,
-      "data" -> Json.toJson(edits)
+      "data" -> Json.toJson(edits),
+      "lastModified" -> printDateTime(new DateTime())
     )
 
     Notifications.publish(message, "update-image-user-metadata")

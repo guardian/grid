@@ -92,15 +92,18 @@ object ElasticSearch extends ElasticSearchClient with ImageFields {
       }
   }
 
-  def updateImageUsages(id: String, usages: JsValue)(implicit ex: ExecutionContext): Future[Any] =
+  def updateImageUsages(id: String, usages: JsValue, lastModified: JsValue)(implicit ex: ExecutionContext): Future[Any] =
     prepareImageUpdate(id)
       .setScriptParams(Map(
         "usages" -> asGroovy(usages),
-        "lastModified" -> asGroovy(JsString(currentIsoDateString))
+        "lastModified" -> asGroovy(lastModified)
       ).asJava)
       .setScript(
-          replaceUsagesScript +
-          updateLastModifiedScript,
+        s""" | if (!(ctx._source.usagesLastModified && ctx._source.usagesLastModified > lastModified)) {
+            |   $replaceUsagesScript
+            |   $updateLastModifiedScript
+            | }
+        """.stripMargin,
         scriptType)
       .executeAndLog(s"updating usages on image $id")
       .recover { case e: DocumentMissingException => Unit }
@@ -131,19 +134,24 @@ object ElasticSearch extends ElasticSearchClient with ImageFields {
       .executeAndLog(s"removing exports from image $id")
       .incrementOnFailure(failedExportsUpdates) { case e: VersionConflictEngineException => true }
 
-  def applyImageMetadataOverride(id: String, metadata: JsValue)(implicit ex: ExecutionContext): Future[UpdateResponse] =
+  def applyImageMetadataOverride(id: String, metadata: JsValue, lastModified: JsValue)(implicit ex: ExecutionContext): Future[UpdateResponse] = {
     prepareImageUpdate(id)
       .setScriptParams(Map(
         "userMetadata" -> asGroovy(metadata),
-        "lastModified" -> asGroovy(JsString(currentIsoDateString))
+        "lastModified" -> asGroovy(lastModified)
       ).asJava)
       .setScript(
-        "ctx._source.userMetadata = userMetadata;" +
-          refreshEditsScript +
-          updateLastModifiedScript,
+        s""" | if (!(ctx._source.userMetadataLastModified && ctx._source.userMetadataLastModified > lastModified)) {
+            |   ctx._source.userMetadata = userMetadata;
+            |   ctx._source.userMetadataLastModified = lastModified;
+            |   $updateLastModifiedScript
+            | }
+      """.stripMargin +
+          refreshEditsScript,
         scriptType)
       .executeAndLog(s"updating user metadata on image $id")
       .incrementOnFailure(failedMetadataUpdates) { case e: VersionConflictEngineException => true }
+  }
 
   def setImageCollection(id: String, collections: JsValue)(implicit ex: ExecutionContext): Future[UpdateResponse] =
     prepareImageUpdate(id)
@@ -196,7 +204,10 @@ object ElasticSearch extends ElasticSearchClient with ImageFields {
 
   // Create the exports key or add to it
   private val replaceUsagesScript =
-    "ctx._source.usages = usages;"
+    """
+       | ctx._source.usages = usages;
+       | ctx._source.usagesLastModified = lastModified;
+    """
 
   // Create the exports key or add to it
   private val addExportsScript =
