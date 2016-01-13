@@ -215,7 +215,10 @@ search.config(['$stateProvider', '$urlMatcherFactoryProvider',
                             dragImage.appendChild(imageCount);
                             el.appendChild(dragImage);
 
-                            dt.setData(vndMimeTypes.get('gridImagesData'), JSON.stringify(imageObjs));
+                            dt.setData(
+                                vndMimeTypes.get('gridImagesData'),
+                                JSON.stringify(imageObjs));
+
                             dt.setDragImage(dragImage, 0, 0);
                         }
                     });
