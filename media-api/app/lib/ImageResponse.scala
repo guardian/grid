@@ -14,6 +14,7 @@ import play.api.libs.functional.syntax._
 
 import com.gu.mediaservice.model._
 import com.gu.mediaservice.lib.argo.model._
+import com.gu.mediaservice.lib.collections.CollectionsManager
 
 
 object ImageResponse extends EditsResponse {
@@ -239,7 +240,27 @@ object ImageResponse extends EditsResponse {
   def usageEntity(usage: Usage) = EmbeddedEntity[Usage](usageUri(usage.id), Some(usage))
 
   def collectionsEntity(id: String, c: Collection): EmbeddedEntity[JsValue] =
-      Collection.asImageEntity(Config.collectionsUri, id, c)
+      collectionEntity(Config.collectionsUri, id, c)
+
+  // We send back a JsValue as we need to use a different Collection writer
+  def collectionEntity(rootUri: String, imageId: String, c: Collection): EmbeddedEntity[JsValue] = {
+    // TODO: Currently the GET for this URI does nothing
+    val uri = Collection.imageUri(rootUri, imageId, c)
+    val json = Some(Json.toJson(c)(collectionWrites))
+    EmbeddedEntity(uri, json, actions = List(
+      Action("remove", uri, "DELETE")
+    ))
+  }
+
+  val collectionWrites: Writes[Collection] = (
+    (__ \ "path").write[List[String]] ~
+      (__ \ "pathId").write[String] ~
+      (__ \ "description").write[String] ~
+      (__ \ "cssColour").write[String] ~
+      (__ \ "actionData").write[ActionData]
+    ){col: Collection => (
+      col.path, col.pathId, col.description, CollectionsManager.getCssColour(col.path), col.actionData)}
+
 
   def fileMetadataEntity(id: String, expandFileMetaData: Boolean, fileMetadata: FileMetadata) = {
     val displayableMetadata = if(expandFileMetaData) Some(fileMetadata) else None
