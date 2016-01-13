@@ -5,7 +5,6 @@ import logging
 
 LOGGER_NAME = os.path.splitext(os.path.basename(__file__))[0]
 LOGGER = logging.getLogger(LOGGER_NAME)
-OUTPUT_DIR = '/configs/etc/nginx'
 
 
 def _get_mappings():
@@ -21,19 +20,19 @@ def _get_mappings():
     return mappings
 
 
-def copy_nginx_conf():
-    create_directory(OUTPUT_DIR)
+def copy_nginx_conf(directory):
+    create_directory(directory)
 
     src = os.path.join(RESOURCE_PATH, 'nginx.conf')
-    dest = os.path.join(OUTPUT_DIR, 'nginx.conf')
+    dest = os.path.join(directory, 'nginx.conf')
 
     LOGGER.info('creating {}'.format(dest))
 
     copyfile(src, dest)
 
 
-def generate_sites_enabled():
-    sites_enabled = os.path.join(OUTPUT_DIR, 'sites-enabled')
+def generate_sites_enabled(directory):
+    sites_enabled = os.path.join(directory, 'sites-enabled')
 
     create_directory(sites_enabled)
 
@@ -49,11 +48,14 @@ def generate_sites_enabled():
             f.write(rendered)
 
 
-def generate():
-    copy_nginx_conf()
-    generate_sites_enabled()
+def generate(directory):
+    copy_nginx_conf(directory)
+    generate_sites_enabled(directory)
 
 if __name__ == '__main__':
-    LOGGER.info('Start')
-    generate()
-    LOGGER.info('End')
+    output_dir = get_output_directory()
+
+    if output_dir:
+        LOGGER.info('Start')
+        generate(output_dir)
+        LOGGER.info('End')
