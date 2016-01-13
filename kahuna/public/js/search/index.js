@@ -197,7 +197,7 @@ search.config(['$stateProvider', '$urlMatcherFactoryProvider',
                         });
 
                     const sub = dragData$.subscribe(({ images, dt }) => {
-                        if (images.size > 0) {
+                        if (images.length > 0) {
                             const doc = $document[0];
                             const el = $element[0];
 
@@ -207,12 +207,15 @@ search.config(['$stateProvider', '$urlMatcherFactoryProvider',
 
                             const imageCount = doc.createElement('span');
                                   imageCount.classList.add('drag-count');
-                                  imageCount.innerHTML = images.count();
+                                  imageCount.innerHTML = images.length;
+
+                            // we do this as we cannot stringify Resource objects
+                            const imageObjs = images.map(i => ({data: i.data}));
 
                             dragImage.appendChild(imageCount);
                             el.appendChild(dragImage);
 
-                            dt.setData(vndMimeTypes.get('gridImagesData'), JSON.stringify(images));
+                            dt.setData(vndMimeTypes.get('gridImagesData'), JSON.stringify(imageObjs));
                             dt.setDragImage(dragImage, 0, 0);
                         }
                     });
