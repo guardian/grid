@@ -4,6 +4,7 @@ import scala.util.{Try, Success, Failure}
 
 import org.joda.time.DateTime
 
+import com.gu.mediaservice.model.UsageStatus
 import com.gu.mediaservice.picdarexport.model.PicdarUsageRecord
 
 
@@ -14,10 +15,11 @@ object PicdarUsageRecordFactory {
 
     responseElements.flatMap( element => {
 
+      def missingFieldException(field: String) =
+        new NoSuchElementException(s"Missing $field in $element")
+
       def extractOrThrow(field: String) =
-        element.get(field).getOrElse {
-          throw new NoSuchElementException(s"Missing $field in $element")
-        }
+        element.get(field).getOrElse { throw missingFieldException(field) }
 
       Try {
         PicdarUsageRecord(
@@ -30,7 +32,9 @@ object PicdarUsageRecordFactory {
           page = extractOrThrow("page").toInt,
           sectionName = extractOrThrow("sectiontext"),
           edition = element.get("editiontext").foldLeft(1)((_, e) => { e.toInt }),
-          status = extractOrThrow("status"),
+          status = element.get("status").map(UsageStatus(_)).getOrElse {
+            throw missingFieldException("status")
+          },
           notes = element.get("notes")
         )
       } match {

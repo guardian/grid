@@ -1,4 +1,4 @@
-package model
+package com.gu.mediaservice.model
 
 import org.joda.time.DateTime
 import play.api.libs.json._
@@ -11,6 +11,11 @@ trait UsageStatus {
 }
 
 object UsageStatus {
+  def apply(status: String): UsageStatus = status match {
+    case "pending" => PendingUsageStatus()
+    case "published" => PublishedUsageStatus()
+  }
+
   implicit val reads: Reads[UsageStatus] = JsPath.read[String].map {
     case "pending" => PendingUsageStatus()
     case "published" => PublishedUsageStatus()

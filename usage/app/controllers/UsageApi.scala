@@ -20,7 +20,7 @@ import com.gu.mediaservice.lib.argo.model.{Action, Link, EntityReponse}
 import com.gu.mediaservice.lib.auth
 import com.gu.mediaservice.lib.auth.KeyStore
 import com.gu.mediaservice.lib.aws.NoItemFound
-import com.gu.mediaservice.model.Usage
+import com.gu.mediaservice.model.{Usage, PrintUsageRequest}
 
 import lib._
 import model._

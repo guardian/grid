@@ -1,7 +1,6 @@
-package model
+package com.gu.mediaservice.model
 
 import org.joda.time.DateTime
-import com.gu.mediaservice.model.{PrintUsageMetadata, DateFormat}
 import play.api.libs.json._
 
 case class PrintUsageRequest(printUsageRecords: List[PrintUsageRecord])

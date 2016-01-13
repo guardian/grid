@@ -1,5 +1,6 @@
 package com.gu.mediaservice.picdarexport.model
 
+import com.gu.mediaservice.model.UsageStatus
 import org.joda.time.DateTime
 import play.api.libs.json._
 
@@ -14,7 +15,7 @@ case class PicdarUsageRecord(
   page: Int,
   sectionName: String,
   edition: Int,
-  status: String,
+  status: UsageStatus,
   notes: Option[String]
 )
 
