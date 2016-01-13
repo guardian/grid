@@ -11,11 +11,13 @@ import com.gu.mediaservice.lib.argo.model.EntityReponse
 import com.gu.mediaservice.picdarexport.lib.{Config, LogHelper}
 import com.gu.mediaservice.picdarexport.lib.ExecutionContexts.mediaApi
 
+import com.gu.mediaservice.lib.argo.model.Action
+
 import scala.concurrent.Future
 import scalaj.http.{HttpOptions, Http}
 
 
-case class ImageResource(data: Image)
+case class ImageResource(data: Image, actions: List[Action])
 
 object ImageResource {
   implicit val ImageResourceReads: Reads[ImageResource] = Json.reads[ImageResource]
@@ -58,7 +60,8 @@ trait MediaApi extends LogHelper {
 
   import Config.{mediaApiConnTimeout, mediaApiReadTimeout}
 
-  def getImage(mediaUri: URI): Future[Image] = Future {
+
+  def getImageResource(mediaUri: URI): Future[ImageResource] = Future {
     logDuration("MediaApi.getImage") {
       val body = Http(mediaUri.toString).
         header("X-Gu-Media-Key", mediaApiKey).
@@ -69,9 +72,11 @@ trait MediaApi extends LogHelper {
         asString.
         body
 
-      Json.parse(body).as[ImageResource].data
+      Json.parse(body).as[ImageResource]
     }
   }
+
+  def getImage(mediaUri: URI): Future[Image] = getImageResource(mediaUri).map(_.data)
 
   def overrideMetadata(metadataOverrideUri: URI, metadata: ImageMetadata): Future[Unit] = Future {
     logDuration("MediaApi.overrideMetadata") {

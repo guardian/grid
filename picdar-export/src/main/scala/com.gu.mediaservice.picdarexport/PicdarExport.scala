@@ -27,6 +27,14 @@ class ExportManager(picdar: PicdarClient, loader: MediaLoader, mediaApi: MediaAp
       uri    <- loader.upload(data, picdarUrn, uploadTime)
     } yield uri
 
+  def sendUsage(mediaUri: URI, usage: List[PicdarUsageRecord]): Future[URI] = {
+    for {
+      imageResource <- mediaApi.getImageResource(mediaUri)
+      actions = imageResource.actions
+      printUsageUri <- Future { actions.find(_.name == "add-print-usage").map(_.href).get }
+    } yield printUsageUri
+  }
+
   def overrideMetadata(mediaUri: URI, picdarMetadata: ImageMetadata): Future[Boolean] =
     for {
       image              <- mediaApi.getImage(mediaUri)
@@ -307,11 +315,16 @@ object ExportApp extends App with ExportManagerProvider with ArgumentHelpers wit
     val dynamo = getDynamo(env)
 
     dynamo.getUsageNotRecorded(dateRange) flatMap { urns =>
-      val updates = takeRange(urns, range).map { assetRow =>
-        Future {
-          // This will be None until ingested!
-          println(assetRow.mediaUri)
-        }
+      val updates = takeRange(urns, range).map { asset =>
+        // These will obviously error if the attributes aren't filled
+        // TODO: Explore failure modes!
+        val mediaUri = asset.mediaUri.get
+        val usage = asset.picdarUsage.get
+
+        getExportManager("desk", env).sendUsage(mediaUri, usage).map(println).recover { case e: Throwable =>
+            Logger.warn(s"Usage send error for ${asset.picdarUrn}: $e")
+            e.printStackTrace()
+          }
       }
       Future.sequence(updates)
     }

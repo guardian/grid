@@ -44,18 +44,26 @@ case class AssetRow(
   picdarAssetUrl: Option[URI],
   mediaUri: Option[URI] = None,
   picdarMetadata: Option[ImageMetadata] = None,
-  picdarRights: Option[UsageRights] = None
+  picdarRights: Option[UsageRights] = None,
+  picdarUsage: Option[List[PicdarUsageRecord]] = None
 )
 object AssetRow extends DynamoDates {
   def apply(item: Item): AssetRow = {
-    val picdarCreated = rangeDateFormat.parseDateTime(item.getString("picdarCreated"))
+    val picdarCreated =
+      rangeDateFormat.parseDateTime(item.getString("picdarCreated"))
     val picdarCreatedFull =
       Option(item.getString("picdarCreatedFull")).map(timestampDateFormat.parseDateTime)
 
-    val mediaUri = Option(item.getString("mediaUri")).map(URI.create)
-    val picdarMetadata = Option(item.getJSON("picdarMetadata")).map(json => Json.parse(json).as[ImageMetadata])
-    val picdarRights = Option(item.getJSON("picdarRights")).map(json => Json.parse(json).as[UsageRights])
-    val picdarAssetUrl = Option(item.getString("picdarAssetUrl")).map(URI.create)
+    val mediaUri = Option(item.getString("mediaUri"))
+      .map(URI.create)
+    val picdarMetadata = Option(item.getJSON("picdarMetadata"))
+      .map(json => Json.parse(json).as[ImageMetadata])
+    val picdarRights = Option(item.getJSON("picdarRights"))
+      .map(json => Json.parse(json).as[UsageRights])
+    val picdarAssetUrl = Option(item.getString("picdarAssetUrl"))
+      .map(URI.create)
+    val picdarUsage = Option(item.getString("picdarUsage"))
+      .map(json => Json.parse(json).as[List[PicdarUsageRecord]])
 
     AssetRow(
       picdarUrn = item.getString("picdarUrn"),
@@ -64,7 +72,8 @@ object AssetRow extends DynamoDates {
       picdarAssetUrl = picdarAssetUrl,
       mediaUri = mediaUri,
       picdarMetadata = picdarMetadata,
-      picdarRights = picdarRights
+      picdarRights = picdarRights,
+      picdarUsage = picdarUsage
     )
   }
 }
