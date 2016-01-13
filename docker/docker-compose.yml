@@ -28,7 +28,6 @@ nginx:
     - "443:443"
   volumes:
     - "./entrypoints:/entrypoints"
-    - "./configs/nginx.conf:/etc/nginx/nginx.conf"
   volumes_from:
     - configs
   entrypoint: /entrypoints/nginx.sh
