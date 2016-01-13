@@ -27,7 +27,7 @@ object UsageRights {
     Agency, CommissionedAgency, Chargeable,
     StaffPhotographer, ContractPhotographer, CommissionedPhotographer,
     CreativeCommons, GuardianWitness, Pool, CrownCopyright, Obituary,
-    ContractIllustrator, CommissionedIllustrator, Composite
+    ContractIllustrator, CommissionedIllustrator, Composite, PublicDomain
   )
 
   // this is a convenience method so that we use the same formatting for all subtypes
@@ -69,6 +69,7 @@ object UsageRights {
     case o: CommissionedIllustrator => CommissionedIllustrator.formats.writes(o)
     case o: CreativeCommons => CreativeCommons.formats.writes(o)
     case o: Composite => Composite.formats.writes(o)
+    case o: PublicDomain => PublicDomain.formats.writes(o)
     case o: NoRights.type => NoRights.jsonWrites.writes(o)
   }
 
@@ -99,6 +100,7 @@ object UsageRights {
         case CommissionedIllustrator.category => json.asOpt[CommissionedIllustrator]
         case CreativeCommons.category => json.asOpt[CreativeCommons]
         case Composite.category => json.asOpt[Composite]
+        case PublicDomain.category => json.asOpt[PublicDomain]
         case _ => None
       })
         .orElse(supplier.flatMap(_ => json.asOpt[Agency]))
@@ -425,4 +427,20 @@ object Composite extends UsageRightsSpec {
 
   implicit val formats: Format[Composite] =
     UsageRights.subtypeFormat(Composite.category)(Json.format[Composite])
+}
+
+final case class PublicDomain(restrictions: Option[String] = None) extends UsageRights {
+  val defaultCost = PublicDomain.defaultCost
+}
+object PublicDomain extends UsageRightsSpec {
+  val category = "public-domain"
+  val defaultCost = Some(Free)
+  val name = "Public Domain"
+  val description =
+    "Images out of copyright or bequeathed to the public."
+
+  override val caution = Some("ONLY use if out of copyright or bequeathed to public")
+
+  implicit val formats: Format[PublicDomain] =
+    UsageRights.subtypeFormat(PublicDomain.category)(Json.format[PublicDomain])
 }

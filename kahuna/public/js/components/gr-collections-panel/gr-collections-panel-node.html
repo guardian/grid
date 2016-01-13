@@ -1,8 +1,7 @@
 <div ng:init="node = ctrl.node">
     <div class="node__info flex-container"
          ng:class="{'node__info--selected' : ctrl.isSelected}"
-         ng:init="showChildren = true"
-         gr:drop-into-collection="node.data.content.path">
+         gr:drop-into-collection="node.data.fullPath">
         <div class="node__marker"></div>
 
         <div class="node__spacer" ng:if="node.data.children.length === 0">
@@ -11,16 +10,16 @@
 
         <button type="button"
                 class="node__toggler clickable"
-                ng:click="showChildren = !showChildren"
+                ng:click="ctrl.showChildren = !ctrl.showChildren"
                 ng:show="node.data.children.length > 0">
 
-            <gr-icon ng:show="showChildren">expand_more</gr-icon>
-            <gr-icon ng:hide="showChildren">chevron_right</gr-icon>
+            <gr-icon ng:show="ctrl.showChildren">expand_more</gr-icon>
+            <gr-icon ng:hide="ctrl.showChildren">chevron_right</gr-icon>
         </button>
 
         <a class="node__name flex-spacer"
-           ui:sref="search.results({query: ctrl.getCollectionQuery(node.data.content.pathId)})">
-            {{node.data.name}}
+           ui:sref="search.results({query: ctrl.getCollectionQuery(node.data.data.pathId)})">
+            {{node.data.data.description}}
         </a>
 
 
@@ -39,13 +38,15 @@
             <gr-icon>add_box</gr-icon>
         </button>
 
+        <div class="text-small flex-container flex-center"
+             ng:if="ctrl.saving || dropIntoCollectionSaving">Adding…</div>
+
         <button class="node__action clickable"
                 ng:if="!ctrl.editing && ctrl.hasImagesSelected && !ctrl.saving"
                 ng:click="ctrl.addImagesToCollection()"
                 gr:tooltip="Add selected images to this collection">
             <gr-icon>add_to_photos</gr-icon>
         </button>
-        <span ng:if="ctrl.saving">Saving…</span>
     </div>
 
     <form class="node__add-child" ng:if="active" ng:submit="ctrl.addChild(childName);">

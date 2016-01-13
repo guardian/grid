@@ -190,14 +190,14 @@ search.config(['$stateProvider', '$urlMatcherFactoryProvider',
 
                     const windowDrag$ = Rx.DOM.fromEvent($window, 'dragstart');
                     const dragData$ = windowDrag$.
-                        withLatestFrom(selectedImages$, (event, imageList) => {
-                            const images = imageList.map(i => i.data);
+                        withLatestFrom(selectedImages$, (event, imagesList) => {
+                            const images = imagesList.toJS();
                             const dt = event.dataTransfer;
                             return {images, dt};
                         });
 
                     const sub = dragData$.subscribe(({ images, dt }) => {
-                        if (images.size > 0) {
+                        if (images.length > 0) {
                             const doc = $document[0];
                             const el = $element[0];
 
@@ -207,12 +207,18 @@ search.config(['$stateProvider', '$urlMatcherFactoryProvider',
 
                             const imageCount = doc.createElement('span');
                                   imageCount.classList.add('drag-count');
-                                  imageCount.innerHTML = images.count();
+                                  imageCount.innerHTML = images.length;
+
+                            // we do this as we cannot stringify Resource objects
+                            const imageObjs = images.map(i => ({data: i.data}));
 
                             dragImage.appendChild(imageCount);
                             el.appendChild(dragImage);
 
-                            dt.setData(vndMimeTypes.get('gridImagesData'), JSON.stringify(images));
+                            dt.setData(
+                                vndMimeTypes.get('gridImagesData'),
+                                JSON.stringify(imageObjs));
+
                             dt.setDragImage(dragImage, 0, 0);
                         }
                     });
