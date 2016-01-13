@@ -1,7 +1,7 @@
 import os
 from . import *
 
-DOCKER_HOST='DOCKER_HOST'
+DOCKER_HOST = 'DOCKER_HOST'
 
 
 class DaemonConnectError(Exception):

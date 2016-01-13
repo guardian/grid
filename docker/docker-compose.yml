@@ -22,6 +22,7 @@ nginx:
     - metadata-editor
     - usage
     - collections
+    - imgops
   ports:
     - "80:80"
     - "443:443"
@@ -131,3 +132,11 @@ collections:
   volumes_from:
     - configs
     - data
+imgops:
+  build: .
+  dockerfile: Dockerfile-imgops
+  volumes_from:
+    - configs
+  volumes:
+    - "./entrypoints:/entrypoints"
+  entrypoint: /entrypoints/imgops.sh

@@ -1,54 +1,11 @@
-import boto3
 import os
 import logging
 from . import *
+from cloudformation import get_stack_outputs
 
 LOGGER_NAME = os.path.splitext(os.path.basename(__file__))[0]
 LOGGER = logging.getLogger(LOGGER_NAME)
 OUTPUT_DIR = '/configs/etc/gu'
-
-
-def _boto_session(aws_profile_name):
-    LOGGER.info('Using AWS profile {}'.format(aws_profile_name))
-    boto3.setup_default_session(profile_name=aws_profile_name)
-
-
-def _get_stack_name():
-    user = boto3.resource('iam').CurrentUser()
-    stack_name = 'media-service-DEV-{}'.format(user.user_name)
-    LOGGER.info('Using stack {}'.format(stack_name))
-    return stack_name
-
-
-def _get_client():
-    return boto3.client('cloudformation')
-
-
-def _get_stack_outputs():
-    stack_name = _get_stack_name()
-    cf_client = _get_client()
-    stack = cf_client.describe_stacks(StackName=stack_name)
-
-    outputs = {
-        'region': boto3.DEFAULT_SESSION._session.get_config_variable('region')
-    }
-
-    LOGGER.info('Here is your CloudFormation Stack output')
-
-    for output in stack['Stacks'][0]['Outputs']:
-        key = output['OutputKey']
-        value = output['OutputValue']
-
-        # Cropper service doesn't expect a protocol to be included,
-        # remove the http:// string from the ImageOriginWebsite item.
-        if key == 'ImageOriginWebsite':
-            value = value.replace('http://', '')
-
-        LOGGER.info('{key} = {value}'.format(key=key, value=value))
-
-        outputs[key] = value
-
-    return outputs
 
 
 def _write_template_to_disk(directory, template_name, parsed_template):
@@ -61,9 +18,8 @@ def _write_template_to_disk(directory, template_name, parsed_template):
     LOGGER.info('Created {file_path}'.format(file_path=property_path))
 
 
-def generate_files(aws_profile_name, config_properties):
-    _boto_session(aws_profile_name)
-    stack_output = _get_stack_outputs()
+def generate_files(config_properties):
+    stack_output = get_stack_outputs()
     [stack_output.update(prop) for prop in config_properties]
 
     stack_output['domain_root'] = 'media.{}'.format(stack_output['domain_root'])
@@ -83,7 +39,9 @@ def generate_files(aws_profile_name, config_properties):
 
 def generate():
     config = get_config()
-    generate_files(config.get('aws_profile'), config.get('properties'))
+    generate_files(config.get('properties'))
 
 if __name__ == '__main__':
+    LOGGER.info('Start')
     generate()
+    LOGGER.info('End')
