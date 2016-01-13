@@ -10,6 +10,7 @@ import './results';
 import '../preview/image';
 import '../lib/data-structure/list-factory';
 import '../lib/data-structure/ordered-set-factory';
+import '../util/storage';
 import '../components/gr-top-bar/gr-top-bar';
 import '../components/gr-panel/gr-panel';
 import '../components/gr-collections-panel/gr-collections-panel';
@@ -36,7 +37,8 @@ export var search = angular.module('kahuna.search', [
     'gr.keyboardShortcut',
     'grPanel',
     'grCollectionsPanel',
-    'ui.router'
+    'ui.router',
+    'util.storage'
 ]);
 
 // TODO: add a resolver here so that if we error (e.g. 401) we don't keep trying
@@ -73,12 +75,15 @@ search.config(['$stateProvider', '$urlMatcherFactoryProvider',
             }]
         },
         controllerAs: 'ctrl',
-        controller: ['$scope', 'panels', 'shortcutKeys', 'hotkeys', 'keyboardShortcut',
-                     function($scope, panels, shortcutKeys, keyboardShortcut) {
+        controller: [
+            '$scope', 'panels', 'shortcutKeys', 'keyboardShortcut', 'panelService',
+            function($scope, panels, shortcutKeys, keyboardShortcut, panelService) {
 
             const ctrl = this;
             ctrl.collectionsPanel = panels.collectionsPanel;
             ctrl.metadataPanel = panels.metadataPanel;
+
+            panelService.setAndSaveState($scope, 'collections', ctrl.collectionsPanel);
 
             keyboardShortcut.bindTo($scope).add({
                 combo: shortcutKeys.get('metadataPanel'),

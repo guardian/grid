@@ -1,10 +1,11 @@
 import angular from 'angular';
 import Rx from 'rx';
+import '../util/storage';
 
 
-export const panelService = angular.module('kahuna.services.panel', []);
+export const panelService = angular.module('kahuna.services.panel', ['util.storage']);
 
-panelService.factory('panelService', [function () {
+panelService.factory('panelService', ['storage', function (storage) {
     function mergeState(o, n) {
         // This is to avoid us getting into the state of (hidden && locked)
         // TODO: Error on a client asking for that state, given that we don't expose a method
@@ -51,8 +52,21 @@ panelService.factory('panelService', [function () {
         return newPanel(hidden, locked);
     }
 
+    function setAndSaveState($scope, name, panel) {
+        // TODO: Should we apply this to all panels?
+        const storeName = `${name}PanelState`;
+        const state = storage.getItem(storeName) || {locked: false, hidden: true};
+        const sub = panel.state$.subscribe(state => storage.setItem(storeName, state));
+
+        panel.setHidden(state.hidden);
+        panel.setLocked(state.locked);
+
+        $scope.$on('$destroy', () => sub.dispose());
+    }
+
     return {
-        createPanel
+        createPanel,
+        setAndSaveState
     };
 
 }]);
