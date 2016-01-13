@@ -1,6 +1,5 @@
 package com.gu.mediaservice.model
 
-import ch.qos.logback.core.pattern.util.RestrictedEscapeUtil
 import play.api.libs.json._
 
 sealed trait UsageRights {
