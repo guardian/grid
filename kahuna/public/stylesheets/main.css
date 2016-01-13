@@ -1138,11 +1138,16 @@ FIXME: what to do with touch devices
     cursor: help;
 }
 
-.preview__in-collection {
+.preview__collections {
     cursor: help;
 }
 
-.preview__in-collection__list {
+.preview__collections__collection {
+    padding: 0 5px;
+    margin-right: 4px;
+}
+
+.preview__collections__list {
     max-width: 205px;
 }
 
