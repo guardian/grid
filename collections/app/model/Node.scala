@@ -22,7 +22,7 @@ object Node {
           // use the T at this level or an empty node to hold children
           Node(currentSlug, loop(children, thisFullPath), thisFullPath, thisLevel.headOption)
         }
-        .sortBy(node => (node.children.isEmpty, node.fullPath.last))
+        .sortBy(node => (node.children.isEmpty, node.basename))
     }
     Node[T]("root", loop(list, Nil), Nil, None)
   }
