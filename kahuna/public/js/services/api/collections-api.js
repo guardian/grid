@@ -59,11 +59,35 @@ apiServices.factory('collections',
     }
 
     function addImagesToCollection(images, path) {
+
         const promises = images.map(image =>
             image.perform('add-collection', {body: {data: path}})
+            .then(collectionAdded => apiPoll(() =>
+                 untilNewCollectionAppears(image, collectionAdded)
+            ))
+            .then(newImage => {
+                $rootScope.$emit('image-updated', newImage, image);
+                return newImage;
+            })
+
         ).toJS();
 
         return Promise.all(promises);
+    }
+
+    function getCollectionsX(apiImageResource) {
+        return apiImageResource.data.collections.map(e => e.data.pathId);
+    }
+
+    function untilNewCollectionAppears(image, collectionAdded) {
+        return image.get().then( (apiImage) => {
+            const apiCollections = getCollectionsX(apiImage);
+            if(apiCollections.indexOf(collectionAdded.data.pathId) > -1) {
+                return apiImage;
+            } else {
+                return $q.reject();
+            }
+        })
     }
 
     function collectionsEquals(collectionsA, collectionsB) {
