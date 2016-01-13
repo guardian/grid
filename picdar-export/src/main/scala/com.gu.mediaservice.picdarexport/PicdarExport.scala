@@ -12,6 +12,10 @@ import com.gu.mediaservice.picdarexport.model._
 import play.api.Logger
 import play.api.libs.concurrent.Execution.Implicits._
 
+import com.gu.mediaservice.picdarexport.lib.usage.PrintUsageRequestFactory
+import com.gu.mediaservice.model.PrintUsageRequest
+
+
 import scala.concurrent.Future
 import scala.language.postfixOps
 import org.joda.time.DateTime
@@ -27,12 +31,16 @@ class ExportManager(picdar: PicdarClient, loader: MediaLoader, mediaApi: MediaAp
       uri    <- loader.upload(data, picdarUrn, uploadTime)
     } yield uri
 
-  def sendUsage(mediaUri: URI, usage: List[PicdarUsageRecord]): Future[URI] = {
+  def sendUsage(mediaUri: URI, usage: List[PicdarUsageRecord]): Future[Unit] = {
+    val printUsageRequest = PrintUsageRequestFactory.create(usage)
+
     for {
       imageResource <- mediaApi.getImageResource(mediaUri)
       actions = imageResource.actions
       printUsageUri <- Future { actions.find(_.name == "add-print-usage").map(_.href).get }
-    } yield printUsageUri
+      _ = println(printUsageUri)
+      _ = println(printUsageRequest)
+    } yield Unit
   }
 
   def overrideMetadata(mediaUri: URI, picdarMetadata: ImageMetadata): Future[Boolean] =

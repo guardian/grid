@@ -3,6 +3,7 @@ package com.gu.mediaservice.model
 import org.joda.time.DateTime
 import play.api.libs.json._
 
+
 case class PrintUsageRequest(printUsageRecords: List[PrintUsageRecord])
 object PrintUsageRequest {
   implicit val reads: Reads[PrintUsageRequest] = Json.reads[PrintUsageRequest]
