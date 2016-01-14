@@ -51,11 +51,10 @@ object ImageCollectionsController extends Controller with ArgoHelpers {
       CollectionsManager.findIndexes(path, collections) match {
         case Nil =>
           Future.successful(respondNotFound(s"Collection $collectionString not found"))
-        case indexes => {
+        case indexes =>
           dynamo.listRemoveIndexes[Collection](id, "collections", indexes)
             .map(publish(id))
             .map(cols => respond(cols))
-        }
       }
     } recover {
       case NoItemFound => respondNotFound("No collections found")
