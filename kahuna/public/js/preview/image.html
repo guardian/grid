@@ -76,7 +76,7 @@
             </span>
 
             <span class="bottom-bar__meta-item titip-bottom preview__in-collection"
-                ng:if="ctrl.image.data.collections.length > 0">
+                ng:if="ctrl.showCollections && ctrl.image.data.collections.length > 0">
                 <gr-icon gr-small>folder</gr-icon>
                 <span class="titip-content preview__in-collection__list">
                     <li ng-repeat="collection in ctrl.image.data.collections">

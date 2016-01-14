@@ -5,37 +5,46 @@ import template from './gr-image-metadata.html!text';
 import '../../image/service';
 import '../../edits/service';
 import '../../analytics/track';
+import '../../util/collections';
 
 
 export const module = angular.module('gr.imageMetadata', [
     'gr.image.service',
     'kahuna.edits.service',
-    'analytics.track'
+    'analytics.track',
+    'util.collections'
 ]);
 
 module.controller('grImageMetadataCtrl', [
     '$rootScope',
     '$scope',
+    '$window',
     'imageService',
     'editsService',
     'mediaApi',
     'editsApi',
     'collections',
     'track',
+    'collectionsEnabled',
 
     function ($rootScope,
               $scope,
+              $window,
               imageService,
               editsService,
               mediaApi,
               editsApi,
               collections,
-              track) {
+              track,
+              collectionsEnabled) {
 
         let ctrl = this;
 
         ctrl.showUsageRights = false;
         ctrl.usageRights = imageService(ctrl.image).usageRights;
+
+        // TODO: Remove this once we're happy with the collections panel
+        ctrl.showCollections = collectionsEnabled;
 
         // Alias for convenience in view
         ctrl.metadata = ctrl.image.data.metadata;
