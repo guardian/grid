@@ -43,14 +43,14 @@ object CollectionsManager {
   // We could use `ValidationNel`s here, but that's overkill
   def isValidPathBit(s: String) = if (s.contains(delimiter)) false else true
 
-  // TODO: Find something that works off a palette, this is terrible.
-  def stringToCssRgb(s: String): String = {
-    val hash = s.hashCode
-    val r = (hash & 0xFF0000) >> 16
-    val g = (hash & 0x00FF00) >> 8
-    val b = hash & 0x0000FF
-    s"rgb($r, $g, $b)"
-  }
+  val collectionColours = Map(
+    "g2"           -> "#000000",
+    "observer"     -> "#006f94",
+    "culture"      -> "#d1008b",
+    "film & music" -> "#b1532f"
+  )
 
-  def getCssColour(path: List[String]): String = path.headOption.map(stringToCssRgb).getOrElse("#cccccc")
+  def getCollectionColour(s: String) = collectionColours.get(s)
+
+  def getCssColour(path: List[String]): String = path.headOption.flatMap(getCollectionColour).getOrElse("#cccccc")
 }
