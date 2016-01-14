@@ -48,11 +48,15 @@ object ImageCollectionsController extends Controller with ArgoHelpers {
     // Given that we're using Dynamo Lists this seemed like a decent way to do it.
     // Dynamo Lists, like other lists do respect order.
     dynamo.listGet[Collection](id, "collections") flatMap { collections =>
-      CollectionsManager.findIndex(path, collections) map { index =>
-        dynamo.listRemoveIndex[Collection](id, "collections", index)
-          .map(publish(id))
-          .map(cols => respond(cols))
-      } getOrElse Future.successful(respondNotFound(s"Collection $collectionString not found"))
+      CollectionsManager.findIndexes(path, collections) match {
+        case Nil =>
+          Future.successful(respondNotFound(s"Collection $collectionString not found"))
+        case indexes => {
+          dynamo.listRemoveIndexes[Collection](id, "collections", indexes)
+            .map(publish(id))
+            .map(cols => respond(cols))
+        }
+      }
     } recover {
       case NoItemFound => respondNotFound("No collections found")
     }
