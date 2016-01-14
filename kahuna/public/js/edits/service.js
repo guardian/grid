@@ -270,7 +270,7 @@ service.factory('editsService',
              same behaviour as xeditable.
              */
 
-            return Promise.resolve(false);
+            return $q.when(false);
         }
 
         var proposedMetadata = angular.copy(metadata);

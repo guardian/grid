@@ -56,7 +56,7 @@ dndUploader.controller('DndUploaderCtrl',
             const rightsUpdate = editsService.
                       update(userRights, rights, fullImage);
 
-            return Promise.all([metadataUpdate, rightsUpdate]).
+            return $q.all([metadataUpdate, rightsUpdate]).
                 then(() => fullImage.data.id);
         });
     }
