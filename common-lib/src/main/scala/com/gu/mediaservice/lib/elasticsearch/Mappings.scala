@@ -112,6 +112,7 @@ object Mappings {
     "path" -> nonAnalysedList("collectionPath"),
     "pathId" -> (nonAnalyzedString ++ copyTo("collections.pathHierarchy")),
     "pathHierarchy" -> hierarchyAnalysedString,
+    "description" -> nonAnalyzedString,
     "actionData" -> actionDataMapping
   ))
 
@@ -202,6 +203,7 @@ object Mappings {
           "uploadInfo" -> uploadInfoMapping,
           "suggestMetadataCredit" -> simpleSuggester,
           "usages" -> usagesMapping,
+          "usagesLastModified" -> dateFormat,
           "collections" -> collectionMapping,
           "suggestMetadataCredit" -> simpleSuggester
         ),

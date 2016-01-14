@@ -34,7 +34,7 @@ object ImageCollectionsController extends Controller with ArgoHelpers {
 
   def addCollection(id: String) = Authenticated.async(parse.json) { req =>
     (req.body \ "data").asOpt[List[String]].map { path =>
-      val collection = Collection(path, ActionData(getUserFromReq(req), DateTime.now()))
+      val collection = Collection.build(path, ActionData(getUserFromReq(req), DateTime.now()))
       dynamo.listAdd(id, "collections", collection)
         .map(publish(id))
         .map(cols => respond(collection))

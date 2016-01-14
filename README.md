@@ -233,22 +233,28 @@ The user interface should be up at
 
 ### [Run ImgOps](imgops/README.md)
 
-### Running with [Foreman](https://github.com/ddollar/foreman)
-This runs all the applications from a single command
+### Running with [GridRunner](https://github.com/guardian/grid_runner/)
+Grid Runner helps manage grid microservices
 
-Install foreman: 
+Install grid_runner: 
 
-        $ gem install foreman
+        $ gem install grid_runner
 
-From the project root 
+* aliases makes life better (in .bash_profile or somehwere similar):
+        alias gr=grid_runner
+* remember to update once in a while
 
-        $ foreman start
+From the project root:
 
-If you'd like to run a single appplication name (or have your logs in different consoles):
+        $ gr list
+        $ gr run all 
+        $ gr kill kahuna media-api
+        $ gr restart elasticsearch
+        $ gr log thrall usage
 
-        $ foreman run APPLICATION_NAME
+* all commands take either "all" or a space-delimited list of apps
 
-you can see the different application names in the Procfile
+you can see the different application names in the Procfile (in project root)
 
 ## Troubleshooting
 

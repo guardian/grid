@@ -28,7 +28,7 @@ gr-nodes, gr-node,
     box-sizing: border-box;
 }
 .node__info:hover,
-.collection-drop--drag-over {
+.collection-drop-drag-over {
     background-color: #666;
 }
 
@@ -63,16 +63,4 @@ gr-nodes, gr-node,
 .collections-panel-heading {
     padding: 5px 10px;
     border-bottom: 1px solid #565656;
-}
-
-/* Annoyingly I can't find a way to do this with variables */
-.collection-drop {
-    -webkit-transition: background-color .25s linear;
-    transition: background-color .25s linear;
-}
-.collection-drop--saving {
-    opacity: 0.5;
-}
-.node__info.collection-drop--complete {
-    background: #00adee;
 }

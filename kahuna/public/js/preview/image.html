@@ -75,6 +75,19 @@
                 {{::ctrl.image.data.uploadTime | date:'HH:mm'}}
             </span>
 
+            <span class="bottom-bar__meta-item titip-bottom preview__in-collection"
+                ng:if="ctrl.image.data.collections.length > 0">
+                <gr-icon gr-small>folder</gr-icon>
+                <span class="titip-content preview__in-collection__list">
+                    <li ng-repeat="collection in ctrl.image.data.collections">
+                        <a ui:sref="search.results({query: '~'+collection.data.pathId})">
+                            {{collection.data.path.join(' ▸ ')}}
+                        </a>
+                        <br>
+                    </li>
+                </span>
+            </span>
+
             <span class="bottom-bar__meta-item preview__has-crops"
                   title="this image has crops"
                   ng:if="ctrl.states.hasCrops">

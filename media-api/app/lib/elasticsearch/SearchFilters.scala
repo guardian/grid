@@ -43,26 +43,8 @@ trait SearchFilters extends ImageFields {
   val freeFilter = filterOrFilter(freeSupplierFilter, freeUsageRightsFilter)
   val nonFreeFilter = freeFilter.map(filters.not)
 
-  // FIXME: There must be a better way (._.). Potentially making cost a lookup
-  // again?
-  lazy val freeToUseCategories: List[String] = List(
-    CreativeCommons.category,
-    CrownCopyright.category,
-    GuardianWitness.category,
-    Handout.category,
-    Obituary.category,
-    Pool.category,
-    PrImage.category,
-    Screengrab.category,
-    SocialMedia.category,
-    CommissionedAgency.category,
-    StaffPhotographer.category,
-    ContractPhotographer.category,
-    CommissionedPhotographer.category,
-    ContractIllustrator.category,
-    CommissionedIllustrator.category,
-    Composite.category
-  )
+  lazy val freeToUseCategories: List[String] =
+    UsageRights.all.filter(ur => ur.defaultCost.contains(Free)).map(ur => ur.category)
 
   val persistedCategories = NonEmptyList(
     StaffPhotographer.category,

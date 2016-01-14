@@ -4,7 +4,6 @@ import java.net.URI
 
 import com.gu.mediaservice.lib.argo.model.{Link, EmbeddedEntity, Action}
 import com.gu.mediaservice.lib.collections.CollectionsManager
-import com.gu.mediaservice.lib.net.URI.decode
 
 import lib.ControllerHelper
 import model.Node
@@ -20,7 +19,7 @@ import scala.concurrent.Future
 import com.gu.mediaservice.lib.argo.ArgoHelpers
 import com.gu.mediaservice.model.{ActionData, Collection}
 
-import store.CollectionsStore
+import store.{CollectionsStoreError, CollectionsStore}
 
 
 case class InvalidPrinciple(message: String) extends Throwable
@@ -49,9 +48,9 @@ object CollectionsController extends Controller with ArgoHelpers {
   val indexLinks = List(Link("collections", collectionUri.toString))
 
   def addChildAction(pathId: List[String] = Nil): Option[Action] = Some(Action("add-child", collectionUri(pathId), "POST"))
-  def addChildAction(n: Node[Collection]): Option[Action] = addChildAction(n.path)
+  def addChildAction(n: Node[Collection]): Option[Action] = addChildAction(n.fullPath)
   def removeNodeAction(n: Node[Collection]) = if (n.children.nonEmpty) None else Some(
-    Action("remove", collectionUri(n.path), "DELETE")
+    Action("remove", collectionUri(n.fullPath), "DELETE")
   )
 
   def index = Authenticated { req =>
@@ -64,17 +63,22 @@ object CollectionsController extends Controller with ArgoHelpers {
   def invalidJson(json: JsValue) =
     respondError(BadRequest, "invalid-json", s"Could not parse json: ${json.toString}")
 
+  def storeError(message: String) =
+    respondError(InternalServerError, "collection-store-error", message)
+
   def getActions(n: Node[Collection]): List[Action] = {
     List(addChildAction(n), removeNodeAction(n)).flatten
   }
 
   def getCollections = Authenticated.async { req =>
     CollectionsStore.getAll map { collections =>
-      val tree = Node.buildTree[Collection]("root",
+      val tree = Node.fromList[Collection](
         collections,
         (collection) => collection.path)
 
       respond(Json.toJson(tree)(asArgo), actions = List(addChildAction()).flatten)
+    } recover {
+      case e: CollectionsStoreError => storeError(e.message)
     }
   }
 
@@ -85,10 +89,13 @@ object CollectionsController extends Controller with ArgoHelpers {
     (req.body \ "data").asOpt[String] map { child =>
       if (isValidPathBit(child)) {
         val path = collectionPathId.map(uriToPath).getOrElse(Nil) :+ child
-        val collection = Collection(path, ActionData(getUserFromReq(req), DateTime.now))
+        val collection = Collection.build(path, ActionData(getUserFromReq(req), DateTime.now))
+
         CollectionsStore.add(collection).map { collection =>
           val node = Node(collection.path.last, Nil, collection.path, Some(collection))
           respond(node, actions = getActions(node))
+        } recover {
+          case e: CollectionsStoreError => storeError(e.message)
         }
       } else {
         Future.successful(respondError(BadRequest, "invalid-input", "You cannot have slashes in your path name"))
@@ -97,8 +104,10 @@ object CollectionsController extends Controller with ArgoHelpers {
   }
 
   def removeCollection(collectionPath: String) = Authenticated.async { req =>
-    CollectionsStore.remove(decode(collectionPath)) map { collectionOpt =>
-      collectionOpt.map(_ => Accepted).getOrElse(NotFound)
+    CollectionsStore.remove(CollectionsManager.uriToPath(collectionPath)) map { unit =>
+      Accepted
+    } recover {
+      case e: CollectionsStoreError => InternalServerError
     }
   }
 
@@ -107,21 +116,23 @@ object CollectionsController extends Controller with ArgoHelpers {
   implicit def collectionEntityWrites: Writes[Node[EmbeddedEntity[Collection]]] = (
     (__ \ "name").write[String] ~
     (__ \ "children").lazyWrite(Writes.seq[Node[EmbeddedEntity[Collection]]](collectionEntityWrites)) ~
-    (__ \ "content").writeNullable[EmbeddedEntity[Collection]]
-  )(node => (node.name, node.children, node.content))
+    (__ \ "fullPath").write[List[String]] ~
+    (__ \ "data").writeNullable[EmbeddedEntity[Collection]]
+  )(node => (node.basename, node.children, node.fullPath, node.data))
 
   type CollectionsEntity = Seq[EmbeddedEntity[Node[Collection]]]
   implicit def asArgo: Writes[Node[Collection]] = (
-    (__ \ "name").write[String] ~
+    (__ \ "basename").write[String] ~
       (__ \ "children").lazyWrite[CollectionsEntity](Writes[CollectionsEntity]
           // This is so we don't have to rewrite the Write[Seq[T]]
           (seq => Json.toJson(seq))).contramap(collectionsEntity) ~
-      (__ \ "content").writeNullable[Collection]
-    )(node => (node.name, node.children, node.content))
+      (__ \ "fullPath").write[List[String]] ~
+      (__ \ "data").writeNullable[Collection]
+    )(node => (node.basename, node.children, node.fullPath, node.data))
 
 
   def collectionsEntity(nodes: List[Node[Collection]]): CollectionsEntity = {
-    nodes.map(n => EmbeddedEntity(collectionUri(n.path), Some(n), actions = getActions(n)))
+    nodes.map(n => EmbeddedEntity(collectionUri(n.fullPath), Some(n), actions = getActions(n)))
   }
 
 }

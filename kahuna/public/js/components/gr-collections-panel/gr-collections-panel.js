@@ -6,6 +6,7 @@ import '../../services/panel';
 import '../../services/api/collections-api';
 import '../../services/api/media-api';
 import '../../directives/gr-auto-focus';
+import '../../util/eq';
 
 import './gr-collections-panel.css!';
 import {getCollection} from '../../search-query/query-syntax';
@@ -13,8 +14,48 @@ import nodeTemplate from './gr-collections-panel-node.html!text';
 
 export var grCollectionsPanel = angular.module('grCollectionsPanel', [
     'kahuna.services.panel',
-    'util.rx'
+    'util.rx',
+    'util.eq'
 ]);
+
+grCollectionsPanel.factory('collectionsTreeState', ['$window', function($window) {
+    // TODO: Add garbage collection to state.
+    const localStorageKey = 'collectionsTreeOpen';
+    const jsonStr = $window.localStorage.getItem(localStorageKey) || '[]';
+
+    // A little bit of superstition in case this was set weirdly before.
+    let jsonArr = [];
+    try {
+        jsonArr = JSON.parse(jsonStr);
+        if (!Array.isArray(jsonArr)) {
+            jsonArr = [];
+            $window.localStorage.setItem(localStorageKey, '[]');
+        }
+    } catch (_) {
+        // On JSON.parse fail - use default
+    }
+    const stateCache = new Set(jsonArr);
+
+
+    function setState(pathId, show) {
+        if (show) {
+            stateCache.add(pathId);
+        } else {
+            stateCache.delete(pathId);
+        }
+        $window.localStorage.setItem(localStorageKey, JSON.stringify(Array.from(stateCache)));
+    }
+
+    function getState(pathId) {
+        return stateCache.has(pathId);
+    }
+
+    return {
+        setState,
+        getState
+    };
+
+}]);
 
 grCollectionsPanel.controller('GrCollectionsPanelCtrl', [
     'collections', 'selectedImages$', 'selectedCollections',
@@ -38,19 +79,22 @@ grCollectionsPanel.controller('GrCollectionsPanelCtrl', [
 }]);
 
 grCollectionsPanel.controller('GrNodeCtrl',
-    ['$scope', 'collections', 'subscribe$', 'inject$',
-    function($scope, collections, subscribe$, inject$) {
+    ['$scope', 'collections', 'subscribe$', 'inject$', 'onValChange', 'collectionsTreeState',
+    function($scope, collections, subscribe$, inject$, onValChange, collectionsTreeState) {
 
     const ctrl = this;
+    const pathId = ctrl.node.data.data.pathId;
+
     ctrl.saving = false;
     ctrl.deletable = false;
+    ctrl.showChildren = collectionsTreeState.getState(pathId);
+
     ctrl.formError = null;
     ctrl.addChild = childName => {
         return collections.addChildTo(ctrl.node, childName).
                  then($scope.clearForm).
                  catch(e => $scope.formError = e.body && e.body.errorMessage);
     };
-
 
     collections.isDeletable(ctrl.node).then(d => ctrl.deletable = d);
 
@@ -66,7 +110,7 @@ grCollectionsPanel.controller('GrNodeCtrl',
     const hasImagesSelected$ = ctrl.selectedImages$.map(i => i.size > 0);
     ctrl.addImagesToCollection = () => {
         ctrl.saving = true;
-        add$.onNext(ctrl.node.data.content.path);
+        add$.onNext(ctrl.node.data.fullPath);
     };
 
     subscribe$($scope, pathWithImages$, ({path, images}) => {
@@ -75,9 +119,12 @@ grCollectionsPanel.controller('GrNodeCtrl',
 
     inject$($scope, hasImagesSelected$, ctrl, 'hasImagesSelected');
 
+    $scope.$watch('ctrl.showChildren', onValChange(show => {
+        collectionsTreeState.setState(pathId, show);
+    }));
 
     ctrl.isSelected = ctrl.selectedCollections.some(col => {
-        return angular.equals(col, ctrl.node.data.content.path);
+        return angular.equals(col, ctrl.node.data.fullPath);
     });
 
 }]);
@@ -103,7 +150,7 @@ grCollectionsPanel.directive('grNode', ['$parse', '$compile', function($parse, $
                 gr:selected-images="ctrl.selectedImages$"
                 gr:selected-collections="ctrl.selectedCollections"
                 gr:editing="ctrl.editing"
-                ng:show="showChildren"
+                ng:show="ctrl.showChildren"
                 gr:nodes="ctrl.node.data.children"
                 ng:if="ctrl.node.data.children.length > 0"></gr-nodes>
             `)(scope, cloned => {
@@ -147,48 +194,37 @@ grCollectionsPanel.directive('grDropIntoCollection',
     ['$timeout', '$parse', 'vndMimeTypes', 'collections',
     function($timeout, $parse, vndMimeTypes, collections) {
 
-    const className = 'collection-drop';
-    const classDrag = 'collection-drop--drag-over';
-    const classComplete = 'collection-drop--complete';
-    const classSaving = 'collection-drop--saving';
+    const dragOverClass = 'collection-drop-drag-over';
 
     return {
         restrict: 'A',
         link: function(scope, element, attrs) {
             const collectionPath = $parse(attrs.grDropIntoCollection)(scope);
-            element.addClass(className);
 
             element.on('drop', jqEv => {
                 const dt = jqEv.originalEvent.dataTransfer;
                 const gridImagesData = dt.getData(vndMimeTypes.get('gridImagesData'));
                 const gridImageData = dt.getData(vndMimeTypes.get('gridImageData'));
 
-                if (gridImagesData !== '' && gridImageData !== '') {
-                    // TODO: potentially add some UI feedback on adding to collection
+                if (gridImagesData !== '' || gridImageData !== '') {
                     const imagesData = gridImagesData !== '' ?
                         JSON.parse(gridImagesData) : [JSON.parse(gridImageData)];
 
-                    const imageIds = imagesData.map(imageJson => imageJson.id);
-
-                    // TODO: Find a better way of dealing with this state than classnames
-                    element.addClass(classSaving);
+                    const imageIds = imagesData.map(imageJson => imageJson.data.id);
+                    scope.dropIntoCollectionSaving = true;
                     collections.addImageIdsToCollection(imageIds, collectionPath).then(() => {
-                        element.removeClass(classSaving);
-                        element.addClass(classComplete);
-                        $timeout(() => {
-                            element.removeClass(classComplete);
-                        }, 500);
+                        scope.dropIntoCollectionSaving = false;
                     });
                 }
-                element.removeClass(classDrag);
+                element.removeClass(dragOverClass);
             });
 
             element.on('dragover', () => {
-                element.addClass(classDrag);
+                element.addClass(dragOverClass);
             });
 
             element.on('dragleave', () => {
-                element.removeClass(classDrag);
+                element.removeClass(dragOverClass);
             });
         }
     };
