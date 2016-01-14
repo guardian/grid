@@ -202,14 +202,23 @@
     </div>
 </div>
 
-<div class="image-info" ng:if="ctrl.image.data.collections.length > 0">
-    <dl class="image-info__group">
+<div class="image-info" ng:if="ctrl.showCollections && ctrl.image.data.collections.length > 0">
+    <dl class="image-info__group ">
         <dt class="metadata-line__key">Collections</dt>
-        <dd class="metadata-line__info"
+        <dd class="metadata-line__info flex-container"
             ng-repeat="collection in ctrl.image.data.collections">
             <a ui:sref="search.results({query: '~'+collection.data.pathId})">
                 {{collection.data.path.join(' ▸ ')}}
             </a>
+            <span class="flex-spacer"></span>
+            <span ng:if="ctrl.removingCollection === collection">Removing…</span>
+            <button class="clickable" type="button"
+                    ng:click="ctrl.removeImageFromCollection(collection)"
+                    ng:hide="ctrl.removingCollection === collection"
+                    gr:tooltip="Remove image from this collection"
+                    gr:tooltip-position="top-left">
+                <gr-icon-label gr-icon="clear"></gr-icon-label>
+            </button>
         </dd>
     </dl>
 </div>

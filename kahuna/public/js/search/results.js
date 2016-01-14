@@ -13,6 +13,7 @@ import '../components/gr-archiver/gr-archiver';
 import '../components/gr-delete-image/gr-delete-image';
 import '../components/gr-downloader/gr-downloader';
 import '../components/gr-panel-button/gr-panel-button';
+import '../util/collections';
 
 export var results = angular.module('kahuna.search.results', [
     'kahuna.services.scroll-position',
@@ -61,6 +62,8 @@ results.controller('SearchResultsCtrl', [
     'panels',
     'range',
     'isReloadingPreviousSearch',
+    'collectionsEnabled',
+
     function($rootScope,
              $scope,
              $state,
@@ -79,7 +82,8 @@ results.controller('SearchResultsCtrl', [
              results,
              panels,
              range,
-             isReloadingPreviousSearch) {
+             isReloadingPreviousSearch,
+             collectionsEnabled) {
 
         const ctrl = this;
 
@@ -91,7 +95,8 @@ results.controller('SearchResultsCtrl', [
         ctrl.newImagesCount = 0;
 
         // TODO: Remove this once we're happy with the collections panel
-        ctrl.showCollectionsPanel = $window.localStorage.getItem('showCollectionsPanel') === 'true';
+        ctrl.showCollections = collectionsEnabled;
+
 
         // Map to track image->position and help remove duplicates
         let imagesPositions;
