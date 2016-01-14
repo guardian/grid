@@ -1,11 +1,11 @@
+import angular from 'angular';
 import jQuery from 'jquery';
 import 'jcrop';
 
-import controlsDirectives from '../directives';
+export var cropBox = angular.module('ui.cropBox', []);
 
-
-controlsDirectives.directive('uiCropBox', ['$timeout', '$parse', 'safeApply', 'nextTick', 'delay',
-                                           function($timeout, $parse, safeApply, nextTick, delay) {
+cropBox.directive('uiCropBox', ['$timeout', '$parse', 'safeApply', 'nextTick', 'delay',
+                                function($timeout, $parse, safeApply, nextTick, delay) {
 
     // Annoyingly, AngularJS passes us values as strings,
     // so we need to convert them, which can potentially

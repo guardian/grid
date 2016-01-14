@@ -1,10 +1,13 @@
 import angular from 'angular';
 import Rx from 'rx';
 
-import '../services/api/edits-api';
-import '../services/api/media-api';
+import {editsApi} from '../services/api/edits-api';
+import {mediaApi} from '../services/api/media-api';
 
-export var service = angular.module('kahuna.edits.service', []);
+export var service = angular.module('kahuna.edits.service', [
+    editsApi.name,
+    mediaApi.name
+]);
 
 // TODO: For now we're sending over the image so we can compare against it to
 // see when it's synced. We should have a link on the resource to be able to do

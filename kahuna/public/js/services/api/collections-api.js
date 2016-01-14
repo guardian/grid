@@ -1,7 +1,11 @@
 import angular from 'angular';
-import apiServices from '../api';
+import {mediaApi} from './media-api';
 
-apiServices.factory('collections', ['$q', 'mediaApi', function ($q, mediaApi) {
+export var collectionsApi = angular.module('kahuna.services.api.collections', [
+    mediaApi.name
+]);
+
+collectionsApi.factory('collections', ['$q', 'mediaApi', function ($q, mediaApi) {
     // TODO: Rx?
     let collections;
 
