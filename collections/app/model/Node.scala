@@ -3,7 +3,7 @@ package model
 import play.api.libs.functional.syntax._
 import play.api.libs.json._
 
-
+// TODO: Convert fullPath to NonEmptylist
 case class Node[T](basename: String, children: List[Node[T]], fullPath: List[String], data: Option[T])
 object Node {
   def fromList[T](list: List[T], getPath: T => List[String]): Node[T] = {
@@ -22,6 +22,7 @@ object Node {
           // use the T at this level or an empty node to hold children
           Node(currentSlug, loop(children, thisFullPath), thisFullPath, thisLevel.headOption)
         }
+        .sortBy(node => (node.children.isEmpty, node.basename))
     }
     Node[T]("root", loop(list, Nil), Nil, None)
   }
