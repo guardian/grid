@@ -1,15 +1,10 @@
 package com.gu.mediaservice.model
 
-import java.net.URI
-
 import org.joda.time.DateTime
 import play.api.libs.json._
 import play.api.libs.functional.syntax._
 
 import com.gu.mediaservice.lib.collections.CollectionsManager
-import com.gu.mediaservice.lib.argo.model.{Action, EmbeddedEntity}
-
-import scalaz.NonEmptyList
 
 case class Collection private (path: List[String], actionData: ActionData, description: String) {
   val pathId = CollectionsManager.pathToString(path)
