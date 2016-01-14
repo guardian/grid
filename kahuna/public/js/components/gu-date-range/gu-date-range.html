@@ -1,5 +1,8 @@
 <div class="gu-date-range" ng:init="ctrl.showOverlay = false">
-    <div class="gu-date-range__display" ng:click="ctrl.showOverlay = !ctrl.showOverlay">
+    <button class="gu-date-range__display"
+            ng:click="ctrl.showOverlay = !ctrl.showOverlay"
+            gr:track-click="{{ctrl.trackingName}}"
+            gr:track-click-data="{ 'Action': 'Show Hide' }">
         <gr-icon>event</gr-icon>
         <div class="gu-date-range__display--value">
             <span ng:show="ctrl.guDisplayStartDate !== ctrl.guAnyTimeText && !ctrl.guDisplayEndDate">from </span>
@@ -11,7 +14,7 @@
             <span ng:hide="ctrl.showOverlay">▸</span>
             <span ng:show="ctrl.showOverlay">▾</span>
         </div>
-    </div>
+    </button>
 
     <div class="gu-date-range__overlay search__overlay" ng:show="ctrl.showOverlay">
         <h2 class="gu-date-range__overlay__title search__overlay__title">Presets</h2>
@@ -19,7 +22,9 @@
             <button type="button"
                     class="gu-date-range__overlay__preset__button button"
                     ng:repeat="presetDate in ctrl.guPresetDates"
-                    ng:click="setPresetDate(presetDate.value)">
+                    ng:click="setPresetDate(presetDate.value)"
+                    gr:track-click="{{ctrl.trackingName}}"
+                    gr:track-click-data="{ 'Action': 'Preset Date', 'Preset Date': presetDate.label }">
                 {{presetDate.label}}
             </button>
         </div>
@@ -55,7 +60,9 @@
             </button>
             <button type="button"
                     class="gu-date-range__overlay__button__ok button"
-                    ng:click="save()">
+                    ng:click="save()"
+                    gr:track-click="{{ctrl.trackingName}}"
+                    gr:track-click-data="{ 'Action': 'Set Filter' }">
                 Filter
             </button>
         </div>
