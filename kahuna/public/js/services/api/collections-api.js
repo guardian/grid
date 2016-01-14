@@ -1,7 +1,7 @@
 import angular from 'angular';
 import apiServices from '../api';
 
-apiServices.factory('collections', ['mediaApi', function (mediaApi) {
+apiServices.factory('collections', ['$q', 'mediaApi', function ($q, mediaApi) {
     // TODO: Rx?
     let collections;
 
@@ -53,7 +53,7 @@ apiServices.factory('collections', ['mediaApi', function (mediaApi) {
         const promises = imageIds.map(id => mediaApi.find(id).then(
                 image => image.perform('add-collection', {body: {data: path}})));
 
-        return Promise.all(promises);
+        return $q.all(promises);
     }
 
     function addImagesToCollection(images, path) {
