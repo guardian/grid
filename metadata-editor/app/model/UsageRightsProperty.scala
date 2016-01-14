@@ -101,6 +101,10 @@ object UsageRightsProperty {
       requiredStringField("suppliers", "Suppliers", examples = Some("REX/Getty Images/Corbis, Corbis/Reuters"))
     )
 
+    case Screengrab => List(
+      requiredStringField("source", "Source", examples = Some("BBC News, HBO, ITV"))
+    )
+
     case _ => List()
   }
 }
