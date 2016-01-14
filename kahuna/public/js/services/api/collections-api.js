@@ -61,7 +61,7 @@ apiServices.factory('collections', ['$q', 'mediaApi', function ($q, mediaApi) {
             image.perform('add-collection', {body: {data: path}})
         ).toJS();
 
-        return Promise.all(promises);
+        return $q.all(promises);
     }
 
     return {
