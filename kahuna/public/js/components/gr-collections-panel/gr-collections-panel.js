@@ -114,7 +114,9 @@ grCollectionsPanel.controller('GrNodeCtrl',
     };
 
     subscribe$($scope, pathWithImages$, ({path, images}) => {
-       collections.addImagesToCollection(images, path).then(() => ctrl.saving = false);
+       collections.addImagesToCollection(images, path).then(() => {
+           $scope.$apply(() => ctrl.saving = false);
+       });
     });
 
     inject$($scope, hasImagesSelected$, ctrl, 'hasImagesSelected');
@@ -213,7 +215,7 @@ grCollectionsPanel.directive('grDropIntoCollection',
                     const imageIds = imagesData.map(imageJson => imageJson.data.id);
                     scope.dropIntoCollectionSaving = true;
                     collections.addImageIdsToCollection(imageIds, collectionPath).then(() => {
-                        scope.dropIntoCollectionSaving = false;
+                        scope.$apply(() => scope.dropIntoCollectionSaving = false);
                     });
                 }
                 element.removeClass(dragOverClass);
