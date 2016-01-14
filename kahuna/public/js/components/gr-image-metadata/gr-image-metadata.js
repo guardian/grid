@@ -136,7 +136,7 @@ module.controller('grImageMetadataCtrl', [
                 });
         };
 
-        ctrl.removeImageFromCollection = function (collection) {
+        ctrl.removeImageFromCollection = (collection) => {
             ctrl.removingCollection = collection;
             collections.removeImageFromCollection(collection, ctrl.image)
                 .then(() => ctrl.removingCollection = false);
