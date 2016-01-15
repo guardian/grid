@@ -1,5 +1,7 @@
 import angular from 'angular';
 
+import {getCollection} from '../search-query/query-syntax';
+
 export var queryFilters = angular.module('kahuna.search.filters.query', []);
 
 var containsSpace = s => / /.test(s);
@@ -25,4 +27,11 @@ queryFilters.filter('queryLabelFilter', function() {
             return `#${cleanValue}`;
         }
     };
+});
+
+queryFilters.filter('queryCollectionFilter', function() {
+    return path => {
+        if (path[0] === 'family') {console.log('filter', path);}
+        return getCollection(path);
+    }
 });
