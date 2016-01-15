@@ -68,7 +68,6 @@ apiServices.factory('collections',
             ))
             .then(newImage => {
                 $rootScope.$emit('image-updated', newImage, image);
-                return newImage;
             })
 
         ).toJS();
@@ -76,14 +75,10 @@ apiServices.factory('collections',
         return $q.all(promises);
     }
 
-    function getCollectionsX(apiImageResource) {
-        return apiImageResource.data.collections.map(e => e.data.pathId);
-    }
-
     function untilNewCollectionAppears(image, collectionAdded) {
         return image.get().then( (apiImage) => {
-            const apiCollections = getCollectionsX(apiImage);
-            if(apiCollections.indexOf(collectionAdded.data.pathId) > -1) {
+            const apiCollections = imageAccessor.getCollectionsIds(apiImage);
+            if (apiCollections.indexOf(collectionAdded.data.pathId) > -1) {
                 return apiImage;
             } else {
                 return $q.reject();
@@ -98,7 +93,7 @@ apiServices.factory('collections',
         );
     }
 
-    function getCollectionsIds(imageCollections) {
+    function getCollectionsIdsFromCollection(imageCollections) {
         return imageCollections.data.map(col => col.pathId);
     }
 
@@ -116,7 +111,7 @@ apiServices.factory('collections',
     function removeImageFromCollection(collection, image) {
         return collection.perform('remove')
             .then(newImageCollections => apiPoll(() =>
-                untilCollectionsEqual(image, getCollectionsIds(newImageCollections))
+                untilCollectionsEqual(image, getCollectionsIdsFromCollection(newImageCollections))
             ))
             .then(newImage => {
                 $rootScope.$emit('image-updated', newImage, image);
