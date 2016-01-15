@@ -6,12 +6,12 @@ import 'pandular';
 import '../sentry/sentry';
 import './http';
 
-export var global = angular.module(
+export var globalErrors = angular.module(
     'kahuna.errors.global',
     ['ngMessages', 'pandular.session', 'kahuna.errors.http']
 );
 
-global.factory('globalErrors', [function() {
+globalErrors.factory('globalErrors', [function() {
     var errors = {};
 
     function trigger(key) {
@@ -34,7 +34,7 @@ global.factory('globalErrors', [function() {
 }]);
 
 
-global.controller('GlobalErrorsCtrl',
+globalErrors.controller('GlobalErrorsCtrl',
                   ['$location', 'globalErrors',
                    function($location, globalErrors) {
 
@@ -48,7 +48,7 @@ global.controller('GlobalErrorsCtrl',
 }]);
 
 
-global.directive('uiGlobalErrors', [function() {
+globalErrors.directive('uiGlobalErrors', [function() {
     return {
         restrict: 'E',
         controller: 'GlobalErrorsCtrl',

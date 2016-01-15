@@ -1,8 +1,11 @@
-import apiServices from '../api';
+import angular from 'angular';
+import {mediaApi} from './media-api';
 
-apiServices.factory('loaderApi',
-                    ['mediaApi',
-                     function(mediaApi) {
+export var loaderApi = angular.module('kahuna.services.api.loader', [
+    mediaApi.name
+]);
+
+loaderApi.factory('loaderApi', ['mediaApi', function(mediaApi) {
 
     var loaderRoot;
 

@@ -3,8 +3,8 @@ import Rx from 'rx';
 import '../../util/rx';
 
 import '../../services/panel';
-import '../../services/api/collections-api';
-import '../../services/api/media-api';
+import {collectionsApi} from '../../services/api/collections-api';
+import {mediaApi}       from '../../services/api/media-api';
 import '../../directives/gr-auto-focus';
 import '../../util/eq';
 
@@ -14,6 +14,8 @@ import nodeTemplate from './gr-collections-panel-node.html!text';
 
 export var grCollectionsPanel = angular.module('grCollectionsPanel', [
     'kahuna.services.panel',
+    collectionsApi.name,
+    mediaApi.name,
     'util.rx',
     'util.eq'
 ]);

@@ -1,14 +1,13 @@
 import angular from 'angular';
 import template from './dnd-uploader.html!text';
 
-import '../services/api/witness';
+import {witnessApi} from '../services/api/witness';
 import '../analytics/track';
 
 export var dndUploader = angular.module('kahuna.upload.dndUploader', [
     'kahuna.upload.manager',
-    'kahuna.services.api',
+    witnessApi.name,
     'kahuna.edits.service',
-    'kahuna.witness',
     'util.async',
     'analytics.track'
 ]);
