@@ -9,7 +9,7 @@ import com.amazonaws.services.dynamodbv2.document.spec.{GetItemSpec, ScanSpec, U
 import com.amazonaws.services.dynamodbv2.document.utils.ValueMap
 import com.amazonaws.services.dynamodbv2.model.ReturnValue
 import com.amazonaws.services.dynamodbv2.xspec.ExpressionSpecBuilder
-import com.amazonaws.services.dynamodbv2.xspec.ExpressionSpecBuilder.{S, N, M}
+import com.amazonaws.services.dynamodbv2.xspec.ExpressionSpecBuilder.{S, N, M, BOOL}
 
 import com.gu.mediaservice.lib.aws.DynamoDB
 import com.gu.mediaservice.model.{UsageRights, ImageMetadata}
@@ -228,7 +228,7 @@ class ExportDynamoDB(credentials: AWSCredentials, region: Region, tableName: Str
     getUrnsForNotFilledFields[AssetRef](dateRange, Set("picdarUsage"))(
       (item: Item) => AssetRef(item))
   def getUsageNotRecorded(dateRange: DateRange) =
-    getUrnsForNotFilledFields(dateRange, Set("picdarUsage","picdarUsageRecorded"))(
+    getUrnsForNotFilledFields(dateRange, Set("picdarUsage","usageSent"))(
       (item: Item) => AssetRow(item))
 
   def scanNoRights(dateRange: DateRange): Future[Seq[AssetRef]] = Future {
@@ -238,6 +238,25 @@ class ExportDynamoDB(credentials: AWSCredentials, region: Region, tableName: Str
     val projectionAttrs = List("picdarUrn", "picdarCreated", "picdarCreatedFull", "picdarAssetUrl")
     val items = scan(queryConds, projectionAttrs, values)
     items.iterator.map(AssetRef(_)).toSeq
+  }
+
+  def recordUsageSent(urn: String, range: DateTime) = Future {
+    val now = asTimestampString(new DateTime)
+
+    val spec = (new ExpressionSpecBuilder() <| (xspec => {
+      List(
+        BOOL("usageSent").set(true),
+        S("usageSentModified").set(now)
+      ).foreach(xspec.addUpdate(_))
+
+    })).buildForUpdate
+
+    val baseUpdateSpec = new UpdateItemSpec()
+      .withPrimaryKey(IdKey, urn, RangeKey, asRangeString(range))
+      .withExpressionSpec(spec)
+      .withReturnValues(ReturnValue.ALL_NEW)
+
+    table.updateItem(baseUpdateSpec)
   }
 
   def scanRightsFetchedNotOverridden(dateRange: DateRange): Future[Seq[AssetRow]] = Future {

@@ -337,10 +337,13 @@ object ExportApp extends App with ExportManagerProvider with ArgumentHelpers wit
         val mediaUri = asset.mediaUri.get
         val usage = asset.picdarUsage.get
 
-        getExportManager("desk", env).sendUsage(mediaUri, usage).recover { case e: Throwable =>
+        getExportManager("desk", env).sendUsage(mediaUri, usage).flatMap { _ =>
+          Logger.info(s"Usage sent successfully for ${asset.picdarUrn}")
+          dynamo.recordUsageSent(asset.picdarUrn, asset.picdarCreated)
+        } recover { case e: Throwable =>
             Logger.warn(s"Usage send error for ${asset.picdarUrn}: $e")
             e.printStackTrace()
-          }
+        }
       }
       Future.sequence(updates)
     }
