@@ -5,7 +5,7 @@ import scala.util.{Try, Success, Failure}
 import org.joda.time.DateTime
 
 import com.gu.mediaservice.model.UsageStatus
-import com.gu.mediaservice.picdarexport.model.PicdarUsageRecord
+import com.gu.mediaservice.picdarexport.model.{PicdarUsageRecord, PicdarDates}
 
 
 object PicdarUsageRecordFactory {
@@ -25,8 +25,10 @@ object PicdarUsageRecordFactory {
         PicdarUsageRecord(
           urn          = extractOrThrow("_urn"),
           dbParent     = extractOrThrow("_parent"),
-          createdDate  = DateTime.now(),
-          publicationDate = DateTime.now(),
+          createdDate  = PicdarDates.longerFormat
+            .parseDateTime(s"${extractOrThrow("_date")}-${extractOrThrow("_time")}"),
+          publicationDate = PicdarDates.format
+            .parseDateTime(extractOrThrow("publicationdate")),
           productionName  = extractOrThrow("production"),
           publicationName = extractOrThrow("publicationtext"),
           page = extractOrThrow("page").toInt,

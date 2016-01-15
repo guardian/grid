@@ -2,6 +2,8 @@ package com.gu.mediaservice.picdarexport
 
 import java.net.URI
 
+import play.api.libs.json._
+
 import com.gu.mediaservice.model.{UsageRights, ImageMetadata}
 import com.gu.mediaservice.picdarexport.lib.cleanup.{UsageRightsOverride, MetadataOverrides}
 import com.gu.mediaservice.picdarexport.lib.db._
@@ -15,15 +17,14 @@ import play.api.libs.concurrent.Execution.Implicits._
 import com.gu.mediaservice.picdarexport.lib.usage.PrintUsageRequestFactory
 import com.gu.mediaservice.model.PrintUsageRequest
 
-
 import scala.concurrent.Future
 import scala.language.postfixOps
 import org.joda.time.DateTime
 
+
 class ArgumentError(message: String) extends Error(message)
 
-
-class ExportManager(picdar: PicdarClient, loader: MediaLoader, mediaApi: MediaApi) {
+class ExportManager(picdar: PicdarClient, loader: MediaLoader, mediaApi: MediaApi, usageApi: UsageApi) {
 
   def ingest(assetUri: URI, picdarUrn: String, uploadTime: DateTime): Future[URI] =
     for {
@@ -32,14 +33,10 @@ class ExportManager(picdar: PicdarClient, loader: MediaLoader, mediaApi: MediaAp
     } yield uri
 
   def sendUsage(mediaUri: URI, usage: List[PicdarUsageRecord]): Future[Unit] = {
-    val printUsageRequest = PrintUsageRequestFactory.create(usage)
-
     for {
       imageResource <- mediaApi.getImageResource(mediaUri)
-      actions = imageResource.actions
-      printUsageUri <- Future { actions.find(_.name == "add-print-usage").map(_.href).get }
-      _ = println(printUsageUri)
-      _ = println(printUsageRequest)
+      printUsageRequest = PrintUsageRequestFactory.create(usage, imageResource.data.id)
+      _ <- usageApi.postPrintUsage(printUsageRequest)
     } yield Unit
   }
 
@@ -108,6 +105,11 @@ trait ExportManagerProvider {
     override val mediaApiKey = config.apiKey
   }
 
+  def usageApiInstance(config: MediaConfig) = new UsageApi {
+    override val mediaApiKey = config.apiKey
+    override val postPrintUsageEndpointUrl = config.usageUrl
+  }
+
   def getPicdar(system: String) = system match {
     case "desk"    => picdarDesk
     case "library" => picdarLib
@@ -116,9 +118,15 @@ trait ExportManagerProvider {
 
   def getLoader(env: String) = loaderInstance(Config.mediaConfig(env))
   def getMediaApi(env: String) = mediaApiInstance(Config.mediaConfig(env))
+  def getUsageApi(env: String) = usageApiInstance(Config.mediaConfig(env))
 
   def getExportManager(picdarSystem: String, mediaEnv: String) =
-    new ExportManager(getPicdar(picdarSystem), getLoader(mediaEnv), getMediaApi(mediaEnv))
+    new ExportManager(
+      getPicdar(picdarSystem),
+      getLoader(mediaEnv),
+      getMediaApi(mediaEnv),
+      getUsageApi(mediaEnv)
+    )
 
   def getDynamo(env: String) = {
     new ExportDynamoDB(Config.awsCredentials(env), Config.dynamoRegion, Config.picdarExportTable(env))
@@ -182,14 +190,14 @@ object ExportApp extends App with ExportManagerProvider with ArgumentHelpers wit
       println(
         s"""
            |urn: ${asset.urn}
-            |file: ${asset.file}
-            |created: ${asset.created}
-            |modified: ${asset.modified getOrElse ""}
-            |infoUri: ${asset.infoUri getOrElse ""}
-            |metadata:
-            |${asset.metadata}
-            |rights:
-            |${asset.usageRights}
+           |file: ${asset.file}
+           |created: ${asset.created}
+           |modified: ${asset.modified getOrElse ""}
+           |infoUri: ${asset.infoUri getOrElse ""}
+           |metadata:
+           |${asset.metadata}
+           |rights:
+           |${asset.usageRights}
         """.stripMargin
       )
     }
@@ -329,7 +337,7 @@ object ExportApp extends App with ExportManagerProvider with ArgumentHelpers wit
         val mediaUri = asset.mediaUri.get
         val usage = asset.picdarUsage.get
 
-        getExportManager("desk", env).sendUsage(mediaUri, usage).map(println).recover { case e: Throwable =>
+        getExportManager("desk", env).sendUsage(mediaUri, usage).recover { case e: Throwable =>
             Logger.warn(s"Usage send error for ${asset.picdarUrn}: $e")
             e.printStackTrace()
           }

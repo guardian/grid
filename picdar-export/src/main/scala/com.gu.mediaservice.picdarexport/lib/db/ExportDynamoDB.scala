@@ -13,7 +13,7 @@ import com.amazonaws.services.dynamodbv2.xspec.ExpressionSpecBuilder.{S, N, M}
 
 import com.gu.mediaservice.lib.aws.DynamoDB
 import com.gu.mediaservice.model.{UsageRights, ImageMetadata}
-import com.gu.mediaservice.picdarexport.model.{PicdarUsageRecord, DateRange, AssetRef}
+import com.gu.mediaservice.picdarexport.model.{PicdarUsageRecord, DateRange, AssetRef, PicdarDates}
 
 import lib.MD5
 
@@ -188,7 +188,7 @@ class ExportDynamoDB(credentials: AWSCredentials, region: Region, tableName: Str
       new GetItemSpec().
       withPrimaryKey(
         IdKey, ref.urn,
-        RangeKey, AssetRef.dateFormat.print(ref.dateLoaded)
+        RangeKey, PicdarDates.format.print(ref.dateLoaded)
       )
     )
   }
@@ -199,7 +199,7 @@ class ExportDynamoDB(credentials: AWSCredentials, region: Region, tableName: Str
     val items = for {
       date  <- dateRange.dateList
 
-      dateString = AssetRef.dateFormat.print(date)
+      dateString = PicdarDates.format.print(date)
       key = new KeyAttribute(RangeKey, dateString)
       query = imageIndex.query(key).pages.asScala
 

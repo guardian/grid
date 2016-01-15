@@ -22,9 +22,7 @@ object UsageStatus {
   }
 
   implicit val writer = new Writes[UsageStatus] {
-    def writes(usageStatus: UsageStatus): JsValue = {
-      Json.obj("usageStatus" -> usageStatus.toString)
-    }
+    def writes(usageStatus: UsageStatus) = JsString(usageStatus.toString)
   }
 }
 

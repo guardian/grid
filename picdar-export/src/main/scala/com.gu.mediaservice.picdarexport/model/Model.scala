@@ -19,27 +19,32 @@ case class Asset(
   usageRights: Option[UsageRights]
 )
 
+object PicdarDates {
+  // It's really better not to ask.
+  val format =  DateTimeFormat.forPattern("yyyy/MM/dd")
+  val longFormat = DateTimeFormat.forPattern("yyyyMMddHH:mm:ss")
+  val longerFormat = DateTimeFormat.forPattern("yyyy/MM/dd-HH:mm:ss")
+}
 
 case class AssetRef(urn: String, dateLoaded: DateTime)
 object AssetRef {
-  val dateFormat =  DateTimeFormat.forPattern("yyyy-MM-dd")
 
   def apply(item: Item): AssetRef =
     AssetRef(
       item.getString("picdarUrn"),
-      dateFormat.parseDateTime(item.getString("picdarCreated"))
+      PicdarDates.format.parseDateTime(item.getString("picdarCreated"))
     )
 }
 
 
 case class DateRange(start: Option[DateTime], end: Option[DateTime]) {
   val startDay = start.getOrElse(DateRange.defaultStartDate)
-  val endDay = end.getOrElse(DateRange.defaultEndDate)
-  val numDays = Days.daysBetween(startDay, endDay).getDays();
+  val endDay   = end.getOrElse(DateRange.defaultEndDate)
+  val numDays  = Days.daysBetween(startDay, endDay).getDays();
   val dateList = (0 to numDays).map(startDay.plusDays)
 }
 object DateRange {
-  val defaultStartDate = AssetRef.dateFormat.parseDateTime("2010-01-01")
+  val defaultStartDate = PicdarDates.format.parseDateTime("2010-01-01")
   val defaultEndDate   = DateTime.now()
 
   val all = DateRange(None, None)

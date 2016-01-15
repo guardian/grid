@@ -11,13 +11,11 @@ import com.gu.mediaservice.lib.argo.model.EntityReponse
 import com.gu.mediaservice.picdarexport.lib.{Config, LogHelper}
 import com.gu.mediaservice.picdarexport.lib.ExecutionContexts.mediaApi
 
-import com.gu.mediaservice.lib.argo.model.Action
-
 import scala.concurrent.Future
 import scalaj.http.{HttpOptions, Http}
 
 
-case class ImageResource(data: Image, actions: List[Action])
+case class ImageResource(data: Image)
 
 object ImageResource {
   implicit val ImageResourceReads: Reads[ImageResource] = Json.reads[ImageResource]
@@ -25,6 +23,7 @@ object ImageResource {
 
 
 case class Image(
+  id: String,
   metadata: ImageMetadata,
   metadataOverrideUri: URI,
   usageRights: UsageRights,
@@ -35,12 +34,13 @@ object Image {
 
   implicit val UriReads: Reads[URI] = __.read[String].map(URI.create)
 
-  implicit val ImageReads: Reads[Image] =
-    ((__ \ "metadata").read[ImageMetadata] ~
-      (__ \ "userMetadata" \ "data" \ "metadata" \ "uri").read[URI] ~
-      (__ \ "usageRights").read[UsageRights] ~
-      (__ \ "userMetadata" \ "data" \ "usageRights" \ "uri").read[URI]
-    )(Image.apply _)
+  implicit val ImageReads: Reads[Image] = (
+    (__ \ "id").read[String] ~
+    (__ \ "metadata").read[ImageMetadata] ~
+    (__ \ "userMetadata" \ "data" \ "metadata" \ "uri").read[URI] ~
+    (__ \ "usageRights").read[UsageRights] ~
+    (__ \ "userMetadata" \ "data" \ "usageRights" \ "uri").read[URI]
+  )(Image.apply _)
 }
 
 

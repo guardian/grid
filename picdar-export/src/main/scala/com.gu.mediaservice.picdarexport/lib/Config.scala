@@ -4,7 +4,7 @@ import com.amazonaws.auth.BasicAWSCredentials
 import com.amazonaws.regions.{Regions, Region}
 import com.gu.mediaservice.lib.config.Properties
 
-case class MediaConfig(apiKey: String, loaderUrl: String)
+case class MediaConfig(apiKey: String, loaderUrl: String, usageUrl: String)
 
 object Config {
   val properties = Properties.fromPath("/etc/gu/picdar-export.properties")
@@ -50,7 +50,8 @@ object Config {
   def mediaConfig(env: String): MediaConfig = try {
     val apiKey    = properties(s"media.$env.apiKey")
     val loaderUrl = properties(s"media.$env.loaderUrl")
-    MediaConfig(apiKey, loaderUrl)
+    val usageUrl  = properties(s"media.$env.usageUrl")
+    MediaConfig(apiKey, loaderUrl, usageUrl)
   } catch {
     case _: Throwable => throw new Error(s"Invalid media environment name: $env")
   }
