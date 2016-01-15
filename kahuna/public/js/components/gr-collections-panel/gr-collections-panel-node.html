@@ -1,4 +1,4 @@
-<div ng:init="node = ctrl.node">
+<div ng:init="node = ctrl.node" class="hover-parent">
     <div class="node__info flex-container"
          ng:class="{'node__info--selected' : ctrl.isSelected}"
          gr:drop-into-collection="node.data.fullPath">
@@ -43,7 +43,7 @@
         <div class="text-small flex-container flex-center"
              ng:if="ctrl.saving || dropIntoCollectionSaving">Adding…</div>
 
-        <button class="node__action clickable"
+        <button class="node__action clickable hover-child"
                 ng:if="!ctrl.editing && ctrl.hasImagesSelected && !ctrl.saving"
                 ng:click="ctrl.addImagesToCollection()"
                 gr:tooltip="Add selected images to this collection">
