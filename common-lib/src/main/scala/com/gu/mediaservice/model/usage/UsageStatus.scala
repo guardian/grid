@@ -16,10 +16,7 @@ object UsageStatus {
     case "published" => PublishedUsageStatus()
   }
 
-  implicit val reads: Reads[UsageStatus] = JsPath.read[String].map {
-    case "pending" => PendingUsageStatus()
-    case "published" => PublishedUsageStatus()
-  }
+  implicit val reads: Reads[UsageStatus] = JsPath.read[String].map(UsageStatus(_))
 
   implicit val writer = new Writes[UsageStatus] {
     def writes(usageStatus: UsageStatus) = JsString(usageStatus.toString)
