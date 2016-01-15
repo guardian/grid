@@ -2,15 +2,19 @@
     <button class="inner-clickable clickable" type="button"
             ng:if="!ctrl.state.hidden" ng:click="ctrl.hidePanel()"
             ng:class="{'bg-light': !ctrl.state.hidden}">
-        <gr-icon-label gr-icon="chrome_reader_mode">Hide {{ctrl.name}} panel</gr-icon-label>
+        <gr-icon-label gr-icon="{{ctrl.icon}}">
+            {{ctrl.label.close || 'Hide ' + ctrl.name + ' panel'}}
+        </gr-icon-label>
     </button>
 
     <button class="inner-clickable clickable" type="button"
             ng:if="ctrl.state.hidden" ng:click="ctrl.showPanel()">
-        <gr-icon-label gr-icon="chrome_reader_mode">Show {{ctrl.name}} panel</gr-icon-label>
+        <gr-icon-label gr-icon="{{ctrl.icon}}">
+            {{ctrl.label.open || 'Show ' + ctrl.name + ' panel'}}
+        </gr-icon-label>
     </button>
 
-    <div ng:if="!ctrl.state.hidden"
+    <div ng:if="!ctrl.state.hidden && !ctrl.hideLock"
          ng:class="{
             'separator-left': ctrl.position  === 'left',
             'separator-right': ctrl.position === 'right'

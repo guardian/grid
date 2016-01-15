@@ -193,15 +193,26 @@ search.config(['$stateProvider', '$urlMatcherFactoryProvider',
                             class="top-bar-item clickable side-padded"
                             gr:images="ctrl.selectedImages">
                         </gr-archiver>
+                        <gr-panel-button
+                            class="top-bar-item clickable side-padded"
+                            gr:panel="ctrl.metadataPanel"
+                            gr:position="right"
+                            gr:name="info"
+                            gr:icon="edit"
+                            gr:hide-lock="true"
+                            gr:label="{ open: 'Edit', close: 'Close' }">
+                        </gr-panel-button>
                     </gr-top-bar-actions>
                 </gr-top-bar>`,
-                controller: ['$scope', '$q', 'inject$', 'selectedImages$', 'selection',
-                             function($scope, $q, inject$, selectedImages$, selection) {
+                controller: ['$scope', '$q', 'inject$', 'selectedImages$', 'selection', 'panels',
+                             function($scope, $q, inject$, selectedImages$, selection, panels) {
                     const ctrl = this;
                     const selectionCount$ = selectedImages$.map(images => images.size);
                     const active$ = selectionCount$.map(count => count > 0);
 
+
                     ctrl.clearSelection = () => selection.clear();
+                    ctrl.metadataPanel = panels.metadataPanel;
 
                     function canBeDeleted(image) {
                         return image.getAction('delete').then(angular.isDefined);
