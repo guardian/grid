@@ -73,12 +73,15 @@ search.config(['$stateProvider', '$urlMatcherFactoryProvider',
             }]
         },
         controllerAs: 'ctrl',
-        controller: ['$scope', 'panels', 'shortcutKeys', 'hotkeys', 'keyboardShortcut',
-                     function($scope, panels, shortcutKeys, keyboardShortcut) {
+        controller: [
+            '$scope', 'panels', 'shortcutKeys', 'keyboardShortcut', 'panelService',
+            function($scope, panels, shortcutKeys, keyboardShortcut, panelService) {
 
             const ctrl = this;
             ctrl.collectionsPanel = panels.collectionsPanel;
             ctrl.metadataPanel = panels.metadataPanel;
+
+            panelService.setAndSaveState($scope, 'collections', ctrl.collectionsPanel);
 
             keyboardShortcut.bindTo($scope).add({
                 combo: shortcutKeys.get('metadataPanel'),
