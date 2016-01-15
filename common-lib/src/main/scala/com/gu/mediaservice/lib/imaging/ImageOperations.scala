@@ -20,11 +20,12 @@ object ImageOperations {
 
   private def profilePath(fileName: String): String = s"${play.api.Play.current.path}/$fileName"
 
-  private def profileLocation(colourModel: String): String = colourModel match {
-    case "RGB"       => profilePath("srgb.icc")
-    case "CMYK"      => profilePath("cmyk.icc")
-    case "GRAYSCALE" => profilePath("grayscale.icc")
-    case model       => throw new Exception(s"Profile for invalid colour model requested: $model")
+  private def profileLocation(colourModel: String, optimised: Boolean = false): String = colourModel match {
+    case "RGB" if optimised => profilePath("facebook-TINYsRGB_c2.icc")
+    case "RGB"              => profilePath("srgb.icc")
+    case "CMYK"             => profilePath("cmyk.icc")
+    case "GRAYSCALE"        => profilePath("grayscale.icc")
+    case model              => throw new Exception(s"Profile for invalid colour model requested: $model")
   }
 
   private def tagFilter(metadata: ImageMetadata) = {
@@ -36,7 +37,7 @@ object ImageOperations {
     ).collect { case (key, Some(value)) => (key, value) }
   }
 
-  private def applyOutputProfile(base: IMOperation) = profile(base)(profileLocation("RGB"))
+  private def applyOutputProfile(base: IMOperation, optimised: Boolean = false) = profile(base)(profileLocation("RGB", optimised))
 
   def identifyColourModel(sourceFile: File, mimeType: String): Future[Option[String]] = {
     val source    = addImage(sourceFile)
@@ -96,5 +97,24 @@ object ImageOperations {
       _           <- runConvertCmd(addOutput)
     }
     yield outputFile
+  }
+
+  val thumbUnsharpRadius = 0.5d
+  val thumbUnsharpSigma = 0.5d
+  val thumbUnsharpAmount = 0.8d
+  def createThumbnail(sourceFile: File, width: Int, qual: Double = 100d, tempDir: File, iccColourSpace: Option[String], colourModel: Option[String]): Future[File] = {
+    for {
+      outputFile <- createTempFile(s"thumb-", ".jpg", tempDir)
+      cropSource  = addImage(sourceFile)
+      thumbnailed = thumbnail(cropSource)(width)
+      corrected   = correctColour(thumbnailed)(iccColourSpace, colourModel)
+      converted   = applyOutputProfile(corrected, optimised = true)
+      stripped    = stripMeta(converted)
+      profiled    = applyOutputProfile(stripped, optimised = true)
+      unsharpened = unsharp(profiled)(thumbUnsharpRadius, thumbUnsharpSigma, thumbUnsharpAmount)
+      qualified   = quality(unsharpened)(qual)
+      addOutput   = addDestImage(qualified)(outputFile)
+      _          <- runConvertCmd(addOutput)
+    } yield outputFile
   }
 }

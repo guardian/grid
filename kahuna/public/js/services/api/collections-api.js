@@ -1,7 +1,10 @@
 import angular from 'angular';
 import apiServices from '../api';
 
-apiServices.factory('collections', ['mediaApi', function (mediaApi) {
+apiServices.factory('collections',
+                    ['mediaApi', 'imageAccessor', '$q', 'apiPoll', '$rootScope',
+                    function (mediaApi, imageAccessor, $q, apiPoll, $rootScope) {
+
     // TODO: Rx?
     let collections;
 
@@ -53,7 +56,7 @@ apiServices.factory('collections', ['mediaApi', function (mediaApi) {
         const promises = imageIds.map(id => mediaApi.find(id).then(
                 image => image.perform('add-collection', {body: {data: path}})));
 
-        return Promise.all(promises);
+        return $q.all(promises);
     }
 
     function addImagesToCollection(images, path) {
@@ -61,7 +64,40 @@ apiServices.factory('collections', ['mediaApi', function (mediaApi) {
             image.perform('add-collection', {body: {data: path}})
         ).toJS();
 
-        return Promise.all(promises);
+        return $q.all(promises);
+    }
+
+    function collectionsEquals(collectionsA, collectionsB) {
+        return angular.equals(
+            collectionsA.sort(),
+            collectionsB.sort()
+        );
+    }
+
+    function getCollectionsIds(imageCollections) {
+        return imageCollections.data.map(col => col.pathId);
+    }
+
+    function untilCollectionsEqual(image, expectedCollections) {
+        return image.get().then(apiImage => {
+            const apiCollections = imageAccessor.getCollectionsIds(apiImage);
+            if (collectionsEquals(apiCollections, expectedCollections)) {
+                return apiImage;
+            } else {
+                return $q.reject();
+            }
+        });
+    }
+
+    function removeImageFromCollection(collection, image) {
+        return collection.perform('remove')
+            .then(newImageCollections => apiPoll(() =>
+                untilCollectionsEqual(image, getCollectionsIds(newImageCollections))
+            ))
+            .then(newImage => {
+                $rootScope.$emit('image-updated', newImage, image);
+                return newImage;
+            });
     }
 
     return {
@@ -72,6 +108,7 @@ apiServices.factory('collections', ['mediaApi', function (mediaApi) {
         isDeletable,
         removeFromList,
         addImageIdsToCollection,
-        addImagesToCollection
+        addImagesToCollection,
+        removeImageFromCollection
     };
 }]);

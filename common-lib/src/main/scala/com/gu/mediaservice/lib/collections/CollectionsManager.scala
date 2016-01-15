@@ -26,10 +26,9 @@ object CollectionsManager {
   def find(path: List[String], collections: List[Collection]): Option[Collection] =
     collections.find(col => col.path == path)
 
-  def findIndex(path: List[String], collections: List[Collection]): Option[Int] =
-    collections.indexWhere(_.path == path) match {
-      case -1    => None
-      case index => Some(index)
+  def findIndexes(path: List[String], collections: List[Collection]): List[Int] =
+    collections.zipWithIndex.collect {
+      case (collection, i) if collection.path == path => i
     }
 
   def onlyLatest(collections: List[Collection]): List[Collection] =

@@ -180,10 +180,10 @@ class DynamoDB(credentials: AWSCredentials, region: Region, tableName: String) {
     }
   }
 
-  def listRemoveIndex[T](id: String, key: String, index: Int)
-                     (implicit ex: ExecutionContext, rjs: Reads[T]): Future[List[T]] =
+  def listRemoveIndexes[T](id: String, key: String, indexes: List[Int])
+                          (implicit ex: ExecutionContext, rjs: Reads[T]): Future[List[T]] =
     update(
-      id, s"REMOVE $key[$index]"
+      id, s"REMOVE ${indexes.map(i => s"$key[$i]").mkString(",")}"
     ) map(j => (j \ key).as[List[T]])
 
   def objPut[T](id: String, key:String, value: T)
