@@ -1,11 +1,18 @@
 import angular from 'angular';
 import {mediaApi} from './media-api';
+import {imageAccessor} from '../image-accessor';
+import {async} from '../../util/async';
 
 export var collectionsApi = angular.module('kahuna.services.api.collections', [
-    mediaApi.name
+    mediaApi.name,
+    imageAccessor.name,
+    async.name
 ]);
 
-collectionsApi.factory('collections', ['$q', 'mediaApi', function ($q, mediaApi) {
+collectionsApi.factory('collections',
+                       ['$rootScope', '$q', 'mediaApi', 'imageAccessor', 'apiPoll',
+                        function ($rootScope, $q, mediaApi, imageAccessor, apiPoll) {
+
     // TODO: Rx?
     let collections;
 
@@ -68,6 +75,39 @@ collectionsApi.factory('collections', ['$q', 'mediaApi', function ($q, mediaApi)
         return $q.all(promises);
     }
 
+    function collectionsEquals(collectionsA, collectionsB) {
+        return angular.equals(
+            collectionsA.sort(),
+            collectionsB.sort()
+        );
+    }
+
+    function getCollectionsIds(imageCollections) {
+        return imageCollections.data.map(col => col.pathId);
+    }
+
+    function untilCollectionsEqual(image, expectedCollections) {
+        return image.get().then(apiImage => {
+            const apiCollections = imageAccessor.getCollectionsIds(apiImage);
+            if (collectionsEquals(apiCollections, expectedCollections)) {
+                return apiImage;
+            } else {
+                return $q.reject();
+            }
+        });
+    }
+
+    function removeImageFromCollection(collection, image) {
+        return collection.perform('remove')
+            .then(newImageCollections => apiPoll(() =>
+                untilCollectionsEqual(image, getCollectionsIds(newImageCollections))
+            ))
+            .then(newImage => {
+                $rootScope.$emit('image-updated', newImage, image);
+                return newImage;
+            });
+    }
+
     return {
         getCollections,
         removeCollection,
@@ -76,6 +116,7 @@ collectionsApi.factory('collections', ['$q', 'mediaApi', function ($q, mediaApi)
         isDeletable,
         removeFromList,
         addImageIdsToCollection,
-        addImagesToCollection
+        addImagesToCollection,
+        removeImageFromCollection
     };
 }]);

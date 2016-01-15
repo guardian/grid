@@ -72,14 +72,18 @@ class CollectionsManagerTest extends FunSpec with Matchers {
       val collections = List(
         Collection.build(List("g2"), actionData),
         Collection.build(List("g2", "art"), actionData),
-        Collection.build(List("g2", "art", "paintings"), actionData)
+        Collection.build(List("g2", "art", "paintings"), actionData),
+        Collection.build(List("observer", "feature"), actionData),
+        Collection.build(List("observer", "feature"), actionData)
       )
 
-      val index = CollectionsManager.findIndex(List("g2", "art"), collections)
-      val noIndex = CollectionsManager.findIndex(List("not", "there"), collections)
+      val index = CollectionsManager.findIndexes(List("g2", "art"), collections)
+      val noIndex = CollectionsManager.findIndexes(List("not", "there"), collections)
+      val multiIndex = CollectionsManager.findIndexes(List("observer", "feature"), collections)
 
-      index shouldBe Some(1)
-      noIndex shouldBe None
+      index shouldBe List(1)
+      noIndex shouldBe Nil
+      multiIndex shouldBe List(3, 4)
     }
 
   }
