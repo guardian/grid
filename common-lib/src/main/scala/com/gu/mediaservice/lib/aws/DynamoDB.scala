@@ -29,6 +29,10 @@ class DynamoDB(credentials: AWSCredentials, region: Region, tableName: String) {
 
   val IdKey = "id"
 
+  def exists(id: String)(implicit ex: ExecutionContext): Future[Boolean] = Future {
+      table.getItem(new GetItemSpec().withPrimaryKey(IdKey, id))
+  } map(Option(_).isDefined)
+
   def get(id: String)
          (implicit ex: ExecutionContext): Future[JsObject] = Future {
     table.getItem(
