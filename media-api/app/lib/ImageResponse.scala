@@ -259,7 +259,7 @@ object ImageResponse extends EditsResponse {
 }
 
 // We're using this to slightly hydrate the json response
-case class CollectionResponse private (path: List[String], pathId: String, description: String, cssColour: String, actionData: ActionData)
+case class CollectionResponse private (path: List[String], pathId: String, description: String, cssColour: Option[String], actionData: ActionData)
 object CollectionResponse {
   implicit def writes: Writes[CollectionResponse] = Json.writes[CollectionResponse]
 

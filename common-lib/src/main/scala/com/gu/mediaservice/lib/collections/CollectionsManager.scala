@@ -52,5 +52,5 @@ object CollectionsManager {
 
   def getCollectionColour(s: String) = collectionColours.get(s)
 
-  def getCssColour(path: List[String]): String = path.headOption.flatMap(getCollectionColour).getOrElse("#333333")
+  def getCssColour(path: List[String]) = path.headOption.flatMap(getCollectionColour)
 }

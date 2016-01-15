@@ -128,7 +128,7 @@ object CollectionsController extends Controller with ArgoHelpers {
           (seq => Json.toJson(seq))).contramap(collectionsEntity) ~
       (__ \ "fullPath").write[List[String]] ~
       (__ \ "data").writeNullable[Collection] ~
-      (__ \ "cssColour").write[String]
+      (__ \ "cssColour").write[Option[String]]
     )(node => (node.basename, node.children, node.fullPath, node.data, getCssColour(node.fullPath)))
 
 
