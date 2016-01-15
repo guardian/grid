@@ -163,7 +163,11 @@ search.config(['$stateProvider', '$urlMatcherFactoryProvider',
         },
         views: {
             selectionActions: {
-                template: `<gr-top-bar fixed="true" ng:if="ctrl.active" style="margin-top: -50px;">
+                template: `
+                <gr-top-bar
+                    class="gr-top-bar--blue gr-top-bar--overlay"
+                    fixed="true"
+                    ng:if="ctrl.active">
                     <gr-top-bar-nav>
                         <button
                             class="top-bar-item clickable side-padded"
@@ -190,7 +194,7 @@ search.config(['$stateProvider', '$urlMatcherFactoryProvider',
                             gr:images="ctrl.selectedImages">
                         </gr-archiver>
                     </gr-top-bar-actions>
-                </div>`,
+                </gr-top-bar>`,
                 controller: ['$scope', '$q', 'inject$', 'selectedImages$', 'selection',
                              function($scope, $q, inject$, selectedImages$, selection) {
                     const ctrl = this;
