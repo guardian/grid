@@ -15,11 +15,7 @@ object UsageApi {
   def get(urn: String): Future[List[PicdarUsageRecord]] = Future {
     val response = Http(s"$picdarUsageApiUrl").param("xurn",urn).asString
     val responseString = response.body.trim
-
-    val responseBody = responseString.isEmpty match {
-      case true => None
-      case false => Some(responseString)
-    }
+    val responseBody = Option(responseString).filter(_.nonEmpty)
 
     responseBody.map(PicdarUsageRecordFactory.create).getOrElse(List())
   }
