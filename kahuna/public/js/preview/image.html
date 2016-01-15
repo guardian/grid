@@ -82,7 +82,7 @@
                     <a ui:sref="search.results({query: '~'+collection.pathId})"
                         ng:switch="collections.data.path.legnth === 1">
                         <span ng:switch-when="false">
-                            <span ng:switch-when="true">{{collection.data.path[0]}}</span>
+                            <span>{{collection.data.path[0]}}</span>
                             <span>{{collection.data.description}}</span>
                         </span>
                         <span ng:switch-when="true">{{collection.data.path[0]}}</span>
