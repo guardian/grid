@@ -14,6 +14,7 @@ import play.api.libs.functional.syntax._
 
 import com.gu.mediaservice.model._
 import com.gu.mediaservice.lib.argo.model._
+import com.gu.mediaservice.lib.collections.CollectionsManager
 
 
 object ImageResponse extends EditsResponse {
@@ -229,7 +230,7 @@ object ImageResponse extends EditsResponse {
       .contramap((crops: List[Crop]) => crops.map(Export.fromCrop(_:Crop))) ~
     (__ \ "usages").write[UsagesEntity]
       .contramap(usagesEntity(id, _: List[Usage])) ~
-    (__ \ "collections").write[List[EmbeddedEntity[Collection]]]
+    (__ \ "collections").write[List[EmbeddedEntity[CollectionResponse]]]
       .contramap((collections: List[Collection]) => collections.map(c => collectionsEntity(id, c)))
   )(unlift(Image.unapply))
 
@@ -238,12 +239,30 @@ object ImageResponse extends EditsResponse {
 
   def usageEntity(usage: Usage) = EmbeddedEntity[Usage](usageUri(usage.id), Some(usage))
 
-  def collectionsEntity(id: String, c: Collection): EmbeddedEntity[Collection] =
-      Collection.asImageEntity(Config.collectionsUri, id, c)
+  def collectionsEntity(id: String, c: Collection): EmbeddedEntity[CollectionResponse] =
+      collectionEntity(Config.collectionsUri, id, c)
+
+  def collectionEntity(rootUri: String, imageId: String, c: Collection) = {
+    // TODO: Currently the GET for this URI does nothing
+    val uri = URI.create(s"$rootUri/images/$imageId/${CollectionsManager.pathToUri(c.path)}")
+    val response = CollectionResponse.build(c)
+    EmbeddedEntity(uri, Some(response), actions = List(
+      Action("remove", uri, "DELETE")
+    ))
+  }
 
   def fileMetadataEntity(id: String, expandFileMetaData: Boolean, fileMetadata: FileMetadata) = {
     val displayableMetadata = if(expandFileMetaData) Some(fileMetadata) else None
 
     EmbeddedEntity[FileMetadata](fileMetaDataUri(id), displayableMetadata)
   }
+}
+
+// We're using this to slightly hydrate the json response
+case class CollectionResponse private (path: List[String], pathId: String, description: String, cssColour: Option[String], actionData: ActionData)
+object CollectionResponse {
+  implicit def writes: Writes[CollectionResponse] = Json.writes[CollectionResponse]
+
+  def build(c: Collection) =
+    CollectionResponse(c.path, c.pathId, c.description, CollectionsManager.getCssColour(c.path), c.actionData)
 }
