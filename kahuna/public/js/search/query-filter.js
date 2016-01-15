@@ -30,8 +30,5 @@ queryFilters.filter('queryLabelFilter', function() {
 });
 
 queryFilters.filter('queryCollectionFilter', function() {
-    return path => {
-        if (path[0] === 'family') {console.log('filter', path);}
-        return getCollection(path);
-    }
+    return path => getCollection(path);
 });
