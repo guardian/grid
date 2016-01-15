@@ -162,6 +162,62 @@ search.config(['$stateProvider', '$urlMatcherFactoryProvider',
             }]
         },
         views: {
+            selectionActions: {
+                template: `<gr-top-bar fixed="true" ng:if="ctrl.active" style="margin-top: -50px;">
+                    <gr-top-bar-nav>
+                        <button
+                            class="top-bar-item clickable side-padded"
+                            type="button"
+                            ng:click="ctrl.clearSelection()">
+                            <gr-icon-label gr-icon="clear">Clear selection</gr-icon-label>
+                        </button>
+                        <div class="top-bar-item clickable side-padded">
+                            {{ctrl.selectionCount}} selected
+                        </div>
+                    </gr-top-bar-nav>
+                    <gr-top-bar-actions>
+                        <gr-downloader
+                            class="top-bar-item clickable side-padded"
+                            gr:images="ctrl.selectedImages">
+                        </gr-downloader>
+                        <gr-delete-image
+                            class="top-bar-item clickable side-padded"
+                            images="ctrl.selectedImages"
+                            ng:if="ctrl.selectionIsDeletable">
+                        </gr-delete-image>
+                        <gr-archiver
+                            class="top-bar-item clickable side-padded"
+                            gr:images="ctrl.selectedImages">
+                        </gr-archiver>
+                    </gr-top-bar-actions>
+                </div>`,
+                controller: ['$scope', '$q', 'inject$', 'selectedImages$', 'selection',
+                             function($scope, $q, inject$, selectedImages$, selection) {
+                    const ctrl = this;
+                    const selectionCount$ = selectedImages$.map(images => images.size);
+                    const active$ = selectionCount$.map(count => count > 0);
+
+                    ctrl.clearSelection = () => selection.clear();
+
+                    function canBeDeleted(image) {
+                        return image.getAction('delete').then(angular.isDefined);
+                    }
+                    // TODO: move to helper?
+                    const selectionIsDeletable$ = selectedImages$.flatMap(selectedImages => {
+                        const allDeletablePromise = $q.
+                        all(selectedImages.map(canBeDeleted).toArray()).
+                        then(allDeletable => allDeletable.every(v => v === true));
+                        return Rx.Observable.fromPromise(allDeletablePromise);
+                    });
+
+                    inject$($scope, selectedImages$, ctrl, 'selectedImages');
+                    inject$($scope, active$, ctrl, 'active');
+                    inject$($scope, selectionCount$, ctrl, 'selectionCount');
+                    inject$($scope, selectionIsDeletable$, ctrl, 'selectionIsDeletable');
+
+                }],
+                controllerAs: 'ctrl'
+            },
             results: {
                 template: searchResultsTemplate,
                 controller: 'SearchResultsCtrl',
