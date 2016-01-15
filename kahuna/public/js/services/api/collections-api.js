@@ -83,7 +83,7 @@ apiServices.factory('collections',
             } else {
                 return $q.reject();
             }
-        })
+        });
     }
 
     function collectionsEquals(collectionsA, collectionsB) {
