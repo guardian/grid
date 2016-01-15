@@ -1,5 +1,7 @@
 import angular from 'angular';
 
+import {indexRoute} from '../routes/index';
+
 import './controller';
 import '../search/query-filter';
 import '../imgops/service';
@@ -15,14 +17,15 @@ export var image = angular.module('kahuna.image', [
     'kahuna.search.filters.query',
     'kahuna.imgops',
     'gr.topBar',
-    'grXeditable'
+    'grXeditable',
+    indexRoute.name
 ]);
 
 
 image.config(['$stateProvider',
               function($stateProvider) {
 
-    $stateProvider.state('image', {
+    $stateProvider.state('gr.image', {
         url: '/images/:imageId?crop',
         template: imageTemplate,
         controller: 'ImageCtrl',

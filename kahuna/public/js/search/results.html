@@ -21,6 +21,8 @@
 
             <div class="results-toolbar-item results-toolbar-item--static
                         image-results-count">
+                Rxy result total: {{ctrl.totalResultsRx}}
+
                 {{ctrl.totalResults | toLocaleString}} matches
                 <button ng:show="ctrl.newImagesCount > 0"
                         ng:click="ctrl.revealNewImages()"

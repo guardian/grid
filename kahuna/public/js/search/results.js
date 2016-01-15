@@ -1,5 +1,6 @@
 import angular from 'angular';
 import Rx from 'rx';
+import {rxUtil} from '../util/rx';
 import * as querySyntax from '../search-query/query-syntax';
 import moment from 'moment';
 
@@ -25,7 +26,8 @@ export var results = angular.module('kahuna.search.results', [
     'gr.archiver',
     'gr.downloader',
     'gr.deleteImage',
-    'gr.panelButton'
+    'gr.panelButton',
+    rxUtil.name
 ]);
 
 
@@ -63,6 +65,7 @@ results.controller('SearchResultsCtrl', [
     'range',
     'isReloadingPreviousSearch',
     'collectionsEnabled',
+    'searchResults$',
 
     function($rootScope,
              $scope,
@@ -83,9 +86,14 @@ results.controller('SearchResultsCtrl', [
              panels,
              range,
              isReloadingPreviousSearch,
-             collectionsEnabled) {
+             collectionsEnabled,
+             searchResults$) {
 
         const ctrl = this;
+
+        const totalResults$ = searchResults$.map(results => results.total);
+        inject$($scope, totalResults$, ctrl, 'totalResultsRx');
+
 
         // Panel control
         ctrl.metadataPanel    = panels.metadataPanel;

@@ -5,6 +5,8 @@ import 'rx-dom';
 import Immutable from 'immutable';
 import {getCollectionsFromQuery} from '../search-query/query-syntax';
 
+import {indexRoute} from '../routes/index';
+
 import './query';
 import './results';
 import '../preview/image';
@@ -36,31 +38,19 @@ export var search = angular.module('kahuna.search', [
     'gr.keyboardShortcut',
     'grPanel',
     'grCollectionsPanel',
-    'ui.router'
+    'ui.router',
+    indexRoute.name
 ]);
 
-// TODO: add a resolver here so that if we error (e.g. 401) we don't keep trying
+// TODO: add a resolver here so that if we error (e.g. 401) we doame't keep trying
 // to render - similar to the image controller see:
 // https://github.com/guardian/media-service/pull/478
 search.config(['$stateProvider', '$urlMatcherFactoryProvider',
                function($stateProvider, $urlMatcherFactoryProvider) {
 
-    const zeroWidthSpace = /[\u200B]/g;
-    function removeUtf8SpecialChars(val) {
-        return angular.isDefined(val) && val.replace(zeroWidthSpace, '');
-    }
-
-    $urlMatcherFactoryProvider.type('Query', {
-        encode: val => removeUtf8SpecialChars(val),
-        decode: val => removeUtf8SpecialChars(val),
-        //call decode value that includes zero-width-space character
-        is: val => angular.isDefined(val) && !zeroWidthSpace.test(val)
-    });
-
-    $stateProvider.state('search', {
+    $stateProvider.state('gr.search', {
         // FIXME [1]: This state should be abstract, but then we can't navigate to
         // it, which we need to do to access it's deeper / remembered chile state
-        url: '/',
         template: searchTemplate,
         deepStateRedirect: {
             // Inject a transient $stateParams for the results state
@@ -100,8 +90,8 @@ search.config(['$stateProvider', '$urlMatcherFactoryProvider',
         }
     });
 
-    $stateProvider.state('search.results', {
-        url: 'search?{query:Query}&ids&since&nonFree&uploadedBy&until&orderBy',
+    $stateProvider.state('gr.search.results', {
+        url: '/search',
         // Non-URL parameters
         params: {
             // Routing-level property indicating whether the state has
@@ -236,7 +226,7 @@ search.config(['$stateProvider', '$urlMatcherFactoryProvider',
 search.run(['$rootScope', '$state', function($rootScope, $state) {
     $rootScope.$on('$stateChangeSuccess', (_, toState) => {
         if (toState.name === 'search') {
-            $state.go('search.results', null, {reload: true});
+            $state.go('gr.search.results', null, {reload: true});
         }
     });
 }]);

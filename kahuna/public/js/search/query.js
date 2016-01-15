@@ -1,4 +1,9 @@
 import angular from 'angular';
+import Rx from 'rx';
+import Immutable from 'immutable';
+import {Map} from 'immutable';
+import {searchQueryService} from '../search-query/service   ';
+
 // FIXME: used to fade 'x' query clear button, but disabled as it ends
 // up being enabled globally and severely degrades the performance of
 // the lazy-table for results. Once there is a working way to disable
@@ -6,10 +11,12 @@ import angular from 'angular';
 // import 'angular-animate';
 import moment from 'moment';
 import '../util/eq';
+import '../util/rx';
+import './query-filter';
+import '../analytics/track';
 import '../components/gu-date-range/gu-date-range';
 import template from './query.html!text';
 import './syntax/syntax';
-
 import '../analytics/track';
 
 export var query = angular.module('kahuna.search.query', [
@@ -18,12 +25,16 @@ export var query = angular.module('kahuna.search.query', [
     'util.eq',
     'gu-dateRange',
     'grSyntax',
-    'analytics.track'
+    'analytics.track',
+    'util.rx',
+    searchQueryService.name
 ]);
 
 query.controller('SearchQueryCtrl',
                  ['$scope', '$state', '$stateParams', 'onValChange', 'mediaApi', 'track',
-                 function($scope, $state, $stateParams, onValChange , mediaApi, track) {
+                  'observeCollection$', 'subscribe$', 'searchQueryService',
+                     function($scope, $state, $stateParams, onValChange , mediaApi, track,
+                              observeCollection$, subscribe$, searchQueryService) {
 
     const ctrl = this;
 
@@ -32,7 +43,7 @@ query.controller('SearchQueryCtrl',
     };
 
     $scope.$watch(() => ctrl.ordering.orderBy, onValChange(newVal => {
-        $state.go('search.results', {orderBy: newVal});
+        $state.go('gr.search.results', {orderBy: newVal});
     }));
 
     ctrl.filter = {
@@ -83,8 +94,12 @@ query.controller('SearchQueryCtrl',
 
     $scope.$watchCollection(() => ctrl.filter, onValChange(filter => {
         filter.uploadedBy = filter.uploadedByMe ? ctrl.user.email : undefined;
-        $state.go('search.results', filter);
+        //$state.go('gr.search.results', filter);
     }));
+
+     // TODO: Make the query control use the `searchParams` as a read too.
+     const filter$ = observeCollection$($scope, () => ctrl.filter);
+     subscribe$($scope, filter$, filter => searchQueryService.setTo(filter));
 
     // we can't user dynamic values in the ng:true-value see:
     // https://docs.angularjs.org/error/ngModel/constexpr
