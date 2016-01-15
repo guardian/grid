@@ -46,6 +46,19 @@
 
     <div class="preview__info" ng:if="! ctrl.hideInfo">
         <div class="flex-container">
+            <ul class="bottom-bar__meta-item preview__collections">
+                <li class="preview__collections__collection"
+                    ng:repeat="collection in ctrl.image.data.collections"
+                    gr-tooltip="Click to open collection: {{collection.data.path.join(' ▸ ')}}"
+                    gr-tooltip-position="top">
+                    <a ui:sref="search.results({query: '~'+collection.data.pathId})"
+                       style="background-color: {{collection.data.cssColour}}"}
+                       class="preview__collections__collection__value">
+                        {{collection.data.description}}
+                    </a>
+                </li>
+            </ul>
+
             <ui-labeller-compact class="preview__labeller"
                                  image="ctrl.image"
                                  disabled="ctrl.selectionMode"
@@ -75,20 +88,25 @@
                 {{::ctrl.image.data.uploadTime | date:'HH:mm'}}
             </span>
 
-            <ul class="bottom-bar__meta-item titip-bottom preview__collections">
-                <li class="preview__collections__collection"
-                    ng:repeat="collection in ctrl.image.data.collections"
-                    style="background-color: {{collection.data.cssColour}}">
-                    <a ui:sref="::(search.results({query: (collection.data.path | queryCollectionFilter)}))"
-                        ng:switch="collections.data.path.length === 1">
-                        <span ng:switch-when="false">
-                            <span>{{collection.data.path[0]}}</span>
-                            <span>{{collection.data.description}}</span>
-                        </span>
-                        <span ng:switch-when="true">{{collection.data.path[0]}}</span>
-                    </a>
-                </li>
-            </ul>
+            <!--<ul class="bottom-bar__meta-item titip-bottom preview__collections">-->
+                <!--<li class="preview__collections__collection"-->
+                    <!--ng:repeat="collection in ctrl.image.data.collections">-->
+                    <!--<a ui:sref="search.results({query: '~'+collection.pathId})"-->
+                        <!--ng:switch="collection.data.path.length === 1">-->
+                        <!--<span ng:switch-when="false">-->
+                            <!--<span style="background-color: {{collection.data.cssColour}}"}-->
+                                  <!--class="preview__collections__collection__root"></span>-->
+                            <!--<span class="preview__collections__collection__leaf">-->
+                                <!--{{collection.data.description}}-->
+                            <!--</span>-->
+                        <!--</span>-->
+                        <!--<span ng:switch-when="true" style="background-color: {{collection.data.cssColour}}"-->
+                              <!--class="preview__collections__collection__root">-->
+                        <!--{{collection.data.path[0]}}-->
+                        <!--</span>-->
+                    <!--</a>-->
+                <!--</li>-->
+            <!--</ul>-->
 
             <span class="bottom-bar__meta-item preview__has-crops"
                   title="this image has crops"
@@ -110,9 +128,6 @@
 
                 <gr-icon gr-small>phonelink</gr-icon>
             </span>
-
-
-
         </div>
         <div class="bottom-bar__actions">
             <gr-image-persist-status class="bottom-bar__action"
