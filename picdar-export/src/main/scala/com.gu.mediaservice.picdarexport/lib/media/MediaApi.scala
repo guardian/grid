@@ -23,6 +23,7 @@ object ImageResource {
 
 
 case class Image(
+  id: String,
   metadata: ImageMetadata,
   metadataOverrideUri: URI,
   usageRights: UsageRights,
@@ -33,12 +34,13 @@ object Image {
 
   implicit val UriReads: Reads[URI] = __.read[String].map(URI.create)
 
-  implicit val ImageReads: Reads[Image] =
-    ((__ \ "metadata").read[ImageMetadata] ~
-      (__ \ "userMetadata" \ "data" \ "metadata" \ "uri").read[URI] ~
-      (__ \ "usageRights").read[UsageRights] ~
-      (__ \ "userMetadata" \ "data" \ "usageRights" \ "uri").read[URI]
-    )(Image.apply _)
+  implicit val ImageReads: Reads[Image] = (
+    (__ \ "id").read[String] ~
+    (__ \ "metadata").read[ImageMetadata] ~
+    (__ \ "userMetadata" \ "data" \ "metadata" \ "uri").read[URI] ~
+    (__ \ "usageRights").read[UsageRights] ~
+    (__ \ "userMetadata" \ "data" \ "usageRights" \ "uri").read[URI]
+  )(Image.apply _)
 }
 
 
@@ -58,7 +60,8 @@ trait MediaApi extends LogHelper {
 
   import Config.{mediaApiConnTimeout, mediaApiReadTimeout}
 
-  def getImage(mediaUri: URI): Future[Image] = Future {
+
+  def getImageResource(mediaUri: URI): Future[ImageResource] = Future {
     logDuration("MediaApi.getImage") {
       val body = Http(mediaUri.toString).
         header("X-Gu-Media-Key", mediaApiKey).
@@ -69,9 +72,11 @@ trait MediaApi extends LogHelper {
         asString.
         body
 
-      Json.parse(body).as[ImageResource].data
+      Json.parse(body).as[ImageResource]
     }
   }
+
+  def getImage(mediaUri: URI): Future[Image] = getImageResource(mediaUri).map(_.data)
 
   def overrideMetadata(metadataOverrideUri: URI, metadata: ImageMetadata): Future[Unit] = Future {
     logDuration("MediaApi.overrideMetadata") {
