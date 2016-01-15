@@ -68,11 +68,30 @@ collectionsApi.factory('collections',
     }
 
     function addImagesToCollection(images, path) {
+
         const promises = images.map(image =>
             image.perform('add-collection', {body: {data: path}})
+            .then(collectionAdded => apiPoll(() =>
+                 untilNewCollectionAppears(image, collectionAdded)
+            ))
+            .then(newImage => {
+                $rootScope.$emit('image-updated', newImage, image);
+            })
+
         ).toJS();
 
         return $q.all(promises);
+    }
+
+    function untilNewCollectionAppears(image, collectionAdded) {
+        return image.get().then( (apiImage) => {
+            const apiCollections = imageAccessor.getCollectionsIds(apiImage);
+            if (apiCollections.indexOf(collectionAdded.data.pathId) > -1) {
+                return apiImage;
+            } else {
+                return $q.reject();
+            }
+        });
     }
 
     function collectionsEquals(collectionsA, collectionsB) {
@@ -82,7 +101,7 @@ collectionsApi.factory('collections',
         );
     }
 
-    function getCollectionsIds(imageCollections) {
+    function getCollectionsIdsFromCollection(imageCollections) {
         return imageCollections.data.map(col => col.pathId);
     }
 
@@ -100,7 +119,7 @@ collectionsApi.factory('collections',
     function removeImageFromCollection(collection, image) {
         return collection.perform('remove')
             .then(newImageCollections => apiPoll(() =>
-                untilCollectionsEqual(image, getCollectionsIds(newImageCollections))
+                untilCollectionsEqual(image, getCollectionsIdsFromCollection(newImageCollections))
             ))
             .then(newImage => {
                 $rootScope.$emit('image-updated', newImage, image);
