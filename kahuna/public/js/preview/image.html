@@ -79,8 +79,8 @@
                 <li class="preview__collections__collection"
                     ng:repeat="collection in ctrl.image.data.collections"
                     style="background-color: {{collection.data.cssColour}}">
-                    <a ui:sref="search.results({query: '~'+collection.pathId})"
-                        ng:switch="collections.data.path.legnth === 1">
+                    <a ui:sref="::(search.results({query: (collection.data.path | queryCollectionFilter)}))"
+                        ng:switch="collections.data.path.length === 1">
                         <span ng:switch-when="false">
                             <span>{{collection.data.path[0]}}</span>
                             <span>{{collection.data.description}}</span>
