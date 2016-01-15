@@ -1,5 +1,6 @@
 <div class="gu-date-range" ng:init="ctrl.showOverlay = false">
-    <button class="gu-date-range__display"
+    <button type="button"
+            class="gu-date-range__display"
             ng:click="ctrl.showOverlay = !ctrl.showOverlay"
             gr:track-click="{{ctrl.trackingName}}"
             gr:track-click-data="{ 'Action': 'Show Hide' }">
