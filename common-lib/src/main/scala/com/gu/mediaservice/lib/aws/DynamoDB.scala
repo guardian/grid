@@ -31,10 +31,7 @@ class DynamoDB(credentials: AWSCredentials, region: Region, tableName: String) {
 
   def exists(id: String)(implicit ex: ExecutionContext): Future[Boolean] = Future {
       table.getItem(new GetItemSpec().withPrimaryKey(IdKey, id))
-  } map(result => Option(result) match {
-      case Some(item) => true
-      case None       => false
-  })
+  } map(Option(_).isDefined)
 
   def get(id: String)
          (implicit ex: ExecutionContext): Future[JsObject] = Future {
