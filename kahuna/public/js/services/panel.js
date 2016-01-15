@@ -56,8 +56,8 @@ panelService.factory('panelService', ['storage', function (storage) {
     // different contexts. You also might not want to have the state saved.
     function setAndSaveState($scope, name, panel) {
         const storeName = `${name}PanelState`;
-        const state = storage.getItem(storeName) || {locked: false, hidden: true};
-        const sub = panel.state$.subscribe(state => storage.setItem(storeName, state));
+        const state = storage.getJs(storeName) || {locked: false, hidden: true};
+        const sub = panel.state$.subscribe(state => storage.setJs(storeName, state));
 
         panel.setHidden(state.hidden);
         panel.setLocked(state.locked);
