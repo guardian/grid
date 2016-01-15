@@ -2,7 +2,9 @@
     <div class="node__info flex-container"
          ng:class="{'node__info--selected' : ctrl.isSelected}"
          gr:drop-into-collection="node.data.fullPath">
-        <div class="node__marker"></div>
+
+        <div class="node__marker"
+             style="background: {{node.data.cssColour}}"></div>
 
         <div class="node__spacer" ng:if="node.data.children.length === 0">
             <gr-icon></gr-icon>
