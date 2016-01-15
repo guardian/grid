@@ -17,13 +17,16 @@ object PrintUsageRequestFactory {
           issueDate = record.publicationDate,
           pageNumber = record.page,
           storyName = record.productionName,
-          publicationCode = "XXX",
+          publicationCode = record.publicationName match {
+            case "The Guardian" => "gdn"
+            case "The Observer" => "obs"
+            case _ => "xxx"
+          },
           publicationName = record.publicationName,
-          layoutId = 0L,
           edition = record.edition,
-          size = PrintImageSize(0,0),
-          orderedBy = s"${record.notes.getOrElse("Unknown")} (Picdar)",
-          sectionCode = record.sectionName
+          sectionCode = record.sectionName,
+          notes = record.notes,
+          source = Some("picdar")
         )
 
         PrintUsageRecord(

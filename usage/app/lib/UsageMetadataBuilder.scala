@@ -27,20 +27,22 @@ object UsageMetadataBuilder {
 
     Try {
       PrintUsageMetadata(
-        metadataMap.apply("sectionName").asInstanceOf[String],
-        metadataMap.get("issueDate").map(_.asInstanceOf[String])
+        sectionName = metadataMap.apply("sectionName").asInstanceOf[String],
+        issueDate = metadataMap.get("issueDate").map(_.asInstanceOf[String])
           .map(DateFormat.parser.parseDateTime).get,
-        metadataMap.apply("pageNumber").asInstanceOf[java.math.BigDecimal].intValue,
-        metadataMap.apply("storyName").asInstanceOf[String],
-        metadataMap.apply("publicationCode").asInstanceOf[String],
-        metadataMap.apply("publicationName").asInstanceOf[String],
-        metadataMap.apply("layoutId").asInstanceOf[java.math.BigDecimal].intValue,
-        metadataMap.apply("edition").asInstanceOf[java.math.BigDecimal].intValue,
-        metadataMap.get("size")
+        pageNumber = metadataMap.apply("pageNumber").asInstanceOf[java.math.BigDecimal].intValue,
+        storyName = metadataMap.apply("storyName").asInstanceOf[String],
+        publicationCode = metadataMap.apply("publicationCode").asInstanceOf[String],
+        publicationName = metadataMap.apply("publicationName").asInstanceOf[String],
+        layoutId = metadataMap.get("layoutId").map(_.asInstanceOf[java.math.BigDecimal].intValue),
+        edition = metadataMap.apply("edition").asInstanceOf[java.math.BigDecimal].intValue,
+        size = metadataMap.get("size")
           .map(_.asInstanceOf[JStringNumMap])
-          .map(m => PrintImageSize(m.get("x").intValue, m.get("y").intValue)).get,
-        metadataMap.apply("orderedBy").asInstanceOf[String],
-        metadataMap.apply("sectionCode").asInstanceOf[String]
+          .map(m => PrintImageSize(m.get("x").intValue, m.get("y").intValue)),
+        orderedBy = metadataMap.get("orderedBy").map(_.asInstanceOf[String]),
+        sectionCode = metadataMap.apply("sectionCode").asInstanceOf[String],
+        notes = metadataMap.get("notes").map(_.asInstanceOf[String]),
+        source = metadataMap.get("source").map(_.asInstanceOf[String])
       )
     }.toOption
   }

@@ -15,6 +15,8 @@ object PicdarUsageRecordFactory {
 
     responseElements.flatMap( element => {
 
+      val defaultEdition = 1
+
       def missingFieldException(field: String) =
         new NoSuchElementException(s"Missing $field in $element")
 
@@ -25,15 +27,16 @@ object PicdarUsageRecordFactory {
         PicdarUsageRecord(
           urn          = extractOrThrow("_urn"),
           dbParent     = extractOrThrow("_parent"),
-          createdDate  = PicdarDates.longerFormat
+          createdDate  = PicdarDates.usageApiLongDateFormat
             .parseDateTime(s"${extractOrThrow("_date")}-${extractOrThrow("_time")}"),
-          publicationDate = PicdarDates.format
+          publicationDate = PicdarDates.usageApiShortDateFormat
             .parseDateTime(extractOrThrow("publicationdate")),
           productionName  = extractOrThrow("production"),
           publicationName = extractOrThrow("publicationtext"),
           page = extractOrThrow("page").toInt,
           sectionName = extractOrThrow("sectiontext"),
-          edition = element.get("editiontext").foldLeft(1)((_, e) => { e.toInt }),
+          edition = element.get("editiontext")
+            .foldLeft(defaultEdition)((_, e) => { Try { e.toInt }.getOrElse(defaultEdition) }),
           status = element.get("status").map(UsageStatus(_)).getOrElse {
             throw missingFieldException("status")
           },

@@ -21,9 +21,11 @@ case class Asset(
 
 object PicdarDates {
   // It's really better not to ask.
+  val dynamoDbFormat =  DateTimeFormat.forPattern("yyyy-MM-dd")
   val format =  DateTimeFormat.forPattern("yyyy/MM/dd")
   val longFormat = DateTimeFormat.forPattern("yyyyMMddHH:mm:ss")
-  val longerFormat = DateTimeFormat.forPattern("yyyy/MM/dd-HH:mm:ss")
+  val usageApiShortDateFormat = DateTimeFormat.forPattern("dd/MM/yyyy")
+  val usageApiLongDateFormat = DateTimeFormat.forPattern("dd/MM/yyyy-HH:mm:ss")
 }
 
 case class AssetRef(urn: String, dateLoaded: DateTime)
@@ -32,7 +34,7 @@ object AssetRef {
   def apply(item: Item): AssetRef =
     AssetRef(
       item.getString("picdarUrn"),
-      PicdarDates.format.parseDateTime(item.getString("picdarCreated"))
+      PicdarDates.dynamoDbFormat.parseDateTime(item.getString("picdarCreated"))
     )
 }
 

@@ -188,7 +188,7 @@ class ExportDynamoDB(credentials: AWSCredentials, region: Region, tableName: Str
       new GetItemSpec().
       withPrimaryKey(
         IdKey, ref.urn,
-        RangeKey, PicdarDates.format.print(ref.dateLoaded)
+        RangeKey, PicdarDates.dynamoDbFormat.print(ref.dateLoaded)
       )
     )
   }
@@ -199,7 +199,7 @@ class ExportDynamoDB(credentials: AWSCredentials, region: Region, tableName: Str
     val items = for {
       date  <- dateRange.dateList
 
-      dateString = PicdarDates.format.print(date)
+      dateString = PicdarDates.dynamoDbFormat.print(date)
       key = new KeyAttribute(RangeKey, dateString)
       query = imageIndex.query(key).pages.asScala
 
