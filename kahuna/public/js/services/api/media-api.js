@@ -1,10 +1,14 @@
 import angular from 'angular';
+// TODO: make theseus-angular it export its module
+import 'theseus-angular';
 
-import apiServices from '../api';
+export var mediaApi = angular.module('kahuna.services.api.media', [
+    'theseus'
+]);
 
-apiServices.factory('mediaApi',
-                    ['mediaApiUri', 'theseus.client',
-                     function(mediaApiUri, client) {
+mediaApi.factory('mediaApi',
+                 ['mediaApiUri', 'theseus.client',
+                  function(mediaApiUri, client) {
 
     var root = client.resource(mediaApiUri);
     var session;

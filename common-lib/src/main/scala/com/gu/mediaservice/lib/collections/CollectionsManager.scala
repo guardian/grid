@@ -46,10 +46,11 @@ object CollectionsManager {
     "g2"           -> "#000000",
     "observer"     -> "#006f94",
     "culture"      -> "#d1008b",
-    "film & music" -> "#b1532f"
+    "film & music" -> "#b1532f",
+    "guide"        -> "#8F1AB6"
   )
 
   def getCollectionColour(s: String) = collectionColours.get(s)
 
-  def getCssColour(path: List[String]): String = path.headOption.flatMap(getCollectionColour).getOrElse("#333333")
+  def getCssColour(path: List[String]) = path.headOption.flatMap(getCollectionColour)
 }

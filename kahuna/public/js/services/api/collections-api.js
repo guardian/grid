@@ -1,9 +1,17 @@
 import angular from 'angular';
-import apiServices from '../api';
+import {mediaApi} from './media-api';
+import {imageAccessor} from '../image-accessor';
+import {async} from '../../util/async';
 
-apiServices.factory('collections',
-                    ['mediaApi', 'imageAccessor', '$q', 'apiPoll', '$rootScope',
-                    function (mediaApi, imageAccessor, $q, apiPoll, $rootScope) {
+export var collectionsApi = angular.module('kahuna.services.api.collections', [
+    mediaApi.name,
+    imageAccessor.name,
+    async.name
+]);
+
+collectionsApi.factory('collections',
+                       ['$rootScope', '$q', 'mediaApi', 'imageAccessor', 'apiPoll',
+                        function ($rootScope, $q, mediaApi, imageAccessor, apiPoll) {
 
     // TODO: Rx?
     let collections;

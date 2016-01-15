@@ -1,6 +1,11 @@
-import apiServices from '../api';
+import angular from 'angular';
+import {mediaApi} from './media-api';
 
-apiServices.factory('editsApi', ['$q', 'mediaApi', function($q, mediaApi) {
+export var editsApi = angular.module('kahuna.services.api.edits', [
+    mediaApi.name
+]);
+
+editsApi.factory('editsApi', ['$q', 'mediaApi', function($q, mediaApi) {
 
     var root;
     var categories;

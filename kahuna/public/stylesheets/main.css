@@ -385,6 +385,12 @@ button[disabled],
     color: white;
 }
 
+.hover-parent .hover-child {
+    display: none;
+}
+.hover-parent:hover .hover-child {
+    display: initial;
+}
 
 /* ==========================================================================
    Angular

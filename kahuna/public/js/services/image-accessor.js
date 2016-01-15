@@ -1,6 +1,6 @@
 import angular from 'angular';
 
-const imageAccessor = angular.module('kahuna.services.image-accessor', []);
+export const imageAccessor = angular.module('kahuna.services.image-accessor', []);
 
 /**
  * Accessor helpers to read information out of image resources.

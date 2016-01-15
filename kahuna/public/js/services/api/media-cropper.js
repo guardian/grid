@@ -1,8 +1,11 @@
-import apiServices from '../api';
+import angular from 'angular';
+import {mediaApi} from './media-api';
 
-apiServices.factory('mediaCropper',
-                    ['mediaApi',
-                     function(mediaApi) {
+export var cropperApi = angular.module('kahuna.services.api.cropper', [
+    mediaApi.name
+]);
+
+cropperApi.factory('mediaCropper', ['mediaApi', function(mediaApi) {
 
     var cropperRoot;
 

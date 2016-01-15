@@ -2,28 +2,38 @@
 
 import angular from 'angular';
 import 'angular-ui-router';
-import 'pandular';
+import {heal} from 'pandular';
+
 import uriTemplates from 'uri-templates';
-import './services/api/media-api';
-import './services/api/media-cropper';
-import './services/api/loader';
-import './services/api/edits-api';
-import './directives/ui-crop-box';
-import './directives/gr-image-fade-on-load';
-import './crop/index';
-import './image/index';
-import './upload/index';
-import './search/index';
-import './edits/index';
-import './util/async';
-import './util/digest';
-import './analytics/track';
-import './sentry/sentry';
-import './common/index';
-import './errors/http';
-import './errors/global';
-import './components/gr-icon/gr-icon';
-import './components/gr-tooltip/gr-tooltip';
+
+import {cropperApi} from './services/api/media-cropper';
+import {editsApi}   from './services/api/edits-api';
+import {loaderApi}  from './services/api/loader';
+import {mediaApi}   from './services/api/media-api';
+
+import {imageFade} from './directives/gr-image-fade-on-load';
+
+import {crop}   from './crop/index';
+import {image}  from './image/index';
+import {upload} from './upload/index';
+import {search} from './search/index';
+import {edits}  from './edits/index';
+
+import {async}  from './util/async';
+import {digest} from './util/digest';
+
+import {track}  from './analytics/track';
+import {sentry} from './sentry/sentry';
+
+import {userActions}        from './common/user-actions';
+import {trackImageLoadtime} from './common/track-image-loadtime';
+
+import {httpErrors}   from './errors/http';
+import {globalErrors} from './errors/global';
+
+import {icon}    from './components/gr-icon/gr-icon';
+import {tooltip} from './components/gr-tooltip/gr-tooltip';
+
 
 // TODO: move to an async config to remove deps on play
 var apiLink = document.querySelector('link[rel="media-api-uri"]');
@@ -51,26 +61,29 @@ var config = {
 
 var kahuna = angular.module('kahuna', [
     'ui.router',
-    'pandular.heal',
-    'util.async',
-    'util.digest',
-    'analytics.track',
-    'sentry',
-    'kahuna.crop',
-    'kahuna.image',
-    'kahuna.upload',
-    'kahuna.search',
-    'kahuna.edits',
-    'kahuna.services.api',
-    'kahuna.directives',
-    'kahuna.common',
-    'kahuna.errors.http',
-    'kahuna.errors.global',
+    heal.name,
+    cropperApi.name,
+    editsApi.name,
+    loaderApi.name,
+    mediaApi.name,
+    async.name,
+    digest.name,
+    track.name,
+    sentry.name,
+    crop.name,
+    image.name,
+    upload.name,
+    search.name,
+    edits.name,
+    userActions.name,
+    trackImageLoadtime.name,
+    httpErrors.name,
+    globalErrors.name,
 
     // directives used throughout
-    'gr.imageFadeOnLoad',
-    'grIcon',
-    'grTooltip'
+    imageFade.name,
+    icon.name,
+    tooltip.name
 ]);
 
 

@@ -1,12 +1,11 @@
 import angular from 'angular';
+import {mediaApi} from './media-api';
 
-import '../api';
-
-const mod = angular.module('kahuna.witness', [
-    'kahuna.services.api'
+export var witnessApi = angular.module('kahuna.services.api.witness', [
+    mediaApi.name
 ]);
 
-mod.factory('witnessApi', ['mediaApi', function(mediaApi) {
+witnessApi.factory('witnessApi', ['mediaApi', function(mediaApi) {
 
     const witnessPattern =
         /https:\/\/witness.theguardian.com\/assignment\/([0-9a-f]+)\/([0-9a-f]+)/;
