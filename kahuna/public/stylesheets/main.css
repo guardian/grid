@@ -410,7 +410,7 @@ textarea.ng-invalid {
     vertical-align: middle;
     line-height: 50px;
     display: inline-block;
-    border-left: 2px solid #565656;
+    border-left: 1px solid #565656;
     height: 50px;
 }
 
@@ -419,7 +419,7 @@ textarea.ng-invalid {
 }
 
 .top-bar-item:last-child {
-    border-right: 2px solid #565656;
+    border-right: 1px solid #565656;
 }
 
 .top-bar-item ui-archiver .archiver {
