@@ -10,4 +10,5 @@ object ExecutionContexts {
   implicit val picdarAsset  = ExecutionContext.fromExecutor(Executors.newFixedThreadPool(Config.concurrencyPicdarAsset))
   implicit val mediaLoader  = ExecutionContext.fromExecutor(Executors.newFixedThreadPool(Config.concurrencyMediaLoader))
   implicit val mediaApi     = ExecutionContext.fromExecutor(Executors.newFixedThreadPool(Config.concurrencyMediaApi))
+  implicit val usageApi     = ExecutionContext.fromExecutor(Executors.newFixedThreadPool(Config.concurrencyMediaApi))
 }

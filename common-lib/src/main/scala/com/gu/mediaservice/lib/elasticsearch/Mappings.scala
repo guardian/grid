@@ -154,7 +154,9 @@ object Mappings {
       "edition" -> integer,
       "size" -> printUsageSize,
       "orderedBy" -> nonAnalyzedString,
-      "sectionCode" -> nonAnalyzedString
+      "sectionCode" -> nonAnalyzedString,
+      "notes" -> nonAnalyzedString,
+      "source" -> nonAnalyzedString
     )
 
   val digitalUsageMetadata =

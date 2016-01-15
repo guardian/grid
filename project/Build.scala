@@ -17,6 +17,7 @@ object Build extends Build {
       scalaVersion := "2.11.6",
       scalaVersion in ThisBuild := "2.11.6",
       organization := "com.gu",
+      fork in run := true,
       version      := "0.1",
       resolvers ++= Seq(
         "Typesafe Repository" at "http://repo.typesafe.com/typesafe/releases/",

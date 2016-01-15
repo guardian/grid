@@ -23,6 +23,8 @@ import org.joda.time.DateTime
 
 import rx.lang.scala.Observable
 
+import com.gu.mediaservice.model.{PendingUsageStatus, PublishedUsageStatus}
+
 import lib.Config
 
 case class UsageTableFullKey(hashKey: String, rangeKey: String) {
