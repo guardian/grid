@@ -39,6 +39,7 @@ case class PrintUsageMetadata(
   type MapStringIntElement = List[(String, Map[String, Int])]
   type StringElement = List[(String,String)]
   type LongElement = List[(String,Long)]
+  type IntElement = List[(String,Int)]
 
   def toMap = Map(
     "sectionName" -> sectionName,
@@ -47,11 +48,11 @@ case class PrintUsageMetadata(
     "storyName" -> storyName,
     "publicationCode" -> publicationCode,
     "publicationName" -> publicationName,
-    "edition" -> edition,
     "sectionCode" -> sectionCode
     ) ++ size.foldLeft[MapStringIntElement](Nil)((_,m) => List("size" -> m.toMap)) ++
       orderedBy.foldLeft[StringElement](Nil)((_,s) => List("orderedBy" -> s)) ++
       layoutId.foldLeft[LongElement](Nil)((_,l) => List("layoutId" -> l)) ++
+      edition.foldLeft[IntElement](Nil)((_,l) => List("edition" -> l)) ++
       notes.foldLeft[StringElement](Nil)((_,s) => List("notes" -> s))
 }
 object PrintUsageMetadata {
