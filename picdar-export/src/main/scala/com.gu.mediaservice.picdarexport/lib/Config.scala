@@ -4,6 +4,9 @@ import com.amazonaws.auth.BasicAWSCredentials
 import com.amazonaws.regions.{Regions, Region}
 import com.gu.mediaservice.lib.config.Properties
 
+import scala.util.Try
+
+
 case class MediaConfig(apiKey: String, loaderUrl: String, usageUrl: String)
 
 object Config {
@@ -18,6 +21,9 @@ object Config {
   val dynamoRegion = Region.getRegion(Regions.EU_WEST_1)
 
   def picdarUsageApiUrl  = properties(s"picdar.usageapi.url")
+
+  val defaultOverwrite   = false
+  def overwriteFlag      = Try(properties("overwrite.active").toBoolean).getOrElse(defaultOverwrite)
 
   val picdarDeskUrl      = properties("picdar.desk.url")
   val picdarDeskUsername = properties("picdar.desk.username")

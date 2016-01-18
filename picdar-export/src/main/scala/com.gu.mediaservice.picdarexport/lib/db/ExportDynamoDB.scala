@@ -224,12 +224,21 @@ class ExportDynamoDB(credentials: AWSCredentials, region: Region, tableName: Str
     })
   }
 
-  def getNoUsage(dateRange: DateRange) =
-    getUrnsForNotFilledFields[AssetRef](dateRange, Set("picdarUsage"))(
+  // Set of never-matching elements to ensure overwrite proceeds
+  val noopSet = Set("noop")
+
+  def getNoUsage(dateRange: DateRange, overwrite: Boolean = false) = {
+    val notFilledSet: Set[String] = if(overwrite) noopSet else Set("picdarUsage")
+
+    getUrnsForNotFilledFields[AssetRef](dateRange, notFilledSet)(
       (item: Item) => AssetRef(item))
-  def getUsageNotRecorded(dateRange: DateRange) =
-    getUrnsForNotFilledFields(dateRange, Set("picdarUsage","usageSent"))(
+  }
+  def getUsageNotRecorded(dateRange: DateRange, overwrite: Boolean) = {
+    val notFilledSet: Set[String] = if(overwrite) noopSet else Set("picdarUsage", "usageSent")
+
+    getUrnsForNotFilledFields(dateRange, notFilledSet)(
       (item: Item) => AssetRow(item))
+  }
 
   def scanNoRights(dateRange: DateRange): Future[Seq[AssetRef]] = Future {
     val queryConds = List(fetchedCondition, noRightsCondition).withDateRange(dateRange)
