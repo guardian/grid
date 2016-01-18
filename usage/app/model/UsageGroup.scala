@@ -19,8 +19,6 @@ object UsageGroup {
   def buildId(printUsage: PrintUsageRecord) = s"print/${MD5.hash(List(
     Some(printUsage.mediaId),
     Some(printUsage.printUsageMetadata.pageNumber),
-    Some(printUsage.printUsageMetadata.edition),
-    Some(printUsage.printUsageMetadata.layoutId),
     Some(printUsage.printUsageMetadata.sectionCode),
     Some(printUsage.printUsageMetadata.issueDate)
   ).flatten.map(_.toString).mkString("_"))}"

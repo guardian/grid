@@ -28,7 +28,7 @@ case class PrintUsageMetadata(
   publicationCode: String,
   publicationName: String,
   layoutId: Option[Long] = None,
-  edition: Int,
+  edition: Option[Int],
   size: Option[PrintImageSize] = None,
   orderedBy: Option[String] = None,
   sectionCode: String,

@@ -35,7 +35,7 @@ object UsageMetadataBuilder {
         publicationCode = metadataMap.apply("publicationCode").asInstanceOf[String],
         publicationName = metadataMap.apply("publicationName").asInstanceOf[String],
         layoutId = metadataMap.get("layoutId").map(_.asInstanceOf[java.math.BigDecimal].intValue),
-        edition = metadataMap.apply("edition").asInstanceOf[java.math.BigDecimal].intValue,
+        edition = metadataMap.get("edition").map(_.asInstanceOf[java.math.BigDecimal].intValue),
         size = metadataMap.get("size")
           .map(_.asInstanceOf[JStringNumMap])
           .map(m => PrintImageSize(m.get("x").intValue, m.get("y").intValue)),
