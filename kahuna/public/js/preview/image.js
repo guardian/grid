@@ -66,6 +66,10 @@ image.controller('uiPreviewImageCtrl', [
 
     inject$($scope, hasPrintUsages$, ctrl, 'hasPrintUsages');
     inject$($scope, hasDigitalUsages$, ctrl, 'hasDigitalUsages');
+
+    ctrl.getCollectionStyle = collection => {
+        return collection.data.cssColour && `background-color: ${collection.data.cssColour}`;
+    }
 }]);
 
 image.directive('uiPreviewImage', function() {

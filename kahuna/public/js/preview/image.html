@@ -51,8 +51,8 @@
                     ng:repeat="collection in ctrl.image.data.collections"
                     gr-tooltip="Click to open collection: {{collection.data.path.join(' ▸ ')}}"
                     gr-tooltip-position="top">
-                    <a ui:sref="search.results({query: '~'+collection.data.pathId})"
-                       style="background-color: {{collection.data.cssColour}}"}
+                    <a ui:sref="::(search.results({query: (collections.data.path | queryCollectionFilter)}))"
+                       ng:attr-style="ctrl.getCollectionStyle(collection)"
                        class="preview__collections__collection__value">
                         {{collection.data.description}}
                     </a>
