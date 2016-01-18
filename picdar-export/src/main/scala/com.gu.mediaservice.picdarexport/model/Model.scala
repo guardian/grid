@@ -50,4 +50,6 @@ object DateRange {
   val defaultEndDate   = DateTime.now()
 
   val all = DateRange(None, None)
+  def apply(start: DateTime, end: DateTime): DateRange =
+    DateRange(Some(start), Some(end))
 }
