@@ -12,8 +12,6 @@ import '../components/gr-add-label/gr-add-label';
 import '../components/gr-image-persist-status/gr-image-persist-status';
 import '../util/collections';
 
-import {getCollection} from '../search-query/query-syntax';
-
 export var image = angular.module('kahuna.preview.image', [
     'gr.image.service',
     'gr.image-usages.service',
@@ -69,7 +67,7 @@ image.controller('uiPreviewImageCtrl', [
 
     ctrl.getCollectionStyle = collection => {
         return collection.data.cssColour && `background-color: ${collection.data.cssColour}`;
-    }
+    };
 }]);
 
 image.directive('uiPreviewImage', function() {
