@@ -314,10 +314,14 @@ object ExportApp extends App with ExportManagerProvider with ArgumentHelpers wit
 
   import com.gu.mediaservice.picdarexport.lib.picdar.UsageApi
 
-  def fetchUsage(env: String, dateRange: DateRange = DateRange.all, range: Option[Range] = None) = {
+  def fetchUsage(
+    env: String,
+    dateRange: DateRange = DateRange.all,
+    range: Option[Range] = None
+  ) = {
     val dynamo = getDynamo(env)
 
-    dynamo.getNoUsage(dateRange) flatMap { urns =>
+    dynamo.getNoUsage(dateRange, Config.overwriteFlag) flatMap { urns =>
       val updates = takeRange(urns, range).map { assetRef =>
         UsageApi.get(assetRef.urn).flatMap { usages =>
           dynamo.recordUsage(assetRef.urn, assetRef.dateLoaded, usages)
@@ -327,13 +331,15 @@ object ExportApp extends App with ExportManagerProvider with ArgumentHelpers wit
     }
   }
 
-  def sendUsage(env: String, dateRange: DateRange = DateRange.all, range: Option[Range] = None) = {
+  def sendUsage(
+    env: String,
+    dateRange: DateRange = DateRange.all,
+    range: Option[Range] = None
+  ) = {
     val dynamo = getDynamo(env)
 
-    dynamo.getUsageNotRecorded(dateRange) flatMap { urns =>
+    dynamo.getUsageNotRecorded(dateRange, Config.overwriteFlag) flatMap { urns =>
       val updates = takeRange(urns, range).map { asset =>
-        // These will obviously error if the attributes aren't filled
-        // TODO: Explore failure modes!
         val mediaUri = asset.mediaUri.get
         val usage = asset.picdarUsage.get
 
