@@ -239,6 +239,12 @@ class ExportDynamoDB(credentials: AWSCredentials, region: Region, tableName: Str
     getUrnsForNotFilledFields(dateRange, notFilledSet)(
       (item: Item) => AssetRow(item))
   }
+  def getUnfetched(dateRange: DateRange, overwrite: Boolean) = {
+    val notFilledSet: Set[String] = if(overwrite) noopSet else Set("picdarAssetUrl", "picdarMetadataModified")
+
+    getUrnsForNotFilledFields(dateRange, notFilledSet)(
+      (item: Item) => AssetRef(item))
+  }
 
   def scanNoRights(dateRange: DateRange): Future[Seq[AssetRef]] = Future {
     val queryConds = List(fetchedCondition, noRightsCondition).withDateRange(dateRange)

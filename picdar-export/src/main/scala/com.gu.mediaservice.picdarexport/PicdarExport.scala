@@ -237,7 +237,7 @@ object ExportApp extends App with ExportManagerProvider with ArgumentHelpers wit
 
   def fetch(env: String, system: String, dateRange: DateRange = DateRange.all, range: Option[Range] = None) = {
     val dynamo = getDynamo(env)
-    dynamo.scanUnfetched(dateRange) flatMap { urns =>
+    dynamo.getUnfetched(dateRange, Config.overwriteFlag) flatMap { urns =>
       val updates = takeRange(urns, range).map { assetRef =>
         getPicdar(system).get(assetRef.urn) flatMap { asset =>
           dynamo.record(assetRef.urn, assetRef.dateLoaded, asset.file, asset.created, asset.modified, asset.metadata)
