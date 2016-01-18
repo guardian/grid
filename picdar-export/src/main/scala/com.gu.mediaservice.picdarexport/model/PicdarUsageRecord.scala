@@ -14,7 +14,7 @@ case class PicdarUsageRecord(
   publicationName: String,
   page: Int,
   sectionName: String,
-  edition: Int,
+  edition: Option[Int],
   status: UsageStatus,
   notes: Option[String]
 )
