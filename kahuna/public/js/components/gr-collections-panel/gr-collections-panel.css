@@ -1,7 +1,5 @@
 gr-nodes, gr-node,
-.node__info:hover .node__marker,
-.node__info:hover .node__action,
-.collection-drop--drag-over .node__marker {
+.node__info:hover .node__action {
     display: block;
 }
 
@@ -15,11 +13,10 @@ gr-nodes, gr-node,
 
 .node__marker {
     position: absolute;
-    background: #00adee;
-    width: 3px;
+    background: #444;
+    width: 5px;
     height: 34px;
     left: 0;
-    display: none;
 }
 
 .node__info {
