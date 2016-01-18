@@ -69,7 +69,7 @@ image.controller('uiPreviewImageCtrl', [
 
     ctrl.getCollectionStyle = collection => {
         return collection.data.cssColour && `background-color: ${collection.data.cssColour}`;
-    }
+    };
 }]);
 
 image.directive('uiPreviewImage', function() {
