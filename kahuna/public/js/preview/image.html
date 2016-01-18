@@ -46,6 +46,19 @@
 
     <div class="preview__info" ng:if="! ctrl.hideInfo">
         <div class="flex-container">
+            <ul class="bottom-bar__meta-item preview__collections">
+                <li class="preview__collections__collection"
+                    ng:repeat="collection in ctrl.image.data.collections"
+                    gr-tooltip="Click to open collection: {{collection.data.path.join(' ▸ ')}}"
+                    gr-tooltip-position="top">
+                    <a ui:sref="::(search.results({query: (collections.data.path | queryCollectionFilter)}))"
+                       ng:attr-style="ctrl.getCollectionStyle(collection)"
+                       class="preview__collections__collection__value">
+                        {{collection.data.description}}
+                    </a>
+                </li>
+            </ul>
+
             <ui-labeller-compact class="preview__labeller"
                                  image="ctrl.image"
                                  disabled="ctrl.selectionMode"
@@ -75,19 +88,6 @@
                 {{::ctrl.image.data.uploadTime | date:'HH:mm'}}
             </span>
 
-            <span class="bottom-bar__meta-item titip-bottom preview__in-collection"
-                ng:if="ctrl.showCollections && ctrl.image.data.collections.length > 0">
-                <gr-icon gr-small>folder</gr-icon>
-                <span class="titip-content preview__in-collection__list">
-                    <li ng-repeat="collection in ctrl.image.data.collections">
-                        <a ui:sref="search.results({query: '~'+collection.data.pathId})">
-                            {{collection.data.path.join(' ▸ ')}}
-                        </a>
-                        <br>
-                    </li>
-                </span>
-            </span>
-
             <span class="bottom-bar__meta-item preview__has-crops"
                   title="this image has crops"
                   ng:if="ctrl.states.hasCrops">
@@ -108,9 +108,6 @@
 
                 <gr-icon gr-small>phonelink</gr-icon>
             </span>
-
-
-
         </div>
         <div class="bottom-bar__actions">
             <gr-image-persist-status class="bottom-bar__action"
