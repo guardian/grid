@@ -10,8 +10,8 @@ server {
     }
 
     ssl on;
-    ssl_certificate media-service.crt;
-    ssl_certificate_key media-service.key;
+    ssl_certificate {{certificate}}.crt;
+    ssl_certificate_key {{certificate}}.key;
 
     ssl_session_timeout 5m;
 

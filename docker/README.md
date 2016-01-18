@@ -28,9 +28,10 @@ There is also a:
 ## Setup
 - Ensure you've set up the aws-cli with a `media-service` profile (`aws configure --profile media-service`).
 - Create `$HOME/.gu/grid/grid-settings.yml` using [`grid-settings.yml.template`](./configs/generators/grid-settings.yml.template) as a template.
-- Generate a wildcard cert for your domain and add the files to `$HOME/.gu/grid/ssl/media-service.crt` and `$HOME/.gu/grid/ssl/media-service.key`.
+- Generate a wildcard cert for `*.domain` and add the files to `$HOME/.gu/grid/ssl/media-service.crt` and `$HOME/.gu/grid/ssl/media-service.key`.
+- Generate a wildcard cert for `*.media.domain` and add the files to `$HOME/.gu/grid/ssl/star.media-service.crt` and `$HOME/.gu/grid/ssl/star.media-service.key`.
 
-  NB: Docker cannot follow symlinks, so these have to be actual files.
+NB: Docker cannot follow symlinks, so these have to be actual files.
 
 ### Additional setup for OSX
 #### Memory

@@ -14,8 +14,13 @@ def _get_mappings():
     for mapping in mappings:
         mapping['domain'] = domain
 
-        # set default port
+        # set default port for sbt
         mapping.setdefault('port', 9000)
+
+        if mapping.get('prefix').endswith('.media'):
+            mapping['certificate'] = 'star.media-service'
+        else:
+            mapping['certificate'] = 'media-service'
 
     return mappings
 
