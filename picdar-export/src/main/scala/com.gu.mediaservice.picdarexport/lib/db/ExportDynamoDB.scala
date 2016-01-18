@@ -224,14 +224,17 @@ class ExportDynamoDB(credentials: AWSCredentials, region: Region, tableName: Str
     })
   }
 
+  // Set of never-matching elements to ensure overwrite proceeds
+  val noopSet = Set("noop")
+
   def getNoUsage(dateRange: DateRange, overwrite: Boolean = false) = {
-    val notFilledSet: Set[String] = if(overwrite) Set("noop") else Set("picdarUsage")
+    val notFilledSet: Set[String] = if(overwrite) noopSet else Set("picdarUsage")
 
     getUrnsForNotFilledFields[AssetRef](dateRange, notFilledSet)(
       (item: Item) => AssetRef(item))
   }
   def getUsageNotRecorded(dateRange: DateRange, overwrite: Boolean) = {
-    val notFilledSet: Set[String] = if(overwrite) Set("noop") else Set("picdarUsage", "usageSent")
+    val notFilledSet: Set[String] = if(overwrite) noopSet else Set("picdarUsage", "usageSent")
 
     getUrnsForNotFilledFields(dateRange, notFilledSet)(
       (item: Item) => AssetRow(item))
