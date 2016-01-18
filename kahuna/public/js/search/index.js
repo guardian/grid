@@ -98,9 +98,9 @@ search.config(['$stateProvider', '$urlMatcherFactoryProvider',
                 description: 'Toggle collections',
                 callback: () => {
                     const toggled = !storage.getJs('showCollectionsPanel');
+                    const using = toggled ? 'start' : 'stop';
                     storage.setJs('showCollectionsPanel', toggled);
-                    $window.alert('Now refresh to start using collections');
-
+                    $window.alert(`Now refresh to ${using} using collections`);
                 }
             });
         }],
@@ -109,7 +109,7 @@ search.config(['$stateProvider', '$urlMatcherFactoryProvider',
                 // keep the shortcut keys here to stop overriding
                 return new Map([
                     ['metadataPanel', 'm'],
-                    ['showCollections', 'ctrl+c']
+                    ['showCollections', 'ctrl+alt+c']
                 ]);
             }],
             panels: ['panelService', function(panelService) {
