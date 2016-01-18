@@ -46,7 +46,7 @@ case class DateRange(start: Option[DateTime], end: Option[DateTime]) {
   val dateList = (0 to numDays).map(startDay.plusDays)
 }
 object DateRange {
-  val defaultStartDate = PicdarDates.format.parseDateTime("1998-01-01")
+  val defaultStartDate = PicdarDates.format.parseDateTime("1998/01/01")
   val defaultEndDate   = DateTime.now()
 
   val all = DateRange(None, None)
