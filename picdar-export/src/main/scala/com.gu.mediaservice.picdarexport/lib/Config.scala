@@ -23,7 +23,7 @@ object Config {
   def picdarUsageApiUrl  = properties(s"picdar.usageapi.url")
 
   val defaultOverwrite   = false
-  def overwriteFlag      = Try(properties("overwrite.active").toBoolean).getOrElse[Boolean](defaultOverwrite)
+  def overwriteFlag      = Try(properties("overwrite.active").toBoolean).getOrElse(defaultOverwrite)
 
   val picdarDeskUrl      = properties("picdar.desk.url")
   val picdarDeskUsername = properties("picdar.desk.username")
