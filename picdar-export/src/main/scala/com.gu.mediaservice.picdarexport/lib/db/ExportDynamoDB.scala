@@ -241,7 +241,6 @@ class ExportDynamoDB(credentials: AWSCredentials, region: Region, tableName: Str
     val maxBatchSize = 100
 
     getUrnsForDateRange(dateRange).flatMap(assetRefs => {
-
       Future { assetRefs.grouped(maxBatchSize).flatMap(batch => {
         val batchSpec = batch.foldLeft(new TableKeysAndAttributes(tableName))(
           (keys: TableKeysAndAttributes, assetRef: AssetRef) => {
@@ -262,13 +261,12 @@ class ExportDynamoDB(credentials: AWSCredentials, region: Region, tableName: Str
     })
   }
 
-
   def getNoUsage(dateRange: DateRange) = {
     getUrnsForNotFilledFields[AssetRef](dateRange, Set("picdarUsage"))(
       (item: Item) => AssetRef(item))
   }
   def getUsageNotRecorded(dateRange: DateRange) = {
-    getUrnsForNotFilledFields(dateRange, Set("picdarUsage", "usageSent"))(
+    getUrnsForNotFilledFields(dateRange, Set("picdarUsage", "usageSent"), Set("mediaUri"))(
       (item: Item) => AssetRow(item))
   }
   def getUnfetched(dateRange: DateRange) = {
