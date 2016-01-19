@@ -237,7 +237,7 @@ object ExportApp extends App with ExportManagerProvider with ArgumentHelpers wit
 
   def fetch(env: String, system: String, dateRange: DateRange = DateRange.all, range: Option[Range] = None) = {
     val dynamo = getDynamo(env)
-    dynamo.scanUnfetched(dateRange) flatMap { urns =>
+    dynamo.getUnfetched(dateRange) flatMap { urns =>
       val updates = takeRange(urns, range).map { assetRef =>
         getPicdar(system).get(assetRef.urn) flatMap { asset =>
           dynamo.record(assetRef.urn, assetRef.dateLoaded, asset.file, asset.created, asset.modified, asset.metadata)
@@ -251,7 +251,7 @@ object ExportApp extends App with ExportManagerProvider with ArgumentHelpers wit
 
   def ingest(env: String, dateRange: DateRange = DateRange.all, range: Option[Range] = None) = {
     val dynamo = getDynamo(env)
-    dynamo.scanFetchedNotIngested(dateRange) flatMap { assets =>
+    dynamo.getNotIngested(dateRange) flatMap { assets =>
       val updates = takeRange(assets, range).map { asset =>
         // .get on options here will induce intentional failure if not available
         getExportManager("library", env).ingest(
@@ -321,7 +321,7 @@ object ExportApp extends App with ExportManagerProvider with ArgumentHelpers wit
   ) = {
     val dynamo = getDynamo(env)
 
-    dynamo.getNoUsage(dateRange, Config.overwriteFlag) flatMap { urns =>
+    dynamo.getNoUsage(dateRange) flatMap { urns =>
       val updates = takeRange(urns, range).map { assetRef =>
         UsageApi.get(assetRef.urn).flatMap { usages =>
           dynamo.recordUsage(assetRef.urn, assetRef.dateLoaded, usages)
@@ -338,7 +338,7 @@ object ExportApp extends App with ExportManagerProvider with ArgumentHelpers wit
   ) = {
     val dynamo = getDynamo(env)
 
-    dynamo.getUsageNotRecorded(dateRange, Config.overwriteFlag) flatMap { urns =>
+    dynamo.getUsageNotRecorded(dateRange) flatMap { urns =>
       val updates = takeRange(urns, range).map { asset =>
         val mediaUri = asset.mediaUri.get
         val usage = asset.picdarUsage.get
