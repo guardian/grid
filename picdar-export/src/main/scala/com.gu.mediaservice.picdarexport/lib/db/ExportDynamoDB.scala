@@ -10,11 +10,14 @@ import com.amazonaws.services.dynamodbv2.document.utils.ValueMap
 import com.amazonaws.services.dynamodbv2.model.ReturnValue
 import com.amazonaws.services.dynamodbv2.xspec.ExpressionSpecBuilder
 import com.amazonaws.services.dynamodbv2.xspec.ExpressionSpecBuilder.{S, N, M, BOOL}
+import com.amazonaws.services.dynamodbv2.document.Item
+import com.amazonaws.services.dynamodbv2.document.TableKeysAndAttributes
+import com.amazonaws.services.dynamodbv2.document.BatchGetItemOutcome
+import com.amazonaws.services.dynamodbv2.model.KeysAndAttributes
 
 import com.gu.mediaservice.lib.aws.DynamoDB
 import com.gu.mediaservice.model.{UsageRights, ImageMetadata}
 import com.gu.mediaservice.picdarexport.model.{PicdarUsageRecord, DateRange, AssetRef, PicdarDates}
-
 import com.gu.mediaservice.picdarexport.lib.Config
 
 import lib.MD5
@@ -214,14 +217,6 @@ class ExportDynamoDB(credentials: AWSCredentials, region: Region, tableName: Str
 
     items.map(AssetRef(_))
   }
-
-  // Set of never-matching elements to ensure overwrite proceeds
-  val noopSet = Set("noop")
-
-  import com.amazonaws.services.dynamodbv2.document.Item
-  import com.amazonaws.services.dynamodbv2.document.TableKeysAndAttributes
-  import com.amazonaws.services.dynamodbv2.document.BatchGetItemOutcome
-  import com.amazonaws.services.dynamodbv2.model.KeysAndAttributes
 
   private def getUnprocessedItems(outcome: BatchGetItemOutcome): List[Item] = {
     val keys = outcome.getUnprocessedKeys()
