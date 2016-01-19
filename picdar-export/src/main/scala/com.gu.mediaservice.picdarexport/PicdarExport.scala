@@ -227,12 +227,20 @@ object ExportApp extends App with ExportManagerProvider with ArgumentHelpers wit
   def load(env: String, system: String, dateField: String, dateRange: DateRange = DateRange.all,
            range: Option[Range] = None, query: Option[String] = None) = {
     val dynamo = getDynamo(env)
-    getPicdar(system).query(dateField, dateRange, range, query) flatMap { assetRefs =>
-      val saves = assetRefs.map { assetRef =>
-        dynamo.insert(assetRef.urn, assetRef.dateLoaded)
+
+    val saveList = dateRange.dateList.map(startDate => DateRange(startDate, startDate.plusDays(1)))
+      .map(dayDateRange => {
+
+      getPicdar(system).query(dateField, dayDateRange, range, query) flatMap { assetRefs =>
+        val saves = assetRefs.map { assetRef =>
+          dynamo.insert(assetRef.urn, assetRef.dateLoaded)
+        }
+        Future.sequence(saves)
       }
-      Future.sequence(saves)
-    }
+
+    })
+
+    Future.sequence(saveList)
   }
 
   def fetch(env: String, system: String, dateRange: DateRange = DateRange.all, range: Option[Range] = None) = {
