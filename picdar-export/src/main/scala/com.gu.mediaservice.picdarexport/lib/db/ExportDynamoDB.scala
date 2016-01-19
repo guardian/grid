@@ -15,12 +15,15 @@ import com.gu.mediaservice.lib.aws.DynamoDB
 import com.gu.mediaservice.model.{UsageRights, ImageMetadata}
 import com.gu.mediaservice.picdarexport.model.{PicdarUsageRecord, DateRange, AssetRef, PicdarDates}
 
+import com.gu.mediaservice.picdarexport.lib.Config
+
 import lib.MD5
 
 import org.joda.time.DateTime
 import org.joda.time.format.ISODateTimeFormat
 import play.api.libs.json.{Writes, Json, JsObject}
 import play.api.libs.concurrent.Execution.Implicits._
+import play.api.Logger
 
 import scala.collection.JavaConverters._
 import scala.collection.JavaConversions._
@@ -202,49 +205,85 @@ class ExportDynamoDB(credentials: AWSCredentials, region: Region, tableName: Str
       dateString = PicdarDates.dynamoDbFormat.print(date)
       key = new KeyAttribute(RangeKey, dateString)
       query = imageIndex.query(key).pages.asScala
-
       pages <- query
+
+      _ = Logger.info(s"Getting URNs for $date")
+
       items <- pages
     } yield items
 
     items.map(AssetRef(_))
   }
 
-  // Type this method so we can coerce items into whatever you want!
-  import com.amazonaws.services.dynamodbv2.document.Item
-  def getUrnsForNotFilledFields[T](dateRange: DateRange, attrs: Set[String])(f: Item => T): Future[Seq[T]] = {
-    getUrnsForDateRange(dateRange).flatMap(assetRefs => {
-      Future.traverse(assetRefs) {
-        case ref: AssetRef => getRow(ref)
-      }.map(
-        _.filter(row => {
-          !(attrs.subsetOf(row.attributes.map(_.getKey).toSet))
-        })
-        .map(f(_)))
-    })
-  }
-
   // Set of never-matching elements to ensure overwrite proceeds
   val noopSet = Set("noop")
 
-  def getNoUsage(dateRange: DateRange, overwrite: Boolean = false) = {
-    val notFilledSet: Set[String] = if(overwrite) noopSet else Set("picdarUsage")
+  import com.amazonaws.services.dynamodbv2.document.Item
+  import com.amazonaws.services.dynamodbv2.document.TableKeysAndAttributes
+  import com.amazonaws.services.dynamodbv2.document.BatchGetItemOutcome
+  import com.amazonaws.services.dynamodbv2.model.KeysAndAttributes
 
-    getUrnsForNotFilledFields[AssetRef](dateRange, notFilledSet)(
+  def getUrnsForNotFilledFields[T](
+    dateRange: DateRange,
+    mustNotHave: Set[String],
+    mustHave: Set[String] = Set.empty
+  )(f: Item => T): Future[Seq[T]] = {
+    val maxBatchSize = 100
+
+    getUrnsForDateRange(dateRange).flatMap(assetRefs => {
+
+      Future { assetRefs.grouped(maxBatchSize).flatMap(batch => {
+        val batchSpec = batch.foldLeft(new TableKeysAndAttributes(tableName))(
+          (keys: TableKeysAndAttributes, assetRef: AssetRef) => {
+            keys.addHashAndRangePrimaryKeys(
+              IdKey, RangeKey,
+              assetRef.urn, PicdarDates.dynamoDbFormat.print(assetRef.dateLoaded)
+            )
+          })
+
+        val outcome = dynamo.batchGetItem(batchSpec)
+          val items = outcome.getTableItems.get(tableName).asScala.toList
+
+          def getUnprocessedItems(outcome: BatchGetItemOutcome): List[Item] = {
+            val keys = outcome.getUnprocessedKeys()
+
+            if(keys.size > 0) {
+              val unprocOutcome = dynamo.batchGetItemUnprocessed(keys)
+
+              unprocOutcome.getTableItems.get(tableName)
+                .asScala.toList ::: getUnprocessedItems(unprocOutcome)
+
+            } else {
+              Nil
+            }
+          }
+
+          (items ::: getUnprocessedItems(outcome)).filter(row => {
+            (!(mustNotHave.subsetOf(row.attributes.map(_.getKey).toSet)) || mustNotHave.isEmpty) &&
+            mustHave.subsetOf(row.attributes.map(_.getKey).toSet)
+          }).map(f(_))
+      }).toList}
+    })
+  }
+
+
+  def getNoUsage(dateRange: DateRange) = {
+    getUrnsForNotFilledFields[AssetRef](dateRange, Set("picdarUsage"))(
       (item: Item) => AssetRef(item))
   }
-  def getUsageNotRecorded(dateRange: DateRange, overwrite: Boolean) = {
-    val notFilledSet: Set[String] = if(overwrite) noopSet else Set("picdarUsage", "usageSent")
-
-    getUrnsForNotFilledFields(dateRange, notFilledSet)(
+  def getUsageNotRecorded(dateRange: DateRange) = {
+    getUrnsForNotFilledFields(dateRange, Set("picdarUsage", "usageSent"))(
       (item: Item) => AssetRow(item))
   }
-  def getUnfetched(dateRange: DateRange, overwrite: Boolean) = {
-    val notFilledSet: Set[String] = if(overwrite) noopSet else Set("picdarAssetUrl", "picdarMetadataModified")
-
-    getUrnsForNotFilledFields(dateRange, notFilledSet)(
+  def getUnfetched(dateRange: DateRange) = {
+    getUrnsForNotFilledFields(dateRange, Set("picdarAssetUrl", "picdarMetadataModified"))(
       (item: Item) => AssetRef(item))
   }
+  def getNotIngested(dateRange: DateRange) = {
+    getUrnsForNotFilledFields(dateRange, Set("mediaUri"), Set("picdarAssetUrl","picdarCreatedFull"))(
+      (item: Item) => AssetRow(item))
+  }
+
 
   def scanNoRights(dateRange: DateRange): Future[Seq[AssetRef]] = Future {
     val queryConds = List(fetchedCondition, noRightsCondition).withDateRange(dateRange)
