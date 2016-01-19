@@ -223,6 +223,21 @@ class ExportDynamoDB(credentials: AWSCredentials, region: Region, tableName: Str
   import com.amazonaws.services.dynamodbv2.document.BatchGetItemOutcome
   import com.amazonaws.services.dynamodbv2.model.KeysAndAttributes
 
+  private def getUnprocessedItems(outcome: BatchGetItemOutcome): List[Item] = {
+    val keys = outcome.getUnprocessedKeys()
+
+    if(keys.size > 0) {
+      val unprocOutcome = dynamo.batchGetItemUnprocessed(keys)
+
+      unprocOutcome.getTableItems.get(tableName)
+        .asScala.toList ::: getUnprocessedItems(unprocOutcome)
+
+      } else {
+        Nil
+      }
+  }
+
+
   def getUrnsForNotFilledFields[T](
     dateRange: DateRange,
     mustNotHave: Set[String],
@@ -243,20 +258,6 @@ class ExportDynamoDB(credentials: AWSCredentials, region: Region, tableName: Str
 
         val outcome = dynamo.batchGetItem(batchSpec)
           val items = outcome.getTableItems.get(tableName).asScala.toList
-
-          def getUnprocessedItems(outcome: BatchGetItemOutcome): List[Item] = {
-            val keys = outcome.getUnprocessedKeys()
-
-            if(keys.size > 0) {
-              val unprocOutcome = dynamo.batchGetItemUnprocessed(keys)
-
-              unprocOutcome.getTableItems.get(tableName)
-                .asScala.toList ::: getUnprocessedItems(unprocOutcome)
-
-            } else {
-              Nil
-            }
-          }
 
           (items ::: getUnprocessedItems(outcome)).filter(row => {
             (!(mustNotHave.subsetOf(row.attributes.map(_.getKey).toSet)) || mustNotHave.isEmpty) &&
