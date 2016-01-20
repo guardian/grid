@@ -26,17 +26,17 @@
 
 
         <button class="node__action clickable" type="button"
+                title="Delete this collection"
                 ng:if="ctrl.deletable && ctrl.editing"
-                ng:click="ctrl.remove()"
-                gr:tooltip="Delete this collection">
+                ng:click="ctrl.remove()">
             <gr-icon-label gr-icon="delete"></gr-icon-label>
         </button>
 
         <button class="node__action clickable"
                 type="button"
+                title="Add a new sub-collection"
                 ng:if="ctrl.editing"
-                ng:click="$parent.active = !$parent.active"
-                gr:tooltip="Add a new sub-collection">
+                ng:click="$parent.active = !$parent.active">
             <gr-icon>add_box</gr-icon>
         </button>
 
@@ -44,9 +44,9 @@
              ng:if="ctrl.saving || dropIntoCollectionSaving">Adding…</div>
 
         <button class="node__action clickable hover-child"
+                title="Add selected images to this collection"
                 ng:if="!ctrl.editing && ctrl.hasImagesSelected && !ctrl.saving"
-                ng:click="ctrl.addImagesToCollection()"
-                gr:tooltip="Add selected images to this collection">
+                ng:click="ctrl.addImagesToCollection()">
             <gr-icon>add_to_photos</gr-icon>
         </button>
     </div>
