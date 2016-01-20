@@ -113,6 +113,22 @@ object UsageApi extends Controller with ArgoHelpers {
     }}
   }
 
+  def setDigitalUsages = Authenticated(BodyParsers.parse.json) { request => {
+      val digitalUsageRequestResult = request.body.validate[DigitalUsageRequest]
+      digitalUsageRequestResult.fold(
+        e => {
+          respondError(BadRequest, "print-usage-request-parse-failed", JsError.toFlatJson(e).toString)
+        },
+        printUsageRequest => {
+          //val usageGroups = UsageGroup.build(printUsageRequest.printUsageRecords)
+          //usageGroups.map(UsageRecorder.usageSubject.onNext)
+
+          Accepted
+        }
+      )
+    }
+  }
+
   def setPrintUsages = Authenticated(BodyParsers.parse.json) { request => {
       val printUsageRequestResult = request.body.validate[PrintUsageRequest]
       printUsageRequestResult.fold(
