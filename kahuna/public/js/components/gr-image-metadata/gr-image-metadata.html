@@ -207,7 +207,7 @@
         <dt class="metadata-line__key">Collections</dt>
         <dd class="metadata-line__info flex-container"
             ng-repeat="collection in ctrl.image.data.collections">
-            <a ui:sref="search.results({query: '~'+collection.data.pathId})">
+            <a ui:sref="search.results({query: (collection.data.pathId | queryCollectionFilter)})">
                 {{collection.data.path.join(' ▸ ')}}
             </a>
             <span class="flex-spacer"></span>
