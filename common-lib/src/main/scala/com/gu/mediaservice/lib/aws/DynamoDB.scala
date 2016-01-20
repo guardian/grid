@@ -212,7 +212,6 @@ class DynamoDB(credentials: AWSCredentials, region: Region, tableName: String) {
   def update(id: String, expression: String, valueMap: Option[ValueMap] = None)
             (implicit ex: ExecutionContext): Future[JsObject] = Future {
 
-
     val baseUpdateSpec = new UpdateItemSpec().
       withPrimaryKey(IdKey, id).
       withUpdateExpression(expression).
@@ -229,13 +228,7 @@ class DynamoDB(credentials: AWSCredentials, region: Region, tableName: String) {
     jsonWithNullAsEmptyString(Json.parse(item.toJSON)).as[JsObject] - IdKey
   }
 
-  def asJsObject(outcome: PutItemOutcome): JsObject =
-    asJsObject(outcome.getItem)
-
   def asJsObject(outcome: UpdateItemOutcome): JsObject =
-    asJsObject(outcome.getItem)
-
-  def asJsObject(outcome: DeleteItemOutcome): JsObject =
     asJsObject(outcome.getItem)
 
   // FIXME: Dynamo accepts `null`, but not `""`. This is a well documented issue
