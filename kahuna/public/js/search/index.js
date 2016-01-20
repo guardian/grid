@@ -115,7 +115,7 @@ search.config(['$stateProvider', '$urlMatcherFactoryProvider',
                 // keep the shortcut keys here to stop overriding
                 return new Map([
                     ['metadataPanel', 'm'],
-                    ['collectionsPanel', 'c'],
+                    ['collectionsPanel', 'l'],
                     ['showCollections', 'ctrl+alt+c']
                 ]);
             }],
