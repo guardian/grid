@@ -229,7 +229,7 @@ class DynamoDB(credentials: AWSCredentials, region: Region, tableName: String) {
   }
 
   def asJsObject(outcome: UpdateItemOutcome): JsObject =
-    asJsObject(outcome.getItem)
+    Option(outcome.getItem) map asJsObject getOrElse Json.obj()
 
   // FIXME: Dynamo accepts `null`, but not `""`. This is a well documented issue
   // around the community. This guard keeps the introduction of `null` fairly
