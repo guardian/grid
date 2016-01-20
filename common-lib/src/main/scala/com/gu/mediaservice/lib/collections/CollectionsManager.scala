@@ -43,7 +43,7 @@ object CollectionsManager {
   def isValidPathBit(s: String) = if (s.contains(delimiter)) false else true
 
   val collectionColours = Map(
-    "australia"    -> "#4A7834",
+    "australia"    -> "#ffb93e",
     "culture"      -> "#d1008b",
     "film & music" -> "#b1532f",
     "g2"           -> "#000000",
