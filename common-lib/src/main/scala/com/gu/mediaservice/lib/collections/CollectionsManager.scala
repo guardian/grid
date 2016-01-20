@@ -47,7 +47,8 @@ object CollectionsManager {
     "observer"     -> "#006f94",
     "culture"      -> "#d1008b",
     "film & music" -> "#b1532f",
-    "guide"        -> "#8F1AB6"
+    "guide"        -> "#8F1AB6",
+    "australia"    -> "#4A7834"
   )
 
   def getCollectionColour(s: String) = collectionColours.get(s)
