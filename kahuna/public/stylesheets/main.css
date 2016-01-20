@@ -385,6 +385,12 @@ button[disabled],
     color: white;
 }
 
+.hover-parent .hover-child {
+    display: none;
+}
+.hover-parent:hover .hover-child {
+    display: initial;
+}
 
 /* ==========================================================================
    Angular
@@ -1138,12 +1144,32 @@ FIXME: what to do with touch devices
     cursor: help;
 }
 
-.preview__in-collection {
-    cursor: help;
+.preview__collections {
+    margin-right: 2px;
+    height: 25px;
+    display: block;
+    white-space: nowrap;
 }
 
-.preview__in-collection__list {
-    max-width: 205px;
+.preview__collections__collection {
+    /*important to overwrite tooltips styling*/
+    display: inline-flex !important;
+    margin: 0 5px 5px 0;
+}
+
+.preview__collections__collection__value {
+    color: #fff;
+    padding: 0 5px;
+    margin-left: 2px;
+    border-radius: 2px;
+    /*this will be overwritten if the collection has a background-colour*/
+    background-color: #555;
+}
+
+.preview__collections__collection__value:hover {
+    /*need important to overwrite the inline style*/
+    background-color: #fff !important;
+    color: black;
 }
 
 .preview__cost {

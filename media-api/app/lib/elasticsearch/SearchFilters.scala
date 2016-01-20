@@ -18,7 +18,7 @@ trait SearchFilters extends ImageFields {
   val invalidFilter = Config.requiredMetadata.map(metadataField).toNel.map(filters.anyMissing)
 
   // New Cost Model
-  import UsageRightsConfig.{ suppliersCollectionExcl, freeSuppliers, payGettySourceList }
+  import UsageRightsConfig.{ suppliersCollectionExcl, freeSuppliers }
 
   val (suppliersWithExclusions, suppliersNoExclusions) = freeSuppliers.partition(suppliersCollectionExcl.contains)
   val suppliersWithExclusionsFilters = for {
@@ -44,7 +44,7 @@ trait SearchFilters extends ImageFields {
   val nonFreeFilter = freeFilter.map(filters.not)
 
   lazy val freeToUseCategories: List[String] =
-    UsageRights.all.filter(ur => ur.defaultCost.contains(Free)).map(ur => ur.category)
+    UsageRights.all.filter(ur => ur.defaultCost.exists(cost => cost == Free || cost == Conditional)).map(ur => ur.category)
 
   val persistedCategories = NonEmptyList(
     StaffPhotographer.category,

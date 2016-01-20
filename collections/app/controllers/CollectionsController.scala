@@ -33,7 +33,7 @@ object CollectionsController extends Controller with ArgoHelpers {
 
   import lib.Config.rootUri
   import ControllerHelper.getUserFromReq
-  import CollectionsManager.{pathToUri, uriToPath, isValidPathBit}
+  import CollectionsManager.{pathToUri, uriToPath, isValidPathBit, getCssColour}
 
   val Authenticated = ControllerHelper.Authenticated
 
@@ -127,8 +127,9 @@ object CollectionsController extends Controller with ArgoHelpers {
           // This is so we don't have to rewrite the Write[Seq[T]]
           (seq => Json.toJson(seq))).contramap(collectionsEntity) ~
       (__ \ "fullPath").write[List[String]] ~
-      (__ \ "data").writeNullable[Collection]
-    )(node => (node.basename, node.children, node.fullPath, node.data))
+      (__ \ "data").writeNullable[Collection] ~
+      (__ \ "cssColour").writeNullable[String]
+    )(node => (node.basename, node.children, node.fullPath, node.data, getCssColour(node.fullPath)))
 
 
   def collectionsEntity(nodes: List[Node[Collection]]): CollectionsEntity = {

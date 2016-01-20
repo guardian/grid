@@ -5,11 +5,12 @@ import template from './gr-preset-labels.html!text';
 
 import '../../directives/gr-auto-focus';
 import '../../services/preset-label';
-import '../../services/api/media-api';
+import {mediaApi} from '../../services/api/media-api';
 
 export var presetLabels = angular.module('gr.presetLabels', [
     'gr.autoFocus',
-    'kahuna.services.presetLabel'
+    'kahuna.services.presetLabel',
+    mediaApi.name
 ]);
 
 presetLabels.controller('GrPresetLabelsCtrl', [

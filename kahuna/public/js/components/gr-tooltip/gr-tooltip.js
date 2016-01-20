@@ -1,9 +1,9 @@
 import angular from 'angular';
 import 'titip';
 
-export const module = angular.module('grTooltip', []);
+export const tooltip = angular.module('grTooltip', []);
 
-module.directive('grTooltip', ['onValChange', function (onValChange) {
+tooltip.directive('grTooltip', ['onValChange', function (onValChange) {
     return {
         restrict: 'A',
         link: function ($scope, element, attrs) {

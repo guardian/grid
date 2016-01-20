@@ -1,7 +1,18 @@
 import angular from 'angular';
-import apiServices from '../api';
+import {mediaApi} from './media-api';
+import {imageAccessor} from '../image-accessor';
+import {async} from '../../util/async';
 
-apiServices.factory('collections', ['mediaApi', function (mediaApi) {
+export var collectionsApi = angular.module('kahuna.services.api.collections', [
+    mediaApi.name,
+    imageAccessor.name,
+    async.name
+]);
+
+collectionsApi.factory('collections',
+                       ['$rootScope', '$q', 'mediaApi', 'imageAccessor', 'apiPoll',
+                        function ($rootScope, $q, mediaApi, imageAccessor, apiPoll) {
+
     // TODO: Rx?
     let collections;
 
@@ -53,15 +64,67 @@ apiServices.factory('collections', ['mediaApi', function (mediaApi) {
         const promises = imageIds.map(id => mediaApi.find(id).then(
                 image => image.perform('add-collection', {body: {data: path}})));
 
-        return Promise.all(promises);
+        return $q.all(promises);
     }
 
     function addImagesToCollection(images, path) {
+
         const promises = images.map(image =>
             image.perform('add-collection', {body: {data: path}})
+            .then(collectionAdded => apiPoll(() =>
+                 untilNewCollectionAppears(image, collectionAdded)
+            ))
+            .then(newImage => {
+                $rootScope.$emit('image-updated', newImage, image);
+            })
+
         ).toJS();
 
-        return Promise.all(promises);
+        return $q.all(promises);
+    }
+
+    function untilNewCollectionAppears(image, collectionAdded) {
+        return image.get().then( (apiImage) => {
+            const apiCollections = imageAccessor.getCollectionsIds(apiImage);
+            if (apiCollections.indexOf(collectionAdded.data.pathId) > -1) {
+                return apiImage;
+            } else {
+                return $q.reject();
+            }
+        });
+    }
+
+    function collectionsEquals(collectionsA, collectionsB) {
+        return angular.equals(
+            collectionsA.sort(),
+            collectionsB.sort()
+        );
+    }
+
+    function getCollectionsIdsFromCollection(imageCollections) {
+        return imageCollections.data.map(col => col.pathId);
+    }
+
+    function untilCollectionsEqual(image, expectedCollections) {
+        return image.get().then(apiImage => {
+            const apiCollections = imageAccessor.getCollectionsIds(apiImage);
+            if (collectionsEquals(apiCollections, expectedCollections)) {
+                return apiImage;
+            } else {
+                return $q.reject();
+            }
+        });
+    }
+
+    function removeImageFromCollection(collection, image) {
+        return collection.perform('remove')
+            .then(newImageCollections => apiPoll(() =>
+                untilCollectionsEqual(image, getCollectionsIdsFromCollection(newImageCollections))
+            ))
+            .then(newImage => {
+                $rootScope.$emit('image-updated', newImage, image);
+                return newImage;
+            });
     }
 
     return {
@@ -72,6 +135,7 @@ apiServices.factory('collections', ['mediaApi', function (mediaApi) {
         isDeletable,
         removeFromList,
         addImageIdsToCollection,
-        addImagesToCollection
+        addImagesToCollection,
+        removeImageFromCollection
     };
 }]);

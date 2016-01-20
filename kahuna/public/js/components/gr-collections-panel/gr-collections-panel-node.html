@@ -1,8 +1,10 @@
-<div ng:init="node = ctrl.node">
+<div ng:init="node = ctrl.node" class="hover-parent">
     <div class="node__info flex-container"
          ng:class="{'node__info--selected' : ctrl.isSelected}"
          gr:drop-into-collection="node.data.fullPath">
-        <div class="node__marker"></div>
+
+        <div class="node__marker"
+             style="background: {{node.data.cssColour}}"></div>
 
         <div class="node__spacer" ng:if="node.data.children.length === 0">
             <gr-icon></gr-icon>
@@ -24,27 +26,27 @@
 
 
         <button class="node__action clickable" type="button"
+                title="Delete this collection"
                 ng:if="ctrl.deletable && ctrl.editing"
-                ng:click="ctrl.remove()"
-                gr:tooltip="Delete this collection">
+                ng:click="ctrl.remove()">
             <gr-icon-label gr-icon="delete"></gr-icon-label>
         </button>
 
         <button class="node__action clickable"
                 type="button"
+                title="Add a new sub-collection"
                 ng:if="ctrl.editing"
-                ng:click="$parent.active = !$parent.active"
-                gr:tooltip="Add a new sub-collection">
+                ng:click="$parent.active = !$parent.active">
             <gr-icon>add_box</gr-icon>
         </button>
 
         <div class="text-small flex-container flex-center"
              ng:if="ctrl.saving || dropIntoCollectionSaving">Adding…</div>
 
-        <button class="node__action clickable"
+        <button class="node__action clickable hover-child"
+                title="Add selected images to this collection"
                 ng:if="!ctrl.editing && ctrl.hasImagesSelected && !ctrl.saving"
-                ng:click="ctrl.addImagesToCollection()"
-                gr:tooltip="Add selected images to this collection">
+                ng:click="ctrl.addImagesToCollection()">
             <gr-icon>add_to_photos</gr-icon>
         </button>
     </div>

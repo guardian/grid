@@ -2,9 +2,11 @@ package com.gu.mediaservice.picdarexport
 
 import java.net.URI
 
+import play.api.libs.json._
+
 import com.gu.mediaservice.model.{UsageRights, ImageMetadata}
 import com.gu.mediaservice.picdarexport.lib.cleanup.{UsageRightsOverride, MetadataOverrides}
-import com.gu.mediaservice.picdarexport.lib.db.ExportDynamoDB
+import com.gu.mediaservice.picdarexport.lib.db._
 import com.gu.mediaservice.picdarexport.lib.media._
 import com.gu.mediaservice.picdarexport.lib.picdar.{PicdarError, PicdarClient}
 import com.gu.mediaservice.picdarexport.lib.{Config, MediaConfig}
@@ -12,20 +14,31 @@ import com.gu.mediaservice.picdarexport.model._
 import play.api.Logger
 import play.api.libs.concurrent.Execution.Implicits._
 
+import com.gu.mediaservice.picdarexport.lib.usage.PrintUsageRequestFactory
+import com.gu.mediaservice.model.PrintUsageRequest
+
 import scala.concurrent.Future
 import scala.language.postfixOps
 import org.joda.time.DateTime
 
+
 class ArgumentError(message: String) extends Error(message)
 
-
-class ExportManager(picdar: PicdarClient, loader: MediaLoader, mediaApi: MediaApi) {
+class ExportManager(picdar: PicdarClient, loader: MediaLoader, mediaApi: MediaApi, usageApi: UsageApi) {
 
   def ingest(assetUri: URI, picdarUrn: String, uploadTime: DateTime): Future[URI] =
     for {
       data   <- picdar.getAssetData(assetUri)
       uri    <- loader.upload(data, picdarUrn, uploadTime)
     } yield uri
+
+  def sendUsage(mediaUri: URI, usage: List[PicdarUsageRecord]): Future[Unit] = {
+    for {
+      imageResource <- mediaApi.getImageResource(mediaUri)
+      printUsageRequest = PrintUsageRequestFactory.create(usage, imageResource.data.id)
+      _ <- usageApi.postPrintUsage(printUsageRequest)
+    } yield Unit
+  }
 
   def overrideMetadata(mediaUri: URI, picdarMetadata: ImageMetadata): Future[Boolean] =
     for {
@@ -57,7 +70,6 @@ class ExportManager(picdar: PicdarClient, loader: MediaLoader, mediaApi: MediaAp
       overridden    <- applyRightsOverridesIfAny(image, overridesOpt)
     } yield overridden
   }
-
 
   private def applyRightsOverrides(image: Image, overrides: UsageRights): Future[Unit] = {
     mediaApi.overrideUsageRights(image.usageRightsOverrideUri, overrides)
@@ -93,6 +105,11 @@ trait ExportManagerProvider {
     override val mediaApiKey = config.apiKey
   }
 
+  def usageApiInstance(config: MediaConfig) = new UsageApi {
+    override val mediaApiKey = config.apiKey
+    override val postPrintUsageEndpointUrl = config.usageUrl
+  }
+
   def getPicdar(system: String) = system match {
     case "desk"    => picdarDesk
     case "library" => picdarLib
@@ -101,14 +118,19 @@ trait ExportManagerProvider {
 
   def getLoader(env: String) = loaderInstance(Config.mediaConfig(env))
   def getMediaApi(env: String) = mediaApiInstance(Config.mediaConfig(env))
+  def getUsageApi(env: String) = usageApiInstance(Config.mediaConfig(env))
 
   def getExportManager(picdarSystem: String, mediaEnv: String) =
-    new ExportManager(getPicdar(picdarSystem), getLoader(mediaEnv), getMediaApi(mediaEnv))
+    new ExportManager(
+      getPicdar(picdarSystem),
+      getLoader(mediaEnv),
+      getMediaApi(mediaEnv),
+      getUsageApi(mediaEnv)
+    )
 
   def getDynamo(env: String) = {
     new ExportDynamoDB(Config.awsCredentials(env), Config.dynamoRegion, Config.picdarExportTable(env))
   }
-
 }
 
 trait ArgumentHelpers {
@@ -168,14 +190,14 @@ object ExportApp extends App with ExportManagerProvider with ArgumentHelpers wit
       println(
         s"""
            |urn: ${asset.urn}
-            |file: ${asset.file}
-            |created: ${asset.created}
-            |modified: ${asset.modified getOrElse ""}
-            |infoUri: ${asset.infoUri getOrElse ""}
-            |metadata:
-            |${asset.metadata}
-            |rights:
-            |${asset.usageRights}
+           |file: ${asset.file}
+           |created: ${asset.created}
+           |modified: ${asset.modified getOrElse ""}
+           |infoUri: ${asset.infoUri getOrElse ""}
+           |metadata:
+           |${asset.metadata}
+           |rights:
+           |${asset.usageRights}
         """.stripMargin
       )
     }
@@ -215,7 +237,7 @@ object ExportApp extends App with ExportManagerProvider with ArgumentHelpers wit
 
   def fetch(env: String, system: String, dateRange: DateRange = DateRange.all, range: Option[Range] = None) = {
     val dynamo = getDynamo(env)
-    dynamo.scanUnfetched(dateRange) flatMap { urns =>
+    dynamo.getUnfetched(dateRange) flatMap { urns =>
       val updates = takeRange(urns, range).map { assetRef =>
         getPicdar(system).get(assetRef.urn) flatMap { asset =>
           dynamo.record(assetRef.urn, assetRef.dateLoaded, asset.file, asset.created, asset.modified, asset.metadata)
@@ -229,9 +251,14 @@ object ExportApp extends App with ExportManagerProvider with ArgumentHelpers wit
 
   def ingest(env: String, dateRange: DateRange = DateRange.all, range: Option[Range] = None) = {
     val dynamo = getDynamo(env)
-    dynamo.scanFetchedNotIngested(dateRange) flatMap { assets =>
+    dynamo.getNotIngested(dateRange) flatMap { assets =>
       val updates = takeRange(assets, range).map { asset =>
-        getExportManager("library", env).ingest(asset.picdarAssetUrl, asset.picdarUrn, asset.picdarCreatedFull) flatMap { mediaUri =>
+        // .get on options here will induce intentional failure if not available
+        getExportManager("library", env).ingest(
+          asset.picdarAssetUrl.get,
+          asset.picdarUrn,
+          asset.picdarCreatedFull.get
+        ) flatMap { mediaUri =>
           Logger.info(s"Ingested ${asset.picdarUrn} to $mediaUri")
           dynamo.recordIngested(asset.picdarUrn, asset.picdarCreated, mediaUri)
         } recover { case e: Throwable =>
@@ -275,10 +302,53 @@ object ExportApp extends App with ExportManagerProvider with ArgumentHelpers wit
     dynamo.scanNoRights(dateRange) flatMap { urns =>
       val updates = takeRange(urns, range).map { assetRef =>
         getPicdar(system).get(assetRef.urn) flatMap { asset =>
-          Logger.info(s"Fetching usage rights for image ${asset.urn} to: ${asset.usageRights.map(_.category).getOrElse("none")}")
+          Logger.info(s"Fetching usage rights for image ${asset.urn}")
           dynamo.recordRights(assetRef.urn, assetRef.dateLoaded, asset.usageRights)
         } recover { case PicdarError(message) =>
           Logger.warn(s"Picdar error during fetch: $message")
+        }
+      }
+      Future.sequence(updates)
+    }
+  }
+
+  import com.gu.mediaservice.picdarexport.lib.picdar.UsageApi
+
+  def fetchUsage(
+    env: String,
+    dateRange: DateRange = DateRange.all,
+    range: Option[Range] = None
+  ) = {
+    val dynamo = getDynamo(env)
+
+    dynamo.getNoUsage(dateRange) flatMap { urns =>
+      val updates = takeRange(urns, range).map { assetRef =>
+        UsageApi.get(assetRef.urn).flatMap { usages =>
+          dynamo.recordUsage(assetRef.urn, assetRef.dateLoaded, usages)
+        }
+      }
+      Future.sequence(updates)
+    }
+  }
+
+  def sendUsage(
+    env: String,
+    dateRange: DateRange = DateRange.all,
+    range: Option[Range] = None
+  ) = {
+    val dynamo = getDynamo(env)
+
+    dynamo.getUsageNotRecorded(dateRange) flatMap { urns =>
+      val updates = takeRange(urns, range).map { asset =>
+        val mediaUri = asset.mediaUri.get
+        val usage = asset.picdarUsage.get
+
+        getExportManager("desk", env).sendUsage(mediaUri, usage).flatMap { _ =>
+          Logger.info(s"Usage sent successfully for ${asset.picdarUrn}")
+          dynamo.recordUsageSent(asset.picdarUrn, asset.picdarCreated)
+        } recover { case e: Throwable =>
+            Logger.warn(s"Usage send error for ${asset.picdarUrn}: $e")
+            e.printStackTrace()
         }
       }
       Future.sequence(updates)
@@ -468,6 +538,26 @@ object ExportApp extends App with ExportManagerProvider with ArgumentHelpers wit
       overrideRights(env, parseDateRange(date), parseQueryRange(rangeStr))
     }
 
+    case "+usage:fetch" :: env :: Nil => terminateAfter {
+      fetchUsage(env)
+    }
+    case "+usage:fetch" :: env :: date :: Nil => terminateAfter {
+      fetchUsage(env, parseDateRange(date))
+    }
+    case "+usage:fetch" :: env :: date :: rangeStr :: Nil => terminateAfter {
+      fetchUsage(env, parseDateRange(date), parseQueryRange(rangeStr))
+    }
+
+    case "+usage:send" :: env :: Nil => terminateAfter {
+      sendUsage(env)
+    }
+    case "+usage:send" :: env :: date :: Nil => terminateAfter {
+      sendUsage(env, parseDateRange(date))
+    }
+    case "+usage:send" :: env :: date :: rangeStr :: Nil => terminateAfter {
+      sendUsage(env, parseDateRange(date), parseQueryRange(rangeStr))
+    }
+
     case _ => println(
       """
         |usage: :count-loaded    <dev|test|prod> [dateLoaded]
@@ -475,17 +565,20 @@ object ExportApp extends App with ExportManagerProvider with ArgumentHelpers wit
         |       :count-ingested  <dev|test|prod> [dateLoaded]
         |       :count-overriden <dev|test|prod> [dateLoaded]
         |
-        |       :show   <desk|library> <picdarUrl>
-        |       :query  <desk|library> <created|modified|taken> <date> [query]
-        |       :stats  <dev|test|prod> [dateLoaded]
-        |       +load   <dev|test|prod> <desk|library> <created|modified|taken> <date> [range] [query]
-        |       +fetch  <dev|test|prod> <desk|library> [dateLoaded] [range]
-        |       +ingest <dev|test|prod> [dateLoaded] [range]
+        |       :show     <desk|library>  <picdarUrl>
+        |       :query    <desk|library>  <created|modified|taken> <date> [query]
+        |       +load     <dev|test|prod> <desk|library> <created|modified|taken> <date> [range] [query]
+        |       +fetch    <dev|test|prod> <desk|library> [dateLoaded] [range]
+        |       +ingest   <dev|test|prod> [dateLoaded] [range]
         |       +override <dev|test|prod> [dateLoaded] [range]
-        |       +clear  <dev|test|prod> [dateLoaded]
+        |       +clear    <dev|test|prod> [dateLoaded]
+        |       :stats    <dev|test|prod> [dateLoaded]
         |
         |       +rights:fetch    <dev|test|prod> <desk|library> [dateLoaded] [range]
         |       +rights:override <dev|test|prod> [dateLoaded] [range]
+        |
+        |       +usage:fetch     <dev|test|prod> [dateLoaded] [range]
+        |       +usage:send      <dev|test|prod> [dateLoaded] [range]
       """.stripMargin
     )
   }

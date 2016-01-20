@@ -4,7 +4,10 @@ import com.amazonaws.auth.BasicAWSCredentials
 import com.amazonaws.regions.{Regions, Region}
 import com.gu.mediaservice.lib.config.Properties
 
-case class MediaConfig(apiKey: String, loaderUrl: String)
+import scala.util.Try
+
+
+case class MediaConfig(apiKey: String, loaderUrl: String, usageUrl: String)
 
 object Config {
   val properties = Properties.fromPath("/etc/gu/picdar-export.properties")
@@ -12,10 +15,15 @@ object Config {
   def awsAccessId(env: String)       = properties(s"aws.$env.id")
   def awsAccessSecret(env: String)   = properties(s"aws.$env.secret")
   def picdarExportTable(env: String) = properties(s"aws.$env.picdarexport.table")
+  def picdarUsageTable(env: String)  = properties(s"aws.$env.picdarusage.table")
 
   def awsCredentials(env: String) = new BasicAWSCredentials(awsAccessId(env), awsAccessSecret(env))
   val dynamoRegion = Region.getRegion(Regions.EU_WEST_1)
 
+  def picdarUsageApiUrl  = properties(s"picdar.usageapi.url")
+
+  val defaultOverwrite   = false
+  def overwriteFlag      = Try(properties("overwrite.active").toBoolean).getOrElse(defaultOverwrite)
 
   val picdarDeskUrl      = properties("picdar.desk.url")
   val picdarDeskUsername = properties("picdar.desk.username")
@@ -48,7 +56,8 @@ object Config {
   def mediaConfig(env: String): MediaConfig = try {
     val apiKey    = properties(s"media.$env.apiKey")
     val loaderUrl = properties(s"media.$env.loaderUrl")
-    MediaConfig(apiKey, loaderUrl)
+    val usageUrl  = properties(s"media.$env.usageUrl")
+    MediaConfig(apiKey, loaderUrl, usageUrl)
   } catch {
     case _: Throwable => throw new Error(s"Invalid media environment name: $env")
   }

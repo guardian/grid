@@ -5,7 +5,8 @@
             ng:if="!ctrl.state.hidden"
             ng:click="ctrl.hidePanel()"
             ng:class="{'bg-light': !ctrl.state.hidden}"
-            gr:tooltip="Hide {{ctrl.name}} panel">
+            gr:tooltip="Hide {{ctrl.name}} panel"
+            gr:tooltip-position="{{ctrl.toolTipPosition()}}">
         <gr-icon>{{ctrl.icon}}</gr-icon>
     </button>
 
@@ -13,7 +14,8 @@
             type="button"
             ng:if="ctrl.state.hidden"
             ng:click="ctrl.showPanel()"
-            gr:tooltip="Show {{ctrl.name}} panel">
+            gr:tooltip="Show {{ctrl.name}} panel"
+            gr:tooltip-position="{{ctrl.toolTipPosition()}}">
         <gr-icon>{{ctrl.icon}}</gr-icon>
     </button>
 

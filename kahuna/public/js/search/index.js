@@ -4,6 +4,7 @@ import Rx from 'rx';
 import 'rx-dom';
 import Immutable from 'immutable';
 import {getCollectionsFromQuery} from '../search-query/query-syntax';
+import {storage} from '../util/storage';
 
 import './query';
 import './results';
@@ -36,7 +37,8 @@ export var search = angular.module('kahuna.search', [
     'gr.keyboardShortcut',
     'grPanel',
     'grCollectionsPanel',
-    'ui.router'
+    'ui.router',
+    storage.name
 ]);
 
 // TODO: add a resolver here so that if we error (e.g. 401) we don't keep trying
@@ -73,23 +75,42 @@ search.config(['$stateProvider', '$urlMatcherFactoryProvider',
             }]
         },
         controllerAs: 'ctrl',
-        controller: ['$scope', 'panels', 'shortcutKeys', 'hotkeys', 'keyboardShortcut',
-                     function($scope, panels, shortcutKeys, keyboardShortcut) {
+        controller: [
+            '$scope', '$window', 'panels', 'shortcutKeys', 'keyboardShortcut',
+            'panelService', 'storage',
+            function($scope, $window, panels, shortcutKeys, keyboardShortcut,
+                     panelService, storage) {
 
             const ctrl = this;
             ctrl.collectionsPanel = panels.collectionsPanel;
             ctrl.metadataPanel = panels.metadataPanel;
+
+            panelService.setAndSaveState($scope, 'collections', ctrl.collectionsPanel);
 
             keyboardShortcut.bindTo($scope).add({
                 combo: shortcutKeys.get('metadataPanel'),
                 description: 'Toggle metadata panel',
                 callback: panels.metadataPanel.toggleHidden
             });
+
+            keyboardShortcut.bindTo($scope).add({
+                combo: shortcutKeys.get('showCollections'),
+                description: 'Toggle collections',
+                callback: () => {
+                    const toggled = !storage.getJs('showCollectionsPanel');
+                    const using = toggled ? 'start' : 'stop';
+                    storage.setJs('showCollectionsPanel', toggled);
+                    $window.alert(`Now refresh to ${using} using collections`);
+                }
+            });
         }],
         resolve: {
             shortcutKeys: [function() {
                 // keep the shortcut keys here to stop overriding
-                return new Map([['metadataPanel', 'm']]);
+                return new Map([
+                    ['metadataPanel', 'm'],
+                    ['showCollections', 'ctrl+alt+c']
+                ]);
             }],
             panels: ['panelService', function(panelService) {
                 const collectionsPanel = panelService.createPanel(true);

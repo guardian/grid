@@ -13,7 +13,7 @@ case class PrintImageSize(
   def toMap = Map(
     "x" -> x,
     "y" -> y
-  ).asJava
+  )
 }
 object PrintImageSize {
   implicit val reads: Reads[PrintImageSize] = Json.reads[PrintImageSize]
@@ -27,12 +27,20 @@ case class PrintUsageMetadata(
   storyName: String,
   publicationCode: String,
   publicationName: String,
-  layoutId: Long,
-  edition: Int,
-  size: PrintImageSize,
-  orderedBy: String,
-  sectionCode: String
+  layoutId: Option[Long] = None,
+  edition: Option[Int],
+  size: Option[PrintImageSize] = None,
+  orderedBy: Option[String] = None,
+  sectionCode: String,
+  notes: Option[String] = None,
+  source: Option[String] = None
 ) {
+
+  type MapStringIntElement = List[(String, java.util.Map[String, Int])]
+  type StringElement = List[(String,String)]
+  type LongElement = List[(String,Long)]
+  type IntElement = List[(String,Int)]
+
   def toMap = Map(
     "sectionName" -> sectionName,
     "issueDate" -> issueDate.toString,
@@ -40,12 +48,12 @@ case class PrintUsageMetadata(
     "storyName" -> storyName,
     "publicationCode" -> publicationCode,
     "publicationName" -> publicationName,
-    "layoutId" -> layoutId,
-    "edition" -> edition,
-    "size" -> size.toMap,
-    "orderedBy" -> orderedBy,
     "sectionCode" -> sectionCode
-  )
+    ) ++ size.foldLeft[MapStringIntElement](Nil)((_,m) => List("size" -> m.toMap.asJava)) ++
+      orderedBy.foldLeft[StringElement](Nil)((_,s) => List("orderedBy" -> s)) ++
+      layoutId.foldLeft[LongElement](Nil)((_,l) => List("layoutId" -> l)) ++
+      edition.foldLeft[IntElement](Nil)((_,i) => List("edition" -> i)) ++
+      notes.foldLeft[StringElement](Nil)((_,s) => List("notes" -> s))
 }
 object PrintUsageMetadata {
   implicit val dateTimeFormat = DateFormat

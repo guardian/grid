@@ -14,7 +14,9 @@ guDateRange.controller('GuDateRangeCtrl', [function () {
         return angular.isDefined(val) ? moment(val).toISOString() : undefined;
     }
 
-    var ctrl = this;
+    const ctrl = this;
+
+    ctrl.trackingName = 'Date Picker';
 
     ctrl.setDateRangeForDisplay = function () {
         ctrl.guDisplayStartDate = angular.isDefined(ctrl.guStartDate) ?
