@@ -4,9 +4,9 @@ object UsageRightsConfig {
 
   val payGettySourceList = List(
     "Arnold Newman Collection",
-    // Note: This is not excluded as we have a deal with Barcroft directly,
-    // and there are only a tiny amount from Getty.
-    // "Barcroft Media",
+    // Note: Even though we have a deal directly with Barcroft, it
+    // does not apply to images sourced through Getty. Silly, I know.
+    "Barcroft Media",
     "Catwalking",
     "Contour by Getty Images",
     "Contour Style",
