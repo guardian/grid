@@ -86,8 +86,8 @@ object CollectionsController extends Controller with ArgoHelpers {
         CollectionsStore.add(correctedCollection)
       }
 
-      Future.sequence(futures) map { c =>
-        respond(c)
+      Future.sequence(futures) map { updatedCollectionsList =>
+        respond(updatedCollectionsList)
       }
     }
   }

@@ -23,7 +23,7 @@ class NodeTest extends FunSpec with Matchers with OptionValues {
   )
 
   describe("Node") {
-    def buildTree = Node.fromList(collections, getPath)
+    def buildTree = Node.fromList(collections, getPath, (c) => "")
 
     it("should produce 3 children") {
       val tree = buildTree
