@@ -70,11 +70,34 @@ object CollectionsController extends Controller with ArgoHelpers {
     List(addChildAction(n), removeNodeAction(n)).flatten
   }
 
+  def correctedCollections = Authenticated.async { req =>
+    CollectionsStore.getAll flatMap { collections =>
+      val tree = Node.fromList[Collection](
+        collections,
+        (collection) => collection.path,
+        (collection) => collection.description)
+
+      val correctTree = tree hackmap { node =>
+        val correctedCollection = node.data.map(c => c.copy(path = node.correctPath))
+        Node(node.basename, node.children, node.fullPath, node.correctPath, correctedCollection)
+      }
+
+      val futures = correctTree.toList(Nil) map { correctedCollection =>
+        CollectionsStore.add(correctedCollection)
+      }
+
+      Future.sequence(futures) map { c =>
+        respond(c)
+      }
+    }
+  }
+
   def getCollections = Authenticated.async { req =>
     CollectionsStore.getAll map { collections =>
       val tree = Node.fromList[Collection](
         collections,
-        (collection) => collection.path)
+        (collection) => collection.path,
+        (collection) => collection.description)
 
       respond(Json.toJson(tree)(asArgo), actions = List(addChildAction()).flatten)
     } recover {
@@ -92,7 +115,7 @@ object CollectionsController extends Controller with ArgoHelpers {
         val collection = Collection.build(path, ActionData(getUserFromReq(req), DateTime.now))
 
         CollectionsStore.add(collection).map { collection =>
-          val node = Node(collection.path.last, Nil, collection.path, Some(collection))
+          val node = Node(collection.path.last, Nil, collection.path, collection.path, Some(collection))
           respond(node, actions = getActions(node))
         } recover {
           case e: CollectionsStoreError => storeError(e.message)
@@ -117,8 +140,9 @@ object CollectionsController extends Controller with ArgoHelpers {
     (__ \ "name").write[String] ~
     (__ \ "children").lazyWrite(Writes.seq[Node[EmbeddedEntity[Collection]]](collectionEntityWrites)) ~
     (__ \ "fullPath").write[List[String]] ~
+    (__ \ "correctPath").write[List[String]] ~
     (__ \ "data").writeNullable[EmbeddedEntity[Collection]]
-  )(node => (node.basename, node.children, node.fullPath, node.data))
+  )(node => (node.basename, node.children, node.fullPath, node.correctPath, node.data))
 
   type CollectionsEntity = Seq[EmbeddedEntity[Node[Collection]]]
   implicit def asArgo: Writes[Node[Collection]] = (
@@ -127,9 +151,10 @@ object CollectionsController extends Controller with ArgoHelpers {
           // This is so we don't have to rewrite the Write[Seq[T]]
           (seq => Json.toJson(seq))).contramap(collectionsEntity) ~
       (__ \ "fullPath").write[List[String]] ~
+      (__ \ "correctPath").write[List[String]] ~
       (__ \ "data").writeNullable[Collection] ~
       (__ \ "cssColour").writeNullable[String]
-    )(node => (node.basename, node.children, node.fullPath, node.data, getCssColour(node.fullPath)))
+    )(node => (node.basename, node.children, node.fullPath, node.correctPath, node.data, getCssColour(node.fullPath)))
 
 
   def collectionsEntity(nodes: List[Node[Collection]]): CollectionsEntity = {
