@@ -7,7 +7,7 @@ import play.api.libs.functional.syntax._
 import com.gu.mediaservice.lib.collections.CollectionsManager
 
 case class Collection private (path: List[String], actionData: ActionData, description: String) {
-  val pathId = CollectionsManager.pathToString(path)
+  val pathId = CollectionsManager.pathToString(path).toLowerCase
 }
 
 object Collection {
@@ -23,10 +23,10 @@ object Collection {
 
   // We use this to ensure we are creating valid `Collection`s
   def build(path: List[String], actionData: ActionData) = {
-    val lowerPath = path.map(_.toLowerCase)
+//    val lowerPath = path.map(_.toLowerCase)
     // HACK: path should be an NonEmptyList, till then, this'll do
     val description = path.lastOption.getOrElse("")
-    Collection(lowerPath, actionData, description)
+    Collection(path, actionData, description)
   }
 }
 
