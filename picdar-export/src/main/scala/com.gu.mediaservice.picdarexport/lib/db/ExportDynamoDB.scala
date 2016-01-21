@@ -254,7 +254,7 @@ class ExportDynamoDB(credentials: AWSCredentials, region: Region, tableName: Str
           val items = outcome.getTableItems.get(tableName).asScala.toList
 
           (items ::: getUnprocessedItems(outcome)).filter(row => {
-            (!(mustNotHave.subsetOf(row.attributes.map(_.getKey).toSet)) || mustNotHave.isEmpty) &&
+            (!(mustNotHave.subsetOf(row.attributes.map(_.getKey).toSet)) || mustNotHave.isEmpty || Config.overwriteFlag) &&
             mustHave.subsetOf(row.attributes.map(_.getKey).toSet)
           }).map(f(_))
       }).toList}
