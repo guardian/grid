@@ -5,12 +5,23 @@ import com.amazonaws.regions.{Regions, Region}
 import com.gu.mediaservice.lib.config.Properties
 
 import scala.util.Try
+import java.io.File
+import java.io.FileNotFoundException
 
 
 case class MediaConfig(apiKey: String, loaderUrl: String, usageUrl: String)
 
 object Config {
-  val properties = Properties.fromPath("/etc/gu/picdar-export.properties")
+
+  val propertiesFile = List(
+    "picdar-export.properties",
+    "/etc/gu/picdar-export.properties"
+  ).find(new File(_).exists)
+    .getOrElse(
+      throw new FileNotFoundException(
+        "Properties file could not be found!"))
+
+  val properties = Properties.fromPath(propertiesFile)
 
   def awsAccessId(env: String)       = properties(s"aws.$env.id")
   def awsAccessSecret(env: String)   = properties(s"aws.$env.secret")
