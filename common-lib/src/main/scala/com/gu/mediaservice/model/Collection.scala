@@ -7,6 +7,7 @@ import play.api.libs.functional.syntax._
 import com.gu.mediaservice.lib.collections.CollectionsManager
 
 case class Collection private (path: List[String], actionData: ActionData, description: String) {
+  // We lowercase on pathId so that we can search case-insensitively
   val pathId = CollectionsManager.pathToString(path).toLowerCase
 }
 

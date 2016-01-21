@@ -1,11 +1,8 @@
 package com.gu.mediaservice.lib.collections
 
-import java.awt.Color
-
 import com.gu.mediaservice.lib.net.URI.{encode, decode}
 import com.gu.mediaservice.model.Collection
 
-import scala.util.Try
 
 object CollectionsManager {
   val delimiter = "/"
