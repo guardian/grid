@@ -41,9 +41,9 @@ class CollectionsManagerTest extends FunSpec with Matchers {
 
     describe("create") {
 
-      it("should lowercase path on creation") {
+      it("should lowercase pathId on creation") {
         val col = Collection.build(List("G2", "ArT", "CasECrazY"), ActionData("me@you.com", DateTime.now))
-        col.path shouldEqual List("g2", "art", "casecrazy")
+        col.path shouldEqual List("G2", "ArT", "CasECrazY")
         col.pathId shouldEqual "g2/art/casecrazy"
       }
 
