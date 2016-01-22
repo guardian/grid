@@ -57,30 +57,33 @@ collectionsApi.factory('collections',
      * @param Array<string> imageIds
      * @param Array<string> collectionPath
      */
-    function addImageIdsToCollection(imageIds, path) {
+    function addCollectionUsingImageIds(imageIds, path) {
         // TODO: This isn't the most efficient way of doing this, but because we get the image data
         // from the drop data, this was the easiest way to do it without turning the JSON string
         // into a Resource object.
-        const promises = imageIds.map(id => mediaApi.find(id).then(
-                image => image.perform('add-collection', {body: {data: path}})));
+        const promises = imageIds.map(id => mediaApi.find(id)
+            .then(image => addCollectionToImage(image, path))
+        );
 
         return $q.all(promises);
     }
 
-    function addImagesToCollection(images, path) {
-
+    function addCollectionUsingImageResources(images, path) {
         const promises = images.map(image =>
-            image.perform('add-collection', {body: {data: path}})
+            addCollectionToImage(image, path)
+        ).toJS();
+
+        return $q.all(promises);
+    }
+
+    function addCollectionToImage(image, path) {
+        return image.perform('add-collection', {body: {data: path}})
             .then(collectionAdded => apiPoll(() =>
-                 untilNewCollectionAppears(image, collectionAdded)
+                untilNewCollectionAppears(image, collectionAdded)
             ))
             .then(newImage => {
                 $rootScope.$emit('image-updated', newImage, image);
             })
-
-        ).toJS();
-
-        return $q.all(promises);
     }
 
     function untilNewCollectionAppears(image, collectionAdded) {
@@ -134,8 +137,8 @@ collectionsApi.factory('collections',
         addChildTo,
         isDeletable,
         removeFromList,
-        addImageIdsToCollection,
-        addImagesToCollection,
+        addCollectionUsingImageIds,
+        addCollectionUsingImageResources,
         removeImageFromCollection
     };
 }]);
