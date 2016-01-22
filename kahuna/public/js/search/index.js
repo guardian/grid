@@ -218,15 +218,6 @@ search.config(['$stateProvider', '$urlMatcherFactoryProvider',
                             class="top-bar-item clickable clickable--blue side-padded"
                             gr:images="ctrl.selectedImages">
                         </gr-archiver>
-                        <gr-panel-button
-                            class="top-bar-item clickable clickable--blue side-padded"
-                            gr:panel="ctrl.metadataPanel"
-                            gr:position="right"
-                            gr:name="info"
-                            gr:icon="edit"
-                            gr:hide-lock="true"
-                            gr:label="{ open: 'Edit', close: 'Finished Editing' }">
-                        </gr-panel-button>
                     </gr-top-bar-actions>
                 </gr-top-bar>`,
                 controller: ['$scope', '$q', 'inject$', 'selectedImages$', 'selection', 'panels',

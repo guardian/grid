@@ -48,8 +48,7 @@ panelButton.directive('grPanelButton', [function() {
             position: '@grPosition',
             name: '@grName',
             icon: '@grIcon',
-            hideLock: '=grHideLock',
-            label: '=grLabel'
+            hideLock: '=grHideLock'
         }
     };
 }]);
