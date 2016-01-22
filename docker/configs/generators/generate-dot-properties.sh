@@ -2,7 +2,7 @@
 
 if [ $# -lt 1 ]
 then
-    echo 'usage: generate-dot-properties <DESTINATION_DIR>'
+    echo 'usage: generate-dot-properties.sh <DESTINATION_DIR>'
     exit 1
 fi
 
