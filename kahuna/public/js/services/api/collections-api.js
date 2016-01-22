@@ -129,22 +129,22 @@ collectionsApi.factory('collections',
 
     function findCollectionResource(image, collectionToMatch){
         return image.data.collections.filter(collection => {
-            return collection.data.pathId === collectionToMatch
+            return collection.data.pathId === collectionToMatch;
         });
     }
 
     function getCollectionToRemove(image, collection) {
         const filteredCollections = findCollectionResource(image, collection);
         if (filteredCollections.length > 0){
-            return filteredCollections[0]
+            return filteredCollections[0];
         }
     }
 
     function batchRemove(images, collection) {
         const promises = images.map(image => {
             const collectionToRemove = getCollectionToRemove(image, collection);
-            if(collectionToRemove) {
-                return removeImageFromCollection(collectionToRemove, image)
+            if (collectionToRemove) {
+                return removeImageFromCollection(collectionToRemove, image);
             } else {
                 //if image doesn't have the chosen collection it returns the image
                 return image;

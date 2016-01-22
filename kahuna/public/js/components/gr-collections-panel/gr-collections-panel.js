@@ -126,7 +126,7 @@ grCollectionsPanel.controller('GrNodeCtrl',
 
     ctrl.removeImagesFromCollection = () => {
         ctrl.removing = true;
-        remove$.onNext(ctrl.node.data.data.pathId)
+        remove$.onNext(ctrl.node.data.data.pathId);
     };
 
     subscribe$($scope, pathToRemoveWithImages$, ({path, images}) => {
