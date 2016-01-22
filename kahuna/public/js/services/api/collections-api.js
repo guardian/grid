@@ -13,13 +13,15 @@ collectionsApi.factory('collections',
                        ['$rootScope', '$q', 'mediaApi', 'imageAccessor', 'apiPoll',
                         function ($rootScope, $q, mediaApi, imageAccessor, apiPoll) {
 
+    const collectionsRoot = mediaApi.root.follow('collections');
+
     // TODO: Rx?
     let collections;
 
     function getCollections() {
+        // TODO: do we want to memoize? what if we want to reload?
         if (! collections) {
-            collections = mediaApi.root.follow('collections').get().
-                then(collectionsService => collectionsService.follow('collections').get());
+            collections = collectionsRoot.follow('collections').get();
         }
         return collections;
     }
@@ -29,7 +31,7 @@ collectionsApi.factory('collections',
     }
 
     function addCollection(newCollectionPath) {
-        return mediaApi.root.follow('collections').post({data: newCollectionPath});
+        return collectionsRoot.post({data: newCollectionPath});
     }
 
     function addChildTo(node, childName) {
