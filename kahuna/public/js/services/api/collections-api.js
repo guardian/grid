@@ -141,12 +141,17 @@ collectionsApi.factory('collections',
     }
 
     function batchRemove(images, collection) {
-        return $q.all(images.map(image => {
+        const promises = images.map(image => {
             const collectionToRemove = getCollectionToRemove(image, collection);
             if(collectionToRemove) {
-                removeImageFromCollection(collectionToRemove, image)
+                return removeImageFromCollection(collectionToRemove, image)
+            } else {
+                //if image doesn't have the chosen collection it returns the image
+                return image;
             }
-        }));
+        }).toJS();
+
+        return $q.all(promises);
     }
 
 
