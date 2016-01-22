@@ -225,7 +225,7 @@ search.config(['$stateProvider', '$urlMatcherFactoryProvider',
                             gr:name="info"
                             gr:icon="edit"
                             gr:hide-lock="true"
-                            gr:label="{ open: 'Edit', close: 'Close' }">
+                            gr:label="{ open: 'Edit', close: 'Finished Editing' }">
                         </gr-panel-button>
                     </gr-top-bar-actions>
                 </gr-top-bar>`,
