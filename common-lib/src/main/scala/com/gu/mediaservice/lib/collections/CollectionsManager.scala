@@ -51,5 +51,5 @@ object CollectionsManager {
 
   def getCollectionColour(s: String) = collectionColours.get(s)
 
-  def getCssColour(path: List[String]) = path.headOption.flatMap(getCollectionColour)
+  def getCssColour(path: List[String]) = path.headOption.map(_.toLowerCase).flatMap(getCollectionColour)
 }
