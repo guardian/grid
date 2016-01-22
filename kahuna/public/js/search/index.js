@@ -188,7 +188,7 @@ search.config(['$stateProvider', '$urlMatcherFactoryProvider',
                     ng:if="ctrl.active">
                     <gr-top-bar-nav gr:hide-home-link>
                         <button
-                            class="top-bar-item clickable side-padded text-large"
+                            class="top-bar-item clickable clickable--blue side-padded text-large"
                             type="button"
                             ng:click="ctrl.clearSelection()">
                             <gr-icon-label gr-icon="clear">Clear selection</gr-icon-label>
@@ -199,20 +199,20 @@ search.config(['$stateProvider', '$urlMatcherFactoryProvider',
                     </gr-top-bar-nav>
                     <gr-top-bar-actions gr:hide-user-actions>
                         <gr-downloader
-                            class="top-bar-item clickable side-padded"
+                            class="top-bar-item clickable clickable--blue side-padded"
                             gr:images="ctrl.selectedImages">
                         </gr-downloader>
                         <gr-delete-image
-                            class="top-bar-item clickable side-padded"
+                            class="top-bar-item clickable clickable--blue side-padded"
                             images="ctrl.selectedImages"
                             ng:if="ctrl.selectionIsDeletable">
                         </gr-delete-image>
                         <gr-archiver
-                            class="top-bar-item clickable side-padded"
+                            class="top-bar-item clickable clickable--blue side-padded"
                             gr:images="ctrl.selectedImages">
                         </gr-archiver>
                         <gr-panel-button
-                            class="top-bar-item clickable side-padded"
+                            class="top-bar-item clickable clickable--blue side-padded"
                             gr:panel="ctrl.metadataPanel"
                             gr:position="right"
                             gr:name="info"

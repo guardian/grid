@@ -343,6 +343,9 @@ button[disabled],
     color: white;
     cursor: pointer;
 }
+.clickable--blue:hover {
+    background-color: #1ac7ff;
+}
 
 .inner-clickable {
     height: 100%;

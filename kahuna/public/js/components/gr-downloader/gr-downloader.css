@@ -5,4 +5,5 @@ gr-downloader:hover {
 gr-downloader .download {
     display: block;
     height: 100%;
+    color: inherit;
 }
