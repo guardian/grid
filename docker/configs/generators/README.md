@@ -48,3 +48,5 @@ To generate the `.properties` files, run:
 ```sh
 python -m generators.dot_properties /etc/gu
 ```
+
+Or, alternatively, just run [`./generate-dot-properties.sh`](./generate-dot-properties.sh).
