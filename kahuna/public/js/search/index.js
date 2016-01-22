@@ -188,12 +188,12 @@ search.config(['$stateProvider', '$urlMatcherFactoryProvider',
                     ng:if="ctrl.active">
                     <gr-top-bar-nav gr:hide-home-link>
                         <button
-                            class="top-bar-item clickable side-padded"
+                            class="top-bar-item clickable side-padded text-large"
                             type="button"
                             ng:click="ctrl.clearSelection()">
                             <gr-icon-label gr-icon="clear">Clear selection</gr-icon-label>
                         </button>
-                        <div class="top-bar-item clickable side-padded">
+                        <div class="top-bar-item side-padded text-large">
                             {{ctrl.selectionCount}} selected
                         </div>
                     </gr-top-bar-nav>
