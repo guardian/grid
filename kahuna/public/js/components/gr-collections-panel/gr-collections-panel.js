@@ -151,7 +151,7 @@ grCollectionsPanel.directive('grNode', ['$parse', '$compile', function($parse, $
         controller: 'GrNodeCtrl',
         controllerAs: 'ctrl',
         bindToController: true,
-        compile: function(element, attrs, transclude) {
+        compile: function() {
             // Memoize the `$compile` result for performance reasons
             // (compile invoked once per reference, link invoked once
             // per use)
