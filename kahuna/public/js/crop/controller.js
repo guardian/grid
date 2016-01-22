@@ -48,6 +48,13 @@ crop.controller('ImageCropCtrl',
             }
         })
         .add({
+            combo: 's',
+            description: 'Start square crop',
+            callback: () => {
+                ctrl.aspect = ctrl.squareRatio;
+            }
+        })
+        .add({
             combo: 'f',
             description: 'Start free-form crop',
             callback: () => {
@@ -65,6 +72,7 @@ crop.controller('ImageCropCtrl',
     ctrl.landscapeRatio = 5 / 3;
     ctrl.portraitRatio = 2 / 3;
     ctrl.videoRatio = 16 / 9;
+    ctrl.squareRatio = 1;
     ctrl.freeRatio = null;
 
     const originalDimensions = image.data.source.dimensions;
@@ -105,6 +113,8 @@ crop.controller('ImageCropCtrl',
             return '2:3';
         } else if (Number(aspect) === ctrl.videoRatio) {
             return '16:9';
+        } else if (Number(aspect) === ctrl.squareRatio) {
+            return '1:1';
         }
         // else undefined is fine
     };
