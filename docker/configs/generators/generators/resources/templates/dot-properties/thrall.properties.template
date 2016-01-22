@@ -7,4 +7,3 @@ sqs.message.min.frequency={{sqs_message_min_frequency}}
 persistence.identifier=picdarUrn
 es.index.alias=imagesAlias
 indexed.image.sns.topic.arn={{IndexedImageTopicArn}}
-es.host=elasticsearch

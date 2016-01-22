@@ -62,13 +62,14 @@ object ImageCollectionsController extends Controller with ArgoHelpers {
   }
 
   def publish(id: String)(collections: List[Collection]): List[Collection] = {
+    val onlyLatestCollections = onlyLatest(collections)
     val message = Json.obj(
       "id" -> id,
-      "data" -> Json.toJson(onlyLatest(collections))
+      "data" -> Json.toJson(onlyLatestCollections)
     )
 
     Notifications.publish(message, "set-image-collections")
-    collections
+    onlyLatestCollections
   }
 }
 

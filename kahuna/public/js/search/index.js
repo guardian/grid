@@ -94,6 +94,12 @@ search.config(['$stateProvider', '$urlMatcherFactoryProvider',
             });
 
             keyboardShortcut.bindTo($scope).add({
+                combo: shortcutKeys.get('collectionsPanel'),
+                description: 'Toggle collections panel',
+                callback: panels.collectionsPanel.toggleHidden
+            });
+
+            keyboardShortcut.bindTo($scope).add({
                 combo: shortcutKeys.get('showCollections'),
                 description: 'Toggle collections',
                 callback: () => {
@@ -109,6 +115,7 @@ search.config(['$stateProvider', '$urlMatcherFactoryProvider',
                 // keep the shortcut keys here to stop overriding
                 return new Map([
                     ['metadataPanel', 'm'],
+                    ['collectionsPanel', 'l'],
                     ['showCollections', 'ctrl+alt+c']
                 ]);
             }],
