@@ -156,15 +156,6 @@ kahuna.run(['$log', '$rootScope', 'mediaApi', function($log, $rootScope, mediaAp
         });
 }]);
 
-kahuna.run(['$rootScope', 'mediaApi', function($rootScope, mediaApi) {
-    // Ping API at init time to ensure we're logged in
-    mediaApi.root.get()
-        .then(index => {
-            $rootScope.$emit('events:config-loaded', index.data.configuration);
-        });
-}]);
-
-
 kahuna.run(['$rootScope', 'mediaApi',
             ($rootScope, mediaApi) => {
 

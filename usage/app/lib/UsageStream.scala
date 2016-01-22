@@ -4,6 +4,7 @@ import play.api.Logger
 
 import _root_.rx.lang.scala.Observable
 import com.gu.contentapi.client.model.v1.{Content, ElementType, Element}
+import com.gu.mediaservice.model.{PendingUsageStatus, PublishedUsageStatus}
 
 import model._
 

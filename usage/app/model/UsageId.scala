@@ -1,5 +1,6 @@
 package model
 
+import com.gu.mediaservice.model.PrintUsageRecord
 import lib.MD5
 
 
@@ -13,11 +14,8 @@ object UsageId {
   def build(printUsageRecord: PrintUsageRecord) = buildId(List(
     Some(printUsageRecord.mediaId),
     Some(printUsageRecord.printUsageMetadata.pageNumber),
-    Some(printUsageRecord.printUsageMetadata.edition),
-    Some(printUsageRecord.printUsageMetadata.layoutId),
-    Some(printUsageRecord.printUsageMetadata.issueDate),
     Some(printUsageRecord.printUsageMetadata.sectionCode),
-    Some(printUsageRecord.printUsageMetadata.size),
+    Some(printUsageRecord.printUsageMetadata.issueDate),
     Some(printUsageRecord.usageStatus)
   ))
 

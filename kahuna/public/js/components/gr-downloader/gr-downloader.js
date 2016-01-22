@@ -66,9 +66,19 @@ downloader.controller('DownloaderCtrl',
     ctrl.getFirstImageSource = () => Array.from(ctrl.images)[0].data.source;
 
     function imageName(image) {
-        return image.data.uploadInfo.filename || `${image.data.id}.jpg`;
+        const filename = image.data.uploadInfo.filename;
+        const imageId = image.data.id;
+        if (filename) {
+            const basename = stripExtension(filename);
+            return `${basename} (${imageId}).jpg`;
+        } else {
+            return `${imageId}.jpg`;
+        }
     }
 
+    function stripExtension(filename) {
+        return filename.replace(/\.[a-zA-Z]{3,4}$/, '');
+    }
 }]);
 
 downloader.directive('grDownloader', function() {

@@ -35,7 +35,7 @@ You will need to install:
 * JDK 8
 * Nginx
 * [GraphicsMagick](http://www.graphicsmagick.org/)
-`sudo apt-get install graphicsmagick` or `brew install graphicsmagick`.
+`sudo apt-get install graphicsmagick` or `brew install graphicsmagick --with-little-cms2`.
 * [awscli](https://aws.amazon.com/cli/)
 * [jq](https://stedolan.github.io/jq/)
 * [exiftool](http://www.sno.phy.queensu.ca/~phil/exiftool/)
@@ -105,7 +105,7 @@ cd cloud-formation/scripts
 ### .properties files
 
 Generate your .properties files for the various media-service services using the
-[dot-properties generator](scripts/dot-properties)
+[dot-properties generator](./docker/configs/generators/README.md)
 
 This will also create a ```panda.properties``` file that configures the
 [pan-domain authentication](https://github.com/guardian/pan-domain-authentication)
@@ -236,7 +236,7 @@ The user interface should be up at
 ### Running with [GridRunner](https://github.com/guardian/grid_runner/)
 Grid Runner helps manage grid microservices
 
-Install grid_runner: 
+Install grid_runner:
 
         $ gem install grid_runner
 
@@ -247,7 +247,7 @@ Install grid_runner:
 From the project root:
 
         $ gr list
-        $ gr run all 
+        $ gr run all
         $ gr kill kahuna media-api
         $ gr restart elasticsearch
         $ gr log thrall usage

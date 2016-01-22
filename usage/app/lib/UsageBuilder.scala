@@ -1,9 +1,9 @@
 package lib
 
 import org.joda.time.DateTime
-import com.gu.mediaservice.model.{Usage, UsageReference}
+import com.gu.mediaservice.model.{Usage, UsageReference, PublishedUsageStatus}
 
-import model.{PublishedUsageStatus, MediaUsage, UsageTableFullKey}
+import model.{MediaUsage, UsageTableFullKey}
 
 
 object UsageBuilder {

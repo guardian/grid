@@ -6,7 +6,7 @@ import com.gu.mediaservice.lib.config.{MetadataConfig, PhotographersList}
 import com.gu.mediaservice.model._
 import com.gu.mediaservice.picdarexport.lib.cleanup.UsageRightsOverride
 import com.gu.mediaservice.picdarexport.lib.{Config, LogHelper, HttpClient}
-import com.gu.mediaservice.picdarexport.model.{AssetRef, Asset, DateRange}
+import com.gu.mediaservice.picdarexport.model.{PicdarDates, AssetRef, Asset, DateRange}
 import org.joda.time.DateTime
 import org.joda.time.format.{DateTimeFormat, ISODateTimeFormat}
 import play.api.Logger
@@ -104,7 +104,7 @@ trait PicdarApi extends HttpClient with PicdarInterface with LogHelper {
   }
 
   // No timezone lol
-  val picdarEsotericDateFormat = DateTimeFormat.forPattern("yyyyMMddHH:mm:ss")
+  val picdarEsotericDateFormat = PicdarDates.longFormat
 
   def fetchAsset(mak: String, urn: String): Future[Asset] = {
     post(messages.retrieveAsset(mak, urn)) flatMap { response =>

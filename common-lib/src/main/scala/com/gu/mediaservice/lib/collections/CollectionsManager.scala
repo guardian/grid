@@ -1,17 +1,14 @@
 package com.gu.mediaservice.lib.collections
 
-import java.awt.Color
-
 import com.gu.mediaservice.lib.net.URI.{encode, decode}
 import com.gu.mediaservice.model.Collection
 
-import scala.util.Try
 
 object CollectionsManager {
   val delimiter = "/"
 
   def stringToPath(s: String) = s.split(delimiter).toList
-  def pathToString(path: List[String]) = path.mkString(delimiter).toLowerCase
+  def pathToString(path: List[String]) = path.mkString(delimiter)
   def pathToUri(path: List[String]) = pathToString(path.map(encode))
   def uriToPath(uri: String) = stringToPath(decode(uri))
 
@@ -43,14 +40,16 @@ object CollectionsManager {
   def isValidPathBit(s: String) = if (s.contains(delimiter)) false else true
 
   val collectionColours = Map(
-    "g2"           -> "#000000",
-    "observer"     -> "#006f94",
+    "australia"    -> "#ffb93e",
     "culture"      -> "#d1008b",
     "film & music" -> "#b1532f",
-    "guide"        -> "#8F1AB6"
+    "g2"           -> "#000000",
+    "guide"        -> "#8F1AB6",
+    "observer"     -> "#006f94",
+    "sport"        -> "#008000"
   )
 
   def getCollectionColour(s: String) = collectionColours.get(s)
 
-  def getCssColour(path: List[String]) = path.headOption.flatMap(getCollectionColour)
+  def getCssColour(path: List[String]) = path.headOption.map(_.toLowerCase).flatMap(getCollectionColour)
 }

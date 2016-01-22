@@ -1,0 +1,141 @@
+# Auto generates the properties files for all services and the nginx config
+configs:
+  image: python:2.7
+  volumes:
+    - "./entrypoints:/entrypoints"
+    - "./configs/generators:/configs/generators"
+    - "$HOME/.aws/:/root/.aws:ro"
+    - "$HOME/.gu/grid/:/root/.gu/grid"
+    - "/configs"
+  entrypoint: /entrypoints/configs.sh
+
+# Proxy server for all services
+nginx:
+  image: nginx:latest
+  links:
+    - elasticsearch
+    - media-api
+    - thrall
+    - image-loader
+    - kahuna
+    - cropper
+    - metadata-editor
+    - usage
+    - collections
+    - imgops
+  ports:
+    - "80:80"
+    - "443:443"
+  volumes:
+    - "./entrypoints:/entrypoints"
+  volumes_from:
+    - configs
+  entrypoint: /entrypoints/nginx.sh
+
+# Shared volume container
+data:
+  image: java:8
+  volumes:
+    - "../:/code"
+    - "/root/.ivy2"
+    - "/root/.sbt"
+
+elasticsearch:
+  build: .
+  dockerfile: Dockerfile-elastic
+  container_name: elasticsearch
+  expose:
+    - "9200"
+    - "9300"
+  ports:
+    - "9200:9200"
+    - "9300:9300"
+  volumes:
+    - "./configs/elasticsearch:/usr/share/elasticsearch/config"
+  restart: unless-stopped
+
+# Grid service containers
+media-api:
+  environment:
+    APP: media-api
+  extends:
+    file: docker-compose-sbt.yml
+    service: sbt
+  links:
+    - elasticsearch
+  volumes_from:
+    - configs
+    - data
+thrall:
+  environment:
+    APP: thrall
+  extends:
+    file: docker-compose-sbt.yml
+    service: sbt
+  links:
+    - elasticsearch
+  volumes_from:
+    - configs
+    - data
+image-loader:
+  environment:
+    APP: image-loader
+  extends:
+    file: docker-compose-sbt.yml
+    service: sbt
+  volumes_from:
+    - configs
+    - data
+kahuna:
+  environment:
+    APP: kahuna
+  extends:
+    file: docker-compose-sbt.yml
+    service: sbt
+  volumes_from:
+    - configs
+    - data
+cropper:
+  environment:
+    APP: cropper
+  extends:
+    file: docker-compose-sbt.yml
+    service: sbt
+  volumes_from:
+    - configs
+    - data
+metadata-editor:
+  environment:
+    APP: metadata-editor
+  extends:
+    file: docker-compose-sbt.yml
+    service: sbt
+  volumes_from:
+    - configs
+    - data
+usage:
+  environment:
+    APP: usage
+  extends:
+    file: docker-compose-sbt.yml
+    service: sbt
+  volumes_from:
+    - configs
+    - data
+collections:
+  environment:
+    APP: collections
+  extends:
+    file: docker-compose-sbt.yml
+    service: sbt
+  volumes_from:
+    - configs
+    - data
+imgops:
+  build: .
+  dockerfile: Dockerfile-imgops
+  volumes_from:
+    - configs
+  volumes:
+    - "./entrypoints:/entrypoints"
+  entrypoint: /entrypoints/imgops.sh

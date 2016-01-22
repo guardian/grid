@@ -17,6 +17,17 @@ panelButton.controller('GrPanelButton', ['$scope', 'inject$', function($scope, i
         panel.setHidden(true);
     };
 
+    ctrl.toolTipPosition = () => {
+        switch (ctrl.position) {
+        case 'right':
+            return 'left';
+        case 'left':
+            return 'right';
+        default:
+            return 'bottom';
+        }
+    };
+
     inject$($scope, panel.state$, ctrl, 'state');
 }]);
 

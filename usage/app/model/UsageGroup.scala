@@ -1,6 +1,7 @@
 package model
 
 import com.gu.contentapi.client.model.v1.{Content, ElementType, Element}
+import com.gu.mediaservice.model.{PendingUsageStatus, PublishedUsageStatus, PrintUsageRecord, UsageStatus}
 
 import lib.MD5
 import org.joda.time.DateTime
@@ -18,8 +19,6 @@ object UsageGroup {
   def buildId(printUsage: PrintUsageRecord) = s"print/${MD5.hash(List(
     Some(printUsage.mediaId),
     Some(printUsage.printUsageMetadata.pageNumber),
-    Some(printUsage.printUsageMetadata.edition),
-    Some(printUsage.printUsageMetadata.layoutId),
     Some(printUsage.printUsageMetadata.sectionCode),
     Some(printUsage.printUsageMetadata.issueDate)
   ).flatten.map(_.toString).mkString("_"))}"
