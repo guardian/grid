@@ -10,6 +10,9 @@ GET     /upload                     controllers.Application.index(ignored="")
 
 GET     /assets/*file               controllers.Assets.at(path="/public", file)
 
+# Empty page to return to the same domain as the app
+GET     /ok                         controllers.Application.ok
+
 # Management
 GET     /management/healthcheck     com.gu.mediaservice.lib.management.Management.healthCheck
 GET     /management/manifest        com.gu.mediaservice.lib.management.Management.manifest
