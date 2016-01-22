@@ -5,6 +5,7 @@ import 'rx-dom';
 import Immutable from 'immutable';
 import {getCollectionsFromQuery} from '../search-query/query-syntax';
 import {storage} from '../util/storage';
+import {selectionTopBar} from '../components/gr-selection-top-bar/gr-selection-top-bar';
 
 import './query';
 import './results';
@@ -18,9 +19,10 @@ import '../components/gr-keyboard-shortcut/gr-keyboard-shortcut';
 
 import '../components/gr-panels/gr-panels';
 
-import searchTemplate        from './view.html!text';
-import searchResultsTemplate from './results.html!text';
-import panelTemplate        from '../components/gr-panel/gr-panel.html!text';
+import searchTemplate           from './view.html!text';
+import selectionTopBarTemplate  from '../components/gr-selection-top-bar/gr-selection-top-bar.html!text';
+import searchResultsTemplate    from './results.html!text';
+import panelTemplate            from '../components/gr-panel/gr-panel.html!text';
 import collectionsPanelTemplate from
     '../components/gr-collections-panel/gr-collections-panel.html!text';
 
@@ -38,7 +40,8 @@ export var search = angular.module('kahuna.search', [
     'grPanel',
     'grCollectionsPanel',
     'ui.router',
-    storage.name
+    storage.name,
+    selectionTopBar.name
 ]);
 
 // TODO: add a resolver here so that if we error (e.g. 401) we don't keep trying
@@ -188,65 +191,8 @@ search.config(['$stateProvider', '$urlMatcherFactoryProvider',
         },
         views: {
             selectionActions: {
-                template: `
-                <gr-top-bar
-                    class="gr-top-bar--blue gr-top-bar--overlay"
-                    fixed="true"
-                    ng:if="ctrl.active">
-                    <gr-top-bar-nav gr:hide-home-link>
-                        <button
-                            class="top-bar-item clickable clickable--blue side-padded text-large"
-                            type="button"
-                            ng:click="ctrl.clearSelection()">
-                            <gr-icon-label gr-icon="clear">Clear selection</gr-icon-label>
-                        </button>
-                        <div class="top-bar-item side-padded text-large">
-                            {{ctrl.selectionCount}} selected
-                        </div>
-                    </gr-top-bar-nav>
-                    <gr-top-bar-actions gr:hide-user-actions>
-                        <gr-downloader
-                            class="top-bar-item clickable clickable--blue side-padded"
-                            gr:images="ctrl.selectedImages">
-                        </gr-downloader>
-                        <gr-delete-image
-                            class="top-bar-item clickable clickable--blue side-padded"
-                            images="ctrl.selectedImages"
-                            ng:if="ctrl.selectionIsDeletable">
-                        </gr-delete-image>
-                        <gr-archiver
-                            class="top-bar-item clickable clickable--blue side-padded"
-                            gr:images="ctrl.selectedImages">
-                        </gr-archiver>
-                    </gr-top-bar-actions>
-                </gr-top-bar>`,
-                controller: ['$scope', '$q', 'inject$', 'selectedImages$', 'selection', 'panels',
-                             function($scope, $q, inject$, selectedImages$, selection, panels) {
-                    const ctrl = this;
-                    const selectionCount$ = selectedImages$.map(images => images.size);
-                    const active$ = selectionCount$.map(count => count > 0);
-
-
-                    ctrl.clearSelection = () => selection.clear();
-                    ctrl.metadataPanel = panels.metadataPanel;
-
-                    function canBeDeleted(image) {
-                        return image.getAction('delete').then(angular.isDefined);
-                    }
-                    // TODO: move to helper?
-                    const selectionIsDeletable$ = selectedImages$.flatMap(selectedImages => {
-                        const allDeletablePromise = $q.
-                        all(selectedImages.map(canBeDeleted).toArray()).
-                        then(allDeletable => allDeletable.every(v => v === true));
-                        return Rx.Observable.fromPromise(allDeletablePromise);
-                    });
-
-                    inject$($scope, selectedImages$, ctrl, 'selectedImages');
-                    inject$($scope, active$, ctrl, 'active');
-                    inject$($scope, selectionCount$, ctrl, 'selectionCount');
-                    inject$($scope, selectionIsDeletable$, ctrl, 'selectionIsDeletable');
-
-                }],
+                template: selectionTopBarTemplate,
+                controller: 'GrSelectionTopBarCtrl',
                 controllerAs: 'ctrl'
             },
             results: {
