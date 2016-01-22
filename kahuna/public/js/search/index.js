@@ -186,7 +186,7 @@ search.config(['$stateProvider', '$urlMatcherFactoryProvider',
                     class="gr-top-bar--blue gr-top-bar--overlay"
                     fixed="true"
                     ng:if="ctrl.active">
-                    <gr-top-bar-nav>
+                    <gr-top-bar-nav gr:hide-home-link>
                         <button
                             class="top-bar-item clickable side-padded"
                             type="button"
