@@ -119,6 +119,18 @@ grCollectionsPanel.controller('GrNodeCtrl',
        collections.addImagesToCollection(images, path).then(() => ctrl.saving = false);
     });
 
+    const remove$ = new Rx.Subject();
+    const pathToRemoveWithImages$ =
+            remove$.withLatestFrom(ctrl.selectedImages$, (path, images) => ({path, images}));
+
+    ctrl.removeImagesFromCollection = () => {
+        remove$.onNext(ctrl.node.data.data.pathId)
+    };
+
+    subscribe$($scope, pathToRemoveWithImages$, ({path, images}) => {
+        collections.batchRemove(images, path);
+    });
+
     inject$($scope, hasImagesSelected$, ctrl, 'hasImagesSelected');
 
     $scope.$watch('ctrl.showChildren', onValChange(show => {

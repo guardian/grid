@@ -127,6 +127,30 @@ collectionsApi.factory('collections',
             });
     }
 
+    function findCollectionResource(image, collectionToMatch){
+        return image.data.collections.filter(collection => {
+            return collection.data.pathId === collectionToMatch
+        });
+    }
+
+    function getCollectionToRemove(image, collection) {
+        const filteredCollections = findCollectionResource(image, collection);
+        if (filteredCollections.length > 0){
+            return filteredCollections[0]
+        }
+    }
+
+    function batchRemove(images, collection) {
+        return $q.all(images.map(image => {
+            const collectionToRemove = getCollectionToRemove(image, collection);
+            if(collectionToRemove) {
+                removeImageFromCollection(collectionToRemove, image)
+            }
+        }));
+    }
+
+
+
     return {
         getCollections,
         removeCollection,
@@ -136,6 +160,7 @@ collectionsApi.factory('collections',
         removeFromList,
         addImageIdsToCollection,
         addImagesToCollection,
-        removeImageFromCollection
+        removeImageFromCollection,
+        batchRemove
     };
 }]);

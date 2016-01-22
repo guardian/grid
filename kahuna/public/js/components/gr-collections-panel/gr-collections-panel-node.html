@@ -44,6 +44,12 @@
              ng:if="ctrl.saving || dropIntoCollectionSaving">Adding…</div>
 
         <button class="node__action clickable hover-child"
+                title="Remove selected images from this collection"
+                ng:if="!ctrl.editing && ctrl.hasImagesSelected && !ctrl.saving"
+                ng:click="ctrl.removeImagesFromCollection()">
+            <gr-icon>indeterminate_check_box</gr-icon>
+        </button>
+        <button class="node__action clickable hover-child"
                 title="Add selected images to this collection"
                 ng:if="!ctrl.editing && ctrl.hasImagesSelected && !ctrl.saving"
                 ng:click="ctrl.addImagesToCollection()">
