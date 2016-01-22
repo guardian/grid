@@ -197,7 +197,7 @@ search.config(['$stateProvider', '$urlMatcherFactoryProvider',
                             {{ctrl.selectionCount}} selected
                         </div>
                     </gr-top-bar-nav>
-                    <gr-top-bar-actions>
+                    <gr-top-bar-actions gr:hide-user-actions>
                         <gr-downloader
                             class="top-bar-item clickable side-padded"
                             gr:images="ctrl.selectedImages">
