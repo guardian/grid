@@ -127,14 +127,14 @@ collectionsApi.factory('collections',
             });
     }
 
-    function findCollectionResource(image, collectionToMatch){
+    function filterCollectionResource(image, collectionToMatch){
         return image.data.collections.filter(collection => {
             return collection.data.pathId === collectionToMatch;
         });
     }
 
     function getCollectionToRemove(image, collection) {
-        const filteredCollections = findCollectionResource(image, collection);
+        const filteredCollections = filterCollectionResource(image, collection);
         if (filteredCollections.length > 0){
             return filteredCollections[0];
         }
