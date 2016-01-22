@@ -57,7 +57,7 @@ collectionsApi.factory('collections',
      * @param Array<string> imageIds
      * @param Array<string> collectionPath
      */
-    function addCollectionUsingImageIds(imageIds, path) {
+    function addToCollectionUsingImageIds(imageIds, path) {
         // TODO: This isn't the most efficient way of doing this, but because we get the image data
         // from the drop data, this was the easiest way to do it without turning the JSON string
         // into a Resource object.
@@ -68,7 +68,7 @@ collectionsApi.factory('collections',
         return $q.all(promises);
     }
 
-    function addCollectionUsingImageResources(images, path) {
+    function addToCollectionUsingImageResources(images, path) {
         const promises = images.map(image =>
             addCollectionToImage(image, path)
         ).toJS();
@@ -137,8 +137,8 @@ collectionsApi.factory('collections',
         addChildTo,
         isDeletable,
         removeFromList,
-        addCollectionUsingImageIds,
-        addCollectionUsingImageResources,
+        addToCollectionUsingImageIds,
+        addToCollectionUsingImageResources,
         removeImageFromCollection
     };
 }]);

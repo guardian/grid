@@ -116,7 +116,7 @@ grCollectionsPanel.controller('GrNodeCtrl',
     };
 
     subscribe$($scope, pathWithImages$, ({path, images}) => {
-       collections.addCollectionUsingImageResources(images, path).then(() => ctrl.saving = false);
+       collections.addToCollectionUsingImageResources(images, path).then(() => ctrl.saving = false);
     });
 
     inject$($scope, hasImagesSelected$, ctrl, 'hasImagesSelected');
@@ -214,7 +214,7 @@ grCollectionsPanel.directive('grDropIntoCollection',
 
                     const imageIds = imagesData.map(imageJson => imageJson.data.id);
                     scope.dropIntoCollectionSaving = true;
-                    collections.addCollectionUsingImageIds(imageIds, collectionPath).then(() => {
+                    collections.addToCollectionUsingImageIds(imageIds, collectionPath).then(() => {
                         scope.dropIntoCollectionSaving = false;
                     });
                 }
