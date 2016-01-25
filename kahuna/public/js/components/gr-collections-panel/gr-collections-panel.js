@@ -88,6 +88,7 @@ grCollectionsPanel.controller('GrNodeCtrl',
     const pathId = ctrl.node.data.data.pathId;
 
     ctrl.saving = false;
+    ctrl.removing = false;
     ctrl.deletable = false;
     ctrl.showChildren = collectionsTreeState.getState(pathId);
 
@@ -116,7 +117,20 @@ grCollectionsPanel.controller('GrNodeCtrl',
     };
 
     subscribe$($scope, pathWithImages$, ({path, images}) => {
-       collections.addImagesToCollection(images, path).then(() => ctrl.saving = false);
+       collections.addToCollectionUsingImageResources(images, path).then(() => ctrl.saving = false);
+    });
+
+    const remove$ = new Rx.Subject();
+    const pathToRemoveWithImages$ =
+            remove$.withLatestFrom(ctrl.selectedImages$, (path, images) => ({path, images}));
+
+    ctrl.removeImagesFromCollection = () => {
+        ctrl.removing = true;
+        remove$.onNext(ctrl.node.data.data.pathId);
+    };
+
+    subscribe$($scope, pathToRemoveWithImages$, ({path, images}) => {
+        collections.batchRemove(images, path).then(() => ctrl.removing = false);
     });
 
     inject$($scope, hasImagesSelected$, ctrl, 'hasImagesSelected');
@@ -151,7 +165,7 @@ grCollectionsPanel.directive('grNode', ['$parse', '$compile', function($parse, $
         controller: 'GrNodeCtrl',
         controllerAs: 'ctrl',
         bindToController: true,
-        compile: function(element, attrs, transclude) {
+        compile: function() {
             // Memoize the `$compile` result for performance reasons
             // (compile invoked once per reference, link invoked once
             // per use)
@@ -223,7 +237,7 @@ grCollectionsPanel.directive('grDropIntoCollection',
 
                     const imageIds = imagesData.map(imageJson => imageJson.data.id);
                     scope.dropIntoCollectionSaving = true;
-                    collections.addImageIdsToCollection(imageIds, collectionPath).then(() => {
+                    collections.addToCollectionUsingImageIds(imageIds, collectionPath).then(() => {
                         scope.dropIntoCollectionSaving = false;
                     });
                 }
