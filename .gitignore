@@ -8,3 +8,5 @@ data
 .ensime*
 .tern-port
 .DS_Store
+*.py[cod]
+.venv

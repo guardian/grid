@@ -13,13 +13,15 @@ collectionsApi.factory('collections',
                        ['$rootScope', '$q', 'mediaApi', 'imageAccessor', 'apiPoll',
                         function ($rootScope, $q, mediaApi, imageAccessor, apiPoll) {
 
+    const collectionsRoot = mediaApi.root.follow('collections');
+
     // TODO: Rx?
     let collections;
 
     function getCollections() {
+        // TODO: do we want to memoize? what if we want to reload?
         if (! collections) {
-            collections = mediaApi.root.follow('collections').get().
-                then(collectionsService => collectionsService.follow('collections').get());
+            collections = collectionsRoot.follow('collections').get();
         }
         return collections;
     }
@@ -29,7 +31,7 @@ collectionsApi.factory('collections',
     }
 
     function addCollection(newCollectionPath) {
-        return mediaApi.root.follow('collections').post({data: newCollectionPath});
+        return collectionsRoot.post({data: newCollectionPath});
     }
 
     function addChildTo(node, childName) {
@@ -57,30 +59,33 @@ collectionsApi.factory('collections',
      * @param Array<string> imageIds
      * @param Array<string> collectionPath
      */
-    function addImageIdsToCollection(imageIds, path) {
+    function addToCollectionUsingImageIds(imageIds, path) {
         // TODO: This isn't the most efficient way of doing this, but because we get the image data
         // from the drop data, this was the easiest way to do it without turning the JSON string
         // into a Resource object.
-        const promises = imageIds.map(id => mediaApi.find(id).then(
-                image => image.perform('add-collection', {body: {data: path}})));
+        const promises = imageIds.map(id => mediaApi.find(id)
+            .then(image => addCollectionToImage(image, path))
+        );
 
         return $q.all(promises);
     }
 
-    function addImagesToCollection(images, path) {
-
+    function addToCollectionUsingImageResources(images, path) {
         const promises = images.map(image =>
-            image.perform('add-collection', {body: {data: path}})
-            .then(collectionAdded => apiPoll(() =>
-                 untilNewCollectionAppears(image, collectionAdded)
-            ))
-            .then(newImage => {
-                $rootScope.$emit('image-updated', newImage, image);
-            })
-
+            addCollectionToImage(image, path)
         ).toJS();
 
         return $q.all(promises);
+    }
+
+    function addCollectionToImage(image, path) {
+        return image.perform('add-collection', {body: {data: path}})
+            .then(collectionAdded => apiPoll(() =>
+                untilNewCollectionAppears(image, collectionAdded)
+            ))
+            .then(newImage => {
+                $rootScope.$emit('image-updated', newImage, image);
+            });
     }
 
     function untilNewCollectionAppears(image, collectionAdded) {
@@ -127,6 +132,33 @@ collectionsApi.factory('collections',
             });
     }
 
+    function filterCollectionResource(image, collectionToMatch){
+        return image.data.collections.filter(collection => {
+            return collection.data.pathId === collectionToMatch;
+        });
+    }
+
+    function getCollectionToRemove(image, collection) {
+        const filteredCollections = filterCollectionResource(image, collection);
+        if (filteredCollections.length > 0){
+            return filteredCollections[0];
+        }
+    }
+
+    function batchRemove(images, collection) {
+        const promises = images.map(image => {
+            const collectionToRemove = getCollectionToRemove(image, collection);
+            if (collectionToRemove) {
+                return removeImageFromCollection(collectionToRemove, image);
+            } else {
+                //if image doesn't have the chosen collection it returns the image
+                return image;
+            }
+        }).toJS();
+
+        return $q.all(promises);
+    }
+
     return {
         getCollections,
         removeCollection,
@@ -134,8 +166,9 @@ collectionsApi.factory('collections',
         addChildTo,
         isDeletable,
         removeFromList,
-        addImageIdsToCollection,
-        addImagesToCollection,
-        removeImageFromCollection
+        addToCollectionUsingImageIds,
+        addToCollectionUsingImageResources,
+        removeImageFromCollection,
+        batchRemove
     };
 }]);
