@@ -1,0 +1,23 @@
+mappings:
+  - container: elasticsearch
+    prefix: elasticsearch
+    port: 9200
+  - container: media-api
+    prefix: api.media
+  - container: thrall
+    prefix: thrall
+  - container: image-loader
+    prefix: loader.media
+  - container: kahuna
+    prefix: media
+  - container: cropper
+    prefix: cropper.media
+  - container: metadata-editor
+    prefix: media-metadata
+  - container: usage
+    prefix: media-usage
+  - container: collections
+    prefix: media-collections
+  - container: imgops
+    prefix: media-imgops
+    port: 80

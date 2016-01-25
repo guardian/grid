@@ -88,6 +88,7 @@ grCollectionsPanel.controller('GrNodeCtrl',
     const pathId = ctrl.node.data.data.pathId;
 
     ctrl.saving = false;
+    ctrl.removing = false;
     ctrl.deletable = false;
     ctrl.showChildren = collectionsTreeState.getState(pathId);
 
@@ -119,6 +120,19 @@ grCollectionsPanel.controller('GrNodeCtrl',
        collections.addToCollectionUsingImageResources(images, path).then(() => ctrl.saving = false);
     });
 
+    const remove$ = new Rx.Subject();
+    const pathToRemoveWithImages$ =
+            remove$.withLatestFrom(ctrl.selectedImages$, (path, images) => ({path, images}));
+
+    ctrl.removeImagesFromCollection = () => {
+        ctrl.removing = true;
+        remove$.onNext(ctrl.node.data.data.pathId);
+    };
+
+    subscribe$($scope, pathToRemoveWithImages$, ({path, images}) => {
+        collections.batchRemove(images, path).then(() => ctrl.removing = false);
+    });
+
     inject$($scope, hasImagesSelected$, ctrl, 'hasImagesSelected');
 
     $scope.$watch('ctrl.showChildren', onValChange(show => {
@@ -132,6 +146,12 @@ grCollectionsPanel.controller('GrNodeCtrl',
 }]);
 
 grCollectionsPanel.directive('grNode', ['$parse', '$compile', function($parse, $compile) {
+    const templateString = `<gr-nodes
+                                ng:if="ctrl.showChildren && ctrl.node.data.children.length > 0"
+                                gr:selected-images="ctrl.selectedImages$"
+                                gr:selected-collections="ctrl.selectedCollections"
+                                gr:editing="ctrl.editing"
+                                gr:nodes="ctrl.node.data.children"></gr-nodes>`;
     return {
         restrict: 'E',
         scope: {
@@ -145,24 +165,27 @@ grCollectionsPanel.directive('grNode', ['$parse', '$compile', function($parse, $
         controller: 'GrNodeCtrl',
         controllerAs: 'ctrl',
         bindToController: true,
-        link: function(scope, element) {
-            // We compile the template on the fly here as angular doesn't deal
-            // well with recursive templates.
-            $compile(`<gr-nodes
-                gr:selected-images="ctrl.selectedImages$"
-                gr:selected-collections="ctrl.selectedCollections"
-                gr:editing="ctrl.editing"
-                ng:show="ctrl.showChildren"
-                gr:nodes="ctrl.node.data.children"
-                ng:if="ctrl.node.data.children.length > 0"></gr-nodes>
-            `)(scope, cloned => {
-                element.find('.node__children').append(cloned);
-            });
+        compile: function() {
+            // Memoize the `$compile` result for performance reasons
+            // (compile invoked once per reference, link invoked once
+            // per use)
+            let compiledTemplate;
+            return function link(scope, element) {
+                if (! compiledTemplate) {
+                    // We compile the template on the fly here as angular doesn't deal
+                    // well with recursive templates.
+                    compiledTemplate = $compile(templateString);
+                }
 
-            scope.clearForm = () => {
-                scope.active = false;
-                scope.childName = '';
-                scope.formError = null;
+                compiledTemplate(scope, cloned => {
+                    element.find('.node__children').append(cloned);
+                });
+
+                scope.clearForm = () => {
+                    scope.active = false;
+                    scope.childName = '';
+                    scope.formError = null;
+                };
             };
         }
     };

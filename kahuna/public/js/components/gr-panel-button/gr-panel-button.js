@@ -9,6 +9,11 @@ panelButton.controller('GrPanelButton', ['$scope', 'inject$', function($scope, i
     const ctrl = this;
     const panel = ctrl.panel;
 
+    ctrl.trackingName = 'Panel Button';
+    ctrl.trackingData = action => ({
+        'Panel name': ctrl.name,
+        'Action': action
+    });
     ctrl.showPanel   = () => panel.setHidden(false);
     ctrl.lockPanel   = () => panel.setLocked(true);
     ctrl.unlockPanel = () => panel.setLocked(false);
