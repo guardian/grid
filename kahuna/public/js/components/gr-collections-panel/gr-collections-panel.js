@@ -88,6 +88,7 @@ grCollectionsPanel.controller('GrNodeCtrl',
     const pathId = ctrl.node.data.data.pathId;
 
     ctrl.saving = false;
+    ctrl.removing = false;
     ctrl.deletable = false;
     ctrl.showChildren = collectionsTreeState.getState(pathId);
 
@@ -117,6 +118,19 @@ grCollectionsPanel.controller('GrNodeCtrl',
 
     subscribe$($scope, pathWithImages$, ({path, images}) => {
        collections.addImagesToCollection(images, path).then(() => ctrl.saving = false);
+    });
+
+    const remove$ = new Rx.Subject();
+    const pathToRemoveWithImages$ =
+            remove$.withLatestFrom(ctrl.selectedImages$, (path, images) => ({path, images}));
+
+    ctrl.removeImagesFromCollection = () => {
+        ctrl.removing = true;
+        remove$.onNext(ctrl.node.data.data.pathId);
+    };
+
+    subscribe$($scope, pathToRemoveWithImages$, ({path, images}) => {
+        collections.batchRemove(images, path).then(() => ctrl.removing = false);
     });
 
     inject$($scope, hasImagesSelected$, ctrl, 'hasImagesSelected');

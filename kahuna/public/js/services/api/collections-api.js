@@ -129,6 +129,35 @@ collectionsApi.factory('collections',
             });
     }
 
+    function filterCollectionResource(image, collectionToMatch){
+        return image.data.collections.filter(collection => {
+            return collection.data.pathId === collectionToMatch;
+        });
+    }
+
+    function getCollectionToRemove(image, collection) {
+        const filteredCollections = filterCollectionResource(image, collection);
+        if (filteredCollections.length > 0){
+            return filteredCollections[0];
+        }
+    }
+
+    function batchRemove(images, collection) {
+        const promises = images.map(image => {
+            const collectionToRemove = getCollectionToRemove(image, collection);
+            if (collectionToRemove) {
+                return removeImageFromCollection(collectionToRemove, image);
+            } else {
+                //if image doesn't have the chosen collection it returns the image
+                return image;
+            }
+        }).toJS();
+
+        return $q.all(promises);
+    }
+
+
+
     return {
         getCollections,
         removeCollection,
@@ -138,6 +167,7 @@ collectionsApi.factory('collections',
         removeFromList,
         addImageIdsToCollection,
         addImagesToCollection,
-        removeImageFromCollection
+        removeImageFromCollection,
+        batchRemove
     };
 }]);
