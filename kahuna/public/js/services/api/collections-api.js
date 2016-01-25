@@ -85,7 +85,7 @@ collectionsApi.factory('collections',
             ))
             .then(newImage => {
                 $rootScope.$emit('image-updated', newImage, image);
-            })
+            });
     }
 
     function untilNewCollectionAppears(image, collectionAdded) {
@@ -158,7 +158,6 @@ collectionsApi.factory('collections',
 
         return $q.all(promises);
     }
-                            
 
     return {
         getCollections,
