@@ -70,11 +70,34 @@ object CollectionsController extends Controller with ArgoHelpers {
     List(addChildAction(n), removeNodeAction(n)).flatten
   }
 
+  def correctedCollections = Authenticated.async { req =>
+    CollectionsStore.getAll flatMap { collections =>
+      val tree = Node.fromList[Collection](
+        collections,
+        (collection) => collection.path,
+        (collection) => collection.description)
+
+      val correctTree = tree hackmap { node =>
+        val correctedCollection = node.data.map(c => c.copy(path = node.correctPath))
+        Node(node.basename, node.children, node.fullPath, node.correctPath, correctedCollection)
+      }
+
+      val futures = correctTree.toList(Nil) map { correctedCollection =>
+        CollectionsStore.add(correctedCollection)
+      }
+
+      Future.sequence(futures) map { updatedCollectionsList =>
+        respond(updatedCollectionsList)
+      }
+    }
+  }
+
   def getCollections = Authenticated.async { req =>
     CollectionsStore.getAll map { collections =>
       val tree = Node.fromList[Collection](
         collections,
-        (collection) => collection.path)
+        (collection) => collection.path,
+        (collection) => collection.description)
 
       respond(Json.toJson(tree)(asArgo), actions = List(addChildAction()).flatten)
     } recover {
@@ -92,7 +115,7 @@ object CollectionsController extends Controller with ArgoHelpers {
         val collection = Collection.build(path, ActionData(getUserFromReq(req), DateTime.now))
 
         CollectionsStore.add(collection).map { collection =>
-          val node = Node(collection.path.last, Nil, collection.path, Some(collection))
+          val node = Node(collection.path.last, Nil, collection.path, collection.path, Some(collection))
           respond(node, actions = getActions(node))
         } recover {
           case e: CollectionsStoreError => storeError(e.message)
