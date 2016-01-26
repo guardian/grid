@@ -23,7 +23,7 @@ class NodeTest extends FunSpec with Matchers with OptionValues {
   )
 
   describe("Node") {
-    def buildTree = Node.fromList(collections, getPath)
+    def buildTree = Node.fromList(collections, getPath, (l: List[String]) => "")
 
     it("should produce 3 children") {
       val tree = buildTree
@@ -54,4 +54,33 @@ class NodeTest extends FunSpec with Matchers with OptionValues {
     }
 
   }
+
+
+  describe("hackmap") {
+    val wrongList = List(
+      TestNodeData(List("all"), "All"),
+      TestNodeData(List("all", "lower"), "LOWER"),
+      TestNodeData(List("all", "lower", "case"), "CaSe")
+    )
+
+    val wrongTree = Node.fromList[TestNodeData](wrongList, (d) => d.path, (d) => d.right)
+
+    val rightTree = wrongTree hackmap { node =>
+      val correctedData = node.data.map(d => d.copy(path = node.correctPath))
+      Node(node.basename, node.children, node.fullPath, node.correctPath, correctedData)
+    }
+
+    val rightTreeList = rightTree.toList(Nil)
+
+
+    rightTreeList(0) shouldEqual TestNodeData(List("All"), "All")
+    rightTreeList(1) shouldEqual TestNodeData(List("All", "LOWER"), "LOWER")
+    rightTreeList(2) shouldEqual TestNodeData(List("All", "LOWER", "CaSe"), "CaSe")
+
+  }
+
+
 }
+
+
+case class TestNodeData(path: List[String], right: String)
