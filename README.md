@@ -102,10 +102,10 @@ cd cloud-formation/scripts
 ./create-dev-stack.sh
 ```
 
-### .properties files
+### Generate .properties files
 
 Generate your .properties files for the various media-service services using the
-[dot-properties generator](./docker/configs/generators/README.md)
+[dot-properties generator](./scripts/config-generators/README.md)
 
 This will also create a ```panda.properties``` file that configures the
 [pan-domain authentication](https://github.com/guardian/pan-domain-authentication)
@@ -255,6 +255,13 @@ From the project root:
 * all commands take either "all" or a space-delimited list of apps
 
 you can see the different application names in the Procfile (in project root)
+
+### Running wih Docker
+The Grid can be run within Docker containers!
+
+NB: this has only been tested in DEV.
+
+To do so, follow the [README](./docker/README.md#setup).
 
 ## Troubleshooting
 
