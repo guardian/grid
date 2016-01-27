@@ -174,11 +174,10 @@ object ElasticSearch extends ElasticSearchClient with ImageFields {
     )
 
   def prepareImageUpdate(id: String): List[UpdateRequestBuilder] =
-    getCurrentIndices.map(_.map (index =>
+    getCurrentIndices.map( index =>
       client.prepareUpdate(index, imageType, id)
         .setScriptLang("groovy")
-      )
-    ).get
+    )
 
 
 

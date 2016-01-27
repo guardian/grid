@@ -71,12 +71,12 @@ trait ElasticSearchClient {
       .map(_.keys.toArray.head.toString)
   }
 
-  def getCurrentIndices: Option[List[String]] = {
+  def getCurrentIndices: List[String] = {
     Option(client.admin.cluster
       .prepareState.execute
       .actionGet.getState
       .getMetaData.getAliases.get(imagesAlias))
-      .map(_.keys.toArray.map(_.toString).toList)
+      .map(_.keys.toArray.map(_.toString).toList).getOrElse(Nil)
   }
 
   def assignAliasTo(index: String) = {
