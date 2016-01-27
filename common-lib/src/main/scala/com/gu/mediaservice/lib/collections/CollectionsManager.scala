@@ -9,7 +9,7 @@ object CollectionsManager {
 
   def stringToPath(s: String) = s.split(delimiter).toList
   def pathToString(path: List[String]) = path.mkString(delimiter)
-  def pathToLowerCaseString(path: List[String]) = pathToString(path).toLowerCase
+  def pathToPathId(path: List[String]) = pathToString(path).toLowerCase
   def pathToUri(path: List[String]) = pathToString(path.map(encode))
   def uriToPath(uri: String) = stringToPath(decode(uri))
 
