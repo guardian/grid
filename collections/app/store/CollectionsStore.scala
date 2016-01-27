@@ -27,7 +27,7 @@ object CollectionsStore {
   }
 
   def remove(collectionPath: List[String]): Future[Unit] = {
-    val path = CollectionsManager.pathToString(collectionPath)
+    val path = CollectionsManager.pathToString(collectionPath).toLowerCase
     dynamo.deleteItem(path)
   } recover {
     case e => throw CollectionsStoreError(e)
