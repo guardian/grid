@@ -31,26 +31,26 @@ object ThrallMessageConsumer extends MessageConsumer(
   }
 
   def updateImageUsages(usages: JsValue) =
-    withImageId(usages)(id => ElasticSearch.updateImageUsages(id, usages \ "data", usages \ "lastModified"))
+   Future.sequence( withImageId(usages)(id => ElasticSearch.updateImageUsages(id, usages \ "data", usages \ "lastModified")) )
 
-  def indexImage(image: JsValue): Future[UpdateResponse] =
-    withImageId(image)(id => ElasticSearch.indexImage(id, image))
+  def indexImage(image: JsValue): Future[List[UpdateResponse]] =
+    Future.sequence( withImageId(image)(id => ElasticSearch.indexImage(id, image)) )
 
-  def updateImageExports(exports: JsValue): Future[UpdateResponse] =
-    withImageId(exports)(id => ElasticSearch.updateImageExports(id, exports \ "data"))
+  def updateImageExports(exports: JsValue): Future[List[UpdateResponse]]=
+    Future.sequence( withImageId(exports)(id => ElasticSearch.updateImageExports(id, exports \ "data")) )
 
-  def deleteImageExports(exports: JsValue): Future[UpdateResponse] =
-    withImageId(exports)(id => ElasticSearch.deleteImageExports(id))
+  def deleteImageExports(exports: JsValue): Future[List[UpdateResponse]]=
+    Future.sequence( withImageId(exports)(id => ElasticSearch.deleteImageExports(id)) )
 
-  def updateImageUserMetadata(metadata: JsValue): Future[UpdateResponse] = {
+  def updateImageUserMetadata(metadata: JsValue): Future[List[UpdateResponse]]= {
     val data = metadata \ "data"
     val lastModified = metadata \ "lastModified"
-    withImageId(metadata)(id => ElasticSearch.applyImageMetadataOverride(id, data, lastModified))
+    Future.sequence( withImageId(metadata)(id => ElasticSearch.applyImageMetadataOverride(id, data, lastModified)))
   }
 
 
-  def setImageCollections(collections: JsValue): Future[UpdateResponse] =
-    withImageId(collections)(id => ElasticSearch.setImageCollection(id, collections \ "data"))
+  def setImageCollections(collections: JsValue): Future[List[UpdateResponse]]=
+    Future.sequence(withImageId(collections)(id => ElasticSearch.setImageCollection(id, collections \ "data")) )
 
   def deleteImage(image: JsValue): Future[EsResponse] =
     withImageId(image) { id =>
