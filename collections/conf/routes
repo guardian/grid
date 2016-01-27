@@ -10,6 +10,7 @@ GET     /collections                                    controllers.CollectionsC
 POST    /collections                                    controllers.CollectionsController.addChildToRoot
 POST    /collections/*collection                        controllers.CollectionsController.addChildToCollection(collection: String)
 DELETE  /collections/*collection                        controllers.CollectionsController.removeCollection(collection: String)
+POST    /corrected-collections                          controllers.CollectionsController.correctedCollections
 
 # Management
 GET     /management/healthcheck                         com.gu.mediaservice.lib.management.Management.healthCheck
