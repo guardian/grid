@@ -95,8 +95,8 @@ object ElasticSearch extends ElasticSearchClient with ImageFields {
   }
 
   def updateImageUsages(id: String, usages: JsValue, lastModified: JsValue)(implicit ex: ExecutionContext): List[Future[UpdateResponse]] = {
-    prepareImageUpdate(id) { request => request
-      .setScriptParams(Map(
+    prepareImageUpdate(id) { request =>
+      request.setScriptParams(Map(
         "usages" -> asGroovy(usages),
         "lastModified" -> asGroovy(lastModified)
       ).asJava)
@@ -108,7 +108,7 @@ object ElasticSearch extends ElasticSearchClient with ImageFields {
         """.stripMargin,
         scriptType)
       .executeAndLog(s"updating usages on image $id")
-      .recover { case e: DocumentMissingException => Unit }
+      .recover { case e: DocumentMissingException => new UpdateResponse }
       .incrementOnFailure(failedUsagesUpdates) { case e: VersionConflictEngineException => true }
     }
   }
@@ -175,9 +175,7 @@ def updateImageExports(id: String, exports: JsValue)(implicit ex: ExecutionConte
     }
 
   def prepareImageUpdate(id: String)(op: UpdateRequestBuilder => Future[UpdateResponse]): List[Future[UpdateResponse]] = {
-    getCurrentIndices.map( index =>
-      list.map(
-        index => {
+    getCurrentIndices.map( index => {
           val updateRequest = client.prepareUpdate(index, imageType, id)
             .setScriptLang("groovy")
           op(updateRequest)
