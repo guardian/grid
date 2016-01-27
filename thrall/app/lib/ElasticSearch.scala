@@ -37,7 +37,7 @@ object ElasticSearch extends ElasticSearchClient with ImageFields {
   def currentIsoDateString = printDateTime(new DateTime())
 
   def indexImage(id: String, image: JsValue)(implicit ex: ExecutionContext): List[Future[UpdateResponse]] = {
-    prepareImageUpdate(id).map( request => request
+    prepareImageUpdate(id) { request => request
       // Use upsert: if not present, will index the argument (the image)
       .setUpsert(Json.stringify(image))
       // if already present, will run the script with the provided parameters
@@ -61,7 +61,7 @@ object ElasticSearch extends ElasticSearchClient with ImageFields {
         scriptType)
       .executeAndLog(s"Indexing image $id")
       .incrementOnSuccess(indexedImages)
-    )
+    }
   }
 
   def deleteImage(id: String)(implicit ex: ExecutionContext): Future[DeleteByQueryResponse] = {
@@ -94,8 +94,8 @@ object ElasticSearch extends ElasticSearchClient with ImageFields {
       }
   }
 
-  def updateImageUsages(id: String, usages: JsValue, lastModified: JsValue)(implicit ex: ExecutionContext): List[Future[Any]] =
-    prepareImageUpdate(id).map( request => request
+  def updateImageUsages(id: String, usages: JsValue, lastModified: JsValue)(implicit ex: ExecutionContext): List[Future[UpdateResponse]] = {
+    prepareImageUpdate(id) { request => request
       .setScriptParams(Map(
         "usages" -> asGroovy(usages),
         "lastModified" -> asGroovy(lastModified)
@@ -110,38 +110,39 @@ object ElasticSearch extends ElasticSearchClient with ImageFields {
       .executeAndLog(s"updating usages on image $id")
       .recover { case e: DocumentMissingException => Unit }
       .incrementOnFailure(failedUsagesUpdates) { case e: VersionConflictEngineException => true }
-    )
+    }
+  }
 
-  def updateImageExports(id: String, exports: JsValue)(implicit ex: ExecutionContext): List[Future[UpdateResponse]] =
-    prepareImageUpdate(id).map(request => request
-      .setScriptParams(Map(
+def updateImageExports(id: String, exports: JsValue)(implicit ex: ExecutionContext): List[Future[UpdateResponse]] =
+    prepareImageUpdate(id) { request =>
+      request.setScriptParams(Map(
         "exports" -> asGroovy(exports),
         "lastModified" -> asGroovy(JsString(currentIsoDateString))
       ).asJava)
-      .setScript(
-        addExportsScript +
-          updateLastModifiedScript,
-        scriptType)
-      .executeAndLog(s"updating exports on image $id")
-      .incrementOnFailure(failedExportsUpdates) { case e: VersionConflictEngineException => true}
-    )
+        .setScript(
+          addExportsScript +
+            updateLastModifiedScript,
+          scriptType)
+        .executeAndLog(s"updating exports on image $id")
+        .incrementOnFailure(failedExportsUpdates) { case e: VersionConflictEngineException => true }
+    }
 
   def deleteImageExports(id: String)(implicit ex: ExecutionContext): List[Future[UpdateResponse]] =
-    prepareImageUpdate(id).map(request => request
-      .setScriptParams(Map(
+    prepareImageUpdate(id) { request =>
+      request.setScriptParams(Map(
         "lastModified" -> asGroovy(JsString(currentIsoDateString))
       ).asJava)
-      .setScript(
-        deleteExportsScript +
-          updateLastModifiedScript,
-        scriptType)
-      .executeAndLog(s"removing exports from image $id")
-      .incrementOnFailure(failedExportsUpdates) { case e: VersionConflictEngineException => true }
-    )
+        .setScript(
+          deleteExportsScript +
+            updateLastModifiedScript,
+          scriptType)
+        .executeAndLog(s"removing exports from image $id")
+        .incrementOnFailure(failedExportsUpdates) { case e: VersionConflictEngineException => true }
+    }
 
   def applyImageMetadataOverride(id: String, metadata: JsValue, lastModified: JsValue)(implicit ex: ExecutionContext): List[Future[UpdateResponse]] = {
-    prepareImageUpdate(id).map(request => request
-      .setScriptParams(Map(
+    prepareImageUpdate(id) { request =>
+      request.setScriptParams(Map(
         "userMetadata" -> asGroovy(metadata),
         "lastModified" -> asGroovy(lastModified)
       ).asJava)
@@ -156,12 +157,12 @@ object ElasticSearch extends ElasticSearchClient with ImageFields {
         scriptType)
       .executeAndLog(s"updating user metadata on image $id")
       .incrementOnFailure(failedMetadataUpdates) { case e: VersionConflictEngineException => true }
-    )
+    }
   }
 
   def setImageCollection(id: String, collections: JsValue)(implicit ex: ExecutionContext): List[Future[UpdateResponse]] =
-    prepareImageUpdate(id).map(request => request
-      .setScriptParams(Map(
+    prepareImageUpdate(id) { request =>
+      request.setScriptParams(Map(
         "collections" -> asGroovy(collections),
         "lastModified" -> asGroovy(JsString(currentIsoDateString))
       ).asJava)
@@ -171,14 +172,18 @@ object ElasticSearch extends ElasticSearchClient with ImageFields {
         scriptType)
       .executeAndLog(s"setting collections on image $id")
       .incrementOnFailure(failedCollectionsUpdates) { case e: VersionConflictEngineException => true }
-    )
+    }
 
-  def prepareImageUpdate(id: String): List[UpdateRequestBuilder] =
+  def prepareImageUpdate(id: String)(op: UpdateRequestBuilder => Future[UpdateResponse]): List[Future[UpdateResponse]] = {
     getCurrentIndices.map( index =>
-      client.prepareUpdate(index, imageType, id)
-        .setScriptLang("groovy")
+      list.map(
+        index => {
+          val updateRequest = client.prepareUpdate(index, imageType, id)
+            .setScriptLang("groovy")
+          op(updateRequest)
+        }
     )
-
+  }
 
 
   def updateByQuery(script: String)(implicit ex: ExecutionContext): Future[UpdateByQueryResponse] =

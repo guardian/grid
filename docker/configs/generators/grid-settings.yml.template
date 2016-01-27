@@ -28,3 +28,7 @@ properties:
 
   # An API key used to ingest images from the s3watcher.
   - s3watcher_key:
+
+
+  # Elasticsearch host
+  - es.host: localhost
