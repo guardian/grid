@@ -25,7 +25,7 @@ object ElasticSearch extends ElasticSearchClient with ImageFields {
 
   import com.gu.mediaservice.lib.formatting._
 
-  val imagesAlias = "writeAlias"
+  val imagesAlias = Config.imagesAlias
   val host = Config.elasticsearchHost
   val port = Config.int("es.port")
   val cluster = Config("es.cluster")
