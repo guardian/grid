@@ -16,7 +16,13 @@ object Config extends CommonPlayAppConfig {
   val ftpPort: Int = properties.get("ftp.port").fold(21)(_.toInt)
   val ftpUser: String = properties("ftp.user")
   val ftpPassword: String = properties("ftp.password")
-  val ftpPaths: List[String] = List("aapimages", "ap", "email", "epa", "getty", "pa", "priorityftp", "reuters", "stingray")
+
+  // As we move to using the S3 Watcher, we'll need to exclude paths
+  val possibleFtpPaths: Set[String] =
+    Set("aapimages", "ap", "email", "epa", "getty", "pa", "priorityftp", "reuters", "stingray")
+  val excludedFtpPaths: Set[String] = Set("stingray")
+  val ftpPaths: List[String] = (possibleFtpPaths -- excludedFtpPaths).toList
+
   val imageLoaderUri: String = properties("loader.uri")
 
   val active: AtomicBoolean =
