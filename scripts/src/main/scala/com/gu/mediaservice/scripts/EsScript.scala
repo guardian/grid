@@ -3,8 +3,9 @@ package com.gu.mediaservice.scripts
 import org.elasticsearch.action.admin.indices.close.CloseIndexRequest
 import org.elasticsearch.action.admin.indices.open.OpenIndexRequest
 import org.elasticsearch.action.search.SearchResponse
+import org.elasticsearch.common.joda.time.DateTime
 import org.elasticsearch.search.sort.SortOrder
-import org.elasticsearch.index.query.QueryBuilders.matchAllQuery
+import org.elasticsearch.index.query.QueryBuilders.{ matchAllQuery, rangeQuery}
 import org.elasticsearch.common.unit.TimeValue
 
 import com.gu.mediaservice.lib.elasticsearch.{IndexSettings, Mappings, ElasticSearchClient}
@@ -50,7 +51,8 @@ object Reindex extends EsScript {
       val host = esHost
       val cluster = esCluster
 
-      def reindex {
+      def reindex(fromTime: Option[DateTime]) {
+        println("Starting Reindex at: " + DateTime.now.toString())
         val scrollTime = new TimeValue(10 * 60 * 1000) // 10 minutes in milliseconds
         val scrollSize = 500
         val srcIndex = getCurrentAlias.get // TODO: error handling if alias isn't attached
@@ -62,12 +64,15 @@ object Reindex extends EsScript {
         }
         val newIndex = s"${imagesIndexPrefix}_${srcIndexVersion+1}"
 
-        createIndex(newIndex)
+        if(fromTime.isEmpty) {
+          createIndex(newIndex)
+        } else {
+          println(s"Reindexing documents modified since: $fromTime")
+        }
 
         val query = client.prepareSearch(srcIndex)
           .setTypes(imageType)
           .setScroll(scrollTime)
-          .setQuery(matchAllQuery)
           .setSize(scrollSize)
           .addSort("uploadTime", SortOrder.ASC)
 
@@ -99,13 +104,22 @@ object Reindex extends EsScript {
 
         Thread.sleep(1000)
 
-        reindexScroll(query.execute.actionGet)
+        if(fromTime.isEmpty){
+          reindexScroll(query.setQuery(matchAllQuery).execute.actionGet)
+        } else {
+          val recentChangesQuery = rangeQuery("lastModified").from(fromTime.get).to(DateTime.now)
+          reindexScroll(query.setQuery(recentChangesQuery).execute.actionGet)
+        }
 
         // TODO: deleteIndex when we are confident
         client.close()
       }
     }
-    EsClient.reindex
+    if(extraArgs.isEmpty) {
+      EsClient.reindex(None)
+    } else {
+      EsClient.reindex(Some((DateTime.parse(extraArgs(0)))))
+    }
   }
 
   def usageError: Nothing = {
@@ -125,18 +139,25 @@ object UpdateMapping extends EsScript {
       val host = esHost
       val cluster = esCluster
 
-      def updateMappings {
+      def updateMappings(specifiedIndex: Option[String]) {
+        val index = specifiedIndex.getOrElse(imagesAlias)
+        println("updating mapping on index: $index")
         client.admin.indices
-          .preparePutMapping(imagesAlias)
+          .preparePutMapping(index)
           .setType(imageType)
           .setSource(Mappings.imageMapping)
           .execute.actionGet
+
 
         client.close
       }
     }
 
-    EsClient.updateMappings
+    if(extraArgs.isEmpty) {
+      EsClient.updateMappings(None)
+    } else {
+      EsClient.updateMappings(Some(extraArgs(0)))
+    }
   }
 
   def usageError: Nothing = {
