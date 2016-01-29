@@ -104,22 +104,22 @@ object Reindex extends EsScript {
 
         Thread.sleep(1000)
 
-        if(fromTime.isEmpty){
-          reindexScroll(query.setQuery(matchAllQuery).execute.actionGet)
-        } else {
-          val recentChangesQuery = rangeQuery("lastModified").from(fromTime.get).to(DateTime.now)
-          reindexScroll(query.setQuery(recentChangesQuery).execute.actionGet)
-        }
+        val queryType = fromTime.map(time =>
+          rangeQuery("lastModified").from(fromTime.get).to(DateTime.now)
+        ).getOrElse(
+          matchAllQuery()
+        )
+
+        reindexScroll(query.setQuery(queryType).execute.actionGet)
+
 
         // TODO: deleteIndex when we are confident
         client.close()
       }
     }
-    if(extraArgs.isEmpty) {
-      EsClient.reindex(None)
-    } else {
-      EsClient.reindex(Some((DateTime.parse(extraArgs(0)))))
-    }
+    val date = if(extraArgs.isEmpty) None else Some(DateTime.parse(extraArgs(0)))
+    EsClient.reindex(date)
+
   }
 
   def usageError: Nothing = {
@@ -141,7 +141,7 @@ object UpdateMapping extends EsScript {
 
       def updateMappings(specifiedIndex: Option[String]) {
         val index = specifiedIndex.getOrElse(imagesAlias)
-        println("updating mapping on index: $index")
+        println(s"updating mapping on index: $index")
         client.admin.indices
           .preparePutMapping(index)
           .setType(imageType)
@@ -153,11 +153,8 @@ object UpdateMapping extends EsScript {
       }
     }
 
-    if(extraArgs.isEmpty) {
-      EsClient.updateMappings(None)
-    } else {
-      EsClient.updateMappings(Some(extraArgs(0)))
-    }
+
+    EsClient.updateMappings(extraArgs.headOption)
   }
 
   def usageError: Nothing = {
