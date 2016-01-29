@@ -25,6 +25,10 @@ object Config extends CommonPlayAppProperties with CommonPlayAppConfig {
 
   val defaultPageSize = 100
   val defaultMaxRetries = 6
+  val defaultMaxPrintRequestSizeInKb = 500
+
+  val maxPrintRequestLengthInKb = Try(properties("api.setPrint.maxLength").toInt)
+    .getOrElse[Int](defaultMaxPrintRequestSizeInKb)
 
   val capiPollIntervalInSeconds = properties("capi.pollIntervalInSeconds").toLong
   val capiLiveUrl = properties("capi.live.url")
