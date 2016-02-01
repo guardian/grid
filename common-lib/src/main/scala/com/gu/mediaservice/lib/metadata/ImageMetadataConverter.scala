@@ -31,7 +31,7 @@ object ImageMetadataConverter {
       state               = fileMetadata.iptc.get("Province/State"),
       country             = fileMetadata.iptc.get("Country/Primary Location Name"),
       subject             = fileMetadata.iptc.get("Category")
-                              .map(Subject.create)
+                              .flatMap(Subject.create)
                               .map(_.toString)
     )
 

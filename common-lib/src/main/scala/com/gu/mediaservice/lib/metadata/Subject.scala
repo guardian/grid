@@ -25,31 +25,31 @@ object Subject extends Enumeration {
   // These category codes are now deprecated but still populated
   def create(category: String) = category match {
     // ANPA-1312 Codes: https://en.wikipedia.org/wiki/ANPA-1312
-    case "F" => Finance
-    case "L" => Lifestyle
-    case "E" => Arts
-    case "S" => Sport
-    case "O" => Weather
-    case "P" => Politics
+    case "F" => Some(Finance)
+    case "L" => Some(Lifestyle)
+    case "E" => Some(Arts)
+    case "S" => Some(Sport)
+    case "O" => Some(Weather)
+    case "P" => Some(Politics)
 
     // See: https://www.iptc.org/std/photometadata/documentation/GenericGuidelines/index.htm#!Documents/guidelineformappingcategorycodestosubjectnewscodes.htm
-    case "ACE" => Arts
-    case "CLJ" => Crime
-    case "DIS" => Disaster
-    case "FIN" => Finance
-    case "EDU" => Education
-    case "EVN" => Environment
-    case "HTH" => Health
-    case "HUM" => Human
-    case "LAB" => Labour
-    case "LIF" => Lifestyle
-    case "POL" => Politics
-    case "REL" => Religion
-    case "SCI" => Science
-    case "SOI" => Social
-    case "SPO" => Sport
-    case "WAR" => War
-    case "WEA" => Weather
-    case _ => Unknown
+    case "ACE" => Some(Arts)
+    case "CLJ" => Some(Crime)
+    case "DIS" => Some(Disaster)
+    case "FIN" => Some(Finance)
+    case "EDU" => Some(Education)
+    case "EVN" => Some(Environment)
+    case "HTH" => Some(Health)
+    case "HUM" => Some(Human)
+    case "LAB" => Some(Labour)
+    case "LIF" => Some(Lifestyle)
+    case "POL" => Some(Politics)
+    case "REL" => Some(Religion)
+    case "SCI" => Some(Science)
+    case "SOI" => Some(Social)
+    case "SPO" => Some(Sport)
+    case "WAR" => Some(War)
+    case "WEA" => Some(Weather)
+    case _ => None
   }
 }
