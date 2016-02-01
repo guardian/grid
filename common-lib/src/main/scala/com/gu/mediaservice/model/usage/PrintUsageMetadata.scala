@@ -41,13 +41,20 @@ case class PrintUsageMetadata(
   type LongElement = List[(String,Long)]
   type IntElement = List[(String,Int)]
 
+  val calculatedPublicationName =
+    if (publicationName.trim.isEmpty) publicationCode match {
+      case "gdn" => "Guardian"
+      case "obs" => "Observer"
+      case _ => "Unknown Publication"
+    } else publicationName
+
   def toMap = Map(
     "sectionName" -> sectionName,
     "issueDate" -> issueDate.toString,
     "pageNumber" -> pageNumber,
     "storyName" -> storyName,
     "publicationCode" -> publicationCode,
-    "publicationName" -> publicationName,
+    "publicationName" -> calculatedPublicationName,
     "sectionCode" -> sectionCode
     ) ++ size.foldLeft[MapStringIntElement](Nil)((_,m) => List("size" -> m.toMap.asJava)) ++
       orderedBy.foldLeft[StringElement](Nil)((_,s) => List("orderedBy" -> s)) ++
