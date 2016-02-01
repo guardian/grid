@@ -53,12 +53,11 @@ case class PrintUsageMetadata(
       orderedBy.foldLeft[StringElement](Nil)((_,s) => List("orderedBy" -> s)) ++
       layoutId.foldLeft[LongElement](Nil)((_,l) => List("layoutId" -> l)) ++
       edition.foldLeft[IntElement](Nil)((_,i) => List("edition" -> i)) ++
-      notes.foldLeft[StringElement](Nil)((_,s) => List("notes" -> s))
+      notes.foldLeft[StringElement](Nil)((_,s) => if(s.isEmpty) Nil else List("notes" -> s)) ++
+      source.foldLeft[StringElement](Nil)((_,s) => if(s.isEmpty) Nil else List("source" -> s))
 }
 object PrintUsageMetadata {
   implicit val dateTimeFormat = DateFormat
   implicit val reads: Reads[PrintUsageMetadata] = Json.reads[PrintUsageMetadata]
   implicit val writes: Writes[PrintUsageMetadata] = Json.writes[PrintUsageMetadata]
 }
-
-

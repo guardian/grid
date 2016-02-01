@@ -10,6 +10,7 @@ import com.amazonaws.services.dynamodbv2.document.{KeyAttribute, DeleteItemOutco
 import scalaz.syntax.id._
 
 import play.api.libs.json._
+import play.api.Logger
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.{ExecutionContext, Future}
@@ -137,5 +138,10 @@ object UsageTable extends DynamoDB(
 
     table.updateItem(updateSpec)
 
-  }).map(asJsObject)
+  })
+  .onErrorResumeNext(e => {
+    Logger.error(s"Dynamo update fail for $record!", e)
+    Observable.error(e)
+  })
+  .map(asJsObject)
 }
