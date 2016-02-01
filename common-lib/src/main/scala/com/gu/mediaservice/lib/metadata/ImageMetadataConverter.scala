@@ -7,6 +7,7 @@ import scala.util.Try
 
 import com.gu.mediaservice.model.{FileMetadata, ImageMetadata}
 
+
 object ImageMetadataConverter {
 
   def fromFileMetadata(fileMetadata: FileMetadata): ImageMetadata =
@@ -28,9 +29,11 @@ object ImageMetadataConverter {
       subLocation         = fileMetadata.iptc.get("Sub-location"),
       city                = fileMetadata.iptc.get("City"),
       state               = fileMetadata.iptc.get("Province/State"),
-      country             = fileMetadata.iptc.get("Country/Primary Location Name")
+      country             = fileMetadata.iptc.get("Country/Primary Location Name"),
+      subject             = fileMetadata.iptc.get("Category")
+                              .map(Subject.create)
+                              .map(_.toString)
     )
-
 
   // Note: because no timezone is given, we have to assume UTC :-(
   lazy val colonDateFormat = DateTimeFormat.forPattern("yyyy:MM:dd HH:mm:ss")

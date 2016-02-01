@@ -37,6 +37,7 @@ class QuerySyntax(val input: ParserInput) extends Parser with ImageFields {
     "copyright" |
     "source" |
     "category" |
+    "subject" |
     "supplier" |
     "collection" |
     "keyword" |
@@ -47,6 +48,7 @@ class QuerySyntax(val input: ParserInput) extends Parser with ImageFields {
     case "uploader"            => "uploadedBy"
     case "label"               => "labels"
     case "collection"          => "suppliersCollection"
+    case "subject"             => "subject"
     case "location"            => "subLocation"
     case "by" | "photographer" => "byline"
     case "keyword"             => "keywords"

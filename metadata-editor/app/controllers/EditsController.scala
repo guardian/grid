@@ -241,7 +241,8 @@ object EditsController extends Controller with ArgoHelpers with DynamoEdits with
       "subLocation" -> trueOptional(text),
       "city" -> trueOptional(text),
       "state" -> trueOptional(text),
-      "country" -> trueOptional(text)
+      "country" -> trueOptional(text),
+      "subject" -> trueOptional(text)
     )(ImageMetadata.apply)(ImageMetadata.unapply))
   )
 
