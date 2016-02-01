@@ -82,6 +82,9 @@ query.controller('SearchQueryCtrl',
     }
 
     $scope.$watchCollection(() => ctrl.filter, onValChange(filter => {
+        if (filter.query.indexOf('~') === 0) {
+            filter.orderBy = 'dateAddedToCollection';
+        }
         filter.uploadedBy = filter.uploadedByMe ? ctrl.user.email : undefined;
         $state.go('search.results', filter);
     }));
@@ -95,6 +98,7 @@ query.controller('SearchQueryCtrl',
 
     function resetQueryAndFocus() {
         ctrl.filter.query = '';
+        ctrl.filter.orderBy = '';
         $scope.$broadcast('search:focus-query');
     }
 }]);
