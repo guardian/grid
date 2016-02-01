@@ -13,6 +13,7 @@ object Subject extends Enumeration {
   val Human = Value("human")
   val Labour = Value("labour")
   val Lifestyle = Value("lifestyle")
+  val Nature = Value("nature")
   val Politics = Value("politics")
   val Religion = Value("religion")
   val Science = Value("science")
@@ -50,6 +51,17 @@ object Subject extends Enumeration {
     case "SPO" => Some(Sport)
     case "WAR" => Some(War)
     case "WEA" => Some(Weather)
+
+    // Added from an internally supplied list
+    case "ANI" => Some(Nature)
+    case "NAT" => Some(Nature)
+    case "WLD" => Some(Nature)
+    case "BIZ" => Some(Finance)
+    case "MAX" => Some(Finance)
+    case "ENT" => Some(Arts)
+    case "CEL" => Some(Arts)
+    case "ODD" => Some(Lifestyle)
+
     case _ => None
   }
 }
