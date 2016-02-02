@@ -47,16 +47,15 @@ lazyTableShortcuts.directive('guLazyTableShortcuts',
                     allowIn: ['INPUT'],
                     callback: invoke('scrollNextPage')
                 })
+                // Home/End not allowed in text field as useful for input navigation
                 .add({
                     combo: 'home',
                     description: 'Scroll results to the start',
-                    allowIn: ['INPUT'],
                     callback: invoke('scrollStart')
                 })
                 .add({
                     combo: 'end',
                     description: 'Scroll results to the end',
-                    allowIn: ['INPUT'],
                     callback: invoke('scrollEnd')
                 });
         }
