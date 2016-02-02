@@ -1,6 +1,6 @@
 package lib.elasticsearch
 
-import lib.querysyntax.Condition
+import lib.querysyntax._
 import org.elasticsearch.action.search.SearchRequestBuilder
 import org.elasticsearch.index.query.{FilterBuilders}
 import org.elasticsearch.search.sort.{SortBuilders, SortOrder}
@@ -9,19 +9,33 @@ import org.elasticsearch.search.sort.{SortBuilders, SortOrder}
 object sorts {
 
   def createSort(sortBy: Option[String], query: List[Condition])(builder: SearchRequestBuilder) = {
-    parseFromRequest(sortBy)(builder)
-    collectionSort(query)(builder)
+    sortBy match {
+      case Some("dateAddedToCollection") => addedToCollectionTimeSort(query)(builder)
+      //for any other sortBy term
+      case _ => uploadTimeSort(sortBy)(builder)
+    }
   }
 
-  def parseFromRequest(sortBy: Option[String])(builder: SearchRequestBuilder): SearchRequestBuilder = {
+  def uploadTimeSort(sortBy: Option[String])(builder: SearchRequestBuilder): SearchRequestBuilder = {
     val sorts = sortBy.fold(Seq("uploadTime" -> SortOrder.DESC))(parseSorts)
     for ((field, order) <- sorts) builder.addSort(field, order)
     builder
   }
 
-  def collectionSort(query: List[Condition])(builder: SearchRequestBuilder): SearchRequestBuilder = {
+  def addedToCollectionTimeSort(query: List[Condition])(builder: SearchRequestBuilder): SearchRequestBuilder = {
     //TODO get relevant values from query
-    builder.addSort(SortBuilders.fieldSort("collections.actionData.date").order(SortOrder.DESC).setNestedFilter(FilterBuilders.termFilter("collections.pathHierarchy", query)))
+    val pathHierarchyOpt = query.map {
+      case Match(HierarchyField, Phrase(value)) => Some(value)
+      case _ => None
+    }.flatten.headOption
+
+    pathHierarchyOpt.foreach { pathHierarchy =>
+      val sort = SortBuilders.
+        fieldSort("collections.actionData.date").
+        order(SortOrder.DESC).
+        setNestedFilter(FilterBuilders.termFilter("collections.pathHierarchy", pathHierarchy))
+      builder.addSort(sort)
+    }
     builder
   }
 
