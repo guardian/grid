@@ -117,7 +117,8 @@
             gu:lazy-table-cell-min-width="280"
             gu:lazy-table-cell-height="292"
             gu:lazy-table-preloaded-rows="4"
-            gu:lazy-table-load-range="ctrl.loadRange($start, $end)">
+            gu:lazy-table-load-range="ctrl.loadRange($start, $end)"
+            gu-lazy-table-shortcuts>
 
             <li ng:repeat="image in ctrl.images track by image.data.id"
                 gu:lazy-table-cell="image">
