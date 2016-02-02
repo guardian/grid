@@ -24,7 +24,7 @@ object Subject extends Enumeration {
   val Unknown = Value("unknown")
 
   // These category codes are now deprecated but still populated
-  def create(category: String) = category match {
+  def create(category: String): Option[Subject.Value] = category match {
     // ANPA-1312 Codes: https://en.wikipedia.org/wiki/ANPA-1312
     case "F" => Some(Finance)
     case "L" => Some(Lifestyle)
@@ -61,6 +61,11 @@ object Subject extends Enumeration {
     case "ENT" => Some(Arts)
     case "CEL" => Some(Arts)
     case "ODD" => Some(Lifestyle)
+
+    // Other vaues used in supplemental categories
+    case "Entertainment" => Some(Arts)
+    case "Fashion" => Some(Arts)
+    case "Showbiz" => Some(Arts)
 
     case _ => None
   }

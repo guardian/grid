@@ -10,6 +10,21 @@ import com.gu.mediaservice.model.{FileMetadata, ImageMetadata}
 
 object ImageMetadataConverter {
 
+  def extractSubjects(fileMetadata: FileMetadata): List[String] = {
+    val supplementalCategories = fileMetadata.iptc
+      .get("Supplemental Category(s)")
+      .toList.flatMap(_.split("\\s+"))
+
+    val category = fileMetadata.iptc
+      .get("Category")
+
+    (supplementalCategories ::: category.toList)
+      .map(Subject.create)
+      .flatten
+      .map(_.toString)
+      .distinct
+  }
+
   def fromFileMetadata(fileMetadata: FileMetadata): ImageMetadata =
     ImageMetadata(
       dateTaken           = (fileMetadata.iptc.get("Date Created") flatMap parseRandomDate) orElse
@@ -30,10 +45,7 @@ object ImageMetadataConverter {
       city                = fileMetadata.iptc.get("City"),
       state               = fileMetadata.iptc.get("Province/State"),
       country             = fileMetadata.iptc.get("Country/Primary Location Name"),
-      subject             = fileMetadata.iptc.get("Category")
-                              .flatMap(Subject.create)
-                              .map(_.toString)
-    )
+      subjects            = extractSubjects(fileMetadata))
 
   // Note: because no timezone is given, we have to assume UTC :-(
   lazy val colonDateFormat = DateTimeFormat.forPattern("yyyy:MM:dd HH:mm:ss")

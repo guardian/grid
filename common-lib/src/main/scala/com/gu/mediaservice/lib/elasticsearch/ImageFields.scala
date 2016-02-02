@@ -13,7 +13,7 @@ trait ImageFields {
     "copyright",
     "copyrightNotice",
     "suppliersReference",
-    "subject",
+    "subjects",
     "source",
     "specialInstructions",
     "keywords",
