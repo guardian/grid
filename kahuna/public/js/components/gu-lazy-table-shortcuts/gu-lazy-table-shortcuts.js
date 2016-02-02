@@ -6,7 +6,9 @@ export var lazyTableShortcuts = angular.module('gu.lazyTableShortcuts', [
     'gr.keyboardShortcut'
 ]);
 
-lazyTableShortcuts.directive('guLazyTableShortcuts', ['keyboardShortcut', function(keyboardShortcut) {
+lazyTableShortcuts.directive('guLazyTableShortcuts',
+                             ['keyboardShortcut',
+                              function(keyboardShortcut) {
     return {
         restrict: 'EA',
         require: '^guLazyTable',
