@@ -146,8 +146,39 @@ lazyTable.controller('GuLazyTableCtrl', ['range', function(range) {
             viewportBottom$: viewportBottomShared$
         });
 
+        const rowsInViewport$ = max$(floor$(div$(viewportHeight$, cellHeight$)), 1);
+
+        // Marginally satisfying pattern to convert from imperative to
+        // reactive land
+        const scrollCommands$ = Rx.Observable.create(observer => {
+            ctrl.scrollPrevRow  = () => observer.onNext('prevRow');
+            ctrl.scrollNextRow  = () => observer.onNext('nextRow');
+            ctrl.scrollPrevPage = () => observer.onNext('prevPage');
+            ctrl.scrollNextPage = () => observer.onNext('nextPage');
+            ctrl.scrollStart    = () => observer.onNext('start');
+            ctrl.scrollEnd      = () => observer.onNext('end');
+        });
+
+        const rowOffset$ = scrollCommands$.withLatestFrom(
+            rowsInViewport$, currentRowTop$, rows$,
+            (command, rowsInViewport, currentRowTop, rows) => {
+                return {
+                    prevRow:  - 1,
+                    nextRow:  + 1,
+                    prevPage: - rowsInViewport,
+                    nextPage: + rowsInViewport,
+                    start:    - currentRowTop,
+                    end:      rows - currentRowTop
+                }[command] || 0;
+            });
+
+        const newScrollTop$ = rowOffset$.withLatestFrom(currentRowTop$, cellHeight$,
+                                                        (rowOffset, currentRowTop, cellHeight) => {
+            return (currentRowTop + rowOffset) * cellHeight;
+        });
+
         return {
-            viewHeight$, rangeToLoad$, placeholderIndexes$
+            viewHeight$, rangeToLoad$, placeholderIndexes$, newScrollTop$
         };
     };
 
@@ -203,9 +234,9 @@ lazyTable.controller('GuLazyTableCtrl', ['range', function(range) {
 }]);
 
 
-lazyTable.directive('guLazyTable', ['$window', 'observe$',
+lazyTable.directive('guLazyTable', ['$window', 'observe$', '$document',
                                     'observeCollection$', 'subscribe$',
-                                    function($window, observe$,
+                                    function($window, observe$, $document,
                                              observeCollection$, subscribe$) {
 
     return {
@@ -281,8 +312,7 @@ lazyTable.directive('guLazyTable', ['$window', 'observe$',
             const viewportTop$    = offsetTop$;
             const viewportHeight$ = offsetHeight$;
 
-
-            const {viewHeight$, rangeToLoad$, placeholderIndexes$} = ctrl.init({
+            const {viewHeight$, rangeToLoad$, placeholderIndexes$, newScrollTop$} = ctrl.init({
                 items$, preloadedRows$, cellHeight$, cellMinWidth$,
                 containerWidth$, viewportTop$, viewportHeight$
             });
@@ -305,6 +335,12 @@ lazyTable.directive('guLazyTable', ['$window', 'observe$',
                     element.css('height', viewHeight + 'px');
                     scope.$emit('gu-lazy-table:height-changed', viewHeight);
                 });
+            });
+
+            subscribe$(scope, newScrollTop$, newScrollTop => {
+                // Note: it may be negative or beyond the page height,
+                // but the browser will normalise that anyway
+                window.scrollTo(0, newScrollTop);
             });
         }
     };
