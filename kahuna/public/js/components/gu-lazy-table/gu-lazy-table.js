@@ -53,13 +53,15 @@ lazyTable.controller('GuLazyTableCtrl', ['range', function(range) {
     let ctrl = this;
 
     ctrl.init = function({items$, preloadedRows$, cellHeight$, cellMinWidth$,
-                          containerWidth$, viewportTop$, viewportBottom$}) {
+                          containerWidth$, viewportHeight$, viewportTop$}) {
         const itemsCount$ = items$.map(items => items.length).distinctUntilChanged();
 
         const columns$ = max$(floor$(div$(containerWidth$, cellMinWidth$)), 1);
         const rows$ = ceil$(div$(itemsCount$, columns$));
 
         const cellWidth$ = floor$(div$(containerWidth$, columns$));
+
+        const viewportBottom$ = add$(viewportTop$, viewportHeight$);
 
         const currentRowTop$    = floor$(div$(viewportTop$,    cellHeight$));
         const currentRowBottom$ = floor$(div$(viewportBottom$, cellHeight$));
@@ -277,12 +279,12 @@ lazyTable.directive('guLazyTable', ['$window', 'observe$',
             }).shareReplay(1);
 
             const viewportTop$    = offsetTop$;
-            const viewportBottom$ = add$(offsetTop$, offsetHeight$);
+            const viewportHeight$ = offsetHeight$;
 
 
             const {viewHeight$, rangeToLoad$, placeholderIndexes$} = ctrl.init({
                 items$, preloadedRows$, cellHeight$, cellMinWidth$,
-                containerWidth$, viewportTop$, viewportBottom$
+                containerWidth$, viewportTop$, viewportHeight$
             });
 
             // Table cells will be absolutely positioned within this container
