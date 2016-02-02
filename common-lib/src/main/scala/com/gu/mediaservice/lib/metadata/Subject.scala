@@ -21,7 +21,6 @@ object Subject extends Enumeration {
   val Sport = Value("sport")
   val War = Value("war")
   val Weather = Value("weather")
-  val Unknown = Value("unknown")
 
   // These category codes are now deprecated but still populated
   def create(category: String): Option[Subject.Value] = category match {
