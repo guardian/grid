@@ -234,9 +234,9 @@ lazyTable.controller('GuLazyTableCtrl', ['range', function(range) {
 }]);
 
 
-lazyTable.directive('guLazyTable', ['$window', 'observe$', '$document',
+lazyTable.directive('guLazyTable', ['$window', 'observe$',
                                     'observeCollection$', 'subscribe$',
-                                    function($window, observe$, $document,
+                                    function($window, observe$,
                                              observeCollection$, subscribe$) {
 
     return {
