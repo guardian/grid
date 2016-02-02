@@ -9,6 +9,7 @@ import '../util/async';
 import '../util/rx';
 import '../util/seq';
 import '../components/gu-lazy-table/gu-lazy-table';
+import '../components/gu-lazy-table-shortcuts/gu-lazy-table-shortcuts';
 import '../components/gr-archiver/gr-archiver';
 import '../components/gr-delete-image/gr-delete-image';
 import '../components/gr-downloader/gr-downloader';
@@ -22,6 +23,7 @@ export var results = angular.module('kahuna.search.results', [
     'util.rx',
     'util.seq',
     'gu.lazyTable',
+    'gu.lazyTableShortcuts',
     'gr.archiver',
     'gr.downloader',
     'gr.deleteImage',
