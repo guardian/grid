@@ -255,6 +255,10 @@ lazyTable.directive('guLazyTable', ['$window', 'observe$',
 
             // Model container and viewport properties
 
+            // Offset between container top and top of scrolling area (page)
+            // Read once as we assume it never changes
+            const containerTop = element[0].getClientRects()[0].top;
+
             const containerWidth$ = combine$(
                 viewportResized$,
                 elementResized$,
@@ -265,12 +269,11 @@ lazyTable.directive('guLazyTable', ['$window', 'observe$',
                 // For Chrome we need to read scrollTop on body, for
                 // other browser it's on the documentElement. Meh.
                 // https://miketaylr.com/posts/2014/11/document-body-scrollTop.html
-                const scrollTop = document.body.scrollTop || document.documentElement.scrollTop;
-                return Math.max(scrollTop - element[0].offsetTop, 0);
+                return document.body.scrollTop || document.documentElement.scrollTop;
             }).shareReplay(1);
 
             const offsetHeight$ = combine$(viewportScrolled$, viewportResized$, () => {
-                return Math.max(document.documentElement.clientHeight - element[0].offsetTop, 0);
+                return Math.max(document.documentElement.clientHeight - containerTop, 0);
             }).shareReplay(1);
 
             const viewportTop$    = offsetTop$;
