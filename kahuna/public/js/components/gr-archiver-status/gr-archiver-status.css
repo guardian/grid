@@ -1,0 +1,35 @@
+.ui-archiver--archived {
+    color: #ccc;
+    fill: #ccc; /* svg icons */
+}
+
+.ui-archiver--unarchived {
+    color: #666;
+    fill: #666; /* svg icons */
+}
+
+.ui-archiver--interactive:hover {
+    color: white;
+    fill: white; /* svg icons */
+}
+
+.ui-archiver--archived gr-library-added-icon,
+.ui-archiver--archived:hover gr-library-remove-icon {
+    display: inline;
+}
+
+.ui-archiver--archived:hover gr-library-added-icon,
+.ui-archiver--archived gr-library-remove-icon {
+    display: none;
+}
+
+/* undo disabled button styling */
+.ui-archiver__button[disabled] {
+    background-color: transparent;
+    box-shadow: none;
+}
+
+.ui-archiver__icon svg {
+    /* odd one, but the only one that seems to do the trick ;_; */
+    vertical-align: middle;
+}

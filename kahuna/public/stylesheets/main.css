@@ -1211,21 +1211,11 @@ FIXME: what to do with touch devices
     position: relative;
     top: -3px;
 }
-.bottom-bar__actions {
-    color: #aaa;
-    font-size: 1.6rem;
-}
 .bottom-bar__action {
-    color: inherit;
-    display: block;
+    display: inline-block;
 }
 
-.bottom-bar__actions gr-image-persist-status {
-    float: left;
-}
-
-.bottom-bar__actions .preview__cost {
-    float: right;
+.bottom-bar__action--cost {
     width: 35px;
 }
 
@@ -1330,7 +1320,7 @@ FIXME: what to do with touch devices
 }
 
 .result-editor__archiver {
-    background: #393939;
+    background: #444;
     padding: 0 5px;
 }
 

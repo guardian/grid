@@ -4,6 +4,11 @@ import './gr-icon.css!';
 import frontendIcon from './icons/frontend.svg!text';
 import composerIcon from './icons/composer.svg!text';
 
+import libraryAddIcon    from './icons/library-add.svg!text';
+import libraryAddedIcon  from './icons/library-added.svg!text';
+import libraryLockedIcon from './icons/library-locked.svg!text';
+import libraryRemoveIcon from './icons/library-remove.svg!text';
+
 export var icon = angular.module('grIcon', []);
 
 icon.directive('grIcon', [function() {
@@ -44,3 +49,8 @@ function defineIcon(name, template) {
 
 defineIcon('grFrontendIcon', frontendIcon);
 defineIcon('grComposerIcon', composerIcon);
+
+defineIcon('grLibraryAddIcon',    libraryAddIcon);
+defineIcon('grLibraryAddedIcon',  libraryAddedIcon);
+defineIcon('grLibraryLockedIcon', libraryLockedIcon);
+defineIcon('grLibraryRemoveIcon', libraryRemoveIcon);

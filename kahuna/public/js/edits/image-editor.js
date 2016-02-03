@@ -4,14 +4,14 @@ import template from './image-editor.html!text';
 import './service';
 import '../image/service';
 import '../usage-rights/usage-rights-editor';
-import '../components/gr-image-persist-status/gr-image-persist-status';
+import '../components/gr-archiver-status/gr-archiver-status';
 
 
 export var imageEditor = angular.module('kahuna.edits.imageEditor', [
     'kahuna.edits.service',
     'gr.image.service',
     'kahuna.edits.usageRightsEditor',
-    'gr.imagePersistStatus'
+    'gr.archiverStatus'
 ]);
 
 imageEditor.controller('ImageEditorCtrl', [
