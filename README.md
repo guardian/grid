@@ -297,3 +297,15 @@ On Mac OS X, it may be something like
 `/Library/Java/JavaVirtualMachines/jdk1.8.0_25.jdk/Contents/Home/jre/lib/security/cacerts`;
 on GNU Linux, it may be something like
 `/usr/lib/jvm/java-1.8.0-openjdk-amd64/jre/lib/security/cacerts`.
+
+
+### More general SSL issues
+You'll more than likely use a self signed certificate in DEV and so you'll need to trust it:
+
+#### Firefox
+Add the root cert as a CA - [guide](http://www.cyberciti.biz/faq/firefox-adding-trusted-ca/).
+
+#### Other OSX browsers
+Other browsers on OSX use the Keychain - [guide](https://support.apple.com/kb/PH18677?locale=en_US).
+
+For Guardian devs, the root cert is located in `/path/to/dev-nginx/ssl/GNM-root-cert.pem`.
