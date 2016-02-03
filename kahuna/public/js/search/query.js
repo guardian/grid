@@ -98,7 +98,7 @@ query.controller('SearchQueryCtrl',
 
     function resetQueryAndFocus() {
         ctrl.filter.query = '';
-        ctrl.filter.orderBy = '';
+        ctrl.filter.orderBy = undefined;
         $scope.$broadcast('search:focus-query');
     }
 }]);

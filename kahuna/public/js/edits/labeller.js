@@ -12,13 +12,15 @@ export var labeller = angular.module('kahuna.edits.labeller', [
 ]);
 
 labeller.controller('LabellerCtrl',
-                  ['$rootScope', '$scope', '$window', '$timeout', 'labelService', 'onValChange',
-                   function($rootScope, $scope, $window, $timeout, labelService, onValChange) {
+                  ['$rootScope', '$scope', '$window', '$timeout', '$stateParams', 'labelService', 'onValChange',
+                   function($rootScope, $scope, $window, $timeout, $stateParams, labelService, onValChange) {
     var ctrl = this;
 
     $scope.$watch(() => ctrl.image.data.userMetadata.data.labels, onValChange(newLabels => {
         ctrl.labels = newLabels;
     }));
+
+    ctrl.orderBy = $stateParams.orderBy === 'oldest' ? 'oldest' : undefined;
 
     ctrl.labels = ctrl.image.data.userMetadata.data.labels;
 
