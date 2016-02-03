@@ -14,6 +14,9 @@ def _write_template_to_disk(directory, template_name, parsed_template):
     with open(property_path, 'wb') as f:
         f.write(parsed_template)
 
+        # Force newline at end of file otherwise parsing the file using `java.util.Properties` fails.
+        f.write('\n')
+
     LOGGER.info('Created {file_path}'.format(file_path=property_path))
 
 
