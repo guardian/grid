@@ -45,7 +45,7 @@ class S3(credentials: AWSCredentials) {
     }
 
     val headers = new ResponseHeaderOverrides()
-    headers.setContentDisposition("attachment; filename=\"" + filename + "\"")
+    headers.setContentDisposition(s"""attachment; filename="$filename"""")
 
     val request = new GeneratePresignedUrlRequest(bucket, key).withExpiration(expiration.toDate).withResponseHeaders(headers)
     client.generatePresignedUrl(request).toExternalForm
