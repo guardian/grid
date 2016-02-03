@@ -23,7 +23,6 @@ object sorts {
   }
 
   def addedToCollectionTimeSort(query: List[Condition])(builder: SearchRequestBuilder): SearchRequestBuilder = {
-    //TODO get relevant values from query
     val pathHierarchyOpt = query.map {
       case Match(HierarchyField, Phrase(value)) => Some(value)
       case _ => None
