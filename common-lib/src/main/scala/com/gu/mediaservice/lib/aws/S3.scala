@@ -30,13 +30,18 @@ class S3(credentials: AWSCredentials) {
   lazy val client: AmazonS3 =
     new AmazonS3Client(credentials) <| (_ setEndpoint s3Endpoint)
 
+  private def removeExtension(filename: String): String = {
+    val regex = """\.[a-zA-Z]{3,4}$""".r
+    regex.replaceAllIn(filename, "")
+  }
+
   def signUrl(bucket: Bucket, url: URI, image: Image, expiration: DateTime): String = {
     // get path and remove leading `/`
     val key: Key = url.getPath.drop(1)
 
     val filename: String = image.uploadInfo.filename match {
-      case Some(f) =>   s"${f.substring(0, f.lastIndexOf('.'))} (${image.id}).jpeg"
-      case _       =>   s"${image.id}.jpeg"
+      case Some(f)  => s"${removeExtension(f)} (${image.id}).jpg"
+      case _        => s"${image.id}.jpg"
     }
 
     val headers = new ResponseHeaderOverrides()
