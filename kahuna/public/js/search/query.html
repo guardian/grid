@@ -75,7 +75,7 @@
             <span class="search__modifier-toggle__text">Sort order</span>
         </button>
 
-        <ul ng:hide="searchQuery.filter.orderBy === 'dateAddedToCollection'" class="search__modifier order__option" ng:class="orderShown ? 'order__option--show' : 'order__option--hide'">
+        <ul ng:if="searchQuery.filter.orderBy === 'dateAddedToCollection'" class="search__modifier order__option" ng:class="orderShown ? 'order__option--show' : 'order__option--hide'">
             <li class="search__modifier-item radio-list">
             <div class="radio-list__item">
                 <input type="radio"
