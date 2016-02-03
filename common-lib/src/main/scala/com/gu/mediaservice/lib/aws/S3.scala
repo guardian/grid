@@ -1,15 +1,16 @@
 package com.gu.mediaservice.lib.aws
 
-import java.util.Date
-import java.io.{FileInputStream, File}
+import java.io.File
 import java.net.URI
-import scala.concurrent.{ExecutionContext, Future}
-import scala.collection.JavaConverters._
 
 import com.amazonaws.auth.AWSCredentials
-import com.amazonaws.services.s3.{AmazonS3Client, AmazonS3}
-import com.amazonaws.services.s3.model.{S3ObjectSummary, ObjectMetadata, PutObjectRequest, GeneratePresignedUrlRequest, ListObjectsRequest}
+import com.amazonaws.services.s3.model._
+import com.amazonaws.services.s3.{AmazonS3, AmazonS3Client}
+import com.gu.mediaservice.model.Image
 import org.joda.time.DateTime
+
+import scala.collection.JavaConverters._
+import scala.concurrent.{ExecutionContext, Future}
 import scalaz.syntax.id._
 
 
@@ -29,10 +30,19 @@ class S3(credentials: AWSCredentials) {
   lazy val client: AmazonS3 =
     new AmazonS3Client(credentials) <| (_ setEndpoint s3Endpoint)
 
-  def signUrl(bucket: Bucket, url: URI, expiration: DateTime): String = {
+  def signUrl(bucket: Bucket, url: URI, image: Image, expiration: DateTime): String = {
     // get path and remove leading `/`
     val key: Key = url.getPath.drop(1)
-    val request = new GeneratePresignedUrlRequest(bucket, key).withExpiration(expiration.toDate)
+
+    val filename: String = image.uploadInfo.filename match {
+      case Some(f) =>   s"${f.substring(0, f.lastIndexOf('.'))} (${image.id}).jpeg"
+      case _       =>   s"${image.id}.jpeg"
+    }
+
+    val headers = new ResponseHeaderOverrides()
+    headers.setContentDisposition("attachment; filename=\"" + filename + "\"")
+
+    val request = new GeneratePresignedUrlRequest(bucket, key).withExpiration(expiration.toDate).withResponseHeaders(headers)
     client.generatePresignedUrl(request).toExternalForm
   }
 
