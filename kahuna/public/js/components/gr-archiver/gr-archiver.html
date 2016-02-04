@@ -2,7 +2,8 @@
      ng:switch="ctrl.archivedState">
     <span ng:switch-when="kept"
           class="side-padded batch-archive__button batch-archive__button--disabled"
-          gr:tooltip="Kept in Library because all selected images have been {{ctrl.archivedExplanation}}.">
+          gr:tooltip="{{ctrl.archivedExplanation}}"
+          gr:tooltip-updates>
         <gr-library-locked-icon class="batch-archive__icon"></gr-library-locked-icon>
         <span class="icon-label">Kept in Library</span>
     </span>
