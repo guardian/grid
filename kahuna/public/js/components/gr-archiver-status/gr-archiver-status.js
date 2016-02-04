@@ -47,7 +47,7 @@ archiver.controller('ArchiverCtrl',
     }
 }]);
 
-archiver.directive('uiArchiver', [function() {
+archiver.directive('grArchiverStatus', [function() {
     return {
         restrict: 'E',
         controller: 'ArchiverCtrl',

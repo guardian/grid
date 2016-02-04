@@ -1,35 +1,35 @@
-.ui-archiver--archived {
+.gr-archiver-status--archived {
     color: #ccc;
     fill: #ccc; /* svg icons */
 }
 
-.ui-archiver--unarchived {
+.gr-archiver-status--unarchived {
     color: #666;
     fill: #666; /* svg icons */
 }
 
-.ui-archiver--interactive:hover {
+.gr-archiver-status--interactive:hover {
     color: white;
     fill: white; /* svg icons */
 }
 
-.ui-archiver--archived gr-library-added-icon,
-.ui-archiver--archived:hover gr-library-remove-icon {
+.gr-archiver-status--archived gr-library-added-icon,
+.gr-archiver-status--archived:hover gr-library-remove-icon {
     display: inline;
 }
 
-.ui-archiver--archived:hover gr-library-added-icon,
-.ui-archiver--archived gr-library-remove-icon {
+.gr-archiver-status--archived:hover gr-library-added-icon,
+.gr-archiver-status--archived gr-library-remove-icon {
     display: none;
 }
 
 /* undo disabled button styling */
-.ui-archiver__button[disabled] {
+.gr-archiver-status__button[disabled] {
     background-color: transparent;
     box-shadow: none;
 }
 
-.ui-archiver__icon svg {
+.gr-archiver-status__icon svg {
     /* odd one, but the only one that seems to do the trick ;_; */
     vertical-align: middle;
 }
