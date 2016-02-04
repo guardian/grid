@@ -268,7 +268,8 @@ search.run(['$rootScope', '$state', function($rootScope, $state) {
         }
     });
     $rootScope.$on('$stateChangeStart', (_, toState, toParams) => {
-        if (toState.name === 'search.results' && toParams.query && toParams.query.indexOf('~') === 0) {
+        const collectionQuery = toParams.query && toParams.query.indexOf('~') === 0;
+        if (toState.name === 'search.results' && collectionQuery) {
             toParams.orderBy = 'dateAddedToCollection';
         }
         else {
@@ -276,5 +277,5 @@ search.run(['$rootScope', '$state', function($rootScope, $state) {
                 delete toParams.orderBy;
             }
         }
-    })
+    });
 }]);
