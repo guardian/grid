@@ -6,12 +6,14 @@ import template from './gr-archiver.html!text';
 
 import '../../services/archive';
 import '../../services/image-accessor';
+import '../../util/string';
 
 
 export const module = angular.module('gr.archiver', [
     'kahuna.services.archive',
     'kahuna.services.image-accessor',
-    'kahuna.services.image-logic'
+    'kahuna.services.image-logic',
+    'util.string'
 ]);
 
 module.controller('grArchiverCtrl', [
@@ -20,11 +22,13 @@ module.controller('grArchiverCtrl', [
     'archiveService',
     'imageAccessor',
     'imageLogic',
+    'humanJoin',
     function ($scope,
               $window,
               archiveService,
               imageAccessor,
-              imageLogic) {
+              imageLogic,
+              humanJoin) {
 
         const ctrl = this;
 
@@ -38,7 +42,7 @@ module.controller('grArchiverCtrl', [
                 allPersisted ? 'archived' : 'unarchived';
 
             const explTokens = listAllPersistenceExplanations(images);
-            ctrl.archivedExplanation = humanUnion(explTokens);
+            ctrl.archivedExplanation = humanJoin(explTokens, 'or');
         });
 
         ctrl.archive = () => {
@@ -64,8 +68,15 @@ module.controller('grArchiverCtrl', [
         };
 
         function getImageArray() {
-            // Convert from Immutable Set to JS Array
-            return Array.from(ctrl.images);
+            if (ctrl.images && ! ctrl.image) {
+                // Convert from Immutable Set to JS Array
+                return Array.from(ctrl.images);
+            } else if (! ctrl.images && ctrl.image) {
+                return [ctrl.image];
+            } else {
+                throw new Error('Either gr:images or gr:image should be provided ' +
+                                'to gr-archiver directive');
+            }
         }
 
         function listAllPersistenceExplanations(images) {
@@ -75,13 +86,6 @@ module.controller('grArchiverCtrl', [
                 reduce((all, items) => all.union(items)).
                 toArray();
         }
-
-        // Takes an array and generates a '1, 2, 3 or 4' string
-        function humanUnion(list) {
-            const allButLastTwo = list.slice(0, -2);
-            const lastTwo = list.slice(-2).join(' or ');
-            return allButLastTwo.concat(lastTwo).join(', ');
-        }
     }
 ]);
 
@@ -90,6 +94,8 @@ module.directive('grArchiver', [function () {
         restrict: 'E',
         template: template,
         scope: {
+            // Either is allowed, not both
+            image: '=grImage',
             images: '=grImages'
         },
         controller: 'grArchiverCtrl',

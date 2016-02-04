@@ -2,7 +2,7 @@ import angular from 'angular';
 
 import '../services/image-accessor';
 
-const imageLogic = angular.module('kahuna.services.image-logic', [
+export const imageLogic = angular.module('kahuna.services.image-logic', [
     'kahuna.services.image-accessor'
 ]);
 
@@ -19,6 +19,13 @@ imageLogic.factory('imageLogic', ['imageAccessor', function(imageAccessor) {
         const persistReasons = imageAccessor.readPersistedReasons(image);
         return ! imageAccessor.isPersisted(image) ||
             (persistReasons.length === 1 && persistReasons[0] === 'archived');
+    }
+
+    function getArchivedState(image) {
+        const cannotBeArchived = ! canBeArchived(image);
+        const isPersisted = imageAccessor.isPersisted(image);
+        return cannotBeArchived ? 'kept' :
+               isPersisted ? 'archived' : 'unarchived';
     }
 
     function getPersistenceExplanation(image) {
@@ -44,6 +51,7 @@ imageLogic.factory('imageLogic', ['imageAccessor', function(imageAccessor) {
     return {
         canBeDeleted,
         canBeArchived,
+        getArchivedState,
         getPersistenceExplanation
     };
 }]);

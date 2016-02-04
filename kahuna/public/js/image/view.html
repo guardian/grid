@@ -31,9 +31,9 @@
             </button>
         </span>
 
-        <gr-image-persist-status class="top-bar-item"
-                                 with-text="true"
-                                 gr-image="ctrl.image"></gr-image-persist-status>
+        <gr-archiver class="top-bar-item"
+                     gr:image="ctrl.image">
+        </gr-archiver>
 
         <gr-crop-image class="top-bar-item" image="ctrl.image" has-full-crop="ctrl.hasFullCrop" tracking-location="Top bar">
         </gr-crop-image>
