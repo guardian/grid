@@ -64,34 +64,36 @@ object ElasticSearch extends ElasticSearchClient with ImageFields {
     }
   }
 
-  def deleteImage(id: String)(implicit ex: ExecutionContext): Future[DeleteByQueryResponse] = {
+  def deleteImage(id: String)(implicit ex: ExecutionContext): List[Future[DeleteByQueryResponse]] = {
 
     val q = filteredQuery(
       boolQuery.must(matchQuery("_id", id)),
       andFilter(missingOrEmptyFilter("exports"))
     )
 
-    val deleteQuery = client
-      .prepareDeleteByQuery(imagesAlias)
-      .setTypes(imageType)
-      .setQuery(q)
+    prepareForMultipleIndexes { index =>
+      val deleteQuery = client
+        .prepareDeleteByQuery(index)
+        .setTypes(imageType)
+        .setQuery(q)
 
-    // search for the image first, and then only delete and succeed
-    // this is because the delete query does not respond with anything useful
-    // TODO: is there a more efficient way to do this?
-    client
-      .prepareCount(imagesAlias)
-      .setQuery(q)
-      .executeAndLog(s"Searching for image to delete: $id")
-      .flatMap { countQuery =>
-        val deleteFuture = countQuery.getCount match {
-          case 1 => deleteQuery.executeAndLog(s"Deleting image $id")
-          case _ => Future.failed(ImageNotDeletable)
+      // search for the image first, and then only delete and succeed
+      // this is because the delete query does not respond with anything useful
+      // TODO: is there a more efficient way to do this?
+      client
+        .prepareCount(index)
+        .setQuery(q)
+        .executeAndLog(s"Searching for image to delete: $id")
+        .flatMap { countQuery =>
+          val deleteFuture = countQuery.getCount match {
+            case 1 => deleteQuery.executeAndLog(s"Deleting image $id")
+            case _ => Future.failed(ImageNotDeletable)
+          }
+          deleteFuture
+            .incrementOnSuccess(deletedImages)
+            .incrementOnFailure(failedDeletedImages) { case ImageNotDeletable => true }
         }
-        deleteFuture
-          .incrementOnSuccess(deletedImages)
-          .incrementOnFailure(failedDeletedImages) { case ImageNotDeletable => true }
-      }
+    }
   }
 
   def updateImageUsages(id: String, usages: JsValue, lastModified: JsValue)(implicit ex: ExecutionContext): List[Future[UpdateResponse]] = {
@@ -175,12 +177,18 @@ def updateImageExports(id: String, exports: JsValue)(implicit ex: ExecutionConte
     }
 
   def prepareImageUpdate(id: String)(op: UpdateRequestBuilder => Future[UpdateResponse]): List[Future[UpdateResponse]] = {
-    getCurrentIndices.map( index => {
+    prepareForMultipleIndexes( index => {
           val updateRequest = client.prepareUpdate(index, imageType, id)
             .setScriptLang("groovy")
           op(updateRequest)
         }
     )
+  }
+
+  def prepareForMultipleIndexes[A](op: String => Future[A]) : List[Future[A]] = {
+    getCurrentIndices.map( index => {
+      op(index)
+    })
   }
 
 
