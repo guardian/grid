@@ -68,7 +68,9 @@ object ElasticSearch extends ElasticSearchClient with ImageFields {
 
     val q = filteredQuery(
       boolQuery.must(matchQuery("_id", id)),
-      andFilter(missingOrEmptyFilter("exports"))
+      andFilter(
+        missingOrEmptyFilter("exports"),
+        missingOrEmptyFilter("usages"))
     )
 
     prepareForMultipleIndexes { index =>
