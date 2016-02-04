@@ -42,7 +42,15 @@ module.controller('grArchiverCtrl', [
                 allPersisted ? 'archived' : 'unarchived';
 
             const explTokens = listAllPersistenceExplanations(images);
-            ctrl.archivedExplanation = humanJoin(explTokens, 'or');
+            let explanation, reason;
+            if (images.length === 1) {
+                reason = humanJoin(explTokens, 'and');
+                explanation = `Kept in Library because the image has been ${reason}.`;
+            } else {
+                reason = humanJoin(explTokens, 'or');
+                explanation = `Kept in Library because the images have been ${reason}.`;
+            }
+            ctrl.archivedExplanation = explanation;
         });
 
         ctrl.archive = () => {
