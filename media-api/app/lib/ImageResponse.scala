@@ -104,8 +104,8 @@ object ImageResponse extends EditsResponse {
     // TODO: do we really need these expiration tokens? they kill our ability to cache...
     val expiration = roundDateTime(DateTime.now, Duration.standardMinutes(10)).plusMinutes(20)
     val fileUri = new URI((source \ "source" \ "file").as[String])
-    val secureUrl = S3Client.signUrl(Config.imageBucket, fileUri, image, expiration)
-    val secureThumbUrl = S3Client.signUrl(Config.thumbBucket, fileUri, image, expiration)
+    val secureUrl = S3Client.signUrl(Config.imageBucket, fileUri, expiration)
+    val secureThumbUrl = S3Client.signUrl(Config.thumbBucket, fileUri, expiration)
 
     val valid = ImageExtras.isValid(source \ "metadata")
 

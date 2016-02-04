@@ -1,16 +1,15 @@
 package com.gu.mediaservice.lib.aws
 
-import java.io.File
+import java.util.Date
+import java.io.{FileInputStream, File}
 import java.net.URI
+import scala.concurrent.{ExecutionContext, Future}
+import scala.collection.JavaConverters._
 
 import com.amazonaws.auth.AWSCredentials
-import com.amazonaws.services.s3.model._
-import com.amazonaws.services.s3.{AmazonS3, AmazonS3Client}
-import com.gu.mediaservice.model.Image
+import com.amazonaws.services.s3.{AmazonS3Client, AmazonS3}
+import com.amazonaws.services.s3.model.{S3ObjectSummary, ObjectMetadata, PutObjectRequest, GeneratePresignedUrlRequest, ListObjectsRequest}
 import org.joda.time.DateTime
-
-import scala.collection.JavaConverters._
-import scala.concurrent.{ExecutionContext, Future}
 import scalaz.syntax.id._
 
 
@@ -30,24 +29,10 @@ class S3(credentials: AWSCredentials) {
   lazy val client: AmazonS3 =
     new AmazonS3Client(credentials) <| (_ setEndpoint s3Endpoint)
 
-  private def removeExtension(filename: String): String = {
-    val regex = """\.[a-zA-Z]{3,4}$""".r
-    regex.replaceAllIn(filename, "")
-  }
-
-  def signUrl(bucket: Bucket, url: URI, image: Image, expiration: DateTime): String = {
+  def signUrl(bucket: Bucket, url: URI, expiration: DateTime): String = {
     // get path and remove leading `/`
     val key: Key = url.getPath.drop(1)
-
-    val filename: String = image.uploadInfo.filename match {
-      case Some(f)  => s"${removeExtension(f)} (${image.id}).jpg"
-      case _        => s"${image.id}.jpg"
-    }
-
-    val headers = new ResponseHeaderOverrides()
-    headers.setContentDisposition(s"""attachment; filename="$filename"""")
-
-    val request = new GeneratePresignedUrlRequest(bucket, key).withExpiration(expiration.toDate).withResponseHeaders(headers)
+    val request = new GeneratePresignedUrlRequest(bucket, key).withExpiration(expiration.toDate)
     client.generatePresignedUrl(request).toExternalForm
   }
 
