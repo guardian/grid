@@ -833,14 +833,15 @@ input.search-query__input {
     color: #00adee;
 }
 
-.result ui-archiver .archiver--unarchived {
+/* Hacky: Hide ui-archiver "Add to Library" (unarchived state) unless hovering */
+.result .ui-archiver--unarchived {
     display: none;
 }
 
 .result:hover .result__select,
 .result:hover .preview__fade,
 .result:hover .image-actions,
-.result:hover .archiver {
+.result:hover .ui-archiver--unarchived {
     display: block;
 }
 
