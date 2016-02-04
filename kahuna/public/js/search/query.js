@@ -72,7 +72,11 @@ query.controller('SearchQueryCtrl',
         $scope.$watch(() => $stateParams[key], onValChange(newVal => {
             // FIXME: broken for 'your uploads'
             // FIXME: + they triggers filter $watch and $state.go (breaks history)
-            ctrl.filter[key] = valOrUndefined(newVal);
+            if (key === 'orderBy') {
+                ctrl.ordering[key] = valOrUndefined(newVal);
+            } else {
+                ctrl.filter[key] = valOrUndefined(newVal);
+            }
 
             // don't track changes to `query` as it would trigger on every keypress
             if (key !== 'query') {
@@ -82,9 +86,6 @@ query.controller('SearchQueryCtrl',
     }
 
     $scope.$watchCollection(() => ctrl.filter, onValChange(filter => {
-        if (filter.query && filter.query.indexOf('~') === 0) {
-            filter.orderBy = 'dateAddedToCollection';
-        }
         filter.uploadedBy = filter.uploadedByMe ? ctrl.user.email : undefined;
         $state.go('search.results', filter);
     }));
@@ -98,7 +99,6 @@ query.controller('SearchQueryCtrl',
 
     function resetQueryAndFocus() {
         ctrl.filter.query = '';
-        ctrl.filter.orderBy = undefined;
         $scope.$broadcast('search:focus-query');
     }
 }]);

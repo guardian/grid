@@ -267,4 +267,14 @@ search.run(['$rootScope', '$state', function($rootScope, $state) {
             $state.go('search.results', null, {reload: true});
         }
     });
+    $rootScope.$on('$stateChangeStart', (_, toState, toParams) => {
+        if (toState.name === 'search.results' && toParams.query && toParams.query.indexOf('~') === 0) {
+            toParams.orderBy = 'dateAddedToCollection';
+        }
+        else {
+            if (toParams.orderBy === 'dateAddedToCollection') {
+                delete toParams.orderBy;
+            }
+        }
+    })
 }]);

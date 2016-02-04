@@ -34,8 +34,6 @@ labeller.controller('LabellerCtrl', [
         ctrl.labels = newLabels;
     }));
 
-    ctrl.orderBy = $stateParams.orderBy === 'oldest' ? 'oldest' : undefined;
-
     ctrl.labels = ctrl.image.data.userMetadata.data.labels;
 
     function saveFailed() {
