@@ -1,7 +1,7 @@
 <gr-top-bar>
     <gr-top-bar-nav>
         <a class="top-bar-item side-padded clickable" ui:sref="search" title="Back to search">
-            <gr-icon-label gr-icon="search">Search</gr-icon-label>
+            <gr-icon-label gr-icon="youtube_searched_for">Back to search</gr-icon-label>
         </a>
     </gr-top-bar-nav>
 
@@ -31,9 +31,9 @@
             </button>
         </span>
 
-        <gr-image-persist-status class="top-bar-item"
-                                 with-text="true"
-                                 gr-image="ctrl.image"></gr-image-persist-status>
+        <gr-archiver class="top-bar-item"
+                     gr:image="ctrl.image">
+        </gr-archiver>
 
         <gr-crop-image class="top-bar-item" image="ctrl.image" has-full-crop="ctrl.hasFullCrop" tracking-location="Top bar">
         </gr-crop-image>

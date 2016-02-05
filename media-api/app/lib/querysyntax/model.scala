@@ -8,7 +8,7 @@ final case class Match(field: Field, value: Value) extends Condition
 
 sealed trait Field
 case object AnyField extends Field
-final case class HierarchyField(name: String, value: String) extends Field
+final case object HierarchyField extends Field
 final case class SingleField(name: String) extends Field
 final case class MultipleField(names: List[String]) extends Field
 

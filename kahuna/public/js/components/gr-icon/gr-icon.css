@@ -38,3 +38,12 @@ gr-icon-label .icon-label {
         display: none;
     }
 }
+
+gr-library-add-icon    svg,
+gr-library-added-icon  svg,
+gr-library-locked-icon svg,
+gr-library-remove-icon svg {
+    width: 16px;
+    height: 16px;
+    margin: 0 2px;
+}

@@ -1,6 +1,6 @@
 import angular from 'angular';
 
-var archiveService = angular.module('kahuna.services.archive', []);
+export const archiveService = angular.module('kahuna.services.archive', []);
 
 archiveService.factory('archiveService',
                        ['$rootScope', '$q', 'apiPoll', 'imageAccessor',

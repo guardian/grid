@@ -61,5 +61,3 @@ object PrintUsageMetadata {
   implicit val reads: Reads[PrintUsageMetadata] = Json.reads[PrintUsageMetadata]
   implicit val writes: Writes[PrintUsageMetadata] = Json.writes[PrintUsageMetadata]
 }
-
-

@@ -5,11 +5,11 @@ import '../services/image/usages';
 import '../image/service';
 import '../components/gr-delete-image/gr-delete-image';
 import '../components/gr-add-label/gr-add-label';
+import '../components/gr-archiver/gr-archiver';
 import '../components/gr-crop-image/gr-crop-image';
 import '../components/gr-delete-crops/gr-delete-crops';
 import '../components/gr-downloader/gr-downloader';
 import '../components/gr-image-metadata/gr-image-metadata';
-import '../components/gr-image-persist-status/gr-image-persist-status';
 import '../components/gr-metadata-validity/gr-metadata-validity';
 import '../components/gr-image-cost-message/gr-image-cost-message';
 import '../components/gr-export-original-image/gr-export-original-image';
@@ -22,10 +22,10 @@ var image = angular.module('kahuna.image.controller', [
     'gr.image.service',
     'gr.deleteImage',
     'gr.addLabel',
+    'gr.archiver',
     'gr.downloader',
     'gr.cropImage',
     'gr.deleteCrops',
-    'gr.imagePersistStatus',
     'gr.imageMetadata',
     'gr.metadataValidity',
     'gr.imageCostMessage',
@@ -138,6 +138,12 @@ image.controller('ImageCtrl', [
             });
         }
 
+        const freeImageUpdateListener = $rootScope.$on('image-updated', (e, updatedImage) => {
+            if (ctrl.image.data.id === updatedImage.data.id) {
+                ctrl.image = updatedImage;
+            }
+        });
+
         const freeImageDeleteListener = $rootScope.$on('images-deleted', () => {
             $state.go('search');
         });
@@ -152,8 +158,8 @@ image.controller('ImageCtrl', [
             }
         });
 
-
         $scope.$on('$destroy', function() {
+            freeImageUpdateListener();
             freeImageDeleteListener();
             freeImageDeleteFailListener();
         });
