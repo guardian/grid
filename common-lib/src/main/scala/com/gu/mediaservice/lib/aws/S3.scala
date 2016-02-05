@@ -36,7 +36,7 @@ class S3(credentials: AWSCredentials) {
     regex.replaceAllIn(filename, "")
   }
 
-  private def getDownloadFilename(image: Image, charset: CharSet): String = {
+  private def getContentDispositionFilename(image: Image, charset: CharSet): String = {
     val baseFilename: String = image.uploadInfo.filename match {
       case Some(f)  => s"${removeExtension(f)} (${image.id}).jpg"
       case _        => s"${image.id}.jpg"
@@ -58,7 +58,7 @@ class S3(credentials: AWSCredentials) {
 
     // use both `filename` and `filename*` parameters for compatibility with user agents not implementing RFC 5987 (they'll fallback to `filename`)
     // See http://tools.ietf.org/html/rfc6266#section-5
-    val contentDisposition = s"""attachment; filename="${getDownloadFilename(image, CharSet.ISO8859)}"; filename*=UTF-8''${getDownloadFilename(image, CharSet.UTF8)}"""
+    val contentDisposition = s"""attachment; filename="${getContentDispositionFilename(image, CharSet.ISO8859)}"; filename*=UTF-8''${getContentDispositionFilename(image, CharSet.UTF8)}"""
 
     val headers = new ResponseHeaderOverrides().withContentDisposition(contentDisposition)
 
