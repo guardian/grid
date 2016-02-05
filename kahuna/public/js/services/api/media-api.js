@@ -26,8 +26,17 @@ mediaApi.factory('mediaApi',
           free:       free,
           offset:     offset,
           length:     angular.isDefined(length) ? length : 50,
-          orderBy:    orderBy === 'oldest' ? 'uploadTime' : '-uploadTime'
+          orderBy:    getOrder(orderBy)
         }).get();
+    }
+
+    function getOrder(orderBy) {
+        if (orderBy === 'dateAddedToCollection') {
+            return 'dateAddedToCollection';
+        }
+        else {
+            return orderBy === 'oldest' ? 'uploadTime' : '-uploadTime';
+        }
     }
 
     function find(id) {

@@ -267,4 +267,16 @@ search.run(['$rootScope', '$state', function($rootScope, $state) {
             $state.go('search.results', null, {reload: true});
         }
     });
+    $rootScope.$on('$stateChangeStart', (_, toState, toParams) => {
+        if (toState.name === 'search.results') {
+            //if moving to a collection, sorts images by time added to a collection
+            if (toParams.query && toParams.query.indexOf('~') === 0) {
+                toParams.orderBy = 'dateAddedToCollection';
+            }
+            //if moving from a collection to a non-collection, reset order to default
+            else if (toParams.orderBy === 'dateAddedToCollection') {
+                delete toParams.orderBy;
+            }
+        }
+    });
 }]);

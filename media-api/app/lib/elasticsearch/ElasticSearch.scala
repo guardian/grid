@@ -115,7 +115,7 @@ object ElasticSearch extends ElasticSearchClient with SearchFilters with ImageFi
     val queryFiltered = new FilteredQueryBuilder(query, filter)
 
     val search = prepareImagesSearch.setQuery(queryFiltered) |>
-                 sorts.parseFromRequest(params.orderBy)
+        sorts.createSort(params.orderBy, params.structuredQuery)
 
     search
       .setFrom(params.offset)

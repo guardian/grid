@@ -2,11 +2,12 @@ package lib.elasticsearch
 
 import com.gu.mediaservice.lib.elasticsearch.IndexSettings
 import lib.querysyntax._
+import com.gu.mediaservice.lib.elasticsearch.ImageFields
 import org.elasticsearch.index.query.{MatchQueryBuilder, MultiMatchQueryBuilder}
 import org.elasticsearch.index.query.QueryBuilders._
 
 
-class QueryBuilder(matchFields: Seq[String]) {
+class QueryBuilder(matchFields: Seq[String]) extends ImageFields {
   case class InvalidQuery(message: String) extends Exception(message)
 
   // For some sad reason, there was no helpful alias for this in the ES library
@@ -33,7 +34,10 @@ class QueryBuilder(matchFields: Seq[String]) {
       case Phrase(value) => matchPhraseQuery(field, value)
       case DateRange(start, end) => rangeQuery(field).from(start.toString()).to(end.toString())
     }
-    case HierarchyField(field, value) => termQuery(field, value)
+    case HierarchyField => condition.value match {
+      case Phrase(value) => termQuery(getFieldPath("pathHierarchy"), value)
+      case _ => throw InvalidQuery("Cannot accept non-Phrase value for HierarchyField Match")
+    }
   }
 
   def makeQuery(conditions: List[Condition]) = conditions match {

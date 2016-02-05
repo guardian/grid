@@ -11,9 +11,21 @@ export var labeller = angular.module('kahuna.edits.labeller', [
     'kahuna.services.label'
 ]);
 
-labeller.controller('LabellerCtrl',
-                  ['$rootScope', '$scope', '$window', '$timeout', 'labelService', 'onValChange',
-                   function($rootScope, $scope, $window, $timeout, labelService, onValChange) {
+labeller.controller('LabellerCtrl', [
+    '$rootScope',
+    '$scope',
+    '$window',
+    '$timeout',
+    'labelService',
+    'onValChange',
+
+   function($rootScope,
+            $scope,
+            $window,
+            $timeout,
+            labelService,
+            onValChange) {
+
     var ctrl = this;
 
     $scope.$watch(() => ctrl.image.data.userMetadata.data.labels, onValChange(newLabels => {
