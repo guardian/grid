@@ -237,9 +237,10 @@ service.factory('editsService',
         var keys = new Set(Object.keys(metadata).concat(
             Object.keys(image.data.originalMetadata)));
 
-        // Keywords is an array, the comparison below only works with string comparison.
-        // For simplicity, ignore keywords as we're not updating this field at the moment.
+        // Keywords and subjects are arrays, the comparison below only works with string comparison.
+        // For simplicity, ignore them as we're not updating these fields at the moment.
         keys.delete('keywords');
+        keys.delete('subjects');
 
         keys.forEach((key) => {
             if (metadata[key] && angular.isUndefined(image.data.originalMetadata[key])) {
