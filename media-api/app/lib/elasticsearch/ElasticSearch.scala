@@ -52,8 +52,8 @@ case class BucketResult(key: String, count: Long)
 object ElasticSearch extends ElasticSearchClient with SearchFilters with ImageFields {
 
   import MediaApiMetrics._
-  val imagesAlias = "imagesAlias"
 
+  lazy val imagesAlias = Config.imagesAlias
   lazy val host = Config.elasticsearchHost
   lazy val port = Config.int("es.port")
   lazy val cluster = Config("es.cluster")

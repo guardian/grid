@@ -41,6 +41,8 @@ object Config extends CommonPlayAppConfig with CommonPlayAppProperties {
 
   val mixpanelToken: Option[String] = properties.get("mixpanel.token").filterNot(_.isEmpty)
 
+  val imagesAlias: String = properties("es.index.aliases.read")
+
   // Note: had to make these lazy to avoid init order problems ;_;
 
   lazy val rootUri: String = services.apiBaseUri
