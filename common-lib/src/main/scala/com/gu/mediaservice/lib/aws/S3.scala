@@ -1,7 +1,7 @@
 package com.gu.mediaservice.lib.aws
 
 import java.io.File
-import java.net.URI
+import java.net.{URLEncoder, URI}
 
 import com.amazonaws.auth.AWSCredentials
 import com.amazonaws.services.s3.model._
@@ -11,6 +11,7 @@ import org.joda.time.DateTime
 
 import scala.collection.JavaConverters._
 import scala.concurrent.{ExecutionContext, Future}
+import scalaz.CharSet
 import scalaz.syntax.id._
 
 
@@ -35,17 +36,31 @@ class S3(credentials: AWSCredentials) {
     regex.replaceAllIn(filename, "")
   }
 
-  def signUrl(bucket: Bucket, url: URI, image: Image, expiration: DateTime): String = {
-    // get path and remove leading `/`
-    val key: Key = url.getPath.drop(1)
-
-    val filename: String = image.uploadInfo.filename match {
+  private def getDownloadFilename(image: Image, charset: CharSet): String = {
+    val baseFilename: String = image.uploadInfo.filename match {
       case Some(f)  => s"${removeExtension(f)} (${image.id}).jpg"
       case _        => s"${image.id}.jpg"
     }
 
-    val headers = new ResponseHeaderOverrides()
-    headers.setContentDisposition(s"""attachment; filename="$filename"""")
+    charset match {
+      case CharSet.UTF8 => {
+        // URLEncoder converts ` ` to `+`, replace it with `%20`
+        // See http://docs.oracle.com/javase/6/docs/api/java/net/URLEncoder.html
+        URLEncoder.encode(baseFilename, CharSet.UTF8).replace("+", "%20")
+      }
+      case characterSet => baseFilename.getBytes(characterSet).toString
+    }
+  }
+
+  def signUrl(bucket: Bucket, url: URI, image: Image, expiration: DateTime): String = {
+    // get path and remove leading `/`
+    val key: Key = url.getPath.drop(1)
+
+    // use both `filename` and `filename*` parameters for compatibility with user agents not implementing RFC 5987 (they'll fallback to `filename`)
+    // See http://tools.ietf.org/html/rfc6266#section-5
+    val contentDisposition = s"""attachment; filename="${getDownloadFilename(image, CharSet.ISO8859)}"; filename*=UTF-8''${getDownloadFilename(image, CharSet.UTF8)}"""
+
+    val headers = new ResponseHeaderOverrides().withContentDisposition(contentDisposition)
 
     val request = new GeneratePresignedUrlRequest(bucket, key).withExpiration(expiration.toDate).withResponseHeaders(headers)
     client.generatePresignedUrl(request).toExternalForm
