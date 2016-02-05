@@ -268,12 +268,13 @@ search.run(['$rootScope', '$state', function($rootScope, $state) {
         }
     });
     $rootScope.$on('$stateChangeStart', (_, toState, toParams) => {
-        const collectionQuery = toParams.query && toParams.query.indexOf('~') === 0;
-        if (toState.name === 'search.results' && collectionQuery) {
-            toParams.orderBy = 'dateAddedToCollection';
-        }
-        else {
-            if (toParams.orderBy === 'dateAddedToCollection') {
+        if (toState.name === 'search.results') {
+            //if moving to a collection, sorts images by time added to a collection
+            if (toParams.query && toParams.query.indexOf('~') === 0) {
+                toParams.orderBy = 'dateAddedToCollection';
+            }
+            //if moving from a collection to a non-collection, reset order to default
+            else if (toParams.orderBy === 'dateAddedToCollection') {
                 delete toParams.orderBy;
             }
         }

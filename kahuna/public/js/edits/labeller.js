@@ -16,7 +16,6 @@ labeller.controller('LabellerCtrl', [
     '$scope',
     '$window',
     '$timeout',
-    '$stateParams',
     'labelService',
     'onValChange',
 
@@ -24,7 +23,6 @@ labeller.controller('LabellerCtrl', [
             $scope,
             $window,
             $timeout,
-            $stateParams,
             labelService,
             onValChange) {
 
