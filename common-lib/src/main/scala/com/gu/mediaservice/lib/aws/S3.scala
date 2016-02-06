@@ -56,7 +56,8 @@ class S3(credentials: AWSCredentials) {
     // get path and remove leading `/`
     val key: Key = url.getPath.drop(1)
 
-    // use both `filename` and `filename*` parameters for compatibility with user agents not implementing RFC 5987 (they'll fallback to `filename`)
+    // use both `filename` and `filename*` parameters for compatibility with user agents not implementing RFC 5987
+    // they'll fallback to `filename`, which will be a UTF-8 string decoded as Latin-1
     // See http://tools.ietf.org/html/rfc6266#section-5
     val contentDisposition = s"""attachment; filename="${getContentDispositionFilename(image, CharSet.ISO8859)}"; filename*=UTF-8''${getContentDispositionFilename(image, CharSet.UTF8)}"""
 
