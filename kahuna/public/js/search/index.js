@@ -98,25 +98,13 @@ search.config(['$stateProvider', '$urlMatcherFactoryProvider',
                 description: 'Toggle collections panel',
                 callback: panels.collectionsPanel.toggleHidden
             });
-
-            keyboardShortcut.bindTo($scope).add({
-                combo: shortcutKeys.get('showCollections'),
-                description: 'Toggle collections',
-                callback: () => {
-                    const toggled = !storage.getJs('showCollectionsPanel');
-                    const using = toggled ? 'start' : 'stop';
-                    storage.setJs('showCollectionsPanel', toggled);
-                    $window.alert(`Now refresh to ${using} using collections`);
-                }
-            });
         }],
         resolve: {
             shortcutKeys: [function() {
                 // keep the shortcut keys here to stop overriding
                 return new Map([
                     ['metadataPanel', 'm'],
-                    ['collectionsPanel', 'l'],
-                    ['showCollections', 'ctrl+alt+c']
+                    ['collectionsPanel', 'l']
                 ]);
             }],
             panels: ['panelService', function(panelService) {

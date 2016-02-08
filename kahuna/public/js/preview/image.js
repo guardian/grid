@@ -10,7 +10,6 @@ import '../image/service';
 import '../services/image/usages';
 import '../components/gr-add-label/gr-add-label';
 import '../components/gr-archiver-status/gr-archiver-status';
-import '../util/collections';
 
 export var image = angular.module('kahuna.preview.image', [
     'gr.image.service',
@@ -28,15 +27,13 @@ image.controller('uiPreviewImageCtrl', [
     '$window',
     'imageService',
     'imageUsagesService',
-    'collectionsEnabled',
     function (
         $scope,
         inject$,
         $rootScope,
         $window,
         imageService,
-        imageUsagesService,
-        collectionsEnabled) {
+        imageUsagesService) {
     var ctrl = this;
 
     const freeUpdateListener = $rootScope.$on('image-updated', (e, updatedImage) => {
@@ -46,9 +43,6 @@ image.controller('uiPreviewImageCtrl', [
         }
 
     });
-
-    // TODO: Remove this once we're happy with the collections panel
-    ctrl.showCollections = collectionsEnabled;
 
     ctrl.states = imageService(ctrl.image).states;
 
