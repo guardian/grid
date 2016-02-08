@@ -20,7 +20,7 @@ object Config extends CommonPlayAppConfig {
   // As we move to using the S3 Watcher, we'll need to exclude paths
   val possibleFtpPaths: Set[String] =
     Set("aapimages", "ap", "email", "epa", "getty", "pa", "priorityftp", "reuters", "stingray")
-  val excludedFtpPaths: Set[String] = Set("stingray")
+  val excludedFtpPaths: Set[String] = Set("stingray", "pa")
   val ftpPaths: List[String] = (possibleFtpPaths -- excludedFtpPaths).toList
 
   val imageLoaderUri: String = properties("loader.uri")
