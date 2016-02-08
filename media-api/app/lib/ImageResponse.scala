@@ -41,6 +41,9 @@ object ImageResponse extends EditsResponse {
   def isArchived(image: Image) =
     image.userMetadata.exists(_.archived)
 
+  def hasUsages(image: Image) =
+    image.usages.nonEmpty
+
   def isPhotographerCategory[T <: UsageRights](usageRights: T) =
     usageRights match {
       case _:Photographer => true
@@ -68,6 +71,9 @@ object ImageResponse extends EditsResponse {
     if (hasExports(image))
       reasons += "exports"
 
+    if (hasUsages(image))
+      reasons += "usages"
+
     if (isArchived(image))
       reasons += "archived"
 
@@ -77,11 +83,13 @@ object ImageResponse extends EditsResponse {
     if (isIllustratorCategory(image.usageRights))
       reasons += "illustrator-category"
 
-    if(isAgencyCommissionedCategory(image.usageRights))
+    if (isAgencyCommissionedCategory(image.usageRights))
       reasons += CommissionedAgency.category
 
     reasons.toList
   }
+
+  def canBeDeleted(image: Image) = ! hasExports(image) && ! hasUsages(image)
 
   def create(id: String, esSource: JsValue, withWritePermission: Boolean,
              withDeletePermission: Boolean, included: List[String] = List()):
@@ -121,7 +129,7 @@ object ImageResponse extends EditsResponse {
 
     val links = imageLinks(id, secureUrl, withWritePermission, valid)
 
-    val isDeletable = !persistenceReasons.contains("exports") && withDeletePermission
+    val isDeletable = canBeDeleted(image) && withDeletePermission
 
     val actions = imageActions(id, isDeletable, withWritePermission)
 
