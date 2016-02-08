@@ -1,15 +1,17 @@
 package com.gu.mediaservice.lib.aws
 
-import java.util.Date
-import java.io.{FileInputStream, File}
-import java.net.URI
-import scala.concurrent.{ExecutionContext, Future}
-import scala.collection.JavaConverters._
+import java.io.File
+import java.net.{URLEncoder, URI}
 
 import com.amazonaws.auth.AWSCredentials
-import com.amazonaws.services.s3.{AmazonS3Client, AmazonS3}
-import com.amazonaws.services.s3.model.{S3ObjectSummary, ObjectMetadata, PutObjectRequest, GeneratePresignedUrlRequest, ListObjectsRequest}
+import com.amazonaws.services.s3.model._
+import com.amazonaws.services.s3.{AmazonS3, AmazonS3Client}
+import com.gu.mediaservice.model.Image
 import org.joda.time.DateTime
+
+import scala.collection.JavaConverters._
+import scala.concurrent.{ExecutionContext, Future}
+import scalaz.CharSet
 import scalaz.syntax.id._
 
 
@@ -29,10 +31,39 @@ class S3(credentials: AWSCredentials) {
   lazy val client: AmazonS3 =
     new AmazonS3Client(credentials) <| (_ setEndpoint s3Endpoint)
 
-  def signUrl(bucket: Bucket, url: URI, expiration: DateTime): String = {
+  private def removeExtension(filename: String): String = {
+    val regex = """\.[a-zA-Z]{3,4}$""".r
+    regex.replaceAllIn(filename, "")
+  }
+
+  private def getContentDispositionFilename(image: Image, charset: CharSet): String = {
+    val baseFilename: String = image.uploadInfo.filename match {
+      case Some(f)  => s"${removeExtension(f)} (${image.id}).jpg"
+      case _        => s"${image.id}.jpg"
+    }
+
+    charset match {
+      case CharSet.UTF8 => {
+        // URLEncoder converts ` ` to `+`, replace it with `%20`
+        // See http://docs.oracle.com/javase/6/docs/api/java/net/URLEncoder.html
+        URLEncoder.encode(baseFilename, CharSet.UTF8).replace("+", "%20")
+      }
+      case characterSet => baseFilename.getBytes(characterSet).toString
+    }
+  }
+
+  def signUrl(bucket: Bucket, url: URI, image: Image, expiration: DateTime): String = {
     // get path and remove leading `/`
     val key: Key = url.getPath.drop(1)
-    val request = new GeneratePresignedUrlRequest(bucket, key).withExpiration(expiration.toDate)
+
+    // use both `filename` and `filename*` parameters for compatibility with user agents not implementing RFC 5987
+    // they'll fallback to `filename`, which will be a UTF-8 string decoded as Latin-1 - this is a rubbish string, but only rubbish browsers don't support RFC 5987 (IE8 back)
+    // See http://tools.ietf.org/html/rfc6266#section-5
+    val contentDisposition = s"""attachment; filename="${getContentDispositionFilename(image, CharSet.ISO8859)}"; filename*=UTF-8''${getContentDispositionFilename(image, CharSet.UTF8)}"""
+
+    val headers = new ResponseHeaderOverrides().withContentDisposition(contentDisposition)
+
+    val request = new GeneratePresignedUrlRequest(bucket, key).withExpiration(expiration.toDate).withResponseHeaders(headers)
     client.generatePresignedUrl(request).toExternalForm
   }
 
