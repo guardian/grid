@@ -23,7 +23,7 @@ object Config extends CommonPlayAppConfig {
 
   val imageBucket: String = properties("s3.image.bucket")
 
-  val imagesAlias = properties("es.index.alias")
+  val writeAlias = properties("es.index.aliases.write")
 
   val thumbnailBucket: String = properties("s3.thumb.bucket")
 

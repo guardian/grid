@@ -31,10 +31,6 @@ query.controller('SearchQueryCtrl',
         orderBy: $stateParams.orderBy
     };
 
-    $scope.$watch(() => ctrl.ordering.orderBy, onValChange(newVal => {
-        $state.go('search.results', {orderBy: newVal});
-    }));
-
     ctrl.filter = {
         uploadedByMe: false
     };
@@ -67,12 +63,19 @@ query.controller('SearchQueryCtrl',
     function valOrUndefined(str) { return str ? str : undefined; }
 
     function setAndWatchParam(key) {
-        ctrl.filter[key] = valOrUndefined($stateParams[key]);
+        //this value has been set on ctrl.order
+        if (key !== 'orderBy') {
+            ctrl.filter[key] = valOrUndefined($stateParams[key]);
+        }
 
         $scope.$watch(() => $stateParams[key], onValChange(newVal => {
             // FIXME: broken for 'your uploads'
             // FIXME: + they triggers filter $watch and $state.go (breaks history)
-            ctrl.filter[key] = valOrUndefined(newVal);
+            if (key === 'orderBy') {
+                ctrl.ordering[key] = valOrUndefined(newVal);
+            } else {
+                ctrl.filter[key] = valOrUndefined(newVal);
+            }
 
             // don't track changes to `query` as it would trigger on every keypress
             if (key !== 'query') {
@@ -85,6 +88,10 @@ query.controller('SearchQueryCtrl',
         filter.uploadedBy = filter.uploadedByMe ? ctrl.user.email : undefined;
         $state.go('search.results', filter);
     }));
+
+     $scope.$watch(() => ctrl.ordering.orderBy, onValChange(newVal => {
+         $state.go('search.results', {orderBy: newVal});
+     }));
 
     // we can't user dynamic values in the ng:true-value see:
     // https://docs.angularjs.org/error/ngModel/constexpr

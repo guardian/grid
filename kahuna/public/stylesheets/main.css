@@ -428,10 +428,6 @@ textarea.ng-invalid {
     border-right: 2px solid #565656;
 }
 
-.top-bar-item ui-archiver .archiver {
-    color: #ccc;
-}
-
 .user-actions {
     margin-right: -10px;
     padding: 0 5px;
@@ -833,15 +829,15 @@ input.search-query__input {
     color: #00adee;
 }
 
-/* Hacky: Hide ui-archiver "Add to Library" (unarchived state) unless hovering */
-.result .ui-archiver--unarchived {
+/* Hacky: Hide gr-archiver-status "Add to Library" (unarchived state) unless hovering */
+.result .gr-archiver-status--unarchived {
     display: none;
 }
 
 .result:hover .result__select,
 .result:hover .preview__fade,
 .result:hover .image-actions,
-.result:hover .ui-archiver--unarchived {
+.result:hover .gr-archiver-status--unarchived {
     display: block;
 }
 
