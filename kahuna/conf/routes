@@ -10,13 +10,8 @@ GET     /upload                     controllers.Application.index(ignored="")
 
 GET     /assets/*file               controllers.Assets.at(path="/public", file)
 
-# Panda Login
-# TODO: Think about moving this to a separate service
-
-GET     /login                      controllers.Panda.doLogin(redirectUri: Option[String])
-GET     /oauthCallback              controllers.Panda.oauthCallback
-GET     /logout                     controllers.Panda.logout
-GET     /session                    controllers.Panda.session
+# Empty page to return to the same domain as the app
+GET     /ok                         controllers.Application.ok
 
 # Management
 GET     /management/healthcheck     com.gu.mediaservice.lib.management.Management.healthCheck

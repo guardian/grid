@@ -1,0 +1,17 @@
+# Routes
+# This file defines all application routes (Higher priority routes first)
+# ~~~~
+
+GET     /                           controllers.Application.index
+
+GET     /login                      controllers.Application.doLogin(redirectUri: Option[String])
+GET     /oauthCallback              controllers.Application.oauthCallback
+GET     /logout                     controllers.Application.logout
+GET     /session                    controllers.Application.session
+
+# Management
+GET     /management/healthcheck     com.gu.mediaservice.lib.management.Management.healthCheck
+GET     /management/manifest        com.gu.mediaservice.lib.management.Management.manifest
+
+# Shoo robots away
+GET     /robots.txt                 controllers.Robots.disallowAll
