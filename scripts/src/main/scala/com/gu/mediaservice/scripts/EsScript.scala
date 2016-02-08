@@ -1,13 +1,24 @@
 package com.gu.mediaservice.scripts
 
+import akka.actor.FSM.Failure
 import org.elasticsearch.action.admin.indices.close.CloseIndexRequest
 import org.elasticsearch.action.admin.indices.open.OpenIndexRequest
-import org.elasticsearch.action.search.SearchResponse
+import org.elasticsearch.action.bulk.{BulkRequestBuilder, BulkRequest}
+import org.elasticsearch.action.index.IndexRequestBuilder
+import org.elasticsearch.action.search.{SearchRequestBuilder, SearchResponse}
+import org.elasticsearch.index.query.QueryBuilder
+import org.elasticsearch.search.SearchHit
 import org.elasticsearch.search.sort.SortOrder
-import org.elasticsearch.index.query.QueryBuilders.matchAllQuery
+import org.elasticsearch.index.query.QueryBuilders.{ matchAllQuery, rangeQuery}
 import org.elasticsearch.common.unit.TimeValue
 
+
 import com.gu.mediaservice.lib.elasticsearch.{IndexSettings, Mappings, ElasticSearchClient}
+import org.joda.time.DateTime
+import play.api.libs.iteratee.Step.Done
+
+import scala.concurrent.{ExecutionContext, Future}
+import ExecutionContext.Implicits.global
 
 object MoveIndex extends EsScript {
   def run(esHost: String, extraArgs: List[String]) {
@@ -40,82 +51,126 @@ object MoveIndex extends EsScript {
   }
 }
 
-object Reindex extends EsScript {
+object Reindexer extends EsScript {
 
-  def run(esHost: String, extraArgs: List[String]) {
-
+  def run(esHost: String, args: List[String]) = {
     object EsClient extends ElasticSearchClient {
       val imagesAlias = "writeAlias"
       val port = esPort
       val host = esHost
       val cluster = esCluster
+      val initTime = DateTime.now()
+      val currentIndex = getCurrentIndices.head
+      val nextIndex = nextIndexName(currentIndex)
 
-      def reindex {
-        val scrollTime = new TimeValue(10 * 60 * 1000) // 10 minutes in milliseconds
-        val scrollSize = 500
-        val srcIndex = getCurrentAlias.get // TODO: error handling if alias isn't attached
-
+      def nextIndexName(currentIndex: String) = {
         val srcIndexVersionCheck = """images_(\d+)""".r
-        val srcIndexVersion = srcIndex match {
+        val srcIndexVersion = currentIndex match {
           case srcIndexVersionCheck(version) => version.toInt
           case _ => 1
         }
-        val newIndex = s"${imagesIndexPrefix}_${srcIndexVersion+1}"
-
-        createIndex(newIndex)
-
-        val query = client.prepareSearch(srcIndex)
-          .setTypes(imageType)
-          .setScroll(scrollTime)
-          .setQuery(matchAllQuery)
-          .setSize(scrollSize)
-          .addSort("uploadTime", SortOrder.ASC)
-
-        def reindexScroll(scroll: SearchResponse, done: Long = 0) {
-          val total = scroll.getHits.totalHits
-          val doing = done + scrollSize
-
-          // roughly accurate as we're using done, which is relative to scrollSize, rather than the actual number of docs in the new index
-          val percentage = (done.toFloat / total) * 100
-
-          val hits = scroll.getHits.hits
-
-          if (hits.nonEmpty) {
-            // TODO: Abstract out logging
-            System.out.println(s"Reindexing $doing of $total ($percentage%)")
-
-            val bulk = client.prepareBulk
-
-            hits.foreach { hit =>
-              bulk.add(client.prepareIndex(newIndex, imageType, hit.id)
-                .setSource(hit.source))
-            }
-
-            bulk.execute.actionGet
-            reindexScroll(client.prepareSearchScroll(scroll.getScrollId)
-              .setScroll(scrollTime).execute.actionGet, doing)
-          } else {
-
-          }
-        }
-
-        Thread.sleep(1000)
-
-        reindexScroll(query.execute.actionGet)
-
-        // TODO: deleteIndex when we are confident
-        client.close()
+        s"${imagesIndexPrefix}_${srcIndexVersion + 1}"
       }
     }
-    EsClient.reindex
+
+    def raise(msg: String) = {
+      System.err.println(s"Reindex error on: $esHost : $msg ")
+      System.err.println("Exiting...")
+      EsClient.client.close()
+      System.exit(1)
+    }
+
+    def validateCurrentState(esClient: ElasticSearchClient) = {
+      if(esClient.getCurrentIndices.isEmpty) raise("no index with the 'write' alias exists")
+      if(esClient.getCurrentIndices.length == 2)
+        raise("there are two indices with 'write' alias, check your properties file")
+    }
+
+    val imageType = "image"
+    val scrollTime = new TimeValue(5 * 60 * 1000) // 10 minutes in milliseconds
+    val scrollSize = 1000
+    val currentIndex = EsClient.currentIndex
+    val newIndex = EsClient.nextIndex
+    validateCurrentState(EsClient)
+
+    val from = if(args.isEmpty) None else Some(DateTime.parse(args(0)))
+    reindex(from, EsClient)
+
+    def reindex(from: Option[DateTime], esClient: ElasticSearchClient) : Future[SearchResponse] = {
+      def _scroll(scroll: SearchResponse, done: Long = 0): Future[SearchResponse] = {
+        val client = esClient.client
+        val doing = done + scrollSize
+        System.out.println(
+          scrollPercentage(scroll, doing, done))
+
+        def bulkFromHits(hits: Array[SearchHit]): BulkRequestBuilder = {
+          val bulkRequests : Array[IndexRequestBuilder] = hits.map { hit =>
+            client.prepareIndex(newIndex, imageType, hit.id).setSource(hit.source) }
+
+          val bulk = client.prepareBulk
+          bulkRequests map { bulk.add }
+          bulk
+        }
+        def scrollPercentage(scroll: SearchResponse, doing: Long, done: Long): String = {
+          val total = scroll.getHits.totalHits
+          // roughly accurate as we're using done, which is relative to scrollSize, rather than the actual number of docs in the new index
+          val percentage = (done.toFloat / total) * 100
+          s"Reindexing $doing of $total ($percentage%)"
+        }
+
+        val hits = scroll.getHits.hits
+        if(hits.nonEmpty) {
+          bulkFromHits(hits).execute.actionGet
+          val scrollResponse = client.prepareSearchScroll(scroll.getScrollId).setScroll(scrollTime).execute.actionGet
+          _scroll(scrollResponse, doing)
+        } else {
+          Future.successful[SearchResponse](scroll)
+        }
+      }
+
+      def query(from: Option[DateTime]) : SearchRequestBuilder = {
+        val queryType = from.map(time =>
+        rangeQuery("lastModified").from(from.get).to(DateTime.now)
+        ).getOrElse(
+        matchAllQuery()
+        )
+
+        EsClient.client.prepareSearch(currentIndex)
+          .setTypes(imageType)
+          .setScroll(scrollTime)
+          .setSize(scrollSize)
+          .setQuery(queryType)
+      }
+
+      if(from.isEmpty) {
+        EsClient.createIndex(newIndex)
+      } else {
+        println(s"Reindexing documents modified since: $from")
+      }
+
+
+
+      val startTime = DateTime.now()
+      val scrollResponse = query(from).execute.actionGet
+      _scroll(scrollResponse) flatMap {
+        case response =>
+          println("RESPONSE FOUND!!!!")
+          val docsChangedSinceStart = query(Option(startTime)).execute.actionGet.getHits.getTotalHits
+          println(s"DOCS CHANGED SINCE START: $docsChangedSinceStart")
+          println(s"Rindexing again from start time: $startTime")
+          reindex(Option(startTime), esClient)
+      }
+    }
+
   }
 
   def usageError: Nothing = {
-    System.err.println("Usage: Reindex <ES_HOST>")
+    System.err.println("Usage: UpdateMapping <ES_HOST>")
     sys.exit(1)
   }
-
 }
+
+
 
 object UpdateMapping extends EsScript {
 
@@ -127,18 +182,22 @@ object UpdateMapping extends EsScript {
       val host = esHost
       val cluster = esCluster
 
-      def updateMappings {
+      def updateMappings(specifiedIndex: Option[String]) {
+        val index = specifiedIndex.getOrElse(imagesAlias)
+        println(s"updating mapping on index: $index")
         client.admin.indices
-          .preparePutMapping(imagesAlias)
+          .preparePutMapping(index)
           .setType(imageType)
           .setSource(Mappings.imageMapping)
           .execute.actionGet
+
 
         client.close
       }
     }
 
-    EsClient.updateMappings
+
+    EsClient.updateMappings(extraArgs.headOption)
   }
 
   def usageError: Nothing = {

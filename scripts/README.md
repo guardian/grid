@@ -13,6 +13,11 @@ Unfortunately, you need to change the mapping and then reindex the data to apply
     $ sbt
     > scripts/run Reindex <ES_HOST>
 
+Optionally takes a DateTime string as a second argument. Will perform reindex for documents updated *since the date provieded*
+
+    > scripts/run Reindex <ES_HOST>  016-01-28T10:55:10.232Z
+
+
 ### UpdateMapping
 When you add a mapping e.g. You add a new field to the [image mapping](https://github.com/guardian/grid/blob/master/common-lib/src/main/scala/com/gu/mediaservice/lib/elasticsearch/Mappings.scala#L73)
 you should add the mapping with this script as we are using [`strict`](http://www.elasticsearch.org/guide/en/elasticsearch/guide/current/dynamic-mapping.html)
@@ -20,6 +25,10 @@ mappings (you cannot just add things willy nilly).
 
     $ sbt
     > scripts/run UpdateMapping <ES_HOST>
+
+Optionally takes an index name. e.g.
+
+    > scripts/run UpdateMapping <ES_HOST> images_5
 
 ### UpdateSettings
 When you need to close the index to update the settings i.e. when you have to add / reconfigure
