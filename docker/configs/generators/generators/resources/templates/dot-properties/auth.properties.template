@@ -1,3 +1,4 @@
 domain.root={{domain_root}}
 aws.id={{AwsId}}
 aws.secret={{AwsSecret}}
+cors.allowed.origins={{cors}}
