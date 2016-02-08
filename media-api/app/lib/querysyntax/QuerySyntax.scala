@@ -24,7 +24,7 @@ class QuerySyntax(val input: ParserInput) extends Parser with ImageFields {
   def ScopedMatch = rule { MatchField ~ ':' ~ MatchValue }
   def HashMatch = rule      { '#' ~ MatchValue      ~> (label      => Match(SingleField(getFieldPath("labels")), label)) }
   // All hierarchy values are lowercase as specified in the analyser
-  def CollectionRule = rule { '~' ~ ExactMatchValue ~> (collection => Match(HierarchyField(getFieldPath("pathHierarchy"), collection.string.toLowerCase), collection)) }
+  def CollectionRule = rule { '~' ~ ExactMatchValue ~> (collection => Match(HierarchyField, Phrase(collection.string.toLowerCase))) }
 
   def MatchField = rule { capture(AllowedFieldName) ~> resolveNamedField _ }
 
@@ -37,6 +37,7 @@ class QuerySyntax(val input: ParserInput) extends Parser with ImageFields {
     "copyright" |
     "source" |
     "category" |
+    "subject" |
     "supplier" |
     "collection" |
     "keyword" |
@@ -47,6 +48,7 @@ class QuerySyntax(val input: ParserInput) extends Parser with ImageFields {
     case "uploader"            => "uploadedBy"
     case "label"               => "labels"
     case "collection"          => "suppliersCollection"
+    case "subject"             => "subjects"
     case "location"            => "subLocation"
     case "by" | "photographer" => "byline"
     case "keyword"             => "keywords"

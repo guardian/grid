@@ -52,8 +52,8 @@ case class BucketResult(key: String, count: Long)
 object ElasticSearch extends ElasticSearchClient with SearchFilters with ImageFields {
 
   import MediaApiMetrics._
-  val imagesAlias = "imagesAlias"
 
+  lazy val imagesAlias = Config.imagesAlias
   lazy val host = Config.elasticsearchHost
   lazy val port = Config.int("es.port")
   lazy val cluster = Config("es.cluster")
@@ -115,7 +115,7 @@ object ElasticSearch extends ElasticSearchClient with SearchFilters with ImageFi
     val queryFiltered = new FilteredQueryBuilder(query, filter)
 
     val search = prepareImagesSearch.setQuery(queryFiltered) |>
-                 sorts.parseFromRequest(params.orderBy)
+        sorts.createSort(params.orderBy, params.structuredQuery)
 
     search
       .setFrom(params.offset)

@@ -52,24 +52,26 @@ object ThrallMessageConsumer extends MessageConsumer(
   def setImageCollections(collections: JsValue): Future[List[UpdateResponse]]=
     Future.sequence(withImageId(collections)(id => ElasticSearch.setImageCollection(id, collections \ "data")) )
 
-  def deleteImage(image: JsValue): Future[EsResponse] =
-    withImageId(image) { id =>
-      // if we cannot delete the image as it's "protected", succeed and delete
-      // the message anyway.
-      ElasticSearch.deleteImage(id).map {
-        case r: DeleteByQueryResponse => {
-          ImageStore.deleteOriginal(id)
-          ImageStore.deleteThumbnail(id)
-          DynamoNotifications.publish(Json.obj("id" -> id), "image-deleted")
-          EsResponse(s"Image deleted: $id")
-        }
-      } recoverWith {
-        case ImageNotDeletable => {
-          Logger.info(s"Could not delete image $id")
-          Future.successful(EsResponse(s"Image cannot be deleted: $id"))
+  def deleteImage(image: JsValue): Future[List[EsResponse]] =
+    Future.sequence(
+      withImageId(image) { id =>
+        // if we cannot delete the image as it's "protected", succeed and delete
+        // the message anyway.
+        ElasticSearch.deleteImage(id).map { requests =>
+          requests.map {
+            case r: DeleteByQueryResponse =>
+              ImageStore.deleteOriginal(id)
+              ImageStore.deleteThumbnail(id)
+              DynamoNotifications.publish(Json.obj("id" -> id), "image-deleted")
+              EsResponse(s"Image deleted: $id")
+          } recoverWith {
+            case ImageNotDeletable =>
+              Logger.info(s"Could not delete image $id")
+              Future.successful(EsResponse(s"Image cannot be deleted: $id"))
+          }
         }
       }
-    }
+    )
 }
 
 // TODO: improve and use this (for logging especially) else where.

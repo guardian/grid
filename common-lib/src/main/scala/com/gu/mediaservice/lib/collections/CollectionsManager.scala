@@ -9,6 +9,7 @@ object CollectionsManager {
 
   def stringToPath(s: String) = s.split(delimiter).toList
   def pathToString(path: List[String]) = path.mkString(delimiter)
+  def pathToPathId(path: List[String]) = pathToString(path).toLowerCase
   def pathToUri(path: List[String]) = pathToString(path.map(encode))
   def uriToPath(uri: String) = stringToPath(decode(uri))
 
@@ -46,7 +47,8 @@ object CollectionsManager {
     "g2"           -> "#000000",
     "guide"        -> "#8F1AB6",
     "observer"     -> "#006f94",
-    "sport"        -> "#008000"
+    "sport"        -> "#008000",
+    "travel"       -> "#65C5FB"
   )
 
   def getCollectionColour(s: String) = collectionColours.get(s)

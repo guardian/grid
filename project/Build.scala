@@ -3,6 +3,7 @@ import sbt.Keys._
 import play.Play.autoImport._
 import com.typesafe.sbt.SbtNativePackager.autoImport._
 import plugins.PlayArtifact._
+import plugins.LegacyAssemblyPlayArtifact._
 import Dependencies._
 
 // Note: assembly now just used for helper and legacy apps
@@ -63,12 +64,18 @@ object Build extends Build {
     .libraryDependencies(awsDeps)
     .testDependencies(scalaTestDeps)
 
-  val ftpWatcher = playProject("ftp-watcher")
+  // Somewhat replicating playProject but without playArtifactDistSettings
+  // (native packager)
+  val ftpWatcher = project("ftp-watcher")
+    .enablePlugins(play.PlayScala)
+    .dependsOn(lib)
     .libraryDependencies(commonsNetDeps ++ scalazDeps)
+    .settings(commonSettings ++ legacyArtifactPlayArtifactDistSettings ++ playArtifactSettings: _*)
     .settings(
-      magentaPackageName := "ftp-watcher",
+      legacyMagentaPackageName := "ftp-watcher",
       jarName in assembly := "ftp-watcher.jar"
     )
+    .settings(fiddlyExtraAssemblySettings: _*)
 
   val integration = project("integration")
     .dependsOn(lib)
@@ -86,12 +93,13 @@ object Build extends Build {
     .libraryDependencies(legacyBlockingHttp)
     .settings(sbtassembly.Plugin.assemblySettings: _*)
     .settings(playArtifactSettings: _*)
-    .settings(fiddlyExtraAssemblySettingsForExport: _*)
+    .settings(fiddlyExtraAssemblySettings: _*)
 
-  def fiddlyExtraAssemblySettingsForExport = Seq(
+  def fiddlyExtraAssemblySettings = Seq(
     mergeStrategy in assembly <<= (mergeStrategy in assembly) { (old) => {
       case "version.txt" => MergeStrategy.first
       case "play.plugins" => MergeStrategy.first
+      case "logger.xml" => MergeStrategy.first
       case "logback.xml" => MergeStrategy.first
       case "play/core/server/ServerWithStop.class" => MergeStrategy.first
       case x => old(x)

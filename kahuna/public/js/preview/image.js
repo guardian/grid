@@ -9,7 +9,7 @@ import template from './image.html!text';
 import '../image/service';
 import '../services/image/usages';
 import '../components/gr-add-label/gr-add-label';
-import '../components/gr-image-persist-status/gr-image-persist-status';
+import '../components/gr-archiver-status/gr-archiver-status';
 import '../util/collections';
 
 export var image = angular.module('kahuna.preview.image', [
@@ -17,7 +17,7 @@ export var image = angular.module('kahuna.preview.image', [
     'gr.image-usages.service',
     'analytics.track',
     'gr.addLabel',
-    'gr.imagePersistStatus',
+    'gr.archiverStatus',
     'util.rx'
 ]);
 

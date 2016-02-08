@@ -53,13 +53,15 @@ lazyTable.controller('GuLazyTableCtrl', ['range', function(range) {
     let ctrl = this;
 
     ctrl.init = function({items$, preloadedRows$, cellHeight$, cellMinWidth$,
-                          containerWidth$, viewportTop$, viewportBottom$}) {
+                          containerWidth$, viewportHeight$, viewportTop$}) {
         const itemsCount$ = items$.map(items => items.length).distinctUntilChanged();
 
         const columns$ = max$(floor$(div$(containerWidth$, cellMinWidth$)), 1);
         const rows$ = ceil$(div$(itemsCount$, columns$));
 
         const cellWidth$ = floor$(div$(containerWidth$, columns$));
+
+        const viewportBottom$ = add$(viewportTop$, viewportHeight$);
 
         const currentRowTop$    = floor$(div$(viewportTop$,    cellHeight$));
         const currentRowBottom$ = floor$(div$(viewportBottom$, cellHeight$));
@@ -144,8 +146,39 @@ lazyTable.controller('GuLazyTableCtrl', ['range', function(range) {
             viewportBottom$: viewportBottomShared$
         });
 
+        const rowsInViewport$ = max$(floor$(div$(viewportHeight$, cellHeight$)), 1);
+
+        // Marginally satisfying pattern to convert from imperative to
+        // reactive land
+        const scrollCommands$ = Rx.Observable.create(observer => {
+            ctrl.scrollPrevRow  = () => observer.onNext('prevRow');
+            ctrl.scrollNextRow  = () => observer.onNext('nextRow');
+            ctrl.scrollPrevPage = () => observer.onNext('prevPage');
+            ctrl.scrollNextPage = () => observer.onNext('nextPage');
+            ctrl.scrollStart    = () => observer.onNext('start');
+            ctrl.scrollEnd      = () => observer.onNext('end');
+        });
+
+        const rowOffset$ = scrollCommands$.withLatestFrom(
+            rowsInViewport$, currentRowTop$, rows$,
+            (command, rowsInViewport, currentRowTop, rows) => {
+                return {
+                    prevRow:  - 1,
+                    nextRow:  + 1,
+                    prevPage: - rowsInViewport,
+                    nextPage: + rowsInViewport,
+                    start:    - currentRowTop,
+                    end:      rows - currentRowTop
+                }[command] || 0;
+            });
+
+        const newScrollTop$ = rowOffset$.withLatestFrom(currentRowTop$, cellHeight$,
+                                                        (rowOffset, currentRowTop, cellHeight) => {
+            return (currentRowTop + rowOffset) * cellHeight;
+        });
+
         return {
-            viewHeight$, rangeToLoad$, placeholderIndexes$
+            viewHeight$, rangeToLoad$, placeholderIndexes$, newScrollTop$
         };
     };
 
@@ -255,6 +288,10 @@ lazyTable.directive('guLazyTable', ['$window', 'observe$',
 
             // Model container and viewport properties
 
+            // Offset between container top and top of scrolling area (page)
+            // Read once as we assume it never changes
+            const containerTop = element[0].getClientRects()[0].top;
+
             const containerWidth$ = combine$(
                 viewportResized$,
                 elementResized$,
@@ -265,21 +302,19 @@ lazyTable.directive('guLazyTable', ['$window', 'observe$',
                 // For Chrome we need to read scrollTop on body, for
                 // other browser it's on the documentElement. Meh.
                 // https://miketaylr.com/posts/2014/11/document-body-scrollTop.html
-                const scrollTop = document.body.scrollTop || document.documentElement.scrollTop;
-                return Math.max(scrollTop - element[0].offsetTop, 0);
+                return document.body.scrollTop || document.documentElement.scrollTop;
             }).shareReplay(1);
 
             const offsetHeight$ = combine$(viewportScrolled$, viewportResized$, () => {
-                return Math.max(document.documentElement.clientHeight - element[0].offsetTop, 0);
+                return Math.max(document.documentElement.clientHeight - containerTop, 0);
             }).shareReplay(1);
 
             const viewportTop$    = offsetTop$;
-            const viewportBottom$ = add$(offsetTop$, offsetHeight$);
+            const viewportHeight$ = offsetHeight$;
 
-
-            const {viewHeight$, rangeToLoad$, placeholderIndexes$} = ctrl.init({
+            const {viewHeight$, rangeToLoad$, placeholderIndexes$, newScrollTop$} = ctrl.init({
                 items$, preloadedRows$, cellHeight$, cellMinWidth$,
-                containerWidth$, viewportTop$, viewportBottom$
+                containerWidth$, viewportTop$, viewportHeight$
             });
 
             // Table cells will be absolutely positioned within this container
@@ -300,6 +335,12 @@ lazyTable.directive('guLazyTable', ['$window', 'observe$',
                     element.css('height', viewHeight + 'px');
                     scope.$emit('gu-lazy-table:height-changed', viewHeight);
                 });
+            });
+
+            subscribe$(scope, newScrollTop$, newScrollTop => {
+                // Note: it may be negative or beyond the page height,
+                // but the browser will normalise that anyway
+                window.scrollTo(0, newScrollTop);
             });
         }
     };

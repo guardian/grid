@@ -13,7 +13,7 @@ object MoveIndex extends EsScript {
   def run(esHost: String, extraArgs: List[String]) {
 
     object EsClient extends ElasticSearchClient {
-      val imagesAlias = "imagesAlias"
+      val imagesAlias = "readAlias"
       val port = esPort
       val host = esHost
       val cluster = esCluster
@@ -45,7 +45,7 @@ object Reindex extends EsScript {
   def run(esHost: String, extraArgs: List[String]) {
 
     object EsClient extends ElasticSearchClient {
-      val imagesAlias = "imagesAlias"
+      val imagesAlias = "writeAlias"
       val port = esPort
       val host = esHost
       val cluster = esCluster
@@ -94,6 +94,8 @@ object Reindex extends EsScript {
             bulk.execute.actionGet
             reindexScroll(client.prepareSearchScroll(scroll.getScrollId)
               .setScroll(scrollTime).execute.actionGet, doing)
+          } else {
+
           }
         }
 

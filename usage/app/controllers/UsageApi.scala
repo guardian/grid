@@ -113,7 +113,10 @@ object UsageApi extends Controller with ArgoHelpers {
     }}
   }
 
-  def setPrintUsages = Authenticated(BodyParsers.parse.json) { request => {
+  val maxPrintRequestLength = (1024 * maxPrintRequestLengthInKb)
+  val setPrintRequestBodyParser = BodyParsers.parse.json(maxLength = maxPrintRequestLength)
+
+  def setPrintUsages = Authenticated(setPrintRequestBodyParser) { request => {
       val printUsageRequestResult = request.body.validate[PrintUsageRequest]
       printUsageRequestResult.fold(
         e => {

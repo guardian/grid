@@ -21,6 +21,11 @@ object PicdarUsageRecordFactory {
       def extractOrThrow(field: String) =
         element.get(field).getOrElse { throw missingFieldException(field) }
 
+      val defaultProductionName = "unspecified_production_name"
+      val defaultPublicationName = "Unspecified Publication"
+      val defaultSection = "Unspecified Section"
+      val defaultPage = 0
+
       Try {
         PicdarUsageRecord(
           urn          = extractOrThrow("_urn"),
@@ -29,10 +34,10 @@ object PicdarUsageRecordFactory {
             .parseDateTime(s"${extractOrThrow("_date")}-${extractOrThrow("_time")}"),
           publicationDate = PicdarDates.usageApiShortDateFormat
             .parseDateTime(extractOrThrow("publicationdate")),
-          productionName  = extractOrThrow("production"),
-          publicationName = extractOrThrow("publicationtext"),
-          page = extractOrThrow("page").toInt,
-          sectionName = extractOrThrow("sectiontext"),
+          productionName  = element.get("production").getOrElse(defaultProductionName),
+          publicationName = element.get("publicationtext").getOrElse(defaultPublicationName),
+          page = element.get("page").flatMap(p => Try { p.toInt }.toOption).getOrElse(defaultPage),
+          sectionName = element.get("sectiontext").getOrElse(defaultSection),
           edition = element.get("editiontext").flatMap(e => Try { e.toInt }.toOption),
           status = element.get("status").map(UsageStatus(_)).getOrElse {
             throw missingFieldException("status")

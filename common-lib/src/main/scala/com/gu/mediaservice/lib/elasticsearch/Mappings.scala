@@ -70,6 +70,7 @@ object Mappings {
     "copyrightNotice" -> standardAnalysedString,
     "suppliersReference" -> (standardAnalysedString ++ copyTo("metadata.englishAnalysedCatchAll")),
     "source" -> (nonAnalyzedString ++ copyTo("metadata.englishAnalysedCatchAll")),
+    "subjects" -> nonAnalysedList("subject"),
     "specialInstructions" -> nonAnalyzedString,
     "keywords" -> (nonAnalysedList("keyword") ++ copyTo("metadata.englishAnalysedCatchAll")),
     "subLocation" -> (standardAnalysedString ++ copyTo("metadata.englishAnalysedCatchAll")),
