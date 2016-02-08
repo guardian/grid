@@ -11,3 +11,5 @@ addSbtPlugin("net.virtual-void" % "sbt-dependency-graph" % "0.7.4")
 addSbtPlugin("com.gu" % "sbt-teamcity-test-reporting-plugin" % "1.5")
 
 addSbtPlugin("com.gu" % "sbt-version-info-plugin" % "2.8")
+
+addSbtPlugin("com.gu" % "sbt-riffraff-artifact" % "0.8.3")
