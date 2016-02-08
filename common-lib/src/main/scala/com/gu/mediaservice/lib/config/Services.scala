@@ -15,6 +15,7 @@ class Services(domainRoot: String, ssl: Boolean) {
   val imgopsHost: String = s"$appName-imgops.$parentDomain"
   val usageHost: String = s"$appName-usage.$parentDomain"
   val collectionsHost: String = s"$appName-collections.$parentDomain"
+  val authHost: String     = s"$appName-auth.$parentDomain"
 
 
   val kahunaBaseUri      = baseUri(kahunaHost)
@@ -25,6 +26,7 @@ class Services(domainRoot: String, ssl: Boolean) {
   val imgopsBaseUri      = baseUri(imgopsHost)
   val usageBaseUri       = baseUri(usageHost)
   val collectionsBaseUri = baseUri(collectionsHost)
+  val authBaseUri        = baseUri(authHost)
 
 
   val loginUriTemplate = s"$kahunaBaseUri/login{?redirectUri}"
