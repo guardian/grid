@@ -13,9 +13,6 @@ object Config extends CommonPlayAppConfig with CommonPlayAppProperties {
   val rootUri: String = services.authBaseUri
   val mediaApiUri: String = services.apiBaseUri
 
-  val awsCredentials: AWSCredentials =
-    new BasicAWSCredentials(properties("aws.id"), properties("aws.secret"))
-
   private lazy val corsAllowedOrigins = properties.getOrElse("cors.allowed.origins", "").split(",").toList
   lazy val corsAllAllowedOrigins: List[String] =
     services.kahunaBaseUri :: corsAllowedOrigins
