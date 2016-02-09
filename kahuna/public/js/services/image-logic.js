@@ -34,6 +34,8 @@ imageLogic.factory('imageLogic', ['imageAccessor', function(imageAccessor) {
             switch (reason) {
             case 'exports':
                 return 'cropped';
+            case 'usages':
+                return 'used';
             case 'persistence-identifier':
                 return 'from Picdar';
             case 'photographer-category':
