@@ -12,7 +12,7 @@
 
                 <img class="result-editor__img"
                      alt="original image thumbnail"
-                     ng:src="{{ctrl.image.data.thumbnail | assetFile}}"
+                     ng:src="{{:: ctrl.image.data.thumbnail | assetFile}}"
                      gr:image-fade-on-load
                  />
             </a>
@@ -20,7 +20,7 @@
             <img class="result-editor__img"
                  alt="original image thumbnail"
                  ng:switch-default
-                 ng:src="{{ctrl.image.data.thumbnail | assetFile}}"
+                 ng:src="{{:: ctrl.image.data.thumbnail | assetFile}}"
                  gr:image-fade-on-load
              />
 
@@ -30,7 +30,7 @@
                     <a class="image-action image-action--first"
                        target="_blank"
                        title="Pop out"
-                       ng:href="/images/{{ctrl.image.data.id}}">
+                       ng:href="/images/{{:: ctrl.image.data.id}}">
                         <gr-icon>open_in_new</gr-icon>
                     </a>
                 </li>
@@ -138,9 +138,9 @@
                 ></ui-labeller>
             </div>
         </div>
-        <div class="result-editor__field-container" ng:if="ctrl.image.data.uploadInfo.filename">
+        <div class="result-editor__field-container" ng:if=":: ctrl.image.data.uploadInfo.filename">
             <div class="result-editor__field-label text-small">File name</div>
-            <div class="result-editor__field-value">{{ctrl.image.data.uploadInfo.filename}}</div>
+            <div class="result-editor__field-value">{{:: ctrl.image.data.uploadInfo.filename}}</div>
         </div>
 
     </div>

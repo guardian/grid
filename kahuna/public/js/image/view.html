@@ -12,7 +12,7 @@
         </gr-delete-image>
 
         <span class="top-bar-item">
-            <a ng:href="{{ ctrl.image.data.source | assetFile }}"
+            <a ng:href="{{:: ctrl.image.data.source | assetFile }}"
                class="side-padded clickable inner-clickable"
                download
                target="_blank">
@@ -22,7 +22,7 @@
                     ng:click="showExpandedDownload = !showExpandedDownload">
                 <span>▾</span>
                 <a ng:if="showExpandedDownload"
-                   ng:href="{{ ctrl.lowResImageUri }}"
+                   ng:href="{{:: ctrl.lowResImageUri }}"
                    class="drop-menu__items drop-menu__items--nopad"
                    download
                    target="_blank">
@@ -45,7 +45,7 @@
     <div class="image-info">
         <div class="image-info__group">
             <dl>
-                <dt class="image-info__heading">Original <span class="image-info__file-size"> {{ctrl.image.data.source.size | asFileSize}}</span></dt>
+                <dt class="image-info__heading">Original <span class="image-info__file-size"> {{:: ctrl.image.data.source.size | asFileSize}}</span></dt>
                     <dd class="image-info__heading--crops">
                         <div class="image-crop"
                              ng:class="{'image-crop--selected': !ctrl.crop}">
@@ -53,10 +53,10 @@
                                 ui:sref="{ crop: null }">
                                 <img class="image-crop__image"
                                      alt="original image thumbnail"
-                                     ng:src="{{ ctrl.image.data.thumbnail | assetFile }}" />
+                                     ng:src="{{:: ctrl.image.data.thumbnail | assetFile }}" />
                                 <div class="image-crop__aspect-ratio"
                                     ng:class="{'image-crop__aspect-ratio--selected': !ctrl.crop}">
-                                    {{ctrl.image.data.source.dimensions.width}} &times; {{ctrl.image.data.source.dimensions.height}}
+                                    {{::ctrl.image.data.source.dimensions.width}} &times; {{::ctrl.image.data.source.dimensions.height}}
                                 </div>
                             </a>
                         </div>
@@ -78,13 +78,13 @@
                        ui:drag-image="extremeAssets.smallest | assetFile">
                         <img class="image-crop__image"
                              alt="full frame image thumbnail"
-                             ng:src="{{ extremeAssets.smallest | assetFile }}" />
+                             ng:src="{{:: extremeAssets.smallest | assetFile }}" />
 
                         <div class="flex-container image-crop__info image-crop__more-info"
                              ng:class="{'image-crop__info--selected': crop == ctrl.crop}">
-                            {{crop.specification.bounds.width}} &times; {{crop.specification.bounds.height}}
+                            {{:: crop.specification.bounds.width}} &times; {{:: crop.specification.bounds.height}}
                             <span class="flex-spacer"></span>
-                            <span class="image-crop__creator" title="Cropped by {{crop.author}} at {{crop.date | date:'medium'}}">{{crop.author | getInitials}}</span>
+                            <span class="image-crop__creator" title="Cropped by {{:: crop.author}} at {{:: crop.date | date:'medium'}}">{{:: crop.author | getInitials}}</span>
                         </div>
                     </a>
                 </div>
@@ -107,19 +107,19 @@
 
                                 <img class="image-crop__image"
                                      alt="cropped image thumbnail"
-                                     ng:src="{{extremeAssets.smallest | assetFile}}" />
+                                     ng:src="{{:: extremeAssets.smallest | assetFile}}" />
                                 <div class="image-crop__info"
                                     ng:class="{'image-crop__info--selected': crop == ctrl.crop}">
                                     <div class="flex-container">
-                                        {{crop.specification.aspectRatio | asAspectRatioWord}}
+                                        {{:: crop.specification.aspectRatio | asAspectRatioWord}}
                                         <span class="flex-spacer"></span>
-                                        <span ng:if="crop.specification.aspectRatio">({{crop.specification.aspectRatio}})</span>
+                                        <span ng:if="crop.specification.aspectRatio">({{:: crop.specification.aspectRatio}})</span>
                                     </div>
 
                                     <div class="flex-container image-crop__more-info">
-                                        {{crop.specification.bounds.width}} &times; {{crop.specification.bounds.height}}
+                                        {{:: crop.specification.bounds.width}} &times; {{:: crop.specification.bounds.height}}
                                         <span class="flex-spacer"></span>
-                                        <span class="image-crop__creator" title="Cropped by {{crop.author}} at {{crop.date | date:'medium'}}">{{crop.author | getInitials}}</span>
+                                        <span class="image-crop__creator" title="Cropped by {{:: crop.author}} at {{:: crop.date | date:'medium'}}">{{:: crop.author | getInitials}}</span>
                                     </div>
                                 </div>
                             </a>
@@ -188,7 +188,7 @@
         <div class="easel__canvas" ng:if="!ctrl.crop">
             <img class="easel__image"
                  alt="preview of original image"
-                 ng:src="{{ctrl.optimisedImageUri}}"
+                 ng:src="{{:: ctrl.optimisedImageUri}}"
                  grid:track-image="ctrl.image"
                  grid:track-image-location="original"
                  grid:track-image-loadtime
@@ -208,7 +208,7 @@
                 <!-- TODO: Add tracking to crop -->
                 <img class="easel__image"
                      alt="cropped image"
-                     ng:src="{{extremeAssets.largest | assetFile}}"
+                     ng:src="{{:: extremeAssets.largest | assetFile}}"
                 />
             </a>
         </div>
