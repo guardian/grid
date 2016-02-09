@@ -40,6 +40,9 @@ object Build extends Build {
   val kahuna = playProject("kahuna")
     .libraryDependencies(playWsDeps)
 
+  val auth = playProject("auth")
+    .libraryDependencies(playWsDeps)
+
   val mediaApi = playProject("media-api")
     .libraryDependencies(elasticsearchDeps ++ awsDeps ++
       scalazDeps ++ parsingDeps ++ uriTemplateDeps)

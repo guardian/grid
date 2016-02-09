@@ -11,8 +11,9 @@ CROPPER="http://localhost:9006/management/healthcheck"
 METADATA="http://localhost:9007/management/healthcheck"
 USAGE="http://localhost:9009/management/healthcheck"
 COLLECTIONS="http://localhost:9010/"
+AUTH="http://localhost:9011/management/healthcheck"
 
-lu="$IMAGE_LOADER $CROPPER $METADATA $THRALL $FTP_WATCHER $KAHUNA $API $USAGE"
+lu="$IMAGE_LOADER $CROPPER $METADATA $THRALL $FTP_WATCHER $KAHUNA $API $USAGE $AUTH"
 
 echo "You have started the Pingler!"
 echo
