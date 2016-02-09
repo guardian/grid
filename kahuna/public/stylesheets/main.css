@@ -343,6 +343,9 @@ button[disabled],
     color: white;
     cursor: pointer;
 }
+.clickable--blue:hover {
+    background-color: #1ac7ff;
+}
 
 .inner-clickable {
     height: 100%;
@@ -365,7 +368,11 @@ button[disabled],
 }
 
 .text-small {
-    font-size: 13px;
+    font-size: 1.3rem;
+}
+
+.text-large {
+    font-size: 1.8rem;
 }
 
 .separator-left {
@@ -416,7 +423,7 @@ textarea.ng-invalid {
     vertical-align: middle;
     line-height: 50px;
     display: inline-block;
-    border-left: 2px solid #565656;
+    border-left: 1px solid #565656;
     height: 50px;
 }
 
@@ -425,7 +432,7 @@ textarea.ng-invalid {
 }
 
 .top-bar-item:last-child {
-    border-right: 2px solid #565656;
+    border-right: 1px solid #565656;
 }
 
 .user-actions {

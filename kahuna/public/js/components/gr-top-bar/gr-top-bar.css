@@ -35,3 +35,16 @@ gr-top-bar-actions {
 .gr-top-bar-inner--fixed {
     position: fixed;
 }
+
+.gr-top-bar--blue .gr-top-bar-inner {
+    background-color: #00adee;
+    color: white !important;
+    border-bottom-color: #ccc;
+}
+.gr-top-bar--blue .top-bar-item {
+    border-color: #ccc !important;
+}
+
+.gr-top-bar--overlay {
+    margin-top: -50px;
+}

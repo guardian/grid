@@ -5,6 +5,7 @@ import 'rx-dom';
 import Immutable from 'immutable';
 import {getCollectionsFromQuery} from '../search-query/query-syntax';
 import {storage} from '../util/storage';
+import {selectionTopBar} from '../components/gr-selection-top-bar/gr-selection-top-bar';
 
 import './query';
 import './results';
@@ -18,9 +19,10 @@ import '../components/gr-keyboard-shortcut/gr-keyboard-shortcut';
 
 import '../components/gr-panels/gr-panels';
 
-import searchTemplate        from './view.html!text';
-import searchResultsTemplate from './results.html!text';
-import panelTemplate        from '../components/gr-panel/gr-panel.html!text';
+import searchTemplate           from './view.html!text';
+import selectionTopBarTemplate  from '../components/gr-selection-top-bar/gr-selection-top-bar.html!text';
+import searchResultsTemplate    from './results.html!text';
+import panelTemplate            from '../components/gr-panel/gr-panel.html!text';
 import collectionsPanelTemplate from
     '../components/gr-collections-panel/gr-collections-panel.html!text';
 
@@ -38,7 +40,8 @@ export var search = angular.module('kahuna.search', [
     'grPanel',
     'grCollectionsPanel',
     'ui.router',
-    storage.name
+    storage.name,
+    selectionTopBar.name
 ]);
 
 // TODO: add a resolver here so that if we error (e.g. 401) we don't keep trying
@@ -187,6 +190,11 @@ search.config(['$stateProvider', '$urlMatcherFactoryProvider',
             }]
         },
         views: {
+            selectionActions: {
+                template: selectionTopBarTemplate,
+                controller: 'GrSelectionTopBarCtrl',
+                controllerAs: 'ctrl'
+            },
             results: {
                 template: searchResultsTemplate,
                 controller: 'SearchResultsCtrl',

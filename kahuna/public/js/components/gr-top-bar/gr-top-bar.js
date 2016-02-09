@@ -22,8 +22,11 @@ topBar.directive('grTopBarNav', [function() {
         transclude: true,
         // Annoying to have to hardcode root route here, but only
         // way I found to clear $stateParams from uiRouter...
-        template: `<a href="/search" class="home-link" title="Home">Home</a>
-                   <ng:transclude></ng:transclude>`
+        template: `<a href="/search" class="home-link" title="Home" ng:if="!hideHomeLink">Home</a>
+                   <ng:transclude></ng:transclude>`,
+        link: function(scope, _, attrs) {
+            scope.hideHomeLink = angular.isDefined(attrs.grHideHomeLink);
+        }
     };
 }]);
 
@@ -33,6 +36,9 @@ topBar.directive('grTopBarActions', [function() {
         transclude: true,
         // Always have user actions at the end of actions
         template: `<ng:transclude></ng:transclude>
-                   <ui-user-actions></ui-user-actions>`
+                   <ui-user-actions ng:if="!hideUserActions"></ui-user-actions>`,
+        link: function(scope, _, attrs) {
+            scope.hideUserActions = angular.isDefined(attrs.grHideUserActions);
+        }
     };
 }]);
