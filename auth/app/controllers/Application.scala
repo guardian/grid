@@ -31,6 +31,8 @@ object Application extends Controller
   val indexResponse = {
     val indexData = Map("description" -> "This is the Auth API")
     val indexLinks = List(
+      Link("login",         loginUriTemplate),
+      Link("session",       s"$rootUri/session"),
       Link("root",          mediaApiUri),
       Link("ui:logout",     s"$rootUri/logout")
     )
