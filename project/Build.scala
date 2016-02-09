@@ -2,8 +2,12 @@ import sbt._
 import sbt.Keys._
 import play.Play.autoImport._
 import com.typesafe.sbt.SbtNativePackager.autoImport._
+import com.typesafe.sbt.packager.universal.UniversalPlugin
+import com.typesafe.sbt.packager.universal.UniversalPlugin.autoImport._
 import plugins.PlayArtifact._
 import plugins.LegacyAssemblyPlayArtifact._
+import com.gu.riffraff.artifact.RiffRaffArtifact.autoImport._
+import com.gu.riffraff.artifact.RiffRaffArtifact
 import Dependencies._
 
 // Note: assembly now just used for helper and legacy apps
@@ -13,12 +17,24 @@ import AssemblyKeys._
 
 object Build extends Build {
 
+  def env(key: String): Option[String] = Option(System.getenv(key))
+
+  val riffRaffSettings =
+    Seq(
+      riffRaffPackageType := (packageZipTarball in Universal).value,
+      riffRaffBuildIdentifier := env("BUILD_NUMBER").getOrElse("DEV"),
+      riffRaffPackageName := s"media-service::jenkins::${name.value}",
+      riffRaffManifestProjectName := riffRaffPackageName.value,
+      riffRaffUploadArtifactBucket := Option("riffraff-artifact"),
+      riffRaffUploadManifestBucket := Option("riffraff-builds")
+    ) ++ env("GIT_BRANCH").map(branch => Seq(riffRaffManifestBranch := branch)).getOrElse(Nil)
+
   val commonSettings =
     Seq(
       scalaVersion := "2.11.6",
       scalaVersion in ThisBuild := "2.11.6",
       organization := "com.gu",
-      fork in run := true,
+      fork in run  := true,
       version      := "0.1",
       resolvers ++= Seq(
         "Typesafe Repository" at "http://repo.typesafe.com/typesafe/releases/",
@@ -116,8 +132,9 @@ object Build extends Build {
   def playProject(path: String): Project =
     Project(path, file(path))
       .enablePlugins(play.PlayScala)
+      .enablePlugins(RiffRaffArtifact, UniversalPlugin)
       .dependsOn(lib)
-      .settings(commonSettings ++ playArtifactDistSettings ++ playArtifactSettings: _*)
+      .settings(commonSettings ++ riffRaffSettings ++ playArtifactDistSettings ++ playArtifactSettings: _*)
       .settings(libraryDependencies += filters)
       .settings(magentaPackageName := path)
 
