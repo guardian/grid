@@ -1,23 +1,19 @@
 package com.gu.mediaservice.scripts
 
-import akka.actor.FSM.Failure
 import org.elasticsearch.action.admin.indices.close.CloseIndexRequest
 import org.elasticsearch.action.admin.indices.open.OpenIndexRequest
-import org.elasticsearch.action.bulk.{BulkRequestBuilder, BulkRequest}
+import org.elasticsearch.action.bulk.{BulkRequestBuilder}
 import org.elasticsearch.action.index.IndexRequestBuilder
 import org.elasticsearch.action.search.{SearchRequestBuilder, SearchResponse}
-import org.elasticsearch.index.query.QueryBuilder
 import org.elasticsearch.search.SearchHit
-import org.elasticsearch.search.sort.SortOrder
 import org.elasticsearch.index.query.QueryBuilders.{ matchAllQuery, rangeQuery}
 import org.elasticsearch.common.unit.TimeValue
 
 
 import com.gu.mediaservice.lib.elasticsearch.{IndexSettings, Mappings, ElasticSearchClient}
-import org.joda.time.DateTime
-import play.api.libs.iteratee.Step.Done
-
-import scala.concurrent.{ExecutionContext, Future}
+import org.joda.time.{DateTime}
+import scala.concurrent.duration.Duration
+import scala.concurrent.{Await, ExecutionContext, Future}
 import ExecutionContext.Implicits.global
 
 object MoveIndex extends EsScript {
@@ -60,7 +56,7 @@ object Reindexer extends EsScript {
       val host = esHost
       val cluster = esCluster
       val initTime = DateTime.now()
-      val currentIndex = getCurrentIndices.head
+      val currentIndex = getCurrentIndices.reverse.head
       val nextIndex = nextIndexName(currentIndex)
 
       def nextIndexName(currentIndex: String) = {
@@ -80,28 +76,28 @@ object Reindexer extends EsScript {
       System.exit(1)
     }
 
-    def validateCurrentState(esClient: ElasticSearchClient) = {
+    def validateCurrentState(esClient: ElasticSearchClient, from: Option[DateTime]) = {
       if(esClient.getCurrentIndices.isEmpty) raise("no index with the 'write' alias exists")
-      if(esClient.getCurrentIndices.length == 2)
-        raise("there are two indices with 'write' alias, check your properties file")
+      if((esClient.getCurrentIndices.length == 2) && from.isEmpty)
+        raise("there are two indices with 'write' alias, check your properties file or use http://localhost:9200/_plugin/head/ ")
     }
 
     val imageType = "image"
     val scrollTime = new TimeValue(5 * 60 * 1000) // 10 minutes in milliseconds
-    val scrollSize = 1000
+    val scrollSize = 200
     val currentIndex = EsClient.currentIndex
     val newIndex = EsClient.nextIndex
-    validateCurrentState(EsClient)
 
     val from = if(args.isEmpty) None else Some(DateTime.parse(args(0)))
-    reindex(from, EsClient)
+    validateCurrentState(EsClient, from)
+    Await.result(reindex(from, EsClient), Duration.Inf)
 
     def reindex(from: Option[DateTime], esClient: ElasticSearchClient) : Future[SearchResponse] = {
       def _scroll(scroll: SearchResponse, done: Long = 0): Future[SearchResponse] = {
         val client = esClient.client
         val doing = done + scrollSize
         System.out.println(
-          scrollPercentage(scroll, doing, done))
+        scrollPercentage(scroll, doing, done))
 
         def bulkFromHits(hits: Array[SearchHit]): BulkRequestBuilder = {
           val bulkRequests : Array[IndexRequestBuilder] = hits.map { hit =>
@@ -118,21 +114,23 @@ object Reindexer extends EsScript {
           s"Reindexing $doing of $total ($percentage%)"
         }
 
+
         val hits = scroll.getHits.hits
         if(hits.nonEmpty) {
           bulkFromHits(hits).execute.actionGet
           val scrollResponse = client.prepareSearchScroll(scroll.getScrollId).setScroll(scrollTime).execute.actionGet
           _scroll(scrollResponse, doing)
         } else {
+          println("No more results found")
           Future.successful[SearchResponse](scroll)
         }
       }
 
       def query(from: Option[DateTime]) : SearchRequestBuilder = {
         val queryType = from.map(time =>
-        rangeQuery("lastModified").from(from.get).to(DateTime.now)
+          rangeQuery("lastModified").from(from.get).to(DateTime.now)
         ).getOrElse(
-        matchAllQuery()
+          matchAllQuery()
         )
 
         EsClient.client.prepareSearch(currentIndex)
@@ -142,26 +140,30 @@ object Reindexer extends EsScript {
           .setQuery(queryType)
       }
 
+
       if(from.isEmpty) {
         EsClient.createIndex(newIndex)
       } else {
-        println(s"Reindexing documents modified since: $from")
+        println(s"Reindexing documents modified since: ${from.toString}")
       }
 
-
-
+      EsClient.assignAliasTo(newIndex)
       val startTime = DateTime.now()
+      println(s"Reindex started at: $startTime")
+      println(s"Reindexing from: ${EsClient.currentIndex} to: $newIndex")
       val scrollResponse = query(from).execute.actionGet
-      _scroll(scrollResponse) flatMap {
-        case response =>
-          println("RESPONSE FOUND!!!!")
-          val docsChangedSinceStart = query(Option(startTime)).execute.actionGet.getHits.getTotalHits
-          println(s"DOCS CHANGED SINCE START: $docsChangedSinceStart")
-          println(s"Rindexing again from start time: $startTime")
-          reindex(Option(startTime), esClient)
+      _scroll(scrollResponse) flatMap  { case (response: SearchResponse) =>
+        val changedDocuments: Long = query(Option(startTime)).execute.actionGet.getHits.getTotalHits
+        println(s"$changedDocuments")
+        if(changedDocuments > 0) {
+          println(s"Reindexing changes since start time: $startTime")
+          val recurseResponse = reindex(Option(startTime), esClient)
+          recurseResponse
+        } else {
+          Future.successful(response)
+        }
       }
     }
-
   }
 
   def usageError: Nothing = {
