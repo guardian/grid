@@ -8,7 +8,7 @@
             <a class="result-editor__img-link"
                ng:switch-when="true"
                ui:sref="image({imageId: ctrl.image.data.id})"
-               ui:drag-data="{{ctrl.image | asImageDragData}}">
+               ui:drag-data="ctrl.image | asImageDragData">
 
                 <img class="result-editor__img"
                      alt="original image thumbnail"

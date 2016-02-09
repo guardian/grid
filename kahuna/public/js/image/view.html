@@ -74,8 +74,8 @@
                        ng:init="extremeAssets = (crop | getExtremeAssets)"
                        ng:click="ctrl.cropSelected(crop)"
                        ui:sref="{ crop: crop.id }"
-                       ui:drag-data="{{ctrl.image | asImageAndCropsDragData:crop}}"
-                       ui:drag-image="{{extremeAssets.smallest | assetFile}}">
+                       ui:drag-data="ctrl.image | asImageAndCropsDragData:crop"
+                       ui:drag-image="extremeAssets.smallest | assetFile">
                         <img class="image-crop__image"
                              alt="full frame image thumbnail"
                              ng:src="{{ extremeAssets.smallest | assetFile }}" />
@@ -102,8 +102,8 @@
                                ng:init="extremeAssets = (crop | getExtremeAssets)"
                                ng:click="ctrl.cropSelected(crop)"
                                ui:sref="{crop: crop.id}"
-                               ui:drag-data="{{ctrl.image | asImageAndCropsDragData:crop}}"
-                               ui:drag-image="{{extremeAssets.smallest | assetFile}}">
+                               ui:drag-data="ctrl.image | asImageAndCropsDragData:crop"
+                               ui:drag-image="extremeAssets.smallest | assetFile">
 
                                 <img class="image-crop__image"
                                      alt="cropped image thumbnail"
@@ -193,7 +193,7 @@
                  grid:track-image-location="original"
                  grid:track-image-loadtime
                  gr:image-fade-on-load
-                 ui:drag-data="{{ctrl.image | asImageDragData}}" />
+                 ui:drag-data="ctrl.image | asImageDragData" />
         </div>
 
 
@@ -203,8 +203,8 @@
                class="easel__image-container"
                ng:init="extremeAssets = (ctrl.crop | getExtremeAssets)"
                ui:sref="{crop: ctrl.cropKey}"
-               ui:drag-data="{{ctrl.image | asImageAndCropsDragData:ctrl.crop}}"
-               ui:drag-image="{{extremeAssets.smallest | assetFile}}">
+               ui:drag-data="ctrl.image | asImageAndCropsDragData:ctrl.crop"
+               ui:drag-image="extremeAssets.smallest | assetFile">
                 <!-- TODO: Add tracking to crop -->
                 <img class="easel__image"
                      alt="cropped image"
