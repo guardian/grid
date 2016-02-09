@@ -23,11 +23,11 @@ object Build extends Build {
     Seq(
       riffRaffPackageType := (packageZipTarball in Universal).value,
       riffRaffBuildIdentifier := env("BUILD_NUMBER").getOrElse("DEV"),
-      riffRaffPackageName := s"media-service::${name.value}",
+      riffRaffPackageName := s"media-service::jenkins::${name.value}",
       riffRaffManifestProjectName := riffRaffPackageName.value,
       riffRaffUploadArtifactBucket := Option("riffraff-artifact"),
       riffRaffUploadManifestBucket := Option("riffraff-builds")
-    )
+    ) ++ env("GIT_BRANCH").map(branch => Seq(riffRaffManifestBranch := branch)).getOrElse(Nil)
 
   val commonSettings =
     Seq(
