@@ -157,11 +157,8 @@ object MediaApi extends Controller with ArgoHelpers {
       case Some(source) =>
         val image = source.as[Image]
 
-        val hasExports = ImageResponse.imagePersistenceReasons(image).contains("exports")
-
-        if (hasExports) {
-          Future.successful(ImageCannotBeDeleted)
-        } else {
+        val imageCanBeDeleted = ImageResponse.canBeDeleted(image)
+        if (imageCanBeDeleted) {
           canUserDeleteImage(request, source) map { canDelete =>
             if (canDelete) {
               Notifications.publish(Json.obj("id" -> id), "delete-image")
@@ -170,6 +167,8 @@ object MediaApi extends Controller with ArgoHelpers {
               ImageDeleteForbidden
             }
           }
+        } else {
+          Future.successful(ImageCannotBeDeleted)
         }
 
       case None => Future.successful(ImageNotFound)
