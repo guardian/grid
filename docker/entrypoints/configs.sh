@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-cd /configs/generators
+cd /code/docker/configs/generators
 
 pip install -r requirements.txt
 
