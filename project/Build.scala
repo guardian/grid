@@ -23,6 +23,8 @@ object Build extends Build {
     Seq(
       riffRaffPackageType := (packageZipTarball in Universal).value,
       riffRaffBuildIdentifier := env("BUILD_NUMBER").getOrElse("DEV"),
+      riffRaffPackageName := s"media-service::${name.value}",
+      riffRaffManifestProjectName := riffRaffPackageName.value,
       riffRaffUploadArtifactBucket := Option("riffraff-artifact"),
       riffRaffUploadManifestBucket := Option("riffraff-builds")
     )
