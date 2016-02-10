@@ -46,7 +46,7 @@ Add the output of [`hosts.sh`](./osx/hosts.sh) to `/etc/hosts`.
 
 ## Usage
 ```sh
-cd /path/to/grid/docker
+cd /path/to/grid/
 
 docker-compose up -d
 ```
@@ -65,7 +65,7 @@ Fortunately, [docker-osx-dev](https://github.com/brikis98/docker-osx-dev) exists
 So, usage on OSX becomes:
 
 ```sh
-cd /path/to/grid/docker
+cd /path/to/grid/
 
 eval "$(docker-machine env default)"
 
