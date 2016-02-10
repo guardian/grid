@@ -14,7 +14,7 @@
                 }
             }
         },
-        "s3-watcher": {
+        "media-service-jenkins-s3watcher": {
             "type": "aws-s3",
             "data": {
                 "bucket": "media-service-dist",
@@ -25,7 +25,7 @@
     },
     "recipes": {
         "default": {
-            "actions": [ "s3-watcher.uploadStaticFiles", "lambda.updateLambda" ]
+            "actions": [ "media-service-jenkins-s3watcher.uploadStaticFiles", "lambda.updateLambda" ]
         }
     }
 }
