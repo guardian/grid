@@ -178,6 +178,21 @@
                             {{ctrl.image.data.uploadInfo.filename}}
                         </span>
             </dd>
+
+            <dt ng:if="ctrl.metadata.subjects.length > 0"
+                class="image-info__group--dl__key metadata-line__key image-info__wrap">
+                Subjects
+            </dt>
+            <dd ng:if="ctrl.metadata.subjects.length > 0"
+                class="image-info__group--dl__value metadata-line__info">
+                <span class="metadata-line__info">
+                    <span ng:repeat="subject in ctrl.metadata.subjects">
+                        <a ui:sref="search.results({query: (subject | queryFilter:'subject')})">
+                            {{subject}}
+                        </a>
+                    </span>
+                </span>
+            </dd>
         </dl>
     </div>
     <!-- FIXME: iff has useful metadata -->
