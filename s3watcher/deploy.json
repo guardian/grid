@@ -6,10 +6,12 @@
             "data": {
                 "functions": {
                     "TEST": {
-                        "name": "@TEST_ARN"
+                        "name": "@TEST_ARN",
+                        "filename": "media-service-jenkins-s3watcher.tgz"
                     },
                     "PROD": {
-                        "name": "@PROD_ARN"
+                        "name": "@PROD_ARN",
+                        "filename": "media-service-jenkins-s3watcher.tgz"
                     }
                 }
             }
