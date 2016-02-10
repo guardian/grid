@@ -22,7 +22,7 @@
             <div class="results-toolbar-item results-toolbar-item--static
                         image-results-count">
                 {{ctrl.totalResults | toLocaleString}} matches
-                <button ng:show="ctrl.newImagesCount > 0"
+                <button ng:if="ctrl.newImagesCount > 0"
                         ng:click="ctrl.revealNewImages()"
                         class="image-results-count__new"
                         gr-tooltip="{{ctrl.newImagesCount}} new images as of {{ctrl.lastestTimeMoment}}"
