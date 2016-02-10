@@ -375,6 +375,10 @@ results.controller('SearchResultsCtrl', [
                 // The nonFree state param is the inverse of the free API param
                 free:       $stateParams.nonFree === 'true' ? undefined: true,
                 uploadedBy: $stateParams.uploadedBy,
+                takenSince: $stateParams.takenSince,
+                takenUntil: $stateParams.takenUntil,
+                modifiedSince: $stateParams.modifiedSince,
+                modifiedUntil: $stateParams.modifiedUntil,
                 until:      until,
                 since:      since,
                 offset:     offset,
