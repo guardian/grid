@@ -17,8 +17,6 @@ GET     /login                      controllers.Panda.doLogin(redirectUri: Optio
 GET     /oauthCallback              controllers.Panda.oauthCallback
 GET     /logout                     controllers.Panda.logout
 GET     /session                    controllers.Panda.session
-# Empty page to return to the same domain as the app
-GET     /ok                         controllers.Application.ok
 
 # Management
 GET     /management/healthcheck     com.gu.mediaservice.lib.management.Management.healthCheck

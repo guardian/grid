@@ -29,7 +29,7 @@ class Services(domainRoot: String, ssl: Boolean) {
   val authBaseUri        = baseUri(authHost)
 
 
-  val loginUriTemplate = s"$authBaseUri/login{?redirectUri}"
+  val loginUriTemplate = s"$kahunaBaseUri/login{?redirectUri}"
 
   def baseUri(host: String) = {
     val protocol = if (ssl) "https" else "http"

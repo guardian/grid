@@ -11,7 +11,6 @@ object Config extends CommonPlayAppConfig with CommonPlayAppProperties {
 
   val rootUri: String = services.kahunaBaseUri
   val mediaApiUri: String = services.apiBaseUri
-  val authUri: String = services.authBaseUri
 
   val loginUriTemplate = services.loginUriTemplate
 
