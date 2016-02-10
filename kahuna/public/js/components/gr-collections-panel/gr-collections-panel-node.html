@@ -61,8 +61,12 @@
     </div>
 
     <form class="node__add-child" ng:if="active" ng:submit="ctrl.addChild(childName);">
-        <input class="node__add-child-input" type="text" required ng:model="childName"
-               placeholder="e.g. summer2015…" />
+        <input  gr:auto-focus
+                class="node__add-child-input"
+                type="text"
+                required
+                ng:model="childName"
+                placeholder="e.g. summer2015…" />
 
         <div class="error error--small" ng:if="formError">{{formError}}</div>
 
