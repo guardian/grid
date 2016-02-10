@@ -37,6 +37,7 @@ import {tooltip} from './components/gr-tooltip/gr-tooltip';
 
 // TODO: move to an async config to remove deps on play
 var apiLink = document.querySelector('link[rel="media-api-uri"]');
+var reauthLink = document.querySelector('link[rel="reauth-uri"]');
 var sentryDsnLink = document.querySelector('link[rel="sentry-dsn"]');
 var assetsRootLink = document.querySelector('link[rel="assets"]');
 
@@ -46,7 +47,8 @@ var config = {
     assetsRoot: assetsRootLink && assetsRootLink.getAttribute('href'),
 
     // Static config
-    'pandular.reAuthUri': '/login',
+    // TODO: use link in 4xx response to avoid having to hardcode in HTML page
+    'pandular.reAuthUri': reauthLink && reauthLink.getAttribute('href'),
 
     vndMimeTypes: new Map([
         ['gridImageData',  'application/vnd.mediaservice.image+json'],
