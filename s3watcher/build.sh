@@ -18,7 +18,7 @@ cat deploy.json \
 
 export VERBOSE=true
 
-pushd s3watcher/lambda
+pushd lambda
 
 npm install
 
