@@ -51,6 +51,7 @@ var config = {
     vndMimeTypes: new Map([
         ['gridImageData',  'application/vnd.mediaservice.image+json'],
         ['gridImagesData', 'application/vnd.mediaservice.images+json'],
+        ['gridCropsData',  'application/vnd.mediaservice.crops+json'],
         ['kahunaUri',      'application/vnd.mediaservice.kahuna.uri'],
         // These two are internal hacks to help us identify when we're dragging internal assets
         // They should definitely not be relied on externally.
@@ -306,7 +307,9 @@ kahuna.filter('getExtremeAssets', function() {
     };
 });
 
-// Take an image and return a drag data map of mime-type -> value
+// Take an image and return a drag data map of mime-type -> value.
+// Note: the serialisation is expensive so make sure you only evaluate
+// this filter when necessary.
 kahuna.filter('asImageDragData', ['vndMimeTypes', function(vndMimeTypes) {
     // Annoyingly cannot use Resource#getLink because it returns a
     // Promise and Angular filters are synchronous :-(
@@ -332,16 +335,20 @@ kahuna.filter('asImageDragData', ['vndMimeTypes', function(vndMimeTypes) {
     };
 }]);
 
-// Take an image and return a drag data map of mime-type -> value
-kahuna.filter('asCropsDragData', function() {
+// Take an image and return a drag data map of mime-type -> value.
+// Note: the serialisation is expensive so make sure you only evaluate
+// this filter when necessary.
+kahuna.filter('asCropsDragData', ['vndMimeTypes', function(vndMimeTypes) {
     return function(crops) {
         return {
-            'application/vnd.mediaservice.crops+json': JSON.stringify(crops)
+            [vndMimeTypes.get('gridCropsData')]: JSON.stringify(crops)
         };
     };
-});
+}]);
 
-// Take an image and return a drag data map of mime-type -> value
+// Take an image and return a drag data map of mime-type -> value.
+// Note: the serialisation is expensive so make sure you only evaluate
+// this filter when necessary.
 kahuna.filter('asImageAndCropsDragData', ['$filter',
                                           function($filter) {
     var extend = angular.extend;
@@ -412,10 +419,9 @@ kahuna.directive('uiDragData', function() {
                 // Unwrap jQuery event wrapper to access dataTransfer
                 var e = jqueryEvent.originalEvent;
 
-                // No obvious way to receive an object through an
-                // attribute without making this directive an
-                // isolate scope...
-                var dataMap = JSON.parse(attrs.uiDragData);
+                // Evaluate the attribute value to retrieve a JS object
+                // (done lazily to avoid unnecessary serialisation work)
+                var dataMap = scope.$eval(attrs.uiDragData);
                 Object.keys(dataMap).forEach(function(mimeType) {
                     e.dataTransfer.setData(mimeType, dataMap[mimeType]);
                 });
@@ -431,8 +437,12 @@ kahuna.directive('uiDragImage', function() {
             element.bind('dragstart', function(jqueryEvent) {
                 // Unwrap jQuery event wrapper to access dataTransfer
                 var e = jqueryEvent.originalEvent;
+                // Evaluate the attribute value to retrieve a JS object
+                // (done lazily to avoid unnecessary serialisation work)
+                const src = scope.$eval(attrs.uiDragImage);
+
                 var img = document.createElement('img');
-                img.src = attrs.uiDragImage;
+                img.src = src;
                 e.dataTransfer.setDragImage(img, -10, -10);
             });
         }

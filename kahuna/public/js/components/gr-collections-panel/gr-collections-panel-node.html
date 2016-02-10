@@ -4,7 +4,7 @@
          gr:drop-into-collection="node.data.fullPath">
 
         <div class="node__marker"
-             style="background: {{node.data.cssColour}}"></div>
+             style="background: {{:: node.data.cssColour}}"></div>
 
         <div class="node__spacer" ng:if="node.data.children.length === 0">
             <gr-icon></gr-icon>
@@ -13,7 +13,7 @@
         <button type="button"
                 class="node__toggler clickable"
                 ng:click="ctrl.showChildren = !ctrl.showChildren"
-                ng:show="node.data.children.length > 0">
+                ng:if="node.data.children.length > 0">
 
             <gr-icon ng:show="ctrl.showChildren">expand_more</gr-icon>
             <gr-icon ng:hide="ctrl.showChildren">chevron_right</gr-icon>
@@ -21,7 +21,7 @@
 
         <a class="node__name flex-spacer"
            ui:sref="search.results({query: ctrl.getCollectionQuery(node.data.data.pathId)})">
-            {{node.data.data.description}}
+            {{:: node.data.data.description}}
         </a>
 
 
