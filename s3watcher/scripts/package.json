@@ -4,8 +4,12 @@
   "description": "",
   "dependencies": {
     "aws-sdk": "^2.2.21",
-    "ini": "^1.3.4"
+    "ini": "^1.3.4",
+    "node-riffraff-artefact": "^1.4.0"
   },
   "author": "",
-  "license": "Apache-2.0"
+  "license": "Apache-2.0",
+  "scripts": {
+    "build": "riffraff-artefact"
+  }
 }

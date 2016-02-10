@@ -1,5 +1,5 @@
 {
-  "name": "s3watcher",
+  "name": "media-service::jenkins::s3watcher",
   "version": "0.0.0",
   "description": "",
   "main": "S3Watcher.js",
@@ -20,5 +20,6 @@
     "lint": "jscs S3Watcher.js lib"
   },
   "author": "",
-  "license": "Apache-2.0"
+  "license": "Apache-2.0",
+  "repository": "https://github.com/guardian/grid"
 }
