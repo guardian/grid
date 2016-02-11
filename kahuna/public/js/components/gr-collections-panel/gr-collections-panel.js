@@ -11,13 +11,15 @@ import '../../util/eq';
 import './gr-collections-panel.css!';
 import {getCollection} from '../../search-query/query-syntax';
 import nodeTemplate from './gr-collections-panel-node.html!text';
+import '../../directives/gr-auto-focus';
 
 export var grCollectionsPanel = angular.module('grCollectionsPanel', [
     'kahuna.services.panel',
     collectionsApi.name,
     mediaApi.name,
     'util.rx',
-    'util.eq'
+    'util.eq',
+    'gr.autoFocus'
 ]);
 
 grCollectionsPanel.factory('collectionsTreeState', ['$window', function($window) {
