@@ -209,16 +209,19 @@ button[disabled],
     background-color: #008fc5;
 }
 
-.button-cancel {
+.button-cancel,
+.button-edit {
     background-color: #898989;
 }
 
-.button-cancel:hover {
+.button-cancel:hover,
+.button-edit:hover {
     background-color: #666666;
 }
 
 .button-save,
-.button-cancel {
+.button-cancel,
+.button-edit {
     padding: 0 5px;
     height: 24px;
     color: white;
