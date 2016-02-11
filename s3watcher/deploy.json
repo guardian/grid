@@ -1,17 +1,17 @@
 {
     "defaultStacks": ["media-service"],
     "packages": {
-        "media-service-jenkins-s3watcher": {
+        "s3watcher": {
             "type": "aws-lambda",
             "data": {
                 "functions": {
                     "TEST": {
                         "name": "@TEST_ARN",
-                        "filename": "media-service-jenkins-s3watcher.tgz"
+                        "filename": "s3watcher.tgz"
                     },
                     "PROD": {
                         "name": "@PROD_ARN",
-                        "filename": "media-service-jenkins-s3watcher.tgz"
+                        "filename": "s3watcher.tgz"
                     }
                 }
             }
@@ -19,7 +19,7 @@
     },
     "recipes": {
         "default": {
-            "actions": [ "media-service-jenkins-s3watcher.updateLambda" ]
+            "actions": [ "s3watcher.updateLambda" ]
         }
     }
 }

@@ -1,5 +1,5 @@
 {
-  "name": "media-service-jenkins-s3watcher",
+  "name": "s3watcher",
   "version": "0.0.0",
   "description": "",
   "main": "S3Watcher.js",

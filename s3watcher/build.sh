@@ -13,7 +13,7 @@ if [ -z $PROD_FUNC_NAME ]; then
 fi
 
 cat deploy.json \
-    | jq ".packages.lambda.data.functions.TEST.name |= \"$TEST_FUNC_NAME\" | .packages.lambda.data.functions.PROD.name |= \"$PROD_FUNC_NAME\"" \
+    | jq ".packages.s3watcher.data.functions.TEST.name |= \"$TEST_FUNC_NAME\" | .packages.s3watcher.data.functions.PROD.name |= \"$PROD_FUNC_NAME\"" \
     > lambda/deploy.json
 
 export VERBOSE=true
