@@ -1,7 +1,7 @@
 {
     "defaultStacks": ["media-service"],
     "packages": {
-        "lambda": {
+        "media-service-jenkins-s3watcher": {
             "type": "aws-lambda",
             "data": {
                 "functions": {
@@ -16,7 +16,7 @@
                 }
             }
         },
-        "media-service-jenkins-s3watcher": {
+        "lambda-resource": {
             "type": "aws-s3",
             "data": {
                 "bucket": "media-service-dist",
@@ -27,7 +27,7 @@
     },
     "recipes": {
         "default": {
-            "actions": [ "media-service-jenkins-s3watcher.uploadStaticFiles", "lambda.updateLambda" ]
+            "actions": [ "lambda-resource.uploadStaticFiles", "media-service-jenkins-s3watcher.updateLambda" ]
         }
     }
 }
