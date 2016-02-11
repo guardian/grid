@@ -18,6 +18,8 @@ mappings:
     prefix: media-usage
   - container: collections
     prefix: media-collections
+  - container: auth
+    prefix: media-auth
   - container: imgops
     prefix: media-imgops
     port: 80
