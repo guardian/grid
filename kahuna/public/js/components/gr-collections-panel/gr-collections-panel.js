@@ -142,7 +142,7 @@ grCollectionsPanel.controller('GrNodeCtrl',
     }));
 
     ctrl.isSelected = ctrl.selectedCollections.some(col => {
-        return angular.equals(col, ctrl.node.data.fullPath);
+        return angular.equals(col, ctrl.node.data.data.pathId.split('/'));
     });
 
 }]);
