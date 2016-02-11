@@ -15,19 +15,11 @@
                     }
                 }
             }
-        },
-        "lambda-resource": {
-            "type": "aws-s3",
-            "data": {
-                "bucket": "media-service-dist",
-                "cacheControl": "public, max-age=60",
-                "publicReadAcl": false
-            }
         }
     },
     "recipes": {
         "default": {
-            "actions": [ "lambda-resource.uploadStaticFiles", "media-service-jenkins-s3watcher.updateLambda" ]
+            "actions": [ "media-service-jenkins-s3watcher.updateLambda" ]
         }
     }
 }
