@@ -62,8 +62,8 @@ grCollectionsPanel.factory('collectionsTreeState', ['$window', function($window)
 }]);
 
 grCollectionsPanel.controller('GrCollectionsPanelCtrl', [
-    'collections', 'selectedImages$', 'selectedCollections',
-    function (collections, selectedImages$, selectedCollections) {
+    '$scope', '$timeout', 'collections', 'selectedImages$', 'selectedCollections',
+    function ($scope, $timeout, collections, selectedImages$, selectedCollections) {
 
     const ctrl = this;
 
@@ -72,6 +72,12 @@ grCollectionsPanel.controller('GrCollectionsPanelCtrl', [
 
     collections.getCollections().then(collections => {
         ctrl.collections = collections.data.children;
+        // this will trigger the remember-scroll-top directive to return
+        // users to their previous position on the collections panel
+        // once the tree has been rendered
+        $timeout(() => {
+            $scope.$emit('gr:remember-scroll-top:apply');
+        });
     }, () => {
         // TODO: More informative error handling
         // TODO: Stop error propagating to global error handler

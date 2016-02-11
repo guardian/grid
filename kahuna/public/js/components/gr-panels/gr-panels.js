@@ -3,11 +3,17 @@ import Rx from 'rx';
 import 'rx-dom';
 
 import './gr-panels.css!';
-import '../../services/panel';
-import '../../util/rx';
-import '../../util/eq';
+import {panelService} from '../../services/panel';
+import {rxUtil} from '../../util/rx';
+import {eq} from '../../util/eq';
+import {rememberScrollTop} from '../../directives/gr-remember-scroll-top';
 
-export const panels = angular.module('gr.panels', ['kahuna.services.panel', 'util.rx', 'util.eq']);
+export const panels = angular.module('gr.panels', [
+    panelService.name,
+    rxUtil.name,
+    eq.name,
+    rememberScrollTop.name
+]);
 
 panels.directive('grPanels', [function() {
     return {
@@ -37,7 +43,8 @@ panels.directive('grPanel', ['$timeout', '$window', 'inject$', 'subscribe$',
         scope: {
             panel: '=grPanel',
             left: '=?grLeft',
-            right: '=?grRight'
+            right: '=?grRight',
+            rememberScroll: '=?grRememberScroll'
         },
         template:
             `<div class="gr-panel" ng:class="{'gr-panel--locked': state.locked}">
@@ -47,7 +54,8 @@ panels.directive('grPanel', ['$timeout', '$window', 'inject$', 'subscribe$',
                         'gr-panel__content--left': left,
                         'gr-panel__content--right': right
                      }"
-                     gr:panel-height>
+                     gr:panel-height
+                     gr:remember-scroll-top="rememberScroll">
                     <ng:transclude></ng:transclude>
                 </div>
             </div>`,
