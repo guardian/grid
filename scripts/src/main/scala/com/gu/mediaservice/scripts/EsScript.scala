@@ -47,7 +47,7 @@ object MoveIndex extends EsScript {
   }
 }
 
-object Reindexer extends EsScript {
+object Reindex extends EsScript {
 
   def run(esHost: String, args: List[String]) = {
     object EsClient extends ElasticSearchClient {
@@ -83,8 +83,8 @@ object Reindexer extends EsScript {
     }
 
     val imageType = "image"
-    val scrollTime = new TimeValue(5 * 60 * 1000) // 10 minutes in milliseconds
-    val scrollSize = 200
+    val scrollTime = new TimeValue(5 * 60 * 1000) // 5 minutes in milliseconds
+    val scrollSize = 500
     val currentIndex = EsClient.currentIndex
     val newIndex = EsClient.nextIndex
 
@@ -96,8 +96,7 @@ object Reindexer extends EsScript {
       def _scroll(scroll: SearchResponse, done: Long = 0): Future[SearchResponse] = {
         val client = esClient.client
         val doing = done + scrollSize
-        System.out.println(
-        scrollPercentage(scroll, doing, done))
+        System.out.println(scrollPercentage(scroll, doing, done))
 
         def bulkFromHits(hits: Array[SearchHit]): BulkRequestBuilder = {
           val bulkRequests : Array[IndexRequestBuilder] = hits.map { hit =>
@@ -147,7 +146,6 @@ object Reindexer extends EsScript {
         println(s"Reindexing documents modified since: ${from.toString}")
       }
 
-      EsClient.assignAliasTo(newIndex)
       val startTime = DateTime.now()
       println(s"Reindex started at: $startTime")
       println(s"Reindexing from: ${EsClient.currentIndex} to: $newIndex")
@@ -156,6 +154,9 @@ object Reindexer extends EsScript {
         val changedDocuments: Long = query(Option(startTime)).execute.actionGet.getHits.getTotalHits
         println(s"$changedDocuments")
         if(changedDocuments > 0) {
+          println(s"Adding ${EsClient.imagesAlias} to $newIndex")
+          EsClient.assignAliasTo(newIndex)
+
           println(s"Reindexing changes since start time: $startTime")
           val recurseResponse = reindex(Option(startTime), esClient)
           recurseResponse
@@ -167,7 +168,7 @@ object Reindexer extends EsScript {
   }
 
   def usageError: Nothing = {
-    System.err.println("Usage: UpdateMapping <ES_HOST>")
+    System.err.println("Usage: Reindex error <ES_HOST>")
     sys.exit(1)
   }
 }

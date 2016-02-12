@@ -5,7 +5,7 @@ object Main extends App {
 
   args.toList match {
     case "LoadFromS3Bucket" :: as => LoadFromS3Bucket(as)
-    case "Reindex"          :: as => Reindexer(as)
+    case "Reindex"          :: as => Reindex(as)
     case "MoveIndex"        :: as => MoveIndex(as)
     case "UpdateMapping"    :: as => UpdateMapping(as)
     case "UpdateSettings"   :: as => UpdateSettings(as)
