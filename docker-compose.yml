@@ -25,80 +25,116 @@ services:
       - "./docker/configs/elasticsearch:/usr/share/elasticsearch/config"
     restart: unless-stopped
 
-  # Base container for sbt-based services.
-  sbt:
-    build:
-      context: ./docker
-      dockerfile: Dockerfile-sbt
-    expose:
-      - "9000"
-    entrypoint: /entrypoint.sh
-    volumes:
-      - ./:/code
-      - ./docker/entrypoints/sbt.sh:/entrypoint.sh
-      - configs-vol:/configs
-      - ivy-vol:/root/.ivy2
-      - sbt-vol:/root/.sbt
-    restart: unless-stopped
-
   media-api:
     environment:
       APP: media-api
     extends:
+      file: ./docker/docker-compose-sbt.yml
       service: sbt
     depends_on:
       - configs
       - elasticsearch
+    volumes:
+      - configs-vol:/configs
+      - ivy-vol:/root/.ivy2
+      - sbt-vol:/root/.sbt
   thrall:
     environment:
       APP: thrall
     extends:
+      file: ./docker/docker-compose-sbt.yml
       service: sbt
     depends_on:
       - configs
       - elasticsearch
+    volumes:
+      - configs-vol:/configs
+      - ivy-vol:/root/.ivy2
+      - sbt-vol:/root/.sbt
   image-loader:
     environment:
       APP: image-loader
     extends:
+      file: ./docker/docker-compose-sbt.yml
       service: sbt
     depends_on:
       - configs
+    volumes:
+      - configs-vol:/configs
+      - ivy-vol:/root/.ivy2
+      - sbt-vol:/root/.sbt
   kahuna:
     environment:
       APP: kahuna
     extends:
+      file: ./docker/docker-compose-sbt.yml
       service: sbt
     depends_on:
       - configs
+    volumes:
+      - configs-vol:/configs
+      - ivy-vol:/root/.ivy2
+      - sbt-vol:/root/.sbt
   cropper:
     environment:
       APP: cropper
     extends:
+      file: ./docker/docker-compose-sbt.yml
       service: sbt
     depends_on:
       - configs
+    volumes:
+      - configs-vol:/configs
+      - ivy-vol:/root/.ivy2
+      - sbt-vol:/root/.sbt
   metadata-editor:
     environment:
       APP: metadata-editor
     extends:
+      file: ./docker/docker-compose-sbt.yml
       service: sbt
     depends_on:
       - configs
+    volumes:
+      - configs-vol:/configs
+      - ivy-vol:/root/.ivy2
+      - sbt-vol:/root/.sbt
   usage:
     environment:
       APP: usage
     extends:
+      file: ./docker/docker-compose-sbt.yml
       service: sbt
     depends_on:
       - configs
+    volumes:
+      - configs-vol:/configs
+      - ivy-vol:/root/.ivy2
+      - sbt-vol:/root/.sbt
   collections:
     environment:
       APP: collections
     extends:
+      file: ./docker/docker-compose-sbt.yml
       service: sbt
     depends_on:
       - configs
+    volumes:
+      - configs-vol:/configs
+      - ivy-vol:/root/.ivy2
+      - sbt-vol:/root/.sbt
+  auth:
+    environment:
+      APP: auth
+    extends:
+      file: ./docker/docker-compose-sbt.yml
+      service: sbt
+    depends_on:
+      - configs
+    volumes:
+      - configs-vol:/configs
+      - ivy-vol:/root/.ivy2
+      - sbt-vol:/root/.sbt
 
   imgops:
     build:
@@ -128,6 +164,7 @@ services:
       - metadata-editor
       - usage
       - collections
+      - auth
       - imgops
     entrypoint: /entrypoint.sh
     volumes:
