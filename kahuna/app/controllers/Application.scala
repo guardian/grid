@@ -12,6 +12,7 @@ object Application extends Controller {
     val returnUri = Config.rootUri + okPath
     Ok(views.html.main(
       Config.mediaApiUri,
+      Config.authUri,
       s"${Config.authUri}/login?redirectUri=$returnUri",
       Config.watUri,
       Config.sentryDsn))
