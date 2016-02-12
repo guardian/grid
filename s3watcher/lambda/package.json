@@ -11,9 +11,9 @@
   },
   "devDependencies": {
     "aws-sdk": "^2.2.21",
-    "node-riffraff-artefact": "^1.5.1",
     "jscs": "^1.13.0",
-    "node-lambda": "^0.7.1"
+    "node-lambda": "^0.7.1",
+    "node-riffraff-artefact": "^1.6.2"
   },
   "scripts": {
     "local": "node-lambda run -h S3Watcher.handler -j ../event.json",
@@ -23,5 +23,7 @@
   },
   "author": "",
   "license": "Apache-2.0",
-  "repository": "https://github.com/guardian/grid"
+  "repository": "https://github.com/guardian/grid",
+  "isAwsLambda": true,
+  "cloudformation": false
 }
