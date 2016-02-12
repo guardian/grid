@@ -6,6 +6,7 @@
             gr:track-click-data="{ 'Action': 'Show Hide' }">
         <gr-icon>event</gr-icon>
         <div class="gu-date-range__display--value">
+            {{ctrl.guSelectedField}}
             <span ng:if="ctrl.guDisplayStartDate !== ctrl.guAnyTimeText && !ctrl.guDisplayEndDate">from </span>
             {{ctrl.guDisplayStartDate}}
             <span ng:if="ctrl.guDisplayEndDate">to {{ctrl.guDisplayEndDate}}</span>
