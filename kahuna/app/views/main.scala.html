@@ -1,4 +1,5 @@
 @(mediaApiUri: String,
+  authApiUri: String,
   reauthUri: String,
   watUri: Option[String],
   sentryDsn: Option[String])
@@ -9,6 +10,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
 
     <title ui:title ui:title-suffix="the grid">the grid</title>
+
+    <!-- preconnect to core APIs ahead of JS making the requests -->
+    <link rel="preconnect" href="@mediaApiUri"/>
+    <link rel="preconnect" href="@authApiUri"/>
 
     <link rel="shortcut icon" type="image/png" href="@routes.Assets.at("images/grid-favicon-32.png")"/>
     <link rel="assets" href="@routes.Assets.at("")"/>
