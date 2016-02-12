@@ -7,11 +7,11 @@
                 "functions": {
                     "TEST": {
                         "name": "@TEST_ARN",
-                        "filename": "s3watcher.tgz"
+                        "filename": "s3watcher.zip"
                     },
                     "PROD": {
                         "name": "@PROD_ARN",
-                        "filename": "s3watcher.tgz"
+                        "filename": "s3watcher.zip"
                     }
                 }
             }
