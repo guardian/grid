@@ -103,7 +103,7 @@ query.controller('SearchQueryCtrl',
 
     // Init and apply date-related changes in $stateParams to ctrl.dateFilter
     $scope.$watchCollection(() => $stateParams, () => {
-        switch($stateParams.dateField) {
+        switch ($stateParams.dateField) {
         case 'taken':
             ctrl.dateFilter.since = $stateParams.takenSince;
             ctrl.dateFilter.until = $stateParams.takenUntil;
