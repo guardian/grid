@@ -135,6 +135,11 @@ usageRightsEditor.controller(
         const data = ctrl.category.value ?
             angular.extend({}, ctrl.model, { category: ctrl.category.value }) : {};
 
+        // unchecking restrictions will remove restriction on save
+        if (! ctrl.showRestrictions && data.restrictions) {
+            delete data.restrictions;
+        }
+
         save(data).
             catch(uiError).
             finally(saveComplete);
