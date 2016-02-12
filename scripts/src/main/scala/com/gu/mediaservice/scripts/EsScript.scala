@@ -2,7 +2,7 @@ package com.gu.mediaservice.scripts
 
 import org.elasticsearch.action.admin.indices.close.CloseIndexRequest
 import org.elasticsearch.action.admin.indices.open.OpenIndexRequest
-import org.elasticsearch.action.bulk.{BulkRequestBuilder}
+import org.elasticsearch.action.bulk.BulkRequestBuilder
 import org.elasticsearch.action.index.IndexRequestBuilder
 import org.elasticsearch.action.search.{SearchRequestBuilder, SearchResponse}
 import org.elasticsearch.search.SearchHit
@@ -80,6 +80,8 @@ object Reindex extends EsScript {
       if(esClient.getCurrentIndices.isEmpty) raise("no index with the 'write' alias exists")
       if((esClient.getCurrentIndices.length == 2) && from.isEmpty)
         raise("there are two indices with 'write' alias, check your properties file or use http://localhost:9200/_plugin/head/ ")
+      if(from.exists(_.isAfter(DateTime.now())))
+        raise("DateTime parameter 'from' must be earlier than the current time" )
     }
 
     val imageType = "image"
@@ -95,8 +97,8 @@ object Reindex extends EsScript {
     def reindex(from: Option[DateTime], esClient: ElasticSearchClient) : Future[SearchResponse] = {
       def _scroll(scroll: SearchResponse, done: Long = 0): Future[SearchResponse] = {
         val client = esClient.client
-        val doing = done + scrollSize
-        System.out.println(scrollPercentage(scroll, doing, done))
+        val currentBatch = done + scrollSize
+        System.out.println(scrollPercentage(scroll, currentBatch, done))
 
         def bulkFromHits(hits: Array[SearchHit]): BulkRequestBuilder = {
           val bulkRequests : Array[IndexRequestBuilder] = hits.map { hit =>
@@ -106,11 +108,11 @@ object Reindex extends EsScript {
           bulkRequests map { bulk.add }
           bulk
         }
-        def scrollPercentage(scroll: SearchResponse, doing: Long, done: Long): String = {
+        def scrollPercentage(scroll: SearchResponse, currentBatch: Long, done: Long): String = {
           val total = scroll.getHits.totalHits
           // roughly accurate as we're using done, which is relative to scrollSize, rather than the actual number of docs in the new index
           val percentage = (done.toFloat / total) * 100
-          s"Reindexing $doing of $total ($percentage%)"
+          s"Reindexing $currentBatch of $total ($percentage%)"
         }
 
 
@@ -118,7 +120,7 @@ object Reindex extends EsScript {
         if(hits.nonEmpty) {
           bulkFromHits(hits).execute.actionGet
           val scrollResponse = client.prepareSearchScroll(scroll.getScrollId).setScroll(scrollTime).execute.actionGet
-          _scroll(scrollResponse, doing)
+          _scroll(scrollResponse, currentBatch)
         } else {
           println("No more results found")
           Future.successful[SearchResponse](scroll)
@@ -139,7 +141,7 @@ object Reindex extends EsScript {
           .setQuery(queryType)
       }
 
-
+      // if no 'from' time parameter is passed, create a new index
       if(from.isEmpty) {
         EsClient.createIndex(newIndex)
       } else {
