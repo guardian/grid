@@ -18,5 +18,7 @@ tmux split-window "sbt 'project usage'        'run 9009'"
 tmux select-layout even-horizontal
 tmux split-window "sbt 'project metadata-editor' 'run 9007'"
 tmux select-layout even-horizontal
+tmux split-window "sbt 'project auth' 'run 9011'"
+tmux select-layout even-horizontal
 
 /bin/bash -c "cd elasticsearch; ./dev-start.sh"
