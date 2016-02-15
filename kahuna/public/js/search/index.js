@@ -12,7 +12,7 @@ import '../preview/image';
 import '../lib/data-structure/list-factory';
 import '../lib/data-structure/ordered-set-factory';
 import '../components/gr-top-bar/gr-top-bar';
-import '../components/gr-panel/gr-panel';
+import '../components/gr-info-panel/gr-info-panel';
 import '../components/gr-collections-panel/gr-collections-panel';
 import '../components/gr-keyboard-shortcut/gr-keyboard-shortcut';
 
@@ -20,7 +20,7 @@ import '../components/gr-panels/gr-panels';
 
 import searchTemplate        from './view.html!text';
 import searchResultsTemplate from './results.html!text';
-import panelTemplate        from '../components/gr-panel/gr-panel.html!text';
+import panelTemplate        from '../components/gr-info-panel/gr-info-panel.html!text';
 import collectionsPanelTemplate from
     '../components/gr-collections-panel/gr-collections-panel.html!text';
 
@@ -35,7 +35,7 @@ export var search = angular.module('kahuna.search', [
     'gr.topBar',
     'gr.panels',
     'gr.keyboardShortcut',
-    'grPanel',
+    'grInfoPanel',
     'grCollectionsPanel',
     'ui.router',
     storage.name
@@ -194,7 +194,7 @@ search.config(['$stateProvider', '$urlMatcherFactoryProvider',
             },
             infoPanel: {
                 template: panelTemplate,
-                controller: 'GrPanel',
+                controller: 'GrInfoPanelCtrl',
                 controllerAs: 'ctrl',
                 resolve: {
                     selectedImagesList$: ['selectedImages$', function(selectedImages$) {
