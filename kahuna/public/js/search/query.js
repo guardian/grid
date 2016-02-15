@@ -104,7 +104,7 @@ query.controller('SearchQueryCtrl',
     });
 
     function resetQueryAndFocus() {
-        ctrl.filter.query = '';
+        ctrl.filter.query = undefined;
         $scope.$broadcast('search:focus-query');
     }
 }]);
