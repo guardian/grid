@@ -26,11 +26,14 @@ guDateRange.controller('GuDateRangeCtrl', [function () {
         ctrl.guDisplayEndDate = angular.isDefined(ctrl.guEndDate) ?
             moment(ctrl.guEndDate).format(ctrl.guDateFormat) :
             undefined;
+
+        ctrl.guDisplayField = ctrl.guSelectedField;
     };
 
     ctrl.setDateRange = function (start, end) {
         ctrl.guStartDate = getDateISOString(start);
         ctrl.guEndDate = getDateISOString(end);
+        ctrl.guSelectedField = ctrl.guDisplayField;
     };
 
     ctrl.closeOverlay = () => {
@@ -52,6 +55,8 @@ guDateRange.directive('guDateRange', [function () {
             guStartDate: '=',
             guEndDate: '=',
             guPresetDates: '=',
+            guSelectedField: '=',
+            guFields: '=',
             guDateFormat: '=?',
             guAnyTimeText: '=?',
             guFirstDay: '=?'

@@ -35,6 +35,10 @@ query.controller('SearchQueryCtrl',
         uploadedByMe: false
     };
 
+    ctrl.dateFilter = {
+        // filled in by the watcher below
+    };
+
     ctrl.resetQueryAndFocus = resetQueryAndFocus;
 
     // Note that this correctly uses local datetime and returns
@@ -54,8 +58,21 @@ query.controller('SearchQueryCtrl',
         {label: 'Past year',     value: pastYear}
     ];
 
-    Object.keys($stateParams)
-          .forEach(setAndWatchParam);
+    ctrl.filterDateFieldsOptions = [
+        {label: 'Upload time',   name: 'uploaded'}, // value: undefined
+        {label: 'Date taken',    name: 'taken',        value: 'taken'},
+        {label: 'Last modified', name: 'modified',     value: 'modified'}
+    ];
+
+    const dateFilterParams = [
+        'dateField', 'since', 'until', 'takenSince', 'takenUntil',
+        'modifiedSince', 'modifiedUntil'
+    ];
+
+    Object.keys($stateParams).
+        // Exclude date-related filters, managed separately in dateFilter
+        filter(key => dateFilterParams.indexOf(key) === -1).
+        forEach(setAndWatchParam);
 
     // URL parameters are not decoded when taken out of the params.
     // Might be fixed with: https://github.com/angular-ui/ui-router/issues/1759
@@ -84,14 +101,49 @@ query.controller('SearchQueryCtrl',
         }));
     }
 
+    // Init and apply date-related changes in $stateParams to ctrl.dateFilter
+    $scope.$watchCollection(() => $stateParams, () => {
+        switch ($stateParams.dateField) {
+        case 'taken':
+            ctrl.dateFilter.since = $stateParams.takenSince;
+            ctrl.dateFilter.until = $stateParams.takenUntil;
+            ctrl.dateFilter.field = 'taken';
+            break;
+        case 'modified':
+            ctrl.dateFilter.since = $stateParams.modifiedSince;
+            ctrl.dateFilter.until = $stateParams.modifiedUntil;
+            ctrl.dateFilter.field = 'modified';
+            break;
+        default: // uploaded (default so represented as `undefined`)
+            ctrl.dateFilter.since = $stateParams.since;
+            ctrl.dateFilter.until = $stateParams.until;
+            ctrl.dateFilter.field = undefined;
+            break;
+        }
+    });
+
+
     $scope.$watchCollection(() => ctrl.filter, onValChange(filter => {
         filter.uploadedBy = filter.uploadedByMe ? ctrl.user.email : undefined;
         $state.go('search.results', filter);
     }));
 
-     $scope.$watch(() => ctrl.ordering.orderBy, onValChange(newVal => {
-         $state.go('search.results', {orderBy: newVal});
-     }));
+    $scope.$watch(() => ctrl.ordering.orderBy, onValChange(newVal => {
+        $state.go('search.results', {orderBy: newVal});
+    }));
+
+    $scope.$watchCollection(() => ctrl.dateFilter, ({field, since, until}) => {
+        // Translate dateFilter to actual state and query params
+        $state.go('search.results', {
+            since:         field === undefined  ? since : null,
+            until:         field === undefined  ? until : null,
+            takenSince:    field === 'taken'    ? since : null,
+            takenUntil:    field === 'taken'    ? until : null,
+            modifiedSince: field === 'modified' ? since : null,
+            modifiedUntil: field === 'modified' ? until : null,
+            dateField:     field
+        });
+    });
 
     // we can't user dynamic values in the ng:true-value see:
     // https://docs.angularjs.org/error/ngModel/constexpr

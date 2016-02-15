@@ -6,6 +6,7 @@
             gr:track-click-data="{ 'Action': 'Show Hide' }">
         <gr-icon>event</gr-icon>
         <div class="gu-date-range__display--value">
+            {{ctrl.guSelectedField}}
             <span ng:if="ctrl.guDisplayStartDate !== ctrl.guAnyTimeText && !ctrl.guDisplayEndDate">from </span>
             {{ctrl.guDisplayStartDate}}
             <span ng:if="ctrl.guDisplayEndDate">to {{ctrl.guDisplayEndDate}}</span>
@@ -18,8 +19,28 @@
     </button>
 
     <div class="gu-date-range__overlay search__overlay" ng:show="ctrl.showOverlay">
+        <h2 class="gu-date-range__overlay__title search__overlay__title">Field</h2>
+        <div class="gu-date-range__overlay__fieldset">
+            <div class="radio-list">
+                <div ng:repeat="field in ctrl.guFields track by field.name"
+                     class="radio-list__item">
+                    <input type="radio"
+                           id="gu-date-range__field__{{:: field.name}}"
+                           class="radio-list__circle"
+                           name="field-uploaded"
+                           ng:value=":: field.value"
+                           ng:model="ctrl.guDisplayField">
+                    <label for="gu-date-range__field__{{:: field.name}}" class="radio-list__label"
+                           ng:class="{'radio-list--selected': ctrl.guDisplayField === field.value}">
+                        <div class="radio-list__selection-state"></div>
+                        <div class="radio-list__label-value">{{:: field.label}}</div>
+                    </label>
+                </div>
+            </div>
+        </div>
+
         <h2 class="gu-date-range__overlay__title search__overlay__title">Presets</h2>
-        <div class="gu-date-range__overlay__presets">
+        <div class="gu-date-range__overlay__fieldset">
             <button type="button"
                     class="gu-date-range__overlay__preset__button button"
                     ng:repeat="presetDate in ctrl.guPresetDates"
@@ -31,7 +52,6 @@
         </div>
 
         <div class="gu-date-range__overlay__pikaday">
-            <h2 class="gu-date-range__overlay__title search__overlay__title">Custom date range</h2>
             <span class="gu-date-range__overlay__pikaday__wrapper">
                 <h2 class="gu-date-range__overlay__title search__overlay__title">From</h2>
                 <div class="gu-date-range__overlay__pikaday__container gu-date-range__overlay__pikaday--start"/>

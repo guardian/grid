@@ -56,12 +56,14 @@
             </li>
 
             <li class="search__modifier-item">
-            <gu-date-range class="search__date"
-                gu:start-date="searchQuery.filter.since"
-                gu:end-date="searchQuery.filter.until"
-                gu:preset-dates="searchQuery.sinceOptions"
-                gu:first-day="1">
-            </gu-date-range>
+                <gu-date-range class="search__date"
+                               gu:start-date="searchQuery.dateFilter.since"
+                               gu:end-date="searchQuery.dateFilter.until"
+                               gu:preset-dates="searchQuery.sinceOptions"
+                               gu:selected-field="searchQuery.dateFilter.field"
+                               gu:fields="searchQuery.filterDateFieldsOptions"
+                               gu:first-day="1">
+                </gu-date-range>
             </li>
         </ul>
     </div>
