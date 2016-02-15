@@ -31,7 +31,7 @@ export function getCollectionsFromQuery(q) {
     const query = querySplit(q);
     const collections =  query ? query
         .filter(bit => bit.charAt(0) === '~')
-        .map(path => path.replace(/('|"|~)/g, '').split('/'))
+        .map(path => path.replace(/('|"|~)/g, ''))
         : [];
 
     return collections;
