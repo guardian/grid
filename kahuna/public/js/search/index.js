@@ -267,13 +267,15 @@ search.run(['$rootScope', '$state', function($rootScope, $state) {
             $state.go('search.results', null, {reload: true});
         }
     });
-    $rootScope.$on('$stateChangeStart', (_, toState, toParams) => {
+    $rootScope.$on('$stateChangeStart', (_, toState, toParams, fromState, fromParams) => {
         if (toState.name === 'search.results') {
-            //if moving to a collection, sorts images by time added to a collection
+            //If moving to a collection, sorts images by time added to a collection by default
+            //allows sorting by newest first if set by user.
             if (toParams.query && toParams.query.indexOf('~') === 0) {
-                toParams.orderBy = 'dateAddedToCollection';
+                const sameQuery = toParams.query === fromParams.query;
+                toParams.orderBy = sameQuery ? toParams.orderBy : 'dateAddedToCollection';
             }
-            //if moving from a collection to a non-collection, reset order to default
+            //If moving from a collection to a non-collection, reset order to default.
             else if (toParams.orderBy === 'dateAddedToCollection') {
                 delete toParams.orderBy;
             }

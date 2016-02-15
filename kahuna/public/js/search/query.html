@@ -77,8 +77,7 @@
         <ul class="search__modifier order__option"
             ng:class="orderShown ? 'order__option--show' : 'order__option--hide'">
             <li class="search__modifier-item radio-list">
-                <div ng:if="searchQuery.ordering.orderBy !== 'dateAddedToCollection'"
-                     class="radio-list__item">
+                <div class="radio-list__item">
                     <input type="radio"
                            id="sort-direction__desc"
                            class="radio-list__circle"
@@ -91,7 +90,7 @@
                         <div class="radio-list__label-value">Newest first</div>
                     </label>
                 </div>
-                <div ng:if="searchQuery.ordering.orderBy !== 'dateAddedToCollection'"
+                <div ng:if="!searchQuery.collectionSearch"
                      class="radio-list__item">
                     <input type="radio"
                            id="sort-direction__asc"
@@ -105,7 +104,7 @@
                         <div class="radio-list__label-value">Oldest first</div>
                     </label>
                 </div>
-                <div ng:if="searchQuery.ordering.orderBy === 'dateAddedToCollection'" class="radio-list__item">
+                <div ng:if="searchQuery.collectionSearch" class="radio-list__item">
                     <input type="radio"
                            id="sort-direction__added-to-collection"
                            class="radio-list__circle"
