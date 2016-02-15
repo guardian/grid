@@ -26,7 +26,20 @@ object Mappings {
 
   val dynamicObj = Json.obj("type" -> "object", "dynamic" -> true)
 
-  def nonDynamicObj(obj: (String, JsValueWrapper)*) = Json.obj("type" -> "object", "dynamic" -> "strict", "properties" -> Json.obj(obj:_*))
+  val nestedType = Json.obj(
+    "type" -> "nested",
+    "include_in_parent" -> true
+  )
+
+  def nonDynamicObjWithAttrs(obj: (String, JsValueWrapper)*)(attrs: JsObject = Json.obj()): JsObject =
+    nonDynamicObj(obj:_*) ++ attrs
+
+  def nonDynamicObj(obj: (String, JsValueWrapper)*) =
+    Json.obj(
+      "type" -> "object",
+      "dynamic" -> "strict",
+      "properties" -> Json.obj(obj:_*)
+    )
 
   def nonAnalysedList(indexName: String) = Json.obj("type" -> "string", "index" -> "not_analyzed", "index_name" -> indexName)
 
@@ -105,10 +118,11 @@ object Mappings {
       "assets" -> assetMapping
     )
 
-  val actionDataMapping = nonDynamicObj(
-    "author" -> nonAnalyzedString,
-    "date" -> dateFormat
-  )
+  val actionDataMapping =
+    nonDynamicObj(
+      "author" -> nonAnalyzedString,
+      "date" -> dateFormat
+    )
 
   val collectionMapping = withIndexName("collection", nonDynamicObj(
     "path" -> nonAnalysedList("collectionPath"),
@@ -170,7 +184,7 @@ object Mappings {
     )
 
   val usagesMapping =
-    nonDynamicObj(
+    nonDynamicObjWithAttrs(
       "id"           -> nonAnalyzedString,
       "title"        -> sStemmerAnalysedString,
       "references"   -> usageReference,
@@ -182,7 +196,7 @@ object Mappings {
       "lastModified" -> dateFormat,
       "printUsageMetadata" -> printUsageMetadata,
       "digitalUsageMetadata" -> digitalUsageMetadata
-    )
+    )(nestedType)
 
   val imageMapping: String =
     Json.stringify(Json.obj(

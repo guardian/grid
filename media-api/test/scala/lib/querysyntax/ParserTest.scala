@@ -88,17 +88,6 @@ class ParserTest extends FunSpec with Matchers with BeforeAndAfter with ImageFie
 
     describe("exact") {
 
-      // it("should match exact ISO datetime") {
-      //   Parser.run("date:2014-01-01T01:23:45Z") should be (List(
-      //     Match(SingleField("uploaded"),
-      //       DateRange(
-      //         new DateTime("2014-01-01T01:23:45Z"),
-      //         new DateTime("2014-01-01T01:23:45Z")
-      //       )
-      //     ))
-      //   )
-      // }
-
       it("should match year") {
         Parser.run("date:2014") should be (List(
           Match(uploadTimeField,
@@ -246,39 +235,35 @@ class ParserTest extends FunSpec with Matchers with BeforeAndAfter with ImageFie
     }
 
 
-    describe("range") {
+    describe("date constraint") {
 
-    //   it("should match date range with --") {
-    //     Parser.run("date:2012--2014") should be (List(
-    //       Match(uploadTimeField,
-    //         DateRange(
-    //           new DateTime("2012-01-01T00:00:00.000Z"),
-    //           new DateTime("2014-12-31T23:59:59.999Z")
-    //         )
-    //       ))
-    //     )
-    //   }
+      it("should match date constraint") {
+        Parser.run("<date:2012-01-01") should be (List(
+          Match(SingleField("uploadTime"),
+            DateRange(
+              new DateTime("1970-01-01T01:00:00.000+01:00"),
+              new DateTime("2012-01-01T00:00:00.000Z")
+            )
+          ))
+        )
+      }
 
-    //   it("should match date range with 'to'") {
-    //     Parser.run("date:2012.to.2014") should be (List(
-    //       Match(uploadTimeField,
-    //         DateRange(
-    //           new DateTime("2012-01-01T00:00:00.000Z"),
-    //           new DateTime("2014-12-31T23:59:59.999Z")
-    //         )
-    //       ))
-    //     )
-    //   }
+      describe("nested") {
 
-      // TODO: date:12:13 to 12:18 (today)
-      // TODO: date:before.1.january.2012
-      // TODO: date:after.1.january.2012
-      // TODO: date:<1.january.2012
-      // TODO: date:>1.january.2012
+        it("should match date constraint with parent field") {
+          Parser.run("usage@<added:2012-01-01") should be (List(
+            Nested(SingleField("usage"), SingleField("dateAdded"),
+              DateRange(
+                new DateTime("1970-01-01T01:00:00.000+01:00"),
+                new DateTime("2012-01-01T00:00:00.000Z")
+              )
+            ))
+          )
+        }
+
+      }
 
     }
-
-
 
     describe("shortcut and facets") {
 
