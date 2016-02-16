@@ -13,7 +13,7 @@
     "aws-sdk": "^2.2.21",
     "jscs": "^1.13.0",
     "node-lambda": "^0.7.1",
-    "node-riffraff-artefact": "^1.6.2"
+    "node-riffraff-artefact": "^1.6.5"
   },
   "scripts": {
     "local": "node-lambda run -h S3Watcher.handler -j ../event.json",
