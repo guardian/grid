@@ -17,22 +17,17 @@ labeller.controller('LabellerCtrl', [
     '$window',
     '$timeout',
     'labelService',
-    'onValChange',
-
    function($rootScope,
             $scope,
             $window,
             $timeout,
-            labelService,
-            onValChange) {
+            labelService) {
 
     var ctrl = this;
 
-    $scope.$watch(() => ctrl.image.data.userMetadata.data.labels, onValChange(newLabels => {
+    $scope.$watch(() => ctrl.image.data.userMetadata.data.labels, newLabels => {
         ctrl.labels = newLabels;
-    }));
-
-    ctrl.labels = ctrl.image.data.userMetadata.data.labels;
+    });
 
     function saveFailed() {
         $window.alert('Something went wrong when saving, please try again!');
