@@ -4,7 +4,6 @@ import Rx from 'rx';
 import 'rx-dom';
 import Immutable from 'immutable';
 import {getCollectionsFromQuery} from '../search-query/query-syntax';
-import {storage} from '../util/storage';
 
 import './query';
 import './results';
@@ -37,8 +36,7 @@ export var search = angular.module('kahuna.search', [
     'gr.keyboardShortcut',
     'grInfoPanel',
     'grCollectionsPanel',
-    'ui.router',
-    storage.name
+    'ui.router'
 ]);
 
 // TODO: add a resolver here so that if we error (e.g. 401) we don't keep trying
@@ -77,9 +75,9 @@ search.config(['$stateProvider', '$urlMatcherFactoryProvider',
         controllerAs: 'ctrl',
         controller: [
             '$scope', '$window', 'panels', 'shortcutKeys', 'keyboardShortcut',
-            'panelService', 'storage',
+            'panelService',
             function($scope, $window, panels, shortcutKeys, keyboardShortcut,
-                     panelService, storage) {
+                     panelService) {
 
             const ctrl = this;
             ctrl.collectionsPanel = panels.collectionsPanel;
@@ -98,25 +96,13 @@ search.config(['$stateProvider', '$urlMatcherFactoryProvider',
                 description: 'Toggle collections panel',
                 callback: panels.collectionsPanel.toggleHidden
             });
-
-            keyboardShortcut.bindTo($scope).add({
-                combo: shortcutKeys.get('showCollections'),
-                description: 'Toggle collections',
-                callback: () => {
-                    const toggled = !storage.getJs('showCollectionsPanel');
-                    const using = toggled ? 'start' : 'stop';
-                    storage.setJs('showCollectionsPanel', toggled);
-                    $window.alert(`Now refresh to ${using} using collections`);
-                }
-            });
         }],
         resolve: {
             shortcutKeys: [function() {
                 // keep the shortcut keys here to stop overriding
                 return new Map([
                     ['metadataPanel', 'm'],
-                    ['collectionsPanel', 'l'],
-                    ['showCollections', 'ctrl+alt+c']
+                    ['collectionsPanel', 'l']
                 ]);
             }],
             panels: ['panelService', function(panelService) {
