@@ -8,7 +8,6 @@
 
 .gr-panel {
     box-sizing: border-box;
-    background: #444;
     z-index: 3;
     position: fixed;
 }
@@ -23,7 +22,6 @@
     position: fixed;
     background: #444;
     overflow: auto;
-    width: 290px;
     transition: width 0.2s;
 }
 .gr-panel__content--hidden {
