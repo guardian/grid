@@ -132,7 +132,7 @@ query.controller('SearchQueryCtrl',
         $state.go('search.results', {orderBy: newVal});
     }));
 
-    $scope.$watchCollection(() => ctrl.dateFilter, ({field, since, until}) => {
+    $scope.$watchCollection(() => ctrl.dateFilter, onValChange(({field, since, until}) => {
         // Translate dateFilter to actual state and query params
         $state.go('search.results', {
             since:         field === undefined  ? since : null,
@@ -143,7 +143,7 @@ query.controller('SearchQueryCtrl',
             modifiedUntil: field === 'modified' ? until : null,
             dateField:     field
         });
-    });
+    }));
 
     // we can't user dynamic values in the ng:true-value see:
     // https://docs.angularjs.org/error/ngModel/constexpr
