@@ -2,7 +2,7 @@ import angular from 'angular';
 import Rx from 'rx';
 import 'angular-bootstrap';
 
-import './gr-panel.css!';
+import './gr-info-panel.css!';
 import '../../services/archive';
 import '../../services/image-accessor';
 import '../../services/image-list';
@@ -12,7 +12,7 @@ import '../../edits/service';
 import '../../forms/gr-xeditable/gr-xeditable';
 import '../../util/rx';
 
-export var grPanel = angular.module('grPanel', [
+export const grInfoPanel = angular.module('grInfoPanel', [
     'kahuna.services.image-accessor',
     'kahuna.services.image-list',
     'kahuna.services.label',
@@ -23,7 +23,7 @@ export var grPanel = angular.module('grPanel', [
     'util.rx'
 ]);
 
-grPanel.controller('GrPanel', [
+grInfoPanel.controller('GrInfoPanelCtrl', [
     '$rootScope',
     '$scope',
     '$window',
