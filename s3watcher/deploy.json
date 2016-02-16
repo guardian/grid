@@ -1,31 +1,25 @@
 {
     "defaultStacks": ["media-service"],
     "packages": {
-        "lambda": {
+        "s3watcher": {
             "type": "aws-lambda",
             "data": {
                 "functions": {
                     "TEST": {
-                        "name": "@TEST_ARN"
+                        "name": "@TEST_ARN",
+                        "filename": "s3watcher.zip"
                     },
                     "PROD": {
-                        "name": "@PROD_ARN"
+                        "name": "@PROD_ARN",
+                        "filename": "s3watcher.zip"
                     }
                 }
-            }
-        },
-        "s3-watcher": {
-            "type": "aws-s3",
-            "data": {
-                "bucket": "media-service-dist",
-                "cacheControl": "public, max-age=60",
-                "publicReadAcl": false
             }
         }
     },
     "recipes": {
         "default": {
-            "actions": [ "s3-watcher.uploadStaticFiles", "lambda.updateLambda" ]
+            "actions": [ "s3watcher.updateLambda" ]
         }
     }
 }

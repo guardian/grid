@@ -12,28 +12,14 @@ if [ -z $PROD_FUNC_NAME ]; then
     exit 1
 fi
 
-cd lambda
+cat deploy.json \
+    | jq ".packages.s3watcher.data.functions.TEST.name |= \"$TEST_FUNC_NAME\" | .packages.s3watcher.data.functions.PROD.name |= \"$PROD_FUNC_NAME\"" \
+    > lambda/deploy.json
+
+export VERBOSE=true
+
+pushd lambda
+
 npm install
 
-npm test
-
-zip -r s3-watcher.zip *
-cd ..
-
-[ -d target ] && rm -rf target
-mkdir -p target/packages/lambda
-mkdir -p target/packages/s3-watcher
-
-cp lambda/s3-watcher.zip target/packages/lambda/lambda.zip
-cp lambda/s3-watcher.zip target/packages/s3-watcher/s3-watcher.zip
-
-rm lambda/s3-watcher.zip
-
-cat deploy.json \
-    | jq ".packages.lambda.data.functions.TEST.name |= \"$TEST_FUNC_NAME\" | .packages.lambda.data.functions.PROD.name |= \"$PROD_FUNC_NAME\"" \
-    > target/deploy.json
-
-cd target
-zip -r artifacts.zip *
-
-echo "##teamcity[publishArtifacts '$(pwd)/artifacts.zip => .']"
+ARTEFACT_PATH="$WORKSPACE/s3watcher/lambda" npm run build
