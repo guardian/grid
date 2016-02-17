@@ -40,7 +40,7 @@ panels.directive('grPanel', ['$timeout', '$window', 'inject$', 'subscribe$',
         },
         template:
             `<div class="gr-panel" ng:class="{'gr-panel--locked': state.locked}">
-                <div class="gr-panel__content full-height"
+                <div class="gr-panel__content gr-panel-height"
                      ng:class="{
                         'gr-panel__content--hidden': state.hidden,
                         'gr-panel__content--left': left,
