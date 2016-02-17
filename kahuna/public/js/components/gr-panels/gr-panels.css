@@ -20,10 +20,15 @@
 .gr-panel__content {
     width: 290px;
     position: fixed;
-    background: #444;
+    background: rgba(68, 68, 68, 0.9);
     overflow: auto;
     transition: width 0.2s;
 }
+
+.gr-panel--locked .gr-panel__content {
+    background: rgba(68,68,68,1)
+}
+
 .gr-panel__content--hidden {
     width: 0;
     overflow: hidden;
