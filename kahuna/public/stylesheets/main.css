@@ -1406,7 +1406,6 @@ FIXME: what to do with touch devices
     box-sizing: border-box;
     font-size: 1.3rem;
     overflow: auto;
-    background-color: #444;
 }
 /* HACK: This is here until we start using the panelled-content here */
 .image-details--full-image {
