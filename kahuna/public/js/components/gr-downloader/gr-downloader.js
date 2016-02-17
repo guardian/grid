@@ -1,9 +1,14 @@
 import angular from 'angular';
 import JSZip from 'jszip';
 import './gr-downloader.css!';
+import Rx from 'rx';
 import template from './gr-downloader.html!text';
 
-export const downloader = angular.module('gr.downloader', []);
+import '../../services/image/downloads';
+
+export const downloader = angular.module('gr.downloader', [
+    'gr.image-downloads.service'
+]);
 
 // blob URLs have a max size of 500MB - https://github.com/eligrey/FileSaver.js/#supported-browsers
 const maxBlobSize = 500 * 1024 * 1024;
@@ -21,23 +26,42 @@ const bytesToSize = (bytes) => {
         `${(bytes / Math.pow(1024, i)).toFixed(1)} ${sizes[i]}`;
 };
 
-downloader.controller('DownloaderCtrl',
-                     ['$window', '$q', '$http',
-                     function Controller($window, $q, $http) {
+downloader.controller('DownloaderCtrl', [
+    '$window',
+    '$q',
+    '$http',
+    'imageDownloadsService',
+
+    function Controller($window, $q, $http, imageDownloadsService) {
 
     let ctrl = this;
 
     ctrl.download = () => {
         ctrl.downloading = true;
 
+        const downloadObservablesIterable = ctrl.images
+            .map((image) => imageDownloadsService.getDownloads(image));
+
+        const downloadObservablesArray = Array.from(
+                downloadObservablesIterable.values());
+
+        const downloads$ = Rx.Observable.merge(downloadObservablesArray);
+
+        // TODO: This must be configurable
+        const downloadKey = "lowRezUri";
+
         const zip = new JSZip();
         const imageHttp = url => $http.get(url, { responseType:'arraybuffer' });
-        const imagesAddedToZip = Array.from(ctrl.images.values()).map(image =>
-            imageHttp(image.data.source.secureUrl)
-                .then(resp => zip.file(imageName(image), resp.data))
-        );
 
-        $q.all(imagesAddedToZip).then(() => {
+        const addDownloadsToZip$ = downloads$
+            .flatMap((downloads) => Rx.Observable
+                    .fromPromise(imageHttp(downloads.uris[downloadKey]))
+                    .map((resp) => zip.file(downloads.filename, resp.data))
+            ).toArray();
+
+        const addDownloadsToZipPromise = addDownloadsToZip$.toPromise($q);
+
+        addDownloadsToZipPromise.then(() => {
             const file = zip.generate({ type: 'uint8array' });
             const blob = new Blob([file], { type: 'application/zip' });
 
@@ -64,21 +88,6 @@ downloader.controller('DownloaderCtrl',
     };
 
     ctrl.getFirstImageSource = () => Array.from(ctrl.images)[0].data.source;
-
-    function imageName(image) {
-        const filename = image.data.uploadInfo.filename;
-        const imageId = image.data.id;
-        if (filename) {
-            const basename = stripExtension(filename);
-            return `${basename} (${imageId}).jpg`;
-        } else {
-            return `${imageId}.jpg`;
-        }
-    }
-
-    function stripExtension(filename) {
-        return filename.replace(/\.[a-zA-Z]{3,4}$/, '');
-    }
 }]);
 
 downloader.directive('grDownloader', function() {
