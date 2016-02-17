@@ -30,10 +30,12 @@
 }
 .gr-panel__content--left {
     left: 0;
+    opacity: 0.9;
 }
 
 .gr-panel__content--right {
     right: 0;
+    opacity: 0.9;
 }
 
 .gr-panelled-content {
