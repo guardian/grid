@@ -28,14 +28,6 @@ panels.directive('grPanels', [function() {
 
 panels.directive('grPanel', ['$timeout', '$window', 'inject$', 'subscribe$',
                              function($timeout, $window, inject$, subscribe$) {
-
-    function setFullHeight(element) {
-        const offset = element.offset().top;
-        const height = `calc(100vh - ${offset}px)`;
-
-        element.css({ height });
-    }
-
     return {
         restrict: 'E',
         replace: true,
@@ -48,28 +40,19 @@ panels.directive('grPanel', ['$timeout', '$window', 'inject$', 'subscribe$',
         },
         template:
             `<div class="gr-panel" ng:class="{'gr-panel--locked': state.locked}">
-                <div class="gr-panel__content"
+                <div class="gr-panel__content full-height"
                      ng:class="{
                         'gr-panel__content--hidden': state.hidden,
                         'gr-panel__content--left': left,
                         'gr-panel__content--right': right
                      }"
-                     gr:panel-height
                      gr:remember-scroll-top="rememberScroll">
                     <ng:transclude></ng:transclude>
                 </div>
             </div>`,
-        link: function(scope, element) {
-            function setElementHeight() {
-                setFullHeight(element);
-                scope.panelHeight = element[0].style.height;
-            }
+        link: function(scope) {
             const panel = scope.panel;
             const winScroll$ = Rx.DOM.fromEvent($window, 'scroll');
-
-            // This is done to make sure we trigger on the template being rendered,
-            // if we don't we get the semi-rendered template offset
-            $timeout(setElementHeight, 0);
 
             inject$(scope, panel.state$, scope, 'state');
 
