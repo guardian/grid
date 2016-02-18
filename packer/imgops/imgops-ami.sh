@@ -15,7 +15,7 @@ mv /tmp/imgops_logrotate /etc/logrotate.d/imgops
 sudo chown root:root /etc/logrotate.d/imgops
 
 new_section "Updating package lists"
-apt-get -y update
+apt-get -y update && apt-get -y upgrade
 
 new_section "Installing nginx and nginx-extras (image filter)"
 apt-get -y install nginx nginx-extras
