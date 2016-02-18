@@ -28,11 +28,18 @@ const bytesToSize = (bytes) => {
 downloader.controller('DownloaderCtrl', [
     '$window',
     '$q',
+    '$scope',
+    'inject$',
     'imageDownloadsService',
 
-    function Controller($window, $q, imageDownloadsService) {
+    function Controller($window, $q, $scope, inject$, imageDownloadsService) {
 
     let ctrl = this;
+
+    const uris$ = imageDownloadsService.getDownloads(
+            Array.from(ctrl.images.values())[0]);
+
+    inject$($scope, uris$, ctrl, 'firstImageUris');
 
     ctrl.download = () => {
         ctrl.downloading = true;
@@ -80,7 +87,6 @@ downloader.controller('DownloaderCtrl', [
         });
     };
 
-    ctrl.getFirstImageSource = () => Array.from(ctrl.images)[0].data.source;
 }]);
 
 downloader.directive('grDownloader', function() {
