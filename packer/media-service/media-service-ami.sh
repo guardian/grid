@@ -13,7 +13,7 @@ mv /tmp/media-service_logrotate /etc/logrotate.d/media-service
 sudo chown root:root /etc/logrotate.d/media-service
 
 new_section "Updating package lists"
-apt-get -y update
+apt-get -y update && apt-get -y upgrade
 
 new_section "Installing graphicsmagick"
 apt-get -y install graphicsmagick graphicsmagick-imagemagick-compat
