@@ -30,8 +30,8 @@ class QuerySyntax(val input: ParserInput) extends Parser with ImageFields {
 
   def Filter = rule {
     ScopedMatch ~> Match | HashMatch | CollectionRule |
-    DateRangeMatch ~> Match | AtMatch |
     DateConstraintMatch |
+    DateRangeMatch ~> Match | AtMatch |
     AnyMatch
   }
 

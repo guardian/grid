@@ -234,6 +234,17 @@ class ParserTest extends FunSpec with Matchers with BeforeAndAfter with ImageFie
       // TODO: date:2.january (this year)
     }
 
+    describe("nested usage") {
+      it("should match nested usage query") {
+        Parser.run("usages@status:pending") should be (List(
+          Nested(
+            SingleField("usages"),
+            SingleField("usages.status"),
+            Words("pending")
+          ))
+        )
+      }
+    }
 
     describe("date constraint") {
 
@@ -251,8 +262,8 @@ class ParserTest extends FunSpec with Matchers with BeforeAndAfter with ImageFie
       describe("nested") {
 
         it("should match date constraint with parent field") {
-          Parser.run("usage@<added:2012-01-01") should be (List(
-            Nested(SingleField("usage"), SingleField("dateAdded"),
+          Parser.run("usages@<added:2012-01-01") should be (List(
+            Nested(SingleField("usages"), SingleField("dateAdded"),
               DateRange(
                 new DateTime("1970-01-01T01:00:00.000+01:00"),
                 new DateTime("2012-01-01T00:00:00.000Z")
