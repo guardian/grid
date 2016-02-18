@@ -1,14 +1,21 @@
 {
-    "description": "Simple AMIs for the Grid",
+    "variables": {
+        "machine_images_ami": "ami-6857e51b"
+    },
 
     "builders": [{
         "type": "amazon-ebs",
         "region": "eu-west-1",
-        "source_ami": "ami-6857e51b",
+        "source_ami": "{{user `machine_images_ami`}}",
         "instance_type": "t2.micro",
         "ssh_username": "ubuntu",
-        "ami_name": "media-service_ebs-storage-cfn_{{timestamp}}",
-        "name": "media-service_ebd-storage-cfn_{{timestamp}}"
+        "ami_name": "media-service_ebs-storage-cfn_{{isotime \"2006/01/02_15-04-05\"}}",
+        "ami_description": "Simple AMIs for the Grid",
+        "name": "media-service_ebs-storage-cfn_{{isotime \"2006/01/02_15-04-05\"}}",
+        "tags": {
+            "Name": "media-service_ebs-storage-cfn_{{isotime \"2006/01/02_15-04-05\"}}",
+            "SourceAMI": "{{user `machine_images_ami`}}"
+        }
     }],
 
     "provisioners": [
