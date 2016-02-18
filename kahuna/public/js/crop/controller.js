@@ -34,6 +34,13 @@ crop.controller('ImageCropCtrl',
             }
         })
         .add({
+            combo: 's',
+            description: 'Start square crop',
+            callback: () => {
+                ctrl.aspect = ctrl.squareRatio;
+            }
+        })
+        .add({
             combo: 'p',
             description: 'Start portrait crop',
             callback: () => {
@@ -62,8 +69,9 @@ crop.controller('ImageCropCtrl',
     ctrl.cropping = false;
 
     // Standard ratios
+    ctrl.squareRatio = 1;
     ctrl.landscapeRatio = 5 / 3;
-    ctrl.portraitRatio = 2 / 3;
+    ctrl.portraitRatio = 4 / 5;
     ctrl.videoRatio = 16 / 9;
     ctrl.freeRatio = null;
 
@@ -102,7 +110,9 @@ crop.controller('ImageCropCtrl',
         if (Number(aspect) === ctrl.landscapeRatio) {
             return '5:3';
         } else if (Number(aspect) === ctrl.portraitRatio) {
-            return '2:3';
+            return '4:5';
+        } else if (Number(aspect) === ctrl.squareRatio) {
+            return '1:1';
         } else if (Number(aspect) === ctrl.videoRatio) {
             return '16:9';
         }
