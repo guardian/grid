@@ -19,7 +19,13 @@
             <gr-icon ng:hide="ctrl.showChildren">chevron_right</gr-icon>
         </button>
 
-        <a class="node__name flex-spacer"
+        <button ng:if="ctrl.hasCustomSelect"
+                ng:click="ctrl.select()">
+           <span class="node__name flex-spacer">{{:: node.data.data.description}}</span>
+        </button>
+
+        <a ng:if="! ctrl.hasCustomSelect"
+           class="node__name flex-spacer"
            ui:sref="search.results({query: ctrl.getCollectionQuery(node.data.data.pathId)})">
             {{:: node.data.data.description}}
         </a>
@@ -27,7 +33,7 @@
 
         <button class="node__action clickable" type="button"
                 title="Delete this collection"
-                ng:if="ctrl.deletable && ctrl.editing"
+                ng:if="ctrl.deletable && grCollectionTreeCtrl.editing"
                 ng:click="ctrl.remove()">
             <gr-icon-label gr-icon="delete"></gr-icon-label>
         </button>
@@ -35,7 +41,7 @@
         <button class="node__action clickable"
                 type="button"
                 title="Add a new sub-collection"
-                ng:if="ctrl.editing"
+                ng:if="grCollectionTreeCtrl.editing"
                 ng:click="$parent.active = !$parent.active">
             <gr-icon>create_new_folder</gr-icon>
         </button>
@@ -48,13 +54,13 @@
 
         <button class="node__action clickable hover-child"
                 title="Remove selected images from this collection"
-                ng:if="!ctrl.editing && ctrl.hasImagesSelected && !ctrl.saving && !ctrl.removing"
+                ng:if="!grCollectionTreeCtrl.editing && ctrl.hasImagesSelected && !ctrl.saving && !ctrl.removing"
                 ng:click="ctrl.removeImagesFromCollection()">
             <gr-icon>indeterminate_check_box</gr-icon>
         </button>
         <button class="node__action clickable hover-child"
                 title="Add selected images to this collection"
-                ng:if="!ctrl.editing && ctrl.hasImagesSelected && !ctrl.saving && !ctrl.removing"
+                ng:if="!grCollectionTreeCtrl.editing && ctrl.hasImagesSelected && !ctrl.saving && !ctrl.removing"
                 ng:click="ctrl.addImagesToCollection()">
             <gr-icon>add_to_photos</gr-icon>
         </button>
