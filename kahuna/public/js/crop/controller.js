@@ -102,8 +102,32 @@ crop.controller('ImageCropCtrl',
         }
     });
 
-    ctrl.cropWidth = () => Math.round(ctrl.coords.x2 - ctrl.coords.x1);
-    ctrl.cropHeight = () => Math.round(ctrl.coords.y2 - ctrl.coords.y1);
+    const ratioString = (aspect) => {
+        if (Number(aspect) === ctrl.landscapeRatio) {
+            return '5:3';
+        } else if (Number(aspect) === ctrl.portraitRatio) {
+            return '4:5';
+        } else if (Number(aspect) === ctrl.squareRatio) {
+            return '1:1';
+        } else if (Number(aspect) === ctrl.videoRatio) {
+            return '16:9';
+        }
+        // else undefined is fine
+    };
+
+    ctrl.getRatioString = ratioString;
+
+    // If we have a square crop, remove any jitter introduced by client lib by using only one side
+    if (ratioString === '1:1') {
+        const sideLength = () => Math.round(ctrl.coords.x2 - ctrl.coords.x1);
+
+        ctrl.cropWidth = sideLength;
+        ctrl.cropHeight = sideLength;
+    } else {
+        ctrl.cropWidth = () => Math.round(ctrl.coords.x2 - ctrl.coords.x1);
+        ctrl.cropHeight = () => Math.round(ctrl.coords.y2 - ctrl.coords.y1);
+    }
+
     ctrl.cropSizeWarning = () => ctrl.cropWidth() < 500;
 
     ctrl.getRatioString = (aspect) => {
