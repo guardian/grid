@@ -1,5 +1,4 @@
 import angular from 'angular';
-import JSZip from 'jszip';
 import './gr-downloader.css!';
 import Rx from 'rx';
 import template from './gr-downloader.html!text';
@@ -29,47 +28,29 @@ const bytesToSize = (bytes) => {
 downloader.controller('DownloaderCtrl', [
     '$window',
     '$q',
-    '$http',
     'imageDownloadsService',
 
-    function Controller($window, $q, $http, imageDownloadsService) {
+    function Controller($window, $q, imageDownloadsService) {
 
     let ctrl = this;
 
     ctrl.download = () => {
         ctrl.downloading = true;
 
-        const downloadObservablesIterable = ctrl.images
-            .map((image) => imageDownloadsService.getDownloads(image));
+        const downloads$ = imageDownloadsService.download(ctrl.images, 'lowRezUri');
 
-        const downloadObservablesArray = Array.from(
-                downloadObservablesIterable.values());
-
-        const downloads$ = Rx.Observable.merge(downloadObservablesArray);
-
-        // TODO: This must be configurable
-        const downloadKey = "lowRezUri";
-
-        const zip = new JSZip();
-        const imageHttp = url => $http.get(url, { responseType:'arraybuffer' });
-
-        const addDownloadsToZip$ = downloads$
-            .flatMap((downloads) => Rx.Observable
-                    .fromPromise(imageHttp(downloads.uris[downloadKey]))
-                    .map((resp) => zip.file(downloads.filename, resp.data))
-            ).toArray();
-
-        const addDownloadsToZipPromise = addDownloadsToZip$.toPromise($q);
-
-        addDownloadsToZipPromise.then(() => {
+        downloads$.subscribe((zip) => {
             const file = zip.generate({ type: 'uint8array' });
             const blob = new Blob([file], { type: 'application/zip' });
 
-            if (blob.size <= maxBlobSize) {
+            const isTooBig = blob.size > maxBlobSize
+
+            const createDownload = () => {
                 const url = $window.URL.createObjectURL(blob);
                 $window.location = url;
             }
-            else {
+
+            const refuseDownload = () => {
                 const maxSize = bytesToSize(maxBlobSize);
                 const blobSize = bytesToSize(blob.size);
 
@@ -82,8 +63,20 @@ downloader.controller('DownloaderCtrl', [
 
                 $window.alert(message);
             }
-        }).finally(() => {
+
+            isTooBig ? refuseDownload() : createDownload()
+
             ctrl.downloading = false;
+        },
+        (e) => {
+            const message = [
+                'Something has gone wrong with your download!', e
+            ].join('\n');
+
+            $window.alert(message);
+
+            ctrl.downloading = false;
+            throw e;
         });
     };
 
