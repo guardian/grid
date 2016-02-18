@@ -20,6 +20,9 @@ apt-get -y update && apt-get -y upgrade
 new_section "Installing nginx and nginx-extras (image filter)"
 apt-get -y install nginx nginx-extras
 
+new_section "Installing imagemagick"
+apt-get -y install imagemagick
+
 rm /etc/nginx/sites-enabled/default
 
 new_section "Installing cloud watch monitoring scripts"
