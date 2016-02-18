@@ -67,7 +67,6 @@ grCollectionsPanel.controller('GrCollectionsPanelCtrl', [
 
     const ctrl = this;
 
-    ctrl.isVisible = false;
     ctrl.error = false;
 
     collections.getCollections().then(collections => {
@@ -99,6 +98,14 @@ grCollectionsPanel.controller('GrNodeCtrl',
     ctrl.removing = false;
     ctrl.deletable = false;
     ctrl.showChildren = collectionsTreeState.getState(pathId);
+
+    ctrl.selectedImages$ = angular.isDefined(ctrl.selectedImages$) ?
+        ctrl.selectedImages$ :
+        Rx.Observable.empty();
+
+    ctrl.selectedCollections = angular.isDefined(ctrl.selectedCollections) ?
+        ctrl.selectedCollections :
+        [];
 
     ctrl.formError = null;
     ctrl.addChild = childName => {
