@@ -83,7 +83,7 @@ class QuerySyntax(val input: ParserInput) extends Parser with ImageFields {
 
   def AllowedParentFieldName = rule { "usages" }
   def AllowedNestedFieldName = rule {
-    "status" | "type" | "section"
+    "status" | "platform" | "section" | "publication" | "orderedBy"
   }
   def AllowedFieldName = rule {
     "uploader" |
@@ -111,6 +111,8 @@ class QuerySyntax(val input: ParserInput) extends Parser with ImageFields {
     case "keyword"             => "keywords"
     case fieldName             => fieldName
   }) match {
+    case "publication" => MultipleField(List("publicationName", "publicationCode"))
+    case "section" => MultipleField(List("sectionId","sectionCode"))
     case "in" => MultipleField(List("location", "city", "state", "country").map(getFieldPath))
     case field => SingleField(getFieldPath(field))
   }
