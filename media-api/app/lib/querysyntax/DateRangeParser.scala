@@ -6,25 +6,28 @@ import org.joda.time.DateTime
 import org.joda.time.format.{DateTimeFormatter, DateTimeFormat}
 
 
-trait DateRangeParser {
-  def parse(expr: String): Option[DateRange]
+trait DateParser {
+  val format: String
+  lazy val formatter = DateTimeFormat.forPattern(format)
+
+  def parseRange(expr: String): Option[DateRange]
+  def parseDate(expr: String): Option[DateTime] = Try(DateTime.parse(expr, formatter)).toOption
 }
 
-case class DateAliasParser(alias: String, startDate: DateTime, endDate: DateTime) extends DateRangeParser {
-  def parse(expr: String) = if (expr == alias) {
-    Some(DateRange(startDate, endDate))
-  } else {
-    None
-  }
+case class DateAliasParser(alias: String, start: DateTime, end: DateTime) extends DateParser {
+  val format = ""
+
+  def parseRange(expr: String) =
+    if (expr == alias) Some(DateRange(start, end.minusMillis(1))) else None
 }
 
-case class DateRangeFormatParser(format: String, computeEnd: DateTime => DateTime) extends DateRangeParser {
-  val formatter = DateTimeFormat.forPattern(format)
-  def parseDate(expr: String, format: DateTimeFormatter): Option[DateTime] = Try(DateTime.parse(expr, format)).toOption
+case class DateFormatParser(format: String, calculateEnd: Option[(DateTime) => DateTime] = None) extends DateParser {
 
-  def parse(expr: String): Option[DateRange] = {
-    // -1ms because the bounds are inclusive
-    parseDate(expr, formatter).map(d => DateRange(d, computeEnd(d).minusMillis(1)))
-  }
+  def parseRange(expr: String): Option[DateRange] =
+    parseDate(expr).map(start => {
+      val sameDay = (start: DateTime) => start.plusDays(1)
+      val end   = (calculateEnd.getOrElse(sameDay))(start).minusMillis(1)
 
+      DateRange(start, end)
+    })
 }

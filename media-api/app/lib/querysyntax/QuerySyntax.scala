@@ -5,29 +5,86 @@ import org.parboiled2._
 
 import com.gu.mediaservice.lib.elasticsearch.ImageFields
 
+case class InvalidQuery(message: String) extends Exception(message)
+
 class QuerySyntax(val input: ParserInput) extends Parser with ImageFields {
+
+  val beginningOfTime = new DateTime(0L)
+
+  def today = DateTime.now.withTimeAtStartOfDay
+  def tomorrow = today.plusDays(1)
+  def yesterday = today.minusDays(1)
+
   def Query = rule { Expression ~ EOI }
 
   def Expression = rule { zeroOrMore(Term) separatedBy Whitespace }
 
-  def Term = rule { NegatedFilter | Filter }
+  def Term = rule { NestedFilter | NegatedFilter | Filter }
 
   def NegatedFilter = rule { '-' ~ Filter ~> Negation }
 
+  def NestedFilter = rule {
+    NestedMatch ~> Nested |
+    NestedDateMatch
+  }
 
   def Filter = rule {
     ScopedMatch ~> Match | HashMatch | CollectionRule |
-    DateMatch ~> Match | AtMatch |
+    DateRangeMatch ~> Match | AtMatch |
+    DateConstraintMatch |
     AnyMatch
   }
 
-  def ScopedMatch = rule { MatchField ~ ':' ~ MatchValue }
-  def HashMatch = rule      { '#' ~ MatchValue      ~> (label      => Match(SingleField(getFieldPath("labels")), label)) }
-  // All hierarchy values are lowercase as specified in the analyser
-  def CollectionRule = rule { '~' ~ ExactMatchValue ~> (collection => Match(HierarchyField, Phrase(collection.string.toLowerCase))) }
+  def NestedMatch = rule { ParentField ~ "@" ~ NestedField ~ ':' ~ MatchValue }
+  def NestedDateMatch = rule { ParentField ~ "@" ~ DateConstraintMatch ~> (
+    (parentField: Field, dateMatch: Match) => {
+      Nested(parentField, dateMatch.field, dateMatch.value)
+    }
+  )}
 
+  def DateConstraintMatch = rule { DateConstraint ~ DateMatch ~> (
+    (constraint: String, dateMatch: Match) => {
+      val dateRange  = dateMatch.value match {
+        case Date(d) => constraint match {
+          case ">" => DateRange(d, tomorrow)
+          case "<" => DateRange(beginningOfTime, d)
+        }
+        case _ => throw new InvalidQuery("No date for date constraint!")
+      }
+
+      Match(dateMatch.field, dateRange)
+    }
+  )}
+
+  def DateConstraint = rule { capture(AllowedDateConstraints) }
+  def AllowedDateConstraints = rule {
+    "<" | ">"
+  }
+
+  def ScopedMatch = rule { MatchField ~ ':' ~ MatchValue }
+
+  def HashMatch = rule { '#' ~ MatchValue ~> (
+    label => Match(
+      SingleField(getFieldPath("labels")),
+      label
+    )
+  )}
+
+  def CollectionRule = rule { '~' ~ ExactMatchValue ~> (
+    collection => Match(
+      HierarchyField,
+      Phrase(collection.string.toLowerCase)
+    )
+  )}
+
+  def ParentField = rule { capture(AllowedParentFieldName)  ~> resolveNamedField _ }
+  def NestedField = rule { capture(AllowedNestedFieldName) ~> resolveNamedField _ }
   def MatchField = rule { capture(AllowedFieldName) ~> resolveNamedField _ }
 
+  def AllowedParentFieldName = rule { "usages" }
+  def AllowedNestedFieldName = rule {
+    "status" | "type" | "section"
+  }
   def AllowedFieldName = rule {
     "uploader" |
     "location" | "city" | "state" | "country" | "in" |
@@ -58,7 +115,6 @@ class QuerySyntax(val input: ParserInput) extends Parser with ImageFields {
     case field => SingleField(getFieldPath(field))
   }
 
-
   def AnyMatch = rule { MatchValue ~> (v => Match(AnyField, v)) }
 
   def ExactMatchValue = rule { QuotedString ~> Phrase | String ~> Phrase }
@@ -68,45 +124,52 @@ class QuerySyntax(val input: ParserInput) extends Parser with ImageFields {
 
   def String = rule { capture(Chars) }
 
+  def DateMatch = rule {
+    MatchDateField ~ ':' ~ MatchDateValue ~> ((field, date) => Match(field, Date(date)))
+  }
 
-  // TODO: also comparisons
-  def DateMatch = rule { MatchDateField ~ ':' ~ MatchDateValue }
+  def DateRangeMatch = rule {
+    MatchDateField ~ ':' ~ MatchDateRangeValue
+  }
 
-  def AtMatch = rule { '@' ~ MatchDateValue ~> (range => Match(SingleField(getFieldPath("uploadTime")), range)) }
+  def AtMatch = rule { '@' ~ MatchDateRangeValue ~> (range => Match(SingleField(getFieldPath("uploadTime")), range)) }
 
   def MatchDateField = rule { capture(AllowedDateFieldName) ~> resolveDateField _ }
 
   def resolveDateField(name: String): Field = name match {
     case "date" | "uploaded" => SingleField("uploadTime")
     case "taken"             => SingleField("dateTaken")
+    case "added"             => SingleField("dateAdded")
   }
 
-  def AllowedDateFieldName = rule { "date" | "uploaded" | "taken" }
-
+  def AllowedDateFieldName = rule { "date" | "uploaded" | "taken" | "added" }
 
   def MatchDateValue = rule {
-    // Note: order matters, check for quoted string first
-    // TODO: needed to ignore invalid dates, but code could be cleaner
-    (QuotedString | String) ~> normaliseDateExpr _ ~> parseDateRange _ ~> (d => test(d.isDefined) ~ push(d.get))
+    (QuotedString | String) ~> normaliseDateExpr _ ~> parseDate _ ~> (d => {
+      test(d.isDefined) ~ push(d.get)
+    })
+  }
+
+  def MatchDateRangeValue = rule {
+    (QuotedString | String) ~> normaliseDateExpr _ ~> parseDateRange _ ~> (d => {
+      test(d.isDefined) ~ push(d.get)
+    })
   }
 
   def normaliseDateExpr(expr: String): String = expr.replaceAll("\\.", " ")
 
-  val todayParser = {
-    val today = DateTime.now.withTimeAtStartOfDay
-    DateAliasParser("today", today, today.plusDays(1).minusMillis(1))
-  }
-  val yesterdayParser = {
-    val today = DateTime.now.withTimeAtStartOfDay
-    DateAliasParser("yesterday", today.minusDays(1), today.minusMillis(1))
-  }
-  val humanDateParser  = DateRangeFormatParser("dd MMMMM YYYY", _.plusDays(1))
-  val slashDateParser  = DateRangeFormatParser("d/M/YYYY", _.plusDays(1))
-  val paddedslashDateParser = DateRangeFormatParser("dd/MM/YYYY", _.plusDays(1))
-  val isoDateParser    = DateRangeFormatParser("YYYY-MM-dd", _.plusDays(1))
-  val humanMonthParser = DateRangeFormatParser("MMMMM YYYY", _.plusMonths(1))
-  val yearParser       = DateRangeFormatParser("YYYY", _.plusYears(1))
-  val dateRangeParsers: List[DateRangeParser] = List(
+  val todayParser      = DateAliasParser("today", today, tomorrow)
+  val yesterdayParser  = DateAliasParser("yesterday", yesterday, today)
+
+  val humanDateParser  = DateFormatParser("dd MMMMM YYYY")
+  val slashDateParser  = DateFormatParser("d/M/YYYY")
+  val paddedslashDateParser = DateFormatParser("dd/MM/YYYY")
+  val isoDateParser    = DateFormatParser("YYYY-MM-dd")
+
+  val humanMonthParser = DateFormatParser("MMMMM YYYY", Some(_.plusMonths(1)))
+  val yearParser       = DateFormatParser("YYYY", Some(_.plusYears(1)))
+
+  val dateParsers: List[DateParser] = List(
     todayParser,
     yesterdayParser,
     humanDateParser,
@@ -117,12 +180,17 @@ class QuerySyntax(val input: ParserInput) extends Parser with ImageFields {
     yearParser
   )
 
-  def parseDateRange(expr: String): Option[DateRange] = {
-    dateRangeParsers.foldLeft[Option[DateRange]](None) { case (res, parser) =>
-      res orElse parser.parse(expr)
+  def parseDate(expr: String): Option[DateTime] = {
+    dateParsers.foldLeft[Option[DateTime]](None) { case (res, parser) =>
+      res orElse parser.parseDate(expr)
     }
   }
 
+  def parseDateRange(expr: String): Option[DateRange] = {
+    dateParsers.foldLeft[Option[DateRange]](None) { case (res, parser) =>
+      res orElse parser.parseRange(expr)
+    }
+  }
 
   // Quoted strings
   def SingleQuote = "'"

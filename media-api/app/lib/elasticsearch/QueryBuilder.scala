@@ -3,7 +3,7 @@ package lib.elasticsearch
 import com.gu.mediaservice.lib.elasticsearch.IndexSettings
 import lib.querysyntax._
 import com.gu.mediaservice.lib.elasticsearch.ImageFields
-import org.elasticsearch.index.query.{MatchQueryBuilder, MultiMatchQueryBuilder}
+import org.elasticsearch.index.query.{MatchQueryBuilder, MultiMatchQueryBuilder, NestedQueryBuilder}
 import org.elasticsearch.index.query.QueryBuilders._
 
 
@@ -22,7 +22,7 @@ class QueryBuilder(matchFields: Seq[String]) extends ImageFields {
                           .analyzer(IndexSettings.enslishSStemmerAnalyzerName)
     case Phrase(string) => multiMatchPhraseQuery(string, fields)
     // That's OK, we only do date queries on a single field at a time
-    case DateRange(start, end) => throw InvalidQuery("Cannot do multiQuery on date range")
+    case e => throw InvalidQuery(s"Cannot do multiQuery on $e")
   }
 
   def makeQueryBit(condition: Match) = condition.field match {
@@ -32,7 +32,8 @@ class QueryBuilder(matchFields: Seq[String]) extends ImageFields {
       // Force AND operator else it will only require *any* of the words, not *all*
       case Words(value)  => matchQuery(field, value).operator(MatchQueryBuilder.Operator.AND)
       case Phrase(value) => matchPhraseQuery(field, value)
-      case DateRange(start, end) => rangeQuery(field).from(start.toString()).to(end.toString())
+      case DateRange(start, end) => rangeQuery(field).from(start.toString).to(end.toString)
+      case e => throw InvalidQuery(s"Cannot do multiQuery on $e")
     }
     case HierarchyField => condition.value match {
       case Phrase(value) => termQuery(getFieldPath("pathHierarchy"), value)
@@ -42,11 +43,38 @@ class QueryBuilder(matchFields: Seq[String]) extends ImageFields {
 
   def makeQuery(conditions: List[Condition]) = conditions match {
     case Nil      => matchAllQuery
-    case condList =>
-      condList.foldLeft(boolQuery) {
+    case condList => {
+
+      val (nested: List[Nested], normal: List[Condition]) = (
+        condList collect { case n: Nested => n },
+        condList collect { case c: Condition => c }
+      )
+
+      val query = normal.foldLeft(boolQuery) {
         case (query, Negation(cond)    ) => query.mustNot(makeQueryBit(cond))
         case (query, cond @ Match(_, _)) => query.must(makeQueryBit(cond))
+        case (query, _) => query
       }
+
+      val nestedQueries: List[NestedQueryBuilder] = nested
+        .groupBy(_.parentField)
+        .map {
+          case (parent: SingleField, n: List[Nested]) => {
+
+            val nested = n.foldLeft(boolQuery) {
+              case (query, Nested(_,f,v)) => query.must(makeQueryBit(Match(f,v)))
+              case (query, _) => query
+            }
+
+            nestedQuery(parent.name, nested)
+          }
+
+          case _ => throw InvalidQuery("Can only accept SingleField for Nested Query parent")
+
+        }.toList
+
+      nestedQueries.foldLeft(query) { case (q, nestedQ) => q.must(nestedQ) }
+    }
   }
 
 }
