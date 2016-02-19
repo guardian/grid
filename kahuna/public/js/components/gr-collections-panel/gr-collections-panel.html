@@ -10,17 +10,17 @@
     <div class="flex-container collections-panel-heading text-small" ng:if="! ctrl.error">
         <div class="flex-spacer">Collections</div>
 
-            <button ng:class="{'button-edit': ! $parent.editing, 'button-save': $parent.editing}"
-                    ng:click="$parent.editing = !$parent.editing">
-                <gr-icon-label ng:if="! $parent.editing"
-                               gr:icon="edit">Edit</gr-icon-label>
-                <gr-icon-label ng:if="$parent.editing"
-                               gr:icon="check">Finished</gr-icon-label>
-            </button>
-        </div>
-        <gr-collection-tree gr:nodes="ctrl.collections"
-                  gr:editing="editing"
-                  gr:selected-images="ctrl.selectedImages$"
-                  gr:selected-collections="ctrl.selectedCollections">
-        </gr-collection-tree>
+        <button ng:class="{'button-edit': ! $parent.editing, 'button-save': $parent.editing}"
+                ng:click="$parent.editing = !$parent.editing">
+            <gr-icon-label ng:if="! $parent.editing"
+                           gr:icon="edit">Edit</gr-icon-label>
+            <gr-icon-label ng:if="$parent.editing"
+                           gr:icon="check">Finished</gr-icon-label>
+        </button>
+    </div>
+    <gr-collection-tree gr:nodes="ctrl.collections"
+              gr:editing="editing"
+              gr:selected-images="ctrl.selectedImages$"
+              gr:selected-collections="ctrl.selectedCollections">
+    </gr-collection-tree>
 </div>
