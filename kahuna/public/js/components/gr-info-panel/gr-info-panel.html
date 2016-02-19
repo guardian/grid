@@ -62,7 +62,9 @@
                          editable-text="ctrl.metadata.title"
                          onbeforesave="ctrl.updateMetadataField('title', $data)"
                          e:form="titleEditForm"
-                         e:ng-class="{'image-info__editor--error': $error, 'image-info__editor--saving': titleEditForm.$waiting}">
+                         e:ng-class="{'image-info__editor--error': $error,
+                                      'image-info__editor--saving': titleEditForm.$waiting,
+                                      'text-input': true}">
 
                         <div ng:if="ctrl.userCanEdit">
                             <dd class="image-info__title" ng:if="ctrl.hasMultipleValues(ctrl.rawMetadata.title)">
@@ -188,7 +190,9 @@
                           editable-text="ctrl.metadata.byline"
                           onbeforesave="ctrl.updateMetadataField('byline', $data)"
                           e:form="bylineEditForm"
-                          e:ng-class="{'image-info__editor--error': $error, 'image-info__editor--saving': bylineEditForm.$waiting}">
+                          e:ng-class="{'image-info__editor--error': $error,
+                                       'image-info__editor--saving': bylineEditForm.$waiting,
+                                       'text-input': true}">
 
                         <span class="metadata-line__info" ng:if="ctrl.hasMultipleValues(ctrl.rawMetadata.byline) && ctrl.userCanEdit">
                             Multiple bylines (click ✎ to edit <strong>all</strong>)
@@ -221,7 +225,9 @@
                           e:typeahead="credit for credit in ctrl.credits($viewValue) | limitTo:8"
                           onbeforesave="ctrl.updateMetadataField('credit', $data)"
                           e:form="creditEditForm"
-                          e:ng-class="{'image-info__editor--error': $error, 'image-info__editor--saving': creditEditForm.$waiting}">
+                          e:ng-class="{'image-info__editor--error': $error,
+                                       'image-info__editor--saving': creditEditForm.$waiting,
+                                       'text-input': true}">
 
                         <span class="metadata-line__info" ng:if="ctrl.hasMultipleValues(ctrl.rawMetadata.credit) && ctrl.userCanEdit">
                             Multiple credits (click ✎ to edit <strong>all</strong>)
@@ -252,7 +258,9 @@
                           editable-text="ctrl.metadata.copyright"
                           onbeforesave="ctrl.updateMetadataField('copyright', $data)"
                           e:form="copyrightEditForm"
-                          e:ng-class="{'image-info__editor--error': $error, 'image-info__editor--saving': copyrightEditForm.$waiting}">
+                          e:ng-class="{'image-info__editor--error': $error,
+                                       'image-info__editor--saving': copyrightEditForm.$waiting,
+                                       'text-input': true}">
 
                         <span class="metadata-line__info" ng:if="ctrl.hasMultipleValues(ctrl.rawMetadata.copyright) && ctrl.userCanEdit">
                             Multiple copyrights (click ✎ to edit <strong>all</strong>)
