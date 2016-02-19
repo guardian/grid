@@ -46,7 +46,9 @@
                     editable-textarea="ctrl.metadata.description"
                     onbeforesave="ctrl.updateMetadataField('description', $data)"
                     e:msd-elastic
-                    e:ng-class="{'image-info__editor--error': $error, 'image-info__editor--saving': descriptionEditForm.$waiting}"
+                    e:ng-class="{'image-info__editor--error': $error,
+                                 'image-info__editor--saving': descriptionEditForm.$waiting,
+                                 'text-input': true}"
                     e:form="descriptionEditForm">{{ctrl.metadata.description || "Unknown (click ✎ to add)"}}</dd>
             </div>
         </dl>
@@ -64,7 +66,8 @@
                 onbeforesave="ctrl.updateMetadataField('specialInstructions', $data)"
                 e:msd-elastic
                 e:ng-class="{'image-info__editor--error': $error,
-                                     'image-info__editor--saving': specialInstructionsEditForm.$waiting}"
+                             'image-info__editor--saving': specialInstructionsEditForm.$waiting,
+                             'text-input': true}"
                 e:form="specialInstructionsEditForm">{{ctrl.metadata.specialInstructions}}</dd>
         </dl>
     </div>

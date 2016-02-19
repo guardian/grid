@@ -42,7 +42,8 @@
                                     class="related-labels__datalist"
                                 gr:search="ctrl.suggestedLabelSearch(q)">
                                 <!-- TODO: autogrow this element -->
-                                <input class="related-labels__parent" type="text"
+                                <input type="text"
+                                       class="text-input related-labels__parent"
                                        placeholder="e.g. observer"
                                        ng:model="ctrl.parentLabel"
                                        ng:model-options="{ updateOn: 'gr:datalist:update' }"

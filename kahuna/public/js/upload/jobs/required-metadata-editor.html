@@ -6,7 +6,7 @@
                 name="description"
                 placeholder="e.g. {{funnyDescription}}…"
                 required
-                class="job-info--editor__input job-info--editor__input--description"
+                class="text-input job-info--editor__input job-info--editor__input--description"
                 msd-elastic
                 ng:model="ctrl.metadata.description"
                 ng:controller="DescriptionPlaceholderCtrl"
@@ -31,7 +31,7 @@
                 type="text"
                 name="byline"
                 placeholder="e.g. Tom Jenkins…"
-                class="job-info--editor__input job-info--editor__input--byline"
+                class="text-input job-info--editor__input job-info--editor__input--byline"
                 ng:model="ctrl.metadata.byline"
                 ng:change="ctrl.save()"
                 ng:model-options="{updateOn: 'default blur', debounce: { default: ctrl.saveOnTime, blur: 0 }}"
@@ -55,7 +55,7 @@
                 gr:search="ctrl.metadataSearch('credit', q)">
 
                 <input type="text"
-                    class="job-info__credit"
+                    class="text-input job-info__credit"
                     required
                     gr:datalist-input
                     ng:model="ctrl.metadata.credit"
@@ -77,7 +77,7 @@
                 type="text"
                 name="copyright"
                 placeholder="e.g. …"
-                class="job-info--editor__input job-info--editor__input--copyright"
+                class="text-input job-info--editor__input job-info--editor__input--copyright"
                 ng:model="ctrl.metadata.copyright"
                 ng:change="ctrl.save()"
                 ng:model-options="{updateOn: 'default blur', debounce: { default: ctrl.saveOnTime, blur: 0 }}"

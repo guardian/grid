@@ -100,11 +100,7 @@ button {
     font-size: 1.4rem;
 }
 
-/* TODO: Remove generic styling, this should be a class,
-         as we need to override it to use text elements
-         anywhere else */
-input[type="text"],
-textarea {
+.text-input {
     background-color: #444;
     color: #ccc;
     border: 1px solid #999;

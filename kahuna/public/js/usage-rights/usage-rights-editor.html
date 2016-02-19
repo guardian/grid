@@ -53,7 +53,7 @@
                     <!-- We don't allow you to set the restrictions if there are defaults.
                     This might not be the behaviour we want in the future, but works for now. -->
                     <textarea
-                        class="form-input-text"
+                        class="text-input form-input-text"
                         name="{{ property.name }}"
                         placeholder="What restrictions apply to this image? e.g. 'Use in relation to the Windsor Triathlon only'"
                         ng:switch-when="true"
@@ -61,7 +61,7 @@
                         ng:required="ctrl.showRestrictions"></textarea>
 
                     <textarea
-                        class="form-input-text"
+                        class="text-input form-input-text"
                         disabled="disabled"
                         ng:switch-default>{{ctrl.category.defaultRestrictions}}</textarea>
 
@@ -80,7 +80,7 @@
                     <div ng:switch-when="string">
                         <input
                             id="ure-field-{{::fieldUniqueId}}"
-                            class="form-input-text"
+                            class="text-input form-input-text"
                             type="text"
                             name="{{ property.name }}"
                             placeholder="e.g. {{ property.examples }}"
@@ -141,7 +141,7 @@
                             </select>
 
                             <input type="text"
-                                class="full-width"
+                                class="text-input full-width"
                                 id="ure-field-{{::fieldUniqueId}}"
                                 placeholder="e.g. {{ property.examples }}"
                                 ng:model="ctrl.model[property.name]"
@@ -156,7 +156,7 @@
                     </div>
 
                     <textarea
-                        class="form-input-text"
+                        class="text-input form-input-text"
                         id="ure-field-{{::fieldUniqueId}}"
                         name="{{ property.name }}"
                         placeholder="e.g. {{ property.examples }}"
