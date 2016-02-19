@@ -67,7 +67,6 @@ grCollectionsPanel.controller('GrCollectionsPanelCtrl', [
 
     const ctrl = this;
 
-    ctrl.isVisible = false;
     ctrl.error = false;
 
     collections.getCollections().then(collections => {
@@ -99,75 +98,82 @@ grCollectionsPanel.controller('GrNodeCtrl',
     ctrl.removing = false;
     ctrl.deletable = false;
     ctrl.showChildren = collectionsTreeState.getState(pathId);
-
     ctrl.formError = null;
+
     ctrl.addChild = childName => {
         return collections.addChildTo(ctrl.node, childName).
-                 then($scope.clearForm).
-                 catch(e => $scope.formError = e.body && e.body.errorMessage);
+        then($scope.clearForm).
+        catch(e => $scope.formError = e.body && e.body.errorMessage);
     };
 
     collections.isDeletable(ctrl.node).then(d => ctrl.deletable = d);
 
     ctrl.remove = () => collections.removeFromList(ctrl.node, ctrl.nodeList);
-
     ctrl.getCollectionQuery = path => getCollection(path);
 
-    // TODO: move this somewhere sensible, we probably don't want an observable for each node.
-    const add$ = new Rx.Subject();
-    const pathWithImages$ =
-            add$.withLatestFrom(ctrl.selectedImages$, (path, images) => ({path, images}));
-
-    const hasImagesSelected$ = ctrl.selectedImages$.map(i => i.size > 0);
-    ctrl.addImagesToCollection = () => {
-        ctrl.saving = true;
-        add$.onNext(ctrl.node.data.fullPath);
-    };
-
-    subscribe$($scope, pathWithImages$, ({path, images}) => {
-       collections.addToCollectionUsingImageResources(images, path).then(() => ctrl.saving = false);
-    });
-
-    const remove$ = new Rx.Subject();
-    const pathToRemoveWithImages$ =
-            remove$.withLatestFrom(ctrl.selectedImages$, (path, images) => ({path, images}));
-
-    ctrl.removeImagesFromCollection = () => {
-        ctrl.removing = true;
-        remove$.onNext(ctrl.node.data.data.pathId);
-    };
-
-    subscribe$($scope, pathToRemoveWithImages$, ({path, images}) => {
-        collections.batchRemove(images, path).then(() => ctrl.removing = false);
-    });
-
-    inject$($scope, hasImagesSelected$, ctrl, 'hasImagesSelected');
-
     $scope.$watch('ctrl.showChildren', onValChange(show => {
-        collectionsTreeState.setState(pathId, show);
+            collectionsTreeState.setState(pathId, show);
     }));
 
-    ctrl.isSelected = ctrl.selectedCollections.some(col => {
-        return angular.equals(col, ctrl.node.data.data.pathId);
-    });
+    ctrl.init = function(grCollectionTreeCtrl) {
+        const selectedImages$ = grCollectionTreeCtrl.selectedImages$;
+        const selectedCollections = grCollectionTreeCtrl.selectedCollections;
 
+        // TODO: move this somewhere sensible, we probably don't want an observable for each node.
+        const add$ = new Rx.Subject();
+        const pathWithImages$ =
+                add$.withLatestFrom(selectedImages$, (path, images) => ({path, images}));
+        const hasImagesSelected$ = selectedImages$.map(i => i.size > 0);
+
+        ctrl.addImagesToCollection = () => {
+            ctrl.saving = true;
+            add$.onNext(ctrl.node.data.fullPath);
+        };
+
+        subscribe$($scope, pathWithImages$, ({path, images}) => {
+           collections.addToCollectionUsingImageResources(images, path)
+           .then(() => ctrl.saving = false);
+        });
+
+        const remove$ = new Rx.Subject();
+        const pathToRemoveWithImages$ =
+                remove$.withLatestFrom(selectedImages$, (path, images) => ({path, images}));
+
+        ctrl.removeImagesFromCollection = () => {
+            ctrl.removing = true;
+            remove$.onNext(pathId);
+        };
+
+        subscribe$($scope, pathToRemoveWithImages$, ({path, images}) => {
+            collections.batchRemove(images, path).then(() => ctrl.removing = false);
+        });
+
+        inject$($scope, hasImagesSelected$, ctrl, 'hasImagesSelected');
+
+        ctrl.isSelected = selectedCollections.some(col => {
+            return angular.equals(col, pathId);
+        });
+
+        ctrl.hasCustomSelect = !! grCollectionTreeCtrl.onSelect;
+
+        ctrl.select = () => {
+            grCollectionTreeCtrl.onSelect({$collection: ctrl.node.data.data.path});
+        };
+
+    };
 }]);
 
 grCollectionsPanel.directive('grNode', ['$parse', '$compile', function($parse, $compile) {
     const templateString = `<gr-nodes
                                 ng:if="ctrl.showChildren && ctrl.node.data.children.length > 0"
-                                gr:selected-images="ctrl.selectedImages$"
-                                gr:selected-collections="ctrl.selectedCollections"
-                                gr:editing="ctrl.editing"
-                                gr:nodes="ctrl.node.data.children"></gr-nodes>`;
+                                gr:nodes="ctrl.node.data.children"
+                                ></gr-nodes>`;
     return {
         restrict: 'E',
+        require: ['grNode', '^^grCollectionTree'],
         scope: {
             node: '=grNode',
-            nodeList: '=grNodeList',
-            editing: '=grEditing',
-            selectedImages$: '=grSelectedImages',
-            selectedCollections: '=grSelectedCollections'
+            nodeList: '=grNodeList'
         },
         template: nodeTemplate,
         controller: 'GrNodeCtrl',
@@ -178,7 +184,7 @@ grCollectionsPanel.directive('grNode', ['$parse', '$compile', function($parse, $
             // (compile invoked once per reference, link invoked once
             // per use)
             let compiledTemplate;
-            return function link(scope, element) {
+            return function link(scope, element, attrs, [grNodeCtrl, grCollectionTreeCtrl]) {
                 if (! compiledTemplate) {
                     // We compile the template on the fly here as angular doesn't deal
                     // well with recursive templates.
@@ -188,6 +194,11 @@ grCollectionsPanel.directive('grNode', ['$parse', '$compile', function($parse, $
                 compiledTemplate(scope, cloned => {
                     element.find('.node__children').append(cloned);
                 });
+
+                grNodeCtrl.init(grCollectionTreeCtrl);
+
+                //so editing can toggle - used to show add & remove collection buttons
+                scope.grCollectionTreeCtrl = grCollectionTreeCtrl;
 
                 scope.clearForm = () => {
                     scope.active = false;
@@ -204,22 +215,50 @@ grCollectionsPanel.directive('grNodes', function() {
     return {
         restrict: 'E',
         scope: {
-            nodes: '=grNodes',
-            editing: '=grEditing',
-            selectedImages$: '=grSelectedImages',
-            selectedCollections: '=grSelectedCollections'
+            nodes: '=grNodes'
         },
+        controller: function(){},
+        controllerAs: 'grNodesCtrl',
+        bindToController: true,
         template: `<ul>
-            <li ng:repeat="node in nodes">
+            <li ng:repeat="node in grNodesCtrl.nodes">
                 <gr-node
                     class="node"
-                    gr:selected-images="selectedImages$"
-                    gr:selected-collections="selectedCollections"
                     gr:node="node"
-                    gr:node-list="nodes"
-                    gr:editing="editing"></gr-node>
+                    gr:node-list="grNodesCtrl.nodes"
+                    ></gr-node>
             </li>
         </ul>`
+    };
+});
+
+grCollectionsPanel.directive('grCollectionTree', function() {
+    return {
+        restrict: 'E',
+        scope: {
+            nodes: '=grNodes',
+            editing: '=?grEditing',
+            selectedImages$: '=?grSelectedImages',
+            selectedCollections: '=?grSelectedCollections',
+            selectionMode: '=?grSelectionMode',
+            onSelect: '&?grOnSelect'
+        },
+        controller: function(){
+            const grCollectionTreeCtrl = this;
+
+            if (! grCollectionTreeCtrl.selectedImages$) {
+                grCollectionTreeCtrl.selectedImages$ = Rx.Observable.empty();
+            }
+
+            if (! grCollectionTreeCtrl.selectedCollections) {
+                grCollectionTreeCtrl.selectedCollections = [];
+            }
+
+
+        },
+        controllerAs: 'grCollectionTreeCtrl',
+        bindToController: true,
+        template: `<gr-nodes gr:nodes="grCollectionTreeCtrl.nodes"></gr-nodes>`
     };
 });
 
