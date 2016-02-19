@@ -117,7 +117,6 @@ grCollectionsPanel.controller('GrNodeCtrl',
 
     ctrl.init = function(grCollectionTreeCtrl) {
         const selectedImages$ = grCollectionTreeCtrl.selectedImages$;
-
         const selectedCollections = grCollectionTreeCtrl.selectedCollections;
 
         // TODO: move this somewhere sensible, we probably don't want an observable for each node.
@@ -132,7 +131,8 @@ grCollectionsPanel.controller('GrNodeCtrl',
         };
 
         subscribe$($scope, pathWithImages$, ({path, images}) => {
-           collections.addToCollectionUsingImageResources(images, path).then(() => ctrl.saving = false);
+           collections.addToCollectionUsingImageResources(images, path)
+           .then(() => ctrl.saving = false);
         });
 
         const remove$ = new Rx.Subject();
@@ -141,7 +141,7 @@ grCollectionsPanel.controller('GrNodeCtrl',
 
         ctrl.removeImagesFromCollection = () => {
             ctrl.removing = true;
-            remove$.onNext(ctrl.node.data.data.pathId);
+            remove$.onNext(pathId);
         };
 
         subscribe$($scope, pathToRemoveWithImages$, ({path, images}) => {
@@ -150,17 +150,17 @@ grCollectionsPanel.controller('GrNodeCtrl',
 
         inject$($scope, hasImagesSelected$, ctrl, 'hasImagesSelected');
 
-
         ctrl.isSelected = selectedCollections.some(col => {
-            return angular.equals(col, ctrl.node.data.data.pathId);
+            return angular.equals(col, pathId);
         });
 
         ctrl.hasCustomSelect = !! grCollectionTreeCtrl.onSelect;
 
-        ctrl.select = function() {
+        ctrl.select = () => {
             grCollectionTreeCtrl.onSelect({$collection: ctrl.node.data.data.path});
-        }
-    }
+        };
+
+    };
 }]);
 
 grCollectionsPanel.directive('grNode', ['$parse', '$compile', function($parse, $compile) {
