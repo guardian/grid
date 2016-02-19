@@ -32,7 +32,9 @@
                 <dd class="image-info__title metadata-line__info"
                     editable-text="ctrl.metadata.title"
                     onbeforesave="ctrl.updateMetadataField('title', $data)"
-                    e:ng-class="{'image-info__editor--error': $error, 'image-info__editor--saving': titleEditForm.$waiting}"
+                    e:ng-class="{'image-info__editor--error': $error,
+                                 'image-info__editor--saving': titleEditForm.$waiting,
+                                 'text-input': true}"
                     e:form="titleEditForm">{{ctrl.metadata.title}}</dd>
             </div>
 
@@ -87,7 +89,9 @@
                         <span class="image-info__byline"
                               editable-text="ctrl.metadata.byline"
                               onbeforesave="ctrl.updateMetadataField('byline', $data)"
-                              e:ng-class="{'image-info__editor--error': $error, 'image-info__editor--saving': bylineEditForm.$waiting}"
+                              e:ng-class="{'image-info__editor--error': $error,
+                                           'image-info__editor--saving': bylineEditForm.$waiting,
+                                           'text-input': true}"
                               e:form="bylineEditForm">
 
                             <span ng:if="ctrl.metadata.byline">
@@ -111,7 +115,9 @@
                               editable-text="ctrl.metadata.credit"
                               e:typeahead="credit for credit in ctrl.credits($viewValue) | limitTo:8"
                               onbeforesave="ctrl.updateMetadataField('credit', $data)"
-                              e:ng-class="{'image-info__editor--error': $error, 'image-info__editor--saving': creditEditForm.$waiting}"
+                              e:ng-class="{'image-info__editor--error': $error,
+                                           'image-info__editor--saving': creditEditForm.$waiting,
+                                           'text-input': true}"
                               e:form="creditEditForm">
 
                             <span ng:if="ctrl.metadata.credit">
@@ -143,7 +149,9 @@
                         <span class="image-info__copyright"
                               editable-text="ctrl.metadata.copyright"
                               onbeforesave="ctrl.updateMetadataField('copyright', $data)"
-                              e:ng-class="{'image-info__editor--error': $error, 'image-info__editor--saving': copyrightEditForm.$waiting}"
+                              e:ng-class="{'image-info__editor--error': $error,
+                                           'image-info__editor--saving': copyrightEditForm.$waiting,
+                                           'text-input': true}"
                               e:form="copyrightEditForm">
 
                             <span ng:if="ctrl.metadata.copyright">
