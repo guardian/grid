@@ -6,16 +6,17 @@ import '../util/eq';
 export var datalist = angular.module('kahuna.forms.datalist', ['util.eq']);
 
 
-datalist.directive('grDatalist', [function() {
+datalist.directive('grDatalist', ['$q', function($q) {
     return {
         restrict: 'E',
         transclude: true,
         scope: {
-            search: '&grSearch'
+            search:   '&grSearch',
+            onSelect: '&grOnSelect'
         },
         template: template,
         controllerAs: 'ctrl',
-        controller: [function() {
+        controller: ['$scope', function($scope) {
             var ctrl = this;
             var selectedIndex = 0;
 
@@ -30,12 +31,17 @@ datalist.directive('grDatalist', [function() {
             ctrl.isSelected = key => key === selectedIndex;
 
             ctrl.searchFor = q =>
-                ctrl.search({ q }).then(results => ctrl.results = results).then(selectedIndex = 0);
+                $q.when(ctrl.search({ q })).then(results => ctrl.results = results).then(selectedIndex = 0);
 
-            ctrl.setValueTo = value => ctrl.value = value;
+            ctrl.setValueTo = value => {
+                ctrl.value = value;
+                if (ctrl.onSelect) {
+                    $scope.$eval(ctrl.onSelect, {$value: value});
+                }
+            };
 
             ctrl.setValueFromSelectedIndex = () => {
-                ctrl.value = ctrl.results[selectedIndex];
+                ctrl.setValueTo(ctrl.results[selectedIndex]);
             };
 
             ctrl.reset = () => {
@@ -100,6 +106,7 @@ datalist.directive('grDatalistInput',
                 if (parentCtrl.active &&
                     ( keys[event.which] === 'up' || keys[event.which] === 'down' ) ) {
                     event.preventDefault();
+                    event.stopPropagation();
                 }
             });
 
@@ -116,6 +123,7 @@ datalist.directive('grDatalistInput',
                 }
             });
 
+            input.on('focus', searchAndActivate);
             input.on('click', searchAndActivate);
 
             // This is done to make the results disappear when you select
