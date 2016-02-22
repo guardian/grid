@@ -1,0 +1,15 @@
+<gr-datalist gr-search="$grChipsCtrl.getSuggestions($chip)"
+             gr-on-select="$grFilterChooserChipCtrl.apply($value)">
+    <span class="gr-filter-chooser-chip__type"
+    >{{$chip.filterType === 'inclusion' ? '+' : '−' }}</span
+    ><input type="text"
+            class="gr-filter-chooser-chip__value"
+            gr-datalist-input
+            gr-auto-width
+            ng:trim="false"
+            gr-chip-input
+            gr-chip-input-on-enter="$grFilterChooserChipCtrl.apply($chip.value)"
+            gr-chip-input-backspace-at-start="$grFilterChooserChipCtrl.removeSelf()"
+            ng:model="$chip.value"
+    />
+</gr-datalist>

@@ -1,0 +1,64 @@
+gr-chips {
+    white-space: nowrap;
+    overflow: hidden;
+}
+
+/* Make sure the last text token is wide enough */
+gr-chips .gr-chips__chip-wrapper:last-child gr-text-chip input {
+    min-width: 2em;
+}
+
+.gr-chips__placeholder {
+    position: absolute;
+    color: #aaa;
+    -webkit-user-select: none;
+       -moz-user-select: none;
+            user-select: none;
+}
+
+gr-text-chip,
+gr-filter-chip,
+gr-static-filter-chip,
+gr-filter-chooser-chip,
+gr-filter-chip,
+gr-datalist {
+    display: inline-block;
+}
+
+gr-filter-chip button,
+gr-static-filter-chip button,
+gr-filter-chooser-chip button {
+    border: 0;
+    background: transparent;
+    padding: 0;
+}
+
+.gr-filter-chip__value,
+.gr-static-filter-chip__value,
+.gr-filter-chooser-chip__value {
+    padding: 4px 2px;
+}
+
+.gr-filter-chip__key,
+.gr-static-filter-chip__key,
+.gr-static-filter-chip__value {
+    cursor: default;
+}
+
+gr-text-chip input,
+gr-filter-chip input,
+gr-filter-chooser-chip input {
+    border: 0;
+    background: transparent;
+}
+
+gr-text-chip button:focus,
+gr-filter-chip button:focus,
+gr-static-filter-chip button:focus,
+gr-filter-chooser-chip button:focus,
+gr-text-chip input:focus,
+gr-filter-chip input:focus,
+gr-static-filter-chip input:focus,
+gr-filter-chooser-chip input:focus {
+    outline: none;
+}
