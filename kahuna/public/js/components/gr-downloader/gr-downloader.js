@@ -41,10 +41,11 @@ downloader.controller('DownloaderCtrl', [
 
     inject$($scope, uris$, ctrl, 'firstImageUris');
 
-    ctrl.download = () => {
+    ctrl.download = (downloadKey) => {
+
         ctrl.downloading = true;
 
-        const downloads$ = imageDownloadsService.download(ctrl.images, 'lowRezUri');
+        const downloads$ = imageDownloadsService.download(ctrl.images, downloadKey || 'secureUri');
 
         downloads$.subscribe((zip) => {
             const file = zip.generate({ type: 'uint8array' });
