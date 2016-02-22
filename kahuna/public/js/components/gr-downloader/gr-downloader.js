@@ -47,7 +47,7 @@ downloader.controller('DownloaderCtrl', [
 
         ctrl.downloading = true;
 
-        const downloads$ = imageDownloadsService.download(
+        const downloads$ = imageDownloadsService.download$(
                 ctrl.imagesArray(),
                 downloadKey || 'secureUri'
         );

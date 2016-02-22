@@ -41,7 +41,7 @@ imageDownloadsService.factory('imageDownloadsService', ['imgops', '$http', funct
                 }));
     }
 
-    function download(imageResources, downloadKey) {
+    function download$(imageResources, downloadKey) {
         const downloadObservables = imageResources
             .map((image) => getDownloads(image));
 
@@ -60,7 +60,7 @@ imageDownloadsService.factory('imageDownloadsService', ['imgops', '$http', funct
     }
 
     return {
-        download,
+        download$,
         getDownloads
     };
 }]);
