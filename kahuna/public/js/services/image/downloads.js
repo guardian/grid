@@ -1,5 +1,4 @@
 import angular from 'angular';
-import Immutable from 'immutable';
 import JSZip from 'jszip';
 import Rx from 'rx';
 
@@ -43,13 +42,10 @@ imageDownloadsService.factory('imageDownloadsService', ['imgops', '$http', funct
     }
 
     function download(imageResources, downloadKey) {
-        const downloadObservablesIterable = imageResources
+        const downloadObservables = imageResources
             .map((image) => getDownloads(image));
 
-        const downloadObservablesArray = Array.from(
-                downloadObservablesIterable.values());
-
-        const downloads$ = Rx.Observable.merge(downloadObservablesArray);
+        const downloads$ = Rx.Observable.merge(downloadObservables);
 
         const zip = new JSZip();
         const imageHttp = url => $http.get(url, { responseType:'arraybuffer' });

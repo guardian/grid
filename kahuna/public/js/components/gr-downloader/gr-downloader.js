@@ -1,6 +1,5 @@
 import angular from 'angular';
 import './gr-downloader.css!';
-import Rx from 'rx';
 import template from './gr-downloader.html!text';
 
 import '../../services/image/downloads';
@@ -36,27 +35,33 @@ downloader.controller('DownloaderCtrl', [
 
     let ctrl = this;
 
-    const uris$ = imageDownloadsService.getDownloads(
-            Array.from(ctrl.images.values())[0]);
+    ctrl.imagesArray = () => Array.isArray(ctrl.images) ?
+        ctrl.images : Array.from(ctrl.images.values());
 
+    ctrl.imageCount = () => ctrl.imagesArray().length;
+
+    const uris$ = imageDownloadsService.getDownloads(ctrl.imagesArray()[0]);
     inject$($scope, uris$, ctrl, 'firstImageUris');
 
-    ctrl.download = (downloadKey) => {
+    ctrl.download    = (downloadKey) => {
 
         ctrl.downloading = true;
 
-        const downloads$ = imageDownloadsService.download(ctrl.images, downloadKey || 'secureUri');
+        const downloads$ = imageDownloadsService.download(
+                ctrl.imagesArray(),
+                downloadKey || 'secureUri'
+        );
 
         downloads$.subscribe((zip) => {
             const file = zip.generate({ type: 'uint8array' });
             const blob = new Blob([file], { type: 'application/zip' });
 
-            const isTooBig = blob.size > maxBlobSize
+            const isTooBig = blob.size > maxBlobSize;
 
             const createDownload = () => {
                 const url = $window.URL.createObjectURL(blob);
                 $window.location = url;
-            }
+            };
 
             const refuseDownload = () => {
                 const maxSize = bytesToSize(maxBlobSize);
@@ -70,9 +75,13 @@ downloader.controller('DownloaderCtrl', [
                 ].join('\n');
 
                 $window.alert(message);
-            }
+            };
 
-            isTooBig ? refuseDownload() : createDownload()
+            if (isTooBig) {
+                refuseDownload();
+            } else {
+                createDownload();
+            }
 
             ctrl.downloading = false;
         },
@@ -97,7 +106,7 @@ downloader.directive('grDownloader', function() {
         controllerAs: 'ctrl',
         bindToController: true,
         scope: {
-            images: '=grImages' // crappy two way binding
+            images: '='
         },
         template: template
     };
