@@ -5,20 +5,20 @@ import angular from 'angular';
 // animations locally, we should turn it back on here.
 // import 'angular-animate';
 import moment from 'moment';
-import '../util/eq';
-import '../components/gu-date-range/gu-date-range';
+import {eq} from '../util/eq';
+import {guDateRange} from '../components/gu-date-range/gu-date-range';
 import template from './query.html!text';
-import './syntax/syntax';
+import {syntax} from './syntax/syntax';
 
-import '../analytics/track';
+import {track} from '../analytics/track';
 
 export var query = angular.module('kahuna.search.query', [
     // Note: temporarily disabled for performance reasons, see above
     // 'ngAnimate',
-    'util.eq',
-    'gu-dateRange',
-    'grSyntax',
-    'analytics.track'
+    eq.name,
+    guDateRange.name,
+    syntax.name,
+    track.name
 ]);
 
 query.controller('SearchQueryCtrl',
