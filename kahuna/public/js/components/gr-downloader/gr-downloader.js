@@ -1,9 +1,12 @@
 import angular from 'angular';
-import JSZip from 'jszip';
 import './gr-downloader.css!';
 import template from './gr-downloader.html!text';
 
-export const downloader = angular.module('gr.downloader', []);
+import '../../services/image/downloads';
+
+export const downloader = angular.module('gr.downloader', [
+    'gr.image-downloads.service'
+]);
 
 // blob URLs have a max size of 500MB - https://github.com/eligrey/FileSaver.js/#supported-browsers
 const maxBlobSize = 500 * 1024 * 1024;
@@ -21,31 +24,46 @@ const bytesToSize = (bytes) => {
         `${(bytes / Math.pow(1024, i)).toFixed(1)} ${sizes[i]}`;
 };
 
-downloader.controller('DownloaderCtrl',
-                     ['$window', '$q', '$http',
-                     function Controller($window, $q, $http) {
+downloader.controller('DownloaderCtrl', [
+    '$window',
+    '$q',
+    '$scope',
+    'inject$',
+    'imageDownloadsService',
+
+    function Controller($window, $q, $scope, inject$, imageDownloadsService) {
 
     let ctrl = this;
 
-    ctrl.download = () => {
+    ctrl.imagesArray = () => Array.isArray(ctrl.images) ?
+        ctrl.images : Array.from(ctrl.images.values());
+
+    ctrl.imageCount = () => ctrl.imagesArray().length;
+
+    const uris$ = imageDownloadsService.getDownloads(ctrl.imagesArray()[0]);
+    inject$($scope, uris$, ctrl, 'firstImageUris');
+
+    ctrl.download    = (downloadKey) => {
+
         ctrl.downloading = true;
 
-        const zip = new JSZip();
-        const imageHttp = url => $http.get(url, { responseType:'arraybuffer' });
-        const imagesAddedToZip = Array.from(ctrl.images.values()).map(image =>
-            imageHttp(image.data.source.secureUrl)
-                .then(resp => zip.file(imageName(image), resp.data))
+        const downloads$ = imageDownloadsService.download(
+                ctrl.imagesArray(),
+                downloadKey || 'secureUri'
         );
 
-        $q.all(imagesAddedToZip).then(() => {
+        downloads$.subscribe((zip) => {
             const file = zip.generate({ type: 'uint8array' });
             const blob = new Blob([file], { type: 'application/zip' });
 
-            if (blob.size <= maxBlobSize) {
+            const isTooBig = blob.size > maxBlobSize;
+
+            const createDownload = () => {
                 const url = $window.URL.createObjectURL(blob);
                 $window.location = url;
-            }
-            else {
+            };
+
+            const refuseDownload = () => {
                 const maxSize = bytesToSize(maxBlobSize);
                 const blobSize = bytesToSize(blob.size);
 
@@ -57,28 +75,28 @@ downloader.controller('DownloaderCtrl',
                 ].join('\n');
 
                 $window.alert(message);
+            };
+
+            if (isTooBig) {
+                refuseDownload();
+            } else {
+                createDownload();
             }
-        }).finally(() => {
+
             ctrl.downloading = false;
+        },
+        (e) => {
+            const message = [
+                'Something has gone wrong with your download!', e
+            ].join('\n');
+
+            $window.alert(message);
+
+            ctrl.downloading = false;
+            throw e;
         });
     };
 
-    ctrl.getFirstImageSource = () => Array.from(ctrl.images)[0].data.source;
-
-    function imageName(image) {
-        const filename = image.data.uploadInfo.filename;
-        const imageId = image.data.id;
-        if (filename) {
-            const basename = stripExtension(filename);
-            return `${basename} (${imageId}).jpg`;
-        } else {
-            return `${imageId}.jpg`;
-        }
-    }
-
-    function stripExtension(filename) {
-        return filename.replace(/\.[a-zA-Z]{3,4}$/, '');
-    }
 }]);
 
 downloader.directive('grDownloader', function() {
@@ -88,7 +106,7 @@ downloader.directive('grDownloader', function() {
         controllerAs: 'ctrl',
         bindToController: true,
         scope: {
-            images: '=grImages' // crappy two way binding
+            images: '='
         },
         template: template
     };

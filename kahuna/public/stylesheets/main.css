@@ -419,6 +419,10 @@ textarea.ng-invalid {
     height: 50px;
 }
 
+.top-bar-item gr-icon-label {
+    padding: 0 10px;
+}
+
 .top-bar-item:first-child {
     margin-left: 0;
 }
