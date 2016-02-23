@@ -6,6 +6,7 @@ import '../image/service';
 import '../usage-rights/usage-rights-editor';
 import '../components/gr-archiver-status/gr-archiver-status';
 import {collectionsApi} from '../services/api/collections-api';
+import {rememberScrollTop} from '../directives/gr-remember-scroll-top';
 
 
 export var imageEditor = angular.module('kahuna.edits.imageEditor', [
@@ -13,7 +14,8 @@ export var imageEditor = angular.module('kahuna.edits.imageEditor', [
     'gr.image.service',
     'kahuna.edits.usageRightsEditor',
     'gr.archiverStatus',
-    collectionsApi.name
+    collectionsApi.name,
+    rememberScrollTop.name
 ]);
 
 imageEditor.controller('ImageEditorCtrl', [
@@ -122,21 +124,27 @@ imageEditor.controller('ImageEditorCtrl', [
 
     ctrl.collectionError = false;
 
-    collections.getCollections().then(collections => {
-        ctrl.collections = collections.data.children;
-        // this will trigger the remember-scroll-top directive to return
-        // users to their previous position on the collections panel
-        // once the tree has been rendered
-        $timeout(() => {
-            $scope.$emit('gr:remember-scroll-top:apply');
-        });
-    }, () => {
-        // TODO: More informative error handling
-        // TODO: Stop error propagating to global error handler
-        ctrl.error = true;
-    }).catch(() => ctrl.collectionError = true);
-
     ctrl.selectionMode = true;
+
+    ctrl.openCollectionTree = () => {
+        ctrl.addCollection = true;
+
+        if (!ctrl.collections) {
+            collections.getCollections().then(collections => {
+                ctrl.collections = collections.data.children;
+                // this will trigger the remember-scroll-top directive to return
+                // users to their previous position on the collections panel
+                // once the tree has been rendered
+                $timeout(() => {
+                    $scope.$broadcast('gr:remember-scroll-top:apply');
+                });
+            }, () => {
+                // TODO: More informative error handling
+                // TODO: Stop error propagating to global error handler
+                ctrl.error = true;
+            }).catch(() => ctrl.collectionError = true);
+        }
+    };
 
     ctrl.addToCollection = (collection) => {
         collections.addCollectionToImage(ctrl.image, collection);

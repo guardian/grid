@@ -135,7 +135,8 @@
                     ng:click="ctrl.addCollection = false">
                     <gr-icon>close</gr-icon>
                 </button>
-                <div class="result-editor__collections">
+                <div class="result-editor__collections"
+                     gr:remember-scroll-top="true">
                     <div class="error" ng:if="ctrl.collectionError">
                         There was an error loading the collections.
                         Please try again later.
@@ -169,7 +170,7 @@
                     </li>
                 </ul>
             </div>
-            <button ng:click="ctrl.addCollection=true"
+            <button ng:click="ctrl.openCollectionTree()"
                     gr-tooltip="Click to add image to a collection">
                 <gr-icon>library_add</gr-icon>
             </button>
