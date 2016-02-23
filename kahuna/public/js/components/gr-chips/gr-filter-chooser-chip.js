@@ -22,6 +22,9 @@ grFilterChooserChip.controller('grFilterChooserChipCtrl', function() {
     let $grChipsCtrl;
     let $grChipCtrl;
 
+    // Hack to prevents double-application of datalist/ENTER key
+    let applied = false;
+
     $grFilterChooserChipCtrl.init = function($grChipsCtrl_, $grChipCtrl_) {
         $grChipsCtrl = $grChipsCtrl_;
         $grChipCtrl = $grChipCtrl_;
@@ -29,8 +32,12 @@ grFilterChooserChip.controller('grFilterChooserChipCtrl', function() {
 
     $grFilterChooserChipCtrl.apply = function(value) {
         // Only transform if /something/ is submitted
-        // Note: this also prevents double-application of datalist/ENTER key
-        if (value) {
+        if (value && ! applied) {
+            // Prevent double-application of datalist/ENTER key, as
+            // both events get fired even though the first one caused
+            // this chip to be replaced
+            applied = true;
+
             const chip = $grChipCtrl.chip;
             if ($grChipsCtrl.isValidKey(value)) {
                 // Valid key, turn it into a filter

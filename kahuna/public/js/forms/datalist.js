@@ -12,7 +12,7 @@ datalist.directive('grDatalist', ['$q', function($q) {
         transclude: true,
         scope: {
             search:   '&grSearch',
-            onSelect: '&grOnSelect'
+            onSelect: '&?grOnSelect'
         },
         template: template,
         controllerAs: 'ctrl',
@@ -36,7 +36,7 @@ datalist.directive('grDatalist', ['$q', function($q) {
             ctrl.setValueTo = value => {
                 ctrl.value = value;
                 if (ctrl.onSelect) {
-                    $scope.$eval(ctrl.onSelect, {$value: value});
+                    ctrl.onSelect({$value: value});
                 }
             };
 
