@@ -5,13 +5,15 @@ import './service';
 import '../image/service';
 import '../usage-rights/usage-rights-editor';
 import '../components/gr-archiver-status/gr-archiver-status';
+import {collectionsApi} from '../services/api/collections-api';
 
 
 export var imageEditor = angular.module('kahuna.edits.imageEditor', [
     'kahuna.edits.service',
     'gr.image.service',
     'kahuna.edits.usageRightsEditor',
-    'gr.archiverStatus'
+    'gr.archiverStatus',
+    collectionsApi.name
 ]);
 
 imageEditor.controller('ImageEditorCtrl', [
@@ -21,13 +23,15 @@ imageEditor.controller('ImageEditorCtrl', [
     'editsService',
     'editsApi',
     'imageService',
+    'collections',
 
     function($rootScope,
              $scope,
              $timeout,
              editsService,
              editsApi,
-             imageService) {
+             imageService,
+             collections) {
 
     var ctrl = this;
 
@@ -114,6 +118,68 @@ imageEditor.controller('ImageEditorCtrl', [
             const resource = image.data.userMetadata.data.usageRights;
             editsService.update(resource, data, image);
         });
+    }
+
+    ctrl.collectionError = false;
+
+    collections.getCollections().then(collections => {
+        ctrl.collections = collections.data.children;
+        // this will trigger the remember-scroll-top directive to return
+        // users to their previous position on the collections panel
+        // once the tree has been rendered
+        $timeout(() => {
+            $scope.$emit('gr:remember-scroll-top:apply');
+        });
+    }, () => {
+        // TODO: More informative error handling
+        // TODO: Stop error propagating to global error handler
+        ctrl.error = true;
+    }).catch(() => ctrl.collectionError = true);
+
+    ctrl.selectionMode = true;
+
+    ctrl.addToCollection = (collection) => {
+        collections.addCollectionToImage(ctrl.image, collection);
+        //this isn't needed when called from batch apply
+        ctrl.addCollection = false;
+    };
+
+    ctrl.removeImageFromCollection = (collection) => {
+        collections.removeImageFromCollection(collection, ctrl.image);
+    };
+
+    const batchApplyCollectionsEvent = 'events:batch-apply:collections';
+    const batchRemoveCollectionsEvent = 'events:batch-remove:collections';
+
+    ctrl.batchApplyCollections = () => {
+        const collectionsOnImage = ctrl.image.data.collections.map(collection =>
+                collection.data.path);
+
+        if (collectionsOnImage.length > 0) {
+            $rootScope.$broadcast(batchApplyCollectionsEvent, { collections: collectionsOnImage } );
+        } else {
+            ctrl.confirmDelete = true;
+
+            $timeout(() => {
+                ctrl.confirmDelete = false;
+            }, 5000);
+        }
+
+        ctrl.batchRemoveCollections = () => {
+            $rootScope.$broadcast(batchRemoveCollectionsEvent);
+        };
+
+    };
+
+    if (Boolean(ctrl.withBatch)) {
+        $scope.$on(batchApplyCollectionsEvent, (e, { collections }) => {
+            collections.forEach( ctrl.addToCollection );
+        });
+
+        $scope.$on(batchRemoveCollectionsEvent, () => {
+            const collectionsOnImage = ctrl.image.data.collections;
+            collectionsOnImage.forEach( ctrl.removeImageFromCollection );
+        })
     }
 }]);
 

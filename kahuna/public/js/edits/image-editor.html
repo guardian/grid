@@ -128,6 +128,67 @@
 
         <div class="result-editor__field-container flex-container flex-center">
             <span class="result-editor__field-label  flex-no-shrink text-small">
+                Collections
+            </span>
+            <div ng:if="ctrl.addCollection" class="result-editor__overlay">
+                <button class="result-editor__overlay__cancel"
+                    ng:click="ctrl.addCollection = false">
+                    <gr-icon>close</gr-icon>
+                </button>
+                <div class="result-editor__collections">
+                    <div class="error" ng:if="ctrl.collectionError">
+                        There was an error loading the collections.
+                        Please try again later.
+                    </div>
+                    <div class="result-editor__collections__heading">Select a collection to add image to</div>
+                    <gr-collection-tree
+                        gr:nodes="ctrl.collections"
+                        gr:selection-mode="true"
+                        gr:on-select="ctrl.addToCollection($collection)"
+                    ></gr-collection-tree>
+                </div>
+            </div>
+            <div class="result-editor__field-container__collections">
+                <ul class="preview__collections">
+                    <li class="preview__collections__collection"
+                        ng:repeat="collection in ctrl.image.data.collections track by collection.data.pathId">
+                        <a gr-tooltip="Click to open collection: {{::collection.data.path.join(' ▸ ')}}"
+                           gr-tooltip-position="top"
+                           ui:sref="search.results({query: (collection.data.pathId | queryCollectionFilter)})"
+                           ng:attr-style="{{::ctrl.getCollectionStyle(collection)}}"
+                           class="preview__collections__collection__value">
+                            {{::collection.data.description}}
+                        </a>
+                        <button gr-tooltip="Click to remove image from this collection"
+                                gr-tooltip-position="top"
+                                class="preview__collections__collection__remove"
+                                ng:attr-style="{{::ctrl.getCollectionStyle(collection)}}"
+                                ng:click="ctrl.removeImageFromCollection(collection)">
+                            <gr-icon>close</gr-icon>
+                        </button>
+                    </li>
+                </ul>
+            </div>
+            <button ng:click="ctrl.addCollection=true"
+                    gr-tooltip="Click to add image to a collection">
+                <gr-icon>library_add</gr-icon>
+            </button>
+            <span class="preview__collections__collection__apply-all" ng:if="ctrl.withBatch">
+                <button ng:if="! ctrl.confirmDelete"
+                        title="Apply these collections to all your current uploads"
+                        ng:click="ctrl.batchApplyCollections()"
+                >⇔</button>
+                <button title="Remove ALL collections"
+                        class="button button--confirm-delete"
+                        ng:if="ctrl.confirmDelete"
+                        ng:click="ctrl.batchRemoveCollections()">
+                    <gr-icon>warning</gr-icon>Remove ALL collections in job?
+                </button>
+            </span>
+        </div>
+
+        <div class="result-editor__field-container flex-container flex-center">
+            <span class="result-editor__field-label  flex-no-shrink text-small">
                 Labels
             </span>
             <div class="result-editor__field-container__labels" ng:class="{'result-editor__field-container__labels--hidden' : ctrl.inputtingLabel}">

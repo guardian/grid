@@ -1157,7 +1157,8 @@ FIXME: what to do with touch devices
     margin: 0 5px 5px 0;
 }
 
-.preview__collections__collection__value {
+.preview__collections__collection__value,
+.preview__collections__collection__remove {
     color: #fff;
     padding: 0 5px;
     margin-left: 2px;
@@ -1166,10 +1167,23 @@ FIXME: what to do with touch devices
     background-color: #555;
 }
 
-.preview__collections__collection__value:hover {
+.preview__collections__collection__remove {
+    margin-left: -1px;
+    border-top-left-radius: 0;
+    border-bottom-left-radius: 0;
+}
+
+.preview__collections__collection__value:hover,
+.preview__collections__collection__remove:hover {
     /*need important to overwrite the inline style*/
     background-color: #fff !important;
     color: black;
+}
+
+.preview__collections__collection__apply-all {
+    margin-left: 10px;
+    line-height: 20px;
+    font-size: 1.6rem;
 }
 
 .preview__cost {
@@ -1330,8 +1344,10 @@ FIXME: what to do with touch devices
     margin-bottom: 5px;
 }
 
-.result-editor__field-container__labels {
+.result-editor__field-container__labels,
+.result-editor__field-container__collections {
     display: flex;
+    font-size: 1.4rem;
 }
 
 .result-editor__field-container__labels--hidden {
@@ -1352,6 +1368,42 @@ FIXME: what to do with touch devices
 .result-editor__field-value {
     font-size: 1.4rem;
     line-height: 24px;
+}
+
+.result-editor__overlay {
+    background: rgba(20, 20, 20, .75);
+    width: calc(100vw);
+    height: calc(100vh);
+    position: fixed;
+    top: 0;
+    left: 0;
+    z-index: 40;
+}
+
+.result-editor__overlay__cancel {
+    float: right;
+    padding: 20px;
+}
+
+.result-editor__overlay__cancel gr-icon {
+    font-size: 30px;
+}
+
+.result-editor__collections {
+    background: rgba(68, 68, 68, 1);
+    height: calc(100vh);
+    position: fixed;
+    top: 30px;
+    left: 50%;
+    z-index: 40;
+    overflow: auto;
+    width: 400px;
+    margin-left: -200px;
+}
+
+.result-editor__collections__heading {
+    padding: 5px 10px;
+    border-bottom: 1px solid #565656;
 }
 
 .result-editor__usage-rights-container {

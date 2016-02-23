@@ -24,6 +24,7 @@ gr-nodes, gr-node,
     margin-left: -200px;
     box-sizing: border-box;
 }
+
 .node__info:hover,
 .collection-drop-drag-over {
     background-color: #666;
@@ -36,6 +37,8 @@ gr-nodes, gr-node,
 
 .node__name {
     padding: 5px;
+    text-align: left;
+    line-height: 1.5;
 }
 
 .node__toggler,
