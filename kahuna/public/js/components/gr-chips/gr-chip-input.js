@@ -48,26 +48,34 @@ grChipInput.directive('grChipInput', ['$parse', '$timeout', function($parse, $ti
             const backspaceStartExpr = attrs.grChipInputBackspaceAtStart && $parse(attrs.grChipInputBackspaceAtStart);
             const deleteEndExpr = attrs.grChipInputDeleteAtEnd && $parse(attrs.grChipInputDeleteAtEnd);
 
-            scope.$watch(() => $grChipsCtrl.focusedItem, focusedItem => {
+            scope.$watchCollection(() => ({focusedItem: $grChipsCtrl.focusedItem,
+                                           caretStartOffset: $grChipsCtrl.caretStartOffset,
+                                           caretEndOffset: $grChipsCtrl.caretEndOffset}),
+                                   ({focusedItem, caretStartOffset, caretEndOffset}) => {
                 // Focus self (unless already focused)
-                if (focusedItem === $grChipCtrl.chip && document.activeElement !== element[0]) {
-                    // Store target caret position
-                    const {caretStartOffset, caretEndOffset} = $grChipsCtrl;
-
-                    // Yield to avoid digest-within-digest of focus event
-                    $timeout(() => {
-                        element[0].focus();
-                        element[0].setSelectionRange(caretStartOffset, caretEndOffset);
-                    });
+                if (focusedItem === $grChipCtrl.chip) {
+                    const selStart = element[0].selectionStart;
+                    const selEnd   = element[0].selectionEnd;
+                    // Unless already focused at the same caret location
+                    if (document.activeElement !== element[0] ||
+                        selStart !== caretStartOffset ||
+                        selEnd !== caretEndOffset) {
+                        // Yield to avoid digest-within-digest of focus event
+                        $timeout(() => {
+                            element[0].focus();
+                            element[0].setSelectionRange(caretStartOffset, caretEndOffset);
+                        });
+                    }
                 }
             });
 
             element.on('focus', ($event) => {
-                const selStart = element[0].selectionStart;
-                const selEnd   = element[0].selectionEnd;
-                // TODO: caret position not set yet (needed to fix position when merging)
-                $grChipsCtrl.setFocusedChip($grChipCtrl.chip, selStart, selEnd);
-                scope.$digest();
+                // Caret position not set yet, yield to get it
+                $timeout(() => {
+                    const selStart = element[0].selectionStart;
+                    const selEnd   = element[0].selectionEnd;
+                    $grChipsCtrl.setFocusedChip($grChipCtrl.chip, selStart, selEnd);
+                });
             });
 
             element.on('blur', ($event) => {
@@ -76,7 +84,11 @@ grChipInput.directive('grChipInput', ['$parse', '$timeout', function($parse, $ti
             });
 
             element.on('input', ($event) => {
+                const selStart = element[0].selectionStart;
+                const selEnd   = element[0].selectionEnd;
+
                 $grChipsCtrl.onChange();
+                $grChipsCtrl.setFocusedChip($grChipCtrl.chip, selStart, selEnd);
                 scope.$apply();
             });
 

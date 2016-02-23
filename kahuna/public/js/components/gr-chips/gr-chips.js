@@ -231,7 +231,6 @@ grChips.directive('grChips', ['$parse', function($parse) {
 
 /* TODO
   * cannot focus static filter, breaks navigation
-  + broken HOME/END in single text field
   - auto-completion: key descriptions
   - keep caret position as chips are merged
  */
