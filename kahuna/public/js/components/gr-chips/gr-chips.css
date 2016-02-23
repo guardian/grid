@@ -1,6 +1,7 @@
 gr-chips {
     white-space: nowrap;
     overflow: hidden;
+    cursor: text; /* pretend the whole thing is a text input */
 }
 
 /* Make sure the last text token is wide enough */
