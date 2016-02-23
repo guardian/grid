@@ -1,4 +1,5 @@
 import angular from 'angular';
+import {List, Map} from 'immutable';
 
 import {mediaApi} from '../../services/api/media-api';
 
@@ -8,7 +9,8 @@ export const querySuggestions = angular.module('querySuggestions', [
 
 // FIXME: get fields and subjects from API
 export const filterFields = [
-    'any',
+    'any', // first on purpose in spite of alphabet
+    'agency',
     'by',
     'category',
     'city',
@@ -48,24 +50,73 @@ const subjects = [
     "weather"
 ];
 
-querySuggestions.factory('querySuggestions', ['mediaApi', function(mediaApi) {
+querySuggestions.factory('querySuggestions', ['mediaApi', 'editsApi', function(mediaApi, editsApi) {
+
+    function prefixFilter(prefix) {
+        const lowerPrefix = prefix.toLowerCase();
+        return (values) => values.filter(val => val.toLowerCase().startsWith(lowerPrefix));
+    }
+
+    function listAgencies() {
+        return editsApi.getUsageRightsCategories().
+            then(results => {
+                return List(results).
+                    filter(res => res.value === 'agency').
+                    flatMap(res => res.properties).
+                    filter(prop => prop.name === 'supplier').
+                    flatMap(prop => prop.options).
+                    toJS();
+            });
+    }
+
+    function listCategories() {
+        // TODO: would be nice to use user friendly labels and map
+        // them to the key internally
+        return editsApi.getUsageRightsCategories().
+            then(results => {
+                return results.
+                    map(res => res.value).
+                    filter(key => key != ''); // no empty category
+            });
+    }
+
+    function listPhotographers() {
+        return editsApi.getUsageRightsCategories().
+            then(results => {
+                return List(results).
+                    filter(res => ['staff-photographer', 'contract-photographer'].indexOf(res.value) !== -1).
+                    flatMap(res => res.properties).
+                    filter(prop => prop.name === 'photographer').
+                    flatMap(prop => Map(prop.optionsMap).valueSeq()).
+                    flatMap(list => list).
+                    sort().
+                    toJS();
+            });
+    }
+
+    function suggestCredit(prefix) {
+        return mediaApi.metadataSearch('credit', {q: prefix}).
+            then(results => results.data.map(res => res.key));
+    }
+
+    function suggestLabels(prefix) {
+        return mediaApi.labelsSuggest({q: prefix}).
+            then(labels => labels.data);
+    }
+
 
     function getFilterSuggestions(field, value) {
         switch (field) {
-        case 'subject':
-            return subjects;
+        case 'subject':  return prefixFilter(value)(subjects);
+        case 'label':    return suggestLabels(value);
+        case 'credit':   return suggestCredit(value);
+        case 'agency':   return listAgencies().then(prefixFilter(value));
+        // TODO: list all known bylines, not just our photographers
+        case 'by':       return listPhotographers().then(prefixFilter(value));
+        case 'category': return listCategories().then(prefixFilter(value));
 
-        case 'label':
-            return mediaApi.labelsSuggest({q: value}).
-                then(labels => labels.data);
-
-        case 'credit':
-            return mediaApi.metadataSearch('credit', {q: value}).
-                then(results => results.data.map(res => res.key));
-
-        default:
-            // No suggestions
-            return [];
+        // No suggestions
+        default:         return [];
         }
     }
 
