@@ -2076,13 +2076,13 @@ FIXME: what to do with touch devices
     position: absolute;
     width: 100%;
     z-index: 1;
+    border: 1px solid #999;
     background: #444;
     color: #ccc;
     padding: 10px;
     font-size: 1.2rem;
     box-sizing: border-box;
     max-height: 400px;
-    overflow-y: scroll;
 }
 
 .datalist__input {
