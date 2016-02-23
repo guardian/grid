@@ -124,24 +124,21 @@ grChips.controller('grChipsCtrl', ['$scope', function($scope) {
         if (index >= 0) {
             const previousItem = $grChipsCtrl.items[index];
             const itemLength = previousItem.value.length;
-            $grChipsCtrl.setFocusedChip(previousItem, itemLength, itemLength);
-            return true;
+            return $grChipsCtrl.setFocusedChip(previousItem, itemLength, itemLength);
         }
     };
 
     $grChipsCtrl.focusStartOfChipAfter = function(item) {
         const index = $grChipsCtrl.items.indexOf(item) + 1;
         if (index <= $grChipsCtrl.items.length) {
-            $grChipsCtrl.setFocusedChip($grChipsCtrl.items[index], 0, 0);
-            return true;
+            return $grChipsCtrl.setFocusedChip($grChipsCtrl.items[index], 0, 0);
         }
     };
 
     $grChipsCtrl.focusStartOfFirstChip = function() {
         const firstItem = $grChipsCtrl.items[0];
         if (firstItem) {
-            $grChipsCtrl.setFocusedChip(firstItem, 0, 0);
-            return true;
+            return $grChipsCtrl.setFocusedChip(firstItem, 0, 0);
         }
     };
 
@@ -149,8 +146,7 @@ grChips.controller('grChipsCtrl', ['$scope', function($scope) {
         const lastItem = $grChipsCtrl.items.slice(-1)[0];
         if (lastItem) {
             const itemLength = lastItem.value.length;
-            $grChipsCtrl.setFocusedChip(lastItem, itemLength, itemLength);
-            return true;
+            return $grChipsCtrl.setFocusedChip(lastItem, itemLength, itemLength);
         }
     };
 
