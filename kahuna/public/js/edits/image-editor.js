@@ -187,7 +187,7 @@ imageEditor.controller('ImageEditorCtrl', [
         $scope.$on(batchRemoveCollectionsEvent, () => {
             const collectionsOnImage = ctrl.image.data.collections;
             collectionsOnImage.forEach( ctrl.removeImageFromCollection );
-        })
+        });
     }
 }]);
 
