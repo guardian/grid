@@ -1,4 +1,5 @@
 import {fieldFilter} from '../query-filter';
+import {getLabel, getCollection} from '../../search-query/query-syntax';
 
 const parserRe = /(-?)(?:(?:([a-zA-Z]+):|(#)|(~))(?:([^ "']+)|"([^"]+)"|'([^']+)')|([a-zA-Z0-9]+)|"([^"]*)"|'([^']*)')/g;
 
@@ -38,6 +39,14 @@ export function structureQuery(query) {
     return struct;
 }
 
+function renderFilter(field, value) {
+    switch (field) {
+    case 'label':      return getLabel(value);
+    case 'collection': return getCollection(value);
+    default:           return fieldFilter(field, value);
+    }
+}
+
 // Serialise a structured query into a plain string query
 export function renderQuery(structuredQuery) {
     return structuredQuery.filter(item => item.value).map(item => {
@@ -45,8 +54,8 @@ export function renderQuery(structuredQuery) {
         // Match both filters
         case 'static-filter':
         case 'filter':
-            const filterExpr = fieldFilter(item.key, item.value);
             const prefix = (item.filterType === 'exclusion') ? '-' : '';
+            const filterExpr = renderFilter(item.key, item.value);
             return prefix + filterExpr;
 
         case 'text':
