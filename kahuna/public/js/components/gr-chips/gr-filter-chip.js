@@ -31,6 +31,13 @@ grFilterChip.controller('grFilterChipCtrl', function() {
         // Only transform if /something/ is submitted
         if (value) {
             const chip = $grChipCtrl.chip;
+
+            // Hack: this shouldn't be necessary as the value is
+            // data-bound to be the same, but there's a sequencing
+            // issue with datalist causing the update to come *after*
+            // this fires, without the value in case of mouse clicks
+            chip.value = value;
+
             $grChipsCtrl.focusStartOfChipAfter(chip);
             $grChipsCtrl.onChange();
         }

@@ -15,7 +15,6 @@ gr-chips .datalist {
 }
 gr-chips .datalist__options {
     width: auto;
-    overflow-y: auto; /* FIXME: always? */
 }
 
 

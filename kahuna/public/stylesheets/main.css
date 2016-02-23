@@ -461,7 +461,7 @@ textarea.ng-invalid {
     padding: 10px;
 }
 
-@media screen and (max-width: 800px) {
+@media screen and (max-width: 950px) {
     .top-bar-item .gr-confirm-delete {
         min-width: inherit;
     }
@@ -568,7 +568,8 @@ textarea.ng-invalid {
 .search {
     margin-top: 10px;
     display: flex;
-    line-height:12px;
+    height: 30px;
+    line-height: 12px;
 }
 
 .search-query__magnifier {
@@ -608,25 +609,20 @@ textarea.ng-invalid {
     display: none;
 }
 
-@media screen and (max-width: 700px) {
+@media screen and (max-width: 850px) {
     .search__advanced-toggle {
         display: none;
     }
 }
 
 /* Note: order matters for cascade ;_; */
-@media screen and (max-width: 600px) {
-    /* fill width */
-    input.search-query__input {
-        width: 100%;
-    }
-
+@media screen and (max-width: 750px) {
     .search__modifier-toggle__text {
         display: none;
     }
 }
 
-@media screen and (max-width: 1200px) {
+@media screen and (max-width: 1350px) {
     .search__modifier-toggle {
         display: inherit;
         margin-left: 15px
@@ -661,12 +657,6 @@ textarea.ng-invalid {
     .search .search__filter {
         margin-left: 0;
     }
-}
-
-/* input to win specificity war with 'input' rule ;_; */
-input.search-query__input {
-    padding-right: 25px;
-    padding-left: 25px;
 }
 
 .search-query__icon {
@@ -2079,10 +2069,12 @@ FIXME: what to do with touch devices
     border: 1px solid #999;
     background: #444;
     color: #ccc;
-    padding: 10px;
+    padding: 5px;
+    padding-right: 15px; /* hack to reserve some space for the scrollbar */
     font-size: 1.2rem;
     box-sizing: border-box;
     max-height: 400px;
+    overflow-y: auto;
 }
 
 .datalist__input {
