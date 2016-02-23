@@ -50,18 +50,6 @@ const subjects = [
 
 querySuggestions.factory('querySuggestions', ['mediaApi', function(mediaApi) {
 
-    const allCompletions = (chip) => {
-        switch (chip.type) {
-        case 'filter-chooser': return filterFields;
-        case 'filter':
-            return {
-                by: ['Tom Jenkins', 'Thomas Bool'],
-                    in: ['Switzerland', 'Sweden', 'Swaziland'],
-                subject: subjects
-            }[chip.key] || [];
-        }
-    };
-
     function getFilterSuggestions(field, value) {
         switch (field) {
         case 'subject':
