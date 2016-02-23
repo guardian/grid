@@ -10,7 +10,6 @@ export const querySuggestions = angular.module('querySuggestions', [
 // FIXME: get fields and subjects from API
 export const filterFields = [
     'any', // first on purpose in spite of alphabet
-    'agency',
     'by',
     'category',
     'city',
@@ -58,7 +57,7 @@ querySuggestions.factory('querySuggestions', ['mediaApi', 'editsApi', function(m
         return (values) => values.filter(val => val.toLowerCase().startsWith(lowerPrefix));
     }
 
-    function listAgencies() {
+    function listSuppliers() {
         return editsApi.getUsageRightsCategories().
             then(results => {
                 return new List(results).
@@ -127,7 +126,7 @@ querySuggestions.factory('querySuggestions', ['mediaApi', 'editsApi', function(m
         case 'subject':  return prefixFilter(value)(subjects);
         case 'label':    return suggestLabels(value);
         case 'credit':   return suggestCredit(value);
-        case 'agency':   return listAgencies().then(prefixFilter(value));
+        case 'supplier': return listSuppliers().then(prefixFilter(value));
         // TODO: list all known bylines, not just our photographers
         case 'by':       return listPhotographers().then(prefixFilter(value));
         case 'illustrator': return listIllustrators().then(prefixFilter(value));
