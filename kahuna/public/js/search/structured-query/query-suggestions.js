@@ -18,6 +18,7 @@ export const filterFields = [
     'country',
     'credit',
     'description',
+    'illustrator',
     'in',
     'keyword',
     'label',
@@ -94,6 +95,18 @@ querySuggestions.factory('querySuggestions', ['mediaApi', 'editsApi', function(m
             });
     }
 
+    function listIllustrators() {
+        return editsApi.getUsageRightsCategories().
+            then(results => {
+                return List(results).
+                    filter(res => res.value === 'contract-illustrator').
+                    flatMap(res => res.properties).
+                    filter(prop => prop.name === 'creator').
+                    flatMap(prop => prop.options).
+                    toJS();
+            });
+    }
+
     function suggestCredit(prefix) {
         return mediaApi.metadataSearch('credit', {q: prefix}).
             then(results => results.data.map(res => res.key));
@@ -113,6 +126,7 @@ querySuggestions.factory('querySuggestions', ['mediaApi', 'editsApi', function(m
         case 'agency':   return listAgencies().then(prefixFilter(value));
         // TODO: list all known bylines, not just our photographers
         case 'by':       return listPhotographers().then(prefixFilter(value));
+        case 'illustrator': return listIllustrators().then(prefixFilter(value));
         case 'category': return listCategories().then(prefixFilter(value));
 
         // No suggestions
