@@ -179,6 +179,8 @@ grChips.controller('grChipsCtrl', ['$scope', function($scope) {
         // merge consecutive text chips
         for (let i = 1; i < $grChipsCtrl.items.length; i++) {
             if ($grChipsCtrl.items[i].type === 'text' && $grChipsCtrl.items[i - 1].type === 'text') {
+                // TODO: need to force chip to re-set the caret
+                // position else it gets moved to the end of the field
                 $grChipsCtrl.items[i - 1].value = ($grChipsCtrl.items[i - 1].value + ' ' + $grChipsCtrl.items[i].value).trim();
                 removeChipAt(i);
                 i--;
