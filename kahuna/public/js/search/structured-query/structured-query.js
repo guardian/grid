@@ -40,8 +40,9 @@ grStructuredQuery.controller('grStructuredQueryCtrl',
     ctrl.filterFields = filterFields;
 
 
-    function valOrUndefined(x) {
-        return angular.isDefined(x) ? x : undefined;
+    function valOrUndefined(str) {
+        // Watch out for `false`, but we know it's a string here..
+        return str ? str : undefined;
     }
 }]);
 
