@@ -41,12 +41,16 @@ grFilterChooserChip.controller('grFilterChooserChipCtrl', function() {
             const chip = $grChipCtrl.chip;
             if ($grChipsCtrl.isValidKey(value)) {
                 // Valid key, turn it into a filter
-                $grChipsCtrl.replaceChip(chip, [{
+                const filterChip = {
                     type: 'filter',
                     filterType: chip.filterType,
                     key: value,
                     value: ''
-                }]);
+                };
+                $grChipsCtrl.replaceChip(chip, [filterChip]);
+                // Force-set the focus in case the user clicked on the
+                // dropdown which blurred the current chip
+                $grChipsCtrl.setFocusedChip(filterChip);
             } else {
                 // Not a key, turn it into an 'any' filter and move focus next text
                 const anyFilterChip = {
