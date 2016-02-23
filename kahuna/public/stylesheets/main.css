@@ -1404,6 +1404,14 @@ FIXME: what to do with touch devices
 .result-editor__collections__heading {
     padding: 5px 10px;
     border-bottom: 1px solid #565656;
+    position: fixed;
+    width: 100%;
+    background: #444;
+}
+
+.result-editor__collections gr-collection-tree > :first-child {
+    /*to sit below the fixed heading */
+    margin-top: 35px;
 }
 
 .result-editor__usage-rights-container {
