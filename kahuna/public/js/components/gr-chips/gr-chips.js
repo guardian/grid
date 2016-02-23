@@ -169,6 +169,7 @@ grChips.controller('grChipsCtrl', ['$scope', function($scope) {
         // If chip to remove is focused, move focus right before or after
         const removedItem = $grChipsCtrl.items[index];
         if (removedItem === $grChipsCtrl.focusedItem) {
+            /* jshint expr: true */
             $grChipsCtrl.focusEndOfChipBefore(removedItem) ||
                 $grChipsCtrl.focusStartOfChipAfter(removedItem);
         }
@@ -178,10 +179,13 @@ grChips.controller('grChipsCtrl', ['$scope', function($scope) {
     function normalizeChips() {
         // merge consecutive text chips
         for (let i = 1; i < $grChipsCtrl.items.length; i++) {
-            if ($grChipsCtrl.items[i].type === 'text' && $grChipsCtrl.items[i - 1].type === 'text') {
+            if ($grChipsCtrl.items[i].type === 'text' &&
+                $grChipsCtrl.items[i - 1].type === 'text') {
                 // TODO: need to force chip to re-set the caret
                 // position else it gets moved to the end of the field
-                $grChipsCtrl.items[i - 1].value = ($grChipsCtrl.items[i - 1].value + ' ' + $grChipsCtrl.items[i].value).trim();
+                const prevValue = $grChipsCtrl.items[i - 1].value;
+                const currValue = $grChipsCtrl.items[i].value;
+                $grChipsCtrl.items[i - 1].value = `${prevValue} ${currValue}`.trim();
                 removeChipAt(i);
                 i--;
             }

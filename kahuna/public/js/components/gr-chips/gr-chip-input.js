@@ -44,9 +44,15 @@ grChipInput.directive('grChipInput', ['$parse', '$timeout', function($parse, $ti
         restrict: 'A',
         require: ['^grChip', '^grChips'],
         link: function(scope, element, attrs, [$grChipCtrl, $grChipsCtrl]) {
-            const onEnterExpr = attrs.grChipInputOnEnter && $parse(attrs.grChipInputOnEnter);
-            const backspaceStartExpr = attrs.grChipInputBackspaceAtStart && $parse(attrs.grChipInputBackspaceAtStart);
-            const deleteEndExpr = attrs.grChipInputDeleteAtEnd && $parse(attrs.grChipInputDeleteAtEnd);
+            const [
+                onEnterExpr,
+                backspaceStartExpr,
+                deleteEndExpr
+            ] = [
+                attrs.grChipInputOnEnter,
+                attrs.grChipInputBackspaceAtStart,
+                attrs.grChipInputDeleteAtEnd
+            ].map(attr => attr && $parse(attr));
 
             scope.$watchCollection(() => ({focusedItem: $grChipsCtrl.focusedItem,
                                            caretStartOffset: $grChipsCtrl.caretStartOffset,
@@ -69,7 +75,7 @@ grChipInput.directive('grChipInput', ['$parse', '$timeout', function($parse, $ti
                 }
             });
 
-            element.on('focus', ($event) => {
+            element.on('focus', () => {
                 // Caret position not set yet, yield to get it
                 $timeout(() => {
                     const selStart = element[0].selectionStart;
@@ -78,12 +84,12 @@ grChipInput.directive('grChipInput', ['$parse', '$timeout', function($parse, $ti
                 });
             });
 
-            element.on('blur', ($event) => {
+            element.on('blur', () => {
                 $grChipsCtrl.unsetFocusedChip($grChipCtrl.chip);
                 scope.$digest();
             });
 
-            element.on('input', ($event) => {
+            element.on('input', () => {
                 const selStart = element[0].selectionStart;
                 const selEnd   = element[0].selectionEnd;
 
@@ -129,17 +135,16 @@ grChipInput.directive('grChipInput', ['$parse', '$timeout', function($parse, $ti
                         return true;
                     }
                     break;
+
                 // Emulate Home/End to go to start/end of input
                 case HOME_KEY:
                     $grChipsCtrl.focusStartOfFirstChip();
                     scope.$apply();
                     return true;
-                    break;
                 case END_KEY:
                     $grChipsCtrl.focusEndOfLastChip();
                     scope.$apply();
                     return true;
-                    break;
                 }
             }));
         }

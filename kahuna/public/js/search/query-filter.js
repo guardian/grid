@@ -14,7 +14,7 @@ export function fieldFilter(field, value) {
     } else {
         return `${field}:${cleanValue}`;
     }
-};
+}
 
 queryFilters.filter('queryFilter', function() {
     return (value, field) => fieldFilter(field, value);

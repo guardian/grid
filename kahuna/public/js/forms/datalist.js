@@ -16,7 +16,7 @@ datalist.directive('grDatalist', ['$q', function($q) {
         },
         template: template,
         controllerAs: 'ctrl',
-        controller: ['$scope', function($scope) {
+        controller: [function() {
             var ctrl = this;
             var selectedIndex = 0;
 
@@ -30,8 +30,11 @@ datalist.directive('grDatalist', ['$q', function($q) {
 
             ctrl.isSelected = key => key === selectedIndex;
 
-            ctrl.searchFor = q =>
-                $q.when(ctrl.search({ q })).then(results => ctrl.results = results).then(selectedIndex = 0);
+            ctrl.searchFor = (q) => {
+                return $q.when(ctrl.search({ q })).
+                    then(results => ctrl.results = results).
+                    then(() => selectedIndex = 0);
+            };
 
             ctrl.setValueTo = value => {
                 ctrl.value = value;

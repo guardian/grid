@@ -31,24 +31,24 @@ export const filterFields = [
 // TODO: add date fields
 
 const subjects = [
-    "arts",
-    "crime",
-    "disaster",
-    "finance",
-    "education",
-    "environment",
-    "health",
-    "human",
-    "labour",
-    "lifestyle",
-    "nature",
-    "politics",
-    "religion",
-    "science",
-    "social",
-    "sport",
-    "war",
-    "weather"
+    'arts',
+    'crime',
+    'disaster',
+    'finance',
+    'education',
+    'environment',
+    'health',
+    'human',
+    'labour',
+    'lifestyle',
+    'nature',
+    'politics',
+    'religion',
+    'science',
+    'social',
+    'sport',
+    'war',
+    'weather'
 ];
 
 querySuggestions.factory('querySuggestions', ['mediaApi', 'editsApi', function(mediaApi, editsApi) {
@@ -61,7 +61,7 @@ querySuggestions.factory('querySuggestions', ['mediaApi', 'editsApi', function(m
     function listAgencies() {
         return editsApi.getUsageRightsCategories().
             then(results => {
-                return List(results).
+                return new List(results).
                     filter(res => res.value === 'agency').
                     flatMap(res => res.properties).
                     filter(prop => prop.name === 'supplier').
@@ -77,18 +77,22 @@ querySuggestions.factory('querySuggestions', ['mediaApi', 'editsApi', function(m
             then(results => {
                 return results.
                     map(res => res.value).
-                    filter(key => key != ''); // no empty category
+                    filter(key => key !== ''); // no empty category
             });
     }
 
+    const photographerCategories = List.of(
+        'staff-photographer',
+        'contract-photographer'
+    );
     function listPhotographers() {
         return editsApi.getUsageRightsCategories().
             then(results => {
-                return List(results).
-                    filter(res => ['staff-photographer', 'contract-photographer'].indexOf(res.value) !== -1).
+                return new List(results).
+                    filter(res => photographerCategories.includes(res.value)).
                     flatMap(res => res.properties).
                     filter(prop => prop.name === 'photographer').
-                    flatMap(prop => Map(prop.optionsMap).valueSeq()).
+                    flatMap(prop => new Map(prop.optionsMap).valueSeq()).
                     flatMap(list => list).
                     sort().
                     toJS();
@@ -98,7 +102,7 @@ querySuggestions.factory('querySuggestions', ['mediaApi', 'editsApi', function(m
     function listIllustrators() {
         return editsApi.getUsageRightsCategories().
             then(results => {
-                return List(results).
+                return new List(results).
                     filter(res => res.value === 'contract-illustrator').
                     flatMap(res => res.properties).
                     filter(prop => prop.name === 'creator').
@@ -142,7 +146,7 @@ querySuggestions.factory('querySuggestions', ['mediaApi', 'editsApi', function(m
         } else {
             return [];
         }
-    };
+    }
 
     return {
         getChipSuggestions
