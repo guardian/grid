@@ -2,6 +2,12 @@
 gr-chips input[type="text"] {
     color: #ccc;
 }
+gr-chips input[type="text"][autocomplete="off"] {
+    /* awful hack to hide LastPass widget which should not be here in the
+       first place.
+       See: http://stackoverflow.com/a/29473242 */
+    background-position: 150% 50% !important;
+}
 
 gr-chips .datalist {
     position: static;
