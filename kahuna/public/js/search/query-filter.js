@@ -18,7 +18,7 @@ export function maybeQuoted(value) {
 export function fieldFilter(field, value) {
     const cleanValue = stripDoubleQuotes(value);
     const valueMaybeQuoted = maybeQuoted(cleanValue);
-    return `${field}:"${valueMaybeQuoted}"`;
+    return `${field}:${valueMaybeQuoted}`;
 }
 
 queryFilters.filter('queryFilter', function() {
