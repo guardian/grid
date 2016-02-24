@@ -1,19 +1,19 @@
 import angular from 'angular';
 import template from './image-editor.html!text';
 
-import './service';
-import '../image/service';
-import '../usage-rights/usage-rights-editor';
-import '../components/gr-archiver-status/gr-archiver-status';
+import {service} from './service';
+import {imageService} from '../image/service';
+import {usageRightsEditor} from '../usage-rights/usage-rights-editor';
+import {archiver} from '../components/gr-archiver-status/gr-archiver-status';
 import {collectionsApi} from '../services/api/collections-api';
 import {rememberScrollTop} from '../directives/gr-remember-scroll-top';
 
 
 export var imageEditor = angular.module('kahuna.edits.imageEditor', [
-    'kahuna.edits.service',
-    'gr.image.service',
-    'kahuna.edits.usageRightsEditor',
-    'gr.archiverStatus',
+    service.name,
+    imageService.name,
+    usageRightsEditor.name,
+    archiver.name,
     collectionsApi.name,
     rememberScrollTop.name
 ]);
