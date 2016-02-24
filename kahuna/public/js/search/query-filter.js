@@ -7,13 +7,18 @@ export var queryFilters = angular.module('kahuna.search.filters.query', []);
 var containsSpace = s => / /.test(s);
 var stripDoubleQuotes = s => s.replace(/"/g, '');
 
+export function maybeQuoted(value) {
+    if (containsSpace(value)) {
+        return `"${value}"`;
+    } else {
+        return value;
+    }
+}
+
 export function fieldFilter(field, value) {
     const cleanValue = stripDoubleQuotes(value);
-    if (containsSpace(cleanValue)) {
-        return `${field}:"${cleanValue}"`;
-    } else {
-        return `${field}:${cleanValue}`;
-    }
+    const valueMaybeQuoted = maybeQuoted(cleanValue);
+    return `${field}:"${valueMaybeQuoted}"`;
 }
 
 queryFilters.filter('queryFilter', function() {

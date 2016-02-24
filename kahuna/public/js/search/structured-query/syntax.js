@@ -1,4 +1,4 @@
-import {fieldFilter} from '../query-filter';
+import {fieldFilter, maybeQuoted} from '../query-filter';
 import {getLabel, getCollection} from '../../search-query/query-syntax';
 
 // Line too long for jshint, but can't break it down..
@@ -46,6 +46,7 @@ function renderFilter(field, value) {
     switch (field) {
     case 'label':      return getLabel(value);
     case 'collection': return getCollection(value);
+    case 'any':        return maybeQuoted(value);
     default:           return fieldFilter(field, value);
     }
 }
