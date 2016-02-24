@@ -37,10 +37,34 @@ imageEditor.controller('ImageEditorCtrl', [
 
     var ctrl = this;
 
-    ctrl.status = ctrl.image.data.valid ? 'ready' : 'invalid';
-    ctrl.saving = false;
-    ctrl.saved = false;
+    ctrl.batchApplyCollections = batchApplyCollections;
+    ctrl.batchApplyUsageRights = batchApplyUsageRights;
+    ctrl.categories;
     ctrl.error = false;
+    ctrl.image;
+    ctrl.saved = false;
+    ctrl.saving = false;
+    ctrl.showUsageRights;
+    ctrl.status = ctrl.image.data.valid ? 'ready' : 'invalid';
+    ctrl.usageRights = imageService(ctrl.image).usageRights;
+    ctrl.usageRightsCategory;
+
+
+    //TODO put collections in their own directive
+    ctrl.addCollection;
+    ctrl.addToCollection = addToCollection;
+    ctrl.batchRemoveCollections;
+    ctrl.collectionError = false;
+    ctrl.collections;
+    ctrl.confirmDelete;
+    ctrl.openCollectionTree = openCollectionTree;
+    ctrl.removeImageFromCollection = removeImageFromCollection;
+    ctrl.selectionMode = true;
+
+    // TODO: Find a way to broadcast more selectively
+    const batchApplyUsageRightsEvent = 'events:batch-apply:usage-rights';
+    const batchApplyCollectionsEvent = 'events:batch-apply:collections';
+    const batchRemoveCollectionsEvent = 'events:batch-remove:collections';
 
     const metadata = ctrl.image.data.userMetadata.data.metadata;
     const usageRights =  ctrl.image.data.userMetadata.data.usageRights;
@@ -63,6 +87,10 @@ imageEditor.controller('ImageEditorCtrl', [
     const offUsageRightsUpdateError =
         editsService.on(usageRights, 'update-error', onError);
 
+    editsApi.getUsageRightsCategories()
+        .then(cats => ctrl.categories = cats)
+        .finally(() => updateUsageRightsCategory());
+
     $scope.$on('$destroy', () => {
         offMetadataUpdateStart();
         offMetadataUpdateEnd();
@@ -71,6 +99,25 @@ imageEditor.controller('ImageEditorCtrl', [
         offUsageRightsUpdateEnd();
         offUsageRightsUpdateError();
     });
+
+    if (Boolean(ctrl.withBatch)) {
+        $scope.$on(batchApplyUsageRightsEvent, (e, { data }) => {
+            const image = ctrl.image;
+            const resource = image.data.userMetadata.data.usageRights;
+            editsService.update(resource, data, image);
+        });
+    }
+
+    if (Boolean(ctrl.withBatch)) {
+        $scope.$on(batchApplyCollectionsEvent, (e, { collections }) => {
+            collections.forEach( ctrl.addToCollection );
+        });
+
+        $scope.$on(batchRemoveCollectionsEvent, () => {
+            const collectionsOnImage = ctrl.image.data.collections;
+            collectionsOnImage.forEach( ctrl.removeImageFromCollection );
+        });
+    }
 
     function onSave() {
         return ctrl.image.get().then(newImage => {
@@ -94,39 +141,19 @@ imageEditor.controller('ImageEditorCtrl', [
         ctrl.error = true;
     }
 
-
-    ctrl.usageRights = imageService(ctrl.image).usageRights;
-
     function updateUsageRightsCategory() {
         let category = ctrl.categories.find(cat => cat.value === ctrl.usageRights.data.category);
         ctrl.usageRightsCategory = category && category.name;
         ctrl.showUsageRights = ctrl.usageRightsCategory === undefined;
     }
 
-    editsApi.getUsageRightsCategories()
-        .then(cats => ctrl.categories = cats)
-        .finally(() => updateUsageRightsCategory());
-
-    // TODO: Find a way to broadcast more selectively
-    const batchApplyUsageRightsEvent = 'events:batch-apply:usage-rights';
-
-    ctrl.batchApplyUsageRights = () =>
+    function batchApplyUsageRights() {
         $rootScope.$broadcast(batchApplyUsageRightsEvent, {
-            data: ctrl.usageRights.data });
-
-    if (Boolean(ctrl.withBatch)) {
-        $scope.$on(batchApplyUsageRightsEvent, (e, { data }) => {
-            const image = ctrl.image;
-            const resource = image.data.userMetadata.data.usageRights;
-            editsService.update(resource, data, image);
+            data: ctrl.usageRights.data
         });
     }
 
-    ctrl.collectionError = false;
-
-    ctrl.selectionMode = true;
-
-    ctrl.openCollectionTree = () => {
+    function openCollectionTree() {
         ctrl.addCollection = true;
 
         if (!ctrl.collections) {
@@ -144,22 +171,19 @@ imageEditor.controller('ImageEditorCtrl', [
                 ctrl.error = true;
             }).catch(() => ctrl.collectionError = true);
         }
-    };
+    }
 
-    ctrl.addToCollection = (collection) => {
+    function addToCollection(collection) {
         collections.addCollectionToImage(ctrl.image, collection);
         //this isn't needed when called from batch apply
         ctrl.addCollection = false;
-    };
+    }
 
-    ctrl.removeImageFromCollection = (collection) => {
+    function removeImageFromCollection(collection) {
         collections.removeImageFromCollection(collection, ctrl.image);
-    };
+    }
 
-    const batchApplyCollectionsEvent = 'events:batch-apply:collections';
-    const batchRemoveCollectionsEvent = 'events:batch-remove:collections';
-
-    ctrl.batchApplyCollections = () => {
+    function batchApplyCollections() {
         const collectionsOnImage = ctrl.image.data.collections.map(collection =>
                 collection.data.path);
 
@@ -177,17 +201,6 @@ imageEditor.controller('ImageEditorCtrl', [
             $rootScope.$broadcast(batchRemoveCollectionsEvent);
         };
 
-    };
-
-    if (Boolean(ctrl.withBatch)) {
-        $scope.$on(batchApplyCollectionsEvent, (e, { collections }) => {
-            collections.forEach( ctrl.addToCollection );
-        });
-
-        $scope.$on(batchRemoveCollectionsEvent, () => {
-            const collectionsOnImage = ctrl.image.data.collections;
-            collectionsOnImage.forEach( ctrl.removeImageFromCollection );
-        });
     }
 }]);
 
