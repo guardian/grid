@@ -1354,10 +1354,14 @@ FIXME: what to do with touch devices
     display: inline;
 }
 
-.result-editor__field-container gr-add-label {
+.result-editor__field-container__add-button {
     font-size: 1.3rem;
     padding-right: 10px;
     padding-bottom: 5px;
+}
+
+.result-editor__field-container__add-button:hover {
+    color: white;
 }
 
 .result-editor__field-label {
@@ -1382,7 +1386,6 @@ FIXME: what to do with touch devices
 
 .result-editor__overlay__cancel {
     float: right;
-    padding: 20px;
 }
 
 .result-editor__overlay__cancel gr-icon {

@@ -130,6 +130,11 @@
             <span class="result-editor__field-label  flex-no-shrink text-small">
                 Collections
             </span>
+            <button ng:click="ctrl.openCollectionTree()"
+                    class="result-editor__field-container__add-button"
+                    gr-tooltip="Click to add image to a collection">
+                <gr-icon>add_box</gr-icon>
+            </button>
             <div ng:if="ctrl.addCollection" class="result-editor__overlay">
                 <button class="result-editor__overlay__cancel"
                     ng:click="ctrl.addCollection = false">
@@ -170,10 +175,6 @@
                     </li>
                 </ul>
             </div>
-            <button ng:click="ctrl.openCollectionTree()"
-                    gr-tooltip="Click to add image to a collection">
-                <gr-icon>library_add</gr-icon>
-            </button>
             <span class="preview__collections__collection__apply-all" ng:if="ctrl.withBatch">
                 <button ng:if="! ctrl.confirmDelete"
                         title="Apply these collections to all your current uploads"
@@ -193,7 +194,10 @@
                 Labels
             </span>
             <div class="result-editor__field-container__labels" ng:class="{'result-editor__field-container__labels--hidden' : ctrl.inputtingLabel}">
-                <gr-add-label images="[ctrl.image]" active="ctrl.inputtingLabel"></gr-add-label>
+                <gr-add-label images="[ctrl.image]"
+                              active="ctrl.inputtingLabel"
+                              class="result-editor__field-container__add-button"
+                ></gr-add-label>
                 <ui-labeller
                     image="ctrl.image"
                     with-batch="ctrl.withBatch"
