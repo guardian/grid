@@ -87,6 +87,8 @@ query.controller('SearchQueryCtrl',
             ctrl.filter[key] = valOrUndefined($stateParams[key]);
         }
 
+        ctrl.collectionSearch = ctrl.filter.query ?  ctrl.filter.query.indexOf('~') === 0 : false;
+
         $scope.$watch(() => $stateParams[key], onValChange(newVal => {
             // FIXME: broken for 'your uploads'
             // FIXME: + they triggers filter $watch and $state.go (breaks history)
@@ -127,6 +129,7 @@ query.controller('SearchQueryCtrl',
 
     $scope.$watchCollection(() => ctrl.filter, onValChange(filter => {
         filter.uploadedBy = filter.uploadedByMe ? ctrl.user.email : undefined;
+        ctrl.collectionSearch = ctrl.filter.query ? ctrl.filter.query.indexOf('~') === 0 : false;
         $state.go('search.results', filter);
     }));
 
@@ -155,7 +158,7 @@ query.controller('SearchQueryCtrl',
     });
 
     function resetQuery() {
-        ctrl.filter.query = '';
+        ctrl.filter.query = undefined;
     }
 }]);
 
