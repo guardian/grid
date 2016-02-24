@@ -199,6 +199,25 @@ class ExportDynamoDB(credentials: AWSCredentials, region: Region, tableName: Str
     )
   }
 
+  def getRowsForDateRange(dateRange: DateRange) = getUrnsForDateRange(dateRange).flatMap(assetRefs => {
+    val maxBatchSize = 100
+
+    Future { assetRefs.grouped(maxBatchSize).flatMap(batch => {
+      val batchSpec = batch.foldLeft(new TableKeysAndAttributes(tableName))(
+        (keys: TableKeysAndAttributes, assetRef: AssetRef) => {
+          keys.addHashAndRangePrimaryKeys(
+            IdKey, RangeKey,
+            assetRef.urn, PicdarDates.dynamoDbFormat.print(assetRef.dateLoaded)
+          )
+        })
+
+      val outcome = dynamo.batchGetItem(batchSpec)
+      val items = outcome.getTableItems.get(tableName).asScala.toList
+
+      items.map(AssetRow(_))
+    }).toList}
+  })
+
   def getUrnsForDateRange(dateRange: DateRange) = Future {
     val imageIndex = table.getIndex(picdarCreatedIndex)
 

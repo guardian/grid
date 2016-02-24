@@ -40,6 +40,9 @@ class ExportManager(picdar: PicdarClient, loader: MediaLoader, mediaApi: MediaAp
     } yield Unit
   }
 
+  def getImageResource(mediaUri: URI) =
+    for { imageResource <- mediaApi.getImageResource(mediaUri) } yield imageResource.data
+
   def overrideMetadata(mediaUri: URI, picdarMetadata: ImageMetadata): Future[Boolean] =
     for {
       image              <- mediaApi.getImage(mediaUri)
@@ -312,6 +315,117 @@ object ExportApp extends App with ExportManagerProvider with ArgumentHelpers wit
     }
   }
 
+  import scala.util.{Try, Success, Failure}
+  import scala.language.existentials
+
+  def checkMissing(
+    env: String,
+    dateRange: DateRange = DateRange.all,
+    range: Option[Range] = None
+  ) = {
+
+    case class ImageIdent(urn: String, picdarCreated: DateTime, picdarUri: Option[URI], gridUri: Option[URI])
+    case class ImageRequest(ident: ImageIdent, request: Try[Image])
+    case class ImageMiss(ident: ImageIdent, reason: String)
+
+    case class MissingImageReport(
+      dateRange: DateRange,
+      misses: List[ImageMiss],
+      exists: List[ImageIdent]
+    )
+
+    val dynamo = getDynamo(env)
+    val export = getExportManager("desk", env)
+
+    val getIdents = dynamo.getRowsForDateRange(dateRange).map((rows) => for {
+        row <- rows
+        urn =  row.picdarUrn
+        picdarCreated = row.picdarCreated
+        picdarUri = row.picdarAssetUrl
+        gridUri =  row.mediaUri
+    } yield ImageIdent(urn, picdarCreated, picdarUri, gridUri))
+
+    val splitIdents = getIdents.map(_.groupBy {
+      case ident if(ident.picdarUri.isEmpty) => "noPicdarAsset"
+      case ident if(ident.gridUri.isEmpty) => "notIngested"
+      case _ => "ok"
+    })
+
+    val getUris = splitIdents.map(_("ok"))
+
+    def futureToFutureTry[T](f: Future[T]): Future[Try[T]] =
+      f.map(Success(_)).recover { case e => Failure(e) }
+
+    val getImages = getUris.flatMap(idents => {
+      val getImagesList: List[(ImageIdent, Future[Image])] =
+        idents.map(ident => (ident, export.getImageResource(ident.gridUri.get)))
+      val getImagesTries: List[Future[ImageRequest]] = getImagesList.map {
+        case (ident, request) => futureToFutureTry(request).map(tryImage => ImageRequest(ident, tryImage))
+      }
+
+      Future.sequence(getImagesTries)
+    })
+
+    val getExists = getImages.map(_.filter(_.request.isSuccess))
+    val getMisses = getImages.map(_.filter(_.request.isFailure))
+
+    val getMissingImageReport = for {
+      exists <- getExists
+      misses <- getMisses
+
+      otherMisses <- splitIdents
+
+      existsIdents = exists.map(_.ident)
+      missesIdents = misses.map(_.ident)
+
+      grid404Misses  = missesIdents.map(ImageMiss(_,"mediaApi404"))
+      noIngestMisses = otherMisses.getOrElse("notIngested", Nil).map(ImageMiss(_, "notIngested"))
+
+      allMisses = grid404Misses ++ noIngestMisses
+    } yield MissingImageReport(
+      dateRange,
+      allMisses,
+      existsIdents
+    )
+
+    case class ReingestAttempt(ident: ImageIdent, attempt: Try[URI])
+
+    val reingestImages = getMissingImageReport.flatMap(report => {
+      println(s"Found ${report.misses.length} missing.")
+
+      val reingestMissingList = report.misses.map(miss => {
+        println(s"Reingesting: ${miss}")
+
+        val reingest = export.ingest(
+          miss.ident.picdarUri.get,
+          miss.ident.urn,
+          miss.ident.picdarCreated
+        )
+
+        (miss.ident, reingest)
+      })
+
+      val getReingestTries: List[Future[ReingestAttempt]] = reingestMissingList.map {
+        case (ident, ingest) => futureToFutureTry(ingest)
+          .map(tryReingest => ReingestAttempt(ident, tryReingest))
+      }
+
+      Future.sequence(getReingestTries)
+    })
+
+    val getGoodReingests = reingestImages.map(_.filter(_.attempt.isSuccess))
+    val getBadReingests  = reingestImages.map(_.filter(_.attempt.isFailure))
+
+    for {
+      goodReingests <- getGoodReingests
+      badReingests <- getBadReingests
+
+      _ = goodReingests.map(goodReingest => println(s"OK reingest: ${goodReingest}"))
+      _ = badReingests.map(badReingest => println(s"Failed reingest: ${badReingest}"))
+
+    } yield println(s"Reingests done: ${badReingests.length} failed.")
+  }
+
   import com.gu.mediaservice.picdarexport.lib.picdar.UsageApi
 
   def fetchUsage(
@@ -558,6 +672,17 @@ object ExportApp extends App with ExportManagerProvider with ArgumentHelpers wit
       sendUsage(env, parseDateRange(date), parseQueryRange(rangeStr))
     }
 
+    case "+check" :: env :: Nil => terminateAfter {
+      checkMissing(env)
+    }
+    case "+check" :: env :: date :: Nil => terminateAfter {
+      checkMissing(env, parseDateRange(date))
+    }
+    case "+check" :: env :: date :: rangeStr :: Nil => terminateAfter {
+      checkMissing(env, parseDateRange(date), parseQueryRange(rangeStr))
+    }
+
+
     case _ => println(
       """
         |usage: :count-loaded    <dev|test|prod> [dateLoaded]
@@ -579,6 +704,8 @@ object ExportApp extends App with ExportManagerProvider with ArgumentHelpers wit
         |
         |       +usage:fetch     <dev|test|prod> [dateLoaded] [range]
         |       +usage:send      <dev|test|prod> [dateLoaded] [range]
+        |
+        |       +check           <dev|test|prod> [dateLoaded] [range]
       """.stripMargin
     )
   }
