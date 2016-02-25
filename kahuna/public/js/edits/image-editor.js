@@ -150,21 +150,20 @@ imageEditor.controller('ImageEditorCtrl', [
     function openCollectionTree() {
         ctrl.addCollection = true;
 
-        if (!ctrl.collections) {
-            collections.getCollections().then(collections => {
-                ctrl.collections = collections.data.children;
-                // this will trigger the remember-scroll-top directive to return
-                // users to their previous position on the collections panel
-                // once the tree has been rendered
-                $timeout(() => {
-                    $scope.$broadcast('gr:remember-scroll-top:apply');
-                });
-            }, () => {
-                // TODO: More informative error handling
-                // TODO: Stop error propagating to global error handler
-                ctrl.error = true;
-            }).catch(() => ctrl.collectionError = true);
-        }
+        collections.getCollections().then(collections => {
+            ctrl.collections = collections.data.children;
+            // this will trigger the remember-scroll-top directive to return
+            // users to their previous position on the collections panel
+            // once the tree has been rendered
+            $timeout(() => {
+                $scope.$broadcast('gr:remember-scroll-top:apply');
+            });
+        }, () => {
+            // TODO: More informative error handling
+            // TODO: Stop error propagating to global error handler
+            ctrl.error = true;
+        }).catch(() => ctrl.collectionError = true);
+
     }
 
     function addToCollection(collection) {
