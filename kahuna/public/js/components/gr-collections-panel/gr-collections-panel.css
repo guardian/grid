@@ -64,6 +64,7 @@ gr-nodes, gr-node,
     width: 270px;
     background-color: #444;
     margin-top: -35px;
+    z-index: 10;
 }
 
 gr-collection-tree > :first-child {
