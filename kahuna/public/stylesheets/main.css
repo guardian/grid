@@ -2269,12 +2269,22 @@ FIXME: what to do with touch devices
        Results page
     ========================================================================== */
 
+    /*!important is used to overwrite the component stylesheet (panel.css) loaded after*/
+    /*main.css*/
+
+    .global-error,
+    .gr-panel,
+    .gr-panel__content,
     .results-toolbar {
-        display: none;
+        display: none !important;
     }
 
     .result-placeholder {
         border: none;
+    }
+
+    .preview__link {
+        height: auto;
     }
 
     .preview__image {
