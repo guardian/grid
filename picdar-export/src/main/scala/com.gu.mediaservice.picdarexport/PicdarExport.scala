@@ -62,6 +62,7 @@ object ExportApp extends App with ExportManagerProvider with ArgumentHelpers wit
 
   def stats(env: String, dateRange: DateRange = DateRange.all): Future[Unit] = {
     val dynamo = getDynamo(env)
+
     for {
       loaded     <- dynamo.scanUnfetched(dateRange)
       _           = println(s"${loaded.size} loaded entries to fetch")
