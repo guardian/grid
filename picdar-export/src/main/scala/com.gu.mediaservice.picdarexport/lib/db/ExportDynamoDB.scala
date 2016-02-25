@@ -130,50 +130,17 @@ class ExportDynamoDB(credentials: AWSCredentials, region: Region, tableName: Str
     }.toSeq
   }
 
-  def scanFetchedNotIngested(dateRange: DateRange): Future[Seq[AssetRow]] = Future {
-    // FIXME: query by range only?
-    val queryConds = List(fetchedCondition, "attribute_not_exists(mediaUri)") ++
-      dateRange.start.map(date => s"picdarCreated >= :startDate") ++
-      dateRange.end.map(date => s"picdarCreated <= :endDate")
+  def scanFetchedNotIngested(dateRange: DateRange): Future[Seq[AssetRow]] =
+    getUrnsForNotFilledFields[AssetRow](dateRange, Set("mediaUri"))(
+      (item: Item) => AssetRow(item))
 
-    val values = Map() ++
-      dateRange.start.map(asRangeString).map(":startDate" -> _) ++
-      dateRange.end.map(asRangeString).map(":endDate" -> _)
+  def scanIngestedNotOverridden(dateRange: DateRange): Future[Seq[AssetRow]] =
+    getUrnsForNotFilledFields[AssetRow](dateRange, Set("overridden"), Set("mediaUri"))(
+      (item: Item) => AssetRow(item))
 
-    val projectionAttrs = List("picdarUrn", "picdarCreated", "picdarCreatedFull", "picdarAssetUrl")
-    val items = scan(queryConds, projectionAttrs, values)
-    items.iterator.map(AssetRow(_)).toSeq
-  }
-
-  def scanIngestedNotOverridden(dateRange: DateRange): Future[Seq[AssetRow]] = Future {
-    // FIXME: query by range only?
-    val queryConds = List(fetchedCondition, ingestedCondition, "attribute_not_exists(overridden)") ++
-      dateRange.start.map(date => s"picdarCreated >= :startDate") ++
-      dateRange.end.map(date => s"picdarCreated <= :endDate")
-
-    val values = Map() ++
-      dateRange.start.map(asRangeString).map(":startDate" -> _) ++
-      dateRange.end.map(asRangeString).map(":endDate" -> _)
-
-    val projectionAttrs = List("picdarUrn", "picdarCreated", "picdarCreatedFull", "picdarAssetUrl", "mediaUri", "picdarMetadata")
-    val items = scan(queryConds, projectionAttrs, values)
-    items.iterator.map(AssetRow(_)).toSeq
-  }
-
-  def scanOverridden(dateRange: DateRange): Future[Seq[AssetRow]] = Future {
-    // FIXME: query by range only?
-    val queryConds = List(fetchedCondition, ingestedCondition, "attribute_exists(overridden)") ++
-      dateRange.start.map(date => s"picdarCreated >= :startDate") ++
-      dateRange.end.map(date => s"picdarCreated <= :endDate")
-
-    val values = Map() ++
-      dateRange.start.map(asRangeString).map(":startDate" -> _) ++
-      dateRange.end.map(asRangeString).map(":endDate" -> _)
-
-    val projectionAttrs = List("picdarUrn", "picdarCreated", "picdarCreatedFull", "picdarAssetUrl", "mediaUri")
-    val items = scan(queryConds, projectionAttrs, values)
-    items.iterator.map(AssetRow(_)).toSeq
-  }
+  def scanOverridden(dateRange: DateRange): Future[Seq[AssetRow]] =
+    getUrnsForNotFilledFields[AssetRow](dateRange, Set(), Set("overridden"))(
+      (item: Item) => AssetRow(item))
 
   type Conditions = List[String]
   implicit class ConditionHelper(conditions: Conditions) {

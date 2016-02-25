@@ -125,8 +125,7 @@ object ExportApp extends App with ExportManagerProvider with ArgumentHelpers wit
     val dynamo = getDynamo(env)
     dynamo.scanIngestedNotOverridden(dateRange) flatMap { assets =>
       val updates = takeRange(assets, range).map { asset =>
-        // TODO: if no mediaUri, skip
-        // FIXME: HACKK!
+
         val mediaUri = asset.mediaUri.get
         val metadata = asset.picdarMetadata.get
         getExportManager("library", env).overrideMetadata(mediaUri, metadata) flatMap { overridden =>
