@@ -1,0 +1,18 @@
+<div class="gr-chips__wrapper"
+     ng:click="$grChipsCtrl.wrapperClicked($event)">
+    <span ng:if="$grChipsCtrl.placeholder && $grChipsCtrl.isEmpty()"
+          class="gr-chips__placeholder"
+    >{{$grChipsCtrl.placeholder}}</span>
+    <span ng:repeat="$chip in $grChipsCtrl.items"
+          ng:switch="$chip.type"
+          class="gr-chips__chip-wrapper">
+       <gr-text-chip ng:switch-when="text"
+                     gr-chip="$chip"></gr-text-chip>
+       <gr-filter-chip ng:switch-when="filter"
+                       gr-chip="$chip"></gr-filter-chip>
+       <gr-static-filter-chip ng:switch-when="static-filter"
+                              gr-chip="$chip"></gr-static-filter-chip>
+       <gr-filter-chooser-chip ng:switch-when="filter-chooser"
+                               gr-chip="$chip"></gr-filter-chooser-chip>
+    </span>
+</div>
