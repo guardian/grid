@@ -2,6 +2,8 @@ package com.gu.mediaservice.picdarexport.model
 
 import java.net.URI
 
+import play.api.libs.json._
+
 import com.amazonaws.services.dynamodbv2.document.Item
 import com.gu.mediaservice.model.{UsageRights, ImageMetadata}
 import org.joda.time.format.DateTimeFormat
@@ -44,10 +46,14 @@ case class DateRange(start: Option[DateTime], end: Option[DateTime]) {
   val endDay   = end.getOrElse(DateRange.defaultEndDate)
   val numDays  = Days.daysBetween(startDay, endDay).getDays();
   val dateList = (0 to numDays).map(startDay.plusDays)
+
+  override def toString() = s"${start.getOrElse("none")}--${end.getOrElse("none")}"
 }
 object DateRange {
   val defaultStartDate = PicdarDates.format.parseDateTime("1998/01/01")
   val defaultEndDate   = DateTime.now()
 
   val all = DateRange(None, None)
+
+  implicit val dateRangeWrites = Json.writes[DateRange]
 }

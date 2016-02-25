@@ -7,6 +7,8 @@ import scala.language.existentials
 import scala.concurrent.Future
 
 import play.api.libs.concurrent.Execution.Implicits._
+import play.api.libs.json._
+import play.api.libs.functional.syntax._
 
 import org.joda.time.DateTime
 
@@ -21,21 +23,47 @@ case class ImageIdent(
   picdarUri: Option[URI],
   gridUri: Option[URI]
 )
+object ImageIdent {
+  implicit val uriWrites = Writes{ uri: java.net.URI => JsString(uri.toString) }
+  implicit val imageIdentWrites = Json.writes[ImageIdent]
+}
+
 case class ImageRequest(ident: ImageIdent, request: Try[Image])
+
 case class ImageMiss(ident: ImageIdent, reason: String)
+object ImageMiss {
+  implicit val imageMissWrites = Json.writes[ImageMiss]
+}
+
 case class ReingestAttempt(ident: ImageIdent, attempt: Try[URI])
+case class FailedIngest(ident: ImageIdent, reason: String)
+object FailedIngest {
+  implicit val failedIngestWrites = Json.writes[FailedIngest]
+}
+
 case class MissingImageReport(
   dateRange: DateRange,
   misses: List[ImageMiss],
   exists: List[ImageIdent]
 )
+object MissingImageReport {
+  implicit val reportWrites = Json.writes[MissingImageReport]
+}
+
+case class ReingestReport(
+  failure: List[FailedIngest],
+  success: List[ImageIdent]
+)
+object ReingestReport {
+  implicit val reportWrites = Json.writes[ReingestReport]
+}
 
 object CheckMissing extends ExportManagerProvider with ArgumentHelpers with ExecutionHelpers {
 
   private def futureToFutureTry[T](f: Future[T]): Future[Try[T]] =
     f.map(Success(_)).recover { case e => Failure(e) }
 
-  def reingestFromReport(env: String, imageReport: Future[MissingImageReport]): Future[Unit] = {
+  def reingestFromReport(env: String, imageReport: Future[MissingImageReport]): Future[ReingestReport] = {
     val dynamo = getDynamo(env)
     val export = getExportManager("library", env)
     val reingestImages = imageReport.flatMap(report => {
@@ -50,28 +78,40 @@ object CheckMissing extends ExportManagerProvider with ArgumentHelpers with Exec
           miss.ident.picdarCreated
         )
 
-      (miss.ident, reingest)
+        (miss.ident, reingest)
       })
 
-    val getReingestTries: List[Future[ReingestAttempt]] = reingestMissingList.map {
-      case (ident, ingest) => futureToFutureTry(ingest)
-        .map(tryReingest => ReingestAttempt(ident, tryReingest))
-    }
+      val getReingestTries: List[Future[ReingestAttempt]] = reingestMissingList.map {
+        case (ident, ingest) => futureToFutureTry(ingest)
+          .map(tryReingest => ReingestAttempt(ident, tryReingest))
+      }
 
-    Future.sequence(getReingestTries)
+      Future.sequence(getReingestTries)
     })
 
     val getGoodReingests = reingestImages.map(_.filter(_.attempt.isSuccess))
     val getBadReingests  = reingestImages.map(_.filter(_.attempt.isFailure))
 
+    def recordReingested(reingests: List[ReingestAttempt]) = Future.sequence(reingests.map {
+      case ReingestAttempt(id, attempt) =>
+        dynamo.recordIngested(id.urn, id.picdarCreated, attempt.get)
+    })
+
     for {
       goodReingests <- getGoodReingests
       badReingests <- getBadReingests
 
+      _ = recordReingested(goodReingests)
+
       _ = goodReingests.map(goodReingest => println(s"OK reingest: ${goodReingest}"))
       _ = badReingests.map(badReingest => println(s"Failed reingest: ${badReingest}"))
 
-    } yield println(s"Reingests done: ${badReingests.length} failed.")
+      successes = goodReingests.map(_.ident)
+      failures  = badReingests.map { case ReingestAttempt(ident, attempt) =>
+          FailedIngest(ident, attempt.failed.get.getMessage)
+      }
+
+    } yield ReingestReport(failures, successes)
   }
 
   def runReport(env: String, dateRange: DateRange): Future[MissingImageReport] = {

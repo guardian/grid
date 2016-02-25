@@ -19,6 +19,7 @@ import play.api.libs.concurrent.Execution.Implicits._
 import com.gu.mediaservice.picdarexport.lib.usage.PrintUsageRequestFactory
 import com.gu.mediaservice.model.PrintUsageRequest
 
+import scala.util.Try
 import scala.concurrent.Future
 import scala.language.postfixOps
 import org.joda.time.DateTime
@@ -34,7 +35,6 @@ object ExportApp extends App with ExportManagerProvider with ArgumentHelpers wit
     case Some(range) => items.drop(range.start).take(range.length)
     case None        => items
   }
-
 
   def show(system: String, urn: String) = {
     getPicdar(system).get(urn) map { asset =>
@@ -163,14 +163,38 @@ object ExportApp extends App with ExportManagerProvider with ArgumentHelpers wit
     }
   }
 
+  import java.io._
+
   def checkMissing(
     env: String,
     dateRange: DateRange = DateRange.all,
     range: Option[Range] = None
   ) = {
     val getMissingImageReport = CheckMissing.runReport(env, dateRange)
+    val getReingestReport = CheckMissing.reingestFromReport(env, getMissingImageReport)
 
-    CheckMissing.reingestFromReport(env, getMissingImageReport)
+    def writeFile(filename:String, json: JsValue): Try[Unit] = {
+      Try {
+        val bw = new BufferedWriter(new FileWriter(filename))
+        bw.write(json.toString)
+        bw.close()
+      }
+    }
+
+    for {
+      missingImageReport <- getMissingImageReport
+      reingestReport     <- getReingestReport
+
+      missingImageReportJson = Json.toJson(missingImageReport)
+      reingestReportJson     = Json.toJson(reingestReport)
+
+      writeImageReport    = writeFile(s"missing_image_report-${dateRange}.json", missingImageReportJson)
+      writeReingestReport = writeFile(s"reingest_report-${dateRange}.json", reingestReportJson)
+
+    } yield Future {
+      writeImageReport.get
+      writeReingestReport.get
+    }
   }
 
   import com.gu.mediaservice.picdarexport.lib.picdar.UsageApi
