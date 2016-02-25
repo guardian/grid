@@ -37,26 +37,24 @@ imageEditor.controller('ImageEditorCtrl', [
 
     var ctrl = this;
 
-    ctrl.batchApplyCollections = batchApplyCollections;
     ctrl.batchApplyUsageRights = batchApplyUsageRights;
-    ctrl.categories;
+    editsApi.getUsageRightsCategories()
+        .then(cats => ctrl.categories = cats)
+        .finally(() => updateUsageRightsCategory());
     ctrl.error = false;
-    ctrl.image;
     ctrl.saved = false;
     ctrl.saving = false;
-    ctrl.showUsageRights;
+    ctrl.showUsageRights = false;
     ctrl.status = ctrl.image.data.valid ? 'ready' : 'invalid';
     ctrl.usageRights = imageService(ctrl.image).usageRights;
-    ctrl.usageRightsCategory;
-
 
     //TODO put collections in their own directive
-    ctrl.addCollection;
+    ctrl.addCollection = false;
     ctrl.addToCollection = addToCollection;
-    ctrl.batchRemoveCollections;
+    ctrl.batchApplyCollections = batchApplyCollections;
     ctrl.collectionError = false;
-    ctrl.collections;
-    ctrl.confirmDelete;
+    ctrl.confirmDelete = false;
+    ctrl.getCollectionStyle = getCollectionStyle;
     ctrl.openCollectionTree = openCollectionTree;
     ctrl.removeImageFromCollection = removeImageFromCollection;
     ctrl.selectionMode = true;
@@ -86,10 +84,6 @@ imageEditor.controller('ImageEditorCtrl', [
 
     const offUsageRightsUpdateError =
         editsService.on(usageRights, 'update-error', onError);
-
-    editsApi.getUsageRightsCategories()
-        .then(cats => ctrl.categories = cats)
-        .finally(() => updateUsageRightsCategory());
 
     $scope.$on('$destroy', () => {
         offMetadataUpdateStart();
@@ -201,6 +195,10 @@ imageEditor.controller('ImageEditorCtrl', [
             $rootScope.$broadcast(batchRemoveCollectionsEvent);
         };
 
+    }
+
+    function getCollectionStyle(collection) {
+        return collection.data.cssColour && `background-color: ${collection.data.cssColour}`;
     }
 }]);
 
