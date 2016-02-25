@@ -461,7 +461,7 @@ textarea.ng-invalid {
     padding: 10px;
 }
 
-@media screen and (max-width: 800px) {
+@media screen and (max-width: 950px) {
     .top-bar-item .gr-confirm-delete {
         min-width: inherit;
     }
@@ -552,16 +552,36 @@ textarea.ng-invalid {
    Search
    ========================================================================== */
 
-.search {
-    margin-top: 12px;
+.search-query {
     display: flex;
-    max-height: 26px;
-    line-height:12px}
+    /* Fill the container for larger clickable area */
+    align-items: stretch;
 
-.search__query {
-    padding: 5px 10px;
-    max-width: 250px;
-    width: 100%;
+    background-color: #444;
+    color: #ccc;
+    border: 1px solid #999;
+    box-sizing: border-box;
+
+    width: 300px
+}
+
+.search {
+    margin-top: 10px;
+    display: flex;
+    height: 30px;
+    line-height: 12px;
+}
+
+.search-query__magnifier {
+    /* Better vertical centering */
+    align-self: center;
+}
+
+.search-query__query {
+    flex: 1;
+    /* Better vertical centering */
+    align-self: center;
+    overflow: hidden;
 }
 
 .search__modifier {
@@ -569,6 +589,7 @@ textarea.ng-invalid {
     flex-direction: row;
     justify-content: flex-start;
     margin-left: 25px;
+    align-items: baseline; /* vertical align all filters */
 }
 
 .search__modifier-item {
@@ -588,25 +609,20 @@ textarea.ng-invalid {
     display: none;
 }
 
-@media screen and (max-width: 700px) {
+@media screen and (max-width: 850px) {
     .search__advanced-toggle {
         display: none;
     }
 }
 
 /* Note: order matters for cascade ;_; */
-@media screen and (max-width: 600px) {
-    /* fill width */
-    input.search-query__input {
-        width: 100%;
-    }
-
+@media screen and (max-width: 750px) {
     .search__modifier-toggle__text {
         display: none;
     }
 }
 
-@media screen and (max-width: 1200px) {
+@media screen and (max-width: 1350px) {
     .search__modifier-toggle {
         display: inherit;
         margin-left: 15px
@@ -643,27 +659,12 @@ textarea.ng-invalid {
     }
 }
 
-.search-query {
-    position: relative;
-}
-
-/* input to win specificity war with 'input' rule ;_; */
-input.search-query__input {
-    padding-right: 25px;
-    padding-left: 25px;
-}
-
 .search-query__icon {
-    position: absolute;
-    top: 0;
-    /* Make it fill the container for larger clickable area */
-    height: 100%;
-    padding: 5px;
-    outline: none;
+    padding: 0 5px;
 }
 
 .search-query__clear {
-    right: 0;
+    outline: none;
 }
 
 /* fade in/out */
@@ -2065,13 +2066,15 @@ FIXME: what to do with touch devices
     position: absolute;
     width: 100%;
     z-index: 1;
+    border: 1px solid #999;
     background: #444;
     color: #ccc;
-    padding: 10px;
+    padding: 5px;
+    padding-right: 15px; /* hack to reserve some space for the scrollbar */
     font-size: 1.2rem;
     box-sizing: border-box;
     max-height: 400px;
-    overflow-y: scroll;
+    overflow-y: auto;
 }
 
 .datalist__input {

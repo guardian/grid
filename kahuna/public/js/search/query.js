@@ -5,20 +5,22 @@ import angular from 'angular';
 // animations locally, we should turn it back on here.
 // import 'angular-animate';
 import moment from 'moment';
-import '../util/eq';
-import '../components/gu-date-range/gu-date-range';
+import {eq} from '../util/eq';
+import {guDateRange} from '../components/gu-date-range/gu-date-range';
 import template from './query.html!text';
-import './syntax/syntax';
+import {syntax} from './syntax/syntax';
+import {grStructuredQuery} from './structured-query/structured-query';
 
-import '../analytics/track';
+import {track} from '../analytics/track';
 
 export var query = angular.module('kahuna.search.query', [
     // Note: temporarily disabled for performance reasons, see above
     // 'ngAnimate',
-    'util.eq',
-    'gu-dateRange',
-    'grSyntax',
-    'analytics.track'
+    eq.name,
+    guDateRange.name,
+    syntax.name,
+    grStructuredQuery.name,
+    track.name
 ]);
 
 query.controller('SearchQueryCtrl',
@@ -39,7 +41,7 @@ query.controller('SearchQueryCtrl',
         // filled in by the watcher below
     };
 
-    ctrl.resetQueryAndFocus = resetQueryAndFocus;
+    ctrl.resetQuery = resetQuery;
 
     // Note that this correctly uses local datetime and returns
     // midnight for the local user
@@ -155,9 +157,8 @@ query.controller('SearchQueryCtrl',
         ctrl.filter.uploadedByMe = ctrl.uploadedBy === ctrl.user.email;
     });
 
-    function resetQueryAndFocus() {
+    function resetQuery() {
         ctrl.filter.query = undefined;
-        $scope.$broadcast('search:focus-query');
     }
 }]);
 
@@ -168,11 +169,3 @@ query.directive('searchQuery', [function() {
         template: template
     };
 }]);
-
-query.directive('gridFocusOn', function() {
-   return function(scope, elem, attr) {
-      scope.$on(attr.gridFocusOn, () => {
-          elem[0].focus();
-      });
-   };
-});

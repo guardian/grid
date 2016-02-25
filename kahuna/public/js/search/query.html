@@ -1,19 +1,14 @@
 <form class="search">
     <span class="search-query">
-        <gr-icon class="search-query__icon">search</gr-icon>
-        <input type="text"
-               placeholder="Search for images…"
-               class="text-input search__query search-query__input"
-               autofocus="autofocus"
-               ng:model="searchQuery.filter.query"
-               ng:model-options="{ debounce: 400 }"
-               grid:focus-on="search:focus-query"
-        />
+        <gr-icon class="search-query__magnifier search-query__icon">search</gr-icon>
+        <gr-structured-query class="search-query__query"
+                             ng:model="searchQuery.filter.query">
+        </gr-structured-query>
         <button class="search-query__icon search-query__clear clear-button"
                 type="button"
                 title="Clear query"
                 ng:show="searchQuery.filter.query"
-                ng:click="searchQuery.resetQueryAndFocus()">
+                ng:click="searchQuery.resetQuery()">
             <gr-icon>cancel</gr-icon>
         </button>
     </span>

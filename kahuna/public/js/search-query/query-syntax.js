@@ -23,6 +23,10 @@ export function removeLabels(q, labels) {
     return labels.reduce((q, curr) => removeLabel(q, curr.name), q);
 }
 
+export function getLabel(name) {
+    return createLabel(name);
+}
+
 export function getCollection(path) {
     return createCollection(path);
 }
