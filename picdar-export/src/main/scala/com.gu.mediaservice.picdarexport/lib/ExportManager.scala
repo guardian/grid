@@ -78,20 +78,38 @@ class ExportManager(picdar: PicdarClient, loader: MediaLoader, mediaApi: MediaAp
   def getImageResource(mediaUri: URI) =
     for { imageResource <- mediaApi.getImageResource(mediaUri) } yield imageResource.data
 
-  def overrideMetadata(mediaUri: URI, picdarMetadata: ImageMetadata): Future[Boolean] =
+  def overrideMetadata(mediaUri: URI, picdarMetadata: ImageMetadata): Future[Boolean] = {
+
+
     for {
       image              <- mediaApi.getImage(mediaUri)
       currentMetadata     = image.metadata
-      picdarOverridesOpt  = MetadataOverrides.getOverrides(currentMetadata, picdarMetadata)
+      userMetadata        = image.userMetadata
+
+      userMetadataUpdated = !(userMetadata == ImageMetadata.empty)
+
+      // Check if userMetadata has been updated in grid, and provide no overrides
+      picdarOverridesOpt  =
+        if(userMetadataUpdated) {
+          None
+        } else {
+          MetadataOverrides.getOverrides(currentMetadata, picdarMetadata)
+        }
+
       overridden         <- applyMetadataOverridesIfAny(image, picdarOverridesOpt)
     } yield overridden
+
+  }
 
 
   private def applyMetadataOverrides(image: Image, overrides: ImageMetadata): Future[Unit] = {
     mediaApi.overrideMetadata(image.metadataOverrideUri, overrides)
   }
 
-  private def applyMetadataOverridesIfAny(image: Image, overrides: Option[ImageMetadata]): Future[Boolean] = overrides match {
+  private def applyMetadataOverridesIfAny(
+    image: Image,
+    overrides: Option[ImageMetadata]
+  ): Future[Boolean] = overrides match {
     case Some(actualOverrides) => applyMetadataOverrides(image, actualOverrides).map(_ => true)
     case None => Future.successful(false)
   }
