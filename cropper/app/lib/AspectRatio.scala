@@ -8,7 +8,8 @@ object AspectRatio {
   val knownRatios = List(
     Ratio("5:3", 5, 3),
     Ratio("2:3", 2, 3),
-    Ratio("16:9", 16, 9)
+    Ratio("16:9", 16, 9),
+    Ratio("1:1", 1, 1)
   )
 
   @tailrec
