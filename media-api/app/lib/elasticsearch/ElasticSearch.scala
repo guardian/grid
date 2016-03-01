@@ -2,8 +2,11 @@ package lib.elasticsearch
 
 import java.util.regex.Pattern
 
+import controllers.SuggestionController._
 import lib.querysyntax.Condition
 import org.elasticsearch.index.query.{MatchAllQueryBuilder, FilterBuilder, FilteredQueryBuilder}
+import org.elasticsearch.search.aggregations.bucket.MultiBucketsAggregation
+import org.elasticsearch.search.aggregations.bucket.histogram.{InternalDateHistogram, DateHistogram}
 import org.elasticsearch.search.aggregations.bucket.terms.{Terms, InternalTerms}
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -12,7 +15,7 @@ import scala.collection.JavaConversions._
 import play.api.libs.json._
 import org.elasticsearch.action.get.GetRequestBuilder
 import org.elasticsearch.action.search.{SearchResponse, SearchType, SearchRequestBuilder}
-import org.elasticsearch.search.aggregations.AggregationBuilders
+import org.elasticsearch.search.aggregations.{AbstractAggregationBuilder, AggregationBuilder, AggregationBuilders}
 import org.elasticsearch.search.suggest.completion.{CompletionSuggestion, CompletionSuggestionBuilder}
 
 import scalaz.syntax.id._
@@ -164,23 +167,34 @@ object ElasticSearch extends ElasticSearchClient with SearchFilters with ImageFi
       .map(searchResultToAggregateResponse(_, name))
   }
 
-  def metadataSearch(params: AggregateSearchParams)(implicit ex: ExecutionContext): Future[AggregateSearchResults] =
-    aggregateSearch("metadata", metadataField(params.field), params)
-
-  def editsSearch(params: AggregateSearchParams)(implicit ex: ExecutionContext): Future[AggregateSearchResults] =
-    aggregateSearch("edits", editsField(params.field), params)
-
-  def aggregateSearch(name: String, field: String, params: AggregateSearchParams)
-                     (implicit ex: ExecutionContext): Future[AggregateSearchResults] = {
-
+  def dateHistogramAggregate(params: AggregateSearchParams)(implicit ex: ExecutionContext): Future[AggregateSearchResults] = {
     val aggregate = AggregationBuilders
-      .terms(name)
-      .field(field)
+      .dateHistogram("date_added")
+      .field("usages.dateAdded")
+      .interval(DateHistogram.Interval.MONTH)
+    aggregateSearch("date_added", params, aggregate)
+  }
 
+  def metadataSearch(params: AggregateSearchParams)(implicit ex: ExecutionContext): Future[AggregateSearchResults] = {
+    val aggregate = AggregationBuilders
+      .terms("metadata")
+      .field(metadataField(params.field))
+    aggregateSearch("metadata", params, aggregate)
+  }
+
+  def editsSearch(params: AggregateSearchParams)(implicit ex: ExecutionContext): Future[AggregateSearchResults] = {
+    val aggregate = AggregationBuilders
+      .terms("edits")
+      .field(editsField(params.field))
+    aggregateSearch("edits", params, aggregate)
+  }
+
+  def aggregateSearch(name: String, params: AggregateSearchParams, aggregateBuilder: AbstractAggregationBuilder)
+                     (implicit ex: ExecutionContext): Future[AggregateSearchResults] = {
     val query = queryBuilder.makeQuery(params.structuredQuery)
     val search = prepareImagesSearch
       .setQuery(query)
-      .addAggregation(aggregate)
+      .addAggregation(aggregateBuilder)
 
     search
       .setSearchType(SearchType.COUNT)
@@ -188,6 +202,10 @@ object ElasticSearch extends ElasticSearchClient with SearchFilters with ImageFi
       .toMetric(searchQueries, List(searchTypeDimension("aggregate")))(_.getTookInMillis)
       .map(searchResultToAggregateResponse(_, name))
   }
+
+  def aggregateResponse(agg: AggregateSearchResults) =
+    respondCollection(agg.results, Some(0), Some(agg.total))
+
 
   def completionSuggestion(name: String, q: String, size: Int)(implicit ex: ExecutionContext): Future[CompletionSuggestionResults] = {
     val builder = completionSuggestionBuilder(name).field(name).text(q).size(size)
@@ -217,7 +235,12 @@ object ElasticSearch extends ElasticSearchClient with SearchFilters with ImageFi
   def completionSuggestionBuilder(name: String) = new CompletionSuggestionBuilder(name)
 
   def searchResultToAggregateResponse(response: SearchResponse, aggregateName: String) = {
-    val buckets = response.getAggregations.getAsMap.get(aggregateName).asInstanceOf[InternalTerms].getBuckets
+    val buckets = response.getAggregations
+      .getAsMap
+      .get(aggregateName)
+      .asInstanceOf[MultiBucketsAggregation]
+      .getBuckets
+
     val results = buckets.toList map (s => BucketResult(s.getKey, s.getDocCount))
 
     AggregateSearchResults(results, buckets.size)

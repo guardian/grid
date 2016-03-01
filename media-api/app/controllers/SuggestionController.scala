@@ -62,17 +62,12 @@ object SuggestionController extends Controller with ArgoHelpers {
   // TODO: recover with HTTP error if invalid field
   // TODO: Add validation, especially if you use length
   def metadataSearch(field: String, q: Option[String]) = Authenticated.async { request =>
-    ElasticSearch.metadataSearch(AggregateSearchParams(field, request)) map aggregateResponse
+    ElasticSearch.metadataSearch(AggregateSearchParams(field, request)) map ElasticSearch.aggregateResponse
   }
 
   def editsSearch(field: String, q: Option[String]) = Authenticated.async { request =>
-    ElasticSearch.editsSearch(AggregateSearchParams(field, request)) map aggregateResponse
+    ElasticSearch.editsSearch(AggregateSearchParams(field, request)) map ElasticSearch.aggregateResponse
   }
-
-  // TODO: Add some useful links
-  def aggregateResponse(agg: AggregateSearchResults) =
-    respondCollection(agg.results, Some(0), Some(agg.total))
-
 }
 
 case class LabelSibling(name: String, selected: Boolean)
@@ -85,22 +80,4 @@ case class LabelSiblingsResponse(label: String, siblings: List[LabelSibling])
 object LabelSiblingsResponse {
   implicit def jsonWrites: Writes[LabelSiblingsResponse] = Json.writes[LabelSiblingsResponse]
   implicit def jsonReads: Reads[LabelSiblingsResponse] =  Json.reads[LabelSiblingsResponse]
-}
-
-case class AggregateSearchParams(
-                                  field: String,
-                                  q: Option[String],
-                                  structuredQuery: List[Condition])
-object AggregateSearchParams {
-  def parseIntFromQuery(s: String): Option[Int] = Try(s.toInt).toOption
-
-  def apply(field: String, request: Request[AnyContent]): AggregateSearchParams = {
-    val query = request.getQueryString("q")
-    val structuredQuery = query.map(Parser.run) getOrElse List[Condition]()
-    new AggregateSearchParams(
-      field,
-      query,
-      structuredQuery
-    )
-  }
 }
