@@ -172,12 +172,15 @@ object ElasticSearch extends ElasticSearchClient with SearchFilters with ImageFi
 
   def aggregateSearch(name: String, field: String, params: AggregateSearchParams)
                      (implicit ex: ExecutionContext): Future[AggregateSearchResults] = {
+
     val aggregate = AggregationBuilders
       .terms(name)
       .field(field)
-      .include(Pattern.quote(params.q.getOrElse("")) + ".*", Pattern.CASE_INSENSITIVE)
 
-    val search = prepareImagesSearch.addAggregation(aggregate)
+    val query = queryBuilder.makeQuery(params.structuredQuery)
+    val search = prepareImagesSearch
+      .setQuery(query)
+      .addAggregation(aggregate)
 
     search
       .setSearchType(SearchType.COUNT)
