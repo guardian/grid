@@ -87,6 +87,8 @@ object MediaApi extends Controller with ArgoHelpers {
 
 
   val ImageNotFound = respondError(NotFound, "image-not-found", "No image found with the given id")
+  val ExportNotFound = respondError(NotFound, "export-not-found", "No export found with the given id")
+
   def getIncludedFromParams(request: AuthenticatedRequest[AnyContent, Principal]): List[String] = {
     val includedQuery: Option[String] = request.getQueryString("include")
 
@@ -147,6 +149,28 @@ object MediaApi extends Controller with ArgoHelpers {
     }
   }
 
+  def getImageExports(id: String) = Authenticated.async { request =>
+    ElasticSearch.getImageById(id) map {
+      case Some(source) => {
+        val links = List(
+          Link("image", s"$rootUri/images/$id")
+        )
+        respond(source \ "exports", links)
+      }
+      case None         => ImageNotFound
+    }
+  }
+
+  def getImageExport(imageId: String, exportId: String) = Authenticated.async { request =>
+    ElasticSearch.getImageById(imageId) map {
+      case Some(source) => {
+        val exportOption = source.as[Image].exports.find(_.id == Some(exportId))
+        exportOption.foldLeft(ExportNotFound)((memo, export) => respond(export))
+      }
+      case None => ImageNotFound
+    }
+
+  }
 
   val ImageCannotBeDeleted = respondError(MethodNotAllowed, "cannot-delete", "Cannot delete persisted images")
   val ImageDeleteForbidden = respondError(Forbidden, "delete-not-allowed", "No permission to delete this image")

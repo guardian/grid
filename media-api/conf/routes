@@ -12,6 +12,8 @@ GET     /images/edits/:field                          controllers.SuggestionCont
 # Images
 GET     /images/:id                                   controllers.MediaApi.getImage(id: String)
 GET     /images/:id/fileMetadata                      controllers.MediaApi.getImageFileMetadata(id: String)
+GET     /images/:imageId/export/:exportId             controllers.MediaApi.getImageExport(imageId: String, exportId: String)
+GET     /images/:imageId/export                       controllers.MediaApi.getImageExports(imageId: String)
 POST    /images/:id/reindex                           controllers.MediaApi.reindexImage(id: String)
 DELETE  /images/:id                                   controllers.MediaApi.deleteImage(id: String)
 
