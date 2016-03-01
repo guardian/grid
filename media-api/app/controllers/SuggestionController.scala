@@ -2,12 +2,12 @@ package controllers
 
 import play.api.libs.concurrent.Execution.Implicits._
 import play.api.libs.json.{Reads, Json, Writes}
-import play.api.mvc.{AnyContent, Request, Controller}
+import play.api.mvc.Controller
 
 import com.gu.mediaservice.lib.argo.ArgoHelpers
 
-import lib.elasticsearch.{QueryBuilder, AggregateSearchResults, ElasticSearch}
-import lib.querysyntax.{Condition, Parser}
+import lib.elasticsearch.ElasticSearch
+import lib.querysyntax.Parser
 
 import scala.util.Try
 
