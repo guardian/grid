@@ -19,9 +19,10 @@
             <gr-icon ng:hide="ctrl.showChildren">chevron_right</gr-icon>
         </button>
 
-        <button ng:if="ctrl.hasCustomSelect"
+        <button class="node__name flex-spacer"
+                ng:if="ctrl.hasCustomSelect"
                 ng:click="ctrl.select()">
-           <span class="node__name flex-spacer">{{:: node.data.data.description}}</span>
+            {{:: node.data.data.description}}
         </button>
 
         <a ng:if="! ctrl.hasCustomSelect"

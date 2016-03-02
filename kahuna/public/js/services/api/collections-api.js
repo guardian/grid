@@ -168,6 +168,7 @@ collectionsApi.factory('collections',
         removeFromList,
         addToCollectionUsingImageIds,
         addToCollectionUsingImageResources,
+        addCollectionToImage,
         removeImageFromCollection,
         batchRemove
     };
