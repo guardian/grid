@@ -30,7 +30,7 @@ object PrintUsageRequestFactory {
         )
 
         PrintUsageRecord(
-          dateAdded = record.createdDate,
+          dateAdded = record.publicationDate,
           mediaId = mediaId,
           printUsageMetadata = metadata,
           containerId = MD5.hash(s"${record.productionName}_${mediaId}"),
