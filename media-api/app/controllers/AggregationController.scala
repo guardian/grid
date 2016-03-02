@@ -7,9 +7,6 @@ import play.api.mvc.{AnyContent, Request, Controller}
 
 import scala.util.Try
 
-/**
-  * Created by npapacostas on 01/03/2016.
-  */
 object AggregationController extends Controller {
   val Authenticated = Authed.action
 
