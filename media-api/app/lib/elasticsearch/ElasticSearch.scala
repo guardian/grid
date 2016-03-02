@@ -169,10 +169,10 @@ object ElasticSearch extends ElasticSearchClient with SearchFilters with ImageFi
 
   def dateHistogramAggregate(params: AggregateSearchParams)(implicit ex: ExecutionContext): Future[AggregateSearchResults] = {
     val aggregate = AggregationBuilders
-      .dateHistogram("date_added")
-      .field("usages.dateAdded")
+      .dateHistogram(params.field)
+      .field(params.field)
       .interval(DateHistogram.Interval.MONTH)
-    aggregateSearch("date_added", params, aggregate)
+    aggregateSearch(params.field, params, aggregate)
   }
 
   def metadataSearch(params: AggregateSearchParams)(implicit ex: ExecutionContext): Future[AggregateSearchResults] = {
