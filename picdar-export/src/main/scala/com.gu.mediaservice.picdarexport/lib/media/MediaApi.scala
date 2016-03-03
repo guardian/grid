@@ -2,7 +2,7 @@ package com.gu.mediaservice.picdarexport.lib.media
 
 import java.net.URI
 
-import com.gu.mediaservice.model.{UsageRights, ImageMetadata}
+import com.gu.mediaservice.model.{UsageRights, ImageMetadata, Edits}
 import play.api.libs.json._
 import play.api.libs.functional.syntax._
 
@@ -27,7 +27,8 @@ case class Image(
   metadata: ImageMetadata,
   metadataOverrideUri: URI,
   usageRights: UsageRights,
-  usageRightsOverrideUri: URI
+  usageRightsOverrideUri: URI,
+  userMetadata: ImageMetadata
 )
 
 object Image {
@@ -39,7 +40,8 @@ object Image {
     (__ \ "metadata").read[ImageMetadata] ~
     (__ \ "userMetadata" \ "data" \ "metadata" \ "uri").read[URI] ~
     (__ \ "usageRights").read[UsageRights] ~
-    (__ \ "userMetadata" \ "data" \ "usageRights" \ "uri").read[URI]
+    (__ \ "userMetadata" \ "data" \ "usageRights" \ "uri").read[URI]~
+    (__ \ "userMetadata" \ "data" \ "metadata" \ "data").read[ImageMetadata]
   )(Image.apply _)
 }
 

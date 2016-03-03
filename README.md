@@ -105,7 +105,7 @@ cd cloud-formation/scripts
 ### Generate .properties files
 
 Generate your .properties files for the various media-service services using the
-[dot-properties generator](./scripts/config-generators/README.md)
+[dot-properties generator](./docker/configs/generators/README.md)
 
 This will also create a ```panda.properties``` file that configures the
 [pan-domain authentication](https://github.com/guardian/pan-domain-authentication)
