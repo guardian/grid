@@ -1387,6 +1387,7 @@ FIXME: what to do with touch devices
 
 .result-editor__overlay__cancel {
     float: right;
+    padding: 40px;
 }
 
 .result-editor__overlay__cancel gr-icon {
@@ -1409,8 +1410,9 @@ FIXME: what to do with touch devices
     padding: 5px 10px;
     border-bottom: 1px solid #565656;
     position: fixed;
-    width: 100%;
+    width: 365px;
     background: #444;
+    z-index: 10;
 }
 
 .result-editor__collections gr-collection-tree > :first-child {
