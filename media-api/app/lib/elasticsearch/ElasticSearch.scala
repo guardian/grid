@@ -171,6 +171,7 @@ object ElasticSearch extends ElasticSearchClient with SearchFilters with ImageFi
       .dateHistogram(params.field)
       .field(params.field)
       .interval(DateHistogram.Interval.MONTH)
+      .minDocCount(0)
     aggregateSearch(params.field, params, aggregate)
   }
 
