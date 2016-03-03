@@ -9,12 +9,12 @@ then
         echo '`iam get-user` failed. Are you using temporary credentials?'
         echo 'If you are using temporary credentials please set the GRID_STACK_NAME environment variable and try again:'
         echo ''
-        echo "  export GRID_STACK_NAME=DEV-foo && $0"
+        echo "  export GRID_STACK_NAME=foo && $0"
         echo ''
         exit 1
     else
         export STACK_NAME="media-service-DEV-`$USER_NAME | jq '.User.UserName' | tr -d '"' | tr [A-Z] [a-z]`"
     fi
 else
-    export STACK_NAME="media-service-$GRID_STACK_NAME"
+    export STACK_NAME="media-service-DEV-$GRID_STACK_NAME"
 fi
