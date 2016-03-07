@@ -17,7 +17,10 @@ import AssemblyKeys._
 
 object Build extends Build {
 
-  def env(key: String): Option[String] = Option(System.getenv(key))
+  def getEnv(key: String): Option[String] = Option(System.getenv(key))
+  def getProp(key:String): Option[String] = Option(System.getProperty(key))
+
+  def env(key: String): Option[String] = (getEnv(key) ++ getProp(key)).headOption
 
   val riffRaffSettings =
     Seq(
