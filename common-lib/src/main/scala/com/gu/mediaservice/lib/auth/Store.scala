@@ -68,9 +68,20 @@ object PermissionType extends Enumeration {
   val EditMetadata = Value("editMetadata")
   val DeleteImage  = Value("deleteImage")
   val DeleteCrops  = Value("deleteCrops")
+  val BigSpender   = Value("bigSpender")
 }
-
 class PermissionStore(bucket: String, credentials: AWSCredentials) extends BaseStore[PermissionType, List[String]](bucket, credentials) {
+
+  type FuturePerms = Future[Set[PermissionType.PermissionType]]
+
+  def getUserPermissions(
+    user: PandaUser
+  ): FuturePerms = store.future.map {
+    _.filter {
+      case (_, list) => list.contains(user.email.toLowerCase)
+    }.keys
+  }.map(_.toSet)
+
   def hasPermission(permission: PermissionType, userEmail: String) = {
     store.future().map {
       list => {
