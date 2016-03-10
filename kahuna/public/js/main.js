@@ -6,10 +6,11 @@ import {heal} from 'pandular';
 
 import uriTemplates from 'uri-templates';
 
-import {cropperApi} from './services/api/media-cropper';
-import {editsApi}   from './services/api/edits-api';
-import {loaderApi}  from './services/api/loader';
-import {mediaApi}   from './services/api/media-api';
+import {cropperApi}     from './services/api/media-cropper';
+import {editsApi}       from './services/api/edits-api';
+import {loaderApi}      from './services/api/loader';
+import {mediaApi}       from './services/api/media-api';
+import {permissionsApi} from './services/api/permissions-api';
 
 import {imageFade} from './directives/gr-image-fade-on-load';
 
@@ -41,8 +42,12 @@ var reauthLink = document.querySelector('link[rel="reauth-uri"]');
 var sentryDsnLink = document.querySelector('link[rel="sentry-dsn"]');
 var assetsRootLink = document.querySelector('link[rel="assets"]');
 
+const mediaApiUri = apiLink.getAttribute('href');
+const permissionsApiUri = mediaApiUri + '/permissions';
+
 var config = {
-    mediaApiUri: apiLink.getAttribute('href'),
+    mediaApiUri,
+    permissionsApiUri,
     sentryDsn: sentryDsnLink && sentryDsnLink.getAttribute('href'),
     assetsRoot: assetsRootLink && assetsRootLink.getAttribute('href'),
 
