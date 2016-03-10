@@ -11,47 +11,10 @@ then
     exit 1
 fi
 
-NGINX_VERSION=1.7.10
-NGINX_LOCATION=$PWD/nginx
+NGINX_LOCATION=$(nginx -V 2>&1 | grep "configure arguments:" | sed 's/[^*]*conf-path=\([^ ]*\)\/nginx\.conf.*/\1/g')
 
-# preclean
-rm -rf ./nginx-${NGINX_VERSION}
-rm -rf $NGINX_LOCATION
-
-# unpack
-wget http://nginx.org/download/nginx-${NGINX_VERSION}.tar.gz
-tar -xvzf nginx-${NGINX_VERSION}.tar.gz
-
-# link up
-ln -s ./nginx-${NGINX_VERSION} $NGINX_LOCATION
-
-# compile
-pushd $NGINX_LOCATION
-./configure \
-  --prefix=$NGINX_LOCATION \
-  --with-http_ssl_module \
-  --with-http_image_filter_module
-
-make
-
-# logs
-mkdir logs
-chmod +w logs
-touch logs/access.log
-touch logs/error.log
-
-popd
+echo $NGINX_LOCATION
 
 # replace the {{BUCKET}} variable with the supplied bucket name
-rm -f imgops.conf
-sed -e 's/{{BUCKET}}/'$1'/g' imgops.template.conf > imgops.conf
-
-# let our own conf usurp the default
-rm -f $NGINX_LOCATION/conf/nginx.conf
-
-ln -s $PWD/nginx.conf $NGINX_LOCATION/conf/nginx.conf
-ln -s $PWD/imgops.conf $NGINX_LOCATION/conf/imgops.conf
-
-# postclean
-rm -f nginx-${NGINX_VERSION}.tar.gz*
-
+rm -f $NGINX_LOCATION/sites-enabled/media-service-imgops.conf
+sed -e 's/{{BUCKET}}/'$1'/g' imgops.template.conf > $NGINX_LOCATION/sites-enabled/media-service-imgops.conf

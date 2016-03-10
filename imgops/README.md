@@ -2,6 +2,9 @@
 Local version of the imgops service
 
 ## Requirements
+* [Nginx with with image filter module](http://nginx.org/en/docs/http/ngx_http_image_filter_module.html)
+  * Linux: `sudo apt-get install nginx nginx-extras`
+  * Mac: `brew install nginx-full --with-image-filter`
 * [GD](http://libgd.github.io/)
   * Linux: `sudo apt-get install libgd-dev`
   * Mac:  `brew install gd`
@@ -9,7 +12,13 @@ Local version of the imgops service
 ## Installation
 ``` Bash
 ./dev-setup.sh YOUR_IMAGE_BUCKET
-./dev-start.sh
+```
+
+## Running
+You should have the [dev-nginx](https://github.com/guardian/dev-nginx) repo checked out and set up.
+``` Bash
+cd PATH_TO/dev-nginx
+sudo ./restart-nginx.sh
 ```
 
 ## Is it running
