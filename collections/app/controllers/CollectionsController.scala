@@ -22,6 +22,7 @@ import com.gu.mediaservice.model.{ActionData, Collection}
 import store.{CollectionsStoreError, CollectionsStore}
 
 
+case class HasChildrenError(message: String) extends Throwable
 case class InvalidPrinciple(message: String) extends Throwable
 case class AppIndex(name: String, description: String, config: Map[String, String] = Map())
 
@@ -63,6 +64,9 @@ object CollectionsController extends Controller with ArgoHelpers {
   def invalidJson(json: JsValue) =
     respondError(BadRequest, "invalid-json", s"Could not parse json: ${json.toString}")
 
+  def invalidTreeOperationError(message: String) =
+    respondError(BadRequest, "invalid-tree-operation", message)
+
   def storeError(message: String) =
     respondError(InternalServerError, "collection-store-error", message)
 
@@ -92,14 +96,19 @@ object CollectionsController extends Controller with ArgoHelpers {
     }
   }
 
-  def getCollections = Authenticated.async { req =>
-    CollectionsStore.getAll map { collections =>
-      val tree = Node.fromList[Collection](
-        collections,
-        (collection) => collection.path,
-        (collection) => collection.description)
+  def allCollections = CollectionsStore.getAll.map { collections =>
+    Node.fromList[Collection](
+      collections,
+      (collection) => collection.path,
+      (collection) => collection.description)
+  }
 
-      respond(Json.toJson(tree)(asArgo), actions = List(addChildAction()).flatten)
+  def getCollections = Authenticated.async { req =>
+    allCollections.map { tree =>
+      respond(
+        Json.toJson(tree)(asArgo),
+        actions = List(addChildAction()).flatten
+      )
     } recover {
       case e: CollectionsStoreError => storeError(e.message)
     }
@@ -126,11 +135,35 @@ object CollectionsController extends Controller with ArgoHelpers {
     } getOrElse Future.successful(invalidJson(req.body))
   }
 
+  type MaybeTree = Option[Node[Collection]]
+  def hasChildren(path: List[String]): Future[Boolean] =
+    allCollections.map { tree =>
+
+      // Traverse the tree using the path
+      val maybeTree = path
+        .foldLeft[MaybeTree](Some(tree))((optBranch, nodeName) => {
+
+          optBranch.flatMap { _.children.find(_.basename == nodeName) }
+        })
+
+      // Does out target node have children?
+      maybeTree.flatMap(_.children.headOption).isDefined
+    }
+
   def removeCollection(collectionPath: String) = Authenticated.async { req =>
-    CollectionsStore.remove(CollectionsManager.uriToPath(collectionPath)) map { unit =>
-      Accepted
+    val path = CollectionsManager.uriToPath(collectionPath)
+
+    hasChildren(path).flatMap { noRemove =>
+      if(noRemove) {
+        throw new HasChildrenError(
+          s"$collectionPath has children, can't delete!"
+        )
+      } else {
+        CollectionsStore.remove(path).map(_ => Accepted)
+      }
     } recover {
-      case e: CollectionsStoreError => InternalServerError
+      case e: CollectionsStoreError => storeError(e.message)
+      case e: HasChildrenError => invalidTreeOperationError(e.message)
     }
   }
 
