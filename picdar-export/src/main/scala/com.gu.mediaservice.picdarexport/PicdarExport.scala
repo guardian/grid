@@ -152,10 +152,10 @@ object ExportApp extends App with ExportManagerProvider with ArgumentHelpers wit
   def fetchRights(env: String, system: String, dateRange: DateRange = DateRange.all, range: Option[Range] = None) = {
     val dynamo = getDynamo(env)
     dynamo.scanNoRights(dateRange) flatMap { urns =>
-      val updates = takeRange(urns, range).map { assetRef =>
-        getPicdar(system).get(assetRef.urn) flatMap { asset =>
+      val updates = takeRange(urns, range).map { assetRow  =>
+        getPicdar(system).get(assetRow.picdarUrn) flatMap { asset =>
           Logger.info(s"Fetching usage rights for image ${asset.urn}")
-          dynamo.recordRights(assetRef.urn, assetRef.dateLoaded, asset.usageRights)
+          dynamo.recordRights(assetRow.picdarUrn, assetRow.picdarCreated, asset.usageRights)
         } recover { case PicdarError(message) =>
           Logger.warn(s"Picdar error during fetch: $message")
         }
@@ -244,22 +244,22 @@ object ExportApp extends App with ExportManagerProvider with ArgumentHelpers wit
   def overrideRights(env: String, dateRange: DateRange = DateRange.all, range: Option[Range] = None) = {
     val dynamo = getDynamo(env)
     dynamo.scanRightsFetchedNotOverridden(dateRange) flatMap { assets =>
-      val updates = takeRange(assets, range).map { asset =>
-        // TODO: if no mediaUri, skip
-        // FIXME: HACKK!
-        val mediaUri = asset.mediaUri.get
-        asset.picdarRights map { rights =>
-          Logger.info(s"Overriding rights on $mediaUri to: $rights")
-          getExportManager("library", env).overrideRights(mediaUri, rights) flatMap { overridden =>
-            Logger.info(s"Overridden $mediaUri rights ($overridden)")
-            dynamo.recordRightsOverridden(asset.picdarUrn, asset.picdarCreated, overridden)
-          } recover { case e: Throwable =>
-            Logger.warn(s"Rights override error for ${asset.picdarUrn}: $e")
-            e.printStackTrace()
+      val updates = takeRange(assets, range).flatMap { asset =>
+
+        asset.mediaUri.map { mediaUri =>
+          asset.picdarRights map { rights =>
+            Logger.info(s"Overriding rights on $mediaUri to: $rights")
+            getExportManager("library", env).overrideRights(mediaUri, rights) flatMap { overridden =>
+              Logger.info(s"Overridden $mediaUri rights ($overridden)")
+              dynamo.recordRightsOverridden(asset.picdarUrn, asset.picdarCreated, overridden)
+            } recover { case e: Throwable =>
+              Logger.warn(s"Rights override error for ${asset.picdarUrn}: $e")
+              e.printStackTrace()
+            }
+          } getOrElse {
+            Logger.info(s"No rights overrides for $mediaUri (not fetched?), skipping")
+            Future.successful(())
           }
-        } getOrElse {
-          Logger.info(s"No rights overrides for $mediaUri (not fetched?), skipping")
-          Future.successful(())
         }
       }
       Future.sequence(updates)

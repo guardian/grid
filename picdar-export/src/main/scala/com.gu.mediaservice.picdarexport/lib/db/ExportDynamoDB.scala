@@ -100,18 +100,11 @@ class ExportDynamoDB(credentials: AWSCredentials, region: Region, tableName: Str
     table.updateItem(baseUpdateSpec)
   } map asJsObject
 
-
   val fetchFields = List("picdarAssetUrl", "picdarMetadataModified")
   val notFetchedCondition =
     "(" + fetchFields.map(f => s"attribute_not_exists($f)").mkString(" OR ") + ")"
   val fetchedCondition =
     "(" + fetchFields.map(f => s"attribute_exists($f)").mkString(" AND ") + ")"
-
-  val ingestedCondition = "attribute_exists(mediaUri)"
-
-  val noRightsCondition = "(attribute_not_exists(picdarRights))"
-  val hasRightsNotOverridden =
-    List("attribute_exists(picdarRights)", "attribute_not_exists(picdarRightsOverridden)")
 
   def scanUnfetched(dateRange: DateRange): Future[Seq[AssetRef]] =
     getUrnsForNotFilledFields[AssetRef](dateRange, Set("picdarAssetUrl"))(
@@ -127,6 +120,14 @@ class ExportDynamoDB(credentials: AWSCredentials, region: Region, tableName: Str
 
   def scanOverridden(dateRange: DateRange): Future[Seq[AssetRow]] =
     getUrnsForNotFilledFields[AssetRow](dateRange, Set(), Set("overridden"))(
+      (item: Item) => AssetRow(item))
+
+  def scanNoRights(dateRange: DateRange): Future[Seq[AssetRow]] =
+    getUrnsForNotFilledFields[AssetRow](dateRange, Set("picdarRights"), Set("mediaUri"))(
+      (item: Item) => AssetRow(item))
+
+  def scanRightsFetchedNotOverridden(dateRange: DateRange): Future[Seq[AssetRow]] =
+    getUrnsForNotFilledFields[AssetRow](dateRange, Set("picdarRightsOverridden"), Set("picdarRights"))(
       (item: Item) => AssetRow(item))
 
   type Conditions = List[String]
@@ -249,25 +250,6 @@ class ExportDynamoDB(credentials: AWSCredentials, region: Region, tableName: Str
   def getNotIngested(dateRange: DateRange) = {
     getUrnsForNotFilledFields(dateRange, Set("mediaUri"), Set("picdarAssetUrl","picdarCreatedFull"))(
       (item: Item) => AssetRow(item))
-  }
-
-  def scanNoRights(dateRange: DateRange): Future[Seq[AssetRef]] = Future {
-    val queryConds = List(fetchedCondition, noRightsCondition).withDateRange(dateRange)
-    val values = Map[String, String]().withDateRangeValues(dateRange)
-
-    val projectionAttrs = List("picdarUrn", "picdarCreated", "picdarCreatedFull", "picdarAssetUrl")
-    val items = scan(queryConds, projectionAttrs, values)
-    items.iterator.map(AssetRef(_)).toSeq
-  }
-
-  def scanRightsFetchedNotOverridden(dateRange: DateRange): Future[Seq[AssetRow]] = Future {
-    // FIXME: query by range only?
-    val queryConds = (List(fetchedCondition, ingestedCondition) ++ hasRightsNotOverridden).withDateRange(dateRange)
-    val values = Map[String, String]().withDateRangeValues(dateRange)
-
-    val projectionAttrs = List("picdarUrn", "picdarCreated", "picdarCreatedFull", "picdarAssetUrl", "mediaUri", "picdarRights")
-    val items = scan(queryConds, projectionAttrs, values)
-    items.iterator.map(AssetRow(_)).toSeq
   }
 
   def recordUsageSent(urn: String, range: DateTime) = Future {

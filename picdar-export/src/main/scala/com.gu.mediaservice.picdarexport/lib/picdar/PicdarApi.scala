@@ -105,57 +105,57 @@ trait PicdarApi extends HttpClient with PicdarInterface with LogHelper {
 
   // No timezone lol
   val picdarEsotericDateFormat = PicdarDates.longFormat
-
+import scala.util.Try
   def fetchAsset(mak: String, urn: String): Future[Asset] = {
     post(messages.retrieveAsset(mak, urn)) flatMap { response =>
-      val record = (response \ "ResponseData" \ "Record")(0)
-      val assetFileOpt = (record \ "VURL") find (v => (v \ "@type" text) == "original") map (_.text) map URI.create
-      val createdOn = extractField(record, "Created on")
-      val createdAt = extractField(record, "Created at")
-      val created = (createdOn, createdAt) match {
-        case (Some(on), Some(at)) => Some(DateTime.parse(s"$on$at", picdarEsotericDateFormat))
-        case _ => None
-      }
+      Try {
+        val record = (response \ "ResponseData" \ "Record")(0)
+        val assetFileOpt = (record \ "VURL") find (v => (v \ "@type" text) == "original") map (_.text) map URI.create
+        val createdOn = extractField(record, "Created on")
+        val createdAt = extractField(record, "Created at")
+        val created = (createdOn, createdAt) match {
+          case (Some(on), Some(at)) => Some(DateTime.parse(s"$on$at", picdarEsotericDateFormat))
+          case _ => None
+        }
 
-      val modified = extractField(record, "Modified on") map ISODateTimeFormat.basicDate().parseDateTime
-      val infoUri = extractField(record, "InfoURL") map URI.create
+        val modified = extractField(record, "Modified on") map ISODateTimeFormat.basicDate().parseDateTime
+        val infoUri = extractField(record, "InfoURL") map URI.create
 
-      // Picdar field -> Media metadata key mapping
-      // FIXME: Job_Description? Keywords  File_Name? Location Warnings Warning_Info
-      // FIXME: People "Picture Attributes", "Temporary Notes"
-      val metadata = ImageMetadata(
-        dateTaken           = None,
-        description         = extractField(record, "Caption"),
-        credit              = extractField(record, "Provider"),
-        byline              = extractField(record, "Photographer"),
-        bylineTitle         = None,
-        title               = extractField(record, "Headline"),
-        copyrightNotice     = None,
-        copyright           = extractField(record, "Copyright"),
-        suppliersReference  = extractField(record, "Reference no."),
-        source              = extractField(record, "Source"),
-        specialInstructions = None,
-        keywords            = List(),
-        subLocation         = None,
-        city                = None,
-        state               = None,
-        country             = None
-      )
+        // Picdar field -> Media metadata key mapping
+        // FIXME: Job_Description? Keywords  File_Name? Location Warnings Warning_Info
+        // FIXME: People "Picture Attributes", "Temporary Notes"
+        val metadata = ImageMetadata(
+          dateTaken           = None,
+          description         = extractField(record, "Caption"),
+          credit              = extractField(record, "Provider"),
+          byline              = extractField(record, "Photographer"),
+          bylineTitle         = None,
+          title               = extractField(record, "Headline"),
+          copyrightNotice     = None,
+          copyright           = extractField(record, "Copyright"),
+          suppliersReference  = extractField(record, "Reference no."),
+          source              = extractField(record, "Source"),
+          specialInstructions = None,
+          keywords            = List(),
+          subLocation         = None,
+          city                = None,
+          state               = None,
+          country             = None
+        )
 
-      val usageRights = extractField(record, "Copyright Group") flatMap (UsageRightsOverride.getUsageRights(_, metadata))
+        val usageRights = extractField(record, "Copyright Group") flatMap (UsageRightsOverride.getUsageRights(_, metadata))
 
-      // Notes: Date Loaded seems to be the same as Created on, it's not when the image was loaded into the Library...
+        // Notes: Date Loaded seems to be the same as Created on, it's not when the image was loaded into the Library...
 
-      // Sometimes there is no assetFile at all! lol
-      assetFileOpt map { assetFile =>
-        Future.successful(Asset(urn, assetFile, created get, modified, metadata, infoUri, usageRights))
-      } getOrElse {
-        Future.failed(PicdarError(s"No asset file for $urn"))
-      }
+        // Sometimes there is no assetFile at all! lol
+        assetFileOpt map { assetFile =>
+          Future.successful(Asset(urn, assetFile, created get, modified, metadata, infoUri, usageRights))
+          } getOrElse {
+            Future.failed(PicdarError(s"No asset file for $urn"))
+          }
+      }.getOrElse(Future.failed(PicdarError(s"Failed to extract useful rights data for $urn")))
     }
   }
-
-
 
   private def extractField(record: Node, name: String): Option[String] =
     (record \ "Field") find (v => (v \ "@name" text) == name) map (_.text.trim) filterNot (_.isEmpty)
