@@ -30,7 +30,7 @@
         </button>
 
         <ul class="search__modifier search__filter" ng:class="filtersShown ? 'search__filter--show' : 'search__filter--hide'">
-            <li class="search__modifier-item">
+            <li class="search__modifier-item" ng:if="searchQuery.canSearchPaidImages">
             <label>
                 <!-- minor mindfuck logic as we want an optional flag
                             when the option is off -->

@@ -12,10 +12,12 @@ import {syntax} from './syntax/syntax';
 import {grStructuredQuery} from './structured-query/structured-query';
 
 import {track} from '../analytics/track';
+import '../services/api/permissions-api';
 
 export var query = angular.module('kahuna.search.query', [
     // Note: temporarily disabled for performance reasons, see above
     // 'ngAnimate',
+    'kahuna.services.api.permissions',
     eq.name,
     guDateRange.name,
     syntax.name,
@@ -24,10 +26,14 @@ export var query = angular.module('kahuna.search.query', [
 ]);
 
 query.controller('SearchQueryCtrl',
-                 ['$scope', '$state', '$stateParams', 'onValChange', 'mediaApi', 'track',
-                 function($scope, $state, $stateParams, onValChange , mediaApi, track) {
+                 ['$scope', '$state', '$stateParams', 'onValChange', 'mediaApi', 'track', 'permissionsApi',
+                 function($scope, $state, $stateParams, onValChange , mediaApi, track, permissionsApi) {
 
     const ctrl = this;
+
+    permissionsApi.get().then(userPerms => {
+        ctrl.canSearchPaidImages = Boolean(userPerms.permissions.find((perm) => perm == "bigSpender"));
+    })
 
     ctrl.ordering = {
         orderBy: $stateParams.orderBy
