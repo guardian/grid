@@ -38,7 +38,7 @@ grFilterChip.controller('grFilterChipCtrl', function() {
             // this fires, without the value in case of mouse clicks
             chip.value = value;
 
-            $grChipsCtrl.focusStartOfChipAfter(chip);
+            $grChipsCtrl.focusEndOfFirstChip(chip);  //return focus to the text chip
             $grChipsCtrl.onChange();
         }
     };

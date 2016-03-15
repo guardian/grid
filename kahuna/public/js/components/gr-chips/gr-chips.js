@@ -67,7 +67,7 @@ grChips.controller('grChipsCtrl', ['$scope', function($scope) {
     $grChipsCtrl.wrapperClicked = function($event) {
         if ($event.target.classList.contains('gr-chips__wrapper') ||
             $event.target.classList.contains('gr-chips__placeholder')) {
-            $grChipsCtrl.focusEndOfLastChip();
+            $grChipsCtrl.focusEndOfFirstChip();
         }
     };
 
@@ -142,6 +142,14 @@ grChips.controller('grChipsCtrl', ['$scope', function($scope) {
         }
     };
 
+    $grChipsCtrl.focusEndOfFirstChip = function() {
+        const firstItem = $grChipsCtrl.items[0];
+        if (firstItem) {
+            const itemLength = firstItem.value.length;
+            return $grChipsCtrl.setFocusedChip(firstItem, itemLength, itemLength);
+        }
+    };
+
     $grChipsCtrl.focusEndOfLastChip = function() {
         const lastItem = $grChipsCtrl.items.slice(-1)[0];
         if (lastItem) {
@@ -195,12 +203,6 @@ grChips.controller('grChipsCtrl', ['$scope', function($scope) {
         const firstChip = $grChipsCtrl.items[0];
         if (! firstChip || firstChip.type !== 'text') {
             $grChipsCtrl.items.unshift({type: 'text', value: ''});
-        }
-
-        // ensure trailing empty text chip
-        const lastChip = $grChipsCtrl.items.slice(-1)[0];
-        if (! lastChip || lastChip.type !== 'text') {
-            $grChipsCtrl.items.push({type: 'text', value: ''});
         }
     }
 }]);
