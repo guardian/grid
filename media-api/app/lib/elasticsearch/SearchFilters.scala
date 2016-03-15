@@ -31,6 +31,7 @@ trait SearchFilters extends ImageFields {
       filters.terms(usageRightsField("suppliersCollection"), excludedCollections)
     )
   }
+
   val suppliersWithExclusionsFilter = suppliersWithExclusionsFilters.toList.toNel.map(filters.or)
   val suppliersNoExclusionsFilter = suppliersNoExclusions.toNel.map(filters.terms(usageRightsField("supplier"), _))
   val freeSupplierFilter = filterOrFilter(suppliersWithExclusionsFilter, suppliersNoExclusionsFilter)
@@ -40,7 +41,10 @@ trait SearchFilters extends ImageFields {
   // that could take a comma separated list e.g. `cost=free,conditional`.
   val freeUsageRightsFilter = freeToUseCategories.toNel.map(filters.terms(usageRightsField("category"), _))
 
+  val hasRightsCategoryFilter = filters.existsOrMissing(usageRightsField("category"), true)
+
   val freeFilter = filterOrFilter(freeSupplierFilter, freeUsageRightsFilter)
+
   val nonFreeFilter = freeFilter.map(filters.not)
 
   lazy val freeToUseCategories: List[String] =
