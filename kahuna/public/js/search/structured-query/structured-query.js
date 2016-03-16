@@ -72,21 +72,21 @@ grStructuredQuery.directive('grStructuredQuery', ['subscribe$', function(subscri
                 const queryString = ngModelCtrl.$viewValue || '';
                 ctrl.structuredQuery = structureQuery(queryString);
             };
-            
+
             subscribe$(scope, ctrl.newQuery$, query => {
                 ngModelCtrl.$setViewValue(query);
-                
-                if(query && query !== "") {
-                    const structured = structureQuery(query)
-                    const keys       = structured.map((condition) => condition.key )
-                    const values     = structured.map((condition) => condition.value )
+
+                if (query && query !== '') {
+                    const structured = structureQuery(query);
+                    const keys       = structured.map((condition) => condition.key);
+                    const values     = structured.map((condition) => condition.value);
                     const eventData  = {
                         query: query,
                         structured: structured
-                    }
-                    if(keys.length > 0)  { eventData.keys = keys }
-                    if(values.length > 0){ eventData.values = values}
-                    ctrl.track.action("New Query", eventData);                    
+                    };
+                    if (keys.length > 0) { eventData.keys = keys; }
+                    if (values.length > 0) { eventData.values = values; }
+                    ctrl.track.action('New Query', eventData);
                 }
             });
 
