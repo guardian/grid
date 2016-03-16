@@ -77,15 +77,24 @@ grStructuredQuery.directive('grStructuredQuery', ['subscribe$', function(subscri
                 ngModelCtrl.$setViewValue(query);
 
                 if (query && query !== '') {
-                    const structured = structureQuery(query);
+                    const structured = structureQuery(query).filter(
+                        (condition) => (
+                            condition.key !== null 
+                            && condition.value !== null 
+                            && condition.type !== 'text')
+                    );
+
                     const keys       = structured.map((condition) => condition.key);
                     const values     = structured.map((condition) => condition.value);
                     const eventData  = {
                         query: query,
                         structured: structured
                     };
-                    if (keys.length > 0) { eventData.keys = keys; }
-                    if (values.length > 0) { eventData.values = values; }
+
+                    if ((keys.length > 0) && (values.length > 0) ) { 
+                        eventData.keys = keys; 
+                        eventData.values = values; 
+                    }
                     ctrl.track.action('New Query', eventData);
                 }
             });
