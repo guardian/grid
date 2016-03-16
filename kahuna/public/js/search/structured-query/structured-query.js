@@ -79,9 +79,9 @@ grStructuredQuery.directive('grStructuredQuery', ['subscribe$', function(subscri
                 if (query && query !== '') {
                     const structured = structureQuery(query).filter(
                         (condition) => (
-                            condition.key !== null 
-                            && condition.value !== null 
-                            && condition.type !== 'text')
+                            condition.key !== null &&
+                            condition.value !== null &&
+                            condition.type !== 'text')
                     );
 
                     const keys       = structured.map((condition) => condition.key);
@@ -91,9 +91,9 @@ grStructuredQuery.directive('grStructuredQuery', ['subscribe$', function(subscri
                         structured: structured
                     };
 
-                    if ((keys.length > 0) && (values.length > 0) ) { 
-                        eventData.keys = keys; 
-                        eventData.values = values; 
+                    if ((keys.length > 0) && (values.length > 0) ) {
+                        eventData.keys = keys;
+                        eventData.values = values;
                     }
                     ctrl.track.action('New Query', eventData);
                 }
