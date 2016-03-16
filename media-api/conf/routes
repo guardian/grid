@@ -9,9 +9,13 @@ GET     /                                             controllers.MediaApi.index
 GET     /images/metadata/:field                       controllers.SuggestionController.metadataSearch(field: String, q: Option[String])
 GET     /images/edits/:field                          controllers.SuggestionController.editsSearch(field: String, q: Option[String])
 
+GET     /images/aggregations/date/:field              controllers.AggregationController.dateHistogram(field: String, q: Option[String])
+
 # Images
 GET     /images/:id                                   controllers.MediaApi.getImage(id: String)
 GET     /images/:id/fileMetadata                      controllers.MediaApi.getImageFileMetadata(id: String)
+GET     /images/:imageId/export/:exportId             controllers.MediaApi.getImageExport(imageId: String, exportId: String)
+GET     /images/:imageId/export                       controllers.MediaApi.getImageExports(imageId: String)
 POST    /images/:id/reindex                           controllers.MediaApi.reindexImage(id: String)
 DELETE  /images/:id                                   controllers.MediaApi.deleteImage(id: String)
 

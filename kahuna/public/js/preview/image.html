@@ -48,7 +48,7 @@
         <div class="flex-container">
             <ul class="bottom-bar__meta-item preview__collections">
                 <li class="preview__collections__collection"
-                    ng:repeat="collection in ctrl.image.data.collections track by collection.data.pathId"
+                    ng:repeat="collection in ctrl.image.data.collections"
                     gr-tooltip="Click to open collection: {{::collection.data.path.join(' ▸ ')}}"
                     gr-tooltip-position="top">
                     <a ui:sref="search.results({query: (collection.data.pathId | queryCollectionFilter)})"

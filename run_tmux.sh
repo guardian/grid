@@ -1,7 +1,5 @@
 #!/bin/bash
 
-/bin/bash -c "cd imgops; ./dev-start.sh"
-
 tmux split-window "sbt 'project media-api'    'run 9001'"
 tmux select-layout even-horizontal
 tmux split-window "sbt 'project thrall'       'run 9002'"
@@ -17,6 +15,8 @@ tmux select-layout even-horizontal
 tmux split-window "sbt 'project usage'        'run 9009'"
 tmux select-layout even-horizontal
 tmux split-window "sbt 'project metadata-editor' 'run 9007'"
+tmux select-layout even-horizontal
+tmux split-window "sbt 'project collections' 'run 9010'"
 tmux select-layout even-horizontal
 tmux split-window "sbt 'project auth' 'run 9011'"
 tmux select-layout even-horizontal

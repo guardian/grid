@@ -11,4 +11,3 @@ x-terminal-emulator -T metadata-editor -e "sbt 'project metadata-editor' 'run 90
 x-terminal-emulator -T usage         -e "sbt 'project usage'        'run 9009'" &
 x-terminal-emulator -T collections   -e "sbt 'project collections'  'run 9010'" &
 x-terminal-emulator -T auth          -e "sbt 'project auth'         'run 9011'" &
-x-terminal-emulator -T imgops        -e '/bin/bash -c "cd imgops; ./dev-start.sh"' &

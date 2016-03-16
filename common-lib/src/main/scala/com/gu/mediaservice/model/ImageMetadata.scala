@@ -27,6 +27,8 @@ case class ImageMetadata(
 )
 
 object ImageMetadata {
+  val empty = ImageMetadata()
+
   implicit val ImageMetadataReads: Reads[ImageMetadata] = (
     (__ \ "dateTaken").readNullable[String].map(_.flatMap(parseDateTime)) ~
       (__ \ "description").readNullable[String] ~

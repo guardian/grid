@@ -15,7 +15,6 @@ From the **project root**:
 - metadata-editor `sbt "project metadata-editor" "run 9007"`
 - collections `sbt "project collections" "run 9010"`
 - auth `sbt "project auth" "run 9011"`
-- [imgops](../imgops/README.md)
 
 ## [run.sh](../run.sh)
 `run.sh` is a single script to start all the services.

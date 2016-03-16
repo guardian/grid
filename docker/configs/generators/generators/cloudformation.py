@@ -1,6 +1,7 @@
 import boto3
 from . import *
 import logging
+import os
 
 LOGGER_NAME = os.path.splitext(os.path.basename(__file__))[0]
 LOGGER = logging.getLogger(LOGGER_NAME)
@@ -13,8 +14,12 @@ def _boto_session():
 
 
 def _get_stack_name():
-    user = boto3.resource('iam').CurrentUser()
-    stack_name = 'media-service-DEV-{}'.format(user.user_name)
+    user = os.getenv('GRID_STACK_NAME')
+
+    if not user:
+        user = boto3.resource('iam').CurrentUser().user_name
+
+    stack_name = 'media-service-DEV-{}'.format(user)
     LOGGER.info('Using stack {}'.format(stack_name))
     return stack_name
 

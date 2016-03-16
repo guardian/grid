@@ -24,6 +24,7 @@ gr-nodes, gr-node,
     margin-left: -200px;
     box-sizing: border-box;
 }
+
 .node__info:hover,
 .collection-drop-drag-over {
     background-color: #666;
@@ -36,6 +37,8 @@ gr-nodes, gr-node,
 
 .node__name {
     padding: 5px;
+    text-align: left;
+    line-height: 1.5;
 }
 
 .node__toggler,
@@ -60,4 +63,19 @@ gr-nodes, gr-node,
 .collections-panel-heading {
     padding: 5px 10px;
     border-bottom: 1px solid #565656;
+    position: fixed;
+    width: 270px;
+    background-color: #444;
+    margin-top: -35px;
+    z-index: 10;
+}
+
+.gr-panel__content--hidden .collections-panel-heading {
+    /*returns to default so it will hide with panel*/
+    position: static;
+}
+
+gr-collection-tree > :first-child {
+    /*to sit below the fixed heading*/
+    margin-top: 35px;
 }

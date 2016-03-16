@@ -17,14 +17,37 @@ import AssemblyKeys._
 
 object Build extends Build {
 
-  def env(key: String): Option[String] = Option(System.getenv(key))
+  def getEnv(key: String): Option[String] = Option(System.getenv(key))
+  def getProp(key:String): Option[String] = Option(System.getProperty(key))
+
+  def env(key: String): Option[String] = (getEnv(key) ++ getProp(key)).headOption
 
   val riffRaffSettings =
     Seq(
       riffRaffPackageType := (packageZipTarball in Universal).value,
       riffRaffBuildIdentifier := env("BUILD_NUMBER").getOrElse("DEV"),
-      riffRaffPackageName := s"media-service::jenkins::${name.value}",
-      riffRaffManifestProjectName := riffRaffPackageName.value,
+      riffRaffManifestProjectName := s"media-service::jenkins::${name.value}",
+      riffRaffArtifactResources := (Seq(
+        // upstart config file
+        baseDirectory.value / "conf" / (magentaPackageName.value + ".conf") ->
+        (s"packages/${magentaPackageName.value}/${magentaPackageName.value}.conf"),
+
+        baseDirectory.value / "conf" / "start.sh" -> s"packages/${magentaPackageName.value}/start.sh",
+
+        // the ZIP
+        dist.value -> s"packages/${magentaPackageName.value}/app.zip",
+
+        // and the riff raff deploy instructions
+        baseDirectory.value / "conf" / "deploy.json" -> "deploy.json"
+        ) ++ (name.value match {
+          case "cropper" | "image-loader" =>
+            Seq("cmyk.icc", "grayscale.icc", "srgb.icc", "facebook-TINYsRGB_c2.icc").map { file =>
+              baseDirectory.value / file -> s"packages/${magentaPackageName.value}/$file"
+            }
+          case _ => Seq()
+        })
+      ),
+      riffRaffPackageName := riffRaffPackageName.value,
       riffRaffUploadArtifactBucket := Option("riffraff-artifact"),
       riffRaffUploadManifestBucket := Option("riffraff-builds")
     ) ++ env("GIT_BRANCH").map(branch => Seq(riffRaffManifestBranch := branch)).getOrElse(Nil)

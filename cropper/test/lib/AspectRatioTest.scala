@@ -22,13 +22,19 @@ class AspectRatioTest extends FunSpec with Matchers {
     AspectRatio.Ratio("16:9", 1292, 727)
   )
 
+  val squareExamples = List(
+    AspectRatio.Ratio("1:1", 5000, 5010),
+    AspectRatio.Ratio("1:1", 52, 50),
+    AspectRatio.Ratio("1:1", 1000, 1005)
+  )
+
   val unknownRatios = List(
     (3421, 1234),
     (1, 1234),
     (9001, 1337)
   )
 
-  val allExamples = fiveThreeExamples ++ twoThreeExamples ++ sixteenNineExamples
+  val allExamples = fiveThreeExamples ++ twoThreeExamples ++ sixteenNineExamples ++ squareExamples
 
   describe("calculate") {
     allExamples.foreach( r =>

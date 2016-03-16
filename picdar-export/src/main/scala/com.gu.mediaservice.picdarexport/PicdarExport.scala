@@ -8,8 +8,10 @@ import com.gu.mediaservice.model.{UsageRights, ImageMetadata}
 import com.gu.mediaservice.picdarexport.lib.cleanup.{UsageRightsOverride, MetadataOverrides}
 import com.gu.mediaservice.picdarexport.lib.db._
 import com.gu.mediaservice.picdarexport.lib.media._
+import com.gu.mediaservice.picdarexport.lib.audit._
 import com.gu.mediaservice.picdarexport.lib.picdar.{PicdarError, PicdarClient}
 import com.gu.mediaservice.picdarexport.lib.{Config, MediaConfig}
+import com.gu.mediaservice.picdarexport.lib.{ArgumentHelpers, ExecutionHelpers, ExportManager, ExportManagerProvider, ArgumentError}
 import com.gu.mediaservice.picdarexport.model._
 import play.api.Logger
 import play.api.libs.concurrent.Execution.Implicits._
@@ -17,161 +19,11 @@ import play.api.libs.concurrent.Execution.Implicits._
 import com.gu.mediaservice.picdarexport.lib.usage.PrintUsageRequestFactory
 import com.gu.mediaservice.model.PrintUsageRequest
 
+import scala.util.Try
 import scala.concurrent.Future
 import scala.language.postfixOps
 import org.joda.time.DateTime
 
-
-class ArgumentError(message: String) extends Error(message)
-
-class ExportManager(picdar: PicdarClient, loader: MediaLoader, mediaApi: MediaApi, usageApi: UsageApi) {
-
-  def ingest(assetUri: URI, picdarUrn: String, uploadTime: DateTime): Future[URI] =
-    for {
-      data   <- picdar.getAssetData(assetUri)
-      uri    <- loader.upload(data, picdarUrn, uploadTime)
-    } yield uri
-
-  def sendUsage(mediaUri: URI, usage: List[PicdarUsageRecord]): Future[Unit] = {
-    for {
-      imageResource <- mediaApi.getImageResource(mediaUri)
-      printUsageRequest = PrintUsageRequestFactory.create(usage, imageResource.data.id)
-      _ <- usageApi.postPrintUsage(printUsageRequest)
-    } yield Unit
-  }
-
-  def overrideMetadata(mediaUri: URI, picdarMetadata: ImageMetadata): Future[Boolean] =
-    for {
-      image              <- mediaApi.getImage(mediaUri)
-      currentMetadata     = image.metadata
-      picdarOverridesOpt  = MetadataOverrides.getOverrides(currentMetadata, picdarMetadata)
-      overridden         <- applyMetadataOverridesIfAny(image, picdarOverridesOpt)
-    } yield overridden
-
-
-  private def applyMetadataOverrides(image: Image, overrides: ImageMetadata): Future[Unit] = {
-    mediaApi.overrideMetadata(image.metadataOverrideUri, overrides)
-  }
-
-  private def applyMetadataOverridesIfAny(image: Image, overrides: Option[ImageMetadata]): Future[Boolean] = overrides match {
-    case Some(actualOverrides) => applyMetadataOverrides(image, actualOverrides).map(_ => true)
-    case None => Future.successful(false)
-  }
-
-
-  private def ingestAsset(asset: Asset) =
-    ingest(asset.file, asset.urn, asset.created)
-
-  def overrideRights(mediaUri: URI, picdarRights: UsageRights): Future[Boolean] = {
-    for {
-      image         <- mediaApi.getImage(mediaUri)
-      currentRights  = image.usageRights
-      overridesOpt   = UsageRightsOverride.getOverrides(currentRights, picdarRights)
-      overridden    <- applyRightsOverridesIfAny(image, overridesOpt)
-    } yield overridden
-  }
-
-  private def applyRightsOverrides(image: Image, overrides: UsageRights): Future[Unit] = {
-    mediaApi.overrideUsageRights(image.usageRightsOverrideUri, overrides)
-  }
-
-  def applyRightsOverridesIfAny(image: Image, rightsOpt: Option[UsageRights]): Future[Boolean] = rightsOpt match {
-    case Some(rights) => applyRightsOverrides(image, rights).map(_ => true)
-    case None => Future.successful(false)
-  }
-}
-
-
-trait ExportManagerProvider {
-
-  lazy val picdarDesk = new PicdarClient {
-    override val picdarUrl      = Config.picdarDeskUrl
-    override val picdarUsername = Config.picdarDeskUsername
-    override val picdarPassword = Config.picdarDeskPassword
-  }
-
-  lazy val picdarLib = new PicdarClient {
-    override val picdarUrl      = Config.picdarLibraryUrl
-    override val picdarUsername = Config.picdarLibraryUsername
-    override val picdarPassword = Config.picdarLibraryPassword
-  }
-
-  def loaderInstance(config: MediaConfig) = new MediaLoader {
-    override val loaderApiKey      = config.apiKey
-    override val loaderEndpointUrl = config.loaderUrl
-  }
-
-  def mediaApiInstance(config: MediaConfig) = new MediaApi {
-    override val mediaApiKey = config.apiKey
-  }
-
-  def usageApiInstance(config: MediaConfig) = new UsageApi {
-    override val mediaApiKey = config.apiKey
-    override val postPrintUsageEndpointUrl = config.usageUrl
-  }
-
-  def getPicdar(system: String) = system match {
-    case "desk"    => picdarDesk
-    case "library" => picdarLib
-    case other     => throw new ArgumentError(s"Invalid picdar system name: $other")
-  }
-
-  def getLoader(env: String) = loaderInstance(Config.mediaConfig(env))
-  def getMediaApi(env: String) = mediaApiInstance(Config.mediaConfig(env))
-  def getUsageApi(env: String) = usageApiInstance(Config.mediaConfig(env))
-
-  def getExportManager(picdarSystem: String, mediaEnv: String) =
-    new ExportManager(
-      getPicdar(picdarSystem),
-      getLoader(mediaEnv),
-      getMediaApi(mediaEnv),
-      getUsageApi(mediaEnv)
-    )
-
-  def getDynamo(env: String) = {
-    new ExportDynamoDB(Config.awsCredentials(env), Config.dynamoRegion, Config.picdarExportTable(env))
-  }
-}
-
-trait ArgumentHelpers {
-
-  val QueryRangeExpr = """(?:(\d+)-)?(\d+)""".r
-
-  val defaultRangeLength = 10
-
-  def optInt(strOrNull: String): Option[Int] = Option(strOrNull).map(_.toInt)
-
-  def parseQueryRange(rangeSpec: String) = rangeSpec match {
-    case QueryRangeExpr(start, length) => optInt(length).map(len => Range(optInt(start) getOrElse 0, len))
-    case _ => throw new ArgumentError(s"Invalid range: $rangeSpec")
-  }
-
-
-  // FIXME: broken for --2014-11-12
-  val DateRangeExpr = """(?:(\d{4}-\d{2}-\d{2})?--)?(\d{4}-\d{2}-\d{2})?""".r
-  def optDate(strOrNull: String): Option[DateTime] = Option(strOrNull).map(DateTime.parse)
-
-  def parseDateRange(rangeSpec: String) = rangeSpec match {
-    case "any"                           => DateRange.all
-    case "today"                         => DateRange(Some(new DateTime), Some(new DateTime))
-    case DateRangeExpr(fromDate, toDate) => {
-      val Seq(fromDateOpt, toDateOpt) = Seq(fromDate, toDate) map optDate
-      DateRange(fromDateOpt orElse toDateOpt, toDateOpt)
-    }
-    case _ => throw new ArgumentError(s"Invalid range: $rangeSpec")
-  }
-
-}
-
-trait ExecutionHelpers {
-  // TODO: find a cleaner way to do this? play.api.Play.stop() doesn't seem to work...
-  def terminateAfter[T](process: => Future[T]) = {
-    val execution = process
-    execution onFailure  { case e: Throwable => e.printStackTrace; System.exit(1) }
-    execution onComplete { _ => System.exit(0) }
-  }
-
-}
 
 object ExportApp extends App with ExportManagerProvider with ArgumentHelpers with ExecutionHelpers {
 
@@ -183,7 +35,6 @@ object ExportApp extends App with ExportManagerProvider with ArgumentHelpers wit
     case Some(range) => items.drop(range.start).take(range.length)
     case None        => items
   }
-
 
   def show(system: String, urn: String) = {
     getPicdar(system).get(urn) map { asset =>
@@ -211,6 +62,7 @@ object ExportApp extends App with ExportManagerProvider with ArgumentHelpers wit
 
   def stats(env: String, dateRange: DateRange = DateRange.all): Future[Unit] = {
     val dynamo = getDynamo(env)
+
     for {
       loaded     <- dynamo.scanUnfetched(dateRange)
       _           = println(s"${loaded.size} loaded entries to fetch")
@@ -274,10 +126,10 @@ object ExportApp extends App with ExportManagerProvider with ArgumentHelpers wit
     val dynamo = getDynamo(env)
     dynamo.scanIngestedNotOverridden(dateRange) flatMap { assets =>
       val updates = takeRange(assets, range).map { asset =>
-        // TODO: if no mediaUri, skip
-        // FIXME: HACKK!
+
         val mediaUri = asset.mediaUri.get
         val metadata = asset.picdarMetadata.get
+
         getExportManager("library", env).overrideMetadata(mediaUri, metadata) flatMap { overridden =>
           Logger.info(s"Overridden $mediaUri metadata ($overridden)")
           dynamo.recordOverridden(asset.picdarUrn, asset.picdarCreated, overridden)
@@ -300,15 +152,49 @@ object ExportApp extends App with ExportManagerProvider with ArgumentHelpers wit
   def fetchRights(env: String, system: String, dateRange: DateRange = DateRange.all, range: Option[Range] = None) = {
     val dynamo = getDynamo(env)
     dynamo.scanNoRights(dateRange) flatMap { urns =>
-      val updates = takeRange(urns, range).map { assetRef =>
-        getPicdar(system).get(assetRef.urn) flatMap { asset =>
+      val updates = takeRange(urns, range).map { assetRow  =>
+        getPicdar(system).get(assetRow.picdarUrn) flatMap { asset =>
           Logger.info(s"Fetching usage rights for image ${asset.urn}")
-          dynamo.recordRights(assetRef.urn, assetRef.dateLoaded, asset.usageRights)
+          dynamo.recordRights(assetRow.picdarUrn, assetRow.picdarCreated, asset.usageRights)
         } recover { case PicdarError(message) =>
           Logger.warn(s"Picdar error during fetch: $message")
         }
       }
       Future.sequence(updates)
+    }
+  }
+
+  import java.io._
+
+  def checkMissing(
+    env: String,
+    dateRange: DateRange = DateRange.all,
+    range: Option[Range] = None
+  ) = {
+    val getMissingImageReport = CheckMissing.runReport(env, dateRange)
+    val getReingestReport = CheckMissing.reingestFromReport(env, getMissingImageReport)
+
+    def writeFile(filename:String, json: JsValue): Try[Unit] = {
+      Try {
+        val bw = new BufferedWriter(new FileWriter(filename))
+        bw.write(json.toString)
+        bw.close()
+      }
+    }
+
+    for {
+      missingImageReport <- getMissingImageReport
+      reingestReport     <- getReingestReport
+
+      missingImageReportJson = Json.toJson(missingImageReport)
+      reingestReportJson     = Json.toJson(reingestReport)
+
+      writeImageReport    = writeFile(s"missing_image_report-${dateRange}.json", missingImageReportJson)
+      writeReingestReport = writeFile(s"reingest_report-${dateRange}.json", reingestReportJson)
+
+    } yield Future {
+      writeImageReport.get
+      writeReingestReport.get
     }
   }
 
@@ -358,22 +244,22 @@ object ExportApp extends App with ExportManagerProvider with ArgumentHelpers wit
   def overrideRights(env: String, dateRange: DateRange = DateRange.all, range: Option[Range] = None) = {
     val dynamo = getDynamo(env)
     dynamo.scanRightsFetchedNotOverridden(dateRange) flatMap { assets =>
-      val updates = takeRange(assets, range).map { asset =>
-        // TODO: if no mediaUri, skip
-        // FIXME: HACKK!
-        val mediaUri = asset.mediaUri.get
-        asset.picdarRights map { rights =>
-          Logger.info(s"Overriding rights on $mediaUri to: $rights")
-          getExportManager("library", env).overrideRights(mediaUri, rights) flatMap { overridden =>
-            Logger.info(s"Overridden $mediaUri rights ($overridden)")
-            dynamo.recordRightsOverridden(asset.picdarUrn, asset.picdarCreated, overridden)
-          } recover { case e: Throwable =>
-            Logger.warn(s"Rights override error for ${asset.picdarUrn}: $e")
-            e.printStackTrace()
+      val updates = takeRange(assets, range).flatMap { asset =>
+
+        asset.mediaUri.map { mediaUri =>
+          asset.picdarRights map { rights =>
+            Logger.info(s"Overriding rights on $mediaUri to: $rights")
+            getExportManager("library", env).overrideRights(mediaUri, rights) flatMap { overridden =>
+              Logger.info(s"Overridden $mediaUri rights ($overridden)")
+              dynamo.recordRightsOverridden(asset.picdarUrn, asset.picdarCreated, overridden)
+            } recover { case e: Throwable =>
+              Logger.warn(s"Rights override error for ${asset.picdarUrn}: $e")
+              e.printStackTrace()
+            }
+          } getOrElse {
+            Logger.info(s"No rights overrides for $mediaUri (not fetched?), skipping")
+            Future.successful(())
           }
-        } getOrElse {
-          Logger.info(s"No rights overrides for $mediaUri (not fetched?), skipping")
-          Future.successful(())
         }
       }
       Future.sequence(updates)
@@ -558,6 +444,17 @@ object ExportApp extends App with ExportManagerProvider with ArgumentHelpers wit
       sendUsage(env, parseDateRange(date), parseQueryRange(rangeStr))
     }
 
+    case "+check" :: env :: Nil => terminateAfter {
+      checkMissing(env)
+    }
+    case "+check" :: env :: date :: Nil => terminateAfter {
+      checkMissing(env, parseDateRange(date))
+    }
+    case "+check" :: env :: date :: rangeStr :: Nil => terminateAfter {
+      checkMissing(env, parseDateRange(date), parseQueryRange(rangeStr))
+    }
+
+
     case _ => println(
       """
         |usage: :count-loaded    <dev|test|prod> [dateLoaded]
@@ -579,6 +476,8 @@ object ExportApp extends App with ExportManagerProvider with ArgumentHelpers wit
         |
         |       +usage:fetch     <dev|test|prod> [dateLoaded] [range]
         |       +usage:send      <dev|test|prod> [dateLoaded] [range]
+        |
+        |       +check           <dev|test|prod> [dateLoaded] [range]
       """.stripMargin
     )
   }
