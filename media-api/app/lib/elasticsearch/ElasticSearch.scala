@@ -94,7 +94,9 @@ object ElasticSearch extends ElasticSearchClient with SearchFilters with ImageFi
     val hasIdentifier     = params.hasIdentifier.map(idName => filters.exists(NonEmptyList(identifierField(idName))))
     val missingIdentifier = params.missingIdentifier.map(idName => filters.missing(NonEmptyList(identifierField(idName))))
     val uploadedByFilter  = params.uploadedBy.map(uploadedBy => filters.terms("uploadedBy", NonEmptyList(uploadedBy)))
-    val costFilter        = params.free.flatMap(free => if (free) freeFilter else nonFreeFilter)
+    val costFilter        = params.free
+      .flatMap(free => if (free) freeFilter else nonFreeFilter)
+      .foldLeft(maybeFreeFilter)((_,f) => Some(f))
     val hasRightsCategory = params.hasRightsCategory.filter(_ == true).map(_ => hasRightsCategoryFilter)
 
     val validityFilter: Option[FilterBuilder] = params.valid.flatMap(valid => if(valid) validFilter else invalidFilter)
