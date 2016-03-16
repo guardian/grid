@@ -39,7 +39,7 @@ import com.gu.mediaservice.model._
 
 object MediaApi extends Controller with ArgoHelpers {
 
-  import Config.{rootUri, cropperUri, loaderUri, metadataUri, authUri, loginUriTemplate, collectionsUri}
+  import Config.{rootUri, cropperUri, loaderUri, metadataUri, authUri, collectionsUri}
 
   val Authenticated = Authed.action
   val permissionStore = Authed.permissionStore
@@ -51,9 +51,6 @@ object MediaApi extends Controller with ArgoHelpers {
     "persisted", "usageStatus", "usagePlatform").mkString(",")
 
   val searchLinkHref = s"$rootUri/images{?$searchParamList}"
-
-  private val suggestedLabelsLink =
-    Link("suggested-labels", s"$rootUri/suggest/edits/labels{?q}")
 
   private val searchLink = Link("search", searchLinkHref)
 
@@ -77,8 +74,7 @@ object MediaApi extends Controller with ArgoHelpers {
       Link("edits",           metadataUri),
       Link("session",         s"$authUri/session"),
       Link("witness-report",  s"https://n0ticeapis.com/2/report/{id}"),
-      Link("collections",     collectionsUri),
-      suggestedLabelsLink
+      Link("collections",     collectionsUri)
     )
     respond(indexData, indexLinks)
   }
@@ -265,8 +261,7 @@ object MediaApi extends Controller with ArgoHelpers {
       imageEntities <- Future.sequence(hits map (hitToImageEntity _).tupled)
       prevLink = getPrevLink(searchParams)
       nextLink = getNextLink(searchParams, totalCount)
-      relatedLabelsLink = getRelatedLabelsLink(searchParams)
-      links = suggestedLabelsLink :: List(prevLink, nextLink, relatedLabelsLink).flatten
+      links = List(prevLink, nextLink).flatten
     } yield respondCollection(imageEntities, Some(searchParams.offset), Some(totalCount), links)
 
     val searchParams = SearchParams(request)
@@ -321,35 +316,6 @@ object MediaApi extends Controller with ArgoHelpers {
     }
   }
 
-  private def getRelatedLabelsLink(searchParams: SearchParams) = {
-    // We search if we have a label in the search, take the first one and then look up it's
-    // siblings so that we can return them as "related labels"
-    val labels = searchParams.structuredQuery.flatMap {
-      // TODO: Use ImageFields for guard
-      case Match(field: SingleField, value:Words) if field.name == "userMetadata.labels" => Some(value.string)
-      case Match(field: SingleField, value:Phrase) if field.name == "userMetadata.labels" => Some(value.string)
-      case _ => None
-    }
-
-    val (mainLabel, selectedLabels) = labels match {
-      case Nil => (None, Nil)
-      case label :: Nil => (Some(label), Nil)
-      case label :: extraLabels => (Some(label), extraLabels)
-    }
-
-    mainLabel.map { label =>
-      // FIXME: This is to stop a search for plain `"` breaking the whole lot.
-      val encodedLabel = UriEncoding.encodePathSegment(label, "UTF-8")
-      val uriTemplate = URITemplate(s"$rootUri/suggest/edits/labels/${encodedLabel}/sibling-labels{?selectedLabels,q}")
-      val paramMap = Map(
-        "selectedLabels" -> Some(selectedLabels.mkString(",")).filter(_.trim.nonEmpty),
-        "q" -> searchParams.query
-      )
-      val paramVars = paramMap.map { case (key, value) => key := value }.toSeq
-      val uri = uriTemplate expand (paramVars: _*)
-      Link("related-labels", uri)
-    }
-  }
 }
 
 
