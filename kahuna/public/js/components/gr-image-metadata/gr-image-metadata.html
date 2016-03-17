@@ -228,9 +228,12 @@
     </div>
 </div>
 
-<div class="image-info" ng:if="ctrl.image.data.collections.length > 0">
-    <dl class="image-info__group ">
-        <dt class="metadata-line__key">Collections</dt>
+<div class="image-info">
+    <dl class="image-info__group">
+        <dt class="flex-container">
+            <span class="metadata-line__key  flex-spacer">Collections</span>
+            <gr-collection-overlay image="ctrl.image"></gr-collection-overlay>
+        </dt>
         <dd class="metadata-line__info flex-container"
             ng-repeat="collection in ctrl.image.data.collections">
             <a ui:sref="search.results({query: (collection.data.pathId | queryCollectionFilter)})">
