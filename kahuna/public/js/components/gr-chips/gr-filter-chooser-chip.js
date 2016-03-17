@@ -54,12 +54,12 @@ grFilterChooserChip.controller('grFilterChooserChipCtrl', ['$timeout', function(
             } else {
                 // Not a key, turn it back to text search
                 $grChipsCtrl.focusEndOfFirstChip();
-                chip.value = "FIELD NOT FOUND";
+                chip.value = 'FIELD NOT FOUND';
                 $grFilterChooserChipCtrl.notValid = true;
 
                 $timeout(() => {
                     $grFilterChooserChipCtrl.removeSelf();
-                    $grChipsCtrl.items[0].value += (" " + value);
+                    $grChipsCtrl.items[0].value += (' ' + value);
                 }, 800);
 
             }

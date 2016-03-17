@@ -74,7 +74,7 @@ grChips.controller('grChipsCtrl', ['$scope', function($scope) {
 
     $grChipsCtrl.removeLastChip = function() {
         //do not remove text chip
-        if($grChipsCtrl.items.length > 1) {
+        if ($grChipsCtrl.items.length > 1) {
             removeChipAt($grChipsCtrl.items.length - 1);
         }
     };
