@@ -46,7 +46,7 @@ object MediaApi extends Controller with ArgoHelpers {
 
   val searchParamList = List("q", "ids", "offset", "length", "orderBy",
     "since", "until", "modifiedSince", "modifiedUntil", "takenSince", "takenUntil",
-    "uploadedBy", "archived", "valid", "free",
+    "uploadedBy", "archived", "valid", "payType",
     "hasExports", "hasIdentifier", "missingIdentifier", "hasMetadata",
     "persisted", "usageStatus", "usagePlatform").mkString(",")
 

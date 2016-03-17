@@ -51,6 +51,12 @@ query.controller('SearchQueryCtrl',
     const past6Months   = moment().subtract(6, 'months').toISOString();
     const pastYear      = moment().subtract(1, 'years').toISOString();
 
+    ctrl.payTypeOptions = [
+        {label: 'Free', value: 'free'},
+        {label: 'Free and No Rights', value: 'maybe-free'},
+        {label: 'All (inc. paid)', value: 'all'}
+    ]
+
     ctrl.sinceOptions = [
         {label: 'Anytime'},   // value: undefined
         {label: 'Today',         value: lastMidnight},
