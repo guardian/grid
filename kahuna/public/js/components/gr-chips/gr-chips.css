@@ -22,7 +22,7 @@ gr-chips {
 
 .gr-chips__chip-wrapper.text-chip {
     flex-grow: 3;
-    order: -1; /*always have the text chip first*/
+    order: 999; /*always have the text chip after filter chips*/
 }
 
 gr-text-chip, gr-text-chip input {
@@ -82,5 +82,5 @@ gr-filter-chooser-chip input:focus {
 
 gr-static-filter-chip,
 gr-filter-chip {
-    margin-left: 5px;
+    margin-right: 5px;
 }

@@ -45,7 +45,7 @@ grChips.controller('grChipsCtrl', ['$scope', function($scope) {
             normalizeChips();
 
             if (autofocus) {
-                $grChipsCtrl.focusStartOfFirstChip();
+                $grChipsCtrl.focusEndOfFirstChip();
             }
         };
     };
@@ -60,17 +60,6 @@ grChips.controller('grChipsCtrl', ['$scope', function($scope) {
         }
     });
 
-
-    // If clicking on the inner wrapper or the placeholder
-    // (and not in between chips), focus the end of the
-    // component
-    $grChipsCtrl.wrapperClicked = function($event) {
-        if ($event.target.classList.contains('gr-chips__wrapper') ||
-            $event.target.classList.contains('gr-chips__placeholder')) {
-            $grChipsCtrl.focusEndOfFirstChip();
-        }
-    };
-
     $grChipsCtrl.isEmpty = function() {
         return $grChipsCtrl.items.length === 1 &&
             $grChipsCtrl.items[0].value === '';
@@ -80,23 +69,13 @@ grChips.controller('grChipsCtrl', ['$scope', function($scope) {
         const index = $grChipsCtrl.items.indexOf(item);
         if (index !== -1) {
             removeChipAt(index);
-            normalizeChips();
         }
     };
 
-    $grChipsCtrl.removeChipBefore = function(item) {
-        const index = $grChipsCtrl.items.indexOf(item) - 1;
-        if (index >= 0) {
-            removeChipAt(index);
-            normalizeChips();
-        }
-    };
-
-    $grChipsCtrl.removeChipAfter = function(item) {
-        const index = $grChipsCtrl.items.indexOf(item) + 1;
-        if (index <= $grChipsCtrl.items.length) {
-            removeChipAt(index);
-            normalizeChips();
+    $grChipsCtrl.removeLastChip = function() {
+        //do not remove text chip
+        if($grChipsCtrl.items.length > 1) {
+            removeChipAt($grChipsCtrl.items.length - 1);
         }
     };
 
@@ -159,9 +138,10 @@ grChips.controller('grChipsCtrl', ['$scope', function($scope) {
     };
 
     $grChipsCtrl.insertChips = function(previousItem, newItems) {
-        const index = $grChipsCtrl.items.indexOf(previousItem) + 1;
-        $grChipsCtrl.items.splice(index, 0, ...newItems);
-        normalizeChips();
+        //always insert chips to the end of items list
+        //NB text chip is styled to appear last but is first in the items list
+        const end = $grChipsCtrl.items.length;
+        $grChipsCtrl.items.splice(end, 0, ...newItems);
     };
 
     $grChipsCtrl.replaceChip = function(existingItem, newItems) {
@@ -170,7 +150,6 @@ grChips.controller('grChipsCtrl', ['$scope', function($scope) {
         if ($grChipsCtrl.focusedItem === existingItem) {
             $grChipsCtrl.setFocusedChip(newItems[0]);
         }
-        normalizeChips();
     };
 
     function removeChipAt(index) {
@@ -198,7 +177,6 @@ grChips.controller('grChipsCtrl', ['$scope', function($scope) {
                 i--;
             }
         }
-
         // ensure leading empty text chip
         const firstChip = $grChipsCtrl.items[0];
         if (! firstChip || firstChip.type !== 'text') {
@@ -240,5 +218,4 @@ grChips.directive('grChips', ['$parse', function($parse) {
 /* TODO
   * cannot focus static filter, breaks navigation
   - auto-completion: key descriptions
-  - keep caret position as chips are merged
  */
