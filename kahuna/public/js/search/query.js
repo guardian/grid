@@ -136,6 +136,7 @@ query.controller('SearchQueryCtrl',
     $scope.$watchCollection(() => ctrl.filter, onValChange(filter => {
         filter.uploadedBy = filter.uploadedByMe ? ctrl.user.email : undefined;
         ctrl.collectionSearch = ctrl.filter.query ? ctrl.filter.query.indexOf('~') === 0 : false;
+
         $state.go('search.results', filter);
     }));
 
