@@ -12,5 +12,6 @@
             gr-chip-input-on-enter="$grFilterChooserChipCtrl.apply($chip.value)"
             gr-chip-input-backspace-at-start="$grFilterChooserChipCtrl.removeSelf()"
             ng:model="$chip.value"
+            ng:class="{'gr-filter-chooser-chip__value--not-valid' : $grFilterChooserChipCtrl.notValid}"
     />
 </gr-datalist>

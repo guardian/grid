@@ -16,7 +16,7 @@ export const grFilterChooserChip = angular.module('gr.filterChooserChip', [
     autoWidth.name
 ]);
 
-grFilterChooserChip.controller('grFilterChooserChipCtrl', function() {
+grFilterChooserChip.controller('grFilterChooserChipCtrl', ['$timeout', function($timeout) {
     const $grFilterChooserChipCtrl = this;
 
     let $grChipsCtrl;
@@ -52,19 +52,16 @@ grFilterChooserChip.controller('grFilterChooserChipCtrl', function() {
                 // dropdown which blurred the current chip
                 $grChipsCtrl.setFocusedChip(filterChip);
             } else {
-                // Not a key, turn it into an 'any' filter and move focus next text
-                const anyFilterChip = {
-                    type: 'filter',
-                    filterType: chip.filterType,
-                    key: 'any',
-                    value: value
-                };
-                const nextText = {
-                    type: 'text',
-                    value: ''
-                };
-                $grChipsCtrl.replaceChip(chip, [anyFilterChip, nextText]);
-                $grChipsCtrl.setFocusedChip(nextText);
+                // Not a key, turn it back to text search
+                $grChipsCtrl.focusEndOfFirstChip();
+                chip.value = "FIELD NOT FOUND";
+                $grFilterChooserChipCtrl.notValid = true;
+
+                $timeout(() => {
+                    $grFilterChooserChipCtrl.removeSelf();
+                    $grChipsCtrl.items[0].value += (" " + value);
+                }, 800);
+
             }
         }
     };
@@ -72,7 +69,7 @@ grFilterChooserChip.controller('grFilterChooserChipCtrl', function() {
     $grFilterChooserChipCtrl.removeSelf = function() {
         $grChipsCtrl.removeChip($grChipCtrl.chip);
     };
-});
+}]);
 
 grFilterChooserChip.directive('grFilterChooserChip', [function() {
     return {
