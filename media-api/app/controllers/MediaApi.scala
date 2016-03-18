@@ -74,7 +74,8 @@ object MediaApi extends Controller with ArgoHelpers {
       Link("edits",           metadataUri),
       Link("session",         s"$authUri/session"),
       Link("witness-report",  s"https://n0ticeapis.com/2/report/{id}"),
-      Link("collections",     collectionsUri)
+      Link("collections",     collectionsUri),
+      Link("permissions",     s"$rootUri/permissions")
     )
     respond(indexData, indexLinks)
   }
