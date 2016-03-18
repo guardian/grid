@@ -14,12 +14,14 @@ mediaApi.factory('mediaApi',
     var session;
 
     function search(query = '', {ids, since, until, archived, valid,
-                                 free, uploadedBy, offset, length, orderBy,
+                                 payType, uploadedBy, offset, length, orderBy,
                                  takenSince, takenUntil,
                                  modifiedSince, modifiedUntil} = {}) {
+
         return root.follow('search', {
             q:          query,
             since:      since,
+            payType:    payType,
             until:      until,
             takenSince: takenSince,
             takenUntil: takenUntil,
@@ -29,7 +31,6 @@ mediaApi.factory('mediaApi',
             uploadedBy: uploadedBy,
             valid:      valid,
             archived:   archived,
-            free:       free,
             offset:     offset,
             length:     angular.isDefined(length) ? length : 50,
             orderBy:    getOrder(orderBy)

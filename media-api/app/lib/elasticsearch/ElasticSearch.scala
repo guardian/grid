@@ -25,7 +25,7 @@ import scalaz.NonEmptyList
 
 import com.gu.mediaservice.syntax._
 import com.gu.mediaservice.lib.elasticsearch.{ImageFields, ElasticSearchClient}
-import controllers.{AggregateSearchParams, SearchParams}
+import controllers.{PayType, AggregateSearchParams, SearchParams}
 import lib.{MediaApiMetrics, Config}
 
 
@@ -94,7 +94,13 @@ object ElasticSearch extends ElasticSearchClient with SearchFilters with ImageFi
     val hasIdentifier     = params.hasIdentifier.map(idName => filters.exists(NonEmptyList(identifierField(idName))))
     val missingIdentifier = params.missingIdentifier.map(idName => filters.missing(NonEmptyList(identifierField(idName))))
     val uploadedByFilter  = params.uploadedBy.map(uploadedBy => filters.terms("uploadedBy", NonEmptyList(uploadedBy)))
-    val costFilter        = params.free.flatMap(free => if (free) freeFilter else nonFreeFilter)
+    val costFilter        = params.payType match {
+      case Some(PayType.Free) => freeFilter
+      case Some(PayType.MaybeFree) => maybeFreeFilter
+      case Some(PayType.Pay) => nonFreeFilter
+      case _ => None
+    }
+
     val hasRightsCategory = params.hasRightsCategory.filter(_ == true).map(_ => hasRightsCategoryFilter)
 
     val validityFilter: Option[FilterBuilder] = params.valid.flatMap(valid => if(valid) validFilter else invalidFilter)
