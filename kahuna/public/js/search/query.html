@@ -34,7 +34,7 @@
             <label>
                 <select ng:init="searchQuery.filter.payType = searchQuery.filter.payType || 'free'"
                         ng:model="searchQuery.filter.payType"
-                        ng-options="item.value as item.label for item in searchQuery.payTypeOptions">
+                        ng-options="item.value as item.label disable when item.disabled for item in searchQuery.payTypeOptions">
 
                 </select>
             </label>

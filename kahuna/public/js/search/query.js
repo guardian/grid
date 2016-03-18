@@ -13,9 +13,12 @@ import {grStructuredQuery} from './structured-query/structured-query';
 
 import {track} from '../analytics/track';
 
+import {permissionsApi} from '../services/api/permissions-api';
+
 export var query = angular.module('kahuna.search.query', [
     // Note: temporarily disabled for performance reasons, see above
     // 'ngAnimate',
+    permissionsApi.name,
     eq.name,
     guDateRange.name,
     syntax.name,
@@ -24,10 +27,33 @@ export var query = angular.module('kahuna.search.query', [
 ]);
 
 query.controller('SearchQueryCtrl',
-                 ['$scope', '$state', '$stateParams', 'onValChange', 'mediaApi', 'track',
-                 function($scope, $state, $stateParams, onValChange , mediaApi, track) {
+    [
+       '$scope',
+       '$state',
+       '$stateParams',
+       'onValChange',
+       'mediaApi',
+       'track',
+       'permissionsApi',
+       function(
+           $scope,
+           $state,
+           $stateParams,
+           onValChange,
+           mediaApi,
+           track,
+           permissionsApi
+        ){
 
     const ctrl = this;
+
+    permissionsApi.hasPermission('bigSpender').then((canSearchPaidImages) => {
+        ctrl.payTypeOptions = [
+            {label: 'Free', value: 'free'},
+            {label: 'Free and No Rights', value: 'maybe-free'},
+            {label: 'All (inc. paid)', value: 'all', disabled: !canSearchPaidImages}
+        ];
+    });
 
     ctrl.ordering = {
         orderBy: $stateParams.orderBy
@@ -50,12 +76,6 @@ query.controller('SearchQueryCtrl',
     const pastWeek      = moment().subtract(7, 'days').toISOString();
     const past6Months   = moment().subtract(6, 'months').toISOString();
     const pastYear      = moment().subtract(1, 'years').toISOString();
-
-    ctrl.payTypeOptions = [
-        {label: 'Free', value: 'free'},
-        {label: 'Free and No Rights', value: 'maybe-free'},
-        {label: 'All (inc. paid)', value: 'all'}
-    ]
 
     ctrl.sinceOptions = [
         {label: 'Anytime'},   // value: undefined
