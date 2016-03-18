@@ -86,10 +86,7 @@ object MetadataConfig {
     "Millie Burton"         -> "The Guardian",
     "Rachel Vere"           -> "The Guardian",
     "Richard Blake"         -> "The Guardian",
-    "Edward Hamilton-West"  -> "The Guardian",
-    "Frank Martin"          -> "The Guardian",
-    "Ken Saunders"          -> "The Guardian",
-    "Robert Smithies"       -> "The Guardian"
+    "Ken Saunders"          -> "The Guardian"
   )
 
   val staffPhotographers = externalStaffPhotographers ++ internalStaffPhotographers

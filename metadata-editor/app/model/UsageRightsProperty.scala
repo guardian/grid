@@ -24,7 +24,7 @@ object UsageRightsProperty {
   type OptionsMap = Map[String, List[String]]
   type Options = List[String]
 
-  import MetadataConfig.{contractPhotographersMap, externalPhotographersMap, contractIllustrators, creativeCommonsLicense}
+  import MetadataConfig.{contractPhotographersMap, staffPhotographersMap, contractIllustrators, creativeCommonsLicense}
   import UsageRightsConfig.freeSuppliers
 
   implicit val jsonWrites: Writes[UsageRightsProperty] = Json.writes[UsageRightsProperty]
@@ -48,7 +48,7 @@ object UsageRightsProperty {
 
   private def publicationField(required: Boolean)  =
     UsageRightsProperty("publication", "Publication", "string", required,
-      Some(sortList(externalPhotographersMap.keys.toList)))
+      Some(sortList(staffPhotographersMap.keys.toList)))
 
   private def photographerField(examples: String) =
     requiredStringField("photographer", "Photographer", examples = Some(examples))
@@ -73,7 +73,7 @@ object UsageRightsProperty {
 
     case StaffPhotographer => List(
       publicationField(true),
-      photographerField(externalPhotographersMap, "publication")
+      photographerField(staffPhotographersMap, "publication")
     )
     case ContractPhotographer => List(
       publicationField(true),
