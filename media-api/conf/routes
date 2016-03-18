@@ -28,6 +28,9 @@ GET     /suggest/metadata/credit                      controllers.SuggestionCont
 GET     /management/healthcheck                       controllers.HealthCheck.healthCheck
 GET     /management/manifest                          com.gu.mediaservice.lib.management.Management.manifest
 
+# Permissions
+GET     /permissions                                  controllers.PermissionsController.getUserPermissions
+
 # Enable CORS
 OPTIONS /                                             controllers.CorsPreflight.options(ignoredUrl = "")
 OPTIONS /*ignoredUrl                                  controllers.CorsPreflight.options(ignoredUrl)
