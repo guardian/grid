@@ -12,7 +12,7 @@ import com.gu.mediaservice.lib.auth._
 import com.gu.mediaservice.lib.argo._
 import com.gu.mediaservice.lib.argo.model._
 
-import com.gu.mediaservice.lib.auth.PermissionType
+import com.gu.mediaservice.lib.auth.{PermissionSet, PermissionType}
 
 import lib.Config
 
@@ -22,12 +22,10 @@ object PermissionsController extends Controller with ArgoHelpers {
   val Authenticated = Authed.action
   val permissionStore = Authed.permissionStore
 
-  def permissionsResponse(permissions: Set[PermissionType.PermissionType]) = {
-    val perms = Json.toJson(permissions.map(_.toString))
-
+  def permissionsResponse(permissionSet: PermissionSet, user: PandaUser) = {
     val permsData = Json.obj(
       "description" -> "Available permissions for current user (you)",
-      "permissions" -> perms
+      "permissionsSet" -> Json.toJson(permissionSet)
     )
 
     respond(permsData)
@@ -38,7 +36,7 @@ object PermissionsController extends Controller with ArgoHelpers {
       case user: PandaUser =>
         permissionStore
           .getUserPermissions(user)
-          .map(permissionsResponse)
+          .map(perms => permissionsResponse(perms, user))
 
       case _: AuthenticatedService => Future(NotFound)
       case _ => Future(BadRequest)
