@@ -23,8 +23,6 @@ GET     /images                                       controllers.MediaApi.image
 
 # completion
 GET     /suggest/metadata/credit                      controllers.SuggestionController.suggestMetadataCredit(q: Option[String], size: Option[Int])
-GET     /suggest/edits/labels/:label/sibling-labels   controllers.SuggestionController.suggestLabelSiblings(label: String, q: Option[String], selectedLabels: Option[String])
-GET     /suggest/edits/labels                         controllers.SuggestionController.suggestLabels(q: Option[String])
 
 # Management
 GET     /management/healthcheck                       controllers.HealthCheck.healthCheck

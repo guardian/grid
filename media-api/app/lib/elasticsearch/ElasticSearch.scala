@@ -133,41 +133,6 @@ object ElasticSearch extends ElasticSearchClient with SearchFilters with ImageFi
       }
   }
 
-  def labelSiblingsSearch(structuredQuery: List[Condition], excludeLabels: List[String] = Nil, size: Int = 30)
-                         (implicit ex: ExecutionContext): Future[AggregateSearchResults] = {
-    val name = "labelSiblings"
-    val lastModifiedField = "lastModified"
-    val labelsField = editsField("labels")
-    val query = queryBuilder.makeQuery(structuredQuery)
-
-    // We sort by the maximum lastModified
-    // TODO: We could add a lastModified to the labels resource and then sort by that
-    val sortByDateAggr =
-      AggregationBuilders.
-        max(lastModifiedField).
-        field(lastModifiedField)
-
-    val aggregate =
-      AggregationBuilders
-        .terms(name)
-        .field(labelsField)
-        .excludeList(excludeLabels)
-        .order(Terms.Order.aggregation(lastModifiedField, false))
-        .size(size)
-        .subAggregation(sortByDateAggr)
-
-    val search =
-      prepareImagesSearch
-        .setQuery(query)
-        .addAggregation(aggregate)
-
-    search
-      .setSearchType(SearchType.COUNT)
-      .executeAndLog("sibling labels aggregate search")
-      .toMetric(searchQueries, List(searchTypeDimension("aggregate")))(_.getTookInMillis)
-      .map(searchResultToAggregateResponse(_, name))
-  }
-
   def dateHistogramAggregate(params: AggregateSearchParams)(implicit ex: ExecutionContext): Future[AggregateSearchResults] = {
     val aggregate = AggregationBuilders
       .dateHistogram(params.field)

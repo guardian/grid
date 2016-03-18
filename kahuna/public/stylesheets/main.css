@@ -989,62 +989,6 @@ textarea.ng-invalid {
     padding: 0px;
 }
 
-.related-labels--with-labels {
-    /* This is to allow scrolling of labels, but show the
-    autocomplete dropdown */
-    overflow-x: auto;
-}
-
-.related-labels__datalist {
-    line-height: 1;
-}
-
-input.related-labels__parent {
-    border: 0;
-    background: transparent;
-    border-bottom: 1px solid #999;
-    box-sizing: border-box;
-    padding: 2px 5px;
-    width: 150px;
-}
-
-.related-labels__labels {
-    overflow-x: auto;
-    overflow-y: hidden;
-    /* space below scrollbar */
-    margin-bottom: 3px;
-}
-
-/* style scrollbar to take less space */
-.related-labels__labels::-webkit-scrollbar-track {
-	border-radius: 10px;
-	background-color: #555;
-}
-
-.related-labels__labels::-webkit-scrollbar {
-    height: 5px;
-	background-color: #555;
-}
-
-.related-labels__labels::-webkit-scrollbar-thumb {
-	border-radius: 10px;
-	background-color: #888;
-}
-
-
-.related-labels__label {
-    margin-left: 2px;
-}
-
-.related-labels__label-text {
-    padding: 2px 5px 4px;
-    box-sizing: border-box;
-}
-.related-labels__label-text--selected {
-    border-top: 2px solid #00adee;
-    background-color: #444;
-}
-
 .image-results-count__new {
     font-family: inherit;
     background-color: #00adee;
@@ -1376,50 +1320,6 @@ FIXME: what to do with touch devices
     line-height: 24px;
 }
 
-.result-editor__overlay {
-    background: rgba(20, 20, 20, .75);
-    width: calc(100vw);
-    height: calc(100vh);
-    position: fixed;
-    top: 0;
-    left: 0;
-    z-index: 40;
-}
-
-.result-editor__overlay__cancel {
-    float: right;
-    padding: 40px;
-}
-
-.result-editor__overlay__cancel gr-icon {
-    font-size: 30px;
-}
-
-.result-editor__collections {
-    background: rgba(68, 68, 68, 1);
-    height: calc(100vh);
-    position: fixed;
-    top: 30px;
-    left: 50%;
-    z-index: 40;
-    overflow: auto;
-    width: 400px;
-    margin-left: -200px;
-}
-
-.result-editor__collections__heading {
-    padding: 5px 10px;
-    border-bottom: 1px solid #565656;
-    position: fixed;
-    width: 365px;
-    background: #444;
-    z-index: 10;
-}
-
-.result-editor__collections gr-collection-tree > :first-child {
-    /*to sit below the fixed heading */
-    margin-top: 35px;
-}
 
 .result-editor__usage-rights-container {
     flex-grow: 1;
@@ -2281,7 +2181,6 @@ FIXME: what to do with touch devices
     gr-add-label,
     .image-details--crop,
     .image-info__group--full-metadata,
-    .related-labels__title,
     .radio-list {
         display: none !important;
     }

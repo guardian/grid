@@ -9,18 +9,21 @@ import {rxUtil} from '../../util/rx';
 
 import {querySuggestions, filterFields} from './query-suggestions';
 import {renderQuery, structureQuery} from './syntax';
+import '../../analytics/track';
 
 
 export const grStructuredQuery = angular.module('gr.structuredQuery', [
     rxUtil.name,
     grChips.name,
-    querySuggestions.name
+    querySuggestions.name,
+    'analytics.track'
 ]);
 
 
 grStructuredQuery.controller('grStructuredQueryCtrl',
                              ['querySuggestions',
-                              function(querySuggestions) {
+                              'track',
+                              function(querySuggestions, track) {
     const ctrl = this;
 
     const structuredQueryUpdates$ = Rx.Observable.create(observer => {
@@ -38,6 +41,8 @@ grStructuredQuery.controller('grStructuredQueryCtrl',
     ctrl.getSuggestions = querySuggestions.getChipSuggestions;
 
     ctrl.filterFields = filterFields;
+
+    ctrl.track = track;
 
 
     function valOrUndefined(str) {
@@ -70,7 +75,30 @@ grStructuredQuery.directive('grStructuredQuery', ['subscribe$', function(subscri
 
             subscribe$(scope, ctrl.newQuery$, query => {
                 ngModelCtrl.$setViewValue(query);
+
+                if (query && query !== '') {
+                    const structured = structureQuery(query).filter(
+                        (condition) => (
+                            condition.key !== null &&
+                            condition.value !== null &&
+                            condition.type !== 'text')
+                    );
+
+                    const keys       = structured.map((condition) => condition.key);
+                    const values     = structured.map((condition) => condition.value);
+                    const eventData  = {
+                        query: query,
+                        structured: structured
+                    };
+
+                    if ((keys.length > 0) && (values.length > 0) ) {
+                        eventData.keys = keys;
+                        eventData.values = values;
+                    }
+                    ctrl.track.action('New Query', eventData);
+                }
             });
+
         }
     };
 }]);

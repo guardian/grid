@@ -31,51 +31,6 @@
                 </button>
             </div>
 
-            <div class="results-toolbar-item results-toolbar-item--static results-toolbar-item--left
-                        results__related-labels related-labels flex-container text-small"
-                        ng:class="{'related-labels--with-labels': ctrl.relatedLabels.length !== 0}">
-                <div class="related-labels__title">
-                    Related to
-                    <span ng:switch="ctrl.relatedLabels.length === 0">
-                        <form class="inline-block" ng:switch-when="true" ng:submit="ctrl.setParentLabel()">
-                            <gr-datalist
-                                    class="related-labels__datalist"
-                                gr:search="ctrl.suggestedLabelSearch(q)">
-                                <!-- TODO: autogrow this element -->
-                                <input type="text"
-                                       class="text-input related-labels__parent"
-                                       placeholder="e.g. observer"
-                                       ng:model="ctrl.parentLabel"
-                                       ng:model-options="{ updateOn: 'gr:datalist:update' }"
-                                       ng:change="ctrl.setParentLabel()"
-                                       gr:datalist-input />
-                            </gr-datalist>
-                        </form>
-                        <span ng:switch-default>{{ctrl.parentLabel}}:</span>
-                    </span>
-                </div>
-                <ul class="flex-container related-labels__labels">
-                    <li class="related-labels__label" ng:repeat="relatedLabel in ctrl.relatedLabels">
-                        <div ng:switch="relatedLabel.selected">
-                            <button class="related-labels__label-text related-labels__label-text--selected"
-                                    ng:switch-when="true"
-                                    ng:click="ctrl.removeSuggestedLabel(relatedLabel)"
-                                    gr:track-click="Related label remove"
-                                    gr:track-click-data="{'Label': relatedLabel.name}">
-                                    {{relatedLabel.name}}
-                            </button>
-                            <button class="related-labels__label-text"
-                                    ng:switch-when="false"
-                                    ng:click="ctrl.switchSuggestedLabelTo(relatedLabel)"
-                                    gr:track-click="Related label select"
-                                    gr:track-click-data="{'Label': relatedLabel.name}">
-                                    {{relatedLabel.name}}
-                            </button>
-                        </div>
-                    </li>
-                </ul>
-            </div>
-
             <div class="results-toolbar__right flex-container">
                 <div class="results-toolbar-item results-toolbar-item--right results-toolbar-item--static"
                      ng:if="ctrl.selectionCount > 0">
