@@ -697,7 +697,7 @@ textarea.ng-invalid {
     overflow: auto;
     background-color: #444444;
     box-shadow: 0 1px 5px rgba(0, 0, 0, 0.4);
-    max-width: 580px /*width of input box and advance button in topbar*/
+    max-width: 680px /*width of input box and advance button in topbar*/
 }
 
 .advanced-search-help__section {
