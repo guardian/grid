@@ -39,7 +39,27 @@ export function structureQuery(query) {
             });
         }
     }
-    return struct;
+
+    return orderChips(struct);
+}
+
+function orderChips(structuredQuery){
+    const filterChips = structuredQuery.filter(e => e.type !== 'text');
+    const textChipsValues = mergeTextValues(structuredQuery);
+    const textChip = {
+        type: 'text',
+        value: textChipsValues
+    };
+
+    const cleanStruct = [textChip].concat(filterChips);
+
+    function mergeTextValues(chips){
+        return chips.filter(e => e.type === 'text')
+            .map(e => e.value)
+            .join(' ');
+    }
+
+    return cleanStruct;
 }
 
 function renderFilter(field, value) {

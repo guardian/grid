@@ -42,7 +42,6 @@ grChips.controller('grChipsCtrl', ['$scope', function($scope) {
 
         ngModelCtrl.$render = function() {
             $grChipsCtrl.items = ngModelCtrl.$viewValue;
-            normalizeChips();
 
             if (autofocus) {
                 $grChipsCtrl.focusEndOfFirstChip();
@@ -163,26 +162,6 @@ grChips.controller('grChipsCtrl', ['$scope', function($scope) {
         $grChipsCtrl.items.splice(index, 1);
     }
 
-    function normalizeChips() {
-        // merge consecutive text chips
-        for (let i = 1; i < $grChipsCtrl.items.length; i++) {
-            if ($grChipsCtrl.items[i].type === 'text' &&
-                $grChipsCtrl.items[i - 1].type === 'text') {
-                // TODO: need to force chip to re-set the caret
-                // position else it gets moved to the end of the field
-                const prevValue = $grChipsCtrl.items[i - 1].value;
-                const currValue = $grChipsCtrl.items[i].value;
-                $grChipsCtrl.items[i - 1].value = `${prevValue} ${currValue}`.trim();
-                removeChipAt(i);
-                i--;
-            }
-        }
-        // ensure leading empty text chip
-        const firstChip = $grChipsCtrl.items[0];
-        if (! firstChip || firstChip.type !== 'text') {
-            $grChipsCtrl.items.unshift({type: 'text', value: ''});
-        }
-    }
 }]);
 
 grChips.directive('grChips', ['$parse', function($parse) {
