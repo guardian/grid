@@ -21,43 +21,6 @@ object SuggestionController extends Controller with ArgoHelpers {
       .map(c => respondCollection(c.results))
   }
 
-  def suggestLabels(q: Option[String]) = Authenticated {
-
-    val pseudoFamousLabels = List(
-      "cities", "family", "filmandmusic", "longread", "money", "pp", "satrev", "trv",
-
-      "culturearts", "culturebooks", "culturefilm", "culturestage", "culturemusic",
-
-      "g2arts", "g2columns", "g2coverfeatures", "g2fashion", "g2features", "g2food", "g2health",
-      "g2lifestyle", "g2shortcuts", "g2tv", "g2women",
-
-      "obsbizcash", "obscomment", "obsfocus", "obsfoodfeat", "obsfoodother", "obsfoodrecipes",
-      "obsfoodsupp", "obsforeign", "obshome", "obsmagfash", "obsmagfeat", "obsmaglife",
-      "obsrevagenda", "obsrevbooks", "obsrevcritics", "obsrevdiscover", "obsrevfeat",
-      "obsrevmusic", "obsrevtv", "obssports", "obssupps", "obstechbright", "obstechfeat",
-      "obstechplay"
-    )
-
-    val labels = q.map { q =>
-      pseudoFamousLabels.filter(_.startsWith(q))
-    }.getOrElse(pseudoFamousLabels)
-
-    respondCollection(labels)
-  }
-
-  def suggestLabelSiblings(label: String, q: Option[String], selectedLabels: Option[String]) = Authenticated.async { request =>
-    val selectedLabels_ = selectedLabels.map(_.split(",").toList.map(_.trim)).getOrElse(Nil)
-    val structuredQuery = q.map(Parser.run) getOrElse List()
-
-    ElasticSearch.labelSiblingsSearch(structuredQuery, excludeLabels = List(label)) map { agg =>
-      val labels = agg.results.map { label =>
-        val selected = selectedLabels_.contains(label.key)
-        LabelSibling(label.key, selected)
-      }
-      respond(LabelSiblingsResponse(label, labels.toList))
-    }
-  }
-
   // TODO: work with analysed fields
   // TODO: recover with HTTP error if invalid field
   // TODO: Add validation, especially if you use length
@@ -68,16 +31,4 @@ object SuggestionController extends Controller with ArgoHelpers {
   def editsSearch(field: String, q: Option[String]) = Authenticated.async { request =>
     ElasticSearch.editsSearch(AggregateSearchParams(field, request)) map ElasticSearch.aggregateResponse
   }
-}
-
-case class LabelSibling(name: String, selected: Boolean)
-object LabelSibling {
-  implicit def jsonWrites: Writes[LabelSibling] = Json.writes[LabelSibling]
-  implicit def jsonReads: Reads[LabelSibling] =  Json.reads[LabelSibling]
-}
-
-case class LabelSiblingsResponse(label: String, siblings: List[LabelSibling])
-object LabelSiblingsResponse {
-  implicit def jsonWrites: Writes[LabelSiblingsResponse] = Json.writes[LabelSiblingsResponse]
-  implicit def jsonReads: Reads[LabelSiblingsResponse] =  Json.reads[LabelSiblingsResponse]
 }

@@ -3,37 +3,41 @@ import angular from 'angular';
 import '../util/rx';
 import '../services/image/usages';
 import '../image/service';
-import '../components/gr-delete-image/gr-delete-image';
+
 import '../components/gr-add-label/gr-add-label';
 import '../components/gr-archiver/gr-archiver';
+import '../components/gr-collection-overlay/gr-collection-overlay';
 import '../components/gr-crop-image/gr-crop-image';
 import '../components/gr-delete-crops/gr-delete-crops';
+import '../components/gr-delete-image/gr-delete-image';
 import '../components/gr-downloader/gr-downloader';
-import '../components/gr-image-metadata/gr-image-metadata';
-import '../components/gr-metadata-validity/gr-metadata-validity';
-import '../components/gr-image-cost-message/gr-image-cost-message';
 import '../components/gr-export-original-image/gr-export-original-image';
+import '../components/gr-image-cost-message/gr-image-cost-message';
+import '../components/gr-image-metadata/gr-image-metadata';
 import '../components/gr-image-usage/gr-image-usage';
-
 import '../components/gr-keyboard-shortcut/gr-keyboard-shortcut';
+import '../components/gr-metadata-validity/gr-metadata-validity';
+
 
 var image = angular.module('kahuna.image.controller', [
+    'util.rx',
     'kahuna.edits.service',
     'gr.image.service',
-    'gr.deleteImage',
+    'gr.image-usages.service',
+
     'gr.addLabel',
     'gr.archiver',
-    'gr.downloader',
+    'gr.collectionOverlay',
     'gr.cropImage',
     'gr.deleteCrops',
-    'gr.imageMetadata',
-    'gr.metadataValidity',
-    'gr.imageCostMessage',
+    'gr.deleteImage',
+    'gr.downloader',
     'gr.exportOriginalImage',
+    'gr.imageCostMessage',
+    'gr.imageMetadata',
     'gr.imageUsage',
-    'gr.image-usages.service',
-    'util.rx',
-    'gr.keyboardShortcut'
+    'gr.keyboardShortcut',
+    'gr.metadataValidity'
 ]);
 
 image.controller('ImageCtrl', [

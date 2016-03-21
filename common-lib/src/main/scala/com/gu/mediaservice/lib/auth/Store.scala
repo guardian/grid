@@ -18,12 +18,18 @@ import com.amazonaws.auth.AWSCredentials
 import org.apache.commons.io.IOUtils
 import com.amazonaws.AmazonServiceException
 
+import play.api.libs.json._
+import play.api.libs.functional.syntax._
+
+import org.joda.time.DateTime
+
 abstract class BaseStore[TStoreKey, TStoreVal](bucket: String, credentials: AWSCredentials) {
   val s3 = new S3(credentials)
 
   private val log = LoggerFactory.getLogger(getClass)
 
   protected val store: Agent[Map[TStoreKey, TStoreVal]] = Agent(Map.empty)
+  protected val lastUpdated: Agent[DateTime] = Agent(DateTime.now())
 
   protected def getS3Object(key: String): Option[String] = {
     val content = s3.client.getObject(bucket, key)
@@ -54,6 +60,7 @@ class KeyStore(bucket: String, credentials: AWSCredentials) extends BaseStore[St
   def findKey(prefix: String): Option[String] = s3.syncFindKey(bucket, prefix)
 
   def update() {
+    lastUpdated.sendOff(_ => DateTime.now())
     store.sendOff(_ => fetchAll)
   }
 
@@ -68,9 +75,49 @@ object PermissionType extends Enumeration {
   val EditMetadata = Value("editMetadata")
   val DeleteImage  = Value("deleteImage")
   val DeleteCrops  = Value("deleteCrops")
+  val BigSpender   = Value("bigSpender")
 }
 
+case class PermissionSet(
+  user: PandaUser,
+  permissions: Set[PermissionType.PermissionType],
+  lastUpdated: DateTime
+)
+object PermissionSet {
+  implicit val pandaUserWrites: Writes[PandaUser] = (
+    (__ \ "email").write[String] ~
+    (__ \ "firstName").write[String] ~
+    (__ \ "lastName").write[String] ~
+    (__ \ "avatarUrl").writeNullable[String]
+  )(unlift(PandaUser.unapply))
+  implicit def permissionTypeWrites: Writes[PermissionType] = new Writes[PermissionType] {
+    def writes(permissionType: PermissionType.PermissionType): JsValue = JsString(permissionType.toString)
+  }
+  implicit val permissionSetWrites: Writes[PermissionSet] = Json.writes[PermissionSet]
+}
 class PermissionStore(bucket: String, credentials: AWSCredentials) extends BaseStore[PermissionType, List[String]](bucket, credentials) {
+
+  type FuturePerms = Future[Set[PermissionType.PermissionType]]
+  case class StoreAccess(store: Map[PermissionType, List[String]], lastUpdated: DateTime)
+
+  def getUserPermissions(
+    user: PandaUser
+  ): Future[PermissionSet] = {
+    val storeAccess = for {
+      s <- store.future
+      l <- lastUpdated.future
+    } yield StoreAccess(s,l)
+
+    storeAccess.map(s => {
+      (s.store.filter {
+        case (_, list) => list.contains(user.email.toLowerCase)
+        case _ => false
+      }.keys.toSet, s.lastUpdated)
+    }).map {
+      case (keys, lastUpdated) => PermissionSet(user, keys, lastUpdated)
+    }
+  }
+
   def hasPermission(permission: PermissionType, userEmail: String) = {
     store.future().map {
       list => {

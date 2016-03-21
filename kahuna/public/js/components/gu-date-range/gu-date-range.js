@@ -83,6 +83,7 @@ guDateRange.directive('guDateRange', [function () {
                 container: startContainer,
                 bound: false,
                 maxDate: new Date(),
+                yearRange: 100,
                 firstDay: parseInt(ctrl.guFirstDay),
                 format: iso8601Format
             });

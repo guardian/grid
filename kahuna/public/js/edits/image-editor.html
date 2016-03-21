@@ -130,30 +130,7 @@
             <span class="result-editor__field-label  flex-no-shrink text-small">
                 Collections
             </span>
-            <button ng:click="ctrl.openCollectionTree()"
-                    class="result-editor__field-container__add-button"
-                    gr-tooltip="Click to add image to a collection">
-                <gr-icon>add_box</gr-icon>
-            </button>
-            <div ng:if="ctrl.addCollection" class="result-editor__overlay">
-                <button class="result-editor__overlay__cancel"
-                    ng:click="ctrl.addCollection = false">
-                    <gr-icon>close</gr-icon>
-                </button>
-                <div class="result-editor__collections"
-                     gr:remember-scroll-top="true">
-                    <div class="error" ng:if="ctrl.collectionError">
-                        There was an error loading the collections.
-                        Please try again later.
-                    </div>
-                    <div class="result-editor__collections__heading">Select a collection to add image to</div>
-                    <gr-collection-tree
-                        gr:nodes="ctrl.collections"
-                        gr:selection-mode="true"
-                        gr:on-select="ctrl.addToCollection($collection)"
-                    ></gr-collection-tree>
-                </div>
-            </div>
+           <gr-collection-overlay image="ctrl.image"></gr-collection-overlay>
             <div class="result-editor__field-container__collections">
                 <ul class="preview__collections">
                     <li class="preview__collections__collection"

@@ -10,7 +10,6 @@ import {rxUtil} from '../../util/rx';
 import {querySuggestions, filterFields} from './query-suggestions';
 import {renderQuery, structureQuery} from './syntax';
 
-
 export const grStructuredQuery = angular.module('gr.structuredQuery', [
     rxUtil.name,
     grChips.name,
@@ -38,7 +37,6 @@ grStructuredQuery.controller('grStructuredQueryCtrl',
     ctrl.getSuggestions = querySuggestions.getChipSuggestions;
 
     ctrl.filterFields = filterFields;
-
 
     function valOrUndefined(str) {
         // Watch out for `false`, but we know it's a string here..

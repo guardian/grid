@@ -95,6 +95,7 @@ object ElasticSearch extends ElasticSearchClient with SearchFilters with ImageFi
     val missingIdentifier = params.missingIdentifier.map(idName => filters.missing(NonEmptyList(identifierField(idName))))
     val uploadedByFilter  = params.uploadedBy.map(uploadedBy => filters.terms("uploadedBy", NonEmptyList(uploadedBy)))
     val costFilter        = params.free.flatMap(free => if (free) freeFilter else nonFreeFilter)
+    val hasRightsCategory = params.hasRightsCategory.filter(_ == true).map(_ => hasRightsCategoryFilter)
 
     val validityFilter: Option[FilterBuilder] = params.valid.flatMap(valid => if(valid) validFilter else invalidFilter)
 
@@ -110,7 +111,8 @@ object ElasticSearch extends ElasticSearchClient with SearchFilters with ImageFi
     val filterOpt = (
       metadataFilter.toList ++ persistFilter ++ labelFilter ++ archivedFilter ++
       uploadedByFilter ++ idsFilter ++ validityFilter ++ costFilter ++
-      hasExports ++ hasIdentifier ++ missingIdentifier ++ dateFilter ++ usageFilter
+      hasExports ++ hasIdentifier ++ missingIdentifier ++ dateFilter ++
+      usageFilter ++ hasRightsCategory
     ).toNel.map(filter => filter.list.reduceLeft(filters.and(_, _)))
     val filter = filterOpt getOrElse filters.matchAll
 
@@ -129,41 +131,6 @@ object ElasticSearch extends ElasticSearchClient with SearchFilters with ImageFi
         val hitsTuples = results.hits.toList flatMap (h => h.sourceOpt map (h.id -> _))
         SearchResults(hitsTuples, results.getTotalHits)
       }
-  }
-
-  def labelSiblingsSearch(structuredQuery: List[Condition], excludeLabels: List[String] = Nil, size: Int = 30)
-                         (implicit ex: ExecutionContext): Future[AggregateSearchResults] = {
-    val name = "labelSiblings"
-    val lastModifiedField = "lastModified"
-    val labelsField = editsField("labels")
-    val query = queryBuilder.makeQuery(structuredQuery)
-
-    // We sort by the maximum lastModified
-    // TODO: We could add a lastModified to the labels resource and then sort by that
-    val sortByDateAggr =
-      AggregationBuilders.
-        max(lastModifiedField).
-        field(lastModifiedField)
-
-    val aggregate =
-      AggregationBuilders
-        .terms(name)
-        .field(labelsField)
-        .excludeList(excludeLabels)
-        .order(Terms.Order.aggregation(lastModifiedField, false))
-        .size(size)
-        .subAggregation(sortByDateAggr)
-
-    val search =
-      prepareImagesSearch
-        .setQuery(query)
-        .addAggregation(aggregate)
-
-    search
-      .setSearchType(SearchType.COUNT)
-      .executeAndLog("sibling labels aggregate search")
-      .toMetric(searchQueries, List(searchTypeDimension("aggregate")))(_.getTookInMillis)
-      .map(searchResultToAggregateResponse(_, name))
   }
 
   def dateHistogramAggregate(params: AggregateSearchParams)(implicit ex: ExecutionContext): Future[AggregateSearchResults] = {

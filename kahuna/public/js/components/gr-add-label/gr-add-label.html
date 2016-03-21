@@ -2,7 +2,8 @@
         ng:click="ctrl.active = true"
         ng:disabled="ctrl.adding"
         ng:if="!ctrl.active"
-        title="Add label">
+        gr:tooltip="Add label"
+        gr:tooltip-position="left">
 
     <gr-icon ng:class="{'spin': ctrl.adding}">add_box</gr-icon>
     <span>
