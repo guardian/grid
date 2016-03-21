@@ -46,7 +46,7 @@ object MediaApi extends Controller with ArgoHelpers {
 
   val searchParamList = List("q", "ids", "offset", "length", "orderBy",
     "since", "until", "modifiedSince", "modifiedUntil", "takenSince", "takenUntil",
-    "uploadedBy", "archived", "valid", "free",
+    "uploadedBy", "archived", "valid", "payType",
     "hasExports", "hasIdentifier", "missingIdentifier", "hasMetadata",
     "persisted", "usageStatus", "usagePlatform").mkString(",")
 
@@ -319,7 +319,6 @@ object MediaApi extends Controller with ArgoHelpers {
 
 }
 
-
 case class SearchParams(
   query: Option[String],
   structuredQuery: List[Condition],
@@ -338,7 +337,7 @@ case class SearchParams(
   hasIdentifier: Option[String],
   missingIdentifier: Option[String],
   valid: Option[Boolean],
-  free: Option[Boolean],
+  payType: Option[PayType.Value],
   hasRightsCategory: Option[Boolean],
   uploadedBy: Option[String],
   labels: List[String],
@@ -353,13 +352,31 @@ object InvalidUriParams {
   val errorKey = "invalid-uri-parameters"
 }
 
+object PayType extends Enumeration {
+  type PayType = Value
+  val Free = Value("free")
+  val MaybeFree = Value("maybe-free")
+  val All = Value("all")
+  val Pay = Value("pay")
+
+  def create(s: String) = s match {
+    case "free" => Some(Free)
+    case "maybe-free" => Some(MaybeFree)
+    case "all" => Some(All)
+    case "pay" => Some(Pay)
+    case _ => None
+  }
+}
+
 object SearchParams {
+
 
   def commasToList(s: String): List[String] = s.trim.split(',').toList
   def listToCommas(list: List[String]): Option[String] = list.toNel.map(_.list.mkString(","))
 
   // TODO: return descriptive 400 error if invalid
   def parseIntFromQuery(s: String): Option[Int] = Try(s.toInt).toOption
+  def parsePayTypeFromQuery(s: String): Option[PayType.Value] = PayType.create(s)
   def parseBooleanFromQuery(s: String): Option[Boolean] = Try(s.toBoolean).toOption
 
   def apply(request: Request[Any]): SearchParams = {
@@ -387,7 +404,7 @@ object SearchParams {
       request.getQueryString("hasIdentifier"),
       request.getQueryString("missingIdentifier"),
       request.getQueryString("valid") flatMap parseBooleanFromQuery,
-      request.getQueryString("free") flatMap parseBooleanFromQuery,
+      request.getQueryString("payType") flatMap parsePayTypeFromQuery,
       request.getQueryString("hasRightsCategory") flatMap parseBooleanFromQuery,
       request.getQueryString("uploadedBy"),
       commaSep("labels"),
@@ -416,7 +433,7 @@ object SearchParams {
       "hasIdentifier"     -> searchParams.hasIdentifier,
       "missingIdentifier" -> searchParams.missingIdentifier,
       "valid"             -> searchParams.valid.map(_.toString),
-      "free"              -> searchParams.free.map(_.toString),
+      "payType"           -> searchParams.payType.map(_.toString),
       "uploadedBy"        -> searchParams.uploadedBy,
       "labels"            -> listToCommas(searchParams.labels),
       "hasMetadata"       -> listToCommas(searchParams.hasMetadata),
