@@ -25,7 +25,11 @@ export const filterFields = [
     'state',
     'subject',
     'supplier',
-    'uploader'
+    'uploader',
+    'usages@<added',
+    'usages@>added',
+    'usages@platform',
+    'usages@status'
 ];
 // TODO: add date fields
 
@@ -120,9 +124,10 @@ querySuggestions.factory('querySuggestions', ['mediaApi', 'editsApi', function(m
             then(labels => labels.data);
     }
 
-
     function getFilterSuggestions(field, value) {
         switch (field) {
+        case 'usages@status': return ['published', 'pending'];
+        case 'usages@platform': return ['print', 'digital'];
         case 'subject':  return prefixFilter(value)(subjects);
         case 'label':    return suggestLabels(value);
         case 'credit':   return suggestCredit(value);
