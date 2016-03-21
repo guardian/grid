@@ -3,7 +3,7 @@ import {getLabel, getCollection} from '../../search-query/query-syntax';
 
 // Line too long for jshint, but can't break it down..
 /*jshint -W101 */
-const parserRe = /(-?)(?:(?:([a-zA-Z]+):|(#)|(~))(?:([^ "']+)|"([^"]+)"|'([^']+)')|([a-zA-Z0-9]+)|"([^"]*)"|'([^']*)')/g;
+const parserRe = /(-?)(?:(?:([a-zA-Z@><]+):|(#)|(~))(?:([^ "']+)|"([^"]+)"|'([^']+)')|([a-zA-Z0-9]+)|"([^"]*)"|'([^']*)')/g;
 /*jshint +W101 */
 
 // TODO: expose the server-side query parser via an API instead of
