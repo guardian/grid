@@ -15,10 +15,9 @@
 
     <button class="search__advanced-toggle"
             type="button"
-            ng:click="advancedShown = !advancedShown">
-        <span ng:hide="advancedShown">▸</span>
-        <span ng:show="advancedShown">▾</span>
-        Advanced
+            ng:click="searchInfo = !searchInfo"
+            gr-tooltip="Display advanced search information">
+        <gr-icon>info_outline</gr-icon>
     </button>
 
     <div class="search__modifier-container">
@@ -118,4 +117,4 @@
     </div>
 </form>
 
-<gr-syntax ng:if="advancedShown"></gr-syntax>
+<gr-syntax ng:if="searchInfo"></gr-syntax>

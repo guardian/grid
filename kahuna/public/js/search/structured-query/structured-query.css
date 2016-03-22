@@ -53,8 +53,15 @@ gr-chips .datalist__options {
 }
 
 gr-filter-chip,
+.gr-filter-chip, /*used in chip example*/
 gr-static-filter-chip,
 gr-filter-chooser-chip {
     background-color: #333;
     border-radius: 8px;
+}
+
+/*styles the examples chip*/
+.gr-filter-chip {
+    padding: 3px;
+    line-height: 26px;
 }

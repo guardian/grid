@@ -693,7 +693,37 @@ textarea.ng-invalid {
 
 .advanced-search-help {
     top: 49px;
-    padding-right: 50px;
+    height: 80vh;
+    overflow: auto;
+    background-color: #444444;
+    box-shadow: 0 1px 5px rgba(0, 0, 0, 0.4);
+    max-width: 680px /*width of input box and advance button in topbar*/
+}
+
+.advanced-search-help__cancel {
+    float: right;
+    padding: 10px;
+}
+
+.advanced-search-help__cancel:hover {
+    color: white;
+}
+
+.advanced-search-help__section {
+    border-bottom: 1px solid #565656;
+    margin-bottom: 10px;
+    padding: 10px 10px 0 10px;
+    box-sizing: border-box;
+}
+
+.advanced-search-help__section__title {
+    font-weight: bold;
+    font-size: 16px;
+}
+
+.advanced-search-help__section__sub-heading {
+    font-size: 16px;
+    margin-bottom: 5px;
 }
 
 .advanced-search-help__close {
@@ -704,11 +734,16 @@ textarea.ng-invalid {
 }
 
 .advanced-search-example {
-    margin-bottom: 10px;
-    max-width: 450px;
+    display: flex;
 }
 
-.advanced-search-example__inputs {
+.advanced-search-example__field {
+    margin-bottom: 5px;
+    display: inline-flex;
+    flex-basis: 40%;
+}
+
+.advanced-search-example__explanation {
     margin-bottom: 5px;
 }
 
@@ -722,7 +757,14 @@ textarea.ng-invalid {
 
 .search__advanced-toggle {
     margin-left: 10px;
-    min-width: 70px;
+}
+
+.search__advanced-toggle:hover {
+    color: white;
+}
+
+.search__advanced-toggle:focus {
+    outline: none; /*stops blue box appearing around tooltip*/
 }
 
 .search__date {

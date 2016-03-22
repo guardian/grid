@@ -1,82 +1,159 @@
-<div class="advanced-search-help search__overlay">
-    <h2 class="advanced-search-help__title search__overlay__title">Advanced search syntax</h2>
-    <p>To perform advanced searches, use the following syntax in the search field:</p>
-    <dl class="advanced-search-example">
-        <dt class="advanced-search-example__inputs">
-            <kbd class="advanced-search-example__input">by:Claire</kbd>
-            <kbd class="advanced-search-example__input">by:"Tom Jenkins"</kbd>
-        </dt>
-        <dd>
-            Search the <em>byline</em> field for a first, last or full name.
-        </dd>
-    </dl>
-    <dl class="advanced-search-example">
-        <dt class="advanced-search-example__inputs">
-            <kbd class="advanced-search-example__input">in:Tokyo</kbd>
-            <kbd class="advanced-search-example__input">city:"New York"</kbd>
-            <kbd class="advanced-search-example__input">country:Spain</kbd>
-        </dt>
-        <dd>
-            Search the <em>city</em> or <em>country</em> fields, or any of them using <em>in</em>.
-        </dd>
-    </dl>
-    <dl class="advanced-search-example">
-        <dt class="advanced-search-example__inputs">
-            <kbd class="advanced-search-example__input">credit:REUTERS</kbd>
-            <kbd class="advanced-search-example__input">copyright:"2015 Getty Images"</kbd>
-            <kbd class="advanced-search-example__input">keyword:football</kbd>
-            <kbd class="advanced-search-example__input">description:"A visitor peers into US artist"</kbd>
-        </dt>
-        <dd>
-            Search the <em>credit</em>, <em>copyright</em>, <em>keyword</em> or <em>description</em> field.<br/>
-            Please note that the <em>credit</em> field is currently case-sensitive.
-        </dd>
-    </dl>
-    <dl class="advanced-search-example">
-        <dt class="advanced-search-example__inputs">
-            <kbd class="advanced-search-example__input">label:ozpics</kbd>
-            <kbd class="advanced-search-example__input">#ozpics</kbd>
-        </dt>
-        <dd>
-            Search the <em>labels</em>.
-        </dd>
-    </dl>
-    <dl class="advanced-search-example">
-        <dt class="advanced-search-example__inputs">
-            <kbd class="advanced-search-example__input">uploader:jonny.months@guardian.co.uk</kbd>
-            <kbd class="advanced-search-example__input">uploader:getty</kbd>
-        </dt>
-        <dd>
-            Search the person (email) or agency (folder) who uploaded the image.
-        </dd>
-    </dl>
-    <dl class="advanced-search-example">
-        <dt class="advanced-search-example__inputs">
-            <kbd class="advanced-search-example__input">"New York City"</kbd>
-            <kbd class="advanced-search-example__input">credit:"Getty Images"</kbd>
-        </dt>
-        <dd>
-            Search for an exact sequence of words.
-        </dd>
-    </dl>
-    <dl class="advanced-search-example">
-        <dt class="advanced-search-example__inputs">
-            <kbd class="advanced-search-example__input">-royalty</kbd>
-            <kbd class="advanced-search-example__input">-city:"Hong Kong"</kbd>
-        </dt>
-        <dd>
-            Exclude results containing the given terms in individual or all fields.
-        </dd>
-    </dl>
-    <dl class="advanced-search-example">
-        <dt class="advanced-search-example__inputs">
-            <kbd class="advanced-search-example__input">usages@status:published</kbd>
-            <kbd class="advanced-search-example__input">usages@platform:print</kbd>
-            <kbd class="advanced-search-example__input">usages@&gt;added:2012-01-01</kbd>
-            <kbd class="advanced-search-example__input">usages@&lt;added:2012-01-02</kbd>
-        </dt>
-        <dd>
-            Find all images used in print between given dates.
-        </dd>
-    </dl>
+<div class="advanced-search-help">
+    <button class="advanced-search-help__cancel"
+            ng:click="$parent.searchInfo = false">
+        <gr-icon>close</gr-icon>
+    </button>
+    <div class="advanced-search-help__section">
+        <h2 class="advanced-search-help__section__title">To filter your search results</h2>
+        <p>- Type <span class="advanced-search-example__input">+</span> to include or <span class="advanced-search-example__input">-</span> to exclude.</br>
+            - Select a filter field from the dropdown.</br>
+            - Select a filtering term from the suggestion list or type your own.</p></p>
+        <p>As a shortcut you can type the filter field followed by a colon, e.g. <span class="advanced-search-example__input">location:</span>.</br>
+        For existing filters, click <span class="advanced-search-example__input">+</span> on the left hand side to toggle between including and excluding.</p>
+
+        <h3 class="advanced-search-help__section__sub-heading">All filtering fields</h3>
+        <dl class="advanced-search-example flex-container">
+            <dt class="advanced-search-example__field">
+                <gr-chip-example gr:filter-field="by" gr:example-search="Cookie Monster"></gr-chip-example>
+            </dt>
+        </dl>
+        <dl class="advanced-search-example">
+            <dt class="advanced-search-example__field">
+                <gr-chip-example gr:filter-field="category" gr:example-search="screengrab"></gr-chip-example>
+            </dt>
+            <dd class="advanced-search-example__explanation">
+                Has a suggestion list.
+            </dd>
+        </dl>
+        <dl class="advanced-search-example">
+            <dt class="advanced-search-example__field">
+                <gr-chip-example gr:filter-field="city" gr:example-search="Austin"></gr-chip-example>
+            </dt>
+        </dl>
+        <dl class="advanced-search-example">
+            <dt class="advanced-search-example__field">
+                <gr-chip-example gr:filter-field="copyright" gr:example-search="2016 Getty Images"></gr-chip-example>
+            </dt>
+        </dl>
+        <dl class="advanced-search-example">
+            <dt class="advanced-search-example__field">
+                <gr-chip-example gr:filter-field="country" gr:example-search="India"></gr-chip-example>
+            </dt>
+        </dl>
+        <dl class="advanced-search-example">
+            <dt class="advanced-search-example__field">
+                <gr-chip-example gr:filter-field="credit" gr:example-search="REUTERS"></gr-chip-example>
+            </dt>
+            <dd class="advanced-search-example__explanation">
+                Currently case-sensitive. Has a suggestion list.
+            </dd>
+        </dl>
+        <dl class="advanced-search-example">
+            <dt class="advanced-search-example__field">
+                <gr-chip-example gr:filter-field="description" gr:example-search="Beaches"></gr-chip-example>
+            </dt>
+        </dl>
+        <dl class="advanced-search-example">
+            <dt class="advanced-search-example__field">
+                <gr-chip-example gr:filter-field="illustrator" gr:example-search="Steve Bell"></gr-chip-example>
+            </dt>
+            <dd class="advanced-search-example__explanation">
+                Has a suggestion list.
+            </dd>
+        </dl>
+        <dl class="advanced-search-example">
+            <dt class="advanced-search-example__field">
+                <gr-chip-example gr:filter-field="in" gr:example-search="Xanadu"></gr-chip-example>
+            </dt>
+            <dd class="advanced-search-example__explanation">
+                Searches the <em>city</em> and <em>country</em> fields.
+            </dd>
+        </dl>
+        <dl class="advanced-search-example">
+            <dt class="advanced-search-example__field">
+                <gr-chip-example gr:filter-field="keyword" gr:example-search="Film Still"></gr-chip-example>
+            </dt>
+            <dd class="advanced-search-example__explanation">
+                Currently case-sensitive.
+            </dd>
+        </dl>
+        <dl class="advanced-search-example">
+            <dt class="advanced-search-example__field">
+                <gr-chip-example gr:filter-field="label" gr:example-search="pp"></gr-chip-example>
+            </dt>
+            <dd class="advanced-search-example__explanation">
+                Typing <span class="advanced-search-example__input">#</span> automatically creates a label filter.
+            </dd>
+        </dl>
+        <dl class="advanced-search-example">
+            <dt class="advanced-search-example__field">
+                <gr-chip-example gr:filter-field="supplier" gr:example-search="AAP"></gr-chip-example>
+            </dt>
+            <dd class="advanced-search-example__explanation">
+                Has a suggestion list.
+            </dd>
+        </dl>
+        <dl class="advanced-search-example">
+            <dt class="advanced-search-example__field">
+                <gr-chip-example gr:filter-field="state" gr:example-search="Jammu and Kashmir"></gr-chip-example>
+            </dt>
+            <dd class="advanced-search-example__explanation">
+                This refers to a location.
+            </dd>
+        </dl>
+        <dl class="advanced-search-example">
+            <dt class="advanced-search-example__field">
+                <gr-chip-example gr:filter-field="subject" gr:example-search="politics"></gr-chip-example>
+            </dt>
+            <dd class="advanced-search-example__explanation">
+                Has a suggestion list.
+            </dd>
+        </dl>
+        <dl class="advanced-search-example">
+            <dt class="advanced-search-example__field">
+                <gr-chip-example gr:filter-field="uploader" gr:example-search="Getty"></gr-chip-example>
+            </dt>
+            <dd class="advanced-search-example__explanation">
+                Search by person (email) or agency (folder).
+            </dd>
+        </dl>
+        <dl class="advanced-search-example">
+            <dt class="advanced-search-example__field">
+                <gr-chip-example gr:filter-field="usages@&gt;added" gr:example-search="2016-01-10"></gr-chip-example>
+            </dt>
+            <dd class="advanced-search-example__explanation">
+                Images used <em>after</em> a given date YYYY-MM-DD.
+            </dd>
+        </dl>
+        <dl class="advanced-search-example">
+            <dt class="advanced-search-example__field">
+                <gr-chip-example gr:filter-field="usages@&lt;added" gr:example-search="2012-07-29"></gr-chip-example>
+            </dt>
+            <dd class="advanced-search-example__explanation">
+                Images used <em>before</em> a given date YYYY-MM-DD.
+            </dd>
+        </dl>
+        <dl class="advanced-search-example">
+            <dt class="advanced-search-example__field">
+                <gr-chip-example gr:filter-field="usages@status" gr:example-search="published"></gr-chip-example>
+            </dt>
+            <dd class="advanced-search-example__explanation">
+                Has a suggestion list.
+            </dd>
+        </dl>
+        <dl class="advanced-search-example">
+            <dt class="advanced-search-example__field">
+                <gr-chip-example gr:filter-field="usages@platform" gr:example-search="print"></gr-chip-example>
+            </dt>
+            <dd class="advanced-search-example__explanation">
+                Has a suggestion list: filter by print or digital usage.
+            </dd>
+        </dl>
+    </div>
+
+
+    <div class="advanced-search-help__section">
+        <h2 class="advanced-search-help__section__title">To search for an exact sequence of words</h2>
+        <p>Wrap your search term in quote marks.</p>
+    </div>
 </div>
