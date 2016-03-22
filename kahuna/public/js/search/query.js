@@ -55,7 +55,7 @@ query.controller('SearchQueryCtrl',
         {label: 'Free', value: 'free'},
         {label: 'Free and No Rights', value: 'maybe-free'},
         {label: 'All (inc. paid)', value: 'all'}
-    ]
+    ];
 
     ctrl.sinceOptions = [
         {label: 'Anytime'},   // value: undefined
