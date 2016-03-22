@@ -700,6 +700,15 @@ textarea.ng-invalid {
     max-width: 680px /*width of input box and advance button in topbar*/
 }
 
+.advanced-search-help__cancel {
+    float: right;
+    padding: 10px;
+}
+
+.advanced-search-help__cancel:hover {
+    color: white;
+}
+
 .advanced-search-help__section {
     border-bottom: 1px solid #565656;
     margin-bottom: 10px;
@@ -748,7 +757,14 @@ textarea.ng-invalid {
 
 .search__advanced-toggle {
     margin-left: 10px;
-    min-width: 70px;
+}
+
+.search__advanced-toggle:hover {
+    color: white;
+}
+
+.search__advanced-toggle:focus {
+    outline: none; /*stops blue box appearing around tooltip*/
 }
 
 .search__date {

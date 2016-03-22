@@ -1,12 +1,17 @@
 <div class="advanced-search-help">
+    <button class="advanced-search-help__cancel"
+            ng:click="$parent.searchInfo = false">
+        <gr-icon>close</gr-icon>
+    </button>
     <div class="advanced-search-help__section">
         <h2 class="advanced-search-help__section__title">To filter your search results</h2>
-        <p>- Type <span class="advanced-search-example__input">+</span>.</br>
+        <p>- Type <span class="advanced-search-example__input">+</span> to include or <span class="advanced-search-example__input">-</span> to exclude.</br>
             - Select a filter field from the dropdown.</br>
             - Select a filtering term from the suggestion list or type your own.</p></p>
-        <p>As a shortcut you can type the filter field followed by a colon, e.g. <span class="advanced-search-example__input">location:</span>.</p>
+        <p>As a shortcut you can type the filter field followed by a colon, e.g. <span class="advanced-search-example__input">location:</span>.</br>
+        For existing filters, click <span class="advanced-search-example__input">+</span> on the left hand side to toggle between including and excluding.</p>
 
-        <h3 class="advanced-search-help__section__sub-heading">Filtering field examples</h3>
+        <h3 class="advanced-search-help__section__sub-heading">All filtering fields</h3>
         <dl class="advanced-search-example flex-container">
             <dt class="advanced-search-example__field">
                 <gr-chip-example gr:filter-field="by" gr:example-search="Cookie Monster"></gr-chip-example>
@@ -112,27 +117,40 @@
                 Search by person (email) or agency (folder).
             </dd>
         </dl>
-
+        <dl class="advanced-search-example">
+            <dt class="advanced-search-example__field">
+                <gr-chip-example gr:filter-field="usages@&gt;added" gr:example-search="2016-01-10"></gr-chip-example>
+            </dt>
+            <dd class="advanced-search-example__explanation">
+                Images used <em>after</em> a given date YYYY-MM-DD.
+            </dd>
+        </dl>
+        <dl class="advanced-search-example">
+            <dt class="advanced-search-example__field">
+                <gr-chip-example gr:filter-field="usages@&lt;added" gr:example-search="2012-07-29"></gr-chip-example>
+            </dt>
+            <dd class="advanced-search-example__explanation">
+                Images used <em>before</em> a given date YYYY-MM-DD.
+            </dd>
+        </dl>
+        <dl class="advanced-search-example">
+            <dt class="advanced-search-example__field">
+                <gr-chip-example gr:filter-field="usages@status" gr:example-search="published"></gr-chip-example>
+            </dt>
+            <dd class="advanced-search-example__explanation">
+                Search for published images, or search for pending images.
+            </dd>
+        </dl>
+        <dl class="advanced-search-example">
+            <dt class="advanced-search-example__field">
+                <gr-chip-example gr:filter-field="usages@platform" gr:example-search="print"></gr-chip-example>
+            </dt>
+            <dd class="advanced-search-example__explanation">
+                Search for images used in print, or search for images used in digital.
+            </dd>
+        </dl>
     </div>
 
-    <div class="advanced-search-help__section">
-        <h2 class="advanced-search-help__section__title">To exclude results containing the terms</h2>
-        <p>As above but type <span class="advanced-search-example__input">-</span> to create an 'excluding' filter.</p>
-            <gr-chip-example gr:filter-field="description" gr:example-search="Cats" gr:exclude></gr-chip-example>
-         <p>For existing filters, press <span class="advanced-search-example__input">+</span> on the left hand side to exclude the term.</p>
-
-    </div>
-
-    <div class="advanced-search-help__section">
-        <h2 class="advanced-search-help__section__title">To search all the images in print between given date</h2>
-        <p> Set usages status to publish:
-            <span class="advanced-search-example__input">usages@status:published</span></br>
-            Set the platform to print:
-            <span class="advanced-search-example__input">usages@platform:print</span></br>
-            Set the date range:
-            <span class="advanced-search-example__input">usages@&gt;added:2012-01-01</span>
-            <span class="advanced-search-example__input">usages@&lt;added:2012-01-02</span></p>
-    </div>
 
     <div class="advanced-search-help__section">
         <h2 class="advanced-search-help__section__title">To search for an exact sequence of words</h2>
