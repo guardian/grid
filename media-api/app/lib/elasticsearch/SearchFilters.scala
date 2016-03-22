@@ -44,8 +44,9 @@ trait SearchFilters extends ImageFields {
   val hasRightsCategoryFilter = filters.existsOrMissing(usageRightsField("category"), true)
 
   val freeFilter = filterOrFilter(freeSupplierFilter, freeUsageRightsFilter)
-
   val nonFreeFilter = freeFilter.map(filters.not)
+
+  val maybeFreeFilter = filterOrFilter(freeFilter, Some(filters.not(hasRightsCategoryFilter)))
 
   lazy val freeToUseCategories: List[String] =
     UsageRights.all.filter(ur => ur.defaultCost.exists(cost => cost == Free || cost == Conditional)).map(ur => ur.category)

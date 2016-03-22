@@ -51,6 +51,12 @@ query.controller('SearchQueryCtrl',
     const past6Months   = moment().subtract(6, 'months').toISOString();
     const pastYear      = moment().subtract(1, 'years').toISOString();
 
+    ctrl.payTypeOptions = [
+        {label: 'Free', value: 'free'},
+        {label: 'Free and No Rights', value: 'maybe-free'},
+        {label: 'All (inc. paid)', value: 'all'}
+    ]
+
     ctrl.sinceOptions = [
         {label: 'Anytime'},   // value: undefined
         {label: 'Today',         value: lastMidnight},
@@ -130,6 +136,7 @@ query.controller('SearchQueryCtrl',
     $scope.$watchCollection(() => ctrl.filter, onValChange(filter => {
         filter.uploadedBy = filter.uploadedByMe ? ctrl.user.email : undefined;
         ctrl.collectionSearch = ctrl.filter.query ? ctrl.filter.query.indexOf('~') === 0 : false;
+
         $state.go('search.results', filter);
     }));
 
