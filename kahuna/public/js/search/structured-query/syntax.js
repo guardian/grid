@@ -3,7 +3,7 @@ import {getLabel, getCollection} from '../../search-query/query-syntax';
 
 // Line too long for jshint, but can't break it down..
 /*jshint -W101 */
-const parserRe = /(-?)(?:(?:([a-zA-Z]+):|(#)|(~))(?:([^ "']+)|"([^"]+)"|'([^']+)')|([a-zA-Z0-9]+)|"([^"]*)"|'([^']*)')/g;
+const parserRe = /(-?)(?:(?:([a-zA-Z@><]+):|(#)|(~))(?:([^ "']+)|"([^"]+)"|'([^']+)')|([a-zA-Z0-9]+)|"([^"]*)"|'([^']*)')/g;
 /*jshint +W101 */
 
 // TODO: expose the server-side query parser via an API instead of
@@ -39,7 +39,27 @@ export function structureQuery(query) {
             });
         }
     }
-    return struct;
+
+    return orderChips(struct);
+}
+
+function orderChips(structuredQuery){
+    const filterChips = structuredQuery.filter(e => e.type !== 'text');
+    const textChipsValues = mergeTextValues(structuredQuery);
+    const textChip = {
+        type: 'text',
+        value: textChipsValues
+    };
+
+    const cleanStruct = [textChip].concat(filterChips);
+
+    function mergeTextValues(chips){
+        return chips.filter(e => e.type === 'text')
+            .map(e => e.value)
+            .join(' ');
+    }
+
+    return cleanStruct;
 }
 
 function renderFilter(field, value) {

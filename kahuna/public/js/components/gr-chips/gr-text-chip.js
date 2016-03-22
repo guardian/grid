@@ -26,7 +26,7 @@ grTextChip.controller('grTextChipCtrl', function() {
     };
 
     $grTextChipCtrl.removePrevious = function() {
-        $grChipsCtrl.removeChipBefore($grChipCtrl.chip);
+        $grChipsCtrl.removeLastChip();
     };
 
     $grTextChipCtrl.removeNext = function() {
@@ -86,7 +86,7 @@ grTextChip.controller('grTextChipCtrl', function() {
         chip.value = textUntil;
 
         $grChipsCtrl.insertChips(chip, newChips);
-        $grChipsCtrl.focusStartOfChipAfter(chip);
+        $grChipsCtrl.focusEndOfLastChip(chip); //newly created chip will be last
     }
 
     function insertAndFocusFilterChooser(filterType, splitStart) {

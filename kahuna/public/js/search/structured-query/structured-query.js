@@ -50,8 +50,7 @@ grStructuredQuery.directive('grStructuredQuery', ['subscribe$', function(subscri
         restrict: 'E',
         require: ['grStructuredQuery', 'ngModel'],
         template: `
-<gr-chips placeholder="Search for images…"
-          autofocus="autofocus"
+<gr-chips autofocus="autofocus"
           ng:model="ctrl.structuredQuery"
           gr:valid-keys="ctrl.filterFields"
           gr:on-change="ctrl.structuredQueryChanged($chips)"

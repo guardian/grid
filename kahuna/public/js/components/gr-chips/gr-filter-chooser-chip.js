@@ -52,19 +52,10 @@ grFilterChooserChip.controller('grFilterChooserChipCtrl', function() {
                 // dropdown which blurred the current chip
                 $grChipsCtrl.setFocusedChip(filterChip);
             } else {
-                // Not a key, turn it into an 'any' filter and move focus next text
-                const anyFilterChip = {
-                    type: 'filter',
-                    filterType: chip.filterType,
-                    key: 'any',
-                    value: value
-                };
-                const nextText = {
-                    type: 'text',
-                    value: ''
-                };
-                $grChipsCtrl.replaceChip(chip, [anyFilterChip, nextText]);
-                $grChipsCtrl.setFocusedChip(nextText);
+                // Not a key, turn it back to text search
+                $grFilterChooserChipCtrl.removeSelf();
+                $grChipsCtrl.items[0].value += (' ' + value);
+                $grChipsCtrl.focusEndOfFirstChip();
             }
         }
     };

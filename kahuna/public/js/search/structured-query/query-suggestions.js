@@ -9,7 +9,6 @@ export const querySuggestions = angular.module('querySuggestions', [
 
 // FIXME: get fields and subjects from API
 export const filterFields = [
-    'any', // first on purpose in spite of alphabet
     'by',
     'category',
     'city',

@@ -4,9 +4,8 @@ gr-chips {
     cursor: text; /* pretend the whole thing is a text input */
 }
 
-/* Make sure the last text token is wide enough */
-gr-chips .gr-chips__chip-wrapper:last-child gr-text-chip input {
-    min-width: 2em;
+.gr-chips__wrapper {
+    display: flex;
 }
 
 .gr-chips__placeholder {
@@ -17,6 +16,19 @@ gr-chips .gr-chips__chip-wrapper:last-child gr-text-chip input {
             user-select: none;
 }
 
+.gr-chips__chip-wrapper {
+    display: inline-flex;
+}
+
+.gr-chips__chip-wrapper.text-chip {
+    flex-grow: 3;
+    order: 999; /*always have the text chip after filter chips*/
+}
+
+gr-text-chip, gr-text-chip input {
+    width: 100%;
+}
+
 gr-text-chip,
 gr-filter-chip,
 gr-static-filter-chip,
@@ -24,6 +36,10 @@ gr-filter-chooser-chip,
 gr-filter-chip,
 gr-datalist {
     display: inline-block;
+}
+
+gr-text-chip {
+    line-height: 22px;
 }
 
 gr-filter-chip button,
@@ -62,4 +78,9 @@ gr-filter-chip input:focus,
 gr-static-filter-chip input:focus,
 gr-filter-chooser-chip input:focus {
     outline: none;
+}
+
+gr-static-filter-chip,
+gr-filter-chip {
+    margin-right: 5px;
 }

@@ -9,6 +9,11 @@ gr-chips input[type="text"][autocomplete="off"] {
     background-position: 150% 50% !important;
 }
 
+gr-chips input.gr-filter-chooser-chip__value--not-valid {
+    background: #ffbc01;
+    color: black;
+}
+
 gr-chips .datalist {
     position: static;
     width: auto;
