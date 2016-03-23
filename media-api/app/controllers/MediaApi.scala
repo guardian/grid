@@ -46,7 +46,7 @@ object MediaApi extends Controller with ArgoHelpers {
 
   val searchParamList = List("q", "ids", "offset", "length", "orderBy",
     "since", "until", "modifiedSince", "modifiedUntil", "takenSince", "takenUntil",
-    "uploadedBy", "archived", "valid", "payType",
+    "uploadedBy", "archived", "valid", "free", "payType",
     "hasExports", "hasIdentifier", "missingIdentifier", "hasMetadata",
     "persisted", "usageStatus", "usagePlatform").mkString(",")
 
@@ -337,6 +337,7 @@ case class SearchParams(
   hasIdentifier: Option[String],
   missingIdentifier: Option[String],
   valid: Option[Boolean],
+  free: Option[Boolean],
   payType: Option[PayType.Value],
   hasRightsCategory: Option[Boolean],
   uploadedBy: Option[String],
@@ -404,6 +405,7 @@ object SearchParams {
       request.getQueryString("hasIdentifier"),
       request.getQueryString("missingIdentifier"),
       request.getQueryString("valid") flatMap parseBooleanFromQuery,
+      request.getQueryString("free") flatMap parseBooleanFromQuery,
       request.getQueryString("payType") flatMap parsePayTypeFromQuery,
       request.getQueryString("hasRightsCategory") flatMap parseBooleanFromQuery,
       request.getQueryString("uploadedBy"),
@@ -433,6 +435,7 @@ object SearchParams {
       "hasIdentifier"     -> searchParams.hasIdentifier,
       "missingIdentifier" -> searchParams.missingIdentifier,
       "valid"             -> searchParams.valid.map(_.toString),
+      "free"              -> searchParams.free.map(_.toString),
       "payType"           -> searchParams.payType.map(_.toString),
       "uploadedBy"        -> searchParams.uploadedBy,
       "labels"            -> listToCommas(searchParams.labels),
