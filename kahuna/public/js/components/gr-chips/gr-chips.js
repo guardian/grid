@@ -136,7 +136,7 @@ grChips.controller('grChipsCtrl', ['$scope', function($scope) {
         }
     };
 
-    $grChipsCtrl.insertChips = function(previousItem, newItems) {
+    $grChipsCtrl.insertChips = function(newItems) {
         //always insert chips to the end of items list
         //NB text chip is styled to appear last but is first in the items list
         const end = $grChipsCtrl.items.length;
