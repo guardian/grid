@@ -1,6 +1,7 @@
 <form class="usage-rights-editor ure"
       novalidate
       name="usageRights"
+      ng:class="{'ure__category-invalid': ctrl.categoryInvalid}"
       ng:submit="usageRights.$valid && ctrl.save()">
 
     <label class="ure__category">

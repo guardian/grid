@@ -61,6 +61,8 @@ usageRightsEditor.controller(
     // The filter is used here to stop the initial setting of `undefined` being published.
     const categoryFromUserChange$ = observe$($scope, () => ctrl.category).filter(cat => !!cat);
 
+    const categoryInvalid$ = categoryFromUserChange$.map((c) => c.value === '')
+
     // @return Stream.<Category>
     const categoryWithUserChange$ =
         category$.merge(categoryFromUserChange$).distinctUntilChanged();
@@ -108,6 +110,7 @@ usageRightsEditor.controller(
     inject$($scope, savingDisabled$, ctrl, 'savingDisabled');
     inject$($scope, forceRestrictions$, ctrl, 'forceRestrictions');
     inject$($scope, showRestrictions$, ctrl, 'showRestrictions');
+    inject$($scope, categoryInvalid$, ctrl, 'categoryInvalid');
 
     // TODO: Some of these could be streams
     ctrl.saving = false;
