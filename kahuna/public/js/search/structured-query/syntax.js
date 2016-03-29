@@ -33,9 +33,12 @@ export function structureQuery(query) {
                 value: value
             });
         } else {
+            // Maintain negatable "any" search as text
+            const prepend = (sign === '-' ? '-' : '');
+
             struct.push({
                 type: 'text',
-                value: text
+                value: prepend + text
             });
         }
     }
