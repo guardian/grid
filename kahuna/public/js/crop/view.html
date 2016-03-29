@@ -7,7 +7,12 @@
     </gr-top-bar-nav>
 
     <gr-top-bar-actions>
-        <div class="top-bar-item side-padded">{{ ctrl.cropWidth() }} &times; {{ ctrl.cropHeight() }}</div>
+        <div class="top-bar-item side-padded">
+            <form ng:submit="ctrl.updateCropWidth(value)">
+                <input value="{{ctrl.cropWidth()}}" ></input></form>
+            &times; {{ ctrl.cropHeight() }}
+        </div>
+
 
         <label class="top-bar-item clickable side-padded" gr-tooltip="landscape [L]">
             <input type="radio" ng:model="ctrl.aspect" value="{{ctrl.landscapeRatio}}"/>
@@ -70,20 +75,23 @@
 
 <div class="easel">
     <div class="easel__canvas">
-        <img class="easel__image"
-             alt="original image to crop"
-             ng:src="{{ctrl.optimisedImageUri}}"
-             ui:crop-box="ctrl.coords"
-             ui:crop-box-original-width="ctrl.originalWidth"
-             ui:crop-box-original-height="ctrl.originalHeight"
-             ui:crop-box-aspect="ctrl.aspect"
-             ui:crop-box-background-opacity="0.3"
+        <div class="easel__image-container">
+            <img class="easel__image"
+                 alt="original image to crop"
+                 ng:src="{{ctrl.optimisedImageUri}}"
+                 ui:crop-box="ctrl.coords"
+                 ui:crop-box-original-width="ctrl.originalWidth"
+                 ui:crop-box-original-height="ctrl.originalHeight"
+                 ui:crop-box-aspect="ctrl.aspect"
+                 ui:crop-box-background-opacity="0.3"
+                 ui:crop-box-width="ctrl.cropWidth"
 
-             grid:track-image="ctrl.image"
-             grid:track-image-location="original-cropping"
-             grid:track-image-loadtime
+                 grid:track-image="ctrl.image"
+                 grid:track-image-location="original-cropping"
+                 grid:track-image-loadtime
 
-             gr:image-fade-on-load
-        />
+                 gr:image-fade-on-load
+            />
+        </div>
     </div>
 </div>

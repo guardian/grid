@@ -20,6 +20,7 @@ System.config({
     "angular-xeditable": "github:vitalets/angular-xeditable@0.1.9",
     "clean-css": "npm:clean-css@3.4.8",
     "css": "github:systemjs/plugin-css@0.1.13",
+    "fengyuanchen/cropperjs": "github:fengyuanchen/cropperjs@0.7.0",
     "github:tapmodo/Jcrop": "github:tapmodo/Jcrop@0.9.12",
     "immutable": "npm:immutable@3.7.5",
     "javascript-detect-element-resize": "github:sdecima/javascript-detect-element-resize@0.5.3",
@@ -55,6 +56,9 @@ System.config({
       "angular": "github:angular/bower-angular@1.4.3"
     },
     "github:dbushell/Pikaday@1.4.0": {
+      "css": "github:systemjs/plugin-css@0.1.13"
+    },
+    "github:fengyuanchen/cropperjs@0.7.0": {
       "css": "github:systemjs/plugin-css@0.1.13"
     },
     "github:jspm/nodelibs-assert@0.1.0": {
