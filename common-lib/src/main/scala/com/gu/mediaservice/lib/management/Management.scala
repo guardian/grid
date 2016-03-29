@@ -15,12 +15,11 @@ object Management extends Controller with ArgoHelpers {
     Ok("OK")
   }
 
-  def manifestFromFile: Option[String] =
+  lazy val stringManifest: Option[String] =
     for (stream <- Option(getClass.getResourceAsStream("/version.txt")))
     yield Source.fromInputStream(stream, "UTF-8").getLines.mkString("\n")
 
-
-  lazy val manifest_ : Option[JsValue] = manifestFromFile.map(manifestString => {
+  lazy val jsonManifest: Option[JsValue] = stringManifest.map(manifestString => {
     Json.toJson(
       manifestString.split("\n")
         .flatMap(pair => pair.split(":", 2))
@@ -30,10 +29,16 @@ object Management extends Controller with ArgoHelpers {
     )
   })
 
-  def manifest = Action {
-    manifest_.fold(
-      respondError(NotFound, "manifest-missing", "Manifest missing.")
-    )(respond(_))
-  }
+  lazy val notFoundError = respondError(NotFound, "manifest-missing", "Manifest missing.")
 
+  lazy val stringManifestResponse = stringManifest.fold(notFoundError)(Ok(_))
+  lazy val jsonManifestResponse = jsonManifest.fold(notFoundError)(respond(_))
+
+  def manifest = Action { implicit request =>
+    request match {
+      case Accepts.Html() => stringManifestResponse
+      case Accepts.Json() => jsonManifestResponse
+      case _ => stringManifestResponse
+    }
+  }
 }
