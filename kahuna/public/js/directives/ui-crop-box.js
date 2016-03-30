@@ -1,5 +1,5 @@
 import angular from 'angular';
-//import jQuery from 'jquery';
+import jQuery from 'jquery';
 //import 'jcrop';
 import Cropper from 'fengyuanchen/cropperjs';
 
@@ -43,7 +43,6 @@ cropBox.directive('uiCropBox', ['$timeout', '$parse', 'safeApply', 'nextTick', '
             maxSize:        '=uiCropBoxMaxSize',
             bgColor:        '=uiCropBoxBackgroundColor',
             bgOpacity:      '=uiCropBoxBackgroundOpacity',
-            width:          '=uiCropBoxWidth'
         },
         link: function (scope, element) {
 
@@ -62,6 +61,8 @@ cropBox.directive('uiCropBox', ['$timeout', '$parse', 'safeApply', 'nextTick', '
             element.on('load', () => delay(100).then(install));
 
             let previewImg;
+            let widthRatio;
+            let heightRatio;
 
             function install() {
 
@@ -80,6 +81,8 @@ cropBox.directive('uiCropBox', ['$timeout', '$parse', 'safeApply', 'nextTick', '
                 postInit(cropper);
                 image.addEventListener('built', function () {
                     previewImg = cropper.getCanvasData();
+                    widthRatio = scope.originalWidth / previewImg.naturalWidth;
+                    heightRatio = scope.originalHeight / previewImg.naturalHeight;
                 });
 
             }
@@ -91,8 +94,8 @@ cropBox.directive('uiCropBox', ['$timeout', '$parse', 'safeApply', 'nextTick', '
             }
 
             function update(c) {
-                const widthRatio = scope.originalWidth / previewImg.naturalWidth;
-                const heightRatio = scope.originalHeight / previewImg.naturalHeight;
+                console.log(c.detail);
+                console.log('update w', widthRatio, 'update h', heightRatio);
 
                 // Can be triggered from within a $digest cycle
                 // (e.g. redraw after aspect changed) or not (user
@@ -109,13 +112,18 @@ cropBox.directive('uiCropBox', ['$timeout', '$parse', 'safeApply', 'nextTick', '
             // Once initialised, sync all options to cropprjs
             function postInit(cropper) {
                 scope.$watch('aspectRatio', function(aspectRatio) {
+                    console.log("aspect changing!!!!!", aspectRatio, cropper);
                     cropper.setAspectRatio(aspectRatio);
                 });
-                scope.$watch('width', function(width) {
-                    console.log('width changed');
-                    cropper.setCropBoxData({width: width});
-                });
 
+                scope.$on('user-size-change', function(event, width, height){
+                    console.log("user changed size: change!", width, cropper)
+                    //const x2 = scope.coords.x1 + parseInt(width);
+                    cropper.cropBoxData.width = (parseInt(width) / widthRatio);
+                    cropper.cropBoxData.height = (parseInt(height) / heightRatio);
+                    //cropper.getCropBoxData();
+                    cropper.renderCropBox();
+                });
                 scope.$on('$destroy', destroy);
             }
         }

@@ -1397,12 +1397,12 @@ FIXME: what to do with touch devices
 }
 
 .easel__image-container {
-    display: block;
+    display: inline-block;
     height: 100%;
 }
 
 .easel__image {
-    display: block;
+    display: inline-block;
     margin: 0 auto;
     position: relative;
     top: 50%;

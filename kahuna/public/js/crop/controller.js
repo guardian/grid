@@ -88,19 +88,20 @@ crop.controller('ImageCropCtrl',
         y2: ctrl.originalHeight
     };
 
-    //$scope.$watch('ctrl.aspect', (newAspect) => {
-    //    // freeRatio's 'null' gets converted to empty string somehow, meh
-    //    const isFreeRatio = newAspect === '';
-    //    if (isFreeRatio) {
-    //        ctrl.coords = {
-    //            x1: 0,
-    //            y1: 0,
-    //            // fill the image with the selection
-    //            x2: ctrl.originalWidth,
-    //            y2: ctrl.originalHeight
-    //        };
-    //    }
-    //});
+    $scope.$watch('ctrl.aspect', (newAspect) => {
+        // freeRatio's 'null' gets converted to empty string somehow, meh
+        const isFreeRatio = newAspect === '';
+        if (isFreeRatio) {
+            ctrl.coords = {
+                x1: 0,
+                y1: 0,
+                // fill the image with the selection
+                x2: ctrl.originalWidth,
+                y2: ctrl.originalHeight
+            };
+        }
+    });
+
 
     const ratioString = (aspect) => {
         if (Number(aspect) === ctrl.landscapeRatio) {
@@ -118,15 +119,24 @@ crop.controller('ImageCropCtrl',
     ctrl.getRatioString = ratioString;
 
     // If we have a square crop, remove any jitter introduced by client lib by using only one side
-    if (ratioString === '1/1') {
+    if (ratioString === '1:1') {
         const sideLength = () => Math.round(ctrl.coords.x2 - ctrl.coords.x1);
-
         ctrl.cropWidth = sideLength;
         ctrl.cropHeight = sideLength;
     } else {
         ctrl.cropWidth = () => Math.round(ctrl.coords.x2 - ctrl.coords.x1);
         ctrl.cropHeight = () => Math.round(ctrl.coords.y2 - ctrl.coords.y1);
     }
+
+    ctrl.inputWidth = parseInt(ctrl.cropWidth());
+    ctrl.inputHeight = parseInt(ctrl.cropHeight());
+
+    ctrl.broadcastSizeChange = function (){
+        $scope.$broadcast("user-size-change", ctrl.inputWidth, ctrl.inputHeight);
+    };
+
+    $scope.$watch(function(){ return ctrl.cropWidth()}, function(){ ctrl.inputWidth = ctrl.cropWidth()});
+    $scope.$watch(function(){ return ctrl.cropHeight()}, function(){ ctrl.inputHeight = ctrl.cropHeight()});
 
     ctrl.cropSizeWarning = () => ctrl.cropWidth() < 500;
 
@@ -179,3 +189,4 @@ crop.controller('ImageCropCtrl',
          }
      };
 }]);
+

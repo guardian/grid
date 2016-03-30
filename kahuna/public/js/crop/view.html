@@ -8,9 +8,13 @@
 
     <gr-top-bar-actions>
         <div class="top-bar-item side-padded">
-            <form ng:submit="ctrl.updateCropWidth(value)">
-                <input value="{{ctrl.cropWidth()}}" ></input></form>
-            &times; {{ ctrl.cropHeight() }}
+            <form ng:submit="ctrl.broadcastSizeChange()">
+                <input ng:model="ctrl.inputWidth" />
+            </form>
+            &times;
+            <form ng:submit="ctrl.broadcastSizeChange()">
+                <input   ng:model="ctrl.inputHeight" />
+            </form>
         </div>
 
 
@@ -74,7 +78,6 @@
 </div>
 
 <div class="easel">
-    <div class="easel__canvas">
         <div class="easel__image-container">
             <img class="easel__image"
                  alt="original image to crop"
@@ -93,5 +96,4 @@
                  gr:image-fade-on-load
             />
         </div>
-    </div>
 </div>
