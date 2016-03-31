@@ -1411,7 +1411,8 @@ FIXME: what to do with touch devices
 
 .easel__image-container {
     display: inline-block;
-    height: 100%;
+    height: calc(100% - 40px);
+    padding: 10px;
 }
 
 .easel__image {

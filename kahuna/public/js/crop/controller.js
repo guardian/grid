@@ -132,17 +132,17 @@ crop.controller('ImageCropCtrl',
     ctrl.inputHeight = parseInt(ctrl.cropHeight());
 
     ctrl.broadcastHeightChange = function (){
-        $scope.$broadcast("user-height-change", ctrl.inputHeight);
+        $scope.$broadcast('user-height-change', ctrl.inputHeight);
     };
     ctrl.broadcastWidthChange = function (){
-        $scope.$broadcast("user-width-change", ctrl.inputWidth);
+        $scope.$broadcast('user-width-change', ctrl.inputWidth);
     };
 
     //make the view match the ctrl value
-    $scope.$watch(function(){ return ctrl.cropWidth()}, function(){
+    $scope.$watch(function(){ return ctrl.cropWidth(); }, function(){
         ctrl.inputWidth = ctrl.cropWidth();
     });
-    $scope.$watch(function(){ return ctrl.cropHeight()}, function(){
+    $scope.$watch(function(){ return ctrl.cropHeight(); }, function(){
         ctrl.inputHeight = ctrl.cropHeight();
     });
 

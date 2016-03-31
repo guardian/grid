@@ -1,6 +1,4 @@
 import angular from 'angular';
-import jQuery from 'jquery';
-//import 'jcrop';
 import Cropper from 'fengyuanchen/cropperjs';
 
 export var cropBox = angular.module('ui.cropBox', []);
@@ -8,41 +6,13 @@ export var cropBox = angular.module('ui.cropBox', []);
 cropBox.directive('uiCropBox', ['$timeout', '$parse', 'safeApply', 'nextTick', 'delay',
                                 function($timeout, $parse, safeApply, nextTick, delay) {
 
-    // Annoyingly, AngularJS passes us values as strings,
-    // so we need to convert them, which can potentially
-    // fail.
-    function to(mapper) {
-        return function(func) {
-            return function(value) {
-                try {
-                    var mappedValue;
-                    // don't try to convert undefined
-                    if (typeof value !== 'undefined') {
-                        mappedValue = mapper(value);
-                    }
-                    func(mappedValue);
-                } catch (e) {
-                    throw new Error(`Non float value ${value} where float expected`);
-                }
-            };
-        };
-    }
-
-    var asFloat = to(parseFloat);
-    var asInt = to(function(s){ return parseInt(s, 10); });
-
-
     return {
         restrict: 'A',
         scope: {
             coords:         '=uiCropBox',
             aspectRatio:    '=uiCropBoxAspect',
             originalWidth:  '=uiCropBoxOriginalWidth',
-            originalHeight: '=uiCropBoxOriginalHeight',
-            minSize:        '=uiCropBoxMinSize',
-            maxSize:        '=uiCropBoxMaxSize',
-            bgColor:        '=uiCropBoxBackgroundColor',
-            bgOpacity:      '=uiCropBoxBackgroundOpacity',
+            originalHeight: '=uiCropBoxOriginalHeight'
         },
         link: function (scope, element) {
             var cropper;
@@ -61,15 +31,15 @@ cropBox.directive('uiCropBox', ['$timeout', '$parse', 'safeApply', 'nextTick', '
             // thus stretching the image.
             element.on('load', () => delay(100).then(install));
 
-            let previewImg;
-            let widthRatio;
-            let heightRatio;
+            var previewImg;
+            var widthRatio;
+            var heightRatio;
 
             function install() {
 
                 const image = element[0];
                 const options = {
-                    viewMode: 1,
+                    viewMode: 4,
                     movable: false,
                     scalable: false,
                     zoomable: false,
@@ -87,6 +57,7 @@ cropBox.directive('uiCropBox', ['$timeout', '$parse', 'safeApply', 'nextTick', '
             function destroy() {
                 if (cropper) {
                     cropper.destroy();
+                    cropper = null;
                 }
             }
 
@@ -109,7 +80,7 @@ cropBox.directive('uiCropBox', ['$timeout', '$parse', 'safeApply', 'nextTick', '
             }
 
 
-            // Once initialised, sync all options to cropprjs
+            // Once initialised, sync all options to cropperjs
             function postInit(cropper) {
                 scope.$watch('aspectRatio', function(aspectRatio) {
                     cropper.setAspectRatio(aspectRatio);
@@ -125,6 +96,7 @@ cropBox.directive('uiCropBox', ['$timeout', '$parse', 'safeApply', 'nextTick', '
                     cropper.setData({ height: newHeight });
 
                 });
+
                 scope.$on('$destroy', destroy);
             }
         }
