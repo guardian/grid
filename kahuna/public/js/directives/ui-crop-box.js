@@ -44,6 +44,7 @@ cropBox.directive('uiCropBox', ['$timeout', '$parse', 'safeApply', 'nextTick', '
                     scalable: false,
                     zoomable: false,
                     background: false,
+                    responsive: false,
                     crop: update,
                     built: getRatio
                 };
