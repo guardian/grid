@@ -1,5 +1,5 @@
 import angular from 'angular';
-import Cropper from 'fengyuanchen/cropperjs';
+import Cropper from 'cropperjs';
 
 export var cropBox = angular.module('ui.cropBox', []);
 
