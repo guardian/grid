@@ -9,12 +9,12 @@
     <gr-top-bar-actions>
         <div class="top-bar-item side-padded">{{ ctrl.cropWidth() }} &times; {{ ctrl.cropHeight() }}</div>
 
-        <label class="top-bar-item clickable side-padded" gr-tooltip="landscape [L]">
+        <label class="top-bar-item clickable side-padded" gr-tooltip="landscape [l]">
             <input type="radio" ng:model="ctrl.aspect" value="{{ctrl.landscapeRatio}}"/>
             <gr-icon>crop_landscape</gr-icon><span class="top-bar-item__label">Landscape</span> ({{::ctrl.getRatioString(ctrl.landscapeRatio)}})
         </label>
 
-        <label class="top-bar-item clickable side-padded" gr-tooltip="portrait [P]">
+        <label class="top-bar-item clickable side-padded" gr-tooltip="portrait [p]">
             <input type="radio" ng:model="ctrl.aspect" value="{{ctrl.portraitRatio}}" />
             <gr-icon>crop_portrait</gr-icon><span class="top-bar-item__label">Portrait</span> ({{::ctrl.getRatioString(ctrl.portraitRatio)}})
         </label>
@@ -24,7 +24,7 @@
             <gr-icon>crop_16_9</gr-icon><span class="top-bar-item__label">Video</span> ({{::ctrl.getRatioString(ctrl.videoRatio)}})
         </label>
 
-        <label class="top-bar-item clickable side-padded" gr-tooltip="square [v]">
+        <label class="top-bar-item clickable side-padded" gr-tooltip="square [s]">
             <input type="radio" ng:model="ctrl.aspect" value="{{ctrl.squareRatio}}" />
             <gr-icon>crop_square</gr-icon><span class="top-bar-item__label">Square</span> ({{::ctrl.getRatioString(ctrl.squareRatio)}})
         </label>
