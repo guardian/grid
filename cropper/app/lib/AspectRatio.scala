@@ -12,6 +12,10 @@ object AspectRatio {
     Ratio("1:1", 1, 1)
   )
 
+  def clean(aspect: String): Option[Float] = knownRatios
+    .find(_.friendly == aspect)
+    .map(ratio => (ratio.width.toFloat/ratio.height.toFloat))
+
   @tailrec
   def gcd(a: Int, b: Int): Int = if (b == 0) a else gcd(b, a % b)
 
