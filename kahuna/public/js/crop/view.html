@@ -8,15 +8,14 @@
 
     <gr-top-bar-actions>
         <div class="top-bar-item side-padded">
-            <form ng:submit="ctrl.broadcastSizeChange()">
-                <input ng:model="ctrl.inputWidth" />
+            <form class="top-bar-item__form" ng:submit="ctrl.broadcastWidthChange()">
+                <input class="top-bar-item__form__input" ng:model="ctrl.inputWidth" />
             </form>
             &times;
-            <form ng:submit="ctrl.broadcastSizeChange()">
-                <input   ng:model="ctrl.inputHeight" />
+            <form class="top-bar-item__form" ng:disabled="ctrl.freeRatio" ng:submit="ctrl.broadcastHeightChange()">
+                <input class="top-bar-item__form__input" ng:model="ctrl.inputHeight" />
             </form>
         </div>
-
 
         <label class="top-bar-item clickable side-padded" gr-tooltip="landscape [L]">
             <input type="radio" ng:model="ctrl.aspect" value="{{ctrl.landscapeRatio}}"/>
@@ -78,6 +77,7 @@
 </div>
 
 <div class="easel">
+    <div class="easel__canvas">
         <div class="easel__image-container">
             <img class="easel__image"
                  alt="original image to crop"
@@ -96,4 +96,5 @@
                  gr:image-fade-on-load
             />
         </div>
+    </div>
 </div>

@@ -45,6 +45,7 @@ cropBox.directive('uiCropBox', ['$timeout', '$parse', 'safeApply', 'nextTick', '
             bgOpacity:      '=uiCropBoxBackgroundOpacity',
         },
         link: function (scope, element) {
+            var cropper;
 
             if (typeof scope.coords !== 'object') {
                 throw new Error('The uiCropBox directive requires an object as parameter');
@@ -74,16 +75,12 @@ cropBox.directive('uiCropBox', ['$timeout', '$parse', 'safeApply', 'nextTick', '
                     zoomable: false,
                     background: false,
                     crop: update,
+                    built: getRatio
                 };
 
-                const cropper = new Cropper(image, options);
+                cropper = new Cropper(image, options);
 
                 postInit(cropper);
-                image.addEventListener('built', function () {
-                    previewImg = cropper.getCanvasData();
-                    widthRatio = scope.originalWidth / previewImg.naturalWidth;
-                    heightRatio = scope.originalHeight / previewImg.naturalHeight;
-                });
 
             }
 
@@ -93,10 +90,13 @@ cropBox.directive('uiCropBox', ['$timeout', '$parse', 'safeApply', 'nextTick', '
                 }
             }
 
-            function update(c) {
-                console.log(c.detail);
-                console.log('update w', widthRatio, 'update h', heightRatio);
+            function getRatio() {
+                previewImg = cropper.getCanvasData();
+                widthRatio = scope.originalWidth / previewImg.naturalWidth;
+                heightRatio = scope.originalHeight / previewImg.naturalHeight;
+            }
 
+            function update(c) {
                 // Can be triggered from within a $digest cycle
                 // (e.g. redraw after aspect changed) or not (user
                 // interaction)
@@ -112,17 +112,18 @@ cropBox.directive('uiCropBox', ['$timeout', '$parse', 'safeApply', 'nextTick', '
             // Once initialised, sync all options to cropprjs
             function postInit(cropper) {
                 scope.$watch('aspectRatio', function(aspectRatio) {
-                    console.log("aspect changing!!!!!", aspectRatio, cropper);
                     cropper.setAspectRatio(aspectRatio);
                 });
 
-                scope.$on('user-size-change', function(event, width, height){
-                    console.log("user changed size: change!", width, cropper)
-                    //const x2 = scope.coords.x1 + parseInt(width);
-                    cropper.cropBoxData.width = (parseInt(width) / widthRatio);
-                    cropper.cropBoxData.height = (parseInt(height) / heightRatio);
-                    //cropper.getCropBoxData();
-                    cropper.renderCropBox();
+                scope.$on('user-width-change', function(event, width){
+                    let newWidth = (parseInt(width) / widthRatio);
+                    cropper.setData({ width: newWidth });
+
+                });
+                scope.$on('user-height-change', function(event, height){
+                    let newHeight = (parseInt(height) / heightRatio);
+                    cropper.setData({ height: newHeight });
+
                 });
                 scope.$on('$destroy', destroy);
             }

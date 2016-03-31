@@ -131,12 +131,20 @@ crop.controller('ImageCropCtrl',
     ctrl.inputWidth = parseInt(ctrl.cropWidth());
     ctrl.inputHeight = parseInt(ctrl.cropHeight());
 
-    ctrl.broadcastSizeChange = function (){
-        $scope.$broadcast("user-size-change", ctrl.inputWidth, ctrl.inputHeight);
+    ctrl.broadcastHeightChange = function (){
+        $scope.$broadcast("user-height-change", ctrl.inputHeight);
+    };
+    ctrl.broadcastWidthChange = function (){
+        $scope.$broadcast("user-width-change", ctrl.inputWidth);
     };
 
-    $scope.$watch(function(){ return ctrl.cropWidth()}, function(){ ctrl.inputWidth = ctrl.cropWidth()});
-    $scope.$watch(function(){ return ctrl.cropHeight()}, function(){ ctrl.inputHeight = ctrl.cropHeight()});
+    //make the view match the ctrl value
+    $scope.$watch(function(){ return ctrl.cropWidth()}, function(){
+        ctrl.inputWidth = ctrl.cropWidth();
+    });
+    $scope.$watch(function(){ return ctrl.cropHeight()}, function(){
+        ctrl.inputHeight = ctrl.cropHeight();
+    });
 
     ctrl.cropSizeWarning = () => ctrl.cropWidth() < 500;
 
