@@ -34,10 +34,11 @@ object Crops {
       strip <- ImageOperations.cropImage(sourceFile, source.bounds, 100d, Config.tempDir, iccColourSpace, colourModel)
       file  <- ImageOperations.appendMetadata(strip, metadata)
 
-      dimensions = Dimensions(source.bounds.width, source.bounds.height)
-      filename   = outputFilename(apiImage, source.bounds, dimensions.width, true)
-      sizing     = CropStore.storeCropSizing(file, filename, mediaType, crop, dimensions)
-      aspect     = source.bounds.width.toFloat / source.bounds.height
+      dimensions  = Dimensions(source.bounds.width, source.bounds.height)
+      filename    = outputFilename(apiImage, source.bounds, dimensions.width, true)
+      sizing      = CropStore.storeCropSizing(file, filename, mediaType, crop, dimensions)
+      dirtyAspect = source.bounds.width.toFloat / source.bounds.height
+      aspect      = crop.specification.aspectRatio.flatMap(AspectRatio.clean(_)).getOrElse(dirtyAspect)
     }
     yield MasterCrop(sizing, file, dimensions, aspect)
   }
