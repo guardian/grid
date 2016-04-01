@@ -86,6 +86,7 @@ class QuerySyntax(val input: ParserInput) extends Parser with ImageFields {
     "status" | "platform" | "section" | "publication" | "orderedBy"
   }
   def AllowedFieldName = rule {
+    "illustrator" |
     "uploader" |
     "location" | "city" | "state" | "country" | "in" |
     "byline" | "by" | "photographer" |
@@ -102,6 +103,7 @@ class QuerySyntax(val input: ParserInput) extends Parser with ImageFields {
   }
 
   def resolveNamedField(name: String): Field = (name match {
+    case "illustrator"         => "credit"
     case "uploader"            => "uploadedBy"
     case "label"               => "labels"
     case "collection"          => "suppliersCollection"
