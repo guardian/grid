@@ -27,7 +27,7 @@ export function getLabel(name) {
 }
 
 export function getCollection(path) {
-    return `~"${path}"`
+    return `~"${path}"`;
 }
 
 export function getCollectionsFromQuery(q) {
