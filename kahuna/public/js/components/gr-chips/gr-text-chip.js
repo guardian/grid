@@ -39,16 +39,17 @@ grTextChip.controller('grTextChipCtrl', function() {
         const caretStart = target.selectionStart;
         const input = target.value;
         const noCharBefore = caretStart === 0 || input[caretStart - 1] === ' ';
+        const noCharAfter = (input[caretStart] === ' ') || (input[caretStart] === undefined);
 
-        // if not within a word
-        if (noCharBefore) {
+        // if not within a word, just before or just after
+        if (noCharBefore && noCharAfter) {
             switch (char) {
             case '+':
-                insertAndFocusFilterChooser('inclusion', caretStart, caretStart);
+                insertAndFocusFilterChooser('inclusion');
                 event.preventDefault();
                 break;
             case '-':
-                insertAndFocusFilterChooser('exclusion', caretStart, caretStart);
+                insertAndFocusFilterChooser('exclusion');
                 event.preventDefault();
                 break;
             case '#':
@@ -72,29 +73,19 @@ grTextChip.controller('grTextChipCtrl', function() {
         }
     };
 
-    function insertAndFocus(newChip, splitStart, splitEnd) {
-        const chip = $grChipCtrl.chip;
-        const textUntil = chip.value.slice(0, splitStart).trimRight();
-        const textAfter = chip.value.slice(splitEnd).trimLeft();
+    function insertAndFocus(newChip) {
+        const newChips = [newChip];
 
-        const remainderChip = textAfter && {
-            type: 'text',
-            value: textAfter
-        };
-        const newChips = remainderChip ? [newChip, remainderChip] : [newChip];
-
-        chip.value = textUntil;
-
-        $grChipsCtrl.insertChips(chip, newChips);
-        $grChipsCtrl.focusEndOfLastChip(chip); //newly created chip will be last
+        $grChipsCtrl.insertChips(newChips);
+        $grChipsCtrl.focusEndOfLastChip(); //newly created chip will be last
     }
 
-    function insertAndFocusFilterChooser(filterType, splitStart) {
+    function insertAndFocusFilterChooser(filterType) {
         insertAndFocus({
             type: 'filter-chooser',
             filterType: filterType,
             value: ''
-        }, splitStart, splitStart);
+        });
     }
 
     function insertAndFocusFilter(filterType, key, splitStart, splitEnd) {
