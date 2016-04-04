@@ -79,7 +79,7 @@
 <div class="easel">
     <div class="easel__canvas">
         <div class="easel__image-container">
-            <img class="easel__image"
+            <img class="easel__image easel__image--cropper"
                  alt="original image to crop"
                  ng:src="{{ctrl.optimisedImageUri}}"
                  ui:crop-box="ctrl.coords"
@@ -90,8 +90,6 @@
                  grid:track-image="ctrl.image"
                  grid:track-image-location="original-cropping"
                  grid:track-image-loadtime
-
-                 gr:image-fade-on-load
             />
         </div>
     </div>
