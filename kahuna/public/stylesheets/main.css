@@ -437,7 +437,7 @@ textarea.ng-invalid {
     border: 1px solid #999;
     padding: 5px;
     box-sizing: border-box;
-    max-width: 45px; /*width of four digits for pixel width and height */
+    max-width: 65px; /*width of four digits for pixel width and height */
 }
 
 .user-actions {
@@ -1420,6 +1420,10 @@ FIXME: what to do with touch devices
     transform: translateY(-50%);
     max-width: calc(100% - 20px); /* 20px here for padding */
     max-height: calc(100vh - 68px);
+}
+
+.easel__image--cropper {
+    visibility: hidden;
 }
 
 .image-details {
