@@ -1403,12 +1403,13 @@ FIXME: what to do with touch devices
 .easel__canvas {
     height: calc(100vh - 50px); /* viewport - top-bar */
     vertical-align: middle;
+    overflow: hidden;
 }
 
 .easel__image-container {
     /*style rules also affect the cropper preview*/
     display: inline-block;
-    height: calc(100%);
+    height: 100%;
 }
 
 .easel__image {
