@@ -34,6 +34,8 @@ import {globalErrors} from './errors/global';
 import {icon}    from './components/gr-icon/gr-icon';
 import {tooltip} from './components/gr-tooltip/gr-tooltip';
 
+import jQuery from 'jquery';
+
 
 // TODO: move to an async config to remove deps on play
 var apiLink = document.querySelector('link[rel="media-api-uri"]');
