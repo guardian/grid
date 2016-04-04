@@ -102,6 +102,7 @@ crop.controller('ImageCropCtrl',
         }
     });
 
+
     const ratioString = (aspect) => {
         if (Number(aspect) === ctrl.landscapeRatio) {
             return '5:3';
@@ -120,13 +121,30 @@ crop.controller('ImageCropCtrl',
     // If we have a square crop, remove any jitter introduced by client lib by using only one side
     if (ratioString === '1:1') {
         const sideLength = () => Math.round(ctrl.coords.x2 - ctrl.coords.x1);
-
         ctrl.cropWidth = sideLength;
         ctrl.cropHeight = sideLength;
     } else {
         ctrl.cropWidth = () => Math.round(ctrl.coords.x2 - ctrl.coords.x1);
         ctrl.cropHeight = () => Math.round(ctrl.coords.y2 - ctrl.coords.y1);
     }
+
+    ctrl.inputWidth = parseInt(ctrl.cropWidth());
+    ctrl.inputHeight = parseInt(ctrl.cropHeight());
+
+    ctrl.broadcastHeightChange = function (){
+        $scope.$broadcast('user-height-change', ctrl.inputHeight);
+    };
+    ctrl.broadcastWidthChange = function (){
+        $scope.$broadcast('user-width-change', ctrl.inputWidth);
+    };
+
+    //make the view match the ctrl value
+    $scope.$watch(function(){ return ctrl.cropWidth(); }, function(){
+        ctrl.inputWidth = ctrl.cropWidth();
+    });
+    $scope.$watch(function(){ return ctrl.cropHeight(); }, function(){
+        ctrl.inputHeight = ctrl.cropHeight();
+    });
 
     ctrl.cropSizeWarning = () => ctrl.cropWidth() < 500;
 
@@ -179,3 +197,4 @@ crop.controller('ImageCropCtrl',
          }
      };
 }]);
+
