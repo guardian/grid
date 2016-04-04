@@ -11,6 +11,8 @@
             <form class="top-bar-item__form">
                 <input
                     type="number"
+                    min="1"
+                    max="{{ctrl.originalWidth}}"
                     class="top-bar-item__form__input"
                     ng:model="ctrl.inputWidth"
                     ng:change="ctrl.broadcastWidthChange()"/>
@@ -19,6 +21,8 @@
             <form class="top-bar-item__form" ng:disabled="ctrl.freeRatio">
                 <input
                     type="number"
+                    min="1"
+                    max="{{ctrl.originalHeight}}"
                     class="top-bar-item__form__input"
                     ng:model="ctrl.inputHeight"
                     ng:change="ctrl.broadcastHeightChange()"/>
