@@ -8,12 +8,20 @@
 
     <gr-top-bar-actions>
         <div class="top-bar-item side-padded">
-            <form class="top-bar-item__form" ng:submit="ctrl.broadcastWidthChange()">
-                <input class="top-bar-item__form__input" ng:model="ctrl.inputWidth" />
+            <form class="top-bar-item__form">
+                <input
+                    type="number"
+                    class="top-bar-item__form__input"
+                    ng:model="ctrl.inputWidth"
+                    ng:change="ctrl.broadcastWidthChange()"/>
             </form>
             &times;
-            <form class="top-bar-item__form" ng:disabled="ctrl.freeRatio" ng:submit="ctrl.broadcastHeightChange()">
-                <input class="top-bar-item__form__input" ng:model="ctrl.inputHeight" />
+            <form class="top-bar-item__form" ng:disabled="ctrl.freeRatio">
+                <input
+                    type="number"
+                    class="top-bar-item__form__input"
+                    ng:model="ctrl.inputHeight"
+                    ng:change="ctrl.broadcastHeightChange()"/>
             </form>
         </div>
 
