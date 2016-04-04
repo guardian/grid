@@ -17,12 +17,12 @@
             </form>
         </div>
 
-        <label class="top-bar-item clickable side-padded" gr-tooltip="landscape [L]">
+        <label class="top-bar-item clickable side-padded" gr-tooltip="landscape [l]">
             <input type="radio" ng:model="ctrl.aspect" value="{{ctrl.landscapeRatio}}"/>
             <gr-icon-label gr-icon="crop_landscape">Landscape</gr-icon-label> ({{::ctrl.getRatioString(ctrl.landscapeRatio)}})
         </label>
 
-        <label class="top-bar-item clickable side-padded" gr-tooltip="portrait [P]">
+        <label class="top-bar-item clickable side-padded" gr-tooltip="portrait [p]">
             <input type="radio" ng:model="ctrl.aspect" value="{{ctrl.portraitRatio}}" />
             <gr-icon-label gr-icon="crop_portrait">Portrait</gr-icon-label> ({{::ctrl.getRatioString(ctrl.portraitRatio)}})
         </label>
@@ -32,7 +32,7 @@
             <gr-icon-label gr-icon="crop_16_9">Video</gr-icon-label> ({{::ctrl.getRatioString(ctrl.videoRatio)}})
         </label>
 
-        <label class="top-bar-item clickable side-padded" gr-tooltip="square [v]">
+        <label class="top-bar-item clickable side-padded" gr-tooltip="square [s]">
             <input type="radio" ng:model="ctrl.aspect" value="{{ctrl.squareRatio}}" />
             <gr-icon-label gr-icon="crop_square">Square</gr-icon-label> ({{::ctrl.getRatioString(ctrl.squareRatio)}})
         </label>

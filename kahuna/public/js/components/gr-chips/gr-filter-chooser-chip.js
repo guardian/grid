@@ -52,9 +52,12 @@ grFilterChooserChip.controller('grFilterChooserChipCtrl', function() {
                 // dropdown which blurred the current chip
                 $grChipsCtrl.setFocusedChip(filterChip);
             } else {
+                // If text search included negation, replace it
+                const prepend = (chip.filterType === 'exclusion' ? '-' : '');
+
                 // Not a key, turn it back to text search
                 $grFilterChooserChipCtrl.removeSelf();
-                $grChipsCtrl.items[0].value += (' ' + value);
+                $grChipsCtrl.items[0].value += (' ' + prepend + value);
                 $grChipsCtrl.focusEndOfFirstChip();
             }
         }

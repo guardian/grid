@@ -6,6 +6,7 @@ import com.gu.mediaservice.model.Collection
 
 object CollectionsManager {
   val delimiter = "/"
+  val doublequotes = "\""
 
   def stringToPath(s: String) = s.split(delimiter).toList
   def pathToString(path: List[String]) = path.mkString(delimiter)
@@ -38,7 +39,7 @@ object CollectionsManager {
     }
 
   // We could use `ValidationNel`s here, but that's overkill
-  def isValidPathBit(s: String) = if (s.contains(delimiter)) false else true
+  def isValidPathBit(s: String) = if (s.contains(delimiter) || s.contains(doublequotes)) false else true
 
   val collectionColours = Map(
     "australia"    -> "#ffb93e",

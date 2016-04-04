@@ -130,7 +130,7 @@ object CollectionsController extends Controller with ArgoHelpers {
           case e: CollectionsStoreError => storeError(e.message)
         }
       } else {
-        Future.successful(respondError(BadRequest, "invalid-input", "You cannot have slashes in your path name"))
+        Future.successful(respondError(BadRequest, "invalid-input", "You cannot have slashes or double quotes in your path name"))
       }
     } getOrElse Future.successful(invalidJson(req.body))
   }

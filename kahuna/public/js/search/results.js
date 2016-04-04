@@ -304,7 +304,9 @@ results.controller('SearchResultsCtrl', [
             return mediaApi.search($stateParams.query, angular.extend({
                 ids:        $stateParams.ids,
                 archived:   $stateParams.archived,
-                payType:    $stateParams.payType || 'free',
+                free:       $stateParams.nonFree === 'true' ? undefined: true,
+                // Disabled while paytype filter unavailable
+                //payType:    $stateParams.payType || 'free',
                 uploadedBy: $stateParams.uploadedBy,
                 takenSince: $stateParams.takenSince,
                 takenUntil: $stateParams.takenUntil,
