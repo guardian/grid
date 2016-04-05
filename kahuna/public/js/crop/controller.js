@@ -128,6 +128,28 @@ crop.controller('ImageCropCtrl',
         ctrl.cropHeight = () => Math.round(ctrl.coords.y2 - ctrl.coords.y1);
     }
 
+    ctrl.inputWidth = parseInt(ctrl.cropWidth());
+    ctrl.inputHeight = parseInt(ctrl.cropHeight());
+
+    ctrl.coordsChange = function (){
+        const coords = {
+            x1: ctrl.coords.x1,
+            y1: ctrl.coords.y1,
+            x2: ctrl.coords.x1 + ctrl.inputWidth,
+            y2: ctrl.coords.y1 + ctrl.inputHeight
+        }
+        console.log(coords);
+        $scope.$broadcast('coords-change', coords);
+    };
+
+    //make the view match the ctrl value
+    $scope.$watch(function(){ return ctrl.cropWidth(); }, function(){
+        ctrl.inputWidth = ctrl.cropWidth();
+    });
+    $scope.$watch(function(){ return ctrl.cropHeight(); }, function(){
+        ctrl.inputHeight = ctrl.cropHeight();
+    });
+
     ctrl.cropSizeWarning = () => ctrl.cropWidth() < 500;
 
     ctrl.getRatioString = (aspect) => {
@@ -144,8 +166,7 @@ crop.controller('ImageCropCtrl',
     };
 
      function crop() {
-         // TODO: show crop
-         var coords = {
+        var coords = {
              x: Math.round(ctrl.coords.x1),
              y: Math.round(ctrl.coords.y1),
              width:  ctrl.cropWidth(),

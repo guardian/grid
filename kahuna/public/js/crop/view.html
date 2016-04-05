@@ -7,7 +7,27 @@
     </gr-top-bar-nav>
 
     <gr-top-bar-actions>
-        <div class="top-bar-item side-padded">{{ ctrl.cropWidth() }} &times; {{ ctrl.cropHeight() }}</div>
+        <div class="top-bar-item side-padded">
+            <form class="top-bar-item__form">
+                <input
+                    type="number"
+                    min="1"
+                    max="{{ctrl.originalWidth}}"
+                    class="top-bar-item__form__input"
+                    ng:model="ctrl.inputWidth"
+                    ng:change="ctrl.coordsChange()"/>
+            </form>
+            &times;
+            <form class="top-bar-item__form" ng:disabled="ctrl.freeRatio">
+                <input
+                    type="number"
+                    min="1"
+                    max="{{ctrl.originalHeight}}"
+                    class="top-bar-item__form__input"
+                    ng:model="ctrl.inputHeight"
+                    ng:change="ctrl.coordsChange()"/>
+            </form>
+        </div>
 
         <label class="top-bar-item clickable side-padded" gr-tooltip="landscape [l]">
             <input type="radio" ng:model="ctrl.aspect" value="{{ctrl.landscapeRatio}}"/>

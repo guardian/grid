@@ -431,6 +431,20 @@ textarea.ng-invalid {
     border-right: 2px solid #565656;
 }
 
+.top-bar-item__form {
+    display: inline-flex;
+}
+
+.top-bar-item__form__input {
+    background-color: #444;
+    color: #ccc;
+    border: 1px solid #999;
+    padding: 5px;
+    box-sizing: border-box;
+    max-width: 65px; /*width of four digits for pixel width and height */
+}
+
+
 .user-actions {
     margin-right: -10px;
     padding: 0 5px;
