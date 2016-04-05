@@ -113,6 +113,10 @@ cropBox.directive('uiCropBox', ['$timeout', '$parse', 'safeApply', 'nextTick', '
 
             // Once initialised, sync all options to Jcrop
             function postInit() {
+                scope.$on('coords-change', function(e, coords) {
+                    jcropInstance.setSelect(coordsToSelectArray(coords));
+                });
+
                 scope.$watch('coords', function(coords) {
                     jcropInstance.setSelect(coordsToSelectArray(coords));
                 });
