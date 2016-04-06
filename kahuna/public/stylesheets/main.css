@@ -1410,6 +1410,7 @@ FIXME: what to do with touch devices
     /*style rules also affect the cropper preview*/
     display: inline-block;
     height: 100%;
+    width: 100%;
 }
 
 .easel__image {
