@@ -3,35 +3,55 @@
         <a class="top-bar-item clickable side-padded"
            ui:sref="image({ imageId: ctrl.image.data.id })"
            gr-tooltip="cancel [esc]">
-            <gr-icon>cancel</gr-icon><span class="top-bar-item__label">Cancel</span></a>
+            <gr-icon-label gr-icon="cancel">Cancel</gr-icon-label></a>
     </gr-top-bar-nav>
 
     <gr-top-bar-actions>
-        <div class="top-bar-item side-padded">{{ ctrl.cropWidth() }} &times; {{ ctrl.cropHeight() }}</div>
+        <div class="top-bar-item side-padded">
+            <form class="top-bar-item__form">
+                <input
+                    type="number"
+                    min="1"
+                    max="{{ctrl.originalWidth}}"
+                    class="top-bar-item__form__input"
+                    ng:model="ctrl.inputWidth"
+                    ng:change="ctrl.broadcastWidthChange()"/>
+            </form>
+            &times;
+            <form class="top-bar-item__form" ng:disabled="ctrl.freeRatio">
+                <input
+                    type="number"
+                    min="1"
+                    max="{{ctrl.originalHeight}}"
+                    class="top-bar-item__form__input"
+                    ng:model="ctrl.inputHeight"
+                    ng:change="ctrl.broadcastHeightChange()"/>
+            </form>
+        </div>
 
         <label class="top-bar-item clickable side-padded" gr-tooltip="landscape [l]">
             <input type="radio" ng:model="ctrl.aspect" value="{{ctrl.landscapeRatio}}"/>
-            <gr-icon>crop_landscape</gr-icon><span class="top-bar-item__label">Landscape</span> ({{::ctrl.getRatioString(ctrl.landscapeRatio)}})
+            <gr-icon-label gr-icon="crop_landscape">Landscape</gr-icon-label> ({{::ctrl.getRatioString(ctrl.landscapeRatio)}})
         </label>
 
         <label class="top-bar-item clickable side-padded" gr-tooltip="portrait [p]">
             <input type="radio" ng:model="ctrl.aspect" value="{{ctrl.portraitRatio}}" />
-            <gr-icon>crop_portrait</gr-icon><span class="top-bar-item__label">Portrait</span> ({{::ctrl.getRatioString(ctrl.portraitRatio)}})
+            <gr-icon-label gr-icon="crop_portrait">Portrait</gr-icon-label> ({{::ctrl.getRatioString(ctrl.portraitRatio)}})
         </label>
 
         <label class="top-bar-item clickable side-padded" gr-tooltip="video [v]">
             <input type="radio" ng:model="ctrl.aspect" value="{{ctrl.videoRatio}}" />
-            <gr-icon>crop_16_9</gr-icon><span class="top-bar-item__label">Video</span> ({{::ctrl.getRatioString(ctrl.videoRatio)}})
+            <gr-icon-label gr-icon="crop_16_9">Video</gr-icon-label> ({{::ctrl.getRatioString(ctrl.videoRatio)}})
         </label>
 
         <label class="top-bar-item clickable side-padded" gr-tooltip="square [s]">
             <input type="radio" ng:model="ctrl.aspect" value="{{ctrl.squareRatio}}" />
-            <gr-icon>crop_square</gr-icon><span class="top-bar-item__label">Square</span> ({{::ctrl.getRatioString(ctrl.squareRatio)}})
+            <gr-icon-label gr-icon="crop_square">Square</gr-icon-label> ({{::ctrl.getRatioString(ctrl.squareRatio)}})
         </label>
 
         <label class="top-bar-item clickable side-padded" gr-tooltip="free-form [F]">
             <input type="radio" ng:model="ctrl.aspect" value="{{ctrl.freeRatio}}" />
-            <gr-icon>crop_free</gr-icon><span class="top-bar-item__label">Free-form</span>
+            <gr-icon-label gr-icon="crop_free">Free-form</gr-icon-label>
         </label>
 
         <div class="top-bar-item" ng:switch="ctrl.image.data.cost">
@@ -57,7 +77,7 @@
                     ng:click="ctrl.callCrop()"
                     ng:disabled="ctrl.cropping"
                     gr-tooltip="Crop [enter]">
-                <gr-icon>crop</gr-icon><span class="top-bar-item__label">Crop<span ng:show="ctrl.cropping">ping…</span></span>
+                <gr-icon-label gr-icon="crop">Crop<span ng:show="ctrl.cropping">ping…</span></gr-icon-label>
             </button>
         </div>
     </gr-top-bar-actions>
@@ -70,20 +90,19 @@
 
 <div class="easel">
     <div class="easel__canvas">
-        <img class="easel__image"
-             alt="original image to crop"
-             ng:src="{{ctrl.optimisedImageUri}}"
-             ui:crop-box="ctrl.coords"
-             ui:crop-box-original-width="ctrl.originalWidth"
-             ui:crop-box-original-height="ctrl.originalHeight"
-             ui:crop-box-aspect="ctrl.aspect"
-             ui:crop-box-background-opacity="0.3"
+        <div class="easel__image-container">
+            <img class="easel__image easel__image--cropper"
+                 alt="original image to crop"
+                 ng:src="{{ctrl.optimisedImageUri}}"
+                 ui:crop-box="ctrl.coords"
+                 ui:crop-box-original-width="ctrl.originalWidth"
+                 ui:crop-box-original-height="ctrl.originalHeight"
+                 ui:crop-box-aspect="ctrl.aspect"
 
-             grid:track-image="ctrl.image"
-             grid:track-image-location="original-cropping"
-             grid:track-image-loadtime
-
-             gr:image-fade-on-load
-        />
+                 grid:track-image="ctrl.image"
+                 grid:track-image-location="original-cropping"
+                 grid:track-image-loadtime
+            />
+        </div>
     </div>
 </div>

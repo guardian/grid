@@ -19,11 +19,11 @@ System.config({
     "angular-ui-router-extras": "github:christopherthielen/ui-router-extras@0.0.14",
     "angular-xeditable": "github:vitalets/angular-xeditable@0.1.9",
     "clean-css": "npm:clean-css@3.4.8",
+    "cropperjs": "npm:cropperjs@0.7.0",
     "css": "github:systemjs/plugin-css@0.1.13",
     "github:tapmodo/Jcrop": "github:tapmodo/Jcrop@0.9.12",
     "immutable": "npm:immutable@3.7.5",
     "javascript-detect-element-resize": "github:sdecima/javascript-detect-element-resize@0.5.3",
-    "jcrop": "github:tapmodo/Jcrop@0.9.12",
     "jquery": "github:components/jquery@2.1.1",
     "jszip": "npm:jszip@2.5.0",
     "mixpanel-js": "github:mixpanel/mixpanel-js@2.4.2",
@@ -95,10 +95,6 @@ System.config({
     "github:jspm/nodelibs-util@0.1.0": {
       "util": "npm:util@0.10.3"
     },
-    "github:tapmodo/Jcrop@0.9.12": {
-      "css": "github:systemjs/plugin-css@0.1.13",
-      "jquery": "github:components/jquery@2.1.1"
-    },
     "github:vitalets/angular-xeditable@0.1.9": {
       "angular": "github:angular/bower-angular@1.4.3",
       "css": "github:systemjs/plugin-css@0.1.13"
@@ -149,6 +145,9 @@ System.config({
     },
     "npm:core-util-is@1.0.2": {
       "buffer": "github:jspm/nodelibs-buffer@0.1.0"
+    },
+    "npm:cropperjs@0.7.0": {
+      "css": "npm:system-css@0.1.0"
     },
     "npm:graceful-readlink@1.0.1": {
       "fs": "github:jspm/nodelibs-fs@0.1.2"
