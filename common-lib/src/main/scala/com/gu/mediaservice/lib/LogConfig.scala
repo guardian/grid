@@ -18,6 +18,7 @@ import play.api.LoggerLike
 import play.api.libs.json._
 
 import scalaz.syntax.id._
+import scala.util.Try
 
 
 object LogConfig {
@@ -49,7 +50,7 @@ object LogConfig {
 
   def init(config: CommonPlayAppConfig) = config.stage match {
     case "DEV" =>  rootLogger.info("Logging disabled in DEV")
-    case _  => {
+    case _  => Try {
       rootLogger.info("LogConfig initializing")
       rootLogger.info("Configuring Logback")
 
@@ -69,6 +70,8 @@ object LogConfig {
 
       rootLogger.addAppender(appender)
       rootLogger.info("Configured Logback")
+    } recover {
+      case e: Throwable => rootLogger.error("LogConfig Failed!", e)
     }
   }
 }
