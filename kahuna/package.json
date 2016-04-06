@@ -14,11 +14,11 @@
       "angular-ui-router-extras": "github:christopherthielen/ui-router-extras@^0.0.14",
       "angular-xeditable": "github:vitalets/angular-xeditable@^0.1.9",
       "clean-css": "npm:clean-css@^3.3.5",
+      "cropperjs": "npm:cropperjs@^0.7.0",
       "css": "github:systemjs/plugin-css@0.1.13",
       "github:tapmodo/Jcrop": "github:tapmodo/Jcrop@0.9.12",
       "immutable": "npm:immutable@^3.7.5",
       "javascript-detect-element-resize": "github:sdecima/javascript-detect-element-resize@^0.5.3",
-      "jcrop": "github:tapmodo/Jcrop@0.9.12",
       "jquery": "github:components/jquery@2.1.1",
       "jszip": "npm:jszip@2.5.0",
       "mixpanel-js": "github:mixpanel/mixpanel-js@^2.4.2",
@@ -49,6 +49,18 @@
               "./css/pikaday.css!"
             ]
           }
+        }
+      },
+      "npm:cropperjs@0.7.0": {
+        "main": "dist/cropper",
+        "jspmNodeConversion": false,
+        "dependencies": {
+          "css": "npm:system-css"
+        },
+        "shim": {
+          "dist/cropper": [
+            "./cropper.css!"
+          ]
         }
       }
     }

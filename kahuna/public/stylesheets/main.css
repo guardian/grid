@@ -419,16 +419,25 @@ textarea.ng-invalid {
     height: 50px;
 }
 
-.top-bar-item gr-icon-label {
-    padding: 0 10px;
-}
-
 .top-bar-item:first-child {
     margin-left: 0;
 }
 
 .top-bar-item:last-child {
     border-right: 2px solid #565656;
+}
+
+.top-bar-item__form {
+    display: inline-flex;
+}
+
+.top-bar-item__form__input {
+    background-color: #444;
+    color: #ccc;
+    border: 1px solid #999;
+    padding: 5px;
+    box-sizing: border-box;
+    max-width: 65px; /*width of four digits for pixel width and height */
 }
 
 .user-actions {
@@ -1394,11 +1403,14 @@ FIXME: what to do with touch devices
 .easel__canvas {
     height: calc(100vh - 50px); /* viewport - top-bar */
     vertical-align: middle;
+    overflow: hidden;
 }
 
 .easel__image-container {
-    display: block;
+    /*style rules also affect the cropper preview*/
+    display: inline-block;
     height: 100%;
+    width: 100%;
 }
 
 .easel__image {
@@ -1409,6 +1421,10 @@ FIXME: what to do with touch devices
     transform: translateY(-50%);
     max-width: calc(100% - 20px); /* 20px here for padding */
     max-height: calc(100vh - 68px);
+}
+
+.easel__image--cropper {
+    visibility: hidden;
 }
 
 .image-details {

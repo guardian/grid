@@ -1,35 +1,10 @@
 import angular from 'angular';
-import jQuery from 'jquery';
-import 'jcrop';
+import Cropper from 'cropperjs';
 
 export var cropBox = angular.module('ui.cropBox', []);
 
 cropBox.directive('uiCropBox', ['$timeout', '$parse', 'safeApply', 'nextTick', 'delay',
                                 function($timeout, $parse, safeApply, nextTick, delay) {
-
-    // Annoyingly, AngularJS passes us values as strings,
-    // so we need to convert them, which can potentially
-    // fail.
-    function to(mapper) {
-        return function(func) {
-            return function(value) {
-                try {
-                    var mappedValue;
-                    // don't try to convert undefined
-                    if (typeof value !== 'undefined') {
-                        mappedValue = mapper(value);
-                    }
-                    func(mappedValue);
-                } catch (e) {
-                    throw new Error(`Non float value ${value} where float expected`);
-                }
-            };
-        };
-    }
-
-    var asFloat = to(parseFloat);
-    var asInt = to(function(s){ return parseInt(s, 10); });
-
 
     return {
         restrict: 'A',
@@ -37,15 +12,10 @@ cropBox.directive('uiCropBox', ['$timeout', '$parse', 'safeApply', 'nextTick', '
             coords:         '=uiCropBox',
             aspectRatio:    '=uiCropBoxAspect',
             originalWidth:  '=uiCropBoxOriginalWidth',
-            originalHeight: '=uiCropBoxOriginalHeight',
-            minSize:        '=uiCropBoxMinSize',
-            maxSize:        '=uiCropBoxMaxSize',
-            bgColor:        '=uiCropBoxBackgroundColor',
-            bgOpacity:      '=uiCropBoxBackgroundOpacity'
+            originalHeight: '=uiCropBoxOriginalHeight'
         },
         link: function (scope, element) {
-            var jcropInstance;
-            var $el = jQuery(element[0]);
+            var cropper;
 
             if (typeof scope.coords !== 'object') {
                 throw new Error('The uiCropBox directive requires an object as parameter');
@@ -61,32 +31,42 @@ cropBox.directive('uiCropBox', ['$timeout', '$parse', 'safeApply', 'nextTick', '
             // thus stretching the image.
             element.on('load', () => delay(100).then(install));
 
+            var previewImg;
+            var widthRatio;
+            var heightRatio;
+
             function install() {
-                var initialCoords = coordsToSelectArray(scope.coords);
 
-                var trueSize;
-                if (scope.originalWidth && scope.originalHeight) {
-                    trueSize = [scope.originalWidth, scope.originalHeight];
-                }
+                const image = element[0];
+                const options = {
+                    viewMode: 1,
+                    movable: false,
+                    scalable: false,
+                    zoomable: false,
+                    background: false,
+                    responsive: false,
+                    autoCropArea: 1,
+                    crop: update,
+                    built: getRatio
+                };
 
-                $el.Jcrop({
-                    onChange: update,
-                    onSelect: update,
-                    setSelect: initialCoords,
-                    trueSize: trueSize
-                }, function() {
-                    jcropInstance = this;
+                cropper = new Cropper(image, options);
 
-                    // Note: must yield first
-                    $timeout(postInit, 0);
-                });
+                postInit(cropper);
+
             }
 
             function destroy() {
-                if (jcropInstance) {
-                    jcropInstance.destroy();
-                    jcropInstance = null;
+                if (cropper) {
+                    cropper.destroy();
+                    cropper = null;
                 }
+            }
+
+            function getRatio() {
+                previewImg = cropper.getCanvasData();
+                widthRatio = scope.originalWidth / previewImg.naturalWidth;
+                heightRatio = scope.originalHeight / previewImg.naturalHeight;
             }
 
             function update(c) {
@@ -94,48 +74,30 @@ cropBox.directive('uiCropBox', ['$timeout', '$parse', 'safeApply', 'nextTick', '
                 // (e.g. redraw after aspect changed) or not (user
                 // interaction)
                 safeApply(scope, function() {
-                    scope.coords.x1 = c.x;
-                    scope.coords.y1 = c.y;
-                    scope.coords.x2 = c.x2;
-                    scope.coords.y2 = c.y2;
+                    scope.coords.x1 = (c.detail.x * widthRatio);
+                    scope.coords.y1 = (c.detail.y * heightRatio);
+                    scope.coords.x2 = ((c.detail.width + c.detail.x) * widthRatio);
+                    scope.coords.y2 = ((c.detail.height + c.detail.y) * heightRatio);
                 });
             }
 
-            function coordsToSelectArray(coords) {
-                return [
-                    coords.x1, // x
-                    coords.y1, // y
-                    coords.x2, // x2
-                    coords.y2  // y2
-                ];
-            }
 
-
-            // Once initialised, sync all options to Jcrop
-            function postInit() {
-                scope.$watch('coords', function(coords) {
-                    jcropInstance.setSelect(coordsToSelectArray(coords));
+            // Once initialised, sync all options to cropperjs
+            function postInit(cropper) {
+                scope.$watch('aspectRatio', function(aspectRatio) {
+                    cropper.setAspectRatio(aspectRatio);
                 });
 
-                scope.$watch('aspectRatio', asFloat(function(aspectRatio) {
-                    jcropInstance.setOptions({aspectRatio: aspectRatio});
-                }));
+                scope.$on('user-width-change', function(event, width){
+                    let newWidth = (parseInt(width) / widthRatio);
+                    cropper.setData({ width: newWidth });
 
-                scope.$watch('minSize', asInt(function(minSize) {
-                    jcropInstance.setOptions({minSize: minSize});
-                }));
-
-                scope.$watch('maxSize', asInt(function(maxSize) {
-                    jcropInstance.setOptions({maxSize: maxSize});
-                }));
-
-                scope.$watch('bgColor', function(bgColor) {
-                    jcropInstance.setOptions({bgColor: bgColor});
                 });
+                scope.$on('user-height-change', function(event, height){
+                    let newHeight = (parseInt(height) / heightRatio);
+                    cropper.setData({ height: newHeight });
 
-                scope.$watch('bgOpacity', asFloat(function(bgOpacity) {
-                    jcropInstance.setOptions({bgOpacity: bgOpacity});
-                }));
+                });
 
                 scope.$on('$destroy', destroy);
             }
