@@ -9,6 +9,7 @@ System.config({
   },
 
   map: {
+    "amiuptodate": "npm:amiuptodate@0.0.3",
     "angular": "github:angular/bower-angular@1.4.3",
     "angular-animate": "github:angular/bower-angular-animate@1.4.3",
     "angular-bootstrap": "github:angular-ui/bootstrap-bower@0.13.4",
@@ -105,11 +106,17 @@ System.config({
       "path": "github:jspm/nodelibs-path@0.1.0",
       "process": "github:jspm/nodelibs-process@0.1.2"
     },
+    "npm:amiuptodate@0.0.3": {
+      "angular": "github:angular/bower-angular@1.5.3",
+      "rx": "npm:rx@4.1.0",
+      "theseus": "npm:theseus@0.5.2",
+      "theseus-angular": "npm:theseus-angular@0.3.1"
+    },
     "npm:any-http-angular@0.1.0": {
-      "angular": "github:angular/bower-angular@1.4.3"
+      "angular": "github:angular/bower-angular@1.5.3"
     },
     "npm:any-promise-angular@0.1.1": {
-      "angular": "github:angular/bower-angular@1.4.3"
+      "angular": "github:angular/bower-angular@1.5.3"
     },
     "npm:assert@1.3.0": {
       "util": "npm:util@0.10.3"
@@ -203,6 +210,9 @@ System.config({
     "npm:rx@2.5.3": {
       "process": "github:jspm/nodelibs-process@0.1.2"
     },
+    "npm:rx@4.1.0": {
+      "process": "github:jspm/nodelibs-process@0.1.2"
+    },
     "npm:source-map@0.4.4": {
       "amdefine": "npm:amdefine@1.0.0",
       "process": "github:jspm/nodelibs-process@0.1.2"
@@ -216,7 +226,7 @@ System.config({
       "buffer": "github:jspm/nodelibs-buffer@0.1.0"
     },
     "npm:theseus-angular@0.3.1": {
-      "angular": "github:angular/bower-angular@1.4.3",
+      "angular": "github:angular/bower-angular@1.5.3",
       "any-http-angular": "npm:any-http-angular@0.1.0",
       "any-promise-angular": "npm:any-promise-angular@0.1.1",
       "theseus": "npm:theseus@0.5.2"

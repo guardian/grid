@@ -4,6 +4,7 @@
       "baseURL": "public"
     },
     "dependencies": {
+      "amiuptodate": "npm:amiuptodate@^0.0.3",
       "angular": "github:angular/bower-angular@1.4.3",
       "angular-animate": "github:angular/bower-angular-animate@1.4.3",
       "angular-bootstrap": "github:angular-ui/bootstrap-bower@^0.13.0",

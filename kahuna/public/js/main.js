@@ -132,16 +132,13 @@ function authAndRedirect(loginUriTemplate) {
 }
 
 kahuna.constant('amiuptodate.appNamespace', 'kahuna');
-kahuna.constant('amiuptodate.buildInfoUrl', 'https://media.local.dev-gutools.co.uk/management/manifest');
-kahuna.constant('amiuptodate.pollInterval', 1);
+kahuna.constant('amiuptodate.buildInfoUrl', '/management/manifest');
+kahuna.constant('amiuptodate.pollInterval', 30);
 
-kahuna.run(['$log', '$rootScope', 'mediaApi', 'checker', function($log, $rootScope, mediaApi, checker) {
+kahuna.run(['$window', '$log', '$rootScope', 'mediaApi', 'checker', function($window, $log, $rootScope, mediaApi, checker) {
 
-    const updated$ = checker.updated$;
-
-    updated$.subscribe((r) => {
-        console.log(r);
-    });
+    // If we are out of sync with server, refresh
+    checker.refresh$.subscribe((_) => console.log("Refreshing!"));
 
     // TODO: don't mix these two concerns. This is done here to avoid
     // doing redundant API calls to the same endpoint. Could be
