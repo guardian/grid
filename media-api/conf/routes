@@ -18,8 +18,13 @@ GET     /images/:imageId/export/:exportId             controllers.MediaApi.getIm
 GET     /images/:imageId/export                       controllers.MediaApi.getImageExports(imageId: String)
 POST    /images/:id/reindex                           controllers.MediaApi.reindexImage(id: String)
 DELETE  /images/:id                                   controllers.MediaApi.deleteImage(id: String)
-
 GET     /images                                       controllers.MediaApi.imageSearch
+GET     /images/:id/lease                             controllers.MediaApi.getImageLeases(id: String)
+
+# Leases
+GET     /lease/:id                                    controllers.MediaLeaseController.getLease(id: String)
+DELETE  /lease/:id                                    controllers.MediaLeaseController.deleteLease(id: String)
+PUT     /lease/:id                                    controllers.MediaLeaseController.putLease(id: String)
 
 # completion
 GET     /suggest/metadata/credit                      controllers.SuggestionController.suggestMetadataCredit(q: Option[String], size: Option[Int])

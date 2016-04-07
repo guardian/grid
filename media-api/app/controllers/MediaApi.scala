@@ -146,6 +146,10 @@ object MediaApi extends Controller with ArgoHelpers {
     }
   }
 
+  def getImageLeases(id: String) = Authenticated.async { request =>
+    Future { Ok("OK") }
+  }
+
   def getImageExports(id: String) = Authenticated.async { request =>
     ElasticSearch.getImageById(id) map {
       case Some(source) => {

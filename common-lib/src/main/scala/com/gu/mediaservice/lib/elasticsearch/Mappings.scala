@@ -107,6 +107,14 @@ object Mappings {
     "suppliers" -> standardAnalysedString
   )
 
+  val leasesMapping =
+    nonDynamicObj(
+      "leasedBy" -> nonAnalyzedString,
+      "startDate" -> dateFormat,
+      "endDate" -> dateFormat,
+      "type" -> nonAnalyzedString
+    )
+
   val exportsMapping =
     nonDynamicObj(
       "id" -> nonAnalyzedString,
@@ -221,6 +229,7 @@ object Mappings {
           "uploadInfo" -> uploadInfoMapping,
           "suggestMetadataCredit" -> simpleSuggester,
           "usages" -> usagesMapping,
+          "leases" -> leasesMapping,
           "usagesLastModified" -> dateFormat,
           "collections" -> collectionMapping,
           "suggestMetadataCredit" -> simpleSuggester
