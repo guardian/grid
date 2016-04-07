@@ -87,7 +87,7 @@ case object ImageUpload {
   def storeThumbnail(uploadRequest: UploadRequest, thumbFile: File) = ImageStore.storeThumbnail(
     uploadRequest.id,
     thumbFile,
-    uploadRequest.mimeType
+    Some("image/jpeg")
   )
 
 
