@@ -32,7 +32,7 @@ case object ImageUpload {
     val sourceStoreFuture      = storeSource(uploadRequest)
     // FIXME: pass mimeType
     val colourModelFuture      = ImageOperations.identifyColourModel(uploadedFile, "image/jpeg")
-    val sourceDimensionsFuture = FileMetadataReader.dimensions(uploadedFile)
+    val sourceDimensionsFuture = FileMetadataReader.dimensions(uploadedFile, uploadRequest.mimeType)
     val fileMetadataFuture     = FileMetadataReader.fromIPTCHeaders(uploadedFile)
 
     val thumbFuture            = for {
@@ -45,7 +45,7 @@ case object ImageUpload {
     bracket(thumbFuture)(_.delete) { thumb =>
       // Run the operations in parallel
       val thumbStoreFuture      = storeThumbnail(uploadRequest, thumb)
-      val thumbDimensionsFuture = FileMetadataReader.dimensions(thumb)
+      val thumbDimensionsFuture = FileMetadataReader.dimensions(thumb, Some("image/jpeg"))
 
       for {
         s3Source         <- sourceStoreFuture

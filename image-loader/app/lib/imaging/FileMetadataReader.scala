@@ -9,6 +9,7 @@ import com.drew.imaging.ImageMetadataReader
 import com.drew.metadata.{Metadata, Directory}
 import com.drew.metadata.iptc.IptcDirectory
 import com.drew.metadata.jpeg.JpegDirectory
+import com.drew.metadata.png.PngDirectory
 import com.drew.metadata.icc.IccDirectory
 import com.drew.metadata.exif.{ExifSubIFDDirectory, ExifIFD0Directory}
 import com.drew.metadata.xmp.XmpDirectory
@@ -78,16 +79,33 @@ object FileMetadataReader {
     } getOrElse Map()
 
 
-  def dimensions(image: File): Future[Option[Dimensions]] =
+  def dimensions(image: File, mimeType: Option[String]): Future[Option[Dimensions]] =
     for {
       metadata <- readMetadata(image)
     }
     yield {
-      for {
-        jpegDir <- Option(metadata.getFirstDirectoryOfType(classOf[JpegDirectory]))
+
+      mimeType match {
+
+        case Some("image/jpeg") => for {
+          jpegDir <- Option(metadata.getFirstDirectoryOfType(classOf[JpegDirectory]))
+
+        } yield Dimensions(jpegDir.getImageWidth, jpegDir.getImageHeight)
+
+        case Some("image/png") => for {
+          pngDir <- Option(metadata.getFirstDirectoryOfType(classOf[PngDirectory]))
+
+        } yield {
+          val width = pngDir.getInt(PngDirectory.TAG_IMAGE_HEIGHT)
+          val height = pngDir.getInt(PngDirectory.TAG_IMAGE_WIDTH)
+          Dimensions(width, height)
+        }
+
+        case _ => None
+
       }
-      yield Dimensions(jpegDir.getImageWidth, jpegDir.getImageHeight)
     }
+
 
   private def nonEmptyTrimmed(nullableStr: String): Option[String] =
     Option(nullableStr) map (_.trim) filter (_.nonEmpty)
