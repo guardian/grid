@@ -9,7 +9,7 @@ System.config({
   },
 
   map: {
-    "amiuptodate": "npm:amiuptodate@0.0.3",
+    "amiuptodate": "npm:amiuptodate@0.0.4",
     "angular": "github:angular/bower-angular@1.4.3",
     "angular-animate": "github:angular/bower-angular-animate@1.4.3",
     "angular-bootstrap": "github:angular-ui/bootstrap-bower@0.13.4",
@@ -106,7 +106,7 @@ System.config({
       "path": "github:jspm/nodelibs-path@0.1.0",
       "process": "github:jspm/nodelibs-process@0.1.2"
     },
-    "npm:amiuptodate@0.0.3": {
+    "npm:amiuptodate@0.0.4": {
       "angular": "github:angular/bower-angular@1.5.3",
       "rx": "npm:rx@4.1.0",
       "theseus": "npm:theseus@0.5.2",
