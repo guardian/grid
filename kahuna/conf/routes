@@ -19,11 +19,3 @@ GET     /management/manifest        com.gu.mediaservice.lib.management.Managemen
 
 # Shoo robots away
 GET     /robots.txt                 controllers.Robots.disallowAll
-
-
-# HACK: appalling workaround to serve this image asset from the erroneous URL it is requested at,
-#       due to a shortcoming in the SystemJS plugin-css build process:
-#       https://github.com/systemjs/plugin-css/issues/52
-GET     /jspm_packages/github/tapmodo/Jcrop@0.9.12/css/Jcrop.gif controllers.Application.hackJcropGif(ignored="")
-GET     /images/jspm_packages/github/tapmodo/Jcrop@0.9.12/css/Jcrop.gif controllers.Application.hackJcropGif(ignored="")
-GET     /images/$id<[0-9a-z]+>/jspm_packages/github/tapmodo/Jcrop@0.9.12/css/Jcrop.gif controllers.Application.hackJcropGif(id)
