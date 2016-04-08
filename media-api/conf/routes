@@ -21,11 +21,6 @@ DELETE  /images/:id                                   controllers.MediaApi.delet
 GET     /images                                       controllers.MediaApi.imageSearch
 GET     /images/:id/lease                             controllers.MediaApi.getImageLeases(id: String)
 
-# Leases
-GET     /lease/:id                                    controllers.MediaLeaseController.getLease(id: String)
-DELETE  /lease/:id                                    controllers.MediaLeaseController.deleteLease(id: String)
-PUT     /lease/:id                                    controllers.MediaLeaseController.putLease(id: String)
-
 # completion
 GET     /suggest/metadata/credit                      controllers.SuggestionController.suggestMetadataCredit(q: Option[String], size: Option[Int])
 

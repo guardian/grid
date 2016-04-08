@@ -18,6 +18,8 @@ mappings:
     prefix: media-usage
   - container: collections
     prefix: media-collections
+  - container: leases
+    prefix: media-leases
   - container: auth
     prefix: media-auth
   - container: imgops

@@ -147,7 +147,7 @@ object MediaApi extends Controller with ArgoHelpers {
   }
 
   def getImageLeases(id: String) = Authenticated.async { request =>
-    Future { Ok("OK") }
+    Future { NotImplemented }
   }
 
   def getImageExports(id: String) = Authenticated.async { request =>

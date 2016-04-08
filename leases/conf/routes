@@ -1,0 +1,17 @@
+GET     /                                   controllers.MediaLeaseController.index
+
+# Leases
+GET     /lease/:id                          controllers.MediaLeaseController.getLease(id: String)
+DELETE  /lease/:id                          controllers.MediaLeaseController.deleteLease(id: String)
+PUT     /lease/:id                          controllers.MediaLeaseController.putLease(id: String)
+
+# Management
+GET     /management/healthcheck             com.gu.mediaservice.lib.management.Management.healthCheck
+GET     /management/manifest                com.gu.mediaservice.lib.management.Management.manifest
+
+# Enable CORS
+OPTIONS /                                   controllers.CorsPreflight.options(ignoredUrl = "")
+OPTIONS /*url                               controllers.CorsPreflight.options(url: String)
+
+# Shoo robots away
+GET     /robots.txt                         controllers.Robots.disallowAll
