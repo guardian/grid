@@ -1409,8 +1409,9 @@ FIXME: what to do with touch devices
 .easel__image-container {
     /*style rules also affect the cropper preview*/
     display: inline-block;
-    height: 100%;
-    width: 100%;
+    height: calc(100% - 60px);
+    width: calc(100% - 60px);
+    margin-top: 30px;
 }
 
 .easel__image {
