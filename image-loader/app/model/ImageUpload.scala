@@ -33,7 +33,10 @@ case object ImageUpload {
     // FIXME: pass mimeType
     val colourModelFuture      = ImageOperations.identifyColourModel(uploadedFile, "image/jpeg")
     val sourceDimensionsFuture = FileMetadataReader.dimensions(uploadedFile, uploadRequest.mimeType)
-    val fileMetadataFuture     = FileMetadataReader.fromIPTCHeaders(uploadedFile)
+    val fileMetadataFuture     = uploadRequest.mimeType match {
+      case Some("image/png") => FileMetadataReader.fromICPTCHeadersWithColorInfo(uploadedFile)
+      case _                 => FileMetadataReader.fromIPTCHeaders(uploadedFile)
+    }
 
     val thumbFuture            = for {
       fileMetadata   <- fileMetadataFuture
@@ -71,7 +74,9 @@ case object ImageUpload {
           originalUsageRights = processedImage.usageRights
         )
       }
-      yield ImageUpload(uploadRequest, finalImage)
+      yield {
+        ImageUpload(uploadRequest, finalImage)
+      }
     }
   }
 

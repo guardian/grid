@@ -29,15 +29,30 @@ object FileMetadataReader {
     yield {
       // FIXME: JPEG, JFIF, Photoshop, GPS, File
 
-      FileMetadata(
-        exportDirectory(metadata, classOf[IptcDirectory]),
-        exportDirectory(metadata, classOf[ExifIFD0Directory]),
-        exportDirectory(metadata, classOf[ExifSubIFDDirectory]),
-        exportDirectory(metadata, classOf[XmpDirectory]),
-        exportDirectory(metadata, classOf[IccDirectory]),
-        exportGettyDirectory(metadata)
-      )
+     getMetadataWithICPTCHeaders(metadata)
     }
+
+  def fromICPTCHeadersWithColorInfo(image: File): Future[FileMetadata] =
+    for {
+      metadata <- readMetadata(image)
+    }
+    yield {
+      getMetadataWithICPTCHeaders(metadata).copy(colourModelInformation = getColorModelInformation(metadata))
+    }
+
+  private def getMetadataWithICPTCHeaders(metadata: Metadata): FileMetadata = {
+
+    FileMetadata(
+      exportDirectory(metadata, classOf[IptcDirectory]),
+      exportDirectory(metadata, classOf[ExifIFD0Directory]),
+      exportDirectory(metadata, classOf[ExifSubIFDDirectory]),
+      exportDirectory(metadata, classOf[XmpDirectory]),
+      exportDirectory(metadata, classOf[IccDirectory]),
+      exportGettyDirectory(metadata),
+      None,
+      Map()
+    )
+  }
 
   // Export all the metadata in the directory
   private def exportDirectory[T <: Directory](metadata: Metadata, directoryClass: Class[T]): Map[String, String] =
@@ -106,6 +121,13 @@ object FileMetadataReader {
       }
     }
 
+  def getColorModelInformation(metadata: Metadata): Map[String, String] = {
+
+      val pngDir = metadata.getFirstDirectoryOfType(classOf[PngDirectory])
+
+      Map("colorType" -> pngDir.getDescription(PngDirectory.TAG_COLOR_TYPE),
+        "bits" -> pngDir.getString(PngDirectory.TAG_BITS_PER_SAMPLE))
+  }
 
   private def nonEmptyTrimmed(nullableStr: String): Option[String] =
     Option(nullableStr) map (_.trim) filter (_.nonEmpty)
