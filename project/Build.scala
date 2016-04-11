@@ -107,7 +107,7 @@ object Build extends Build {
     .testDependencies(scalaTestDeps)
 
   val leases = playProject("leases")
-    .libraryDependencies(awsDeps)
+    .libraryDependencies(awsDeps ++ scanamoDeps)
     .testDependencies(scalaTestDeps)
 
   // Somewhat replicating playProject but without playArtifactDistSettings

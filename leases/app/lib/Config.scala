@@ -20,6 +20,8 @@ object Config extends CommonPlayAppProperties with CommonPlayAppConfig {
 
   val topicArn = properties("sns.topic.arn")
 
+  val leasesTable = properties("dynamo.tablename.leasesTable")
+
   val rootUri = services.leasesBaseUri
   val kahunaUri = services.kahunaBaseUri
   val loginUriTemplate = services.loginUriTemplate

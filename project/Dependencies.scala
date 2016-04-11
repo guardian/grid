@@ -36,6 +36,10 @@ object Dependencies {
     "com.gu" %% "content-api-client" % "7.11"
   )
 
+  val scanamoDeps = Seq(
+    "com.gu" %% "scanamo" % "0.1.0"
+  )
+
   val reactiveXDeps = Seq(
     "io.reactivex" %% "rxscala" % "0.25.0"
   )

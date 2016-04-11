@@ -23,11 +23,12 @@ case object AllowUseLease extends MediaLeaseType { val name = "allow" }
 case object DenyUseLease extends MediaLeaseType { val name = "deny" }
 
 case class MediaLease(
-  id: String,
+  id: Option[String],
   leasedBy: String,
   startDate: Option[DateTime] = None,
   endDate: Option[DateTime] = None,
-  leaseType: MediaLeaseType = AllowUseLease
+  access: MediaLeaseType = AllowUseLease,
+  mediaId: String
 )
 case object MediaLease {
   implicit val MediaLeaseWrites = Json.writes[MediaLease]
