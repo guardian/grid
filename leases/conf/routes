@@ -1,9 +1,10 @@
 GET     /                                   controllers.MediaLeaseController.index
 
 # Leases
-GET     /lease/:id                          controllers.MediaLeaseController.getLease(id: String)
-DELETE  /lease/:id                          controllers.MediaLeaseController.deleteLease(id: String)
-POST    /lease                              controllers.MediaLeaseController.postLease
+GET     /leases/media/:id                   controllers.MediaLeaseController.getLeasesForMedia(id: String)
+GET     /leases/:id                         controllers.MediaLeaseController.getLease(id: String)
+DELETE  /leases/:id                         controllers.MediaLeaseController.deleteLease(id: String)
+POST    /leases                             controllers.MediaLeaseController.postLease
 
 # Management
 GET     /management/healthcheck             com.gu.mediaservice.lib.management.Management.healthCheck

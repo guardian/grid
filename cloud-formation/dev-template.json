@@ -398,6 +398,10 @@
                     {
                         "AttributeName": "id",
                         "AttributeType": "S"
+                    },
+                    {
+                        "AttributeName": "mediaId",
+                        "AttributeType": "S"
                     }
                 ],
                 "KeySchema": [
@@ -409,7 +413,21 @@
                 "ProvisionedThroughput": {
                     "ReadCapacityUnits" : "5",
                     "WriteCapacityUnits" : "5"
-                }
+                },
+                "GlobalSecondaryIndexes": [ {
+                    "IndexName": "mediaId",
+                    "KeySchema": [ {
+                        "AttributeName": "mediaId",
+                        "KeyType": "HASH"
+                    } ],
+                    "Projection": {
+                        "ProjectionType": "ALL"
+                    },
+                    "ProvisionedThroughput": {
+                        "ReadCapacityUnits": "5",
+                        "WriteCapacityUnits": "5"
+                    } }
+                ]
             }
         },
         "Topic": {
