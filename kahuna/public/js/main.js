@@ -377,15 +377,14 @@ kahuna.filter('asAspectRatioWord', function() {
 });
 
 kahuna.filter('asFileSize', function() {
-    return byteSize => {
-        // TODO: round to precision(1)
-        if (byteSize > 1000 * 1000) {
-            return Math.round(byteSize / (1000 * 1000)) + 'MB';
-        } else if (byteSize > 1000) {
-            return Math.round(byteSize / 1000) + 'KB';
-        } else {
-            return byteSize + 'B';
-        }
+    return bytes => {
+        if(!bytes) return '0 Byte';
+
+        const k = 1000;
+        const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+        const i = Math.floor(Math.log(bytes) / Math.log(k));
+
+        return parseFloat((bytes / Math.pow(k, i)).toFixed(3)) + ' ' + sizes[i];
     };
 });
 
