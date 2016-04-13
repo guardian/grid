@@ -30,24 +30,7 @@ object MediaLeaseController extends Controller with ArgoHelpers {
   import lib.ControllerHelper._
   import lib.Config._
 
-  def uri(u: String) = URI.create(u)
-  val leasesUri = uri(s"$rootUri/leases")
-
   val appIndex = AppIndex("media-leases", "Media leases service")
-
-  private def leaseUri(leaseId: String): Option[URI] = {
-    Try { URI.create(s"${leasesUri}/${leaseId}") }.toOption
-  }
-
-  private def wrapLease(lease: MediaLease): EntityReponse[MediaLease] = {
-    EntityReponse(
-      uri = lease.id.map(leaseUri).get,
-      data = lease
-    )
-  }
-
-  private def mediaApiUri(id: String) = s"${services.apiBaseUri}/images/${id}"
-
   def index = Authenticated { _ => respond(appIndex) }
 
   def postLease = Authenticated(parse.json) { implicit request =>
@@ -63,7 +46,10 @@ object MediaLeaseController extends Controller with ArgoHelpers {
   }
 
   def deleteLease(id: String) = Authenticated.async { request =>
-    Future { NotImplemented }
+    Future {
+      LeaseStore.delete(id)
+      Accepted
+    }
   }
 
   def getLease(id: String) = Authenticated.async { request =>

@@ -32,17 +32,17 @@ object ControllerHelper extends ArgoHelpers {
       case _ => None
     }
 
-  private def leaseUri(leaseId: String): Option[URI] = {
+  def leaseUri(leaseId: String): Option[URI] = {
     Try { URI.create(s"${leasesUri}/${leaseId}") }.toOption
   }
 
-  private def wrapLease(lease: MediaLease): EntityReponse[MediaLease] = {
+  def wrapLease(lease: MediaLease): EntityReponse[MediaLease] = {
     EntityReponse(
       uri = lease.id.map(leaseUri).get,
       data = lease
     )
   }
 
-  private def mediaApiUri(id: String) = s"${services.apiBaseUri}/images/${id}"
+  def mediaApiUri(id: String) = s"${services.apiBaseUri}/images/${id}"
 
 }
