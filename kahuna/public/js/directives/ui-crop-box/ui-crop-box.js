@@ -1,6 +1,8 @@
 import angular from 'angular';
 import Cropper from 'cropperjs';
 
+import './cropper-override.css!';
+
 export var cropBox = angular.module('ui.cropBox', []);
 
 cropBox.directive('uiCropBox', ['$timeout', '$parse', 'safeApply', 'nextTick', 'delay',

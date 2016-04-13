@@ -2,7 +2,7 @@ import angular from 'angular';
 
 import './controller';
 import '../components/gr-top-bar/gr-top-bar';
-import '../directives/ui-crop-box';
+import '../directives/ui-crop-box/ui-crop-box';
 
 import cropTemplate from './view.html!text';
 
