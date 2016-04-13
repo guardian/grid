@@ -39,7 +39,7 @@ cropBox.directive('uiCropBox', ['$timeout', '$parse', 'safeApply', 'nextTick', '
 
                 const image = element[0];
                 const options = {
-                    viewMode: 4,
+                    viewMode: 1,
                     movable: false,
                     scalable: false,
                     zoomable: false,

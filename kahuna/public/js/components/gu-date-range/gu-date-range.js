@@ -94,7 +94,8 @@ guDateRange.directive('guDateRange', [function () {
                 bound: false,
                 maxDate: new Date(),
                 firstDay: parseInt(ctrl.guFirstDay),
-                format: iso8601Format
+                format: iso8601Format,
+                yearRange: 100
             });
 
             $scope.$watch('pikaStartValue', function (pikaStartValue) {
