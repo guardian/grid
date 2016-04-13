@@ -1,7 +1,10 @@
 GET     /                                   controllers.MediaLeaseController.index
 
-# Leases
+# Leases by Media
 GET     /leases/media/:id                   controllers.MediaLeaseController.getLeasesForMedia(id: String)
+DELETE  /leases/media/:id                   controllers.MediaLeaseController.deleteLeasesForMedia(id: String)
+
+# Leases
 GET     /leases/:id                         controllers.MediaLeaseController.getLease(id: String)
 DELETE  /leases/:id                         controllers.MediaLeaseController.deleteLease(id: String)
 POST    /leases                             controllers.MediaLeaseController.postLease

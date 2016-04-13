@@ -66,6 +66,16 @@ object MediaLeaseController extends Controller with ArgoHelpers {
     }
   }
 
+  def deleteLeasesForMedia(id: String) = Authenticated.async { request =>
+    Future {
+      LeaseStore.getForMedia(id)
+        .flatMap(_.id)
+        .map(LeaseStore.delete)
+
+      Accepted
+    }
+  }
+
   def getLeasesForMedia(id: String) = Authenticated.async { request =>
     Future {
       val leases = LeaseStore.getForMedia(id)
