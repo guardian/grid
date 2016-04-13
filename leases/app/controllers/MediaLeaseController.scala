@@ -17,7 +17,7 @@ import com.gu.mediaservice.lib.auth._
 import com.gu.mediaservice.lib.argo._
 import com.gu.mediaservice.lib.argo.model._
 
-import lib.{Config, ControllerHelper, LeaseStore}
+import lib.LeaseStore
 
 
 case class AppIndex(name: String, description: String, config: Map[String, String] = Map())
@@ -27,14 +27,13 @@ object AppIndex {
 
 object MediaLeaseController extends Controller with ArgoHelpers {
 
+  import lib.ControllerHelper._
   import lib.Config._
 
   def uri(u: String) = URI.create(u)
   val leasesUri = uri(s"$rootUri/leases")
 
   val appIndex = AppIndex("media-leases", "Media leases service")
-
-  val Authenticated = ControllerHelper.Authenticated
 
   private def leaseUri(leaseId: String): Option[URI] = {
     Try { URI.create(s"${leasesUri}/${leaseId}") }.toOption
@@ -51,13 +50,13 @@ object MediaLeaseController extends Controller with ArgoHelpers {
 
   def index = Authenticated { _ => respond(appIndex) }
 
-  def postLease = Authenticated(parse.json) { request =>
+  def postLease = Authenticated(parse.json) { implicit request =>
     request.body.validate[MediaLease].fold(
       e => {
         respondError(BadRequest, "media-lease-parse-failed", JsError.toFlatJson(e).toString)
       },
       mediaLease => {
-        LeaseStore.put(mediaLease)
+        LeaseStore.put(mediaLease.copy(leasedBy = requestingUser))
         Accepted
       }
     )

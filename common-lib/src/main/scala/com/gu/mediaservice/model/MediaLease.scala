@@ -24,13 +24,14 @@ case object DenyUseLease extends MediaLeaseType { val name = "deny" }
 
 case class MediaLease(
   id: Option[String],
-  leasedBy: String,
+  leasedBy: Option[String],
   startDate: Option[DateTime] = None,
   endDate: Option[DateTime] = None,
   access: MediaLeaseType = AllowUseLease,
   mediaId: String
 )
 case object MediaLease {
+  implicit val dateTimeFormat = DateFormat
   implicit val MediaLeaseWrites = Json.writes[MediaLease]
   implicit val MediaLeaseReads = Json.reads[MediaLease]
 }
