@@ -109,6 +109,7 @@ object MetadataConfig {
     "Sarah Lee"           -> "The Guardian",
     "Tom Jenkins"         -> "The Guardian",
     "Tristram Kenton"     -> "The Guardian",
+    "Jill Mead"           -> "The Guardian",
 
     "Andy Hall"           -> "The Observer",
     "Antonio Olmos"       -> "The Observer",
