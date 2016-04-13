@@ -41,6 +41,37 @@ module.controller('grImageMetadataCtrl', [
 
         // Alias for convenience in view
         ctrl.metadata = ctrl.image.data.metadata;
+
+        function formatBytes(bytes) {
+            if(bytes == 0) return '0 Byte';
+
+            const k = 1000;
+            const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB', 'PB', 'EB', 'ZB', 'YB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(3)) + ' ' + sizes[i];
+        }
+
+        function buildOriginalFileInfo() {
+            const defaultEmptyInfo = {};
+            var fileInfo;
+
+            try {
+                fileInfo = {
+                    filename: ctrl.image.data.uploadInfo.filename,
+                    mimeType: ctrl.image.data.source.mimeType,
+                    size: formatBytes(ctrl.image.data.source.size),
+                    width: ctrl.image.data.source.dimensions.width + "px",
+                    height: ctrl.image.data.source.dimensions.height + "px"
+                }
+            } catch(err) {
+                // Do nothing!
+            }
+
+            return fileInfo || defaultEmptyInfo;
+        }
+
+        ctrl.source = buildOriginalFileInfo();
         ctrl.identifiers = ctrl.image.data.identifiers;
 
         ctrl.isUsefulMetadata = isUsefulMetadata;
