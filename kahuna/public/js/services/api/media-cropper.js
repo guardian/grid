@@ -5,7 +5,7 @@ export var cropperApi = angular.module('kahuna.services.api.cropper', [
     mediaApi.name
 ]);
 
-cropperApi.factory('mediaCropper', ['mediaApi', function(mediaApi) {
+cropperApi.factory('mediaCropper', ['$q', 'mediaApi', function($q, mediaApi) {
 
     var cropperRoot;
 
@@ -38,8 +38,13 @@ cropperApi.factory('mediaCropper', ['mediaApi', function(mediaApi) {
     function canBeCropped(image) {
         // Images can only be cropped if there is a link to the crops
         // TODO: this should be an Action
-        return image.getLink('crops').
+        if (image.data.source.mimeType === 'image/png') {
+            return $q.when(false);
+        } else {
+
+            return image.getLink('crops').
             then(() => true, () => false);
+        }
     }
 
     function canDeleteCrops(image) {
