@@ -4,4 +4,4 @@ aws.secret={{AwsSecret}}
 aws.region={{region}}
 auth.keystore.bucket={{KeyBucket}}
 sns.topic.arn={{SnsTopicArn}}
-
+dynamo.tablename.leasesTable={{LeasesDynamoTable}}
