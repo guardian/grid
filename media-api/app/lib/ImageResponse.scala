@@ -140,11 +140,12 @@ object ImageResponse extends EditsResponse {
     val optimisedLink = Link("optimised", makeImgopsUri(new URI(secureUrl)))
     val imageLink = Link("ui:image",  s"${Config.kahunaUri}/images/$id")
     val usageLink = Link("usages", s"${Config.usageUri}/usages/media/$id")
+    val leasesLink = Link("leases", s"${Config.leaseUri}/leases/media/$id")
 
     val baseLinks = if (withWritePermission) {
-      List(editLink, optimisedLink, imageLink, usageLink)
+      List(editLink, optimisedLink, imageLink, usageLink, leasesLink)
     } else {
-      List(optimisedLink, imageLink, usageLink)
+      List(optimisedLink, imageLink, usageLink, leasesLink)
     }
 
     if (valid) (cropLink :: baseLinks) else baseLinks
