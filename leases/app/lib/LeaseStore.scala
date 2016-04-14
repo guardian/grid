@@ -16,6 +16,8 @@ import cats.data.Validated
 import scalaz.syntax.id._
 
 object LeaseStore {
+  import com.gu.scanamo.syntax._
+
   val tableName = Config.leasesTable
   val indexName = "mediaId"
 
@@ -39,25 +41,10 @@ object LeaseStore {
   def get(id: String) = Scanamo.get[MediaLease](client)(tableName)(key(id))
   def delete(id: String) = Scanamo.delete(client)(tableName)(key(id))
 
-  def getForMedia(id: String): List[MediaLease] = {
-    val format = DynamoFormat[MediaLease]
-
-    //TODO: Scanamo will likely support this soon, it won't break if there is more than a page of results
-    // so we should use it!
-    val results = index
-      .query(mediaKey(id))
-      .firstPage
-      .getLowLevelResult
-      .getQueryResult
-      .getItems
+  def getForMedia(id: String): List[MediaLease] =
+    Scanamo.queryIndex[MediaLease](client)(tableName, indexName)('mediaId -> id)
       .toList
-
-    val leases = results
-      .map(lease => format.read(new AttributeValue().withM(lease)))
       .map(_.toOption)
       .flatten
-
-    leases
-  }
 
 }

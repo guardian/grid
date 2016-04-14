@@ -24,7 +24,7 @@ object Dependencies {
   val elasticsearchDeps = Seq("org.elasticsearch" % "elasticsearch" % elasticsearchVersion)
 
   val awsDeps = Seq(
-    ("com.amazonaws" % "aws-java-sdk" % "1.9.34")
+    ("com.amazonaws" % "aws-java-sdk" % "1.10.69")
   )
 
   val pandaDeps = Seq(
@@ -37,7 +37,7 @@ object Dependencies {
   )
 
   val scanamoDeps = Seq(
-    "com.gu" %% "scanamo" % "0.2.0"
+    "com.gu" %% "scanamo" % "0.3.0"
   )
 
   val reactiveXDeps = Seq(
