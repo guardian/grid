@@ -23,7 +23,7 @@ class FileMetadataReaderTest extends FunSpec with Matchers with ScalaFutures {
 
   it("should read the correct dimensions for a JPG images") {
     val image = fileAt("getty.jpg")
-    val dimsFuture = FileMetadataReader.dimensions(image)
+    val dimsFuture = FileMetadataReader.dimensions(image, Some("image/jpeg"))
     whenReady(dimsFuture) { dimOpt =>
       dimOpt should be ('defined)
       dimOpt.get.width should be (100)
