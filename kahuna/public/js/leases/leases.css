@@ -1,0 +1,8 @@
+.add-lease__header {
+  display: block;
+}
+
+.gu-date-range__overlay  {
+  display: flex;
+  position: relative;
+}

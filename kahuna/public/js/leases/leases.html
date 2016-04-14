@@ -1,0 +1,56 @@
+<button ng:class="{'small': ctrl.grSmall}"
+        ng:if="!ctrl.editing"
+        ng:click="ctrl.editing = true"
+        ng:disabled="ctrl.showForm"
+        gr:tooltip="Add lease"
+        gr:tooltip-position="left">
+
+    <gr-icon ng:class="{'spin': ctrl.adding}">add_box</gr-icon>
+    <span>
+       <span ng:show="ctrl.adding">Adding...</span>
+    </span>
+</button>
+
+<form class="lease__form"
+      ng:if="ctrl.editing"
+      ng:submit="ctrl.save()">
+
+  <span class="add-lease__header">Add a lease</span>
+  <select ng:model="ctrl.newLease.access">
+      <option value="usable">Usable</option>
+      <option value="unusable">Unusable</option>
+  </select>
+  <input type="text" placeholder="Notes..."/>
+    <span class="lease__form__buttons">
+      <button class="lease__form__buttons__button-cancel button-cancel" type="button" ng:click="ctrl.cancel()" title="Close">
+          <gr-icon-label gr-icon="close"><span ng:hide="ctrl.grSmall">Cancel</span></gr-icon-label>
+      </button>
+      <button
+          class="lease__form__buttons__button-save button-save"
+          type="submit"
+          title="Save new label"
+          ng:disabled="ctrl.adding">
+          <gr-icon-label gr-icon="check">
+              <span ng:hide="ctrl.grSmall">Save</span>
+          </gr-icon-label>
+      </button>
+  </span>
+
+  <gu-date-range class="lease__date"
+     gu:start-date="ctrl.newLease.startDate"
+     gu:end-date="ctrl.newLease.endDate"
+     gu:first-day="1">
+  </gu-date-range>
+
+</form>
+
+
+<div class="lease-wrapper">
+  <ul class="current-leases">
+    <li ng-repeat="lease in ctrl.leases">
+      <gr-icon-label gr-icon="close" ng:click="ctrl.delete(lease)" />
+      {{lease.type}} {{lease.dateType}} {{lease.date | date: 'medium'}}
+
+    </li>
+  </ul>
+</div>
