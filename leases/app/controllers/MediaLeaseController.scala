@@ -85,14 +85,11 @@ object MediaLeaseController extends Controller with ArgoHelpers {
         Link("media", mediaApiUri(id))
       )
 
-      leases match {
-       case Nil => respondNotFound(s"No leases found for media id: $id")
-       case _ => respondCollection[EntityReponse[MediaLease]](
-         uri = uri,
-         links = links,
-         data = leases.map(wrapLease)
-       )
-      }
+      respondCollection[EntityReponse[MediaLease]](
+        uri = uri,
+        links = links,
+        data = leases.map(wrapLease)
+      )
     }
   }
 }
