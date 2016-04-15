@@ -28,6 +28,7 @@ case class MediaLease(
   startDate: Option[DateTime] = None,
   endDate: Option[DateTime] = None,
   access: MediaLeaseType = AllowUseLease,
+  notes: Option[String],
   mediaId: String
 )
 case object MediaLease {
