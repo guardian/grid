@@ -30,11 +30,12 @@ object MediaLeaseController extends Controller with ArgoHelpers {
   import lib.ControllerHelper._
   import lib.Config._
 
+  val notFound = respondNotFound("MediaLease not found")
+
   val appIndex = AppIndex("media-leases", "Media leases service")
   def index = Authenticated { _ => respond(appIndex) }
 
   def postLease = Authenticated.async(parse.json) { implicit request => Future {
-
     request.body.validate[MediaLease].fold(
       e => {
         respondError(BadRequest, "media-lease-parse-failed", JsError.toFlatJson(e).toString)
@@ -55,15 +56,15 @@ object MediaLeaseController extends Controller with ArgoHelpers {
 
   def getLease(id: String) = Authenticated.async { request =>
     Future {
-      LeaseStore.get(id).map(_.toOption).flatten
-        .map(lease => respond[MediaLease](
+      val leases = LeaseStore.get(id)
+
+      leases.foldLeft(notFound)((_, lease) => respond[MediaLease](
           uri = leaseUri(id),
           data = lease,
-          links = List(
-            Link("media", mediaApiUri(lease.mediaId))
-          )
+          links = lease.id
+            .map(mediaApiLink)
+            .toList
         ))
-        .getOrElse(respondNotFound("MediaLease not found"))
     }
   }
 
@@ -80,15 +81,10 @@ object MediaLeaseController extends Controller with ArgoHelpers {
   def getLeasesForMedia(id: String) = Authenticated.async { request =>
     Future {
       val leases = LeaseStore.getForMedia(id)
-      val uri = Try { URI.create(s"${leasesUri}/media/${id}") }.toOption
-
-      val links = List(
-        Link("media", mediaApiUri(id))
-      )
 
       respondCollection[EntityReponse[MediaLease]](
-        uri = uri,
-        links = links,
+        uri = leasesMediaUri(id),
+        links = List(mediaApiLink(id)),
         data = leases.map(wrapLease)
       )
     }

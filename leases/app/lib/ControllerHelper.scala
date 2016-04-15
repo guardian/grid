@@ -21,10 +21,6 @@ object ControllerHelper extends ArgoHelpers {
   val keyStore = new KeyStore(keyStoreBucket, awsCredentials)
   val Authenticated = auth.Authenticated(keyStore, loginUriTemplate, kahunaUri)
 
-  val leasesUri = uri(s"$rootUri/leases")
-
-  private def uri(u: String) = URI.create(u)
-
   def requestingUser(implicit request: AuthenticatedRequest[_, Principal]) =
     request.user match {
       case PandaUser(email, _, _, _) => Some(email)
@@ -32,9 +28,6 @@ object ControllerHelper extends ArgoHelpers {
       case _ => None
     }
 
-  def leaseUri(leaseId: String): Option[URI] = {
-    Try { URI.create(s"${leasesUri}/${leaseId}") }.toOption
-  }
 
   def wrapLease(lease: MediaLease): EntityReponse[MediaLease] = {
     EntityReponse(
@@ -43,6 +36,16 @@ object ControllerHelper extends ArgoHelpers {
     )
   }
 
+  private def uri(u: String) = URI.create(u)
+
+  val leasesUri = uri(s"$rootUri/leases")
   def mediaApiUri(id: String) = s"${services.apiBaseUri}/images/${id}"
+  def mediaApiLink(id: String) = Link("media", mediaApiUri(id))
+
+  def leaseUri(leaseId: String): Option[URI] =
+    Try { URI.create(s"${leasesUri}/${leaseId}") }.toOption
+
+  def leasesMediaUri(mediaId: String) =
+    Try { URI.create(s"${leasesUri}/media/${mediaId}") }.toOption
 
 }

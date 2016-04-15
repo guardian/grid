@@ -38,8 +38,12 @@ object LeaseStore {
   private def key(id: String) = UniqueKey(KeyEquals('id, id))
 
   def put(lease: MediaLease) = Scanamo.put(client)(tableName)(lease.copy(id=uuid))
-  def get(id: String) = Scanamo.get[MediaLease](client)(tableName)(key(id))
   def delete(id: String) = Scanamo.delete(client)(tableName)(key(id))
+
+  def get(id: String) =
+    Scanamo.get[MediaLease](client)(tableName)(key(id))
+      .map(_.toOption)
+      .flatten
 
   def getForMedia(id: String): List[MediaLease] =
     Scanamo.queryIndex[MediaLease](client)(tableName, indexName)('mediaId -> id)
