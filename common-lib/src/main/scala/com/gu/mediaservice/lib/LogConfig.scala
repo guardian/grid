@@ -71,7 +71,7 @@ object LogConfig {
       rootLogger.addAppender(appender)
       rootLogger.info("Configured Logback")
     } recover {
-      case e: Throwable => rootLogger.error("LogConfig Failed!", e)
+      case e => rootLogger.error("LogConfig Failed!", e)
     }
   }
 }

@@ -106,6 +106,10 @@ object Build extends Build {
     .libraryDependencies(awsDeps)
     .testDependencies(scalaTestDeps)
 
+  val leases = playProject("leases")
+    .libraryDependencies(awsDeps ++ scanamoDeps)
+    .testDependencies(scalaTestDeps)
+
   // Somewhat replicating playProject but without playArtifactDistSettings
   // (native packager)
   val ftpWatcher = project("ftp-watcher")
