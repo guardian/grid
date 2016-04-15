@@ -76,20 +76,6 @@
                                         { "Ref" : "ImageCollectionsDynamoTable" }
                                     ] ] }
                                 ]
-                            },
-                            {
-                                "Effect": "Allow",
-                                "Action": [ "dynamodb:*" ],
-                                "Resource": [
-                                    { "Fn::Join" : [ "", [
-                                        "arn:aws:dynamodb:",
-                                        { "Ref" : "AWS::Region" },
-                                        ":",
-                                        { "Ref" : "AWS::AccountId" },
-                                        ":table/",
-                                        { "Ref" : "LeasesDynamoTable" }
-                                    ] ] }
-                                ]
                             }
                         ]
                     }
@@ -428,6 +414,45 @@
                         "WriteCapacityUnits": "5"
                     } }
                 ]
+            }
+        },
+        "LeasesTablePolicy": {
+            "Type": "AWS::IAM::Policy",
+            "Properties": {
+                "PolicyName": "LeasesTablePolicy",
+                "PolicyDocument": {
+                    "Id": "LeasesTablePolicy",
+                    "Statement": [ {
+                        "Effect": "Allow",
+                        "Action": [ "dynamodb:*" ],
+                        "Resource": [
+                            { "Fn::Join" : [ "", [
+                                "arn:aws:dynamodb:",
+                                { "Ref" : "AWS::Region" },
+                                ":",
+                                { "Ref" : "AWS::AccountId" },
+                                ":table/",
+                                { "Ref" : "LeasesDynamoTable" }
+                            ] ] }
+                        ]
+                    },
+                    {
+                        "Effect": "Allow",
+                        "Action": [ "dynamodb:*" ],
+                        "Resource": [
+                            { "Fn::Join" : [ "", [
+                                "arn:aws:dynamodb:",
+                                { "Ref" : "AWS::Region" },
+                                ":",
+                                { "Ref" : "AWS::AccountId" },
+                                ":table/",
+                                { "Ref" : "LeasesDynamoTable" },
+                                "/index/mediaId"
+                            ] ] }
+                        ]
+                    } ]
+                },
+                "Users": [ { "Ref": "User" } ]
             }
         },
         "Topic": {
