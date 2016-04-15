@@ -729,6 +729,9 @@
         "ImageCollectionsDynamoTable": {
             "Value": { "Ref": "ImageCollectionsDynamoTable" }
         },
+        "LeasesDynamoTable": {
+            "Value": { "Ref": "LeasesDynamoTable" }
+        },
         "SnsTopicArn": {
             "Value": { "Ref": "Topic" }
         },
