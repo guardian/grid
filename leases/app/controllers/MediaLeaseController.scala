@@ -33,7 +33,8 @@ object MediaLeaseController extends Controller with ArgoHelpers {
   val appIndex = AppIndex("media-leases", "Media leases service")
   def index = Authenticated { _ => respond(appIndex) }
 
-  def postLease = Authenticated(parse.json) { implicit request =>
+  def postLease = Authenticated.async(parse.json) { implicit request => Future {
+
     request.body.validate[MediaLease].fold(
       e => {
         respondError(BadRequest, "media-lease-parse-failed", JsError.toFlatJson(e).toString)
@@ -43,7 +44,7 @@ object MediaLeaseController extends Controller with ArgoHelpers {
         Accepted
       }
     )
-  }
+  }}
 
   def deleteLease(id: String) = Authenticated.async { request =>
     Future {
