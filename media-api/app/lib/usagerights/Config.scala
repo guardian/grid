@@ -12,7 +12,6 @@ object DeprecatedConfig {
     "ANSA",
     "AP",
     "AP POOL",
-    "Action Images",
     "Alamy",
     "Allsport",
     "Allstar Picture Library",
@@ -20,7 +19,6 @@ object DeprecatedConfig {
     "BBC",
     "BFI",
     "Community Newswire",
-    "Corbis",
     "dpa",
     "EPA",
     "FilmMagic",
@@ -48,15 +46,4 @@ object DeprecatedConfig {
     "AFP/Getty Images",
     "Bloomberg via Getty Images",
     "Fairfax Media via Getty Images") ++ guardianCredits
-
-  val freeSourceList = List(
-    "Corbis",
-    "Rex Features",
-    // Barcroft Media & sons
-    "Barcroft Media",
-    "Barcroft India",
-    "Barcroft USA",
-    "Barcroft Cars"
-  )
-
 }
