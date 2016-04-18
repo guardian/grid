@@ -1,4 +1,8 @@
-<div ng:if="! image.data.valid"
+<div ng:if="image.data.source.mimeType === 'image/png'"
+    class="image-notice image-info__group validity validity--invalid validity--invalid--point-up">
+    <strong>Png images cannot be cropped</strong>
+</div>
+<div ng:if="image.data.source.mimeType === 'image/jpeg' && ! image.data.valid"
     class="image-notice image-info__group validity validity--invalid validity--invalid--point-up">
     <strong>Incomplete metadata</strong>
     Fill in description and credit before use

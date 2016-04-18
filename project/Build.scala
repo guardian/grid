@@ -110,19 +110,6 @@ object Build extends Build {
     .libraryDependencies(awsDeps ++ scanamoDeps)
     .testDependencies(scalaTestDeps)
 
-  // Somewhat replicating playProject but without playArtifactDistSettings
-  // (native packager)
-  val ftpWatcher = project("ftp-watcher")
-    .enablePlugins(play.PlayScala)
-    .dependsOn(lib)
-    .libraryDependencies(commonsNetDeps ++ scalazDeps)
-    .settings(commonSettings ++ legacyArtifactPlayArtifactDistSettings ++ playArtifactSettings: _*)
-    .settings(
-      legacyMagentaPackageName := "ftp-watcher",
-      jarName in assembly := "ftp-watcher.jar"
-    )
-    .settings(fiddlyExtraAssemblySettings: _*)
-
   val integration = project("integration")
     .dependsOn(lib)
     .libraryDependencies(awsDeps ++ scalazDeps ++ uriTemplateDeps ++ playWsDeps)

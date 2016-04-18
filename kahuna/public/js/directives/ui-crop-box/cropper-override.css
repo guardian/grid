@@ -1,0 +1,14 @@
+/* ==========================================================================
+   Override styles provided from cropperJS.
+   Applying the .easel selector to win on specificity and to keep the
+   styles componentised.
+   ========================================================================== */
+
+.easel .cropper-drag-box, .easel .cropper-face {
+    background-color: transparent;
+}
+
+.easel .cropper-canvas {
+    background-color: #000;
+    opacity: .5;
+}
