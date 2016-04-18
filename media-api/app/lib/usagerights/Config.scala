@@ -12,7 +12,6 @@ object DeprecatedConfig {
     "ANSA",
     "AP",
     "AP POOL",
-    "Action Images",
     "Alamy",
     "Allsport",
     "Allstar Picture Library",
