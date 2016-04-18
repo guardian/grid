@@ -20,7 +20,6 @@ object DeprecatedConfig {
     "BBC",
     "BFI",
     "Community Newswire",
-    "Corbis",
     "dpa",
     "EPA",
     "FilmMagic",
