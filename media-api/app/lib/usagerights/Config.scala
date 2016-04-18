@@ -46,15 +46,4 @@ object DeprecatedConfig {
     "AFP/Getty Images",
     "Bloomberg via Getty Images",
     "Fairfax Media via Getty Images") ++ guardianCredits
-
-  val freeSourceList = List(
-    "Corbis",
-    "Rex Features",
-    // Barcroft Media & sons
-    "Barcroft Media",
-    "Barcroft India",
-    "Barcroft USA",
-    "Barcroft Cars"
-  )
-
 }
