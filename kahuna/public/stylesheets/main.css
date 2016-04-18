@@ -1084,6 +1084,25 @@ textarea.ng-invalid {
 }
 
 /* ==========================================================================
+   Gallery
+   ========================================================================== */
+.gallery {
+    display: flex;
+    flex-wrap: nowrap;
+    align-items: stretch;
+    align-content: center;
+    position: relative;
+    top: 35px;
+}
+
+.gallery__item {
+    width: 100vw;
+    height: 100%;
+    position: relative;
+}
+
+
+/* ==========================================================================
    Preview
    ========================================================================== */
 .preview {

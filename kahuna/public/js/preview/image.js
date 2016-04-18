@@ -5,6 +5,7 @@ import '../util/rx';
 import '../analytics/track';
 
 import template from './image.html!text';
+import templateLarge from './image-large.html!text';
 
 import '../image/service';
 import '../services/image/usages';
@@ -75,6 +76,23 @@ image.directive('uiPreviewImage', function() {
         // extra actions can be transcluded in
         transclude: true,
         template: template,
+        controller: 'uiPreviewImageCtrl',
+        controllerAs: 'ctrl',
+        bindToController: true
+    };
+})
+
+;image.directive('uiPreviewImageLarge', function() {
+    return {
+        restrict: 'E',
+        scope: {
+            image: '=',
+            hideInfo: '=',
+            selectionMode: '='
+        },
+        // extra actions can be transcluded in
+        transclude: true,
+        template: templateLarge,
         controller: 'uiPreviewImageCtrl',
         controllerAs: 'ctrl',
         bindToController: true

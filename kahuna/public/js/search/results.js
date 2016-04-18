@@ -8,6 +8,7 @@ import '../util/async';
 import '../util/rx';
 import '../util/seq';
 import '../components/gu-lazy-table/gu-lazy-table';
+import '../components/gu-lazy-gallery/gu-lazy-gallery';
 import '../components/gu-lazy-table-shortcuts/gu-lazy-table-shortcuts';
 import '../components/gr-archiver/gr-archiver';
 import '../components/gr-delete-image/gr-delete-image';
@@ -22,6 +23,7 @@ export var results = angular.module('kahuna.search.results', [
     'util.seq',
     'gu.lazyTable',
     'gu.lazyTableShortcuts',
+    'gu.lazyGallery',
     'gr.archiver',
     'gr.downloader',
     'gr.deleteImage',
@@ -91,6 +93,9 @@ results.controller('SearchResultsCtrl', [
 
         ctrl.images = [];
         ctrl.newImagesCount = 0;
+
+        // Gallery control
+        ctrl.galleryView = false;
 
         // Map to track image->position and help remove duplicates
         let imagesPositions;
@@ -391,6 +396,10 @@ results.controller('SearchResultsCtrl', [
                     toggleSelection(image);
                 }
             }
+        };
+
+        ctrl.toggleGallery = function() {
+            ctrl.galleryView = !ctrl.galleryView;
         };
 
         const freeUpdateListener = $rootScope.$on('image-updated', (e, updatedImage) => {
