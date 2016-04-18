@@ -1,4 +1,0 @@
-GET     /                           controllers.Application.index
-GET     /health-check               controllers.Application.healthCheck
-GET     /status                     controllers.Application.status
-POST    /status                     controllers.Application.setStatus
