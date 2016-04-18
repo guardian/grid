@@ -155,3 +155,12 @@ On Mac OS X, it may be something like
 `/Library/Java/JavaVirtualMachines/jdk1.8.0_25.jdk/Contents/Home/jre/lib/security/cacerts`;
 on GNU Linux, it may be something like
 `/usr/lib/jvm/java-1.8.0-openjdk-amd64/jre/lib/security/cacerts`.
+
+## NGINX, Play & SNI
+
+As the Play Framework does not yet support [SNI](https://en.wikipedia.org/wiki/Server_Name_Indication) NGINX can't always work out which certificate to send where there are multiple services on the same IP. This might result in NGINX sending the incorrect certificate. This will result in a `HostnameVerifier Exception` appearing in application logs.
+
+# Resolution
+
+When the correct cert to send is ambiguous NGINX simply sends the first cert it sees in it's configuration (which is loaded from config files in alphabetical order) to resolve this problem, prefix your grid config filename with `0-`!
+
