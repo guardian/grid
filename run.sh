@@ -22,5 +22,7 @@ tmux split-window "sbt 'project collections' 'run 9010'"
 tmux select-layout even-horizontal
 tmux split-window "sbt 'project auth' 'run 9011'"
 tmux select-layout even-horizontal
+tmux split-window "sbt 'project leases' 'run 9012'"
+tmux select-layout even-horizontal
 
 /bin/bash -c "cd elasticsearch; ./dev-start.sh"
