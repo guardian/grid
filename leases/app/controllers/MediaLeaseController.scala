@@ -87,14 +87,26 @@ object MediaLeaseController extends Controller with ArgoHelpers {
     }
   }
 
+  case class LeaseByMedia(leases: List[MediaLease])
+  case object LeaseByMedia {
+    implicit val LeaseByMediaWrites = new Writes[LeaseByMedia] {
+    def writes(leaseByMedia: LeaseByMedia) =
+      JsObject(Seq(
+        // TODO: calculate truth value from list
+        "active" -> JsBoolean(true),
+        "leases" -> Json.toJson(leaseByMedia.leases.map(wrapLease))
+      ))
+    }
+  }
+
   def getLeasesForMedia(id: String) = Authenticated.async { request =>
     Future {
       val leases = LeaseStore.getForMedia(id)
 
-      respondCollection[EntityReponse[MediaLease]](
+      respond[LeaseByMedia](
         uri = leasesMediaUri(id),
         links = List(mediaApiLink(id)),
-        data = leases.map(wrapLease)
+        data = LeaseByMedia(leases)
       )
     }
   }
