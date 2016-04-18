@@ -23,14 +23,12 @@ object ImageResponse extends EditsResponse {
   val metadataBaseUri = Config.services.metadataBaseUri
 
   type FileMetadataEntity = EmbeddedEntity[FileMetadata]
+
   type UsageEntity = EmbeddedEntity[Usage]
   type UsagesEntity = EmbeddedEntity[List[UsageEntity]]
 
-  def fileMetaDataUri(id: String) = URI.create(s"${Config.rootUri}/images/$id/fileMetadata")
-  def usagesUri(id: String) = URI.create(s"${Config.usageUri}/usages/media/$id")
-  def usageUri(id: String) = {
-    URI.create(s"${Config.usageUri}/usages/${UriEncoding.encodePathSegment(id, "UTF-8")}")
-  }
+  type MediaLeaseEntity = EmbeddedEntity[MediaLease]
+  type MediaLeasesEntity = EmbeddedEntity[List[MediaLease]]
 
   def hasPersistenceIdentifier(image: Image) =
     image.identifiers.contains(Config.persistenceIdentifier)
@@ -142,11 +140,12 @@ object ImageResponse extends EditsResponse {
     val optimisedLink = Link("optimised", makeImgopsUri(new URI(secureUrl)))
     val imageLink = Link("ui:image",  s"${Config.kahunaUri}/images/$id")
     val usageLink = Link("usages", s"${Config.usageUri}/usages/media/$id")
+    val leasesLink = Link("leases", s"${Config.leaseUri}/leases/media/$id")
 
     val baseLinks = if (withWritePermission) {
-      List(editLink, optimisedLink, imageLink, usageLink)
+      List(editLink, optimisedLink, imageLink, usageLink, leasesLink)
     } else {
-      List(optimisedLink, imageLink, usageLink)
+      List(optimisedLink, imageLink, usageLink, leasesLink)
     }
 
     if (valid) (cropLink :: baseLinks) else baseLinks
@@ -238,14 +237,26 @@ object ImageResponse extends EditsResponse {
       .contramap((crops: List[Crop]) => crops.map(Export.fromCrop(_:Crop))) ~
     (__ \ "usages").write[UsagesEntity]
       .contramap(usagesEntity(id, _: List[Usage])) ~
+    (__ \ "leases").write[MediaLeasesEntity]
+      .contramap(leasesEntity(id, _: List[MediaLease])) ~
     (__ \ "collections").write[List[EmbeddedEntity[CollectionResponse]]]
       .contramap((collections: List[Collection]) => collections.map(c => collectionsEntity(id, c)))
   )(unlift(Image.unapply))
 
+  def fileMetaDataUri(id: String) = URI.create(s"${Config.rootUri}/images/$id/fileMetadata")
+
+  def usagesUri(id: String) = URI.create(s"${Config.usageUri}/usages/media/$id")
+  def usageUri(id: String) = {
+    URI.create(s"${Config.usageUri}/usages/${UriEncoding.encodePathSegment(id, "UTF-8")}")
+  }
+  def leasesUri(id: String) = URI.create(s"${Config.rootUri}/leases/media/$id")
+
+  def usageEntity(usage: Usage) = EmbeddedEntity[Usage](usageUri(usage.id), Some(usage))
   def usagesEntity(id: String, usages: List[Usage]) =
     EmbeddedEntity[List[UsageEntity]](usagesUri(id), Some(usages.map(usageEntity)))
 
-  def usageEntity(usage: Usage) = EmbeddedEntity[Usage](usageUri(usage.id), Some(usage))
+  def leasesEntity(id: String, leases: List[MediaLease]) =
+    EmbeddedEntity[List[MediaLease]](leasesUri(id), Some(leases))
 
   def collectionsEntity(id: String, c: Collection): EmbeddedEntity[CollectionResponse] =
       collectionEntity(Config.collectionsUri, id, c)

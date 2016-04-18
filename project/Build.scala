@@ -106,6 +106,10 @@ object Build extends Build {
     .libraryDependencies(awsDeps)
     .testDependencies(scalaTestDeps)
 
+  val leases = playProject("leases")
+    .libraryDependencies(awsDeps ++ scanamoDeps)
+    .testDependencies(scalaTestDeps)
+
   val integration = project("integration")
     .dependsOn(lib)
     .libraryDependencies(awsDeps ++ scalazDeps ++ uriTemplateDeps ++ playWsDeps)

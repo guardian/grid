@@ -377,8 +377,84 @@
                 }
             }
         },
-
-
+        "LeasesDynamoTable": {
+            "Type": "AWS::DynamoDB::Table",
+            "Properties": {
+                "AttributeDefinitions": [
+                    {
+                        "AttributeName": "id",
+                        "AttributeType": "S"
+                    },
+                    {
+                        "AttributeName": "mediaId",
+                        "AttributeType": "S"
+                    }
+                ],
+                "KeySchema": [
+                    {
+                        "AttributeName": "id",
+                        "KeyType": "HASH"
+                    }
+                ],
+                "ProvisionedThroughput": {
+                    "ReadCapacityUnits" : "5",
+                    "WriteCapacityUnits" : "5"
+                },
+                "GlobalSecondaryIndexes": [ {
+                    "IndexName": "mediaId",
+                    "KeySchema": [ {
+                        "AttributeName": "mediaId",
+                        "KeyType": "HASH"
+                    } ],
+                    "Projection": {
+                        "ProjectionType": "ALL"
+                    },
+                    "ProvisionedThroughput": {
+                        "ReadCapacityUnits": "5",
+                        "WriteCapacityUnits": "5"
+                    } }
+                ]
+            }
+        },
+        "LeasesTablePolicy": {
+            "Type": "AWS::IAM::Policy",
+            "Properties": {
+                "PolicyName": "LeasesTablePolicy",
+                "PolicyDocument": {
+                    "Id": "LeasesTablePolicy",
+                    "Statement": [ {
+                        "Effect": "Allow",
+                        "Action": [ "dynamodb:*" ],
+                        "Resource": [
+                            { "Fn::Join" : [ "", [
+                                "arn:aws:dynamodb:",
+                                { "Ref" : "AWS::Region" },
+                                ":",
+                                { "Ref" : "AWS::AccountId" },
+                                ":table/",
+                                { "Ref" : "LeasesDynamoTable" }
+                            ] ] }
+                        ]
+                    },
+                    {
+                        "Effect": "Allow",
+                        "Action": [ "dynamodb:*" ],
+                        "Resource": [
+                            { "Fn::Join" : [ "", [
+                                "arn:aws:dynamodb:",
+                                { "Ref" : "AWS::Region" },
+                                ":",
+                                { "Ref" : "AWS::AccountId" },
+                                ":table/",
+                                { "Ref" : "LeasesDynamoTable" },
+                                "/index/mediaId"
+                            ] ] }
+                        ]
+                    } ]
+                },
+                "Users": [ { "Ref": "User" } ]
+            }
+        },
         "Topic": {
             "Type": "AWS::SNS::Topic",
             "Properties": {
@@ -652,6 +728,9 @@
         },
         "ImageCollectionsDynamoTable": {
             "Value": { "Ref": "ImageCollectionsDynamoTable" }
+        },
+        "LeasesDynamoTable": {
+            "Value": { "Ref": "LeasesDynamoTable" }
         },
         "SnsTopicArn": {
             "Value": { "Ref": "Topic" }

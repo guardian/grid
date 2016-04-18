@@ -18,7 +18,6 @@ GET     /images/:imageId/export/:exportId             controllers.MediaApi.getIm
 GET     /images/:imageId/export                       controllers.MediaApi.getImageExports(imageId: String)
 POST    /images/:id/reindex                           controllers.MediaApi.reindexImage(id: String)
 DELETE  /images/:id                                   controllers.MediaApi.deleteImage(id: String)
-
 GET     /images                                       controllers.MediaApi.imageSearch
 
 # completion

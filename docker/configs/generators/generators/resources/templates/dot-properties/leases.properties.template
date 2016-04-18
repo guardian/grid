@@ -1,0 +1,7 @@
+domain.root={{domain_root}}
+aws.id={{AwsId}}
+aws.secret={{AwsSecret}}
+aws.region={{region}}
+auth.keystore.bucket={{KeyBucket}}
+sns.topic.arn={{SnsTopicArn}}
+dynamo.tablename.leasesTable={{LeasesDynamoTable}}
