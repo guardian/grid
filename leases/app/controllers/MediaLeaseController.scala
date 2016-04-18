@@ -20,7 +20,11 @@ import com.gu.mediaservice.lib.argo.model._
 import lib.LeaseStore
 
 
-case class AppIndex(name: String, description: String, config: Map[String, String] = Map())
+case class AppIndex(
+                     name: String,
+                     description: String,
+                     config: Map[String, String] = Map(),
+                     links: List[Link] = Nil)
 object AppIndex {
   implicit def jsonWrites: Writes[AppIndex] = Json.writes[AppIndex]
 }
@@ -32,7 +36,12 @@ object MediaLeaseController extends Controller with ArgoHelpers {
 
   val notFound = respondNotFound("MediaLease not found")
 
-  val appIndex = AppIndex("media-leases", "Media leases service")
+  val appIndex = AppIndex(
+    "media-leases",
+    "Media leases service",
+    Map(),
+    List(Link("by-media-id", s"$rootUri/leases/media/{id}"))
+  )
   def index = Authenticated { _ => respond(appIndex) }
 
   def postLease = Authenticated.async(parse.json) { implicit request => Future {
