@@ -9,8 +9,8 @@ import com.gu.mediaservice.model._
 object ImageExtras {
 
   val validityDescription = Map(
-    "has_credit" -> "No credit information",
-    "has_description" -> "No description",
+    "has_credit" -> "Missing credit information",
+    "has_description" -> "Missing description",
     "is_png" -> "PNG images cannot be exported"
   )
 
