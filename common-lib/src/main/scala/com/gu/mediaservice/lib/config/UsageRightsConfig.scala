@@ -37,15 +37,12 @@ object UsageRightsConfig {
     "Ullstein Bild Premium"
   )
 
-  // New rights model, will supersede `freeCreditList` soon
   val freeSuppliers = List(
     "AAP",
-    "Action Images",
     "Alamy",
     "Allstar Picture Library",
     "AP",
     "Barcroft Media",
-    "Corbis",
     "EPA",
     "Getty Images",
     "PA",
