@@ -125,8 +125,13 @@ object FileMetadataReader {
 
       val pngDir = metadata.getFirstDirectoryOfType(classOf[PngDirectory])
 
-      Map("colorType" -> pngDir.getDescription(PngDirectory.TAG_COLOR_TYPE),
-        "bits" -> pngDir.getString(PngDirectory.TAG_BITS_PER_SAMPLE))
+      Map(
+        "colorType" -> Option(pngDir.getDescription(PngDirectory.TAG_COLOR_TYPE)),
+        "bitsPerSample" -> Option(pngDir.getDescription(PngDirectory.TAG_BITS_PER_SAMPLE)),
+        "paletteHasTransparency" -> Option(pngDir.getDescription(PngDirectory.TAG_PALETTE_HAS_TRANSPARENCY)),
+        "paletteSize" -> Option(pngDir.getDescription(PngDirectory.TAG_PALETTE_SIZE)),
+        "iccProfileName" -> Option(pngDir.getDescription(PngDirectory.TAG_ICC_PROFILE_NAME))
+      ).flattenOptions
   }
 
   private def nonEmptyTrimmed(nullableStr: String): Option[String] =
