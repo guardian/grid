@@ -10,14 +10,14 @@ import play.api.libs.concurrent.Execution.Implicits._
 
 import play.api.libs.json._
 
-import com.gu.mediaservice.model.{MediaLease, LeaseByMedia}
+import com.gu.mediaservice.model.{MediaLease, LeaseByMedia, LeaseByMediaWriter}
 
 import com.gu.mediaservice.lib.auth
 import com.gu.mediaservice.lib.auth._
 import com.gu.mediaservice.lib.argo._
 import com.gu.mediaservice.lib.argo.model._
 
-import lib.LeaseStore
+import lib.{LeaseStore, ControllerHelper}
 
 
 case class AppIndex(
@@ -29,9 +29,11 @@ object AppIndex {
   implicit def jsonWrites: Writes[AppIndex] = Json.writes[AppIndex]
 }
 
-object MediaLeaseController extends Controller with ArgoHelpers {
+object MediaLeaseController extends Controller
+  with ArgoHelpers
+  with ControllerHelper
+  with LeaseByMediaWriter{
 
-  import lib.ControllerHelper._
   import lib.Config._
 
   val notFound = respondNotFound("MediaLease not found")

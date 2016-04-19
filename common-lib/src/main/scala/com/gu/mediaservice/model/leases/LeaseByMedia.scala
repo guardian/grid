@@ -2,26 +2,15 @@ package com.gu.mediaservice.model
 
 import play.api.libs.json._
 import play.api.libs.functional.syntax._
+import com.gu.mediaservice.lib.argo.model._
 import org.joda.time.DateTime
-
 
 case class LeaseByMedia(
   leases: List[MediaLease],
   lastModified: Option[DateTime],
-  length: Int,
   current: Option[MediaLease]
 )
 case object LeaseByMedia {
-  implicit val dateTimeFormat = DateFormat
-  implicit val writer = new Writes[LeaseByMedia] {
-    def writes(leaseByMedia: LeaseByMedia) = JsObject(Seq(
-      "leases" -> Json.toJson(leaseByMedia.leases),
-      "lastModified" -> Json.toJson(leaseByMedia.lastModified),
-      "length" -> Json.toJson(leaseByMedia.length),
-      "current" -> Json.toJson(leaseByMedia.current)
-    ))
-  }
-
   def apply(leases: List[MediaLease]): LeaseByMedia = {
     def sortLease(a: MediaLease, b: MediaLease) =
       a.createdAt.isAfter(b.createdAt)
@@ -37,6 +26,22 @@ case object LeaseByMedia {
       .headOption
       .map(_.createdAt)
 
-    LeaseByMedia(sortedLeases, lastModified, leases.length, currentLease)
+    LeaseByMedia(sortedLeases, lastModified, currentLease)
   }
 }
+
+trait LeaseByMediaWriter {
+  def wrapLease(lease: MediaLease): EntityReponse[MediaLease]
+
+  implicit val dateTimeFormat = DateFormat
+  implicit val writer = new Writes[LeaseByMedia] {
+    def writes(leaseByMedia: LeaseByMedia) = JsObject(Seq(
+      "leases" -> Json.toJson(leaseByMedia.leases.map(wrapLease)),
+      "lastModified" -> Json.toJson(leaseByMedia.lastModified)
+    ) ++ leaseByMedia.current
+      .map(l => "current" -> Json.toJson(wrapLease(l)))
+    )
+  }
+}
+
+
