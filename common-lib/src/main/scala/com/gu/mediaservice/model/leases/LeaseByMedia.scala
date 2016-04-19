@@ -35,13 +35,10 @@ trait LeaseByMediaWriter {
 
   implicit val dateTimeFormat = DateFormat
   implicit val writer = new Writes[LeaseByMedia] {
-    def writes(leaseByMedia: LeaseByMedia) = JsObject(Seq(
-      "leases" -> Json.toJson(leaseByMedia.leases.map(wrapLease)),
-      "lastModified" -> Json.toJson(leaseByMedia.lastModified)
-    ) ++ leaseByMedia.current
-      .map(l => "current" -> Json.toJson(wrapLease(l)))
+    def writes(leaseByMedia: LeaseByMedia) = JsObject(
+      Seq("leases" -> Json.toJson(leaseByMedia.leases.map(wrapLease))) ++
+      leaseByMedia.current.map(l => "current" -> Json.toJson(wrapLease(l))) ++
+      leaseByMedia.lastModified.map(m => "lastModified" -> Json.toJson(m))
     )
   }
 }
-
-
