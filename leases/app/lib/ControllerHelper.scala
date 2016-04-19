@@ -14,7 +14,7 @@ import com.gu.mediaservice.model.MediaLease
 
 
 case class InvalidPrinciple(message: String) extends Throwable
-object ControllerHelper extends ArgoHelpers {
+trait ControllerHelper extends ArgoHelpers {
 
   import lib.Config._
 
