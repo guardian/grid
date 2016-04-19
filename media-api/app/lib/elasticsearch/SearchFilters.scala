@@ -13,11 +13,10 @@ import lib.Config
 
 trait SearchFilters extends ImageFields {
 
+  import UsageRightsConfig.{ suppliersCollectionExcl, freeSuppliers }
+
   val validFilter   = Config.requiredMetadata.map(metadataField).toNel.map(filters.exists)
   val invalidFilter = Config.requiredMetadata.map(metadataField).toNel.map(filters.anyMissing)
-
-  // New Cost Model
-  import UsageRightsConfig.{ suppliersCollectionExcl, freeSuppliers }
 
   val (suppliersWithExclusions, suppliersNoExclusions) = freeSuppliers.partition(suppliersCollectionExcl.contains)
   val suppliersWithExclusionsFilters = for {

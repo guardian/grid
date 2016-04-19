@@ -113,7 +113,9 @@ object ImageResponse extends EditsResponse {
     val secureUrl = S3Client.signUrl(Config.imageBucket, fileUri, image, expiration)
     val secureThumbUrl = S3Client.signUrl(Config.thumbBucket, fileUri, image, expiration)
 
-    val valid = ImageExtras.isValid(source \ "metadata")
+    val validityMap    = ImageExtras.validityMap(image)
+    val valid          = ImageExtras.isValid(validityMap)
+    val invalidReasons = ImageExtras.invalidReasons(validityMap)
 
     val persistenceReasons = imagePersistenceReasons(image)
     val isPersisted = persistenceReasons.nonEmpty
@@ -122,6 +124,7 @@ object ImageResponse extends EditsResponse {
       .flatMap(_.transform(wrapUserMetadata(id)))
       .flatMap(_.transform(addSecureThumbUrl(secureThumbUrl)))
       .flatMap(_.transform(addValidity(valid)))
+      .flatMap(_.transform(addInvalidReasons(invalidReasons)))
       .flatMap(_.transform(addUsageCost(source)))
       .flatMap(_.transform(addPersistedState(isPersisted, persistenceReasons))).get
 
@@ -216,6 +219,9 @@ object ImageResponse extends EditsResponse {
 
   def addValidity(valid: Boolean): Reads[JsObject] =
     __.json.update(__.read[JsObject]).map(_ ++ Json.obj("valid" -> valid))
+
+  def addInvalidReasons(reasons: Map[String, String]): Reads[JsObject] =
+    __.json.update(__.read[JsObject]).map(_ ++ Json.obj("invalidReasons" -> Json.toJson(reasons)))
 
   def roundDateTime(t: DateTime, d: Duration) = {
     t minus (t.getMillis - (t.getMillis.toDouble / d.getMillis).round * d.getMillis)
