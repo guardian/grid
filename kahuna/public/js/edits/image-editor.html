@@ -69,6 +69,9 @@
                         Invalid
                     <gr-icon title="You need to add both a credit and description, (PNGs are also invalid).">help</gr-icon>
                 </span>
+                <div class="result-editor__info-item--png-warning"ng:if="ctrl.invalidReasons['is_png']">
+                    <strong>PNG</strong>: Currently not supported!
+                </div>
             </div>
 
             <gr-archiver-status class="result-editor__archiver"
