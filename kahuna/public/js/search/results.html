@@ -133,12 +133,13 @@
             </li>
         </ul>
 
-        <div ng:if="ctrl.galleryView"
+        <div class="gallery-container"
+            ng:if="ctrl.galleryView"
             gu:lazy-gallery="ctrl.imagesAll"
             gu:lazy-gallery-preloaded-items="10">
 
-            <button gu:lazy-gallery-control ng:click="nextItem()"></button>
-            <button gu:lazy-gallery-control ng:click="previousItem()"></button>
+            <button gu:lazy-gallery-control ng:click="nextItem()">NEXT</button>
+            <button gu:lazy-gallery-control ng:click="previousItem()">PREV</button>
 
             <ul class="gallery">
                 <li ng:repeat="image in ctrl.images track by image.data.id">

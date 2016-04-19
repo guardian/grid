@@ -11,7 +11,8 @@ export var lazyGallery = angular.module('gu.lazyGallery', [
 ]);
 
 lazyGallery.controller('GuLazyGalleryCtrl', ['$scope', function($scope) {
-    let ctrl = this;
+    let ctrl = this,
+        pos = 0;
 
     function setTransform() {
         $scope.gallery[0].style.transform = 'translate3d(' + (-pos * $scope.gallery[0].offsetWidth) + 'px,0,0)';
@@ -31,13 +32,13 @@ lazyGallery.controller('GuLazyGalleryCtrl', ['$scope', function($scope) {
 
 }]);
 
-lazyGallery.directive('guLazyGalleryControls', [function() {
+lazyGallery.directive('guLazyGalleryControl', [function() {
     return {
         restrict: 'A',
         controller: 'GuLazyGalleryCtrl',
         link: function(scope, element, attrs, ctrl) {
-            scope.nextItem = ctrl.nextItem();
-            scope.previousItem = ctrl.previousItem();
+            scope.nextItem = ctrl.nextItem;
+            scope.previousItem = ctrl.previousItem;
         }
     };
 }]);

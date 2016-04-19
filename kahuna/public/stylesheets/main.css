@@ -1086,13 +1086,17 @@ textarea.ng-invalid {
 /* ==========================================================================
    Gallery
    ========================================================================== */
+.gallery-container {
+    position:relative;
+    top: 35px;
+}
+
 .gallery {
     display: flex;
     flex-wrap: nowrap;
     align-items: stretch;
     align-content: center;
     position: relative;
-    top: 35px;
     height: calc(100vh - 100px); /* screen - top bar */
 }
 
