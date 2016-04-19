@@ -29,10 +29,25 @@ case class MediaLease(
   endDate: Option[DateTime] = None,
   access: MediaLeaseType = AllowUseLease,
   notes: Option[String],
-  mediaId: String
-)
+  mediaId: String,
+  createdAt: DateTime = new DateTime()
+) {
+  private def afterStart = startDate.map(start => (new DateTime()).isAfter(start)).getOrElse(true)
+  private def beforeEnd  = endDate.map(end => (new DateTime()).isBefore(end)).getOrElse(true)
+
+  def active = afterStart && beforeEnd
+}
 case object MediaLease {
   implicit val dateTimeFormat = DateFormat
-  implicit val MediaLeaseWrites = Json.writes[MediaLease]
   implicit val MediaLeaseReads = Json.reads[MediaLease]
+
+  val MediaLeasePlainWrites = Json.writes[MediaLease]
+
+  implicit val MediaLeaseWrites = new Writes[MediaLease] {
+    def writes(mediaLease: MediaLease) =
+      Json.toJson(mediaLease)(MediaLeasePlainWrites).as[JsObject] +
+        ("active" -> JsBoolean(mediaLease.active))
+  }
+
+
 }
