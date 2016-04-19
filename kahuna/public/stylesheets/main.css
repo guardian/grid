@@ -1093,12 +1093,83 @@ textarea.ng-invalid {
     align-content: center;
     position: relative;
     top: 35px;
+    height: calc(100vh - 100px); /* screen - top bar */
 }
 
-.gallery__item {
-    width: 100vw;
-    height: 100%;
+.gallery-item {
+    width: calc(100vw - 20px); /* screen - margin */
     position: relative;
+    border: 5px solid transparent;
+    box-sizing: border-box;
+    margin: 10px;
+    background-color: #393939;
+}
+
+
+/* TODO: abstract repeated results styles */
+.gallery-item__select input[type=checkbox] {
+    visibility: hidden;
+}
+
+.gallery-item__select {
+    position: absolute;
+    display: none;
+
+    /* above thumbnail */
+    z-index: 1;
+}
+
+.gallery-item__select--no-pointer-events {
+    pointer-events: none;
+}
+
+.gallery-item__select__checkbox__label {
+    position: absolute;
+    top: 0;
+    left: 0;
+    cursor: pointer;
+}
+
+.gallery-item__select .gallery-item__select__checkbox__label gr-icon {
+    font-size: 25px;
+    color: white;
+}
+
+.gallery-item__select--selected .gallery-item__select__checkbox__label gr-icon {
+    color: #00adee;
+}
+
+.gallery-item--selected,
+.gallery-item--selected:hover {
+    border-color: #00adee;
+}
+
+/* Hacky: Hide gr-archiver-status "Add to Library" (unarchived state) unless hovering */
+.gallery-item .gr-archiver-status--unarchived {
+    display: none;
+}
+
+.gallery-item:hover .gallery-item__select,
+.gallery-item:hover .preview__fade,
+.gallery-item:hover .image-actions,
+.gallery-item:hover .gr-archiver-status--unarchived {
+    display: block;
+}
+
+.gallery-item:hover .gr-add-label--inactive {
+    display: inline-block;
+}
+
+.gallery-item:hover {
+    background-color: #404040;
+}
+
+.gallery-item--selected:hover .preview__fade {
+    display: none;
+}
+
+.gallery-item__select--selected {
+    display: initial;
 }
 
 
@@ -1113,6 +1184,10 @@ textarea.ng-invalid {
 .preview__no-link {
     display: block;
     height: 200px;
+}
+
+.preview__link--large {
+    height: auto;
 }
 
 .preview__image {
@@ -2342,4 +2417,3 @@ FIXME: what to do with touch devices
     }
 
 }
-

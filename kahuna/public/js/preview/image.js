@@ -8,6 +8,7 @@ import template from './image.html!text';
 import templateLarge from './image-large.html!text';
 
 import '../image/service';
+import '../imgops/service';
 import '../services/image/usages';
 import '../components/gr-add-label/gr-add-label';
 import '../components/gr-archiver-status/gr-archiver-status';
@@ -18,7 +19,8 @@ export var image = angular.module('kahuna.preview.image', [
     'analytics.track',
     'gr.addLabel',
     'gr.archiverStatus',
-    'util.rx'
+    'util.rx',
+    'kahuna.imgops'
 ]);
 
 image.controller('uiPreviewImageCtrl', [
@@ -28,13 +30,15 @@ image.controller('uiPreviewImageCtrl', [
     '$window',
     'imageService',
     'imageUsagesService',
+    'imgops',
     function (
         $scope,
         inject$,
         $rootScope,
         $window,
         imageService,
-        imageUsagesService) {
+        imageUsagesService,
+        imgops) {
     var ctrl = this;
 
     const freeUpdateListener = $rootScope.$on('image-updated', (e, updatedImage) => {
@@ -42,7 +46,6 @@ image.controller('uiPreviewImageCtrl', [
             ctrl.states = imageService(updatedImage).states;
             ctrl.image = updatedImage;
         }
-
     });
 
     ctrl.states = imageService(ctrl.image).states;
@@ -63,6 +66,10 @@ image.controller('uiPreviewImageCtrl', [
     ctrl.getCollectionStyle = collection => {
         return collection.data.cssColour && `background-color: ${collection.data.cssColour}`;
     };
+
+    imgops.getFullScreenUri(ctrl.image)
+        .then((url) => ctrl.image.data.large = url);
+
 }]);
 
 image.directive('uiPreviewImage', function() {
@@ -80,9 +87,9 @@ image.directive('uiPreviewImage', function() {
         controllerAs: 'ctrl',
         bindToController: true
     };
-})
+});
 
-;image.directive('uiPreviewImageLarge', function() {
+image.directive('uiPreviewImageLarge', function() {
     return {
         restrict: 'E',
         scope: {
