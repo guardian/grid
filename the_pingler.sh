@@ -9,7 +9,7 @@ KAHUNA="http://localhost:9005/management/healthcheck"
 CROPPER="http://localhost:9006/management/healthcheck"
 METADATA="http://localhost:9007/management/healthcheck"
 USAGE="http://localhost:9009/management/healthcheck"
-COLLECTIONS="http://localhost:9010/"
+COLLECTIONS="http://localhost:9010/management/healthcheck"
 AUTH="http://localhost:9011/management/healthcheck"
 LEASES="http://localhost:9012/management/healthcheck"
 
