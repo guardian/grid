@@ -10,7 +10,7 @@ import play.api.libs.concurrent.Execution.Implicits._
 
 import play.api.libs.json._
 
-import com.gu.mediaservice.model.MediaLease
+import com.gu.mediaservice.model.{MediaLease, LeaseByMedia}
 
 import com.gu.mediaservice.lib.auth
 import com.gu.mediaservice.lib.auth._
@@ -84,18 +84,6 @@ object MediaLeaseController extends Controller with ArgoHelpers {
         .map(LeaseStore.delete)
 
       Accepted
-    }
-  }
-
-  case class LeaseByMedia(leases: List[MediaLease])
-  case object LeaseByMedia {
-    implicit val LeaseByMediaWrites = new Writes[LeaseByMedia] {
-    def writes(leaseByMedia: LeaseByMedia) =
-      JsObject(Seq(
-        // TODO: calculate truth value from list
-        "active" -> JsBoolean(true),
-        "leases" -> Json.toJson(leaseByMedia.leases.map(wrapLease))
-      ))
     }
   }
 
