@@ -1088,16 +1088,19 @@ textarea.ng-invalid {
    ========================================================================== */
 .gallery-container {
     position:relative;
+    width: 100vw;
     top: 35px;
 }
 
 .gallery {
     display: flex;
-    flex-wrap: nowrap;
-    align-items: stretch;
+    flex-direction: row;
+    justify-content: flex-start;
+    align-items: center;
     align-content: center;
     position: relative;
     height: calc(100vh - 100px); /* screen - top bar */
+    background-color: #333333;
 }
 
 .gallery-item {
@@ -1109,6 +1112,24 @@ textarea.ng-invalid {
     background-color: #393939;
 }
 
+.gallery__control {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+}
+
+.gallery__control--disabled {
+    opacity: .5;
+    pointer-events: none;
+}
+
+.gallery__control--left {
+    left: 0;
+}
+
+.gallery__control--right {
+    right: 0;
+}
 
 /* TODO: abstract repeated results styles */
 .gallery-item__select input[type=checkbox] {
