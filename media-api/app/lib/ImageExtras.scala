@@ -9,9 +9,9 @@ import com.gu.mediaservice.model._
 object ImageExtras {
 
   val validityDescription = Map(
-    "has_credit" -> "Missing credit information",
-    "has_description" -> "Missing description",
-    "is_png" -> "PNG images cannot be cropped"
+    "missing_credit"      -> "Missing credit information",
+    "missing_description" -> "Missing description",
+    "is_png"              -> "PNG images cannot be cropped"
   )
 
   private def optToBool[T](o: Option[T]): Boolean =
@@ -22,13 +22,13 @@ object ImageExtras {
   def isPng(asset: Asset) = asset.mimeType == Some("image/png")
 
   def validityMap(image: Image): Map[String, Boolean] = Map(
-    "has_credit" -> hasCredit(image.metadata),
-    "has_description" -> hasDescription(image.metadata),
-    "is_png" -> !isPng(image.source)
+    "missing_credit"      -> !hasCredit(image.metadata),
+    "missing_description" -> !hasDescription(image.metadata),
+    "is_png"              -> isPng(image.source)
   )
 
   def invalidReasons(validityMap: Map[String, Boolean]) = validityMap
-    .filter(_._2 == false)
+    .filter(_._2 == true)
     .map { case (id, _) => id -> validityDescription.get(id) }
     .map {
       case (id, Some(reason)) => id -> reason

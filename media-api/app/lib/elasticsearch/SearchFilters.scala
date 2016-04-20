@@ -15,6 +15,8 @@ trait SearchFilters extends ImageFields {
 
   import UsageRightsConfig.{ suppliersCollectionExcl, freeSuppliers }
 
+  // Warning: The current media-api definition of invalid includes other requirements
+  // so does not match this filter exactly!
   val validFilter   = Config.requiredMetadata.map(metadataField).toNel.map(filters.exists)
   val invalidFilter = Config.requiredMetadata.map(metadataField).toNel.map(filters.anyMissing)
 
