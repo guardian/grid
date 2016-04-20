@@ -5,16 +5,15 @@ set -o shwordsplit
 API="http://localhost:9001/management/healthcheck"
 THRALL="http://localhost:9002/"
 IMAGE_LOADER="http://localhost:9003/management/healthcheck"
-FTP_WATCHER="http://localhost:9004/"
 KAHUNA="http://localhost:9005/management/healthcheck"
 CROPPER="http://localhost:9006/management/healthcheck"
 METADATA="http://localhost:9007/management/healthcheck"
 USAGE="http://localhost:9009/management/healthcheck"
-COLLECTIONS="http://localhost:9010/"
+COLLECTIONS="http://localhost:9010/management/healthcheck"
 AUTH="http://localhost:9011/management/healthcheck"
 LEASES="http://localhost:9012/management/healthcheck"
 
-lu="$COLLECTIONS $IMAGE_LOADER $CROPPER $METADATA $THRALL $FTP_WATCHER $KAHUNA $API $USAGE $AUTH $LEASES"
+lu="$COLLECTIONS $IMAGE_LOADER $CROPPER $METADATA $THRALL $KAHUNA $API $USAGE $AUTH $LEASES"
 
 echo "You have started the Pingler!"
 echo
