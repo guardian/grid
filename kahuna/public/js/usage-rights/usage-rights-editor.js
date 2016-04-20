@@ -61,7 +61,7 @@ usageRightsEditor.controller(
     // The filter is used here to stop the initial setting of `undefined` being published.
     const categoryFromUserChange$ = observe$($scope, () => ctrl.category).filter(cat => !!cat);
 
-    const categoryInvalid$ = categoryFromUserChange$.map((c) => c.value === '')
+    const categoryInvalid$ = categoryFromUserChange$.map((c) => c.value === '');
 
     // @return Stream.<Category>
     const categoryWithUserChange$ =
