@@ -57,12 +57,11 @@
                              ng:if="ctrl.selectionCount > 0">
                 </gr-archiver>
 
-                <div class="fill-height flex-container flex-container--rtl results-toolbar-item results-toolbar-item--no-hover results-toolbar-item--right">
-                    <button class="inner-clickable clickable" type="button"
-                            ng:click="ctrl.toggleGallery()">
-                        <gr-icon-label gr-icon="find_in_page">Gallery mode</gr-icon-label>
-                    </button>
-                </div>
+                <gr-toggle-button class="results-toolbar-item results-toolbar-item--no-hover results-toolbar-item--right"
+                                  gr:toggle="ctrl.galleryView"
+                                  gr:icon="find_in_page"
+                                  gr:name="Gallery">
+                </gr-toggle-button>
 
                 <gr-panel-button
                     class="results-toolbar-item results-toolbar-item--no-hover results-toolbar-item--right"
@@ -75,7 +74,7 @@
         </div>
 
         <ul class="results"
-            ng:if="!ctrl.galleryView"
+            ng:hide="ctrl.galleryView"
             gu:lazy-table="ctrl.imagesAll"
             gu:lazy-table-cell-min-width="280"
             gu:lazy-table-cell-height="292"
@@ -134,7 +133,7 @@
         </ul>
 
         <div class="gallery-container"
-            ng:if="ctrl.galleryView"
+            ng:show="ctrl.galleryView"
             gu:lazy-gallery="ctrl.imagesAll"
             gu:lazy-gallery-preloaded-items="10">
 

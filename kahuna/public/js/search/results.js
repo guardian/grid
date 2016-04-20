@@ -14,6 +14,7 @@ import '../components/gr-archiver/gr-archiver';
 import '../components/gr-delete-image/gr-delete-image';
 import '../components/gr-downloader/gr-downloader';
 import '../components/gr-panel-button/gr-panel-button';
+import '../components/gr-toggle-button/gr-toggle-button';
 
 export var results = angular.module('kahuna.search.results', [
     'kahuna.services.scroll-position',
@@ -27,7 +28,8 @@ export var results = angular.module('kahuna.search.results', [
     'gr.archiver',
     'gr.downloader',
     'gr.deleteImage',
-    'gr.panelButton'
+    'gr.panelButton',
+    'gr.toggleButton'
 ]);
 
 
