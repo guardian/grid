@@ -47,6 +47,7 @@ imageEditor.controller('ImageEditorCtrl', [
     ctrl.showUsageRights = false;
     ctrl.status = ctrl.image.data.valid ? 'ready' : 'invalid';
     ctrl.usageRights = imageService(ctrl.image).usageRights;
+    ctrl.invalidReasons = ctrl.image.data.invalidReasons;
 
     //TODO put collections in their own directive
     ctrl.addCollection = false;
