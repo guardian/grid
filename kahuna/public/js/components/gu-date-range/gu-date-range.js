@@ -59,7 +59,8 @@ guDateRange.directive('guDateRange', [function () {
             guFields: '=',
             guDateFormat: '=?',
             guAnyTimeText: '=?',
-            guFirstDay: '=?'
+            guFirstDay: '=?',
+            guShowExtras: '=?'
         },
         controller: 'GuDateRangeCtrl',
         controllerAs: 'ctrl',
@@ -77,22 +78,25 @@ guDateRange.directive('guDateRange', [function () {
             var endContainer = el.find('.gu-date-range__overlay__pikaday--end')[0];
 
             var iso8601Format = 'YYYY-MM-DDTHH:mm:ssZ';
+            var tenYearsInSeconds = (10 * 365 * 24 * 60 * 60 * 1000)
+            var tenYearsFromNow =  new Date(Date.now() + tenYearsInSeconds)
 
             var pikaStart = new Pikaday({
                 field: startInput,
                 container: startContainer,
                 bound: false,
-                maxDate: new Date(),
+                maxDate: tenYearsFromNow,
                 yearRange: 100,
                 firstDay: parseInt(ctrl.guFirstDay),
                 format: iso8601Format
             });
 
+
             var pikaEnd = new Pikaday({
                 field: endInput,
                 container: endContainer,
                 bound: false,
-                maxDate: new Date(),
+                maxDate: tenYearsFromNow,
                 firstDay: parseInt(ctrl.guFirstDay),
                 format: iso8601Format,
                 yearRange: 100
@@ -100,6 +104,7 @@ guDateRange.directive('guDateRange', [function () {
 
             $scope.$watch('pikaStartValue', function (pikaStartValue) {
                 var date = (pikaStartValue && new Date(pikaStartValue)) || new Date();
+                ctrl.guStartDate = pikaStartValue
                 pikaEnd.setMinDate(date);
                 pikaEnd.hide();
                 pikaEnd.show();
@@ -107,13 +112,13 @@ guDateRange.directive('guDateRange', [function () {
 
             $scope.$watch('pikaEndValue', function (pikaEndValue) {
                 var date = pikaEndValue && new Date(pikaEndValue);
-                pikaStart.setMaxDate(date || new Date());
+                ctrl.guEndDate = pikaEndValue
                 pikaStart.hide();
                 pikaStart.show();
             });
 
-            $scope.$watch('ctrl.guStartDate', resetView);
-            $scope.$watch('ctrl.guEndDate',   resetView);
+            // $scope.$watch('ctrl.guStartDate', resetView);
+            // $scope.$watch('ctrl.guEndDate',   resetView);
 
             $scope.$on('$destroy', function() {
                 pikaStart.destroy();
