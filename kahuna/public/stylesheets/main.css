@@ -1090,6 +1090,7 @@ textarea.ng-invalid {
     position:relative;
     width: 100vw;
     top: 35px;
+    overflow: hidden;
 }
 
 .gallery {
@@ -1116,6 +1117,9 @@ textarea.ng-invalid {
     position: absolute;
     top: 50%;
     transform: translateY(-50%);
+    padding: 10px;
+    border: 1px solid #565656;
+    background: #333333;
 }
 
 .gallery__control--disabled {
@@ -1124,11 +1128,11 @@ textarea.ng-invalid {
 }
 
 .gallery__control--left {
-    left: 0;
+    left: 20px;
 }
 
 .gallery__control--right {
-    right: 0;
+    right: 20px;
 }
 
 /* TODO: abstract repeated results styles */

@@ -1,14 +1,6 @@
 import angular from 'angular';
-import Rx from 'rx';
-import 'rx-dom';
 
-import '../../util/rx';
-import '../../util/seq';
-
-export var lazyGallery = angular.module('gu.lazyGallery', [
-    'util.rx',
-    'util.seq'
-]);
+export var lazyGallery = angular.module('gu.lazyGallery', []);
 
 lazyGallery.controller('GuLazyGalleryCtrl', ['$scope', function($scope) {
     $scope.pos = 0;
@@ -26,7 +18,6 @@ lazyGallery.controller('GuLazyGalleryCtrl', ['$scope', function($scope) {
         $scope.pos = Math.min($scope.pos + 1, $scope.galleryLength - 1);
         setTransform();
     };
-
 }]);
 
 lazyGallery.directive('guLazyGalleryList', [function() {

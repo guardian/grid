@@ -10,6 +10,7 @@ import '../util/seq';
 import '../components/gu-lazy-table/gu-lazy-table';
 import '../components/gu-lazy-gallery/gu-lazy-gallery';
 import '../components/gu-lazy-table-shortcuts/gu-lazy-table-shortcuts';
+import '../components/gu-lazy-gallery-shortcuts/gu-lazy-gallery-shortcuts';
 import '../components/gr-archiver/gr-archiver';
 import '../components/gr-delete-image/gr-delete-image';
 import '../components/gr-downloader/gr-downloader';
