@@ -36,5 +36,5 @@ object ImageExtras {
     }.toMap
 
   def isValid(validityMap: Map[String, Boolean]): Boolean =
-    !optToBool(validityMap.find(_._2 == false))
+    !optToBool(validityMap.find(_._2 == true))
 }
