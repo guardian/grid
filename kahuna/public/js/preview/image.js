@@ -1,4 +1,5 @@
 import angular from 'angular';
+import Rx from 'rx';
 
 import '../util/rx';
 
@@ -67,8 +68,9 @@ image.controller('uiPreviewImageCtrl', [
         return collection.data.cssColour && `background-color: ${collection.data.cssColour}`;
     };
 
-    imgops.getFullScreenUri(ctrl.image)
-        .then((url) => ctrl.image.data.large = url);
+    const optimisedImage$ = Rx.Observable.fromPromise(imgops.getFullScreenUri(ctrl.image));
+
+    inject$($scope, optimisedImage$, ctrl, 'optimisedImage');
 
 }]);
 

@@ -138,6 +138,11 @@
             gu:lazy-gallery-preloaded-items="10"
             gu:lazy-gallery-shortcuts>
 
+            <div ng:if="galleryLoading"
+                 class="image-loading-results">
+                Loading Gallery…
+            </div>
+
             <ul class="gallery"
                 gu:lazy-gallery-list>
                 <li ng:repeat="image in ctrl.images track by image.data.id">
@@ -192,13 +197,15 @@
             <div>
                 <button class="gallery__control gallery__control--left"
                         ng:class="{ 'gallery__control--disabled': pos === 0 }"
-                        ng:click="previousItem()">
+                        ng:disabled="pos === 0"
+                        ng:click="ctrl.previousItem()">
                     <gr-icon-label gr-icon="keyboard_arrow_left">Previous</gr-icon-label>
                 </button>
 
                 <button class="gallery__control gallery__control--right"
                         ng:class="{ 'gallery__control--disabled': pos === galleryLength - 1 }"
-                        ng:click="nextItem()">
+                        ng:disabled="pos === galleryLength - 1"
+                        ng:click="ctrl.nextItem()">
                     <gr-icon-label gr-icon="keyboard_arrow_right">Next</gr-icon-label>
                 </button>
             </div>

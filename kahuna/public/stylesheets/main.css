@@ -1106,6 +1106,7 @@ textarea.ng-invalid {
 
 .gallery-item {
     width: calc(100vw - 20px); /* screen - margin */
+    max-height: calc(100vh - 120px); /* screen - top bar -margin */
     position: relative;
     border: 5px solid transparent;
     box-sizing: border-box;
@@ -1123,8 +1124,7 @@ textarea.ng-invalid {
 }
 
 .gallery__control--disabled {
-    opacity: .5;
-    pointer-events: none;
+    opacity: .2;
 }
 
 .gallery__control--left {
@@ -1217,6 +1217,9 @@ textarea.ng-invalid {
 
 .preview__link--large {
     height: auto;
+    max-height: 800px;
+    max-width: 100%;
+    margin: 20px;
 }
 
 .preview__image {
@@ -1237,6 +1240,11 @@ textarea.ng-invalid {
     text-overflow: ellipsis;
     white-space: nowrap;
     margin: 0;
+}
+
+.preview__description--gallery {
+    overflow: visible;
+    white-space: normal;
 }
 
 /*

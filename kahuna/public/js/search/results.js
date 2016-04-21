@@ -401,10 +401,6 @@ results.controller('SearchResultsCtrl', [
             }
         };
 
-        ctrl.toggleGallery = function() {
-            ctrl.galleryView = !ctrl.galleryView;
-        };
-
         const freeUpdateListener = $rootScope.$on('image-updated', (e, updatedImage) => {
             var index = ctrl.images.findIndex(i => i.data.id === updatedImage.data.id);
             if (index !== -1) {
