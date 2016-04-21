@@ -1216,7 +1216,7 @@ textarea.ng-invalid {
     height: 200px;
 }
 
-.preview__link--large {
+.preview__link--large, .preview__no-link--large {
     height: auto;
     max-height: 800px;
     max-width: 100%;
