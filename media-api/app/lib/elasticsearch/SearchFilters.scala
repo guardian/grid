@@ -56,6 +56,7 @@ trait SearchFilters extends ImageFields {
     ContractPhotographer.category,
     CommissionedPhotographer.category,
     ContractIllustrator.category,
+    StaffIllustrator.category,
     CommissionedIllustrator.category,
     CommissionedAgency.category
   )
