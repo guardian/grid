@@ -79,10 +79,16 @@ crop.controller('ImageCropCtrl',
     ctrl.originalWidth  = originalDimensions.width;
     ctrl.originalHeight = originalDimensions.height;
 
+    ctrl.maxInputX = () =>
+        ctrl.originalWidth - ctrl.cropWidth();
+
+    ctrl.maxInputY = () =>
+        ctrl.originalHeight - ctrl.cropHeight();
+
     ctrl.aspect = ctrl.landscapeRatio;
     ctrl.coords = {
-        x1: 0,
-        y1: 0,
+        x1: ctrl.inputX,
+        y1: ctrl.inputY,
         // fill the image with the selection
         x2: ctrl.originalWidth,
         y2: ctrl.originalHeight
@@ -93,8 +99,8 @@ crop.controller('ImageCropCtrl',
         const isFreeRatio = newAspect === '';
         if (isFreeRatio) {
             ctrl.coords = {
-                x1: 0,
-                y1: 0,
+                x1: ctrl.inputX,
+                y1: ctrl.inputY,
                 // fill the image with the selection
                 x2: ctrl.originalWidth,
                 y2: ctrl.originalHeight
@@ -128,6 +134,12 @@ crop.controller('ImageCropCtrl',
         ctrl.cropHeight = () => Math.round(ctrl.coords.y2 - ctrl.coords.y1);
     }
 
+    ctrl.cropX = () => Math.round(ctrl.coords.x1);
+    ctrl.cropY = () => Math.round(ctrl.coords.y1);
+
+    ctrl.inputX = parseInt(ctrl.cropX());
+    ctrl.inputY = parseInt(ctrl.cropY());
+
     ctrl.inputWidth = parseInt(ctrl.cropWidth());
     ctrl.inputHeight = parseInt(ctrl.cropHeight());
 
@@ -137,6 +149,12 @@ crop.controller('ImageCropCtrl',
     ctrl.broadcastWidthChange = function (){
         $scope.$broadcast('user-width-change', ctrl.inputWidth);
     };
+    ctrl.broadcastXChange = function (){
+        $scope.$broadcast('user-x-change', ctrl.inputX);
+    };
+    ctrl.broadcastYChange = function (){
+        $scope.$broadcast('user-y-change', ctrl.inputY);
+    };
 
     //make the view match the ctrl value
     $scope.$watch(function(){ return ctrl.cropWidth(); }, function(){
@@ -144,6 +162,12 @@ crop.controller('ImageCropCtrl',
     });
     $scope.$watch(function(){ return ctrl.cropHeight(); }, function(){
         ctrl.inputHeight = ctrl.cropHeight();
+    });
+    $scope.$watch(function(){ return ctrl.cropX(); }, function(){
+        ctrl.inputX = ctrl.cropX();
+    });
+    $scope.$watch(function(){ return ctrl.cropY(); }, function(){
+        ctrl.inputY = ctrl.cropY();
     });
 
     ctrl.cropSizeWarning = () => ctrl.cropWidth() < 500;
