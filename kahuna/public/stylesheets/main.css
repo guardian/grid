@@ -1121,6 +1121,7 @@ textarea.ng-invalid {
     padding: 10px;
     border: 1px solid #565656;
     background: #333333;
+    z-index: 1;
 }
 
 .gallery__control--disabled {

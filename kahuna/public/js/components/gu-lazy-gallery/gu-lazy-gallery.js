@@ -4,29 +4,31 @@ export var lazyGallery = angular.module('gu.lazyGallery', []);
 
 lazyGallery.controller('GuLazyGalleryCtrl', [
     '$scope',
-    function($scope) {
-        let ctrl = this;
+    function(
+        $scope) {
         $scope.pos = 0;
 
         function setTransform() {
             $scope.gallery[0].style.transform = 'translate3d(' + (-$scope.pos * $scope.gallery[0].offsetWidth) + 'px,0,0)';
         }
 
-        ctrl.previousItem = function() {
+        $scope.previousItem = function() {
             $scope.pos = Math.max($scope.pos - 1, 0);
             setTransform();
         };
 
-        ctrl.nextItem = function() {
+        $scope.nextItem = function() {
             $scope.pos = Math.min($scope.pos + 1, $scope.galleryLength - 1);
             setTransform();
         };
+
+
 }]);
 
 lazyGallery.directive('guLazyGalleryList', [function() {
     return {
         restrict: 'A',
-        require: '^guLazyGallery',
+        controller: 'GuLazyGalleryCtrl',
         link: function(scope, element) {
             scope.gallery = element;
 
@@ -40,10 +42,11 @@ lazyGallery.directive('guLazyGalleryList', [function() {
 lazyGallery.directive('guLazyGallery', [function() {
     return {
         restrict: 'A',
-        controller: 'GuLazyGalleryCtrl',
-        controllerAs: 'galleryCtrl',
-        scope: {
-            images: '=guLazyGallery'
+        link: function(scope) {
+            scope.galleryLoading = true;
+            setTimeout(function() {
+                scope.galleryLoading = false;
+            }, 2000);
         }
     };
 }]);
