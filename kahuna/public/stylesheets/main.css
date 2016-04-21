@@ -1442,6 +1442,15 @@ FIXME: what to do with touch devices
     font-size: 1.4rem;
 }
 
+.result-editor__info-item--png-warning {
+    position: absolute;
+    top: 0px;
+    left: 0px;
+    width: 100%;
+    background-color: rgba(256, 0, 0, .7);
+    text-align: center;
+}
+
 .result-editor__info-item--first {
     margin-left: 0;
 }
