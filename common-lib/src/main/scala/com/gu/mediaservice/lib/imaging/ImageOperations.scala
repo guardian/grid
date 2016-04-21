@@ -48,7 +48,7 @@ object ImageOperations {
         val source = addImage(sourceFile)
 
         val formatter = format(source)("%[JPEG-Colorspace-Name]")
-        
+
         for {
           output <- runIdentifyCmd(formatter)
           colourModel = output.headOption
@@ -78,9 +78,9 @@ object ImageOperations {
   }
 
   def cropImage(sourceFile: File, bounds: Bounds, qual: Double = 100d, tempDir: File,
-                iccColourSpace: Option[String], colourModel: Option[String]): Future[File] = {
+                iccColourSpace: Option[String], colourModel: Option[String], fileType: String): Future[File] = {
     for {
-      outputFile <- createTempFile(s"crop-", ".jpg", tempDir)
+      outputFile <- createTempFile(s"crop-", s".${fileType}", tempDir)
       cropSource  = addImage(sourceFile)
       qualified   = quality(cropSource)(qual)
       corrected   = correctColour(qualified)(iccColourSpace, colourModel)
@@ -101,9 +101,9 @@ object ImageOperations {
       ).map(_ => sourceFile)
   }
 
-  def resizeImage(sourceFile: File, dimensions: Dimensions, qual: Double = 100d, tempDir: File): Future[File] = {
+  def resizeImage(sourceFile: File, dimensions: Dimensions, qual: Double = 100d, tempDir: File, fileType: String): Future[File] = {
     for {
-      outputFile  <- createTempFile(s"resize-", ".jpg", tempDir)
+      outputFile  <- createTempFile(s"resize-", s".${fileType}", tempDir)
       resizeSource = addImage(sourceFile)
       qualified    = quality(resizeSource)(qual)
       resized      = scale(qualified)(dimensions)
