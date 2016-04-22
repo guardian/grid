@@ -81,15 +81,16 @@ object ImageOperations {
                 iccColourSpace: Option[String], colourModel: Option[String], fileType: String): Future[File] = {
     for {
       outputFile <- createTempFile(s"crop-", s".${fileType}", tempDir)
-      cropSource  = addImage(sourceFile)
-      qualified   = quality(cropSource)(qual)
-      corrected   = correctColour(qualified)(iccColourSpace, colourModel)
-      converted   = applyOutputProfile(corrected)
-      stripped    = stripMeta(converted)
-      profiled    = applyOutputProfile(stripped)
-      cropped     = crop(profiled)(bounds)
-      addOutput   = addDestImage(cropped)(outputFile)
-      _          <- runConvertCmd(addOutput)
+      cropSource    = addImage(sourceFile)
+      qualified     = quality(cropSource)(qual)
+      corrected     = correctColour(qualified)(iccColourSpace, colourModel)
+      converted     = applyOutputProfile(corrected)
+      stripped      = stripMeta(converted)
+      profiled      = applyOutputProfile(stripped)
+      cropped       = crop(profiled)(bounds)
+      depthAdjusted = depth(cropped)(8)
+      addOutput     = addDestImage(depthAdjusted)(outputFile)
+      _             <- runConvertCmd(addOutput)
     }
     yield outputFile
   }
