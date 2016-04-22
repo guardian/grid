@@ -26,6 +26,7 @@ export var results = angular.module('kahuna.search.results', [
     'gu.lazyTable',
     'gu.lazyTableShortcuts',
     'gu.lazyGallery',
+    'gu.lazyGalleryShortcuts',
     'gr.archiver',
     'gr.downloader',
     'gr.deleteImage',

@@ -6,18 +6,20 @@ export var lazyGalleryShortcuts = angular.module('gu.lazyGalleryShortcuts', [
     'gr.keyboardShortcut'
 ]);
 
-lazyGalleryShortcuts.directive('guLazyTableShortcuts',
+lazyGalleryShortcuts.directive('guLazyGalleryShortcuts',
                              ['keyboardShortcut',
                               function(keyboardShortcut) {
     return {
         restrict: 'EA',
         require: '^guLazyGallery',
         link: function (scope, element, attrs, lazyGalleryCtrl) {
+            scope.$watch(() => lazyGalleryCtrl, (val) => lazyGalleryCtrl === val);
             function invoke(fnName) {
                 return (event) => {
                     // Must cancel any scrolling caused by the key
                     event.preventDefault();
 
+                    console.log(JSON.stringify(lazyGalleryCtrl));
                     lazyGalleryCtrl[fnName]();
                 };
             }

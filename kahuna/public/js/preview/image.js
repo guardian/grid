@@ -68,7 +68,7 @@ image.controller('uiPreviewImageCtrl', [
         return collection.data.cssColour && `background-color: ${collection.data.cssColour}`;
     };
 
-    const optimisedImage$ = Rx.Observable.fromPromise(imgops.getFullScreenUri(ctrl.image));
+    const optimisedImage$ = Rx.Observable.fromPromise(imgops.getLowResUri(ctrl.image));
 
     inject$($scope, optimisedImage$, ctrl, 'optimisedImage');
 
