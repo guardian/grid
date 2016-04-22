@@ -17,7 +17,6 @@ trait PermissionsHandler {
     }
 
   def getPermissionValForUser(permission: PermissionType.PermissionType, user: Principal): Future[Boolean] = {
-    println(user)
     user match {
       case u: PandaUser => {
         permissionStore.hasPermission(permission, u.email)
