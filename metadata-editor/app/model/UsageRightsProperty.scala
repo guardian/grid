@@ -24,7 +24,7 @@ object UsageRightsProperty {
   type OptionsMap = Map[String, List[String]]
   type Options = List[String]
 
-  import MetadataConfig.{contractPhotographersMap, staffPhotographersMap, contractIllustrators, creativeCommonsLicense}
+  import MetadataConfig.{contractPhotographersMap, staffPhotographersMap, contractIllustrators, staffIllustrators, creativeCommonsLicense}
   import UsageRightsConfig.freeSuppliers
 
   implicit val jsonWrites: Writes[UsageRightsProperty] = Json.writes[UsageRightsProperty]
@@ -69,16 +69,19 @@ object UsageRightsProperty {
         "suppliersCollection", "Collection", "string", required = false,
         examples = Some("AFP, FilmMagic, WireImage"))
     )
+
     case CommissionedAgency => List(requiredStringField("supplier", "Supplier", examples = Some("Demotix")))
 
     case StaffPhotographer => List(
       publicationField(true),
       photographerField(staffPhotographersMap, "publication")
     )
+
     case ContractPhotographer => List(
       publicationField(true),
       photographerField(contractPhotographersMap, "publication")
     )
+
     case CommissionedPhotographer => List(
       publicationField(false),
       photographerField("Sophia Evans, Murdo Macleod")
@@ -86,6 +89,9 @@ object UsageRightsProperty {
 
     case ContractIllustrator => List(
       requiredStringField("creator", "Illustrator", Some(sortList(contractIllustrators))))
+
+    case StaffIllustrator => List(
+      requiredStringField("creator", "Illustrator", Some(sortList(staffIllustrators))))
 
     case CommissionedIllustrator => List(
       requiredStringField("creator", "Illustrator", examples = Some("Ellie Foreman Peck, Matt Bors")))

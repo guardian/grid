@@ -19,19 +19,40 @@ import lib.Config
 
 object PermissionsController extends Controller with ArgoHelpers {
 
+  import Config.rootUri
+
   val Authenticated = Authed.action
   val permissionStore = Authed.permissionStore
 
+  val indexResponse = {
+    val indexData = Map("description" -> "This is the Auth Permissions API")
+    val indexLinks = List(
+      Link("root", s"$rootUri"),
+      Link("permissions", s"$rootUri/permissions/user/{id}"),
+      Link("groups", s"$rootUri/permissions/groups"),
+      Link("me", s"$rootUri/permissions/me")
+    )
+    respond(indexData, indexLinks)
+  }
+
+  def index = Authenticated { indexResponse }
+
   def permissionsResponse(permissionSet: PermissionSet, user: PandaUser) = {
     val permsData = Json.obj(
-      "description" -> "Available permissions for current user (you)",
+      "description" -> s"Permissions for ${user.name}",
       "permissionsSet" -> Json.toJson(permissionSet)
     )
 
     respond(permsData)
   }
 
-  def getUserPermissions = Authenticated.async { request =>
+  def getGroups = Authenticated.async {
+    permissionStore.getGroups.map(groups => respond(groups))
+  }
+
+  def getUserPermissions(id: String)  = Authenticated { NotImplemented }
+
+  def getMyPermissions = Authenticated.async { request =>
     request.user match {
       case user: PandaUser =>
         permissionStore
