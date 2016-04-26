@@ -75,15 +75,16 @@ object Crops {
     val source    = crop.specification
     val mediaType = apiImage.source.mimeType.getOrElse(throw MissingMimeType)
     val secureUrl = apiImage.source.secureUrl.getOrElse(throw MissingSecureSourceUrl)
+    val cropType = "image/jpeg"
 
     for {
       sourceFile  <- tempFileFromURL(secureUrl, "cropSource", "", Config.tempDir)
       colourModel <- ImageOperations.identifyColourModel(sourceFile, mediaType)
-      masterCrop  <- createMasterCrop(apiImage, sourceFile, crop, mediaType, colourModel)
+      masterCrop  <- createMasterCrop(apiImage, sourceFile, crop, cropType, colourModel)
 
       outputDims = dimensionsFromConfig(source.bounds, masterCrop.aspectRatio) :+ masterCrop.dimensions
 
-      sizes      <- createCrops(masterCrop.file, outputDims, apiImage, crop, mediaType)
+      sizes      <- createCrops(masterCrop.file, outputDims, apiImage, crop, cropType)
       masterSize <- masterCrop.sizing
 
       _ <- Future.sequence(List(masterCrop.file,sourceFile).map(delete))

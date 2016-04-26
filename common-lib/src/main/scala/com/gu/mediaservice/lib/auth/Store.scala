@@ -21,6 +21,8 @@ import com.amazonaws.AmazonServiceException
 import play.api.libs.json._
 import play.api.libs.functional.syntax._
 
+import com.gu.mediaservice.model.DateFormat
+
 import org.joda.time.DateTime
 
 abstract class BaseStore[TStoreKey, TStoreVal](bucket: String, credentials: AWSCredentials) {
@@ -71,6 +73,10 @@ class KeyStore(bucket: String, credentials: AWSCredentials) extends BaseStore[St
 }
 
 object PermissionType extends Enumeration {
+  implicit val writer = new Writes[PermissionType] {
+    def writes(p: PermissionType) = JsString(p.toString)
+  }
+
   type PermissionType = Value
   val EditMetadata = Value("editMetadata")
   val DeleteImage  = Value("deleteImage")
@@ -95,10 +101,22 @@ object PermissionSet {
   }
   implicit val permissionSetWrites: Writes[PermissionSet] = Json.writes[PermissionSet]
 }
-class PermissionStore(bucket: String, credentials: AWSCredentials) extends BaseStore[PermissionType, List[String]](bucket, credentials) {
+
+case class StoreAccess(store: Map[PermissionType, List[String]], lastUpdated: DateTime)
+object StoreAccess {
+  type StoreMap = Map[PermissionType, List[String]]
+
+  implicit val dateTimeFormat = DateFormat
+  implicit def storeAccessWrites: Writes[StoreAccess] = Json.writes[StoreAccess]
+  implicit val storeWriter = new Writes[StoreMap] {
+    def writes(s: StoreMap) = s.foldLeft(JsObject(Seq())) { case (memo,(k,v)) => memo + (k.toString -> Json.toJson(v)) }
+  }
+}
+
+class PermissionStore(bucket: String, credentials: AWSCredentials)
+  extends BaseStore[PermissionType, List[String]](bucket, credentials) {
 
   type FuturePerms = Future[Set[PermissionType.PermissionType]]
-  case class StoreAccess(store: Map[PermissionType, List[String]], lastUpdated: DateTime)
 
   def getUserPermissions(
     user: PandaUser
@@ -117,6 +135,11 @@ class PermissionStore(bucket: String, credentials: AWSCredentials) extends BaseS
       case (keys, lastUpdated) => PermissionSet(user, keys, lastUpdated)
     }
   }
+
+  def getGroups(): Future[StoreAccess] = for {
+    s <- store.future
+    l <- lastUpdated.future
+  } yield StoreAccess(s,l)
 
   def hasPermission(permission: PermissionType, userEmail: String) = {
     store.future().map {
