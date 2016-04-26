@@ -46,14 +46,17 @@ object Crops {
   }
 
   def createCrops(sourceFile: File, dimensionList: List[Dimensions], apiImage: SourceImage, crop: Crop, mediaType: String): Future[List[Asset]] = {
+    
     val fileType = getFileExtension(mediaType)
 
     Future.sequence[Asset, List](dimensionList.map { dimensions =>
       for {
-        file       <- ImageOperations.resizeImage(sourceFile, dimensions, 75d, Config.tempDir, fileType)
-        filename    = outputFilename(apiImage, crop.specification.bounds, dimensions.width, fileType)
-        sizing     <- CropStore.storeCropSizing(file, filename, mediaType, crop, dimensions)
-        _          <- delete(file)
+        file          <- ImageOperations.resizeImage(sourceFile, dimensions, 75d, Config.tempDir, fileType)
+        optimisedFile <- ImageOperations.optimiseImage(file, mediaType)
+        filename      = outputFilename(apiImage, crop.specification.bounds, dimensions.width, fileType)
+        sizing       <- CropStore.storeCropSizing(optimisedFile, filename, mediaType, crop, dimensions)
+        _            <- delete(file)
+        _            <- delete(optimisedFile)
       }
       yield sizing
     })
