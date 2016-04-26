@@ -60,7 +60,7 @@ guDateRange.directive('guDateRange', [function () {
             guDateFormat: '=?',
             guAnyTimeText: '=?',
             guFirstDay: '=?',
-            guShowExtras: '=?'
+            guShowExtras: '@'
         },
         controller: 'GuDateRangeCtrl',
         controllerAs: 'ctrl',

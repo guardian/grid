@@ -1,7 +1,7 @@
 .lease__form select,
 .lease__form input,
 .lease__form .lease__date {
-  width: 100%;
+  width: 90%;
   margin: 5px;
 }
 

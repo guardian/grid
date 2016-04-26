@@ -40,7 +40,9 @@ object MediaLeaseController extends Controller
 
   val indexResponse = {
     val appIndex = AppIndex("media-leases", "Media leases service", Map())
-    val indexLinks =  List(Link("by-media-id", s"$rootUri/leases/media/{id}"))
+    val indexLinks =  List(
+      Link("leases", s"$rootUri/leases/{id}"),
+      Link("by-media-id", s"$rootUri/leases/media/{id}"))
     respond(appIndex, indexLinks)
   }
 
@@ -52,6 +54,7 @@ object MediaLeaseController extends Controller
         respondError(BadRequest, "media-lease-parse-failed", JsError.toFlatJson(e).toString)
       },
       mediaLease => {
+        println(s"medialeaasss: $mediaLease")
         LeaseStore.put(mediaLease.copy(leasedBy = requestingUser))
         Accepted
       }

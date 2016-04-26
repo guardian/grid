@@ -13,6 +13,7 @@ cropImage.controller('grCropImageCtrl', [
 
         function updateState () {
             mediaCropper.canBeCropped(ctrl.image).then(croppable => {
+                console.log("croppable", croppable)
                 ctrl.canBeCropped = croppable;
             });
         }

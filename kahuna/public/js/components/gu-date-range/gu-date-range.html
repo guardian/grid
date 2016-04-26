@@ -19,38 +19,35 @@
     </button>
 
     <div class="gu-date-range__overlay search__overlay" ng:show="ctrl.showOverlay">
-        <div ng:show="ctrl.showExtras">
-            <h2 class="gu-date-range__overlay__title search__overlay__title">Field</h2>
-            <div class="gu-date-range__overlay__fieldset">
-                <div class="radio-list">
-                    <div ng:repeat="field in ctrl.guFields track by field.name"
-                         class="radio-list__item">
-                        <input type="radio"
-                               id="gu-date-range__field__{{:: field.name}}"
-                               class="radio-list__circle"
-                               name="field-uploaded"
-                               ng:value=":: field.value"
-                               ng:model="ctrl.guDisplayField">
-                        <label for="gu-date-range__field__{{:: field.name}}" class="radio-list__label"
-                               ng:class="{'radio-list--selected': ctrl.guDisplayField === field.value}">
-                            <div class="radio-list__selection-state"></div>
-                            <div class="radio-list__label-value">{{:: field.label}}</div>
-                        </label>
-                    </div>
+        <h2 class="gu-date-range__overlay__title search__overlay__title">Field</h2>
+        <div class="gu-date-range__overlay__fieldset">
+            <div class="radio-list">
+                <div ng:repeat="field in ctrl.guFields track by field.name"
+                     class="radio-list__item">
+                    <input type="radio"
+                           id="gu-date-range__field__{{:: field.name}}"
+                           class="radio-list__circle"
+                           name="field-uploaded"
+                           ng:value=":: field.value"
+                           ng:model="ctrl.guDisplayField">
+                    <label for="gu-date-range__field__{{:: field.name}}" class="radio-list__label"
+                           ng:class="{'radio-list--selected': ctrl.guDisplayField === field.value}">
+                        <div class="radio-list__selection-state"></div>
+                        <div class="radio-list__label-value">{{:: field.label}}</div>
+                    </label>
                 </div>
             </div>
-
-            <h2 class="gu-date-range__overlay__title search__overlay__title">Presets</h2>
-            <div class="gu-date-range__overlay__fieldset">
-                <button type="button"
-                        class="gu-date-range__overlay__preset__button button"
-                        ng:repeat="presetDate in ctrl.guPresetDates"
-                        ng:click="setPresetDate(presetDate.value)"
-                        gr:track-click="{{ctrl.trackingName}}"
-                        gr:track-click-data="{ 'Action': 'Preset Date', 'Preset Date': presetDate.label }">
-                    {{presetDate.label}}
-                </button>
-            </div>
+        </div>
+        <h2 class="gu-date-range__overlay__title search__overlay__title">Presets</h2>
+        <div class="gu-date-range__overlay__fieldset">
+            <button type="button"
+                    class="gu-date-range__overlay__preset__button button"
+                    ng:repeat="presetDate in ctrl.guPresetDates"
+                    ng:click="setPresetDate(presetDate.value)"
+                    gr:track-click="{{ctrl.trackingName}}"
+                    gr:track-click-data="{ 'Action': 'Preset Date', 'Preset Date': presetDate.label }">
+                {{presetDate.label}}
+            </button>
         </div>
 
         <div class="gu-date-range__overlay__pikaday">

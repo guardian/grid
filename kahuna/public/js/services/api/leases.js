@@ -36,19 +36,32 @@ leaseService.factory('leaseService', [
       return editsService.canUserEdit(image);
     }
 
-    function deleteAll(image) {
-      return image.perform('delete-leases')
+    function deleteLease(lease) {
+      return getLeasesRoot().follow('leases', {id: lease.id}).delete();
     }
 
     function getByMediaId(image) {
       return getLeasesRoot().follow('by-media-id', {id: image.data.id}).get();
     }
 
+    function deniedByCurrentLease(image) {
+      const byMediaPromise = getByMediaId(image)
+      console.log(byMediaPromise)
+      byMediaPromise.then((imageLeases) => {
+        if (imageLeases.current) {
+          !imageLeases.current.access.match(/deny/i)
+        }
+      });
+
+      return byMediaPromise
+    }
+
     return {
         add,
         get,
         canUserEdit,
-        deleteAll
+        deleteLease,
+        deniedByCurrentLease
     };
 }]);
 

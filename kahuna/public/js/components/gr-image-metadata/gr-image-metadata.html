@@ -21,7 +21,7 @@
         </dl>
     </div>
     <div class="image-info">
-    <dl class="image-info__group image-info__wrap">
+    <dl class="image-info__group image-info__wrap" ng:if="ctrl.displayLeases()">
         <gr-leases
             gr:image="ctrl.image"
             gr:leases="[ctrl.leases]"

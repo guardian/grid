@@ -32,28 +32,30 @@ leases.controller(
             ctrl.newLease.createdAt = new Date();
             leaseService.add(ctrl.image, ctrl.newLease)
                 .then((lease) => {
-                    ctrl.getLeases();
-                    ctrl.adding = false;
-                    ctrl.editing = false;
-                    ctrl.resetLeaseForm();
+                    ctrl.getLeases(ctrl.image);
                 })
                 .catch(() =>
                     alertFailed('Something went wrong when saving, please try again!')
-                );
+                )
+                .finally(() => {
+                    ctrl.editing = false;
+                    ctrl.adding = false;
+                    ctrl.resetLeaseForm();
+                });
         }
 
 
-        ctrl.getLeases = () => {
-            const leases$ = leaseService.get(ctrl.image)
+        ctrl.getLeases = (image) => {
+            const leases$ = leaseService.get(image)
                 .map((leasesResponse) => leasesResponse.data)
                 .map((leasesWrapper) => leasesWrapper.leases);
 
             inject$($scope, leases$, ctrl, 'leases');
         }
 
-        ctrl.deleteAll = () => {
-            leaseService.deleteAll(ctrl.image)
-                .then(ctrl.getLeases())
+        ctrl.delete = (lease) => {
+            leaseService.deleteLease(lease)
+                .then((lease) => ctrl.getLeases(ctrl.image))
                 .catch(
                     () => alertFailed('Something when wrong when deleting, please try again!')
                 )
@@ -88,6 +90,7 @@ leases.controller(
             }
         }
 
+
         ctrl.resetLeaseForm = () =>
             ctrl.newLease = {
                 mediaId: null,
@@ -110,7 +113,7 @@ leases.controller(
 
         ctrl.resetLeaseForm();
         ctrl.updatePermissions();
-        ctrl.getLeases();
+        ctrl.getLeases(ctrl.image);
 }]);
 
 

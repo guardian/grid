@@ -11,17 +11,15 @@
          <span ng:show="ctrl.adding">Adding...</span>
       </span>
   </button>
-
 </dt>
-
 
 <form class="lease__form"
       ng:show="!ctrl.adding && ctrl.editing"
       ng:submit="ctrl.save()">
 
-  <label for="access-select" class="add-lease__header">Add a lease</label>
   <select id="access-select" ng:model="ctrl.newLease.access">
-      <option value="allow" selected >Allow</option>
+      <option ng-selected="true">Select Access</option>
+      <option value="allow">Allow</option>
       <option value="deny">Deny</option>
   </select>
   <gu-date-range class="lease__date"
@@ -53,12 +51,12 @@
 
 
 <div class="lease-wrapper">
-  <div ng:click="ctrl.deleteAll()">
-    <gr-icon-label gr-icon="close" ng:show="ctrl.userCanEdit && ctrl.leases.length > 0"  /> Clear all
-  </div>
 
   <ul class="current-leases">
-    <li ng-repeat="lease in ctrl.leases" class="lease" ng:class="ctrl.leaseStatus(lease.data)">
+    <li ng-repeat="lease in ctrl.leases" class="lease" ng:class="ctrl.leaseStatus(lease.data)", ng-mouseover="lease.notes">
+      <span ng:click="ctrl.delete(lease.data)">
+        <gr-icon-label gr-icon="close" ng:show="ctrl.userCanEdit"  />
+      </span>
       {{ctrl.displayLease(lease.data)}}
     </li>
   </ul>
