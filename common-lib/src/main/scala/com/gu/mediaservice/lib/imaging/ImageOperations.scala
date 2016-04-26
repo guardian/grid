@@ -10,6 +10,7 @@ import com.gu.mediaservice.model.{Asset, Bounds, Dimensions, ImageMetadata}
 import play.api.libs.concurrent.Execution.Implicits._
 
 import scala.concurrent.Future
+import scala.sys.process._
 
 
 case class ExportResult(id: String, masterCrop: Asset, othersizings: List[Asset])
@@ -112,6 +113,24 @@ object ImageOperations {
       _           <- runConvertCmd(addOutput)
     }
     yield outputFile
+  }
+
+  def optimiseImage(resizedFile: File, mediaType: String): Future[File] = {
+
+    if (mediaType == "image/png") {
+      val fileName: String = resizedFile.getAbsolutePath()
+      val split = fileName.split('.')
+
+      val optimisedImageName: String = fileName.split('.')(0) + "optimised.png"
+      Seq("pngquant",  "--quality", "45-90", fileName, "--output", optimisedImageName).!
+
+      val file = new File(optimisedImageName)
+
+      Future(file)
+    }
+
+    else
+      Future(resizedFile)
   }
 
   val thumbUnsharpRadius = 0.5d
