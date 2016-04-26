@@ -40,13 +40,27 @@ object ImageOperations {
   private def applyOutputProfile(base: IMOperation, optimised: Boolean = false) = profile(base)(profileLocation("RGB", optimised))
 
   def identifyColourModel(sourceFile: File, mimeType: String): Future[Option[String]] = {
-    val source    = addImage(sourceFile)
     // TODO: use mimeType to lookup other properties once we support other formats
-    val formatter = format(source)("%[JPEG-Colorspace-Name]")
-    for {
-      output      <- runIdentifyCmd(formatter)
-      colourModel  = output.headOption
-    } yield colourModel
+
+    mimeType match {
+      case "image/jpeg" => {
+
+        val source = addImage(sourceFile)
+
+        val formatter = format(source)("%[JPEG-Colorspace-Name]")
+        
+        for {
+          output <- runIdentifyCmd(formatter)
+          colourModel = output.headOption
+        } yield colourModel
+      }
+
+      case "image/png" => {
+
+        // assume that the colour model is RGB for pngs
+        Future(Some("RGB"))
+      }
+    }
   }
 
   // Optionally apply transforms to the base operation if the colour space
