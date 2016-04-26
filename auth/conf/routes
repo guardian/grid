@@ -9,9 +9,19 @@ GET     /oauthCallback              controllers.Application.oauthCallback
 GET     /logout                     controllers.Application.logout
 GET     /session                    controllers.Application.session
 
+# Permissions
+GET     /permissions                controllers.PermissionsController.index
+GET     /permissions/user/:id       controllers.PermissionsController.getUserPermissions(id: String)
+GET     /permissions/me             controllers.PermissionsController.getMyPermissions
+GET     /permissions/groups         controllers.PermissionsController.getGroups
+
 # Management
 GET     /management/healthcheck     com.gu.mediaservice.lib.management.Management.healthCheck
 GET     /management/manifest        com.gu.mediaservice.lib.management.Management.manifest
+
+# Enable CORS
+OPTIONS /                                   controllers.CorsPreflight.options(ignoredUrl = "")
+OPTIONS /*url                               controllers.CorsPreflight.options(url: String)
 
 # Shoo robots away
 GET     /robots.txt                 controllers.Robots.disallowAll

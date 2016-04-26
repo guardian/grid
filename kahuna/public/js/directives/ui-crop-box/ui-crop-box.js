@@ -93,12 +93,18 @@ cropBox.directive('uiCropBox', ['$timeout', '$parse', 'safeApply', 'nextTick', '
                 scope.$on('user-width-change', function(event, width){
                     let newWidth = (parseInt(width) / widthRatio);
                     cropper.setData({ width: newWidth });
-
                 });
                 scope.$on('user-height-change', function(event, height){
                     let newHeight = (parseInt(height) / heightRatio);
                     cropper.setData({ height: newHeight });
-
+                });
+                scope.$on('user-x-change', function(event, inX){
+                    let newX = (parseInt(inX) / heightRatio);
+                    cropper.setData({ x: newX });
+                });
+                scope.$on('user-y-change', function(event, inY){
+                    let newY = (parseInt(inY) / heightRatio);
+                    cropper.setData({ y: newY });
                 });
 
                 scope.$on('$destroy', destroy);

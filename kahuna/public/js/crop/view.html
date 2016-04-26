@@ -8,6 +8,29 @@
 
     <gr-top-bar-actions>
         <div class="top-bar-item side-padded">
+            x:
+            <form class="top-bar-item__form">
+                <input
+                    type="number"
+                    min="0"
+                    max="{{ctrl.maxInputX()}}"
+                    class="top-bar-item__form__input"
+                    ng:model="ctrl.inputX"
+                    ng:change="ctrl.broadcastXChange()"/>
+            </form>
+            y:
+            <form class="top-bar-item__form">
+                <input
+                    type="number"
+                    min="0"
+                    max="{{ctrl.maxInputY()}}"
+                    class="top-bar-item__form__input"
+                    ng:model="ctrl.inputY"
+                    ng:change="ctrl.broadcastYChange()"/>
+            </form>
+        </div>
+
+        <div class="top-bar-item side-padded">
             <form class="top-bar-item__form">
                 <input
                     type="number"

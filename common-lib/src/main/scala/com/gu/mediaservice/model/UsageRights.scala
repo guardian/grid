@@ -27,7 +27,8 @@ object UsageRights {
     Agency, CommissionedAgency, Chargeable,
     StaffPhotographer, ContractPhotographer, CommissionedPhotographer,
     CreativeCommons, GuardianWitness, Pool, CrownCopyright, Obituary,
-    ContractIllustrator, CommissionedIllustrator, Composite, PublicDomain
+    ContractIllustrator, CommissionedIllustrator, StaffIllustrator,
+    Composite, PublicDomain
   )
 
   // this is a convenience method so that we use the same formatting for all subtypes
@@ -66,6 +67,7 @@ object UsageRights {
     case o: Pool => Pool.formats.writes(o)
     case o: CrownCopyright => CrownCopyright.formats.writes(o)
     case o: ContractIllustrator => ContractIllustrator.formats.writes(o)
+    case o: StaffIllustrator => StaffIllustrator.formats.writes(o)
     case o: CommissionedIllustrator => CommissionedIllustrator.formats.writes(o)
     case o: CreativeCommons => CreativeCommons.formats.writes(o)
     case o: Composite => Composite.formats.writes(o)
@@ -97,6 +99,7 @@ object UsageRights {
         case Pool.category => json.asOpt[Pool]
         case CrownCopyright.category => json.asOpt[CrownCopyright]
         case ContractIllustrator.category => json.asOpt[ContractIllustrator]
+        case StaffIllustrator.category => json.asOpt[StaffIllustrator]
         case CommissionedIllustrator.category => json.asOpt[CommissionedIllustrator]
         case CreativeCommons.category => json.asOpt[CreativeCommons]
         case Composite.category => json.asOpt[Composite]
@@ -363,6 +366,20 @@ object CrownCopyright extends UsageRightsSpec {
     UsageRights.subtypeFormat(CrownCopyright.category)(Json.format[CrownCopyright])
 }
 
+final case class StaffIllustrator(creator: String, restrictions: Option[String] = None)
+  extends Illustrator {
+  val defaultCost = StaffIllustrator.defaultCost
+}
+object StaffIllustrator extends UsageRightsSpec {
+  val category = "staff-illustrator"
+  val defaultCost = Some(Free)
+  val name = "Illustrator - staff"
+  val description =
+    "Images from illustrators who are or were members of staff."
+
+  implicit val formats: Format[StaffIllustrator] =
+    UsageRights.subtypeFormat(StaffIllustrator.category)(Json.format[StaffIllustrator])
+}
 
 final case class ContractIllustrator(creator: String, restrictions: Option[String] = None)
   extends Illustrator {

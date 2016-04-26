@@ -7,6 +7,36 @@ import com.gu.mediaservice.model._
 
 
 object ImageExtras {
-  def isValid(metadata: JsValue): Boolean =
-    Config.requiredMetadata.forall(field => (metadata \ field).asOpt[String].isDefined)
+
+  val validityDescription = Map(
+    "missing_credit"              -> "Missing credit information",
+    "missing_description"         -> "Missing description",
+    "is_invalid_png"              -> "PNG images with transparency cannot be used"
+  )
+
+  private def optToBool[T](o: Option[T]): Boolean =
+    o.map(_ => true).getOrElse(false)
+
+  def hasCredit(meta: ImageMetadata) = optToBool(meta.credit)
+  def hasDescription(meta: ImageMetadata) = optToBool(meta.description)
+  def isInvalidPng(image: Image) =
+    image.source.mimeType == Some("image/png") &&
+      image.fileMetadata.colourModelInformation.get("colorType").getOrElse("") != "True Color"
+
+  def validityMap(image: Image): Map[String, Boolean] = Map(
+    "missing_credit"              -> !hasCredit(image.metadata),
+    "missing_description"         -> !hasDescription(image.metadata),
+    "is_invalid_png"              -> isInvalidPng(image)
+  )
+
+  def invalidReasons(validityMap: Map[String, Boolean]) = validityMap
+    .filter(_._2 == true)
+    .map { case (id, _) => id -> validityDescription.get(id) }
+    .map {
+      case (id, Some(reason)) => id -> reason
+      case (id, None) => id -> s"Validity error: ${id}"
+    }.toMap
+
+  def isValid(validityMap: Map[String, Boolean]): Boolean =
+    !optToBool(validityMap.find(_._2 == true))
 }
