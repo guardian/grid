@@ -30,6 +30,10 @@ object PlayArtifact extends Plugin {
       baseDirectory.value / "conf" / (magentaPackageName.value + ".conf") ->
         (s"packages/${magentaPackageName.value}/${magentaPackageName.value}.conf"),
 
+      // systemd config file
+      baseDirectory.value / "conf" / (magentaPackageName.value + ".service") ->
+        (s"packages/${magentaPackageName.value}/${magentaPackageName.value}.service"),
+
       baseDirectory.value / "conf" / "start.sh" -> s"packages/${magentaPackageName.value}/start.sh",
 
       // the ZIP
