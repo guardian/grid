@@ -15,6 +15,7 @@ import com.drew.metadata.exif.{ExifSubIFDDirectory, ExifIFD0Directory}
 import com.drew.metadata.xmp.XmpDirectory
 
 import com.gu.mediaservice.model.{Dimensions, FileMetadata}
+import com.gu.mediaservice.lib.imaging.im4jwrapper.ImageMagick._
 
 
 object FileMetadataReader {
@@ -34,10 +35,11 @@ object FileMetadataReader {
 
   def fromICPTCHeadersWithColorInfo(image: File): Future[FileMetadata] =
     for {
-      metadata <- readMetadata(image)
+      metadata               <- readMetadata(image)
+      colourModelInformation <- getColorModelInformation(image, metadata)
     }
     yield {
-      getMetadataWithICPTCHeaders(metadata).copy(colourModelInformation = getColorModelInformation(metadata))
+      getMetadataWithICPTCHeaders(metadata).copy(colourModelInformation = colourModelInformation)
     }
 
   private def getMetadataWithICPTCHeaders(metadata: Metadata): FileMetadata = {
@@ -125,17 +127,28 @@ object FileMetadataReader {
       }
     }
 
-  def getColorModelInformation(metadata: Metadata): Map[String, String] = {
+  def getColorModelInformation(image: File, metadata: Metadata): Future[Map[String, String]] = {
+
+    val source = addImage(image)
+
+    val formatter = format(source)("%A")
+
+    for {
+      output <- runIdentifyCmd(formatter)
+    } yield {
 
       val pngDir = metadata.getFirstDirectoryOfType(classOf[PngDirectory])
 
       Map(
+        "hasAlpha" -> output.headOption,
         "colorType" -> Option(pngDir.getDescription(PngDirectory.TAG_COLOR_TYPE)),
         "bitsPerSample" -> Option(pngDir.getDescription(PngDirectory.TAG_BITS_PER_SAMPLE)),
         "paletteHasTransparency" -> Option(pngDir.getDescription(PngDirectory.TAG_PALETTE_HAS_TRANSPARENCY)),
         "paletteSize" -> Option(pngDir.getDescription(PngDirectory.TAG_PALETTE_SIZE)),
         "iccProfileName" -> Option(pngDir.getDescription(PngDirectory.TAG_ICC_PROFILE_NAME))
       ).flattenOptions
+    }
+
   }
 
   private def nonEmptyTrimmed(nullableStr: String): Option[String] =
