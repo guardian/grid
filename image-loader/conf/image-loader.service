@@ -1,0 +1,8 @@
+[Unit]
+Description=Image Loader
+
+[Service]
+User=media-service
+WorkingDirectory=/home/media-service
+ExecStart=/home/media-service/bin/image-loader
+StandardOutput=syslog
