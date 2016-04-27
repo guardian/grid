@@ -27,13 +27,13 @@ lazyGalleryShortcuts.directive('guLazyGalleryShortcuts',
                     combo: 'left',
                     description: 'Go to the previous image',
                     allowIn: ['INPUT'],
-                    callback: invoke('previousImage')
+                    callback: invoke('previousItem')
                 })
                 .add({
                     combo: 'right',
                     description: 'Go to the next image',
                     allowIn: ['INPUT'],
-                    callback: invoke('nextImage')
+                    callback: invoke('nextItem')
                 });
         }
     };

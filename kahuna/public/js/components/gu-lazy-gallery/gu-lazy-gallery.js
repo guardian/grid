@@ -31,8 +31,6 @@ lazyGallery.directive('guLazyGallery', [function() {
         controller: 'GuLazyGalleryCtrl',
         scope: {
             galleryLoading: '=',
-            previousItem: '=',
-            nextItem: '&',
             gallery: '=',
             galleryLength: '=',
             list: '@guLazyGalleryList' // Stops a stupidly long chain of magic element selectors
