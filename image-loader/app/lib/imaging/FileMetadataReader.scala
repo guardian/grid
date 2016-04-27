@@ -111,8 +111,8 @@ object FileMetadataReader {
           pngDir <- Option(metadata.getFirstDirectoryOfType(classOf[PngDirectory]))
 
         } yield {
-          val width = pngDir.getInt(PngDirectory.TAG_IMAGE_HEIGHT)
-          val height = pngDir.getInt(PngDirectory.TAG_IMAGE_WIDTH)
+          val width = pngDir.getInt(PngDirectory.TAG_IMAGE_WIDTH)
+          val height = pngDir.getInt(PngDirectory.TAG_IMAGE_HEIGHT)
           Dimensions(width, height)
         }
 
