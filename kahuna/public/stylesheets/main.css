@@ -1114,26 +1114,28 @@ textarea.ng-invalid {
     background-color: #393939;
 }
 
-.gallery__control {
+.gallery__controls {
     position: absolute;
-    top: 50%;
-    transform: translateY(-50%);
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    opacity: .5;
+    transition: opacity .2s;
+}
+
+.gallery__controls:hover {
+    opacity: 1;
+}
+
+.gallery__control {
     padding: 10px;
     border: 1px solid #565656;
     background: #333333;
-    z-index: 1;
+    transition: opacity .2s;
 }
 
 .gallery__control--disabled {
     opacity: .2;
-}
-
-.gallery__control--left {
-    left: 20px;
-}
-
-.gallery__control--right {
-    right: 20px;
 }
 
 /* TODO: abstract repeated results styles */
@@ -1220,7 +1222,6 @@ textarea.ng-invalid {
     height: auto;
     max-height: 800px;
     max-width: 100%;
-    margin: 20px;
 }
 
 .preview__image {

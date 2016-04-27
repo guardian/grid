@@ -32,7 +32,7 @@ lazyGallery.directive('guLazyGallery', [function() {
         scope: {
             galleryLoading: '=',
             previousItem: '=',
-            nextItem: '=',
+            nextItem: '&',
             gallery: '=',
             galleryLength: '=',
             list: '@guLazyGalleryList' // Stops a stupidly long chain of magic element selectors
@@ -42,7 +42,7 @@ lazyGallery.directive('guLazyGallery', [function() {
         transclude: 'true',
         template: `
             <ng-transclude></ng-transclude>
-            <div>
+            <div class="gallery__controls">
                 <button class="gallery__control gallery__control--left"
                         ng:class="{ 'gallery__control--disabled': galleryCtrl.pos === 0 }"
                         ng:disabled="galleryCtrl.pos === 0"

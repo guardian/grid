@@ -12,14 +12,13 @@ lazyGalleryShortcuts.directive('guLazyGalleryShortcuts',
     return {
         restrict: 'EA',
         require: '^guLazyGallery',
-        link: function (scope, element, attrs, ctrl) {
+        link: function (scope, element, attrs, lazyGalleryCtrl) {
+            console.log(lazyGalleryCtrl);
             function invoke(fnName) {
                 return (event) => {
                     // Must cancel any scrolling caused by the key
                     event.preventDefault();
-
-                    console.log(JSON.stringify(ctrl));
-                    ctrl[fnName]();
+                    lazyGalleryCtrl[fnName]();
                 };
             }
 
