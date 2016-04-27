@@ -11,18 +11,14 @@ lazyGallery.controller('GuLazyGalleryCtrl', [function() {
     }
 
     ctrl.previousItem = function() {
-        console.log("Previous");
         ctrl.pos = Math.max(ctrl.pos - 1, 0);
         setTransform();
     }
 
     ctrl.nextItem = function() {
-        console.log(ctrl.galleryLength);
         ctrl.pos = Math.min(ctrl.pos + 1, ctrl.galleryLength - 1);
         setTransform();
     }
-
-    console.log(ctrl);
 }]);
 
 lazyGallery.directive('guLazyGallery', [function() {
