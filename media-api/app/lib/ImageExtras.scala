@@ -11,7 +11,7 @@ object ImageExtras {
   val validityDescription = Map(
     "missing_credit"              -> "Missing credit information",
     "missing_description"         -> "Missing description",
-    "is_invalid_png"              -> "PNG images with transparency cannot be used"
+    "is_invalid_png"              -> "PNG images with this type cannot be used"
   )
 
   private def optToBool[T](o: Option[T]): Boolean =
@@ -28,7 +28,7 @@ object ImageExtras {
       }
       case _ => false
     }
-  
+
   def validityMap(image: Image): Map[String, Boolean] = Map(
     "missing_credit"              -> !hasCredit(image.metadata),
     "missing_description"         -> !hasDescription(image.metadata),
