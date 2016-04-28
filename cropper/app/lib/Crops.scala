@@ -46,7 +46,7 @@ object Crops {
   }
 
   def createCrops(sourceFile: File, dimensionList: List[Dimensions], apiImage: SourceImage, crop: Crop, mediaType: String): Future[List[Asset]] = {
-    
+
     val fileType = getFileExtension(mediaType)
 
     Future.sequence[Asset, List](dimensionList.map { dimensions =>
