@@ -43,10 +43,8 @@ cropperApi.factory('mediaCropper', ['$q', 'mediaApi', 'leaseService', function($
         if (image.data.source.mimeType === 'image/png') {
             return $q.when(false);
         } else {
-            const cropLink = image.getLink('crops').then(() => true, () => false);
-            const denyLease = leaseService.deniedByCurrentLease(image);
-            return Promise.resolve([denyLease, cropLink]).then((r) => {
-            });
+            return image.getLink('crops').
+            then(() => true, () => false);
         }
     }
 

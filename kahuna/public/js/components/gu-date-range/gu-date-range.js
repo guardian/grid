@@ -60,7 +60,7 @@ guDateRange.directive('guDateRange', [function () {
             guDateFormat: '=?',
             guAnyTimeText: '=?',
             guFirstDay: '=?',
-            guShowExtras: '@'
+            guShowExtras: '='
         },
         controller: 'GuDateRangeCtrl',
         controllerAs: 'ctrl',
@@ -70,7 +70,6 @@ guDateRange.directive('guDateRange', [function () {
             ctrl.guDateFormat = ctrl.guDateFormat || 'DD-MMM-YYYY';
             ctrl.guAnyTimeText = ctrl.guAnyTimeText || 'anytime';
             ctrl.guFirstDay = ctrl.guFirstDay || 0;
-
             var startInput = el.find('.gu-date-range__input__start--hidden')[0];
             var startContainer = el.find('.gu-date-range__overlay__pikaday--start')[0];
 
@@ -117,8 +116,7 @@ guDateRange.directive('guDateRange', [function () {
                 pikaStart.show();
             });
 
-            // $scope.$watch('ctrl.guStartDate', resetView);
-            // $scope.$watch('ctrl.guEndDate',   resetView);
+            $scope.$watch('ctrl.guEndDate',   resetView);
 
             $scope.$on('$destroy', function() {
                 pikaStart.destroy();

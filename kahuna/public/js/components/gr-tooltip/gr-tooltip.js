@@ -3,13 +3,13 @@ import 'titip';
 
 export const tooltip = angular.module('grTooltip', []);
 
-tooltip.directive('grTooltip', ['onValChange', function (onValChange) {
+tooltip.directive('grTooltip', ['onValChange', '$interpolate', function (onValChange, $interpolate) {
     return {
         restrict: 'A',
         link: function ($scope, element, attrs) {
             const position = attrs.grTooltipPosition || 'bottom';
-
-            element.attr('data-title', attrs.grTooltip)
+            const toolTipText = $interpolate(attrs.grTooltip)
+            element.attr('data-title', toolTipText)
                 .addClass(`titip-default`)
                 .addClass(`titip-${position}`);
 

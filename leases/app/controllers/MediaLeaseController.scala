@@ -54,7 +54,6 @@ object MediaLeaseController extends Controller
         respondError(BadRequest, "media-lease-parse-failed", JsError.toFlatJson(e).toString)
       },
       mediaLease => {
-        println(s"medialeaasss: $mediaLease")
         LeaseStore.put(mediaLease.copy(leasedBy = requestingUser))
         Accepted
       }

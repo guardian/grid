@@ -1,8 +1,9 @@
 .lease__form select,
 .lease__form input,
 .lease__form .lease__date {
-  width: 90%;
-  margin: 5px;
+  box-sizing: border-box;
+  width: 100%;
+  margin-bottom: 10px;
 }
 
 .lease-wrapper gr-icon:hover {
@@ -10,28 +11,62 @@
 }
 
 .lease__date {
-  padding: 4px;
+  position: relative;
 }
 
 .add-lease__header {
   display: block;
 }
 
-.gu-date-range__overlay  {
-  display: flex;
-  position: relative;
-}
-
 .lease {
   margin: 4px;
   padding: 3px;
   background-color: #565656;
+  border-top-left-radius: 2px;
+  border-bottom-left-radius: 2px;
+}
+
+.current {
+  border: #00ADEE 2px solid;
+}
+
+gr-leases .metadata-line__key {
+  margin-bottom: 10px
+}
+
+gr-leases gr-confirm-delete {
+  float: right;
 }
 
 .active.allowed {
-  background-color: green;
+  background-color: #406439;
 }
 
 .active.denied {
-  background-color: red;
+  background-color: #c81b00;
+}
+
+gr-leases .gu-date-range__overlay {
+  position: absolute;
+  z-index: 1;
+  right: 0px;
+}
+
+gr-leases .gu-date-range__display {
+  width: 100%;
+}
+
+.image-details--full-image,
+.image-info__wrap {
+  overflow: visible;
+}
+
+.lease__form__buttons {
+  text-align: right;
+  margin-top: 8px;
+  margin-bottom: 20px;
+}
+
+.lease__delete {
+  float: right;
 }

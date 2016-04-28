@@ -17,7 +17,7 @@
       ng:show="!ctrl.adding && ctrl.editing"
       ng:submit="ctrl.save()">
 
-  <select id="access-select" ng:model="ctrl.newLease.access">
+  <select id="access-select" ng:model="ctrl.access" ng-required="required">
       <option ng-selected="true">Select Access</option>
       <option value="allow">Allow</option>
       <option value="deny">Deny</option>
@@ -26,7 +26,6 @@
      gu:start-date="ctrl.newLease.startDate"
      gu:end-date="ctrl.newLease.endDate"
      gu:show-extras="false"
-     gu:show-overlay="true"
      gu:first-day="1">
   </gu-date-range>
 
@@ -53,11 +52,18 @@
 <div class="lease-wrapper">
 
   <ul class="current-leases">
-    <li ng-repeat="lease in ctrl.leases" class="lease" ng:class="ctrl.leaseStatus(lease.data)", ng-mouseover="lease.notes">
-      <span ng:click="ctrl.delete(lease.data)">
-        <gr-icon-label gr-icon="close" ng:show="ctrl.userCanEdit"  />
-      </span>
-      {{ctrl.displayLease(lease.data)}}
+    <li ng-repeat="lease in ctrl.leases.leases"
+        class="lease" ng:class="ctrl.leaseStatus(lease.data)",
+        gr:tooltip="{{ctrl.toolTip(lease.data)}}"
+        gr:tooltip-position="left">
+
+        <gr-confirm-delete class="gr-delete-lease flex-right"
+          gr-on-confirm="ctrl.delete(lease.data)"
+          gr-tooltip="Delete lease">
+
+        </gr-confirm-delete>
+
+      <div class="lease__text">{{ctrl.displayLease(lease.data)}}</div>
     </li>
   </ul>
 </div>
