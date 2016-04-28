@@ -37,9 +37,16 @@ class S3(credentials: AWSCredentials) {
   }
 
   private def getContentDispositionFilename(image: Image, charset: CharSet): String = {
+
+    val extension = image.source.mimeType match {
+      case Some("image/jpeg") => "jpg"
+      case Some("image/png")  => "png"
+      case _ => throw new Exception("Unsupported mime type")
+    }
+
     val baseFilename: String = image.uploadInfo.filename match {
-      case Some(f)  => s"${removeExtension(f)} (${image.id}).jpg"
-      case _        => s"${image.id}.jpg"
+      case Some(f)  => s"${removeExtension(f)} (${image.id}).${extension}"
+      case _        => s"${image.id}.${extension}"
     }
 
     charset match {
