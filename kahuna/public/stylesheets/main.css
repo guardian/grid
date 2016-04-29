@@ -1111,7 +1111,6 @@ textarea.ng-invalid {
     border: 5px solid transparent;
     box-sizing: border-box;
     margin: 10px;
-    background-color: #393939;
 }
 
 .gallery__controls {
@@ -1190,10 +1189,6 @@ textarea.ng-invalid {
 
 .gallery-item:hover .gr-add-label--inactive {
     display: inline-block;
-}
-
-.gallery-item:hover {
-    background-color: #404040;
 }
 
 .gallery-item--selected:hover .preview__fade {

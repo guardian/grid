@@ -135,13 +135,7 @@
         <div class="gallery-container"
             ng:show="ctrl.galleryView"
             gu:lazy-gallery="ctrl.imagesAll"
-            gu:lazy-gallery-list="gallery"
             gu:lazy-gallery-shortcuts>
-
-            <div ng:if="galleryLoading"
-                 class="image-loading-results">
-                Loading Gallery…
-            </div>
 
             <ul class="gallery">
                 <li ng:repeat="image in ctrl.images track by image.data.id">

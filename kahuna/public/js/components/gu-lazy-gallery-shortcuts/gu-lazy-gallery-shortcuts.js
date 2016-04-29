@@ -13,7 +13,6 @@ lazyGalleryShortcuts.directive('guLazyGalleryShortcuts',
         restrict: 'EA',
         require: '^guLazyGallery',
         link: function (scope, element, attrs, lazyGalleryCtrl) {
-            console.log(lazyGalleryCtrl);
             function invoke(fnName) {
                 return (event) => {
                     // Must cancel any scrolling caused by the key
@@ -27,7 +26,7 @@ lazyGalleryShortcuts.directive('guLazyGalleryShortcuts',
                     combo: 'left',
                     description: 'Go to the previous image',
                     allowIn: ['INPUT'],
-                    callback: invoke('previousItem')
+                    callback: invoke('prevItem')
                 })
                 .add({
                     combo: 'right',

@@ -1,39 +1,72 @@
 import angular from 'angular';
+import Rx from 'rx';
+import 'rx-dom';
 
-export var lazyGallery = angular.module('gu.lazyGallery', []);
+import '../../util/rx';
+
+import {floor$, div$} from '../gu-lazy-table/observable-utils';
+
+export var lazyGallery = angular.module('gu.lazyGallery', ['util.rx']);
 
 lazyGallery.controller('GuLazyGalleryCtrl', [function() {
     let ctrl = this;
-    ctrl.pos = 0;
 
-    function setTransform() {
-        ctrl.gallery.style.transform = 'translate3d(' + (-ctrl.pos * ctrl.gallery.offsetWidth) + 'px,0,0)';
-    }
+    ctrl.init = function({items$, offsetLeft$, galleryWidth$}) {
+        const itemsCount$ = items$.map(items => items.length).distinctUntilChanged();
 
-    ctrl.previousItem = function() {
-        ctrl.pos = Math.max(ctrl.pos - 1, 0);
-        setTransform();
-    }
+        const currentItem$ = floor$(div$(offsetLeft$, itemsCount$));
 
-    ctrl.nextItem = function() {
-        ctrl.pos = Math.min(ctrl.pos + 1, ctrl.galleryLength - 1);
-        setTransform();
-    }
+        const buttonCommands$ = Rx.Observable.create(observer => {
+            ctrl.prevItem  = () => observer.onNext('prevItem');
+            ctrl.nextItem  = () => observer.onNext('nextItem');
+        });
+
+        const galleryOffset$ = buttonCommands$.withLatestFrom(
+            (command) => {
+                return {
+                    prevItem:  - 1,
+                    nextItem:  + 1
+                }[command] || 0;
+            });
+
+        const newGalleryOffset$ = galleryOffset$.withLatestFrom(
+            currentItem$, itemsCount$, galleryWidth$,
+            (galleryOffset, currentItem, itemsCount, galleryWidth) => {
+                return galleryWidth /(Math.min(currentItem + galleryOffset) * itemsCount);
+        });
+
+        return {
+            newGalleryOffset$
+        };
+    };
+
+    // Slider controls
+    // ctrl.pos = 0;
+    //
+    // function setTransform() {
+    //     ctrl.gallery.style.transform = 'translate3d(' + (-ctrl.pos * ctrl.gallery.offsetWidth) + 'px,0,0)';
+    // }
+    //
+    // ctrl.previousItem = function() {
+    //     ctrl.pos = Math.max(ctrl.pos - 1, 0);
+    //     setTransform();
+    // }
+    //
+    // ctrl.nextItem = function() {
+    //     ctrl.pos = Math.min(ctrl.pos + 1, ctrl.itemCount - 1);
+    //     setTransform();
+    // }
+
 }]);
 
-lazyGallery.directive('guLazyGallery', [function() {
+lazyGallery.directive('guLazyGallery', ['observe$', 'observeCollection$', 'subscribe$', '$window',
+                                        function(
+                                            observe$, observeCollection$, subscribe$, $window) {
     return {
         restrict: 'A',
         controller: 'GuLazyGalleryCtrl',
-        scope: {
-            galleryLoading: '=',
-            gallery: '=',
-            galleryLength: '=',
-            list: '@guLazyGalleryList' // Stops a stupidly long chain of magic element selectors
-        },
         controllerAs: 'galleryCtrl',
-        bindToController: true,
-        transclude: 'true',
+        transclude: true,
         template: `
             <ng-transclude></ng-transclude>
             <div class="gallery__controls">
@@ -51,15 +84,26 @@ lazyGallery.directive('guLazyGallery', [function() {
                     <gr-icon-label gr-icon="keyboard_arrow_right">Next</gr-icon-label>
                 </button>
             </div>`,
-        link: function(scope, element, attrs, galleryCtrl) {
-            galleryCtrl.galleryLoading = true;
-            galleryCtrl.gallery = document.getElementsByClassName(galleryCtrl.list)[0];
-            scope.$watch(() => {
-                    return galleryCtrl.gallery.children.length;
-                },
-                (val) => {
-                    galleryCtrl.galleryLength = val;
-                });
+        link: function(scope, element, attrs, ctrl) {
+            const gallery = element[0].children[0];
+            const items$ = observeCollection$(scope, attrs.guLazyGallery);
+            const galleryWidth$ = observe$(scope, gallry.clientWidth);
+
+            const viewportResized$ = Rx.DOM.fromEvent($window, 'resize').
+                debounce(100).
+                startWith({/* init */});
+
+            const offsetLeft$ = viewportResized$.map(() => {
+                return gallery.style('translate3d') || 0;
+            }).shareReplay(1);
+
+            const {newGalleryOffset$} = ctrl.init({items$, offsetLeft$, galleryWidth$});
+
+            console.log(gallery);
+
+            subscribe$(scope, newGalleryOffset$, newGalleryOffset => {
+                gallery.css({translate3d: newGalleryOffset + 'px'});
+            });
         }
     };
 }]);
