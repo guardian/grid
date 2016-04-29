@@ -4,7 +4,7 @@ import 'rx-dom';
 
 import '../../util/rx';
 
-import {floor$, div$} from '../gu-lazy-table/observable-utils';
+import {combine$, floor$, div$} from '../gu-lazy-table/observable-utils';
 
 export var lazyGallery = angular.module('gu.lazyGallery', ['util.rx']);
 
@@ -32,31 +32,13 @@ lazyGallery.controller('GuLazyGalleryCtrl', [function() {
         const newGalleryOffset$ = galleryOffset$.withLatestFrom(
             currentItem$, itemsCount$, galleryWidth$,
             (galleryOffset, currentItem, itemsCount, galleryWidth) => {
-                return galleryWidth /(Math.min(currentItem + galleryOffset) * itemsCount);
+                return (currentItem + galleryOffset) * galleryWidth;
         });
 
         return {
             newGalleryOffset$
         };
     };
-
-    // Slider controls
-    // ctrl.pos = 0;
-    //
-    // function setTransform() {
-    //     ctrl.gallery.style.transform = 'translate3d(' + (-ctrl.pos * ctrl.gallery.offsetWidth) + 'px,0,0)';
-    // }
-    //
-    // ctrl.previousItem = function() {
-    //     ctrl.pos = Math.max(ctrl.pos - 1, 0);
-    //     setTransform();
-    // }
-    //
-    // ctrl.nextItem = function() {
-    //     ctrl.pos = Math.min(ctrl.pos + 1, ctrl.itemCount - 1);
-    //     setTransform();
-    // }
-
 }]);
 
 lazyGallery.directive('guLazyGallery', ['observe$', 'observeCollection$', 'subscribe$', '$window',
@@ -85,23 +67,35 @@ lazyGallery.directive('guLazyGallery', ['observe$', 'observeCollection$', 'subsc
                 </button>
             </div>`,
         link: function(scope, element, attrs, ctrl) {
-            const gallery = element[0].children[0];
+            const gallery = element[0].children[0].children[0]; // Gross, I know
             const items$ = observeCollection$(scope, attrs.guLazyGallery);
-            const galleryWidth$ = observe$(scope, gallry.clientWidth);
 
             const viewportResized$ = Rx.DOM.fromEvent($window, 'resize').
                 debounce(100).
                 startWith({/* init */});
 
+            // Element resized (possibly not the viewport, e.g. side-panel expanded)
+            const elementResized$ = Rx.Observable.fromEventPattern(
+                handler => addResizeListener(element[0], handler),
+                handler => removeResizeListener(element[0], handler)
+            ).startWith({/* init */});
+
+            const galleryWidth$ = combine$(
+                viewportResized$,
+                elementResized$,
+                () => gallery.clientWidth
+            ).shareReplay(1);
+
             const offsetLeft$ = viewportResized$.map(() => {
-                return gallery.style('translate3d') || 0;
+                return 1 || 0;
             }).shareReplay(1);
 
-            const {newGalleryOffset$} = ctrl.init({items$, offsetLeft$, galleryWidth$});
-
-            console.log(gallery);
+            const {newGalleryOffset$} = ctrl.init({
+                items$, offsetLeft$, galleryWidth$
+            });
 
             subscribe$(scope, newGalleryOffset$, newGalleryOffset => {
+                console.log(newGalleryOffset);
                 gallery.css({translate3d: newGalleryOffset + 'px'});
             });
         }
