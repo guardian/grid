@@ -43,7 +43,7 @@ gr-leases gr-confirm-delete {
 }
 
 .active.denied {
-  background-color: #c81b00;
+  background-color: rgb(161, 38, 38);
 }
 
 gr-leases .gu-date-range__overlay {

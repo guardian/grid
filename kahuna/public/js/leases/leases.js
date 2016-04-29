@@ -17,8 +17,8 @@ export var leases = angular.module('kahuna.edits.leases', [
 
 leases.controller(
     'LeasesCtrl',
-    ['$window', '$q', '$scope', 'inject$', 'leaseService',
-    function($window, $q, $scope, inject$, leaseService) {
+    ['$window', '$q', '$scope', 'inject$', 'leaseService', '$rootScope',
+    function($window, $q, $scope, inject$, leaseService, $rootScope) {
         let ctrl = this;
         ctrl.grSmall = true;
         ctrl.editing = false;
@@ -57,6 +57,7 @@ leases.controller(
                 .map((leasesResponse) => leasesResponse.data)
 
             inject$($scope, leases$, ctrl, 'leases');
+            $rootScope.$emit('leases-updated', ctrl.leases);
         }
 
         ctrl.delete = (lease) => {

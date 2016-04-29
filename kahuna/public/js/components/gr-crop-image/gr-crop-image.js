@@ -9,8 +9,8 @@ export const cropImage = angular.module('gr.cropImage', [
 ]);
 
 cropImage.controller('grCropImageCtrl', [
-    '$scope', 'mediaCropper', 'onValChange', 'leaseService',
-    function ($scope, mediaCropper, onValChange, leaseService) {
+    '$scope', 'mediaCropper', 'onValChange', 'leaseService', '$rootScope',
+    function ($scope, mediaCropper, onValChange, leaseService,  $rootScope) {
         let ctrl = this;
 
         function updateState () {
@@ -24,7 +24,7 @@ cropImage.controller('grCropImageCtrl', [
         }
 
         $scope.$watch(() => ctrl.image.data.metadata, onValChange(() => updateState()));
-
+        $rootScope.$on('leases-updated', () => updateState())
         updateState();
     }
 ]);
