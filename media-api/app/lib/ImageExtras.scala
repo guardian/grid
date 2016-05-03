@@ -9,7 +9,7 @@ import com.gu.mediaservice.model._
 object ImageExtras {
 
   val validityDescription = Map(
-    "no_rights"           -> "No rights to use this image",
+    "no_rights"                   -> "No rights to use this image",
     "missing_credit"              -> "Missing credit information",
     "missing_description"         -> "Missing description",
     "is_invalid_png"              -> "PNG images with transparency cannot be used"
