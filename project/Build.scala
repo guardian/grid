@@ -28,6 +28,11 @@ object Build extends Build {
       riffRaffBuildIdentifier := env("BUILD_NUMBER").getOrElse("DEV"),
       riffRaffManifestProjectName := s"media-service::jenkins::${name.value}",
       riffRaffArtifactResources := (Seq(
+        // systemd config file
+        baseDirectory.value / "conf" / (magentaPackageName.value + ".service") ->
+        (s"packages/${magentaPackageName.value}/${magentaPackageName.value}.service"),
+
+
         // upstart config file
         baseDirectory.value / "conf" / (magentaPackageName.value + ".conf") ->
         (s"packages/${magentaPackageName.value}/${magentaPackageName.value}.conf"),

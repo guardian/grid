@@ -21,10 +21,4 @@ object Application extends Controller {
   def ok = Action { implicit request =>
     Ok("ok")
   }
-
-  // FIXME: Hack to serve asset under the erroneous URL it is requested at
-  def hackJcropGif(ignored: String) = {
-    Assets.at(path="/public", file="jspm_packages/github/tapmodo/Jcrop@0.9.12/css/Jcrop.gif")
-  }
-
 }

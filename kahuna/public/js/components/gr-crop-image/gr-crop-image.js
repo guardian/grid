@@ -25,6 +25,7 @@ cropImage.controller('grCropImageCtrl', [
 
         $scope.$watch(() => ctrl.image.data.metadata, onValChange(() => updateState()));
         $rootScope.$on('leases-updated', () => updateState())
+        $scope.$watch(() => ctrl.image.data.usageRights, onValChange(() => updateState()));
         updateState();
     }
 ]);
