@@ -925,6 +925,9 @@ textarea.ng-invalid {
 .cost--pay {
     background-color: red;
 }
+.cost--no_rights {
+    background: red;
+}
 .cost--conditional {
     background-color: orange;
 }

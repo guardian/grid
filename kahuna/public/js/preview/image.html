@@ -116,12 +116,22 @@
             </gr-archiver-status>
 
             <div class="bottom-bar__action bottom-bar__action--cost preview__cost"
-                 ng:if="ctrl.states.cost !== 'free'"
-                 ng:switch="ctrl.states.cost">
-                <div ng:switch-when="pay"
-                     class="cost cost--pay">
+                 ng:if="ctrl.flagState !== 'free'"
+                 ng:switch="ctrl.flagState">
+                <div ng:switch-when="no_rights"
+                     class="cost cost--no_rights"
+                     title="No current rights to use this image!">
+
                     <!-- material icons doesn't have a £ icon -->
-                    <span title="pay to use">£</span>
+                    <gr-icon>warning</gr-icon>
+                </div>
+
+                <div ng:switch-when="pay"
+                     class="cost cost--pay"
+                     title="Pay to use">
+
+                    <!-- material icons doesn't have a £ icon -->
+                    <span>£</span>
                 </div>
 
                 <div ng:switch-when="conditional"

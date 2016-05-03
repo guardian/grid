@@ -1,8 +1,17 @@
 <form class="usage-rights-editor ure"
       novalidate
       name="usageRights"
+      ng:class="{'ure__category-invalid': ctrl.categoryInvalid}"
       ng:submit="usageRights.$valid && ctrl.save()">
 
+    <div class="ure__description">
+        <a target="_blank" href="https://docs.google.com/a/guardian.co.uk/document/d/1owx57raHRncnSU-voyg1b21yZBcrkM1ttka7CDQLYOs/pub">
+            <gr-icon title="Rights Guide">
+                info_outline
+            </gr-icon>
+            <strong>Having trouble picking rights?</strong>
+        </a>
+    </div>
     <label class="ure__category">
         <!-- We reset the model here else properties remain attached to the\
         model, even though they don't exist in the form -->
