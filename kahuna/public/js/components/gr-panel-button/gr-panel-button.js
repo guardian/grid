@@ -7,8 +7,10 @@ export const panelButton = angular.module('gr.panelButton', ['util.rx']);
 
 panelButton.controller('GrPanelButton', ['$scope', 'inject$', function($scope, inject$) {
     const ctrl = this;
-    const panel = ctrl.panel;
+    const panels = ctrl.panel.isArray ? ctrl.panel : [ctrl.panel];
+    const panel = panels[0];
 
+    //TODO: Pay attention to multiple panels
     ctrl.trackingName = 'Panel Button';
     ctrl.trackingData = action => ({
         'Panel name': ctrl.name,

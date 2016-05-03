@@ -18,6 +18,14 @@
                 gr:icon="collections">
             </gr-panel-button-small>
 
+            <gr-panel-button-small
+                class="results-toolbar-item results-toolbar-item--left results-toolbar-item--no-hover"
+                gr:panel="ctrl.cropsPanel"
+                gr:position="left"
+                gr:name="crops"
+                gr:icon="crop">
+            </gr-panel-button-small>
+
             <div class="results-toolbar-item results-toolbar-item--static
                         image-results-count">
                 {{ctrl.totalResults | toLocaleString}} matches
