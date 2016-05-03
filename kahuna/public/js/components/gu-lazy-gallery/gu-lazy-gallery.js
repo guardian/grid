@@ -2,6 +2,9 @@ import angular from 'angular';
 import Rx from 'rx';
 import 'rx-dom';
 
+import elementResize from 'javascript-detect-element-resize';
+let {addResizeListener, removeResizeListener} = elementResize;
+
 import '../../util/rx';
 
 import {combine$, floor$, div$} from '../gu-lazy-table/observable-utils';
@@ -22,17 +25,19 @@ lazyGallery.controller('GuLazyGalleryCtrl', [function() {
         });
 
         const galleryOffset$ = buttonCommands$.withLatestFrom(
-            (command) => {
+            currentItem$,
+            (command, currentItem) => {
                 return {
-                    prevItem:  - 1,
-                    nextItem:  + 1
+                    prevItem: currentItem - 1,
+                    nextItem: currentItem + 1
                 }[command] || 0;
             });
 
         const newGalleryOffset$ = galleryOffset$.withLatestFrom(
             currentItem$, itemsCount$, galleryWidth$,
             (galleryOffset, currentItem, itemsCount, galleryWidth) => {
-                return (currentItem + galleryOffset) * galleryWidth;
+                console.log(galleryWidth);
+                return galleryOffset * galleryWidth;
         });
 
         return {
@@ -67,7 +72,6 @@ lazyGallery.directive('guLazyGallery', ['observe$', 'observeCollection$', 'subsc
                 </button>
             </div>`,
         link: function(scope, element, attrs, ctrl) {
-            const gallery = element[0].children[0].children[0]; // Gross, I know
             const items$ = observeCollection$(scope, attrs.guLazyGallery);
 
             const viewportResized$ = Rx.DOM.fromEvent($window, 'resize').
@@ -87,7 +91,7 @@ lazyGallery.directive('guLazyGallery', ['observe$', 'observeCollection$', 'subsc
             ).shareReplay(1);
 
             const offsetLeft$ = viewportResized$.map(() => {
-                return 1 || 0;
+                return Math.max(document.documentElement.clientWidth - element.find('#gallery').clientWidth, 0);
             }).shareReplay(1);
 
             const {newGalleryOffset$} = ctrl.init({
@@ -95,8 +99,7 @@ lazyGallery.directive('guLazyGallery', ['observe$', 'observeCollection$', 'subsc
             });
 
             subscribe$(scope, newGalleryOffset$, newGalleryOffset => {
-                console.log(newGalleryOffset);
-                gallery.css({translate3d: newGalleryOffset + 'px'});
+                element.find('#gallery').css('transform', 'translate3d(' + newGalleryOffset + 'px, 0, 0)');
             });
         }
     };
