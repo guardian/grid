@@ -1,12 +1,11 @@
 <dt class="metadata-line__key flex-container">
   <span class="flex-spacer">Leases</span>
   <button ng:class="{'small': ctrl.grSmall}"
-          ng:show="!ctrl.editing && ctrl.userCanEdit"
           ng:click="ctrl.editing = true"
           gr:tooltip="Add lease"
           gr:tooltip-position="left">
 
-      <gr-icon ng:class="{'spin': ctrl.adding}">add_box</gr-icon>
+      <gr-icon ng-show="!ctrl.editing" ng:class="{'spin': ctrl.adding}">add_box</gr-icon>
       <span>
          <span ng:show="ctrl.adding">Adding...</span>
       </span>
@@ -49,21 +48,30 @@
 </form>
 
 
-<div class="lease-wrapper">
+<div class="leases__wrapper">
 
   <ul class="current-leases">
     <li ng-repeat="lease in ctrl.leases.leases"
-        class="lease" ng:class="ctrl.leaseStatus(lease.data)",
         gr:tooltip="{{ctrl.toolTip(lease.data)}}"
+        class="lease__item"
         gr:tooltip-position="left">
 
-        <gr-confirm-delete class="gr-delete-lease flex-right"
-          gr-on-confirm="ctrl.delete(lease.data)"
-          gr-tooltip="Delete lease">
+        <div class="lease__current" ng:class="ctrl.leaseStatus(lease.data).current" ng:if="ctrl.leaseStatus(lease.data).current"></div>
+        <div class="lease__access"
+            ng:class="[ctrl.leaseStatus(lease.data).active, ctrl.leaseStatus(lease.data).access]"
+        ></div>
+        <div class="lease__wrapper">
+          <div class="lease">
+            <gr-confirm-delete class="gr-delete-lease flex-right"
+              gr-on-confirm="ctrl.delete(lease.data)"
+              gr-tooltip="Delete lease">
 
-        </gr-confirm-delete>
+            </gr-confirm-delete>
 
-      <div class="lease__text">{{ctrl.displayLease(lease.data)}}</div>
+            <div class="lease__text">{{ctrl.displayLease(lease.data)}}</div>
+
+          </div>
+      </div>
     </li>
   </ul>
 </div>

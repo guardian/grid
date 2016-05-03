@@ -37,7 +37,7 @@ leases.controller(
 
                 leaseService.add(ctrl.image, ctrl.newLease)
                     .then((lease) => {
-                        ctrl.getLeases(ctrl.image);
+                        ctrl.updateLeases(ctrl.image);
                     })
                     .catch(() =>
                         alertFailed('Something went wrong when saving, please try again!')
@@ -52,7 +52,7 @@ leases.controller(
 
 
 
-        ctrl.getLeases = (image) => {
+        ctrl.updateLeases = (image) => {
             const leases$ = leaseService.get(image)
                 .map((leasesResponse) => leasesResponse.data)
 
@@ -62,7 +62,7 @@ leases.controller(
 
         ctrl.delete = (lease) => {
             leaseService.deleteLease(lease)
-                .then((lease) => ctrl.getLeases(ctrl.image))
+                .then((lease) => ctrl.updateLeases(ctrl.image))
                 .catch(
                     () => alertFailed('Something when wrong when deleting, please try again!')
                 )
@@ -115,11 +115,19 @@ leases.controller(
         }
 
         ctrl.leaseStatus = (lease) => {
-            const active = lease.active ? "active " : " "
-            const current = ctrl.leases.current.data.id == lease.id ? "current " : " "
+            const active = lease.active ? "active " : " ";
 
-            if (lease.access.match(/allow/i)) return current + active + "allowed";
-            if (lease.access.match(/deny/i)) return current + active + "denied";
+            let current = '';
+            if (ctrl.leases.current) {
+                current = ctrl.leases.current.data.id == lease.id ? "current " : "";
+            }
+            const access = (lease.access.match(/allow/i)) ? "allowed" : "denied";
+
+            return {
+                active: active,
+                current: current,
+                access: access,
+            }
         }
 
         function alertFailed(message) {
@@ -129,7 +137,7 @@ leases.controller(
 
         ctrl.resetLeaseForm();
         ctrl.updatePermissions();
-        ctrl.getLeases(ctrl.image);
+        ctrl.updateLeases(ctrl.image);
 }]);
 
 
