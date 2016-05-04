@@ -61,7 +61,7 @@ object Config extends CommonPlayAppConfig with CommonPlayAppProperties {
   lazy val corsAllAllowedOrigins: List[String] =
     services.kahunaBaseUri :: corsAllowedOrigins
 
-  val requiredMetadata = List("credit", "description")
+  val requiredMetadata = List("credit", "description", "usageRights")
 
   val persistenceIdentifier = properties("persistence.identifier")
   val queriableIdentifiers = Seq(persistenceIdentifier)

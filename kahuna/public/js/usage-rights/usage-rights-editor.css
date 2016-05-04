@@ -41,3 +41,7 @@
 .ure__multiple-rights-warning {
     color: orange;
 }
+
+.ure__category-invalid {
+    border: 1px solid #ed5935;
+}
