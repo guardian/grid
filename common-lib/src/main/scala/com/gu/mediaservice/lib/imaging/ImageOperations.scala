@@ -115,23 +115,23 @@ object ImageOperations {
     yield outputFile
   }
 
-  def optimiseImage(resizedFile: File, mediaType: String): Future[File] = {
+  def optimiseImage(resizedFile: File, mediaType: MimeType): File =
 
-    if (mediaType == "image/png") {
-      val fileName: String = resizedFile.getAbsolutePath()
-      val split = fileName.split('.')
+    mediaType.name match {
+      case "image/png" => {
+        val fileName: String = resizedFile.getAbsolutePath()
+        val split = fileName.split('.')
 
-      val optimisedImageName: String = fileName.split('.')(0) + "optimised.png"
-      Seq("pngquant",  "--quality", "45-90", fileName, "--output", optimisedImageName).!
+        val optimisedImageName: String = fileName.split('.')(0) + "optimised.png"
+        Seq("pngquant",  "--quality", "45-90", fileName, "--output", optimisedImageName).!
 
-      val file = new File(optimisedImageName)
+        val file = new File(optimisedImageName)
 
-      Future(file)
+        file
+
+      }
+      case "image/jpeg" => resizedFile
     }
-
-    else
-      Future(resizedFile)
-  }
 
   val thumbUnsharpRadius = 0.5d
   val thumbUnsharpSigma = 0.5d
@@ -151,4 +151,20 @@ object ImageOperations {
       _          <- runConvertCmd(addOutput)
     } yield outputFile
   }
+
+  sealed trait MimeType {
+    def name: String
+    def extension: String
+  }
+
+  case object Png extends MimeType {
+    val name  = "image/png"
+    val extension = "png"
+  }
+
+  case object Jpeg extends MimeType {
+    val name = "image/jpeg"
+    val extension = "jpg"
+  }
+
 }
