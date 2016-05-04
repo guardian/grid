@@ -133,21 +133,21 @@ object FileMetadataReader {
 
     val formatter = format(source)("%A")
 
-    for {
-      output <- runIdentifyCmd(formatter)
-    } yield {
+    runIdentifyCmd(formatter).map{ hasAlpha => getColourInformation(metadata, hasAlpha.headOption) }
+      .recover { case _ => getColourInformation(metadata, None) }
+  }
 
-      val pngDir = metadata.getFirstDirectoryOfType(classOf[PngDirectory])
+  private def getColourInformation(metadata: Metadata, hasAlpha: Option[String]): Map[String, String] = {
+    val pngDir = metadata.getFirstDirectoryOfType(classOf[PngDirectory])
 
-      Map(
-        "hasAlpha" -> output.headOption,
-        "colorType" -> Option(pngDir.getDescription(PngDirectory.TAG_COLOR_TYPE)),
-        "bitsPerSample" -> Option(pngDir.getDescription(PngDirectory.TAG_BITS_PER_SAMPLE)),
-        "paletteHasTransparency" -> Option(pngDir.getDescription(PngDirectory.TAG_PALETTE_HAS_TRANSPARENCY)),
-        "paletteSize" -> Option(pngDir.getDescription(PngDirectory.TAG_PALETTE_SIZE)),
-        "iccProfileName" -> Option(pngDir.getDescription(PngDirectory.TAG_ICC_PROFILE_NAME))
-      ).flattenOptions
-    }
+    Map(
+      "hasAlpha" -> hasAlpha,
+      "colorType" -> Option(pngDir.getDescription(PngDirectory.TAG_COLOR_TYPE)),
+      "bitsPerSample" -> Option(pngDir.getDescription(PngDirectory.TAG_BITS_PER_SAMPLE)),
+      "paletteHasTransparency" -> Option(pngDir.getDescription(PngDirectory.TAG_PALETTE_HAS_TRANSPARENCY)),
+      "paletteSize" -> Option(pngDir.getDescription(PngDirectory.TAG_PALETTE_SIZE)),
+      "iccProfileName" -> Option(pngDir.getDescription(PngDirectory.TAG_ICC_PROFILE_NAME))
+    ).flattenOptions
 
   }
 
