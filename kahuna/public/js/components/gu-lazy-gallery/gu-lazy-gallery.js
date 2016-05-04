@@ -17,7 +17,7 @@ lazyGallery.controller('GuLazyGalleryCtrl', [function() {
     ctrl.init = function({items$, offsetLeft$, galleryWidth$}) {
         const itemsCount$ = items$.map(items => items.length).distinctUntilChanged();
 
-        const currentItem$ = floor$(div$(offsetLeft$, itemsCount$));
+        const currentItem$ = floor$(div$(offsetLeft$, galleryWidth$));
 
         const buttonCommands$ = Rx.Observable.create(observer => {
             ctrl.prevItem  = () => observer.onNext('prevItem');
@@ -28,16 +28,17 @@ lazyGallery.controller('GuLazyGalleryCtrl', [function() {
             currentItem$,
             (command, currentItem) => {
                 return {
-                    prevItem: currentItem - 1,
-                    nextItem: currentItem + 1
+                    prevItem: +1,
+                    nextItem: -1
                 }[command] || 0;
             });
 
         const newGalleryOffset$ = galleryOffset$.withLatestFrom(
             currentItem$, itemsCount$, galleryWidth$,
             (galleryOffset, currentItem, itemsCount, galleryWidth) => {
-                console.log(galleryWidth);
-                return galleryOffset * galleryWidth;
+                const newItem = (currentItem + galleryOffset),
+                      newGalleryOffset = newItem * galleryWidth;
+                return newItem > 0 || newItem < -itemsCount ? 0 : newGalleryOffset;
         });
 
         return {
@@ -72,6 +73,7 @@ lazyGallery.directive('guLazyGallery', ['observe$', 'observeCollection$', 'subsc
                 </button>
             </div>`,
         link: function(scope, element, attrs, ctrl) {
+            const gallery = element.find('#gallery');
             const items$ = observeCollection$(scope, attrs.guLazyGallery);
 
             const viewportResized$ = Rx.DOM.fromEvent($window, 'resize').
@@ -84,19 +86,20 @@ lazyGallery.directive('guLazyGallery', ['observe$', 'observeCollection$', 'subsc
                 handler => removeResizeListener(element[0], handler)
             ).startWith({/* init */});
 
+
             const galleryWidth$ = combine$(
                 viewportResized$,
                 elementResized$,
-                () => gallery.clientWidth
+                () => element[0].clientWidth
             ).shareReplay(1);
 
-            const offsetLeft$ = viewportResized$.map(() => {
-                return Math.max(document.documentElement.clientWidth - element.find('#gallery').clientWidth, 0);
-            }).shareReplay(1);
+            const offsetLeft$ = new Rx.Subject();
 
             const {newGalleryOffset$} = ctrl.init({
                 items$, offsetLeft$, galleryWidth$
             });
+
+            scope.$watch(() => gallery.offset().left, (offset) => offsetLeft$.onNext(offset));
 
             subscribe$(scope, newGalleryOffset$, newGalleryOffset => {
                 element.find('#gallery').css('transform', 'translate3d(' + newGalleryOffset + 'px, 0, 0)');
