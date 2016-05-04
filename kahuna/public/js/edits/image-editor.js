@@ -48,6 +48,7 @@ imageEditor.controller('ImageEditorCtrl', [
     ctrl.status = ctrl.image.data.valid ? 'ready' : 'invalid';
     ctrl.usageRights = imageService(ctrl.image).usageRights;
     ctrl.invalidReasons = ctrl.image.data.invalidReasons;
+    ctrl.invalidPngHelp = 'Transparent pngs of type Palette are not supported. To crop this image, convert it to True Color and upload it again';
 
     //TODO put collections in their own directive
     ctrl.addCollection = false;
