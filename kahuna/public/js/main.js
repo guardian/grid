@@ -3,6 +3,7 @@
 import angular from 'angular';
 import 'angular-ui-router';
 import {heal} from 'pandular';
+import {checker} from 'amiuptodate';
 
 import uriTemplates from 'uri-templates';
 
@@ -52,6 +53,7 @@ var config = {
     // TODO: use link in 4xx response to avoid having to hardcode in HTML page
     'pandular.reAuthUri': reauthLink && reauthLink.getAttribute('href'),
 
+
     vndMimeTypes: new Map([
         ['gridImageData',  'application/vnd.mediaservice.image+json'],
         ['gridImagesData', 'application/vnd.mediaservice.images+json'],
@@ -84,6 +86,7 @@ var kahuna = angular.module('kahuna', [
     trackImageLoadtime.name,
     httpErrors.name,
     globalErrors.name,
+    checker.name,
 
     // directives used throughout
     imageFade.name,
@@ -133,7 +136,15 @@ function authAndRedirect(loginUriTemplate) {
     window.location.href = loginUri;
 }
 
-kahuna.run(['$log', '$rootScope', 'mediaApi', function($log, $rootScope, mediaApi) {
+kahuna.constant('amiuptodate.appNamespace', 'kahuna');
+kahuna.constant('amiuptodate.buildInfoUrl', '/management/manifest');
+kahuna.constant('amiuptodate.pollInterval', 30);
+
+kahuna.run(['$window', '$log', '$rootScope', 'mediaApi', 'checker', function($window, $log, $rootScope, mediaApi, checker) {
+
+    // If we are out of sync with server, refresh
+    checker.refresh$.subscribe((_) => console.log("Refreshing!"));
+
     // TODO: don't mix these two concerns. This is done here to avoid
     // doing redundant API calls to the same endpoint. Could be
     // abstracted into a service that unifies parallel calls to the root.
