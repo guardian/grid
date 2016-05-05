@@ -111,6 +111,11 @@ kahuna.config(['$urlRouterProvider',
     $urlRouterProvider.otherwise('/search');
 }]);
 
+// https://code.angularjs.org/1.5.5/docs/guide/production
+kahuna.config(['$compileProvider', function ($compileProvider) {
+  $compileProvider.debugInfoEnabled(false);
+}]);
+
 
 /* Perform an initial API request to detect 401 (not logged in) and
  * redirect browser for authentication if necessary.
