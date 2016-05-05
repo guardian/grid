@@ -1093,7 +1093,6 @@ textarea.ng-invalid {
     position:relative;
     width: 100vw;
     top: 35px;
-    overflow: hidden;
 }
 
 .gallery {

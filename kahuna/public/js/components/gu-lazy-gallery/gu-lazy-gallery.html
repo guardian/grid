@@ -1,0 +1,29 @@
+<div class="gallery">
+
+    <div class="gallery__item" ng-if="galleryCtrl.item">
+        <ui-preview-image-large image="galleryCtrl.item"
+                          selection-mode="inSelectionMode">
+            <button class="mark-as-seen image-action"
+                    title="Mark all images until this point as seen">
+                <gr-icon>remove_red_eye</gr-icon>
+            </button>
+        </ui-preview-image-large>
+    </div>
+
+    <div class="gallery__controls">
+        <button class="gallery__control gallery__control--left"
+                ng:class="{ 'gallery__control--disabled': canGoPrev }"
+                ng:disabled="canGoPrev"
+                ng:click="galleryCtrl.previousItem()">
+            <gr-icon-label gr-icon="keyboard_arrow_left">Previous</gr-icon-label>
+        </button>
+
+        <button class="gallery__control gallery__control--right"
+                ng:class="{ 'gallery__control--disabled': canGoNext }"
+                ng:disabled="canGoNext"
+                ng:click="galleryCtrl.nextItem()">
+            <gr-icon-label gr-icon="keyboard_arrow_right">Next</gr-icon-label>
+        </button>
+    </div>
+
+</div>

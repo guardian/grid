@@ -2,108 +2,78 @@ import angular from 'angular';
 import Rx from 'rx';
 import 'rx-dom';
 
-import elementResize from 'javascript-detect-element-resize';
-let {addResizeListener, removeResizeListener} = elementResize;
+import template from './gu-lazy-gallery.html!text';
 
 import '../../util/rx';
-
-import {combine$, floor$, div$} from '../gu-lazy-table/observable-utils';
 
 export var lazyGallery = angular.module('gu.lazyGallery', ['util.rx']);
 
 lazyGallery.controller('GuLazyGalleryCtrl', [function() {
     let ctrl = this;
 
-    ctrl.init = function({items$, offsetLeft$, galleryWidth$}) {
+    ctrl.init = (items$) => {
         const itemsCount$ = items$.map(items => items.length).distinctUntilChanged();
 
-        const currentItem$ = floor$(div$(offsetLeft$, galleryWidth$));
+        const currentItem$ = items$.filter(item => item.data.id === ctrl.item.data.id);
 
         const buttonCommands$ = Rx.Observable.create(observer => {
-            ctrl.prevItem  = () => observer.onNext('prevItem');
-            ctrl.nextItem  = () => observer.onNext('nextItem');
+            ctrl.prevItem       = () => observer.onNext('prevItem');
+            ctrl.nextItem       = () => observer.onNext('nextItem');
+            ctrl.galleryStart   = () => observer.onNext('start');
+            ctrl.galleryEnd     = () => observer.onNext('end');
         });
 
-        const galleryOffset$ = buttonCommands$.withLatestFrom(
-            currentItem$,
-            (command, currentItem) => {
+        const itemsOffset$ = buttonCommands$.withLatestFrom(
+            itemsCount$,
+            (command, itemsCount) => {
                 return {
-                    prevItem: +1,
-                    nextItem: -1
+                    prevItem:  - 1,
+                    nextItem:  + 1,
+                    start: 0,
+                    end: + itemsCount,
                 }[command] || 0;
             });
 
-        const newGalleryOffset$ = galleryOffset$.withLatestFrom(
-            currentItem$, itemsCount$, galleryWidth$,
-            (galleryOffset, currentItem, itemsCount, galleryWidth) => {
-                const newItem = (currentItem + galleryOffset),
-                      newGalleryOffset = newItem * galleryWidth;
-                return newItem > 0 || newItem < -itemsCount ? 0 : newGalleryOffset;
+        const itemIndex$ = itemsOffset$.withLatestFrom(
+            items$,
+            (itemsOffset, items) => {
+                console.log(itemsOffset);
+                return items[itemsOffset];
         });
 
-        return {
-            newGalleryOffset$
-        };
+        return {itemIndex$};
     };
+
 }]);
 
 lazyGallery.directive('guLazyGallery', ['observe$', 'observeCollection$', 'subscribe$', '$window',
                                         function(
                                             observe$, observeCollection$, subscribe$, $window) {
     return {
-        restrict: 'A',
+        restrict: 'E',
         controller: 'GuLazyGalleryCtrl',
         controllerAs: 'galleryCtrl',
         transclude: true,
-        template: `
-            <ng-transclude></ng-transclude>
-            <div class="gallery__controls">
-                <button class="gallery__control gallery__control--left"
-                        ng:class="{ 'gallery__control--disabled': galleryCtrl.pos === 0 }"
-                        ng:disabled="galleryCtrl.pos === 0"
-                        ng:click="galleryCtrl.previousItem()">
-                    <gr-icon-label gr-icon="keyboard_arrow_left">Previous</gr-icon-label>
-                </button>
-
-                <button class="gallery__control gallery__control--right"
-                        ng:class="{ 'gallery__control--disabled': galleryCtrl.pos === galleryCtrl.galleryLength - 1 }"
-                        ng:disabled="galleryCtrl.pos === galleryCtrl.galleryLength - 1"
-                        ng:click="galleryCtrl.nextItem()">
-                    <gr-icon-label gr-icon="keyboard_arrow_right">Next</gr-icon-label>
-                </button>
-            </div>`,
+        template: template,
         link: function(scope, element, attrs, ctrl) {
-            const gallery = element.find('#gallery');
-            const items$ = observeCollection$(scope, attrs.guLazyGallery);
+            // Map attributes as Observable streams
+            const {
+                guLazyGalleryItems:            itemsAttr,
+                guLazyGallerySelectionMode:    selectionMode,
+            } = attrs;
 
-            const viewportResized$ = Rx.DOM.fromEvent($window, 'resize').
-                debounce(100).
-                startWith({/* init */});
+            const items$         = observeCollection$(scope, itemsAttr);
+            const selectionMode$ = observe$(scope, selectionMode);
 
-            // Element resized (possibly not the viewport, e.g. side-panel expanded)
-            const elementResized$ = Rx.Observable.fromEventPattern(
-                handler => addResizeListener(element[0], handler),
-                handler => removeResizeListener(element[0], handler)
-            ).startWith({/* init */});
+            const {currentItem$} = ctrl.init(items$);
 
-
-            const galleryWidth$ = combine$(
-                viewportResized$,
-                elementResized$,
-                () => element[0].clientWidth
-            ).shareReplay(1);
-
-            const offsetLeft$ = new Rx.Subject();
-
-            const {newGalleryOffset$} = ctrl.init({
-                items$, offsetLeft$, galleryWidth$
+            subscribe$(scope, selectionMode$, selectionMode => {
+                ctrl.selectionMode = selectionMode;
             });
 
-            scope.$watch(() => gallery.offset().left, (offset) => offsetLeft$.onNext(offset));
-
-            subscribe$(scope, newGalleryOffset$, newGalleryOffset => {
-                element.find('#gallery').css('transform', 'translate3d(' + newGalleryOffset + 'px, 0, 0)');
-            });
+            // subscribe$(scope, currentItem$, currentItem => {
+            //     ctrl.item = currentItem;
+            // });
         }
     };
 }]);
