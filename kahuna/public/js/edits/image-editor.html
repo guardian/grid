@@ -10,14 +10,14 @@
                ui:sref="image({imageId: ctrl.image.data.id})"
                ui:drag-data="ctrl.image | asImageDragData">
 
-                <img class="result-editor__img"
+                <img class="result-editor__img img___original"
                      alt="original image thumbnail"
                      ng:src="{{:: ctrl.image.data.thumbnail | assetFile}}"
                      gr:image-fade-on-load
                  />
             </a>
 
-            <img class="result-editor__img"
+            <img class="result-editor__img img___original"
                  alt="original image thumbnail"
                  ng:switch-default
                  ng:src="{{:: ctrl.image.data.thumbnail | assetFile}}"
