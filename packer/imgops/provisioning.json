@@ -1,6 +1,6 @@
 {
     "variables": {
-        "machine_images_ami": "ami-6857e51b"
+        "machine_images_ami": "ami-161b9765"
     },
 
     "builders": [{
