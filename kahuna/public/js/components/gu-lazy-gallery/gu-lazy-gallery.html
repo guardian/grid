@@ -1,4 +1,4 @@
-<div class="gallery">
+<div class="gallery" gu:lazy-gallery-shortcuts>
 
     <div class="gallery__item" ng-if="galleryCtrl.item">
         <ui-preview-image-large image="galleryCtrl.item"
@@ -14,7 +14,7 @@
         <button class="gallery__control gallery__control--left"
                 ng:class="{ 'gallery__control--disabled': canGoPrev }"
                 ng:disabled="canGoPrev"
-                ng:click="galleryCtrl.previousItem()">
+                ng:click="galleryCtrl.prevItem()">
             <gr-icon-label gr-icon="keyboard_arrow_left">Previous</gr-icon-label>
         </button>
 

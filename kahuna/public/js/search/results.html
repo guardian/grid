@@ -74,7 +74,7 @@
         </div>
 
         <ul class="results"
-            ng:hide="ctrl.galleryView"
+            ng:if="!ctrl.galleryView"
             gu:lazy-table="ctrl.imagesAll"
             gu:lazy-table-cell-min-width="280"
             gu:lazy-table-cell-height="292"
@@ -133,7 +133,7 @@
         </ul>
 
         <gu:lazy-gallery
-            ng:show="ctrl.galleryView"
+            ng:if="ctrl.galleryView"
             gu:lazy-gallery-items="ctrl.images"
             gu:lazy-gallery-selection-mode="ctrl.inSelectionMode">
         </gu:lazy-gallery>
