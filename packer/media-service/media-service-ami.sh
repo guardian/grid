@@ -13,6 +13,7 @@ apt-get -y update && apt-get -y upgrade
 
 new_section "Installing graphicsmagick"
 apt-get -y install graphicsmagick graphicsmagick-imagemagick-compat
+apt-get -y install pngquant
 
 new_section "Installing cloud watch monitoring scripts"
 apt-get -y install unzip libwww-perl libdatetime-perl

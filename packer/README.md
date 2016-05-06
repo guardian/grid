@@ -30,6 +30,7 @@ Currently the AMIs in use are:
 - ami-161b9765: Plain Ubuntu Wily (Reaper, S3 Uploader)
 - ami-41840c32: Ubuntu Wily with Nginx (ImgOps)
 - ami-e827959b: Ubuntu Trusty (ES Cluster)
+- ami-7129a102: Ubuntu Wily with GraphicsMagick and Pngquant (cropper)
 - ami-e3f77990: Ubuntu Wily with GraphicsMagick (All other instances)
 
 ## Deregistering past AMIs
