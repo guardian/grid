@@ -17,6 +17,7 @@ import '../components/gr-image-metadata/gr-image-metadata';
 import '../components/gr-image-usage/gr-image-usage';
 import '../components/gr-keyboard-shortcut/gr-keyboard-shortcut';
 import '../components/gr-metadata-validity/gr-metadata-validity';
+import '../components/gr-display-crops/gr-display-crops';
 
 
 var image = angular.module('kahuna.image.controller', [
@@ -37,7 +38,8 @@ var image = angular.module('kahuna.image.controller', [
     'gr.imageMetadata',
     'gr.imageUsage',
     'gr.keyboardShortcut',
-    'gr.metadataValidity'
+    'gr.metadataValidity',
+    'gr.displayCrops'
 ]);
 
 image.controller('ImageCtrl', [

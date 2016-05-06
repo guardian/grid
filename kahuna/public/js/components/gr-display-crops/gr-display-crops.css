@@ -1,0 +1,14 @@
+.gr-display-crops {
+    display: flex;
+    justify-content: space-between;
+}
+
+.gr-display-crops__crop {
+    padding-bottom: 5px;
+}
+
+.gr-display-crops__crop__list {
+    flex-direction: column;
+    justify-content: flex-start;
+}
+

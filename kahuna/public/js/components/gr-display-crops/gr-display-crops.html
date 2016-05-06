@@ -1,0 +1,37 @@
+<div class="image-info">
+    <dl class="image-info__group image-info__wrap" ng:if="ctrl.crops.length > 0">
+        <div class="gr-display-crops">
+            <dt class="image-info__heading image-info__wrap">Crops</dt>
+            <button
+                ng-if="!ctrl.showCrops"
+                ng-click="ctrl.showCrops=true"
+            >
+                <gr-icon>expand_more</gr-icon>
+            </button>
+
+            <button
+                ng-if="ctrl.showCrops"
+                ng-click="ctrl.showCrops=false"
+            >
+                <gr-icon>expand_less</gr-icon>
+            </button>
+        </div>
+
+        <dd ng-show="ctrl.showCrops">
+            <ul>
+                <li class="image-info__group--dl gr-display-crops__crop"
+                    ng:repeat="crop in ctrl.crops">
+                    <div class="gr-display-crops__crop__list image-info__group--dl__key image-info__heading">
+                        <div>{{crop.specification.aspectRatio | asAspectRatioWord}}</div>
+                        <div>{{crop.master.dimensions.width}} x {{crop.master.dimensions.height}}</div>
+                    </div>
+                    <ul>
+                        <li ng:repeat="asset in crop.assets">
+                            <a href="{{asset.file}}">{{asset.dimensions.width}} x {{asset.dimensions.height}}</a>
+                        </li>
+                    </ul>
+                </li>
+            </ul>
+        </dd>
+    </dl>
+</div>
