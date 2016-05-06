@@ -35,7 +35,7 @@
                              ng:class="{'image-crop--selected': !ctrl.crop}">
                             <a draggable="true"
                                 ui:sref="{ crop: null }">
-                                <img class="image-crop__image"
+                                <img class="image-crop__image img___original"
                                      alt="original image thumbnail"
                                      ng:src="{{:: ctrl.image.data.thumbnail | assetFile }}" />
                                 <div class="image-crop__aspect-ratio"
@@ -164,14 +164,13 @@
 
         <gr-image-metadata gr-image="ctrl.image" ng:if="showMetadata"></gr-image-metadata>
         <gr-image-usage gr-image="ctrl.image" ng:if="! showMetadata"></gr-image-usage>
-        <gr-display-crops gr-small="true" crops="ctrl.crops"></gr-display-crops>
     </div>
 </div>
 
 <div class="image-holder">
     <div class="easel">
         <div class="easel__canvas" ng:if="!ctrl.crop">
-            <img class="easel__image"
+            <img class="easel__image img___original"
                  alt="preview of original image"
                  ng:src="{{:: ctrl.optimisedImageUri}}"
                  grid:track-image="ctrl.image"
