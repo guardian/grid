@@ -97,6 +97,8 @@ image.controller('ImageCtrl', [
 
         ctrl.cropSelected = cropSelected;
 
+        ctrl.allCrops = [];
+
         imageService(ctrl.image).states.canDelete.then(deletable => {
             ctrl.canBeDeleted = deletable;
         });
@@ -123,6 +125,7 @@ image.controller('ImageCtrl', [
             ctrl.crop = crops.find(crop => crop.id === cropKey);
             ctrl.fullCrop = crops.find(crop => crop.specification.type === 'full');
             ctrl.crops = crops.filter(crop => crop.specification.type === 'crop');
+            ctrl.allCrops = [ctrl.fullCrop].concat(ctrl.crops);
             //boolean version for use in template
             ctrl.hasFullCrop = angular.isDefined(ctrl.fullCrop);
             ctrl.hasCrops = ctrl.crops.length > 0;
