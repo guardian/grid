@@ -32,7 +32,7 @@ leaseService.factory('leaseService', [
       return Rx.Observable.fromPromise(getByMediaId(image));
     }
 
-    function canUserEdit(image){
+    function canEdit(image){
       return editsService.canUserEdit(image);
     }
 
@@ -61,7 +61,7 @@ leaseService.factory('leaseService', [
     return {
         add,
         get,
-        canUserEdit,
+        canEdit,
         deleteLease,
         getByMediaId,
         allowedByLease

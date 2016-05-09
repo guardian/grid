@@ -71,7 +71,7 @@ leases.controller(
 
 
         ctrl.updatePermissions = () => {
-            leaseService.canUserEdit(ctrl.image).then(editable => {
+            leaseService.canEdit(ctrl.image).then(editable => {
                 ctrl.userCanEdit = editable;
             });
         };
