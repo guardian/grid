@@ -8,24 +8,25 @@ import '../../util/rx';
 
 export var lazyGallery = angular.module('gu.lazyGallery', ['util.rx']);
 
-lazyGallery.controller('GuLazyGalleryCtrl', [function() {
+lazyGallery.controller('GuLazyGalleryCtrl', ['$rootScope', function($rootScope) {
     let ctrl = this;
 
     ctrl.init = function(items$) {
         ctrl.currentIndex = 0;
+        ctrl.canGoNext = false;
+        ctrl.canGoPrev = false;
 
         const itemsCount$ = items$.map(items => items.length).distinctUntilChanged();
 
-        const buttonCommands$ = new Rx.BehaviorSubject('start');
+        const buttonCommands$ = new Rx.BehaviorSubject('galleryStart');
 
         ctrl.prevItem     = () => buttonCommands$.onNext('prevItem');
         ctrl.nextItem     = () => buttonCommands$.onNext('nextItem');
-        ctrl.galleryStart = () => buttonCommands$.onNext('start');
-        ctrl.galleryEnd   = () => buttonCommands$.onNext('end');
+        ctrl.galleryStart = () => buttonCommands$.onNext('galleryStart');
+        ctrl.galleryEnd   = () => buttonCommands$.onNext('galleryEnd');
 
         const itemsOffset$ = buttonCommands$.map(
             (command) => {
-                console.log('Here!');
                 return {
                     prevItem:  -1,
                     nextItem:  +1,
@@ -34,16 +35,24 @@ lazyGallery.controller('GuLazyGalleryCtrl', [function() {
                 }[command] || 0;
             });
 
+        const testThing$ = itemsOffset$.map(button => console.log(button));
+
         const item$ = itemsOffset$.withLatestFrom(
-            items$,
-            (itemsOffset, items) => {
-                console.log(itemsOffset);
-                ctrl.currentIndex += itemsOffset;
+            items$, itemsCount$,
+            (itemsOffset, items, itemsCount) => {
+                // @TODO: Simplify these conditions
+                if (ctrl.currentIndex + itemsOffset >= 0 && ctrl.currentIndex + itemsOffset < itemsCount) {
+                    ctrl.currentIndex += itemsOffset;
+                    ctrl.canGoPrev = ctrl.currentIndex > 0;
+                    ctrl.canGoNext = ctrl.currentIndex < (itemsCount - 1);
+                }
                 return items[ctrl.currentIndex];
         });
 
         return item$;
     };
+
+
 
 }]);
 
@@ -73,7 +82,6 @@ lazyGallery.directive('guLazyGallery', ['observe$', 'observeCollection$', 'subsc
             });
 
             subscribe$(scope, newItem$, newItem => {
-                console.log(newItem);
                 ctrl.item = newItem;
             });
         }

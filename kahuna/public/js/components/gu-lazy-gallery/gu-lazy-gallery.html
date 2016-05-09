@@ -12,15 +12,15 @@
 
     <div class="gallery__controls">
         <button class="gallery__control gallery__control--left"
-                ng:class="{ 'gallery__control--disabled': canGoPrev }"
-                ng:disabled="canGoPrev"
+                ng:class="{ 'gallery__control--disabled': !galleryCtrl.canGoPrev }"
+                ng:disabled="!galleryCtrl.canGoPrev"
                 ng:click="galleryCtrl.prevItem()">
             <gr-icon-label gr-icon="keyboard_arrow_left">Previous</gr-icon-label>
         </button>
 
         <button class="gallery__control gallery__control--right"
-                ng:class="{ 'gallery__control--disabled': canGoNext }"
-                ng:disabled="canGoNext"
+                ng:class="{ 'gallery__control--disabled': !galleryCtrl.canGoNext }"
+                ng:disabled="!galleryCtrl.canGoNext"
                 ng:click="galleryCtrl.nextItem()">
             <gr-icon-label gr-icon="keyboard_arrow_right">Next</gr-icon-label>
         </button>

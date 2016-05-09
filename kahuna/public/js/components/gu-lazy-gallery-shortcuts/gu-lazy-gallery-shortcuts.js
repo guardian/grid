@@ -38,13 +38,13 @@ lazyGalleryShortcuts.directive('guLazyGalleryShortcuts',
                     combo: 'end',
                     description: 'Go to the last image',
                     allowIn: ['INPUT'],
-                    callback: invoke('end')
+                    callback: invoke('galleryEnd')
                 })
                 .add({
                     combo: 'home',
                     description: 'Go to the first image',
                     allowIn: ['INPUT'],
-                    callback: invoke('start')
+                    callback: invoke('galleryStart')
                 });
         }
     };
