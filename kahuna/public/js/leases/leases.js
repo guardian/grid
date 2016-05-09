@@ -53,7 +53,7 @@ leases.controller(
 
 
         ctrl.updateLeases = (image) => {
-            const leases$ = leaseService.get(image)
+            const leases$ = leaseService.getLeases(image)
                 .map((leasesResponse) => leasesResponse.data);
 
             inject$($scope, leases$, ctrl, 'leases');
@@ -71,7 +71,7 @@ leases.controller(
 
 
         ctrl.updatePermissions = () => {
-            leaseService.canEdit(ctrl.image).then(editable => {
+            leaseService.canUserEdit(ctrl.image).then(editable => {
                 ctrl.userCanEdit = editable;
             });
         };

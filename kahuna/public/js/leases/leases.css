@@ -16,6 +16,10 @@
   background-color: #565656;
 }
 
+.lease__item p {
+  margin: 2px;
+}
+
 .lease__date {
   position: relative;
 }
