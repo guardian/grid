@@ -25,7 +25,7 @@ leaseService.factory('leaseService', [
     }
 
     function add(image, lease) {
-      return image.perform('add-lease', {body: lease})
+      return image.perform('add-lease', {body: lease});
     }
 
     function getLeases(image){
@@ -47,11 +47,11 @@ leaseService.factory('leaseService', [
     function allowedByLease(image) {
       return getByMediaId(image).then(
         (imageLeases) => {
-          imageLeases = imageLeases.data
-          if(imageLeases.current) {
-            return Boolean(!imageLeases.current.data.access.match(/deny/i))
+          imageLeases = imageLeases.data;
+          if (imageLeases.current) {
+            return Boolean(!imageLeases.current.data.access.match(/deny/i));
           } else {
-            return true
+            return true;
           }
         },
         () => true
