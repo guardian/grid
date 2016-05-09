@@ -170,10 +170,12 @@ trait GettyProcessor {
 }
 
 object GettyXmpParser extends ImageProcessor with GettyProcessor {
-  val excludeFrom = List("newspix international")
+  val excludeFromPatterns = List("newspix international", "i-Images").map(ex => s"(?i)${ex}".r)
 
   // Some people send over Getty XMP data, but are not affiliated with Getty
-  def excludedCredit(credit: Option[String]) = credit.map(_.toLowerCase).exists(excludeFrom.contains)
+  def excludedCredit(credit: Option[String]) = {
+    excludeFromPatterns.flatMap( _.findFirstMatchIn(credit.getOrElse("")) ).nonEmpty
+  }
 
   def apply(image: Image): Image = (excludedCredit(image.metadata.credit), image.fileMetadata.getty.isEmpty) match {
     // Only images supplied by Getty have getty fileMetadata
