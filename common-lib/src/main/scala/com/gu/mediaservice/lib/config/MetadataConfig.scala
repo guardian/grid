@@ -51,11 +51,13 @@ object MetadataConfig {
     "James Mann"      -> "The Guardian",
     "Jill Mead"       -> "The Guardian",
     "Jonny Weeks"     -> "The Guardian",
+    "Joshua Robertson" -> "The Guardian",
     "Rachel Vere"     -> "The Guardian",
     "Roger Tooth"     -> "The Guardian",
     "Sean Smith"      -> "The Guardian",
     "Melissa Davey"   -> "The Guardian",
     "Michael Safi"    -> "The Guardian",
+    "Michael Slezak"    -> "The Guardian",
 
     // Past
     "Dan Chung"             -> "The Guardian",
