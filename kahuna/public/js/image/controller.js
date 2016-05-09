@@ -125,7 +125,7 @@ image.controller('ImageCtrl', [
             ctrl.crop = crops.find(crop => crop.id === cropKey);
             ctrl.fullCrop = crops.find(crop => crop.specification.type === 'full');
             ctrl.crops = crops.filter(crop => crop.specification.type === 'crop');
-            ctrl.allCrops = [ctrl.fullCrop].concat(ctrl.crops);
+            ctrl.allCrops = ctrl.fullCrop ? [ctrl.fullCrop].concat(ctrl.crops) : ctrl.crops;
             //boolean version for use in template
             ctrl.hasFullCrop = angular.isDefined(ctrl.fullCrop);
             ctrl.hasCrops = ctrl.crops.length > 0;
