@@ -56,20 +56,24 @@
         class="lease__item"
         gr:tooltip-position="left">
 
-        <div class="lease__current" ng:class="ctrl.leaseStatus(lease.data).current" ng:if="ctrl.leaseStatus(lease.data).current"></div>
         <div class="lease__access"
             ng:class="[ctrl.leaseStatus(lease.data).active, ctrl.leaseStatus(lease.data).access]"
         ></div>
+
+        <div class="lease__current" ng:class="ctrl.leaseStatus(lease.data).current" ng:if="ctrl.leaseStatus(lease.data).current"></div>
+
         <div class="lease__wrapper">
           <div class="lease">
             <gr-confirm-delete class="gr-delete-lease flex-right"
               gr-on-confirm="ctrl.delete(lease.data)"
               gr-tooltip="Delete lease">
-
             </gr-confirm-delete>
 
-            <div class="lease__text">{{ctrl.displayLease(lease.data)}}</div>
+            <div class="lease__text">
+              {{lease.data.startDate | date:'d MMM yyyy'}} to {{lease.data.startDate | date:'d MMM yyyy'}}
 
+              <p ng:if="lease.data.notes"> {{lease.data.notes}} </p>
+            </div>
           </div>
       </div>
     </li>

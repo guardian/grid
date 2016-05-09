@@ -98,9 +98,8 @@ leases.controller(
         }
 
         ctrl.toolTip = (lease) => {
-            const notes = Boolean(lease.notes) ? `notes: ${lease.notes}` : ``
-            const leasedBy = Boolean(lease.leasedBy) ? `leased by: ${lease.leasedBy}` : ``
-            return notes + leasedBy
+            const  leasedBy = Boolean(lease.leasedBy) ? `leased by: ${lease.leasedBy}` : ``
+            return leasedBy
         }
 
         ctrl.resetLeaseForm = () => {
