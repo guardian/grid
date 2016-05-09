@@ -77,8 +77,8 @@ guDateRange.directive('guDateRange', [function () {
             var endContainer = el.find('.gu-date-range__overlay__pikaday--end')[0];
 
             var iso8601Format = 'YYYY-MM-DDTHH:mm:ssZ';
-            var tenYearsInSeconds = (10 * 365 * 24 * 60 * 60 * 1000)
-            var tenYearsFromNow =  new Date(Date.now() + tenYearsInSeconds)
+            var tenYearsInSeconds = (10 * 365 * 24 * 60 * 60 * 1000);
+            var tenYearsFromNow =  new Date(Date.now() + tenYearsInSeconds);
 
             var pikaStart = new Pikaday({
                 field: startInput,
@@ -103,7 +103,7 @@ guDateRange.directive('guDateRange', [function () {
 
             $scope.$watch('pikaStartValue', function (pikaStartValue) {
                 var date = (pikaStartValue && new Date(pikaStartValue)) || new Date();
-                ctrl.guStartDate = pikaStartValue
+                ctrl.guStartDate = pikaStartValue;
                 pikaEnd.setMinDate(date);
                 pikaEnd.hide();
                 pikaEnd.show();
@@ -111,7 +111,7 @@ guDateRange.directive('guDateRange', [function () {
 
             $scope.$watch('pikaEndValue', function (pikaEndValue) {
                 var date = pikaEndValue && new Date(pikaEndValue);
-                ctrl.guEndDate = pikaEndValue
+                ctrl.guEndDate = pikaEndValue;
                 pikaStart.hide();
                 pikaStart.show();
             });

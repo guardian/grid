@@ -15,17 +15,17 @@ cropImage.controller('grCropImageCtrl', [
 
         function updateState () {
             mediaCropper.canBeCropped(ctrl.image).then(croppable => {
-                if(croppable) {
+                if (croppable) {
                     leaseService.allowedByLease(ctrl.image).then(allowed => {
                         ctrl.canBeCropped = allowed;
-                    })
+                    });
                 }
             });
         }
 
         $scope.$watch(() => ctrl.image.data.metadata, onValChange(() => updateState()));
-        $rootScope.$on('leases-updated', () => updateState())
         $scope.$watch(() => ctrl.image.data.usageRights, onValChange(() => updateState()));
+        $rootScope.$on('leases-updated', () => updateState());
         updateState();
     }
 ]);

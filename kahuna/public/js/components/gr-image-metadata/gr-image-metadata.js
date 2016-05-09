@@ -136,8 +136,8 @@ module.controller('grImageMetadataCtrl', [
         };
 
         ctrl.displayLeases = () => {
-            return (ctrl.userCanEdit) || (!ctrl.userCanEdit && ctrl.image.leases > 0)
-        }
+            return (ctrl.userCanEdit) || (!ctrl.userCanEdit && ctrl.image.leases > 0);
+        };
 
         $scope.$on('$destroy', function() {
             freeUpdateListener();

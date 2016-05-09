@@ -8,7 +8,7 @@ tooltip.directive('grTooltip', ['onValChange', '$interpolate', function (onValCh
         restrict: 'A',
         link: function ($scope, element, attrs) {
             const position = attrs.grTooltipPosition || 'bottom';
-            const toolTipText = $interpolate(attrs.grTooltip)
+            const toolTipText = $interpolate(attrs.grTooltip);
             element.attr('data-title', toolTipText)
                 .addClass(`titip-default`)
                 .addClass(`titip-${position}`);

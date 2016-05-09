@@ -48,59 +48,59 @@ leases.controller(
                         ctrl.resetLeaseForm();
                 });
             }
-        }
+        };
 
 
 
         ctrl.updateLeases = (image) => {
             const leases$ = leaseService.get(image)
-                .map((leasesResponse) => leasesResponse.data)
+                .map((leasesResponse) => leasesResponse.data);
 
             inject$($scope, leases$, ctrl, 'leases');
             $rootScope.$emit('leases-updated', ctrl.leases);
-        }
+        };
 
         ctrl.delete = (lease) => {
             leaseService.deleteLease(lease)
                 .then((lease) => ctrl.updateLeases(ctrl.image))
                 .catch(
                     () => alertFailed('Something when wrong when deleting, please try again!')
-                )
+                );
 
-        }
+        };
 
 
         ctrl.updatePermissions = () => {
             leaseService.canUserEdit(ctrl.image).then(editable => {
                 ctrl.userCanEdit = editable;
             });
-        }
+        };
 
         ctrl.displayLease = (lease) => {
             if (lease) {
                 const access = !!lease.access.match(/deny/i) ? "Denied" : "Allowed";
-                let displayString = `${access}`
+                let displayString = `${access}`;
 
-                if(lease.startDate){
-                    displayString += ` after ${lease.startDate.split("T")[0]}`
+                if (lease.startDate){
+                    displayString += ` after ${lease.startDate.split("T")[0]}`;
                 }
 
-                if(lease.startDate && lease.endDate){
-                    displayString += ` and`
+                if (lease.startDate && lease.endDate){
+                    displayString += ` and`;
                 }
 
-                if(lease.endDate){
-                    displayString += ` before ${lease.endDate.split("T")[0]}`
+                if (lease.endDate){
+                    displayString += ` before ${lease.endDate.split("T")[0]}`;
                 }
 
-                return displayString
+                return displayString;
             }
-        }
+        };
 
         ctrl.toolTip = (lease) => {
-            const  leasedBy = Boolean(lease.leasedBy) ? `leased by: ${lease.leasedBy}` : ``
-            return leasedBy
-        }
+            const  leasedBy = Boolean(lease.leasedBy) ? `leased by: ${lease.leasedBy}` : ``;
+            return leasedBy;
+        };
 
         ctrl.resetLeaseForm = () => {
             const oneDayInSeconds = (24 * 60 * 60);
@@ -110,8 +110,8 @@ leases.controller(
                 startDate: new Date(Date.now() - oneDayInSeconds),
                 endDate: new Date(),
                 access: null
-            }
-        }
+            };
+        };
 
         ctrl.leaseStatus = (lease) => {
             const active = lease.active ? "active " : " ";
@@ -125,9 +125,9 @@ leases.controller(
             return {
                 active: active,
                 current: current,
-                access: access,
-            }
-        }
+                access: access
+            };
+        };
 
         function alertFailed(message) {
             $window.alert(message);
