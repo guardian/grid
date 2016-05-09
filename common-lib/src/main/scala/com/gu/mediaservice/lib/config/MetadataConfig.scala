@@ -41,15 +41,21 @@ object MetadataConfig {
 
   val externalStaffPhotographers: Map[String, String] = Map(
     // Current
-    "Alicia Canter"  -> "The Guardian",
-    "Bill Code"      -> "The Guardian",
-    "David Sillitoe" -> "The Guardian",
-    "Graham Turner"  -> "The Guardian",
-    "James Mann"     -> "The Guardian",
-    "Jill Mead"      -> "The Guardian",
-    "Rachel Vere"    -> "The Guardian",
-    "Roger Tooth"    -> "The Guardian",
-    "Sean Smith"     -> "The Guardian",
+    "Alicia Canter"   -> "The Guardian",
+    "Ben Doherty"     -> "The Guardian",
+    "Bill Code"       -> "The Guardian",
+    "Calla Wahlquist" -> "The Guardian",
+    "David Sillitoe"  -> "The Guardian",
+    "Graham Turner"   -> "The Guardian",
+    "Helen Davidson"  -> "The Guardian",
+    "James Mann"      -> "The Guardian",
+    "Jill Mead"       -> "The Guardian",
+    "Jonny Weeks"     -> "The Guardian",
+    "Rachel Vere"     -> "The Guardian",
+    "Roger Tooth"     -> "The Guardian",
+    "Sean Smith"      -> "The Guardian",
+    "Melissa Davey"   -> "The Guardian",
+    "Michael Safi"    -> "The Guardian",
 
     // Past
     "Dan Chung"             -> "The Guardian",
