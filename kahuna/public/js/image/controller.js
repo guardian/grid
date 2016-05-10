@@ -17,6 +17,7 @@ import '../components/gr-image-metadata/gr-image-metadata';
 import '../components/gr-image-usage/gr-image-usage';
 import '../components/gr-keyboard-shortcut/gr-keyboard-shortcut';
 import '../components/gr-metadata-validity/gr-metadata-validity';
+import '../components/gr-display-crops/gr-display-crops';
 
 
 var image = angular.module('kahuna.image.controller', [
@@ -37,7 +38,8 @@ var image = angular.module('kahuna.image.controller', [
     'gr.imageMetadata',
     'gr.imageUsage',
     'gr.keyboardShortcut',
-    'gr.metadataValidity'
+    'gr.metadataValidity',
+    'gr.displayCrops'
 ]);
 
 image.controller('ImageCtrl', [
@@ -95,6 +97,8 @@ image.controller('ImageCtrl', [
 
         ctrl.cropSelected = cropSelected;
 
+        ctrl.allCrops = [];
+
         imageService(ctrl.image).states.canDelete.then(deletable => {
             ctrl.canBeDeleted = deletable;
         });
@@ -121,6 +125,7 @@ image.controller('ImageCtrl', [
             ctrl.crop = crops.find(crop => crop.id === cropKey);
             ctrl.fullCrop = crops.find(crop => crop.specification.type === 'full');
             ctrl.crops = crops.filter(crop => crop.specification.type === 'crop');
+            ctrl.allCrops = ctrl.fullCrop ? [ctrl.fullCrop].concat(ctrl.crops) : ctrl.crops;
             //boolean version for use in template
             ctrl.hasFullCrop = angular.isDefined(ctrl.fullCrop);
             ctrl.hasCrops = ctrl.crops.length > 0;
