@@ -108,7 +108,7 @@ leases.controller(
                 mediaId: null,
                 createdAt:  new Date(),
                 startDate: new Date(Date.now() - oneDayInSeconds),
-                endDate: new Date(),
+                endDate: new Date(Date.now() + oneDayInSeconds),
                 access: null
             };
         };

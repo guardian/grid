@@ -70,7 +70,8 @@
             </gr-confirm-delete>
 
             <div class="lease__text">
-              {{lease.data.startDate | date:'d MMM yyyy'}} to {{lease.data.startDate | date:'d MMM yyyy'}}
+              <span ng:if="lease.data.startDate">{{lease.data.startDate | date:'d MMM yyyy'}}</span>
+              <span ng:if="lease.data.endDate">until {{lease.data.endDate | date:'d MMM yyyy'}}</span>
 
               <p ng:if="lease.data.notes"> {{lease.data.notes}} </p>
             </div>
