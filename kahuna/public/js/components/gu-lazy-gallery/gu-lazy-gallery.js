@@ -18,7 +18,7 @@ lazyGallery.controller('GuLazyGalleryCtrl', ['$rootScope', function($rootScope) 
 
         const itemsCount$ = items$.map(items => items.length).distinctUntilChanged();
 
-        const buttonCommands$ = new Rx.BehaviorSubject('galleryStart');
+        const buttonCommands$ = new Rx.Subject();
 
         ctrl.prevItem     = () => buttonCommands$.onNext('prevItem');
         ctrl.nextItem     = () => buttonCommands$.onNext('nextItem');
@@ -28,6 +28,8 @@ lazyGallery.controller('GuLazyGalleryCtrl', ['$rootScope', function($rootScope) 
         const itemsOffset$ = buttonCommands$.withLatestFrom(
             itemsCount$,
             (command, itemsCount) => {
+                console.log(command);
+                // @TODO: Clean these up
                 return {
                     prevItem:     -1,
                     nextItem:     +1,
@@ -39,21 +41,19 @@ lazyGallery.controller('GuLazyGalleryCtrl', ['$rootScope', function($rootScope) 
         const item$ = itemsOffset$.withLatestFrom(
             items$, itemsCount$,
             (itemsOffset, items, itemsCount) => {
-                console.log(itemsOffset, itemsCount, ctrl.currentIndex);
                 // @TODO: Simplify these conditions
                 if (ctrl.currentIndex + itemsOffset >= 0 && ctrl.currentIndex + itemsOffset < itemsCount) {
                     ctrl.currentIndex += itemsOffset;
-                    console.log(ctrl.currentIndex);
                     ctrl.canGoPrev = ctrl.currentIndex > 0;
                     ctrl.canGoNext = ctrl.currentIndex < (itemsCount - 1);
                 }
                 return items[ctrl.currentIndex];
         });
 
+        const ready$ = item$.map(() => ctrl.galleryStart());
+
         return item$;
     };
-
-
 
 }]);
 
@@ -83,6 +83,7 @@ lazyGallery.directive('guLazyGallery', ['observe$', 'observeCollection$', 'subsc
             });
 
             subscribe$(scope, newItem$, newItem => {
+                console.log(newItem);
                 ctrl.item = newItem;
             });
         }

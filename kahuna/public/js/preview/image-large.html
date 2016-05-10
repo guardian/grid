@@ -44,7 +44,7 @@
              gr:image-fade-on-load />
     </span>
 
-    <div class="preview__info" ng:if="! ctrl.hideInfo">
+    <div class="preview__info preview__info--large" ng:if="! ctrl.hideInfo">
         <div class="flex-container">
             <ul class="bottom-bar__meta-item preview__collections">
                 <li class="preview__collections__collection"
@@ -81,7 +81,7 @@
         </p>
     </div>
 
-    <div class="preview__bottom-bar bottom-bar">
+    <div class="preview__bottom-bar bottom-bar preview__bottom-bar--large">
         <div class="bottom-bar__meta">
             <span class="preview__upload-time">
                 {{::ctrl.image.data.uploadTime | date:'dd/MM/yy'}}
