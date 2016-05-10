@@ -25,24 +25,25 @@ lazyGallery.controller('GuLazyGalleryCtrl', ['$rootScope', function($rootScope) 
         ctrl.galleryStart = () => buttonCommands$.onNext('galleryStart');
         ctrl.galleryEnd   = () => buttonCommands$.onNext('galleryEnd');
 
-        const itemsOffset$ = buttonCommands$.map(
-            (command) => {
+        const itemsOffset$ = buttonCommands$.withLatestFrom(
+            itemsCount$,
+            (command, itemsCount) => {
                 return {
-                    prevItem:  -1,
-                    nextItem:  +1,
-                    start:     0,
-                    end:       0,
+                    prevItem:     -1,
+                    nextItem:     +1,
+                    galleryStart: ctrl.currentIndex * -1,
+                    galleryEnd:   itemsCount - ctrl.currentIndex - 1,
                 }[command] || 0;
             });
-
-        const testThing$ = itemsOffset$.map(button => console.log(button));
 
         const item$ = itemsOffset$.withLatestFrom(
             items$, itemsCount$,
             (itemsOffset, items, itemsCount) => {
+                console.log(itemsOffset, itemsCount, ctrl.currentIndex);
                 // @TODO: Simplify these conditions
                 if (ctrl.currentIndex + itemsOffset >= 0 && ctrl.currentIndex + itemsOffset < itemsCount) {
                     ctrl.currentIndex += itemsOffset;
+                    console.log(ctrl.currentIndex);
                     ctrl.canGoPrev = ctrl.currentIndex > 0;
                     ctrl.canGoNext = ctrl.currentIndex < (itemsCount - 1);
                 }

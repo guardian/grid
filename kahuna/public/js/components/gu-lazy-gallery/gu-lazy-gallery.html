@@ -12,17 +12,35 @@
 
     <div class="gallery__controls">
         <button class="gallery__control gallery__control--left"
+                ng:class="{ 'gallery__control--disabled': galleryCtrl.currentIndex === 0 }"
+                ng:disabled="galleryCtrl.currentIndex === 0"
+                ng:click="galleryCtrl.galleryStart()">
+            <gr-icon>first_page</gr-icon>
+            <span class="visibly-hidden">First item</span>
+        </button>
+
+        <button class="gallery__control gallery__control--left"
                 ng:class="{ 'gallery__control--disabled': !galleryCtrl.canGoPrev }"
                 ng:disabled="!galleryCtrl.canGoPrev"
                 ng:click="galleryCtrl.prevItem()">
-            <gr-icon-label gr-icon="keyboard_arrow_left">Previous</gr-icon-label>
+            <gr-icon>navigate_before</gr-icon>
+            <span class="visibly-hidden">Previous</span>
         </button>
 
         <button class="gallery__control gallery__control--right"
                 ng:class="{ 'gallery__control--disabled': !galleryCtrl.canGoNext }"
                 ng:disabled="!galleryCtrl.canGoNext"
                 ng:click="galleryCtrl.nextItem()">
-            <gr-icon-label gr-icon="keyboard_arrow_right">Next</gr-icon-label>
+            <gr-icon>navigate_next</gr-icon>
+            <span class="visibly-hidden">Next</span>
+        </button>
+
+        <button class="gallery__control gallery__control--right"
+                ng:class="{ 'gallery__control--disabled': !galleryCtrl.canGoNext }"
+                ng:disabled="!galleryCtrl.canGoNext"
+                ng:click="galleryCtrl.galleryEnd()">
+            <gr-icon>last_page</gr-icon>
+            <span class="visibly-hidden">Last item</span>
         </button>
     </div>
 
