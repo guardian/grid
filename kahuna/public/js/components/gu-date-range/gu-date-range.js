@@ -108,7 +108,7 @@ guDateRange.directive('guDateRange', [function () {
                 pikaEnd.show();
             });
 
-            $scope.$watch('pikaEndValue', function (pikaEndValue) {
+            $scope.$watch('pikaEndValue', function () {
                 pikaStart.hide();
                 pikaStart.show();
             });

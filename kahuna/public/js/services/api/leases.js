@@ -1,7 +1,7 @@
 import angular from 'angular';
 import Rx from 'rx';
 
-import {mediaApi} from './media-api';
+import './media-api';
 import {service} from '../../edits/service';
 
 var leaseService = angular.module('kahuna.services.lease', [
