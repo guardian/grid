@@ -123,7 +123,7 @@ object ImageOperations {
         val split = fileName.split('.')
 
         val optimisedImageName: String = fileName.split('.')(0) + "optimised.png"
-        Seq("pngquant",  "--quality", "45-90", fileName, "--output", optimisedImageName).!
+        Seq("pngquant",  "--quality", "1-85", fileName, "--output", optimisedImageName).!
 
         val file = new File(optimisedImageName)
 
