@@ -11,11 +11,10 @@ var leaseService = angular.module('kahuna.services.lease', [
 leaseService.factory('leaseService', [
   '$rootScope',
   '$q',
-  'apiPoll',
   'imageAccessor',
   'mediaApi',
   'editsService',
-  function ($rootScope, $q, apiPoll, imageAccessor, mediaApi, editsService) {
+  function ($rootScope, $q, imageAccessor, mediaApi, editsService) {
     var leasesRoot;
     function getLeasesRoot() {
         if (! leasesRoot) {

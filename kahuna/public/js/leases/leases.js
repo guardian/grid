@@ -27,8 +27,8 @@ leases.controller(
         ctrl.cancel = () => ctrl.editing = false;
 
         ctrl.save = () => {
-            if (ctrl.access == null) {
-                $window.alert("Please select an access type (Allow or Deny)");
+            if (ctrl.access === null) {
+                $window.alert('Please select an access type (Allow or Deny)');
             } else {
                 ctrl.adding = true;
                 ctrl.newLease.mediaId = ctrl.image.data.id;
@@ -36,7 +36,7 @@ leases.controller(
                 ctrl.newLease.access = ctrl.access;
 
                 leaseService.add(ctrl.image, ctrl.newLease)
-                    .then((lease) => {
+                    .then(() => {
                         ctrl.updateLeases(ctrl.image);
                     })
                     .catch(() =>
@@ -60,9 +60,10 @@ leases.controller(
             $rootScope.$emit('leases-updated', ctrl.leases);
         };
 
+
         ctrl.delete = (lease) => {
             leaseService.deleteLease(lease)
-                .then((lease) => ctrl.updateLeases(ctrl.image))
+                .then(() => ctrl.updateLeases(ctrl.image))
                 .catch(
                     () => alertFailed('Something when wrong when deleting, please try again!')
                 );
@@ -76,31 +77,12 @@ leases.controller(
             });
         };
 
-        ctrl.displayLease = (lease) => {
-            if (lease) {
-                const access = !!lease.access.match(/deny/i) ? "Denied" : "Allowed";
-                let displayString = `${access}`;
-
-                if (lease.startDate){
-                    displayString += ` after ${lease.startDate.split("T")[0]}`;
-                }
-
-                if (lease.startDate && lease.endDate){
-                    displayString += ` and`;
-                }
-
-                if (lease.endDate){
-                    displayString += ` before ${lease.endDate.split("T")[0]}`;
-                }
-
-                return displayString;
-            }
-        };
 
         ctrl.toolTip = (lease) => {
             const  leasedBy = Boolean(lease.leasedBy) ? `leased by: ${lease.leasedBy}` : ``;
             return leasedBy;
         };
+
 
         ctrl.resetLeaseForm = () => {
             const oneDayInSeconds = (24 * 60 * 60);
@@ -113,14 +95,15 @@ leases.controller(
             };
         };
 
+
         ctrl.leaseStatus = (lease) => {
-            const active = lease.active ? "active " : " ";
+            const active = lease.active ? 'active ' : ' ';
 
             let current = '';
             if (ctrl.leases.current) {
-                current = ctrl.leases.current.data.id == lease.id ? "current " : "";
+                current = ctrl.leases.current.data.id == lease.id ? 'current ' : '';
             }
-            const access = (lease.access.match(/allow/i)) ? "allowed" : "denied";
+            const access = (lease.access.match(/allow/i)) ? 'allowed' : 'denied';
 
             return {
                 active: active,
@@ -128,6 +111,7 @@ leases.controller(
                 access: access
             };
         };
+
 
         function alertFailed(message) {
             $window.alert(message);

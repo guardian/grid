@@ -2,7 +2,7 @@ import angular from 'angular';
 
 import template from './gr-crop-image.html!text';
 
-import {leaseService} from '../../services/api/leases'
+import '../../services/api/leases'
 
 export const cropImage = angular.module('gr.cropImage', [
 
