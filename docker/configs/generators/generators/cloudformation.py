@@ -5,6 +5,7 @@ import os
 
 LOGGER_NAME = os.path.splitext(os.path.basename(__file__))[0]
 LOGGER = logging.getLogger(LOGGER_NAME)
+STACK_NAME_FILE = os.path.join(os.path.expanduser('~'), '.gu', 'grid', 'dev_stack_name')
 
 
 def _boto_session():
@@ -14,12 +15,13 @@ def _boto_session():
 
 
 def _get_stack_name():
-    user = os.getenv('GRID_STACK_NAME')
-
-    if not user:
+    if os.path.isfile(STACK_NAME_FILE):
+        with open(STACK_NAME_FILE, 'r') as f:
+            stack_name = f.read().strip()
+    else:
         user = boto3.resource('iam').CurrentUser().user_name
+        stack_name = 'media-service-DEV-{}'.format(user)
 
-    stack_name = 'media-service-DEV-{}'.format(user)
     LOGGER.info('Using stack {}'.format(stack_name))
     return stack_name
 
