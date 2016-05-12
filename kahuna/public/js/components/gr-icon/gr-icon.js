@@ -28,11 +28,12 @@ icon.directive('grIconLabel', [function () {
     return {
         restrict: 'E',
         scope: {
-            grIcon: '@'
+            grIcon: '@',
+            grLoading: '@'
         },
         transclude: 'replace',
         template: `
-            <gr-icon>{{grIcon}}</gr-icon>
+            <gr-icon ng-class="{'spin': grLoading === 'true'}">{{grIcon}}</gr-icon>
             <span class="icon-label"><ng:transclude></ng:transclude></span>`
     };
 }]);
