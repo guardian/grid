@@ -43,7 +43,7 @@ The generators can be run in the following form:
 python -m generators.<generator> /path/to/output/directory
 ```
 
-To generate the `.properties` files, run:
+To generate the `.properties` files, create your output directory and run:
 
 ```sh
 python -m generators.dot_properties /etc/gu
