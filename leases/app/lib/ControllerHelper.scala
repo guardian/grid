@@ -29,8 +29,8 @@ trait ControllerHelper extends ArgoHelpers {
     }
 
 
-  def wrapLease(lease: MediaLease): EntityReponse[MediaLease] = {
-    EntityReponse(
+  def wrapLease(lease: MediaLease): EntityResponse[MediaLease] = {
+    EntityResponse(
       uri = lease.id.map(leaseUri).get,
       data = lease
     )
