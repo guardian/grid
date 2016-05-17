@@ -164,3 +164,11 @@ As the Play Framework does not yet support [SNI](https://en.wikipedia.org/wiki/S
 
 When the correct cert to send is ambiguous NGINX simply sends the first cert it sees in it's configuration (which is loaded from config files in alphabetical order) to resolve this problem, prefix your grid config filename with `0-`!
 
+
+## GraphicsMagick && Little CMS 2
+
+If you get a permissions issue when running 
+``` brew install graphicsmagick --with-little-cms2 ```
+you can install little cms (``` brew install little-cms2 ``` ) 
+and then compile graphicsmagick from source, it will automatically pick up on the little cms installation
+
