@@ -93,12 +93,11 @@ gr-leases .gu-date-range__display {
 
 .lease__access {
   padding: 3px;
-
+  margin-bottom: 7px;
 }
 
 .lease__current {
   padding: 2px;
-  margin-bottom: 7px;
 
 }
 

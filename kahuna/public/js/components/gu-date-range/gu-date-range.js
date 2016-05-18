@@ -77,8 +77,8 @@ guDateRange.directive('guDateRange', [function () {
             var endContainer = el.find('.gu-date-range__overlay__pikaday--end')[0];
 
             var iso8601Format = 'YYYY-MM-DDTHH:mm:ssZ';
-            var tenYearsInSeconds = (10 * 365 * 24 * 60 * 60 * 1000);
-            var tenYearsFromNow =  new Date(Date.now() + tenYearsInSeconds);
+            const tenYearsInMilliseconds = (10 * 365 * 24 * 60 * 60 * 1000);
+            const tenYearsFromNow =  new Date(Date.now() + tenYearsInMilliseconds);
 
             var pikaStart = new Pikaday({
                 field: startInput,

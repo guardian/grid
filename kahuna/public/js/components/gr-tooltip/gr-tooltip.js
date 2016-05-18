@@ -5,14 +5,12 @@ export const tooltip = angular.module('grTooltip', []);
 
 tooltip.directive('grTooltip', [
     'onValChange',
-    '$interpolate',
-    function (onValChange, $interpolate) {
+    function (onValChange) {
         return {
             restrict: 'A',
             link: function ($scope, element, attrs) {
                 const position = attrs.grTooltipPosition || 'bottom';
-                const toolTipText = $interpolate(attrs.grTooltip);
-                element.attr('data-title', toolTipText)
+                element.attr('data-title', attrs.grTooltip)
                     .addClass(`titip-default`)
                     .addClass(`titip-${position}`);
 

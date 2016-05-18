@@ -7,7 +7,7 @@ import './leases.css!';
 import '../components/gr-confirm-delete/gr-confirm-delete.js';
 
 
-export var leases = angular.module('kahuna.edits.leases', [
+export const leases = angular.module('kahuna.edits.leases', [
     'kahuna.services.lease',
     'kahuna.forms.datalist',
     'gr.confirmDelete',
@@ -27,7 +27,7 @@ leases.controller(
         ctrl.cancel = () => ctrl.editing = false;
 
         ctrl.save = () => {
-            if (ctrl.access === null) {
+            if (!ctrl.accessDefined()) {
                 $window.alert('Please select an access type (Allow or Deny)');
             } else {
                 ctrl.adding = true;
@@ -51,13 +51,14 @@ leases.controller(
         };
 
 
-
+        ctrl.accessDefined = () => {
+            return !!ctrl.access ||  !!ctrl.newLease.access
+        }
         ctrl.updateLeases = (image) => {
             const leases$ = leaseService.getLeases(image)
                 .map((leasesResponse) => leasesResponse.data);
 
             inject$($scope, leases$, ctrl, 'leases');
-            $rootScope.$emit('leases-updated', ctrl.leases);
         };
 
 
@@ -85,14 +86,15 @@ leases.controller(
 
 
         ctrl.resetLeaseForm = () => {
-            const oneDayInSeconds = (24 * 60 * 60);
+            const oneDayInMilliSeconds = (24 * 60 * 60 * 1000);
             ctrl.newLease = {
                 mediaId: null,
                 createdAt:  new Date(),
-                startDate: new Date(Date.now() - oneDayInSeconds),
-                endDate: new Date(Date.now() + oneDayInSeconds),
+                startDate: new Date(Date.now() - oneDayInMilliSeconds),
+                endDate: new Date(Date.now() + oneDayInMilliSeconds),
                 access: null
             };
+            ctrl.access = null;
         };
 
 
@@ -117,6 +119,10 @@ leases.controller(
             $window.alert(message);
             ctrl.adding = false;
         }
+
+        $scope.$watch(() => ctrl.leases, () => {
+            $rootScope.$emit('leases-updated', ctrl.leases)
+        });
 
         ctrl.resetLeaseForm();
         ctrl.updatePermissions();

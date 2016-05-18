@@ -14,18 +14,23 @@ cropImage.controller('grCropImageCtrl', [
         let ctrl = this;
 
         function updateState () {
-            mediaCropper.canBeCropped(ctrl.image).then(croppable => {
-                if (croppable) {
-                    leaseService.allowedByLease(ctrl.image).then(allowed => {
-                        ctrl.canBeCropped = allowed;
+            leaseService.allowedByLease(ctrl.image).then(allowed => {
+                if (allowed) {
+                    mediaCropper.canBeCropped(ctrl.image).then(croppable => {
+                        ctrl.canBeCropped = croppable;
                     });
+                } else {
+                    ctrl.canBeCropped = false;
                 }
             });
         }
 
-        $scope.$watch(() => ctrl.image.data.metadata, onValChange(() => updateState()));
+        $rootScope.$on('leases-updated', () => {
+            updateState()
+        });
+
         $scope.$watch(() => ctrl.image.data.usageRights, onValChange(() => updateState()));
-        $rootScope.$on('leases-updated', () => updateState());
+        $scope.$watch(() => ctrl.image.data.metadata, onValChange(() => updateState()));
         updateState();
     }
 ]);

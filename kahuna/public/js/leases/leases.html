@@ -17,9 +17,9 @@
       ng:submit="ctrl.save()">
 
   <select id="access-select" ng:model="ctrl.access" ng-required="required">
-      <option ng-selected="true">Select Access</option>
-      <option value="allow">Allow</option>
-      <option value="deny">Deny</option>
+      <option ng-selected="true" value="">Please select access</option>
+      <option value="allow">Allow cropping</option>
+      <option value="deny">Deny cropping</option>
   </select>
   <gu-date-range class="lease__date"
      gu:start-date="ctrl.newLease.startDate"
@@ -56,11 +56,12 @@
         class="lease__item"
         gr:tooltip-position="left">
 
+        <div class="lease__current" ng:class="ctrl.leaseStatus(lease.data).current" ng:if="ctrl.leaseStatus(lease.data).current"></div>
+
         <div class="lease__access"
             ng:class="[ctrl.leaseStatus(lease.data).active, ctrl.leaseStatus(lease.data).access]"
         ></div>
 
-        <div class="lease__current" ng:class="ctrl.leaseStatus(lease.data).current" ng:if="ctrl.leaseStatus(lease.data).current"></div>
 
         <div class="lease__wrapper">
           <div class="lease">
