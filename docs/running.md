@@ -32,6 +32,7 @@ Install grid_runner:
 * aliases makes life better (in .bash_profile or somewhere similar):
         alias gr=grid_runner
 * remember to update once in a while
+* create a 'logs' directory if it does not exist
 
 From the project root:
 
