@@ -78,8 +78,12 @@ object FileMetadataReader {
 
       def readProperty(name: String): Option[String] = xmpProperties.get(name) flatMap nonEmptyTrimmed
 
+      def readAssetId : Option[String] = {
+        readProperty("GettyImagesGIFT:AssetId").orElse(readProperty("GettyImagesGIFT:AssetID"))
+      }
+
       Map(
-        "Asset ID"                  -> readProperty("GettyImagesGIFT:AssetID"),
+        "Asset ID"                  -> readAssetId,
         "Call For Image"            -> readProperty("GettyImagesGIFT:CallForImage"),
         "Camera Filename"           -> readProperty("GettyImagesGIFT:CameraFilename"),
         "Camera Make Model"         -> readProperty("GettyImagesGIFT:CameraMakeModel"),

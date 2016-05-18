@@ -8,7 +8,7 @@ displayCrops.controller('GrDisplayCrops', [function() {
 
     let ctrl = this;
 
-    ctrl.displayCrops = false;
+    ctrl.showCrops = false;
 }]);
 
 displayCrops.directive('grDisplayCrops', [function () {

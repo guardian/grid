@@ -1,20 +1,21 @@
 #!/bin/bash
 
-if [ -z "$GRID_STACK_NAME" ];
-then
+STACK_NAME_FILE="${HOME}/.gu/grid/dev_stack_name"
+
+if [ -f ${STACK_NAME_FILE} ]; then
+    export STACK_NAME=`cat ${STACK_NAME_FILE}`
+else
     USER_NAME=`aws iam get-user`
 
     if [ $? != "0" ]; then
         echo -e "\033[1;41m    FAILED!    \033[m"
         echo '`iam get-user` failed. Are you using temporary credentials?'
-        echo 'If you are using temporary credentials please set the GRID_STACK_NAME environment variable and try again:'
+        echo "If you are using temporary credentials please create ${STACK_NAME_FILE} with the name of your stack"
         echo ''
-        echo "  export GRID_STACK_NAME=foo && $0"
+        echo "  echo media-service-DEV-foobar > ${STACK_NAME_FILE} && $0"
         echo ''
         exit 1
     else
         export STACK_NAME="media-service-DEV-`$USER_NAME | jq '.User.UserName' | tr -d '"' | tr [A-Z] [a-z]`"
     fi
-else
-    export STACK_NAME="media-service-DEV-$GRID_STACK_NAME"
 fi

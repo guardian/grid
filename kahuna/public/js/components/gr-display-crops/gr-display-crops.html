@@ -1,19 +1,11 @@
 <div class="image-info">
     <dl class="image-info__group image-info__wrap" ng:if="ctrl.crops.length > 0">
         <div class="gr-display-crops">
-            <dt class="image-info__heading image-info__wrap">Crops</dt>
-            <button
-                ng-if="!ctrl.showCrops"
-                ng-click="ctrl.showCrops=true"
-            >
-                <gr-icon>expand_more</gr-icon>
-            </button>
-
-            <button
-                ng-if="ctrl.showCrops"
-                ng-click="ctrl.showCrops=false"
-            >
-                <gr-icon>expand_less</gr-icon>
+            <button class="gr-display-crops"
+                    ng:click="ctrl.showCrops = !ctrl.showCrops">
+                <span ng:hide="ctrl.showCrops">▸ Show</span>
+                <span ng:show="ctrl.showCrops">▾ Hide</span>
+                crops
             </button>
         </div>
 
