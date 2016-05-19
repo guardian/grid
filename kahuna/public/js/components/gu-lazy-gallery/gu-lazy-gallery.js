@@ -6,17 +6,52 @@ import template from './gu-lazy-gallery.html!text';
 
 import '../../util/rx';
 
+import {
+    combine$,
+    sub$, max$
+} from '../gu-lazy-table/observable-utils';
+
 export var lazyGallery = angular.module('gu.lazyGallery', ['util.rx']);
 
-lazyGallery.controller('GuLazyGalleryCtrl', ['$rootScope', function($rootScope) {
+function asInt(string) {
+    return parseInt(string, 10);
+}
+
+function findIndexFrom(array, item, fromIndex) {
+    for (let i = fromIndex, len = array.length; i < len; i++) {
+        if (array[i] === item) {
+            return i;
+        }
+    }
+    return -1;
+}
+
+function findLastIndexFrom(array, item, fromIndex) {
+    for (let i = fromIndex; i >= 0; i--) {
+        if (array[i] === item) {
+            return i;
+        }
+    }
+    return -1;
+}
+
+lazyGallery.controller('GuLazyGalleryCtrl', ['$rootScope', function() {
     let ctrl = this;
 
-    ctrl.init = function(items$) {
+    ctrl.init = function({items$, preloadedItems$}) {
         ctrl.currentIndex = 0;
         ctrl.canGoNext = false;
         ctrl.canGoPrev = false;
 
         const itemsCount$ = items$.map(items => items.length).distinctUntilChanged();
+
+        const currentFirstItem$ = items$.map(items => {
+            return items[0];
+        }).distinctUntilChanged();
+
+        const currentLastItem$ = items$.map(items => {
+            return items[items.length -1];
+        }).distinctUntilChanged();
 
         const buttonCommands$ = new Rx.Subject();
 
@@ -28,7 +63,6 @@ lazyGallery.controller('GuLazyGalleryCtrl', ['$rootScope', function($rootScope) 
         const itemsOffset$ = buttonCommands$.withLatestFrom(
             itemsCount$,
             (command, itemsCount) => {
-                console.log(command);
                 // @TODO: Clean these up
                 return {
                     prevItem:     -1,
@@ -48,18 +82,47 @@ lazyGallery.controller('GuLazyGalleryCtrl', ['$rootScope', function($rootScope) 
                     ctrl.canGoNext = ctrl.currentIndex < (itemsCount - 1);
                 }
                 return items[ctrl.currentIndex];
-        });
+        }).shareReplay(1);
 
-        const ready$ = item$.map(() => ctrl.galleryStart());
+        const loadedItemFirst$ = max$(sub$(currentFirstItem$, preloadedItems$), 0).
+            distinctUntilChanged();
+        const loadedItemLast$ = combine$(currentLastItem$, preloadedItems$, itemsCount$,
+                                          (currentLastItem, preloadedItems, itemsCount) => {
+            console.log(currentLastItem);
+            return Math.min(currentLastItem + preloadedItems, itemsCount - 1);
+        }).distinctUntilChanged();
 
-        return item$;
+        const rangeToLoad$ = combine$(
+            items$, loadedItemFirst$, loadedItemLast$,
+            (items, loadedItemFirst, loadedItemLast) => {
+                const $start = findIndexFrom(items, undefined, loadedItemFirst);
+                const $end   = findLastIndexFrom(items, undefined, loadedItemLast);
+                return {$start, $end};
+            }
+        ).
+            // Debounce range loading, which also helps discard
+            // erroneous large ranges while combining
+            // loadedRangeStart$ and loadedRangeEnd$ changes (one after the other)
+            debounce(10).
+            // Ignore if either end isn't set (whole range already loaded)
+            filter(({$start, $end}) => $start !== -1 && $end !== -1).
+            // Ignore if $start after $end (incomplete combine$ state)
+            filter(({$start, $end}) => $start <= $end).
+            distinctUntilChanged(({$start, $end}) => `${$start}-${$end}`);
+
+        ctrl.galleryStart();
+
+        return {
+            item$,
+            rangeToLoad$
+        };
     };
 
 }]);
 
-lazyGallery.directive('guLazyGallery', ['observe$', 'observeCollection$', 'subscribe$', '$window',
+lazyGallery.directive('guLazyGallery', ['observe$', 'observeCollection$', 'subscribe$',
                                         function(
-                                            observe$, observeCollection$, subscribe$, $window) {
+                                            observe$, observeCollection$, subscribe$) {
     return {
         restrict: 'E',
         controller: 'GuLazyGalleryCtrl',
@@ -71,20 +134,28 @@ lazyGallery.directive('guLazyGallery', ['observe$', 'observeCollection$', 'subsc
             const {
                 guLazyGalleryItems:            itemsAttr,
                 guLazyGallerySelectionMode:    selectionMode,
+                guLazyGalleryLoadRange:        loadRangeFn,
+                guLazyGalleryPreloadedItems:   preloadedItemsAttr
             } = attrs;
 
             const items$         = observeCollection$(scope, itemsAttr);
             const selectionMode$ = observe$(scope, selectionMode);
+            const preloadedItems$ = observe$(scope, preloadedItemsAttr).map(asInt);
 
-            const newItem$ = ctrl.init(items$);
+            const {item$, rangeToLoad$} = ctrl.init({items$, preloadedItems$});
+
+
+            subscribe$(scope, rangeToLoad$, range => {
+                console.log(range);
+                scope.$eval(loadRangeFn, range);
+            });
 
             subscribe$(scope, selectionMode$, selectionMode => {
                 ctrl.selectionMode = selectionMode;
             });
 
-            subscribe$(scope, newItem$, newItem => {
-                console.log(newItem);
-                ctrl.item = newItem;
+            subscribe$(scope, item$, item => {
+                ctrl.item = item;
             });
         }
     };

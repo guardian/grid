@@ -135,6 +135,8 @@
         <gu:lazy-gallery
             ng:if="ctrl.galleryView"
             gu:lazy-gallery-items="ctrl.images"
+            gu:lazy-gallery-preloaded-items="10"
+            gu:lazy-gallery-load-range="ctrl.loadRange($start, $end)"
             gu:lazy-gallery-selection-mode="ctrl.inSelectionMode">
         </gu:lazy-gallery>
 
