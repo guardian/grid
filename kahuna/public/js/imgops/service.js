@@ -23,6 +23,7 @@ imgops.factory('imgops', ['$window', function($window) {
     }
 
     function getOptimisedUri(image, options) {
+        console.log('image is ', image);
         return image.follow('optimised', options).getUri().catch(() => {
             return image.source.secureUrl || image.source.file;
         });

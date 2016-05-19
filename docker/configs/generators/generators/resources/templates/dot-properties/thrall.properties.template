@@ -2,6 +2,7 @@ aws.id={{AwsId}}
 aws.secret={{AwsSecret}}
 s3.image.bucket={{ImageBucket}}
 s3.thumb.bucket={{ThumbBucket}}
+s3.optimisedPng.bucket={{OptimisedPngBucket}}
 sqs.queue.url={{SqsQueueUrl}}
 sqs.message.min.frequency={{sqs_message_min_frequency}}
 persistence.identifier=picdarUrn

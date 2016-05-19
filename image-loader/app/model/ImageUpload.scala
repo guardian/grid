@@ -2,7 +2,10 @@ package model
 
 import java.io.File
 
+import com.gu.mediaservice.lib.Files._
+import com.gu.mediaservice.lib.aws.S3Object
 import play.api.libs.concurrent.Execution.Implicits._
+import sun.font.TrueTypeFont
 import scala.concurrent.Future
 
 import lib.imaging.FileMetadataReader
@@ -14,6 +17,7 @@ import com.gu.mediaservice.lib.cleanup.{SupplierProcessors, MetadataCleaners}
 import com.gu.mediaservice.lib.config.MetadataConfig
 import com.gu.mediaservice.lib.imaging.ImageOperations
 import com.gu.mediaservice.lib.formatting._
+import scala.sys.process._
 
 import lib.storage.ImageStore
 import com.gu.mediaservice.model._
@@ -26,59 +30,94 @@ case object ImageUpload {
 
   def fromUploadRequest(uploadRequest: UploadRequest): Future[ImageUpload] = {
 
-    val uploadedFile = uploadRequest.tempFile
+    val uploadedFile: File = uploadRequest.tempFile
 
-    // These futures are started outside the for-comprehension, otherwise they will not run in parallel
-    val sourceStoreFuture      = storeSource(uploadRequest)
-    // FIXME: pass mimeType
-    val colourModelFuture      = ImageOperations.identifyColourModel(uploadedFile, "image/jpeg")
-    val sourceDimensionsFuture = FileMetadataReader.dimensions(uploadedFile, uploadRequest.mimeType)
-    val fileMetadataFuture     = uploadRequest.mimeType match {
+    val fileMetadataFuture = uploadRequest.mimeType match {
       case Some("image/png") => FileMetadataReader.fromICPTCHeadersWithColorInfo(uploadedFile)
-      case _                 => FileMetadataReader.fromIPTCHeaders(uploadedFile)
+      case _ => FileMetadataReader.fromIPTCHeaders(uploadedFile)
     }
 
-    val thumbFuture            = for {
-      fileMetadata   <- fileMetadataFuture
-      colourModel    <- colourModelFuture
-      iccColourSpace  = FileMetadataHelper.normalisedIccColourSpace(fileMetadata)
-      thumb          <- ImageOperations.createThumbnail(uploadedFile, thumbWidth, thumbQuality, tempDir, iccColourSpace, colourModel)
-    } yield thumb
+    for {
+      fileMetadata <- fileMetadataFuture
+    } yield {
 
-    bracket(thumbFuture)(_.delete) { thumb =>
-      // Run the operations in parallel
-      val thumbStoreFuture      = storeThumbnail(uploadRequest, thumb)
-      val thumbDimensionsFuture = FileMetadataReader.dimensions(thumb, Some("image/jpeg"))
+      val uploadIsPng24 = isPng24(uploadRequest.mimeType, fileMetadata)
+      // These futures are started outside the for-comprehension, otherwise they will not run in parallel
+      val sourceStoreFuture = storeSource(uploadRequest)
+      // FIXME: pass mimeType
+      val colourModelFuture = ImageOperations.identifyColourModel(uploadedFile, "image/jpeg")
+      val sourceDimensionsFuture = FileMetadataReader.dimensions(uploadedFile, uploadRequest.mimeType)
 
-      for {
-        s3Source         <- sourceStoreFuture
-        s3Thumb          <- thumbStoreFuture
-        sourceDimensions <- sourceDimensionsFuture
-        thumbDimensions  <- thumbDimensionsFuture
-        fileMetadata     <- fileMetadataFuture
-        colourModel      <- colourModelFuture
-        fullFileMetadata  = fileMetadata.copy(colourModel = colourModel)
+      val thumbFuture = for {
+        fileMetadata <- fileMetadataFuture
+        colourModel <- colourModelFuture
+        iccColourSpace = FileMetadataHelper.normalisedIccColourSpace(fileMetadata)
+        thumb <- ImageOperations.createThumbnail(uploadedFile, thumbWidth, thumbQuality, tempDir, iccColourSpace, colourModel)
+      } yield thumb
 
-        metadata      = ImageMetadataConverter.fromFileMetadata(fullFileMetadata)
-        cleanMetadata = metadataCleaners.clean(metadata)
+      val pngOption = if (uploadIsPng24) {
+        val optimisedPng = tempDir.getAbsolutePath() + "/optimisedpng" + ".png"
 
-        sourceAsset = Asset.fromS3Object(s3Source, sourceDimensions)
-        thumbAsset  = Asset.fromS3Object(s3Thumb,  thumbDimensions)
+        Seq("pngquant", "--quality", "1-85", uploadedFile.getAbsolutePath(), "--output", optimisedPng).!
 
-        baseImage      = createImage(uploadRequest, sourceAsset, thumbAsset, fullFileMetadata, cleanMetadata)
-        processedImage = SupplierProcessors.process(baseImage)
+        Some(new File(optimisedPng))
 
-        // FIXME: dirty hack to sync the originalUsageRights and originalMetadata as well
-        finalImage     = processedImage.copy(
-          originalMetadata    = processedImage.metadata,
-          originalUsageRights = processedImage.usageRights
-        )
-      }
-      yield {
-        ImageUpload(uploadRequest, finalImage)
+      } else
+        None
+
+      bracket(thumbFuture)(_.delete) { thumb =>
+        // Run the operations in parallel
+        val thumbStoreFuture: Future[S3Object] = storeThumbnail(uploadRequest, thumb)
+        val pngStoreFutureOption: Future[Option[S3Object]] = if (uploadIsPng24)
+          Some(storeOptimisedPng(uploadRequest, pngOption.get)).map(result => result.map(Option(_)))
+            .getOrElse(Future.successful(None) )
+          else
+            Future(None)
+        val thumbDimensionsFuture = FileMetadataReader.dimensions(thumb, Some("image/jpeg"))
+        val pngDimenesionsFuture: Future[Option[Dimensions]] = if (uploadIsPng24)
+            FileMetadataReader.dimensions(pngOption.get, Some("image/png"))
+          else
+            Future(None)
+
+
+
+        for {
+          s3Source: S3Object <- sourceStoreFuture
+          s3Thumb <- thumbStoreFuture
+          s3PngOption <- pngStoreFutureOption
+
+          sourceDimensions <- sourceDimensionsFuture
+          thumbDimensions <- thumbDimensionsFuture
+          pngDimensions <- pngDimenesionsFuture
+          colourModel <- colourModelFuture
+          fullFileMetadata = fileMetadata.copy(colourModel = colourModel)
+
+          metadata = ImageMetadataConverter.fromFileMetadata(fullFileMetadata)
+          cleanMetadata = metadataCleaners.clean(metadata)
+
+          sourceAsset = Asset.fromS3Object(s3Source, sourceDimensions)
+          thumbAsset: Asset = Asset.fromS3Object(s3Thumb, thumbDimensions)
+          pngAsset = if (uploadIsPng24)
+            Some(Asset.fromS3Object(s3PngOption.get, pngDimensions))
+          else
+            None
+
+        
+          baseImage = createImage(uploadRequest, sourceAsset, thumbAsset, pngAsset, fullFileMetadata, cleanMetadata)
+          processedImage = SupplierProcessors.process(baseImage)
+
+          // FIXME: dirty hack to sync the originalUsageRights and originalMetadata as well
+          finalImage = processedImage.copy(
+            originalMetadata = processedImage.metadata,
+            originalUsageRights = processedImage.usageRights
+          )
+        }
+          yield {
+            ImageUpload(uploadRequest, finalImage)
+          }
       }
     }
-  }
+  }.flatMap(f => f)
 
   def storeSource(uploadRequest: UploadRequest) = ImageStore.storeOriginal(
     uploadRequest.id,
@@ -95,8 +134,13 @@ case object ImageUpload {
     Some("image/jpeg")
   )
 
+  def storeOptimisedPng(uploadRequest: UploadRequest, optimisedPngFile: File) = ImageStore.storeOptimisedPng(
+    uploadRequest.id,
+    optimisedPngFile
+  )
 
-  private def createImage(uploadRequest: UploadRequest, source: Asset, thumbnail: Asset,
+
+  private def createImage(uploadRequest: UploadRequest, source: Asset, thumbnail: Asset, png: Option[Asset],
                   fileMetadata: FileMetadata, metadata: ImageMetadata): Image = {
     val usageRights = NoRights
     Image(
@@ -108,6 +152,7 @@ case object ImageUpload {
       uploadRequest.uploadInfo,
       source,
       Some(thumbnail),
+      png,
       fileMetadata,
       None,
       metadata,
@@ -118,5 +163,12 @@ case object ImageUpload {
       List()
     )
   }
+
+  private def isPng24(mimeType: Option[String], fileMetadata: FileMetadata): Boolean =
+  //Pattern matching on object ??
+    mimeType match {
+      case Some("image/png") => fileMetadata.colourModelInformation.get("bitsPerSample").get == "16"
+      case _ => false
+    }
 
 }

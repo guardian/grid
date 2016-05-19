@@ -217,6 +217,9 @@ object ImageResponse extends EditsResponse {
   def addSecureThumbUrl(url: String): Reads[JsObject] =
     (__ \ "thumbnail").json.update(__.read[JsObject].map (_ ++ Json.obj("secureUrl" -> url)))
 
+  def addSecureOptimisedPngUrl(url: String): Reads[JsObject] =
+    (__ \ "optimisedPng").json.update(__.read[JsObject].map (_ ++ Json.obj("secureUrl" -> url)))
+
   def addValidity(valid: Boolean): Reads[JsObject] =
     __.json.update(__.read[JsObject]).map(_ ++ Json.obj("valid" -> valid))
 
@@ -227,8 +230,9 @@ object ImageResponse extends EditsResponse {
     t minus (t.getMillis - (t.getMillis.toDouble / d.getMillis).round * d.getMillis)
   }
 
-  def makeImgopsUri(uri: URI): String =
+  def makeImgopsUri(uri: URI): String = {
     Config.imgopsUri + List(uri.getPath, uri.getRawQuery).mkString("?") + "{&w,h,q}"
+  }
 
   def imageResponseWrites(id: String, expandFileMetaData: Boolean): Writes[Image] = (
     (__ \ "id").write[String] ~
@@ -239,6 +243,7 @@ object ImageResponse extends EditsResponse {
     (__ \ "uploadInfo").write[UploadInfo] ~
     (__ \ "source").write[Asset] ~
     (__ \ "thumbnail").writeNullable[Asset] ~
+      (__ \ "optimisedPng").writeNullable[Asset] ~
     (__ \ "fileMetadata").write[FileMetadataEntity]
       .contramap(fileMetadataEntity(id, expandFileMetaData, _: FileMetadata)) ~
     (__ \ "userMetadata").writeNullable[Edits] ~
