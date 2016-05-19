@@ -52,8 +52,9 @@ leases.controller(
 
 
         ctrl.accessDefined = () => {
-            return !!ctrl.access ||  !!ctrl.newLease.access
-        }
+            return Boolean(ctrl.access ||  !!ctrl.newLease.access);
+        };
+
         ctrl.updateLeases = (image) => {
             const leases$ = leaseService.getLeases(image)
                 .map((leasesResponse) => leasesResponse.data);
@@ -121,7 +122,7 @@ leases.controller(
         }
 
         $scope.$watch(() => ctrl.leases, () => {
-            $rootScope.$emit('leases-updated', ctrl.leases)
+            $rootScope.$emit('leases-updated', ctrl.leases);
         });
 
         ctrl.resetLeaseForm();
