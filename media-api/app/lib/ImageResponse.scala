@@ -1,5 +1,6 @@
 package lib
 
+import lib.Config._
 import lib.usagerights.CostCalculator
 
 import java.net.URI
@@ -112,6 +113,7 @@ object ImageResponse extends EditsResponse {
     val fileUri = new URI((source \ "source" \ "file").as[String])
     val secureUrl = S3Client.signUrl(Config.imageBucket, fileUri, image, expiration)
     val secureThumbUrl = S3Client.signUrl(Config.thumbBucket, fileUri, image, expiration)
+    val securePngUrl = S3Client.signUrl(Config.pngBucket, fileUri, image, expiration)
 
     val validityMap    = ImageExtras.validityMap(image)
     val valid          = ImageExtras.isValid(validityMap)
@@ -123,12 +125,20 @@ object ImageResponse extends EditsResponse {
     val data = source.transform(addSecureSourceUrl(secureUrl))
       .flatMap(_.transform(wrapUserMetadata(id)))
       .flatMap(_.transform(addSecureThumbUrl(secureThumbUrl)))
+      .flatMap((source) => {
+        val json: JsValue = source \ "optimisedPng"
+        if (source.keys.contains("optimisedPng")) {
+          source.transform(addSecureOptimisedPngUrl(securePngUrl))
+        }
+        else
+          source.transform((__).json.pick)
+      })
       .flatMap(_.transform(addValidity(valid)))
       .flatMap(_.transform(addInvalidReasons(invalidReasons)))
       .flatMap(_.transform(addUsageCost(source)))
       .flatMap(_.transform(addPersistedState(isPersisted, persistenceReasons))).get
 
-    val links = imageLinks(id, secureUrl, withWritePermission, valid)
+    val links = imageLinks(id, secureUrl, securePngUrl, withWritePermission, valid)
 
     val isDeletable = canBeDeleted(image) && withDeletePermission
 
@@ -137,18 +147,20 @@ object ImageResponse extends EditsResponse {
     (data, links, actions)
   }
 
-  def imageLinks(id: String, secureUrl: String, withWritePermission: Boolean, valid: Boolean) = {
+  def imageLinks(id: String, secureUrl: String, securePngUrl:String, withWritePermission: Boolean, valid: Boolean) = {
     val cropLink = Link("crops", s"${Config.cropperUri}/crops/$id")
     val editLink = Link("edits", s"${Config.metadataUri}/metadata/$id")
     val optimisedLink = Link("optimised", makeImgopsUri(new URI(secureUrl)))
+    val optimisedPngLink = Link("optimisedPng", makeImgopsUri(new URI(securePngUrl)))
     val imageLink = Link("ui:image",  s"${Config.kahunaUri}/images/$id")
     val usageLink = Link("usages", s"${Config.usageUri}/usages/media/$id")
     val leasesLink = Link("leases", s"${Config.leaseUri}/leases/media/$id")
+    val fileMetadataLink = Link("fileMetadata",  s"$rootUri/images/$id/fileMetadata" )
 
     val baseLinks = if (withWritePermission) {
-      List(editLink, optimisedLink, imageLink, usageLink, leasesLink)
+      List(editLink, optimisedLink, imageLink, usageLink, leasesLink, fileMetadataLink, optimisedPngLink)
     } else {
-      List(optimisedLink, imageLink, usageLink, leasesLink)
+      List(optimisedLink, imageLink, usageLink, leasesLink, fileMetadataLink, optimisedPngLink)
     }
 
     if (valid) (cropLink :: baseLinks) else baseLinks
@@ -231,7 +243,8 @@ object ImageResponse extends EditsResponse {
   }
 
   def makeImgopsUri(uri: URI): String = {
-    Config.imgopsUri + List(uri.getPath, uri.getRawQuery).mkString("?") + "{&w,h,q}"
+    val result = Config.imgopsUri + List(uri.getPath, uri.getRawQuery).mkString("?") + "{&w,h,q}"
+    result
   }
 
   def imageResponseWrites(id: String, expandFileMetaData: Boolean): Writes[Image] = (
