@@ -1,0 +1,83 @@
+<dt class="metadata-line__key flex-container">
+  <span class="flex-spacer">Leases</span>
+  <button ng:class="{'small': ctrl.grSmall}"
+          ng:click="ctrl.editing = true"
+          gr:tooltip="Add lease"
+          gr:tooltip-position="left">
+
+      <gr-icon ng-show="!ctrl.editing" ng:class="{'spin': ctrl.adding}">add_box</gr-icon>
+      <span>
+         <span ng:show="ctrl.adding">Adding...</span>
+      </span>
+  </button>
+</dt>
+
+<form class="lease__form"
+      ng:show="!ctrl.adding && ctrl.editing"
+      ng:submit="ctrl.save()">
+
+  <select id="access-select" ng:model="ctrl.access" ng-required="required">
+      <option ng-selected="true" value="">Please select access</option>
+      <option value="allow">Allow cropping</option>
+      <option value="deny">Deny cropping</option>
+  </select>
+  <gu-date-range class="lease__date"
+     gu:start-date="ctrl.newLease.startDate"
+     gu:end-date="ctrl.newLease.endDate"
+     gu:show-extras="false"
+     gu:first-day="1">
+  </gu-date-range>
+
+  <input type="text" ng:model="ctrl.newLease.notes" placeholder="Notes..."/>
+
+  <div class="lease__form__buttons">
+    <button class="lease__form__buttons__button-cancel button-cancel" type="button" ng:click="ctrl.cancel()" title="Close">
+        <gr-icon-label gr-icon="close"><span ng:hide="ctrl.grSmall">Cancel</span></gr-icon-label>
+    </button>
+    <button
+        class="lease__form__buttons__button-save button-save"
+        type="submit"
+        title="Save new label"
+        ng:disabled="ctrl.adding">
+        <gr-icon-label gr-icon="check">
+            <span ng:hide="ctrl.grSmall">Save</span>
+        </gr-icon-label>
+    </button>
+  </div>
+
+</form>
+
+
+<div class="leases__wrapper">
+
+  <ul class="current-leases">
+    <li ng-repeat="lease in ctrl.leases.leases"
+        gr:tooltip="{{ctrl.toolTip(lease.data)}}"
+        class="lease__item"
+        gr:tooltip-position="left">
+
+        <div class="lease__current" ng:class="ctrl.leaseStatus(lease.data).current" ng:if="ctrl.leaseStatus(lease.data).current"></div>
+
+        <div class="lease__access"
+            ng:class="[ctrl.leaseStatus(lease.data).active, ctrl.leaseStatus(lease.data).access]"
+        ></div>
+
+
+        <div class="lease__wrapper">
+          <div class="lease">
+            <gr-confirm-delete class="gr-delete-lease flex-right"
+              gr-on-confirm="ctrl.delete(lease.data)"
+              gr-tooltip="Delete lease">
+            </gr-confirm-delete>
+
+            <div class="lease__text">
+              <span ng:if="lease.data.startDate">{{lease.data.startDate | date:'d MMM yyyy'}}</span>
+              <span ng:if="lease.data.endDate">until {{lease.data.endDate | date:'d MMM yyyy'}}</span>
+
+              <p ng:if="lease.data.notes"> {{lease.data.notes}} </p>
+            </div>
+          </div>
+      </div>
+    </li>
+  </ul>
+</div>

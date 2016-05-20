@@ -23,8 +23,7 @@ import lib.{LeaseStore, ControllerHelper}
 case class AppIndex(
                      name: String,
                      description: String,
-                     config: Map[String, String] = Map(),
-                     links: List[Link] = Nil)
+                     config: Map[String, String] = Map())
 object AppIndex {
   implicit def jsonWrites: Writes[AppIndex] = Json.writes[AppIndex]
 }
@@ -38,13 +37,16 @@ object MediaLeaseController extends Controller
 
   val notFound = respondNotFound("MediaLease not found")
 
-  val appIndex = AppIndex(
-    "media-leases",
-    "Media leases service",
-    Map(),
-    List(Link("by-media-id", s"$rootUri/leases/media/{id}"))
-  )
-  def index = Authenticated { _ => respond(appIndex) }
+
+  val indexResponse = {
+    val appIndex = AppIndex("media-leases", "Media leases service", Map())
+    val indexLinks =  List(
+      Link("leases", s"$rootUri/leases/{id}"),
+      Link("by-media-id", s"$rootUri/leases/media/{id}"))
+    respond(appIndex, indexLinks)
+  }
+
+  def index = Authenticated { _ => indexResponse }
 
   def postLease = Authenticated.async(parse.json) { implicit request => Future {
     request.body.validate[MediaLease].fold(

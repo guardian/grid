@@ -2,24 +2,35 @@ import angular from 'angular';
 
 import template from './gr-crop-image.html!text';
 
+import '../../services/api/leases';
+
 export const cropImage = angular.module('gr.cropImage', [
 
 ]);
 
 cropImage.controller('grCropImageCtrl', [
-    '$scope', 'mediaCropper', 'onValChange',
-    function ($scope, mediaCropper, onValChange) {
+    '$scope', 'mediaCropper', 'onValChange', 'leaseService', '$rootScope',
+    function ($scope, mediaCropper, onValChange, leaseService,  $rootScope) {
         let ctrl = this;
 
         function updateState () {
-            mediaCropper.canBeCropped(ctrl.image).then(croppable => {
-                ctrl.canBeCropped = croppable;
+            leaseService.allowedByLease(ctrl.image).then(allowed => {
+                if (allowed) {
+                    mediaCropper.canBeCropped(ctrl.image).then(croppable => {
+                        ctrl.canBeCropped = croppable;
+                    });
+                } else {
+                    ctrl.canBeCropped = false;
+                }
             });
         }
 
-        $scope.$watch(() => ctrl.image.data.metadata, onValChange(() => updateState()));
-        $scope.$watch(() => ctrl.image.data.usageRights, onValChange(() => updateState()));
+        $rootScope.$on('leases-updated', () => {
+            updateState();
+        });
 
+        $scope.$watch(() => ctrl.image.data.usageRights, onValChange(() => updateState()));
+        $scope.$watch(() => ctrl.image.data.metadata, onValChange(() => updateState()));
         updateState();
     }
 ]);
