@@ -38,20 +38,11 @@ function findLastIndexFrom(array, item, fromIndex) {
 lazyGallery.controller('GuLazyGalleryCtrl', ['$rootScope', function() {
     let ctrl = this;
 
-    ctrl.init = function({items$, preloadedItems$}) {
-        ctrl.currentIndex = 0;
+    ctrl.init = function({items$, preloadedItems$, currentIndex$}) {
         ctrl.canGoNext = false;
         ctrl.canGoPrev = false;
 
         const itemsCount$ = items$.map(items => items.length).distinctUntilChanged();
-
-        const currentFirstItem$ = items$.map(items => {
-            return items[0];
-        }).distinctUntilChanged();
-
-        const currentLastItem$ = items$.map(items => {
-            return items[items.length -1];
-        }).distinctUntilChanged();
 
         const buttonCommands$ = new Rx.Subject();
 
@@ -60,36 +51,40 @@ lazyGallery.controller('GuLazyGalleryCtrl', ['$rootScope', function() {
         ctrl.galleryStart = () => buttonCommands$.onNext('galleryStart');
         ctrl.galleryEnd   = () => buttonCommands$.onNext('galleryEnd');
 
+        buttonCommands$.onNext('galleryStart');
+
         const itemsOffset$ = buttonCommands$.withLatestFrom(
-            itemsCount$,
-            (command, itemsCount) => {
+            itemsCount$, currentIndex$,
+            (command, itemsCount, currentIndex) => {
                 // @TODO: Clean these up
                 return {
                     prevItem:     -1,
                     nextItem:     +1,
-                    galleryStart: ctrl.currentIndex * -1,
-                    galleryEnd:   itemsCount - ctrl.currentIndex - 1,
+                    galleryStart: currentIndex * -1,
+                    galleryEnd:   itemsCount - currentIndex - 1,
                 }[command] || 0;
             });
 
         const item$ = itemsOffset$.withLatestFrom(
-            items$, itemsCount$,
-            (itemsOffset, items, itemsCount) => {
+            items$, itemsCount$, currentIndex$,
+            (itemsOffset, items, itemsCount, currentIndex) => {
+                console.log(items);
                 // @TODO: Simplify these conditions
-                if (ctrl.currentIndex + itemsOffset >= 0 && ctrl.currentIndex + itemsOffset < itemsCount) {
-                    ctrl.currentIndex += itemsOffset;
-                    ctrl.canGoPrev = ctrl.currentIndex > 0;
-                    ctrl.canGoNext = ctrl.currentIndex < (itemsCount - 1);
+                if (currentIndex + itemsOffset >= 0 && currentIndex + itemsOffset < itemsCount) {
+                    currentIndex += itemsOffset;
+                    ctrl.canGoPrev = currentIndex > 0;
+                    ctrl.canGoNext = currentIndex < (itemsCount - 1);
+                    currentIndex$.onNext(currentIndex);
                 }
-                return items[ctrl.currentIndex];
+                return items[currentIndex];
+
         }).shareReplay(1);
 
-        const loadedItemFirst$ = max$(sub$(currentFirstItem$, preloadedItems$), 0).
+        const loadedItemFirst$ = max$(sub$(currentIndex$, preloadedItems$), 0).
             distinctUntilChanged();
-        const loadedItemLast$ = combine$(currentLastItem$, preloadedItems$, itemsCount$,
-                                          (currentLastItem, preloadedItems, itemsCount) => {
-            console.log(currentLastItem);
-            return Math.min(currentLastItem + preloadedItems, itemsCount - 1);
+        const loadedItemLast$ = combine$(currentIndex$, preloadedItems$, itemsCount$,
+                                          (currentIndex, preloadedItems, itemsCount) => {
+            return Math.min(currentIndex + preloadedItems, itemsCount - 1);
         }).distinctUntilChanged();
 
         const rangeToLoad$ = combine$(
@@ -142,12 +137,18 @@ lazyGallery.directive('guLazyGallery', ['observe$', 'observeCollection$', 'subsc
             const selectionMode$ = observe$(scope, selectionMode);
             const preloadedItems$ = observe$(scope, preloadedItemsAttr).map(asInt);
 
-            const {item$, rangeToLoad$} = ctrl.init({items$, preloadedItems$});
+            const currentIndex$ = new Rx.BehaviorSubject(0);
+
+            const {item$, rangeToLoad$} = ctrl.init({items$, preloadedItems$, currentIndex$});
 
 
             subscribe$(scope, rangeToLoad$, range => {
                 console.log(range);
                 scope.$eval(loadRangeFn, range);
+            });
+
+            subscribe$(scope, currentIndex$, currentIndex => {
+                ctrl.currentIndex = currentIndex;
             });
 
             subscribe$(scope, selectionMode$, selectionMode => {
