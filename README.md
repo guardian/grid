@@ -40,7 +40,6 @@ You will need to install:
 * [jq](https://stedolan.github.io/jq/)
 * [exiftool](http://www.sno.phy.queensu.ca/~phil/exiftool/)
 
-If you're using OSX, you'll also need md5 `brew install md5`.
 
 ### Nginx
 
@@ -87,8 +86,6 @@ Start Elasticsearch from the `elasticsearch` directory:
 
 First you need to create some dev credentials in AWS - ask your friendly system administrator.
 
-Setup your awscli with a new profile `aws configure --profile media-service`.
-
 **Pro-tip**: Set `AWS_DEFAULT_PROFILE` to avoid using the `--profile` flag with the awscli in the future.
 
 ```sh
@@ -101,6 +98,8 @@ To create your stack run [create-dev-stack.sh](cloud-formation/scripts/create-de
 cd cloud-formation/scripts
 ./create-dev-stack.sh
 ```
+
+** The create-dev-stack script will use your default aws profile **
 
 ### Generate .properties files
 
