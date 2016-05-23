@@ -28,8 +28,6 @@ lazyGallery.controller('GuLazyGalleryCtrl', ['$rootScope', function() {
         ctrl.galleryStart = () => buttonCommands$.onNext('galleryStart');
         ctrl.galleryEnd   = () => buttonCommands$.onNext('galleryEnd');
 
-        buttonCommands$.onNext('galleryStart');
-
         const itemsOffset$ = buttonCommands$.withLatestFrom(
             itemsCount$, currentIndex$,
             (command, itemsCount, currentIndex) => {
@@ -54,7 +52,7 @@ lazyGallery.controller('GuLazyGalleryCtrl', ['$rootScope', function() {
                 }
                 return items[currentIndex];
 
-        }).shareReplay(1);
+        });
 
         const currentPage$ = currentIndex$.withLatestFrom(
             preloadedItems$,
@@ -87,8 +85,6 @@ lazyGallery.controller('GuLazyGalleryCtrl', ['$rootScope', function() {
             filter(({start, end}) => start <= end).
             distinctUntilChanged(({start, end}) => `${start}-${end}`);
 
-        ctrl.galleryStart();
-
         return {
             item$,
             rangeToLoad$
@@ -97,9 +93,9 @@ lazyGallery.controller('GuLazyGalleryCtrl', ['$rootScope', function() {
 
 }]);
 
-lazyGallery.directive('guLazyGallery', ['observe$', 'observeCollection$', 'subscribe$',
+lazyGallery.directive('guLazyGallery', ['observe$', 'observeCollection$', 'subscribe$', 'inject$',
                                         function(
-                                            observe$, observeCollection$, subscribe$) {
+                                            observe$, observeCollection$, subscribe$, inject$) {
     return {
         restrict: 'E',
         controller: 'GuLazyGalleryCtrl',
@@ -127,17 +123,9 @@ lazyGallery.directive('guLazyGallery', ['observe$', 'observeCollection$', 'subsc
                 scope.$eval(loadRangeFn, range);
             });
 
-            subscribe$(scope, currentIndex$, currentIndex => {
-                ctrl.currentIndex = currentIndex;
-            });
-
-            subscribe$(scope, selectionMode$, selectionMode => {
-                ctrl.selectionMode = selectionMode;
-            });
-
-            subscribe$(scope, item$, item => {
-                ctrl.item = item;
-            });
+            inject$(scope, currentIndex$, ctrl, 'currentIndex');
+            inject$(scope, selectionMode$, ctrl, 'selectionMode');
+            inject$(scope, item$, ctrl, 'item');
         }
     };
 }]);

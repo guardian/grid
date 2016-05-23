@@ -5,7 +5,7 @@
             <a class="image-action image-action--first"
                target="_blank"
                title="Pop out"
-               ng:href="/images/{{::ctrl.image.data.id}}"
+               ng:href="/images/{{ctrl.image.data.id}}"
                gr:stop-propagation="click"
                gr:track-click="Popout button">
                 <gr-icon>open_in_new</gr-icon>
@@ -30,16 +30,16 @@
        ui:drag-data="ctrl.image | asImageDragData">
        <div class="preview__fade"></div>
        <img class="preview__image"
-            alt="{{::ctrl.image.data.metadata.description}}"
-            ng:src="{{::ctrl.optimisedImage }}"
+            alt="{{ctrl.image.data.metadata.description}}"
+            ng:src="{{ctrl.optimisedImage }}"
             gr:image-fade-on-load />
     </a>
 
     <span ng:if="ctrl.selectionMode" class="preview__no-link preview__no-link--large">
         <div class="preview__fade"></div>
         <img class="preview__image"
-             alt="{{::ctrl.image.data.metadata.description}}"
-             ng:src="{{::ctrl.optimisedImage }}"
+             alt="{{ctrl.image.data.metadata.description}}"
+             ng:src="{{ctrl.optimisedImage }}"
              ui:drag-data="ctrl.image | asImageDragData"
              gr:image-fade-on-load />
     </span>
@@ -49,12 +49,12 @@
             <ul class="bottom-bar__meta-item preview__collections">
                 <li class="preview__collections__collection"
                     ng:repeat="collection in ctrl.image.data.collections"
-                    gr-tooltip="Click to open collection: {{::collection.data.path.join(' ▸ ')}}"
+                    gr-tooltip="Click to open collection: {{collection.data.path.join(' ▸ ')}}"
                     gr-tooltip-position="top">
                     <a ui:sref="search.results({query: (collection.data.pathId | queryCollectionFilter)})"
-                       ng:attr-style="{{::ctrl.getCollectionStyle(collection)}}"
+                       ng:attr-style="{{ctrl.getCollectionStyle(collection)}}"
                        class="preview__collections__collection__value">
-                        {{::collection.data.description}}
+                        {{collection.data.description}}
                     </a>
                 </li>
             </ul>
@@ -84,8 +84,8 @@
     <div class="preview__bottom-bar bottom-bar preview__bottom-bar--large">
         <div class="bottom-bar__meta">
             <span class="preview__upload-time">
-                {{::ctrl.image.data.uploadTime | date:'dd/MM/yy'}}
-                {{::ctrl.image.data.uploadTime | date:'HH:mm'}}
+                {{ctrl.image.data.uploadTime | date:'dd/MM/yy'}}
+                {{ctrl.image.data.uploadTime | date:'HH:mm'}}
             </span>
 
             <span class="bottom-bar__meta-item preview__has-crops"

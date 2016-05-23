@@ -31,15 +31,13 @@ image.controller('uiPreviewImageCtrl', [
     '$window',
     'imageService',
     'imageUsagesService',
-    'imgops',
     function (
         $scope,
         inject$,
         $rootScope,
         $window,
         imageService,
-        imageUsagesService,
-        imgops) {
+        imageUsagesService) {
     var ctrl = this;
 
     const freeUpdateListener = $rootScope.$on('image-updated', (e, updatedImage) => {
@@ -48,7 +46,6 @@ image.controller('uiPreviewImageCtrl', [
             ctrl.image = updatedImage;
         }
     });
-
 
     ctrl.states = imageService(ctrl.image).states;
 
@@ -74,10 +71,6 @@ image.controller('uiPreviewImageCtrl', [
         return collection.data.cssColour && `background-color: ${collection.data.cssColour}`;
     };
 
-    const optimisedImage$ = Rx.Observable.fromPromise(imgops.getLowResUri(ctrl.image));
-
-    inject$($scope, optimisedImage$, ctrl, 'optimisedImage');
-
 }]);
 
 image.directive('uiPreviewImage', function() {
@@ -97,22 +90,36 @@ image.directive('uiPreviewImage', function() {
     };
 });
 
-image.directive('uiPreviewImageLarge', function() {
-    return {
-        restrict: 'E',
-        scope: {
-            image: '=',
-            hideInfo: '=',
-            selectionMode: '='
-        },
-        // extra actions can be transcluded in
-        transclude: true,
-        template: templateLarge,
-        controller: 'uiPreviewImageCtrl',
-        controllerAs: 'ctrl',
-        bindToController: true
-    };
-});
+image.directive('uiPreviewImageLarge', ['observe$', 'inject$', 'imgops',
+    function(observe$, inject$, imgops) {
+        return {
+            restrict: 'E',
+            scope: {
+                image: '=',
+                hideInfo: '=',
+                selectionMode: '='
+            },
+            // extra actions can be transcluded in
+            transclude: true,
+            template: templateLarge,
+            controller: 'uiPreviewImageCtrl',
+            controllerAs: 'ctrl',
+            bindToController: true,
+            link: function(scope, element, attrs, ctrl) {
+
+                const image$ = new Rx.Subject();
+
+                const optimisedImage$ = image$.flatMap((image) => {
+                    return Rx.Observable.fromPromise(imgops.getLowResUri(image));
+                });
+
+                scope.$watch(() => ctrl.image, (image) => image$.onNext(image));
+
+                inject$(scope, optimisedImage$, ctrl, 'optimisedImage');
+
+            }
+        };
+}]);
 
 image.directive('grStopPropagation', function() {
     return {
