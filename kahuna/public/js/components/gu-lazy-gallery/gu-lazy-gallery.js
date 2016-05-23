@@ -6,33 +6,10 @@ import template from './gu-lazy-gallery.html!text';
 
 import '../../util/rx';
 
-import {
-    combine$,
-    sub$, max$
-} from '../gu-lazy-table/observable-utils';
-
 export var lazyGallery = angular.module('gu.lazyGallery', ['util.rx']);
 
 function asInt(string) {
     return parseInt(string, 10);
-}
-
-function findIndexFrom(array, item, fromIndex) {
-    for (let i = fromIndex, len = array.length; i < len; i++) {
-        if (array[i] === item) {
-            return i;
-        }
-    }
-    return -1;
-}
-
-function findLastIndexFrom(array, item, fromIndex) {
-    for (let i = fromIndex; i >= 0; i--) {
-        if (array[i] === item) {
-            return i;
-        }
-    }
-    return -1;
 }
 
 lazyGallery.controller('GuLazyGalleryCtrl', ['$rootScope', function() {
@@ -68,7 +45,6 @@ lazyGallery.controller('GuLazyGalleryCtrl', ['$rootScope', function() {
         const item$ = itemsOffset$.withLatestFrom(
             items$, itemsCount$, currentIndex$,
             (itemsOffset, items, itemsCount, currentIndex) => {
-                console.log(items);
                 // @TODO: Simplify these conditions
                 if (currentIndex + itemsOffset >= 0 && currentIndex + itemsOffset < itemsCount) {
                     currentIndex += itemsOffset;
@@ -80,30 +56,36 @@ lazyGallery.controller('GuLazyGalleryCtrl', ['$rootScope', function() {
 
         }).shareReplay(1);
 
-        const loadedItemFirst$ = max$(sub$(currentIndex$, preloadedItems$), 0).
-            distinctUntilChanged();
-        const loadedItemLast$ = combine$(currentIndex$, preloadedItems$, itemsCount$,
-                                          (currentIndex, preloadedItems, itemsCount) => {
-            return Math.min(currentIndex + preloadedItems, itemsCount - 1);
-        }).distinctUntilChanged();
+        const currentPage$ = currentIndex$.withLatestFrom(
+            preloadedItems$,
+            (currentIndex, preloadedItems) => {
+                return Math.floor(currentIndex / preloadedItems) + 1;
+        });
 
-        const rangeToLoad$ = combine$(
-            items$, loadedItemFirst$, loadedItemLast$,
-            (items, loadedItemFirst, loadedItemLast) => {
-                const $start = findIndexFrom(items, undefined, loadedItemFirst);
-                const $end   = findLastIndexFrom(items, undefined, loadedItemLast);
-                return {$start, $end};
-            }
-        ).
+        const atLastItem$ = currentIndex$.withLatestFrom(
+            currentPage$, preloadedItems$,
+            (currentIndex, currentPage, preloadedItems) => {
+                if (currentIndex === (preloadedItems * currentPage) - 1) {
+                    return true;
+                }
+        });
+
+        const rangeToLoad$ = atLastItem$.withLatestFrom(
+            currentPage$, preloadedItems$,
+            (atLastItem, currentPage, preloadedItems) => {
+                const start = currentPage * preloadedItems;
+                const end = ((currentPage + 1) * preloadedItems) - 1;
+            return {start, end};
+        }).
             // Debounce range loading, which also helps discard
             // erroneous large ranges while combining
             // loadedRangeStart$ and loadedRangeEnd$ changes (one after the other)
             debounce(10).
             // Ignore if either end isn't set (whole range already loaded)
-            filter(({$start, $end}) => $start !== -1 && $end !== -1).
+            filter(({start, end}) => start !== -1 && end !== -1).
             // Ignore if $start after $end (incomplete combine$ state)
-            filter(({$start, $end}) => $start <= $end).
-            distinctUntilChanged(({$start, $end}) => `${$start}-${$end}`);
+            filter(({start, end}) => start <= end).
+            distinctUntilChanged(({start, end}) => `${start}-${end}`);
 
         ctrl.galleryStart();
 
@@ -141,9 +123,7 @@ lazyGallery.directive('guLazyGallery', ['observe$', 'observeCollection$', 'subsc
 
             const {item$, rangeToLoad$} = ctrl.init({items$, preloadedItems$, currentIndex$});
 
-
             subscribe$(scope, rangeToLoad$, range => {
-                console.log(range);
                 scope.$eval(loadRangeFn, range);
             });
 
