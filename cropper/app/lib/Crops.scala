@@ -10,6 +10,7 @@ import scala.concurrent.Future
 import com.gu.mediaservice.model._
 import com.gu.mediaservice.lib.Files
 import com.gu.mediaservice.lib.imaging.{ImageOperations, ExportResult}
+import scala.sys.process._
 
 case object InvalidImage extends Exception("Invalid image cannot be cropped")
 case object MissingMimeType extends Exception("Missing mimeType from source API")
@@ -26,14 +27,28 @@ object Crops {
     s"${source.id}/${Crop.getCropId(bounds)}/${if(isMaster) "master/" else ""}$outputWidth.${fileType}"
   }
 
-  def createMasterCrop(apiImage: SourceImage, sourceFile: File, crop: Crop, mediaType: MimeType, colourModel: Option[String]): Future[MasterCrop] = {
+  def createMasterCrop(apiImage: SourceImage, sourceFile: File, crop: Crop, mediaType: MimeType, colourModel: Option[String],
+                      colourType: String): Future[MasterCrop] = {
+
     val source   = crop.specification
     val metadata = apiImage.metadata
     val iccColourSpace = FileMetadataHelper.normalisedIccColourSpace(apiImage.fileMetadata)
 
     for {
       strip <- ImageOperations.cropImage(sourceFile, source.bounds, 100d, Config.tempDir, iccColourSpace, colourModel, mediaType.extension)
-      file  <- ImageOperations.appendMetadata(strip, metadata)
+      file: File <- ImageOperations.appendMetadata(strip, metadata)
+
+
+      //Before apps and frontend can handle PNG24s we need to pngquant PNG24 master crops
+      optimisedFile =  if (colourType == "True Color with Alpha") {
+
+        val fileName = file.getAbsolutePath()
+
+
+        val optimisedImageName: String = fileName.split('.')(0) + "optimised.png"
+        Seq("pngquant", "--quality", "1-85", fileName, "--output", optimisedImageName).!
+        new File(optimisedImageName)
+      } else file
 
       dimensions  = Dimensions(source.bounds.width, source.bounds.height)
       filename    = outputFilename(apiImage, source.bounds, dimensions.width, mediaType.extension, true)
@@ -42,7 +57,7 @@ object Crops {
       aspect      = crop.specification.aspectRatio.flatMap(AspectRatio.clean(_)).getOrElse(dirtyAspect)
 
     }
-    yield MasterCrop(sizing, file, dimensions, aspect)
+    yield MasterCrop(sizing, optimisedFile, dimensions, aspect)
   }
 
   def createCrops(sourceFile: File, dimensionList: List[Dimensions], apiImage: SourceImage, crop: Crop,
@@ -91,7 +106,7 @@ object Crops {
     for {
       sourceFile  <- tempFileFromURL(secureUrl, "cropSource", "", Config.tempDir)
       colourModel <- ImageOperations.identifyColourModel(sourceFile, mediaType)
-      masterCrop  <- createMasterCrop(apiImage, sourceFile, crop, cropType, colourModel)
+      masterCrop  <- createMasterCrop(apiImage, sourceFile, crop, cropType, colourModel, colourType)
 
       outputDims = dimensionsFromConfig(source.bounds, masterCrop.aspectRatio) :+ masterCrop.dimensions
 
