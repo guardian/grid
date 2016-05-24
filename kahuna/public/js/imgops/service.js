@@ -25,17 +25,12 @@ imgops.factory('imgops', ['$window', function($window) {
     function getOptimisedUri(image, options) {
         return image.follow('fileMetadata').get().then(metadata => {
             //TODO: add check for alpha once isAlpha property in metadata is working
-            if (metadata.data.colourModelInformation.bitsPerSample === '16') {
-                return image.follow('optimisedPng', options).getUri()
-                    .then((uri) => { console.log('uri ', uri); return uri; })
-                    .catch(() => {
+            if (metadata.data.colourModelInformation.colorType === 'True Color' || 'True Color with Alpha') {
+                return image.follow('optimisedPng', options).getUri().catch(() => {
                     return image.optimisedPng.secureUrl || image.optimisedPng.file;
                 });
             } else {
-                return image.follow('optimised', options).getUri()
-                    .then((uri) => { console.log('uri ', uri); return uri; })
-                    .catch(() => {
-                    console.log('catch');
+                return image.follow('optimised', options).getUri().catch(() => {
                     return image.source.secureUrl || image.source.file;
                 });
             }

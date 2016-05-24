@@ -111,9 +111,12 @@ object ImageResponse extends EditsResponse {
     // TODO: do we really need these expiration tokens? they kill our ability to cache...
     val expiration = roundDateTime(DateTime.now, Duration.standardMinutes(10)).plusMinutes(20)
     val fileUri = new URI((source \ "source" \ "file").as[String])
+    val string = (source \ "source" \ "file").as[String]
+
+    val pngUri = new URI("http://media-service-dev-reettavaahtoranta-imagebucket-fz6zube4r566.s3.amazonaws.com/optimised/c/3/b/b/6/2/c3bb6206a40a6c78c39cd67c4eca81a1ae7adfae")
     val secureUrl = S3Client.signUrl(Config.imageBucket, fileUri, image, expiration)
     val secureThumbUrl = S3Client.signUrl(Config.thumbBucket, fileUri, image, expiration)
-    val securePngUrl = S3Client.signUrl(Config.pngBucket, fileUri, image, expiration)
+    val securePngUrl = S3Client.signUrl(Config.pngBucket, pngUri, image, expiration)
 
     val validityMap    = ImageExtras.validityMap(image)
     val valid          = ImageExtras.isValid(validityMap)
@@ -151,7 +154,7 @@ object ImageResponse extends EditsResponse {
     val cropLink = Link("crops", s"${Config.cropperUri}/crops/$id")
     val editLink = Link("edits", s"${Config.metadataUri}/metadata/$id")
     val optimisedLink = Link("optimised", makeImgopsUri(new URI(secureUrl)))
-    val optimisedPngLink = Link("optimisedPng", makeImgopsUri(new URI(securePngUrl)))
+    val optimisedPngLink = Link("optimisedPng", makeOptimisedPngImgopsUri(new URI(securePngUrl)))
     val imageLink = Link("ui:image",  s"${Config.kahunaUri}/images/$id")
     val usageLink = Link("usages", s"${Config.usageUri}/usages/media/$id")
     val leasesLink = Link("leases", s"${Config.leaseUri}/leases/media/$id")
@@ -243,6 +246,11 @@ object ImageResponse extends EditsResponse {
   }
 
   def makeImgopsUri(uri: URI): String = {
+    val result = Config.imgopsUri + List(uri.getPath, uri.getRawQuery).mkString("?") + "{&w,h,q}"
+    result
+  }
+
+  def makeOptimisedPngImgopsUri(uri: URI): String = {
     val result = Config.imgopsUri + List(uri.getPath, uri.getRawQuery).mkString("?") + "{&w,h,q}"
     result
   }

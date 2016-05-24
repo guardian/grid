@@ -59,9 +59,11 @@ class S3(credentials: AWSCredentials) {
     }
   }
 
+
   def signUrl(bucket: Bucket, url: URI, image: Image, expiration: DateTime): String = {
     // get path and remove leading `/`
     val key: Key = url.getPath.drop(1)
+
 
     // use both `filename` and `filename*` parameters for compatibility with user agents not implementing RFC 5987
     // they'll fallback to `filename`, which will be a UTF-8 string decoded as Latin-1 - this is a rubbish string, but only rubbish browsers don't support RFC 5987 (IE8 back)
