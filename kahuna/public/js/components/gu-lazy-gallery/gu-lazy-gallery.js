@@ -12,7 +12,7 @@ function asInt(string) {
     return parseInt(string, 10);
 }
 
-lazyGallery.controller('GuLazyGalleryCtrl', ['$rootScope', function() {
+lazyGallery.controller('GuLazyGalleryCtrl', ['$scope', 'subscribe$', function($scope, subscribe$) {
     let ctrl = this;
 
     ctrl.init = function({items$, preloadedItems$, currentIndex$}) {
@@ -21,16 +21,18 @@ lazyGallery.controller('GuLazyGalleryCtrl', ['$rootScope', function() {
 
         const itemsCount$ = items$.map(items => items.length).distinctUntilChanged();
 
-        const buttonCommands$ = new Rx.Subject();
+        const buttonCommands$ = new Rx.BehaviorSubject(0).connect();
 
         ctrl.prevItem     = () => buttonCommands$.onNext('prevItem');
         ctrl.nextItem     = () => buttonCommands$.onNext('nextItem');
         ctrl.galleryStart = () => buttonCommands$.onNext('galleryStart');
         ctrl.galleryEnd   = () => buttonCommands$.onNext('galleryEnd');
 
-        const itemsOffset$ = buttonCommands$.withLatestFrom(
+
+        const itemsOffset$ = buttonCommands$.combineLatest(
             itemsCount$, currentIndex$,
             (command, itemsCount, currentIndex) => {
+                console.log(command);
                 // @TODO: Clean these up
                 return {
                     prevItem:     -1,
@@ -44,6 +46,7 @@ lazyGallery.controller('GuLazyGalleryCtrl', ['$rootScope', function() {
             items$, itemsCount$, currentIndex$,
             (itemsOffset, items, itemsCount, currentIndex) => {
                 // @TODO: Simplify these conditions
+                console.log(itemsOffset);
                 if (currentIndex + itemsOffset >= 0 && currentIndex + itemsOffset < itemsCount) {
                     currentIndex += itemsOffset;
                     ctrl.canGoPrev = currentIndex > 0;
@@ -111,12 +114,12 @@ lazyGallery.directive('guLazyGallery', ['observe$', 'observeCollection$', 'subsc
                 guLazyGalleryPreloadedItems:   preloadedItemsAttr
             } = attrs;
 
-            const items$         = observeCollection$(scope, itemsAttr);
-            const selectionMode$ = observe$(scope, selectionMode);
+            const items$          = observeCollection$(scope, itemsAttr);
+            const selectionMode$  = observe$(scope, selectionMode);
             const preloadedItems$ = observe$(scope, preloadedItemsAttr).map(asInt);
 
             const currentIndex$ = new Rx.BehaviorSubject(0);
-
+            currentIndex$.subscribe(i => console.log("iiii", i));
             const {item$, rangeToLoad$} = ctrl.init({items$, preloadedItems$, currentIndex$});
 
             subscribe$(scope, rangeToLoad$, range => {

@@ -110,6 +110,7 @@ image.directive('uiPreviewImageLarge', ['observe$', 'inject$', 'imgops',
                 const image$ = new Rx.Subject();
 
                 const optimisedImage$ = image$.flatMap((image) => {
+                    ctrl.optimisedImage = {};
                     return Rx.Observable.fromPromise(imgops.getLowResUri(image));
                 });
 
