@@ -21,15 +21,14 @@ lazyGallery.controller('GuLazyGalleryCtrl', ['$scope', 'subscribe$', function($s
 
         const itemsCount$ = items$.map(items => items.length).distinctUntilChanged();
 
-        const buttonCommands$ = new Rx.BehaviorSubject(0).connect();
+        const buttonCommands$ = new Rx.BehaviorSubject(0);
 
         ctrl.prevItem     = () => buttonCommands$.onNext('prevItem');
         ctrl.nextItem     = () => buttonCommands$.onNext('nextItem');
         ctrl.galleryStart = () => buttonCommands$.onNext('galleryStart');
         ctrl.galleryEnd   = () => buttonCommands$.onNext('galleryEnd');
 
-
-        const itemsOffset$ = buttonCommands$.combineLatest(
+        const itemsOffset$ = buttonCommands$.withLatestFrom(
             itemsCount$, currentIndex$,
             (command, itemsCount, currentIndex) => {
                 console.log(command);
