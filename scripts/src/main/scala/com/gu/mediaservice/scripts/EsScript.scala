@@ -182,13 +182,13 @@ object UpdateMapping extends EsScript {
   def run(esHost: String, extraArgs: List[String]) {
     // TODO: add the ability to update a section of the mapping
     object EsClient extends ElasticSearchClient {
-      val imagesAlias = "imagesAlias"
+      val imagesAlias = "writeAlias"
       val port = esPort
       val host = esHost
       val cluster = esCluster
 
       def updateMappings(specifiedIndex: Option[String]) {
-        val index = specifiedIndex.getOrElse(imagesAlias)
+        val index = getCurrentAlias.getOrElse(imagesAlias)
         println(s"updating mapping on index: $index")
         client.admin.indices
           .preparePutMapping(index)
@@ -216,7 +216,7 @@ object UpdateSettings extends EsScript {
   def run(esHost: String, extraArgs: List[String]) {
     // TODO: add the ability to update a section of the mapping
     object EsClient extends ElasticSearchClient {
-      val imagesAlias = "imagesAlias"
+      val imagesAlias = "writeAlias"
       val port = esPort
       val host = esHost
       val cluster = esCluster
@@ -227,15 +227,16 @@ object UpdateSettings extends EsScript {
       }
 
       def updateSettings {
+        val alias = getCurrentAlias.getOrElse(imagesAlias)
         val indices = client.admin.indices
-        indices.close(new CloseIndexRequest(imagesAlias))
+        indices.close(new CloseIndexRequest(alias))
 
         indices
-          .prepareUpdateSettings(imagesAlias)
+          .prepareUpdateSettings(alias)
           .setSettings(IndexSettings.imageSettings)
           .execute.actionGet
 
-        indices.open(new OpenIndexRequest(imagesAlias))
+        indices.open(new OpenIndexRequest(alias))
         client.close
       }
     }
