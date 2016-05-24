@@ -31,7 +31,6 @@ lazyGallery.controller('GuLazyGalleryCtrl', ['$scope', 'subscribe$', function($s
         const itemsOffset$ = buttonCommands$.withLatestFrom(
             itemsCount$, currentIndex$,
             (command, itemsCount, currentIndex) => {
-                console.log(command);
                 // @TODO: Clean these up
                 return {
                     prevItem:     -1,
@@ -41,19 +40,27 @@ lazyGallery.controller('GuLazyGalleryCtrl', ['$scope', 'subscribe$', function($s
                 }[command] || 0;
             });
 
-        const item$ = itemsOffset$.withLatestFrom(
-            items$, itemsCount$, currentIndex$,
-            (itemsOffset, items, itemsCount, currentIndex) => {
-                // @TODO: Simplify these conditions
-                console.log(itemsOffset);
-                if (currentIndex + itemsOffset >= 0 && currentIndex + itemsOffset < itemsCount) {
-                    currentIndex += itemsOffset;
-                    ctrl.canGoPrev = currentIndex > 0;
-                    ctrl.canGoNext = currentIndex < (itemsCount - 1);
-                    currentIndex$.onNext(currentIndex);
-                }
-                return items[currentIndex];
+        const updatedIndex$ = itemsOffset$.withLatestFrom(
+            currentIndex$, itemsCount$,
+            (itemsOffset, currentIndex, itemsCount)=> {
+                const updatedIndex = currentIndex += itemsOffset;
+                return {updatedIndex, itemsCount};
+        }). // Ignore is less than 0 or >= total items
+            filter(({updatedIndex, itemsCount}) => updatedIndex >= 0 && updatedIndex < itemsCount)
+            .distinctUntilChanged(({updatedIndex}) => updatedIndex);
 
+        const item$ = updatedIndex$.withLatestFrom(
+            items$,
+            (updatedIndex, items) => {
+                return items[updatedIndex];
+        });
+
+        ctrl.updateStates = updatedIndex$.withLatestFrom(
+            itemsCount$,
+            (updatedIndex, itemsCount) => {
+                ctrl.canGoPrev = updatedIndex > 0;
+                ctrl.canGoNext = updatedIndex < (itemsCount - 1);
+                currentIndex$.onNext(updatedIndex);
         });
 
         const currentPage$ = currentIndex$.withLatestFrom(
@@ -87,6 +94,8 @@ lazyGallery.controller('GuLazyGalleryCtrl', ['$scope', 'subscribe$', function($s
             filter(({start, end}) => start <= end).
             distinctUntilChanged(({start, end}) => `${start}-${end}`);
 
+        buttonCommands$.onNext('galleryStart');
+
         return {
             item$,
             rangeToLoad$
@@ -117,8 +126,7 @@ lazyGallery.directive('guLazyGallery', ['observe$', 'observeCollection$', 'subsc
             const selectionMode$  = observe$(scope, selectionMode);
             const preloadedItems$ = observe$(scope, preloadedItemsAttr).map(asInt);
 
-            const currentIndex$ = new Rx.BehaviorSubject(0);
-            currentIndex$.subscribe(i => console.log("iiii", i));
+            const currentIndex$ = new Rx.BehaviorSubject(0).distinctUntilChanged();
             const {item$, rangeToLoad$} = ctrl.init({items$, preloadedItems$, currentIndex$});
 
             subscribe$(scope, rangeToLoad$, range => {
