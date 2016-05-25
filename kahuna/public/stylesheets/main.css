@@ -1116,7 +1116,7 @@ textarea.ng-invalid {
 
 .gallery-item__preview {
     width: 100%;
-    height: calc(100vw - 400px); /* screen - top bar - controls */
+    height: calc(100vh - 400px); /* screen - top bar - controls */
     box-sizing: border-box;
     border: 5px solid transparent;
 }
@@ -1208,15 +1208,15 @@ textarea.ng-invalid {
 }
 
 .gallery-item .preview__image {
-    max-height: 600px;
+    max-height: calc(100vh - 330px); /* screen - top bar - controls */
 }
 
 .gallery-item .loading .preview__image {
     display: none;
-}    
+}
 
 .gallery-item .preview__loading {
-    height: 600px;
+    height: calc(100vh - 330px);
     position:relative;
     display: none;
 }
