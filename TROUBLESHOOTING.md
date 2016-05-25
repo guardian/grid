@@ -35,7 +35,8 @@ on GNU Linux, it may be something like
 `/usr/lib/jvm/java-1.8.0-openjdk-amd64/jre/lib/security/cacerts`.
 
 ### Compilation fails because existing libraries cannot be found
-- Try: `sbt clean clean-files`
+- Kill all java process
+- Run `sbt clean` and `sbt clean-files`
 
 ### Authorisation error
 - Restart auth
