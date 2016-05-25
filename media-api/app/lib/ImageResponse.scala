@@ -250,6 +250,8 @@ object ImageResponse extends EditsResponse {
       .contramap((crops: List[Crop]) => crops.map(Export.fromCrop(_:Crop))) ~
     (__ \ "usages").write[UsagesEntity]
       .contramap(usagesEntity(id, _: List[Usage])) ~
+    (__ \ "leases").write[MediaLeasesEntity]
+        .contramap(leasesEntity(id, _: List[MediaLease])) ~
     (__ \ "collections").write[List[EmbeddedEntity[CollectionResponse]]]
       .contramap((collections: List[Collection]) => collections.map(c => collectionsEntity(id, c)))
   )(unlift(Image.unapply))

@@ -2,6 +2,8 @@ package controllers
 
 import java.net.URI
 
+import com.amazonaws.services.dynamodbv2.model.DeleteItemResult
+
 import scala.concurrent.Future
 import scala.util.Try
 
@@ -17,7 +19,7 @@ import com.gu.mediaservice.lib.auth._
 import com.gu.mediaservice.lib.argo._
 import com.gu.mediaservice.lib.argo.model._
 
-import lib.{LeaseStore, ControllerHelper}
+import lib.{LeaseNotice, LeaseNotifier, LeaseStore, ControllerHelper}
 
 
 case class AppIndex(
@@ -54,7 +56,9 @@ object MediaLeaseController extends Controller
         respondError(BadRequest, "media-lease-parse-failed", JsError.toFlatJson(e).toString)
       },
       mediaLease => {
-        LeaseStore.put(mediaLease.copy(leasedBy = requestingUser))
+        LeaseStore.put(mediaLease.copy(leasedBy = requestingUser)).map { _ =>
+          LeaseNotifier.send(LeaseNotice.build(mediaLease.mediaId))
+        }
         Accepted
       }
     )
@@ -62,7 +66,11 @@ object MediaLeaseController extends Controller
 
   def deleteLease(id: String) = Authenticated.async { request =>
     Future {
-      LeaseStore.delete(id)
+      for {
+        lease    <- LeaseStore.get(id)
+        mediaId  = lease.mediaId
+        deletion = LeaseStore.delete(id)
+      } yield LeaseNotifier.send(LeaseNotice.build(mediaId))
       Accepted
     }
   }
