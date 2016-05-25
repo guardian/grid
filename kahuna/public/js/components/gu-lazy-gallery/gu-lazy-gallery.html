@@ -1,6 +1,6 @@
 <div class="gallery" gu:lazy-gallery-shortcuts>
 
-    <div class="gallery-item">
+    <div class="gallery-item" ng-if="galleryCtrl.item">
 
         <div class="gallery-item__select gallery-item__select--selected"
              ng:if="ctrl.imageHasBeenSelected(galleryCtrl.item)">
@@ -27,7 +27,7 @@
             </label>
         </div>
 
-        <div class="gallery-item__preview" ng-if="galleryCtrl.item">
+        <div class="gallery-item__preview">
             <ui-preview-image-large class="gallery-item__preview__inner"
                                     image="galleryCtrl.item"
                                     selection-mode="inSelectionMode">
