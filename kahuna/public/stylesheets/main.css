@@ -1116,7 +1116,6 @@ textarea.ng-invalid {
 
 .gallery-item__preview {
     width: 100%;
-    height: calc(100vh - 400px); /* screen - top bar - controls */
     box-sizing: border-box;
     border: 5px solid transparent;
 }
@@ -1380,7 +1379,7 @@ FIXME: what to do with touch devices
 .preview__bottom-bar--large {
     font-size: 1.6rem;
     max-width: 800px;
-    margin: 0 auto;
+    margin: 0 auto 40px;
 }
 
 .preview__quick-select {
