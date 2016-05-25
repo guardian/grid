@@ -18,7 +18,7 @@ lazyTableShortcuts.directive('guLazyTableShortcuts',
                     // Must cancel any scrolling caused by the key
                     event.preventDefault();
                     
-                    lazyTableCtrl[fnName];
+                    lazyTableCtrl[fnName]();
                 };
             }
 
