@@ -52,6 +52,7 @@ imageFade.directive('grImageFadeOnLoad',
                 element.css({
                     opacity: 0
                 });
+                element.parent().addClass('loading');
             }
 
             function reveal() {
@@ -59,6 +60,7 @@ imageFade.directive('grImageFadeOnLoad',
                     opacity: 1,
                     transition: `opacity ${animationDuration}ms ease-out`
                 });
+                element.parent().removeClass('loading');
             }
 
         }

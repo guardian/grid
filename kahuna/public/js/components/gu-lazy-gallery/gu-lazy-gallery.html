@@ -27,7 +27,9 @@
             </label>
         </div>
 
-        <div class="gallery-item__preview">
+        <div class="gallery-item__preview"
+             ng:class="{ 'gallery-item__preview--seen': ctrl.imageHasBeenSeen(galleryCtrl.item),
+                         'gallery-item__preview--selected': ctrl.imageHasBeenSelected(galleryCtrl.item)}">
             <ui-preview-image-large class="gallery-item__preview__inner"
                                     image="galleryCtrl.item"
                                     selection-mode="inSelectionMode">

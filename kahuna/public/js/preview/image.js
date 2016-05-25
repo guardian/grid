@@ -106,18 +106,21 @@ image.directive('uiPreviewImageLarge', ['observe$', 'inject$', 'imgops',
             controllerAs: 'ctrl',
             bindToController: true,
             link: function(scope, element, attrs, ctrl) {
-
+                ctrl.loading = false;
                 const image$ = new Rx.Subject();
 
                 const optimisedImage$ = image$.flatMap((image) => {
-                    ctrl.optimisedImage = {};
                     return Rx.Observable.fromPromise(imgops.getLowResUri(image));
                 });
 
-                scope.$watch(() => ctrl.image, (image) => image$.onNext(image));
+                scope.$watch(() => ctrl.image, (image) => {
+                    ctrl.loading = true;
+                    image$.onNext(image);
+                });
 
                 inject$(scope, optimisedImage$, ctrl, 'optimisedImage');
 
+                scope.$watch(() => ctrl.optimisedImage, () => ctrl.loading = false);
             }
         };
 }]);
