@@ -43,24 +43,24 @@ lazyGallery.controller('GuLazyGalleryCtrl', ['$scope', 'subscribe$', function($s
         const updatedIndex$ = itemsOffset$.withLatestFrom(
             currentIndex$, itemsCount$,
             (itemsOffset, currentIndex, itemsCount)=> {
-                const updatedIndex = currentIndex += itemsOffset;
-                return {updatedIndex, itemsCount};
-        }). // Ignore is less than 0 or >= total items
-            filter(({updatedIndex, itemsCount}) => updatedIndex >= 0 && updatedIndex < itemsCount)
-            .distinctUntilChanged(({updatedIndex}) => updatedIndex);
-
-        const item$ = updatedIndex$.withLatestFrom(
-            items$,
-            (updatedIndex, items) => {
-                return items[updatedIndex];
+                console.log(itemsOffset);
+                const updatedIndex = currentIndex + itemsOffset;
+                // Ignore if index is less than 0 or greater than total items
+                if (updatedIndex >= 0 && updatedIndex < itemsCount) {
+                    return updatedIndex;
+                } else {
+                    return currentIndex;
+                }
         });
 
-        ctrl.updateStates = updatedIndex$.withLatestFrom(
-            itemsCount$,
-            (updatedIndex, itemsCount) => {
+        const item$ = updatedIndex$.withLatestFrom(
+            itemsCount$, items$,
+            (updatedIndex, itemsCount, items) => {
+                console.log(updatedIndex);
                 ctrl.canGoPrev = updatedIndex > 0;
                 ctrl.canGoNext = updatedIndex < (itemsCount - 1);
                 currentIndex$.onNext(updatedIndex);
+                return items[updatedIndex];
         });
 
         const currentPage$ = currentIndex$.withLatestFrom(
@@ -126,7 +126,8 @@ lazyGallery.directive('guLazyGallery', ['observe$', 'observeCollection$', 'subsc
             const selectionMode$  = observe$(scope, selectionMode);
             const preloadedItems$ = observe$(scope, preloadedItemsAttr).map(asInt);
 
-            const currentIndex$ = new Rx.BehaviorSubject(0).distinctUntilChanged();
+            const currentIndex$ = new Rx.BehaviorSubject(0);
+
             const {item$, rangeToLoad$} = ctrl.init({items$, preloadedItems$, currentIndex$});
 
             subscribe$(scope, rangeToLoad$, range => {
