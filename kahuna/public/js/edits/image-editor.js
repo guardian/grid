@@ -4,6 +4,7 @@ import template from './image-editor.html!text';
 import {service} from './service';
 import {imageService} from '../image/service';
 import {usageRightsEditor} from '../usage-rights/usage-rights-editor';
+import {leases} from '../leases/leases';
 import {archiver} from '../components/gr-archiver-status/gr-archiver-status';
 import {collectionsApi} from '../services/api/collections-api';
 import {rememberScrollTop} from '../directives/gr-remember-scroll-top';
@@ -15,7 +16,8 @@ export var imageEditor = angular.module('kahuna.edits.imageEditor', [
     usageRightsEditor.name,
     archiver.name,
     collectionsApi.name,
-    rememberScrollTop.name
+    rememberScrollTop.name,
+    leases.name
 ]);
 
 imageEditor.controller('ImageEditorCtrl', [

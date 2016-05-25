@@ -67,15 +67,8 @@
                 <span class="result-editor__status status status--invalid"
                       ng:switch-when="invalid">
                         Invalid
-                    <gr-icon title="You need to add both a credit and description, (Some PNGs are also invalid).">help</gr-icon>
+                    <gr-icon title="You need to add both a credit and description.">help</gr-icon>
                 </span>
-                <div class="result-editor__info-item--png-warning"ng:if="ctrl.invalidReasons['is_invalid_png']">
-                    <strong>PNG</strong>: This type currently not supported
-                    <button
-                     gr-tooltip="{{ctrl.invalidPngHelp}}"
-                        gr-tooltip-position="right">
-                        <gr-icon>help</gr-icon></button>
-                </div>
             </div>
 
             <gr-archiver-status class="result-editor__archiver"

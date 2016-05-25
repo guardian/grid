@@ -22,7 +22,7 @@ imageDownloadsService.factory('imageDownloadsService', ['imgops', '$http', funct
             const basename = stripExtension(filename);
             return `${basename} (${imageId}).` + extension;
         } else {
-            return `${imageId}.jpg` + extension;
+            return `${imageId}` + extension;
         }
     }
 

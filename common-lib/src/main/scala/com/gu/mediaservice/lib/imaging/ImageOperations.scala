@@ -120,15 +120,11 @@ object ImageOperations {
     mediaType.name match {
       case "image/png" => {
         val fileName: String = resizedFile.getAbsolutePath()
-        val split = fileName.split('.')
 
         val optimisedImageName: String = fileName.split('.')(0) + "optimised.png"
         Seq("pngquant",  "--quality", "1-85", fileName, "--output", optimisedImageName).!
 
-        val file = new File(optimisedImageName)
-
-        file
-
+        new File(optimisedImageName)
       }
       case "image/jpeg" => resizedFile
     }
