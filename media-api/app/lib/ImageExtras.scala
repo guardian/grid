@@ -11,8 +11,7 @@ object ImageExtras {
   val validityDescription = Map(
     "no_rights"                   -> "No rights to use this image",
     "missing_credit"              -> "Missing credit information",
-    "missing_description"         -> "Missing description",
-    "is_invalid_png"              -> "PNG images with transparency cannot be used"
+    "missing_description"         -> "Missing description"
   )
 
   private def optToBool[T](o: Option[T]): Boolean =
@@ -24,15 +23,11 @@ object ImageExtras {
   }
   def hasCredit(meta: ImageMetadata) = optToBool(meta.credit)
   def hasDescription(meta: ImageMetadata) = optToBool(meta.description)
-  def isInvalidPng(image: Image) =
-    image.source.mimeType == Some("image/png") &&
-      image.fileMetadata.colourModelInformation.get("colorType").getOrElse("") != "True Color"
 
   def validityMap(image: Image): Map[String, Boolean] = Map(
     "no_rights"           -> !hasRights(image.usageRights),
     "missing_credit"              -> !hasCredit(image.metadata),
-    "missing_description"         -> !hasDescription(image.metadata),
-    "is_invalid_png"              -> isInvalidPng(image)
+    "missing_description"         -> !hasDescription(image.metadata)
   )
 
   def invalidReasons(validityMap: Map[String, Boolean]) = validityMap
