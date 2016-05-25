@@ -206,6 +206,7 @@ object Mappings {
       "startDate" -> dateFormat,
       "endDate" -> dateFormat,
       "access" -> nonAnalyzedString,
+      "active" -> nonAnalyzedString,
       "notes" -> sStemmerAnalysedString,
       "mediaId" -> nonAnalyzedString,
       "createdAt" -> dateFormat
