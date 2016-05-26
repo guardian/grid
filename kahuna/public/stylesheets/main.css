@@ -1257,6 +1257,7 @@ textarea.ng-invalid {
     background: rgba(0, 0, 0, 0.5);
     padding: 20px;
     box-sizing: border-box;
+    overflow: auto;
 }
 
 .gallery-item .preview__info-container,
