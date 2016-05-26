@@ -20,12 +20,16 @@ lazyGallery.controller('GuLazyGalleryCtrl', ['$scope', 'subscribe$', function($s
     ctrl.init = function({items$, preloadedItems$, currentIndex$}) {
         const itemsCount$ = items$.map(items => items.length).distinctUntilChanged();
 
-        const buttonCommands$ = new Rx.BehaviorSubject('galleryStart');
+        const buttonCommands$ = Rx.Observable.create(observer => {
+            ctrl.prevItem     = () => observer.onNext('prevItem');
+            ctrl.nextItem     = () => observer.onNext('nextItem');
+            ctrl.galleryStart = () => observer.onNext('galleryStart');
+            ctrl.galleryEnd   = () => observer.onNext('galleryEnd');
 
-        ctrl.prevItem     = () => buttonCommands$.onNext('prevItem');
-        ctrl.nextItem     = () => buttonCommands$.onNext('nextItem');
-        ctrl.galleryStart = () => buttonCommands$.onNext('galleryStart');
-        ctrl.galleryEnd   = () => buttonCommands$.onNext('galleryEnd');
+            // Make sure we start at the beginning
+            observer.onNext('galleryStart');
+        });
+
 
         const itemsOffset$ = buttonCommands$.combineLatest(
             itemsCount$,
