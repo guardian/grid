@@ -113,9 +113,9 @@ image.directive('uiPreviewImageLarge', ['observe$', 'inject$', 'imgops',
                     return Rx.Observable.fromPromise(imgops.getFullScreenUri(image));
                 });
 
-                scope.$watch(() => ctrl.image, (image) => {
+                scope.$watch(() => ctrl.image.data.id, () => {
                     ctrl.loading = true;
-                    image$.onNext(image);
+                    image$.onNext(ctrl.image);
                 });
 
                 inject$(scope, optimisedImage$, ctrl, 'optimisedImage');
