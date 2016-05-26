@@ -1207,7 +1207,7 @@ textarea.ng-invalid {
 }
 
 .gallery-item .preview__image {
-    max-height: calc(100vh - 330px); /* screen - top bar - controls */
+     max-height: calc(100vh - 190px);
 }
 
 .gallery-item .loading .preview__image {
@@ -1215,7 +1215,7 @@ textarea.ng-invalid {
 }
 
 .gallery-item .preview__loading {
-    height: calc(100vh - 330px);
+    height: calc(100vh - 190px);
     position:relative;
     display: none;
 }
@@ -1247,6 +1247,27 @@ textarea.ng-invalid {
     display: initial;
 }
 
+.gallery-item .preview__info-container {
+    position: absolute;
+    bottom: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.5);
+    padding: 20px;
+    box-sizing: border-box;
+}
+
+.gallery-item .preview__info-container,
+.gallery-item .loading .preview__info-container {
+    display: none;
+}
+
+.gallery-item:hover .preview__info-container {
+    display: block;
+}
+
 
 /* ==========================================================================
    Preview
@@ -1263,9 +1284,8 @@ textarea.ng-invalid {
 
 .preview__link--large, .preview__no-link--large {
     height: auto;
-    max-height: 800px;
+    max-height: calc(100vh - 190px);
     max-width: 100%;
-    padding-top: 40px;
 }
 
 .preview__image {
@@ -1292,12 +1312,6 @@ textarea.ng-invalid {
     text-overflow: ellipsis;
     white-space: nowrap;
     margin: 0;
-}
-
-.preview__description--gallery {
-    overflow: auto;
-    max-height: 100px; /* Completely arbitrary */
-    white-space: normal;
 }
 
 /*
