@@ -23,8 +23,17 @@ imgops.factory('imgops', ['$window', function($window) {
     }
 
     function getOptimisedUri(image, options) {
-        return image.follow('optimised', options).getUri().catch(() => {
-            return image.source.secureUrl || image.source.file;
+        return image.follow('fileMetadata').get().then(metadata => {
+            //TODO: add check for alpha once isAlpha property in metadata is working
+            if (isPng24(metadata)) {
+                return image.follow('optimisedPng', options).getUri().catch(() => {
+                    return image.optimisedPng.secureUrl || image.optimisedPng.file;
+                });
+            } else {
+                return image.follow('optimised', options).getUri().catch(() => {
+                    return image.source.secureUrl || image.source.file;
+                });
+            }
         });
     }
 
@@ -32,5 +41,10 @@ imgops.factory('imgops', ['$window', function($window) {
         getFullScreenUri,
         getLowResUri
     };
+
+    function isPng24(metadata) {
+        return metadata.data.colourModelInformation && metadata.data.colourModelInformation.colorType &&
+            (metadata.data.colourModelInformation.colorType === 'True Color' || metadata.data.colourModelInformation.colorType === 'True Color with Alpha');
+    }
 
 }]);
