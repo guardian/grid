@@ -34,9 +34,10 @@ On Mac OS X, it may be something like
 on GNU Linux, it may be something like
 `/usr/lib/jvm/java-1.8.0-openjdk-amd64/jre/lib/security/cacerts`.
 
-### Compilation fails because existing libraries cannot be found
-- Kill all java process
-- Run `sbt clean` and `sbt clean-files`
+### Compilation fails because depencies that should exist cannot be found
+- Kill all java process, then run `sbt clean` and `sbt clean-files`
+- If this doesn't help, try removing all target files in the project and recompile
+- If this still doesn't work, try cleaning ivy cache in ~/.ivy2.cache
 
 ### Authorisation error
 - Restart auth
