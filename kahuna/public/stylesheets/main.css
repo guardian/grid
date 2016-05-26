@@ -1314,6 +1314,10 @@ textarea.ng-invalid {
     margin: 0;
 }
 
+.preview__description--gallery {
+    white-space: normal;
+}
+
 /*
 FIXME: this is a little targeted
 FIXME: what to do with touch devices
