@@ -42,7 +42,7 @@ lazyGallery.controller('GuLazyGalleryCtrl', [function() {
                         prevItem:     -1,
                         nextItem:     +1,
                         galleryStart: currentIndex * -1,
-                        galleryEnd:   itemsCount - currentIndex - 1,
+                        galleryEnd:   itemsCount - currentIndex - 1
                     }[command] || 0;
                 }
             );
