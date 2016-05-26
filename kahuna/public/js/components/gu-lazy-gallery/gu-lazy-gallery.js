@@ -12,7 +12,7 @@ function asInt(string) {
     return parseInt(string, 10);
 }
 
-lazyGallery.controller('GuLazyGalleryCtrl', ['$scope', 'subscribe$', function($scope, subscribe$) {
+lazyGallery.controller('GuLazyGalleryCtrl', [function() {
     let ctrl = this;
     ctrl.canGoNext = false;
     ctrl.canGoPrev = false;
