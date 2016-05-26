@@ -1,12 +1,18 @@
 #!/usr/bin/env bash
 
-if [ $# -lt 1 ]
+if [ $# -lt 2 ]
 then
-    echo "usage: dev-setup.sh <DEV_IMAGE_BUCKET>"
+    echo "usage: dev-setup.sh <DEV_IMAGE_BUCKET> <DEV_OPTIMISED_PNG_BUCKET>"
     echo
-    echo "⚡ Pro tip⚡ : You can get your image bucket name by running"
+    echo "⚡ Pro tip⚡ :"
+    echo
+    echo " You can get your image bucket name by running"
     echo
     echo "   $ aws s3 ls | grep {{DEV_USERNAME}}-imagebucket"
+    echo
+    echo " You can get your optimised png bucket name by running"
+    echo
+    echo "   $ aws s3 ls | grep {{DEV_USERNAME}}-optimisedpngbucket"
     echo
     exit 1
 fi
@@ -17,4 +23,5 @@ echo $NGINX_LOCATION
 
 # replace the {{BUCKET}} variable with the supplied bucket name
 rm -f $NGINX_LOCATION/sites-enabled/media-service-imgops.conf
-sed -e 's/{{BUCKET}}/'$1'/g' imgops.template.conf > $NGINX_LOCATION/sites-enabled/media-service-imgops.conf
+sed -e 's/{{BUCKET}}/'$1'/;s/{{OPTIMISED_PNG_BUCKET}}/'$2'/g' imgops.template.conf > $NGINX_LOCATION/sites-enabled/media-service-imgops.conf
+
