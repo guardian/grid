@@ -1253,7 +1253,6 @@ textarea.ng-invalid {
     left: 50%;
     transform: translateX(-50%);
     width: 100%;
-    height: 100%;
     background: rgba(0, 0, 0, 0.5);
     padding: 20px;
     box-sizing: border-box;
