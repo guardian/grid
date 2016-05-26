@@ -62,6 +62,7 @@ object ThrallMessageConsumer extends MessageConsumer(
             case r: DeleteByQueryResponse =>
               ImageStore.deleteOriginal(id)
               ImageStore.deleteThumbnail(id)
+              ImageStore.deletePng(id)
               DynamoNotifications.publish(Json.obj("id" -> id), "image-deleted")
               EsResponse(s"Image deleted: $id")
           } recoverWith {

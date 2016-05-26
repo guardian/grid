@@ -21,6 +21,8 @@ object Config extends CommonPlayAppProperties with CommonPlayAppConfig {
 
   val thumbnailBucket: String = properties("s3.thumb.bucket")
 
+  val pngImageOpsBucket: String = properties("s3.png.bucket")
+
   val keyStoreBucket: String = properties("auth.keystore.bucket")
 
   val tempDir: File = new File(properties.getOrElse("upload.tmp.dir", "/tmp"))

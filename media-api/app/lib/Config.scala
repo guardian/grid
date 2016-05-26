@@ -34,6 +34,7 @@ object Config extends CommonPlayAppConfig with CommonPlayAppProperties {
 
   val imageBucket: String = properties("s3.image.bucket")
   val thumbBucket: String = properties("s3.thumb.bucket")
+  val pngBucket  : String = properties("s3.png.bucket")
 
   val topicArn: String = properties("sns.topic.arn")
 
