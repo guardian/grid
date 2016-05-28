@@ -5,22 +5,13 @@ A collection of python scripts that will generate a set of configuration files u
 ## Requirements
 
 - Python 2.7
+- [pip](https://pip.pypa.io/en/stable/installing/)
+- [virtualenv](http://docs.python-guide.org/en/latest/dev/virtualenvs/) `pip install virtualenv`
 - AWS CLI with a `media-service` profile
 
   `aws configure --profile media-service`
 
   NB: ensure you specify the aws region when prompted too.
-
-## Setup
-
-Install the requirements:
-
-```sh
-pip install -r requirements.txt
-```
-
-We recommend using a [virtual environment](http://docs.python-guide.org/en/latest/dev/virtualenvs/)
-and [virtualenvwrapper](https://virtualenvwrapper.readthedocs.org/en/latest/).
 
 ## Configuration
 
@@ -42,11 +33,22 @@ The generators can be run in the following form:
 ```sh
 python -m generators.<generator> /path/to/output/directory
 ```
+### dot-properties
 
-To generate the `.properties` files, create your output directory and run:
+To generate the `.properties` files, create the output directory `/etc/gu`:
 
 ```sh
-python -m generators.dot_properties /etc/gu
+sudo mkdir /etc/gu
 ```
 
-Or, alternatively, just run [`./generate-dot-properties.sh`](./generate-dot-properties.sh).
+Then change ownership to your current user so that you can write to it:
+
+```sh
+sudo chown -R $(whoami) /etc/gu
+```
+
+Then run the [generator](./generate-dot-properties.sh):
+
+```sh
+./generate-dot-properties.sh
+```
