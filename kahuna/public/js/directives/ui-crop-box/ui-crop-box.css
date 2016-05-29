@@ -1,0 +1,27 @@
+.easel .video-play-button {
+    display: block;
+    position: absolute;
+    height: 100px;
+    width: 100px;
+    top: 50%;
+    left: 50%;
+    margin-left: -50px;
+    margin-top: -50px;
+    background-color: #eeb629;
+    border-radius: 50%;
+    opacity: .8;
+}
+
+.easel .video-play-button--hidden {
+    display: none;
+}
+
+.easel .video-play-button gr-icon {
+    font-size: 100px;
+    color: #333;
+}
+
+.easel .cropper-center {
+    /* above video-play-button */
+    z-index: 1;
+}
