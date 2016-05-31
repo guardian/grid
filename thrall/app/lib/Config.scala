@@ -27,6 +27,8 @@ object Config extends CommonPlayAppConfig {
 
   val thumbnailBucket: String = properties("s3.thumb.bucket")
 
+  val pngImageOpsBucket: String = properties("s3.png.bucket")
+
   val elasticsearchHost: String =
     if (stage == "DEV")
       properties.getOrElse("es.host", "localhost")

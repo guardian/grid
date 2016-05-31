@@ -14,6 +14,7 @@ case class Image(
   uploadInfo:          UploadInfo,
   source:              Asset,
   thumbnail:           Option[Asset],
+  optimisedPng:        Option[Asset],
   fileMetadata:        FileMetadata,
   userMetadata:        Option[Edits],
   metadata:            ImageMetadata,
@@ -41,6 +42,7 @@ object Image {
       (__ \ "uploadInfo").readNullable[UploadInfo].map(_ getOrElse UploadInfo()) ~
       (__ \ "source").read[Asset] ~
       (__ \ "thumbnail").readNullable[Asset] ~
+      (__ \ "optimisedPng").readNullable[Asset] ~
       (__ \ "fileMetadata").readNullable[FileMetadata].map(_ getOrElse FileMetadata()) ~
       (__ \ "userMetadata").readNullable[Edits] ~
       (__ \ "metadata").read[ImageMetadata] ~
@@ -61,6 +63,7 @@ object Image {
       (__ \ "uploadInfo").write[UploadInfo] ~
       (__ \ "source").write[Asset] ~
       (__ \ "thumbnail").writeNullable[Asset] ~
+      (__ \ "optimisedPng").writeNullable[Asset] ~
       (__ \ "fileMetadata").write[FileMetadata] ~
       (__ \ "userMetadata").writeNullable[Edits] ~
       (__ \ "metadata").write[ImageMetadata] ~

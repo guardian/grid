@@ -125,7 +125,6 @@ object ImageOperations {
         Seq("pngquant",  "--quality", "1-85", fileName, "--output", optimisedImageName).!
 
         new File(optimisedImageName)
-
       }
       case "image/jpeg" => resizedFile
     }
