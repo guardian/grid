@@ -17,7 +17,6 @@ object SupplierProcessors {
     BarcroftParser,
     CorbisParser,
     EpaParser,
-    GettyXmpParser,
     GettyCreditParser,
     PaParser,
     ReutersParser,
@@ -169,26 +168,6 @@ trait GettyProcessor {
     Agency("Getty Images", suppliersCollection = suppliersCollection)
 }
 
-object GettyXmpParser extends ImageProcessor with GettyProcessor {
-  // including 'newspix internation' because they're sending us lots with that in the credit
-  val excludeFromPatterns = List("newspix international", "newspix internation", "i-images", "photoshot")
-    .map(ex => s"(?i)$ex".r)
-
-  // Some people send over Getty XMP data, but are not affiliated with Getty
-  def excludedCredit(credit: Option[String]) = {
-    excludeFromPatterns.flatMap( _.findFirstMatchIn(credit.getOrElse("")) ).nonEmpty
-  }
-
-  def apply(image: Image): Image = (excludedCredit(image.metadata.credit), image.fileMetadata.getty.isEmpty) match {
-    // Only images supplied by Getty have getty fileMetadata
-    case (false, false) => image.copy(
-      usageRights = gettyAgencyWithCollection(image.metadata.source),
-      // Set a default "credit" for when Getty is too lazy to provide one
-      metadata    = image.metadata.copy(credit = Some(image.metadata.credit.getOrElse("Getty Images")))
-    )
-    case _ => image
-  }
-}
 
 object GettyCreditParser extends ImageProcessor with GettyProcessor {
   val gettyCredits = List("AFP", "FilmMagic", "WireImage", "Hulton")
