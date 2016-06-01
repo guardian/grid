@@ -4,6 +4,8 @@ import 'rx-dom';
 
 import template from './gu-lazy-gallery.html!text';
 
+import './gu-lazy-gallery.css!';
+
 import '../../util/rx';
 
 export var lazyGallery = angular.module('gu.lazyGallery', ['util.rx']);
