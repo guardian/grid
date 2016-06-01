@@ -14,17 +14,14 @@ function asInt(string) {
 
 lazyGallery.controller('GuLazyGalleryCtrl', [function() {
     let ctrl = this;
-    ctrl.canGoNext = false;
-    ctrl.canGoPrev = false;
 
-    ctrl.init = function({items$, preloadedItems$, currentIndex$}) {
+    ctrl.init = function({items$, totalItems$, preloadedItems$, currentIndex$}) {
         const itemsCount$ = items$.map(items => items.length).distinctUntilChanged();
+        const totalItemsCount$ = totalItems$.map(totalItems => totalItems.length).distinctUntilChanged();
 
         const buttonCommands$ = Rx.Observable.create(observer => {
             ctrl.prevItem     = () => observer.onNext('prevItem');
             ctrl.nextItem     = () => observer.onNext('nextItem');
-            ctrl.galleryStart = () => observer.onNext('galleryStart');
-            ctrl.galleryEnd   = () => observer.onNext('galleryEnd');
 
             // Make sure we start at the beginning
             observer.onNext('galleryStart');
@@ -42,7 +39,6 @@ lazyGallery.controller('GuLazyGalleryCtrl', [function() {
                         prevItem:     -1,
                         nextItem:     +1,
                         galleryStart: currentIndex * -1,
-                        galleryEnd:   itemsCount - currentIndex - 1
                     }[command] || 0;
                 }
             );
@@ -51,22 +47,27 @@ lazyGallery.controller('GuLazyGalleryCtrl', [function() {
 
 
         const updatedIndex$ = itemsOffset$.withLatestFrom(
-            currentIndex$, itemsCount$,
-            (itemsOffset, currentIndex, itemsCount)=> {
+            currentIndex$, itemsCount$, totalItemsCount$,
+            (itemsOffset, currentIndex, itemsCount, totalItemsCount) => {
                 const updatedIndex = currentIndex + itemsOffset;
-                // Ignore if index is less than 0 or greater than total items
-                if (updatedIndex >= 0 && updatedIndex < itemsCount) {
+                // Update the index if it's in the range of items
+                if (updatedIndex < totalItemsCount) {
                     return updatedIndex;
+                // Go to the start if you reach the item length
+                } else if (updatedIndex === totalItemsCount) {
+                    return 0;
+                // Go to the end if you go back from the beginning
+                } else if (updatedIndex < 0) {
+                    return totalItemsCount - 1;
+                // Catch anything else
                 } else {
                     return currentIndex;
                 }
         });
 
         const item$ = updatedIndex$.withLatestFrom(
-            itemsCount$, items$,
-            (updatedIndex, itemsCount, items) => {
-                ctrl.canGoPrev = updatedIndex > 0;
-                ctrl.canGoNext = updatedIndex < (itemsCount - 1);
+            totalItemsCount$, items$,
+            (updatedIndex, totalItemsCount, items) => {
                 currentIndex$.onNext(updatedIndex);
                 return items[updatedIndex];
         });
@@ -74,20 +75,12 @@ lazyGallery.controller('GuLazyGalleryCtrl', [function() {
         const currentPage$ = currentIndex$.withLatestFrom(
             preloadedItems$,
             (currentIndex, preloadedItems) => {
-                return Math.floor(currentIndex / preloadedItems) + 1;
+                return Math.floor(currentIndex / preloadedItems);
         });
 
-        const atLastItem$ = currentIndex$.withLatestFrom(
-            currentPage$, preloadedItems$,
-            (currentIndex, currentPage, preloadedItems) => {
-                if (currentIndex === (preloadedItems * currentPage) - 1) {
-                    return true;
-                }
-        });
-
-        const rangeToLoad$ = atLastItem$.withLatestFrom(
-            currentPage$, preloadedItems$,
-            (atLastItem, currentPage, preloadedItems) => {
+        const rangeToLoad$ = currentPage$.withLatestFrom(
+            preloadedItems$,
+            (currentPage, preloadedItems) => {
                 const start = currentPage * preloadedItems;
                 const end = ((currentPage + 1) * preloadedItems) - 1;
             return {start, end};
@@ -123,6 +116,7 @@ lazyGallery.directive('guLazyGallery', ['observe$', 'observeCollection$', 'subsc
             // Map attributes as Observable streams
             const {
                 guLazyGalleryItems:            itemsAttr,
+                guLazyGalleryItemsTotal:       totalItemsAttr,
                 guLazyGallerySelectionMode:    selectionMode,
                 guLazyGalleryLoadRange:        loadRangeFn,
                 guLazyGalleryPreloadedItems:   preloadedItemsAttr
@@ -130,11 +124,14 @@ lazyGallery.directive('guLazyGallery', ['observe$', 'observeCollection$', 'subsc
 
             const items$          = observeCollection$(scope, itemsAttr);
             const selectionMode$  = observe$(scope, selectionMode);
+            const totalItems$     = observe$(scope, totalItemsAttr);
             const preloadedItems$ = observe$(scope, preloadedItemsAttr).map(asInt);
 
             const currentIndex$ = new Rx.BehaviorSubject(0);
 
-            const {item$, rangeToLoad$} = ctrl.init({items$, preloadedItems$, currentIndex$});
+            const {item$, rangeToLoad$} = ctrl.init(
+                {items$, totalItems$, preloadedItems$, currentIndex$}
+            );
 
             subscribe$(scope, rangeToLoad$, range => {
                 scope.$eval(loadRangeFn, range);

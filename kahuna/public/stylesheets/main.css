@@ -1144,10 +1144,6 @@ textarea.ng-invalid {
     transition: opacity .1s;
 }
 
-.gallery__control--disabled {
-    opacity: .2;
-}
-
 /* TODO: abstract repeated results styles */
 .gallery-item__select input[type=checkbox] {
     visibility: hidden;
