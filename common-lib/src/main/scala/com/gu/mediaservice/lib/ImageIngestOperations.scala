@@ -13,12 +13,17 @@ class ImageIngestOperations(imageBucket: String, thumbnailBucket: String, pngBuc
   def storeThumbnail(id: String, file: File, mimeType: Option[String]) =
     storeImage(thumbnailBucket, fileKeyFromId(id), file, mimeType)
 
-  def storeOptimisedPng(id: String, file: File) =
-    storeImage(pngBucket, fileKeyFromId(id), file, Some("image/png"))
+  def storeOptimisedPng(id: String, file: File) = {
+    storeImage(pngBucket, optimisedPngKeyFromId(id), file, Some("image/png"))
+  }
 
   def deleteOriginal(id: String) = deleteImage(imageBucket, fileKeyFromId(id))
   def deleteThumbnail(id: String) = deleteImage(thumbnailBucket, fileKeyFromId(id))
-  def deletePng(id: String) = deleteImage(pngBucket, fileKeyFromId(id))
+  def deletePng(id: String) = deleteImage(pngBucket, optimisedPngKeyFromId(id))
+
+  def optimisedPngKeyFromId(id: String): String = "optimised/" + fileKeyFromId(id: String)
 
   def fileKeyFromId(id: String): String = id.take(6).mkString("/") + "/" + id
+
+
 }

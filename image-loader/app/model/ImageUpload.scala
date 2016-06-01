@@ -35,9 +35,7 @@ case object ImageUpload {
       case _ => FileMetadataReader.fromIPTCHeaders(uploadedFile)
     }
 
-    for {
-      fileMetadata <- fileMetadataFuture
-    } yield {
+    fileMetadataFuture.flatMap(fileMetadata => {
 
       val uploadIsPng24 = isPng24(uploadRequest.mimeType, fileMetadata)
 
@@ -54,7 +52,7 @@ case object ImageUpload {
         thumb <- ImageOperations.createThumbnail(uploadedFile, thumbWidth, thumbQuality, tempDir, iccColourSpace, colourModel)
       } yield thumb
 
-      val pngOption = if (uploadIsPng24) {
+      val optimisedPngFile = if (uploadIsPng24) {
         val optimisedPng = tempDir.getAbsolutePath() + "/optimisedpng" + ".png"
         Seq("pngquant", "--quality", "1-85", uploadedFile.getAbsolutePath(), "--output", optimisedPng).!
 
@@ -67,17 +65,17 @@ case object ImageUpload {
         val thumbStoreFuture = storeThumbnail(uploadRequest, thumb)
 
         val pngStoreFuture = if (uploadIsPng24)
-            Some(storeOptimisedPng(uploadRequest, pngOption.get)).map(result => result.map(Option(_)))
-              .getOrElse(Future.successful(None))
-            else
-              Future(None)
+          Some(storeOptimisedPng(uploadRequest, optimisedPngFile.get)).map(result => result.map(Option(_)))
+            .getOrElse(Future.successful(None))
+        else
+          Future(None)
 
         val thumbDimensionsFuture = FileMetadataReader.dimensions(thumb, Some("image/jpeg"))
 
         val pngDimensionsFuture = if (uploadIsPng24)
-            FileMetadataReader.dimensions(pngOption.get, Some("image/png"))
-          else
-            Future(None)
+          FileMetadataReader.dimensions(optimisedPngFile.get, Some("image/png"))
+        else
+          Future(None)
 
         for {
           s3Source <- sourceStoreFuture
@@ -113,8 +111,8 @@ case object ImageUpload {
             ImageUpload(uploadRequest, finalImage)
           }
       }
-    }
-  }.flatMap(f => f)
+    })
+  }
 
   def storeSource(uploadRequest: UploadRequest) = ImageStore.storeOriginal(
     uploadRequest.id,
@@ -162,7 +160,10 @@ case object ImageUpload {
 
   private def isPng24(mimeType: Option[String], fileMetadata: FileMetadata): Boolean =
     mimeType match {
-      case Some("image/png") => fileMetadata.colourModelInformation.get("bitsPerSample").get == "16"
+      case Some("image/png") => {
+        val colourType = fileMetadata.colourModelInformation.getOrElse("colorType", "")
+        colourType == "True Color" || colourType == "True Color with Alpha"
+      }
       case _ => false
     }
 

@@ -106,13 +106,27 @@ object ImageResponse extends EditsResponse {
       }
     }.get
 
+    val hasOptimisedPng = (source \ "optimisedPng") match {
+      case o: JsObject => true
+      case _ => false
+    }
+
     // Round expiration time to try and hit the cache as much as possible
     // TODO: do we really need these expiration tokens? they kill our ability to cache...
     val expiration = roundDateTime(DateTime.now, Duration.standardMinutes(10)).plusMinutes(20)
+
+    val pngFileUri = if (hasOptimisedPng)
+        Some(new URI((source \ "optimisedPng" \ "file").as[String]))
+      else
+        None
+    
     val fileUri = new URI((source \ "source" \ "file").as[String])
     val secureUrl = S3Client.signUrl(Config.imageBucket, fileUri, image, expiration)
     val secureThumbUrl = S3Client.signUrl(Config.thumbBucket, fileUri, image, expiration)
-    val securePngUrl = S3Client.signUrl(Config.pngBucket, fileUri, image, expiration)
+
+    val securePngUrl = if (hasOptimisedPng)
+        Some(S3Client.signUrl(Config.pngBucket, pngFileUri.get, image, expiration))
+      else None
 
     val validityMap    = ImageExtras.validityMap(image)
     val valid          = ImageExtras.isValid(validityMap)
@@ -127,7 +141,7 @@ object ImageResponse extends EditsResponse {
       .flatMap((source) => {
         val json: JsValue = source \ "optimisedPng"
         if (source.keys.contains("optimisedPng")) {
-          source.transform(addSecureOptimisedPngUrl(securePngUrl))
+          source.transform(addSecureOptimisedPngUrl(securePngUrl.get))
         } else
           source.transform((__).json.pick)
       })
@@ -145,11 +159,14 @@ object ImageResponse extends EditsResponse {
     (data, links, actions)
   }
 
-  def imageLinks(id: String, secureUrl: String, securePngUrl: String, withWritePermission: Boolean, valid: Boolean) = {
+  def imageLinks(id: String, secureUrl: String, securePngUrl: Option[String], withWritePermission: Boolean, valid: Boolean) = {
     val cropLink = Link("crops", s"${Config.cropperUri}/crops/$id")
     val editLink = Link("edits", s"${Config.metadataUri}/metadata/$id")
     val optimisedLink = Link("optimised", makeImgopsUri(new URI(secureUrl)))
-    val optimisedPngLink = Link("optimisedPng", makeImgopsUri(new URI(securePngUrl)))
+    val optimisedPngLink = securePngUrl match {
+      case Some(secureUrl) => Link("optimisedPng", makeImgopsUri(new URI(secureUrl)))
+      case _ => Link("", "")
+    }
     val imageLink = Link("ui:image",  s"${Config.kahunaUri}/images/$id")
     val usageLink = Link("usages", s"${Config.usageUri}/usages/media/$id")
     val leasesLink = Link("leases", s"${Config.leaseUri}/leases/media/$id")
