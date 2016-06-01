@@ -1243,7 +1243,7 @@ textarea.ng-invalid {
     display: initial;
 }
 
-.gallery-item .preview__info-container {
+.gallery-item__preview .preview__info-container {
     position: absolute;
     bottom: 0;
     left: 50%;
@@ -1255,12 +1255,12 @@ textarea.ng-invalid {
     overflow: auto;
 }
 
-.gallery-item .preview__info-container,
-.gallery-item .loading .preview__info-container {
+.gallery-item__preview .preview__info-container,
+.gallery-item__preview .loading .preview__info-container {
     display: none;
 }
 
-.gallery-item:hover .preview__info-container {
+.gallery-item__preview:hover .preview__info-container {
     display: block;
 }
 

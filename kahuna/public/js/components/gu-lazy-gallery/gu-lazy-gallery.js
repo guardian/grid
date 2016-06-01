@@ -51,15 +51,8 @@ lazyGallery.controller('GuLazyGalleryCtrl', [function() {
             (itemsOffset, currentIndex, itemsCount, totalItemsCount) => {
                 const updatedIndex = currentIndex + itemsOffset;
                 // Update the index if it's in the range of items
-                if (updatedIndex < totalItemsCount) {
+                if (updatedIndex >= 0 && updatedIndex < totalItemsCount) {
                     return updatedIndex;
-                // Go to the start if you reach the item length
-                } else if (updatedIndex === totalItemsCount) {
-                    return 0;
-                // Go to the end if you go back from the beginning
-                } else if (updatedIndex < 0) {
-                    return totalItemsCount - 1;
-                // Catch anything else
                 } else {
                     return currentIndex;
                 }
