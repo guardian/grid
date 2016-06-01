@@ -119,42 +119,6 @@ Make sure you put the generated ```.properties``` files in
 ### Run the services
 There are a few different ways to run the services, please see [here](./docs/running.md).
 
-
-## Troubleshooting
-
-### Nginx returns "413 Request Entity Too Large"
-
-Make sure you bump the maximum allowed body size in your nginx config (defaults to 1MB):
-
-```
-client_max_body_size 20m;
-```
-
-### Crops fail with a 500 HTTP error and an SSL error in the cropper logs
-
-Make sure you install any certificate authority file needed in the
-Java runtime for the cropper service to talk to the media-api.
-
-You can do so with the `keytool` command:
-
-```
-$ sudo keytool -import \
-               -trustcacerts \
-               -alias internalrootca \
-               -file rootcafile.cer \
-               -keystore /path/to/global/jre/lib/security/cacerts
-```
-
-where `internalrootca` is the name you want to give the certificate in
-your keystore, `rootcafile.cer` is the certificate file you want to
-install (look for "dev-nginx/ssl/GNM-root-cert.pem"), and `/path/to/global/jre/lib/security/cacerts` the location
-of the `cacerts` file for the JRE you're using.
-
-On Mac OS X, it may be something like
-`/Library/Java/JavaVirtualMachines/jdk1.8.0_25.jdk/Contents/Home/jre/lib/security/cacerts`;
-on GNU Linux, it may be something like
-`/usr/lib/jvm/java-1.8.0-openjdk-amd64/jre/lib/security/cacerts`.
-
 ## NGINX, Play & SNI
 
 As the Play Framework does not yet support [SNI](https://en.wikipedia.org/wiki/Server_Name_Indication) NGINX can't always work out which certificate to send where there are multiple services on the same IP. This might result in NGINX sending the incorrect certificate. This will result in a `HostnameVerifier Exception` appearing in application logs.
@@ -166,8 +130,8 @@ When the correct cert to send is ambiguous NGINX simply sends the first cert it 
 
 ## GraphicsMagick && Little CMS 2
 
-If you get a permissions issue when running 
+If you get a permissions issue when running
 ``` brew install graphicsmagick --with-little-cms2 ```
-you can install little cms (``` brew install little-cms2 ``` ) 
+you can install little cms (``` brew install little-cms2 ``` )
 and then compile graphicsmagick from source, it will automatically pick up on the little cms installation
 

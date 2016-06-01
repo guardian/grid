@@ -10,6 +10,7 @@ import com.gu.mediaservice.model.{Asset, Bounds, Dimensions, ImageMetadata}
 import play.api.libs.concurrent.Execution.Implicits._
 
 import scala.concurrent.Future
+import scala.sys.process._
 
 
 case class ExportResult(id: String, masterCrop: Asset, othersizings: List[Asset])
@@ -48,7 +49,7 @@ object ImageOperations {
         val source = addImage(sourceFile)
 
         val formatter = format(source)("%[JPEG-Colorspace-Name]")
-        
+
         for {
           output <- runIdentifyCmd(formatter)
           colourModel = output.headOption
@@ -78,18 +79,19 @@ object ImageOperations {
   }
 
   def cropImage(sourceFile: File, bounds: Bounds, qual: Double = 100d, tempDir: File,
-                iccColourSpace: Option[String], colourModel: Option[String]): Future[File] = {
+                iccColourSpace: Option[String], colourModel: Option[String], fileType: String): Future[File] = {
     for {
-      outputFile <- createTempFile(s"crop-", ".jpg", tempDir)
-      cropSource  = addImage(sourceFile)
-      qualified   = quality(cropSource)(qual)
-      corrected   = correctColour(qualified)(iccColourSpace, colourModel)
-      converted   = applyOutputProfile(corrected)
-      stripped    = stripMeta(converted)
-      profiled    = applyOutputProfile(stripped)
-      cropped     = crop(profiled)(bounds)
-      addOutput   = addDestImage(cropped)(outputFile)
-      _          <- runConvertCmd(addOutput)
+      outputFile <- createTempFile(s"crop-", s".${fileType}", tempDir)
+      cropSource    = addImage(sourceFile)
+      qualified     = quality(cropSource)(qual)
+      corrected     = correctColour(qualified)(iccColourSpace, colourModel)
+      converted     = applyOutputProfile(corrected)
+      stripped      = stripMeta(converted)
+      profiled      = applyOutputProfile(stripped)
+      cropped       = crop(profiled)(bounds)
+      depthAdjusted = depth(cropped)(8)
+      addOutput     = addDestImage(depthAdjusted)(outputFile)
+      _             <- runConvertCmd(addOutput)
     }
     yield outputFile
   }
@@ -101,9 +103,9 @@ object ImageOperations {
       ).map(_ => sourceFile)
   }
 
-  def resizeImage(sourceFile: File, dimensions: Dimensions, qual: Double = 100d, tempDir: File): Future[File] = {
+  def resizeImage(sourceFile: File, dimensions: Dimensions, qual: Double = 100d, tempDir: File, fileType: String): Future[File] = {
     for {
-      outputFile  <- createTempFile(s"resize-", ".jpg", tempDir)
+      outputFile  <- createTempFile(s"resize-", s".${fileType}", tempDir)
       resizeSource = addImage(sourceFile)
       qualified    = quality(resizeSource)(qual)
       resized      = scale(qualified)(dimensions)
@@ -112,6 +114,21 @@ object ImageOperations {
     }
     yield outputFile
   }
+
+  def optimiseImage(resizedFile: File, mediaType: MimeType): File =
+
+    mediaType.name match {
+      case "image/png" => {
+        val fileName: String = resizedFile.getAbsolutePath()
+
+        val optimisedImageName: String = fileName.split('.')(0) + "optimised.png"
+        Seq("pngquant",  "--quality", "1-85", fileName, "--output", optimisedImageName).!
+
+        new File(optimisedImageName)
+
+      }
+      case "image/jpeg" => resizedFile
+    }
 
   val thumbUnsharpRadius = 0.5d
   val thumbUnsharpSigma = 0.5d
@@ -131,4 +148,20 @@ object ImageOperations {
       _          <- runConvertCmd(addOutput)
     } yield outputFile
   }
+
+  sealed trait MimeType {
+    def name: String
+    def extension: String
+  }
+
+  case object Png extends MimeType {
+    val name  = "image/png"
+    val extension = "png"
+  }
+
+  case object Jpeg extends MimeType {
+    val name = "image/jpeg"
+    val extension = "jpg"
+  }
+
 }

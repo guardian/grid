@@ -16,12 +16,13 @@ imageDownloadsService.factory('imageDownloadsService', ['imgops', '$http', funct
     function imageName(imageData) {
         const filename = imageData.uploadInfo.filename;
         const imageId = imageData.id;
+        const extension = imageData.source.mimeType === 'image/jpeg' ? 'jpg' : 'png';
 
         if (filename) {
             const basename = stripExtension(filename);
-            return `${basename} (${imageId}).jpg`;
+            return `${basename} (${imageId}).` + extension;
         } else {
-            return `${imageId}.jpg`;
+            return `${imageId}` + extension;
         }
     }
 

@@ -30,6 +30,7 @@ object ImageMagick {
   def resize(op: IMOperation)(maxSize: Int): IMOperation = op <| (_.resize(maxSize, maxSize))
   def scale(op: IMOperation)(dimensions: Dimensions): IMOperation = op <| (_.scale(dimensions.width, dimensions.height))
   def format(op: IMOperation)(definition: String): IMOperation = op <| (_.format(definition))
+  def depth(op: IMOperation)(depth: Int): IMOperation = op <| (_.depth(depth))
   val useGraphicsMagick = true
 
   def runConvertCmd(op: IMOperation): Future[Unit] = Future((new ConvertCmd(useGraphicsMagick)).run(op))
