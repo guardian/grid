@@ -46,13 +46,17 @@
 
         <button class="gallery__control gallery__control--left"
                 ng:click="galleryCtrl.prevItem()"
-                title="Previous">
+                title="Previous"
+                gr:track-click="Previous gallery item"
+                gr:track-click-data="galleryCtrl.trackingData('Previous gallery item')">
             <gr-icon>navigate_before</gr-icon>
         </button>
 
         <button class="gallery__control gallery__control--right"
                 ng:click="galleryCtrl.nextItem()"
-                title="Next">
+                title="Next"
+                gr:track-click="Next gallery item"
+                gr:track-click-data="galleryCtrl.trackingData('Next gallery item')">
             <gr-icon>navigate_next</gr-icon>
         </button>
     </div>
