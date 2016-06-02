@@ -2,6 +2,8 @@ package model
 
 import java.io.File
 
+import com.gu.mediaservice.lib.aws.S3Object
+import lib.Config._
 import play.api.libs.concurrent.Execution.Implicits._
 import scala.concurrent.Future
 
@@ -18,6 +20,47 @@ import scala.sys.process._
 
 import lib.storage.ImageStore
 import com.gu.mediaservice.model._
+
+case class OptimisedPng(optimisedFileStoreFuture: Future[Option[S3Object]], isPng24: Boolean)
+
+case object OptimisedPng {
+
+  private def isPng24(mimeType: Option[String], fileMetadata: FileMetadata): Boolean =
+    mimeType match {
+      case Some("image/png") => {
+        fileMetadata.colourModelInformation.get("colourType") match {
+          case Some("True Colour") => true
+          case Some("True Colour with Alpha") => true
+          case _ => false
+        }
+      }
+      case _ => false
+    }
+
+  private def storeOptimisedPng(uploadRequest: UploadRequest, optimisedPngFile: File) = ImageStore.storeOptimisedPng(
+    uploadRequest.id,
+    optimisedPngFile
+  )
+
+  def build (file: File, uploadRequest: UploadRequest, fileMetadata: FileMetadata) = {
+    if (isPng24(uploadRequest.mimeType, fileMetadata)) {
+      val optimisedFile = {
+        val optimsedFile = tempDir.getAbsolutePath() + "/optimisedpng" + ".png"
+        Seq("pngquant", "--quality", "1-85", file.getAbsolutePath(), "--output", optimsedFile)
+        new File(optimsedFile)
+      }
+      val pngStoreFuture: Future[Option[S3Object]] = Some(storeOptimisedPng(uploadRequest, optimisedFile))
+        .map(result => result.map(Option(_)))
+        .getOrElse(Future.successful(None))
+
+      OptimisedPng(pngStoreFuture, true)
+    }
+
+    else {
+      OptimisedPng(Future(None), false)
+    }
+  }
+}
 
 case class ImageUpload(uploadRequest: UploadRequest, image: Image)
 case object ImageUpload {
@@ -37,8 +80,6 @@ case object ImageUpload {
 
     fileMetadataFuture.flatMap(fileMetadata => {
 
-      val uploadIsPng24 = isPng24(uploadRequest.mimeType, fileMetadata)
-
       // These futures are started outside the for-comprehension, otherwise they will not run in parallel
       val sourceStoreFuture = storeSource(uploadRequest)
       // FIXME: pass mimeType
@@ -52,38 +93,21 @@ case object ImageUpload {
         thumb <- ImageOperations.createThumbnail(uploadedFile, thumbWidth, thumbQuality, tempDir, iccColourSpace, colourModel)
       } yield thumb
 
-      val optimisedPngFile = if (uploadIsPng24) {
-        val optimisedPng = tempDir.getAbsolutePath() + "/optimisedpng" + ".png"
-        Seq("pngquant", "--quality", "1-85", uploadedFile.getAbsolutePath(), "--output", optimisedPng).!
 
-        Some(new File(optimisedPng))
-      } else
-        None
+      val optimisedPng = OptimisedPng.build(uploadedFile, uploadRequest, fileMetadata)
 
       bracket(thumbFuture)(_.delete) { thumb =>
         // Run the operations in parallel
         val thumbStoreFuture = storeThumbnail(uploadRequest, thumb)
 
-        val pngStoreFuture = if (uploadIsPng24)
-          Some(storeOptimisedPng(uploadRequest, optimisedPngFile.get)).map(result => result.map(Option(_)))
-            .getOrElse(Future.successful(None))
-        else
-          Future(None)
-
         val thumbDimensionsFuture = FileMetadataReader.dimensions(thumb, Some("image/jpeg"))
-
-        val pngDimensionsFuture = if (uploadIsPng24)
-          FileMetadataReader.dimensions(optimisedPngFile.get, Some("image/png"))
-        else
-          Future(None)
 
         for {
           s3Source <- sourceStoreFuture
           s3Thumb <- thumbStoreFuture
-          s3PngOption <- pngStoreFuture
+          s3PngOption <- optimisedPng.optimisedFileStoreFuture
           sourceDimensions <- sourceDimensionsFuture
           thumbDimensions <- thumbDimensionsFuture
-          pngDimensions <- pngDimensionsFuture
           fileMetadata <- fileMetadataFuture
           colourModel <- colourModelFuture
           fullFileMetadata = fileMetadata.copy(colourModel = colourModel)
@@ -93,8 +117,8 @@ case object ImageUpload {
 
           sourceAsset = Asset.fromS3Object(s3Source, sourceDimensions)
           thumbAsset = Asset.fromS3Object(s3Thumb, thumbDimensions)
-          pngAsset = if (uploadIsPng24)
-            Some(Asset.fromS3Object(s3PngOption.get, pngDimensions))
+          pngAsset = if (optimisedPng.isPng24)
+            Some(Asset.fromS3Object(s3PngOption.get, sourceDimensions))
           else
             None
 
@@ -129,10 +153,6 @@ case object ImageUpload {
     Some("image/jpeg")
   )
 
-  def storeOptimisedPng(uploadRequest: UploadRequest, optimisedPngFile: File) = ImageStore.storeOptimisedPng(
-    uploadRequest.id,
-    optimisedPngFile
-  )
 
   private def createImage(uploadRequest: UploadRequest, source: Asset, thumbnail: Asset, png: Option[Asset],
                   fileMetadata: FileMetadata, metadata: ImageMetadata): Image = {
@@ -157,14 +177,4 @@ case object ImageUpload {
       List()
     )
   }
-
-  private def isPng24(mimeType: Option[String], fileMetadata: FileMetadata): Boolean =
-    mimeType match {
-      case Some("image/png") => {
-        val colourType = fileMetadata.colourModelInformation.getOrElse("colorType", "")
-        colourType == "True Color" || colourType == "True Color with Alpha"
-      }
-      case _ => false
-    }
-
 }
