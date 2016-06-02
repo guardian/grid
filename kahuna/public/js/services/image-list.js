@@ -31,6 +31,10 @@ imageList.factory('imageList', ['imageAccessor', function(imageAccessor) {
         return images.map(imageAccessor.readCost);
     }
 
+    function getLeases(images) {
+        return images.map(imageAccessor.readLeases);
+    }
+
     function getLabels(images) {
         return images.
             flatMap(imageAccessor.readLabels).
@@ -64,6 +68,7 @@ imageList.factory('imageList', ['imageAccessor', function(imageAccessor) {
         archivedCount,
         getCost,
         getLabels,
+        getLeases,
         getMetadata,
         getExtraInfo,
         getOccurrences,

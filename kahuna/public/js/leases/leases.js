@@ -1,4 +1,6 @@
 import angular from 'angular';
+import Rx from 'rx';
+import Immutable from 'immutable';
 import template from './leases.html!text';
 import '../util/rx';
 
@@ -31,14 +33,10 @@ leases.controller(
                 $window.alert('Please select an access type (Allow or Deny)');
             } else {
                 ctrl.adding = true;
-                ctrl.newLease.mediaId = ctrl.image.data.id;
                 ctrl.newLease.createdAt = new Date();
                 ctrl.newLease.access = ctrl.access;
 
-                leaseService.add(ctrl.image, ctrl.newLease)
-                    .then(() => {
-                        ctrl.updateLeases(ctrl.image);
-                    })
+                leaseService.batchAdd(ctrl.images, ctrl.newLease)
                     .catch(() =>
                         alertFailed('Something went wrong when saving, please try again!')
                     )
@@ -55,17 +53,10 @@ leases.controller(
             return Boolean(ctrl.access ||  !!ctrl.newLease.access);
         };
 
-        ctrl.updateLeases = (image) => {
-            const leases$ = leaseService.getLeases(image)
-                .map((leasesResponse) => leasesResponse.data);
-
-            inject$($scope, leases$, ctrl, 'leases');
-        };
 
 
         ctrl.delete = (lease) => {
             leaseService.deleteLease(lease)
-                .then(() => ctrl.updateLeases(ctrl.image))
                 .catch(
                     () => alertFailed('Something when wrong when deleting, please try again!')
                 );
@@ -74,9 +65,12 @@ leases.controller(
 
 
         ctrl.updatePermissions = () => {
-            leaseService.canUserEdit(ctrl.image).then(editable => {
-                ctrl.userCanEdit = editable;
-            });
+            const editable$ = Rx.Observable.fromPromise(
+                $q.all(ctrl.images.map((image) => {
+                    return leaseService.canUserEdit(image)
+                }))
+            )//.map(allEditable => allEditable.every(v => v === true));
+            inject$($scope, editable$, ctrl, 'editable');
         };
 
 
@@ -125,9 +119,12 @@ leases.controller(
             $rootScope.$emit('leases-updated', ctrl.leases);
         });
 
+        $scope.$watch(() => ctrl.images, () => {
+            ctrl.leases = leaseService.getLeases2(ctrl.images)
+        });
+
         ctrl.resetLeaseForm();
         ctrl.updatePermissions();
-        ctrl.updateLeases(ctrl.image);
 }]);
 
 
@@ -141,6 +138,7 @@ leases.directive('grLeases', [function() {
         template: template,
         scope: {
             image: '=grImage',
+            images: '=grImages',
             grSmall: '=?',
             onCancel: '&?grOnCancel',
             onSave: '&?grOnSave'

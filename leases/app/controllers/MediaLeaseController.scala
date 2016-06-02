@@ -12,7 +12,7 @@ import play.api.libs.concurrent.Execution.Implicits._
 
 import play.api.libs.json._
 
-import com.gu.mediaservice.model.{MediaLease, LeaseByMedia, LeaseByMediaWriter}
+import com.gu.mediaservice.model.{MediaLease, LeaseByMedia}
 
 import com.gu.mediaservice.lib.auth
 import com.gu.mediaservice.lib.auth._
@@ -32,8 +32,7 @@ object AppIndex {
 
 object MediaLeaseController extends Controller
   with ArgoHelpers
-  with ControllerHelper
-  with LeaseByMediaWriter{
+  with ControllerHelper {
 
   import lib.Config._
 
@@ -64,7 +63,7 @@ object MediaLeaseController extends Controller
     )
   }}
 
-  def deleteLease(id: String) = Authenticated.async { request =>
+  def deleteLease(id: String) = Authenticated.async { implicit request =>
     Future {
       for {
         lease    <- LeaseStore.get(id)

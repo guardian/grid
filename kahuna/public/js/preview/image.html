@@ -116,6 +116,17 @@
             </gr-archiver-status>
 
             <div class="bottom-bar__action bottom-bar__action--cost preview__cost"
+              ng:if="ctrl.leasedStatus"
+              ng:switch="ctrl.leaseStatus">
+              <div ng:switch-when="allowed" class="allowed" style="background-color: green;">
+                <gr-icon>warning</gr-icon>
+              </div>
+              <div ng:switch-when="denied" class="denied" style="background-color: red;">
+                <gr-icon>warning</gr-icon>
+              </div>
+            </div>
+
+            <div class="bottom-bar__action bottom-bar__action--cost preview__cost"
                  ng:if="ctrl.flagState !== 'free'"
                  ng:switch="ctrl.flagState">
                 <div ng:switch-when="no_rights"
@@ -133,6 +144,7 @@
                     <!-- material icons doesn't have a £ icon -->
                     <span>£</span>
                 </div>
+
 
                 <div ng:switch-when="conditional"
                      class="cost cost--conditional"

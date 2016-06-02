@@ -25,6 +25,10 @@ imageAccessor.factory('imageAccessor', function() {
         return userMetadata.data.labels.data;
     }
 
+    function readLeases(image) {
+        return image.data.leases.data;
+    }
+
     function readMetadata(image) {
         return image.data.metadata;
     }
@@ -64,6 +68,7 @@ imageAccessor.factory('imageAccessor', function() {
     return {
         readCost,
         readLabels,
+        readLeases,
         readMetadata,
         readExtraInfo,
         readUsageRights,

@@ -49,32 +49,31 @@
 
 
 <div class="leases__wrapper">
-
-  <ul class="current-leases">
-    <li ng-repeat="lease in ctrl.leases.leases"
-        gr:tooltip="{{ctrl.toolTip(lease.data)}}"
+  <ul class="expired-leases">
+    <li ng-repeat="lease in ctrl.leases"
+        gr:tooltip="{{ctrl.toolTip(lease)}}"
         class="lease__item"
         gr:tooltip-position="left">
 
-        <div class="lease__current" ng:class="ctrl.leaseStatus(lease.data).current" ng:if="ctrl.leaseStatus(lease.data).current"></div>
+        <div class="lease__current" ng:class="ctrl.leaseStatus(lease).current" ng:if="ctrl.leaseStatus(lease).current"></div>
 
         <div class="lease__access"
-            ng:class="[ctrl.leaseStatus(lease.data).active, ctrl.leaseStatus(lease.data).access]"
+            ng:class="[ctrl.leaseStatus(lease).active, ctrl.leaseStatus(lease).access]"
         ></div>
 
 
         <div class="lease__wrapper">
           <div class="lease">
             <gr-confirm-delete class="gr-delete-lease flex-right"
-              gr-on-confirm="ctrl.delete(lease.data)"
+              gr-on-confirm="ctrl.delete(lease)"
               gr-tooltip="Delete lease">
             </gr-confirm-delete>
 
             <div class="lease__text">
-              <span ng:if="lease.data.startDate">{{lease.data.startDate | date:'d MMM yyyy'}}</span>
-              <span ng:if="lease.data.endDate">until {{lease.data.endDate | date:'d MMM yyyy'}}</span>
+              <span ng:if="lease.startDate">{{lease.startDate | date:'d MMM yyyy'}}</span>
+              <span ng:if="lease.endDate">until {{lease.endDate | date:'d MMM yyyy'}}</span>
 
-              <p ng:if="lease.data.notes"> {{lease.data.notes}} </p>
+              <p ng:if="lease.notes"> {{lease.notes}} </p>
             </div>
           </div>
       </div>

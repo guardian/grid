@@ -38,8 +38,9 @@ image.controller('uiPreviewImageCtrl', [
 
     const freeUpdateListener = $rootScope.$on('image-updated', (e, updatedImage) => {
         if (ctrl.image.data.id === updatedImage.data.id) {
-            ctrl.states = imageService(updatedImage).states;
-            ctrl.image = updatedImage;
+            ctrl.leaseStatus  = imageService(ctrl.image).leaseStatus;
+            ctrl.states       = imageService(updatedImage).states;
+            ctrl.image        = updatedImage;
         }
 
     });
@@ -50,7 +51,7 @@ image.controller('uiPreviewImageCtrl', [
     const hasRights = ctrl.states.hasRights;
 
     ctrl.flagState = hasRights ? ctrl.states.cost : 'no_rights';
-
+    ctrl.leaseStatus  = imageService(ctrl.image).leaseStatus;
 
     const hasPrintUsages$ =
         imageUsagesService.getUsages(ctrl.image).hasPrintUsages$;

@@ -2,6 +2,8 @@ package lib
 
 import java.net.URI
 
+import play.api.libs.json.{Json, JsObject, Writes}
+
 import scala.util.Try
 
 import play.api.mvc.Security.AuthenticatedRequest
@@ -10,7 +12,7 @@ import com.gu.mediaservice.lib.auth
 import com.gu.mediaservice.lib.auth.{AuthenticatedService, PandaUser, Principal, KeyStore}
 import com.gu.mediaservice.lib.argo.model._
 import com.gu.mediaservice.lib.argo._
-import com.gu.mediaservice.model.MediaLease
+import com.gu.mediaservice.model.{LeaseByMedia, DateFormat, MediaLease}
 
 
 case class InvalidPrinciple(message: String) extends Throwable
@@ -34,6 +36,17 @@ trait ControllerHelper extends ArgoHelpers {
       uri = lease.id.map(leaseUri).get,
       data = lease
     )
+  }
+
+  implicit val dateTimeFormat = DateFormat
+  implicit val writer = new Writes[LeaseByMedia] {
+    def writes(leaseByMedia: LeaseByMedia) = {
+      LeaseByMedia.toJson(
+        Json.toJson(leaseByMedia.leases.map(wrapLease)),
+        Json.toJson(leaseByMedia.current.map(wrapLease)),
+        Json.toJson(leaseByMedia.lastModified.map(lm => Json.toJson(lm)))
+      )
+    }
   }
 
   private def uri(u: String) = URI.create(u)

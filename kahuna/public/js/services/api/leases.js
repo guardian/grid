@@ -2,6 +2,8 @@ import angular from 'angular';
 import Rx from 'rx';
 
 import './media-api';
+import '../../services/image-list';
+
 import {service} from '../../edits/service';
 
 var leaseService = angular.module('kahuna.services.lease', [
@@ -12,9 +14,10 @@ leaseService.factory('leaseService', [
   '$rootScope',
   '$q',
   'imageAccessor',
+  'imageList',
   'mediaApi',
   'editsService',
-  function ($rootScope, $q, imageAccessor, mediaApi, editsService) {
+  function ($rootScope, $q, imageAccessor, imageList, mediaApi, editsService) {
     var leasesRoot;
     function getLeasesRoot() {
         if (! leasesRoot) {
@@ -23,12 +26,24 @@ leaseService.factory('leaseService', [
         return leasesRoot;
     }
 
-    function add(image, lease) {
-      return image.perform('add-lease', {body: lease});
+    function getLeases2(images) {
+      console.log("images", images)
+      console.log("get leases", imageList.getLeases(images))
+      return imageList.getLeases(images).reduce((a, b) => a.concat(b));
     }
 
-    function getLeases(image){
-      return Rx.Observable.fromPromise(getByMediaId(image));
+    function add(image, lease) {
+      var newLease = angular.copy(lease);
+      newLease.mediaId = image.data.id
+      return image.perform('add-lease', {body: newLease});
+    }
+
+    function batchAdd(images, lease) {
+      return $q.all(images.map(image => add(image, lease)));
+    }
+
+    function getLeases(images){
+      return $q.all(images.map(image => getByMediaId(image)));
     }
 
     function canUserEdit(image){
@@ -59,11 +74,13 @@ leaseService.factory('leaseService', [
 
     return {
         add,
+        batchAdd,
         getLeases,
         canUserEdit,
         deleteLease,
         getByMediaId,
-        allowedByLease
+        allowedByLease,
+        getLeases2
     };
 }]);
 
