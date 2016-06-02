@@ -45,15 +45,15 @@
     <div class="gallery__controls">
 
         <button class="gallery__control gallery__control--left"
-                ng:click="galleryCtrl.prevItem()">
+                ng:click="galleryCtrl.prevItem()"
+                title="Previous">
             <gr-icon>navigate_before</gr-icon>
-            <span class="visibly-hidden">Previous</span>
         </button>
 
         <button class="gallery__control gallery__control--right"
-                ng:click="galleryCtrl.nextItem()">
+                ng:click="galleryCtrl.nextItem()"
+                title="Next">
             <gr-icon>navigate_next</gr-icon>
-            <span class="visibly-hidden">Next</span>
         </button>
     </div>
 
