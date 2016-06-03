@@ -19,7 +19,9 @@ lazyGallery.controller('GuLazyGalleryCtrl', [function() {
 
     ctrl.init = function({items$, totalItems$, preloadedItems$, currentIndex$}) {
         const itemsCount$ = items$.map(items => items.length).distinctUntilChanged();
-        const totalItemsCount$ = totalItems$.map(totalItems => totalItems.length).distinctUntilChanged();
+        const totalItemsCount$ = totalItems$.map(totalItems => {
+            return totalItems.length;
+        }).distinctUntilChanged();
 
         const buttonCommands$ = Rx.Observable.create(observer => {
             ctrl.prevItem     = () => observer.onNext('prevItem');
