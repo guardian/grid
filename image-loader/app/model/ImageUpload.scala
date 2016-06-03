@@ -2,6 +2,7 @@ package model
 
 import java.io.File
 
+import com.gu.mediaservice.lib.Files._
 import com.gu.mediaservice.lib.aws.S3Object
 import lib.Config._
 import play.api.libs.concurrent.Execution.Implicits._
@@ -21,16 +22,18 @@ import scala.sys.process._
 import lib.storage.ImageStore
 import com.gu.mediaservice.model._
 
-case class OptimisedPng(optimisedFileStoreFuture: Future[Option[S3Object]], isPng24: Boolean)
+case class OptimisedPng(optimisedFileStoreFuture: Future[Option[S3Object]], isPng24: Boolean,
+                        optimisedTempFile: Option[File])
 
 case object OptimisedPng {
 
-  private def isPng24(mimeType: Option[String], fileMetadata: FileMetadata): Boolean =
+  private def isPng24(mimeType: Option[String], fileMetadata: FileMetadata): Boolean = 
+
     mimeType match {
       case Some("image/png") => {
-        fileMetadata.colourModelInformation.get("colourType") match {
-          case Some("True Colour") => true
-          case Some("True Colour with Alpha") => true
+        fileMetadata.colourModelInformation.get("colorType") match {
+          case Some("True Color") => true
+          case Some("True Color with Alpha") => true
           case _ => false
         }
       }
@@ -42,22 +45,22 @@ case object OptimisedPng {
     optimisedPngFile
   )
 
-  def build (file: File, uploadRequest: UploadRequest, fileMetadata: FileMetadata) = {
+  def build (file: File, uploadRequest: UploadRequest, fileMetadata: FileMetadata): OptimisedPng = {
     if (isPng24(uploadRequest.mimeType, fileMetadata)) {
       val optimisedFile = {
-        val optimsedFile = tempDir.getAbsolutePath() + "/optimisedpng" + ".png"
-        Seq("pngquant", "--quality", "1-85", file.getAbsolutePath(), "--output", optimsedFile)
-        new File(optimsedFile)
+        val optimisedFilePath = tempDir.getAbsolutePath() + "/optimisedpng" + ".png"
+        Seq("pngquant", "--quality", "1-85", file.getAbsolutePath(), "--output", optimisedFilePath).!
+        new File(optimisedFilePath)
       }
       val pngStoreFuture: Future[Option[S3Object]] = Some(storeOptimisedPng(uploadRequest, optimisedFile))
         .map(result => result.map(Option(_)))
         .getOrElse(Future.successful(None))
 
-      OptimisedPng(pngStoreFuture, true)
+      OptimisedPng(pngStoreFuture, true, Some(optimisedFile))
     }
 
     else {
-      OptimisedPng(Future(None), false)
+      OptimisedPng(Future(None), false, None)
     }
   }
 }
@@ -117,6 +120,7 @@ case object ImageUpload {
 
           sourceAsset = Asset.fromS3Object(s3Source, sourceDimensions)
           thumbAsset = Asset.fromS3Object(s3Thumb, thumbDimensions)
+
           pngAsset = if (optimisedPng.isPng24)
             Some(Asset.fromS3Object(s3PngOption.get, sourceDimensions))
           else
@@ -132,6 +136,8 @@ case object ImageUpload {
           )
         }
           yield {
+            if (optimisedPng.isPng24)
+              optimisedPng.optimisedTempFile.get.delete
             ImageUpload(uploadRequest, finalImage)
           }
       }

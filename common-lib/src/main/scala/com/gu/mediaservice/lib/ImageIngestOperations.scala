@@ -4,7 +4,7 @@ import java.io.File
 import scala.concurrent.Future
 import com.amazonaws.auth.AWSCredentials
 
-class ImageIngestOperations(imageBucket: String, thumbnailBucket: String, pngBucket: String, credentials: AWSCredentials)
+class ImageIngestOperations(imageBucket: String, thumbnailBucket: String, credentials: AWSCredentials)
   extends S3ImageStorage(credentials) {
 
   def storeOriginal(id: String, file: File, mimeType: Option[String], meta: Map[String, String] = Map.empty) =
@@ -14,12 +14,12 @@ class ImageIngestOperations(imageBucket: String, thumbnailBucket: String, pngBuc
     storeImage(thumbnailBucket, fileKeyFromId(id), file, mimeType)
 
   def storeOptimisedPng(id: String, file: File) = {
-    storeImage(pngBucket, optimisedPngKeyFromId(id), file, Some("image/png"))
+    storeImage(imageBucket, optimisedPngKeyFromId(id), file, Some("image/png"))
   }
 
   def deleteOriginal(id: String) = deleteImage(imageBucket, fileKeyFromId(id))
   def deleteThumbnail(id: String) = deleteImage(thumbnailBucket, fileKeyFromId(id))
-  def deletePng(id: String) = deleteImage(pngBucket, optimisedPngKeyFromId(id))
+  def deletePng(id: String) = deleteImage(imageBucket, optimisedPngKeyFromId(id))
 
   def optimisedPngKeyFromId(id: String): String = "optimised/" + fileKeyFromId(id: String)
 

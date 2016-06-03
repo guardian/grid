@@ -119,13 +119,13 @@ object ImageResponse extends EditsResponse {
         Some(new URI((source \ "optimisedPng" \ "file").as[String]))
       else
         None
-    
+
     val fileUri = new URI((source \ "source" \ "file").as[String])
     val secureUrl = S3Client.signUrl(Config.imageBucket, fileUri, image, expiration)
     val secureThumbUrl = S3Client.signUrl(Config.thumbBucket, fileUri, image, expiration)
 
     val securePngUrl = if (hasOptimisedPng)
-        Some(S3Client.signUrl(Config.pngBucket, pngFileUri.get, image, expiration))
+        Some(S3Client.signUrl(Config.imageBucket, pngFileUri.get, image, expiration))
       else None
 
     val validityMap    = ImageExtras.validityMap(image)
@@ -163,6 +163,7 @@ object ImageResponse extends EditsResponse {
     val cropLink = Link("crops", s"${Config.cropperUri}/crops/$id")
     val editLink = Link("edits", s"${Config.metadataUri}/metadata/$id")
     val optimisedLink = Link("optimised", makeImgopsUri(new URI(secureUrl)))
+
     val optimisedPngLink = securePngUrl match {
       case Some(secureUrl) => Link("optimisedPng", makeImgopsUri(new URI(secureUrl)))
       case _ => Link("", "")

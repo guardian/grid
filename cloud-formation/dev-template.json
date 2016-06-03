@@ -155,27 +155,6 @@
                 "Bucket": { "Ref": "ThumbBucket" }
             }
         },
-        "OptimisedPngBucket": {
-            "Type": "AWS::S3::Bucket"
-        },
-        "OptimisedPngBucketPolicy": {
-            "Type": "AWS::S3::BucketPolicy",
-            "Properties": {
-                "PolicyDocument": {
-                    "Id": "OptimisedPngBucketPolicy",
-                    "Statement": [ {
-                        "Sid": "OptimisedPngBucketWriteAccess",
-                        "Action": [ "s3:PutObject", "s3:GetObject", "s3:DeleteObject" ],
-                        "Effect": "Allow",
-                        "Resource": { "Fn::Join": [ "",
-                            [ "arn:aws:s3:::", { "Ref": "OptimisedPngBucket" } , "/*" ] ]
-                        },
-                        "Principal": { "AWS": { "Fn::GetAtt": [ "User", "Arn" ] } }
-                    } ]
-                },
-                "Bucket": { "Ref": "OptimisedPngBucket" }
-            }
-        },
 
         "KeyBucket": {
             "Type": "AWS::S3::Bucket"
@@ -719,9 +698,6 @@
         },
         "ThumbBucket": {
             "Value": { "Ref": "ThumbBucket" }
-        },
-        "OptimisedPngBucket": {
-            "Value": { "Ref": "OptimisedPngBucket" }
         },
         "KeyBucket": {
             "Value": { "Ref": "KeyBucket" }
