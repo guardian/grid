@@ -14,7 +14,7 @@ trait ArgoHelpers extends Results {
   // FIXME: DSL to append links and actions?
   def respond[T](data: T, links: List[Link] = Nil, actions: List[Action] = Nil, uri: Option[URI] = None)
                 (implicit writes: Writes[T]): Result = {
-    val response = EntityReponse(
+    val response = EntityResponse(
       uri     = uri,
       data    = data,
       links   = links,
@@ -27,7 +27,7 @@ trait ArgoHelpers extends Results {
   def respondCollection[T](data: Seq[T], offset: Option[Long] = None, total: Option[Long] = None,
                            links: List[Link] = Nil, uri: Option[URI] = None)
                           (implicit writes: Writes[T]): Result = {
-    val response = CollectionReponse(
+    val response = CollectionResponse(
       uri    = uri,
       offset = offset,
       length = Some(data.size),
@@ -42,7 +42,7 @@ trait ArgoHelpers extends Results {
 // TODO: bring back once useful (causes Scala compiler tears)
 //  def respondError[T](errorStatus: Status, errorKey: String, errorMessage: String, data: Option[T], links: List[Link] = Nil)
 //                     (implicit writes: Writes[T]): Result = {
-//    val response = ErrorReponse(
+//    val response = ErrorResponse(
 //      errorKey     = errorKey,
 //      errorMessage = errorMessage,
 //      data         = data,
@@ -54,7 +54,7 @@ trait ArgoHelpers extends Results {
 
   // TODO: find a nicer way to serialise ErrorResponse[Nothing] without this hack
   def respondError(errorStatus: Status, errorKey: String, errorMessage: String, links: List[Link] = Nil): Result = {
-    val response = ErrorReponse[Int](
+    val response = ErrorResponse[Int](
       errorKey     = errorKey,
       errorMessage = errorMessage,
       data         = None,
@@ -65,7 +65,7 @@ trait ArgoHelpers extends Results {
   }
 
   def respondNotFound(errorMessage: String): Result = {
-    val response = ErrorReponse[Int](
+    val response = ErrorResponse[Int](
       errorKey     = "not-found",
       errorMessage = errorMessage,
       data         = None,

@@ -6,7 +6,7 @@ import com.gu.mediaservice.model.{UsageRights, ImageMetadata, Edits}
 import play.api.libs.json._
 import play.api.libs.functional.syntax._
 
-import com.gu.mediaservice.lib.argo.model.EntityReponse
+import com.gu.mediaservice.lib.argo.model.EntityResponse
 
 import com.gu.mediaservice.picdarexport.lib.{Config, LogHelper}
 import com.gu.mediaservice.picdarexport.lib.ExecutionContexts.mediaApi
@@ -106,7 +106,7 @@ trait MediaApi extends LogHelper {
 
   def overrideUsageRights(usageRightsOverrideUri: URI, usageRights: UsageRights): Future[Unit] = Future {
     logDuration("MediaApi.overrideUsageRights") {
-      val usageRightsString = Json.stringify(Json.toJson(EntityReponse(data = usageRights)))
+      val usageRightsString = Json.stringify(Json.toJson(EntityResponse(data = usageRights)))
       val response = Http(usageRightsOverrideUri.toString).
         header("X-Gu-Media-Key", mediaApiKey).
         timeout(mediaApiConnTimeout, mediaApiReadTimeout).

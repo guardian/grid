@@ -31,7 +31,7 @@ case object LeaseByMedia {
 }
 
 trait LeaseByMediaWriter {
-  def wrapLease(lease: MediaLease): EntityReponse[MediaLease]
+  def wrapLease(lease: MediaLease): EntityResponse[MediaLease]
 
   implicit val dateTimeFormat = DateFormat
   implicit val writer = new Writes[LeaseByMedia] {

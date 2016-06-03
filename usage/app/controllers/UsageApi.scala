@@ -16,7 +16,7 @@ import play.utils.UriEncoding
 import rx.lang.scala.Observable
 
 import com.gu.mediaservice.lib.argo.ArgoHelpers
-import com.gu.mediaservice.lib.argo.model.{Action, Link, EntityReponse}
+import com.gu.mediaservice.lib.argo.model.{Action, Link, EntityResponse}
 import com.gu.mediaservice.lib.auth
 import com.gu.mediaservice.lib.auth.KeyStore
 import com.gu.mediaservice.lib.aws.NoItemFound
@@ -33,8 +33,8 @@ object UsageApi extends Controller with ArgoHelpers {
   val keyStore = new KeyStore(keyStoreBucket, awsCredentials)
   val Authenticated = auth.Authenticated(keyStore, loginUriTemplate, kahunaUri)
 
-  private def wrapUsage(usage: Usage): EntityReponse[Usage] = {
-    EntityReponse(
+  private def wrapUsage(usage: Usage): EntityResponse[Usage] = {
+    EntityResponse(
       uri = usageUri(usage.id),
       data = usage
     )
@@ -100,7 +100,7 @@ object UsageApi extends Controller with ArgoHelpers {
             Link("media", s"${services.apiBaseUri}/images/${mediaId}")
           )
 
-          respondCollection[EntityReponse[Usage]](
+          respondCollection[EntityResponse[Usage]](
             uri = uri,
             links = links,
             data = usages.map(wrapUsage)

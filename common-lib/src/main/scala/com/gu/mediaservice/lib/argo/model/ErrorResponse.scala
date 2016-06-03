@@ -8,7 +8,7 @@ import play.api.libs.functional.syntax._
 import com.gu.mediaservice.lib.argo.WriteHelpers
 
 
-case class ErrorReponse[T](
+case class ErrorResponse[T](
   uri: Option[URI] = None,
   errorKey: String,
   errorMessage: String,
@@ -16,14 +16,14 @@ case class ErrorReponse[T](
   links: List[Link] = List()
 )
 
-object ErrorReponse extends WriteHelpers {
+object ErrorResponse extends WriteHelpers {
 
-  implicit def errorResponseWrites[T: Writes]: Writes[ErrorReponse[T]] = (
+  implicit def errorResponseWrites[T: Writes]: Writes[ErrorResponse[T]] = (
     (__ \ "uri").writeNullable[String].contramap((_: Option[URI]).map(_.toString)) ~
       (__ \ "errorKey").write[String] ~
       (__ \ "errorMessage").write[String] ~
       (__ \ "data").writeNullable[T] ~
       (__ \ "links").writeNullable[List[Link]].contramap(someListOrNone[Link])
-    )(unlift(ErrorReponse.unapply[T]))
+    )(unlift(ErrorResponse.unapply[T]))
 
 }
