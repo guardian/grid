@@ -15,12 +15,6 @@ toggleButton.directive('grToggleButton', [function() {
         },
         link: function(scope) {
 
-            scope.trackingName = 'Toggle Button';
-            scope.trackingData = action => ({
-                'Toggle name': scope.name,
-                'Action': action
-            });
-
             const setName = function() {
                 scope.showHide = scope.toggleVar ? 'Hide' : 'Show';
             };

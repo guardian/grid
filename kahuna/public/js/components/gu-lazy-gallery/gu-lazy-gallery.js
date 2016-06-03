@@ -17,10 +17,6 @@ function asInt(string) {
 lazyGallery.controller('GuLazyGalleryCtrl', [function() {
     let ctrl = this;
 
-    ctrl.trackingData = action => ({
-        'Action': action
-    });
-
     ctrl.init = function({items$, totalItems$, preloadedItems$, currentIndex$}) {
         const itemsCount$ = items$.map(items => items.length).distinctUntilChanged();
         const totalItemsCount$ = totalItems$.map(totalItems => totalItems.length).distinctUntilChanged();
