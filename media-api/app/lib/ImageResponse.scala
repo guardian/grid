@@ -28,7 +28,7 @@ object ImageResponse extends EditsResponse {
   type UsagesEntity = EmbeddedEntity[List[UsageEntity]]
 
   type MediaLeaseEntity = EmbeddedEntity[MediaLease]
-  type MediaLeasesEntity = EmbeddedEntity[List[MediaLease]]
+  type MediaLeasesEntity = EmbeddedEntity[LeaseByMedia]
 
   def hasPersistenceIdentifier(image: Image) =
     image.identifiers.contains(Config.persistenceIdentifier)
@@ -251,7 +251,7 @@ object ImageResponse extends EditsResponse {
     (__ \ "usages").write[UsagesEntity]
       .contramap(usagesEntity(id, _: List[Usage])) ~
     (__ \ "leases").write[MediaLeasesEntity]
-        .contramap(leasesEntity(id, _: List[MediaLease])) ~
+        .contramap(leasesEntity(id, _: LeaseByMedia)) ~
     (__ \ "collections").write[List[EmbeddedEntity[CollectionResponse]]]
       .contramap((collections: List[Collection]) => collections.map(c => collectionsEntity(id, c)))
   )(unlift(Image.unapply))
@@ -268,8 +268,8 @@ object ImageResponse extends EditsResponse {
   def usagesEntity(id: String, usages: List[Usage]) =
     EmbeddedEntity[List[UsageEntity]](usagesUri(id), Some(usages.map(usageEntity)))
 
-  def leasesEntity(id: String, leases: List[MediaLease]) =
-    EmbeddedEntity[List[MediaLease]](leasesUri(id), Some(leases))
+  def leasesEntity(id: String, leaseByMedia: LeaseByMedia) =
+    EmbeddedEntity[LeaseByMedia](leasesUri(id), Some(leaseByMedia))
 
   def collectionsEntity(id: String, c: Collection): EmbeddedEntity[CollectionResponse] =
       collectionEntity(Config.collectionsUri, id, c)

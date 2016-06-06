@@ -199,18 +199,25 @@ object Mappings {
     )(nestedType)
 
 
-  val leasesMapping =
-    nonDynamicObjWithAttrs(
-      "id"   -> nonAnalyzedString,
+  val leaseMapping =
+    nonDynamicObj(
+      "id"       -> nonAnalyzedString,
       "leasedBy" -> nonAnalyzedString,
-      "startDate" -> dateFormat,
-      "endDate" -> dateFormat,
-      "access" -> nonAnalyzedString,
-      "active" -> nonAnalyzedString,
-      "notes" -> sStemmerAnalysedString,
-      "mediaId" -> nonAnalyzedString,
-      "createdAt" -> dateFormat
-    )(nestedType)
+      "startDate"-> dateFormat,
+      "endDate"  -> dateFormat,
+      "access"   -> nonAnalyzedString,
+      "active"   -> nonAnalyzedString,
+      "notes"    -> sStemmerAnalysedString,
+      "mediaId"  -> nonAnalyzedString,
+      "createdAt"-> dateFormat
+    )
+
+  val leasesMapping =
+    nonDynamicObj(
+      "leases"       -> leaseMapping,
+      "current"      -> leaseMapping,
+      "lastModified" -> dateFormat
+    )
 
   val imageMapping: String =
     Json.stringify(Json.obj(

@@ -105,7 +105,7 @@ object MediaLeaseController extends Controller
       respond[LeaseByMedia](
         uri = leasesMediaUri(id),
         links = List(mediaApiLink(id)),
-        data = LeaseByMedia(leases)
+        data = LeaseByMedia.build(leases)
       )
     }
   }

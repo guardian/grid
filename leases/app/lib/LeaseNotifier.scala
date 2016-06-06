@@ -30,7 +30,7 @@ object LeaseNotice {
 
   def build(mediaId: String) : LeaseNotice = {
     val leases = LeaseStore.getForMedia(mediaId)
-    LeaseNotice(mediaId, Json.toJson(LeaseByMedia(leases)))
+    LeaseNotice(mediaId, Json.toJson(LeaseByMedia.build(leases)))
   }
 }
 
