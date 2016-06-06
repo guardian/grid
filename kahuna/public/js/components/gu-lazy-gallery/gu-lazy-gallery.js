@@ -38,7 +38,7 @@ lazyGallery.controller('GuLazyGalleryCtrl', [function() {
                 return {command, itemsCount};
             }).withLatestFrom(
                 currentIndex$,
-                ({command, itemsCount}, currentIndex) => {
+                ({command}, currentIndex) => {
                     return {
                         prevItem:     -1,
                         nextItem:     +1,
