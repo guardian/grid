@@ -48,7 +48,6 @@ object MetadataConfig {
     "David Sillitoe"  -> "The Guardian",
     "Graham Turner"   -> "The Guardian",
     "Helen Davidson"  -> "The Guardian",
-    "James Mann"      -> "The Guardian",
     "Jill Mead"       -> "The Guardian",
     "Jonny Weeks"     -> "The Guardian",
     "Joshua Robertson" -> "The Guardian",
@@ -86,14 +85,9 @@ object MetadataConfig {
   // TODO: Think about removin these once Picdar is dead.
   val internalStaffPhotographers = List(
     "E Hamilton West"       -> "The Guardian",
-    "Emma Baddeley"         -> "The Guardian",
     "Harriet St Johnston"   -> "The Guardian",
-    "James Michelson"       -> "The Guardian",
     "Lorna Roach"           -> "The Guardian",
-    "Marcus Mays"           -> "The Guardian",
-    "Millie Burton"         -> "The Guardian",
     "Rachel Vere"           -> "The Guardian",
-    "Richard Blake"         -> "The Guardian",
     "Ken Saunders"          -> "The Guardian"
   )
 
