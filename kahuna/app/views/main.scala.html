@@ -15,8 +15,8 @@
     <link rel="preconnect" href="@mediaApiUri"/>
     <link rel="preconnect" href="@authApiUri"/>
 
-    <link rel="shortcut icon" type="image/png" href="@routes.Assets.at("images/grid-favicon-32.png")"/>
-    <link rel="assets" href="@routes.Assets.at("")"/>
+    <link rel="shortcut icon" type="image/png" href="@routes.Assets.versioned("images/grid-favicon-32.png")"/>
+    <link rel="assets" href="@routes.Assets.versioned("")"/>
     <link rel="media-api-uri" href="@mediaApiUri" />
     <link rel="reauth-uri" href="@reauthUri" />
 @watUri.map { uri =>
@@ -25,7 +25,7 @@
 @sentryDsn.map { dsn =>
     <link rel="sentry-dsn" href="@dsn" />
 }
-    <link rel="stylesheet" href="@routes.Assets.at("stylesheets/main.css")" />
+    <link rel="stylesheet" href="@routes.Assets.versioned("stylesheets/main.css")" />
 
     <style>
         .ng-cloak { display: none }
@@ -39,8 +39,8 @@
 
     <ui-global-errors></ui-global-errors>
 
-    <script src="@routes.Assets.at("jspm_packages/system.js")"></script>
-    <script src="@routes.Assets.at("config.js")"></script>
+    <script src="@routes.Assets.versioned("jspm_packages/system.js")"></script>
+    <script src="@routes.Assets.versioned("config.js")"></script>
     <script>
       System.import("js/main").catch(function(error) {
           setTimeout(function(){ throw error; });
