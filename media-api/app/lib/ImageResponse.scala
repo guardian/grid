@@ -113,9 +113,10 @@ object ImageResponse extends EditsResponse {
     val secureUrl = S3Client.signUrl(Config.imageBucket, fileUri, image, expiration)
     val secureThumbUrl = S3Client.signUrl(Config.thumbBucket, fileUri, image, expiration)
 
-    val validityMap    = ImageExtras.validityMap(image)
-    val valid          = ImageExtras.isValid(validityMap)
-    val invalidReasons = ImageExtras.invalidReasons(validityMap)
+    val validityMap       = ImageExtras.validityMap(image)
+    val validityOverrides = ImageExtras.validityOverrides(image)
+    val valid             = ImageExtras.isValid(validityMap, validityOverrides)
+    val invalidReasons    = ImageExtras.invalidReasons(validityMap)
 
     val persistenceReasons = imagePersistenceReasons(image)
     val isPersisted = persistenceReasons.nonEmpty

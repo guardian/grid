@@ -65,13 +65,15 @@ object MediaLeaseController extends Controller
 
   def deleteLease(id: String) = Authenticated.async { implicit request =>
     Future {
-      for {
-        lease    <- LeaseStore.get(id)
-        mediaId  = lease.mediaId
-        deletion = LeaseStore.delete(id)
-      } yield LeaseNotifier.send(LeaseNotice.build(mediaId))
+      LeaseStore.get(id).map { lease =>
+        val mediaId = lease.mediaId
+        LeaseStore.delete(id).map { _ =>
+          LeaseNotifier.send(LeaseNotice.build(mediaId))
+        }
+      }
       Accepted
     }
+
   }
 
   def getLease(id: String) = Authenticated.async { request =>

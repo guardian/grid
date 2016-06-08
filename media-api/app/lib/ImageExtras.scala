@@ -24,10 +24,16 @@ object ImageExtras {
   def hasCredit(meta: ImageMetadata) = optToBool(meta.credit)
   def hasDescription(meta: ImageMetadata) = optToBool(meta.description)
 
+  def hasCurrentAllowLease(leases: LeaseByMedia) = optToBool(leases.current.map(_.access.name == "allow"))
+
   def validityMap(image: Image): Map[String, Boolean] = Map(
-    "no_rights"           -> !hasRights(image.usageRights),
-    "missing_credit"              -> !hasCredit(image.metadata),
-    "missing_description"         -> !hasDescription(image.metadata)
+    "no_rights"            -> !hasRights(image.usageRights),
+    "missing_credit"       -> !hasCredit(image.metadata),
+    "missing_description"  -> !hasDescription(image.metadata)
+  )
+
+  def validityOverrides(image: Image): Map[String, Boolean] = Map(
+    "current_allow_lease" -> hasCurrentAllowLease(image.leases)
   )
 
   def invalidReasons(validityMap: Map[String, Boolean]) = validityMap
@@ -38,6 +44,6 @@ object ImageExtras {
       case (id, None) => id -> s"Validity error: ${id}"
     }.toMap
 
-  def isValid(validityMap: Map[String, Boolean]): Boolean =
-    !optToBool(validityMap.find(_._2 == true))
+  def isValid(validityMap: Map[String, Boolean], validityOverrides: Map[String, Boolean]): Boolean =
+    !optToBool(validityMap.find(_._2 == true)) || optToBool(validityOverrides.find(_._2 == true))
 }
