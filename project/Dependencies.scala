@@ -84,6 +84,14 @@ object Dependencies {
     "com.yakaz.elasticsearch.plugins" % "elasticsearch-action-updatebyquery" % "2.2.0"
   )
 
+  val kinesisDeps = Seq(
+    "com.amazonaws" % "amazon-kinesis-client" % "1.2.1",
+    "com.gu" % "content-api-models" % "8.17",
+    "com.twitter" %% "scrooge-core" % "4.6.0",
+    "org.apache.thrift" % "libthrift" % "0.9.1" force(),
+    "com.gu" %% "thrift-serializer" % "1.0.0"
+  )
+
   val legacyBlockingHttp = Seq("org.scalaj" %% "scalaj-http" % "1.1.4")
 
   implicit class DependencySyntax(self: Project) {

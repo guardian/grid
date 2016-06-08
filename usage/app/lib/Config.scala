@@ -16,6 +16,7 @@ object Config extends CommonPlayAppProperties with CommonPlayAppConfig {
     new BasicAWSCredentials(properties("aws.id"), properties("aws.secret"))
 
   val keyStoreBucket = properties("auth.keystore.bucket")
+  val awsRegion = "eu-west-1"
 
   lazy val rootUri = services.metadataBaseUri
   lazy val kahunaUri = services.kahunaBaseUri
@@ -49,4 +50,10 @@ object Config extends CommonPlayAppProperties with CommonPlayAppConfig {
   val dynamoRegion: Region = RegionUtils.getRegion(properties("aws.region"))
 
   val corsAllAllowedOrigins = List(services.kahunaBaseUri)
+
+  val crierKinesisStream = properties("crier.kinesis")
+
+  val crierAppName = properties("crier.app.name")
+
+  val crierArn = properties("crier.arn")
 }

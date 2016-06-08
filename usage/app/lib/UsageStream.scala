@@ -12,6 +12,7 @@ object UsageStream {
   val contentStream = MergedContentStream.observable
 
   val observable = contentStream.flatMap((container: ContentContainer) => {
+    println("now got a container ", container)
     val usageGroupOption = UsageGroup
       .build(container.content, createStatus(container), container.lastModified)
 
