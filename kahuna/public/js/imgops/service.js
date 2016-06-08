@@ -43,8 +43,9 @@ imgops.factory('imgops', ['$window', function($window) {
     };
 
     function isPng24(metadata) {
-        return metadata.data.colourModelInformation && metadata.data.colourModelInformation.colorType &&
-            (metadata.data.colourModelInformation.colorType === 'True Color' || metadata.data.colourModelInformation.colorType === 'True Color with Alpha');
+        return metadata.data.colourModelInformation &&
+            metadata.data.colourModelInformation.colorType &&
+            (/^True Color/.test(metadata.data.colourModelInformation.colorType));
     }
 
 }]);
