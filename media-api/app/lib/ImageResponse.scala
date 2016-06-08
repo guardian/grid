@@ -165,8 +165,8 @@ object ImageResponse extends EditsResponse {
     val optimisedLink = Link("optimised", makeImgopsUri(new URI(secureUrl)))
 
     val optimisedPngLink = securePngUrl match {
-      case Some(secureUrl) => Link("optimisedPng", makeImgopsUri(new URI(secureUrl)))
-      case _ => Link("", "")
+      case Some(secureUrl) => Some(Link("optimisedPng", makeImgopsUri(new URI(secureUrl))))
+      case _ => None
     }
     val imageLink = Link("ui:image",  s"${Config.kahunaUri}/images/$id")
     val usageLink = Link("usages", s"${Config.usageUri}/usages/media/$id")
@@ -174,12 +174,17 @@ object ImageResponse extends EditsResponse {
     val fileMetadataLink = Link("fileMetadata", s"${Config.rootUri}/images/$id/fileMetadata")
 
     val baseLinks = if (withWritePermission) {
-      List(editLink, optimisedLink, imageLink, usageLink, leasesLink, fileMetadataLink, optimisedPngLink)
+      List(editLink, optimisedLink, imageLink, usageLink, leasesLink, fileMetadataLink)
     } else {
-      List(optimisedLink, imageLink, usageLink, leasesLink, fileMetadataLink, optimisedPngLink)
+      List(optimisedLink, imageLink, usageLink, leasesLink, fileMetadataLink)
     }
 
-    if (valid) (cropLink :: baseLinks) else baseLinks
+    val baseLinksWithOptimised = optimisedPngLink match {
+      case Some(link) => link :: baseLinks
+      case None => baseLinks
+    }
+
+    if (valid) (cropLink :: baseLinksWithOptimised) else baseLinksWithOptimised
   }
 
   def imageActions(id: String, isDeletable: Boolean, withWritePermission: Boolean) = {
