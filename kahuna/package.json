@@ -74,7 +74,7 @@
   "scripts": {
     "test": "npm run lint",
     "lint": "jscs public/js/ && jshint public/js --exclude public/js/dist/build.js --exclude public/js/main.js && htmllint public/js/**/*.html",
-    "dist": "jspm bundle js/main public/js/dist/build.js -m --inject --no-mangle",
+    "dist": "jspm bundle js/main public/js/dist/build.js -m --inject --no-mangle && ./dist-fingerprint.sh",
     "undist": "jspm unbundle && rm -f public/js/dist/build.js*",
     "postinstall": "jspm install"
   },
