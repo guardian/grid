@@ -81,8 +81,14 @@ object Build extends Build {
   val thrall = playProject("thrall")
     .libraryDependencies(elasticsearchDeps ++ awsDeps ++ scalazDeps ++ elasticSearchClientDeps)
 
+  import com.typesafe.sbt.web.SbtWeb
+  import com.typesafe.sbt.web.Import._
+  import com.typesafe.sbt.digest.Import._
+
   val kahuna = playProject("kahuna")
     .libraryDependencies(playWsDeps)
+    .enablePlugins(SbtWeb)
+    .settings(pipelineStages := Seq(digest))
 
   val auth = playProject("auth")
     .libraryDependencies(playWsDeps)
