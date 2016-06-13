@@ -139,17 +139,51 @@ object Application extends Controller with ArgoHelpers {
   // TODO: lame, parse into URI object and compare host instead
   def isMediaApiUri(uri: String): Boolean = uri.startsWith(Config.apiUri)
 
+  import org.apache.http.impl.client.HttpClients
+  import org.apache.http.client.methods.HttpGet
+  import org.apache.http.client.utils.URIBuilder
+  import scala.io.Source
+  import java.net.URI
+
   def fetchSourceFromApi(uri: String): Future[SourceImage] = {
-    val imageRequest = WS.url(uri).
-      withHeaders("X-Gu-Media-Key" -> mediaApiKey).
-      withQueryString("include" -> "fileMetadata").
-      get().
-      recoverWith {
-        case NonFatal(e) =>
+
+    case class HttpClientResponse(status: Int, statusText: String, json: JsValue)
+
+    val uriWithParams = (new URIBuilder(uri))
+      .setParameter("include", "fileMetadata")
+      .build
+
+    // MUTANT!
+    val httpGet = new HttpGet(uriWithParams)
+    httpGet.addHeader("X-Gu-Media-Key", mediaApiKey)
+
+    val httpClientResponse = HttpClients.createDefault()
+      .execute(httpGet)
+
+    val responseFuture = Future {
+      val statusLine = httpClientResponse.getStatusLine()
+      val httpEntity = httpClientResponse.getEntity()
+
+      val status         = statusLine.getStatusCode
+      val statusText     = statusLine.getReasonPhrase
+
+      val entityAsString = Source.fromInputStream(httpEntity.getContent).mkString
+      val json           = Json.parse(entityAsString)
+
+      HttpClientResponse(status, statusText, json)
+    }
+
+    responseFuture recoverWith {
+      case NonFatal(e) =>
           Logger.warn(s"HTTP request to fetch source failed: $e")
           Future.failed(ApiRequestFailed)
-      }
-    for (resp <- imageRequest)
+    }
+
+    responseFuture onComplete {
+      case _ => httpClientResponse.close()
+    }
+
+    for (resp <- responseFuture)
     yield {
       if (resp.status == 404) {
         throw ImageNotFound
