@@ -36,43 +36,39 @@ leases.controller(
                 ctrl.newLease.createdAt = new Date();
                 ctrl.newLease.access = ctrl.access;
 
-                leaseService.batchAdd(ctrl.images, ctrl.newLease)
+                leaseService.batchAdd(ctrl.images, ctrl.leases, ctrl.newLease)
                     .catch(() =>
-                        alertFailed('Something went wrong when saving, please try again!')
+                        alertFailed('Something went wrong when saving, please try again.')
                     )
                     .finally(() => {
-                        ctrl.editing = false;
-                        ctrl.adding = false;
                         ctrl.resetLeaseForm();
                 });
             }
         };
 
+        ctrl.updateLeases = () => {
+            leaseService.getLeases2(ctrl.images)
+                .then((flattenedLeases) => {
+                    ctrl.editing = false;
+                    ctrl.adding = false;
+                    ctrl.leases = leaseService.flattenLeases(flattenedLeases);
+                    console.log("LEASESSS", ctrl.leases)
+                });
+        }
 
         ctrl.accessDefined = () => {
-            return Boolean(ctrl.access ||  !!ctrl.newLease.access);
+            return Boolean(ctrl.access || !!ctrl.newLease.access);
         };
 
 
-
         ctrl.delete = (lease) => {
-            leaseService.deleteLease(lease)
+            ctrl.adding = true;
+            leaseService.deleteLease(lease, ctrl.leases, ctrl.images)
                 .catch(
                     () => alertFailed('Something when wrong when deleting, please try again!')
                 );
 
         };
-
-
-        ctrl.updatePermissions = () => {
-            const editable$ = Rx.Observable.fromPromise(
-                $q.all(ctrl.images.map((image) => {
-                    return leaseService.canUserEdit(image)
-                }))
-            )//.map(allEditable => allEditable.every(v => v === true));
-            inject$($scope, editable$, ctrl, 'editable');
-        };
-
 
         ctrl.toolTip = (lease) => {
             const  leasedBy = Boolean(lease.leasedBy) ? `leased by: ${lease.leasedBy}` : ``;
@@ -96,10 +92,10 @@ leases.controller(
         ctrl.leaseStatus = (lease) => {
             const active = lease.active ? 'active ' : ' ';
 
-            let current = '';
-            if (ctrl.leases.current) {
-                current = ctrl.leases.current.data.id == lease.id ? 'current ' : '';
-            }
+            const current = ctrl.leases.current
+                .filter((lease) => lease !== null)
+                .find(l => l.id == lease.id) ? 'current ' : '';
+
             const access = (lease.access.match(/allow/i)) ? 'allowed' : 'denied';
 
             return {
@@ -109,22 +105,17 @@ leases.controller(
             };
         };
 
-
         function alertFailed(message) {
             $window.alert(message);
             ctrl.adding = false;
         }
 
-        $scope.$watch(() => ctrl.leases, () => {
-            $rootScope.$emit('leases-updated', ctrl.leases);
-        });
-
-        $scope.$watch(() => ctrl.images, () => {
-            ctrl.leases = leaseService.getLeases2(ctrl.images)
+        $rootScope.$on('leases-updated', () => {
+            ctrl.updateLeases();
         });
 
         ctrl.resetLeaseForm();
-        ctrl.updatePermissions();
+        ctrl.updateLeases();
 }]);
 
 
@@ -137,7 +128,6 @@ leases.directive('grLeases', [function() {
         bindToController: true,
         template: template,
         scope: {
-            image: '=grImage',
             images: '=grImages',
             grSmall: '=?',
             onCancel: '&?grOnCancel',
