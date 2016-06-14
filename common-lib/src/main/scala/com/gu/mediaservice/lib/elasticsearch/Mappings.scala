@@ -210,6 +210,7 @@ object Mappings {
           "originalUsageRights" -> usageRightsMapping,
           "source" -> assetMapping,
           "thumbnail" -> assetMapping,
+          "optimisedPng" -> assetMapping,
           "userMetadata" -> userMetadataMapping,
           "userMetadataLastModified" -> dateFormat,
           "fileMetadata" -> dynamicObj,
