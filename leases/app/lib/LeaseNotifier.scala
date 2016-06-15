@@ -1,7 +1,6 @@
 package lib
 
-import com.gu.mediaservice.lib.argo.model.EntityReponse
-import com.gu.mediaservice.model.{DateFormat, MediaLease, LeaseByMedia}
+import com.gu.mediaservice.model.{DateFormat, LeaseByMedia}
 import play.api.libs.json._
 import com.gu.mediaservice.lib.formatting._
 import org.joda.time.DateTime

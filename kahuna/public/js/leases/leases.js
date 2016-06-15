@@ -47,12 +47,13 @@ leases.controller(
         };
 
         ctrl.updateLeases = () => {
+            console.log("images", ctrl.images)
             leaseService.getLeases2(ctrl.images)
                 .then((flattenedLeases) => {
                     ctrl.editing = false;
                     ctrl.adding = false;
                     ctrl.leases = leaseService.flattenLeases(flattenedLeases);
-                    console.log("LEASESSS", ctrl.leases)
+                    console.log("leases", ctrl.leases)
                 });
         }
 
@@ -74,6 +75,9 @@ leases.controller(
             const  leasedBy = Boolean(lease.leasedBy) ? `leased by: ${lease.leasedBy}` : ``;
             return leasedBy;
         };
+
+        ctrl.notCurrentLeases = () => ctrl.leases.leases.length - ctrl.leases.current.length
+
 
 
         ctrl.resetLeaseForm = () => {
@@ -111,6 +115,10 @@ leases.controller(
         }
 
         $rootScope.$on('leases-updated', () => {
+            ctrl.updateLeases();
+        });
+
+        $scope.$watch(() => ctrl.images.length, () => {
             ctrl.updateLeases();
         });
 

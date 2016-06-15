@@ -85,7 +85,9 @@ leaseService.factory('leaseService', [
         return untilLeasesChange(images, originalLeaseCount);
       })
       .then(() => getLeases(images))
-      .then(() => $rootScope.$emit('leases-updated'))
+      .then(() => {
+        console.log("immittin like s'mitttin");
+        $rootScope.$emit('leases-updated')})
     }
 
     function untilLeasesChange(images, originalLeaseCount){
