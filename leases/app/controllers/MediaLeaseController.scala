@@ -4,6 +4,8 @@ import java.net.URI
 
 import com.amazonaws.services.dynamodbv2.model.DeleteItemResult
 
+import scala.concurrent.duration._
+import scala.concurrent.Await
 import scala.concurrent.Future
 import scala.util.Try
 
@@ -55,9 +57,12 @@ object MediaLeaseController extends Controller
         respondError(BadRequest, "media-lease-parse-failed", JsError.toFlatJson(e).toString)
       },
       mediaLease => {
-        LeaseStore.put(mediaLease.copy(leasedBy = requestingUser)).map { _ =>
+        val insertion = LeaseStore.put(mediaLease.copy(leasedBy = requestingUser)).map { _ =>
           LeaseNotifier.send(LeaseNotice.build(mediaLease.mediaId))
         }
+
+        // TODO: Remove awaits when UI is updated to read from ES
+        Await.ready(insertion, 30.seconds)
         Accepted
       }
     )
@@ -67,9 +72,12 @@ object MediaLeaseController extends Controller
     Future {
       LeaseStore.get(id).map { lease =>
         val mediaId = lease.mediaId
-        LeaseStore.delete(id).map { _ =>
+        val deletion = LeaseStore.delete(id).map { _ =>
           LeaseNotifier.send(LeaseNotice.build(mediaId))
         }
+
+        // TODO: Remove awaits when UI is updated to read from ES
+        Await.ready(deletion, 30.seconds)
       }
       Accepted
     }
