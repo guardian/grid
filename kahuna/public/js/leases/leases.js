@@ -2,6 +2,8 @@ import angular from 'angular';
 import Rx from 'rx';
 import Immutable from 'immutable';
 import template from './leases.html!text';
+import moment from 'moment';
+
 import '../util/rx';
 
 import '../services/api/leases';
@@ -47,13 +49,11 @@ leases.controller(
         };
 
         ctrl.updateLeases = () => {
-            console.log("images", ctrl.images)
             leaseService.getLeases2(ctrl.images)
                 .then((flattenedLeases) => {
                     ctrl.editing = false;
                     ctrl.adding = false;
                     ctrl.leases = leaseService.flattenLeases(flattenedLeases);
-                    console.log("leases", ctrl.leases)
                 });
         }
 
@@ -78,8 +78,6 @@ leases.controller(
 
         ctrl.notCurrentLeases = () => ctrl.leases.leases.length - ctrl.leases.current.length
 
-
-
         ctrl.resetLeaseForm = () => {
             const oneDayInMilliSeconds = (24 * 60 * 60 * 1000);
             ctrl.newLease = {
@@ -92,6 +90,13 @@ leases.controller(
             ctrl.access = null;
         };
 
+        ctrl.formatTimestamp = (timestamp) => {
+            if (timestamp){
+                return "Expires " + moment(timestamp).fromNow();
+            } else {
+                return "Never expires"
+            }
+        }
 
         ctrl.leaseStatus = (lease) => {
             const active = lease.active ? 'active ' : ' ';

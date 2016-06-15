@@ -115,14 +115,14 @@
                                 readonly="ctrl.selectionMode">
             </gr-archiver-status>
 
-            <div class="bottom-bar__action bottom-bar__action--cost preview__cost"
-              ng:if="ctrl.leasedStatus"
-              ng:switch="ctrl.leaseStatus">
-              <div ng:switch-when="allowed" class="allowed" style="background-color: green;">
-                <gr-icon>warning</gr-icon>
+            <div class="bottom-bar__action bottom-bar__action--lease"
+              ng:if="ctrl.leaseStatus(ctrl.image)"
+              ng:switch="ctrl.leaseStatus(ctrl.image)">
+              <div ng:switch-when="allow" class="allow access">
+                <gr-icon>today</gr-icon>
               </div>
-              <div ng:switch-when="denied" class="denied" style="background-color: red;">
-                <gr-icon>warning</gr-icon>
+              <div ng:switch-when="deny" class="deny access">
+                <gr-icon>today</gr-icon>
               </div>
             </div>
 

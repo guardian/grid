@@ -168,6 +168,17 @@
 
         <div class="result-editor__field-container flex-container flex-center">
             <span class="result-editor__field-label  flex-no-shrink text-small">
+                Leases
+            </span>
+            <div class="result-editor__field-container__leases">
+                <gr-leases  gr:images="[ctrl.image]"
+                            class="leases-flex"
+                ></gr-leases>
+            </div>
+        </div>
+
+        <div class="result-editor__field-container flex-container flex-center">
+            <span class="result-editor__field-label  flex-no-shrink text-small">
                 Labels
             </span>
             <div class="result-editor__field-container__labels" ng:class="{'result-editor__field-container__labels--hidden' : ctrl.inputtingLabel}">

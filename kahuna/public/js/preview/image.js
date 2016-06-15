@@ -42,7 +42,6 @@ image.controller('uiPreviewImageCtrl', [
 
     const freeUpdateListener = $rootScope.$on('image-updated', (e, updatedImage) => {
         if (ctrl.image.data.id === updatedImage.data.id) {
-            ctrl.leaseStatus  = imageService(ctrl.image).leaseStatus;
             ctrl.states       = imageService(updatedImage).states;
             ctrl.image        = updatedImage;
         }
@@ -53,7 +52,7 @@ image.controller('uiPreviewImageCtrl', [
     const hasRights = ctrl.states.hasRights;
 
     ctrl.flagState = hasRights ? ctrl.states.cost : 'no_rights';
-    ctrl.leaseStatus  = imageService(ctrl.image).leaseStatus;
+
 
     const hasPrintUsages$ =
         imageUsagesService.getUsages(ctrl.image).hasPrintUsages$;
@@ -72,6 +71,13 @@ image.controller('uiPreviewImageCtrl', [
         return collection.data.cssColour && `background-color: ${collection.data.cssColour}`;
     };
 
+    ctrl.leaseStatus = (image) => {
+        if (image.data.leases.data.current) {
+            return image.data.leases.data.current.access
+        } else {
+            return undefined
+        }
+    };
 }]);
 
 image.directive('uiPreviewImage', function() {

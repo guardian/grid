@@ -22,10 +22,11 @@
     </div>
     <div class="image-info">
     <dl class="image-info__group image-info__wrap" ng:if="ctrl.displayLeases()">
-        <gr-leases
-            gr:images="[ctrl.image]"
-            gr:on-save="ctrl.showLeases = false"
-            gr:on-cancel="ctrl.showLeases = false">
+        <dt class="image-info__heading image-info__heading--first flex-container image-info__heading--lease">
+            <span class="metadata-line__key flex-spacer">Leases</span>
+        </dt>
+
+        <gr-leases gr:images="[ctrl.image]">
         </gr-leases>
     </dl>
 </div>

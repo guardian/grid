@@ -1263,6 +1263,21 @@ FIXME: what to do with touch devices
     width: 35px;
 }
 
+.bottom-bar__action .allow {
+    background-color: green;
+}
+.bottom-bar__action .deny {
+    background-color: red;
+}
+
+.bottom-bar__action--lease {
+    text-align: center;
+}
+.bottom-bar__action--lease .access {
+    border-radius: 3px;
+    padding-left: 2px;
+    padding-right: 2px;
+}
 
 /* ==========================================================================
    Image actions
@@ -1616,9 +1631,9 @@ FIXME: what to do with touch devices
     color: #CCC;
 }
 
-.image-info__lease {
-    color: #CCC;
-    font-style: italic;
+.image-info__heading--lease {
+    width: 90%;
+    float: left;
 }
 
 
