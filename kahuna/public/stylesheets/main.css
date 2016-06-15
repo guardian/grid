@@ -391,6 +391,12 @@ button[disabled],
     display: initial;
 }
 
+.visibly-hidden {
+    position: absolute;
+    left: -9999px;
+    font-size: 0;
+}
+
 /* ==========================================================================
    Angular
    ========================================================================== */
@@ -1086,6 +1092,7 @@ textarea.ng-invalid {
     color: #999;
 }
 
+
 /* ==========================================================================
    Preview
    ========================================================================== */
@@ -1097,6 +1104,12 @@ textarea.ng-invalid {
 .preview__no-link {
     display: block;
     height: 200px;
+}
+
+.preview__link--large, .preview__no-link--large {
+    height: auto;
+    max-height: calc(100vh - 190px);
+    max-width: 100%;
 }
 
 .preview__image {
@@ -1112,11 +1125,21 @@ textarea.ng-invalid {
     margin: 5px 0;
 }
 
+.preview__info--large {
+    font-size: 1.4rem;
+    max-width: 800px;
+    margin: 0 auto;
+}
+
 .preview__description {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
     margin: 0;
+}
+
+.preview__description--gallery {
+    white-space: normal;
 }
 
 /*
@@ -1195,6 +1218,12 @@ FIXME: what to do with touch devices
     margin-top: 5px;
 }
 
+.preview__bottom-bar--large {
+    font-size: 1.6rem;
+    max-width: 800px;
+    margin: 0 auto 40px;
+}
+
 .preview__quick-select {
     cursor: pointer;
 }
@@ -1204,6 +1233,7 @@ FIXME: what to do with touch devices
     background: linear-gradient(to top, rgba(0, 0, 0, 0), rgba(0, 0, 0, 0.75));
     height: 35px;
     position: absolute;
+    top: 0;
     display: none;
 }
 
@@ -1424,6 +1454,20 @@ FIXME: what to do with touch devices
     height: calc(100% - 60px);
     width: calc(100% - 60px);
     margin-top: 30px;
+}
+
+.easel__image--checkered__background {
+     background-color: #bdbdbd;
+     background-image:
+         linear-gradient(45deg, white 25%, transparent 25%),
+         linear-gradient(135deg, white 25%, transparent 25%),
+         linear-gradient(45deg, transparent 75%, white 75%),
+         linear-gradient(135deg, transparent 75%, white 75%);
+
+    background-size: 20px 20px;
+
+    background-position: 0 0, 10px 0, 10px -10px, 0px 10px;
+
 }
 
 .easel__image {
@@ -2340,4 +2384,3 @@ FIXME: what to do with touch devices
     }
 
 }
-

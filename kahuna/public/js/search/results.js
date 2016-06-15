@@ -8,11 +8,14 @@ import '../util/async';
 import '../util/rx';
 import '../util/seq';
 import '../components/gu-lazy-table/gu-lazy-table';
+import '../components/gu-lazy-gallery/gu-lazy-gallery';
 import '../components/gu-lazy-table-shortcuts/gu-lazy-table-shortcuts';
+import '../components/gu-lazy-gallery-shortcuts/gu-lazy-gallery-shortcuts';
 import '../components/gr-archiver/gr-archiver';
 import '../components/gr-delete-image/gr-delete-image';
 import '../components/gr-downloader/gr-downloader';
 import '../components/gr-panel-button/gr-panel-button';
+import '../components/gr-toggle-button/gr-toggle-button';
 
 export var results = angular.module('kahuna.search.results', [
     'kahuna.services.scroll-position',
@@ -22,10 +25,13 @@ export var results = angular.module('kahuna.search.results', [
     'util.seq',
     'gu.lazyTable',
     'gu.lazyTableShortcuts',
+    'gu.lazyGallery',
+    'gu.lazyGalleryShortcuts',
     'gr.archiver',
     'gr.downloader',
     'gr.deleteImage',
-    'gr.panelButton'
+    'gr.panelButton',
+    'gr.toggleButton'
 ]);
 
 
@@ -91,6 +97,9 @@ results.controller('SearchResultsCtrl', [
 
         ctrl.images = [];
         ctrl.newImagesCount = 0;
+
+        // Gallery control
+        ctrl.galleryView = false;
 
         // Map to track image->position and help remove duplicates
         let imagesPositions;

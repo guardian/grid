@@ -8,7 +8,7 @@ import play.api.libs.functional.syntax._
 import com.gu.mediaservice.lib.argo.WriteHelpers
 
 
-case class CollectionReponse[T](
+case class CollectionResponse[T](
   uri: Option[URI] = None,
   offset: Option[Long] = None,
   length: Option[Long],
@@ -17,15 +17,15 @@ case class CollectionReponse[T](
   links: List[Link] = List()
 )
 
-object CollectionReponse extends WriteHelpers {
+object CollectionResponse extends WriteHelpers {
 
-  implicit def collectionResponseWrites[T: Writes]: Writes[CollectionReponse[T]] = (
+  implicit def collectionResponseWrites[T: Writes]: Writes[CollectionResponse[T]] = (
     (__ \ "uri").writeNullable[String].contramap((_: Option[URI]).map(_.toString)) ~
       (__ \ "offset").writeNullable[Long] ~
       (__ \ "length").writeNullable[Long] ~
       (__ \ "total").writeNullable[Long] ~
       (__ \ "data").write[Seq[T]] ~
       (__ \ "links").writeNullable[List[Link]].contramap(someListOrNone[Link])
-    )(unlift(CollectionReponse.unapply[T]))
+    )(unlift(CollectionResponse.unapply[T]))
 
 }
