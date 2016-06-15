@@ -6,13 +6,15 @@ import scala.collection.JavaConversions._
 
 import com.amazonaws.services.dynamodbv2.AmazonDynamoDBClient
 import com.amazonaws.services.dynamodbv2.document.{KeyAttribute, DynamoDB}
-import com.amazonaws.services.dynamodbv2.model.AttributeValue
+import com.amazonaws.services.dynamodbv2.model.{PutItemResult, AttributeValue}
 
 import com.gu.scanamo._
 import com.gu.mediaservice.model.{MediaLease, MediaLeaseType}
 
 import org.joda.time._
 import cats.data.Validated
+import scala.concurrent.Future
+import scala.concurrent.ExecutionContext.Implicits.global
 import scalaz.syntax.id._
 
 object LeaseStore {
@@ -37,8 +39,8 @@ object LeaseStore {
   private def uuid = Some(UUID.randomUUID().toString)
   private def key(id: String) = UniqueKey(KeyEquals('id, id))
 
-  def put(lease: MediaLease) = Scanamo.put(client)(tableName)(lease.copy(id=uuid))
-  def delete(id: String) = Scanamo.delete(client)(tableName)(key(id))
+  def put(lease: MediaLease) = Future { Scanamo.put[MediaLease](client)(tableName)(lease.copy(id=uuid))  }
+  def delete(id: String) = Future { Scanamo.delete(client)(tableName)(key(id)) }
 
   def get(id: String) =
     Scanamo.get[MediaLease](client)(tableName)(key(id))
