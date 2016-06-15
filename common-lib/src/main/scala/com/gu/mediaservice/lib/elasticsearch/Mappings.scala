@@ -198,6 +198,27 @@ object Mappings {
       "digitalUsageMetadata" -> digitalUsageMetadata
     )(nestedType)
 
+
+  val leaseMapping =
+    nonDynamicObj(
+      "id"       -> nonAnalyzedString,
+      "leasedBy" -> nonAnalyzedString,
+      "startDate"-> dateFormat,
+      "endDate"  -> dateFormat,
+      "access"   -> nonAnalyzedString,
+      "active"   -> nonAnalyzedString,
+      "notes"    -> sStemmerAnalysedString,
+      "mediaId"  -> nonAnalyzedString,
+      "createdAt"-> dateFormat
+    )
+
+  val leasesMapping =
+    nonDynamicObj(
+      "leases"       -> leaseMapping,
+      "current"      -> leaseMapping,
+      "lastModified" -> dateFormat
+    )
+
   val imageMapping: String =
     Json.stringify(Json.obj(
       "image" -> Json.obj(
@@ -223,6 +244,7 @@ object Mappings {
           "suggestMetadataCredit" -> simpleSuggester,
           "usages" -> usagesMapping,
           "usagesLastModified" -> dateFormat,
+          "leases" -> leasesMapping,
           "collections" -> collectionMapping,
           "suggestMetadataCredit" -> simpleSuggester
         ),
