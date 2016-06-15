@@ -28,7 +28,7 @@ object ImageResponse extends EditsResponse {
   type UsagesEntity = EmbeddedEntity[List[UsageEntity]]
 
   type MediaLeaseEntity = EmbeddedEntity[MediaLease]
-  type MediaLeasesEntity = EmbeddedEntity[List[MediaLease]]
+  type MediaLeasesEntity = EmbeddedEntity[LeaseByMedia]
 
   def hasPersistenceIdentifier(image: Image) =
     image.identifiers.contains(Config.persistenceIdentifier)
@@ -128,9 +128,10 @@ object ImageResponse extends EditsResponse {
         Some(S3Client.signUrl(Config.imageBucket, pngFileUri.get, image, expiration))
       else None
 
-    val validityMap    = ImageExtras.validityMap(image)
-    val valid          = ImageExtras.isValid(validityMap)
-    val invalidReasons = ImageExtras.invalidReasons(validityMap)
+    val validityMap       = ImageExtras.validityMap(image)
+    val validityOverrides = ImageExtras.validityOverrides(image)
+    val valid             = ImageExtras.isValid(validityMap, validityOverrides)
+    val invalidReasons    = ImageExtras.invalidReasons(validityMap)
 
     val persistenceReasons = imagePersistenceReasons(image)
     val isPersisted = persistenceReasons.nonEmpty
@@ -291,6 +292,8 @@ object ImageResponse extends EditsResponse {
       .contramap((crops: List[Crop]) => crops.map(Export.fromCrop(_:Crop))) ~
     (__ \ "usages").write[UsagesEntity]
       .contramap(usagesEntity(id, _: List[Usage])) ~
+    (__ \ "leases").write[MediaLeasesEntity]
+        .contramap(leasesEntity(id, _: LeaseByMedia)) ~
     (__ \ "collections").write[List[EmbeddedEntity[CollectionResponse]]]
       .contramap((collections: List[Collection]) => collections.map(c => collectionsEntity(id, c)))
   )(unlift(Image.unapply))
@@ -307,8 +310,8 @@ object ImageResponse extends EditsResponse {
   def usagesEntity(id: String, usages: List[Usage]) =
     EmbeddedEntity[List[UsageEntity]](usagesUri(id), Some(usages.map(usageEntity)))
 
-  def leasesEntity(id: String, leases: List[MediaLease]) =
-    EmbeddedEntity[List[MediaLease]](leasesUri(id), Some(leases))
+  def leasesEntity(id: String, leaseByMedia: LeaseByMedia) =
+    EmbeddedEntity[LeaseByMedia](leasesUri(id), Some(leaseByMedia))
 
   def collectionsEntity(id: String, c: Collection): EmbeddedEntity[CollectionResponse] =
       collectionEntity(Config.collectionsUri, id, c)

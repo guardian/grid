@@ -15,12 +15,14 @@ cropImage.controller('grCropImageCtrl', [
 
         function updateState () {
             leaseService.allowedByLease(ctrl.image).then(allowed => {
-                if (allowed) {
+                if (!angular.isDefined(allowed)) {
                     mediaCropper.canBeCropped(ctrl.image).then(croppable => {
                         ctrl.canBeCropped = croppable;
                     });
-                } else {
+                } else if (allowed.match(/deny/i)) {
                     ctrl.canBeCropped = false;
+                } else if (allowed.match(/allow/i)) {
+                    ctrl.canBeCropped = true;
                 }
             });
         }

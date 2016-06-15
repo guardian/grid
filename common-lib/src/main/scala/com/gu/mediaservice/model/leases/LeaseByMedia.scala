@@ -1,5 +1,6 @@
 package com.gu.mediaservice.model
 
+
 import play.api.libs.json._
 import play.api.libs.functional.syntax._
 import com.gu.mediaservice.lib.argo.model._
@@ -11,7 +12,21 @@ case class LeaseByMedia(
   current: Option[MediaLease]
 )
 case object LeaseByMedia {
-  def apply(leases: List[MediaLease]): LeaseByMedia = {
+  implicit val dateTimeFormat = DateFormat
+  implicit val reader : Reads[LeaseByMedia] = (__ \ "leases").read[List[MediaLease]].map(LeaseByMedia.build(_))
+
+  implicit val writer = new Writes[LeaseByMedia] {
+    def writes(leaseByMedia: LeaseByMedia) = {
+      LeaseByMedia.toJson(
+        Json.toJson(leaseByMedia.leases),
+        Json.toJson(leaseByMedia.current),
+        Json.toJson(leaseByMedia.lastModified.map(lm => Json.toJson(lm)))
+      )
+    }
+  }
+
+
+  def build(leases: List[MediaLease]): LeaseByMedia = {
     def sortLease(a: MediaLease, b: MediaLease) =
       a.createdAt.isAfter(b.createdAt)
 
@@ -28,17 +43,14 @@ case object LeaseByMedia {
 
     LeaseByMedia(sortedLeases, lastModified, currentLease)
   }
-}
 
-trait LeaseByMediaWriter {
-  def wrapLease(lease: MediaLease): EntityResponse[MediaLease]
-
-  implicit val dateTimeFormat = DateFormat
-  implicit val writer = new Writes[LeaseByMedia] {
-    def writes(leaseByMedia: LeaseByMedia) = JsObject(
-      Seq("leases" -> Json.toJson(leaseByMedia.leases.map(wrapLease))) ++
-      leaseByMedia.current.map(l => "current" -> Json.toJson(wrapLease(l))) ++
-      leaseByMedia.lastModified.map(m => "lastModified" -> Json.toJson(m))
+  def toJson(leases: JsValue, current: JsValue, lastModified: JsValue) : JsObject = {
+    JsObject(
+      Seq(
+        "leases" -> leases,
+        "current" -> current,
+        "lastModified" -> lastModified
+      )
     )
   }
 }

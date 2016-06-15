@@ -1,5 +1,9 @@
 import angular from 'angular';
+import Rx from 'rx';
+import Immutable from 'immutable';
 import template from './leases.html!text';
+import moment from 'moment';
+
 import '../util/rx';
 
 import '../services/api/leases';
@@ -31,60 +35,48 @@ leases.controller(
                 $window.alert('Please select an access type (Allow or Deny)');
             } else {
                 ctrl.adding = true;
-                ctrl.newLease.mediaId = ctrl.image.data.id;
                 ctrl.newLease.createdAt = new Date();
                 ctrl.newLease.access = ctrl.access;
 
-                leaseService.add(ctrl.image, ctrl.newLease)
-                    .then(() => {
-                        ctrl.updateLeases(ctrl.image);
-                    })
+                leaseService.batchAdd(ctrl.images, ctrl.leases, ctrl.newLease)
                     .catch(() =>
-                        alertFailed('Something went wrong when saving, please try again!')
+                        alertFailed('Something went wrong when saving, please try again.')
                     )
                     .finally(() => {
-                        ctrl.editing = false;
-                        ctrl.adding = false;
                         ctrl.resetLeaseForm();
                 });
             }
         };
 
+        ctrl.updateLeases = () => {
+            leaseService.getLeases2(ctrl.images)
+                .then((flattenedLeases) => {
+                    ctrl.editing = false;
+                    ctrl.adding = false;
+                    ctrl.leases = leaseService.flattenLeases(flattenedLeases);
+                });
+        }
 
         ctrl.accessDefined = () => {
-            return Boolean(ctrl.access ||  !!ctrl.newLease.access);
-        };
-
-        ctrl.updateLeases = (image) => {
-            const leases$ = leaseService.getLeases(image)
-                .map((leasesResponse) => leasesResponse.data);
-
-            inject$($scope, leases$, ctrl, 'leases');
+            return Boolean(ctrl.access || !!ctrl.newLease.access);
         };
 
 
         ctrl.delete = (lease) => {
-            leaseService.deleteLease(lease)
-                .then(() => ctrl.updateLeases(ctrl.image))
+            ctrl.adding = true;
+            leaseService.deleteLease(lease, ctrl.leases, ctrl.images)
                 .catch(
                     () => alertFailed('Something when wrong when deleting, please try again!')
                 );
 
         };
 
-
-        ctrl.updatePermissions = () => {
-            leaseService.canUserEdit(ctrl.image).then(editable => {
-                ctrl.userCanEdit = editable;
-            });
-        };
-
-
         ctrl.toolTip = (lease) => {
             const  leasedBy = Boolean(lease.leasedBy) ? `leased by: ${lease.leasedBy}` : ``;
             return leasedBy;
         };
 
+        ctrl.notCurrentLeases = () => ctrl.leases.leases.length - ctrl.leases.current.length
 
         ctrl.resetLeaseForm = () => {
             const oneDayInMilliSeconds = (24 * 60 * 60 * 1000);
@@ -98,14 +90,21 @@ leases.controller(
             ctrl.access = null;
         };
 
+        ctrl.formatTimestamp = (timestamp) => {
+            if (timestamp){
+                return "Expires " + moment(timestamp).fromNow();
+            } else {
+                return "Never expires"
+            }
+        }
 
         ctrl.leaseStatus = (lease) => {
             const active = lease.active ? 'active ' : ' ';
 
-            let current = '';
-            if (ctrl.leases.current) {
-                current = ctrl.leases.current.data.id == lease.id ? 'current ' : '';
-            }
+            const current = ctrl.leases.current
+                .filter((lease) => lease !== null)
+                .find(l => l.id == lease.id) ? 'current ' : '';
+
             const access = (lease.access.match(/allow/i)) ? 'allowed' : 'denied';
 
             return {
@@ -115,19 +114,21 @@ leases.controller(
             };
         };
 
-
         function alertFailed(message) {
             $window.alert(message);
             ctrl.adding = false;
         }
 
-        $scope.$watch(() => ctrl.leases, () => {
-            $rootScope.$emit('leases-updated', ctrl.leases);
+        $rootScope.$on('leases-updated', () => {
+            ctrl.updateLeases();
+        });
+
+        $scope.$watch(() => ctrl.images.length, () => {
+            ctrl.updateLeases();
         });
 
         ctrl.resetLeaseForm();
-        ctrl.updatePermissions();
-        ctrl.updateLeases(ctrl.image);
+        ctrl.updateLeases();
 }]);
 
 
@@ -140,7 +141,7 @@ leases.directive('grLeases', [function() {
         bindToController: true,
         template: template,
         scope: {
-            image: '=grImage',
+            images: '=grImages',
             grSmall: '=?',
             onCancel: '&?grOnCancel',
             onSave: '&?grOnSave'
