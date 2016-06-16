@@ -21,6 +21,7 @@ object ThrallMessageConsumer extends MessageConsumer(
       case "update-image-exports"       => updateImageExports
       case "update-image-user-metadata" => updateImageUserMetadata
       case "update-image-usages"        => updateImageUsages
+      case "update-image-leases"        => updateImageLeases
       case "set-image-collections"      => setImageCollections
       case "heartbeat"                  => heartbeat
     }
@@ -48,6 +49,8 @@ object ThrallMessageConsumer extends MessageConsumer(
     Future.sequence( withImageId(metadata)(id => ElasticSearch.applyImageMetadataOverride(id, data, lastModified)))
   }
 
+  def updateImageLeases(leaseByMedia: JsValue) =
+    Future.sequence( withImageId(leaseByMedia)(id => ElasticSearch.updateImageLeases(id, leaseByMedia \ "data", leaseByMedia \ "lastModified")) )
 
   def setImageCollections(collections: JsValue): Future[List[UpdateResponse]]=
     Future.sequence(withImageId(collections)(id => ElasticSearch.setImageCollection(id, collections \ "data")) )

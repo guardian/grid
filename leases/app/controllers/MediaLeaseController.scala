@@ -2,6 +2,10 @@ package controllers
 
 import java.net.URI
 
+import com.amazonaws.services.dynamodbv2.model.DeleteItemResult
+
+import scala.concurrent.duration._
+import scala.concurrent.Await
 import scala.concurrent.Future
 import scala.util.Try
 
@@ -10,14 +14,14 @@ import play.api.libs.concurrent.Execution.Implicits._
 
 import play.api.libs.json._
 
-import com.gu.mediaservice.model.{MediaLease, LeaseByMedia, LeaseByMediaWriter}
+import com.gu.mediaservice.model.{MediaLease, LeaseByMedia}
 
 import com.gu.mediaservice.lib.auth
 import com.gu.mediaservice.lib.auth._
 import com.gu.mediaservice.lib.argo._
 import com.gu.mediaservice.lib.argo.model._
 
-import lib.{LeaseStore, ControllerHelper}
+import lib.{LeaseNotice, LeaseNotifier, LeaseStore, ControllerHelper}
 
 
 case class AppIndex(
@@ -30,8 +34,7 @@ object AppIndex {
 
 object MediaLeaseController extends Controller
   with ArgoHelpers
-  with ControllerHelper
-  with LeaseByMediaWriter{
+  with ControllerHelper {
 
   import lib.Config._
 
@@ -54,17 +57,31 @@ object MediaLeaseController extends Controller
         respondError(BadRequest, "media-lease-parse-failed", JsError.toFlatJson(e).toString)
       },
       mediaLease => {
-        LeaseStore.put(mediaLease.copy(leasedBy = requestingUser))
+        val insertion = LeaseStore.put(mediaLease.copy(leasedBy = requestingUser)).map { _ =>
+          LeaseNotifier.send(LeaseNotice.build(mediaLease.mediaId))
+        }
+
+        // TODO: Remove awaits when UI is updated to read from ES
+        Await.ready(insertion, 30.seconds)
         Accepted
       }
     )
   }}
 
-  def deleteLease(id: String) = Authenticated.async { request =>
+  def deleteLease(id: String) = Authenticated.async { implicit request =>
     Future {
-      LeaseStore.delete(id)
+      LeaseStore.get(id).map { lease =>
+        val mediaId = lease.mediaId
+        val deletion = LeaseStore.delete(id).map { _ =>
+          LeaseNotifier.send(LeaseNotice.build(mediaId))
+        }
+
+        // TODO: Remove awaits when UI is updated to read from ES
+        Await.ready(deletion, 30.seconds)
+      }
       Accepted
     }
+
   }
 
   def getLease(id: String) = Authenticated.async { request =>
@@ -98,7 +115,7 @@ object MediaLeaseController extends Controller
       respond[LeaseByMedia](
         uri = leasesMediaUri(id),
         links = List(mediaApiLink(id)),
-        data = LeaseByMedia(leases)
+        data = LeaseByMedia.build(leases)
       )
     }
   }

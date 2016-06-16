@@ -23,6 +23,7 @@ case class Image(
   originalUsageRights: UsageRights,
   exports:             List[Crop]       = Nil,
   usages:              List[Usage]      = Nil,
+  leases:              LeaseByMedia     = LeaseByMedia.build(Nil),
   collections:         List[Collection] = Nil
 )
 
@@ -51,6 +52,7 @@ object Image {
       (__ \ "originalUsageRights").readNullable[UsageRights].map(_ getOrElse NoRights) ~
       (__ \ "exports").readNullable[List[Crop]].map(_ getOrElse List()) ~
       (__ \ "usages").readNullable[List[Usage]].map(_ getOrElse List()) ~
+      (__ \ "leases").readNullable[LeaseByMedia].map(_ getOrElse LeaseByMedia.build(Nil)) ~
       (__ \ "collections").readNullable[List[Collection]].map(_ getOrElse Nil)
     )(Image.apply _)
 
@@ -72,6 +74,7 @@ object Image {
       (__ \ "originalUsageRights").write[UsageRights] ~
       (__ \ "exports").write[List[Crop]] ~
       (__ \ "usages").write[List[Usage]] ~
+      (__ \ "leases").write[LeaseByMedia] ~
       (__ \ "collections").write[List[Collection]]
     )(unlift(Image.unapply))
 

@@ -117,7 +117,23 @@ object ElasticSearch extends ElasticSearchClient with ImageFields {
     }
   }
 
-def updateImageExports(id: String, exports: JsValue)(implicit ex: ExecutionContext): List[Future[UpdateResponse]] =
+  def updateImageLeases(id: String, leaseByMedia: JsValue, lastModified: JsValue)(implicit ex: ExecutionContext) : List[Future[UpdateResponse]] = {
+    prepareImageUpdate(id){ request =>
+      request.setScriptParams( Map(
+        "leaseByMedia" -> asGroovy(leaseByMedia),
+        "lastModified" -> asGroovy(lastModified)
+      ).asJava)
+        .setScript(
+          replaceLeasesScript +
+            updateLastModifiedScript,
+          scriptType)
+      .executeAndLog(s"updating leases on image $id with: $leaseByMedia")
+      .recover { case e: DocumentMissingException => new UpdateResponse }
+      .incrementOnFailure(failedUsagesUpdates) { case e: VersionConflictEngineException => true }
+    }
+  }
+
+  def updateImageExports(id: String, exports: JsValue)(implicit ex: ExecutionContext): List[Future[UpdateResponse]] = {
     prepareImageUpdate(id) { request =>
       request.setScriptParams(Map(
         "exports" -> asGroovy(exports),
@@ -130,6 +146,7 @@ def updateImageExports(id: String, exports: JsValue)(implicit ex: ExecutionConte
         .executeAndLog(s"updating exports on image $id")
         .incrementOnFailure(failedExportsUpdates) { case e: VersionConflictEngineException => true }
     }
+  }
 
   def deleteImageExports(id: String)(implicit ex: ExecutionContext): List[Future[UpdateResponse]] =
     prepareImageUpdate(id) { request =>
@@ -232,6 +249,9 @@ def updateImageExports(id: String, exports: JsValue)(implicit ex: ExecutionConte
        | ctx._source.usages = usages;
        | ctx._source.usagesLastModified = lastModified;
     """
+
+  private val replaceLeasesScript =
+    """ctx._source.leases = leaseByMedia;"""
 
   // Create the exports key or add to it
   private val addExportsScript =
