@@ -5,6 +5,7 @@ GET     /leases/media/:id                   controllers.MediaLeaseController.get
 DELETE  /leases/media/:id                   controllers.MediaLeaseController.deleteLeasesForMedia(id: String)
 
 # Leases
+GET     /leases/reindex                     controllers.MediaLeaseController.reindex
 GET     /leases/:id                         controllers.MediaLeaseController.getLease(id: String)
 DELETE  /leases/:id                         controllers.MediaLeaseController.deleteLease(id: String)
 POST    /leases                             controllers.MediaLeaseController.postLease

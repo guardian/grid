@@ -37,7 +37,7 @@ object Dependencies {
   )
 
   val scanamoDeps = Seq(
-    "com.gu" %% "scanamo" % "0.3.0"
+    "com.gu" %% "scanamo" % "0.5.0"
   )
 
   val reactiveXDeps = Seq(
