@@ -51,6 +51,18 @@ object MediaLeaseController extends Controller
 
   def index = Authenticated { _ => indexResponse }
 
+  private def notify(mediaId: String) = LeaseNotifier.send(LeaseNotice.build(mediaId))
+
+  def reindex = Authenticated.async { _ => Future {
+    LeaseStore.forEach { leases =>
+      leases
+        .foldLeft(Set[String]())((ids, lease) =>  ids + lease.mediaId)
+        .map(notify)
+    }
+
+    Accepted
+  }}
+
   def postLease = Authenticated.async(parse.json) { implicit request => Future {
     request.body.validate[MediaLease].fold(
       e => {
@@ -58,7 +70,7 @@ object MediaLeaseController extends Controller
       },
       mediaLease => {
         val insertion = LeaseStore.put(mediaLease.copy(leasedBy = requestingUser)).map { _ =>
-          LeaseNotifier.send(LeaseNotice.build(mediaLease.mediaId))
+          notify(mediaLease.mediaId)
         }
         Accepted
       }
@@ -69,9 +81,7 @@ object MediaLeaseController extends Controller
     Future {
       LeaseStore.get(id).map { lease =>
         val mediaId = lease.mediaId
-        val deletion = LeaseStore.delete(id).map { _ =>
-          LeaseNotifier.send(LeaseNotice.build(mediaId))
-        }
+        val deletion = LeaseStore.delete(id).map { _ => notify(mediaId) }
       }
       Accepted
     }
