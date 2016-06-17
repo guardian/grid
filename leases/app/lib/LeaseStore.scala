@@ -4,7 +4,7 @@ import java.util.UUID
 
 import scala.collection.JavaConversions._
 
-import com.amazonaws.services.dynamodbv2.AmazonDynamoDBClient
+import com.amazonaws.services.dynamodbv2.AmazonDynamoDBAsyncClient
 import com.amazonaws.services.dynamodbv2.document.{KeyAttribute, DynamoDB}
 import com.amazonaws.services.dynamodbv2.model.{PutItemResult, AttributeValue}
 
@@ -18,18 +18,20 @@ import scala.concurrent.ExecutionContext.Implicits.global
 import scalaz.syntax.id._
 
 object LeaseStore {
+  import com.gu.scanamo.Table
+  import com.gu.scanamo.query._
   import com.gu.scanamo.syntax._
 
   val tableName = Config.leasesTable
   val indexName = "mediaId"
 
   implicit val dateTimeFormat =
-    DynamoFormat.xmap[DateTime, String](d => Validated.valid(new DateTime(d)))(_.toString)
+    DynamoFormat.coercedXmap[DateTime, String, IllegalArgumentException](DateTime.parse(_))(_.toString)
   implicit val enumFormat =
-    DynamoFormat.xmap[MediaLeaseType, String](e => Validated.valid(MediaLeaseType(e)))(_.toString)
+    DynamoFormat.coercedXmap[MediaLeaseType, String, IllegalArgumentException](MediaLeaseType(_))(_.toString)
 
   lazy val client =
-    new AmazonDynamoDBClient(Config.awsCredentials) <| (_ setRegion Config.dynamoRegion)
+    new AmazonDynamoDBAsyncClient(Config.awsCredentials) <| (_ setRegion Config.dynamoRegion)
 
   lazy val dynamo = new DynamoDB(client)
   lazy val table  = dynamo.getTable(tableName)
@@ -39,8 +41,14 @@ object LeaseStore {
   private def uuid = Some(UUID.randomUUID().toString)
   private def key(id: String) = UniqueKey(KeyEquals('id, id))
 
-  def put(lease: MediaLease) = Future { Scanamo.put[MediaLease](client)(tableName)(lease.copy(id=uuid))  }
-  def delete(id: String) = Future { Scanamo.delete(client)(tableName)(key(id)) }
+  def put(lease: MediaLease) = ScanamoAsync.put[MediaLease](client)(tableName)(lease.copy(id=uuid))
+  def delete(id: String) = ScanamoAsync.delete(client)(tableName)(key(id))
+
+  def forEach(run: List[MediaLease] => Unit) = ScanamoAsync.exec(client)(
+    Table[MediaLease](tableName).scan
+      .map(ops => ops.flatMap(_.toOption))
+      .map(run)
+  )
 
   def get(id: String) =
     Scanamo.get[MediaLease](client)(tableName)(key(id))
