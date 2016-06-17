@@ -88,7 +88,6 @@ leaseService.factory('leaseService', [
     }
 
     function untilLeasesChange(images, originalLeaseCount){
-      const lastImage = images[images.length - 1] || images.last();
       return $q.all(images.map((image) => image.get().then( (apiImage) => {
         const apiLeases = imageAccessor.readLeases(apiImage);
         if (apiLeases.leases.length !== originalLeaseCount) {

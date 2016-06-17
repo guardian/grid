@@ -76,7 +76,7 @@ leases.controller(
             return leasedBy;
         };
 
-        ctrl.notCurrentLeases = () => ctrl.leases.leases.length - ctrl.leases.current.length
+        ctrl.notCurrentLeases = (leases) => leases.leases.length - leases.current.length
 
         ctrl.resetLeaseForm = () => {
             const oneDayInMilliSeconds = (24 * 60 * 60 * 1000);

@@ -48,7 +48,7 @@
 
 <div class="leases__wrapper image-info__wrap">
   <div class="image-info__lease" ng:if="ctrl.images.length > 1">
-    {{ctrl.leases.current.length}} current leases + {{ctrl.notCurrentLeases()}} inactive leases
+    {{ctrl.leases.current.length}} current leases + {{ctrl.notCurrentLeases(ctrl.leases)}} inactive leases
   </div>
 
   <ul ng:if="ctrl.images.length === 1">
