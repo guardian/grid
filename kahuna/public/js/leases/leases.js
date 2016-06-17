@@ -55,7 +55,7 @@ leases.controller(
                     ctrl.adding = false;
                     ctrl.leases = leaseService.flattenLeases(leaseByMedias);
                 });
-        }
+        };
 
         ctrl.accessDefined = () => {
             return Boolean(ctrl.access || !!ctrl.newLease.access);
@@ -76,7 +76,7 @@ leases.controller(
             return leasedBy;
         };
 
-        ctrl.inactiveLeases = (leases) => leases.leases.length - leases.current.length
+        ctrl.inactiveLeases = (leases) => leases.leases.length - leases.current.length;
 
         ctrl.resetLeaseForm = () => {
             const oneDayInMilliSeconds = (24 * 60 * 60 * 1000);
@@ -92,14 +92,14 @@ leases.controller(
 
         ctrl.formatTimestamp = (timestamp) => {
             if (timestamp){
-                const fromNow = moment(timestamp).fromNow()
+                const fromNow = moment(timestamp).fromNow();
                 if (moment(timestamp).diff(moment()) > 0) {
                     return "Expires " + fromNow;
                 } else {
                     return "Expired " + fromNow;
                 }
             } else {
-                return "Never expires"
+                return "Never expires";
             }
         }
 

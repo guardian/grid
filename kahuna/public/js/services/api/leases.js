@@ -38,7 +38,7 @@ leaseService.factory('leaseService', [
 
     function add(image, lease) {
       var newLease = angular.copy(lease);
-      newLease.mediaId = image.data.id
+      newLease.mediaId = image.data.id;
       return image.perform('add-lease', {body: newLease});
     }
 
@@ -70,7 +70,7 @@ leaseService.factory('leaseService', [
             return imageLeases.current.data.access;
           };
         }
-      )
+      );
     }
 
     function pollLeases(images, originalLeaseCount){
@@ -88,15 +88,15 @@ leaseService.factory('leaseService', [
         } else {
           return $q.reject();
         }
-      })))
+      })));
     }
 
     function flattenLeases(leaseByMedias) {
       return {
         current: leaseByMedias.map(l => l.current).filter(c => c !== null),
-        leases: leaseByMedias.map(l => l.leases).reduce((a,b) => a.concat(b)),
+        leases: leaseByMedias.map(l => l.leases).reduce((a, b) => a.concat(b)),
         lastModified: leaseByMedias.map(l => l.lastModified).sort()[0]
-      }
+      };
     }
 
     return {
