@@ -94,12 +94,12 @@ leases.controller(
             if (timestamp){
                 const fromNow = moment(timestamp).fromNow();
                 if (moment(timestamp).diff(moment()) > 0) {
-                    return "Expires " + fromNow;
+                    return 'Expires ' + fromNow;
                 } else {
-                    return "Expired " + fromNow;
+                    return 'Expired ' + fromNow;
                 }
             } else {
-                return "Never expires";
+                return 'Never expires';
             }
         };
 
