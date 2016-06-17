@@ -1,6 +1,4 @@
 import angular from 'angular';
-import Rx from 'rx';
-import Immutable from 'immutable';
 import template from './leases.html!text';
 import moment from 'moment';
 

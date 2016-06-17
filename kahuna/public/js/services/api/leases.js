@@ -1,6 +1,4 @@
 import angular from 'angular';
-import Rx from 'rx';
-
 import './media-api';
 import '../../services/image-list';
 
@@ -68,7 +66,7 @@ leaseService.factory('leaseService', [
           imageLeases = imageLeases.data;
           if (imageLeases.current) {
             return imageLeases.current.data.access;
-          };
+          }
         }
       );
     }
