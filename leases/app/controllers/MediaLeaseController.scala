@@ -60,9 +60,6 @@ object MediaLeaseController extends Controller
         val insertion = LeaseStore.put(mediaLease.copy(leasedBy = requestingUser)).map { _ =>
           LeaseNotifier.send(LeaseNotice.build(mediaLease.mediaId))
         }
-
-        // TODO: Remove awaits when UI is updated to read from ES
-        Await.ready(insertion, 30.seconds)
         Accepted
       }
     )
@@ -75,9 +72,6 @@ object MediaLeaseController extends Controller
         val deletion = LeaseStore.delete(id).map { _ =>
           LeaseNotifier.send(LeaseNotice.build(mediaId))
         }
-
-        // TODO: Remove awaits when UI is updated to read from ES
-        Await.ready(deletion, 30.seconds)
       }
       Accepted
     }

@@ -38,7 +38,7 @@ leases.controller(
                 ctrl.newLease.createdAt = new Date();
                 ctrl.newLease.access = ctrl.access;
 
-                leaseService.batchAdd(ctrl.images, ctrl.leases, ctrl.newLease)
+                leaseService.batchAdd(ctrl.newLease, ctrl.leases, ctrl.images)
                     .catch(() =>
                         alertFailed('Something went wrong when saving, please try again.')
                     )
@@ -76,7 +76,7 @@ leases.controller(
             return leasedBy;
         };
 
-        ctrl.notCurrentLeases = (leases) => leases.leases.length - leases.current.length
+        ctrl.inactiveLeases = (leases) => leases.leases.length - leases.current.length
 
         ctrl.resetLeaseForm = () => {
             const oneDayInMilliSeconds = (24 * 60 * 60 * 1000);

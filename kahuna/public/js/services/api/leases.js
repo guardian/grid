@@ -33,9 +33,7 @@ leaseService.factory('leaseService', [
         images = images.toArray();
       }
       return $q.all(images.map(i => i.get()))
-          .then( (images) => {
-            return imageList.getLeases(images);
-          });
+          .then( (images) => imageList.getLeases(images) );
       }
 
     function add(image, lease) {
@@ -44,10 +42,8 @@ leaseService.factory('leaseService', [
       return image.perform('add-lease', {body: newLease});
     }
 
-    function batchAdd(images, originalLeases, lease) {
-      const lastImage = images[images.length - 1];
+    function batchAdd(lease, originalLeases, images) {
       const originalLeaseCount = originalLeases.leases.length;
-
       return $q.all(images.map(image => add(image, lease)))
         .then(pollLeases(images, originalLeaseCount));
     }
@@ -57,7 +53,6 @@ leaseService.factory('leaseService', [
     }
 
     function deleteLease(lease, originalLeases, images) {
-      const lastImage = images[images.length - 1];
       const originalLeaseCount = originalLeases.leases.length;
       return getLeasesRoot().follow('leases', {id: lease.id}).delete()
         .then(pollLeases(images, originalLeaseCount));
@@ -82,20 +77,18 @@ leaseService.factory('leaseService', [
       apiPoll(() => {
         return untilLeasesChange(images, originalLeaseCount);
       })
-      .then(() => getLeases(images))
-      .then(() => {
-        $rootScope.$emit('leases-updated')})
     }
 
     function untilLeasesChange(images, originalLeaseCount){
       return $q.all(images.map((image) => image.get().then( (apiImage) => {
         const apiLeases = imageAccessor.readLeases(apiImage);
         if (apiLeases.leases.length !== originalLeaseCount) {
+          $rootScope.$emit('leases-updated');
           return apiLeases;
         } else {
           return $q.reject();
         }
-      })));
+      })))
     }
 
     function flattenLeases(leaseByMedias) {

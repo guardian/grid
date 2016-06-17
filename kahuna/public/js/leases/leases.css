@@ -134,3 +134,7 @@ gr-leases.leases-flex button {
 gr-leases.leases-flex .lease__item {
   border-radius: 5px;
 }
+
+gr-leases.leases-flex gr-confirm-delete {
+  display: block;
+}
