@@ -18,6 +18,7 @@
 
 .lease__item p {
   margin: 2px;
+  font-style: italic;
 }
 
 .lease__date {
@@ -29,6 +30,8 @@
 }
 
 .lease {
+  display: flex;
+  justify-content: space-between;
   margin: 4px;
   padding: 3px;
   border-top-left-radius: 2px;
@@ -43,15 +46,11 @@ gr-leases .metadata-line__key {
   margin-bottom: 10px
 }
 
-gr-leases gr-confirm-delete {
-  float: right;
-}
-
-.active.allowed {
+.allowed {
   background-color: lightgreen;
 }
 
-.active.denied {
+.denied {
   background-color: red;
 }
 
@@ -69,6 +68,14 @@ gr-leases .gu-date-range__display {
 .image-info__wrap {
   overflow: visible;
 }
+
+.image-info__lease {
+  padding-top: 3px;
+  color: #CCC;
+  font-style: italic;
+  display: inline-block;
+}
+
 
 .lease__form__buttons {
   text-align: right;
@@ -93,14 +100,37 @@ gr-leases .gu-date-range__display {
 
 .lease__access {
   padding: 3px;
-  margin-bottom: 7px;
+  margin-bottom: 2px;
 }
 
 .lease__current {
   padding: 2px;
+}
 
+.lease__current.current {
+  background-color: #00ADEE;
 }
 
 .current {
-  background-color: #00ADEE;
+  color: white;
+}
+
+gr-leases.leases-flex {
+  display: flex;
+  flex-direction: row;
+}
+
+gr-leases.leases-flex ul {
+  display:flex;
+  flex-direction: row;
+  line-height: 1em;
+  font-size: .75em;
+}
+
+gr-leases.leases-flex button {
+  flex-shrink: 0;
+}
+
+gr-leases.leases-flex .lease__item {
+  border-radius: 5px;
 }
