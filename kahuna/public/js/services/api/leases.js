@@ -76,7 +76,7 @@ leaseService.factory('leaseService', [
     function pollLeases(images, originalLeaseCount){
       apiPoll(() => {
         return untilLeasesChange(images, originalLeaseCount);
-      })
+      });
     }
 
     function untilLeasesChange(images, originalLeaseCount){

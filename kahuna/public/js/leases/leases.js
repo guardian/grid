@@ -101,7 +101,7 @@ leases.controller(
             } else {
                 return "Never expires";
             }
-        }
+        };
 
         ctrl.leaseStatus = (lease) => {
             const active = lease.active ? 'active ' : ' ';

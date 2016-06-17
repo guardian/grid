@@ -73,9 +73,9 @@ image.controller('uiPreviewImageCtrl', [
 
    ctrl.leaseStatus = (image) => {
         if (image.data.leases.data.current) {
-            return image.data.leases.data.current.access
+            return image.data.leases.data.current.access;
         } else {
-            return undefined
+            return undefined;
         }
     };
 }]);
