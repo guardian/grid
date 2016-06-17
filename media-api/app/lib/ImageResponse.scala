@@ -14,6 +14,7 @@ import play.api.libs.functional.syntax._
 
 import com.gu.mediaservice.model._
 import com.gu.mediaservice.lib.argo.model._
+import com.gu.mediaservice.lib.FeatureToggle
 import com.gu.mediaservice.lib.collections.CollectionsManager
 
 
@@ -106,27 +107,34 @@ object ImageResponse extends EditsResponse {
       }
     }.get
 
-    val hasOptimisedPng = (source \ "optimisedPng") match {
-      case o: JsObject => true
-      case _ => false
+    val pngFileUri = (source \ "optimisedPng") match {
+      case o: JsObject => Some(new URI((source \ "optimisedPng" \ "file").as[String]))
+      case _ => None
     }
 
     // Round expiration time to try and hit the cache as much as possible
     // TODO: do we really need these expiration tokens? they kill our ability to cache...
     val expiration = roundDateTime(DateTime.now, Duration.standardMinutes(10)).plusMinutes(20)
 
-    val pngFileUri = if (hasOptimisedPng)
-        Some(new URI((source \ "optimisedPng" \ "file").as[String]))
-      else
-        None
-
     val fileUri = new URI((source \ "source" \ "file").as[String])
-    val secureUrl = S3Client.signUrl(Config.imageBucket, fileUri, image, expiration)
-    val secureThumbUrl = S3Client.signUrl(Config.thumbBucket, fileUri, image, expiration)
 
-    val securePngUrl = if (hasOptimisedPng)
-        Some(S3Client.signUrl(Config.imageBucket, pngFileUri.get, image, expiration))
-      else None
+    case class SecureUrls(imageUrl: String, thumbUrl: String, pngUrl: Option[String])
+
+    val secureUrls = if(FeatureToggle.get("cloudfront-signing")) {
+      SecureUrls(
+        S3Client.signUrl(Config.imageBucket, fileUri, image, expiration),
+        S3Client.signUrl(Config.thumbBucket, fileUri, image, expiration),
+        pngFileUri.map(fileUri =>
+            S3Client.signUrl(Config.imageBucket, fileUri, image, expiration))
+      )
+    } else {
+      SecureUrls(
+        S3Client.signedCloudFrontUrl(Config.cloudFrontDomainImageBucket, fileUri.getPath.drop(1)),
+        S3Client.signedCloudFrontUrl(Config.cloudFrontDomainThumbBucket, fileUri.getPath.drop(1)),
+        pngFileUri.map(fileUri =>
+            S3Client.signedCloudFrontUrl(Config.cloudFrontDomainImageBucket, fileUri.getPath.drop(1)))
+      )
+    }
 
     val validityMap       = ImageExtras.validityMap(image)
     val validityOverrides = ImageExtras.validityOverrides(image)
@@ -136,22 +144,20 @@ object ImageResponse extends EditsResponse {
     val persistenceReasons = imagePersistenceReasons(image)
     val isPersisted = persistenceReasons.nonEmpty
 
-    val data = source.transform(addSecureSourceUrl(secureUrl))
+    val data = source.transform(addSecureSourceUrl(secureUrls.imageUrl))
       .flatMap(_.transform(wrapUserMetadata(id)))
-      .flatMap(_.transform(addSecureThumbUrl(secureThumbUrl)))
-      .flatMap((source) => {
-        val json: JsValue = source \ "optimisedPng"
-        if (source.keys.contains("optimisedPng")) {
-          source.transform(addSecureOptimisedPngUrl(securePngUrl.get))
-        } else
-          source.transform((__).json.pick)
-      })
+      .flatMap(_.transform(addSecureThumbUrl(secureUrls.thumbUrl)))
+      .flatMap(_.transform(
+        secureUrls.pngUrl
+          .map(url => addSecureOptimisedPngUrl(url))
+          .getOrElse((__).json.pick)
+        ))
       .flatMap(_.transform(addValidity(valid)))
       .flatMap(_.transform(addInvalidReasons(invalidReasons)))
       .flatMap(_.transform(addUsageCost(source)))
       .flatMap(_.transform(addPersistedState(isPersisted, persistenceReasons))).get
 
-    val links = imageLinks(id, secureUrl, securePngUrl, withWritePermission, valid)
+    val links = imageLinks(id, secureUrls.imageUrl, secureUrls.pngUrl, withWritePermission, valid)
 
     val isDeletable = canBeDeleted(image) && withDeletePermission
 

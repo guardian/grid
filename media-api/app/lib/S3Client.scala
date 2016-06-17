@@ -13,7 +13,7 @@ import scala.concurrent.duration._
 
 trait CloudFrontDistributable {
   val privateKeyLocation: String
-  val privateKeyPairId: String
+  val keyPairId: String
 
   val protocol: Protocol = Protocol.https
   val validForMinutes: Int = 30
@@ -21,14 +21,14 @@ trait CloudFrontDistributable {
   private def expiresAt: Date = DateTime.now.plusMinutes(validForMinutes).toDate()
   private val privateKeyFile: File = new File(privateKeyLocation)
 
-  def getSignedUrl(cloudFrontDomain: String, s3ObjectPath: String): String =
+  def signedCloudFrontUrl(cloudFrontDomain: String, s3ObjectPath: String): String =
     CloudFrontUrlSigner.getSignedURLWithCannedPolicy(
-      protocol, cloudFrontDomain, privateKeyFile, s3ObjectPath, privateKeyPairId, expiresAt)
+      protocol, cloudFrontDomain, privateKeyFile, s3ObjectPath, keyPairId, expiresAt)
 
 }
 
 object S3Client extends S3(Config.awsCredentials) with CloudFrontDistributable {
-  val privateKeyLocation = "foo"
-  val privateKeyPairId = "bar"
+  val privateKeyLocation = Config.cloudFrontPrivateKeyLocation
+  val keyPairId          = Config.cloudFrontKeyPairId
 }
 
