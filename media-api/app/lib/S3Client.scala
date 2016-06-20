@@ -19,7 +19,9 @@ trait CloudFrontDistributable {
   val validForMinutes: Int = 30
 
   private def expiresAt: Date = DateTime.now.plusMinutes(validForMinutes).toDate()
-  private val privateKeyFile: File = new File(privateKeyLocation)
+  private val privateKeyFile: File = {
+    new File(privateKeyLocation)
+  }
 
   def signedCloudFrontUrl(cloudFrontDomain: String, s3ObjectPath: String): String =
     CloudFrontUrlSigner.getSignedURLWithCannedPolicy(
@@ -28,7 +30,7 @@ trait CloudFrontDistributable {
 }
 
 object S3Client extends S3(Config.awsCredentials) with CloudFrontDistributable {
-  val privateKeyLocation = Config.cloudFrontPrivateKeyLocation
-  val keyPairId          = Config.cloudFrontKeyPairId
+  lazy val privateKeyLocation = Config.cloudFrontPrivateKeyLocation
+  lazy val keyPairId          = Config.cloudFrontKeyPairId
 }
 
