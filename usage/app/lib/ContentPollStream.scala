@@ -1,6 +1,6 @@
 package lib
 
-import com.gu.crier.model.event.v1.EventPayload.Content
+import com.gu.contentapi.client.model.v1.Content
 
 import org.joda.time.DateTime
 
