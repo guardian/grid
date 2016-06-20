@@ -37,9 +37,9 @@ object Config extends CommonPlayAppConfig with CommonPlayAppProperties {
 
   val cloudFrontPrivateKeyLocation: String = "/etc/gu/ssl/private/cloudfront.pem"
 
-  val cloudFrontDomainImageBucket: String  = properties.get("cloudfront.domain.imagebucket").getOrElse("dev")
-  val cloudFrontDomainThumbBucket: String  = properties.get("cloudfront.domain.thumbbucket").getOrElse("dev")
-  val cloudFrontKeyPairId: String          = properties.get("cloudfront.keypair.id").getOrElse("dev")
+  val cloudFrontDomainImageBucket: Option[String] = properties.get("cloudfront.domain.imagebucket")
+  val cloudFrontDomainThumbBucket: Option[String] = properties.get("cloudfront.domain.thumbbucket")
+  val cloudFrontKeyPairId: Option[String]         = properties.get("cloudfront.keypair.id")
 
   val topicArn: String = properties("sns.topic.arn")
 

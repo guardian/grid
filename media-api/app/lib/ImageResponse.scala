@@ -118,23 +118,28 @@ object ImageResponse extends EditsResponse {
 
     val fileUri = new URI((source \ "source" \ "file").as[String])
 
-    case class SecureUrls(imageUrl: String, thumbUrl: String, pngUrl: Option[String])
+    def s3SignedImageUrl = S3Client.signUrl(Config.imageBucket, fileUri, image, expiration)
+    val imageUrl = if(FeatureToggle.get("cloudfront-signing")) {
+      Config.cloudFrontDomainImageBucket
+        .flatMap(S3Client.signedCloudFrontUrl(_, fileUri.getPath.drop(1)))
+        .getOrElse(s3SignedImageUrl)
+    } else { s3SignedImageUrl }
 
-    val secureUrls = if(FeatureToggle.get("cloudfront-signing")) {
-      SecureUrls(
-        S3Client.signUrl(Config.imageBucket, fileUri, image, expiration),
-        S3Client.signUrl(Config.thumbBucket, fileUri, image, expiration),
-        pngFileUri.map(fileUri =>
-            S3Client.signUrl(Config.imageBucket, fileUri, image, expiration))
-      )
-    } else {
-      SecureUrls(
-        S3Client.signedCloudFrontUrl(Config.cloudFrontDomainImageBucket, fileUri.getPath.drop(1)),
-        S3Client.signedCloudFrontUrl(Config.cloudFrontDomainThumbBucket, fileUri.getPath.drop(1)),
-        pngFileUri.map(fileUri =>
-            S3Client.signedCloudFrontUrl(Config.cloudFrontDomainImageBucket, fileUri.getPath.drop(1)))
-      )
-    }
+    def s3SignedThumbUrl = S3Client.signUrl(Config.thumbBucket, fileUri, image, expiration)
+    val thumbUrl = if(FeatureToggle.get("cloudfront-signing")) {
+      Config.cloudFrontDomainThumbBucket
+        .flatMap(S3Client.signedCloudFrontUrl(_, fileUri.getPath.drop(1)))
+        .getOrElse(s3SignedThumbUrl)
+    } else { s3SignedThumbUrl }
+
+    val pngUrl: Option[String] = pngFileUri.map(fileUri => {
+      def s3SignedPngUrl = S3Client.signUrl(Config.imageBucket, fileUri, image, expiration)
+      if(FeatureToggle.get("cloudfront-signing")) {
+        Config.cloudFrontDomainImageBucket
+          .flatMap(S3Client.signedCloudFrontUrl(_, fileUri.getPath.drop(1)))
+          .getOrElse(s3SignedPngUrl)
+      } else { s3SignedPngUrl }
+    })
 
     val validityMap       = ImageExtras.validityMap(image)
     val validityOverrides = ImageExtras.validityOverrides(image)
@@ -144,11 +149,11 @@ object ImageResponse extends EditsResponse {
     val persistenceReasons = imagePersistenceReasons(image)
     val isPersisted = persistenceReasons.nonEmpty
 
-    val data = source.transform(addSecureSourceUrl(secureUrls.imageUrl))
+    val data = source.transform(addSecureSourceUrl(imageUrl))
       .flatMap(_.transform(wrapUserMetadata(id)))
-      .flatMap(_.transform(addSecureThumbUrl(secureUrls.thumbUrl)))
+      .flatMap(_.transform(addSecureThumbUrl(thumbUrl)))
       .flatMap(_.transform(
-        secureUrls.pngUrl
+        pngUrl
           .map(url => addSecureOptimisedPngUrl(url))
           .getOrElse((__).json.pick)
         ))
@@ -157,7 +162,7 @@ object ImageResponse extends EditsResponse {
       .flatMap(_.transform(addUsageCost(source)))
       .flatMap(_.transform(addPersistedState(isPersisted, persistenceReasons))).get
 
-    val links = imageLinks(id, secureUrls.imageUrl, secureUrls.pngUrl, withWritePermission, valid)
+    val links = imageLinks(id, s3SignedImageUrl, pngUrl, withWritePermission, valid)
 
     val isDeletable = canBeDeleted(image) && withDeletePermission
 
