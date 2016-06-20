@@ -118,12 +118,9 @@ object ImageResponse extends EditsResponse {
 
     val fileUri = new URI((source \ "source" \ "file").as[String])
 
-    def s3SignedImageUrl = S3Client.signUrl(Config.imageBucket, fileUri, image, expiration)
-    val imageUrl = if(FeatureToggle.get("cloudfront-signing")) {
-      Config.cloudFrontDomainImageBucket
-        .flatMap(S3Client.signedCloudFrontUrl(_, fileUri.getPath.drop(1)))
-        .getOrElse(s3SignedImageUrl)
-    } else { s3SignedImageUrl }
+    val imageUrl = S3Client.signUrl(Config.imageBucket, fileUri, image, expiration)
+    val pngUrl: Option[String] = pngFileUri
+      .map(S3Client.signUrl(Config.imageBucket, _, image, expiration))
 
     def s3SignedThumbUrl = S3Client.signUrl(Config.thumbBucket, fileUri, image, expiration)
     val thumbUrl = if(FeatureToggle.get("cloudfront-signing")) {
@@ -131,15 +128,6 @@ object ImageResponse extends EditsResponse {
         .flatMap(S3Client.signedCloudFrontUrl(_, fileUri.getPath.drop(1)))
         .getOrElse(s3SignedThumbUrl)
     } else { s3SignedThumbUrl }
-
-    val pngUrl: Option[String] = pngFileUri.map(fileUri => {
-      def s3SignedPngUrl = S3Client.signUrl(Config.imageBucket, fileUri, image, expiration)
-      if(FeatureToggle.get("cloudfront-signing")) {
-        Config.cloudFrontDomainImageBucket
-          .flatMap(S3Client.signedCloudFrontUrl(_, fileUri.getPath.drop(1)))
-          .getOrElse(s3SignedPngUrl)
-      } else { s3SignedPngUrl }
-    })
 
     val validityMap       = ImageExtras.validityMap(image)
     val validityOverrides = ImageExtras.validityOverrides(image)
@@ -162,7 +150,7 @@ object ImageResponse extends EditsResponse {
       .flatMap(_.transform(addUsageCost(source)))
       .flatMap(_.transform(addPersistedState(isPersisted, persistenceReasons))).get
 
-    val links = imageLinks(id, s3SignedImageUrl, pngUrl, withWritePermission, valid)
+    val links = imageLinks(id, imageUrl, pngUrl, withWritePermission, valid)
 
     val isDeletable = canBeDeleted(image) && withDeletePermission
 
