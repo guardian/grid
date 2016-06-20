@@ -1,6 +1,6 @@
 package model
 
-import com.gu.contentapi.client.model.v1.Content
+import com.gu.crier.model.event.v1.EventPayload.Content
 import com.gu.mediaservice.model.UsageStatus
 
 import org.joda.time.DateTime
@@ -18,6 +18,6 @@ object ContentWrapper {
   }
 
   def extractId(content: Content): Option[String] = {
-    content.fields.flatMap(_.internalComposerCode).map(composerId => s"composer/${composerId}")
+    content.content.fields.flatMap(_.internalComposerCode).map(composerId => s"composer/${composerId}")
   }
 }

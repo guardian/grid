@@ -1,6 +1,6 @@
 package model
 
-import com.gu.contentapi.client.model.v1.Content
+import com.gu.crier.model.event.v1.EventPayload.Content
 import scala.util.Try
 import java.net.URL
 import lib.Config
@@ -22,14 +22,14 @@ case class ContentDetails(
 object ContentDetails {
   def build(content: Content): ContentDetails = {
     ContentDetails(
-      content.webTitle,
-      content.webUrl,
-      content.sectionId.getOrElse("none"),
+      content.content.webTitle,
+      content.content.webUrl,
+      content.content.sectionId.getOrElse("none"),
       composerUrl(content)
     )
   }
 
-  def composerUrl(content: Content): Option[URL] = content.fields
+  def composerUrl(content: Content): Option[URL] = content.content.fields
     .flatMap(_.internalComposerCode)
     .flatMap(composerId => {
       Try(new URL(s"${Config.composerBaseUrl}/${composerId}")).toOption

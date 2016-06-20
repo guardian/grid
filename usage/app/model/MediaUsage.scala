@@ -1,7 +1,7 @@
 package model
 
 import com.amazonaws.services.dynamodbv2.document.Item
-import com.gu.contentapi.client.model.v1.{Content, Element}
+import com.gu.crier.model.event.v1.EventPayload.Content
 import com.gu.mediaservice.model.{PrintUsageMetadata, DigitalUsageMetadata, DateFormat}
 import com.gu.mediaservice.model.{PendingUsageStatus, PublishedUsageStatus, PrintUsageRecord, UsageStatus}
 import org.joda.time.DateTime
@@ -71,7 +71,7 @@ object MediaUsage {
 
   def build(elementWrapper: ElementWrapper, contentWrapper: ContentWrapper) = {
     val usageId = UsageId.build(elementWrapper, contentWrapper)
-    val usageMetadata = UsageMetadataBuilder.build(contentWrapper.content)
+    val usageMetadata = UsageMetadataBuilder.build(contentWrapper.content.content)
 
     MediaUsage(
       usageId,

@@ -32,6 +32,10 @@ object Dependencies {
     ("com.gu" %% "pan-domain-auth-play" % "0.2.10")
   )
 
+  val usageGuDeps = Seq(
+    "com.gu" %% "content-api-client" % "9.0"
+  )
+
   val guDeps = Seq(
     "com.gu" %% "content-api-client" % "7.11"
   )
@@ -86,10 +90,10 @@ object Dependencies {
 
   val kinesisDeps = Seq(
     "com.amazonaws" % "amazon-kinesis-client" % "1.2.1",
-    "com.gu" % "content-api-models" % "8.17",
+    "com.gu" % "content-api-models" % "8.16",
     "com.twitter" %% "scrooge-core" % "4.6.0",
     "org.apache.thrift" % "libthrift" % "0.9.1" force(),
-    "com.gu" %% "thrift-serializer" % "1.0.0"
+    "com.gu" %% "thrift-serializer" % "1.0.1-SNAPSHOT"
   )
 
   val legacyBlockingHttp = Seq("org.scalaj" %% "scalaj-http" % "1.1.4")
