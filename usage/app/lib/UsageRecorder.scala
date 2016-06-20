@@ -3,11 +3,7 @@ package lib
 import play.api.Logger
 
 import scala.concurrent.ExecutionContext.Implicits.global
-import scala.concurrent.{ExecutionContext, Future}
 import scala.concurrent.duration._
-
-import scala.collection.JavaConversions._
-import scala.collection.JavaConverters._
 
 import play.api.libs.json._
 
@@ -20,7 +16,7 @@ case class ResetException() extends Exception
 
 object UsageRecorder {
   val usageSubject  = PublishSubject[UsageGroup]()
-  val usageStream   = UsageStream.observable.merge(usageSubject)
+  val usageStream = UsageStream.observable.merge(usageSubject)
 
   val subscriber = Subscriber((_:Any) => Logger.debug(s"Sent Usage Notification"))
   def subscribe  = UsageRecorder.observable.subscribe(subscriber)
