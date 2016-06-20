@@ -76,17 +76,7 @@ private class CrierEventProcessor() extends IRecordProcessor {
 
         }
         case EventType.Delete => {
-
-          val dateTime: DateTime = new DateTime(event.dateTime)
-
-          event.payload match {
-            case Some(content: EventPayload.Content) => {
-              val container = new LiveContentItem(content, dateTime)
-              LiveCrierContentStream.observable.onNext(container)
-
-            }
-            case _ => println("no content")
-          }
+          //TODO: how do we deal with a piece of content that has been deleted?
         }
         case EventType.RetrievableUpdate => println("Retrievable update")
         case _ => Logger.debug(s"Unsupported event type $EventType")
