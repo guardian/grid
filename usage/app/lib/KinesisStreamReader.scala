@@ -27,7 +27,6 @@ class KinesisStreamReader {
   val initialPosition = InitialPositionInStream.TRIM_HORIZON
 
   private lazy val kinesisCredentialsProvider: AWSCredentialsProvider = new AWSCredentialsProviderChain(
-    //new ProfileCredentialsProvider("capi"),
     new STSAssumeRoleSessionCredentialsProvider(credentialsProvider, Config.crierArn, sessionId)
   )
 
