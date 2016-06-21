@@ -2,14 +2,8 @@ package lib
 
 import java.util.{ List => JList }
 import com.gu.contentapi.client.GuardianContentClient
-import com.gu.contentapi.client.model.{v1, ItemQuery}
-import com.gu.contentapi.client.model.v1.{ItemResponse, Content}
+import com.gu.contentapi.client.model.ItemQuery
 import play.api.Logger
-
-import _root_.rx.lang.scala.subjects.ReplaySubject
-import _root_.rx.lang.scala.{Subject, Observable}
-import com.gu.thrift.serializer.ThriftDeserializer
-
 import scala.collection.JavaConverters._
 import scala.concurrent.ExecutionContext.Implicits.global
 
@@ -17,22 +11,10 @@ import com.amazonaws.services.kinesis.clientlibrary.interfaces.{IRecordProcessor
 import org.joda.time.DateTime
 import com.amazonaws.services.kinesis.clientlibrary.types.ShutdownReason
 import com.amazonaws.services.kinesis.model.Record
-import com.gu.crier.model.event.v1.{Event, EventType}
-import com.gu.crier.model.event.v1.EventPayload.{UnknownUnionField, RetrievableContent}
+import com.gu.thrift.serializer.ThriftDeserializer
 import com.gu.crier.model.event.v1.{EventPayload, Event, EventType}
 
-object MergedContentStream {
-  val observable: Observable[ContentContainer] =
-    LiveCrierContentStream.observable
-    //.merge(PreviewContentPollStream.observable)
-    //.share // Ensures that only one poller is created no matter how many subscribers
-}
 
-//TODO: Preview Content poll stream
-
-object LiveCrierContentStream {
-  val observable = ReplaySubject[ContentContainer]()
-}
 
 private class CrierEventProcessor() extends IRecordProcessor {
 
@@ -115,10 +97,4 @@ private class CrierEventProcessor() extends IRecordProcessor {
     object CrierDeserializer extends ThriftDeserializer[Event] {
       val codec = Event
     }
-
-    def extractLastModified(contentItem: Content): DateTime =
-      contentItem.fields
-        .flatMap(_.lastModified)
-        .map(capiDateTime => new DateTime(capiDateTime.dateTime))
-        .getOrElse(new DateTime())
   }
