@@ -2,16 +2,16 @@ import angular from 'angular';
 
 import '../gr-keyboard-shortcut/gr-keyboard-shortcut';
 
-export var lazyGalleryShortcuts = angular.module('gu.lazyGalleryShortcuts', [
+export var lazyPreviewShortcuts = angular.module('gu.lazyPreviewShortcuts', [
     'gr.keyboardShortcut'
 ]);
 
-lazyGalleryShortcuts.directive('guLazyGalleryShortcuts',
+lazyPreviewShortcuts.directive('guLazyPreviewShortcuts',
                              ['keyboardShortcut',
                               function(keyboardShortcut) {
     return {
         restrict: 'EA',
-        require: '^guLazyGallery',
+        require: '^guLazyPreview',
         link: function (scope, element, attrs, lazyGalleryCtrl) {
             function invoke(fnName) {
                 return (event) => {
