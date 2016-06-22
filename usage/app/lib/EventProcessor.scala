@@ -16,6 +16,81 @@ import com.gu.thrift.serializer.ThriftDeserializer
 import com.gu.crier.model.event.v1.{EventPayload, Event, EventType}
 
 
+// Instantiates a new deserializer for type event to deserialize bytes to Event
+object CrierDeserializer extends ThriftDeserializer[Event] {
+  val codec = Event
+}
+
+trait EventProcessor extends IRecordProcessor {
+
+  val contentStream: ContentStream
+
+  override def initialize(shardId: String): Unit = {
+    Logger.debug(s"Initialized an event processor for shard $shardId")
+  }
+
+  override def processRecords(records: JList[Record], checkpointer: IRecordProcessorCheckpointer): Unit
+
+
+  override def shutdown(checkpointer: IRecordProcessorCheckpointer, reason: ShutdownReason): Unit = {
+    if (reason == ShutdownReason.TERMINATE) {
+      checkpointer.checkpoint()
+    }
+  }
+
+  def getContentItem(content: Content, time: DateTime): ContentContainer
+
+
+  def processEvent(event: Event): Unit = {
+
+    val dateTime: DateTime = new DateTime(event.dateTime)
+
+    event.eventType match {
+      case EventType.Update => {
+
+        event.payload match {
+          case Some(content: EventPayload.Content) => {
+            val container = getContentItem(content.content, dateTime)
+            contentStream.observable.onNext(container)
+          }
+          case _ => Logger.debug(s"Received crier udpate for ${event.payloadId} without payload")
+        }
+
+      }
+      case EventType.Delete => {
+        //TODO: how do we deal with a piece of content that has been deleted?
+      }
+      case EventType.RetrievableUpdate => {
+
+        event.payload match {
+          case Some(retrievableContent: EventPayload.RetrievableContent) => {
+            val capiUrl = retrievableContent.retrievableContent.capiUrl
+
+            val capi: GuardianContentClient = LiveContentApi
+
+            val query = ItemQuery(capiUrl, Map())
+
+            capi.getResponse(query).map(response => {
+
+              response.content match {
+                case Some(content) => {
+
+                  val container = new LiveContentItem(content, dateTime)
+                  LiveCrierContentStream.observable.onNext(container)
+
+                }
+                case _ => Logger.debug(s"Received retrievable update for ${retrievableContent.retrievableContent.id} without content")
+              }
+            })
+          }
+          case _ => Logger.debug(s"Received crier udpate for ${event.payloadId} without payload")
+        }
+      }
+
+      case _ => Logger.debug(s"Unsupported event type $EventType")
+    }
+  }
+}
 
 private class CrierLiveEventProcessor() extends EventProcessor {
 
@@ -58,79 +133,4 @@ private class CrierPreviewEventProcessor() extends EventProcessor {
 
     }
   }
-}
-
-trait EventProcessor extends IRecordProcessor {
-
-    val contentStream: ContentStream
-
-    override def initialize(shardId: String): Unit = {
-      Logger.debug(s"Initialized an event processor for shard $shardId")
-    }
-
-    override def processRecords(records: JList[Record], checkpointer: IRecordProcessorCheckpointer): Unit
-
-
-    override def shutdown(checkpointer: IRecordProcessorCheckpointer, reason: ShutdownReason): Unit = {
-      if (reason == ShutdownReason.TERMINATE) {
-        checkpointer.checkpoint()
-      }
-    }
-
-    def getContentItem(content: Content, time: DateTime): ContentContainer
-
-
-    def processEvent(event: Event): Unit = {
-
-      val dateTime: DateTime = new DateTime(event.dateTime)
-
-      event.eventType match {
-        case EventType.Update => {
-
-          event.payload match {
-            case Some(content: EventPayload.Content) => {
-              val container = getContentItem(content.content, dateTime)
-              contentStream.observable.onNext(container)
-            }
-            case _ => Logger.debug(s"Received crier udpate for ${event.payloadId} without payload")
-          }
-
-        }
-        case EventType.Delete => {
-          //TODO: how do we deal with a piece of content that has been deleted?
-        }
-        case EventType.RetrievableUpdate => {
-
-          event.payload match {
-            case Some(retrievableContent: EventPayload.RetrievableContent) => {
-              val capiUrl = retrievableContent.retrievableContent.capiUrl
-
-              val capi: GuardianContentClient = LiveContentApi
-
-              val query = ItemQuery(capiUrl, Map())
-
-              capi.getResponse(query).map(response => {
-
-                response.content match {
-                  case Some(content) => {
-
-                    val container = new LiveContentItem(content, dateTime)
-                    LiveCrierContentStream.observable.onNext(container)
-
-                  }
-                  case _ => Logger.debug(s"Received retrievable update for ${retrievableContent.retrievableContent.id} without content")
-                }
-              })
-            }
-            case _ => Logger.debug(s"Received crier udpate for ${event.payloadId} without payload")
-          }
-        }
-
-        case _ => Logger.debug(s"Unsupported event type $EventType")
-      }
-    }
-  }
-
-object CrierDeserializer extends ThriftDeserializer[Event] {
-  val codec = Event
 }
