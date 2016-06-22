@@ -26,32 +26,56 @@ class KinesisStreamReader {
   lazy val sessionId: String = "session" + Math.random()
   val initialPosition = InitialPositionInStream.TRIM_HORIZON
 
-  private lazy val kinesisCredentialsProvider: AWSCredentialsProvider = new AWSCredentialsProviderChain(
-    new STSAssumeRoleSessionCredentialsProvider(credentialsProvider, Config.crierArn, sessionId)
+  private lazy val LiveKinesisCredentialsProvider: AWSCredentialsProvider = new AWSCredentialsProviderChain(
+    new STSAssumeRoleSessionCredentialsProvider(credentialsProvider, Config.crierLiveArn, sessionId)
   )
 
-  private lazy val config = new KinesisClientLibConfiguration(
+  private lazy val previewKinesisCredentialsProvider: AWSCredentialsProvider = new AWSCredentialsProviderChain(
+    new STSAssumeRoleSessionCredentialsProvider(credentialsProvider, Config.crierPreviewArn, sessionId)
+  )
+
+  private lazy val liveConfig = new KinesisClientLibConfiguration(
     Config.crierAppName,
-    Config.crierKinesisStream,
-    kinesisCredentialsProvider,
+    Config.crierLiveKinesisStream,
+    LiveKinesisCredentialsProvider,
+    dynamoCredentialsProvider,
+    null,
+    workerId)
+    .withInitialPositionInStream(initialPosition)
+    .withRegionName(Config.awsRegionName)
+
+  private lazy val previewConfig = new KinesisClientLibConfiguration(
+    Config.crierAppName,
+    Config.crierPreviewKinesisStream,
+    previewKinesisCredentialsProvider,
     dynamoCredentialsProvider,
     null,
     workerId)
     .withInitialPositionInStream(initialPosition)
     .withRegionName("eu-west-1")
 
-  protected val eventProcessorFactory = new IRecordProcessorFactory {
+  protected val LiveEventProcessorFactory = new IRecordProcessorFactory {
     override def createProcessor(): IRecordProcessor =
-      new CrierEventProcessor()
+      new CrierLiveEventProcessor()
   }
 
-  lazy val worker = new Worker(eventProcessorFactory, config)
+  protected val PreviewEventProcessorFactory = new IRecordProcessorFactory {
+    override def createProcessor(): IRecordProcessor =
+      new CrierPreviewEventProcessor()
+  }
 
-  private lazy val workerThread =
-    new Thread(worker, s"${getClass.getSimpleName}-$workerId")
+  lazy val liveWorker = new Worker(LiveEventProcessorFactory, liveConfig)
+  lazy val previewWorker = new Worker(PreviewEventProcessorFactory, previewConfig)
+
+  private lazy val liveWorkerThread =
+    new Thread(liveWorker, s"${getClass.getSimpleName}-$workerId")
+
+  private lazy val previewWorkerThread =
+    new Thread(previewWorker, s"${getClass.getSimpleName}-$workerId")
 
   def start() = {
-    workerThread.start()
+    liveWorkerThread.start()
+    previewWorkerThread.start()
   }
 
 }

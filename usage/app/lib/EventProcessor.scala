@@ -3,6 +3,7 @@ package lib
 import java.util.{ List => JList }
 import com.gu.contentapi.client.GuardianContentClient
 import com.gu.contentapi.client.model.ItemQuery
+import com.gu.contentapi.client.model.v1.Content
 import play.api.Logger
 import scala.collection.JavaConverters._
 import scala.concurrent.ExecutionContext.Implicits.global
@@ -16,27 +17,65 @@ import com.gu.crier.model.event.v1.{EventPayload, Event, EventType}
 
 
 
-private class CrierEventProcessor() extends IRecordProcessor {
+private class CrierLiveEventProcessor() extends EventProcessor {
+
+  val contentStream = LiveCrierContentStream
+
+  def getContentItem(content: Content, date: DateTime): ContentContainer =
+    new LiveContentItem(content, date)
+
+
+  override def processRecords(records: JList[Record], checkpointer: IRecordProcessorCheckpointer): Unit = {
+
+    records.asScala.map { record =>
+
+      val buffer: Array[Byte] = record.getData.array()
+
+      for {
+        result: Event <- CrierDeserializer.deserialize(buffer, false)
+      } yield {
+
+        processEvent(result)
+      }
+
+    }
+  }
+}
+
+private class CrierPreviewEventProcessor() extends EventProcessor {
+
+  val contentStream = PreviewCrierContentStream
+
+  def getContentItem(content: Content, date: DateTime): ContentContainer =
+    new PreviewContentItem(content, date)
+
+  override def processRecords(records: JList[Record], checkpointer: IRecordProcessorCheckpointer): Unit = {
+
+    records.asScala.map { record =>
+
+      val buffer: Array[Byte] = record.getData.array()
+
+      for {
+        result: Event <- CrierDeserializer.deserialize(buffer, false)
+      } yield {
+
+        processEvent(result)
+      }
+
+    }
+  }
+}
+
+trait EventProcessor extends IRecordProcessor {
+
+    val contentStream: ContentStream
 
     override def initialize(shardId: String): Unit = {
       Logger.debug(s"Initialized an event processor for shard $shardId")
     }
 
-    override def processRecords(records: JList[Record], checkpointer: IRecordProcessorCheckpointer): Unit = {
+    override def processRecords(records: JList[Record], checkpointer: IRecordProcessorCheckpointer): Unit
 
-      records.asScala.map { record =>
-
-        val buffer: Array[Byte] = record.getData.array()
-
-        for {
-          result: Event <- CrierDeserializer.deserialize(buffer, false)
-        } yield {
-
-          processEvent(result)
-        }
-
-      }
-    }
 
     override def shutdown(checkpointer: IRecordProcessorCheckpointer, reason: ShutdownReason): Unit = {
       if (reason == ShutdownReason.TERMINATE) {
@@ -44,7 +83,10 @@ private class CrierEventProcessor() extends IRecordProcessor {
       }
     }
 
-    private def processEvent(event: Event): Unit = {
+    def getContentItem(content: Content, time: DateTime): ContentContainer
+
+
+    def processEvent(event: Event): Unit = {
 
       val dateTime: DateTime = new DateTime(event.dateTime)
 
@@ -53,8 +95,8 @@ private class CrierEventProcessor() extends IRecordProcessor {
 
           event.payload match {
             case Some(content: EventPayload.Content) => {
-              val container = new LiveContentItem(content.content, dateTime)
-              LiveCrierContentStream.observable.onNext(container)
+              val container = getContentItem(content.content, dateTime)
+              contentStream.observable.onNext(container)
             }
             case _ => Logger.debug(s"Received crier udpate for ${event.payloadId} without payload")
           }
@@ -93,8 +135,8 @@ private class CrierEventProcessor() extends IRecordProcessor {
         case _ => Logger.debug(s"Unsupported event type $EventType")
       }
     }
-
-    object CrierDeserializer extends ThriftDeserializer[Event] {
-      val codec = Event
-    }
   }
+
+object CrierDeserializer extends ThriftDeserializer[Event] {
+  val codec = Event
+}

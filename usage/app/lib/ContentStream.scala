@@ -8,12 +8,19 @@ import org.joda.time.DateTime
 object MergedContentStream {
   val observable: Observable[ContentContainer] =
     LiveCrierContentStream.observable
-  //.merge(PreviewContentPollStream.observable)
-  //.share
+    .merge(PreviewCrierContentStream.observable)
+    .share
   // Ensures that only one poller is created no matter how many subscribers
 }
 
-object LiveCrierContentStream {
+trait ContentStream {
+  val observable: ReplaySubject[ContentContainer]
+}
+object LiveCrierContentStream extends ContentStream {
+  val observable = ReplaySubject[ContentContainer]()
+}
+
+object PreviewCrierContentStream extends ContentStream {
   val observable = ReplaySubject[ContentContainer]()
 }
 

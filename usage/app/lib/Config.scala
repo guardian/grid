@@ -16,7 +16,6 @@ object Config extends CommonPlayAppProperties with CommonPlayAppConfig {
     new BasicAWSCredentials(properties("aws.id"), properties("aws.secret"))
 
   val keyStoreBucket = properties("auth.keystore.bucket")
-  val awsRegion = "eu-west-1"
 
   lazy val rootUri = services.metadataBaseUri
   lazy val kahunaUri = services.kahunaBaseUri
@@ -31,7 +30,6 @@ object Config extends CommonPlayAppProperties with CommonPlayAppConfig {
   val maxPrintRequestLengthInKb = Try(properties("api.setPrint.maxLength").toInt)
     .getOrElse[Int](defaultMaxPrintRequestSizeInKb)
 
-  val capiPollIntervalInSeconds = properties("capi.pollIntervalInSeconds").toLong
   val capiLiveUrl = properties("capi.live.url")
   val capiApiKey = properties("capi.apiKey")
   val capiPreviewUrl = properties("capi.preview.url")
@@ -48,12 +46,14 @@ object Config extends CommonPlayAppProperties with CommonPlayAppConfig {
   val usageRecordTable = properties("dynamo.tablename.usageRecordTable")
 
   val dynamoRegion: Region = RegionUtils.getRegion(properties("aws.region"))
+  val awsRegionName = properties("aws.region")
 
   val corsAllAllowedOrigins = List(services.kahunaBaseUri)
 
-  val crierKinesisStream = properties("crier.kinesis")
-
+  val crierLiveKinesisStream = properties("crier.live.name")
+  val crierPreviewKinesisStream = properties("crier.preview.name")
+  val crierLiveArn = properties("crier.live.arn")
+  val crierPreviewArn = properties("crier.preview.arn")
   val crierAppName = properties("crier.app.name")
 
-  val crierArn = properties("crier.arn")
 }

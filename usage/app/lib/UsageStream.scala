@@ -13,8 +13,6 @@ object UsageStream {
 
   val contentStream: Observable[ContentContainer] = MergedContentStream.observable
 
-  //TODO: restore this back to flatmap when ready
-
   val observable: Observable[UsageGroup] = contentStream.flatMap((container: ContentContainer) => {
 
     val usageGroupOption: Option[Option[UsageGroup]] = UsageGroup
