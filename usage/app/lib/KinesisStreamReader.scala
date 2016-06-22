@@ -8,7 +8,6 @@ import com.amazonaws.auth.profile.ProfileCredentialsProvider
 import com.amazonaws.internal.StaticCredentialsProvider
 import com.amazonaws.services.kinesis.clientlibrary.interfaces.{IRecordProcessor, IRecordProcessorFactory}
 import com.amazonaws.services.kinesis.clientlibrary.lib.worker.{InitialPositionInStream, Worker, KinesisClientLibConfiguration}
-import com.gu.logback.appender.kinesis.helpers.CustomCredentialsProviderChain
 
 class CrierStreamReader {
 
