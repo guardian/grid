@@ -30,13 +30,7 @@ private class CrierLiveEventProcessor() extends EventProcessor {
     records.asScala.map { record =>
 
       val buffer: Array[Byte] = record.getData.array()
-
-      for {
-        result: Event <- CrierDeserializer.deserialize(buffer, false)
-      } yield {
-
-        processEvent(result)
-      }
+      CrierDeserializer.deserialize(buffer, false).map (result => processEvent(result))
 
     }
   }
