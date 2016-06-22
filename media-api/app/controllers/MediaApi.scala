@@ -39,7 +39,7 @@ import com.gu.mediaservice.model._
 
 object MediaApi extends Controller with ArgoHelpers {
 
-  import Config.{rootUri, cropperUri, loaderUri, metadataUri, authUri, collectionsUri, leaseUri}
+  import Config.{rootUri, cropperUri, loaderUri, metadataUri, authUri, collectionsUri, leasesUri}
 
   val Authenticated = Authed.action
   val permissionStore = Authed.permissionStore
@@ -76,7 +76,7 @@ object MediaApi extends Controller with ArgoHelpers {
       Link("witness-report",  s"https://n0ticeapis.com/2/report/{id}"),
       Link("collections",     collectionsUri),
       Link("permissions",     s"$rootUri/permissions"),
-      Link("leases", leaseUri)
+      Link("leases",          leasesUri)
     )
     respond(indexData, indexLinks)
   }
