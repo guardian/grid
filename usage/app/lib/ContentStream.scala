@@ -24,9 +24,6 @@ object PreviewCrierContentStream extends ContentStream {
   val observable = ReplaySubject[ContentContainer]()
 }
 
-//TODO: Preview Content poll stream
-
-
 trait ContentContainer {
   val content: Content
   val lastModified: DateTime
