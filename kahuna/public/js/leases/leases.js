@@ -17,11 +17,25 @@ export const leases = angular.module('kahuna.edits.leases', [
 ]);
 
 
-leases.controller(
-    'LeasesCtrl',
-    ['$window', '$q', '$scope', 'inject$', 'leaseService', '$rootScope',
-    function($window, $q, $scope, inject$, leaseService, $rootScope) {
+leases.controller('LeasesCtrl', [
+    '$window',
+    '$q',
+    '$scope',
+    '$timeout',
+    'inject$',
+    'leaseService',
+    '$rootScope',
+    function(
+        $window,
+        $q,
+        $scope,
+        $timeout,
+        inject$,
+        leaseService,
+        $rootScope) {
+
         let ctrl = this;
+
         ctrl.grSmall = true;
         ctrl.editing = false;
         ctrl.adding = false;
@@ -45,6 +59,39 @@ leases.controller(
                 });
             }
         };
+
+        function addLease(newLease) {
+            leaseService.batchAdd(newLease, ctrl.leases, ctrl.images);
+        }
+
+        // These events allow this control to work as a hybrid on the upload page
+        const batchAddLeasesEvent = 'events:batch-apply:add-labels';
+        const batchRemoveLeasesEvent = 'events:batch-apply:remove-labels';
+
+        if (Boolean(ctrl.withBatch)) {
+            $scope.$on(batchAddLeasesEvent,
+                    (e, leases) => leases.map(lease => addLease(lease)));
+            $scope.$on(batchRemoveLeasesEvent,
+                    () => console.log("batch-remove-leases"));
+
+
+            ctrl.batchApplyLeases = () => {
+                if (ctrl.leases.leases.length > 0) {
+                    $rootScope.$broadcast(batchAddLeasesEvent, ctrl.leases.leases);
+                } else {
+                    ctrl.confirmDelete = true;
+
+                    $timeout(() => {
+                        ctrl.confirmDelete = false;
+                    }, 5000);
+                }
+            };
+
+            ctrl.batchRemoveLeases = () => {
+                ctrl.confirmDelete = false;
+                $rootScope.$broadcast(batchRemoveLeasesEvent);
+            };
+        }
 
         ctrl.updateLeases = () => {
             leaseService.getLeases(ctrl.images)
@@ -145,7 +192,8 @@ leases.directive('grLeases', [function() {
             images: '=grImages',
             userCanEdit: '=?grUserCanEdit',
             onCancel: '&?grOnCancel',
-            onSave: '&?grOnSave'
+            onSave: '&?grOnSave',
+            withBatch: '=?'
         }
     };
 }]);

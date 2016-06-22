@@ -9,6 +9,21 @@
        <span ng:show="ctrl.adding">Updating...</span>
     </span>
 </button>
+<span ng:if="ctrl.withBatch" class="leases__apply-all">
+    <button
+        title="Apply these leases to all your current uploads"
+        ng:if="!ctrl.confirmDelete"
+        ng:click="ctrl.batchApplyLeases()"
+    >⇔</button>
+
+    <button title="Remove ALL leases"
+            class="button button--confirm-delete"
+            ng:if="ctrl.confirmDelete"
+            ng:click="ctrl.batchRemoveLeases()">
+        <gr-icon>warning</gr-icon>Remove ALL leases in job?
+    </button>
+</span>
+
 
 <form class="lease__form"
       ng:show="!ctrl.adding && ctrl.editing"

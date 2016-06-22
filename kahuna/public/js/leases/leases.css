@@ -12,7 +12,11 @@
   width: 100%;
   margin-bottom: 10px;
 }
-
+.leases__apply-all {
+    margin-left: 10px;
+    line-height: 20px;
+    font-size: 1.6rem;
+}
 .leases__wrapper gr-icon:hover {
   cursor: pointer;
 }
