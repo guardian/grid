@@ -1,3 +1,10 @@
+.lease__form {
+    background-color: #444;
+    color: #ccc;
+    border: 1px solid #999;
+    padding: 5px;
+    box-sizing: border-box;
+}
 .lease__form select,
 .lease__form input,
 .lease__form .lease__date {
