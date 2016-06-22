@@ -10,7 +10,7 @@ import com.amazonaws.services.kinesis.clientlibrary.interfaces.{IRecordProcessor
 import com.amazonaws.services.kinesis.clientlibrary.lib.worker.{InitialPositionInStream, Worker, KinesisClientLibConfiguration}
 import com.gu.logback.appender.kinesis.helpers.CustomCredentialsProviderChain
 
-class KinesisStreamReader {
+class CrierStreamReader {
 
   lazy val workerId: String = InetAddress.getLocalHost().getCanonicalHostName() + ":" + UUID.randomUUID()
 

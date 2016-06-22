@@ -17,7 +17,7 @@ object Global extends WithFilters(CorsFilter, RequestLoggingFilter, new GzipFilt
   }
 
   override def onStart(app: Application) {
-    val crierReader = new KinesisStreamReader()
+    val crierReader = new CrierStreamReader()
 
     crierReader.start()
 
