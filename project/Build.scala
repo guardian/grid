@@ -122,7 +122,7 @@ object Build extends Build {
       .settings(scroogeThriftOutputFolder in Compile := sourceManaged.value / "thrift")
       .settings(scroogeThriftDependencies in Compile := Seq("content-api-models", "story-packages-model-thrift",
         "content-atom-model-thrift"))
-      .libraryDependencies(awsDeps ++ playWsDeps ++ reactiveXDeps ++ usageGuDeps ++ kinesisDeps)
+      .libraryDependencies(awsDeps ++ playWsDeps ++ reactiveXDeps ++ guDeps ++ kinesisDeps)
       // See: https://github.com/twitter/scrooge/issues/199
       .settings( scroogeThriftSources in Compile ++= {
       (scroogeUnpackDeps in Compile).value.flatMap { dir => (dir ** "*.thrift").get }

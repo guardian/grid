@@ -32,12 +32,8 @@ object Dependencies {
     ("com.gu" %% "pan-domain-auth-play" % "0.2.10")
   )
 
-  val usageGuDeps = Seq(
-    "com.gu" %% "content-api-client" % "9.0"
-  )
-
   val guDeps = Seq(
-    "com.gu" %% "content-api-client" % "7.11"
+    "com.gu" %% "content-api-client" % "9.0"
   )
 
   val scanamoDeps = Seq(
