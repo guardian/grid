@@ -192,6 +192,7 @@ object ImageResponse extends EditsResponse {
     val reindexUri = URI.create(s"${Config.rootUri}/images/$id/reindex")
     val addCollectionUri = URI.create(s"${Config.collectionsUri}/images/$id")
     val addLeasesUri = URI.create(s"${Config.leasesUri}/leases")
+    val replaceLeasesUri = URI.create(s"${Config.leasesUri}/leases/media/$id")
     val deleteLeasesUri = URI.create(s"${Config.leasesUri}/leases/media/$id")
 
     val deleteAction = Action("delete", imageUri, "DELETE")
@@ -200,12 +201,14 @@ object ImageResponse extends EditsResponse {
     val addCollectionAction = Action("add-collection", addCollectionUri, "POST")
 
     val addLeasesAction = Action("add-lease", addLeasesUri, "POST")
+    val replaceLeasesAction = Action("replace-leases", replaceLeasesUri, "POST")
     val deleteLeasesAction = Action("delete-leases", deleteLeasesUri, "DELETE")
 
     List(
       deleteAction        -> isDeletable,
       reindexAction       -> withWritePermission,
       addLeasesAction     -> withWritePermission,
+      replaceLeasesAction -> withWritePermission,
       deleteLeasesAction  -> withWritePermission,
       addCollectionAction -> true
     )

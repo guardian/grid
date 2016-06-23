@@ -65,15 +65,14 @@ leases.controller('LeasesCtrl', [
         }
 
         // These events allow this control to work as a hybrid on the upload page
-        const batchAddLeasesEvent = 'events:batch-apply:add-labels';
-        const batchRemoveLeasesEvent = 'events:batch-apply:remove-labels';
+        const batchAddLeasesEvent = 'events:batch-apply:add-leases';
+        const batchRemoveLeasesEvent = 'events:batch-apply:remove-leases';
 
         if (Boolean(ctrl.withBatch)) {
             $scope.$on(batchAddLeasesEvent,
-                    (e, leases) => leases.map(lease => addLease(lease)));
+                    (e, leases) => leaseService.replace(ctrl.images[0], leases));
             $scope.$on(batchRemoveLeasesEvent,
-                    () => console.log("batch-remove-leases"));
-
+                    () => leaseService.clear(ctrl.images[0]));
 
             ctrl.batchApplyLeases = () => {
                 if (ctrl.leases.leases.length > 0) {

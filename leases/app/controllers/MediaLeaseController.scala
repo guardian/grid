@@ -13,6 +13,7 @@ import play.api.mvc._
 import play.api.libs.concurrent.Execution.Implicits._
 
 import play.api.libs.json._
+import play.api.data.validation.ValidationError
 
 import com.gu.mediaservice.model.{MediaLease, LeaseByMedia}
 
@@ -53,6 +54,23 @@ object MediaLeaseController extends Controller
 
   private def notify(mediaId: String) = LeaseNotifier.send(LeaseNotice.build(mediaId))
 
+  private def clearLease(id: String) = LeaseStore.get(id).map { lease =>
+    LeaseStore.delete(id).map { _ => notify(lease.mediaId) }
+  }
+
+  private def clearLeases(id: String) = LeaseStore.getForMedia(id)
+    .flatMap(_.id)
+    .map(clearLease)
+
+  private def badRequest(e:  Seq[(JsPath, Seq[ValidationError])], msg: String) =
+    respondError(BadRequest, "media-leases-parse-failed", JsError.toFlatJson(e).toString)
+
+  private def addLease(mediaLease: MediaLease, userId: Option[String]) = LeaseStore
+    .put(mediaLease.copy(leasedBy = userId)).map { _ =>
+      notify(mediaLease.mediaId)
+    }
+
+
   def reindex = Authenticated.async { _ => Future {
     LeaseStore.forEach { leases =>
       leases
@@ -65,24 +83,20 @@ object MediaLeaseController extends Controller
 
   def postLease = Authenticated.async(parse.json) { implicit request => Future {
     request.body.validate[MediaLease].fold(
-      e => {
-        respondError(BadRequest, "media-lease-parse-failed", JsError.toFlatJson(e).toString)
-      },
+      badRequest(_, "media-leases-parse-failed"),
       mediaLease => {
-        val insertion = LeaseStore.put(mediaLease.copy(leasedBy = requestingUser)).map { _ =>
-          notify(mediaLease.mediaId)
-        }
+        addLease(mediaLease, requestingUser)
+
         Accepted
       }
     )
   }}
 
+
   def deleteLease(id: String) = Authenticated.async { implicit request =>
     Future {
-      LeaseStore.get(id).map { lease =>
-        val mediaId = lease.mediaId
-        val deletion = LeaseStore.delete(id).map { _ => notify(mediaId) }
-      }
+      clearLease(id)
+
       Accepted
     }
 
@@ -102,15 +116,26 @@ object MediaLeaseController extends Controller
     }
   }
 
+
   def deleteLeasesForMedia(id: String) = Authenticated.async { request =>
     Future {
-      LeaseStore.getForMedia(id)
-        .flatMap(_.id)
-        .map(LeaseStore.delete)
+      clearLeases(id)
 
       Accepted
     }
   }
+
+  def replaceLeasesForMedia(id: String) = Authenticated.async(parse.json) { implicit request => Future {
+    request.body.validate[List[MediaLease]].fold(
+      badRequest(_, "media-leases-parse-failed"),
+      mediaLeases => {
+        clearLeases(id)
+        mediaLeases.map(addLease(_, requestingUser))
+
+        Accepted
+      }
+    )
+  }}
 
   def getLeasesForMedia(id: String) = Authenticated.async { request =>
     Future {

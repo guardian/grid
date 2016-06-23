@@ -40,6 +40,54 @@ leaseService.factory('leaseService', [
       return image.perform('add-lease', {body: newLease});
     }
 
+    function clear(image) {
+        const images = [image]
+        const currentLeases = getLeases(images);
+
+        return currentLeases.then((originalLeases) => {
+
+            const originalLeaseCount = originalLeases[0].leases.length;
+
+            return image
+                .perform('delete-leases')
+                .then((op) => {
+                    return {
+                        op,
+                        originalLeaseCount
+                    };
+                });
+        }).then((op) => {
+            pollLeases(images, op.originalLeaseCount)
+        });
+    }
+
+    function replace(image, leases) {
+        const images = [image]
+        const currentLeases = getLeases(images);
+
+        return currentLeases.then((originalLeases) => {
+
+            const originalLeaseCount = originalLeases[0].leases.length;
+
+            const updatedLeases = leases.map((lease) => {
+                var newLease = angular.copy(lease);
+                newLease.mediaId = image.data.id;
+                return newLease;
+            })
+
+            return image
+                .perform('replace-leases', {body: updatedLeases})
+                .then((op) => {
+                    return {
+                        op,
+                        originalLeaseCount
+                    };
+                });
+        }).then((op) => {
+            pollLeases(images, op.originalLeaseCount)
+        });
+    }
+
     function batchAdd(lease, originalLeases, images) {
       const originalLeaseCount = originalLeases.leases.length;
       return $q.all(images.map(image => add(image, lease)))
@@ -104,6 +152,8 @@ leaseService.factory('leaseService', [
         canUserEdit,
         deleteLease,
         getByMediaId,
+        replace,
+        clear,
         allowedByLease,
         flattenLeases
     };
