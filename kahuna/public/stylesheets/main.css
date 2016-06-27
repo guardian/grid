@@ -1262,7 +1262,22 @@ FIXME: what to do with touch devices
 .bottom-bar__action--cost {
     width: 35px;
 }
-
+/*
+.bottom-bar__action .allow {
+    background-color: green;
+}
+.bottom-bar__action .deny {
+    background-color: red;
+}
+*/
+.bottom-bar__action--lease {
+    text-align: center;
+}
+.bottom-bar__action--lease .access {
+    border-radius: 3px;
+    padding-left: 2px;
+    padding-right: 2px;
+}
 
 /* ==========================================================================
    Image actions
@@ -1308,6 +1323,7 @@ FIXME: what to do with touch devices
 }
 
 .result-editor__result {
+    flex-shrink: 0;
     position: relative;
     width: 256px;
 }
@@ -1395,7 +1411,6 @@ FIXME: what to do with touch devices
 
 .result-editor__field-container__add-button {
     font-size: 1.3rem;
-    padding-right: 10px;
     padding-bottom: 5px;
 }
 
@@ -1487,7 +1502,6 @@ FIXME: what to do with touch devices
 .image-details {
     box-sizing: border-box;
     font-size: 1.3rem;
-    overflow: auto;
 }
 /* HACK: This is here until we start using the panelled-content here */
 .image-details--full-image {
@@ -1615,6 +1629,11 @@ FIXME: what to do with touch devices
     /* respect newlines in text */
     white-space: pre-line;
     color: #CCC;
+}
+
+.image-info__heading--lease {
+    width: 90%;
+    float: left;
 }
 
 .image-info__keyword {

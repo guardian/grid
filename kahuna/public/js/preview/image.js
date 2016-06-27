@@ -71,6 +71,13 @@ image.controller('uiPreviewImageCtrl', [
         return collection.data.cssColour && `background-color: ${collection.data.cssColour}`;
     };
 
+   ctrl.leaseStatus = (image) => {
+        if (image.data.leases.data.current) {
+            return image.data.leases.data.current.access;
+        } else {
+            return undefined;
+        }
+    };
 }]);
 
 image.directive('uiPreviewImage', function() {

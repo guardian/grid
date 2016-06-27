@@ -131,6 +131,18 @@
                 Collections
             </span>
            <gr-collection-overlay image="ctrl.image"></gr-collection-overlay>
+           <span class="preview__collections__collection__apply-all" ng:if="ctrl.withBatch">
+                <button ng:if="! ctrl.confirmDelete"
+                        title="Apply these collections to all your current uploads"
+                        ng:click="ctrl.batchApplyCollections()"
+                >⇔</button>
+                <button title="Remove ALL collections"
+                        class="button button--confirm-delete"
+                        ng:if="ctrl.confirmDelete"
+                        ng:click="ctrl.batchRemoveCollections()">
+                    <gr-icon>warning</gr-icon>Remove ALL collections in job?
+                </button>
+            </span>
             <div class="result-editor__field-container__collections">
                 <ul class="preview__collections">
                     <li class="preview__collections__collection"
@@ -152,18 +164,20 @@
                     </li>
                 </ul>
             </div>
-            <span class="preview__collections__collection__apply-all" ng:if="ctrl.withBatch">
-                <button ng:if="! ctrl.confirmDelete"
-                        title="Apply these collections to all your current uploads"
-                        ng:click="ctrl.batchApplyCollections()"
-                >⇔</button>
-                <button title="Remove ALL collections"
-                        class="button button--confirm-delete"
-                        ng:if="ctrl.confirmDelete"
-                        ng:click="ctrl.batchRemoveCollections()">
-                    <gr-icon>warning</gr-icon>Remove ALL collections in job?
-                </button>
+        </div>
+
+        <div class="result-editor__field-container flex-container">
+            <span class="result-editor__field-label  flex-no-shrink text-small">
+                Leases
             </span>
+            <div class="result-editor__field-container__leases">
+                <gr-leases
+                    gr:images="[ctrl.image]"
+                    with-batch="ctrl.withBatch"
+                    class="leases-flex"
+                    gr:user-can-edit="true">
+                </gr-leases>
+            </div>
         </div>
 
         <div class="result-editor__field-container flex-container flex-center">
@@ -171,14 +185,15 @@
                 Labels
             </span>
             <div class="result-editor__field-container__labels" ng:class="{'result-editor__field-container__labels--hidden' : ctrl.inputtingLabel}">
-                <gr-add-label images="[ctrl.image]"
-                              active="ctrl.inputtingLabel"
-                              class="result-editor__field-container__add-button"
-                ></gr-add-label>
+                <gr-add-label
+                    images="[ctrl.image]"
+                    active="ctrl.inputtingLabel"
+                    class="result-editor__field-container__add-button">
+                </gr-add-label>
                 <ui-labeller
                     image="ctrl.image"
-                    with-batch="ctrl.withBatch"
-                ></ui-labeller>
+                    with-batch="ctrl.withBatch">
+                </ui-labeller>
             </div>
         </div>
         <div class="result-editor__field-container" ng:if=":: ctrl.image.data.uploadInfo.filename">

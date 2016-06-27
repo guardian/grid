@@ -18,8 +18,8 @@
     width: 290px;
     position: fixed;
     background: rgba(68, 68, 68, 0.9);
-    overflow: auto;
     transition: width 0.2s;
+    overflow: auto;
 }
 
 .gr-panel--locked .gr-panel__content {

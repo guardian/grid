@@ -169,7 +169,7 @@ object ImageResponse extends EditsResponse {
     }
     val imageLink = Link("ui:image",  s"${Config.kahunaUri}/images/$id")
     val usageLink = Link("usages", s"${Config.usageUri}/usages/media/$id")
-    val leasesLink = Link("leases", s"${Config.leaseUri}/leases/media/$id")
+    val leasesLink = Link("leases", s"${Config.leasesUri}/leases/media/$id")
     val fileMetadataLink = Link("fileMetadata", s"${Config.rootUri}/images/$id/fileMetadata")
 
     val baseLinks = if (withWritePermission) {
@@ -191,8 +191,9 @@ object ImageResponse extends EditsResponse {
     val imageUri = URI.create(s"${Config.rootUri}/images/$id")
     val reindexUri = URI.create(s"${Config.rootUri}/images/$id/reindex")
     val addCollectionUri = URI.create(s"${Config.collectionsUri}/images/$id")
-    val addLeasesUri = URI.create(s"${Config.leaseUri}/leases")
-    val deleteLeasesUri = URI.create(s"${Config.leaseUri}/leases/media/$id")
+    val addLeasesUri = URI.create(s"${Config.leasesUri}/leases")
+    val replaceLeasesUri = URI.create(s"${Config.leasesUri}/leases/media/$id")
+    val deleteLeasesUri = URI.create(s"${Config.leasesUri}/leases/media/$id")
 
     val deleteAction = Action("delete", imageUri, "DELETE")
     val reindexAction = Action("reindex", reindexUri, "POST")
@@ -200,12 +201,14 @@ object ImageResponse extends EditsResponse {
     val addCollectionAction = Action("add-collection", addCollectionUri, "POST")
 
     val addLeasesAction = Action("add-lease", addLeasesUri, "POST")
+    val replaceLeasesAction = Action("replace-leases", replaceLeasesUri, "POST")
     val deleteLeasesAction = Action("delete-leases", deleteLeasesUri, "DELETE")
 
     List(
       deleteAction        -> isDeletable,
       reindexAction       -> withWritePermission,
       addLeasesAction     -> withWritePermission,
+      replaceLeasesAction -> withWritePermission,
       deleteLeasesAction  -> withWritePermission,
       addCollectionAction -> true
     )
@@ -302,7 +305,7 @@ object ImageResponse extends EditsResponse {
   def usageUri(id: String) = {
     URI.create(s"${Config.usageUri}/usages/${UriEncoding.encodePathSegment(id, "UTF-8")}")
   }
-  def leasesUri(id: String) = URI.create(s"${Config.rootUri}/leases/media/$id")
+  def leasesUri(id: String) = URI.create(s"${Config.leasesUri}/leases/media/$id")
 
   def usageEntity(usage: Usage) = EmbeddedEntity[Usage](usageUri(usage.id), Some(usage))
   def usagesEntity(id: String, usages: List[Usage]) =

@@ -1,3 +1,10 @@
+.lease__form {
+    background-color: #444;
+    color: #ccc;
+    border: 1px solid #999;
+    padding: 5px;
+    box-sizing: border-box;
+}
 .lease__form select,
 .lease__form input,
 .lease__form .lease__date {
@@ -5,7 +12,12 @@
   width: 100%;
   margin-bottom: 10px;
 }
-
+.leases__apply-all {
+    flex-shrink: 0;
+    margin-left: 10px;
+    line-height: 20px;
+    font-size: 1.6rem;
+}
 .leases__wrapper gr-icon:hover {
   cursor: pointer;
 }
@@ -18,6 +30,7 @@
 
 .lease__item p {
   margin: 2px;
+  font-style: italic;
 }
 
 .lease__date {
@@ -29,6 +42,8 @@
 }
 
 .lease {
+  display: flex;
+  justify-content: space-between;
   margin: 4px;
   padding: 3px;
   border-top-left-radius: 2px;
@@ -43,20 +58,16 @@ gr-leases .metadata-line__key {
   margin-bottom: 10px
 }
 
-gr-leases gr-confirm-delete {
-  float: right;
+.allowed {
+  background-color: #90ee90;
 }
 
-.active.allowed {
-  background-color: lightgreen;
-}
-
-.active.denied {
+.denied {
   background-color: red;
 }
 
 gr-leases .gu-date-range__overlay {
-  position: absolute;
+  position: fixed;
   z-index: 1;
   right: 0px;
 }
@@ -69,6 +80,14 @@ gr-leases .gu-date-range__display {
 .image-info__wrap {
   overflow: visible;
 }
+
+.image-info__lease {
+  padding-top: 3px;
+  color: #CCC;
+  font-style: italic;
+  display: inline-block;
+}
+
 
 .lease__form__buttons {
   text-align: right;
@@ -93,14 +112,40 @@ gr-leases .gu-date-range__display {
 
 .lease__access {
   padding: 3px;
-  margin-bottom: 7px;
+  margin-bottom: 2px;
 }
 
 .lease__current {
   padding: 2px;
+}
 
+.lease__current.current {
+  background-color: #00ADEE;
 }
 
 .current {
-  background-color: #00ADEE;
+  color: white;
+}
+
+gr-leases.leases-flex {
+  display: flex;
+  flex-direction: row;
+}
+
+gr-leases.leases-flex ul {
+  display:flex;
+  flex-direction: row;
+  font-size: 1.3rem;
+}
+
+gr-leases.leases-flex button {
+  flex-shrink: 0;
+}
+
+gr-leases.leases-flex .lease__item {
+  border-radius: 5px;
+}
+
+gr-leases.leases-flex gr-confirm-delete {
+  display: block;
 }
