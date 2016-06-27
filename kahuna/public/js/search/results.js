@@ -8,9 +8,9 @@ import '../util/async';
 import '../util/rx';
 import '../util/seq';
 import '../components/gu-lazy-table/gu-lazy-table';
-import '../components/gu-lazy-gallery/gu-lazy-gallery';
+import '../components/gu-lazy-preview/gu-lazy-preview';
 import '../components/gu-lazy-table-shortcuts/gu-lazy-table-shortcuts';
-import '../components/gu-lazy-gallery-shortcuts/gu-lazy-gallery-shortcuts';
+import '../components/gu-lazy-preview-shortcuts/gu-lazy-preview-shortcuts';
 import '../components/gr-archiver/gr-archiver';
 import '../components/gr-delete-image/gr-delete-image';
 import '../components/gr-downloader/gr-downloader';
@@ -25,8 +25,8 @@ export var results = angular.module('kahuna.search.results', [
     'util.seq',
     'gu.lazyTable',
     'gu.lazyTableShortcuts',
-    'gu.lazyGallery',
-    'gu.lazyGalleryShortcuts',
+    'gu.lazyPreview',
+    'gu.lazyPreviewShortcuts',
     'gr.archiver',
     'gr.downloader',
     'gr.deleteImage',
@@ -98,8 +98,8 @@ results.controller('SearchResultsCtrl', [
         ctrl.images = [];
         ctrl.newImagesCount = 0;
 
-        // Gallery control
-        ctrl.galleryView = false;
+        // Preview control
+        ctrl.previewView = false;
 
         // Map to track image->position and help remove duplicates
         let imagesPositions;

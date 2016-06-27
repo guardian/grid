@@ -2,19 +2,19 @@ import angular from 'angular';
 import Rx from 'rx';
 import 'rx-dom';
 
-import template from './gu-lazy-gallery.html!text';
+import template from './gu-lazy-preview.html!text';
 
-import './gu-lazy-gallery.css!';
+import './gu-lazy-preview.css!';
 
 import '../../util/rx';
 
-export var lazyGallery = angular.module('gu.lazyGallery', ['util.rx']);
+export var lazyPreview = angular.module('gu.lazyPreview', ['util.rx']);
 
 function asInt(string) {
     return parseInt(string, 10);
 }
 
-lazyGallery.controller('GuLazyGalleryCtrl', [function() {
+lazyPreview.controller('GuLazyPreviewCtrl', [function() {
     let ctrl = this;
 
     ctrl.init = function({items$, totalItems$, preloadedItems$, currentIndex$}) {
@@ -28,7 +28,7 @@ lazyGallery.controller('GuLazyGalleryCtrl', [function() {
             ctrl.nextItem     = () => observer.onNext('nextItem');
 
             // Make sure we start at the beginning
-            observer.onNext('galleryStart');
+            observer.onNext('previewStart');
         });
 
 
@@ -42,7 +42,7 @@ lazyGallery.controller('GuLazyGalleryCtrl', [function() {
                     return {
                         prevItem:     -1,
                         nextItem:     +1,
-                        galleryStart: currentIndex * -1
+                        previewStart: currentIndex * -1
                     }[command] || 0;
                 }
             );
@@ -100,23 +100,23 @@ lazyGallery.controller('GuLazyGalleryCtrl', [function() {
 
 }]);
 
-lazyGallery.directive('guLazyGallery', ['observe$', 'observeCollection$', 'subscribe$', 'inject$',
+lazyPreview.directive('guLazyPreview', ['observe$', 'observeCollection$', 'subscribe$', 'inject$',
                                         function(
                                             observe$, observeCollection$, subscribe$, inject$) {
     return {
         restrict: 'E',
-        controller: 'GuLazyGalleryCtrl',
-        controllerAs: 'galleryCtrl',
+        controller: 'GuLazyPreviewCtrl',
+        controllerAs: 'previewCtrl',
         transclude: true,
         template: template,
         link: function(scope, element, attrs, ctrl) {
             // Map attributes as Observable streams
             const {
-                guLazyGalleryItems:            itemsAttr,
-                guLazyGalleryItemsTotal:       totalItemsAttr,
-                guLazyGallerySelectionMode:    selectionMode,
-                guLazyGalleryLoadRange:        loadRangeFn,
-                guLazyGalleryPreloadedItems:   preloadedItemsAttr
+                guLazyPreviewItems:            itemsAttr,
+                guLazyPreviewItemsTotal:       totalItemsAttr,
+                guLazyPreviewSelectionMode:    selectionMode,
+                guLazyPreviewLoadRange:        loadRangeFn,
+                guLazyPreviewPreloadedItems:   preloadedItemsAttr
             } = attrs;
 
             const items$          = observeCollection$(scope, itemsAttr);
