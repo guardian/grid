@@ -4,14 +4,15 @@ import play.api.libs.json._
 import play.api.libs.functional.syntax._
 
 import com.gu.mediaservice.model._
-
+import lib.usagerights.CostCalculator
 
 object ImageExtras {
 
   val validityDescription = Map(
     "no_rights"                   -> "No rights to use this image",
     "missing_credit"              -> "Missing credit information",
-    "missing_description"         -> "Missing description"
+    "missing_description"         -> "Missing description",
+    "paid_image"                  -> "Paid imagery requires a lease"
   )
 
   private def optToBool[T](o: Option[T]): Boolean =
@@ -27,6 +28,7 @@ object ImageExtras {
   def hasCurrentAllowLease(leases: LeaseByMedia) = optToBool(leases.current.map(_.access.name == "allow"))
 
   def validityMap(image: Image): Map[String, Boolean] = Map(
+    "paid_image"           -> CostCalculator.isPay(image.usageRights),
     "no_rights"            -> !hasRights(image.usageRights),
     "missing_credit"       -> !hasCredit(image.metadata),
     "missing_description"  -> !hasDescription(image.metadata)
