@@ -58,7 +58,7 @@ gr-leases .metadata-line__key {
 }
 
 .allowed {
-  background-color: lightgreen;
+  background-color: #90ee90;
 }
 
 .denied {
@@ -134,8 +134,7 @@ gr-leases.leases-flex {
 gr-leases.leases-flex ul {
   display:flex;
   flex-direction: row;
-  line-height: 1em;
-  font-size: .75em;
+  font-size: 1.3rem;
 }
 
 gr-leases.leases-flex button {

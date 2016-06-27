@@ -1323,6 +1323,7 @@ FIXME: what to do with touch devices
 }
 
 .result-editor__result {
+    flex-shrink: 0;
     position: relative;
     width: 256px;
 }
