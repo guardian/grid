@@ -41,7 +41,7 @@ leaseService.factory('leaseService', [
     }
 
     function clear(image) {
-        const images = [image]
+        const images = [image];
         const currentLeases = getLeases(images);
 
         return currentLeases.then((originalLeases) => {
@@ -57,7 +57,7 @@ leaseService.factory('leaseService', [
                     };
                 });
         }).then((op) => {
-            pollLeases(images, op.originalLeaseCount)
+            pollLeases(images, op.originalLeaseCount);
         });
     }
 
