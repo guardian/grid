@@ -43,6 +43,9 @@ object ImageResponse extends EditsResponse {
   def hasUsages(image: Image) =
     image.usages.nonEmpty
 
+  def hasLeases(image: Image) =
+    image.leases.leases.nonEmpty
+
   def isPhotographerCategory[T <: UsageRights](usageRights: T) =
     usageRights match {
       case _:Photographer => true
@@ -84,6 +87,9 @@ object ImageResponse extends EditsResponse {
 
     if (isAgencyCommissionedCategory(image.usageRights))
       reasons += CommissionedAgency.category
+
+    if (hasLeases(image))
+      reasons += "leases"
 
     reasons.toList
   }
