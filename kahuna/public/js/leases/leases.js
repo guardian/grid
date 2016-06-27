@@ -60,10 +60,6 @@ leases.controller('LeasesCtrl', [
             }
         };
 
-        function addLease(newLease) {
-            leaseService.batchAdd(newLease, ctrl.leases, ctrl.images);
-        }
-
         // These events allow this control to work as a hybrid on the upload page
         const batchAddLeasesEvent = 'events:batch-apply:add-leases';
         const batchRemoveLeasesEvent = 'events:batch-apply:remove-leases';
