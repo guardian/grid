@@ -62,7 +62,7 @@ leaseService.factory('leaseService', [
     }
 
     function replace(image, leases) {
-        const images = [image]
+        const images = [image];
         const currentLeases = getLeases(images);
 
         return currentLeases.then((originalLeases) => {
@@ -73,7 +73,7 @@ leaseService.factory('leaseService', [
                 var newLease = angular.copy(lease);
                 newLease.mediaId = image.data.id;
                 return newLease;
-            })
+            });
 
             return image
                 .perform('replace-leases', {body: updatedLeases})
@@ -84,7 +84,7 @@ leaseService.factory('leaseService', [
                     };
                 });
         }).then((op) => {
-            pollLeases(images, op.originalLeaseCount)
+            pollLeases(images, op.originalLeaseCount);
         });
     }
 
