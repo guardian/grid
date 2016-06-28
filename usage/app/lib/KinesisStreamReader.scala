@@ -14,7 +14,7 @@ class CrierStreamReader {
   lazy val workerId: String = InetAddress.getLocalHost().getCanonicalHostName() + ":" + UUID.randomUUID()
 
   val credentialsProvider = new AWSCredentialsProviderChain(
-    new ProfileCredentialsProvider("media-api"),
+    new ProfileCredentialsProvider("media-service"),
     new StaticCredentialsProvider(
       new BasicAWSCredentials(Config.awsCredentials.getAWSAccessKeyId(), Config.awsCredentials.getAWSSecretKey())
     )
@@ -26,15 +26,17 @@ class CrierStreamReader {
   val initialPosition = InitialPositionInStream.TRIM_HORIZON
 
   private lazy val LiveKinesisCredentialsProvider: AWSCredentialsProvider = new AWSCredentialsProviderChain(
+    new ProfileCredentialsProvider("capi"),
     new STSAssumeRoleSessionCredentialsProvider(credentialsProvider, Config.crierLiveArn, sessionId)
   )
 
   private lazy val previewKinesisCredentialsProvider: AWSCredentialsProvider = new AWSCredentialsProviderChain(
+    new ProfileCredentialsProvider("capi"),
     new STSAssumeRoleSessionCredentialsProvider(credentialsProvider, Config.crierPreviewArn, sessionId)
   )
 
   private lazy val liveConfig = new KinesisClientLibConfiguration(
-    Config.crierAppName,
+    Config.liveAppName,
     Config.crierLiveKinesisStream,
     LiveKinesisCredentialsProvider,
     dynamoCredentialsProvider,
@@ -44,7 +46,7 @@ class CrierStreamReader {
     .withRegionName(Config.awsRegionName)
 
   private lazy val previewConfig = new KinesisClientLibConfiguration(
-    Config.crierAppName,
+    Config.previewAppName,
     Config.crierPreviewKinesisStream,
     previewKinesisCredentialsProvider,
     dynamoCredentialsProvider,

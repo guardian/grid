@@ -54,6 +54,7 @@ object Config extends CommonPlayAppProperties with CommonPlayAppConfig {
   val crierPreviewKinesisStream = properties("crier.preview.name")
   val crierLiveArn = properties("crier.live.arn")
   val crierPreviewArn = properties("crier.preview.arn")
-  val crierAppName = properties("crier.app.name")
+  val liveAppName = "media-service-live"
+  val previewAppName = "media-service-preview"
 
 }

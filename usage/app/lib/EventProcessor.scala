@@ -43,6 +43,8 @@ trait EventProcessor extends IRecordProcessor {
 
   def processEvent(event: Event): Unit = {
 
+    println("!! now processing event ", event)
+
     val dateTime: DateTime = new DateTime(event.dateTime)
 
     event.eventType match {
@@ -101,6 +103,7 @@ private class CrierLiveEventProcessor() extends EventProcessor {
 
 
   override def processRecords(records: JList[Record], checkpointer: IRecordProcessorCheckpointer): Unit = {
+    println("!! now processing records ", records)
 
     records.asScala.map { record =>
 
@@ -119,6 +122,7 @@ private class CrierPreviewEventProcessor() extends EventProcessor {
     new PreviewContentItem(content, date)
 
   override def processRecords(records: JList[Record], checkpointer: IRecordProcessorCheckpointer): Unit = {
+    println("!! processing preview records!! ")
 
     records.asScala.map { record =>
 
