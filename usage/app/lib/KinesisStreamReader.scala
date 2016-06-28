@@ -15,9 +15,7 @@ class CrierStreamReader {
 
   val credentialsProvider = new AWSCredentialsProviderChain(
     new ProfileCredentialsProvider("media-service"),
-    new StaticCredentialsProvider(
-      new BasicAWSCredentials(Config.awsCredentials.getAWSAccessKeyId(), Config.awsCredentials.getAWSSecretKey())
-    )
+    new InstanceProfileCredentialsProvider()
   )
 
   private lazy val dynamoCredentialsProvider = credentialsProvider
@@ -55,6 +53,7 @@ class CrierStreamReader {
     .withInitialPositionInStream(initialPosition)
     .withRegionName("eu-west-1")
 
+  )
   protected val LiveEventProcessorFactory = new IRecordProcessorFactory {
     override def createProcessor(): IRecordProcessor =
       new CrierLiveEventProcessor()
