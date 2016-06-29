@@ -51,9 +51,8 @@ class CrierStreamReader {
     null,
     workerId)
     .withInitialPositionInStream(initialPosition)
-    .withRegionName("eu-west-1")
+    .withRegionName(Config.awsRegionName)
 
-  )
   protected val LiveEventProcessorFactory = new IRecordProcessorFactory {
     override def createProcessor(): IRecordProcessor =
       new CrierLiveEventProcessor()
