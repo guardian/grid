@@ -17,6 +17,10 @@ object Global extends WithFilters(CorsFilter, RequestLoggingFilter, new GzipFilt
   }
 
   override def onStart(app: Application) {
+    val crierReader = new CrierStreamReader()
+
+    crierReader.start()
+
     UsageApi.keyStore.scheduleUpdates(Akka.system(app).scheduler)
 
     // Eval subscription to start stream
@@ -26,5 +30,4 @@ object Global extends WithFilters(CorsFilter, RequestLoggingFilter, new GzipFilt
   override def onStop(app: Application) {
     subscription.unsubscribe
   }
-
 }

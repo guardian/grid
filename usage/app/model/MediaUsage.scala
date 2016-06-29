@@ -1,7 +1,6 @@
 package model
 
 import com.amazonaws.services.dynamodbv2.document.Item
-import com.gu.contentapi.client.model.v1.{Content, Element}
 import com.gu.mediaservice.model.{PrintUsageMetadata, DigitalUsageMetadata, DateFormat}
 import com.gu.mediaservice.model.{PendingUsageStatus, PublishedUsageStatus, PrintUsageRecord, UsageStatus}
 import org.joda.time.DateTime
