@@ -3,8 +3,8 @@ package lib
 import java.io.File
 
 import ch.qos.logback.classic.{Logger => LogbackLogger, LoggerContext}
-import ch.qos.logback.core.util.Duration
 import ch.qos.logback.classic.spi.ILoggingEvent
+import ch.qos.logback.core.util.Duration
 import ch.qos.logback.core.{FileAppender, ConsoleAppender}
 
 import net.logstash.logback.layout.LogstashLayout
@@ -35,17 +35,18 @@ object LogConfig {
 
   def makeLayout(customFields: String) = (new LogstashLayout()) <| (_.setCustomFields(customFields))
 
-  def makeKinesisAppender(layout: LogstashLayout, context: LoggerContext, appenderConfig: KinesisAppenderConfig) = (new KinesisAppender()) <| { a =>
-    a.setStreamName(appenderConfig.stream)
-    a.setRegion(appenderConfig.region)
-    a.setRoleToAssumeArn(appenderConfig.roleArn)
-    a.setBufferSize(appenderConfig.bufferSize)
+  def makeKinesisAppender(layout: LogstashLayout, context: LoggerContext, appenderConfig: KinesisAppenderConfig) =
+    (new KinesisAppender()) <| { (a: KinesisAppender[ILoggingEvent]) =>
+      a.setStreamName(appenderConfig.stream)
+      a.setRegion(appenderConfig.region)
+      a.setRoleToAssumeArn(appenderConfig.roleArn)
+      a.setBufferSize(appenderConfig.bufferSize)
 
-    a.setContext(context)
-    a.setLayout(layout)
+      a.setContext(context)
+      a.setLayout(layout)
 
-    layout.start()
-    a.start()
+      layout.start()
+      a.start()
   }
 
   def init(config: CommonPlayAppConfig) = config.stage match {

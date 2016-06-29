@@ -4,7 +4,7 @@ import com.gu.mediaservice.lib.aws.S3
 
 
 import com.amazonaws.services.cloudfront.CloudFrontUrlSigner
-import com.amazonaws.services.cloudfront.CloudFrontUrlSigner.Protocol
+import com.amazonaws.services.cloudfront.util.SignerUtils.Protocol
 import java.io.File
 import java.net.URL
 import org.joda.time.DateTime
