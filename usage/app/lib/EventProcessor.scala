@@ -105,7 +105,7 @@ private class CrierLiveEventProcessor() extends EventProcessor {
     records.asScala.map { record =>
 
       val buffer: Array[Byte] = record.getData.array()
-      CrierDeserializer.deserialize(buffer, false).map (result => processEvent(result))
+      CrierDeserializer.deserialize(buffer, true).map (result => processEvent(result))
 
     }
   }
@@ -121,15 +121,9 @@ private class CrierPreviewEventProcessor() extends EventProcessor {
   override def processRecords(records: JList[Record], checkpointer: IRecordProcessorCheckpointer): Unit = {
 
     records.asScala.map { record =>
-
+      
       val buffer: Array[Byte] = record.getData.array()
-
-      for {
-        result: Event <- CrierDeserializer.deserialize(buffer, false)
-      } yield {
-
-        processEvent(result)
-      }
+      CrierDeserializer.deserialize(buffer, true).map (result => processEvent(result))
 
     }
   }
