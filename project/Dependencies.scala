@@ -24,7 +24,7 @@ object Dependencies {
   val elasticsearchDeps = Seq("org.elasticsearch" % "elasticsearch" % elasticsearchVersion)
 
   val awsDeps = Seq(
-    ("com.amazonaws" % "aws-java-sdk" % "1.11.8")
+    ("com.amazonaws" % "aws-java-sdk" % "1.10.69")
   )
 
   val pandaDeps = Seq(
@@ -59,7 +59,7 @@ object Dependencies {
   )
 
   val loggingDeps = Seq(
-    "com.gu" % "kinesis-logback-appender" % "1.3.0",
+    "com.gu" % "kinesis-logback-appender" % "1.0.5",
     "net.logstash.logback" % "logstash-logback-encoder" % "4.4"
   )
 
