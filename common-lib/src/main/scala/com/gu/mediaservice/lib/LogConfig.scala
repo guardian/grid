@@ -36,7 +36,7 @@ object LogConfig {
   def makeLayout(customFields: String) = (new LogstashLayout()) <| (_.setCustomFields(customFields))
 
   def makeKinesisAppender(layout: LogstashLayout, context: LoggerContext, appenderConfig: KinesisAppenderConfig) =
-    (new KinesisAppender()) <| { (a: KinesisAppender[ILoggingEvent]) =>
+    (new KinesisAppender()) <| { a =>
       a.setStreamName(appenderConfig.stream)
       a.setRegion(appenderConfig.region)
       a.setRoleToAssumeArn(appenderConfig.roleArn)
