@@ -41,6 +41,7 @@ object UsageRecorder {
 
   private def getUpdateStream(dbMatchStream: Observable[MatchedUsageGroup]) = {
     dbMatchStream.flatMap(matchUsageGroup => {
+      println("now getting update stream!!!")
       val dbUsageGroup = matchUsageGroup.dbUsageGroup
       val usageGroup = matchUsageGroup.usageGroup
 
@@ -59,9 +60,14 @@ object UsageRecorder {
 
   def getNotificationStream(dbUpdateStream: Observable[MatchedUsageUpdate]) = {
     dbUpdateStream.flatMap(matchedUsageUpdates => {
+      println("** usage update **", matchedUsageUpdates)
 
-      def buildNotifications(usages: Set[MediaUsage]) = Observable.from(
-        usages.map(_.mediaId).toList.distinct.map(UsageNotice.build))
+      def buildNotifications(usages: Set[MediaUsage]) = {
+
+        println("!! now building a notification!!")
+        Observable.from(
+          usages.map(_.mediaId).toList.distinct.map(UsageNotice.build))
+      }
 
       val usageGroup = matchedUsageUpdates.matchUsageGroup.usageGroup
       val dbUsageGroup = matchedUsageUpdates.matchUsageGroup.dbUsageGroup
@@ -74,15 +80,33 @@ object UsageRecorder {
   val previewNotificationStream = getNotificationStream(dbPreviewUpdateStream)
 
   val distinctLiveNotificationStream = liveNotificationStream.groupBy(_.mediaId).flatMap {
-    case (_, s) => s.distinctUntilChanged
+    case (_, s) => {
+      println("distinct live stream")
+      s.distinctUntilChanged
+    }
   }
 
   val distinctPreviewNotificationStream = liveNotificationStream.groupBy(_.mediaId).flatMap {
-    case (_, s) => s.distinctUntilChanged
+    case (_, s) => {
+      println("distinct preview stream")
+      s.distinctUntilChanged
+    }
   }
 
-  val liveNotifiedStream = distinctLiveNotificationStream.map(UsageNotifier.send)
-  val previewNotifiedStream = distinctPreviewNotificationStream.map(UsageNotifier.send)
+  val liveNotifiedStream = {
+    println("live notified stream")
+    distinctLiveNotificationStream.map(not => {
+      println("now notification is ", not)
+      UsageNotifier.send(not)
+    })
+  }
+  val previewNotifiedStream = {
+    println("print notified stream")
+    distinctPreviewNotificationStream.map(not => {
+      println("not now it ", not)
+      UsageNotifier.send(not)
+    })
+  }
 
   val liveObservable = liveNotifiedStream.retry((_, error) => {
     Logger.error("UsageRecorder encountered an error.", error)

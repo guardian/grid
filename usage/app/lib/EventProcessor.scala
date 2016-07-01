@@ -43,14 +43,18 @@ trait EventProcessor extends IRecordProcessor {
 
   def processEvent(event: Event): Unit = {
 
+
     val dateTime: DateTime = new DateTime(event.dateTime)
 
     event.eventType match {
       case EventType.Update => {
+        println("was an update!")
 
         event.payload match {
           case Some(content: EventPayload.Content) => {
             val container = getContentItem(content.content, dateTime)
+            println("got container")
+            println("content stream is ", contentStream)
             contentStream.observable.onNext(container)
           }
           case _ => Logger.debug(s"Received crier udpate for ${event.payloadId} without payload")
@@ -102,10 +106,14 @@ private class CrierLiveEventProcessor() extends EventProcessor {
 
   override def processRecords(records: JList[Record], checkpointer: IRecordProcessorCheckpointer): Unit = {
 
+    println("now process records!!")
     records.asScala.map { record =>
 
       val buffer: Array[Byte] = record.getData.array()
-      CrierDeserializer.deserialize(buffer, true).map (result => processEvent(result))
+      CrierDeserializer.deserialize(buffer, true).map (result => {
+
+        processEvent(result)
+      })
 
     }
   }
@@ -120,10 +128,15 @@ private class CrierPreviewEventProcessor() extends EventProcessor {
 
   override def processRecords(records: JList[Record], checkpointer: IRecordProcessorCheckpointer): Unit = {
 
+    println("now process records!!")
     records.asScala.map { record =>
-      
+
       val buffer: Array[Byte] = record.getData.array()
-      CrierDeserializer.deserialize(buffer, true).map (result => processEvent(result))
+      CrierDeserializer.deserialize(buffer, true).map ({
+        result => {
+          processEvent(result)
+        }
+      })
 
     }
   }

@@ -13,6 +13,7 @@ object UsageStream {
 
   val liveObservable: Observable[UsageGroup] = liveContentStream.flatMap((container: ContentContainer) => {
 
+    println("now container ", container)
     val usageGroupOption: Option[Option[UsageGroup]] = UsageGroup
       .build(container.content, createStatus(container), container.lastModified)
 
@@ -25,6 +26,7 @@ object UsageStream {
   })
 
   val previewObservable: Observable[UsageGroup] = previewContentStream.flatMap((container: ContentContainer) => {
+    println("now container ", container)
 
     val usageGroupOption: Option[Option[UsageGroup]] = UsageGroup
       .build(container.content, createStatus(container), container.lastModified)

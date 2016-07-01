@@ -11,7 +11,7 @@ import lib._
 object Global extends WithFilters(CorsFilter, RequestLoggingFilter, new GzipFilter) with GlobalSettings {
 
   lazy val liveSubscription = UsageRecorder.subscribeToLive
-  lazy val previewSubscription = UsageRecorder.subscribeToPreview
+  //lazy val previewSubscription = UsageRecorder.subscribeToPreview
 
   override def beforeStart(app: Application): Unit = {
     LogConfig.init(Config)
@@ -26,11 +26,11 @@ object Global extends WithFilters(CorsFilter, RequestLoggingFilter, new GzipFilt
 
     // Eval subscriptions to start stream
     liveSubscription
-    previewSubscription
+    //previewSubscription
   }
 
   override def onStop(app: Application) {
     liveSubscription.unsubscribe
-    previewSubscription.unsubscribe
+    //previewSubscription.unsubscribe
   }
 }
