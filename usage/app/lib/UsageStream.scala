@@ -11,23 +11,31 @@ import model._
 
 object UsageStream {
 
-  val contentStream: Observable[ContentContainer] = MergedContentStream.observable
+  val previewContentStream: Observable[ContentContainer] = PreviewCrierContentStream.observable
+  val liveContentStream: Observable[ContentContainer] = LiveCrierContentStream.observable
 
-  val observable: Observable[UsageGroup] = contentStream.flatMap((container: ContentContainer) => {
+  val previewObservable: Observable[UsageGroup] = getObservable(previewContentStream)
 
-    val usageGroupOption: Option[Option[UsageGroup]] = UsageGroup
-      .build(container.content, createStatus(container), container.lastModified)
-
-    val observable: Observable[UsageGroup] = usageGroupOption match {
-      case Some(usageGroup) => Observable.from(usageGroup)
-      case _ => Observable.empty
-    }
-
-    observable
-  })
+  val liveObservable: Observable[UsageGroup] = getObservable(liveContentStream)
 
   def createStatus(container: ContentContainer) = container match {
     case PreviewContentItem(_,_) => PendingUsageStatus()
     case LiveContentItem(_,_) => PublishedUsageStatus()
   }
+
+  private def getObservable(contentStream: Observable[ContentContainer]) = {
+    contentStream.flatMap((container: ContentContainer) => {
+
+      val usageGroupOption: Option[Option[UsageGroup]] = UsageGroup
+        .build(container.content, createStatus(container), container.lastModified)
+
+      val observable: Observable[UsageGroup] = usageGroupOption match {
+        case Some(usageGroup) => Observable.from(usageGroup)
+        case _ => Observable.empty
+      }
+
+      observable
+    })
+  }
+
 }
