@@ -45,5 +45,8 @@ object UsageNotice {
 }
 
 object UsageNotifier extends SNS(Config.awsCredentials, Config.topicArn) {
-  def send(usageNotice: UsageNotice) = publish(usageNotice.toJson, "update-image-usages")
+  def send(usageNotice: UsageNotice) = {
+    println("now sending usage notice***")
+    publish(usageNotice.toJson, "update-image-usages")
+  }
 }

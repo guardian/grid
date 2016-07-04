@@ -3,6 +3,7 @@ package lib
 import com.amazonaws.regions.{RegionUtils, Region}
 import com.gu.mediaservice.lib.config.{Properties, CommonPlayAppConfig, CommonPlayAppProperties}
 import com.amazonaws.auth.{BasicAWSCredentials, AWSCredentials}
+import Config.stage
 
 import scala.util.Try
 
@@ -54,7 +55,7 @@ object Config extends CommonPlayAppProperties with CommonPlayAppConfig {
   val crierPreviewKinesisStream = properties("crier.preview.name")
   val crierLiveArn = properties("crier.live.arn")
   val crierPreviewArn = properties("crier.preview.arn")
-  val liveAppName = "media-service-live"
-  val previewAppName = "media-service-preview"
+  val liveAppName = s"media-service-live-${stage}"
+  val previewAppName = s"media-service-preview-${stage}"
 
 }

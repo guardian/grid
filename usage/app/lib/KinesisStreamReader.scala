@@ -73,6 +73,7 @@ class CrierStreamReader {
     new Thread(previewWorker, s"${getClass.getSimpleName}-$workerId")
 
   def start() = {
+    println("!!now in start!!")
     liveWorkerThread.start()
     previewWorkerThread.start()
   }
