@@ -15,7 +15,7 @@ object ImageExtras {
   )
 
   private def optToBool[T](o: Option[T]): Boolean =
-    o.map(_ => true).getOrElse(false)
+    o.map(some => some != false).getOrElse(false)
 
   def hasRights(rights: UsageRights) = rights match {
     case NoRights => false
@@ -25,11 +25,13 @@ object ImageExtras {
   def hasDescription(meta: ImageMetadata) = optToBool(meta.description)
 
   def hasCurrentAllowLease(leases: LeaseByMedia) = optToBool(leases.current.map(_.access.name == "allow"))
+  def hasCurrentDenyLease(leases: LeaseByMedia) = optToBool(leases.current.map(_.access.name == "deny"))
 
   def validityMap(image: Image): Map[String, Boolean] = Map(
     "no_rights"            -> !hasRights(image.usageRights),
     "missing_credit"       -> !hasCredit(image.metadata),
-    "missing_description"  -> !hasDescription(image.metadata)
+    "missing_description"  -> !hasDescription(image.metadata),
+    "current_deny_lease"   -> hasCurrentDenyLease(image.leases)
   )
 
   def validityOverrides(image: Image): Map[String, Boolean] = Map(
