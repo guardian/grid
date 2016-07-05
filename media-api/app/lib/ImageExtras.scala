@@ -15,7 +15,7 @@ object ImageExtras {
   )
 
   private def optToBool[T](o: Option[T]): Boolean =
-    o.map(s => s != false).getOrElse(false)
+    o.map(some => some != false).getOrElse(false)
 
   def hasRights(rights: UsageRights) = rights match {
     case NoRights => false
