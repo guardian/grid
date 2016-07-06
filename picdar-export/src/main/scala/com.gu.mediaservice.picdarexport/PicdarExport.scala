@@ -481,5 +481,4 @@ object ExportApp extends App with ExportManagerProvider with ArgumentHelpers wit
       """.stripMargin
     )
   }
-
 }

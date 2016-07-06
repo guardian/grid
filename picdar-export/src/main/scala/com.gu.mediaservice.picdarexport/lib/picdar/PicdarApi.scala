@@ -30,6 +30,10 @@ trait PicdarApi extends HttpClient with PicdarInterface with LogHelper {
   import Config.{picdarApiConnTimeout, picdarApiReadTimeout}
 
   private def post(body: Node): Future[Elem] = Future { logDuration("PicdarApi.post") {
+
+    println(picdarUrl)
+    println(body)
+
     val respBody = Http(picdarUrl).
       header("Content-Type", "text/xml").
       // Patience is the mother of all virtues
@@ -79,7 +83,7 @@ trait PicdarApi extends HttpClient with PicdarInterface with LogHelper {
 
 
   // No timezone lol
-  val picdarAmericanDateFormat = DateTimeFormat.forPattern("dd/MM/yyyy")
+  val picdarAmericanDateFormat = DateTimeFormat.forPattern("yyyyMMdd")
 
   def fetchResults(mak: Mak, searchInstance: SearchInstance, range: Option[Range]): Future[Seq[AssetRef]] = {
     Logger.debug("fetching results")
@@ -90,27 +94,34 @@ trait PicdarApi extends HttpClient with PicdarInterface with LogHelper {
     val lastIndex = math.min(start + length, searchInstance.count)
     val searchItemsFuture = for {
       response   <- post(messages.retrieveResults(mak, searchInstance.id, firstIndex, lastIndex))
-      searchItems = response \ "ResponseData" \ "Match"
+      searchItems = response \ "ResponseData" \ "Record"
     } yield searchItems
 
     searchItemsFuture map { searchItems =>
       for {
         matchNode  <- searchItems
         urn         = (matchNode \ "MMRef" text)
-        dateLoaded  = extractField(matchNode, "Date Loaded") map picdarAmericanDateFormat.parseDateTime getOrElse
-          (throw new Error("Failed to read date loaded from search result"))
+        _ = println(matchNode)
+        dateString <- extractField(matchNode, "Date Loaded")
+
+        // Where we're going Marty - we don't need accurate dates
+        dateLoaded  = picdarAmericanDateFormat.parseDateTime("19551105")
       } yield AssetRef(urn, dateLoaded)
     }
   }
 
   // No timezone lol
   val picdarEsotericDateFormat = PicdarDates.longFormat
-import scala.util.Try
+
+  import scala.util.Try
+
   def fetchAsset(mak: String, urn: String): Future[Asset] = {
     post(messages.retrieveAsset(mak, urn)) flatMap { response =>
       Try {
         val record = (response \ "ResponseData" \ "Record")(0)
-        val assetFileOpt = (record \ "VURL") find (v => (v \ "@type" text) == "original") map (_.text) map URI.create
+        //val assetFileOpt = (record \ "VURL") find (v => (v \ "@type" text) == "original") map (_.text) map URI.create
+        val assetFileOpt = Some(URI.create(s"http://localhost:3000/images/${urn}.jpg"))
+
         val createdOn = extractField(record, "Created on")
         val createdAt = extractField(record, "Created at")
         val created = (createdOn, createdAt) match {

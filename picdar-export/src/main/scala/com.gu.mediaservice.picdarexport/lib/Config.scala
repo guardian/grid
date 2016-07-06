@@ -39,8 +39,8 @@ object Config {
   val concurrencyMediaApi    = properties("concurrency.media.api").toInt
 
   // Configure timeouts for all services
-  private val defaultConnectionTimeout =  5000 // ms
-  private val defaultReadTimeout       = 15000 // ms
+  private val defaultConnectionTimeout = 35000 // ms
+  private val defaultReadTimeout       = 55000 // ms
 
   private def readTimeout(name: String, default: Int) = properties.get(name).map(_.toInt) getOrElse default
 
