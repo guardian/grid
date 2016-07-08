@@ -50,6 +50,8 @@ object UsageGroup {
 
   def extractImages(content: Content) = content.elements.map(elements => {
     elements.filter(_.`type` == ElementType.Image)
+      .groupBy(_.id)
+      .map(_._2.head).to[collection.immutable.Seq]
   })
 }
 

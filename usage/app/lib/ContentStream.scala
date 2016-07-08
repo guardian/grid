@@ -1,18 +1,18 @@
 package lib
 
-import _root_.rx.lang.scala.subjects.ReplaySubject
+import _root_.rx.lang.scala.subjects.PublishSubject
 import com.gu.contentapi.client.model.v1.Content
 import org.joda.time.DateTime
 
 trait ContentStream {
-  val observable: ReplaySubject[ContentContainer]
+  val observable = PublishSubject[ContentContainer]
 }
 object LiveCrierContentStream extends ContentStream {
-  val observable = ReplaySubject[ContentContainer]()
+  override val observable = PublishSubject[ContentContainer]()
 }
 
 object PreviewCrierContentStream extends ContentStream {
-  val observable = ReplaySubject[ContentContainer]()
+  override val observable = PublishSubject[ContentContainer]()
 }
 
 trait ContentContainer {

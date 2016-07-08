@@ -38,7 +38,7 @@ class CrierStreamReader {
     Config.crierLiveKinesisStream,
     LiveKinesisCredentialsProvider,
     dynamoCredentialsProvider,
-    null,
+    credentialsProvider,
     workerId)
     .withInitialPositionInStream(initialPosition)
     .withRegionName(Config.awsRegionName)
@@ -48,7 +48,7 @@ class CrierStreamReader {
     Config.crierPreviewKinesisStream,
     previewKinesisCredentialsProvider,
     dynamoCredentialsProvider,
-    null,
+    credentialsProvider,
     workerId)
     .withInitialPositionInStream(initialPosition)
     .withRegionName(Config.awsRegionName)

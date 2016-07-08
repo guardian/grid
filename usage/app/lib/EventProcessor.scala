@@ -1,9 +1,13 @@
 package lib
 
+import java.nio.ByteBuffer
 import java.util.{ List => JList }
+import com.fasterxml.jackson.databind.util.ByteBufferBackedInputStream
 import com.gu.contentapi.client.GuardianContentClient
 import com.gu.contentapi.client.model.ItemQuery
 import com.gu.contentapi.client.model.v1.Content
+import org.apache.thrift.protocol.TCompactProtocol
+import org.apache.thrift.transport.TIOStreamTransport
 import play.api.Logger
 import scala.collection.JavaConverters._
 import scala.concurrent.ExecutionContext.Implicits.global
@@ -12,13 +16,22 @@ import com.amazonaws.services.kinesis.clientlibrary.interfaces.{IRecordProcessor
 import org.joda.time.DateTime
 import com.amazonaws.services.kinesis.clientlibrary.types.ShutdownReason
 import com.amazonaws.services.kinesis.model.Record
-import com.gu.thrift.serializer.ThriftDeserializer
 import com.gu.crier.model.event.v1.{EventPayload, Event, EventType}
-
+import scala.util.{Try}
 
 // Instantiates a new deserializer for type event to deserialize bytes to Event
-object CrierDeserializer extends ThriftDeserializer[Event] {
+object CrierDeserializer {
   val codec = Event
+
+  def deserialize(buffer: Array[Byte]): Try[Event] = {
+    Try {
+      val byteBuffer: ByteBuffer = ByteBuffer.wrap(buffer)
+      val bbis = new ByteBufferBackedInputStream(byteBuffer)
+      val transport = new TIOStreamTransport(bbis)
+      val protocol = new TCompactProtocol(transport)
+      codec.decode(protocol)
+    }
+  }
 }
 
 trait EventProcessor extends IRecordProcessor {
@@ -105,8 +118,7 @@ private class CrierLiveEventProcessor() extends EventProcessor {
     records.asScala.map { record =>
 
       val buffer: Array[Byte] = record.getData.array()
-      CrierDeserializer.deserialize(buffer, true).map (result => processEvent(result))
-
+      CrierDeserializer.deserialize(buffer)
     }
   }
 }
@@ -121,9 +133,9 @@ private class CrierPreviewEventProcessor() extends EventProcessor {
   override def processRecords(records: JList[Record], checkpointer: IRecordProcessorCheckpointer): Unit = {
 
     records.asScala.map { record =>
-      
+
       val buffer: Array[Byte] = record.getData.array()
-      CrierDeserializer.deserialize(buffer, true).map (result => processEvent(result))
+      CrierDeserializer.deserialize(buffer).map(processEvent)
 
     }
   }
