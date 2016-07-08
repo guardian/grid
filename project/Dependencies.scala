@@ -33,7 +33,8 @@ object Dependencies {
   )
 
   val guDeps = Seq(
-    "com.gu" %% "content-api-client" % "7.11"
+    "com.gu" %% "content-api-client" % "9.0",
+    "com.gu" % "content-api-models" % "8.16"
   )
 
   val scanamoDeps = Seq(
@@ -82,6 +83,14 @@ object Dependencies {
   val elasticSearchClientDeps = Seq(
     "org.codehaus.groovy" % "groovy-json" % "2.3.7",
     "com.yakaz.elasticsearch.plugins" % "elasticsearch-action-updatebyquery" % "2.2.0"
+  )
+
+  val kinesisDeps = Seq("com.amazonaws" % "amazon-kinesis-client" % "1.2.1")
+
+  val thriftDeps = Seq(
+    "com.twitter" %% "scrooge-core" % "4.6.0",
+    "org.apache.thrift" % "libthrift" % "0.9.1" force(),
+    "com.gu" %% "thrift-serializer" % "1.1.0"
   )
 
   val legacyBlockingHttp = Seq("org.scalaj" %% "scalaj-http" % "1.1.4")
