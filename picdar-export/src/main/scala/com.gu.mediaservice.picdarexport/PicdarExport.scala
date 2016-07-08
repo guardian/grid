@@ -101,25 +101,33 @@ object ExportApp extends App with ExportManagerProvider with ArgumentHelpers wit
     }
   }
 
+  import scala.concurrent.Await
+  import akka.util.Timeout
+  import scala.concurrent.duration._
+
   def ingest(env: String, dateRange: DateRange = DateRange.all, range: Option[Range] = None) = {
+    val ingestWait = Timeout(60 seconds)
+
     val dynamo = getDynamo(env)
     dynamo.getNotIngested(dateRange) flatMap { assets =>
-      val updates = takeRange(assets, range).map { asset =>
+      Future { takeRange(assets, range).par.map { asset =>
         // .get on options here will induce intentional failure if not available
-        getExportManager("library", env).ingest(
-          asset.picdarAssetUrl.get,
-          asset.picdarUrn,
-          asset.picdarCreatedFull.get
-        ) flatMap { mediaUri =>
+        try {
+          val mediaUri = Await.result(
+            getExportManager("library", env).ingest(
+              asset.picdarAssetUrl.get,
+              asset.picdarUrn,
+              asset.picdarCreatedFull.get
+            ), ingestWait.duration)
+
           Logger.info(s"Ingested ${asset.picdarUrn} to $mediaUri")
           dynamo.recordIngested(asset.picdarUrn, asset.picdarCreated, mediaUri)
-        } recover { case e: Throwable =>
+        } catch { case e: Throwable =>
           Logger.warn(s"Upload error for ${asset.picdarUrn}: $e")
           e.printStackTrace()
         }
       }
-      Future.sequence(updates)
-    }
+    }}
   }
 
   def doOverride(env: String, dateRange: DateRange = DateRange.all, range: Option[Range] = None) = {
@@ -481,5 +489,4 @@ object ExportApp extends App with ExportManagerProvider with ArgumentHelpers wit
       """.stripMargin
     )
   }
-
 }
