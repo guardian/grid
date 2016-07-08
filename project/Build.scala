@@ -133,13 +133,6 @@ object Build extends Build {
     .settings(sbtassembly.Plugin.assemblySettings: _*)
     .libraryDependencies(awsDeps ++ commonsNetDeps)
 
-  val picdarExport = project("picdar-export")
-    .dependsOn(lib)
-    .libraryDependencies(legacyBlockingHttp)
-    .settings(sbtassembly.Plugin.assemblySettings: _*)
-    .settings(playArtifactSettings: _*)
-    .settings(fiddlyExtraAssemblySettings: _*)
-
   def fiddlyExtraAssemblySettings = Seq(
     mergeStrategy in assembly <<= (mergeStrategy in assembly) { (old) => {
       case "version.txt" => MergeStrategy.first
