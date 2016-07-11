@@ -3,7 +3,7 @@ package lib.elasticsearch
 import lib.querysyntax._
 import org.elasticsearch.action.search.SearchRequestBuilder
 import org.elasticsearch.index.query.{FilterBuilders}
-import org.elasticsearch.search.sort.{SortBuilders, SortOrder}
+import org.elasticsearch.search.sort.{SortBuilders, SortOrder, ScriptSortBuilder}
 
 
 object sorts {
@@ -14,6 +14,24 @@ object sorts {
       //for any other sortBy term
       case _ => uploadTimeSort(sortBy)(builder)
     }
+  }
+
+  def testScriptSort(builder: SearchRequestBuilder) = {
+    val script = """
+      |doc['uploadTime'].date.getMillis() * factor.inject(1) { memo, item ->
+      |  if (doc['supplier'].toString() == item.key)
+      |    memo + factor.get(doc['supplier'].toString())
+      |  else
+      |    memo;
+      |}""".stripMargin.replaceAll("\n", " ")
+
+    val param = Map("[Corbis]" -> 0.02)
+    val sort = ScriptSortBuilder(script, "number")
+
+    sort.addParam(param)
+    sort.order(SortOrder.DESC)
+
+    sort
   }
 
   def uploadTimeSort(sortBy: Option[String])(builder: SearchRequestBuilder): SearchRequestBuilder = {
