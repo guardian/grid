@@ -7,6 +7,18 @@ trait ImageProcessor {
   def apply(image: Image): Image
 }
 
+object Agencies {
+  // TODO: Need to have a placce for names of suppliers to push supplier weighting out to config
+  val all = Map(
+    "aap" -> Agency("AAP"),
+    "actionImages" -> Agency("Action Images"),
+    "alamy" -> Agency("Alamy"),
+    // ...
+    "corbis" -> Agency("Corbis"),
+    "getty" -> Agency("Getty Images")
+  )
+}
+
 object SupplierProcessors {
   val all: List[ImageProcessor] = List(
     AapParser,
