@@ -9,6 +9,8 @@ import com.amazonaws.regions.Regions
 
 import scala.util.Try
 
+case class KinesisReaderConfig(streamName: String, arn: String, appName: String)
+
 object Config extends CommonPlayAppProperties with CommonPlayAppConfig {
 
   val appName = "usage"
@@ -51,17 +53,32 @@ object Config extends CommonPlayAppProperties with CommonPlayAppConfig {
 
   val corsAllAllowedOrigins = List(services.kahunaBaseUri)
 
-  val crierLiveKinesisStream = properties("crier.live.name")
-  val crierPreviewKinesisStream = properties("crier.preview.name")
-  val crierLiveArn = properties("crier.live.arn")
-  val crierPreviewArn = properties("crier.preview.arn")
+  val crierLiveKinesisStream = Try { properties("crier.live.name") }
+  val crierPreviewKinesisStream = Try {properties("crier.preview.name") }
+
+  val crierLiveArn = Try { properties("crier.live.arn") }
+  val crierPreviewArn = Try { properties("crier.preview.arn") }
+
+  val liveAppName = s"media-service-livex-${stage}"
+  val previewAppName = s"media-service-previewx-${stage}"
+
+  val liveKinesisReaderConfig: Try[KinesisReaderConfig] = for {
+    liveStream <- crierLiveKinesisStream
+    liveArn <- crierLiveArn
+  } yield KinesisReaderConfig(liveStream, liveArn, liveAppName)
+
+  val previewKinesisReaderConfig: Try[KinesisReaderConfig] = for {
+    previewStream <- crierPreviewKinesisStream
+    previewArn <- crierPreviewArn
+  } yield KinesisReaderConfig(previewStream, previewArn, previewAppName)
 
   val credentialsProvider = new AWSCredentialsProviderChain(
     new ProfileCredentialsProvider("media-service")
   )
 
-  private val iamClient: AmazonIdentityManagement = new AmazonIdentityManagementClient(credentialsProvider)
-    .withRegion(Regions.EU_WEST_1)
+  private val iamClient: AmazonIdentityManagement =
+    new AmazonIdentityManagementClient(credentialsProvider)
+      .withRegion(Regions.EU_WEST_1)
 
   val postfix = if (stage == "DEV") {
 
@@ -71,6 +88,4 @@ object Config extends CommonPlayAppProperties with CommonPlayAppConfig {
     stage
   }
 
-  val liveAppName = s"media-service-livex-${stage}"
-  val previewAppName = s"media-service-previewx-${stage}"
 }
