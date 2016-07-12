@@ -20,7 +20,7 @@ object sorts {
     }
   }
 
-  def weightedSort(sortBy: Option[String])(builder: SearchRequestBuilder) = {
+  def weightedSort(sortBy: Option[String], active: Boolean = true)(builder: SearchRequestBuilder) = {
     val SortParams(dateFieldName, sortOrder) = parseSort(sortBy)
 
     val supplierWeights = Config.supplierWeights
@@ -43,6 +43,7 @@ object sorts {
       |""".stripMargin.replaceAll("\n", " ")
 
     val sort = new ScriptSortBuilder(script, "number")
+    val weights = if (active) supplierWeights.asJava else Map()
 
     sort.param("supplierWeights", supplierWeights.asJava)
     sort.order(sortOrder)
