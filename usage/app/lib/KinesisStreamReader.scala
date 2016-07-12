@@ -23,35 +23,27 @@ class CrierStreamReader {
   lazy val sessionId: String = "session" + Math.random()
   val initialPosition = InitialPositionInStream.TRIM_HORIZON
 
-  private lazy val LiveKinesisCredentialsProvider: AWSCredentialsProvider = new AWSCredentialsProviderChain(
+  private def kinesisCredentialsProvider(arn: String)  = new AWSCredentialsProviderChain(
     new ProfileCredentialsProvider("capi"),
-    new STSAssumeRoleSessionCredentialsProvider(credentialsProvider, Config.crierLiveArn, sessionId)
+    new STSAssumeRoleSessionCredentialsProvider(credentialsProvider, arn, sessionId)
   )
 
-  private lazy val previewKinesisCredentialsProvider: AWSCredentialsProvider = new AWSCredentialsProviderChain(
-    new ProfileCredentialsProvider("capi"),
-    new STSAssumeRoleSessionCredentialsProvider(credentialsProvider, Config.crierPreviewArn, sessionId)
-  )
+  private def kinesisClientLibConfig(config: KinesisReaderConfig) =
+    new KinesisClientLibConfiguration(
+      config.appName,
+      config.streamName,
+      kinesisCredentialsProvider(config.arn),
+      dynamoCredentialsProvider,
+      credentialsProvider,
+      workerId
+    ).withInitialPositionInStream(initialPosition)
+     .withRegionName(Config.awsRegionName)
 
-  private lazy val liveConfig = new KinesisClientLibConfiguration(
-    Config.liveAppName,
-    Config.crierLiveKinesisStream,
-    LiveKinesisCredentialsProvider,
-    dynamoCredentialsProvider,
-    credentialsProvider,
-    workerId)
-    .withInitialPositionInStream(initialPosition)
-    .withRegionName(Config.awsRegionName)
+  private lazy val liveConfig =
+    Config.liveKinesisReaderConfig.map(kinesisClientLibConfig)
 
-  private lazy val previewConfig = new KinesisClientLibConfiguration(
-    Config.previewAppName,
-    Config.crierPreviewKinesisStream,
-    previewKinesisCredentialsProvider,
-    dynamoCredentialsProvider,
-    credentialsProvider,
-    workerId)
-    .withInitialPositionInStream(initialPosition)
-    .withRegionName(Config.awsRegionName)
+  private lazy val previewConfig =
+    Config.previewKinesisReaderConfig.map(kinesisClientLibConfig)
 
   protected val LiveEventProcessorFactory = new IRecordProcessorFactory {
     override def createProcessor(): IRecordProcessor =
@@ -63,18 +55,17 @@ class CrierStreamReader {
       new CrierPreviewEventProcessor()
   }
 
-  lazy val liveWorker = new Worker(LiveEventProcessorFactory, liveConfig)
-  lazy val previewWorker = new Worker(PreviewEventProcessorFactory, previewConfig)
+  lazy val liveWorker = liveConfig.map(new Worker(LiveEventProcessorFactory, _))
+  lazy val previewWorker = previewConfig.map(new Worker(PreviewEventProcessorFactory, _))
 
-  private lazy val liveWorkerThread =
-    new Thread(liveWorker, s"${getClass.getSimpleName}-$workerId")
+  private def makeThread(worker: Runnable) =
+    new Thread(worker, s"${getClass.getSimpleName}-$workerId")
 
-  private lazy val previewWorkerThread =
-    new Thread(previewWorker, s"${getClass.getSimpleName}-$workerId")
+  private lazy val liveWorkerThread = liveWorker.map(makeThread)
+  private lazy val previewWorkerThread = previewWorker.map(makeThread)
 
   def start() = {
-    liveWorkerThread.start()
-    previewWorkerThread.start()
+    liveWorkerThread.map(_.start)
+    previewWorkerThread.map(_.start)
   }
-
 }
