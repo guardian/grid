@@ -73,7 +73,8 @@ object Config extends CommonPlayAppConfig with CommonPlayAppProperties {
   val queriableIdentifiers = Seq(persistenceIdentifier)
 
   val supplierWeights = Map(
-    "corbis" -> 100,
-    "getty" -> -100
+    "getty" -> properties
+      .get("search.weighting.supplier.getty")
+      .getOrElse(0.0)
   )
 }

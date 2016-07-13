@@ -28,8 +28,14 @@ object sorts {
       .collect { case((Some(Agency(name,_,_)),v)) => name -> v }
       .map { case(k,v) => s"[${k}]" -> v }
 
+    val mappedDateField = dateFieldName match {
+      case "dateTaken" => "metadata.dateTaken"
+      case _ => dateFieldName
+    }
+
     val script = s"""
-      |dateInMillis = doc['$dateFieldName'].date.getMillis();
+      |dateInMillis = doc['$mappedDateField'].date.getMillis();
+      |
       |modifier = supplierWeights.inject(1) { memo, item ->
       |  if (doc['supplier'].toString() == item.key) {
       |    memo + supplierWeights.get(doc['supplier'].toString());

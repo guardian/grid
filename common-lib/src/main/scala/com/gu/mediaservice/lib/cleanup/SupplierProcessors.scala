@@ -1,6 +1,6 @@
 package com.gu.mediaservice.lib.cleanup
 
-import com.gu.mediaservice.model.{Agency, Image, StaffPhotographer, ContractPhotographer}
+import com.gu.mediaservice.model.{NoRights, Agency, Image, StaffPhotographer, ContractPhotographer}
 import com.gu.mediaservice.lib.config.PhotographersList
 
 trait ImageProcessor {
@@ -8,15 +8,13 @@ trait ImageProcessor {
 }
 
 object Agencies {
-  // TODO: Need to have a placce for names of suppliers to push supplier weighting out to config
+  // TODO: Only doing this for Getty to try out weighting in search
   val all = Map(
-    "aap" -> Agency("AAP"),
-    "actionImages" -> Agency("Action Images"),
-    "alamy" -> Agency("Alamy"),
-    // ...
-    "corbis" -> Agency("Corbis"),
     "getty" -> Agency("Getty Images")
   )
+
+  def getWithCollection(id: String, suppliersCollection: Option[String]) =
+    all.get(id).map(_.copy(suppliersCollection = suppliersCollection))
 }
 
 object SupplierProcessors {
@@ -178,7 +176,7 @@ object EpaParser extends ImageProcessor {
 
 trait GettyProcessor {
   def gettyAgencyWithCollection(suppliersCollection: Option[String]) =
-    Agency("Getty Images", suppliersCollection = suppliersCollection)
+    Agencies.getWithCollection("getty", suppliersCollection)
 }
 
 object GettyXmpParser extends ImageProcessor with GettyProcessor {
@@ -194,7 +192,7 @@ object GettyXmpParser extends ImageProcessor with GettyProcessor {
   def apply(image: Image): Image = (excludedCredit(image.metadata.credit), image.fileMetadata.getty.isEmpty) match {
     // Only images supplied by Getty have getty fileMetadata
     case (false, false) => image.copy(
-      usageRights = gettyAgencyWithCollection(image.metadata.source),
+      usageRights = gettyAgencyWithCollection(image.metadata.source).getOrElse(NoRights),
       // Set a default "credit" for when Getty is too lazy to provide one
       metadata    = image.metadata.copy(credit = Some(image.metadata.credit.getOrElse("Getty Images")))
     )
@@ -212,7 +210,7 @@ object GettyCreditParser extends ImageProcessor with GettyProcessor {
 
   def apply(image: Image): Image = image.metadata.credit match {
     case Some(IncludesGetty()) | Some(ViaGetty()) | Some(SlashGetty()) => image.copy(
-       usageRights = gettyAgencyWithCollection(image.metadata.source)
+       usageRights = gettyAgencyWithCollection(image.metadata.source).getOrElse(NoRights)
     )
     case Some(credit) => knownGettyCredits(image, credit)
     case _ => image
@@ -221,7 +219,7 @@ object GettyCreditParser extends ImageProcessor with GettyProcessor {
   def knownGettyCredits(image: Image, credit: String): Image =
     gettyCredits.find(_.toLowerCase == credit.toLowerCase) match {
       case collection @ Some(_) => image.copy(
-        usageRights = gettyAgencyWithCollection(collection)
+        usageRights = gettyAgencyWithCollection(collection).getOrElse(NoRights)
       )
       case _ => image
     }
