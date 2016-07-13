@@ -1,24 +1,60 @@
 package lib.elasticsearch
 
+import scala.collection.JavaConversions._
+import collection.JavaConverters._
+
 import lib.querysyntax._
+import lib.Config
 import org.elasticsearch.action.search.SearchRequestBuilder
 import org.elasticsearch.index.query.{FilterBuilders}
-import org.elasticsearch.search.sort.{SortBuilders, SortOrder}
+import org.elasticsearch.search.sort.{SortBuilders, SortOrder, ScriptSortBuilder}
 
+import com.gu.mediaservice.model.Agency
+import com.gu.mediaservice.lib.cleanup.Agencies
 
 object sorts {
-
   def createSort(sortBy: Option[String], query: List[Condition])(builder: SearchRequestBuilder) = {
     sortBy match {
       case Some("dateAddedToCollection") => addedToCollectionTimeSort(query)(builder)
-      //for any other sortBy term
-      case _ => uploadTimeSort(sortBy)(builder)
+      case _ => weightedSort(sortBy)(builder)
     }
   }
 
-  def uploadTimeSort(sortBy: Option[String])(builder: SearchRequestBuilder): SearchRequestBuilder = {
-    val sorts = sortBy.fold(Seq("uploadTime" -> SortOrder.DESC))(parseSorts)
-    for ((field, order) <- sorts) builder.addSort(field, order)
+  def weightedSort(sortBy: Option[String], active: Boolean = true)(builder: SearchRequestBuilder) = {
+    val SortParams(dateFieldName, sortOrder) = parseSort(sortBy)
+
+    val supplierWeights = Config.supplierWeights
+      .map { case(k,v) => (Agencies.all.get(k), v) }
+      .collect { case((Some(Agency(name,_,_)),v)) => name -> v }
+      .map { case(k,v) => s"[${k}]" -> v }
+
+    val mappedDateField = dateFieldName match {
+      case "dateTaken" => "metadata.dateTaken"
+      case _ => dateFieldName
+    }
+
+    val script = s"""
+      |dateInMillis = doc['$mappedDateField'].date.getMillis();
+      |
+      |modifier = supplierWeights.inject(1) { memo, item ->
+      |  if (doc['supplier'].toString() == item.key) {
+      |    memo + supplierWeights.get(doc['supplier'].toString());
+      |  } else {
+      |    memo;
+      |  }
+      |};
+      |
+      |result = dateInMillis * modifier;
+      |result;
+      |""".stripMargin.replaceAll("\n", " ")
+
+    val sort = new ScriptSortBuilder(script, "number")
+    val weights = if (active) supplierWeights.asJava else Map()
+
+    sort.param("supplierWeights", supplierWeights.asJava)
+    sort.order(sortOrder)
+
+    builder.addSort(sort)
     builder
   }
 
@@ -38,14 +74,17 @@ object sorts {
     builder
   }
 
-  type Field = String
-
   val DescField = "-(.+)".r
+  type Field = String
+  case class SortParams(field: Field, order: SortOrder)
 
-  def parseSorts(sortBy: String): Seq[(Field, SortOrder)] =
-    sortBy.split(',').toList.map {
-      case DescField(field) => (field, SortOrder.DESC)
-      case field            => (field, SortOrder.ASC)
-    }
+  def parseSort(sortBy: Option[String]): SortParams = {
+    val sorts = sortBy.map {
+      case DescField(field) => SortParams(field, SortOrder.DESC)
+      case field            => SortParams(field, SortOrder.ASC)
+    }.getOrElse(SortParams("uploadTime", SortOrder.DESC))
+
+    sorts
+  }
 
 }
