@@ -60,6 +60,14 @@
             </li>
 
             <li class="search__modifier-item">
+            <label>
+                <input type="checkbox"
+                    ng:model="searchQuery.filter.supplierWeights" />
+                Supplier weighting
+            </label>
+            </li>
+
+            <li class="search__modifier-item">
                 <gu-date-range class="search__date"
                                gu:start-date="searchQuery.dateFilter.since"
                                gu:end-date="searchQuery.dateFilter.until"
