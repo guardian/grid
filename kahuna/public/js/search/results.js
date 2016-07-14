@@ -313,7 +313,7 @@ results.controller('SearchResultsCtrl', [
             return mediaApi.search($stateParams.query, angular.extend({
                 ids:             $stateParams.ids,
                 archived:        $stateParams.archived,
-                supplierWeights: $stateParams.supplierWeights,
+                supplierWeights: true,
                 free:            $stateParams.nonFree === 'true' ? undefined: true,
                 // Disabled while paytype filter unavailable
                 //payType:    $stateParams.payType || 'free',
@@ -327,7 +327,7 @@ results.controller('SearchResultsCtrl', [
                 offset:     offset,
                 length:     length,
                 orderBy:    orderBy,
-                supplierWeights: $stateParams.supplierWeights
+                supplierWeights: true
             }));
         }
 

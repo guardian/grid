@@ -147,13 +147,13 @@ query.controller('SearchQueryCtrl',
     $scope.$watchCollection(() => ctrl.dateFilter, onValChange(({field, since, until}) => {
         // Translate dateFilter to actual state and query params
         $state.go('search.results', {
-            since:         field === undefined  ? since : null,
-            until:         field === undefined  ? until : null,
-            takenSince:    field === 'taken'    ? since : null,
-            takenUntil:    field === 'taken'    ? until : null,
-            modifiedSince: field === 'modified' ? since : null,
-            modifiedUntil: field === 'modified' ? until : null,
-            dateField:     field
+            since:           field === undefined  ? since : null,
+            until:           field === undefined  ? until : null,
+            takenSince:      field === 'taken'    ? since : null,
+            takenUntil:      field === 'taken'    ? until : null,
+            modifiedSince:   field === 'modified' ? since : null,
+            modifiedUntil:   field === 'modified' ? until : null,
+            dateField:       field
         });
     }));
 
