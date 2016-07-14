@@ -95,6 +95,10 @@ System.config({
     "github:jspm/nodelibs-util@0.1.0": {
       "util": "npm:util@0.10.3"
     },
+    "github:tapmodo/Jcrop@0.9.12": {
+      "css": "github:systemjs/plugin-css@0.1.13",
+      "jquery": "npm:jquery@3.1.0"
+    },
     "github:vitalets/angular-xeditable@0.1.9": {
       "angular": "github:angular/bower-angular@1.4.3",
       "css": "github:systemjs/plugin-css@0.1.13"
@@ -157,6 +161,9 @@ System.config({
     },
     "npm:inherits@2.0.1": {
       "util": "github:jspm/nodelibs-util@0.1.0"
+    },
+    "npm:jquery@3.1.0": {
+      "process": "github:jspm/nodelibs-process@0.1.2"
     },
     "npm:jszip@2.5.0": {
       "buffer": "github:jspm/nodelibs-buffer@0.1.0",
