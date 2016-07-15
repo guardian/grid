@@ -8,7 +8,6 @@ import {mediaApi}       from '../../services/api/media-api';
 import '../../directives/gr-auto-focus';
 import '../../util/eq';
 
-import './gr-collections-panel.css!';
 import {getCollection} from '../../search-query/query-syntax';
 import nodeTemplate from './gr-collections-panel-node.html!text';
 import '../../directives/gr-auto-focus';

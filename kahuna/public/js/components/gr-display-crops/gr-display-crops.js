@@ -1,6 +1,5 @@
 import angular from 'angular';
 import template from './gr-display-crops.html!text';
-import './gr-display-crops.css!';
 
 export var displayCrops = angular.module('gr.displayCrops', []);
 

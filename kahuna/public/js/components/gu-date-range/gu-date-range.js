@@ -4,9 +4,6 @@ import Pikaday from 'pikaday';
 
 import template from './gu-date-range.html!text';
 
-import './gu-date-range.css!';
-import './pikaday-override.css!';
-
 export var guDateRange = angular.module('gu-dateRange', []);
 
 guDateRange.controller('GuDateRangeCtrl', [function () {

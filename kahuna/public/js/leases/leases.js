@@ -5,7 +5,6 @@ import moment from 'moment';
 import '../util/rx';
 
 import '../services/api/leases';
-import './leases.css!';
 import '../components/gr-confirm-delete/gr-confirm-delete.js';
 
 

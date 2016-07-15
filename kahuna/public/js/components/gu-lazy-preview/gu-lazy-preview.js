@@ -4,8 +4,6 @@ import 'rx-dom';
 
 import template from './gu-lazy-preview.html!text';
 
-import './gu-lazy-preview.css!';
-
 import '../../util/rx';
 
 export var lazyPreview = angular.module('gu.lazyPreview', ['util.rx']);
