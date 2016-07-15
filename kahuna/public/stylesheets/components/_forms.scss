@@ -1,0 +1,26 @@
+/** =============================================
+
+_FORMS.SCSS - Form fields
+
+============================================= **/
+
+input, option, textarea {
+    font-family: $baseFontFamily;
+    font-size: $smallFontSize;
+}
+
+.text-input {
+    background-color: #444;
+    color: #ccc;
+    border: 1px solid #999;
+    padding: 5px;
+    box-sizing: border-box;
+}
+
+textarea {
+    resize: vertical;
+}
+
+input:disabled, textarea:disabled, .disabled {
+    color: #666;
+}

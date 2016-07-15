@@ -1,38 +1,15 @@
 /* ==========================================================================
-   Notes
-   ==========================================================================
-
-z-index
-=======
-1  = everything
-10 = things to be just above everything
-20 = user controls i.e. panels
-30 = the top layer i.e. top-bar.
-40 = overlay layer i.e. modals, dnd overlay.
-
-========================================================================== */
-
-/* ==========================================================================
    Common
    ========================================================================== */
 
-@keyframes spin {
-    from   { transform: rotate(0deg); }
-    to { transform: rotate(360deg); }
-}
-@-webkit-keyframes spin {
-    from   { transform: rotate(0deg); }
-    to { transform: rotate(360deg); }
-}
-
 html {
-    font: 62.5%/1.5 "Guardian Agate Sans Web", Georgia;
+    font: 62.5% $baseFontFamily;
 }
 
 body {
     background-color: #333;
     color: #ccc;
-    font-size: 1.6rem;
+    font-size: $baseFontSize;
     margin: 0;
     padding: 0 0 0 0;
 }
@@ -64,41 +41,6 @@ a:hover {
 
 .coloured-link {
     color: #00adee;
-}
-
-input,
-option,
-textarea,
-button {
-    font-family: "Guardian Agate Sans Web", Helvetica, Arial;
-    font-size: 1.4rem;
-}
-
-.text-input {
-    background-color: #444;
-    color: #ccc;
-    border: 1px solid #999;
-    padding: 5px;
-    box-sizing: border-box;
-}
-textarea {
-    resize: vertical;
-}
-
-/* annoyingly we have to have these seperate as the moz-placeholder breaks the
-Chrome selector */
-input[disabled],
-textarea[disabled],
-.disabled {
-    color: #666;
-}
-input::-webkit-input-placeholder,
-textarea::-webkit-input-placeholder {
-    color: #666;
-}
-input::-moz-placeholder,
-textarea:disabled::-moz-placeholder {
-    color: #666;
 }
 
 button {
@@ -480,7 +422,7 @@ textarea.ng-invalid {
     left: 0;
     right: 0;
     top: 5px;
-    z-index: 40;
+    z-index: $z-5;
     text-align: center;
 }
 
@@ -672,7 +614,7 @@ textarea.ng-invalid {
 
 
 .clear-button {
-    font-family: Arial, sans-serif;
+    font-family: $plainFontFamily;
     font-weight: bold;
 }
 
@@ -707,11 +649,11 @@ textarea.ng-invalid {
 
 .advanced-search-help__section__title {
     font-weight: bold;
-    font-size: 16px;
+    font-size: $baseFontSize;
 }
 
 .advanced-search-help__section__sub-heading {
-    font-size: 16px;
+    font-size: $baseFontSize;
     margin-bottom: 5px;
 }
 
@@ -842,7 +784,7 @@ textarea.ng-invalid {
     display: none;
 
     /* above thumbnail */
-    z-index: 1;
+    z-index: $z-1;
 }
 
 .result__select--no-pointer-events {
@@ -940,7 +882,7 @@ textarea.ng-invalid {
     position: absolute;
     top: -9px;
     right: 30px;
-    z-index: 200;
+    z-index: $z-6;
 }
 
 /* ==========================================================================
@@ -956,7 +898,7 @@ textarea.ng-invalid {
     width: 100%;
     border-bottom: 1px solid #565656;
     position: fixed;
-    z-index: 30;
+    z-index: $z-4;
     left: 0;
 }
 
@@ -1180,7 +1122,7 @@ FIXME: what to do with touch devices
 .preview__collections__collection__apply-all {
     margin-left: 10px;
     line-height: 20px;
-    font-size: 1.6rem;
+    font-size: $baseFontSize;
 }
 
 .preview__cost {
@@ -1193,7 +1135,7 @@ FIXME: what to do with touch devices
 }
 
 .preview__bottom-bar--large {
-    font-size: 1.6rem;
+    font-size: $baseFontSize;
     max-width: 800px;
     margin: 0 auto 40px;
 }
@@ -1269,7 +1211,7 @@ FIXME: what to do with touch devices
     text-align: center;
     font-size: 1.2rem;
     /* above preview__fade */
-    z-index: 1;
+    z-index: $z-1;
 }
 
 .image-action {
@@ -1747,7 +1689,7 @@ FIXME: what to do with touch devices
 }
 
 .metadata {
-    font-family: "Guardian Agate Sans Web", Helvetica, Arial;
+    font-family: $baseFontFamily;
 }
 
 .metadata__heading {
@@ -1897,7 +1839,7 @@ FIXME: what to do with touch devices
     position: absolute;
     left: 0;
     top: 0;
-    z-index: 1;
+    z-index: $z-1;
 }
 
 .job-editor:after {
@@ -1949,7 +1891,7 @@ FIXME: what to do with touch devices
     /* These positions are so that we don't overlay the input borders */
     right: 1px;
     top: 1px;
-    z-index: 1;
+    z-index: $z-1;
     padding: 0 5px;
 }
 
@@ -2019,7 +1961,7 @@ FIXME: what to do with touch devices
     position: fixed;
     top: 0;
     left: 0;
-    z-index: 40;
+    z-index: $z-5;
     text-align: center;
 }
 
@@ -2067,7 +2009,7 @@ FIXME: what to do with touch devices
 .drop-menu__button {
     padding: 5px;
     background-color: #333;
-    line-height: 1.6rem;
+    line-height: $baseFontSize;
 }
 .drop-menu__button--nopad {
     padding: 0;
@@ -2086,7 +2028,7 @@ FIXME: what to do with touch devices
     padding: 10px;
     box-shadow: 0 1px 5px rgba(0, 0, 0, 0.5);
     top: calc(100% + 8px);
-    z-index: 4;
+    z-index: $z-2;
     /* Drop items should win over everything */
     white-space: nowrap;
     line-height: normal;
@@ -2111,7 +2053,7 @@ FIXME: what to do with touch devices
    ========================================================================== */
 
 .dropdown-menu {
-    z-index: 1;
+    z-index: $z-1;
     background: #333;
     padding: 5px;
 }
@@ -2139,7 +2081,7 @@ FIXME: what to do with touch devices
 .datalist__options {
     position: absolute;
     width: 100%;
-    z-index: 1;
+    z-index: $z-1;
     border: 1px solid #999;
     background: #444;
     color: #ccc;

@@ -1,16 +1,18 @@
-/** ---------------------------------------------
+/** =============================================
 
 MAIN.SCSS - Imports all partials for compilation
 
---------------------------------------------- **/
+============================================= **/
 
 // Vendor - 3rd party files
 @import "vendor/reset";
 
 // Modules - non output files (variables, mixins)
-
+@import "modules/z-index";
+@import "modules/typography";
 
 // Components - Main output files
+@import "components/animations";
 @import "components/base";
 @import "components/fonts";
-
+@import "components/forms";
