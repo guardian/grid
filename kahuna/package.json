@@ -78,7 +78,7 @@
     "sass": "node-sass public/stylesheets/main.scss public/stylesheets/main.css",
     "dist": "jspm bundle js/main public/js/dist/build.js -m --inject --no-mangle && ./dist-fingerprint.sh",
     "undist": "jspm unbundle && rm -f public/js/dist/build.js*",
-    "postinstall": "jspm install"
+    "postinstall": "jspm install && node-sass --output-style compressed -w public/stylesheets/main.scss public/stylesheets/main.css"
   },
   "repository": {
     "type": "git",
