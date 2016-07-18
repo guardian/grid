@@ -12,39 +12,48 @@ MAIN.SCSS - Imports all partials for compilation
 @import "modules/typography";
 
 // Components - Main output files
-@import "components/helpers";
-@import "components/animations";
-@import "components/base";
-@import "components/fonts";
-@import "components/forms";
-@import "components/buttons";
-@import "components/loaders";
 
+    // Global components
+    @import "components/helpers";
+    @import "components/animations";
+    @import "components/base";
+    @import "components/fonts";
+    @import "components/forms";
+    @import "components/buttons";
+    @import "components/loaders";
+    @import "components/messages";
 
-//TODO: Clean these into generic components
-@import "components/gr-add-label";
-@import "components/gr-archiver";
-@import "components/gr-archiver-status";
-@import "components/gr-chips";
-@import "components/gr-collection-overlay";
-@import "components/gr-collections-panel";
-@import "components/gr-confirm-delete";
-@import "components/gr-delete-crops";
-@import "components/gr-display-crops";
-@import "components/gr-downloader";
-@import "components/gr-icon";
-@import "components/gr-image-cost-message";
-@import "components/gr-image-usage";
-@import "components/gr-info-panel";
-@import "components/gr-metadata-validity";
-@import "components/gr-panels";
-@import "components/gr-preset-labels";
-@import "components/gr-top-bar";
-@import "components/gu-date-range";
-@import "components/gu-lazy-preview";
-@import "components/labeller";
-@import "components/leases";
-@import "components/pikaday-override";
-@import "components/prompt";
-@import "components/structured-query";
-@import "components/usage-rights-editor";
+    // Block components
+    @import "components/top-bar";
+    @import "components/search";
+    @import "components/results";
+    @import "components/preview";
+    @import "components/results-editor";
+
+    //TODO: Clean these into generic components
+    @import "components/gr-add-label";
+    @import "components/gr-archiver";
+    @import "components/gr-archiver-status";
+    @import "components/gr-chips";
+    @import "components/gr-collection-overlay";
+    @import "components/gr-collections-panel";
+    @import "components/gr-confirm-delete";
+    @import "components/gr-delete-crops";
+    @import "components/gr-display-crops";
+    @import "components/gr-downloader";
+    @import "components/gr-icon";
+    @import "components/gr-image-cost-message";
+    @import "components/gr-image-usage";
+    @import "components/gr-info-panel";
+    @import "components/gr-metadata-validity";
+    @import "components/gr-panels";
+    @import "components/gr-preset-labels";
+    @import "components/gr-top-bar";
+    @import "components/gu-date-range";
+    @import "components/gu-lazy-preview";
+    @import "components/labeller";
+    @import "components/leases";
+    @import "components/pikaday-override";
+    @import "components/prompt";
+    @import "components/structured-query";
+    @import "components/usage-rights-editor";

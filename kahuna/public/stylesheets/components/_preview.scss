@@ -1,0 +1,188 @@
+/* ==========================================================================
+
+   _PREVIEW.SCSS - Image preview
+
+   ========================================================================== */
+
+.preview {
+    position: relative;
+}
+
+.preview__link,
+.preview__no-link {
+    display: block;
+    height: 200px;
+}
+
+.preview__link--large, .preview__no-link--large {
+    height: auto;
+    max-height: calc(100vh - 190px);
+    max-width: 100%;
+}
+
+.preview__image {
+    display: block;
+    max-width: 100%;
+    max-height: 100%;
+    margin: 0 auto;
+}
+
+.preview__info {
+    font-size: 1.3rem;
+    padding-left: 10px;
+    margin: 5px 0;
+}
+
+.preview__info--large {
+    font-size: 1.4rem;
+    max-width: 800px;
+    margin: 0 auto;
+}
+
+.preview__description {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    margin: 0;
+}
+
+.preview__description--gallery {
+    white-space: normal;
+}
+
+/*
+FIXME: this is a little targeted
+FIXME: what to do with touch devices
+*/
+
+.preview__labeller {
+    /*25px - auto height of div on hover, stops shifting when off hover */
+    height: 25px;
+    white-space: nowrap;
+    overflow: hidden;
+}
+
+.preview .gr-add-label--inactive {
+    display: none;
+}
+
+.preview__upload-time {
+    font-size: 1.2rem;
+    color: #999;
+}
+
+.preview__has-crops {
+    cursor: help;
+}
+
+.preview__collections {
+    margin-right: 2px;
+    height: 25px;
+    display: block;
+    white-space: nowrap;
+}
+
+.preview__collections__collection {
+    /*important to overwrite tooltips styling*/
+    display: inline-flex !important;
+    margin: 0 5px 5px 0;
+}
+
+.preview__collections__collection__value,
+.preview__collections__collection__remove {
+    color: #fff;
+    padding: 0 5px;
+    margin-left: 2px;
+    border-radius: 2px;
+    /*this will be overwritten if the collection has a background-colour*/
+    background-color: #555;
+}
+
+.preview__collections__collection__remove {
+    margin-left: -1px;
+    border-top-left-radius: 0;
+    border-bottom-left-radius: 0;
+}
+
+.preview__collections__collection__value:hover,
+.preview__collections__collection__remove:hover {
+    /*need important to overwrite the inline style*/
+    background-color: #fff !important;
+    color: black;
+}
+
+.preview__collections__collection__apply-all {
+    margin-left: 10px;
+    line-height: 20px;
+    font-size: $baseFontSize;
+}
+
+.preview__cost {
+    margin-left: 5px;
+}
+
+.preview__bottom-bar {
+    font-size: 1.4rem;
+    margin-top: 5px;
+}
+
+.preview__bottom-bar--large {
+    font-size: $baseFontSize;
+    max-width: 800px;
+    margin: 0 auto 40px;
+}
+
+.preview__quick-select {
+    cursor: pointer;
+}
+
+.preview__fade {
+    width: 100%;
+    background: linear-gradient(to top, rgba(0, 0, 0, 0), rgba(0, 0, 0, 0.75));
+    height: 35px;
+    position: absolute;
+    top: 0;
+    display: none;
+}
+
+.bottom-bar {
+    display: flex;
+}
+.bottom-bar__meta {
+    flex: 1;
+    padding-left: 10px;
+}
+.bottom-bar__meta .preview__upload-time {
+    margin-right: 5px;
+}
+.bottom-bar__meta-item {
+    font-size: 1.2rem;
+}
+.bottom-bar__meta-item gr-icon{
+    color: #999;
+    position: relative;
+    top: -3px;
+}
+.bottom-bar__action {
+    display: inline-block;
+}
+
+.bottom-bar__action--cost {
+    width: 35px;
+}
+/*
+.bottom-bar__action .allow {
+    background-color: green;
+}
+.bottom-bar__action .deny {
+    background-color: red;
+}
+*/
+.bottom-bar__action--lease {
+    text-align: center;
+}
+.bottom-bar__action--lease .access {
+    border-radius: 3px;
+    padding-left: 2px;
+    padding-right: 2px;
+}

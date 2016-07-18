@@ -1,0 +1,80 @@
+/* ==========================================================================
+
+   _TOP-BAR.SCSS - The bar at the top...
+
+   ========================================================================== */
+
+.top-bar-item__label {
+    padding-left: 5px;
+}
+
+.top-bar-item {
+    margin-left: -4px;
+    vertical-align: middle;
+    line-height: 50px;
+    display: inline-block;
+    border-left: 2px solid #565656;
+    height: 50px;
+
+    &:first-child {
+        margin-left: 0;
+    }
+
+    &:last-child {
+        border-right: 2px solid #565656;
+    }
+}
+
+.top-bar-item__form {
+    display: inline-flex;
+}
+
+.top-bar-item__form__input {
+    background-color: #444;
+    color: #ccc;
+    border: 1px solid #999;
+    padding: 5px;
+    box-sizing: border-box;
+    max-width: 65px; /*width of four digits for pixel width and height */
+}
+
+.user-actions {
+    margin-right: -10px;
+    padding: 0 5px;
+    margin-top: 12px;
+}
+
+.home-link {
+    text-indent: -9999px;
+    width: 50px;
+    height: 50px;
+    background: url(/assets/images/grid-logo-32.png) no-repeat center;
+    margin-right: 0;
+    vertical-align: top;
+    float: left;
+}
+
+.home-link:hover {
+    background-color: #666666;
+}
+
+.logout {
+    color: inherit;
+    font-size: 1.3rem;
+    position: fixed;
+    bottom: 0;
+    right: 0;
+    background: rgba(0, 0, 0, .5);
+    padding: 10px;
+}
+
+@media screen and (max-width: 950px) {
+    .top-bar-item .gr-confirm-delete {
+        min-width: inherit;
+    }
+
+    /* only use this class if you want it to hide */
+    .icon-label {
+        display: none;
+    }
+}

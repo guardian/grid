@@ -1,0 +1,71 @@
+/* ==========================================================================
+
+   _MESSAGES.SCSS - Warnings, errors and info
+
+   ========================================================================== */
+
+.global-messages {
+    position: fixed;
+    margin: 0 auto;
+    left: 0;
+    right: 0;
+    top: 5px;
+    z-index: $z-5;
+    text-align: center;
+}
+
+.global-error {
+    display: inline-block;
+    border-radius: 5px;
+}
+
+.global-error__close {
+    padding-left: 10px;
+    cursor: pointer;
+
+    &:hover {
+        color: white;
+    }
+}
+
+.error {
+    background: darkred;
+    color: white;
+    padding: 20px 40px;
+}
+
+.error--small {
+    padding: 5px 10px;
+    font-size: 13px;
+}
+
+.full-error {
+    margin-top: 3rem;
+    text-align: center;
+    font-size: 3rem;
+}
+
+.warning {
+    background: #ffbc01;
+    color: black;
+    padding: 20px 40px;
+    text-align: center;
+}
+
+.warning--small {
+    padding: 5px 10px;
+}
+
+
+.status {
+    color: white;
+    background-color: orange;
+}
+
+.status--valid {
+    background-color: green;
+}
+
+.status--invalid {
+    background-color: red;
+}

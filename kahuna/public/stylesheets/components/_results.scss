@@ -1,0 +1,273 @@
+/* ==========================================================================
+
+   _RESULTS.SCSS - Search results display
+
+   ========================================================================== */
+
+.results {
+    display: flex;
+    flex-wrap: wrap;
+    top: 35px;
+    position: relative;
+}
+
+.results-controls {
+    background: white;
+    padding: 10px;
+    box-shadow: 0 1px 5px #999;
+}
+
+.results__control {
+    display: inline;
+    margin-right: 5px;
+}
+
+.result {
+    position: relative;
+    border: 5px solid transparent;
+    box-sizing: border-box;
+    margin: 5px;
+    background-color: #393939;
+}
+
+.result--seen {
+    opacity: .5;
+}
+
+.result-placeholder {
+    position: relative;
+    border: solid 5px #333;
+    box-sizing: border-box;
+    background: #393939;
+}
+.result__select {
+    position: absolute;
+    display: none;
+    /* above thumbnail */
+    z-index: $z-1;
+
+    & input[type=checkbox] {
+        visibility: hidden;
+    }
+}
+
+.result__select--no-pointer-events {
+    pointer-events: none;
+}
+
+.result__select__checkbox__label {
+    position: absolute;
+    top: 0;
+    left: 0;
+    cursor: pointer;
+}
+
+.result__select .result__select__checkbox__label gr-icon {
+    font-size: 25px;
+    color: white;
+}
+
+.result__select--selected .result__select__checkbox__label gr-icon {
+    color: #00adee;
+}
+
+/* Hacky: Hide gr-archiver-status "Add to Library" (unarchived state) unless hovering */
+.result .gr-archiver-status--unarchived {
+    display: none;
+}
+
+.result:hover .result__select,
+.result:hover .preview__fade,
+.result:hover .image-actions,
+.result:hover .gr-archiver-status--unarchived {
+    display: block;
+}
+
+.result:hover .gr-add-label--inactive {
+    display: inline-block;
+}
+
+.result:hover {
+    background-color: #404040;
+}
+
+.result--selected:hover .preview__fade {
+    display: none;
+}
+
+.result__select--selected {
+    display: initial;
+}
+
+.validity,
+.cost {
+    color: white;
+    font-size: 1.4rem;
+    padding: 0 10px 0;
+    text-align: center;
+    vertical-align: middle;
+}
+.validity--invalid,
+.cost--pay {
+    background-color: red;
+}
+.cost--no_rights {
+    background: red;
+}
+.cost--conditional {
+    background-color: orange;
+}
+.cost--free {
+    background-color: green;
+}
+
+.costs {
+    display: flex;
+}
+
+.costs li {
+    flex-grow: 1;
+    flex-basis: 0;
+}
+
+.costs .image-notice {
+    padding: 3px;
+}
+
+/* Hacky pointer to some element above */
+.validity--invalid--point-up {
+    position: relative;
+}
+.validity--invalid--point-up::before {
+    content: "";
+    border-left: 20px solid rgba(0, 0, 0, 0);
+    border-right: 20px solid rgba(0, 0, 0, 0);
+    border-bottom: 10px solid red;
+    position: absolute;
+    top: -9px;
+    right: 30px;
+    z-index: $z-6;
+}
+
+/* ==========================================================================
+   Results bar
+   ========================================================================== */
+
+.results-toolbar {
+    font-size: 1.4rem;
+    margin: 0 0 0;
+    height: 35px;
+    display: flex;
+    background-color: #333;
+    width: 100%;
+    border-bottom: 1px solid #565656;
+    position: fixed;
+    z-index: $z-4;
+    left: 0;
+}
+
+.results-toolbar__right {
+    margin-left: auto;
+    line-height: 35px;
+}
+
+.results-toolbar-item {
+    vertical-align: middle;
+    border-width: 0 1px;
+    border-color: #565656;
+    border-style: solid;
+    position: relative;
+    height: 35px;
+    line-height: 35px;
+    white-space: nowrap;
+}
+
+.results-toolbar-item:hover {
+    background-color: #666666;
+}
+
+.results-toolbar-item--static,
+.results-toolbar-item gr-icon-label {
+    padding: 0 10px;
+}
+
+.results-toolbar-item--left {
+    border-left: 0;
+}
+
+.results-toolbar-item--right {
+    border-right: 0;
+}
+
+.results-toolbar-item--disabled {
+    color: #666;
+}
+
+.results-toolbar-item--no-hover:hover {
+    background: #333;
+}
+
+.results-toolbar-item--active {
+    background-color: #444;
+}
+
+.results-toolbar-item--disabled:hover {
+    color: #666;
+    background-color: transparent;
+}
+
+/* --static is for top bar items that perform no action, only display information */
+.results-toolbar-item--static:hover {
+    background-color: transparent;
+}
+
+.results-toolbar-item__clear-selection {
+    width: 105px;
+}
+
+.results-toolbar-item__sort-direction {
+    padding: 0px;
+}
+
+.image-results-count__new {
+    font-family: inherit;
+    background-color: #00adee;
+    color: white;
+    display: inline-block;
+    padding: 2px 4px;
+    border-radius: 2px;
+    margin-left: 5px;
+}
+
+.image-results-count {
+    border-left: 0;
+    line-height: 35px;
+}
+
+.image-results-count,
+.sort-direction {
+    display: inline-block;
+}
+
+
+.image-results-more {
+    margin: 40px 0;
+    text-align: center;
+}
+.image-results-more__heading {
+    font-size: 36px;
+}
+.image-results-more__instructions {
+    font-size: 20px;
+}
+
+.image-loading-results,
+.image-no-results {
+    font-size: 3rem;
+    text-align: center;
+    margin-top: 4rem;
+}
+
+.image-loading-results {
+    color: #999;
+}

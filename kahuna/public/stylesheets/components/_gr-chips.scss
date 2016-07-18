@@ -11,9 +11,7 @@ gr-chips {
 .gr-chips__placeholder {
     position: absolute;
     color: #aaa;
-    -webkit-user-select: none;
-       -moz-user-select: none;
-            user-select: none;
+    user-select: none;
 }
 
 .gr-chips__chip-wrapper {
