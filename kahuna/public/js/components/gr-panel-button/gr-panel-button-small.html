@@ -1,6 +1,6 @@
 <div class="fill-height flex-container"
      ng:class="{ 'flex-container--rtl': ctrl.position == 'right' }">
-    <button class="button-ico-square clickable"
+    <button class="button--ico--square clickable"
             type="button"
             ng:if="!ctrl.state.hidden"
             ng:click="ctrl.hidePanel()"
@@ -12,7 +12,7 @@
         <gr-icon>{{ctrl.icon}}</gr-icon>
     </button>
 
-    <button class="button-ico-square clickable"
+    <button class="button--ico--square clickable"
             type="button"
             ng:if="ctrl.state.hidden"
             ng:click="ctrl.showPanel()"
@@ -24,7 +24,7 @@
     </button>
 
     <div ng:if="!ctrl.state.hidden">
-        <button class="button-ico-square clickable"
+        <button class="button--ico--square clickable"
                 type="button"
                 ng:if="!ctrl.state.locked"
                 ng:click="ctrl.lockPanel()"
@@ -32,7 +32,7 @@
                 gr:track-click-data="ctrl.trackingData('Lock panel')">
             <gr-icon>lock_open</gr-icon>
         </button>
-        <button class="button-ico-square clickable"
+        <button class="button--ico--square clickable"
                 type="button"
                 ng:if="ctrl.state.locked"
                 ng:click="ctrl.unlockPanel()"

@@ -1,0 +1,49 @@
+/** =============================================
+
+_LOADERS.SCSS - Animated loader styles
+
+============================================= **/
+
+
+.loader {
+    text-align: center;
+
+    &:after {
+        border: 12px solid white;
+        border-bottom-width: 35px;
+        content: "g";
+        height: 90px;
+        width: 80px;
+        display: block;
+        box-sizing: border-box;
+        background: #ddd;
+        margin: 10px auto auto;
+        color: #005689;
+        font-size: 2.6rem;
+
+        animation-duration: 1500ms;
+        animation-name: flipper;
+        animation-iteration-count: infinite;
+    }
+}
+
+.saving {
+    display: inline;
+    width: 15px;
+    line-height: 15px;
+    text-align: center;
+    padding: 0 2px;
+    color: #00adee;
+
+    animation-name: spin;
+    animation-duration: 1500ms;
+    animation-iteration-count: infinite;
+    animation-timing-function: linear;
+}
+
+.spin {
+    animation-name: spin;
+    animation-duration: 500ms;
+    animation-iteration-count: infinite;
+    animation-timing-function: ease-out;
+}

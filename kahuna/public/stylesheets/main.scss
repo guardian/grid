@@ -16,6 +16,8 @@ MAIN.SCSS - Imports all partials for compilation
 @import "components/base";
 @import "components/fonts";
 @import "components/forms";
+@import "components/buttons";
+@import "components/loaders";
 
 
 //TODO: Clean these into generic components

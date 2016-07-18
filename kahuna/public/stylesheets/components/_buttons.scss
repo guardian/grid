@@ -1,0 +1,121 @@
+/** =============================================
+
+_BUTTONS.SCSS - Button styles
+
+============================================= **/
+
+
+// Reset
+button {
+    border: 0;
+    background: transparent;
+    padding: 0;
+    margin: 0;
+    cursor: pointer;
+    color: inherit;
+    font-size: inherit;
+}
+
+.button {
+    border: 0;
+    background: #00adee;
+    border-radius: 2px;
+    box-shadow: 0 2px #00729c;
+    box-sizing: border-box;
+    color: white;
+    display: block;
+    padding: 5px 10px;
+    font-size: 1.4rem;
+    position: relative;
+
+    &:hover {
+        background: #008fc5;
+    }
+
+    &:active {
+        box-shadow: none;
+        top: 2px;
+    }
+
+    &:focus {
+        outline: 2px solid rgba(255, 255, 255, 0.5);
+        outline-offset: -3px;
+    }
+
+    &:disabled {
+        background-color: #999;
+        box-shadow: 0 2px #666;
+        color: #ccc;
+    }
+}
+
+// Modifiers
+
+.button--green {
+    background: forestgreen;
+    box-shadow: 0 2px darkgreen;
+}
+
+.button--shy {
+    padding: 2px 5px;
+    color: #ccc;
+    background: transparent;
+    box-shadow: 0 2px #888;
+    border: 1px solid #888;
+    font-size: inherit;
+
+    &:not(:disabled):hover {
+        background: #888;
+    }
+}
+
+.button--ico {
+    padding: 4px;
+
+    &--square {
+        width: 36px;
+        height: 36px;
+    }
+}
+
+.button--save {
+    background: #00adee;
+    color: white;
+
+    &:disabled {
+        background: #888;
+        cursor: auto;
+    }
+
+    &:hover {
+        background-color: #008fc5;
+    }
+}
+
+.button--cancel,
+.button--edit {
+    background-color: #898989;
+    &:hover {
+        background-color: #666666;
+    }
+}
+
+.button--save,
+.button--cancel,
+.button--edit {
+    padding: 0 5px;
+    height: 24px;
+    color: white;
+}
+
+.button--confirm-delete {
+    background: red;
+
+    & gr-icon {
+        padding-right: 5px;
+    }
+
+    &:hover {
+        background: #960000;
+    }
+}

@@ -43,7 +43,7 @@
 .gu-date-range__overlay__preset__button,
 .gu-date-range__overlay__button__cancel,
 .gu-date-range__overlay__button__ok {
-    /* !important to override .button and .button-shy */
+    /* !important to override .button and .button--shy */
     display: inline-block !important;
 }
 
