@@ -1,0 +1,97 @@
+/* ==========================================================================
+
+   _HELPERS.SCSS - Utility classes
+
+   ========================================================================== */
+
+.full-width {
+    width: 100%;
+}
+
+.flex-right {
+    display: flex;
+    flex-direction: row;
+    justify-content: flex-end;
+}
+
+.flex-container {
+    display: flex;
+}
+.flex-container--rtl {
+    flex-direction: row-reverse;
+}
+
+.flex-spacer {
+    flex-grow: 1;
+}
+
+.flex-no-shrink {
+    flex-shrink: 0;
+}
+
+.inline-block {
+    display: inline-block;
+}
+
+.flex-center {
+    align-items: center;
+}
+
+.side-padded {
+    padding: 0 10px;
+}
+
+.clickable:hover {
+    background-color: #666666;
+    color: white;
+    cursor: pointer;
+}
+
+.inner-clickable {
+    height: 100%;
+    display: inline-block;
+}
+
+.section {
+    margin-bottom: 25px;
+}
+
+.section__heading {
+    font-size: 1.8rem;
+    margin: 10px 0;
+    border-bottom: 1px solid #999;
+}
+
+.text-small {
+    font-size: 13px;
+}
+
+.separator-left {
+    border-left: 1px solid #565656;
+}
+
+.separator-right {
+    border-right: 1px solid #565656;
+}
+
+.fill-height {
+    height: 100%;
+}
+
+.bg-light {
+    background-color: #444;
+    color: white;
+}
+
+.hover-parent .hover-child {
+    display: none;
+}
+.hover-parent:hover .hover-child {
+    display: initial;
+}
+
+.visibly-hidden {
+    position: absolute;
+    left: -9999px;
+    font-size: 0;
+}

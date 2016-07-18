@@ -13,18 +13,18 @@
     <section class="section"
              ng:if="ctrl.latestJob && ctrl.latestJob.length > 0">
 
-        <div class="flex-container section-heading current-uploads">
+        <div class="flex-container section__heading current-uploads">
             <h2 class="flex-spacer">Your current uploads</h2>
-            <a ng:controller="SessionCtrl" class="coloured-link" ui:sref="search.results({uploadedBy: user.email, nonFree: true})">View all your uploads</a>
+            <a ng:controller="SessionCtrl" class="link link--coloured" ui:sref="search.results({uploadedBy: user.email, nonFree: true})">View all your uploads</a>
         </div>
 
         <ui-upload-jobs jobs="ctrl.latestJob"></ui-upload-jobs>
     </section>
 
     <section class="section">
-        <div class="flex-container section-heading">
+        <div class="flex-container section__heading">
             <h2 class="flex-spacer">Your past 50 uploads</h2>
-            <a ng:controller="SessionCtrl" class="coloured-link" ui:sref="search.results({uploadedBy: user.email, nonFree: true})">View all your uploads</a>
+            <a ng:controller="SessionCtrl" class="link link--coloured" ui:sref="search.results({uploadedBy: user.email, nonFree: true})">View all your uploads</a>
         </div>
 
         <recent-uploads></recent-uploads>

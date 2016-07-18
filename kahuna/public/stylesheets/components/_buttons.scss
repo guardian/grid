@@ -51,6 +51,11 @@ button {
 
 // Modifiers
 
+.button--right-side {
+    padding-left: 5px;
+    margin-left: -4px
+}
+
 .button--green {
     background: forestgreen;
     box-shadow: 0 2px darkgreen;

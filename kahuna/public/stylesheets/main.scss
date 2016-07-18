@@ -12,6 +12,7 @@ MAIN.SCSS - Imports all partials for compilation
 @import "modules/typography";
 
 // Components - Main output files
+@import "components/helpers";
 @import "components/animations";
 @import "components/base";
 @import "components/fonts";
