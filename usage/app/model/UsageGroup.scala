@@ -1,7 +1,8 @@
 package model
 
-import com.gu.contentapi.client.model.v1.{Content, ElementType, Element}
-import com.gu.mediaservice.model.{PendingUsageStatus, PublishedUsageStatus, PrintUsageRecord, UsageStatus}
+import com.gu.contentapi.client.model.v1.Content
+import com.gu.contentapi.client.model.v1.{ElementType, Element}
+import com.gu.mediaservice.model.{PrintUsageRecord, UsageStatus}
 
 import lib.MD5
 import org.joda.time.DateTime
@@ -49,6 +50,8 @@ object UsageGroup {
 
   def extractImages(content: Content) = content.elements.map(elements => {
     elements.filter(_.`type` == ElementType.Image)
+      .groupBy(_.id)
+      .map(_._2.head).to[collection.immutable.Seq]
   })
 }
 

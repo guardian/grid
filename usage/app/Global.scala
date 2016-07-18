@@ -10,21 +10,27 @@ import lib._
 
 object Global extends WithFilters(CorsFilter, RequestLoggingFilter, new GzipFilter) with GlobalSettings {
 
-  lazy val subscription = UsageRecorder.subscribe
+  lazy val previewSubscription = UsageRecorder.subscribeToPreview
+  lazy val liveSubscription = UsageRecorder.subscribeToLive
 
   override def beforeStart(app: Application): Unit = {
     LogConfig.init(Config)
   }
 
   override def onStart(app: Application) {
+    val crierReader = new CrierStreamReader()
+
+    crierReader.start()
+
     UsageApi.keyStore.scheduleUpdates(Akka.system(app).scheduler)
 
     // Eval subscription to start stream
-    subscription
+    previewSubscription
+    liveSubscription
   }
 
   override def onStop(app: Application) {
-    subscription.unsubscribe
+    previewSubscription.unsubscribe
+    liveSubscription.unsubscribe
   }
-
 }

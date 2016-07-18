@@ -1,3 +1,4 @@
+import com.twitter.scrooge.ScroogeSBT
 import sbt._
 import sbt.Keys._
 import play.Play.autoImport._
@@ -106,8 +107,20 @@ object Build extends Build {
     .libraryDependencies(awsDeps ++ playWsDeps)
     .testDependencies(scalaTestDeps)
 
-  val usageService = playProject("usage")
-    .libraryDependencies(awsDeps ++ playWsDeps ++ reactiveXDeps ++ guDeps)
+  import ScroogeSBT.autoImport._
+  import ScroogeSBT._
+
+  val usageService = {
+    playProject("usage")
+      .settings(scroogeThriftDependencies in Compile := Seq("content-api-models", "story-packages-model-thrift",
+        "content-atom-model-thrift"))
+      .libraryDependencies(awsDeps ++ playWsDeps ++ reactiveXDeps ++ guDeps ++ kinesisDeps ++ thriftDeps)
+      // See: https://github.com/twitter/scrooge/issues/199
+      .settings( scroogeThriftSources in Compile ++= {
+      (scroogeUnpackDeps in Compile).value.flatMap { dir => (dir ** "*.thrift").get }
+    })
+  }
+
 
   val imageLoader = playProject("image-loader")
     .libraryDependencies(awsDeps ++ imagingDeps)
@@ -133,13 +146,6 @@ object Build extends Build {
     .settings(sbtassembly.Plugin.assemblySettings: _*)
     .libraryDependencies(awsDeps ++ commonsNetDeps)
 
-  val picdarExport = project("picdar-export")
-    .dependsOn(lib)
-    .libraryDependencies(legacyBlockingHttp)
-    .settings(sbtassembly.Plugin.assemblySettings: _*)
-    .settings(playArtifactSettings: _*)
-    .settings(fiddlyExtraAssemblySettings: _*)
-
   def fiddlyExtraAssemblySettings = Seq(
     mergeStrategy in assembly <<= (mergeStrategy in assembly) { (old) => {
       case "version.txt" => MergeStrategy.first
@@ -157,6 +163,8 @@ object Build extends Build {
 
   def playProject(path: String): Project =
     Project(path, file(path))
+      // See: https://github.com/sbt/sbt-buildinfo/issues/88#issuecomment-216541181
+      .settings(scroogeThriftOutputFolder in Compile := sourceManaged.value / "thrift")
       .enablePlugins(play.PlayScala)
       .enablePlugins(RiffRaffArtifact, UniversalPlugin)
       .dependsOn(lib)
