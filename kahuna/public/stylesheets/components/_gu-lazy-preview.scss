@@ -6,7 +6,7 @@
     position: relative;
     height: calc(100vh - 100px); /* screen - top bar */
     top: 35px; /* results bar height */
-    background-color: #333333;
+    background-color: $grey-1;
 }
 
 .preview-view-item {
@@ -45,8 +45,8 @@
 
 .preview-view__control {
     padding: 10px;
-    border: 1px solid #565656;
-    background: #333333;
+    border: 1px solid $grey-2;
+    background: $grey-1;
     transition: opacity .1s;
 }
 

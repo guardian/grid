@@ -1,6 +1,6 @@
 /** =============================================
 
-MAIN.SCSS - Imports all partials for compilation
+_MAIN.SCSS - Imports all partials for compilation
 
 ============================================= **/
 
@@ -15,6 +15,7 @@ MAIN.SCSS - Imports all partials for compilation
 // Modules - non output files (variables, mixins)
 @import "modules/z-index";
 @import "modules/typography";
+@import "modules/colours";
 
 // Components - Main output files
 

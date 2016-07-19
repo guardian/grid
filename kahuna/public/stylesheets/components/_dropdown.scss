@@ -10,7 +10,7 @@
 
 .drop-menu__button {
     padding: 5px;
-    background-color: #333;
+    background-color: $grey-1;
     line-height: $font-size-3;
 }
 .drop-menu__button--nopad {
@@ -25,7 +25,7 @@
 }
 
 .drop-menu__items {
-    background-color: #333;
+    background-color: $grey-1;
     position: absolute;
     padding: 10px;
     box-shadow: 0 1px 5px rgba(0, 0, 0, 0.5);
@@ -51,7 +51,7 @@
 
 .dropdown-menu {
     z-index: $z-1;
-    background: #333;
+    background: $grey-1;
     padding: 5px;
 }
 

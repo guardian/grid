@@ -18,9 +18,9 @@ button {
 
 .button {
     border: 0;
-    background: #00adee;
+    background: $highlight;
     border-radius: 2px;
-    box-shadow: 0 2px #00729c;
+    box-shadow: 0 2px darken($highlight, 0.2);
     box-sizing: border-box;
     color: white;
     display: block;
@@ -29,7 +29,7 @@ button {
     position: relative;
 
     &:hover {
-        background: #008fc5;
+        background: lighten($highlight, 0.2);
     }
 
     &:active {
@@ -38,14 +38,14 @@ button {
     }
 
     &:focus {
-        outline: 2px solid rgba(255, 255, 255, 0.5);
+        outline: 2px solid rgba($white, 0.5);
         outline-offset: -3px;
     }
 
     &:disabled {
-        background-color: #999;
-        box-shadow: 0 2px #666;
-        color: #ccc;
+        background-color: $grey-4;
+        box-shadow: 0 2px $grey-2;
+        color: $main-text;
     }
 }
 
@@ -57,20 +57,20 @@ button {
 }
 
 .button--green {
-    background: forestgreen;
-    box-shadow: 0 2px darkgreen;
+    background: $confirm;
+    box-shadow: 0 2px darken($confirm, 0.2);
 }
 
 .button--shy {
     padding: 2px 5px;
     color: #ccc;
     background: transparent;
-    box-shadow: 0 2px #888;
-    border: 1px solid #888;
+    box-shadow: 0 2px $grey-3;
+    border: 1px solid $grey-3;
     font-size: inherit;
 
     &:not(:disabled):hover {
-        background: #888;
+        background: $grey-3;
     }
 }
 
@@ -84,24 +84,24 @@ button {
 }
 
 .button--save {
-    background: #00adee;
-    color: white;
+    background: $highlight;
+    color: $white;
 
     &:disabled {
-        background: #888;
+        background: $grey-3;
         cursor: auto;
     }
 
     &:hover {
-        background-color: #008fc5;
+        background-color: darken($highlight, 0,2);
     }
 }
 
 .button--cancel,
 .button--edit {
-    background-color: #898989;
+    background-color: $grey-3;
     &:hover {
-        background-color: #666666;
+        background-color: $grey-2;
     }
 }
 
@@ -110,17 +110,17 @@ button {
 .button--edit {
     padding: 0 5px;
     height: 24px;
-    color: white;
+    color: $white;
 }
 
 .button--confirm-delete {
-    background: red;
+    background: $warning;
 
     & gr-icon {
         padding-right: 5px;
     }
 
     &:hover {
-        background: #960000;
+        background: #darken($warning, 0.2);
     }
 }

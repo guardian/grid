@@ -66,17 +66,17 @@ TODO refactor gr-panel to use common labeller component
 }
 
 .label button:hover gr-icon {
-    color: #333;
+    color: $grey-1;
 }
 
 .label button:active gr-icon {
     background-color: #008fc5;
-    color: #333;
+    color: $grey-1;
 }
 
 .label--partial button:active gr-icon {
     background-color: #CFCFCF;
-    color: #333;
+    color: $grey-1;
 }
 
 .labeller__apply-all {

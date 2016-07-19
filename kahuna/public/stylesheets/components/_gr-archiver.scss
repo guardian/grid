@@ -28,7 +28,7 @@
 /* Hack: overlay the normal background color as the parent that has a
    hover highlight isn't aware of the internal disabled state :-/ */
 .batch-archive__button--disabled:hover {
-    background-color: #333;
+    background-color: $grey-1;
 }
 
 .batch-archive__icon svg {

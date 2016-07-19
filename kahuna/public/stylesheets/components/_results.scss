@@ -36,7 +36,7 @@
 
 .result-placeholder {
     position: relative;
-    border: solid 5px #333;
+    border: solid 5px $grey-1;
     box-sizing: border-box;
     background: #393939;
 }
@@ -158,7 +158,7 @@
     margin: 0 0 0;
     height: 35px;
     display: flex;
-    background-color: #333;
+    background-color: $grey-1;
     width: 100%;
     border-bottom: 1px solid #565656;
     position: fixed;
@@ -204,7 +204,7 @@
 }
 
 .results-toolbar-item--no-hover:hover {
-    background: #333;
+    background: $grey-1;
 }
 
 .results-toolbar-item--active {

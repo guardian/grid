@@ -89,7 +89,7 @@
         top: 25px;
         left: 0;
         width: 150px;
-        background-color: #333;
+        background-color: $grey-1;
         position: absolute;
         padding: 10px;
         box-shadow: 0 1px 5px rgba(0, 0, 0, 0.5);
@@ -226,7 +226,7 @@
 }
 
 .search__overlay {
-    background-color: #333;
+    background-color: $grey-1;
     box-shadow: 0 1px 5px rgba(0, 0, 0, 0.4);
     padding: 10px;
     position: absolute;

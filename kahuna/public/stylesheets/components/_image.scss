@@ -281,7 +281,7 @@
 }
 
 .image-info__usage-rights .ure {
-    background: #333;
+    background: $grey-1;
     padding: 10px;
 }
 
@@ -348,7 +348,7 @@
     margin-bottom: 10px;
     min-width: 100%;
     box-sizing: border-box;
-    background-color: #333;
+    background-color: $grey-1;
 }
 
 .image-crop:hover .image-crop__creator{
@@ -391,7 +391,7 @@
 }
 
 .image-crop__info {
-    background: #333;
+    background: $grey-1;
     padding: 2px;
     font-size: $font-size-1;
 }
