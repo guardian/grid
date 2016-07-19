@@ -4,11 +4,14 @@ _TYPOGRAPHY.SCSS - Type styles and sizes
 
 ============================================= **/
 
-$baseFontFamily: "Guardian Agate Sans Web", Georgia;
+$baseFontFamily: "Lucida Sans Unicode", "Lucida Grande", sans-serif;
 $plainFontFamily: Helvetica, Arial, sans-serif;
 
 // Font size Hierarchy (based on body font size of 62.5% or 10px)
 
-$smallFontSize: 1.4rem;
-$baseFontSize:  1.6rem;
-$titleFontSize: 2.5rem;
+$font-size-1: 1.2rem;
+$font-size-2: 1.4rem;
+$font-size-3: 1.6rem;
+$font-size-4: 2.0rem;
+$font-size-5: 2.5rem;
+$font-size-6: 3.2rem

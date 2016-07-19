@@ -34,7 +34,7 @@
 
 .job-file {
     color: #aaa;
-    font-size: 1.2rem;
+    font-size: $font-size-1;
     margin-top: 10px;
 }
 
@@ -93,7 +93,7 @@
     border: 1px solid #ccc;
     padding: 5px;
     border-radius: 2px;
-    font-size: 1.4rem;
+    font-size: $font-size-2;
 }
 .job-labels:after {
     clear: both;
@@ -104,7 +104,7 @@
 .job-labeller {
     clear: both;
     text-align: right;
-    font-size: 1.4rem;
+    font-size: $font-size-2;
     margin-top: 10px;
     display: block;
 }
@@ -132,7 +132,7 @@
 
 
 .metadata-applicator {
-    font-size: 1.4rem;
+    font-size: $font-size-2;
     text-align: right;
     /* FIXME: This is to get the text to lay next to the save button of the
     `metadata-editor` */

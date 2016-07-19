@@ -53,7 +53,7 @@
 
 .image-details {
     box-sizing: border-box;
-    font-size: 1.3rem;
+    font-size: $font-size-2;
 }
 /* HACK: This is here until we start using the panelled-content here */
 .image-details--full-image {
@@ -155,7 +155,7 @@
 
 .image-info__file-size {
     color: #ccc;
-    font-size: 1.2rem;
+    font-size: $font-size-1;
     font-weight: normal;
 }
 
@@ -196,7 +196,7 @@
     padding: 0 8px;
     margin-right: 5px;
     margin-bottom: 5px;
-    font-size: 1.3rem;
+    font-size: $font-size-2;
 }
 
 .image-info__keyword a {
@@ -248,7 +248,7 @@
 
 .image-info__wrap .editable-error {
     text-align: right;
-    font-size: 12px;
+    font-size: $font-size-1;
     color: #BB1212;
 }
 
@@ -320,7 +320,7 @@
 
 .metadata-reveal {
     color: #999;
-    font-size: 1.4rem;
+    font-size: $font-size-2;
     font-family: inherit;
 }
 
@@ -336,7 +336,7 @@
 }
 
 .metadata__body {
-    font-size: 1.3rem;
+    font-size: $font-size-2;
 }
 
 .image-crops {
@@ -393,7 +393,7 @@
 .image-crop__info {
     background: #333;
     padding: 2px;
-    font-size: 1.2rem;
+    font-size: $font-size-1;
 }
 
 .image-crop__more-info {

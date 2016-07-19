@@ -16,7 +16,7 @@
     flex-shrink: 0;
     margin-left: 10px;
     line-height: 20px;
-    font-size: 1.6rem;
+    font-size: $font-size-3;
 }
 .leases__wrapper gr-icon:hover {
   cursor: pointer;
@@ -135,7 +135,7 @@ gr-leases.leases-flex {
 gr-leases.leases-flex ul {
   display:flex;
   flex-direction: row;
-  font-size: 1.3rem;
+  font-size: $font-size-2;
 }
 
 gr-leases.leases-flex button {

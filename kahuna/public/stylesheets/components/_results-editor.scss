@@ -18,7 +18,7 @@
     position: absolute;
     top: 0;
     right: 0;
-    font-size: 1.4rem;
+    font-size: $font-size-2;
 }
 
 .result-editor__save-status {
@@ -51,7 +51,7 @@
 .result-editor__info-item {
     flex: 1;
     margin-left: 1px;
-    font-size: 1.4rem;
+    font-size: $font-size-2;
 }
 
 .result-editor__info-item--png-warning {
@@ -88,7 +88,7 @@
 .result-editor__field-container__labels,
 .result-editor__field-container__collections {
     display: flex;
-    font-size: 1.4rem;
+    font-size: $font-size-2;
 }
 
 .result-editor__field-container__labels--hidden {
@@ -96,7 +96,7 @@
 }
 
 .result-editor__field-container__add-button {
-    font-size: 1.3rem;
+    font-size: $font-size-2;
     padding-bottom: 5px;
 }
 
@@ -110,7 +110,7 @@
 }
 
 .result-editor__field-value {
-    font-size: 1.4rem;
+    font-size: $font-size-2;
     line-height: 24px;
 }
 
@@ -131,5 +131,5 @@
 .result-editor__usage-rights .ure {
     padding: 10px;
     background: #444;
-    font-size: 1.4rem;
+    font-size: $font-size-2;
 }

@@ -19,7 +19,7 @@ _LOADERS.SCSS - Animated loader styles
         background: #ddd;
         margin: 10px auto auto;
         color: #005689;
-        font-size: 2.6rem;
+        font-size: $font-size-5;
 
         animation-duration: 1500ms;
         animation-name: flipper;

@@ -75,7 +75,7 @@
 }
 
 .preview-view-item__select .preview-view-item__select__checkbox__label gr-icon {
-    font-size: 25px;
+    font-size: $font-size-5;
     color: white;
 }
 
@@ -137,7 +137,7 @@
     max-width: 100%;
     margin: 0 auto;
     animation: spin 1000ms infinite linear;
-    font-size: 30px;
+    font-size: $font-size-6;
 }
 
 @keyframes spin {

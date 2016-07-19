@@ -6,7 +6,7 @@ _FORMS.SCSS - Form fields
 
 input, option, textarea {
     font-family: $baseFontFamily;
-    font-size: $smallFontSize;
+    font-size: $font-size-2;
 }
 
 .text-input {
@@ -31,7 +31,7 @@ input:disabled, textarea:disabled, .disabled {
 
 .form-label__error,
 .form-label__notice {
-    font-size: 1.2rem;
+    font-size: $font-size-1;
     flex-grow: 1;
     text-align: right;
 }

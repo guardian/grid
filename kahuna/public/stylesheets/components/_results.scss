@@ -63,7 +63,7 @@
 }
 
 .result__select .result__select__checkbox__label gr-icon {
-    font-size: 25px;
+    font-size: $font-size-5;
     color: white;
 }
 
@@ -102,7 +102,7 @@
 .validity,
 .cost {
     color: white;
-    font-size: 1.4rem;
+    font-size: $font-size-2;
     padding: 0 10px 0;
     text-align: center;
     vertical-align: middle;
@@ -154,7 +154,7 @@
    ========================================================================== */
 
 .results-toolbar {
-    font-size: 1.4rem;
+    font-size: $font-size-2;
     margin: 0 0 0;
     height: 35px;
     display: flex;
@@ -255,15 +255,15 @@
     text-align: center;
 }
 .image-results-more__heading {
-    font-size: 36px;
+    font-size: $font-size-6;
 }
 .image-results-more__instructions {
-    font-size: 20px;
+    font-size: $font-size-4;
 }
 
 .image-loading-results,
 .image-no-results {
-    font-size: 3rem;
+    font-size: $font-size-5;
     text-align: center;
     margin-top: 4rem;
 }
