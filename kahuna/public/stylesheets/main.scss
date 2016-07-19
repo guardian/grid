@@ -5,7 +5,12 @@ MAIN.SCSS - Imports all partials for compilation
 ============================================= **/
 
 // Vendor - 3rd party files
-@import "vendor/reset";
+//@import "vendor/reset";
+
+// Vendor Overrides - Overrides for 3rd party files
+@import "vendor-overrides/pikaday-override";
+@import "vendor-overrides/jcrop-override";
+@import "vendor-overrides/cropper-override";
 
 // Modules - non output files (variables, mixins)
 @import "modules/z-index";
@@ -29,6 +34,12 @@ MAIN.SCSS - Imports all partials for compilation
     @import "components/results";
     @import "components/preview";
     @import "components/results-editor";
+    @import "components/image";
+    @import "components/image-actions";
+    @import "components/uploads";
+    @import "components/dropdown";
+    @import "components/datalist";
+    @import "components/drag-drop";
 
     //TODO: Clean these into generic components
     @import "components/gr-add-label";
@@ -53,7 +64,8 @@ MAIN.SCSS - Imports all partials for compilation
     @import "components/gu-lazy-preview";
     @import "components/labeller";
     @import "components/leases";
-    @import "components/pikaday-override";
     @import "components/prompt";
     @import "components/structured-query";
     @import "components/usage-rights-editor";
+
+    @import "components/print";

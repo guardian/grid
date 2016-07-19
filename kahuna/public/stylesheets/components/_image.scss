@@ -1,0 +1,405 @@
+/* ==========================================================================
+
+   _IMAGE.SCSS - Full Image / crop
+
+   ========================================================================== */
+
+.easel {
+    display: block;
+    text-align: center;
+}
+
+.easel__canvas {
+    height: calc(100vh - 50px); /* viewport - top-bar */
+    vertical-align: middle;
+    overflow: hidden;
+}
+
+.easel__image-container {
+    /*style rules also affect the cropper preview*/
+    display: inline-block;
+    height: calc(100% - 60px);
+    width: calc(100% - 60px);
+    margin-top: 30px;
+}
+
+.easel__image--checkered__background {
+    background-color: #bdbdbd;
+    background-image:
+        linear-gradient(45deg, white 25%, transparent 25%),
+        linear-gradient(135deg, white 25%, transparent 25%),
+        linear-gradient(45deg, transparent 75%, white 75%),
+        linear-gradient(135deg, transparent 75%, white 75%);
+
+    background-size: 20px 20px;
+
+    background-position: 0 0, 10px 0, 10px -10px, 0px 10px;
+
+}
+
+.easel__image {
+    display: block;
+    margin: 0 auto;
+    position: relative;
+    top: 50%;
+    transform: translateY(-50%);
+    max-width: calc(100% - 20px); /* 20px here for padding */
+    max-height: calc(100vh - 68px);
+}
+
+.easel__image--cropper {
+    visibility: hidden;
+}
+
+.image-details {
+    box-sizing: border-box;
+    font-size: 1.3rem;
+}
+/* HACK: This is here until we start using the panelled-content here */
+.image-details--full-image {
+    float: right;
+    height: calc(100vh - 50px); /* viewport - top-bar */
+    width: 300px;
+    border-left: 1px solid #565656;
+}
+
+.image-details--crop {
+    float: left;
+    width: 130px;
+    border-right: 1px solid #565656;
+    border-left: none;
+    position: relative;
+    height: calc(100vh - 50px); /* viewport - top-bar */
+}
+
+.image-details__delete-crops {
+    position: absolute;
+    bottom: 0;
+    width: 100%;
+}
+
+.image-details:after {
+    clear: both;
+    content:  " ";
+    display:  table;
+}
+
+/*to clear the set widths of the side panels */
+.image-holder {
+    margin-right: 300px;
+    margin-left: 130px;
+}
+
+.image-info__group {
+    padding: 10px;
+    border-bottom: 1px solid #565656;
+}
+
+.image-info__group--last {
+    border-bottom: 0;
+    clear: both;
+}
+
+.image-info__group table {
+    border-collapse: collapse;
+}
+
+.image-info__group--list {
+    width: 100%;
+}
+
+.image-info__group--list td {
+    position: relative;
+}
+
+.image-info__group--dl {
+    width: 100%;
+    display: flex;
+    flex-flow: row wrap;
+}
+
+/*flex-basis values chosen to accommodate longest key*/
+.image-info__group--dl__key {
+    flex-basis: 40%;
+}
+
+.image-info__group--dl__value {
+    flex-basis: 60%;
+    position: relative;
+    /* cut long words */
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.image-info__group--dl__key--panel {
+    flex-basis: 30%;
+}
+
+.image-info__group--dl__value--panel {
+    flex-basis: 70%;
+    position: relative;
+}
+
+.image-info__group--dl__key--full-metadata {
+    flex-basis: 45%;
+}
+
+.image-info__group--dl__value--full-metadata {
+    flex-basis: 55%;
+    position: relative;
+}
+
+.image-info__title {
+    color: #ccc;
+}
+
+.image-info__file-size {
+    color: #ccc;
+    font-size: 1.2rem;
+    font-weight: normal;
+}
+
+.image-info__heading {
+    color: #999;
+    font-weight: bold;
+    padding-bottom: 3px;
+    display: flex;
+    justify-content: space-between;
+}
+
+.image-info__heading--crops {
+    flex-basis: 100%;
+    max-width: 100%;
+}
+
+.image-info__heading--first {
+    margin-top: 0;
+}
+
+.image-info__description,
+.image-info__special-instructions {
+    /* respect newlines in text */
+    white-space: pre-line;
+    color: #CCC;
+}
+
+.image-info__heading--lease {
+    width: 90%;
+    float: left;
+}
+
+.image-info__keyword {
+    display: inline-block;
+    background-color: #222;
+    color: #999;
+    border-radius: 8px;
+    padding: 0 8px;
+    margin-right: 5px;
+    margin-bottom: 5px;
+    font-size: 1.3rem;
+}
+
+.image-info__keyword a {
+    color: inherit;
+}
+
+.image-info__wrap {
+    position: relative;
+    vertical-align: top;
+    /* cut long words */
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.image-info__wrap:hover .image-info__edit {
+    display: block
+}
+
+.image-info__edit,
+.edit-button {
+    display: none;
+    position: absolute;
+    top: 0;
+    right: 0;
+    line-height: 21px;
+    width: 21px;
+    border-radius: 50%;
+    color: #222;
+    background-color: white;
+}
+.edit-button {
+    display: block;
+    position: relative;
+}
+
+.image-info__edit:hover,
+.edit-button:hover {
+    color: white;
+    background-color: #222;
+    border: 1px solid white;
+    margin-top: -1px;
+    margin-bottom: -1px;
+}
+
+.image-info__wrap .editable-wrap,
+.image-info__wrap .editable-input {
+    width: 100%;
+}
+
+.image-info__wrap .editable-error {
+    text-align: right;
+    font-size: 12px;
+    color: #BB1212;
+}
+
+.image-info__wrap .editable-empty,
+.image-info__wrap .editable-empty:hover {
+    color: #999;
+}
+
+.image-info__wrap .editable-wrap .image-info__editor--error {
+    border: 1px solid #BB1212;
+    outline: none;
+}
+
+.image-info__wrap .editable-wrap .image-info__editor--saving {
+    border: 1px dashed #ccc;
+    outline: none;
+}
+
+/* targetting .image-info__wrap to win on specificity against default xeditable style */
+.image-info__wrap .editable-input.editable-has-buttons {
+    width: 100%;
+}
+
+/* targetting .image-info__wrap to win on specificity against default xeditable style */
+.image-info__wrap .editable-buttons {
+    display: flex;
+    justify-content: flex-end;
+    float: right;
+    padding-top: 2px;
+}
+
+.image-info__usage-rights .ure {
+    background: #333;
+    padding: 10px;
+}
+
+.image-info--multiple {
+    font-style: italic;
+}
+
+.image-notice {
+    padding: 10px;
+}
+
+.metadata-line {
+    color: #999;
+}
+
+.metadata-line__info {
+    color: #ccc;
+    padding-bottom: 10px;
+}
+
+.metadata-line__info--crop {
+    padding-bottom: 0;
+}
+
+.metadata-line__info a {
+    color: inherit;
+    border-bottom: 1px solid #999;
+}
+
+.metadata-line__key {
+    font-weight: bold;
+    color: #999;
+    vertical-align: top;
+    text-align: left;
+}
+
+.metadata-reveal {
+    color: #999;
+    font-size: 1.4rem;
+    font-family: inherit;
+}
+
+.metadata {
+    font-family: $baseFontFamily;
+}
+
+.metadata__heading {
+    display: block;
+    font-weight: bold;
+    margin-bottom: 5px;
+    text-align: left;
+}
+
+.metadata__body {
+    font-size: 1.3rem;
+}
+
+.image-crops {
+    display: flex;
+    flex-wrap: wrap;
+}
+
+.image-crop {
+    margin-bottom: 10px;
+    min-width: 100%;
+    box-sizing: border-box;
+    background-color: #333;
+}
+
+.image-crop:hover .image-crop__creator{
+    display: inline;
+}
+
+.result--selected,
+.result--selected:hover {
+    border-color: #00adee;
+}
+
+.image-crop--selected {
+    border: solid 2px #00adee;
+}
+
+.result--selected .preview {
+    background-color: #4c4c4c;
+}
+
+.image-crop__creator {
+    display: none;
+    border-radius: 50%;
+    background-color: #6E6E6E;
+    opacity: 0.5;
+    width: 22px;
+    height: 22px;
+    line-height: 22px;
+    text-align: center;
+}
+
+.image-crop__creator:hover {
+    opacity: 1;
+}
+
+.image-crop__image {
+    display: block;
+    max-width: 100%;
+    max-height: 64px;
+    margin: 0 auto;
+}
+
+.image-crop__info {
+    background: #333;
+    padding: 2px;
+    font-size: 1.2rem;
+}
+
+.image-crop__more-info {
+    line-height: 22px;
+}
+
+.image-crop__info--selected {
+    color: #FFFFFF;
+}

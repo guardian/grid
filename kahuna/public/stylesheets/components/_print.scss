@@ -1,0 +1,103 @@
+/* ==========================================================================
+
+   _PRINT.SCSS - print style overrides
+
+========================================================================== */
+
+@media print {
+
+    /* ==========================================================================
+       Image page
+    ========================================================================== */
+
+    /*!important is used to overwrite the component stylesheet (labeller.css) loaded after*/
+    /*main.css*/
+
+    button,
+    gr-top-bar,
+    gr-add-label,
+    .image-details--crop,
+    .image-info__group--full-metadata,
+    .radio-list {
+        display: none !important;
+    }
+
+    .image-details {
+        border: none;
+    }
+
+    .metadata-line__info,
+    .image-info__title,
+    .image-info__description,
+    .image-info__special-instructions,
+    .label__value,
+    .image-info__keyword {
+        color: black !important;
+    }
+
+    .easel__canvas {
+        overflow: visible;
+    }
+
+    .easel__image {
+        float: left;
+        max-width: 100%;
+        max-height: 450px;
+        transform: none;
+        position: static;
+    }
+
+    .image-canvas, .image-details {
+        height: auto;
+        width: auto;
+    }
+
+    .image-info__description, .image-info__keyword {
+        max-height: 80px;
+        overflow: hidden;
+    }
+
+    .image-info__group, .metadata-line__info, .image-holder {
+        padding: 0;
+        margin: 0;
+    }
+
+    .image-info__group, .metadata-line__info a {
+        border: none;
+    }
+
+    .image-info__group--dl__key {
+        flex-basis: 20%;
+    }
+
+    .image-info__group--dl__value {
+        flex-basis: 80%;
+    }
+
+    /* ==========================================================================
+       Results page
+    ========================================================================== */
+
+    /*!important is used to overwrite the component stylesheet (panel.css) loaded after*/
+    /*main.css*/
+
+    .global-error,
+    .gr-panel,
+    .gr-panel__content,
+    .results-toolbar {
+        display: none !important;
+    }
+
+    .result-placeholder {
+        border: none;
+    }
+
+    .preview__link {
+        height: auto;
+    }
+
+    .preview__image {
+        max-height: 150px;
+    }
+
+}

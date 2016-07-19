@@ -24,3 +24,100 @@ textarea {
 input:disabled, textarea:disabled, .disabled {
     color: #666;
 }
+
+.form-label {
+    display: flex;
+}
+
+.form-label__error,
+.form-label__notice {
+    font-size: 1.2rem;
+    flex-grow: 1;
+    text-align: right;
+}
+.form-label__error { color: #ed5935; }
+.form-label__notice { color: orange; }
+
+.form-property {
+    display: block;
+    margin-bottom: 10px;
+}
+
+.form-property--last {
+    margin-bottom: 0;
+}
+
+.form-input-text {
+    width: 100%;
+}
+
+.radio-list {
+    display: flex;
+    overflow: hidden;
+}
+.radio-list--invalid {
+    border: 1px solid #ed5935;
+}
+.radio-list__item {
+    flex-grow: 1;
+    display:flex;
+}
+.radio-list__item:last-child {
+    border-right: 1px;
+}
+.radio-list__label {
+    flex-grow: 1;
+    color: #CCC;
+    background-color: #444;
+    text-align: center;
+    cursor: pointer;
+    border: 1px solid #565656
+}
+
+.radio-list--selected .radio-list__label-value {
+    background-color:#666;
+    border: 1px solid #777;
+    border-top: none;
+}
+
+.radio-list--selected .radio-list__selection-state {
+    background: #00adee;
+}
+
+.radio-list--disabled .radio-list__label-value {
+    color: #777;
+}
+
+.radio-list__circle {
+    display: none;
+}
+
+.radio-list__selection-state {
+    height: 3px;
+    background: transparent;
+}
+
+.radio-list__label-value {
+    padding: 5px 10px;
+}
+
+.drag-icon {
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 50px;
+    height: 50px;
+    background-color: #CCCCCC;
+}
+
+.drag-count {
+    position: absolute;
+    top: -10px;
+    right: -10px;
+    border-radius: 50%;
+    background-color: #666666;
+    width: 22px;
+    height: 22px;
+    line-height: 22px;
+    text-align: center;
+}

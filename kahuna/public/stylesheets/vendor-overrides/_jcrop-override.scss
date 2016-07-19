@@ -1,0 +1,22 @@
+/* ==========================================================================
+
+   _JCROP-OVERRIDE.SCSS
+
+   ========================================================================== */
+
+
+.jcrop-holder {
+    margin: 0 auto;
+    max-width: 100%;
+    position: relative;
+    top: 50%;
+    transform: translateY(-50%);
+}
+
+.jcrop-holder .easel__image {
+    top: 50% !important;
+}
+
+.jcrop-keymgr {
+    opacity: 0;
+}

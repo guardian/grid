@@ -1,0 +1,160 @@
+/* ==========================================================================
+
+   _UPLOADS.SCSS
+
+   ========================================================================== */
+
+.jobs {
+    border-collapse: collapse;
+}
+
+.job-status {
+    padding: 5px 10px;
+    border-radius: 5px;
+}
+
+.job-info {
+    vertical-align: top;
+    padding: 20px 30px 20px;
+    border-bottom: 1px dashed #ccc;
+    position: relative;
+}
+
+.job-info--thumbnail {
+    /* reserve space */
+    width: 200px;
+    max-height: 150px;
+    padding-left: 0;
+    padding-right: 0;
+}
+.job-info--thumbnail__image {
+    max-width: 100%;
+    max-height: 100%;
+}
+
+.job-file {
+    color: #aaa;
+    font-size: 1.2rem;
+    margin-top: 10px;
+}
+
+.job-info--editor__field {
+    display: flex;
+    margin-bottom: 5px;
+    position: relative;
+}
+.job-info--editor__label {
+    width: 130px;
+    vertical-align: top;
+}
+.job-info--editor__input {
+    display: inline-block;
+    flex-grow: 1;
+}
+.job-info--editor__input--with-batch {
+    padding-right: 25px;
+}
+
+.job-info--editor__input--description {
+    height: 4em;
+}
+
+.job-info__credit {
+    width: 100%;
+}
+
+.job-edit-disabler {
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, .75);
+    position: absolute;
+    left: 0;
+    top: 0;
+    z-index: $z-1;
+}
+
+.job-editor:after {
+    clear: both;
+    content: " ";
+    display: table;
+}
+
+.job-editor__buttons {
+    text-align: right;
+}
+
+.job-editor__button {
+    display: inline-block;
+    margin-bottom: 5px;
+}
+
+.job-labels {
+    margin-top: 10px;
+    border: 1px solid #ccc;
+    padding: 5px;
+    border-radius: 2px;
+    font-size: 1.4rem;
+}
+.job-labels:after {
+    clear: both;
+    content: " ";
+    display: table;
+}
+
+.job-labeller {
+    clear: both;
+    text-align: right;
+    font-size: 1.4rem;
+    margin-top: 10px;
+    display: block;
+}
+
+.job-apply-to-all {
+    float: right;
+}
+
+.job-uploading {
+    margin-bottom: 20px;
+}
+
+.job-editor__apply-to-all {
+    position: absolute;
+    /* These positions are so that we don't overlay the input borders */
+    right: 1px;
+    top: 1px;
+    z-index: $z-1;
+    padding: 0 5px;
+}
+
+.job-editor__apply-to-all:hover {
+    color: #FFF;
+}
+
+
+.metadata-applicator {
+    font-size: 1.4rem;
+    text-align: right;
+    /* FIXME: This is to get the text to lay next to the save button of the
+    `metadata-editor` */
+    padding-right: 80px;
+    margin-top: -25px;
+}
+
+.metadata-applicator__button {
+    font-weight: bold;
+    text-decoration: underline;
+}
+
+.upload-result + .upload-result {
+    margin-top: 10px;
+    padding-top: 20px;
+    border-top: 1px dashed #999;
+}
+
+.upload-result .gr-confirm-delete {
+    padding: 0 10px;
+}
+
+.upload-result:hover .image-actions {
+    display: block;
+}

@@ -1,0 +1,40 @@
+/* ==========================================================================
+
+   _DATALIST.SCSS
+
+   ========================================================================== */
+
+.datalist {
+    position: relative;
+    width: 100%;
+}
+
+.datalist__options {
+    position: absolute;
+    width: 100%;
+    z-index: $z-1;
+    border: 1px solid #999;
+    background: #444;
+    color: #ccc;
+    padding: 5px;
+    padding-right: 15px; /* hack to reserve some space for the scrollbar */
+    font-size: 1.2rem;
+    box-sizing: border-box;
+    max-height: 400px;
+    overflow-y: auto;
+}
+
+.datalist__input {
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.datalist__option {
+    cursor: pointer;
+    padding: 5px;
+}
+
+.datalist__option--selected {
+    background-color: #00adee;
+    color: white;
+}

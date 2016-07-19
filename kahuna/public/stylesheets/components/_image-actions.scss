@@ -1,0 +1,35 @@
+/* ==========================================================================
+
+   _IMAGE-ACTIONS.SCSS
+
+   ========================================================================== */
+.image-actions-container .image-actions {
+    display: none;
+}
+
+.image-actions {
+    position: absolute;
+    top: 0;
+    right: 0;
+    background: rgba(0, 0, 0, .75);
+    display: none;
+    text-align: center;
+    font-size: 1.2rem;
+    /* above preview__fade */
+    z-index: $z-1;
+}
+
+.image-action {
+    line-height: 24px;
+    width: 24px;
+    color: #999;
+    display: block;
+    border-top: 1px solid rgba(255, 255, 255, .3);
+}
+.image-action--first {
+    border-top: 0;
+}
+
+.image-action:hover {
+    color: white;
+}
