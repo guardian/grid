@@ -14,7 +14,7 @@ gr-image-usage-list .date-added {
 }
 
 gr-image-usage-list .gr-image-usage__record {
-    margin-bottom: 10px;
+    margin-bottom: $baseline;
     width: 90%;
 }
 
@@ -33,7 +33,7 @@ gr-image-usage-list gr-composer-icon svg {
 }
 
 gr-image-usage-list .reference-list__icon {
-    margin-right: 5px
+    margin-right: $smallBaseline
 }
 
 gr-image-usage-list .reference-list__icon svg path {
@@ -52,7 +52,7 @@ gr-image-usage-list gr-icon {
 
 gr-image-usage-list .reference-list {
     display: inline-flex;
-    margin-left: 5px;
+    margin-left: $smallBaseline;
     position: relative;
     top: 3px;
 }

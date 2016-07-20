@@ -8,19 +8,19 @@ gr-nodes, gr-node,
 }
 
 .node__children {
-    padding-left: 10px;
+    padding-left: $baseline;
 }
 
 .node__marker {
     position: absolute;
     background: lighten($grey-bg, 2);
-    width: 5px;
+    width: $smallBaseline;
     height: 34px;
     left: 0;
 }
 
 .node__info {
-    padding-left: 210px;
+    padding-left: 2$baseline;
     margin-left: -200px;
     box-sizing: border-box;
 }
@@ -36,7 +36,7 @@ gr-nodes, gr-node,
 }
 
 .node__name {
-    padding: 5px;
+    padding: $smallBaseline;
     text-align: left;
     line-height: 1.5;
 }
@@ -44,14 +44,14 @@ gr-nodes, gr-node,
 .node__toggler,
 .node__spacer,
 .node__action {
-    padding-left: 5px;
-    padding-right: 5px;
+    padding-left: $smallBaseline;
+    padding-right: $smallBaseline;
     z-index: 2;
 }
 
 .node__add-child {
     margin-left: 50px;
-    margin-right: 10px;
+    margin-right: $baseline;
 }
 .node__add-child-input {
     width: 100%;
@@ -61,7 +61,7 @@ gr-nodes, gr-node,
 }
 
 .collections-panel-heading {
-    padding: 5px 10px;
+    padding: $smallBaseline $baseline;
     border-bottom: 1px solid $grey-border;
     position: fixed;
     width: 270px;

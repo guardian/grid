@@ -38,7 +38,7 @@
 }
 
 .side-padded {
-    padding: 0 10px;
+    padding: 0 $baseline;
 }
 
 .clickable:hover {
@@ -58,7 +58,7 @@
 
 .section__heading {
     font-size: $font-size-4;
-    margin: 10px 0;
+    margin: $baseline 0;
     border-bottom: 1px solid $grey-light
 }
 

@@ -16,8 +16,8 @@
     border: 1px solid $grey-light;
     background: lignten($grey-bg, 0,2);
     color: $main-text;
-    padding: 5px;
-    padding-right: 15px; /* hack to reserve some space for the scrollbar */
+    padding: $smallBaseline;
+    padding-right: $baseline; /* hack to reserve some space for the scrollbar */
     font-size: $font-size-1;
     box-sizing: border-box;
     max-height: 400px;
@@ -31,7 +31,7 @@
 
 .datalist__option {
     cursor: pointer;
-    padding: 5px;
+    padding: $smallBaseline;
 }
 
 .datalist__option--selected {

@@ -31,7 +31,7 @@
 }
 
 .search {
-    margin-top: 10px;
+    margin-top: $baseline;
     display: flex;
     height: 30px;
     line-height: 12px;
@@ -47,7 +47,7 @@
 
 .search__modifier__item {
     padding: 1px;
-    margin-right: 5px;
+    margin-right: $smallBaseline;
 }
 
 .search__modifier__container {
@@ -78,7 +78,7 @@
 @media screen and (max-width: 1350px) {
     .search__modifier-toggle {
         display: inherit;
-        margin-left: 15px
+        margin-left: 1$smallBaseline
     }
     .search__modifier-toggle__icon {
         display: inline;
@@ -91,8 +91,8 @@
         width: 150px;
         background-color: $grey-bg;
         position: absolute;
-        padding: 10px;
-        box-shadow: 0 1px 5px rgba($black, 5);
+        padding: $baseline;
+        box-shadow: 0 1px $smallBaseline rgba($black, 5);
     }
 
     .order__option, .search__filter {
@@ -116,7 +116,7 @@
 }
 
 .search-query__icon {
-    padding: 0 5px;
+    padding: 0 $smallBaseline;
 }
 
 .search-query__clear {
@@ -150,13 +150,13 @@
     height: 80vh;
     overflow: auto;
     background-color:  darken($grey-bg, 2);
-    box-shadow: 0 1px 5px rgba($black, 0.4);
+    box-shadow: 0 1px $smallBaseline rgba($black, 0.4);
     max-width: 680px /*width of input box and advance button in topbar*/
 }
 
 .advanced-search-help__cancel {
     float: right;
-    padding: 10px;
+    padding: $baseline;
 }
 
 .advanced-search-help__cancel:hover {
@@ -165,8 +165,8 @@
 
 .advanced-search-help__section {
     border-bottom: 1px solid $grey-border;
-    margin-bottom: 10px;
-    padding: 10px 10px 0 10px;
+    margin-bottom: $baseline;
+    padding: $baseline $baseline 0 $baseline;
     box-sizing: border-box;
 }
 
@@ -177,14 +177,14 @@
 
 .advanced-search-help__section__sub-heading {
     font-size: $font-size-3;
-    margin-bottom: 5px;
+    margin-bottom: $smallBaseline;
 }
 
 .advanced-search-help__close {
     position: absolute;
     top: 0;
     right: 0;
-    padding: 13px 5px;
+    padding: 13px $smallBaseline;
 }
 
 .advanced-search-example {
@@ -192,13 +192,13 @@
 }
 
 .advanced-search-example__field {
-    margin-bottom: 5px;
+    margin-bottom: $smallBaseline;
     display: inline-flex;
     flex-basis: 40%;
 }
 
 .advanced-search-example__explanation {
-    margin-bottom: 5px;
+    margin-bottom: $smallBaseline;
 }
 
 .advanced-search-example__input {
@@ -210,7 +210,7 @@
 }
 
 .search__advanced-toggle {
-    margin-left: 10px;
+    margin-left: $baseline;
 }
 
 .search__advanced-toggle:hover {
@@ -227,10 +227,10 @@
 
 .search__overlay {
     background-color: $grey-bg;
-    box-shadow: 0 1px 5px rgba($black, 0.4);
-    padding: 10px;
+    box-shadow: 0 1px $smallBaseline rgba($black, 0.4);
+    padding: $baseline;
     position: absolute;
-    min-width: 520px;
+    min-width: 5$largeBaseline;
 }
 
 .search__overlay__title {

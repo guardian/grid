@@ -9,13 +9,13 @@
 }
 
 .job-status {
-    padding: 5px 10px;
-    border-radius: 5px;
+    padding: $smallBaseline $baseline;
+    border-radius: $smallBaseline;
 }
 
 .job-info {
     vertical-align: top;
-    padding: 20px 30px 20px;
+    padding: $largeBaseline 30px $largeBaseline;
     border-bottom: 1px dashed $main-text;
     position: relative;
 }
@@ -35,12 +35,12 @@
 .job-file {
     color: $grey-light;
     font-size: $font-size-1;
-    margin-top: 10px;
+    margin-top: $baseline;
 }
 
 .job-info--editor__field {
     display: flex;
-    margin-bottom: 5px;
+    margin-bottom: $smallBaseline;
     position: relative;
 }
 .job-info--editor__label {
@@ -56,7 +56,7 @@
 }
 
 .job-info--editor__input--description {
-    height: 4em;
+    height: $xLargeBaseline;
 }
 
 .job-info__credit {
@@ -85,13 +85,13 @@
 
 .job-editor__button {
     display: inline-block;
-    margin-bottom: 5px;
+    margin-bottom: $smallBaseline;
 }
 
 .job-labels {
-    margin-top: 10px;
+    margin-top: $baseline;
     border: 1px solid $main-text;
-    padding: 5px;
+    padding: $smallBaseline;
     border-radius: 2px;
     font-size: $font-size-2;
 }
@@ -105,7 +105,7 @@
     clear: both;
     text-align: right;
     font-size: $font-size-2;
-    margin-top: 10px;
+    margin-top: $baseline;
     display: block;
 }
 
@@ -114,7 +114,7 @@
 }
 
 .job-uploading {
-    margin-bottom: 20px;
+    margin-bottom: $largeBaseline;
 }
 
 .job-editor__apply-to-all {
@@ -123,7 +123,7 @@
     right: 1px;
     top: 1px;
     z-index: $z-1;
-    padding: 0 5px;
+    padding: 0 $smallBaseline;
 }
 
 .job-editor__apply-to-all:hover {
@@ -146,13 +146,13 @@
 }
 
 .upload-result + .upload-result {
-    margin-top: 10px;
-    padding-top: 20px;
+    margin-top: $baseline;
+    padding-top: $largeBaseline;
     border-top: 1px dashed $grey-light
 }
 
 .upload-result .gr-confirm-delete {
-    padding: 0 10px;
+    padding: 0 $baseline;
 }
 
 .upload-result:hover .image-actions {

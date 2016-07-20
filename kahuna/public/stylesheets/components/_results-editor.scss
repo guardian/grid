@@ -24,7 +24,7 @@
 .result-editor__save-status {
     background: rgba($black, .75);
     color: $highlight;
-    padding: 2px 5px;
+    padding: 2px $smallBaseline;
     display: inline-block;
 }
 
@@ -41,7 +41,7 @@
 
 .result-editor__editor {
     flex-grow: 1;
-    margin-left: 10px;
+    margin-left: $baseline;
 }
 
 .result-editor__info {
@@ -71,18 +71,18 @@
     display: block;
     margin: 0 auto;
     text-align: center;
-    padding: 2px 5px;
+    padding: 2px $smallBaseline;
 }
 
 .result-editor__archiver {
     background: lighten($grey-bg, 2);
-    padding: 0 5px;
+    padding: 0 $smallBaseline;
 }
 
 .result-editor__field-container {
     display: flex;
     width: 100%;
-    margin-bottom: 5px;
+    margin-bottom: $smallBaseline;
 }
 
 .result-editor__field-container__labels,
@@ -97,7 +97,7 @@
 
 .result-editor__field-container__add-button {
     font-size: $font-size-2;
-    padding-bottom: 5px;
+    padding-bottom: $smallBaseline;
 }
 
 .result-editor__field-container__add-button:hover {
@@ -121,7 +121,7 @@
 
 .result-editor__usage-rights-container .image-info__edit {
     position: relative;
-    margin-left: 10px;
+    margin-left: $baseline;
 }
 
 .result-editor__field-container.image-info__wrap:hover .image-info__edit {
@@ -129,7 +129,7 @@
 }
 
 .result-editor__usage-rights .ure {
-    padding: 10px;
+    padding: $baseline;
     background: lighten($grey-bg, 2);
     font-size: $font-size-2;
 }

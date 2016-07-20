@@ -9,18 +9,18 @@
     margin: 0 auto;
     left: 0;
     right: 0;
-    top: 5px;
+    top: $smallBaseline;
     z-index: $z-5;
     text-align: center;
 }
 
 .global-error {
     display: inline-block;
-    border-radius: 5px;
+    border-radius: $smallBaseline;
 }
 
 .global-error__close {
-    padding-left: 10px;
+    padding-left: $baseline;
     cursor: pointer;
 
     &:hover {
@@ -31,11 +31,11 @@
 .error {
     background: darken($invalid, 5);
     color: $white;
-    padding: 20px 40px;
+    padding: $largeBaseline $xLargeBaseline;
 }
 
 .error--small {
-    padding: 5px 10px;
+    padding: $smallBaseline $baseline;
     font-size: $font-size-2;
 }
 
@@ -48,12 +48,12 @@
 .warning {
     background: $warning;
     color: $black;
-    padding: 20px 40px;
+    padding: $largeBaseline $xLargeBaseline;
     text-align: center;
 }
 
 .warning--small {
-    padding: 5px 10px;
+    padding: $smallBaseline $baseline;
 }
 
 

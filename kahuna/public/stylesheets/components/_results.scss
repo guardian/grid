@@ -13,20 +13,20 @@
 
 .results-controls {
     background: $white;
-    padding: 10px;
-    box-shadow: 0 1px 5px $grey-light;
+    padding: $baseline;
+    box-shadow: 0 1px $smallBaseline $grey-light;
 }
 
 .results__control {
     display: inline;
-    margin-right: 5px;
+    margin-right: $smallBaseline;
 }
 
 .result {
     position: relative;
-    border: 5px solid transparent;
+    border: $smallBaseline solid transparent;
     box-sizing: border-box;
-    margin: 5px;
+    margin: $smallBaseline;
     background: lighten($grey-bg, 2);
 }
 
@@ -36,7 +36,7 @@
 
 .result-placeholder {
     position: relative;
-    border: solid 5px $grey-bg;
+    border: solid $smallBaseline $grey-bg;
     box-sizing: border-box;
     background: lighten($grey-bg, 2);
 }
@@ -103,7 +103,7 @@
 .cost {
     color: $white;
     font-size: $font-size-2;
-    padding: 0 10px 0;
+    padding: 0 $baseline 0;
     text-align: center;
     vertical-align: middle;
 }
@@ -140,9 +140,9 @@
 }
 .validity--invalid--point-up::before {
     content: "";
-    border-left: 20px solid $black;
-    border-right: 20px solid $black;
-    border-bottom: 10px solid $invalid;
+    border-left: $largeBaseline solid $black;
+    border-right: $largeBaseline solid $black;
+    border-bottom: $baseline solid $invalid;
     position: absolute;
     top: -9px;
     right: 30px;
@@ -188,7 +188,7 @@
 
 .results-toolbar-item--static,
 .results-toolbar-item gr-icon-label {
-    padding: 0 10px;
+    padding: 0 $baseline;
 }
 
 .results-toolbar-item--left {
@@ -222,7 +222,7 @@
 }
 
 .results-toolbar-item__clear-selection {
-    width: 105px;
+    width: 10$smallBaseline;
 }
 
 .results-toolbar-item__sort-direction {
@@ -236,7 +236,7 @@
     display: inline-block;
     padding: 2px 4px;
     border-radius: 2px;
-    margin-left: 5px;
+    margin-left: $smallBaseline;
 }
 
 .image-results-count {
@@ -251,7 +251,7 @@
 
 
 .image-results-more {
-    margin: 40px 0;
+    margin: $xLargeBaseline 0;
     text-align: center;
 }
 .image-results-more__heading {

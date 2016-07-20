@@ -7,19 +7,19 @@
 
 .ure__cost {
     display: inline-block;
-    margin-left: 20px;
+    margin-left: $largeBaseline;
 }
 
 .ure__cost-selector {
-    margin-left: 20px;
+    margin-left: $largeBaseline;
 }
 
 .ure__description {
-    margin: 10px 0;
+    margin: $baseline 0;
 }
 
 .ure__caution {
-    margin: 10px 0;
+    margin: $baseline 0;
 }
 
 .ure__restrictions {
@@ -35,7 +35,7 @@
 }
 
 .ure__action {
-    margin-left: 4px;
+    margin-left: $smallBaseline;
 }
 
 .ure__multiple-rights-warning {

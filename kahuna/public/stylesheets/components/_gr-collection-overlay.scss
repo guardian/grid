@@ -14,7 +14,7 @@
 
 .collection-overlay__cancel {
     float: right;
-    padding: 40px;
+    padding: $xLargeBaseline;
 }
 
 .collection-overlay__cancel gr-icon {
@@ -34,10 +34,10 @@
 }
 
 .collection-overlay__collections__heading {
-    padding: 5px 10px;
+    padding: $smallBaseline $baseline;
     border-bottom: 1px solid $grey-border;
     position: fixed;
-    width: 365px;
+    width: 36$smallBaseline;
     background: lighten($grey-bg, 2);
     z-index: 10;
 }

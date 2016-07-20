@@ -5,7 +5,7 @@
    ========================================================================== */
 
 .top-bar-item__label {
-    padding-left: 5px;
+    padding-left: $smallBaseline;
 }
 
 .top-bar-item {
@@ -33,14 +33,14 @@
     background-color: lighten($grey-bg, 2);
     color: $main-text;
     border: 1px solid $grey-light;
-    padding: 5px;
+    padding: $smallBaseline;
     box-sizing: border-box;
-    max-width: 65px; /*width of four digits for pixel width and height */
+    max-width: 6$smallBaseline; /*width of four digits for pixel width and height */
 }
 
 .user-actions {
-    margin-right: -10px;
-    padding: 0 5px;
+    margin-right: -$baseline;
+    padding: 0 $smallBaseline;
     margin-top: 12px;
 }
 
@@ -65,7 +65,7 @@
     bottom: 0;
     right: 0;
     background: rgba($black, .5);
-    padding: 10px;
+    padding: $baseline;
 }
 
 @media screen and (max-width: 950px) {

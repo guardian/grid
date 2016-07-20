@@ -9,7 +9,7 @@
 }
 
 .drop-menu__button {
-    padding: 5px;
+    padding: $smallBaseline;
     background-color: $grey-bg;
     line-height: $font-size-3;
 }
@@ -19,16 +19,16 @@
 
 .drop-menu__close {
     position: absolute;
-    top: 5px;
-    right: 5px;
+    top: $smallBaseline;
+    right: $smallBaseline;
     padding: 2px;
 }
 
 .drop-menu__items {
     background-color: $grey-bg;
     position: absolute;
-    padding: 10px;
-    box-shadow: 0 1px 5px rgba($black, 5);
+    padding: $baseline;
+    box-shadow: 0 1px $smallBaseline rgba($black, 5);
     top: calc(100% + 8px);
     z-index: $z-2;
     /* Drop items should win over everything */
@@ -52,13 +52,13 @@
 .dropdown-menu {
     z-index: $z-1;
     background: $grey-bg;
-    padding: 5px;
+    padding: $smallBaseline;
 }
 
 .dropdown-menu li {
     cursor: pointer;
     color: $main-text;
-    padding: 5px;
+    padding: $smallBaseline;
 }
 
 .dropdown-menu li:hover {

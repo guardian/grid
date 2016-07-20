@@ -12,7 +12,7 @@ ui-labeller-compact {
     color: $white;
     display: inline-flex;
     justify-content: space-between;
-    margin: 0 5px 5px 0;
+    margin: 0 $smallBaseline $smallBaseline 0;
 }
 
 .label--removing {
@@ -53,7 +53,7 @@ TODO refactor gr-panel to use common labeller component
 }
 
 .label__value {
-    padding: 0 5px;
+    padding: 0 $smallBaseline;
 }
 
 .label__value--compact {
@@ -80,8 +80,8 @@ TODO refactor gr-panel to use common labeller component
 }
 
 .labeller__apply-all {
-    margin-left: 10px;
-    line-height: 20px;
+    margin-left: $baseline;
+    line-height: $largeBaseline;
     font-size: $font-size-3;
 }
 

@@ -17,13 +17,13 @@
     display: flex;
     align-items: baseline;
     align-content: center;
-    padding: 10px;
+    padding: $baseline;
 }
 
 .preview-view-item__preview {
     width: 100%;
     box-sizing: border-box;
-    border: 5px solid transparent;
+    border: $smallBaseline solid transparent;
 }
 
 .preview-view-item__preview--selected {
@@ -32,7 +32,7 @@
 
 .preview-view__controls {
     position: absolute;
-    bottom: 20px;
+    bottom: $largeBaseline;
     left: 50%;
     transform: translateX(-50%);
     opacity: .5;
@@ -44,7 +44,7 @@
 }
 
 .preview-view__control {
-    padding: 10px;
+    padding: $baseline;
     border: 1px solid $grey-contrast;
     background: $grey-bg;
     transition: opacity .1s;
@@ -156,7 +156,7 @@
     transform: translateX(-50%);
     width: 100%;
     background: rgba($black, 5);
-    padding: 20px;
+    padding: $largeBaseline;
     box-sizing: border-box;
     overflow: auto;
 }

@@ -17,7 +17,7 @@ _ANIMATIONS.SCSS - Animation keyframes
 
 @keyframes heartbeat {
     0% { border-width: 0; }
-    10% { border-width: 10px; }
-    90% { border-width: 10px; }
+    10% { border-width: $baseline; }
+    90% { border-width: $baseline; }
     100% { border-width: 0; }
 }

@@ -4,10 +4,10 @@
 
    ========================================================================== */
 .dnd-uploader {
-    border: 5px dashed $highlight;
+    border: $smallBaseline dashed $highlight;
     background: rgba($grey-bg, .75);
-    width: calc(100vw - 10px);
-    height: calc(100vh - 10px); /* border-box doesn't work with v units */
+    width: calc(100vw - $baseline);
+    height: calc(100vh - $baseline); /* border-box doesn't work with v units */
     position: fixed;
     top: 0;
     left: 0;
@@ -22,7 +22,7 @@
     max-width: 500px;
     border-radius: 2px;
     text-align: center;
-    padding: 10px;
+    padding: $baseline;
     position: absolute;
     top: 50%;
     transform: translateY(-50%);

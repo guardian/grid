@@ -17,7 +17,7 @@ _LOADERS.SCSS - Animated loader styles
         display: block;
         box-sizing: border-box;
         background: $main-text;
-        margin: 10px auto auto;
+        margin: $baseline auto auto;
         color: $highlight;
         font-size: $font-size-5;
 
@@ -29,8 +29,8 @@ _LOADERS.SCSS - Animated loader styles
 
 .saving {
     display: inline;
-    width: 15px;
-    line-height: 15px;
+    width: 1$smallBaseline;
+    line-height: 1$smallBaseline;
     text-align: center;
     padding: 0 2px;
     color: $highlight;

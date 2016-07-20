@@ -67,7 +67,7 @@ textarea.ng-invalid {
 .page-wrapper {
     margin: 0 auto;
     max-width: 900px;
-    padding-top: 10px;
+    padding-top: $baseline;
 }
 
 /* ==========================================================================
@@ -88,7 +88,7 @@ textarea.ng-invalid {
 
 .file-uploader__select-files {
     margin-top: 12px;
-    padding: 5px 10px;
+    padding: $smallBaseline $baseline;
 }
 
 /* ==========================================================================

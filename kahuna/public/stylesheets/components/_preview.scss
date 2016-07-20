@@ -29,8 +29,8 @@
 
 .preview__info {
     font-size: $font-size-2;
-    padding-left: 10px;
-    margin: 5px 0;
+    padding-left: $baseline;
+    margin: $smallBaseline 0;
 }
 
 .preview__info--large {
@@ -85,13 +85,13 @@ FIXME: what to do with touch devices
 .preview__collections__collection {
     /*important to overwrite tooltips styling*/
     display: inline-flex !important;
-    margin: 0 5px 5px 0;
+    margin: 0 $smallBaseline $smallBaseline 0;
 }
 
 .preview__collections__collection__value,
 .preview__collections__collection__remove {
     color: $white;
-    padding: 0 5px;
+    padding: 0 $smallBaseline;
     margin-left: 2px;
     border-radius: 2px;
     /*this will be overwritten if the collection has a background-colour*/
@@ -112,24 +112,24 @@ FIXME: what to do with touch devices
 }
 
 .preview__collections__collection__apply-all {
-    margin-left: 10px;
-    line-height: 20px;
+    margin-left: $baseline;
+    line-height: $largeBaseline;
     font-size: $font-size-3;
 }
 
 .preview__cost {
-    margin-left: 5px;
+    margin-left: $smallBaseline;
 }
 
 .preview__bottom-bar {
     font-size: $font-size-2;
-    margin-top: 5px;
+    margin-top: $smallBaseline;
 }
 
 .preview__bottom-bar--large {
     font-size: $font-size-3;
     max-width: 800px;
-    margin: 0 auto 40px;
+    margin: 0 auto $xLargeBaseline;
 }
 
 .preview__quick-select {
@@ -150,10 +150,10 @@ FIXME: what to do with touch devices
 }
 .bottom-bar__meta {
     flex: 1;
-    padding-left: 10px;
+    padding-left: $baseline;
 }
 .bottom-bar__meta .preview__upload-time {
-    margin-right: 5px;
+    margin-right: $smallBaseline;
 }
 .bottom-bar__meta-item {
     font-size: $font-size-1;

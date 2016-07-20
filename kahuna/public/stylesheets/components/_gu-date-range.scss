@@ -1,7 +1,7 @@
 .gu-date-range__display {
     font-size: $font-size-2;
     line-height: 14px;
-    padding: 5px;
+    padding: $smallBaseline;
     border: 1px solid $grey-light;
     cursor: pointer;
     display: block;
@@ -13,15 +13,15 @@
 
 .gu-date-range__display__icon__toggle {
     display: inline-block;
-    margin-left: 5px;
+    margin-left: $smallBaseline;
 }
 
 .gu-date-range__overlay__title {
-    margin-bottom: 5px;
+    margin-bottom: $smallBaseline;
 }
 
 .gu-date-range__overlay__fieldset {
-    margin-bottom: 20px;
+    margin-bottom: $largeBaseline;
     display: inline-block;
 }
 
@@ -33,7 +33,7 @@
 .gu-date-range__overlay__pikaday__container {
     width: 100%;
     height: 228px;
-    margin-bottom: 5px;
+    margin-bottom: $smallBaseline;
 }
 
 .gu-date-range__overlay__buttons {

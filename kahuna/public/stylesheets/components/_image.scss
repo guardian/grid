@@ -31,9 +31,9 @@
         linear-gradient(45deg, transparent 75%, $white 75%),
         linear-gradient(135deg, transparent 75%, $white 75%);
 
-    background-size: 20px 20px;
+    background-size: $largeBaseline $largeBaseline;
 
-    background-position: 0 0, 10px 0, 10px -10px, 0px 10px;
+    background-position: 0 0, $baseline 0, $baseline -$baseline, 0px $baseline;
 
 }
 
@@ -43,7 +43,7 @@
     position: relative;
     top: 50%;
     transform: translateY(-50%);
-    max-width: calc(100% - 20px); /* 20px here for padding */
+    max-width: calc(100% - $largeBaseline); /* $largeBaseline here for padding */
     max-height: calc(100vh - 68px);
 }
 
@@ -91,7 +91,7 @@
 }
 
 .image-info__group {
-    padding: 10px;
+    padding: $baseline;
     border-bottom: 1px solid $grey-border;
 }
 
@@ -194,8 +194,8 @@
     color: $grey-light;
     border-radius: 8px;
     padding: 0 8px;
-    margin-right: 5px;
-    margin-bottom: 5px;
+    margin-right: $smallBaseline;
+    margin-bottom: $smallBaseline;
     font-size: $font-size-2;
 }
 
@@ -282,7 +282,7 @@
 
 .image-info__usage-rights .ure {
     background: $grey-bg;
-    padding: 10px;
+    padding: $baseline;
 }
 
 .image-info--multiple {
@@ -290,7 +290,7 @@
 }
 
 .image-notice {
-    padding: 10px;
+    padding: $baseline;
 }
 
 .metadata-line {
@@ -299,7 +299,7 @@
 
 .metadata-line__info {
     color: $main-text;
-    padding-bottom: 10px;
+    padding-bottom: $baseline;
 }
 
 .metadata-line__info--crop {
@@ -331,7 +331,7 @@
 .metadata__heading {
     display: block;
     font-weight: bold;
-    margin-bottom: 5px;
+    margin-bottom: $smallBaseline;
     text-align: left;
 }
 
@@ -345,7 +345,7 @@
 }
 
 .image-crop {
-    margin-bottom: 10px;
+    margin-bottom: $baseline;
     min-width: 100%;
     box-sizing: border-box;
     background-color: $grey-bg;
