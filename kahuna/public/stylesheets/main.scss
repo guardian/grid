@@ -5,7 +5,7 @@ _MAIN.SCSS - Imports all partials for compilation
 ============================================= **/
 
 // Vendor - 3rd party files
-//@import "vendor/reset";
+@import "vendor/reset";
 
 // Vendor Overrides - Overrides for 3rd party files
 @import "vendor-overrides/pikaday-override";
