@@ -22,7 +22,7 @@
 }
 
 .result-editor__save-status {
-    background: rgba(0, 0, 0, .75);
+    background: rgba($black, .75);
     color: $highlight;
     padding: 2px 5px;
     display: inline-block;
@@ -30,7 +30,7 @@
 
 .result-editor__save-status--error {
     background: $warning;
-    color: white;
+    color: $white;
 }
 
 .result-editor__img,
@@ -101,7 +101,7 @@
 }
 
 .result-editor__field-container__add-button:hover {
-    color: white;
+    color: $white;
 }
 
 .result-editor__field-label {

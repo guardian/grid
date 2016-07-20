@@ -9,7 +9,7 @@ ui-labeller-compact {
 }
 
 .label {
-    color: white;
+    color: $white;
     display: inline-flex;
     justify-content: space-between;
     margin: 0 5px 5px 0;
@@ -26,20 +26,20 @@ TODO refactor gr-panel to use common labeller component
 .label--partial .label__value,
 .label--partial .label__add,
 .label--partial .label__remove {
-    background-color: white;
+    background-color: $white;
     color: $highlight;
 }
 
 .label__value,
 .label__remove {
-    color: white;
+    color: $white;
     background-color: $highlight;
 }
 
 .label__link:hover,
 .label__remove:hover {
     color: $highlight;
-    background-color: white;
+    background-color: $white;
 }
 
 .label__add,

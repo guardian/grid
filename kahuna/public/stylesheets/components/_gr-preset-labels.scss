@@ -4,7 +4,7 @@
 }
 
 .add-preset-label:hover {
-    color: white;
+    color: $white;
 }
 
 .add-preset-label__button {
@@ -25,7 +25,7 @@
 
 .preset-label__value,
 .preset-label__remove {
-    color: white;
+    color: $white;
     background-color: $highlight;
     opacity: 0.75;
 }
@@ -33,7 +33,7 @@
 .preset-label__link:hover,
 .preset-label__remove:hover {
     color: $highlight;
-    background-color: white;
+    background-color: $white;
 }
 
 .preset-label__value {

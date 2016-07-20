@@ -76,7 +76,7 @@
 
 .preview-view-item__select .preview-view-item__select__checkbox__label gr-icon {
     font-size: $font-size-5;
-    color: white;
+    color: $white;
 }
 
 .preview-view-item__select--selected .preview-view-item__select__checkbox__label gr-icon {
@@ -155,7 +155,7 @@
     left: 50%;
     transform: translateX(-50%);
     width: 100%;
-    background: rgba(0, 0, 0, 0.5);
+    background: rgba($black, 0.5);
     padding: 20px;
     box-sizing: border-box;
     overflow: auto;

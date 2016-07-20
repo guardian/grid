@@ -11,7 +11,7 @@
     position: absolute;
     top: 0;
     right: 0;
-    background: rgba(0, 0, 0, .75);
+    background: rgba($black, .75);
     display: none;
     text-align: center;
     font-size: $font-size-1;
@@ -31,5 +31,5 @@
 }
 
 .image-action:hover {
-    color: white;
+    color: $white;
 }

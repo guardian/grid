@@ -12,7 +12,7 @@
 }
 
 .results-controls {
-    background: white;
+    background: $white;
     padding: 10px;
     box-shadow: 0 1px 5px $grey-light;
 }
@@ -232,7 +232,7 @@
 .image-results-count__new {
     font-family: inherit;
     background-color: $highlight;
-    color: white;
+    color: $white;
     display: inline-block;
     padding: 2px 4px;
     border-radius: 2px;

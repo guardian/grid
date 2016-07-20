@@ -43,7 +43,7 @@
 
 .clickable:hover {
     background-color: $grey-contrast;
-    color: white;
+    color: $white;
     cursor: pointer;
 }
 
@@ -80,7 +80,7 @@
 
 .bg-light {
     background-color: lighten($grey-bg, 0.2);
-    color: white;
+    color: $white;
 }
 
 .hover-parent .hover-child {

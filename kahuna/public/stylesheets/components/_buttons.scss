@@ -22,7 +22,7 @@ button {
     border-radius: 2px;
     box-shadow: 0 2px darken($highlight, 0.2);
     box-sizing: border-box;
-    color: white;
+    color: $white;
     display: block;
     padding: 5px 10px;
     font-size: $font-size-2;

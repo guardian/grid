@@ -92,7 +92,7 @@
         background-color: $grey-bg;
         position: absolute;
         padding: 10px;
-        box-shadow: 0 1px 5px rgba(0, 0, 0, 0.5);
+        box-shadow: 0 1px 5px rgba($black, 0.5);
     }
 
     .order__option, .search__filter {
@@ -142,15 +142,15 @@
 }
 
 .clear-button:hover {
-    color: white;
+    color: $white;
 }
 
 .advanced-search-help {
     top: 49px;
     height: 80vh;
     overflow: auto;
-    background-color: #444444;
-    box-shadow: 0 1px 5px rgba(0, 0, 0, 0.4);
+    background-color:  darken($grey-bg, 0.2);
+    box-shadow: 0 1px 5px rgba($black, 0.4);
     max-width: 680px /*width of input box and advance button in topbar*/
 }
 
@@ -160,7 +160,7 @@
 }
 
 .advanced-search-help__cancel:hover {
-    color: white;
+    color: $white;
 }
 
 .advanced-search-help__section {
@@ -214,7 +214,7 @@
 }
 
 .search__advanced-toggle:hover {
-    color: white;
+    color: $white;
 }
 
 .search__advanced-toggle:focus {
@@ -227,7 +227,7 @@
 
 .search__overlay {
     background-color: $grey-bg;
-    box-shadow: 0 1px 5px rgba(0, 0, 0, 0.4);
+    box-shadow: 0 1px 5px rgba($black, 0.4);
     padding: 10px;
     position: absolute;
     min-width: 520px;

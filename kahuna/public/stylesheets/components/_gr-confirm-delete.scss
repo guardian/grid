@@ -6,12 +6,12 @@ gr-confirm-delete {
     line-height: inherit;
 }
 .gr-confirm-delete:hover {
-    color: white;
+    color: $white;
     background-color: $grey-contrast;
 }
 
 .gr-confirm-delete--confirm {
-    color: white;
+    color: $white;
     background: $warning
 }
 

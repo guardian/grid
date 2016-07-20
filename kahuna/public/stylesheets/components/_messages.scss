@@ -24,13 +24,13 @@
     cursor: pointer;
 
     &:hover {
-        color: white;
+        color: $white;
     }
 }
 
 .error {
     background: darken($warning, 0.5);
-    color: white;
+    color: $white;
     padding: 20px 40px;
 }
 
@@ -58,7 +58,7 @@
 
 
 .status {
-    color: white;
+    color: $white;
     background-color: orange;
 }
 
