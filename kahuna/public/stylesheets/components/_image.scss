@@ -150,17 +150,17 @@
 }
 
 .image-info__title {
-    color: #ccc;
+    color: $main-text;
 }
 
 .image-info__file-size {
-    color: #ccc;
+    color: $main-text;
     font-size: $font-size-1;
     font-weight: normal;
 }
 
 .image-info__heading {
-    color: #999;
+    color: $grey-light;
     font-weight: bold;
     padding-bottom: 3px;
     display: flex;
@@ -180,7 +180,7 @@
 .image-info__special-instructions {
     /* respect newlines in text */
     white-space: pre-line;
-    color: #CCC;
+    color: $main-text;
 }
 
 .image-info__heading--lease {
@@ -191,7 +191,7 @@
 .image-info__keyword {
     display: inline-block;
     background-color: #222;
-    color: #999;
+    color: $grey-light;
     border-radius: 8px;
     padding: 0 8px;
     margin-right: 5px;
@@ -254,7 +254,7 @@
 
 .image-info__wrap .editable-empty,
 .image-info__wrap .editable-empty:hover {
-    color: #999;
+    color: $grey-light
 }
 
 .image-info__wrap .editable-wrap .image-info__editor--error {
@@ -263,7 +263,7 @@
 }
 
 .image-info__wrap .editable-wrap .image-info__editor--saving {
-    border: 1px dashed #ccc;
+    border: 1px dashed $main-text;
     outline: none;
 }
 
@@ -281,7 +281,7 @@
 }
 
 .image-info__usage-rights .ure {
-    background: $grey-1;
+    background: $grey-bg;
     padding: 10px;
 }
 
@@ -294,11 +294,11 @@
 }
 
 .metadata-line {
-    color: #999;
+    color: $grey-light
 }
 
 .metadata-line__info {
-    color: #ccc;
+    color: $main-text;
     padding-bottom: 10px;
 }
 
@@ -308,18 +308,18 @@
 
 .metadata-line__info a {
     color: inherit;
-    border-bottom: 1px solid #999;
+    border-bottom: 1px solid $grey-light
 }
 
 .metadata-line__key {
     font-weight: bold;
-    color: #999;
+    color: $grey-light;
     vertical-align: top;
     text-align: left;
 }
 
 .metadata-reveal {
-    color: #999;
+    color: $grey-light;
     font-size: $font-size-2;
     font-family: inherit;
 }
@@ -348,7 +348,7 @@
     margin-bottom: 10px;
     min-width: 100%;
     box-sizing: border-box;
-    background-color: $grey-1;
+    background-color: $grey-bg;
 }
 
 .image-crop:hover .image-crop__creator{
@@ -357,11 +357,11 @@
 
 .result--selected,
 .result--selected:hover {
-    border-color: #00adee;
+    border-color: $highlight;
 }
 
 .image-crop--selected {
-    border: solid 2px #00adee;
+    border: solid 2px $highlight;
 }
 
 .result--selected .preview {
@@ -391,7 +391,7 @@
 }
 
 .image-crop__info {
-    background: $grey-1;
+    background: $grey-bg;
     padding: 2px;
     font-size: $font-size-1;
 }

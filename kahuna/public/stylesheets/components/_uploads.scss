@@ -16,7 +16,7 @@
 .job-info {
     vertical-align: top;
     padding: 20px 30px 20px;
-    border-bottom: 1px dashed #ccc;
+    border-bottom: 1px dashed $main-text;
     position: relative;
 }
 
@@ -90,7 +90,7 @@
 
 .job-labels {
     margin-top: 10px;
-    border: 1px solid #ccc;
+    border: 1px solid $main-text;
     padding: 5px;
     border-radius: 2px;
     font-size: $font-size-2;
@@ -148,7 +148,7 @@
 .upload-result + .upload-result {
     margin-top: 10px;
     padding-top: 20px;
-    border-top: 1px dashed #999;
+    border-top: 1px dashed $grey-light
 }
 
 .upload-result .gr-confirm-delete {

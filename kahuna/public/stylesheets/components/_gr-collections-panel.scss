@@ -13,7 +13,7 @@ gr-nodes, gr-node,
 
 .node__marker {
     position: absolute;
-    background: #444;
+    background: lighten($grey-bg, 0.2);
     width: 5px;
     height: 34px;
     left: 0;
@@ -27,11 +27,11 @@ gr-nodes, gr-node,
 
 .node__info:hover,
 .collection-drop-drag-over {
-    background-color: $grey-2;
+    background-color: $grey-contrast;
 }
 
 .node__info--selected {
-    background-color: $grey-1;
+    background-color: $grey-bg;
     color: white;
 }
 
@@ -65,7 +65,7 @@ gr-nodes, gr-node,
     border-bottom: 1px solid #565656;
     position: fixed;
     width: 270px;
-    background-color: #444;
+    background-color: lighten($grey-bg, 0.2);
     margin-top: -35px;
     z-index: 10;
 }

@@ -42,7 +42,7 @@
 }
 
 .clickable:hover {
-    background-color: #666666;
+    background-color: $grey-contrast;
     color: white;
     cursor: pointer;
 }
@@ -59,7 +59,7 @@
 .section__heading {
     font-size: $font-size-4;
     margin: 10px 0;
-    border-bottom: 1px solid #999;
+    border-bottom: 1px solid $grey-light
 }
 
 .text-small {
@@ -79,7 +79,7 @@
 }
 
 .bg-light {
-    background-color: #444;
+    background-color: lighten($grey-bg, 0.2);
     color: white;
 }
 

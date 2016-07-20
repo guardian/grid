@@ -33,7 +33,7 @@ _LOADERS.SCSS - Animated loader styles
     line-height: 15px;
     text-align: center;
     padding: 0 2px;
-    color: #00adee;
+    color: $highlight;
 
     animation-name: spin;
     animation-duration: 1500ms;

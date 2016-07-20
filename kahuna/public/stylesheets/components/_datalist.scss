@@ -13,9 +13,9 @@
     position: absolute;
     width: 100%;
     z-index: $z-1;
-    border: 1px solid #999;
-    background: #444;
-    color: #ccc;
+    border: 1px solid $grey-light;
+    background: lignten($grey-bg, 0,2);
+    color: $main-text;
     padding: 5px;
     padding-right: 15px; /* hack to reserve some space for the scrollbar */
     font-size: $font-size-1;
@@ -35,6 +35,6 @@
 }
 
 .datalist__option--selected {
-    background-color: #00adee;
+    background-color: $highlight;
     color: white;
 }

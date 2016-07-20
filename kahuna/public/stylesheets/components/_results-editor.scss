@@ -23,13 +23,13 @@
 
 .result-editor__save-status {
     background: rgba(0, 0, 0, .75);
-    color: #00adee;
+    color: $highlight;
     padding: 2px 5px;
     display: inline-block;
 }
 
 .result-editor__save-status--error {
-    background: red;
+    background: $warning;
     color: white;
 }
 
@@ -75,7 +75,7 @@
 }
 
 .result-editor__archiver {
-    background: #444;
+    background: lighten($grey-bg, 0.2);
     padding: 0 5px;
 }
 
@@ -130,6 +130,6 @@
 
 .result-editor__usage-rights .ure {
     padding: 10px;
-    background: #444;
+    background: lighten($grey-bg, 0.2);
     font-size: $font-size-2;
 }

@@ -4,8 +4,8 @@
 
    ========================================================================== */
 .dnd-uploader {
-    border: 5px dashed #00adee;
-    background: rgba(20, 20, 20, .75);
+    border: 5px dashed $highlight;
+    background: rgba($grey-bg, .75);
     width: calc(100vw - 10px);
     height: calc(100vh - 10px); /* border-box doesn't work with v units */
     position: fixed;
@@ -16,9 +16,9 @@
 }
 
 .dnd-uploader__info {
-    border: 0 solid #00adee;
-    color: white;
-    background: #00adee;
+    border: 0 solid darken($highlight, 0.2);
+    color: $white;
+    background: $highlight;
     max-width: 500px;
     border-radius: 2px;
     text-align: center;

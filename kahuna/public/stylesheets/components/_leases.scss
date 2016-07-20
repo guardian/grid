@@ -1,7 +1,7 @@
 .lease__form {
-    background-color: #444;
-    color: #ccc;
-    border: 1px solid #999;
+    background-color: lighten($grey-bg, 0.2);
+    color: $main-text;
+    border: 1px solid $grey-light;
     padding: 5px;
     box-sizing: border-box;
 }
@@ -63,7 +63,7 @@ gr-leases .metadata-line__key {
 }
 
 .denied {
-  background-color: red;
+  background-color: $warning
 }
 
 gr-leases .gu-date-range__overlay {
@@ -83,7 +83,7 @@ gr-leases .gu-date-range__display {
 
 .image-info__lease {
   padding-top: 3px;
-  color: #CCC;
+  color: $main-text;
   font-style: italic;
   display: inline-block;
 }
@@ -120,7 +120,7 @@ gr-leases .gu-date-range__display {
 }
 
 .lease__current.current {
-  background-color: #00ADEE;
+  background-color: $highlight;
 }
 
 .current {

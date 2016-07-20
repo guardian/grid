@@ -27,18 +27,18 @@ TODO refactor gr-panel to use common labeller component
 .label--partial .label__add,
 .label--partial .label__remove {
     background-color: white;
-    color: #00adee;
+    color: $highlight;
 }
 
 .label__value,
 .label__remove {
     color: white;
-    background-color: #00adee;
+    background-color: $highlight;
 }
 
 .label__link:hover,
 .label__remove:hover {
-    color: #00adee;
+    color: $highlight;
     background-color: white;
 }
 
@@ -66,17 +66,17 @@ TODO refactor gr-panel to use common labeller component
 }
 
 .label button:hover gr-icon {
-    color: $grey-1;
+    color: $grey-bg;
 }
 
 .label button:active gr-icon {
     background-color: #008fc5;
-    color: $grey-1;
+    color: $grey-bg;
 }
 
 .label--partial button:active gr-icon {
     background-color: #CFCFCF;
-    color: $grey-1;
+    color: $grey-bg;
 }
 
 .labeller__apply-all {

@@ -10,9 +10,9 @@ input, option, textarea {
 }
 
 .text-input {
-    background-color: #444;
-    color: #ccc;
-    border: 1px solid #999;
+    background-color: lighten($grey-bg, 0.2);
+    color: $main-text;
+    border: 1px solid $grey-light;
     padding: 5px;
     box-sizing: border-box;
 }
@@ -22,7 +22,7 @@ textarea {
 }
 
 input:disabled, textarea:disabled, .disabled {
-    color: #666;
+    color: $grey-contrast;
 }
 
 .form-label {
@@ -35,8 +35,8 @@ input:disabled, textarea:disabled, .disabled {
     flex-grow: 1;
     text-align: right;
 }
-.form-label__error { color: #ed5935; }
-.form-label__notice { color: orange; }
+.form-label__error { color: $warning; }
+.form-label__notice { color: $invalid; }
 
 .form-property {
     display: block;
@@ -56,7 +56,7 @@ input:disabled, textarea:disabled, .disabled {
     overflow: hidden;
 }
 .radio-list--invalid {
-    border: 1px solid #ed5935;
+    border: 1px solid $invalid;
 }
 .radio-list__item {
     flex-grow: 1;
@@ -67,25 +67,25 @@ input:disabled, textarea:disabled, .disabled {
 }
 .radio-list__label {
     flex-grow: 1;
-    color: #CCC;
-    background-color: #444;
+    color: $main-text;
+    background-color: lighten($grey-bg, 0.2);
     text-align: center;
     cursor: pointer;
     border: 1px solid #565656
 }
 
 .radio-list--selected .radio-list__label-value {
-    background-color:#666;
-    border: 1px solid #777;
+    background-color:$grey-contrast;
+    border: 1px solid $grey-light;
     border-top: none;
 }
 
 .radio-list--selected .radio-list__selection-state {
-    background: #00adee;
+    background: $highlight;
 }
 
 .radio-list--disabled .radio-list__label-value {
-    color: #777;
+    color: $grey-light
 }
 
 .radio-list__circle {
@@ -107,7 +107,7 @@ input:disabled, textarea:disabled, .disabled {
     right: 0;
     width: 50px;
     height: 50px;
-    background-color: #CCCCCC;
+    background-color: $main-text;
 }
 
 .drag-count {
@@ -115,7 +115,7 @@ input:disabled, textarea:disabled, .disabled {
     top: -10px;
     right: -10px;
     border-radius: 50%;
-    background-color: #666666;
+    background-color: $grey-contrast;
     width: 22px;
     height: 22px;
     line-height: 22px;

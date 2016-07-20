@@ -7,10 +7,9 @@ _COLOURS.SCSS - The *only* place for colours on the grid
 
 // Greys
 
-$grey-1: #333333;
-$grey-2: #666666;
-$grey-3: #888888;
-$grey-4: #999999;
+$grey-bg:       #333333;
+$grey-contrast: #666666; // For lighter edges against the main background
+$grey-light:    #888888; // For very light items (e.g. disable buttons)
 
 
 // Text
@@ -25,3 +24,4 @@ $warning: #FF0000;
 
 // Common
 $white: #FFFFFF;
+$black: #000000;

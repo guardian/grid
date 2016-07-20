@@ -14,7 +14,7 @@
 .results-controls {
     background: white;
     padding: 10px;
-    box-shadow: 0 1px 5px #999;
+    box-shadow: 0 1px 5px $grey-light;
 }
 
 .results__control {
@@ -27,7 +27,7 @@
     border: 5px solid transparent;
     box-sizing: border-box;
     margin: 5px;
-    background-color: #393939;
+    background: lighten($grey-bg, 0.2);
 }
 
 .result--seen {
@@ -36,9 +36,9 @@
 
 .result-placeholder {
     position: relative;
-    border: solid 5px $grey-1;
+    border: solid 5px $grey-bg;
     box-sizing: border-box;
-    background: #393939;
+    background: lighten($grey-bg, 0.2);
 }
 .result__select {
     position: absolute;
@@ -64,11 +64,11 @@
 
 .result__select .result__select__checkbox__label gr-icon {
     font-size: $font-size-5;
-    color: white;
+    color: $white;
 }
 
 .result__select--selected .result__select__checkbox__label gr-icon {
-    color: #00adee;
+    color: $highlight;
 }
 
 /* Hacky: Hide gr-archiver-status "Add to Library" (unarchived state) unless hovering */
@@ -88,7 +88,7 @@
 }
 
 .result:hover {
-    background-color: #404040;
+    background-color: lighten($grey-bg, 0.2);
 }
 
 .result--selected:hover .preview__fade {
@@ -101,7 +101,7 @@
 
 .validity,
 .cost {
-    color: white;
+    color: $white;
     font-size: $font-size-2;
     padding: 0 10px 0;
     text-align: center;
@@ -109,16 +109,16 @@
 }
 .validity--invalid,
 .cost--pay {
-    background-color: red;
+    background-color: $warning;
 }
 .cost--no_rights {
-    background: red;
+    background: $warning;
 }
 .cost--conditional {
-    background-color: orange;
+    background-color: $invalid;
 }
 .cost--free {
-    background-color: green;
+    background-color: $confirm;
 }
 
 .costs {
@@ -140,9 +140,9 @@
 }
 .validity--invalid--point-up::before {
     content: "";
-    border-left: 20px solid rgba(0, 0, 0, 0);
-    border-right: 20px solid rgba(0, 0, 0, 0);
-    border-bottom: 10px solid red;
+    border-left: 20px solid $black;
+    border-right: 20px solid $black;
+    border-bottom: 10px solid $warning;
     position: absolute;
     top: -9px;
     right: 30px;
@@ -158,9 +158,9 @@
     margin: 0 0 0;
     height: 35px;
     display: flex;
-    background-color: $grey-1;
+    background-color: $grey-bg;
     width: 100%;
-    border-bottom: 1px solid #565656;
+    border-bottom: 1px solid $grey-contrast;
     position: fixed;
     z-index: $z-4;
     left: 0;
@@ -174,7 +174,7 @@
 .results-toolbar-item {
     vertical-align: middle;
     border-width: 0 1px;
-    border-color: #565656;
+    border-color: $grey-contrast;
     border-style: solid;
     position: relative;
     height: 35px;
@@ -183,7 +183,7 @@
 }
 
 .results-toolbar-item:hover {
-    background-color: #666666;
+    background-color: $grey-contrast;
 }
 
 .results-toolbar-item--static,
@@ -200,19 +200,19 @@
 }
 
 .results-toolbar-item--disabled {
-    color: #666;
+    color: $grey-contrast
 }
 
 .results-toolbar-item--no-hover:hover {
-    background: $grey-1;
+    background: $grey-bg;
 }
 
 .results-toolbar-item--active {
-    background-color: #444;
+    background-color: lighten($grey-bg, 0.2);
 }
 
 .results-toolbar-item--disabled:hover {
-    color: #666;
+    color: $grey-contrast;
     background-color: transparent;
 }
 
@@ -231,7 +231,7 @@
 
 .image-results-count__new {
     font-family: inherit;
-    background-color: #00adee;
+    background-color: $highlight;
     color: white;
     display: inline-block;
     padding: 2px 4px;
@@ -269,5 +269,5 @@
 }
 
 .image-loading-results {
-    color: #999;
+    color: $grey-light;
 }

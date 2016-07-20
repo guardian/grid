@@ -68,7 +68,7 @@ FIXME: what to do with touch devices
 
 .preview__upload-time {
     font-size: $font-size-1;
-    color: #999;
+    color: $grey-light
 }
 
 .preview__has-crops {
@@ -159,7 +159,7 @@ FIXME: what to do with touch devices
     font-size: $font-size-1;
 }
 .bottom-bar__meta-item gr-icon{
-    color: #999;
+    color: $grey-light;
     position: relative;
     top: -3px;
 }

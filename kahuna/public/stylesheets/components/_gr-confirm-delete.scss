@@ -7,12 +7,12 @@ gr-confirm-delete {
 }
 .gr-confirm-delete:hover {
     color: white;
-    background-color: #666666;
+    background-color: $grey-contrast;
 }
 
 .gr-confirm-delete--confirm {
     color: white;
-    background: red;
+    background: $warning
 }
 
 .gr-confirm-delete--confirm:hover {

@@ -4,7 +4,7 @@ gr-image-usage-list {
 
 gr-image-usage-list .gr-image-usage__field_title {
     font-weight: bold;
-    color: #999;
+    color: $grey-light;
     vertical-align: top;
     text-align: left;
 }
@@ -37,7 +37,7 @@ gr-image-usage-list .reference-list__icon {
 }
 
 gr-image-usage-list .reference-list__icon svg path {
-    fill: #999;
+    fill: $grey-light;
 }
 
 gr-image-usage-list .reference-list__icon:hover svg path {
@@ -47,7 +47,7 @@ gr-image-usage-list .reference-list__icon:hover svg path {
 gr-image-usage-list gr-icon {
     position: relative;
     top: -2px;
-    color: #999;
+    color: $grey-light;
 }
 
 gr-image-usage-list .reference-list {

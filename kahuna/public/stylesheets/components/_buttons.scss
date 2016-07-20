@@ -43,8 +43,8 @@ button {
     }
 
     &:disabled {
-        background-color: $grey-4;
-        box-shadow: 0 2px $grey-2;
+        background-color: $grey-light;
+        box-shadow: 0 2px $grey-contrast;
         color: $main-text;
     }
 }
@@ -63,14 +63,14 @@ button {
 
 .button--shy {
     padding: 2px 5px;
-    color: #ccc;
+    color: $main-text;
     background: transparent;
-    box-shadow: 0 2px $grey-3;
-    border: 1px solid $grey-3;
+    box-shadow: 0 2px $grey-light;
+    border: 1px solid $grey-light;
     font-size: inherit;
 
     &:not(:disabled):hover {
-        background: $grey-3;
+        background: $grey-light;
     }
 }
 
@@ -88,20 +88,20 @@ button {
     color: $white;
 
     &:disabled {
-        background: $grey-3;
+        background: $grey-light;
         cursor: auto;
     }
 
     &:hover {
-        background-color: darken($highlight, 0,2);
+        background-color: darken($highlight, 0.2);
     }
 }
 
 .button--cancel,
 .button--edit {
-    background-color: $grey-3;
+    background-color: $grey-light;
     &:hover {
-        background-color: $grey-2;
+        background-color: $grey-contrast;
     }
 }
 

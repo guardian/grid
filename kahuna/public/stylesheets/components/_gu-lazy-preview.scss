@@ -6,7 +6,7 @@
     position: relative;
     height: calc(100vh - 100px); /* screen - top bar */
     top: 35px; /* results bar height */
-    background-color: $grey-1;
+    background-color: $grey-bg;
 }
 
 .preview-view-item {
@@ -27,7 +27,7 @@
 }
 
 .preview-view-item__preview--selected {
-    border-color: #00adee;
+    border-color: $highlight;
 }
 
 .preview-view__controls {
@@ -45,8 +45,8 @@
 
 .preview-view__control {
     padding: 10px;
-    border: 1px solid $grey-2;
-    background: $grey-1;
+    border: 1px solid $grey-contrast;
+    background: $grey-bg;
     transition: opacity .1s;
 }
 
@@ -80,12 +80,12 @@
 }
 
 .preview-view-item__select--selected .preview-view-item__select__checkbox__label gr-icon {
-    color: #00adee;
+    color: $highlight;
 }
 
 .preview-view-item--selected,
 .preview-view-item--selected:hover {
-    border-color: #00adee;
+    border-color: $highlight;
 }
 
 /* Hacky: Hide gr-archiver-status "Add to Library" (unarchived state) unless hovering */

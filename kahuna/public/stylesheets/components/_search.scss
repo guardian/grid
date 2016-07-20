@@ -9,9 +9,9 @@
     /* Fill the container for larger clickable area */
     align-items: stretch;
 
-    background-color: #444;
-    color: #ccc;
-    border: 1px solid #999;
+    background-color: lighten($grey-bg, 0.2);
+    color: $main-text;
+    border: 1px solid $grey-light;
     box-sizing: border-box;
 
     min-width: 300px;
@@ -89,7 +89,7 @@
         top: 25px;
         left: 0;
         width: 150px;
-        background-color: $grey-1;
+        background-color: $grey-bg;
         position: absolute;
         padding: 10px;
         box-shadow: 0 1px 5px rgba(0, 0, 0, 0.5);
@@ -202,9 +202,9 @@
 }
 
 .advanced-search-example__input {
-    background-color: #444;
-    color: #ccc;
-    border: 1px solid #999;
+    background-color: lighten($grey-bg, 0.2);
+    color: $main-text;
+    border: 1px solid $grey-light;
     padding: 2px 4px;
     box-sizing: border-box;
 }
@@ -226,7 +226,7 @@
 }
 
 .search__overlay {
-    background-color: $grey-1;
+    background-color: $grey-bg;
     box-shadow: 0 1px 5px rgba(0, 0, 0, 0.4);
     padding: 10px;
     position: absolute;

@@ -1,6 +1,6 @@
 /* Override some global styling */
 gr-chips input[type="text"] {
-    color: #ccc;
+    color: $main-text;
 }
 gr-chips input[type="text"][autocomplete="off"] {
     /* awful hack to hide LastPass widget which should not be here in the
@@ -31,7 +31,7 @@ gr-chips .datalist__options {
 .gr-filter-chip__key,
 .gr-static-filter-chip__key {
     font-family: "Guardian Agate Sans Web", Helvetica, Arial;
-    color: #888;
+    color: $grey-light
 }
 
 .gr-filter-chip__type,
@@ -39,24 +39,24 @@ gr-chips .datalist__options {
 .gr-filter-chooser-chip__type {
     padding: 0 3px;
     vertical-align: middle;
-    border-right: 1px solid #444;
+    border-right: 1px solid lighten($grey-bg, 0.2);
     margin-right: 3px;
     font-size: $font-size-5;
     font-weight: bold;
-    color: #888;
+    color: $grey-light
 }
 .gr-filter-chip__remove,
 .gr-static-filter-chip__remove {
-    border-left: 1px solid #444;
+    border-left: 1px solid lighten($grey-bg, 0.2);
     padding: 3px;
-    color: #888;
+    color: $grey-light
 }
 
 gr-filter-chip,
 .gr-filter-chip, /*used in chip example*/
 gr-static-filter-chip,
 gr-filter-chooser-chip {
-    background-color: $grey-1;
+    background-color: $grey-bg;
     border-radius: 8px;
 }
 

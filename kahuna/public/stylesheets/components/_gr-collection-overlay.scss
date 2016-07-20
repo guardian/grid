@@ -38,7 +38,7 @@
     border-bottom: 1px solid #565656;
     position: fixed;
     width: 365px;
-    background: #444;
+    background: lighten($grey-bg, 0.2);
     z-index: 10;
 }
 

@@ -29,7 +29,7 @@
 }
 
 .error {
-    background: darkred;
+    background: darken($warning, 0.5);
     color: white;
     padding: 20px 40px;
 }
@@ -67,5 +67,5 @@
 }
 
 .status--invalid {
-    background-color: red;
+    background-color: $warning;
 }

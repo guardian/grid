@@ -1,11 +1,11 @@
 .gr-archiver-status--archived {
-    color: #ccc;
-    fill: #ccc; /* svg icons */
+    color: $main-text;
+    fill: $main-text; /* svg icons */
 }
 
 .gr-archiver-status--unarchived {
-    color: #666;
-    fill: #666; /* svg icons */
+    color: $grey-contrast;
+    fill: $grey-contrast; /* svg icons */
 }
 
 .gr-archiver-status--interactive:hover {

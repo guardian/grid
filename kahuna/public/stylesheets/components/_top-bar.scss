@@ -30,9 +30,9 @@
 }
 
 .top-bar-item__form__input {
-    background-color: #444;
-    color: #ccc;
-    border: 1px solid #999;
+    background-color: lighten($grey-bg, 0.2);
+    color: $main-text;
+    border: 1px solid $grey-light;
     padding: 5px;
     box-sizing: border-box;
     max-width: 65px; /*width of four digits for pixel width and height */
@@ -55,7 +55,7 @@
 }
 
 .home-link:hover {
-    background-color: #666666;
+    background-color: $grey-contrast;
 }
 
 .logout {

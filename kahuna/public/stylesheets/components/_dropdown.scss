@@ -10,7 +10,7 @@
 
 .drop-menu__button {
     padding: 5px;
-    background-color: $grey-1;
+    background-color: $grey-bg;
     line-height: $font-size-3;
 }
 .drop-menu__button--nopad {
@@ -25,10 +25,10 @@
 }
 
 .drop-menu__items {
-    background-color: $grey-1;
+    background-color: $grey-bg;
     position: absolute;
     padding: 10px;
-    box-shadow: 0 1px 5px rgba(0, 0, 0, 0.5);
+    box-shadow: 0 1px 5px rgba($black, 0.5);
     top: calc(100% + 8px);
     z-index: $z-2;
     /* Drop items should win over everything */
@@ -46,21 +46,21 @@
 }
 
 .drop-menu__items--action {
-    background-color: grey;
+    background-color: $grey-light;
 }
 
 .dropdown-menu {
     z-index: $z-1;
-    background: $grey-1;
+    background: $grey-bg;
     padding: 5px;
 }
 
 .dropdown-menu li {
     cursor: pointer;
-    color: #ccc;
+    color: $main-text;
     padding: 5px;
 }
 
 .dropdown-menu li:hover {
-    background-color: #00adee
+    background-color: $highlight;
 }

@@ -26,13 +26,13 @@
 .preset-label__value,
 .preset-label__remove {
     color: white;
-    background-color: #00adee;
+    background-color: $highlight;
     opacity: 0.75;
 }
 
 .preset-label__link:hover,
 .preset-label__remove:hover {
-    color: #00adee;
+    color: $highlight;
     background-color: white;
 }
 

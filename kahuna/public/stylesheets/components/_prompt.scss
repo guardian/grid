@@ -1,6 +1,6 @@
 file-prompt {
     display: block;
-    background: #444;
+    background: lighten($grey-bg, 0.2);
     padding: 10px;
 }
 
@@ -25,6 +25,6 @@ file-prompt .preset-labels {
 }
 
 file-prompt .preset-labels__heading {
-    color: #999;
+    color: $grey-light;
     font-size: $font-size-1;
 }
