@@ -16,7 +16,7 @@ ui-labeller-compact {
 }
 
 .label--removing {
-    background-color: #99ddff;
+    background-color: lighten($highlight, 5);
 }
 
 /*
@@ -70,12 +70,12 @@ TODO refactor gr-panel to use common labeller component
 }
 
 .label button:active gr-icon {
-    background-color: #008fc5;
+    background-color: $highlight;
     color: $grey-bg;
 }
 
 .label--partial button:active gr-icon {
-    background-color: #CFCFCF;
+    background-color: $main-text;
     color: $grey-bg;
 }
 
@@ -86,5 +86,5 @@ TODO refactor gr-panel to use common labeller component
 }
 
 .labeller__apply-all:hover {
-    color: #FFF;
+    color: $white;
 }

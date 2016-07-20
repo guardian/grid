@@ -24,12 +24,12 @@
 }
 
 .easel__image--checkered__background {
-    background-color: #bdbdbd;
+    background-color: lighten($grey-light, 2);
     background-image:
-        linear-gradient(45deg, white 25%, transparent 25%),
-        linear-gradient(135deg, white 25%, transparent 25%),
-        linear-gradient(45deg, transparent 75%, white 75%),
-        linear-gradient(135deg, transparent 75%, white 75%);
+        linear-gradient(45deg, $white 25%, transparent 25%),
+        linear-gradient(135deg, $white 25%, transparent 25%),
+        linear-gradient(45deg, transparent 75%, $white 75%),
+        linear-gradient(135deg, transparent 75%, $white 75%);
 
     background-size: 20px 20px;
 
@@ -60,13 +60,13 @@
     float: right;
     height: calc(100vh - 50px); /* viewport - top-bar */
     width: 300px;
-    border-left: 1px solid #565656;
+    border-left: 1px solid $grey-border;
 }
 
 .image-details--crop {
     float: left;
     width: 130px;
-    border-right: 1px solid #565656;
+    border-right: 1px solid $grey-border;
     border-left: none;
     position: relative;
     height: calc(100vh - 50px); /* viewport - top-bar */
@@ -92,7 +92,7 @@
 
 .image-info__group {
     padding: 10px;
-    border-bottom: 1px solid #565656;
+    border-bottom: 1px solid $grey-border;
 }
 
 .image-info__group--last {
@@ -190,7 +190,7 @@
 
 .image-info__keyword {
     display: inline-block;
-    background-color: #222;
+    background-color: darken($grey-bg, 2);
     color: $grey-light;
     border-radius: 8px;
     padding: 0 8px;
@@ -224,7 +224,7 @@
     line-height: 21px;
     width: 21px;
     border-radius: 50%;
-    color: #222;
+    color: darken($grey-bg, 2);
     background-color: $white;
 }
 .edit-button {
@@ -235,7 +235,7 @@
 .image-info__edit:hover,
 .edit-button:hover {
     color: $white;
-    background-color: #222;
+    background-color: darken($grey-bg, 2);
     border: 1px solid $white;
     margin-top: -1px;
     margin-bottom: -1px;
@@ -249,7 +249,7 @@
 .image-info__wrap .editable-error {
     text-align: right;
     font-size: $font-size-1;
-    color: #BB1212;
+    color: darken($invalid, 2);
 }
 
 .image-info__wrap .editable-empty,
@@ -258,7 +258,7 @@
 }
 
 .image-info__wrap .editable-wrap .image-info__editor--error {
-    border: 1px solid #BB1212;
+    border: 1px solid darken($invalid, 2);
     outline: none;
 }
 
@@ -365,13 +365,13 @@
 }
 
 .result--selected .preview {
-    background-color: #4c4c4c;
+    background-color: lighten($grey-bg, 2);
 }
 
 .image-crop__creator {
     display: none;
     border-radius: 50%;
-    background-color: #6E6E6E;
+    background-color: $grey-contrast;
     opacity: 0.5;
     width: 22px;
     height: 22px;
@@ -401,5 +401,5 @@
 }
 
 .image-crop__info--selected {
-    color: #FFFFFF;
+    color: $white;
 }

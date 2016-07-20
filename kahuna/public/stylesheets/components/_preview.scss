@@ -90,12 +90,12 @@ FIXME: what to do with touch devices
 
 .preview__collections__collection__value,
 .preview__collections__collection__remove {
-    color: #fff;
+    color: $white;
     padding: 0 5px;
     margin-left: 2px;
     border-radius: 2px;
     /*this will be overwritten if the collection has a background-colour*/
-    background-color: #555;
+    background-color: $grey-contrast;
 }
 
 .preview__collections__collection__remove {
@@ -106,9 +106,9 @@ FIXME: what to do with touch devices
 
 .preview__collections__collection__value:hover,
 .preview__collections__collection__remove:hover {
-    /*need important to overwrite the inline style*/
-    background-color: #fff !important;
-    color: black;
+    /* @SHAME: need important to overwrite the inline style*/
+    background-color: $white !important;
+    color: $black;
 }
 
 .preview__collections__collection__apply-all {
@@ -172,7 +172,7 @@ FIXME: what to do with touch devices
 }
 /*
 .bottom-bar__action .allow {
-    background-color: green;
+    background-color: $confirm;
 }
 .bottom-bar__action .deny {
     background-color: red;

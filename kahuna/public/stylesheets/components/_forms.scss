@@ -10,7 +10,7 @@ input, option, textarea {
 }
 
 .text-input {
-    background-color: lighten($grey-bg, 0.2);
+    background-color: lighten($grey-bg, 2);
     color: $main-text;
     border: 1px solid $grey-light;
     padding: 5px;
@@ -35,8 +35,8 @@ input:disabled, textarea:disabled, .disabled {
     flex-grow: 1;
     text-align: right;
 }
-.form-label__error { color: $warning; }
-.form-label__notice { color: $invalid; }
+.form-label__error { color: $invalid; }
+.form-label__notice { color: $status; }
 
 .form-property {
     display: block;
@@ -56,7 +56,7 @@ input:disabled, textarea:disabled, .disabled {
     overflow: hidden;
 }
 .radio-list--invalid {
-    border: 1px solid $invalid;
+    border: 1px solid $status;
 }
 .radio-list__item {
     flex-grow: 1;
@@ -68,10 +68,10 @@ input:disabled, textarea:disabled, .disabled {
 .radio-list__label {
     flex-grow: 1;
     color: $main-text;
-    background-color: lighten($grey-bg, 0.2);
+    background-color: lighten($grey-bg, 2);
     text-align: center;
     cursor: pointer;
-    border: 1px solid #565656
+    border: 1px solid $grey-border;
 }
 
 .radio-list--selected .radio-list__label-value {

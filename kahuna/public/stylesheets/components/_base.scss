@@ -42,7 +42,7 @@ a, .link {
     }
 
     &:focus {
-        outline: 2px solid rgba($white, 0.5);
+        outline: 2px solid rgba($white, 5);
         outline-offset: -3px;
     }
 }
@@ -58,7 +58,7 @@ a, .link {
 /* FIXME: we use the element to be more specific, which is baloney */
 input.ng-invalid,
 textarea.ng-invalid {
-    border-color: $invalid;
+    border-color: $status;
 }
 
 /* ==========================================================================

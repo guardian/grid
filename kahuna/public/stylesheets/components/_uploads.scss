@@ -33,7 +33,7 @@
 }
 
 .job-file {
-    color: #aaa;
+    color: $grey-light;
     font-size: $font-size-1;
     margin-top: 10px;
 }
@@ -127,7 +127,7 @@
 }
 
 .job-editor__apply-to-all:hover {
-    color: #FFF;
+    color: $white;
 }
 
 

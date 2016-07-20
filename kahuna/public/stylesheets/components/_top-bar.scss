@@ -13,7 +13,7 @@
     vertical-align: middle;
     line-height: 50px;
     display: inline-block;
-    border-left: 2px solid #565656;
+    border-left: 2px solid $grey-border;
     height: 50px;
 
     &:first-child {
@@ -21,7 +21,7 @@
     }
 
     &:last-child {
-        border-right: 2px solid #565656;
+        border-right: 2px solid $grey-border;
     }
 }
 
@@ -30,7 +30,7 @@
 }
 
 .top-bar-item__form__input {
-    background-color: lighten($grey-bg, 0.2);
+    background-color: lighten($grey-bg, 2);
     color: $main-text;
     border: 1px solid $grey-light;
     padding: 5px;

@@ -13,7 +13,7 @@ gr-nodes, gr-node,
 
 .node__marker {
     position: absolute;
-    background: lighten($grey-bg, 0.2);
+    background: lighten($grey-bg, 2);
     width: 5px;
     height: 34px;
     left: 0;
@@ -62,10 +62,10 @@ gr-nodes, gr-node,
 
 .collections-panel-heading {
     padding: 5px 10px;
-    border-bottom: 1px solid #565656;
+    border-bottom: 1px solid $grey-border;
     position: fixed;
     width: 270px;
-    background-color: lighten($grey-bg, 0.2);
+    background-color: lighten($grey-bg, 2);
     margin-top: -35px;
     z-index: 10;
 }

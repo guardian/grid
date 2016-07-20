@@ -28,7 +28,7 @@
     background-color: $grey-bg;
     position: absolute;
     padding: 10px;
-    box-shadow: 0 1px 5px rgba($black, 0.5);
+    box-shadow: 0 1px 5px rgba($black, 5);
     top: calc(100% + 8px);
     z-index: $z-2;
     /* Drop items should win over everything */

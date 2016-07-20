@@ -29,7 +29,7 @@
 }
 
 .result-editor__save-status--error {
-    background: $warning;
+    background: $invalid;
     color: $white;
 }
 
@@ -75,7 +75,7 @@
 }
 
 .result-editor__archiver {
-    background: lighten($grey-bg, 0.2);
+    background: lighten($grey-bg, 2);
     padding: 0 5px;
 }
 
@@ -130,6 +130,6 @@
 
 .result-editor__usage-rights .ure {
     padding: 10px;
-    background: lighten($grey-bg, 0.2);
+    background: lighten($grey-bg, 2);
     font-size: $font-size-2;
 }

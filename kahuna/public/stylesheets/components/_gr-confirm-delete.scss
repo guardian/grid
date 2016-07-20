@@ -12,9 +12,9 @@ gr-confirm-delete {
 
 .gr-confirm-delete--confirm {
     color: $white;
-    background: $warning
+    background: $invalid
 }
 
 .gr-confirm-delete--confirm:hover {
-    background-color: #960000;
+    background-color: darken($invalid, 5);
 }

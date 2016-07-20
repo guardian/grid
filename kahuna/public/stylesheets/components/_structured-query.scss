@@ -10,8 +10,8 @@ gr-chips input[type="text"][autocomplete="off"] {
 }
 
 gr-chips input.gr-filter-chooser-chip__value--not-valid {
-    background: #ffbc01;
-    color: black;
+    background: $warning;
+    color: $black;
 }
 
 gr-chips .datalist {
@@ -39,7 +39,7 @@ gr-chips .datalist__options {
 .gr-filter-chooser-chip__type {
     padding: 0 3px;
     vertical-align: middle;
-    border-right: 1px solid lighten($grey-bg, 0.2);
+    border-right: 1px solid lighten($grey-bg, 2);
     margin-right: 3px;
     font-size: $font-size-5;
     font-weight: bold;
@@ -47,7 +47,7 @@ gr-chips .datalist__options {
 }
 .gr-filter-chip__remove,
 .gr-static-filter-chip__remove {
-    border-left: 1px solid lighten($grey-bg, 0.2);
+    border-left: 1px solid lighten($grey-bg, 2);
     padding: 3px;
     color: $grey-light
 }

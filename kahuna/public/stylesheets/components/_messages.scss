@@ -29,7 +29,7 @@
 }
 
 .error {
-    background: darken($warning, 0.5);
+    background: darken($invalid, 5);
     color: $white;
     padding: 20px 40px;
 }
@@ -46,8 +46,8 @@
 }
 
 .warning {
-    background: #ffbc01;
-    color: black;
+    background: $warning;
+    color: $black;
     padding: 20px 40px;
     text-align: center;
 }
@@ -59,13 +59,13 @@
 
 .status {
     color: $white;
-    background-color: orange;
+    background-color: $status;
 }
 
 .status--valid {
-    background-color: green;
+    background-color: $confirm;
 }
 
 .status--invalid {
-    background-color: $warning;
+    background-color: $invalid;
 }

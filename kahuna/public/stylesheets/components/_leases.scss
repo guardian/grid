@@ -1,5 +1,5 @@
 .lease__form {
-    background-color: lighten($grey-bg, 0.2);
+    background-color: lighten($grey-bg, 2);
     color: $main-text;
     border: 1px solid $grey-light;
     padding: 5px;
@@ -25,7 +25,7 @@
 .lease__item {
   width: 100%;
   margin: 3px;
-  background-color: #565656;
+  background-color: $grey-border;
 }
 
 .lease__item p {
@@ -59,11 +59,11 @@ gr-leases .metadata-line__key {
 }
 
 .allowed {
-  background-color: #90ee90;
+  background-color: lighten($confirm, 5);
 }
 
 .denied {
-  background-color: $warning
+  background-color: $invalid;
 }
 
 gr-leases .gu-date-range__overlay {

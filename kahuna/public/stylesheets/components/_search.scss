@@ -9,7 +9,7 @@
     /* Fill the container for larger clickable area */
     align-items: stretch;
 
-    background-color: lighten($grey-bg, 0.2);
+    background-color: lighten($grey-bg, 2);
     color: $main-text;
     border: 1px solid $grey-light;
     box-sizing: border-box;
@@ -92,7 +92,7 @@
         background-color: $grey-bg;
         position: absolute;
         padding: 10px;
-        box-shadow: 0 1px 5px rgba($black, 0.5);
+        box-shadow: 0 1px 5px rgba($black, 5);
     }
 
     .order__option, .search__filter {
@@ -149,7 +149,7 @@
     top: 49px;
     height: 80vh;
     overflow: auto;
-    background-color:  darken($grey-bg, 0.2);
+    background-color:  darken($grey-bg, 2);
     box-shadow: 0 1px 5px rgba($black, 0.4);
     max-width: 680px /*width of input box and advance button in topbar*/
 }
@@ -164,7 +164,7 @@
 }
 
 .advanced-search-help__section {
-    border-bottom: 1px solid #565656;
+    border-bottom: 1px solid $grey-border;
     margin-bottom: 10px;
     padding: 10px 10px 0 10px;
     box-sizing: border-box;
@@ -202,7 +202,7 @@
 }
 
 .advanced-search-example__input {
-    background-color: lighten($grey-bg, 0.2);
+    background-color: lighten($grey-bg, 2);
     color: $main-text;
     border: 1px solid $grey-light;
     padding: 2px 4px;

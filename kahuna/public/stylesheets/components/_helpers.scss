@@ -67,11 +67,11 @@
 }
 
 .separator-left {
-    border-left: 1px solid #565656;
+    border-left: 1px solid $grey-border;
 }
 
 .separator-right {
-    border-right: 1px solid #565656;
+    border-right: 1px solid $grey-border;
 }
 
 .fill-height {
@@ -79,7 +79,7 @@
 }
 
 .bg-light {
-    background-color: lighten($grey-bg, 0.2);
+    background-color: lighten($grey-bg, 2);
     color: $white;
 }
 

@@ -39,9 +39,9 @@
 }
 
 .ure__multiple-rights-warning {
-    color: orange;
+    color: $status;
 }
 
 .ure__category-invalid {
-    border: 1px solid #ed5935;
+    border: 1px solid $status;
 }

@@ -35,10 +35,10 @@
 
 .collection-overlay__collections__heading {
     padding: 5px 10px;
-    border-bottom: 1px solid #565656;
+    border-bottom: 1px solid $grey-border;
     position: fixed;
     width: 365px;
-    background: lighten($grey-bg, 0.2);
+    background: lighten($grey-bg, 2);
     z-index: 10;
 }
 

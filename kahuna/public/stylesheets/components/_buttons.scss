@@ -20,7 +20,7 @@ button {
     border: 0;
     background: $highlight;
     border-radius: 2px;
-    box-shadow: 0 2px darken($highlight, 0.2);
+    box-shadow: 0 2px darken($highlight, 2);
     box-sizing: border-box;
     color: $white;
     display: block;
@@ -29,7 +29,7 @@ button {
     position: relative;
 
     &:hover {
-        background: lighten($highlight, 0.2);
+        background: lighten($highlight, 2);
     }
 
     &:active {
@@ -38,7 +38,7 @@ button {
     }
 
     &:focus {
-        outline: 2px solid rgba($white, 0.5);
+        outline: 2px solid rgba($white, 5);
         outline-offset: -3px;
     }
 
@@ -58,7 +58,7 @@ button {
 
 .button--green {
     background: $confirm;
-    box-shadow: 0 2px darken($confirm, 0.2);
+    box-shadow: 0 2px darken($confirm, 2);
 }
 
 .button--shy {
@@ -93,7 +93,7 @@ button {
     }
 
     &:hover {
-        background-color: darken($highlight, 0.2);
+        background-color: darken($highlight, 2);
     }
 }
 
@@ -114,13 +114,13 @@ button {
 }
 
 .button--confirm-delete {
-    background: $warning;
+    background: $invalid;
 
     & gr-icon {
         padding-right: 5px;
     }
 
     &:hover {
-        background: #darken($warning, 0.2);
+        background: darken($invalid, 2);
     }
 }

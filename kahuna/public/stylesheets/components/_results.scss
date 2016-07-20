@@ -27,7 +27,7 @@
     border: 5px solid transparent;
     box-sizing: border-box;
     margin: 5px;
-    background: lighten($grey-bg, 0.2);
+    background: lighten($grey-bg, 2);
 }
 
 .result--seen {
@@ -38,7 +38,7 @@
     position: relative;
     border: solid 5px $grey-bg;
     box-sizing: border-box;
-    background: lighten($grey-bg, 0.2);
+    background: lighten($grey-bg, 2);
 }
 .result__select {
     position: absolute;
@@ -88,7 +88,7 @@
 }
 
 .result:hover {
-    background-color: lighten($grey-bg, 0.2);
+    background-color: lighten($grey-bg, 4);
 }
 
 .result--selected:hover .preview__fade {
@@ -109,13 +109,13 @@
 }
 .validity--invalid,
 .cost--pay {
-    background-color: $warning;
+    background-color: $invalid;
 }
 .cost--no_rights {
-    background: $warning;
+    background: $invalid;
 }
 .cost--conditional {
-    background-color: $invalid;
+    background-color: $status;
 }
 .cost--free {
     background-color: $confirm;
@@ -142,7 +142,7 @@
     content: "";
     border-left: 20px solid $black;
     border-right: 20px solid $black;
-    border-bottom: 10px solid $warning;
+    border-bottom: 10px solid $invalid;
     position: absolute;
     top: -9px;
     right: 30px;
@@ -208,7 +208,7 @@
 }
 
 .results-toolbar-item--active {
-    background-color: lighten($grey-bg, 0.2);
+    background-color: lighten($grey-bg, 2);
 }
 
 .results-toolbar-item--disabled:hover {

@@ -16,9 +16,9 @@ _LOADERS.SCSS - Animated loader styles
         width: 80px;
         display: block;
         box-sizing: border-box;
-        background: #ddd;
+        background: $main-text;
         margin: 10px auto auto;
-        color: #005689;
+        color: $highlight;
         font-size: $font-size-5;
 
         animation-duration: 1500ms;
