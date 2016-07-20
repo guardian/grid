@@ -14,6 +14,9 @@ object CostCalculator {
       if (free) Some(Free) else None
   }
 
+  def isPay(usageRights: UsageRights): Boolean =
+    getCost(usageRights) == Pay
+
   def getCost(usageRights: UsageRights): Cost = {
       val restricted  : Option[Cost] = usageRights.restrictions.map(r => Conditional)
       val categoryCost: Option[Cost] = usageRights.defaultCost
