@@ -1,7 +1,7 @@
 package com.gu.mediaservice.lib.auth
 
-import com.amazonaws.auth.BasicAWSCredentials
-import com.amazonaws.internal.StaticCredentialsProvider
+import com.amazonaws.auth.{InstanceProfileCredentialsProvider, AWSCredentialsProviderChain, BasicAWSCredentials, AWSCredentials}
+import com.amazonaws.auth.profile.ProfileCredentialsProvider
 import com.gu.pandomainauth.action.AuthActions
 import com.gu.pandomainauth.model.AuthenticatedUser
 
@@ -20,11 +20,10 @@ trait PanDomainAuthActions extends AuthActions {
   override def authCallbackUrl: String = s"$authCallbackBaseUri/oauthCallback"
 
   override lazy val domain: String = properties("panda.domain")
-  lazy val awsKeyId                = properties("panda.aws.key")
-  lazy val awsSecretAccessKey      = properties("panda.aws.secret")
 
-  override def awsCredentialsProvider = new StaticCredentialsProvider(
-    new BasicAWSCredentials(awsKeyId, awsSecretAccessKey)
+  override def awsCredentialsProvider = new AWSCredentialsProviderChain(
+    new ProfileCredentialsProvider("media-service"),
+    new InstanceProfileCredentialsProvider
   )
 
   override val system: String = "media-service"
