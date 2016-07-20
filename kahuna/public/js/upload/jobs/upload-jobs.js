@@ -100,7 +100,8 @@ jobs.controller('UploadJobsCtrl', [
             const reason = error.body && error.body.errorKey;
 
             const message = reason === 'unsupported-type' ?
-                'The Grid only supports JPG and PNG images. Please convert the image and try again.' :
+                'The Grid only supports JPG and PNG images.' +
+                ' Please convert the image and try again.' :
                 error.body && error.body.errorMessage || 'unknown';
 
             jobItem.status = 'upload error';
