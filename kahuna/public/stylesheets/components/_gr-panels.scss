@@ -17,13 +17,13 @@
 .gr-panel__content {
     width: 290px;
     position: fixed;
-    background: rgba(68, 68, 68, 0.9);
+    background: rgba(darken($grey-contrast, 2), 0.9);
     transition: width 0.2s;
     overflow: auto;
 }
 
 .gr-panel--locked .gr-panel__content {
-    background: rgba(68,68,68,1)
+    background: rgba(darken($grey-contrast, 2),1)
 }
 
 .gr-panel__content--hidden {

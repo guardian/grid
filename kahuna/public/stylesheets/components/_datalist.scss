@@ -16,8 +16,7 @@
     border: 1px solid $grey-light;
     background: lignten($grey-bg, 0,2);
     color: $main-text;
-    padding: $smallBaseline;
-    padding-right: $baseline; /* hack to reserve some space for the scrollbar */
+    padding: $smallBaseline $baseline $smallBaseline $smallBaseline;
     font-size: $font-size-1;
     box-sizing: border-box;
     max-height: 400px;

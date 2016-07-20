@@ -1,7 +1,7 @@
 .collection-overlay {
-    background: rgba(20, 20, 20, .75);
-    width: calc(100vw);
-    height: calc(100vh);
+    background: rgba(lighten($black, 2), .75);
+    width: 100vw;
+    height: 100vh;
     position: fixed;
     top: 0;
     left: 0;
@@ -22,8 +22,8 @@
 }
 
 .collection-overlay__collections {
-    background: rgba(68, 68, 68, 1);
-    height: calc(100vh);
+    background: lighten($grey-bg, 1)
+    height: 100vh;
     position: fixed;
     top: 30px;
     left: 50%;
@@ -37,7 +37,7 @@
     padding: $smallBaseline $baseline;
     border-bottom: 1px solid $grey-border;
     position: fixed;
-    width: 36$smallBaseline;
+    width: 365px;
     background: lighten($grey-bg, 2);
     z-index: 10;
 }

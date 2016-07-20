@@ -35,6 +35,7 @@ System.config({
     "rx": "npm:rx@2.5.3",
     "rx-angular": "npm:rx-angular@0.0.14",
     "rx-dom": "npm:rx-dom@6.0.0",
+    "scss-lint": "github:brigade/scss-lint@0.49.0",
     "text": "github:systemjs/plugin-text@0.0.2",
     "theseus": "npm:theseus@0.5.2",
     "theseus-angular": "npm:theseus-angular@0.3.1",

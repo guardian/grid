@@ -90,7 +90,6 @@
         left: 0;
         width: 150px;
         background-color: $grey-bg;
-        position: absolute;
         padding: $baseline;
         box-shadow: 0 1px $smallBaseline rgba($black, 5);
     }
@@ -102,7 +101,7 @@
 
         &--show {
             display: block;
-            margin-left: 0px;
+            margin-left: 0;
         }
     }
 
@@ -230,7 +229,7 @@
     box-shadow: 0 1px $smallBaseline rgba($black, 0.4);
     padding: $baseline;
     position: absolute;
-    min-width: 5$largeBaseline;
+    min-width: 520px;
 }
 
 .search__overlay__title {

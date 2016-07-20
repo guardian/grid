@@ -3,9 +3,9 @@ gr-icon {
     font-weight: normal;
     font-size: $font-size-3;  /* Preferred icon size */
     display: inline-block;
-    width: 1em;
-    height: 1em;
-    line-height: 1;
+    width: $font-size-3;
+    height: $font-size-3;
+    line-height: $font-size-3;
     text-transform: none;
     letter-spacing: normal;
     word-wrap: normal;

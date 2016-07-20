@@ -56,10 +56,10 @@
 
 .result-editor__info-item--png-warning {
     position: absolute;
-    top: 0px;
-    left: 0px;
+    top: 0;
+    left: 0;
     width: 100%;
-    background-color: rgba(256, 0, 0, .7);
+    background-color: rgba($invalid, .7);
     text-align: center;
 }
 

@@ -21,10 +21,11 @@ _LOADERS.SCSS - Animated loader styles
         margin: $baseline auto auto;
         color: $highlight;
         font-size: $font-size-5;
-
-        animation-duration: 1500ms;
-        animation-name: flipper;
-        animation-iteration-count: infinite;
+        animation: {
+            duration: 1500ms;
+            name: flipper;
+            iteration-count: infinite;
+        };
     }
 }
 
@@ -35,16 +36,19 @@ _LOADERS.SCSS - Animated loader styles
     text-align: center;
     padding: 0 2px;
     color: $highlight;
-
-    animation-name: spin;
-    animation-duration: 1500ms;
-    animation-iteration-count: infinite;
-    animation-timing-function: linear;
+    animation: {
+        name: spin;
+        duration: 1500ms;
+        iteration-count: infinite;
+        timing-function: linear;
+    };
 }
 
 .spin {
-    animation-name: spin;
-    animation-duration: 500ms;
-    animation-iteration-count: infinite;
-    animation-timing-function: ease-out;
+    animation: {
+        name: spin;
+        duration: 500ms;
+        iteration-count: infinite;
+        timing-function: ease-out;
+    };
 }
