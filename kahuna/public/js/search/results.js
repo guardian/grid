@@ -326,7 +326,7 @@ results.controller('SearchResultsCtrl', [
                 offset:     offset,
                 length:     length,
                 orderBy:    orderBy,
-                supplierWeights: $stateParams.supplierWeights
+                supplierWeights: $stateParams.supplierWeights === 'true' ? true : undefined
             }));
         }
 

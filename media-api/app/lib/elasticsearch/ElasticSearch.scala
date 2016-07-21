@@ -121,12 +121,18 @@ object ElasticSearch extends ElasticSearchClient with SearchFilters with ImageFi
       hasExports ++ hasIdentifier ++ missingIdentifier ++ dateFilter ++
       usageFilter ++ hasRightsCategory
     ).toNel.map(filter => filter.list.reduceLeft(filters.and(_, _)))
-    val filter = filterOpt getOrElse filters.matchAll
 
+    val filter = filterOpt getOrElse filters.matchAll
     val queryFiltered = new FilteredQueryBuilder(query, filter)
+    val weightedSort  = params.supplierWeights.getOrElse(false)
 
     val search = prepareImagesSearch.setQuery(queryFiltered) |>
-        sorts.createSort(params.orderBy, params.structuredQuery)
+        sorts.createSort(
+          params.orderBy,
+          params.structuredQuery,
+          weightedSort
+        )
+
 
     search
       .setFrom(params.offset)
