@@ -26,32 +26,12 @@ object sorts {
     val supplierWeights = Config.supplierWeights
       .map { case(k,v) => (Agencies.all.get(k), v) }
       .collect { case((Some(Agency(name,_,_)),v)) => name -> v }
-      .map { case(k,v) => s"[${k}]" -> v }
 
-    val mappedDateField = dateFieldName match {
-      case "dateTaken" => "metadata.dateTaken"
-      case _ => dateFieldName
-    }
-
-    val script = s"""
-      |dateInMillis = doc['$mappedDateField'].date.getMillis();
-      |
-      |modifier = supplierWeights.inject(1) { memo, item ->
-      |  if (doc['supplier'].toString() == item.key) {
-      |    memo + supplierWeights.get(doc['supplier'].toString());
-      |  } else {
-      |    memo;
-      |  }
-      |};
-      |
-      |result = dateInMillis * modifier;
-      |result;
-      |""".stripMargin.replaceAll("\n", " ")
-
-    val sort = new ScriptSortBuilder(script, "number")
+    val sort = new ScriptSortBuilder("grid-supplier-weight-sort", "number")
     val weights = if (active) supplierWeights.asJava else Map()
 
-    sort.param("supplierWeights", supplierWeights.asJava)
+    sort.param("supplier_weights", supplierWeights.asJava)
+    sort.lang("native")
     sort.order(sortOrder)
 
     builder.addSort(sort)
