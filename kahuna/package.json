@@ -67,7 +67,8 @@
     "jshint": "^2.8.0",
     "jspm": "0.16.19",
     "node-sass": "3.8.0",
-    "postcss-cli-simple": "1.0.1"
+    "postcss-cli-simple": "1.0.1",
+    "autoprefixer": "6.3.7"
   },
   "scripts": {
     "test": "npm run lint",
