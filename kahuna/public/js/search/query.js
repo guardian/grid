@@ -11,6 +11,8 @@ import template from './query.html!text';
 import {syntax} from './syntax/syntax';
 import {grStructuredQuery} from './structured-query/structured-query';
 
+import '../util/storage';
+
 import {track} from '../analytics/track';
 
 export var query = angular.module('kahuna.search.query', [
@@ -24,10 +26,14 @@ export var query = angular.module('kahuna.search.query', [
 ]);
 
 query.controller('SearchQueryCtrl',
-                 ['$scope', '$state', '$stateParams', 'onValChange', 'mediaApi', 'track',
-                 function($scope, $state, $stateParams, onValChange , mediaApi, track) {
+                 ['$scope', '$state', '$stateParams', 'onValChange', 'mediaApi', 'track', 'storage',
+                 function($scope, $state, $stateParams, onValChange , mediaApi, track, storage) {
 
     const ctrl = this;
+
+    // Set up feature toggle for supplier weights
+    const featureToggle = storage.getJs('featureToggles') || {};
+    ctrl.weightsFeatureToggle = Boolean(featureToggle.weights) || false;
 
     ctrl.ordering = {
         orderBy: $stateParams.orderBy

@@ -16,7 +16,7 @@ mediaApi.factory('mediaApi',
     function search(query = '', {ids, since, until, archived, valid, free,
                                  payType, uploadedBy, offset, length, orderBy,
                                  takenSince, takenUntil,
-                                 modifiedSince, modifiedUntil} = {}) {
+                                 modifiedSince, modifiedUntil, supplierWeights} = {}) {
 
         return root.follow('search', {
             q:          query,
@@ -34,7 +34,8 @@ mediaApi.factory('mediaApi',
             archived:   archived,
             offset:     offset,
             length:     angular.isDefined(length) ? length : 50,
-            orderBy:    getOrder(orderBy)
+            orderBy:    getOrder(orderBy),
+            supplierWeights: supplierWeights
         }).get();
     }
 

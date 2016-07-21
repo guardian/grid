@@ -13,10 +13,16 @@ import com.gu.mediaservice.model.Agency
 import com.gu.mediaservice.lib.cleanup.Agencies
 
 object sorts {
-  def createSort(sortBy: Option[String], query: List[Condition])(builder: SearchRequestBuilder) = {
+  def createSort(
+    sortBy: Option[String],
+    query: List[Condition],
+    weighted: Boolean
+  )(
+    builder: SearchRequestBuilder
+  ) = {
     sortBy match {
       case Some("dateAddedToCollection") => addedToCollectionTimeSort(query)(builder)
-      case _ => weightedSort(sortBy)(builder)
+      case _ => weightedSort(sortBy, weighted)(builder)
     }
   }
 
@@ -30,7 +36,7 @@ object sorts {
     val sort = new ScriptSortBuilder("grid-supplier-weight-sort", "number")
     val weights = if (active) supplierWeights.asJava else Map()
 
-    sort.param("supplier_weights", supplierWeights.asJava)
+    sort.param("supplier_weights", weights)
     sort.lang("native")
     sort.order(sortOrder)
 
