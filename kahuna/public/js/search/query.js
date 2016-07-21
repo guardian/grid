@@ -32,8 +32,8 @@ query.controller('SearchQueryCtrl',
     const ctrl = this;
 
     // Set up feature toggle for supplier weights
-    const featureToggle = storage.getJs("featureToggles") || {};
-    ctrl.weightsFeatureToggle = Boolean(featureToggle["weights"]) || false;
+    const featureToggle = storage.getJs('featureToggles') || {};
+    ctrl.weightsFeatureToggle = Boolean(featureToggle.weights) || false;
 
     ctrl.ordering = {
         orderBy: $stateParams.orderBy
