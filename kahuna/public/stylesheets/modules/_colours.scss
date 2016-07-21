@@ -1,0 +1,29 @@
+/** =============================================
+
+_COLOURS.SCSS - The *only* place for colours on the grid
+
+============================================= **/
+
+
+// Greys
+
+$grey-bg:       #333333;
+$grey-contrast: #666666; // For lighter edges against the main background
+$grey-border:   #565656;
+$grey-light:    #888888; // For very light items (e.g. disable buttons)
+
+
+// Text
+$main-text: #CCCCCC;
+
+$highlight: #00ADEE;
+
+// States
+$status:  #ED5935;
+$confirm: #228B22;
+$invalid: #FF0000;
+$warning: #FFBC01;
+
+// Common
+$white: #FFFFFF;
+$black: #000000;

@@ -1,7 +1,6 @@
 import angular from 'angular';
 import {Set} from 'immutable';
 
-import './gr-archiver.css!';
 import template from './gr-archiver.html!text';
 
 import '../../services/archive';

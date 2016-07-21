@@ -1,5 +1,4 @@
 import angular from 'angular';
-import './gr-downloader.css!';
 import template from './gr-downloader.html!text';
 
 import '../../services/image/downloads';

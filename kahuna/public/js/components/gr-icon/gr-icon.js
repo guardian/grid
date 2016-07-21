@@ -1,5 +1,4 @@
 import angular from 'angular';
-import './gr-icon.css!';
 
 import frontendIcon from './icons/frontend.svg!text';
 import composerIcon from './icons/composer.svg!text';

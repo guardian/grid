@@ -1,0 +1,47 @@
+/** =============================================
+
+_FONTS.SCSS - Font face declarations
+
+============================================= **/
+
+@font-face {
+    font-family: "Guardian Agate Sans Web";
+    src: url("fonts/GuardianAgateSans1Web-Regular.woff2") format("woff2"),
+    url("fonts/GuardianAgateSans1Web-Regular.woff") format("woff");
+    font-weight: normal;
+    font-style: normal;
+    font-stretch: normal;
+}
+@font-face {
+    font-family: "Guardian Agate Sans Web";
+    src: url("fonts/GuardianAgateSans1Web-RegularItalic.woff2") format("woff2"),
+    url("fonts/GuardianAgateSans1Web-RegularItalic.woff") format("woff");
+    font-weight: normal;
+    font-style: italic;
+    font-stretch: normal;
+}
+@font-face {
+    font-family: "Guardian Agate Sans Web";
+    src: url("fonts/GuardianAgateSans1Web-Bold.woff2") format("woff2"),
+    url("fonts/GuardianAgateSans1Web-Bold.woff") format("woff");
+    font-weight: bold;
+    font-style: normal;
+    font-stretch: normal;
+}
+@font-face {
+    font-family: "Guardian Agate Sans Web";
+    src: url("fonts/GuardianAgateSans1Web-BoldItalic.woff2") format("woff2"),
+    url("fonts/GuardianAgateSans1Web-BoldItalic.woff") format("woff");
+    font-weight: bold;
+    font-style: italic;
+    font-stretch: normal;
+}
+
+/* see http://google.github.io/material-design-icons/#icon-font-for-the-web */
+@font-face {
+    font-family: 'Material Icons';
+    font-style: normal;
+    font-weight: 400;
+    src: url("fonts/MaterialIcons-Regular.woff2") format('woff2'),
+    url("fonts/MaterialIcons-Regular.woff") format('woff');
+}

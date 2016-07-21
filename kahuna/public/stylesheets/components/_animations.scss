@@ -1,0 +1,23 @@
+/** =============================================
+
+_ANIMATIONS.SCSS - Animation keyframes
+
+============================================= **/
+
+@keyframes spin {
+    from   { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
+@keyframes flipper {
+    0% {}
+    95% {}
+    100% { transform: rotateY(360deg); }
+}
+
+@keyframes heartbeat {
+    0% { border-width: 0; }
+    10% { border-width: $baseline; }
+    90% { border-width: $baseline; }
+    100% { border-width: 0; }
+}

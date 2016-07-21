@@ -1,0 +1,135 @@
+/* ==========================================================================
+
+   _RESULTS-EDITOR.SCSS
+
+   ========================================================================== */
+
+.result-editor {
+    display: flex;
+}
+
+.result-editor__result {
+    flex-shrink: 0;
+    position: relative;
+    width: 256px;
+}
+
+.result-editor__save-status-container {
+    position: absolute;
+    top: 0;
+    right: 0;
+    font-size: $font-size-2;
+}
+
+.result-editor__save-status {
+    background: rgba($black, .75);
+    color: $highlight;
+    padding: 2px $smallBaseline;
+    display: inline-block;
+}
+
+.result-editor__save-status--error {
+    background: $invalid;
+    color: $white;
+}
+
+.result-editor__img,
+.result-editor__img-link {
+    display: block;
+    margin: 0 auto;
+}
+
+.result-editor__editor {
+    flex-grow: 1;
+    margin-left: $baseline;
+}
+
+.result-editor__info {
+    display: flex;
+}
+
+.result-editor__info-item {
+    flex: 1;
+    margin-left: 1px;
+    font-size: $font-size-2;
+}
+
+.result-editor__info-item--png-warning {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    background-color: rgba($invalid, .7);
+    text-align: center;
+}
+
+.result-editor__info-item--first {
+    margin-left: 0;
+}
+
+.result-editor__status {
+    display: block;
+    margin: 0 auto;
+    text-align: center;
+    padding: 2px $smallBaseline;
+}
+
+.result-editor__archiver {
+    background: lighten($grey-bg, 2);
+    padding: 0 $smallBaseline;
+}
+
+.result-editor__field-container {
+    display: flex;
+    width: 100%;
+    margin-bottom: $smallBaseline;
+}
+
+.result-editor__field-container__labels,
+.result-editor__field-container__collections {
+    display: flex;
+    font-size: $font-size-2;
+}
+
+.result-editor__field-container__labels--hidden {
+    display: inline;
+}
+
+.result-editor__field-container__add-button {
+    font-size: $font-size-2;
+    padding-bottom: $smallBaseline;
+}
+
+.result-editor__field-container__add-button:hover {
+    color: $white;
+}
+
+.result-editor__field-label {
+    width: 130px;
+    line-height: 24px;
+}
+
+.result-editor__field-value {
+    font-size: $font-size-2;
+    line-height: 24px;
+}
+
+
+.result-editor__usage-rights-container {
+    flex-grow: 1;
+}
+
+.result-editor__usage-rights-container .image-info__edit {
+    position: relative;
+    margin-left: $baseline;
+}
+
+.result-editor__field-container.image-info__wrap:hover .image-info__edit {
+    display: inline-block;
+}
+
+.result-editor__usage-rights .ure {
+    padding: $baseline;
+    background: lighten($grey-bg, 2);
+    font-size: $font-size-2;
+}

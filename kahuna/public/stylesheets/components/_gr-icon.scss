@@ -1,0 +1,49 @@
+gr-icon {
+    font-family: 'Material Icons';
+    font-weight: normal;
+    font-size: $font-size-3;  /* Preferred icon size */
+    display: inline-block;
+    width: $font-size-3;
+    height: $font-size-3;
+    line-height: $font-size-3;
+    text-transform: none;
+    letter-spacing: normal;
+    word-wrap: normal;
+
+    /* Support for all WebKit browsers. */
+    -webkit-font-smoothing: antialiased;
+    /* Support for Safari and Chrome. */
+    text-rendering: optimizeLegibility;
+
+    /* Support for Firefox. */
+    -moz-osx-font-smoothing: grayscale;
+
+    vertical-align: middle;
+}
+
+gr-icon .gr-icon { /* avoid targeting i element */
+    font-style: normal;
+}
+
+gr-icon .gr-icon--small {
+    font-size: $font-size-1;
+}
+
+gr-icon-label .icon-label {
+    vertical-align: middle;
+}
+
+@media screen and (max-width: 800px) {
+    gr-icon-label .icon-label {
+        display: none;
+    }
+}
+
+gr-library-add-icon    svg,
+gr-library-added-icon  svg,
+gr-library-locked-icon svg,
+gr-library-remove-icon svg {
+    width: 16px;
+    height: 16px;
+    margin: 0 2px;
+}

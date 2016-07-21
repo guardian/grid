@@ -1,0 +1,47 @@
+.ure {
+    width: 100%;
+    box-sizing: border-box;
+    /* TODO: Remove this once we take it out of the dropdown */
+    white-space: normal;
+}
+
+.ure__cost {
+    display: inline-block;
+    margin-left: $largeBaseline;
+}
+
+.ure__cost-selector {
+    margin-left: $largeBaseline;
+}
+
+.ure__description {
+    margin: $baseline 0;
+}
+
+.ure__caution {
+    margin: $baseline 0;
+}
+
+.ure__restrictions {
+    display: block;
+}
+
+.ure__restrictions-text {
+    width: 100%;
+}
+
+.ure__bar {
+    text-align: right;
+}
+
+.ure__action {
+    margin-left: $smallBaseline;
+}
+
+.ure__multiple-rights-warning {
+    color: $status;
+}
+
+.ure__category-invalid {
+    border: 1px solid $status;
+}

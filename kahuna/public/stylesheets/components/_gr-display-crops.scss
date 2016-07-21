@@ -1,0 +1,14 @@
+.gr-display-crops {
+    color: $grey-light;
+    font-size: $font-size-2;
+}
+
+.gr-display-crops__crop {
+    padding-bottom: $smallBaseline;
+}
+
+.gr-display-crops__crop__list {
+    flex-direction: column;
+    justify-content: flex-start;
+}
+

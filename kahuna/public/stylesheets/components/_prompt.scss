@@ -1,0 +1,30 @@
+file-prompt {
+    display: block;
+    background: lighten($grey-bg, 2);
+    padding: $baseline;
+}
+
+file-prompt file-uploader {
+    display: inline-block;
+    padding: 0 $smallBaseline;
+}
+
+file-prompt file-uploader .file-uploader__select-files {
+    margin-top: 0;
+}
+
+file-prompt .message {
+    text-align: center;
+}
+
+file-prompt .preset-labels {
+    display: flex;
+    justify-content: center;
+    align-items: baseline;
+    padding-top: $baseline;
+}
+
+file-prompt .preset-labels__heading {
+    color: $grey-light;
+    font-size: $font-size-1;
+}

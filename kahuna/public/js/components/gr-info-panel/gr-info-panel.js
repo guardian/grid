@@ -2,7 +2,6 @@ import angular from 'angular';
 import Rx from 'rx';
 import 'angular-bootstrap';
 
-import './gr-info-panel.css!';
 import '../../services/archive';
 import '../../services/image-accessor';
 import '../../services/image-list';

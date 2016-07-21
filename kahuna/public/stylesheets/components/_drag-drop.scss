@@ -1,0 +1,39 @@
+/* ==========================================================================
+
+   _DRAG-DROP.SCSS - Drag and drop
+
+   ========================================================================== */
+.dnd-uploader {
+    border: $smallBaseline dashed $highlight;
+    background: rgba($grey-bg, .75);
+    width: calc(100vw - $baseline);
+    height: calc(100vh - $baseline); /* border-box doesn't work with v units */
+    position: fixed;
+    top: 0;
+    left: 0;
+    z-index: $z-5;
+    text-align: center;
+}
+
+.dnd-uploader__info {
+    border: 0 solid darken($highlight, 2);
+    color: $white;
+    background: $highlight;
+    max-width: 500px;
+    border-radius: 2px;
+    text-align: center;
+    padding: $baseline;
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    left: 0;
+    right: 0;
+    margin: 0 auto;
+    animation-duration: 2000ms;
+    animation-name: heartbeat;
+    animation-iteration-count: infinite;
+}
+
+.dnd-uploader__heading {
+    font-size: $font-size-5;
+}

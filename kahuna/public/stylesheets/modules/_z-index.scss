@@ -1,0 +1,12 @@
+/** =============================================
+
+_Z_INDEX.SCSS - Z-index variables
+
+============================================= **/
+
+$z-1: 1;    // everything
+$z-2: 10;   // things to be just above everything
+$z-3: 20;   // user controls i.e. panels
+$z-4: 30;   // the top layer i.e. top-bar.
+$z-5: 40;   // overlay layer i.e. modals, dnd overlay.
+$z-6: 9999; // Beats everything

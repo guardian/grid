@@ -1,0 +1,39 @@
+/* ==========================================================================
+
+   _DATALIST.SCSS
+
+   ========================================================================== */
+
+.datalist {
+    position: relative;
+    width: 100%;
+}
+
+.datalist__options {
+    position: absolute;
+    width: 100%;
+    z-index: $z-1;
+    border: 1px solid $grey-light;
+    background: lignten($grey-bg, 0,2);
+    color: $main-text;
+    padding: $smallBaseline $baseline $smallBaseline $smallBaseline;
+    font-size: $font-size-1;
+    box-sizing: border-box;
+    max-height: 400px;
+    overflow-y: auto;
+}
+
+.datalist__input {
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.datalist__option {
+    cursor: pointer;
+    padding: $smallBaseline;
+}
+
+.datalist__option--selected {
+    background-color: $highlight;
+    color: $white;
+}

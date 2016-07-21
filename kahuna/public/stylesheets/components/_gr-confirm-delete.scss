@@ -1,0 +1,20 @@
+gr-confirm-delete {
+    width: inherit;
+}
+
+.gr-confirm-delete {
+    line-height: inherit;
+}
+.gr-confirm-delete:hover {
+    color: $white;
+    background-color: $grey-contrast;
+}
+
+.gr-confirm-delete--confirm {
+    color: $white;
+    background: $invalid
+}
+
+.gr-confirm-delete--confirm:hover {
+    background-color: darken($invalid, 5);
+}

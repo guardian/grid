@@ -1,0 +1,67 @@
+/* Override some global styling */
+gr-chips input[type="text"] {
+    color: $main-text;
+}
+gr-chips input[type="text"][autocomplete="off"] {
+    /* awful hack to hide LastPass widget which should not be here in the
+       first place.
+       See: http://stackoverflow.com/a/29473242 */
+    background-position: 150% 50% !important;
+}
+
+gr-chips input.gr-filter-chooser-chip__value--not-valid {
+    background: $warning;
+    color: $black;
+}
+
+gr-chips .datalist {
+    position: static;
+    width: auto;
+}
+gr-chips .datalist__options {
+    width: auto;
+}
+
+
+.gr-chips__placeholder {
+    /* Better vertical alignment */
+    line-height: 16px;
+}
+
+.gr-filter-chip__key,
+.gr-static-filter-chip__key {
+    font-family: "Guardian Agate Sans Web", Helvetica, Arial;
+    color: $grey-light
+}
+
+.gr-filter-chip__type,
+.gr-static-filter-chip__type,
+.gr-filter-chooser-chip__type {
+    padding: 0 3px;
+    vertical-align: middle;
+    border-right: 1px solid lighten($grey-bg, 2);
+    margin-right: 3px;
+    font-size: $font-size-5;
+    font-weight: bold;
+    color: $grey-light
+}
+.gr-filter-chip__remove,
+.gr-static-filter-chip__remove {
+    border-left: 1px solid lighten($grey-bg, 2);
+    padding: 3px;
+    color: $grey-light
+}
+
+gr-filter-chip,
+.gr-filter-chip, /*used in chip example*/
+gr-static-filter-chip,
+gr-filter-chooser-chip {
+    background-color: $grey-bg;
+    border-radius: 8px;
+}
+
+/*styles the examples chip*/
+.gr-filter-chip {
+    padding: 3px;
+    line-height: 26px;
+}

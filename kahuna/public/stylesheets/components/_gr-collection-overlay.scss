@@ -1,0 +1,48 @@
+.collection-overlay {
+    background: rgba(lighten($black, 2), .75);
+    width: 100vw;
+    height: 100vh;
+    position: fixed;
+    top: 0;
+    left: 0;
+    z-index: 40;
+}
+
+.collection-overlay__button:hover {
+    color: $white;
+}
+
+.collection-overlay__cancel {
+    float: right;
+    padding: $xLargeBaseline;
+}
+
+.collection-overlay__cancel gr-icon {
+    font-size: $font-size-6;
+}
+
+.collection-overlay__collections {
+    background: lighten($grey-bg, 1);
+    height: 100vh;
+    position: fixed;
+    top: 30px;
+    left: 50%;
+    z-index: 40;
+    overflow: auto;
+    width: 400px;
+    margin-left: -200px;
+}
+
+.collection-overlay__collections__heading {
+    padding: $smallBaseline $baseline;
+    border-bottom: 1px solid $grey-border;
+    position: fixed;
+    width: 365px;
+    background: lighten($grey-bg, 2);
+    z-index: 10;
+}
+
+.collection-overlay__collections gr-collection-tree > :first-child {
+    /*to sit below the fixed heading */
+    margin-top: 35px;
+}

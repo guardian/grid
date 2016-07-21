@@ -1,0 +1,48 @@
+.add-preset-label{
+    display: inline-flex;
+    padding: $smallBaseline;
+}
+
+.add-preset-label:hover {
+    color: $white;
+}
+
+.add-preset-label__button {
+    margin-left: $smallBaseline;
+    font-size: $font-size-2;
+}
+
+.preset-labeller {
+    display: inline-flex;
+    font-size: $font-size-2;
+    margin-left: $smallBaseline;
+}
+
+.preset-label {
+    display: inline-flex;
+    margin: 0 $smallBaseline $smallBaseline 0;
+}
+
+.preset-label__value,
+.preset-label__remove {
+    color: $white;
+    background-color: $highlight;
+    opacity: 0.75;
+}
+
+.preset-label__link:hover,
+.preset-label__remove:hover {
+    color: $highlight;
+    background-color: $white;
+}
+
+.preset-label__value {
+    border-top-left-radius: 2px;
+    border-bottom-left-radius: 2px;
+    padding: 0 $smallBaseline;
+}
+
+.preset-label__remove {
+    border-top-right-radius: 2px;
+    border-bottom-right-radius: 2px;
+}

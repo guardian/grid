@@ -3,7 +3,6 @@ import angular from 'angular';
 import '../../services/label';
 import '../../forms/datalist';
 
-import './gr-add-label.css!';
 import template from './gr-add-label.html!text';
 
 import '../../directives/gr-auto-focus';

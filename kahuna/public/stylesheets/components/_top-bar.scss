@@ -1,0 +1,80 @@
+/* ==========================================================================
+
+   _TOP-BAR.SCSS - The bar at the top...
+
+   ========================================================================== */
+
+.top-bar-item__label {
+    padding-left: $smallBaseline;
+}
+
+.top-bar-item {
+    margin-left: -4px;
+    vertical-align: middle;
+    line-height: 50px;
+    display: inline-block;
+    border-left: 2px solid $grey-border;
+    height: 50px;
+
+    &:first-child {
+        margin-left: 0;
+    }
+
+    &:last-child {
+        border-right: 2px solid $grey-border;
+    }
+}
+
+.top-bar-item__form {
+    display: inline-flex;
+}
+
+.top-bar-item__form__input {
+    background-color: lighten($grey-bg, 2);
+    color: $main-text;
+    border: 1px solid $grey-light;
+    padding: $smallBaseline;
+    box-sizing: border-box;
+    max-width: 65px; /*width of four digits for pixel width and height */
+}
+
+.user-actions {
+    margin-right: -$baseline;
+    padding: 0 $smallBaseline;
+    margin-top: 12px;
+}
+
+.home-link {
+    text-indent: -9999px;
+    width: 50px;
+    height: 50px;
+    background: url(/assets/images/grid-logo-32.png) no-repeat center;
+    margin-right: 0;
+    vertical-align: top;
+    float: left;
+}
+
+.home-link:hover {
+    background-color: $grey-contrast;
+}
+
+.logout {
+    color: inherit;
+    font-size: $font-size-2;
+    position: fixed;
+    bottom: 0;
+    right: 0;
+    background: rgba($black, .5);
+    padding: $baseline;
+}
+
+@media screen and (max-width: 950px) {
+    .top-bar-item .gr-confirm-delete {
+        min-width: inherit;
+    }
+
+    /* only use this class if you want it to hide */
+    .icon-label {
+        display: none;
+    }
+}

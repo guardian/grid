@@ -5,7 +5,6 @@ import '../../util/rx';
 
 import template from './gr-image-usage.html!text';
 import usageTemplate from './gr-image-usage-list.html!text';
-import './gr-image-usage.css!';
 
 import '../../services/image/usages';
 

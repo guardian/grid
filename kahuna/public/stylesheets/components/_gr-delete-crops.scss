@@ -1,0 +1,9 @@
+gr-delete-crops {
+    display: block;
+}
+gr-delete-crops .gr-confirm-delete {
+    text-align: left;
+    width: 100%;
+    padding: $smallBaseline $baseline;
+    font-size: $font-size-1;
+}

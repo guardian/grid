@@ -1,0 +1,151 @@
+.lease__form {
+    background-color: lighten($grey-bg, 2);
+    color: $main-text;
+    border: 1px solid $grey-light;
+    padding: $smallBaseline;
+    box-sizing: border-box;
+}
+.lease__form select,
+.lease__form input,
+.lease__form .lease__date {
+  box-sizing: border-box;
+  width: 100%;
+  margin-bottom: $baseline;
+}
+.leases__apply-all {
+    flex-shrink: 0;
+    margin-left: $baseline;
+    line-height: $largeBaseline;
+    font-size: $font-size-3;
+}
+.leases__wrapper gr-icon:hover {
+  cursor: pointer;
+}
+
+.lease__item {
+  width: 100%;
+  margin: 3px;
+  background-color: $grey-border;
+}
+
+.lease__item p {
+  margin: 2px;
+  font-style: italic;
+}
+
+.lease__date {
+  position: relative;
+}
+
+.add-lease__header {
+  display: block;
+}
+
+.lease {
+  display: flex;
+  justify-content: space-between;
+  margin: 4px;
+  padding: 3px;
+  border-top-left-radius: 2px;
+  border-bottom-left-radius: 2px;
+}
+
+.lease:hover {
+  color:white;
+}
+
+gr-leases .metadata-line__key {
+  margin-bottom: $baseline;
+}
+
+.allowed {
+  background-color: lighten($confirm, 5);
+}
+
+.denied {
+  background-color: $invalid;
+}
+
+gr-leases .gu-date-range__overlay {
+  position: fixed;
+  z-index: 1;
+  right: 0px;
+}
+
+gr-leases .gu-date-range__display {
+  width: 100%;
+}
+
+.image-details--full-image,
+.image-info__wrap {
+  overflow: visible;
+}
+
+.image-info__lease {
+  padding-top: 3px;
+  color: $main-text;
+  font-style: italic;
+  display: inline-block;
+}
+
+
+.lease__form__buttons {
+  text-align: right;
+  margin-top: 8px;
+  margin-bottom: $largeBaseline;
+}
+
+.lease__delete {
+  float: right;
+}
+
+.gr-confirm-delete:hover :not(gr-icon--small){
+  background-color: inherit;
+}
+
+.lease__access,
+.lease__current {
+  box-sizing: border-box;
+  width: 100%;
+  float: left;
+}
+
+.lease__access {
+  padding: 3px;
+  margin-bottom: 2px;
+}
+
+.lease__current {
+  padding: 2px;
+}
+
+.lease__current.current {
+  background-color: $highlight;
+}
+
+.current {
+  color: $white;
+}
+
+gr-leases.leases-flex {
+  display: flex;
+  flex-direction: row;
+}
+
+gr-leases.leases-flex ul {
+  display:flex;
+  flex-direction: row;
+  font-size: $font-size-2;
+}
+
+gr-leases.leases-flex button {
+  flex-shrink: 0;
+}
+
+gr-leases.leases-flex .lease__item {
+  border-radius: $smallBaseline;
+}
+
+gr-leases.leases-flex gr-confirm-delete {
+  display: block;
+}

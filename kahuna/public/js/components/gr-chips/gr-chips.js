@@ -1,6 +1,5 @@
 import angular from 'angular';
 
-import './gr-chips.css!';
 import template from './gr-chips.html!text';
 
 import {grTextChip}          from './gr-text-chip';

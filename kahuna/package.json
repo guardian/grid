@@ -15,7 +15,6 @@
       "angular-xeditable": "github:vitalets/angular-xeditable@^0.1.9",
       "clean-css": "npm:clean-css@^3.3.5",
       "cropperjs": "npm:cropperjs@^0.7.0",
-      "css": "github:systemjs/plugin-css@0.1.13",
       "github:tapmodo/Jcrop": "github:tapmodo/Jcrop@0.9.12",
       "immutable": "npm:immutable@^3.7.5",
       "javascript-detect-element-resize": "github:sdecima/javascript-detect-element-resize@^0.5.3",
@@ -54,9 +53,6 @@
       "npm:cropperjs@0.7.0": {
         "main": "dist/cropper",
         "jspmNodeConversion": false,
-        "dependencies": {
-          "css": "npm:system-css"
-        },
         "shim": {
           "dist/cropper": [
             "./cropper.css!"
@@ -69,14 +65,19 @@
     "htmllint-cli": "0.0.4",
     "jscs": "^1.13.0",
     "jshint": "^2.8.0",
-    "jspm": "0.16.19"
+    "jspm": "0.16.19",
+    "node-sass": "3.8.0",
+    "postcss-cli-simple": "1.0.1",
+    "autoprefixer": "6.3.7"
   },
   "scripts": {
     "test": "npm run lint",
     "lint": "jscs public/js/ && jshint public/js --exclude public/js/dist/build.js --exclude public/js/main.js && htmllint public/js/**/*.html",
+    "sass": "node-sass --output-style compressed public/stylesheets/main.scss public/stylesheets/main.css",
+    "autoprefixer": "postcss --use autoprefixer --autoprefixer.browsers 'last 2 versions' -o public/stylesheets/main.css public/stylesheets/main.css",
     "dist": "jspm bundle js/main public/js/dist/build.js -m --inject --no-mangle && ./dist-fingerprint.sh",
-    "undist": "jspm unbundle && rm -f public/js/dist/build.js*",
-    "postinstall": "jspm install"
+    "undist": "jspm unbundle && rm -f public/js/dist/build.js* && rm -f public/stylesheets/main.css",
+    "postinstall": "jspm install && npm run sass && npm run autoprefixer"
   },
   "repository": {
     "type": "git",

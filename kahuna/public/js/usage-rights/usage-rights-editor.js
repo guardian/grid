@@ -9,7 +9,6 @@ import {List} from 'immutable';
 import '../services/image-list';
 
 import template from './usage-rights-editor.html!text';
-import './usage-rights-editor.css!';
 
 import '../components/gr-confirm-delete/gr-confirm-delete.js';
 

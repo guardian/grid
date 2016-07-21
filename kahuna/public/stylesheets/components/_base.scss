@@ -1,0 +1,100 @@
+/* ==========================================================================
+
+   _BASE.SCSS - Generic site defaults & Styles too small to command their own file
+
+   ========================================================================== */
+
+html {
+    font: 62.5% $baseFontFamily;
+}
+
+body {
+    background-color: $grey-bg;
+    color: $main-text;
+    font-size: $font-size-3;
+    margin: 0;
+    padding: 0 0 0 0;
+}
+
+h1, h2, h3, h4, h5, h6 {
+    font-size: inherit;
+    font-family: inherit;
+    font-weight: normal;
+    margin: 0;
+}
+
+figure, ul, li, dl, dd {
+    margin: 0;
+    padding: 0;
+}
+
+ul {
+    list-style-type: none;
+}
+
+a, .link {
+    color: $main-text;
+    text-decoration: none;
+    cursor: pointer;
+
+    &:hover {
+        color: $white;
+    }
+
+    &:focus {
+        outline: 2px solid rgba($white, 5);
+        outline-offset: -3px;
+    }
+}
+
+.link--coloured {
+    color: $highlight;
+}
+
+/* ==========================================================================
+   Angular
+   ========================================================================== */
+
+/* FIXME: we use the element to be more specific, which is baloney */
+input.ng-invalid,
+textarea.ng-invalid {
+    border-color: $status;
+}
+
+/* ==========================================================================
+   Page
+   ========================================================================== */
+.page-wrapper {
+    margin: 0 auto;
+    max-width: 900px;
+    padding-top: $baseline;
+}
+
+/* ==========================================================================
+   Crop
+   ========================================================================== */
+
+.crop__action {
+    margin-top: 12px;
+}
+
+/* ==========================================================================
+   File uploader
+   ========================================================================== */
+
+.file-uploader__file {
+    display: none;
+}
+
+.file-uploader__select-files {
+    margin-top: 12px;
+    padding: $smallBaseline $baseline;
+}
+
+/* ==========================================================================
+   Heard not seen
+   ========================================================================== */
+
+.tracking-image {
+    display: none;
+}

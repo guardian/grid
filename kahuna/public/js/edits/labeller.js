@@ -1,7 +1,6 @@
 import angular from 'angular';
 import template from './labeller.html!text';
 import templateCompact from './labeller-compact.html!text';
-import './labeller.css!';
 
 import '../search/query-filter';
 import '../services/label';

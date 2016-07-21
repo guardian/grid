@@ -1,0 +1,54 @@
+.gr-panels-content {
+    display: flex;
+    position: relative;
+}
+
+.gr-panel {
+    box-sizing: border-box;
+    z-index: 3;
+    position: fixed;
+}
+
+.gr-panel--locked {
+    position: relative;
+    width: 290px;
+}
+
+.gr-panel__content {
+    width: 290px;
+    position: fixed;
+    background: rgba(darken($grey-contrast, 2), 0.9);
+    transition: width 0.2s;
+    overflow: auto;
+}
+
+.gr-panel--locked .gr-panel__content {
+    background: rgba(darken($grey-contrast, 2),1)
+}
+
+.gr-panel__content--hidden {
+    width: 0;
+    overflow: hidden;
+}
+.gr-panel__content--left {
+    left: 0;
+}
+
+.gr-panel__content--right {
+    right: 0;
+}
+
+.gr-panelled-content {
+    flex-grow: 1;
+}
+
+
+/* Stupid hack as we haven't decoupled the search toolbar and search results */
+.search-panels .gr-panel {
+    display: block;
+    margin-top: 36px;
+}
+
+.gr-panel-height {
+    height: calc(100vh - 86px); /* 50px search bar, 36px toolbar */
+}

@@ -1,0 +1,123 @@
+/** =============================================
+
+_FORMS.SCSS - Form fields
+
+============================================= **/
+
+input, option, textarea {
+    font-family: $baseFontFamily;
+    font-size: $font-size-2;
+}
+
+.text-input {
+    background-color: lighten($grey-bg, 2);
+    color: $main-text;
+    border: 1px solid $grey-light;
+    padding: $smallBaseline;
+    box-sizing: border-box;
+}
+
+textarea {
+    resize: vertical;
+}
+
+input:disabled, textarea:disabled, .disabled {
+    color: $grey-contrast;
+}
+
+.form-label {
+    display: flex;
+}
+
+.form-label__error,
+.form-label__notice {
+    font-size: $font-size-1;
+    flex-grow: 1;
+    text-align: right;
+}
+.form-label__error { color: $invalid; }
+.form-label__notice { color: $status; }
+
+.form-property {
+    display: block;
+    margin-bottom: $baseline;
+}
+
+.form-property--last {
+    margin-bottom: 0;
+}
+
+.form-input-text {
+    width: 100%;
+}
+
+.radio-list {
+    display: flex;
+    overflow: hidden;
+}
+.radio-list--invalid {
+    border: 1px solid $status;
+}
+.radio-list__item {
+    flex-grow: 1;
+    display:flex;
+}
+.radio-list__item:last-child {
+    border-right: 1px;
+}
+.radio-list__label {
+    flex-grow: 1;
+    color: $main-text;
+    background-color: lighten($grey-bg, 2);
+    text-align: center;
+    cursor: pointer;
+    border: 1px solid $grey-border;
+}
+
+.radio-list--selected .radio-list__label-value {
+    background-color:$grey-contrast;
+    border: 1px solid $grey-light;
+    border-top: none;
+}
+
+.radio-list--selected .radio-list__selection-state {
+    background: $highlight;
+}
+
+.radio-list--disabled .radio-list__label-value {
+    color: $grey-light
+}
+
+.radio-list__circle {
+    display: none;
+}
+
+.radio-list__selection-state {
+    height: 3px;
+    background: transparent;
+}
+
+.radio-list__label-value {
+    padding: $smallBaseline $baseline;
+}
+
+.drag-icon {
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 50px;
+    height: 50px;
+    background-color: $main-text;
+}
+
+.drag-count {
+    position: absolute;
+    top: -$baseline;
+    right: -$baseline;
+    border-radius: 50%;
+    background-color: $grey-contrast;
+    width: 22px;
+    height: 22px;
+    line-height: 22px;
+    text-align: center;
+}

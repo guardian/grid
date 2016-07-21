@@ -1,0 +1,36 @@
+gr-top-bar {
+    display: block;
+    height: 50px; /* faking we're in the flow */
+    position: relative;
+    /* We do this as it should always be over `results-toolbar` */
+    z-index: $z-5;
+}
+
+gr-top-bar-nav {
+    display: block;
+    flex-grow: 1;
+    text-align: left;
+}
+
+gr-top-bar-actions {
+    display: flex;
+    min-width: 100px;
+    flex-direction: row;
+    justify-content: flex-end;
+}
+
+
+.gr-top-bar-inner {
+    background-color: $grey-bg;
+    padding-right: $baseline;
+    width: 100%;
+    height: 50px;
+    border-bottom: 1px solid $grey-border;
+    font-size: $font-size-2;
+    display: flex;
+    box-sizing: border-box;
+}
+
+.gr-top-bar-inner--fixed {
+    position: fixed;
+}
