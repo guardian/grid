@@ -19,9 +19,9 @@ object UsageId {
     Some(printUsageRecord.usageStatus)
   ))
 
- def build(elementWrapper: ElementWrapper, contentWrapper: ContentWrapper) = buildId(List(
-    Some(elementWrapper.media.id),
+ def build(elementWrapper: ImageElementWrapper) = buildId(List(
+    Some(elementWrapper.imageElementFields.mediaId),
     Some(elementWrapper.index),
-    Some(contentWrapper.status)
+    Some(elementWrapper.status)
   ))
 }

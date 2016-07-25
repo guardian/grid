@@ -25,12 +25,12 @@ object Global extends WithFilters(CorsFilter, RequestLoggingFilter, new GzipFilt
     UsageApi.keyStore.scheduleUpdates(Akka.system(app).scheduler)
 
     // Eval subscription to start stream
-    previewSubscription
+//    previewSubscription
     liveSubscription
   }
 
   override def onStop(app: Application) {
-    previewSubscription.unsubscribe
+//    previewSubscription.unsubscribe
     liveSubscription.unsubscribe
   }
 }
