@@ -1,7 +1,7 @@
 package model
 
 import com.gu.contentapi.client.model.v1.Content
-import com.gu.contentapi.client.model.v1.{ElementType, Element}
+import com.gu.contentapi.client.model.v1.{ElementType, Element, BlockElement, CapiDateTime, ImageElementFields}
 import com.gu.mediaservice.model.{PrintUsageRecord, UsageStatus}
 
 import lib.MD5
@@ -44,15 +44,51 @@ object UsageGroup {
     })
 
   def createUsages(contentWrapper: ContentWrapper) =
-    extractImages(contentWrapper.content).map(_.zipWithIndex.map{ case (element, index) =>
+    extractImages(contentWrapper.content, contentWrapper.status).map(_.zipWithIndex.map{ case (element, index) =>
       MediaUsage.build(ElementWrapper(index, element), contentWrapper)
     })
 
-  def extractImages(content: Content) = content.elements.map(elements => {
-    elements.filter(_.`type` == ElementType.Image)
-      .groupBy(_.id)
+  def extractImages(content: Content, usageStatus: UsageStatus) = {
+    val imageElements = for {
+      blocks <- content.blocks.toList
+
+      allBlocks = blocks.body.getOrElse(List()) ++ blocks.main
+      block <- allBlocks
+
+      publishedDate = block.publishedDate
+
+      elements = block.elements.zipWithIndex
+      elementTuple <- elements
+      elementFields = elementTuple._1
+      elementIndex  = elementTuple._2
+
+      if elementFields.`type` == ElementType.Image
+
+      imageFields <- elementFields.imageTypeData.toList
+    } yield ImageElementWrapper(
+      publishedDate,
+      imageFields,
+      elementIndex,
+      usageStatus
+    )
+
+    imageElements
+      .groupBy(_.imageElementFields.mediaId)
       .map(_._2.head).to[collection.immutable.Seq]
-  })
+
+    content.elements.map(elements => {
+      elements.filter(_.`type` == ElementType.Image)
+        .groupBy(_.id)
+        .map(_._2.head).to[collection.immutable.Seq]
+    })
+  }
 }
+
+case class ImageElementWrapper(
+  publishedDate: Option[CapiDateTime],
+  imageElementFields: ImageElementFields,
+  index: Int,
+  status: UsageStatus
+)
 
 case class ElementWrapper(index: Int, media: Element)
