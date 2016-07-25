@@ -68,20 +68,19 @@ object MediaUsage {
       Try { item.getLong("date_removed") }.toOption.map(new DateTime(_))
     )
 
-  def build(elementWrapper: ElementWrapper, contentWrapper: ContentWrapper) = {
-    val usageId = UsageId.build(elementWrapper, contentWrapper)
-    val usageMetadata = UsageMetadataBuilder.build(contentWrapper.content)
+  def build(elementWrapper: ImageElementWrapper, usageMetadata: DigitalUsageMetadata, groupId: String) = {
+    val usageId = UsageId.build(elementWrapper)
 
     MediaUsage(
       usageId,
-      UsageGroup.buildId(contentWrapper),
-      elementWrapper.media.id,
+      groupId,
+      elementWrapper.imageId,
       "digital",
       "image",
-      contentWrapper.status,
+      elementWrapper.status,
       None,
       Some(usageMetadata),
-      contentWrapper.lastModified
+      elementWrapper.publishedDate
     )
   }
 
