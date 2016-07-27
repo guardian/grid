@@ -3,9 +3,10 @@ package model
 import com.gu.contentapi.client.model.v1.Content
 import com.gu.contentapi.client.model.v1.{ElementType, Element}
 import com.gu.mediaservice.model.{PrintUsageRecord, UsageStatus}
+import com.gu.mediaservice.model.{PendingUsageStatus, PublishedUsageStatus}
 
-import lib.MD5
-import org.joda.time.DateTime
+import lib.{MD5, Config}
+import org.joda.time.{DateTime, DateTimeZone}
 
 
 case class UsageGroup(
@@ -44,15 +45,36 @@ object UsageGroup {
     })
 
   def createUsages(contentWrapper: ContentWrapper) =
-    extractImages(contentWrapper.content).map(_.zipWithIndex.map{ case (element, index) =>
+    extractImages(
+      contentWrapper.content,
+      contentWrapper.status
+    ).map(_.zipWithIndex.map{ case (element, index) =>
       MediaUsage.build(ElementWrapper(index, element), contentWrapper)
     })
 
-  def extractImages(content: Content) = content.elements.map(elements => {
-    elements.filter(_.`type` == ElementType.Image)
-      .groupBy(_.id)
-      .map(_._2.head).to[collection.immutable.Seq]
-  })
+  def extractImages(content: Content, usageStatus: UsageStatus) = {
+
+    val dateLimit = new DateTime(Config.usageDateLimit)
+
+    val shouldRecordUsages = (usageStatus match {
+      case _: PublishedUsageStatus => (for {
+        fields <- content.fields
+        firstPublicationDate <- fields.firstPublicationDate
+        date = new DateTime(firstPublicationDate , DateTimeZone.UTC)
+        if date.isAfter(dateLimit)
+      } yield true).getOrElse(false)
+
+      case _ => true
+    })
+
+    def groupImageElements = content.elements.map(elements => {
+      elements.filter(_.`type` == ElementType.Image)
+        .groupBy(_.id)
+        .map(_._2.head).to[collection.immutable.Seq]
+    })
+
+    if (shouldRecordUsages) { groupImageElements } else None
+  }
 }
 
 case class ElementWrapper(index: Int, media: Element)
