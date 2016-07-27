@@ -31,6 +31,7 @@ object Config extends CommonPlayAppProperties with CommonPlayAppConfig {
   val defaultPageSize = 100
   val defaultMaxRetries = 6
   val defaultMaxPrintRequestSizeInKb = 500
+  val defaultDateLimit = "2016-01-01T00:00:00+00:00"
 
   val maxPrintRequestLengthInKb = Try(properties("api.setPrint.maxLength").toInt)
     .getOrElse[Int](defaultMaxPrintRequestSizeInKb)
@@ -42,6 +43,8 @@ object Config extends CommonPlayAppProperties with CommonPlayAppConfig {
   val capiPreviewPassword = properties("capi.preview.password")
   val capiPageSize = Try(properties("capi.page.size").toInt).getOrElse[Int](defaultPageSize)
   val capiMaxRetries = Try(properties("capi.maxRetries").toInt).getOrElse[Int](defaultMaxRetries)
+
+  val usageDateLimit = Try(properties("usage.dateLimit")).getOrElse(defaultDateLimit)
 
   val topicArn = properties("sns.topic.arn")
   val composerBaseUrl = properties("composer.baseUrl")
