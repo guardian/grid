@@ -28,5 +28,3 @@ class KeyStore(bucket: String, credentials: AWSCredentials) extends BaseStore[St
     keys.flatMap(k => getS3Object(k).map(k -> _)).toMap
   }
 }
-
-
