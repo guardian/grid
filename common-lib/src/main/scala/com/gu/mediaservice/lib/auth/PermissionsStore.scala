@@ -2,6 +2,8 @@ package com.gu.mediaservice.lib.auth
 
 import com.gu.mediaservice.lib.auth.PermissionType.PermissionType
 import com.gu.mediaservice.lib.config.Properties
+import com.gu.mediaservice.lib.BaseStore
+
 import org.slf4j.LoggerFactory
 
 import scala.collection.JavaConverters._
@@ -24,53 +26,6 @@ import play.api.libs.functional.syntax._
 import com.gu.mediaservice.model.DateFormat
 
 import org.joda.time.DateTime
-
-abstract class BaseStore[TStoreKey, TStoreVal](bucket: String, credentials: AWSCredentials) {
-  val s3 = new S3(credentials)
-
-  private val log = LoggerFactory.getLogger(getClass)
-
-  protected val store: Agent[Map[TStoreKey, TStoreVal]] = Agent(Map.empty)
-  protected val lastUpdated: Agent[DateTime] = Agent(DateTime.now())
-
-  protected def getS3Object(key: String): Option[String] = {
-    val content = s3.client.getObject(bucket, key)
-    val stream = content.getObjectContent
-    try
-      Some(IOUtils.toString(stream, "utf-8").trim)
-    catch {
-      case e: AmazonServiceException if e.getErrorCode == "NoSuchKey" => {
-        log.warn(s"Cannot find key: $key in bucket: $bucket")
-        None
-      }
-    }
-    finally
-      stream.close()
-  }
-
-  def scheduleUpdates(scheduler: Scheduler) {
-    scheduler.schedule(0.seconds, 10.minutes)(update())
-  }
-
-  def update(): Unit
-}
-
-class KeyStore(bucket: String, credentials: AWSCredentials) extends BaseStore[String, String](bucket, credentials) {
-  def lookupIdentity(key: String): Future[Option[String]] =
-    store.future.map(_.get(key))
-
-  def findKey(prefix: String): Option[String] = s3.syncFindKey(bucket, prefix)
-
-  def update() {
-    lastUpdated.sendOff(_ => DateTime.now())
-    store.sendOff(_ => fetchAll)
-  }
-
-  private def fetchAll: Map[String, String] = {
-    val keys = s3.client.listObjects(bucket).getObjectSummaries.asScala.map(_.getKey)
-    keys.flatMap(k => getS3Object(k).map(k -> _)).toMap
-  }
-}
 
 object PermissionType extends Enumeration {
   implicit val writer = new Writes[PermissionType] {
