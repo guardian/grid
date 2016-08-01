@@ -157,11 +157,7 @@ results.controller('SearchResultsCtrl', [
             // results), unless we're reloading a previous search in
             // which case we reuse the previous time too
 
-            // FIXME: the resolution of uploadTime is seconds, which could
-            // not be enough to avoid multiple images sharing an
-            // uploadTime and issues with duplicate results in the
-            // queried set
-            const latestTime = images.data[0] && images.data[0].data.uploadTime;
+            const latestTime = moment().toISOString();
             if (latestTime && ! isReloadingPreviousSearch) {
                 lastSearchFirstResultTime = latestTime;
             }
@@ -234,7 +230,7 @@ results.controller('SearchResultsCtrl', [
                 search({since: latestTime, length: 0, until}).then(resp => {
                     // FIXME: minor assumption that only the latest
                     // displayed image is matching the uploadTime
-                    ctrl.newImagesCount = resp.total - 1;
+                    ctrl.newImagesCount = resp.total;
                     ctrl.lastestTimeMoment = moment(latestTime).from(moment());
 
                     if (! scopeGone) {
