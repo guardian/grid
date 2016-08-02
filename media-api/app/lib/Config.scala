@@ -8,8 +8,8 @@ import com.gu.mediaservice.lib.elasticsearch.EC2._
 import com.gu.mediaservice.lib.config.{Properties, CommonPlayAppConfig, CommonPlayAppProperties}
 
 case class UsageStoreConfig(
-  storeKey: String,
-  storeBucket: String
+  storeBucket: String,
+  storeKey: String
 )
 
 object Config extends CommonPlayAppConfig with CommonPlayAppProperties {
@@ -23,13 +23,13 @@ object Config extends CommonPlayAppConfig with CommonPlayAppProperties {
 
   val keyStoreBucket: String = properties("auth.keystore.bucket")
 
-  val usageStoreBucket: Option[String] = properties.get("usage.store.bucket")
+  val configBucket: String = properties("s3.config.bucket")
+
   val usageStoreKey: Option[String] = properties.get("usage.store.key")
 
   val usageStoreConfig: Option[UsageStoreConfig] = for {
-    bucket <- usageStoreBucket
     key <- usageStoreKey
-  } yield UsageStoreConfig(key, bucket)
+  } yield UsageStoreConfig(configBucket, key)
 
   val ec2Client: AmazonEC2Client =
     new AmazonEC2Client(awsCredentials) <| (_ setEndpoint awsEndpoint)
@@ -55,7 +55,6 @@ object Config extends CommonPlayAppConfig with CommonPlayAppProperties {
 
   val topicArn: String = properties("sns.topic.arn")
 
-  val configBucket: String = properties("s3.config.bucket")
 
   val mixpanelToken: Option[String] = properties.get("mixpanel.token").filterNot(_.isEmpty)
 

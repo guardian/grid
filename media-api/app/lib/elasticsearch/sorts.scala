@@ -9,8 +9,7 @@ import org.elasticsearch.action.search.SearchRequestBuilder
 import org.elasticsearch.index.query.{FilterBuilders}
 import org.elasticsearch.search.sort.{SortBuilders, SortOrder, ScriptSortBuilder}
 
-import com.gu.mediaservice.model.Agency
-import com.gu.mediaservice.lib.cleanup.Agencies
+import com.gu.mediaservice.model.{Agency, Agencies}
 
 object sorts {
   def createSort(
