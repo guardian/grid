@@ -2,6 +2,7 @@ package com.gu.mediaservice.model
 
 import play.api.libs.json._
 
+
 sealed trait UsageRights {
   // These two properties are used to infer cost
   // TODO: Remove these as they have nothing to do with the model really
@@ -152,9 +153,28 @@ object Chargeable extends UsageRightsSpec {
     UsageRights.subtypeFormat(Chargeable.category)(Json.format[Chargeable])
 }
 
+object Agencies {
+  val all = Map(
+    "getty" -> Agency("Getty Images"),
+    "rex" -> Agency("Rex Features"),
+    "aap" -> Agency("AAP"),
+    "alamy" -> Agency("Alamy")
+  )
+
+  def get(id: String) = all.get(id).getOrElse(Agency(id))
+
+  def lookupId(lookupSupplierName: String): Option[String] = all.collectFirst {
+    case (id, Agency(supplierName, _, _)) if lookupSupplierName == supplierName => { id }
+  }
+
+  def getWithCollection(id: String, suppliersCollection: Option[String]) =
+    all.get(id).map(_.copy(suppliersCollection = suppliersCollection))
+}
+
 final case class Agency(supplier: String, suppliersCollection: Option[String] = None,
                         restrictions: Option[String] = None) extends UsageRights  {
   val defaultCost = Agency.defaultCost
+  def id: Option[String] = Agencies.lookupId(supplier)
 }
 object Agency extends UsageRightsSpec {
   val category = "agency"
