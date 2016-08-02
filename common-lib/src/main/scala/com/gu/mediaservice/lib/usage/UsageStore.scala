@@ -2,6 +2,7 @@ package com.gu.mediaservice.lib.usage
 
 import java.io.InputStream
 import scala.io.Source
+import scala.concurrent.Future
 
 import org.joda.time.DateTime
 
@@ -15,7 +16,7 @@ import com.gu.mediaservice.lib.BaseStore
 import com.gu.mediaservice.model.Agency
 
 
-case class SupplierUsageQuota(agency: Agency, quota: Int)
+case class SupplierUsageQuota(agency: Agency, count: Int)
 case class SupplierUsageSummary(agency: Agency, count: Int)
 object SupplierUsageSummary {
   implicit val reads: Reads[SupplierUsageSummary] = Json.reads[SupplierUsageSummary]
@@ -24,14 +25,30 @@ case class UsageStatus(
   exceeded: Boolean,
   percentOfQuota: Float,
   usage: SupplierUsageSummary,
-  quota: SupplierUsageQuota
+  quota: Option[SupplierUsageQuota]
 )
 
-class UsageStore(usageFile: String, bucket: String, credentials: AWSCredentials) extends BaseStore[String, UsageStatus](bucket, credentials) {
+case class StoreAccess(store: Map[String, UsageStatus], lastUpdated: DateTime)
+
+class UsageStore(
+  usageFile: String,
+  bucket: String,
+  credentials: AWSCredentials
+) extends BaseStore[String, UsageStatus](bucket, credentials) {
+
+  def getUsageStatus(): Future[StoreAccess] = for {
+      s <- store.future
+      l <- lastUpdated.future
+    } yield StoreAccess(s,l)
+
   def update() {
     lastUpdated.sendOff(_ => DateTime.now())
     store.sendOff(_ => fetchUsage)
   }
+
+  val supplierQuota = Map(
+    "test" -> SupplierUsageQuota(Agency("test"), 1)
+  )
 
   private def fetchUsage: Map[String, UsageStatus] = {
     val inputStream = s3.client
@@ -45,17 +62,20 @@ class UsageStore(usageFile: String, bucket: String, credentials: AWSCredentials)
       .parse(usageFileString)
       .as[List[SupplierUsageSummary]]
 
-    Map("test" -> UsageStatus(
-      true,
-      120,
-      SupplierUsageSummary(
-        Agency("Test"),
-        120
-      ),
-      SupplierUsageQuota(
-        Agency("Test"),
-        100
-      )
-    ))
+    usageStatus
+      .groupBy(_.agency.toString)
+      .mapValues(_.head)
+      .mapValues((summary: SupplierUsageSummary) => {
+        val quota = supplierQuota.get(summary.agency.toString)
+        val exceeded = quota.map(q => summary.count > q.count).getOrElse(false)
+        val percentOfQuota: Float = quota.map(q => q.count.toFloat / summary.count).getOrElse(0F)
+
+        UsageStatus(
+          exceeded,
+          percentOfQuota,
+          summary,
+          quota
+        )
+      })
   }
 }
