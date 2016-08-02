@@ -8,6 +8,7 @@ import org.joda.time.DateTime
 
 import play.api.libs.concurrent.Execution.Implicits._
 import play.api.libs.json._
+import play.api.libs.functional.syntax._
 
 import com.amazonaws.auth.AWSCredentials
 
@@ -23,7 +24,12 @@ object SupplierUsageQuota {
 
 case class SupplierUsageSummary(agency: Agency, count: Int)
 object SupplierUsageSummary {
-  implicit val reads: Reads[SupplierUsageSummary] = Json.reads[SupplierUsageSummary]
+  implicit val customReads: Reads[SupplierUsageSummary] =
+    ((__ \ "Supplier").read[String].map(Agency(_)) ~
+     (__ \ "Usage").read[Int]
+     )(SupplierUsageSummary.apply _)
+
+    //Json.reads[SupplierUsageSummary]
   implicit val writes: Writes[SupplierUsageSummary] = Json.writes[SupplierUsageSummary]
 }
 
@@ -59,7 +65,7 @@ class UsageStore(
   }
 
   val supplierQuota = Map(
-    "test" -> SupplierUsageQuota(Agency("test"), 1)
+    "Rex Features Ltd (Greg Watts)" -> SupplierUsageQuota(Agency("Nope"), 1)
   )
 
   private def fetchUsage: Map[String, UsageStatus] = {
@@ -70,12 +76,12 @@ class UsageStore(
       .as[List[SupplierUsageSummary]]
 
     usageStatus
-      .groupBy(_.agency.toString)
+      .groupBy(_.agency.supplier)
       .mapValues(_.head)
       .mapValues((summary: SupplierUsageSummary) => {
-        val quota = supplierQuota.get(summary.agency.toString)
+        val quota = supplierQuota.get(summary.agency.supplier)
         val exceeded = quota.map(q => summary.count > q.count).getOrElse(false)
-        val percentOfQuota: Float = quota.map(q => q.count.toFloat / summary.count).getOrElse(0F)
+        val percentOfQuota: Float = quota.map(q => summary.count.toFloat / q.count).getOrElse(0F)
 
         UsageStatus(
           exceeded,
