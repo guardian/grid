@@ -14,8 +14,8 @@ object UsageController extends Controller with ArgoHelpers {
 
   val usageStore = Config.usageStoreConfig.map(c => {
     new UsageStore(
-      c.storeBucket,
       c.storeKey,
+      c.storeBucket,
       Config.awsCredentials)
   })
 
