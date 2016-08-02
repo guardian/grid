@@ -14,32 +14,40 @@ import com.amazonaws.auth.AWSCredentials
 
 import com.gu.mediaservice.lib.BaseStore
 
-import com.gu.mediaservice.model.Agency
+import com.gu.mediaservice.model.DateFormat
+import com.gu.mediaservice.model.{Agency, Agencies}
 
 
 case class SupplierUsageQuota(agency: Agency, count: Int)
 object SupplierUsageQuota {
-  implicit val writes: Writes[SupplierUsageQuota] = Json.writes[SupplierUsageQuota]
+  implicit val writes: Writes[SupplierUsageQuota] = (
+    (__ \ "agency").write[String].contramap((a: Agency) => a.supplier) ~
+    (__ \ "count").write[Int]
+  )(unlift(SupplierUsageQuota.unapply))
+
 }
 
 case class SupplierUsageSummary(agency: Agency, count: Int)
 object SupplierUsageSummary {
-  implicit val customReads: Reads[SupplierUsageSummary] =
-    ((__ \ "Supplier").read[String].map(Agency(_)) ~
-     (__ \ "Usage").read[Int]
-     )(SupplierUsageSummary.apply _)
+  implicit val customReads: Reads[SupplierUsageSummary] = (
+    (__ \ "Supplier").read[String].map(Agency(_)) ~
+    (__ \ "Usage").read[Int]
+  )(SupplierUsageSummary.apply _)
 
-    //Json.reads[SupplierUsageSummary]
-  implicit val writes: Writes[SupplierUsageSummary] = Json.writes[SupplierUsageSummary]
+  implicit val writes: Writes[SupplierUsageSummary] = (
+    (__ \ "agency").write[String].contramap((a: Agency) => a.supplier) ~
+    (__ \ "count").write[Int]
+  )(unlift(SupplierUsageSummary.unapply))
 }
 
 case class UsageStatus(
   exceeded: Boolean,
-  percentOfQuota: Float,
+  fractionOfQuota: Float,
   usage: SupplierUsageSummary,
   quota: Option[SupplierUsageQuota]
 )
 object UsageStatus {
+  implicit val dateTimeFormat = DateFormat
   implicit val writes: Writes[UsageStatus] = Json.writes[UsageStatus]
 }
 
@@ -65,27 +73,39 @@ class UsageStore(
   }
 
   val supplierQuota = Map(
-    "Rex Features Ltd (Greg Watts)" -> SupplierUsageQuota(Agency("Nope"), 1)
+    "rex" -> SupplierUsageQuota(Agencies.get("rex"), 1000)
   )
 
   private def fetchUsage: Map[String, UsageStatus] = {
     val usageFileString = getS3Object(usageFile).get
 
-    val usageStatus = Json
+    val summary = Json
       .parse(usageFileString)
       .as[List[SupplierUsageSummary]]
 
-    usageStatus
+    def copyAgency(supplier: SupplierUsageSummary, id: String) = Agencies.all.get(id)
+      .map(a => supplier.copy(agency = a))
+      .getOrElse(supplier)
+
+    val cleanedSummary = summary
+      .map {
+        case s if s.agency.supplier.contains("Rex Features") => copyAgency(s, "rex")
+        case s if s.agency.supplier.contains("Australian Associated Press") => copyAgency(s, "aap")
+        case s if s.agency.supplier.contains("Alamy") => copyAgency(s, "alamy")
+        case s => s
+      }
+
+    cleanedSummary
       .groupBy(_.agency.supplier)
       .mapValues(_.head)
       .mapValues((summary: SupplierUsageSummary) => {
-        val quota = supplierQuota.get(summary.agency.supplier)
+        val quota = summary.agency.id.flatMap(id => supplierQuota.get(id))
         val exceeded = quota.map(q => summary.count > q.count).getOrElse(false)
-        val percentOfQuota: Float = quota.map(q => summary.count.toFloat / q.count).getOrElse(0F)
+        val fractionOfQuota: Float = quota.map(q => summary.count.toFloat / q.count).getOrElse(0F)
 
         UsageStatus(
           exceeded,
-          percentOfQuota,
+          fractionOfQuota,
           summary,
           quota
         )
