@@ -7,6 +7,10 @@ import scalaz.syntax.id._
 import com.gu.mediaservice.lib.elasticsearch.EC2._
 import com.gu.mediaservice.lib.config.{Properties, CommonPlayAppConfig, CommonPlayAppProperties}
 
+case class UsageStoreConfig(
+  storeKey: String,
+  storeBucket: String
+)
 
 object Config extends CommonPlayAppConfig with CommonPlayAppProperties {
 
@@ -19,8 +23,13 @@ object Config extends CommonPlayAppConfig with CommonPlayAppProperties {
 
   val keyStoreBucket: String = properties("auth.keystore.bucket")
 
-  val usageStoreBucket: String = properties("usage.store.bucket")
-  val usageStoreKey: String = properties("usage.store.key")
+  val usageStoreBucket: Option[String] = properties.get("usage.store.bucket")
+  val usageStoreKey: Option[String] = properties.get("usage.store.key")
+
+  val usageStoreConfig: Option[UsageStoreConfig] = for {
+    bucket <- usageStoreBucket
+    key <- usageStoreKey
+  } yield UsageStoreConfig(key, bucket)
 
   val ec2Client: AmazonEC2Client =
     new AmazonEC2Client(awsCredentials) <| (_ setEndpoint awsEndpoint)
