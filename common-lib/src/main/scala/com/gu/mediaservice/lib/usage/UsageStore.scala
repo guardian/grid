@@ -17,18 +17,30 @@ import com.gu.mediaservice.model.Agency
 
 
 case class SupplierUsageQuota(agency: Agency, count: Int)
+object SupplierUsageQuota {
+  implicit val writes: Writes[SupplierUsageQuota] = Json.writes[SupplierUsageQuota]
+}
+
 case class SupplierUsageSummary(agency: Agency, count: Int)
 object SupplierUsageSummary {
   implicit val reads: Reads[SupplierUsageSummary] = Json.reads[SupplierUsageSummary]
+  implicit val writes: Writes[SupplierUsageSummary] = Json.writes[SupplierUsageSummary]
 }
+
 case class UsageStatus(
   exceeded: Boolean,
   percentOfQuota: Float,
   usage: SupplierUsageSummary,
   quota: Option[SupplierUsageQuota]
 )
+object UsageStatus {
+  implicit val writes: Writes[UsageStatus] = Json.writes[UsageStatus]
+}
 
 case class StoreAccess(store: Map[String, UsageStatus], lastUpdated: DateTime)
+object StoreAccess {
+  implicit val writes: Writes[StoreAccess] = Json.writes[StoreAccess]
+}
 
 class UsageStore(
   usageFile: String,
