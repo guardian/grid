@@ -1,11 +1,12 @@
 package controllers
 
 import play.api.mvc.Controller
+import play.api.mvc.{Results, Result}
 import play.api.libs.concurrent.Execution.Implicits._
 import scala.concurrent.Future
 
 import com.gu.mediaservice.lib.argo.ArgoHelpers
-import com.gu.mediaservice.lib.usage.UsageStore
+import com.gu.mediaservice.lib.usage.{UsageStore, StoreAccess}
 
 import lib.Config
 
@@ -19,10 +20,11 @@ object UsageController extends Controller with ArgoHelpers {
   val Authenticated = Authed.action
 
   def quotas() = Authenticated.async { request =>
-    val foo = usageStore.getUsageStatus
+    val usageStatusAccess = usageStore.getUsageStatus
 
-
-    Future { Ok }
+    usageStatusAccess
+      .map((status: StoreAccess) => respond(status))
+      .failed.map(e => respondError(InternalServerError, "usage-quotas-error", e.toString))
   }
 
 }
