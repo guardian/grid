@@ -25,6 +25,7 @@ GET     /suggest/metadata/credit                      controllers.SuggestionCont
 
 # usage quotas
 GET     /usage/quotas                                 controllers.UsageController.quotas
+GET     /usage/quotas/:id                             controllers.UsageController.quotaForImage(id: String)
 
 # Management
 GET     /management/healthcheck                       controllers.HealthCheck.healthCheck
