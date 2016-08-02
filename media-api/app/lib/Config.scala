@@ -8,8 +8,8 @@ import com.gu.mediaservice.lib.elasticsearch.EC2._
 import com.gu.mediaservice.lib.config.{Properties, CommonPlayAppConfig, CommonPlayAppProperties}
 
 case class UsageStoreConfig(
-  storeKey: String,
-  storeBucket: String
+  storeBucket: String,
+  storeKey: String
 )
 
 object Config extends CommonPlayAppConfig with CommonPlayAppProperties {
@@ -29,7 +29,7 @@ object Config extends CommonPlayAppConfig with CommonPlayAppProperties {
 
   val usageStoreConfig: Option[UsageStoreConfig] = for {
     key <- usageStoreKey
-  } yield UsageStoreConfig(key, configBucket)
+  } yield UsageStoreConfig(configBucket, key)
 
   val ec2Client: AmazonEC2Client =
     new AmazonEC2Client(awsCredentials) <| (_ setEndpoint awsEndpoint)

@@ -63,12 +63,7 @@ class UsageStore(
   )
 
   private def fetchUsage: Map[String, UsageStatus] = {
-    val inputStream = s3.client
-      .getObject(bucket, usageFile)
-      .getObjectContent
-
-    val usageFileString = Source
-      .fromInputStream(inputStream).mkString
+    val usageFileString = getS3Object(usageFile).get
 
     val usageStatus = Json
       .parse(usageFileString)
