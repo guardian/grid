@@ -3,62 +3,87 @@ package controllers
 import play.api.mvc.Controller
 import play.api.mvc.{Results, Result}
 import play.api.libs.concurrent.Execution.Implicits._
+import play.api.libs.json.JsValue
+
 import scala.concurrent.{Future, Await}
+import scala.util.Try
 
 import com.gu.mediaservice.lib.argo.ArgoHelpers
-import com.gu.mediaservice.lib.usage.{UsageStatus, UsageStore, StoreAccess}
+import com.gu.mediaservice.lib.usage.{UsageStatus, UsageStore, StoreAccess, SupplierUsageQuota}
 
-import com.gu.mediaservice.model.Image
+import com.gu.mediaservice.model.{Image, Agencies, UsageRights}
 import lib.elasticsearch.ElasticSearch
 
 import lib.{Config, UsageStoreConfig}
 
-object UsageController extends Controller with ArgoHelpers {
+case class ImageNotFound() extends Exception("Image not found")
+case class BadQuotaConfig() extends Exception("Bad config for usage quotas")
+case class NoUsageQuota() extends Exception("No usage found for this image")
+
+object UsageHelper {
+  val supplierQuota = Config.quotaConfig.map {
+    case (k,v) => k -> SupplierUsageQuota(Agencies.get(k), v)}
 
   val usageStore = Config.usageStoreConfig.map(c => {
     new UsageStore(
       c.storeKey,
       c.storeBucket,
-      Config.awsCredentials)
+      Config.awsCredentials,
+      supplierQuota
+    )
   })
 
+  def usageStatusForUsageRights(usageRights: UsageRights): Future[UsageStatus] = {
+    val usageStatusFutureOption = usageStore
+      .map(_.getUsageStatusForUsageRights(usageRights))
+
+    for {
+      usageStatusFuture <- Future { usageStatusFutureOption.get }
+        .recover { case e: NoSuchElementException => throw new NoUsageQuota }
+
+      usageStatus <- usageStatusFuture
+        .recover { case _ => throw new BadQuotaConfig }
+
+    } yield usageStatus
+  }
+
+  def usageStatusForImage(id: String): Future[UsageStatus] = for {
+      imageJsonOption <- ElasticSearch.getImageById(id)
+
+      imageOption = imageJsonOption
+        .flatMap(imageJson => Try { imageJson.as[Image] }.toOption)
+
+      image <- Future { imageOption.get }
+        .recover { case _ => throw new ImageNotFound }
+
+      usageStatus <- usageStatusForUsageRights(image.usageRights)
+
+    } yield usageStatus
+
+}
+
+object UsageController extends Controller with ArgoHelpers {
   val Authenticated = Authed.action
 
   val badConfigError = Future(
     respondError(InternalServerError, "usage-quotas-badconfig", "Missing config for UsageStore"))
 
   def quotaForImage(id: String) = Authenticated.async { request =>
-    ElasticSearch.getImageById(id) map {
-      case Some(source) => {
-        val image = source.as[Image]
-        val usageStatus: Option[Future[UsageStatus]] = usageStore.map(_.getUsageStatusForImage(image))
-
-        import scala.concurrent.duration._
-
-        // TODO: REMOVE FUTUREWANG
-        val futureWang = usageStatus.map((statusFuture: Future[UsageStatus]) => {
-          statusFuture
-            .map((status: UsageStatus) => respond(status))
-            .recover {
-              case e: NoSuchElementException =>
-                respondError(NotFound, "quota-not-found", "No usage quota found for this image")
-              case e =>
-                respondError(InternalServerError, "error-getting-quota", e.toString)
-            }
-        }).getOrElse(badConfigError)
-
-        Await.result(futureWang, 30.seconds)
+    UsageHelper.usageStatusForImage(id)
+      .map((u: UsageStatus) => respond(u))
+      .recover {
+        case e: ImageNotFound => respondError(NotFound, "image-not-found", e.toString)
+        case e: BadQuotaConfig => respondError(InternalServerError, "bad-quota-config", e.toString)
+        case e: NoUsageQuota => respondError(NotFound, "bad-quota-config", e.toString)
+        case e => respondError(InternalServerError, "unknown-error", e.toString)
       }
-      case _ => respondError(NotFound, "image-not-found", "No image found with the given id")
-    }
   }
 
   def quotas() = Authenticated.async { request =>
-    val usageStatusAccess = usageStore.map(_.getUsageStatus)
+    val usageStatusAccess = UsageHelper.usageStore.map(_.getUsageStatus)
 
     usageStatusAccess.map(statusAccess => {
-      statusAccess
-        .map((status: StoreAccess) => respond(status))
+      statusAccess.map((status: StoreAccess) => respond(status))
     }).getOrElse(badConfigError)
   }
 }

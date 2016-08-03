@@ -3,6 +3,7 @@ package lib
 import com.amazonaws.services.ec2.AmazonEC2Client
 import com.amazonaws.auth.{BasicAWSCredentials, AWSCredentials}
 import scalaz.syntax.id._
+import scala.util.Try
 
 import com.gu.mediaservice.lib.elasticsearch.EC2._
 import com.gu.mediaservice.lib.config.{Properties, CommonPlayAppConfig, CommonPlayAppProperties}
@@ -89,4 +90,17 @@ object Config extends CommonPlayAppConfig with CommonPlayAppProperties {
       .map(_.toDouble)
       .getOrElse[Double](0.0)
   )
+
+  def convertToInt(s: String): Option[Int] = Try { s.toInt }.toOption
+
+  // Quota Config
+  val rexQuotaConfig   = properties.get("usage.quota.rex").flatMap(convertToInt)
+  val aapQuotaConfig   = properties.get("usage.quota.aap").flatMap(convertToInt)
+  val alamyQuotaConfig = properties.get("usage.quota.alamy").flatMap(convertToInt)
+
+  val quotaConfig = Map[String,Int]() ++
+    rexQuotaConfig.map(n => "rex" -> n) ++
+    aapQuotaConfig.map(n => "aap" -> n) ++
+    alamyQuotaConfig.map(n => "alamy" -> n)
+
 }

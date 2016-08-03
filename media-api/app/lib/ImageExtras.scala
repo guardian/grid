@@ -5,6 +5,7 @@ import play.api.libs.functional.syntax._
 
 import com.gu.mediaservice.model._
 import lib.usagerights.CostCalculator
+import controllers.UsageHelper
 
 object ImageExtras {
 
@@ -29,7 +30,16 @@ object ImageExtras {
   def hasCurrentAllowLease(leases: LeaseByMedia) = optToBool(leases.current.map(_.access.name == "allow"))
   def hasCurrentDenyLease(leases: LeaseByMedia) = optToBool(leases.current.map(_.access.name == "deny"))
 
-  def hasRemainingQuota(rights: UsageRights) = false
+  import scala.concurrent.Await
+  import scala.util.Try
+  import scala.concurrent.duration._
+
+  def hasRemainingQuota(rights: UsageRights) = !(Try {Await.result(
+    UsageHelper.usageStatusForUsageRights(rights),
+    1000.millis)
+  }.toOption
+    .map(_.exceeded)
+    .getOrElse(false))
 
   def validityMap(image: Image): Map[String, Boolean] = Map(
     "paid_image"           -> CostCalculator.isPay(image.usageRights),

@@ -14,7 +14,7 @@ import com.amazonaws.auth.AWSCredentials
 
 import com.gu.mediaservice.lib.BaseStore
 
-import com.gu.mediaservice.model.{Agency, Agencies, DateFormat, Image}
+import com.gu.mediaservice.model.{UsageRights, Agency, Agencies, DateFormat}
 
 
 case class SupplierUsageQuota(agency: Agency, count: Int)
@@ -58,12 +58,14 @@ object StoreAccess {
 class UsageStore(
   usageFile: String,
   bucket: String,
-  credentials: AWSCredentials
+  credentials: AWSCredentials,
+  supplierQuota: Map[String, SupplierUsageQuota] = Map()
 ) extends BaseStore[String, UsageStatus](bucket, credentials) {
 
-  def getUsageStatusForImage(image: Image): Future[UsageStatus] = {
+  def getUsageStatusForUsageRights(usageRights: UsageRights) = {
     val storeFuture = store.future
-    val imageSupplierFuture = Future { image.usageRights match {
+
+    val imageSupplierFuture = Future { usageRights match {
       case a: Agency => a
       case _ => throw new Exception("Image is not supplied by Agency")
     }}
@@ -75,6 +77,7 @@ class UsageStore(
 
       if !usageReport.isEmpty
     } yield usageReport.get
+
   }
 
   def getUsageStatus(): Future[StoreAccess] = for {
@@ -86,11 +89,6 @@ class UsageStore(
     lastUpdated.sendOff(_ => DateTime.now())
     store.sendOff(_ => fetchUsage)
   }
-
-  // TODO: load supplierQuota from config
-  val supplierQuota = Map(
-    "rex" -> SupplierUsageQuota(Agencies.get("rex"), 1000)
-  )
 
   private def fetchUsage: Map[String, UsageStatus] = {
     val usageFileString = getS3Object(usageFile).get
