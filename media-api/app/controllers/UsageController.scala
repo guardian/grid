@@ -40,14 +40,6 @@ object UsageHelper {
     storeAccess <- store.getUsageStatus()
   } yield storeAccess
 
-  def getOverQuotaSuppliers(): Future[List[String]] = for {
-    storeAccess <- getStoreAccess()
-    usageStatus = storeAccess.store
-  } yield usageStatus.values
-    .filter(_.exceeded)
-    .map(_.usage.agency.supplier)
-    .toList
-
   def usageStatusForUsageRights(usageRights: UsageRights): Future[UsageStatus] = {
     val usageStatusFutureOption = usageStore
       .map(_.getUsageStatusForUsageRights(usageRights))
