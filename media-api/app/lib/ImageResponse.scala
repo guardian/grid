@@ -21,6 +21,8 @@ import com.gu.mediaservice.lib.collections.CollectionsManager
 object ImageResponse extends EditsResponse {
   implicit val dateTimeFormat = DateFormat
 
+  object Costing extends CostCalculator
+
   val metadataBaseUri = Config.services.metadataBaseUri
 
   type FileMetadataEntity = EmbeddedEntity[FileMetadata]
@@ -231,7 +233,7 @@ object ImageResponse extends EditsResponse {
       (source \ "userMetadata" \ "usageRights").asOpt[JsObject]
     ).flatten.foldLeft(Json.obj())(_ ++ _).as[UsageRights]
 
-    val cost = CostCalculator.getCost(usageRights)
+    val cost = Costing.getCost(usageRights)
 
     __.json.update(__.read[JsObject].map(_ ++ Json.obj("cost" -> cost.toString)))
   }

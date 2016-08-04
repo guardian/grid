@@ -1,11 +1,11 @@
-import controllers.{Authed, MediaApi, UsageHelper}
+import controllers.{Authed, MediaApi}
 import lib.elasticsearch.ElasticSearch
 import play.api.libs.concurrent.Akka
 import play.api.{Application, GlobalSettings}
 import play.api.mvc.WithFilters
 import play.filters.gzip.GzipFilter
 
-import lib.{LogConfig, Config}
+import lib.{LogConfig, Config, UsageQuota}
 
 import com.gu.mediaservice.lib.play.RequestLoggingFilter
 
@@ -21,7 +21,7 @@ object Global extends WithFilters(CorsFilter, RequestLoggingFilter, new GzipFilt
   override def onStart(app: Application) {
     Authed.keyStore.scheduleUpdates(Akka.system(app).scheduler)
     Authed.permissionStore.scheduleUpdates(Akka.system(app).scheduler)
-    UsageHelper.usageStore.map(_.scheduleUpdates(Akka.system(app).scheduler))
+    UsageQuota.usageStore.map(_.scheduleUpdates(Akka.system(app).scheduler))
   }
 
 }

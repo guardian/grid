@@ -5,9 +5,11 @@ import play.api.libs.functional.syntax._
 
 import com.gu.mediaservice.model._
 import lib.usagerights.CostCalculator
-import controllers.UsageHelper
+
 
 object ImageExtras {
+
+  object Costing extends CostCalculator
 
   val validityDescription = Map(
     "no_rights"                   -> "No rights to use this image",
@@ -37,20 +39,13 @@ object ImageExtras {
   import scala.concurrent.duration._
   import com.gu.mediaservice.lib.FeatureToggle
 
-  def isOverQuota(rights: UsageRights) = Try {Await.result(
-    UsageHelper.usageStatusForUsageRights(rights),
-    100.millis)
-  }.toOption
-    .map(_.exceeded)
-    .getOrElse(false) && FeatureToggle.get("usage-quota-ui")
-
   def validityMap(image: Image): Map[String, Boolean] = Map(
-    "paid_image"           -> CostCalculator.isPay(image.usageRights),
+    "paid_image"           -> Costing.isPay(image.usageRights),
     "no_rights"            -> !hasRights(image.usageRights),
     "missing_credit"       -> !hasCredit(image.metadata),
     "missing_description"  -> !hasDescription(image.metadata),
     "current_deny_lease"   -> hasCurrentDenyLease(image.leases),
-    "over_quota"           -> isOverQuota(image.usageRights)
+    "over_quota"           -> UsageQuota.isOverQuota(image.usageRights)
   )
 
   def validityOverrides(image: Image): Map[String, Boolean] = Map(
