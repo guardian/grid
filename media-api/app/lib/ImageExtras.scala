@@ -27,8 +27,10 @@ object ImageExtras {
   def hasCredit(meta: ImageMetadata) = optToBool(meta.credit)
   def hasDescription(meta: ImageMetadata) = optToBool(meta.description)
 
-  def hasCurrentAllowLease(leases: LeaseByMedia) = optToBool(leases.current.map(_.access.name == "allow"))
-  def hasCurrentDenyLease(leases: LeaseByMedia) = optToBool(leases.current.map(_.access.name == "deny"))
+  def hasCurrentAllowLease(leases: LeaseByMedia) =
+    optToBool(leases.current.map(_.access.name == "allow"))
+  def hasCurrentDenyLease(leases: LeaseByMedia) =
+    optToBool(leases.current.map(_.access.name == "deny"))
 
   import scala.concurrent.Await
   import scala.util.Try
