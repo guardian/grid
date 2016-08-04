@@ -33,13 +33,14 @@ object ImageExtras {
   import scala.concurrent.Await
   import scala.util.Try
   import scala.concurrent.duration._
+  import com.gu.mediaservice.lib.FeatureToggle
 
   def isOverQuota(rights: UsageRights) = Try {Await.result(
     UsageHelper.usageStatusForUsageRights(rights),
     100.millis)
   }.toOption
     .map(_.exceeded)
-    .getOrElse(false)
+    .getOrElse(false) && FeatureToggle.get("usage-quota-ui")
 
   def validityMap(image: Image): Map[String, Boolean] = Map(
     "paid_image"           -> CostCalculator.isPay(image.usageRights),
