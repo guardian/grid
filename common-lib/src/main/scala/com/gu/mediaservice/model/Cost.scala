@@ -12,6 +12,9 @@ case object Conditional
 case object Pay
   extends Cost { override def toString = "pay" }
 
+case object Overquota
+  extends Cost { override def toString = "overquota" }
+
 object Cost {
   def fromString(string: String): Cost =
     Vector(Free, Conditional, Pay).find(_.toString == string).getOrElse(Pay)

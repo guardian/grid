@@ -53,7 +53,6 @@ image.controller('uiPreviewImageCtrl', [
 
     ctrl.flagState = hasRights ? ctrl.states.cost : 'no_rights';
 
-
     const hasPrintUsages$ =
         imageUsagesService.getUsages(ctrl.image).hasPrintUsages$;
 

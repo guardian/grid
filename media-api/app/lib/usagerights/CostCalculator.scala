@@ -27,7 +27,7 @@ object CostCalculator {
       }
 
       val overQuota: Option[Cost] = if (ImageExtras.isOverQuota(usageRights)) {
-        Some(Pay)
+        Some(Overquota)
       } else {
         None
       }
