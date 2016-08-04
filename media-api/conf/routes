@@ -23,6 +23,10 @@ GET     /images                                       controllers.MediaApi.image
 # completion
 GET     /suggest/metadata/credit                      controllers.SuggestionController.suggestMetadataCredit(q: Option[String], size: Option[Int])
 
+# usage quotas
+GET     /usage/quotas                                 controllers.UsageController.quotas
+GET     /usage/quotas/:id                             controllers.UsageController.quotaForImage(id: String)
+
 # Management
 GET     /management/healthcheck                       controllers.HealthCheck.healthCheck
 GET     /management/manifest                          com.gu.mediaservice.lib.management.Management.manifest

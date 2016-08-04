@@ -928,11 +928,10 @@ textarea.ng-invalid {
     vertical-align: middle;
 }
 .validity--invalid,
-.cost--pay {
+.cost--pay,
+.cost--no_rights,
+.cost--overquota {
     background-color: red;
-}
-.cost--no_rights {
-    background: red;
 }
 .cost--conditional {
     background-color: orange;

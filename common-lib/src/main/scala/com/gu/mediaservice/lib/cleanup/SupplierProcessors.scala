@@ -1,20 +1,10 @@
 package com.gu.mediaservice.lib.cleanup
 
-import com.gu.mediaservice.model.{NoRights, Agency, Image, StaffPhotographer, ContractPhotographer}
+import com.gu.mediaservice.model.{NoRights, Agency, Agencies, Image, StaffPhotographer, ContractPhotographer}
 import com.gu.mediaservice.lib.config.PhotographersList
 
 trait ImageProcessor {
   def apply(image: Image): Image
-}
-
-object Agencies {
-  // TODO: Only doing this for Getty to try out weighting in search
-  val all = Map(
-    "getty" -> Agency("Getty Images")
-  )
-
-  def getWithCollection(id: String, suppliersCollection: Option[String]) =
-    all.get(id).map(_.copy(suppliersCollection = suppliersCollection))
 }
 
 object SupplierProcessors {
@@ -60,7 +50,7 @@ object PhotographerParser extends ImageProcessor {
 object AapParser extends ImageProcessor {
   def apply(image: Image): Image = image.metadata.credit match {
     case Some("AAPIMAGE") | Some("AAP IMAGE") | Some("AAP") => image.copy(
-      usageRights = Agency("AAP"),
+      usageRights = Agencies.get("aap"),
       metadata    = image.metadata.copy(credit = Some("AAP"))
     )
     case _ => image
@@ -79,7 +69,7 @@ object ActionImagesParser extends ImageProcessor {
 object AlamyParser extends ImageProcessor {
   def apply(image: Image): Image = image.metadata.credit match {
     case Some("Alamy") | Some("Alamy Stock Photo") => image.copy(
-      usageRights = Agency("Alamy")
+      usageRights = Agencies.get("alamy")
     )
     case _ => image
   }
@@ -264,9 +254,8 @@ object ReutersParser extends ImageProcessor {
 }
 
 object RexParser extends ImageProcessor {
-  val rexAgency = Agency("Rex Features")
+  val rexAgency = Agencies.get("rex")
   val SlashRex = ".+/ Rex Features".r
-
 
   def apply(image: Image): Image = (image.metadata.source, image.metadata.credit) match {
     // TODO: cleanup byline/credit

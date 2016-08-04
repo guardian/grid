@@ -3,10 +3,15 @@ package lib
 import com.amazonaws.services.ec2.AmazonEC2Client
 import com.amazonaws.auth.{BasicAWSCredentials, AWSCredentials}
 import scalaz.syntax.id._
+import scala.util.Try
 
 import com.gu.mediaservice.lib.elasticsearch.EC2._
 import com.gu.mediaservice.lib.config.{Properties, CommonPlayAppConfig, CommonPlayAppProperties}
 
+case class UsageStoreConfig(
+  storeBucket: String,
+  storeKey: String
+)
 
 object Config extends CommonPlayAppConfig with CommonPlayAppProperties {
 
@@ -18,6 +23,14 @@ object Config extends CommonPlayAppConfig with CommonPlayAppProperties {
     new BasicAWSCredentials(properties("aws.id"), properties("aws.secret"))
 
   val keyStoreBucket: String = properties("auth.keystore.bucket")
+
+  val configBucket: String = properties("s3.config.bucket")
+
+  val usageStoreKey: Option[String] = properties.get("usage.store.key")
+
+  val usageStoreConfig: Option[UsageStoreConfig] = for {
+    key <- usageStoreKey
+  } yield UsageStoreConfig(configBucket, key)
 
   val ec2Client: AmazonEC2Client =
     new AmazonEC2Client(awsCredentials) <| (_ setEndpoint awsEndpoint)
@@ -43,7 +56,6 @@ object Config extends CommonPlayAppConfig with CommonPlayAppProperties {
 
   val topicArn: String = properties("sns.topic.arn")
 
-  val configBucket: String = properties("s3.config.bucket")
 
   val mixpanelToken: Option[String] = properties.get("mixpanel.token").filterNot(_.isEmpty)
 
@@ -78,4 +90,17 @@ object Config extends CommonPlayAppConfig with CommonPlayAppProperties {
       .map(_.toDouble)
       .getOrElse[Double](0.0)
   )
+
+  def convertToInt(s: String): Option[Int] = Try { s.toInt }.toOption
+
+  // Quota Config
+  val rexQuotaConfig   = properties.get("usage.quota.rex").flatMap(convertToInt)
+  val aapQuotaConfig   = properties.get("usage.quota.aap").flatMap(convertToInt)
+  val alamyQuotaConfig = properties.get("usage.quota.alamy").flatMap(convertToInt)
+
+  val quotaConfig = Map[String,Int]() ++
+    rexQuotaConfig.map(n => "rex" -> n) ++
+    aapQuotaConfig.map(n => "aap" -> n) ++
+    alamyQuotaConfig.map(n => "alamy" -> n)
+
 }

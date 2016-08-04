@@ -130,6 +130,14 @@
                     <gr-icon>warning</gr-icon>
                 </div>
 
+                <div ng:switch-when="overquota"
+                     class="cost cost--overquota"
+                     title="Quota for images from this supplier has been exceeded!">
+
+                    <!-- material icons doesn't have a £ icon -->
+                    <gr-icon>trending_up</gr-icon>
+                </div>
+
                 <div ng:switch-when="pay"
                      class="cost cost--pay"
                      title="Pay to use">

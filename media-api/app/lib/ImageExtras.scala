@@ -6,13 +6,17 @@ import play.api.libs.functional.syntax._
 import com.gu.mediaservice.model._
 import lib.usagerights.CostCalculator
 
+
 object ImageExtras {
+
+  object Costing extends CostCalculator
 
   val validityDescription = Map(
     "no_rights"                   -> "No rights to use this image",
     "missing_credit"              -> "Missing credit information",
     "missing_description"         -> "Missing description",
-    "paid_image"                  -> "Paid imagery requires a lease"
+    "paid_image"                  -> "Paid imagery requires a lease",
+    "over_quota"                  -> "The quota for this supplier has been exceeded"
   )
 
   private def optToBool[T](o: Option[T]): Boolean =
@@ -25,15 +29,23 @@ object ImageExtras {
   def hasCredit(meta: ImageMetadata) = optToBool(meta.credit)
   def hasDescription(meta: ImageMetadata) = optToBool(meta.description)
 
-  def hasCurrentAllowLease(leases: LeaseByMedia) = optToBool(leases.current.map(_.access.name == "allow"))
-  def hasCurrentDenyLease(leases: LeaseByMedia) = optToBool(leases.current.map(_.access.name == "deny"))
+  def hasCurrentAllowLease(leases: LeaseByMedia) =
+    optToBool(leases.current.map(_.access.name == "allow"))
+  def hasCurrentDenyLease(leases: LeaseByMedia) =
+    optToBool(leases.current.map(_.access.name == "deny"))
+
+  import scala.concurrent.Await
+  import scala.util.Try
+  import scala.concurrent.duration._
+  import com.gu.mediaservice.lib.FeatureToggle
 
   def validityMap(image: Image): Map[String, Boolean] = Map(
-    "paid_image"           -> CostCalculator.isPay(image.usageRights),
+    "paid_image"           -> Costing.isPay(image.usageRights),
     "no_rights"            -> !hasRights(image.usageRights),
     "missing_credit"       -> !hasCredit(image.metadata),
     "missing_description"  -> !hasDescription(image.metadata),
-    "current_deny_lease"   -> hasCurrentDenyLease(image.leases)
+    "current_deny_lease"   -> hasCurrentDenyLease(image.leases),
+    "over_quota"           -> UsageQuota.isOverQuota(image.usageRights)
   )
 
   def validityOverrides(image: Image): Map[String, Boolean] = Map(

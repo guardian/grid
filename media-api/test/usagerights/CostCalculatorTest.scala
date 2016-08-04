@@ -7,9 +7,17 @@ class CostCalculatorTest extends FunSpec with Matchers {
 
   describe("from usage rights") {
 
+    object Costing extends CostCalculator {
+      override def getOverQuota(usageRights: UsageRights) = None
+    }
+
+    object OverQuotaCosting extends CostCalculator {
+      override def getOverQuota(usageRights: UsageRights) = Some(Overquota)
+    }
+
     it("should be free with a free category") {
       val usageRights = Handout()
-      val cost = CostCalculator.getCost(usageRights)
+      val cost = Costing.getCost(usageRights)
 
       cost should be (Free)
     }
@@ -18,21 +26,28 @@ class CostCalculatorTest extends FunSpec with Matchers {
       val usageRights = Handout(
         restrictions = Some("Restrictions")
       )
-      val cost = CostCalculator.getCost(usageRights)
+      val cost = Costing.getCost(usageRights)
 
       cost should be (Conditional)
     }
 
     it("should be free with a free supplier") {
       val usageRights = Agency("Getty Images")
-      val cost = CostCalculator.getCost(usageRights)
+      val cost = Costing.getCost(usageRights)
 
       cost should be (Free)
     }
 
+    it("should be overquota with an overquota supplier") {
+      val usageRights = Agency("Getty Images")
+      val cost = OverQuotaCosting.getCost(usageRights)
+
+      cost should be (Overquota)
+    }
+
     it("should not be pay-for with a free supplier but excluded collection") {
       val usageRights = Agency("Getty Images", Some("Terry O'Neill"))
-      val cost = CostCalculator.getCost(usageRights)
+      val cost = Costing.getCost(usageRights)
 
       cost should be (Pay)
     }
