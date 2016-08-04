@@ -33,6 +33,21 @@ object UsageHelper {
     )
   })
 
+  def getStoreAccess(): Future[StoreAccess] = for {
+    store <- Future { usageStore.get }.recover {
+      case _ => throw new BadQuotaConfig }
+
+    storeAccess <- store.getUsageStatus()
+  } yield storeAccess
+
+  def getOverQuotaSuppliers(): Future[List[String]] = for {
+    storeAccess <- getStoreAccess()
+    usageStatus = storeAccess.store
+  } yield usageStatus.values
+    .filter(_.exceeded)
+    .map(_.usage.agency.supplier)
+    .toList
+
   def usageStatusForUsageRights(usageRights: UsageRights): Future[UsageStatus] = {
     val usageStatusFutureOption = usageStore
       .map(_.getUsageStatusForUsageRights(usageRights))
@@ -65,9 +80,6 @@ object UsageHelper {
 object UsageController extends Controller with ArgoHelpers {
   val Authenticated = Authed.action
 
-  val badConfigError = Future(
-    respondError(InternalServerError, "usage-quotas-badconfig", "Missing config for UsageStore"))
-
   def quotaForImage(id: String) = Authenticated.async { request =>
     UsageHelper.usageStatusForImage(id)
       .map((u: UsageStatus) => respond(u))
@@ -80,10 +92,11 @@ object UsageController extends Controller with ArgoHelpers {
   }
 
   def quotas() = Authenticated.async { request =>
-    val usageStatusAccess = UsageHelper.usageStore.map(_.getUsageStatus)
-
-    usageStatusAccess.map(statusAccess => {
-      statusAccess.map((status: StoreAccess) => respond(status))
-    }).getOrElse(badConfigError)
+    UsageHelper.getStoreAccess()
+      .map((s: StoreAccess) => respond(s))
+      .recover {
+        case e: BadQuotaConfig => respondError(InternalServerError, "bad-quota-config", e.toString)
+        case e => respondError(InternalServerError, "unknown-error", e.toString)
+      }
   }
 }

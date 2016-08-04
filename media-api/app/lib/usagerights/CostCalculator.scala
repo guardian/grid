@@ -1,5 +1,6 @@
 package lib.usagerights
 
+import lib.ImageExtras
 import com.gu.mediaservice.lib.config.UsageRightsConfig
 import com.gu.mediaservice.model._
 
@@ -25,7 +26,14 @@ object CostCalculator {
         case _ => None
       }
 
+      val overQuota: Option[Cost] = if (ImageExtras.isOverQuota(usageRights)) {
+        Some(Pay)
+      } else {
+        None
+      }
+
       restricted
+        .orElse(overQuota)
         .orElse(categoryCost)
         .orElse(supplierCost)
         .getOrElse(defaultCost)

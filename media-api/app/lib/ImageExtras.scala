@@ -34,12 +34,12 @@ object ImageExtras {
   import scala.util.Try
   import scala.concurrent.duration._
 
-  def hasRemainingQuota(rights: UsageRights) = !(Try {Await.result(
+  def isOverQuota(rights: UsageRights) = Try {Await.result(
     UsageHelper.usageStatusForUsageRights(rights),
-    1000.millis)
+    100.millis)
   }.toOption
     .map(_.exceeded)
-    .getOrElse(false))
+    .getOrElse(false)
 
   def validityMap(image: Image): Map[String, Boolean] = Map(
     "paid_image"           -> CostCalculator.isPay(image.usageRights),
@@ -47,7 +47,7 @@ object ImageExtras {
     "missing_credit"       -> !hasCredit(image.metadata),
     "missing_description"  -> !hasDescription(image.metadata),
     "current_deny_lease"   -> hasCurrentDenyLease(image.leases),
-    "over_quota"           -> !hasRemainingQuota(image.usageRights)
+    "over_quota"           -> isOverQuota(image.usageRights)
   )
 
   def validityOverrides(image: Image): Map[String, Boolean] = Map(
