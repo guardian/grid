@@ -86,6 +86,40 @@ object UsageApi extends Controller with ArgoHelpers {
 
   }
 
+  def reindexForContent(contentId: String) = Authenticated.async {
+    import com.gu.contentapi.client.GuardianContentClient
+    import com.gu.contentapi.client.model.ItemQuery
+    import org.joda.time.DateTime
+    import lib.{LiveContentApi, UsageStream, LiveCrierContentStream}
+    import model.UsageGroup
+
+    val contentStream = LiveCrierContentStream
+    val capi = LiveContentApi
+    val date = new DateTime()
+    val query = ItemQuery(contentId)
+      .showFields("all")
+      .showElements("all")
+
+    val result = capi.getResponse(query).map(response => {
+      response.content match {
+        case Some(content) => {
+          val contentFirstPublished =
+            LiveContentApi.getContentFirstPublished(content)
+          val container = contentFirstPublished
+            .map(new LiveContentItem(content, _))
+            .map(_.copy(isReindex = true))
+
+          container.map(contentStream.observable.onNext(_))
+        }
+        case _ => Unit
+      }
+    })
+
+    result
+      .map(_ => Accepted)
+      .recover{ case _  => InternalServerError }
+  }
+
   def forMedia(mediaId: String) = Authenticated.async {
     val usagesFuture = UsageTable.queryByImageId(mediaId)
 

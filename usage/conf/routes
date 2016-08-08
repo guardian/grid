@@ -4,6 +4,8 @@ GET     /usages/:id                                     controllers.UsageApi.for
 GET     /usages/media/:mediaId                          controllers.UsageApi.forMedia(mediaId: String)
 POST    /usages/print                                   controllers.UsageApi.setPrintUsages
 
+GET     /usages/digital/content/*contentId/reindex      controllers.UsageApi.reindexForContent(contentId: String)
+
 # Management
 GET     /management/healthcheck                         com.gu.mediaservice.lib.management.Management.healthCheck
 GET     /management/manifest                            com.gu.mediaservice.lib.management.Management.manifest

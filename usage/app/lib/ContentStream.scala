@@ -18,7 +18,8 @@ object PreviewCrierContentStream extends ContentStream {
 trait ContentContainer {
   val content: Content
   val lastModified: DateTime
+  val isReindex: Boolean
 }
 
-case class LiveContentItem(content: Content, lastModified: DateTime) extends ContentContainer
-case class PreviewContentItem(content: Content, lastModified: DateTime) extends ContentContainer
+case class LiveContentItem(content: Content, lastModified: DateTime, isReindex: Boolean = false) extends ContentContainer
+case class PreviewContentItem(content: Content, lastModified: DateTime, isReindex: Boolean = false) extends ContentContainer

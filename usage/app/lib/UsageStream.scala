@@ -19,15 +19,14 @@ object UsageStream {
   val liveObservable: Observable[UsageGroup] = getObservable(liveContentStream)
 
   def createStatus(container: ContentContainer) = container match {
-    case PreviewContentItem(_,_) => PendingUsageStatus()
-    case LiveContentItem(_,_) => PublishedUsageStatus()
+    case PreviewContentItem(_,_,_) => PendingUsageStatus()
+    case LiveContentItem(_,_,_) => PublishedUsageStatus()
   }
 
   private def getObservable(contentStream: Observable[ContentContainer]) = {
     contentStream.flatMap((container: ContentContainer) => {
-
       val usageGroupOption: Option[Option[UsageGroup]] = UsageGroup
-        .build(container.content, createStatus(container), container.lastModified)
+        .build(container.content, createStatus(container), container.lastModified, container.isReindex)
 
       val observable: Observable[UsageGroup] = usageGroupOption match {
         case Some(usageGroup) => Observable.from(usageGroup)

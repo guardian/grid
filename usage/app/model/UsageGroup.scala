@@ -5,7 +5,7 @@ import com.gu.contentapi.client.model.v1.{ElementType, Element}
 import com.gu.mediaservice.model.{PrintUsageRecord, UsageStatus}
 import com.gu.mediaservice.model.{PendingUsageStatus, PublishedUsageStatus}
 
-import lib.{MD5, Config}
+import lib.{LiveContentApi, MD5, Config}
 import org.joda.time.{DateTime, DateTimeZone}
 
 
@@ -13,7 +13,8 @@ case class UsageGroup(
   usages: Set[MediaUsage],
   grouping: String,
   status: UsageStatus,
-  lastModified: DateTime
+  lastModified: DateTime,
+  isReindex: Boolean = false
 )
 object UsageGroup {
 
@@ -25,10 +26,10 @@ object UsageGroup {
     Some(printUsage.printUsageMetadata.issueDate)
   ).flatten.map(_.toString).mkString("_"))}"
 
-  def build(content: Content, status: UsageStatus, lastModified: DateTime) =
+  def build(content: Content, status: UsageStatus, lastModified: DateTime, isReindex: Boolean) =
     ContentWrapper.build(content, status, lastModified).map(contentWrapper => {
-      createUsages(contentWrapper).map(usages => {
-        UsageGroup(usages.toSet, contentWrapper.id, status, lastModified)
+      createUsages(contentWrapper, isReindex).map(usages => {
+        UsageGroup(usages.toSet, contentWrapper.id, status, lastModified, isReindex)
       })
     })
 
@@ -44,28 +45,25 @@ object UsageGroup {
       )
     })
 
-  def createUsages(contentWrapper: ContentWrapper) =
+  def createUsages(contentWrapper: ContentWrapper, isReindex: Boolean) =
     extractImages(
       contentWrapper.content,
-      contentWrapper.status
+      contentWrapper.status,
+      isReindex
     ).map(_.zipWithIndex.map{ case (element, index) =>
       MediaUsage.build(ElementWrapper(index, element), contentWrapper)
     })
 
-  def extractImages(content: Content, usageStatus: UsageStatus) = {
+  def extractImages(content: Content, usageStatus: UsageStatus, isReindex: Boolean) = {
 
     val dateLimit = new DateTime(Config.usageDateLimit)
+    val contentFirstPublished = LiveContentApi.getContentFirstPublished(content)
 
     val shouldRecordUsages = (usageStatus match {
-      case _: PublishedUsageStatus => (for {
-        fields <- content.fields
-        firstPublicationDate <- fields.firstPublicationDate
-        date = new DateTime(firstPublicationDate , DateTimeZone.UTC)
-        if date.isAfter(dateLimit)
-      } yield true).getOrElse(false)
-
+      case _: PublishedUsageStatus => contentFirstPublished
+        .map(_.isAfter(dateLimit)).getOrElse(false)
       case _ => true
-    })
+    }) || isReindex
 
     def groupImageElements = content.elements.map(elements => {
       elements.filter(_.`type` == ElementType.Image)
