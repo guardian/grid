@@ -22,7 +22,6 @@ object filters {
     termFilter
   }
 
-
   def date(field: String, from: Option[DateTime], to: Option[DateTime]): Option[FilterBuilder] =
     if (from.isDefined || to.isDefined) {
       val builder = rangeFilter(field)
