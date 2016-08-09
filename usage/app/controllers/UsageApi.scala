@@ -114,7 +114,7 @@ object UsageApi extends Controller with ArgoHelpers {
     result
       .map(_ => Accepted)
       .recover { case error: Exception => {
-        Logger.error("UsageApi reindex for for content failed!", error)
+        Logger.error(s"UsageApi reindex for for content (${contentId}) failed!", error)
         InternalServerError
       }}
   }
