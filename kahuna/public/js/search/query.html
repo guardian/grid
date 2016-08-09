@@ -31,11 +31,23 @@
         <ul class="search__modifier search__filter" ng:class="filtersShown ? 'search__filter--show' : 'search__filter--hide'">
             <li class="search__modifier-item">
             <label>
+               <!-- minor mindfuck logic as we want an optional flag
+                            when the option is off -->
                 <input type="checkbox"
                     ng:model="searchQuery.filter.nonFree"
                     ng:true-value="undefined"
                     ng:false-value="'true'" />
                 Free to use only
+
+                <!-- TODO: Decide on correct cost filter model -->
+                <!--
+                <select ng:init="searchQuery.filter.payType = searchQuery.filter.payType || 'free'"
+                        ng:model="searchQuery.filter.payType"
+                        ng-options="item.value as item.label for item in searchQuery.payTypeOptions">
+
+                </select>
+                -->
+
             </label>
             </li>
 
@@ -44,17 +56,6 @@
                 <input type="checkbox"
                     ng:model="searchQuery.filter.uploadedByMe" />
                 Your uploads
-            </label>
-            </li>
-
-            <li class="search__modifier-item"
-                ng:if="searchQuery.weightsFeatureToggle">
-            <label>
-                <input type="checkbox"
-                    ng:true-value="'true'"
-                    ng:false-value="undefined"
-                    ng:model="searchQuery.filter.supplierWeights" />
-                Supplier weighting
             </label>
             </li>
 
