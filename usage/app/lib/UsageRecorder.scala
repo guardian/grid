@@ -82,9 +82,6 @@ object UsageRecorder {
       val updates = (if(usageGroup.isReindex) { Set() } else {usageGroup.usages & dbUsageGroup.usages})
         .map(UsageTable.update)
 
-      //val creates = (usageGroup.usages -- dbUsageGroup.usages).map(UsageTable.create)
-      //val updates = (usageGroup.usages & dbUsageGroup.usages).map(UsageTable.update)
-
       Observable.from(deletes ++ updates ++ creates).flatten[JsObject]
         .map(recordUpdate)
         .toSeq.map(MatchedUsageUpdate(_, matchUsageGroup))
