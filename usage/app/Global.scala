@@ -30,7 +30,7 @@ object Global extends WithFilters(CorsFilter, RequestLoggingFilter, new GzipFilt
   }
 
   override def onStop(app: Application) {
-    //previewSubscription.unsubscribe
-    //liveSubscription.unsubscribe
+    previewSubscription.unsubscribe
+    liveSubscription.unsubscribe
   }
 }
