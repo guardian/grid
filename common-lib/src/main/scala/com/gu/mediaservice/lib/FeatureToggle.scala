@@ -3,7 +3,7 @@ package com.gu.mediaservice.lib
 object FeatureToggle {
   val defaultSwitchMap: Map[String, Boolean] = Map(
     "cloudfront-signing" -> true,
-    "usage-quota-ui" -> false
+    "usage-quota-ui" -> true
   )
 
   def get(id: String): Boolean =
