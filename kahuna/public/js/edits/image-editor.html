@@ -64,11 +64,12 @@
                    ng:switch-when="ready"
                    ui:sref="image({imageId: ctrl.image.data.id})">View image ▸</a>
 
-                <span class="result-editor__status status status--invalid"
-                      ng:switch-when="invalid">
+                <a class="result-editor__status status status--invalid"
+                   ng:switch-when="invalid"
+                   ui:sref="image({imageId: ctrl.image.data.id})">
                         Invalid
-                    <gr-icon title="You need to add both a credit and description.">help</gr-icon>
-                </span>
+                    <gr-icon title="This image will be uncroppable">help</gr-icon>
+                </a>
             </div>
 
             <gr-archiver-status class="result-editor__archiver"
