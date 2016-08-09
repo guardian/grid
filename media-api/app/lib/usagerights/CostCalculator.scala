@@ -15,6 +15,9 @@ trait CostCalculator {
       if (free) Some(Free) else None
   }
 
+  def isConditional(usageRights: UsageRights): Boolean =
+    getCost(usageRights) == Conditional
+
   def isPay(usageRights: UsageRights): Boolean =
     getCost(usageRights) == Pay
 

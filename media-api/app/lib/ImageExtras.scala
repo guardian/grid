@@ -16,7 +16,8 @@ object ImageExtras {
     "missing_credit"              -> "Missing credit information",
     "missing_description"         -> "Missing description",
     "paid_image"                  -> "Paid imagery requires a lease",
-    "over_quota"                  -> "The quota for this supplier has been exceeded"
+    "over_quota"                  -> "The quota for this supplier has been exceeded",
+    "conditional_paid"            -> "This image is restricted use"
   )
 
   private def optToBool[T](o: Option[T]): Boolean =
@@ -41,6 +42,7 @@ object ImageExtras {
 
   def validityMap(image: Image): Map[String, Boolean] = Map(
     "paid_image"           -> Costing.isPay(image.usageRights),
+    "conditional_paid"     -> Costing.isConditional(image.usageRights),
     "no_rights"            -> !hasRights(image.usageRights),
     "missing_credit"       -> !hasCredit(image.metadata),
     "missing_description"  -> !hasDescription(image.metadata),
