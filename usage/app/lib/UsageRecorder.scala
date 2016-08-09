@@ -77,8 +77,10 @@ object UsageRecorder {
       val usageGroup   = matchUsageGroup.usageGroup
 
       val deletes = (dbUsageGroup.usages -- usageGroup.usages).map(UsageTable.delete)
-      val creates = (usageGroup.usages -- dbUsageGroup.usages).map(UsageTable.create)
-      val updates = (usageGroup.usages & dbUsageGroup.usages).map(UsageTable.update)
+      val creates = (if(usageGroup.isReindex) { usageGroup.usages } else {(usageGroup.usages -- dbUsageGroup.usages)})
+        .map(UsageTable.create)
+      val updates = (if(usageGroup.isReindex) { Set() } else {usageGroup.usages & dbUsageGroup.usages})
+        .map(UsageTable.update)
 
       Observable.from(deletes ++ updates ++ creates).flatten[JsObject]
         .map(recordUpdate)
