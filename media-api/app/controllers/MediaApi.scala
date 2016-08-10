@@ -48,7 +48,7 @@ object MediaApi extends Controller with ArgoHelpers {
     "since", "until", "modifiedSince", "modifiedUntil", "takenSince", "takenUntil",
     "uploadedBy", "archived", "valid", "free", "payType",
     "hasExports", "hasIdentifier", "missingIdentifier", "hasMetadata",
-    "persisted", "usageStatus", "usagePlatform", "supplierWeights").mkString(",")
+    "persisted", "usageStatus", "usagePlatform").mkString(",")
 
   val searchLinkHref = s"$rootUri/images{?$searchParamList}"
 
@@ -346,8 +346,7 @@ case class SearchParams(
   hasMetadata: List[String],
   persisted: Option[Boolean],
   usageStatus: List[String],
-  usagePlatform: List[String],
-  supplierWeights: Option[Boolean]
+  usagePlatform: List[String]
 )
 
 case class InvalidUriParams(message: String) extends Throwable
@@ -415,8 +414,7 @@ object SearchParams {
       commaSep("hasMetadata"),
       request.getQueryString("persisted") flatMap parseBooleanFromQuery,
       commaSep("usageStatus"),
-      commaSep("usagePlatform"),
-      request.getQueryString("supplierWeights") flatMap parseBooleanFromQuery
+      commaSep("usagePlatform")
     )
   }
 
@@ -439,7 +437,6 @@ object SearchParams {
       "missingIdentifier" -> searchParams.missingIdentifier,
       "valid"             -> searchParams.valid.map(_.toString),
       "free"              -> searchParams.free.map(_.toString),
-      "supplierWeights"   -> searchParams.supplierWeights.map(_.toString),
       "payType"           -> searchParams.payType.map(_.toString),
       "uploadedBy"        -> searchParams.uploadedBy,
       "labels"            -> listToCommas(searchParams.labels),

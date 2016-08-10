@@ -83,14 +83,6 @@ object Config extends CommonPlayAppConfig with CommonPlayAppProperties {
 
   val persistenceIdentifier = properties("persistence.identifier")
   val queriableIdentifiers = Seq(persistenceIdentifier)
-
-  val supplierWeights = Map[String, Double](
-    "getty" -> properties
-      .get("search.weighting.supplier.getty")
-      .map(_.toDouble)
-      .getOrElse[Double](0.0)
-  )
-
   def convertToInt(s: String): Option[Int] = Try { s.toInt }.toOption
 
   // Quota Config
@@ -102,5 +94,4 @@ object Config extends CommonPlayAppConfig with CommonPlayAppProperties {
     rexQuotaConfig.map(n => "rex" -> n) ++
     aapQuotaConfig.map(n => "aap" -> n) ++
     alamyQuotaConfig.map(n => "alamy" -> n)
-
 }

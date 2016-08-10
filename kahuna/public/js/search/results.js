@@ -309,9 +309,9 @@ results.controller('SearchResultsCtrl', [
             }
 
             return mediaApi.search($stateParams.query, angular.extend({
-                ids:             $stateParams.ids,
-                archived:        $stateParams.archived,
-                free:            $stateParams.nonFree === 'true' ? undefined: true,
+                ids:        $stateParams.ids,
+                archived:   $stateParams.archived,
+                free:       $stateParams.nonFree === 'true' ? undefined: true,
                 // Disabled while paytype filter unavailable
                 //payType:    $stateParams.payType || 'free',
                 uploadedBy: $stateParams.uploadedBy,
@@ -323,8 +323,7 @@ results.controller('SearchResultsCtrl', [
                 since:      since,
                 offset:     offset,
                 length:     length,
-                orderBy:    orderBy,
-                supplierWeights: $stateParams.supplierWeights === 'true' ? true : undefined
+                orderBy:    orderBy
             }));
         }
 

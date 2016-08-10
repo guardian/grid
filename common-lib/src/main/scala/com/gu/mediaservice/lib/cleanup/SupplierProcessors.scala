@@ -1,6 +1,6 @@
 package com.gu.mediaservice.lib.cleanup
 
-import com.gu.mediaservice.model.{NoRights, Agency, Agencies, Image, StaffPhotographer, ContractPhotographer}
+import com.gu.mediaservice.model.{Agencies, Agency, Image, StaffPhotographer, ContractPhotographer}
 import com.gu.mediaservice.lib.config.PhotographersList
 
 trait ImageProcessor {
@@ -166,7 +166,7 @@ object EpaParser extends ImageProcessor {
 
 trait GettyProcessor {
   def gettyAgencyWithCollection(suppliersCollection: Option[String]) =
-    Agencies.getWithCollection("getty", suppliersCollection)
+    Agency("Getty Images", suppliersCollection = suppliersCollection)
 }
 
 object GettyXmpParser extends ImageProcessor with GettyProcessor {
@@ -182,7 +182,7 @@ object GettyXmpParser extends ImageProcessor with GettyProcessor {
   def apply(image: Image): Image = (excludedCredit(image.metadata.credit), image.fileMetadata.getty.isEmpty) match {
     // Only images supplied by Getty have getty fileMetadata
     case (false, false) => image.copy(
-      usageRights = gettyAgencyWithCollection(image.metadata.source).getOrElse(NoRights),
+      usageRights = gettyAgencyWithCollection(image.metadata.source),
       // Set a default "credit" for when Getty is too lazy to provide one
       metadata    = image.metadata.copy(credit = Some(image.metadata.credit.getOrElse("Getty Images")))
     )
@@ -200,7 +200,7 @@ object GettyCreditParser extends ImageProcessor with GettyProcessor {
 
   def apply(image: Image): Image = image.metadata.credit match {
     case Some(IncludesGetty()) | Some(ViaGetty()) | Some(SlashGetty()) => image.copy(
-       usageRights = gettyAgencyWithCollection(image.metadata.source).getOrElse(NoRights)
+       usageRights = gettyAgencyWithCollection(image.metadata.source)
     )
     case Some(credit) => knownGettyCredits(image, credit)
     case _ => image
@@ -209,7 +209,7 @@ object GettyCreditParser extends ImageProcessor with GettyProcessor {
   def knownGettyCredits(image: Image, credit: String): Image =
     gettyCredits.find(_.toLowerCase == credit.toLowerCase) match {
       case collection @ Some(_) => image.copy(
-        usageRights = gettyAgencyWithCollection(collection).getOrElse(NoRights)
+        usageRights = gettyAgencyWithCollection(collection)
       )
       case _ => image
     }
