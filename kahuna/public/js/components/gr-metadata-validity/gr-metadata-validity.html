@@ -1,5 +1,5 @@
 <div ng:if="!image.data.valid" class="image-notice image-info__group validity validity--invalid validity--invalid--point-up">
-    <strong>Invalid Image</strong>
+    <strong>Unusable Image <gr-icon title="This image cannot be used in content, a lease is required.">help</gr-icon></strong>
     <ul>
         <li ng:repeat="(key, reason) in image.data.invalidReasons">
             {{reason}}
