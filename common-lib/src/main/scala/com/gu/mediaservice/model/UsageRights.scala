@@ -259,14 +259,10 @@ final case class GuardianWitness(restrictions: Option[String] = None) extends Us
 }
 object GuardianWitness extends UsageRightsSpec {
   val category = "guardian-witness"
-  val defaultCost = Some(Conditional)
+  val defaultCost = Some(Free)
   val name = "GuardianWitness"
   val description =
     "Images provided by readers in response to callouts and assignments on GuardianWitness."
-
-  override val defaultRestrictions = Some(
-    "Contact the GuardianWitness desk before use (witness.editorial@theguardian.com)!"
-  )
 
   implicit val formats: Format[GuardianWitness] =
     UsageRights.subtypeFormat(GuardianWitness.category)(Json.format[GuardianWitness])
@@ -297,14 +293,11 @@ final case class Obituary(restrictions: Option[String] = None) extends UsageRigh
 }
 object Obituary extends UsageRightsSpec {
   val category = "obituary"
-  val defaultCost = Some(Conditional)
+  val defaultCost = Some(Free)
   val name = "Obituary"
   val description =
     "Images acquired from private sources, e.g. family members, for the purposes of obituaries."
 
-  override val defaultRestrictions = Some(
-    "Only to be used in context with person's obituary"
-  )
   implicit val formats: Format[Obituary] =
     UsageRights.subtypeFormat(Obituary.category)(Json.format[Obituary])
 }
