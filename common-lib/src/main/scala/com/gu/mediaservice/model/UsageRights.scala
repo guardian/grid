@@ -293,14 +293,11 @@ final case class Obituary(restrictions: Option[String] = None) extends UsageRigh
 }
 object Obituary extends UsageRightsSpec {
   val category = "obituary"
-  val defaultCost = Some(Conditional)
+  val defaultCost = Some(Free)
   val name = "Obituary"
   val description =
     "Images acquired from private sources, e.g. family members, for the purposes of obituaries."
 
-  override val defaultRestrictions = Some(
-    "Only to be used in context with person's obituary"
-  )
   implicit val formats: Format[Obituary] =
     UsageRights.subtypeFormat(Obituary.category)(Json.format[Obituary])
 }
