@@ -41,7 +41,6 @@ object MetadataConfig {
 
   val externalStaffPhotographers: Map[String, String] = Map(
     // Current
-    "Alicia Canter"   -> "The Guardian",
     "Ben Doherty"     -> "The Guardian",
     "Bill Code"       -> "The Guardian",
     "Calla Wahlquist" -> "The Guardian",
@@ -94,6 +93,7 @@ object MetadataConfig {
   val staffPhotographers = externalStaffPhotographers ++ internalStaffPhotographers
 
   val contractedPhotographers: Map[String, String] = Map(
+    "Alicia Canter"       -> "The Guardian",
     "Antonio Zazueta"     -> "The Guardian",
     "Christopher Thomond" -> "The Guardian",
     "David Levene"        -> "The Guardian",
