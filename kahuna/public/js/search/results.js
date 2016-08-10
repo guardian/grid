@@ -157,7 +157,9 @@ results.controller('SearchResultsCtrl', [
             // results), unless we're reloading a previous search in
             // which case we reuse the previous time too
 
-            const latestTime = moment().toISOString();
+            const until = $stateParams.until || null;
+            const latestTime = until || moment().toISOString();
+
             if (latestTime && ! isReloadingPreviousSearch) {
                 lastSearchFirstResultTime = latestTime;
             }
