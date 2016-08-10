@@ -25,7 +25,7 @@ sealed trait UsageRightsSpec {
 object UsageRights {
   val all = List(
     NoRights, Handout, PrImage, Screengrab, SocialMedia,
-    Agency, CommissionedAgency, Chargeable,
+    Agency, CommissionedAgency, Chargeable, Cutouts,
     StaffPhotographer, ContractPhotographer, CommissionedPhotographer,
     CreativeCommons, GuardianWitness, Pool, CrownCopyright, Obituary,
     ContractIllustrator, CommissionedIllustrator, StaffIllustrator,
@@ -61,6 +61,7 @@ object UsageRights {
     case o: Screengrab => Screengrab.formats.writes(o)
     case o: GuardianWitness => GuardianWitness.formats.writes(o)
     case o: SocialMedia => SocialMedia.formats.writes(o)
+    case o: Cutouts => Cutouts.formats.writes(o)
     case o: Obituary => Obituary.formats.writes(o)
     case o: StaffPhotographer => StaffPhotographer.formats.writes(o)
     case o: ContractPhotographer => ContractPhotographer.formats.writes(o)
@@ -93,6 +94,7 @@ object UsageRights {
         case Screengrab.category => json.asOpt[Screengrab]
         case GuardianWitness.category => json.asOpt[GuardianWitness]
         case SocialMedia.category => json.asOpt[SocialMedia]
+        case Cutouts.category => json.asOpt[Cutouts]
         case Obituary.category => json.asOpt[Obituary]
         case StaffPhotographer.category => json.asOpt[StaffPhotographer]
         case ContractPhotographer.category => json.asOpt[ContractPhotographer]
@@ -287,6 +289,19 @@ object SocialMedia extends UsageRightsSpec {
     UsageRights.subtypeFormat(SocialMedia.category)(Json.format[SocialMedia])
 }
 
+final case class Cutouts(restrictions: Option[String] = None) extends UsageRights {
+  val defaultCost = Cutouts.defaultCost
+}
+object Cutouts extends UsageRightsSpec {
+  val category = "cutouts"
+  val defaultCost = Some(Free)
+  val name = "Cutouts"
+  val description =
+    "Circular bylines of panelists and cutouts for fronts"
+
+  implicit val formats: Format[Cutouts] =
+    UsageRights.subtypeFormat(Cutouts.category)(Json.format[Cutouts])
+}
 
 final case class Obituary(restrictions: Option[String] = None) extends UsageRights {
   val defaultCost = Obituary.defaultCost
