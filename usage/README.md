@@ -2,5 +2,5 @@
 
 ## Requirements
 
-- You need to have capi Kinesis Read credentials from Janus
-- You need to have media-service Dynamo credentials from Janus
+- Fill in the user.name property in `usage.properties` file
+- For the first time you run the app, you will need to have cloudformation credentials from janus.

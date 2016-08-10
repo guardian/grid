@@ -46,6 +46,8 @@ object Config extends CommonPlayAppProperties with CommonPlayAppConfig {
 
   val usageDateLimit = Try(properties("usage.dateLimit")).getOrElse(defaultDateLimit)
 
+  val userName = properties("user.name")
+
   val topicArn = properties("sns.topic.arn")
   val composerBaseUrl = properties("composer.baseUrl")
 
@@ -62,8 +64,14 @@ object Config extends CommonPlayAppProperties with CommonPlayAppConfig {
   val crierLiveArn = Try { properties("crier.live.arn") }
   val crierPreviewArn = Try { properties("crier.preview.arn") }
 
-  val liveAppName = s"media-service-livex-${stage}"
-  val previewAppName = s"media-service-previewx-${stage}"
+  val postfix = if (stage == "DEV")
+    userName
+   else
+    stage
+
+
+  val liveAppName = s"media-service-livex-${postfix}"
+  val previewAppName = s"media-service-previewx-${postfix}"
 
   val liveKinesisReaderConfig: Try[KinesisReaderConfig] = for {
     liveStream <- crierLiveKinesisStream
@@ -78,17 +86,4 @@ object Config extends CommonPlayAppProperties with CommonPlayAppConfig {
   val credentialsProvider = new AWSCredentialsProviderChain(
     new ProfileCredentialsProvider("media-service")
   )
-
-  private val iamClient: AmazonIdentityManagement =
-    new AmazonIdentityManagementClient(credentialsProvider)
-      .withRegion(Regions.EU_WEST_1)
-
-  val postfix = if (stage == "DEV") {
-
-    iamClient.getUser().getUser().getUserName()
-
-  } else {
-    stage
-  }
-
 }
