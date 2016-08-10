@@ -25,7 +25,7 @@ sealed trait UsageRightsSpec {
 object UsageRights {
   val all = List(
     NoRights, Handout, PrImage, Screengrab, SocialMedia,
-    Agency, CommissionedAgency, Chargeable, Cutouts,
+    Agency, CommissionedAgency, Chargeable, Bylines,
     StaffPhotographer, ContractPhotographer, CommissionedPhotographer,
     CreativeCommons, GuardianWitness, Pool, CrownCopyright, Obituary,
     ContractIllustrator, CommissionedIllustrator, StaffIllustrator,
@@ -61,7 +61,7 @@ object UsageRights {
     case o: Screengrab => Screengrab.formats.writes(o)
     case o: GuardianWitness => GuardianWitness.formats.writes(o)
     case o: SocialMedia => SocialMedia.formats.writes(o)
-    case o: Cutouts => Cutouts.formats.writes(o)
+    case o: Bylines => Bylines.formats.writes(o)
     case o: Obituary => Obituary.formats.writes(o)
     case o: StaffPhotographer => StaffPhotographer.formats.writes(o)
     case o: ContractPhotographer => ContractPhotographer.formats.writes(o)
@@ -94,7 +94,7 @@ object UsageRights {
         case Screengrab.category => json.asOpt[Screengrab]
         case GuardianWitness.category => json.asOpt[GuardianWitness]
         case SocialMedia.category => json.asOpt[SocialMedia]
-        case Cutouts.category => json.asOpt[Cutouts]
+        case Bylines.category => json.asOpt[Bylines]
         case Obituary.category => json.asOpt[Obituary]
         case StaffPhotographer.category => json.asOpt[StaffPhotographer]
         case ContractPhotographer.category => json.asOpt[ContractPhotographer]
@@ -289,18 +289,18 @@ object SocialMedia extends UsageRightsSpec {
     UsageRights.subtypeFormat(SocialMedia.category)(Json.format[SocialMedia])
 }
 
-final case class Cutouts(restrictions: Option[String] = None) extends UsageRights {
-  val defaultCost = Cutouts.defaultCost
+final case class Bylines(restrictions: Option[String] = None) extends UsageRights {
+  val defaultCost = Bylines.defaultCost
 }
-object Cutouts extends UsageRightsSpec {
-  val category = "cutouts"
+object Bylines extends UsageRightsSpec {
+  val category = "Bylines"
   val defaultCost = Some(Free)
-  val name = "Cutouts"
+  val name = "Bylines"
   val description =
-    "Circular bylines of panelists and cutouts for fronts"
+    "Images acquired from private sources, for the purposes of bylines"
 
-  implicit val formats: Format[Cutouts] =
-    UsageRights.subtypeFormat(Cutouts.category)(Json.format[Cutouts])
+  implicit val formats: Format[Bylines] =
+    UsageRights.subtypeFormat(Bylines.category)(Json.format[Bylines])
 }
 
 final case class Obituary(restrictions: Option[String] = None) extends UsageRights {
