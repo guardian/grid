@@ -67,10 +67,9 @@ gr-leases .metadata-line__key {
 }
 
 gr-leases .gu-date-range__overlay {
-  position: absolute;
+  position: fixed;
   z-index: 1;
-  right: 0;
-    top: 28px; /* Magical height of the button that triggers it */
+  right: 0px;
 }
 
 gr-leases .gu-date-range__display {
