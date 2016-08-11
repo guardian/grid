@@ -24,16 +24,16 @@ witnessApi.factory('witnessApi', ['mediaApi', function(mediaApi) {
         const fileUri = update.image.extralarge;
         const metadata = {
             title:       response.headline,
-            description: update.body,
-            byline:      response.user.displayName,
+            description: response.body,	// TODO may by null
+            byline:      response.via.user.displayName,		// TODO not null safe for anoynomous users
             credit:      'GuardianWitness',
             creditUri:   response.webUrl
         };
         const identifiers = {
             // FIXME: all of them?
             witnessReportUri:    response.apiUrl,
-            witnessReportId:     response.id.replace('report/', ''),
-            witnessAssignmentId: response.noticeboard
+            witnessReportId:     response.id,
+            witnessAssignmentId: response.assignment.id	// TODO potentially null in the future
         };
 
         return {fileUri, metadata, identifiers};
