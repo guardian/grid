@@ -10,7 +10,7 @@ module.controller('grMetadataValidityCtrl', [ '$rootScope', function ($rootScope
 
     function updateState() {
         ctrl.image.get().then(image => {
-            ctrl.showInvalidReasons = Object.keys(image.data.invalidReasons).length != 0;
+            ctrl.showInvalidReasons = Object.keys(image.data.invalidReasons).length !== 0;
             ctrl.invalidReasons = image.data.invalidReasons;
             ctrl.isOverridden = ctrl.showInvalidReasons && image.data.valid;
         });
