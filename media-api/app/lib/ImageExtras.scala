@@ -50,8 +50,9 @@ object ImageExtras {
     "over_quota"           -> UsageQuota.isOverQuota(image.usageRights)
   )
 
-  def validityOverrides(image: Image): Map[String, Boolean] = Map(
-    "current_allow_lease" -> hasCurrentAllowLease(image.leases)
+  def validityOverrides(image: Image, withWritePermission: Boolean): Map[String, Boolean] = Map(
+    "current_allow_lease" -> hasCurrentAllowLease(image.leases),
+    "has_write_permission" -> withWritePermission
   )
 
   def invalidReasons(validityMap: Map[String, Boolean]) = validityMap
