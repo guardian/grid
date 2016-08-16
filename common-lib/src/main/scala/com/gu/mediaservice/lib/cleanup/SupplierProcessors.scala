@@ -166,7 +166,7 @@ object EpaParser extends ImageProcessor {
 
 trait GettyProcessor {
   def gettyAgencyWithCollection(suppliersCollection: Option[String]) =
-    Agency("Getty Images", suppliersCollection = suppliersCollection)
+    Agencies.getWithCollection("getty", suppliersCollection)
 }
 
 object GettyXmpParser extends ImageProcessor with GettyProcessor {
