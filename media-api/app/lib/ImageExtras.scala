@@ -40,14 +40,16 @@ object ImageExtras {
   import scala.concurrent.duration._
   import com.gu.mediaservice.lib.FeatureToggle
 
-  def validityMap(image: Image): Map[String, Boolean] = Map(
-    "paid_image"           -> Costing.isPay(image.usageRights),
-    "conditional_paid"     -> Costing.isConditional(image.usageRights),
-    "no_rights"            -> !hasRights(image.usageRights),
-    "missing_credit"       -> !hasCredit(image.metadata),
-    "missing_description"  -> !hasDescription(image.metadata),
-    "current_deny_lease"   -> hasCurrentDenyLease(image.leases),
-    "over_quota"           -> UsageQuota.isOverQuota(image.usageRights)
+  case class ValidityCheck(valid: Boolean, overrideable: Boolean)
+
+  def validityMap(image: Image): Map[String, ValidityCheck] = Map(
+    "paid_image"           -> ValidityCheck(Costing.isPay(image.usageRights), false),
+    "conditional_paid"     -> ValidityCheck(Costing.isConditional(image.usageRights), false),
+    "no_rights"            -> ValidityCheck(!hasRights(image.usageRights), true),
+    "missing_credit"       -> ValidityCheck(!hasCredit(image.metadata), true),
+    "missing_description"  -> ValidityCheck(!hasDescription(image.metadata), true),
+    "current_deny_lease"   -> ValidityCheck(hasCurrentDenyLease(image.leases), true),
+    "over_quota"           -> ValidityCheck(UsageQuota.isOverQuota(image.usageRights), true)
   )
 
   def validityOverrides(image: Image, withWritePermission: Boolean): Map[String, Boolean] = Map(
@@ -55,7 +57,8 @@ object ImageExtras {
     "has_write_permission" -> withWritePermission
   )
 
-  def invalidReasons(validityMap: Map[String, Boolean]) = validityMap
+  def invalidReasons(validityMap: Map[String, ValidityCheck]) = validityMap
+    .map{ case (k,v) => k-> v.valid }
     .filter(_._2 == true)
     .map { case (id, _) => id -> validityDescription.get(id) }
     .map {
@@ -63,6 +66,18 @@ object ImageExtras {
       case (id, None) => id -> s"Validity error: ${id}"
     }.toMap
 
-  def isValid(validityMap: Map[String, Boolean], validityOverrides: Map[String, Boolean]): Boolean =
-    !optToBool(validityMap.find(_._2 == true)) || optToBool(validityOverrides.find(_._2 == true))
+  def naiveIsValid(validityMap: Map[String, ValidityCheck]) =
+    !optToBool(validityMap.find(_._2.valid == true))
+
+  def invalidityIsOverridden(
+    validityMap: Map[String, ValidityCheck],
+    validityOverrides: Map[String, Boolean]
+  ): Boolean = {
+      optToBool(validityOverrides.find(_._2 == true)) &&
+      !optToBool(validityMap.filter(_._2.valid == true)
+        .find(_._2.overrideable == false))
+  }
+
+  def isValid(validityMap: Map[String, ValidityCheck], validityOverrides: Map[String, Boolean]): Boolean =
+    naiveIsValid(validityMap) || invalidityIsOverridden(validityMap, validityOverrides)
 }
