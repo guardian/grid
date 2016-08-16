@@ -13,8 +13,8 @@ object ImageExtras {
 
   val validityDescription = Map(
     "no_rights"                   -> "No rights to use this image",
-    "missing_credit"              -> "Missing credit information",
-    "missing_description"         -> "Missing description",
+    "missing_credit"              -> "Missing credit information *",
+    "missing_description"         -> "Missing description *",
     "paid_image"                  -> "Paid imagery requires a lease",
     "over_quota"                  -> "The quota for this supplier has been exceeded",
     "conditional_paid"            -> "This image is restricted use"
@@ -43,11 +43,11 @@ object ImageExtras {
   case class ValidityCheck(valid: Boolean, overrideable: Boolean)
 
   def validityMap(image: Image): Map[String, ValidityCheck] = Map(
-    "paid_image"           -> ValidityCheck(Costing.isPay(image.usageRights), false),
-    "conditional_paid"     -> ValidityCheck(Costing.isConditional(image.usageRights), false),
+    "paid_image"           -> ValidityCheck(Costing.isPay(image.usageRights), true),
+    "conditional_paid"     -> ValidityCheck(Costing.isConditional(image.usageRights), true),
     "no_rights"            -> ValidityCheck(!hasRights(image.usageRights), true),
-    "missing_credit"       -> ValidityCheck(!hasCredit(image.metadata), true),
-    "missing_description"  -> ValidityCheck(!hasDescription(image.metadata), true),
+    "missing_credit"       -> ValidityCheck(!hasCredit(image.metadata), false),
+    "missing_description"  -> ValidityCheck(!hasDescription(image.metadata), false),
     "current_deny_lease"   -> ValidityCheck(hasCurrentDenyLease(image.leases), true),
     "over_quota"           -> ValidityCheck(UsageQuota.isOverQuota(image.usageRights), true)
   )
@@ -57,9 +57,11 @@ object ImageExtras {
     "has_write_permission" -> withWritePermission
   )
 
-  def invalidReasons(validityMap: Map[String, ValidityCheck]) = validityMap
-    .map{ case (k,v) => k-> v.valid }
-    .filter(_._2 == true)
+  def invalidReasons(
+    validityMap: Map[String, ValidityCheck],
+    isOverriden: Boolean = false
+  ) = validityMap
+    .filter { case (_,v) => v.valid }
     .map { case (id, _) => id -> validityDescription.get(id) }
     .map {
       case (id, Some(reason)) => id -> reason
