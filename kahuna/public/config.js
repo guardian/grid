@@ -28,7 +28,7 @@ System.config({
     "jszip": "npm:jszip@2.5.0",
     "mixpanel-js": "github:mixpanel/mixpanel-js@2.4.2",
     "moment": "github:moment/moment@2.10.6",
-    "pandular": "npm:pandular@0.1.5",
+    "pandular": "npm:pandular@0.1.6",
     "pikaday": "github:dbushell/Pikaday@1.4.0",
     "raven-js": "github:getsentry/raven-js@1.3.0",
     "rx": "npm:rx@2.5.3",
@@ -170,7 +170,7 @@ System.config({
       "buffer": "github:jspm/nodelibs-buffer@0.1.0",
       "process": "github:jspm/nodelibs-process@0.1.2"
     },
-    "npm:pandular@0.1.5": {
+    "npm:pandular@0.1.6": {
       "angular": "github:angular/bower-angular@1.4.3",
       "panda-session": "npm:panda-session@0.1.6"
     },

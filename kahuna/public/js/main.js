@@ -52,6 +52,10 @@ var config = {
     // TODO: use link in 4xx response to avoid having to hardcode in HTML page
     'pandular.reAuthUri': reauthLink && reauthLink.getAttribute('href'),
 
+    // Number of millis before pandular stops trying to reauth
+    // This number is relatively hagh to cater for AUS
+    'pandular.reAuthTimeout': 7000,
+
     vndMimeTypes: new Map([
         ['gridImageData',  'application/vnd.mediaservice.image+json'],
         ['gridImagesData', 'application/vnd.mediaservice.images+json'],
