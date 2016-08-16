@@ -5,17 +5,14 @@ import play.api.libs.concurrent.Akka
 import play.api.{Logger, Application, GlobalSettings}
 import play.api.mvc.WithFilters
 import play.filters.gzip.GzipFilter
-
-import controllers.{Authed}
-
-import lib.Config
-
+import controllers.Authed
+import lib.{Config, LogConfig}
 import com.gu.mediaservice.lib.play.RequestLoggingFilter
-
 
 object Global extends WithFilters(CorsFilter, RequestLoggingFilter, new GzipFilter) with GlobalSettings {
 
   override def beforeStart(app: Application) {
+    LogConfig.init(Config)
 
     val allAppConfig: Seq[(String, ConfigValue)] =
       Config.appConfig.underlying.entrySet.asScala.toSeq.map(entry => (entry.getKey, entry.getValue))
