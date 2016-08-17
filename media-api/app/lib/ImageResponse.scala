@@ -137,10 +137,8 @@ object ImageResponse extends EditsResponse {
         .getOrElse(s3SignedThumbUrl)
     } else { s3SignedThumbUrl }
 
-    val validityMap       = ImageExtras.validityMap(image)
-    val validityOverrides = ImageExtras.validityOverrides(image, withWritePermission)
-
-    val valid             = ImageExtras.isValid(validityMap, validityOverrides)
+    val validityMap       = ImageExtras.validityMap(image, withWritePermission)
+    val valid             = ImageExtras.isValid(validityMap)
     val invalidReasons    = ImageExtras.invalidReasons(validityMap)
 
     val persistenceReasons = imagePersistenceReasons(image)

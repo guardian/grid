@@ -20,47 +20,45 @@ object ImageExtras {
     "conditional_paid"            -> "This image is restricted use"
   )
 
-  private def optToBool[T](o: Option[T]): Boolean =
-    o.map(some => some != false).getOrElse(false)
-
   def hasRights(rights: UsageRights) = rights match {
     case NoRights => false
     case _ => true
   }
-  def hasCredit(meta: ImageMetadata) = optToBool(meta.credit)
-  def hasDescription(meta: ImageMetadata) = optToBool(meta.description)
+  def hasCredit(meta: ImageMetadata) = !meta.credit.isEmpty
+  def hasDescription(meta: ImageMetadata) = !meta.description.isEmpty
 
   def hasCurrentAllowLease(leases: LeaseByMedia) =
-    optToBool(leases.current.map(_.access.name == "allow"))
+    leases.current.exists(_.access.name == "allow")
   def hasCurrentDenyLease(leases: LeaseByMedia) =
-    optToBool(leases.current.map(_.access.name == "deny"))
+    leases.current.exists(_.access.name == "deny")
 
-  import scala.concurrent.Await
-  import scala.util.Try
-  import scala.concurrent.duration._
-  import com.gu.mediaservice.lib.FeatureToggle
+  case class ValidityCheck(valid: Boolean, overrideable: Boolean, shouldOverride: Boolean) {
+    val isValid = valid && overrideable && shouldOverride
+  }
 
-  case class ValidityCheck(valid: Boolean, overrideable: Boolean)
+  def validityMap(image: Image, withWritePermission: Boolean): Map[String, ValidityCheck] = {
+    val shouldOverride = validityOverrides(image, withWritePermission).exists(_._2 == true)
 
-  def validityMap(image: Image): Map[String, ValidityCheck] = Map(
-    "paid_image"           -> ValidityCheck(Costing.isPay(image.usageRights), true),
-    "conditional_paid"     -> ValidityCheck(Costing.isConditional(image.usageRights), true),
-    "no_rights"            -> ValidityCheck(!hasRights(image.usageRights), true),
-    "missing_credit"       -> ValidityCheck(!hasCredit(image.metadata), false),
-    "missing_description"  -> ValidityCheck(!hasDescription(image.metadata), false),
-    "current_deny_lease"   -> ValidityCheck(hasCurrentDenyLease(image.leases), true),
-    "over_quota"           -> ValidityCheck(UsageQuota.isOverQuota(image.usageRights), true)
-  )
+    def createCheck(validCheck: Boolean, overrideable: Boolean = true) =
+      ValidityCheck(validCheck, overrideable, shouldOverride)
+
+    Map(
+      "paid_image"           -> createCheck(Costing.isPay(image.usageRights)),
+      "conditional_paid"     -> createCheck(Costing.isConditional(image.usageRights)),
+      "no_rights"            -> createCheck(!hasRights(image.usageRights)),
+      "missing_credit"       -> createCheck(!hasCredit(image.metadata), false),
+      "missing_description"  -> createCheck(!hasDescription(image.metadata), false),
+      "current_deny_lease"   -> createCheck(hasCurrentDenyLease(image.leases)),
+      "over_quota"           -> createCheck(UsageQuota.isOverQuota(image.usageRights))
+    )
+  }
 
   def validityOverrides(image: Image, withWritePermission: Boolean): Map[String, Boolean] = Map(
     "current_allow_lease" -> hasCurrentAllowLease(image.leases),
     "has_write_permission" -> withWritePermission
   )
 
-  def invalidReasons(
-    validityMap: Map[String, ValidityCheck],
-    isOverriden: Boolean = false
-  ) = validityMap
+  def invalidReasons(validityMap: Map[String, ValidityCheck]) = validityMap
     .filter { case (_,v) => v.valid }
     .map { case (id, _) => id -> validityDescription.get(id) }
     .map {
@@ -68,18 +66,6 @@ object ImageExtras {
       case (id, None) => id -> s"Validity error: ${id}"
     }.toMap
 
-  def naiveIsValid(validityMap: Map[String, ValidityCheck]) =
-    !optToBool(validityMap.find(_._2.valid == true))
-
-  def invalidityIsOverridden(
-    validityMap: Map[String, ValidityCheck],
-    validityOverrides: Map[String, Boolean]
-  ): Boolean = {
-      optToBool(validityOverrides.find(_._2 == true)) &&
-      !optToBool(validityMap.filter(_._2.valid == true)
-        .find(_._2.overrideable == false))
-  }
-
-  def isValid(validityMap: Map[String, ValidityCheck], validityOverrides: Map[String, Boolean]): Boolean =
-    naiveIsValid(validityMap) || invalidityIsOverridden(validityMap, validityOverrides)
+  def isValid(validityMap: Map[String, ValidityCheck]): Boolean =
+    validityMap.values.forall(_.isValid)
 }
