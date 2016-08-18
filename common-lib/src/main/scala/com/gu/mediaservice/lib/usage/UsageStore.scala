@@ -104,6 +104,7 @@ class UsageStore(
     val cleanedSummary = summary
       .map {
         case s if s.agency.supplier.contains("Rex Features") => copyAgency(s, "rex")
+        case s if s.agency.supplier.contains("Getty Images") => copyAgency(s, "getty")
         case s if s.agency.supplier.contains("Australian Associated Press") => copyAgency(s, "aap")
         case s if s.agency.supplier.contains("Alamy") => copyAgency(s, "alamy")
         case s => s
