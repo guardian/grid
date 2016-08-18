@@ -1,6 +1,6 @@
 package com.gu.mediaservice.lib.cleanup
 
-import com.gu.mediaservice.model.{Agencies, Agency, Image, StaffPhotographer, ContractPhotographer}
+import com.gu.mediaservice.model.{NoRights, Agencies, Agency, Image, StaffPhotographer, ContractPhotographer}
 import com.gu.mediaservice.lib.config.PhotographersList
 
 trait ImageProcessor {
@@ -166,7 +166,8 @@ object EpaParser extends ImageProcessor {
 
 trait GettyProcessor {
   def gettyAgencyWithCollection(suppliersCollection: Option[String]) =
-    Agencies.getWithCollection("getty", suppliersCollection)
+    Agencies
+      .getWithCollection("getty", suppliersCollection)
 }
 
 object GettyXmpParser extends ImageProcessor with GettyProcessor {
