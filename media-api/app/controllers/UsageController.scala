@@ -17,7 +17,7 @@ object UsageController extends Controller with ArgoHelpers {
   val Authenticated = Authed.action
 
   def quotaForImage(id: String) = Authenticated.async { request =>
-    UsageQuota.usageStatusForImage(id)
+    Quotas.usageStatusForImage(id)
       .map((u: UsageStatus) => respond(u))
       .recover {
         case e: ImageNotFound => respondError(NotFound, "image-not-found", e.toString)
@@ -28,7 +28,7 @@ object UsageController extends Controller with ArgoHelpers {
   }
 
   def quotas() = Authenticated.async { request =>
-    UsageQuota.getStoreAccess()
+    Quotas.getStoreAccess()
       .map((s: StoreAccess) => respond(s))
       .recover {
         case e: BadQuotaConfig => respondError(InternalServerError, "bad-quota-config", e.toString)
