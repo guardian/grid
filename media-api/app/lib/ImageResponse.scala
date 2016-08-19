@@ -17,11 +17,18 @@ import com.gu.mediaservice.lib.argo.model._
 import com.gu.mediaservice.lib.FeatureToggle
 import com.gu.mediaservice.lib.collections.CollectionsManager
 
+import controllers.Quotas
+
 
 object ImageResponse extends EditsResponse {
   implicit val dateTimeFormat = DateFormat
+  implicit val usageQuotas = Quotas
 
-  object Costing extends CostCalculator
+  object Costing extends CostCalculator {
+    val quotas = usageQuotas
+  }
+
+  implicit val costing = Costing
 
   val metadataBaseUri = Config.services.metadataBaseUri
 
@@ -137,10 +144,8 @@ object ImageResponse extends EditsResponse {
         .getOrElse(s3SignedThumbUrl)
     } else { s3SignedThumbUrl }
 
-    val validityMap       = ImageExtras.validityMap(image)
-    val validityOverrides = ImageExtras.validityOverrides(image, withWritePermission)
-
-    val valid             = ImageExtras.isValid(validityMap, validityOverrides)
+    val validityMap       = ImageExtras.validityMap(image, withWritePermission)
+    val valid             = ImageExtras.isValid(validityMap)
     val invalidReasons    = ImageExtras.invalidReasons(validityMap)
 
     val persistenceReasons = imagePersistenceReasons(image)
