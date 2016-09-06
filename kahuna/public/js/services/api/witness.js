@@ -14,9 +14,9 @@ witnessApi.factory('witnessApi', ['mediaApi', function(mediaApi) {
         return witnessPattern.test(uri);
     }
 
-    function extractReportId(witnessUri) {
-        const [/*all*/, /*assignmentId*/, reportId] = witnessUri.match(witnessPattern) || [];
-        return reportId;
+    function extractReportUrlWord(witnessUri) {
+        const [/*all*/, /*assignmentId*/, reportUrlWord] = witnessUri.match(witnessPattern) || [];
+        return reportUrlWord;
     }
 
     function parseReportResponse(response) {
@@ -46,7 +46,7 @@ witnessApi.factory('witnessApi', ['mediaApi', function(mediaApi) {
         return {fileUri, metadata, identifiers};
     }
 
-    function getReport(id) {
+    function getReport(urlWord) {
         return mediaApi.root.
             follow('witness-report', {id}).
             // The API is not auth'd, and if withCredentials is true,

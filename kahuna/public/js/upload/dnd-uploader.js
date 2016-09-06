@@ -66,9 +66,9 @@ dndUploader.controller('DndUploaderCtrl',
     }
 
     function importWitnessImage(uri) {
-        const witnessReportId = witnessApi.extractReportId(uri);
-        if (witnessReportId) {
-            return witnessApi.getReport(witnessReportId).
+        const witnessReportUrlWord = witnessApi.extractReportUrlWord(uri);
+        if (witnessReportUrlWord) {
+            return witnessApi.getReport(witnessReportUrlWord).
                 then(({fileUri, metadata, identifiers}) => {
                     return loadAndUpdateWitnessImage(fileUri, metadata, identifiers);
                 }).then(imageId => {
