@@ -20,11 +20,18 @@ witnessApi.factory('witnessApi', ['mediaApi', function(mediaApi) {
     }
 
     function parseReportResponse(response) {
-        const update = response.updates[0];
-        const fileUri = update.image.extralarge;
+	const contributionId = response.id;
+
+	// The full sized image can be obtained by making an auth'ed API call
+	const mediaUsage = response.mediaUsages[0];
+	const mediaUsageId = mediaUsage.id;
+
+	const contriblyAccessToken = "TODO - needs to be provided and stored in configuration rather than source";
+        const fileUri = "https://api.contribly.com/1/contributions/" + contributionId + "/mediausages/" + mediaUsageId + "/artifacts/full.jpg?token=" + contriblyAccessToken;	// TODO push api url up to config
+
         const metadata = {
             title:       response.headline,
-            description: response.body,	// TODO may by null
+            description: response.body,
             byline:      response.via.user.displayName,		// TODO not null safe for anoynomous users
             credit:      'GuardianWitness',
             creditUri:   response.webUrl
