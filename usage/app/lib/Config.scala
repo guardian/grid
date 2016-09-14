@@ -65,15 +65,6 @@ object Config extends CommonPlayAppProperties with CommonPlayAppConfig {
   val crierLiveArn = Try { properties("crier.live.arn") }
   val crierPreviewArn = Try { properties("crier.preview.arn") }
 
-  val postfix = if (stage == "DEV")
-    userName
-   else
-    stage
-
-
-  val liveAppName = s"media-service-livex-${postfix}"
-  val previewAppName = s"media-service-previewx-${postfix}"
-
   val liveKinesisReaderConfig: Try[KinesisReaderConfig] = for {
     liveStream <- crierLiveKinesisStream
     liveArn <- crierLiveArn
@@ -97,6 +88,9 @@ object Config extends CommonPlayAppProperties with CommonPlayAppConfig {
   } else {
     stage
   }
+
+  val liveAppName = s"media-service-livex-${postfix}"
+  val previewAppName = s"media-service-previewx-${postfix}"
 
   val appTagBasedConfig: Map[String, Boolean] = appTag.getOrElse("unknown") match {
     case "usage" => Map("apiOnly" -> true)
