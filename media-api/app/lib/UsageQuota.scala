@@ -17,18 +17,12 @@ case class ImageNotFound() extends Exception("Image not found")
 case class BadQuotaConfig() extends Exception("Bad config for usage quotas")
 case class NoUsageQuota() extends Exception("No usage found for this image")
 
-object UsageQuota {
-  val supplierQuota = Config.quotaConfig.map {
-    case (k,v) => k -> SupplierUsageQuota(Agencies.get(k), v)}
+trait UsageQuota {
+  val supplierConfig: Map[String, Int]
+  val usageStore: Option[UsageStore]
 
-  val usageStore = Config.usageStoreConfig.map(c => {
-    new UsageStore(
-      c.storeKey,
-      c.storeBucket,
-      Config.awsCredentials,
-      supplierQuota
-    )
-  })
+  lazy val supplierQuota = supplierConfig.map {
+    case (k,v) => k -> SupplierUsageQuota(Agencies.get(k), v)}
 
   def isOverQuota(
     rights: UsageRights,

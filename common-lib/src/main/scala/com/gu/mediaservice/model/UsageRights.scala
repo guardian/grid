@@ -170,7 +170,9 @@ object Agencies {
   }
 
   def getWithCollection(id: String, suppliersCollection: Option[String]) =
-    all.get(id).map(_.copy(suppliersCollection = suppliersCollection))
+    all.get(id)
+      .map(_.copy(suppliersCollection = suppliersCollection))
+      .getOrElse(Agency(id, suppliersCollection))
 }
 
 final case class Agency(supplier: String, suppliersCollection: Option[String] = None,

@@ -27,7 +27,7 @@ case class OptimisedPng(optimisedFileStoreFuture: Future[Option[S3Object]], isPn
 
 case object OptimisedPng {
 
-  private def isPng24(mimeType: Option[String], fileMetadata: FileMetadata): Boolean = 
+  private def isPng24(mimeType: Option[String], fileMetadata: FileMetadata): Boolean =
 
     mimeType match {
       case Some("image/png") => {
@@ -47,8 +47,9 @@ case object OptimisedPng {
 
   def build (file: File, uploadRequest: UploadRequest, fileMetadata: FileMetadata): OptimisedPng = {
     if (isPng24(uploadRequest.mimeType, fileMetadata)) {
+
       val optimisedFile = {
-        val optimisedFilePath = tempDir.getAbsolutePath() + "/optimisedpng" + ".png"
+        val optimisedFilePath = tempDir.getAbsolutePath() + "/optimisedpng - " + uploadRequest.id + ".png"
         Seq("pngquant", "--quality", "1-85", file.getAbsolutePath(), "--output", optimisedFilePath).!
         new File(optimisedFilePath)
       }
