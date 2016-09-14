@@ -14,6 +14,7 @@ case class KinesisReaderConfig(streamName: String, arn: String, appName: String)
 object Config extends CommonPlayAppProperties with CommonPlayAppConfig {
 
   val appName = "usage"
+  val appTag = Try { properties("app.name") }
 
   val properties = Properties.fromPath("/etc/gu/usage.properties")
 
@@ -86,4 +87,20 @@ object Config extends CommonPlayAppProperties with CommonPlayAppConfig {
   val credentialsProvider = new AWSCredentialsProviderChain(
     new ProfileCredentialsProvider("media-service")
   )
+
+  private val iamClient: AmazonIdentityManagement =
+    new AmazonIdentityManagementClient(credentialsProvider)
+      .withRegion(Regions.EU_WEST_1)
+
+  val postfix = if (stage == "DEV") {
+    iamClient.getUser().getUser().getUserName()
+  } else {
+    stage
+  }
+
+  val appTagBasedConfig: Map[String, Boolean] = appTag.getOrElse("unknown") match {
+    case "usage" => Map("apiOnly" -> true)
+    case "usage-stream" => Map("apiOnly" -> false)
+    case _ => Map()
+  }
 }
