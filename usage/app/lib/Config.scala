@@ -14,6 +14,7 @@ case class KinesisReaderConfig(streamName: String, arn: String, appName: String)
 object Config extends CommonPlayAppProperties with CommonPlayAppConfig {
 
   val appName = "usage"
+  val appTag = Try { properties("app.name") }
 
   val properties = Properties.fromPath("/etc/gu/usage.properties")
 
@@ -56,10 +57,6 @@ object Config extends CommonPlayAppProperties with CommonPlayAppConfig {
 
   val corsAllAllowedOrigins = List(services.kahunaBaseUri)
 
-  val apiOnly = Try { properties("usage.apiOnly") }
-    .map(_.toBoolean)
-    .getOrElse(false)
-
   val crierLiveKinesisStream = Try { properties("crier.live.name") }
   val crierPreviewKinesisStream = Try {properties("crier.preview.name") }
 
@@ -88,11 +85,15 @@ object Config extends CommonPlayAppProperties with CommonPlayAppConfig {
       .withRegion(Regions.EU_WEST_1)
 
   val postfix = if (stage == "DEV") {
-
     iamClient.getUser().getUser().getUserName()
-
   } else {
     stage
+  }
+
+  val appTagBasedConfig: Map[String, Boolean] = appTag.getOrElse("unknown") match {
+    case "usage" => Map("apiOnly" -> true)
+    case "usage-stream" => Map("apiOnly" -> false)
+    case _ => Map()
   }
 
 }
