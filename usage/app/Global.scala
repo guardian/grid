@@ -18,9 +18,10 @@ object Global extends WithFilters(CorsFilter, RequestLoggingFilter, new GzipFilt
   }
 
   override def onStart(app: Application) {
-    val crierReader = new CrierStreamReader()
-
-    crierReader.start()
+    if(!Config.apiOnly) {
+      val crierReader = new CrierStreamReader()
+      crierReader.start()
+    }
 
     UsageApi.keyStore.scheduleUpdates(Akka.system(app).scheduler)
 

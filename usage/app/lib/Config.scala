@@ -56,6 +56,10 @@ object Config extends CommonPlayAppProperties with CommonPlayAppConfig {
 
   val corsAllAllowedOrigins = List(services.kahunaBaseUri)
 
+  val apiOnly = Try { properties("usage.apiOnly") }
+    .map(_.toBoolean)
+    .getOrElse(false)
+
   val crierLiveKinesisStream = Try { properties("crier.live.name") }
   val crierPreviewKinesisStream = Try {properties("crier.preview.name") }
 
