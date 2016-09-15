@@ -10,9 +10,6 @@ if [ -d "$ELASTICSEARCH_DIR/elasticsearch" ]; then
 fi
 
 DOWNLOAD_URI="https://download.elasticsearch.org/elasticsearch/elasticsearch/elasticsearch-$ELASTICSEARCH_VERSION.tar.gz"
-SORT_PLUGIN_URI="https://github.com/guardian/grid-supplier-weight-sort/releases/download/v1.0/grid-supplier-weight-sort-0.1.0.zip"
-
-wget $SORT_PLUGIN_URI -O /var/tmp/grid-supplier-weight-sort-0.1.0.zip
 
 cd $ELASTICSEARCH_DIR
 
@@ -31,7 +28,6 @@ then
     ./bin/plugin -install mobz/elasticsearch-head
     ./bin/plugin -install elasticsearch/elasticsearch-cloud-aws/2.7.1
     ./bin/plugin -install karmi/elasticsearch-paramedic
-    ./bin/plugin -url file:///var/tmp/grid-supplier-weight-sort-0.1.0.zip -install grid-supplier-weight-sort
     echo "Done"
     echo "Start it with $ELASTICSEARCH_DIR/dev-start.sh"
 else
