@@ -1,5 +1,7 @@
 package controllers
 
+import scala.concurrent.Future
+
 import play.api.mvc.Controller
 import play.api.mvc.{Results, Result}
 import play.api.libs.concurrent.Execution.Implicits._
@@ -15,6 +17,11 @@ import lib._
 
 object UsageController extends Controller with ArgoHelpers {
   val Authenticated = Authed.action
+
+  def forSupplier(id: String) = Authenticated.async { request =>
+    //TODO: Argoise
+    ElasticSearch.usageForSupplier("meep",30).map(r => { println(r); Ok})
+  }
 
   def quotaForImage(id: String) = Authenticated.async { request =>
     Quotas.usageStatusForImage(id)

@@ -4,7 +4,8 @@ import java.util.regex.Pattern
 
 import controllers.SuggestionController._
 import lib.querysyntax.Condition
-import org.elasticsearch.index.query.{MatchAllQueryBuilder, FilterBuilder, FilteredQueryBuilder}
+import org.elasticsearch.index.query._
+import org.elasticsearch.index.query.QueryBuilders._
 import org.elasticsearch.search.aggregations.bucket.MultiBucketsAggregation
 import org.elasticsearch.search.aggregations.bucket.histogram.{InternalDateHistogram, DateHistogram}
 import org.elasticsearch.search.aggregations.bucket.terms.{Terms, InternalTerms}
@@ -43,14 +44,10 @@ object CompletionSuggestionResults {
   implicit val jsonWrites = Json.writes[CompletionSuggestionResults]
 }
 
-
-
+case class BucketResult(key: String, count: Long)
 object BucketResult {
   implicit val jsonWrites = Json.writes[BucketResult]
 }
-
-case class BucketResult(key: String, count: Long)
-
 
 object ElasticSearch extends ElasticSearchClient with SearchFilters with ImageFields {
 
@@ -138,6 +135,33 @@ object ElasticSearch extends ElasticSearchClient with SearchFilters with ImageFi
         val hitsTuples = results.hits.toList flatMap (h => h.sourceOpt map (h.id -> _))
         SearchResults(hitsTuples, results.getTotalHits)
       }
+  }
+
+  def usageForSupplier(id: String, numDays: Int)(implicit ex: ExecutionContext): Future[SearchResponse] = {
+    //TODO: Actually use params
+    val bePublished = termQuery("usages.status","published")
+    val beInLastPeriod = rangeQuery("usages.dateAdded")
+      .gte(s"now-25d/d")
+      .lt("now/d")
+
+    val haveUsageInLastPeriod = boolQuery
+      .must(bePublished)
+      .must(beInLastPeriod)
+
+    val beSupplier = termQuery("usageRights.supplier","Rex Features")
+    val haveNestedUsage = nestedQuery("usages", haveUsageInLastPeriod)
+
+    val query = boolQuery
+      .must(beSupplier)
+      .must(haveNestedUsage)
+
+    val search = prepareImagesSearch
+      .setQuery(query)
+
+    //TODO: Map this into something more useful!
+    search
+      .setSearchType(SearchType.COUNT)
+      .executeAndLog(s"$id usage search")
   }
 
   def dateHistogramAggregate(params: AggregateSearchParams)(implicit ex: ExecutionContext): Future[AggregateSearchResults] = {
