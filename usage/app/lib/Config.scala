@@ -47,8 +47,6 @@ object Config extends CommonPlayAppProperties with CommonPlayAppConfig {
 
   val usageDateLimit = Try(properties("usage.dateLimit")).getOrElse(defaultDateLimit)
 
-  val userName = properties("user.name")
-
   val topicArn = properties("sns.topic.arn")
   val composerBaseUrl = properties("composer.baseUrl")
 
