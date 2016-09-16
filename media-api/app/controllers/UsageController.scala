@@ -8,7 +8,7 @@ import play.api.libs.concurrent.Execution.Implicits._
 import play.api.libs.json.JsValue
 
 import com.gu.mediaservice.lib.argo.ArgoHelpers
-import com.gu.mediaservice.lib.usage.{UsageStatus, StoreAccess}
+import com.gu.mediaservice.lib.usage.{UsageStatus, StoreAccess, SupplierUsageSummary}
 
 import lib.elasticsearch.ElasticSearch
 
@@ -19,8 +19,14 @@ object UsageController extends Controller with ArgoHelpers {
   val Authenticated = Authed.action
 
   def forSupplier(id: String) = Authenticated.async { request =>
-    //TODO: Argoise
-    ElasticSearch.usageForSupplier("meep",30).map(r => { println(r); Ok})
+    val numberOfDayInPeriod = 30
+
+    ElasticSearch.usageForSupplier(id, numberOfDayInPeriod)
+      .map((s: SupplierUsageSummary) => respond(s))
+      .recover {
+        case e => respondError(InternalServerError, "unknown-error", e.toString)
+      }
+
   }
 
   def quotaForImage(id: String) = Authenticated.async { request =>

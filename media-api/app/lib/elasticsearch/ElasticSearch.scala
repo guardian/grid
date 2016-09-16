@@ -23,7 +23,8 @@ import scalaz.syntax.id._
 import scalaz.syntax.std.list._
 import scalaz.NonEmptyList
 
-
+import com.gu.mediaservice.lib.usage.SupplierUsageSummary
+import com.gu.mediaservice.model.Agencies
 import com.gu.mediaservice.syntax._
 import com.gu.mediaservice.lib.elasticsearch.{ImageFields, ElasticSearchClient}
 import controllers.{PayType, AggregateSearchParams, SearchParams}
@@ -137,18 +138,19 @@ object ElasticSearch extends ElasticSearchClient with SearchFilters with ImageFi
       }
   }
 
-  def usageForSupplier(id: String, numDays: Int)(implicit ex: ExecutionContext): Future[SearchResponse] = {
-    //TODO: Actually use params
+  def usageForSupplier(id: String, numDays: Int)(implicit ex: ExecutionContext): Future[SupplierUsageSummary] = {
+    val supplier = Agencies.get(id)
+    val supplierName = supplier.supplier
     val bePublished = termQuery("usages.status","published")
     val beInLastPeriod = rangeQuery("usages.dateAdded")
-      .gte(s"now-25d/d")
+      .gte(s"now-${numDays}d/d")
       .lt("now/d")
 
     val haveUsageInLastPeriod = boolQuery
       .must(bePublished)
       .must(beInLastPeriod)
 
-    val beSupplier = termQuery("usageRights.supplier","Rex Features")
+    val beSupplier = termQuery("usageRights.supplier",supplierName)
     val haveNestedUsage = nestedQuery("usages", haveUsageInLastPeriod)
 
     val query = boolQuery
@@ -162,6 +164,9 @@ object ElasticSearch extends ElasticSearchClient with SearchFilters with ImageFi
     search
       .setSearchType(SearchType.COUNT)
       .executeAndLog(s"$id usage search")
+      .map(_.getHits)
+      .map(_.getTotalHits)
+      .map(count => SupplierUsageSummary(supplier,  count.toInt))
   }
 
   def dateHistogramAggregate(params: AggregateSearchParams)(implicit ex: ExecutionContext): Future[AggregateSearchResults] = {
