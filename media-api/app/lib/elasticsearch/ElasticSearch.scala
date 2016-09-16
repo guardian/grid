@@ -160,7 +160,6 @@ object ElasticSearch extends ElasticSearchClient with SearchFilters with ImageFi
     val search = prepareImagesSearch
       .setQuery(query)
 
-    //TODO: Map this into something more useful!
     search
       .setSearchType(SearchType.COUNT)
       .executeAndLog(s"$id usage search")
