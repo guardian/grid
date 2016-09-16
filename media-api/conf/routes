@@ -24,6 +24,7 @@ GET     /images                                       controllers.MediaApi.image
 GET     /suggest/metadata/credit                      controllers.SuggestionController.suggestMetadataCredit(q: Option[String], size: Option[Int])
 
 # usage quotas
+GET     /usage/suppliers/:id                          controllers.UsageController.forSupplier(id: String)
 GET     /usage/quotas                                 controllers.UsageController.quotas
 GET     /usage/quotas/:id                             controllers.UsageController.quotaForImage(id: String)
 
