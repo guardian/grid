@@ -50,5 +50,3 @@ abstract class BaseStore[TStoreKey, TStoreVal](bucket: String, credentials: AWSC
 
   def update(): Unit
 }
-
-

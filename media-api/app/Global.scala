@@ -20,7 +20,7 @@ object Global extends WithFilters(CorsFilter, RequestLoggingFilter, new GzipFilt
   override def onStart(app: Application) {
     Authed.keyStore.scheduleUpdates(Akka.system(app).scheduler)
     Authed.permissionStore.scheduleUpdates(Akka.system(app).scheduler)
-    Quotas.usageStore.map(_.scheduleUpdates(Akka.system(app).scheduler))
+    Quotas.scheduleUpdates(Akka.system(app).scheduler)
   }
 
 }
