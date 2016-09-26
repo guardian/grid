@@ -27,6 +27,8 @@ import lib.elasticsearch._
 import lib.{Notifications, Config, ImageResponse}
 import lib.querysyntax._
 
+import com.gu.editorial.permissions.client.Permission
+
 import com.gu.mediaservice.lib.auth
 import com.gu.mediaservice.lib.auth._
 import com.gu.mediaservice.lib.argo._
@@ -42,7 +44,6 @@ object MediaApi extends Controller with ArgoHelpers {
   import Config.{rootUri, cropperUri, loaderUri, metadataUri, authUri, collectionsUri, leasesUri}
 
   val Authenticated = Authed.action
-  val permissionStore = Authed.permissionStore
 
   val searchParamList = List("q", "ids", "offset", "length", "orderBy",
     "since", "until", "modifiedSince", "modifiedUntil", "takenSince", "takenUntil",
@@ -94,13 +95,16 @@ object MediaApi extends Controller with ArgoHelpers {
   }
 
 
-  def isUploaderOrHasPermission(request: AuthenticatedRequest[AnyContent, Principal], source: JsValue,
-                                permission: PermissionType.PermissionType) = {
+  def isUploaderOrHasPermission(
+    request: AuthenticatedRequest[AnyContent, Principal],
+    source: JsValue,
+    permission: Permission
+  ) = {
     request.user match {
       case user: PandaUser => {
         (source \ "uploadedBy").asOpt[String] match {
           case Some(uploader) if user.email.toLowerCase == uploader.toLowerCase => Future.successful(true)
-          case _ => permissionStore.hasPermission(permission, user.email.toLowerCase)
+          case _ => PermissionsHandler.hasPermission(user, permission)
         }
       }
       case _: AuthenticatedService => Future.successful(true)
@@ -109,11 +113,11 @@ object MediaApi extends Controller with ArgoHelpers {
   }
 
   def canUserWriteMetadata(request: AuthenticatedRequest[AnyContent, Principal], source: JsValue) = {
-    isUploaderOrHasPermission(request, source, PermissionType.EditMetadata)
+    isUploaderOrHasPermission(request, source, Permissions.EditMetadata)
   }
 
   def canUserDeleteImage(request: AuthenticatedRequest[AnyContent, Principal], source: JsValue) = {
-    isUploaderOrHasPermission(request, source, PermissionType.DeleteImage)
+    isUploaderOrHasPermission(request, source, Permissions.DeleteImage)
   }
 
   def getImage(id: String) = Authenticated.async { request =>
