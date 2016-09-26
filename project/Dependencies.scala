@@ -37,6 +37,10 @@ object Dependencies {
     "com.gu" % "content-api-models" % "8.16"
   )
 
+  val guPermDeps = Seq(
+    "com.gu" %% "editorial-permissions-client" % "0.2"
+  )
+
   val scanamoDeps = Seq(
     "com.gu" %% "scanamo" % "0.5.0"
   )
