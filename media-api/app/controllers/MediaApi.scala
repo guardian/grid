@@ -104,9 +104,7 @@ object MediaApi extends Controller with ArgoHelpers {
       case user: PandaUser => {
         (source \ "uploadedBy").asOpt[String] match {
           case Some(uploader) if user.email.toLowerCase == uploader.toLowerCase => Future.successful(true)
-          case _ => {
-            PermissionsHandler.hasPermission(user, permission)
-          }
+          case _ => PermissionsHandler.hasPermission(user, permission)
         }
       }
       case _: AuthenticatedService => Future.successful(true)
