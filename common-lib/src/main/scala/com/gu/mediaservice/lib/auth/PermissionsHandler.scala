@@ -20,10 +20,12 @@ object PermissionsHandler {
   def hasPermission(user: Principal, permission: Permission) : Future[Boolean] = {
     user match {
       case u: PandaUser => {
-        Permissions.get(permission)(PermissionsUser(user.name)).map {
+        Permissions.get(permission)(PermissionsUser(u.email)).map {
           case PermissionGranted => true
-          case _ => false
-        } recover { case  _ => false }
+          case PermissionDenied => false
+
+        // fail open
+        } recover { case  _ => true }
       }
       // think about only allowing certain services i.e. on `service.name`?
       case service: AuthenticatedService => Future.successful(true)
