@@ -76,5 +76,4 @@ class QueryBuilder(matchFields: Seq[String]) extends ImageFields {
       nestedQueries.foldLeft(query) { case (q, nestedQ) => q.must(nestedQ) }
     }
   }
-
 }

@@ -1,7 +1,7 @@
 package lib
 
 import com.gu.mediaservice.lib.auth
-import com.gu.mediaservice.lib.auth.{PermissionStore, KeyStore}
+import com.gu.mediaservice.lib.auth.KeyStore
 
 import com.gu.mediaservice.lib.config.{Properties, CommonPlayAppConfig, CommonPlayAppProperties}
 import com.amazonaws.auth.{BasicAWSCredentials, AWSCredentials}

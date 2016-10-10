@@ -32,7 +32,6 @@ case object ApiRequestFailed extends Exception("Failed to fetch the source")
 object Application extends Controller with ArgoHelpers {
 
   import Config.{rootUri, loginUriTemplate, kahunaUri}
-  import Permissions.{validateUserCanDeleteCrops, canUserDeleteCrops}
 
   val keyStore = new KeyStore(Config.keyStoreBucket, Config.awsCredentials)
   val Authenticated = auth.Authenticated(keyStore, loginUriTemplate, kahunaUri)
@@ -93,7 +92,7 @@ object Application extends Controller with ArgoHelpers {
         link = Link("image", crop.specification.uri)
       } yield List(link)) getOrElse List()
 
-      canUserDeleteCrops(httpRequest.user) map {
+      PermissionsHandler.hasPermission(httpRequest.user, Permissions.DeleteCrops) map {
         case true if crops.nonEmpty => respond(crops, links, List(deleteCropsAction))
         case _ => respond(crops, links)
       }
@@ -101,7 +100,8 @@ object Application extends Controller with ArgoHelpers {
   }
 
   def deleteCrops(id: String) = Authenticated.async { httpRequest =>
-    validateUserCanDeleteCrops(httpRequest.user) flatMap { user =>
+
+    PermissionsHandler.hasPermission(httpRequest.user, Permissions.DeleteCrops) flatMap { _ =>
       Crops.deleteCrops(id).map { _ =>
         Notifications.publish(Json.obj("id" -> id), "delete-image-exports")
         Accepted

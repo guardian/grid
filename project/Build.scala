@@ -76,7 +76,7 @@ object Build extends Build {
   val lib = project("common-lib")
     .libraryDependencies(loggingDeps ++ awsDeps ++ elasticsearchDeps ++
       playDeps ++ playWsDeps ++ scalazDeps ++ commonsIODeps ++ akkaAgentDeps ++
-      pandaDeps ++ imagingDeps ++ commonsNetDeps)
+      pandaDeps ++ imagingDeps ++ commonsNetDeps ++ guPermDeps)
     .testDependencies(scalaCheckDeps ++ scalaTestDeps)
 
   val thrall = playProject("thrall")
