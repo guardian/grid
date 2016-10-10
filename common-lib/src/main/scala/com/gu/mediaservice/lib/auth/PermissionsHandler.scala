@@ -4,11 +4,14 @@ import com.gu.editorial.permissions.client._
 import scala.concurrent.{ExecutionContext, Future}
 import scala.concurrent.ExecutionContext.Implicits.global
 
+import org.slf4j.LoggerFactory
+
 
 object PermissionDeniedError extends Throwable("Permission denied")
 
 object PermissionsHandler {
   val failFuture = Future.failed(PermissionDeniedError)
+  private lazy val log = LoggerFactory.getLogger(getClass)
 
   def validateUserWithPermissions(user: Principal, permission: Permission)
                                  (implicit ec: ExecutionContext): Future[Principal] =
@@ -25,7 +28,11 @@ object PermissionsHandler {
           case PermissionDenied => false
 
         // fail open
-        } recover { case  _ => true }
+        } recover { case  e => {
+          log.error("Failed to get permissions!", e)
+
+          true
+        }}
       }
       // think about only allowing certain services i.e. on `service.name`?
       case service: AuthenticatedService => Future.successful(true)
