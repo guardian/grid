@@ -1,5 +1,7 @@
 package model
 
+import play.api.Logger
+
 import com.gu.contentapi.client.model.v1.Content
 import com.gu.contentapi.client.model.v1.{ElementType, Element}
 import com.gu.mediaservice.model.{PrintUsageRecord, UsageStatus}
@@ -55,23 +57,35 @@ object UsageGroup {
     })
 
   def extractImages(content: Content, usageStatus: UsageStatus, isReindex: Boolean) = {
+    val uuid = java.util.UUID.randomUUID.toString
+    Logger.info(s"Extracting images (job-${uuid}) from ${content.id}")
 
     val dateLimit = new DateTime(Config.usageDateLimit)
     val contentFirstPublished = LiveContentApi.getContentFirstPublished(content)
-
-    val shouldRecordUsages = (usageStatus match {
+    val isNew = usageStatus match {
       case _: PublishedUsageStatus => contentFirstPublished
         .map(_.isAfter(dateLimit)).getOrElse(false)
       case _ => true
-    }) || isReindex
+    }
 
-    def groupImageElements = content.elements.map(elements => {
+    val shouldRecordUsages = isNew || isReindex
+
+    def groupImageElements: Option[Seq[Element]] = content.elements.map(elements => {
       elements.filter(_.`type` == ElementType.Image)
         .groupBy(_.id)
         .map(_._2.head).to[collection.immutable.Seq]
     })
 
-    if (shouldRecordUsages) { groupImageElements } else None
+    if (shouldRecordUsages) {
+      Logger.info(s"Passed shouldRecordUsages (job-${uuid})")
+      Logger.info(s"Recording image usages ${groupImageElements} (job-${uuid})")
+
+      groupImageElements
+    } else {
+      Logger.info(s"Failed shouldRecordUsages: isNew-${isNew} isReindex-${isReindex} (job-${uuid})")
+
+      None
+    }
   }
 }
 
