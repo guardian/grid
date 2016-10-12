@@ -3,6 +3,8 @@ package lib
 import java.net.InetAddress
 import java.util.UUID
 
+import play.api.Logger
+
 import com.amazonaws.auth._
 import com.amazonaws.auth.profile.ProfileCredentialsProvider
 import com.amazonaws.internal.StaticCredentialsProvider
@@ -65,7 +67,11 @@ class CrierStreamReader {
   private lazy val previewWorkerThread = previewWorker.map(makeThread)
 
   def start() = {
-    liveWorkerThread.map(_.start)
-    previewWorkerThread.map(_.start)
+    liveWorkerThread
+      .map(_.start)
+      .foreach(_ => Logger.info("Starting Crier Live Stream reader"))
+    previewWorkerThread
+      .map(_.start)
+      .foreach(_ => Logger.info("Starting Crier Preview Stream reader"))
   }
 }
