@@ -9,12 +9,15 @@ import com.amazonaws.regions.Regions
 
 import scala.util.Try
 
+import play.api.Logger
+
+
 case class KinesisReaderConfig(streamName: String, arn: String, appName: String)
 
 object Config extends CommonPlayAppProperties with CommonPlayAppConfig {
 
   val appName = "usage"
-  val appTag = Try { properties("app.name") }
+  lazy val appTag = Try { properties("app.name") }
 
   val properties = Properties.fromPath("/etc/gu/usage.properties")
 
@@ -90,9 +93,14 @@ object Config extends CommonPlayAppProperties with CommonPlayAppConfig {
   val liveAppName = s"media-service-livex-${postfix}"
   val previewAppName = s"media-service-previewx-${postfix}"
 
-  val appTagBasedConfig: Map[String, Boolean] = appTag.getOrElse("unknown") match {
-    case "usage" => Map("apiOnly" -> true)
-    case "usage-stream" => Map("apiOnly" -> false)
-    case _ => Map()
+  val appTagBasedConfig: Map[String, Boolean] = appTag.getOrElse("usage") match {
+    case "usage-stream" => {
+      Logger.info(s"Starting as Stream Reader Usage.")
+      Map("apiOnly" -> false)
+    }
+    case _ => {
+      Logger.info(s"Starting as API only Usage.")
+      Map("apiOnly" -> true)
+    }
   }
 }
