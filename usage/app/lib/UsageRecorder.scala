@@ -24,7 +24,7 @@ object UsageRecorder {
   def subscribeToLive  = UsageRecorder.liveObservable.subscribe(subscriber)
 
   def recordUpdate(update: JsObject) = {
-    Logger.debug(s"Usage update processed: $update")
+    Logger.info(s"Usage update processed: $update")
     UsageMetrics.incrementUpdated
 
     update

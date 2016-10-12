@@ -11,6 +11,8 @@ import model.{UsageTable, MediaUsage}
 import scala.concurrent.Future
 import scala.concurrent.ExecutionContext.Implicits.global
 
+import play.api.Logger
+
 import _root_.rx.lang.scala.{Observable, Subscriber}
 
 case class UsageNotice(mediaId: String, usageJson: JsArray) {
@@ -45,5 +47,8 @@ object UsageNotice {
 }
 
 object UsageNotifier extends SNS(Config.awsCredentials, Config.topicArn) {
-  def send(usageNotice: UsageNotice) = publish(usageNotice.toJson, "update-image-usages")
+  def send(usageNotice: UsageNotice) = {
+    Logger.info(s"Sending usage notice for ${usageNotice.mediaId}")
+    publish(usageNotice.toJson, "update-image-usages")
+  }
 }
