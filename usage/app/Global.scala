@@ -18,7 +18,7 @@ object Global extends WithFilters(CorsFilter, RequestLoggingFilter, new GzipFilt
   }
 
   override def onStart(app: Application) {
-    val apiOnly = !Config.appTagBasedConfig.get("apiOnly").getOrElse(false)
+    val apiOnly = Config.appTagBasedConfig.get("apiOnly").getOrElse(false)
 
     if(!apiOnly) {
       val crierReader = new CrierStreamReader()

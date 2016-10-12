@@ -66,12 +66,12 @@ object Config extends CommonPlayAppProperties with CommonPlayAppConfig {
   val crierLiveArn = Try { properties("crier.live.arn") }
   val crierPreviewArn = Try { properties("crier.preview.arn") }
 
-  val liveKinesisReaderConfig: Try[KinesisReaderConfig] = for {
+  lazy val liveKinesisReaderConfig: Try[KinesisReaderConfig] = for {
     liveStream <- crierLiveKinesisStream
     liveArn <- crierLiveArn
   } yield KinesisReaderConfig(liveStream, liveArn, liveAppName)
 
-  val previewKinesisReaderConfig: Try[KinesisReaderConfig] = for {
+  lazy val previewKinesisReaderConfig: Try[KinesisReaderConfig] = for {
     previewStream <- crierPreviewKinesisStream
     previewArn <- crierPreviewArn
   } yield KinesisReaderConfig(previewStream, previewArn, previewAppName)
