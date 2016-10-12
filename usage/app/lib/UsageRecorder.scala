@@ -39,7 +39,6 @@ object UsageRecorder {
   def matchDb(usageGroup: UsageGroup) = UsageTable.matchUsageGroup(usageGroup)
     .map(MatchedUsageGroup(usageGroup, _))
 
-
   val previewDbUpdateStream = getUpdatesStream(previewDbMatchStream)
   val liveDbUpdateStream = getUpdatesStream(liveDbMatchStream)
 

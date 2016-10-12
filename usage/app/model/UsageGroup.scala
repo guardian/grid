@@ -1,6 +1,7 @@
 package model
 
 import play.api.Logger
+import play.api.libs.json._
 
 import com.gu.contentapi.client.model.v1.Content
 import com.gu.contentapi.client.model.v1.{ElementType, Element}
@@ -52,9 +53,21 @@ object UsageGroup {
       contentWrapper.content,
       contentWrapper.status,
       isReindex
-    ).map(_.zipWithIndex.map{ case (element, index) =>
-      MediaUsage.build(ElementWrapper(index, element), contentWrapper)
-    })
+    ).map(_.zipWithIndex.map{ case (element, index) => {
+      val usage = MediaUsage.build(ElementWrapper(index, element), contentWrapper)
+
+      Logger.info(s"Built MediaUsage for ${usage.mediaId}")
+
+      usage.digitalUsageMetadata.map(meta => {
+        Logger.info(s"MediaUsage for ${usage.mediaId}: ${Json.toJson(meta)}")
+      })
+
+      usage.printUsageMetadata.map(meta => {
+        Logger.info(s"MediaUsage for ${usage.mediaId}: ${Json.toJson(meta)}")
+      })
+
+      usage
+    }})
 
   def extractImages(content: Content, usageStatus: UsageStatus, isReindex: Boolean) = {
     // Generate unique UUID to track extract job
