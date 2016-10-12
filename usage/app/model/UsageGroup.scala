@@ -81,7 +81,22 @@ object UsageGroup {
     if (shouldRecordUsages) {
       Logger.info(s"Passed shouldRecordUsages (job-${uuid})")
 
-      groupImageElements
+      val groupedElements = groupImageElements
+      if(groupedElements.isEmpty) {
+        Logger.info(s"No Matching elements found (job-${uuid})")
+
+      } else {
+        groupedElements.map(elements => {
+          Logger.info(s"${elements.length} elements found (job-${uuid})")
+
+          elements.map(e => {
+            Logger.info(s"Matching element ${e.id} found (job-${uuid})")
+          })
+        })
+
+      }
+
+      groupedElements
     } else {
       Logger.info(s"Failed shouldRecordUsages: isNew-${isNew} isReindex-${isReindex} (job-${uuid})")
 
