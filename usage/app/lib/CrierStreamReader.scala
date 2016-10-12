@@ -67,6 +67,8 @@ class CrierStreamReader {
   private lazy val previewWorkerThread = previewWorker.map(makeThread)
 
   def start() = {
+    Logger.info("Trying to start Crier Stream Readers")
+
     liveWorkerThread
       .map(_.start)
       .foreach(_ => Logger.info("Starting Crier Live Stream reader"))
