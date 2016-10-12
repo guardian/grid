@@ -57,7 +57,9 @@ object UsageGroup {
     })
 
   def extractImages(content: Content, usageStatus: UsageStatus, isReindex: Boolean) = {
+    // Generate unique UUID to track extract job
     val uuid = java.util.UUID.randomUUID.toString
+
     Logger.info(s"Extracting images (job-${uuid}) from ${content.id}")
 
     val dateLimit = new DateTime(Config.usageDateLimit)
@@ -78,7 +80,6 @@ object UsageGroup {
 
     if (shouldRecordUsages) {
       Logger.info(s"Passed shouldRecordUsages (job-${uuid})")
-      Logger.info(s"Recording image usages ${groupImageElements} (job-${uuid})")
 
       groupImageElements
     } else {
