@@ -72,14 +72,26 @@ object UsageRecorder {
 
   private def getUpdatesStream(dbMatchStream:  Observable[MatchedUsageGroup]) = {
     dbMatchStream.flatMap(matchUsageGroup => {
+      // Generate unique UUID to track extract job
+      val uuid = java.util.UUID.randomUUID.toString
+
       val dbUsageGroup = matchUsageGroup.dbUsageGroup
       val usageGroup   = matchUsageGroup.usageGroup
+
+      dbUsageGroup.usages.foreach(g => {
+        Logger.info(s"Seen DB Usage for ${g.mediaId} (job-${uuid})")
+      })
+      usageGroup.usages.foreach(g => {
+        Logger.info(s"Seen Stream Usage for ${g.mediaId} (job-${uuid})")
+      })
 
       val deletes = (dbUsageGroup.usages -- usageGroup.usages).map(UsageTable.delete)
       val creates = (if(usageGroup.isReindex) { usageGroup.usages } else {(usageGroup.usages -- dbUsageGroup.usages)})
         .map(UsageTable.create)
       val updates = (if(usageGroup.isReindex) { Set() } else {usageGroup.usages & dbUsageGroup.usages})
         .map(UsageTable.update)
+
+      Logger.info(s"DB Operations d(${deletes.size}), u(${updates.size}), c(${creates.size}) (job-${uuid})")
 
       Observable.from(deletes ++ updates ++ creates).flatten[JsObject]
         .map(recordUpdate)
