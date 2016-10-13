@@ -37,7 +37,17 @@ object UsageRecorder {
   case class MatchedUsageUpdate(updates: Seq[JsObject], matchUsageGroup: MatchedUsageGroup)
 
   def matchDb(usageGroup: UsageGroup) = UsageTable.matchUsageGroup(usageGroup)
+    .retry((_, error) => {
+      Logger.error(s"Encountered an error trying to match usage group (${usageGroup.grouping}", error)
+
+      true
+    })
     .map(MatchedUsageGroup(usageGroup, _))
+    .map(matchedUsageGroup => {
+      Logger.info(s"Built MatchedUsageGroup for ${usageGroup.grouping}")
+
+      matchedUsageGroup
+    })
 
   val previewDbUpdateStream = getUpdatesStream(previewDbMatchStream)
   val liveDbUpdateStream = getUpdatesStream(liveDbMatchStream)

@@ -103,31 +103,20 @@ object UsageTable extends DynamoDB(
     Logger.info(s"Trying to match UsageGroup: ${usageGroup.grouping}")
 
     Observable.from(Future {
-      // TODO: Remove this try catch after testing
-      try {
+      val status = s"${usageGroup.status}"
+      val grouping = usageGroup.grouping
+      val keyAttribute = new KeyAttribute("grouping", grouping)
+      val queryResult = table.query(keyAttribute)
 
-        val status = s"${usageGroup.status}"
-        val grouping = usageGroup.grouping
-        val keyAttribute = new KeyAttribute("grouping", grouping)
-        val queryResult = table.query(keyAttribute)
+      val usages = queryResult.asScala
+        .map(MediaUsage.build)
+        .filter(usage => {
+          s"${usage.status}" == status
+        }).toSet
 
-        val usages = queryResult.asScala
-          .map(MediaUsage.build)
-          .filter(usage => {
-            s"${usage.status}" == status
-          }).toSet
+      Logger.info(s"Built matched UsageGroup ${usageGroup.grouping} (${usages.size})")
 
-        Logger.info(s"Built matched UsageGroup ${usageGroup.grouping} (${usages.size})")
-
-        UsageGroup(usages, grouping, usageGroup.status, new DateTime)
-
-      } catch {
-        case e: Throwable => {
-          Logger.error(s"Error matching Usage Group for ${usageGroup.grouping}", e)
-
-          throw e
-        }
-      }
+      UsageGroup(usages, grouping, usageGroup.status, new DateTime)
     })
   }
 
