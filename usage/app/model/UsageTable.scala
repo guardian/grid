@@ -106,6 +106,8 @@ object UsageTable extends DynamoDB(
       val status = s"${usageGroup.status}"
       val grouping = usageGroup.grouping
       val keyAttribute = new KeyAttribute("grouping", grouping)
+
+      Logger.info(s"Querying table for ${grouping} - ${status}")
       val queryResult = table.query(keyAttribute)
 
       val usages = queryResult.asScala
