@@ -32,6 +32,8 @@ object UsageGroup {
   def build(content: Content, status: UsageStatus, lastModified: DateTime, isReindex: Boolean) =
     ContentWrapper.build(content, status, lastModified).map(contentWrapper => {
       createUsages(contentWrapper, isReindex).map(usages => {
+        Logger.info(s"Built UsageGroup: ${contentWrapper.id}")
+
         UsageGroup(usages.toSet, contentWrapper.id, status, lastModified, isReindex)
       })
     })

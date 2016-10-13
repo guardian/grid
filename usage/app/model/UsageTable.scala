@@ -99,7 +99,9 @@ object UsageTable extends DynamoDB(
       }
   }.toSet
 
-  def matchUsageGroup(usageGroup: UsageGroup): Observable[UsageGroup] =
+  def matchUsageGroup(usageGroup: UsageGroup): Observable[UsageGroup] = {
+    Logger.info(s"Trying to match UsageGroup: ${usageGroup.grouping}")
+
     Observable.from(Future {
       val status = s"${usageGroup.status}"
       val grouping = usageGroup.grouping
@@ -112,8 +114,11 @@ object UsageTable extends DynamoDB(
           s"${usage.status}" == status
         }).toSet
 
+      Logger.info(s"Built matched UsageGroup ${usageGroup.grouping} (${usages.size})")
+
       UsageGroup(usages, grouping, usageGroup.status, new DateTime)
     })
+  }
 
   def create(mediaUsage: MediaUsage): Observable[JsObject] =
     updateFromRecord(UsageRecord.buildCreateRecord(mediaUsage))
