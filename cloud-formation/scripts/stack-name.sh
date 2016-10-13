@@ -16,6 +16,7 @@ else
         echo ''
         exit 1
     else
-        export STACK_NAME="media-service-DEV-`$USER_NAME | jq '.User.UserName' | tr -d '"' | tr [A-Z] [a-z]`"
+        USER_NAME_EXTRACTED=`echo $USER_NAME | jq '.User.UserName' | tr -d '"' | tr [A-Z] [a-z]`
+        export STACK_NAME=media-service-DEV-$USER_NAME_EXTRACTED
     fi
 fi
