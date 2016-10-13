@@ -66,19 +66,15 @@ object UsageRecorder {
   val previewNotifiedStream = distinctPreviewNotificationStream.map(UsageNotifier.send)
   val liveNotifiedStream = distinctLiveNotificationStream.map(UsageNotifier.send)
 
-  val previewObservable = previewNotifiedStream.retry((_, error) => {
+  def reportStreamError(i: Int, error: Throwable): Boolean = {
     Logger.error("UsageRecorder encountered an error.", error)
     UsageMetrics.incrementErrors
 
     true
-  }).tumbling(30.second)
+  }
 
-  val liveObservable = liveNotifiedStream.retry((_, error) => {
-    Logger.error("UsageRecorder encountered an error.", error)
-    UsageMetrics.incrementErrors
-
-    true
-  }).tumbling(30.second)
+  val previewObservable = previewNotifiedStream.retry((i,e) => reportStreamError(i,e))
+  val liveObservable = liveNotifiedStream.retry((i,e) => reportStreamError(i,e))
 
   private def getUpdatesStream(dbMatchStream:  Observable[MatchedUsageGroup]) = {
     dbMatchStream.flatMap(matchUsageGroup => {
