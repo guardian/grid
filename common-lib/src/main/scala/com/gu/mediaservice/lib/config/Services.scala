@@ -15,9 +15,10 @@ class Services(domainRoot: String, ssl: Boolean) {
   val imgopsHost: String   = s"$appName-imgops.$parentDomain"
   val usageHost: String    = s"$appName-usage.$parentDomain"
   val collectionsHost: String = s"$appName-collections.$parentDomain"
-  val leasesHost: String = s"$appName-leases.$parentDomain"
+  val leasesHost: String   = s"$appName-leases.$parentDomain"
   val authHost: String     = s"$appName-auth.$parentDomain"
 
+  val composerHost: String     = s"composer.$parentDomain"
 
   val kahunaBaseUri      = baseUri(kahunaHost)
   val apiBaseUri         = baseUri(apiHost)
