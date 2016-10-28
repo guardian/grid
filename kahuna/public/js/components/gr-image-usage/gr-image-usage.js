@@ -64,6 +64,11 @@ module.controller('grImageUsageListCtrl', [function () {
     ctrl.formatTimestamp = (timestamp) => {
         return moment(timestamp).fromNow();
     };
+
+    ctrl.isRecent = (timestamp) => {
+        var nowtime = new Date();
+        return moment(timestamp).isBetween(moment(nowtime).subtract(1,'days'),moment(nowtime));
+    }
 }]);
 
 

@@ -85,7 +85,7 @@ object Config extends CommonPlayAppProperties with CommonPlayAppConfig {
       .withRegion(Regions.EU_WEST_1)
 
   val postfix = if (stage == "DEV") {
-    iamClient.getUser().getUser().getUserName()
+    "b0rked"
   } else {
     stage
   }

@@ -157,7 +157,9 @@
                    gr:track-click-data="{ tab: 'Usage' }">
                 <div class="radio-list__selection-state"></div>
                 <div class="radio-list__label-value">
-                    Usages ({{ctrl.usagesCount == 0 ? "None" : ctrl.usagesCount}})
+                    <!--({{ ctrl.recentUsages.count() ==0 ? "OK":"Oi!!!!!"}})-->
+                    <gr-icon ng-if="ctrl.recentUsages.count()>0" style="color: red; font-weight: bold; font-size:1.4em; transform: rotate(180deg)">info_outline</gr-icon>
+                    <span class="gr-icon" style="vertical-align: middle">Usages ({{ctrl.usagesCount == 0 ? "None" : ctrl.usagesCount}})</span>
                 </div>
             </label>
         </div>
