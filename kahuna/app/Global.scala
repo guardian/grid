@@ -20,7 +20,7 @@ object SecurityOptions {
   lazy val frameOptionsConfig: SecurityHeadersConfig =
     securityHeadersConfig.copy(
       contentSecurityPolicy = None,
-      frameOptions = Some(s"ALLOW-FROM ${Config.services.composerHost}")
+      frameOptions = Some(s"ALLOW-FROM ${Config.services.composerBaseUri}")
     )
 
   lazy val filter = SecurityHeadersFilter(frameOptionsConfig)

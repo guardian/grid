@@ -31,6 +31,7 @@ class Services(domainRoot: String, ssl: Boolean) {
   val leasesBaseUri      = baseUri(leasesHost)
   val authBaseUri        = baseUri(authHost)
 
+  val composerBaseUri    = baseUri(composerHost)
 
   val loginUriTemplate = s"$authBaseUri/login{?redirectUri}"
 
