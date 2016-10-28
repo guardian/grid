@@ -11,20 +11,23 @@ import lib.{LogConfig, Config, ForceHTTPSFilter}
 
 import com.gu.mediaservice.lib.play.RequestLoggingFilter
 
-object FrameOptions {
+object SecurityOptions {
   lazy val configuration = play.api.Play.current.configuration
 
   lazy val securityHeadersConfig: DefaultSecurityHeadersConfig =
     new SecurityHeadersParser().parse(configuration).asInstanceOf[DefaultSecurityHeadersConfig]
 
-  lazy val sameOriginConfig: SecurityHeadersConfig =
-    securityHeadersConfig.copy(frameOptions = Some(s"ALLOW-FROM ${Config.services.composerHost}"))
+  lazy val frameOptionsConfig: SecurityHeadersConfig =
+    securityHeadersConfig.copy(
+      contentSecurityPolicy = None,
+      frameOptions = Some(s"ALLOW-FROM ${Config.services.composerHost}")
+    )
 
-  lazy val filter = SecurityHeadersFilter(sameOriginConfig)
+  lazy val filter = SecurityHeadersFilter(frameOptionsConfig)
 }
 
 object Global extends WithFilters(
-  FrameOptions.filter,
+  SecurityOptions.filter,
   ForceHTTPSFilter,
   RequestLoggingFilter,
   new GzipFilter
