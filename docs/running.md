@@ -1,6 +1,10 @@
 # Running services
 
 Grid consists of many micro-services. There are a few different ways to start them.
+Note that some services don't compile until you hit them for the first time, once it's running you could try:
+
+for x in 900{1..9}; do curl http://localhost:$x; done
+for x in 901{0..11}; do curl http://localhost:$x; done
 
 ## Manually
 From the **project root**:
