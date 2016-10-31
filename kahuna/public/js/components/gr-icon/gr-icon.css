@@ -21,6 +21,14 @@ gr-icon {
     vertical-align: middle;
 }
 
+gr-icon.icon-warning {
+    color: #DD0000;
+    font-size:1.4em;
+}
+
+gr-icon.invert {
+    transform: rotate(180deg);
+}
 gr-icon .gr-icon { /* avoid targeting i element */
     font-style: normal;
 }

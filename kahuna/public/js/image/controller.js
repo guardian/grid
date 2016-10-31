@@ -92,8 +92,7 @@ image.controller('ImageCtrl', [
             return usageList.filter(item=> {
                 var nowtime = new Date();
                 var timestamp = item.get('dateAdded');
-                console.log("recentUsages filter: got ", item.get('dateAdded'));
-                return moment(timestamp).isAfter(moment(nowtime).subtract(7,'days'));
+                return moment(timestamp).isAfter(moment(nowtime).subtract(imageUsagesService.recentTime,'days'));
             })
         });
 
