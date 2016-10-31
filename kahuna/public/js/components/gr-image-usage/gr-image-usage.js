@@ -58,12 +58,19 @@ module.directive('grImageUsage', [function() {
     };
 }]);
 
-module.controller('grImageUsageListCtrl', [function () {
+module.controller('grImageUsageListCtrl', [
+    'imageUsagesService',
+    function (imageUsagesService) {
     const ctrl = this;
 
     ctrl.formatTimestamp = (timestamp) => {
         return moment(timestamp).fromNow();
     };
+
+    ctrl.isRecent = (timestamp) => {
+        const nowtime = new Date();
+        return moment(timestamp).isAfter(moment(nowtime).subtract(imageUsagesService.recentTime,'days'));
+    }
 }]);
 
 

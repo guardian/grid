@@ -56,7 +56,8 @@ imageUsagesService.factory('imageUsagesService', [function() {
                 hasDigitalUsages$,
                 count$
             };
-        }
+        },
+        recentTime: 7 //If a usage is newer than this number of days, then consider it as "recent" and show a warning
     };
 
 }]);
