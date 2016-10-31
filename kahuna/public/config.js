@@ -95,10 +95,6 @@ System.config({
     "github:jspm/nodelibs-util@0.1.0": {
       "util": "npm:util@0.10.3"
     },
-    "github:tapmodo/Jcrop@0.9.12": {
-      "css": "github:systemjs/plugin-css@0.1.13",
-      "jquery": "npm:jquery@3.1.1"
-    },
     "github:vitalets/angular-xeditable@0.1.9": {
       "angular": "github:angular/bower-angular@1.4.3",
       "css": "github:systemjs/plugin-css@0.1.13"
