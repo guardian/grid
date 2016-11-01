@@ -1,4 +1,5 @@
 import angular from 'angular';
+import moment from 'moment';
 
 import '../util/rx';
 import '../services/image/usages';
@@ -92,7 +93,8 @@ image.controller('ImageCtrl', [
             return usageList.filter(item=> {
                 var nowtime = new Date();
                 var timestamp = item.get('dateAdded');
-                return moment(timestamp).isAfter(moment(nowtime).subtract(imageUsagesService.recentTime, 'days'));
+                return moment(timestamp)
+                    .isAfter(moment(nowtime).subtract(imageUsagesService.recentTime, 'days'));
             });
         });
 
