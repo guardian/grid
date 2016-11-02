@@ -1,10 +1,8 @@
 # Running services
 
 Grid consists of many micro-services. There are a few different ways to start them.
-Note that some services don't compile until you hit them for the first time, once it's running you could try:
-
-for x in 900{1..9}; do curl http://localhost:$x; done
-for x in 901{0..11}; do curl http://localhost:$x; done
+Note that some services don't compile until you hit them for the first time.
+There is a script included that will do this for you called **the_pingler.sh**
 
 ## Manually
 From the **project root**:
@@ -50,6 +48,17 @@ From the project root:
 
 you can see the different application names in the Procfile (in project root)
 
+## [the_pingler.sh]
+This is a simple shell script that keeps pinging the healtcheck endpoints of the various
+services and reports it via the colour of the URL.  This is needed because some services do
+not start to function correctly until they have been contacted at least one.
+It's recommended to keep this running in the background while you have the stack started up.
+
+From the project root:
+
+		$ ./the_pingler.sh
+
+and keep it running in a background terminal
 
 ## Docker
 Its possible to run Grid using Docker. Please follow the [README](../docker/README.md#setup) beforehand.
