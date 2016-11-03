@@ -60,8 +60,6 @@ image.controller('uiPreviewImageCtrl', [
         imageUsagesService.getUsages(ctrl.image).hasDigitalUsages$;
 
     const usageListRecent$ = imageUsagesService.getUsages(ctrl.image).usageListAfter$(imageUsagesService.recentTime);
-
-        console.log("usageListRecent$: " + usageListRecent$)
     $scope.$on('$destroy', function() {
         freeUpdateListener();
     });

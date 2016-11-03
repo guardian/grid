@@ -45,9 +45,6 @@ imageUsagesService.factory('imageUsagesService', [function() {
             const usageListAfter$ = (since) => usages$.map((usagesList) => {
                     const nowtime = new Date();
                     return usagesList.filter((usage) => {
-                        // console.log("evaluating for " + usage);
-                        // console.log("dateAdded is " + usage.get('dateAdded'));
-                        // console.log("value is " + moment(usage.get('dateAdded')).isAfter(moment(nowtime).subtract(since, 'days')));
                         return moment(usage.dateAdded).isAfter(moment(nowtime).subtract(since, 'days'));
                     });
                 });
