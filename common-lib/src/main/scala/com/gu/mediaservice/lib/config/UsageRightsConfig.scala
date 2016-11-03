@@ -31,6 +31,7 @@ object UsageRightsConfig {
     "Sports Illustrated Classic",
     "Terry O'Neill",
     "Time & Life Pictures",
+    "Time Life Pictures/Getty Images",
     "The Asahi Shimbun Premium",
     "The LIFE Images Collection",
     "The LIFE Picture Collection",
