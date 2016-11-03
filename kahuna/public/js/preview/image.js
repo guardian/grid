@@ -59,7 +59,8 @@ image.controller('uiPreviewImageCtrl', [
     const hasDigitalUsages$ =
         imageUsagesService.getUsages(ctrl.image).hasDigitalUsages$;
 
-    const usageListRecent$ = imageUsagesService.getUsages(ctrl.image).usageListAfter$(imageUsagesService.recentTime);
+    const usageListRecent$ = imageUsagesService.getUsages(ctrl.image)
+        .usageListAfter$(imageUsagesService.recentTime);
     $scope.$on('$destroy', function() {
         freeUpdateListener();
     });

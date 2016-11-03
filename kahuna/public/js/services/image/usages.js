@@ -1,5 +1,6 @@
 import angular from 'angular';
 import Immutable from 'immutable';
+import moment from 'moment';
 
 import Rx from 'rx';
 
@@ -45,7 +46,8 @@ imageUsagesService.factory('imageUsagesService', [function() {
             const usageListAfter$ = (since) => usages$.map((usagesList) => {
                     const nowtime = new Date();
                     return usagesList.filter((usage) => {
-                        return moment(usage.dateAdded).isAfter(moment(nowtime).subtract(since, 'days'));
+                        return moment(usage.dateAdded)
+                            .isAfter(moment(nowtime).subtract(since, 'days'));
                     });
                 });
 
