@@ -67,6 +67,8 @@ object Dependencies {
     "net.logstash.logback" % "logstash-logback-encoder" % "4.4"
   )
 
+  val auditingDeps = Seq("com.gu" %% "auditing-thrift-model" % "0.4")
+
   val commonsNetDeps = Seq(
     "commons-net" % "commons-net" % "3.3",
     "org.apache.httpcomponents" % "httpclient" % "4.5.2"

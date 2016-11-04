@@ -187,7 +187,12 @@ object MediaApi extends Controller with ArgoHelpers {
         if (imageCanBeDeleted) {
           canUserDeleteImage(request, source) map { canDelete =>
             if (canDelete) {
-              Notifications.publish(Json.obj("id" -> id), "delete-image")
+              val email = request.user match {
+                case user: PandaUser => user.email
+                case _ => ""
+              }
+
+              Notifications.publish(Json.obj("id" -> id, "userEmail" -> email), "delete-image")
               Accepted
             } else {
               ImageDeleteForbidden
