@@ -59,13 +59,13 @@ image.controller('uiPreviewImageCtrl', [
     const hasDigitalUsages$ =
         imageUsagesService.getUsages(ctrl.image).hasDigitalUsages$;
 
-    const usageListRecent$ = imageUsagesService.getUsages(ctrl.image)
-        .usageListAfter$(imageUsagesService.recentTime);
+    const recentUsages$ = imageUsagesService.getUsages(ctrl.image).recentUsages$;
+
     $scope.$on('$destroy', function() {
         freeUpdateListener();
     });
 
-    inject$($scope, usageListRecent$, ctrl, 'usageListRecent');
+    inject$($scope, recentUsages$, ctrl, 'recentUsages');
     inject$($scope, hasPrintUsages$, ctrl, 'hasPrintUsages');
     inject$($scope, hasDigitalUsages$, ctrl, 'hasDigitalUsages');
 
