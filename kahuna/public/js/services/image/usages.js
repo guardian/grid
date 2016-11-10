@@ -11,7 +11,7 @@ export const imageUsagesService = angular.module('gr.image-usages.service', [
 
 imageUsagesService.factory('imageUsagesService', [function() {
 
-    const recentDays = 7;
+    const recentDays = 90;
 
     return {
         getUsages: (imageResource) => {
