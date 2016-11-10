@@ -1,5 +1,4 @@
 import angular from 'angular';
-import moment from 'moment';
 
 import '../util/rx';
 import '../services/image/usages';

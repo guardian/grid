@@ -11,6 +11,8 @@ export const imageUsagesService = angular.module('gr.image-usages.service', [
 
 imageUsagesService.factory('imageUsagesService', [function() {
 
+    const recentDays = 7;
+
     return {
         getUsages: (imageResource) => {
 
@@ -44,10 +46,9 @@ imageUsagesService.factory('imageUsagesService', [function() {
                 filterByPlatform(platform).every((group) => !group.isEmpty());
 
             const recentUsages$ = usages$.map((usagesList) => {
-                    const nowtime = new Date();
                     return usagesList.filter(item=> {
                         const timestamp = item.get('dateAdded');
-                        const recentIfAfter = moment(nowtime).subtract(imageUsagesService.recentTime, 'days');
+                        const recentIfAfter = moment().subtract(recentDays, 'days');
                         return moment(timestamp).isAfter(recentIfAfter);
                     });
                 });
@@ -73,7 +74,7 @@ imageUsagesService.factory('imageUsagesService', [function() {
          //If a usage is newer than this number of days,
           then consider it as "recent" and show a warning
          */
-        recentTime: 7
+        recentTime: recentDays
     };
 
 }]);
