@@ -56,21 +56,20 @@ object ThrallMessageConsumer extends MessageConsumer(
     Future.sequence(withImageId(collections)(id => ElasticSearch.setImageCollection(id, collections \ "data")) )
 
   def deleteImage(data: JsValue): Future[List[EsResponse]] = {
-    val imageId = data \ "id"
-    val userEmail = (data \ "userEmail").toString()
     Future.sequence(
-      withImageId(imageId) { id =>
-        // if we cannot delete the image as it's "protected", succeed and delete
-        // the message anyway.
-        ElasticSearch.deleteImage(id).map { requests =>
-          requests.map {
-            case r: DeleteByQueryResponse =>
-              ImageStore.deleteOriginal(id)
-              ImageStore.deleteThumbnail(id)
-              ImageStore.deletePng(id)
-              DynamoNotifications.publish(Json.obj("id" -> id), "image-deleted")
-              if(userEmail.nonEmpty) Auditing.publish("image-deleted", data)
-              EsResponse(s"Image deleted: $id")
+    withImageId(data) { id =>
+      // if we cannot delete the image as it's "protected", succeed and delete
+      // the message anyway.
+      ElasticSearch.deleteImage(id).map { requests =>
+        requests.map {
+          case r: DeleteByQueryResponse =>
+            ImageStore.deleteOriginal(id)
+            ImageStore.deleteThumbnail(id)
+            ImageStore.deletePng(id)
+            DynamoNotifications.publish(Json.obj("id" -> id), "image-deleted")
+            if((data \ "userEmail").toString().nonEmpty) Auditing.publish("image-deleted", data)
+
+            EsResponse(s"Image deleted: $id")
           } recoverWith {
             case ImageNotDeletable =>
               Logger.info(s"Could not delete image $id")

@@ -80,7 +80,7 @@ object Build extends Build {
     .testDependencies(scalaCheckDeps ++ scalaTestDeps)
 
   val thrall = playProject("thrall")
-    .libraryDependencies(elasticsearchDeps ++ awsDeps ++ scalazDeps ++ elasticSearchClientDeps)
+    .libraryDependencies(elasticsearchDeps ++ awsDeps ++ scalazDeps ++ elasticSearchClientDeps ++ thriftDeps)
 
   import com.typesafe.sbt.web.SbtWeb
   import com.typesafe.sbt.web.Import._

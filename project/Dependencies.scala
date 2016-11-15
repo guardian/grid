@@ -95,7 +95,8 @@ object Dependencies {
 
   val thriftDeps = Seq(
     "com.twitter" %% "scrooge-core" % "4.6.0",
-    "org.apache.thrift" % "libthrift" % "0.9.1" force()
+    "org.apache.thrift" % "libthrift" % "0.9.1" force(),
+    "com.gu" %% "thrift-serializer" % "0.0.1"
   )
 
   val legacyBlockingHttp = Seq("org.scalaj" %% "scalaj-http" % "1.1.4")

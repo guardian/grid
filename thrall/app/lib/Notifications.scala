@@ -2,6 +2,8 @@ package lib
 
 import java.nio.ByteBuffer
 
+import com.amazonaws.services.kinesis.model.PutRecordRequest
+import com.gu.thrift.serializer.ThriftSerializer
 import com.amazonaws.auth.STSAssumeRoleSessionCredentialsProvider
 import com.amazonaws.auth.profile.ProfileCredentialsProvider
 import com.amazonaws.regions.{Region, Regions}
@@ -22,42 +24,34 @@ object Auditing {
 
   val region =  Region getRegion Regions.EU_WEST_1
   val client = region.createClient(classOf[AmazonKinesisClient], auditingCredentialsProvider.getOrElse(new ProfileCredentialsProvider("cmsFronts")), null)
+  val partitionKey = "media-service-updates"
 
   def publish(operation: String, data: JsValue): Unit = {
     val imageId = data \ "id"
     val userEmail = data \ "userEmail"
-
+    val dateTime = new DateTime()
     val thriftStruct = Notification(
       app = App.MediaServices,
       operation = operation,
       userEmail = userEmail.toString(),
-      date = new DateTime().toString(),
+      date = dateTime.toString,
       resourceId = Some(imageId.toString()),
-      message = Some(s"$userEmail deleted image with ID: $imageId")
+      message = Some(s"$userEmail deleted image with ID: $imageId"),
+      expiryDate = Some(dateTime.plusMonths(1).toString)
     )
-    val thriftAsByteBuffer = ByteBuffer.wrap(ThriftSerializer.serializeToBytes(thriftStruct, false))
-    client.putRecord(Config.auditingStreamName, thriftAsByteBuffer, "media-service-updates")
+
+    client.putRecord(
+      new PutRecordRequest()
+        .withData(ByteBuffer.wrap(ThriftSerialize.serializeNotification(thriftStruct)))
+        .withStreamName(Config.auditingStreamName)
+        .withPartitionKey(partitionKey)
+    )
   }
 
 }
 
-object ThriftSerializer {
-
-  val ThriftBufferInitialSize = 128
-
-  def serializeToBytes(struct: ThriftStruct, includeCompressionFlag: Boolean): Array[Byte] = {
-    val buffer = new TMemoryBuffer(ThriftBufferInitialSize)
-    val protocol = new TCompactProtocol(buffer)
-    struct.write(protocol)
-
-    includeCompressionFlag match {
-      case true => compressionByte +: buffer.getArray
-      case false => buffer.getArray
-    }
+object ThriftSerialize extends ThriftSerializer {
+  def serializeNotification(notification: Notification): Array[Byte] = {
+    serializeToBytes(notification)
   }
-
-  val compressionByte: Byte = {
-    0x00.toByte
-  }
-
 }
