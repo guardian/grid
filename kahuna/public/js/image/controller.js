@@ -1,5 +1,4 @@
 import angular from 'angular';
-import moment from 'moment';
 
 import '../util/rx';
 import '../services/image/usages';
@@ -89,14 +88,7 @@ image.controller('ImageCtrl', [
         const usages = imageUsagesService.getUsages(ctrl.image);
         const usagesCount$ = usages.count$;
 
-        const recentUsages$ = usages.usages$.map(usageList=>{
-            return usageList.filter(item=> {
-                var nowtime = new Date();
-                var timestamp = item.get('dateAdded');
-                return moment(timestamp)
-                    .isAfter(moment(nowtime).subtract(imageUsagesService.recentTime, 'days'));
-            });
-        });
+        const recentUsages$ = usages.recentUsages$;
 
         inject$($scope, usagesCount$, ctrl, 'usagesCount');
         inject$($scope, recentUsages$, ctrl, 'recentUsages');
