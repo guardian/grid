@@ -86,20 +86,14 @@ Start Elasticsearch from the `elasticsearch` directory:
 
 First you need to create some dev credentials in AWS - ask your friendly system administrator.
 
+1 . Log into the AWS Cloudformation console
+2.  Create a stack using the (dev template)[https://github.com/guardian/grid/blob/master/cloud-formation/dev-template.json]
+
 **Pro-tip**: Set `AWS_DEFAULT_PROFILE` to avoid using the `--profile` flag with the awscli in the future.
 
 ```sh
 echo 'export AWS_DEFAULT_PROFILE=media-service' >> $HOME/.profile
 ```
-
-To create your stack run [create-dev-stack.sh](cloud-formation/scripts/create-dev-stack.sh):
-
-```sh
-cd cloud-formation/scripts
-./create-dev-stack.sh
-```
-
-** The create-dev-stack script will use your default aws profile **
 
 ### Generate .properties files
 
