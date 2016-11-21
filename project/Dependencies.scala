@@ -33,8 +33,8 @@ object Dependencies {
   )
 
   val guDeps = Seq(
-    "com.gu" %% "content-api-client" % "9.4",
-    "com.gu" % "content-api-models" % "8.16"
+    "com.gu" %% "content-api-client" % "10.12",
+    "com.gu" % "content-api-models" % "10.13"
   )
 
   val guPermDeps = Seq(
