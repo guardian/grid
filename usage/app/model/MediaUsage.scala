@@ -9,11 +9,11 @@ import play.api.libs.json._
 import scala.util.Try
 import scala.collection.JavaConversions._
 import scala.collection.JavaConverters._
-
 import play.api.libs.json._
 import play.api.libs.functional.syntax._
 import java.net.URI
 
+import com.gu.contentatom.thrift.atom.media.MediaAtom
 import lib.UsageMetadataBuilder
 
 
@@ -96,4 +96,21 @@ object MediaUsage {
     None,
     printUsage.dateAdded
   )
+
+  def build(mediaAtomWrapper: MediaAtomWrapper, contentWrapper: ContentWrapper): MediaUsage = {
+    val usageId = UsageId.build(mediaAtomWrapper, contentWrapper)
+    val usageMetadata = UsageMetadataBuilder.build(contentWrapper.content)
+
+    MediaUsage(
+      usageId,
+      UsageGroup.buildId(contentWrapper),
+      mediaAtomWrapper.media.id,
+      "digital",
+      "image",
+      contentWrapper.status,
+      None,
+      Some(usageMetadata),
+      contentWrapper.lastModified
+    )
+  }
 }
