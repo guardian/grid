@@ -36,6 +36,12 @@ You will need to install:
 * Nginx
 * [GraphicsMagick](http://www.graphicsmagick.org/)
 `sudo apt-get install graphicsmagick` or `brew install graphicsmagick --with-little-cms2`.
+
+If you get a permissions issue when running
+``` brew install graphicsmagick --with-little-cms2 ```
+you can install little cms (``` brew install little-cms2 ``` )
+and then compile graphicsmagick from source, it will automatically pick up on the little cms installation
+
 * [awscli](https://aws.amazon.com/cli/)
 * [jq](https://stedolan.github.io/jq/)
 * [exiftool](http://www.sno.phy.queensu.ca/~phil/exiftool/)
@@ -82,26 +88,10 @@ Start Elasticsearch from the `elasticsearch` directory:
         $ cd elasticsearch/
         $ ./dev-start.sh
 
-### Create CloudFormation Stack
-
-First you need to create some dev credentials in AWS - ask your friendly system administrator.
-
-**Pro-tip**: Set `AWS_DEFAULT_PROFILE` to avoid using the `--profile` flag with the awscli in the future.
-
-```sh
-echo 'export AWS_DEFAULT_PROFILE=media-service' >> $HOME/.profile
-```
-
-To create your stack run [create-dev-stack.sh](cloud-formation/scripts/create-dev-stack.sh):
-
-```sh
-cd cloud-formation/scripts
-./create-dev-stack.sh
-```
-
-** The create-dev-stack script will use your default aws profile **
 
 ### Generate .properties files
+
+Firstly you will need to follow the guide in the dev-utils folder of this [repo](https://github.com/guardian/grid-infra). This will give you 
 
 Generate your .properties files for the various media-service services using the
 [dot-properties generator](./docker/configs/generators/README.md)
@@ -126,12 +116,3 @@ As the Play Framework does not yet support [SNI](https://en.wikipedia.org/wiki/S
 # Resolution
 
 When the correct cert to send is ambiguous NGINX simply sends the first cert it sees in it's configuration (which is loaded from config files in alphabetical order) to resolve this problem, prefix your grid config filename with `0-`!
-
-
-## GraphicsMagick && Little CMS 2
-
-If you get a permissions issue when running
-``` brew install graphicsmagick --with-little-cms2 ```
-you can install little cms (``` brew install little-cms2 ``` )
-and then compile graphicsmagick from source, it will automatically pick up on the little cms installation
-
