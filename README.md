@@ -91,7 +91,9 @@ Start Elasticsearch from the `elasticsearch` directory:
 
 ### Generate .properties files
 
-Firstly you will need to follow the guide in the dev-utils folder of this [repo](https://github.com/guardian/grid-infra). This will give you 
+Guardian devs can follow the guide in the dev-utils folder of this private [repo](https://github.com/guardian/grid-infra). This will give you some tips about our specific configuration.
+
+The general process is as follows: 
 
 Generate your .properties files for the various media-service services using the
 [dot-properties generator](./docker/configs/generators/README.md)
