@@ -19,8 +19,13 @@ def _get_stack_name():
         with open(STACK_NAME_FILE, 'r') as f:
             stack_name = f.read().strip()
     else:
-        user = boto3.resource('iam').CurrentUser().user_name
-        stack_name = 'media-service-DEV-{}'.format(user)
+        stack_name = 'media-service-DEV'
+        dirname = os.path.dirname(STACK_NAME_FILE)
+        LOGGER.info('Creating stack name file {}'.format(STACK_NAME_FILE))
+        if not os.path.isdir(dirname): os.makedirs(dirname, 0700)
+        with open(STACK_NAME_FILE, 'w') as f:
+            f.write(stack_name)
+            f.close()
 
     LOGGER.info('Using stack {}'.format(stack_name))
     return stack_name
