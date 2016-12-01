@@ -85,7 +85,13 @@ object Config extends CommonPlayAppProperties with CommonPlayAppConfig {
       .withRegion(Regions.EU_WEST_1)
 
   val postfix = if (stage == "DEV") {
-    iamClient.getUser().getUser().getUserName()
+    try {
+      iamClient.getUser().getUser().getUserName()
+    } catch {
+      case e:com.amazonaws.AmazonServiceException=>
+        Logger.warn("Unable to determine current IAM user, probably because you're using temp credentials.  Usage may not be able to determine the live/preview app names")
+        "tempcredentials"
+    }
   } else {
     stage
   }

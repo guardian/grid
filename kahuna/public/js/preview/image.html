@@ -96,16 +96,16 @@
             </span>
 
             <span class="bottom-bar__meta-item preview__has-print-usages"
-                  title="This image has been used {{ctrl.usageListRecent.length >0 ? 'RECENTLY': '' }} in Print Content"
+                  title="This image has been used {{ctrl.recentUsages.count() > 0 ? 'RECENTLY': '' }} in Print Content"
                   ng:if="ctrl.hasPrintUsages">
-                <gr-icon gr-small ng-class="{'icon-warning': ctrl.usageListRecent.length >0}">local_library</gr-icon>
+                <gr-icon gr-small ng-class="{'icon-warning': ctrl.recentUsages.count() > 0}">local_library</gr-icon>
             </span>
 
             <span class="bottom-bar__meta-item preview__has-web-usages"
-                  title="This image has been used {{ctrl.usageListRecent.length >0 ? 'RECENTLY': '' }} in Digital Content"
+                  title="This image has been used {{ctrl.recentUsages.count() > 0 ? 'RECENTLY': '' }} in Digital Content"
                   ng:if="ctrl.hasDigitalUsages">
 
-                <gr-icon gr-small ng-class="{'icon-warning': ctrl.usageListRecent.length >0}">phonelink</gr-icon>
+                <gr-icon gr-small ng-class="{'icon-warning': ctrl.recentUsages.count() > 0}">phonelink</gr-icon>
             </span>
         </div>
         <div>
