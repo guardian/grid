@@ -105,7 +105,7 @@ object UsageGroup {
         Logger.info(s"No Matching media atoms found (job-${uuid})")
       } else {
         Logger.info(s"${groupedMediaAtoms.length} elements found (job-${uuid})")
-        groupedMediaAtoms.map(atom => Logger.info(s"Matching element ${atom.} found (job-${uuid})"))
+        groupedMediaAtoms.map(atom => Logger.info(s"Matching element ${atom.id} found (job-${uuid})"))
       }
 
       groupedMediaAtoms
