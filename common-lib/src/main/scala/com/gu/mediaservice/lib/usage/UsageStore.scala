@@ -24,6 +24,10 @@ object SupplierUsageQuota {
     (__ \ "count").write[Int]
   )(unlift(SupplierUsageQuota.unapply))
 
+  implicit val customReads: Reads[SupplierUsageQuota] = (
+    (__ \ "agency").read[String].map(Agency(_)) ~
+    (__ \ "count").read[Int]
+  )(SupplierUsageQuota.apply _)
 }
 
 case class SupplierUsageSummary(agency: Agency, count: Int)
@@ -124,6 +128,33 @@ class UsageStore(
           summary,
           quota
         )
+      })
+  }
+}
+
+class QuotaStore(
+  quotaFile: String,
+  bucket: String,
+  credentials: AWSCredentials
+) extends BaseStore[String, SupplierUsageQuota](bucket, credentials) {
+
+  def getQuota(): Future[Map[String, SupplierUsageQuota]] = for {
+      s <- store.future
+    } yield s
+
+  def update() {
+    store.sendOff(_ => fetchQuota)
+  }
+
+  private def fetchQuota: Map[String, SupplierUsageQuota] = {
+    val quotaFileString = getS3Object(quotaFile).get
+
+    val summary = Json
+      .parse(quotaFileString)
+      .as[List[SupplierUsageQuota]]
+
+      summary.foldLeft(Map[String,SupplierUsageQuota]())((memo, quota) => {
+        memo + (quota.agency.supplier -> quota)
       })
   }
 }
