@@ -8,7 +8,7 @@ import scala.util.Try
 import com.gu.mediaservice.lib.elasticsearch.EC2._
 import com.gu.mediaservice.lib.config.{Properties, CommonPlayAppConfig, CommonPlayAppProperties}
 
-case class UsageStoreConfig(
+case class StoreConfig(
   storeBucket: String,
   storeKey: String
 )
@@ -27,10 +27,15 @@ object Config extends CommonPlayAppConfig with CommonPlayAppProperties {
   val configBucket: String = properties("s3.config.bucket")
 
   val usageStoreKey: Option[String] = properties.get("usage.store.key")
+  val quotaStoreKey: Option[String] = properties.get("quota.store.key")
 
-  val usageStoreConfig: Option[UsageStoreConfig] = for {
+  val usageStoreConfig: Option[StoreConfig] = for {
     key <- usageStoreKey
-  } yield UsageStoreConfig(configBucket, key)
+  } yield StoreConfig(configBucket, key)
+
+  val quotaStoreConfig: Option[StoreConfig] = for {
+    key <-quotaStoreKey
+  } yield StoreConfig(configBucket, key)
 
   val ec2Client: AmazonEC2Client =
     new AmazonEC2Client(awsCredentials) <| (_ setEndpoint awsEndpoint)

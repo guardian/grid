@@ -7,7 +7,7 @@ import scala.concurrent.duration._
 import play.api.libs.concurrent.Execution.Implicits._
 
 import com.gu.mediaservice.model.{Image, Agencies, UsageRights}
-import com.gu.mediaservice.lib.usage.{UsageStatus, UsageStore, StoreAccess, SupplierUsageQuota}
+import com.gu.mediaservice.lib.usage._
 import com.gu.mediaservice.lib.FeatureToggle
 
 import lib.elasticsearch.ElasticSearch
@@ -19,6 +19,8 @@ case class NoUsageQuota() extends Exception("No usage found for this image")
 
 trait UsageQuota {
   val supplierConfig: Map[String, Int]
+
+  val quotaStore: Option[QuotaStore]
   val usageStore: Option[UsageStore]
 
   lazy val supplierQuota = supplierConfig.map {
