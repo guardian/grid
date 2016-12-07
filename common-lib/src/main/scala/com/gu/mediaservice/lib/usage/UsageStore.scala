@@ -91,10 +91,7 @@ class UsageStore(
 
   def update() {
     lastUpdated.sendOff(_ => DateTime.now())
-    fetchUsage.onComplete(usage => {
-      store.sendOff(_)
-      usage
-    })
+    fetchUsage.onSuccess { case usage => store.send(usage) }
   }
 
   private def fetchUsage: Future[Map[String, UsageStatus]] = {
