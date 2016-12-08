@@ -9,8 +9,8 @@ class CostCalculatorTest extends FunSpec with Matchers {
   describe("from usage rights") {
 
     val usageQuota = new UsageQuota {
-      val supplierConfig = Map[String, Int]()
       val usageStore = None
+      val quotaStore = None
     }
 
     object Costing extends CostCalculator {
