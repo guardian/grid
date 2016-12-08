@@ -1,6 +1,6 @@
 Grid
 ====
- 
+
 [![Join the chat at https://gitter.im/guardian/grid](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/guardian/grid?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
 
 **Grid** is [the Guardian](http://www.theguardian.com/)’s new **image
@@ -88,12 +88,11 @@ Start Elasticsearch from the `elasticsearch` directory:
         $ cd elasticsearch/
         $ ./dev-start.sh
 
-
 ### Generate .properties files
 
 Guardian devs can follow the guide in the dev-utils folder of this private [repo](https://github.com/guardian/grid-infra). This will give you some tips about our specific configuration.
 
-The general process is as follows: 
+The general process is as follows:
 
 Generate your .properties files for the various media-service services using the
 [dot-properties generator](./docker/configs/generators/README.md)
