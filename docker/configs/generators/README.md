@@ -47,7 +47,7 @@ Then change ownership to your current user so that you can write to it:
 sudo chown -R $(whoami) /etc/gu
 ```
 
-Then run the [generator](./generate-dot-properties.sh):
+Then run the [generator](./generate-dot-properties.sh) (NOTE: you'll need full IAM credentials rather than temporary ones from Janus in order to run this. You'll also need a grid dev stack setup - see [the grid readme](https://github.com/guardian/grid)):
 
 ```sh
 ./generate-dot-properties.sh
