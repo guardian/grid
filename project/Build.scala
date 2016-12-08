@@ -134,13 +134,6 @@ object Build extends Build {
     .libraryDependencies(awsDeps ++ scanamoDeps)
     .testDependencies(scalaTestDeps)
 
-
-  val integration = project("integration")
-    .dependsOn(lib)
-    .libraryDependencies(awsDeps ++ scalazDeps ++ uriTemplateDeps ++ playWsDeps)
-    .testDependencies(scalaTestDeps ++ playDeps)
-    .settings(parallelExecution in Test := false)
-
   val scripts = project("scripts")
     .dependsOn(lib)
     .settings(sbtassembly.Plugin.assemblySettings: _*)
