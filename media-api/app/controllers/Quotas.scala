@@ -4,8 +4,6 @@ import lib.{Config, UsageQuota}
 import com.gu.mediaservice.lib.usage.{UsageStore, QuotaStore}
 
 object Quotas extends UsageQuota {
-    val supplierConfig = Config.quotaConfig
-
     val quotaStore = Config.quotaStoreConfig.map(c => {
       new QuotaStore(
         c.storeKey,

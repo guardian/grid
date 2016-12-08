@@ -18,13 +18,8 @@ case class BadQuotaConfig() extends Exception("Bad config for usage quotas")
 case class NoUsageQuota() extends Exception("No usage found for this image")
 
 trait UsageQuota {
-  val supplierConfig: Map[String, Int]
-
   val quotaStore: Option[QuotaStore]
   val usageStore: Option[UsageStore]
-
-  lazy val supplierQuota = supplierConfig.map {
-    case (k,v) => k -> SupplierUsageQuota(Agencies.get(k), v)}
 
   def isOverQuota(
     rights: UsageRights,

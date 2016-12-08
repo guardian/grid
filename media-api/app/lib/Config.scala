@@ -89,16 +89,4 @@ object Config extends CommonPlayAppConfig with CommonPlayAppProperties {
   val persistenceIdentifier = properties("persistence.identifier")
   val queriableIdentifiers = Seq(persistenceIdentifier)
   def convertToInt(s: String): Option[Int] = Try { s.toInt }.toOption
-
-  // Quota Config
-  val rexQuotaConfig   = properties.get("usage.quota.rex").flatMap(convertToInt)
-  val aapQuotaConfig   = properties.get("usage.quota.aap").flatMap(convertToInt)
-  val alamyQuotaConfig = properties.get("usage.quota.alamy").flatMap(convertToInt)
-  val gettyQuotaConfig = properties.get("usage.quota.getty").flatMap(convertToInt)
-
-  val quotaConfig = Map[String,Int]() ++
-    rexQuotaConfig.map(n => "rex" -> n) ++
-    aapQuotaConfig.map(n => "aap" -> n) ++
-    alamyQuotaConfig.map(n => "alamy" -> n) ++
-    gettyQuotaConfig.map(n => "getty" -> n)
 }
