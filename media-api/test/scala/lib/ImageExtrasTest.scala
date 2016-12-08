@@ -9,8 +9,8 @@ import java.net.URI
 
 class ImageExtrasTest extends FunSpec with Matchers {
   object Quota extends UsageQuota {
-    val supplierConfig = Map[String, Int]()
     val usageStore = None
+    val quotaStore = None
   }
 
   object Costing extends CostCalculator {

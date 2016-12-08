@@ -8,7 +8,7 @@ import scala.util.Try
 import com.gu.mediaservice.lib.elasticsearch.EC2._
 import com.gu.mediaservice.lib.config.{Properties, CommonPlayAppConfig, CommonPlayAppProperties}
 
-case class UsageStoreConfig(
+case class StoreConfig(
   storeBucket: String,
   storeKey: String
 )
@@ -27,10 +27,15 @@ object Config extends CommonPlayAppConfig with CommonPlayAppProperties {
   val configBucket: String = properties("s3.config.bucket")
 
   val usageStoreKey: Option[String] = properties.get("usage.store.key")
+  val quotaStoreKey: Option[String] = properties.get("quota.store.key")
 
-  val usageStoreConfig: Option[UsageStoreConfig] = for {
+  val usageStoreConfig: Option[StoreConfig] = for {
     key <- usageStoreKey
-  } yield UsageStoreConfig(configBucket, key)
+  } yield StoreConfig(configBucket, key)
+
+  val quotaStoreConfig: Option[StoreConfig] = for {
+    key <-quotaStoreKey
+  } yield StoreConfig(configBucket, key)
 
   val ec2Client: AmazonEC2Client =
     new AmazonEC2Client(awsCredentials) <| (_ setEndpoint awsEndpoint)
@@ -84,16 +89,4 @@ object Config extends CommonPlayAppConfig with CommonPlayAppProperties {
   val persistenceIdentifier = properties("persistence.identifier")
   val queriableIdentifiers = Seq(persistenceIdentifier)
   def convertToInt(s: String): Option[Int] = Try { s.toInt }.toOption
-
-  // Quota Config
-  val rexQuotaConfig   = properties.get("usage.quota.rex").flatMap(convertToInt)
-  val aapQuotaConfig   = properties.get("usage.quota.aap").flatMap(convertToInt)
-  val alamyQuotaConfig = properties.get("usage.quota.alamy").flatMap(convertToInt)
-  val gettyQuotaConfig = properties.get("usage.quota.getty").flatMap(convertToInt)
-
-  val quotaConfig = Map[String,Int]() ++
-    rexQuotaConfig.map(n => "rex" -> n) ++
-    aapQuotaConfig.map(n => "aap" -> n) ++
-    alamyQuotaConfig.map(n => "alamy" -> n) ++
-    gettyQuotaConfig.map(n => "getty" -> n)
 }
