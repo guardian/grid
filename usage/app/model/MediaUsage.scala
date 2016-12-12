@@ -97,14 +97,14 @@ object MediaUsage {
     printUsage.dateAdded
   )
 
-  def build(mediaAtomWrapper: MediaAtomWrapper, contentWrapper: ContentWrapper): MediaUsage = {
-    val usageId = UsageId.build(mediaAtomWrapper, contentWrapper)
+  def build(atomWrapper: AtomWrapper, contentWrapper: ContentWrapper): MediaUsage = {
+    val usageId = UsageId.build(atomWrapper, contentWrapper)
     val usageMetadata = UsageMetadataBuilder.build(contentWrapper.content)
 
     MediaUsage(
       usageId,
       UsageGroup.buildId(contentWrapper),
-      mediaAtomWrapper.media.id,
+      atomWrapper.media.id,
       "digital",
       "image",
       contentWrapper.status,

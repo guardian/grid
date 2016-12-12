@@ -2,14 +2,14 @@ package model
 
 import play.api.Logger
 import play.api.libs.json._
-import com.gu.contentapi.client.model.v1.{Atoms, Content, Element, ElementType}
+import com.gu.contentapi.client.model.v1.{Content, Element, ElementType}
+import com.gu.contentatom.thrift.AtomType.Media
+import com.gu.contentatom.thrift.Atom
 import com.gu.contentatom.thrift.atom.media.MediaAtom
-import com.gu.contentatom.thrift.{Atom, AtomType}
 import com.gu.mediaservice.model.{PrintUsageRecord, UsageStatus}
-import com.gu.mediaservice.model.{PendingUsageStatus, PublishedUsageStatus}
-
-import lib.{LiveContentApi, MD5, Config}
-import org.joda.time.{DateTime, DateTimeZone}
+import com.gu.mediaservice.model.PublishedUsageStatus
+import lib.{Config, LiveContentApi, MD5}
+import org.joda.time.DateTime
 
 
 case class UsageGroup(
@@ -58,7 +58,7 @@ object UsageGroup {
     Logger.info(s"Extracting images (job-${uuid}) from ${content.id}")
 
     val mediaAtomsUsages = extractMediaAtoms(uuid, content, usageStatus, isReindex).zipWithIndex.map { case(atom, index) =>
-      val usage = MediaUsage.build(MediaAtomWrapper(index, atom), contentWrapper)
+      val usage = MediaUsage.build(AtomWrapper(index, atom), contentWrapper)
       createUsagesLogging(usage)
     }
     val imageElementUsages = extractImageElements(uuid, content, usageStatus, isReindex).zipWithIndex.map { case (element, index) => {
@@ -98,19 +98,19 @@ object UsageGroup {
     val shouldRecordUsages = isNew || isReindex
 
     if (shouldRecordUsages) {
-      Logger.info(s"Passed shouldRecordUsages (job-${uuid})")
+      Logger.info(s"Passed shouldRecordUsages for media atom (job-${uuid})")
       val groupedMediaAtoms = groupMediaAtoms(content)
 
       if (groupedMediaAtoms.isEmpty) {
         Logger.info(s"No Matching media atoms found (job-${uuid})")
       } else {
-        Logger.info(s"${groupedMediaAtoms.length} elements found (job-${uuid})")
-        groupedMediaAtoms.map(atom => Logger.info(s"Matching element ${atom.id} found (job-${uuid})"))
+        Logger.info(s"${groupedMediaAtoms.length} media atoms found (job-${uuid})")
+        groupedMediaAtoms.map(atom => Logger.info(s"Matching media atom ${atom.id} found (job-${uuid})"))
       }
 
       groupedMediaAtoms
     } else {
-      Logger.info(s"Failed shouldRecordUsages: isNew-${isNew} isReindex-${isReindex} (job-${uuid})")
+      Logger.info(s"Failed shouldRecordUsages for media atoms: isNew-${isNew} isReindex-${isReindex} (job-${uuid})")
       Seq.empty
     }
   }
@@ -162,4 +162,4 @@ object UsageGroup {
 }
 
 case class ElementWrapper(index: Int, media: Element)
-case class MediaAtomWrapper(index: Int, media: Atom with MediaAtom)
+case class AtomWrapper(index: Int, media: Atom)
