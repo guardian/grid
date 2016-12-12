@@ -5,7 +5,6 @@ import play.api.libs.json._
 import com.gu.contentapi.client.model.v1.{Content, Element, ElementType}
 import com.gu.contentatom.thrift.AtomType.Media
 import com.gu.contentatom.thrift.Atom
-import com.gu.contentatom.thrift.atom.media.MediaAtom
 import com.gu.mediaservice.model.{PrintUsageRecord, UsageStatus}
 import com.gu.mediaservice.model.PublishedUsageStatus
 import lib.{Config, LiveContentApi, MD5}
@@ -119,7 +118,7 @@ object UsageGroup {
     val mediaAtoms = content.atoms match {
       case Some(atoms) => {
         atoms.media match {
-          case Some(mediaAtoms) => mediaAtoms.collect { case atom: MediaAtom => atom }
+          case Some(mediaAtoms) => mediaAtoms.filter(_.atomType == Media)
           case _ => Seq.empty
         }
       }
